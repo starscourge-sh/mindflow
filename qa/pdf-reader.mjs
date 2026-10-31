@@ -50,7 +50,7 @@ const { createServer } = await import('node:http')
 const lookups = createServer((req, res) => {
   res.setHeader('content-type', 'application/json')
   if (req.url.startsWith('/dict/quiet')) return res.end(JSON.stringify([{ word: 'quiet', meanings: [{ partOfSpeech: 'adjective', definitions: [{ definition: 'Making little or no noise.' }] }] }]))
-  if (req.url.startsWith('/wiki/quiet')) return res.end(JSON.stringify({ type: 'standard', title: 'Quiet', description: 'Absence of noise', extract: 'Quiet is the lack of noise or disturbance.', content_urls: { desktop: { page: 'https://en.wikipedia.org/wiki/Quiet' } } }))
+  if (req.url.startsWith('/wiki/quiet')) return res.end(JSON.stringify({ type: 'standard', title: 'Quiet', description: 'Absence of noise', extract: 'Quiet is the lack of noise or disturbance.', thumbnail: { source: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a0/Quiet.jpg/320px-Quiet.jpg' }, content_urls: { desktop: { page: 'https://en.wikipedia.org/wiki/Quiet' } } }))
   res.statusCode = 404
   res.end('{}')
 })
@@ -424,6 +424,10 @@ try {
   const lookCard = await h.evaluate(() => { const one = document.querySelector('.look-up'); return one ? { words: one.querySelector('.look-up-headword')?.textContent, font: getComputedStyle(one.querySelector('.look-up-headword')).fontFamily, meaning: one.querySelector('[data-look="dictionary"] .look-up-meaning')?.textContent, wiki: one.querySelector('[data-look="wikipedia"] .look-up-extract')?.textContent, licence: one.querySelector('.look-up-link')?.getAttribute('title'), field: !!one.querySelector('input') } : null })
   check('L looks the words up: the word as a serif headword, the dictionary and Wikipedia, the licence in the link, no field up front', lookCard?.words === 'quiet' && /Fraunces/.test(lookCard.font) && /little or no noise/.test(lookCard.meaning) && /lack of noise/.test(lookCard.wiki) && /CC BY-SA/.test(lookCard.licence ?? '') && !lookCard.field, JSON.stringify(lookCard))
   await h.screenshot({ path: `${process.env.QA_SHOTS ?? '/tmp'}/pdf-look-up.png` })
+  check('the article\'s lead picture (a Commons one) shows as its thumbnail', await h.evaluate(() => document.querySelector('.look-up .look-up-picture')?.getAttribute('src')?.startsWith('https://upload.wikimedia.org/wikipedia/commons/') ?? false), '')
+  await c.look('dark'); await wait(500)
+  await h.screenshot({ path: `${process.env.QA_SHOTS ?? '/tmp'}/pdf-look-up-dark.png` })
+  await c.look('light'); await wait(300)
   // One Keep keeps both together; then "Why keep this?" in place: Enter saves the line.
   await h.hover('[data-look-keep]'); await wait(200)
   check('Keep shows the hand', await h.evaluate(() => getComputedStyle(document.querySelector('[data-look-keep]')).cursor) === 'pointer', '')
