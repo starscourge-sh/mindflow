@@ -1342,8 +1342,10 @@
   overflow: hidden;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
-  font-size: 0.875rem;
-  font-weight: 500;
+  /* A book's own title in the serif, as its card in a note and the reader's Details show it. */
+  font-family: var(--font-heading, Fraunces, Georgia, serif);
+  font-size: 0.9375rem;
+  font-weight: 600;
   line-height: 1.3;
 }
 
@@ -1383,7 +1385,8 @@
 
 .pdf-inspector-title {
   margin: 0;
-  font-size: 1rem;
+  font-family: var(--font-heading, Fraunces, Georgia, serif);
+  font-size: 1.125rem;
   font-weight: 600;
   line-height: 1.3;
   text-align: center;
