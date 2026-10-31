@@ -846,11 +846,14 @@ export function ReviewView({ compact = false, tag, actions }: { compact?: boolea
             }}
             rows={3}
             placeholder="Type the answer first, if you like: ⌘↵ checks it against the card."
-            className="resize-none text-heading"
+            data-typed-lines=""
+            // Ruled lines under the card, written on in the card's serif: a page to answer on, not a grey box.
+            className="min-h-0 resize-none rounded-none border-0 bg-transparent px-5 py-0 font-serif text-heading leading-[2.25rem] shadow-none placeholder:font-sans placeholder:text-body placeholder:italic placeholder:text-muted-foreground focus-visible:ring-0 dark:bg-transparent md:text-heading"
+            style={{ backgroundImage: 'repeating-linear-gradient(to bottom, transparent 0 calc(2.25rem - 1px), color-mix(in oklab, var(--foreground) 12%, transparent) calc(2.25rem - 1px) 2.25rem)', backgroundAttachment: 'local' }}
           />
-          <Button variant="outline" size="lg"
+          <Button size="lg"
  onClick={reveal}
- className="self-start text-sm text-muted-foreground"
+ className="cursor-pointer self-start"
 >
             Show the answer
           </Button>
