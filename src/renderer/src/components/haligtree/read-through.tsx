@@ -1,3 +1,4 @@
+import { picturesIn, wordsOf } from '@/lib/answer-picture'
 import { fieldOf } from '../capture-list'
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
@@ -105,7 +106,7 @@ export function ReadSheet(): React.JSX.Element | null {
 /** `body`: words read as they are, never changed here, like a question's clues. */
 export type Readable = { type: string; id: string; body?: string; title?: string }
 
-type Page = { id: string; title?: string; body: JSONContent | string | null; meta?: string[]; private?: boolean;
+type Page = { id: string; title?: string; body: JSONContent | string | null; meta?: string[]; /** A card's Context pictures, drawn under its line. */ pictures?: string[]; private?: boolean;
   /** What the property strip and the selection bar need, as every note surface has them (note-powers.tsx). */
   kind?: string; fields?: string | null; label?: string; created?: string | null; updated?: string | null; captureId?: string; attribution?: string | null; /** Who said it, for a quote: signed under the words. */ who?: string; /** Where it is from: its source's year signs it too. */ where?: string | null }
 
@@ -467,7 +468,7 @@ export function ReadThrough({ items: given, start = 0, onClose, queue: started, 
     if (item.body !== undefined) return setPage({ id: item.id, title: item.title, body: item.body })
     const load: Promise<Omit<Page, 'id'> | null> = item.type === 'capture'
       ? window.api.captures.get(item.id).then((found) => found && { body: found.body as JSONContent, private: !!found.private, ...said(found.kind, found.attribution), where: found.medium, meta: metaOf(found.kind, found.capturedAt, [said(found.kind, found.attribution).who ? null : found.attribution, found.medium, found.source]), kind: found.kind, fields: found.fields, label: found.label, created: found.capturedAt, updated: found.editedAt })
-      : haligtree.item(item.id).then((found) => found && { title: found.tier === 'article' || found.tier === 'question' ? found.title : undefined, body: found.body as JSONContent, private: !!found.private, ...said(found.kind, found.attribution), where: found.medium, meta: metaOf(found.kind, found.createdAt, [said(found.kind, found.attribution).who ? null : found.attribution, found.context]), kind: found.kind, fields: found.fields, label: found.title, created: found.createdAt, updated: found.updatedAt, captureId: found.captureId ?? undefined, attribution: found.attribution })
+      : haligtree.item(item.id).then((found) => found && { title: found.tier === 'article' || found.tier === 'question' ? found.title : undefined, body: found.body as JSONContent, private: !!found.private, ...said(found.kind, found.attribution), where: found.medium, meta: metaOf(found.kind, found.createdAt, [said(found.kind, found.attribution).who ? null : found.attribution, wordsOf(found.context)]), pictures: picturesIn(found.context), kind: found.kind, fields: found.fields, label: found.title, created: found.createdAt, updated: found.updatedAt, captureId: found.captureId ?? undefined, attribution: found.attribution })
     let current = true
     void load.then((next) => current && setPage({ id: item.id, ...(next ?? { body: null }) }))
     return () => void (current = false)
@@ -794,6 +795,8 @@ export function ReadThrough({ items: given, start = 0, onClose, queue: started, 
               </div>
             )}
             {!longform && meta && (shown?.title || !lead) && <p data-read-meta="" className={cn('truncate text-meta text-muted-foreground', shown?.title ? 'mt-3 mb-9' : 'mb-6')}><Tagged text={meta} onTag={openTag} /></p>}
+            {/* Its Context's pictures, drawn, never written out. */}
+            {!!shown?.pictures?.length && <div data-read-context-pictures="" className="-mt-3 mb-6 flex flex-wrap gap-2">{shown.pictures.map((src) => <img key={src} src={src} alt="" className="h-24 max-w-48 rounded-md border object-cover" />)}</div>}
             {shown && (
               <div data-private={hidden}>
                 <div

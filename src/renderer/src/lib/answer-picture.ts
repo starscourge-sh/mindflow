@@ -27,3 +27,15 @@ export function pictureInText(text: string, at: number, src: string): { text: st
   const mark = `${before && !before.endsWith('\n') ? '\n' : ''}![](${src})${after && !after.startsWith('\n') ? '\n' : ''}`
   return { text: before + mark + after, caret: before.length + mark.length }
 }
+
+/** A picture kept in text: `![](haligtree://assets/...)`, as a card's Context keeps one. */
+const PICTURE_MARK = /!\[[^\]]*\]\((haligtree:\/\/assets\/[^)\s]+)\)/g
+
+/** The pictures kept in a line of text (a card's Context), in order. */
+export const picturesIn = (text: string | null | undefined): string[] => [...(text ?? '').matchAll(PICTURE_MARK)].map((match) => match[1])
+
+/** The words of a line of text with its pictures left out, for where only words fit (a one-line summary, a field). */
+export const wordsOf = (text: string | null | undefined): string => (text ?? '').replace(PICTURE_MARK, '').replace(/\n{3,}/g, '\n\n').trim()
+
+/** Words and pictures put back together as a Context keeps them: the words, then each picture on a line of its own. */
+export const withPictures = (words: string, pictures: string[]): string => [words.trim(), ...pictures.map((src) => `![](${src})`)].filter(Boolean).join('\n')
