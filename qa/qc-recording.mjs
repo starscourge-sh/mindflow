@@ -52,6 +52,8 @@ try {
   for (const name of ['light', 'dark']) { await look(name); await wait(400); await page.screenshot({ path: `${shots}/qc-recording-idle-${name}.png` }) }
   await look('light')
 
+  // The side panel shut, as in the user's box: with it open the box keeps the panel's full height.
+  if (await page.$('[aria-label="Hide the side panel"]')) { await page.keyboard.press('Meta+Backslash'); await wait(900) }
   await record()
   check('the recorder opens', !!(await page.$('[data-voice-recorder]')))
   await wait(1200)
@@ -75,6 +77,16 @@ try {
   }, EDITOR)
   check('the recorder sits in the writing area, not over it', layout.inSlot && !layout.floating && !layout.overEditor && !layout.overChip, JSON.stringify(layout))
   check('…and the "Still to keep" chip sits under it, on the text column', layout.chipBelow === true, JSON.stringify(layout))
+  // The box fits the recording: no empty room between the chip and the footer.
+  await wait(900)
+  const fit = await page.evaluate(() => {
+    const last = (document.querySelector('[data-leftover]') ?? document.querySelector('[data-voice-recorder]')).getBoundingClientRect().bottom
+    const foot = document.querySelector('[data-create]').getBoundingClientRect().top
+    const POPS = "[role=dialog]:not([data-keeps-size]), [role=alertdialog], [role=menu]:not([data-keeps-size]), [role=listbox]:not([data-keeps-size] *), [data-radix-popper-content-wrapper]:not(:has([role=tooltip])):not(:has([data-keeps-size])), .tiptap-suggestion-popup, [data-celebration]:not(:empty)"
+    const pop = document.querySelector(POPS)
+    return { gap: Math.round(foot - last), height: innerHeight, pop: pop ? pop.outerHTML.slice(0, 120) : null }
+  })
+  check('the box fits the recording, with no dead space above the footer', fit.gap < 90, JSON.stringify(fit))
   const row = await page.evaluate(() => ({
     create: document.querySelector('[data-create]')?.textContent.replace(/\s+/g, ' ').trim(),
     dimmed: [...document.querySelectorAll('[data-record-button], [data-kind-chip], [aria-label="Take a screenshot"], [aria-label="Create more"]')].map((el) => {

@@ -237,7 +237,8 @@ function Recorder({ stream, onDone, inline }: { stream: MediaStream; onDone: (ke
   // column, then Cancel, the time and Stop on one centred line under it.
   if (inline)
     return (
-      <div role="dialog" aria-label="Recording a voice note" data-voice-recorder data-inline
+      // data-keeps-size: part of the box, not a pop-up that needs it full height (lib/fit-box.ts).
+      <div role="dialog" aria-label="Recording a voice note" data-voice-recorder data-inline data-keeps-size
         className="flex flex-col items-center gap-3 py-4 animate-in fade-in-0 duration-200">
         {level}
         <div className="flex items-center gap-4">{cancelButton}{time}{stopButton}</div>

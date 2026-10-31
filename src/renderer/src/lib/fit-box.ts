@@ -32,6 +32,19 @@ const POPS = [
 
 /** How tall the window has to be to show the whole note without scrolling, two lines at least; null with no note in it. */
 function needed(column: HTMLElement | null): number | null {
+  // A voice note recording in the writing's place (voice-note.tsx): the words
+  // are hidden, so the box is as tall as what shows (the recorder, the chip
+  // under it), with none of the empty room the writing would have had.
+  const recording = column?.querySelector<HTMLElement>('[data-recording]')
+  if (recording) {
+    let shown = 0
+    for (const child of Array.from(recording.children) as HTMLElement[]) {
+      if (getComputedStyle(child).display === 'none') continue
+      const at = getComputedStyle(child)
+      shown += child.offsetHeight + (parseFloat(at.marginTop) || 0) + (parseFloat(at.marginBottom) || 0)
+    }
+    return Math.ceil(window.innerHeight - recording.clientHeight + shown)
+  }
   const scroller = column?.querySelector<HTMLElement>('.mf-faded .haligtree-editor-content')
   const doc = scroller?.querySelector<HTMLElement>(':scope > .ProseMirror')
   if (!scroller || !doc) return null
