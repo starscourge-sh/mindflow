@@ -1,5 +1,8 @@
 import { ipcMain } from 'electron'
 import { randomUUID } from 'crypto'
+import { readFile, writeFile } from 'fs/promises'
+import { join } from 'path'
+import { assetsDir } from './pictures'
 import type { DatabaseSync } from 'node:sqlite'
 import { database } from './captures'
 import { articlesToFind } from './web-articles'
@@ -102,6 +105,24 @@ export function registerPdfHighlights(): void {
   ipcMain.handle('haligtree:pdf:read', (_event, src: unknown, page: unknown, pages: unknown) => {
     if (typeof src !== 'string' || !Number.isInteger(page) || !Number.isInteger(pages) || (page as number) < 1) return false
     db.prepare('insert or replace into pdf_reading (src, page, pages, read_at) values (?, ?, ?, ?)').run(src, page as number, pages as number, new Date().toISOString())
+    return true
+  })
+  // A PDF's cover: its first page drawn once by the reader's own renderer and
+  // kept beside the file in the book's store (named so no clean-up of unused
+  // files ever counts it), so every card shows it at once after that.
+  db.exec('create table if not exists pdf_covers (src text primary key, file text not null)')
+  ipcMain.handle('haligtree:pdf:cover', async (_event, src: unknown) => {
+    const row = db.prepare('select c.file, t.title from pdf_covers c left join pdf_titles t on t.src = c.src where c.src = ?').get(String(src)) as { file: string; title: string | null } | undefined
+    const image = row ? await readFile(join(assetsDir(), row.file)).catch(() => null) : null
+    return image ? { image: `data:image/jpeg;base64,${image.toString('base64')}`, title: row?.title ?? null } : null
+  })
+  ipcMain.handle('haligtree:pdf:cover:set', async (_event, src: unknown, image: unknown) => {
+    const name = /assets\/([a-f0-9]{64})\.pdf$/i.exec(String(src))?.[1]
+    const data = /^data:image\/jpeg;base64,(.+)$/.exec(String(image))?.[1]
+    if (!name || !data) return false
+    const file = `${name}.cover.jpg`
+    await writeFile(join(assetsDir(), file), Buffer.from(data, 'base64'))
+    db.prepare('insert or replace into pdf_covers (src, file) values (?, ?)').run(String(src), file)
     return true
   })
   // The title read out of a PDF as it opens, kept so search finds it by that.

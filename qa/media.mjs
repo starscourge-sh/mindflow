@@ -78,6 +78,8 @@ try {
   const cats = await make([para('Cat moments'), { type: 'image', attrs: { src: gif } }, para('Paste below')])
   await make([para('Flat papers'), { type: 'attachment', attrs: { src: pdf, name: 'Lease.pdf', size: PDF.length } }])
   await make([para('Morning walk'), { type: 'attachment', attrs: { src: wav, name: 'Birdsong.wav', size: WAV.length } }])
+  // A gem kept from the PDF, still in Markdown: its link back ("Lease, p. 1") is a place in the book, not a second PDF.
+  await h.evaluate((src) => window.api.haligtree('nugget:from', `A line from the lease\n\n[Lease, p. 1](${src}#page=1&mark=probe&name=Lease.pdf)`, { kind: 'quote', medium: 'Lease', passage: 'p. 1' }), pdf)
   await wait(600)
 
   await go('media'); await wait(1500)
@@ -87,6 +89,11 @@ try {
   check('the four made here are among them', [png, gif, pdf, wav].every((src) => all.some((one) => one.src === src)), `${all.length} tiles`)
   const pdfFace = await h.evaluate((src) => document.querySelector(`[data-media][data-src="${src}"] img`)?.getAttribute('src')?.slice(0, 22) ?? 'file tile', pdf)
   check('the PDF tile shows its first page', pdfFace.startsWith('data:image'), pdfFace)
+  check('a gem\'s link back into the PDF is no tile of its own', all.filter((one) => one.src === pdf).length === 1, JSON.stringify(all.filter((one) => one.src === pdf)))
+  const pdfName = await h.evaluate((src) => document.querySelector(`[data-media][data-src="${src}"] .text-sm.font-medium`)?.textContent, pdf)
+  check('the PDF tile is named by its title, else its file name without .pdf', pdfName === 'Lease', pdfName)
+  const kept = await v('pdf:cover', pdf)
+  check('its cover is kept in the book, ready at once next time', !!kept?.image?.startsWith('data:image/jpeg'), JSON.stringify(kept)?.slice(0, 60))
   check('the recording tile plays where it sits', await h.evaluate((src) => !!document.querySelector(`[data-media][data-src="${src}"] [data-media-play]`), wav))
   await shot(h, 'media-light')
 

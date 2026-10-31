@@ -65,7 +65,8 @@ function mediaIn(body: string | null): Omit<Media, 'type' | 'id' | 'title' | 'pr
   if (typeof doc === 'string') {
     // Words kept as Markdown (an import never opened): a picture is ![..](src), a file [name](src).
     for (const line of doc.split('\n')) {
-      const found = [...line.matchAll(/(!?)\[([^\]]*)\]\(((?:haligtree|mindflow):\/\/assets\/[a-f0-9]{64}\.[a-z0-9]+)[^)]*\)/g)]
+      // A link back into a PDF (a gem's "Book, p. 12", with its #page) points at a place in the book, not at the file: never a card of its own.
+      const found = [...line.matchAll(/(!?)\[([^\]]*)\]\(((?:haligtree|mindflow):\/\/assets\/[a-f0-9]{64}\.[a-z0-9]+)([^)]*)\)/g)].filter((one) => !one[4].startsWith('#'))
       if (!found.length) {
         if (line.trim()) parts.push({ words: line.trim() })
         continue

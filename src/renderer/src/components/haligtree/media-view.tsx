@@ -4,6 +4,7 @@ import { FileText, Play } from '@/components/ui/icons'
 import { call, unloaded, useLive } from '@/lib/haligtree'
 import { smallPicture } from '@/lib/notes'
 import { headingIn } from '@/lib/capture-links'
+import { usePdfCover } from '@/components/pdf/pdf-cover'
 import { canSplit, openAside } from '@/lib/split'
 import { chime } from '@/lib/sound'
 import { still } from '@/lib/motion'
@@ -103,6 +104,9 @@ const WORD: Record<MediaKind, string> = { picture: 'Picture', gif: 'GIF', pdf: '
 
 function Tile({ one, onOpen }: { one: Media; onOpen: () => void }): React.JSX.Element {
   const picture = one.kind === 'picture' || one.kind === 'gif'
+  // A PDF is named by the title it carries, as the reader names it, and shows its first page.
+  const cover = usePdfCover(one.kind === 'pdf' ? one.src : null, one.name)
+  const label = cover?.title || one.name || one.title || 'Untitled'
   const items: RowItem[] = [
     { label: 'Open note', keys: '↵', run: onOpen },
     canSplit() && { label: 'Open to the side', keys: '⌥-click', run: () => (openAside(one.type, one.id), headingIn(one.type, one.id, one.src)) },
@@ -114,10 +118,10 @@ function Tile({ one, onOpen }: { one: Media; onOpen: () => void }): React.JSX.El
   return (
     <RowMenu items={items}>
       <button type="button" data-media={one.kind} data-src={one.src} data-note={`${one.type}:${one.id}`} onClick={onOpen} className={tileClass(false, false, false)}>
-        <Face one={one} />
+        <Face one={one} cover={one.kind === 'pdf' ? (cover === undefined ? undefined : cover?.image ?? '') : undefined} />
         <span className="flex min-w-0 flex-col gap-0.5 px-2.5 pt-2 pb-2.5">
-          <span className={`truncate text-sm font-medium ${one.private ? 'private-text' : ''}`}>{one.name || one.title || 'Untitled'}</span>
-          <span className="truncate text-xs text-muted-foreground">{one.name ? `${WORD[one.kind]} in ${one.title || 'Untitled'}` : WORD[one.kind]}</span>
+          <span className={`truncate text-sm font-medium ${one.private ? 'private-text' : ''}`}>{label}</span>
+          <span className="truncate text-xs text-muted-foreground">{one.name || cover?.title ? `${WORD[one.kind]} in ${one.title || 'Untitled'}` : WORD[one.kind]}</span>
         </span>
       </button>
     </RowMenu>
@@ -125,12 +129,14 @@ function Tile({ one, onOpen }: { one: Media; onOpen: () => void }): React.JSX.El
 }
 
 /** The tile's top: the picture made small, a PDF's first page, or a clean card for a file with none. */
-function Face({ one }: { one: Media }): React.JSX.Element {
-  const [small, setSmall] = useState<string | null>(null)
+function Face({ one, cover }: { one: Media; cover?: string }): React.JSX.Element {
+  const [thumb, setSmall] = useState<string | null>(null)
+  // A PDF's face is its cover, drawn by the reader's own renderer (Quick Look often draws none).
+  const small = one.kind === 'pdf' ? cover ?? null : thumb
   const [moving, setMoving] = useState(false)
   // Asked for only once the tile is drawn: a row of the grid out of sight never asks.
   useEffect(() => {
-    if (one.kind === 'audio') return
+    if (one.kind === 'audio' || one.kind === 'pdf') return
     let live = true
     void smallPicture(one.src, true).then((made) => live && setSmall(made || ''))
     return () => void (live = false)

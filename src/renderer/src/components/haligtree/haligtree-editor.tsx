@@ -9,6 +9,7 @@ import { onlyWordsChanged } from "@/lib/tiptap-utils"
 import type { Node as ProseMirrorNode, ResolvedPos } from "@tiptap/pm/model"
 import { EditorContent, EditorContext, useEditor } from "@tiptap/react"
 import { followPdfLink } from "@/components/pdf/pdf-reader"
+import { usePdfCover } from "@/components/pdf/pdf-cover"
 
 // --- Tiptap Core Extensions ---
 import { StarterKit } from "@tiptap/starter-kit"
@@ -2030,11 +2031,29 @@ function LinkPreview({ editor }: { editor: Editor | null }): React.JSX.Element |
   }, [page, editor])
 
   if (!link?.href) return null
+  // A link into a PDF shows the book itself: its cover, its title and the page, never its stored address.
+  const pdf = /^((?:haligtree|mindflow):\/\/assets\/[^#?]+\.pdf)(?:#(.*))?$/i.exec(link.href)
 
   return createPortal(
-    <span className="tiptap-link-preview" style={{ top: link.top, bottom: link.bottom, left: link.left }}>
-      {link.href}
+    <span className={`tiptap-link-preview${pdf ? " is-pdf" : ""}`} style={{ top: link.top, bottom: link.bottom, left: link.left }}>
+      {pdf ? <PdfLinkFace src={pdf[1]} hash={pdf[2] ?? ""} /> : link.href}
     </span>,
     document.body
+  )
+}
+
+/** A PDF link's hover card: the first page small, the book's title, and the page the link lands on. */
+function PdfLinkFace({ src, hash }: { src: string; hash: string }): React.JSX.Element {
+  const where = new URLSearchParams(hash)
+  const cover = usePdfCover(src, where.get("name") ?? "")
+  const page = Number(where.get("page")) || null
+  return (
+    <span className="tiptap-link-preview-pdf">
+      {cover?.image ? <img src={cover.image} alt="" draggable={false} /> : <span className="tiptap-link-preview-pdf-blank" />}
+      <span className="tiptap-link-preview-pdf-words">
+        <span className="tiptap-link-preview-pdf-title">{cover?.title ?? "PDF"}</span>
+        <span className="tiptap-link-preview-pdf-page">{page ? `PDF, page ${page}` : "PDF"}</span>
+      </span>
+    </span>
   )
 }
