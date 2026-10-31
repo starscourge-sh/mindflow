@@ -1,9 +1,9 @@
 import { useState } from 'react'
-import { Input } from '@/components/ui/input'
 import { haligtree } from '@/lib/haligtree'
 import { chime } from '@/lib/sound'
 import { BLANK, addsUp, answersOf, blanksIn, clozeNumbers, onlyBlank, onlyCloze } from '@/lib/blanks'
 import { Chips } from './display'
+import { GHOST, GhostText } from './ghost'
 import { refuse, toast } from './ui'
 
 /**
@@ -54,18 +54,31 @@ export function BlankPanel({ id, prompt, text, body, notes, onPrompt }: { id: st
     })
   }
   return (
-    <div data-blank-panel className="flex flex-col gap-2 px-2 py-1.5">
-      {/* Only the notes for blanks this card still has: one filled back in (asked apart) takes its note with it. */}
-      {notes.filter((note) => answers?.some((one) => note.startsWith(`“${one}”`))).map((note) => <p key={note} data-blank-note className="text-sm leading-relaxed text-[var(--tt-color-text-orange)]">{note}</p>)}
-      {blanks.map((blank, n) => (
-        <label key={n} className="flex flex-col gap-1 text-sm">
-          <span className="text-muted-foreground">{blanks.length > 1 ? `Blank ${n + 1}: ` : 'Answer: '}<span className="text-foreground">{answers?.[n] ?? 'not found in the note'}</span></span>
-          <Input data-blank-hint defaultValue={blank.hint ?? ''} placeholder="A hint inside the blank, if it needs one"
-            onBlur={(event) => event.target.value.trim() !== (blank.hint ?? '') && onPrompt(withHint(prompt, n, event.target.value))}
-            onKeyDown={(event) => event.key === 'Enter' && event.currentTarget.blur()}
-            className="h-8 text-sm" aria-label={`Hint for blank ${n + 1}`} />
-        </label>
-      ))}
+    <div data-blank-panel className="flex flex-col gap-1 px-2 py-1.5">
+      {blanks.map((blank, n) => {
+        const answer = answers?.[n]
+        // What this blank did (a unit kept as the cue, an item of a list), said under it once:
+        // only for blanks the card still has, so one filled back in takes its note with it.
+        const said = answer ? notes.filter((note) => note.startsWith(`“${answer}”`)) : []
+        return (
+          <div key={n} className="flex flex-col gap-1 rounded-md px-1 py-1.5">
+            <label className="flex items-baseline gap-2 text-sm">
+              <span className="shrink-0 font-semibold text-foreground tabular-nums">{answer ?? <GhostText>not found in the note</GhostText>}</span>
+              <input data-blank-hint defaultValue={blank.hint ?? ''} placeholder="add a hint inside the blank"
+                onBlur={(event) => event.target.value.trim() !== (blank.hint ?? '') && onPrompt(withHint(prompt, n, event.target.value))}
+                onKeyDown={(event) => event.key === 'Enter' && event.currentTarget.blur()}
+                className={`min-w-0 flex-1 rounded-md bg-transparent px-1.5 py-0.5 text-sm text-foreground outline-none transition-colors hover:bg-foreground/[0.045] focus:bg-[var(--mf-surface)] ${GHOST}`}
+                aria-label={`Hint for blank ${n + 1}`} />
+            </label>
+            {said.map((note) => (
+              <p key={note} data-blank-note className="flex gap-2 text-sm leading-relaxed text-foreground/80">
+                <span aria-hidden className="mt-[0.55em] size-1 shrink-0 rounded-full bg-[var(--tt-color-text-orange)]" />
+                <span>{note.slice(`“${answer}”`.length).replace(/^[:,]?\s*/, '').replace(/^\p{Ll}/u, (first) => first.toUpperCase())}</span>
+              </p>
+            ))}
+          </div>
+        )
+      })}
       {blanks.length > 1 && !split && (
         <div className="flex flex-col gap-1.5">
           <Chips options={[{ id: 'together', label: 'Ask together' }, { id: 'apart', label: 'Ask apart' }]} on={(choice) => choice === 'together'} pick={(choice) => choice === 'apart' && apart()} />
