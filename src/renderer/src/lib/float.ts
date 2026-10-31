@@ -16,4 +16,5 @@ export const FLOAT = 'bg-popover text-popover-foreground shadow-(--mf-panel-shad
  * hairline above a quiet foot. qa/popups-consistent.mjs holds every hover to one of them.
  */
 export const TIP = `${FLOAT} rounded-md px-2.5 py-1.5 text-xs`
-export const CARD = 'rounded-lg border bg-popover text-popover-foreground shadow-(--mf-panel-shadow)'
+// A card is the same material as a menu (FLOAT's ring, not a border of its own), at a card's corners.
+export const CARD = `${FLOAT} rounded-xl`

@@ -120,12 +120,9 @@
   Shadow variables
   ******************/
 
-  /* Shadows Light */
-  --tt-shadow-elevated-md:
-    0px 16px 48px 0px rgba(17, 24, 39, 0.04),
-    0px 12px 24px 0px rgba(17, 24, 39, 0.04),
-    0px 6px 8px 0px rgba(17, 24, 39, 0.02),
-    0px 2px 3px 0px rgba(17, 24, 39, 0.02);
+  /* The editor's menus, cards and toolbars float in the app's one material:
+     the panel shadow and a hairline ring of ink at 10% (lib/float.ts FLOAT). */
+  --tt-shadow-elevated-md: var(--mf-panel-shadow), 0 0 0 1px color-mix(in oklab, var(--foreground) 10%, transparent);
 
   /************************************************** 
        Radius variables 
@@ -145,7 +142,7 @@
   --tt-transition-duration-short: 0.1s;
   --tt-transition-duration-default: 0.2s;
   --tt-transition-duration-long: 0.64s;
-  --tt-transition-easing-default: cubic-bezier(0.46, 0.03, 0.52, 0.96);
+  --tt-transition-easing-default: var(--mf-ease); /* the app's one curve */
   --tt-transition-easing-cubic: cubic-bezier(0.65, 0.05, 0.36, 1);
   --tt-transition-easing-quart: cubic-bezier(0.77, 0, 0.18, 1);
   --tt-transition-easing-circ: cubic-bezier(0.79, 0.14, 0.15, 0.86);
@@ -194,9 +191,6 @@
   --tt-card-bg-color: var(--tt-gray-dark-50);
   --tt-card-border-color: var(--tt-gray-dark-a-50);
 
-  --tt-shadow-elevated-md:
-    0px 16px 48px 0px rgba(0, 0, 0, 0.5), 0px 12px 24px 0px rgba(0, 0, 0, 0.24),
-    0px 6px 8px 0px rgba(0, 0, 0, 0.22), 0px 2px 3px 0px rgba(0, 0, 0, 0.12);
 }
 
 /* ==========================================================================

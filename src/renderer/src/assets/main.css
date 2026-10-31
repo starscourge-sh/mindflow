@@ -158,10 +158,13 @@
      on the app's one curve (lib/motion.ts), not Tailwind's stock 150ms. */
   --default-transition-duration: 120ms;
   --default-transition-timing-function: var(--mf-ease);
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
+  /* The scale the rules name, 4 / 8 / 10 / 14 (DESIGN.md "Shapes"), as parts
+     of --radius so it grows with the app size and a square style (--radius: 0)
+     squares every step. */
+  --radius-sm: calc(var(--radius) * 0.4);
+  --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+  --radius-xl: calc(var(--radius) * 1.4);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -268,8 +271,10 @@
     0 12px 32px -6px color-mix(in oklab, var(--mf-shadow-ink) 32%, transparent);
 }
 /* On a dark page a shadow of the page's own dark ink is the page's colour and cannot be seen: a floating menu (the
-   @ and / menus, every popover) then sat flat on it, its hairline alone saying it floats. Black, and fuller. */
-.dark {
+   @ and / menus, every popover) then sat flat on it, its hairline alone saying it floats. Black, and fuller.
+   Every theme wears .dark (it picks the editor's ramp), so a light theme (data-light, lib/theme.ts) is left out
+   here and keeps the warm ink above: on Paper and Light a black shadow at 62% was a grey smudge under every menu. */
+.dark:not(.light, .paper, [data-light]) {
   --mf-shadow-ink: oklch(0 0 0);
   --mf-panel-shadow:
     0 1px 2px color-mix(in oklab, var(--mf-shadow-ink) 40%, transparent),
@@ -1748,7 +1753,7 @@ button.mf-signed:hover .mf-signature { text-decoration: underline; text-decorati
    for you, one ring going out from it. Transform and opacity only. */
 .mf-next-fill { transform: scaleX(var(--from, 0)); animation: mf-next-fill linear forwards; }
 @keyframes mf-next-fill { from { transform: scaleX(var(--from, 0)); } to { transform: scaleX(1); } }
-.mf-next-ready { opacity: 0; animation: mf-next-ready 900ms cubic-bezier(0.23, 1, 0.32, 1) both; }
+.mf-next-ready { opacity: 0; animation: mf-next-ready 900ms var(--mf-ease) both; }
 @keyframes mf-next-ready { from { opacity: 0.7; transform: scale(1); } to { opacity: 0; transform: scale(1.06, 1.3); } }
 :root[data-motion='off'] :is(.mf-next-fill, .mf-next-ready) { animation: none; }
 @media (prefers-reduced-motion: reduce) { :is(.mf-next-fill, .mf-next-ready) { animation: none; } }
@@ -1889,7 +1894,7 @@ button.mf-signed:hover .mf-signature { text-decoration: underline; text-decorati
 .mf-bubble-still :is(.pb-frame-a, .pb-frame-b, .pb-hop, .pb-scroll) { animation: none; }
 .mf-bubble-cheer .pb-dino svg.left-0 { animation: pb-cheer 0.42s 2; }
 @keyframes pb-cheer {
-  0% { transform: translateY(0); animation-timing-function: cubic-bezier(0.2, 0.7, 0.4, 1); }
+  0% { transform: translateY(0); animation-timing-function: var(--mf-ease); }
   45% { transform: translateY(-6px); animation-timing-function: cubic-bezier(0.45, 0, 0.55, 1); }
   100% { transform: translateY(0); }
 }
@@ -1928,7 +1933,7 @@ button.mf-signed:hover .mf-signature { text-decoration: underline; text-decorati
   .group:hover > .mf-tape, .group:hover .mf-tape { rotate: -1deg; translate: -50% -1px; }
 }
 /* On the sticky's one lift: 240ms on the same curve as the card and a glass window (LIFT_MS, main/sticky-place.ts). */
-.mf-tape { transition: rotate 240ms cubic-bezier(0.22, 1, 0.36, 1), translate 240ms cubic-bezier(0.22, 1, 0.36, 1); }
+.mf-tape { transition: rotate 240ms var(--mf-ease), translate 240ms var(--mf-ease); }
 :root[data-motion='off'] .mf-tape { transition: none; }
 @media (prefers-reduced-motion: reduce) { .mf-tape { transition: none; } }
 
@@ -2046,7 +2051,7 @@ html:is([data-dragging], [data-split-drag]) :is([data-peek-card], [data-slash-pe
 /* Placed where it ends and moved there from its scattered spot by `translate`
    (the picture is a size container, so the start is in its own width): no
    layout on any frame. */
-.mf-sticky-tidy { left: calc(100% - 5.5rem - 6px); top: var(--to-top); animation: mf-sticky-tidy 1.3s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+.mf-sticky-tidy { left: calc(100% - 5.5rem - 6px); top: var(--to-top); animation: mf-sticky-tidy 1.3s var(--mf-ease) both; }
 @keyframes mf-sticky-tidy {
   0%, 30% { translate: calc(var(--from-left) - 100cqw + 5.5rem + 6px) calc(var(--from-top) - var(--to-top)); rotate: var(--from-tilt); }
   100% { translate: 0 0; rotate: 0deg; }
@@ -2247,7 +2252,7 @@ html[data-book-hue] [data-book-tint] {
   width: 2px; border-radius: 2px;
   background: var(--tt-cursor-color);
   pointer-events: none; opacity: 0;
-  transition: translate 90ms cubic-bezier(0.2, 0.8, 0.2, 1), height 90ms ease-out, opacity 120ms ease-out;
+  transition: translate 90ms var(--mf-ease), height 90ms ease-out, opacity 120ms ease-out;
 }
 .mf-living-caret[data-shown] { opacity: 1; }
 @keyframes mf-caret-blink { 0%, 45% { opacity: 1; } 60%, 85% { opacity: 0.15; } 100% { opacity: 1; } }
@@ -2528,7 +2533,7 @@ html[data-tuck-open="left"] .mf-card { border-top-right-radius: 0; border-bottom
 }
 .mf-screw { width: 7px; height: 7px; border-radius: 9999px; background: radial-gradient(circle at 35% 35%, #fafafa, #9ca3af 70%); box-shadow: 0 0 0 0.5px rgb(0 0 0 / 0.3); }
 /* Flip through: the cards slide and turn into place. */
-.mf-flow { transition: transform 420ms cubic-bezier(0.22, 1, 0.36, 1), opacity 300ms var(--mf-ease); }
+.mf-flow { transition: transform 420ms var(--mf-ease), opacity 300ms var(--mf-ease); }
 .mf-shelf { content-visibility: auto; contain-intrinsic-size: auto 26rem; }
 @media (prefers-reduced-motion: reduce) { .mf-lean, .mf-fan, .mf-flow, .mf-poster-lamp { transition: none; } .mf-lean:hover { transform: none; } .group\/pocket:hover .mf-fan { transform: translateX(var(--fan-x, 0)) rotate(var(--fan, 0deg)); } }
 :root[data-motion='off'] :is(.mf-lean, .mf-fan, .mf-flow) { transition: none; }

@@ -4,7 +4,7 @@
 }
 
 .dark {
-  --tiptap-card-bg-color: var(--tt-gray-dark-50);
+  --tiptap-card-bg-color: var(--popover, var(--tt-gray-dark-50));
   --tiptap-card-border-color: var(--tt-gray-dark-a-100);
 }
 
@@ -12,8 +12,9 @@
   --padding: 0.375rem;
   --border-width: 1px;
 
-  border-radius: calc(var(--padding) + var(--tt-radius-lg));
-  box-shadow: var(--tt-shadow-elevated-md);
+  // A card: 14px, the panel shadow, and its own border as the hairline.
+  border-radius: calc(var(--radius, 0.625rem) * 1.4);
+  box-shadow: var(--mf-panel-shadow);
   background-color: var(--tiptap-card-bg-color);
   border: 1px solid var(--tiptap-card-border-color);
   display: flex;
