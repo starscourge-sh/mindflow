@@ -125,6 +125,8 @@ try {
   await shot(h, 'media-library')
   await h.locator('[data-library] .pdf-book', { hasText: 'Lease' }).click(); await wait(400)
   check('a click picks a book for the inspector', await h.evaluate(() => document.querySelector('.pdf-inspector-title')?.textContent) === 'Lease', '')
+  // The shelf with a book picked, light and dark.
+  if (process.env.SHOTS) await c.both(`${process.env.SHOTS}/media-library`)
   await h.locator('.pdf-inspector-open').click(); await wait(1500)
   check('"Open" opens it in the reader', await h.evaluate(() => !!document.querySelector('.pdf-reader')), '')
   await go('media'); await wait(1200)

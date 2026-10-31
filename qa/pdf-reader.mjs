@@ -734,7 +734,10 @@ try {
   })
   await wait(400)
   await h.mouse.move(figure.x, figure.y); await h.mouse.down()
-  await h.mouse.move(figure.x + figure.w, figure.y + figure.h, { steps: 6 }); await h.mouse.up()
+  await h.mouse.move(figure.x + figure.w, figure.y + figure.h, { steps: 6 })
+  // Mid-drag, light and dark: the box being drawn over the page.
+  await c.both(`${process.env.QA_SHOTS ?? '/tmp'}/pdf-snip-drag`)
+  await h.mouse.up()
   // The cut is saved as a picture before Card and Keep show: waited for, not timed, as a loaded machine takes longer.
   const snipped = await h.waitForFunction(() => !!document.querySelector('.pdf-keep-bar button[aria-label="Card"]') && !!document.querySelector('.pdf-keep-bar button[aria-label="Keep"]') && !document.querySelector('[data-pdf-snip]'), null, { timeout: 10000 }).then(() => true, () => false)
   check('a dragged rectangle is cut out and offers Card and Keep', snipped, JSON.stringify(await h.evaluate(() => ({ layer: !!document.querySelector('[data-pdf-snip]'), box: !!document.querySelector('.pdf-snip-box'), bars: [...document.querySelectorAll('.pdf-keep-bar button')].map((one) => one.getAttribute('aria-label')), toast: document.querySelector('[role="status"]')?.textContent }))))
