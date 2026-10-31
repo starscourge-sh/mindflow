@@ -33,13 +33,18 @@ function draftWords(): string {
   }
 }
 
-function Card({ icon, title, where, onOpen, data }: { icon: React.ReactNode; title: string; where: string; onOpen: () => void; data: string }): React.JSX.Element {
+function Card({ icon, title, where, onOpen, data, share }: { icon: React.ReactNode; title: string; where: string; onOpen: () => void; data: string; /** How far through, 0 to 1, drawn as a book's track is. */ share?: number }): React.JSX.Element {
   return (
     <button type="button" className="continue-book" data-resume={data} onClick={() => (chime('open'), onOpen())}>
       <span className="continue-book-cover continue-book-mark">{icon}</span>
       <span className="continue-book-words">
         <span className="continue-book-title">{title}</span>
         <span className="continue-book-where">{where}</span>
+        {share !== undefined && (
+          <span className="continue-book-track">
+            <span style={{ width: `${Math.round(share * 100)}%` }} />
+          </span>
+        )}
       </span>
     </button>
   )
@@ -63,8 +68,8 @@ export function useResumeCards(onView: (id: string) => void): React.ReactNode[] 
   const articles = articlesOnTheGo().slice(0, 3)
   return [
     sitting.done > 0 && sitting.left > 0 && (
-      <Card key="review" data="review" icon={<Layers className="size-5" />} title={`${num(sitting.left)} ${sitting.left === 1 ? 'card' : 'cards'} left from ${partOfDay(sitting.last)}`}
-        where={`${num(sitting.done)} done today · Review`} onOpen={() => onView('review')} />
+      <Card key="review" data="review" icon={<Layers className="size-5" />} title={`${num(sitting.left)} ${sitting.left === 1 ? 'card' : 'cards'} left in Review`}
+        where={`${num(sitting.done)} done ${partOfDay(sitting.last)}`} share={sitting.done / (sitting.done + sitting.left)} onOpen={() => onView('review')} />
     ),
     draft && (
       <Card key="draft" data="draft" icon={<PenLine className="size-5" />} title={draft.length > 60 ? `${draft.slice(0, 60).trim()}…` : draft}
@@ -72,7 +77,7 @@ export function useResumeCards(onView: (id: string) => void): React.ReactNode[] 
     ),
     ...articles.map((one) => (
       <Card key={one.href} data="article" icon={<Globe className="size-5" />} title={one.title}
-        where={`${Math.round(one.share * 100)}% read · ${URL.parse(one.href)?.hostname.replace(/^www\./, '') ?? 'Article'}`} onOpen={() => openArticle(one.href)} />
+        where={`${Math.round(one.share * 100)}% read · ${URL.parse(one.href)?.hostname.replace(/^www\./, '') ?? 'Article'}`} share={one.share} onOpen={() => openArticle(one.href)} />
     ))
   ].filter(Boolean) as React.ReactNode[]
 }
