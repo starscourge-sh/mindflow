@@ -56,8 +56,19 @@ try {
     const box = await link.evaluate((el) => { const r = el.getClientRects()[0]; return { x: r.left, y: r.top, height: r.height } })
     await h.mouse.move(box.x + 4, box.y + box.height / 2 + 6)
     await h.mouse.move(box.x + 8, box.y + box.height / 2, { steps: 3 })
-    await h.locator('[data-note-preview] [data-open-beside]').waitFor({ timeout: 4000 }).catch(() => {})
-    await h.locator('[data-note-preview] [data-open-beside]').click({ timeout: 5000 })
+    // The card is a preview only: "Open to the side" is in the link's right-click menu.
+    if (i === 0) {
+      // Pointed at, the card is a preview: nothing in it to press.
+      await h.locator('[data-note-preview]').waitFor({ timeout: 4000 }).catch(() => {})
+      check('an @ link\'s card has nothing to press in it', await h.locator('[data-note-preview]').count() === 1 && await h.locator('[data-note-preview] button').count() === 0)
+    }
+    await link.click({ button: 'right', position: { x: 8, y: box.height / 2 } })
+    if (i === 0) {
+      const lines = (await h.locator('[role="menu"]').last().locator('[role^="menuitem"]').allInnerTexts().catch(() => [])).map((one) => one.trim().split('\n')[0])
+      check('its right-click menu holds what the card once did', ['Open to the side', 'Add to queue', 'Read next'].every((one) => lines.includes(one)), lines.join(' | '))
+      check('right-click puts the card away', await h.locator('[data-note-preview]').count() === 0)
+    }
+    await h.locator('[role="menuitem"]', { hasText: 'Open to the side' }).first().click({ timeout: 5000 })
     await wait(1400)
     const now = await panes()
     const asked = idOf(links[i])

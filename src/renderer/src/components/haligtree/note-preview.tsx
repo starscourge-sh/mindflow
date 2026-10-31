@@ -7,14 +7,10 @@ import { backIn } from '@/lib/back-in'
 import { Gem, UserRound } from 'lucide-react'
 import { CARD } from '@/lib/float'
 import { Quote as MessageSquareText } from '@/components/ui/icons'
-import { canSplit, openAside } from '@/lib/split'
-import { byKeys, EASE, still } from '@/lib/motion'
+import { canSplit } from '@/lib/split'
 import { realMove } from '@/lib/real-move'
-import { enqueue } from '@/lib/reading-queue'
 import { linkKind, kindOfLink } from '@/extensions/note-link'
 import { blockIn, wordsOf } from '../../../../main/blocks'
-import type { Editor } from '@tiptap/core'
-import { chime } from '@/lib/sound'
 import { cut } from '../../../../main/clip'
 import { withoutTags } from '../../../../main/tag-words'
 import { sources } from '@/lib/sources'
@@ -58,29 +54,6 @@ export const pastTitle = (read: string, title: string): string => {
   if (opening.startsWith(`${named} `) && plain(read.slice(0, title.length)) === named) return read.slice(title.length).trim()
   return read
 }
-
-/**
- * A link to one line made the line itself, shown in place and live (a block
- * reference), in one undoable step. A link alone on its line takes the line's
- * place; one among words leaves them, the line shown under them.
- */
-function showLineHere(link: Element): void {
-  const editor = (link.closest('.ProseMirror') as (Element & { editor?: Editor }) | null)?.editor
-  if (!editor || editor.isDestroyed || !editor.isEditable) return
-  const pos = editor.view.posAtDOM(link, 0)
-  const node = editor.state.doc.nodeAt(pos)
-  if (node?.type.name !== 'noteLink' || !node.attrs.block) return
-  const $pos = editor.state.doc.resolve(pos)
-  const line = $pos.parent
-  const embed = { type: 'noteEmbed', attrs: { id: node.attrs.id, label: node.attrs.label, block: node.attrs.block } }
-  const alone = line.textContent.trim() === '' && line.childCount <= 2
-  chime('open')
-  if (alone && $pos.depth > 0) editor.chain().focus().insertContentAt({ from: $pos.before(), to: $pos.after() }, embed).run()
-  else if ($pos.depth > 0) editor.chain().focus().deleteRange({ from: pos, to: pos + node.nodeSize }).insertContentAt($pos.after() - node.nodeSize, embed).run()
-}
-
-/** The card's own actions: small buttons with a resting fill, so they read as buttons, not words. */
-const ACT = 'inline-flex min-h-6 shrink-0 items-center rounded-md bg-foreground/[0.06] px-2 font-medium text-foreground transition-colors hover:bg-accent'
 
 /**
  * The attributes that give any row's title the card an @ link shows, so what
@@ -303,40 +276,6 @@ export function NotePreview(): React.JSX.Element | null {
     <img data-preview-image src={shown.picture} alt="" draggable={false} onError={(event) => (event.currentTarget.style.display = 'none')}
       className={`size-10 shrink-0 border object-cover ${shown.type === 'person' ? 'rounded-full' : 'rounded-md'}`} style={{ objectPosition: 'center 22%' }} />
   ) : null
-  /**
-   * Arc's Peek, kept: the card grows into the pane the note opens in beside
-   * the one in front, and the pane slides in under it as it fades.
-   */
-  const openBeside = (): void => {
-    const card = document.querySelector<HTMLElement>('[data-note-preview]')
-    const home = shown.anchor.closest('[data-pane]')
-    // Where it lands: the pane right of the link's, or a new one at the right edge.
-    const next = home?.nextElementSibling?.matches('[data-pane]') ? home.nextElementSibling : home?.nextElementSibling?.nextElementSibling?.matches('[data-pane]') ? home.nextElementSibling.nextElementSibling : null
-    const area = (next ?? document.querySelector('[data-split-area]'))?.getBoundingClientRect()
-    const calm = still()
-    // Opened beside by a key, the pane is simply there; by a click the card grows into it.
-    if (card && area && !calm && !byKeys()) {
-      const from = card.getBoundingClientRect()
-      const panes = document.querySelectorAll('[data-split-area] [data-pane]').length + 1
-      const width = next ? area.width : Math.max(360, (area.width - 8 * (panes - 1)) / panes)
-      const ghost = card.cloneNode(true) as HTMLElement
-      ghost.removeAttribute('data-note-preview')
-      ghost.removeAttribute('role')
-      ghost.setAttribute('aria-hidden', 'true')
-      Object.assign(ghost.style, { left: `${from.left}px`, top: `${from.top}px`, width: `${from.width}px`, height: `${from.height}px`, transform: 'none', transformOrigin: '0 0', pointerEvents: 'none', overflow: 'hidden' })
-      document.body.append(ghost)
-      // On a transform alone (FLIP): from where the card is to the pane's box, fading as it gets there.
-      const [sx, sy] = [width / from.width, (area.height - 36) / from.height]
-      ghost.animate([
-        { transform: 'translate(0px, 0px) scale(1, 1)', opacity: 1, borderRadius: '8px' },
-        { opacity: 1, offset: 0.55 },
-        { transform: `translate(${area.right - width - from.left}px, ${area.top + 36 - from.top}px) scale(${sx}, ${sy})`, opacity: 0, borderRadius: `${12 / sx}px / ${12 / sy}px` }
-      ], { duration: 280, easing: `cubic-bezier(${EASE.join(',')})`, fill: 'forwards' }).finished.then(() => ghost.remove(), () => ghost.remove())
-    }
-    setShown(null)
-    // Beside the pane the link is in, not the one in front: that may be the pane last opened beside it.
-    openAside(shown.type, shown.id, home?.getAttribute('data-pane'))
-  }
   return (
     <div
       // Private words stay blurred here as in any list, unless shown on purpose.
@@ -429,25 +368,11 @@ export function NotePreview(): React.JSX.Element | null {
           <span className="private-text truncate font-medium text-foreground">{shown.thought.on}</span>
         </div>
       )}
-      {!shown.thought && (shown.binned || !shown.row || shown.foot || shown.el || (shown.aside && canSplit()) || shown.queue) && (
-      <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 border-t pt-2 text-xs text-muted-foreground">
-        {(shown.binned || !shown.row || shown.foot) && <span className="basis-full">{shown.binned ? 'In the Bin. Click the row to look inside, or Space to see it large.' : shown.foot ? shown.foot : `Click to open${canSplit() ? ', ⌥-click to the side' : ''}${shown.aside ? ', ⌘-click for its own window' : ''}`}</span>}
-        {/* A link to one line: the line itself shown here instead, live. */}
-        {shown.el && (
-          <button type="button" data-show-line-here onClick={() => (showLineHere(shown.el!), setShown(null))} className={ACT}>Show the line here</button>
-        )}
-        {/* Kept beside what you are reading, in a pane of its own. */}
-        {shown.aside && canSplit() && (
-          <button type="button" data-open-beside onClick={openBeside} className={ACT}>Open beside</button>
-        )}
-        {/* Spotify's two verbs, for the note it leads to. */}
-        {shown.queue && (
-          <span className="flex shrink-0 gap-1">
-            <button type="button" onClick={() => (void enqueue([shown.id]), setShown(null))} className={ACT}>Add to queue</button>
-            <button type="button" onClick={() => (void enqueue([shown.id], true), setShown(null))} className={ACT}>Read next</button>
-          </span>
-        )}
-      </div>
+      {/* A preview only: what can be done with it is in its right-click menu (Open to the side, Add to queue, Read next, Show the line here). */}
+      {!shown.thought && (shown.binned || !shown.row || shown.foot) && (
+      <p data-preview-foot className="mt-2 border-t pt-2 text-xs text-muted-foreground">
+        {shown.binned ? 'In the Bin. Click the row to look inside, or Space to see it large.' : shown.foot ? shown.foot : `Click to open${canSplit() ? ', ⌥-click to the side' : ''}${shown.aside ? ', ⌘-click for its own window' : ''}. Right-click for more.`}
+      </p>
       )}
     </div>
   )

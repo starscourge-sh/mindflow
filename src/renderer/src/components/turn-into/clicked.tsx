@@ -37,6 +37,7 @@ export function lookUpIn(editor: Editor, from: number, to: number, words: string
 import { canSplit, openAside } from "@/lib/split"
 import { openApart } from "@/lib/apart"
 import { chime } from "@/lib/sound"
+import { enqueue } from "@/lib/reading-queue"
 
 /**
  * What a right-click landed on, read once at the click: its own lines go at
@@ -171,6 +172,23 @@ function viewLines(block?: HTMLElement): Line[] {
   ]
 }
 
+/**
+ * A link to one line made the line itself, shown in place and live (a block
+ * reference), in one undoable step. A link alone on its line takes the line's
+ * place; one among words leaves them, the line shown under them.
+ */
+function showLineHere(editor: Editor, pos: number): void {
+  const node = editor.state.doc.nodeAt(pos)
+  if (node?.type.name !== "noteLink" || !node.attrs.block) return
+  const $pos = editor.state.doc.resolve(pos)
+  const line = $pos.parent
+  const embed = { type: "noteEmbed", attrs: { id: node.attrs.id, label: node.attrs.label, block: node.attrs.block } }
+  const alone = line.textContent.trim() === "" && line.childCount <= 2
+  chime("open")
+  if (alone && $pos.depth > 0) editor.chain().focus().insertContentAt({ from: $pos.before(), to: $pos.after() }, embed).run()
+  else if ($pos.depth > 0) editor.chain().focus().deleteRange({ from: pos, to: pos + node.nodeSize }).insertContentAt($pos.after() - node.nodeSize, embed).run()
+}
+
 /** The lines for what was clicked, in the order a person reaches for them. */
 export function clickedLines(editor: Editor, clicked: Clicked): Line[] {
   if (clicked.kind === "note") {
@@ -181,8 +199,14 @@ export function clickedLines(editor: Editor, clicked: Clicked): Line[] {
     const shown = clicked.text || label
     const lines: Array<Line | false> = [
       !!id && !!open && { label: "Open", data: "open", run: () => open(id, heading || undefined) },
-      !!id && canSplit() && { label: "Open to the side", data: "aside", run: () => openAside(type, key) },
+      // Beside the pane the note is in, not the one in front: that may be the pane last opened beside it.
+      !!id && canSplit() && { label: "Open to the side", data: "aside", run: () => openAside(type, key, editor.view.dom.closest("[data-pane]")?.getAttribute("data-pane")) },
       !!id && own && { label: "Open in a new window", data: "apart", run: () => openApart(type, key) },
+      // A link to one line: that line shown here instead, live (what its preview card once offered).
+      !!id && !!editor.state.doc.nodeAt(pos)?.attrs.block && { label: "Show the line here", edits: true, data: "line-here", run: () => showLineHere(editor, pos) },
+      // Spotify's two verbs, for the note it leads to.
+      !!id && own && type !== "goal" && { label: "Add to queue", data: "queue", run: () => void enqueue([key]) },
+      !!id && own && type !== "goal" && { label: "Read next", data: "read-next", run: () => void enqueue([key], true) },
       !!id && { label: "Copy link", data: "copy-link", run: () => copyLink(id, label) },
       !!id && type !== "capture" && own && {
         label: "Rename…", edits: true,

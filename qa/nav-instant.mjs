@@ -169,11 +169,12 @@ try {
     const again = h.locator(`a.tiptap-note-link[data-note="article:${florence.id}"]`).first()
     if (await again.count()) {
       await again.hover(); await h.mouse.move(5, 5); await again.hover(); await wait(1200)
-      // Its card opens the note by its link; the card's own way to a note is "Open beside", a pane of its own.
-      const beside = h.locator('[data-note-preview] [data-open-beside]').first()
+      // Its card is a preview only; the link's right-click menu opens it in a pane of its own.
+      await again.click({ button: 'right' }); await wait(400)
+      const beside = h.locator('[role="menuitem"]', { hasText: 'Open to the side' }).first()
       if (await beside.count()) {
         await record(); await beside.click()
-        judge('an @ link\'s hover card, “Open beside”', await frames(), { target: florence.id })
+        judge('an @ link\'s right-click, “Open to the side”', await frames(), { target: florence.id })
         await h.mouse.move(5, 5); await blur(); await h.keyboard.press('Control+w'); await wait(800)
       } else (await shot('hover'), check('the hover card shows', false))
     }
