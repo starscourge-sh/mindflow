@@ -79,7 +79,7 @@ try {
   await c.both(`${shots}/review-day-browser`)
 
   // 6. The end of a short sitting: seconds a card (and the longest-kept card when there is one).
-  for (const one of await v('items', 'nugget')) if (one.prompt && !/^(Speed of light|Planck constant)$/.test(one.prompt)) await v('item:save', one.id, { suspended: true })
+  for (const one of await v('cards:all')) if (!/^(Speed of light|Planck constant)$/.test(one.prompt)) await v('item:save', one.id, { suspended: true })
   await fresh()
   for (let i = 0; i < 6 && !(await h.locator('[data-review-finished]').count()); i++) {
     await h.evaluate(() => document.activeElement?.blur())

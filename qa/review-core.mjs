@@ -79,31 +79,26 @@ try {
   const cell = await v('nugget:from', 'mitochondria', {})
   await v('item:save', cell, { prompt: 'Where in a cell is ATP made?' })
   // Only these two in today's queue: every other card set aside for the check.
-  for (const one of await v('items', 'nugget')) if (one.prompt && one.id !== bat && one.id !== cell) await v('item:save', one.id, { suspended: true })
+  for (const one of await v('cards:all')) if (one.id !== bat && one.id !== cell) await v('item:save', one.id, { suspended: true })
   const ours = (await v('review:queue')).map((one) => one.prompt)
   check('the two typed cards are in the queue', ours.includes('Spanish for bat?') && ours.includes('Where in a cell is ATP made?'), JSON.stringify(ours))
   // Review takes its queue once a session: a fresh window starts a new one.
   await h.reload()
   await h.waitForTimeout(2500)
   await c.go('review')
-  const reach = async (prompt) => {
-    for (let i = 0; i < 10; i++) {
-      await waitFor(async () => (await asked()).length > 3)
-      if ((await asked()).includes(prompt)) return true
-      await turn()
-      const was = await asked()
-      await h.keyboard.press('3')
-      await waitFor(async () => (await asked()) !== was)
-    }
-    return false
-  }
   const typeIn = async (words) => {
     await h.locator('textarea').first().fill(words)
     await h.locator('textarea').first().press('Meta+Enter')
     return waitFor(() => h.evaluate(() => !!document.querySelector('[data-typed]')))
   }
-  for (const [prompt, typed, said] of [['Spanish for bat?', 'murcielago', /Right apart from the accent: murciélago/], ['Where in a cell is ATP made?', 'mitochondira', /Close: you wrote mitochondira, it is mitochondria\./]]) {
-    if (!(await reach(prompt))) { check(`reached “${prompt}”`, false); continue }
+  // New cards come shuffled, so the two are taken in whichever order they come.
+  const typedCards = [['Spanish for bat?', 'murcielago', /Right apart from the accent: murciélago/], ['Where in a cell is ATP made?', 'mitochondira', /Close: you wrote mitochondira, it is mitochondria\./]]
+  for (let round = 0; round < 2; round++) {
+    await waitFor(async () => { const now = await asked(); return typedCards.some(([prompt]) => now.includes(prompt)) })
+    const now = await asked()
+    const found = typedCards.find(([prompt]) => now.includes(prompt))
+    if (!found) { check(`reached a typed card (round ${round + 1})`, false, now); break }
+    const [, typed, said] = found
     await typeIn(typed)
     const line = await h.evaluate(() => document.querySelector('[data-typed]')?.innerText ?? '')
     check(`typed “${typed}” is told what is off`, said.test(line), line.replace(/\s+/g, ' '))
