@@ -2780,6 +2780,72 @@ export function registerHaligtree(): void {
     return write(true)
   })
 
+  // --- study stats: reviews a day, how often you remembered, what falls due, and a year of review days
+  handle('study:stats', () => {
+    const day = (offset: number): string => new Date(startOfDay(offset)).toISOString()
+    const local = (iso: string): string => { const at = new Date(iso); return `${at.getFullYear()}-${String(at.getMonth() + 1).padStart(2, '0')}-${String(at.getDate()).padStart(2, '0')}` }
+    const perDay = new Map<string, number>()
+    for (const row of db.prepare('select reviewed_at as at from review_log where reviewed_at >= ?').all(day(-364)) as { at: string }[]) perDay.set(local(row.at), (perDay.get(local(row.at)) ?? 0) + 1)
+    // The last 30 days, oldest first, today last.
+    const month = Array.from({ length: 30 }, (_, at) => { const key = local(day(at - 29)); return { day: key, reviews: perDay.get(key) ?? 0 } })
+    // Remembered: any grade but Again, on a card seen before (a first look is learning, not remembering).
+    const kept = db.prepare('select count(*) as n, coalesce(sum(grade > 1), 0) as recalled from review_log where first = 0 and reviewed_at >= ?').get(day(-29)) as { n: number; recalled: number }
+    // Due in each of the next 14 days, today counting what is already overdue.
+    const due = Array.from({ length: 14 }, () => 0)
+    for (const row of db.prepare(`select due_at as at from nuggets where coalesce(prompt, '') != '' and suspended = 0 and archived_at is null and binned_at is null and superseded_by is null and due_at is not null and due_at < ?`).all(day(14)) as { at: string }[])
+      due[Math.max(0, Math.floor((Date.parse(row.at) - startOfDay(0)) / 86400000))] += 1
+    return { month, year: Object.fromEntries(perDay), checked: kept.n, recalled: kept.recalled, due }
+  })
+
+  // --- the card browser: every card, with what it is filtered and sorted by
+  handle('cards:all', () =>
+    (db.prepare(`select id, prompt, title, body, state, due_at as dueAt, created_at as createdAt, suspended from nuggets
+      where coalesce(prompt, '') != '' and archived_at is null and binned_at is null and superseded_by is null`).all() as { id: string; prompt: string; title: string | null; body: string | null; state: string | null; dueAt: string | null; createdAt: string; suspended: number }[])
+      .map((row) => {
+        const answer = plain(JSON.parse(row.body ?? 'null'))
+        const card = row.state ? (JSON.parse(row.state) as { difficulty?: number; reps?: number }) : null
+        return {
+          id: row.id, prompt: row.prompt, title: row.title ?? '', answer: answer.replace(/\s+/g, ' ').trim().slice(0, 240),
+          tags: tagsIn(`${row.title ?? ''} ${row.prompt} ${answer}`), dueAt: row.dueAt, createdAt: row.createdAt, paused: !!row.suspended,
+          // How hard it has been, 1 to 10 (FSRS's difficulty); a card never reviewed has none yet.
+          difficulty: card?.difficulty ?? null, reviews: card?.reps ?? 0
+        }
+      }))
+  // A tag put on, or taken off, several cards at once: in the answer's words, where a card's tags live.
+  // What each answer was is handed back, for one Undo.
+  handle('cards:retag', (ids: string[], tag: string, on: boolean) => {
+    const word = tag.replace(/^#/, '').toLowerCase()
+    if (!isTagWord(word)) return []
+    const before: { id: string; body: string | null }[] = []
+    type Doc = { type?: string; text?: string; content?: Doc[] }
+    const strip = (text: string): string => text.replace(tagWritten(word), '$1').replace(/[ \t]{2,}/g, ' ')
+    const without = (node: Doc): Doc => ({ ...node, ...(node.text !== undefined ? { text: strip(node.text) } : {}), ...(node.content ? { content: node.content.map(without) } : {}) })
+    for (const id of ids ?? []) {
+      const row = db.prepare('select body, prompt, title from nuggets where id = ?').get(id) as { body: string | null; prompt: string | null; title: string | null } | undefined
+      if (!row) continue
+      const body = JSON.parse(row.body ?? 'null') as string | Doc | null
+      const has = tagsIn(`${row.title ?? ''} ${row.prompt ?? ''} ${plain(body)}`).includes(word)
+      if (has === on) continue
+      const next = on
+        ? typeof body === 'object' && body?.content
+          ? { ...body, content: [...body.content, { type: 'paragraph', content: [{ type: 'text', text: `#${word}` }] }] }
+          : `${(typeof body === 'string' ? body : '').trimEnd()}\n\n#${word}`.trim()
+        : typeof body === 'string' ? strip(body).trim() : body ? without(body) : body
+      before.push({ id, body: row.body })
+      db.prepare('update nuggets set body = ?, updated_at = ? where id = ?').run(JSON.stringify(next), now(), id)
+    }
+    return write(before)
+  })
+  handle('cards:retag:undo', (before: { id: string; body: string | null }[]) => {
+    for (const one of before ?? []) db.prepare('update nuggets set body = ?, updated_at = ? where id = ?').run(one.body, now(), one.id)
+    return write(true)
+  })
+  // Several paused or brought back at once.
+  handle('cards:pause', (ids: string[], on: boolean) => {
+    for (const id of ids ?? []) db.prepare('update nuggets set suspended = ? where id = ?').run(on ? 1 : 0, id)
+    return write(true)
+  })
+
   // --- the tags on cards in Review, for ⌘K's "Study #tag"
   handle('cards:tags', () => {
     const count = new Map<string, number>()

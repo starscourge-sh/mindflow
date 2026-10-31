@@ -34,7 +34,7 @@ import { startQuestion } from './components/haligtree/questions-view'
 import { GoalsView, startGoal } from './components/haligtree/goals-view'
 import { QueueReader, QueueView } from './components/haligtree/queue-view'
 import { useQueue } from './lib/reading-queue'
-import { ReviewView } from './components/haligtree/review-view'
+import { ReviewArea } from './components/haligtree/review-area'
 import { SettingsView, exportEverything } from './components/haligtree/settings-view'
 import { StatsView } from './components/haligtree/stats-view'
 import { PracticesView } from './components/haligtree/practices-view'
@@ -1406,7 +1406,7 @@ export function Home(): React.JSX.Element {
         ) : kind(view) ? (
           <CapturesView title={kind(view)!.label} keep={(capture) => capture.kind === kind(view)!.id && capture.status !== 'discarded'} focus={view.focus} onOpen={go} />
         ) : view.id === 'review' ? (
-          <ReviewView key={view.focus ?? ''} tag={view.focus} />
+          <ReviewArea key={view.focus ?? ''} focus={view.focus} onOpen={go} />
         ) : view.id === 'today' || view.id === 'upcoming' || view.id === 'routines' || view.id === 'later' || view.id === 'alltasks' ? (
           <TasksView mode={view.id} focus={view.focus} onOpen={go} />
         ) : view.id === 'calendar' ? (
@@ -1601,6 +1601,8 @@ export function Home(): React.JSX.Element {
             } },
             ...abandonAction,
             ...practiceActions,
+            { label: 'Study stats', hint: 'Reviews a day, how often you remember, what falls due', cue: null, run: () => setView({ id: 'review', focus: ':stats' }) },
+            { label: 'Browse all cards', hint: 'Search, sort, pause and tag them, in Review', cue: null, run: () => setView({ id: 'review', focus: ':cards' }) },
             // Study one tag's cards, scheduled as in any review.
             ...(cardTags ?? []).map((tag) => ({ label: `Study #${tag}`, hint: 'Its cards in Review, with the tags under it', cue: null, run: () => setView({ id: 'review', focus: tag }) })),
             { label: 'Keyboard shortcuts', keys: '?', cue: null, run: () => window.dispatchEvent(new CustomEvent('haligtree:shortcuts')) },

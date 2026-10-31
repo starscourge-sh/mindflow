@@ -61,7 +61,7 @@ export const GRADES = [
 const inboxOpen = (): Promise<number> => window.api.captures.list().then((all) => all.filter((one) => one.status === 'open' && !one.archivedAt).length)
 
 /** `tag`: open on a round of that tag's cards (and the tags under it), from its page or ⌘K's "Study #tag". */
-export function ReviewView({ compact = false, tag }: { compact?: boolean; tag?: string }): React.JSX.Element {
+export function ReviewView({ compact = false, tag, actions }: { compact?: boolean; tag?: string; /** The Review area's tabs, on the page's line. */ actions?: React.ReactNode }): React.JSX.Element {
   const [queue, setQueue] = useState<Due[] | null>(null)
   const [reviewed, setReviewed] = useState<Set<string>>(new Set())
   const [at, setAt] = useState(0)
@@ -348,13 +348,13 @@ export function ReviewView({ compact = false, tag }: { compact?: boolean; tag?: 
   if (!queue || reading) return <Page title="Review" waiting><div /></Page>
   if (source)
     return (
-      <Page title="Review">
+      <Page title="Review" actions={actions}>
         <SourcePanel source={source} onClose={leaveSource} />
       </Page>
     )
   if (learning)
     return (
-      <Page title="Review">
+      <Page title="Review" actions={actions}>
         <div className="page-sheet mx-auto w-full">
           <LearnMode onDone={() => void haligtree.queue().then((cards) => (setLearning(false), fresh(cards, null)))} />
         </div>
@@ -362,7 +362,7 @@ export function ReviewView({ compact = false, tag }: { compact?: boolean; tag?: 
     )
   if (slipping)
     return (
-      <Page title="Review">
+      <Page title="Review" actions={actions}>
         <div className="page-sheet mx-auto w-full">
           <Slipping card={slipping.card} splitting={slipping.splitting} onRewrite={rewrite} onSplit={() => (chime('tap'), setSlipping({ ...slipping, splitting: true }))}
             onAside={aside} onKeep={() => setSlipping(null)} onSplitDone={() => setSlipping(null)} />
@@ -371,7 +371,7 @@ export function ReviewView({ compact = false, tag }: { compact?: boolean; tag?: 
     )
   if (!card && round)
     return (
-      <Page title="Review">
+      <Page title="Review" actions={actions}>
         <Rest seed="review-round" compact={compact}>
           <Empty compact={compact} shaped title={<>Round done: <Rolling text={reviewed.size} /> practised</>}
             action={<Button variant="outline" size="sm" onClick={leaveRound}>Back to today’s cards</Button>}>
@@ -382,7 +382,7 @@ export function ReviewView({ compact = false, tag }: { compact?: boolean; tag?: 
     )
   if (!card)
     return (
-      <Page title="Review">
+      <Page title="Review" actions={actions}>
         <div className="page-sheet mx-auto w-full">
         {queue.length || !(!unloaded(ideas) && !ideas.some((one) => one.prompt)) ? (
           // The end of the day's cards, or a day with none due: an ending, then the one way on.
@@ -399,7 +399,7 @@ export function ReviewView({ compact = false, tag }: { compact?: boolean; tag?: 
     )
 
   return (
-    <Page title="Review">
+    <Page title="Review" actions={actions}>
       {/* One card at a time in the middle of the page, never a narrow card with an empty half beside it. */}
       <div className="page-sheet mx-auto w-full">
       {/* One quiet line over the card: where you are, and practice, new cards and exams folded into it. */}
