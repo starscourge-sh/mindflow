@@ -50,7 +50,7 @@ function needed(column: HTMLElement | null): number | null {
       const at = getComputedStyle(child)
       shown += child.offsetHeight + (parseFloat(at.marginTop) || 0) + (parseFloat(at.marginBottom) || 0)
     }
-    return Math.ceil(window.innerHeight - recording.clientHeight + shown)
+    return Math.ceil(cardHeight() - recording.clientHeight + shown)
   }
   const scroller = column?.querySelector<HTMLElement>('.mf-faded .haligtree-editor-content')
   const doc = scroller?.querySelector<HTMLElement>(':scope > .ProseMirror')

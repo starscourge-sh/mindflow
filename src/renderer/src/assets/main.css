@@ -381,6 +381,31 @@ html.dark[data-overhang] :is(.mf-pill button, [data-aside] > *) {
     0 1px 2px color-mix(in oklab, var(--mf-shadow-ink) 40%, transparent),
     0 6px 18px -6px color-mix(in oklab, var(--mf-shadow-ink) 62%, transparent);
 }
+/* Out of focus, the card dims under a veil of its own page colour, as the main
+   window does, never by fading the whole page: faded, the card turned
+   see-through over whatever was behind it (grey over a white page in dark
+   themes), and its controls in the room faded with it. */
+html[data-overhang][data-blurred='on'] body {
+  opacity: 1;
+}
+html[data-overhang] .app-container::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 2147483647;
+  border-radius: inherit;
+  background: var(--background);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 200ms ease-out;
+}
+html[data-overhang][data-blurred='on'] .app-container::after {
+  opacity: 0.45;
+}
+:root[data-noblur][data-overhang][data-blurred='on'] .app-container::after,
+:root[data-box-nodim][data-overhang][data-blurred='on'] .app-container::after {
+  opacity: 0;
+}
 /* Quick capture is a small box: its menus cast a lighter shadow and stop well
    short of its height, so "Turn into" or the kind picker never fill it. */
 html:has(.app-container):not([data-style]) {
