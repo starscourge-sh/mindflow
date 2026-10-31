@@ -97,9 +97,23 @@ try {
     await h.locator('[data-media-play]').first().click(); await wait(800)
     const moving = []
     for (let i = 0; i < 8; i++) (moving.push(await wave()), await wait(90))
-    await h.locator('[data-media-play]').first().click(); await wait(400)
+    // Paused: the bars ease back to the mark over about a quarter second, read every frame in the page.
+    const settling = h.evaluate(() => new Promise((done) => {
+      const seen = []
+      const start = performance.now()
+      const tick = () => {
+        seen.push([...document.querySelectorAll('[data-media-wave] line')].map((one) => one.getAttribute('transform') ?? '').join('|'))
+        if (performance.now() - start < 450) requestAnimationFrame(tick)
+        else done(seen)
+      }
+      requestAnimationFrame(tick)
+    }))
+    await h.locator('[data-media-play]').first().click()
+    const frames = await settling
     const paused = await wave()
+    const between = new Set(frames.filter((one) => one.replace(/\|/g, '') !== '')).size
     check('the audio tile\'s waveform moves with the sound, still when paused', new Set(moving).size > 3 && paused.replace(/\|/g, '') === '', `${new Set(moving).size} shapes; paused "${paused}"`)
+    check('and on pause it eases back to the mark over several frames, not in one jump', between >= 3, `${between} in-between shapes`)
   } else console.log('NOTE  no recording in the sandbox: the moving waveform is not checked here')
 
   if (process.env.SHOTS) {

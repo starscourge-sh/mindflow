@@ -186,10 +186,35 @@ let ears: AudioContext | null = null
  */
 function LiveBars({ sound, playing }: { sound: React.RefObject<HTMLAudioElement | null>; playing: boolean }): React.JSX.Element {
   const bars = useRef<(SVGLineElement | null)[]>([])
+  /** Each bar's height now, as a share of its drawn height: where a settle starts from. */
+  const now = useRef<number[]>(BARS.map(() => 1))
+  const put = (at: number, scale: number): void => {
+    now.current[at] = scale
+    const bar = bars.current[at]
+    if (!bar) return
+    if (scale === 1) bar.removeAttribute('transform')
+    else bar.setAttribute('transform', `translate(0 ${12 * (1 - scale)}) scale(1 ${scale})`)
+  }
   useEffect(() => {
     const audio = sound.current
-    const rest = (): void => bars.current.forEach((bar) => bar?.removeAttribute('transform'))
-    if (!playing || !audio || still()) return rest()
+    let frame = 0
+    // Stopped or done: the bars ease back to the mark's own shape over a quarter second, never snap.
+    const settle = (): void => {
+      const from = [...now.current]
+      if (still() || from.every((one) => one === 1)) return BARS.forEach((_, at) => put(at, 1))
+      const start = performance.now()
+      const step = (): void => {
+        const t = Math.min(1, (performance.now() - start) / 260)
+        const eased = 1 - (1 - t) ** 3
+        from.forEach((one, at) => put(at, one + (1 - one) * eased))
+        if (t < 1) frame = requestAnimationFrame(step)
+      }
+      frame = requestAnimationFrame(step)
+    }
+    if (!playing || !audio || still()) {
+      settle()
+      return () => cancelAnimationFrame(frame)
+    }
     ears ??= new AudioContext()
     void ears.resume()
     let analyser = heard.get(audio)
@@ -201,20 +226,18 @@ function LiveBars({ sound, playing }: { sound: React.RefObject<HTMLAudioElement 
       heard.set(audio, analyser)
     }
     const levels = new Uint8Array(analyser.frequencyBinCount)
-    let frame = 0
     const draw = (): void => {
       analyser.getByteFrequencyData(levels)
       BARS.forEach(([, tall], at) => {
         // Each bar its own slice of the low and middle bands, where voices and most music are.
         const level = levels[1 + at * 3] / 255
         // From a short stub to the full height of the mark, about its middle.
-        const scale = Math.max(2, level * 18) / tall
-        bars.current[at]?.setAttribute('transform', `translate(0 ${12 * (1 - scale)}) scale(1 ${scale})`)
+        put(at, Math.max(2, level * 18) / tall)
       })
       frame = requestAnimationFrame(draw)
     }
     frame = requestAnimationFrame(draw)
-    return () => (cancelAnimationFrame(frame), rest())
+    return () => cancelAnimationFrame(frame)
   }, [playing, sound])
   return (
     <svg data-media-wave aria-hidden viewBox="0 0 24 24" className="size-7 overflow-visible" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
