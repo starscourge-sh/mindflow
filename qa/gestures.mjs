@@ -81,9 +81,9 @@ async function surface(name, w, root, open, { click = true, rows: only, emptied,
   // Quick capture stays up when Escape only closes a menu.
   if (w === box) check(`${name}: Escape that closes the menu leaves quick capture open`, await c.electron.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find((one) => /index\.html\?sandbox/.test(one.webContents.getURL()))?.isVisible()))
   await w.keyboard.press('Backspace')
-  // Many at once take a moment to leave: given up to five seconds.
+  // Many at once take a moment to leave, and the notice comes once every write is in (rows can leave a moment before it): up to five seconds for both.
   const t0 = Date.now()
-  do { await w.waitForTimeout(300); s = await read(w, root) } while (s.rows.includes(first) && Date.now() - t0 < 5000)
+  do { await w.waitForTimeout(300); s = await read(w, root) } while ((s.rows.includes(first) || !/to the Bin/.test(s.toast)) && Date.now() - t0 < 5000)
   // The Day page keeps what happened that day: a row moved to the Bin stays, struck through, saying so.
   const gone = !s.rows.includes(first) || (kept && await w.evaluate(([root, first]) => /In the Bin/.test(document.querySelector(`${root} [data-pick="${first}"], ${root} [data-drag-open="${first}"]`)?.textContent ?? ''), [root, first]))
   if (!gone) console.log(`  ${name}: still shown after ⌫: ${first}`)
