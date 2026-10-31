@@ -1,4 +1,5 @@
 import { dropLines, keepLines } from '@/lib/clue-lines'
+import { TIP } from '@/lib/float'
 import { ReadsIn, useReading } from '@/lib/reads-in'
 import { binItem } from '@/lib/to-bin'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
@@ -864,7 +865,7 @@ export function Journey({ goal, from, target, today, logs, picked, onPick, compa
         const below = y < height / 2
         const side = x < width / 3 ? { left: 0 } : x > (width * 2) / 3 ? { right: 0 } : { left: x, transform: 'translateX(-50%)' }
         return (
-          <div className="pointer-events-none absolute z-10 w-max max-w-full rounded-md bg-popover px-2 py-1 text-[11px] leading-snug text-popover-foreground shadow-(--mf-panel-shadow) ring-1 ring-foreground/10"
+          <div className={`pointer-events-none absolute z-10 w-max max-w-full ${TIP}`}
             style={{ ...side, ...(below ? { top: y + cell * 0.8 } : { bottom: height - y + cell * 0.8 }) }}>
             <span className="block font-medium">{head}{named ? ` · ${named.title}` : ''}</span>
             {said.length > 0 && <span className="block max-w-56 truncate text-muted-foreground">{logsSaid(said.length)}: {said[said.length - 1].body.replace(/\s+/g, ' ')}</span>}

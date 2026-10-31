@@ -1,5 +1,6 @@
 import { forwardRef, useState, type InputHTMLAttributes, type KeyboardEvent } from 'react'
 import { chime } from '@/lib/sound'
+import { TIP } from '@/lib/float'
 import { TAG_PART, isTagWord } from '../../../../main/tag-words'
 
 /**
@@ -54,7 +55,7 @@ export const HashField = forwardRef<HTMLInputElement, Props>(function HashField(
           onChange(asTag(raw))
         }} />
       {hint && why && (
-        <span role="status" data-tag-hint className="absolute top-[calc(100%+4px)] left-0 z-10 rounded-md bg-popover px-2 py-1 text-[0.8125rem] font-medium whitespace-nowrap text-foreground shadow-(--mf-panel-shadow)">
+        <span role="status" data-tag-hint className={`absolute top-[calc(100%+4px)] left-0 z-10 whitespace-nowrap ${TIP}`}>
           {why}
         </span>
       )}

@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactElement } from 'react'
+import { TIP } from '@/lib/float'
 import { useReading } from '@/lib/reads-in'
 import { FlagTriangleRight } from 'lucide-react'
 
@@ -468,7 +469,7 @@ export function YearMarks({ year, onOpenDay }: { year: string; onOpenDay?: (day:
                 <span key={month.name} className="absolute top-[calc(32px+30px+0.55rem)] text-[0.6875rem] leading-none text-muted-foreground" style={{ left: x(month.d) - 0.5 }}>{month.name}</span>
               ))}
               {shownDay !== null && (
-                <span className="pointer-events-none absolute -bottom-1 z-10 -translate-x-1/2 translate-y-full rounded-md bg-popover px-2 py-1 text-xs whitespace-nowrap text-popover-foreground shadow-(--mf-panel-shadow) ring-1 ring-foreground/10"
+                <span className={`pointer-events-none absolute -bottom-1 z-10 -translate-x-1/2 translate-y-full whitespace-nowrap ${TIP}`}
                   style={{ left: Math.max(70, Math.min(w - 70, x(shownDay))) }}>
                   <span className="font-medium">{dayMonth(`${dayAt(shownDay)}T12:00`)}</span>
                   <span className="text-muted-foreground"> · {near ? `${near.icon ? `${near.icon} ` : ''}${near.title}` : onOpenDay ? 'click for its page' : 'click to mark it'}</span>

@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { TIP } from '@/lib/float'
 import { forceCenter, forceCollide, forceLink, forceManyBody, forceSimulation, forceX, forceY, type Simulation, type SimulationLinkDatum, type SimulationNodeDatum } from 'd3-force'
 import { CAPTURE_TYPES } from '@/components/capture-kinds/capture-kind-picker'
 import type { MapNode, NoteMap } from '@/lib/notes'
@@ -1074,7 +1075,7 @@ export function GraphCanvas({ map, onOpen, centre, you, about, fit: fitRef, fly,
     <div ref={box} className={cn('relative min-h-0 overflow-hidden select-none', className)}>
       <canvas ref={canvas} className="absolute inset-0 touch-none" />
       {hover && (
-        <div ref={card} data-map-tip data-private={hover.dot.private ? '' : undefined} className={cn('pointer-events-none invisible absolute z-10 flex flex-col gap-0.5 rounded-md bg-popover px-2.5 py-1.5 text-xs text-popover-foreground shadow-[0_6px_20px_-6px_rgb(0_0_0/0.5)]', small ? 'max-w-[13rem]' : 'max-w-xs')}>
+        <div ref={card} data-map-tip data-private={hover.dot.private ? '' : undefined} className={cn(`pointer-events-none invisible absolute z-10 flex flex-col gap-0.5 ${TIP}`, small ? 'max-w-[13rem]' : 'max-w-xs')}>
           <span className="private-text truncate font-medium">{hover.dot.title || 'Untitled'}</span>
           <span className="flex items-center gap-1.5 text-muted-foreground">
             <span className="size-2 rounded-full" style={{ background: hover.dot.id === centre || hover.dot.id === you ? 'var(--tt-brand-color-400)' : tintOf(hover.dot) }} />
