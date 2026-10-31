@@ -147,7 +147,7 @@ const pasteInto = (field: HTMLElement): void =>
  * Given an element, the lines act on it (a note's editor) whatever was clicked.
  * `items` may be read as the menu opens, from the field right-clicked.
  */
-export function RowMenu({ items, writes, list = false, children }: { items: RowItem[] | ((field: HTMLElement | null) => RowItem[]); writes?: boolean | HTMLElement; /** The list's own menu (its empty space, its heading): lines about the whole list belong here. */ list?: boolean; children: ReactElement }): React.JSX.Element {
+export function RowMenu({ items, writes, list = false, onOpenChange, children }: { items: RowItem[] | ((field: HTMLElement | null) => RowItem[]); writes?: boolean | HTMLElement; /** The list's own menu (its empty space, its heading): lines about the whole list belong here. */ list?: boolean; /** Told as it opens and shuts (a toast stays up while its menu is open). */ onOpenChange?: (open: boolean) => void; children: ReactElement }): React.JSX.Element {
   const [writing, setWriting] = useState<Writing | null>(null)
   // Read again each time it opens: whether a line can run (a note on show to picture) is a question of that moment.
   const [, setOpened] = useState(0)
@@ -169,7 +169,7 @@ export function RowMenu({ items, writes, list = false, children }: { items: RowI
   // Nothing to offer: the row's own right click, not an empty menu.
   if (!writes && !shown.some((item) => item !== 'separator')) return children
   return (
-    <ContextMenu onOpenChange={(open) => open && ((after.current = 'back'), setOpened((count) => count + 1))}>
+    <ContextMenu onOpenChange={(open) => (onOpenChange?.(open), open && ((after.current = 'back'), setOpened((count) => count + 1)))}>
       <ContextMenuTrigger asChild data-row-menu onContextMenuCapture={writes ? (event) => {
         const field = writes instanceof HTMLElement ? writes : fieldOf(event.target)
         setWriting(field ? writingAt(field) : null)

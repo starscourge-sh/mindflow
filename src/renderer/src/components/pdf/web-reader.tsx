@@ -215,7 +215,7 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
     getSelection()?.removeAllRanges()
     setPicked(null)
     chime('saved')
-    said(gem ? 'Kept as a gem' : 'Highlighted')
+    said(gem ? 'Kept as a gem' : 'Highlighted', true, gemId ? { type: 'nugget', id: gemId, title: picked.quote } : undefined)
   }
   const copyCited = async (quote: string): Promise<void> => {
     await navigator.clipboard.writeText(cited(quote.replace(/\s+/g, ' ').trim(), [byline(), whereFrom()].filter(Boolean).join(', ')))
@@ -253,7 +253,7 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
     const count = cardsHere + 1
     setCardsHere(count)
     chime('saved')
-    said(count > 15 ? `Card made: ${count} from this source. Most people keep 10 to 15 from an hour; the best ones are enough` : `Card made: ${count} from this source`)
+    said(count > 15 ? `Card made: ${count} from this source. Most people keep 10 to 15 from an hour; the best ones are enough` : `Card made: ${count} from this source`, true, { type: "nugget", id, title: prompt })
   }
   // C: the question asked where the words were; Return makes the card.
   const [carding, setCarding] = useState<{ quote: string; x: number; y: number; bottom?: number } | null>(null)
@@ -307,7 +307,7 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
     const frame = scroller.current?.getBoundingClientRect()
     if (band && frame && scroller.current) setWhyFor({ id: gemId, x: band.left + band.width / 2 - frame.left, y: band.top - frame.top + scroller.current.scrollTop, bottom: band.bottom - frame.top + scroller.current.scrollTop })
     chime('saved')
-    said('Kept as a gem')
+    said('Kept as a gem', true, { type: 'nugget', id: gemId, title: one.quote })
   }
   // Every highlight in the article, in reading order: a click brings it into view, lit.
   const [showMarks, setShowMarks] = useState(false)

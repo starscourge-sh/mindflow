@@ -54,7 +54,9 @@ import { GHOST } from './ghost'
 import { Avatar, PersonMenu } from './avatar'
 import { pasteAvatar, pickAvatar, setAvatar } from '@/lib/people'
 import { near } from '../../../../main/near'
-import { canSplit, openAside, useHere, usePane } from '@/lib/split'
+import { asideItem, canSplit, openAside, useHere, usePane } from '@/lib/split'
+import { RowMenu, copyLinkItem, type RowItem } from './row-menu'
+import { openApart } from '@/lib/apart'
 import { hoverNote } from './note-preview'
 import { quoted } from '../../../../main/clip'
 import { ArrowDown, ArrowUp } from '@/components/ui/icons'
@@ -903,13 +905,35 @@ export function Strip({ className, children }: { className?: string; children: R
 type ToastAction = { label: string; key: string; run: () => void }
 /** What a toast means, so its colour and mark say it too: done, only news, careful, or not done. */
 type ToastTone = 'success' | 'info' | 'warning' | 'error'
+/** What a toast tells of (a card made, a gem kept, the Bin), so its words open it. `title` lets its menu copy a link. */
+export type Made = { type: string; id: string; title?: string }
 /**
  * Say what an action did, briefly, with a way back. The answer to "did that
  * work?" and the plan's undo-everywhere in one: three seconds, then gone.
+ * Given what it made, a click on the words opens that, as a row's click does.
  */
-export const toast = (text: string, undo?: () => void, tone: ToastTone = 'success', action?: ToastAction): void => {
+export const toast = (text: string, undo?: () => void, tone: ToastTone = 'success', action?: ToastAction, made?: Made): void => {
   beam(tone)
-  window.dispatchEvent(new CustomEvent('haligtree:toast', { detail: { text, undo, tone, action } }))
+  window.dispatchEvent(new CustomEvent('haligtree:toast', { detail: { text, undo, tone, action, made } }))
+}
+
+/** Open what a toast made: in the main window's page, or to the side (⌥-click), as rows open. */
+const openMade = (made: Made, aside = false): void => {
+  if (aside && canSplit()) return openAside(made.type, made.id)
+  window.api.openInHome(made.type, made.id)
+}
+/** A toast's right click: the lines every row's menu has for opening it, from the same helpers. */
+const madeMenu = (made: Made, done: () => void): RowItem[] => {
+  const page = made.type === 'view'
+  const aside = asideItem(made.type, made.id)
+  const link = !page && made.title ? copyLinkItem(made.type === 'capture' ? made.id : `${made.type}:${made.id}`, made.title) : null
+  // Chosen, a line has done what the toast was for: it goes.
+  return [
+    { label: 'Open', run: () => (done(), openMade(made)) },
+    aside && { ...aside, run: () => (done(), aside.run()) },
+    !page && { label: 'Open in a new window', run: () => (done(), openApart(made.type, made.id)) },
+    link && link !== 'separator' && { ...link, run: () => (done(), link.run()) }
+  ]
 }
 
 /**
@@ -922,9 +946,9 @@ export const quietly = (undo?: () => void): void => {
 
 // What the editor says it did (a copy, from its own menus), said the app's way.
 addEventListener('haligtree:said', (event) => {
-  const { text, ok } = (event as CustomEvent<{ text: string; ok: boolean }>).detail
+  const { text, ok, made } = (event as CustomEvent<{ text: string; ok: boolean; made?: Made }>).detail
   chime(ok ? 'copy' : 'nope')
-  toast(text, undefined, ok ? 'success' : 'error')
+  toast(text, undefined, ok ? 'success' : 'error', undefined, made)
 })
 
 /** The toast up now goes: what it offered to take back was taken back another way. */
@@ -1209,7 +1233,7 @@ function useClearSpot(on: boolean, lane: React.RefObject<HTMLDivElement | null>)
 }
 
 export function Toaster(): React.JSX.Element | null {
-  const [shown, setShown] = useState<{ text: string; undo?: () => void; tone?: ToastTone; action?: ToastAction; key: number } | null>(null)
+  const [shown, setShown] = useState<{ text: string; undo?: () => void; tone?: ToastTone; action?: ToastAction; made?: Made; key: number } | null>(null)
   const shownNow = useRef(shown)
   shownNow.current = shown
   const [wait, setWait] = useState<{ label: string; state: OrbState } | null>(null)
@@ -1306,8 +1330,9 @@ export function Toaster(): React.JSX.Element | null {
       // A problem stays as long, so what to do about it can be read.
       at.left = detail.undo || detail.action || detail.tone === 'error' || detail.tone === 'warning' ? 6000 : 3200
       at.since = Date.now()
-      // A new toast is not under the pointer yet, whatever the old one was.
+      // A new toast is not under the pointer yet, whatever the old one was, nor its menu open.
       at.held.delete('pointer')
+      at.held.delete('menu')
       if (document.hidden) at.held.add('hidden')
       if (!at.held.size) at.timer = setTimeout(() => (at.timer = undefined, at.left = 0, setShown(null)), at.left)
     }
@@ -1455,7 +1480,23 @@ export function Toaster(): React.JSX.Element | null {
       {/* With a button beside it, the words keep room to be read: in a narrow place (the box's foot) the
           buttons go under them rather than squeezing them to a word a line, and a long one ends in an
           ellipsis on its third line, so what it says (where things went) is never cut to "Made ...". */}
-      <span className={`${shown.text.length > 40 ? 'min-w-[min(13rem,100%)] flex-1' : 'min-w-0'} ${shown.undo || (shown.action && shown.tone !== 'error') ? 'line-clamp-3 text-pretty wrap-break-word' : 'text-pretty wrap-break-word'}`} title={shown.undo || shown.action ? shown.text : undefined}>{shown.text}</span>
+      {shown.made ? (() => {
+        const made = shown.made
+        // What it made, one click away: the words open it (⌥ to the side), a right click offers the row's ways in.
+        return (
+          <RowMenu items={madeMenu(made, () => setShown(null))} onOpenChange={(open) => (open ? hold('menu') : release('menu'))}>
+            <span
+              role="link"
+              tabIndex={0}
+              data-toast-made={`${made.type}:${made.id}`}
+              className={`${shown.text.length > 40 ? 'min-w-[min(13rem,100%)] flex-1' : 'min-w-0'} ${shown.undo || (shown.action && shown.tone !== 'error') ? 'line-clamp-3' : ''} cursor-pointer text-pretty wrap-break-word decoration-muted-foreground/50 underline-offset-2 hover:underline`}
+              title={shown.undo || shown.action ? shown.text : undefined}
+              onClick={(event) => (setShown(null), openMade(made, event.altKey))}
+              onKeyDown={(event) => event.key === 'Enter' && (event.preventDefault(), setShown(null), openMade(made, event.altKey))}
+            >{shown.text}</span>
+          </RowMenu>
+        )
+      })() : <span className={`${shown.text.length > 40 ? 'min-w-[min(13rem,100%)] flex-1' : 'min-w-0'} ${shown.undo || (shown.action && shown.tone !== 'error') ? 'line-clamp-3 text-pretty wrap-break-word' : 'text-pretty wrap-break-word'}`} title={shown.undo || shown.action ? shown.text : undefined}>{shown.text}</span>}
       {shown.action && (
         <button
           type="button"

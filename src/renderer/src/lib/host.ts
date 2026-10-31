@@ -155,6 +155,6 @@ export function host(): HaligtreeHost {
  * said out loud for whatever app holds the editor to show. Haligtree turns it into
  * a toast and a sound (components/haligtree/ui.tsx); anywhere else it is quiet.
  */
-export function said(text: string, ok = true): void {
-  window.dispatchEvent(new CustomEvent("haligtree:said", { detail: { text, ok } }))
+export function said(text: string, ok = true, made?: { type: string; id: string; title?: string }): void {
+  window.dispatchEvent(new CustomEvent("haligtree:said", { detail: { text, ok, made } }))
 }

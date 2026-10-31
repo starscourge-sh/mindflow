@@ -272,7 +272,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
     getSelection()?.removeAllRanges()
     setPicked(null)
     chime("saved")
-    said(gem ? "Kept as a gem" : "Highlighted")
+    said(gem ? "Kept as a gem" : "Highlighted", true, gemId ? { type: "nugget", id: gemId, title: picked.quote } : undefined)
   }
   const copyCited = async (quote: string, page: number): Promise<void> => {
     const { author, where } = await whereFrom(page)
@@ -341,7 +341,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
     const count = cardsHere + 1
     setCardsHere(count)
     chime("saved")
-    if (!quiet) said(count > 15 ? `Card made: ${count} from this source. Most people keep 10 to 15 from an hour; the best ones are enough` : `Card made: ${count} from this source`)
+    if (!quiet) said(count > 15 ? `Card made: ${count} from this source. Most people keep 10 to 15 from an hour; the best ones are enough` : `Card made: ${count} from this source`, true, { type: "nugget", id, title: prompt })
   }
   // Snip: a rectangle dragged over a page (a figure, a typeset equation, a
   // table) cut out as a picture, then made a card's answer or kept as a gem.
@@ -387,7 +387,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
     await call("item:save", gem, { title: `Snip from ${where}` })
     setSnipped(null)
     chime("saved")
-    said("Snip kept as a gem")
+    said("Kept as a gem", true, { type: "nugget", id: gem, title: `Snip from ${where}` })
   }
   // Esc leaves snipping, and drops a snip not yet used.
   useEffect(() => {
@@ -465,7 +465,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
     const frame = scroller.current?.getBoundingClientRect()
     if (band && frame && scroller.current) setWhyFor({ id: gemId, x: band.left + band.width / 2 - frame.left, y: band.top - frame.top + scroller.current.scrollTop, bottom: band.bottom - frame.top + scroller.current.scrollTop })
     chime("saved")
-    said("Kept as a gem")
+    said("Kept as a gem", true, { type: "nugget", id: gemId, title: one.quote })
   }
 
   const remove = async (mark: PdfMark): Promise<void> => {
