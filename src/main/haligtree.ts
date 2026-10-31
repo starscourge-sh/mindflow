@@ -6,6 +6,7 @@ import type { DatabaseSync } from 'node:sqlite'
 import { existsSync, readFileSync } from 'fs'
 import { basename, join } from 'path'
 import { homedir } from 'os'
+import { reviewsADay } from './review-cost'
 import { createEmptyCard, default_w, forgetting_curve, fsrs, generatorParameters, type Card, type Grade } from 'ts-fsrs'
 
 import { rollOver } from './held'
@@ -3925,6 +3926,21 @@ export function registerHaligtree(): void {
       if (one.made) db.prepare('delete from captures where id = ?').run(one.made)
     } })
     return write(true)
+  })
+  // What a review setting costs, while it is being moved: the next 30 days of
+  // your own cards run through the scheduler (review-cost.ts) at this
+  // retention and this many new cards a day, in reviews and minutes a day, and
+  // the reviews at 90% beside it so a change can say "2.1x the reviews of 90%".
+  handle('review:cost', (newPerDay: number, retention: number) => {
+    const rows = db.prepare(`select state from nuggets where coalesce(prompt, '') != '' and suspended = 0 and archived_at is null and superseded_by is null and binned_at is null`).all() as { state: string | null }[]
+    // A card never reviewed (no state, or one still New) waits for a new-card slot; the rest are scheduled already.
+    const cards = rows.map((row) => cardOf(row.state)).filter((card) => card.state !== 0)
+    const deck = { cards, unseen: rows.length - cards.length, weights: weights(), now: Date.now() }
+    const rate = Math.min(0.99, Math.max(0.7, Number(retention) || 0.9))
+    const reviews = reviewsADay(deck, rate, Number(newPerDay) || 0)
+    const usual = rate === 0.9 ? reviews : reviewsADay(deck, 0.9, Number(newPerDay) || 0)
+    const ms = (db.prepare('select avg(min(ms, 60000)) as ms from (select ms from review_log where ms is not null order by reviewed_at desc limit 200)').get() as { ms: number | null }).ms
+    return { reviews: Math.round(reviews), minutes: minutesFor(Math.round(reviews), ms), usual: Math.round(usual) }
   })
   // How many reviews fall on each of the days ahead, today with what is
   // late, so a week of tasks can be planned around the reviewing.

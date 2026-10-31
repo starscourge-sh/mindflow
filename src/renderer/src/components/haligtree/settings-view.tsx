@@ -34,6 +34,7 @@ import { setPageWidth, widthOf, type PageWidth } from '@/lib/reading'
 import { SoundPacks } from './sound-packs'
 import { FontPicker } from './font-picker'
 import { TEXT_SIZES } from '@/lib/editor-setup'
+import { SCRUB, ScrubField } from '../pdf/scrub-field'
 import { BackToTop, Kbd, Rolling, Tip, ask, quietly, refuse, toast, useSmooth } from './ui'
 import { working } from './beam'
 import { Term } from './term'
@@ -218,6 +219,29 @@ function GroupIsland({ title, section, query, bare, children }: { title: string;
 }
 
 const field = 'h-8 tabular-nums'
+
+/**
+ * What a review setting costs, said while it moves: the next 30 days of your
+ * own cards run through the scheduler (main's review:cost) at these values.
+ * The newest answer wins, so a fast drag never shows an older one last.
+ */
+export function ReviewCost({ newPerDay, retention, compare = false }: { newPerDay: number; retention: number; compare?: boolean }): React.JSX.Element | null {
+  const [cost, setCost] = useState<{ reviews: number; minutes: number; usual: number } | null>(null)
+  const asked = useRef(0)
+  useEffect(() => {
+    const ask = ++asked.current
+    void haligtree.reviewCost(newPerDay, retention).then((found) => ask === asked.current && setCost(found))
+  }, [newPerDay, retention])
+  if (!cost) return null
+  const percent = Math.round(retention * 100)
+  const times = cost.usual ? cost.reviews / cost.usual : 1
+  return (
+    <p data-review-cost data-reviews={cost.reviews} data-minutes={cost.minutes} data-times={compare && percent !== 90 ? times.toFixed(1) : undefined} className="mt-2 text-body text-foreground/90 tabular-nums">
+      About <Rolling text={`${num(cost.minutes)} ${cost.minutes === 1 ? 'minute' : 'minutes'}`} /> a day, <Rolling text={`${num(cost.reviews)} ${cost.reviews === 1 ? 'review' : 'reviews'}`} />, over the next month
+      {compare && percent !== 90 && cost.usual > 0 && <>. {percent}%: about <Rolling text={`${times.toFixed(1)}×`} /> the reviews of 90%</>}
+    </p>
+  )
+}
 
 /**
  * A slider that holds its own value while it moves and saves a moment after:
@@ -1090,12 +1114,13 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
         </Group>
 
         <Group section="Review" title="Remembering">
-          <Setting title="How much to remember" note="How much you want to still know when a card comes back." more="Higher means more reviews; 90% is where most land.">
-            <SettingSlider min={0.8} max={0.97} step={0.01} rest={0.9} value={settings.retention} onSave={(retention) => set({ retention })} />
-            <span className={SLIDER_VALUE}><Rolling text={`${Math.round(settings.retention * 100)}%`} /></span>
+          <Setting title="How much to remember" note="How much you want to still know when a card comes back." more="Higher means more reviews; 90% is where most land. Drag the number, or click it and type (a sum works too: +2)." keywords="desired retention"
+            below={<ReviewCost newPerDay={settings.newPerDay} retention={settings.retention} compare />}>
+            <ScrubField label="How much to remember" min={80} max={97} value={Math.round(settings.retention * 100)} onChange={(percent) => set({ retention: percent / 100 })} className={SCRUB} />%
           </Setting>
-          <Setting title="New cards a day" note="Fewer new cards is how to make a day lighter: each new card brings about 10 reviews over the next month." more="Your own cards come before an imported deck's, so a big deck never holds back what you wrote today. Cards for a tag with an exam date are paced by the date instead." keywords="daily limits new cards a day">
-            <NumberSetting label="New cards a day" value={settings.newPerDay} onSave={(newPerDay) => set({ newPerDay })} /> new
+          <Setting title="New cards a day" note="Fewer new cards is how to make a day lighter." more="Your own cards come before an imported deck's, so a big deck never holds back what you wrote today. Cards for a tag with an exam date are paced by the date instead. Drag the number, or click it and type (a sum works too: +5, 20*2)." keywords="daily limits new cards a day"
+            below={<ReviewCost newPerDay={settings.newPerDay} retention={settings.retention} />}>
+            <ScrubField label="New cards a day" min={0} max={999} value={settings.newPerDay} onChange={(newPerDay) => set({ newPerDay })} className={SCRUB} /> new
           </Setting>
           <Setting title="Limit reviews a day" note="Off: every card due today comes today." more="A capped review waits past its day and fades, so the next one is harder. Lower new cards instead." keywords="daily limits reviews a day cap maximum"
             below={settings.reviewsPerDay > 0 && settings.reviewsPerDay < settings.newPerDay * 10 ? (

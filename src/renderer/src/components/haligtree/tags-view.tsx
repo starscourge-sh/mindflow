@@ -1,4 +1,5 @@
 import { chime, step } from '@/lib/sound'
+import { SCRUB, ScrubField } from '../pdf/scrub-field'
 import { TagColourPick } from './tag-colour-pick'
 import { ReadsIn } from '@/lib/reads-in'
 import { useMemo, useState } from 'react'
@@ -286,9 +287,14 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
             {/* Its own new cards a day, under the book's: a big deck under one tag never crowds out the rest. */}
             <span data-tag-new className="flex flex-wrap items-center gap-1.5 text-xs">
               <span className="whitespace-nowrap font-medium text-foreground">New cards a day:</span>
-              <Chips options={[{ id: '', label: 'As in Settings' }, ...[...new Set(['5', '10', '20', ...(study.newPerDay[chosen] ? [String(study.newPerDay[chosen])] : [])])].sort((a, b) => Number(a) - Number(b)).map((n) => ({ id: n, label: n })), { id: '0', label: 'None' }]}
-                on={(id) => id === String(study.newPerDay[chosen] ?? '')}
-                pick={(id) => { const was = study.newPerDay[chosen] ?? null; void haligtree.setTag(chosen, { newPerDay: id === '' ? null : Number(id) }).then(() => (chime('settled'), quietly(() => void haligtree.setTag(chosen, { newPerDay: was })))) }} />
+              {/* As in Settings, or its own number: dragged sideways, typed, or a sum (+5, 20*2). */}
+              <Chips options={[{ id: '', label: 'As in Settings' }, { id: 'own', label: 'Its own' }]}
+                on={(id) => (id === 'own') === (study.newPerDay[chosen] !== undefined)}
+                pick={(id) => { const was = study.newPerDay[chosen] ?? null; void haligtree.setTag(chosen, { newPerDay: id === '' ? null : (was ?? 10) }).then(() => (chime('settled'), quietly(() => void haligtree.setTag(chosen, { newPerDay: was })))) }} />
+              {study.newPerDay[chosen] !== undefined && (
+                <ScrubField label={`New cards a day for #${chosen}`} min={0} max={999} value={study.newPerDay[chosen]} className={SCRUB}
+                  onChange={(n) => void haligtree.setTag(chosen, { newPerDay: n })} />
+              )}
             </span>
             {/* An alias: this tag counts as another without the words changing. */}
             <TagEntry

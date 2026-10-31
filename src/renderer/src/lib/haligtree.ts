@@ -411,6 +411,8 @@ export const haligtree = {
   setTag: (tag: string, patch: { deck?: boolean; homeHidden?: boolean; backdrop?: 'colour' | 'picture' | 'sketch' | null; color?: string | null; action?: boolean; aliasOf?: string | null; examAt?: string | null; priority?: 'maintaining' | 'paused' | null; lands?: string | null; speak?: string | null; typed?: 'exact' | 'meaning' | null; newPerDay?: number | null }) => call('tag:set', tag, patch),
   /** Each tag whose answers are read aloud, and its language. */
   tagSpeak: () => call<Record<string, string>>('tag:speak'),
+  /** What a review setting costs over the next 30 days of your own cards: reviews and minutes a day, and the reviews a day at 90%. */
+  reviewCost: (newPerDay: number, retention: number) => call<{ reviews: number; minutes: number; usual: number }>('review:cost', newPerDay, retention),
   tagStudy: () => call<{ typed: Record<string, 'exact' | 'meaning'>; newPerDay: Record<string, number> }>('tag:study'),
   exams: () => call<Exam[]>('exams'),
   history: (id: string) => call<{ reviews: { at: string; grade: number; ms?: number | null }[]; dueAt: string | null }>('review:history', id),
