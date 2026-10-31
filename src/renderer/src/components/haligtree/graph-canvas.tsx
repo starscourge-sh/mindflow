@@ -255,11 +255,13 @@ export function GraphCanvas({ map, onOpen, centre, you, about, fit: fitRef, fly,
     // --- colours, read again whenever the theme changes
     type Shades = { base: string; light: string; rim: string; ring: string }
     let shades = new Map<string, Shades>()
-    let edge = '', lit = '', arrow = '', ring = '', text = '', quiet = '', font = '', style: Style = 'soft', brutal = false, dark = false
+    let edge = '', lit = '', glow = '', arrow = '', ring = '', text = '', quiet = '', font = '', style: Style = 'soft', brutal = false, dark = false
     const colours = (): void => {
       shades = new Map()
       edge = resolve('color-mix(in oklab, var(--foreground) 13%, transparent)')
       lit = resolve('color-mix(in oklab, var(--foreground) 68%, transparent)')
+      // A pointed-at dot's lines, in the accent, as Obsidian's graph lights them.
+      glow = resolve('color-mix(in oklab, var(--primary) 85%, transparent)')
       arrow = resolve('color-mix(in oklab, var(--foreground) 32%, transparent)')
       ring = resolve('var(--background)')
       text = resolve('var(--foreground)')
@@ -613,7 +615,7 @@ export function GraphCanvas({ map, onOpen, centre, you, about, fit: fitRef, fly,
         }
       }
       if (shown) {
-        context.strokeStyle = lit
+        context.strokeStyle = glow
         context.globalAlpha = amount * (growing ? seen(shown, now) : 1)
         for (const line of lines) {
           if (line.source !== shown && line.target !== shown) continue
@@ -639,7 +641,7 @@ export function GraphCanvas({ map, onOpen, centre, you, about, fit: fitRef, fly,
           const hot = !!shown && (line.source === shown || line.target === shown)
           context.globalAlpha = hot ? amount * (growing ? seen(shown!, now) : 1) : faded * Math.min(alpha(line.source), alpha(line.target))
           if (!context.globalAlpha) continue
-          context.fillStyle = hot ? lit : arrow
+          context.fillStyle = hot ? glow : arrow
           context.beginPath()
           if (line.way & 1) arrowAt(line, true, size)
           if (line.way & 2) arrowAt(line, false, size)
