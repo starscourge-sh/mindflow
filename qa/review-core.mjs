@@ -93,12 +93,17 @@ try {
   }
   // New cards come shuffled, so the two are taken in whichever order they come.
   const typedCards = [['Spanish for bat?', 'murcielago', /Right apart from the accent: murciélago/], ['Where in a cell is ATP made?', 'mitochondira', /Close: you wrote mitochondira, it is mitochondria\./]]
+  // The card just graded slides out while the next slides in, both with a heading: each is
+  // taken once, and only when the one before has left the page.
+  const done = new Set()
+  const headings = () => h.evaluate(() => [...document.querySelectorAll('h2')].map((one) => one.textContent ?? ''))
   for (let round = 0; round < 2; round++) {
-    await waitFor(async () => { const now = await asked(); return typedCards.some(([prompt]) => now.includes(prompt)) })
+    await waitFor(async () => { const all = await headings(); return all.length === 1 && typedCards.some(([prompt]) => !done.has(prompt) && all[0].includes(prompt)) })
     const now = await asked()
-    const found = typedCards.find(([prompt]) => now.includes(prompt))
+    const found = typedCards.find(([prompt]) => !done.has(prompt) && now.includes(prompt))
     if (!found) { check(`reached a typed card (round ${round + 1})`, false, now); break }
-    const [, typed, said] = found
+    const [prompt, typed, said] = found
+    done.add(prompt)
     await typeIn(typed)
     const line = await h.evaluate(() => document.querySelector('[data-typed]')?.innerText ?? '')
     check(`typed “${typed}” is told what is off`, said.test(line), line.replace(/\s+/g, ' '))
