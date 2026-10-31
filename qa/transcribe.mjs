@@ -64,6 +64,7 @@ const standIn = () => electron.evaluate(({ ipcMain }, segments) => {
   ipcMain.removeHandler('haligtree:transcribe')
   ipcMain.handle('haligtree:transcribe', () => new Promise((resolve) => setTimeout(() => resolve({ segments, text: segments.map((one) => one.text).join(' '), onDevice: true }), 1500)))
 }, FAKE)
+const undoButton = () => h.locator('button', { hasText: /^Undo/ }).last()
 const toastSays = () => h.evaluate(() => [...document.querySelectorAll('[data-sonner-toast], [role=status]')].map((one) => one.textContent).join(' | '))
 
 try {
@@ -98,6 +99,20 @@ try {
   check('the note\'s own words stay where they were', textOf(blocks[0]) === 'Before' && after.includes('After'), JSON.stringify(after))
   check('the lines are quiet transcript lines', (await h.$$(`${EDITOR} .mf-transcript-line`)).length === 2, '')
   check('Listening… is gone once the words are in', !(await h.$('.tiptap-attachment-listening')), '')
+
+  // Transcribe again: the recording's own words are replaced in place, never added twice; Undo puts the old ones back.
+  await h.evaluate((sel) => { const ed = document.querySelector(sel).editor; let at = -1; ed.state.doc.descendants((n, p) => void (n.type.name === 'attachment' && (at = p))); const next = at + ed.state.doc.nodeAt(at).nodeSize; ed.view.dispatch(ed.state.tr.insertText(' (edited)', next + ed.state.doc.nodeAt(next).nodeSize - 1)) }, EDITOR)
+  await h.click(`${EDITOR} .tiptap-attachment.is-audio .tiptap-attachment-name`); await wait(300)
+  await h.click('.tiptap-media-toolbar [data-transcribe]')
+  await h.waitForFunction((sel) => !/\(edited\)/.test(document.querySelector(sel).textContent), EDITOR, { timeout: 120000 }).catch(() => {})
+  await wait(500)
+  const again = (await doc()).content.map(textOf)
+  check('Transcribe again replaces its words in place, once', again.filter((one) => /^\[0:00\]/.test(one)).length === 1 && again.filter((one) => /^\[0:0\d\]/.test(one)).length === 2 && !again.some((one) => /edited/.test(one)) && again.at(-1) === 'After', JSON.stringify(again))
+  const said = await toastSays()
+  check('…saying so, with Undo', /in place of the recording's old ones/.test(said) && (await undoButton().count()) > 0, said)
+  await undoButton().click().catch(() => {}); await wait(500)
+  const undone = (await doc()).content.map(textOf)
+  check('…and Undo puts the old words back', undone.some((one) => /\(edited\)$/.test(one)) && undone.filter((one) => /^\[0:0\d\]/.test(one)).length === 2, JSON.stringify(undone))
 
   // A time plays the recording from there.
   const second = (await h.$$(`${EDITOR} .mf-time-link[data-audio]`))[1]

@@ -65,7 +65,25 @@ const placeOf = (editor: Editor, src: string): { pos: number; node: ProseMirrorN
   return found
 }
 
-/** Turn the recording into words, written under it. */
+/** A line led by a time, "[0:03] ...": a transcript's line. */
+const TIMED = /^\[(?:\d{1,2}:)?\d{1,2}:[0-5]\d\]/
+
+/** The recording's own transcript: the run of timed lines straight after it (empty where it has none). */
+const wordsAfter = (editor: Editor, src: string): { from: number; to: number; lines: ProseMirrorNode[] } | null => {
+  const place = placeOf(editor, src)
+  if (!place) return null
+  const { doc } = editor.state
+  const from = place.pos + place.node.nodeSize
+  const lines: ProseMirrorNode[] = []
+  let to = from
+  for (let next = doc.resolve(to).nodeAfter; next?.type.name === "paragraph" && TIMED.test(next.textContent); next = doc.resolve(to).nodeAfter) {
+    lines.push(next)
+    to += next.nodeSize
+  }
+  return { from, to, lines }
+}
+
+/** Turn the recording into words, written under it; words it had already are replaced in place, with Undo. */
 export async function transcribe(editor: Editor, src: string): Promise<void> {
   if (busy.has(src) || !editor.isEditable) return
   busy.add(src)
@@ -82,14 +100,21 @@ export async function transcribe(editor: Editor, src: string): Promise<void> {
     const result = await window.api.haligtree<Transcript>("transcribe", src, wav)
     if ("error" in result) return refuse(result.error.message)
     if (editor.isDestroyed) return
-    const place = placeOf(editor, src)
-    if (!place) return
+    const had = wordsAfter(editor, src)
+    if (!had) return
     if (!result.segments.length) return refuse("No words were heard in this recording", "info")
     const { schema } = editor.state
     const lines = result.segments.map((one) => schema.nodes.paragraph.create(null, schema.text(`[${clock(one.start)}] ${one.text}`)))
-    editor.view.dispatch(editor.state.tr.insert(place.pos + place.node.nodeSize, lines).scrollIntoView())
+    editor.view.dispatch(editor.state.tr.replaceWith(had.from, had.to, lines).scrollIntoView())
     chime("saved")
-    toast(`${result.segments.length === 1 ? "A line" : `${result.segments.length} lines`} of words, under the recording. A time plays it from there`, undefined, "success")
+    const count = result.segments.length === 1 ? "A line" : `${result.segments.length} lines`
+    if (!had.lines.length) return toast(`${count} of words, under the recording. A time plays it from there`, undefined, "success")
+    // Transcribed again: the words it had are put back by Undo, wherever the note has moved since.
+    const undo = (): void => {
+      const now = wordsAfter(editor, src)
+      if (now && !editor.isDestroyed) editor.view.dispatch(editor.state.tr.replaceWith(now.from, now.to, had.lines))
+    }
+    toast(`${count} of words, in place of the recording's old ones`, undo, "success")
   } catch {
     refuse("The words could not be made out. Try again")
   } finally {
@@ -100,9 +125,7 @@ export async function transcribe(editor: Editor, src: string): Promise<void> {
 
 /** The recording has its words under it already: the line after it starts with a time. */
 export const hasWords = (editor: Editor, src: string): boolean => {
-  const place = placeOf(editor, src)
-  const next = place && editor.state.doc.resolve(place.pos + place.node.nodeSize).nodeAfter
-  return !!next && /^\[(?:\d{1,2}:)?\d{1,2}:[0-5]\d\]/.test(next.textContent)
+  return !!wordsAfter(editor, src)?.lines.length
 }
 
 /** Recordings on show with no words yet: what ⌘K's "Transcribe the voice notes" turns into words. */
