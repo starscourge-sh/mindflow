@@ -49,6 +49,11 @@ try {
   await v('settings:set', { pictureSize: 'small' }); await wait(600)
   const small = await ratios()
   check('small: the picture is about 35% wide', small[0] >= 32 && small[0] <= 38, JSON.stringify(small))
+  // Clicked, a picture following the setting shows which size that is in its menu.
+  // Picked as a click picks it: the whole picture.
+  await h.evaluate(() => document.querySelector('[data-open] .tiptap').editor.chain().focus().setNodeSelection(0).run()); await wait(600)
+  const lit = await h.evaluate(() => [...document.querySelectorAll('[aria-label$=" width"][data-active-state="on"]')].map((one) => `${one.getAttribute('aria-label')}${one.hasAttribute('data-following') ? ' following' : ''}`))
+  check('its menu lights “S”, the size it follows from Settings', lit.join() === 'S width following', `${lit.join()} ${await h.evaluate(() => document.documentElement.dataset.pictureSize)}`)
   await h.screenshot({ path: `${shots}/picture-size-small.png` })
 
   await c.go('settings'); await h.click('[data-section="Appearance"]'); await wait(700)

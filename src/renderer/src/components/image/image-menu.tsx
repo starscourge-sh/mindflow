@@ -52,6 +52,8 @@ export function ImageMenu({ editor }: { editor: Editor | null }): React.JSX.Elem
       caption: Boolean(instance?.getAttributes("image").caption),
       src: String(instance?.getAttributes("image").src ?? ""),
       alt: String(instance?.getAttributes("image").alt ?? ""),
+      // Read with the rest, so a change in Settings shows the next time a picture is picked.
+      pictureSize: document.documentElement.dataset.pictureSize ?? "full",
     }),
   })
 
@@ -59,6 +61,8 @@ export function ImageMenu({ editor }: { editor: Editor | null }): React.JSX.Elem
 
   const set = (next: Record<string, string>): boolean =>
     editor.chain().focus().updateAttributes("image", next).run()
+  // A picture given no size of its own follows Settings' “Pictures in notes”: the size it shows at is lit, and says so.
+  const following = attrs.width ? null : ({ full: "100%", medium: "60%", small: "35%" } as Record<string, string>)[attrs.pictureSize] ?? "100%"
 
   return (
     <BubbleMenu
@@ -90,8 +94,10 @@ export function ImageMenu({ editor }: { editor: Editor | null }): React.JSX.Elem
               <Button
                 key={label}
                 data-style="ghost"
-                data-active-state={attrs.width === width ? "on" : "off"}
+                data-active-state={attrs.width === width || following === width ? "on" : "off"}
+                data-following={following === width ? "" : undefined}
                 aria-label={`${label} width`}
+                tooltip={following === width ? `${label}, from Settings: “Pictures in notes”` : undefined}
                 onClick={() => set({ width })}
               >
                 <span className="tiptap-button-text">{label}</span>
