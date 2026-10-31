@@ -7,6 +7,7 @@
 //   listen --status   says the answer without asking
 // Each line is one of:
 //   {"ready":{"onDevice":true}}              the microphone is on
+//   {"level":0.12}                            how loud the voice is now (RMS, 0 to 1), about 20 times a second
 //   {"partial":{"text":"..."}}               the words so far, which may still change
 //   {"final":{"text":"..."}}                 the words, settled, last
 //   {"error":{"code":"...","message":"..."}} why there are no words, plainly
@@ -14,7 +15,12 @@ import AVFoundation
 import Foundation
 import Speech
 
+// One line at a time, whichever thread speaks (the microphone's tap says the level).
+let sayQueue = DispatchQueue(label: "listen.say")
 func say(_ object: [String: Any]) {
+  sayQueue.sync { sayNow(object) }
+}
+func sayNow(_ object: [String: Any]) {
   if let data = try? JSONSerialization.data(withJSONObject: object), let line = String(data: data, encoding: .utf8) {
     print(line)
     fflush(stdout)
@@ -77,7 +83,17 @@ let engine = AVAudioEngine()
 let input = engine.inputNode
 let format = input.outputFormat(forBus: 0)
 guard format.sampleRate > 0 else { fail("mic", "No microphone could be used. Check one is connected and allowed") }
-input.installTap(onBus: 0, bufferSize: 1024, format: format) { buffer, _ in request.append(buffer) }
+// The level, for the pill's waveform: the RMS of what came in, said about 20 times a second.
+nonisolated(unsafe) var lastLevel = Date.distantPast
+input.installTap(onBus: 0, bufferSize: 1024, format: format) { buffer, _ in
+  request.append(buffer)
+  guard Date().timeIntervalSince(lastLevel) >= 0.05, let samples = buffer.floatChannelData?[0], buffer.frameLength > 0 else { return }
+  lastLevel = Date()
+  var sum: Float = 0
+  for i in 0..<Int(buffer.frameLength) { sum += samples[i] * samples[i] }
+  let rms = (sum / Float(buffer.frameLength)).squareRoot()
+  say(["level": (Double(min(1, rms)) * 1000).rounded() / 1000])
+}
 engine.prepare()
 do { try engine.start() } catch { fail("mic", "No microphone could be used. Check one is connected and allowed") }
 

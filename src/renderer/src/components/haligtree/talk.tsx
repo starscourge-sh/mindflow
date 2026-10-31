@@ -1,4 +1,6 @@
 import { useEffect, useState, useSyncExternalStore } from 'react'
+import { Check, X } from 'lucide-react'
+import { useCentreOn } from '@/lib/centre-on'
 import { createPortal } from 'react-dom'
 import type { Editor } from '@tiptap/core'
 import { Plugin, PluginKey, TextSelection } from '@tiptap/pm/state'
@@ -19,7 +21,7 @@ import { spoken } from '@/lib/spoken'
  * by the caret and the beam turns round the window while it listens.
  */
 type Field = { kind: 'editor'; editor: Editor; at: number } | { kind: 'input'; input: HTMLInputElement | HTMLTextAreaElement; at: number; length: number }
-type Session = { field: Field; how: 'hold' | 'tap'; heard: string; stopping: boolean; endBeam: () => void; off: () => void }
+type Session = { field: Field; how: 'hold' | 'tap'; heard: string; stopping: boolean; endBeam: () => void; off: () => void; /** How loud the voice was, newest last, as the helper says it (an older helper says nothing: the pill rests flat). */ levels: number[] }
 
 let session: Session | null = null
 const listeners = new Set<() => void>()
@@ -156,7 +158,11 @@ async function beginTalk(how: 'hold' | 'tap', editor?: Editor): Promise<void> {
   const off = window.api.onDictation((line) => {
     const now = session
     if (!now) return
-    if (line.error) {
+    if (typeof line.level === 'number') {
+      now.levels.push(line.level)
+      if (now.levels.length > BARS) now.levels.shift()
+      tell()
+    } else if (line.error) {
       refuse(String((line.error as { message: string }).message))
       end('cancelled')
     } else if (line.partial || line.final) {
@@ -168,7 +174,7 @@ async function beginTalk(how: 'hold' | 'tap', editor?: Editor): Promise<void> {
   })
   if (field.kind === 'editor') field.editor.registerPlugin(faint(field.at, ''))
   else field.input.dataset.talking = ''
-  session = { field, how, heard: '', stopping: false, endBeam: startWorking(), off }
+  session = { field, how, heard: '', stopping: false, endBeam: startWorking(), off, levels: [] }
   chime('listen')
   tell()
 }
@@ -207,7 +213,7 @@ function caretBox(): { left: number; top: number } | null {
 /** The talk keys, read from Settings, and the Orb by the caret. One in every window (main.tsx). */
 export function Talk(): React.JSX.Element | null {
   const settings = useLive(haligtree.settings, null as Settings | null)
-  useSyncExternalStore(subscribe, () => session?.heard ?? (session ? '' : null))
+  useSyncExternalStore(subscribe, () => (session ? `${session.heard}|${session.levels.length}|${session.levels.at(-1) ?? ''}` : null))
   const [, redraw] = useState(0)
   // Ways out of listening, however it began (the talk key or the slash menu's
   // “Dictate”, which works with the talk keys off): Esc drops the words, Enter
@@ -225,7 +231,8 @@ export function Talk(): React.JSX.Element | null {
         talkStop()
       }
     }
-    const click = (): void => void (session?.how === 'tap' && talkStop())
+    // A click anywhere keeps the words, except on the pill, whose own × and ✓ say which.
+    const click = (event: MouseEvent): void => void (session?.how === 'tap' && !(event.target as Element | null)?.closest?.('[data-talk-pill]') && talkStop())
     window.addEventListener('keydown', down, true)
     window.addEventListener('mousedown', click, true)
     return () => {
@@ -283,9 +290,50 @@ export function Talk(): React.JSX.Element | null {
   const box = caretBox()
   if (!box) return null
   return createPortal(
-    <div data-talk="orb" className="pointer-events-none fixed z-[70]" style={{ left: box.left, top: box.top }}>
-      <Orb state="listening" />
-    </div>,
+    <>
+      <div data-talk="orb" className="pointer-events-none fixed z-[70]" style={{ left: box.left, top: box.top }}>
+        <Orb state="listening" />
+      </div>
+      <TalkPill />
+    </>,
     document.body
+  )
+}
+
+/** How many bars the pill's waveform shows, the newest at the right. */
+const BARS = 28
+
+/**
+ * While words are heard: a small pill under the field, centred on it, in the
+ * round controls' surface (mf-voice-pill): × drops the words, the voice's
+ * level as bars, ✓ keeps them. The bars come from the helper's own levels;
+ * an older helper sends none, and they rest flat.
+ */
+function TalkPill(): React.JSX.Element | null {
+  const field = session?.field
+  const over = field ? (field.kind === 'editor' ? (field.editor.isDestroyed ? null : (field.editor.view.dom as HTMLElement)) : field.input) : null
+  const middle = useCentreOn(over)
+  if (!session) return null
+  const levels = session.levels
+  const bars = Array.from({ length: BARS }, (_, i) => levels[levels.length - BARS + i] ?? 0)
+  return (
+    <div data-talk-pill role="group" aria-label="Talking to type" onMouseDown={(event) => event.preventDefault()}
+      className="mf-voice-pill fixed bottom-28 left-1/2 z-[1000] flex w-[220px] -translate-x-1/2 items-center gap-1.5 px-0.5 animate-in fade-in-0 duration-150"
+      style={middle === null ? undefined : { left: middle }}>
+      <button type="button" aria-label="Cancel" title="Drop the words  Esc" onClick={talkCancel}
+        className="flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-full text-muted-foreground transition-[color,background-color,scale] duration-150 hover:bg-accent hover:text-foreground active:scale-[0.97]">
+        <X className="size-3.5" />
+      </button>
+      <span data-talk-level className="flex h-5 min-w-0 flex-1 items-center justify-center gap-[3px]">
+        {bars.map((level, i) => (
+          // Louder is taller, eased so a quiet voice still shows; silence is a dot.
+          <span key={i} className="w-[2px] rounded-full bg-foreground/70 transition-[height] duration-100 ease-out" style={{ height: `${Math.max(2, Math.min(20, Math.sqrt(level) * 60))}px` }} />
+        ))}
+      </span>
+      <button type="button" aria-label="Keep the words" title="Keep the words" onClick={talkStop}
+        className="flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-full bg-primary text-primary-foreground transition-transform duration-150 active:scale-[0.97]">
+        <Check className="size-3.5" strokeWidth={3} />
+      </button>
+    </div>
   )
 }
