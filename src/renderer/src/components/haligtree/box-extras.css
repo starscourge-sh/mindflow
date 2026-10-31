@@ -87,5 +87,8 @@
    fits them (lib/fit-box.ts). In the row below, only Create (now "Stop and
    keep") shows: the rest fades out in place, so nothing moves under the
    pointer, out of reach of the pointer and of Tab alike (inert, App.tsx). */
-[data-recording] > :not([data-recorder-slot], [data-leftover-row]) { display: none; }
+/* From the frame the recorder's place is taken (its slot no longer empty), not
+   a render later when "recording" is told: for that frame the words and the
+   recorder both showed, and the box grew and came back down. */
+:is([data-recording], :has(> [data-recorder-slot]:not(:empty))) > :not([data-recorder-slot], [data-leftover-row]) { display: none; }
 [data-while-recording='dim'] { opacity: 0; pointer-events: none; transition: opacity 150ms var(--mf-ease, ease-out); }

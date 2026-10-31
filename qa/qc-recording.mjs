@@ -45,7 +45,7 @@ try {
   await reopen()
   // A leftover, so the chip's place beside the recorder is seen too.
   await page.evaluate(() => {
-    localStorage.setItem('capture-draft', JSON.stringify({ type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'what is this?' }] }] }))
+    localStorage.setItem('capture-draft', JSON.stringify({ type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'what is this thing I wrote down this morning about the Venetian patent statute and the guilds' }] }] }))
     localStorage.setItem('capture-draft-at', String(Date.now() - 3 * 3600_000))
   })
   await reopen()
@@ -54,6 +54,12 @@ try {
 
   // The side panel shut, as in the user's box: with it open the box keeps the panel's full height.
   if (await page.$('[aria-label="Hide the side panel"]')) { await page.keyboard.press('Meta+Backslash'); await wait(900) }
+  await page.evaluate(() => {
+    window.__heights = []
+    const until = performance.now() + 1800
+    const step = () => { window.__heights.push(innerHeight); if (performance.now() < until) requestAnimationFrame(step) }
+    requestAnimationFrame(step)
+  })
   await record()
   check('the recorder opens', !!(await page.$('[data-voice-recorder]')))
   await wait(1200)
@@ -106,6 +112,20 @@ try {
   }
   check('Tab skips the dimmed buttons', tabbed.every((on) => !on), JSON.stringify(tabbed))
   for (const name of ['light', 'dark']) { await look(name); await wait(400); await page.screenshot({ path: `${shots}/qc-recording-live-${name}.png` }) }
+  // The shrink glides one way: every frame as tall as the last or shorter, never a bounce.
+  const heights = await page.evaluate(() => window.__heights)
+  const bounces = heights.filter((h, i) => i && h > heights[i - 1]).length
+  check('starting to record never grows the box, and it never bounces', heights.every((h) => h <= heights[0]) && bounces === 0, `${heights[0]} -> ${Math.max(...heights)} max -> ${heights.at(-1)} over ${heights.length} frames, ${bounces} steps up`)
+  // The long leftover stays one line in the row, cut with an ellipsis, inside the window.
+  const chip = await page.evaluate(() => { const r = document.querySelector('[data-leftover]').getBoundingClientRect(); return { right: Math.round(r.right), width: innerWidth, h: Math.round(r.height), text: document.querySelector('[data-leftover]').innerText } })
+  check('a long leftover stays one line, inside the window', chip.right <= chip.width - 12 && chip.h < 30, JSON.stringify(chip))
+  // Two hours in: the time reads 2:00:0x, not "120:0x".
+  await page.evaluate(() => { const real = performance.now.bind(performance); performance.now = () => real() + 7_200_000 })
+  await wait(1200)
+  const late = await page.evaluate(() => document.querySelector('[data-voice-time]')?.textContent)
+  check('two hours in, the time reads 2:00:0x', /^2:00:0\d$/.test(late ?? ''), String(late))
+  for (const name of ['light', 'dark']) { await look(name); await wait(400); await page.screenshot({ path: `${shots}/qc-recording-2h-${name}.png` }) }
+  await look('light')
   await look('light')
 
   await page.keyboard.press('Escape'); await wait(800)

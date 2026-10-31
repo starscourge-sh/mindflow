@@ -19,7 +19,12 @@ const KINDS = [
   { type: 'audio/webm', extension: 'weba' }
 ]
 
-const clock = (seconds: number): string => `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`
+/** 0:42, 12:05, and past an hour 2:00:04, never "120:04". */
+const clock = (seconds: number): string => {
+  const whole = Math.floor(seconds)
+  const [h, m, s] = [Math.floor(whole / 3600), Math.floor((whole % 3600) / 60), whole % 60]
+  return h ? `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}` : `${m}:${String(s).padStart(2, '0')}`
+}
 
 /**
  * Record a voice note: the microphone asked for (macOS once), then a pill at
