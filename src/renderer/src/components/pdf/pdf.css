@@ -1186,3 +1186,79 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* Home's "Continue reading": a card for each book on the go, its cover and how far you are. */
+.continue-reading {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 15rem), 1fr));
+  gap: 0.5rem;
+}
+
+.continue-book {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem;
+  border-radius: 0.625rem;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 120ms ease-out;
+}
+
+.continue-book:hover {
+  background-color: var(--mf-surface);
+}
+
+.continue-book-cover {
+  flex: none;
+  width: 2.75rem;
+  aspect-ratio: 3 / 4;
+  overflow: hidden;
+  border-radius: 2px;
+  background-color: #fff;
+  box-shadow: 0 0 0 1px var(--tt-border-color), 0 2px 6px rgb(0 0 0 / 0.1);
+}
+
+.continue-book-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top;
+}
+
+.continue-book-words {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.continue-book-title {
+  overflow: hidden;
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.continue-book-where {
+  color: var(--mf-muted);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.continue-book-track {
+  display: block;
+  height: 3px;
+  overflow: hidden;
+  border-radius: 999px;
+  background-color: var(--mf-surface);
+}
+
+.continue-book-track > span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background-color: var(--tt-brand-color-500, #c08a2e);
+}

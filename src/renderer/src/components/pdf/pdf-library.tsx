@@ -116,3 +116,46 @@ function Inspector({ one, onOpen }: { one: Book; onOpen: () => void }): React.JS
     </aside>
   )
 }
+
+/**
+ * Home's "Continue reading": the books you are part way through, last read
+ * first, each its cover, title and how far you are, opening at your page.
+ * Nothing at all when there is no book on the go.
+ */
+export function ContinueReading({ heading }: { heading: (count: number) => React.ReactNode }): React.JSX.Element | null {
+  const all = useLive(readLibrary, [] as Book[])
+  const going = all
+    .filter((one) => one.readAt && one.page && one.pages && one.page < one.pages)
+    .sort((a, b) => b.readAt!.localeCompare(a.readAt!))
+    .slice(0, 4)
+  if (!going.length) return null
+  return (
+    <section className="flex flex-col gap-3 px-5 @[44rem]/page:px-8" data-continue-reading>
+      {heading(going.length)}
+      <div className="continue-reading">
+        {going.map((one) => (
+          <ReadingCard key={one.src} one={one} />
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function ReadingCard({ one }: { one: Book }): React.JSX.Element {
+  const cover = usePdfCover(one.src, one.name)
+  const read = percent(one) ?? 0
+  return (
+    <button type="button" className="continue-book" data-book={one.src} onClick={() => (chime("open"), openPdf(one.src, one.name, one.page ?? undefined))}>
+      <span className="continue-book-cover">{cover?.image ? <img src={cover.image} alt="" draggable={false} /> : <span className="pdf-book-blank" />}</span>
+      <span className="continue-book-words">
+        <span className="continue-book-title">{titleOf(one)}</span>
+        <span className="continue-book-where">
+          Page {one.page} of {one.pages} · {read}%
+        </span>
+        <span className="continue-book-track">
+          <span style={{ width: `${read}%` }} />
+        </span>
+      </span>
+    </button>
+  )
+}

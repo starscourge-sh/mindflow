@@ -637,6 +637,14 @@ try {
     await h.waitForSelector(`[data-open="${boxed}"] .tiptap-attachment.is-pdf .pdf-page[data-page="1"] .textLayer span`, { timeout: 15000 }).catch(() => {})
     check('opened, the capture shows the PDF block with its pages', /Page 1 of the probe book/.test(await h.evaluate((id) => document.querySelector(`[data-open="${id}"] .is-pdf .pdf-page[data-page="1"] .textLayer`)?.textContent ?? '', boxed)), '')
   }
+  // Home's "Continue reading": a book part way through, its cover and how far you are; a click opens it at that page.
+  await v('pdf:read', pdfSrc, 2, 3)
+  await c.go('home'); await wait(1500)
+  const going = await h.evaluate(() => [...document.querySelectorAll('[data-continue-reading] .continue-book')].map((one) => ({ title: one.querySelector('.continue-book-title')?.textContent, where: one.querySelector('.continue-book-where')?.textContent, cover: !!one.querySelector('img') })))
+  check('Home shows "Continue reading" with the book, its page and how far through', going.some((one) => one.title === 'The Probe Book' && one.where === 'Page 2 of 3 · 67%' && one.cover), JSON.stringify(going))
+  await h.screenshot({ path: `${process.env.QA_SHOTS ?? '/tmp'}/home-continue-reading.png` })
+  await h.click('[data-continue-reading] .continue-book'); await wait(1500)
+  check('a click opens the book at that page', await h.evaluate(() => document.querySelector('.pdf-reader-page-field')?.value) === '2', await h.evaluate(() => document.querySelector('.pdf-reader-page-field')?.value))
 } catch (error) {
   check('ran without throwing', false, String(error?.stack ?? error))
 } finally {
