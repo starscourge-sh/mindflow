@@ -1272,6 +1272,27 @@
   max-height: min(24rem, 60vh, var(--radix-dropdown-menu-content-available-height, 100vh));
 }
 
+// The shared menu's scroller (MenuScroll, ui/dropdown-menu.tsx) holds the
+// filter, the list and "Close menu" here. It must not scroll or fade them all
+// as one: in a short window that cut the list mid-row with "Close menu" under
+// a half-hidden heading. It passes the height on, and only the list scrolls,
+// with its own edge fades; the filter and "Close menu" stay whole.
+.tiptap-block-menu > [data-menu-scroll] {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  padding: 0;
+  mask-image: none;
+  animation: none;
+}
+// The shared light is placed against that scroller, which no longer scrolls:
+// the list's rows light themselves ([data-highlighted], below), so it stays out.
+.tiptap-block-menu > [data-menu-scroll] > [data-glide] {
+  display: none;
+}
+
 .tiptap-block-menu {
   display: flex;
   flex-direction: column;
