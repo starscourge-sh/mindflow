@@ -1,7 +1,8 @@
 // Voice notes and pictures in a note: a recording shows its whole length
-// before it plays and its bar moves at a steady rate; one toolbar at a time,
-// on its own block and clear of the next one's player; the picked outline and
-// the toolbar go as soon as the caret leaves the block or the block goes.
+// before it plays and its bar moves at a steady rate; it is named by its
+// length ("Voice note · 0:03"), never ".m4a" or a size; no toolbar shows on
+// hover or when picked: its actions are in its block menu (⋮⋮ or right-click)
+// under "Voice note"; the picked outline goes as soon as the caret leaves.
 //   QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/audio-blocks.mjs
 import { checks } from './harness.mjs'
 import { sandbox } from './sandbox-lib.mjs'
@@ -112,22 +113,54 @@ try {
   check('one without a length finds it before play, keeps it, and starts at 0:00', Math.abs(learnt.duration - kept[0].duration) < 0.3 && Math.abs(learnt.max - learnt.duration) < 0.05 && learnt.at === 0, JSON.stringify(learnt))
   await c.send('article', id); await wait(1400)
 
-  // --- 2. one toolbar, on its own block --------------------------------------------------
+  // --- 2. no toolbar: the block menu holds its actions ----------------------------------
   await caretTo('Before')
   const [a, b] = await blocks()
+  const titles = await h.evaluate((sel) => [...document.querySelectorAll(`${sel} .tiptap-attachment.is-audio`)].map((el) => el.querySelector('.tiptap-attachment-card')?.innerText.replace(/\s+/g, ' ').trim()), EDITOR)
+  check('each recording is named by its length, with no file kind or size', titles.length === 2 && titles.every((one) => /^Voice note · 0:0\d/.test(one) && !/m4a|weba|KB|MB/i.test(one)), JSON.stringify(titles))
   await h.mouse.move((b.left + b.right) / 2 - 150, (b.top + b.bottom) / 2); await wait(400)
   let now = await bars()
-  check('hovering the second: one toolbar, the second\'s, not over the first', now.length === 1 && now[0].owner === 1 && !overlaps(now[0], a) && now[0].left >= b.left - 1 && now[0].right <= b.right + 1, JSON.stringify({ now, a, b }))
+  check('hovering a recording shows no toolbar', now.length === 0, JSON.stringify(now))
   await h.screenshot({ path: `${shots}/audio-blocks-hover.png` })
-  await h.mouse.move((a.left + a.right) / 2 - 150, (a.top + a.bottom) / 2); await wait(400)
-  now = await bars()
-  check('hovering the first: one toolbar, the first\'s', now.length === 1 && now[0].owner === 0 && !overlaps(now[0], b), JSON.stringify(now))
   await pick(1)
-  await h.mouse.move((a.left + a.right) / 2 - 150, (a.top + a.bottom) / 2); await wait(400)
   now = await bars()
-  check('the second picked, the first hovered: one toolbar, the picked one\'s, clear of the first', now.length === 1 && now[0].owner === 1 && !overlaps(now[0], a), JSON.stringify(now))
-  for (const name of ['light', 'dark']) { await c.look(name); await h.screenshot({ path: `${shots}/audio-blocks-picked-${name}.png` }) }
+  check('a recording picked shows no toolbar either', now.length === 0, JSON.stringify(now))
+  await h.mouse.click((a.left + a.right) / 2 - 200, (a.top + a.bottom) / 2, { button: 'right' }); await wait(500)
+  const menu = await h.evaluate(() => {
+    const el = document.querySelector('.tiptap-block-menu')
+    if (!el) return null
+    const filter = el.querySelector('input')
+    return { heading: el.querySelector('[data-kind-heading]')?.textContent, rows: [...el.querySelectorAll('[role=menuitem] .tiptap-slash-menu-title')].map((one) => one.textContent), filterShown: !!filter && filter.getBoundingClientRect().height > 2 }
+  })
+  check('right-click: the menu heads its own actions "Voice note"', menu?.heading === 'Voice note', JSON.stringify(menu))
+  check('with Transcribe, Play from start, Save a copy, Open in default app first, then the block\'s', ['Transcribe', 'Play from start', 'Save a copy', 'Open in default app'].every((one, i) => menu?.rows[i] === one) && menu.rows.includes('Duplicate') && menu.rows.includes('Delete'), JSON.stringify(menu?.rows))
+  check('no Filter box until something is typed', menu && !menu.filterShown, JSON.stringify(menu))
+  for (const name of ['light', 'dark']) { await c.look(name); await h.screenshot({ path: `${shots}/audio-blocks-menu-${name}.png` }) }
   await c.look('light')
+  await h.keyboard.press('Escape'); await wait(300)
+  // The grip's menu: the same, with no Filter box either.
+  await h.mouse.move((a.left + a.right) / 2 - 150, (a.top + a.bottom) / 2); await wait(400)
+  const grip = h.locator('.tiptap-drag-handle-grip').first()
+  {
+    await grip.click(); await wait(500)
+    const gripMenu = await h.evaluate(() => { const el = document.querySelector('.tiptap-block-menu'); return el && { heading: el.querySelector('[data-kind-heading]')?.textContent, filterShown: el.querySelector('input').getBoundingClientRect().height > 2 } })
+    check('the grip menu: the same heading, no Filter box until typed', gripMenu?.heading === 'Voice note' && !gripMenu.filterShown, JSON.stringify(gripMenu))
+    await h.keyboard.press('Escape'); await wait(300)
+  }
+  // "Save a copy" and "Open in default app" reach main with the recording (main's handlers stood in for, so no dialog or app opens).
+  await c.electron.evaluate(({ ipcMain }) => {
+    globalThis.__asked = []
+    for (const channel of ['save-file-as', 'open-file']) {
+      ipcMain.removeHandler(channel)
+      ipcMain.handle(channel, (_event, src, name) => (globalThis.__asked.push({ channel, src, name }), true))
+    }
+  })
+  for (const row of ['data-save-copy', 'data-open-default']) {
+    await h.mouse.click((a.left + a.right) / 2 - 200, (a.top + a.bottom) / 2, { button: 'right' }); await wait(500)
+    await h.click(`.tiptap-block-menu [${row}]`); await wait(400)
+  }
+  const asked = await c.electron.evaluate(() => globalThis.__asked)
+  check('"Save a copy" and "Open in default app" from the menu reach main with the recording', asked.length === 2 && asked[0].channel === 'save-file-as' && /\.m4a|\.weba/.test(asked[0].name) && asked[1].channel === 'open-file' && asked.every((one) => one.src === kept[0].src), JSON.stringify(asked))
   await h.mouse.move(5, 5)
 
   // --- 3. the outline and toolbar follow the selection ----------------------------------
@@ -141,11 +174,11 @@ try {
   marks = await blocks()
   check('then the caret in the words: neither outlined', marks.every((one) => !one.picked) && (await bars()).length === 0, JSON.stringify(marks))
   await pick(0)
-  await h.click(`${EDITOR} .tiptap-attachment >> nth=0 >> [aria-label^="Delete"]`); await wait(500)
+  await h.keyboard.press('Backspace'); await wait(500)
   marks = await blocks()
   const left = await attachments()
   const picked = await h.evaluate((sel) => document.querySelector(sel).editor.state.selection.constructor.name, EDITOR)
-  check('Bin on the first: the other is not left looking picked unless it is', left.length === 1 && marks.length === 1 && (marks[0].picked === (picked === 'NodeSelection')) && (await bars()).length === (picked === 'NodeSelection' ? 1 : 0), JSON.stringify({ marks, picked, bars: await bars() }))
+  check('the first deleted: the other is not left looking picked unless it is', left.length === 1 && marks.length === 1 && (marks[0].picked === (picked === 'NodeSelection')) && (await bars()).length === 0, JSON.stringify({ marks, picked, bars: await bars() }))
   await caretTo('Before')
   check('and with the caret elsewhere: no outline, no toolbar', (await blocks()).every((one) => !one.picked) && (await bars()).length === 0, JSON.stringify(await blocks()))
   await h.screenshot({ path: `${shots}/audio-blocks-after-delete.png` })
@@ -170,7 +203,7 @@ try {
   check('a picture picked, the recording under it hovered: still one toolbar', now.length === 1 && now[0].kind === 'picture', JSON.stringify(now))
   await caretTo('End words'); await h.mouse.move((audio.left + audio.right) / 2 - 150, (audio.top + audio.bottom) / 2); await wait(400)
   now = await bars()
-  check('nothing picked, the recording under a picture hovered: its toolbar, over its own top', now.length === 1 && now[0].kind === 'media' && now[0].owner === 0 && now[0].bottom <= audio.top, JSON.stringify({ now, audio }))
+  check('nothing picked, the recording under a picture hovered: no toolbar', now.length === 0, JSON.stringify({ now, audio }))
   for (const name of ['light', 'dark']) { await c.look(name); await h.screenshot({ path: `${shots}/audio-blocks-pictures-${name}.png` }) }
   await c.look('light')
   await h.mouse.move(5, 5); await wait(300)
@@ -190,7 +223,7 @@ try {
     }, sel)
     await page.waitForTimeout(400)
     let now = await state()
-    check(`${label}: second picked, one toolbar, its own, clear of the first, length shown`, now.bars.length === 1 && now.bars[0].owner === 1 && now.bars[0].top >= now.blocks[0].bottom && now.total?.trim() === `/ 0:0${Math.floor(kept[0].duration)}`, JSON.stringify(now))
+    check(`${label}: second picked, no toolbar, length shown`, now.bars.length === 0 && now.total?.trim() === `/ 0:0${Math.floor(kept[0].duration)}`, JSON.stringify(now))
     await page.screenshot({ path: `${shots}/audio-blocks-${label.replace(/\W+/g, '-')}.png` })
     await page.evaluate((sel) => document.querySelector(sel).editor.chain().focus('start').run(), sel)
     await page.waitForTimeout(400)

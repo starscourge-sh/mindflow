@@ -7,7 +7,7 @@ import {
   Library, Lightbulb, Link, List, ListChecks, ListStart, Lock, LockOpen, LogOut, Map as MapIcon, Maximize2, MessageCircleQuestion, MessageSquare, Minimize2, Monitor,
   MonitorUp, MoveRight, NotebookText, Palette, Scissors, Pause, Play, Scale, PanelLeft, PanelRight, Pencil, Pin, PinOff, Plus, Quote, Repeat, RotateCcw, Search, Settings, Shapes, Shield,
   ShieldCheck, Smile, Snowflake, Sparkles, SquareCheck, SquareKanban, SquarePen, Star, StickyNote, Sun, Tag, Target, Timer, Trash2, Type, Undo2, Ungroup, Upload,
-  Captions, ThumbsDown, ThumbsUp, Unlink, User, Video, Volume2, VolumeX, WandSparkles, Wrench, X, Zap, PenLine, SpellCheck, type LucideIcon
+  Speech, ThumbsDown, ThumbsUp, Unlink, User, Video, Volume2, VolumeX, WandSparkles, Wrench, X, Zap, PenLine, SpellCheck, type LucideIcon
 } from 'lucide-react'
 
 /**
@@ -37,8 +37,10 @@ const RULES: [RegExp, LucideIcon][] = [
   [/^choose another folder/i, FolderInput],
   [/word aim/i, Target],
   [/caption/i, Type],
-  // A recording into words: the player's own cc.
-  [/^transcribe/i, Captions],
+  // A recording into words: someone speaking, never the cc of a video's captions.
+  [/^transcribe/i, Speech],
+  [/^play from start$|^play$/i, Play],
+  [/^save a copy$/i, Download],
   // Where notes come in from: each source by what it is, before any word in its name is read as an action.
   [/apple notes/i, NotebookText],
   [/obsidian|notion|\bvault\b/i, FolderInput],

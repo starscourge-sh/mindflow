@@ -1,11 +1,10 @@
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react"
 import { NodeViewWrapper, useEditorState, type NodeViewProps } from "@tiptap/react"
 import { NodeSelection } from "@tiptap/pm/state"
-import { AlignCenter, AlignLeft, AlignRight, AudioLines, Captions, Columns2, ListTree, MoveHorizontal, MoveVertical, PanelLeft, Pause, PictureInPicture2, Play, RectangleVertical, RotateCcw, ScrollText } from "lucide-react"
+import { AlignCenter, AlignLeft, AlignRight, AudioLines, Columns2, ListTree, MoveHorizontal, MoveVertical, PanelLeft, Pause, PictureInPicture2, Play, RectangleVertical, RotateCcw, ScrollText } from "lucide-react"
 import { AliveIcon } from "@/components/ui/alive-icon"
 import DownloadIcon from "@/components/ui/download-icon"
 import ExternalLinkIcon from "@/components/ui/external-link-icon"
-import TrashIcon from "@/components/ui/trash-icon"
 
 import { Toolbar, ToolbarGroup, ToolbarSeparator } from "@/components/tiptap-ui-primitive/toolbar"
 import { Button } from "@/components/tiptap-ui-primitive/button"
@@ -22,10 +21,21 @@ import type { PDFDocumentProxy } from "pdfjs-dist"
 import { chime } from "@/lib/sound"
 import { canSplit } from "@/lib/split"
 import { isNodeSelected } from "@/extensions/selected-nodes"
-import { startCaption } from "@/extensions/caption"
 import { hasWords, isTranscribing, onTranscribing, transcribe } from "@/lib/transcribe"
 import { Orb } from "@/components/haligtree/orb"
 import { FileText as File, FileText, Fit as Maximize, Volume2, VolumeX } from "@/components/ui/icons"
+
+/**
+ * A recording by what it is and how long: "Voice note · 0:56", never its file
+ * name's ".m4a" or its size. One dropped in keeps its own name, without the
+ * extension.
+ */
+export function soundTitle(name: string | null | undefined, seconds: number | null): string {
+  const said = /^voice note\b/i.test(name ?? "") || !name ? "Voice note" : name.replace(/\.[a-z0-9]{2,5}$/i, "")
+  if (!seconds) return said
+  const whole = Math.floor(seconds)
+  return `${said} · ${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, "0")}`
+}
 
 /** 57.3 KB, not 58624. Binary units, because that is what a file manager shows. */
 function readableSize(bytes: number): string {
@@ -266,11 +276,12 @@ function useMedia(video: boolean, known: number | null, learn: (seconds: number)
 }
 
 /**
- * What a selected video offers, as a picture's toolbar does: its width, its
- * place in the line, then its name and size, opening it and saving it.
+ * What a picked video offers while you look at it, as a picture's toolbar
+ * does: its width and its place in the line. Never on hover: everything else
+ * it does is in its block menu (⋮⋮ or a right-click), under "Video".
  */
-function MediaToolbar({ props, sized }: { props: NodeViewProps; sized: boolean }): React.JSX.Element {
-  const { src, name, size, width, align } = props.node.attrs
+function MediaToolbar({ props }: { props: NodeViewProps }): React.JSX.Element {
+  const { width, align } = props.node.attrs
   // Over the top by default, as a picture's; under the block when another
   // block's player or file card is in that spot (a picture's edge may be
   // covered: its own toolbar sits inside its top, never there) (two recordings one under the other), or
@@ -336,7 +347,7 @@ function MediaToolbar({ props, sized }: { props: NodeViewProps; sized: boolean }
   return (
     <span ref={bar} data-media-toolbar="" className={`tiptap-media-toolbar is-${place}${tight ? " is-tight" : ""}`} style={nudge ? { transform: `translateX(calc(-50% + ${nudge}px))` } : undefined} contentEditable={false} onMouseDown={(event) => event.preventDefault()}>
       <Toolbar variant="floating">
-        {sized && (
+        {(
           <>
             <ToolbarGroup>
               {SIZES.map((one) => (
@@ -353,34 +364,8 @@ function MediaToolbar({ props, sized }: { props: NodeViewProps; sized: boolean }
                 </Button>
               ))}
             </ToolbarGroup>
-            <ToolbarSeparator />
           </>
         )}
-        <span className="tiptap-media-name" title={name}>
-          <span>{name || "File"}</span>
-          {size ? <span className="tiptap-media-size">{readableSize(size)}</span> : null}
-        </span>
-        <ToolbarGroup>
-          {sized ? (
-            <Button data-style="ghost" aria-label="Caption" data-active-state={props.node.attrs.caption ? "on" : "off"} onClick={() => { const at = props.getPos(); if (at != null) startCaption(props.editor, at) }}>
-              <Captions className="tiptap-button-icon" />
-            </Button>
-          ) : (
-            // A recording has no caption: its cc is its words, written under it.
-            <Button data-style="ghost" aria-label="Transcribe" data-transcribe onClick={() => void transcribe(props.editor, src)}>
-              <Captions className="tiptap-button-icon" />
-            </Button>
-          )}
-          <Button data-style="ghost" aria-label={`Open ${name}`} onClick={() => void host().openFile?.(src)}>
-            <AliveIcon icon={ExternalLinkIcon} size={16} className="tiptap-button-icon" />
-          </Button>
-          <Button data-style="ghost" aria-label={`Save ${name}`} onClick={() => void host().saveFileAs?.(src, name)}>
-            <AliveIcon icon={DownloadIcon} size={16} className="tiptap-button-icon" />
-          </Button>
-          <Button data-style="ghost" aria-label={`Delete ${name}`} onClick={() => props.deleteNode()}>
-            <AliveIcon icon={TrashIcon} size={16} className="tiptap-button-icon" />
-          </Button>
-        </ToolbarGroup>
       </Toolbar>
     </span>
   )
@@ -393,16 +378,12 @@ function MediaToolbar({ props, sized }: { props: NodeViewProps; sized: boolean }
  * pointer while nothing is picked. Read from the editor's own selection, so
  * it goes the moment the selection moves off the block.
  */
-function useToolbarShown(props: NodeViewProps): { shown: boolean; hover: Pick<React.HTMLAttributes<HTMLElement>, "onPointerEnter" | "onPointerLeave"> } {
-  const [hovered, setHovered] = useState(false)
+function useToolbarShown(props: NodeViewProps): boolean {
   const picked = useEditorState({
     editor: props.editor,
     selector: ({ editor }) => editor.state.selection instanceof NodeSelection,
   })
-  return {
-    shown: props.editor.isEditable && (props.selected || (hovered && !picked)),
-    hover: { onPointerEnter: () => setHovered(true), onPointerLeave: () => setHovered(false) },
-  }
+  return props.editor.isEditable && props.selected && picked
 }
 
 /**
@@ -441,25 +422,25 @@ function useLength(props: NodeViewProps, audio = false): [number | null, (second
 function VideoBlock(props: NodeViewProps): React.JSX.Element {
   const { src, name, width, align } = props.node.attrs
   const selected = isNodeSelected(props)
-  const { shown, hover } = useToolbarShown(props)
+  const shown = useToolbarShown(props)
   const { ref, frame, controls, toggle, playing, state } = useMedia(true, ...useLength(props))
   return (
-    <NodeViewWrapper className={`tiptap-attachment is-video${selected ? " is-selected" : ""}${playing ? " is-playing" : ""}`} data-state={state} data-align={align ?? undefined} style={{ width: width ?? undefined }} {...hover}>
+    <NodeViewWrapper className={`tiptap-attachment is-video${selected ? " is-selected" : ""}${playing ? " is-playing" : ""}`} data-state={state} data-align={align ?? undefined} style={{ width: width ?? undefined }}>
       <span ref={frame} className="tiptap-video-frame">
         <video ref={ref as React.RefObject<HTMLVideoElement>} className="tiptap-attachment-video" src={src} preload="metadata" title={name} onClick={toggle} playsInline />
         {controls}
       </span>
-      {shown && <MediaToolbar props={props} sized />}
+      {shown && <MediaToolbar props={props} />}
     </NodeViewWrapper>
   )
 }
 
 /** A recording: its name over the same controls, in a card like a file's. */
 function AudioBlock(props: NodeViewProps): React.JSX.Element {
-  const { src, name, size } = props.node.attrs
+  const { src, name } = props.node.attrs
   const selected = isNodeSelected(props)
-  const { shown, hover } = useToolbarShown(props)
-  const { ref, controls, playing, state } = useMedia(false, ...useLength(props, true))
+  const [length, learn] = useLength(props, true)
+  const { ref, controls, playing, state } = useMedia(false, length, learn)
   const listening = useSyncExternalStore(onTranscribing, () => isTranscribing(src))
   // Kept with "Transcribe voice notes as you record them" on: its words start as it first shows, once.
   useEffect(() => {
@@ -475,18 +456,16 @@ function AudioBlock(props: NodeViewProps): React.JSX.Element {
   }, [src]) // eslint-disable-line react-hooks/exhaustive-deps
   const worded = hasWords(props.editor, src)
   return (
-    <NodeViewWrapper className={`tiptap-attachment is-audio${selected ? " is-selected" : ""}${playing ? " is-playing" : ""}`} data-state={state} data-words={worded ? "" : undefined} {...hover}>
+    <NodeViewWrapper className={`tiptap-attachment is-audio${selected ? " is-selected" : ""}${playing ? " is-playing" : ""}`} data-state={state} data-words={worded ? "" : undefined}>
       <audio ref={ref as React.RefObject<HTMLAudioElement>} src={src} preload="metadata" />
       <div className="tiptap-attachment-card">
         <AudioLines className="tiptap-attachment-icon" />
         <span className="tiptap-attachment-body">
-          <span className="tiptap-attachment-name">{name || "Recording"}</span>
-          <span className="tiptap-attachment-size">{readableSize(size)}</span>
+          <span className="tiptap-attachment-name" title={name || undefined}>{soundTitle(name, length)}</span>
         </span>
         {controls}
       </div>
       {listening && <span className="tiptap-attachment-listening" contentEditable={false}><Orb state="listening" label="Listening…" /></span>}
-      {shown && <MediaToolbar props={props} sized={false} />}
     </NodeViewWrapper>
   )
 }

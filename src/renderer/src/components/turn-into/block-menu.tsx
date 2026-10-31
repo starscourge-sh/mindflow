@@ -189,6 +189,24 @@ export function BlockMenu({
   // A recording has no caption shown: its words, written under it, are what it offers instead.
   const recording = isAudio(thing)
   const captionable =!!thing && !recording && ["image", "youtube", "attachment"].includes(thing.type.name)
+  /** A file block's own name for itself, the heading its own actions sit under, as Notion's menu does. */
+  const fileName = String(thing?.attrs.name || thing?.attrs.src || "")
+  const kindName: string | null = recording ? "Voice note"
+    : thing?.type.name === "image" ? "Picture"
+    : thing?.type.name !== "attachment" ? null
+    : /\.(mp4|m4v|mov|webm)$/i.test(fileName) ? "Video"
+    : /\.pdf$/i.test(fileName) ? "PDF"
+    : "File"
+  const fileSrc: string | undefined = thing?.type.name === "attachment" ? thing.attrs.src : undefined
+  /** The recording's own player, back to its start and playing. */
+  const playFromStart = (): void => {
+    const found = resolve()
+    const dom = found && editor.view.nodeDOM(found.pos)
+    const player = dom instanceof HTMLElement ? dom.querySelector("audio, video") : null
+    if (!(player instanceof HTMLMediaElement)) return
+    player.currentTime = 0
+    void player.play()
+  }
   /** A card's address. Opened through `window.open`, which the app hands to the browser. */
   const href: string | undefined = thing?.attrs.href || undefined
 
@@ -364,7 +382,7 @@ export function BlockMenu({
           ref={input}
           type="text"
           placeholder="Filter…"
-          data-quiet={point && !query ? "" : undefined}
+          data-quiet={!query ? "" : undefined}
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           onKeyDown={(event) => {
@@ -409,7 +427,7 @@ export function BlockMenu({
         ) : null}
         {convertible && (!clicked || term) ? conversionRows : null}
 
-        {term ? null : <div className="tiptap-slash-menu-group">Block</div>}
+        {term ? null : <div className="tiptap-slash-menu-group" data-kind-heading={kindName ?? undefined}>{kindName ?? "Block"}</div>}
 
         {/* Under a clicked thing the block's conversions fold into one line, as a submenu. */}
         {convertible && clicked && !term ? (
@@ -486,6 +504,32 @@ export function BlockMenu({
             </button>
           </DropdownMenuItem>
         ) : null}
+
+        {recording && matches("Play from start") ? (
+          <DropdownMenuItem asChild>
+            <button type="button" data-play-start onClick={playFromStart}>
+              <MenuGlyph label="Play" />
+              <span className="tiptap-slash-menu-title">Play from start</span>
+            </button>
+          </DropdownMenuItem>
+        ) : null}
+        {fileSrc && host().saveFileAs && matches("Save a copy") ? (
+          <DropdownMenuItem asChild>
+            <button type="button" data-save-copy onClick={() => void host().saveFileAs?.(fileSrc, String(thing?.attrs.name || "File"))}>
+              <MenuGlyph label="Download" />
+              <span className="tiptap-slash-menu-title">Save a copy</span>
+            </button>
+          </DropdownMenuItem>
+        ) : null}
+        {fileSrc && host().openFile && matches("Open in default app") ? (
+          <DropdownMenuItem asChild>
+            <button type="button" data-open-default onClick={() => void host().openFile?.(fileSrc)}>
+              <MenuGlyph label="Open" />
+              <span className="tiptap-slash-menu-title">Open in default app</span>
+            </button>
+          </DropdownMenuItem>
+        ) : null}
+        {kindName && !term ? <div className="tiptap-slash-menu-group">Block</div> : null}
 
         {thing?.type.name === "table"
           ? TABLE_ACTIONS.filter(([label]) => matches(label)).map(([label, run]) => (
@@ -623,6 +667,7 @@ export function BlockMenu({
             >
               <MenuGlyph label="Delete" />
               <span className="tiptap-slash-menu-title">Delete</span>
+              <Kbd>⌫</Kbd>
             </button>
           </DropdownMenuItem>
         ) : null}

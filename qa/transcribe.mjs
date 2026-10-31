@@ -65,6 +65,11 @@ const standIn = () => electron.evaluate(({ ipcMain }, segments) => {
   ipcMain.handle('haligtree:transcribe', () => new Promise((resolve) => setTimeout(() => resolve({ segments, text: segments.map((one) => one.text).join(' '), onDevice: true }), 1500)))
 }, FAKE)
 const undoButton = () => h.locator('button', { hasText: /^Undo/ }).last()
+/** Its block menu (a right-click on it), then its "Transcribe": no toolbar shows on a recording. */
+const transcribeFromMenu = async () => {
+  await h.click(`${EDITOR} .tiptap-attachment.is-audio .tiptap-attachment-name`, { button: 'right', force: true }); await wait(500)
+  await h.click('.tiptap-block-menu [data-transcribe]')
+}
 const toastSays = () => h.evaluate(() => [...document.querySelectorAll('[data-sonner-toast], [role=status]')].map((one) => one.textContent).join(' | '))
 
 try {
@@ -75,19 +80,19 @@ try {
   await v('item:save', id, { title: 'Spoken', body: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Before' }] }, { type: 'attachment', attrs: { src, name: 'Voice note 31 Oct 15.51.m4a', size: bytes.length } }, { type: 'paragraph', content: [{ type: 'text', text: 'After' }] }] } })
   await c.send('article', id); await wait(1500)
 
-  // The recording picked: its toolbar's cc is "Transcribe".
-  await h.click(`${EDITOR} .tiptap-attachment.is-audio .tiptap-attachment-name`); await wait(400)
-  check('the recording\'s toolbar offers “Transcribe”', !!(await h.$('.tiptap-media-toolbar [data-transcribe]')), '')
+  // The recording's block menu, under "Voice note", starts with "Transcribe".
+  await h.click(`${EDITOR} .tiptap-attachment.is-audio .tiptap-attachment-name`, { button: 'right', force: true }); await wait(500)
+  check('the recording\'s menu offers “Transcribe” first, under “Voice note”', await h.evaluate(() => document.querySelector('.tiptap-block-menu [data-kind-heading]')?.textContent === 'Voice note' && document.querySelector('.tiptap-block-menu [role=menuitem]')?.hasAttribute('data-transcribe')), '')
+  await h.keyboard.press('Escape'); await wait(300)
   if (!real) {
-    await h.click('.tiptap-media-toolbar [data-transcribe]')
+    await transcribeFromMenu()
     await h.waitForFunction(() => /speech recognition/i.test(document.body.innerText), null, { timeout: 15000 }).catch(() => {})
     const said = await toastSays()
     check('Transcribe where the Mac will not: a plain toast says why', /speech recognition/i.test(said) && /System Settings/.test(said), said)
     check('…and nothing is written', !/\[0:00\]/.test(textOf(await doc())), '')
     await standIn()
-    await h.click(`${EDITOR} .tiptap-attachment.is-audio .tiptap-attachment-name`); await wait(300)
   }
-  await h.click('.tiptap-media-toolbar [data-transcribe]')
+  await transcribeFromMenu()
   const orb = await h.waitForSelector('.tiptap-attachment-listening', { timeout: 4000 }).then(() => true, () => false)
   check('“Listening…” shows under it while it runs', orb, '')
   await h.waitForFunction((sel) => /\[0:0\d\]/.test(document.querySelector(sel).textContent), EDITOR, { timeout: 120000 }).catch(() => {})
@@ -102,8 +107,7 @@ try {
 
   // Transcribe again: the recording's own words are replaced in place, never added twice; Undo puts the old ones back.
   await h.evaluate((sel) => { const ed = document.querySelector(sel).editor; let at = -1; ed.state.doc.descendants((n, p) => void (n.type.name === 'attachment' && (at = p))); const next = at + ed.state.doc.nodeAt(at).nodeSize; ed.view.dispatch(ed.state.tr.insertText(' (edited)', next + ed.state.doc.nodeAt(next).nodeSize - 1)) }, EDITOR)
-  await h.click(`${EDITOR} .tiptap-attachment.is-audio .tiptap-attachment-name`); await wait(300)
-  await h.click('.tiptap-media-toolbar [data-transcribe]')
+  await transcribeFromMenu()
   await h.waitForFunction((sel) => !/\(edited\)/.test(document.querySelector(sel).textContent), EDITOR, { timeout: 120000 }).catch(() => {})
   await wait(500)
   const again = (await doc()).content.map(textOf)
@@ -129,8 +133,8 @@ try {
   await c.look('light')
 
   // The right-click menu on the recording, and on a time.
-  await h.click(`${EDITOR} .tiptap-attachment.is-audio .tiptap-attachment-name`, { button: 'right' }); await wait(500)
-  check('right-click on a recording offers “Transcribe”', !!(await h.$('[data-transcribe]:not(.tiptap-media-toolbar *)')), '')
+  await h.click(`${EDITOR} .tiptap-attachment.is-audio .tiptap-attachment-name`, { button: 'right', force: true }); await wait(500)
+  check('right-click on a recording offers “Transcribe”', !!(await h.$('.tiptap-block-menu [data-transcribe]')), await h.evaluate(() => [...document.querySelectorAll('.tiptap-block-menu .tiptap-slash-menu-title, .tiptap-block-menu [data-kind-heading]')].map((one) => one.textContent).join(', ')))
   await h.keyboard.press('Escape'); await wait(300)
   await h.click(`${EDITOR} .mf-time-link[data-audio]`, { button: 'right' }); await wait(500)
   check('right-click on a time offers “Play from”', /Play from 0:00/.test(await h.evaluate(() => document.body.innerText)), '')
