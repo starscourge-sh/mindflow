@@ -309,7 +309,7 @@ export const haligtree = {
   pins: () => call<Pin[]>('pins'),
   reviewTuning: () => call<{ cap: number; tuned: boolean; behind: number }>('review:tuning'),
   reviewPace: () => call<number | null>('review:pace'),
-  reviewToday: () => call<{ seconds: number | null; kept: { prompt: string; days: number } | null }>('review:today'),
+  reviewToday: () => call<{ seconds: number | null; kept: { prompt: string; days: number } | null; /** Cards reviewed today, in every sitting. */ done: number; last: string | null; /** Days reviewed of the last seven. */ week: number }>('review:today'),
   promote: (id: string, words?: string, bare = false) => call<string | null>('promote', id, words, bare),
   /** `forgetWho`: the source was asked for while promoting, so it goes too. */
   unpromote: (captureId: string, nuggetId: string, forgetWho = false) => call<boolean>('promote:undo', captureId, nuggetId, forgetWho),

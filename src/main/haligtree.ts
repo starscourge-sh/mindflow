@@ -2572,7 +2572,11 @@ export function registerHaligtree(): void {
     const best = db.prepare(`select r.item_id as id, julianday(r.reviewed_at) - julianday((select max(p.reviewed_at) from review_log p where p.item_id = r.item_id and p.reviewed_at < r.reviewed_at)) as gap
       from review_log r where r.reviewed_at >= ? and r.grade > 1 order by gap desc limit 1`).get(since) as { id: string; gap: number | null } | undefined
     const prompt = best?.gap && best.gap >= 7 ? (db.prepare('select prompt from nuggets where id = ?').get(best.id) as { prompt: string | null } | undefined)?.prompt : null
-    return { seconds: pace ? Math.round(pace / 1000) : null, kept: prompt ? { prompt, days: Math.floor(best!.gap!) } : null }
+    // How many were reviewed today, and when the last was: Review counts the day, not the sitting.
+    const day = db.prepare('select count(*) n, max(reviewed_at) last from review_log where reviewed_at >= ?').get(since) as { n: number; last: string | null }
+    // Days reviewed in the last seven, today included: one day off cannot break it, unlike a run.
+    const week = (db.prepare("select count(distinct date(reviewed_at, 'localtime')) n from review_log where reviewed_at >= ?").get(new Date(startOfDay() - 6 * 86400000).toISOString()) as { n: number }).n
+    return { seconds: pace ? Math.round(pace / 1000) : null, kept: prompt ? { prompt, days: Math.floor(best!.gap!) } : null, done: day.n, last: day.last, week }
   })
   // How long a card takes you, from your last 200 reviews, each counted as 60 seconds at most (a card left open is not a slow card).
   handle('review:pace', () => (db.prepare('select avg(min(ms, 60000)) as ms from (select ms from review_log where ms is not null order by reviewed_at desc limit 200)').get() as { ms: number | null }).ms)

@@ -25,7 +25,7 @@ import { Rest } from './scenery'
 import { GlossLine, keepGloss, openGloss } from './gloss-line'
 import { BorderBeam } from 'border-beam'
 import { useAlive, useSurface } from '@/lib/use-alive'
-import { num } from '../../../../main/dates'
+import { dayKey, num } from '../../../../main/dates'
 import { Avatar } from './avatar'
 import { Signed } from './signature'
 import { canSplit, openAside, useHere } from '@/lib/split'
@@ -82,6 +82,27 @@ export function useGrades(): { grades: readonly GradeShape[]; two: boolean; name
 /** How many captures wait in the Inbox: the ending's "Next" line. */
 const inboxOpen = (): Promise<number> => window.api.captures.list().then((all) => all.filter((one) => one.status === 'open' && !one.archivedAt).length)
 
+/** A round or a typed answer left part way today, kept so leaving Review and coming back loses nothing. */
+type LeftOff = { day: string; round: Round | null; queue: Due[]; at: number; reviewed: string[]; card: string | null; said: string }
+const LEFT = 'review-left'
+function leftOff(): LeftOff | null {
+  try {
+    const kept = JSON.parse(localStorage.getItem(LEFT) ?? 'null') as LeftOff | null
+    return kept && kept.day === dayKey() ? kept : null
+  } catch {
+    return null
+  }
+}
+function keepLeftOff(left: LeftOff): void {
+  try {
+    // A round finished, and nothing typed: nothing to come back to.
+    if ((!left.round || left.at >= left.queue.length) && !left.said.trim()) return localStorage.removeItem(LEFT)
+    localStorage.setItem(LEFT, JSON.stringify(left.round && left.at < left.queue.length ? left : { ...left, round: null, queue: [] }))
+  } catch {
+    // Kept for this run only.
+  }
+}
+
 /** `tag`: open on a round of that tag's cards (and the tags under it), from its page or ⌘K's "Study #tag". */
 export function ReviewView({ compact = false, tag, actions }: { compact?: boolean; tag?: string; /** The Review area's tabs, on the page's line. */ actions?: React.ReactNode }): React.JSX.Element {
   const [queue, setQueue] = useState<Due[] | null>(null)
@@ -101,8 +122,27 @@ export function ReviewView({ compact = false, tag, actions }: { compact?: boolea
   const typer = useRef(false)
   const box = useRef<HTMLTextAreaElement | null>(null)
   useEffect(() => { if (typer.current) box.current?.focus() }, [at])
-  // The beam turns while the day's cards are worked out, should that be slow.
-  useEffect(() => void working(tag ? haligtree.round(`#${tag}`) : haligtree.queue()).then((cards) => (tag ? fresh(cards, `#${tag}`) : setQueue(cards))), [tag])
+  // Cards already reviewed today, before this sitting: the line over the card counts the day ("13 of 20"), not the sitting.
+  const [earlier, setEarlier] = useState(0)
+  const takeQueue = (): Promise<Due[]> => Promise.all([haligtree.queue(), haligtree.reviewToday()]).then(([cards, today]) => (setEarlier(today.done), cards))
+  // The beam turns while the day's cards are worked out, should that be slow. A round or a typed answer left
+  // part way today comes back as it was (left in localStorage as you go, below).
+  useEffect(() => void working(tag ? haligtree.round(`#${tag}`) : takeQueue()).then((cards) => {
+    if (tag) return fresh(cards, `#${tag}`)
+    const left = leftOff()
+    if (left?.round && left.queue.length) {
+      fresh(left.queue, left.round)
+      setAt(Math.min(left.at, left.queue.length))
+      setReviewed(new Set(left.reviewed))
+      if (left.said && left.queue[left.at]?.id === left.card) setSaid(left.said)
+      return
+    }
+    // The card you were typing an answer for comes first again, your words still in the box.
+    const typedFor = left?.said ? cards.findIndex((one) => one.id === left.card) : -1
+    if (typedFor > 0) cards = [cards[typedFor], ...cards.slice(0, typedFor), ...cards.slice(typedFor + 1)]
+    setQueue(cards)
+    if (typedFor >= 0) setSaid(left!.said)
+  }), [tag]) // eslint-disable-line react-hooks/exhaustive-deps
   // A practice round from the chips above: its own short queue, then back to today's.
   const [round, setRound] = useState<Round | null>(null)
   // Learn mode over the new cards, in place of the queue until it is left.
@@ -132,7 +172,13 @@ export function ReviewView({ compact = false, tag, actions }: { compact?: boolea
     started.current = Date.now()
   }
   const startRound = (bucket: Round): void => void working(haligtree.round(bucket)).then((cards) => (chime('riffle'), fresh(cards, bucket)))
-  const leaveRound = (): void => void working(haligtree.queue()).then((cards) => (chime('fold'), fresh(cards, null)))
+  const leaveRound = (): void => void working(takeQueue()).then((cards) => (chime('fold'), fresh(cards, null)))
+  // Where you are, kept as you go: a practice round (its cards, how far in, which done) and the words typed
+  // for the card in front, until the round ends or the day turns. A tag's study is opened from its page, so it is not kept.
+  useEffect(() => {
+    if (tag || !queue) return
+    keepLeftOff({ day: dayKey(), round, queue: round ? queue : [], at, reviewed: [...reviewed], card: queue[at]?.id ?? null, said })
+  }, [tag, queue, round, at, reviewed, said])
   // Nothing has a question to be tested on yet: an example card shows what Review does with one.
   const ideas = useLive(() => haligtree.items('nugget'), [] as Item[], [], ['item'])
   const card = queue?.[at]
@@ -542,7 +588,7 @@ export function ReviewView({ compact = false, tag, actions }: { compact?: boolea
       {/* One card at a time in the middle of the page, never a narrow card with an empty half beside it. */}
       <div className="page-sheet mx-auto w-full">
       {/* One quiet line over the card: where you are, and practice, new cards and exams folded into it. */}
-      {round ? <><RoundLine round={round} onLeave={leaveRound} /><Through at={at} total={queue.length} /></> : <TopLine at={at} total={queue.length} exams={exams} onPick={startRound} onLearn={() => setLearning(true)} onTrim={(cards) => {
+      {round ? <><RoundLine round={round} onLeave={leaveRound} /><Through at={at} total={queue.length} /></> : <TopLine at={earlier + at} total={earlier + queue.length} exams={exams} onPick={startRound} onLearn={() => setLearning(true)} onTrim={(cards) => {
         // The queue is most at risk first: the first ones that fit the time are the ones to do now.
         chime('settled')
         setQueue((all) => all && all.slice(0, at + cards))
@@ -943,6 +989,12 @@ function Closing({ total }: { total: number }): React.JSX.Element | null {
   )
 }
 
+/** "this morning", "this afternoon", "this evening": when the day's reviews were done. */
+const partOfDay = (at: string | null): string => {
+  const hour = at ? new Date(at).getHours() : 12
+  return hour < 12 ? 'this morning' : hour < 17 ? 'this afternoon' : 'this evening'
+}
+
 /** A day in a row worth a line of its own: 7, 30, 100. No confetti, no score. */
 const MILESTONES: Record<number, string> = {
   7: 'Seven days in a row. That is how it sticks.',
@@ -964,6 +1016,8 @@ function Finished({ count, total, later = 0, compact, onPick, onLearn, ids = [] 
   const exams = useLive(haligtree.exams, [] as Exam[])
   const [practising, setPractising] = useState(false)
   const done = count > 0
+  // Cards reviewed today in earlier sittings: "Done for today" stays said all day.
+  const today = sitting?.done ?? 0
   // The page's own how-to line has done its job once a day's cards are finished: put away for good.
   useEffect(() => {
     if (!done) return
@@ -1002,19 +1056,24 @@ function Finished({ count, total, later = 0, compact, onPick, onLearn, ids = [] 
             <Book size={compact ? 44 : 56} seed={done ? 'review-done' : 'review-none'} done={done} className="" />
           </motion.div>
           <h2 className={compact ? 'text-heading font-semibold' : 'text-title font-medium'}>
-            {done ? <>Done: <Rolling text={count} /> reviewed</> : later ? 'All put off until tomorrow' : 'Nothing due right now'}
+            {done ? <>Done: <Rolling text={count} /> reviewed</> : later ? 'All put off until tomorrow' : today > 0 ? 'Done for today' : 'Nothing due right now'}
           </h2>
           <p className="leading-relaxed text-muted-foreground">
             {done
               ? <><strong className="font-semibold text-foreground">A little most days outlasts one long cram.</strong> That is today’s cards finished. What you could not recall comes back soonest; the rest waits longer each time you remember it.</>
               : later ? <><strong className="font-semibold text-foreground">{later === 1 ? 'The card you put off comes back tomorrow.' : `The ${num(later)} cards you put off come back tomorrow.`}</strong> Nothing else is due today.</>
+              // Back later the same day: the day's work is still said, not "nothing due".
+              : today > 0 ? <><strong data-done-today className="font-semibold text-foreground">{num(today)} {today === 1 ? 'card' : 'cards'} {partOfDay(sitting?.last ?? null)}.</strong> What you could not recall comes back soonest; the rest waits longer each time you remember it.</>
               : <><strong className="font-semibold text-foreground">No card is due yet.</strong> Each one comes back as you start to forget it, so there is nothing to do here until then.</>}
           </p>
           {/* Two honest numbers from the sitting: the card that held longest, and the time a card took. */}
-          {done && sitting?.kept && <p data-still-knew className="text-body text-foreground">You still knew <strong className="font-semibold">“{sitting.kept.prompt}”</strong> after {num(sitting.kept.days)} days.</p>}
-          {done && !!sitting?.seconds && <p data-seconds-each className="text-control text-foreground tabular-nums">About {num(sitting.seconds)} {sitting.seconds === 1 ? 'second' : 'seconds'} a card today.</p>}
+          {(done || today > 0) && sitting?.kept && <p data-still-knew className="text-body text-foreground">You still knew <strong className="font-semibold">“{sitting.kept.prompt}”</strong> after {num(sitting.kept.days)} days.</p>}
+          {(done || today > 0) && !!sitting?.seconds && <p data-seconds-each className="text-control text-foreground tabular-nums">About {num(sitting.seconds)} {sitting.seconds === 1 ? 'second' : 'seconds'} a card today.</p>}
           {milestone ? <p data-milestone className="text-body font-semibold text-foreground">{milestone}</p>
-            : days && days.run >= 2 && <p data-days-in-a-row className="text-control text-foreground tabular-nums"><strong className="font-semibold">{num(days.run)} days</strong> in a row{days.banked ? <span className="text-muted-foreground">, {num(days.banked)} rest {days.banked === 1 ? 'day' : 'days'} banked</span> : ''}.</p>}
+            : null}
+          {/* The week first, which one day off cannot break; the run after it. */}
+          {!milestone && !!sitting?.week && (done || today > 0) && <p data-week-days className="text-control text-foreground tabular-nums"><strong className="font-semibold">{num(sitting.week)} of the last 7 days</strong> reviewed{days && days.run >= 2 ? <span className="text-muted-foreground">, {num(days.run)} in a row</span> : ''}.</p>}
+          {!milestone && !(sitting?.week && (done || today > 0)) && days && days.run >= 2 && <p data-days-in-a-row className="text-control text-foreground tabular-nums"><strong className="font-semibold">{num(days.run)} days</strong> in a row{days.banked ? <span className="text-muted-foreground">, {num(days.banked)} rest {days.banked === 1 ? 'day' : 'days'} banked</span> : ''}.</p>}
           <div className="mt-2 flex flex-col items-start gap-2.5">
             {next ? (
               <Button data-onward size="lg" onClick={next.run} className="gap-2">
