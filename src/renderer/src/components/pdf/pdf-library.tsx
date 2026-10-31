@@ -4,6 +4,7 @@ import { call, useLive } from "@/lib/haligtree"
 import { chime } from "@/lib/sound"
 import { openPdf } from "./pdf-reader"
 import { usePdfCover } from "./pdf-cover"
+import { BookMap, InYourNotes, PageBar, inNotes, useCited } from "./book-links"
 
 export type Book = { src: string; name: string; title: string; author: string; pages: number | null; page: number | null; readAt: string | null; addedAt: string; highlights: number }
 
@@ -53,10 +54,11 @@ export function PdfLibrary({ query }: { query: string }): React.JSX.Element {
   if (!books.length) return <p className="my-4 text-control text-muted-foreground">{query.trim() ? <>No book has “{query.trim()}” in its title or author.</> : <>No PDFs in your notes yet.</>}</p>
   return (
     <div className="pdf-library" data-library>
-      <div className="pdf-library-shelf" role="listbox" aria-label="Your PDFs">
+      <div className={`pdf-library-shelf${books.length <= 3 ? " is-few" : ""}`} role="listbox" aria-label="Your PDFs">
         {books.map((one) => (
           <BookCard key={one.src} one={one} picked={one.src === chosen} onPick={() => (chime("tap"), setChosen(one.src))} onOpen={() => open(one)} />
         ))}
+        {books.length <= 3 && !query.trim() && <p className="pdf-library-hint">Every PDF you keep in a note sits on this shelf. Drop one into any note to add it.</p>}
       </div>
       {book && <Inspector one={book} onOpen={() => open(book)} />}
     </div>
@@ -85,26 +87,48 @@ function BookCard({ one, picked, onPick, onOpen }: { one: Book; picked: boolean;
   )
 }
 
-/** All about the picked book, as Finder's inspector has it: its cover large, then what it is and where you are in it. */
+/**
+ * The picked book, as iPad Books' book page and Preview's inspector have it:
+ * its cover large, its title and author, a quiet way back in at your page, the
+ * book's length with where your notes, highlights and cards attach, the notes
+ * that link into it (as a list in page order and as a small map), and last
+ * the few facts about the file.
+ */
 function Inspector({ one, onOpen }: { one: Book; onOpen: () => void }): React.JSX.Element {
   const cover = usePdfCover(one.src, one.name)
-  const read = percent(one)
+  const cited = useCited(one.src, one.highlights)
+  const [marks, setMarks] = useState<{ page: number; color?: string | null }[]>([])
+  useEffect(() => {
+    let live = true
+    void call<{ page: number; color?: string | null }[]>("pdf:highlights", one.src).then((rows) => live && setMarks(rows))
+    return () => void (live = false)
+  }, [one.src, one.highlights])
+  const linked = inNotes(cited).length
   const rows: [string, string][] = [
-    ["Author", one.author || "Not named in the file"],
-    ["Pages", one.pages ? String(one.pages) : "Not read yet"],
-    ["Read", read !== null ? `${read}%, page ${one.page} of ${one.pages}` : "Not started"],
-    ["Highlights", String(one.highlights)],
+    ["Pages", one.pages ? String(one.pages) : "Not counted yet"],
+    ["Highlights", one.highlights ? String(one.highlights) : "None"],
+    ["In your notes", linked ? String(linked) : "None"],
     ["Added", day(one.addedAt)],
     ["Last opened", day(one.readAt)],
-    ["File", one.name],
   ]
   return (
-    <aside className="pdf-inspector" aria-label="About this book">
+    <aside className="pdf-inspector mf-more" aria-label="About this book" data-inspector>
       {cover?.image ? <img className="pdf-inspector-cover" src={cover.image} alt="" draggable={false} /> : <span className="pdf-inspector-cover pdf-book-blank" />}
-      <h2 className="pdf-inspector-title">{titleOf(one)}</h2>
+      <div className="pdf-inspector-what">
+        <h2 className="pdf-inspector-title">{titleOf(one)}</h2>
+        {one.author && <p className="pdf-inspector-author">{one.author}</p>}
+      </div>
       <button type="button" className="pdf-inspector-open" onClick={onOpen}>
-        {one.page && one.page > 1 ? `Continue at p. ${one.page}` : "Open"}
+        {one.page && one.page > 1 ? `Continue at p. ${one.page}` : "Start reading"}
       </button>
+      {one.pages ? <PageBar src={one.src} name={one.name} pages={one.pages} page={one.page} cited={cited} marks={marks} /> : null}
+      <section className="pdf-inspector-section">
+        <h3 className="read-details-heading">
+          In your notes <span className="read-details-count">{linked}</span>
+        </h3>
+        <InYourNotes cited={cited} empty="No note links here yet. Link a page from the reader with “Copy link to this page” and paste it in any note." />
+        <BookMap src={one.src} title={titleOf(one)} cited={cited} />
+      </section>
       <dl className="pdf-inspector-rows">
         {rows.map(([label, value]) => (
           <div key={label} className="pdf-inspector-row">
@@ -112,6 +136,10 @@ function Inspector({ one, onOpen }: { one: Book; onOpen: () => void }): React.JS
             <dd>{value}</dd>
           </div>
         ))}
+        <div className="pdf-inspector-row is-file">
+          <dt>File</dt>
+          <dd title={one.name}>{one.name}</dd>
+        </div>
       </dl>
     </aside>
   )

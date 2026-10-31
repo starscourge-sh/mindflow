@@ -121,14 +121,14 @@ try {
   const shelf = await h.evaluate(() => ({ books: [...document.querySelectorAll('[data-library] .pdf-book')].map((one) => one.querySelector('.pdf-book-title')?.textContent), covers: document.querySelectorAll('[data-library] .pdf-book-cover img').length, inspector: document.querySelector('.pdf-inspector .pdf-inspector-title')?.textContent, open: document.querySelector('.pdf-inspector-open')?.textContent }))
   check('"PDFs" shows a shelf of covers, one per book', shelf.books.length === 2 && shelf.covers === 2, JSON.stringify(shelf))
   check('a file name like "18 - The Law Book (z-lib.org).pdf" reads "The Law Book"', shelf.books.includes('The Law Book'), JSON.stringify(shelf.books))
-  check('the inspector shows the book picked, with a way to open it', !!shelf.inspector && shelf.open === 'Open', JSON.stringify(shelf))
+  check('the inspector shows the book picked, with a way to open it', !!shelf.inspector && shelf.open === 'Start reading', JSON.stringify(shelf))
   await shot(h, 'media-library')
   await h.locator('[data-library] .pdf-book', { hasText: 'Lease' }).click(); await wait(400)
   check('a click picks a book for the inspector', await h.evaluate(() => document.querySelector('.pdf-inspector-title')?.textContent) === 'Lease', '')
   // The shelf with a book picked, light and dark.
   if (process.env.SHOTS) await c.both(`${process.env.SHOTS}/media-library`)
   await h.locator('.pdf-inspector-open').click(); await wait(1500)
-  check('"Open" opens it in the reader', await h.evaluate(() => !!document.querySelector('.pdf-reader')), '')
+  check('"Start reading" opens it in the reader', await h.evaluate(() => !!document.querySelector('.pdf-reader')), '')
   await go('media'); await wait(1200)
 
   // A click: the note opens on the picture, picked.

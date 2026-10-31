@@ -1,11 +1,9 @@
-import { useEffect, useMemo, useState } from "react"
+import { useMemo, useState } from "react"
 import { Search } from "lucide-react"
-import { call } from "@/lib/haligtree"
 import { BackToTop } from "@/components/haligtree/ui"
 import { MARK_COLORS, markCss } from "./read-bar"
 import type { PdfMark } from "./pdf-pages"
-
-type Cited = { type: string; id: string; title: string; at: string }
+import { InYourNotes, PageBar, inNotes, useCited } from "./book-links"
 
 /**
  * Beside a PDF or an article, as a note's Details sit beside it: what it is
@@ -13,8 +11,10 @@ type Cited = { type: string; id: string; title: string; at: string }
  * highlight in it (found by its words, shown by colour, each a way back to
  * its place), and every note and gem that holds it or links into it.
  */
-export function ReadDetails({ src, cover, title, author, pages, page, marks, lit, onMark, onGather }: {
+export function ReadDetails({ src, name, cover, title, author, pages, page, marks, lit, onMark, onGather, onPage }: {
   src: string
+  /** The name it arrived under, for a page bar's tick to open it by. */
+  name: string
   cover?: string | null
   title: string
   author?: string
@@ -25,13 +25,10 @@ export function ReadDetails({ src, cover, title, author, pages, page, marks, lit
   lit: string | null
   onMark: (mark: PdfMark) => void
   onGather: () => void
+  /** A page bar tick pressed: go to its page. */
+  onPage: (page: number) => void
 }): React.JSX.Element {
-  const [cited, setCited] = useState<Cited[]>([])
-  useEffect(() => {
-    let live = true
-    void call<Cited[]>("pdf:cited", src).then((rows) => live && setCited(rows))
-    return () => void (live = false)
-  }, [src, marks.length])
+  const cited = useCited(src, marks.length)
   const [words, setWords] = useState("")
   const [box, setBox] = useState<HTMLElement | null>(null)
   const [colour, setColour] = useState<string | null | undefined>(undefined)
@@ -42,7 +39,6 @@ export function ReadDetails({ src, cover, title, author, pages, page, marks, lit
       .filter((one) => (colour === undefined || (one.color ?? null) === colour) && (!look || one.quote.toLowerCase().includes(look)))
   }, [marks, words, colour])
   const used = MARK_COLORS.filter((one) => marks.some((mark) => (mark.color ?? null) === one.id))
-  const read = pages && page ? Math.round((page / pages) * 100) : null
   return (
     // A frame that does not scroll, for the way back up to sit on; the panel scrolls inside it, its edges fading where there is more.
     <div className="read-details-frame">
@@ -54,17 +50,7 @@ export function ReadDetails({ src, cover, title, author, pages, page, marks, lit
           {author && <span className="read-details-author">{author}</span>}
         </div>
       </div>
-      {read !== null && (
-        <div className="read-details-progress" aria-label={`Read ${read}%`}>
-          <div className="read-details-progress-row">
-            <span>Page {page} of {pages}</span>
-            <span>{read}%</span>
-          </div>
-          <div className="read-details-progress-track">
-            <div className="read-details-progress-fill" style={{ width: `${read}%` }} />
-          </div>
-        </div>
-      )}
+      {pages ? <PageBar src={src} name={name} pages={pages} page={page} cited={cited} marks={marks} onPage={onPage} /> : null}
 
       <section className="read-details-section">
         <h3 className="read-details-heading">
@@ -105,18 +91,9 @@ export function ReadDetails({ src, cover, title, author, pages, page, marks, lit
 
       <section className="read-details-section">
         <h3 className="read-details-heading">
-          In your notes <span className="read-details-count">{cited.length}</span>
+          In your notes <span className="read-details-count">{inNotes(cited).length}</span>
         </h3>
-        {cited.length ? (
-          cited.map((one) => (
-            <button key={`${one.type}:${one.id}`} type="button" className="read-details-cited" onClick={() => window.dispatchEvent(new CustomEvent("haligtree:open", { detail: { type: one.type, id: one.id } }))}>
-              <span className="read-details-cited-kind">{one.type === "capture" ? "Note" : "Gem"}</span>
-              <span className="read-details-cited-title">{one.title || "Untitled"}</span>
-            </button>
-          ))
-        ) : (
-          <p className="read-details-empty">No note holds it or links into it yet.</p>
-        )}
+        <InYourNotes cited={cited} empty="No note holds it or links into it yet." />
       </section>
     </aside>
     <BackToTop target={box} />

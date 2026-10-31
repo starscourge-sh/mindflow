@@ -760,7 +760,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
           )}
         </ContextMenuContent>
       </ContextMenu>
-      {detailsOut && <ReadDetails src={src} cover={cover?.image} title={title} author={author} pages={doc?.numPages} page={page} marks={marks} lit={lit} onMark={goToMark} onGather={() => void gather()} />}
+      {detailsOut && <ReadDetails src={src} name={name} onPage={go} cover={cover?.image} title={title} author={author} pages={doc?.numPages} page={page} marks={marks} lit={lit} onMark={goToMark} onGather={() => void gather()} />}
       </div>
     </div>
   )

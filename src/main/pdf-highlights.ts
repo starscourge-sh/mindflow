@@ -64,6 +64,49 @@ export function fileLink(db: DatabaseSync, link: string): { type: 'pdf' | 'web';
   return article ? { type: 'web', id, title: article.label } : undefined
 }
 
+type Inline = { type?: string; text?: string; attrs?: Record<string, unknown>; marks?: { type: string; attrs?: Record<string, unknown> }[]; content?: Inline[] }
+
+/**
+ * Where a note's words meet a book (`name`, the file the store keeps it as):
+ * the pages its links go to, in order, and the line the first one sits in, cut
+ * to about 160 characters around it, as Mentions shows a backlink. A note
+ * that only holds the book has no pages and no line.
+ */
+export function citedIn(body: string | null, name: string): { pages: number[]; line: string } {
+  const pages = new Set<number>()
+  let line = ''
+  const pageOf = (href: string): number | null => (href.includes(name) ? Number(/#page=(\d+)/.exec(href)?.[1] ?? 0) : null)
+  const block = (node: Inline): void => {
+    let text = '', at = -1, length = 0
+    for (const one of node.content ?? []) {
+      const href = String(one.marks?.find((mark) => mark.type === 'link')?.attrs?.href ?? '')
+      const words = one.type === 'noteLink' ? String(one.attrs?.label ?? '') : one.type === 'hardBreak' ? ' ' : one.text ?? ''
+      const page = href ? pageOf(href) : one.type === 'noteLink' && String(one.attrs?.id ?? '').includes(name) ? 0 : null
+      if (page !== null) {
+        if (page) pages.add(page)
+        if (at < 0) (at = text.length), (length = words.length)
+      }
+      text += words
+    }
+    if (at >= 0 && !line) {
+      const start = Math.max(0, at - 70), end = Math.min(text.length, at + length + 90)
+      line = `${start > 0 ? '…' : ''}${text.slice(start, end).trim()}${end < text.length ? '…' : ''}`
+    }
+  }
+  const walk = (node: Inline): void => {
+    if (node.content?.some((one) => one.type === 'text' || one.type === 'noteLink')) block(node)
+    else node.content?.forEach(walk)
+  }
+  try {
+    const doc = JSON.parse(body ?? 'null') as Inline | string | null
+    if (typeof doc === 'string' && doc.includes(name)) for (const hit of doc.matchAll(/#page=(\d+)/g)) pages.add(Number(hit[1]))
+    if (doc && typeof doc === 'object') walk(doc)
+  } catch {
+    // Words that are not a document link to no page.
+  }
+  return { pages: [...pages].sort((a, b) => a - b), line }
+}
+
 /**
  * Words kept from a PDF: where they are (the page, and where on the page's
  * text they start and end, which no zoom changes) and the words themselves,
@@ -105,17 +148,20 @@ export function registerPdfHighlights(): void {
     db.prepare('select page, pages, read_at as readAt from pdf_reading where src = ?').get(String(src)) ?? null)
   ipcMain.handle('haligtree:pdf:read', (_event, src: unknown, page: unknown, pages: unknown) => {
     if (typeof src !== 'string' || !Number.isInteger(page) || !Number.isInteger(pages) || (page as number) < 1) return false
-    db.prepare('insert or replace into pdf_reading (src, page, pages, read_at) values (?, ?, ?, ?)').run(src, page as number, pages as number, new Date().toISOString())
+    db.prepare('insert or replace into pdf_reading (src, page, pages, read_at) values (?, ?, ?, ?)').run(src, Math.min(page as number, pages as number), pages as number, new Date().toISOString())
     return true
   })
-  // What a book's Details list: every note and gem that holds it or links into it, newest first, and when it first came in.
+  // What a book's Details and the library's inspector list: every note, gem and card that holds it or
+  // links into it, each with the pages it links to and the line it does it in, in page order through the book.
   ipcMain.handle('haligtree:pdf:cited', (_event, src: unknown) => {
     const name = /assets\/([a-f0-9]{64}\.pdf)$/i.exec(String(src))?.[1] ?? (/^https?:/.test(String(src)) ? encodeURIComponent(String(src)) : null)
     if (!name) return []
     const like = `%${name}%`
-    return db.prepare(`select 'capture' as type, id, ${LABEL} as title, captured_at as at from captures where status != 'discarded' and body like ?
-      union all select tier as type, id, coalesce(nullif(title, ''), label('', body)) as title, created_at as at from nuggets where binned_at is null and superseded_by is null and body like ?
-      order by at desc`).all(like, like)
+    const rows = db.prepare(`select 'capture' as type, id, ${LABEL} as title, captured_at as at, body from captures where status != 'discarded' and body like ?
+      union all select tier as type, id, coalesce(nullif(title, ''), label('', body)) as title, created_at as at, body from nuggets where binned_at is null and superseded_by is null and body like ?
+      order by at desc`).all(like, like) as { type: string; id: string; title: string; at: string; body: string | null }[]
+    return rows.map(({ body, ...row }) => ({ ...row, ...citedIn(body, name) }))
+      .sort((a, b) => (a.pages[0] ?? 0) - (b.pages[0] ?? 0))
   })
   // A PDF's cover: its first page drawn once by the reader's own renderer and
   // kept beside the file in the book's store (named so no clean-up of unused
