@@ -60,3 +60,33 @@ export function isNodeSelected({
 }: Pick<NodeViewProps, "selected" | "decorations">): boolean {
   return selected || decorations.some((decoration) => decoration.spec?.inRange === true)
 }
+
+const inRange = (decorations: readonly { spec?: { inRange?: boolean } }[]): boolean =>
+  decorations.some((decoration) => decoration.spec?.inRange === true)
+
+/**
+ * A React node view's `update`, for one that asks `isNodeSelected`.
+ *
+ * Left to itself, TipTap redraws a node view only when its node changes, and
+ * keeps new decorations without telling it. So a block swept up in a range
+ * kept its picked outline (and its toolbar) long after the caret moved on, or
+ * the other block in the range was deleted. This redraws it whenever the node
+ * changes or it goes into or out of a range, and not on every other keystroke.
+ */
+export function redrawOnRange({
+  oldNode,
+  newNode,
+  oldDecorations,
+  newDecorations,
+  updateProps,
+}: {
+  oldNode: { type: unknown }
+  newNode: { type: unknown }
+  oldDecorations: readonly { spec?: { inRange?: boolean } }[]
+  newDecorations: readonly { spec?: { inRange?: boolean } }[]
+  updateProps: () => void
+}): boolean {
+  if (newNode.type !== oldNode.type) return false
+  if (newNode !== oldNode || inRange(oldDecorations) !== inRange(newDecorations)) updateProps()
+  return true
+}

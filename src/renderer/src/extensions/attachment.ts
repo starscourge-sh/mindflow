@@ -2,6 +2,7 @@ import { Node, mergeAttributes } from "@tiptap/core"
 import { ReactNodeViewRenderer } from "@tiptap/react"
 import { AttachmentView } from "@/components/attachment/attachment-view"
 import { captioned } from "@/extensions/caption"
+import { redrawOnRange } from "@/extensions/selected-nodes"
 
 interface AttachmentAttributes {
   /** A `haligtree://` URL into the asset store. */
@@ -113,7 +114,7 @@ export const Attachment = Node.create({
   },
 
   addNodeView() {
-    return ReactNodeViewRenderer(AttachmentView)
+    return ReactNodeViewRenderer(AttachmentView, { update: redrawOnRange })
   },
 
   /** A link to the stored file, under the name it arrived with. */
