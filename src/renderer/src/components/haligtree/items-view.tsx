@@ -1116,7 +1116,7 @@ function NuggetDetail({ item, onOpen, top, back, board: place }: { item: ItemFul
             <div><Prop icon={SquareDashed} onClick={cloze}>{prompt.includes(BLANK) ? 'Blank more of the selected words' : 'Blank the selected words'}</Prop></div>
           </Tip>
           {prompt.includes(BLANK) && editor.current && (
-            <BlankPanel key={prompt} id={item.id} prompt={prompt} text={editor.current.getText()} notes={blankNotes}
+            <BlankPanel key={prompt} id={item.id} prompt={prompt} text={editor.current.getText()} body={editor.current.getJSON()} notes={blankNotes}
               onPrompt={(next) => (setPrompt(next), void haligtree.saveItem(item.id, { prompt: next }))} />
           )}
           {item.dueAt && <Prop icon={Calendar}>Next review {whenInLine(item.dueAt, false)}</Prop>}

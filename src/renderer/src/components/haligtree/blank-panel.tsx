@@ -19,7 +19,7 @@ function withHint(prompt: string, which: number, hint: string): string {
  * that add up are asked together, with the reason; `notes` are what the last
  * blank did (a unit kept outside, an "an" taken in, an item of a list).
  */
-export function BlankPanel({ id, prompt, text, notes, onPrompt }: { id: string; prompt: string; text: string; notes: string[]; onPrompt: (next: string) => void }): React.JSX.Element | null {
+export function BlankPanel({ id, prompt, text, body, notes, onPrompt }: { id: string; prompt: string; text: string; /** The gem's words as its editor holds them: each card asked apart keeps them whole. */ body: unknown; notes: string[]; onPrompt: (next: string) => void }): React.JSX.Element | null {
   const blanks = blanksIn(prompt)
   const answers = answersOf(prompt, text)
   const [split, setSplit] = useState(false)
@@ -30,7 +30,7 @@ export function BlankPanel({ id, prompt, text, notes, onPrompt }: { id: string; 
     const questions = blanks.map((_, n) => onlyBlank(prompt, answers, n))
     const before = prompt
     setSplit(true)
-    void Promise.all(questions.slice(1).map((question) => haligtree.another(id, question, text))).then((made) => {
+    void Promise.all(questions.slice(1).map((question) => haligtree.another(id, question, text, body))).then((made) => {
       onPrompt(questions[0])
       chime('separate')
       toast(`Asked apart: ${blanks.length} cards, one blank each`, () => {
