@@ -123,8 +123,8 @@ try {
   await single()
   await reader()
   await pick(2, 'quiet sentence'); await wait(500)
-  await h.waitForSelector('.pdf-keep-bar button[aria-label="Keep"]', { timeout: 4000 }).catch(() => {})
-  await h.click('.pdf-keep-bar button[aria-label="Keep"]')
+  // K keeps the picked words as a gem, as their right-click menu says.
+  await h.keyboard.press('k')
   await h.waitForSelector(TOAST, { timeout: 4000 }).catch(() => {})
   const gem = await h.evaluate((sel) => ({ text: document.querySelector(sel)?.textContent, made: document.querySelector(sel)?.getAttribute('data-toast-made') }), TOAST)
   check('Keep says "Kept as a gem" and carries the gem', gem.text === 'Kept as a gem' && /^nugget:/.test(gem.made ?? ''), JSON.stringify(gem))

@@ -65,6 +65,14 @@ const snipFigure = async () => {
   await h.mouse.move(at.x + at.w, at.y + at.h, { steps: 6 }); await h.mouse.up()
   return h.waitForSelector('.pdf-keep-bar button[aria-label="Card"]', { timeout: 10000 }).then(() => true, () => false)
 }
+/** The right-click menu's "Make a card" row over the picked words, as its words and keycap; the menu closed after, the words still picked. */
+const cardRow = async () => {
+  const at = await h.evaluate(() => { const r = getSelection().getRangeAt(0).getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 } })
+  await h.mouse.click(at.x, at.y, { button: 'right' }); await wait(500)
+  const row = await h.evaluate(() => { const one = [...document.querySelectorAll('[role="menu"] [role="menuitem"]')].find((r) => r.textContent.trim().startsWith('Make a card')); const key = one?.querySelector('[data-slot="context-menu-shortcut"]'); return one ? `${one.textContent.replace(key?.textContent ?? '', '').trim()}|${key?.textContent.trim() ?? ''}` : null })
+  await h.keyboard.press('Escape'); await wait(300)
+  return row
+}
 const pickOn = (page, words) => h.evaluate(([page, words]) => {
   const span = [...document.querySelectorAll(`.pdf-reader .pdf-page[data-page="${page}"] .textLayer span`)].find((one) => one.textContent.includes(words))
   const at = span.textContent.indexOf(words)
@@ -117,8 +125,8 @@ try {
 
   // 2. Picked words: C makes the card and nothing else.
   await pickOn(2, 'worth keeping'); await wait(500)
-  const wordsTip = await tipOver('.pdf-keep-bar button[aria-label="Card"]')
-  check('picked words\' Card tip: short words, C in a keycap at the end', wordsTip?.words === 'Make a card of these words' && wordsTip.key === 'C' && wordsTip.keyLast, JSON.stringify(wordsTip))
+  const wordsRow = await cardRow()
+  check('picked words\' menu: "Make a card" with C in a keycap at the end', wordsRow === 'Make a card|C', String(wordsRow))
   await pickOn(2, 'worth keeping'); await wait(500)
   await h.keyboard.press('c'); await wait(700)
   check('C with picked words: the card\'s question opens', await question(), '')
@@ -156,7 +164,7 @@ try {
     getSelection().addRange(range)
   })
   await wait(500)
-  check('the web reader offers Card on picked words', await h.evaluate(() => !!document.querySelector('.web-reader .pdf-keep-bar button[aria-label="Card"]')), '')
+  check('the web reader offers "Make a card" on picked words', (await cardRow()) === 'Make a card|C', '')
   await h.keyboard.press('c'); await wait(700)
   check('web reader, C with picked words: the card\'s question opens', await question(), '')
   check('web reader, C with picked words: quick capture does not open', !(await capturing()), '')

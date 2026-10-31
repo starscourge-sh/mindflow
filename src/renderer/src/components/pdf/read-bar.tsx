@@ -153,14 +153,14 @@ export function PickedMenu({ actions }: { actions: ReadActions }): React.JSX.Ele
         <ContextMenuShortcut>K</ContextMenuShortcut>
       </ContextMenuItem>
       {actions.card && (
-        <ContextMenuItem onSelect={() => actions.card?.()}>
+        <ContextMenuItem onSelect={() => actions.card?.()} title="A study card, in Review only; ⌥C keeps it as a gem too">
           <SquareStack />
           Make a card
           <ContextMenuShortcut>C</ContextMenuShortcut>
         </ContextMenuItem>
       )}
       {actions.blank && (
-        <ContextMenuItem onSelect={() => actions.blank?.()}>
+        <ContextMenuItem onSelect={() => actions.blank?.()} title="The words blanked out of their sentence, in Review only; ⌥⇧C keeps it as a gem too">
           <SquareDashed />
           Fill-in-the-blank card
           <ContextMenuShortcut>⇧C</ContextMenuShortcut>

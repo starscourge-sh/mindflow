@@ -34,8 +34,15 @@ try {
   const old = await v('nugget:from', 'The Venetian Patent Statute (1474)', {})
   await v('item:save', old, { prompt: 'The first patent law?' })
   await openProbePdf(c)
-  const tip = await (async () => { await pickInPdf(h, 2, 26, 1); await wait(400); return h.locator('.pdf-keep-bar button[aria-label="Card"]').getAttribute('title') })()
-  check('the Card button\'s tip says ⌥ keeps it as a gem too', /⌥C keeps it as a gem too/.test(tip ?? ''), tip)
+  const tip = await (async () => {
+    await pickInPdf(h, 2, 26, 1); await wait(400)
+    const at = await h.evaluate(() => { const r = getSelection().getRangeAt(0).getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 } })
+    await h.mouse.click(at.x, at.y, { button: 'right' }); await wait(500)
+    const title = await h.evaluate(() => [...document.querySelectorAll('[role="menu"] [role="menuitem"]')].find((one) => one.textContent.trim().startsWith('Make a card'))?.getAttribute('title') ?? null)
+    await h.keyboard.press('Escape'); await wait(300)
+    return title
+  })()
+  check('the menu\'s "Make a card" tip says ⌥ keeps it as a gem too', /⌥C keeps it as a gem too/.test(tip ?? ''), tip)
   await h.evaluate(() => getSelection().removeAllRanges()); await wait(300)
 
   await makeCard('c', 1, 'Which sentence is worth keeping?')
