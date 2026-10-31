@@ -838,6 +838,8 @@ export function ItemDetail(props: { item: ItemFull; onOpen?: (type: string, id: 
 function NuggetDetail({ item, onOpen, top, back, board: place }: { item: ItemFull; onOpen?: (type: string, id: string) => void; top?: React.ReactNode; back?: React.ReactNode; board?: BoardPlace }): React.JSX.Element {
   // What is around its words (who links to it, its map, the notes like it) comes the frame after them.
   const later = useAfterFirstPaint()
+  // A card whose words start with its who (a deck's "Artist?" card answers "Max Ernst") does not say the name again in the margin; "Open Max Ernst's page" stays under it.
+  const leadIsWho = typeof item.body === 'string' && !!item.attribution?.trim() && item.body.split('\n').find((line) => line.trim())?.trim() === item.attribution.trim()
   const [prompt, setPrompt] = useState(item.prompt ?? '')
   // Who said it, as typed: saved as the field is left.
   const [source, setSource] = useState(item.attribution ?? '')
@@ -984,7 +986,7 @@ function NuggetDetail({ item, onOpen, top, back, board: place }: { item: ItemFul
         <HaligtreeEditor
           key={restored?.rev ?? 0}
           // A tag opens its page: everything carrying it.
-          {...notePowers({ table: 'nuggets', id: item.id, kind: item.kind, fields: item.fields, text: item.title, titled: item.tier === 'article', created: item.createdAt, updated: item.updatedAt, origin: { captureId: item.captureId ?? undefined, attribution: item.attribution, from: item.id }, cites: { who: item.attribution, where: item.medium }, onOpen: (type, id) => onOpen?.(type, id) })}
+          {...notePowers({ table: 'nuggets', id: item.id, kind: item.kind, fields: item.fields, text: item.title, titled: item.tier === 'article', created: item.createdAt, updated: item.updatedAt, origin: { captureId: item.captureId ?? undefined, attribution: item.attribution, from: item.id }, cites: leadIsWho ? undefined : { who: item.attribution, where: item.medium }, onOpen: (type, id) => onOpen?.(type, id) })}
           onTitleOut={(title) => !onBoard.current && showTopTitle(title)}
           defaultContent={((restored ? restored.body : item.body) as JSONContent | string | null) ?? ''}
           onOpenNote={(link, heading) => onOpen && follow(link, onOpen, heading)}
