@@ -31,7 +31,7 @@ import { sources, type SourceSummary } from '@/lib/sources'
 import { HomeView } from './components/haligtree/home-view'
 import { LAST_PLACE } from './components/haligtree/resume-cards'
 import { ItemsView } from './components/haligtree/items-view'
-import { startQuestion } from './components/haligtree/questions-view'
+import { QuestionTabs, startQuestion, type Asked } from './components/haligtree/questions-view'
 import { GoalsView, startGoal } from './components/haligtree/goals-view'
 import { QueueReader, QueueView } from './components/haligtree/queue-view'
 import { useQueue } from './lib/reading-queue'
@@ -1285,7 +1285,7 @@ export function Home(): React.JSX.Element {
   /** A page's name, for the top bar; a pane is named by its note first (paneName). */
   /** The sidebar row lit for the page you are on, whichever date a day's, week's, month's or year's page shows (litRow). */
   const lit = (id: string): boolean => litRow(view.id, shown) === id
-  const labelOf = (view: View): string => datedName(view) ?? (view.id === 'matrix' ? 'Urgent and important' : TASK_PAGES.includes(view.id) ? 'Tasks' : view.id === 'questions' ? 'Questions' : null) ?? SECTIONS.find((section) => section.id === view.id)?.label ?? kind(view)?.label ?? (view.id === 'source' ? view.focus?.slice(view.focus.indexOf(':') + 1) || 'Source' : view.id === 'settings' ? 'Settings' : view.id === 'pick' ? 'New pane' : view.id === 'whatsnew' ? "What's new" : view.id === 'pdf' ? pdfName(fromPdfFocus(view.focus ?? '').src, fromPdfFocus(view.focus ?? '').name) : view.id === 'web' ? articleName(view.focus ?? '') : view.id === 'practices' ? 'Practices' : view.id === 'yearpage' ? 'Year' : view.id === 'day' ? 'Day' : view.id === 'weekpage' ? 'Week' : view.id === 'monthpage' ? 'Month' : '')
+  const labelOf = (view: View): string => datedName(view) ?? (view.id === 'matrix' ? 'Urgent and important' : TASK_PAGES.includes(view.id) ? 'Tasks' : view.id === 'questions' || view.id === 'lookups' ? 'Questions' : null) ?? SECTIONS.find((section) => section.id === view.id)?.label ?? kind(view)?.label ?? (view.id === 'source' ? view.focus?.slice(view.focus.indexOf(':') + 1) || 'Source' : view.id === 'settings' ? 'Settings' : view.id === 'pick' ? 'New pane' : view.id === 'whatsnew' ? "What's new" : view.id === 'pdf' ? pdfName(fromPdfFocus(view.focus ?? '').src, fromPdfFocus(view.focus ?? '').name) : view.id === 'web' ? articleName(view.focus ?? '') : view.id === 'practices' ? 'Practices' : view.id === 'yearpage' ? 'Year' : view.id === 'day' ? 'Day' : view.id === 'weekpage' ? 'Week' : view.id === 'monthpage' ? 'Month' : '')
   const paneWidth = (key: string, width: PaneWidth): void => {
     chime(width === 'narrow' ? 'fold' : 'slide')
     setSplit((now) => ({ ...now, panes: now.panes.map((one) => (one.key === key ? { ...one, width } : one)) }))
@@ -1298,8 +1298,8 @@ export function Home(): React.JSX.Element {
     discarded: (capture) => capture.status === 'discarded',
     // Out of sight but kept: one moved to the Bin is in the Bin, not here.
     archived: (capture) => !!capture.archivedAt && capture.status !== 'discarded',
-    // Asked and not answered yet; written in, it leaves for the rest of your words.
-    lookups: (capture) => capture.lookup === 'asked' && capture.status !== 'discarded' && !capture.archivedAt
+    // Every word or term looked up (Questions, Looked up): one kept asking is an open question now, listed there instead.
+    lookups: (capture) => capture.kind === 'word' && capture.status !== 'discarded' && capture.status !== 'question' && !capture.archivedAt
   }
 
   // --- split pairs: the panes as one row in Pinned, and the menu they share (split-pairs.tsx)
@@ -1419,7 +1419,7 @@ export function Home(): React.JSX.Element {
   const placesTo = (key?: string): Action[] => [
     ...SECTIONS.map((section) => ({ label: `Go to ${section.label}`, keys: `G ${section.key.toUpperCase()}`, run: () => setView({ id: section.id }, key) })),
     // The Tasks row's other tabs, and the pages that are a chip or a menu line now: still a G and a letter away.
-    ...([['Upcoming', 'upcoming', 'U'], ['Later', 'later', 'Z'], ['Routines', 'routines', 'O'], ['All tasks', 'alltasks', '*'], ['Urgent and important', 'matrix', 'Q'], ['Questions', 'questions', 'H']] as const).map(([name, id, letter]) => ({ label: `Go to ${name}`, keys: `G ${letter}`, run: () => setView({ id }, key) }))
+    ...([['Upcoming', 'upcoming', 'U'], ['Later', 'later', 'Z'], ['Routines', 'routines', 'O'], ['All tasks', 'alltasks', '*'], ['Urgent and important', 'matrix', 'Q'], ['Questions', 'questions', 'H'], ['Questions: Looked up', 'lookups', '.']] as const).map(([name, id, letter]) => ({ label: `Go to ${name}`, keys: `G ${letter}`, run: () => setView({ id }, key) }))
   ]
 
   /** A pane's page: the step it is on, drawn with everything it opens kept in that pane. */
@@ -1454,7 +1454,11 @@ export function Home(): React.JSX.Element {
           <HomeView onOpen={(type, id) => (via('home'), go(type, id))} onView={(id, focus) => (via('home'), setView({ id, focus }, key))} />
         ) : view.id === 'discarded' ? (
           <BinView onOpen={go} focus={view.focus} />
-        ) : view.id === 'inbox' || view.id === 'archived' || view.id === 'lookups' ? (
+        ) : view.id === 'lookups' || (view.id === 'questions' && view.folder === 'looked') ? (
+          // Lookups are questions answered at once: Questions' Looked up list. An old link to Lookups lands here too.
+          <CapturesView title="Questions" keep={keep.lookups} focus={view.focus} onOpen={go}
+            lead={<QuestionTabs on="looked" pick={(one) => setView({ id: 'questions', folder: one }, key)} />} />
+        ) : view.id === 'inbox' || view.id === 'archived' ? (
           <CapturesView title={SECTIONS.find((section) => section.id === view.id)!.label} keep={keep[view.id]} focus={view.focus} onOpen={go} archived={view.id === 'archived'} inbox={view.id === 'inbox'} />
         ) : view.id === 'day' ? (
           <DayView start={view.focus} onOpen={go} onScale={scale} onView={(id, focus) => setView({ id, focus }, key)} />
@@ -1479,6 +1483,7 @@ export function Home(): React.JSX.Element {
         ) : view.id === 'nuggets' || view.id === 'articles' || view.id === 'questions' ? (
           // Questions are pages in Pages: sent to one, Writing opens with its "Questions" chip on.
           <ItemsView tier={view.id === 'nuggets' ? 'nugget' : 'article'} only={view.id === 'questions' ? 'questions' : undefined} focus={view.focus}
+            ask={view.id === 'questions' && view.folder === 'answered' ? 'answered' : 'open'} onAsk={view.id === 'questions' ? (one: Asked) => setView({ id: 'questions', folder: one }, key) : undefined}
             folder={view.id !== 'questions' ? view.folder : undefined} onFolder={(id) => setView({ id: view.id, folder: id ?? undefined })} onOpen={go} />
         ) : view.id === 'goals' ? (
           <GoalsView focus={view.focus} onOpen={go} />

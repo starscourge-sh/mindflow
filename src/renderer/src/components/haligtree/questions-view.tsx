@@ -34,6 +34,10 @@ import { ThoughtDock } from './thought-bar'
 import { ago, dayMonth, dayName, heldFor, num } from '../../../../main/dates'
 import { ReadThrough } from './read-through'
 import { MenuButton } from './collection-header'
+import { Chips } from './display'
+import { call } from '@/lib/haligtree'
+import { firstSentences, sameTitle, useWiki } from '@/lib/wiki'
+import type { Answer } from '../../../../main/define'
 import BulbSvg from '@/components/ui/bulb-svg'
 import { clipMiddle, quoted } from '../../../../main/clip'
 import { ArchiveRestore, Download, Eye, EyeOff, Orbit, Bookmark as Pin, Bookmark as PinOff, ArchiveRestore as RotateCcw } from '@/components/ui/icons'
@@ -50,6 +54,90 @@ import { ArchiveRestore, Download, Eye, EyeOff, Orbit, Bookmark as Pin, Bookmark
 /** How long it has been held, in plain words and a calm colour: "held 2 years". */
 export { heldFor }
 const cluesSaid = (n: number): string => (n ? `${num(n)} ${n === 1 ? 'clue' : 'clues'}` : 'no clues yet')
+
+/** Questions, at two speeds: asked and answered at once (Looked up), open and gathering clues, or answered. */
+export type Asked = 'looked' | 'open' | 'answered'
+export const ASKED: { id: Asked; label: string }[] = [{ id: 'looked', label: 'Looked up' }, { id: 'open', label: 'Open' }, { id: 'answered', label: 'Answered' }]
+
+/** The three filters of Questions, at the line's left, in the same place on each. */
+export function QuestionTabs({ on, pick }: { on: Asked; pick: (one: Asked) => void }): React.JSX.Element {
+  return <div data-question-filter={on} className="flex shrink-0"><Chips className="shrink-0" options={ASKED} on={(id) => id === on} pick={(id) => (chime('tap'), pick(id as Asked))} /></div>
+}
+
+/**
+ * A lookup that did not satisfy: "Keep asking" makes it an open question, its
+ * looked-up words the first clue, and opens it. Undo takes the question back.
+ */
+export async function keepAsking(captureId: string): Promise<void> {
+  const question = await flying(captureId, 'question', () => haligtree.newQuestion('', captureId))
+  if (!question) return refuse('That lookup was already dealt with. Put it back in the Inbox first')
+  chime('hold')
+  toast('Still asking: an open question, with what you looked up as its first clue', () => void haligtree.dropQuestion(question), 'success')
+  window.api.openInHome('question', question)
+}
+
+/** What a question asks about, for the dictionary and Wikipedia: "What is hubris?" asks about "hubris". */
+export const askedAbout = (title: string): string =>
+  shownName(title).replace(/[?.!\s]+$/, '').replace(/^(what|who|where|when)\s+(is|are|was|were)\s+(an?\s+|the\s+)?/i, '').replace(/^what\s+does\s+(.+?)\s+mean$/i, '$1').replace(/^(define|meaning of)\s+/i, '').trim()
+
+const NOT_IT = 'questionNotIt'
+const notIt = (): string[] => { try { return JSON.parse(localStorage.getItem(NOT_IT) ?? '[]') } catch { return [] } }
+
+/**
+ * On a question still without clues: what the dictionary and Wikipedia say,
+ * offered as a first clue with "Use this" or "Not it", never filled in on its
+ * own. Offline, one quiet line, and it asks again once the machine is back.
+ */
+function Suggested({ item }: { item: ItemFull }): React.JSX.Element | null {
+  const about = askedAbout(item.title)
+  const [gone, setGone] = useState(() => notIt().includes(item.id))
+  const wanted = !gone && !item.closedAt && !item.glosses.length && about.length > 1 && about.length <= 80
+  const wiki = useWiki(wanted ? about : null)
+  const one = /^\p{L}[\p{L}'-]{1,40}$/u.test(about)
+  const [meaning, setMeaning] = useState<{ word: string; said: Answer | 'asking' } | null>(null)
+  const [tries, setTries] = useState(0)
+  useEffect(() => {
+    if (!wanted || !one) return
+    let live = true
+    void call<Answer>('define', about).then((said) => live && setMeaning({ word: about, said }), () => live && setMeaning({ word: about, said: { offline: true } }))
+    return () => void (live = false)
+  }, [wanted, one, about, tries])
+  const definedOffline = !!meaning && meaning.said !== 'asking' && !!meaning.said && 'offline' in meaning.said
+  useEffect(() => {
+    if (!definedOffline) return
+    const back = (): void => setTries((n) => n + 1)
+    window.addEventListener('online', back)
+    return () => window.removeEventListener('online', back)
+  }, [definedOffline])
+  if (!wanted) return null
+  const found = one && meaning?.word === about && meaning.said && meaning.said !== 'asking' && 'found' in meaning.said ? meaning.said.found : null
+  const page = wiki.page && (one || sameTitle(wiki.page.title, about)) ? wiki.page : null
+  if (!found && !page) {
+    if (wiki.state === 'offline' || definedOffline) return <p data-suggest="offline" className="mt-4 text-body text-muted-foreground">Offline: suggestions will come when you’re back.</p>
+    return null
+  }
+  const text = [found && `${about}: ${found.definition}`, page && firstSentences(page.extract)].filter(Boolean).join('\n\n')
+  const use = (): void => {
+    const clue = page ? `${text}\n\nFrom Wikipedia, CC BY-SA: ${page.url}` : text
+    void haligtree.addClue(item.id, clue).then((id) => (chime('clue'), toast('Kept as its first clue', id ? () => void haligtree.dropClue(id) : undefined)))
+  }
+  const no = (): void => {
+    try { localStorage.setItem(NOT_IT, JSON.stringify([...notIt(), item.id].slice(-500))) } catch { /* Offered again next time, which does no harm. */ }
+    chime('fold')
+    setGone(true)
+  }
+  return (
+    <section data-suggest="found" aria-label="Found for this question" className="mt-4 rounded-xl border bg-[color-mix(in_oklab,var(--foreground)_2.5%,transparent)] px-3.5 py-3">
+      <p className="text-control text-muted-foreground">Found {found && page ? 'in the dictionary and on Wikipedia' : found ? 'in the dictionary' : 'on Wikipedia'}. A first clue?</p>
+      <p data-suggest-text className="mt-1.5 whitespace-pre-line text-body text-foreground text-pretty">{text}</p>
+      {page && <a href={page.url} target="_blank" rel="noopener noreferrer" title="Text from Wikipedia, CC BY-SA" className="mt-1 inline-block rounded-sm text-meta text-muted-foreground hover:text-foreground hover:underline hover:underline-offset-2">From Wikipedia</a>}
+      <div className="mt-2 flex items-center gap-1.5">
+        <Button data-suggest-use variant="outline" size="sm" onClick={use}>Use this</Button>
+        <Button data-suggest-no variant="ghost" size="sm" onClick={no}>Not it</Button>
+      </div>
+    </section>
+  )
+}
 
 /** A new question, asked for in your own words, then opened to write in. Undoable. */
 export async function startQuestion(open: (type: string, id: string) => void): Promise<void> {
@@ -296,6 +384,7 @@ export function QuestionDetail({ item, onOpen, top, back }: { item: ItemFull; on
               ? <Tip label="Take the question back up"><Button data-question-reopen variant="outline" size="sm" onClick={holdAgain}><RotateCcw className="size-3.5" /> Open it again</Button></Tip>
               : <Tip label="Its clues, oldest first, become a page of writing"><Button data-question-answered variant="outline" size="sm" onClick={gotIt}><Check className="size-3.5" /> Answered</Button></Tip>}
           </div>
+          <Suggested item={item} />
           {/* What a question is for, said once, while there is nothing on it yet. */}
           {!clues.length && (
             <p data-question-how className="mt-4 text-body text-muted-foreground text-pretty">

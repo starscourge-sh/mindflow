@@ -45,7 +45,7 @@ const HINTS: Record<string, string> = {
   sources: '**The people and books your notes cite.** Each has a page with their words and what cites them; type @ and a name in a note to add one.',
   discarded: '**What you moved to the Bin.** “Restore” puts a note back where it was; “Hold to empty” deletes them for good.',
   archived: '**Notes kept out of sight, never deleted.** Right-click any note and choose “Archive” to send it here.',
-  lookups: '**Words and terms waiting for a meaning.** Each waits here, asked, until you write what it means. A question to carry for weeks is a page in Questions instead.',
+  lookups: '**Looked up: questions answered at once.** Each word or term you looked up, with its meaning from the dictionary or Wikipedia. One that does not satisfy, “Keep asking” makes an open question, with what you found as its first clue.',
   articles: `**Pages are longer pieces in your own words, one idea each.** ${LIFECYCLE} Start one with “New page”, or in Gems select a few with X, then “Start a page”.`
 }
 

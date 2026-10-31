@@ -1,5 +1,5 @@
 import { type ComponentType, type CSSProperties, type RefAttributes } from 'react'
-import { Archive, Images, BookOpen, BookUser, Calendar, CalendarFold, CalendarRange, Compass, Flag, ListVideo, Newspaper, Pin, Sprout, type LucideIcon } from 'lucide-react'
+import { Archive, Images, BookUser, Calendar, CalendarFold, CalendarRange, Compass, Flag, ListVideo, Newspaper, Pin, Sprout, type LucideIcon } from 'lucide-react'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import { Switch } from '@/components/ui/switch'
 import { chime } from '@/lib/sound'
@@ -68,8 +68,6 @@ export const SECTIONS: (Place & { key: string })[] = [
   // The day's twenty or so of your own things, as a timeline that ends (feed-view.tsx).
   // W, not G: G G is a list's first row, as in Vim.
   { id: 'feed', emoji: '📰', label: 'Feed', icon: Newspaper, key: 'w', tint: 'pink' },
-  // Words and terms waiting for a meaning: a Word with none written yet. Questions you carry are pages in Writing.
-  { id: 'lookups', emoji: '📖', label: 'Lookups', icon: BookOpen, key: '.', tint: 'green' },
   // Goals: a day you are working toward, and the road there.
   { id: 'goals', emoji: '🚩', label: 'Goals', icon: Flag, key: 'e', tint: 'orange' },
   // What you mean to read next, in order, Spotify's way.
@@ -124,7 +122,7 @@ export const SHAPE = SIDEBAR_SHAPE
  * G and a letter for pages that are not rows of their own any more: the task
  * lists are tabs of one row now, and still a G away.
  */
-export const G_ALIASES: Record<string, string> = { u: 'upcoming', '+': 'upcoming', z: 'later', o: 'routines', '*': 'alltasks', q: 'matrix', l: 'all', h: 'questions' }
+export const G_ALIASES: Record<string, string> = { u: 'upcoming', '+': 'upcoming', z: 'later', o: 'routines', '*': 'alltasks', q: 'matrix', l: 'all', h: 'questions', '.': 'lookups' }
 
 /** The task lists that are tabs of the one Tasks row: on any of them, its row is lit. */
 export const TASK_PAGES = ['today', 'tomorrow', 'week', 'upcoming', 'later', 'routines', 'alltasks', 'matrix']
@@ -137,7 +135,7 @@ export const TASK_PAGES = ['today', 'tomorrow', 'week', 'upcoming', 'later', 'ro
  * that row is in the sidebar (`shown`).
  */
 export const litRow = (id: string, shown: string[] = []): string =>
-  TASK_PAGES.includes(id) ? 'today' : id === 'questions' ? 'articles' : id === 'all' || id.startsWith('kind:') ? 'inbox'
+  TASK_PAGES.includes(id) ? 'today' : id === 'questions' || id === 'lookups' ? 'articles' : id === 'all' || id.startsWith('kind:') ? 'inbox'
     : (id === 'weekpage' || id === 'monthpage') && shown.includes(id) ? id : id === 'weekpage' || id === 'monthpage' || id === 'yearpage' ? 'day' : id
 
 /** The sidebar's places, in their usual order: the same in every book. */

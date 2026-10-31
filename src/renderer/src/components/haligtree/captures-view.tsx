@@ -51,7 +51,7 @@ import { RemindMe, SourceRow } from './items-view'
 import { openPdf } from '@/components/pdf/pdf-reader'
 import { bookOf } from '@/lib/pdf-in'
 import { BookOpen, Quote } from 'lucide-react'
-import { addToQuestion } from './questions-view'
+import { addToQuestion, keepAsking } from './questions-view'
 import { ReadThrough } from './read-through'
 import { enqueue, readQueue } from '@/lib/reading-queue'
 import { showDetails } from '@/lib/reading'
@@ -102,8 +102,10 @@ export const keepInbox = (capture: CaptureMeta): boolean => capture.status === '
 /** With "Show sorted too": every note kept and every task, the Bin aside. */
 const keepEverything = (capture: CaptureMeta): boolean => capture.status !== 'discarded'
 
-export function CapturesView({ title, keep: given, focus, onOpen, archived = false, inbox: inboxPage = false }: {
+export function CapturesView({ title, keep: given, focus, onOpen, archived = false, inbox: inboxPage = false, lead: given_lead }: {
   title: string
+  /** Shown at the line's left, as the Inbox's switch is: Questions' filters on the Looked up list. */
+  lead?: React.ReactNode
   keep: (capture: CaptureMeta) => boolean
   focus?: string
   /** The Archived view: what is out of sight, and only that. */
@@ -522,7 +524,7 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
               {!open && !task && !(spread && peek) ? 'Show sorted too' : <span className="sr-only">Show sorted too</span>}
             </label>
           </Tip>
-        ) : undefined}
+        ) : chosen.length ? undefined : given_lead}
         // The Inbox is a place to set things down, never a queue with a number on it.
         // What is picked always shows: the buttons may fold into ⋯ in a narrow window, the count never does.
         count={chosen.length || (title === 'Inbox' ? undefined : counted)}
@@ -997,7 +999,9 @@ export function CaptureProps({ capture, onOpen, className, fold, onExit, onBack 
         {/* The question routes: a new one held from it, or a clue in one you are holding. */}
         {capture.status === 'open' && (
           <>
-            <Prop icon={Orbit} tip="Something you keep thinking about. It collects clues, and is never tested" onClick={() => void exit(capture.id, 'question')}>Start an open question from this</Prop>
+            {capture.kind === 'word'
+              ? <Prop icon={Orbit} tip="Not answered yet: an open question, with what you looked up as its first clue" onClick={() => void keepAsking(capture.id)}><span data-keep-asking>Keep asking</span></Prop>
+              : <Prop icon={Orbit} tip="Something you keep thinking about. It collects clues, and is never tested" onClick={() => void exit(capture.id, 'question')}>Start an open question from this</Prop>}
             <Prop icon={Paperclip} tip="Files this note under a question you already have" onClick={() => void addToQuestion(capture.id)}>Add as a clue to a question…</Prop>
             {/* The questions kept in view, one click each, while you tidy. */}
             <PinnedQuestions className="px-2 py-1.5" onPick={(question) => void clueInto(question, { captureId: capture.id })} />

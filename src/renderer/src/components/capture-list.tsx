@@ -20,7 +20,7 @@ import { asideItem } from '@/lib/split'
 import { binItem } from '@/lib/to-bin'
 import { queueMenu } from '@/lib/reading-queue'
 import { copyToBookItem } from '@/lib/books'
-import { addToQuestion } from './haligtree/questions-view'
+import { addToQuestion, keepAsking } from './haligtree/questions-view'
 import { age, dayjs, dayKey, daysSince, num, whenInLine } from '../../../main/dates'
 import { EyeOff, Bookmark as Pin } from '@/components/ui/icons'
 import type { IslandState } from './haligtree/islands'
@@ -137,6 +137,8 @@ export const captureMenu = (capture: CaptureMeta, onPick?: (id: string) => void)
   ...(capture.status === 'open'
     ? [
         { label: 'Resolve', keys: 'R', run: () => void exit(capture.id, 'resolved') },
+        // A lookup that did not satisfy: an open question, its words the first clue.
+        ...(capture.kind === 'word' ? [{ label: 'Keep asking', hint: 'An open question, with this as its first clue', run: () => void keepAsking(capture.id) }] : []),
         { label: 'Turn it into', items: [
           ...EXITS.filter((one) => one.status === 'promoted' || one.status === 'question').map((one) => ({ label: one.label, keys: one.key.toUpperCase(), run: () => void exit(capture.id, one.status) })),
           { label: 'Make it a task', run: () => void makeTask({ capture: capture.id }) },

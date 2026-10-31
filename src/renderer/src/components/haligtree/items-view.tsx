@@ -1,3 +1,4 @@
+import { QuestionTabs, type Asked } from './questions-view'
 import { BlankPanel, cardPerNumber } from './blank-panel'
 import { BLANK, addBlank, clozeNumbers, listItemCount, typedAsGaps } from '@/lib/blanks'
 import { ContextField } from './context-field'
@@ -232,7 +233,7 @@ function useArrivals(tier: string, all: Item[]): void {
  * lines of them, with a line saying how it comes back; an article as a titled
  * document. Same row underneath, so one view, drawn two ways.
  */
-export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, only }: {
+export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, only , ask = 'open', onAsk }: {
   tier: 'nugget' | 'article'
   focus?: string
   /** The folder opened from the sidebar: the list narrowed to what it holds, a chip back out through `onFolder`. */
@@ -240,6 +241,9 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
   onFolder?: (id: string | null) => void
   onOpen?: (type: string, id: string) => void
   only?: 'questions'
+  /** In Questions: which ones, open or answered (Looked up is the lookups' own list, home.tsx). */
+  ask?: Asked
+  onAsk?: (one: Asked) => void
 }): React.JSX.Element {
   const own = useLive(() => haligtree.items(tier), [] as Item[], [tier], ['item'], 'items')
   useArrivals(tier, own)
@@ -254,8 +258,8 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
   const [wasOnly, setWasOnly] = useState(only)
   if (wasOnly !== only) (setWasOnly(only), setAsks(only ?? 'all'))
   const questionsOnly = writing && asks === 'questions'
-  const all = useMemo(() => (unloaded(own) || unloaded(held) ? unread([] as Item[]) : !writing ? own : questionsOnly ? held : [...own, ...held.filter((one) => !one.closedAt)]),
-    [own, held, writing, questionsOnly])
+  const all = useMemo(() => (unloaded(own) || unloaded(held) ? unread([] as Item[]) : !writing ? own : questionsOnly ? (onAsk ? held.filter((one) => (ask === 'answered' ? !!one.closedAt : !one.closedAt)) : held) : [...own, ...held.filter((one) => !one.closedAt)]),
+    [own, held, writing, questionsOnly, ask, onAsk])
   // A folder opened from the sidebar: the list as ever, with only what the folder holds (its subfolders' too).
   // Only what is shown narrows: the layout is still read from every note, so a move inside keeps the rest in place.
   const shelf = useGroups(tier)
@@ -612,7 +616,7 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
         apart={sent}
         title={tier === 'nugget' ? 'Gems' : 'Writing'}
         // Writing, or only its questions: what the list holds, so at the line's left before the count, its pill on the list's box edge and its words on the ink edge as Tasks' tabs (qa/list-edges.mjs), away from New page and the views.
-        lead={writing && !chosen.length ? <div data-list-tabs className="flex shrink-0" style={{ marginLeft: 'calc(var(--list-edge) - var(--list-ink))' }}><Chips className="shrink-0" options={[{ id: 'all', label: 'All' }, { id: 'questions', label: 'Questions' }]} on={(id) => id === asks} pick={(id) => (setAsks(id as 'all' | 'questions'), setCursor(-1))} /></div> : undefined}
+        lead={writing && !chosen.length ? <div data-list-tabs className="flex shrink-0" style={{ marginLeft: 'calc(var(--list-edge) - var(--list-ink))' }}><Chips className="shrink-0" options={[{ id: 'all', label: 'All' }, { id: 'questions', label: 'Questions' }]} on={(id) => id === asks} pick={(id) => (setAsks(id as 'all' | 'questions'), setCursor(-1))} />{questionsOnly && onAsk && <span className="ml-3"><QuestionTabs on={ask ?? 'open'} pick={(one) => (onAsk(one), setCursor(-1))} /></span>}</div> : undefined}
         // Every note on show, a folded group's too.
         count={chosen.length || groups.reduce((sum, [, list]) => sum + list.length, 0)}
         search={spread && !chosen.length && <ListSearch value={query} onChange={(words) => (setQuery(words), setCursor(-1))} onDone={() => setCursor(0)} placeholder={`Search in ${tier === 'nugget' ? 'Gems' : 'Writing'}`} />}
