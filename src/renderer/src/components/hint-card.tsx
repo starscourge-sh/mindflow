@@ -11,15 +11,13 @@ import { haligtree } from '@/lib/haligtree'
 import { Rolling, quietly, refuse, toast, Typed } from './haligtree/ui'
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip'
 import { Input } from '@/components/ui/input'
-import { Button } from '@/components/ui/button'
 import { QuestionBack } from './haligtree/questions-view'
 import { KindBack, backLine, returningHint, type Returning } from './haligtree/kind-back'
 import { GlossLine, useGlossKey } from './haligtree/gloss-line'
 import { Postcarded, usePostcard } from './haligtree/memory-postcard'
-import { AliveIcon } from '@/components/ui/alive-icon'
-import TrashIcon from '@/components/ui/trash-icon'
 import { keyFor } from '@/lib/keys'
 import { ArrowUpRight, EyeOff, Pencil, ThumbsDown, ThumbsUp, Trash2, X } from '@/components/ui/icons'
+import { RotateCcw } from 'lucide-react'
 
 // A memory is a hint that says what it is: this day last year, one source's things.
 type Hint = NonNullable<Awaited<ReturnType<typeof window.api.hints.next>>> & { memory?: string }
@@ -242,7 +240,7 @@ export function HintCard({ onOpen }: { onOpen: (type: string, id: string) => voi
           animate={{ opacity: 1, transform: shift('translateY(0px) scale(1)') }}
           exit={{ opacity: 0, transform: shift('translateY(-4px)'), transition: { duration: 0.16, ease: EASE } }}
           transition={{ duration: 0.24, ease: EASE }}
-          className={postcard ? 'mt-2 mb-3 text-sm' : 'mt-2 mb-3 overflow-hidden rounded-lg border border-[color-mix(in_srgb,var(--tt-brand-color-400)_22%,transparent)] bg-[color-mix(in_srgb,var(--tt-brand-color-400)_10%,transparent)] px-3 py-2.5 text-sm'}
+          className={postcard ? 'group/hint mt-2 mb-3 text-sm' : 'group/hint mt-2 mb-3 overflow-hidden rounded-lg border border-[color-mix(in_srgb,var(--tt-brand-color-400)_22%,transparent)] bg-[color-mix(in_srgb,var(--tt-brand-color-400)_10%,transparent)] px-3 py-2.5 text-sm'}
         >
           {/* A memory, with Postcards on, comes as a postcard: the same card inside. */}
           <Postcarded on={postcard} at={(hint as { at?: string }).at} seed={hint.id}>
@@ -273,7 +271,8 @@ export function HintCard({ onOpen }: { onOpen: (type: string, id: string) => voi
               />
             ) : (
               <div
-                className={`cursor-pointer whitespace-pre-line ${whole ? 'max-h-40 overflow-y-auto' : 'line-clamp-3'}`}
+                data-hint-words
+                className={`cursor-pointer whitespace-pre-line font-heading text-[15px] leading-snug text-foreground ${whole ? 'max-h-40 overflow-y-auto' : 'line-clamp-3'}`}
                 onClick={() => (said.length > 160 ? setWhole(!whole) : fix())}
               >
                 {/* The words roll in when it arrives, a hint being dealt; a
@@ -284,7 +283,7 @@ export function HintCard({ onOpen }: { onOpen: (type: string, id: string) => voi
             )}
           </RowMenu>
           {/* A thought on it, the moment it stops you: no trip to its page. */}
-          {fixing === null && !asking && <GlossLine id={hint.id} className="mt-1.5" keys="⌘;" />}
+          {fixing === null && !asking && <GlossLine id={hint.id} className="mt-1 text-xs text-muted-foreground" keys="⌘;" quiet />}
           {asking ? (
             <Input
               autoFocus
@@ -305,23 +304,31 @@ export function HintCard({ onOpen }: { onOpen: (type: string, id: string) => voi
               className="mt-2 w-full h-8"
             />
           ) : (
-            <div className="mt-2 flex items-center gap-1 text-muted-foreground [&_svg]:size-3.5">
-              <span className={`mr-auto text-xs ${hint.memory ? 'text-[var(--tt-brand-color-400)]' : ''}`}>{hint.memory ?? (hint.id === hint.captureId ? `From your Inbox · a ${hint.kind} still waiting` : `Saved · a gem`)}</span>
-              {/* Open, or let it go: a hint asks nothing else of you. Each
-                  button says what it does, since the icons alone do not. */}
-              {offered.map(({ icon: Icon, tip, keys, run }) => (
-                <Tooltip key={tip}>
-                  <TooltipTrigger asChild>
-                    <Button variant="ghost" size="icon-sm" aria-label={tip} onClick={run}>
-                      {Icon === Trash2 ? <AliveIcon icon={TrashIcon} size={14} /> : <Icon />}
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    {tip}
-                    {keys && keyFor(keys) && <kbd className="ml-2 font-sans text-key opacity-70">{keyFor(keys)}</kbd>}
-                  </TooltipContent>
-                </Tooltip>
-              ))}
+            <div className="mt-1.5 flex min-h-6 items-center gap-1 text-xs text-muted-foreground">
+              {/* What it is, quietly: a gem that came back, a memory, or a capture still waiting. */}
+              <span data-hint-mark className={`mr-auto inline-flex items-center gap-1 ${hint.memory ? 'text-[var(--tt-brand-color-400)]' : ''}`}>
+                {!hint.memory && hint.id !== hint.captureId && <RotateCcw aria-hidden className="size-3" />}
+                {hint.memory ?? (hint.id === hint.captureId ? `From your Inbox · a ${hint.kind} still waiting` : 'came back')}
+              </span>
+              {/* Two words on hover: more of these, or fewer. Open, fix, not now and
+                  the Bin are in its right-click menu. */}
+              {offered.filter(({ icon }) => icon === ThumbsUp || icon === ThumbsDown).map(({ icon, tip, keys, run }) => {
+                const word = icon === ThumbsUp ? (hint.id === hint.captureId ? 'Keep it' : 'Keep it coming') : 'Less like this'
+                return (
+                  <Tooltip key={tip}>
+                    <TooltipTrigger asChild>
+                      <button type="button" data-hint-vote={icon === ThumbsUp ? 'up' : 'down'} onClick={run}
+                        className="rounded-md px-1.5 py-0.5 opacity-0 transition-[opacity,background-color,color] duration-150 group-hover/hint:opacity-100 focus-visible:opacity-100 hover:bg-accent hover:text-foreground active:scale-[0.97]">
+                        {word}
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      {tip}
+                      {keys && keyFor(keys) && <kbd className="ml-2 font-sans text-key opacity-70">{keyFor(keys)}</kbd>}
+                    </TooltipContent>
+                  </Tooltip>
+                )
+              })}
             </div>
           )}
           </Postcarded>

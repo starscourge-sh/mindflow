@@ -122,6 +122,7 @@ import { DatePicker } from './components/haligtree/date-picker'
 import { useFitBox } from './lib/fit-box'
 import { menuShowing, layerOpen, menuOpen } from '@/lib/menu-keys'
 import { clip, quoted } from '../../main/clip'
+import { soundTitle } from './components/attachment/attachment-view'
 import { ArrowLeft, ArrowUpRight, ChevronLeft, ChevronRight, EyeOff, Tag as Hashtag, X } from '@/components/ui/icons'
 import { caretInLink } from './extensions/link-tidy'
 import { APP_NAME } from '../../main/name'
@@ -146,10 +147,43 @@ const readDraft = (): JSONContent | undefined => {
  */
 const putDraft = (doc: unknown): void => {
   try {
-    localStorage.setItem('capture-draft', JSON.stringify(doc))
+    const text = JSON.stringify(doc)
+    if (localStorage.getItem('capture-draft') === text) return
+    localStorage.setItem('capture-draft', text)
+    // When it was last written in: an hour untouched, it is a leftover (see LEFTOVER_AFTER).
+    localStorage.setItem('capture-draft-at', String(Date.now()))
   } catch {
     // Still in the box; only quitting now would lose it.
   }
+}
+
+/**
+ * A draft untouched this long is a leftover, not what you came to write: the
+ * box opens empty with the caret in it, and the leftover waits in a small
+ * "Still to keep" chip under the writing line, one click from coming back.
+ */
+const LEFTOVER_AFTER = 60 * 60_000
+const readLeftover = (): JSONContent | null => {
+  try {
+    const saved = JSON.parse(localStorage.getItem('capture-leftover') ?? 'null')
+    return hasContent(saved) ? saved : null
+  } catch {
+    return null
+  }
+}
+/** What a leftover is, in a few words: its first line, or "Voice note · 0:56" for a recording alone. */
+const leftoverName = (doc: JSONContent): string => {
+  const line = firstLine(doc)
+  if (line) return quoted(line, 28)
+  let file: { name?: string; duration?: number } | null = null
+  const walk = (node: JSONContent): void => {
+    if (!file && node.type === 'attachment') file = node.attrs ?? {}
+    node.content?.forEach(walk)
+  }
+  walk(doc)
+  const found = file as { name?: string; duration?: number } | null
+  if (!found) return 'a note'
+  return /\.(mp3|m4a|weba|wav|ogg|aac|flac)$/i.test(found.name ?? '') ? soundTitle(found.name, found.duration ?? null) : quoted(found.name ?? 'a file', 28)
 }
 
 /** youtube.com is YouTube; anything else, its name with a capital. */
@@ -553,6 +587,16 @@ export default function App(): React.JSX.Element {
   // whichever button the focus was last left on.
   useEffect(() => window.api.onShown(() => {
     openedAt.current = Date.now()
+    // A draft left an hour or more: set aside as a leftover, and the box is fresh.
+    const at = Number(localStorage.getItem('capture-draft-at')) || 0
+    const draft = readDraft()
+    if (!latestEditing.current && draft && Date.now() - at > LEFTOVER_AFTER) {
+      const before = readLeftover()
+      // Two leftovers: the older one first, then the newer, as one note to keep.
+      localStorage.setItem('capture-leftover', JSON.stringify(before ? { type: 'doc', content: [...(before.content ?? []), ...(draft.content ?? [])] } : draft))
+      setLeftover(readLeftover())
+      fresh()
+    }
     requestAnimationFrame(() => {
       const active = document.activeElement
       if (!active || active === document.body || active.closest('header, [data-window-controls], button')) editorRef.current?.commands.focus('end')
@@ -560,6 +604,18 @@ export default function App(): React.JSX.Element {
   }), [])
   // Bumped on a fresh box. The editor is keyed on it, so a new one replaces it.
   const [round, setRound] = useState(0)
+  const [leftover, setLeftover] = useState<JSONContent | null>(readLeftover)
+  /** The leftover back in the box: in place of an empty one, or after what is there. */
+  const leftoverBack = (): void => {
+    const editor = editorRef.current
+    const doc = readLeftover()
+    localStorage.removeItem('capture-leftover')
+    setLeftover(null)
+    if (!editor || !doc) return
+    chime('open')
+    if (!textOf(editor.getJSON()).trim() && !editor.getJSON().content?.some((one) => one.type !== 'paragraph')) editor.chain().setContent(doc).focus('end').run()
+    else editor.chain().focus('end').insertContent(doc.content ?? []).run()
+  }
   // A capture opened from the list on the right. Edits save to it as they
   // happen; Cmd+Enter puts it down and brings back the box you had.
   const [editing, setEditing] = useState<{ id: string; body: JSONContent } | null>(null)
@@ -2019,6 +2075,18 @@ export default function App(): React.JSX.Element {
                 if (editing) words.save(doc, editor)
               }}
             />
+            {/* A draft left an hour or more: a small chip, never the top of the box. */}
+            {leftover && !editing && (
+              <div className="px-[4.75rem] pt-1.5">
+                <Tip label="Put it back in quick capture to finish or keep">
+                  <button type="button" data-leftover onMouseDown={(event) => event.preventDefault()} onClick={leftoverBack}
+                    className="inline-flex max-w-full items-center gap-1.5 rounded-full bg-accent/60 px-2.5 py-0.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground active:scale-[0.97]">
+                    <span className="shrink-0">Still to keep:</span>
+                    <span className="truncate text-foreground/80">{leftoverName(leftover)}</span>
+                  </button>
+                </Tip>
+              </div>
+            )}
             {/* Reading another capture with a note half written: the way back
                 to it stays in view, so a link followed never loses the draft. */}
             {waiting && (
@@ -2188,7 +2256,7 @@ export default function App(): React.JSX.Element {
                 <label data-lesson="hide" data-under-toast className="mr-2 flex shrink-0 cursor-pointer items-center gap-2 text-control whitespace-nowrap text-muted-foreground">
                   <Switch size="sm" checked={createMore} onCheckedChange={setCreateMore} aria-label="Create more" />
                   {/* A short row (Check back's day beside it): the switch alone, its name in its tip, so Create is never cut off. */}
-                  <span className="@max-[44rem]/row:sr-only">Create more</span>
+                  <span className="@max-[24rem]/row:sr-only">Create more</span>
                 </label>
                 </Tip>
               )}
