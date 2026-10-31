@@ -1,9 +1,10 @@
 import { Extension } from "@tiptap/core"
-import { Plugin, PluginKey } from "@tiptap/pm/state"
-import { Decoration, DecorationSet } from "@tiptap/pm/view"
-import type { Node as ProseMirrorNode } from "@tiptap/pm/model"
+import { Plugin, PluginKey, TextSelection } from "@tiptap/pm/state"
+import { Decoration, DecorationSet, type EditorView } from "@tiptap/pm/view"
+import { Fragment, Slice, type Node as ProseMirrorNode } from "@tiptap/pm/model"
 
 import { lineCard, termLines } from "../../../main/study"
+import { cardListOf } from "../../../main/card-lists"
 import { num } from "../../../main/dates"
 
 /** A small card, drawn: what marks a line that Review asks you. */
@@ -52,6 +53,44 @@ function offerCards(pairs: { term: string; meaning: string }[]): void {
 }
 
 /**
+ * A pasted list of cards (a spreadsheet's two columns, an AI's "front | back"
+ * list, Anki's text export) lands as "question :: answer" lines where the
+ * cursor is, so each is a card of this note like any line written by hand.
+ * A first row naming the columns is left out, a line already in the note is
+ * not added twice, and the toast says all of it, with "Show them".
+ */
+function pasteCards(view: EditorView, list: NonNullable<ReturnType<typeof cardListOf>>): void {
+  const had = new Set<string>()
+  view.state.doc.descendants((node) => {
+    if (!node.isTextblock) return true
+    const card = lineCard(lineText(node))
+    if (card) had.add(card.question.toLowerCase())
+    return false
+  })
+  const fresh = list.cards.filter((card) => !had.has(card.term.toLowerCase()) && (had.add(card.term.toLowerCase()), true))
+  const twice = list.cards.length - fresh.length
+  const { schema } = view.state
+  const lines = fresh.map((card) => schema.nodes.paragraph.create(null, schema.text(`${card.term} :: ${card.meaning.replace(/\s*\n+\s*/g, " / ")}`)))
+  const from = view.state.selection.from
+  if (lines.length) view.dispatch(view.state.tr.replaceSelection(new Slice(Fragment.fromArray(lines), 0, 0)).scrollIntoView())
+  const to = view.state.selection.from
+  const threes = fresh.filter((card) => card.three).length
+  const notes = [
+    list.headings ? `the first line named the columns (${list.headings.slice(0, 2).join(", ")}), so it is not a card` : "",
+    twice ? `${num(twice)} already in this note, left out` : "",
+    threes ? `${num(threes)} split in three: split at the first` : "",
+  ].filter(Boolean)
+  const said = lines.length ? `${num(lines.length)} ${lines.length === 1 ? "card" : "cards"}, one a line: Review asks the words before ::` : "Every card in that list is already in this note"
+  window.dispatchEvent(new CustomEvent("haligtree:toast", {
+    detail: {
+      text: notes.length ? `${said}. ${notes.join("; ").replace(/^./, (first) => first.toUpperCase())}` : said,
+      tone: "info",
+      action: lines.length ? { label: "Show them", key: "S", run: () => (view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, Math.min(from, view.state.doc.content.size), Math.min(to, view.state.doc.content.size))).scrollIntoView()), view.focus()) } : undefined,
+    },
+  }))
+}
+
+/**
  * A line written as "question :: answer" is a review card (the main process
  * makes it one on save, src/main/line-cards.ts): a small card at the line's
  * end says so, the moment the line reads as one.
@@ -72,8 +111,12 @@ export const LineCards = Extension.create({
           decorations: (state) => key.getState(state),
           // A pasted list of "term - meaning" lines goes in as it is, and a
           // toast offers to make each one a card.
-          handlePaste: (_view, event) => {
-            const pairs = termLines(event.clipboardData?.getData("text/plain") ?? "")
+          handlePaste: (view, event) => {
+            const plain = event.clipboardData?.getData("text/plain") ?? ""
+            const list = cardListOf(plain)
+            // Lines copied from a note already read as cards: they paste as they are.
+            if (list && !(list.separator === " :: " && event.clipboardData?.getData("text/html"))) return pasteCards(view, list), true
+            const pairs = termLines(plain)
             if (pairs.length) setTimeout(() => offerCards(pairs), 300)
             return false
           },
