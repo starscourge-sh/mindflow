@@ -3,6 +3,7 @@ import { FLOAT } from '@/lib/float'
 import { cn } from '@/lib/cn'
 import { onScrollAway } from '@/lib/scroll-away'
 import { CARDED } from './tooltip'
+import { TipText } from './kbd'
 
 /** Whether an element, or any box in it, hides part of its words (an ellipsis or a clamped line). */
 const cutShort = (element: Element): boolean =>
@@ -103,7 +104,7 @@ export function TitleTips(): React.JSX.Element | null {
     <div ref={box} className="pointer-events-none fixed z-[100] w-max" style={{ left: tip.x, top: tip.y, transform: `translate(-50%, ${tip.below ? '0' : '-100%'})` }}>
       <div role="tooltip" data-title-tips
         className={cn(FLOAT, 'w-fit max-w-[min(20rem,calc(100vw-1rem))] rounded-md px-2.5 py-1.5 text-xs [overflow-wrap:anywhere] animate-in fade-in-0 zoom-in-95 duration-100')}>
-        {tip.text}
+        <TipText text={tip.text} />
       </div>
     </div>
   )

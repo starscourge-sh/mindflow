@@ -147,13 +147,13 @@ export function ReadBar({ at, actions }: { at: { x: number; y: number; bottom?: 
             <span className="tiptap-button-text">Keep</span>
           </Button>
           {actions.card && (
-            <Button data-style="ghost" aria-label="Card" title="Make a card: these words answer it  C  (in Review only; ⌥C keeps it as a gem too)" onClick={(event) => actions.card?.(event.altKey)}>
+            <Button data-style="ghost" aria-label="Card" title={"Make a card of these words  C\nIn Review only; ⌥C keeps it as a gem too"} onClick={(event) => actions.card?.(event.altKey)}>
               <SquareStack className="tiptap-button-icon" />
               <span className="tiptap-button-text">Card</span>
             </Button>
           )}
           {actions.blank && (
-            <Button data-style="ghost" aria-label="Blank" title="Fill-in-the-blank card from the sentence  ⇧C  (in Review only; ⌥⇧C keeps it as a gem too)" onClick={(event) => actions.blank?.(event.altKey)}>
+            <Button data-style="ghost" aria-label="Blank" title={"Blank them out in a card  ⇧C\nIn Review only; ⌥⇧C keeps it as a gem too"} onClick={(event) => actions.blank?.(event.altKey)}>
               <SquareDashed className="tiptap-button-icon" />
             </Button>
           )}

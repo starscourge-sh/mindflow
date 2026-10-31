@@ -21,7 +21,7 @@ import { cn } from '@/lib/cn'
 import { useStoredChoice, useStoredFlag } from '@/lib/use-stored-flag'
 import { useDetailsShown } from '@/lib/reading'
 import { keyFor, useKeyChanges, withKeys } from '@/lib/keys'
-import { Kbd as ShadKbd, KbdGroup } from '@/components/ui/kbd'
+import { Kbd as ShadKbd, KbdGroup, TipText } from '@/components/ui/kbd'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { TermInfo, TermPlain } from './term'
 import { wordFor } from '@/lib/words'
@@ -1937,13 +1937,13 @@ function Tipped({ label, offset, side, children }: { label: ReactNode; offset?: 
     const cut = (el: Element | null): boolean => !!el && [el, ...el.querySelectorAll('*')].some((one) => one.scrollWidth > one.clientWidth + 1 || one.scrollHeight > one.clientHeight + 2)
     if (seen && said === seen && !cut(trigger.current)) return (place.onShow?.(false), setOpen(false))
     // Two spaces part a name from its keys, so what is left after them is only keys.
-    setShown(seen && said.startsWith(`${seen}  `) ? label.slice(seen.length).trim() : label)
+    setShown(seen && said.startsWith(`${seen}  `) ? label.slice(seen.length) : label)
     setOpen(true)
   }
   return (
     <Tooltip open={open && !!label} onOpenChange={onOpenChange}>
       <TooltipTrigger asChild ref={trigger}>{children}</TooltipTrigger>
-      <TooltipContent sideOffset={offset} side={side ?? place.side} {...(place.clearTop || place.inset ? { collisionPadding: { top: place.clearTop ?? place.inset ?? 8, right: place.inset ?? 8, bottom: place.inset ?? 4, left: place.inset ?? 8 } } : {})}>{shown}</TooltipContent>
+      <TooltipContent sideOffset={offset} side={side ?? place.side} {...(place.clearTop || place.inset ? { collisionPadding: { top: place.clearTop ?? place.inset ?? 8, right: place.inset ?? 8, bottom: place.inset ?? 4, left: place.inset ?? 8 } } : {})}>{typeof shown === 'string' ? <TipText text={shown} /> : shown}</TooltipContent>
     </Tooltip>
   )
 }

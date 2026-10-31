@@ -841,7 +841,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
               <div className="pdf-keep-bar" style={{ left: snipped.x, top: Math.max(8, snipped.y - 48) }} onMouseDown={(event) => event.preventDefault()}>
                 <Toolbar variant="floating">
                   <ToolbarGroup>
-                    <Button data-style="ghost" aria-label="Card" title="A card that shows this snip as its answer  C  (in Review only; ⌥-click keeps it as a gem too)" onClick={(event) => (setCarding({ page: snipped.page, quote: `![](${snipped.src})`, x: snipped.x, y: snipped.y, gem: event.altKey }), setSnipped(null))}>
+                    <Button data-style="ghost" aria-label="Card" title={"Make a card of this snip  C\nIn Review only; ⌥C keeps it as a gem too"} onClick={(event) => (setCarding({ page: snipped.page, quote: `![](${snipped.src})`, x: snipped.x, y: snipped.y, gem: event.altKey }), setSnipped(null))}>
                       <SquareStack className="tiptap-button-icon" />
                       <span className="tiptap-button-text">Card</span>
                     </Button>
