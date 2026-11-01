@@ -5,6 +5,7 @@ import { notes, type MapEdge } from "@/lib/notes"
 import { openAside } from "@/lib/split"
 import { Island } from "@/components/haligtree/ui"
 import { GraphCanvas, type Graph } from "@/components/haligtree/graph-canvas"
+import { plural } from '../../../../main/dates'
 export { pdfIn } from "@/lib/pdf-in"
 
 /** A note, gem or card that holds a book or links into it: the pages it links to, in order, and the line it does it in. */
@@ -88,7 +89,7 @@ export function SameBookMap({ src, title, here }: { src: string; title: string; 
     <div data-same-book data-others={others.length}>
       <GraphCanvas map={graph} centre={src} you={here} about={about} onOpen={(type, id, aside) => open({ type, id }, !!aside)} className="h-[220px]" />
       <p data-same-book-says className="border-t border-border/60 px-2 py-1.5 text-xs text-muted-foreground">
-        {others.length ? `${others.length} ${others.length === 1 ? "other" : "others"} from ${title}${spanOf(others)}` : `Nothing else from ${title} yet`}
+        {others.length ? `${plural(others.length, 'other')} from ${title}${spanOf(others)}` : `Nothing else from ${title} yet`}
       </p>
     </div>
   )

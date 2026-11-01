@@ -4,7 +4,7 @@ import { TextSelection, type Transaction } from '@tiptap/pm/state'
 import { canJoin } from '@tiptap/pm/transform'
 import { chime } from './sound'
 import { haligtree } from './haligtree'
-import { num } from '../../../main/dates'
+import { num, plural } from '../../../main/dates'
 import { docList, tasksSaid, type ListTask } from '../../../main/day-lines'
 import { refuse, toast } from '@/components/haligtree/ui'
 
@@ -192,7 +192,7 @@ export async function makeLineTasks(editor: Editor, from: number, to: number, or
   const joined = made.filter((one) => one.existed).length
   chime(made.length === 1 ? 'noted' : 'promote')
   // Counts only, so a private note's words never show in the notice.
-  toast(`${takeOut ? (made.length === 1 ? 'Made a task' : `Made ${num(made.length)} tasks`) : made.length === 1 ? 'A task, linked to its line' : `${num(made.length)} tasks, linked to their lines`}${steps ? `, with ${num(steps)} ${steps === 1 ? 'step' : 'steps'}` : ''}${joined ? `. ${num(joined)} joined ${joined === 1 ? 'a task' : 'tasks'} already there` : ''}`, () => {
+  toast(`${takeOut ? (made.length === 1 ? 'Made a task' : `Made ${num(made.length)} tasks`) : made.length === 1 ? 'A task, linked to its line' : `${num(made.length)} tasks, linked to their lines`}${steps ? `, with ${plural(steps, 'step')}` : ''}${joined ? `. ${num(joined)} joined ${joined === 1 ? 'a task' : 'tasks'} already there` : ''}`, () => {
     void Promise.all(made.map((one) => haligtree.unmakeTask(one.id, one.existed, origin ? [origin] : [], [])))
     // Nothing written since: the note goes back exactly. Otherwise the lines keep their words and lose their links.
     if (editor.isDestroyed) return

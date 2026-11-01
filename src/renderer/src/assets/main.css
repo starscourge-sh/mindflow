@@ -463,10 +463,6 @@ html[data-overhang] main[data-zen-row] {
 html[data-overhang] main[data-zen-row] > * {
   -webkit-app-region: no-drag;
 }
-/* No card drawn (squeezed to a line, or out of the window): nothing of quick capture shows (windows/box.tsx). */
-html[data-overhang][data-card-gone] :is(.mf-top, [data-grabber], [data-hint-room], body > [data-leftover-row], .app-container) {
-  visibility: hidden !important;
-}
 /* The round surface's shadow and hairline, one recipe for every round control
    and pill that belongs with them (quick capture's controls, the voice pills). */
 :root {

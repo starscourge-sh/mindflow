@@ -14,7 +14,7 @@ import { rollOver } from './held'
 import { KEPT_IN, LABEL, LIST, atomically, changed, database, like, movedOn, type Change } from './captures'
 import { docList, tasksSaid } from './day-lines'
 import { advance, leadingTag, readTask } from './task-words'
-import { clock, dayKey, dayMonth, dayjs, daysFromToday, monthName, noon, num, startOfDay } from './dates'
+import { clock, dayKey, dayMonth, dayjs, daysFromToday, monthName, noon, num, startOfDay, plural } from './dates'
 import { backUpWatched, backupDir, backupStatus, checkMarkdown, chooseFolder } from './backup'
 import { SANDBOX, handedOff } from './sandbox'
 import { retireKinds, tagged as hasTag, withTag } from './kinds'
@@ -2113,7 +2113,7 @@ export function registerHaligtree(): void {
     if (type === 'calendar') {
       const one = db.prepare('select name, created_at as madeAt, binned_at as binnedAt, (select count(*) from events where calendar_id = calendars.id and series_id is null) as n from calendars where id = ?').get(id) as { name: string; madeAt: string; binnedAt: string | null; n: number } | undefined
       if (!one) return null
-      facts.push(`${num(one.n)} ${one.n === 1 ? 'event' : 'events'} in it, in the Bin with it`)
+      facts.push(`${plural(one.n, 'event')} in it, in the Bin with it`)
       return { type, id, title: one.name, kind: 'calendar', body: null, private: false, madeAt: one.madeAt, binnedAt: one.binnedAt, attribution: null, tags: [], facts }
     }
     if (type === 'practice') {
@@ -3548,7 +3548,7 @@ export function registerHaligtree(): void {
       for (const exam of readiness())
         if (exam.behind > 0 && !nudgedToday(`exam:${exam.tag}`))
           return { kind: 'exam', view: 'review', label: `Exam · #${exam.tag}`,
-            text: `#${exam.tag} is ${exam.days === 0 ? 'today' : exam.days === 1 ? 'tomorrow' : `in ${num(exam.days)} days`}, and ${num(exam.behind)} ${exam.behind === 1 ? 'card is' : 'cards are'} behind. About ${exam.perDay} a day catches you up.` }
+            text: `#${exam.tag} is ${exam.days === 0 ? 'today' : exam.days === 1 ? 'tomorrow' : `in ${num(exam.days)} days`}, and ${plural(exam.behind, 'card is', 'cards are')} behind. About ${exam.perDay} a day catches you up.` }
     // Shown as a line at the top of the Inbox page (inbox-lines.tsx), never in
     // quick capture, which only catches. Deciding day is a line of its own there.
     // A goal gone quiet: a week with no log, then sooner and more plainly as
@@ -4906,7 +4906,7 @@ function remindNow(): string | null {
     db.prepare("delete from nudges where key = 'review-again'").run()
     const waiting = reviewQueue().length
     if (!waiting || dayKey(again.day) !== dayKey()) return null
-    const said = `${num(waiting)} ${waiting === 1 ? 'card' : 'cards'} still waiting`
+    const said = `${plural(waiting, 'card')} still waiting`
     if (!nudgeTold({ kind: 'review', text: said, again: true }) && Notification.isSupported()) {
       const note = new Notification({ title: 'Still time to review', body: said, silent: !sounds })
       note.on('click', () => void ipcMain.emit('home:open', {}, 'view', 'review'))
@@ -4922,7 +4922,7 @@ function remindNow(): string | null {
   db.prepare("insert or replace into nudges (key, day) values ('review-reminder', ?)").run(day)
   const ms = (db.prepare('select avg(min(ms, 60000)) as ms from (select ms from review_log where ms is not null order by reviewed_at desc limit 200)').get() as { ms: number | null }).ms
   const time = minutesFor(cards, ms)
-  const text = `${num(cards)} ${cards === 1 ? 'card' : 'cards'}, about ${num(time)} ${time === 1 ? 'minute' : 'minutes'}`
+  const text = `${plural(cards, 'card')}, about ${plural(time, 'minute')}`
   // Haligtree's card, with Review now and In an hour; left alone, it asks once more in an hour.
   db.prepare("insert or replace into nudges (key, day) values ('review-again', ?)").run(new Date(Date.now() + 3600_000).toISOString())
   // The Mac's own notification only when the card cannot be seen (the screen locked): one reminder, not two.

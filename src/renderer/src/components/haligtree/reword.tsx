@@ -11,6 +11,7 @@ import { liftFrom } from '@/lib/fly-home'
 import { Kbd, refuse, toast, whyFailed } from './ui'
 import { markKept, type Spot } from '@/extensions/kept'
 import { Gem, Inbox } from '@/components/ui/icons'
+import { num } from '../../../../main/dates'
 
 /**
  * Reword before it is kept: selected words are rarely exactly the thought, so
@@ -218,7 +219,7 @@ async function keepParts(draft: Draft): Promise<void> {
     if (!draft.origin.from) draft.origin.onLifted?.(id)
     made.push({ id, unmark: markKept({ editor: at.editor, from: part.from, to: part.to }, 'capture', id) })
   }
-  toast(`${made.length} captures in your Inbox, one a heading; the parts are marked in your note`,
+  toast(`${num(made.length)} captures in your Inbox, one a heading; the parts are marked in your note`,
     () => made.forEach((one) => (one.unmark?.(), void haligtree.unlift('capture', one.id))), 'success')
 }
 
@@ -420,7 +421,7 @@ function Card({ draft, by }: { draft: Draft; by: boolean }): React.JSX.Element {
       {/* A whole section or note is more than one thought: kept a part a heading, each part its own capture. */}
       {draft.kind === 'capture' && draft.parts && draft.anchor && draft.text.trim() === draft.first.trim() && (
         <div data-reword-parts className="flex items-center gap-2 rounded-lg bg-accent/50 px-2.5 py-2">
-          <span className="min-w-0 flex-1 text-control text-foreground">A lot for one capture: {draft.parts.length} parts, one a heading.</span>
+          <span className="min-w-0 flex-1 text-control text-foreground">A lot for one capture: {num(draft.parts.length)} parts, one a heading.</span>
           <Button size="sm" variant="secondary" data-reword-split onClick={() => void keepParts(draft)}>One a heading</Button>
         </div>
       )}

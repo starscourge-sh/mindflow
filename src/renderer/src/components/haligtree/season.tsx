@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button'
 import { toast } from './ui'
 import { GoalBar, openOnes, warmth } from './goals-view'
 import { daysLeft, leftSaid, percent, wayThrough } from '../../../../main/goal-days'
-import { dayKey, num } from '../../../../main/dates'
+import { dayKey, plural } from '../../../../main/dates'
 
 /**
  * Closing the season: once a quarter, Close the week grows one short part,
@@ -143,7 +143,7 @@ export function SeasonPart(): React.JSX.Element | null {
                   <span className="flex min-w-0 items-center gap-2">
                     <Flag className="size-3.5 shrink-0" style={{ color: warmth(Math.max(left, 0)) }} />
                     <span className="private-text min-w-0 flex-1 truncate font-medium text-foreground">{goal.title}</span>
-                    <span className="shrink-0 tabular-nums text-foreground/80">{percent(way)} of the way · {left < 0 ? 'past its day' : left === 0 ? 'today' : leftSaid(left)} · {goal.clues ? `${num(goal.clues)} ${goal.clues === 1 ? 'log' : 'logs'}` : 'no logs yet'}</span>
+                    <span className="shrink-0 tabular-nums text-foreground/80">{percent(way)} of the way · {left < 0 ? 'past its day' : left === 0 ? 'today' : leftSaid(left)} · {goal.clues ? `${plural(goal.clues, 'log')}` : 'no logs yet'}</span>
                   </span>
                   <GoalBar left={left} way={way} className="ml-5.5" />
                 </li>

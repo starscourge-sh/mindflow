@@ -10,6 +10,7 @@ import { personKey } from '../../../../main/names'
 import { ChevronRight } from '@/components/ui/icons'
 import { Avatar } from './avatar'
 import { Island } from './ui'
+import { num } from '../../../../main/dates'
 
 /** What a quote carried out of the margin says it is, so the page's own drop takes it. */
 const MIME = 'application/x-haligtree-quote'
@@ -216,7 +217,7 @@ function MarginPerson({ person, onInsert }: { person: Margin['people'][number]; 
           )}
           {open && quotes.length > shown.length && (
             <button type="button" data-margin-all onClick={() => (chime('page'), openSource('attribution', name))}
-              className="-mx-1 mt-1 rounded px-1 py-0.5 text-control font-medium text-foreground hover:bg-accent">Show all {quotes.length}</button>
+              className="-mx-1 mt-1 rounded px-1 py-0.5 text-control font-medium text-foreground hover:bg-accent">Show all {num(quotes.length)}</button>
           )}
         </div>
       )}

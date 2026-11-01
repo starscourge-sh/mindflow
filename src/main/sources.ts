@@ -7,6 +7,7 @@ import { renamePerson } from './link-rename'
 import { personKey } from './names'
 import { voiceOf, type Voice } from './voice'
 import { tagsIn } from './tag-words'
+import { plural } from './dates'
 
 /**
  * Sources and people as pages. A who (attribution) or a where (medium) stays
@@ -287,7 +288,7 @@ export function registerSources(): void {
       const quotes = mine.filter((one) => one.voice === 'theirs').length
       const rest = mine.length - quotes
       const photo = field === 'attribution' && !!personOf(fromKey)?.avatar && !personOf(toKey)?.avatar
-      const parts = [quotes && `${quotes} ${quotes === 1 ? 'quote' : 'quotes'}`, rest && `${rest} ${quotes ? 'other ' : ''}${rest === 1 ? 'note' : 'notes'}`, photo && 'photo'].filter(Boolean) as string[]
+      const parts = [quotes && `${plural(quotes, 'quote')}`, rest && `${rest} ${quotes ? 'other ' : ''}${rest === 1 ? 'note' : 'notes'}`, photo && 'photo'].filter(Boolean) as string[]
       const one = parts.length === 1 && (quotes === 1 || rest === 1 || photo)
       const said = parts.length ? `Their ${parts.length > 1 ? `${parts.slice(0, -1).join(', ')} and ${parts.at(-1)}` : parts[0]} ${one ? 'comes' : 'come'} along.` : 'Their page comes along.'
       return { count: 0, merge: { into: name, said } }

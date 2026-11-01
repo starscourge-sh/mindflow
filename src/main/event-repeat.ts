@@ -1,4 +1,5 @@
 import dayjs, { type Dayjs } from 'dayjs'
+import { plural } from './dates.ts'
 
 /**
  * How a calendar event repeats, the way Google Calendar and Apple Calendar
@@ -130,7 +131,7 @@ export function repeatSaid(rule: Repeat, start: Date | string): string {
       said = `${head} on the ${nth < 0 ? 'last' : ORDINAL[nth] ?? `${nth}th`} ${WEEKDAYS[first.day()]}`
     } else said = `${head} on the ${first.format('D')}${suffix(first.date())}`
   } else said = every === 1 ? `Yearly on ${first.format('D MMMM')}` : `Every ${every} years on ${first.format('D MMMM')}`
-  if (rule.count) said += `, ${rule.count} ${rule.count === 1 ? 'time' : 'times'}`
+  if (rule.count) said += `, ${plural(rule.count, 'time')}`
   else if (rule.until) said += `, until ${dayjs(rule.until).format('D MMMM YYYY')}`
   return said
 }

@@ -189,7 +189,7 @@ async function renameSource(field: SourceField, from: string, to: string): Promi
   const token = done.token
   chime('noted')
   openSource(field, done.name ?? name)
-  toast(done.count ? `Renamed in ${num(done.count)} ${done.count === 1 ? 'note' : 'notes'}` : `Renamed to ${done.name ?? name}`, () => void sources.unrename(token).then(() => openSource(field, from)))
+  toast(done.count ? `Renamed in ${plural(done.count, 'note')}` : `Renamed to ${done.name ?? name}`, () => void sources.unrename(token).then(() => openSource(field, from)))
   return true
 }
 
@@ -630,7 +630,7 @@ const EXAMPLE_PEOPLE: [string, number, number][] = [['Jane Austen', 4, 3], ['Mar
 const EXAMPLE_PLACES: [string, number, number][] = [['Frankenstein', 3, 1], ['The Matrix (1999)', 2, 0]]
 const exampleEntry = (field: SourceField, name: string, count: number, quotes: number): Entry => ({
   id: `example:${field}:${name}`, type: 'source', title: name, tags: [], icon: FIELD_SAID[field].icon,
-  sub: `${count} notes${quotes ? ` · ${quotes} ${quotes === 1 ? 'quote' : 'quotes'}` : ''}`
+  sub: `${plural(count, "note")}${quotes ? ` · ${plural(quotes, 'quote')}` : ''}`
 })
 
 /** People as big round faces, like an artists' shelf: their photo or shape, the name, and how much is from them. */

@@ -31,7 +31,7 @@ import { Island, Prop, Props, Rolling, Tip, Typed, ask, refuse, showTopTitle, to
 import { Term } from './term'
 import { openGloss } from './gloss-line'
 import { ThoughtDock } from './thought-bar'
-import { ago, dayMonth, dayName, heldFor, num } from '../../../../main/dates'
+import { ago, dayMonth, dayName, heldFor, num, plural } from '../../../../main/dates'
 import { ReadThrough } from './read-through'
 import { MenuButton } from './collection-header'
 import { Chips } from './display'
@@ -53,7 +53,7 @@ import { ArchiveRestore, Download, Eye, EyeOff, Orbit, Bookmark as Pin, Bookmark
 
 /** How long it has been held, in plain words and a calm colour: "held 2 years". */
 export { heldFor }
-const cluesSaid = (n: number): string => (n ? `${num(n)} ${n === 1 ? 'clue' : 'clues'}` : 'no clues yet')
+const cluesSaid = (n: number): string => (n ? `${plural(n, 'clue')}` : 'no clues yet')
 
 /** Questions, at two speeds: asked and answered at once (Looked up), open and gathering clues, or answered. */
 export type Asked = 'looked' | 'open' | 'answered' | 'words'

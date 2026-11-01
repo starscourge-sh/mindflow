@@ -19,7 +19,7 @@ import { Term } from './term'
 import { HashField } from './hash-field'
 import { textOf } from '../rot-cards'
 import { PinnedQuestions, clueInto } from './pinned-questions'
-import { dayjs, num, weekdayName } from '../../../../main/dates'
+import { dayjs, num, weekdayName, plural } from '../../../../main/dates'
 import { moment } from '@/lib/clock'
 import { isTagWord, tagsIn } from '../../../../main/tag-words'
 import { Brush, X } from '@/components/ui/icons'
@@ -60,7 +60,7 @@ const SUMMED: Record<string, [string, string]> = {
 }
 /** A count and its words, "3 moved to the Bin", in the order given, the empty ones left out. */
 const counted = (parts: [number, string, string][]): string =>
-  parts.filter(([n]) => n > 0).map(([n, one, many]) => `${num(n)} ${n === 1 ? one : many}`).join(', ')
+  parts.filter(([n]) => n > 0).map(([n, one, many]) => plural(n, one, many)).join(', ')
 
 /** `#tags` in some words, lower-cased, once each. */
 
@@ -339,7 +339,7 @@ function Pass({ mode, ids, onClose, onOpen }: { mode: PassMode; ids?: string[]; 
     ? `${num(items.length)} tidied${(() => { const rest = counted([[tagged.current.size, 'tagged', 'tagged'], [marked.current.size, 'marked', 'marked'], [ways['A clue'] ?? 0, 'made a clue', 'made clues'], [aside, `set aside for ${day}`, `set aside for ${day}`]]); return rest ? `: ${rest}` : '' })()}`
     : `${num(items.length)} looked at${(() => { const rest = counted([...Object.entries(ways).map(([way, n]): [number, string, string] => [n, ...(SUMMED[way] ?? [way.toLowerCase(), way.toLowerCase()])]), [later.current.size, 'back next week', 'back next week']]); return rest ? `: ${rest}` : '' })()}`
   // One next thing, on Enter: the cards due today.
-  const next = due > 0 ? { said: `Review ${num(due)} ${due === 1 ? 'card' : 'cards'}`, run: () => (onClose(), window.api.openInHome('view', 'review', ':today')) } : null
+  const next = due > 0 ? { said: `Review ${plural(due, 'card')}`, run: () => (onClose(), window.api.openInHome('view', 'review', ':today')) } : null
   const tags = page ? tagsIn(textOf(page.body)) : []
   const why = item?.why === 'back' ? `You set this aside to come back to` : item?.why === 'untidied' ? `${ageOf(item.capturedAt)} old, and not tidied yet` : item?.why === 'longest' ? 'Waiting the longest, and not opened in a while' : null
   const deciding = settings?.weeklyReview !== false && dayjs().day() === settings?.weeklyDay

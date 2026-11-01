@@ -124,7 +124,7 @@ export function TaskFocusNumbers({ taskId, estimate }: { taskId: string; estimat
               <strong className="font-semibold">Last session</strong> {when(focus.lastAt!, false)}
             </p>
             <Ends counts={{ finished: focus.finished, early: focus.early, abandoned: focus.abandoned }} className="text-control" />
-            {ran > focus.recent.length && <p className="text-xs text-muted-foreground">The bars are the last {focus.recent.length} of {ran}.</p>}
+            {ran > focus.recent.length && <p className="text-xs text-muted-foreground">The bars are the last {num(focus.recent.length)} of {num(ran)}.</p>}
           </>
         )}
       </div>

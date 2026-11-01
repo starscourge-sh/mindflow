@@ -30,7 +30,7 @@ import { reword } from './questions-view'
 import { Term } from './term'
 import { CollectionHeader, Cover, MenuButton, QuietAction, useTint } from './collection-header'
 import { DatePicker } from './date-picker'
-import { ago, dayKey, dayMonth, dayName, noon, num } from '../../../../main/dates'
+import { ago, dayKey, dayMonth, dayName, noon, num, plural } from '../../../../main/dates'
 import { ProgressBar } from './progress-bar'
 import { inkOf, useMilestones, type Milestone } from '@/lib/milestones'
 import { stickOnDesktop } from './sticky-note'
@@ -105,7 +105,7 @@ export function LogLine({ goal, did }: { goal: string; did: string }): React.JSX
   )
 }
 
-const logsSaid = (n: number): string => (n ? `${num(n)} ${n === 1 ? 'log' : 'logs'}` : 'no logs yet')
+const logsSaid = (n: number): string => (n ? `${plural(n, 'log')}` : 'no logs yet')
 const HOW: Record<string, string> = { 'made it': 'Made it', missed: 'Missed', 'let go': 'Gave it up' }
 /** Paused: out of every open list, its countdown stopped, under “On ice” until taken off. */
 const onIce = (item: Pick<Item, 'closedHow'>): boolean => item.closedHow === 'on ice'
@@ -150,7 +150,7 @@ function thaw(item: Item): void {
   void haligtree.thawGoal(item.id).then((back) => {
     if (!back) return chime('nope')
     chime('hold')
-    toast(!back.was ? 'Off ice: back on your someday list' : back.days ? `Off ice: its day moves ${num(back.days)} ${back.days === 1 ? 'day' : 'days'} later, the time it was on ice, to ${dayMonth(`${dayKey(noon(back.was).add(back.days, 'day').toDate())}T12:00`)}` : 'Off ice: open again',
+    toast(!back.was ? 'Off ice: back on your someday list' : back.days ? `Off ice: its day moves ${plural(back.days, 'day')} later, the time it was on ice, to ${dayMonth(`${dayKey(noon(back.was).add(back.days, 'day').toDate())}T12:00`)}` : 'Off ice: open again',
       () => void haligtree.goalDates(item.id, { target: back.was }).then(() => haligtree.closeGoal(item.id, 'on ice', back.iced)))
   })
 }
@@ -158,7 +158,7 @@ function thaw(item: Item): void {
 /** Several open goals on ice at once, in one notice; undoable all together. */
 const iceAll = (ids: string[]): Promise<unknown> => Promise.all(ids.map((id) => haligtree.closeGoal(id, 'on ice'))).then(() => {
   chime('unstick')
-  toast(`On ice: ${num(ids.length)} ${ids.length === 1 ? 'goal' : 'goals'}, their countdowns stopped, waiting under “On ice”`, () => void Promise.all(ids.map((id) => haligtree.reopenGoal(id))))
+  toast(`On ice: ${plural(ids.length, 'goal')}, their countdowns stopped, waiting under “On ice”`, () => void Promise.all(ids.map((id) => haligtree.reopenGoal(id))))
 })
 
 /** Several goals off ice at once, each day moved out by the days it waited; undoable back onto the ice. */
@@ -166,7 +166,7 @@ const thawAll = (ids: string[]): Promise<unknown> => Promise.all(ids.map((id) =>
   const backs = all.filter((one) => !!one)
   if (!backs.length) return chime('nope')
   chime('hold')
-  toast(`Off ice: ${num(backs.length)} ${backs.length === 1 ? 'goal' : 'goals'} open again, each day moved out by the days it waited`,
+  toast(`Off ice: ${plural(backs.length, 'goal')} open again, each day moved out by the days it waited`,
     () => void Promise.all(backs.map((back) => haligtree.goalDates(back.id, { target: back.was }).then(() => haligtree.closeGoal(back.id, 'on ice', back.iced)))))
 })
 

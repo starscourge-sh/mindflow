@@ -5,6 +5,7 @@ import { chime } from '@/lib/sound'
 import { Kbd, Tip, refuse, toast } from './ui'
 import { DeckPick, deckTagOf, deckTitle } from './decks'
 import { haligtree, useLive } from '@/lib/haligtree'
+import { plural } from '../../../../main/dates'
 
 /** Written straight onto the card, as "Ask another way" writes: no box, the faint italic line says where. */
 const FIELD = 'field-sizing-content w-full resize-none bg-transparent text-foreground outline-none placeholder:italic placeholder:font-normal placeholder:text-muted-foreground'
@@ -63,7 +64,7 @@ export function NewCard({ deck: aimed, onClose }: { deck?: string; onClose: () =
             <Switch size="sm" data-new-both checked={both} onCheckedChange={setBoth} className="cursor-pointer" /><span className="text-foreground/70">Both ways</span></label>
         </Tip>
         <span data-new-made className="ml-auto text-sm text-muted-foreground tabular-nums">
-          {made ? `${made} ${made === 1 ? 'card' : 'cards'} made` : <><Kbd>Tab</Kbd> next field, <Kbd>⌘↵</Kbd> keeps it, <Kbd>Esc</Kbd> closes</>}
+          {made ? `${plural(made, 'card')} made` : <><Kbd>Tab</Kbd> next field, <Kbd>⌘↵</Kbd> keeps it, <Kbd>Esc</Kbd> closes</>}
         </span>
       </div>
     </section>

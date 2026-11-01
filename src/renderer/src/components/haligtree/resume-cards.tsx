@@ -3,7 +3,7 @@ import { call, useLive } from '@/lib/haligtree'
 import { chime } from '@/lib/sound'
 import { articlesOnTheGo } from '@/lib/note-place'
 import { openArticle } from '@/components/pdf/pdf-reader'
-import { num } from '../../../../main/dates'
+import { num, plural } from '../../../../main/dates'
 import { kindOf } from '@/components/capture-kinds/capture-kind-picker'
 import { GrainFill, onPaper, useNoteCover } from './grain'
 import { SECTIONS } from './places'
@@ -111,7 +111,7 @@ export function useResumeCards(onView: (id: string) => void): React.ReactNode[] 
   const deckCover = shelves.find((one) => one.cover && (one.due > 0 || one.fresh > 0))?.cover ?? null
   return [
     sitting.done > 0 && sitting.left > 0 && (
-      <Card key="review" data="review" cover={<Cover kind="review" seed="review" picture={deckCover} />} title={`${num(sitting.left)} ${sitting.left === 1 ? 'card' : 'cards'} left in Review`}
+      <Card key="review" data="review" cover={<Cover kind="review" seed="review" picture={deckCover} />} title={`${plural(sitting.left, 'card')} left in Review`}
         where={`${num(sitting.done)} done ${partOfDay(sitting.last)}`} share={sitting.done / (sitting.done + sitting.left)} onOpen={() => onView('review')} />
     ),
     draft && (

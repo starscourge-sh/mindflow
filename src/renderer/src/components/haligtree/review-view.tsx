@@ -27,7 +27,7 @@ import { Rest } from './scenery'
 import { GlossLine, keepGloss, openGloss } from './gloss-line'
 import { BorderBeam } from 'border-beam'
 import { useAlive, useSurface } from '@/lib/use-alive'
-import { dayKey, num } from '../../../../main/dates'
+import { dayKey, num, plural } from '../../../../main/dates'
 import { Avatar } from './avatar'
 import { Signed } from './signature'
 import { canSplit, openAside, useHere } from '@/lib/split'
@@ -1051,7 +1051,7 @@ function Finished({ count, total, later = 0, compact, onPick, onLearn, ids = [] 
   const fresh = counts?.new ?? 0
   const learn = fresh > 8 ? 'the first 8 new cards' : fresh === 1 ? 'the new card' : `the ${num(fresh)} new cards`
   const ways = [
-    inbox ? { id: 'inbox', label: `Next: ${num(inbox)} ${inbox === 1 ? 'capture' : 'captures'} in your Inbox`, short: `your Inbox (${num(inbox)})`, run: () => (chime('open'), window.api.openInHome('view', 'inbox')) } : null,
+    inbox ? { id: 'inbox', label: `Next: ${plural(inbox, 'capture')} in your Inbox`, short: `your Inbox (${num(inbox)})`, run: () => (chime('open'), window.api.openInHome('view', 'inbox')) } : null,
     fresh ? { id: 'learn', label: `Next: learn ${learn}`, short: `learn ${learn}`, run: () => (chime('open'), onLearn()) } : null
   ].filter((one): one is { id: string; label: string; short: string; run: () => void } => !!one)
   const [next, other] = ways

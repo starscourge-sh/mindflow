@@ -1140,7 +1140,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
                               {later && mode !== 'later' && <Tip label="No day yet: waiting in a later list"><span className="flex items-center gap-1"><Telescope className="size-3" />{BUCKETS[later]}</span></Tip>}
                               {task.waitingOn && <span>Waiting on {task.waitingOn}</span>}
                               {subtasks.length > 0 && (
-                                <span className="flex items-center gap-1 tabular-nums"><ListChecks className="size-3" /><Rolling text={`${subtasks.filter((one) => one.done).length}/${subtasks.length}`} /></span>
+                                <span className="flex items-center gap-1 tabular-nums"><ListChecks className="size-3" /><Rolling text={`${num(subtasks.filter((one) => one.done).length)}/${num(subtasks.length)}`} /></span>
                               )}
                               {task.blocker && (freed(task)
                                 ? <span data-freed className="truncate" style={{ color: 'var(--tt-color-text-green)' }}>Free now: {taskName(task.blockedByTitle ?? task.blocker).text} is done</span>
@@ -1793,7 +1793,7 @@ function Checklist({ task, onOpen }: { task: TaskFull; onOpen?: (type: string, i
         </>
       )}
       <h3 className="mb-2 text-control font-semibold">
-        Subtasks {items.length ? <span className="font-normal text-muted-foreground tabular-nums"><Rolling text={`${items.filter((one) => one.done).length}/${items.length}`} /></span> : null}
+        Subtasks {items.length ? <span className="font-normal text-muted-foreground tabular-nums"><Rolling text={`${num(items.filter((one) => one.done).length)}/${num(items.length)}`} /></span> : null}
       </h3>
       <ul className="space-y-1">
         {items.map((item, index) => (

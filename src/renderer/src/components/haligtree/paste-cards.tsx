@@ -1,7 +1,7 @@
 import { deckTitle } from './decks'
 import { useState } from 'react'
 import { chime } from '@/lib/sound'
-import { num } from '../../../../main/dates'
+import { num, plural } from '../../../../main/dates'
 import { Chips } from './display'
 import { toast } from './ui'
 import { Button } from '@/components/ui/button'
@@ -92,7 +92,7 @@ export function PasteCards({ onClose, deck: aimed, onShow }: { onClose: () => vo
           <input data-paste-tags value={tags} onChange={(event) => setTags(event.target.value)} placeholder="more tags" className="w-32 bg-transparent text-foreground outline-none placeholder:text-muted-foreground/70" /></label>
         <span className="flex-1 text-foreground/70">
           {marks.length ? `Each card gets ${marks.map((one) => `#${one}`).join(' ')}` : ''}
-          {skipped > 0 ? `${marks.length ? '. ' : ''}${num(skipped)} ${skipped === 1 ? 'line has no back and stays' : 'lines have no back and stay'} out` : ''}
+          {skipped > 0 ? `${marks.length ? '. ' : ''}${plural(skipped, 'line has no back and stays', 'lines have no back and stay')} out` : ''}
         </span>
         <Button variant="ghost" size="sm" onClick={onClose}>Cancel</Button>
         <Button size="sm" data-paste-add disabled={!cards.length} onClick={add}>{cards.length ? `Add ${num(cards.length * (both ? 2 : 1))} ${cards.length * (both ? 2 : 1) === 1 ? 'card' : 'cards'}` : 'Add cards'}</Button>

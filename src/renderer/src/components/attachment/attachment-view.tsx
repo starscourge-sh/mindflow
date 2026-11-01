@@ -27,6 +27,7 @@ import { playAt } from "@/extensions/line-cards"
 import { Orb } from "@/components/haligtree/orb"
 import { LiveBars } from "@/components/haligtree/live-bars"
 import { FileText as File, FileText, Fit as Maximize, Volume2, VolumeX } from "@/components/ui/icons"
+import { plural } from '../../../../main/dates'
 
 /**
  * A recording by what it is and how long: "Voice note · 0:56", never its file
@@ -622,7 +623,7 @@ function PdfBlock(props: NodeViewProps): React.JSX.Element {
           <span className="tiptap-pdf-file">
             <span className="tiptap-attachment-name cursor-pointer" data-pdf-peek={src} data-pdf-peek-name={name} onClick={(event) => (event.stopPropagation(), open())}>{name || "PDF"}</span>
             <span className="tiptap-attachment-size">
-              {[pages ? `${pages} ${pages === 1 ? "page" : "pages"}` : "", readableSize(size)].filter(Boolean).join(" · ")}
+              {[pages ? `${plural(pages, 'page')}` : "", readableSize(size)].filter(Boolean).join(" · ")}
             </span>
           </span>
         </span>

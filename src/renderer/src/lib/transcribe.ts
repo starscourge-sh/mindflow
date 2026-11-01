@@ -5,6 +5,7 @@ import { refuse, toast } from "@/components/haligtree/ui"
 import { haligtree } from "@/lib/haligtree"
 import { chime } from "@/lib/sound"
 import { tidySpeech } from "@/lib/fillers"
+import { num } from '../../../main/dates'
 
 /**
  * A voice note into words (main/transcribe.ts, on this Mac). The words land
@@ -137,19 +138,19 @@ export async function transcribe(editor: Editor, src: string): Promise<void> {
     const tidied = lines.some((one, i) => one.textContent !== said[i].textContent)
     editor.view.dispatch(editor.state.tr.replaceWith(had.from, had.to, lines).scrollIntoView())
     chime("saved")
-    const count = result.segments.length === 1 ? "A line" : `${result.segments.length} lines`
+    const heard = result.segments.length === 1 ? "A line" : `${num(result.segments.length)} lines`
     // Undo here puts back the words exactly as said, wherever the note has moved since.
     const asSaid = (): void => {
       const now = wordsAfter(editor, src)
       if (now && !editor.isDestroyed) editor.view.dispatch(editor.state.tr.replaceWith(now.from, now.to, said))
     }
-    if (!had.lines.length) return toast(tidied ? `${count} of words under the recording, without the ums and repeats. Undo keeps them as said` : `${count} of words, under the recording. A time plays it from there`, tidied ? asSaid : undefined, "success")
+    if (!had.lines.length) return toast(tidied ? `${heard} of words under the recording, without the ums and repeats. Undo keeps them as said` : `${heard} of words, under the recording. A time plays it from there`, tidied ? asSaid : undefined, "success")
     // Transcribed again: the words it had are put back by Undo, wherever the note has moved since.
     const undo = (): void => {
       const now = wordsAfter(editor, src)
       if (now && !editor.isDestroyed) editor.view.dispatch(editor.state.tr.replaceWith(now.from, now.to, had.lines))
     }
-    toast(`${count} of words, in place of the recording's old ones`, undo, "success")
+    toast(`${heard} of words, in place of the recording's old ones`, undo, "success")
   } catch {
     refuse("The words could not be made out. Try again")
   } finally {

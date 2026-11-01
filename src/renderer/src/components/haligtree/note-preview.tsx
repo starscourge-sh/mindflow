@@ -17,6 +17,7 @@ import { withoutTags } from '../../../../main/tag-words'
 import { sources } from '@/lib/sources'
 import { avatarOf } from '@/lib/people'
 import { hideForMenus, menuShowing } from '@/lib/menu-showing'
+import { plural } from '../../../../main/dates'
 
 /** The first picture in a stored body, for its card: an image node, or Markdown's ![](src). */
 const pictureIn = (body: unknown): string | null => {
@@ -170,7 +171,7 @@ export function NotePreview(): React.JSX.Element | null {
               lead: [years, is].filter(Boolean).join(' '),
               body: page?.thoughts ?? '',
               // How many, as a tag's card says it: what a tip on their face said, said here instead.
-              tally: page?.items.length ? `${page.items.length} ${page.items.length === 1 ? 'note' : 'notes'} with their words` : undefined,
+              tally: page?.items.length ? `${plural(page.items.length, 'note')} with their words` : undefined,
               private: false,
               picture: avatarOf(id)
             }
@@ -180,7 +181,7 @@ export function NotePreview(): React.JSX.Element | null {
             const one = all.find((tag) => tag.tag.toLowerCase() === id.toLowerCase())
             const count = one?.count ?? 0
             const later = one?.later ?? 0
-            const notes = (n: number): string => `${n} ${n === 1 ? 'note' : 'notes'}`
+            const notes = (n: number): string => `${plural(n, 'note')}`
             return {
               title: `#${id}`, body: '', private: false, picture: null,
               tally: count || !later ? `${notes(count)}${later ? `, and ${later} done` : ''}` : `${notes(later)}, all done`,

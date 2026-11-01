@@ -1,5 +1,6 @@
 import type { Node as PMNode } from '@tiptap/pm/model'
 import type { LocalLinter } from 'harper.js'
+import { plural, num } from '../../../main/dates'
 
 /**
  * Grammar and style, checked on this computer by Harper (harper.js, Apache-2.0):
@@ -110,8 +111,8 @@ export async function grammarSentence(doc: PMNode): Promise<string> {
   if (!found.length) return 'Grammar and style: nothing to look at.'
   const by = new Map<string, number>()
   for (const one of found) by.set(one.reason, (by.get(one.reason) ?? 0) + 1)
-  const parts = [...by].sort((a, b) => b[1] - a[1]).slice(0, 3).map(([reason, n]) => `${n} ${reason}`)
-  return `Grammar and style: ${found.length} ${found.length === 1 ? 'thing' : 'things'} to look at (${parts.join(', ')}); Proofread goes through them.`
+  const parts = [...by].sort((a, b) => b[1] - a[1]).slice(0, 3).map(([reason, n]) => `${num(n)} ${reason}`)
+  return `Grammar and style: ${plural(found.length, 'thing')} to look at (${parts.join(', ')}); Proofread goes through them.`
 }
 
 const LIVE = 'grammar-live'

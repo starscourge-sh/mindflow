@@ -36,6 +36,7 @@ import { said } from '@/lib/host'
 import { StopButton } from '@/components/haligtree/orb'
 import { stopJob } from '@/components/haligtree/ui'
 import './pdf.css'
+import { plural, num } from '../../../../main/dates'
 
 /** A web page kept as an article: its words and pictures, read offline. */
 export type Article = {
@@ -275,7 +276,7 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
     const count = cardsHere + 1
     setCardsHere(count)
     chime('saved')
-    said(count > 15 ? `Card made: ${count} from this source. Most people keep 10 to 15 from an hour; the best ones are enough` : `Card made: ${count} from this source`, true, { type: "nugget", id, title: prompt })
+    said(count > 15 ? `Card made: ${num(count)} from this source. Most people keep 10 to 15 from an hour; the best ones are enough` : `Card made: ${num(count)} from this source`, true, { type: "nugget", id, title: prompt })
   }
   // C: the question asked where the words were; Return makes the card.
   const [carding, setCarding] = useState<{ quote: string; x: number; y: number; bottom?: number; gem?: boolean } | null>(null)
@@ -341,7 +342,7 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
     }
     const id = await window.api.captures.create({ kind: 'note', title: `Highlights from ${article?.title ?? whereFrom()}`, body })
     chime('saved')
-    said(`${sorted.length} highlight${sorted.length === 1 ? '' : 's'} gathered into a note`)
+    said(`${plural(sorted.length, 'highlight')} gathered into a note`)
     window.dispatchEvent(new CustomEvent('haligtree:open', { detail: { type: 'capture', id } }))
   }
   const remove = async (mark: PdfMark): Promise<void> => {
@@ -591,7 +592,7 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
             />
             <span
               className="tiptap-find-bar-count"
-              aria-label={`${found.length ? at + 1 : 0} of ${found.length}`}
+              aria-label={`${num(found.length ? at + 1 : 0)} of ${num(found.length)}`}
             >
               <Roll text={found.length ? at + 1 : 0} />/<Roll text={found.length} />
             </span>

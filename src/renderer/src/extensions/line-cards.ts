@@ -10,7 +10,7 @@ import { isAudio } from "@/lib/transcribe"
 
 /** A video file kept in the note, which its times play too. */
 const isVideoFile = (node: ProseMirrorNode): boolean => node.type.name === "attachment" && /\.(mp4|mov|m4v|webm)$/i.test(String(node.attrs.name || node.attrs.src || ""))
-import { num } from "../../../main/dates"
+import { num, plural } from "../../../main/dates"
 
 /** A small card, drawn: what marks a line that Review asks you. */
 const mark = (): HTMLElement => {
@@ -168,7 +168,7 @@ function pasteCards(view: EditorView, list: NonNullable<ReturnType<typeof cardLi
     twice ? `${num(twice)} already in this note, left out` : "",
     threes ? `${num(threes)} split in three: split at the first` : "",
   ].filter(Boolean)
-  const said = lines.length ? `${num(lines.length)} ${lines.length === 1 ? "card" : "cards"}, one a line: Review asks the words before ::` : "Every card in that list is already in this note"
+  const said = lines.length ? `${plural(lines.length, 'card')}, one a line: Review asks the words before ::` : "Every card in that list is already in this note"
   window.dispatchEvent(new CustomEvent("haligtree:toast", {
     detail: {
       text: notes.length ? `${said}. ${notes.join("; ").replace(/^./, (first) => first.toUpperCase())}` : said,

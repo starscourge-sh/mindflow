@@ -22,7 +22,7 @@ import { byDay, moveToDay, caughtLevel, useCaptureMarks, type Back, type OnDay }
 import { DayDots, DotsKey, openedLevel } from './day-dots'
 import { DaySide, type SideAsk } from './day-side'
 import { unloaded, useLive, haligtree, type Settings, type Stats, type Task } from '@/lib/haligtree'
-import { dayjs, type Dayjs, dayKey, num } from '../../../../main/dates'
+import { dayjs, type Dayjs, dayKey, num, plural } from '../../../../main/dates'
 import { APP_NAME } from '../../../../main/name'
 
 /** A day's line, one row high, and the room its date takes above them. */
@@ -320,14 +320,14 @@ function Cell({ day, lines, today, outside, count, caught, flags, adding, onAdd,
       onClick={(event) => event.target === event.currentTarget && (chime('tap'), onAdd())}
       className={`group/day relative flex min-h-0 min-w-0 cursor-pointer flex-col overflow-hidden p-1 transition-colors ${isOver || adding ? 'bg-accent ring-1 ring-foreground/25 ring-inset' : weekend && !outside ? 'bg-[color-mix(in_oklab,var(--background)_98%,var(--foreground))]' : 'bg-background'} ${outside ? '[&_[data-plan-more]]:opacity-60 [&_[data-plan-task]]:opacity-60' : ''}`}>
       <div className="flex items-center gap-1.5">
-        <button type="button" onClick={() => (chime('open'), onDay(key))} aria-label={`Open ${day.format('dddd D MMMM')}${count ? `. Opened ${APP_NAME}${count > 1 ? ` ${num(count)} times` : ''}` : ''}${caught ? `. ${caught} ${caught === 1 ? 'capture' : 'captures'}` : caught === 0 ? '. Nothing captured' : ''}`}
+        <button type="button" onClick={() => (chime('open'), onDay(key))} aria-label={`Open ${day.format('dddd D MMMM')}${count ? `. Opened ${APP_NAME}${count > 1 ? ` ${num(count)} times` : ''}` : ''}${caught ? `. ${plural(caught, 'capture')}` : caught === 0 ? '. Nothing captured' : ''}`}
           aria-current={key === today ? 'date' : undefined}
           data-day-number className={`flex h-6 min-w-6 shrink-0 items-center justify-center rounded-full px-1 text-control tabular-nums transition-colors hover:bg-accent ${key === today ? 'bg-foreground font-semibold text-background hover:bg-foreground/85' : outside ? 'text-foreground/40' : day.date() === 1 ? 'font-semibold text-foreground' : 'text-foreground'}`}>
           {day.date() === 1 ? day.format('D MMM') : day.date()}
         </button>
         {/* The dots say what the day held: a click opens the day's page, where it is. */}
         {(count > 0 || caught !== undefined) && (
-          <Tip label={`${[count ? `Opened ${APP_NAME}${count > 1 ? ` ${num(count)} times` : ''}` : '', caught ? `${caught} ${caught === 1 ? 'capture' : 'captures'}` : caught === 0 ? 'Nothing captured' : ''].filter(Boolean).join(', ')}. Click to open the day`}>
+          <Tip label={`${[count ? `Opened ${APP_NAME}${count > 1 ? ` ${num(count)} times` : ''}` : '', caught ? `${plural(caught, 'capture')}` : caught === 0 ? 'Nothing captured' : ''].filter(Boolean).join(', ')}. Click to open the day`}>
             <button type="button" data-day-dots tabIndex={-1} onClick={() => (chime('open'), onDay(key))} className="flex h-5 items-center rounded-sm px-1 transition-colors hover:bg-accent"><DayDots opened={count} caught={caught} /></button>
           </Tip>
         )}

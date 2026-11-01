@@ -7,7 +7,7 @@ import { canSplit, openAside, useHere } from '@/lib/split'
 import { binItem } from '@/lib/to-bin'
 import type { Editor } from '@tiptap/react'
 import { HaligtreeEditor } from './haligtree-editor'
-import { num } from '../../../../main/dates'
+import { num, plural } from '../../../../main/dates'
 import { Chips, Display, arrange, useView, type Choice, type Density, type Facet } from './display'
 import { IslandBox, useIslands } from './islands'
 import { ListSearch } from './note-list'
@@ -367,7 +367,7 @@ export function CardBrowser({ onOpen, aim, only, newest, onAll, onShow, onAimDon
   const picked = ordered.filter((card) => several.picked({ type: 'nugget', id: card.id }))
   const pause = (ids: string[], on: boolean): void => void call('cards:pause', ids, on).then(() => {
     chime(on ? 'shelve' : 'unshelve')
-    toast(`${on ? 'Paused' : 'Back in Review'}: ${num(ids.length)} ${ids.length === 1 ? 'card' : 'cards'}`, () => void call('cards:pause', ids, !on).then(() => chime('undo')))
+    toast(`${on ? 'Paused' : 'Back in Review'}: ${plural(ids.length, 'card')}`, () => void call('cards:pause', ids, !on).then(() => chime('undo')))
   })
   const retag = (ids: string[], on: boolean): void => {
     const word = tagging.trim().replace(/^#/, '').toLowerCase()
@@ -375,7 +375,7 @@ export function CardBrowser({ onOpen, aim, only, newest, onAll, onShow, onAimDon
     void call<{ id: string; body: string | null }[]>('cards:retag', ids, word, on).then((before) => {
       chime(on ? 'noted' : 'fold')
       setTagging('')
-      toast(`${num(before.length)} ${before.length === 1 ? 'card' : 'cards'} ${on ? 'added to' : 'taken out of'} the deck ${deckTitle(word)}`, () => void call('cards:retag:undo', before).then(() => chime('undo')))
+      toast(`${plural(before.length, 'card')} ${on ? 'added to' : 'taken out of'} the deck ${deckTitle(word)}`, () => void call('cards:retag:undo', before).then(() => chime('undo')))
     })
   }
   // Moved to a deck: the new one on, each card's others off, one Undo for all of it.
@@ -397,7 +397,7 @@ export function CardBrowser({ onOpen, aim, only, newest, onAll, onShow, onAimDon
   // Back to new, as if never reviewed; Undo puts its progress back.
   const reset = (ids: string[]): void => void call<{ id: string; state: string | null; dueAt: string | null }[]>('cards:reset', ids).then((before) => {
     chime('fold')
-    toast(`Progress reset: ${num(before.length)} ${before.length === 1 ? 'card is' : 'cards are'} new again`, () => void call('cards:reset:undo', before).then(() => chime('undo')))
+    toast(`Progress reset: ${plural(before.length, 'card is', 'cards are')} new again`, () => void call('cards:reset:undo', before).then(() => chime('undo')))
   })
   const copy = (card: BrowsedCard): void => void navigator.clipboard.writeText(`${card.prompt}\n${card.answer}`).then(() => (chime('tap'), toast('Card copied')))
   const turn = (id: string, to?: boolean): void => setOver((was) => {

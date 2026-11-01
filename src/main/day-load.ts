@@ -1,5 +1,5 @@
 import dayjs from 'dayjs'
-import { dayKey, howLong } from './dates.ts'
+import { dayKey, howLong, plural } from './dates.ts'
 
 /**
  * Does a day fit? Its meetings (calendar events, all-day ones left out and
@@ -81,7 +81,7 @@ export function loadSaid(load: Pick<DayLoad, 'meetings' | 'tasks' | 'unsized'>):
 }
 
 /** "1 task without a length", "4 tasks without a length". */
-export const unsizedSaid = (n: number): string => `${n} ${n === 1 ? 'task' : 'tasks'} without a length`
+export const unsizedSaid = (n: number): string => `${plural(n, 'task')} without a length`
 
 // The Matrix's boxes, the one to move on first leading: neither, then urgent
 // only, then important only; urgent and important stays.

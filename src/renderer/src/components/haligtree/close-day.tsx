@@ -15,7 +15,7 @@ import { Kbd, Tags, toast } from './ui'
 import { shiftTo } from './tasks-view'
 import { CloseWeekSheet } from './close-week'
 import { DayLog } from './day-log'
-import { dayjs, dayKey, num, startOfDay } from '../../../../main/dates'
+import { dayjs, dayKey, num, startOfDay, plural } from '../../../../main/dates'
 import { TomorrowLines, TomorrowWhy, dayAfter, nightOf, readNight, takeBack, useNight } from './tomorrow-lines'
 import { APP_NAME } from '../../../../main/name'
 
@@ -241,7 +241,7 @@ function Pass({ onClose }: { onClose: () => void }): React.JSX.Element {
       const ids = new Set(tasks.filter((task) => task.status !== 'dropped').map((task) => task.id))
       const all = readNight(night).filter((one) => ids.has(one.id) || !already.includes(one.id))
       const fresh = all.filter((one) => !already.includes(one.id)).map((one) => one.id)
-      const things = all.length ? `${num(all.length)} ${all.length === 1 ? 'thing' : 'things'} for tomorrow` : ''
+      const things = all.length ? `${plural(all.length, 'thing')} for tomorrow` : ''
       const said = frog ? `Day closed. ${things ? `${things}, and it` : 'Tomorrow'} starts with the one you picked` : `Day closed${things ? `. ${things}` : ''}`
       // One Undo: the day open again, and the lines written in this pass taken back out.
       toast(said, () => {

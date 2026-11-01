@@ -136,7 +136,7 @@ import { menuShowing } from '@/lib/menu-keys'
 import { ArrowRight, ChevronRight, CircleHelp } from '@/components/ui/icons'
 import { still } from '@/lib/motion'
 import { calendarAside, calendarPalette, revealOnCalendar } from '@/lib/calendar-scope'
-import { dated, dayjs, dayKey, daysFromToday, noon, num } from '../../main/dates'
+import { dated, dayjs, dayKey, daysFromToday, noon, num, plural } from '../../main/dates'
 import { WrapOffer, WrapSheet, monthToWrap, openWrap } from '@/components/haligtree/wrap-story'
 import { caretInLink } from './extensions/link-tidy'
 import { APP_NAME } from '../../main/name'
@@ -811,7 +811,7 @@ export function Home(): React.JSX.Element {
   fillRef.current = fill
   useEffect(() => window.api.onFilled(setFillState), [])
   // Said once, quietly, as too many goals for cards of their own gather on one sticky.
-  useEffect(() => window.api.onGoalsGathered((count) => toast(`Your ${count} goals share one card on the desktop. “Always” on a goal gives it a card of its own.`, undefined, 'info')), [])
+  useEffect(() => window.api.onGoalsGathered((count) => toast(`Your ${num(count)} goals share one card on the desktop. “Always” on a goal gives it a card of its own.`, undefined, 'info')), [])
   // ⌃⇧F, the same chord that makes the prompt bigger. Held, it fires once.
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
@@ -1039,7 +1039,7 @@ export function Home(): React.JSX.Element {
   const countSaid = (id: string, n: number): string => {
     const said: Record<string, [string, string]> = { review: ['card to review now', 'cards to review now'], today: ['task due today or before', 'tasks due today or before'], nuggets: ['gem kept', 'gems kept'], articles: ['page kept', 'pages kept'], questions: ['question still open', 'questions still open'], goals: ['goal under way', 'goals under way'], queue: ['thing to read next', 'things to read next'], lookups: ['word still asked', 'words still asked'], sources: ['person or work', 'people and works'] }
     const [one, many] = said[id] ?? ['', '']
-    return one ? `${num(n)} ${n === 1 ? one : many}` : ''
+    return one ? plural(n, one, many) : ''
   }
   // No Inbox count: the inbox is a place to set things down, never a queue to clear.
   // Archived ones are out of sight in their lists, so out of the counts too.

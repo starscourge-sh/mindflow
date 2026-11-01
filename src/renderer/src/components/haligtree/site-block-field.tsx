@@ -127,7 +127,7 @@ export function SiteBlockField({ settings, compact = false }: { settings: Settin
   }
   // Right-click on one of several picked: the line takes them all off.
   const stopLine = (entry: string, one: string): RowItem =>
-    picked.length > 1 && picked.includes(entry) ? { label: `Stop blocking these ${picked.length}`, run: () => remove(picked) } : { label: one, run: () => remove(entry) }
+    picked.length > 1 && picked.includes(entry) ? { label: `Stop blocking these ${num(picked.length)}`, run: () => remove(picked) } : { label: one, run: () => remove(entry) }
   // A chip clicked is picked, as a row is: ⌘ or ⇧ adds it to the others.
   const pickChip = (entry: string, more: boolean): void => {
     chime('tap')
@@ -281,7 +281,7 @@ export function SiteBlockField({ settings, compact = false }: { settings: Settin
                 <button key={name} type="button" data-site-starter={`@${name}`} onClick={() => add({ id: `@${name}`, label: `Block ${one.name}`, entry: `@${name}`, collection: name })}
                   className={`flex h-7 min-w-0 items-center gap-1.5 rounded-md border border-dashed bg-transparent px-2 text-control whitespace-nowrap text-foreground transition-colors hover:border-solid hover:bg-accent ${compact ? 'w-full' : ''}`}>
                   {!compact && <span className="flex shrink-0 gap-0.5">{one.sites.slice(0, 3).map((site) => <span key={site}><SiteIcon site={site} size={14} /></span>)}</span>}
-                  <span className="min-w-0 truncate">Block <span className="font-medium">{one.name}</span> <span className="text-foreground/70 tabular-nums">({one.sites.length}{compact ? '' : ' sites'})</span></span>
+                  <span className="min-w-0 truncate">Block <span className="font-medium">{one.name}</span> <span className="text-foreground/70 tabular-nums">({num(one.sites.length)}{compact ? '' : ' sites'})</span></span>
                   <span aria-hidden className="ml-auto shrink-0 pl-1 font-medium text-foreground/70">+</span>
                 </button>
               ))}

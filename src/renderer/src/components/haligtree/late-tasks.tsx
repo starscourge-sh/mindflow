@@ -8,7 +8,7 @@ import { DatePicker } from './date-picker'
 import { ask, toast } from './ui'
 import { BUCKETS, planKey, taskName } from '@/lib/tasks'
 import { PRIORITY_NAMES } from '../../../../main/task-words'
-import { dayjs, dayKey, num } from '../../../../main/dates'
+import { dayjs, dayKey, num, plural } from '../../../../main/dates'
 
 /**
  * Late tasks, all moved at once: the "N late" on the Calendar and Today, and
@@ -141,7 +141,7 @@ const putBack = (task: Task, before: TaskWas | true): Promise<unknown> =>
  */
 export function manyTaskItems(ids: string[], { mixed = false, after = () => undefined }: { mixed?: boolean; after?: () => void } = {}): RowItem[] {
   if (!ids.length) return []
-  const n = `${num(ids.length)} ${ids.length === 1 ? 'task' : 'tasks'}`
+  const n = plural(ids.length, "task")
   const go = (run: () => Promise<unknown>) => () => void run().then(after)
   const to = (where: Where) => go(async () => rescheduleAll(await openOnes(ids), where, ['the task', 'tasks']))
   return [

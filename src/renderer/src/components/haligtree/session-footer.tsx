@@ -6,6 +6,7 @@ import { isSession, useLive, haligtree, type Focus, type Settings } from '@/lib/
 import { MORE, clock, worked } from './focus-pill'
 import { Tip } from './ui'
 import { still } from '@/lib/motion'
+import { plural } from '../../../../main/dates'
 
 /** One dot and the gap after it, in pixels: the row holds as many whole ones as fit. */
 const STEP = 9
@@ -114,7 +115,7 @@ function Foot({ editor, focus, note }: { editor: Editor | null; focus: Focus; no
           style={{ width: dots * STEP, clipPath: `inset(0 ${dots ? 100 - ((over ? dots : lit) / dots) * 100 : 100}% 0 0)`, background: paint(paused ? 50 : 85) }}
         />
       </span>
-      <Tip label="Words written in this note this session"><span className="pointer-events-auto shrink-0">{written} {written === 1 ? 'word' : 'words'}</span></Tip>
+      <Tip label="Words written in this note this session"><span className="pointer-events-auto shrink-0">{plural(written, "word")}</span></Tip>
     </div>
   )
 }

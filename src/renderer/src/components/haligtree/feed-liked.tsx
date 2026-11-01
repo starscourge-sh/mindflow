@@ -5,7 +5,7 @@ import { call, splitTags, unloaded, unread, useLive } from '@/lib/haligtree'
 import { chime } from '@/lib/sound'
 import { cn } from '@/lib/cn'
 import { useHere } from '@/lib/split'
-import { dayjs, num } from '../../../../main/dates'
+import { dayjs, num, plural } from '../../../../main/dates'
 import type { LikedPost, LikedSide } from '../../../../main/feed'
 import { Docked, Page, Tip, openTag, toast, typing } from './ui'
 import { RowMenu, copyLinkItem, type MenuItem } from './row-menu'
@@ -43,7 +43,7 @@ const groupOf = (day: string): string => {
   if (!at.isBefore(thisMonday())) return 'This week'
   return at.year() === dayjs().year() ? at.format('MMMM') : at.format('YYYY')
 }
-const likesSaid = (n: number): string => `${num(n)} ${n === 1 ? 'like' : 'likes'}`
+const likesSaid = (n: number): string => `${plural(n, 'like')}`
 
 export function FeedLiked({ tabs, onOpen }: { tabs: React.ReactNode; onOpen: (type: string, id: string) => void }): React.JSX.Element {
   const side = useLive(readSide, NO_SIDE, [], ['capture', 'item'], 'feed-liked-side')
@@ -145,7 +145,7 @@ export function FeedLiked({ tabs, onOpen }: { tabs: React.ReactNode; onOpen: (ty
 
   const waiting = posts === null || unloaded(side)
   // Always a line, so the tabs under it sit where Notes' and Reading's do.
-  const lead = <span data-liked-holds className="truncate text-control text-muted-foreground">{side.total ? `${likesSaid(side.total)} on ${num(side.notes)} ${side.notes === 1 ? 'post' : 'posts'}` : 'No likes yet'}</span>
+  const lead = <span data-liked-holds className="truncate text-control text-muted-foreground">{side.total ? `${likesSaid(side.total)} on ${plural(side.notes, 'post')}` : 'No likes yet'}</span>
   return (
     <Page title="Feed" dock waiting={waiting} lead={lead}>
       {/* The likes scroll by themselves; the side column is docked at the page's right edge, full height. */}

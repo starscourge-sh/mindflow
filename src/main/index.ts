@@ -67,7 +67,7 @@ import { registerEvents } from './events'
 import { registerReadingQueue } from './reading-queue'
 import { registerPractices, whenPracticeOffer } from './practices'
 import { registerIssues } from './issues'
-import { brief, clock, dayKey, dayMonth, dayName, howLong, num, useTwelveHour } from './dates'
+import { brief, clock, dayKey, dayMonth, dayName, howLong, num, useTwelveHour, plural } from './dates'
 import { macTwelveHour } from './mac-clock'
 import { registerScenery, sceneryDir } from './scenery'
 import { celebrationFile, registerCelebrations } from './celebrate'
@@ -3147,9 +3147,9 @@ async function importFolders(from: 'Apple Notes' | 'Obsidian', folders: NotesFol
         notes: [
           filedSaid(groups, got.made.length),
           got.stopped ? 'Stopped before the end: bring the same folders in again to carry on. Notes already here are skipped.' : '',
-          got.already ? `${num(got.already)} ${got.already === 1 ? 'was' : 'were'} already here, from an earlier import, and ${got.already === 1 ? 'was' : 'were'} left as ${got.already === 1 ? 'it was' : 'they were'}.` : '',
+          got.already ? `${plural(got.already, 'was', 'were')} already here, from an earlier import, and ${got.already === 1 ? 'was' : 'were'} left as ${got.already === 1 ? 'it was' : 'they were'}.` : '',
           got.locked ? `${num(got.locked)} locked ${got.locked === 1 ? 'note was' : 'notes were'} left in Notes: unlock ${got.locked === 1 ? 'it' : 'them'} there to bring ${got.locked === 1 ? 'it' : 'them'} in.` : '',
-          got.missing ? `${num(got.missing)} ${got.missing === 1 ? 'picture or file' : 'pictures and files'} could not be read out of Notes and ${got.missing === 1 ? 'was' : 'were'} left out.` : '',
+          got.missing ? `${plural(got.missing, 'picture or file', 'pictures and files')} could not be read out of Notes and ${got.missing === 1 ? 'was' : 'were'} left out.` : '',
           got.empty ? `${num(got.empty)} empty ${got.empty === 1 ? 'note was' : 'notes were'} skipped.` : ''
         ].filter(Boolean)
       })
@@ -3426,11 +3426,11 @@ async function bringVault(root: string, quiet: boolean, pick?: { folders: string
   const report = [
     `${num(made.length)} new ${made.length === 1 ? 'note' : 'notes'} from ${basename(root)}, with ${num(pictures)} pictures, ${num(attached)} files and ${num(linked)} links.`,
     // Where they went, said plainly: the Inbox, with time to sort it.
-    inbox ? `${num(inbox)} ${inbox === 1 ? 'note is' : 'notes are'} in your Inbox to sort through; ${inbox === 1 ? 'it' : 'they'} won't come back to you as old notes to tidy for 30 days.` : '',
-    already ? `${num(already)} ${already === 1 ? 'was' : 'were'} already here, from an earlier import, and ${already === 1 ? 'was' : 'were'} left as ${already === 1 ? 'it was' : 'they were'}.` : '',
+    inbox ? `${plural(inbox, 'note is', 'notes are')} in your Inbox to sort through; ${inbox === 1 ? 'it' : 'they'} won't come back to you as old notes to tidy for 30 days.` : '',
+    already ? `${plural(already, 'was', 'were')} already here, from an earlier import, and ${already === 1 ? 'was' : 'were'} left as ${already === 1 ? 'it was' : 'they were'}.` : '',
     empty ? `${num(empty)} empty ${empty === 1 ? 'file was' : 'files were'} skipped.` : '',
-    unshown ? `${num(unshown)} ${unshown === 1 ? 'picture was' : 'pictures were'} skipped: HEIC and TIFF cannot be shown here yet. Export them as JPEG to bring them in.` : '',
-    marked ? `${num(marked)} ${marked === 1 ? 'note came' : 'notes came'} in marked private: ${marked === 1 ? 'its name sounds' : 'their names sound'} like passwords or logins.` : '',
+    unshown ? `${plural(unshown, 'picture was', 'pictures were')} skipped: HEIC and TIFF cannot be shown here yet. Export them as JPEG to bring them in.` : '',
+    marked ? `${plural(marked, 'note came', 'notes came')} in marked private: ${marked === 1 ? 'its name sounds' : 'their names sound'} like passwords or logins.` : '',
     kept.length ? `Left out because ${kept.length === 1 ? 'it looks' : 'they look'} like passwords or keys: ${kept.join(', ')}.` : '',
     unread.length ? `Left out because ${unread.length === 1 ? 'it could not be read as text' : 'they could not be read as text'}: ${unread.join(', ')}.` : '',
     signal?.aborted ? `Stopped before the end: bring the same ${pick ? 'folders' : 'folder'} in again to carry on. Notes already here are skipped.` : ''
@@ -3587,8 +3587,8 @@ async function importFiles(dropped?: string[]): Promise<void> {
           })
           total += got.cards
           decked += got.cards
-          const parts = [`${num(got.cards)} ${got.cards === 1 ? 'card' : 'cards'}`,
-            got.pictures && `${num(got.pictures)} ${got.pictures === 1 ? 'picture' : 'pictures'}`, got.sounds && `${num(got.sounds)} ${got.sounds === 1 ? 'sound' : 'sounds'}`].filter(Boolean)
+          const parts = [`${plural(got.cards, 'card')}`,
+            got.pictures && `${plural(got.pictures, 'picture')}`, got.sounds && `${plural(got.sounds, 'sound')}`].filter(Boolean)
           // Named as the deck calls itself, not by its file: "Great Works of Art: Artists, Titles".
           const deckName = got.names.join('; ') || name.replace(/\.(apkg|colpkg)$/i, '').replace(/_/g, ' ')
           // One deck: its name heads the notice ("From Great Works of Art: Artists, Titles"), said once.
@@ -3598,10 +3598,10 @@ async function importFiles(dropped?: string[]): Promise<void> {
           // Which of the deck's fields became links, said so a wrong guess is caught: changed from the deck on Review › Decks.
           const linkedBy = [got.links.who.size && `“${[...got.links.who].join('”, “')}” became each card’s who, a Sources page each`, got.links.kinds.size && `“${[...got.links.kinds].join('”, “')}” became #tags`].filter(Boolean)
           if (linkedBy.length) lines.push(`Linked from the deck’s own fields: ${linkedBy.join('; ')}. Wrong guess? “Links” on the deck in Review › Decks changes it.`)
-          if (got.updated) lines.push(`${num(got.updated)} ${got.updated === 1 ? 'card was' : 'cards were'} changed by this newer version, keeping your progress`)
-          if (got.paused) lines.push(`${num(got.paused)} ${got.paused === 1 ? 'card was' : 'cards were'} suspended in Anki: paused here too, out of Review until you bring ${got.paused === 1 ? 'it' : 'them'} back`)
-          if (got.already) lines.push(`${num(got.already)} ${got.already === 1 ? 'card was' : 'cards were'} already here, from an earlier import`)
-          if (got.skipped) lines.push(`${num(got.skipped)} ${got.skipped === 1 ? 'card' : 'cards'} left out: picture-hiding cards, or a side with nothing on it`)
+          if (got.updated) lines.push(`${plural(got.updated, 'card was', 'cards were')} changed by this newer version, keeping your progress`)
+          if (got.paused) lines.push(`${plural(got.paused, 'card was', 'cards were')} suspended in Anki: paused here too, out of Review until you bring ${got.paused === 1 ? 'it' : 'them'} back`)
+          if (got.already) lines.push(`${plural(got.already, 'card was', 'cards were')} already here, from an earlier import`)
+          if (got.skipped) lines.push(`${plural(got.skipped, 'card')} left out: picture-hiding cards, or a side with nothing on it`)
           // One card as Review will ask it, so what came in is seen before it is studied.
           if (got.sample) lines.push(`A card as Review asks it: “${got.sample.question.replace(/!\[\]\([^)]*\)/g, '[picture]').replace(/\s+/g, ' ').trim().slice(0, 90)}” Answer: “${got.sample.answer.replace(/!\[\]\([^)]*\)/g, '[picture]').replace(/\s+/g, ' ').trim().slice(0, 90)}”`)
           // Coming from Anki: what each thing is called here, once under the counts however many decks came in.
@@ -3650,7 +3650,7 @@ async function importFiles(dropped?: string[]): Promise<void> {
   for (const win of BrowserWindow.getAllWindows()) win.webContents.send('imports:ready')
   // Where they went, said first, and the card's button opens it.
   // Some of them: "1 is", "4 are".
-  const some = (n: number): string => (n === total ? (total === 1 ? 'It is' : 'They are') : `${num(n)} ${n === 1 ? 'is' : 'are'}`)
+  const some = (n: number): string => (n === total ? (total === 1 ? 'It is' : 'They are') : `${plural(n, 'is', 'are')}`)
   const went = [inbox ? `${some(inbox)} in your Inbox.` : '', gems ? `${some(gems)} in Gems, as cards to review.` : '',
     decked ? `${some(decked)} on Review’s Decks shelf, out of Gems: start a topic when you study it.` : ''].filter(Boolean)
   if (lines.length) inHome('haligtree:import-done', { from: deckFrom || (filePaths.length === 1 ? basename(filePaths[0]) : `${num(filePaths.length)} files`), made: total, inbox, gems, decks: decked, notes: [...went, ...lines] })
@@ -3872,7 +3872,7 @@ function updateTray(): void {
   // Everything else (goals, the session, reviews, the book) is in the menu.
   const title = [SANDBOX ? 'Sandbox' : '', tasks ? `${brief(tasks)} due` : ''].filter(Boolean).join(' · ')
   tray.setTitle(title, { fontType: 'monospacedDigit' })
-  tray.setToolTip(`${SANDBOX ? `${APP_NAME} sandbox` : `${APP_NAME} · ${nameOf(here())}`}${tasks ? ` · ${tasks} task${tasks === 1 ? '' : 's'} due now` : ''}${due ? ` · ${due} to review` : ''}${safe ? ' · safe mode on' : ''}`)
+  tray.setToolTip(`${SANDBOX ? `${APP_NAME} sandbox` : `${APP_NAME} · ${nameOf(here())}`}${tasks ? ` · ${plural(tasks, 'task')} due now` : ''}${due ? ` · ${due} to review` : ''}${safe ? ' · safe mode on' : ''}`)
   // Tempus: how far through the day, week, month and year, each a drawn bar
   // of one width, so the four line up whatever their words.
   const time = tempus()
@@ -3882,7 +3882,7 @@ function updateTray(): void {
   const goalItems: Electron.MenuItemConstructorOptions[] = goals.slice(0, 3).map((goal) => {
     const left = daysLeft(goal.goalAt)
     const name = goal.private && hidden ? 'A private goal' : clip(goal.title, 34)
-    const when = left < 0 ? 'did you make it?' : left === 0 ? 'today' : `${num(left)} ${left === 1 ? 'day' : 'days'} left`
+    const when = left < 0 ? 'did you make it?' : left === 0 ? 'today' : `${plural(left, 'day')} left`
     // The goal on its own line and where it stands under it, smaller: a menu
     // taller and narrower, rather than one long line setting its width.
     return { label: name, sublabel: `${when}  ·  ${percent(wayThrough(goal.goalFrom, goal.goalAt))} of the way`, click: () => sendHome('goal', goal.id, undefined, 'window') }
@@ -3897,7 +3897,7 @@ function updateTray(): void {
   if (tempusDrawn?.key !== tempusKey) void drawTempus(tempusKey, rows, tempusDots(), widest)
   // What the menu bar used to say beside its counts, each on its own line here.
   const now: Electron.MenuItemConstructorOptions[] = [
-    ...(tasks ? [{ label: `${num(tasks)} ${tasks === 1 ? 'task' : 'tasks'} due now`, click: () => sendHome('view', 'today', undefined, 'window') }] : []),
+    ...(tasks ? [{ label: `${plural(tasks, 'task')} due now`, click: () => sendHome('view', 'today', undefined, 'window') }] : []),
     ...(due ? [{ label: `${num(due)} to review`, click: () => sendHome('view', 'review', undefined, 'window') }] : []),
     ...(session ? [{ label: `Session running, ${howLong(minutes)}`, click: openHome }] : [])
   ]

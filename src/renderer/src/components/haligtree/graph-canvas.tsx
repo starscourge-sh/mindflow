@@ -13,6 +13,7 @@ import { still } from '@/lib/motion'
 import { emojiIcons } from '@/lib/icon-style'
 import { wornStyle, type Style } from '@/lib/theme'
 import { hueTint, MAP_LOOK, type MapLook } from '@/lib/map-look'
+import { plural } from '../../../../main/dates'
 
 /** `px`, `py`: where it is drawn this frame, a breath away from where it sits. `rings`: one per band of links. */
 type Dot = MapNode & SimulationNodeDatum & { r: number; r0: number; rings: number; px: number; py: number; private?: boolean }
@@ -1203,7 +1204,7 @@ export function GraphCanvas({ map, onOpen, centre, you, about, fit: fitRef, fly,
           <span className="flex items-center gap-1.5 text-muted-foreground">
             <span className="size-2 rounded-full" style={{ background: hover.dot.id === centre || hover.dot.id === you ? 'var(--tt-brand-color-400)' : paint?.(hover.dot) ?? tintOf(hover.dot) }} />
             {about?.[hover.dot.id] ? `${about[hover.dot.id]} · ` : ''}
-            {hover.dot.id === you ? 'This note' : hover.dot.id === centre ? (hover.dot.type === 'pdf' ? 'This book' : 'This note') : hover.dot.kind === 'person' ? 'Person' : hover.dot.kind === 'source' ? 'Source' : hover.dot.kind === 'pdf' ? 'PDF' : hover.dot.kind === 'web' ? 'Web article' : kind?.label ?? (hover.dot.type === 'nugget' ? 'Gem' : hover.dot.type === 'card' ? 'Card' : hover.dot.type === 'article' ? 'Page' : 'Note')}{hover.dot.tag ? ` · #${hover.dot.tag}` : ''} · {hover.dot.links} {hover.dot.links === 1 ? 'link' : 'links'}
+            {hover.dot.id === you ? 'This note' : hover.dot.id === centre ? (hover.dot.type === 'pdf' ? 'This book' : 'This note') : hover.dot.kind === 'person' ? 'Person' : hover.dot.kind === 'source' ? 'Source' : hover.dot.kind === 'pdf' ? 'PDF' : hover.dot.kind === 'web' ? 'Web article' : kind?.label ?? (hover.dot.type === 'nugget' ? 'Gem' : hover.dot.type === 'card' ? 'Card' : hover.dot.type === 'article' ? 'Page' : 'Note')}{hover.dot.tag ? ` · #${hover.dot.tag}` : ''} · {plural(hover.dot.links, "link")}
           </span>
         </div>
       )}

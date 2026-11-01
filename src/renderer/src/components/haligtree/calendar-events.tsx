@@ -18,7 +18,7 @@ import { readTask } from '../../../../main/task-words'
 import { isLast, nthOf, repeatSaid } from '../../../../main/event-repeat'
 import { remindSaid } from '../../../../main/event-said'
 import { lengthSaid } from '../../../../main/day-load'
-import { dayjs, dayKey } from '../../../../main/dates'
+import { dayjs, dayKey, num } from '../../../../main/dates'
 import { DatePicker } from './date-picker'
 import { TimeField } from './time-field'
 import { RowMenu, copyLink, copyLinkItem, type RowItem } from './row-menu'
@@ -555,7 +555,7 @@ export function CalendarLayers({ layers }: { layers: ReturnType<typeof useLayers
     const done = await events.setCalendar({ id: one.id, binned: true })
     if (!done) return void (await events.moveEvents(to.id, one.id, moved), toast('The last calendar stays: an event needs one', undefined, 'info'))
     chime('away')
-    toast(`${one.name} deleted${moved.length ? `. Its ${moved.length === 1 ? 'event moved' : `${moved.length} events moved`} to ${to.name}` : ''}`, () => void events.setCalendar({ id: one.id, binned: false }).then(() => void (moved.length && events.moveEvents(to.id, one.id, moved))))
+    toast(`${one.name} deleted${moved.length ? `. Its ${moved.length === 1 ? 'event moved' : `${num(moved.length)} events moved`} to ${to.name}` : ''}`, () => void events.setCalendar({ id: one.id, binned: false }).then(() => void (moved.length && events.moveEvents(to.id, one.id, moved))))
   }
   // Each calendar a box ticked in its own colour, as Calendar on the Mac has them: ticked, its events show.
   // Each calendar a box ticked in its own colour, as Calendar on the Mac has them: ticked, its events show.

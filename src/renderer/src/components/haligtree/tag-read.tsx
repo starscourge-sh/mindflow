@@ -23,7 +23,7 @@ import { Display, FilterChips, arrange, islandsOn, useView, type Facet } from '.
 import { ListSearch } from './note-list'
 import { motion } from 'motion/react'
 import { DRAWINGS, GrainFill, PAPER_INK, spreadPick, useNoteCover } from './grain'
-import { ago, dayKey, dayMonth, dayName, dayjs, noon, num } from '../../../../main/dates'
+import { ago, dayKey, dayMonth, dayName, dayjs, noon, num, plural } from '../../../../main/dates'
 import { asideItem, useHere } from '@/lib/split'
 import { queueItems } from '@/lib/reading-queue'
 import { PICKED_MARK, usePickMixed } from './pick-mixed'
@@ -345,7 +345,7 @@ export function TagStream({ tag, color, onOpen, onTag, onManage }: {
       key: `${item.type}-${item.id}`,
       title: itemName(item.type, item.title || item.label).text,
       icon: <Icon className="size-4 shrink-0 text-muted-foreground" style={kind && item.type === 'capture' ? { color: kind.tint } : undefined} />,
-      cells: [day, `${num(words)} ${words === 1 ? 'word' : 'words'}`],
+      cells: [day, `${plural(words, 'word')}`],
       private: item.private,
       onOpen: (event) => (event.metaKey && event.altKey ? open(item, event) : several.click(event, item) || open(item, event)),
       pick: `${item.type}:${item.id}`,
@@ -377,7 +377,7 @@ export function TagStream({ tag, color, onOpen, onTag, onManage }: {
         label="Tag"
         // The header clamps its title's span to three lines, which stacks that span's children: the icon and the name go in a row inside it.
         title={<span><span className="flex items-center gap-2"><TagColourPick tag={tag} color={color} className="size-[0.5em]" /><span className="min-w-0 break-words">#{tag}</span></span></span>}
-        meta={[`${num(counted.length)} ${counted.length === 1 ? unit[0] : unit[1]}`, ...(later ? [
+        meta={[`${plural(counted.length, unit[0], unit[1])}`, ...(later ? [
           <button key="later" type="button" data-later onClick={() => (chime(laterShown ? 'fold' : 'open'), setLaterShown(!laterShown))} className="font-medium text-foreground underline decoration-foreground/25 underline-offset-4 transition-colors hover:decoration-foreground/60">
             {laterShown ? `hide the ${num(later)} resolved or done` : `${num(later)} more resolved or done`}
           </button>

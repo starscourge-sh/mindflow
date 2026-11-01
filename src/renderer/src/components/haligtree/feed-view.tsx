@@ -8,7 +8,7 @@ import { thumbsRead, useThumb } from '@/lib/notes'
 import { useDecoded } from '@/lib/decoded'
 import { chime, type Cue } from '@/lib/sound'
 import { cn } from '@/lib/cn'
-import { ago, dayjs, num } from '../../../../main/dates'
+import { ago, dayjs, num, plural } from '../../../../main/dates'
 import type { Feed, FeedPost, FeedSide, PollAnswer, Reaction } from '../../../../main/feed'
 import { useGrades } from './review-view'
 import { backIn } from '@/lib/back-in'
@@ -149,7 +149,7 @@ function useUntilTomorrow(): string {
   const minutes = Math.max(1, dayjs(now).endOf('day').diff(dayjs(now), 'minute') + 1)
   const hours = Math.floor(minutes / 60)
   const rest = minutes % 60
-  return [hours && `${hours} ${hours === 1 ? 'hour' : 'hours'}`, rest && `${rest} ${rest === 1 ? 'minute' : 'minutes'}`].filter(Boolean).join(' ')
+  return [hours && `${plural(hours, 'hour')}`, rest && `${plural(rest, 'minute')}`].filter(Boolean).join(' ')
 }
 
 /** The nearest box that scrolls, so a thread opened and closed comes back to the same place. */
@@ -1003,7 +1003,7 @@ export function Restack({ post, onDone, onOpen, initial = '' }: { post: Restacka
 
 /** How long since: "2 years", "8 months", "3 weeks", "5 days". */
 const quietFor = (at: string): string => {
-  const said = (n: number, unit: string): string => `${num(n)} ${unit}${n === 1 ? '' : 's'}`
+  const said = (n: number, unit: string): string => plural(n, unit)
   const years = dayjs().diff(dayjs(at), 'year')
   const months = dayjs().diff(dayjs(at), 'month')
   const days = Math.max(1, dayjs().diff(dayjs(at), 'day'))
@@ -1038,7 +1038,7 @@ export function SideColumn({ onOpen }: { onOpen: (type: string, id: string) => v
           <div className="flex flex-wrap gap-1.5 px-2 pt-0.5 pb-1.5">
             {/* The face's hover card names it; no tip as well, so one thing shows at a time. */}
             {faces.map((one) => (
-              <button key={one.name} type="button" {...hoverNote('person', one.name)} data-feed-face={one.name} aria-label={`Open ${one.name}'s page, ${num(one.count)} ${one.count === 1 ? 'note' : 'notes'}`} onClick={() => go(() => openSource('attribution', one.name))}
+              <button key={one.name} type="button" {...hoverNote('person', one.name)} data-feed-face={one.name} aria-label={`Open ${one.name}'s page, ${plural(one.count, 'note')}`} onClick={() => go(() => openSource('attribution', one.name))}
                 className="rounded-full ring-offset-2 ring-offset-background transition-transform duration-150 ease-(--mf-ease) hover:scale-[1.06] focus-visible:ring-2 focus-visible:ring-ring">
                 <Avatar name={one.name} size={34} letters={letters.get(one.name.trim())} />
               </button>

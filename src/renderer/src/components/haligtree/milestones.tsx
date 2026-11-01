@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/input'
 import { RowMenu, type RowItem } from './row-menu'
 import { DatePicker } from './date-picker'
 import { Rolling, Tip, refuse, toast } from './ui'
-import { dayKey, dayMonth, dayName, dayjs, noon, num } from '../../../../main/dates'
+import { dayKey, dayMonth, dayName, dayjs, noon, num, plural } from '../../../../main/dates'
 import { daysBetween } from '../../../../main/goal-days'
 
 /**
@@ -95,7 +95,7 @@ export function MilestoneAsker(): React.JSX.Element | null {
         <div className="flex flex-wrap items-center gap-2 text-control">
           <span className="text-muted-foreground">On</span>
           <DatePicker value={day} onChange={setDay} placeholder="Pick the day" suggest={['tomorrow', 'next friday', 'in 1 month', 'in 3 months']} className="border bg-accent/30" />
-          {left !== null && <span className="text-xs text-muted-foreground"><Rolling by="word" text={left === 0 ? 'today' : left > 0 ? `in ${num(left)} ${left === 1 ? 'day' : 'days'}` : `${num(-left)} ${left === -1 ? 'day' : 'days'} ago`} /></span>}
+          {left !== null && <span className="text-xs text-muted-foreground"><Rolling by="word" text={left === 0 ? 'today' : left > 0 ? `in ${plural(left, 'day')}` : `${num(-left)} ${left === -1 ? 'day' : 'days'} ago`} /></span>}
         </div>
         <div className="flex flex-wrap items-center gap-1">
           {MARK_ICONS.map((one) => (
@@ -299,8 +299,8 @@ export function DayGrid({ days, onOpenDay, label, calendar = false }: { days: st
             here.length && here.map((one) => one.title).join(', '),
             !calendar && kept.get(day) && `${kept.get(day)} kept`,
             page && 'a page written',
-            reviews && `${num(reviews)} ${reviews === 1 ? 'review' : 'reviews'} done`,
-            due && `${num(due)} ${due === 1 ? 'card' : 'cards'} due`
+            reviews && `${plural(reviews, 'review')} done`,
+            due && `${plural(due, 'card')} due`
           ].filter(Boolean)
           return (
             <DayMarkMenu key={day} day={day} all={all} onOpenDay={onOpenDay}>

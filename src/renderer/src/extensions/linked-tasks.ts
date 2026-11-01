@@ -8,6 +8,7 @@ import { isList, readLines, tasksOf, tasksSaid, worthSorting } from "../../../ma
 import { APP_NAME } from '../../../main/name'
 import { cardListOf } from "../../../main/card-lists"
 import { termLines } from "../../../main/study"
+import { num } from '../../../main/dates'
 
 /**
  * A to-do in a note that is a task too: it carries the task's id, and the
@@ -50,7 +51,7 @@ export const LinkedTasks = Extension.create<{ origin: () => string | null; box: 
       const [from, to] = [$from.before(depth), $from.after(depth)]
       // Taken up, the box becomes a Todo, and Create makes a task a line, its indented lines their steps.
       const said = tasksSaid(boxList(editor)?.list ?? [])
-      toast(`A list of ${items.length}`, undefined, "info", { label: `Make ${said}`, key: "T", run: () => (boxKind.pick ? boxKind.pick() : void makeLineTasks(editor, from, Math.min(to, editor.state.doc.content.size), null)) })
+      toast(`A list of ${num(items.length)}`, undefined, "info", { label: `Make ${said}`, key: "T", run: () => (boxKind.pick ? boxKind.pick() : void makeLineTasks(editor, from, Math.min(to, editor.state.doc.content.size), null)) })
       return
     }
   },

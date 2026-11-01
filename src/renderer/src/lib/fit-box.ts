@@ -39,14 +39,9 @@ const cardHeight = (): number => (ROOM ? (document.querySelector<HTMLElement>('.
 
 /** The card held at `height` (quick capture's overhang), whatever room the window keeps under it; and let go. */
 const pin = (height: number): void => {
-  // Never held at a height read while the card was not laid out (0, or a sliver): held there, the card shrank to a
-  // line across the window while its round controls stayed up beside or above it (qa/box-never-bare.mjs).
-  if (height < SHORT_ENOUGH) return
   document.documentElement.style.setProperty('--mf-card-held', `${height}px`)
   document.documentElement.setAttribute('data-card-held', '')
 }
-/** Shorter than the pill: not a height the card is ever drawn at. */
-const SHORT_ENOUGH = 40
 const unpin = (): void => void (document.documentElement.removeAttribute('data-card-held'), document.documentElement.style.removeProperty('--mf-card-held'))
 
 /** How tall the window has to be to show the whole note without scrolling, two lines at least; null with no note in it. */

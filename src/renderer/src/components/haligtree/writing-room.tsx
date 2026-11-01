@@ -4,7 +4,7 @@ import type { Editor } from '@tiptap/react'
 import { useCounts } from '@/components/count/word-count'
 import { chime } from '@/lib/sound'
 import { Kbd } from './ui'
-import { num } from '../../../../main/dates'
+import { num, plural } from '../../../../main/dates'
 import { WriterTools, useFocus, useFocusBand, type Focus } from './writer-tools'
 import { domOf } from '@/lib/editor-dom'
 
@@ -106,7 +106,7 @@ export function RoomFoot({ editor, title, spent, proof, live = proof }: { editor
           <span aria-hidden>·</span>
           <span className="shrink-0">{num(words)} {words === 1 ? 'word' : 'words'}</span>
           <span aria-hidden>·</span>
-          <span className="shrink-0">{minutes ? `${num(minutes)} ${minutes === 1 ? 'minute' : 'minutes'}` : 'under a minute'}</span>
+          <span className="shrink-0">{minutes ? `${plural(minutes, 'minute')}` : 'under a minute'}</span>
         </span>
         <span className="flex-1" />
         <WriterTools editor={editor} proof={proof} live={live} />

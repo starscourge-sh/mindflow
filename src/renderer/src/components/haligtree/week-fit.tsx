@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Rolling, toast } from './ui'
 import { taskName } from '@/lib/tasks'
 import { busyMinutes, lengthSaid, loadOf, loadSaid, onDay, planMoves, taskDay, unsizedSaid, type DayLoad, type Move } from '../../../../main/day-load'
-import { dated, dayjs, dayKey, num } from '../../../../main/dates'
+import { dated, dayjs, dayKey, num, plural } from '../../../../main/dates'
 import { APP_NAME } from '../../../../main/name'
 
 /**
@@ -143,7 +143,7 @@ export function WeekFit({ monday }: { monday: string }): React.JSX.Element {
     setMoving(null)
     chime('shift')
     const n = was.length
-    toast(`Moved ${num(n)} ${n === 1 ? 'task' : 'tasks'} on from ${dayjs(day).format('dddd')}`, () => {
+    toast(`Moved ${plural(n, 'task')} on from ${dayjs(day).format('dddd')}`, () => {
       chime('undo')
       void haligtree.saveTasks(was.map(([id, due, before]) => ({ id, patch: { due, ...(before === true ? {} : before) } })))
     })
@@ -183,7 +183,7 @@ export function WeekFit({ monday }: { monday: string }): React.JSX.Element {
                     <span className="font-semibold">Would move </span>{list(moves.map((move) => moveSaid(move, byId.get(move.id))))}.
                   </p>
                   <Button size="sm" variant="outline" data-fit-move={load.day} disabled={!!moving} onClick={() => void moveOn(load.day, moves)}>
-                    Move {moves.length} {moves.length === 1 ? 'task' : 'tasks'} on
+                    Move {plural(moves.length, "task")} on
                   </Button>
                 </div>
               ) : (

@@ -1,6 +1,7 @@
 import * as chrono from 'chrono-node'
 import type { ParsedComponents } from 'chrono-node'
 import dayjs from 'dayjs'
+import { plural } from './dates.ts'
 
 // What a #tag is, as in tag-words.ts (test/tag-words.test.ts keeps the two the same):
 // written out here because node's test runner loads this file on its own.
@@ -204,7 +205,7 @@ export function bucketOf(plan: string | null, at = new Date()): 'month' | 'year'
 
 /** "3 days before", "1 week before": a get-ready lead said as the menus say it. */
 export const readySaid = (days: number): string =>
-  days % 7 ? `${days} ${days === 1 ? 'day' : 'days'} before` : `${days / 7} ${days === 7 ? 'week' : 'weeks'} before`
+  days % 7 ? `${plural(days, 'day')} before` : `${days / 7} ${days === 7 ? 'week' : 'weeks'} before`
 
 /** A part of the words that was read as something, by where it sits in them. */
 export type Span = {

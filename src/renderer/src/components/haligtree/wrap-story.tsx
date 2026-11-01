@@ -216,7 +216,7 @@ function Story({ id, onClose }: { id: string; onClose: () => void }): React.JSX.
         {/* Where you are, as bars that fill: Wrapped's own way of saying how far. */}
         <div className="flex flex-1 gap-1.5">
           {cards.map((_, index) => (
-            <button key={index} type="button" aria-label={`Card ${index + 1} of ${cards.length}`} aria-current={index === at || undefined} onClick={() => go(index)}
+            <button key={index} type="button" aria-label={`Card ${num(index + 1)} of ${num(cards.length)}`} aria-current={index === at || undefined} onClick={() => go(index)}
               className={`h-1 flex-1 rounded-[2px] transition-colors duration-200 motion-reduce:transition-none ${index <= at ? 'bg-foreground' : 'bg-foreground/20'}`} />
           ))}
         </div>

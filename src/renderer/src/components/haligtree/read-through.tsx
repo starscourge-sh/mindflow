@@ -32,7 +32,7 @@ import { moveToBin } from '@/lib/to-bin'
 import { toast } from './ui'
 import { TagRow } from './pass'
 import { TagChip } from './tag-icon'
-import { dayjs, num } from '../../../../main/dates'
+import { dayjs, num, plural } from '../../../../main/dates'
 
 /** Whether the queue panel was left open, for the next time the queue is read. */
 const PANEL = 'readQueuePanel'
@@ -931,10 +931,10 @@ function LineRestack({ host, onLine }: { host: HTMLElement | null; onLine: (line
 const took = (minutes: number): string => {
   const whole = Math.round(minutes)
   if (whole < 1) return 'under a minute'
-  if (whole < 60) return `${whole} ${whole === 1 ? 'minute' : 'minutes'}`
+  if (whole < 60) return `${plural(whole, 'minute')}`
   const hours = Math.floor(whole / 60)
   const rest = whole % 60
-  return `${hours} ${hours === 1 ? 'hour' : 'hours'}${rest ? ` ${rest} ${rest === 1 ? 'minute' : 'minutes'}` : ''}`
+  return `${plural(hours, 'hour')}${rest ? ` ${plural(rest, 'minute')}` : ''}`
 }
 
 /**

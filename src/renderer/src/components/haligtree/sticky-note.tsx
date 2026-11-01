@@ -632,7 +632,7 @@ export function StickyNote({ type, id }: { type: string; id: string }): React.JS
           count={todos.length > 0 && (left ? (
             // How far through its checklist lines: green once all are done, settling rather than celebrating.
             <span className="text-xs text-muted-foreground tabular-nums" aria-label={`${todos.length - left} of ${num(todos.length)} done`}>
-              <Rolling text={`${todos.length - left}/${todos.length}`} by="word" />
+              <Rolling text={`${num(todos.length - left)}/${num(todos.length)}`} by="word" />
             </span>
           ) : (
             <span key={glint} className={`@container flex w-full justify-end text-xs whitespace-nowrap text-(--tt-color-text-green) ${glint ? 'mf-sticky-glint' : ''}`} aria-label={todos.length === 1 ? 'Done' : 'All done'}>

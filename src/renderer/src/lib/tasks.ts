@@ -6,7 +6,7 @@ import { splitTags, taskSaid, haligtree, type Made, type Task } from './haligtre
 import { flying } from './capture-links'
 import { ask, refuse, toast } from '@/components/haligtree/ui'
 import { PRIORITY_NAMES, bucketOf, monthKey, readTask, readySaid } from '../../../main/task-words'
-import { ago, dated, dayjs, dayKey, daysSince, num, startOfDay, whenInLine } from '../../../main/dates'
+import { ago, dated, dayjs, dayKey, daysSince, num, startOfDay, whenInLine, plural } from '../../../main/dates'
 import { tasksSaid, type ListTask } from '../../../main/day-lines'
 import { openSort } from './sort-out'
 
@@ -67,7 +67,7 @@ export async function makeTask(
 }
 /** ". 2 were already on your list, so they joined those tasks", or nothing. */
 const joinedSaid = (joined: number): string =>
-  joined ? `. ${num(joined)} ${joined === 1 ? 'was already on your list, so it joined that task' : 'were already on your list, so they joined those tasks'}` : ''
+  joined ? `. ${plural(joined, 'was already on your list, so it joined that task', 'were already on your list, so they joined those tasks')}` : ''
 
 /**
  * A written list made tasks: each top line a task, the lines indented under
@@ -168,7 +168,7 @@ export async function makeTasks(notes: TaskNote[]): Promise<number> {
   // Just one, a page of mixed lines: opened to sort, as "Make it a task" does with it alone.
   if (!made.length && mixed.length === 1 && notes.length === 1) return void openSort(mixed[0].text, mixed[0].id), 0
   const sort = mixed.length ? { label: 'Sort this out', key: 'S', run: () => openSort(mixed[0].text, mixed[0].id) } : undefined
-  const unsorted = mixed.length ? `${num(mixed.length)} ${mixed.length === 1 ? 'is a page of mixed lines, left to sort' : 'are pages of mixed lines, left to sort'}` : ''
+  const unsorted = mixed.length ? `${plural(mixed.length, 'is a page of mixed lines, left to sort', 'are pages of mixed lines, left to sort')}` : ''
   if (!made.length) {
     refuse(unsorted ? `None of those could become a task: ${unsorted}` : 'None of those could become a task')
     return 0
@@ -180,7 +180,7 @@ export async function makeTasks(notes: TaskNote[]): Promise<number> {
   const steps = made.reduce((sum, { made }) => sum + (made.steps ?? 0), 0)
   const lead = made.length === 1 && made[0].made.said ? `Made ${made[0].made.said}${joinedSaid(joined)}`
     : all.length === 1 ? taskSaid(made[0].made, 'Now a task')
-    : `${num(all.length)} tasks made${steps ? `, ${num(steps)} ${steps === 1 ? 'step' : 'steps'}` : ''}${joined ? ` (${num(joined)} joined ${joined === 1 ? 'one' : 'ones'} with the same name)` : ''}`
+    : `${num(all.length)} tasks made${steps ? `, ${plural(steps, 'step')}` : ''}${joined ? ` (${num(joined)} joined ${joined === 1 ? 'one' : 'ones'} with the same name)` : ''}`
   // Bigger runs sound bigger: two knocks for one, the ringing "kept" for many.
   chime(all.length === 1 ? 'noted' : 'promote')
   const tail = [skipped, unsorted && unsorted[0].toUpperCase() + unsorted.slice(1)].filter(Boolean).join('. ')

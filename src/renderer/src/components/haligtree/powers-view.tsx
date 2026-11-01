@@ -45,7 +45,7 @@ export function PowersView({ onView }: { onView: (id: string, focus?: string) =>
   // Said after each group's name in the contents: how many of its cards you have tried.
   const note = (group: string): string => {
     const all = powers.filter((power) => power.group === group)
-    return `${all.filter((power) => used?.has(power.id)).length} of ${all.length}`
+    return `${num(all.filter((power) => used?.has(power.id)).length)} of ${num(all.length)}`
   }
   // The column, for the contents beside it to read.
   const [column, setColumn] = useState<HTMLDivElement | null>(null)
@@ -60,7 +60,7 @@ export function PowersView({ onView }: { onView: (id: string, focus?: string) =>
           {/* How far through, always: from 0, so there is something to fill. */}
           <div data-powers-tried className="mt-4 flex max-w-[22rem] flex-col gap-1.5">
             <p className="flex items-center gap-2 text-control text-muted-foreground">
-              <span className="font-semibold text-foreground tabular-nums">{tried} of {powers.length}</span> tried
+              <span className="font-semibold text-foreground tabular-nums">{num(tried)} of {num(powers.length)}</span> tried
             </p>
             <ProgressBar value={tried / powers.length} label={`${tried} of ${num(powers.length)} tried`} thick={3} />
           </div>

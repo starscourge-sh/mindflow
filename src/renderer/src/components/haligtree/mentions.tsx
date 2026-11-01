@@ -19,7 +19,7 @@ import { taskName } from '@/lib/tasks'
 import { Tilt } from './tilt'
 import { ChevronLeft, ChevronRight } from '@/components/ui/icons'
 import { still } from '@/lib/motion'
-import { num } from '../../../../main/dates'
+import { num, plural } from '../../../../main/dates'
 import { hoverNote } from './note-preview'
 
 type Found = Awaited<ReturnType<typeof haligtree.mentions>>
@@ -149,7 +149,7 @@ export function Mentions({ id, onOpen, compact = false }: {
       )}
       {found.linked.length > 0 && (
         <>
-          <h3 className="mb-1 px-2 text-meta text-muted-foreground">{found.linked.length} linked {found.linked.length === 1 ? 'mention' : 'mentions'}</h3>
+          <h3 className="mb-1 px-2 text-meta text-muted-foreground">{num(found.linked.length)} linked {found.linked.length === 1 ? "mention" : "mentions"}</h3>
           <Rows list={found.linked} row={row} />
         </>
       )}
@@ -157,7 +157,7 @@ export function Mentions({ id, onOpen, compact = false }: {
         <>
           <button type="button" onClick={() => (chime(unfolded ? 'fold' : 'slide'), setUnfolded(!unfolded))} className="mt-2 mb-0.5 flex min-h-6 items-center gap-1 rounded-md px-2 text-meta text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
             <ChevronRight className={`size-3 transition-transform ${unfolded ? 'rotate-90' : ''}`} />
-            {found.unlinked.length} unlinked {found.unlinked.length === 1 ? 'mention' : 'mentions'}
+            {num(found.unlinked.length)} unlinked {found.unlinked.length === 1 ? 'mention' : 'mentions'}
           </button>
           {unfolded && <Rows list={found.unlinked} row={(one) => row(one, () => haligtree.linkMention(one.type, one.id, id))} />}
         </>
@@ -166,7 +166,7 @@ export function Mentions({ id, onOpen, compact = false }: {
           without a link yet, folded like the unlinked mentions above. */}
       {found.out.length > 0 && (
         <>
-          <h3 className="mt-3 mb-1 px-2 text-meta text-muted-foreground">{found.out.length} {found.out.length === 1 ? 'link' : 'links'} out</h3>
+          <h3 className="mt-3 mb-1 px-2 text-meta text-muted-foreground">{plural(found.out.length, "link")} out</h3>
           <Rows list={found.out} row={row} />
         </>
       )}
@@ -174,7 +174,7 @@ export function Mentions({ id, onOpen, compact = false }: {
         <>
           <button type="button" onClick={() => (chime(namedOpen ? 'fold' : 'slide'), setNamedOpen(!namedOpen))} className="mt-2 mb-0.5 flex min-h-6 items-center gap-1 rounded-md px-2 text-meta text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
             <ChevronRight className={`size-3 transition-transform ${namedOpen ? 'rotate-90' : ''}`} />
-            Names {found.named.length} other {found.named.length === 1 ? 'note' : 'notes'} without a link
+            Names {num(found.named.length)} other {found.named.length === 1 ? 'note' : 'notes'} without a link
           </button>
           {/* No Link button here: this note is open and being written, so its words
               change under the editor's feet. @ links them in place. */}

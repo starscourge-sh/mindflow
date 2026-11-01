@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { EASE, shift, spring } from '@/lib/motion'
 import { ShowMore, useShowMore } from './show-more'
 import { chime } from '@/lib/sound'
-import { num } from '../../../../main/dates'
+import { num, plural } from '../../../../main/dates'
 import { Orb, StopButton } from './orb'
 import { Rolling } from './ui'
 import { hoverNote } from './note-preview'
@@ -57,7 +57,7 @@ export function ImportProgress(): React.JSX.Element {
           key="import"
           layout="position"
           role="status"
-          data-import-progress={`${num(at.done)}/${at.total}`}
+          data-import-progress={`${num(at.done)}/${num(at.total)}`}
           initial={{ opacity: 0, transform: shift('translateY(8px)') }}
           animate={{ opacity: 1, transform: shift('translateY(0px)') }}
           exit={{ opacity: 0, transform: shift('translateY(8px)'), transition: { duration: 0.16, ease: EASE } }}
@@ -83,15 +83,15 @@ export function ImportProgress(): React.JSX.Element {
 /** "1,240 notes are in.", "1 note is in.", "412 cards are in." for Anki alone, or, when everything was here already, says so. */
 const headline = (done: ImportDone): string => {
   const what = (done.gems ?? 0) + (done.decks ?? 0) === done.made ? ['card is', 'cards are'] : ['note is', 'notes are']
-  return done.made === 0 ? 'Nothing new came in.' : `${num(done.made)} ${done.made === 1 ? what[0] : what[1]} in.`
+  return done.made === 0 ? 'Nothing new came in.' : `${plural(done.made, what[0], what[1])} in.`
 }
 
 /** What came with them, in one sentence, leaving out what there was none of. */
 const withThem = (done: ImportDone): string => {
   const parts = [
-    done.pictures ? `${num(done.pictures)} ${done.pictures === 1 ? 'picture' : 'pictures'}` : '',
-    done.files ? `${num(done.files)} ${done.files === 1 ? 'file' : 'files'}` : '',
-    done.links ? `${num(done.links)} ${done.links === 1 ? 'link' : 'links'}` : ''
+    done.pictures ? `${plural(done.pictures, 'picture')}` : '',
+    done.files ? `${plural(done.files, 'file')}` : '',
+    done.links ? `${plural(done.links, 'link')}` : ''
   ].filter(Boolean)
   const list = parts.length > 1 ? `${parts.slice(0, -1).join(', ')} and ${parts.at(-1)}` : parts[0]
   return `From ${done.from}${list ? `, with ${list}` : ''}.`

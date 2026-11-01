@@ -7,7 +7,7 @@ import { readingQueue } from '@/lib/reading-queue'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { sortOut, suggestedTag, type Sort, type Sorted } from '../../../../main/day-lines'
-import { num } from '../../../../main/dates'
+import { num, plural } from '../../../../main/dates'
 import { shiftTo } from './tasks-view'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Tip, toast } from './ui'
@@ -365,7 +365,7 @@ function InboxSort({ onClose }: { onClose: () => void }): React.JSX.Element {
           <h2 className="font-heading text-heading font-semibold text-foreground">Sort this out: your Inbox</h2>
           <span className="flex-1" />
           <span data-sort-timer={up ? 'up' : minutes} className="text-body font-semibold tabular-nums" style={{ color: up ? 'var(--tt-color-text-green)' : 'var(--foreground)' }}>
-            {up ? 'Ten minutes are up' : `${minutes} ${minutes === 1 ? 'minute' : 'minutes'} left`}
+            {up ? 'Ten minutes are up' : `${plural(minutes, 'minute')} left`}
           </span>
           <Tip label="Close"><button type="button" aria-label="Close" onClick={close} className="grid size-7 shrink-0 place-items-center self-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"><X className="size-4" /></button></Tip>
           {/* The clock as a thin line that empties, never a red alarm. */}

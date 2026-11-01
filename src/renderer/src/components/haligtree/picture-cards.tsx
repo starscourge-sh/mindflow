@@ -5,7 +5,7 @@ import { chime } from '@/lib/sound'
 import { call, useLive } from '@/lib/haligtree'
 import { still } from '@/lib/motion'
 import { pictureIn } from '@/lib/answer-picture'
-import { num } from '../../../../main/dates'
+import { num, plural } from '../../../../main/dates'
 import { boxOf, coverOf, groupsOf, overlap, snapped, type Cover, type CoverKind, type Hide, type Label, type Occlusion } from '../../../../main/occlusion'
 import { Kbd, refuse, toast } from './ui'
 import { DeckPick, deckTagOf, deckTitle } from './decks'
@@ -176,7 +176,7 @@ export function PictureCards({ deck: aimed, onClose, onShow }: { deck?: string |
     void call<string[]>('cards:picture', { src: picture.src, covers: covers.map((one) => ({ ...one, group: renumber.get(one.group)! })), hide, deck: tag, from: picture.from }).then((ids) => {
       chime('added')
       onClose()
-      toast(`${num(ids.length)} ${ids.length === 1 ? 'card' : 'cards'} made from the picture${tag ? ` in the deck ${deckTitle(tag)}` : ''}`, () => void call('cards:list:undo', ids).then(() => chime('undo')), 'success', onShow ? { label: 'Show them', key: 'S', run: () => onShow(ids) } : undefined)
+      toast(`${plural(ids.length, 'card')} made from the picture${tag ? ` in the deck ${deckTitle(tag)}` : ''}`, () => void call('cards:list:undo', ids).then(() => chime('undo')), 'success', onShow ? { label: 'Show them', key: 'S', run: () => onShow(ids) } : undefined)
     })
   }
   const keys = (event: React.KeyboardEvent): void => {
@@ -248,7 +248,7 @@ export function PictureCards({ deck: aimed, onClose, onShow }: { deck?: string |
 
   const status = labels === 'finding' ? 'Finding the labels on this Mac…'
     : labels && !Array.isArray(labels) ? labels.error
-    : found.length ? `${num(found.length)} ${found.length === 1 ? 'label' : 'labels'} found on this Mac, without the internet. Click one to cover it.`
+    : found.length ? `${plural(found.length, 'label')} found on this Mac, without the internet. Click one to cover it.`
     : picture ? 'No labels found on it: draw a cover over each part to ask.' : ''
 
   return (
@@ -343,7 +343,7 @@ export function PictureCards({ deck: aimed, onClose, onShow }: { deck?: string |
       )}
       <div className="flex flex-wrap items-center gap-2 pt-1">
         <Button size="sm" className="h-8 min-w-[8.5rem] cursor-pointer tabular-nums" data-picture-make disabled={!covers.length} onClick={make}>
-          {covers.length ? `Make ${num(groups.length)} ${groups.length === 1 ? 'card' : 'cards'}` : 'Make the cards'}
+          {covers.length ? `Make ${plural(groups.length, 'card')}` : 'Make the cards'}
         </Button>
         <Button variant="ghost" size="sm" className="h-8 cursor-pointer text-muted-foreground" onClick={onClose}>Cancel</Button>
         {picture && <Button variant="ghost" size="sm" className="h-8 cursor-pointer text-muted-foreground" data-picture-other onClick={() => {

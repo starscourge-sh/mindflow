@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { chime } from '@/lib/sound'
 import { call, haligtree, unloaded, useLive } from '@/lib/haligtree'
-import { num } from '../../../../main/dates'
+import { num, plural } from '../../../../main/dates'
 import { ask, askSure, openTag, quietly, refuse, toast } from './ui'
 import { EXAMPLE_TAG } from '../../../../main/name'
 import { Button } from '@/components/ui/button'
@@ -30,7 +30,7 @@ export type Shelf = { name: string; cover: string | null; sample: string; pictur
 export const deckTag = (name: string): string =>
   name.toLowerCase().split('::').map((part) => part.trim().replace(/[^\p{L}\p{M}\p{N}_-]+/gu, '-').replace(/^-+|-+$/g, '')).filter(Boolean).join('-')
 
-const cards = (n: number): string => `${num(n)} ${n === 1 ? 'card' : 'cards'}`
+const cards = (n: number): string => `${plural(n, 'card')}`
 
 /** Start a held deck or topic, or hold it again, with Undo; starting says to meet the material first. */
 export function startDeck(deck: string, label: string, on: boolean): void {
@@ -266,7 +266,7 @@ function DeckTile({ id, own = false, drag, name, title, due, fresh, all, held, c
         {/* No big number: the counts under the name already say it. At the foot, how many in all, and a dot when some are due. */}
         {/* The foot is one line, never wrapped or hyphenated: "3 cards · +1 inside", the second part giving way first. */}
         <span data-deck-foot className="mt-auto flex min-w-0 items-center gap-1.5 text-sm whitespace-nowrap text-muted-foreground tabular-nums">
-          <span className="flex shrink-0 items-center gap-1.5">{all ? `${num(all)} ${all === 1 ? 'card' : 'cards'}` : ''}{due > 0 && <span aria-hidden data-due-dot className="size-1.5 rounded-full bg-primary" />}</span>
+          <span className="flex shrink-0 items-center gap-1.5">{all ? plural(all, 'card') : ''}{due > 0 && <span aria-hidden data-due-dot className="size-1.5 rounded-full bg-primary" />}</span>
           {kids > 0 && (
             <>
               {all > 0 && <span aria-hidden>·</span>}
@@ -314,7 +314,7 @@ function Links({ deck, onDone }: { deck: string; onDone: () => void }): React.JS
   const apply = (): void =>
     void call<number>('decks:relink', deck, pickedWho, pickedKinds).then((n) => {
       chime('noted')
-      toast(`${deck}: links changed on ${num(n)} ${n === 1 ? 'card' : 'cards'}`, () => void call('decks:relink', deck, links.who, links.kinds).then(() => chime('undo')))
+      toast(`${deck}: links changed on ${plural(n, 'card')}`, () => void call('decks:relink', deck, links.who, links.kinds).then(() => chime('undo')))
       onDone()
     })
   return (

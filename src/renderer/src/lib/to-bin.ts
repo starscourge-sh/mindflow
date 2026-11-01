@@ -3,7 +3,7 @@ import { Trash2 } from 'lucide-react'
 import { chime, tear } from './sound'
 import { haligtree } from './haligtree'
 import { refuse, toast, whyFailed } from '@/components/haligtree/ui'
-import { num } from '../../../main/dates'
+import { num, plural } from '../../../main/dates'
 import { shred } from './fly-home'
 
 /**
@@ -74,7 +74,7 @@ export async function moveToBin(refs: BinRef[], onUndo?: () => void): Promise<nu
   const already = refs.length - going.length
   const extra = [
     gems ? `${gems === 1 ? 'its gem stays' : 'their gems stay'} in Gems` : '',
-    already ? `${num(already)} ${already === 1 ? 'was' : 'were'} in the Bin already` : ''
+    already ? `${plural(already, 'was', 'were')} in the Bin already` : ''
   ].filter(Boolean).join('; ')
   // Undo at any moment, even with writes still landing: it waits for them, then puts back every one that went.
   const undo = (): void => {

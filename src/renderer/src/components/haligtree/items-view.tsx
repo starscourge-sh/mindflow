@@ -82,7 +82,7 @@ import { NoteComing } from './note-coming'
 import { QuestionDetail, questionEntry, questionMenu, startQuestion } from './questions-view'
 import { GlossTimeline, PageThoughts, useRowGloss } from './gloss-line'
 import { ThoughtDock } from './thought-bar'
-import { dayjs, num } from '../../../../main/dates'
+import { dayjs, num, plural } from '../../../../main/dates'
 import { moment } from '@/lib/clock'
 import { Signed } from './signature'
 import { groups as noteGroupsApi, tintOf, useGroups, type NoteGroup } from '@/lib/groups'
@@ -612,7 +612,7 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
     ? items.reduce<[string, Entry[]][]>((sections, one) => {
         const card = folders.get(one.id)
         // A folder: the group's own colour and icon, and its first notes small inside it.
-        const entry = !card ? entryOf(one) : { ...itemEntry(card.items[0] ?? one), id: one.id, title: card.group.name, tags: [], menu: undefined, sub: `${num(card.items.length)} ${card.items.length === 1 ? 'note' : 'notes'}`, marks: undefined, private: false, wrap: false,
+        const entry = !card ? entryOf(one) : { ...itemEntry(card.items[0] ?? one), id: one.id, title: card.group.name, tags: [], menu: undefined, sub: `${plural(card.items.length, 'note')}`, marks: undefined, private: false, wrap: false,
           folder: { icon: card.group.icon, color: card.group.color, count: card.items.length, members: card.items.slice(0, 4).map((item) => itemEntry(item)) } }
         // Grouped by kind or date, the folders first, then the loose tiles in their sections.
         const name = (!card && !folder && heads?.get(one.id)) || ''
@@ -1002,7 +1002,7 @@ function NuggetDetail({ item, onOpen, top, back, board: place }: { item: ItemFul
       void cardPerNumber(item.id, typed, editor.current.getText(), editor.current.getJSON()).then((split) => {
         if (!split) return
         setPrompt(split.prompt)
-        void haligtree.saveItem(item.id, { prompt: split.prompt }).then(() => toast(`${numbers.map((n) => `c${n}`).join(', ')}: ${numbers.length} cards, one for each number`, () => {
+        void haligtree.saveItem(item.id, { prompt: split.prompt }).then(() => toast(`${numbers.map((n) => `c${n}`).join(', ')}: ${num(numbers.length)} cards, one for each number`, () => {
           for (const one of split.made) void haligtree.unlift('nugget', one)
           setPrompt(before ?? '')
           void haligtree.saveItem(item.id, { prompt: before })
@@ -1886,7 +1886,7 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
       const was = isGroup(active) ? undefined : groupOf(layout, active)
       const lands = isGroup(active) ? undefined : groupOf(next, active)
       const name = (id?: string): string => (id && (info.get(id)?.name ?? next.make?.name)) || 'the folder'
-      const n = ids.length > 1 ? ` ${ids.length}` : ''
+      const n = ids.length > 1 ? ` ${num(ids.length)}` : ''
       commit(next, next.make || (lands && lands !== was) ? 'gather' : was && !lands ? 'separate' : 'shift',
         next.make ? `Made a new folder, ${next.make.name}` : lands && lands !== was ? `Added${n} to ${name(lands)}` : was && !lands ? `Removed${n} from ${name(was)}` : `Moved${n}`, unsort, !!next.make)
     },

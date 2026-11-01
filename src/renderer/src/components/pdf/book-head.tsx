@@ -1,6 +1,7 @@
 import { useState } from "react"
 import { call } from "@/lib/haligtree"
 import type { PdfCover } from "./pdf-cover"
+import { plural } from '../../../../main/dates'
 
 /** What the library knows of a book: the reader's Details and the shelf's panel both show it. */
 export type Book = { src: string; name: string; title: string; author: string; pages: number | null; page: number | null; readAt: string | null; addedAt: string; highlights: number; gems: number; bytes: number | null }
@@ -23,7 +24,7 @@ const day = (iso: string | null): string => (iso ? new Date(iso).toLocaleDateStr
  * own tone, its title on it, never a broken picture.
  */
 export function BookHead({ cover, title, author, pages, bytes }: { cover: PdfCover | null | undefined; title: string; author?: string; pages?: number | null; bytes?: number | null }): React.JSX.Element {
-  const what = ["PDF", pages ? `${pages.toLocaleString()} page${pages === 1 ? "" : "s"}` : null, bytes ? sizeOf(bytes) : null].filter(Boolean).join(" · ")
+  const what = ["PDF", pages ? plural(pages, "page") : null, bytes ? sizeOf(bytes) : null].filter(Boolean).join(" · ")
   return (
     <div className="book-head" data-book-head>
       <span className="book-head-cover" style={{ aspectRatio: cover?.aspect ?? 3 / 4 }} data-cover={cover?.image ? "image" : cover === null ? "drawn" : "waiting"}>

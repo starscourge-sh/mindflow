@@ -17,6 +17,7 @@ import { EASE, byKeys, still } from "@/lib/motion"
 import { useLive, haligtree, type Settings } from "@/lib/haligtree"
 import { ChevronLeft, ChevronRight, Copy, X } from "@/components/ui/icons"
 import { useEditorDom } from '@/lib/editor-dom'
+import { num } from '../../../../main/dates'
 
 /** Asked for by the image menu's own Look button. */
 const LOOK = "mf-look"
@@ -650,7 +651,7 @@ export function Viewer({ pictures, start, onClose, awayRef }: {
                 <ChevronLeft className="tiptap-button-icon" />
               </Button>
               <span className="mf-look-count">
-                {at + 1} / {pictures.length}
+                {num(at + 1)} / {num(pictures.length)}
               </span>
               <Button data-style="ghost" tooltip="Next" shortcutKeys="→" aria-label="Next picture" disabled={at === pictures.length - 1} onClick={() => stepBy(1)}>
                 <ChevronRight className="tiptap-button-icon" />

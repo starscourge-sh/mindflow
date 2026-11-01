@@ -21,7 +21,7 @@ import { HoldButton } from './hold-button'
 import { CAPTURE_TYPES, byKind } from '../capture-kinds/capture-kind-picker'
 import { Display, FilterChips, arrange, useView, type Facet } from './display'
 import { RowMenu, copy, type MenuItem } from './row-menu'
-import { num } from '../../../../main/dates'
+import { num, plural } from '../../../../main/dates'
 import { quoted } from '../../../../main/clip'
 import { linkKinds } from '@/lib/capture-links'
 import { menuOpen } from '@/lib/menu-keys'
@@ -182,7 +182,7 @@ export function BinView({ onOpen, focus }: { onOpen?: (type: string, id: string)
     })
   }
   const empty = (): void => {
-    void haligtree.emptyBin().then((n) => (chime('away'), toast(`${num(n)} ${n === 1 ? 'thing' : 'things'} deleted for good`, undefined, 'info')))
+    void haligtree.emptyBin().then((n) => (chime('away'), toast(`${plural(n, 'thing')} deleted for good`, undefined, 'info')))
   }
   const pickedRows = shown.filter((one) => chosen.includes(keyOf(one)))
   // Several asked about, or one while the preview narrows the list (no room in its row): the question over the list.

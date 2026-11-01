@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 
 import { chime } from '@/lib/sound'
 import { typing } from './ui'
+import { plural } from '../../../../main/dates'
 
 /**
  * A game for an empty Review, found by typing "play" there and mentioned
@@ -178,7 +179,7 @@ function Board({ onLeave }: { onLeave: () => void }): React.JSX.Element {
       <div role="dialog" aria-modal="true" aria-label="Ink line" className="rounded-xl bg-popover p-5 text-foreground shadow-(--mf-panel-shadow)" onMouseDown={(event) => event.stopPropagation()}>
         <div className="mb-3 flex items-baseline justify-between gap-6">
           <h2 className="font-serif text-xl">Ink line</h2>
-          <span className="text-base tabular-nums">{blots} {blots === 1 ? 'blot' : 'blots'}</span>
+          <span className="text-base tabular-nums">{plural(blots, "blot")}</span>
         </div>
         <canvas ref={canvas} aria-label="The game board" className="block rounded-md border bg-background text-foreground" style={{ width: COLS * CELL, height: ROWS * CELL }} />
         <p className="mt-3 min-h-6 text-base">{said && <strong className="font-medium">{said}</strong>}</p>

@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button'
 import { chime } from '@/lib/sound'
 import { useLive } from '@/lib/haligtree'
 import { honestSaid, loadSaid, practices, startPractice, type LoadKind, type PracticeSwitch } from '@/lib/practices'
-import { num } from '../../../../main/dates'
+import { plural } from '../../../../main/dates'
 import { Chips } from './display'
 import { Island, PropInput, Tip, toast } from './ui'
 import { LinkField } from './note-extras'
@@ -56,7 +56,7 @@ export function PractiseIt({ taskId }: { taskId: string }): React.JSX.Element {
           <span className="pt-1 text-xs text-muted-foreground">Aim for</span>
           <Chips options={MINUTES.map((n) => ({ id: String(n), label: `${n} min` }))} on={(id) => Number(id) === on.targetMin} pick={(id) => set({ targetMin: Number(id) })} />
           <div className="flex items-center justify-between pt-1">
-            <span className="text-xs text-muted-foreground">{on.runs ? `Practised ${num(on.runs)} ${on.runs === 1 ? 'time' : 'times'}` : 'Not practised yet'}</span>
+            <span className="text-xs text-muted-foreground">{on.runs ? `Practised ${plural(on.runs, 'time')}` : 'Not practised yet'}</span>
             <Tip label="Start now: 5 minutes to begin, the timer runs as long as you like">
               <Button size="sm" variant="ghost" data-practise-now onClick={() => on.id && void startPractice(on.id)}>Start now</Button>
             </Tip>

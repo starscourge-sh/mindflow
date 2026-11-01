@@ -6,7 +6,7 @@ import { useLive, haligtree } from '@/lib/haligtree'
 import { useQueue, type QueueRow } from '@/lib/reading-queue'
 import { Button } from '@/components/ui/button'
 import { Empty, Kbd, typing } from './ui'
-import { num } from '../../../../main/dates'
+import { plural } from '../../../../main/dates'
 import { lastBinned, seeTheBin } from '@/lib/to-bin'
 
 /**
@@ -88,7 +88,7 @@ export function InboxZero({ compact = false, onReview, onRead }: {
   const due = useLive(haligtree.dueCount, 0)
   const { queue } = useQueue()
   const next = due > 0
-    ? { said: `Next: ${num(due)} ${due === 1 ? 'card' : 'cards'} to review`, run: onReview }
+    ? { said: `Next: ${plural(due, 'card')} to review`, run: onReview }
     : queue[0] ? { said: `Read next: ${queue[0].title || 'Untitled'}`, run: () => onRead(queue[0]) } : null
   const latest = useRef(next)
   latest.current = next

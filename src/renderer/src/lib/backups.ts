@@ -1,15 +1,15 @@
 import { refuse, toast } from '@/components/haligtree/ui'
 import { chime } from '@/lib/sound'
 import { haligtree } from '@/lib/haligtree'
-import { ago } from '../../../main/dates'
+import { ago, plural } from '../../../main/dates'
 
 /** "just now", "12 minutes ago", "2 hours ago", then by the calendar: "yesterday", "3 days ago". */
 export const backedUpAgo = (at: number): string => {
   const minutes = Math.floor((Date.now() - at) / 60000)
   if (minutes < 1) return 'just now'
-  if (minutes < 60) return `${minutes} ${minutes === 1 ? 'minute' : 'minutes'} ago`
+  if (minutes < 60) return `${plural(minutes, 'minute')} ago`
   const hours = Math.floor(minutes / 60)
-  if (hours < 12 || ago(at) === 'today') return `${hours} ${hours === 1 ? 'hour' : 'hours'} ago`
+  if (hours < 12 || ago(at) === 'today') return `${plural(hours, 'hour')} ago`
   return ago(at)
 }
 

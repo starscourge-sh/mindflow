@@ -3,7 +3,7 @@ import { useMacEvents, type MacEvent } from './mac-calendar'
 import { chime } from './sound'
 import { toast } from '@/components/haligtree/ui'
 import type { Calendar, EventPatch, Occurrence, Scope } from '../../../main/events'
-import { dayjs } from '../../../main/dates'
+import { dayjs, plural } from '../../../main/dates'
 export type { Calendar, EventPatch, Occurrence, Scope }
 export type { Repeat } from '../../../main/event-repeat'
 
@@ -144,7 +144,7 @@ export function zoneGap(zone: string, at = new Date()): string {
   if (!gap) return 'the same time as here'
   const hours = Math.floor(Math.abs(gap) / 60)
   const minutes = Math.abs(gap) % 60
-  const said = [hours && `${hours} ${hours === 1 ? 'hour' : 'hours'}`, minutes && `${minutes} minutes`].filter(Boolean).join(' ')
+  const said = [hours && `${plural(hours, 'hour')}`, minutes && `${minutes} minutes`].filter(Boolean).join(' ')
   return `${said} ${gap > 0 ? 'ahead' : 'behind'}`
 }
 /** Cities the zone list still files under an older name. */

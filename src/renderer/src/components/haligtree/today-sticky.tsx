@@ -9,7 +9,7 @@ import './sticky-note.scss'
 import { chime } from '@/lib/sound'
 import { byKeys, EASE, shift } from '@/lib/motion'
 import { useAppearance, useLive, haligtree, type Finished, type Task } from '@/lib/haligtree'
-import { dayKey } from '../../../../main/dates'
+import { dayKey, num } from '../../../../main/dates'
 import { clock } from '@/lib/clock'
 import { Rolling, Tags, Tip } from './ui'
 import { Struck, Tick } from './marks'
@@ -222,7 +222,7 @@ export function TodaySticky(): React.JSX.Element {
             <Tip label={`Open Today in ${APP_NAME}, where the late ones are`}>
               <button type="button" data-sticky-late onClick={(event) => (chime('open'), window.api.openSticky('view', 'today', 'Today', event.altKey))}
                 className="mt-1 text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline">
-                {lateOnes.length} late
+                {num(lateOnes.length)} late
               </button>
             </Tip>
           )}

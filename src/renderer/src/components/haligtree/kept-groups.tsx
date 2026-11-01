@@ -527,11 +527,11 @@ export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo
       // either way nothing opens, only that group lights.
       const gap = !seq.includes(lead) || (!ordered && (into !== own || make)) ? null : prev === undefined ? -1 : keys.indexOf(prev)
       const n = ids.length
-      const count = n > 1 ? `${n} ` : ''
+      const some = n > 1 ? `${num(n)} ` : ''
       const outer = make ? groupOf(land.after, KEY + into) ?? null : null
       const words =
-        make ? `${n > 1 ? `New folder of ${n + 1}` : 'New folder'} with ${short(titles.get(where) ?? '')}${outer ? ` in ${name(outer)}` : ''}`
-        : into !== own ? (into ? (isGroup(lead) ? `Put inside ${name(into)}` : own ? `Move ${count}to ${name(into)}` : `Add ${count}to ${name(into)}`) : isGroup(lead) ? `Move out of ${name(own)}` : `Remove ${count}from ${name(own)}`)
+        make ? `${n > 1 ? `New folder of ${num(n + 1)}` : 'New folder'} with ${short(titles.get(where) ?? '')}${outer ? ` in ${name(outer)}` : ''}`
+        : into !== own ? (into ? (isGroup(lead) ? `Put inside ${name(into)}` : own ? `Move ${some}to ${name(into)}` : `Add ${some}to ${name(into)}`) : isGroup(lead) ? `Move out of ${name(own)}` : `Remove ${some}from ${name(own)}`)
         : `${n > 1 ? `Move ${num(n)} here` : 'Move here'}${ordered ? '' : ' · Custom order'}`
       // In the gap row's own group (or first in the group whose row it is), the room sits close under it.
       const gapRow = gap !== null && gap >= 0 ? keys[gap] : undefined
@@ -1089,7 +1089,7 @@ function GroupBlock({ group, entries, parts, start, cursor, estimate, row, carri
                       <PopoverAnchor asChild><GroupTile group={group} onFold={fold} /></PopoverAnchor>
                       <span className="min-w-0 truncate text-xs font-semibold">{name}</span>
                       {/* How many it holds, open or folded, quiet after the name. */}
-                      <span data-count="" className="-ml-1 shrink-0 text-xs text-muted-foreground tabular-nums">· {count}</span>
+                      <span data-count="" className="-ml-1 shrink-0 text-xs text-muted-foreground tabular-nums">· {num(count)}</span>
                       {/* Open, a hairline under it, inside the group's box. */}
                       {group.open && !inner && <span aria-hidden data-head-line="" className="pointer-events-none absolute inset-x-2 bottom-0 h-px" style={{ background: `color-mix(in srgb, var(--group-tint) ${tint ? 18 : 10}%, transparent)` }} />}
                     </button>
@@ -1247,7 +1247,7 @@ function GroupMenu({ group, members, onOpenFolder, onSeparate, onRename, onIcon,
     <ContextMenuContent className="w-56" onCloseAutoFocus={(event) => event.preventDefault()}>
       {onOpenFolder && <ContextMenuItem data-group-open onSelect={later(onOpenFolder)}>Open folder</ContextMenuItem>}
       {onOpenFolder && <ContextMenuSeparator />}
-      {left.length > 0 && onSort && <ContextMenuItem onSelect={later(() => onSort(left))}>Sort these ({left.length})</ContextMenuItem>}
+      {left.length > 0 && onSort && <ContextMenuItem onSelect={later(() => onSort(left))}>Sort these ({num(left.length)})</ContextMenuItem>}
       {left.length > 0 && onSorted && <ContextMenuItem onSelect={() => onSorted(left, true)}>Mark all as sorted</ContextMenuItem>}
       {left.length > 0 && <ContextMenuSeparator />}
       <ContextMenuItem onSelect={() => void groups.note(group.id).then((id) => id && (chime('promote'), onNewNote(id)))}>New note in folder</ContextMenuItem>

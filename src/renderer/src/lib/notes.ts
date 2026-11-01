@@ -208,7 +208,7 @@ export async function archive(table: NoteTable, ids: string[], on: boolean, quie
   await call('notes:archive', table, ids, on)
   if (quiet) return
   chime(on ? 'shelve' : 'unshelve')
-  const many = ids.length > 1 ? ` ${ids.length}` : ''
+  const many = ids.length > 1 ? ` ${num(ids.length)}` : ''
   // `onUndo`: what the place it was done from puts back as well (a pass steps back to it).
   // The Archived page lists captures; a gem or a page archived is found under its own page's Display.
   const there = table === 'captures'

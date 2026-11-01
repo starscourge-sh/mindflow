@@ -1,4 +1,5 @@
 import dayjs, { type ConfigType, type Dayjs } from 'dayjs'
+import { plural } from './dates.ts'
 
 /**
  * A goal's dates, worked out the same way in the main process (the menu bar,
@@ -53,7 +54,7 @@ export const percent = (share: number): string => `${share >= 1 ? 100 : Math.min
 /** "68 days left", "1 day left", "Today", "1 day past", "3 days past". */
 export function leftSaid(left: number): string {
   if (left === 0) return 'Today'
-  if (left > 0) return `${num(left)} ${left === 1 ? 'day' : 'days'} left`
+  if (left > 0) return `${plural(left, 'day')} left`
   return `${num(-left)} ${left === -1 ? 'day' : 'days'} past`
 }
 

@@ -8,7 +8,7 @@ import type { BlockColor } from '@/extensions/block-color'
 import type { Item } from '@/lib/haligtree'
 import { isTranscriptLine, readTask, readySaid, PRIORITY_NAMES, bucketOf, datesIn, type Span } from '../../../main/task-words'
 import { isProse, kindOf } from '../../../main/import'
-import { dayKey, dayMonth } from '../../../main/dates'
+import { dayKey, dayMonth, plural } from '../../../main/dates'
 import { short } from '@/lib/clock'
 import dayjs from 'dayjs'
 import { lengthSaid, roundsFrom, timerAsked, timerFrom, type Rounds } from './timer'
@@ -364,7 +364,7 @@ function planBox(doc: ProseMirrorNode, ctx: BoxContext, kept: Kept[] = [], now =
     const [from, to] = [pos(rounds.span.from), pos(rounds.span.to)]
     if (!isKept('rounds', from, to)) {
       const breaks = `${lengthSaid(rounds.breakMs)} breaks`
-      const effect = `${rounds.rounds} ${rounds.rounds === 1 ? 'round' : 'rounds'} of ${lengthSaid(rounds.workMs)}${rounds.rounds > 1 ? `, ${breaks}` : ''}${rounds.rounds >= 4 ? ', a long break after four' : ''}${rounds.goal === 'Focus' ? '' : ` for ${trimTitle(rounds.goal)}`}`
+      const effect = `${plural(rounds.rounds, 'round')} of ${lengthSaid(rounds.workMs)}${rounds.rounds > 1 ? `, ${breaks}` : ''}${rounds.rounds >= 4 ? ', a long break after four' : ''}${rounds.goal === 'Focus' ? '' : ` for ${trimTitle(rounds.goal)}`}`
       return { ...EMPTY, kind, rounds, tokens: [token('rounds', from, to, effect)] }
     }
   }

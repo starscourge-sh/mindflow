@@ -7,6 +7,7 @@ import { Decoration, DecorationSet } from '@tiptap/pm/view'
 import { checkingLive, findings, type Finding } from '@/lib/grammar'
 import { chime } from '@/lib/sound'
 import { Kbd } from './ui'
+import { num } from '../../../../main/dates'
 
 /**
  * Proofread, for a page of Writing, a Journal day, a capture or a gem (when asked): Harper's findings one at a time,
@@ -151,7 +152,7 @@ export function Proofread({ editor, ask = false }: { editor: Editor | null; /** 
           <span data-proof-reason className="ml-2 text-foreground/70">{one.reason}</span>
         </span>
         <span className="flex items-center gap-1.5 text-meta text-muted-foreground">
-          <span className="mr-1.5 tabular-nums">{run!.at + 1} of {run!.list.length}</span>
+          <span className="mr-1.5 tabular-nums">{num(run!.at + 1)} of {num(run!.list.length)}</span>
           {one.replacement !== null && <>{cap('Tab')} takes it<span className="w-1.5" /></>}
           {cap('↓')} skips<span className="w-1.5" />
           {cap('Esc')} stops

@@ -13,7 +13,7 @@ import { useAppearance, useLive, haligtree, type ItemFull } from '@/lib/haligtre
 import { useMilestones, type Milestone } from '@/lib/milestones'
 import { DotMatrix } from './dot-matrix'
 import { Answers, Journey, goalInk, markOf, openOnes, useToday, warmth } from './goals-view'
-import { dayKey, dayMonth, num } from '../../../../main/dates'
+import { dayKey, dayMonth, num, plural } from '../../../../main/dates'
 import { daysBetween, daysLeft, journey, leftSaid, percent, wayThrough } from '../../../../main/goal-days'
 import { SandboxStamp } from '@/components/haligtree/sandbox'
 import { SANDBOX } from '@/lib/sandbox'
@@ -246,7 +246,7 @@ function GoalTab({ side, nudge = false, gone, left, ink, title, className = '' }
   return (
     <motion.div
       data-goal-tab={side}
-      aria-label={`${title}: ${left === null ? '' : left < 0 ? 'past its day' : `${left} ${left === 1 ? 'day' : 'days'} left`}`}
+      aria-label={`${title}: ${left === null ? '' : left < 0 ? 'past its day' : `${plural(left, 'day')} left`}`}
       initial={still() ? false : { opacity: 0, x: away }}
       animate={{ opacity: 1, x: nudge && !still() ? wiggle : 0 }}
       transition={nudge ? { duration: 0.7, ease: EASE } : { duration: 0.24, ease: EASE }}

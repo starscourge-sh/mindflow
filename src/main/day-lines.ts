@@ -1,4 +1,4 @@
-import { num } from './dates.ts'
+import { num, plural } from './dates.ts'
 /**
  * Lines of a written list, read the way people write them in Raycast Notes or
  * Apple Notes: "- [ ] call the bank", "  - [x] send the form" (indented: a
@@ -67,7 +67,7 @@ export function tasksOf(lines: Line[]): ListTask[] {
 export function tasksSaid(tasks: { steps: unknown[] }[]): string {
   const steps = tasks.reduce((sum, task) => sum + task.steps.length, 0)
   const head = tasks.length === 1 ? 'a task' : `${num(tasks.length)} tasks`
-  return steps ? `${head}${tasks.length === 1 ? ' with' : ','} ${steps} ${steps === 1 ? 'step' : 'steps'}` : head
+  return steps ? `${head}${tasks.length === 1 ? ' with' : ','} ${plural(steps, 'step')}` : head
 }
 
 // --- Sort this out --------------------------------------------------------

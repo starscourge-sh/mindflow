@@ -4,7 +4,7 @@ import { Plugin, PluginKey } from '@tiptap/pm/state'
 import { Decoration, DecorationSet } from '@tiptap/pm/view'
 
 import { chime } from '@/lib/sound'
-import { num } from '../../../../main/dates'
+import { num, plural } from '../../../../main/dates'
 import { WritingSound } from './writing-sound'
 import { SlidersHorizontal } from 'lucide-react'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
@@ -121,7 +121,7 @@ function proseReport(editor: Editor): string {
   const words = text.match(/[\p{L}\p{M}'’]+/gu) ?? []
   if (!words.length) return 'Nothing written yet.'
   const minutes = Math.max(1, Math.round(words.length / 238))
-  const out = [`${num(words.length)} words, about ${minutes} ${minutes === 1 ? 'minute' : 'minutes'} to read.`]
+  const out = [`${num(words.length)} words, about ${plural(minutes, 'minute')} to read.`]
   const sentences = text.split(/(?<=[.!?…])\s+|\n+/).map((one) => (one.match(/[\p{L}\p{M}'’]+/gu) ?? []).length).filter(Boolean)
   const long = sentences.filter((n) => n > 30)
   out.push(long.length ? `${long.length === 1 ? 'One sentence runs' : `${num(long.length)} sentences run`} past 30 words; the longest has ${Math.max(...long)}.` : 'No sentence runs past 30 words.')
@@ -130,7 +130,7 @@ function proseReport(editor: Editor): string {
   const often = [...counts].filter(([, n]) => n >= Math.max(3, words.length / 150)).sort((a, b) => b[1] - a[1]).slice(0, 3)
   out.push(often.length ? `You come back to ${list(often.map(([word, n]) => `${quote(word)} ${n} times`))}.` : 'No word comes up too often.')
   const adverbs = [...new Set(words.map((word) => word.toLowerCase()).filter((word) => word.length > 4 && word.endsWith('ly') && !NOT_ADVERBS.has(word)))]
-  out.push(adverbs.length ? `${num(adverbs.length)} ${adverbs.length === 1 ? 'adverb' : 'adverbs'}: ${list(adverbs.slice(0, 5).map(quote))}${adverbs.length > 5 ? ' and more' : ''}.` : 'No adverbs ending in -ly.')
+  out.push(adverbs.length ? `${plural(adverbs.length, 'adverb')}: ${list(adverbs.slice(0, 5).map(quote))}${adverbs.length > 5 ? ' and more' : ''}.` : 'No adverbs ending in -ly.')
   return out.join(' ')
 }
 

@@ -8,6 +8,7 @@ import { Tags } from './ui'
 import { TIME_COLUMN, clock } from '@/lib/clock'
 import { Brain, CheckCircle2, Gem, Inbox, ListTodo } from '@/components/ui/icons'
 import { CalendarClock } from 'lucide-react'
+import { num } from '../../../../main/dates'
 
 /**
  * A day as a time log, built from what happened in it: every capture, every
@@ -90,7 +91,7 @@ export function DayLog({ day, given, only, onOpen, title = 'The day, hour by hou
       {every.length > rows.length && (
         <button type="button" data-log-more onClick={() => (chime('slide'), setAll(true))}
           className="mt-1 rounded-md px-1 py-1 text-control text-muted-foreground hover:bg-accent/50 hover:text-foreground">
-          Show all {every.length}, the earlier ones above
+          Show all {num(every.length)}, the earlier ones above
         </button>
       )}
     </section>

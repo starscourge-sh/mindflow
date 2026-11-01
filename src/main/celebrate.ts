@@ -168,7 +168,7 @@ function streak(): Moment | null {
   const id = `streak:${from}:${n}`
   if (!rank || fired(id)) return null
   const line = { 7: 'Something kept every day for a week.', 30: 'Something kept every day for a month.', 100: 'A hundred days without missing one.' }[n as 7 | 30 | 100]
-  return { id, kind: 'streak', rank, headline: `${num(n)} days in a row`, line, mark: `${n}`, tint: TINT.orange }
+  return { id, kind: 'streak', rank, headline: `${num(n)} days in a row`, line, mark: num(n), tint: TINT.orange }
 }
 
 /** The inbox emptied, on a day it held five or more: once a day. */
@@ -216,7 +216,7 @@ function answered(id: unknown): Moment | null {
   return {
     id: `answered:${n}`, kind: 'answered', rank: n === 1 ? 45 : 50,
     headline: n === 1 ? 'Your first question answered' : `${num(n)} questions answered`,
-    line: row && !row.private && !gate().hidePrivate ? row.title : undefined, mark: `${n}`, tint: TINT.yellow
+    line: row && !row.private && !gate().hidePrivate ? row.title : undefined, mark: num(n), tint: TINT.yellow
   }
 }
 

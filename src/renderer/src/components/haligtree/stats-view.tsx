@@ -264,7 +264,7 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
             {Array.from({ length: 24 }, (_, hour) => {
               const n = stats.hours.find((row) => row.hour === hour)?.n ?? 0
               return (
-                <Tip key={hour} label={`${hour}:00 · ${n}`}>
+                <Tip key={hour} label={`${hour}:00 · ${num(n)}`}>
                   <div className="flex-1 rounded-t-[2px] bg-muted-foreground/35" style={{ height: `${Math.max(3, (n / maxHour) * 100)}%` }} />
                 </Tip>
               )
@@ -277,7 +277,7 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
           </> : <p>Nothing captured yet, so no hours to show.</p>}
         </Section>
 
-        <Section title="What you capture" big={stats.kinds[0] ? { value: stats.kinds[0].n, label: `${(CAPTURE_TYPES.find((one) => one.id === stats.kinds[0].kind) ?? CAPTURE_TYPES[0]).label.toLowerCase()}${stats.kinds[0].n === 1 ? '' : 's'}, the most of any kind` } : undefined}>
+        <Section title="What you capture" big={stats.kinds[0] ? { value: stats.kinds[0].n, label: `${plural(stats.kinds[0].n, (CAPTURE_TYPES.find((one) => one.id === stats.kinds[0].kind) ?? CAPTURE_TYPES[0]).label.toLowerCase()).replace(/^[\d,]+ /, "")}, the most of any kind` } : undefined}>
           <div className="space-y-2">
             {/* The bars in the one order of kinds, Note first (kindRank); the big number says which is most. */}
             {[...stats.kinds].sort((a, b) => byKind(a.kind, b.kind)).map(({ kind, n }) => {

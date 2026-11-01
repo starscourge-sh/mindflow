@@ -26,6 +26,7 @@ import { LAYOUTS, LOOKS, useDarkPages, usePageLayout, usePageLook, usePaperPages
 import { DropdownMenu, DropdownMenuContent, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { ScrubField } from "./scrub-field"
 import { still } from "@/lib/motion"
+import { plural, num } from '../../../../main/dates'
 
 /** A page column this wide reads comfortably; below it the rail squeezes, below `TIGHT` it folds away. */
 const COMFY = 520
@@ -304,7 +305,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
     }
     const id = await window.api.captures.create({ kind: "note", title: `Highlights from ${title}`, body })
     chime("saved")
-    said(`${sorted.length} highlight${sorted.length === 1 ? "" : "s"} gathered into a note`)
+    said(`${plural(sorted.length, 'highlight')} gathered into a note`)
     window.dispatchEvent(new CustomEvent("haligtree:open", { detail: { type: "capture", id } }))
   }
 
@@ -446,7 +447,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
     const count = cardsHere + 1
     setCardsHere(count)
     chime("saved")
-    if (!quiet) said(count > 15 ? `Card made: ${count} from this source. Most people keep 10 to 15 from an hour; the best ones are enough` : `Card made: ${count} from this source`, true, { type: "nugget", id, title: prompt })
+    if (!quiet) said(count > 15 ? `Card made: ${num(count)} from this source. Most people keep 10 to 15 from an hour; the best ones are enough` : `Card made: ${num(count)} from this source`, true, { type: "nugget", id, title: prompt })
   }
   // Snip: a rectangle dragged over a page (a figure, a typeset equation, a
   // table) cut out as a picture, then made a card's answer or kept as a gem.
@@ -522,7 +523,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
     if (!next) {
       setWalking(0)
       setCarding(null)
-      return void said(made ? `Marked cards made: ${made} ${made === 1 ? "card" : "cards"}` : "Stopped making marked cards")
+      return void said(made ? `Marked cards made: ${plural(made, 'card')}` : "Stopped making marked cards")
     }
     go(next.page)
     madeOne.current = false
@@ -920,7 +921,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
                 } else if (event.key === "Escape") closeFind()
               }}
             />
-            <span className="tiptap-find-bar-count" aria-label={`${found.length ? at + 1 : 0} of ${found.length}`}>
+            <span className="tiptap-find-bar-count" aria-label={`${num(found.length ? at + 1 : 0)} of ${num(found.length)}`}>
               <Roll text={found.length ? at + 1 : 0} />/<Roll text={found.length} />
             </span>
             <button type="button" onClick={() => stepFind(true)} aria-label="Previous match" title="Previous  ⇧↵">

@@ -57,7 +57,7 @@ import { stepTap } from '@/lib/haptics'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import DownloadIcon from '@/components/ui/download-icon'
 import UploadIcon from '@/components/ui/upload-icon'
-import { ago, dayjs, num, weekdayName } from '../../../../main/dates'
+import { ago, dayjs, num, weekdayName, plural } from '../../../../main/dates'
 import { TomorrowPreview } from './tomorrow-lines'
 import { BOX_TABS, SECTIONS as PLACES, ShowList, shownPages, startPageOf } from './places'
 import { SpellLanguages } from './spell-languages'
@@ -241,7 +241,7 @@ export function ReviewCost({ newPerDay, retention, compare = false }: { newPerDa
   const times = cost.usual ? cost.reviews / cost.usual : 1
   return (
     <p data-review-cost data-reviews={cost.reviews} data-minutes={cost.minutes} data-times={compare && percent !== 90 ? times.toFixed(1) : undefined} className="mt-2 text-body text-foreground/90 tabular-nums">
-      About <Rolling text={`${num(cost.minutes)} ${cost.minutes === 1 ? 'minute' : 'minutes'}`} /> a day, <Rolling text={`${num(cost.reviews)} ${cost.reviews === 1 ? 'review' : 'reviews'}`} />, over the next month
+      About <Rolling text={`${plural(cost.minutes, 'minute')}`} /> a day, <Rolling text={`${plural(cost.reviews, 'review')}`} />, over the next month
       {compare && percent !== 90 && cost.usual > 0 && <>. {percent}%: about <Rolling text={`${times.toFixed(1)}×`} /> the reviews of 90%</>}
     </p>
   )
@@ -2080,7 +2080,7 @@ function MarkdownCopy(): React.JSX.Element {
     <Setting title="Keep a Markdown copy" note="Every note as its own Markdown file in a folder you choose, kept up to date as you write." more="Open the folder in Obsidian or any editor: tags, links and pictures come along. It is a copy: changes made there are not read back." keywords="markdown copy mirror folder obsidian plain files sync backup vault export own text lock-in"
       below={status?.folder ? (
         <p data-markdown-copy className={`mt-2 text-control ${status.failing ? 'text-destructive' : 'text-foreground'}`}>
-          {status.failing ? `Not kept up to date: ${status.failing}` : `Kept in ${where}${status.at ? ` · ${num(status.count)} ${status.count === 1 ? 'note' : 'notes'} · updated ${ago(new Date(status.at).toISOString())}` : ' · writing it now'}`}
+          {status.failing ? `Not kept up to date: ${status.failing}` : `Kept in ${where}${status.at ? ` · ${plural(status.count, 'note')} · updated ${ago(new Date(status.at).toISOString())}` : ' · writing it now'}`}
         </p>
       ) : undefined}>
       {status?.folder ? (

@@ -31,7 +31,7 @@ import { PriorityMark } from './haligtree/task-input'
 import { BUCKETS, bucket, taskName } from '@/lib/tasks'
 import { PRIORITY_NAMES } from '../../../main/task-words'
 import { GlossLine, openGloss } from './haligtree/gloss-line'
-import { dayjs, daysSince } from '../../../main/dates'
+import { dayjs, daysSince, num } from '../../../main/dates'
 import { keyFor } from '@/lib/keys'
 import { wordFor } from '@/lib/words'
 import { ALL_WORDS, openWord } from './haligtree/term'
@@ -384,7 +384,7 @@ export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'tas
           <span aria-hidden className="mx-1 h-3.5 w-px bg-border" />
           <Chips options={[{ id: 'capture', label: 'Captures' }, { id: 'nugget', label: 'Gems' }, { id: 'task', label: 'Tasks' }, { id: 'event', label: 'Events' }]} on={(id) => types.includes(id)} pick={(id) => setTypes(flip(types, id))} />
           <span aria-hidden className="mx-1 h-3.5 w-px bg-border" />
-          <Chips options={[{ id: 'kind', label: kinds.length ? `Kind · ${kinds.length}` : 'Kind' }]} on={() => kindsOpen || kinds.length > 0} pick={() => setKindsOpen(!kindsOpen)} />
+          <Chips options={[{ id: 'kind', label: kinds.length ? `Kind · ${num(kinds.length)}` : 'Kind' }]} on={() => kindsOpen || kinds.length > 0} pick={() => setKindsOpen(!kindsOpen)} />
           {kindsOpen && <span aria-hidden className="mx-1 h-3.5 w-px bg-border" />}
           {kindsOpen && <Chips options={[...CAPTURE_TYPES]} on={(id) => kinds.includes(id)} pick={(id) => setKinds(flip(kinds, id))} />}
           </>}

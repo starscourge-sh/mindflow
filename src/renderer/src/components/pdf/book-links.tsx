@@ -10,6 +10,7 @@ import { open, pagesOf, useBookGraph, type Cited } from "./same-book"
 export { useCited, type Cited } from "./same-book"
 import { GraphCanvas } from "@/components/haligtree/graph-canvas"
 import { openPdf } from "./pdf-reader"
+import { plural, num } from '../../../../main/dates'
 
 /** Notes and gems: what "In your notes" lists. Cards show on the page bar alone. */
 export const inNotes = (cited: Cited[]): Cited[] => cited.filter((one) => one.type !== "card" && one.type !== "deck")
@@ -243,7 +244,7 @@ export function BookMap({ src, title, cited }: { src: string; title: string; cit
     <figure className="book-map" data-book-map data-nodes={graph.nodes.length} data-lines={graph.edges.length}>
       <GraphCanvas map={graph} centre={src} onOpen={(type, id, aside) => open({ type, id }, !!aside)} className="h-[180px]" />
       <figcaption className="book-map-says">
-        {n} {n === 1 ? "note links" : "notes link"} to this book{graph.among ? `; ${graph.among} ${graph.among === 1 ? "link joins them" : "links join them"} to each other` : ""}.
+        {num(n)} {n === 1 ? "note links" : "notes link"} to this book{graph.among ? `; ${plural(graph.among, 'link joins them', 'links join them')} to each other` : ""}.
       </figcaption>
     </figure>
   )

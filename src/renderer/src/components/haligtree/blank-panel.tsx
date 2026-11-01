@@ -5,6 +5,7 @@ import { BLANK, addsUp, answersOf, blanksIn, clozeNumbers, onlyBlank, onlyCloze 
 import { Chips } from './display'
 import { GHOST, GhostText } from './ghost'
 import { refuse, toast } from './ui'
+import { num } from '../../../../main/dates'
 
 /**
  * Anki's blanks typed by hand with two or more numbers ({{c1::...}} and
@@ -46,7 +47,7 @@ export function BlankPanel({ id, prompt, text, body, notes, onPrompt }: { id: st
     void Promise.all(questions.slice(1).map((question) => haligtree.another(id, question, text, body))).then((made) => {
       onPrompt(questions[0])
       chime('separate')
-      toast(`Asked apart: ${blanks.length} cards, one blank each`, () => {
+      toast(`Asked apart: ${num(blanks.length)} cards, one blank each`, () => {
         for (const one of made) if (one) void haligtree.unlift('nugget', one)
         onPrompt(before)
         setSplit(false)

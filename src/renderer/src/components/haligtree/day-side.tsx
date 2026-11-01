@@ -8,7 +8,7 @@ import { chime } from '@/lib/sound'
 import { atOn, makeTask, timeAlone } from '@/lib/tasks'
 import { sameTask } from '@/lib/calendar'
 import { haligtree, whenInLine, type TaskFull } from '@/lib/haligtree'
-import { clock, dayjs } from '../../../../main/dates'
+import { clock, dayjs, plural } from '../../../../main/dates'
 import { TaskInput } from './task-input'
 import { TaskDetail } from './tasks-view'
 import { Kbd, Tip, toast, untoast } from './ui'
@@ -22,7 +22,7 @@ export type SideAsk = { day: string; minute: number | null; length: number; drag
 const lasting = (minutes: number): string => {
   const hours = Math.floor(minutes / 60)
   const rest = minutes % 60
-  return [hours && `${hours} ${hours === 1 ? 'hour' : 'hours'}`, rest && `${rest} minutes`].filter(Boolean).join(' ')
+  return [hours && `${plural(hours, 'hour')}`, rest && `${rest} minutes`].filter(Boolean).join(' ')
 }
 
 /** Keys that go to the field or editor under the caret, not to the panel. */

@@ -122,7 +122,7 @@ import { useStoredFlag } from '@/lib/use-stored-flag'
 import { ShortcutSheet } from '@/components/haligtree/shortcut-sheet'
 import { WordNotes } from '@/components/haligtree/term'
 import { FocusScenery, Rest } from './components/haligtree/scenery'
-import { brief, dayjs, num } from '../../main/dates'
+import { brief, dayjs, num, plural } from '../../main/dates'
 import { holdKeys, useLesson, useWelcomePlaceholder, useWelcoming } from './lib/welcome-box'
 import { SandboxChip } from '@/components/haligtree/sandbox'
 import { DefineGhost, defineable, fixIn, useDefinition } from '@/components/haligtree/word-define'
@@ -1540,7 +1540,7 @@ export default function App(): React.JSX.Element {
       beam('success')
       void haligtree.startRounds(rounds.goal, rounds).then((id) => {
         window.api.showFocus(true)
-        toast(`${rounds.rounds} ${rounds.rounds === 1 ? 'round' : 'rounds'} of ${lengthSaid(rounds.workMs)} started`, () => {
+        toast(`${plural(rounds.rounds, 'round')} of ${lengthSaid(rounds.workMs)} started`, () => {
           void haligtree.cancelSession(id)
           bringBack(sent)
         })

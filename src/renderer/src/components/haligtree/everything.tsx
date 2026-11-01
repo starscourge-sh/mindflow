@@ -4,7 +4,7 @@ import type { CaptureMeta } from '../capture-list'
 import { unloaded, useLive, haligtree, when, whenInLine, type Settings, type Task } from '@/lib/haligtree'
 import { BUCKETS, bucket, placed, taskName } from '@/lib/tasks'
 import { chime } from '@/lib/sound'
-import { num, startOfDay } from '../../../../main/dates'
+import { num, startOfDay, plural } from '../../../../main/dates'
 import { TaskDate, TaskLength, TaskPriority, completeTask, dayTone, notDone, taskMenu, type TaskNow } from './tasks-view'
 import type { Choice } from './display'
 import type { Entry } from './note-list'
@@ -88,7 +88,7 @@ const MADE_SAID = 'Also show captures already made into tasks'
 export function MadeChip({ on, hidden, onChange }: { on: boolean; hidden: number; onChange: (on: boolean) => void }): React.JSX.Element {
   const tip = on
     ? 'Each shows beside the task it became. Untick to hide them again'
-    : `${num(hidden)} ${hidden === 1 ? 'capture is' : 'captures are'} hidden, since the task shows instead`
+    : `${plural(hidden, 'capture is', 'captures are')} hidden, since the task shows instead`
   return (
     <span data-made-chip className="flex shrink-0 items-center">
       <Tip label={tip}>
@@ -332,7 +332,7 @@ const many = (id: string): string => (id === 'task' ? 'tasks' : `${(CAPTURE_TYPE
 export function emptyFor(kinds: string[], state: TaskState, filtered: boolean, made = 0): { title: string; body: string } {
   const onlyTasks = kinds.length === 1 && kinds[0] === 'task'
   // All that is left are notes made into tasks, hidden for their tasks: say so, and how to see them.
-  if (made && !onlyTasks) return { title: 'Nothing else here', body: `${num(made)} ${made === 1 ? 'capture you made into a task is' : 'captures you made into tasks are'} hidden, since the task shows instead. Tick “${MADE_SAID}” above to see ${made === 1 ? 'it' : 'them'}.` }
+  if (made && !onlyTasks) return { title: 'Nothing else here', body: `${plural(made, 'capture you made into a task is', 'captures you made into tasks are')} hidden, since the task shows instead. Tick “${MADE_SAID}” above to see ${made === 1 ? 'it' : 'them'}.` }
   if (onlyTasks && state === 'done') return { title: 'Nothing done yet', body: 'Tick a task off, here or on Today, and it shows here with the day you did it.' }
   if (onlyTasks && state === 'open') return { title: 'Nothing to do', body: 'Every task is done. Choose “Done” on the “Task” chip above to see them, or add one in Today or Upcoming.' }
   if (onlyTasks) return { title: 'No tasks yet', body: 'Add one in Today or Upcoming, or press ⌘. anywhere and write it with a day: “call the dentist Friday”.' }

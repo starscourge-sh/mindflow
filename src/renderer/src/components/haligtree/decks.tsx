@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { chime } from '@/lib/sound'
 import { call, haligtree, useLive } from '@/lib/haligtree'
-import { num } from '../../../../main/dates'
+import { plural } from '../../../../main/dates'
 import { ask, toast } from './ui'
 import type { BrowsedCard } from './card-browser'
 import { ChevronDown } from 'lucide-react'
@@ -99,7 +99,7 @@ export function useOwnDecks(): OwnDeck[] | null {
 /** The decks made by hand, live: what ⌘K and the pockets add to the tags that hold cards. */
 export const useMadeDecks = (): string[] => useLive(haligtree.madeDecks, [] as string[], [], ['item'])
 
-export const cardsSaid = (n: number): string => `${num(n)} ${n === 1 ? 'card' : 'cards'}`
+export const cardsSaid = (n: number): string => `${plural(n, 'card')}`
 
 /**
  * Which deck a new card goes in, as a real control: a quiet button naming
