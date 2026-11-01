@@ -47,6 +47,7 @@ import { FeedView, showLiked } from './components/haligtree/feed-view'
 import { PowersView } from './components/haligtree/powers-view'
 import { TagsView } from './components/haligtree/tags-view'
 import { SideFolders, newFolder } from './components/haligtree/side-folders'
+import { GROUP_KEY, newSmartGroup } from '@/lib/smart-groups'
 import { hoverNote } from './components/haligtree/note-preview'
 import { groups } from '@/lib/groups'
 import { SourcePageView, SourcesView } from './components/haligtree/source-page'
@@ -1840,6 +1841,8 @@ export function Home(): React.JSX.Element {
                 asideItem('view', section.id),
                 // Writing and Gems hold folders: a new one, named at once (side-folders.tsx).
                 (section.id === 'articles' || section.id === 'nuggets') && { label: 'New folder', run: () => setTimeout(() => newFolder(section.id === 'articles' ? 'article' : 'nugget'), 120) },
+                // And groups that gather by a rule, a tag, moving nothing (lib/smart-groups.tsx).
+                (section.id === 'articles' || section.id === 'nuggets') && { label: 'New group by a tag…', hint: 'Gathers, moves nothing', run: () => void newSmartGroup(section.id === 'articles' ? 'article' : 'nugget', (id) => setView({ id: section.id, folder: GROUP_KEY + id })) },
                 // The lists commonplace keepers start with, one press each: a folder of Gems, named, given its emoji and opened.
                 section.id === 'nuggets' && { label: 'Start a list', items: STARTER_LISTS.map(([icon, name]) => ({ label: name, icon: <span aria-hidden className="flex size-4 items-center justify-center text-[0.9rem] leading-none">{icon}</span>, run: () => void startList(icon, name).then((folder) => setView({ id: 'nuggets', folder })) })) },
                 'separator',

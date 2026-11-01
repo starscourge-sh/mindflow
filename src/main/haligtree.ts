@@ -655,6 +655,8 @@ const DEFAULTS = {
   sidebarOrder: [] as string[],
   // A sidebar page dragged into another block (Write, Do, or the rest: "rest"), by its id; one not here is in its own.
   sidebarGroups: {} as Record<string, string>,
+  // Groups that gather by a rule (a tag), beside the folders a note lives in (lib/smart-groups.tsx).
+  smartGroups: [] as { id: string; list: 'article' | 'nugget'; name: string; tag: string }[],
   // Writing's and Gems' groups as folders under their rows in the sidebar.
   sidebarFolders: { article: true, nugget: true } as Record<'article' | 'nugget', boolean>,
   // Writing's and Gems' folders, and the tags, unfolded while their page is open and folded away once you leave it.

@@ -13,7 +13,8 @@ import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
 import { Unfold, Weighted } from './glide'
 import { GroupIcon, IconChoice } from './kept-groups'
 import { RowMenu, type RowItem } from './row-menu'
-import { Count, quietly, refuse, toast } from './ui'
+import { Count, Tip, quietly, refuse, toast } from './ui'
+import { GROUP_KEY, GroupMark, changeRule, removeGroup, renameGroup, ruleSaid, useGathered, useSmartGroups, type SmartGroup } from '@/lib/smart-groups'
 
 /** Asks the sidebar for a new, empty folder in a list (from the row's +, or its right click), named as it is made. */
 export const newFolder = (list: 'article' | 'nugget', parent: string | null = null): void =>
@@ -73,6 +74,7 @@ export function SideFolders({ list, counted, open, shown, here, onOpen, onUnfold
   onUnfold: () => void
 }): React.JSX.Element | null {
   const all = useGroups(list)
+  const smart = useSmartGroups(list)
   const [naming, setNaming] = useState<string | null>(null)
   // A new folder, empty, its name open for typing.
   useEffect(() => {
@@ -154,10 +156,14 @@ export function SideFolders({ list, counted, open, shown, here, onOpen, onUnfold
   const rows = (parent: string | null, depth: number): React.JSX.Element | null => {
     const these = parent === null && noFolders ? [] : kids(parent)
     const first = parent === null ? lead : null
-    if (!these.length && !first) return null
+    // Groups that gather by a rule hang after the folders, off the same trunk: folders first, as a beginner meets them.
+    const gathered = parent === null && !noFolders ? smart : []
+    if (!these.length && !first && !gathered.length) return null
     const lit = these.findIndex((one) => holds(one.id))
+    const litGroup = gathered.findIndex((one) => here === GROUP_KEY + one.id)
+    const before = (first ? 1 : 0) + these.length
     return (
-      <Branches current={first && leadHere ? 0 : lit >= 0 && first ? lit + 1 : lit} className="ml-5 flex flex-col gap-px">
+      <Branches current={first && leadHere ? 0 : lit >= 0 ? lit + (first ? 1 : 0) : litGroup >= 0 ? before + litGroup : -1} className="ml-5 flex flex-col gap-px">
         {first}
         {these.flatMap((group) => {
           const inner = rows(group.id, depth + 1)
@@ -166,6 +172,7 @@ export function SideFolders({ list, counted, open, shown, here, onOpen, onUnfold
             inner && <div key={`${group.id}:in`} data-no-twig="">{inner}</div>
           ]
         })}
+        {gathered.map((group) => <SmartRow key={group.id} group={group} shown={shown} counted={counted} here={here === GROUP_KEY + group.id} onOpen={() => onOpen(GROUP_KEY + group.id)} />)}
       </Branches>
     )
   }
@@ -324,5 +331,32 @@ function Folder({ list, group, depth, n, here, naming, onNamed, onRename, onOpen
         <IconChoice group={group} onPick={pick} />
       </PopoverContent>
     </Popover>
+  )
+}
+
+/**
+ * A group in the sidebar, after the folders: its own look (a sparkle where a folder has its icon, its name in
+ * italic), its rule said when pointed at, and a count of what it gathers. Nothing is dragged into it: it gathers.
+ */
+function SmartRow({ group, shown, counted, here, onOpen }: { group: SmartGroup; shown: Set<string>; counted: boolean; here: boolean; onOpen: () => void }): React.JSX.Element {
+  const gathered = useGathered(group)
+  const n = gathered ? [...gathered].filter((id) => shown.has(id)).length : null
+  return (
+    <RowMenu items={[
+      { label: 'Open', run: onOpen },
+      { label: 'Rename…', run: () => void renameGroup(group) },
+      { label: 'Change the rule…', hint: ruleSaid(group), run: () => void changeRule(group) },
+      'separator',
+      { label: 'Remove the group', hint: 'Its notes stay where they are', run: () => void removeGroup(group) }
+    ]}>
+      <Tip label={`${ruleSaid(group)}. A group gathers; it moves nothing`}>
+        <button type="button" data-side-row data-side-group={group.id} aria-current={here ? 'page' : undefined} onClick={() => (chime('page'), onOpen())}
+          className={`flex w-full min-w-0 items-center gap-2 rounded-md py-1 pr-2 pl-2 ${here ? 'text-foreground' : 'text-foreground/80'}`}>
+          <span className="flex size-4 shrink-0 items-center justify-center"><GroupMark className="size-3.5" style={{ color: 'var(--tt-color-text-purple)' }} /></span>
+          <Weighted on={here} className="flex-1 text-left italic">{group.name}</Weighted>
+          {counted && n !== null && <Count n={n} className="text-xs text-muted-foreground" />}
+        </button>
+      </Tip>
+    </RowMenu>
   )
 }
