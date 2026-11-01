@@ -937,9 +937,17 @@
   line-height: 1.3;
   overflow-wrap: anywhere;
   text-wrap: balance;
+  /* Two lines held for every title (a longer one cut there, whole in its tip), so switching books never moves what is under it. */
+  display: -webkit-box;
+  min-height: 2.6em;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  align-content: center;
 }
 
 .book-head-author {
+  min-height: 1.3em;
   color: color-mix(in oklab, var(--foreground) 80%, var(--background));
 }
 
