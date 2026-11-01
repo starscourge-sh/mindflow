@@ -5,7 +5,6 @@ import { canSplit, openAside, useHere } from '@/lib/split'
 import { binItem } from '@/lib/to-bin'
 import type { Editor } from '@tiptap/react'
 import { HaligtreeEditor } from './haligtree-editor'
-import { CircleAlert } from 'lucide-react'
 import { num } from '../../../../main/dates'
 import { Chips, Display, arrange, useView, type Choice, type Density, type Facet } from './display'
 import { IslandBox, useIslands } from './islands'
@@ -36,8 +35,8 @@ const today = (): number => new Date().setHours(0, 0, 0, 0)
 const STAGES: { id: string; label: string; tint: string }[] = [
   { id: 'new', label: 'New', tint: 'var(--tt-color-text-blue)' },
   { id: 'learning', label: 'Learning', tint: 'var(--tt-color-text-orange)' },
-  { id: 'learnt', label: 'Learnt', tint: 'var(--tt-color-text-green)' },
-  { id: 'known', label: 'Known', tint: 'var(--tt-color-text-purple)' }
+  { id: 'learnt', label: 'Learnt (gaps under 15 days)', tint: 'var(--tt-color-text-green)' },
+  { id: 'known', label: 'Known (remembered after 15 days)', tint: 'var(--tt-color-text-purple)' }
 ]
 const stageOf = (card: BrowsedCard): string => (card.known ? 'known' : card.stage)
 const tintOf = (card: BrowsedCard): string => STAGES.find((one) => one.id === stageOf(card))!.tint
@@ -283,7 +282,8 @@ function EditCard({ card, tint, onDone }: { card: BrowsedCard; tint: string; onD
  * have cards; a card that needs work offers its fix in place. Picked cards
  * (⇧-click, x, ⌘A) are paused, tagged or untagged together, or sent to the Bin.
  */
-export function CardBrowser({ onOpen, aim }: { onOpen: (type: string, id: string) => void; /** Open with "Paste cards" out (⌘K), aimed at a deck, or for one card in it. */ aim?: { deck: string | null; one: boolean } | null }): React.JSX.Element {
+export function CardBrowser({ onOpen, aim, only, onAll, onShow }: { onOpen: (type: string, id: string) => void; /** Open with "Add many at once" out (⌘K), aimed at a deck, or for one card in it. */ aim?: { deck: string | null; one: boolean } | null
+  /** Just these cards (the ones an import or "Add many at once" made), with a way back to all. */ only?: string[] | null; onAll?: () => void; /** Show just the cards just made. */ onShow?: (ids: string[]) => void }): React.JSX.Element {
   const [pasting, setPasting] = useState(!!aim)
   const [aimed, setAimed] = useState(aim ?? null)
   // The decks made by hand: an empty one is a pocket of its own, saying how to fill it.
@@ -331,7 +331,9 @@ export function CardBrowser({ onOpen, aim }: { onOpen: (type: string, id: string
     { key: 'made', label: 'Made from', options: MADE, test: (card, id) => card.made === id }
   ]
   const words = query.trim().toLowerCase()
+  const just = only ? new Set(only) : null
   const found = (cards ?? [])
+    .filter((card) => !just || just.has(card.id))
     .filter((card) => !tag || under(card.tags, tag))
     .filter((card) => !words || `${card.prompt} ${card.answer} ${card.source} ${card.tags.map((one) => `#${one}`).join(' ')}`.toLowerCase().includes(words))
   const [[, ordered]] = arrange(found, view, facets, ORDER)
@@ -463,7 +465,7 @@ export function CardBrowser({ onOpen, aim }: { onOpen: (type: string, id: string
   const closePaste = (): void => (chime('fold'), setPasting(false), setAimed(null))
   const paste = !pasting ? null : aimed?.one
     ? <NewCard key={`one:${aimed.deck}`} deck={aimed.deck ?? undefined} onClose={closePaste} />
-    : <PasteCards key={`${aimed?.deck}`} deck={aimed?.deck ?? undefined} onClose={closePaste} />
+    : <PasteCards key={`${aimed?.deck}`} deck={aimed?.deck ?? undefined} onClose={closePaste} onShow={onShow} />
   // The decks made by hand that hold no card yet, under no other pocket: each its own, with the ways to fill it.
   const emptyPockets = made
     .filter((deck) => !made.some((up) => deck.startsWith(`${up}-`)) && !tags.some((one) => under([one], deck)) && !groups.some(([name]) => name === `#${deck.split('-')[0]}`))
@@ -472,7 +474,7 @@ export function CardBrowser({ onOpen, aim }: { onOpen: (type: string, id: string
     return (
       <div className="flex flex-col gap-3 px-5 pt-5 pb-10">
         {!pasting && emptyPockets.length > 0 && <div data-card-pockets className="grid grid-cols-[repeat(auto-fill,minmax(12.5rem,1fr))] gap-x-4 gap-y-6">{emptyPockets}</div>}
-        {paste ?? <Empty title="No cards yet" action={<Button size="sm" data-paste-open onClick={() => (chime('open'), setPasting(true))}>Paste cards</Button>}>Paste a list of cards, write the question a gem answers under “Review”, or import an Anki deck from File › Import.</Empty>}
+        {paste ?? <Empty title="No cards yet" action={<span className="flex flex-wrap items-center gap-2"><Button size="sm" data-make-open onClick={() => (chime('open'), setAimed({ deck: null, one: true }), setPasting(true))}>Make a card</Button><Button variant="ghost" size="sm" data-paste-open onClick={() => (chime('open'), setAimed(null), setPasting(true))}>Add many at once</Button><Button variant="ghost" size="sm" data-cards-import onClick={() => (chime('open'), void window.api.importFrom('files'))}>Import from Anki or a spreadsheet</Button></span>}>Make one card, paste a list or a spreadsheet of them, or bring in an Anki deck (.apkg, .colpkg) or a CSV.</Empty>}
       </div>
     )
 
@@ -495,22 +497,23 @@ export function CardBrowser({ onOpen, aim }: { onOpen: (type: string, id: string
   const question = (card: BrowsedCard, className = ''): React.JSX.Element => (
     <span className={`min-w-0 ${className}`}><WithPictures text={card.prompt.replace(/!\[[^\]]*\]\([^)]*\)/g, '').trim() || card.prompt} small /></span>
   )
-  // What needs work: a small mark, said in full on hover. Its fixes, one click
-  // each, where you asked to see what needs work (grouped or filtered by it).
+  // What needs work, in words on the card ("Forgotten 3 times"), in the one
+  // colour that means only this. Its fixes, one click each, where you asked
+  // to see what needs work (grouped or filtered by it).
   const working = view.group === 'needs' || (view.filter.needs ?? []).length > 0
   const said = (card: BrowsedCard): string => [card.lapses >= 2 && `Forgotten ${num(card.lapses)} times${card.leech ? ', a leech' : ''}`, card.things > 4 && `asks for ${num(card.things)} things (more than 4)`, (card.seconds ?? 0) >= 40 && `takes ${num(card.seconds!)} seconds each time`].filter(Boolean).join('; ')
   // Grouped or filtered by it, the fixes line says it in words instead.
+  const short = (card: BrowsedCard): string => [card.lapses >= 2 && `Forgotten ${num(card.lapses)} times`, card.things > 4 && `Asks for ${num(card.things)} things`, (card.seconds ?? 0) >= 40 && `Slow: ${num(card.seconds!)}s`].filter(Boolean)[0] as string
   const mark = (card: BrowsedCard): React.JSX.Element | null => !needs(card).length || working ? null : (
-    <Tip label={`${said(card).replace(/^./, (one) => one.toUpperCase())}. Split it, or ask it another way`}>
-      <span data-card-needs={needs(card).join(' ')} data-card-big={needs(card).some((one) => one === 'big' || one === 'slow') || undefined} aria-label={said(card)} className="inline-flex shrink-0 text-[var(--tt-color-text-orange)]">
-        <CircleAlert className="size-3.5" />
-      </span>
-    </Tip>
+    <span data-card-needs={needs(card).join(' ')} data-card-big={needs(card).some((one) => one === 'big' || one === 'slow') || undefined} aria-label={said(card)}
+      className="inline-flex shrink-0 items-center whitespace-nowrap rounded-[4px] bg-[color-mix(in_oklab,var(--tt-color-text-red)_12%,transparent)] px-1.5 text-xs leading-5 font-medium text-[var(--tt-color-text-red)]">
+      {short(card)}
+    </span>
   )
   const link = 'rounded px-1 font-medium text-foreground underline decoration-foreground/25 underline-offset-2 hover:decoration-foreground/60'
   const fixes = (card: BrowsedCard): React.JSX.Element | null => !working || !needs(card).length ? null : (
     <span data-card-fixes className="flex flex-wrap items-center gap-x-1 gap-y-0.5 text-xs" onPointerUp={(event) => event.stopPropagation()}>
-      <span className="mr-0.5 text-[var(--tt-color-text-orange)]">{said(card)}</span>
+      <span className="mr-0.5 text-[var(--tt-color-text-red)]">{said(card)}</span>
       <button type="button" data-fix="split" onClick={(event) => (event.stopPropagation(), fix(card, 'split'))} className={link}>Split</button>
       <button type="button" data-fix="another" onClick={(event) => (event.stopPropagation(), fix(card, 'another'))} className={link}>Ask another way</button>
       {!card.paused && <button type="button" data-fix="pause" onClick={(event) => (event.stopPropagation(), pause([card.id], true))} className={link}>Pause</button>}
@@ -606,12 +609,20 @@ export function CardBrowser({ onOpen, aim }: { onOpen: (type: string, id: string
             <Button variant="ghost" size="sm" data-turn-all aria-pressed={allOver} onClick={turnAll}>{allOver ? 'All face up' : 'Turn all over'}</Button>
           </Tip>
         )}
-        <Button variant="ghost" size="sm" data-paste-open aria-expanded={pasting} onClick={() => (chime(pasting ? 'fold' : 'open'), setPasting(!pasting))}>Paste cards</Button>
+        <Button variant="ghost" size="sm" data-make-open aria-expanded={pasting && !!aimed?.one} onClick={() => (chime(pasting && aimed?.one ? 'fold' : 'open'), setAimed({ deck: aimed?.deck ?? null, one: true }), setPasting(!(pasting && aimed?.one)))}>Make a card</Button>
+        <Button variant="ghost" size="sm" data-paste-open aria-expanded={pasting && !aimed?.one} onClick={() => (chime(pasting && !aimed?.one ? 'fold' : 'open'), setAimed(aimed ? { deck: aimed.deck, one: false } : null), setPasting(!(pasting && !aimed?.one)))}>Add many at once</Button>
         <Display view={view} onChange={setView} facets={facets} items={cards} count={cards.length} sorts={SORTS} groups={GROUPS}
           sortNote={view.group === 'source' ? 'Within each book or video, cards go in page or time order.' : undefined}
           density={density} onDensity={(next) => setView({ ...view, density: next })} densities={['small', 'grid', 'list', 'compact']} names={{ small: 'Pockets', grid: 'Cards' }} />
       </div>
       {paste}
+      {just && (
+        // Just what came in: said in a line of its own, with the way back to every card.
+        <p data-cards-only={only!.length} className="flex flex-wrap items-center gap-x-2 text-body text-foreground">
+          <span>Showing the {num(only!.length)} {only!.length === 1 ? 'card' : 'cards'} just added.</span>
+          <button type="button" data-cards-all onClick={onAll} className="cursor-pointer font-medium underline decoration-foreground/25 underline-offset-4 hover:decoration-foreground/60">Show every card</button>
+        </p>
+      )}
       {/* One line of the most used tags, sliding sideways, never wrapping; every tag is in Display's Tag filter, and each is a pocket. */}
       {/* Named as the pockets are, by the top of each tag (#learn takes in #learn-haligtree); none in Pockets, which are the tags themselves. */}
       {density !== 'small' && <Chips sideways className="" options={[{ id: '', label: `All ${num(cards.length)}` }, ...tops.slice(0, 12).map((one) => ({ id: one, label: `#${one}` }))]} on={(id) => (tag ?? '') === id} pick={(id) => (setTag(id || null), setOpened(null))} />}

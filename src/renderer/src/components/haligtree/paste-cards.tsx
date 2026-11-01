@@ -20,7 +20,7 @@ const tagOf = (words: string): string =>
  * type, and a deck and tags go on every card. A .txt or .csv dropped on the
  * box reads in too. Adding them is one step with one Undo.
  */
-export function PasteCards({ onClose, deck: aimed }: { onClose: () => void; /** The deck the cards go in, filled in. */ deck?: string }): React.JSX.Element {
+export function PasteCards({ onClose, deck: aimed, onShow }: { onClose: () => void; /** The deck the cards go in, filled in. */ deck?: string; /** Show just the cards made, from the toast's "Show them". */ onShow?: (ids: string[]) => void }): React.JSX.Element {
   const [text, setText] = useState('')
   const [chosen, setChosen] = useState<Separator | null>(null)
   const [deck, setDeck] = useState(aimed ?? '')
@@ -38,7 +38,7 @@ export function PasteCards({ onClose, deck: aimed }: { onClose: () => void; /** 
     const tagged = cards.map(({ term, meaning }) => ({ term, meaning: marks.length ? `${meaning}\n\n${marks.map((one) => `#${one}`).join(' ')}` : meaning, both }))
     void window.api.haligtree<string[]>('cards:list', tagged).then((ids) => {
       chime('noted')
-      toast(`${ids.length === 1 ? 'Card made' : `${num(ids.length)} cards made`}${marks.length ? ` in ${deck.trim() ? 'the deck ' : ''}#${marks[0]}` : ''}`, () => void window.api.haligtree('cards:list:undo', ids).then(() => chime('undo')), 'success', undefined, ids.length === 1 ? { type: 'nugget', id: ids[0], title: tagged[0].term } : undefined)
+      toast(`${ids.length === 1 ? 'Card made' : `${num(ids.length)} cards made`}${marks.length ? ` in ${deck.trim() ? 'the deck ' : ''}#${marks[0]}` : ''}`, () => void window.api.haligtree('cards:list:undo', ids).then(() => chime('undo')), 'success', onShow && ids.length > 1 ? { label: 'Show them', key: 'S', run: () => onShow(ids) } : undefined, ids.length === 1 ? { type: 'nugget', id: ids[0], title: tagged[0].term } : undefined)
       setText('')
       onClose()
     })
@@ -48,8 +48,8 @@ export function PasteCards({ onClose, deck: aimed }: { onClose: () => void; /** 
     // lines written straight onto ruled paper, and the cards they make laid out below.
     <section data-paste-cards className="mf-index-card flex flex-col gap-3 px-5 pt-4 pb-3">
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        <h3 className="flex-1 font-heading text-heading font-semibold">{aimed ? `Paste cards into #${tagOf(aimed)}` : 'Paste cards'}</h3>
-        <span className="text-control text-foreground/70">One card a line, front then back, or drop a .txt, .csv or .tsv here</span>
+        <h3 className="flex-1 font-heading text-heading font-semibold">{aimed ? `Add many at once into #${tagOf(aimed)}` : 'Add many at once'}</h3>
+        <span className="text-control text-foreground/70">Paste a list or a spreadsheet, one card a line, front then back, or drop a .txt, .csv or .tsv here</span>
       </div>
       <div aria-hidden className="mf-index-rule" />
       <textarea data-paste-text autoFocus value={text} onChange={(event) => setText(event.target.value)} rows={5}
