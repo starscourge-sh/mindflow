@@ -2176,7 +2176,7 @@ export default function App(): React.JSX.Element {
             {/* A draft left an hour or more: a small chip, never the top of the box. */}
             {/* While it is the pill (in quick capture's room), the chip is drawn outside the writing's scroller, in the
                 page's own layer, so it is never overflow there for the caret to scroll the words away to (main.css). */}
-            {leftover && !editing && !started && (pill && window.api.room.left ? createPortal(<div data-leftover-row className="px-[4.75rem] pt-1.5">
+            {leftover && !editing && !started && (pill && window.api.room.left ? createPortal(<div data-leftover-row className="flex items-center px-[4.75rem] pt-1.5">
                 {/* No tip: its own words say what it is and what a click does, and a tip over it was a second surface. */}
                   <button type="button" data-leftover onMouseDown={(event) => event.preventDefault()} onClick={leftoverBack}
                     className="inline-flex max-w-full cursor-pointer items-center gap-1.5 rounded-full bg-accent/60 px-2.5 py-0.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground active:scale-[0.97]">
@@ -2191,7 +2191,7 @@ export default function App(): React.JSX.Element {
                     <X className="size-3.5" />
                   </button>
               </div>, document.body) : (
-              <div data-leftover-row className="px-[4.75rem] pt-1.5">
+              <div data-leftover-row className="flex items-center px-[4.75rem] pt-1.5">
                 {/* No tip: its own words say what it is and what a click does, and a tip over it was a second surface. */}
                   <button type="button" data-leftover onMouseDown={(event) => event.preventDefault()} onClick={leftoverBack}
                     className="inline-flex max-w-full cursor-pointer items-center gap-1.5 rounded-full bg-accent/60 px-2.5 py-0.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground active:scale-[0.97]">
