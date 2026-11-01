@@ -115,3 +115,30 @@ export function useKept<T extends string>(key: 'tab' | 'focus', value: T, set: (
     if (mine) nav?.keep({ [key]: value === start ? undefined : value })
   }, [value]) // eslint-disable-line react-hooks/exhaustive-deps
 }
+
+/**
+ * A place inside a page that a person would call a place (Feed's Reading,
+ * Media's PDFs, a Settings section, a Review deck): moving to another is a
+ * step of its own, so Back, Forward, the mouse's side buttons and a relaunch
+ * all find it. The place a page opens on is written into the step it opened
+ * on, never a step of its own.
+ */
+export function useStepped<T extends string>(value: T, set: (value: T) => void): void {
+  const nav = useNav()
+  // Only from this page's own steps, as useKept.
+  const page = useRef(nav?.here.id)
+  const mine = nav?.here.id === page.current
+  const held = mine ? (nav?.here.tab as T | undefined) : undefined
+  // Back, Forward or a relaunch brought another place: show it.
+  useEffect(() => {
+    if (held !== undefined && held !== value) set(held)
+  }, [held]) // eslint-disable-line react-hooks/exhaustive-deps
+  const said = useRef<T | null>(null)
+  useEffect(() => {
+    if (!mine || !nav || said.current === value) return
+    const first = said.current === null
+    said.current = value
+    if (first) return void (held === undefined && nav.keep({ tab: value }))
+    nav.step({ tab: value })
+  }, [value]) // eslint-disable-line react-hooks/exhaustive-deps
+}

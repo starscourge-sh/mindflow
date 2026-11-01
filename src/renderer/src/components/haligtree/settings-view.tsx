@@ -7,6 +7,7 @@ import iconGold from '@/assets/app-icon/gold.png'
 import { WorkdaySample } from './week-fit'
 import { lengthSaid } from '../../../../main/day-load'
 import { createContext, useContext, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { useStepped } from '@/lib/nav'
 import { PACKS, SCAPES, TICKS, scapeSample, type Scape, chime, click, setVolume, soundOn, step, tickSample, type PackName, type TickSound } from '@/lib/sound'
 import { NOTE_FONTS } from '@/lib/editor-setup'
 import { CalendarDays, Check, FolderPlus, Image as ImageIcon, Keyboard, Pin, Play, RotateCcw, Shuffle, Star, type LucideIcon } from 'lucide-react'
@@ -457,10 +458,8 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
       return SECTIONS[0].title
     }
   })
-  const setSection = (title: string): void => {
-    if (title === section) return
-    // Each section has its own note, so moving down the list is a scale.
-    step(SECTIONS.findIndex((one) => one.title === title))
+  // Back and Forward bring a section with their own sound; a click or key plays its note too.
+  const showSection = (title: string): void => {
     setSectionState(title)
     if (scroller) scroller.scrollTop = 0
     try {
@@ -469,6 +468,13 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
       // Not remembered, but still shown.
     }
   }
+  const setSection = (title: string): void => {
+    if (title === section) return
+    // Each section has its own note, so moving down the list is a scale.
+    step(SECTIONS.findIndex((one) => one.title === title))
+    showSection(title)
+  }
+  useStepped(section, showSection)
   const [scroller, setScroller] = useState<HTMLDivElement | null>(null)
   useSmooth(scroller)
   // Split, only the pane in front answers keys.

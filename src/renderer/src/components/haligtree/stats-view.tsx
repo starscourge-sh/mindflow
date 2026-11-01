@@ -20,6 +20,7 @@ import { PracticeStats } from './practices-view'
 import { PageContents } from './page-contents'
 import { Chips } from './display'
 import { ReadsIn } from '@/lib/reads-in'
+import { useStepped } from '@/lib/nav'
 import { UsageSections } from './usage-stats'
 import { dayjs, monthName, num, plural } from '../../../../main/dates'
 
@@ -87,6 +88,7 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
   const [recap, setRecap] = useState<'month' | 'year' | 'cards' | null>(asked === 'month' || asked === 'year' ? asked : asked === 'yourmonth' ? 'cards' : null)
   // Which page of Stats: the few parts that matter most, or the rest by the month or the year. Asked for a recap, its page.
   const [part, setPart] = useState<Part>(asked === 'month' || asked === 'year' ? asked : asked === 'yourmonth' ? 'month' : 'now')
+  useStepped(part, setPart)
   const wrap = (period: 'month' | 'year' | 'cards'): void => {
     chime('slide')
     setRecap(period)

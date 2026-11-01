@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useStepped } from '@/lib/nav'
 import { hoverNote, hoverThought } from './note-preview'
 import { ArrowLeft, ArrowUpRight, Check, FileText, Heart, CornerDownRight, EyeOff, ImageDown, MessageCircle, Repeat2, RefreshCcw, Share, Trash2, X } from 'lucide-react'
 
@@ -241,6 +242,7 @@ export const showLiked = (): void => void window.dispatchEvent(new CustomEvent('
 export function FeedView({ onOpen, focus }: { onOpen: (type: string, id: string) => void; /** ":liked" opens on Liked (⌘K). */ focus?: string }): React.JSX.Element {
   const [tab, setTab] = useState<FeedTab>(() => (focus === ':liked' ? 'liked' : keptTab()))
   useEffect(() => void (focus === ':liked' && setTab('liked')), [focus])
+  useStepped(tab, setTab)
   useEffect(() => {
     const liked = (): void => setTab('liked')
     window.addEventListener('haligtree:feed-liked', liked)

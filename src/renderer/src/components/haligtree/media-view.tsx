@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useStepped } from '@/lib/nav'
 import { AudioLines, Image as ImageIcon, ImagePlay, Layers, Pause } from 'lucide-react'
 import { FileText, Play } from '@/components/ui/icons'
 import { call, unloaded, useLive } from '@/lib/haligtree'
@@ -38,6 +39,7 @@ export function MediaView({ onOpen }: { onOpen: (type: string, id: string) => vo
   const all = useLive(readMedia, [] as Media[])
   const [query, setQuery] = useState('')
   const [kind, setKind] = useState<'all' | MediaKind>('all')
+  useStepped(kind, setKind)
   // A shared deck's pictures (hundreds of paintings) wait under their own chip, so the book's own stay in view.
   const [decks, setDecks] = useState(false)
   const anyDeck = all.some((one) => one.deck)
