@@ -64,10 +64,27 @@ const untilHint = async () => {
     await reopen()
     if (await page.waitForSelector('[data-hint-words]', { timeout: 2500 }).catch(() => null)) return true
   }
+  // Why none came, for the log.
+  console.log('no hint:', JSON.stringify(await page.evaluate(() => ({ focus: document.documentElement.dataset.focus, lesson: document.documentElement.hasAttribute('data-welcome-ph'), side: document.documentElement.dataset.hintSide ?? null, room: document.querySelector('[data-hint-room]')?.outerHTML.slice(0, 160) ?? null, pill: !!document.querySelector('.app-container[data-pill]') }))))
   return false
 }
-/** The box put at a spot on its screen (as if dragged there), kept for the next open. */
-const putBox = (spot) => c.electron.evaluate(({ BrowserWindow, screen }, spot) => {
+/**
+ * The box put at a spot on its screen (as if dragged there), kept for the next open. Said twice, a beat apart, and
+ * read back: a glide still landing (the box fitting its words) lands on its own target and would undo the first.
+ */
+const putBox = async (spot) => {
+  // Moved while it is away, the box is not kept there: it comes back where it was last put away (main's lastBounds,
+  // read at hide). A filmed shape ends with the box away, so it is opened first, as a person drags an open box.
+  if (!(await c.electron.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find((w) => w.webContents.getURL().includes('/index.html'))?.isVisible()))) {
+    await page.evaluate(() => window.api.showPrompt()); await wait(1400)
+  }
+  const first = await placeBox(spot)
+  await wait(400)
+  const asked = await placeBox(spot)
+  const landed = await screenCard()
+  return { ...asked, held: landed.x === asked.x && landed.y === asked.y, first }
+}
+const placeBox = (spot) => c.electron.evaluate(({ BrowserWindow, screen }, spot) => {
   const box = BrowserWindow.getAllWindows().find((w) => !w.isDestroyed() && w.webContents.getURL().includes('/index.html'))
   if (!box) return
   const at = box.getBounds()
@@ -75,6 +92,7 @@ const putBox = (spot) => c.electron.evaluate(({ BrowserWindow, screen }, spot) =
   const x = spot === 'left' ? area.x + 20 : spot === 'right' ? area.x + area.width - at.width - 20 : Math.round(area.x + (area.width - at.width) / 2)
   const y = spot === 'low' ? area.y + 300 : area.y + 60
   box.setPosition(x, y)
+  return { x, y }
 }, spot)
 const theme = (look) => page.evaluate((n) => (localStorage.setItem('theme', n), window.dispatchEvent(new StorageEvent('storage', { key: 'theme' }))), look === 'light' ? 'paper' : 'dark')
 /** A frame every 50ms for `ms`, while `act` runs. */
@@ -184,12 +202,12 @@ try {
   await shape('box-low')
 
   // Near the left edge of the screen at the top: the hint goes to the right.
-  await putBox('left'); await reopen()
-  const left = await hint()
+  const askedLeft = await putBox('left'); await reopen()
+  const left = { ...(await hint()), asked: askedLeft, landed: await screenCard() }
   check('the box at the top left of the screen: the hint beside it on the right', seen(left) && left.side === 'right' && left.left >= left.card[2] + 8 && left.inWindow, JSON.stringify(left))
   await shape('box-top-left')
-  await putBox('right'); await reopen()
-  const right = await hint()
+  const askedRight = await putBox('right'); await reopen()
+  const right = { ...(await hint()), asked: askedRight, landed: await screenCard() }
   check('the box at the top right of the screen: the hint beside it on the left', seen(right) && right.side === 'left' && right.right <= right.card[0] - 8 && right.inWindow, JSON.stringify(right))
   await shape('box-top-right')
   await putBox('middle')
