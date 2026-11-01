@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ArrowUpRight, MessageCircle, Repeat2 } from 'lucide-react'
 
 import { call, unloaded, unread, useLive } from '@/lib/haligtree'
@@ -13,8 +13,7 @@ import { openGloss } from './gloss-line'
 import { GroupIcon } from './kept-groups'
 import { TagIcon } from './tag-icon'
 import { ReadThrough } from './read-through'
-import { Restack, TabChips } from './feed-view'
-import { FeedShelves } from './feed-shelves'
+import { FeedHeading, Restack, SideColumn, TabChips } from './feed-view'
 import { ReadLaterButton, ReadLaterLabelled, useReadLater } from './read-later'
 
 /**
@@ -24,7 +23,9 @@ import { ReadLaterButton, ReadLaterLabelled, useReadLater } from './read-later'
  * and one a day is "Today's read".
  */
 const readReading = (): Promise<Reading> => call<Reading>('feed:reading')
-const NO_READING = unread<Reading>({ day: '', today: null, pages: [], safe: false, shelves: [] })
+const NO_READING = unread<Reading>({ day: '', today: null, pages: [], safe: false })
+/** Rows drawn at a time: the next lot once the foot of the list comes near, as Liked reads its likes. */
+const PAGE = 30
 
 type Shelf = 'all' | 'unread' | 'saved' | 'history'
 type Order = 'priority' | 'newest'
@@ -77,6 +78,18 @@ export function FeedReading({ tabs, onOpen }: { tabs: React.ReactNode; onOpen: (
   })()
   // Today's read stands over the list on "All", once.
   const rows = on === 'all' && today ? list.filter((one) => one.id !== today.id) : list
+  // Drawn a page at a time, so hundreds of Pages cost no more to open than thirty.
+  const [drawn, setDrawn] = useState(PAGE)
+  useEffect(() => setDrawn(PAGE), [on, order])
+  const foot = useRef<HTMLDivElement>(null)
+  const more = rows.length > drawn
+  useEffect(() => {
+    const end = foot.current
+    if (!end || !more) return
+    const watch = new IntersectionObserver(([one]) => one?.isIntersecting && setDrawn((n) => n + PAGE), { rootMargin: '600px 0px' })
+    watch.observe(end)
+    return () => watch.disconnect()
+  }, [more, drawn])
   const reader = reading.pages.find((one) => one.id === open)
   const read = (page: ReadingPage): void => {
     // Opened here counts as read, as opening it anywhere does.
@@ -88,14 +101,15 @@ export function FeedReading({ tabs, onOpen }: { tabs: React.ReactNode; onOpen: (
   const close = (): void => (setOpen(null), setLine(null))
   return (
     <Page title="Feed" waiting={unloaded(read0)} count={reading.pages.length || undefined} unit={['page to read', 'pages to read']}>
-      <div data-feed data-feed-reading className="flex flex-col px-5 pt-[33px] pb-16">
+      <div data-feed data-feed-reading className="flex items-start gap-8 px-5 pt-[33px] pb-16">
+      <div className="flex min-w-0 flex-1 flex-col">
         {tabs}
         {reading.safe ? (
           <p data-feed-safe className="py-10 text-body text-foreground"><strong className="font-semibold">Safe mode is on</strong>, so Reading rests until you turn it off.</p>
         ) : !reading.pages.length ? (
           <p data-reading-empty className="py-10 text-body text-foreground">Nothing to read yet. Write a Page and it comes back to you here.</p>
         ) : (
-          <div className="flex max-w-[44rem] flex-col">
+          <div className="flex flex-col">
             {/* The shelves on the left, the order on the right: each in its own fixed place. */}
             <div className="mb-4 flex items-center gap-3">
               <TabChips name="reading" tabs={shelves} value={on} onChange={(next) => (setShelf(next), keep(SHELF, next))} />
@@ -105,22 +119,28 @@ export function FeedReading({ tabs, onOpen }: { tabs: React.ReactNode; onOpen: (
               )}
             </div>
             {on === 'all' && today && (
-              <section data-reading-today className="mb-2 border-b pb-2">
-                <p className="mb-1 text-control font-semibold text-foreground">Today's read</p>
+              <section data-reading-today className="mb-2">
+                <FeedHeading>Today's read</FeedHeading>
                 <Row page={today} big onRead={() => read(today)} />
               </section>
             )}
-            {/* Rows of your own notes, each from one source or like one you liked, between Today's read and the list. */}
-            {on === 'all' && <FeedShelves shelves={reading.shelves} onOpen={onOpen} />}
+            {on === 'all' && today && rows.length > 0 && <FeedHeading>More to read</FeedHeading>}
             {rows.length ? (
-              <ol className="flex flex-col">
-                {rows.map((page) => <li key={page.id} className="border-b last:border-b-0"><Row page={page} onRead={() => read(page)} /></li>)}
-              </ol>
+              <>
+                <ol className="flex flex-col">
+                  {rows.slice(0, drawn).map((page) => <li key={page.id} className="border-b last:border-b-0"><Row page={page} onRead={() => read(page)} /></li>)}
+                </ol>
+                <div ref={foot} data-reading-foot={more ? 'more' : 'end'} className="flex justify-center py-10 text-body text-muted-foreground">
+                  {more ? 'Loading more…' : rows.length > PAGE ? `That is all ${num(rows.length)}.` : null}
+                </div>
+              </>
             ) : (
               <p data-reading-none className="py-8 text-body text-foreground">{on === 'history' ? 'Nothing read lately. Pages you open show here, the newest first.' : on === 'saved' ? 'Nothing saved.' : 'All read. Every Page has been opened in the last 90 days.'}</p>
             )}
           </div>
         )}
+      </div>
+      {!reading.safe && reading.pages.length > 0 && <SideColumn onOpen={onOpen} />}
       </div>
       {reader && (
         <ReadThrough key={reader.id} items={[{ type: 'article', id: reader.id }]} onClose={close}
@@ -184,8 +204,8 @@ function Row({ page, big = false, onRead }: { page: ReadingPage; big?: boolean; 
             <span className="truncate font-medium text-foreground/80">{page.from.kind === 'tag' ? `#${page.from.name}` : page.from.name}</span>
           </span>
         )}
-        <span data-reading-title className={cn('font-heading font-semibold tracking-[-0.01em] text-balance text-foreground group-hover:underline group-hover:decoration-foreground/30 group-hover:underline-offset-4', big ? 'text-[1.375rem] leading-tight' : 'text-[1.0625rem] leading-snug')}>{page.title}</span>
-        {page.dek && <span data-reading-dek className={cn('font-serif text-muted-foreground', big ? 'line-clamp-3 text-[1.0625rem] leading-relaxed' : 'line-clamp-2 text-body leading-relaxed')}>{page.dek}</span>}
+        <span data-reading-title className={cn('font-heading font-semibold tracking-[-0.01em] text-balance text-foreground group-hover:underline group-hover:decoration-foreground/30 group-hover:underline-offset-4', big ? 'text-title' : 'text-reading')}>{page.title}</span>
+        {page.dek && <span data-reading-dek className={cn('font-serif text-muted-foreground', big ? 'line-clamp-3 text-reading' : 'line-clamp-2 text-body leading-relaxed')}>{page.dek}</span>}
         <span className="mt-0.5 flex items-center gap-1.5 text-control text-muted-foreground tabular-nums">
           <span data-reading-minutes>{num(page.minutes)} min read</span>
           <span aria-hidden>·</span>

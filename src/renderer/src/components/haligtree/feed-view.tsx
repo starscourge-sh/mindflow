@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { hoverNote, hoverThought } from './note-preview'
-import { ArrowLeft, ArrowUpRight, Check, Heart, CornerDownRight, EyeOff, ImageDown, MessageCircle, Repeat2, RefreshCcw, Share, Trash2, X } from 'lucide-react'
+import { ArrowLeft, ArrowUpRight, Check, FileText, Heart, CornerDownRight, EyeOff, ImageDown, MessageCircle, Repeat2, RefreshCcw, Share, Trash2, X } from 'lucide-react'
 
 import { call, haligtree, splitTags, unloaded, unread, useLive, type Gloss } from '@/lib/haligtree'
 import { thumbsRead, useThumb } from '@/lib/notes'
@@ -12,7 +12,7 @@ import type { Feed, FeedPost, FeedSide, PollAnswer, Reaction } from '../../../..
 import { useGrades } from './review-view'
 import { backIn } from '@/lib/back-in'
 import { openSource, sources, type SourceSummary } from '@/lib/sources'
-import { Kbd, Page, Tip, jumpTo, openTag, quietly, toast } from './ui'
+import { Kbd, Page, Tip, jumpTo, openTag, quietly, toast, typing } from './ui'
 import { Switch } from '@/components/ui/switch'
 import { Avatar } from './avatar'
 import { GlossLine, cutWords, openGloss } from './gloss-line'
@@ -23,12 +23,14 @@ import { moveToBin } from '@/lib/to-bin'
 import { motion } from 'motion/react'
 import { GoalPreview, ReadyMoment, useReady } from './goal-preview'
 import { FeedReading } from './feed-reading'
-import { QueuedProvider, ReadLaterButton } from './read-later'
+import { QueuedProvider, ReadLaterLabelled } from './read-later'
 import { drawCard, xText, type CardPost } from '@/lib/feed-card'
 import { LOOKABLE, lookAtPicture } from '@/components/image/image-look'
 import { openAside } from '@/lib/split'
 import { FeedLiked } from './feed-liked'
 import { RowMenu } from './row-menu'
+import { useHere } from '@/lib/split'
+import { followPdfLink } from '@/components/pdf/pdf-reader'
 
 /**
  * The Feed: the day's twenty or so of your own things, as posts in a
@@ -93,6 +95,14 @@ const repliesSaid = (post: FeedPost): string | null => {
   const months = dayjs().diff(dayjs(post.firstReply), 'month')
   return years > 1 ? `${n} · over ${years} years` : months >= 2 ? `${n} · over ${months} months` : n
 }
+
+/** A post's place in the day's list, and whether the J/K cursor is on it. */
+type Mark = { at: number; cursor: boolean; onPoint: () => void }
+/** The cursor's ring round a post: drawn behind it and out past its edges, so nothing in the post moves. */
+const CursorRing = ({ on }: { on: boolean }): React.JSX.Element | null =>
+  on ? <span aria-hidden data-feed-cursor className="pointer-events-none absolute inset-y-0 -inset-x-3 -z-10 rounded-lg bg-accent/30 ring-1 ring-foreground/10" /> : null
+/** What ⌘Z takes back in the Feed: the last quiz card graded, as Review's ⌘Z takes back its last grade. */
+const quizUndo: { current: (() => void) | null } = { current: null }
 
 /** Each post's picture's width over its height, once seen. */
 const SHAPES = new Map<string, number>()
@@ -319,13 +329,58 @@ function FeedNotes({ onOpen, tabs, pages }: { onOpen: (type: string, id: string)
   })
   const shown = thread ? feed.posts.find((post) => `${post.type}:${post.id}` === thread) : undefined
   const counts = feed.posts.reduce<Record<string, number>>((all, post) => ({ ...all, [kindWord(post)]: (all[kindWord(post)] ?? 0) + 1 }), {})
-  const said = Object.entries(counts).map(([word, n]) => `${num(n)} ${word === 'Journal' ? (n === 1 ? 'Journal day' : 'Journal days') : n === 1 ? word.toLowerCase() : `${word.toLowerCase()}s`}`)
-  const summary = said.length > 1 ? `${said.slice(0, -1).join(', ')} and ${said.at(-1)}` : said[0]
   // The line says what the day holds, the three kinds it has most of: "8 gems, 5 quotes, 4 notes and 7 more".
   const most = Object.entries(counts).sort((a, b) => b[1] - a[1])
   const top = most.slice(0, 3).map(([word, n]) => `${num(n)} ${word === 'Journal' ? (n === 1 ? 'Journal day' : 'Journal days') : n === 1 ? word.toLowerCase() : `${word.toLowerCase()}s`}`)
   const rest = most.slice(3).reduce((sum, [, n]) => sum + n, 0)
-  const holds = feed.posts.length && !feed.safe && !preview ? `${top.join(', ')}${rest ? ` and ${num(rest)} more` : ''}` : null
+  const listed = rest ? `${top.join(', ')} and ${num(rest)} more` : top.length > 1 ? `${top.slice(0, -1).join(', ')} and ${top.at(-1)}` : (top[0] ?? '')
+  const holds = feed.posts.length && !feed.safe && !preview ? listed : null
+  // J and K move a cursor between posts, L likes, R replies, Enter opens; on a quiz card, Space shows the answer and 1 to 4 grade it, as in Review.
+  const [cursor, setCursor] = useState(-1)
+  const here = useHere()
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent): void => {
+      if (thread || !here() || !feed.posts.length || typing() || event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) return
+      if (document.querySelector('[role="dialog"], [role="menu"]')) return
+      const by = event.code === 'KeyJ' || event.key === 'ArrowDown' ? 1 : event.code === 'KeyK' || event.key === 'ArrowUp' ? -1 : 0
+      if (by) {
+        event.preventDefault()
+        const next = Math.max(0, Math.min(feed.posts.length - 1, cursor + by))
+        setCursor(next)
+        root.current?.querySelector(`[data-feed-at="${next}"]`)?.scrollIntoView({ block: 'nearest' })
+        return
+      }
+      const post = feed.posts[cursor]
+      const node = root.current?.querySelector<HTMLElement>(`[data-feed-at="${cursor}"]`)
+      if (!post || !node) return
+      const press = (what: string): void => (event.preventDefault(), node.querySelector<HTMLElement>(what)?.click())
+      if (post.quiz) {
+        if (event.key === ' ') press('[data-feed-quiz-show]')
+        else if (['1', '2', '3', '4'].includes(event.key)) press(`[data-feed-grade="${event.key}"]`)
+        else if (event.key === 'Enter' && !(event.target as HTMLElement | null)?.closest?.('button, a, [role="link"]')) (event.preventDefault(), open('nugget', post.id))
+        return
+      }
+      if (post.poll) return
+      if (event.code === 'KeyL') press('[data-feed-reaction="like"]')
+      else if (event.code === 'KeyR') (event.preventDefault(), openGloss(post.id))
+      else if (event.key === 'Enter' && !(event.target as HTMLElement | null)?.closest?.('button, a, [role="link"]')) (event.preventDefault(), open(post.type, post.id))
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  })
+  // ⌘Z: the last quiz card graded here taken back, as Review's ⌘Z takes back its last grade.
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent): void => {
+      if (!event.metaKey || event.shiftKey || event.key !== 'z' || typing() || !here() || !quizUndo.current) return
+      event.preventDefault()
+      event.stopPropagation()
+      const undo = quizUndo.current
+      quizUndo.current = null
+      undo()
+    }
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
+  })
   return (
     <Page title="Feed" waiting={unloaded(feed) || real === null} lead={holds ? <span data-feed-holds className="truncate text-control text-muted-foreground">{holds}</span> : undefined}>
       <div ref={root} data-feed className="flex items-start gap-8 px-5 pt-[33px] pb-16">
@@ -347,19 +402,22 @@ function FeedNotes({ onOpen, tabs, pages }: { onOpen: (type: string, id: string)
           <>
             {moment && <ReadyMoment said="Your Feed is ready" more="Each day it brings back about twenty of your own things, longest unseen first. A new set comes every morning." />}
             <ol className="flex flex-col">
-              {feed.posts.map((post) => post.poll ? <PollPost key={`poll:${post.id}`} post={post} onOpen={() => open(post.poll!.open.type, post.poll!.open.id)} />
-                : post.quiz ? <QuizPost key={`quiz:${post.id}`} post={post} onOpen={() => open('nugget', post.id)} />
-                : <Post key={`${post.type}:${post.id}`} post={post} onOpen={() => open(post.type, post.id)} onOpenOther={open} onThread={() => openThread(post)} />)}
+              {feed.posts.map((post, at) => {
+                const mark = { at, cursor: at === cursor, onPoint: () => setCursor(at) }
+                return post.poll ? <PollPost key={`poll:${post.id}`} post={post} mark={mark} onOpen={() => open(post.poll!.open.type, post.poll!.open.id)} />
+                  : post.quiz ? <QuizPost key={`quiz:${post.id}`} post={post} mark={mark} onOpen={() => open('nugget', post.id)} />
+                  : <Post key={`${post.type}:${post.id}`} post={post} mark={mark} onOpen={() => open(post.type, post.id)} onOpenOther={open} onThread={() => openThread(post)} />
+              })}
             </ol>
             <footer ref={endRef} data-feed-end className="flex flex-col items-center gap-1.5 py-12 text-center">
-              <p className="font-heading text-[1.25rem] font-semibold tracking-[-0.01em] text-foreground">You're all caught up</p>
-              <p className="max-w-[44ch] text-body text-foreground/85">{summary} came up today.</p>
+              <p className="font-heading text-lead font-semibold tracking-[-0.01em] text-foreground">You're all caught up</p>
+              <p data-feed-summary className="max-w-[44ch] text-body text-foreground/85">{listed} came up today.</p>
               <p data-feed-next className="text-body text-muted-foreground">A new set in {until}.</p>
             </footer>
           </>
         )}
       </div>
-      {!feed.safe && !preview && feed.posts.length > 0 && <SideColumn />}
+      {!feed.safe && !preview && feed.posts.length > 0 && <SideColumn onOpen={onOpen} />}
       </div>
     </Page>
   )
@@ -387,7 +445,7 @@ function Thread({ post, onBack, onOpen, onOpenOther }: { post: FeedPost; onBack:
             <ArrowLeft className="size-[18px]" />
           </button>
         </Tip>
-        <p className="font-heading text-[1.0625rem] font-semibold text-foreground">Post</p>
+        <p className="font-heading text-reading font-semibold text-foreground">Post</p>
       </div>
       <ol className="flex flex-col">
         <Post post={post} onOpen={onOpen} onOpenOther={onOpenOther} alone joined={thread.length > 0} />
@@ -415,8 +473,10 @@ function Thread({ post, onBack, onOpen, onOpenOther }: { post: FeedPost; onBack:
   )
 }
 
-export function Post({ post, onOpen, onOpenOther, onThread, alone = false, joined = false, preview = false, likedLine, onUnlike }: {
+export function Post({ post, onOpen, onOpenOther, onThread, alone = false, joined = false, preview = false, likedLine, onUnlike, mark }: {
   post: FeedPost
+  /** In Notes: its place, and the J/K cursor. */
+  mark?: Mark
   onOpen: () => void
   onOpenOther: (type: string, id: string) => void
   onThread?: () => void
@@ -451,7 +511,8 @@ export function Post({ post, onOpen, onOpenOther, onThread, alone = false, joine
   const [restacking, setRestacking] = useState(false)
   const [binned, setBinned] = useState(false)
   const self = useRef<HTMLLIElement>(null)
-  const words = quote ? post.text || post.title : post.text
+  // A quote's link back is said once, on its own line under it, not again at the foot of its words.
+  const words = quote ? (post.from ? (post.text || post.title).split('\n').filter((line) => line.trim().replace(/, p\. \d+$/, '') !== post.from!.name).join('\n') : post.text || post.title) : post.text
   const link = post.type === 'capture' ? post.id : `${post.type === 'question' ? 'nugget' : post.type}:${post.id}`
   // What is not worth a glance on every post waits in ⋯: the reactions after "Still true", then Open and Copy link.
   const reaction = (value: Reaction): MenuItem => {
@@ -465,6 +526,8 @@ export function Post({ post, onOpen, onOpenOther, onThread, alone = false, joine
     'separator',
     { id: 'open', label: 'Open', icon: <ArrowUpRight className="size-4" />, run: onOpen },
     copyLinkItem(link, post.type === 'day' ? dayLinkName(post.id) : post.title),
+    // The heart's right-click menu's way to Liked, here too, where it can be found.
+    !onUnlike && { id: 'see-liked', label: 'See everything you liked', hint: 'Liked, in the Feed', icon: <Heart className="size-4" />, run: () => (chime('page'), showLiked()) },
     // The Feed never shows a private note, so every post here may be a picture.
     'separator',
     { id: 'save-image', label: 'Save as image', hint: 'A picture of this post, in the current theme', icon: <ImageDown className="size-4" />, run: () => void saveImage() },
@@ -525,8 +588,9 @@ export function Post({ post, onOpen, onOpenOther, onThread, alone = false, joine
 
   return (
     // Carried to the window's side, it opens beside the Feed (split-drop.tsx).
-    <li ref={self} data-drag-open={preview ? undefined : `${post.type}:${post.id}`} data-drag-title={title} data-look-group data-feed-post={post.type} data-feed-id={post.id} data-feed-archive={post.archive || undefined} data-feed-kind={post.kind} data-feed-react={chosen ?? undefined}
-      className={cn('flex flex-col gap-1 py-4 transition-opacity duration-300 first:pt-0', !alone && 'border-b last:border-b-0', alone && joined && 'pb-3', chosen === 'less' && 'opacity-45 hover:opacity-80 has-[:focus-visible]:opacity-100')}>
+    <li ref={self} data-feed-at={mark?.at} onPointerDown={mark?.onPoint} data-drag-open={preview ? undefined : `${post.type}:${post.id}`} data-drag-title={title} data-look-group data-feed-post={post.type} data-feed-id={post.id} data-feed-archive={post.archive || undefined} data-feed-kind={post.kind} data-feed-react={chosen ?? undefined}
+      className={cn('relative isolate flex flex-col gap-1 py-4 transition-opacity duration-300 first:pt-0', !alone && 'border-b last:border-b-0', alone && joined && 'pb-3', chosen === 'less' && 'opacity-45 hover:opacity-80 has-[:focus-visible]:opacity-100')}>
+      <CursorRing on={!!mark?.cursor} />
       {context && <p data-feed-context className="flex items-center gap-1.5 pl-12 text-control text-muted-foreground">{post.restack && <Repeat2 className="size-3.5" />}{context}
         {post.unlinked && !preview && <button type="button" data-feed-unlinked onClick={onOpen} className="rounded-sm font-medium text-primary underline-offset-2 hover:underline">Open it</button>}</p>}
       <div className="flex gap-3">
@@ -566,8 +630,17 @@ export function Post({ post, onOpen, onOpenOther, onThread, alone = false, joine
               onClick={(event) => !(event.target as HTMLElement).closest('a, button') && window.getSelection()?.isCollapsed !== false && onOpen()}
               onKeyDown={(event) => event.key === 'Enter' && (event.preventDefault(), onOpen())}
               className="cursor-pointer rounded-lg border bg-accent/25 px-4 py-3 transition-colors hover:border-foreground/20 hover:bg-accent/40 focus-visible:outline-2 focus-visible:outline-ring">
-              <blockquote className="font-serif text-[1.0625rem] leading-relaxed whitespace-pre-line [overflow-wrap:anywhere] text-foreground line-clamp-[10]"><Linked text={words} links={post.links} onOpen={onOpenOther} /></blockquote>
+              <blockquote className="font-serif text-reading whitespace-pre-line [overflow-wrap:anywhere] text-foreground line-clamp-[10]"><Linked text={words} links={post.links} onOpen={onOpenOther} /></blockquote>
               {post.who && <figcaption data-feed-author className="mt-2 text-control font-medium text-foreground/80"><span {...hoverNote('person', post.who)}>{post.who}</span></figcaption>}
+              {/* The page or PDF it came from, at its page: one click opens it there. */}
+              {post.from && (
+                <button type="button" data-feed-from={post.from.href} data-feed-from-page={post.from.page ?? undefined} onClick={() => (chime('open'), followPdfLink(post.from!.href))}
+                  className="mt-1.5 flex max-w-full items-center gap-1.5 rounded-sm text-control text-muted-foreground underline-offset-2 hover:text-foreground hover:underline">
+                  <FileText className="size-3.5 shrink-0" />
+                  <span className="truncate">{post.from.name}</span>
+                  {post.from.page && <span className="shrink-0 whitespace-nowrap tabular-nums">· p. {num(post.from.page)}</span>}
+                </button>
+              )}
             </figure>
           ) : (
             <>
@@ -647,7 +720,7 @@ export function Post({ post, onOpen, onOpenOther, onThread, alone = false, joine
                 <Repeat2 className="size-4 shrink-0" /> Restack
               </button>
             </Tip>
-            {post.type !== 'day' && post.type !== 'poll' && post.type !== 'quiz' && <ReadLaterButton id={post.id} />}
+            {post.type !== 'day' && post.type !== 'poll' && post.type !== 'quiz' && <ReadLaterLabelled id={post.id} />}
             {/* The like, where the thumb looks for it (a Journal day too: liked, it comes back sooner); the rest are in ⋯. Chosen, it fills in red and nothing moves. */}
             {/* Right-clicked, the heart's own menu: like or unlike, and every post you liked. */}
             <RowMenu items={[{ id: 'like', label: chosen === 'like' ? 'Unlike' : 'Like', icon: <Heart className="size-4" />, run: () => (onUnlike ? onUnlike() : choose('like')) }, { id: 'see-liked', label: 'See everything you liked', hint: 'Liked, in the Feed', icon: <ArrowUpRight className="size-4" />, run: () => (chime('page'), showLiked()) }]}>
@@ -706,7 +779,7 @@ const answersSaid = (answers: Record<PollAnswer, number>): string =>
   POLL.filter((one) => answers[one.value]).map((one) => `${num(answers[one.value])} ${one.value}`).join(', ')
 
 /** A decision made weeks ago, asked again: "You chose it. Was it right?", and what you said kept on it as a dated thought. */
-function PollPost({ post, onOpen }: { post: FeedPost; onOpen: () => void }): React.JSX.Element {
+function PollPost({ post, onOpen, mark }: { post: FeedPost; onOpen: () => void; mark?: Mark }): React.JSX.Element {
   const poll = post.poll!
   const [answer, setAnswer] = useState<PollAnswer | null>(poll.answer)
   const [answers, setAnswers] = useState(poll.answers)
@@ -719,7 +792,8 @@ function PollPost({ post, onOpen }: { post: FeedPost; onOpen: () => void }): Rea
   }
   const total = answers.yes + answers.mixed + answers.no
   return (
-    <li data-feed-post="poll" data-feed-id={post.id} data-feed-answer={answer ?? undefined} className="flex flex-col gap-1 border-b py-4 first:pt-0 last:border-b-0">
+    <li data-feed-post="poll" data-feed-id={post.id} data-feed-at={mark?.at} onPointerDown={mark?.onPoint} data-feed-answer={answer ?? undefined} className="relative isolate flex flex-col gap-1 border-b py-4 first:pt-0 last:border-b-0">
+      <CursorRing on={!!mark?.cursor} />
       <div className="flex gap-3">
         <div className="flex w-9 shrink-0 flex-col items-center"><Avatar name="You" size={36} className="mt-0.5 shrink-0" /></div>
         <div className="flex min-w-0 flex-1 flex-col gap-2">
@@ -745,7 +819,7 @@ function PollPost({ post, onOpen }: { post: FeedPost; onOpen: () => void }): Rea
 }
 
 /** A Review card due, asked here: its question, "Show answer", then Review's own four grades, graded exactly as Review would. */
-function QuizPost({ post, onOpen }: { post: FeedPost; onOpen: () => void }): React.JSX.Element {
+function QuizPost({ post, onOpen, mark }: { post: FeedPost; onOpen: () => void; mark?: Mark }): React.JSX.Element {
   const quiz = post.quiz!
   const [shown, setShown] = useState(!!quiz.graded)
   const [graded, setGraded] = useState(quiz.graded)
@@ -755,15 +829,28 @@ function QuizPost({ post, onOpen }: { post: FeedPost; onOpen: () => void }): Rea
   const started = useRef(Date.now())
   const reveal = (): void => (chime('reveal'), setShown(true))
   const grade = (value: 1 | 2 | 3 | 4): void => {
-    if (graded) return
+    if (graded || !shown) return
     chime((['again', 'hard', 'good', 'easy'] as const)[value - 1])
     void haligtree.grade(post.id, value, Date.now() - started.current).then((due) => {
       setGraded({ grade: value, due })
       void call('feed:quiz', post.id, value, due)
+      quizUndo.current = undo
+    })
+  }
+  // Review's own undo: the grade taken back, the card as it was before, and the grades open again.
+  const undo = (): void => {
+    if (quizUndo.current === undo) quizUndo.current = null
+    void haligtree.ungrade(post.id).then((ok) => {
+      if (!ok) return toast('That card was graded somewhere else since, so it stays as it is', undefined, 'error')
+      chime('undo')
+      setGraded(null)
+      started.current = Date.now()
+      void call('feed:unquiz', post.id)
     })
   }
   return (
-    <li data-feed-post="quiz" data-feed-id={post.id} data-feed-graded={graded?.grade ?? undefined} className="flex flex-col gap-1 border-b py-4 first:pt-0 last:border-b-0">
+    <li data-feed-post="quiz" data-feed-id={post.id} data-feed-at={mark?.at} onPointerDown={mark?.onPoint} data-feed-graded={graded?.grade ?? undefined} className="relative isolate flex flex-col gap-1 border-b py-4 first:pt-0 last:border-b-0">
+      <CursorRing on={!!mark?.cursor} />
       <div className="flex gap-3">
         <div className="flex w-9 shrink-0 flex-col items-center"><Avatar name="You" size={36} className="mt-0.5 shrink-0" /></div>
         <div className="flex min-w-0 flex-1 flex-col gap-2">
@@ -780,14 +867,15 @@ function QuizPost({ post, onOpen }: { post: FeedPost; onOpen: () => void }): Rea
                       className={cn('flex min-h-12 w-full min-w-0 flex-col items-center justify-center rounded-md border px-2 py-1.5 text-control transition-colors disabled:opacity-40',
                         graded?.grade === value ? 'border-[color-mix(in_srgb,var(--tone)_60%,var(--border))] bg-[color-mix(in_srgb,var(--tone)_10%,transparent)]' : !graded && 'hover:border-[color-mix(in_srgb,var(--tone)_45%,var(--border))] hover:bg-[color-mix(in_srgb,var(--tone)_10%,transparent)]')}>
                       <span className="font-semibold" style={{ color: tone }}>{label}</span>
-                      <span className="max-w-full truncate text-xs text-muted-foreground tabular-nums">{backIn(intervals[value])}</span>
+                      <span className="max-w-full truncate text-meta text-muted-foreground tabular-nums">{backIn(intervals[value])}</span>
                     </button>
                   </Tip>
                 ))}
               </div>
               <p data-feed-quiz-said className="min-h-5 text-control text-muted-foreground">
                 {graded ? `Graded “${gradeName(graded.grade)}”, as Review would: back ${backIn(graded.due)}.` : 'How did it feel? It counts as a review.'}
-                {' '}<OpenLink onOpen={onOpen}>Open the card</OpenLink>
+                {' '}{graded && <><button type="button" data-undo-grade onClick={undo} className="rounded-sm text-control text-foreground/80 underline-offset-2 hover:text-foreground hover:underline">Undo “{gradeName(graded.grade)}”</button>{' '}</>}
+                <OpenLink onOpen={onOpen}>Open the card</OpenLink>
               </p>
             </>
           ) : (
@@ -852,7 +940,7 @@ function Quoted({ note, onOpen }: { note: NonNullable<FeedPost['restack']> | Res
         <span className="shrink-0 text-muted-foreground">{kindWord(note)}</span>
       </span>
       {quote ? (
-        <span className="line-clamp-4 font-serif text-[1rem] leading-relaxed text-foreground">{body}</span>
+        <span className="line-clamp-4 font-serif text-body leading-relaxed text-foreground">{body}</span>
       ) : (
         <>
           <span className="text-body font-semibold text-foreground">{splitTags(note.title).text || note.title}</span>
@@ -927,27 +1015,36 @@ const NO_SOURCES = unread<SourceSummary[]>([])
  * week. Each opens its page. Quiet: small words in the app's own islands,
  * inside the page's column, and gone wherever the posts would be squeezed.
  */
-function SideColumn(): React.JSX.Element | null {
+/** Faces shown before "All 40 sources". */
+const FACES = 8
+export function SideColumn({ onOpen }: { onOpen: (type: string, id: string) => void }): React.JSX.Element | null {
   const side = useLive(readSide, NO_SIDE, [], ['capture', 'item'], 'feed-side')
   const all = useLive(sources.list, NO_SOURCES, [], ['capture', 'item'])
   if (unloaded(side)) return null
-  const faces = all.filter((one) => one.field === 'attribution').sort((a, b) => b.count - a.count).slice(0, 8)
+  const people = all.filter((one) => one.field === 'attribution')
+  const faces = [...people].sort((a, b) => b.count - a.count || a.name.localeCompare(b.name)).slice(0, FACES)
   const go = (run: () => void): void => (chime('page'), run())
   const row = 'flex w-full min-w-0 items-center gap-2 rounded-md px-2 py-1.5 text-left text-control text-foreground transition-colors hover:bg-accent/60'
   return (
-    <aside data-feed-side aria-label="Beside the Feed" className="sticky top-[33px] mt-[3.25rem] hidden w-[15.5rem] shrink-0 flex-col gap-3 @[56rem]/page:flex">
+    // Never taller than the window: past that it scrolls on its own.
+    <aside data-feed-side aria-label="Beside the Feed" className="sticky top-[33px] mt-[3.25rem] hidden max-h-[calc(100dvh-8rem)] w-[15.5rem] shrink-0 flex-col gap-3 overflow-y-auto overscroll-contain @[56rem]/page:flex">
       {faces.length > 0 && (
         <SideCard name="sources" title="Your sources">
           <div className="flex flex-wrap gap-1.5 px-2 pt-0.5 pb-1.5">
+            {/* The face's hover card names it; no tip as well, so one thing shows at a time. */}
             {faces.map((one) => (
-              <Tip key={one.name} label={`${one.name}: ${num(one.count)} ${one.count === 1 ? 'note' : 'notes'}`}>
-                <button type="button" {...hoverNote('person', one.name)} data-feed-face={one.name} aria-label={`Open ${one.name}'s page`} onClick={() => go(() => openSource('attribution', one.name))}
-                  className="rounded-full ring-offset-2 ring-offset-background transition-transform duration-150 ease-(--mf-ease) hover:scale-[1.06] focus-visible:ring-2 focus-visible:ring-ring">
-                  <Avatar name={one.name} size={34} />
-                </button>
-              </Tip>
+              <button key={one.name} type="button" {...hoverNote('person', one.name)} data-feed-face={one.name} aria-label={`Open ${one.name}'s page, ${num(one.count)} ${one.count === 1 ? 'note' : 'notes'}`} onClick={() => go(() => openSource('attribution', one.name))}
+                className="rounded-full ring-offset-2 ring-offset-background transition-transform duration-150 ease-(--mf-ease) hover:scale-[1.06] focus-visible:ring-2 focus-visible:ring-ring">
+                <Avatar name={one.name} size={34} />
+              </button>
             ))}
           </div>
+          {people.length > FACES && (
+            <button type="button" data-feed-all-sources onClick={() => go(() => onOpen('view', 'sources'))} className={row}>
+              <span className="min-w-0 flex-1 truncate">All {num(people.length)} sources</span>
+              <ArrowUpRight className="size-3.5 shrink-0 text-muted-foreground" />
+            </button>
+          )}
         </SideCard>
       )}
       {side.quiet.length > 0 && (
@@ -956,7 +1053,7 @@ function SideColumn(): React.JSX.Element | null {
             <button key={`${one.kind}:${one.name}`} type="button" data-feed-quiet={one.kind} onClick={() => go(() => (one.kind === 'tag' ? openTag(one.name) : openSource('attribution', one.name)))} className={row}>
               {one.kind === 'tag' ? <span aria-hidden className="flex size-5 shrink-0 items-center justify-center text-muted-foreground">#</span> : <Avatar name={one.name} size={20} className="shrink-0" />}
               <span className="min-w-0 flex-1 truncate">{one.name}</span>
-              <span className="shrink-0 text-muted-foreground tabular-nums">{quietFor(one.last)}</span>
+              <span className="shrink-0 whitespace-nowrap text-muted-foreground tabular-nums">{quietFor(one.last)}</span>
             </button>
           ))}
         </SideCard>
@@ -967,13 +1064,18 @@ function SideColumn(): React.JSX.Element | null {
             <button key={one.tag} type="button" data-feed-week={one.tag} onClick={() => go(() => openTag(one.tag))} className={row}>
               <span aria-hidden className="flex size-5 shrink-0 items-center justify-center text-muted-foreground">#</span>
               <span className="min-w-0 flex-1 truncate">{one.tag}</span>
-              <span className="shrink-0 text-muted-foreground tabular-nums">{num(one.n)} {one.n === 1 ? 'note' : 'notes'}</span>
+              <span className="shrink-0 whitespace-nowrap text-muted-foreground tabular-nums">{num(one.n)} {one.n === 1 ? 'note' : 'notes'}</span>
             </button>
           ))}
         </SideCard>
       )}
     </aside>
   )
+}
+
+/** A section's heading in every Feed tab: Liked's months, Reading's "Today's read", one role, size and spacing. */
+export function FeedHeading({ children, ...rest }: { children: React.ReactNode } & React.HTMLAttributes<HTMLHeadingElement>): React.JSX.Element {
+  return <h2 {...rest} className="mt-6 mb-1 border-b pb-2 font-heading text-reading font-semibold tracking-[-0.01em] text-foreground first:mt-2">{children}</h2>
 }
 
 export function SideCard({ name, title, children }: { name: string; title: string; children: React.ReactNode }): React.JSX.Element {

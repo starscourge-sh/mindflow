@@ -12,7 +12,7 @@ import { RowMenu, copyLinkItem, type MenuItem } from './row-menu'
 import { Avatar } from './avatar'
 import { openSource } from '@/lib/sources'
 import { dayLinkName } from './day-view'
-import { Post, SideCard, kindWord, written } from './feed-view'
+import { FeedHeading, Post, SideCard, kindWord, written } from './feed-view'
 
 /**
  * Liked: every post you hearted in the Feed, newest like first, in the Feed's
@@ -143,7 +143,8 @@ export function FeedLiked({ tabs, onOpen }: { tabs: React.ReactNode; onOpen: (ty
   ]
 
   const waiting = posts === null || unloaded(side)
-  const lead = side.total ? <span data-liked-holds className="truncate text-control text-muted-foreground">{likesSaid(side.total)} on {num(side.notes)} {side.notes === 1 ? 'post' : 'posts'}</span> : undefined
+  // Always a line, so the tabs under it sit where Notes' and Reading's do.
+  const lead = <span data-liked-holds className="truncate text-control text-muted-foreground">{side.total ? `${likesSaid(side.total)} on ${num(side.notes)} ${side.notes === 1 ? 'post' : 'posts'}` : 'No likes yet'}</span>
   return (
     <Page title="Feed" waiting={waiting} lead={lead}>
       <div ref={root} data-feed-liked className="flex items-start gap-8 px-5 pt-[33px] pb-16">
@@ -166,7 +167,7 @@ export function FeedLiked({ tabs, onOpen }: { tabs: React.ReactNode; onOpen: (ty
                   const heading = at === 0 || groupOf(posts![at - 1].likedOn) !== group
                   return (
                     <li key={keyOf(post)} className="flex flex-col">
-                      {heading && <h2 data-liked-group={group} className="mt-6 mb-1 border-b pb-2 font-heading text-[1.0625rem] font-semibold tracking-[-0.01em] text-foreground first:mt-2">{group}</h2>}
+                      {heading && <FeedHeading data-liked-group={group}>{group}</FeedHeading>}
                       <RowMenu items={menuOf(post)}>
                         <div data-liked-row={at} data-liked-key={keyOf(post)} data-liked-day={post.likedOn} data-liked-focus={at === cursor || undefined}
                           onPointerDown={() => setCursor(at)}
@@ -265,7 +266,7 @@ function WeekStrip({ weeks, onWeek }: { weeks: LikedSide['weeks']; onWeek: (star
 function LikedSideColumn({ side, onOpen }: { side: LikedSide; onOpen: (post: LikedPost) => void }): React.JSX.Element {
   const row = 'flex w-full min-w-0 items-center gap-2 rounded-md px-2 py-1.5 text-left text-control text-foreground transition-colors hover:bg-accent/60'
   return (
-    <aside data-liked-side aria-label="Beside Liked" className="sticky top-[33px] mt-[3.25rem] hidden w-[15.5rem] shrink-0 flex-col gap-3 @[56rem]/page:flex">
+    <aside data-liked-side aria-label="Beside Liked" className="sticky top-[33px] mt-[3.25rem] hidden max-h-[calc(100dvh-8rem)] w-[15.5rem] shrink-0 flex-col gap-3 overflow-y-auto overscroll-contain @[56rem]/page:flex">
       {side.yearAgo.length > 0 && (
         <SideCard name="year-ago" title={side.yearAgoExact ? 'You liked a year ago today' : 'You liked a year ago this week'}>
           {side.yearAgo.map((post) => (
@@ -282,14 +283,14 @@ function LikedSideColumn({ side, onOpen }: { side: LikedSide; onOpen: (post: Lik
             <button key={one.tag} type="button" data-liked-tag={one.tag} onClick={() => (chime('page'), openTag(one.tag))} className={row}>
               <span aria-hidden className="flex size-5 shrink-0 items-center justify-center text-muted-foreground">#</span>
               <span className="min-w-0 flex-1 truncate">{one.tag}</span>
-              <span className="shrink-0 text-muted-foreground tabular-nums">{likesSaid(one.n)}</span>
+              <span className="shrink-0 whitespace-nowrap text-muted-foreground tabular-nums">{likesSaid(one.n)}</span>
             </button>
           ))}
           {side.sources.map((one) => (
             <button key={one.name} type="button" data-liked-source={one.name} onClick={() => (chime('page'), openSource('attribution', one.name))} className={row}>
               <Avatar name={one.name} size={20} className="shrink-0" />
               <span className="min-w-0 flex-1 truncate">{one.name}</span>
-              <span className="shrink-0 text-muted-foreground tabular-nums">{likesSaid(one.n)}</span>
+              <span className="shrink-0 whitespace-nowrap text-muted-foreground tabular-nums">{likesSaid(one.n)}</span>
             </button>
           ))}
         </SideCard>

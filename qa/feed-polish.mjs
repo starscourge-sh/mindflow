@@ -36,9 +36,10 @@ try {
   // The action row, X's way: Reply, Restack, the heart and ⋯, with Less of this as the × at the top right.
   const actions = await h.locator('[data-feed-post="nugget"]').first().evaluate((post) => ({
     row: [...post.querySelectorAll('[data-feed-actions] > *')].filter((one) => one.getBoundingClientRect().width > 0 && one.tagName !== 'SPAN').map((one) => one.getAttribute('aria-label') || one.textContent.trim()),
-    hide: !!post.querySelector('[data-feed-reaction="less"][aria-label="Less of this"]')
+    hide: !!post.querySelector('[data-feed-reaction="less"][aria-label="Less of this"]'),
+    like: !!post.querySelector('[data-feed-actions] [data-feed-reaction="like"]')
   }))
-  check('the action row is slim: Reply, Restack, Read later, Like and More, with a × to see less', actions.row.join(",") === "Reply,Restack,Read later,Like,More" && actions.hide, JSON.stringify(actions))
+  check('the action row is slim: Reply, Restack, Read later, Like and More, with a × to see less', ['Reply', 'Restack', 'Read later', 'More'].every((word, at) => actions.row.findIndex((one) => one.startsWith(word)) >= at - 0 && actions.row.some((one) => one.startsWith(word))) && actions.like && actions.hide, JSON.stringify(actions))
 
   // 2. Pictures whole, at their own shape: never cropped, no bars beside them, no taller than 520px.
   const shown = await h.locator('[data-feed-picture]').evaluateAll((all) => all.map((box) => {

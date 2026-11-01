@@ -201,7 +201,7 @@
   --font-heading: var(--mf-heading-font, var(--font-sans));
   /* The app's own words follow the font chosen in Settings, unless that is set to notes only. */
   --font-sans: var(--mf-app-font, 'Fraunces Variable', Georgia, serif);
-  /* Six type roles, so a size says what the text is rather than a pixel count. */
+  /* Eight type roles (lead and reading are the Feed's own), so a size says what the text is rather than a pixel count. */
   /* meta: metadata, ages, counts and labels. */
   --text-meta: 0.75rem;
   --text-meta--line-height: 1rem;
@@ -217,6 +217,12 @@
   /* title: the title of a task, an article or a review question. */
   --text-title: 1.5rem;
   --text-title--line-height: 1.875rem;
+  /* lead: a Feed moment, such as "You're all caught up". Feed only (set weight 600). */
+  --text-lead: 1.25rem;
+  --text-lead--line-height: 1.5rem;
+  /* reading: words you read rather than scan, Feed posts and quotes. Feed only. */
+  --text-reading: 1.0625rem;
+  --text-reading--line-height: 1.625rem;
   /* key: the letters on keycaps. */
   --text-key: 0.6875rem;
   --text-key--line-height: 1;

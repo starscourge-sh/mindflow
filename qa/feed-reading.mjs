@@ -18,7 +18,9 @@ const paint = (name) => h.evaluate((n) => { localStorage.setItem('theme', n); wi
 try {
   const reading = await v('feed:reading')
   check('Reading has 8 or more Pages', reading.pages.length >= 8, String(reading.pages.length))
-  check("there is a Today's read of 150 words or more", !!reading.today && reading.pages.find((one) => one.id === reading.today)?.words >= 150, reading.today)
+  // Today's read is a read: three minutes or more, never a "1 min read"; with no Page that long, there is none.
+  const longest = Math.max(...reading.pages.map((one) => one.minutes))
+  check("Today's read is 3 minutes or more, or there is none", reading.today ? reading.pages.find((one) => one.id === reading.today)?.minutes >= 3 : longest < 3, `${reading.today} longest ${longest}`)
   // A private Page never shows.
   const secret = await v('items', 'article').catch(() => [])
   const hidden = (Array.isArray(secret) ? secret : []).filter((one) => one.private).map((one) => one.id)
@@ -43,8 +45,13 @@ try {
   check('every row has a title and a read time', shown.every((one) => one.title && /^\d+ min read$/.test(one.minutes)), JSON.stringify(shown.slice(0, 2)))
   check('most rows have a dek', shown.filter((one) => one.dek).length >= Math.ceil(shown.length * 0.75), `${shown.filter((one) => one.dek).length}/${shown.length}`)
   check('a few rows have a picture', shown.filter((one) => one.picture).length >= 2, String(shown.filter((one) => one.picture).length))
-  const todayTitle = await h.locator('[data-reading-today] [data-reading-title]').textContent()
-  check("Today's read shows over the list", !!todayTitle)
+  const todayText = async () => ((await h.locator('[data-reading-today] [data-reading-title]').count()) ? h.locator('[data-reading-today] [data-reading-title]').textContent() : null)
+  const todayTitle = await todayText()
+  check("Today's read shows over the list when there is one", !reading.today || !!todayTitle)
+  check("Today's read never says 1 min read", !(await h.locator('[data-reading-today] [data-reading-minutes]').count()) || !/^1 min/.test(await h.locator('[data-reading-today] [data-reading-minutes]').textContent()))
+  check('Reading has no shelves of cards', !(await h.locator('[data-reading-shelves], [data-shelf-card]').count()))
+  // The same column as Notes: the side column beside it, the list as wide as the posts are.
+  check('Reading has the side column', (await h.locator('[data-feed-reading] [data-feed-side]').count()) === 1)
   for (const name of ['light', 'dark']) {
     await paint(name)
     await h.waitForTimeout(500)
@@ -58,7 +65,7 @@ try {
   await go('feed')
   await h.waitForTimeout(900)
   check('Reading is still the tab after a reload', (await h.locator('[data-tabs="feed"] [aria-selected="true"]').getAttribute('data-tab')) === 'reading')
-  check("Today's read is the same after a reload", (await h.locator('[data-reading-today] [data-reading-title]').textContent()) === todayTitle)
+  check("Today's read is the same after a reload", (await todayText()) === todayTitle)
 
   // Unread and History follow an open.
   await h.click('[data-tabs="reading"] [data-tab="unread"]')
