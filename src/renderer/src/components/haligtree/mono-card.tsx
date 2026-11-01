@@ -253,7 +253,7 @@ export function ToneBar({ parts }: { parts: { name: string; n: number }[] }): Re
     <div data-mono-tones>
       <div className="flex h-4 gap-[3px]">
         {parts.filter((one) => one.n).map((one, at) => (
-          <motion.span key={one.name} title={`${one.name}: ${one.n.toLocaleString()}`} className="h-full origin-left rounded-full" style={{ flex: one.n, background: INK, opacity: TONES[parts.indexOf(one)] ?? 0.22 }}
+          <motion.span key={one.name} aria-label={`${one.name}: ${one.n.toLocaleString()}`} className="h-full origin-left rounded-full" style={{ flex: one.n, background: INK, opacity: TONES[parts.indexOf(one)] ?? 0.22 }}
             initial={still ? false : { scaleX: 0.85, opacity: 0 }} animate={arrived ? { scaleX: 1, opacity: TONES[parts.indexOf(one)] ?? 0.22 } : { scaleX: 0.85, opacity: 0 }} transition={{ delay: still ? 0 : at * 0.05, duration: 0.25 }} />
         ))}
         {!total && <span className="h-full flex-1 rounded-full" style={{ background: INK, opacity: 0.08 }} />}

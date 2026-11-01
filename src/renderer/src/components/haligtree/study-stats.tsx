@@ -1,7 +1,7 @@
 import { haligtree, useLive } from '@/lib/haligtree'
 import { useReading } from '@/lib/reads-in'
 import { useState } from 'react'
-import { Arc, DotMatrix, Ends, Funnel, MonoCard, PillBars, Spline, Switch, ToneBar, Chip, useHover } from './mono-card'
+import { Ends, Funnel, MonoCard, PillBars, Spline, Switch, ToneBar, Chip, useHover } from './mono-card'
 import { N, Section } from './stats-view'
 import { dayMonth, dayjs, num, plural } from '../../../../main/dates'
 
@@ -42,8 +42,7 @@ export function StudySection({ example }: { example: boolean }): React.JSX.Eleme
     <>
     <Section title="Remembering" big={{ value: retention === null ? '–' : `${retention}%`, label: 'of cards remembered, last 30 days' }}>
       <p data-study-said data-reviews={reviews}>
-        In the last 30 days you reviewed <N>{plural(reviews, 'card', 'cards')}</N>
-        {retention === null ? ', none of them seen before, so there is nothing yet to say how well they stay.' : <> and remembered <N>{`${retention}%`}</N> of those you had seen before ({num(studied.recalled)} of {num(studied.checked)}).</>}{' '}
+        {retention === null ? 'None of the cards you reviewed in the last 30 days had been seen before, so there is nothing yet to say how well they stay.' : <>Of the cards you had seen before, you remembered {num(studied.recalled)} of {num(studied.checked)} in the last 30 days.</>}{' '}
         <N>{plural(studied.due[0], 'card is', 'cards are')}</N> due today, and <N>{num(coming)}</N> in all over the next two weeks.
       </p>
       {week > 0 && <p data-study-week={week}><N>{`${num(week)} of the last 7 days`}</N> reviewed: one day off cannot break that.</p>}
@@ -56,19 +55,37 @@ export function StudySection({ example }: { example: boolean }): React.JSX.Eleme
       </p>
     </Section>
     {/* The cards on the page itself, under the sentences, never a box inside a box. */}
-    <div className="mt-3"><StudyCards studied={studied} week={week} /></div>
+    <div className="mt-3"><StudyCards studied={studied} /></div>
     </>
   )
 }
 
 const dayWords = (day: string): string => dayjs(day).format('ddd D MMM')
 
+/** Five steps of ink, as GitHub's and Anki's heatmaps have: none, then four by share of the busiest day. */
+const INK_STEPS = [7, 30, 50, 70, 92]
+const stepOf = (n: number, most: number): number => (n ? Math.min(4, 1 + Math.floor((n / Math.max(1, most)) * 3.999)) : 0)
+const shadeOf = (step: number): string => `color-mix(in oklab, var(--foreground) ${INK_STEPS[step]}%, transparent)`
+
+/** Days as square cells 3 px apart in the year's five steps of ink, today ringed: the 30 days and the year in Stats, drawn as the year above the decks is. */
+function DayCells({ days, say, onHover, rows, cell }: { days: { day: string; n: number }[]; say: (day: { day: string; n: number }) => string; onHover: (said: string | null) => void; rows: number; cell: number }): React.JSX.Element {
+  const most = Math.max(1, ...days.map((one) => one.n))
+  const today = dayjs().format('YYYY-MM-DD')
+  return (
+    <div className="flex justify-center overflow-hidden">
+      <div data-day-cells className="grid shrink-0" style={{ gridTemplateRows: `repeat(${rows}, ${cell}px)`, gridAutoColumns: `${cell}px`, gridAutoFlow: 'column', gap: 3 }} onPointerLeave={() => onHover(null)}>
+        {days.map((one) => <span key={one.day} data-day={one.day} data-n={one.n} onPointerEnter={() => onHover(say(one))} className={`rounded-[2px] ${one.day === today ? 'outline outline-1 outline-offset-1 outline-foreground' : ''}`} style={{ background: shadeOf(stepOf(one.n, most)) }} />)}
+      </div>
+    </div>
+  )
+}
+
 /**
  * The study numbers as cards, in the look of Amicro's Mono Charts: each
  * leads with its number, says its point in one line, and shows the value of
  * the mark under the pointer.
  */
-function StudyCards({ studied, week }: { studied: Studied; week: number }): React.JSX.Element {
+function StudyCards({ studied }: { studied: Studied }): React.JSX.Element {
   const [span, setSpan] = useState<'month' | 'year'>('month')
   const [onReviews, sayReviews] = useHover()
   const [onMinutes, sayMinutes] = useHover()
@@ -77,7 +94,6 @@ function StudyCards({ studied, week }: { studied: Studied; week: number }): Reac
   const [onSources, saySources] = useHover()
   const [onKept, sayKept] = useHover()
   const reviews = studied.month.reduce((sum, one) => sum + one.reviews, 0)
-  const retention = studied.checked ? Math.round((studied.recalled / studied.checked) * 100) : null
   const yearDays = Array.from({ length: 52 * 7 }, (_, at) => { const day = dayjs().subtract(52 * 7 - 1 - at, 'day').format('YYYY-MM-DD'); return { day, n: studied.year[day] ?? 0 } })
   const days = span === 'month' ? studied.month.map((one) => ({ day: one.day, n: one.reviews })) : yearDays
   const yearTotal = yearDays.reduce((sum, one) => sum + one.n, 0)
@@ -93,17 +109,12 @@ function StudyCards({ studied, week }: { studied: Studied; week: number }): Reac
     <div className="grid gap-3 sm:grid-cols-2">
       <div data-study-month className="sm:col-span-2" {...(span === 'year' ? { 'data-study-year': '' } : {})}>
         <MonoCard name="reviews" title={span === 'month' ? 'Cards reviewed each day' : 'Days you reviewed, the darker the more cards'} value={span === 'month' ? reviews : yearTotal} unit={span === 'month' ? 'reviews in 30 days' : 'reviews in a year'}
-          chips={week > 0 ? <Chip>{`${num(week)} of the last 7 days`}</Chip> : undefined}
           side={<Switch options={[{ id: 'month', label: '30 days' }, { id: 'year', label: 'Year' }]} value={span} pick={setSpan} />}
-          hovered={onReviews} point={week > 0 ? `You reviewed on ${num(week)} of the last 7 days.` : 'Each dot is a day, the darker the more cards.'}>
-          <DotMatrix key={span} days={days} say={reviewsSaid} onHover={sayReviews} columns={span === 'month' ? 2 : 7} dot={span === 'month' ? 26 : 14} />
+          hovered={onReviews} point="Each square is a day, the darker the more cards, as in the year above the decks.">
+          <DayCells key={span} days={days} say={reviewsSaid} onHover={sayReviews} rows={span === 'month' ? 2 : 7} cell={span === 'month' ? 22 : 10} />
           <Ends left={span === 'month' ? '30 days ago' : 'a year ago'} right="today" />
         </MonoCard>
       </div>
-      <MonoCard name="retention" title="Remembered" value={retention === null ? 'None yet' : `${retention}%`} unit={retention === null ? undefined : 'of cards seen before'}
-        point={retention === null ? 'Once you see a card a second time, this says how well it stays.' : `You remembered ${num(studied.recalled)} of ${num(studied.checked)} cards you had seen before, in 30 days.`}>
-        <Arc percent={retention ?? 0} label={retention === null ? 'nothing to measure yet' : `${num(studied.recalled)} of ${num(studied.checked)}`} />
-      </MonoCard>
       <MonoCard name="minutes" title="Minutes reviewing each day" value={Math.round(shownMinutes.reduce((sum, one) => sum + one.n, 0))} unit={`minutes in ${range === 'week' ? '7' : '30'} days`} chips={studiedDays ? <Chip>{plural(studiedDays, 'day', 'days')}</Chip> : undefined}
         side={<Switch options={[{ id: 'week', label: '7 days' }, { id: 'month', label: '30 days' }]} value={range} pick={setRange} />}
         hovered={onMinutes} point={studied.seconds !== null ? `A card takes you about ${plural(studied.seconds, 'second', 'seconds')}.` : 'Time is counted from the next review on.'}>
