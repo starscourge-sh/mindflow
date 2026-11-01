@@ -24,12 +24,15 @@ if (window.api.room.left) {
   // The room round the card for a hint (above it, or beside it on the side with room), set by main while the box is
   // away: the card moves by as much in the same frame, so on screen it stays exactly where main put it, and main
   // shows the box once that is drawn.
-  // "One line to start", Spotlight's way: at rest the pill is the bar alone. Tab (or the pointer at the bar's right
-  // end) brings its round controls out of that end; Tab and ⇧Tab move between them, the chosen one filled and named
-  // in the bar; Enter runs it; Esc, or a word typed, puts them back (main.css, data-controls-out).
+  // The round controls stay where they are, shown, whatever you do: typing only dims them a little (box-extras.css,
+  // data-zen), so nothing pops in or out, moves or overlaps between typing and not typing. The keys reach them:
+  // in the one-line pill Tab always goes to them (the editor never takes it there); in the grown box Tab is the
+  // writing's (a list's indent, else a tab) and ⌃Tab goes to them, said once, quietly, the first time Tab is used.
+  // Tab and ⇧Tab (⌃Tab and ⌃⇧Tab) move between them, the chosen one filled and, in the pill, named in the bar;
+  // Enter runs it; Esc, or a word typed, lets them go (main.css, data-controls-out).
   const root = document.documentElement
   const buttons = (): HTMLElement[] => [...document.querySelectorAll<HTMLElement>('.mf-top [data-aside] > *, .mf-top .mf-pill button')].filter((one) => one.offsetWidth > 0)
-  const asPill = (): boolean => !!document.querySelector('.app-container[data-pill]') && !('controlsAbove' in root.dataset)
+  const asPill = (): boolean => !!document.querySelector('.app-container[data-pill]')
   let picked = -1
   const name = document.createElement('span')
   name.dataset.controlName = ''
@@ -39,90 +42,86 @@ if (window.api.room.left) {
     picked = n
     all.forEach((one, i) => one.toggleAttribute('data-picked', i === n))
     const chosen = all[n]
-    name.textContent = chosen ? (chosen.getAttribute('aria-label') ?? chosen.textContent ?? '').trim() : ''
+    // What it opens, as its tip says it, without the keys after it ("Open the Inbox in the side panel  ⌘\\").
+    name.textContent = chosen ? (chosen.getAttribute('aria-label') ?? chosen.textContent ?? '').split('  ')[0].trim() : ''
     name.toggleAttribute('data-shown', !!chosen)
+    root.toggleAttribute('data-controls-out', n >= 0)
   }
-  // The blob escape: while they come out (or go back) the controls are drawn through a goo filter, so each one buds
-  // out of the one before it on a liquid neck that stretches and snaps. Each is tucked, at rest, to the bar's right
-  // end (--mf-tuck: how far it sits from there); the filter is on only while they move, so their shadows come back.
-  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
-  svg.setAttribute('aria-hidden', 'true')
-  svg.setAttribute('width', '0')
-  svg.setAttribute('height', '0')
-  svg.style.position = 'absolute'
-  svg.innerHTML = '<filter id="mf-goo"><feGaussianBlur in="SourceGraphic" stdDeviation="7" result="blur"/><feColorMatrix in="blur" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 22 -10" result="goo"/><feComposite in="SourceGraphic" in2="goo" operator="atop"/></filter>'
-  document.body.append(svg)
-  let moving: ReturnType<typeof setTimeout> | undefined
-  const tuck = (): void => {
-    // From the layout, not the screen: tucked, each is drawn moved and shrunk.
-    const all = buttons()
-    const at = (one: HTMLElement): number => { let x = 0; for (let el: HTMLElement | null = one; el && !el.classList.contains('mf-top'); el = el.offsetParent as HTMLElement | null) x += el.offsetLeft; return x }
-    const first = all[0] ? at(all[0]) : undefined
-    if (first === undefined) return
-    all.forEach((one) => one.style.setProperty('--mf-tuck', `${Math.round(at(one) - first + 24)}px`))
-  }
-  const bringOut = (on: boolean): void => {
-    if (on === root.hasAttribute('data-controls-out')) return
-    if (on) tuck()
-    root.setAttribute('data-controls-moving', '')
-    clearTimeout(moving)
-    // As long as the last of them takes to land: 3 x 40ms apart and a 360ms spring.
-    moving = setTimeout(() => root.removeAttribute('data-controls-moving'), 520)
-    root.toggleAttribute('data-controls-out', on)
-    if (!on) pick(-1)
+  const TOLD = 'mf-ctrl-tab-told'
+  let told: ReturnType<typeof setTimeout> | undefined
+  /** "⌃Tab for the buttons", once ever, beside the round controls, the first time Tab is used in the grown box. */
+  const tell = (): void => {
+    if (localStorage.getItem(TOLD)) return
+    localStorage.setItem(TOLD, '1')
+    const hint = document.createElement('span')
+    hint.dataset.ctrlTabHint = ''
+    hint.textContent = '⌃Tab for the buttons'
+    const controls = document.querySelector('.mf-top')?.getBoundingClientRect()
+    if (controls) hint.style.right = `${Math.round(window.innerWidth - controls.left + 12)}px`
+    document.body.append(hint)
+    requestAnimationFrame(() => hint.setAttribute('data-shown', ''))
+    clearTimeout(told)
+    // Long enough to read four words twice, then it goes.
+    told = setTimeout(() => (hint.removeAttribute('data-shown'), setTimeout(() => hint.remove(), 400)), 3200)
   }
   window.addEventListener('keydown', (event) => {
-    if (!asPill()) return bringOut(false)
-    const out = root.hasAttribute('data-controls-out')
-    if (event.key === 'Tab' && !event.metaKey && !event.ctrlKey && !event.altKey && !event.defaultPrevented) {
+    const out = picked >= 0
+    if (event.key === 'Tab' && !event.metaKey && !event.altKey) {
+      const toControls = asPill() ? !event.ctrlKey : event.ctrlKey
+      if (!toControls) {
+        if (asPill() || out) return
+        // The grown box: Tab is the writing's. What the editor did not use (a list's indent) is a tab in the
+        // words while writing; in Vim's normal mode it is nothing. Never the browser's move to the next field.
+        tell()
+        const editor = (event.target as Element | null)?.closest?.<HTMLElement>('.ProseMirror')
+        if (editor) before = { editor, html: editor.innerHTML }
+        return
+      }
       const all = buttons()
       if (!all.length) return
       event.preventDefault()
-      bringOut(true)
-      pick(!out || picked < 0 ? (event.shiftKey ? all.length - 1 : 0) : (picked + (event.shiftKey ? -1 : 1) + all.length) % all.length)
+      event.stopPropagation()
+      // ⇧Tab from the first of them comes back to the writing.
+      if (out && event.shiftKey && picked === 0) return pick(-1)
+      pick(!out ? (event.shiftKey ? all.length - 1 : 0) : (picked + (event.shiftKey ? -1 : 1)) % all.length)
       return
     }
     if (!out) return
-    if (event.key === 'Enter' && picked >= 0) {
+    if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault()
       event.stopPropagation()
       const chosen = buttons()[picked]
-      bringOut(false)
-      chosen?.click()
-    } else if (event.key.length === 1 || event.key === 'Backspace') bringOut(false)
-  })
-  // Esc puts them back before it would put the box away.
-  window.addEventListener('keydown', (event) => {
-    if (event.key !== 'Escape' || !root.hasAttribute('data-controls-out')) return
-    event.preventDefault()
-    event.stopImmediatePropagation()
-    bringOut(false)
+      pick(-1)
+      if (!chosen) return
+      // As a hand would press it: a menu's button (the gear, a Radix trigger) opens on the press, not on the click,
+      // so a click alone left the gear doing nothing. A plain button runs on the click; one of the two acts, never both.
+      const menu = chosen.getAttribute('aria-haspopup') === 'menu'
+      if (menu) chosen.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, button: 0, pointerType: 'mouse', isPrimary: true }))
+      else chosen.click()
+    } else if (event.key === 'Escape') {
+      // Esc lets them go before it would put the box away.
+      event.preventDefault()
+      event.stopImmediatePropagation()
+      pick(-1)
+    } else if (event.key.length === 1 || event.key === 'Backspace') pick(-1)
   }, true)
-  // The pointer at the bar's right end, or on the controls themselves, brings them out; away, they go back.
-  window.addEventListener('mousemove', (event) => {
-    if (!asPill() || picked >= 0) return
-    const bar = document.querySelector('.app-container')?.getBoundingClientRect()
-    const top = document.querySelector('.mf-top')?.getBoundingClientRect()
-    const near = !!bar && event.clientY >= bar.top - 8 && event.clientY <= bar.bottom + 8 && event.clientX >= bar.right - 72 && event.clientX <= (top?.right ?? bar.right) + 8
-    bringOut(near)
+  // After the editor has had it: a Tab that changed nothing (no list to indent; Vim's insert mode only keeps it in
+  // the note) writes a tab while writing, and is nothing in Vim's normal mode. Never the browser's move to the next field.
+  let before: { editor: HTMLElement; html: string } | null = null
+  window.addEventListener('keydown', (event) => {
+    const was = before
+    before = null
+    if (event.key !== 'Tab' || event.ctrlKey || event.metaKey || event.altKey || !was || asPill()) return
+    if (was.editor.innerHTML !== was.html) return
+    event.preventDefault()
+    if (was.editor.getAttribute('data-vim-mode') !== 'normal' && !event.shiftKey) document.execCommand('insertText', false, '\t')
   })
-  // The pill opens with a small spring, the bar settling into place: never when opened again straight after closing
-  // (a key held, or pressed twice), and not with Reduce Motion.
-  let lastOpen = 0
   window.api.onShown(() => {
-    const now = Date.now()
-    const again = now - lastOpen < 600
-    lastOpen = now
-    bringOut(false)
-    // Each open tries them beside the bar again (the text size or the screen may have changed); tucked away at rest,
-    // the try is never seen.
+    pick(-1)
+    // Each open tries them beside the bar again (the text size or the screen may have changed).
     // Measured at once, not on the next frame: the box can come up before a frame is drawn, and the old answer stood.
     delete root.dataset.controlsAbove
     fitControls()
-    tuck()
-    const pill = document.querySelector<HTMLElement>('.app-container[data-pill]')
-    if (!pill || again || matchMedia('(prefers-reduced-motion: reduce)').matches || root.dataset.motion === 'off') return
-    pill.animate([{ transform: 'scale(0.96)', opacity: 0.6 }, { transform: 'scale(1.008)', opacity: 1, offset: 0.7 }, { transform: 'scale(1)', opacity: 1 }], { duration: 260, easing: 'cubic-bezier(0.23, 1, 0.32, 1)' })
   })
   // The round controls, the grabber, the hint and the offer belong to the card: drawn only while the card itself is
   // drawn in the window at a real size. A card squeezed to a line, or out of the window, takes them with it, so they

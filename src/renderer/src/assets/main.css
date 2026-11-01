@@ -429,7 +429,7 @@ html[data-overhang] [data-grabber] {
   top: calc(var(--mf-room-top) - 10px);
   left: calc(var(--mf-room-left) + (100vw - var(--mf-room-left) - var(--mf-room-right)) / 2 - 32px);
   width: 64px;
-  height: 18px;
+  height: 22px;
   display: flex;
   align-items: flex-start;
   justify-content: center;
@@ -445,15 +445,26 @@ html[data-overhang] [data-grabber] > span {
   width: 32px;
   height: 4px;
   border-radius: 999px;
-  background: color-mix(in oklab, var(--foreground) 32%, transparent);
+  background: color-mix(in oklab, var(--foreground) 45%, transparent);
+  transition: width 120ms ease-out, height 120ms ease-out, background-color 120ms ease-out;
 }
+/* Pointed at, or held while dragging, it grows so it is easy to catch and plainly the thing that moves the box (the
+   user only found it by chance). Reduce Motion: no growth, the stronger ink alone. */
+html[data-overhang] [data-grabber]:is(:hover, :active) > span {
+  width: 48px;
+  height: 6px;
+}
+@media (prefers-reduced-motion: reduce) {
+  html[data-overhang] [data-grabber]:is(:hover, :active) > span { width: 32px; height: 4px; }
+}
+:root[data-motion='off'] [data-grabber]:is(:hover, :active) > span { width: 32px; height: 4px; }
 html[data-overhang] .app-container.pointer-in [data-grabber],
 html[data-overhang] [data-grabber]:hover,
 html[data-overhang] [data-grabber]:active {
   opacity: 1;
 }
-html[data-overhang] [data-grabber]:hover > span {
-  background: color-mix(in oklab, var(--foreground) 50%, transparent);
+html[data-overhang] [data-grabber]:is(:hover, :active) > span {
+  background: color-mix(in oklab, var(--foreground) 62%, transparent);
 }
 /* The empty parts of the card drag too, as a window's own: the footer's gaps and the row of fields under the words,
    never what is in them. */
@@ -476,41 +487,8 @@ html[data-overhang] .app-container[data-one-line] :is(.mf-pill button, [data-asi
     0 0 0 0.5px color-mix(in oklab, var(--foreground) 14%, transparent),
     0 8px 26px -6px color-mix(in oklab, var(--mf-shadow-ink) 22%, transparent);
 }
-/* At rest the pill is the bar alone: its controls wait tucked into the bar's right end, and bud out of it one after
-   another (40ms apart, a spring with a little overshoot, transform and opacity only) when Tab or the pointer brings
-   them out (windows/box.tsx). Back the same way, quicker. */
-html[data-overhang]:not([data-controls-above]) .app-container[data-pill] :is(.mf-pill button, [data-aside] > *) {
-  opacity: 0;
-  transform: translateX(calc(-1 * var(--mf-tuck, 28px))) scale(0.4);
-  pointer-events: none;
-  transition:
-    opacity 160ms var(--mf-ease),
-    transform 220ms cubic-bezier(0.23, 1, 0.32, 1),
-    background-color 120ms var(--mf-ease);
-}
-html[data-overhang][data-controls-out]:not([data-controls-above]) .app-container[data-pill] :is(.mf-pill button, [data-aside] > *) {
-  opacity: 1;
-  transform: none;
-  pointer-events: auto;
-  transition:
-    opacity 200ms var(--mf-ease),
-    transform 360ms cubic-bezier(0.34, 1.56, 0.64, 1),
-    background-color 120ms var(--mf-ease);
-}
-html[data-overhang][data-controls-out] .app-container[data-pill] [data-aside] > * { transition-delay: 0ms; }
-html[data-overhang][data-controls-out] .app-container[data-pill] .mf-pill button:nth-of-type(1) { transition-delay: 40ms; }
-html[data-overhang][data-controls-out] .app-container[data-pill] .mf-pill button:nth-of-type(2) { transition-delay: 80ms; }
-html[data-overhang][data-controls-out] .app-container[data-pill] .mf-pill button:nth-of-type(3) { transition-delay: 120ms; }
-/* While they move, drawn through the goo filter (windows/box.tsx): one buds out of the next on a liquid neck. Seen
-   whole while moving, so the neck has something to stretch; faded only at the very start and end. */
-html[data-overhang][data-controls-moving]:not([data-controls-above]) .app-container[data-pill] .mf-top {
-  filter: url(#mf-goo);
-}
-html[data-overhang][data-controls-moving]:not([data-controls-above]) .app-container[data-pill] :is(.mf-pill button, [data-aside] > *) {
-  box-shadow: none;
-}
 /* The chosen one fills, as Spotlight's does, and its name shows in the bar, at its right end. */
-html[data-overhang] .app-container[data-pill] :is(.mf-pill button, [data-aside] > *)[data-picked] {
+html[data-overhang] :is(.mf-pill button, [data-aside] > *)[data-picked] {
   background: var(--foreground);
   color: var(--background);
 }
@@ -526,7 +504,23 @@ html[data-overhang] [data-control-name] {
   pointer-events: none;
   transition: opacity 120ms var(--mf-ease);
 }
-html[data-overhang] [data-control-name][data-shown] {
+html[data-overhang]:has(.app-container[data-pill]) [data-control-name][data-shown] {
+  opacity: 1;
+}
+/* "⌃Tab for the buttons" (windows/box.tsx): said once, quietly, level with the round controls and left of them, the
+   first time Tab is used in the grown box. */
+html[data-overhang] [data-ctrl-tab-hint] {
+  position: fixed;
+  z-index: 20;
+  top: calc(var(--mf-room-top) - 24px);
+  transform: translateY(-50%);
+  font-size: 13px;
+  color: var(--muted-foreground);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 200ms var(--mf-ease);
+}
+html[data-overhang] [data-ctrl-tab-hint][data-shown] {
   opacity: 1;
 }
 /* While one is chosen its name is what the bar says, as Spotlight's word does: the empty line's prompt steps aside;
@@ -536,15 +530,6 @@ html[data-overhang]:has([data-control-name][data-shown]) .app-container[data-pil
 }
 html[data-overhang]:has(.app-container[data-pill] .ProseMirror p:not(.is-empty)) [data-control-name] {
   opacity: 0;
-}
-@media (prefers-reduced-motion: reduce) {
-  html[data-overhang] .app-container[data-pill] :is(.mf-pill button, [data-aside] > *) {
-    transform: none !important;
-    transition: opacity 160ms ease !important;
-  }
-}
-:root[data-motion='off'] .app-container[data-pill] :is(.mf-pill button, [data-aside] > *) {
-  transform: none !important;
 }
 /* No card drawn (squeezed to a line, or out of the window): nothing of quick capture shows (windows/box.tsx). */
 html[data-overhang][data-card-gone] :is(.mf-top, [data-grabber], [data-hint-room], body > [data-leftover-row], .app-container) {
@@ -964,6 +949,13 @@ body > :not(#root),
     accent-color: var(--tt-brand-color-400);
     scrollbar-width: thin;
     scrollbar-color: color-mix(in srgb, var(--foreground) 18%, transparent) transparent;
+  }
+  /* Inside the writing the caret is the editor's: its paragraphs take it from
+     there. Given the accent of their own, a paragraph showed the system caret
+     beside quick capture's drawn one (two carets), and Vim's block caret lost
+     its colour. */
+  .ProseMirror * {
+    caret-color: inherit;
   }
 }
 :focus-visible:not(input, textarea, select, [contenteditable], [tabindex="-1"]) {
@@ -1395,9 +1387,14 @@ body {
   filter: none;
 }
 
-/* The prompt's note fades at its edges as it scrolls, Raycast Notes' way. */
+/* The prompt's note fades at an edge only while there is more past it,
+   Raycast Notes' way: the scroll drives it, as the lists' fades below. The
+   pill, and a box whose words all fit, have nothing past an edge: no fade. */
 .mf-faded .haligtree-editor-content {
-  mask-image: linear-gradient(to bottom, transparent 0, #000 0.75rem, #000 calc(100% - 2.5rem), transparent 100%);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 var(--mf-less), #000 calc(100% - var(--mf-more)), transparent 100%);
+  animation: mf-less linear both, mf-more linear both;
+  animation-timeline: scroll(self), scroll(self);
+  animation-range: 0 0.75rem, calc(100% - 2.5rem) 100%;
 }
 
 /* A list that scrolls (a menu, the palette, the shortcut sheet) fades at an
@@ -1432,7 +1429,7 @@ body {
 @keyframes mf-less { from { --mf-less: 0px; } to { --mf-less: 1.5rem; } }
 @keyframes mf-more { from { --mf-more: 2.5rem; } to { --mf-more: 0px; } }
 /* Not motion, so the Motion setting leaves it on. */
-[data-motion='off'] :is(.mf-more, .page-dock-side, .page-dock-scroll, .mf-fade-end, [data-reading-pane] .note-pane, [data-reading-pane] .note-pane .haligtree-editor-content) { animation-duration: auto !important; }
+[data-motion='off'] :is(.mf-more, .mf-faded .haligtree-editor-content, .page-dock-side, .page-dock-scroll, .mf-fade-end, [data-reading-pane] .note-pane, [data-reading-pane] .note-pane .haligtree-editor-content) { animation-duration: auto !important; }
 
 /* One highlight at a time: a card reached by keyboard, not also a list row. */
 body:has([data-card]:focus) [data-cursor] {
@@ -2869,6 +2866,10 @@ html[data-overhang] .app-container[data-one-line] [data-drag-strip] {
   pointer-events: none;
   -webkit-app-region: no-drag;
 }
+/* The strip takes no pointer; its round controls do, beside the pill or above it. */
+html[data-overhang] .app-container[data-one-line] .mf-top {
+  pointer-events: auto;
+}
 html[data-overhang] .app-container[data-one-line] [data-drag-strip] > :not(:has(.mf-top)),
 html[data-overhang] .app-container[data-one-line] [data-drag-strip] :has(> .mf-top) > :not(.mf-top) {
   display: none;
@@ -3046,3 +3047,13 @@ textarea[data-talking]::selection {
 /* Review's Stats in the Decks tab's look: one surface (satin, 5px corners), so the three tabs read as one page. */
 [data-review-stats] [data-mono-card], [data-review-stats] .mf-island { border-radius: 5px; background: var(--mf-metal-bg); border: 1px solid color-mix(in oklab, var(--foreground) 11%, transparent); box-shadow: var(--mf-metal-shadow); }
 [data-review-stats] > :first-child, [data-review-stats] > :first-child > :first-child { margin-top: 0; }
+/* Listening (talk.tsx, data-talking): an empty line's placeholder goes the moment dictation starts, so the words
+   heard never come in over "Write a thought…". */
+:root[data-talking] .tiptap.ProseMirror .is-empty::before {
+  visibility: hidden;
+}
+/* Quick capture's grown box: Find takes its own room at the foot of the writing, inside the card, instead of
+   floating over the last lines (the box grows to keep every word in view, lib/fit-box.ts). */
+.mf-faded[data-caret-room] .haligtree-editor-wrapper { display: flex; flex-direction: column; }
+.mf-faded[data-caret-room] .haligtree-editor-wrapper > .haligtree-editor-content { flex: 1 1 auto; min-height: 0; }
+.mf-faded[data-caret-room] .haligtree-editor-wrapper > [data-find-holder] { position: relative; bottom: auto; flex: none; }

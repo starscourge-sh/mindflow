@@ -105,7 +105,11 @@ function needed(column: HTMLElement | null): number | null {
  * not scrolled into view (the growing shows it), so the writing never jumps
  * up and settles back down.
  */
-export function useFitBox(column: RefObject<HTMLElement | null>, full: boolean, pill = false): { held: { current: boolean }; refit: () => void; guard: (editor: Editor) => void } {
+export function useFitBox(column: RefObject<HTMLElement | null>, full: boolean, pill = false, ready = true): { held: { current: boolean }; refit: () => void; guard: (editor: Editor) => void } {
+  // Nothing is asked of the window until the page knows its own shape (the settings read): main shows the box at its
+  // first fit, and a fit sent before "One line to start" was known showed the whole box for a frame, then the pill.
+  const readyNow = useRef(ready)
+  readyNow.current = ready
   const sent = useRef(0)
   const wait = useRef<ReturnType<typeof setTimeout>>(undefined)
   const held = useRef(false)
@@ -201,7 +205,7 @@ export function useFitBox(column: RefObject<HTMLElement | null>, full: boolean, 
   }, [send])
 
   const refit = useCallback((now = false): void => {
-    if (held.current || room()) return
+    if (!readyNow.current || held.current || room()) return
     const height = want()
     // Hidden, it is sized at once: it opens at what it needs, never growing in view.
     if (now || document.hidden || height > sent.current || height < sent.current - CLEARLY) return send(height, Math.abs(height - sent.current) <= LINES)
@@ -239,6 +243,8 @@ export function useFitBox(column: RefObject<HTMLElement | null>, full: boolean, 
   useEffect(() => refit(true), [full, refit])
   // The pill grown or folded back: in the one glide, never in steps.
   useEffect(() => refit(true), [pill, refit])
+  // The settings read: the first fit, at the shape the box really has.
+  useEffect(() => void (ready && refit(true)), [ready, refit])
 
   const guard = useCallback((editor: Editor): void => {
     editor.registerPlugin(new Plugin({ props: { handleScrollToSelection: () => {

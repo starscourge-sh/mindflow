@@ -1,7 +1,6 @@
-// "One line to start", Spotlight's way: at rest the pill is the bar alone; Tab brings its round controls out of the
-// bar's right end, Tab and ⇧Tab move between them (the chosen one filled, its name in the bar), Esc puts them back
-// without putting the box away, and a word typed puts them back too. The pointer at the bar's right end brings them
-// out. Frames every 50ms of open, Tab out, Tab between, Esc back, type past a line, / and #, light and dark, into
+// "One line to start", Spotlight's way: the pill's round controls stay beside it, shown and still (the user: "the
+// options pop in and out ungracefully"); Tab chooses among them (the chosen one filled, its name in the bar), ⇧Tab
+// moves back, Esc lets go without putting the box away, and a word typed lets go too. The pointer moves nothing. Frames every 50ms of open, Tab out, Tab between, Esc back, type past a line, / and #, light and dark, into
 // QA_SHOTS/spot-<look>/.
 //   QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 QA_ARGS=--sandbox node qa/pill-controls.mjs
 import { mkdirSync } from 'fs'
@@ -11,7 +10,8 @@ process.env.QA_ARGS ??= '--sandbox'
 process.env.HALIGTREE_QA_VIRTUAL ??= '1'
 
 const { check, done } = checks()
-const c = await sandbox({ width: 1100, height: 760 })
+// Mid-afternoon: an evening practice offered at the hour ("21:00 Read twenty pages…") makes the pill the box.
+const c = await sandbox({ width: 1100, height: 760, at: '14:10' })
 const { page, v } = c
 const wait = (ms) => page.waitForTimeout(ms)
 const shots = process.env.QA_SHOTS ?? '/tmp/spot'
@@ -60,10 +60,10 @@ try {
     await roll(dir, '1-open', 700, () => page.evaluate(() => window.api.showPrompt()))
     await page.mouse.move(2, 2); await wait(300)
     const rest = await state()
-    check(`${look}: at rest, the bar alone`, rest.pill && !rest.out && rest.shown === 0 && rest.count >= 3, JSON.stringify(rest))
+    check(`${look}: at rest, the pill with its controls shown beside it, none chosen`, rest.pill && !rest.out && rest.shown === rest.count && rest.count >= 3, JSON.stringify(rest))
     await roll(dir, '2-tab-out', 600, () => page.keyboard.press('Tab'))
     const out = await state()
-    check(`${look}: Tab brings every control out, the first chosen and named in the bar`, out.out && out.shown === out.count && out.picked === 0 && !!out.name, JSON.stringify(out))
+    check(`${look}: Tab chooses the first control, named in the bar`, out.out && out.shown === out.count && out.picked === 0 && !!out.name, JSON.stringify(out))
     await roll(dir, '3-tab-between', 500, () => page.keyboard.press('Tab'))
     const next = await state()
     check(`${look}: Tab moves to the next, its name in the bar`, next.picked === 1 && next.name && next.name !== out.name, JSON.stringify(next))
@@ -71,17 +71,17 @@ try {
     check(`${look}: ⇧Tab moves back`, (await state()).picked === 0)
     await roll(dir, '4-esc-back', 500, () => page.keyboard.press('Escape'))
     const back = await state()
-    check(`${look}: Esc puts them back, and the box stays up`, !back.out && back.shown === 0 && (await boxUp()), JSON.stringify(back))
+    check(`${look}: Esc lets go, the controls still shown, and the box stays up`, !back.out && back.picked === -1 && back.shown === back.count && (await boxUp()), JSON.stringify(back))
     await page.keyboard.press('Tab'); await wait(300)
     await page.click(EDITOR).catch(() => {}); await page.keyboard.type('a'); await wait(400)
-    check(`${look}: a word typed puts them back`, !(await state()).out)
+    check(`${look}: a word typed lets go`, !(await state()).out)
     await page.keyboard.press('Backspace')
-    // The pointer at the bar's right end.
+    // The pointer near them chooses nothing and moves nothing.
     const bar = await page.evaluate(() => { const r = document.querySelector('.app-container').getBoundingClientRect(); return { x: r.right + 30, y: r.top + r.height / 2 } })
     await page.mouse.move(bar.x, bar.y); await wait(500)
-    check(`${look}: the pointer at the bar's right end brings them out`, (await state()).out)
-    await page.mouse.move(2, 2); await wait(500)
-    check(`${look}: and away, they go back`, !(await state()).out)
+    const near = await state()
+    check(`${look}: the pointer near them chooses nothing, all still shown`, !near.out && near.shown === near.count, JSON.stringify(near))
+    await page.mouse.move(2, 2); await wait(300)
     await roll(dir, '5-slash', 700, async () => { await page.click(EDITOR).catch(() => {}); await page.keyboard.type('/') })
     await roll(dir, '6-slash-close', 700, async () => { await page.keyboard.press('Escape'); await page.keyboard.press('Backspace') })
     await roll(dir, '7-tag', 700, () => page.keyboard.type('#ro'))

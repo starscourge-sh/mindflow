@@ -38,7 +38,7 @@ const fresh = async () => {
   await page.waitForTimeout(200)
 }
 const gear = async () => {
-  await page.getByRole('button', { name: 'Actions', exact: true }).click()
+  await page.getByRole('button', { name: 'Options', exact: true }).click()
   await page.waitForTimeout(400)
 }
 const groups = () => page.evaluate(() => [...document.querySelectorAll('[role=menu] [role=group]')].map((g) => ({ label: g.getAttribute('aria-label'), items: [...g.querySelectorAll('[role^=menuitem]')].map((i) => i.innerText.split('\n')[0].trim()) })))

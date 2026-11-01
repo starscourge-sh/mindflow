@@ -143,7 +143,7 @@ try {
     await box.keyboard.type('A short note')
     await c.electron.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find((w) => !w.webContents.getURL().includes('view='))?.webContents.send('window:pointer', true))
     await box.waitForTimeout(200)
-    const gear = box.getByRole('button', { name: 'Actions', exact: true })
+    const gear = box.getByRole('button', { name: 'Options', exact: true })
     // Put away by a part before, quick capture is called up again until its gear is there.
     for (let i = 0; i < 5 && !(await gear.count()); i++) { await box.evaluate(() => window.api.showPrompt()).catch(() => {}); await box.waitForTimeout(1000) }
     if (await gear.count()) {

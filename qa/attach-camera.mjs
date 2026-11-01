@@ -171,7 +171,7 @@ const freshBox = async (page) => {
       if (shots) await page.screenshot({ path: `${shots}/box-screenshot-${theme}.png` })
     }
     // In the gear menu, under This note.
-    await page.getByRole('button', { name: 'Actions', exact: true }).click()
+    await page.getByRole('button', { name: 'Options', exact: true }).click()
     await page.waitForTimeout(400)
     const items = await page.evaluate(() => [...document.querySelectorAll('[role=menu] [role^=menuitem]')].map((one) => one.innerText.split('\n')[0].trim()))
     check('the gear menu has “Attach a screenshot”', items.includes('Attach a screenshot'), JSON.stringify(items))

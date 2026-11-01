@@ -44,7 +44,7 @@ try {
   check('5. bookmark frame is rounded to the card, its picture square inside', corners.frame !== '0px' && corners.image === '0px', JSON.stringify(corners))
 
   // 6. A plain note: the gear menu offers Who and Where, and both fields show.
-  await page.click('button[aria-label="Actions"]')
+  await page.click('button[aria-label="Options"]')
   await page.waitForTimeout(500)
   const offer = page.locator('[role=menuitem]:has-text("Add who and where it’s from")')
   check('6. a note is offered “Add who and where it’s from”', await offer.count() === 1)

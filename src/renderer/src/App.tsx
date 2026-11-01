@@ -33,7 +33,7 @@ import { TodayPanel } from './components/haligtree/today-panel'
 import { selectionActions } from './components/haligtree/selection-actions'
 import { ReviewView } from './components/haligtree/review-view'
 import { SessionFooter } from './components/haligtree/session-footer'
-import { unloaded, useAppearance, useInboxDays, useLive } from './lib/haligtree'
+import { shownName, unloaded, useAppearance, useInboxDays, useLive } from './lib/haligtree'
 import { allRecorded, moveOldRecordable, recordAll } from './lib/recordings'
 import { BackToTop, Empty, Kbd, Remembered, Strip, StripSlot, typing, useListKeys, useReadKey, useSmooth, FocusNote, useFocusMode, startAt, quietly } from './components/haligtree/ui'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './components/ui/tooltip'
@@ -194,7 +194,7 @@ const readLeftover = (): JSONContent | null => {
 }
 /** What a leftover is, in a few words: its first line, or "Voice note · 0:56" for a recording alone. */
 const leftoverName = (doc: JSONContent): string => {
-  const line = firstLine(doc)
+  const line = shownName(firstLine(doc))
   if (line) return quoted(line, 28)
   let file: { name?: string; duration?: number } | null = null
   const walk = (node: JSONContent): void => {
@@ -284,7 +284,8 @@ const Header = ({ panel, drawn, onPanel, onNew, menu, nav, title, aside }: {
   panel: boolean
   /** The panel is on screen, or still gliding away. */
   drawn: boolean
-  onPanel: () => void
+  /** None in "One line to start", which has no side panel: no button that would do nothing. */
+  onPanel?: () => void
   onNew: () => void
   /** The actions menu, handed the window's size and the way to change it. */
   menu: (expanded: boolean, toggleExpanded: () => void) => React.ReactNode
@@ -400,6 +401,7 @@ const Header = ({ panel, drawn, onPanel, onNew, menu, nav, title, aside }: {
             </button>
           </Tip>
           <span className="flex">{menu(expanded, toggle)}</span>
+{onPanel && (
           <Tip label={`${panel ? 'Hide' : 'Show'} Inbox, Tasks, Review, Saved and Recent  ⌘\\`}>
             <button type="button" tabIndex={-1} data-lesson="hide" aria-label={panel ? 'Hide the side panel' : 'Show the side panel'} aria-pressed={panel}
               className="relative flex size-[22px] after:absolute after:-inset-0.5 after:rounded-full items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground aria-pressed:text-foreground"
@@ -407,6 +409,7 @@ const Header = ({ panel, drawn, onPanel, onNew, menu, nav, title, aside }: {
               <AliveIcon icon={LayoutSidebarRightIcon} size={14} />
             </button>
           </Tip>
+          )}
         </span>
         </span>
       </div>
@@ -1057,7 +1060,9 @@ export default function App(): React.JSX.Element {
   // welcome runs, which teaches the whole box.
   const oneLine = oneLineOn && !welcoming
   const [opened, setOpened] = useState(false)
-  const [wraps, setWraps] = useState(false)
+  // A draft of more than one line opens grown, at the height its words need: worked out from the draft itself, before
+  // the editor is drawn, so the box never shows as the pill first and grows a moment later.
+  const [wraps, setWraps] = useState(() => (body?.content ?? []).filter((one) => hasContent({ type: 'doc', content: [one] })).length > 1)
   // A tag, a mention or a / typed is still one line: the pill stays the pill (its list hangs outside, in the room below
   // it), and grows only when the words pass one line. As a token it grew to the box's short height on the list closing
   // and shrank back once the token was gone (qa/pill-steady.mjs).
@@ -1075,7 +1080,7 @@ export default function App(): React.JSX.Element {
   useEffect(() => void (!boxText.trim() && setOpened(false)), [boxText])
   foldPill.current = () => (oneLine && opened && !wraps && !plan?.tokens.length ? (chime('fold'), setOpened(false), true) : false)
   // The window as tall as the writing, from short to full (or one line, as the pill): see fit-box.
-  const box = useFitBox(column, Boolean(reading), pill)
+  const box = useFitBox(column, Boolean(reading), pill, appSettings !== null)
   // No two-finger swipe back and forward here: ⌘ and two fingers throw the box, and the two fought. ⌘[ and ⌘] still step back and on.
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
@@ -1905,7 +1910,8 @@ export default function App(): React.JSX.Element {
             { label: 'Record a voice note', hint: 'Kept as a new capture', cue: null, run: () => void recordAsCapture((id) => openAny('capture', id)) },
             ...(recordingsWithoutWords() ? [{ label: 'Transcribe the voice notes', hint: 'Their words under each, on this Mac', cue: null, run: transcribePage }] : []),
             { label: 'New question', cue: null, run: () => void startQuestion(openAny) },
-            { label: panel ? 'Hide the side panel' : 'Show the side panel', keys: '⌘\\', cue: null, run: () => (setPanel(!panel), quietly(() => setPanel(panel))) },
+            // Not offered in "One line to start", which has no side panel to show.
+            ...(oneLineOn ? [] : [{ label: panel ? 'Hide the side panel' : 'Show the side panel', keys: '⌘\\', cue: null, run: () => (setPanel(!panel), quietly(() => setPanel(panel))) }]),
             ...TABS.map((one, index) => ({ label: `Go to ${({ inbox: 'Inbox', today: 'Tasks', review: 'Review', kept: 'Saved', recent: 'Recent' } as Record<string, string>)[one] ?? one}`, keys: `⌃${index + 1}`, run: () => {
               setTab(one)
               if (!panel) setPanel(true)
@@ -1994,7 +2000,7 @@ export default function App(): React.JSX.Element {
       </AnimatePresence>
       <FocusNote />
       <FocusScenery />
-      <Header panel={panel} drawn={panelDrawn} onPanel={() => setPanel(!panel)} nav={trail.stack.length > 1 && (
+      <Header panel={panel} drawn={panelDrawn} onPanel={oneLineOn ? undefined : () => setPanel(!panel)} nav={trail.stack.length > 1 && (
         // Back and forward, joined in one pill as Safari and Raycast do it.
         <span className="mf-segs ml-3 self-center rounded-full border border-foreground/15 [&_svg]:size-3">
           {([['Back  ⌘[', -1, ChevronLeft], ['Forward  ⌘]', 1, ChevronRight]] as const).map(([label, by, Icon]) => (
@@ -2018,10 +2024,13 @@ export default function App(): React.JSX.Element {
         // chip up here says they are there, and opens it on them. Kept with
         // the panel open too, so it never pops out as the panel slides in.
         : pinned.length > 0 && !lesson && !unloaded(pinned) ? (
-          <Tip label={panel ? 'Show the Inbox in the side panel  ⌃1' : 'Open the Inbox in the side panel  ⌘\\'}>
+          // "One line to start" has no side panel: there the chip opens the Inbox in the main window, where they are.
+          // Its name says what pressing it does, for the bar's word when Tab chooses it.
+          <Tip label={oneLineOn ? `Your ${plural(Math.min(BOX_PINS, pinned.length), 'pinned note')}, in the Inbox` : panel ? 'Show the Inbox in the side panel  ⌃1' : 'Open the Inbox in the side panel  ⌘\\'}>
             <button type="button" data-waiting style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}
               onMouseDown={(event) => event.preventDefault()}
               onClick={() => {
+                if (oneLineOn) return void (chime('tap'), window.api.openInHome('view', 'inbox'))
                 setTab('inbox')
                 setPanel(true)
               }}
@@ -2034,7 +2043,7 @@ export default function App(): React.JSX.Element {
         ) : null}
       menu={(expanded, toggleExpanded) => (
         <OptionsMenu
-          label="Actions"
+          label="Options"
           icon={<AliveIcon icon={GearIcon} size={14} />}
           side="bottom"
           align="end"
@@ -2131,6 +2140,7 @@ export default function App(): React.JSX.Element {
             <CapturePrompt
               key={editing?.id ?? round}
               initial={editing?.body ?? readDraft()}
+              pill={pill}
               locked={locked}
               outline={outline}
               autofocus={!quietOpen.current}
@@ -2215,7 +2225,7 @@ export default function App(): React.JSX.Element {
             {waiting && (
               <div className="flex items-center gap-2 px-[4.75rem] pt-2 text-xs text-muted-foreground">
                 {/* A sentence, so it types in; the key drawn as a key. */}
-                <span className="truncate"><Typed text={`Your draft ${quoted(firstLine(waiting) || 'unfinished', 33)} is waiting:`} /></span>
+                <span className="truncate"><Typed text={`Your draft ${quoted(shownName(firstLine(waiting)) || 'unfinished', 33)} is waiting:`} /></span>
                 <span className="flex shrink-0 items-center gap-1"><Pressed keys="⌘[" /> takes you back.</span>
               </div>
             )}
@@ -2315,7 +2325,7 @@ export default function App(): React.JSX.Element {
                 >
                   {/* Still, not pulsing: it turns up while you write, and a beat that never stops pulls the eye off the words. */}
                   <span className="size-1.5 shrink-0 rounded-full bg-[var(--tt-brand-color-400)]" />
-                  <span className="truncate"><Rolling by="word" text={`Similar to ${quoted(like.title, 48)}`} /></span>
+                  <span className="truncate"><Rolling by="word" text={`Similar to ${quoted(shownName(like.title), 48)}`} /></span>
                   {/* Says it goes somewhere: an arrow that leans further on hover. */}
                   <ArrowUpRight className="size-3.5 shrink-0 text-[var(--tt-brand-color-400)] transition-transform group-hover/like:translate-x-0.5 group-hover/like:-translate-y-0.5" />
                 </button>
@@ -2665,6 +2675,7 @@ const keepLifted = (ids: string[]): void => {
 
 const CapturePrompt = ({
   initial,
+  pill = false,
   locked,
   outline,
   onChange,
@@ -2694,6 +2705,8 @@ const CapturePrompt = ({
   /** The capture open in the box, if any: what a selection lifted out of it points back to. */
   from?: string
   initial?: JSONContent
+  /** The one-line pill: nothing to find in one line, so ⌘F opens no Find bar over it. */
+  pill?: boolean
   locked: boolean
   outline: boolean
   onChange: (doc: JSONContent, editor: Editor) => void
@@ -2728,7 +2741,7 @@ const CapturePrompt = ({
         handles={true}
         slash={true}
         outline={outline}
-        search={true}
+        search={!pill}
         // vim is left out, so it follows the page switch.
         vimStart="insert"
         autofocus={autofocus ? 'end' : false}

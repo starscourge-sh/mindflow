@@ -8,7 +8,8 @@
 import { sandbox } from './sandbox-lib.mjs'
 process.env.QA_ARGS ??= '--sandbox'
 
-const c = await sandbox({ width: 1100, height: 760 })
+// Mid-afternoon: an evening practice offered at the hour ("21:00 Read twenty pages…") makes the pill the box.
+const c = await sandbox({ width: 1100, height: 760, at: '14:10' })
 const { page, v, electron } = c
 const results = []
 const check = (name, ok, detail = '') => (results.push(!!ok), console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? `  (${detail})` : ''}`))

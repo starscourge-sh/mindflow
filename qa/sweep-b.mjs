@@ -218,7 +218,7 @@ try {
   await page.locator('.tiptap.ProseMirror').first().click().catch(() => {})
   await page.keyboard.type('A line so the note has its own section')
   await wait(400)
-  await page.locator('button[aria-label="Actions"]').first().click(); await wait(500)
+  await page.locator('button[aria-label="Options"]').first().click(); await wait(500)
   const gear = await menuFits(page)
   const boxHeight = await page.evaluate(() => innerHeight)
   if (!gear.length || gear.some((m) => m.scrolls || m.bottom > boxHeight)) totals.menusScrolling++

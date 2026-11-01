@@ -32,7 +32,7 @@ const under = () => page.evaluate(() => ({
   logRow: [...document.querySelectorAll('[data-box-offers]')].some((one) => one.innerText.includes('Log to'))
 }))
 const gear = async () => {
-  await page.getByRole('button', { name: 'Actions', exact: true }).click()
+  await page.getByRole('button', { name: 'Options', exact: true }).click()
   await page.waitForTimeout(400)
   return page.evaluate(() => [...document.querySelectorAll('[role=menu] [role^=menuitem]')].map((i) => i.innerText.split('\n')[0].trim()))
 }

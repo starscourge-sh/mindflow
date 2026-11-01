@@ -151,8 +151,9 @@
 
 // Never on a line showing its placeholder: there `::before` is the
 // placeholder, and the band's fill drew a box round the hint's words. Nor on
-// today's page or in the writing room, where the words sit on the page.
-.tiptap.ProseMirror.haligtree-editor:focus-within:not(.is-line):not(:is([data-day-write], [data-room]) *) .vim-cursor-line:not(.is-empty[data-placeholder])::before {
+// today's page, in the writing room or in quick capture, where the words sit
+// on the page (in the box a full-width band read as a stray bar).
+.tiptap.ProseMirror.haligtree-editor:focus-within:not(.is-line):not(:is([data-day-write], [data-room], [data-caret-room]) *) .vim-cursor-line:not(.is-empty[data-placeholder])::before {
   content: "";
   position: absolute;
   z-index: -1;
@@ -2999,13 +3000,6 @@ $media-brand: var(--tt-brand-color-500, currentColor);
   cursor: pointer;
   text-decoration: none;
 
-  // Keyed, it is a chip like Linear's: muted key, plain title, a hairline.
-  &[data-key] {
-    padding: 0.0625rem 0.375rem;
-    border: 1px solid var(--tt-border-color);
-    color: inherit;
-  }
-
   // Its words take the link's own line, none or dashed, not the plain links' underline.
   span {
     text-decoration: inherit;
@@ -3027,13 +3021,6 @@ $media-brand: var(--tt-brand-color-500, currentColor);
     text-decoration: underline dashed;
     text-underline-offset: 0.2em;
   }
-}
-
-// The `V-30` in a link's chip.
-.tiptap-note-link-key {
-  margin-right: 0.375rem;
-  color: var(--mf-muted);
-  font-variant-numeric: tabular-nums;
 }
 
 // A long title takes a second line before it stops: notes that start alike

@@ -81,6 +81,17 @@
   pointer-events: none !important;
   transition-duration: 150ms;
 }
+/* Quick capture's round controls, out in the room beside the card, stay put and shown while you type: only a gentle
+   dim, never gone, moved or grown, so none of them pops in and out or slides over the next (the user: "the options
+   pop in and out ungracefully"). Spotlight keeps its buttons steady the same way. */
+:root[data-overhang] .mf-top :is(.mf-pill button, [data-aside] > *) { transition: opacity 160ms var(--mf-ease), background-color 120ms var(--mf-ease), scale 120ms var(--mf-ease); }
+:root[data-overhang][data-zen] .mf-top [data-zen-target]:not(:has([data-state=open], [aria-expanded=true])) {
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}
+:root[data-overhang][data-zen] .mf-top :is(.mf-pill button, [data-aside] > *):not([data-picked]) {
+  opacity: 0.6;
+}
 /* Kept able to be pointed at, so pointing shows them: the footer's row and the
    menu bar's pill sit where nothing else takes the pointer. */
 :root[data-zen-hide] :is([data-zen-target]:not(:hover), [data-zen-row]:not(:hover) > :not([data-zen-keep]), .tiptap-drag-handle:not(:hover), [data-selection-layer]:not(:hover)):not(:has([data-state=open], [aria-expanded=true])) {
