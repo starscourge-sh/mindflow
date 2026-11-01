@@ -34,7 +34,9 @@ try {
     { term: 'Mitosis makes', meaning: 'two cells #biology-cells' }, { term: 'Meiosis makes', meaning: 'four cells #biology-cells' },
     { term: 'Name the parts of the cell, its walls and what each does', meaning: 'nucleus, membrane, wall, ribosome, mitochondria, vacuole, golgi #biology' },
     { term: 'Cell', meaning: 'the unit of life #biology' }, { term: 'hola', meaning: 'hello #spanish' }, { term: 'gato', meaning: 'cat #spanish' },
-    { term: 'Confirmation bias', meaning: 'seeing what you expect #psychology-cognition' }
+    { term: 'Confirmation bias', meaning: 'seeing what you expect #psychology-cognition' },
+    { term: 'Forty', meaning: 'a long name #comparative-anatomy-of-the-vertebrates-ok' },
+    { term: 'Eighty', meaning: 'a longer name #comparative-anatomy-and-physiology-of-the-vertebrates-and-the-invertebrates-of-the-sea' }
   ])
   if (many) {
     const rows = Array.from({ length: many }, (_, at) => ({ term: `Question ${at + 1} about deck ${at % 300} with a longer name than most`, meaning: `answer ${at} #deck-${at % 300}` }))
@@ -58,6 +60,44 @@ try {
   const pocket = await box('[data-pocket]')
   check('1. All cards pockets are the same tile: satin, square, about the same width', await has('[data-pocket][data-pocket-plain].mf-metal') && Math.abs(pocket.w / pocket.h - 1) <= 0.1 && Math.abs(pocket.w - tile.w) <= 24, JSON.stringify({ pocket, tile }))
   check('1. no coloured glass or Coolshapes in All cards by default', !(await has('[data-card-pockets] .mf-glass, [data-card-pockets] [data-group-cover]')))
+
+  // 1b. Dense tiles: about 200 px, the name leads, satin you can see, no tip at all (one hover, one surface).
+  await tab('decks')
+  await waitFor(() => has('[data-deck-grid] [data-own-deck]'))
+  const dense = await h.evaluate(() => { const one = document.querySelector('[data-deck-grid] [data-own-deck]'); const r = one.getBoundingClientRect(); const first = [...one.querySelectorAll('h3, [data-deck-counts]')][0]; return { w: Math.round(r.width), h: Math.round(r.height), lead: first?.tagName, bg: getComputedStyle(one).backgroundImage } })
+  check('1b. a deck tile is about 200 px square', dense.w >= 168 && dense.w <= 215 && Math.abs(dense.w - dense.h) <= 2, JSON.stringify({ w: dense.w, h: dense.h }))
+  check('1b. its name leads, above its counts', dense.lead === 'H3', dense.lead)
+  check('1b. its satin has a brushed grain and a sheen', /repeating-linear-gradient/.test(dense.bg) && (dense.bg.match(/gradient/g) ?? []).length >= 2, dense.bg.slice(0, 60))
+  const tipsOn = async (selector) => { await h.hover(selector); await h.waitForTimeout(900); return h.evaluate((selector) => { const el = document.querySelector(selector); const titled = [el, ...el.querySelectorAll('*')].filter((one) => one.hasAttribute('title')).length; for (let at = el.parentElement; at; at = at.parentElement) if (at.hasAttribute?.('title')) return 99; return titled + [...document.querySelectorAll('[role="tooltip"], [data-note-preview]')].filter((one) => one.getBoundingClientRect().width > 0).length }, selector) }
+  const onTile = await tipsOn('[data-deck-grid] [data-own-deck] h3')
+  const onDots = await tipsOn('[data-deck-grid] [data-own-deck] [aria-label="Deck options"]')
+  check('1b. pointing at a tile, then its ⋯: no tip, no title, nothing floats', onTile === 0 && onDots === 0, JSON.stringify({ onTile, onDots }))
+  // Long names wrap to two lines, never cut on one; the ⋯ menu names the deck whole.
+  await c.size(390, 844); await h.waitForTimeout(700)
+  const longTile = '[data-own-deck="comparative-anatomy-and-physiology-of-the-vertebrates-and-the-invertebrates-of-the-sea"]'
+  if (await has('[data-deck-fold][aria-expanded="false"]')) await h.click('[data-deck-fold]')
+  await waitFor(() => has(longTile))
+  const clamp = await h.evaluate((sel) => { const one = document.querySelector(`${sel} h3`); const lines = Math.round(one.getBoundingClientRect().height / parseFloat(getComputedStyle(one).lineHeight)); return { lines, clamp: getComputedStyle(one).webkitLineClamp, ws: getComputedStyle(one).whiteSpace } }, longTile)
+  check('1b. an 80-letter name at 390 wide wraps to two lines, at most', clamp.lines <= 2 && clamp.clamp === '2' && clamp.ws !== 'nowrap', JSON.stringify(clamp))
+  await h.click(`${longTile} [aria-label="Deck options"]`)
+  check('1b. its ⋯ menu names it whole at the top', await waitFor(() => h.evaluate(() => /invertebrates of the sea/i.test(document.querySelector('[data-menu-heading]')?.textContent ?? ''))))
+  if (shots) await h.screenshot({ path: join(shots, 'long-name-menu-phone-light.png') })
+  const menuBox = await h.evaluate(() => { const r = document.querySelector('[data-menu-heading]')?.closest('[role="menu"]')?.getBoundingClientRect(); return r ? { left: Math.round(r.left), right: Math.round(r.right), vw: window.innerWidth } : null })
+  check('1b. at 390 wide the menu stays on screen', menuBox && menuBox.left >= 0 && menuBox.right <= menuBox.vw, JSON.stringify(menuBox))
+  check('1b. a tile shows each figure once: no big due number repeating its counts', !(await has('[data-deck-due-big]')))
+  await h.keyboard.press('Escape')
+  await c.size(1200, 860); await h.waitForTimeout(700)
+  // One toolbar: the same four buttons in the same place on all three tabs.
+  const bar = {}
+  for (const id of ['decks', 'cards', 'stats']) { await tab(id); await waitFor(() => has('[data-review-toolbar]')); await h.evaluate(() => { for (let at = document.querySelector('[data-review-toolbar]'); at; at = at.parentElement) at.scrollTop = 0 }); await h.waitForTimeout(150); bar[id] = await h.evaluate(() => [...document.querySelectorAll('[data-review-toolbar] [data-deck-make], [data-review-toolbar] [data-deck-paste], [data-review-toolbar] [data-deck-picture], [data-review-toolbar] [data-deck-import]')].map((one) => { const r = one.getBoundingClientRect(); return `${one.textContent}@${Math.round(r.x)},${Math.round(r.y)},${Math.round(r.width)}` }).join(' ')) }
+  check('1c. one toolbar: the same four buttons in the same place on Decks, All cards and Stats', bar.decks && bar.decks.split(' @').length && bar.decks === bar.cards && bar.cards === bar.stats, JSON.stringify(bar))
+  // Stats says each figure once; its days are the heatmap's square cells.
+  const statsText = await h.evaluate(() => document.querySelector('[data-review-stats]').textContent)
+  check('1d. Stats says "of the last 7 days" once and the retention figure once', (statsText.match(/of the last 7 days/g) ?? []).length <= 1 && !(await has('[data-mono-card="retention"]')), String((statsText.match(/of the last 7 days/g) ?? []).length))
+  const cells = await h.evaluate(() => { const one = document.querySelector('[data-day-cells] [data-day]'); const r = one?.getBoundingClientRect(); return one ? { w: Math.round(r.width), h: Math.round(r.height), radius: getComputedStyle(one).borderTopLeftRadius } : null })
+  check('1d. Stats days are square cells, as the heatmap draws them', cells && cells.w === cells.h && cells.radius === '2px' && !(await has('[data-mono-dots]')), JSON.stringify(cells))
+  await tab('cards')
+  await waitFor(() => has('[data-pocket]'))
 
   // 2. Decks by name, never as #tags.
   const pocketsText = await h.evaluate(() => [...document.querySelectorAll('[data-pocket]')].map((one) => one.textContent).join(' | '))
@@ -144,7 +184,26 @@ try {
   await call('decks:order', reorder)
   await waitFor(async () => (await h.evaluate(() => [...document.querySelectorAll('[data-deck-grid] [data-own-deck]')].map((one) => one.getAttribute('data-own-deck')).join())) === reorder.join(), 3000)
   check('S4. decks stand in the order they were put in', (await h.evaluate(() => [...document.querySelectorAll('[data-deck-grid] [data-own-deck]')].map((one) => one.getAttribute('data-own-deck')))).join() === reorder.join(), `${before} -> ${reorder}`)
-  await h.dragAndDrop(`[data-own-deck="${reorder[2]}"]`, `[data-own-deck="${reorder[0]}"]`)
+  // Live: while dragged over the first deck, the others make room before the drop. Frames every 50 ms.
+  console.log('drag', reorder.join(), await h.evaluate(() => [...document.querySelectorAll('[data-own-deck]')].map((one) => one.getAttribute('data-own-deck')).join()))
+  const order = () => h.evaluate(() => [...document.querySelectorAll('[data-deck-grid] [data-own-deck]')].map((one) => one.getAttribute('data-own-deck')).join())
+  await h.evaluate(() => { for (let at = document.querySelector('[data-deck-grid]'); at; at = at.parentElement) at.scrollTop = 0 })
+  await h.locator(`[data-own-deck="${reorder[2]}"]`).scrollIntoViewIfNeeded()
+  const from = await h.locator(`[data-own-deck="${reorder[2]}"]`).boundingBox()
+  const to = await h.locator(`[data-own-deck="${reorder[0]}"]`).boundingBox()
+  await h.mouse.move(from.x + 40, from.y + 40)
+  await h.mouse.down()
+  const frames = []
+  for (let step = 1; step <= 12; step++) {
+    await h.mouse.move(from.x + 40 + ((to.x - from.x) * step) / 12, from.y + 40 + ((to.y - from.y) * step) / 12)
+    await h.waitForTimeout(50)
+    frames.push(await order())
+    if (shots && step % 3 === 0) await h.screenshot({ path: join(shots, `drag-frame-${step}.png`) })
+  }
+  const midDrag = frames.at(-1)
+  await h.mouse.up()
+  check('S4. while dragging, the decks make room live, before the drop', midDrag !== reorder.join() && midDrag.startsWith(reorder[2]), JSON.stringify(frames.filter((one, at) => frames[at - 1] !== one)))
+  if (!(await waitFor(async () => (await order()).startsWith(reorder[2]), 1500))) await h.dragAndDrop(`[data-own-deck="${reorder[2]}"]`, `[data-own-deck="${reorder[0]}"]`)
   const dragged = await waitFor(async () => (await h.evaluate(() => document.querySelector('[data-deck-grid] [data-own-deck]')?.getAttribute('data-own-deck'))) === reorder[2], 3000)
   check('S4. dragging a deck onto the first puts it first', dragged, await h.evaluate(() => [...document.querySelectorAll('[data-deck-grid] [data-own-deck]')].map((one) => one.getAttribute('data-own-deck')).join()))
   // A study set.

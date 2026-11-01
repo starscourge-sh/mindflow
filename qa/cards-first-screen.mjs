@@ -52,7 +52,8 @@ try {
 
   // 3. Pockets: squarish tiles in a grid, a plain face, due first in ink, no Coolshapes by default, one filled button on the page.
   check('3. no Coolshapes cover on any deck by default', !(await has('[data-deck-shelf] [data-group-cover]')))
-  check('3. each deck shows its due count large, or its new count when none is due', await has('[data-deck-face="#biology"]') && /^5 ?new$/.test((await text('[data-deck-face="#biology"]')).trim()), await text('[data-deck-face="#biology"]'))
+  // The name leads the tile and its counts sit under it, due first: no big number repeating them (user, 1 Nov).
+  check('3. each deck says its due count first, then new, under its name', /^0 due · 5 new$/.test((await text('[data-own-deck="biology"] [data-deck-counts]')).trim()) && await h.evaluate(() => document.querySelector('[data-own-deck="biology"] h3')?.compareDocumentPosition(document.querySelector('[data-own-deck="biology"] [data-deck-counts]')) === Node.DOCUMENT_POSITION_FOLLOWING), await text('[data-own-deck="biology"] [data-deck-counts]'))
   const counts = await text('[data-own-deck="spanish"] [data-deck-counts]')
   check('3. the counts say due first, then new', /^\d+ due · \d+ new$/.test(counts.trim()), counts)
   const radius = await h.evaluate(() => parseFloat(getComputedStyle(document.querySelector('[data-own-deck="biology"]')).borderTopLeftRadius))
