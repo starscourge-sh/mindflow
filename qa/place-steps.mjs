@@ -25,6 +25,11 @@ const side = async (button) => { await c.h.evaluate((b) => window.dispatchEvent(
 // Each place: how to open its page, how to pick a place, and what the screen says is picked.
 const PLACES = [
   {
+    name: 'Review', view: 'review', a: 'cards', b: 'stats',
+    pick: (one) => `[data-review-tabs] [data-review-tab="${one}"]`,
+    read: () => c.h.evaluate(() => document.querySelector('[data-review-tabs] [aria-selected="true"]')?.getAttribute('data-review-tab') ?? '')
+  },
+  {
     name: 'Feed', view: 'feed', a: 'reading', b: 'liked',
     pick: (one) => `[data-tabs="feed"] [data-tab="${one}"]`,
     read: () => c.h.evaluate(() => document.querySelector('[data-tabs="feed"] [aria-selected="true"]')?.getAttribute('data-tab') ?? '')

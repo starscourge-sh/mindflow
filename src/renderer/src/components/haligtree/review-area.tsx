@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { motion } from 'motion/react'
 import { chime } from '@/lib/sound'
+import { useStepped } from '@/lib/nav'
 import { ReviewView } from './review-view'
 import { CardBrowser } from './card-browser'
 import { StudySection } from './study-stats'
@@ -33,6 +34,8 @@ export function ReviewArea({ focus, onOpen, onFocus }: { focus?: string; onOpen:
   // Just the cards an import made, from its "Show the new cards" (":newest:" and how many it made).
   const [newest, setNewest] = useState<number | null>(focus?.startsWith(':newest:') ? Number(focus.slice(8)) || null : null)
   const [tab, setTab] = useState<ReviewTab>(newest || focus === ':cards' || focus === ':paste' || focus?.startsWith(':new:') ? 'cards' : focus === ':stats' ? 'stats' : focus === ':today' || (focus && !focus.startsWith(':')) ? 'today' : 'decks')
+  // Each tab, and studying one deck, is a step of the pane's trail: Back and Forward go between them.
+  useStepped(studying !== null ? `study:${studying}` : tab, (to) => (to.startsWith('study:') ? setStudying(to.slice(6)) : (setStudying(null), setTab(to as ReviewTab))))
   // Where Review is, said as a focus string, each time it changes.
   const here = tab === 'today' && studying ? studying : `:${tab}`
   const told = useRef(onFocus)
