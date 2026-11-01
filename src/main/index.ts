@@ -77,6 +77,7 @@ import { registerMedia } from './media'
 import { registerCollect } from './collect'
 import { registerTranscribe } from './transcribe'
 import { begin, end as endJob, registerJobs } from './jobs'
+import { registerLabels } from './labels'
 import { registerDictation } from './dictation'
 import { registerPeople } from './people'
 import { registerSources } from './sources'
@@ -3975,6 +3976,7 @@ app.whenReady().then(() => {
   registerCollect()
   registerTranscribe()
   registerJobs()
+  registerLabels()
   registerDictation()
   registerObsidian()
   registerPictures()
