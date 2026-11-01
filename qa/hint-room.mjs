@@ -58,6 +58,22 @@ const reopen = async () => {
   await page.evaluate(() => window.api.hidePrompt()); await wait(500)
   await page.evaluate(() => window.api.showPrompt()); await wait(1400)
 }
+/**
+ * One gem as the hint on every open, chosen once by its id: main's own picker is asked until it hands over a gem (a
+ * long one if asked), and from then on that gem is what it gives. `null` puts the picker back.
+ */
+const pinHint = (want) => c.electron.evaluate(({ ipcMain }, want) => {
+  const handlers = ipcMain._invokeHandlers
+  const own = (globalThis.qaHintsNext ??= handlers.get('hints:next'))
+  if (want === null) return void handlers.set('hints:next', own)
+  let one = null
+  for (let i = 0; i < 400 && !one; i++) {
+    const row = own({})
+    if (row && row.id !== row.captureId && (want !== 'long' || JSON.stringify(row.body ?? '').length + String(row.title ?? '').length > 500)) one = row
+  }
+  handlers.set('hints:next', () => one)
+  return one && { id: one.id, title: one.title }
+}, want)
 /** Opened until a hint comes (the store hands out none now and then). */
 const untilHint = async () => {
   for (let i = 0; i < 6; i++) {
@@ -211,11 +227,9 @@ try {
   check('the box at the top right of the screen: the hint beside it on the left', seen(right) && right.side === 'left' && right.right <= right.card[0] - 8 && right.inWindow, JSON.stringify(right))
   await shape('box-top-right')
   await putBox('middle')
-  for (let i = 0; i < 12; i++) {
-    await untilHint()
-    if ((await page.evaluate(() => document.querySelector('[data-hint-words]')?.textContent.length ?? 0)) > 160) break
-  }
-  const long = await hint()
+  const longGem = await pinHint('long')
+  await reopen()
+  const long = { ...(await hint()), gem: longGem }
   check('a long hint: three lines at most, clear of the card and inside the window', seen(long) && !long.overCard && long.inWindow && long.lines <= 3, JSON.stringify(long))
   if (film) {
     for (const look of ['light', 'dark']) {
@@ -226,10 +240,9 @@ try {
 
   // Reading: a gem opened in the box from its hint's menu (a capture would open in the box to finish, not to read);
   // opened again, the next hint waits while it is read.
-  for (let i = 0; i < 12; i++) {
-    await untilHint()
-    if ((await page.evaluate(() => document.querySelector('[data-hint-mark]')?.textContent.trim())) === 'Came back') break
-  }
+  const readGem = await pinHint('gem')
+  await reopen()
+  await page.waitForSelector('[data-hint-words]', { timeout: 5000 }).catch(() => {})
   await page.click('[data-hint-words]', { button: 'right' }); await wait(400)
   await page.locator('[role=menu] [role=menuitem]', { hasText: 'Open it' }).first().click().catch(() => {})
   await wait(1000)
@@ -237,12 +250,13 @@ try {
   await page.evaluate(() => window.api.showPrompt()); await wait(1600)
   for (let i = 0; i < 5 && !(await page.$('[data-hint-card]')); i++) { await page.evaluate(() => window.api.hidePrompt()); await wait(400); await page.evaluate(() => window.api.showPrompt()); await wait(1600) }
   const readingNow = await page.evaluate(() => document.body.innerText.includes('Back to your note'))
-  check('reading a note in the box: the next hint waits unseen', readingNow && !!(await page.$('[data-hint-card]')) && !seen(await hint(false)), `reading ${readingNow}`)
+  check('reading a note in the box: the next hint waits unseen', readingNow && !!(await page.$('[data-hint-card]')) && !seen(await hint(false)), `reading ${readingNow}, gem ${JSON.stringify(readGem)}`)
   if (film) for (const look of ['light', 'dark']) {
     const dir = `${shots}/reading-${look}`; mkdirSync(dir, { recursive: true }); await theme(look)
     await roll(dir, '1-reading', 600, async () => {})
   }
   await page.click('button:has-text("Back to your note")').catch(() => {}); await wait(600)
+  await pinHint(null)
 
   // "One line to start", the pill: the hint waits until the pill grows.
   await v('settings:set', { boxOneLine: true })
