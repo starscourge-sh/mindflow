@@ -869,8 +869,10 @@
   overflow-y: auto;
   overscroll-behavior: contain;
   scroll-timeline: --book-body y;
-  /* The foot fades only while there is more below; the top is the head's shade, so a heading held there stays whole. */
-  mask-image: linear-gradient(to bottom, #000 calc(100% - var(--mf-more)), transparent 100%);
+  /* The foot fades only while there is more below; the top is the head's shade, so a heading held there stays whole.
+     The fade reaches past the 3.5rem of room kept for the Top button into the rows themselves (2.6 times the
+     shared 2.5rem, about 6.5rem): over empty room alone it faded nothing and said nothing about what was below. */
+  mask-image: linear-gradient(to bottom, #000 calc(100% - var(--mf-more) * 2.6), transparent 100%);
   animation: mf-more linear both;
   animation-timeline: scroll(self);
   animation-range: calc(100% - 2.5rem) 100%;
