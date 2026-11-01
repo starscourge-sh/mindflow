@@ -37,6 +37,8 @@ async function roll(dir, name, ms, act) {
   going = false
   await rolling
 }
+/** The round controls brought out of the bar, as Tab does (at rest the pill is the bar alone). */
+const bringOut = async () => { if (await page.$('.app-container[data-pill]')) { await page.keyboard.press('Tab'); await wait(550) } }
 const read = () => page.evaluate((sel) => {
   const box = (el) => { if (!el) return null; const r = el.getBoundingClientRect(); return r.width ? { left: Math.round(r.left), top: Math.round(r.top), right: Math.round(r.right), bottom: Math.round(r.bottom) } : null }
   const hit = (a, b) => !!a && !!b && !(a.right <= b.left || a.left >= b.right || a.bottom <= b.top || a.top >= b.bottom)
@@ -66,6 +68,7 @@ const read = () => page.evaluate((sel) => {
 try {
   await v('settings:set', { hintRate: 0, rotCount: 0, sounds: false, boxOneLine: true })
   await reopen()
+  await bringOut()
   const plain = await read()
   check('the pill: a one-line box', plain.pill && plain.card && plain.card.bottom - plain.card.top <= 64, JSON.stringify(plain.card))
   check('its words are large, as Spotlight\'s (20px or more)', plain.font >= 20, String(plain.font))
@@ -85,6 +88,7 @@ try {
     await placeBox(spot)
     await page.evaluate((px) => { document.documentElement.style.fontSize = px ? `${px}px` : '' }, size)
     await reopen()
+    await bringOut()
     const r = await read()
     check(`${name}: every round control whole in the window, ${r.above ? 'above' : 'beside'} the pill`, whole(r) && !r.controlsOverCard && (r.above ? r.controls.every((one) => one.bottom <= r.card.top) : r.controls.every((one) => one.left >= r.card.right + 8)), JSON.stringify({ card: r.card, width: r.width, above: r.above, controls: r.controls }))
     if (spot === 'right') check('…and at the right edge they go above the pill', r.above, String(r.above))
@@ -96,6 +100,8 @@ try {
   }
   await page.evaluate(() => { document.documentElement.style.fontSize = '' })
   await placeBox('middle'); await reopen()
+  if (process.env.QA_DEBUG) console.log('before', JSON.stringify(await page.evaluate(() => ({ above: document.documentElement.hasAttribute('data-controls-above'), top: document.querySelector('.mf-top').getBoundingClientRect().toJSON(), w: innerWidth, rr: getComputedStyle(document.documentElement).getPropertyValue('--mf-room-right') }))))
+  await bringOut()
   const plain2 = await read()
   check('the round controls stand beside the pill\'s right end at its height, never over it', plain2.controls.length >= 3 && !plain2.controlsOverCard && plain2.controls.every((one) => one.left >= plain2.card.right + 8 && one.top === plain2.card.top && one.bottom - one.top === plain2.card.bottom - plain2.card.top), JSON.stringify({ card: plain2.card, controls: plain2.controls }))
 
