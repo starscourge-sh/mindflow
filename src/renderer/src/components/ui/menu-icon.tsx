@@ -253,7 +253,7 @@ export function withMenuIcon(children: ReactNode): ReactNode {
 }
 
 /** A menu line's drawing on its own, by its words, for a menu whose lines bring their own markup (the block menu). */
-export function MenuGlyph({ label }: { label: string }): React.JSX.Element {
+export function MenuGlyph({ label, small = false }: { label: string; /** At a menu row's size, beside a line that brings a hint under its words. */ small?: boolean }): React.JSX.Element {
   const Icon = menuIcon(label)
-  return <Icon aria-hidden data-menu-icon="" className="size-4 shrink-0 text-muted-foreground" />
+  return <Icon aria-hidden data-menu-icon="" className={`${small ? 'size-3.5' : 'size-4'} shrink-0 text-muted-foreground`} />
 }

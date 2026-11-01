@@ -5,6 +5,7 @@ import { chime } from '@/lib/sound'
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuLabel, ContextMenuSeparator, ContextMenuShortcut, ContextMenuSub, ContextMenuSubContent, ContextMenuSubTrigger, ContextMenuTrigger } from '@/components/ui/context-menu'
 import { keyFor } from '@/lib/keys'
 import { noteLinkText } from '@/lib/capture-links'
+import { MenuGlyph } from '@/components/ui/menu-icon'
 
 /** One line of a right-click menu, a line that opens a few more beside it, or a rule between groups. */
 export type MenuItem = { label: string; /** What it means, on a quiet line under the name: the label stays a short name. */ hint?: string; run: () => void; keys?: string; danger?: boolean; icon?: ReactNode; trail?: ReactNode; /** A name for it on the page (data-menu-item), for a probe. */ id?: string
@@ -98,7 +99,8 @@ const lines = (items: Shown[]): React.ReactNode =>
     ) : (
       // Its hint on a quiet second line under its name, never a tip: a menu row shows no floating surface.
       <ContextMenuItem key={item.label} variant={item.danger ? 'destructive' : 'default'} onSelect={item.run}>
-        {item.icon}
+        {/* A line with a hint under its name begins with markup, not words, so it is given its drawing here: every line has one. */}
+        {item.icon ?? (item.hint && <MenuGlyph label={item.label} small />)}
         {item.hint ? <span className="flex min-w-0 flex-col"><span>{item.label}</span><span data-menu-hint className="max-w-64 text-xs leading-snug whitespace-normal text-muted-foreground">{item.hint}</span></span> : item.label}
         {item.trail}
         {item.keys && keyFor(item.keys) && <ContextMenuShortcut>{keyFor(item.keys)}</ContextMenuShortcut>}

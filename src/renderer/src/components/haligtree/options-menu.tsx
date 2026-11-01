@@ -24,6 +24,7 @@ import { Tip } from './ui'
 import { cn } from '@/lib/cn'
 import { Swatch } from '../theme/theme-picker'
 import { keyFor } from '@/lib/keys'
+import { MenuGlyph } from '@/components/ui/menu-icon'
 
 /** One setting the box can have switched on or off. */
 type Option = { label: string; /** What it means, as a tip on the line: the label stays a short name. */ hint?: string; on: boolean; keys?: string; set: (on: boolean) => void; icon?: ComponentProps<typeof AliveIcon>['icon'] }
@@ -108,6 +109,7 @@ function Item({ one }: { one: Option | Action }): React.JSX.Element {
   ) : (
     // Room on the right like the tickable rows, so every shortcut lines up.
     <DropdownMenuItem onSelect={one.run} className="pr-8">
+      {one.hint && <MenuGlyph label={one.label} small />}
       <Named label={one.label} hint={one.hint} />
       {one.keys && keyFor(one.keys) && <DropdownMenuShortcut>{keyFor(one.keys)}</DropdownMenuShortcut>}
     </DropdownMenuItem>
