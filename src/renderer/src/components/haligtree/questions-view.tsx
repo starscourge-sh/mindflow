@@ -61,7 +61,7 @@ export type Asked = 'looked' | 'open' | 'answered' | 'words'
 export const ASKED: { id: Asked; label: string }[] = [{ id: 'open', label: 'Open' }, { id: 'answered', label: 'Answered' }, { id: 'looked', label: 'Looked up' }, { id: 'words', label: 'Words' }]
 /** What each of Questions' lists holds, said under its tabs, so a switch shows where you are and not only a new count. */
 export const ASKED_SAID: Record<Asked, string> = {
-  open: 'Questions you are still holding, newest first. Each gathers clues until you press “Answered”.',
+  open: 'Questions you are still holding, with no answer yet, newest first. Each gathers clues until you press “Answered”.',
   answered: 'Questions you answered, each with the page its answer became, and the ones you stopped asking.',
   looked: 'Quick questions answered the moment you asked them.',
   words: 'Words you are learning, each kept as a gem that comes back in Review.'
@@ -317,11 +317,13 @@ export const questionEntry = (item: Item, inView = false, menu?: MenuItem[], bac
   tags: [],
   icon: Orbit,
   tint: clueTint(item.clues),
-  answer: (
+  // Its answer on a line of its own once it has one; an open question has none by being open, so that is said once,
+  // under Questions' tabs, never "No answer yet" on every row.
+  answer: item.answer || item.closedHow === 'let go' ? (
     <span data-question-answer={item.answer ? 'yes' : 'none'} className={`line-clamp-2 text-sm text-pretty ${item.answer ? 'text-foreground/90' : 'text-muted-foreground italic'}`}>
-      {item.answer || (item.closedHow === 'let go' ? 'Stopped asking, with no answer' : 'No answer yet')}
+      {item.answer || 'Stopped asking, with no answer'}
     </span>
-  ),
+  ) : undefined,
   sub: item.closedAt ? `${item.closedHow === 'let go' ? 'Stopped asking' : 'Answered'} ${whenLower(item.closedAt)} · ${cluesSaid(item.clues)}` : `${heldFor(item.createdAt)[0].toUpperCase()}${heldFor(item.createdAt).slice(1)} · ${[cluesSaid(item.clues), comesBack(item, backOn)].filter(Boolean).join(' · ')}`,
   marks: (
     <>

@@ -27,7 +27,7 @@ try {
   await h.waitForTimeout(800)
   const writing = await h.evaluate(() => ({
     chips: [...document.querySelectorAll('[data-list-tabs] button')].map((one) => one.textContent.trim()),
-    questionRows: document.querySelectorAll('[data-question-answer]').length,
+    questionRows: document.querySelectorAll('[role="main"] [data-row][data-type="question"]').length,
     side: !!document.querySelector('aside [data-side-questions]')
   }))
   check('Writing has no “All / Questions” switch', writing.chips.length === 0, JSON.stringify(writing.chips))
@@ -49,7 +49,7 @@ try {
   if (shots) await h.screenshot({ path: `${shots}/questions.png` })
   check('Open comes first among its lists', opened.tabs[0]?.startsWith('O'), opened.tabs.join(', '))
   check('a line says which list you are on', /still holding/.test(opened.said ?? ''), opened.said)
-  check('each open question says “No answer yet” under it', opened.answers.length >= 2 && opened.answers.every((one) => one === 'No answer yet'), opened.answers.join(' | '))
+  check('open questions: “no answer yet” said once under the tabs, not on every row', opened.answers.length === 0 && /no answer yet/.test(opened.said ?? ''), opened.answers.join(' | '))
 
   // Every box on the line and the list's top, before and after each switch: nothing moves.
   const boxes = () => h.evaluate(() => {
@@ -57,7 +57,7 @@ try {
     const out = {}
     document.querySelectorAll('[data-question-filter] button').forEach((one, k) => (out[`tab${k}`] = at(one)))
     out.said = at(document.querySelector('[data-question-said]'))
-    out.firstRow = (() => { const row = document.querySelector('[data-question-answer]')?.closest('[data-row], [role="option"], li, button'); const r = row?.getBoundingClientRect(); return r ? `${Math.round(r.left)},${Math.round(r.top)}` : null })()
+    out.firstRow = (() => { const row = document.querySelector('[role="main"] [data-row]')?.closest('[data-row], [role="option"], li, button'); const r = row?.getBoundingClientRect(); return r ? `${Math.round(r.left)},${Math.round(r.top)}` : null })()
     out.newQuestion = at(document.querySelector('[data-new-writing]'))
     return out
   })

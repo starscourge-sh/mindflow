@@ -21,10 +21,10 @@ try {
     while (made < size) { await v('question:new', made === 0 ? LONG : `Question number ${(made + 1).toLocaleString('en-GB')}: what happened in the year ${1000 + made}?`); made++ }
     const at = Date.now()
     await go('questions')
-    await h.waitForSelector('[data-question-answer]')
+    await h.waitForSelector('[role="main"] [data-row]')
     const took = Date.now() - at - 900
     const box = await h.evaluate(() => ({
-      drawn: document.querySelectorAll('[data-question-answer]').length,
+      drawn: document.querySelectorAll('[role="main"] [data-row]').length,
       wide: document.documentElement.scrollWidth > document.documentElement.clientWidth,
       said: (() => { const r = document.querySelector('[data-question-said]')?.getBoundingClientRect(); return r ? `${Math.round(r.left)},${Math.round(r.top)}` : null })(),
       count: document.querySelector('[role="main"] section')?.textContent.match(/([\d,]+) questions/)?.[1] ?? null
