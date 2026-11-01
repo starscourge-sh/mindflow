@@ -234,9 +234,9 @@ export const SHORTCUTS: Shortcut[] = [
   { group: 'Lists', keys: '⌃⇧↓', does: 'A hint is not for you: show it less', where: 'Quick capture' },
 
   { group: 'Review', keys: 'Space', does: 'Show the answer', where: 'Review' },
-  { group: 'Review', keys: '1', does: 'Forgot (Again with four grades)', where: 'Review' },
+  { group: 'Review', keys: '1', does: 'Again (Forgot with two grades)', where: 'Review' },
   { group: 'Review', keys: '2', does: 'Hard, with two grades or four', where: 'Review' },
-  { group: 'Review', keys: '3', does: 'Got it (Good with four grades)', where: 'Review' },
+  { group: 'Review', keys: '3', does: 'Good (Got it with two grades)', where: 'Review' },
   { group: 'Review', keys: '4', does: 'Easy, with two grades or four', where: 'Review' },
   { group: 'Review', keys: 'B', does: 'Not today (- or =, as in Anki)', where: 'Review' },
   { group: 'Review', keys: 'E', does: 'Rewrite the question right there (Enter keeps it)', where: 'Review' },

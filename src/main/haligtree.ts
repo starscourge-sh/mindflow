@@ -380,8 +380,8 @@ const DEFAULTS = {
   reviewsPerDay: 0,
   // Weekdays (0 Sunday to 6 Saturday) kept lighter: cards due then move to a nearby day when they can.
   lighterDays: [] as number[],
-  // Two grades out of the box (Forgot, Got it), or Anki's four.
-  grades: 2 as 2 | 4,
+  // Anki's four out of the box (Again, Hard, Good, Easy), as every video a beginner learns from shows; or two (Forgot, Got it).
+  grades: 4 as 2 | 4,
   // A card made while reading (C, Snip, Make your marked cards, Ask another way, Paste cards) is a study card,
   // in Review only; 'gem' keeps it as a gem as well, back in Gems, the Feed, Home and hints.
   readCards: 'study' as 'study' | 'gem',

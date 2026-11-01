@@ -1,6 +1,6 @@
 // Review's core, as someone with years of Anki habits meets it: no daily cap
 // on reviews (fewer new cards is the lever, with a warning for a cap under 10
-// times new), two grades by default ("Forgot", "Got it", when it comes back as
+// times new), four grades by default (Again, Hard, Good, Easy, when it comes back as
 // the big line) with 2 and 4 still giving Hard and Easy, and four a choice away.
 //   QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 QA_ARGS=--sandbox node qa/review-core.mjs
 import { checks } from './harness.mjs'
@@ -20,7 +20,7 @@ const turn = async () => {
 try {
   const s = await v('settings')
   check('reviews have no daily limit out of the box', s.reviewsPerDay === 0, String(s.reviewsPerDay))
-  check('two grades out of the box', s.grades === 2, String(s.grades))
+  check('four grades out of the box, as Anki', s.grades === 4, String(s.grades))
 
   // Every card due comes: the queue is all the due cards, not 50 of them.
   const queue = await v('review:queue')
@@ -30,7 +30,7 @@ try {
   await waitFor(async () => (await asked()).length > 3)
   check('the answer turns over with Space', await turn())
   const buttons = await h.evaluate(() => [...document.querySelectorAll('[data-grades] button')].map((b) => b.innerText.replace(/\s+/g, ' ').trim()))
-  check('two buttons, Forgot and Got it', buttons.length === 2 && /Forgot/.test(buttons[0]) && /Got it/.test(buttons[1]), JSON.stringify(buttons))
+  check('four buttons by default, Again, Hard, Good and Easy', buttons.length === 4 && /Again/.test(buttons[0]) && /Easy/.test(buttons[3]), JSON.stringify(buttons))
   const big = await h.evaluate(() => { const b = document.querySelector('[data-grades] button'); const [time, word] = b.children; return [parseFloat(getComputedStyle(time).fontSize), parseFloat(getComputedStyle(word).fontSize)] })
   check('when it comes back is the big line', big[0] > big[1], JSON.stringify(big))
   await c.both(`${shots}/review-core-two`)

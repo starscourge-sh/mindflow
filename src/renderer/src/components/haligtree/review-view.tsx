@@ -60,7 +60,7 @@ export const GRADES = [
 
 type GradeShape = { grade: 1 | 2 | 3 | 4; label: string; hint: string; tone: string }
 /**
- * Two grades, the default: Forgot on any hesitation, Got it when it came.
+ * Two grades, a choice in Settings (four, Anki's, are the default): Forgot on any hesitation, Got it when it came.
  * They are Again and Good underneath, and the keys 2 and 4 still give Hard
  * and Easy for anyone with Anki in their fingers.
  */
@@ -71,7 +71,7 @@ const TWO: readonly GradeShape[] = [
 /** The grades the person chose in Settings, two or four, and each grade's name in that set. */
 export function useGrades(): { grades: readonly GradeShape[]; two: boolean; name: (grade: number) => string } {
   const settings = useLive(haligtree.settings, null as Settings | null)
-  const two = (settings?.grades ?? 2) === 2
+  const two = (settings?.grades ?? 4) === 2
   return { grades: two ? TWO : GRADES, two, name: (grade) => (two ? ['Forgot', 'Hard', 'Got it', 'Easy'] : ['Again', 'Hard', 'Good', 'Easy'])[grade - 1] }
 }
 
@@ -586,7 +586,7 @@ export function ReviewView({ compact = false, tag, actions, lead }: { compact?: 
           // The end of the day's cards, or a day with none due: an ending, then the one way on.
           <Finished ids={[...reviewed]} count={reviewed.size} total={reviewed.size} later={round ? 0 : new Set(queue.map((one) => one.id)).size - reviewed.size} compact={compact} onPick={startRound} onLearn={() => setLearning(true)} />
         ) : (
-          <Example compact={compact} tryIt="open a gem and write the question it answers, under “Review”. It joins today’s queue, and waits longer each time you remember it.">
+          <Example compact={compact} tryIt="“Make a card” on the Decks tab, or the example deck there. A card joins today’s cards, and waits longer each time you remember it.">
             <ExampleCard />
           </Example>
         )}
@@ -1345,7 +1345,7 @@ export function Readiness({ exam, named = true }: { exam: Exam; named?: boolean 
     <div className="space-y-1.5 text-xs text-muted-foreground">
       {named && <p className="text-sm text-foreground">#{exam.tag} <span className="text-muted-foreground">· {day}, {whenInLine(exam.at)}</span></p>}
       {!exam.total ? (
-        <p>No tested cards carry #{exam.tag} yet. Give its gems a question and they are paced to be ready in time.</p>
+        <p>No cards carry #{exam.tag} yet. Make cards with that tag and they are paced to be ready in time.</p>
       ) : !seen ? (
         <p><Rolling text={exam.total} /> {exam.total === 1 ? 'card' : 'cards'}, none seen yet. About <Rolling text={exam.perDay} /> a day from today has them all met in time.</p>
       ) : (
