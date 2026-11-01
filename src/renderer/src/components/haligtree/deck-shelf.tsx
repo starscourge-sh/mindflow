@@ -25,6 +25,7 @@ import { TabControls, useToolbarCompact } from './review-toolbar'
 import { Tip } from './ui'
 import { motion } from 'motion/react'
 import { EASE, still } from '@/lib/motion'
+import { PileEdges } from './deck-pile'
 
 type Topic = { deck: string; label: string; cards: number; held: number }
 export type Shelf = { name: string; cover: string | null; sample: string; pictures: number; cards: number; fresh: number; due: number; held: number; shown: boolean; topics: Topic[] }
@@ -223,7 +224,7 @@ export function DeckShelf({ onOpen, onStudy, onPaste, onPicture, onShow }: { /**
       <StudySets sets={sets} onStudy={onStudy} />
       <BookCoverage />
       {/* Pockets: squarish tiles, 2 to 4 across by width; each studies when clicked, its actions in its ⋯ menu and on right-click. */}
-      <div data-deck-grid className="grid grid-cols-[repeat(auto-fill,minmax(9.5rem,1fr))] gap-3 [&>*]:max-w-[13rem]">
+      <div data-deck-grid className="grid grid-cols-[repeat(auto-fill,minmax(9.5rem,1fr))] gap-x-3 gap-y-5 pt-1.5 [&>*]:max-w-[13rem]">
         {shown.map(tile)}
         {allTags && folded.map(tile)}
         {sharedTiles}
@@ -278,7 +279,10 @@ function DeckTile({ id, own = false, drag, name, title, due, fresh, all, held, c
         onKeyDown={(event) => (event.key === 'Enter' || event.key === ' ') && event.target === event.currentTarget && (event.preventDefault(), onClick())}
         {...(drag ? { draggable: true, onDragStart: (event: React.DragEvent) => (event.dataTransfer.effectAllowed = 'move', event.dataTransfer.setData('text/plain', `#${id}`), drag.start()),
           onDragEnter: drag.enter, onDragOver: (event: React.DragEvent) => event.preventDefault(), onDragEnd: drag.end, onDrop: (event: React.DragEvent) => (event.preventDefault(), drag.drop()) } : {}) as Record<string, unknown>}
-        className={`@container relative flex aspect-square min-w-0 cursor-pointer flex-col gap-1.5 self-start overflow-hidden rounded-[6px] mf-metal mf-metal-hover p-3.5 text-left outline-none active:scale-[0.985] motion-reduce:active:scale-100 focus-visible:ring-2 focus-visible:ring-ring ${drag?.lifted ? 'opacity-40' : ''}`}>
+        className={`mf-pile aspect-square min-w-0 cursor-pointer self-start rounded-[6px] text-left outline-none active:scale-[0.985] motion-reduce:active:scale-100 focus-visible:ring-2 focus-visible:ring-ring ${drag?.lifted ? 'opacity-40' : ''}`}>
+        {/* The deck as a pile: its edges under the top card, more as it grows, one standing proud when some are due. */}
+        <PileEdges cards={all} due={due} />
+        <div data-pile-top className="mf-pile-top mf-metal mf-metal-hover @container flex flex-col gap-1.5 overflow-hidden rounded-[6px] p-3.5">
         <span className="absolute top-1.5 right-1.5"><MenuDots /></span>
         {(cover || shapes) && (
           <span data-deck-face={own ? `#${id}` : id} className="flex">
@@ -302,6 +306,7 @@ function DeckTile({ id, own = false, drag, name, title, due, fresh, all, held, c
             </>
           )}
         </span>
+        </div>
       </motion.div>
     </RowMenu>
   )

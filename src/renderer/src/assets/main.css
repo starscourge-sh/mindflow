@@ -3059,6 +3059,34 @@ textarea[data-talking]::selection {
 }
 .mf-metal-hover:hover { border-color: color-mix(in oklab, var(--foreground) 22%, transparent); filter: brightness(1.04); }
 
+/* A deck as a square pile (deck-pile.tsx): the top card in satin, its edges peeking out under it, more as the deck grows,
+   and one card standing a little proud above it when some are due. No colour, no tilt. The edges sit outside the tile's box,
+   so the grid keeps its room. Pointed at, the top card lifts 2px and the edges fan a touch; motion off, they hold still. */
+.mf-pile { position: relative; isolation: isolate; }
+.mf-pile-top { position: absolute; inset: 0; z-index: 2; transition: transform 160ms var(--mf-ease), border-color 160ms var(--mf-ease); }
+.mf-pile-edge, .mf-pile-proud {
+  position: absolute; pointer-events: none; border-radius: 6px;
+  background: var(--mf-metal-bg);
+  border: 1px solid color-mix(in oklab, var(--foreground) 13%, transparent);
+  box-shadow: 0 1px 2px color-mix(in oklab, black 18%, transparent);
+  transition: transform 160ms var(--mf-ease);
+}
+.mf-pile-edge {
+  inset: calc(var(--n) * 2.5px) calc(var(--n) * 3.5px) calc(var(--n) * -2.5px);
+  z-index: calc(1 - var(--n));
+  filter: brightness(calc(1 - var(--n) * 0.035));
+}
+.mf-pile-proud { inset: -5px 9px 4px; z-index: 1; }
+@media (hover: hover) and (pointer: fine) {
+  :root:not([data-motion='off']) .mf-pile:hover > .mf-pile-top { transform: translateY(-2px); }
+  :root:not([data-motion='off']) .mf-pile:hover > .mf-pile-edge { transform: translate(calc(var(--side) * var(--n) * 0.8px), calc(var(--n) * 0.8px)); }
+  :root:not([data-motion='off']) .mf-pile:hover > .mf-pile-proud { transform: translateY(-1px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mf-pile-top, .mf-pile-edge, .mf-pile-proud { transition: none; }
+  .mf-pile:hover > .mf-pile-top, .mf-pile:hover > .mf-pile-edge, .mf-pile:hover > .mf-pile-proud { transform: none !important; }
+}
+
 /* Review's Stats in the Decks tab's look: one surface (satin, 5px corners), so the three tabs read as one page. */
 [data-review-stats] [data-mono-card], [data-review-stats] .mf-island { border-radius: 5px; background: var(--mf-metal-bg); border: 1px solid color-mix(in oklab, var(--foreground) 11%, transparent); box-shadow: var(--mf-metal-shadow); }
 [data-review-stats] > :first-child, [data-review-stats] > :first-child > :first-child { margin-top: 0; }

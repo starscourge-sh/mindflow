@@ -8,6 +8,7 @@ import { useSideways } from './display'
 import { Flip } from './review-view'
 import { tagTint } from './tag-icon'
 import { GroupCover } from './group-cover'
+import { PileEdges } from './deck-pile'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import type { BrowsedCard } from './card-browser'
 
@@ -194,10 +195,14 @@ export function Pocket({ name, title = name, cards, onOpen }: { name: string; /*
   if (!shapes)
     return (
       <button type="button" data-pocket={name} data-pocket-plain onClick={() => (chime('open'), onOpen())}
-        className="mf-metal mf-metal-hover transition-transform duration-100 ease-out active:scale-[0.985] motion-reduce:transition-none motion-reduce:active:scale-100 @container flex aspect-square min-w-0 cursor-pointer flex-col gap-1.5 self-start overflow-hidden rounded-[6px] p-3.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring">
-        <span className="line-clamp-2 font-serif leading-snug text-foreground hyphens-manual [overflow-wrap:normal]" style={nameFit(title)}>{softBreaks(title)}</span>
-        <span className="text-sm text-muted-foreground tabular-nums"><span className={due ? 'font-semibold text-foreground' : ''}>{num(due)} due</span> · {num(fresh)} new</span>
-        <span className="mt-auto flex items-center gap-1.5 text-sm text-muted-foreground tabular-nums">{num(cards.length)} {cards.length === 1 ? 'card' : 'cards'}{due > 0 && <span aria-hidden className="size-1.5 rounded-full bg-primary" />}</span>
+        className="mf-pile transition-transform duration-100 ease-out active:scale-[0.985] motion-reduce:transition-none motion-reduce:active:scale-100 aspect-square min-w-0 cursor-pointer self-start rounded-[6px] text-left outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        {/* The same pile as a deck on the Decks tab: edges under the top card, one standing proud when some are due. */}
+        <PileEdges cards={cards.length} due={due} />
+        <span data-pile-top className="mf-pile-top mf-metal mf-metal-hover @container flex flex-col gap-1.5 overflow-hidden rounded-[6px] p-3.5">
+          <span className="line-clamp-2 font-serif leading-snug text-foreground hyphens-manual [overflow-wrap:normal]" style={nameFit(title)}>{softBreaks(title)}</span>
+          <span className="text-sm text-muted-foreground tabular-nums"><span className={due ? 'font-semibold text-foreground' : ''}>{num(due)} due</span> · {num(fresh)} new</span>
+          <span className="mt-auto flex items-center gap-1.5 text-sm text-muted-foreground tabular-nums">{num(cards.length)} {cards.length === 1 ? 'card' : 'cards'}{due > 0 && <span aria-hidden className="size-1.5 rounded-full bg-primary" />}</span>
+        </span>
       </button>
     )
   return (

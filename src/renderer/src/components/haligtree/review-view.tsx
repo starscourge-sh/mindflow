@@ -624,21 +624,22 @@ export function ReviewView({ compact = false, tag, actions, lead }: { compact?: 
       {/* The next card is there at once: grading fast never waits for the
           last one to finish leaving. Graded with 1 to 4, fifty times a
           sitting, the next card is simply there (lib/motion.ts rule 5);
-          graded with a click it slides in from the right. */}
+          graded with a click it is tucked under the pile (it drops a little,
+          shrinks and goes behind) while the next comes off the top. */}
       <AnimatePresence mode="popLayout" custom={byKeys()}>
       <motion.div
         key={`${card.id}-${at}`}
         custom={byKeys()}
         variants={{
           from: (keyed: boolean) => keyed
-            ? { opacity: 0, transform: shift('translateY(6px)') }
-            : { opacity: 0, transform: shift(`translateX(${cameBack ? -8 : 8}px)`) },
+            ? { opacity: 0, transform: shift('translateX(0px) translateY(6px) scale(1)') }
+            : { opacity: 0, transform: shift(cameBack ? 'translateX(-8px) translateY(0px) scale(1)' : 'translateX(0px) translateY(-4px) scale(0.985)') },
           here: (keyed: boolean) => keyed
-            ? { opacity: 1, transform: shift('translateY(0px)'), transition: { duration: 0.11, ease: EASE } }
-            : { opacity: 1, transform: shift('translateX(0px)'), transition: { duration: 0.22, ease: EASE } },
+            ? { opacity: 1, transform: shift('translateX(0px) translateY(0px) scale(1)'), zIndex: 1, transition: { duration: 0.11, ease: EASE } }
+            : { opacity: 1, transform: shift('translateX(0px) translateY(0px) scale(1)'), zIndex: 1, transition: { duration: 0.22, ease: EASE } },
           gone: (keyed: boolean) => keyed
             ? { opacity: 0, pointerEvents: 'none', transition: { duration: 0 } }
-            : { opacity: 0, transform: shift('translateX(-8px)'), pointerEvents: 'none', transition: { opacity: { duration: 0.08 }, transform: { duration: 0.16, ease: EASE } } }
+            : { opacity: 0, transform: shift('translateX(0px) translateY(14px) scale(0.96)'), zIndex: 0, pointerEvents: 'none', transition: { opacity: { duration: 0.18 }, transform: { duration: 0.2, ease: EASE }, zIndex: { duration: 0 } } }
         }}
         // Reached or graded by a key, the card is simply there; by a click it arrives as a card.
         initial={byKeys() ? false : 'from'}
@@ -667,6 +668,7 @@ export function ReviewView({ compact = false, tag, actions, lead }: { compact?: 
         {occlusion ? <PictureFace occlusion={occlusion} shown={shown} answer={answer ?? textOf(card.body)} onReveal={reveal} /> : <Flip
           over={over}
           onTurn={turnTo}
+          onLater={bury}
           front={
             <div className="relative h-full rounded-lg border bg-accent/30 px-5 py-6">
               <Tip label="More">
@@ -1473,14 +1475,16 @@ const snap = (deg: number): number => Math.round(deg / 180) * 180
  * speed into the settle, the way a card flicked over keeps going. Short, so
  * it never holds up a grade: the next card does not wait for it to land.
  * With Motion off or Reduce motion it does not turn, one face simply gives
- * way to the other.
+ * way to the other. Given `onLater`, a flick down puts it off ("Not today"):
+ * the card follows the hand down and goes under the pile; it never grades.
  */
-export function Flip({ over, onTurn, front, back }: { over: boolean; onTurn: (over: boolean) => void; front: React.ReactNode; back: React.ReactNode }): React.JSX.Element {
+export function Flip({ over, onTurn, onLater, front, back }: { over: boolean; onTurn: (over: boolean) => void; /** A flick down: put off until tomorrow. */ onLater?: () => void; front: React.ReactNode; back: React.ReactNode }): React.JSX.Element {
   const turn = useMotionValue(over ? 180 : 0)
+  const drop = useMotionValue(0)
   // Where the turn is headed, which is not where it is while it is moving.
   const aim = useRef(over ? 180 : 0)
   const spin = useRef<AnimationPlaybackControls | null>(null)
-  const grip = useRef<{ x: number; base: number; moved: boolean; width: number; trail: { t: number; deg: number }[] } | null>(null)
+  const grip = useRef<{ x: number; y: number; base: number; moved: boolean; down: boolean; width: number; trail: { t: number; deg: number }[] } | null>(null)
   const flat = still()
   const settle = (to: number, velocity = 0, keyed = false): void => {
     aim.current = to
@@ -1506,14 +1510,30 @@ export function Flip({ over, onTurn, front, back }: { over: boolean; onTurn: (ov
       className="grid cursor-pointer grid-cols-[minmax(0,1fr)] [perspective:1400px]"
       onPointerDown={(event) => {
         if (event.button !== 0 || own(event.target)) return
-        grip.current = { x: event.clientX, base: aim.current, moved: false, width: event.currentTarget.offsetWidth, trail: [] }
+        grip.current = { x: event.clientX, y: event.clientY, base: aim.current, moved: false, down: false, width: event.currentTarget.offsetWidth, trail: [] }
       }}
       onPointerMove={(event) => {
         const held = grip.current
         if (!held || flat) return
         const dx = event.clientX - held.x
+        const dy = event.clientY - held.y
         if (!held.moved) {
-          if (Math.abs(dx) < 6) return
+          if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return
+          // Mostly down, with somewhere to put it off: the card goes with the hand down, it does not turn.
+          if (onLater && dy > 0 && dy > Math.abs(dx)) {
+            held.moved = true
+            held.down = true
+            event.currentTarget.setPointerCapture(event.pointerId)
+            getSelection()?.removeAllRanges()
+          } else if (Math.abs(dx) < 6) return
+        }
+        if (held.down) {
+          // Followed one to one going down; pulled up, it barely gives.
+          drop.set(dy > 0 ? dy : dy * 0.15)
+          held.trail = [...held.trail.filter((one) => event.timeStamp - one.t < 90), { t: event.timeStamp, deg: dy }]
+          return
+        }
+        if (!held.moved) {
           // A drag, not a selection: the card has the pointer from here.
           held.moved = true
           // Caught mid-turn, it carries on from where your finger found it.
@@ -1539,6 +1559,12 @@ export function Flip({ over, onTurn, front, back }: { over: boolean; onTurn: (ov
         const [first, last] = [held.trail[0], held.trail[held.trail.length - 1]]
         // Held still before letting go, it is not a flick.
         const velocity = first && last && last.t > first.t && event.timeStamp - last.t < 60 ? ((last.deg - first.deg) / (last.t - first.t)) * 1000 : 0
+        if (held.down) {
+          // Far enough, or let go moving down quickly: put off. Otherwise it springs back up.
+          if (drop.get() > 90 || velocity > 500) return onLater?.()
+          animate(drop, 0, { type: 'spring', visualDuration: 0.25, bounce: 0.1, velocity })
+          return
+        }
         const here = turn.get()
         // A flick goes over even when let go short of half way.
         const to = Math.min(snap(here) + 180, Math.max(snap(here) - 180, snap(here + velocity * 0.16)))
@@ -1546,11 +1572,12 @@ export function Flip({ over, onTurn, front, back }: { over: boolean; onTurn: (ov
         if (backOf(to) !== over) onTurn(backOf(to))
       }}
       onPointerCancel={() => {
-        if (grip.current?.moved) settle(snap(grip.current.base))
+        if (grip.current?.down) animate(drop, 0, { duration: 0.15 })
+        else if (grip.current?.moved) settle(snap(grip.current.base))
         grip.current = null
       }}
     >
-      <motion.div className="grid min-w-0 grid-cols-[minmax(0,1fr)] [transform-style:preserve-3d] [grid-area:1/1]" style={flat ? undefined : { rotateY: turn }}>
+      <motion.div className="grid min-w-0 grid-cols-[minmax(0,1fr)] [transform-style:preserve-3d] [grid-area:1/1]" style={flat ? undefined : { rotateY: turn, y: drop }}>
         <div {...face(!over)}>{front}</div>
         <div {...face(over)} style={flat ? undefined : { transform: 'rotateY(180deg)' }}>{back}</div>
       </motion.div>

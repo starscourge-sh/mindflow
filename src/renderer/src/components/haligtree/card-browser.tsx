@@ -484,7 +484,7 @@ export function CardBrowser({ onOpen, aim, only, newest, onAll, onShow, onAimDon
   if (!cards.length)
     return (
       <div className="flex flex-col gap-3 px-5 pt-4 pb-10">
-        {!pasting && emptyPockets.length > 0 && <div data-card-pockets className="grid grid-cols-[repeat(auto-fill,minmax(9.5rem,1fr))] gap-3 [&>*]:max-w-[13rem]">{emptyPockets}</div>}
+        {!pasting && emptyPockets.length > 0 && <div data-card-pockets className="grid grid-cols-[repeat(auto-fill,minmax(9.5rem,1fr))] gap-x-3 gap-y-5 pt-1.5 [&>*]:max-w-[13rem]">{emptyPockets}</div>}
         {paste ?? <Empty title="No cards yet" action={<span className="flex flex-wrap items-center gap-2"><Button size="sm" data-make-open onClick={() => (chime('open'), setAimed({ deck: null, one: true }), setPasting(true))}>Make a card</Button><Button variant="ghost" size="sm" data-paste-open onClick={() => (chime('open'), setAimed(null), setPasting(true))}>Add many at once</Button><Button variant="ghost" size="sm" data-cards-import onClick={() => (chime('open'), void window.api.importFrom('files'))}>Import from Anki or a spreadsheet</Button></span>}>Make one card, paste a list or a spreadsheet of them, or bring in an Anki deck (.apkg, .colpkg) or a CSV.</Empty>}
       </div>
     )
@@ -681,7 +681,7 @@ export function CardBrowser({ onOpen, aim, only, newest, onAll, onShow, onAimDon
             </div>
           ) : density === 'small' ? (
             // Pockets: one a deck or tag, its own cards fanned out of the top.
-            <div data-card-pockets className="grid grid-cols-[repeat(auto-fill,minmax(9.5rem,1fr))] gap-3 [&>*]:max-w-[13rem]">
+            <div data-card-pockets className="grid grid-cols-[repeat(auto-fill,minmax(9.5rem,1fr))] gap-x-3 gap-y-5 pt-1.5 [&>*]:max-w-[13rem]">
               {groups.map(([name, one]) => <Pocket key={name} name={name} title={shownGroup(name)} cards={one} onOpen={() => (setOpened(name), setFlowing(false))} />)}
               {/* A deck made by hand and still empty: its own pocket, with the two ways to fill it. */}
               {!view.group || view.group === 'none' || view.group === 'deck' ? emptyPockets : null}
