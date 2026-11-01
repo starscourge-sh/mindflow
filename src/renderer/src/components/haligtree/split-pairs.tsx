@@ -1,3 +1,4 @@
+import { shownName } from '@/lib/haligtree'
 import { useState, useSyncExternalStore, type ComponentType, type CSSProperties } from 'react'
 import { Pin, X } from 'lucide-react'
 
@@ -90,9 +91,9 @@ export function PairRow({ names, live, isPinned, narrow, menu, onOpen, onClose, 
 }): React.JSX.Element {
   const [renaming, setRenaming] = useState(false)
   const items: RowItem[] = [
-    ...(onAlone ? names.map((one, index): RowItem => ({ label: `Open ${quoted(one.title)} alone`, icon: <one.icon className="size-3.5 shrink-0" style={{ color: one.tint }} />, run: () => onAlone(index) })) : []),
+    ...(onAlone ? names.map((one, index): RowItem => ({ label: `Open ${quoted(shownName(one.title))} alone`, icon: <one.icon className="size-3.5 shrink-0" style={{ color: one.tint }} />, run: () => onAlone(index) })) : []),
     'separator',
-    ...(onClose ? names.map((one, index): RowItem => ({ label: `Close ${quoted(one.title)}`, run: () => onClose(index) })) : []),
+    ...(onClose ? names.map((one, index): RowItem => ({ label: `Close ${quoted(shownName(one.title))}`, run: () => onClose(index) })) : []),
     'separator',
     onRename && { label: 'Rename…', run: () => void setTimeout(() => setRenaming(true), 120) },
     // A plain ✕ either way: a kept split let go from the list goes nowhere near the Bin.

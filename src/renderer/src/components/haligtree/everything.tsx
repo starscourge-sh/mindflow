@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { CAPTURE_TYPES } from '../capture-kinds/capture-kind-picker'
 import type { CaptureMeta } from '../capture-list'
-import { unloaded, useLive, haligtree, when, whenInLine, type Settings, type Task } from '@/lib/haligtree'
+import { shownName, unloaded, useLive, haligtree, when, whenInLine, type Settings, type Task } from '@/lib/haligtree'
 import { BUCKETS, bucket, placed, taskName } from '@/lib/tasks'
 import { chime } from '@/lib/sound'
 import { num, startOfDay, plural } from '../../../../main/dates'
@@ -169,7 +169,7 @@ export const becameSaid = (n: number): string => (n === 1 ? 'became a task' : `b
 export function MadeCue({ kin, said, way, onOpen }: { kin: { id: string; title: string }[]; said: string; way: 'from' | 'became'; onOpen: (id: string) => void }): React.JSX.Element {
   const stop = (event: React.SyntheticEvent): void => event.stopPropagation()
   const lead = way === 'from' ? 'Made from' : 'Became'
-  const named = (title: string): string => quoted(title, 60, clipMiddle)
+  const named = (title: string): string => quoted(shownName(title), 60, clipMiddle)
   const face = (click?: () => void): React.JSX.Element => (
     <span role="button" tabIndex={0} data-made-cue={way} data-made-n={kin.length}
       onPointerDown={stop} onMouseDown={stop} onDoubleClick={stop}

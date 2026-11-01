@@ -1,3 +1,4 @@
+import { shownName } from '@/lib/haligtree'
 import { useEffect, useRef, useState } from 'react'
 import { quoted } from '../../../../main/clip'
 import type { Editor } from '@tiptap/core'
@@ -47,7 +48,7 @@ export function SimilarNotes({ id, onOpen }: { id: string; onOpen?: (type: strin
     chime('gather')
     const after = ed.state.doc
     // Undo takes back the link, and only the link: written in since, the words stay and the link's line goes.
-    toast(`Linked ${quoted(one.title, 60)}`, () => {
+    toast(`Linked ${quoted(shownName(one.title), 60)}`, () => {
       if (ed.isDestroyed) return
       if (ed.state.doc.eq(after)) return void ed.commands.undo()
       let at = -1
@@ -67,7 +68,7 @@ export function SimilarNotes({ id, onOpen }: { id: string; onOpen?: (type: strin
             <div key={one.id} data-similar-row={one.id} className="group flex items-center gap-1 rounded-md px-2 py-1 hover:bg-accent/60">
               <button type="button" onClick={() => onOpen?.(one.type, one.id)} className="min-w-0 flex-1 truncate text-left text-control text-foreground">{one.title || 'Untitled'}</button>
               <Tip label="Link it from this note">
-                <button type="button" data-similar-link aria-label={`Link ${quoted(one.title, 200)}`} onClick={() => link(one)}
+                <button type="button" data-similar-link aria-label={`Link ${quoted(shownName(one.title), 200)}`} onClick={() => link(one)}
                   className="flex h-6 shrink-0 items-center gap-1 rounded-md px-1.5 text-xs font-medium text-foreground hover:bg-accent">
                   <AliveIcon icon={LinkIcon} size={13} /> Link
                 </button>

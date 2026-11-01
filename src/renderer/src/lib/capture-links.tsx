@@ -13,7 +13,7 @@ import { asideClick, canSplit, openAside, spendAsideClick } from '@/lib/split'
 import { headingsIn } from '@/components/toc/headings'
 import { linesIn } from '../../../main/blocks'
 import type { JSONContent } from '@tiptap/core'
-import { haligtree } from '@/lib/haligtree'
+import { haligtree, shownName } from '@/lib/haligtree'
 import { UNATTRIBUTED } from '@/lib/sources'
 import { TagIcon } from '@/components/haligtree/tag-icon'
 import type { SaveResult } from '../../../main/captures'
@@ -261,12 +261,12 @@ export async function findCaptures(query: string): Promise<NoteSuggestion[]> {
   }
   const rows = [
     // A quiet word to choose by: when it was last written in.
-    ...captures.map((capture) => row(capture.kind in linkKinds() ? capture.kind : 'note', { id: capture.id, label: capture.label || 'Untitled', key: captureKey(capture.number), hint: edited(capture.editedAt ?? capture.capturedAt) })),
+    ...captures.map((capture) => row(capture.kind in linkKinds() ? capture.kind : 'note', { id: capture.id, label: shownName(capture.label ?? '') || 'Untitled', key: captureKey(capture.number), hint: edited(capture.editedAt ?? capture.capturedAt) })),
     // A nugget's or article's link carries its tier, so a click knows where to go.
-    ...items.map((item) => row(item.tier === 'nugget' ? 'idea' : item.tier, { id: `${item.tier}:${item.id}`, label: item.title || 'Untitled', hint: edited(item.updatedAt) })),
+    ...items.map((item) => row(item.tier === 'nugget' ? 'idea' : item.tier, { id: `${item.tier}:${item.id}`, label: shownName(item.title ?? '') || 'Untitled', hint: edited(item.updatedAt) })),
     // Open ones first, as the list already has them.
     ...tasks.filter((task) => task.title.toLowerCase().includes(words)).slice(0, 4)
-      .map((task) => row('task', { id: `task:${task.id}`, label: task.title || 'Untitled', key: `T-${task.number}` })),
+      .map((task) => row('task', { id: `task:${task.id}`, label: shownName(task.title ?? '') || 'Untitled', key: `T-${task.number}` })),
     // A PDF by its address alone (search's id adds the name it came under after a bar, which a link cannot hold); an article by its link.
     ...files.slice(0, 4).map((file) => row(file.type, { id: `${file.type}:${file.type === 'pdf' ? file.id.split('|')[0] : file.id}`, label: file.label || 'Untitled' })),
     // Who your quotes are from: a link opens every note by them.

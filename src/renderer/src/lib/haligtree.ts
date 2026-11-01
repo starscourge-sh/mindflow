@@ -787,9 +787,10 @@ export function splitTags(text: string): { text: string; tags: string[] } {
 /**
  * A name as it is shown anywhere, a page's title or a line naming it: without
  * its #tags, which show as tags (in Properties, or as pills). What is stored
- * keeps them, as typed. A name that is only tags keeps them as its words.
+ * keeps them, as typed. A name that is only tags is named by them, without
+ * their "#" ("#bit #joke" reads "bit joke").
  */
-export const shownName = (title: string): string => nameWithoutTags(title) || title
+export const shownName = (title: string): string => nameWithoutTags(title) || title.replace(/(^|\s)#/g, '$1').trim()
 
 /**
  * A name typed over a shown name: the tags the stored one had, and that were
