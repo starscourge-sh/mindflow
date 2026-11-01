@@ -446,18 +446,19 @@ html[data-overhang] [data-grabber] > span {
   height: 4px;
   border-radius: 999px;
   background: color-mix(in oklab, var(--foreground) 45%, transparent);
-  transition: width 120ms ease-out, height 120ms ease-out, background-color 120ms ease-out;
+  transition: transform 120ms cubic-bezier(0.23, 1, 0.32, 1), background-color 120ms ease-out;
 }
-/* Pointed at, or held while dragging, it grows so it is easy to catch and plainly the thing that moves the box (the
-   user only found it by chance). Reduce Motion: no growth, the stronger ink alone. */
-html[data-overhang] [data-grabber]:is(:hover, :active) > span {
-  width: 48px;
-  height: 6px;
+/* Pointed at, or held while dragging, it grows (32x4 to 48x6, a transform: nothing is laid out again) so it is easy
+   to catch and plainly the thing that moves the box (the user only found it by chance). Only with a real pointer;
+   Reduce Motion: no growth, the stronger ink alone. */
+@media (hover: hover) and (pointer: fine) {
+  html[data-overhang] [data-grabber]:hover > span { transform: scale(1.5); }
 }
+html[data-overhang] [data-grabber]:active > span { transform: scale(1.5); }
 @media (prefers-reduced-motion: reduce) {
-  html[data-overhang] [data-grabber]:is(:hover, :active) > span { width: 32px; height: 4px; }
+  html[data-overhang] [data-grabber]:is(:hover, :active) > span { transform: none; }
 }
-:root[data-motion='off'] [data-grabber]:is(:hover, :active) > span { width: 32px; height: 4px; }
+:root[data-motion='off'] [data-grabber]:is(:hover, :active) > span { transform: none; }
 html[data-overhang] .app-container.pointer-in [data-grabber],
 html[data-overhang] [data-grabber]:hover,
 html[data-overhang] [data-grabber]:active {
