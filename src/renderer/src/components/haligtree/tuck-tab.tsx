@@ -3,7 +3,7 @@ import { animate, motion } from 'motion/react'
 import { still } from '@/lib/motion'
 import { chime } from '@/lib/sound'
 import { haligtree } from '@/lib/haligtree'
-import { GLASS, PAPER, SOLID_PAPER } from './sticky-note'
+import { PAPER, SOLID_PAPER } from './sticky-note'
 
 /** A tab's words: as many of the name's first words as fit down it, never cut mid-word with dots. */
 const tabWords = (name: string): string => {
@@ -20,8 +20,6 @@ type Room = { side: number; top: number; bottom: number }
 type Tuck = { side: 'left' | 'right'; flat: boolean; opened: boolean; room: Room; hang: number; strip: number; width: number }
 const params = new URLSearchParams(location.search)
 const SPRING = { type: 'spring', stiffness: 420, damping: 34, mass: 0.8 } as const
-/** The card's clear room round it in its window: none on glass, 20 round paper (insetOf in main/index.ts). */
-const INSET = GLASS ? 0 : 20
 const NO_ROOM: Room = { side: 0, top: 0, bottom: 0 }
 /** A named tab's shadow: soft, and cast mostly up, onto the foot of the tab above it, so the stack reads as layered paper. */
 const SHADOW = '0 -4px 10px -3px rgb(0 0 0 / 0.24), 0 1px 2px rgb(0 0 0 / 0.12), 0 2px 8px -2px rgb(0 0 0 / 0.14)'
@@ -40,8 +38,8 @@ const Label = ({ name }: { name: string }): React.JSX.Element => (
  * onto it, each a little further out than the one above. The window keeps
  * clear room round the paper for that shadow (TUCK_ROOM in main/index.ts).
  * Flat, only a small coloured pill. Pointed at, main slides the card out of
- * it: the tab's strip with the name stays on the screen side, a dashed fold,
- * then the note. The pointer gone, it folds back. The note itself stays drawn
+ * it, and while it is out the card is the only thing: the tab goes and comes
+ * back as it tucks away. The pointer gone, it folds back. The note stays drawn
  * underneath, only hidden, so it comes out whole with nothing to load.
  */
 export function TuckTab(): React.JSX.Element | null {
@@ -64,15 +62,16 @@ export function TuckTab(): React.JSX.Element | null {
   }), [])
   const right = tuck?.side !== 'left'
   const strip = tuck?.opened ? tuck.strip : 0
+  // Out of its tab (main says so with the strip it would have had): the card stands straight.
   useEffect(() => {
-    // The card under the tab is kept, only hidden. Slid out of its tab, it makes room for the tab's strip and stands straight.
+    // The card under the tab is kept, only hidden. Slid out of its tab, it stands straight.
     const root = document.getElementById('root')
     if (root) {
       root.style.visibility = tuck && !tuck.opened ? 'hidden' : ''
     }
-    // The card itself makes room for the strip (main.css): one surface, not a slab laid beside it.
-    document.documentElement.style.setProperty('--tuck-strip', `${strip}px`)
-    // The card's inner corners go square to meet the strip (main.css, .mf-card).
+    // Out of its tab the card is only itself: no strip kept beside it or inside it (the user: "the strip should disappear
+    // when fully shown"). The name goes in behind the card as it comes out, and the tab is back once it tucks away.
+    // Out, it stands straight and still (main.css, data-tuck-open).
     if (strip) document.documentElement.setAttribute('data-tuck-open', right ? 'right' : 'left')
     else document.documentElement.removeAttribute('data-tuck-open')
     if (!tuck) return
@@ -81,20 +80,9 @@ export function TuckTab(): React.JSX.Element | null {
     else setName(type === 'today' ? 'Today' : type === 'goals' ? 'Goals' : document.title || 'A sticky note')
   }, [tuck, strip, right])
   if (!tuck) return null
-  if (tuck.opened)
-    // Slid out: the name written on the card's own edge, which the card grew to hold, a dashed fold after it. No paper
-    // of its own: a slab laid beside the card was shorter and another colour than a frosted or glass card.
-    return (
-      <div
-        data-tuck-strip
-        className={`pointer-events-none fixed z-50 flex text-foreground ${right ? '' : 'flex-row-reverse'}`}
-        style={{ top: INSET, bottom: INSET, width: strip, ...(right ? { left: INSET } : { right: INSET }) }}
-      >
-        <div data-tuck-fold className={`flex h-full shrink-0 items-start justify-center border-dashed border-foreground/25 ${right ? 'border-r' : 'border-l'}`} style={{ width: strip }}>
-          <Label name={name} />
-        </div>
-      </div>
-    )
+  // Slid out, the card is the only thing: the tab goes as the card comes (a name fading over the card's own words read
+  // as text over text), and is back as the card tucks away.
+  if (tuck.opened) return null
   const { room, hang } = tuck
   return (
     <div data-tuck-tab={tuck.flat ? 'flat' : 'tab'} className="pointer-events-none fixed inset-0 z-50" style={{ visibility: 'visible' }}>
