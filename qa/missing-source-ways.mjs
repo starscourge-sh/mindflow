@@ -43,6 +43,8 @@ try {
   await wait(900)
   const u = await get(unknown)
   check('5. Unknown: still a quote, its source Unattributed, gone from the list', u.kind === 'quote' && u.attribution === 'Unattributed' && (await row(unknown).count()) === 0, `${u.kind} ${u.attribution}`)
+  const line = await h.evaluate(() => ({ face: !!document.querySelector('[data-face="Unattributed"]'), line: document.querySelector('[data-source-unknown-line]')?.textContent ?? null }))
+  check('5b. "Unattributed" is never a face among the people: one quiet "Source unknown" line with its count instead', !line.face && /^Source unknown\d/.test(line.line ?? ''), JSON.stringify(line))
   await h.evaluate(() => { window.__said = []; addEventListener('haligtree:toast', (e) => window.__said.push(`${e.detail.text}${e.detail.undo ? ' [Undo]' : ''}`)) })
   await row(mine).hover()
   await row(mine).locator('[data-not-quote]').click()

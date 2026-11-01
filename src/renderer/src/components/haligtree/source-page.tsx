@@ -710,7 +710,9 @@ export function SourcesView({ onOpen }: { onOpen: (type: string, id: string) => 
     most: (a, b) => b.count - a.count || a.name.localeCompare(b.name)
   }
   const sorted = [...list].sort(ORDER[view.sort] ?? ORDER.recents)
-  const entries = (field: SourceField): Entry[] => sorted.filter((one) => one.field === field).map((one) => ({
+  // "Unattributed" is a state, not a person: never a face among the people, but one quiet line, "Source unknown", with its count.
+  const unknown = sorted.find((one) => one.field === 'attribution' && one.name === UNATTRIBUTED)
+  const entries = (field: SourceField): Entry[] => sorted.filter((one) => one.field === field && !(field === 'attribution' && one.name === UNATTRIBUTED)).map((one) => ({
     id: `${field}:${one.name}`,
     type: 'source',
     title: one.name,
@@ -797,6 +799,13 @@ export function SourcesView({ onOpen }: { onOpen: (type: string, id: string) => 
             )}
           </section>
         )}
+        {unknown && (
+          <button type="button" data-source-unknown-line onClick={() => (chime('page'), openSource('attribution', UNATTRIBUTED))}
+            className="mx-5 mt-4 flex cursor-pointer items-center gap-2 rounded-md px-0 text-control text-foreground/80 hover:text-foreground">
+            <Quote className="size-3.5 shrink-0" style={{ color: VOICE_TINT.theirs }} />
+            <span>Source unknown</span><Count n={unknown.count} className="text-control text-muted-foreground" />
+          </button>
+        )}
         {!list.length ? (
           unloaded(list) ? null : (
             // Nothing from anyone yet: the page as it will look, with a few made-up people and sources.
@@ -807,7 +816,7 @@ export function SourcesView({ onOpen }: { onOpen: (type: string, id: string) => 
           )
         ) : asGrid ? (
           <>
-            {people.length > 0 && <FaceGrid people={sorted.filter((one) => one.field === 'attribution')} />}
+            {people.length > 0 && <FaceGrid people={sorted.filter((one) => one.field === 'attribution' && one.name !== UNATTRIBUTED)} />}
             {places.length > 0 && <NoteList groups={[['Sources', places]]} density="list" table="nuggets" cursor={-1} chosen={live} picking={picking} onPick={(id) => (chime('page'), openSource('medium', id.slice(id.indexOf(':') + 1)))} className="mx-3 my-2" />}
           </>
         ) : (
