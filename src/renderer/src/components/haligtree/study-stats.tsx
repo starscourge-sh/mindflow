@@ -65,7 +65,8 @@ const dayWords = (day: string): string => dayjs(day).format('ddd D MMM')
 /** Five steps of ink, as GitHub's and Anki's heatmaps have: none, then four by share of the busiest day. */
 const INK_STEPS = [7, 30, 50, 70, 92]
 /** Today: a ring drawn inside its own square, so no edge of the grid can clip it. */
-const TODAY_RING = 'inset 0 0 0 1.5px var(--foreground), inset 0 0 0 2.5px var(--background)'
+// Today in the theme's accent, so it never reads as the ink ring a pointed day wears.
+const TODAY_RING = 'inset 0 0 0 1.5px var(--primary), inset 0 0 0 2.5px var(--background)'
 /** The square pointed at: one hairline of ink inside it. */
 const HOVER_RING = 'inset 0 0 0 1px color-mix(in oklab, var(--foreground) 85%, transparent)'
 const stepOf = (n: number, most: number): number => (n ? Math.min(4, 1 + Math.floor((n / Math.max(1, most)) * 3.999)) : 0)
@@ -205,6 +206,8 @@ export function StudyYear({ compact = false }: { /** Above the decks: the same y
   const months = Array.from({ length: weeks }, (_, week) => {
     const first = start.add(week, 'week')
     if (week === 0) return start.add(3, 'week').month() === first.month() ? first.format('MMM') : ''
+    // A month begun in the last two weeks has no room for its name: it would be cut at the edge ("No"), so it waits.
+    if (week > weeks - 3) return ''
     return first.month() !== first.subtract(1, 'week').month() ? first.format('MMM') : ''
   })
   const cells = days.map((one, at) => {
