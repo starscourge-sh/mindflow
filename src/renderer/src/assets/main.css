@@ -1518,11 +1518,11 @@ input[type='number']::-webkit-outer-spin-button {
    pages are named: there the hair is brighter and a faint lift sits under the
    island, so it rests on the page instead of being drawn on it. */
 .mf-island {
-  box-shadow: inset 0 1px 0 color-mix(in oklab, white 5%, transparent);
+  box-shadow: inset 0 1px 1px color-mix(in oklab, white 5%, transparent);
 }
 :root:is(.light, .paper) .mf-island {
   box-shadow:
-    inset 0 1px 0 color-mix(in oklab, white 60%, transparent),
+    inset 0 1px 1px color-mix(in oklab, white 60%, transparent),
     0 1px 2px color-mix(in oklab, var(--mf-shadow-ink) 5%, transparent);
 }
 
@@ -2779,7 +2779,7 @@ textarea[data-talking]::selection {
 /* Satin metal: Review's one surface for decks, pockets and panels. No colour and no picture, only the theme's own ink:
    a faint vertical sheen, a 1px light along the top edge, a soft shadow inside the bottom. Opaque, so no blur is needed. */
 :root { --mf-metal-bg: linear-gradient(to bottom, color-mix(in oklab, var(--foreground) 7%, var(--background)), color-mix(in oklab, var(--foreground) 3%, var(--background)) 55%, color-mix(in oklab, var(--foreground) 5%, var(--background)));
-  --mf-metal-shadow: inset 0 1px 0 color-mix(in oklab, white 14%, transparent), inset 0 -10px 18px -14px color-mix(in oklab, black 30%, transparent), 0 1px 2px color-mix(in oklab, black 10%, transparent); }
+  --mf-metal-shadow: inset 0 1px 1px color-mix(in oklab, white 14%, transparent), inset 0 -10px 18px -14px color-mix(in oklab, black 30%, transparent), 0 1px 2px color-mix(in oklab, black 10%, transparent); }
 .mf-metal {
   background: var(--mf-metal-bg);
   border: 1px solid color-mix(in oklab, var(--foreground) 11%, transparent);

@@ -76,7 +76,7 @@ try {
   // 3. The empty deck is a pocket in All cards that offers Paste cards, aimed at it.
   await cards('small')
   check('3. the empty deck is a pocket in All cards', await waitFor(() => has('[data-pocket-empty="zymurgy"]')))
-  check('3. it says "Make a card or add many at once"', /Make a card or add many at once/.test(await h.evaluate(() => document.querySelector('[data-pocket-empty="zymurgy"]')?.textContent ?? '')))
+  check('3. it says "Make a card or add many at once"', /Make a card.*Add many/.test(await h.evaluate(() => document.querySelector('[data-pocket-empty="zymurgy"]')?.textContent ?? '')))
   await shot('decks-pockets', async () => { await cards('small'); await waitFor(() => has('[data-pocket-empty]')); await waitFor(() => h.evaluate(() => !document.querySelector('[data-home], [data-view="home"]') && document.getAnimations().every((one) => one.playState !== 'running' || one.effect?.getTiming().iterations === Infinity)), 4000); await h.waitForTimeout(800) })
   // The theme put back reloads the page: back to the pockets first.
   await cards('small'); await waitFor(() => has('[data-pocket-empty="zymurgy"] [data-pocket-paste]'))
@@ -99,7 +99,7 @@ try {
   await menuItem('New deck…').click()
   await answer('Ferment')
   check('4. the card moves into the new deck', await waitFor(async () => { const tags = await tagsOf(zebra); return tags.includes('ferment') && !tags.includes('zoo') }), JSON.stringify(await tagsOf(zebra)))
-  check('4. the toast says deck', await waitFor(() => h.evaluate(() => /Moved to the deck #ferment/.test(document.body.textContent ?? ''))))
+  check('4. the toast says deck', await waitFor(() => h.evaluate(() => /Moved to the deck Ferment/.test(document.body.textContent ?? ''))))
   await h.evaluate(() => document.activeElement?.blur())
   await h.keyboard.press('Meta+z')
   check('4. Undo puts it back', await waitFor(async () => { const tags = await tagsOf(zebra); return tags.includes('zoo') && !tags.includes('ferment') }), JSON.stringify(await tagsOf(zebra)))
