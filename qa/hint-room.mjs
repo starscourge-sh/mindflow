@@ -157,8 +157,12 @@ try {
   const bare = { card: await screenCard(), in: await where() }
 
   // The default spot, the top middle of the screen: no room above, so it sits beside the card.
+  // Every open deals a hint: the rate is 1, and the page's dice say 0.4. Not 0.99: once 20 hints have been shown and
+  // under one in ten stopped you, main halves the rate (hints:rate, legible in Settings), and a filmed run shows that
+  // many in passing, so at 0.99 no hint came at all from then on. 0.4 is under the halved rate, and over the quarter
+  // that deals a held question and the third that deals a memory instead.
   await v('settings:set', { hintRate: 1 })
-  await page.evaluate(() => { Math.random = () => 0.99 })
+  await page.evaluate(() => { Math.random = () => 0.4 })
   await reopen()
   await page.waitForSelector('[data-hint-card]', { timeout: 5000 }).catch(() => {})
   await page.mouse.move(2, 2); await wait(500)
@@ -195,6 +199,11 @@ try {
   await page.keyboard.press('Meta+k'); await wait(600)
   check('⌘K open: the hint waits unseen', !seen(await hint(false)))
   await page.keyboard.press('Escape'); await wait(400)
+  // Typed in, ⌘K opened and closed, put away: the next open deals a hint again.
+  await page.click(EDITOR); await page.keyboard.type('a'); await wait(300); await page.keyboard.press('Backspace')
+  await page.keyboard.press('Meta+k'); await wait(600); await page.keyboard.press('Escape'); await wait(400)
+  await reopen()
+  check('typed in, ⌘K opened and closed, put away: the next open shows a hint', seen(await hint()))
   await page.click('[data-record-button]'); await wait(800)
   check('the snip and mic choices open: the hint waits unseen', !seen(await hint()))
   await page.keyboard.press('Escape'); await wait(400)
