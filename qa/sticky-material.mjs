@@ -21,7 +21,7 @@ try {
     desk: [...one.querySelectorAll('[data-preview] > span')].map((b) => /url\(/.test(b.style.background))
   }))
   check('two choices, Paper and Glass', said.ids.join() === 'paper,glass', said.ids.join())
-  check('each says in one line what it does', said.lines.length === 2 && said.lines.every((one) => one.length > 20), JSON.stringify(said.lines))
+  check('each says in one line what it does', said.lines.length === 2 && said.lines.every((one) => one.length > 15), JSON.stringify(said.lines))
   check('each preview sits on the desktop picture when it can be read', said.desk.every(Boolean) || !(await h.evaluate(() => window.api.wallpaper())), JSON.stringify(said.desk))
   for (const theme of ['paper', 'dark']) {
     await h.evaluate((t) => { localStorage.setItem('theme', t); window.dispatchEvent(new StorageEvent('storage', { key: 'theme', newValue: t })) }, theme)

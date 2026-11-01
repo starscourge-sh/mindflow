@@ -697,8 +697,8 @@ function Sticky({ made }: { made: 'paper' | 'glass' }): React.JSX.Element {
   )
 }
 export const stickyChoices = [
-  { id: 'paper', label: 'Paper', said: 'Solid, in the note’s own colour. Nothing shows through.' },
-  { id: 'glass', label: 'Glass', said: 'The Mac’s own window glass: your desktop shows through, blurred.' }
+  { id: 'paper', label: 'Paper', said: 'Solid, in the note’s own colour.' },
+  { id: 'glass', label: 'Glass', said: 'Your desktop shows through, blurred.' }
 ].map((one) => ({ ...one, show: <Sticky made={one.id as 'paper'} /> }))
 
 /** A sticky that now and then lifts a little and settles, every few seconds here (every half hour or so for real), and when pointed at. */

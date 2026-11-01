@@ -14,7 +14,7 @@ import { useMilestones, type Milestone } from '@/lib/milestones'
 import { DotMatrix } from './dot-matrix'
 import { Answers, Journey, goalInk, markOf, openOnes, useToday, warmth } from './goals-view'
 import { dayKey, dayMonth, num } from '../../../../main/dates'
-import { daysBetween, daysLeft, leftSaid, percent, wayThrough } from '../../../../main/goal-days'
+import { daysBetween, daysLeft, journey, leftSaid, percent, wayThrough } from '../../../../main/goal-days'
 import { SandboxStamp } from '@/components/haligtree/sandbox'
 import { SANDBOX } from '@/lib/sandbox'
 import { Frost } from './frost'
@@ -212,7 +212,7 @@ function Card({ id, today, preview }: { id: string; today: string; /** A goal no
       )}
       <div className="min-h-0 flex-1 text-foreground"><Journey compact goal={id} from={from} target={goal.goalAt} today={today} logs={goal.glosses} /></div>
       {/* The grid said in place, so a dot means something without pointing at it. */}
-      {left >= 0 && !said && <p data-goal-key className="text-meta leading-snug text-muted-foreground text-pretty">Each dot is a day, {percent(wayThrough(from, goal.goalAt))} of the way gone. Coloured dots have a log; the last, ringed, is the day.</p>}
+      {left >= 0 && !said && <p data-goal-key className="text-meta leading-snug text-muted-foreground text-pretty">Each dot is a {journey(from, goal.goalAt, today).by}, {percent(wayThrough(from, goal.goalAt))} of the way gone. Coloured dots have a log; the last, ringed, is the day.</p>}
     </div>
   )
 }
