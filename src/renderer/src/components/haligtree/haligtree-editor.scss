@@ -1337,11 +1337,20 @@
   font-weight: 500;
   color: var(--foreground);
 
-  // Over a list of rows (the ![[ list), its left edge on the rows' own: the
+  // Over a list of rows (the note lists), its left edge on the rows' own: the
   // list is already inset, and a row starts 0.5rem in from it.
   .tiptap-slash-menu-list & {
     padding-inline: 0.5rem;
   }
+}
+
+// A note list's kind icon, whatever draws it, takes the same room, so every title starts at one edge.
+// (A moving icon sits in a `display: contents` span: its drawing is sized instead.)
+.tiptap-slash-menu-list > button > svg:first-child,
+.tiptap-slash-menu-list > button > span.contents:first-child > svg {
+  width: 1rem;
+  height: 1rem;
+  flex: none;
 }
 
 .tiptap-slash-menu-title {
@@ -3020,31 +3029,11 @@ $media-brand: var(--tt-brand-color-500, currentColor);
   }
 }
 
-// The `V-30` in the chip and in the `@` menu.
+// The `V-30` in a link's chip.
 .tiptap-note-link-key {
   margin-right: 0.375rem;
   color: var(--mf-muted);
   font-variant-numeric: tabular-nums;
-}
-
-// What a row is, faint at its end: Quote, Task, Question.
-.tiptap-note-link-type {
-  margin-left: auto;
-  padding-left: 0.75rem;
-  flex-shrink: 0;
-  font-size: 0.75rem;
-  color: var(--mf-muted);
-  opacity: 0.8;
-}
-
-// After a tag's count, beside it rather than pushed apart again.
-.ml-auto + .tiptap-note-link-type {
-  margin-left: 0;
-}
-
-// In the menu the keys line up in a column, the way Linear's do.
-.tiptap-slash-menu .tiptap-note-link-key {
-  min-width: 3.5rem;
 }
 
 // A long title takes a second line before it stops: notes that start alike

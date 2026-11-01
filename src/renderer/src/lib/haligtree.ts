@@ -324,7 +324,7 @@ export const haligtree = {
   related: (id: string) => call<{ type: string; id: string; title: string; excerpt: string; private: boolean; at: string; shared: string[] }[]>('related', id),
   lineage: (id: string) => call<Record<'from' | 'became' | 'linked', { type: string; id: string; title: string; private?: number }[]>>('lineage', id),
   newArticle: () => call<string>('article:new'),
-  findItems: (query: string) => call<{ id: string; tier: 'nugget' | 'article' | 'question'; title: string }[]>('items:find', query),
+  findItems: (query: string) => call<{ id: string; tier: 'nugget' | 'article' | 'question'; title: string; updatedAt?: string }[]>('items:find', query),
   /** `whole`: one task however many lines; otherwise a list makes a task a line, and a page of mixed lines comes back to be sorted. */
   toTask: (id: string, plain?: { from: number; to: number; text: string }[], whole?: boolean) => call<Made | null | 'not-open' | { mixed: string }>('toTask', id, plain, whole),
   items: (tier: 'nugget' | 'article' | 'question' | 'goal') => call<Item[]>('items', tier),

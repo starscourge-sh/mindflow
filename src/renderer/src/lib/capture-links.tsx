@@ -18,7 +18,7 @@ import { UNATTRIBUTED } from '@/lib/sources'
 import { TagIcon } from '@/components/haligtree/tag-icon'
 import type { SaveResult } from '../../../main/captures'
 import { clip, cut, quoted } from '../../../main/clip'
-import { dayKey, num } from '../../../main/dates'
+import { ago, dayKey, num } from '../../../main/dates'
 import { NOTE_KEY } from '../../../main/name'
 
 /**
@@ -185,6 +185,9 @@ export const linkKinds = (): Record<string, LinkKind & { group: string }> => (ki
   tag: { label: 'Tag', group: 'Tags', icon: Hash, color: 'gray' }
 })
 
+/** "edited today", "edited 3 days ago": what a note list says to choose by. */
+const edited = (at: string | null | undefined): string | undefined => (at ? `edited ${ago(at)}` : undefined)
+
 /** A row of the menu: its kind's icon, in its kind's colour. */
 const row = (kind: string, one: Omit<NoteSuggestion, 'kind' | 'icon' | 'group'>): NoteSuggestion => {
   const look = linkKinds()[kind] ?? linkKinds().note
@@ -242,9 +245,10 @@ export async function findCaptures(query: string): Promise<NoteSuggestion[]> {
     words ? window.api.captures.find(query).then((found) => found.filter((one) => one.type === 'pdf' || one.type === 'web')).catch(() => []) : []
   ])
   const rows = [
-    ...captures.map((capture) => row(capture.kind in linkKinds() ? capture.kind : 'note', { id: capture.id, label: capture.label || 'Untitled', key: captureKey(capture.number) })),
+    // A quiet word to choose by: when it was last written in.
+    ...captures.map((capture) => row(capture.kind in linkKinds() ? capture.kind : 'note', { id: capture.id, label: capture.label || 'Untitled', key: captureKey(capture.number), hint: edited(capture.editedAt ?? capture.capturedAt) })),
     // A nugget's or article's link carries its tier, so a click knows where to go.
-    ...items.map((item) => row(item.tier === 'nugget' ? 'idea' : item.tier, { id: `${item.tier}:${item.id}`, label: item.title || 'Untitled' })),
+    ...items.map((item) => row(item.tier === 'nugget' ? 'idea' : item.tier, { id: `${item.tier}:${item.id}`, label: item.title || 'Untitled', hint: edited(item.updatedAt) })),
     // Open ones first, as the list already has them.
     ...tasks.filter((task) => task.title.toLowerCase().includes(words)).slice(0, 4)
       .map((task) => row('task', { id: `task:${task.id}`, label: task.title || 'Untitled', key: `T-${task.number}` })),

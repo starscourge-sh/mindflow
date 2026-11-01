@@ -4,6 +4,7 @@ import type {
   RefAttributes,
 } from "react"
 import { ReactRenderer } from "@tiptap/react"
+import { shift } from "@floating-ui/react"
 import { chime, click } from "@/lib/sound"
 import { listDirection } from "@/lib/menu-keys"
 import type { PluginKey } from "@tiptap/pm/state"
@@ -14,6 +15,9 @@ import {
   type SuggestionOptions,
   type SuggestionProps,
 } from "@tiptap/suggestion"
+
+/** Every typed menu (/, @, [[, #) slides back inside the window rather than running off its edge: a narrow window, or a mark typed near the right. */
+export const IN_WINDOW: SuggestionOptions["floatingUi"] = { middleware: [shift({ padding: 8 })] }
 
 /** What a suggestion list hands back to the plugin. */
 export interface SuggestionListHandle {
@@ -37,7 +41,7 @@ type SuggestionList<I> = ForwardRefExoticComponent<
 export function createSuggestionRenderer<I>(
   List: SuggestionList<I>,
   pluginKey: PluginKey = SuggestionPluginKey,
-  /** Escape takes what was typed with it too: `![[name` is an unfinished block, not words. */
+  /** Escape takes what was typed with it too: "Embed a note"'s `[[name` is an unfinished block, not words. */
   { dropOnEscape = false }: { dropOnEscape?: boolean } = {}
 ): NonNullable<SuggestionOptions<I>["render"]> {
   return () => {

@@ -1,3 +1,5 @@
+import { forgives } from "@/lib/slash-rank"
+import { IN_WINDOW } from "@/components/suggestion/suggestion-renderer"
 import { InputRule, Node, mergeAttributes } from "@tiptap/core"
 import { DOMSerializer, type DOMOutputSpec, type Node as PMNode } from "@tiptap/pm/model"
 import { Plugin, PluginKey, TextSelection } from "@tiptap/pm/state"
@@ -343,8 +345,31 @@ export const noteLinkPluginKey = new PluginKey("noteLink")
 export const tagPluginKey = new PluginKey("tagSuggest")
 export const wikiPluginKey = new PluginKey("wikiSuggest")
 export const embedPluginKey = new PluginKey("embedSuggest")
-/** The question the `![[` menu asks, over its rows. */
-export const EMBED_ASK = "Show which note here?"
+/** What each note list does, said over its rows, for the menus that pick a note. */
+export const LINK_ASK = "Link to a note"
+export const EMBED_ASK = "Show a note's words here"
+
+/**
+ * Editors where "Embed a note" (the / menu) has just opened the note list: the
+ * `[[` it wrote shows the note picked here whole, rather than linking it.
+ * Typing `![[` by hand does nothing special.
+ */
+const embedding = new WeakSet<Editor>()
+export function embedNote(editor: Editor): void {
+  embedding.add(editor)
+  if (!editor.chain().focus().insertContent("[[").run()) embedding.delete(editor)
+}
+
+/**
+ * The note an editor is showing never offers itself: by its documentId,
+ * `capture-<id>`, `item-<id>`, `task-<id>`, or `embed-<link>-<n>` for a note shown inside another.
+ */
+function notItself(editor: Editor, rows: NoteSuggestion[]): NoteSuggestion[] {
+  const documentId = [...showing].find(([, one]) => one === editor)?.[0]
+  if (!documentId) return rows
+  const own = documentId.slice(documentId.indexOf("-") + 1)
+  return rows.filter((row) => !row.id || !(row.id === own || row.id.endsWith(`:${own}`) || own.startsWith(`${row.id}-`)))
+}
 
 /**
  * A link to another note, typed with `@`.
@@ -593,7 +618,7 @@ export const NoteLink = Node.create<NoteLinkOptions>({
         .map((line) => ({ ...note, heading: undefined, block: line.id ?? undefined, blockIndex: line.index, blockText: line.text.slice(0, 80), group: note.label ? `Lines in ${note.label}` : "Lines in this note" }))
       return part.startsWith("^") ? rows : [...found, ...rows]
     }
-    const noteItems = ({ query }: { query: string }) => (query.includes("#") ? headingItems(query) : findNotes(query))
+    const noteItems = async ({ query }: { query: string }) => (query.includes("#") ? headingItems(query) : notItself(editor, await findNotes(query)))
     // A space follows what a menu wrote, so the next word can start; the
     // space you then type out of habit is taken as that one, not a second.
     let spaced: number | null = null
@@ -632,6 +657,7 @@ export const NoteLink = Node.create<NoteLinkOptions>({
 
     return [
       Suggestion<NoteSuggestion>({
+        floatingUi: IN_WINDOW,
         editor: this.editor,
         char: "@",
         pluginKey: noteLinkPluginKey,
@@ -648,6 +674,7 @@ export const NoteLink = Node.create<NoteLinkOptions>({
       // spaces in the name, since titles have them. `]]` typed out instead
       // still makes the link through the input rule above.
       Suggestion<NoteSuggestion>({
+        floatingUi: IN_WINDOW,
         editor: this.editor,
         char: "[[",
         pluginKey: wikiPluginKey,
@@ -656,9 +683,9 @@ export const NoteLink = Node.create<NoteLinkOptions>({
         shouldShow: typedOnly(({ query }) => !/^\s/.test(query)),
         allowSpaces: true,
         allowedPrefixes: null,
-        // Not an embed, `![[picture.png]]`, nor a link already closed.
+        // Not an Obsidian embed, `![[picture.png]]`, nor a link already closed, nor the list "Embed a note" opened.
         allow: ({ state, range }) =>
-          state.doc.textBetween(Math.max(0, range.from - 1), range.from, "", "") !== "!" && !state.doc.textBetween(range.from, range.to, "", "").includes("]]"),
+          !embedding.has(editor) && state.doc.textBetween(Math.max(0, range.from - 1), range.from, "", "") !== "!" && !state.doc.textBetween(range.from, range.to, "", "").includes("]]"),
         // Nothing by that name yet: a link to it all the same, which finds its
         // note once there is one, as a typed `[[name]]` does.
         items: async ({ query }) => {
@@ -670,26 +697,27 @@ export const NoteLink = Node.create<NoteLinkOptions>({
         render: wikiRender ?? render,
       }),
 
-      // `![[`, Obsidian's embed: the same notes as `[[`, but the one picked is
-      // shown here whole (note-embed.ts). A name with no note offers to make
-      // one, as a row that says so; nothing is made unless it is picked.
+      // "Embed a note" in the / menu: the same notes as `[[`, but the one
+      // picked is shown here whole (note-embed.ts). A name with no note offers
+      // to make one, as a row that says so; nothing is made unless it is picked.
       ...(this.editor.schema.nodes.noteEmbed
         ? [
             Suggestion<NoteSuggestion>({
+              floatingUi: IN_WINDOW,
               editor: this.editor,
-              char: "![[",
+              char: "[[",
               pluginKey: embedPluginKey,
               decorationClass: "tiptap-slash-token",
               shouldShow: typedOnly(({ query }) => !/^\s/.test(query)),
               allowSpaces: true,
               allowedPrefixes: null,
-              allow: ({ state, range }) => !state.doc.textBetween(range.from, range.to, "", "").includes("]]"),
+              allow: ({ state, range }) => embedding.has(editor) && !state.doc.textBetween(range.from, range.to, "", "").includes("]]"),
               items: async ({ query }) => {
                 const name = query.trim()
                 // Notes only: a person, a tag or a task has no page to show.
-                const found = (await findNotes(name)).filter((one) => one.id && !one.id.includes(":")).slice(0, 12)
-                const rows: NoteSuggestion[] = found.map((one) => ({ ...one, group: EMBED_ASK }))
-                if (name && !found.some((one) => one.label.trim().toLowerCase() === name.toLowerCase())) rows.push({ id: "", label: name, make: true, group: EMBED_ASK })
+                const found = notItself(editor, (await findNotes(name)).filter((one) => one.id && !one.id.includes(":"))).slice(0, 12)
+                const rows: NoteSuggestion[] = [...found]
+                if (name && !found.some((one) => one.label.trim().toLowerCase() === name.toLowerCase())) rows.push({ id: "", label: name, make: true })
                 return rows
               },
               command: ({ editor, range, props }) => {
@@ -708,7 +736,11 @@ export const NoteLink = Node.create<NoteLinkOptions>({
                   if (tr.docChanged) editor.view.dispatch(tr.setMeta("addToHistory", false))
                 })
               },
-              render: embedRender ?? render,
+              // Done or given up, the next `[[` is a link again.
+              render: () => {
+                const shown = (embedRender ?? render)()
+                return { ...shown, onExit: (props) => (embedding.delete(editor), shown.onExit?.(props)) }
+              },
             }),
           ]
         : []),
@@ -716,6 +748,7 @@ export const NoteLink = Node.create<NoteLinkOptions>({
       // `#` offers the tags already in use, most used first, so one is reused
       // rather than spelt a new way. It writes plain text: a tag is a word.
       Suggestion<NoteSuggestion>({
+        floatingUi: IN_WINDOW,
         editor: this.editor,
         char: "#",
         pluginKey: tagPluginKey,
@@ -726,7 +759,9 @@ export const NoteLink = Node.create<NoteLinkOptions>({
         items: async ({ query }) => {
           if (!query) tags = tagSource()
           return (await tags)
-            .filter(({ tag }) => tag.startsWith(query.toLowerCase()))
+            // A slip of the keys still finds it ("#recipies"), after those spelt right.
+            .filter(({ tag }) => tag.startsWith(query.toLowerCase()) || (query.length >= 4 && forgives(query, tag.replace(/[-_/]/g, " "))))
+            .sort((a, b) => Number(!a.tag.startsWith(query.toLowerCase())) - Number(!b.tag.startsWith(query.toLowerCase())))
             .slice(0, 8)
             .map(({ tag, count, color }) => ({ id: tag, label: `#${tag}`, hint: String(count), tint: color ? `var(--tt-color-text-${color})` : undefined, group: "Tags" }))
         },

@@ -1,3 +1,4 @@
+import { IN_WINDOW } from "@/components/suggestion/suggestion-renderer"
 import { Extension, type Editor } from "@tiptap/core"
 import type { ReactNode } from "react"
 import Suggestion, { type SuggestionOptions } from "@tiptap/suggestion"
@@ -54,6 +55,7 @@ export const SlashCommand = Extension.create<SlashCommandOptions>({
 
     return [
       Suggestion<SlashItem>({
+        floatingUi: IN_WINDOW,
         editor: this.editor,
         char: "/",
         // The live `/query` is already wrapped in a span by the plugin; this
