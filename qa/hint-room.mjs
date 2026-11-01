@@ -137,7 +137,8 @@ try {
     const card = document.querySelector('[data-hint-card]')
     const why = card?.querySelector('[data-hint-mark]')?.getBoundingClientRect()
     const words = card?.querySelector('[data-hint-words]')?.getBoundingClientRect()
-    return { why: why && words ? why.bottom <= words.top : null, fill: card && getComputedStyle(card).backgroundColor, box: getComputedStyle(document.querySelector('.app-container')).backgroundColor, whySize: card && parseFloat(getComputedStyle(card.querySelector('[data-hint-mark]')).fontSize) }
+    const paint = (color) => { const c = document.createElement('canvas'); c.width = c.height = 1; const x = c.getContext('2d'); x.fillStyle = color; x.fillRect(0, 0, 1, 1); return [...x.getImageData(0, 0, 1, 1).data].join(',') }
+    return { why: why && words ? why.bottom <= words.top : null, fill: card && paint(getComputedStyle(card).backgroundColor), box: paint(getComputedStyle(document.querySelector('.app-container')).backgroundColor), whySize: card && parseFloat(getComputedStyle(card.querySelector('[data-hint-mark]')).fontSize) }
   })
   check('why it is here is read first: its own line above the words, 13px or more', look.why === true && look.whySize >= 13, JSON.stringify(look))
   check('its fill is the box\'s own', look.fill === look.box, JSON.stringify(look))
@@ -172,7 +173,8 @@ try {
   const panel = await hint()
   check('with the side panel: the hint beside the card on the left, clear of it', seen(panel) && panel.side === 'left' && !panel.overCard && panel.inWindow, JSON.stringify(panel))
   await shape('full-box-side-panel')
-  await page.keyboard.press('Meta+Backslash'); await wait(1400)
+  await reopen()
+  if (await page.$('[aria-label="Hide the side panel"]')) { await page.keyboard.press('Meta+Backslash'); await wait(1400) }
 
   // Lower on the screen: room above, so it sits above the card's top left edge, beside the round controls.
   await putBox('low'); await reopen()
@@ -204,13 +206,6 @@ try {
     }
   }
 
-  // "One line to start", the pill: the hint waits until the pill grows.
-  await v('settings:set', { boxOneLine: true })
-  await reopen()
-  check('the pill: the hint waits unseen', !seen(await hint()))
-  await shape('pill', async () => {})
-  await v('settings:set', { boxOneLine: false })
-
   // Reading: a gem opened in the box from its hint's menu; opened again, the next hint waits while it is read.
   await untilHint()
   await page.click('[data-hint-words]', { button: 'right' }); await wait(400)
@@ -226,6 +221,13 @@ try {
     await roll(dir, '1-reading', 600, async () => {})
   }
   await page.click('button:has-text("Back to your note")').catch(() => {}); await wait(600)
+
+  // "One line to start", the pill: the hint waits until the pill grows.
+  await v('settings:set', { boxOneLine: true })
+  await reopen()
+  check('the pill: the hint waits unseen', !seen(await hint()))
+  await shape('pill', async () => {})
+  await v('settings:set', { boxOneLine: false })
 
   // Recording: the compact recorder card, no hint.
   await reopen()

@@ -2,7 +2,7 @@
 // note from this morning) is not the top of the box: the box opens empty with
 // the caret in it, and the leftover waits in a small "Still to keep" chip
 // named by what it is ("Voice note · 0:56"), one click from coming back. A
-// gem that comes back sits under the writing line as a gift: its words in the
+// gem that comes back sits beside the box as a gift (qa/hint-room.mjs): its words in the
 // heading serif, why it is here on a line above them ("Came back"), two words on hover only ("Keep it
 // coming", "Less like this"), the rest in its right-click menu. "Create more"
 // keeps its word beside its switch.
@@ -65,7 +65,7 @@ try {
     const editor = document.querySelector(sel)
     const votes = [...card.querySelectorAll('[data-hint-vote]')]
     return {
-      under: editor.getBoundingClientRect().top < card.getBoundingClientRect().top,
+      under: (() => { const a = card.getBoundingClientRect(); const b = document.querySelector('.app-container').getBoundingClientRect(); return a.right <= b.left || a.left >= b.right || a.bottom <= b.top || a.top >= b.bottom })(),
       serif: !!words && getComputedStyle(words).fontFamily !== getComputedStyle(editor).fontFamily ? getComputedStyle(words).fontFamily : getComputedStyle(words ?? card).fontFamily,
       heading: getComputedStyle(document.documentElement).getPropertyValue('--mf-heading-font') || null,
       mark: card.querySelector('[data-hint-mark]')?.textContent.trim() ?? null,
@@ -74,7 +74,7 @@ try {
       iconButtons: card.querySelectorAll('button[aria-label="Open it"], button[aria-label="Not now"], button[aria-label="Fix its words"]').length,
     }
   }, EDITOR)
-  check('the gem sits under the writing line', gem?.under, JSON.stringify(gem))
+  check('the gem sits out of the box, in the room beside or above it (qa/hint-room.mjs)', gem?.under, JSON.stringify(gem))
   // The hint is a gem or a capture still waiting in the Inbox, as the dice fall.
   const isGem = gem?.mark !== null && !/Inbox/.test(gem?.mark ?? '')
   check('why it is here, on its own line above the words: "Came back" for a gem, "Still in your Inbox" for a capture', isGem ? gem.mark === 'Came back' : gem?.mark === 'Still in your Inbox', String(gem?.mark))
