@@ -186,6 +186,12 @@ try {
       await row.hover(); await wait(1200)
       const floating = await h.evaluate(() => ({ cards: document.querySelectorAll('[data-note-preview]').length, tips: document.querySelectorAll('[data-slot=tooltip-content]').length, cursor: getComputedStyle(document.querySelector('.book-cited-row')).cursor }))
       check('a note row pointed at shows the note card and no tip, with the hand', floating.cards === 1 && floating.tips === 0 && floating.cursor === 'pointer', JSON.stringify(floating))
+      // Beside the list, never over its rows, and no Markdown in its words.
+      const placed = await h.evaluate(() => {
+        const card = document.querySelector('[data-note-preview]')?.getBoundingClientRect(), list = document.querySelector('.read-details')?.getBoundingClientRect()
+                return card && list && { cardRight: Math.round(card.right), cardLeft: Math.round(card.left), listLeft: Math.round(list.left), listRight: Math.round(list.right), }
+      })
+      check('the card sits beside the list, not over its rows', placed && (placed.cardRight <= placed.listLeft || placed.cardLeft >= placed.listRight), JSON.stringify(placed))
       await c.both(`${SHOT}-${size}-notes`)
       await h.mouse.move(5, 5)
     }

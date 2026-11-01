@@ -134,8 +134,9 @@ export function plain(value: unknown, links = false): string {
 /** Markdown read as words, for a card's few lines: no marks, links as their words, pictures and tags of HTML out. */
 const mdWords = (text: string): string =>
   plain(text)
-    .replace(/!\[[^\]]*\]\([^)]*\)/g, '')
-    .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
+    // An address may hold brackets of its own ("…/Book (Library).pdf"), so a link ends at its own closing one.
+    .replace(/!\[[^\]]*\]\((?:[^()]|\([^()]*\))*\)/g, '')
+    .replace(/\[([^\]]*)\]\((?:[^()]|\([^()]*\))*\)/g, '$1')
     .replace(/\[\[(?:[^\]|]*\|)?([^\]]*)\]\]/g, '$1')
     .replace(/<[^>]+>/g, '')
     .replace(/^\s*(?:#{1,6}|>|[-*+]|\d+\.)\s+/gm, '')

@@ -1,3 +1,4 @@
+import { mdLinksAsWords } from '@/lib/md-links'
 import { typedAsGaps } from '@/lib/blanks'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { onScrollAway } from '@/lib/scroll-away'
@@ -25,12 +26,25 @@ const pictureIn = (body: unknown): string | null => {
   return body && typeof body === 'object' ? walk(body as { content?: unknown[] }) : null
 }
 
+/** The narrow scrolling list a row sits in, if it is one (under three fifths of the window wide). */
+const sideList = (el: Element): Element | null => {
+  for (let at = el.parentElement; at && at !== document.body; at = at.parentElement) {
+    const { overflowY } = getComputedStyle(at)
+    if ((overflowY === 'auto' || overflowY === 'scroll') && at.scrollHeight > at.clientHeight)
+      return at.getBoundingClientRect().width < window.innerWidth * 0.6 ? at : null
+  }
+  return null
+}
+
 /** Blocks whose children are words on one line: every other block's children are lines of their own. */
 const INLINE = new Set(['paragraph', 'heading', 'codeBlock', 'text'])
 
 /** The words of a stored body, for a glance: no markup, each heading and paragraph on its own line. */
 export const glance = (body: unknown): string => {
-  if (typeof body === 'string') return body.replace(/\[\[@[^|\]]+\|([^\]]+)\]\]/g, '$1')
+  // Markdown kept as text (an import, a gem made from a PDF): a picture says nothing here (it shows as the card's
+  // own picture), a link reads as its words, never as its address.
+  if (typeof body === 'string')
+    return mdLinksAsWords(body.replace(/\[\[@[^|\]]+\|([^\]]+)\]\]/g, '$1'))
   const walk = (node: { type?: string; text?: string; attrs?: { label?: string }; content?: unknown[] }): string =>
     node.type === 'noteLink' ? `@${node.attrs?.label ?? ''}` :
     node.type === 'hardBreak' ? '\n' :
@@ -188,11 +202,15 @@ export function NotePreview(): React.JSX.Element | null {
           const text = line || !found.title ? read : pastTitle(read, found.title)
           // In a menu or a picker (data-note-side on the list), beside the list
           // rather than over the rows under the pointer, where there is room.
-          const list = link.closest('[data-note-side]')?.getBoundingClientRect()
-          const side = !list ? null : list.right + 336 <= window.innerWidth ? list.right + 8 : list.left >= 336 ? list.left - 328 : null
+          // Also any narrow list that scrolls up and down (a reader's side panel, the Inbox list): a card over its
+          // rows would hide the very rows the pointer is running down.
+          const list = (link.closest('[data-note-side]') ?? sideList(link))?.getBoundingClientRect()
+          // The card is 20rem wide, so its width follows the text size chosen in Settings.
+          const wide = 20 * parseFloat(getComputedStyle(document.documentElement).fontSize) + 8
+          const side = !list ? null : list.right + wide <= window.innerWidth ? list.right + 8 : list.left >= wide ? list.left - wide : null
           const above = side === null && box.bottom + 260 > window.innerHeight
           setShown({
-            x: side ?? Math.min(box.left, window.innerWidth - 336),
+            x: side ?? Math.min(box.left, window.innerWidth - wide - 4),
             y: side !== null ? Math.max(8, Math.min(box.top, window.innerHeight - 280)) : above ? box.top - 8 : box.bottom + 8,
             above,
             private: found.private,
