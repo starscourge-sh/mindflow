@@ -21,7 +21,7 @@ import type { PDFDocumentProxy } from "pdfjs-dist"
 import { chime } from "@/lib/sound"
 import { canSplit } from "@/lib/split"
 import { isNodeSelected } from "@/extensions/selected-nodes"
-import { hasWords, isTranscribing, onTranscribing, transcribe, transcriptOf } from "@/lib/transcribe"
+import { hasWords, heardOf, isTranscribing, onTranscribing, stopTranscribing, transcribe, transcriptOf } from "@/lib/transcribe"
 import { bubblesOf } from "@/lib/bubbles"
 import { playAt } from "@/extensions/line-cards"
 import { Orb } from "@/components/haligtree/orb"
@@ -443,21 +443,21 @@ function VideoBlock(props: NodeViewProps): React.JSX.Element {
 const mmss = (seconds: number): string => `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, "0")}`
 
 /**
- * Under a recording while its words are made out: the orb and how long it
- * has listened against the recording's length ("Listening… 0:12 of 0:56"),
- * a second at a time, so a long one is never a silent wait.
+ * In the recording's status place while its words are made out: the orb, how far into the recording the words
+ * have reached ("Listening… 0:12 of 0:56", from the helper's own parts as they come, never past the length; it
+ * counted seconds on the clock before, and read "1:43 of 0:47"), and "Stop" (or Esc on it) to give up.
  */
-function Listening({ length }: { length: number | null }): React.JSX.Element {
-  const [since] = useState(() => Date.now())
-  const [now, setNow] = useState(since)
-  useEffect(() => {
-    const tick = window.setInterval(() => setNow(Date.now()), 1000)
-    return () => window.clearInterval(tick)
-  }, [])
-  const heard = (now - since) / 1000
+function Listening({ src, length }: { src: string; length: number | null }): React.JSX.Element {
+  const heard = useSyncExternalStore(onTranscribing, () => heardOf(src))
+  const shown = length ? Math.min(heard, length) : heard
   return (
-    <span className="tiptap-attachment-listening" data-listening-clock={mmss(heard)} contentEditable={false}>
-      <Orb state="listening" label={`Listening… ${mmss(heard)}${length ? ` of ${mmss(length)}` : ""}`} />
+    <span className="tiptap-attachment-listening" data-listening-clock={mmss(shown)} contentEditable={false}>
+      <Orb state="listening" label={`Listening… ${mmss(shown)}${length ? ` of ${mmss(length)}` : ""}`} />
+      <button type="button" data-transcribe-stop onMouseDown={(event) => event.preventDefault()} onClick={() => stopTranscribing(src)}
+        onKeyDown={(event) => event.key === "Escape" && (event.preventDefault(), stopTranscribing(src))}
+        className="cursor-pointer rounded-sm font-medium text-foreground/80 underline-offset-2 transition-colors hover:text-foreground hover:underline active:scale-[0.97]">
+        Stop
+      </button>
     </span>
   )
 }
@@ -494,6 +494,9 @@ function AudioBlock(props: NodeViewProps): React.JSX.Element {
       </button>
     </>
   ) : null
+  // One status in one place: "No transcript · Transcribe" or "Listening… 0:14 of 0:47 · Stop", in the same slot
+  // (the row's fixed one in a run of recordings, the line under a lone card), so nothing beside it moves.
+  const status = listening ? <Listening src={src} length={length} /> : noWords
   return (
     <NodeViewWrapper className={`tiptap-attachment is-audio${selected ? " is-selected" : ""}${playing ? " is-playing" : ""}`} data-state={state} data-words={worded ? "" : undefined}>
       <audio ref={ref as React.RefObject<HTMLAudioElement>} src={src} preload="metadata" />
@@ -503,11 +506,11 @@ function AudioBlock(props: NodeViewProps): React.JSX.Element {
         <span className="tiptap-attachment-body">
           {/* No file-name tip: "Voice note · 0:47" is the name, and the tip covered the row above. */}
           <span className="tiptap-attachment-name">{soundTitle(name, length)}</span>
-          {noWords && <span data-no-words="row" className="tiptap-attachment-words items-center gap-1.5 text-xs text-muted-foreground">{noWords}</span>}
+          {/* Always there in a run of recordings, empty or not, at one width: the play button and the bar sit at the same place in every row. */}
+          <span data-no-words="row" className="tiptap-attachment-words items-center gap-1.5 text-xs text-muted-foreground">{status}</span>
         </span>
         {controls}
       </div>
-      {listening && <Listening length={length} />}
       {/* No words under it and none on their way: said in one quiet line under
           the card, with the way to get them, never a silent nothing. Inside a
           lone card's row it widened the name and pushed the player onto a second
@@ -527,7 +530,7 @@ function AudioBlock(props: NodeViewProps): React.JSX.Element {
           {tab === "transcript" && <Bubbles lines={transcriptOf(props.editor, src)} play={(at) => playAt(props.editor.view.dom as HTMLElement, src, at)} />}
         </div>
       )}
-      {noWords && <div data-no-words="under" contentEditable={false} className="flex items-center gap-1.5 px-1 pt-1 text-xs text-muted-foreground">{noWords}</div>}
+      {status && <div data-no-words="under" contentEditable={false} className="flex h-6 items-center gap-1.5 overflow-hidden px-1 pt-1 text-xs text-muted-foreground">{status}</div>}
     </NodeViewWrapper>
   )
 }

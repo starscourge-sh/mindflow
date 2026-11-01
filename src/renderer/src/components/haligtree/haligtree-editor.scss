@@ -4191,10 +4191,30 @@ html[data-motion="off"] .tiptap.ProseMirror :is(.mf-kept, .mf-kept-icon button) 
   margin-right: 0.15em;
 }
 
-/* "Listening…" under a recording while its words are made out. */
+/* "Listening… · Stop" in a recording's status place while its words are made out. */
 .tiptap-attachment-listening {
   display: flex;
-  margin-top: 0.5rem;
+  align-items: center;
+  gap: 0.375rem;
+  min-width: 0;
+  max-width: 100%;
+
+  // Short of room, the words are cut, never "Stop".
+  .mf-orb-pill {
+    flex: 0 1 auto;
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .mf-orb-pill > .mf-shimmer {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  > button {
+    flex: none;
+  }
 }
 
 // Recordings side by side are one list in one frame, as Voice Memos lists
@@ -4222,15 +4242,31 @@ $run-next: '.react-renderer:has(> .tiptap-attachment.is-audio) + .react-renderer
       height: 1rem;
     }
 
+    // Every row's parts at the same places in every state (idle, playing, dragging, transcribing), as Voice
+    // Memos lists them: the name over its status ("No transcript · Transcribe", "Listening… 0:14 of 0:47 · Stop"),
+    // each one line of one height and cut short, taking what room is left; the play button, the bar, the time
+    // and the speed a fixed width at the row's end, so the bar is the same length in every row and never moves.
     .tiptap-attachment-body {
-      flex-direction: row;
-      align-items: baseline;
-      gap: 0.625rem;
+      flex: 1 1 auto;
+      min-width: 0;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0;
       white-space: nowrap;
     }
 
+    .tiptap-attachment-name {
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
     .tiptap-attachment-words {
-      display: inline-flex;
+      display: flex;
+      align-items: center;
+      height: 1.25rem;
+      max-width: 100%;
+      overflow: hidden;
     }
 
     [data-no-words="under"] {
@@ -4238,18 +4274,22 @@ $run-next: '.react-renderer:has(> .tiptap-attachment.is-audio) + .react-renderer
     }
 
     .tiptap-media-controls {
-      flex: 1 1 8rem;
+      flex: 0 0 12rem;
       min-width: 0;
     }
 
-    // The name keeps its length whole ("Voice note · 0:20"); so the row's own
-    // time, which says it again, shows only while it plays, and never spills
-    // past the card.
-    .tiptap-attachment-body {
-      flex: none;
+    // The speed and the sound on or off are a lone recording's: in a stack the row keeps to play, the bar and the time.
+    :is(.tiptap-media-volume, .tiptap-media-speed) {
+      display: none;
     }
 
+    // Their room kept while it does not play, so the bar is the same length in every row and never jumps.
     &:not(.is-playing) :is(.tiptap-media-speed, .tiptap-media-volume, .tiptap-media-time) {
+      visibility: hidden;
+    }
+
+    // The time a place on the bar stands for, only on the bar being pointed at or dragged: never left on another row.
+    .tiptap-media-scrub:not(:hover):not(:active) .tiptap-media-bubble {
       display: none;
     }
   }
