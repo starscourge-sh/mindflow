@@ -67,7 +67,7 @@ const TONES = [1, 0.52, 0.22]
 
 /** A small round chip beside the big number: "5 of 7 days", "12 weeks". */
 export function Chip({ children }: { children: ReactNode }): React.JSX.Element {
-  return <span data-mono-chip className="inline-flex items-center gap-1 rounded-full border border-foreground/10 bg-foreground/[0.04] px-2 py-0.5 text-xs whitespace-nowrap text-muted-foreground">{children}</span>
+  return <span data-mono-chip className="inline-flex items-center gap-1 rounded-[4px] border border-foreground/10 bg-foreground/[0.04] px-2 py-0.5 text-xs whitespace-nowrap text-muted-foreground">{children}</span>
 }
 
 /** The tiny switch on a card (7 days / 30 days), the app's own chips, whose pill slides to the one picked. */
@@ -134,14 +134,14 @@ export function DotMatrix({ days, say, onHover, columns = 7, dot = 14 }: { days:
           onPointerEnter={() => onHover(say(one))}
           initial={still ? false : { opacity: 0, scale: 0.4 }} animate={arrived ? { opacity: tone(one.n), scale: 1 } : { opacity: 0, scale: 0.4 }} whileHover={still ? undefined : { scale: 1.35, zIndex: 10 }}
           transition={{ duration: 0.25, ease: EASE, delay: still ? 0 : Math.min(0.6, at * 0.008) }}
-          className="aspect-square w-full rounded-full" style={{ background: INK }} />
+          className="aspect-square w-full rounded-[2px]" style={{ background: INK }} />
       ))}
     </div>
   )
 }
 
 /**
- * Bars, one per value, the same width in every chart (6 px, 3 px rounded at
+ * Bars, one per value, the same width in every chart (6 px, the heatmap's 2 px corner at
  * the top, square on the baseline), standing on one hairline baseline, with
  * a quiet hairline at the tallest and its value: the scale. A day with none
  * draws nothing. Pointing at a bar dims the others; nothing moves or redraws.
@@ -160,11 +160,11 @@ export function PillBars({ values, keys, say, onHover, className = 'h-20', unit 
       <div className="absolute inset-0 flex items-end">
         {values.map((n, at) => (
           <span key={keys?.[at] ?? at} data-bar={at} data-say={say(at)} onPointerEnter={() => (setOn(at), onHover(say(at)))}
-            className={`flex h-full flex-1 items-end justify-center rounded-[3px] ${on === at ? 'bg-foreground/[0.06]' : ''}`}>
+            className={`flex h-full flex-1 items-end justify-center rounded-[2px] ${on === at ? 'bg-foreground/[0.06]' : ''}`}>
             {n > 0 && (
               <motion.span initial={still ? false : { scaleY: 0 }} animate={{ scaleY: arrived ? 1 : 0, opacity: on === null || on === at ? 1 : 0.35 }}
                 transition={{ scaleY: { duration: still ? 0 : DRAW, ease: RECHARTS_EASE, delay: still ? 0 : Math.min(0.3, at * 0.012) }, opacity: { duration: 0.12 } }}
-                className="block w-1.5 origin-bottom rounded-t-[3px]" style={{ height: `${Math.max(4, (n / most) * 100)}%`, background: INK }} />
+                className="block w-1.5 origin-bottom rounded-t-[2px]" style={{ height: `${Math.max(4, (n / most) * 100)}%`, background: INK }} />
             )}
           </span>
         ))}
@@ -221,8 +221,8 @@ export function Spline({ lines, say, onHover }: { lines: { values: number[]; das
       </motion.svg>
       {/* The full line's dots as round marks over the stretched drawing, so they stay round; the one pointed at gets a ring, its size never changes. */}
       {full && full.values.map((n, at) => (
-        <span key={at} data-mono-dot={at} className="pointer-events-none absolute size-2 rounded-full"
-          style={{ left: `${(x(at) / w) * 100}%`, top: `${(y(n) / h) * 100}%`, translate: '-50% -50%', background: INK, boxShadow: `0 0 0 2px var(--card)${on === at ? ', 0 0 0 4px color-mix(in oklab, var(--foreground) 45%, transparent)' : ''}` }} />
+        <span key={at} data-mono-dot={at} className="pointer-events-none absolute size-[5px] rounded-full"
+          style={{ left: `${(x(at) / w) * 100}%`, top: `${(y(n) / h) * 100}%`, translate: '-50% -50%', background: INK, boxShadow: `0 0 0 1.5px var(--card)${on === at ? ', 0 0 0 3px color-mix(in oklab, var(--foreground) 45%, transparent)' : ''}` }} />
       ))}
       <div className="absolute inset-0 flex">
         {Array.from({ length: count }, (_, at) => <span key={at} data-say={say(at)} className="h-full flex-1" onPointerEnter={() => (setOn(at), onHover(say(at)))} />)}
@@ -238,16 +238,16 @@ export function ToneBar({ parts }: { parts: { name: string; n: number }[] }): Re
   const total = parts.reduce((sum, one) => sum + one.n, 0)
   return (
     <div data-mono-tones>
-      <div className="flex h-4 gap-[3px]">
+      <div className="flex h-3 gap-px">
         {parts.filter((one) => one.n).map((one, at) => (
-          <motion.span key={one.name} aria-label={`${one.name}: ${one.n.toLocaleString()}`} className="h-full origin-left rounded-full" style={{ flex: `${one.n} 1 0`, minWidth: 12, background: INK, opacity: TONES[parts.indexOf(one)] ?? 0.22 }}
+          <motion.span key={one.name} aria-label={`${one.name}: ${one.n.toLocaleString()}`} className="h-full origin-left rounded-[2px]" style={{ flex: `${one.n} 1 0`, minWidth: 12, background: INK, opacity: TONES[parts.indexOf(one)] ?? 0.22 }}
             initial={still ? false : { scaleX: 0.85, opacity: 0 }} animate={arrived ? { scaleX: 1, opacity: TONES[parts.indexOf(one)] ?? 0.22 } : { scaleX: 0.85, opacity: 0 }} transition={{ delay: still ? 0 : at * 0.05, duration: 0.25 }} />
         ))}
-        {!total && <span className="h-full flex-1 rounded-full" style={{ background: INK, opacity: 0.08 }} />}
+        {!total && <span className="h-full flex-1 rounded-[2px]" style={{ background: INK, opacity: 0.08 }} />}
       </div>
       <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
         {parts.map((one, at) => (
-          <span key={one.name} data-tone={one.name} className="inline-flex items-center gap-1.5"><span className="size-2 rounded-full" style={{ background: INK, opacity: TONES[at] ?? 0.22 }} />{one.name} <strong className="font-semibold text-foreground tabular-nums">{one.n.toLocaleString()}</strong></span>
+          <span key={one.name} data-tone={one.name} className="inline-flex items-center gap-1.5"><span className="size-2 rounded-[2px]" style={{ background: INK, opacity: TONES[at] ?? 0.22 }} />{one.name} <strong className="font-semibold text-foreground tabular-nums">{one.n.toLocaleString()}</strong></span>
         ))}
       </div>
     </div>
@@ -265,8 +265,8 @@ export function Funnel({ rows, say, onHover }: { rows: { name: string; n: number
       {rows.map((one, at) => (
         <div key={one.name} data-say={say(one)} onPointerEnter={() => (setOn(one.name), onHover(say(one)))} className="grid grid-cols-[minmax(0,9rem)_1fr_auto] items-center gap-3 text-xs transition-opacity duration-200" style={{ opacity: on === null || on === one.name ? 1 : 0.4 }}>
           <span className="truncate text-muted-foreground">{one.name}</span>
-          <span className="h-3">
-            <motion.span className="block h-full origin-left rounded-full" style={{ width: `${Math.max(4, (one.n / most) * 100)}%`, background: INK }}
+          <span className="h-2.5">
+            <motion.span className="block h-full origin-left rounded-[2px]" style={{ width: `${Math.max(4, (one.n / most) * 100)}%`, background: INK }}
               initial={still ? false : { scaleX: 0.85, opacity: 0 }} animate={arrived ? { scaleX: 1, opacity: 1 } : { scaleX: 0.85, opacity: 0 }} transition={{ delay: still ? 0 : at * 0.05, duration: 0.25 }} />
           </span>
           <strong className="font-semibold text-foreground tabular-nums">{one.n.toLocaleString()}</strong>
