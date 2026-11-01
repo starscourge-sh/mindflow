@@ -1868,7 +1868,7 @@ export function Home(): React.JSX.Element {
               const [unfolded, setUnfolded] = list === 'article' ? [articleFolders, setArticleFolders] : list === 'nugget' ? [nuggetFolders, setNuggetFolders] : [journalOpen, setJournalOpen]
               // Questions, a page of its own, hangs under Writing first, above its folders, off the same trunk.
               const asking = list === 'article' && !narrow
-              const inQuestions = asking && (view.id === 'questions' || view.id === 'lookups')
+              const inQuestions = list === 'article' && (view.id === 'questions' || view.id === 'lookups')
               // What the chevron over the icon folds: Writing's Questions and folders, Gems' folders, or Journal's scales.
               const folds = !!(folders && list) || asking || scales.length > 0
               const inFolder = view.id === section.id ? view.folder : undefined
@@ -1944,6 +1944,15 @@ export function Home(): React.JSX.Element {
                   ))}
                 </Branches>
                 </Unfold>
+              )}
+              {/* On the icon rail, Questions keeps a place of its own under Writing's icon, so it is a press away at any width. */}
+              {narrow && list === 'article' && (
+                <SidePeek id="questions" keys="G H">
+                  <button type="button" data-side-row data-side-questions aria-label="Questions" aria-current={inQuestions ? 'page' : undefined}
+                    onClick={() => setView({ id: 'questions' })} className={`flex items-center justify-center rounded-md py-1.5 ${inQuestions ? 'text-foreground' : 'text-foreground/80'}`}>
+                    <PlaceIcon place={QUESTIONS_PLACE} full={inQuestions} />
+                  </button>
+                </SidePeek>
               )}
               {(folders || asking) && list && (
                 // Its own drags, not the row's: a folder pressed on is not Writing carried away.

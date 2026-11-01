@@ -41,6 +41,24 @@ try {
     }
     check(`${page}: ${chips} chips pressed, nothing on the line or the list's edge moves`, moved.length === 0, moved.slice(0, 6).join('; '))
   }
+  // Writing's line: a switch there (once “All / Questions”) moved the list and changed the pill's look as it was pressed.
+  await go('articles')
+  await h.waitForTimeout(800)
+  const tabs = await h.locator('[data-list-tabs] button').count()
+  const shifted = []
+  const line = () => h.evaluate(() => {
+    const row = document.querySelector('[role="main"] [data-row]')
+    const pills = [...document.querySelectorAll('[data-list-tabs] button')].map((one) => { const r = one.getBoundingClientRect(); return `${Math.round(r.left)},${Math.round(r.width)}` })
+    return { row: row ? Math.round(row.getBoundingClientRect().left) : null, pills: pills.join(' ') }
+  })
+  const first = await line()
+  for (let k = 0; k < tabs; k++) {
+    await h.locator('[data-list-tabs] button').nth(k).click()
+    await h.waitForTimeout(500)
+    const now = await line()
+    if (now.row !== first.row || now.pills !== first.pills) shifted.push(`tab ${k}: ${JSON.stringify(first)} -> ${JSON.stringify(now)}`)
+  }
+  check(`Writing's line has no switch that moves the list or its pills (${tabs} tabs)`, tabs === 0 && shifted.length === 0, shifted.join('; ') || `${tabs} tabs`)
   // Between the pages: the list's left edge is the same on Writing, Gems and Questions.
   const edges = {}
   for (const page of ['articles', 'nuggets', 'questions']) { await go(page); await h.waitForTimeout(800); edges[page] = (await boxes()).rowLeft }

@@ -30,7 +30,7 @@ try {
     questionRows: document.querySelectorAll('[data-question-answer]').length,
     side: !!document.querySelector('aside [data-side-questions]')
   }))
-  check('Writing has no “All / Questions” switch', !writing.chips.some((one) => /Questions|^All$/.test(one)), JSON.stringify(writing.chips))
+  check('Writing has no “All / Questions” switch', writing.chips.length === 0, JSON.stringify(writing.chips))
   check('Writing lists no questions', writing.questionRows === 0, writing.questionRows)
   check('Questions is a row of its own under Writing in the sidebar', writing.side)
   if (shots) await h.screenshot({ path: `${shots}/writing.png` })

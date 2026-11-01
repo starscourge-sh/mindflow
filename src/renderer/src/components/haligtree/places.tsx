@@ -133,7 +133,7 @@ export const TASK_PAGES = ['today', 'tomorrow', 'week', 'upcoming', 'later', 'ro
 /**
  * The row a page lights, the one rule: a page opened from a row lights that
  * row, whichever tab, mode or date it is on. A task list lights Tasks, a
- * question Pages, every capture list the Inbox, and Day, Week, Month and Year
+ * question Writing (whose own child row, Questions, is lit under it), every capture list the Inbox, and Day, Week, Month and Year
  * light Journal on any date; Week's or Month's page lights its own row while
  * that row is in the sidebar (`shown`).
  */
