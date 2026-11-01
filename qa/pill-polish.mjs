@@ -258,9 +258,10 @@ for (const grown of [false, true]) {
       const at = await page.evaluate(() => {
         const all = [...document.querySelectorAll('.mf-top [data-aside] > *, .mf-top .mf-pill button')].filter((one) => one.offsetWidth)
         const rs = all.map((one) => one.getBoundingClientRect())
-        return { picked: all.findIndex((one) => one.hasAttribute('data-picked')), gaps: rs.slice(1).map((r, k) => Math.round(r.left - rs[k].right)), name: document.querySelector('[data-control-name]')?.textContent ?? '' }
+        return { card: Math.round(document.querySelector('.app-container').getBoundingClientRect().height), win: innerHeight, held: document.documentElement.style.getPropertyValue('--mf-card-held') || '', growing: 'growing' in document.documentElement.dataset, pillNow: !!document.querySelector('.app-container[data-pill]'), picked: all.findIndex((one) => one.hasAttribute('data-picked')), gaps: rs.slice(1).map((r, k) => Math.round(r.left - rs[k].right)), name: document.querySelector('[data-control-name]')?.textContent ?? '' }
       })
       if (key === 'Enter') check(`${where}: Tab reaches "${names[i]}", the gaps even (${at.gaps.join(', ')})`, at.picked === i && new Set(at.gaps).size === 1, JSON.stringify(at))
+      if (key === 'Enter' && !grown) check(`pill: the card stays one line (56px) while "${names[i].split("  ")[0]}" is chosen`, at.card === 56, JSON.stringify(at))
       if (key === 'Enter' && !grown) check(`pill: the bar names "${names[i].split('  ')[0]}" by what it opens`, at.name === names[i].split('  ')[0] && at.name !== 'Actions', at.name)
       if (key === 'Enter' && shots && i === 2) await page.screenshot({ path: `${shots}/polish-${grown ? 'grown' : 'pill'}-picked.png` })
       await page.keyboard.press(key)

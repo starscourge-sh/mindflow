@@ -548,6 +548,8 @@ function toggleWindow(): void {
 
 /** The box shown where it was just put. */
 function showPrompt(win: BrowserWindow): void {
+  // For the probes: what the box showed as it came on screen (qa/pill-first-open.mjs).
+  if (process.env.HALIGTREE_QA_TRACE && !win.isVisible()) win.once('show', () => qaTrace('prompt', win, { painted: promptPainted }))
   arrive(win)
   recordOpen('prompt')
   beaconMoment('open')
