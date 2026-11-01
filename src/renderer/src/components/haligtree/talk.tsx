@@ -1,4 +1,4 @@
-import { useEffect, useState, useSyncExternalStore } from 'react'
+import { useEffect, useSyncExternalStore } from 'react'
 import { Check, X } from 'lucide-react'
 import { useCentreOn } from '@/lib/centre-on'
 import { createPortal } from 'react-dom'
@@ -6,7 +6,6 @@ import type { Editor } from '@tiptap/core'
 import { Plugin, PluginKey, TextSelection } from '@tiptap/pm/state'
 import { Decoration, DecorationSet } from '@tiptap/pm/view'
 
-import { Orb } from '@/components/haligtree/orb'
 import { startWorking } from '@/components/haligtree/beam'
 import { refuse } from '@/components/haligtree/ui'
 import { haligtree, useLive, type Settings } from '@/lib/haligtree'
@@ -18,19 +17,24 @@ import { dictation, stopRecording } from '@/lib/recording'
  * Talk to type, in any text field: hold the talk key (⌥Space, or the right
  * ⌥ alone) and what you say is typed at the caret, on this Mac
  * (main/dictation.ts). The words come in faint as they are heard and firm up
- * when Apple settles them; Esc takes the faint words away. A bare Orb sits
- * by the caret and the beam turns round the window while it listens.
+ * when Apple settles them; Esc takes the faint words away. The talk pill (its
+ * levels, × and ✓) is the one sign that it listens: no Orb rides along the
+ * words, sliding as they arrive and sitting on the placeholder at the start.
+ * The beam turns round the window while it listens, except in quick capture,
+ * whose card is a short pill the light could not go evenly round.
  */
 type Field = { kind: 'editor'; editor: Editor; at: number } | { kind: 'input'; input: HTMLInputElement | HTMLTextAreaElement; at: number; length: number }
-type Session = { field: Field; how: 'hold' | 'tap'; heard: string; stopping: boolean; endBeam: () => void; off: () => void; /** How loud the voice was, newest last, as the helper says it (an older helper says nothing: the pill rests flat). */ levels: number[] }
+type Session = { field: Field; how: 'hold' | 'tap'; heard: string; stopping: boolean; endBeam: () => void; off: () => void; /** How loud the voice was, newest last, as the helper says it (an older helper says nothing: the pill rests flat). */ levels: number[]; /** The microphone is on and every word from here is kept: until then the pill says "Getting ready…". */ ready: boolean }
 
 let session: Session | null = null
 const listeners = new Set<() => void>()
-const tell = (): void => listeners.forEach((one) => one())
+// While it listens the page says so (data-talking): an empty line's placeholder steps aside at once, so the words
+// heard never land on top of "Write a thought…" (main.css).
+const tell = (): void => (document.documentElement.toggleAttribute('data-talking', !!session), listeners.forEach((one) => one()))
 const subscribe = (listen: () => void): (() => void) => (listeners.add(listen), () => void listeners.delete(listen))
 
 const KEY = new PluginKey<DecorationSet>('talk')
-/** The faint words in a note: drawn at the caret, not part of the note until they firm up. */
+/** The faint words in a note: drawn before the caret (side -1), so the caret follows the end of the words as they arrive; not part of the note until they firm up. */
 const faint = (at: number, text: string): Plugin =>
   new Plugin({
     key: KEY,
@@ -53,7 +57,7 @@ const widget = (at: number, text: string): Decoration =>
     span.dataset.talk = 'faint'
     span.textContent = text
     return span
-  }, { side: 1, key: text })
+  }, { side: -1, key: text })
 
 /** The text field the caret is in now, if any: a note (TipTap) or a plain field that takes words. */
 function fieldHere(): Field | null {
@@ -161,7 +165,10 @@ async function beginTalk(how: 'hold' | 'tap', editor?: Editor): Promise<void> {
   const off = window.api.onDictation((line) => {
     const now = session
     if (!now) return
-    if (typeof line.level === 'number') {
+    if (line.ready) {
+      now.ready = true
+      tell()
+    } else if (typeof line.level === 'number') {
       now.levels.push(line.level)
       if (now.levels.length > BARS) now.levels.shift()
       tell()
@@ -177,7 +184,7 @@ async function beginTalk(how: 'hold' | 'tap', editor?: Editor): Promise<void> {
   })
   if (field.kind === 'editor') field.editor.registerPlugin(faint(field.at, ''))
   else field.input.dataset.talking = ''
-  session = { field, how, heard: '', stopping: false, endBeam: startWorking(), off, levels: [] }
+  session = { field, how, heard: '', stopping: false, endBeam: window.api?.room?.left ? () => undefined : startWorking(), off, levels: [], ready: false }
   chime('listen')
   tell()
 }
@@ -200,26 +207,10 @@ export const talking = (): boolean => session !== null
 // Told to the recorder (lib/recording.ts): it stops dictation before a voice note starts.
 dictation.stop = () => void (session && talkStop())
 
-/** Where the caret is, for the Orb. */
-function caretBox(): { left: number; top: number } | null {
-  const field = session?.field
-  if (!field) return null
-  if (field.kind === 'editor') {
-    if (field.editor.isDestroyed) return null
-    const at = (KEY.getState(field.editor.state)?.find()[0]?.from as number | undefined) ?? field.at
-    const place = field.editor.view.coordsAtPos(at)
-    const words = field.editor.view.dom.querySelector('[data-talk=faint]')?.getBoundingClientRect()
-    return { left: (words?.width ? words.right : place.left) + 6, top: (place.top + place.bottom) / 2 - 10 }
-  }
-  const box = field.input.getBoundingClientRect()
-  return { left: box.right - 26, top: box.top + Math.min(box.height, 40) / 2 - 10 }
-}
-
-/** The talk keys, read from Settings, and the Orb by the caret. One in every window (main.tsx). */
+/** The talk keys, read from Settings, and the talk pill. One in every window (main.tsx). */
 export function Talk(): React.JSX.Element | null {
   const settings = useLive(haligtree.settings, null as Settings | null)
   useSyncExternalStore(subscribe, () => (session ? `${session.heard}|${session.levels.length}|${session.levels.at(-1) ?? ''}` : null))
-  const [, redraw] = useState(0)
   // Ways out of listening, however it began (the talk key or the slash menu's
   // “Dictate”, which works with the talk keys off): Esc drops the words, Enter
   // or a click keeps them.
@@ -285,24 +276,8 @@ export function Talk(): React.JSX.Element | null {
       window.removeEventListener('blur', away)
     }
   }, [settings])
-  // The Orb follows the caret as the words grow and as the page scrolls.
-  useEffect(() => {
-    if (!session) return
-    const again = (): void => redraw((n) => n + 1)
-    window.addEventListener('scroll', again, true)
-    return () => window.removeEventListener('scroll', again, true)
-  })
-  const box = caretBox()
-  if (!box) return null
-  return createPortal(
-    <>
-      <div data-talk="orb" className="pointer-events-none fixed z-[70]" style={{ left: box.left, top: box.top }}>
-        <Orb state="listening" />
-      </div>
-      <TalkPill />
-    </>,
-    document.body
-  )
+  if (!session) return null
+  return createPortal(<TalkPill />, document.body)
 }
 
 /** How many bars the pill's waveform shows, the newest at the right. */
@@ -329,12 +304,17 @@ function TalkPill(): React.JSX.Element | null {
         className="flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-full text-muted-foreground transition-[color,background-color,scale] duration-150 hover:bg-accent hover:text-foreground active:scale-[0.97]">
         <X className="size-3.5" />
       </button>
-      <span data-talk-level className="flex h-5 min-w-0 flex-1 items-center justify-center gap-[3px]">
-        {bars.map((level, i) => (
-          // Louder is taller, eased so a quiet voice still shows; silence is a dot.
-          <span key={i} className="w-[2px] rounded-full bg-foreground/70 transition-[height] duration-100 ease-out" style={{ height: `${Math.max(2, Math.min(20, Math.sqrt(level) * 60))}px` }} />
-        ))}
-      </span>
+      {session.ready ? (
+        <span data-talk-level className="flex h-5 min-w-0 flex-1 items-center justify-center gap-[3px]">
+          {bars.map((level, i) => (
+            // Louder is taller, eased so a quiet voice still shows; silence is a dot.
+            <span key={i} className="w-[2px] rounded-full bg-foreground/70 transition-[height] duration-100 ease-out" style={{ height: `${Math.max(2, Math.min(20, Math.sqrt(level) * 60))}px` }} />
+          ))}
+        </span>
+      ) : (
+        // Until the microphone is on, it says so: listening is shown only once every word will be kept.
+        <span data-talk-getting-ready role="status" className="flex h-5 min-w-0 flex-1 items-center justify-center text-control"><span className="mf-shimmer" data-text="Getting ready…">Getting ready…</span></span>
+      )}
       <button type="button" aria-label="Keep the words" title="Keep the words" onClick={talkStop}
         className="flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-full bg-primary text-primary-foreground transition-transform duration-150 active:scale-[0.97]">
         <Check className="size-3.5" strokeWidth={3} />

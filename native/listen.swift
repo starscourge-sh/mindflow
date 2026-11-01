@@ -99,9 +99,66 @@ func waitForStop(_ then: @escaping @Sendable () -> Void) {
   }
 }
 
+/**
+ * What the microphone heard before the analyzer could take it: every buffer from the moment it is on, held, and
+ * handed over in order once the analyzer is ready. Without it the microphone came on only after the words for the
+ * language and the analyzer were ready, a second or two after the pill said it was listening, and the first words
+ * said were lost ("Fire, no one can save me" for "The world is on fire, no one can save me").
+ */
+final class Held: @unchecked Sendable {
+  private let lock = NSLock()
+  private var waiting: [AVAudioPCMBuffer] = []
+  private var sink: ((AVAudioPCMBuffer) -> Void)?
+  private var closed = false
+  private var finish: (() -> Void)?
+  /** A buffer from the microphone: to the analyzer if it is ready, else kept (copied: the tap's own is reused). */
+  func take(_ buffer: AVAudioPCMBuffer) {
+    lock.lock(); defer { lock.unlock() }
+    if let sink { return sink(buffer) }
+    if let copy = copied(buffer) { waiting.append(copy) }
+  }
+  /** The analyzer is ready: what was held first, then everything as it comes. */
+  func open(_ to: @escaping (AVAudioPCMBuffer) -> Void, finish: @escaping () -> Void) {
+    lock.lock(); defer { lock.unlock() }
+    for one in waiting { to(one) }
+    waiting = []
+    sink = to
+    self.finish = finish
+    if closed { finish() }
+  }
+  /** Stopped: the end of the words, once what was held has been handed over. */
+  func close() {
+    lock.lock(); defer { lock.unlock() }
+    closed = true
+    finish?()
+  }
+}
+func copied(_ buffer: AVAudioPCMBuffer) -> AVAudioPCMBuffer? {
+  guard let copy = AVAudioPCMBuffer(pcmFormat: buffer.format, frameCapacity: buffer.frameLength),
+        let from = buffer.floatChannelData, let to = copy.floatChannelData else { return nil }
+  copy.frameLength = buffer.frameLength
+  let channels = Int(buffer.format.channelCount)
+  let planes = buffer.format.isInterleaved ? 1 : channels
+  let floats = Int(buffer.frameLength) * (buffer.format.isInterleaved ? channels : 1)
+  for plane in 0..<planes { memcpy(to[plane], from[plane], floats * MemoryLayout<Float>.size) }
+  return copy
+}
+
 // macOS 26 and later: SpeechAnalyzer, as transcribe.swift reads recordings. It works with Siri and Dictation
 // off, where the older SFSpeechRecognizer below stops with Apple's "Siri and Dictation are disabled".
 if #available(macOS 26, *) {
+  // The microphone first, at once: "ready" means every word from now is kept, whatever the analyzer still needs.
+  let engine = AVAudioEngine()
+  let held = Held()
+  if testFile == nil {
+    _ = tapMicrophone(engine) { held.take($0) }
+    say(["ready": ["onDevice": true]])
+    waitForStop {
+      engine.stop()
+      engine.inputNode.removeTap(onBus: 0)
+      held.close()
+    }
+  }
   Task {
     guard let wanted = await SpeechTranscriber.supportedLocale(equivalentTo: locale) else {
       fail("unavailable", "Speech recognition isn't available for this language on this Mac")
@@ -117,7 +174,6 @@ if #available(macOS 26, *) {
         fail("unavailable", "Speech recognition isn't available on this Mac right now")
       }
       let (stream, feed) = AsyncStream<AnalyzerInput>.makeStream()
-      let engine = AVAudioEngine()
       nonisolated(unsafe) var converter: AVAudioConverter?
       let hear: (AVAudioPCMBuffer) -> Void = { buffer in
         // The microphone's own rate and layout into the one the analyzer reads.
@@ -137,22 +193,15 @@ if #available(macOS 26, *) {
       }
       if let path = testFile {
         // A recording in the microphone's place, through the same steps, so it can be proven from the terminal.
+        // Held first, as the microphone's buffers are while the analyzer gets ready.
         let file = try AVAudioFile(forReading: URL(fileURLWithPath: path))
         say(["ready": ["onDevice": true]])
         while let chunk = AVAudioPCMBuffer(pcmFormat: file.processingFormat, frameCapacity: 4096), (try? file.read(into: chunk)) != nil, chunk.frameLength > 0 {
-          converter = converter ?? AVAudioConverter(from: chunk.format, to: wants)
-          hear(chunk)
+          held.take(chunk)
         }
-        feed.finish()
-      } else {
-        _ = tapMicrophone(engine, hear)
-        say(["ready": ["onDevice": true]])
-        waitForStop {
-          engine.stop()
-          engine.inputNode.removeTap(onBus: 0)
-          feed.finish()
-        }
+        held.close()
       }
+      held.open(hear, finish: { feed.finish() })
       try await analyzer.start(inputSequence: stream)
       // Settled words so far, and the ones still being made out after them.
       let reading = Task {
