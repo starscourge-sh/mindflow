@@ -969,7 +969,7 @@ function Through({ at, total, minutes }: { at: number; total: number; /** About 
           ))}
         </span>
       ) : (
-        <span aria-hidden className="h-0.5 w-24 overflow-hidden rounded-full bg-border">
+        <span aria-hidden className="h-0.5 w-24 overflow-hidden rounded-[2px] bg-border">
           <span className="block h-full w-full origin-left bg-[var(--tt-brand-color-400)] transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]" style={{ transform: `scaleX(${at / total})` }} />
         </span>
       )}
@@ -1361,7 +1361,7 @@ export function Readiness({ exam, named = true }: { exam: Exam; named?: boolean 
       ) : (
         <>
           {/* Drawn at its widths, there with the page: data, not a show. */}
-          <div className="flex h-1.5 overflow-hidden rounded-full">
+          <div className="flex h-1.5 overflow-hidden rounded-[2px]">
             {READY.map(({ key, color }) => exam[key] > 0 && (
               <div key={key} style={{ width: `${(exam[key] / exam.total) * 100}%`, background: color }} />
             ))}
@@ -1590,9 +1590,9 @@ function CardTimer({ seconds, paused, onEnd }: { seconds: number; paused: boolea
   const low = left <= Math.min(5, Math.ceil(seconds / 4))
   return (
     <span data-card-timer={left} role="timer" aria-label="Time left on this card" className="flex items-center gap-2 text-control tabular-nums">
-      <span className="relative h-1 w-20 overflow-hidden rounded-full bg-foreground/10" aria-hidden>
+      <span className="relative h-1 w-20 overflow-hidden rounded-[2px] bg-foreground/10" aria-hidden>
         {/* Shrinks by transform, a second at a time, linear as a clock runs; held still with motion off. */}
-        <span className={`absolute inset-0 origin-left rounded-full transition-transform duration-1000 ease-linear motion-reduce:transition-none ${low ? 'bg-[var(--tt-color-text-orange)]' : 'bg-foreground/40'}`} style={{ transform: `scaleX(${left / seconds})` }} />
+        <span className={`absolute inset-0 origin-left rounded-[2px] transition-transform duration-1000 ease-linear motion-reduce:transition-none ${low ? 'bg-[var(--tt-color-text-orange)]' : 'bg-foreground/40'}`} style={{ transform: `scaleX(${left / seconds})` }} />
       </span>
       <span className={`w-10 ${low ? 'text-[var(--tt-color-text-orange)]' : 'text-muted-foreground'}`}>{Math.floor(left / 60)}:{String(left % 60).padStart(2, '0')}</span>
     </span>

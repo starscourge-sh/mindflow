@@ -167,8 +167,8 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
                   <DoesChip tag={tag} color={color} action={!!action} />
                 </span>
                 {!chosen && (
-                  <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-border/50">
-                    <span className="block h-full rounded-full bg-muted-foreground/75" style={{ width: `${(count / top) * 100}%` }} />
+                  <span className="h-1.5 flex-1 overflow-hidden rounded-[2px] bg-border/50">
+                    <span className="block h-full rounded-[2px] bg-muted-foreground/75" style={{ width: `${(count / top) * 100}%` }} />
                   </span>
                 )}
                 <span className="min-w-12 shrink-0 text-right text-sm font-semibold text-foreground"><Count n={count} /></span>

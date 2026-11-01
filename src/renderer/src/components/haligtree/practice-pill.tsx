@@ -53,9 +53,9 @@ export function PracticeBar({ ms, target, wide = false, paused = false }: { ms: 
       className={`flex shrink-0 flex-col ${wide ? 'w-full gap-1' : 'w-[58px]'}`} style={{ opacity: paused ? 0.5 : 1 }}>
       <style>{CSS}</style>
       <span className="flex items-center gap-1.5">
-        <span className={`relative flex-1 rounded-full ${wide ? 'h-2' : 'h-[6px]'}`}
+        <span className={`relative flex-1 rounded-[2px] ${wide ? 'h-2' : 'h-[6px]'}`}
           style={{ background: TRACK, boxShadow: met ? `0 0 ${wide ? 10 : 7}px 1px oklch(0.8 0.15 82 / 0.55)` : undefined, transition: 'box-shadow 600ms var(--mf-ease, ease)' }}>
-          <span data-practice-gold className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${fill.first * 100}%`, background: GOLD, animation: flash ? 'mf-practice-five 1.2s ease-out 1' : undefined }} key={flash} />
+          <span data-practice-gold className="absolute inset-y-0 left-0 rounded-[2px]" style={{ width: `${fill.first * 100}%`, background: GOLD, animation: flash ? 'mf-practice-five 1.2s ease-out 1' : undefined }} key={flash} />
           {fill.bonus > 0 && <span data-practice-calm className="absolute inset-y-0 rounded-r-full" style={{ left: `${fill.first * 100}%`, width: `${fill.bonus * 100}%`, background: CALM }} />}
           {/* The notch at 5 minutes: drawn over the bar, a hair taller than it. */}
           {fill.notch < 1 && <span aria-hidden data-practice-notch-mark className="absolute -inset-y-[2px] w-[2px] -translate-x-1/2 rounded-full bg-foreground/60" style={{ left: `${fill.notch * 100}%` }} />}

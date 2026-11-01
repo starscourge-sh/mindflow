@@ -196,7 +196,7 @@ const PEEKS: Record<string, PagePeek> = {
         return (
           <div key={one.id} className="mb-1.5">
             <div className="flex items-center gap-1.5"><Flag className="size-3 shrink-0" style={tinted('orange')} /><span className="min-w-0 flex-1 truncate">{one.title}</span><span className="text-[9.5px] text-muted-foreground">in {days(one.goalAt)} days</span></div>
-            <div className="mt-0.5 ml-[18px] h-1 overflow-hidden rounded-full bg-foreground/10"><div className="h-full rounded-full" style={{ width: `${gone * 100}%`, backgroundColor: 'var(--tt-color-text-orange)' }} /></div>
+            <div className="mt-0.5 ml-[18px] h-1 overflow-hidden rounded-[2px] bg-foreground/10"><div className="h-full rounded-[2px]" style={{ width: `${gone * 100}%`, backgroundColor: 'var(--tt-color-text-orange)' }} /></div>
           </div>
         )
       })}

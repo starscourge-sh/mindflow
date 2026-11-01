@@ -398,8 +398,8 @@ export function GoalsSticky(): React.JSX.Element {
                   <span className="relative block h-3.5">
                     <span aria-hidden data-goals-today className="absolute top-0 bottom-0 w-px bg-foreground/40" style={{ left: `${x(today)}%` }} />
                     {/* The whole road faint, the part gone solid. */}
-                    <span className="absolute top-1/2 h-1 -translate-y-1/2 rounded-full" style={{ left: `${x(from)}%`, width: `${Math.max(1, x(goal.goalAt!) - x(from))}%`, background: `color-mix(in oklab, ${ink} 28%, transparent)` }} />
-                    <span data-goals-road className="absolute top-1/2 h-1 -translate-y-1/2 rounded-full" style={{ left: `${x(from)}%`, width: `${Math.max(0, Math.min(x(today), x(goal.goalAt!)) - x(from))}%`, background: ink }} />
+                    <span className="absolute top-1/2 h-1 -translate-y-1/2 rounded-[2px]" style={{ left: `${x(from)}%`, width: `${Math.max(1, x(goal.goalAt!) - x(from))}%`, background: `color-mix(in oklab, ${ink} 28%, transparent)` }} />
+                    <span data-goals-road className="absolute top-1/2 h-1 -translate-y-1/2 rounded-[2px]" style={{ left: `${x(from)}%`, width: `${Math.max(0, Math.min(x(today), x(goal.goalAt!)) - x(from))}%`, background: ink }} />
                     {/* Its logs, small dots above the road. */}
                     {[...new Set(goal.glosses.map((one) => dayKey(one.createdAt)))].map((day) => (
                       <span key={day} data-goals-log className="absolute top-0 size-1 -translate-x-1/2 rounded-full" style={{ left: `${x(day)}%`, background: ink }} />

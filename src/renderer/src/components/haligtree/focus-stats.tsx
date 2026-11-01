@@ -231,7 +231,7 @@ export function FocusSections({ example }: { example: boolean }): React.JSX.Elem
 
       {ran > 0 && (
         <Section title="How sessions end" big={{ value: `${finishedShare}%`, label: 'ran their full length' }}>
-          <div data-focus-ends className="flex h-2.5 gap-[2px] overflow-hidden rounded-full">
+          <div data-focus-ends className="flex h-2.5 gap-[2px] overflow-hidden rounded-[2px]">
             {(['finished', 'early', 'abandoned'] as const).filter((one) => focus.outcomes[one]).map((one) => (
               <div key={one} style={{ width: `${(focus.outcomes[one] / ran) * 100}%`, background: TINT[one] }} />
             ))}
@@ -271,8 +271,8 @@ export function FocusSections({ example }: { example: boolean }): React.JSX.Elem
                   <Tags tags={taskName(one.title).tags} />
                 </button>
                 <span className="text-right tabular-nums text-foreground"><strong className="font-semibold">{timeSaid(one.minutes)}</strong> · {plural(one.sessions, 'session', 'sessions')}</span>
-                <span className="col-span-2 h-1.5 overflow-hidden rounded-full bg-border/60">
-                  <span className="block h-full rounded-full" style={{ width: `${Math.max(2, (one.minutes / focus.top[0].minutes) * 100)}%`, background: 'var(--tt-brand-color-400)' }} />
+                <span className="col-span-2 h-1.5 overflow-hidden rounded-[2px] bg-border/60">
+                  <span className="block h-full rounded-[2px]" style={{ width: `${Math.max(2, (one.minutes / focus.top[0].minutes) * 100)}%`, background: 'var(--tt-brand-color-400)' }} />
                 </span>
               </div>
               </RowMenu>
@@ -299,8 +299,8 @@ export function FocusSections({ example }: { example: boolean }): React.JSX.Elem
                     <strong className="font-semibold">{timeSaid(one.minutes)}</strong>
                     {one.grew && <span data-grew className="ml-2 font-medium" style={{ color: 'var(--tt-color-text-orange)' }}>Grew: {timeSaid(one.first)} to {timeSaid(one.last)} a session</span>}
                   </span>
-                  <span className="relative col-span-2 h-2 rounded-full bg-border/60">
-                    <span className="block h-full rounded-full" style={{ width: `${Math.max(2, (one.minutes / most) * 100)}%`, background: one.minutes > focus.taskTimes.average ? 'var(--tt-color-text-orange)' : 'color-mix(in oklab, var(--tt-brand-color-400) 50%, var(--background))' }} />
+                  <span className="relative col-span-2 h-2 rounded-[2px] bg-border/60">
+                    <span className="block h-full rounded-[2px]" style={{ width: `${Math.max(2, (one.minutes / most) * 100)}%`, background: one.minutes > focus.taskTimes.average ? 'var(--tt-color-text-orange)' : 'color-mix(in oklab, var(--tt-brand-color-400) 50%, var(--background))' }} />
                     <span aria-hidden className="absolute -top-1 -bottom-1 w-0.5 rounded-full bg-foreground/70" style={{ left: `${(focus.taskTimes.average / most) * 100}%` }} />
                   </span>
                 </div>

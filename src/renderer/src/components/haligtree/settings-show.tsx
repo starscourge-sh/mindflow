@@ -576,7 +576,7 @@ export const TimeGoneSample = ({ on }: { on: boolean }): React.JSX.Element => (
   <span data-preview="home-time-gone" className={`flex h-9 items-center gap-2 rounded-md border bg-background px-2.5 text-[11px] text-muted-foreground transition-opacity duration-200 ${on ? '' : 'opacity-40'}`}>
     {([['D', 60], ['W', 40], ['M', 70], ['Y', 80]] as const).map(([name, share]) => (
       <span key={name} className="flex flex-col items-center gap-[3px] leading-none">
-        <span className="relative block h-[4px] w-[22px] overflow-hidden rounded-full bg-foreground/15"><span className="absolute inset-y-0 left-0 rounded-full bg-foreground" style={{ width: `${share}%` }} /></span>
+        <span className="relative block h-[4px] w-[22px] overflow-hidden rounded-[2px] bg-foreground/15"><span className="absolute inset-y-0 left-0 rounded-[2px] bg-foreground" style={{ width: `${share}%` }} /></span>
         {name}
       </span>
     ))}

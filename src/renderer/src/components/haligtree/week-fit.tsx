@@ -46,7 +46,7 @@ function LoadBar({ load, scale }: { load: DayLoad; scale: number }): React.JSX.E
   const grow = { type: 'spring', stiffness: 260, damping: 32 } as const
   const piece = (from: number, minutes: number): { x: string; scaleX: number } => ({ x: part(from), scaleX: Math.min(1, minutes / scale) })
   return (
-    <span aria-hidden className="relative block h-1.5 w-full overflow-hidden rounded-full bg-foreground/[0.07]">
+    <span aria-hidden className="relative block h-1.5 w-full overflow-hidden rounded-[2px] bg-foreground/[0.07]">
       <motion.span className="absolute inset-0" style={{ background: BLUE, originX: 0 }} initial={false} animate={piece(0, load.meetings)} transition={grow} />
       <motion.span className="absolute inset-0 bg-foreground/45" style={{ originX: 0 }} initial={false} animate={piece(load.meetings, load.tasks)} transition={grow} />
       {load.over > 0 && <motion.span className="absolute inset-0" style={{ background: ORANGE, originX: 0 }} initial={false} animate={piece(load.room, load.over)} transition={grow} />}

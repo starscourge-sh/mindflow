@@ -205,7 +205,7 @@ export function Coverage({ cards }: { cards: BrowsedCard[] }): React.JSX.Element
   const lit = new Set(pages.map((page) => Math.min(cells - 1, Math.floor(((page - 1) / last) * cells))))
   return (
     <div data-coverage className="flex flex-wrap items-center gap-x-3 gap-y-1 px-2 pt-1 pb-2 text-xs text-muted-foreground">
-      <div className="flex h-1.5 min-w-24 flex-1 gap-px overflow-hidden rounded-full" aria-hidden>
+      <div className="flex h-1.5 min-w-24 flex-1 gap-px overflow-hidden rounded-[2px]" aria-hidden>
         {Array.from({ length: cells }, (_, at) => <span key={at} className={`flex-1 ${lit.has(at) ? 'bg-[var(--tt-brand-color-400)]' : 'bg-foreground/10'}`} />)}
       </div>
       <span data-coverage-said className="min-w-0 tabular-nums">{num(pages.length)} of {num(last)} pages have cards</span>

@@ -217,7 +217,7 @@ function Story({ id, onClose }: { id: string; onClose: () => void }): React.JSX.
         <div className="flex flex-1 gap-1.5">
           {cards.map((_, index) => (
             <button key={index} type="button" aria-label={`Card ${index + 1} of ${cards.length}`} aria-current={index === at || undefined} onClick={() => go(index)}
-              className={`h-1 flex-1 rounded-full transition-colors duration-200 motion-reduce:transition-none ${index <= at ? 'bg-foreground' : 'bg-foreground/20'}`} />
+              className={`h-1 flex-1 rounded-[2px] transition-colors duration-200 motion-reduce:transition-none ${index <= at ? 'bg-foreground' : 'bg-foreground/20'}`} />
           ))}
         </div>
         <span className="text-xs text-muted-foreground"><Kbd>←</Kbd> <Kbd>→</Kbd></span>

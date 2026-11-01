@@ -369,8 +369,8 @@ function InboxSort({ onClose }: { onClose: () => void }): React.JSX.Element {
           </span>
           <Tip label="Close"><button type="button" aria-label="Close" onClick={close} className="grid size-7 shrink-0 place-items-center self-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"><X className="size-4" /></button></Tip>
           {/* The clock as a thin line that empties, never a red alarm. */}
-          <span aria-hidden className="relative mt-1.5 block h-1 basis-full overflow-hidden rounded-full bg-foreground/10">
-            <span className="absolute inset-0 origin-left rounded-full bg-[var(--tt-color-text-green)] transition-transform duration-1000 ease-linear" style={{ transform: `scaleX(${left / (SORT_MINUTES * 60_000)})` }} />
+          <span aria-hidden className="relative mt-1.5 block h-1 basis-full overflow-hidden rounded-[2px] bg-foreground/10">
+            <span className="absolute inset-0 origin-left rounded-[2px] bg-[var(--tt-color-text-green)] transition-transform duration-1000 ease-linear" style={{ transform: `scaleX(${left / (SORT_MINUTES * 60_000)})` }} />
           </span>
           <p data-sort-note className="basis-full text-body text-foreground">
             {rows === null ? '' : !list.length ? 'Your Inbox is empty. Nothing to sort this morning.'

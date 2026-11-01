@@ -403,7 +403,7 @@ const VersionsDemo: Demo = ({ live }) => {
         </AnimatePresence>
       </div>
       <div className="flex items-center gap-3 px-1">
-        <div className="relative h-1 flex-1 rounded-full bg-foreground/12">
+        <div className="relative h-1 flex-1 rounded-[2px] bg-foreground/12">
           {[0, 1, 2].map((i) => <span key={i} className="absolute top-1/2 size-1 -translate-1/2 rounded-full bg-foreground/30" style={{ left: `${100 - i * 50}%` }} />)}
           {/* A layer the track's size carries the knob, so its move is a transform (a percent of the track). */}
           <motion.span className="pointer-events-none absolute inset-0" initial={false} animate={{ transform: `translateX(${100 - v * 50}%)` }} transition={{ duration: 0.5, ease: EASE }}>
@@ -868,7 +868,7 @@ const YearDemo: Demo = ({ live }) => {
         <div key={season.name} className="relative h-8">
           <motion.span className="absolute top-0 text-meta whitespace-nowrap" style={{ left: `${(season.from / 12) * 100}%`, color: `var(--tt-color-text-${season.tint})`, transform: season.from > 6 ? 'translateX(-30%)' : undefined }}
             initial={false} animate={{ opacity: at > i ? 1 : 0 }} transition={{ duration: 0.4, delay: at > i ? 0.25 : 0 }}>{season.name}</motion.span>
-          <motion.span className="absolute bottom-1 h-1.5 origin-left rounded-full" style={{ left: `${(season.from / 12) * 100}%`, width: `calc(${((season.to - season.from) / 12) * 100}% - 3px)`, background: `var(--tt-color-text-${season.tint})` }}
+          <motion.span className="absolute bottom-1 h-1.5 origin-left rounded-[2px]" style={{ left: `${(season.from / 12) * 100}%`, width: `calc(${((season.to - season.from) / 12) * 100}% - 3px)`, background: `var(--tt-color-text-${season.tint})` }}
             initial={false} animate={{ transform: at > i ? 'scaleX(1)' : 'scaleX(0)' }} transition={{ duration: 0.6, ease: EASE }} />
         </div>
       ))}
@@ -932,7 +932,7 @@ const WrappedDemo: Demo = ({ live }) => {
           <div className="text-control text-muted-foreground">{WRAPPED[at].said}</div>
         </motion.div>
       </AnimatePresence>
-      <div className="mt-2 flex gap-1">{WRAPPED.map((_, i) => <span key={i} className={`h-0.5 flex-1 rounded-full transition-colors duration-300 ${i <= at ? 'bg-foreground/60' : 'bg-foreground/12'}`} />)}</div>
+      <div className="mt-2 flex gap-1">{WRAPPED.map((_, i) => <span key={i} className={`h-0.5 flex-1 rounded-[2px] transition-colors duration-300 ${i <= at ? 'bg-foreground/60' : 'bg-foreground/12'}`} />)}</div>
     </div>
   )
 }
@@ -1702,7 +1702,7 @@ const NotchDemo: Demo = ({ live }) => {
         </motion.div>
         <motion.div initial={false} animate={{ opacity: open ? 1 : 0 }} transition={{ duration: 0.2, delay: open ? 0.12 : 0 }} className="px-2.5 pt-1.5">
           <div className="font-medium">Dune, chapter 9</div>
-          <div className="mt-1 h-1 rounded-full bg-white/20"><div className="h-1 w-1/3 rounded-full" style={{ background: 'var(--tt-brand-color-400)' }} /></div>
+          <div className="mt-1 h-1 rounded-[2px] bg-white/20"><div className="h-1 w-1/3 rounded-[2px]" style={{ background: 'var(--tt-brand-color-400)' }} /></div>
         </motion.div>
       </motion.div>
       {/* The notch itself, between the bubble's two wings. */}
