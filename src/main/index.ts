@@ -76,8 +76,12 @@ import { registerUnused } from './unused'
 import { registerMedia } from './media'
 import { registerCollect } from './collect'
 import { registerTranscribe } from './transcribe'
+<<<<<<< HEAD
 import { begin, end as endJob, registerJobs } from './jobs'
 import { registerLabels } from './labels'
+=======
+import { Stopped, begin, end as endJob, registerJobs } from './jobs'
+>>>>>>> 54794dca (Every long job can be stopped now: importing files and Anki decks (while it opens the deck and keeps its pictures), a whole folder of notes and its pictures, looking for unused files, Scenery's picture copies and the web reader's “Reading the page…”. Each “Stop” is the same quiet word, Esc on it too. A deck stopped part way keeps nothing, its pictures taken out of the store again; a folder keeps the notes already in, each whole, and says how to carry on; Scenery keeps the copies it made; the reader keeps nothing and offers “Read it again”. The import chip keeps its width while it counts, so its “Stop” never moves. Version 0.4.0-beta.81. New probe qa/stop-more.mjs.)
 import { registerDictation } from './dictation'
 import { registerPeople } from './people'
 import { registerSources } from './sources'
@@ -3017,12 +3021,15 @@ async function importVault(given?: string, picked?: string | null): Promise<void
     return inHome('haligtree:import-folders', { from: 'Obsidian', root, name: basename(root), folders: await vaultFolders(root) })
   // Its notes wait to become documents until their links are in; then every
   // window hears of it, and one of them turns them into documents.
+  if (stopping) return
+  const signal = (stopping = new AbortController()).signal
   setImporting(true)
   try {
     // A test run's vault comes in as if every folder were chosen, as the chooser would offer them.
     const every = given !== undefined && (await stat(join(root, '.obsidian')).then((one) => one.isDirectory(), () => false))
-    await busy(async () => bringVault(root, given !== undefined, every ? { folders: (await vaultFolders(root)).map((one) => one.id), signal: new AbortController().signal } : undefined))
+    await busy(async () => bringVault(root, given !== undefined, every ? { folders: (await vaultFolders(root)).map((one) => one.id), signal } : undefined, signal))
   } finally {
+    stopping = null
     setImporting(false)
     changed()
     // The box turns them into documents, hidden or not: not only once it is next opened.
@@ -3061,7 +3068,7 @@ async function vaultFolders(root: string): Promise<NotesFolder[]> {
   return [...counts].map(([id, count]) => ({ id, name: id || basename(root), count })).sort((a, b) => (a.id ? 1 : 0) - (b.id ? 1 : 0) || a.name.localeCompare(b.name))
 }
 
-/** The import under way, if it can be stopped from its chip: Apple Notes, or a vault's chosen folders. */
+/** The import under way, stopped from its chip: Apple Notes, a vault (chosen folders or the whole folder), or files and Anki decks. */
 let stopping: AbortController | null = null
 
 /**
@@ -3105,7 +3112,9 @@ async function importFolders(from: 'Apple Notes' | 'Obsidian', folders: NotesFol
   }
 }
 
-async function bringVault(root: string, quiet: boolean, pick?: { folders: string[]; signal: AbortSignal }): Promise<void> {
+async function bringVault(root: string, quiet: boolean, pick?: { folders: string[]; signal: AbortSignal }, stop?: AbortSignal): Promise<void> {
+  // “Stop” on the chip, chosen folders or the whole folder: each note already in is whole, and stays.
+  const signal = pick?.signal ?? stop
   const notes: string[] = []
   // Only the chosen folders' notes, when some were chosen; every file still, for their pictures.
   const chosen = (path: string): boolean => !pick || pick.folders.includes(relative(root, path).includes('/') ? relative(root, path).split('/')[0] : '')
@@ -3203,8 +3212,8 @@ async function bringVault(root: string, quiet: boolean, pick?: { folders: string
   const missingHere: string[] = []
   const missing: { link: string; title: string; names: string[] }[] = []
   for (const [at, path] of notes.entries()) {
-    if (pick?.signal.aborted) break
-    if (!quiet) importProgress({ done: at + 1, total: notes.length, what: 'notes', stop: !!pick })
+    if (signal?.aborted) break
+    if (!quiet) importProgress({ done: at + 1, total: notes.length, what: 'notes', stop: !!signal })
     missingHere.length = 0
     // Known by its path, so its pictures are not read again; new notes may still link to it.
     const before = alreadyImported(relative(root, path))
@@ -3311,7 +3320,7 @@ async function bringVault(root: string, quiet: boolean, pick?: { folders: string
     }
   }
   // The last count is always said, however fast the notes came in.
-  if (!quiet && !pick?.signal.aborted) importProgress({ done: notes.length, total: notes.length, what: 'notes', stop: !!pick })
+  if (!quiet && !signal?.aborted) importProgress({ done: notes.length, total: notes.length, what: 'notes', stop: !!signal })
   // A folder of pictures whose notes show none (none at all, or a stray
   // README): each picture is a note of its own, named after its file. In a
   // vault whose notes show pictures, the loose ones stay attachments.
@@ -3324,10 +3333,11 @@ async function bringVault(root: string, quiet: boolean, pick?: { folders: string
   // iPhone and scanner pictures the windows cannot show: counted, and said in the report.
   let unshown = 0
   // Chosen folders bring their notes, never loose pictures as notes of their own.
-  if (!showsPictures && !pick) {
+  if (!showsPictures && !pick && !signal?.aborted) {
     let seen = 0
     for (const path of everyFile) {
-      if (!quiet) importProgress({ done: ++seen, total: everyFile.size, what: 'pictures' })
+      if (signal?.aborted) break
+      if (!quiet) importProgress({ done: ++seen, total: everyFile.size, what: 'pictures', stop: !!signal })
       const ending = path.split('.').pop()?.toLowerCase() ?? ''
       if (/^(heic|heif|tiff?)$/.test(ending)) unshown += 1
       if (!IMAGE[ending]) continue
@@ -3345,7 +3355,7 @@ async function bringVault(root: string, quiet: boolean, pick?: { folders: string
       if (one === 'already here') already += 1
       else if (one !== 'empty') made.push(one)
     }
-    if (!quiet) importProgress({ done: everyFile.size, total: everyFile.size, what: 'pictures' })
+    if (!quiet && !signal?.aborted) importProgress({ done: everyFile.size, total: everyFile.size, what: 'pictures', stop: !!signal })
   }
   const linked = linkImported(made, byName, known)
   // And links already here, from an earlier import or typed by hand, waiting for a page that came in only now.
@@ -3372,7 +3382,7 @@ async function bringVault(root: string, quiet: boolean, pick?: { folders: string
     marked ? `${num(marked)} ${marked === 1 ? 'note came' : 'notes came'} in marked private: ${marked === 1 ? 'its name sounds' : 'their names sound'} like passwords or logins.` : '',
     kept.length ? `Left out because ${kept.length === 1 ? 'it looks' : 'they look'} like passwords or keys: ${kept.join(', ')}.` : '',
     unread.length ? `Left out because ${unread.length === 1 ? 'it could not be read as text' : 'they could not be read as text'}: ${unread.join(', ')}.` : '',
-    pick?.signal.aborted ? 'Stopped before the end: bring the same folders in again to carry on. Notes already here are skipped.' : ''
+    signal?.aborted ? `Stopped before the end: bring the same ${pick ? 'folders' : 'folder'} in again to carry on. Notes already here are skipped.` : ''
   ].filter(Boolean)
   // Filed into Pages: said in place of the Inbox's line.
   if (pick) report.splice(1, 0, filedSaid(filed, made.length - inbox))
@@ -3501,9 +3511,15 @@ async function importFiles(dropped?: string[]): Promise<void> {
   let deckFrom = ''
   let decked = 0
   let gems = 0
+  if (stopping || !filePaths.length) return
+  const signal = (stopping = new AbortController()).signal
+  // A deck stopped part way: nothing of it is kept (anki-apkg.ts); files before it stay, each whole.
+  let stoppedAt = ''
+  try {
   await busy(async () => {
     for (const [at, path] of filePaths.entries()) {
-      importProgress({ done: at + 1, total: filePaths.length, what: 'files' })
+      if (signal.aborted) break
+      importProgress({ done: at + 1, total: filePaths.length, what: 'files', stop: true })
       const name = basename(path)
       // One file that cannot be read is said so, and the rest still come in.
       try {
@@ -3512,7 +3528,9 @@ async function importFiles(dropped?: string[]): Promise<void> {
           // A whole collection (.colpkg) is your own: its reviews are yours. A shared deck's are a stranger's: fresh by default, as Anki does.
           const own = /\.colpkg$/i.test(name)
           const got = await importApkg(path, {
-            progress: (done, all, what) => importProgress({ done, total: all, what }),
+            signal,
+            // The cards go in as one write of a second or two: no “Stop” while it runs, since it could not be stopped.
+            progress: (done, all, what) => importProgress({ done, total: all, what, stop: what !== 'cards' }),
             // Asked in the app's own sheet (apkg-ask.tsx), before anything is kept.
             choose: (ask) => askApkg({ ...ask, own })
           })
@@ -3562,12 +3580,21 @@ async function importFiles(dropped?: string[]): Promise<void> {
         else inbox += added
         lines.push(`${name}: ${num(added)} new`)
       } catch (error) {
+        if (error instanceof Stopped) {
+          stoppedAt = name
+          break
+        }
         lines.push(`${name}: could not be read (${/\.json$/i.test(name) ? 'it is not a list of highlights in JSON' : error instanceof Error ? error.message : String(error)})`)
       }
     }
-    importProgress({ done: filePaths.length, total: filePaths.length, what: 'files' })
+    if (!signal.aborted) importProgress({ done: filePaths.length, total: filePaths.length, what: 'files' })
   })
+  } finally {
+    stopping = null
+  }
   importProgress(null)
+  if (signal.aborted && !total) return inHome('haligtree:job-stopped', 'Stopped: nothing was imported')
+  if (signal.aborted) lines.push(stoppedAt ? `Stopped at ${stoppedAt}: nothing of it was kept. Bring it in again to carry on.` : 'Stopped before the end: bring the rest in again to carry on.')
   // Bookmarks come in as cards holding their sites' pictures: the windows keep copies (link-card.ts cardsUp).
   for (const win of BrowserWindow.getAllWindows()) win.webContents.send('imports:ready')
   // Where they went, said first, and the card's button opens it.

@@ -29,9 +29,9 @@ export function Orb({ state = 'working', label, className, stop }: { state?: Orb
 }
 
 /** “Stop” beside a wait, in Transcribe's look: a click, or Esc while it has the keys. */
-export function StopButton({ stop }: { stop: () => void }): React.JSX.Element {
+export function StopButton({ stop, data }: { stop: () => void; /** Its own mark for tests, beside data-job-stop. */ data?: Record<string, string> }): React.JSX.Element {
   return (
-    <button type="button" data-job-stop onMouseDown={(event) => event.preventDefault()} onClick={stop}
+    <button type="button" {...data} data-job-stop onMouseDown={(event) => event.preventDefault()} onClick={stop}
       onKeyDown={(event) => event.key === 'Escape' && (event.preventDefault(), event.stopPropagation(), stop())}
       // 32px to press, a phone's finger too, with no change to where the word sits.
       className="-mx-1 -my-[9px] cursor-pointer rounded-sm px-1 py-[9px] font-medium text-foreground/80 underline-offset-2 transition-colors hover:text-foreground hover:underline active:scale-[0.97]">

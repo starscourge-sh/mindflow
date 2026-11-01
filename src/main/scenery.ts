@@ -8,6 +8,7 @@ import { watch, type FSWatcher } from 'fs'
 import { basename, dirname, extname, isAbsolute, join } from 'path'
 import { changed } from './captures'
 import { isPack, packFolder } from './sandbox'
+import { begin, end } from './jobs'
 
 /**
  * Scenery: pictures from folders you choose, shown at the quiet moments (an
@@ -194,6 +195,16 @@ async function prepare(path: string): Promise<Entry | null> {
  * other folders hold is kept as it is.
  */
 async function scan(folders: string[], whole: boolean): Promise<void> {
+  // “Stop” beside “more on the way” (main/jobs.ts): the copies made so far are whole and kept, the rest made next time.
+  const signal = begin('scenery')
+  try {
+    await copyAll(folders, whole, signal)
+  } finally {
+    end('scenery', signal)
+  }
+}
+
+async function copyAll(folders: string[], whole: boolean, signal: AbortSignal): Promise<void> {
   await loading()
   const paths: string[] = []
   for (const folder of folders) {
@@ -212,6 +223,12 @@ async function scan(folders: string[], whole: boolean): Promise<void> {
   const next = new Map<string, Entry>()
   let fresh = 0
   for (const path of paths) {
+    // Stopped: what is known so far is kept as it is; nothing is cleared, since the rest were never looked at.
+    if (signal.aborted) {
+      await save(known)
+      if (fresh) changed()
+      return
+    }
     try {
       const entry = await prepare(path)
       if (entry) next.set(entry.key, entry)

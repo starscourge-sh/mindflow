@@ -1,5 +1,6 @@
 import { randomUUID, createHash } from 'crypto'
 import { mkdir, mkdtemp, readFile, rename, rm, stat, writeFile } from 'fs/promises'
+import { Stopped } from './jobs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { DatabaseSync } from 'node:sqlite'
@@ -45,6 +46,8 @@ type Steps = {
   choose?: (ask: ApkgAsk) => Promise<ApkgChoice>
   /** How far it has got: pictures first, then cards. */
   progress?: (done: number, total: number, what: 'opening' | 'pictures' | 'cards') => void
+  /** “Stop”, heard while it opens the package and keeps its pictures: what it kept is taken away again and it throws Stopped. */
+  signal?: AbortSignal
 }
 
 const PICTURE = /\.(png|jpe?g|gif|webp|svg|avif|bmp)$/i
@@ -102,7 +105,7 @@ function mediaNames(bytes: Uint8Array): string[] {
  * live and says how far it has got: a 240 MB deck takes seconds to open.
  * `report` is told the megabytes read of the whole.
  */
-async function unpackedFiles(path: string, report?: (done: number, total: number) => void): Promise<Record<string, Uint8Array>> {
+async function unpackedFiles(path: string, report?: (done: number, total: number) => void, signal?: AbortSignal): Promise<Record<string, Uint8Array>> {
   const bytes = await readFile(path)
   const files: Record<string, Uint8Array> = {}
   let failed: Error | null = null
@@ -121,6 +124,7 @@ async function unpackedFiles(path: string, report?: (done: number, total: number
   for (let at = 0; at < bytes.length; at += STEP) {
     unzip.push(bytes.subarray(at, at + STEP), at + STEP >= bytes.length)
     if (failed) throw failed
+    if (signal?.aborted) throw new Stopped()
     report?.(megabytes(Math.min(at + STEP, bytes.length)), megabytes(bytes.length))
     // A turn for the window between pieces: the progress line moves as it goes.
     await new Promise((done) => setImmediate(done))
@@ -271,7 +275,7 @@ const deckNames = (full: string[]): string[] => {
  * the card's place in it) and keeps their progress here.
  */
 export async function importApkg(path: string, steps: Steps = {}): Promise<ApkgCounts> {
-  const files = await unpackedFiles(path, (done, total) => steps.progress?.(done, total, 'opening'))
+  const files = await unpackedFiles(path, (done, total) => steps.progress?.(done, total, 'opening'), steps.signal)
   const collection = files['collection.anki21b'] ?? files['collection.anki21'] ?? files['collection.anki2']
   if (!collection) throw new Error('it holds no Anki collection')
   const folder = await mkdtemp(join(tmpdir(), 'haligtree-apkg-'))
@@ -313,20 +317,29 @@ export async function importApkg(path: string, steps: Steps = {}): Promise<ApkgC
       // Copied a few at a time, each written beside and renamed in (never half written); a picture's look is worked
       // out once the import is over, so the import is not slowed by it.
       const looks: string[] = []
+      // Pictures and sounds this import put in the store, taken away again on “Stop”; ones already there stay.
+      const wrote: string[] = []
+      const stopped = async (): Promise<never> => {
+        await Promise.all(wrote.map((one) => rm(join(assetsDir(), one), { force: true })))
+        throw new Stopped()
+      }
       const entries = [...names.entries()].filter(([number, name]) => name && files[String(number)])
       for (let at = 0; at < entries.length; at += 8) {
+        if (steps.signal?.aborted) await stopped()
         await Promise.all(entries.slice(at, at + 8).map(async ([number, name]) => {
           const bytes = unpacked(files[String(number)])
           const ending = (name.split('.').pop() ?? 'bin').toLowerCase().replace('jpeg', 'jpg')
           const stored = `${createHash('sha256').update(bytes).digest('hex')}.${/^[a-z0-9]{1,12}$/.test(ending) ? ending : 'bin'}`
           const temporary = join(assetsDir(), `${stored}.${randomUUID()}.tmp`)
-          await stat(join(assetsDir(), stored)).catch(() => writeFile(temporary, bytes).then(() => rename(temporary, join(assetsDir(), stored))))
+          await stat(join(assetsDir(), stored)).catch(() => writeFile(temporary, bytes).then(() => rename(temporary, join(assetsDir(), stored))).then(() => void wrote.push(stored)))
           media.set(name, `haligtree://assets/${stored}`)
           if (PICTURE.test(name)) (counts.pictures += 1, looks.push(stored))
           else counts.sounds += 1
         }))
         steps.progress?.(Math.min(at + 8, entries.length), entries.length, 'pictures')
       }
+      // The last chance to stop: the cards go in as one write that cannot be cut short.
+      if (steps.signal?.aborted) await stopped()
       after.push(() => looks.forEach((one) => lookAhead(one)))
 
       const db = database()

@@ -5,6 +5,7 @@ import { Readability } from '@mozilla/readability'
 import { parseHTML } from 'linkedom'
 import { database } from './captures'
 import { fetchOutside } from './outside'
+import { begin, end } from './jobs'
 
 /** An article kept from the web: its words and pictures, read offline in the reader. */
 export type Article = { id: string; href: string; title: string; byline: string; site: string; published: string; html: string; savedAt: string }
@@ -45,18 +46,19 @@ export function registerWebArticles(keep: (src: string) => Promise<string>): voi
   const db = database()
   db.exec(TABLE)
 
-  const read = async (href: string): Promise<{ id: string } | { error: string }> => {
+  const read = async (href: string, stop: AbortSignal): Promise<{ id: string } | { error: string } | { stopped: true }> => {
     let response: Response
     try {
-      response = await fetchOutside(href, { headers: { 'user-agent': app.userAgentFallback }, signal: AbortSignal.timeout(15000) })
+      response = await fetchOutside(href, { headers: { 'user-agent': app.userAgentFallback }, signal: AbortSignal.any([AbortSignal.timeout(15000), stop]) })
     } catch {
-      return { error: WHY.gone }
+      return stop.aborted ? { stopped: true } : { error: WHY.gone }
     }
     if (response.status === 401 || response.status === 403) return { error: WHY.signIn }
     if (response.status === 402) return { error: WHY.paid }
     if (!response.ok) return { error: WHY.gone }
     if (!/text\/html|application\/xhtml/i.test(response.headers.get('content-type') ?? '')) return { error: WHY.notPage }
-    const page = await response.text()
+    const page = await response.text().catch(() => '')
+    if (stop.aborted) return { stopped: true }
     const base = new URL(response.url || href)
     const { document } = parseHTML(page)
     const meta = (name: string): string => document.querySelector(`meta[property="${name}"], meta[name="${name}"]`)?.getAttribute('content')?.trim() ?? ''
@@ -104,6 +106,8 @@ export function registerWebArticles(keep: (src: string) => Promise<string>): voi
     let inner = clean.body as unknown as Element
     while (inner.children.length === 1 && /^(div|article|section|main)$/i.test(inner.children[0].tagName) && [...inner.childNodes].every((node) => node.nodeType === 1 || !(node.textContent ?? '').trim())) inner = inner.children[0]
     const html = inner.innerHTML
+    // Stopped while its pictures came: nothing of the article is kept.
+    if (stop.aborted) return { stopped: true }
     const id = (db.prepare('select id from web_articles where href = ?').get(href) as { id: string } | undefined)?.id ?? randomUUID()
     db.prepare('insert or replace into web_articles (id, href, title, byline, site, published, html, saved_at) values (?, ?, ?, ?, ?, ?, ?, ?)').run(
       id,
@@ -141,11 +145,16 @@ export function registerWebArticles(keep: (src: string) => Promise<string>): voi
     if (typeof href !== 'string' || !/^https?:\/\//i.test(href)) return { error: WHY.notPage }
     const known = kept(href)
     if (known) return { article: known }
+    // “Stop” beside “Reading the page…” (main/jobs.ts): the fetch ends and nothing is kept.
+    const name = `article:${href}`
+    const stop = begin(name)
     try {
-      const done = await read(href)
-      return 'error' in done ? done : { article: kept(href) }
+      const done = await read(href, stop)
+      return 'id' in done ? { article: kept(href) } : done
     } catch {
-      return { error: WHY.script }
+      return stop.aborted ? { stopped: true } : { error: WHY.script }
+    } finally {
+      end(name, stop)
     }
   })
 }

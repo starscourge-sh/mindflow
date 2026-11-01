@@ -1271,6 +1271,12 @@ export function Toaster(): React.JSX.Element | null {
     window.addEventListener('haligtree:restored', onRestored)
     return () => window.removeEventListener('haligtree:restored', onRestored)
   }, [])
+  // A job main ran stopped with nothing kept (an import): said as every “Stop” says it.
+  useEffect(() => {
+    const onStopped = (event: Event): void => toast((event as CustomEvent<string>).detail, undefined, 'info')
+    window.addEventListener('haligtree:job-stopped', onStopped)
+    return () => window.removeEventListener('haligtree:job-stopped', onStopped)
+  }, [])
   // The first launch after the rename: the notes were copied in from the old folder, kept as it was (main/old-data.ts).
   useEffect(() => {
     const onMoved = (event: Event): void => {

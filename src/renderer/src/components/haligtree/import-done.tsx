@@ -7,7 +7,7 @@ import { EASE, shift, spring } from '@/lib/motion'
 import { ShowMore, useShowMore } from './show-more'
 import { chime } from '@/lib/sound'
 import { num } from '../../../../main/dates'
-import { Orb } from './orb'
+import { Orb, StopButton } from './orb'
 import { Rolling } from './ui'
 import { hoverNote } from './note-preview'
 
@@ -66,14 +66,11 @@ export function ImportProgress(): React.JSX.Element {
         >
           <Orb state="working" />
           <span className="font-medium text-foreground">{WORDS[at.what]}</span>
-          <span className="text-foreground tabular-nums"><Rolling text={at.done} /> of {num(at.total)}{at.what === 'opening' ? ' MB' : ''}</span>
-          {/* Apple Notes and a vault's folders can be stopped: what is in stays, filed as it would be. */}
-          {at.stop && (
-            <button type="button" data-import-stop="" onClick={() => (chime('off'), void window.api.haligtree('notes-import:stop'))}
-              className="-my-1 -mr-1.5 ml-1 h-6 rounded-full px-2.5 text-control font-medium text-foreground hover:bg-accent">
-              Stop
-            </button>
-          )}
+          {/* As wide as the last count from the first, so the chip, and its “Stop”, never move while it counts. */}
+          <span className="text-foreground tabular-nums" style={{ minWidth: `${num(at.total).length * 2 + 4 + (at.what === 'opening' ? 3 : 0)}ch` }}><Rolling text={at.done} /> of {num(at.total)}{at.what === 'opening' ? ' MB' : ''}</span>
+          {/* Every import can be stopped while it reads (not while a deck's cards are written, a second or two):
+              notes already in stay whole, a deck stopped part way keeps nothing. */}
+          {at.stop && <StopButton data={{ 'data-import-stop': '' }} stop={() => (chime('off'), void window.api.haligtree('notes-import:stop'))} />}
           <span aria-hidden className="absolute inset-x-0 bottom-0 h-0.5 bg-border">
             <span className="block h-full origin-left bg-[var(--tt-brand-color-400)] transition-transform duration-200 ease-out" style={{ transform: `scaleX(${share})` }} />
           </span>

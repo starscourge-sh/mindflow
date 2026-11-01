@@ -6,7 +6,8 @@ import { Button } from '@/components/ui/button'
 import { chime } from '@/lib/sound'
 import { useLive, haligtree, type Scene, type Settings } from '@/lib/haligtree'
 import { DRAWINGS, GRADIENTS, GrainFill, type Cover } from './grain'
-import { Rolling, Tip, refuse, toast } from './ui'
+import { Rolling, Tip, refuse, stopJob, toast } from './ui'
+import { StopButton } from './orb'
 import { Highlight, useChosen, useFluidHover } from './glide'
 import { spring } from '@/lib/motion'
 
@@ -83,6 +84,7 @@ export function CoverChoice({ settings, set }: { settings: Settings; set: (patch
           {folder ? (
             <span className="flex min-w-0 flex-1 items-center gap-2 rounded-md border py-1 pr-1 pl-2.5">
               <span className="min-w-0 flex-1 truncate" title={folder}><span className="text-foreground">{folder.split('/').pop()}</span><span className="text-muted-foreground"> · <Rolling text={mine.length} /> {mine.length === 1 ? 'picture' : 'pictures'}{own?.scanning ? ', more on the way' : ''}</span></span>
+              {own?.scanning && <StopButton stop={stopCopies} />}
               <InFinder folder={folder} />
               <button type="button" aria-label="Use the bundled gradients again" className="relative rounded-full p-0.5 text-muted-foreground after:absolute after:-inset-1 hover:bg-accent hover:text-foreground" onClick={() => {
                 set({ coversFolder: '' })
@@ -129,6 +131,12 @@ function Strip({ scenes }: { scenes: Scene[] }): React.JSX.Element {
 export const isBuiltInScenery = (folder: string): boolean => /\/(Scenery|Sandbox scenery)$/.test(folder)
 const folderName = (folder: string): string => (isBuiltInScenery(folder) ? 'Haligtree’s paintings' : folder.split('/').pop() ?? folder)
 
+/** “Stop” on the small copies being made of a folder's pictures: the ones made stay, the rest are made next time. */
+const stopCopies = (): void => {
+  stopJob('scenery')
+  toast('Stopped: the copies made so far are kept, the rest are made next time', undefined, 'info')
+}
+
 export function FolderStrips({ folders, scenes, scanning, onSave }: { folders: string[]; scenes: Scene[]; scanning: boolean; onSave: (folders: string[]) => void }): React.JSX.Element | null {
   if (!folders.length) return null
   return (
@@ -142,6 +150,7 @@ export function FolderStrips({ folders, scenes, scanning, onSave }: { folders: s
                 <span className="text-foreground">{folderName(folder)}</span>
                 <span className="text-muted-foreground"> · <Rolling text={own.length} /> {own.length === 1 ? 'picture' : 'pictures'}{scanning ? ', more on the way' : ''}</span>
               </span>
+              {scanning && <StopButton stop={stopCopies} />}
               <InFinder folder={folder} />
               <button type="button" aria-label={`Remove ${folderName(folder)}`} className="relative rounded-full p-0.5 text-muted-foreground after:absolute after:-inset-1 hover:bg-accent hover:text-foreground" onClick={() => {
                 onSave(folders.filter((one) => one !== folder))

@@ -33,6 +33,8 @@ import { call } from '@/lib/haligtree'
 import { touch } from '@/lib/open-today'
 import { keepWebPlace, webPlaces } from '@/lib/note-place'
 import { said } from '@/lib/host'
+import { StopButton } from '@/components/haligtree/orb'
+import { stopJob } from '@/components/haligtree/ui'
 import './pdf.css'
 
 /** A web page kept as an article: its words and pictures, read offline. */
@@ -349,12 +351,15 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
     said(mark.color === 'later' ? 'Card mark removed' : 'Highlight removed')
   }
 
+  // Asked again (“Read it again” after a stop or a failure): the page is fetched afresh.
+  const [tries, setTries] = useState(0)
   useEffect(() => {
     let live = true
     void host()
       .fetchArticle?.(href)
       .then((got) => {
         if (!live) return
+        if ('stopped' in got) return setFailed('Stopped: the page was not kept.')
         if ('error' in got) return setFailed(got.error)
         titles.set(href, got.article.title)
         window.dispatchEvent(new CustomEvent('haligtree:pdf-title'))
@@ -363,7 +368,7 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
     return () => {
       live = false
     }
-  }, [href])
+  }, [href, tries])
 
   // ⌘F: the words looked for, every place they are, and the one on show, drawn as the browser's own highlights.
   const [finding, setFinding] = useState(false)
@@ -646,10 +651,13 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
                       {href}
                     </a>
                   </p>
+                  <Button data-style="ghost" data-read-again="" onClick={() => (chime('tap'), setFailed(null), setTries((n) => n + 1))}>
+                    Read it again
+                  </Button>
                 </div>
               ) : !article ? (
                 <p className="web-reader-reading" role="status">
-                  Reading the page…
+                  Reading the page… <StopButton stop={() => stopJob(`article:${href}`)} />
                 </p>
               ) : (
                 <>

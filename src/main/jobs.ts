@@ -9,6 +9,13 @@ import { ipcMain } from 'electron'
  */
 const running = new Map<string, AbortController>()
 
+/** Thrown by a job that was stopped, once it has taken back what it wrote. */
+export class Stopped extends Error {
+  constructor() {
+    super('stopped')
+  }
+}
+
 /** A job starting: its signal, the one before of the same name stopped. */
 export function begin(name: string): AbortSignal {
   running.get(name)?.abort()
