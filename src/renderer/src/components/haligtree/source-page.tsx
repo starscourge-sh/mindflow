@@ -1,3 +1,4 @@
+import { Orb } from './orb'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { hoverNote } from './note-preview'
 import { ArrowUpRight, BookOpen, FileText, Library, Quote, User } from 'lucide-react'
@@ -353,9 +354,8 @@ function Bio({ field, name, page }: { field: SourceField; name: string; page: So
     <div data-bio-room={late ? 'closed' : 'waiting'} aria-hidden className="grid px-5 transition-[grid-template-rows,opacity,margin] duration-300 ease-out motion-reduce:transition-none"
       style={{ gridTemplateRows: late ? '0fr' : '1fr', opacity: late ? 0 : 1, marginTop: late ? 0 : '1rem' }}>
       <div className="min-h-0 overflow-hidden">
-        <div className="py-1 text-heading leading-relaxed">
-          {['100%', '94%', '58%'].map((width) => <span key={width} className="block h-[1lh] py-[0.32lh]"><span className="block h-full rounded-sm bg-foreground/[0.06]" style={{ width }} /></span>)}
-        </div>
+        {/* The app's one way to say "a real wait": the orb and its shimmering words (main.css .mf-shimmer), never grey bars. Its room is the line's usual three lines, so nothing moves when the words come. */}
+        <div className="py-1 text-heading leading-relaxed"><div className="flex h-[3lh] items-start"><Orb label={`Looking up ${name}…`} /></div></div>
       </div>
     </div>
   )

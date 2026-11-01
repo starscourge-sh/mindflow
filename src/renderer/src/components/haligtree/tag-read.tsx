@@ -1,3 +1,4 @@
+import { Orb } from './orb'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { TagColourPick } from './tag-colour-pick'
 import { useReading } from '@/lib/reads-in'
@@ -505,12 +506,8 @@ function Waiting({ tag, colour }: { tag: string; colour: string }): React.JSX.El
       <CollectionHeader tint={null} cover={<Cover colour={colour} seed={`tag:${tag}`}>{`#${tag}`}</Cover>} label="Tag" title={<span>#{tag}</span>} meta={['\u00a0']}
         actions={<span className="h-9" />} />
       <div className="page-column w-full px-5 @[44rem]/page:px-8">
-        {[0.62, 0.48, 0.7, 0.4].map((width, index) => (
-          <div key={index} className="border-b border-border/50 py-4 last:border-b-0">
-            <div className="h-3 rounded-full bg-foreground/[0.06]" style={{ width: `${width * 100}%` }} />
-            <div className="mt-2.5 h-3 rounded-full bg-foreground/[0.04]" style={{ width: `${(width - 0.15) * 100}%` }} />
-          </div>
-        ))}
+        {/* The app's one way to say "a real wait": the orb and its shimmering words, never grey bars. */}
+        <div className="py-4"><Orb label={`Gathering #${tag}…`} /></div>
       </div>
     </motion.div>
   )
