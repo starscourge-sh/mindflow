@@ -39,6 +39,24 @@ try {
     await electron.evaluate(({ BrowserWindow }, wid) => BrowserWindow.fromId(wid)?.webContents.send('beacon:peek', null, true), id).catch(() => {})
     await wait(800)
   }
+  // Tucked as named tabs and pointed at: where main puts the card, read from what it asked for (HALIGTREE_QA_VIRTUAL).
+  await v('settings:set', { stickiesTucked: 'tabs' })
+  for (const [name, set, inset] of [['paper', { stickiesFrosted: false, stickiesGlass: false }, 20], ['glass', { stickiesFrosted: true, stickiesGlass: true }, 0]]) {
+    await v('settings:set', set)
+    await wait(3500)
+    const out = await electron.evaluate(async ({ BrowserWindow, screen }, inset) => {
+      const w = BrowserWindow.getAllWindows().find((one) => !one.isDestroyed() && one.isVisible() && /view=sticky.*type=goal/.test(one.webContents.getURL()))
+      if (!w) return null
+      w.qaBoundsSeen = []
+      await w.webContents.executeJavaScript('window.api.holdBeacon(true)')
+      await new Promise((r) => setTimeout(r, 300))
+      const opened = w.getBounds().width > 120 ? w.getBounds() : null
+      if (!opened) return { seen: w.qaBoundsSeen, now: w.getBounds() }
+      const area = screen.getPrimaryDisplay().workArea
+      return opened && { left: opened.x + inset, right: opened.x + opened.width - inset, areaLeft: area.x, areaRight: area.x + area.width }
+    }, inset)
+    check(`${name}: opened from its tab, the whole card is on screen`, !!out && out.left >= out.areaLeft && out.right <= out.areaRight, JSON.stringify(out))
+  }
 } finally {
   await c.close()
 }

@@ -2213,7 +2213,8 @@ const TUCK_STAGGER_MAX = 4
 const TUCK_ROOM = { side: 14, top: 16, bottom: 10 }
 /** Opened out of its tab, the card keeps the tab's strip with the name on its screen side, and runs a little past the edge. */
 const TUCK_STRIP = 40
-const TUCK_OPEN_HANG = 10
+/** Opened out of its tab, the card stands this far in from the screen's edge: all of it on screen, its tab its own edge. */
+const TUCK_OPEN_GAP = 8
 /** Cards opened out of a named tab: drawn with its strip until they fold back. */
 const openedTab = new Set<string>()
 type Peek = { side: 'left' | 'right'; nudge: boolean; flat: boolean; tucked: boolean; opened?: boolean; room?: typeof TUCK_ROOM; hang?: number; strip?: number; width?: number }
@@ -2339,13 +2340,13 @@ function shapeCard(key: string, win: BrowserWindow): void {
   const inset = insetOf(key)
   const top = Math.max(area.y, Math.min(tab.y + (wasNamed ? TUCK_ROOM.top : 0) - inset.top, area.y + area.height - rest.height))
   // Pointed at as a named tab, the card slides out of it: the tab's strip with its name on the screen side,
-  // a fold, then the note, running a little past the edge so only the screen-side corners are round.
+  // a fold, then the note, the whole card on screen (it ran past the edge, read as cut off).
   const fromTab = beaconHeld.has(key) && stickyTuck() === 'tabs'
   // The card keeps its own width: the strip is taken from inside it, never added to it (added, the card came out
   // 40 points wider than it stands on the desktop, its dot grid stretched to fill).
   const wide = rest.width
   const atLeft = tab.x + tab.width / 2 < area.x + area.width / 2
-  const hang = fromTab ? TUCK_OPEN_HANG + (atLeft ? inset.left : inset.right) : 0
+  const hang = fromTab ? (atLeft ? inset.left : inset.right) - TUCK_OPEN_GAP : 0
   const to = beaconHeld.has(key) ? { ...rest, width: wide, x: atLeft ? area.x - hang : area.x + area.width - wide + hang, y: top } : rest
   if (to !== rest) openedAt.set(key, rest)
   if (builtGlass.get(key)) (win.setVibrancy('popover'), win.setHasShadow(true))
