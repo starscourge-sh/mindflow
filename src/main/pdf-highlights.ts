@@ -1,6 +1,7 @@
 import { ipcMain } from 'electron'
 import { randomUUID } from 'crypto'
 import { readFile, writeFile } from 'fs/promises'
+import { statSync } from 'fs'
 import { join } from 'path'
 import { assetsDir } from './pictures'
 import { fetchOutside } from './outside'
@@ -143,6 +144,10 @@ export function registerPdfHighlights(): void {
     const values: (string | number | null)[] = sets.map(([, value]) => (typeof value === 'string' && value ? value : null))
     const names = sets.map(([name]) => `${name} = ?`)
     if (moved) (names.push('quote = ?', 'start = ?', 'end = ?'), values.push(given.quote!.trim(), given.start!, given.end!))
+    // Its words put right where a line end had run two together ("thenature"): the gem it made reads them right too.
+    const was = moved ? (db.prepare('select quote, gem_id as gem from pdf_highlights where id = ?').get(String(id)) as { quote: string; gem: string | null } | undefined) : undefined
+    const quote = given.quote?.trim() ?? ''
+    if (was?.gem && was.quote !== quote && was.quote.replace(/\s+/g, '') === quote.replace(/\s+/g, '')) unjoinGem(db, was.gem, was.quote, quote)
     return db.prepare(`update pdf_highlights set ${names.join(', ')} where id = ?`).run(...values, String(id)).changes > 0
   })
   ipcMain.handle('haligtree:pdf:unhighlight', (_event, id: unknown) => db.prepare('delete from pdf_highlights where id = ?').run(String(id)).changes > 0)
@@ -194,13 +199,18 @@ export function registerPdfHighlights(): void {
   // pages, where you are, when you last read it, how many highlights and how many notes hold it.
   ipcMain.handle('haligtree:pdf:library', () => {
     const reading = new Map((db.prepare('select src, page, pages, read_at as readAt from pdf_reading').all() as { src: string; page: number; pages: number; readAt: string }[]).map((one) => [one.src, one]))
-    const marks = new Map((db.prepare('select src, count(*) as n from pdf_highlights group by src').all() as { src: string; n: number }[]).map((one) => [one.src, one.n]))
+    const marks = new Map((db.prepare('select src, count(*) as n, count(gem_id) as gems from pdf_highlights group by src').all() as { src: string; n: number; gems: number }[]).map((one) => [one.src, one]))
+    // How big the file is, read from the store: none when the file has gone.
+    const bytes = (src: string): number | null => {
+      const file = /assets\/([^/]+\.pdf)$/i.exec(src)?.[1]
+      try { return file ? statSync(join(assetsDir(), file)).size : null } catch { return null }
+    }
     const covers = new Map((db.prepare('select src, author, pages from pdf_covers').all() as { src: string; author: string; pages: number | null }[]).map((one) => [one.src, one]))
     return pdfsToFind(db).map((one) => {
       const src = one.id.slice(0, one.id.indexOf('|'))
       const read = reading.get(src)
       const cover = covers.get(src)
-      return { src, name: one.id.slice(one.id.indexOf('|') + 1), title: one.label, author: cover?.author ?? '', pages: read?.pages ?? cover?.pages ?? null, page: read?.page ?? null, readAt: read?.readAt ?? null, addedAt: one.capturedAt, highlights: marks.get(src) ?? 0 }
+      return { src, name: one.id.slice(one.id.indexOf('|') + 1), title: one.label, author: cover?.author ?? '', pages: read?.pages ?? cover?.pages ?? null, page: read?.page ?? null, readAt: read?.readAt ?? null, addedAt: one.capturedAt, highlights: marks.get(src)?.n ?? 0, gems: marks.get(src)?.gems ?? 0, bytes: bytes(src) }
     })
   })
   // Words looked up on Wikipedia: its free summary of the article they name (CC BY-SA, said with its link), asked from here so no page talks to the internet itself.
@@ -238,6 +248,35 @@ export function registerPdfHighlights(): void {
     db.prepare('insert or replace into pdf_titles (src, title) values (?, ?)').run(src, title.trim())
     return true
   })
+}
+
+/**
+ * A gem made from a highlight kept before line ends were read as spaces: its
+ * title and words had "thenature" where the page says "the nature". Put
+ * right wherever the old words stand, and only those words.
+ */
+export function unjoinGem(db: DatabaseSync, gem: string, was: string, now: string): boolean {
+  const row = db.prepare('select title, body from nuggets where id = ?').get(gem) as { title: string | null; body: string | null } | undefined
+  if (!row || !was || was === now) return false
+  // The body is a document as JSON or Markdown: the words are replaced as they are written in it, JSON-escaped in a document.
+  const swap = (text: string | null): string | null => {
+    if (!text) return text
+    const json = JSON.stringify(was).slice(1, -1)
+    return text.split(json).join(JSON.stringify(now).slice(1, -1))
+  }
+  // A title cut short ("thenature of justice and...") holds the start of the words: each joined pair in it is mended.
+  const pairs = now.split(' ').map((word, at, all) => [word + (all[at + 1] ?? ''), `${word} ${all[at + 1] ?? ''}`]).filter(([joined]) => joined && was.includes(joined))
+  const mend = (title: string | null): string | null => {
+    if (!title) return title
+    let out = title.split(was).join(now)
+    for (const [joined, apart] of pairs) if (!now.includes(joined)) out = out.replace(new RegExp(`(^|[^\\p{L}])${joined.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?=[^\\p{L}]|$)`, 'gu'), `$1${apart.trim()}`)
+    return out
+  }
+  const title = mend(row.title)
+  const body = swap(row.body)
+  if (title === row.title && body === row.body) return false
+  db.prepare('update nuggets set title = ?, body = ? where id = ?').run(title, body, gem)
+  return true
 }
 
 /** Wikipedia's summary of the article the words name, asked now: found, missing, or offline. */

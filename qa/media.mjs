@@ -118,13 +118,13 @@ try {
 
   // "PDFs" is a library: each book once as its cover, its name made readable, and an inspector for the one picked.
   await chip('PDFs'); await wait(1500)
-  const shelf = await h.evaluate(() => ({ books: [...document.querySelectorAll('[data-library] .pdf-book')].map((one) => one.querySelector('.pdf-book-title')?.textContent), covers: document.querySelectorAll('[data-library] .pdf-book-cover img').length, inspector: document.querySelector('.pdf-inspector .pdf-inspector-title')?.textContent, open: document.querySelector('.pdf-inspector-open')?.textContent }))
+  const shelf = await h.evaluate(() => ({ books: [...document.querySelectorAll('[data-library] .pdf-book')].map((one) => one.querySelector('.pdf-book-title')?.textContent), covers: document.querySelectorAll('[data-library] .pdf-book-cover img').length, inspector: document.querySelector('.pdf-inspector .book-head-title')?.textContent, open: document.querySelector('.pdf-inspector-open')?.textContent }))
   check('"PDFs" shows a shelf of covers, one per book', shelf.books.length === 2 && shelf.covers === 2, JSON.stringify(shelf))
   check('a file name like "18 - The Law Book (z-lib.org).pdf" reads "The Law Book"', shelf.books.includes('The Law Book'), JSON.stringify(shelf.books))
   check('the inspector shows the book picked, with a way to open it', !!shelf.inspector && shelf.open === 'Start reading', JSON.stringify(shelf))
   await shot(h, 'media-library')
   await h.locator('[data-library] .pdf-book', { hasText: 'Lease' }).click(); await wait(400)
-  check('a click picks a book for the inspector', await h.evaluate(() => document.querySelector('.pdf-inspector-title')?.textContent) === 'Lease', '')
+  check('a click picks a book for the inspector', await h.evaluate(() => document.querySelector('.book-head-title')?.textContent) === 'Lease', '')
   // The shelf with a book picked, light and dark.
   if (process.env.SHOTS) await c.both(`${process.env.SHOTS}/media-library`)
   await h.locator('.pdf-inspector-open').click(); await wait(1500)

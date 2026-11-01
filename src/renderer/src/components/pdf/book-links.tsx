@@ -82,7 +82,8 @@ export function StuckHead<T>({ lines, onFold }: { lines: Line<T>[]; onFold: (par
     let asked = 0
     const read = (): void => {
       asked = 0
-      const top = scroller.getBoundingClientRect().top
+      // Under the section's heading, held at the top of the panel too.
+      const top = scroller.getBoundingClientRect().top + (list.closest("section")?.querySelector(".read-details-heading")?.getBoundingClientRect().height ?? 0)
       const rows = [...list.querySelectorAll<HTMLElement>("[data-part], [data-mark-group]:not(.read-details-stuck *)")].filter((one) => one.getBoundingClientRect().bottom > top + 1)
       const first = rows[0]
       setStuck(first && first.dataset.part && first.getBoundingClientRect().top < top + 30 ? first.dataset.part : null)

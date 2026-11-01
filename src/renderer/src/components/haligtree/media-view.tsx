@@ -56,7 +56,7 @@ export function MediaView({ onOpen }: { onOpen: (type: string, id: string) => vo
     const watch = new ResizeObserver(() => setWidth(element.clientWidth))
     watch.observe(element)
     return () => watch.disconnect()
-  }, [all.length > 0])
+  }, [all.length > 0, kind === 'pdf'])
   const across = Math.max(1, Math.floor((width + GAP) / (TILE + GAP)))
   const lines = useMemo(() => {
     const out: { key: string; tiles: Media[] }[] = []
@@ -69,24 +69,28 @@ export function MediaView({ onOpen }: { onOpen: (type: string, id: string) => vo
     headingIn(one.type, one.id, one.src)
   }
 
+  // The kinds, as Gems' are: one on at a time, pressed again to show every kind.
+  const kinds = (
+    <div data-media-kinds className="flex flex-wrap gap-1 pt-4 pb-3 text-xs">
+      {KINDS.map((one) => (
+        <Chip key={one.id} on={kind === one.id} onClick={() => (chime(kind === one.id ? 'off' : 'on'), setKind(kind === one.id ? 'all' : one.id))} mark={<one.icon className="size-3.5" />}>{one.label}</Chip>
+      ))}
+      {anyDeck && (
+        <span data-media-decks="" className="contents"><Chip on={decks} onClick={() => (chime(decks ? 'off' : 'on'), setDecks(!decks))} mark={<Layers className="size-3.5" />}>Deck pictures</Chip></span>
+      )}
+    </div>
+  )
+  const library = all.length > 0 && kind === 'pdf'
   return (
-    <Page title="Media" waiting={unloaded(all)} count={unloaded(all) || !all.length ? undefined : shown.length} unit={['file', 'files']}
+    <Page title="Media" dock={library} waiting={unloaded(all)} count={unloaded(all) || !all.length ? undefined : shown.length} unit={['file', 'files']}
       search={all.length > 0 && <ListSearch value={query} placeholder="Find by note, name or words" onChange={setQuery} onDone={() => shown[0] && open(shown[0])} />}>
-      {all.length ? (
+      {library ? (
+        // PDFs as a library: a shelf of covers, each book once, the picked one's panel docked at the page's edge.
+        <PdfLibrary query={query} top={kinds} />
+      ) : all.length ? (
         <div ref={box} data-media-grid className="mx-5 mb-4">
-          {/* The kinds, as Gems' are: one on at a time, pressed again to show every kind. */}
-          <div data-media-kinds className="flex flex-wrap gap-1 pt-4 pb-3 text-xs">
-            {KINDS.map((one) => (
-              <Chip key={one.id} on={kind === one.id} onClick={() => (chime(kind === one.id ? 'off' : 'on'), setKind(kind === one.id ? 'all' : one.id))} mark={<one.icon className="size-3.5" />}>{one.label}</Chip>
-            ))}
-            {anyDeck && (
-              <span data-media-decks="" className="contents"><Chip on={decks} onClick={() => (chime(decks ? 'off' : 'on'), setDecks(!decks))} mark={<Layers className="size-3.5" />}>Deck pictures</Chip></span>
-            )}
-          </div>
-          {/* PDFs as a library: a shelf of covers, each book once, with an inspector. */}
-          {kind === 'pdf' ? (
-            <PdfLibrary query={query} />
-          ) : shown.length ? (
+          {kinds}
+          {shown.length ? (
             <VirtualList items={lines} keyOf={(line) => line.key} holds={(line, key) => line.tiles.some((one) => `${one.type}:${one.id}:${one.src}` === key)} estimate={TILE * 0.75 + 52 + GAP} rowClass="">
               {(line) => (
                 <div className="grid" style={{ gridTemplateColumns: `repeat(${across}, minmax(0, 1fr))`, gap: GAP, paddingBottom: GAP }}>

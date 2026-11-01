@@ -139,16 +139,29 @@ function paintMarks(sheet: HTMLElement, marks: PdfMark[], flash: string | null |
   const paint = document.createElement("div")
   paint.className = "pdf-marks"
   const nodes = textNodes(layer)
-  for (const mark of marks) {
-    const at = offsetsOf(layer, mark)
-    const range = at && rangeAt(nodes, at.start, at.end)
-    if (!at || !range) continue
+  const spots = marks.map((mark) => offsetsOf(layer, mark))
+  // Two colours over the same words never blend into a third: where marks overlap, the one listed later is drawn alone.
+  const colour = (mark: PdfMark): boolean => !mark.id.startsWith("find:") && mark.color !== "later"
+  const bare = (index: number): { start: number; end: number }[] => {
+    let parts = spots[index] ? [spots[index]!] : []
+    if (!colour(marks[index])) return parts
+    marks.forEach((other, later) => {
+      const over = spots[later]
+      if (later <= index || !over || !colour(other)) return
+      parts = parts.flatMap((one) => (over.end <= one.start || over.start >= one.end ? [one] : [{ start: one.start, end: over.start }, { start: over.end, end: one.end }].filter((left) => left.end > left.start)))
+    })
+    return parts
+  }
+  marks.forEach((mark, index) => {
+    const at = spots[index]
+    if (!at || !rangeAt(nodes, at.start, at.end)) return
     // Kept before line ends were read as spaces ("thenature"): its words as the page has them, put right in the store.
     if (onWords && !mark.id.startsWith("find:")) {
       const words = wordsIn(layer, at.start, at.end)
       if (words !== mark.quote && words.replace(/\s+/g, "") === mark.quote.replace(/\s+/g, "")) onWords(mark, words)
     }
-    for (const rect of range.getClientRects()) {
+    const rects = bare(index).flatMap((part) => [...(rangeAt(nodes, part.start, part.end)?.getClientRects() ?? [])])
+    for (const rect of rects) {
       if (!rect.width || !rect.height) continue
       const band = document.createElement("div")
       // A find match is drawn as the note's find draws one; the one stepped to stands out.
@@ -170,7 +183,7 @@ function paintMarks(sheet: HTMLElement, marks: PdfMark[], flash: string | null |
         }
       }
     }
-  }
+  })
   sheet.insertBefore(paint, layer)
 }
 

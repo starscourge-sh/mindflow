@@ -156,7 +156,7 @@ try {
           const bg = rgb(getComputedStyle(d).backgroundColor)
           const of = (sel) => { const el = d.querySelector(sel); return el ? ratio(rgb(getComputedStyle(el).color), bg) : null }
           const left = (sel) => { const el = d.querySelector(sel); return el ? Math.round(el.getBoundingClientRect().left) : null }
-          return { page: of('.read-details-mark-page'), count: of('.read-details-count'), part: of('.read-details-part'), ends: of('.book-bar-ends'), kind: of('.book-cited-kind'), line: of('.book-cited-line'), edges: { title: left('.read-details-head'), bar: left('.book-bar'), heading: left('.read-details-heading'), find: left('.read-details-find'), part: left('.read-details-part'), row: left('.read-details-mark'), note: left('.book-cited-row') } }
+          return { page: of('.read-details-mark-page'), count: of('.read-details-count'), part: of('.read-details-part'), ends: of('.book-bar-ends'), kind: of('.book-cited-kind'), line: of('.book-cited-line'), edges: { title: left('.book-head'), bar: left('.book-bar'), heading: left('.read-details-heading'), find: left('.read-details-find'), part: left('.read-details-part'), row: left('.read-details-mark'), note: left('.book-cited-row') } }
         })
         console.log(theme, JSON.stringify(m))
         check(`${theme}: page numbers, counts, chapter names, bar ends and note lines reach 4.5:1`, ['page', 'count', 'part', 'ends', 'kind', 'line'].every((k) => m[k] === null || m[k] >= 4.5), JSON.stringify(m))
@@ -164,7 +164,7 @@ try {
         check(`${theme}: every block starts on one left edge (within 2px)`, Math.max(...lefts) - Math.min(...lefts) <= 2, JSON.stringify(m.edges))
       }
       await c.look('light')
-      await h.evaluate(() => { const d = document.querySelector('.read-details'); d.scrollTop = d.scrollHeight / 2 })
+      await h.evaluate(() => { const d = document.querySelector('.read-details .book-panel-body'); d.scrollTop = d.scrollHeight / 2 })
       await wait(800)
       check('500 highlights: scrolled down, "Back to top" shows', !!(await h.$('.read-details-frame button[aria-label="Back to top"]')))
       await c.both(`${SHOT}-${size}-scrolled`)
@@ -174,13 +174,13 @@ try {
       await c.both(`${SHOT}-${size}-find`)
       await h.fill('.read-details-find input', ''); await wait(300)
       // Read through the open chapter: its heading stays at the top while its rows pass under it.
-      await h.evaluate(() => { const d = document.querySelector('.read-details'); const head = d.querySelector('.read-details-marks [data-mark-group][aria-expanded="true"]'); d.scrollTop += head.getBoundingClientRect().top - d.getBoundingClientRect().top + 400 })
+      await h.evaluate(() => { const d = document.querySelector('.read-details .book-panel-body'); const head = d.querySelector('.read-details-marks [data-mark-group][aria-expanded="true"]'); d.scrollTop += head.getBoundingClientRect().top - d.getBoundingClientRect().top + 400 })
       await wait(500)
       const stuck = await h.evaluate(() => document.querySelector('.read-details-marks .read-details-stuck')?.textContent ?? '')
       check('500 highlights: the chapter read through stays at the top ("Plunder")', /Plunder/.test(stuck), stuck)
       await c.both(`${SHOT}-${size}-stuck`)
       // "In your notes": 200 by chapter, and pointed at, a row shows the shared note card alone.
-      await h.evaluate(() => { const d = document.querySelector('.read-details'); const at = d.querySelector('[data-book-cited]'); d.scrollTop += at.getBoundingClientRect().top - d.getBoundingClientRect().top - 60 })
+      await h.evaluate(() => { const d = document.querySelector('.read-details .book-panel-body'); const at = d.querySelector('[data-book-cited]'); d.scrollTop += at.getBoundingClientRect().top - d.getBoundingClientRect().top - 60 })
       await wait(600)
       const row = h.locator('.book-cited-row').first()
       await row.hover(); await wait(1200)

@@ -58,6 +58,7 @@ try {
   check('in page order through the book: 12, 80, 150, 210', linked.map((one) => one.page).join() === '12,80,150,210', linked.map((one) => one.page).join())
   check('each says its page ("p. 12")', linked[0]?.at === 'p. 12', linked[0]?.at)
   check('each shows the line its link sits in', /Contract starts with consent/.test(linked[0]?.line ?? '') && /Negligence needs a duty/.test(linked[1]?.line ?? ''), JSON.stringify(linked.map((one) => one.line)))
+  await h.locator('[data-inspector] button', { hasText: 'Show more' }).click(); await wait(300)
   const facts = await h.evaluate(() => Object.fromEntries([...document.querySelectorAll('[data-inspector] .pdf-inspector-row')].map((one) => [one.querySelector('dt')?.textContent, one.querySelector('dd')?.textContent])))
   check('the facts count the notes', facts['In your notes'] === String(list.length), JSON.stringify(facts))
   check('the file name is whole, not cut with an ellipsis', facts.File === NAME, facts.File)
@@ -104,7 +105,7 @@ try {
   check('twelve books on the shelf', await h.evaluate(() => document.querySelectorAll('[data-library] .pdf-book').length) === 12, '')
   await h.locator('[data-library] .pdf-book', { hasText: 'The Law Book' }).click(); await wait(1200)
   await h.mouse.move(5, 450); await wait(600)
-  const top = await h.evaluate(() => { const one = document.querySelector('[data-inspector]'); const box = one?.getBoundingClientRect(); const cover = one?.querySelector('.pdf-inspector-cover')?.getBoundingClientRect(); return { scrolled: one?.scrollTop, cover: cover && box ? Math.round(cover.top - box.top) : null } })
+  const top = await h.evaluate(() => { const one = document.querySelector('[data-inspector]'); const box = one?.getBoundingClientRect(); const cover = one?.querySelector('.book-head-cover')?.getBoundingClientRect(); return { scrolled: one?.scrollTop, cover: cover && box ? Math.round(cover.top - box.top) : null } })
   check('with a long shelf the inspector still starts at its cover', top.scrolled === 0 && top.cover !== null && top.cover >= 0, JSON.stringify(top))
   for (const theme of ['paper', 'dark']) {
     await c.look(theme === 'paper' ? 'light' : 'dark'); await wait(600)

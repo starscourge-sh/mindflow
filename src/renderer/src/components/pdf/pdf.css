@@ -347,12 +347,12 @@
 }
 
 /* Covers are pages too: wherever one is drawn, it takes the same paper. */
-.paper-pages :is(.tiptap-pdf-cover, .read-details-cover, .pdf-book-cover, .pdf-inspector-cover, .continue-book-cover) {
+.paper-pages :is(.tiptap-pdf-cover, .book-head-cover, .pdf-book-cover, .continue-book-cover) {
   background-color: #f4ecdb;
   background-blend-mode: multiply;
   isolation: isolate;
 }
-.paper-pages :is(.tiptap-pdf-cover, .read-details-cover, .pdf-book-cover, .pdf-inspector-cover, .continue-book-cover) img {
+.paper-pages :is(.tiptap-pdf-cover, .book-head-cover, .pdf-book-cover, .continue-book-cover) img {
   mix-blend-mode: multiply;
 }
 
@@ -795,18 +795,22 @@
   animation: read-details-in 180ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.read-details {
+/* A book's panel, the reader's Details and the shelf's alike: docked at the
+   page's right edge, full height, its hairline on the left. Its head holds
+   still; only the body under it scrolls, so there is one scrollbar and
+   nothing is ever cut off at the panel's foot. */
+.book-panel {
+  position: relative;
   display: flex;
   flex: none;
   flex-direction: column;
-  gap: 1.25rem;
-  width: 18rem;
+  width: 18.5rem;
+  height: 100%;
   min-height: 0;
-  padding: 1rem;
-  overflow-y: auto;
   border-left: 1px solid var(--tt-border-color);
   background-color: var(--background);
   font-size: 0.875rem;
+  timeline-scope: --book-body;
 }
 
 @keyframes read-details-in {
@@ -817,38 +821,114 @@
   .read-details-frame { animation: none; }
 }
 
-.read-details-head {
+.book-panel-head {
+  position: relative;
+  z-index: 4;
   display: flex;
-  gap: 0.75rem;
-  align-items: flex-start;
-}
-
-.read-details-cover {
   flex: none;
-  width: 3.5rem;
-  border-radius: 3px;
-  background-color: #fff;
-  box-shadow: 0 0 0 1px var(--tt-border-color), 0 2px 6px rgb(0 0 0 / 0.1);
-}
-
-.read-details-what {
-  display: flex;
-  min-width: 0;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: 0.875rem;
+  padding: 1rem 1rem 0.875rem;
+  /* A soft shade under the head, only once the body has scrolled under it. */
+  animation: book-head-shade linear both;
+  animation-timeline: --book-body;
+  animation-range: 0 1.5rem;
 }
 
-/* The book's own title in the serif, as its card in a note shows it. */
-.read-details-title {
+@keyframes book-head-shade {
+  from { box-shadow: 0 1px 0 transparent, 0 6px 10px -8px transparent; }
+  to { box-shadow: 0 1px 0 color-mix(in oklab, var(--foreground) 9%, transparent), 0 6px 10px -8px rgb(0 0 0 / 0.35); }
+}
+
+.book-panel-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 1.25rem;
+  min-height: 0;
+  padding: 0 1rem 3.5rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scroll-timeline: --book-body y;
+  /* The foot fades only while there is more below; the top is the head's shade, so a heading held there stays whole. */
+  mask-image: linear-gradient(to bottom, #000 calc(100% - var(--mf-more)), transparent 100%);
+  animation: mf-more linear both;
+  animation-timeline: scroll(self);
+  animation-range: calc(100% - 2.5rem) 100%;
+}
+
+[data-motion='off'] :is(.book-panel-head, .book-panel-body) { animation-duration: auto !important; }
+
+/* Finder's preview pane: the cover as wide as the panel in its own shape, squarish corners. Its height
+   is fixed (a share of the window's), so nothing under it moves as it draws and a short window keeps room for the lists. */
+.book-head {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.125rem;
+  min-width: 0;
+  text-align: center;
+}
+
+.book-head-cover {
+  position: relative;
+  display: block;
+  height: min(20rem, 30vh);
+  max-width: 100%;
+  margin-bottom: 0.625rem;
+  overflow: hidden;
+  border-radius: 2px;
+  background-color: #fff;
+  box-shadow: 0 0 0 1px var(--tt-border-color), 0 8px 24px rgb(0 0 0 / 0.16);
+}
+
+.book-head-cover img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.book-head-cover:is([data-cover='waiting'], [data-cover='drawn']) {
+  background-color: color-mix(in oklab, var(--foreground) 7%, var(--background));
+}
+
+/* A book with no cover of its own: a plain one in the theme's tone, its title set on it. */
+.book-head-drawn {
+  display: flex;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  overflow: hidden;
+  color: color-mix(in oklab, var(--foreground) 70%, var(--background));
   font-family: var(--font-heading, Fraunces, Georgia, serif);
-  font-size: 1.0625rem;
+  font-size: 1rem;
   font-weight: 600;
   line-height: 1.3;
   overflow-wrap: anywhere;
 }
 
-.read-details-author {
-  color: var(--read-quiet);
+/* The book's own title in the serif, as its card in a note shows it. */
+.book-head-title {
+  max-width: 100%;
+  font-family: var(--font-heading, Fraunces, Georgia, serif);
+  font-size: 1.125rem;
+  font-weight: 600;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
+}
+
+.book-head-author {
+  color: color-mix(in oklab, var(--foreground) 80%, var(--background));
+}
+
+.book-head-what {
+  margin-top: 0.125rem;
+  color: color-mix(in oklab, var(--foreground) 72%, var(--background));
+  font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
 }
 
 .read-details-section {
@@ -859,10 +939,16 @@
 
 /* A section's heading: its name and count at the left, its action at the right, on one line. */
 .read-details-heading {
+  position: sticky;
+  z-index: 3;
+  top: 0;
   display: flex;
   align-items: baseline;
   justify-content: space-between;
   gap: 0.75rem;
+  /* Held at the top of the panel's body while its section's rows pass under it, on the panel's own ground. */
+  padding: 0.75rem 0 0.375rem;
+  background-color: var(--background);
 }
 
 .read-details-heading h3 {
@@ -875,14 +961,14 @@
 }
 
 /* Secondary words tinted from the panel's own ink, never grey on grey: 4.5:1 or more in every theme. */
-.read-details {
+.book-panel {
   --read-quiet: color-mix(in oklab, var(--foreground) 80%, var(--background));
   font-variant-numeric: tabular-nums;
   scrollbar-color: color-mix(in oklab, var(--foreground) 22%, transparent) transparent;
   scrollbar-width: thin;
 }
 
-.read-details ::selection {
+.book-panel ::selection {
   background-color: color-mix(in oklab, var(--tt-brand-color-500, #c08a2e) 30%, transparent);
 }
 
@@ -976,7 +1062,8 @@
 .read-details-stuck {
   position: sticky;
   z-index: 2;
-  top: -1rem;
+  /* Under the section's own heading, which is held at the top too. */
+  top: 0.75rem;
   height: 0;
 }
 
@@ -1362,8 +1449,64 @@
 /* The library: a shelf of covers at the left, the picked book's inspector at the right. */
 .pdf-library {
   display: flex;
-  gap: 1.5rem;
-  align-items: flex-start;
+  flex: 1;
+  min-height: 0;
+  container-type: inline-size;
+}
+
+/* The shelf's side: it scrolls by itself, the panel beside it holding still. */
+.pdf-library-side {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
+.pdf-library-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* The kinds and the shelf start on the page's own left edge, where the line above and every other kind's grid start. */
+.pdf-library-column {
+  padding: 0 1.25rem 4rem;
+}
+
+html:is([data-width='page'], [data-width='wide']) .pdf-library-column,
+[data-pane]:is([data-width='page'], [data-width='wide']) .pdf-library-column {
+  padding-left: calc(max(0px, (100cqw - var(--mf-col-page)) / 2) + 1.25rem);
+}
+
+[data-pane][data-width='full'] .pdf-library-column {
+  padding-left: 1.25rem;
+}
+
+/* Narrow (a phone's width): one column, one scroll; the panel follows the shelf, its head no longer held. */
+@container (max-width: 40rem) {
+  .pdf-library {
+    flex-direction: column;
+    overflow-y: auto;
+  }
+  .pdf-library-side,
+  .pdf-library-scroll {
+    flex: none;
+    overflow: visible;
+  }
+  .pdf-library-column {
+    padding-bottom: 1.5rem;
+  }
+  .pdf-library .book-panel {
+    width: auto;
+    height: auto;
+    border-top: 1px solid var(--tt-border-color);
+    border-left: none;
+  }
+  .pdf-library .book-panel-body {
+    overflow: visible;
+    mask-image: none;
+  }
 }
 
 .pdf-library-shelf {
@@ -1467,56 +1610,9 @@
   white-space: nowrap;
 }
 
-/* The picked book: a column of its own along the shelf's right, ruled off by
-   a hairline as Finder's preview pane is, held in view as the shelf scrolls and
-   scrolling itself when it is taller than the window. */
+/* The picked book: the same docked panel as the reader's, its hairline on the left. */
 .pdf-inspector {
-  position: sticky;
-  top: 0;
-  display: flex;
-  flex: none;
-  flex-direction: column;
-  gap: 1rem;
-  width: 18.5rem;
-  max-height: calc(100vh - 8rem);
-  padding: 0.25rem 0.25rem 1.5rem 1.5rem;
-  overflow-y: auto;
-  border-left: 1px solid var(--tt-border-color);
-}
-
-.pdf-inspector-cover {
-  display: block;
-  width: 9.5rem;
-  aspect-ratio: 3 / 4;
-  align-self: center;
-  margin-top: 0.5rem;
-  border-radius: 3px;
-  object-fit: cover;
-  object-position: top;
-  background-color: #fff;
-  box-shadow: 0 0 0 1px var(--tt-border-color), 0 10px 28px rgb(0 0 0 / 0.16);
-}
-
-.pdf-inspector-what {
-  display: flex;
-  flex-direction: column;
-  gap: 0.125rem;
-  text-align: center;
-}
-
-.pdf-inspector-title {
-  margin: 0;
-  font-family: var(--font-heading, Fraunces, Georgia, serif);
-  font-size: 1.25rem;
-  font-weight: 600;
-  line-height: 1.25;
-  text-wrap: balance;
-}
-
-.pdf-inspector-author {
-  margin: 0;
-  color: var(--mf-muted);
-  font-size: 0.875rem;
+  width: 19rem;
 }
 
 /* The way back in: the book's own tint, quiet, as Books' "Continue" sits under its cover. */
@@ -1536,20 +1632,11 @@
   background-color: color-mix(in oklab, var(--tt-brand-color-500, #c08a2e) 22%, transparent);
 }
 
-.pdf-inspector-section {
-  display: flex;
-  flex-direction: column;
-  gap: 0.375rem;
-  padding-top: 0.75rem;
-  border-top: 1px solid var(--tt-border-color);
-}
-
 /* The few facts about the file, last: hairlines between even rows, labels quiet, values to the right. */
 .pdf-inspector-rows {
   display: flex;
   flex-direction: column;
   margin: 0;
-  border-top: 1px solid var(--tt-border-color);
   font-size: 0.8125rem;
 }
 
@@ -1875,4 +1962,20 @@ html[data-scrubbing] * {
 
 html[data-motion="off"] :is(.pdf-zoom-chip, .pdf-reader-body > .pdf-rail) {
   transition: none;
+}
+
+/* Two highlights over the same words, kept before a highlight over another changed it: said once, with the way to make them one. */
+.read-details-stacked {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.5rem 0.625rem;
+  border-radius: 0.5rem;
+  background-color: color-mix(in oklab, var(--foreground) 5%, var(--background));
+  font-size: 0.8125rem;
+}
+
+.read-details-stacked .read-details-action {
+  flex: none;
 }

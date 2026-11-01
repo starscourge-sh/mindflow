@@ -170,6 +170,40 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
     setAt(0)
     if (hits[0]) go(hits[0].page)
   }
+  // Once a book is open, every highlight in it kept before line ends were read as spaces ("thenature",
+  // "shapedpolitical") is put right from its page's own text, the pages never drawn too, and its gem with it (main).
+  const mended = useRef<string | null>(null)
+  const kept = useRef(marks)
+  kept.current = marks
+  const anyMarks = marks.length > 0
+  useEffect(() => {
+    if (!doc || !anyMarks || mended.current === src) return
+    mended.current = src
+    let live = true
+    const marks = kept.current
+    void (async () => {
+      const bare = (words: string): string => words.replace(/\s+/g, "")
+      for (const n of [...new Set(marks.map((one) => one.page))]) {
+        if (!live || n < 1 || n > doc.numPages) continue
+        const content = await (await doc.getPage(n)).getTextContent()
+        // The text layer's characters, a line end marked where pdf.js draws its <br>.
+        let text = ""
+        const ends = new Set<number>()
+        for (const item of content.items) if ("str" in item) ((text += item.str), item.hasEOL && ends.add(text.length))
+        for (const one of marks.filter((each) => each.page === n)) {
+          const slice = text.slice(one.start, one.end)
+          if (bare(slice) !== bare(one.quote)) continue
+          let words = ""
+          for (let at = one.start; at < one.end; at++) words += (at > one.start && ends.has(at) ? " " : "") + text[at]
+          words = words.replace(/\s+/g, " ").trim()
+          if (words === one.quote) continue
+          await call("pdf:mark", one.id, { quote: words, start: one.start, end: one.end })
+          if (live) setMarks((all) => all.map((each) => (each.id === one.id ? { ...each, quote: words } : each)))
+        }
+      }
+    })()
+    return () => void ((live = false), (mended.current = null))
+  }, [doc, anyMarks, src])
   // Heard as the note's own find bar is: opening, each step, a miss, closing.
   const stepFind = (back: boolean): void => {
     if (!found.length) return cue("find-miss")
@@ -303,6 +337,22 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
   /** The picked words marked in a colour; kept as a gem too when asked. */
   const mark = async (color: MarkColor, gem: boolean): Promise<void> => {
     if (!picked) return
+    // Over words already highlighted: that highlight takes the new colour, reaching to the new words too, never a second one stacked on it.
+    const under = color === "later" ? [] : marks.filter((one) => one.page === picked.page && one.color !== "later" && one.start < picked.end && picked.start < one.end)
+    if (under.length) {
+      const into = under.find((one) => one.gemId) ?? under[0]
+      const start = Math.min(picked.start, ...under.map((one) => one.start))
+      const end = Math.max(picked.end, ...under.map((one) => one.end))
+      const layer = document.querySelector(`.pdf-reader .pdf-page[data-page="${picked.page}"] .textLayer`)
+      const quote = start === picked.start && end === picked.end ? picked.quote : layer ? wordsIn(layer, start, end) : into.quote
+      await mergeMarks(into, under, { color, start, end, quote })
+      if (gem && !into.gemId) await keepMark({ ...into, color, start, end, quote })
+      getSelection()?.removeAllRanges()
+      setPicked(null)
+      chime("saved")
+      if (!gem) said(under.length > 1 ? "Highlights joined into one" : start < into.start || end > into.end ? "Highlight extended" : "Highlight colour changed")
+      return
+    }
     const id = crypto.randomUUID()
     const gemId = gem ? await gemOf({ id, page: picked.page, quote: picked.quote }) : null
     await call("pdf:highlight", src, { id, page: picked.page, quote: picked.quote, start: picked.start, end: picked.end, gemId, color })
@@ -498,6 +548,27 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
   const change = async (one: PdfMark, to: Partial<PdfMark>): Promise<void> => {
     await call("pdf:mark", one.id, to)
     setMarks((all) => all.map((each) => (each.id === one.id ? { ...each, ...to } : each)))
+  }
+  /** Marks over the same words made one: `into` takes the words and colour given, the rest go (their gems stay). */
+  const mergeMarks = async (into: PdfMark, all: PdfMark[], to: { color?: string | null; start: number; end: number; quote: string }): Promise<void> => {
+    const gone = all.filter((one) => one.id !== into.id)
+    await call("pdf:mark", into.id, { color: to.color ?? null, start: to.start, end: to.end, quote: to.quote })
+    for (const one of gone) await call("pdf:unhighlight", one.id)
+    setMarks((list) => list.filter((one) => !gone.some((left) => left.id === one.id)).map((one) => (one.id === into.id ? { ...one, ...to, prefix: "", suffix: "" } : one)))
+  }
+  /** Highlights kept stacked over the same words before they joined: one, in the colour drawn on top, with the fullest words of them. */
+  const joinStacked = async (group: PdfMark[]): Promise<void> => {
+    const into = group.at(-1)!
+    const fullest = group.reduce((most, one) => (one.quote.length > most.quote.length ? one : most))
+    // Where they all sit over one another, the words of them all; the same words kept twice in two places, the fullest's place.
+    const over = group.every((one) => one.start < fullest.end && fullest.start < one.end)
+    const start = over ? Math.min(...group.map((one) => one.start)) : fullest.start
+    const end = over ? Math.max(...group.map((one) => one.end)) : fullest.end
+    const layer = document.querySelector(`.pdf-reader .pdf-page[data-page="${fullest.page}"] .textLayer`)
+    const quote = over && layer && (start < fullest.start || end > fullest.end) ? wordsIn(layer, start, end) : fullest.quote
+    await mergeMarks(into, group, { color: into.color ?? null, start, end, quote })
+    chime("saved")
+    said("Highlights joined into one")
   }
   const keepMark = async (one: PdfMark): Promise<void> => {
     const gemId = await gemOf(one)
@@ -943,7 +1014,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
           {picked && <PickedMenu actions={actions} about={() => pickedAbout(picked)} />}
         </ContextMenuContent>
       </ContextMenu>
-      {detailsOut && <ReadDetails src={src} name={name} onPage={go} chapters={outline} cover={cover?.image} title={title} author={author} pages={doc?.numPages} page={page} marks={marks} lit={lit} onMark={goToMark} onGather={() => void gather()} />}
+      {detailsOut && <ReadDetails src={src} name={name} onPage={go} chapters={outline} cover={cover} title={title} author={author} pages={doc?.numPages} page={page} marks={marks} lit={lit} onMark={goToMark} onGather={() => void gather()} onJoin={(group) => void joinStacked(group)} />}
       </div>
     </div>
   )

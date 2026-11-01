@@ -5,10 +5,9 @@ import { chime } from "@/lib/sound"
 import { openPdf } from "./pdf-reader"
 import { usePdfCover } from "./pdf-cover"
 import { BookMap, InYourNotes, PageBar, inNotes, useCited } from "./book-links"
-
-export type Book = { src: string; name: string; title: string; author: string; pages: number | null; page: number | null; readAt: string | null; addedAt: string; highlights: number }
-
-const readLibrary = (): Promise<Book[]> => call<Book[]>("pdf:library")
+import { BookHead, BookInfo, readLibrary, type Book } from "./book-head"
+import { BackToTop } from "@/components/haligtree/ui"
+export type { Book } from "./book-head"
 
 /**
  * A file's name as a person would say it: "(z-lib.org)" and other site tags,
@@ -26,7 +25,6 @@ export const cleanName = (name: string): string =>
 /** What a book is called on its card: the title it carries, else its file name made readable. */
 const titleOf = (one: Book): string => (one.title === one.name.replace(/\.pdf$/i, "") ? cleanName(one.name) : one.title)
 const percent = (one: Book): number | null => (one.page && one.pages ? Math.round((one.page / one.pages) * 100) : null)
-const day = (iso: string | null): string => (iso ? new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }) : "Not yet")
 
 /**
  * Every PDF you have kept, as a shelf of real covers: each its first page,
@@ -34,7 +32,7 @@ const day = (iso: string | null): string => (iso ? new Date(iso).toLocaleDateStr
  * holds. One click picks it and the inspector at the right says all about it;
  * a double click, or "Continue", opens it where you left off.
  */
-export function PdfLibrary({ query }: { query: string }): React.JSX.Element {
+export function PdfLibrary({ query, top }: { query: string; /** What sits over the shelf (the kinds), scrolling with it. */ top: React.ReactNode }): React.JSX.Element {
   const all = useLive(readLibrary, [] as Book[])
   const books = useMemo(() => {
     const words = query.trim().toLowerCase().split(/\s+/).filter(Boolean)
@@ -51,14 +49,27 @@ export function PdfLibrary({ query }: { query: string }): React.JSX.Element {
     chime("open")
     openPdf(one.src, one.name, one.page ?? undefined)
   }
-  if (!books.length) return <p className="my-4 text-control text-muted-foreground">{query.trim() ? <>No book has “{query.trim()}” in its title or author.</> : <>No PDFs in your notes yet.</>}</p>
+  const [scroller, setScroller] = useState<HTMLDivElement | null>(null)
+  // The shelf scrolls on its own at the left; the picked book's panel is docked at the page's right edge, full height, as the reader's is.
   return (
     <div className="pdf-library" data-library>
-      <div className={`pdf-library-shelf${books.length <= 3 ? " is-few" : ""}`} role="listbox" aria-label="Your PDFs">
-        {books.map((one) => (
-          <BookCard key={one.src} one={one} picked={one.src === chosen} onPick={() => (chime("tap"), setChosen(one.src))} onOpen={() => open(one)} />
-        ))}
-        {books.length <= 3 && !query.trim() && <p className="pdf-library-hint">Every PDF you keep in a note sits on this shelf. Drop one into any note to add it.</p>}
+      <div className="pdf-library-side">
+        <div ref={setScroller} className="pdf-library-scroll" data-shelf-scroll>
+          <div className="pdf-library-column">
+            {top}
+            {books.length ? (
+              <div className={`pdf-library-shelf${books.length <= 3 ? " is-few" : ""}`} role="listbox" aria-label="Your PDFs">
+                {books.map((one) => (
+                  <BookCard key={one.src} one={one} picked={one.src === chosen} onPick={() => (chime("tap"), setChosen(one.src))} onOpen={() => open(one)} />
+                ))}
+                {books.length <= 3 && !query.trim() && <p className="pdf-library-hint">Every PDF you keep in a note sits on this shelf. Drop one into any note to add it.</p>}
+              </div>
+            ) : (
+              <p className="my-4 text-control text-muted-foreground">{query.trim() ? <>No book has “{query.trim()}” in its title or author.</> : <>No PDFs in your notes yet.</>}</p>
+            )}
+          </div>
+        </div>
+        <BackToTop target={scroller} />
       </div>
       {book && <Inspector one={book} onOpen={() => open(book)} />}
     </div>
@@ -88,59 +99,46 @@ function BookCard({ one, picked, onPick, onOpen }: { one: Book; picked: boolean;
 }
 
 /**
- * The picked book, as iPad Books' book page and Preview's inspector have it:
- * its cover large, its title and author, a quiet way back in at your page, the
- * book's length with where your notes, highlights and cards attach, the notes
- * that link into it (as a list in page order and as a small map), and last
- * the few facts about the file.
+ * The picked book, as Finder's preview pane and iPad Books' book page have
+ * it: docked at the page's right edge, its head held still (the cover large,
+ * the title and author, a quiet way back in at your page and the book's
+ * length with where your notes attach) and only what is under it scrolling:
+ * the notes that link into it, their small map and the book's Information,
+ * each heading held at the top while its rows pass under it.
  */
 function Inspector({ one, onOpen }: { one: Book; onOpen: () => void }): React.JSX.Element {
   const cover = usePdfCover(one.src, one.name)
   const cited = useCited(one.src, one.highlights)
   const [marks, setMarks] = useState<{ page: number; color?: string | null }[]>([])
+  const [box, setBox] = useState<HTMLElement | null>(null)
   useEffect(() => {
     let live = true
     void call<{ page: number; color?: string | null }[]>("pdf:highlights", one.src).then((rows) => live && setMarks(rows))
     return () => void (live = false)
   }, [one.src, one.highlights])
   const linked = inNotes(cited).length
-  const rows: [string, string][] = [
-    ["Pages", one.pages ? String(one.pages) : "Not counted yet"],
-    ["Highlights", one.highlights ? String(one.highlights) : "None"],
-    ["In your notes", linked ? String(linked) : "None"],
-    ["Added", day(one.addedAt)],
-    ["Last opened", day(one.readAt)],
-  ]
   return (
-    <aside className="pdf-inspector mf-more" aria-label="About this book" data-inspector>
-      {cover?.image ? <img className="pdf-inspector-cover" src={cover.image} alt="" draggable={false} /> : <span className="pdf-inspector-cover pdf-book-blank" />}
-      <div className="pdf-inspector-what">
-        <h2 className="pdf-inspector-title">{titleOf(one)}</h2>
-        {one.author && <p className="pdf-inspector-author">{one.author}</p>}
+    <aside className="book-panel pdf-inspector" aria-label="About this book" data-inspector>
+      <div className="book-panel-head">
+        <BookHead cover={cover} title={titleOf(one)} author={one.author} pages={one.pages} bytes={one.bytes} />
+        <button type="button" className="pdf-inspector-open" onClick={onOpen}>
+          {one.page && one.page > 1 ? `Continue at p. ${one.page}` : "Start reading"}
+        </button>
+        {one.pages ? <PageBar src={one.src} name={one.name} pages={one.pages} page={one.page} cited={cited} marks={marks} /> : null}
       </div>
-      <button type="button" className="pdf-inspector-open" onClick={onOpen}>
-        {one.page && one.page > 1 ? `Continue at p. ${one.page}` : "Start reading"}
-      </button>
-      {one.pages ? <PageBar src={one.src} name={one.name} pages={one.pages} page={one.page} cited={cited} marks={marks} /> : null}
-      <section className="pdf-inspector-section">
-        <h3 className="read-details-heading">
-          In your notes <span className="read-details-count">{linked}</span>
-        </h3>
-        <InYourNotes cited={cited} empty="No note links here yet. Link a page from the reader with “Copy link to this page” and paste it in any note." />
-        <BookMap src={one.src} title={titleOf(one)} cited={cited} />
-      </section>
-      <dl className="pdf-inspector-rows">
-        {rows.map(([label, value]) => (
-          <div key={label} className="pdf-inspector-row">
-            <dt>{label}</dt>
-            <dd>{value}</dd>
+      <div ref={setBox} className="book-panel-body" data-panel-scroll>
+        <section className="read-details-section">
+          <div className="read-details-heading">
+            <h3>
+              In your notes <span className="read-details-count">{linked.toLocaleString()}</span>
+            </h3>
           </div>
-        ))}
-        <div className="pdf-inspector-row is-file">
-          <dt>File</dt>
-          <dd title={one.name}>{one.name}</dd>
-        </div>
-      </dl>
+          <InYourNotes cited={cited} empty="No note links here yet. Link a page from the reader with “Copy link to this page” and paste it in any note." />
+          <BookMap src={one.src} title={titleOf(one)} cited={cited} />
+        </section>
+        <BookInfo one={one} linked={linked} />
+      </div>
+      <BackToTop target={box} />
     </aside>
   )
 }

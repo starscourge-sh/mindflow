@@ -1,6 +1,9 @@
 import { useMemo, useState } from "react"
 import { Search } from "lucide-react"
 import { BackToTop, VirtualList } from "@/components/haligtree/ui"
+import { useLive } from "@/lib/haligtree"
+import { BookHead, BookInfo, readLibrary, type Book } from "./book-head"
+import type { PdfCover } from "./pdf-cover"
 import { MARK_COLORS, markCss } from "./read-bar"
 import type { PdfMark } from "./pdf-pages"
 import { InYourNotes, PageBar, PartHead, StuckHead, inNotes, linesOf, partAt, partsOf, useCited, useFolded, type Line } from "./book-links"
@@ -15,11 +18,11 @@ const LONG = 30
  * are many, each a way back to its place), and every note and gem that holds
  * it or links into it. Long lists draw only the rows in view.
  */
-export function ReadDetails({ src, name, cover, title, author, pages, page, chapters = [], marks, lit, onMark, onGather, onPage }: {
+export function ReadDetails({ src, name, cover, title, author, pages, page, chapters = [], marks, lit, onMark, onGather, onPage, onJoin }: {
   src: string
   /** The name it arrived under, for a page bar's tick to open it by. */
   name: string
-  cover?: string | null
+  cover?: PdfCover | null
   title: string
   author?: string
   /** Its page count, and the page you are on: a PDF's; an article has neither. */
@@ -33,6 +36,8 @@ export function ReadDetails({ src, name, cover, title, author, pages, page, chap
   onGather: () => void
   /** A page bar tick pressed: go to its page. */
   onPage: (page: number) => void
+  /** Highlights stacked over the same words, made one. */
+  onJoin?: (group: PdfMark[]) => void
 }): React.JSX.Element {
   const cited = useCited(src, marks.length)
   const [words, setWords] = useState("")
@@ -57,18 +62,18 @@ export function ReadDetails({ src, name, cover, title, author, pages, page, chap
   )
   const used = MARK_COLORS.map((one) => ({ ...one, count: marks.filter((mark) => (mark.color ?? null) === one.id).length })).filter((one) => one.count)
   const filtering = !!look || colour !== undefined
+  const stacked = useMemo(() => stackedOf(marks), [marks])
+  const book = useLive(readLibrary, [] as Book[]).find((one) => one.src === src)
   return (
-    // A frame that does not scroll, for the way back up to sit on; the panel scrolls inside it, its edges fading where there is more.
+    // A frame that does not scroll, for the way back up to sit on. The book's head (cover, title, the page bar) holds still;
+    // only the lists under it scroll, each heading held at the top as its rows pass, the edges shaded where there is more.
     <div className="read-details-frame">
-    <aside ref={setBox} className="read-details mf-more" aria-label="Details">
-      <div className="read-details-head">
-        {cover && <img src={cover} alt="" draggable={false} className="read-details-cover" />}
-        <div className="read-details-what">
-          <span className="read-details-title">{title}</span>
-          {author && <span className="read-details-author">{author}</span>}
-        </div>
+    <aside className="read-details book-panel" aria-label="Details">
+      <div className="book-panel-head">
+        <BookHead cover={cover} title={title} author={author} pages={pages} bytes={book?.bytes} />
+        {pages ? <PageBar src={src} name={name} pages={pages} page={page} cited={cited} marks={marks} onPage={onPage} /> : null}
       </div>
-      {pages ? <PageBar src={src} name={name} pages={pages} page={page} cited={cited} marks={marks} onPage={onPage} /> : null}
+      <div ref={setBox} className="book-panel-body" data-panel-scroll>
 
       <section className="read-details-section">
         <div className="read-details-heading">
@@ -96,6 +101,16 @@ export function ReadDetails({ src, name, cover, title, author, pages, page, chap
                     <span className="read-details-colour-count">{one.count.toLocaleString()}</span>
                   </button>
                 ))}
+              </div>
+            )}
+            {onJoin && stacked.length > 0 && (
+              <div className="read-details-stacked" data-stacked={stacked.length}>
+                <span>
+                  {stacked.length === 1 ? `Two highlights cover the same words on p. ${stacked[0][0].page}.` : `${stacked.length.toLocaleString()} places have two highlights over the same words.`}
+                </span>
+                <button type="button" className="read-details-action" onClick={() => stacked.forEach((group) => onJoin(group))}>
+                  {stacked.length === 1 ? "Join them" : "Join each"}
+                </button>
               </div>
             )}
             <div className="read-details-marks">
@@ -131,8 +146,28 @@ export function ReadDetails({ src, name, cover, title, author, pages, page, chap
         </div>
         <InYourNotes cited={cited} parts={parts} here={page} empty="No note holds it or links into it yet." />
       </section>
+      {book && <BookInfo one={book} linked={inNotes(cited).length} />}
+      </div>
     </aside>
     <BackToTop target={box} />
     </div>
   )
+}
+
+/** Highlights over the same words on one page (two colours stacked, kept before a highlight over another changed it): each run of them. */
+export function stackedOf(marks: PdfMark[]): PdfMark[][] {
+  const bare = (words: string): string => words.toLowerCase().replace(/[^\p{L}\p{N}]/gu, "")
+  const sorted = marks.filter((one) => one.color !== "later").sort((a, b) => a.page - b.page || a.start - b.start)
+  const groups: PdfMark[][] = []
+  for (const one of sorted) {
+    const last = groups.at(-1)
+    // Over the same words by where they sit, or the same words kept twice (one with its full stop, one without).
+    const same = (other: PdfMark): boolean => {
+      const x = bare(one.quote), y = bare(other.quote)
+      return x.length > 12 && y.length > 12 && (x.includes(y) || y.includes(x))
+    }
+    if (last && last[0].page === one.page && (one.start < Math.max(...last.map((each) => each.end)) || last.some(same))) last.push(one)
+    else groups.push([one])
+  }
+  return groups.filter((group) => group.length > 1)
 }

@@ -203,8 +203,10 @@ export function FitActions({ children, keep, room }: { children: ReactNode; /** 
 }
 
 /** A view's frame: title, a muted count, actions on the right, then the body. */
-export function Page({ title, lead, count, unit = ['item', 'items'], actions, search, children, aside = false, wide = false, fit = false, beside, waiting = false, apart = false }: {
+export function Page({ title, lead, count, unit = ['item', 'items'], actions, search, children, aside = false, wide = false, fit = false, beside, waiting = false, apart = false, dock = false }: {
   title: ReactNode
+  /** The body takes the whole width and height under the line, for a panel docked at the page's right edge (Media's PDFs): the line keeps its column, and the body's parts scroll inside themselves. */
+  dock?: boolean
   /**
    * A list beside the note it was opened onto: it comes in whole on its own,
    * in its own place, and never keeps the note waiting (lib/reads-in.tsx).
@@ -256,7 +258,7 @@ export function Page({ title, lead, count, unit = ['item', 'items'], actions, se
           <FitActions keep={search} room={`${aside ? listWidth : 'page'} ${count ?? ''} ${count === 1 ? unit[0] : unit[1]}`}>{actions}</FitActions>
         </header>
       )}
-      <SmoothScroll wide={wide} fit={fit} beside={beside}>{children}</SmoothScroll>
+      <SmoothScroll wide={wide || dock} fit={fit || dock} beside={beside}>{children}</SmoothScroll>
     </section>
   ) as React.JSX.Element
 }
