@@ -18,6 +18,10 @@ import type { Settings } from '@/lib/haligtree'
 import { moveToBin } from '@/lib/to-bin'
 import { cardsSaid, deckTagOf, deckTitle, makeDeck, sayDeck, useOwnDecks, type OwnDeck } from './decks'
 import { Coverage, coverageOf, type BrowsedCard } from './card-browser'
+import { ReviewToolbar } from './review-toolbar'
+import { Tip } from './ui'
+import { motion } from 'motion/react'
+import { EASE, still } from '@/lib/motion'
 
 type Topic = { deck: string; label: string; cards: number; held: number }
 export type Shelf = { name: string; cover: string | null; sample: string; pictures: number; cards: number; fresh: number; due: number; held: number; shown: boolean; topics: Topic[] }
@@ -69,16 +73,20 @@ export function DeckShelf({ onOpen, onStudy, onPaste, onPicture }: { onOpen: (ty
   const tops = ownOrder(own.filter((deck) => deck.depth === 0), study.place)
   const many = tops.length > MANY
   // At most POCKETS on show at once, the most due first: a big collection reads better in the List, which the fold offers.
-  const shown = (many ? tops.filter((deck) => deck.made || deck.active > 0) : tops).slice(0, POCKETS)
+  // While a deck is dragged over another, the others make room live: the dragged one stands where it would land.
+  const preview = (list: OwnDeck[]): OwnDeck[] => {
+    if (!dragging || !over || dragging === over) return list
+    const moving = list.find((one) => one.tag === dragging)
+    const rest = list.filter((one) => one.tag !== dragging)
+    const at = rest.findIndex((one) => one.tag === over)
+    if (!moving || at < 0) return list
+    return [...rest.slice(0, at + (list.indexOf(moving) < list.findIndex((one) => one.tag === over) ? 1 : 0)), moving, ...rest.slice(at + (list.indexOf(moving) < list.findIndex((one) => one.tag === over) ? 1 : 0))]
+  }
+  const shown = preview((many ? tops.filter((deck) => deck.made || deck.active > 0) : tops).slice(0, POCKETS))
   const folded = tops.filter((deck) => !shown.includes(deck))
   // The three ways cards come in, always at the top, whatever is below: as Anki's "Create Deck" and "Import File" are.
   const top = (
-    <div data-deck-top className="flex flex-wrap items-center gap-2">
-      <Button variant="outline" size="sm" className="h-8 cursor-pointer px-3" data-deck-make onClick={() => (chime('open'), onPaste(null, true))}>Make a card</Button>
-      <Button variant="outline" size="sm" className="h-8 cursor-pointer px-3" data-deck-paste onClick={() => (chime('open'), onPaste(null))}>Add many at once</Button>
-      <Button variant="outline" size="sm" className="h-8 cursor-pointer px-3" data-deck-picture onClick={() => onPicture(null)}>From a picture</Button>
-      <Button variant="outline" size="sm" className="h-8 cursor-pointer px-3" data-deck-import onClick={() => (chime('open'), void window.api.importFrom('files'))}>Import<span className="font-normal text-muted-foreground">Anki or CSV</span></Button>
-      <span className="flex-1" />
+    <ReviewToolbar deckTop onMake={() => onPaste(null, true)} onMany={() => onPaste(null)} onPicture={() => onPicture(null)} right={<>
       <Button variant="ghost" size="sm" className="h-8 cursor-pointer px-3" data-deck-new onClick={() => (chime('open'), newDeck())}>New deck</Button>
       {/* Pockets or a plain list, in the same two-part control as Review's tabs beside it. */}
       <span role="radiogroup" aria-label="Show decks as" data-deck-look-pick className="flex h-8 items-center max-sm:h-9 rounded-lg border border-foreground/10 bg-accent/40 p-0.5 text-control">
@@ -87,7 +95,7 @@ export function DeckShelf({ onOpen, onStudy, onPaste, onPicture }: { onOpen: (ty
             className={`h-7 cursor-pointer rounded-md max-sm:h-8 border px-3 transition-colors ${look === one ? 'border-foreground/15 bg-background text-foreground shadow-sm' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>{one === 'pockets' ? 'Pockets' : 'List'}</button>
         ))}
       </span>
-    </div>
+    </>} />
   )
   // No cards of your own yet (the example deck is not yours): the ways in, each with a tiny example, and the example deck to learn by doing.
   if (!shelves?.length && !own.some((deck) => deck.tag !== EXAMPLE_TAG))
@@ -168,13 +176,13 @@ export function DeckShelf({ onOpen, onStudy, onPaste, onPicture }: { onOpen: (ty
     setDragging(null)
     setOver(null)
     if (!from || from === onto) return
-    const order = tops.map((one) => one.tag).filter((tag) => tag !== from)
-    order.splice(order.indexOf(onto), 0, from)
+    const order = preview(tops).map((one) => one.tag)
+    void onto
     const was = tops.map((one) => one.tag)
     void call('decks:order', order).then(() => (chime('settled'), quietly(() => void call('decks:order', was))))
   }
   const tile = (deck: OwnDeck): React.JSX.Element => (
-    <DeckTile key={deck.tag} id={deck.tag} own drag={deck.depth === 0 ? { over: over === deck.tag && dragging !== deck.tag, lifted: dragging === deck.tag, start: () => setDragging(deck.tag), enter: () => dragging && setOver(deck.tag), end: () => (setDragging(null), setOver(null)), drop: () => drop(deck.tag) } : undefined} name={deckName(deck)} title={deckTitle(deck.tag, own.map((one) => one.tag))} due={deck.due} fresh={deck.fresh} all={deck.cards} held={0} cover={null} shapes={shapes}
+    <DeckTile key={deck.tag} id={deck.tag} own drag={deck.depth === 0 ? { over: false, lifted: dragging === deck.tag, start: () => setDragging(deck.tag), enter: () => dragging && deck.tag !== dragging && setOver(deck.tag), end: () => (setDragging(null), setOver(null)), drop: () => drop(deck.tag) } : undefined} name={deckName(deck)} title={deckTitle(deck.tag, own.map((one) => one.tag))} due={deck.due} fresh={deck.fresh} all={deck.cards} held={0} cover={null} shapes={shapes}
       kids={own.filter((one) => one.tag.startsWith(`${deck.tag}-`) && one.depth === deck.depth + 1).length} open={kidsOpen.has(deck.tag)} onKids={() => openKids(deck.tag)} menu={ownMenu(deck)}
       onClick={() => (deck.cards ? (chime('riffle'), onStudy(deck.tag)) : (chime('open'), onPaste(deck.tag, true)))} />
   )
@@ -185,7 +193,7 @@ export function DeckShelf({ onOpen, onStudy, onPaste, onPicture }: { onOpen: (ty
       <StudySets sets={sets} onStudy={onStudy} />
       <BookCoverage />
       {/* Pockets: squarish tiles, 2 to 4 across by width; each studies when clicked, its actions in its ⋯ menu and on right-click. */}
-      <div data-deck-grid className="grid grid-cols-2 gap-3 sm:grid-cols-[repeat(auto-fill,minmax(11rem,1fr))]">
+      <div data-deck-grid className="grid grid-cols-2 gap-3 sm:grid-cols-[repeat(auto-fill,minmax(10.5rem,12.5rem))]">
         {shown.map(tile)}
         {allTags && folded.map(tile)}
         {sharedTiles}
@@ -230,37 +238,37 @@ function DeckTile({ id, own = false, drag, name, title, due, fresh, all, held, c
   id: string; own?: boolean; /** A top deck of your own drags to a new place among the others. */ drag?: { over: boolean; lifted: boolean; start: () => void; enter: () => void; end: () => void; drop: () => void }; name: string; title: string; due: number; fresh: number; all: number; held: number; cover: string | null; shapes: boolean
   kids: number; open: boolean; onKids: () => void; menu: Section[]; onClick: () => void
 }): React.JSX.Element {
-  const big = due || fresh || all
+  void title
   return (
     <RowMenu items={() => rowItems(menu)}>
-      <div role="button" tabIndex={0} title={title} data-deck={own ? `#${id}` : id} {...(own ? { 'data-own-deck': id } : {})} onClick={onClick}
-        {...(drag ? { draggable: true, 'data-deck-drop': drag.over ? '' : undefined, onDragStart: (event: React.DragEvent) => (event.dataTransfer.effectAllowed = 'move', event.dataTransfer.setData('text/plain', `#${id}`), drag.start()),
-          onDragEnter: drag.enter, onDragOver: (event: React.DragEvent) => event.preventDefault(), onDragEnd: drag.end, onDrop: (event: React.DragEvent) => (event.preventDefault(), drag.drop()) } : {})}
+      {/* Laid out by motion: when a dragged deck passes over, the others slide to make room (at once with motion off). */}
+      <motion.div layout={!still()} transition={{ duration: 0.2, ease: EASE }} role="button" tabIndex={0} data-deck={own ? `#${id}` : id} {...(own ? { 'data-own-deck': id } : {})} onClick={onClick}
         onKeyDown={(event) => (event.key === 'Enter' || event.key === ' ') && event.target === event.currentTarget && (event.preventDefault(), onClick())}
-        className={`relative grid aspect-square min-w-0 cursor-pointer grid-rows-[minmax(0,1fr)_auto] gap-2 rounded-[5px] mf-metal mf-metal-hover p-3 text-left outline-none transition-transform duration-100 ease-out active:scale-[0.985] motion-reduce:transition-none motion-reduce:active:scale-100 focus-visible:ring-2 focus-visible:ring-ring ${drag?.lifted ? 'opacity-40' : ''} ${drag?.over ? 'ring-2 ring-primary/60' : ''}`}>
+        {...(drag ? { draggable: true, onDragStart: (event: React.DragEvent) => (event.dataTransfer.effectAllowed = 'move', event.dataTransfer.setData('text/plain', `#${id}`), drag.start()),
+          onDragEnter: drag.enter, onDragOver: (event: React.DragEvent) => event.preventDefault(), onDragEnd: drag.end, onDrop: (event: React.DragEvent) => (event.preventDefault(), drag.drop()) } : {}) as Record<string, unknown>}
+        className={`relative flex aspect-square min-w-0 cursor-pointer flex-col gap-1.5 rounded-[6px] mf-metal mf-metal-hover p-3.5 text-left outline-none active:scale-[0.985] motion-reduce:active:scale-100 focus-visible:ring-2 focus-visible:ring-ring ${drag?.lifted ? 'opacity-40' : ''}`}>
         <span className="absolute top-1.5 right-1.5" onClick={(event) => event.stopPropagation()}>
-          <OptionsMenu sections={menu} label="Deck options" side="bottom" align="end" className="cursor-pointer" />
+          <OptionsMenu sections={menu} heading={name} label="Deck options" tip={false} side="bottom" align="end" className="cursor-pointer" />
         </span>
-        <span data-deck-face={own ? `#${id}` : id} className="flex min-h-0 items-start gap-2">
-          {cover ? <img src={cover} alt="" className="size-12 shrink-0 rounded-[4px] object-cover" />
-            : shapes ? <GroupCover name={own ? `#${id}` : id} tint={groupTint(own ? `#${id}` : id)} label={null} className="size-12 shrink-0 rounded-[4px]" /> : null}
-          <span className="flex items-baseline gap-1.5">
-            <span className={`font-serif text-4xl leading-none tabular-nums ${big ? 'text-foreground' : 'text-foreground/35'}`}>{num(big)}</span>
-            <span className="text-sm text-muted-foreground">{due ? 'due' : fresh ? 'new' : all ? (all === 1 ? 'card' : 'cards') : 'cards'}</span>
-            {due > 0 && <span aria-hidden data-due-dot className="mb-1 size-1.5 self-center rounded-full bg-primary" />}
+        {(cover || shapes) && (
+          <span data-deck-face={own ? `#${id}` : id} className="flex">
+            {cover ? <img src={cover} alt="" className="size-10 shrink-0 rounded-[4px] object-cover" />
+              : <GroupCover name={own ? `#${id}` : id} tint={groupTint(own ? `#${id}` : id)} label={null} className="size-10 shrink-0 rounded-[4px]" />}
           </span>
+        )}
+        <h3 className="line-clamp-2 pr-7 font-serif text-lg leading-snug text-foreground [overflow-wrap:anywhere]">{name}</h3>
+        <span data-deck-counts className="text-sm text-muted-foreground tabular-nums">
+          {all ? <><Counts due={due} fresh={fresh} />{held > 0 && <> · {num(held)} held</>}</> : <span data-deck-empty>Empty: click to make a card</span>}
         </span>
-        <span className="grid min-w-0 gap-0.5">
-          <h3 className="truncate font-serif text-base leading-tight text-foreground">{name}</h3>
-          <span data-deck-counts className="truncate text-sm text-muted-foreground tabular-nums">
-            {all ? <><Counts due={due} fresh={fresh} />{held > 0 && <> · {num(held)} held</>}</> : <span data-deck-empty>Empty: click to make a card</span>}
-          </span>
+        {/* No big number: the counts under the name already say it. At the foot, how many in all, and a dot when some are due. */}
+        <span className="mt-auto flex items-center justify-between gap-2">
+          <span className="flex items-center gap-1.5 text-sm text-muted-foreground tabular-nums">{all ? `${num(all)} ${all === 1 ? 'card' : 'cards'}` : ''}{due > 0 && <span aria-hidden data-due-dot className="size-1.5 rounded-full bg-primary" />}</span>
           {kids > 0 && (
             <button type="button" data-deck-kids={id} aria-expanded={open} onClick={(event) => (event.stopPropagation(), onKids())}
-              className="cursor-pointer justify-self-start rounded-[4px] px-1 -mx-1 text-sm text-muted-foreground hover:bg-accent hover:text-foreground">{open ? 'Hide' : '+'}{open ? ' sub-decks' : `${num(kids)} ${kids === 1 ? 'sub-deck' : 'sub-decks'}`}</button>
+              className="cursor-pointer rounded-[4px] px-1 -mx-1 text-sm text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring">{open ? 'Hide' : '+'}{open ? ' sub-decks' : `${num(kids)} ${kids === 1 ? 'sub-deck' : 'sub-decks'}`}</button>
           )}
         </span>
-      </div>
+      </motion.div>
     </RowMenu>
   )
 }
@@ -413,10 +421,10 @@ function StudySets({ sets, onStudy }: { sets: { name: string; tag: string }[]; o
   if (!sets.length) return null
   return (
     <div data-study-sets className="flex flex-wrap items-center gap-2 text-control">
-      <span className="text-foreground/70">Study sets</span>
+      <span className="text-foreground/70">Study sets, every card in each, due or not</span>
       {sets.map((set) => (
         <RowMenu key={set.name} items={[{ label: 'Study', run: () => (chime('riffle'), onStudy(set.tag)) }, 'separator', { label: 'Remove the set', hint: 'The deck and its cards stay', danger: true, run: () => void call('sets:remove', set.name).then(() => (chime('fold'), toast(`“${set.name}” is no longer a study set`, () => void call('sets:save', set.name, set.tag).then(() => chime('undo'))))) }]}>
-          <button type="button" data-study-set={set.name} title={`Every card in ${deckTitle(set.tag)}, due or not`} onClick={() => (chime('riffle'), onStudy(set.tag))}
+          <button type="button" data-study-set={set.name} onClick={() => (chime('riffle'), onStudy(set.tag))}
             className="h-8 max-w-64 cursor-pointer truncate rounded-[5px] mf-metal mf-metal-hover px-3 text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring max-sm:h-9">{set.name}</button>
         </RowMenu>
       ))}
@@ -439,7 +447,7 @@ function BookCoverage(): React.JSX.Element | null {
       <span className="text-control text-foreground/70">How much of each book has cards</span>
       {(every ? books : books.slice(0, 3)).map(([book, cards]) => (
         <div key={book} data-book-covered={book} className="grid grid-cols-[minmax(0,12rem)_minmax(0,1fr)] items-center gap-x-3 max-sm:grid-cols-1">
-          <span className="truncate pt-1 text-control text-foreground" title={book}>{book}</span>
+          <Tip label={book}><span className="truncate pt-1 text-control text-foreground">{book}</span></Tip>
           <Coverage cards={cards} />
         </div>
       ))}
@@ -543,12 +551,12 @@ export function DeckFace({ name, due, fresh, shapes, faded = false, small = fals
 function DeckList({ own, shelves, onStudy, place = {} }: { own: OwnDeck[]; shelves: Shelf[]; onStudy: (tag: string) => void; /** The order you dragged the decks to. */ place?: Record<string, number> }): React.JSX.Element {
   const [shut, flip] = useShut()
   const cols = 'grid grid-cols-[minmax(0,1fr)_3.5rem_3.5rem_4rem] items-center gap-x-2'
-  const row = (key: string, name: string, title: string, due: number, fresh: number, all: number, kids: number, study: (() => void) | null): React.JSX.Element => (
+  const row = (key: string, name: string, _title: string, due: number, fresh: number, all: number, kids: number, study: (() => void) | null): React.JSX.Element => (
     <div key={key} data-deck-row={key} className={`${cols} min-h-8 text-control`}>
       <span className="flex min-w-0 items-center gap-1">
         <Fold id={key} kids={kids} open={!shut.has(key)} name={name} flip={() => flip(key)} />
-        {study ? <button type="button" title={title} data-deck-row-study={key} onClick={() => (chime('riffle'), study())} className="min-w-0 cursor-pointer truncate rounded-[4px] px-1 text-left text-foreground hover:bg-accent">{name}</button>
-          : <span title={title} className="min-w-0 truncate px-1 text-muted-foreground">{name}</span>}
+        {study ? <button type="button" data-deck-row-study={key} onClick={() => (chime('riffle'), study())} className="line-clamp-2 min-w-0 cursor-pointer rounded-[4px] px-1 text-left text-foreground [overflow-wrap:anywhere] hover:bg-accent">{name}</button>
+          : <span className="line-clamp-2 min-w-0 px-1 text-muted-foreground [overflow-wrap:anywhere]">{name}</span>}
       </span>
       <span className={`flex items-center justify-end gap-1.5 tabular-nums ${due > 0 ? 'font-semibold text-foreground' : 'text-muted-foreground/60'}`}>{due > 0 && <span aria-hidden className="size-1.5 rounded-full bg-primary" />}{due < 0 ? '–' : num(due)}</span>
       <span className={`text-right tabular-nums ${fresh > 0 ? 'text-foreground' : 'text-muted-foreground/60'}`}>{fresh < 0 ? '–' : num(fresh)}</span>

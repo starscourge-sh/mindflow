@@ -194,16 +194,10 @@ export function Pocket({ name, title = name, cards, onOpen }: { name: string; /*
   if (!shapes)
     return (
       <button type="button" data-pocket={name} data-pocket-plain onClick={() => (chime('open'), onOpen())}
-        className="mf-metal mf-metal-hover transition-transform duration-100 ease-out active:scale-[0.985] motion-reduce:transition-none motion-reduce:active:scale-100 grid aspect-square min-w-0 cursor-pointer grid-rows-[minmax(0,1fr)_auto] gap-2 rounded-[5px] p-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring">
-        <span className="flex items-baseline gap-1.5 self-start">
-          <span className="font-serif text-4xl leading-none text-foreground tabular-nums">{num(due || cards.length)}</span>
-          <span className="text-sm text-muted-foreground">{due ? 'due' : cards.length === 1 ? 'card' : 'cards'}</span>
-          {due > 0 && <span aria-hidden className="mb-1 size-1.5 self-center rounded-full bg-primary" />}
-        </span>
-        <span className="grid min-w-0 gap-0.5">
-          <span className="truncate font-serif text-base leading-tight text-foreground">{title}</span>
-          <span className="truncate text-sm text-muted-foreground tabular-nums">{num(cards.length)} {cards.length === 1 ? 'card' : 'cards'}{due ? ` · ${num(due)} due` : fresh ? ` · ${num(fresh)} new` : ''}</span>
-        </span>
+        className="mf-metal mf-metal-hover transition-transform duration-100 ease-out active:scale-[0.985] motion-reduce:transition-none motion-reduce:active:scale-100 flex aspect-square min-w-0 cursor-pointer flex-col gap-1.5 rounded-[6px] p-3.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        <span className="line-clamp-2 font-serif text-lg leading-snug text-foreground [overflow-wrap:anywhere]">{title}</span>
+        <span className="text-sm text-muted-foreground tabular-nums"><span className={due ? 'font-semibold text-foreground' : ''}>{num(due)} due</span> · {num(fresh)} new</span>
+        <span className="mt-auto flex items-center gap-1.5 text-sm text-muted-foreground tabular-nums">{num(cards.length)} {cards.length === 1 ? 'card' : 'cards'}{due > 0 && <span aria-hidden className="size-1.5 rounded-full bg-primary" />}</span>
       </button>
     )
   return (
@@ -252,14 +246,12 @@ export function EmptyPocket({ deck, onPaste }: { deck: string; /** Paste cards i
   const shapes = useLive(haligtree.settings, null as Settings | null)?.deckShapes === true
   if (!shapes)
     return (
-      <div data-pocket={name} data-pocket-empty={deck} data-pocket-plain className="mf-metal grid aspect-square min-w-0 grid-rows-[minmax(0,1fr)_auto] gap-2 rounded-[5px] p-3">
-        <span className="flex flex-wrap content-start gap-1.5">
+      <div data-pocket={name} data-pocket-empty={deck} data-pocket-plain className="mf-metal flex aspect-square min-w-0 flex-col gap-1.5 rounded-[6px] p-3.5">
+        <span className="line-clamp-2 font-serif text-lg leading-snug text-foreground [overflow-wrap:anywhere]">{deckTitle(deck)}</span>
+        <span className="text-sm text-muted-foreground">Empty deck</span>
+        <span className="mt-auto flex flex-wrap gap-1.5">
           <button type="button" data-pocket-make onClick={() => (chime('open'), onPaste(true))} className="h-8 cursor-pointer rounded-md border border-foreground/10 bg-background px-2.5 text-control font-medium text-foreground outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring">Make a card</button>
           <button type="button" data-pocket-paste onClick={() => (chime('open'), onPaste(false))} className="h-8 cursor-pointer rounded-md border border-foreground/10 bg-background px-2.5 text-control font-medium text-foreground outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring">Add many</button>
-        </span>
-        <span className="grid min-w-0 gap-0.5">
-          <span className="truncate font-serif text-base leading-tight text-foreground">{deckTitle(deck)}</span>
-          <span className="text-sm text-muted-foreground">Empty deck</span>
         </span>
       </div>
     )
