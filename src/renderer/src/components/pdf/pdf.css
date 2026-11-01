@@ -1176,14 +1176,17 @@
   font-size: 0.8125rem;
   text-align: left;
   cursor: pointer;
-  transition: color 120ms ease-out;
+  /* The app's one hover underline (main.css): there in no colour at rest, faded in. */
+  text-decoration: underline 1px transparent;
+  text-underline-offset: 0.24em;
+  transition: color 120ms ease-out, text-decoration-color 180ms var(--mf-ease), text-underline-offset 180ms var(--mf-ease);
 }
 
 .look-up-known:hover,
 .look-up-known:focus-visible {
   color: var(--tt-brand-color-500, #c08a2e);
-  text-decoration: underline;
-  text-underline-offset: 2px;
+  text-decoration-color: color-mix(in oklab, currentColor 45%, transparent);
+  text-underline-offset: 0.18em;
 }
 
 .look-up-dictionary {

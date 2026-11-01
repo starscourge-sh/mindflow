@@ -945,7 +945,7 @@ html:is([data-width='page'], [data-width='wide']) .note-pane .note-column {
 /* Every button answers the press: a small give, gone the moment you let go.
    Not on the editor's drag grip, which is picked up rather than pressed. */
 button:not(:disabled):not(.tiptap-drag-handle *) {
-  transition-property: color, background-color, border-color, opacity, transform;
+  transition-property: color, background-color, border-color, text-decoration-color, text-underline-offset, opacity, transform;
   transition-duration: 120ms;
   transition-timing-function: var(--mf-ease);
 }
@@ -2687,4 +2687,29 @@ textarea[data-talking]::selection {
   background: var(--background);
   color: var(--foreground);
   box-shadow: var(--mf-round-shadow);
+}
+
+/* Every hover underline in the app, one way: thin, set a little below the letters, and faded in rather than snapped on.
+   The line is there at rest in no colour, so only its colour moves. Unlayered, so it outranks each spot's own
+   hover:decoration-* and underline-offset-* and every link underlines alike. */
+.hover\:underline,
+.group-hover\:underline {
+  text-decoration-line: underline;
+  text-decoration-color: transparent;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.24em;
+  transition: text-decoration-color 180ms var(--mf-ease), text-underline-offset 180ms var(--mf-ease);
+}
+.hover\:underline:hover,
+.group:hover .group-hover\:underline {
+  text-decoration-color: color-mix(in oklab, currentColor 45%, transparent);
+  text-underline-offset: 0.18em;
+}
+/* Links underlined at rest (a quiet line that darkens on hover): the same thin line, and the darkening fades,
+   wherever the spot did not already ask for its own transition. */
+.underline {
+  text-decoration-thickness: 1px;
+}
+.underline:not([class*='transition']) {
+  transition: text-decoration-color 180ms var(--mf-ease);
 }
