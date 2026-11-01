@@ -143,18 +143,21 @@ function StudyCards({ studied, week }: { studied: Studied; week: number }): Reac
 
 /**
  * The year under the decks, as every Anki heatmap in the videos sits: a
- * square a day, the darker the more cards, and above it the four numbers
- * people quote (Ray's frame): the streak now, the longest, reviews on an
- * average day, and the share of days studied. Drawn at once, never grown in,
- * so the page is still when it shows; the day pointed at is said in a line
- * whose room is kept.
+ * square a day, close together, the darker the more cards, the months named
+ * along the top and Monday, Wednesday and Friday down the side, today ringed.
+ * Above it the four numbers people quote (Ray's frame), set as a row: the
+ * streak now, the longest, cards on an average day, and the share of days
+ * studied. Drawn at once, never grown in, so the page is still when it
+ * shows; the day pointed at is said in a line whose room is kept.
  */
-export function StudyYear({ compact = false }: { /** A strip above the decks: the four numbers in one line beside a small year, so it shows on first open. */ compact?: boolean }): React.JSX.Element {
+export function StudyYear({ compact = false }: { /** Above the decks: the same year, its squares a little smaller. */ compact?: boolean }): React.JSX.Element {
   const studied = useLive(() => window.api.haligtree('study:stats') as Promise<Studied>, null as Studied | null, [], ['item'])
   const [on, setOn] = useState<string | null>(null)
   const weeks = 53
+  const cell = compact ? 10 : 11
   // Whole weeks, Monday at the top, ending on this week: today sits in the last column.
   const start = dayjs().startOf('day').subtract((dayjs().day() + 6) % 7, 'day').subtract(weeks - 1, 'week')
+  const todayKey = dayjs().format('YYYY-MM-DD')
   const days = Array.from({ length: weeks * 7 }, (_, at) => start.add(at, 'day')).map((at) => ({ day: at.format('YYYY-MM-DD'), later: at.isAfter(dayjs(), 'day') }))
   const most = Math.max(1, ...Object.values(studied?.year ?? {}))
   const share = studied && studied.days.of ? Math.round((studied.days.reviewed / studied.days.of) * 100) : 0
@@ -164,44 +167,48 @@ export function StudyYear({ compact = false }: { /** A strip above the decks: th
     [plural(studied?.average ?? 0, 'card', 'cards'), 'a day, on days studied'],
     [`${share}%`, 'of days studied']
   ]
+  // Five steps of ink, as GitHub's and Anki's heatmaps have: none, then four by share of the busiest day.
+  const INK = [7, 30, 50, 70, 92]
+  const level = (n: number): number => (n ? Math.min(4, 1 + Math.floor((n / most) * 3.999)) : 0)
+  const shade = (step: number): string => `color-mix(in oklab, var(--foreground) ${INK[step]}%, transparent)`
+  // A month's name over the first week that starts in it; the year's first column only when its month has room before the next.
+  const months = Array.from({ length: weeks }, (_, week) => {
+    const first = start.add(week, 'week')
+    if (week === 0) return start.add(3, 'week').month() === first.month() ? first.format('MMM') : ''
+    return first.month() !== first.subtract(1, 'week').month() ? first.format('MMM') : ''
+  })
   const cells = days.map((one) => {
     const n = studied?.year[one.day] ?? 0
     return (
-      <span key={one.day} data-day={one.day} data-n={n} onPointerEnter={() => setOn(one.later ? null : `${plural(n, 'review', 'reviews')}, ${dayWords(one.day)}`)}
-        className={`aspect-square w-full ${compact ? 'rounded-[1.5px]' : 'rounded-[2px]'}`}
-        style={{ background: one.later ? 'transparent' : n ? `color-mix(in oklab, var(--foreground) ${Math.round(25 + 70 * Math.min(1, n / most))}%, transparent)` : 'color-mix(in oklab, var(--foreground) 7%, transparent)' }} />
+      <span key={one.day} data-day={one.day} data-n={n} {...(one.day === todayKey ? { 'data-today': '' } : {})} onPointerEnter={() => setOn(one.later ? null : `${plural(n, 'review', 'reviews')}, ${dayWords(one.day)}${one.day === todayKey ? ' (today)' : ''}`)}
+        className={`rounded-[2px] ${one.day === todayKey ? 'outline outline-1 outline-offset-1 outline-foreground' : ''}`}
+        style={{ width: cell, height: cell, background: one.later ? 'transparent' : shade(level(n)) }} />
     )
   })
   const total = plural(Object.values(studied?.year ?? {}).reduce((sum, n) => sum + n, 0), 'review', 'reviews')
-  if (compact)
-    return (
-      <section data-study-year-map data-compact aria-label="A year of study" className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-[5px] border border-foreground/10 bg-accent/25 px-3 py-2.5">
-        <div className="grid min-w-0 flex-1 gap-1">
-          <p data-year-numbers className="flex flex-wrap gap-x-4 gap-y-0.5 text-sm text-muted-foreground tabular-nums">
-            {numbers.map(([value, label]) => <span key={label} data-year-number={label}><b className="font-semibold text-foreground">{value}</b> {label}</span>)}
-          </p>
-          <p data-year-said className="h-5 truncate text-sm text-muted-foreground tabular-nums">{on ?? `${total} this year, a square a day`}</p>
-        </div>
-        {/* The latest weeks always show: on a narrow window the oldest are cut on the left. */}
-        <div className="flex max-w-full justify-end overflow-hidden">
-          <div data-year-grid className="grid shrink-0 gap-[2px]" style={{ gridTemplateColumns: `repeat(${weeks}, 8px)`, gridTemplateRows: 'repeat(7, 8px)', gridAutoFlow: 'column' }} onPointerLeave={() => setOn(null)}>{cells}</div>
-        </div>
-      </section>
-    )
+  const grid = { gridTemplateColumns: `repeat(${weeks}, ${cell}px)`, columnGap: 3 }
   return (
-    <section data-study-year-map aria-label="A year of study" className="grid gap-3 rounded-[5px] border border-foreground/10 bg-accent/25 p-4">
-      <div data-year-numbers className="grid grid-cols-2 gap-x-6 gap-y-2 sm:grid-cols-4">
+    <section data-study-year-map {...(compact ? { 'data-compact': '' } : {})} aria-label="A year of study" className="grid gap-3 rounded-[5px] mf-metal px-4 py-3">
+      <div data-year-numbers className="grid grid-cols-4 gap-x-4 gap-y-2 max-sm:grid-cols-2">
         {numbers.map(([value, label]) => (
-          <p key={label} data-year-number={label} className="grid">
+          <p key={label} data-year-number={label} className="grid min-w-0">
             <span className="font-serif text-xl leading-tight text-foreground tabular-nums">{value}</span>
-            <span className="text-sm text-muted-foreground">{label}</span>
+            <span className="truncate text-sm text-muted-foreground">{label}</span>
           </p>
         ))}
       </div>
-      <div data-year-grid className="grid gap-[2px]" style={{ gridTemplateColumns: `repeat(${weeks}, minmax(0, 1fr))`, gridTemplateRows: 'repeat(7, auto)', gridAutoFlow: 'column' }} onPointerLeave={() => setOn(null)}>{cells}</div>
+      {/* The latest weeks always show: on a narrow window the oldest are cut on the left. */}
+      <div className="flex justify-end overflow-hidden">
+        <div className="grid shrink-0 grid-cols-[auto_auto] gap-x-1.5 gap-y-1 text-[10px] leading-none text-muted-foreground">
+          <span />
+          <div aria-hidden data-year-months className="grid" style={grid}>{months.map((name, week) => <span key={week} className="overflow-visible whitespace-nowrap">{name}</span>)}</div>
+          <div aria-hidden className="grid" style={{ gridTemplateRows: `repeat(7, ${cell}px)`, rowGap: 3 }}>{['Mon', '', 'Wed', '', 'Fri', '', ''].map((name, at) => <span key={at} className="flex items-center">{name}</span>)}</div>
+          <div data-year-grid className="grid" style={{ ...grid, gridTemplateRows: `repeat(7, ${cell}px)`, rowGap: 3, gridAutoFlow: 'column' }} onPointerLeave={() => setOn(null)}>{cells}</div>
+        </div>
+      </div>
       <p data-year-said className="flex h-5 items-center justify-between gap-3 text-sm text-muted-foreground tabular-nums">
-        <span className="min-w-0 truncate">{on ?? 'A square a day, the darker the more cards.'}</span>
-        <span className="shrink-0">{total} this year</span>
+        <span className="min-w-0 truncate">{on ?? `${total} this year`}</span>
+        <span aria-hidden data-year-key className="flex shrink-0 items-center gap-[3px] text-xs">Less{INK.map((_, step) => <span key={step} className="rounded-[2px]" style={{ width: cell, height: cell, background: shade(step) }} />)}More</span>
       </p>
     </section>
   )
