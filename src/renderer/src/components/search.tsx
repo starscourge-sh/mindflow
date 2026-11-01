@@ -303,7 +303,7 @@ export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'tas
     // rises 6px into place. By ⌘K it is simply there (sheetMotion).
     // In a pane it is the page itself: the same box, list and keys, with a calm line over them saying what the pane is for.
     <motion.div role={present && !inPane ? 'dialog' : undefined} aria-modal={(present && !inPane) || undefined} aria-label="Search"
-      {...(inPane ? {} : sheet.scrim)} data-pane-picker={inPane ? '' : undefined}
+      {...(inPane ? {} : sheet.scrim)} data-pane-picker={inPane ? '' : undefined} data-search-scrim={inPane ? undefined : ''}
       className={inPane ? 'flex min-h-0 min-w-0 flex-1 flex-col' : `fixed inset-0 z-50 flex items-start justify-center bg-black/40 pt-[10vh] ${present ? '' : 'pointer-events-none'}`} onMouseDown={inPane ? undefined : onClose}>
       {inPane && (
         <div className="shrink-0 px-5 pt-8 pb-4">

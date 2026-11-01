@@ -312,6 +312,17 @@ html[data-overhang][data-card-held] .app-container {
   height: var(--mf-card-held);
   flex: none;
 }
+/* ⌘K's dim in quick capture lies over the card only, in its shape, not over the clear room round it, where it drew a
+   grey rectangle on the desktop. The palette still hangs past the card's foot into the room below (lib/fit-box.ts). */
+html[data-overhang] [data-search-scrim] {
+  inset: auto;
+  top: var(--mf-room-top);
+  left: var(--mf-room);
+  right: var(--mf-room);
+  height: var(--mf-card-held, calc(100% - var(--mf-room-top) - var(--mf-room)));
+  border-radius: 14px;
+  padding-top: 12px;
+}
 html[data-overhang] .app-container {
   --mf-window-tint: 100%;
   border-radius: 14px;

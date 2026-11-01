@@ -42,7 +42,7 @@ const pin = (height: number): void => {
   document.documentElement.style.setProperty('--mf-card-held', `${height}px`)
   document.documentElement.setAttribute('data-card-held', '')
 }
-const unpin = (): void => document.documentElement.removeAttribute('data-card-held')
+const unpin = (): void => void (document.documentElement.removeAttribute('data-card-held'), document.documentElement.style.removeProperty('--mf-card-held'))
 
 /** How tall the window has to be to show the whole note without scrolling, two lines at least; null with no note in it. */
 function needed(column: HTMLElement | null): number | null {

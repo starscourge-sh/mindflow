@@ -80,6 +80,9 @@
   transition-duration: 150ms;
 }
 :root[data-zen-hide] [data-zen-row]:not(:hover) > :not([data-zen-keep]):not(:has([data-state=open], [aria-expanded=true])) { pointer-events: none !important; }
+/* Quick capture with nothing written: no "+ ⠿" handle beside the placeholder. There is nothing to move or pick,
+   and the placeholder already says "/" for more. It comes with the first word. */
+:root:has(.ProseMirror.haligtree-editor > .is-editor-empty:only-child) .tiptap-drag-handle { visibility: hidden !important; }
 
 /* A voice note recording in quick capture (voice-note.tsx): the box is about the
    recording. Its writing and what hangs under it step aside (kept, only hidden);
