@@ -13,7 +13,7 @@ import { goToHeading, headingsOf } from "@/components/toc/headings"
 import { linesIn, nameBlock, BLOCK_TYPES } from "@/extensions/block-ids"
 import { typedOnly } from "@/lib/typed-suggestion"
 import { iconMarkup } from "@/lib/icon-markup"
-import { NOTE_KEY } from "../../../main/name"
+import { nameWithoutTags } from "../../../main/tag-words"
 
 /** One note the `@` menu can offer. The app decides what is findable. */
 export interface NoteSuggestion {
@@ -452,11 +452,11 @@ export const NoteLink = Node.create<NoteLinkOptions>({
     return [{ tag: "a[data-note]", priority: 100 }]
   },
 
-  // With a key it reads the way Linear's does, `V-30 hey jude`. Without one it
-  // is the plain `@title` it always was.
-  //
-  // Display text, when given, is all it shows. A heading follows the title,
-  // and a link to a heading in this same note is the heading alone.
+  // It reads as the note's name alone, in the line's own size: the code
+  // ("H-854") stays out of sight, as it does in the pickers, and a name's
+  // #tags are the note's, not its name. Display text, when given, is all it
+  // shows. A heading follows the title, and a link to a heading in this same
+  // note is the heading alone.
   //
   // Its kind's icon, in its kind's colour, comes first: a question reads as
   // one before a word of it is read.
@@ -480,18 +480,11 @@ export const NoteLink = Node.create<NoteLinkOptions>({
     })
     const words = String(blockText || "a line").trim()
     const line = block ? `“${words.length > 48 ? `${words.slice(0, 48).trim()}…` : words}”` : ""
-    const shown = text || [label, heading || line].filter(Boolean).join(" › ")
+    const name = label ? nameWithoutTags(label) || label.replace(/#/g, "").trim() : ""
+    const shown = text || [name, heading || line].filter(Boolean).join(" › ")
     const lead = icon ? [icon] : []
     // The icon says it is a link; the `@` only says so where there is none.
-    if (!key || text) return ["a", attrs, ...lead, ["span", { class: "tiptap-note-link-label" }, text || !id || icon ? shown : `@${shown}`]] as never
-    return [
-      "a",
-      attrs,
-      ...lead,
-      // A link made under an older handle still says MF- or V- in the note: shown as it is now.
-      ["span", { class: "tiptap-note-link-key" }, key.replace(/^(MF|V)-/, `${NOTE_KEY}-`)],
-      ["span", { class: "tiptap-note-link-label" }, shown],
-    ] as never
+    return ["a", attrs, ...lead, ["span", { class: "tiptap-note-link-label" }, text || !id || icon ? shown : `@${shown}`]] as never
   },
 
   /**
