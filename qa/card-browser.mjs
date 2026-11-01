@@ -38,9 +38,9 @@ try {
   check('"All cards" lists every card', await waitFor(async () => (await rows()).length === all.length), `${(await rows()).length} of ${all.length}`)
   await shot('card-browser', async () => { await c.go('review'); await h.evaluate(() => document.querySelector('[data-review-tab="cards"]').click()); await waitFor(() => h.evaluate(() => !!document.querySelector('[data-card-row]'))) })
   // Words.
-  await h.locator('[data-card-browser] input').first().fill('zebra')
+  await h.locator('[data-review-tab-controls] input').first().fill('zebra')
   check('searching finds by words', await waitFor(async () => { const now = await rows(); return now.length === 1 && now[0].includes('Zebra question') }), (await rows()).join(' | '))
-  await h.locator('[data-card-browser] input').first().fill('')
+  await h.locator('[data-review-tab-controls] input').first().fill('')
   // A tag and the tags under it.
   await chip('#astrophysics')
   const astro = all.filter((one) => one.tags.some((tag) => tag === 'astrophysics' || tag.startsWith('astrophysics-')))

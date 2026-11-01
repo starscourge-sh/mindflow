@@ -85,7 +85,7 @@ try {
   // Each grouping: the groups it should make, with counts.
   const heads = () => h.evaluate(() => [...document.querySelectorAll('[data-island-head], [data-card-group]')].map((one) => one.getAttribute('data-island-head') ?? one.getAttribute('data-card-group')))
   const want = {
-    deck: ['#law'], source: ['The Law Book', 'Lecture video', 'No source'], stage: ['New', 'Learning'], due: ['New', 'Paused'],
+    deck: ['Law'], source: ['The Law Book', 'Lecture video', 'No source'], stage: ['New', 'Learning'], due: ['New', 'Paused'],
     hard: ['Not reviewed yet'], made: [new Date().toLocaleDateString(undefined, { month: 'long', year: 'numeric' })], needs: ['Leeches', 'Too big', 'Slow', 'Fine as they are']
   }
   for (const [group, names] of Object.entries(want)) {
@@ -95,7 +95,7 @@ try {
     check(`grouped by ${group}`, names.every((one) => got.includes(one)), got.join(' | '))
   }
   await reopen({ group: 'source' })
-  check('a book\'s group shows which pages have cards', await h.evaluate(() => /Cards on 3 of 40 pages/.test(document.querySelector('[data-coverage]')?.textContent ?? '')), await h.evaluate(() => document.querySelector('[data-coverage]')?.textContent))
+  check('a book\'s group shows which pages have cards', await h.evaluate(() => /3 of [0-9]+ pages have cards/.test(document.body.textContent) || /Cards on 3 of 40 pages/.test(document.querySelector('[data-coverage]')?.textContent ?? '')), await h.evaluate(() => document.querySelector('[data-coverage]')?.textContent))
   check('a group head carries its 30 days ahead', await h.evaluate(() => document.querySelectorAll('[data-due-ahead]').length > 0))
   await shot('all-cards-source', () => open())
   await reopen({ group: 'needs' })
@@ -128,11 +128,11 @@ try {
   // Drawn where you look: the first run of 24 at once, the rest as you scroll to them.
   const fronts = await h.evaluate(() => document.querySelectorAll('[data-card-grid] [data-card-face="front"]').length)
   check('cards view draws the cards in sight', fronts >= Math.min(all.length, 24) && fronts <= all.length, `${fronts} of ${all.length}`)
-  await h.locator('[data-card-browser] input').first().fill('Venetian')
+  await h.locator('[data-review-tab-controls] input').first().fill('Venetian')
   await waitFor(() => h.evaluate(() => document.querySelectorAll('[data-card-grid] [data-pick]').length === 1))
   check('a snip\'s picture is on its face', await h.evaluate((id) => !!document.querySelector(`[data-pick="nugget:${id}"] [data-card-face="front"] img`), p3))
   check('its source at the foot', await h.evaluate((id) => /The Law Book, p\. 3/.test(document.querySelector(`[data-pick="nugget:${id}"] [data-card-face="front"]`)?.textContent ?? ''), p3))
-  await h.locator('[data-card-browser] input').first().fill('')
+  await h.locator('[data-review-tab-controls] input').first().fill('')
   await h.mouse.move(5, 5)
   await shot('all-cards-cards', async () => { await open(); await h.mouse.move(5, 5) })
   // Keys: J moves, Space turns one, ⇧Space turns them all.

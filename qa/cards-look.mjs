@@ -67,7 +67,7 @@ try {
   const dense = await h.evaluate(() => { const one = document.querySelector('[data-deck-grid] [data-own-deck]'); const r = one.getBoundingClientRect(); const first = [...one.querySelectorAll('h3, [data-deck-counts]')][0]; return { w: Math.round(r.width), h: Math.round(r.height), lead: first?.tagName, bg: getComputedStyle(one).backgroundImage } })
   check('1b. a deck tile is about 200 px square', dense.w >= 168 && dense.w <= 215 && Math.abs(dense.w - dense.h) <= 2, JSON.stringify({ w: dense.w, h: dense.h }))
   check('1b. its name leads, above its counts', dense.lead === 'H3', dense.lead)
-  check('1b. its satin has a brushed grain and a sheen', /repeating-linear-gradient/.test(dense.bg) && (dense.bg.match(/gradient/g) ?? []).length >= 2, dense.bg.slice(0, 60))
+  check('1b. its satin is smooth: a sheen and a pooled light, no stripes', !/repeating-linear-gradient/.test(dense.bg) && (dense.bg.match(/gradient/g) ?? []).length >= 2, dense.bg.slice(0, 60))
   const tipsOn = async (selector) => { await h.hover(selector); await h.waitForTimeout(900); return h.evaluate((selector) => { const el = document.querySelector(selector); const titled = [el, ...el.querySelectorAll('*')].filter((one) => one.hasAttribute('title')).length; for (let at = el.parentElement; at; at = at.parentElement) if (at.hasAttribute?.('title')) return 99; return titled + [...document.querySelectorAll('[role="tooltip"], [data-note-preview]')].filter((one) => one.getBoundingClientRect().width > 0).length }, selector) }
   const onTile = await tipsOn('[data-deck-grid] [data-own-deck] h3')
   const onDots = await tipsOn('[data-deck-grid] [data-own-deck] [aria-label="Deck options"]')
@@ -91,6 +91,41 @@ try {
   const bar = {}
   for (const id of ['decks', 'cards', 'stats']) { await tab(id); await waitFor(() => has('[data-review-toolbar]')); await h.evaluate(() => { for (let at = document.querySelector('[data-review-toolbar]'); at; at = at.parentElement) at.scrollTop = 0 }); await h.waitForTimeout(150); bar[id] = await h.evaluate(() => [...document.querySelectorAll('[data-review-toolbar] [data-deck-make], [data-review-toolbar] [data-deck-paste], [data-review-toolbar] [data-deck-picture], [data-review-toolbar] [data-deck-import]')].map((one) => { const r = one.getBoundingClientRect(); return `${one.textContent}@${Math.round(r.x)},${Math.round(r.y)},${Math.round(r.width)}` }).join(' ')) }
   check('1c. one toolbar: the same four buttons in the same place on Decks, All cards and Stats', bar.decks && bar.decks.split(' @').length && bar.decks === bar.cards && bar.cards === bar.stats, JSON.stringify(bar))
+  // The toolbar never moves or goes: the same four boxes on every tab, with each form open, and across switches.
+  const fourBoxes = () => h.evaluate(() => [...document.querySelectorAll('[data-review-toolbar] [data-deck-make], [data-review-toolbar] [data-deck-paste], [data-review-toolbar] [data-deck-picture], [data-review-toolbar] [data-deck-import]')].map((one) => { const r = one.getBoundingClientRect(); return `${Math.round(r.x)},${Math.round(r.y)},${Math.round(r.width)},${Math.round(r.height)}` }).join(' '))
+  const states = {}
+  for (const [name, steps] of [['decks', ['decks']], ['picture on decks', ['decks', '[data-deck-picture]']], ['make', ['cards', '[data-deck-make]']], ['many', ['decks', '[data-deck-paste]']], ['stats', ['stats']], ['picture on stats', ['stats', '[data-deck-picture]']], ['cards', ['cards']]]) {
+    await tab(steps[0])
+    await h.evaluate(() => { for (let at = document.querySelector('[data-review-toolbar]'); at; at = at.parentElement) at.scrollTop = 0 })
+    if (steps[1]) { await h.click(steps[1]); await h.waitForTimeout(500) }
+    states[name] = await fourBoxes()
+    if (steps[1] && await has(`${steps[1]}[aria-pressed="true"]`)) states[name] += ' pressed'
+    if (steps[1]) { await h.keyboard.press('Escape'); if (await has(`${steps[1]}[aria-pressed="true"]`)) await h.click(steps[1]); await h.waitForTimeout(300) }
+  }
+  const plain = states.decks
+  check('1c. the toolbar stays, the same four boxes, on every tab and with every form open', Object.values(states).every((one) => one.replace(' pressed', '') === plain), JSON.stringify(states))
+  check('1c. the button whose form is open shows pressed', ['picture on decks', 'make', 'many', 'picture on stats'].every((name) => states[name].endsWith(' pressed')), JSON.stringify(states))
+  check('1c. a tab\'s own controls sit in the toolbar\'s right end, never a row of their own', await (async () => { await tab('cards'); return h.evaluate(() => { const bar = document.querySelector('[data-review-toolbar]').getBoundingClientRect(); const own = document.querySelector('[data-review-tab-controls]'); return !!own && own.children.length > 0 && Math.abs(own.getBoundingClientRect().top + own.getBoundingClientRect().height / 2 - (bar.top + bar.height / 2)) <= 2 }) })())
+  await tab('stats')
+  // Hovering a chart moves nothing: every card's box the same with the pointer on each chart, and no tip floats.
+  const cardBoxes = () => h.evaluate(() => [...document.querySelectorAll('[data-review-stats] [data-mono-card]')].map((one) => { const r = one.getBoundingClientRect(); return `${Math.round(r.y)},${Math.round(r.height)}` }).join(' '))
+  const rest = await cardBoxes()
+  const moved = []
+  for (const name of await h.evaluate(() => [...document.querySelectorAll('[data-review-stats] [data-mono-card]')].map((one) => one.getAttribute('data-mono-card')))) {
+    const marks = h.locator(`[data-review-stats] [data-mono-card="${name}"] [data-day], [data-review-stats] [data-mono-card="${name}"] svg, [data-review-stats] [data-mono-card="${name}"] [data-mono-tones] span`)
+    if (!(await marks.count())) continue
+    await marks.first().scrollIntoViewIfNeeded()
+    const box = await marks.first().boundingBox()
+    if (!box) continue
+    await h.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+    await h.waitForTimeout(250)
+    await h.evaluate(() => { for (let at = document.querySelector('[data-review-stats]'); at; at = at.parentElement) at.scrollTop = 0 })
+    const now = await cardBoxes()
+    if (now !== rest || await has('[data-mono-tip]')) moved.push(name)
+  }
+  check('1e. pointing at any chart moves no card and floats no tip', !moved.length, JSON.stringify(moved))
+  await h.mouse.move(5, 5)
+
   // Stats says each figure once; its days are the heatmap's square cells.
   const statsText = await h.evaluate(() => document.querySelector('[data-review-stats]').textContent)
   check('1d. Stats says "of the last 7 days" once and the retention figure once', (statsText.match(/of the last 7 days/g) ?? []).length <= 1 && !(await has('[data-mono-card="retention"]')), String((statsText.match(/of the last 7 days/g) ?? []).length))
@@ -111,6 +146,16 @@ try {
   const heads = await h.evaluate(() => [...document.querySelectorAll('[data-card-group] h2, [data-island] h2, [data-island] [data-island-title]')].map((one) => one.textContent).join(' | '))
   const chips = await h.evaluate(() => [...document.querySelectorAll('[data-card-browser] [role="radio"], [data-card-browser] [data-chip]')].map((one) => one.textContent).join(' | '))
   check('2. grouped by deck, the headings and chips carry no #', !/#/.test(heads) && !/#/.test(chips), `${heads.slice(0, 160)} || ${chips.slice(0, 160)}`)
+
+  // Every row in the Table and the List one line high: a stage cell says one word.
+  for (const density of ['compact', 'list']) {
+    await h.evaluate((density) => { const v = JSON.parse(localStorage.getItem('view:cards') ?? '{}'); localStorage.setItem('view:cards', JSON.stringify({ ...v, density, group: 'none' })) }, density)
+    await review(); await tab('cards')
+    await waitFor(() => has('[data-card-list] [data-pick]'))
+    const heights = await h.evaluate(() => [...new Set([...document.querySelectorAll('[data-card-list] [data-pick]')].map((one) => Math.round(one.getBoundingClientRect().height)))])
+    const stages = await h.evaluate(() => [...new Set([...document.querySelectorAll('[data-card-stage-cell], [data-card-list] [data-card-stage]')].map((one) => one.textContent.trim()))])
+    check(`1f. ${density}: every row the same height, stage cells one word`, heights.length === 1 && stages.every((one) => !/\s|\(/.test(one)), JSON.stringify({ heights, stages }))
+  }
 
   // 3. "Asks for N things" under the card, never over its words; one sound at most for a click on it.
   await h.evaluate(() => { const v = JSON.parse(localStorage.getItem('view:cards') ?? '{}'); localStorage.setItem('view:cards', JSON.stringify({ ...v, density: 'grid', group: 'none' })) })
