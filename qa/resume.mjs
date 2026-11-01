@@ -86,7 +86,7 @@ try {
   const queue = await v('review:queue')
   if (queue[0]) await v('review:grade', queue[0].id, 3, 4000)
   // Review counts the day: after a card graded before this sitting, the line over the card starts past 1.
-  await go('review'); await wait(2500)
+  await go('review', ':today'); await wait(2500)
   const through = await h.evaluate(() => document.querySelector('[data-through]')?.textContent ?? '')
   check('(mento 1) Review counts the day, not the sitting: the line starts past "1 of"', Number(/^(\d+)/.exec(through)?.[1] ?? 0) >= 2, through)
   // A practice round and a typed answer, left and come back to.
@@ -96,7 +96,7 @@ try {
   await h.locator('textarea[placeholder^="Type the answer first"]').fill('half a thought about bridges').catch(() => {})
   await wait(400)
   await go('inbox'); await wait(800)
-  await go('review'); await wait(2500)
+  await go('review', ':today'); await wait(2500)
   const typed = await h.evaluate(() => document.querySelector('textarea[placeholder^="Type the answer first"]')?.value ?? '')
   check('(mento 4) a typed answer survives leaving Review and coming back', typed === 'half a thought about bridges', typed)
   const roundAfter = await h.evaluate(() => /Back to today/.test(document.body.innerText))
@@ -145,7 +145,7 @@ try {
     for (const one of due) await v('review:grade', one.id, 3, 3000)
   }
   await go('inbox'); await wait(800)
-  await go('review'); await wait(2500)
+  await go('review', ':today'); await wait(2500)
   const finished = await h.evaluate(() => document.querySelector('[data-review-finished]')?.textContent ?? '')
   check('(mento 2) coming back after the day\'s cards says "Done for today" with the count', /^Done for today/.test(finished) && /\d+ cards? this (morning|afternoon|evening)/.test(finished), finished.slice(0, 160))
   await both(join(shots, 'resume-done-today'))

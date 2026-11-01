@@ -290,7 +290,7 @@ const PAGES = {
   'calendar-week': async () => { await go('calendar'); await h.locator('[data-cal-view=week]').click(); await wait(900) },
   'calendar-month': async () => { await go('calendar'); await h.locator('[data-cal-view=month]').click(); await wait(900) },
   upcoming: () => go('upcoming'), later: () => go('later'), routines: () => go('routines'), practices: () => go('practices'),
-  review: () => go('review'), stats: () => go('stats'), map: () => go('map'), bin: () => go('discarded'), archived: () => go('archived'),
+  review: () => go('review', ':today'), stats: () => go('stats'), map: () => go('map'), bin: () => go('discarded'), archived: () => go('archived'),
   sources: () => go('sources'), powers: () => go('powers'),
   'sidebar-menu': async () => {
     await go('inbox')

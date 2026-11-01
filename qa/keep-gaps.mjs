@@ -16,7 +16,7 @@ try {
   await v('settings:set', { sounds: true, hintRate: 0, rotCount: 0 })
 
   // Review: grade one, then take it back.
-  await go('review')
+  await go('review', ':today')
   await h.waitForTimeout(800)
   const first = (await h.locator('h2').first().textContent())?.trim()
   await h.keyboard.press('Space')

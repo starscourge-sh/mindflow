@@ -104,7 +104,7 @@ try {
   await v('item:save', card, { prompt: 'Where in a cell is ATP made?' })
   for (const one of await v('cards:all')) if (one.id !== card) await v('item:save', one.id, { suspended: true })
   await h.reload(); await wait(2500); await standIn()
-  await c.go('review'); await wait(800)
+  await c.go('review', ':today'); await wait(800)
   const answer = h.locator('textarea').first()
   await answer.click()
   await settle('mitochondria')

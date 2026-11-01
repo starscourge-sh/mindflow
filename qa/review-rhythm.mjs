@@ -163,7 +163,7 @@ try {
   await v('item:save', card, { prompt: 'At what temperature does water boil at sea level?' })
   check('12. the gem keeps the exact passage it came from', (await v('item', card))?.passage === 'Water boils at one hundred degrees at sea level')
   await v('settings:set', { newPerDay: 500 })
-  await go('review')
+  await go('review', ':today')
   let seen = false
   for (let i = 0; i < 300; i++) {
     const heading = await h.locator('[data-review-finished]').count()

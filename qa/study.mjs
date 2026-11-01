@@ -45,7 +45,7 @@ const gem = async (words, prompt, grades = []) => {
 /** Review open on its first card, the answer shown. */
 const reviewTo = async (prompt) => {
   await go('home')
-  await go('review')
+  await go('review', ':today')
   await h.waitForFunction((p) => [...document.querySelectorAll('h2[contenteditable]')].some((one) => one.textContent?.includes(p)), prompt, { timeout: 8000 })
   await blur()
 }
@@ -144,7 +144,7 @@ try {
   for (let i = 0; i < 20 && (await v('item', lagrange)).suspended !== 1; i++) await wait(150)
   check('3 sets it aside', (await v('item', lagrange)).suspended === 1)
   await go('home')
-  await go('review')
+  await go('review', ':today')
   await wait(1200)
   check('the Struggling shelf keeps it, paused', (await text('[data-struggling]')).includes('What are the Lagrange points?') && (await text('[data-struggling]')).includes('Paused'), await text('[data-struggling]'))
   await shot('struggling-shelf')
@@ -206,7 +206,7 @@ try {
   check('the rounds count their cards', buckets.new >= 3, JSON.stringify(buckets))
   const before = Object.fromEntries((await v('items', 'nugget')).map((one) => [one.id, one.dueAt]))
   await go('home')
-  await go('review')
+  await go('review', ':today')
   await wait(1200)
   // The rounds sit folded under “Practise”, at the top of Review.
   await h.evaluate(() => document.querySelector('[data-practise]')?.click())
@@ -354,7 +354,7 @@ try {
   const answers = Object.fromEntries(newOnes.map((one) => [one.prompt, String(typeof one.body === 'string' ? one.body : '').replace(/#[\w-]+/g, '').replace(/\s+/g, ' ').trim().slice(0, 140)]))
   const newBefore = (await v('review:buckets')).new
   await go('home')
-  await go('review')
+  await go('review', ':today')
   await wait(1200)
   await h.evaluate(() => document.querySelector('[data-learn-new]')?.click())
   await wait(1000)
@@ -518,7 +518,7 @@ try {
   const kepler = (await v('items', 'card')).filter((one) => !one.archivedAt)
   check('sandbox: Kepler’s laws are three cards', kepler.length === 3 && kepler.every((one) => /law$/.test(one.prompt)), kepler.map((one) => one.prompt).join(' | '))
   check('sandbox: a card on the Struggling shelf', (await v('review:slipping')).some((one) => one.title === 'Lagrange points'))
-  await go('review')
+  await go('review', ':today')
   await h.waitForTimeout(1500)
   await h.screenshot({ path: join(dir, 'sandbox-review.png') })
   check('sandbox: Review offers the practice rounds', await h.evaluate(() => !!document.querySelector('[data-practise]')))

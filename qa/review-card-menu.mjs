@@ -19,7 +19,7 @@ const menu = () => h.evaluate(() => {
 try {
   await v('settings:set', { sounds: false, hintRate: 0 })
   await v('onboarding:set', { pageHints: false })
-  await go('review'); await wait(1500)
+  await go('review', ':today'); await wait(1500)
   const face = h.locator('[data-review-card] h2').first()
   check('Review shows a card', await face.count() === 1)
   await face.click({ button: 'right' }); await wait(400)
@@ -38,7 +38,7 @@ try {
   await h.keyboard.press('Meta+z'); await wait(900)
   check('⌘Z brings it back', (await v('items', 'nugget')).length === before)
   // ⌫, as the menu's hint says: the card in front goes to the Bin, and ⌘Z brings it back.
-  await go('inbox'); await go('review'); await wait(1500)
+  await go('inbox'); await go('review', ':today'); await wait(1500)
   const next = await h.locator('[data-review-card] h2').first().textContent()
   await h.keyboard.press('Backspace'); await wait(900)
   check('⌫ bins the card in front', (await v('items', 'nugget')).length === before - 1)

@@ -17,7 +17,7 @@ const check = (name, ok, detail = '') => { results.push(ok); console.log(`${ok ?
 const c = await sandbox()
 try {
   const { h, go } = c
-  await go('review')
+  await go('review', ':today')
   await h.mouse.click(5, 300)
   // On a card the word is only keys: no game.
   await h.keyboard.type('play', { delay: 40 })

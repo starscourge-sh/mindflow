@@ -10,7 +10,7 @@ const { h } = c
 const waitFor = async (test, ms = 8000) => { for (const end = Date.now() + ms; Date.now() < end; await h.waitForTimeout(150)) if (await test()) return true; return false }
 const asked = () => h.evaluate(() => document.querySelector('h2')?.textContent ?? '')
 try {
-  await c.go('review')
+  await c.go('review', ':today')
   await waitFor(async () => (await asked()).length > 3)
   const first = await asked()
   await h.evaluate(() => document.activeElement?.blur())

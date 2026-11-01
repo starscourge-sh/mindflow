@@ -63,7 +63,7 @@ try {
   await v('blurt:sooner', [whyOnly, bothFilled])
   for (const one of await v('review:queue')) if (![whyOnly, bothFilled].includes(one.id)) await v('review:bury', one.id)
   for (const one of await v('review:queue')) if (![whyOnly, bothFilled].includes(one.id)) await v('item:save', one.id, { suspended: true })
-  await go('home'); await go('review')
+  await go('home'); await go('review', ':today')
   await h.waitForFunction(() => document.querySelector('[data-review-card] h2'), null, { timeout: 8000 })
   await blur()
   const asked = await h.locator('[data-review-card] h2').first().textContent()

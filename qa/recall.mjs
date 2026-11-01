@@ -39,7 +39,7 @@ try {
   await wait(500)
 
   // --- Review: one quiet line over the card ---------------------------------------------
-  await go('review')
+  await go('review', ':today')
   await wait(900)
   const due = (await v('review:queue')).length
   const top = await has('[data-review-top]')
@@ -164,7 +164,7 @@ try {
 
   // --- Still wondering, on Home ----------------------------------------------------------
   await h.evaluate(() => localStorage.removeItem('stillWondering'))
-  await go('review')
+  await go('review', ':today')
   await go('home')
   await wait(600)
   const wonder = await text('[data-still-wondering]')
@@ -174,7 +174,7 @@ try {
   if (!(await h.locator('[data-still-wondering]').first().isVisible()) && await h.locator('[data-now-more]').count()) { await h.locator('[data-now-more]').click(); await h.waitForTimeout(500) }
   await h.locator('[data-still-wondering] button', { hasText: 'Not now' }).click()
   await wait(400)
-  await go('review')
+  await go('review', ':today')
   await go('home')
   check('home: Not now puts it away for the day', !(await has('[data-still-wondering]')))
 

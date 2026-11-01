@@ -62,7 +62,7 @@ try {
   // Review's card menu moves it either way, with Undo.
   // The sandbox's own cards paused, so the study card comes up first.
   for (const one of await v('review:queue')) if (one.id !== study.id) await v('item:save', one.id, { suspended: true })
-  await c.go('review'); await wait(1500)
+  await c.go('review', ':today'); await wait(1500)
   const shown = async () => h.evaluate(() => document.querySelector('[data-review-card]')?.textContent ?? '')
   // Step to the study card: the queue's order is its own.
   for (let n = 0; n < 4 && !(await shown()).includes('Which sentence is worth keeping?'); n++) {

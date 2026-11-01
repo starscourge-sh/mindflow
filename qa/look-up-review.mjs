@@ -16,7 +16,7 @@ try {
   await h.reload(); await wait(2000)
   const card = await v('nugget:from', 'Petrichor is the smell of rain on dry earth', {})
   await v('item:save', card, { prompt: 'What is the smell of rain called?', title: 'What is the smell of rain called?' })
-  await c.go('review'); await wait(1500)
+  await c.go('review', ':today'); await wait(1500)
   await h.keyboard.press('Space'); await wait(1200)
   const box = await h.evaluate(() => {
     const ed = [...document.querySelectorAll('.tiptap')].find((one) => one.textContent.includes('Petrichor'))

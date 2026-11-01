@@ -114,10 +114,16 @@ try {
   await call('tag:set', 'zymurgy', { deck: true })
   await openDecks()
   await waitFor(() => h.evaluate(() => !!document.querySelector('[data-own-deck="zymurgy"]')))
+  // Plain by default: the shapes are an opt-in, "Shapes on decks" under Covers in Settings.
+  check('Decks: by default no deck wears a drawn cover, each a plain face', (await covers('[data-deck-shelf]')).length === 0 && await h.evaluate(() => !!document.querySelector('[data-own-deck="zymurgy"] [data-deck-face]')))
+  await h.evaluate(() => window.api.haligtree('settings:set', { deckShapes: true }))
+  await c.go('home')
+  await openDecks()
+  await waitFor(() => h.evaluate(() => !!document.querySelector('[data-own-deck="zymurgy"] [data-group-cover]')))
   const deck = await covers('[data-deck="Geography"]')
   const own = await covers('[data-own-deck="zymurgy"]')
-  check('Decks: a deck made by hand wears its drawn cover, the one its pocket wears', own.length === 1 && tinted(own) && own[0].name === '#zymurgy', JSON.stringify(own))
-  check('Decks: a deck with no pictures wears its drawn cover, in its colour', deck.length === 1 && tinted(deck), JSON.stringify(deck))
+  check('Decks, with "Shapes on decks" on: a deck made by hand wears its drawn cover, the one its pocket wears', own.length === 1 && tinted(own) && own[0].name === '#zymurgy', JSON.stringify(own))
+  check('Decks, with "Shapes on decks" on: a deck with no pictures wears its drawn cover, in its colour', deck.length === 1 && tinted(deck), JSON.stringify(deck))
   await both('covers-decks', openDecks)
   // Your month's tag card.
   const openMonth = async () => {

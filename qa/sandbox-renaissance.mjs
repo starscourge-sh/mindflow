@@ -106,7 +106,7 @@ try {
   if (SHOT) {
     await c.go('map'); await h.waitForTimeout(2500)
     await h.screenshot({ path: join(SHOT, 'map-light.png') })
-    await c.go('review'); await h.waitForTimeout(1500)
+    await c.go('review', ':today'); await h.waitForTimeout(1500)
     // Past the cards before it ("Not today", B), so Vasari's line is the one showing.
     for (let i = 0; i < 12 && !(await h.evaluate(() => document.body.innerText.includes("Masaccio's painted vault"))); i++) { await h.keyboard.press('b'); await h.waitForTimeout(500) }
     await h.screenshot({ path: join(SHOT, 'review-light.png') })
@@ -120,7 +120,7 @@ try {
     await h.screenshot({ path: join(SHOT, 'ceiling-dark.png') })
     await c.go('map'); await h.waitForTimeout(2500)
     await h.screenshot({ path: join(SHOT, 'map-dark.png') })
-    await c.go('review'); await h.waitForTimeout(1500)
+    await c.go('review', ':today'); await h.waitForTimeout(1500)
     await h.screenshot({ path: join(SHOT, 'review-dark.png') })
     await h.keyboard.press('Space'); await h.waitForTimeout(700)
     await h.screenshot({ path: join(SHOT, 'review-dark-answer.png') })

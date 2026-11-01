@@ -101,13 +101,13 @@ try {
   await c.send('capture', id)
   check('with no video or PDF in the note, nothing is drawn as a link', await waitFor(() => h.evaluate(() => !!document.querySelector('.mf-line-card') && !document.querySelector('.mf-time-link'))))
   await v('cards:pause', (await cardsOf(id)).map((one) => one.id), true); await h.waitForTimeout(600)
-  await c.go('review')
+  await c.go('review', ':today')
   check('the "From" line draws the note\'s formulas too, not "x^2"', await waitFor(() => h.evaluate(() => !!document.querySelector('[data-line-from] .katex') && !document.querySelector('[data-line-from]')?.textContent?.includes('of x^2?'))), await h.evaluate(() => document.querySelector('[data-line-from]')?.textContent))
   check('in Review the time leaves the question and sits on the "From" line', await waitFor(() => h.evaluate(() => !document.querySelector('h2')?.textContent?.includes('[0:42]') && document.querySelector('[data-line-time]')?.textContent === '0:42')), await h.evaluate(() => document.querySelector('[data-line-from]')?.textContent))
   check('Review draws the formula in the question', await waitFor(() => h.evaluate(() => [...document.querySelectorAll('h2 .katex')].length > 0)), await h.evaluate(() => document.querySelector('h2')?.textContent))
   if (shots) {
     for (const theme of ['paper', 'dark']) {
-      await c.theme(theme); await c.go('review')
+      await c.theme(theme); await c.go('review', ':today')
       await h.waitForTimeout(600)
       await h.screenshot({ path: join(shots, `review-formula-${theme}.png`) })
     }

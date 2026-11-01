@@ -130,7 +130,7 @@ try {
   check('Stats never says a length in bare minutes past an hour', !LONG_MIN.test(stats), stats.match(LONG_MIN)?.[0])
 
   // Review: "1 of 1,5xx" and the days in a row.
-  await c.go('review')
+  await c.go('review', ':today')
   await h.waitForTimeout(1500)
   const reviewSaid = await words('review')
   check('Review says “1 of 1,5xx”', /1of1,5\d\d/.test(reviewSaid), reviewSaid.slice(0, 120))

@@ -124,7 +124,7 @@ try {
   await h.mouse.click(600, 400)
 
   // ---- What a key reaches: no frame in between ----
-  await go('review')
+  await go('review', ':today')
   await h.waitForTimeout(800)
   await h.keyboard.press('Space')
   await h.waitForTimeout(500)
@@ -299,7 +299,7 @@ try {
   await h.waitForTimeout(200)
   const timed = await h.evaluate(() => [...document.querySelectorAll('button, a, [role="button"]')].filter((el) => getComputedStyle(el).transitionDuration.split(',').some((d) => parseFloat(d) > 0)).length)
   check('Motion off: no button keeps a transition (Brutal style)', timed === 0, `${timed} with a transition`)
-  await go('review')
+  await go('review', ':today')
   await h.waitForTimeout(150)
   const offMoving = await moving()
   await h.keyboard.press('Meta+k')
@@ -327,7 +327,7 @@ try {
       }
     }, 16)
   })
-  await go('review')
+  await go('review', ':today')
   await h.waitForTimeout(500)
   await h.keyboard.press('Space')
   await h.waitForTimeout(300)

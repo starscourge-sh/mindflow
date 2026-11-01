@@ -99,7 +99,7 @@ try {
   // 1. Struggling: a task with no day, linked to the card; a page in Writing.
   const slipping = await v('review:slipping')
   check('a struggling card to work with', slipping.length > 0, `${slipping.length}`)
-  await go('review')
+  await go('review', ':today')
   await h.waitForTimeout(1500)
   const shelf = await h.evaluate(() => !!document.querySelector('[data-struggling]'))
   check('Review shows the Struggling shelf', shelf)

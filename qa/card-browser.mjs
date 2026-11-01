@@ -33,7 +33,7 @@ try {
   // The list view: All cards opens on its pockets.
   await h.evaluate(() => localStorage.setItem('view:cards', JSON.stringify({ sort: 'due', group: 'none', filter: {}, density: 'list' })))
   await c.go('review')
-  await shot('review-today', () => c.go('review'))
+  await shot('review-today', () => c.go('review', ':today'))
   await h.evaluate(() => document.querySelector('[data-review-tab="cards"]').click())
   check('"All cards" lists every card', await waitFor(async () => (await rows()).length === all.length), `${(await rows()).length} of ${all.length}`)
   await shot('card-browser', async () => { await c.go('review'); await h.evaluate(() => document.querySelector('[data-review-tab="cards"]').click()); await waitFor(() => h.evaluate(() => !!document.querySelector('[data-card-row]'))) })

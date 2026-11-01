@@ -13,7 +13,7 @@ const { h, v } = c
 const shots = process.env.QA_SHOTS ?? '/tmp'
 const waitFor = async (test, ms = 8000) => { for (const end = Date.now() + ms; Date.now() < end; await h.waitForTimeout(150)) if (await test()) return true; return false }
 const asked = () => h.evaluate(() => document.querySelector('h2')?.textContent ?? '')
-const fresh = async () => { await h.reload(); await h.waitForTimeout(2500); await c.go('review'); await waitFor(async () => (await asked()).length > 3) }
+const fresh = async () => { await h.reload(); await h.waitForTimeout(2500); await c.go('review', ':today'); await waitFor(async () => (await asked()).length > 3) }
 try {
   await v('settings:set', { newPerDay: 500, hintRate: 0 })
 

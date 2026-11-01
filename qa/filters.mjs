@@ -110,7 +110,7 @@ try {
   await mode('List')
 
   // 4. Review: the rounds' name is a lead-in, and only rounds with cards are offered.
-  await go('review'); await wait(1200)
+  await go('review', ':today'); await wait(1200)
   if (await h.locator('[data-practise]').count()) { await h.locator('[data-practise]').first().click(); await wait(500) }
   const rounds = await h.evaluate(() => ({ lead: document.querySelector('[data-focus-lead]')?.textContent ?? '', chips: [...document.querySelectorAll('[data-focus-chips] button')].map((one) => one.getAttribute('aria-label') ?? one.textContent.trim()) }))
   check('Review: “Practise a round:” leads the rounds, never reads as a chip', rounds.lead === 'Practise a round:', rounds.lead)

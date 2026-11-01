@@ -65,7 +65,7 @@ try {
   check('… and its close button closes it', !(await h.locator('[data-sort-out]').count()))
 
   // Review.
-  await go('review'); await wait(1500)
+  await go('review', ':today'); await wait(1500)
   m = await plain('main, [data-pane]')
   check('Review: no keycaps on its buttons', m && !m.caps, JSON.stringify(m))
   await shoot('review')

@@ -35,7 +35,7 @@ try {
   console.log('cards added:', all.length - before)
   const sample = all.slice(-400).filter((x) => x.prompt).sort(() => 0.5 - Math.random()).slice(0, 8).map((x) => ({ prompt: (x.prompt || '').slice(0, 140), title: (x.title || '').slice(0, 80) }))
   console.log(JSON.stringify(sample, null, 1))
-  await go('review'); await wait(2500)
+  await go('review', ':today'); await wait(2500)
   await h.screenshot({ path: join(shots, 'review-1.png') })
   for (let i = 2; i <= 4; i++) { await h.keyboard.press('Space'); await wait(1200); await h.screenshot({ path: join(shots, `review-${i}a.png`) }); await h.keyboard.press('3'); await wait(1200) }
   await go('media'); await wait(2000); await h.screenshot({ path: join(shots, 'media.png') })

@@ -81,12 +81,12 @@ try {
   await v('onboarding:set', { pageHints: false })
 
   // --- Ask another way
-  await go('review'); await wait(1500)
+  await go('review', ':today'); await wait(1500)
   const face = h.locator('[data-review-card] h2').first()
   check('Review shows a card', await face.count() === 1)
   const front = (await v('review:queue'))[0]
   await v('item:save', front.id, { context: 'Kept context: the bigger story' })
-  await go('inbox'); await go('review'); await wait(1500)
+  await go('inbox'); await go('review', ':today'); await wait(1500)
   const before = (await allCards()).length
   await h.keyboard.press('a'); await wait(500)
   check('A opens "Ask another way" under the card', await h.locator('[data-another-way]').isVisible())
@@ -141,7 +141,7 @@ try {
 
   // A Context with a picture: drawn, never written out, in Review and on the gem's page.
   await v('item:save', front.id, { context: `Kept context: the bigger story\n![](${asset})` })
-  await go('inbox'); await go('review'); await wait(1500)
+  await go('inbox'); await go('review', ':today'); await wait(1500)
   await h.keyboard.press(' '); await wait(700)
   check('Review draws the context\'s picture', await h.locator('[data-card-context] img').count() === 1)
   check('and never writes it out', !/!\[/.test(await h.locator('[data-card-context]').textContent()))
@@ -201,10 +201,10 @@ try {
   check('typed c1 and c2 make a card each', (await allCards()).length === n + 1)
   check('lists show the typed blank as a gap, never its answer', await h.evaluate(() => { const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT); const out = []; for (let n = w.nextNode(); n; n = w.nextNode()) if (n.textContent.includes('{{c1::') && !n.parentElement.closest('textarea, input')) out.push(n.parentElement.outerHTML.slice(0, 120)); return out }).then((out) => (out.length ? console.log(out) : 0, out.length === 0)))
   check('this one keeps c1, c2 written out', (await item(typed)).prompt === 'Surfactant is made by {{c1::type 2 cells::which cells}} and taken up by macrophages', (await item(typed)).prompt)
-  await go('review'); await wait(1500)
+  await go('review', ':today'); await wait(1500)
   const inFront = (await v('review:queue'))[0]
   await v('item:save', inFront.id, { prompt: 'The capital of Azerbaijan is {{c1::Baku::a city on the Caspian}}' })
-  await go('inbox'); await go('review'); await wait(1500)
+  await go('inbox'); await go('review', ':today'); await wait(1500)
   const asked = h.locator('[data-review-card] h2').first()
   check('Review draws a typed blank as a gap with its hint inside', (await asked.locator('[data-blank]').textContent().catch(() => '')) === 'a city on the Caspian' && !/\{\{/.test(await asked.textContent()), await asked.textContent())
   if (shots) await both(`${shots}/typed-cloze`)

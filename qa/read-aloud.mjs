@@ -26,7 +26,7 @@ try {
   check('and says a line in it, to hear the voice', await waitFor(async () => (await said()).some((one) => one.language === 'es')))
   if (process.env.QA_SHOTS) await h.screenshot({ path: join(process.env.QA_SHOTS, 'read-aloud-tag.png') })
   // In Review: study the tag, show the answer.
-  await c.go('review')
+  await c.go('review', ':today')
   await h.evaluate(() => window.api.openInHome('study', 'spanish-basics'))
   await waitFor(() => h.evaluate(() => /hello/.test(document.querySelector('h2')?.textContent ?? '')))
   const before = (await said()).length

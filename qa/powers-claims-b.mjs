@@ -50,7 +50,7 @@ const onlyDue = async (...ids) => {
 }
 const reviewTo = async (prompt) => {
   await go('home')
-  await go('review')
+  await go('review', ':today')
   await h.waitForFunction((p) => [...document.querySelectorAll('h2[contenteditable]')].some((one) => one.textContent?.includes(p)), prompt, { timeout: 8000 })
   await blur()
 }
@@ -296,7 +296,7 @@ try {
     await h.keyboard.press('3')
     await until(async () => (await v('item', id)).suspended === 1)
     await go('home')
-    await go('review')
+    await go('review', ':today')
     await wait(1200)
     const shelf = await text('[data-struggling]')
     say('slipping', offered && (await v('item', id)).suspended === 1 && shelf.includes('Who betrays the White Council?') ? 'PASS' : 'FAIL', `fourth miss offers: ${offered}; 3 set it aside; on the shelf: ${shelf.includes('Who betrays')}`)
@@ -304,7 +304,7 @@ try {
 
   // --- practice: five chips (and Starred), a round of up to ten, nothing moved unless graded -----
   await card('practice', async () => {
-    await go('review')
+    await go('review', ':today')
     await wait(1200)
     // The rounds sit folded under “Practise”.
     await h.evaluate(() => document.querySelector('[data-practise]')?.click())
@@ -382,7 +382,7 @@ try {
   // --- learnmode: Learn under the chips, choices then written, 1-4 --------------------------------------
   await card('learnmode', async () => {
     await go('home')
-    await go('review')
+    await go('review', ':today')
     await wait(1200)
     const line = await h.evaluate(() => document.querySelector('[data-learn-new]')?.textContent ?? '')
     await h.evaluate(() => document.querySelector('[data-learn-new]')?.click())
@@ -572,7 +572,7 @@ try {
   await card('daysinarow', async () => {
     const days = await v('review:days')
     await go('home')
-    await go('review')
+    await go('review', ':today')
     await wait(1200)
     const hidden = (days.run < 2) === !(await has('[data-days-in-a-row]'))
     await s.electron.evaluate(() => {
@@ -587,7 +587,7 @@ try {
     await v('review:grade', id, 3, 4000)
     const next = await v('review:days')
     await go('home')
-    await go('review')
+    await go('review', ':today')
     await wait(1500)
     const line = await text('[data-days-in-a-row]')
     // In the line over the card, or under what the Done screen says.

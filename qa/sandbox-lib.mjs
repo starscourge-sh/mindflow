@@ -73,8 +73,9 @@ export async function sandbox({ width = 1000, height = 700, seeded = true, at } 
     await h.waitForTimeout(500)
   }
   await size(width, height)
-  const send = (type, id) => electron.evaluate(({ BrowserWindow }, [type, id]) => BrowserWindow.getAllWindows().find((w) => w.webContents.getURL().includes('view=home'))?.webContents.send('home:open', type, id), [type, id])
-  const go = async (id) => { await send('view', id); await h.waitForTimeout(900) }
+  const send = (type, id, heading) => electron.evaluate(({ BrowserWindow }, [type, id, heading]) => BrowserWindow.getAllWindows().find((w) => w.webContents.getURL().includes('view=home'))?.webContents.send('home:open', type, id, heading), [type, id, heading])
+  // A view, and where in it: go('review', ':today') studies at once (Review itself opens on the decks).
+  const go = async (id, heading) => { await send('view', id, heading); await h.waitForTimeout(900) }
   const theme = async (name) => { await h.evaluate((n) => localStorage.setItem('theme', n), name); await h.evaluate(() => window.dispatchEvent(new StorageEvent('storage', { key: 'theme' }))); await h.reload(); await h.waitForTimeout(1500) }
   // Light or dark in place, without a reload, so whatever a probe opened stays
   // open: the theme lives in localStorage 'theme' and main.tsx repaints on its

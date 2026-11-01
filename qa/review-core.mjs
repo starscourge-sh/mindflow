@@ -26,7 +26,7 @@ try {
   const queue = await v('review:queue')
   check('the queue holds every due card plus today\'s new ones', queue.length > 0, `${queue.length} cards`)
 
-  await c.go('review')
+  await c.go('review', ':today')
   await waitFor(async () => (await asked()).length > 3)
   check('the answer turns over with Space', await turn())
   const buttons = await h.evaluate(() => [...document.querySelectorAll('[data-grades] button')].map((b) => b.innerText.replace(/\s+/g, ' ').trim()))
@@ -67,7 +67,7 @@ try {
 
   await h.locator('[data-choices="Grades"] [data-choice="4"]').click()
   check('four picked', await waitFor(async () => (await v('settings')).grades === 4))
-  await c.go('review')
+  await c.go('review', ':today')
   await waitFor(async () => (await asked()).length > 3)
   await turn()
   const four = await h.evaluate(() => [...document.querySelectorAll('[data-grades] button')].map((b) => b.innerText.split('\n')[0]))
@@ -85,7 +85,7 @@ try {
   // Review takes its queue once a session: a fresh window starts a new one.
   await h.reload()
   await h.waitForTimeout(2500)
-  await c.go('review')
+  await c.go('review', ':today')
   const typeIn = async (words) => {
     await h.locator('textarea').first().fill(words)
     await h.locator('textarea').first().press('Meta+Enter')

@@ -14,7 +14,7 @@ const waitFor = async (test, ms = 8000) => { for (const end = Date.now() + ms; D
 const headings = () => h.evaluate(() => [...document.querySelectorAll('h2')].map((one) => one.textContent ?? ''))
 const state = () => h.evaluate(() => ({ active: document.activeElement?.tagName, boxes: [...document.querySelectorAll('textarea')].map((one) => one.value), heads: [...document.querySelectorAll('h2')].map((one) => one.textContent) }))
 try {
-  await c.go('review')
+  await c.go('review', ':today')
   await waitFor(async () => (await headings()).length === 1 && (await headings())[0].length > 3)
   const total = (await v('review:queue')).length
 
