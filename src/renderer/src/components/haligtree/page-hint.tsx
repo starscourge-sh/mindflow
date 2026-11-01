@@ -28,7 +28,6 @@ const HINTS: Record<string, string> = {
   review: '**Cards come back as you start to forget them.** Space turns one over; 1 if it did not come, 3 if it did.',
   day: '**A page a day, a week, a month and a year.** Write a line, and what you caught, finished and reviewed gathers underneath; Day, Week, Month and Year switch between them.',
   today: `**Type a task the way you would say it.** ${APP_NAME} reads the when in ‘call Mum friday 6pm’. The same tasks are in your Journal and the Calendar.`,
-  questions: '**Your questions, as pages in Writing.** Add clues as they turn up; “Answered” turns them into writing, oldest first.',
   goals: '**A day you are aiming for, and the road of days to it.** Log what you did, and a small card on your screen keeps it in sight.',
   nuggets: `**Gems are the notes you chose to keep.** ${LIFECYCLE} They come back as hints, and as Review cards once you give one a question. Right-click “Gems” in the sidebar and “Start a list” for ready ones: Overheard, Scents, Interesting names.`,
   queue: '**What you mean to read next, in order.** Add a note from its menu or drag it onto “Queue” in the sidebar; “Start reading” goes through them one after another.',
@@ -62,7 +61,6 @@ const LEARNED: Record<string, Cue[]> = {
   later: ['noted', 'done', 'later'],
   routines: ['noted', 'done'],
   matrix: ['noted', 'done', 'move'],
-  questions: ['hold', 'clue', 'answered'],
   goals: ['logged', 'mark', 'goal'],
   tags: ['tag', 'retag'],
   articles: ['promote']

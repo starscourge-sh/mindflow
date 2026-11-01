@@ -58,9 +58,25 @@ const cluesSaid = (n: number): string => (n ? `${num(n)} ${n === 1 ? 'clue' : 'c
 /** Questions, at two speeds: asked and answered at once (Looked up), open and gathering clues, or answered. */
 export type Asked = 'looked' | 'open' | 'answered' | 'words'
 /** Words: the vocabulary you are learning, a word kept as a gem (it comes back in Review). */
-export const ASKED: { id: Asked; label: string }[] = [{ id: 'looked', label: 'Looked up' }, { id: 'open', label: 'Open' }, { id: 'answered', label: 'Answered' }, { id: 'words', label: 'Words' }]
+export const ASKED: { id: Asked; label: string }[] = [{ id: 'open', label: 'Open' }, { id: 'answered', label: 'Answered' }, { id: 'looked', label: 'Looked up' }, { id: 'words', label: 'Words' }]
+/** What each of Questions' lists holds, said under its tabs, so a switch shows where you are and not only a new count. */
+export const ASKED_SAID: Record<Asked, string> = {
+  open: 'Questions you are still holding, newest first. Each gathers clues until you press “Answered”.',
+  answered: 'Questions you answered, each with the page its answer became, and the ones you stopped asking.',
+  looked: 'Quick questions answered the moment you asked them.',
+  words: 'Words you are learning, each kept as a gem that comes back in Review.'
+}
 
-/** The three filters of Questions, at the line's left, in the same place on each. */
+/** Where you are in Questions, in words, under its tabs: every list's line stacked in one place, so the longest keeps its room and a switch moves nothing under it. */
+export function QuestionsSaid({ on }: { on: Asked }): React.JSX.Element {
+  return (
+    <p data-question-said={on} className="mb-1 grid text-body text-pretty text-foreground/90 [&>*]:col-start-1 [&>*]:row-start-1">
+      {ASKED.map((one) => <span key={one.id} aria-hidden={one.id !== on} className={one.id === on ? undefined : 'invisible'}>{ASKED_SAID[one.id]}</span>)}
+    </p>
+  )
+}
+
+/** The filters of Questions, at the line's left, in the same place on each. */
 export function QuestionTabs({ on, pick }: { on: Asked; pick: (one: Asked) => void }): React.JSX.Element {
   return <div data-question-filter={on} className="flex shrink-0"><Chips className="shrink-0" options={ASKED} on={(id) => id === on} pick={(id) => (chime('tap'), pick(id as Asked))} /></div>
 }
@@ -258,15 +274,34 @@ export function QuestionAsker(): React.JSX.Element | null {
 const clueTint = (n: number): string | undefined =>
   !n ? undefined : n < 3 ? 'color-mix(in srgb, var(--tt-color-text-blue) 55%, var(--muted-foreground))' : 'var(--tt-color-text-blue)'
 
-/** A question as any list draws it: its words, then how long it has been held and its clues. */
-export const questionEntry = (item: Item, inView = false, menu?: MenuItem[]): Entry => ({
+/**
+ * When an open question may come back to you, true to question:back: never while private or switched off in Settings,
+ * and not within a fortnight of the last time it did.
+ */
+export const comesBack = (item: Item, on = true): string => {
+  if (item.private) return 'private, so it never comes back'
+  if (!on) return 'coming back is off in Settings'
+  const next = item.backAt ? new Date(new Date(item.backAt).getTime() + 14 * 86_400_000) : null
+  return next && next.getTime() > Date.now() ? `can come back from ${dayMonth(next.toISOString())}` : 'can come back any day'
+}
+
+/**
+ * A question as any list draws it: the question in its own words, its answer (or that it has none yet) on a line of
+ * its own under it, then how long it has been held, its clues and when it may come back.
+ */
+export const questionEntry = (item: Item, inView = false, menu?: MenuItem[], backOn = true): Entry => ({
   id: item.id,
   type: 'question',
   title: item.title,
   tags: [],
   icon: Orbit,
   tint: clueTint(item.clues),
-  sub: item.closedAt ? `${item.closedHow === 'let go' ? 'Stopped asking' : 'Answered'} ${whenLower(item.closedAt)} · ${cluesSaid(item.clues)}` : `${heldFor(item.createdAt)[0].toUpperCase()}${heldFor(item.createdAt).slice(1)} · ${cluesSaid(item.clues)}`,
+  answer: (
+    <span data-question-answer={item.answer ? 'yes' : 'none'} className={`line-clamp-2 text-sm text-pretty ${item.answer ? 'text-foreground/90' : 'text-muted-foreground italic'}`}>
+      {item.answer || (item.closedHow === 'let go' ? 'Stopped asking, with no answer' : 'No answer yet')}
+    </span>
+  ),
+  sub: item.closedAt ? `${item.closedHow === 'let go' ? 'Stopped asking' : 'Answered'} ${whenLower(item.closedAt)} · ${cluesSaid(item.clues)}` : `${heldFor(item.createdAt)[0].toUpperCase()}${heldFor(item.createdAt).slice(1)} · ${cluesSaid(item.clues)} · ${comesBack(item, backOn)}`,
   marks: (
     <>
       {inView ? <Pin className="size-3 shrink-0 text-muted-foreground" aria-label="Showing in quick capture" /> : null}
@@ -318,7 +353,7 @@ export function QuestionDetail({ item, onOpen, top, back }: { item: ItemFull; on
   })
   const letGo = (): void => void haligtree.closeQuestion(item.id, 'let go').then(() => {
     chime('release')
-    toast('Stopped asking: it waits under “Questions” in Writing, still readable', () => void haligtree.reopenQuestion(item.id))
+    toast('Stopped asking: it waits in Questions under “Answered”, still readable', () => void haligtree.reopenQuestion(item.id))
   })
   const holdAgain = (): void => {
     const how = item.closedHow ?? 'let go'
@@ -338,7 +373,7 @@ export function QuestionDetail({ item, onOpen, top, back }: { item: ItemFull; on
   const meta = ['Question', cluesSaid(clues.length), settled ?? heldFor(item.createdAt), ...(lastClue ? [`last clue ${ago(lastClue)}`] : [])].join(' · ')
   const ends: MenuItem[] = item.closedAt
     ? [{ label: 'Open it again', run: holdAgain }]
-    : [{ label: 'Answered', hint: 'Its clues become writing', run: gotIt }, { label: 'Stop asking', hint: 'Kept under “Questions”', run: letGo }]
+    : [{ label: 'Answered', hint: 'Its clues become writing', run: gotIt }, { label: 'Stop asking', hint: 'Kept in Questions, under “Answered”', run: letGo }]
   return (
     <div data-open={item.id} className="note-pane flex min-w-0 flex-[1.4] flex-col overflow-y-auto [--mf-padding:1rem_3.25rem] @[40rem]/page:flex-row @[40rem]/page:overflow-visible @[40rem]/page:[--mf-padding:1rem_4.75rem] @[56rem]/page:border-l [&>*:first-child]:min-h-[16rem] [&>*:first-child]:shrink-0 @[40rem]/page:[&>*:first-child]:min-h-0 @[40rem]/page:[&>*:first-child]:shrink">
       <div className="flex min-h-0 min-w-0 flex-1 flex-col pt-6">
@@ -443,7 +478,7 @@ export function QuestionDetail({ item, onOpen, top, back }: { item: ItemFull; on
           ) : (
             <>
               <Prop alive={BulbSvg} onClick={gotIt} tip="Its clues, oldest first, become a page of writing">Answered</Prop>
-              <Prop icon={Wind} onClick={letGo} tip="Kept under “Questions”, still readable">Stop asking</Prop>
+              <Prop icon={Wind} onClick={letGo} tip="Kept in Questions, under “Answered”, still readable">Stop asking</Prop>
             </>
           )}
         </Island>

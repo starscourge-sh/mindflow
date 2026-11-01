@@ -33,7 +33,7 @@ import { sources, type SourceSummary } from '@/lib/sources'
 import { HomeView } from './components/haligtree/home-view'
 import { LAST_PLACE } from './components/haligtree/resume-cards'
 import { ItemsView } from './components/haligtree/items-view'
-import { QuestionTabs, startQuestion, type Asked } from './components/haligtree/questions-view'
+import { QuestionTabs, QuestionsSaid, startQuestion, type Asked } from './components/haligtree/questions-view'
 import { GoalsView, startGoal } from './components/haligtree/goals-view'
 import { QueueReader, QueueView } from './components/haligtree/queue-view'
 import { useQueue } from './lib/reading-queue'
@@ -100,7 +100,7 @@ import { noteActions } from '@/lib/notes'
 import { headingIn } from '@/lib/capture-links'
 import { openApart } from '@/lib/apart'
 import { MediaView } from '@/components/haligtree/media-view'
-import { G_ALIASES, JOURNAL_SCALES, OFF_SIDEBAR, startPageOf, PlaceIcon, SECTIONS, SIDE_GROUPS, ShowList, showGroup, type Place, placeDrawing, TASK_PAGES, dropInBlock, dropOrder, orderItems, risen, litRow, showWords, sidebarParts, useInOrder, useOrder, useSections, useShown } from '@/components/haligtree/places'
+import { G_ALIASES, JOURNAL_SCALES, QUESTIONS_PLACE, OFF_SIDEBAR, startPageOf, PlaceIcon, SECTIONS, SIDE_GROUPS, ShowList, showGroup, type Place, placeDrawing, TASK_PAGES, dropInBlock, dropOrder, orderItems, risen, litRow, showWords, sidebarParts, useInOrder, useOrder, useSections, useShown } from '@/components/haligtree/places'
 import { BlockList, SortableList, SortableRow } from '@/components/haligtree/sortable'
 import { pageTravel } from '@/lib/page-travel'
 import { Branches } from '@/components/haligtree/branches'
@@ -867,7 +867,7 @@ export function Home(): React.JSX.Element {
   if (byHand.page !== view.id) setByHand({ page: view.id, open: {} })
   const hand = byHand.page === view.id ? byHand.open : {}
   const following = (key: string, page: string, kept: boolean, keep: (open: boolean) => void): [boolean, (open: boolean) => void] =>
-    follow ? [hand[key] ?? view.id === page, (open) => setByHand({ page: view.id, open: { ...hand, [key]: open } })] : [kept, keep]
+    follow ? [hand[key] ?? (view.id === page || (page === 'articles' && (view.id === 'questions' || view.id === 'lookups'))), (open) => setByHand({ page: view.id, open: { ...hand, [key]: open } })] : [kept, keep]
   const [tagsOpen, setTagsOpen] = following('tags', 'tags', tagsKept, keepTags)
   const [articleFolders, setArticleFolders] = following('article', 'articles', articleKept, keepArticle)
   const [nuggetFolders, setNuggetFolders] = following('nugget', 'nuggets', nuggetKept, keepNugget)
@@ -1486,7 +1486,7 @@ export function Home(): React.JSX.Element {
         ) : view.id === 'lookups' || (view.id === 'questions' && view.folder === 'looked') ? (
           // Lookups are questions answered at once: Questions' Looked up list. An old link to Lookups lands here too.
           <CapturesView title="Questions" keep={keep.lookups} focus={view.focus} onOpen={go}
-            lead={<QuestionTabs on="looked" pick={(one) => setView({ id: 'questions', folder: one }, key)} />} />
+            lead={<div data-list-tabs className="flex shrink-0" style={{ marginLeft: 'calc(var(--list-edge) - var(--list-ink))' }}><QuestionTabs on="looked" pick={(one) => setView({ id: 'questions', folder: one }, key)} /></div>} said={<QuestionsSaid on="looked" />} />
         ) : view.id === 'inbox' || view.id === 'archived' ? (
           <CapturesView title={SECTIONS.find((section) => section.id === view.id)!.label} keep={keep[view.id]} focus={view.focus} onOpen={go} archived={view.id === 'archived'} inbox={view.id === 'inbox'} />
         ) : view.id === 'day' ? (
@@ -1863,11 +1863,14 @@ export function Home(): React.JSX.Element {
               const scales = section.id === 'day' && !narrow ? JOURNAL_SCALES.filter((one) => !shown.includes(one.id)) : []
               const folders = list && !narrow && settings?.sidebarFolders?.[list] !== false ? (list === 'article' ? articles : nuggets) : null
               const [unfolded, setUnfolded] = list === 'article' ? [articleFolders, setArticleFolders] : list === 'nugget' ? [nuggetFolders, setNuggetFolders] : [journalOpen, setJournalOpen]
-              // What the chevron over the icon folds: Writing's or Gems' folders, or Journal's scales.
-              const folds = !!(folders && list) || scales.length > 0
+              // Questions, a page of its own, hangs under Writing first, above its folders, off the same trunk.
+              const asking = list === 'article' && !narrow
+              const inQuestions = asking && (view.id === 'questions' || view.id === 'lookups')
+              // What the chevron over the icon folds: Writing's Questions and folders, Gems' folders, or Journal's scales.
+              const folds = !!(folders && list) || asking || scales.length > 0
               const inFolder = view.id === section.id ? view.folder : undefined
               const inScale = scales.some((one) => one.id === view.id)
-              const here = lit(section.id) && !inFolder && !inScale
+              const here = lit(section.id) && !inFolder && !inScale && !inQuestions
               return (
               <SortableRow key={section.id} id={section.id} glide={still ? undefined : `side-${section.id}`}>
               <RowMenu items={placeMenu(section, among)}>
@@ -1886,7 +1889,7 @@ export function Home(): React.JSX.Element {
                 aria-label={section.label}
                 aria-current={here ? 'page' : undefined}
                 onClick={() => open('view', section.id)}
-                className={`group relative flex items-center gap-2.5 rounded-md py-1.5 transition-colors duration-80 ${narrow ? 'justify-center px-0' : 'px-2'} ${here || inFolder || inScale ? 'text-foreground' : 'text-foreground/80'} data-[queue-hot]:bg-[color-mix(in_oklab,var(--tt-color-text-blue)_16%,transparent)] data-[queue-hot]:text-foreground data-[queue-hot]:ring-1 data-[queue-hot]:ring-[color-mix(in_oklab,var(--tt-color-text-blue)_45%,transparent)]`}
+                className={`group relative flex items-center gap-2.5 rounded-md py-1.5 transition-colors duration-80 ${narrow ? 'justify-center px-0' : 'px-2'} ${here || inFolder || inScale || inQuestions ? 'text-foreground' : 'text-foreground/80'} data-[queue-hot]:bg-[color-mix(in_oklab,var(--tt-color-text-blue)_16%,transparent)] data-[queue-hot]:text-foreground data-[queue-hot]:ring-1 data-[queue-hot]:ring-[color-mix(in_oklab,var(--tt-color-text-blue)_45%,transparent)]`}
               >
                 {/* While anything is being dragged, a fold row keeps its icon and count: the row moving under a still
                     pointer flipped it to its chevron and back. */}
@@ -1897,7 +1900,7 @@ export function Home(): React.JSX.Element {
                 {!narrow && countsIn && countOf(section.id) ? (
                   // Each count says what it counts, pointed at: the orange one is what is due today.
                   <Tip label={countSaid(section.id, counts[section.id])}>
-                    <span data-side-count={section.id} className={list && settings?.sidebarFolders?.[list] !== false ? 'transition-opacity duration-80 group-hover/fold:opacity-0 [:root[data-dragging]_&]:!opacity-100' : undefined}>
+                    <span data-side-count={section.id} className={folds && list ? 'transition-opacity duration-80 group-hover/fold:opacity-0 [:root[data-dragging]_&]:!opacity-100' : undefined}>
                       <Count tip={!countSaid(section.id, counts[section.id])} n={counts[section.id]} className={`text-xs ${section.id === 'today' ? 'text-[var(--tt-color-text-orange)]' : 'text-muted-foreground'}`} />
                     </span>
                   </Tip>
@@ -1939,10 +1942,26 @@ export function Home(): React.JSX.Element {
                 </Branches>
                 </Unfold>
               )}
-              {folders && list && (
+              {(folders || asking) && list && (
                 // Its own drags, not the row's: a folder pressed on is not Writing carried away.
                 <div onPointerDown={(event) => event.stopPropagation()}>
-                  <SideFolders list={list} counted={countsOn} open={unfolded} here={inFolder} shown={shownIn(list, folders)} onOpen={(id) => (asideClick() ? (spendAsideClick(), aside({ id: section.id, folder: id })) : setView({ id: section.id, folder: id }))} onUnfold={() => setUnfolded(true)} />
+                  <SideFolders list={list} counted={countsOn} open={unfolded || inQuestions} here={inFolder} shown={shownIn(list, folders ?? [])} noFolders={!folders}
+                    onOpen={(id) => (asideClick() ? (spendAsideClick(), aside({ id: section.id, folder: id })) : setView({ id: section.id, folder: id }))} onUnfold={() => setUnfolded(true)}
+                    leadHere={inQuestions} lead={asking ? (
+                      <SidePeek id="questions" keys="G H">
+                      <button type="button" data-side-row data-side-questions aria-current={inQuestions ? 'page' : undefined}
+                        onClick={() => (asideClick() ? (spendAsideClick(), aside({ id: 'questions' })) : setView({ id: 'questions' }))}
+                        className={`group flex w-full min-w-0 items-center gap-2 rounded-md py-1 pr-2 pl-2 ${inQuestions ? 'text-foreground' : 'text-foreground/80'}`}>
+                        <span className="flex size-4 shrink-0 items-center justify-center [&_svg]:size-3.5"><PlaceIcon place={QUESTIONS_PLACE} full={inQuestions} /></span>
+                        <Weighted on={inQuestions} className="flex-1 text-left">Questions</Weighted>
+                        {countsIn && countOf('questions') ? (
+                          <Tip label={countSaid('questions', counts.questions)}>
+                            <span data-side-count="questions"><Count n={counts.questions} className="text-xs text-muted-foreground" /></span>
+                          </Tip>
+                        ) : null}
+                      </button>
+                      </SidePeek>
+                    ) : undefined} />
                 </div>
               )}
               </SortableRow>

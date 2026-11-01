@@ -76,6 +76,10 @@ export type Item = {
   passage?: string | null
   /** Its glosses, which on a question are its clues and on a goal its logs. */
   clues: number
+  /** A question answered: the words of the page its answer became; null or absent while it has none. */
+  answer?: string | null
+  /** A question: when it last came back to you (question:back), if it has. */
+  backAt?: string | null
   /** A goal: the day it is for and the day it was set, "2026-12-14"; null on anything else. */
   goalAt: string | null
   goalFrom: string | null

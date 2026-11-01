@@ -53,8 +53,14 @@ export async function offerTag(list: 'article' | 'nugget' | null, id: string, na
  * dropped by another's top or bottom edge, it moves to just before or after
  * it, in the list's own order, as in Finder's sidebar.
  */
-export function SideFolders({ list, counted, open, shown, here, onOpen, onUnfold }: {
+export function SideFolders({ list, counted, open, shown, here, onOpen, onUnfold, lead, leadHere = false, noFolders = false }: {
   list: 'article' | 'nugget'
+  /** A page of the list's own hung first off the same trunk, above the folders: Writing's Questions. */
+  lead?: React.ReactNode
+  /** That page is the one open: the lit way down runs to it. */
+  leadHere?: boolean
+  /** The folders switched off in the sidebar (Customize sidebar): only the lead hangs here. */
+  noFolders?: boolean
   /** Each folder's count shown, as the sidebar's own counts are (Customize sidebar). */
   counted: boolean
   /** Unfolded under the row. */
@@ -146,10 +152,13 @@ export function SideFolders({ list, counted, open, shown, here, onOpen, onUnfold
   // The folder you are in, or one it sits inside: the lit way down runs through each.
   const holds = (id: string): boolean => id === here || kids(id).some((one) => holds(one.id))
   const rows = (parent: string | null, depth: number): React.JSX.Element | null => {
-    const these = kids(parent)
-    if (!these.length) return null
+    const these = parent === null && noFolders ? [] : kids(parent)
+    const first = parent === null ? lead : null
+    if (!these.length && !first) return null
+    const lit = these.findIndex((one) => holds(one.id))
     return (
-      <Branches current={these.findIndex((one) => holds(one.id))} className="ml-5 flex flex-col gap-px">
+      <Branches current={first && leadHere ? 0 : lit >= 0 && first ? lit + 1 : lit} className="ml-5 flex flex-col gap-px">
+        {first}
         {these.flatMap((group) => {
           const inner = rows(group.id, depth + 1)
           return [

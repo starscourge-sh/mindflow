@@ -139,7 +139,7 @@ export const exampleQuestions = (): Item[] => [
   item(2, { tier: 'question', title: 'Is Hamlet mad, or only pretending?', clues: 5, createdAt: at(-200) }),
   item(5, { tier: 'question', title: 'Did the Library of Alexandria burn, or slowly fade away?', clues: 2, createdAt: at(-12) }),
   item(3, { tier: 'question', title: 'What would Elizabeth Bennet make of dating apps?', clues: 0, createdAt: at(-3) }),
-  item(4, { tier: 'question', title: 'Why does Gatsby keep watching the green light?', clues: 6, createdAt: at(-90), closedAt: at(-5), closedHow: 'answered' })
+  item(4, { tier: 'question', title: 'Why does Gatsby keep watching the green light?', clues: 6, createdAt: at(-90), closedAt: at(-5), closedHow: 'answered', answer: 'It is the past he wants back, not Daisy: the light was brightest before he reached it.' })
 ]
 
 /** Goals: a day you are aiming for, counted down. */

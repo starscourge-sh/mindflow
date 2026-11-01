@@ -1,4 +1,4 @@
-import { QuestionTabs, type Asked } from './questions-view'
+import { QuestionTabs, QuestionsSaid, type Asked } from './questions-view'
 import { BlankPanel, cardPerNumber } from './blank-panel'
 import { BLANK, addBlank, clozeNumbers, listItemCount, typedAsGaps } from '@/lib/blanks'
 import { ContextField } from './context-field'
@@ -116,6 +116,7 @@ export const itemEntry = (item: Item, menu?: RowItem[] | (() => RowItem[])): Ent
   return Object.defineProperty({ ...kept.entry }, 'menu', { get: () => (made ??= menu()), enumerable: true })
 }
 /** What an empty folder's card is drawn from in a grid: a folder emptied stays, with no note of its own to show. */
+const NO_GROUPS: NoteGroup[] = []
 const EMPTY = (tier: string): Item => ({ tier, kind: 'note', title: '', createdAt: new Date().toISOString() }) as Item
 const rowOf = (item: Item): Entry => {
   // A gem with no source is a note of yours: drawn as one, until it says who or where from.
@@ -248,21 +249,22 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
 }): React.JSX.Element {
   const own = useLive(() => haligtree.items(tier), [] as Item[], [tier], ['item'], 'items')
   useArrivals(tier, own)
-  // Writing holds your questions too, as pages marked "?": the ones still open
-  // among the writing, and every one, answered too, under the "Questions" chip.
+  // Questions are a page of their own (a row under Writing in the sidebar): Writing holds your pages alone, and
+  // Questions, drawn by this same list, holds the questions, open first, each with its answer or none yet.
   const writing = tier === 'article'
-  const held = useLive(() => (writing ? haligtree.items('question') : Promise.resolve([] as Item[])), [] as Item[], [tier], ['item'], 'writing-questions')
+  const questionsOnly = writing && only === 'questions'
+  // Writing reads them too, for the open ones kept in one of its folders: those stay in their folder.
+  const held = useLive(() => (writing ? haligtree.items('question') : Promise.resolve([] as Item[])), [] as Item[], [writing], ['item'], 'writing-questions')
+  const filed = useGroups(tier)
   const pinnedQuestions = useLive(haligtree.pinnedQuestions, [] as Awaited<ReturnType<typeof haligtree.pinnedQuestions>>)
   const inView = new Set(pinnedQuestions.map((one) => one.id))
-  const [asks, setAsks] = useState<'all' | 'questions'>(only ?? 'all')
-  // Sent to Questions (a question opened from anywhere) or back to Writing: the chip follows, in the same frame.
-  const [wasOnly, setWasOnly] = useState(only)
-  if (wasOnly !== only) (setWasOnly(only), setAsks(only ?? 'all'))
-  const questionsOnly = writing && asks === 'questions'
+  // Whether open questions come back at all, so each row's "can come back" line is true (question:back).
+  const backSettings = useLive(haligtree.settings, null as Settings | null)
+  const backOn = backSettings?.questionsBack !== false && backSettings?.hintRate !== 0
   // Questions' Words: the word gems you are learning, read only while that filter is on.
   const learning = useLive(() => (writing && only === 'questions' && ask === 'words' ? haligtree.items('nugget') : Promise.resolve([] as Item[])), [] as Item[], [writing, only, ask], ['item'], 'questions-words')
-  const all = useMemo(() => (unloaded(own) || unloaded(held) ? unread([] as Item[]) : !writing ? own : questionsOnly && onAsk && ask === 'words' ? (unloaded(learning) ? unread([] as Item[]) : learning.filter((one) => one.kind === 'word')) : questionsOnly ? (onAsk ? held.filter((one) => (ask === 'answered' ? !!one.closedAt : !one.closedAt)) : held) : [...own, ...held.filter((one) => !one.closedAt)]),
-    [own, held, writing, questionsOnly, ask, onAsk, learning])
+  const all = useMemo(() => (unloaded(own) || unloaded(held) ? unread([] as Item[]) : !writing ? own : questionsOnly && onAsk && ask === 'words' ? (unloaded(learning) ? unread([] as Item[]) : learning.filter((one) => one.kind === 'word')) : questionsOnly ? (onAsk ? held.filter((one) => (ask === 'answered' ? !!one.closedAt : !one.closedAt)) : held) : [...own, ...held.filter((one) => !one.closedAt && filed.some((group) => group.members.includes(one.id)))]),
+    [own, held, writing, questionsOnly, ask, onAsk, learning, filed])
   // A folder opened from the sidebar: the list as ever, with only what the folder holds (its subfolders' too).
   // Only what is shown narrows: the layout is still read from every note, so a move inside keeps the rest in place.
   const shelf = useGroups(tier)
@@ -296,15 +298,16 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
   // Groups show as groups in every sort and every grouping, as Finder's folders do. Grouped by kind or date, they come
   // first in your own order, then the loose notes in their sections; inside a group its notes go by kind (or date) too.
   const heads = plain ? undefined : new Map(groups.flatMap(([name, list]) => list.map((one) => [one.id, name] as const)))
-  const folding = useFolding(tier, all, ownOrder, order, (density === 'list' || density === 'compact') && !(spread && query.trim()) ? groups.flatMap(([, list]) => list) : null,
+  const folding = useFolding(tier, all, ownOrder, order, !questionsOnly && (density === 'list' || density === 'compact') && !(spread && query.trim()) ? groups.flatMap(([, list]) => list) : null,
     view.sort === 'manual' && plain, () => setChosen([]), chosen, mine, heads, opened?.id)
   // As tiles, each group is one folder card; opened, the grid shows only its notes, under a chip back.
-  const noteGroups = useGroups(tier)
+  // Questions are never in Writing's folders as a list: they are drawn plain, each as a question.
+  const noteGroups = questionsOnly ? NO_GROUPS : filed
   const tiled = (density === 'grid' || density === 'small') && !(spread && query.trim())
   const [inGroup, setInGroup] = useState<string | null>(null)
   const folder = tiled && inGroup ? noteGroups.find((one) => one.id === inGroup) : undefined
   const flat = groups.flatMap(([, list]) => list)
-  const tiles = tiled && !folder ? folding.tiles(flat) : null
+  const tiles = tiled && !folder && !questionsOnly ? folding.tiles(flat) : null
   const folders = new Map(tiles?.flatMap((one) => ('group' in one ? [[KEY + one.group.id, one] as const] : [])))
   const items = folding.rows
     ?? (folder ? flat.filter((one) => folder.members.includes(one.id))
@@ -589,7 +592,7 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
     return () => window.removeEventListener('haligtree:folder-drop', onDrop)
   }, [chosen])
   // A question is drawn as one, with its "?" mark, how long it has been held and its clues.
-  const entryOf = (one: Item): Entry => (one.tier === 'question' ? questionEntry(one, inView.has(one.id), menuFor(one) as MenuItem[]) : itemEntry(one, () => menuFor(one)))
+  const entryOf = (one: Item): Entry => (one.tier === 'question' ? questionEntry(one, inView.has(one.id), menuFor(one) as MenuItem[], backOn) : itemEntry(one, () => menuFor(one)))
   const entries: [string, Entry[]][] = !listShown && !(open && (pane === 'rail' || boarded)) ? [] : tiles || folder
     ? items.reduce<[string, Entry[]][]>((sections, one) => {
         const card = folders.get(one.id)
@@ -617,9 +620,10 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
         waiting={listUnread || !listShown}
         // Sent here for one note: the note is on show at once, and the list comes in whole beside it once read.
         apart={sent}
-        title={tier === 'nugget' ? 'Gems' : 'Writing'}
-        // Writing, or only its questions: what the list holds, so at the line's left before the count, its pill on the list's box edge and its words on the ink edge as Tasks' tabs (qa/list-edges.mjs), away from New page and the views.
-        lead={writing && !chosen.length ? <div data-list-tabs className="flex shrink-0" style={{ marginLeft: 'calc(var(--list-edge) - var(--list-ink))' }}><Chips className="shrink-0" options={[{ id: 'all', label: 'All' }, { id: 'questions', label: 'Questions' }]} on={(id) => id === asks} pick={(id) => (setAsks(id as 'all' | 'questions'), setCursor(-1))} />{questionsOnly && onAsk && <span className="ml-3"><QuestionTabs on={ask ?? 'open'} pick={(one) => (onAsk(one), setCursor(-1))} /></span>}</div> : undefined}
+        title={tier === 'nugget' ? 'Gems' : questionsOnly ? 'Questions' : 'Writing'}
+        // Questions' lists at the line's left before the count, the pill on the list's box edge and its words on the ink edge as Tasks' tabs (qa/list-edges.mjs).
+        // Kept while rows are picked, so picking never moves the line.
+        lead={questionsOnly && onAsk ? <div data-list-tabs className="flex shrink-0" style={{ marginLeft: 'calc(var(--list-edge) - var(--list-ink))' }}><QuestionTabs on={ask ?? 'open'} pick={(one) => (onAsk(one), setCursor(-1))} /></div> : undefined}
         // Every note on show, a folded group's too.
         count={chosen.length || groups.reduce((sum, [, list]) => sum + list.length, 0)}
         search={spread && !chosen.length && <ListSearch value={query} onChange={(words) => (setQuery(words), setCursor(-1))} onDone={() => setCursor(0)} placeholder={`Search in ${tier === 'nugget' ? 'Gems' : 'Writing'}`} />}
@@ -718,6 +722,7 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
             </div>
         </Unfold>
         <div data-kind-chips className="list-words pt-4 pb-2 empty:hidden">
+          {questionsOnly && onAsk && <QuestionsSaid on={ask} />}
           {opened && !folder && (
             // Finder's path bar: each part a way up to it (and a place to drop notes into), the last one where you are.
             <nav data-path-bar="" data-folder-open={opened.id} aria-label="Folder path" className="mb-2 flex min-w-0 items-center gap-0.5 text-body">
@@ -771,7 +776,7 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
         ) : questionsOnly && !unloaded(all) && !all.length ? (
           // No questions yet: the page as it will look, as every other list shows itself.
           <Example tryIt="press H on a note in your Inbox, or “New question” above. It is held here, gathering dated clues until you know.">
-            <NoteList groups={[['', exampleQuestions().filter((one) => !one.closedAt).map((one) => questionEntry(one))]]} density={density} table="nuggets" cursor={-1} onPick={() => undefined} className="list-edge my-2" />
+            <NoteList groups={[['', exampleQuestions().filter((one) => (ask === 'answered' ? !!one.closedAt : !one.closedAt)).map((one) => questionEntry(one))]]} density={density} table="nuggets" cursor={-1} onPick={() => undefined} className="list-edge my-2" />
           </Example>
         ) : all.length && query.trim() ? (
           <Empty title="Nothing matches">No title here has those words. Escape clears the search.</Empty>
@@ -799,7 +804,7 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
           }}
         />
       )}
-      {coming && coming !== open?.id ? <NoteComing id={coming} title={all.find((one) => one.id === coming)?.title} /> : open && <ShowInListContext.Provider value={showOpen}><Apart type={open.tier} id={open.id} title={open.title} hidden={!!open.private} onBack={() => haligtree.item(open.id).then((fresh) => fresh && setOpen(fresh))}><ItemDetail top={<ReadsIn apart reading={listUnread} className="contents" data-apart="stepper"><Stepper turns at={items.findIndex((one) => one.id === open.id)} total={items.length} onStep={(to) => ((stepped.current = true), pick(items[to].id))} /></ReadsIn>} key={open.id} item={open} board={{ onShown: setBoarded, list: listOut, onList: setListOut }} onOpen={(type, id) => (type === tier || (writing && type === 'question') ? ((type === 'article' && setAsks('all')), pick(id)) : onOpen?.(type, id))} /></Apart></ShowInListContext.Provider>}
+      {coming && coming !== open?.id ? <NoteComing id={coming} title={all.find((one) => one.id === coming)?.title} /> : open && <ShowInListContext.Provider value={showOpen}><Apart type={open.tier} id={open.id} title={open.title} hidden={!!open.private} onBack={() => haligtree.item(open.id).then((fresh) => fresh && setOpen(fresh))}><ItemDetail top={<ReadsIn apart reading={listUnread} className="contents" data-apart="stepper"><Stepper turns at={items.findIndex((one) => one.id === open.id)} total={items.length} onStep={(to) => ((stepped.current = true), pick(items[to].id))} /></ReadsIn>} key={open.id} item={open} board={{ onShown: setBoarded, list: listOut, onList: setListOut }} onOpen={(type, id) => ((questionsOnly ? type === 'question' : type === tier) ? pick(id) : onOpen?.(type, id))} /></Apart></ShowInListContext.Provider>}
     </ReadsIn>
   )
 }

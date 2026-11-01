@@ -1925,9 +1925,21 @@ export function registerHaligtree(): void {
     (select count(*) from review_log where item_id = nuggets.id and grade = 1 and first = 0) as lapses, attribution, medium, context, mode, superseded_by as supersededBy, archived_at as archivedAt, revisions, why,
     closed_at as closedAt, closed_how as closedHow, passage, (select count(*) from glosses where item_id = nuggets.id) as clues,
     goal_at as goalAt, goal_from as goalFrom, goal_beacon as beacon, goal_color as goalColor, (select max(created_at) from glosses where item_id = nuggets.id) as lastLog, line_of as lineOf, starred_at as starredAt, fields, unsorted`
-  handle('items', (tier: string) =>
-    db.prepare(`select ${ITEM} from nuggets where tier = ? and binned_at is null order by created_at desc`).all(tier)
-  )
+  // A question's row says its answer (the page "Answered" made from it, its words after the question it quotes) and
+  // when it may come back to you: a fortnight after it last did (question:back), or any day if it never has.
+  const answerOf = (body: string | null, title: string): string =>
+    plain(JSON.parse(body ?? 'null')).split('\n').map((line) => line.replace(/^(?:>|#+|[-*])\s*/, '').replace(/\*\*/g, '').replace(/^\d{1,2} \w+( \d{4})? · /, '').trim()).filter((line) => line && line !== title.trim() && line !== 'Clues').join(' ').slice(0, 240)
+  handle('items', (tier: string) => {
+    const rows = db.prepare(`select ${ITEM} from nuggets where tier = ? and binned_at is null order by created_at desc`).all(tier) as { id: string; title: string; closedHow: string | null }[]
+    if (tier !== 'question') return rows
+    const answers = new Map((db.prepare("select origins, title, body from nuggets where tier = 'article' and binned_at is null and origins like '[\"%\"]'").all() as { origins: string; title: string; body: string | null }[])
+      .map((one) => [String(JSON.parse(one.origins)[0]), one] as const))
+    const back = new Map((db.prepare('select nugget_id as id, max(shown_at) as at from hint_events group by nugget_id').all() as { id: string; at: string }[]).map((one) => [one.id, one.at]))
+    return rows.map((row) => {
+      const page = row.closedHow === 'answered' ? answers.get(row.id) : undefined
+      return { ...row, answer: page ? answerOf(page.body, row.title) || page.title : null, backAt: back.get(row.id) ?? null }
+    })
+  })
 
   // --- the weekly digest: the seven days to now, caught, kept, reviewed and finished. Nothing leaves the Mac.
   const digest = (from = ago(7)): { caught: number; kept: number; reviewed: number; finished: number; from: string } => {

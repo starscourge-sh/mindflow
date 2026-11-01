@@ -21,7 +21,7 @@ import RefreshIcon from '@/components/ui/refresh-icon'
 import EyeIcon from '@/components/ui/eye-icon'
 import HistoryCircleIcon from '@/components/ui/history-circle-icon'
 import LinkIcon from '@/components/ui/link-icon'
-import { BarChart3, Brain, FileText, Gem, History, House, Inbox, Link as Links, ListTodo as ListChecks, Sun, Tag, Trash2 } from '@/components/ui/icons'
+import { BarChart3, Brain, FileText, Gem, History, House, Inbox, Link as Links, ListTodo as ListChecks, Orbit, Sun, Tag, Trash2 } from '@/components/ui/icons'
 import { APP_NAME } from '../../../../main/name'
 import { SIDEBAR_SHAPE } from '../../../../main/sidebar-shape'
 import { num } from '../../../../main/dates'
@@ -93,6 +93,9 @@ export const JOURNAL_SCALES: Place[] = [
   { id: 'monthpage', emoji: '🌱', label: 'Month', icon: Sprout, tint: 'yellow' },
   { id: 'yearpage', emoji: '🗺️', label: 'Year', icon: CalendarRange, tint: 'yellow' }
 ]
+
+/** Questions, a page of its own hung under Writing's row, first, above its folders (home.tsx). */
+export const QUESTIONS_PLACE: Place = { id: 'questions', emoji: '❓', label: 'Questions', icon: Orbit, tint: 'blue' }
 
 /**
  * The sidebar's two lists of notes, not pages: Pinned (what you pinned) and

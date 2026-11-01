@@ -61,6 +61,8 @@ export type Entry = {
   alert?: { text: string; kind: Loud }
   /** The rest of the line under the title: where it came from, who said it. */
   sub?: ReactNode
+  /** Its own line under the title, in reading ink, before the quiet one: a question's answer, or that it has none yet. */
+  answer?: ReactNode
   /** Its face in the row's tile in place of a picture or cover: a person's or a source's avatar, as the Feed shows them. */
   face?: ReactNode
   /** Small marks after the title: a pin, private. */
@@ -614,6 +616,7 @@ function ListRow({ entry, lit }: { entry: Entry; lit: boolean }): React.JSX.Elem
           </span>
           <Tail entry={entry} lit={lit} />
         </span>
+        {entry.answer}
         <Under entry={entry} />
         {entry.bar && <span className="mt-1 block pr-2">{entry.bar}</span>}
       </span>

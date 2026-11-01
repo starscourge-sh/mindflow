@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
-import { Archive, Bell, BookOpen, FileText, Flag, Gem, GripVertical, Hash, Lock, Sparkles, Trash2 } from 'lucide-react'
+import { Archive, Bell, BookOpen, FileText, Flag, Gem, GripVertical, Hash, Lock, Orbit, Sparkles, Trash2 } from 'lucide-react'
 import { kindOf } from '@/components/capture-kinds/capture-kind-picker'
-import { exampleCard, exampleGoals, exampleIdeas, exampleInbox, exampleMonth, exampleTags, exampleTasks, exampleWriting } from '@/lib/examples'
+import { exampleCard, exampleGoals, exampleIdeas, exampleInbox, exampleMonth, exampleQuestions, exampleTags, exampleTasks, exampleWriting } from '@/lib/examples'
 import { MCard, MChip, MLabel, MLines, MRow, MTitle, Peek, tinted } from './peek'
 import { taskName } from '@/lib/tasks'
 import dayjs from 'dayjs'
@@ -177,6 +177,13 @@ const PEEKS: Record<string, PagePeek> = {
       <MTitle count={3}>Pages</MTitle>
       {exampleWriting().map((one) => <MRow key={one.id} icon={FileText} tint="brown" meta={one.attribution ?? ''}>{one.title}</MRow>)}
       <MCard className="mt-2"><div className="mb-1 font-serif text-[11.5px] font-semibold">Why Hamlet waits</div><MLines widths={[95, 88, 70]} /></MCard>
+    </>)
+  },
+  questions: {
+    text: '**Questions: what you keep wondering about.** Each one gathers clues as they come, until you press “Answered” and they become a page.',
+    art: () => (<>
+      <MTitle count={4}>Questions</MTitle>
+      {exampleQuestions().slice(0, 3).map((one) => <MRow key={one.id} icon={Orbit} tint="blue" meta={one.closedAt ? 'Answered' : 'No answer yet'}>{one.title}</MRow>)}
     </>)
   },
   goals: {

@@ -102,8 +102,10 @@ export const keepInbox = (capture: CaptureMeta): boolean => capture.status === '
 /** With "Show sorted too": every note kept and every task, the Bin aside. */
 const keepEverything = (capture: CaptureMeta): boolean => capture.status !== 'discarded'
 
-export function CapturesView({ title, keep: given, focus, onOpen, archived = false, inbox: inboxPage = false, lead: given_lead }: {
+export function CapturesView({ title, keep: given, focus, onOpen, archived = false, inbox: inboxPage = false, lead: given_lead, said }: {
   title: string
+  /** A line on top of the list saying where you are: Questions' own, on its Looked up list. */
+  said?: React.ReactNode
   /** Shown at the line's left, as the Inbox's switch is: Questions' filters on the Looked up list. */
   lead?: React.ReactNode
   keep: (capture: CaptureMeta) => boolean
@@ -607,7 +609,7 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
             <SnoozedChip />
           </div>
         ) : (
-          <div data-kind-chips className="list-words pt-4 pb-2 empty:hidden">{title === 'Inbox' && kept.length > 0 ? cloneElement(chips ?? <span />, { extra: <GraphChip on={graphOn} onChange={setGraphed} /> }) : chips}</div>
+          <div data-kind-chips className="list-words pt-4 pb-2 empty:hidden">{said}{title === 'Inbox' && kept.length > 0 ? cloneElement(chips ?? <span />, { extra: <GraphChip on={graphOn} onChange={setGraphed} /> }) : chips}</div>
         )}
         {/* Everything waits for its tasks and for which captures became them: drawn before, the made ones show, then hide, and the box above pops in. */}
         {everything && (unloaded(tasks) || !sources.ready) ? null : graphed ? (
