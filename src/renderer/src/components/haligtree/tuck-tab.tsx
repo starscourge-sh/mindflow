@@ -69,10 +69,9 @@ export function TuckTab(): React.JSX.Element | null {
     const root = document.getElementById('root')
     if (root) {
       root.style.visibility = tuck && !tuck.opened ? 'hidden' : ''
-      root.style.boxSizing = 'border-box'
-      root.style.paddingLeft = strip && right ? `${strip}px` : ''
-      root.style.paddingRight = strip && !right ? `${strip}px` : ''
     }
+    // The card itself makes room for the strip (main.css): one surface, not a slab laid beside it.
+    document.documentElement.style.setProperty('--tuck-strip', `${strip}px`)
     // The card's inner corners go square to meet the strip (main.css, .mf-card).
     if (strip) document.documentElement.setAttribute('data-tuck-open', right ? 'right' : 'left')
     else document.documentElement.removeAttribute('data-tuck-open')
@@ -83,12 +82,13 @@ export function TuckTab(): React.JSX.Element | null {
   }, [tuck, strip, right])
   if (!tuck) return null
   if (tuck.opened)
-    // Slid out: the tab's strip on the screen side, meeting the card's square inner edge so the two are one paper, a dashed fold between.
+    // Slid out: the name written on the card's own edge, which the card grew to hold, a dashed fold after it. No paper
+    // of its own: a slab laid beside the card was shorter and another colour than a frosted or glass card.
     return (
       <div
         data-tuck-strip
-        className={`pointer-events-none fixed z-50 flex border text-foreground ${right ? (GLASS ? 'rounded-l-[10px]' : 'rounded-l-lg') + ' border-r-0' : (GLASS ? 'rounded-r-[10px]' : 'rounded-r-lg') + ' flex-row-reverse border-l-0'}`}
-        style={{ ...PAPER, boxShadow: GLASS ? undefined : (right ? '-2px 2px 8px -3px rgb(0 0 0 / 0.2)' : '2px 2px 8px -3px rgb(0 0 0 / 0.2)'), top: INSET, bottom: INSET, width: strip, ...(right ? { left: INSET } : { right: INSET }) }}
+        className={`pointer-events-none fixed z-50 flex text-foreground ${right ? '' : 'flex-row-reverse'}`}
+        style={{ top: INSET, bottom: INSET, width: strip, ...(right ? { left: INSET } : { right: INSET }) }}
       >
         <div data-tuck-fold className={`flex h-full shrink-0 items-start justify-center border-dashed border-foreground/25 ${right ? 'border-r' : 'border-l'}`} style={{ width: strip }}>
           <Label name={name} />

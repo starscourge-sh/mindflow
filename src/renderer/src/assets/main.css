@@ -2594,9 +2594,15 @@ html[data-book-hue] [data-book-tint] {
 
 /* A sticky slid out of its tucked tab stands straight, so the tab's strip laid over its inner edge meets it as one paper (tuck-tab.tsx). */
 html[data-tuck-open] [style*="--tilt"] { --tilt: 0deg !important; }
-/* Its inner side meets the strip square, with the strip's dashed fold for an edge. */
-html[data-tuck-open="right"] .mf-card { border-top-left-radius: 0; border-bottom-left-radius: 0; border-left-width: 0; }
-html[data-tuck-open="left"] .mf-card { border-top-right-radius: 0; border-bottom-right-radius: 0; border-right-width: 0; }
+/* The tab's strip is the card's own edge: the card grows by the strip's width and keeps its words clear of it, so tab
+   and card are one surface, one height, one material (paper, frost or glass), the name written on the card itself.
+   It stays still while out: grown on hover, the card would slide out from under the name laid over it. */
+html[data-tuck-open="right"] .mf-card { padding-left: var(--tuck-strip, 0px); }
+html[data-tuck-open="left"] .mf-card { padding-right: var(--tuck-strip, 0px); }
+/* A goal card keeps its own 1rem inside the fold, as on its other side. */
+html[data-tuck-open="right"] [data-goal-card] { padding-left: calc(var(--tuck-strip, 0px) + 1rem); }
+html[data-tuck-open="left"] [data-goal-card] { padding-right: calc(var(--tuck-strip, 0px) + 1rem); }
+html[data-tuck-open] :is(.mf-card, [data-goal-card]) { scale: 1 !important; }
 
 /* The paper a page is written on (Settings › Paper): a note's, the Journal's day page and the writing room, as a notebook's: dots or squares in a
    faint mix of the ink, scrolling with the words. The samples in Settings wear the same paper. */
