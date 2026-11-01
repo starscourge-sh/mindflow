@@ -82,6 +82,40 @@ guard let recognizer = SFSpeechRecognizer(locale: locale) ?? SFSpeechRecognizer(
   fail("unavailable", "Speech recognition isn't available for this language on this Mac")
 }
 
+// macOS 26 and later: SpeechAnalyzer, always on this Mac, and it works with Siri and Dictation off,
+// where the older SFSpeechRecognizer below stops with Apple's "Siri and Dictation are disabled".
+if #available(macOS 26, *) {
+  Task {
+    let status = SFSpeechRecognizer.authorizationStatus()
+    if status == .notDetermined { fail("not-asked", "Haligtree hasn't been allowed speech recognition yet") }
+    if status != .authorized { fail("denied", "Haligtree may not use speech recognition. Allow it in System Settings, under Privacy & Security, then Speech Recognition") }
+    guard let wanted = await SpeechTranscriber.supportedLocale(equivalentTo: locale) else {
+      fail("unavailable", "Speech recognition isn't available for this language on this Mac")
+    }
+    let transcriber = SpeechTranscriber(locale: wanted, preset: .timeIndexedTranscriptionWithAlternatives)
+    do {
+      // The words for this language are fetched once by macOS, then kept on the Mac.
+      if let install = try await AssetInventory.assetInstallationRequest(supporting: [transcriber]) {
+        try await install.downloadAndInstall()
+      }
+      let analyzer = SpeechAnalyzer(modules: [transcriber])
+      try await analyzer.start(inputAudioFile: try AVAudioFile(forReading: url), finishAfterFile: true)
+      var all: [String] = []
+      for try await result in transcriber.results where result.isFinal {
+        let text = String(result.text.characters).trimmingCharacters(in: .whitespacesAndNewlines)
+        if text.isEmpty { continue }
+        say(["segment": ["text": text, "start": result.range.start.seconds, "end": result.range.end.seconds]])
+        all.append(text)
+      }
+      say(["done": ["text": all.joined(separator: " "), "onDevice": true]])
+      exit(0)
+    } catch {
+      fail("failed", "The words could not be made out: \(error.localizedDescription)")
+    }
+  }
+  dispatchMain()
+}
+
 /** How far the words have been said, and all of them, across the parts a long recording comes in. */
 nonisolated(unsafe) var told = 0.0
 nonisolated(unsafe) var whole: [String] = []
