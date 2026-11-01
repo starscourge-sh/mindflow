@@ -5,13 +5,12 @@
 //   QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 QA_ARGS=--sandbox node qa/pill-controls.mjs
 import { mkdirSync } from 'fs'
 import { checks } from './harness.mjs'
-import { sandbox } from './sandbox-lib.mjs'
+import { CALM_HOUR, sandbox } from './sandbox-lib.mjs'
 process.env.QA_ARGS ??= '--sandbox'
 process.env.HALIGTREE_QA_VIRTUAL ??= '1'
 
 const { check, done } = checks()
-// Mid-afternoon: an evening practice offered at the hour ("21:00 Read twenty pages…") makes the pill the box.
-const c = await sandbox({ width: 1100, height: 760, at: '14:10' })
+const c = await sandbox({ width: 1100, height: 760, at: CALM_HOUR })
 const { page, v } = c
 const wait = (ms) => page.waitForTimeout(ms)
 const shots = process.env.QA_SHOTS ?? '/tmp/spot'

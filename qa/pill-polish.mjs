@@ -7,11 +7,10 @@
 // its own height, never the pill first.
 //   QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 QA_ARGS=--sandbox node qa/pill-polish.mjs
 // QA_SHOTS=dir saves light and dark frames.
-import { sandbox } from './sandbox-lib.mjs'
+import { CALM_HOUR, sandbox } from './sandbox-lib.mjs'
 process.env.QA_ARGS ??= '--sandbox'
 
-// Mid-afternoon: no practice offered at the hour ("21:00 Read twenty pages…") turns the pill into the box.
-const c = await sandbox({ width: 1100, height: 760, at: '14:10' })
+const c = await sandbox({ width: 1100, height: 760, at: CALM_HOUR })
 const { page, v, electron } = c
 const results = []
 const check = (name, ok, detail = '') => (results.push(!!ok), console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? `  (${detail})` : ''}`))
@@ -62,6 +61,12 @@ const steady = (frames) => {
 }
 
 await v('settings:set', { hintRate: 0, rotCount: 0, sounds: false, boxHideButtons: false, boxOneLine: true })
+// Every height the box's page asks main for, and when, to set beside what the card measures if it is ever wrong.
+await electron.evaluate(({ ipcMain }) => {
+  globalThis.__fits = []
+  ipcMain.on('window:fit', (_event, height, snap) => globalThis.__fits.push([Date.now() % 100000, height, !!snap]))
+})
+const boxSide = () => electron.evaluate(() => ({ main: globalThis.haligtreeBoxSize?.() ?? null, asked: globalThis.__fits.slice(-6) }))
 const made = await c.h.evaluate(() => window.api.captures.create({ kind: 'note', body: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: '#idea Create a dashboard for the garden #work' }] }, { type: 'paragraph', content: [{ type: 'text', text: 'Beds, water, light.' }] }] } }))
 const number = await c.h.evaluate((id) => window.api.captures.get(id).then((one) => one.number), made)
 await wait(600)
@@ -226,7 +231,7 @@ const sign = () => page.evaluate(() => ({
   panel: document.querySelectorAll('[data-box-panel], [data-side-panel]').length,
   pill: !!document.querySelector('.app-container[data-pill]'),
   tab: [...document.querySelectorAll('[role=tab][aria-selected=true], [data-state=active][role=tab]')].map((one) => one.textContent.trim()).join('|'),
-  w: innerWidth
+  // Not the window's width: the room kept beside the card for the round controls and the hint changes it, whatever the button did.
 }))
 const reset = async (grown) => {
   for (let i = 0; i < 2; i++) await page.keyboard.press('Escape').catch(() => {})
@@ -261,6 +266,7 @@ for (const grown of [false, true]) {
         return { card: Math.round(document.querySelector('.app-container').getBoundingClientRect().height), win: innerHeight, held: document.documentElement.style.getPropertyValue('--mf-card-held') || '', growing: 'growing' in document.documentElement.dataset, pillNow: !!document.querySelector('.app-container[data-pill]'), picked: all.findIndex((one) => one.hasAttribute('data-picked')), gaps: rs.slice(1).map((r, k) => Math.round(r.left - rs[k].right)), name: document.querySelector('[data-control-name]')?.textContent ?? '' }
       })
       if (key === 'Enter') check(`${where}: Tab reaches "${names[i]}", the gaps even (${at.gaps.join(', ')})`, at.picked === i && new Set(at.gaps).size === 1, JSON.stringify(at))
+      if (key === 'Enter' && !grown && at.card !== 56) console.log(`  card ${at.card}px while "${names[i]}" is chosen: ${JSON.stringify({ ...(await boxSide()), at: Date.now() % 100000, chosen: at.picked, page: at })}`)
       if (key === 'Enter' && !grown) check(`pill: the card stays one line (56px) while "${names[i].split("  ")[0]}" is chosen`, at.card === 56, JSON.stringify(at))
       if (key === 'Enter' && !grown) check(`pill: the bar names "${names[i].split('  ')[0]}" by what it opens`, at.name === names[i].split('  ')[0] && at.name !== 'Actions', at.name)
       if (key === 'Enter' && shots && i === 2) await page.screenshot({ path: `${shots}/polish-${grown ? 'grown' : 'pill'}-picked.png` })

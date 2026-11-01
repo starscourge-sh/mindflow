@@ -258,6 +258,8 @@ const boxWidth = (): number => (panelShown() ? WITH_PANEL : WIDTH)
 /** How tall the box should be now. */
 const boxHeight = (): number =>
   expandedNow ? SIZES.expanded.height : panelShown() ? SIZES.compact.height : Math.round(Math.min(SIZES.compact.height, Math.max(boxOneLine() && !isWelcoming() ? PILL : FIT_MIN, fit)))
+/** For the probes: what main holds of the box's size, to set beside what the page shows (qa/pill-polish.mjs). */
+;(globalThis as { haligtreeBoxSize?: () => Record<string, unknown> }).haligtreeBoxSize = () => ({ fit, expanded: expandedNow, panelOpen, panelShown: panelShown(), height: boxHeight(), card: prompt && !prompt.isDestroyed() ? prompt.getBounds() : null, focused: BrowserWindow.getFocusedWindow()?.webContents.getURL().replace(/^.*\//, '') ?? null })
 
 /** Keys as Settings writes them (⌥⌘S) in Electron's words (Alt+Command+S); null for none, or two in a row. */
 function accelerator(keys: string | null | undefined): string | null {

@@ -5,11 +5,10 @@
 // Off, the box is as it was (its own probes check the rest).
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-i/main/index.js HALIGTREE_QA_AWAY=1 node qa/box-one-line.mjs
 // QA_SHOTS=dir saves light and dark pictures of each stage.
-import { sandbox } from './sandbox-lib.mjs'
+import { CALM_HOUR, sandbox } from './sandbox-lib.mjs'
 process.env.QA_ARGS ??= '--sandbox'
 
-// Mid-afternoon: an evening practice offered at the hour ("21:00 Read twenty pages…") makes the pill the box.
-const c = await sandbox({ width: 1100, height: 760, at: '14:10' })
+const c = await sandbox({ width: 1100, height: 760, at: CALM_HOUR })
 const { page, v, electron } = c
 const results = []
 const check = (name, ok, detail = '') => (results.push(!!ok), console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? `  (${detail})` : ''}`))

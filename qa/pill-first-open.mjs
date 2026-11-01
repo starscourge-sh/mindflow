@@ -33,7 +33,7 @@ if (process.env.QA_PAGE_DELAY) {
 const TRACE = process.argv[2] ?? mkdtempSync(join(tmpdir(), 'haligtree-trace-'))
 process.env.HALIGTREE_QA_TRACE = TRACE
 process.env.QA_DATA ??= mkdtempSync(join(tmpdir(), 'haligtree-qa-'))
-const { sandbox } = await import('./sandbox-lib.mjs')
+const { CALM_HOUR, sandbox } = await import('./sandbox-lib.mjs')
 const { check, done } = checks()
 const read = () => (existsSync(`${TRACE}/trace.jsonl`) ? readFileSync(`${TRACE}/trace.jsonl`, 'utf8').trim().split('\n').map((one) => JSON.parse(one)) : [])
 const box = async (c) => {
@@ -46,13 +46,13 @@ const box = async (c) => {
 }
 
 // First run: "One line to start" on, kept for the next start.
-let c = await sandbox({ width: 1100, height: 760, at: '14:10' })
+let c = await sandbox({ width: 1100, height: 760, at: CALM_HOUR })
 await c.v('settings:set', { hintRate: 0, rotCount: 0, sounds: false, boxOneLine: true })
 await new Promise((r) => setTimeout(r, 1500))
 await c.close()
 
 // Second run: the first open after starting.
-c = await sandbox({ width: 1100, height: 760, at: '14:10' })
+c = await sandbox({ width: 1100, height: 760, at: CALM_HOUR })
 try {
   const page = await box(c)
   // Every frame from the moment it shows: whether it is the pill, what the card and window measure, and whether the

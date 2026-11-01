@@ -14,6 +14,13 @@ export function shiftClock(offset) {
 }
 
 /**
+ * A quiet hour for quick capture's probes: mid-afternoon, when no practice is offered at the hour. In the evening
+ * the box offers one ("21:00 Read twenty pages before bed") and, while it is up, the box is not the one-line pill, so
+ * a probe of the pill passed or failed by the real clock. Every pill probe runs at this hour: `sandbox({ at: CALM_HOUR })`.
+ */
+export const CALM_HOUR = '14:10'
+
+/**
  * `at: 'HH:MM'` runs the app as if it were that time today, in the main
  * process and every window, so a probe that depends on the hour (the evening,
  * the small hours) reads the same whatever the real clock says. `now()` is
