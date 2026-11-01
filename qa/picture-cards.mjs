@@ -16,7 +16,9 @@ const { check, done } = checks()
 const folder = mkdtempSync(join(tmpdir(), 'picture-cards-'))
 const diagram = join(folder, 'cell.png')
 execFileSync('swift', [join(import.meta.dirname, 'labelled-diagram.swift'), diagram])
-const c = await sandbox({ width: 1200, height: 900, seeded: false })
+// QA_SIZE=1000x700 runs it in a smaller window, where the page scrolls once the answer shows.
+const [width, height] = (process.env.QA_SIZE ?? '1200x900').split('x').map(Number)
+const c = await sandbox({ width, height, seeded: false })
 const { h } = c
 const shots = process.env.QA_SHOTS
 const waitFor = async (test, ms = 8000) => { for (const end = Date.now() + ms; Date.now() < end; await h.waitForTimeout(150)) if (await test().catch(() => false)) return true; return false }
@@ -92,13 +94,15 @@ try {
   // 6. Review: the asked cover glows, Space lifts it, the label is said; nothing moves.
   await h.click('[data-study-now]')
   check('6. a picture card shows its picture, every cover on, one asked', await waitFor(async () => (await has('[data-picture-face="asked"]')) && (await count('[data-cover]')) === 6 && (await count('[data-cover="asked"]')) === 1), String(await count('[data-cover]')))
-  const before = await boxes('[data-covered-picture], [data-picture-answer]')
+  // The card slides in from the right as it arrives (review-view.tsx, 220 ms): measured once it has settled, or its slide reads as a move.
+  check('6. the card has settled from its arrival', await waitFor(() => h.evaluate(() => getComputedStyle(document.querySelector('[data-picture-face]').closest('.flex.flex-col.gap-6')).transform === 'matrix(1, 0, 0, 1, 0, 0)')))
+  const before = await boxes('[data-covered-picture], [data-picture-answer], [data-picture-face], [data-review-tabs]')
   await both('picture-6-asked')
   await frames('picture-6-reveal', () => h.keyboard.press('Space'))
   check('6. Space lifts the asked cover off', await waitFor(() => has('[data-picture-face="shown"] [data-cover="asked"][data-cover-off]')))
   const said = await text('[data-picture-answer]')
   check('6. the label it hid is said under the picture', ['Nucleus', 'Cell membrane', 'Cytoplasm', 'Mitochondrion', 'Ribosome', 'Vacuole'].includes(said.trim()), said)
-  check('6. nothing moved as it was shown', before === (await boxes('[data-covered-picture], [data-picture-answer]')), `${before} | ${await boxes('[data-covered-picture], [data-picture-answer]')}`)
+  check('6. nothing moved as it was shown', before === (await boxes('[data-covered-picture], [data-picture-answer], [data-picture-face], [data-review-tabs]')), `${before} | ${await boxes('[data-covered-picture], [data-picture-answer], [data-picture-face], [data-review-tabs]')}`)
   check('6. all four grades show', /Again.*Hard.*Good.*Easy/s.test(await text('[data-grades]')))
   await both('picture-6-shown')
   await h.click('[data-picture-all]')
