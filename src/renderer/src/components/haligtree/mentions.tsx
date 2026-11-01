@@ -4,14 +4,13 @@ import { enqueue } from '@/lib/reading-queue'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import LinkIcon from '@/components/ui/link-icon'
 import DotsHorizontalIcon from '@/components/ui/dots-horizontal-icon'
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuShortcut, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { tagHue } from '@/extensions/tokens'
 
 import { chime } from '@/lib/sound'
 import { useThumb } from '@/lib/notes'
 import { openApart } from '@/lib/apart'
-import { asideItem, canSplit, openAside } from '@/lib/split'
-import { RowMenu, copyLinkItem, type RowItem } from './row-menu'
+import { asideItem } from '@/lib/split'
+import { RowMenu, copyLinkItem, openFromGrip, type RowItem } from './row-menu'
 import { unloaded, unread, haligtree } from '@/lib/haligtree'
 import { Thumb } from './note-extras'
 import { Count, Tags, Tip, VirtualList, quietly, refuse } from './ui'
@@ -254,7 +253,19 @@ function RelatedCard({ card, onOpen }: { card: Related[number]; onOpen?: (type: 
   const picture = useThumb(card.id)
   // A picture tips toward the pointer; a card of words stays put.
   const Frame = picture ? Tilt : 'span'
+  // One menu, from its ⋯ and from a right click, as every row's: where to open it, the queue, a link to it.
+  const items: RowItem[] = [
+    { label: 'Open', run: () => onOpen?.(card.type, card.id) },
+    asideItem(card.type, card.id),
+    { label: 'Open in a new window', run: () => openApart(card.type, card.id) },
+    'separator',
+    { label: 'Add to queue', run: () => void enqueue([card.id]) },
+    { label: 'Read next', run: () => void enqueue([card.id], true) },
+    'separator',
+    copyLinkItem(card.type === 'capture' ? card.id : `${card.type}:${card.id}`, card.title)
+  ]
   return (
+    <RowMenu items={items}>
     <div data-private={card.private ? '' : undefined} className="group/card relative w-40 shrink-0 snap-start transition-transform duration-200 ease-out motion-safe:hover:-translate-y-0.5 motion-safe:focus-within:-translate-y-0.5">
       <button
         type="button"
@@ -279,26 +290,17 @@ function RelatedCard({ card, onOpen }: { card: Related[number]; onOpen?: (type: 
           ))}
         </span>
       </button>
-      <DropdownMenu modal={false}>
-        <Tip label="More">
-          <DropdownMenuTrigger asChild>
-            <button
-              type="button"
-              aria-label="More"
-              className="absolute top-1.5 right-1.5 flex size-6 items-center justify-center rounded-full border bg-popover text-muted-foreground opacity-0 shadow-sm transition-opacity duration-150 group-hover/card:opacity-100 hover:text-foreground focus-visible:opacity-100 data-[state=open]:opacity-100"
-            >
-              <AliveIcon icon={DotsHorizontalIcon} size={14} />
-            </button>
-          </DropdownMenuTrigger>
-        </Tip>
-        <DropdownMenuContent align="end" className="w-52">
-          <DropdownMenuItem onSelect={() => onOpen?.(card.type, card.id)}>Open</DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => openApart(card.type, card.id)}>Open in a new window</DropdownMenuItem>
-          {canSplit() && <DropdownMenuItem onSelect={() => openAside(card.type, card.id)}>Open to the side<DropdownMenuShortcut>⌥-click</DropdownMenuShortcut></DropdownMenuItem>}
-          <DropdownMenuItem onSelect={() => void enqueue([card.id])}>Add to queue</DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => void enqueue([card.id], true)}>Read next</DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+      {/* Its right-click menu, opened under it: one menu, two ways in. No tip: the card is itself a surface. */}
+      <button
+        type="button"
+        aria-label="More"
+        data-related-dots
+        onClick={openFromGrip}
+        className="absolute top-1.5 right-1.5 flex size-6 cursor-pointer items-center justify-center rounded-full border bg-popover text-muted-foreground opacity-0 shadow-sm transition-opacity duration-150 group-hover/card:opacity-100 hover:text-foreground focus-visible:opacity-100 active:scale-[0.97] motion-reduce:active:scale-100"
+      >
+        <AliveIcon icon={DotsHorizontalIcon} size={14} />
+      </button>
     </div>
+    </RowMenu>
   )
 }
