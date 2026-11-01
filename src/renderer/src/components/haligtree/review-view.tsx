@@ -49,6 +49,8 @@ import DotsHorizontalIcon from '@/components/ui/dots-horizontal-icon'
 import { InkLine } from './ink-line'
 import { backIn } from '@/lib/back-in'
 import { hoverNote } from './note-preview'
+import { CoveredPicture } from './picture-cards'
+import { occlusionOf, type Occlusion } from '../../../../main/occlusion'
 
 /** The four grades, as the plan defines them: how the retrieval felt, not whether it was right. */
 export const GRADES = [
@@ -229,6 +231,8 @@ export function ReviewView({ compact = false, tag, actions, lead }: { compact?: 
   const timeOn = card?.lineOf ? (/\[((?:\d{1,2}:)?\d{1,2}:[0-5]\d)\]/.exec(card.prompt ?? '')?.[1] ?? null) : null
   const asked = card ? masked(askedOf(card.prompt), answer).replace(timeOn ? /\s*\[(?:\d{1,2}:)?\d{1,2}:[0-5]\d\]\s*/g : /$^/, ' ').trim() : ''
 
+  // Made from a picture: its covers asked in place of a question, lifted off to answer.
+  const occlusion = card ? occlusionOf(card.fields) : null
   const reveal = (): void => {
     setOver(true)
     if (shown) return
@@ -655,7 +659,7 @@ export function ReviewView({ compact = false, tag, actions, lead }: { compact?: 
         {/* The question on the card's face, the answer on its back. */}
         <RowMenu items={cardMenu}>
         <div data-review-card className="contents">
-        <Flip
+        {occlusion ? <PictureFace occlusion={occlusion} shown={shown} answer={answer ?? textOf(card.body)} onReveal={reveal} /> : <Flip
           over={over}
           onTurn={turnTo}
           front={
@@ -758,7 +762,7 @@ export function ReviewView({ compact = false, tag, actions, lead }: { compact?: 
               </div>
             </BorderBeam>
           )}
-        />
+        />}
         </div>
         </RowMenu>
         {asking === card.id && <AnotherWay card={card} onClose={() => (chime('fold'), setAsking(null))} />}
@@ -1544,6 +1548,32 @@ export function Flip({ over, onTurn, front, back }: { over: boolean; onTurn: (ov
         <div {...face(!over)}>{front}</div>
         <div {...face(over)} style={flat ? undefined : { transform: 'rotateY(180deg)' }}>{back}</div>
       </motion.div>
+    </div>
+  )
+}
+
+/**
+ * A card made from a picture: no turning over. The covers asked glow softly
+ * and lift off to answer, the label they hid said under the picture, its room
+ * kept from the start so nothing moves. Once shown, "Show the whole picture"
+ * lifts every other cover too, to look it all over.
+ */
+function PictureFace({ occlusion, shown, answer, onReveal }: { occlusion: Occlusion; shown: boolean; answer: string; onReveal: () => void }): React.JSX.Element {
+  const [all, setAll] = useState(false)
+  // The label first: the deck's tag and the book's link under it are for the card's page, not for here.
+  const said = answer.split('\n').map((line) => line.trim()).filter((line) => line && !line.startsWith('#') && !line.startsWith('[')).join(', ')
+  return (
+    <div data-picture-face={shown ? 'shown' : 'asked'} onClick={() => !shown && onReveal()} className={`grid gap-3 rounded-lg border bg-accent/30 px-5 py-5 ${shown ? '' : 'cursor-pointer'}`}>
+      <p className="text-sm text-muted-foreground">{occlusion.hide === 'all' ? 'What is under the glowing cover?' : 'What is hidden?'}</p>
+      <CoveredPicture occlusion={occlusion} shown={shown} all={all} />
+      <div className="flex min-h-8 flex-wrap items-center gap-3">
+        <p data-picture-answer className={`min-w-0 flex-1 font-heading text-heading font-semibold text-foreground ${shown ? '' : 'invisible'}`}>{said || 'Shown on the picture'}</p>
+        {occlusion.covers.some((one) => one.group !== occlusion.ask) && (
+          <Button variant="ghost" size="sm" data-picture-all className={`h-8 cursor-pointer px-3 text-muted-foreground ${shown ? '' : 'invisible'}`} onClick={(event) => (event.stopPropagation(), chime(all ? 'fold' : 'open'), setAll(!all))}>
+            {all ? 'Cover the rest again' : 'Show the whole picture'}
+          </Button>
+        )}
+      </div>
     </div>
   )
 }

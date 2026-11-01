@@ -2929,6 +2929,40 @@ export function registerHaligtree(): void {
     })
     return write(ids)
   })
+  // --- cards from a picture (image occlusion): one card for each group of covers, the picture and every cover kept on each,
+  // so Review can hide that group alone ("one") or every cover with that group the one asked ("all").
+  // `from`: the snip or note the picture came from, its book and page kept as a snip's card keeps them.
+  handle('cards:picture', (made: { src: string; covers: { group: number; text?: string }[]; hide: 'one' | 'all'; deck?: string; from?: { id: string } | null }) => {
+    const groups = [...new Set((made?.covers ?? []).map((one) => one.group))].sort((a, b) => a - b)
+    if (!made?.src || !groups.length) return write([] as string[])
+    const note = randomUUID()
+    const origin = made.from?.id ? db.prepare('select attribution, medium, passage, body from nuggets where id = ?').get(made.from.id) as { attribution: string | null; medium: string | null; passage: string | null; body: string | null } | undefined : undefined
+    // The book's page link from a snip ("[Title, p. 3](haligtree://assets/….pdf#page=3)"), under every answer, as a snip's card has it.
+    const link = /\[[^\]]*\]\((?:haligtree|mindflow):\/\/assets\/[^)\s]+\.pdf#[^)\s"]*\)/.exec(JSON.parse(origin?.body ?? 'null') ?? '')?.[0] ?? ''
+    const tag = made.deck?.trim().replace(/^#/, '')
+    const ids = groups.map((group, index) => {
+      const id = randomUUID()
+      const named = made.covers.filter((one) => one.group === group).map((one) => one.text?.trim()).filter(Boolean).join(', ')
+      const answer = [named || 'Shown on the picture', link, tag ? `#${tag}` : ''].filter(Boolean).join('\n\n')
+      const fields = JSON.stringify({ occlusion: { src: made.src, covers: made.covers, ask: group, hide: made.hide === 'all' ? 'all' : 'one' } })
+      db.prepare("insert into nuggets (id, tier, kind, title, body, prompt, source, created_at, updated_at, fields, attribution, medium, passage) values (?, ?, 'note', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+        .run(id, cardTier(), cut(`What is hidden? ${index + 1} of ${groups.length}`, 160), JSON.stringify(answer), 'What is hidden?', `picture:${note}:${group}`, now(), now(), fields, origin?.attribution ?? null, origin?.medium ?? null, origin?.passage ?? null)
+      return id
+    })
+    return write(ids)
+  })
+  // Pictures to make cards from, newest first: snips from a book (kept as a gem or a card), then pictures in notes.
+  handle('cards:picture:sources', () => {
+    const PICTURE = /(?:haligtree|mindflow):\/\/assets\/[a-f0-9]{64}\.(?:png|jpe?g|gif|webp|heic|avif)/i
+    const out: { src: string; title: string; id: string | null }[] = []
+    const seen = new Set<string>()
+    const add = (src: string | undefined, title: string, id: string | null): void => void (src && !seen.has(src) && out.length < 60 && (seen.add(src), out.push({ src, title, id })))
+    for (const row of db.prepare("select id, title, medium, passage, body from nuggets where passage like 'p. %' and body like '%![](%' and binned_at is null order by created_at desc limit 40").all() as { id: string; title: string; medium: string | null; passage: string; body: string }[])
+      add(PICTURE.exec(row.body)?.[0], row.medium ? `${row.medium}, ${row.passage}` : row.title, row.id)
+    for (const row of db.prepare(`select ${LABEL} as title, body from captures where status != 'discarded' and archived_at is null and body like '%"type":"image"%' order by coalesce(edited_at, captured_at) desc limit 40`).all() as { title: string; body: string }[])
+      for (const match of row.body.matchAll(new RegExp(PICTURE.source, 'gi'))) add(match[0], row.title || 'A note', null)
+    return out
+  })
   handle('cards:list:undo', (ids: string[]) => {
     for (const id of ids ?? []) db.prepare("delete from nuggets where id = ? and tier in ('nugget', 'card') and line_of is null and state is null").run(id)
     return write(true)

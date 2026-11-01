@@ -48,7 +48,7 @@ const MANY = 8
 /** The most pockets drawn before the fold. */
 const POCKETS = 24
 
-export function DeckShelf({ onOpen, onStudy, onPaste }: { onOpen: (type: string, id: string) => void; /** Study a deck's or topic's tag in Today. */ onStudy: (tag: string) => void; /** Paste cards into a deck, or make one card in it, in All cards. */ onPaste: (deck: string | null, one?: boolean) => void }): React.JSX.Element {
+export function DeckShelf({ onOpen, onStudy, onPaste, onPicture }: { onOpen: (type: string, id: string) => void; /** Study a deck's or topic's tag in Today. */ onStudy: (tag: string) => void; /** Paste cards into a deck, or make one card in it, in All cards. */ onPaste: (deck: string | null, one?: boolean) => void; /** Make cards from a picture, into a deck or none. */ onPicture: (deck: string | null) => void }): React.JSX.Element {
   const [gallery, setGallery] = useState<string | null>(null)
   const [linking, setLinking] = useState<string | null>(null)
   const [allTags, setAllTags] = useState(false)
@@ -72,6 +72,7 @@ export function DeckShelf({ onOpen, onStudy, onPaste }: { onOpen: (type: string,
     <div data-deck-top className="flex flex-wrap items-center gap-2">
       <Button variant="outline" size="sm" className="h-8 cursor-pointer px-3" data-deck-make onClick={() => (chime('open'), onPaste(null, true))}>Make a card</Button>
       <Button variant="outline" size="sm" className="h-8 cursor-pointer px-3" data-deck-paste onClick={() => (chime('open'), onPaste(null))}>Add many at once</Button>
+      <Button variant="outline" size="sm" className="h-8 cursor-pointer px-3" data-deck-picture onClick={() => onPicture(null)}>From a picture</Button>
       <Button variant="outline" size="sm" className="h-8 cursor-pointer px-3" data-deck-import onClick={() => (chime('open'), void window.api.importFrom('files'))}>Import<span className="font-normal text-muted-foreground">Anki or CSV</span></Button>
       <span className="flex-1" />
       <Button variant="ghost" size="sm" className="h-8 cursor-pointer px-3" data-deck-new onClick={() => (chime('open'), newDeck())}>New deck</Button>
@@ -89,7 +90,7 @@ export function DeckShelf({ onOpen, onStudy, onPaste }: { onOpen: (type: string,
     return (
       <div data-deck-shelf data-deck-first className="grid grid-cols-[minmax(0,1fr)] gap-4 px-5 pt-4 pb-20">
         {top}
-        <FirstWays example={own.find((deck) => deck.tag === EXAMPLE_TAG) ?? null} onMake={() => (chime('open'), onPaste(null, true))} onStudy={onStudy} />
+        <FirstWays example={own.find((deck) => deck.tag === EXAMPLE_TAG) ?? null} onMake={() => (chime('open'), onPaste(null, true))} onPicture={() => onPicture(null)} onStudy={onStudy} />
         <StudyYear />
       </div>
     )
@@ -124,6 +125,7 @@ export function DeckShelf({ onOpen, onStudy, onPaste }: { onOpen: (type: string,
       ...(deck.cards ? [{ label: 'Study', run: () => (chime('riffle'), onStudy(deck.tag)) }] : []),
       { label: 'Make a card', run: () => (chime('open'), onPaste(deck.tag, true)) },
       { label: 'Add many at once', run: () => (chime('open'), onPaste(deck.tag)) },
+      { label: 'Make cards from a picture', run: () => onPicture(deck.tag) },
       { label: 'New deck inside', run: () => newDeck(deck.tag) },
       { label: 'Open its page', hint: 'Everything tagged with it, on the tag’s page', run: () => openTag(deck.tag) },
       { label: 'Rename deck…', run: () => void renameDeck(deck.tag) },
@@ -508,10 +510,9 @@ function Way({ id, title, line, onClick, children }: { id: string; title: string
 /**
  * Review's Decks page before you have a card of your own: the ways in, each
  * with a tiny example of what it makes, and the example deck that teaches
- * spaced repetition by doing it. "Make cards from a picture" joins them when
- * image occlusion lands.
+ * spaced repetition by doing it.
  */
-function FirstWays({ example, onMake, onStudy }: { example: OwnDeck | null; onMake: () => void; onStudy: (tag: string) => void }): React.JSX.Element {
+function FirstWays({ example, onMake, onPicture, onStudy }: { example: OwnDeck | null; onMake: () => void; onPicture: () => void; onStudy: (tag: string) => void }): React.JSX.Element {
   const tryIt = (): void => void haligtree.exampleAdd().then(() => (chime('riffle'), onStudy(EXAMPLE_TAG)))
   return (
     <section data-first-ways className="grid gap-3 pt-2">
@@ -519,7 +520,7 @@ function FirstWays({ example, onMake, onStudy }: { example: OwnDeck | null; onMa
         <h2 className="font-serif text-2xl leading-tight text-foreground">Your first cards</h2>
         <p className="max-w-[62ch] leading-relaxed text-muted-foreground">A card asks one question. Review brings it back just before you would forget it, and waits longer each time you remember.</p>
       </span>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <Way id="make" title="Make your first card" line="Type a question, then its answer." onClick={onMake}>
           <span className="font-serif text-base leading-snug font-semibold text-foreground">What is the capital of Peru?</span>
           <span className="border-t border-dashed border-foreground/15" />
@@ -529,6 +530,17 @@ function FirstWays({ example, onMake, onStudy }: { example: OwnDeck | null; onMa
           <span className="flex items-baseline justify-between gap-3 text-sm"><span className="truncate text-foreground">Biology.apkg</span><span className="shrink-0 text-muted-foreground">Anki deck</span></span>
           <span className="border-t border-foreground/10" />
           <span className="flex items-baseline justify-between gap-3 text-sm"><span className="truncate text-foreground">Spanish words.csv</span><span className="shrink-0 text-muted-foreground">spreadsheet</span></span>
+        </Way>
+        <Way id="picture" title="Make cards from a picture" line="A diagram with labels: cover them, and each becomes a card." onClick={onPicture}>
+          {/* A drawn diagram: a cell, its labels covered, the one asked glowing in the theme's colour. */}
+          <svg viewBox="0 0 120 44" className="h-11 w-full" aria-hidden>
+            <circle cx="60" cy="22" r="17" fill="none" stroke="currentColor" strokeOpacity="0.35" strokeWidth="1.2" />
+            <circle cx="63" cy="20" r="6" fill="currentColor" fillOpacity="0.18" />
+            <path d="M28 10 L47 16 M92 12 L68 19 M28 34 L45 29" stroke="currentColor" strokeOpacity="0.35" strokeWidth="1" />
+            <rect x="2" y="6" width="26" height="8" rx="1" fill="color-mix(in oklab, var(--foreground) 72%, var(--background))" />
+            <rect x="92" y="8" width="26" height="8" rx="1" fill="var(--primary)" />
+            <rect x="2" y="30" width="26" height="8" rx="1" fill="color-mix(in oklab, var(--foreground) 72%, var(--background))" />
+          </svg>
         </Way>
       </div>
       {/* The example deck: offered, or there with its counts, a way to study it and one click to take it away. */}

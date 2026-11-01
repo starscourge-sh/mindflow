@@ -6,6 +6,7 @@ import { ReviewView } from './review-view'
 import { CardBrowser } from './card-browser'
 import { StudySection } from './study-stats'
 import { DeckShelf } from './deck-shelf'
+import { PictureCards } from './picture-cards'
 import { Page } from './ui'
 
 /** Review's own pages: the decks (first, as Anki opens), every card, and how remembering goes; 'today' is studying, from "Study now". */
@@ -31,6 +32,8 @@ export function ReviewArea({ focus, onOpen, onFocus }: { focus?: string; onOpen:
   const [aim, setAim] = useState<{ deck: string | null; one: boolean } | null>(focus === ':paste' ? { deck: null, one: false } : focus?.startsWith(':new:') ? { deck: focus.slice(5), one: true } : null)
   // Just the cards an import or "Add many at once" brought in, shown in All cards.
   const [only, setOnly] = useState<string[] | null>(null)
+  // "Make cards from a picture", aimed at a deck or none: open over the Decks page.
+  const [picture, setPicture] = useState<{ deck: string | null } | null>(null)
   // Just the cards an import made, from its "Show the new cards" (":newest:" and how many it made).
   const [newest, setNewest] = useState<number | null>(focus?.startsWith(':newest:') ? Number(focus.slice(8)) || null : null)
   const [tab, setTab] = useState<ReviewTab>(newest || focus === ':cards' || focus === ':paste' || focus?.startsWith(':new:') ? 'cards' : focus === ':stats' ? 'stats' : focus === ':today' || (focus && !focus.startsWith(':')) ? 'today' : 'decks')
@@ -50,7 +53,7 @@ export function ReviewArea({ focus, onOpen, onFocus }: { focus?: string; onOpen:
     if (focus === ':decks' || focus === ':cards' || focus === ':stats' || focus === ':today') return void (setStudying(null), setAim(null), setOnly(null), setNewest(null), setTab(focus.slice(1) as ReviewTab))
     if (!focus.startsWith(':')) return void (setStudying(focus), setTab('today'))
   }, [focus]) // eslint-disable-line react-hooks/exhaustive-deps
-  const go = (to: ReviewTab): void => void (tab !== to && (chime(to === 'today' ? 'riffle' : 'tap'), setStudying(null), setAim(null), setOnly(null), setNewest(null), setTab(to)))
+  const go = (to: ReviewTab): void => void ((tab !== to || picture) && (chime(to === 'today' ? 'riffle' : 'tap'), setStudying(null), setAim(null), setOnly(null), setNewest(null), setPicture(null), setTab(to)))
   // The tabs on the left of the page's line, where they stay put; "Study now", the page's one filled button, on the right.
   const tabs = (
     <span role="tablist" data-review-tabs className="flex h-8 items-center max-sm:h-9 rounded-lg border border-foreground/10 bg-accent/40 p-0.5 text-control">
@@ -68,7 +71,7 @@ export function ReviewArea({ focus, onOpen, onFocus }: { focus?: string; onOpen:
     <button type="button" data-review-tab="today" data-study-now aria-pressed={tab === 'today'} onClick={() => go('today')}
       className={`h-8 cursor-pointer rounded-md border px-3 text-control font-medium max-sm:h-9 transition-colors ${tab === 'today' ? 'border-foreground/15 bg-background text-foreground shadow-sm' : 'border-transparent bg-primary text-primary-foreground hover:bg-primary/90'}`}>Study now</button>
   )
-  const show = (ids: string[]): void => (chime('open'), setStudying(null), setAim(null), setOnly(ids), setTab('cards'))
+  const show = (ids: string[]): void => (chime('open'), setStudying(null), setAim(null), setPicture(null), setOnly(ids), setTab('cards'))
   if (tab === 'cards')
     return (
       <Page title="Review" lead={tabs} actions={studyNow}>
@@ -78,7 +81,11 @@ export function ReviewArea({ focus, onOpen, onFocus }: { focus?: string; onOpen:
   if (tab === 'decks')
     return (
       <Page title="Review" lead={tabs} actions={studyNow}>
-        <div className="page-sheet mx-auto w-full"><DeckShelf onOpen={onOpen} onStudy={(tag) => (setStudying(tag), setTab('today'))} onPaste={(deck, one = false) => (setAim({ deck, one }), setTab('cards'))} /></div>
+        <div className="page-sheet mx-auto w-full">
+          {picture ? (
+            <div className="px-5 pt-4 pb-20"><PictureCards deck={picture.deck} onClose={() => (chime('fold'), setPicture(null))} onShow={show} /></div>
+          ) : <DeckShelf onOpen={onOpen} onStudy={(tag) => (setStudying(tag), setTab('today'))} onPaste={(deck, one = false) => (setAim({ deck, one }), setTab('cards'))} onPicture={(deck) => (chime('open'), setPicture({ deck }))} />}
+        </div>
       </Page>
     )
   if (tab === 'stats')

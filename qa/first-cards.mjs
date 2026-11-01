@@ -1,5 +1,5 @@
 // A beginner's first visit to Review, in a fresh book: the Decks page offers the ways in, each with a tiny
-// example ("Make your first card", "Import from Anki"; "Make cards from a picture" waits for image occlusion),
+// example ("Make your first card", "Import from Anki", "Make cards from a picture"),
 // and an example deck of ten cards that teaches spaced repetition by doing it. Trying it studies it at once,
 // with all four grades; its cards are scheduled for real but never counted (no review logged, no streak, no
 // heatmap day, not in the stats' card count); its picture card shows its drawing; one click removes it all.
@@ -34,8 +34,8 @@ try {
   const at = await boxes('[data-deck-top], [data-first-ways], [data-first-way], [data-first-example]')
   await h.waitForTimeout(1500)
   check('1. nothing on the page moves after it shows', at === (await boxes('[data-deck-top], [data-first-ways], [data-first-way], [data-first-example]')), at)
-  check('1. "Make your first card" and "Import from Anki", each with a tiny example', /Make your first card/.test(await text('[data-first-way="make"]')) && /Import from Anki/.test(await text('[data-first-way="import"]')) && (await h.evaluate(() => document.querySelectorAll('[data-first-way] [data-first-sample]').length)) === 2)
-  check('1. no "Make cards from a picture" yet', !/picture/i.test(await text('[data-first-ways]')))
+  check('1. "Make your first card" and "Import from Anki", each with a tiny example', /Make your first card/.test(await text('[data-first-way="make"]')) && /Import from Anki/.test(await text('[data-first-way="import"]')) && (await h.evaluate(() => document.querySelectorAll("[data-first-way] [data-first-sample]").length)) === 3)
+  check('1. "Make cards from a picture" is the third way in', /Make cards from a picture/.test(await text('[data-first-way="picture"]')))
   check('1. the example deck is offered, saying it never counts', /never counts in your streak or stats/.test(await text('[data-first-example="offered"]')))
   check('1. every way in shows the hand', await h.evaluate(() => [...document.querySelectorAll('[data-first-way], [data-first-ways] button, [data-deck-top] button')].every((one) => getComputedStyle(one).cursor === 'pointer')))
   check('1. "Study now" stays the one filled button on the page', (await h.evaluate(() => [...document.querySelectorAll('[data-page] button, main button')].filter((one) => one.className.includes('bg-primary ') || / bg-primary$/.test(one.className)).length)) <= 1)
@@ -89,7 +89,7 @@ try {
     const ways = [...document.querySelectorAll('[data-first-way]')].map((one) => one.getBoundingClientRect())
     const small = [...document.querySelectorAll('[data-first-ways] button, [data-first-way], [data-deck-top] button')].filter((one) => one.getBoundingClientRect().height < 32).map((one) => one.textContent)
     const wide = [...document.querySelectorAll('[data-deck-shelf] *')].filter((one) => one.getBoundingClientRect().right > window.innerWidth + 1).map((one) => one.tagName + ' ' + (one.textContent ?? '').slice(0, 30))
-    return { stacked: ways.length === 2 && ways[1].top >= ways[0].bottom, small, wide: wide.slice(0, 4), sideways: scroller.scrollWidth > scroller.clientWidth + 1 }
+    return { stacked: ways.length === 3 && ways[1].top >= ways[0].bottom && ways[2].top >= ways[1].bottom, small, wide: wide.slice(0, 4), sideways: scroller.scrollWidth > scroller.clientWidth + 1 }
   })
   check('6. at 390 px the ways stack, nothing runs off, every tap target is 32 px or more', phone.stacked && !phone.small.length && !phone.wide.length && !phone.sideways, JSON.stringify(phone))
   await both('first-6-phone')
