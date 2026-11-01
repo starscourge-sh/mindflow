@@ -305,11 +305,9 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
   // Groups show as groups in every sort and every grouping, as Finder's folders do. Grouped by kind or date, they come
   // first in your own order, then the loose notes in their sections; inside a group its notes go by kind (or date) too.
   const heads = plain ? undefined : new Map(groups.flatMap(([name, list]) => list.map((one) => [one.id, name] as const)))
-  // Folders drawn as a tree in the list only when the order asks for them ("Folders first", or your own order, where
-  // notes are dragged into them); every other order is one flat list, newest first to start, each row naming its folder.
-  // The order is Display's, kept per list, so the choice is remembered.
-  const foldersOn = view.sort === 'groups' || view.sort === 'manual'
-  const folding = useFolding(tier, all, ownOrder, order, foldersOn && !questionsOnly && !gatherer && (density === 'list' || density === 'compact') && !(spread && query.trim()) ? groups.flatMap(([, list]) => list) : null,
+  // A note in a folder lives there alone (memory: folders-isolate): the list's top level is its folders, then the loose
+  // notes, in every order; a folder's notes show only once it is opened. Groups are the one way a note shows twice.
+  const folding = useFolding(tier, all, ownOrder, order, !questionsOnly && !gatherer && (density === 'list' || density === 'compact') && !(spread && query.trim()) ? groups.flatMap(([, list]) => list) : null,
     view.sort === 'manual' && plain, () => setChosen([]), chosen, mine, heads, opened?.id)
   // As tiles, each group is one folder card; opened, the grid shows only its notes, under a chip back.
   // Questions are never in Writing's folders as a list: they are drawn plain, each as a question.
@@ -318,7 +316,7 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
   const [inGroup, setInGroup] = useState<string | null>(null)
   const folder = tiled && inGroup ? noteGroups.find((one) => one.id === inGroup) : undefined
   const flat = groups.flatMap(([, list]) => list)
-  const tiles = tiled && !folder && foldersOn && !questionsOnly && !gatherer ? folding.tiles(flat) : null
+  const tiles = tiled && !folder && !questionsOnly && !gatherer ? folding.tiles(flat) : null
   const folders = new Map(tiles?.flatMap((one) => ('group' in one ? [[KEY + one.group.id, one] as const] : [])))
   const items = folding.rows
     ?? (folder ? flat.filter((one) => folder.members.includes(one.id))
@@ -603,8 +601,8 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
     return () => window.removeEventListener('haligtree:folder-drop', onDrop)
   }, [chosen])
   // A question is drawn as one, with its "?" mark, how long it has been held and its clues.
-  // Flat, a row says which folder it lives in, as a small mark before its line: the tree is in the sidebar.
-  const folderOf = new Map(foldersOn ? [] : filed.flatMap((group) => group.members.map((id) => [id, group] as const)))
+  // In a group, gathered from every folder, a row says which folder it lives in, as a small mark before its line.
+  const folderOf = new Map(!gatherer ? [] : filed.flatMap((group) => group.members.map((id) => [id, group] as const)))
   const inFolder = (entry: Entry, one: Item): Entry => {
     const home = folderOf.get(one.id)
     return home ? { ...entry, sub: <span className="flex min-w-0 items-center gap-1.5"><span data-row-folder={home.id} className="flex shrink-0 items-center gap-1"><GroupIcon icon={home.icon} color={home.color} className="size-3" />{home.name}</span>{entry.sub ? <><span aria-hidden>·</span><span className="min-w-0 truncate">{entry.sub}</span></> : null}</span> } : entry
@@ -1513,9 +1511,8 @@ const propOf = (one: Item): { status?: string; rating?: number } => {
  */
 /** What an order does with groups, said in the sort menu under its choices. */
 const groupsSaid = (sort: string): string =>
-  sort === 'manual' ? 'Folders stay where you put them, among the pages.'
-    : sort === 'groups' ? 'Folders on top, in your order; then the loose pages, in your order.'
-      : 'Folders on top, in your order; the pages in them and after them sorted.'
+  sort === 'manual' ? 'Folders on top, in your order; then the loose pages, where you put them.'
+    : 'Folders on top, in your order; the pages in them and after them sorted.'
 
 export function useItemDisplay(name: string, every: Item[], withGroups = false): {
   groups: [string, Item[]][]
@@ -1585,10 +1582,8 @@ export function useItemDisplay(name: string, every: Item[], withGroups = false):
     kind: (a, b) => byKind(a.kind, b.kind) || b.createdAt.localeCompare(a.createdAt),
     due: (a, b) => (a.dueAt ?? '9').localeCompare(b.dueAt ?? '9'),
     rating: (a, b) => (propOf(b).rating ?? 0) - (propOf(a).rating ?? 0) || b.createdAt.localeCompare(a.createdAt),
-    manual: ownOrder,
-    // Your own order too, with every group lifted to the top.
-    groups: ownOrder
-  }, {
+    manual: ownOrder
+  }, withGroups ? {} : {
     kind: (one) => CAPTURE_TYPES.find((type) => type.id === one.kind)?.label ?? 'Note',
     date: (one) => period(one.createdAt)
   })
@@ -1604,10 +1599,11 @@ export function useItemDisplay(name: string, every: Item[], withGroups = false):
       items={every}
       count={all.length}
       // By kind only where there is more than one kind; by next review only where something is due for one (pieces of writing never are).
-      sorts={[{ id: 'newest', label: 'Newest' }, { id: 'changed', label: 'Recently changed' }, { id: 'untouched', label: 'Longest unchanged' }, { id: 'name', label: 'A to Z' }, ...(kinds ? [{ id: 'kind', label: 'Kind' }] : []), ...(all.some((one) => one.dueAt) ? [{ id: 'due', label: 'Next review' }] : []), ...(rated ? [{ id: 'rating', label: 'Highest rated' }] : []), ...byProp.choices, { id: 'manual', label: 'Custom order' }, ...(withGroups ? [{ id: 'groups', label: 'Folders first' }] : [])]}
+      sorts={[{ id: 'newest', label: 'Newest' }, { id: 'changed', label: 'Recently changed' }, { id: 'untouched', label: 'Longest unchanged' }, { id: 'name', label: 'A to Z' }, ...(kinds ? [{ id: 'kind', label: 'Kind' }] : []), ...(all.some((one) => one.dueAt) ? [{ id: 'due', label: 'Next review' }] : []), ...(rated ? [{ id: 'rating', label: 'Highest rated' }] : []), ...byProp.choices, { id: 'manual', label: 'Custom order' }]}
       // What the chosen order does with groups, said under the choices.
       sortNote={withGroups ? groupsSaid(view.sort) : undefined}
-      groups={[...(kinds ? [{ id: 'kind', label: 'Kind' }] : []), { id: 'none', label: 'None' }, { id: 'date', label: 'Date' }]}
+      // A list with folders is never cut into kinds or dates: its folders are its sections.
+      groups={withGroups ? [] : [...(kinds ? [{ id: 'kind', label: 'Kind' }] : []), { id: 'none', label: 'None' }, { id: 'date', label: 'Date' }]}
       density={density}
       onDensity={(next) => setView({ ...view, [wide ? 'wideDensity' : 'density']: next })}
     />
@@ -1681,11 +1677,10 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
     const grown = setTimeout(() => setBorn(null), 900)
     return () => clearTimeout(grown)
   }, [born])
-  const folded = list.map((one) => `${one.id}:${one.folded}`).join()
-  useEffect(() => setOpened({}), [folded])
   const layout = held ?? saved
   const info = new Map([...known.current].filter(([id]) => list.some((one) => one.id === id) || parting.includes(id)))
-  const isOpen = (id: string): boolean => opened[id] ?? !info.get(id)?.folded
+  // Every folder starts shut: what it holds shows only once it is opened, here or as its own page.
+  const isOpen = (id: string): boolean => opened[id] ?? false
   const shut = new Set(list.filter((one) => !isOpen(one.id)).map((one) => one.id))
   // In your own order, as you laid it out. In any other sort, the groups stay
   // together at the top in your own order, and the sort orders the notes in
@@ -1715,13 +1710,9 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
       const items = sorted.flatMap((one) => ('item' in one ? [one.item] : one.items))
       return [{ group: groupId(key), items, parts: sorted }]
     })
-    if (ordered) return laid
-    // An empty folder never leads the list: folders with notes first, then the loose notes, then the empty ones.
-    return [
-      ...laid.filter((one) => one.group && one.items.length),
-      ...laid.filter((one) => !one.group).sort((a, b) => bySort(a.items[0], b.items[0])),
-      ...laid.filter((one) => one.group && !one.items.length)
-    ]
+    // Folders first, in your order, as Finder keeps them on top; then the loose notes, as sorted (or where you put them).
+    const loose = laid.filter((one) => !one.group)
+    return [...laid.filter((one) => one.group), ...(ordered ? loose : loose.sort((a, b) => bySort(a.items[0], b.items[0])))]
   }
   // What a group shows open: its notes, and each subgroup's while that is open too.
   const onShow = (one: { parts?: Part[] }): Item[] => (one.parts ?? []).flatMap((part) => ('item' in part ? [part.item] : isOpen(part.sub) ? onShow(part) : []))
@@ -1904,7 +1895,6 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
     ordered,
     onFold: (group, open) => {
       setOpened((was) => ({ ...was, [group.id]: open }))
-      void noteGroupsApi.set(group.id, { folded: !open })
     },
     renaming,
     onRenaming: setRenaming,

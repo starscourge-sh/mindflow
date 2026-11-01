@@ -1,5 +1,4 @@
-// Writing is one flat list, newest first, each row naming its folder; "Folders first" draws the tree, remembered,
-// and an empty folder never leads it. The sidebar's counts agree with the pages' (Writing, Gems, Questions) on a
+// The sidebar's counts agree with the pages' (Writing, Gems, Questions) on a
 // fresh sandbox. A count never sits in a row of tabs. A group can need several tags (#rome and #food).
 //
 //   QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-wr/main/index.js HALIGTREE_QA_AWAY=1 QA_ARGS=--sandbox node qa/writing-flat.mjs
@@ -25,28 +24,7 @@ try {
     const said = await side(row)
     check(`${page}: the sidebar's count (${said}) is the page's (${n})`, same(said, n), `${said} / ${n}`)
   }
-  await go('articles')
-  await h.waitForTimeout(800)
-  const flat = await h.evaluate(() => ({
-    rows: document.querySelectorAll('[role="main"] [data-row]').length,
-    folderMarks: document.querySelectorAll('[role="main"] [data-row-folder]').length,
-    headers: [...document.querySelectorAll('[role="main"] *')].some((one) => one.childElementCount === 0 && /Nothing in it yet/.test(one.textContent ?? ''))
-  }))
-  check('Writing, newest first: one flat list, rows naming their folder, no folder cards', flat.rows > 0 && flat.folderMarks > 0 && !flat.headers, JSON.stringify(flat))
-  if (shots) await h.screenshot({ path: `${shots}/writing-flat.png` })
-  // "Folders first", as Display's sort sets it, kept for the list.
-  await h.evaluate(() => { const key = 'view:article'; const was = JSON.parse(localStorage.getItem(key) ?? '{}'); localStorage.setItem(key, JSON.stringify({ ...was, sort: 'groups' })) })
-  await go('nuggets')
-  await go('articles')
-  await h.waitForTimeout(800)
-  const tree = await h.evaluate(() => {
-    const text = document.querySelector('[role="main"] section')?.textContent ?? ''
-    const empty = text.indexOf('Nothing in it yet')
-    const firstFull = text.search(/Films and books/)
-    return { empty, firstFull }
-  })
-  check('“Folders first” draws the folders, and an empty folder does not lead', tree.firstFull >= 0 && (tree.empty < 0 || tree.empty > tree.firstFull), JSON.stringify(tree))
-  if (shots) await h.screenshot({ path: `${shots}/writing-folders-first.png` })
+  // Writing's folders and loose pages: qa/folders-isolate.mjs.
   // Questions: the count is not in the tab row's run.
   await go('questions')
   await h.waitForTimeout(800)
