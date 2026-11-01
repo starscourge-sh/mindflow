@@ -485,6 +485,8 @@ const api = {
 
   /** Bring up the capture prompt, from any window. */
   showPrompt: (text?: string): void => ipcRenderer.send('prompt:show', text),
+  /** Real glass under these rounded shapes ([x, y, width, height, radius] in the page's pixels), dark or light; none takes it away (main/glass.ts). */
+  glass: (dark: boolean, shapes: number[][]): void => ipcRenderer.send('glass:shapes', dark, shapes),
   /** The box shown again if it has gone, never put away: an undone send brought back. */
   revealPrompt: (): void => ipcRenderer.send('prompt:reveal'),
   /** In the box: words sent to finish here (⌘K's "in quick capture"), now and from here on. */

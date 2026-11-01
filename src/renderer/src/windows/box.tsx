@@ -123,6 +123,52 @@ if (window.api.room.left) {
     delete root.dataset.controlsAbove
     fitControls()
   })
+  // Real glass, Raycast's way (main/glass.ts): the Mac's blur of the desktop under the card, each round control and
+  // the hint, and nowhere else in the window. Told to main as they move, grow and come and go, each frame the box is
+  // on screen, only when something changed. Off with Reduce Transparency or a solid look: the surfaces are opaque then.
+  const glassOff = (): boolean => matchMedia('(prefers-reduced-transparency: reduce)').matches || 'solid' in root.dataset
+  let sentGlass = ''
+  const shapesNow = (): number[][] => {
+    if (glassOff() || root.hasAttribute('data-card-gone')) return []
+    const shown = (el: Element | null): el is HTMLElement => {
+      if (!el) return false
+      for (let at: Element | null = el; at && at !== document.body; at = at.parentElement) if (Number(getComputedStyle(at).opacity) < 0.5 || getComputedStyle(at).visibility === 'hidden') return false
+      return true
+    }
+    const parts = [document.querySelector('.app-container'), ...buttons(), document.querySelector('[data-hint-room] [data-hint-surface]')].filter(shown)
+    return parts.map((el) => {
+      const r = el.getBoundingClientRect()
+      return [r.left, r.top, r.width, r.height, Math.min(parseFloat(getComputedStyle(el).borderTopLeftRadius) || 0, r.height / 2)].map((n) => Math.round(n * 10) / 10)
+    }).filter((one) => one[2] > 1 && one[3] > 1)
+  }
+  const paint = document.createElement('canvas').getContext('2d', { willReadFrequently: true })
+  let darkFor = ''
+  let darkWas = false
+  const pageIsDark = (): boolean => {
+    const colour = getComputedStyle(root).getPropertyValue('--background').trim()
+    if (colour === darkFor || !paint) return darkWas
+    paint.clearRect(0, 0, 1, 1)
+    paint.fillStyle = colour
+    paint.fillRect(0, 0, 1, 1)
+    const [r, g, b] = paint.getImageData(0, 0, 1, 1).data
+    darkFor = colour
+    darkWas = 0.2126 * r + 0.7152 * g + 0.0722 * b < 128
+    return darkWas
+  }
+  const glassFrame = (): void => {
+    const shapes = shapesNow()
+    // Dark or light by the page's own colour, not a class: a theme like Paper is light whatever the Mac's appearance.
+    const dark = pageIsDark()
+    const said = JSON.stringify([dark, shapes])
+    if (said !== sentGlass) {
+      sentGlass = said
+      window.api.glass(dark, shapes)
+    }
+    if (shapes.length) root.dataset.glass = dark ? 'dark' : 'light'
+    else delete root.dataset.glass
+    requestAnimationFrame(glassFrame)
+  }
+  requestAnimationFrame(glassFrame)
   // The round controls, the grabber, the hint and the offer belong to the card: drawn only while the card itself is
   // drawn in the window at a real size. A card squeezed to a line, or out of the window, takes them with it, so they
   // never float alone over whatever is behind (main.css, data-card-gone; qa/box-never-bare.mjs).

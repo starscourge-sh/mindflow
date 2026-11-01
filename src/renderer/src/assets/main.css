@@ -3112,3 +3112,30 @@ textarea[data-talking]::selection {
 .mf-faded[data-caret-room] .haligtree-editor-wrapper { display: flex; flex-direction: column; }
 .mf-faded[data-caret-room] .haligtree-editor-wrapper > .haligtree-editor-content { flex: 1 1 auto; min-height: 0; }
 .mf-faded[data-caret-room] .haligtree-editor-wrapper > [data-find-holder] { position: relative; bottom: auto; flex: none; }
+/* Quick capture on real glass (windows/box.tsx, main/glass.ts), Raycast's look: the Mac blurs and darkens the desktop
+   under the card, its round controls and the hint, and each lets that through under a wash of its own page colour,
+   strong enough that the words keep their contrast, with a soft lighter rim where the light catches the edge. Every
+   surface inside the card that painted its own page colour leaves it to the card. Without glass (Reduce
+   Transparency, a solid look) nothing here applies and each stays opaque. */
+html[data-overhang][data-glass] {
+  --mf-glass-fill: color-mix(in oklab, var(--background) 72%, transparent);
+  --mf-glass-rim: inset 0 0 0 1px color-mix(in oklab, white 9%, transparent), inset 0 1px 0 color-mix(in oklab, white 12%, transparent);
+}
+html[data-overhang][data-glass='dark'] {
+  --mf-glass-fill: color-mix(in oklab, var(--background) 58%, transparent);
+}
+html[data-overhang][data-glass] .app-container {
+  background-color: var(--mf-glass-fill);
+  box-shadow: var(--mf-glass-rim), 0 12px 32px -6px color-mix(in oklab, var(--mf-shadow-ink) 32%, transparent);
+}
+html[data-overhang][data-glass] :is(.mf-pill button, [data-aside] > *):not([data-picked]) {
+  background: var(--mf-glass-fill);
+  box-shadow: var(--mf-glass-rim), 0 6px 16px -6px color-mix(in oklab, var(--mf-shadow-ink) 32%, transparent);
+}
+html[data-overhang][data-glass] :is(.mf-pill button, [data-aside] > *):not([data-picked]):hover {
+  background: color-mix(in oklab, var(--foreground) 10%, var(--mf-glass-fill));
+}
+html[data-overhang][data-glass] [data-hint-room] [data-hint-surface] {
+  background-color: var(--mf-glass-fill);
+  box-shadow: var(--mf-glass-rim), 0 6px 16px -6px color-mix(in oklab, var(--mf-shadow-ink) 32%, transparent);
+}
