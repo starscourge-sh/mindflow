@@ -26,6 +26,8 @@ const has = (selector) => h.evaluate((selector) => !!document.querySelector(sele
 const text = (selector) => h.evaluate((selector) => document.querySelector(selector)?.textContent ?? '', selector)
 const box = (selector) => h.evaluate((selector) => { const r = document.querySelector(selector)?.getBoundingClientRect(); return r ? { x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width), h: Math.round(r.height), r: Math.round(r.right) } : null }, selector)
 const review = async () => { await c.go('home'); await c.go('review'); await waitFor(() => has('[data-review-tab]')); if (await has('[data-deck-fold][aria-expanded="false"]')) await h.click('[data-deck-fold]') }
+// A way in, by its button or, folded at this width, through "More".
+const way = async (selector) => { if (await h.evaluate((selector) => !!document.querySelector(selector)?.offsetParent, selector)) return h.click(selector); const id = { '[data-deck-make]': 'make', '[data-deck-paste]': 'many', '[data-deck-picture]': 'picture', '[data-deck-import]': 'import' }[selector]; await h.click('[data-toolbar-more]'); await h.click(`[data-toolbar-more-item="${id}"]`) }
 const tab = async (id) => { await h.click(`[data-review-tab="${id}"]`); await h.waitForTimeout(700) }
 const shot = async (name) => { if (shots) await c.both(join(shots, name)) }
 const temp = mkdtempSync(join(tmpdir(), 'cards-look-'))
@@ -97,10 +99,10 @@ try {
   for (const [name, steps] of [['decks', ['decks']], ['picture on decks', ['decks', '[data-deck-picture]']], ['make', ['cards', '[data-deck-make]']], ['many', ['decks', '[data-deck-paste]']], ['stats', ['stats']], ['picture on stats', ['stats', '[data-deck-picture]']], ['cards', ['cards']]]) {
     await tab(steps[0])
     await h.evaluate(() => { for (let at = document.querySelector('[data-review-toolbar]'); at; at = at.parentElement) at.scrollTop = 0 })
-    if (steps[1]) { await h.click(steps[1]); await h.waitForTimeout(500) }
+    if (steps[1]) { await way(steps[1]); await h.waitForTimeout(500) }
     states[name] = await fourBoxes()
-    if (steps[1] && await has(`${steps[1]}[aria-pressed="true"]`)) states[name] += ' pressed'
-    if (steps[1]) { await h.keyboard.press('Escape'); if (await has(`${steps[1]}[aria-pressed="true"]`)) await h.click(steps[1]); await h.waitForTimeout(300) }
+    if (steps[1] && (await has(`${steps[1]}[aria-pressed="true"]`) || await has('[data-toolbar-more][aria-pressed="true"]'))) states[name] += ' pressed'
+    if (steps[1]) { await h.keyboard.press('Escape'); if (await has(`${steps[1]}[aria-pressed="true"]`) || await has('[data-toolbar-more][aria-pressed="true"]')) await way(steps[1]); await h.waitForTimeout(300) }
   }
   const plain = states.decks
   check('1c. the toolbar stays, the same four boxes, on every tab and with every form open', Object.values(states).every((one) => one.replace(' pressed', '') === plain), JSON.stringify(states))
@@ -130,7 +132,8 @@ try {
   const statsText = await h.evaluate(() => document.querySelector('[data-review-stats]').textContent)
   check('1d. Stats says "of the last 7 days" once and the retention figure once', (statsText.match(/of the last 7 days/g) ?? []).length <= 1 && !(await has('[data-mono-card="retention"]')), String((statsText.match(/of the last 7 days/g) ?? []).length))
   const cells = await h.evaluate(() => { const one = document.querySelector('[data-day-cells] [data-day]'); const r = one?.getBoundingClientRect(); return one ? { w: Math.round(r.width), h: Math.round(r.height), radius: getComputedStyle(one).borderTopLeftRadius } : null })
-  check('1d. Stats days are square cells, as the heatmap draws them', cells && cells.w === cells.h && cells.radius === '2px' && !(await has('[data-mono-dots]')), JSON.stringify(cells))
+  const strip = await h.evaluate(() => { const all = [...document.querySelectorAll('[data-day-cells] [data-day]')].map((one) => one.getBoundingClientRect()); const well = document.querySelector('[data-day-cells]').getBoundingClientRect(); return { n: all.length, rows: new Set(all.map((r) => Math.round(r.top))).size, h: Math.round(all[0].height), spans: Math.round(all.at(-1).right - all[0].left) >= Math.round(well.width) - 2, mondays: document.querySelectorAll('[data-day-mondays] .bg-foreground\\/35').length } })
+  check('1d. Stats 30 days: one row of 30 small cells spanning the well, heatmap corners, Mondays ticked', cells && cells.radius === '2px' && strip.n === 30 && strip.rows === 1 && strip.h <= 12 && strip.spans && strip.mondays >= 4 && !(await has('[data-mono-dots]')), JSON.stringify({ cells, strip }))
   await tab('cards')
   await waitFor(() => has('[data-pocket]'))
 
@@ -203,7 +206,7 @@ try {
   check('5. the four numbers stand in one row', year.row)
 
   // 6. A real deck picker in Make a card and in Cards from a picture.
-  await h.click('[data-deck-make]')
+  await way('[data-deck-make]')
   await waitFor(() => has('[data-new-card]'))
   check('6. Make a card has a deck menu, no bare text box', await has('[data-new-card] [data-deck-pick="none"]') && !(await has('[data-new-card] input')))
   await h.click('[data-new-card] [data-deck-pick]')
@@ -215,7 +218,7 @@ try {
   check('6. picked, the button names it', await waitFor(() => h.evaluate(() => document.querySelector('[data-new-card] [data-deck-pick]')?.getAttribute('data-deck-pick') === 'spanish')), await text('[data-new-card] [data-deck-pick]'))
   await h.keyboard.press('Escape')
   await review()
-  await h.click('[data-deck-picture]')
+  await way('[data-deck-picture]')
   check('6. Cards from a picture has the same deck menu', await waitFor(() => has('[data-deck-pick]')) && !(await has('[data-picture-deck]')))
   await review()
 

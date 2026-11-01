@@ -16,7 +16,7 @@ const waitFor = async (test, ms = 8000) => { for (const end = Date.now() + ms; D
 const call = (...args) => h.evaluate((args) => window.api.haligtree(...args), args)
 const look = async (theme) => { await h.evaluate((n) => { localStorage.setItem('theme', n); window.dispatchEvent(new StorageEvent('storage', { key: 'theme' })) }, theme); await h.waitForTimeout(400) }
 try {
-  await call('cards:list', [{ term: 'Name the parts of a long deck', meaning: 'x #comparative-anatomy-and-physiology-of-the-vertebrates' }])
+  await call('cards:list', [{ term: 'Name the parts of a long deck', meaning: 'x #comparative-anatomy-and-physiology-of-the-vertebrates' }, { term: 'One long word', meaning: 'y #communication' }, { term: 'Longer still', meaning: 'z #internationalisation-workshop' }])
   await c.go('home'); await c.go('review')
   await waitFor(() => has('[data-deck-grid] [data-deck]'))
   for (const theme of ['everforest', 'paper']) {
@@ -28,16 +28,28 @@ try {
         const tiles = [...document.querySelectorAll('[data-deck-grid] [data-deck]')].map((one) => one.getBoundingClientRect())
         const worst = Math.max(...tiles.map((r) => Math.abs(r.width / r.height - 1)))
         const bar = document.querySelector('[data-review-toolbar]')
-        const tops = [...bar.querySelectorAll(':scope > *')].map((one) => Math.round(one.getBoundingClientRect().top + one.getBoundingClientRect().height / 2))
+        const tops = [...bar.querySelectorAll(':scope > *')].filter((one) => one.offsetParent).map((one) => Math.round(one.getBoundingClientRect().top + one.getBoundingClientRect().height / 2))
         const labels = [...document.querySelectorAll('[data-year-number] span')].filter((one) => one.scrollWidth > one.clientWidth + 1 || one.getBoundingClientRect().right > document.querySelector('[data-study-year-map]').getBoundingClientRect().right).map((one) => one.textContent)
         const box = document.querySelector('[data-book-coverage]')?.getBoundingClientRect()
         const said = [...document.querySelectorAll('[data-book-coverage] [data-coverage-said]')].filter((one) => one.getBoundingClientRect().right > box.right + 0.5).length
         const today = document.querySelector('[data-year-grid] [data-day][style*="inset"]')
         const bg = getComputedStyle(document.querySelector('[data-deck-grid] [data-deck]')).backgroundImage
-        return { worst: Math.round(worst * 100) / 100, w: Math.round(tiles[0].width), h: Math.round(tiles[0].height), rows: new Set(tops).size, labels, coverage: box ? said : 'none', today: !!today, stripes: /repeating-linear-gradient/.test(bg) }
+        const barBox = bar.getBoundingClientRect()
+        const cut = [...bar.querySelectorAll('button, [data-review-tab-controls] *')].filter((one) => one.offsetParent && (one.getBoundingClientRect().right > barBox.right + 0.5 || one.getBoundingClientRect().left < barBox.left - 0.5)).map((one) => one.textContent?.slice(0, 20))
+        const ways = [...bar.querySelectorAll('[data-way]')].filter((one) => one.offsetParent).length
+        const more = !!bar.querySelector('[data-toolbar-more]')
+        const ownShown = [...bar.querySelectorAll('[data-review-tab-controls] > *')].every((one) => one.offsetParent && one.getBoundingClientRect().right <= barBox.right + 0.5)
+        const numberRows = [...document.querySelectorAll('[data-year-number]')].reduce((rows, one) => { const top = Math.round(one.getBoundingClientRect().top); rows[top] = (rows[top] ?? 0) + 1; return rows }, {})
+        // A word broken across two lines in a deck's name: its own range draws more than one box. Only a very long word may break, at
+        // its soft hyphens, with a real hyphen; a name past two lines ends in "…" (its menu names it whole), so a clamped name is not read here.
+        const broken = [...document.querySelectorAll('[data-deck-grid] [data-deck] h3')].flatMap((one) => { const text = one.firstChild; if (!text || text.nodeType !== 3) return []; const out = []; let at = 0; for (const word of text.textContent.split(' ')) { const range = document.createRange(); range.setStart(text, at); range.setEnd(text, at + word.length); const rects = [...range.getClientRects()].filter((r) => r.width > 0 && r.bottom <= one.getBoundingClientRect().bottom + 1); if (word.length > 1 && !word.includes('\u00AD') && one.scrollHeight <= one.clientHeight + 1 && rects.length > 1) out.push(word); at += word.length + 1 } return out })
+        return { broken, cut, ways, more, ownShown, numberRows: Object.values(numberRows), worst: Math.round(worst * 100) / 100, w: Math.round(tiles[0].width), h: Math.round(tiles[0].height), rows: new Set(tops).size, labels, coverage: box ? said : 'none', today: !!today, stripes: /repeating-linear-gradient/.test(bg) }
       })
       check(`${theme} ${width}: tiles square-ish (within 6%)`, seen.worst <= 0.06, JSON.stringify({ worst: seen.worst, w: seen.w, h: seen.h }))
-      check(`${theme} ${width}: the toolbar is one row`, seen.rows === 1, String(seen.rows))
+      check(`${theme} ${width}: the toolbar is one row, nothing cut off, the tab's own controls all shown`, seen.rows === 1 && !seen.cut.length && seen.ownShown, JSON.stringify({ rows: seen.rows, cut: seen.cut, ownShown: seen.ownShown }))
+      check(`${theme} ${width}: the ways in that do not fit fold into More, in order`, seen.ways === 4 ? !seen.more : seen.more && seen.ways >= 0, JSON.stringify({ ways: seen.ways, more: seen.more }))
+      check(`${theme} ${width}: no deck name breaks inside a word`, !seen.broken.length, JSON.stringify(seen.broken))
+      check(`${theme} ${width}: the four numbers stand 4 across or 2 and 2, never 3 and 1`, ['4', '2,2'].includes(seen.numberRows.join()), JSON.stringify(seen.numberRows))
       check(`${theme} ${width}: the year's four numbers are never cut`, !seen.labels.length, JSON.stringify(seen.labels))
       check(`${theme} ${width}: the coverage line stays in its box`, seen.coverage === 0 || seen.coverage === 'none', String(seen.coverage))
       check(`${theme} ${width}: today is ringed inside its square, the satin has no stripes`, seen.today && !seen.stripes, JSON.stringify(seen))
