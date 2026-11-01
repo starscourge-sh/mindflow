@@ -11,7 +11,7 @@ const s = await sandbox({ width: 1300, height: 860 })
 const { h, v, go, close, errors } = s
 const floating = () => h.evaluate(() => [...document.querySelectorAll('[role="tooltip"]:not(:has([data-peek-card])), [data-peek-card]')].filter((one) => one.checkVisibility() && one.getBoundingClientRect().width > 0).length)
 try {
-  await v('settings:set', { hintRate: 0, smartGroups: [{ id: 'g1', list: 'article', name: 'Rome', tag: 'rome' }] })
+  await v('settings:set', { hintRate: 0, smartGroups: [{ id: 'g1', list: 'article', name: 'Rome', tags: ['rome'] }] })
   await h.evaluate(() => localStorage.setItem('sidebar:folders:article', 'true'))
   await go('articles')
   for (const [name, row] of [['Writing (a sibling, for comparison)', 'aside [data-side-row][aria-label="Writing"]'], ['Questions', 'aside [data-side-questions]'], ['the group', 'aside [data-side-group]']]) {

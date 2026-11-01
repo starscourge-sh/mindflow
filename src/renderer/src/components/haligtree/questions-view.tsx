@@ -89,7 +89,7 @@ export function QuestionsSaid({ on }: { on: Asked }): React.JSX.Element {
       {why && (
         <p data-questions-back-off={why} className="mt-1 flex flex-wrap items-center gap-x-2 text-body text-foreground/90">
           <span><strong className="font-semibold">They don’t come back to you now:</strong> {why === 'hints' ? 'hints are off in Settings.' : 'questions coming back is off in Settings.'}</span>
-          <Button variant="ghost" size="sm" className="-mx-2" data-questions-back-on onClick={turnOn}>{why === 'hints' ? 'Turn hints on' : 'Turn it on'}</Button>
+          <Button variant="outline" size="sm" data-questions-back-on onClick={turnOn}>{why === 'hints' ? 'Turn hints on' : 'Turn it on'}</Button>
         </p>
       )}
     </div>

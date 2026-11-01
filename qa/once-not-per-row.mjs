@@ -33,7 +33,7 @@ try {
   check('Writing’s rows do not each say “Comes back now and then”', repeats === 0, repeats)
 
   // 50 groups.
-  const groups = Array.from({ length: 50 }, (_, k) => ({ id: `g${k}`, list: 'article', name: `Group number ${k + 1} with a long name to see`, tag: `tag${k}` }))
+  const groups = Array.from({ length: 50 }, (_, k) => ({ id: `g${k}`, list: 'article', name: `Group number ${k + 1} with a long name to see`, tags: [`tag${k}`] }))
   await v('settings:set', { smartGroups: groups, hintRate: 0 })
   await h.waitForTimeout(700)
   const side = await h.evaluate(() => ({ shown: document.querySelectorAll('aside [data-side-group]').length, more: document.querySelector('aside [data-groups-more]')?.textContent, wide: document.querySelector('aside')?.scrollWidth > document.querySelector('aside')?.clientWidth }))

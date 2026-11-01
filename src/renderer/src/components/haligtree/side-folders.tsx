@@ -15,7 +15,7 @@ import { GroupIcon, IconChoice } from './kept-groups'
 import { RowMenu, openFromGrip, type RowItem } from './row-menu'
 import { FolderTree } from 'lucide-react'
 import { Count, Tip, quietly, refuse, toast } from './ui'
-import { GROUP_KEY, GroupMark, changeRule, removeGroup, renameGroup, ruleSaid, useGathered, useSmartGroups, type SmartGroup } from '@/lib/smart-groups'
+import { GROUP_KEY, GroupMark, changeRule, removeGroup, renameGroup, ruleSaid, tagsSaid, useGathered, useSmartGroups, type SmartGroup } from '@/lib/smart-groups'
 
 /** Asks the sidebar for a new, empty folder in a list (from the row's +, or its right click), named as it is made. */
 export const newFolder = (list: 'article' | 'nugget', parent: string | null = null): void =>
@@ -391,7 +391,7 @@ export function RailFolders({ list, onOpen }: { list: 'article' | 'nugget'; onOp
   })
   const items: RowItem[] = [
     ...(all.length ? [{ heading: 'Folders' } as RowItem, ...under(null)] : []),
-    ...(smart.length ? [{ heading: 'Groups: gathered by a tag' } as RowItem, ...smart.map((group) => ({ label: group.name, hint: `#${group.tag}`, icon: <GroupMark className="size-3.5" style={{ color: 'var(--tt-color-text-purple)' }} />, run: () => onOpen(GROUP_KEY + group.id) }))] : [])
+    ...(smart.length ? [{ heading: 'Groups: gathered by tags' } as RowItem, ...smart.map((group) => ({ label: group.name, hint: tagsSaid(group.tags), icon: <GroupMark className="size-3.5" style={{ color: 'var(--tt-color-text-purple)' }} />, run: () => onOpen(GROUP_KEY + group.id) }))] : [])
   ]
   const name = list === 'article' ? 'Writing' : 'Gems'
   return (

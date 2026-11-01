@@ -1,5 +1,5 @@
 import { QuestionTabs, QuestionsSaid, type Asked } from './questions-view'
-import { GROUP_KEY, GroupMark, ruleSaid, useGathered, useSmartGroups } from '@/lib/smart-groups'
+import { GROUP_KEY, GroupMark, ruleSaid, tagsSaid, useGathered, useSmartGroups } from '@/lib/smart-groups'
 import { BlankPanel, cardPerNumber } from './blank-panel'
 import { BLANK, addBlank, clozeNumbers, listItemCount, typedAsGaps } from '@/lib/blanks'
 import { ContextField } from './context-field'
@@ -255,8 +255,8 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
   // Questions, drawn by this same list, holds the questions, open first, each with its answer or none yet.
   const writing = tier === 'article'
   const questionsOnly = writing && only === 'questions'
-  // Writing reads them too, for the open ones kept in one of its folders: those stay in their folder.
-  const held = useLive(() => (writing ? haligtree.items('question') : Promise.resolve([] as Item[])), [] as Item[], [writing], ['item'], 'writing-questions')
+  // Read on Questions only: Writing lists pages alone, so its count is the sidebar's (a question lives in Questions).
+  const held = useLive(() => (questionsOnly ? haligtree.items('question') : Promise.resolve([] as Item[])), [] as Item[], [questionsOnly], ['item'], 'writing-questions')
   const filed = useGroups(tier)
   const pinnedQuestions = useLive(haligtree.pinnedQuestions, [] as Awaited<ReturnType<typeof haligtree.pinnedQuestions>>)
   const inView = new Set(pinnedQuestions.map((one) => one.id))
@@ -265,8 +265,8 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
   const backOn = backSettings?.questionsBack !== false && backSettings?.hintRate !== 0
   // Questions' Words: the word gems you are learning, read only while that filter is on.
   const learning = useLive(() => (writing && only === 'questions' && ask === 'words' ? haligtree.items('nugget') : Promise.resolve([] as Item[])), [] as Item[], [writing, only, ask], ['item'], 'questions-words')
-  const all = useMemo(() => (unloaded(own) || unloaded(held) ? unread([] as Item[]) : !writing ? own : questionsOnly && onAsk && ask === 'words' ? (unloaded(learning) ? unread([] as Item[]) : learning.filter((one) => one.kind === 'word')) : questionsOnly ? (onAsk ? held.filter((one) => (ask === 'answered' ? !!one.closedAt : !one.closedAt)) : held) : [...own, ...held.filter((one) => !one.closedAt && filed.some((group) => group.members.includes(one.id)))]),
-    [own, held, writing, questionsOnly, ask, onAsk, learning, filed])
+  const all = useMemo(() => (unloaded(own) || unloaded(held) ? unread([] as Item[]) : !writing ? own : questionsOnly && onAsk && ask === 'words' ? (unloaded(learning) ? unread([] as Item[]) : learning.filter((one) => one.kind === 'word')) : questionsOnly ? (onAsk ? held.filter((one) => (ask === 'answered' ? !!one.closedAt : !one.closedAt)) : held) : own),
+    [own, held, writing, questionsOnly, ask, onAsk, learning])
   // A folder opened from the sidebar: the list as ever, with only what the folder holds (its subfolders' too).
   // Only what is shown narrows: the layout is still read from every note, so a move inside keeps the rest in place.
   const shelf = useGroups(tier)
@@ -286,7 +286,7 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
     const held = new Set(shelf.filter((one) => under.has(one.id)).flatMap((one) => one.members))
     return all.filter((one) => held.has(one.id))
   }, [all, shelf, opened, gatherer, gathered])
-  const { groups: arranged, display, chips, density, view, setView, move, moveBy, ownOrder, order, mine } = useItemDisplay(tier, listed, true)
+  const { groups: arranged, display, chips, density, view, setView, move, moveBy, ownOrder, order, mine } = useItemDisplay(questionsOnly ? 'question' : tier, listed, !questionsOnly)
   // The list's width: beside the note, over the whole page, or a rail of pictures.
   const pane = view.pane ?? 'list'
   const [query, setQuery] = useState('')
@@ -305,7 +305,11 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
   // Groups show as groups in every sort and every grouping, as Finder's folders do. Grouped by kind or date, they come
   // first in your own order, then the loose notes in their sections; inside a group its notes go by kind (or date) too.
   const heads = plain ? undefined : new Map(groups.flatMap(([name, list]) => list.map((one) => [one.id, name] as const)))
-  const folding = useFolding(tier, all, ownOrder, order, !questionsOnly && !gatherer && (density === 'list' || density === 'compact') && !(spread && query.trim()) ? groups.flatMap(([, list]) => list) : null,
+  // Folders drawn as a tree in the list only when the order asks for them ("Folders first", or your own order, where
+  // notes are dragged into them); every other order is one flat list, newest first to start, each row naming its folder.
+  // The order is Display's, kept per list, so the choice is remembered.
+  const foldersOn = view.sort === 'groups' || view.sort === 'manual'
+  const folding = useFolding(tier, all, ownOrder, order, foldersOn && !questionsOnly && !gatherer && (density === 'list' || density === 'compact') && !(spread && query.trim()) ? groups.flatMap(([, list]) => list) : null,
     view.sort === 'manual' && plain, () => setChosen([]), chosen, mine, heads, opened?.id)
   // As tiles, each group is one folder card; opened, the grid shows only its notes, under a chip back.
   // Questions are never in Writing's folders as a list: they are drawn plain, each as a question.
@@ -314,7 +318,7 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
   const [inGroup, setInGroup] = useState<string | null>(null)
   const folder = tiled && inGroup ? noteGroups.find((one) => one.id === inGroup) : undefined
   const flat = groups.flatMap(([, list]) => list)
-  const tiles = tiled && !folder && !questionsOnly && !gatherer ? folding.tiles(flat) : null
+  const tiles = tiled && !folder && foldersOn && !questionsOnly && !gatherer ? folding.tiles(flat) : null
   const folders = new Map(tiles?.flatMap((one) => ('group' in one ? [[KEY + one.group.id, one] as const] : [])))
   const items = folding.rows
     ?? (folder ? flat.filter((one) => folder.members.includes(one.id))
@@ -599,7 +603,13 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
     return () => window.removeEventListener('haligtree:folder-drop', onDrop)
   }, [chosen])
   // A question is drawn as one, with its "?" mark, how long it has been held and its clues.
-  const entryOf = (one: Item): Entry => (one.tier === 'question' ? questionEntry(one, inView.has(one.id), menuFor(one) as MenuItem[], backOn) : itemEntry(one, () => menuFor(one)))
+  // Flat, a row says which folder it lives in, as a small mark before its line: the tree is in the sidebar.
+  const folderOf = new Map(foldersOn ? [] : filed.flatMap((group) => group.members.map((id) => [id, group] as const)))
+  const inFolder = (entry: Entry, one: Item): Entry => {
+    const home = folderOf.get(one.id)
+    return home ? { ...entry, sub: <span className="flex min-w-0 items-center gap-1.5"><span data-row-folder={home.id} className="flex shrink-0 items-center gap-1"><GroupIcon icon={home.icon} color={home.color} className="size-3" />{home.name}</span>{entry.sub ? <><span aria-hidden>·</span><span className="min-w-0 truncate">{entry.sub}</span></> : null}</span> } : entry
+  }
+  const entryOf = (one: Item): Entry => (one.tier === 'question' ? questionEntry(one, inView.has(one.id), menuFor(one) as MenuItem[], backOn) : inFolder(itemEntry(one, () => menuFor(one)), one))
   const entries: [string, Entry[]][] = !listShown && !(open && (pane === 'rail' || boarded)) ? [] : tiles || folder
     ? items.reduce<[string, Entry[]][]>((sections, one) => {
         const card = folders.get(one.id)
@@ -740,7 +750,7 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
                 <ChevronRight aria-hidden className="size-3.5 shrink-0 text-muted-foreground/60" />
                 <span className="flex min-w-0 items-center gap-1.5 px-1.5 py-0.5 font-medium text-foreground"><GroupMark className="size-3.5 shrink-0" style={{ color: 'var(--tt-color-text-purple)' }} /><span className="truncate italic">{gatherer.name}</span></span>
               </nav>
-              <p data-group-rule className="mt-1 text-body text-foreground/90"><strong className="font-semibold">A group:</strong> {ruleSaid(gatherer).toLowerCase().replace(/^every/, 'every')}, wherever it lives. Nothing is moved; tag a note #{gatherer.tag} and it is here.</p>
+              <p data-group-rule className="mt-1 text-body text-foreground/90"><strong className="font-semibold">A group:</strong> {ruleSaid(gatherer).toLowerCase().replace(/^every/, 'every')}, wherever it lives. Nothing is moved; tag a note {tagsSaid(gatherer.tags)} and it is here.</p>
             </div>
           )}
           {opened && !folder && (
@@ -1706,9 +1716,11 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
       return [{ group: groupId(key), items, parts: sorted }]
     })
     if (ordered) return laid
+    // An empty folder never leads the list: folders with notes first, then the loose notes, then the empty ones.
     return [
-      ...laid.filter((one) => one.group),
-      ...laid.filter((one) => !one.group).sort((a, b) => bySort(a.items[0], b.items[0]))
+      ...laid.filter((one) => one.group && one.items.length),
+      ...laid.filter((one) => !one.group).sort((a, b) => bySort(a.items[0], b.items[0])),
+      ...laid.filter((one) => one.group && !one.items.length)
     ]
   }
   // What a group shows open: its notes, and each subgroup's while that is open too.

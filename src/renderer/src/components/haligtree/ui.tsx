@@ -241,6 +241,7 @@ export function Page({ title, lead, count, unit = ['item', 'items'], actions, se
   const [listWidth, grip] = useListWidth()
   // Drawn once, when its reads and those of every part on it are in (lib/reads-in.tsx).
   const { provide, style } = useReadsIn(waiting, apart)
+  const countSaid = count ? <span data-list-count={count} className={cn('min-w-0 truncate whitespace-nowrap tabular-nums', lead && 'mr-2', unit[1] === 'selected' && 'font-medium text-foreground')}><Rolling text={count} /> {count === 1 ? unit[0] : unit[1]}</span> : null
   return provide(
     <section data-chrome={aside || undefined} data-apart={apart ? 'list' : undefined} className={cn('relative flex min-w-0 flex-1 flex-col', aside && 'hidden flex-none @[56rem]/page:flex')}
       style={{ ...(aside ? { width: listWidth, maxWidth: '60%' } : {}), ...style }}>
@@ -252,10 +253,11 @@ export function Page({ title, lead, count, unit = ['item', 'items'], actions, se
         <header data-chrome={aside || undefined} className={`${wide ? '' : 'page-column '}flex h-10 min-w-0 shrink-0 items-center gap-2 overflow-hidden border-b px-5 text-muted-foreground`}>
           {typeof title === 'string' && title.startsWith('#') ? <span className="font-medium text-foreground">{title}</span> : null}
           {lead}
-          {/* What is picked is what the buttons act on: said plainly, never in grey. */}
-          {count ? <span data-list-count={count} className={cn('min-w-0 truncate whitespace-nowrap tabular-nums', unit[1] === 'selected' && 'font-medium text-foreground')}><Rolling text={count} /> {count === 1 ? unit[0] : unit[1]}</span> : null}
+          {/* With tabs or a switch at the line's left (lead), the count goes to the right, before the actions, so it is
+              never read as one more tab; without, it opens the line. Said plainly when it counts what is picked. */}
+          {count && !lead ? countSaid : null}
           {/* The count is on the same line: measured again the moment it comes or changes, not a frame later by the observer. */}
-          <FitActions keep={search} room={`${aside ? listWidth : 'page'} ${count ?? ''} ${count === 1 ? unit[0] : unit[1]}`}>{actions}</FitActions>
+          <FitActions keep={lead && count ? <>{countSaid}{search}</> : search} room={`${aside ? listWidth : 'page'} ${count ?? ''} ${count === 1 ? unit[0] : unit[1]}`}>{actions}</FitActions>
         </header>
       )}
       <SmoothScroll wide={wide || dock} fit={fit || dock} beside={beside}>{children}</SmoothScroll>

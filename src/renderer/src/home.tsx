@@ -915,7 +915,8 @@ export function Home(): React.JSX.Element {
   const articles = useLive(() => haligtree.items('article'), [] as Item[], [], ['item'])
   const questions = useLive(() => haligtree.items('question'), [] as Item[], [], ['item'])
   // A folder in the sidebar counts what its list shows: notes not archived, and in Writing the open questions too.
-  const shownIn = (list: string, notes: Item[]): Set<string> => new Set([...notes, ...(list === 'article' ? questions.filter((one) => !one.closedAt) : [])].filter((one) => !one.archivedAt).map((one) => one.id))
+  // A folder counts what its page lists: pages (or gems) on show, never a question, which lives in Questions.
+  const shownIn = (_list: string, notes: Item[]): Set<string> => new Set(notes.filter((one) => !one.archivedAt).map((one) => one.id))
   const goals = useLive(() => haligtree.items('goal'), [] as Item[], [], ['item'])
   const queued = useQueue()
   // "New" makes a blank page, as in Obsidian (a new book's way), or a capture in quick capture.
