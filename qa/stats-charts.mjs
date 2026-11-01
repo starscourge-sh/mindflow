@@ -39,6 +39,16 @@ try {
   check('bar charts carry a scale (a hairline at the tallest with its value)', drawn.scale >= 2, String(drawn.scale))
   check('no part of a split bar is a sliver', drawn.slivers === 0, String(drawn.slivers))
   check('headlines count in words that agree ("1 minute", not "1 minutes")', !drawn.grammar)
+  // The heatmap's language: no capsules. Bars, split-bar parts, source bars and chips at most a 4 px corner; line dots 5 px.
+  const shapes = await h.evaluate(() => {
+    const marks = [...document.querySelectorAll('[data-review-stats] [data-bar] > span, [data-review-stats] [data-mono-tones] > div:first-child > span, [data-review-stats] [data-mono-funnel] span.block, [data-review-stats] [data-mono-chip], [data-review-stats] [data-day]')]
+    const round = marks.filter((one) => parseFloat(getComputedStyle(one).borderTopLeftRadius) > 4).map((one) => `${one.tagName}.${(one.className.baseVal ?? one.className).slice(0, 40)}`)
+    const dots = [...new Set([...document.querySelectorAll('[data-review-stats] [data-mono-dot]')].map((one) => Math.round(one.getBoundingClientRect().width)))]
+    const gap = getComputedStyle(document.querySelector('[data-review-stats] [data-mono-tones] > div:first-child')).columnGap
+    return { marks: marks.length, round, dots, gap }
+  })
+  check('no capsules: every bar, part, source bar and chip has at most a 4 px corner', shapes.marks > 0 && !shapes.round.length, JSON.stringify(shapes))
+  check('line dots are 5 px so the lines lead; the split bar\'s parts butt with a 1 px gap', shapes.dots.every((one) => one <= 5) && shapes.gap === '1px', JSON.stringify(shapes))
   for (const theme of ['everforest', 'paper']) {
     await look(theme)
     await h.waitForTimeout(600)
