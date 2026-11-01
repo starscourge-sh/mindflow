@@ -2807,6 +2807,21 @@ function createWindow(): void {
   const first = mainWindow.getBounds()
   overhang(mainWindow, BOX_ROOM)
   mainWindow.setBounds(first)
+  // Moved while a size glide is under way (dragged by hand, or put somewhere by main): the glide stops, landing its
+  // size where the box is now. Left going, its target kept the old place, and putting the box away landed it there
+  // (hideWindow settles a pending glide): it came back where it was before the drag (qa/box-move-glide.mjs).
+  const card = mainWindow
+  const dropGlide = (): void => {
+    if (pending?.win !== card) return
+    arriving?.()
+    arriving = undefined
+    const now = card.getBounds()
+    pending = { win: card, bounds: { ...pending.bounds, x: now.x, y: now.y } }
+    settle()
+  }
+  card.on('will-move', dropGlide)
+  const placeAt = card.setPosition.bind(card)
+  card.setPosition = (x: number, y: number, animate?: boolean) => (dropGlide(), placeAt(x, y, animate))
   passThrough(mainWindow, true)
 
   // the ready-to-show event on the BrowserWindow class will be emitted when the renderer process has rendered the page for the first time if the window has not been shown yet.
