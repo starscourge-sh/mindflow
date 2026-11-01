@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { chime } from '@/lib/sound'
 import { Kbd, Tip, refuse, toast } from './ui'
-import { DeckPick, deckTagOf } from './decks'
+import { DeckPick, deckTagOf, deckTitle } from './decks'
 import { haligtree, useLive } from '@/lib/haligtree'
 
 /** Written straight onto the card, as "Ask another way" writes: no box, the faint italic line says where. */
@@ -36,7 +36,7 @@ export function NewCard({ deck: aimed, onClose }: { deck?: string; onClose: () =
       setQuestion('')
       setAnswer('')
       ask.current?.focus()
-      toast(`${ids.length > 1 ? 'Two cards made, one each way,' : 'Card made'}${tag ? ` in the deck #${tag}` : ''}`, () => void window.api.haligtree('cards:list:undo', ids).then(() => (chime('undo'), setMade((n) => Math.max(0, n - ids.length)))), 'success', undefined, { type: 'nugget', id: ids[0], title: card.term })
+      toast(`${ids.length > 1 ? 'Two cards made, one each way,' : 'Card made'}${tag ? ` in the deck ${deckTitle(tag)}` : ''}`, () => void window.api.haligtree('cards:list:undo', ids).then(() => (chime('undo'), setMade((n) => Math.max(0, n - ids.length)))), 'success', undefined, { type: 'nugget', id: ids[0], title: card.term })
     })
   }
   const keys = (event: React.KeyboardEvent): void => {
@@ -47,7 +47,7 @@ export function NewCard({ deck: aimed, onClose }: { deck?: string; onClose: () =
   return (
     <section data-new-card onKeyDown={keys} className="flex flex-col gap-3 rounded-lg border bg-accent/30 px-5 pt-4 pb-3">
       <p className="text-sm text-foreground/80">
-        <b className="font-semibold text-foreground">New card{tag ? ` in #${tag}` : ''}.</b> {sides ? `${sides[0]}, then ${sides[1]}` : 'A question, then its answer'}: one thing a card.
+        <b className="font-semibold text-foreground">New card{tag ? ` in ${deckTitle(tag)}` : ''}.</b> {sides ? `${sides[0]}, then ${sides[1]}` : 'A question, then its answer'}: one thing a card.
       </p>
       <textarea ref={ask} autoFocus rows={1} value={question} onChange={(event) => setQuestion(event.target.value)} onKeyDown={keys}
         placeholder={sides ? sides[0] : 'The question'} aria-label={sides ? sides[0] : 'Question'} data-new-question className={`${FIELD} font-serif text-2xl leading-snug font-semibold`} />

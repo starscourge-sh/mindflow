@@ -142,6 +142,8 @@ export function NotePreview(): React.JSX.Element | null {
       timer = setTimeout(() => {
         const raw = link.getAttribute('data-note') ?? ''
         const [type, id] = raw.includes(':') ? [raw.slice(0, raw.indexOf(':')), raw.slice(raw.indexOf(':') + 1)] : ['capture', raw]
+        // In Review a #tag on a card is the deck it sits in: Review names its decks itself, so no tag card comes up over one.
+        if (type === 'tag' && link.closest('[data-review-page], [data-review-card], [data-answer-side]')) return
         const kind = kindOfLink(raw, link.getAttribute('data-kind'))
         // A link to one line shows that line, not the note's start (block-ids.ts).
         const block = link.getAttribute('data-block')

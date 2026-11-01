@@ -19,6 +19,21 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuRadioG
 export const deckTagOf = (words: string): string =>
   words.trim().toLowerCase().replace(/^#/, '').split(/::|\//).map((part) => part.replace(/[^\p{L}\p{M}\p{N}_-]+/gu, '-').replace(/^-+|-+$/g, '')).filter(Boolean).join('-')
 
+/** A part of a deck's name as a person reads it: "psychology-cognition" is "Psychology cognition". */
+export const sayDeck = (words: string): string => { const plain = words.replace(/-+/g, ' ').trim(); return plain.charAt(0).toUpperCase() + plain.slice(1) }
+
+/**
+ * A deck's name as Review shows it, never as a #tag: its words with a capital,
+ * and when it sits inside another deck (one of `known`), the path to it:
+ * #biology-cells under #biology is "Biology / Cells". The example deck by its name.
+ */
+export function deckTitle(tag: string, known: string[] = []): string {
+  if (tag === EXAMPLE_TAG) return 'How remembering works'
+  const ups = known.filter((one) => tag.startsWith(`${one}-`)).sort((a, b) => a.length - b.length)
+  let prev = ''
+  return [...ups, tag].map((one) => { const part = prev ? one.slice(prev.length + 1) : one; prev = one; return sayDeck(part) }).join(' / ')
+}
+
 /** Under a deck: the deck itself, or one inside it. */
 export const inDeck = (tags: string[], deck: string): boolean => tags.some((one) => one === deck || one.startsWith(`${deck}-`))
 
@@ -27,12 +42,12 @@ export const inDeck = (tags: string[], deck: string): boolean => tags.some((one)
  * Resolves to its tag, or null when let go. `inside` names it under a deck.
  */
 export async function makeDeck(inside?: string): Promise<string | null> {
-  const words = await ask(inside ? `A deck inside #${inside}` : 'Name the new deck', inside ? 'Cells' : 'Biology, or Biology/Cells for one inside it')
+  const words = await ask(inside ? `A deck inside ${deckTitle(inside)}` : 'Name the new deck', inside ? 'Cells' : 'Biology, or Biology/Cells for one inside it')
   const tag = words && deckTagOf(inside ? `${inside}/${words}` : words)
   if (!tag) return null
   await haligtree.setTag(tag, { deck: true })
   chime('noted')
-  toast(`Deck #${tag} made`, () => void haligtree.setTag(tag, { deck: false }).then(() => chime('undo')))
+  toast(`The deck ${deckTitle(tag)} is made`, () => void haligtree.setTag(tag, { deck: false }).then(() => chime('undo')))
   return tag
 }
 
@@ -86,7 +101,7 @@ export function DeckPick({ value, onChange }: { value: string; onChange: (tag: s
         <button type="button" data-deck-pick={tag || 'none'} aria-label="Deck"
           className="flex h-8 max-w-56 cursor-pointer items-center gap-1.5 rounded-md border border-foreground/10 px-2.5 text-control hover:bg-accent/50 max-sm:h-9">
           <span className="text-foreground/70">Deck</span>
-          <span className={`truncate ${tag ? 'text-foreground' : 'text-muted-foreground'}`}>{tag ? `#${tag}` : 'No deck'}</span>
+          <span className={`truncate ${tag ? 'text-foreground' : 'text-muted-foreground'}`}>{tag ? deckTitle(tag, decks.map((one) => one.tag)) : 'No deck'}</span>
           <ChevronDown className="size-3.5 shrink-0 text-muted-foreground" />
         </button>
       </DropdownMenuTrigger>
@@ -95,7 +110,7 @@ export function DeckPick({ value, onChange }: { value: string; onChange: (tag: s
           <DropdownMenuRadioItem value="" data-deck-pick-to="none" className="cursor-pointer">No deck</DropdownMenuRadioItem>
           {decks.filter((deck) => deck.tag !== EXAMPLE_TAG).map((deck) => (
             <DropdownMenuRadioItem key={deck.tag} value={deck.tag} data-deck-pick-to={deck.tag} className="cursor-pointer" style={{ paddingLeft: `${2 + deck.depth * 0.75}rem` }}>
-              <span className="truncate">{deck.label}</span>
+              <span className="truncate">{sayDeck(deck.label)}</span>
             </DropdownMenuRadioItem>
           ))}
         </DropdownMenuRadioGroup>

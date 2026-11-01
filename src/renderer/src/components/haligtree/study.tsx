@@ -1,3 +1,4 @@
+import { deckTitle } from './decks'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { motion } from 'motion/react'
 import { Check } from 'lucide-react'
@@ -148,8 +149,8 @@ export function RoundLine({ round, onLeave }: { round: Round; onLeave: () => voi
   return (
     <div className="flex items-center gap-3 px-5 pt-4 text-sm">
       <p className="flex-1">
-        <strong className="font-semibold">{round === 'starred' ? 'Starred' : round.startsWith('#') ? `Studying ${round}` : BUCKETS.find((one) => one.id === round)?.label}.</strong>{' '}
-        <span className="text-muted-foreground">{round.startsWith('#') ? 'With the tags under it, due cards first. Each grade counts.' : 'An extra round. Nothing moves unless you grade it.'}</span>
+        <strong className="font-semibold">{round === 'starred' ? 'Starred' : round.startsWith('#') ? `Studying ${deckTitle(round.slice(1))}` : BUCKETS.find((one) => one.id === round)?.label}.</strong>{' '}
+        <span className="text-muted-foreground">{round.startsWith('#') ? 'With the decks inside it, due cards first. Each grade counts.' : 'An extra round. Nothing moves unless you grade it.'}</span>
       </p>
       <Button variant="ghost" size="sm" className="cursor-pointer" onClick={onLeave}>Back to today’s cards</Button>
     </div>

@@ -8,7 +8,7 @@ import { pictureIn } from '@/lib/answer-picture'
 import { num } from '../../../../main/dates'
 import { boxOf, coverOf, groupsOf, overlap, snapped, type Cover, type CoverKind, type Hide, type Label, type Occlusion } from '../../../../main/occlusion'
 import { Kbd, refuse, toast } from './ui'
-import { DeckPick, deckTagOf } from './decks'
+import { DeckPick, deckTagOf, deckTitle } from './decks'
 
 /** Every cover in one solid colour of the theme: letters never show through. The asked one glows softly. */
 const COVER = 'color-mix(in oklab, var(--foreground) 72%, var(--background))'
@@ -176,7 +176,7 @@ export function PictureCards({ deck: aimed, onClose, onShow }: { deck?: string |
     void call<string[]>('cards:picture', { src: picture.src, covers: covers.map((one) => ({ ...one, group: renumber.get(one.group)! })), hide, deck: tag, from: picture.from }).then((ids) => {
       chime('added')
       onClose()
-      toast(`${num(ids.length)} ${ids.length === 1 ? 'card' : 'cards'} made from the picture${tag ? ` in the deck #${tag}` : ''}`, () => void call('cards:list:undo', ids).then(() => chime('undo')), 'success', onShow ? { label: 'Show them', key: 'S', run: () => onShow(ids) } : undefined)
+      toast(`${num(ids.length)} ${ids.length === 1 ? 'card' : 'cards'} made from the picture${tag ? ` in the deck ${deckTitle(tag)}` : ''}`, () => void call('cards:list:undo', ids).then(() => chime('undo')), 'success', onShow ? { label: 'Show them', key: 'S', run: () => onShow(ids) } : undefined)
     })
   }
   const keys = (event: React.KeyboardEvent): void => {
