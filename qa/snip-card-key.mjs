@@ -73,7 +73,21 @@ const cardRow = async () => {
   await h.keyboard.press('Escape'); await wait(300)
   return row
 }
-const pickOn = (page, words) => h.evaluate(([page, words]) => {
+/** Words picked on a page, as a person picks them: the page brought into view first and left to settle (its words are
+ *  laid out again as it comes in), so a right click lands on them and not off the window's edge. */
+const pickOn = async (page, words) => {
+  await h.evaluate(([page, words]) => [...document.querySelectorAll(`.pdf-reader .pdf-page[data-page="${page}"] .textLayer span`)].find((one) => one.textContent.includes(words))?.scrollIntoView({ block: 'center' }), [page, words])
+  // Settled: the words are inside the window and have stopped moving.
+  await h.waitForFunction(([page, words]) => {
+    const span = [...document.querySelectorAll(`.pdf-reader .pdf-page[data-page="${page}"] .textLayer span`)].find((one) => one.textContent.includes(words))
+    const r = span?.getBoundingClientRect()
+    const still = r && window.qaPickTop === r.top
+    window.qaPickTop = r?.top
+    return !!r && still && r.top >= 0 && r.bottom <= innerHeight
+  }, [page, words], { polling: 100, timeout: 8000 })
+  await pickNow(page, words)
+}
+const pickNow = (page, words) => h.evaluate(([page, words]) => {
   const span = [...document.querySelectorAll(`.pdf-reader .pdf-page[data-page="${page}"] .textLayer span`)].find((one) => one.textContent.includes(words))
   const at = span.textContent.indexOf(words)
   const range = document.createRange()
