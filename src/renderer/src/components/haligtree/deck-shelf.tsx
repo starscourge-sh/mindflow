@@ -149,7 +149,7 @@ export function DeckShelf({ onOpen, onStudy, onPaste }: { onOpen: (type: string,
       {top}
       <StudyYear compact />
       {/* Pockets: squarish tiles, 2 to 4 across by width; each studies when clicked, its actions in its ⋯ menu and on right-click. */}
-      <div data-deck-grid className="grid grid-cols-2 gap-3 sm:grid-cols-[repeat(auto-fill,minmax(10.5rem,13.5rem))]">
+      <div data-deck-grid className="grid grid-cols-2 gap-3 sm:grid-cols-[repeat(auto-fill,minmax(11rem,1fr))]">
         {shown.map(tile)}
         {allTags && folded.map(tile)}
         {sharedTiles}
