@@ -24,6 +24,23 @@ if (window.api.room.left) {
   // The room round the card for a hint (above it, or beside it on the side with room), set by main while the box is
   // away: the card moves by as much in the same frame, so on screen it stays exactly where main put it, and main
   // shows the box once that is drawn.
+  // The round controls, the grabber, the hint and the offer belong to the card: drawn only while the card itself is
+  // drawn in the window at a real size. A card squeezed to a line, or out of the window, takes them with it, so they
+  // never float alone over whatever is behind (main.css, data-card-gone; qa/box-never-bare.mjs).
+  const watchCard = (): void => {
+    const card = document.querySelector('.app-container')
+    const r = card?.getBoundingClientRect()
+    const drawn = !!r && r.height >= 48 && r.width >= 120 && r.top < window.innerHeight - 20 && r.bottom > 20 && r.left < window.innerWidth - 20 && r.right > 20
+    document.documentElement.toggleAttribute('data-card-gone', !drawn)
+  }
+  const sizes = new ResizeObserver(watchCard)
+  const watchNow = (): void => {
+    const card = document.querySelector('.app-container')
+    if (card) sizes.observe(card)
+    watchCard()
+  }
+  new MutationObserver(watchNow).observe(document.body, { childList: true, subtree: true })
+  window.addEventListener('resize', watchCard)
   // "One line to start" sets its round controls beside the pill. Every one of them is kept in the window: where they
   // would run past its edge, they go above the pill instead, and a new room from main (an open somewhere else) tries beside again (main.css).
   const fitControls = (): void => {
