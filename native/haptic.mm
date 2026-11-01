@@ -5,6 +5,7 @@
 // else it does nothing, which is what is wanted.
 //
 // Plain N-API (node_api.h), so the one binary loads in any Electron.
+// Also `cursorInBackground()` (below).
 // Built by native/build-haptic.sh into resources/haptic.node.
 #import <AppKit/AppKit.h>
 #include <node_api.h>
@@ -19,7 +20,27 @@ static napi_value Tap(napi_env env, napi_callback_info info) {
   return NULL;
 }
 
+// The cursor from a window of an app that is not the active one. Quick capture is a panel that takes the
+// keys without making Haligtree the active app (src/main/index.ts, `type: 'panel'`), and macOS shows only the
+// active app's cursor changes, so its buttons kept the arrow and its writing never showed the I-beam.
+// The window server's own switch for that, the one menu bar apps use. Says whether it is now on.
+extern "C" int _CGSDefaultConnection(void);
+extern "C" CGError CGSSetConnectionProperty(int, int, CFStringRef, CFTypeRef);
+extern "C" CGError CGSCopyConnectionProperty(int, int, CFStringRef, CFTypeRef *);
+static napi_value CursorInBackground(napi_env env, napi_callback_info info) {
+  int connection = _CGSDefaultConnection();
+  CGSSetConnectionProperty(connection, connection, CFSTR("SetsCursorInBackground"), kCFBooleanTrue);
+  CFTypeRef now = NULL;
+  bool on = CGSCopyConnectionProperty(connection, connection, CFSTR("SetsCursorInBackground"), &now) == kCGErrorSuccess && now == kCFBooleanTrue;
+  if (now) CFRelease(now);
+  napi_value result;
+  napi_get_boolean(env, on, &result);
+  return result;
+}
+
 NAPI_MODULE_INIT() {
+  napi_value cursor;
+  if (napi_create_function(env, "cursorInBackground", NAPI_AUTO_LENGTH, CursorInBackground, NULL, &cursor) == napi_ok) napi_set_named_property(env, exports, "cursorInBackground", cursor);
   napi_value fn;
   if (napi_create_function(env, "tap", NAPI_AUTO_LENGTH, Tap, NULL, &fn) == napi_ok) napi_set_named_property(env, exports, "tap", fn);
   return exports;

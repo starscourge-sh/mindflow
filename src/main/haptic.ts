@@ -37,3 +37,23 @@ export function tap(kind: 'align' | 'level' = 'align'): void {
   void kind
   tapper?.(1)
 }
+
+/**
+ * Quick capture is a panel that takes the keys without making Haligtree the
+ * active app, and macOS shows only the active app's cursor: over its buttons
+ * the hand never came, over its writing never the I-beam. This lets the
+ * window server show Haligtree's cursor from the background too (native/haptic.mm).
+ * Says whether it took; false off a Mac or should the module not load.
+ */
+export let cursorShown = false
+export function cursorInBackground(): boolean {
+  if (process.platform !== 'darwin') return false
+  try {
+    const module = { exports: {} as { cursorInBackground?: () => boolean } }
+    process.dlopen(module, hapticFile)
+    cursorShown = module.exports.cursorInBackground?.() ?? false
+  } catch {
+    cursorShown = false
+  }
+  return cursorShown
+}

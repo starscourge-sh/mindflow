@@ -56,7 +56,7 @@ import { pageFor } from './pages'
 import { activeSession, extendRunning, whenNudge, atLogin, badge, beaconDefault, tuckRules, tempusDots, blurOn, boxAutoHide, boxOneLine, boxPlacement, gate, motionOn, stickyGlass, stickyStir, openGoals, registerHome, registerHaligtree, showStickies, stickyPrefs, stickyTuck, tuckStickies, toggleSafeMode, whenKeys, whenRecordings, whenIcon, appIcon, recordingPrefs, type Recordings, type OpenGoal, whenSafeMode, whenGoals, whenStickies, focusBubbleShown, focusToolsOn, whenFocusShows, pillInNotch, sleepChoice } from './haligtree'
 import { daysLeft, percent, tempus, wayThrough } from './goal-days'
 import { PEEK_OUT_MS, peeksOut, restNow, type Rest } from './goal-tuck'
-import { tap, tapKinds, taps } from './haptic'
+import { cursorInBackground, cursorShown, tap, tapKinds, taps } from './haptic'
 import { fetchOutside, isOutside } from './outside'
 import { registerNotes } from './notes'
 import { registerGroups } from './groups'
@@ -1687,6 +1687,8 @@ const homeTimes: { made?: number; painted?: number; drawn?: number; shown?: numb
 ;(globalThis as { haligtreeHomeTimes?: typeof homeTimes }).haligtreeHomeTimes = homeTimes
 /** How many trackpad taps were asked for (haptic.ts): what the stickies' probe reads. */
 ;(globalThis as { haligtreeTaps?: () => number }).haligtreeTaps = () => taps
+/** Whether the window server shows Haligtree's cursor while it is not the active app: what the hand probe reads. */
+;(globalThis as { haligtreeCursorShown?: () => boolean }).haligtreeCursorShown = () => cursorShown
 /** Each tap's kind, in order ('align' or 'level'): what the scrub probe reads. */
 ;(globalThis as { haligtreeTapKinds?: () => string[] }).haligtreeTapKinds = () => [...tapKinds]
 /** What the main window was sent to while it was not yet listening. */
@@ -3905,6 +3907,8 @@ ipcMain.on('book:here', (event) => void (event.returnValue = here()))
 // The welcome's first sound plays as it arrives, before anything has been clicked (renderer's lib/sound.ts, ambience).
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required')
 app.whenReady().then(() => {
+  // The hand and the I-beam in quick capture, which has the keys while Haligtree is not the active app (haptic.ts).
+  cursorInBackground()
   // Every time Haligtree writes, here and in each window, on the Mac's own clock (12 or 24 hours).
   useTwelveHour(twelveHour())
   // The Leaves marks draw on a Noun Project icon used under CC BY 3.0, which asks for this credit.
