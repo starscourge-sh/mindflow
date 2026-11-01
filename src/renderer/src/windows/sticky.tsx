@@ -8,6 +8,7 @@ import { Toaster } from '../components/haligtree/ui'
 import { TuckTab } from '../components/haligtree/tuck-tab'
 import { params, start } from '../main'
 import { clearRoom } from '../lib/clear-room'
+import { followGlass } from '../lib/glass'
 
 const type = params.get('type')
 
@@ -20,6 +21,10 @@ start(
     <Toaster />
   </>
 )
+
+// Made as glass (the setting): the Mac's blur under the card, or under the flat tab while it is tucked, and nowhere
+// else in the window (lib/glass.ts). A named tab is solid paper and stands on none.
+if (params.has('glass')) followGlass(() => [...document.querySelectorAll('.mf-card, [data-goal-card], [data-goals-sticky], [data-tuck-tab="flat"] > div')])
 
 // The room round a paper card lets clicks through to the app behind; the card, and anything hanging past it, takes them.
 clearRoom()

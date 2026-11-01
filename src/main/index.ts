@@ -1463,9 +1463,8 @@ function stick(type: string, id: string, on: boolean, bounds?: Electron.Rectangl
   // unplugged, or a note dragged past an edge, never leaves it out of reach.
   // A goal's card is taller than a note: the days left and the road. The
   // goals together (type 'goals') a little wider: their lanes and the legend.
-  // Real glass: the Mac blurs whatever is behind, kept on while the window is
-  // not the active one (it never is). It fills the window, so the note sits
-  // straight in it, with the Mac's own rounded corners.
+  // Real glass: the Mac blurs whatever is behind the card, kept on while the window is not the active one (it never
+  // is). The card fills the window, so the note sits straight in it.
   const glass = stickyGlass() && !nativeTheme.prefersReducedTransparency
   // Today's list is a little taller than a note: a few tasks under its title.
   const size = type === 'goal' ? (glass ? GOAL_GLASS : GOAL_SIZE) : type === 'goals' ? (glass ? GOALS_GLASS : GOALS_SIZE) : type === 'today' ? { width: 280, height: 300 } : { width: 300, height: 220 }
@@ -1479,7 +1478,9 @@ function stick(type: string, id: string, on: boolean, bounds?: Electron.Rectangl
     : freeSpot(workArea, size.width, size.height, insetOf(key))
   const win = new BrowserWindow({
     ...place,
-    ...(glass ? { vibrancy: 'popover' as const, visualEffectState: 'active' as const, roundedCorners: true, backgroundColor: '#00000000' } : {}),
+    // See-through either way: as glass the Mac's blur is put under its card by the page (main/glass.ts, Raycast's
+    // way: cut to the card's rounded shape, the desktop's colour coming through darkened), never the whole window.
+    backgroundColor: '#00000000',
     // 6 points either side of its limits, for the corner grip's give (see sticky:resize).
     minWidth: 214,
     minHeight: 124,
@@ -1498,7 +1499,7 @@ function stick(type: string, id: string, on: boolean, bounds?: Electron.Rectangl
     // a real window, files it under one workspace and hides it on the others.
     resizable: false,
     frame: false,
-    transparent: !glass,
+    transparent: true,
     minimizable: false,
     maximizable: false,
     fullscreenable: false,
@@ -2362,9 +2363,8 @@ function shapeCard(key: string, win: BrowserWindow): void {
       win.webContents.send('beacon:peek', peek, byKey)
     }
     openedTab.delete(key)
-    // Real glass fills its whole window, so a named tab drops it while tucked: its clear room stays clear and only
-    // its paper shows, rounded on the screen's side alone (the window's own rounded corners fall in the clear room).
-    if (builtGlass.get(key)) (win.setVibrancy(named ? null : 'popover'), win.setHasShadow(!named))
+    // A named tab is solid paper: its page takes the glass away (windows/sticky.tsx) and its clear room casts no shadow.
+    if (builtGlass.get(key)) win.setHasShadow(!named)
     win.setMinimumSize(1, 1)
     placed.set(win, { x: tab.x, y: tab.y })
     win.setBounds(tab)
@@ -2390,7 +2390,7 @@ function shapeCard(key: string, win: BrowserWindow): void {
   const hang = fromTab ? (atLeft ? inset.left : inset.right) - TUCK_OPEN_GAP : 0
   const to = beaconHeld.has(key) ? { ...rest, width: wide, x: atLeft ? area.x - hang : area.x + area.width - wide + hang, y: top } : rest
   if (to !== rest) openedAt.set(key, rest)
-  if (builtGlass.get(key)) (win.setVibrancy('popover'), win.setHasShadow(true))
+  if (builtGlass.get(key)) win.setHasShadow(true)
   if (fromTab) {
     const peek: Peek = { side: atLeft ? 'left' : 'right', nudge: false, flat: false, tucked: true, opened: true, hang, strip: TUCK_STRIP, width: to.width }
     openedTab.add(key)

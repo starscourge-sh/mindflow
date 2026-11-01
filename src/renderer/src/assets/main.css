@@ -3139,3 +3139,13 @@ html[data-overhang][data-glass] [data-hint-room] [data-hint-surface] {
   background-color: var(--mf-glass-fill);
   box-shadow: var(--mf-glass-rim), 0 6px 16px -6px color-mix(in oklab, var(--mf-shadow-ink) 32%, transparent);
 }
+/* Stickies on real glass (windows/sticky.tsx, lib/glass.ts): how much of the theme's paper washes over the Mac's blur.
+   The whole paper with no glass under it (Reduce Transparency, a solid look); on glass, Raycast's mix: the desktop's
+   colour through a dark page darkened, and through a light one paled, the words keeping their contrast. A thin
+   lighter rim where the light catches the card's edge. */
+:root { --mf-glass-wash: 100%; }
+:root[data-glass='dark'] { --mf-glass-wash: 62%; }
+:root[data-glass='light'] { --mf-glass-wash: 74%; }
+:root[data-glass] body[data-sticky='glass'] .mf-card {
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, white 9%, transparent), inset 0 1px 0 color-mix(in oklab, white 12%, transparent);
+}

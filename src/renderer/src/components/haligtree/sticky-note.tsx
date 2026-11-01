@@ -211,9 +211,13 @@ const lineOf = (box: HTMLElement, text: string): Element | undefined => linesIn(
 
 /** Paper with nothing showing through: plain paper's, and a tucked tab's, which has no glass behind it even on glass. */
 export const SOLID_PAPER: CSSProperties = { backgroundImage: 'linear-gradient(rgb(255 255 255 / 0.05), transparent 40%), linear-gradient(var(--mf-paper-tint), var(--mf-paper-tint)), linear-gradient(var(--mf-paper), var(--mf-paper)), linear-gradient(var(--background), var(--background))', backgroundColor: 'Canvas' }
-/** Real glass: the Mac's blur shows through a thin wash of the theme's paper, enough to read on. */
+/**
+ * Real glass: the Mac's blur of the desktop shows through a wash of the theme's paper, Raycast's way, the desktop's
+ * colour coming through darkened (--mf-glass-wash, main.css: lighter on a dark page, more on a light one, and the
+ * whole paper when there is no glass under it, as with Reduce Transparency).
+ */
 export const PAPER: CSSProperties = GLASS
-  ? { backgroundImage: 'linear-gradient(rgb(255 255 255 / 0.05), transparent 40%), linear-gradient(var(--mf-paper-tint), var(--mf-paper-tint)), linear-gradient(color-mix(in oklab, var(--mf-paper) 90%, transparent), color-mix(in oklab, var(--mf-paper) 90%, transparent))' }
+  ? { backgroundImage: 'linear-gradient(rgb(255 255 255 / 0.05), transparent 40%), linear-gradient(var(--mf-paper-tint), var(--mf-paper-tint)), linear-gradient(color-mix(in oklab, var(--mf-paper) var(--mf-glass-wash), transparent), color-mix(in oklab, var(--mf-paper) var(--mf-glass-wash), transparent))' }
   : SOLID_PAPER
 /**
  * The card itself: on glass, straight with its words lifting on hover; as paper, leaning, and straightening as it lifts.

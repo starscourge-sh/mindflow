@@ -30,9 +30,9 @@ const pressing = (goalAt: string | null | undefined, today: string): boolean => 
 /** The card's foot: on glass in the sandbox, room for the stamp. */
 const FOOT = GLASS && SANDBOX ? 'pb-6' : 'pb-4'
 
-/** A card's paper, lit from the top: solid theme paper (frosted over the desktop picture), or a 90% pane as glass. */
+/** A card's paper, lit from the top: solid theme paper (frosted over the desktop picture), or a wash over real glass (--mf-glass-wash). */
 const PAPER = GLASS
-  ? 'linear-gradient(rgb(255 255 255 / 0.05), transparent 40%), linear-gradient(color-mix(in oklab, var(--popover) 90%, transparent), color-mix(in oklab, var(--popover) 90%, transparent))'
+  ? 'linear-gradient(rgb(255 255 255 / 0.05), transparent 40%), linear-gradient(color-mix(in oklab, var(--popover) var(--mf-glass-wash), transparent), color-mix(in oklab, var(--popover) var(--mf-glass-wash), transparent))'
   : 'linear-gradient(rgb(255 255 255 / 0.05), transparent 40%), linear-gradient(var(--popover), var(--popover)), linear-gradient(var(--background), var(--background))'
 const SHADOW = GLASS ? '0 1px 2px rgb(0 0 0 / 0.16)' : '0 1px 2px rgb(0 0 0 / 0.14), 0 6px 16px -4px rgb(0 0 0 / 0.22)'
 const CARD = `relative isolate flex h-full flex-col gap-2.5 ${GLASS ? 'rounded-[10px]' : 'rounded-xl border'} px-4 pt-3 ${FOOT} text-control text-foreground`
