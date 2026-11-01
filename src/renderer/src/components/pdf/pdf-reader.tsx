@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { stepTap } from "@/lib/haptics"
 import { useToolKeys } from "@/lib/tool-keys"
 import type { PDFDocumentProxy } from "pdfjs-dist"
-import { ChevronDown, ChevronUp, Gem, Minus, PanelLeft, PanelRight, Plus, Scissors, ScrollText, Search, SquareStack, X } from "lucide-react"
+import { BookOpen, ChevronDown, ChevronUp, Gem, Minus, PanelLeft, PanelRight, Plus, Scissors, ScrollText, Search, SquareStack, X } from "lucide-react"
 import { Button } from "@/components/tiptap-ui-primitive/button"
 import { Toolbar, ToolbarGroup } from "@/components/tiptap-ui-primitive/toolbar"
 import { saveAttachment } from "@/extensions/image-drop"
@@ -22,7 +22,8 @@ import { usePdfCover } from "./pdf-cover"
 import { showDetails, useDetailsShown } from "@/lib/reading"
 import { PdfPages, offsetsIn, pdfAuthor, pdfTitle, wordsIn, type PdfMark } from "./pdf-pages"
 import { FitActions } from "@/components/haligtree/ui"
-import { usePaperPages } from "./paper"
+import { LAYOUTS, useDarkPages, usePageLayout, usePaperPages, type PageLayout } from "./paper"
+import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { ScrubField } from "./scrub-field"
 import { still } from "@/lib/motion"
 
@@ -136,6 +137,8 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
   const [zoom, setZoom] = useState(1)
   const [page, setPage] = useState(start ?? 1)
   const [paper, setPaper] = usePaperPages()
+  const [dark, setDark] = useDarkPages()
+  const [layout, setLayout] = usePageLayout(src)
   const [marks, setMarks] = useState<PdfMark[]>([])
   const [flash] = useState(() => {
     const mark = flashNext
@@ -808,7 +811,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
   const chapter = hereAt >= 0 ? outline[hereAt].title : ""
 
   return (
-    <div className={`pdf-reader${paper ? " is-paper" : ""}`} data-zoom={zoom}>
+    <div className={`pdf-reader${paper && !dark ? " is-paper" : ""}${dark ? " is-dark" : ""}`} data-zoom={zoom} data-layout={layout}>
       <div className="pdf-reader-bar">
         <span className="pdf-reader-heading" title={chapter ? `${title}: ${chapter}` : title}>
           <span className="pdf-reader-title">{title}</span>
@@ -849,15 +852,39 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
           </Button>
           <Button
             data-style="ghost"
-            aria-label={paper ? "White pages" : "Paper pages"}
-            title={paper ? "White pages" : "Paper pages: easier on the eyes, pictures kept true"}
-            data-active-state={paper ? "on" : "off"}
+            aria-label={paper && !dark ? "White pages" : "Paper pages"}
+            title={paper && !dark ? "White pages" : "Paper pages: easier on the eyes, pictures kept true"}
+            data-active-state={paper && !dark ? "on" : "off"}
             onClick={() => {
-              setPaper(!paper)
+              // With dark pages on it says "Paper pages" and gives paper; otherwise it switches paper and white.
+              setPaper(dark ? true : !paper)
+              setDark(false)
             }}
           >
             <ScrollText className="tiptap-button-icon" />
           </Button>
+          {/* How the pages lie and how they look, as Preview's View menu has it: kept per book, and "Dark pages" for every book. */}
+          <DropdownMenu modal={false}>
+            <DropdownMenuTrigger asChild>
+              <Button data-style="ghost" aria-label="Page layout" title="Page layout and dark pages">
+                <BookOpen className="tiptap-button-icon" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56" data-page-layout-menu>
+              <DropdownMenuLabel>Pages</DropdownMenuLabel>
+              <DropdownMenuRadioGroup value={layout} onValueChange={(to) => (chime("tap"), setLayout(to as PageLayout))}>
+                {LAYOUTS.map((one) => (
+                  <DropdownMenuRadioItem key={one.id} value={one.id} data-layout-choice={one.id}>
+                    {one.label}
+                  </DropdownMenuRadioItem>
+                ))}
+              </DropdownMenuRadioGroup>
+              <DropdownMenuSeparator />
+              <DropdownMenuCheckboxItem checked={dark} data-dark-pages onCheckedChange={(on) => (chime(on ? "on" : "off"), setDark(!!on))}>
+                Dark pages
+              </DropdownMenuCheckboxItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </FitActions>
       </div>
       {finding && (
@@ -925,6 +952,9 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
               marks={found.length ? [...marks, ...found] : marks}
               flash={found.length ? found[at]?.id : lit ?? flash}
               land={start}
+              spread={layout === "spread"}
+              fit={layout === "single" ? "height" : "width"}
+              dark={dark}
               onWords={(one, quote) => void call("pdf:mark", one.id, { quote, start: one.start, end: one.end }).then(() => setMarks((all) => all.map((each) => (each.id === one.id ? { ...each, quote } : each))))}
               onLoad={(loaded) => {
                 setDoc(loaded)

@@ -16,6 +16,25 @@
   align-items: flex-start;
 }
 
+/* Two pages: the room where a page before the cover would be, so the cover lies alone on the right. */
+.pdf-page-gap {
+  flex: none;
+}
+
+/* Single page: each page the window's height, and the scroll comes to rest on a whole page. */
+.pdf-reader[data-layout="single"] .pdf-reader-scroll {
+  scroll-snap-type: y mandatory;
+}
+
+.pdf-reader[data-layout="single"] .pdf-page {
+  scroll-snap-align: start;
+}
+
+/* Dark pages: the sheet in the dark theme's ground while its picture is drawn, and drawn in it. */
+.pdf-reader.is-dark .pdf-page {
+  background: #1c1a17;
+}
+
 .pdf-pages.is-failed {
   padding: 1rem;
   color: var(--mf-muted);

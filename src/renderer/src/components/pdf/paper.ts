@@ -29,3 +29,51 @@ export function usePaperPages(): [boolean, (on: boolean) => void] {
   }
   return [paper, set]
 }
+
+/** Told when "Dark pages" is turned on or off. */
+const DARKENED = "haligtree:pdf-dark"
+
+/**
+ * "Dark pages", as Preview's "Use Dark Appearance for PDF": the page itself
+ * in the theme's dark, its text light, its pictures kept true (pdf.js draws
+ * text and lines in the colours given and leaves pictures as they are). Off
+ * unless turned on; on, it wins over Paper and White. One setting for every reader.
+ */
+export function useDarkPages(): [boolean, (on: boolean) => void] {
+  const [dark, setDark] = useState(() => localStorage.getItem("pdf-dark") === "1")
+  useEffect(() => {
+    const read = (): void => setDark(localStorage.getItem("pdf-dark") === "1")
+    window.addEventListener(DARKENED, read)
+    window.addEventListener("storage", read)
+    return () => (window.removeEventListener(DARKENED, read), window.removeEventListener("storage", read))
+  }, [])
+  const set = (on: boolean): void => {
+    localStorage.setItem("pdf-dark", on ? "1" : "0")
+    window.dispatchEvent(new CustomEvent(DARKENED))
+  }
+  return [dark, set]
+}
+
+/** The colours a dark page is drawn in: the dark theme's ground and ink. */
+export const DARK_PAGE = { background: "#1c1a17", foreground: "#e9e3d7" }
+
+/** How a book's pages are laid out, as Preview offers them: kept per book. */
+export type PageLayout = "continuous" | "single" | "spread"
+export const LAYOUTS: { id: PageLayout; label: string }[] = [
+  { id: "continuous", label: "Continuous scroll" },
+  { id: "single", label: "Single page" },
+  { id: "spread", label: "Two pages" },
+]
+const layoutOf = (src: string): PageLayout => {
+  const kept = localStorage.getItem(`pdf-layout:${src}`)
+  return kept === "single" || kept === "spread" ? kept : "continuous"
+}
+export function usePageLayout(src: string): [PageLayout, (to: PageLayout) => void] {
+  const [got, setGot] = useState(() => ({ src, layout: layoutOf(src) }))
+  const layout = got.src === src ? got.layout : layoutOf(src)
+  const set = (to: PageLayout): void => {
+    localStorage.setItem(`pdf-layout:${src}`, to)
+    setGot({ src, layout: to })
+  }
+  return [layout, set]
+}

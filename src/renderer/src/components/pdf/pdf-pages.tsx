@@ -1,5 +1,6 @@
+import { DARK_PAGE } from "./paper"
 import { useEffect, useLayoutEffect, useRef, useState } from "react"
-import { GlobalWorkerOptions, TextLayer, getDocument, type PDFDocumentProxy, type PDFPageProxy } from "pdfjs-dist"
+import { GlobalWorkerOptions, OPS, TextLayer, Util, getDocument, type PDFDocumentProxy, type PDFPageProxy } from "pdfjs-dist"
 import workerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url"
 import "./pdf.css"
 import { markCss } from "./read-bar"
@@ -130,6 +131,53 @@ function rangeAt(nodes: Text[], start: number, end: number): Range | null {
   return null
 }
 
+/**
+ * Where a page's pictures sit, in the page's own units: each picture is drawn
+ * into a unit square by the transform in force, so the square carried through
+ * that transform is its box.
+ */
+const carry = (x: number, y: number, m: number[]): [number, number] => [m[0] * x + m[2] * y + m[4], m[1] * x + m[3] * y + m[5]]
+
+async function picturesOn(proxy: PDFPageProxy): Promise<number[][]> {
+  const list = await proxy.getOperatorList()
+  const boxes: number[][] = []
+  const kept: number[][] = []
+  let now = [1, 0, 0, 1, 0, 0]
+  list.fnArray.forEach((fn, at) => {
+    if (fn === OPS.save) kept.push(now)
+    else if (fn === OPS.restore) now = kept.pop() ?? now
+    else if (fn === OPS.transform) now = Util.transform(now, list.argsArray[at] as number[])
+    else if (fn === OPS.paintImageXObject || fn === OPS.paintInlineImageXObject || fn === OPS.paintImageXObjectRepeat) {
+      const corners = [[0, 0], [1, 0], [0, 1], [1, 1]].map(([x, y]) => carry(x, y, now))
+      boxes.push([Math.min(...corners.map((p) => p[0])), Math.min(...corners.map((p) => p[1])), Math.max(...corners.map((p) => p[0])), Math.max(...corners.map((p) => p[1]))])
+    }
+  })
+  return boxes
+}
+
+/**
+ * "Dark pages" keeps pictures true: pdf.js draws a page in the colours given
+ * and tints its pictures with them too, so each picture's box is copied back
+ * from the page drawn in its own colours.
+ */
+async function truePictures(proxy: PDFPageProxy, viewport: ReturnType<PDFPageProxy["getViewport"]>, canvas: HTMLCanvasElement, density: number): Promise<void> {
+  const boxes = await picturesOn(proxy)
+  if (!boxes.length) return
+  const plain = document.createElement("canvas")
+  plain.width = canvas.width
+  plain.height = canvas.height
+  await proxy.render({ canvas: plain, viewport, transform: density === 1 ? undefined : [density, 0, 0, density, 0, 0] }).promise
+  const ink = canvas.getContext("2d")
+  if (!ink) return
+  for (const box of boxes) {
+    const [x1, y1] = carry(box[0], box[1], viewport.transform)
+    const [x2, y2] = carry(box[2], box[3], viewport.transform)
+    const x = Math.floor(Math.min(x1, x2) * density), y = Math.floor(Math.min(y1, y2) * density)
+    const w = Math.ceil(Math.abs(x2 - x1) * density), h = Math.ceil(Math.abs(y2 - y1) * density)
+    if (w > 0 && h > 0) ink.drawImage(plain, x, y, w, h, x, y, w, h)
+  }
+}
+
 /** The page's marks, drawn as soft bands under its words, measured fresh at the zoom it is drawn at. */
 function paintMarks(sheet: HTMLElement, marks: PdfMark[], flash: string | null | undefined, onWords?: (mark: PdfMark, quote: string) => void): void {
   sheet.querySelector(".pdf-marks")?.remove()
@@ -209,6 +257,7 @@ export function PdfPages({
   land,
   fit = "width",
   spread = false,
+  dark = false,
   onWords,
 }: {
   src: string
@@ -224,8 +273,10 @@ export function PdfPages({
   land?: number
   /** A page as wide as the box, or as tall as what scrolls it (a whole page in view). */
   fit?: "width" | "height"
-  /** Two pages side by side, as a book lies open. */
+  /** Two pages side by side, as a book lies open: the cover alone on the right, as a printed book opens. */
   spread?: boolean
+  /** "Dark pages": text and lines drawn light on the theme's dark, pictures kept true. */
+  dark?: boolean
   /** A kept mark whose words the drawn page reads with spaces its quote lacks: put it right. */
   onWords?: (mark: PdfMark, quote: string) => void
 }): React.JSX.Element {
@@ -334,16 +385,17 @@ export function PdfPages({
   if (failed) return <div className="pdf-pages is-failed">This PDF could not be read.</div>
   return (
     <div ref={box} className={`pdf-pages${spread ? " is-spread" : ""}`} data-fit={fit}>
+      {doc && scale > 0 && spread && <div aria-hidden className="pdf-page-gap" style={{ width: size!.w * scale, height: size!.h * scale }} />}
       {doc && scale > 0 &&
         Array.from({ length: doc.numPages }, (_, index) => (
-          <PdfPage key={index + 1} doc={doc} page={index + 1} scale={scale} guess={size!} rank={shown.get(index + 1)} marks={marks.filter((mark) => mark.page === index + 1)} flash={flash} onWords={onWords} />
+          <PdfPage key={index + 1} doc={doc} page={index + 1} scale={scale} guess={size!} rank={shown.get(index + 1)} marks={marks.filter((mark) => mark.page === index + 1)} flash={flash} onWords={onWords} dark={dark} />
         ))}
     </div>
   )
 }
 
 /** One sheet: its size always, its picture and words only while near the view. */
-function PdfPage({ doc, page, scale, guess, rank, marks, flash, onWords }: { doc: PDFDocumentProxy; page: number; scale: number; guess: { w: number; h: number }; rank?: number; marks: PdfMark[]; flash?: string | null; onWords?: (mark: PdfMark, quote: string) => void }): React.JSX.Element {
+function PdfPage({ doc, page, scale, guess, rank, marks, flash, onWords, dark = false }: { doc: PDFDocumentProxy; page: number; scale: number; guess: { w: number; h: number }; rank?: number; marks: PdfMark[]; flash?: string | null; onWords?: (mark: PdfMark, quote: string) => void; dark?: boolean }): React.JSX.Element {
   const sheet = useRef<HTMLDivElement>(null)
   const [own, setOwn] = useState<{ w: number; h: number } | null>(null)
   // The words on this page are laid out: marks can be measured against them.
@@ -368,7 +420,8 @@ function PdfPage({ doc, page, scale, guess, rank, marks, flash, onWords }: { doc
     let live = true
     let stop = (): void => {}
     const ratio = window.devicePixelRatio || 1
-    const key = `${doc.fingerprints[0]}:${page}:${scale}:${ratio}`
+    const key = `${doc.fingerprints[0]}:${page}:${scale}:${ratio}:${dark ? "dark" : "light"}`
+    const colours = dark ? { pageColors: DARK_PAGE } : {}
     /** A canvas for this page at `density` pixels to a point of the view; CSS lays it over the sheet's whole box. */
     const canvasAt = (viewport: { width: number; height: number }, density: number): HTMLCanvasElement => {
       const canvas = document.createElement("canvas")
@@ -419,7 +472,7 @@ function PdfPage({ doc, page, scale, guess, rank, marks, flash, onWords }: { doc
       if (!el.querySelector("canvas")) {
         const rough = canvasAt(viewport, 0.5)
         rough.dataset.pass = "rough"
-        const quick = proxy.render({ canvas: rough, viewport, transform: [0.5, 0, 0, 0.5, 0, 0] })
+        const quick = proxy.render({ canvas: rough, viewport, transform: [0.5, 0, 0, 0.5, 0, 0], ...colours })
         stop = () => quick.cancel()
         await quick.promise
         if (!live || stopped()) return
@@ -427,9 +480,10 @@ function PdfPage({ doc, page, scale, guess, rank, marks, flash, onWords }: { doc
       }
       // Drawn at the screen's own density, so text is sharp on a Retina display.
       const sharp = canvasAt(viewport, ratio)
-      const task = proxy.render({ canvas: sharp, viewport, transform: ratio === 1 ? undefined : [ratio, 0, 0, ratio, 0, 0] })
+      const task = proxy.render({ canvas: sharp, viewport, transform: ratio === 1 ? undefined : [ratio, 0, 0, ratio, 0, 0], ...colours })
       stop = () => task.cancel()
       await task.promise
+      if (dark) await truePictures(proxy, viewport, sharp, ratio)
       if (!live) return
       el.replaceChildren(sharp)
       keepPage(key, sharp)
@@ -441,7 +495,7 @@ function PdfPage({ doc, page, scale, guess, rank, marks, flash, onWords }: { doc
       drop()
       stop()
     }
-  }, [doc, page, scale, drawn, rank])
+  }, [doc, page, scale, drawn, rank, dark])
 
   return (
     <div
