@@ -72,7 +72,7 @@ try {
   check('1b. its satin is smooth: a sheen and a pooled light, no stripes', !/repeating-linear-gradient/.test(dense.bg) && (dense.bg.match(/gradient/g) ?? []).length >= 2, dense.bg.slice(0, 60))
   const tipsOn = async (selector) => { await h.hover(selector); await h.waitForTimeout(900); return h.evaluate((selector) => { const el = document.querySelector(selector); const titled = [el, ...el.querySelectorAll('*')].filter((one) => one.hasAttribute('title')).length; for (let at = el.parentElement; at; at = at.parentElement) if (at.hasAttribute?.('title')) return 99; return titled + [...document.querySelectorAll('[role="tooltip"], [data-note-preview]')].filter((one) => one.getBoundingClientRect().width > 0).length }, selector) }
   const onTile = await tipsOn('[data-deck-grid] [data-own-deck] h3')
-  const onDots = await tipsOn('[data-deck-grid] [data-own-deck] [aria-label="Deck options"]')
+  const onDots = await tipsOn('[data-deck-grid] [data-own-deck] [data-deck-dots]')
   check('1b. pointing at a tile, then its ⋯: no tip, no title, nothing floats', onTile === 0 && onDots === 0, JSON.stringify({ onTile, onDots }))
   // Long names wrap to two lines, never cut on one; the ⋯ menu names the deck whole.
   await c.size(390, 844); await h.waitForTimeout(700)
@@ -81,13 +81,16 @@ try {
   await waitFor(() => has(longTile))
   const clamp = await h.evaluate((sel) => { const one = document.querySelector(`${sel} h3`); const lines = Math.round(one.getBoundingClientRect().height / parseFloat(getComputedStyle(one).lineHeight)); return { lines, clamp: getComputedStyle(one).webkitLineClamp, ws: getComputedStyle(one).whiteSpace } }, longTile)
   check('1b. an 80-letter name at 390 wide wraps to two lines, at most', clamp.lines <= 2 && clamp.clamp === '2' && clamp.ws !== 'nowrap', JSON.stringify(clamp))
-  await h.click(`${longTile} [aria-label="Deck options"]`)
-  check('1b. its ⋯ menu names it whole at the top', await waitFor(() => h.evaluate(() => /invertebrates of the sea/i.test(document.querySelector('[data-menu-heading]')?.textContent ?? ''))))
+  await h.click(`${longTile} [data-deck-dots]`)
+  await waitFor(() => has('[role="menu"]'))
   if (shots) await h.screenshot({ path: join(shots, 'long-name-menu-phone-light.png') })
-  const menuBox = await h.evaluate(() => { const r = document.querySelector('[data-menu-heading]')?.closest('[role="menu"]')?.getBoundingClientRect(); return r ? { left: Math.round(r.left), right: Math.round(r.right), vw: window.innerWidth } : null })
+  const menuBox = await h.evaluate(() => { const r = [...document.querySelectorAll('[role="menu"]')].at(-1)?.getBoundingClientRect(); return r ? { left: Math.round(r.left), right: Math.round(r.right), vw: window.innerWidth } : null })
+  // Its settings name it whole at the top.
+  await h.locator('[role="menuitem"]', { hasText: 'Deck settings…' }).first().click()
+  check('1b. its settings name it whole at the top', await waitFor(() => h.evaluate(() => /invertebrates of the sea/i.test(document.querySelector('[data-deck-settings]')?.textContent ?? ''))))
   check('1b. at 390 wide the menu stays on screen', menuBox && menuBox.left >= 0 && menuBox.right <= menuBox.vw, JSON.stringify(menuBox))
   check('1b. a tile shows each figure once: no big due number repeating its counts', !(await has('[data-deck-due-big]')))
-  await h.keyboard.press('Escape')
+  await h.keyboard.press("Escape"); await waitFor(async () => !(await has("[data-deck-settings], [role=\"menu\"]")), 2000)
   await c.size(1200, 860); await h.waitForTimeout(700)
   // One toolbar: the same four buttons in the same place on all three tabs.
   const bar = {}

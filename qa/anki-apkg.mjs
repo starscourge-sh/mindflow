@@ -139,8 +139,8 @@ try {
   await h.evaluate(() => document.querySelector('[data-review-tab="decks"]')?.click())
   // "Show in Gems" and back, from the deck's ⋯ menu: a pocket's actions live there.
   const fromMenu = async (words) => {
-    await waitFor(() => h.evaluate(() => !!document.querySelector('[data-deck]:not([data-own-deck]) button[aria-label="Deck options"]')))
-    await h.click('[data-deck]:not([data-own-deck]) button[aria-label="Deck options"]')
+    await waitFor(() => h.evaluate(() => !!document.querySelector('[data-deck]:not([data-own-deck]) [data-deck-dots]')))
+    await h.click('[data-deck]:not([data-own-deck]) [data-deck-dots]')
     await h.locator('[role="menuitem"]', { hasText: words }).first().click()
   }
   await fromMenu('Show in Gems')
@@ -192,12 +192,12 @@ try {
   await waitFor(() => h.evaluate(() => !!document.querySelector('[data-deck="Biology"]')))
   await h.evaluate(() => document.querySelector('[data-deck-kids="Biology"]')?.click())
   check('the shared deck\'s topics hang off the tree', await waitFor(() => h.evaluate(() => !!document.querySelector('[data-deck-inside-of="Biology"] svg path')), 2000))
-  check('the shared deck has a ⋯ menu', await h.evaluate(() => !!document.querySelector('[data-deck="Biology"] button[aria-label="Deck options"]')))
+  check('the shared deck has a ⋯ menu', await h.evaluate(() => !!document.querySelector('[data-deck="Biology"] [data-deck-dots]')))
   // Right-clicked where it is, even with a notice over it: the menu opens at the heading.
   await h.evaluate(() => { const at = document.querySelector('[data-deck="Biology"] h3'); at.scrollIntoView({ block: 'center' }); const box = at.getBoundingClientRect(); at.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, clientX: box.left + 10, clientY: box.top + 5, button: 2 })) })
   await h.waitForTimeout(400)
   const right = await h.evaluate(() => [...document.querySelectorAll('[role="menuitem"]')].map((one) => one.textContent ?? '').join(' | '))
-  check('right-click has its settings and Delete deck', ['New cards a day', 'Show in Gems', 'Delete deck…'].every((one) => right.includes(one)) || ['New cards a day', 'Keep out of Gems', 'Delete deck…'].every((one) => right.includes(one)), right)
+  check('right-click has its settings and Delete deck', ['Deck settings…', 'Show in Gems', 'Delete deck…'].every((one) => right.includes(one)) || ['Deck settings…', 'Keep out of Gems', 'Delete deck…'].every((one) => right.includes(one)), right)
   await h.evaluate(() => [...document.querySelectorAll('[role="menuitem"]')].find((one) => one.textContent?.includes('Delete deck…'))?.click())
   check('Delete asks first, saying it removes the imported deck', await waitFor(() => h.evaluate(() => /removes the imported deck/.test(document.querySelector('[data-sure]')?.textContent ?? ''))))
   await h.evaluate(() => document.querySelector('[data-sure-yes]').click())

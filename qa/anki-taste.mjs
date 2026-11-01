@@ -45,7 +45,7 @@ try {
   await call('tag:set', 'zoo', { deck: true, retention: 0.95, newPerDay: 15 })
 
   // 1. New card: the switch beside the Deck field and "Make the card".
-  const openNew = async () => { await decks(); await h.click('[data-own-deck="zoo"] button[aria-label="Deck options"]'); await h.locator('[role="menuitem"]', { hasText: 'Make a card' }).first().click(); await waitFor(() => has('[data-new-card]')) }
+  const openNew = async () => { await decks(); await h.click('[data-own-deck="zoo"] [data-deck-dots]'); await h.locator('[role="menuitem"]', { hasText: 'Make a card' }).first().click(); await waitFor(() => has('[data-new-card]')) }
   await openNew()
   check('1. "Both ways" is Haligtree\'s Switch', await h.evaluate(() => document.querySelector('[data-new-both]')?.getAttribute('data-slot') === 'switch'))
   check('1. the hand on the switch', (await pointAt('[data-new-both]')) === 'pointer')
@@ -56,7 +56,7 @@ try {
   await shot('taste-new-card', async () => { await openNew(); await h.click('[data-new-both]') })
 
   // 2. The deck's menu: "How much to remember" between "New cards a day" and "How typed answers are checked".
-  const openMenu = async () => { await decks(); await h.locator('[data-own-deck="zoo"] button[aria-label="Deck options"]').first().click(); await waitFor(() => has('[role="menu"]')) }
+  const openMenu = async () => { await decks(); await h.locator('[data-own-deck="zoo"] [data-deck-dots]').first().click(); await waitFor(() => has('[role="menu"]')) }
   await openMenu()
   const rows = await h.locator('[role="menu"] [role="menuitemcheckbox"], [role="menu"] [role="menuitem"], [role="menu"] [data-menu-field]').count()
   let most = 0
@@ -75,10 +75,14 @@ try {
   }
   check(`2. pointing at each of the menu's ${rows} rows shows no tip`, most === 0, tipped.join(' / '))
   check('2. the hand (or the scrub arrows) on every row', arrows.length === 0, arrows.join(' / '))
-  check('2. its hints read on a line under the name', (await h.locator('[role="menu"] [data-menu-hint]').count()) >= 3)
-  const scrub = await h.evaluate(() => [...document.querySelectorAll('[role="menu"] [data-menu-field]')].map((one) => ({ label: one.querySelector('span')?.textContent, scrub: !!one.querySelector('input[aria-label^="How much to remember"]') })))
-  check('2. "How much to remember" is the scrub field, 95%', scrub.some((one) => one.scrub) && await h.evaluate(() => document.querySelector('[role="menu"] input[aria-label^="How much to remember"]')?.value === '95'), JSON.stringify(scrub))
+  check('2. its hint reads on a line under the name', (await h.locator('[role="menu"] [data-menu-hint]').count()) >= 1)
+  // Its settings, from "Deck settings…": "How much to remember" is the scrub field, at 95%.
+  await h.locator('[role="menuitem"]', { hasText: 'Deck settings…' }).first().click()
+  await waitFor(() => has('[data-deck-settings]'))
+  const scrub = await h.evaluate(() => document.querySelector('[data-deck-settings] input[aria-label^="How much to remember"]')?.value ?? null)
+  check('2. "How much to remember" is the scrub field, 95%', scrub === '95', String(scrub))
   await h.keyboard.press('Escape')
+  await waitFor(async () => !(await has('[data-deck-settings]')), 2000)
   await shot('taste-deck-menu', openMenu)
   await h.keyboard.press('Escape')
 

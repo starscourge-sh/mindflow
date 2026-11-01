@@ -59,12 +59,15 @@ try {
   check('1. the new deck shows at once, empty', await waitFor(() => has('[data-own-deck="zymurgy"] [data-deck-empty]')))
   check('1. it is a tag: #zymurgy, made as a deck', (await call('decks:made')).includes('zymurgy'))
   check('1. the empty deck says a click makes a card', /click to make a card/.test(await h.evaluate(() => document.querySelector('[data-own-deck="zymurgy"]')?.textContent ?? '')))
-  // Its review settings from its menu.
-  await h.locator('[data-own-deck="zymurgy"] button[aria-label="Deck options"]').first().click()
+  // Its review settings from its menu's "Deck settings…".
+  await h.locator('[data-own-deck="zymurgy"] [data-deck-dots]').first().click()
   await h.waitForTimeout(400)
-  const settings = await h.evaluate(() => document.querySelector('[role="menu"]')?.textContent ?? '')
-  check('1. its menu holds its review settings', /New cards a day/.test(settings) && /typed answers/.test(settings), settings.slice(0, 200))
+  await menuItem('Deck settings…').click()
+  await waitFor(() => has('[data-deck-settings]'))
+  const settings = await h.evaluate(() => document.querySelector('[data-deck-settings]')?.textContent ?? '')
+  check('1. its menu holds its review settings', /New cards a day/.test(settings) && /Typed answers/.test(settings), settings.slice(0, 200))
   await h.keyboard.press('Escape')
+  await waitFor(async () => !(await has('[data-deck-settings]')), 2000)
 
   // 2. A nested deck sits under its parent.
   await h.click('[data-deck-new]')
@@ -149,8 +152,8 @@ try {
   await h.locator('[data-own-deck="kiln"] h3').click({ button: 'right' })
   await h.waitForTimeout(400)
   const right = await h.evaluate(() => [...document.querySelectorAll('[role="menuitem"]')].map((one) => one.textContent ?? '').join(' | '))
-  check('8. right-click has the ⋯ menu\'s lines', ['New cards a day', 'How typed answers are checked', 'New deck inside', 'Rename deck…', 'Delete deck…'].every((one) => right.includes(one)), right)
-  await menuItem('Rename deck…').click()
+  check('8. right-click has the ⋯ menu\'s lines', ['Deck settings…', 'New deck inside', 'Rename…', 'Delete deck…'].every((one) => right.includes(one)), right)
+  await menuItem('Rename…').click()
   await answer('Furnace')
   check('8. Rename deck renames the tag on its cards', await waitFor(async () => (await call('cards:all')).some((one) => one.prompt === 'What is a kiln?' && one.tags.includes('furnace'))))
   check('8. and it is still a deck', (await call('decks:made')).includes('furnace'))
