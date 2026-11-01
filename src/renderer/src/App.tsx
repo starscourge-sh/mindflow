@@ -854,7 +854,8 @@ export default function App(): React.JSX.Element {
   const welcoming = useWelcoming()
   // “One line to start” has no side panel: the pill is the box alone.
   const oneLineOn = appSettings?.boxOneLine === true
-  const panel = chosenPanel && !welcoming && !oneLineOn
+  // While a voice note records, the box is the compact recorder card alone: the panel steps away and comes back after.
+  const panel = chosenPanel && !welcoming && !oneLineOn && !recording
   const [tab, setTab] = useState<Tab>('inbox')
   // The panel stays drawn while the window glides shut, so closing slides
   // it out of view instead of leaving an empty strip, and is drawn before
@@ -877,6 +878,20 @@ export default function App(): React.JSX.Element {
     })
   }
   useEffect(() => void window.api.setPanel(panel), [oneLineOn]) // eslint-disable-line react-hooks/exhaustive-deps
+  // A recording starts or ends with the panel chosen: it glides away for the recorder card, and back after, the choice kept.
+  const wasRecording = useRef(recording)
+  useEffect(() => {
+    if (wasRecording.current === recording) return
+    wasRecording.current = recording
+    if (!chosenPanel || welcoming || oneLineOn) return
+    if (panel) setPanelDrawn(true)
+    box.held.current = true
+    void window.api.setPanel(panel).then(() => {
+      box.held.current = false
+      if (!panelWanted.current) setPanelDrawn(false)
+      box.refit()
+    })
+  }, [recording]) // eslint-disable-line react-hooks/exhaustive-deps
   // From the writing to the list and back without the mouse: ⌃J or ⌃K leaves
   // the note for the panel's list (opening the panel if it is shut), and I
   // comes back, as vim's insert does. A menu open in the note keeps ⌃J and ⌃K.

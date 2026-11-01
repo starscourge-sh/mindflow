@@ -196,7 +196,7 @@ function Recorder({ stream, onDone, inline, over }: { stream: MediaStream; onDon
       const c = el.getContext('2d')!
       c.clearRect(0, 0, width, height)
       c.fillStyle = getComputedStyle(el).color
-      const bar = 2 * ratio, gap = 3 * ratio
+      const bar = 1.5 * ratio, gap = 4.5 * ratio
       const half = Math.floor(width / 2 / (bar + gap))
       // The newest level in the middle, older ones moving out to both sides.
       for (let step = 0; step < half; step += 1) {
@@ -266,7 +266,8 @@ function Recorder({ stream, onDone, inline, over }: { stream: MediaStream; onDon
     </button>
   )
   // Faded at both ends, as the level fades in from nothing.
-  const level = <canvas ref={canvas} data-voice-level className={cn('min-w-0 text-foreground/75 [mask-image:linear-gradient(90deg,transparent,#000_28%,#000_72%,transparent)]', inline ? 'h-14 w-full' : 'h-6 flex-1')} />
+  // Quiet chrome (DESIGN.md): thin bars, well apart, in the faded ink, no wider than the controls under it need.
+  const level = <canvas ref={canvas} data-voice-level className={cn('min-w-0 text-muted-foreground/70 [mask-image:linear-gradient(90deg,transparent,#000_28%,#000_72%,transparent)]', inline ? 'h-8 w-full max-w-72' : 'h-5 flex-1')} />
 
   // In quick capture: the writing area itself, given over to the recording.
   // No box (a writing surface has none): the level wide across the text

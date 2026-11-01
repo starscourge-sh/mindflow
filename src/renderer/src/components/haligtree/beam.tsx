@@ -66,6 +66,7 @@ export function Beam(): React.JSX.Element | null {
   const [late, setLate] = useState(false)
   const [shown, setShown] = useState(true)
   const recording = useRecording()
+  const card = useCardEdge()
   useEffect(() => {
     const onFlash = (event: Event): void => setFlash((now) => ({ tone: (event as CustomEvent<BeamFlash>).detail, key: (now?.key ?? 0) + 1 }))
     const onWait = (event: Event): void => setHere((event as CustomEvent<number>).detail)
@@ -103,5 +104,30 @@ export function Beam(): React.JSX.Element | null {
   // A sweep wins for the moment it runs; then the wait, if any, comes back.
   const state = flash ? flash.tone : recording ? 'recording' : waiting && late ? 'working' : null
   if (!state) return null
-  return <div aria-hidden key={flash ? `f${flash.key}` : state} data-beam={state} className="mf-beam" />
+  return <div aria-hidden key={flash ? `f${flash.key}` : state} data-beam={state} className="mf-beam" style={card ?? undefined} />
+}
+
+/**
+ * Where the beam goes round: the window's edge, or in a window with clear room round its card (quick capture's
+ * overhang) the card's own edge, which moves as the box grows. Without this the light ran round the clear room,
+ * a red frame far out on the screen while a voice note recorded.
+ */
+function useCardEdge(): React.CSSProperties | null {
+  const roomy = Object.values(window.api?.room ?? {}).some((one) => one > 0)
+  const [edge, setEdge] = useState<React.CSSProperties | null>(null)
+  useEffect(() => {
+    if (!roomy) return
+    const card = document.querySelector<HTMLElement>('.app-container')
+    if (!card) return
+    const place = (): void => {
+      const at = card.getBoundingClientRect()
+      setEdge({ inset: 'auto', left: at.left, top: at.top, width: at.width, height: at.height })
+    }
+    place()
+    const sizes = new ResizeObserver(place)
+    sizes.observe(card)
+    window.addEventListener('resize', place)
+    return () => (sizes.disconnect(), window.removeEventListener('resize', place))
+  }, [roomy])
+  return edge
 }
