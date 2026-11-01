@@ -18,7 +18,7 @@ import { Count, Empty, Page, Tip, ask, askSure, openTag, quietly, toast, typing 
 import { RowMenu } from './row-menu'
 import { withoutTags } from '../../../../main/tag-words'
 import { useReading } from '@/lib/reads-in'
-import { firstSentences, sameTitle, useWiki } from '@/lib/wiki'
+import { firstSentences, pageFor, useWiki } from '@/lib/wiki'
 import { cn } from '@/lib/cn'
 import { personKey } from '../../../../main/names'
 import { useSelectAll } from '@/lib/select-all'
@@ -330,7 +330,7 @@ function Bio({ field, name, page }: { field: SourceField; name: string; page: So
   useEffect(() => {
     if (!page || page.bioAt || (wiki.state !== 'found' && wiki.state !== 'missing')) return
     // Only the article by that very name: "Mum" is not the article about mothers.
-    const fits = !!wiki.page && sameTitle(wiki.page.title, name)
+    const fits = !!wiki.page && pageFor(wiki.page, name)
     void sources.bio(field, name, fits ? firstSentences(wiki.page!.extract) : '', fits ? wiki.page!.url : '')
   }, [wiki.state, wiki.page, page, field, name])
   // The page waits only for its own read, never for Wikipedia: the first time, the line's room is kept at once (three

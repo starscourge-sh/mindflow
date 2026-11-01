@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { call } from './haligtree'
 
 /** Wikipedia's summary of an article, as main asks for it and keeps it (pdf-highlights.ts, `wiki_answers`). */
-export type WikiPage = { title: string; description: string; extract: string; url: string; picture?: string | null }
+export type WikiPage = { title: string; description: string; extract: string; url: string; picture?: string | null; /** The words asked, when Wikipedia redirected them to this page. */ from?: string | null }
 export type WikiAnswer = WikiPage | { missing: true } | { offline: true } | null
 
 /** Its first two sentences: a line or two about them, never the whole lead. */
@@ -44,3 +44,9 @@ export const sameTitle = (title: string, name: string): boolean => {
   const bare = (text: string): string => text.normalize('NFKD').replace(/\p{M}/gu, '').replace(/\s*\([^)]*\)\s*$/, '').replace(/^the\s+/i, '').replace(/[^\p{L}\p{N}]+/gu, ' ').trim().toLowerCase()
   return bare(title) === bare(name)
 }
+
+/**
+ * The page is the one the name asked for: its own title, or the page Wikipedia itself sent that
+ * very name on to ("Napoleon Bonaparte" to "Napoleon"). Never a guess from words that merely look alike.
+ */
+export const pageFor = (page: WikiPage, name: string): boolean => sameTitle(page.title, name) || (!!page.from && sameTitle(page.from, name))

@@ -36,7 +36,7 @@ import { ReadThrough } from './read-through'
 import { MenuButton } from './collection-header'
 import { Chips } from './display'
 import { call } from '@/lib/haligtree'
-import { firstSentences, sameTitle, useWiki } from '@/lib/wiki'
+import { firstSentences, pageFor, useWiki } from '@/lib/wiki'
 import type { Answer } from '../../../../main/define'
 import BulbSvg from '@/components/ui/bulb-svg'
 import { clipMiddle, quoted } from '../../../../main/clip'
@@ -148,7 +148,7 @@ function Suggested({ item }: { item: ItemFull }): React.JSX.Element | null {
   }, [definedOffline])
   if (!wanted) return null
   const found = one && meaning?.word === about && meaning.said && meaning.said !== 'asking' && 'found' in meaning.said ? meaning.said.found : null
-  const page = wiki.page && (one || sameTitle(wiki.page.title, about)) ? wiki.page : null
+  const page = wiki.page && (one || pageFor(wiki.page, about)) ? wiki.page : null
   if (!found && !page) {
     if (wiki.state === 'offline' || definedOffline) return <p data-suggest="offline" className="mt-4 text-body text-muted-foreground">Offline: suggestions will come when you’re back.</p>
     return null

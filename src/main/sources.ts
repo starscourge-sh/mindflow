@@ -64,7 +64,9 @@ export function registerSources(): void {
   const db = database()
   db.exec('create table if not exists source_pages (field text not null, key text not null, name text not null, thoughts text not null default \'\', updated_at text not null, primary key (field, key))')
   const had = new Set((db.prepare('pragma table_info(source_pages)').all() as { name: string }[]).map((one) => one.name))
-  for (const column of ['what', 'born', 'died', 'via', 'bio', 'bio_url', 'bio_at']) if (!had.has(column)) db.exec(`alter table source_pages add column ${column} text not null default ''`)
+  for (const column of ['what', 'born', 'died', 'via', 'bio', 'bio_url', 'bio_at', 'bio_redirects']) if (!had.has(column)) db.exec(`alter table source_pages add column ${column} text not null default ''`)
+  // Lines turned away before a page Wikipedia redirected to counted as theirs ("Napoleon Bonaparte" to "Napoleon") are asked for once more.
+  if (!had.has('bio_redirects')) db.exec("update source_pages set bio_at = '' where bio = ''")
 
   /** Every note that has a who or a where, with what lists need to show it. */
   const everything = (): (SourceItem & { private: number })[] => {
