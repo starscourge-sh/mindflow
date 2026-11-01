@@ -241,10 +241,10 @@
    beside it fold into "More" before it is ever cut short. */
 .pdf-reader-heading {
   display: flex;
-  flex: 0 1 auto;
+  /* All the free room, whatever the chapter's name: the page field beside it never moves as you read or scrub. */
+  flex: 1 1 0;
   flex-direction: column;
   min-width: min(10rem, 40%);
-  max-width: 66%;
 }
 
 .pdf-reader-bar button {

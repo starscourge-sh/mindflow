@@ -8,6 +8,7 @@ import { chime } from '@/lib/sound'
 import { cn } from '@/lib/cn'
 import { hueTint, MAP_HUES, MAP_LOOK, type MapGroup, type MapLook } from '@/lib/map-look'
 import { Tip } from './ui'
+import { SCRUB, ScrubField } from '@/components/pdf/scrub-field'
 
 /**
  * The Map's settings, beside it as Obsidian's graph view has them: what it
@@ -129,7 +130,7 @@ function Toggle({ id, label, on, set }: { id: string; label: string; on: boolean
   )
 }
 
-/** A slider row: its name, how far it is from the start (as a share of the default), and the slider, live as it moves. */
+/** A slider row: its name, where it sits from 0% (far left) to 100% (far right) as a number field that scrubs and types as Figma's do, and the slider, live as it moves. */
 function Range({ id, label, value, min, max, step, percent, ends, set }: {
   id: string; label: string; value: number; min: number; max: number; step: number
   percent?: number; ends?: [string, string]
@@ -142,7 +143,12 @@ function Range({ id, label, value, min, max, step, percent, ends, set }: {
     <div data-map-range={id} className="flex flex-col gap-1.5 px-2 py-1.5">
       <div className="flex items-center justify-between">
         <span className="text-foreground">{label}</span>
-        {percent !== undefined && <span className="text-muted-foreground tabular-nums">{Math.round((now / percent) * 100)}%</span>}
+        {percent !== undefined && (
+          <span className="flex items-center gap-0.5 text-muted-foreground">
+            <ScrubField label={label} min={0} max={100} value={Math.round(((now - min) / (max - min)) * 100)} className={SCRUB}
+              onChange={(n) => set(Math.round((min + (n / 100) * (max - min)) / step) * step, true)} />%
+          </span>
+        )}
       </div>
       <Slider aria-label={label} min={min} max={max} step={step} value={[now]} className="cursor-pointer"
         onValueChange={([next]) => (setHeld(next), set(next, false))}
