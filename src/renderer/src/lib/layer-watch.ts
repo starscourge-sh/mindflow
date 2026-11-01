@@ -27,3 +27,28 @@ export function useLayerOpen(watching: boolean): boolean {
   }, [watching])
   return open
 }
+
+/**
+ * Where a corner card may land in the main window: the sidebar's foot (home.tsx), or null while the sidebar is
+ * folded to its icons or away, when there is no room that covers nothing. Read again as the window changes size.
+ */
+export function useCornerDock(): HTMLElement | null {
+  const [dock, setDock] = useState<HTMLElement | null>(null)
+  useLayoutEffect(() => {
+    let frame = 0
+    const read = (): void => {
+      frame = 0
+      setDock(document.querySelector<HTMLElement>('[data-corner-dock]'))
+    }
+    read()
+    const later = (): void => void (frame ||= requestAnimationFrame(read))
+    window.addEventListener('resize', later)
+    // The sidebar folded or opened by hand, at any width.
+    const watch = new MutationObserver(later)
+    const side = document.querySelector('[data-corner-dock]')?.parentElement ?? document.querySelector('aside')
+    if (side) watch.observe(side, { childList: true })
+    if (side?.parentElement) watch.observe(side.parentElement, { childList: true })
+    return () => (window.removeEventListener('resize', later), watch.disconnect(), cancelAnimationFrame(frame))
+  }, [])
+  return dock
+}

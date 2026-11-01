@@ -12,7 +12,8 @@ import { num } from '../../../../main/dates'
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
 import { Unfold, Weighted } from './glide'
 import { GroupIcon, IconChoice } from './kept-groups'
-import { RowMenu, type RowItem } from './row-menu'
+import { RowMenu, openFromGrip, type RowItem } from './row-menu'
+import { FolderTree } from 'lucide-react'
 import { Count, Tip, quietly, refuse, toast } from './ui'
 import { GROUP_KEY, GroupMark, changeRule, removeGroup, renameGroup, ruleSaid, useGathered, useSmartGroups, type SmartGroup } from '@/lib/smart-groups'
 
@@ -75,6 +76,8 @@ export function SideFolders({ list, counted, open, shown, here, onOpen, onUnfold
 }): React.JSX.Element | null {
   const all = useGroups(list)
   const smart = useSmartGroups(list)
+  // Many groups: the first few, the one open now, and the rest a press away, so they never push the sidebar long.
+  const [everyGroup, setEveryGroup] = useState(false)
   const [naming, setNaming] = useState<string | null>(null)
   // A new folder, empty, its name open for typing.
   useEffect(() => {
@@ -157,7 +160,8 @@ export function SideFolders({ list, counted, open, shown, here, onOpen, onUnfold
     const these = parent === null && noFolders ? [] : kids(parent)
     const first = parent === null ? lead : null
     // Groups that gather by a rule hang after the folders, off the same trunk: folders first, as a beginner meets them.
-    const gathered = parent === null && !noFolders ? smart : []
+    const many = smart.length > GROUPS_SHOWN && !everyGroup
+    const gathered = parent === null && !noFolders ? (many ? smart.filter((one, at) => at < GROUPS_SHOWN || here === GROUP_KEY + one.id) : smart) : []
     if (!these.length && !first && !gathered.length) return null
     const lit = these.findIndex((one) => holds(one.id))
     const litGroup = gathered.findIndex((one) => here === GROUP_KEY + one.id)
@@ -173,6 +177,13 @@ export function SideFolders({ list, counted, open, shown, here, onOpen, onUnfold
           ]
         })}
         {gathered.map((group) => <SmartRow key={group.id} group={group} shown={shown} counted={counted} here={here === GROUP_KEY + group.id} onOpen={() => onOpen(GROUP_KEY + group.id)} />)}
+        {parent === null && !noFolders && smart.length > GROUPS_SHOWN && (
+          <button type="button" data-side-row data-groups-more={smart.length} onClick={() => (chime(everyGroup ? 'fold' : 'slide'), setEveryGroup(!everyGroup))}
+            className="flex w-full min-w-0 items-center gap-2 rounded-md py-1 pr-2 pl-2 text-muted-foreground hover:text-foreground">
+            <span className="size-4 shrink-0" />
+            <span className="flex-1 text-left">{everyGroup ? 'Show fewer groups' : `Show all ${num(smart.length)} groups`}</span>
+          </button>
+        )}
       </Branches>
     )
   }
@@ -192,6 +203,9 @@ export function SideFolders({ list, counted, open, shown, here, onOpen, onUnfold
     </Unfold>
   )
 }
+
+/** Groups listed before the rest fold behind "Show all". */
+const GROUPS_SHOWN = 6
 
 type Aim = { target: string; how: 'into' | 'before' | 'after' }
 type Drag = { carried: string | null; aim: Aim | null; lift: (id: string, x: number, y: number) => void; over: (aim: Aim | null) => void; drop: (target: string, how: Aim['how']) => void; end: () => void }
@@ -357,6 +371,37 @@ function SmartRow({ group, shown, counted, here, onOpen }: { group: SmartGroup; 
           {counted && n !== null && <Count n={n} className="text-xs text-muted-foreground" />}
         </button>
       </Tip>
+    </RowMenu>
+  )
+}
+
+/**
+ * On the sidebar's icon rail, where there is no room for a tree: one button under Writing's or Gems' icon that
+ * opens its folders and groups as a menu, folders first, each folder holding its subfolders as a submenu (the
+ * tree, kept), then the groups by their rule. A click opens one, as its row in the full sidebar does.
+ */
+export function RailFolders({ list, onOpen }: { list: 'article' | 'nugget'; onOpen: (id: string) => void }): React.JSX.Element | null {
+  const all = useGroups(list)
+  const smart = useSmartGroups(list)
+  if (!all.length && !smart.length) return null
+  const under = (parent: string | null): RowItem[] => all.filter((one) => (one.parent ?? null) === parent).map((group) => {
+    const kids = under(group.id)
+    const icon = <GroupIcon icon={group.icon} color={group.color} className="size-3.5" />
+    return kids.length ? { label: group.name, icon, items: [{ label: `Open ${group.name}`, icon, run: () => onOpen(group.id) }, 'separator', ...kids] } : { label: group.name, icon, run: () => onOpen(group.id) }
+  })
+  const items: RowItem[] = [
+    ...(all.length ? [{ heading: 'Folders' } as RowItem, ...under(null)] : []),
+    ...(smart.length ? [{ heading: 'Groups: gathered by a tag' } as RowItem, ...smart.map((group) => ({ label: group.name, hint: `#${group.tag}`, icon: <GroupMark className="size-3.5" style={{ color: 'var(--tt-color-text-purple)' }} />, run: () => onOpen(GROUP_KEY + group.id) }))] : [])
+  ]
+  const name = list === 'article' ? 'Writing' : 'Gems'
+  return (
+    <RowMenu items={items}>
+      <div className="flex w-full">
+        <button type="button" data-side-row data-rail-folders={list} aria-label={`${name}'s folders and groups`} onClick={openFromGrip}
+          className="flex w-full items-center justify-center rounded-md py-1.5 text-foreground/80">
+          <FolderTree className="size-4" />
+        </button>
+      </div>
     </RowMenu>
   )
 }

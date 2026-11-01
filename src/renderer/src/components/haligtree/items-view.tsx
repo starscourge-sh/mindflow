@@ -132,8 +132,9 @@ const rowOf = (item: Item): Entry => {
   // again), and who said it. A card not reviewed yet is a small hollow dot.
   const same = (a: string, b: string): boolean => a.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim() === b.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim()
   const asks = recall && item.prompt && !same(item.prompt, text) ? `Asks “${typedAsGaps(item.prompt).replace(/[?.\s]+$/, '')}?”` : null
-  // One paused says so first: it is dimmed for that reason, and comes back only when you choose.
-  const comes = item.suspended ? 'Paused: not coming back until you choose' : recall ? (item.dueAt ? (due ? null : `Back in Review ${backIn(item.dueAt)}`) : null) : item.mode === 'pushed' ? 'Comes back often' : 'Comes back now and then'
+  // One paused says so first: it is dimmed for that reason, and comes back only when you choose. The usual way
+  // (now and then) is not said on every row: only what differs from it is.
+  const comes = item.suspended ? 'Paused: not coming back until you choose' : recall ? (item.dueAt ? (due ? null : `Back in Review ${backIn(item.dueAt)}`) : null) : item.mode === 'pushed' ? 'Comes back often' : null
   // With nothing else to say, the hollow dot is named, so it never stands alone.
   const line = [comes, asks, item.attribution].filter(Boolean).join(' · ') || (recall && !item.dueAt ? 'New card' : '')
   return {
@@ -151,7 +152,7 @@ const rowOf = (item: Item): Entry => {
           <Tip label="A new card: it joins Review soon">
             <span data-new-card role="img" aria-label="Not reviewed yet" className="size-2 shrink-0 rounded-full border-[1.5px] border-current opacity-70" />
           </Tip>
-        ) : recall ? <Brain className="size-3 shrink-0" /> : item.mode === 'pushed' ? <RefreshCw className="size-3 shrink-0" /> : <Eye className="size-3 shrink-0" />}
+        ) : recall ? <Brain className="size-3 shrink-0" /> : item.mode === 'pushed' ? <RefreshCw className="size-3 shrink-0" /> : null}
         {/* A card due now says so in bold orange: the one word in the row that asks for something. */}
         {due ? <span {...loud('today', 'shrink-0 font-semibold')}>Due for review</span> : null}
         {line && <span className="truncate">{due ? `· ${line}` : line}</span>}

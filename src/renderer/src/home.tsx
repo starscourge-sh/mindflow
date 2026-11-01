@@ -46,7 +46,7 @@ import { MapView } from './components/haligtree/map-view'
 import { FeedView, showLiked } from './components/haligtree/feed-view'
 import { PowersView } from './components/haligtree/powers-view'
 import { TagsView } from './components/haligtree/tags-view'
-import { SideFolders, newFolder } from './components/haligtree/side-folders'
+import { RailFolders, SideFolders, newFolder } from './components/haligtree/side-folders'
 import { GROUP_KEY, newSmartGroup } from '@/lib/smart-groups'
 import { hoverNote } from './components/haligtree/note-preview'
 import { groups } from '@/lib/groups'
@@ -1949,10 +1949,14 @@ export function Home(): React.JSX.Element {
               {narrow && list === 'article' && (
                 <SidePeek id="questions" keys="G H">
                   <button type="button" data-side-row data-side-questions aria-label="Questions" aria-current={inQuestions ? 'page' : undefined}
-                    onClick={() => setView({ id: 'questions' })} className={`flex items-center justify-center rounded-md py-1.5 ${inQuestions ? 'text-foreground' : 'text-foreground/80'}`}>
+                    onClick={() => setView({ id: 'questions' })} className={`flex w-full items-center justify-center rounded-md py-1.5 ${inQuestions ? 'text-foreground' : 'text-foreground/80'}`}>
                     <PlaceIcon place={QUESTIONS_PLACE} full={inQuestions} />
                   </button>
                 </SidePeek>
+              )}
+              {/* On the icon rail, Writing's and Gems' folders and groups are a menu away, under their icon. */}
+              {narrow && list && settings?.sidebarFolders?.[list] !== false && (
+                <RailFolders list={list} onOpen={(id) => setView({ id: section.id, folder: id })} />
               )}
               {(folders || asking) && list && (
                 // Its own drags, not the row's: a folder pressed on is not Writing carried away.

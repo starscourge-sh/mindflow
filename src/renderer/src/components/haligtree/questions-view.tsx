@@ -10,7 +10,7 @@ import { EASE, shift } from '@/lib/motion'
 
 import { HaligtreeEditor } from '../haligtree'
 import { chime } from '@/lib/sound'
-import { useLive, haligtree, when, shownName, withTagsOf, type Item, type ItemFull } from '@/lib/haligtree'
+import { useLive, haligtree, when, shownName, withTagsOf, type Item, type ItemFull, type Settings } from '@/lib/haligtree'
 import { flying, follow, noteLinkText } from '@/lib/capture-links'
 import { archive, saveAttachments, useOpenNote } from '@/lib/notes'
 import { openApart } from '@/lib/apart'
@@ -69,10 +69,30 @@ export const ASKED_SAID: Record<Asked, string> = {
 
 /** Where you are in Questions, in words, under its tabs: every list's line stacked in one place, so the longest keeps its room and a switch moves nothing under it. */
 export function QuestionsSaid({ on }: { on: Asked }): React.JSX.Element {
+  const settings = useLive(haligtree.settings, null as Settings | null)
+  // The page waits for it, so the line below never drops in after the page shows.
+  useReading(!settings)
+  // Questions coming back is a whole-book setting: when it is off, said here once with the way to turn it on, not on every row.
+  const why = !settings ? null : settings.hintRate === 0 ? 'hints' : settings.questionsBack === false ? 'questions' : null
+  const turnOn = (): void => {
+    const was = { hintRate: settings!.hintRate, questionsBack: settings!.questionsBack }
+    chime('on')
+    void haligtree.setSettings(why === 'hints' ? { hintRate: 0.1, questionsBack: true } : { questionsBack: true })
+      .then(() => toast('Open questions can come back to you now', () => void haligtree.setSettings(was)))
+  }
   return (
-    <p data-question-said={on} className="mb-1 grid text-body text-pretty text-foreground/90 [&>*]:col-start-1 [&>*]:row-start-1">
-      {ASKED.map((one) => <span key={one.id} aria-hidden={one.id !== on} className={one.id === on ? undefined : 'invisible'}>{ASKED_SAID[one.id]}</span>)}
-    </p>
+    <div className="mb-1">
+      <p data-question-said={on} className="grid text-body text-pretty text-foreground/90 [&>*]:col-start-1 [&>*]:row-start-1">
+        {ASKED.map((one) => <span key={one.id} aria-hidden={one.id !== on} className={one.id === on ? undefined : 'invisible'}>{ASKED_SAID[one.id]}</span>)}
+      </p>
+      {/* On every list of the page, so switching lists moves nothing under it. */}
+      {why && (
+        <p data-questions-back-off={why} className="mt-1 flex flex-wrap items-center gap-x-2 text-body text-foreground/90">
+          <span><strong className="font-semibold">They don’t come back to you now:</strong> {why === 'hints' ? 'hints are off in Settings.' : 'questions coming back is off in Settings.'}</span>
+          <Button variant="ghost" size="sm" className="-mx-2" data-questions-back-on onClick={turnOn}>{why === 'hints' ? 'Turn hints on' : 'Turn it on'}</Button>
+        </p>
+      )}
+    </div>
   )
 }
 
@@ -278,9 +298,10 @@ const clueTint = (n: number): string | undefined =>
  * When an open question may come back to you, true to question:back: never while private or switched off in Settings,
  * and not within a fortnight of the last time it did.
  */
-export const comesBack = (item: Item, on = true): string => {
+export const comesBack = (item: Item, on = true): string | null => {
   if (item.private) return 'private, so it never comes back'
-  if (!on) return 'coming back is off in Settings'
+  // Off for the whole book: said once, under the tabs (QuestionsSaid), never on every row.
+  if (!on) return null
   const next = item.backAt ? new Date(new Date(item.backAt).getTime() + 14 * 86_400_000) : null
   return next && next.getTime() > Date.now() ? `can come back from ${dayMonth(next.toISOString())}` : 'can come back any day'
 }
@@ -301,7 +322,7 @@ export const questionEntry = (item: Item, inView = false, menu?: MenuItem[], bac
       {item.answer || (item.closedHow === 'let go' ? 'Stopped asking, with no answer' : 'No answer yet')}
     </span>
   ),
-  sub: item.closedAt ? `${item.closedHow === 'let go' ? 'Stopped asking' : 'Answered'} ${whenLower(item.closedAt)} · ${cluesSaid(item.clues)}` : `${heldFor(item.createdAt)[0].toUpperCase()}${heldFor(item.createdAt).slice(1)} · ${cluesSaid(item.clues)} · ${comesBack(item, backOn)}`,
+  sub: item.closedAt ? `${item.closedHow === 'let go' ? 'Stopped asking' : 'Answered'} ${whenLower(item.closedAt)} · ${cluesSaid(item.clues)}` : `${heldFor(item.createdAt)[0].toUpperCase()}${heldFor(item.createdAt).slice(1)} · ${[cluesSaid(item.clues), comesBack(item, backOn)].filter(Boolean).join(' · ')}`,
   marks: (
     <>
       {inView ? <Pin className="size-3 shrink-0 text-muted-foreground" aria-label="Showing in quick capture" /> : null}

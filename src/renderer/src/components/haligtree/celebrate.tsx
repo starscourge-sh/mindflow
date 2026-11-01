@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
-import { useLayerOpen } from '@/lib/layer-watch'
+import { useCornerDock, useLayerOpen } from '@/lib/layer-watch'
 import { layerOpen } from '@/lib/menu-keys'
 import { AnimatePresence, motion, useIsPresent, type Easing, type Variants } from 'motion/react'
 import { Volume2, VolumeX, X } from 'lucide-react'
@@ -10,7 +10,7 @@ import { EASE, shift, still } from '@/lib/motion'
 import { GrainFill, PAPER_INK, drawingFor } from './grain'
 import { sourceOf } from '../../../../main/moment-source'
 import type { Moment as MainMoment } from '../../../../main/celebrate'
-import { Tip } from './ui'
+import { Tip, toast } from './ui'
 import { working } from './beam'
 import { TooltipProvider } from '@/components/ui/tooltip'
 
@@ -212,7 +212,19 @@ export function Celebrations({ place }: { place: 'home' | 'box' }): React.JSX.El
   // Never while a menu, picker or dialog is open: it waits for it to close (a card already up steps away and comes back).
   const blocked = useLayerOpen(!!shown)
   // In the main window, at the sidebar's foot (home.tsx), so it never covers a page; with the sidebar folded, its corner.
-  const dock = !box && shown && !shown.sprite ? document.querySelector<HTMLElement>('[data-corner-dock]') : null
+  const dockAt = useCornerDock()
+  const dock = !box && shown ? dockAt : null
+  // In the main window with no room that covers nothing (the sidebar folded to its icons or away), a moment is one
+  // line that says it and leaves, as a notice does; a card already up when the room goes leaves with it.
+  const homeNoRoom = !box && !dockAt
+  const docked = useRef<number | null>(null)
+  if (shown && dock) docked.current = shown.key
+  useEffect(() => {
+    // Held while a menu or picker is open, as the card is.
+    if (!shown || !homeNoRoom || blocked) return
+    if (docked.current !== shown.key) toast(`${shown.moment.headline}: ${shown.moment.line}`, undefined, 'success')
+    setShown(null)
+  }, [shown, homeNoRoom, blocked])
   const card = shown && !shown.sprite && !blocked && (
           <Card
             key={shown.key}
@@ -226,7 +238,7 @@ export function Celebrations({ place }: { place: 'home' | 'box' }): React.JSX.El
         )
   return (
     <>
-    {dock ? createPortal(<div data-celebration className="pointer-events-none pb-2 empty:hidden"><AnimatePresence>{card}</AnimatePresence></div>, dock) : (
+    {homeNoRoom ? null : dock ? createPortal(<div data-celebration className="pointer-events-none pb-2 empty:hidden"><AnimatePresence>{card}</AnimatePresence></div>, dock) : (
     // Under menus, search and dialogs (z-50 and up), and never shown while one is open.
     <div data-celebration className={`pointer-events-none fixed z-[45] ${box ? 'inset-x-0 bottom-[7.75rem] flex justify-center' : 'right-5 bottom-5'}`}>
       <AnimatePresence>{card}</AnimatePresence>
@@ -235,7 +247,7 @@ export function Celebrations({ place }: { place: 'home' | 'box' }): React.JSX.El
     {/* A sprite's own strip along the bottom, clipped at its sides so it never shows past the note. */}
     <div data-celebration className={`pointer-events-none fixed z-[45] overflow-hidden ${box ? 'inset-x-0 bottom-[7.75rem] h-72' : 'inset-x-0 bottom-0 h-80'}`}>
       <AnimatePresence>
-        {shown?.sprite && !blocked && (
+        {shown?.sprite && !blocked && !homeNoRoom && (
           <Sprite key={shown.key} moment={shown.moment} media={shown.media!} size={shown.sprite} from={box ? 'left' : 'right'} onDone={() => setShown(null)} />
         )}
       </AnimatePresence>

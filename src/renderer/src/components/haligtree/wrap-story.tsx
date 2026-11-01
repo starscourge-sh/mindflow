@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactElement } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { createPortal } from 'react-dom'
-import { useLayerOpen } from '@/lib/layer-watch'
+import { useCornerDock, useLayerOpen } from '@/lib/layer-watch'
 import { chime } from '@/lib/sound'
 import { EASE, shift } from '@/lib/motion'
 import { useLive, haligtree, type Item, type Recap, type Settings, type SpanSession, type Task } from '@/lib/haligtree'
@@ -271,13 +271,14 @@ export function WrapOffer(): React.JSX.Element | null {
   }
   // A corner card as a milestone is: at the sidebar's foot where there is one, never while a menu or picker is open.
   const blocked = useLayerOpen(!!offer)
-  const dock = offer ? document.querySelector<HTMLElement>('[data-corner-dock]') : null
+  // With the sidebar folded there is no room that covers nothing: the offer waits, kept, until there is.
+  const dock = useCornerDock()
   const card = (
     <AnimatePresence>
-    {offer && !blocked && <motion.aside data-wrap-offer={offer} aria-label={`Your ${name}, wrapped`}
+    {offer && !blocked && dock && <motion.aside data-wrap-offer={offer} aria-label={`Your ${name}, wrapped`}
       initial={{ opacity: 0, transform: shift('translateY(8px)') }} animate={{ opacity: 1, transform: shift('translateY(0px)') }} transition={{ duration: 0.3, ease: EASE }}
       exit={{ opacity: 0, transform: shift('translateY(8px)'), transition: { duration: 0.15, ease: EASE } }}
-      className={`${dock ? 'mb-2 w-full' : 'fixed right-5 bottom-5 z-40 w-80'} flex flex-col gap-3 rounded-xl border bg-background p-4 shadow-(--mf-panel-shadow)`}>
+      className={`mb-2 flex w-full flex-col gap-3 rounded-xl border bg-background p-4 shadow-(--mf-panel-shadow)`}>
       <div className="flex items-start gap-2">
         <div className="min-w-0 flex-1">
           <p className="font-heading text-heading font-semibold text-foreground">Your {name}, wrapped</p>
@@ -294,7 +295,7 @@ export function WrapOffer(): React.JSX.Element | null {
     </motion.aside>}
     </AnimatePresence>
   )
-  return dock ? createPortal(card, dock) : card
+  return dock ? createPortal(card, dock) : null
 }
 
 /** The Settings row's own words, so they read the same as the offer. */
