@@ -178,6 +178,11 @@ const api = {
   onRoomHint: (listen: (room: { top: number; left: number; right: number; side: 'above' | 'left' | 'right' | null }) => void): void =>
     void ipcRenderer.on('window:room-hint', (_event, room) => listen(room)),
   roomDrawn: (): void => ipcRenderer.send('window:room-drawn'),
+  /** Quick capture picked up by its grabber: it follows the pointer until let go. */
+  grab: (): void => ipcRenderer.send('window:grab'),
+  letGo: (): void => ipcRenderer.send('window:let-go'),
+  /** Quick capture back to where it first opens, the top middle of its screen. */
+  boxHome: (): void => ipcRenderer.send('window:home'),
   /** Room below the card for a pop-up to hang into, the card staying put; false where the screen has none. */
   roomBelow: (px: number): Promise<boolean> => ipcRenderer.invoke('window:room-below', px),
   /** The main window: fill the screen, or back to its compact size. */

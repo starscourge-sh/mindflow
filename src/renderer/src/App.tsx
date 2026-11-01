@@ -173,10 +173,21 @@ const putDraft = (doc: unknown): void => {
  * "Unsaved from earlier" chip under the writing line, one click from coming back.
  */
 const LEFTOVER_AFTER = 60 * 60_000
+/**
+ * How long the offer lasts, and how often it may be passed by: a day, or three opens it was shown on and left; and a
+ * new capture saved puts it away for good. A draft of a word or two under three letters is not worth offering.
+ */
+const LEFTOVER_KEEPS = 24 * 60 * 60_000
+const LEFTOVER_SHOWN = 3
+const forgetLeftover = (): void => ['capture-leftover', 'capture-leftover-at', 'capture-leftover-shown'].forEach((key) => localStorage.removeItem(key))
 const readLeftover = (): JSONContent | null => {
   try {
-    const saved = JSON.parse(localStorage.getItem('capture-leftover') ?? 'null')
-    return hasContent(saved) ? saved : null
+    const saved = JSON.parse(localStorage.getItem('capture-leftover') ?? 'null') as JSONContent | null
+    const at = Number(localStorage.getItem('capture-leftover-at')) || 0
+    const shown = Number(localStorage.getItem('capture-leftover-shown')) || 0
+    const worth = !!saved && hasContent(saved) && (textOf(saved).replace(/\s+/g, '').length >= 3 || (saved.content ?? []).some((one) => one.type !== 'paragraph'))
+    if (!worth || (at && Date.now() - at > LEFTOVER_KEEPS) || shown >= LEFTOVER_SHOWN) return (saved && forgetLeftover(), null)
+    return saved
   } catch {
     return null
   }
@@ -611,9 +622,15 @@ export default function App(): React.JSX.Element {
       const before = readLeftover()
       // Two leftovers: the older one first, then the newer, as one note to keep.
       localStorage.setItem('capture-leftover', JSON.stringify(before ? { type: 'doc', content: [...(before.content ?? []), ...(draft.content ?? [])] } : draft))
-      setLeftover(readLeftover())
+      // Set aside now: its day starts here, and it has not been passed by yet.
+      localStorage.setItem('capture-leftover-at', String(Date.now()))
+      localStorage.removeItem('capture-leftover-shown')
       fresh()
     }
+    // Shown on this open: one more time it may be passed by (readLeftover lets it go after the third).
+    const offered = readLeftover()
+    if (offered) localStorage.setItem('capture-leftover-shown', String((Number(localStorage.getItem('capture-leftover-shown')) || 0) + 1))
+    setLeftover(offered)
     requestAnimationFrame(() => {
       const active = document.activeElement
       if (!active || active === document.body || active.closest('header, [data-window-controls], button')) editorRef.current?.commands.focus('end')
@@ -639,11 +656,19 @@ export default function App(): React.JSX.Element {
     added.observe(readPane, { childList: true })
     return () => (watch.disconnect(), added.disconnect())
   }, [readPane])
+  /** The offer let go, by its ×: gone for good, with an Undo that brings the offer back. */
+  const dropLeftover = (): void => {
+    const keep = ['capture-leftover', 'capture-leftover-at', 'capture-leftover-shown'].map((key) => [key, localStorage.getItem(key)] as const)
+    forgetLeftover()
+    setLeftover(null)
+    chime('away')
+    toast('The draft from earlier is let go', () => (keep.forEach(([key, value]) => value !== null && localStorage.setItem(key, value)), setLeftover(readLeftover())))
+  }
   /** The leftover back in the box: in place of an empty one, or after what is there. */
   const leftoverBack = (): void => {
     const editor = editorRef.current
     const doc = readLeftover()
-    localStorage.removeItem('capture-leftover')
+    forgetLeftover()
     setLeftover(null)
     if (!editor || !doc) return
     chime('open')
@@ -1376,6 +1401,9 @@ export default function App(): React.JSX.Element {
         markdown: editor ? toMarkdown(editor) : undefined, attribution: attribution.trim(), medium: medium || undefined, private: secret })
       await haligtree.linkSession(id)
       localStorage.removeItem('capture-draft')
+      // A new capture kept: the draft from earlier is not offered again.
+      forgetLeftover()
+      setLeftover(null)
       notePromoted(id, at)
       window.api.promote('capture', id)
       // Cleared once it has gone, so the glide shows the words, not a blank box.
@@ -1581,6 +1609,9 @@ export default function App(): React.JSX.Element {
     // Taken now: a fresh box clears the list before the save comes back.
     const pieces = [...lifted]
     keepLifted([])
+    // A new capture kept: the draft from earlier is not offered again.
+    forgetLeftover()
+    setLeftover(null)
     // ⌥ is Linear's "create more": the box is fresh at once, so the next one
     // can be typed straight away. Otherwise the box leaves and the window goes.
     if (more) {
@@ -2145,7 +2176,7 @@ export default function App(): React.JSX.Element {
             {/* A draft left an hour or more: a small chip, never the top of the box. */}
             {/* While it is the pill (in quick capture's room), the chip is drawn outside the writing's scroller, in the
                 page's own layer, so it is never overflow there for the caret to scroll the words away to (main.css). */}
-            {leftover && !editing && (pill && window.api.room.left ? createPortal(<div data-leftover-row className="px-[4.75rem] pt-1.5">
+            {leftover && !editing && !started && (pill && window.api.room.left ? createPortal(<div data-leftover-row className="px-[4.75rem] pt-1.5">
                 {/* No tip: its own words say what it is and what a click does, and a tip over it was a second surface. */}
                   <button type="button" data-leftover onMouseDown={(event) => event.preventDefault()} onClick={leftoverBack}
                     className="inline-flex max-w-full cursor-pointer items-center gap-1.5 rounded-full bg-accent/60 px-2.5 py-0.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground active:scale-[0.97]">
@@ -2154,6 +2185,10 @@ export default function App(): React.JSX.Element {
                     <span className="truncate text-foreground/80">{leftoverName(leftover)}</span>
                     <span aria-hidden className="text-muted-foreground/60">·</span>
                     <span className="shrink-0 font-medium text-foreground">Bring it back</span>
+                  </button>
+                  <button type="button" data-leftover-drop aria-label="Not this one" onMouseDown={(event) => event.preventDefault()} onClick={dropLeftover}
+                    className="ml-1 inline-flex size-6 cursor-pointer items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground active:scale-[0.97]">
+                    <X className="size-3.5" />
                   </button>
               </div>, document.body) : (
               <div data-leftover-row className="px-[4.75rem] pt-1.5">
@@ -2165,6 +2200,10 @@ export default function App(): React.JSX.Element {
                     <span className="truncate text-foreground/80">{leftoverName(leftover)}</span>
                     <span aria-hidden className="text-muted-foreground/60">·</span>
                     <span className="shrink-0 font-medium text-foreground">Bring it back</span>
+                  </button>
+                  <button type="button" data-leftover-drop aria-label="Not this one" onMouseDown={(event) => event.preventDefault()} onClick={dropLeftover}
+                    className="ml-1 inline-flex size-6 cursor-pointer items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground active:scale-[0.97]">
+                    <X className="size-3.5" />
                   </button>
               </div>
             ))}
@@ -2297,6 +2336,18 @@ export default function App(): React.JSX.Element {
             )}
             </motion.div>
             </>
+            )}
+            {/* How quick capture moves, one way for every shape: a small grabber just above the card (a sheet's), shown
+                with the pointer in. Held, the box follows; double-clicked, it goes back to the top middle. */}
+            {!!window.api.room.left && (
+              <div data-grabber aria-label="Move quick capture" title=""
+                onPointerDown={(event) => { if (event.button !== 0 || event.detail > 1) return; event.currentTarget.setPointerCapture(event.pointerId); window.api.grab() }}
+                onPointerUp={() => window.api.letGo()}
+                onPointerCancel={() => window.api.letGo()}
+                onLostPointerCapture={() => window.api.letGo()}
+                onDoubleClick={() => (chime('slide'), window.api.boxHome())}>
+                <span />
+              </div>
             )}
             {/* Quick capture's hint, out of the card: above its top left edge, beside the round controls, never
                 over them. Kept while it waits (the pill, a menu, ⌘K, recording, reading) and gone at the first word. */}

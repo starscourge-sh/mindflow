@@ -4350,6 +4350,35 @@ app.whenReady().then(() => {
 
   // ⌃⌘C: the box glides to the middle of the screen it is on (at once with
   // Motion off), where it then stays as if dragged there.
+  // Quick capture's grabber (App.tsx, data-grabber): held, the box follows the pointer from where it was picked up,
+  // a move like any other (it stops a size glide, and where it is let go is where it opens next); let go, it stays.
+  let following: ReturnType<typeof setInterval> | null = null
+  ipcMain.on('window:grab', (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (!win || win !== prompt) return
+    const from = win.getBounds()
+    const start = screen.getCursorScreenPoint()
+    if (following) clearInterval(following)
+    following = setInterval(() => {
+      if (win.isDestroyed()) return void (following && clearInterval(following))
+      const now = screen.getCursorScreenPoint()
+      const at = win.getBounds()
+      const x = from.x + now.x - start.x
+      const y = from.y + now.y - start.y
+      if (at.x !== x || at.y !== y) win.setPosition(x, y)
+    }, 8)
+  })
+  ipcMain.on('window:let-go', () => void (following && clearInterval(following), (following = null)))
+  // Double-clicked: back to where it first opens, the top middle of its screen.
+  ipcMain.on('window:home', (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (!win || win !== prompt || win.isFullScreen()) return
+    const bounds = boundsOf(win)
+    const area = screen.getDisplayMatching(bounds).workArea
+    const home = topMiddle(area, bounds.width, SIZES.compact.height)
+    anchor = null
+    win.setPosition(home.x, home.y)
+  })
   ipcMain.on('window:centre', (event) => {
     const win = BrowserWindow.fromWebContents(event.sender)
     if (!win || win !== prompt || win.isFullScreen()) return

@@ -420,6 +420,49 @@ html[data-overhang][data-zen] [data-hint-in],
 html[data-overhang]:not([data-hint-menu]):has([role=menu], [role=dialog], [role=alertdialog], [role=listbox], .tiptap-suggestion-popup, [data-shot-button][data-open]) [data-hint-in] {
   pointer-events: none;
 }
+/* Quick capture's grabber (App.tsx): a 32x4 bar in muted ink, centred just above the card or pill in the 8px gap
+   over its top edge (clear of a hint above, which stops 8px short), shown with the pointer in. Its hit area runs into
+   the card's own top padding, never its words. The hand says it moves: grab, then grabbing. */
+html[data-overhang] [data-grabber] {
+  position: fixed;
+  z-index: 30;
+  top: calc(var(--mf-room-top) - 10px);
+  left: calc(var(--mf-room-left) + (100vw - var(--mf-room-left) - var(--mf-room-right)) / 2 - 32px);
+  width: 64px;
+  height: 18px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 4px;
+  cursor: grab;
+  opacity: 0;
+  transition: opacity 150ms var(--mf-ease);
+}
+html[data-overhang] [data-grabber]:active {
+  cursor: grabbing;
+}
+html[data-overhang] [data-grabber] > span {
+  width: 32px;
+  height: 4px;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--foreground) 32%, transparent);
+}
+html[data-overhang] .app-container.pointer-in [data-grabber],
+html[data-overhang] [data-grabber]:hover,
+html[data-overhang] [data-grabber]:active {
+  opacity: 1;
+}
+html[data-overhang] [data-grabber]:hover > span {
+  background: color-mix(in oklab, var(--foreground) 50%, transparent);
+}
+/* The empty parts of the card drag too, as a window's own: the footer's gaps and the row of fields under the words,
+   never what is in them. */
+html[data-overhang] main[data-zen-row] {
+  -webkit-app-region: drag;
+}
+html[data-overhang] main[data-zen-row] > * {
+  -webkit-app-region: no-drag;
+}
 /* The round surface's shadow and hairline, one recipe for every round control
    and pill that belongs with them (quick capture's controls, the voice pills). */
 :root {
