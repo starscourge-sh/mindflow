@@ -42,7 +42,7 @@ try {
   check('searching finds by words', await waitFor(async () => { const now = await rows(); return now.length === 1 && now[0].includes('Zebra question') }), (await rows()).join(' | '))
   await h.locator('[data-review-tab-controls] input').first().fill('')
   // A tag and the tags under it.
-  await chip('#astrophysics')
+  await chip('Astrophysics')
   const astro = all.filter((one) => one.tags.some((tag) => tag === 'astrophysics' || tag.startsWith('astrophysics-')))
   check('a tag narrows to its cards and those under it', await waitFor(async () => (await rows()).length === astro.length && (await rows()).some((one) => one.includes('event horizon'))), `${(await rows()).length} vs ${astro.length}`)
   const counted = await h.evaluate(() => document.querySelector('[data-card-counts]')?.textContent ?? '')
