@@ -14,11 +14,24 @@ const hashOf = (name: string): number => {
   return hash
 }
 
+/** Each shape as a mask, made once: a photo wears its person's shape, so photos and shapes sit side by side as one family. */
+const masks = new Map<number, string>()
+const maskOf = (shape: number): string => {
+  const made = masks.get(shape)
+  if (made) return made
+  const url = `url("data:image/svg+xml,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'><path d='${SHAPES[shape]}'/></svg>`)}")`
+  masks.set(shape, url)
+  return url
+}
+/** The frame a person's face is cut to, for whatever lies over it (a hover shade): their shape, or round under "Initials" (box-extras.css .mf-avatar-frame). */
+export const avatarFrame = (name: string): CSSProperties => ({ '--mf-avatar-mask': maskOf(hashOf(name.trim()) % SHAPES.length) }) as CSSProperties
+
 /**
  * A person's face, small, wherever their name is: the picture you gave them,
  * or else their initials over a shape from Coolshapes picked by their name,
  * so the same name always wears the same one. The shape is filled with two of
- * the theme's tag tints, soft enough that the letters read in every theme.
+ * the theme's tag tints, soft enough that the letters read in every theme; a
+ * picture is cut to that same shape, so faces and shapes never look mismatched.
  * With “Avatars” set to “Initials” (the root's data-avatars), the initials sit
  * in a soft round tint instead.
  */
@@ -32,10 +45,10 @@ export function Avatar({ name, size = 16, className = '', look, letters }: { nam
   const shape = hash % SHAPES.length
   const from = (hash >>> 4) % TINTS.length
   const to = (from + 1 + ((hash >>> 9) % (TINTS.length - 1))) % TINTS.length
-  const style = { '--mf-avatar-size': `${size}px`, '--mf-avatar-hue': hueOf(trimmed), '--mf-shape-from': `var(--tt-color-text-${TINTS[from]})`, '--mf-shape-to': `var(--tt-color-text-${TINTS[to]})` } as CSSProperties
+  const style = { '--mf-avatar-mask': maskOf(shape), '--mf-avatar-size': `${size}px`, '--mf-avatar-hue': hueOf(trimmed), '--mf-shape-from': `var(--tt-color-text-${TINTS[from]})`, '--mf-shape-to': `var(--tt-color-text-${TINTS[to]})` } as CSSProperties
   const id = `mf-shape-${hash.toString(36)}`
   return (
-    <span aria-hidden data-avatar={avatar ? 'picture' : 'initials'} data-avatar-shape={avatar ? undefined : shape} data-look={look} className={`mf-avatar ${className}`} style={style}>
+    <span aria-hidden data-avatar={avatar ? 'picture' : 'initials'} data-avatar-shape={shape} data-look={look} className={`mf-avatar ${className}`} style={style}>
       {avatar ? <img src={avatar} alt="" draggable={false} /> : (
         <>
           <svg viewBox="0 0 200 200" className="mf-avatar-shape" aria-hidden>

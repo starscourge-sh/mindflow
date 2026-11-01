@@ -53,6 +53,14 @@
 :is(:root:not([data-avatars='initials']) .mf-avatar[data-avatar-shape='4']:not([data-look='initials']), .mf-avatar[data-avatar-shape='4'][data-look='shapes']) > span { font-size: min(calc(var(--s) * 0.32), 1.75rem); transform: translateY(calc(var(--s) * 0.13)); }
 :is(:root:not([data-avatars='initials']) .mf-avatar[data-avatar-shape='5']:not([data-look='initials']), .mf-avatar[data-avatar-shape='5'][data-look='shapes']) > span { font-size: min(calc(var(--s) * 0.38), 2rem); transform: translateY(calc(var(--s) * 0.05)); }
 .mf-signed > .mf-avatar { align-self: center; }
+/* A picture wears its person's shape too (avatar.tsx maskOf), so a photo beside a shape is one family; under
+   "Initials" both are round. Anything laid over a face (the person page's hover shade) takes the same frame. */
+:is(:root:not([data-avatars='initials']) .mf-avatar[data-avatar='picture']:not([data-look='initials']), .mf-avatar[data-avatar='picture'][data-look='shapes']) img,
+:root:not([data-avatars='initials']) .mf-avatar-frame {
+  -webkit-mask: var(--mf-avatar-mask) center / 100% 100% no-repeat;
+  mask: var(--mf-avatar-mask) center / 100% 100% no-repeat;
+  border-radius: 0;
+}
 
 /* A toast in the box sits in the footer's row: what shares the row with it steps back. */
 [data-under-toast] { transition: opacity 0.15s var(--mf-ease); }

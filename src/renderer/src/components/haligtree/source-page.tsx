@@ -10,7 +10,7 @@ import { kindOf } from '@/components/capture-kinds/capture-kind-picker'
 import { chime } from '@/lib/sound'
 import { unloaded, useLive, haligtree } from '@/lib/haligtree'
 import { UNATTRIBUTED, VOICE_TINT, askRename, openSource, pageRef, readFocus, sources, type SourceField, type SourceItem, type SourceSummary, type Voice } from '@/lib/sources'
-import { Avatar } from './avatar'
+import { Avatar, avatarFrame } from './avatar'
 import { NoteList, type Entry } from './note-list'
 import { Example } from './example'
 import { Display, useView } from './display'
@@ -269,7 +269,7 @@ function PersonHead({ page, name }: { page: SourcePage | null; name: string }): 
               <Avatar name={name} size={96} />
               {/* Said on the face itself while the pointer is on it (or a picture is carried over).
                   A photo only darkens a touch under a small expand mark, as a picture in a note opens. */}
-              <span aria-hidden data-photo-hint className={`pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-1 rounded-full text-white transition-[opacity,background-color] duration-200 ease-[var(--mf-ease)] group-hover/photo:opacity-100 group-focus-visible/photo:opacity-100 ${photo && !over ? 'bg-black/25' : 'bg-black/50'} ${over ? 'opacity-100' : 'opacity-0'}`}>
+              <span aria-hidden data-photo-hint style={avatarFrame(name)} className={`mf-avatar-frame pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-1 rounded-full text-white transition-[opacity,background-color] duration-200 ease-[var(--mf-ease)] group-hover/photo:opacity-100 group-focus-visible/photo:opacity-100 ${photo && !over ? 'bg-black/25' : 'bg-black/50'} ${over ? 'opacity-100' : 'opacity-0'}`}>
                 <span className={`flex flex-col items-center gap-1 transition-transform duration-200 ease-[var(--mf-ease)] motion-reduce:transition-none group-hover/photo:scale-100 ${over ? 'scale-100' : 'scale-90'}`}>
                   {over || !photo ? <Camera className="size-5" /> : <Fit className="size-[18px] text-white/90 drop-shadow-[0_1px_2px_rgb(0_0_0/0.4)]" />}
                   {(over || !photo) && <span className="text-meta font-medium">{over ? 'Drop it here' : 'Add a photo'}</span>}

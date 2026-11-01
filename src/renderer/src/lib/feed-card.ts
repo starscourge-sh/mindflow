@@ -1,3 +1,4 @@
+import { SHAPES } from '@/components/haligtree/coolshapes'
 import { call } from './haligtree'
 
 /**
@@ -108,10 +109,19 @@ export async function drawCard(card: CardPost, element: HTMLElement | null): Pro
   const at = { x: PAD, y: PAD }
   if (avatar) {
     ctx.save()
-    ctx.beginPath()
-    ctx.arc(at.x + 22, at.y + 22, 22, 0, Math.PI * 2)
-    ctx.clip()
-    ctx.drawImage(avatar, at.x, at.y, 44, 44)
+    // Cut to the person's shape, as the face is on screen (avatar.tsx); round under "Avatars: Initials".
+    const cut = face && getComputedStyle(face.querySelector('img') ?? face).maskImage !== 'none' ? SHAPES[Number(face.dataset.avatarShape)] : null
+    if (cut) {
+      ctx.translate(at.x, at.y)
+      ctx.scale(44 / 200, 44 / 200)
+      ctx.clip(new Path2D(cut))
+      ctx.drawImage(avatar, 0, 0, 200, 200)
+    } else {
+      ctx.beginPath()
+      ctx.arc(at.x + 22, at.y + 22, 22, 0, Math.PI * 2)
+      ctx.clip()
+      ctx.drawImage(avatar, at.x, at.y, 44, 44)
+    }
     ctx.restore()
   } else {
     ctx.save()
