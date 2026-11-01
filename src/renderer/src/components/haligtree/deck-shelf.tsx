@@ -12,13 +12,13 @@ import { Tree, treeOf } from './branches'
 import { GroupCover } from './group-cover'
 import { groupTint } from './card-shelves'
 import { RowMenu, type MenuItem, type RowItem } from './row-menu'
-import { Check, ChevronRight } from 'lucide-react'
+import { Check, ChevronRight, LayoutGrid, List as ListIcon, Plus } from 'lucide-react'
 import { StudyYear } from './study-stats'
 import type { Settings } from '@/lib/haligtree'
 import { moveToBin } from '@/lib/to-bin'
 import { cardsSaid, deckTagOf, deckTitle, makeDeck, nameFit, sayDeck, softBreaks, useOwnDecks, type OwnDeck } from './decks'
 import { Coverage, coverageOf, type BrowsedCard } from './card-browser'
-import { TabControls } from './review-toolbar'
+import { TabControls, useToolbarCompact } from './review-toolbar'
 import { Tip } from './ui'
 import { motion } from 'motion/react'
 import { EASE, still } from '@/lib/motion'
@@ -64,6 +64,7 @@ export function DeckShelf({ onOpen, onStudy, onPaste, onPicture }: { onOpen: (ty
   const shelves = useLive(() => call<Shelf[]>('decks:list'), null as Shelf[] | null, [], ['item'])
   const own = useOwnDecks()
   const study = useLive(haligtree.tagStudy, { sides: {}, timer: {}, place: {}, typed: {}, newPerDay: {}, retention: {} } as Awaited<ReturnType<typeof haligtree.tagStudy>>, [], ['item'])
+  const compact = useToolbarCompact()
   const [dragging, setDragging] = useState<string | null>(null)
   const [over, setOver] = useState<string | null>(null)
   const sets = useLive(() => call<{ name: string; tag: string }[]>('sets:list'), [] as { name: string; tag: string }[], [], ['item'])
@@ -87,12 +88,15 @@ export function DeckShelf({ onOpen, onStudy, onPaste, onPicture }: { onOpen: (ty
   // The three ways cards come in, always at the top, whatever is below: as Anki's "Create Deck" and "Import File" are.
   const top = (
     <TabControls>
-      <Button variant="ghost" size="sm" className="h-8 cursor-pointer px-3" data-deck-new onClick={() => (chime('open'), newDeck())}>New deck</Button>
+      {/* Narrow, in icons before they would ever be cut: a + for New deck, the switch as two icons; each named on hover. */}
+      {compact
+        ? <Tip label="New deck"><Button variant="ghost" size="sm" aria-label="New deck" className="size-8 cursor-pointer p-0" data-deck-new onClick={() => (chime('open'), newDeck())}><Plus className="size-4" /></Button></Tip>
+        : <Button variant="ghost" size="sm" className="h-8 cursor-pointer px-3" data-deck-new onClick={() => (chime('open'), newDeck())}>New deck</Button>}
       {/* Pockets or a plain list, in the same two-part control as Review's tabs beside it. */}
-      <span role="radiogroup" aria-label="Show decks as" data-deck-look-pick className="flex h-8 items-center max-sm:h-9 rounded-lg border border-foreground/10 bg-accent/40 p-0.5 text-control">
+      <span role="radiogroup" aria-label="Show decks as" data-deck-look-pick className="flex h-8 items-center rounded-lg border border-foreground/10 bg-accent/40 p-0.5 text-control">
         {(['pockets', 'list'] as const).map((one) => (
-          <button key={one} type="button" role="radio" aria-checked={look === one} data-deck-look-to={one} onClick={() => void (look !== one && (chime('tap'), setLook(one)))}
-            className={`h-7 cursor-pointer rounded-md max-sm:h-8 border px-3 transition-colors ${look === one ? 'border-foreground/15 bg-background text-foreground shadow-sm' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>{one === 'pockets' ? 'Pockets' : 'List'}</button>
+          <button key={one} type="button" role="radio" aria-checked={look === one} aria-label={one === 'pockets' ? 'Pockets' : 'List'} data-deck-look-to={one} onClick={() => void (look !== one && (chime('tap'), setLook(one)))}
+            className={`h-7 cursor-pointer rounded-md border ${compact ? 'px-2' : 'px-3'} transition-colors ${look === one ? 'border-foreground/15 bg-background text-foreground shadow-sm' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>{compact ? (one === 'pockets' ? <LayoutGrid className="size-3.5" /> : <ListIcon className="size-3.5" />) : one === 'pockets' ? 'Pockets' : 'List'}</button>
         ))}
       </span>
     </TabControls>
@@ -260,11 +264,15 @@ function DeckTile({ id, own = false, drag, name, title, due, fresh, all, held, c
           {all ? <><Counts due={due} fresh={fresh} />{held > 0 && <> · {num(held)} held</>}</> : <span data-deck-empty>Empty: click to make a card</span>}
         </span>
         {/* No big number: the counts under the name already say it. At the foot, how many in all, and a dot when some are due. */}
-        <span className="mt-auto flex items-center justify-between gap-2">
-          <span className="flex items-center gap-1.5 text-sm text-muted-foreground tabular-nums">{all ? `${num(all)} ${all === 1 ? 'card' : 'cards'}` : ''}{due > 0 && <span aria-hidden data-due-dot className="size-1.5 rounded-full bg-primary" />}</span>
+        {/* The foot is one line, never wrapped or hyphenated: "3 cards · +1 inside", the second part giving way first. */}
+        <span data-deck-foot className="mt-auto flex min-w-0 items-center gap-1.5 text-sm whitespace-nowrap text-muted-foreground tabular-nums">
+          <span className="flex shrink-0 items-center gap-1.5">{all ? `${num(all)} ${all === 1 ? 'card' : 'cards'}` : ''}{due > 0 && <span aria-hidden data-due-dot className="size-1.5 rounded-full bg-primary" />}</span>
           {kids > 0 && (
-            <button type="button" data-deck-kids={id} aria-expanded={open} onClick={(event) => (event.stopPropagation(), onKids())}
-              className="cursor-pointer rounded-[4px] px-1 -mx-1 text-sm text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring">{open ? 'Hide' : '+'}{open ? ' sub-decks' : `${num(kids)} ${kids === 1 ? 'sub-deck' : 'sub-decks'}`}</button>
+            <>
+              {all > 0 && <span aria-hidden>·</span>}
+              <button type="button" data-deck-kids={id} aria-expanded={open} onClick={(event) => (event.stopPropagation(), onKids())}
+                className="min-w-0 cursor-pointer truncate rounded-[4px] px-1 -mx-1 outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring">{open ? 'Hide inside' : `+${num(kids)} inside`}</button>
+            </>
           )}
         </span>
       </motion.div>
