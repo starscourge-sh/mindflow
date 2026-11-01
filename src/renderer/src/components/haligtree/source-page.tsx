@@ -16,6 +16,7 @@ import { Display, useView } from './display'
 import { Count, Empty, Page, Tip, ask, askSure, openTag, quietly, toast, typing } from './ui'
 import { RowMenu } from './row-menu'
 import { withoutTags } from '../../../../main/tag-words'
+import { useReading } from '@/lib/reads-in'
 import { firstSentences, sameTitle, useWiki } from '@/lib/wiki'
 import { personKey } from '../../../../main/names'
 import { useSelectAll } from '@/lib/select-all'
@@ -330,6 +331,9 @@ function Bio({ field, name, page }: { field: SourceField; name: string; page: So
     const fits = !!wiki.page && sameTitle(wiki.page.title, name)
     void sources.bio(field, name, fits ? firstSentences(wiki.page!.extract) : '', fits ? wiki.page!.url : '')
   }, [wiki.state, wiki.page, page, field, name])
+  // The page waits for its line, so the words never drop in after it opens: the page's own read, then (the first
+  // time only) Wikipedia's answer and its saving. Offline, nothing to wait for; never longer than the page's limit.
+  useReading(!page || (!page.bioAt && wiki.state !== 'offline'))
   const [text, setText] = useState(page?.bio ?? '')
   const [writing, setWriting] = useState(false)
   useEffect(() => setText(page?.bio ?? ''), [page?.bio])
@@ -522,7 +526,7 @@ export function SourcePageView({ focus, onOpen }: { focus?: string; onOpen: (typ
           </div>
         </div>
         )}
-        <Bio key={`${field}:${name}`} field={field} name={name} page={page} />
+        <Bio key={`${field}:${name}:${page ? page.bioAt ?? 'asked' : 'reading'}`} field={field} name={name} page={page} />
         {page && (
           <>
             {voices.theirs.length > 0 && (
@@ -703,6 +707,8 @@ export function SourcesView({ onOpen }: { onOpen: (type: string, id: string) => 
     window.addEventListener('keydown', onKey, true)
     return () => window.removeEventListener('keydown', onKey, true)
   }, [live.length]) // eslint-disable-line react-hooks/exhaustive-deps
+  // The quotes with no source: five, and the rest a press away, so a long list never pushes the page down.
+  const [allMissing, setAllMissing] = useState(false)
   const picking = usePicking(shown, live, setChosen)
   return (
     // Waits for both its reads: drawn before, "No sources yet" showed for a beat, and the quotes with no source came in above the list.
@@ -715,17 +721,24 @@ export function SourcesView({ onOpen }: { onOpen: (type: string, id: string) => 
       <div className="page-column pb-16">
         {/* A quote with no source is the one thing here to put right: said first, in full size. */}
         {missing.length > 0 && (
-          <section data-missing-source className="mx-5 mt-5 rounded-lg border px-3 py-2">
-            <h3 className="flex items-center gap-2 font-semibold"><Quote className="size-4" style={{ color: VOICE_TINT.theirs }} />{missing.length === 1 ? 'A quote has no source' : `${num(missing.length)} quotes have no source`}</h3>
-            <p className="mb-1 text-control">A quote is someone’s words: say whose, so it never drifts away from them.</p>
-            <ul>
-              {missing.slice(0, 8).map((item) => (
-                <li key={item.id} className="flex items-center gap-2 py-0.5">
-                  <button type="button" className="min-w-0 flex-1 truncate rounded px-1 text-left hover:bg-accent" onClick={() => onOpen(item.type, item.id)}>{item.label || 'Untitled'}</button>
-                  <Tip label="Say who said it"><Button variant="outline" size="sm" data-give-source={item.id} onClick={() => void give(item)}>Add who</Button></Tip>
+          // One quiet island on the list's own edge: the heading on its line, a sentence, then each quote as a row whose
+          // light wraps only its own words, its "Add who" beside them, never a band across the page.
+          <section data-missing-source className="mf-island mx-3 mt-5 rounded-xl border bg-accent/25 px-3 py-3">
+            <h3 className="flex items-center gap-2 text-heading font-semibold"><Quote className="size-4 shrink-0" style={{ color: VOICE_TINT.theirs }} />{missing.length === 1 ? 'A quote has no source' : `${num(missing.length)} quotes have no source`}</h3>
+            <p className="mt-0.5 mb-2 text-control text-foreground/90 text-pretty">A quote is someone’s words: say whose, so it never drifts away from them.</p>
+            <ul className="flex flex-col gap-1">
+              {missing.slice(0, allMissing ? undefined : 5).map((item) => (
+                <li key={item.id} data-missing-row={item.id} className="flex min-w-0 items-center gap-3">
+                  <button type="button" className="-mx-1.5 min-w-0 truncate rounded-md px-1.5 py-0.5 text-left text-body hover:bg-accent" onClick={() => onOpen(item.type, item.id)}>{item.label || 'Untitled'}</button>
+                  <Button variant="outline" size="sm" className="ml-auto shrink-0" data-give-source={item.id} onClick={() => void give(item)}>Add who</Button>
                 </li>
               ))}
             </ul>
+            {missing.length > 5 && (
+              <Button variant="ghost" size="sm" className="-mx-2 mt-1" data-missing-more onClick={() => (chime(allMissing ? 'fold' : 'slide'), setAllMissing(!allMissing))}>
+                {allMissing ? 'Show fewer' : `Show all ${num(missing.length)}`}
+              </Button>
+            )}
           </section>
         )}
         {!list.length ? (
