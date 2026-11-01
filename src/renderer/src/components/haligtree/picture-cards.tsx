@@ -313,6 +313,10 @@ export function PictureCards({ deck: aimed, onClose, onShow }: { deck?: string |
             </span>
           </div>
           <p data-picture-status className="min-h-5 text-sm text-muted-foreground">{status}</p>
+          {/* What the choice on the right does, in words, in the same place whichever is picked. */}
+          <p data-picture-hide-said className="-mt-2 min-h-5 text-sm text-foreground/80">
+            {hide === 'one' ? 'Hide one: each card covers only the label it asks; the others show.' : 'Hide all: every label stays covered; the one asked glows.'}
+          </p>
           <div className="relative mx-auto w-fit max-w-full select-none">
             <img src={picture.src} alt="" draggable={false} className="block max-h-[min(60vh,36rem)] w-auto max-w-full rounded-[4px]" />
             {size && (
@@ -342,7 +346,17 @@ export function PictureCards({ deck: aimed, onClose, onShow }: { deck?: string |
           {covers.length ? `Make ${num(groups.length)} ${groups.length === 1 ? 'card' : 'cards'}` : 'Make the cards'}
         </Button>
         <Button variant="ghost" size="sm" className="h-8 cursor-pointer text-muted-foreground" onClick={onClose}>Cancel</Button>
-        {picture && <Button variant="ghost" size="sm" className="h-8 cursor-pointer text-muted-foreground" data-picture-other onClick={() => (chime('fold'), setPicture(null), setLabels(null), setCovers([]))}>Another picture</Button>}
+        {picture && <Button variant="ghost" size="sm" className="h-8 cursor-pointer text-muted-foreground" data-picture-other onClick={() => {
+          // Its covers are not lost: Undo puts the picture back as it was.
+          const was = { picture, labels, covers, history }
+          chime('fold')
+          setPicture(null)
+          setLabels(null)
+          setCovers([])
+          setHistory([])
+          setPicked(new Set())
+          if (was.covers.length) toast('The picture and its covers are put aside', () => (chime('undo'), setPicture(was.picture), setLabels(was.labels), setCovers(was.covers), setHistory(was.history)))
+        }}>Another picture</Button>}
         <label className="flex items-center gap-1.5 text-control"><span className="text-foreground/70">Deck</span>
           <input data-picture-deck value={deck} onChange={(event) => setDeck(event.target.value)} placeholder="none" className="w-36 bg-transparent text-foreground outline-none placeholder:italic placeholder:text-muted-foreground" /></label>
         <span className="ml-auto text-sm text-muted-foreground max-sm:hidden">
