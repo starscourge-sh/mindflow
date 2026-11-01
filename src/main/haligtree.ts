@@ -484,6 +484,8 @@ const DEFAULTS = {
   // A note's own cover: one of the paper drawings bundled with the app, or
   // 'gradients': the bundled gradients, or the Covers folder's when one is set.
   coverStyle: 'paper' as 'paper' | 'gradients',
+  // A deck's face in Review: plain, in the theme's one tone, its due count large; on, a Coolshapes cover drawn from its name.
+  deckShapes: false,
   // Celebrations: a card on the rare milestones, playing something from this
   // folder (a GIF, a picture, a short clip). Empty is none: a grainy cover.
   celebrate: true,
@@ -2961,7 +2963,23 @@ export function registerHaligtree(): void {
       notes: (db.prepare("select count(*) n from captures where status != 'discarded' and captured_at >= ? and captured_at < ?").get(start.toISOString(), start.add(1, 'month').toISOString()) as { n: number }).n,
       gems: (db.prepare("select count(*) n from nuggets where binned_at is null and superseded_by is null and tier != 'goal' and created_at >= ? and created_at < ?").get(start.toISOString(), start.add(1, 'month').toISOString()) as { n: number }).n
     }))
-    return { month, year: Object.fromEntries(perDay), checked: kept.n, recalled: kept.recalled, due, known, cards, seconds: pace ? Math.round(pace / 1000) : null, days: { reviewed: reviewedDays, of: span }, minutes, stages, sources, growth, kept: keptIn }
+    // Streaks over every day ever reviewed (not only the year shown): the run ending today (or yesterday, still unbroken), and the longest.
+    const everDays = (db.prepare('select reviewed_at as at from review_log').all() as { at: string }[]).reduce((all, row) => all.add(local(row.at)), new Set<string>())
+    const sorted = [...everDays].sort()
+    let longest = 0
+    let run = 0
+    let last = 0
+    for (const key of sorted) {
+      const at = Date.parse(`${key}T12:00:00`)
+      run = last && Math.round((at - last) / 86400000) === 1 ? run + 1 : 1
+      longest = Math.max(longest, run)
+      last = at
+    }
+    let current = 0
+    for (let back = everDays.has(local(day(0))) ? 0 : -1; everDays.has(local(day(back))); back -= 1) current += 1
+    // Reviews on an average day studied, as Anki's heatmap counts it (days off are in the share of days studied).
+    const average = reviewedDays ? Math.round([...perDay].filter(([key]) => key >= local(day(1 - span))).reduce((sum, [, n]) => sum + n, 0) / reviewedDays) : 0
+    return { streak: { current, longest }, average, month, year: Object.fromEntries(perDay), checked: kept.n, recalled: kept.recalled, due, known, cards, seconds: pace ? Math.round(pace / 1000) : null, days: { reviewed: reviewedDays, of: span }, minutes, stages, sources, growth, kept: keptIn }
   })
 
   // --- the card browser: every card, with what it is filtered and sorted by

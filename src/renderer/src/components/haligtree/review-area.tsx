@@ -7,42 +7,49 @@ import { StudySection } from './study-stats'
 import { DeckShelf } from './deck-shelf'
 import { Page } from './ui'
 
-/** Review's own pages: today's cards, every card, the shared decks on their shelf, and how remembering goes. */
+/** Review's own pages: the decks (first, as Anki opens), every card, and how remembering goes; 'today' is studying, from "Study now". */
 export type ReviewTab = 'today' | 'cards' | 'decks' | 'stats'
 const TABS: { id: ReviewTab; label: string }[] = [
-  { id: 'today', label: 'Today' },
-  { id: 'cards', label: 'All cards' },
   { id: 'decks', label: 'Decks' },
+  { id: 'cards', label: 'All cards' },
   { id: 'stats', label: 'Stats' }
 ]
 
 /**
- * Review, with a tab for each of its pages on the page's line, on the right
- * where per-page actions sit: today's cards, or the browser of every card.
- * `focus` is a tag to study, or ":cards" to open on the browser (⌘K).
+ * Review, opening on the decks with "Study now" beside its tabs, on the
+ * page's line on the right where per-page actions sit. `focus` is a tag to
+ * study, ":today" to study at once, or ":cards", ":stats", ":paste" (⌘K).
  */
 export function ReviewArea({ focus, onOpen }: { focus?: string; onOpen: (type: string, id: string) => void }): React.JSX.Element {
-  // A deck or topic studied from the shelf: Today, on its tag (and the tags under it).
+  // A deck or topic studied from the shelf: studied on its tag (and the tags under it).
   const [studying, setStudying] = useState<string | null>(null)
-  // Paste cards, or one new card, aimed at a deck: from a deck's shelf, or ⌘K's "New card in" (":new:biology").
+  // Many cards at once, or one new card, aimed at a deck: from a deck's shelf, or ⌘K's "New card in" (":new:biology").
   const [aim, setAim] = useState<{ deck: string | null; one: boolean } | null>(focus === ':paste' ? { deck: null, one: false } : focus?.startsWith(':new:') ? { deck: focus.slice(5), one: true } : null)
-  const [tab, setTab] = useState<ReviewTab>(focus === ':cards' || focus === ':paste' || focus?.startsWith(':new:') ? 'cards' : focus === ':stats' ? 'stats' : focus === ':decks' ? 'decks' : 'today')
+  // Just the cards an import or "Add many at once" brought in, shown in All cards.
+  const [only, setOnly] = useState<string[] | null>(null)
+  const [tab, setTab] = useState<ReviewTab>(focus === ':cards' || focus === ':paste' || focus?.startsWith(':new:') ? 'cards' : focus === ':stats' ? 'stats' : focus === ':today' || (focus && !focus.startsWith(':')) ? 'today' : 'decks')
+  const go = (to: ReviewTab): void => void (tab !== to && (chime(to === 'today' ? 'riffle' : 'tap'), setStudying(null), setAim(null), setOnly(null), setTab(to)))
   const tabs = (
-    <span role="tablist" data-review-tabs className="flex h-8 items-center rounded-lg border border-foreground/10 bg-accent/40 p-0.5 text-control">
-      {TABS.map((one) => (
-        <button key={one.id} type="button" role="tab" aria-selected={tab === one.id} data-review-tab={one.id}
-          onClick={() => void (tab !== one.id && (chime('tap'), setStudying(null), setAim(null), setTab(one.id)))}
-          className={`relative h-7 cursor-pointer rounded-md px-3 transition-colors ${tab === one.id ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'}`}>
-          {tab === one.id && <motion.span layoutId="review-tab" className="absolute inset-0 -z-10 rounded-md border border-foreground/15 bg-background shadow-sm" transition={{ type: 'spring', stiffness: 500, damping: 38 }} />}
-          {one.label}
-        </button>
-      ))}
+    <span className="flex items-center gap-2">
+      {/* Today's cards, in place of the old Today tab: one button, pressed while you study. */}
+      <button type="button" data-review-tab="today" data-study-now aria-pressed={tab === 'today'} onClick={() => go('today')}
+        className={`h-8 cursor-pointer rounded-md border px-3 text-control font-medium transition-colors ${tab === 'today' ? 'border-foreground/15 bg-background text-foreground shadow-sm' : 'border-transparent bg-primary text-primary-foreground hover:bg-primary/90'}`}>Study now</button>
+      <span role="tablist" data-review-tabs className="flex h-8 items-center rounded-lg border border-foreground/10 bg-accent/40 p-0.5 text-control">
+        {TABS.map((one) => (
+          <button key={one.id} type="button" role="tab" aria-selected={tab === one.id} data-review-tab={one.id} onClick={() => go(one.id)}
+            className={`relative h-7 cursor-pointer rounded-md px-3 transition-colors ${tab === one.id ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'}`}>
+            {tab === one.id && <motion.span layoutId="review-tab" className="absolute inset-0 -z-10 rounded-md border border-foreground/15 bg-background shadow-sm" transition={{ type: 'spring', stiffness: 500, damping: 38 }} />}
+            {one.label}
+          </button>
+        ))}
+      </span>
     </span>
   )
+  const show = (ids: string[]): void => (chime('open'), setStudying(null), setAim(null), setOnly(ids), setTab('cards'))
   if (tab === 'cards')
     return (
       <Page title="Review" actions={tabs}>
-        <div className="page-sheet mx-auto w-full"><CardBrowser key={aim ? `${aim.deck}:${aim.one}` : ''} onOpen={onOpen} aim={aim} /></div>
+        <div className="page-sheet mx-auto w-full"><CardBrowser key={aim ? `${aim.deck}:${aim.one}` : only ? `only:${only.length}` : ''} onOpen={onOpen} aim={aim} only={only} onAll={() => (chime('undo'), setOnly(null))} onShow={show} /></div>
       </Page>
     )
   if (tab === 'decks')

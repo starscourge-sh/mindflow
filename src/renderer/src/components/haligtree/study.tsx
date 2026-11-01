@@ -440,7 +440,7 @@ export function LearnOffer({ className = '' }: { className?: string }): React.JS
     <button type="button" data-learn="offer"
       onClick={() => void haligtree.learnAdd().then((added) => {
         chime('promote')
-        toast(`${num(added)} cards about ${APP_NAME} are in Review, a few new ones a day`, () => void haligtree.learnUndo(), 'success', { label: 'Review', key: 'R', run: () => window.api.openInHome('view', 'review') })
+        toast(`${num(added)} cards about ${APP_NAME} are in Review, a few new ones a day`, () => void haligtree.learnUndo(), 'success', { label: 'Review', key: 'R', run: () => window.api.openInHome('view', 'review', ':today') })
       })}
       className={`inline-flex min-h-6 items-center self-start rounded-md px-2 text-control text-foreground underline decoration-foreground/25 underline-offset-4 transition-colors hover:decoration-foreground/60 ${className}`}>
       Learn {APP_NAME} in Review

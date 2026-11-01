@@ -339,7 +339,7 @@ function Pass({ mode, ids, onClose, onOpen }: { mode: PassMode; ids?: string[]; 
     ? `${num(items.length)} tidied${(() => { const rest = counted([[tagged.current.size, 'tagged', 'tagged'], [marked.current.size, 'marked', 'marked'], [ways['A clue'] ?? 0, 'made a clue', 'made clues'], [aside, `set aside for ${day}`, `set aside for ${day}`]]); return rest ? `: ${rest}` : '' })()}`
     : `${num(items.length)} looked at${(() => { const rest = counted([...Object.entries(ways).map(([way, n]): [number, string, string] => [n, ...(SUMMED[way] ?? [way.toLowerCase(), way.toLowerCase()])]), [later.current.size, 'back next week', 'back next week']]); return rest ? `: ${rest}` : '' })()}`
   // One next thing, on Enter: the cards due today.
-  const next = due > 0 ? { said: `Review ${num(due)} ${due === 1 ? 'card' : 'cards'}`, run: () => (onClose(), window.api.openInHome('view', 'review')) } : null
+  const next = due > 0 ? { said: `Review ${num(due)} ${due === 1 ? 'card' : 'cards'}`, run: () => (onClose(), window.api.openInHome('view', 'review', ':today')) } : null
   const tags = page ? tagsIn(textOf(page.body)) : []
   const why = item?.why === 'back' ? `You set this aside to come back to` : item?.why === 'untidied' ? `${ageOf(item.capturedAt)} old, and not tidied yet` : item?.why === 'longest' ? 'Waiting the longest, and not opened in a while' : null
   const deciding = settings?.weeklyReview !== false && dayjs().day() === settings?.weeklyDay

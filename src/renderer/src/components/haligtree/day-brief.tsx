@@ -217,7 +217,7 @@ export function DayBrief({ day, onOpen, onListed, between }: {
       mark: <Brain className="size-4" />,
       title: 'Go through today’s review',
       text: `${cap(say(reviews))} ${reviews === 1 ? 'thing comes' : 'things come'} back to you today. A few minutes helps you remember them.`,
-      run: () => window.api.openInHome('view', 'review')
+      run: () => window.api.openInHome('view', 'review', ':today')
     }] : [])
   ]
   // One sentence, calm and short: what lands when, then what else is waiting.

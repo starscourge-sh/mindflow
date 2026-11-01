@@ -6,11 +6,12 @@ import { N, Section } from './stats-view'
 import { dayMonth, dayjs, num, plural } from '../../../../main/dates'
 
 /** What `study:stats` hands back (haligtree.ts). */
-type Studied = { month: { day: string; reviews: number }[]; year: Record<string, number>; checked: number; recalled: number; due: number[]; known: number; cards: number; seconds: number | null; days: { reviewed: number; of: number }
+type Studied = { streak: { current: number; longest: number }; average: number; month: { day: string; reviews: number }[]; year: Record<string, number>; checked: number; recalled: number; due: number[]; known: number; cards: number; seconds: number | null; days: { reviewed: number; of: number }
   minutes: number[]; stages: { new: number; learning: number; learnt: number }; sources: { name: string; n: number }[]; growth: { end: string; known: number; made: number }[]; kept: { month: string; notes: number; gems: number }[] }
 
 /** The made-up numbers for the example Stats page. */
 const EXAMPLE: Studied = {
+  streak: { current: 12, longest: 41 }, average: 18,
   month: Array.from({ length: 30 }, (_, at) => ({ day: new Date(Date.now() - (29 - at) * 86400000).toISOString().slice(0, 10), reviews: (at * 7) % 5 === 0 ? 0 : ((at * 13) % 30) + 4 })),
   year: Object.fromEntries(Array.from({ length: 200 }, (_, at) => [new Date(Date.now() - at * 86400000).toISOString().slice(0, 10), (at * 11) % 4 === 0 ? 0 : (at * 17) % 40])),
   checked: 412, recalled: 361, due: [14, 9, 11, 6, 8, 4, 7, 5, 3, 6, 2, 4, 3, 2], known: 238, cards: 540, seconds: 9, days: { reviewed: 148, of: 200 },
@@ -137,5 +138,56 @@ function StudyCards({ studied, week }: { studied: Studied; week: number }): Reac
         <Ends left="six months ago" right="this month" />
       </MonoCard>
     </div>
+  )
+}
+
+/**
+ * The year under the decks, as every Anki heatmap in the videos sits: a
+ * square a day, the darker the more cards, and above it the four numbers
+ * people quote (Ray's frame): the streak now, the longest, reviews on an
+ * average day, and the share of days studied. Drawn at once, never grown in,
+ * so the page is still when it shows; the day pointed at is said in a line
+ * whose room is kept.
+ */
+export function StudyYear(): React.JSX.Element {
+  const studied = useLive(() => window.api.haligtree('study:stats') as Promise<Studied>, null as Studied | null, [], ['item'])
+  const [on, setOn] = useState<string | null>(null)
+  const weeks = 53
+  // Whole weeks, Monday at the top, ending on this week: today sits in the last column.
+  const start = dayjs().startOf('day').subtract((dayjs().day() + 6) % 7, 'day').subtract(weeks - 1, 'week')
+  const days = Array.from({ length: weeks * 7 }, (_, at) => start.add(at, 'day')).map((at) => ({ day: at.format('YYYY-MM-DD'), later: at.isAfter(dayjs(), 'day') }))
+  const most = Math.max(1, ...Object.values(studied?.year ?? {}))
+  const share = studied && studied.days.of ? Math.round((studied.days.reviewed / studied.days.of) * 100) : 0
+  const numbers: [string, string][] = [
+    [plural(studied?.streak.current ?? 0, 'day', 'days'), 'streak now'],
+    [plural(studied?.streak.longest ?? 0, 'day', 'days'), 'longest streak'],
+    [plural(studied?.average ?? 0, 'card', 'cards'), 'a day, on days studied'],
+    [`${share}%`, 'of days studied']
+  ]
+  return (
+    <section data-study-year-map aria-label="A year of study" className="grid gap-3 rounded-[5px] border border-foreground/10 bg-accent/25 p-4">
+      <div data-year-numbers className="grid grid-cols-2 gap-x-6 gap-y-2 sm:grid-cols-4">
+        {numbers.map(([value, label]) => (
+          <p key={label} data-year-number={label} className="grid">
+            <span className="font-serif text-xl leading-tight text-foreground tabular-nums">{value}</span>
+            <span className="text-sm text-muted-foreground">{label}</span>
+          </p>
+        ))}
+      </div>
+      <div data-year-grid className="grid gap-[2px]" style={{ gridTemplateColumns: `repeat(${weeks}, minmax(0, 1fr))`, gridTemplateRows: 'repeat(7, auto)', gridAutoFlow: 'column' }} onPointerLeave={() => setOn(null)}>
+        {days.map((one) => {
+          const n = studied?.year[one.day] ?? 0
+          return (
+            <span key={one.day} data-day={one.day} data-n={n} onPointerEnter={() => setOn(one.later ? null : `${plural(n, 'review', 'reviews')}, ${dayWords(one.day)}`)}
+              className="aspect-square w-full rounded-[2px]"
+              style={{ background: one.later ? 'transparent' : n ? `color-mix(in oklab, var(--foreground) ${Math.round(25 + 70 * Math.min(1, n / most))}%, transparent)` : 'color-mix(in oklab, var(--foreground) 7%, transparent)' }} />
+          )
+        })}
+      </div>
+      <p data-year-said className="flex h-5 items-center justify-between gap-3 text-sm text-muted-foreground tabular-nums">
+        <span className="min-w-0 truncate">{on ?? 'A square a day, the darker the more cards.'}</span>
+        <span className="shrink-0">{plural(Object.values(studied?.year ?? {}).reduce((sum, n) => sum + n, 0), 'review', 'reviews')} this year</span>
+      </p>
+    </section>
   )
 }

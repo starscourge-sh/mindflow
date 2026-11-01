@@ -141,7 +141,7 @@ function Card({ nudge, onDone }: { nudge: Nudge; onDone: () => void }): React.JS
         )}
         {nudge.kind === 'review' && (
           <>
-            <button type="button" data-nudge-review onClick={() => act(() => haligtree.reviewSeen().then(() => window.api.openInHome('view', 'review')), 'open')} className={PRIMARY}>Review now</button>
+            <button type="button" data-nudge-review onClick={() => act(() => haligtree.reviewSeen().then(() => window.api.openInHome('view', 'review', ':today')), 'open')} className={PRIMARY}>Review now</button>
             <button type="button" data-nudge-later onClick={() => act(() => haligtree.reviewLater(3600_000), 'fold')} className={WORD}>In an hour</button>
           </>
         )}

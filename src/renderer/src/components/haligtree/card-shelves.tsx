@@ -239,9 +239,9 @@ export function EmptyPocket({ deck, onPaste }: { deck: string; /** Paste cards i
         <div className="mf-glass absolute inset-x-0 bottom-0 z-10 flex h-[46%] flex-col items-center justify-center gap-1.5 overflow-hidden rounded-xl px-4" style={{ '--tint': tint } as React.CSSProperties}>
           <Front name={name} tint={tint} quiet />
           <Screws />
-          <span className="relative text-control text-foreground">Paste cards or make one</span>
+          <span className="relative text-control text-foreground">Make a card or add many at once</span>
           <span className="relative flex gap-1.5">
-            <button type="button" data-pocket-paste onClick={() => (chime('open'), onPaste(false))} className="cursor-pointer rounded-md bg-background/85 px-2 py-0.5 text-xs font-medium text-foreground hover:bg-background">Paste cards</button>
+            <button type="button" data-pocket-paste onClick={() => (chime('open'), onPaste(false))} className="cursor-pointer rounded-md bg-background/85 px-2 py-0.5 text-xs font-medium text-foreground hover:bg-background">Add many</button>
             <button type="button" data-pocket-make onClick={() => (chime('open'), onPaste(true))} className="cursor-pointer rounded-md bg-background/85 px-2 py-0.5 text-xs font-medium text-foreground hover:bg-background">Make one</button>
           </span>
         </div>

@@ -660,7 +660,7 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
             {title === 'Inbox' && cleared?.how === 'binned' ? (
               <InboxBinned left={cleared.left} />
             ) : title === 'Inbox' && cleared ? (
-              <InboxZero onReview={() => window.api.openInHome('view', 'review')} onRead={() => readQueue(0)} />
+              <InboxZero onReview={() => window.api.openInHome('view', 'review', ':today')} onRead={() => readQueue(0)} />
             ) : title === 'Inbox' ? (
               older.length ? (
               <Empty title={`Nothing from the last ${days === 1 ? 'day' : `${days} days`}`}>

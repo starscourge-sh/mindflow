@@ -45,6 +45,7 @@ import { tryCelebration } from './celebrate'
 import { drawingFor } from './grain'
 import { PageContents } from './page-contents'
 import { ReaderCard } from './reader-card'
+import { DeckFace } from './deck-shelf'
 import { CoverChoice, DimPreview, FolderStrips, InFinder, isBuiltInScenery } from './settings-looks'
 import { builtInScenery } from '@/lib/built-in-scenery'
 import { sourceOf } from '../../../../main/moment-source'
@@ -693,6 +694,10 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
             <Switch checked={settings.thumbnails !== false} onCheckedChange={(thumbnails) => set({ thumbnails })} />
           </Setting>
           <Setting title="Covers" note="What a note with no picture of its own wears on its card and row." more="Each is tinted to the note's colour." keywords="covers cover drawings paper sketch gradients tiles thumbnails grid cards placeholder folder grain" below={<CoverChoice settings={settings} set={set} />} />
+          <Setting title="Shapes on decks" note="In Review, each deck wears a coloured shape drawn from its name. Off, every deck is a plain box in your theme's tone, its due count large." keywords="decks deck covers shapes coolshapes pockets review cards colour plain">
+            <span data-deck-shapes-sample className="flex items-center gap-1.5"><DeckFace name="Biology" due={12} fresh={30} shapes={settings.deckShapes === true} small /></span>
+            <Switch aria-label="Shapes on decks" checked={settings.deckShapes === true} onCheckedChange={(deckShapes) => set({ deckShapes })} />
+          </Setting>
           <Setting title="Your photo" note="Your face in the Feed, on your replies and wherever you are shown. Without one, you wear your shape." keywords="profile photo picture avatar face me you owner portrait upload"
             below={<YourProfile bio={settings.bio ?? ''} setBio={(bio) => set({ bio })} />} />
           <Setting title="Avatars" note="The face a source, or you, wears in the Feed and on a source's page until you give it a picture." more="“Shapes” gives each name its own shape from Coolshapes, tinted by your theme; the same name always wears the same one." keywords="avatars faces initials shapes coolshapes circles people sources feed accounts"
