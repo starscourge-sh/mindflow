@@ -142,11 +142,11 @@ body[data-sticky] :has(> .tiptap-toolbar [aria-label="Delete image"]) {
 // it (the hue lightened toward white) laid over the paper, so it stays clean
 // rather than muddying the warm paper toward grey.
 :root[data-tint] {
-  --mf-paper-tint: color-mix(in oklab, var(--mf-tint-hue) 16%, transparent);
+  --mf-paper-tint: color-mix(in oklab, var(--mf-tint-hue) 26%, transparent);
 }
 
 :root[data-light][data-tint] {
-  --mf-paper-tint: color-mix(in oklab, color-mix(in oklab, var(--mf-tint-hue) 30%, white) 80%, transparent);
+  --mf-paper-tint: color-mix(in oklab, color-mix(in oklab, var(--mf-tint-hue) 46%, white) 85%, transparent);
 }
 
 // A single to-do ticked: its "Done" comes up into place with a little lift,
