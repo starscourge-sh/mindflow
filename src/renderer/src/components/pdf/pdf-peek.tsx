@@ -1,4 +1,5 @@
 import * as React from "react"
+import { createPortal } from "react-dom"
 import { stepTap } from "@/lib/haptics"
 import { FLOAT } from "@/lib/float"
 import { cn } from "@/lib/cn"
@@ -108,6 +109,23 @@ function pdfAt(element: Element | null): (Named & { target: HTMLElement }) | nul
   return { target: link, src: found[1], name: hash.get("name") ?? "", first: Number(hash.get("page")) || 1 }
 }
 
+/** How long the pointer rests on a cover before sliding across it turns its pages: a sweep across a shelf of 500 books never sets one off. */
+export const GRACE = 600
+/** How far the pointer slides sideways, once rested, before the cover turns into a page. */
+const SLIDE = 4
+
+/**
+ * A cover big enough to be a page itself (a book on the shelf, a Media tile):
+ * the element inside the pointed-at one that carries `data-pdf-peek-scrub`.
+ * Smaller covers (a PDF's card in a note, Continue reading) are too small to
+ * read a page on, so they show the card, after the same rest.
+ */
+const scrubBoxOf = (target: HTMLElement): HTMLElement | null => (target.matches("[data-pdf-peek-scrub]") ? target : target.querySelector<HTMLElement>("[data-pdf-peek-scrub]"))
+const isThumb = (target: HTMLElement): boolean => target.matches(".tiptap-pdf-cover, .continue-book-cover")
+
+/** A cover turned into one of its pages in place, as a video's frame shows under the pointer. */
+type Scrub = { box: HTMLElement; src: string; name: string; count: number; page: number; image: string | null; from: number; moved: boolean }
+
 type Peek = { src: string; name: string; x: number; top: number; bottom: number; count: number; first: number; page: number; image: string | null; ratio: number }
 
 /**
@@ -128,6 +146,10 @@ export function PdfPeek(): React.JSX.Element | null {
   const wanted = React.useRef(0)
   /** What the card is placed against: a PDF's whole card in a note, else the link itself. */
   const around = React.useRef<Element | null>(null)
+  const [scrub, setScrub] = React.useState<Scrub | null>(null)
+  const scrubbing = React.useRef<Scrub | null>(null)
+  scrubbing.current = scrub
+  const rest = React.useRef(0)
 
   React.useEffect(() => {
 
@@ -155,13 +177,44 @@ export function PdfPeek(): React.JSX.Element | null {
         if (first !== 1) void turn(src, first)
       })
     }
+    // Where the pointer is, for a cover armed after its rest to start from.
+    let pointerX = 0
+    const track = (event: PointerEvent): void => void (pointerX = event.clientX)
+    /** Rested on a big cover: it is armed, and the first slide sideways turns it into a page. Nothing shows before. */
+    const arm = (target: HTMLElement, box: HTMLElement, { src, name }: Named): void => {
+      on.current = target
+      around.current = target
+      setScrub(null)
+      clearTimeout(rest.current)
+      rest.current = window.setTimeout(() => {
+        if (on.current !== target) return
+        const from = pointerX
+        void loadPdf(src)
+          .then((doc) => {
+            if (on.current !== target) return
+            setScrub({ box, src, name, count: doc.numPages, page: 1, image: null, from, moved: false })
+            climb(src, doc.numPages, 1)
+          })
+          .catch(() => undefined)
+      }, GRACE)
+    }
     const over = (event: PointerEvent): void => {
       // Never over a menu: one open is what is being read (lib/menu-showing.ts).
       if (menuShowing()) return
       // A button held down is a press or the start of a drag: no card comes up under it.
       if (event.buttons) return away()
       const found = pdfAt(event.target as Element | null)
-      if (found && found.target !== on.current && !card.current?.contains(found.target)) show(found.target, found)
+      if (!found || found.target === on.current || card.current?.contains(found.target)) return
+      const box = scrubBoxOf(found.target)
+      if (box) return arm(found.target, box, found)
+      // A small cover: the card, after the same rest, so a sweep past never brings one up.
+      if (isThumb(found.target)) {
+        clearTimeout(rest.current)
+        on.current = found.target
+        rest.current = window.setTimeout(() => void (on.current === found.target && ((on.current = null), show(found.target, found))), GRACE)
+        return
+      }
+      show(found.target, found)
     }
     const out = (event: PointerEvent): void => {
       if (!on.current) return
@@ -170,10 +223,32 @@ export function PdfPeek(): React.JSX.Element | null {
       if (next && (on.current.contains(next) || around.current?.contains(next) || card.current?.contains(next))) return
       away()
     }
-    const away = (): void => ((on.current = null), setPeek(null))
+    const away = (): void => {
+      clearTimeout(rest.current)
+      on.current = null
+      setPeek(null)
+      setScrub(null)
+    }
     // Along the link's own words the pages turn too, no need to move onto the
     // card: its left edge is the link's own page (or the cover), its right the last.
     const along = (event: PointerEvent): void => {
+      track(event)
+      const turning = scrubbing.current
+      if (turning) {
+        if (!on.current?.contains(event.target as Node)) return
+        if (!turning.moved && Math.abs(event.clientX - turning.from) < SLIDE) return
+        const r = turning.box.getBoundingClientRect()
+        const page = Math.min(turning.count, Math.max(1, Math.floor(((event.clientX - r.left) / r.width) * turning.count) + 1))
+        if (turning.moved && page === turning.page) return
+        stepTap(page, 1, turning.count)
+        const image = drawn.get(`${turning.src}#${page}`) ?? nearestDrawn(turning.src, page, turning.count) ?? turning.image
+        const next = { ...turning, page, image, moved: true }
+        scrubbing.current = next
+        setScrub(next)
+        void (page === 1 ? pdfCover(turning.src).then((cover) => cover?.image ?? null) : pageImage(turning.src, page)).then((made) =>
+          setScrub((now) => (now && now.src === turning.src && now.page === page ? { ...now, image: made } : now)))
+        return
+      }
       const target = on.current
       const now = shown.current
       if (!target || !now || !target.contains(event.target as Node)) return
@@ -191,6 +266,7 @@ export function PdfPeek(): React.JSX.Element | null {
     const stop = hideForMenus(away)
     return () => {
       stop()
+      clearTimeout(rest.current)
       removeEventListener("pointerover", over, true)
       removeEventListener("pointerout", out, true)
       removeEventListener("pointermove", along, true)
@@ -212,13 +288,27 @@ export function PdfPeek(): React.JSX.Element | null {
     setPeek((now) => (now && now.src === src && now.page === page ? { ...now, image } : now))
   }
 
-  if (!peek) return null
+  // The cover itself as the page: its picture and "71 / 336" on it, over the cover's own box; leaving puts the cover back.
+  const inPlace = scrub?.moved
+    ? createPortal(
+        <span data-pdf-scrub className={cn("pdf-scrub", paper && "is-paper")} aria-hidden>
+          {scrub.image ? <img src={scrub.image} alt="" draggable={false} /> : null}
+          <span data-pdf-scrub-page className="pdf-scrub-page">
+            {scrub.page} / {scrub.count}
+          </span>
+        </span>,
+        scrub.box,
+      )
+    : null
+  if (!peek) return inPlace
   const height = Math.round(CARD * peek.ratio)
   const above = peek.top - height - 16 > 8
   // A clear strip of GAP between card and link belongs to the card, so the
   // pointer crosses from one to the other without leaving either.
   const GAP = 8
   return (
+    <>
+    {inPlace}
     <div
       ref={card}
       data-pdf-peek-card
@@ -242,5 +332,6 @@ export function PdfPeek(): React.JSX.Element | null {
         </span>
       </div>
     </div>
+    </>
   )
 }

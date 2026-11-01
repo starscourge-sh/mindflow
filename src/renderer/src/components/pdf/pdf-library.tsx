@@ -81,7 +81,7 @@ function BookCard({ one, picked, onPick, onOpen }: { one: Book; picked: boolean;
   const read = percent(one)
   return (
     <button type="button" role="option" aria-selected={picked} data-book={one.src} className={`pdf-book${picked ? " is-picked" : ""}`} onClick={onPick} onDoubleClick={onOpen} onKeyDown={(event) => event.key === "Enter" && onOpen()}>
-      <span className="pdf-book-cover" data-pdf-peek={one.src} data-pdf-peek-name={one.name}>
+      <span className="pdf-book-cover" data-pdf-peek={one.src} data-pdf-peek-name={one.name} data-pdf-peek-scrub="">
         {cover?.image ? <img src={cover.image} alt="" draggable={false} /> : <span className="pdf-book-blank"><BookOpen className="size-6" /></span>}
         {read !== null && (
           <span className="pdf-book-progress" aria-label={`Read ${read}%`}>

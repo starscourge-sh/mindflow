@@ -6,6 +6,7 @@ import { smallPicture } from '@/lib/notes'
 import { headingIn } from '@/lib/capture-links'
 import { usePdfCover } from '@/components/pdf/pdf-cover'
 import { PdfLibrary } from '@/components/pdf/pdf-library'
+import { GRACE } from '@/components/pdf/pdf-peek'
 import { canSplit, openAside } from '@/lib/split'
 import { chime } from '@/lib/sound'
 import { Empty, Page, refuse, toast, VirtualList } from './ui'
@@ -148,6 +149,8 @@ function Face({ one, cover }: { one: Media; cover?: string }): React.JSX.Element
   // A PDF's face is its cover, drawn by the reader's own renderer (Quick Look often draws none).
   const small = one.kind === 'pdf' ? cover ?? null : thumb
   const [moving, setMoving] = useState(false)
+  const rest = useRef(0)
+  useEffect(() => () => clearTimeout(rest.current), [])
   // Asked for only once the tile is drawn: a row of the grid out of sight never asks.
   useEffect(() => {
     if (one.kind === 'audio' || one.kind === 'pdf') return
@@ -159,8 +162,9 @@ function Face({ one, cover }: { one: Media; cover?: string }): React.JSX.Element
   if (one.kind === 'audio') return <span className={frame}><AudioFace one={one} /></span>
   if (small)
     return (
-      // A GIF stands still until pointed at, then moves: a page of them never runs at once.
-      <span className={frame} onPointerEnter={() => one.kind === 'gif' && setMoving(true)} onPointerLeave={() => setMoving(false)}>
+      // A GIF stands still until rested on (the same grace as a book's cover), then moves: a page of them never runs at once, and a sweep across sets none off.
+      // A PDF's cover turns into its pages in place when rested on and slid across (pdf-peek.tsx).
+      <span className={frame} data-pdf-peek-scrub={one.kind === 'pdf' ? '' : undefined} onPointerEnter={() => one.kind === 'gif' && (clearTimeout(rest.current), (rest.current = window.setTimeout(() => setMoving(true), GRACE)))} onPointerLeave={() => (clearTimeout(rest.current), setMoving(false))}>
         <img src={moving ? one.src : small} alt="" draggable={false} decoding="async" className={`size-full ${one.kind === 'pdf' ? 'object-contain bg-white' : 'object-cover'} animate-in fade-in-0 duration-200`} />
         {one.kind !== 'picture' && <span className="absolute bottom-1.5 left-1.5 rounded bg-background px-1.5 py-px text-xs font-medium">{WORD[one.kind]}</span>}
       </span>

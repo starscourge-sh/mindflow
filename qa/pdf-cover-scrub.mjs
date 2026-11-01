@@ -1,0 +1,95 @@
+// A book's cover on the shelf turns into its pages in place, YouTube-preview
+// style: a sweep across covers sets nothing off; resting on one about 0.6s and
+// then sliding sideways turns the cover into that page with "n / 20" on it, and
+// no second floating card comes up; leaving puts the cover back. A frame every
+// 50ms through rest, slide and leave, light and dark. A Media tile does the same.
+//   QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 QA_ARGS=--sandbox SHOT=/tmp/scrub node qa/pdf-cover-scrub.mjs
+import { mkdirSync } from 'fs'
+import { PDFDocument, StandardFonts } from 'pdf-lib'
+import { checks } from './harness.mjs'
+import { sandbox } from './sandbox-lib.mjs'
+process.env.QA_ARGS ??= '--sandbox'
+const SHOT = process.env.SHOT ?? '/tmp/pdf-cover-scrub'
+mkdirSync(`${SHOT}-frames`, { recursive: true })
+const { check, done } = checks()
+
+const makePdf = async (title) => {
+  const pdf = await PDFDocument.create()
+  pdf.setTitle(title)
+  const font = await pdf.embedFont(StandardFonts.Helvetica)
+  for (let n = 1; n <= 20; n++) pdf.addPage([300, 400]).drawText(`${title} page ${n}`, { x: 30, y: 300, size: 22, font })
+  return [...(await pdf.save())]
+}
+
+const c = await sandbox({ width: 1440, height: 900 })
+const { h, v, go } = c
+const wait = (ms) => h.waitForTimeout(ms)
+const state = () => h.evaluate(() => ({ scrub: !!document.querySelector('[data-pdf-scrub]'), inCover: !!document.querySelector('.pdf-book-cover [data-pdf-scrub], [data-media] [data-pdf-scrub]'), chip: document.querySelector('[data-pdf-scrub-page]')?.textContent ?? '', card: !!document.querySelector('[data-pdf-peek-card]') }))
+try {
+  await v('settings:set', { sounds: false, hintRate: 0 })
+  await v('onboarding:set', { welcomed: new Date().toISOString(), newsSeen: true, welcoming: false, pageHints: false })
+  const content = []
+  for (const title of ['Alpha', 'Beta', 'Gamma']) {
+    const src = await h.evaluate((bytes) => window.api.saveFile('book.pdf', new Uint8Array(bytes)), await makePdf(title))
+    content.push({ type: 'attachment', attrs: { src, name: `${title}.pdf`, size: 900 } })
+  }
+  await h.evaluate((b) => window.api.captures.create({ kind: 'note', body: b }), { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Shelf' }] }, ...content] })
+  await h.reload(); await wait(1500)
+  await go('media'); await wait(1000)
+  await h.locator('[data-page=media] [data-media-kinds] button', { hasText: 'PDFs' }).first().click(); await wait(2500)
+  const covers = await h.evaluate(() => [...document.querySelectorAll('.pdf-book-cover')].map((one) => { const r = one.getBoundingClientRect(); return { x: r.left, y: r.top, w: r.width, h: r.height } }))
+  check('three covers on the shelf', covers.length === 3, String(covers.length))
+  const [a, , last] = covers
+  const mid = (one) => ({ x: one.x + one.w / 2, y: one.y + one.h / 2 })
+
+  // A sweep across the shelf: through every cover in 300ms, nothing comes up.
+  await h.mouse.move(a.x - 20, mid(a).y)
+  let seen = false
+  for (let x = a.x - 20; x <= last.x + last.w + 20; x += 25) {
+    await h.mouse.move(x, mid(a).y); await wait(15)
+    const now = await state(); if (now.scrub || now.card) seen = true
+  }
+  await wait(700)
+  const after = await state()
+  check('a sweep across the covers sets nothing off', !seen && !after.scrub && !after.card, JSON.stringify(after))
+  await h.mouse.move(5, 450); await wait(300)
+
+  // Rest on the first cover, then slide: frames every 50ms, light and dark.
+  for (const theme of ['light', 'dark']) {
+    await c.look(theme)
+    await h.mouse.move(a.x + 10, mid(a).y)
+    const clip = { x: a.x - 10, y: a.y - 10, width: a.w + 200, height: a.h + 60 }
+    const frames = []
+    for (let i = 0; i < 14; i++) { await wait(50); frames.push(await state()); await h.screenshot({ path: `${SHOT}-frames/${theme}-rest-${String(i).padStart(2, '0')}.png`, clip }) }
+    check(`${theme}: resting alone changes nothing (no card, the cover stays)`, frames.every((one) => !one.scrub && !one.card), JSON.stringify(frames.filter((one) => one.scrub || one.card)))
+    for (let i = 1; i <= 12; i++) {
+      await h.mouse.move(a.x + 10 + (i * (a.w - 20)) / 12, mid(a).y); await wait(50)
+      frames.push(await state())
+      await h.screenshot({ path: `${SHOT}-frames/${theme}-slide-${String(i).padStart(2, '0')}.png`, clip })
+    }
+    const sliding = frames.slice(14)
+    check(`${theme}: sliding after the rest turns the cover itself into the page, "n / 20" on it`, sliding.at(-1).inCover && /^\d+ \/ 20$/.test(sliding.at(-1).chip), JSON.stringify(sliding.at(-1)))
+    check(`${theme}: the pages turn as it slides (from low to high)`, Number(sliding.at(-1).chip.split(' ')[0]) > Number(sliding[1]?.chip.split(' ')[0] || 0), sliding.map((one) => one.chip).join(','))
+    check(`${theme}: never a second floating card`, frames.every((one) => !one.card), '')
+    await h.mouse.move(5, 450)
+    for (let i = 0; i < 4; i++) { await wait(50); await h.screenshot({ path: `${SHOT}-frames/${theme}-leave-${i}.png`, clip }) }
+    check(`${theme}: leaving puts the cover back`, !(await state()).scrub, '')
+  }
+  await c.look('light')
+
+  // A Media tile: the same, under All.
+  await h.locator('[data-page=media] [data-media-kinds] button', { hasText: 'PDFs' }).first().click(); await wait(1500)
+  const tile = await h.evaluate(() => { const r = document.querySelector('[data-media=pdf] [data-pdf-peek-scrub]')?.getBoundingClientRect(); return r && { x: r.left, y: r.top, w: r.width, h: r.height } })
+  check('a Media tile of a PDF can turn its pages too', !!tile, '')
+  if (tile) {
+    await h.mouse.move(tile.x + 10, tile.y + tile.h / 2); await wait(750)
+    for (let i = 1; i <= 6; i++) { await h.mouse.move(tile.x + 10 + i * 20, tile.y + tile.h / 2); await wait(60) }
+    const t = await state()
+    check('the tile turns into the page in place, no card', t.inCover && !t.card && /\/ 20$/.test(t.chip), JSON.stringify(t))
+    await h.screenshot({ path: `${SHOT}-tile.png` })
+  }
+} catch (error) {
+  check('ran without throwing', false, String(error?.stack ?? error))
+}
+await c.close()
+done()
