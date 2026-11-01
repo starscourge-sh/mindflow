@@ -209,74 +209,56 @@ export function liftFrom(from: HTMLElement | null, home: Home): (() => void) | u
   }
 }
 
-/**
- * Let go, shown: a copy of the card feeds down through a slit and comes out
- * the other side as strips, each curling its own way as it drops and fades,
- * as paper does from a shredder (after reactbits' Shredder, without the drag:
- * here a discard is a key or a click). Like `lift`, call it before the change;
- * it returns a `land` for once the change is made.
- */
-/** How long a strip takes to fall: about one and a half times the first cut, which went by too fast to see. */
-const SHRED_MS = 420
 /** Quick capture's window: no view of its own in the address. */
 const inBox = (): boolean => !/[?&](view|note|drawing)=/.test(location.search)
 
+/**
+ * The sidebar's Bin, when it can be seen: where a ball of paper is tossed.
+ * With the sidebar away, the button that brings it back; otherwise nothing,
+ * and the ball drops off the foot of the window instead.
+ */
+function binRow(): Landing | null {
+  for (const to of [...document.querySelectorAll<HTMLElement>('[data-side-row][aria-label="Bin"], [data-home-away]')].filter((el) => el.offsetParent !== null)) {
+    const box = seen(to)
+    if (box && onTop(to, box)) return { end: box, nod: pulse(to) }
+  }
+  return null
+}
+
+/**
+ * Moved to the Bin, shown: a copy of the row scrunches into a ball where it
+ * was (about 300ms), then tumbles into the sidebar's Bin, which nods as it
+ * lands; with no Bin in sight it drops off the window's foot. The same for
+ * every list, every kind and every way there but a key (`moveToBin`,
+ * `closeTask`, a capture let go). Like `lift`, call it before the change; it
+ * returns a `land` for once the change is made.
+ */
 export const shred = (id: string): (() => void) | undefined =>
-  shredFrom(document.querySelector<HTMLElement>(`[data-id="${CSS.escape(id)}"]`))
+  // The one on screen: the same id can also be on a row out of sight (a fold shut, a list behind).
+  shredFrom([...document.querySelectorAll<HTMLElement>(`[data-id="${CSS.escape(id)}"]`)].find((one) => seen(one)) ?? null)
 
 /** `shred` for a card found another way: a practice's row, the hint card. */
-export function shredFrom(from: HTMLElement | null): (() => void) | undefined {
-  // By a key, it simply goes: discarding is done many times a day.
-  if (byKeys()) return undefined
-  // Only what is on screen of it is shredded, so no strip falls from behind the list's edge.
-  const shot = snapshot(from)
-  if (!shot) return undefined
-  const { box, picture, x, y } = shot
-  return () => {
-    // Narrow as a shredder cuts, whatever the width: a long row is many strips, not a few blocks.
-    // Twice as many as before (16 to 24), so it reads as shredded, not cut in a few.
-    const strips = Math.max(16, Math.min(24, Math.round(box.width / 7)))
-    const width = box.width / strips
-    for (let n = 0; n < strips; n++) {
-      const strip = document.createElement('div')
-      Object.assign(strip.style, {
-        position: 'fixed', left: `${box.left + n * width}px`, top: `${box.top}px`, width: `${width - 0.5}px`, height: `${box.height}px`,
-        zIndex: '60', pointerEvents: 'none', overflow: 'hidden', borderRadius: '1px',
-        // Paper: the card's own colour, a hairline shadow so each strip reads as a thing.
-        backgroundImage: 'linear-gradient(var(--popover), var(--popover))', backgroundColor: 'Canvas',
-        boxShadow: '0 1px 2px rgb(0 0 0 / 0.18)'
-      })
-      const piece = picture.cloneNode(true) as HTMLElement
-      piece.style.transform = `translate(${x - n * width}px, ${y}px)`
-      strip.append(piece)
-      document.body.append(strip)
-      const turn = (Math.random() * 2 - 1) * 14
-      const fall = box.height * 1.6 + 40 + Math.random() * 60
-      // Fed in together, a short drop as the blades take it; then each strip
-      // comes apart, curling its own way and falling faster as it goes.
-      void strip.animate(
-        [
-          { transform: 'translateY(0) rotate(0deg)', opacity: 1, easing: EASING },
-          { transform: `translateY(${Math.min(10, box.height * 0.15)}px) rotate(0deg)`, opacity: 1, offset: 0.2, easing: IN_OUT },
-          { transform: `translateY(${fall * 0.45}px) rotate(${turn * 0.6}deg) skewY(${turn * 0.3}deg)`, opacity: 1, offset: 0.65, easing: 'linear' },
-          { transform: `translateY(${fall}px) rotate(${turn}deg) skewY(${turn * 0.5}deg)`, opacity: 0 }
-        ],
-        // Each stage its own timing (above): a whole-run ease made them drop and vanish at once.
-        // Slow enough to see the strips part; slower still in quick capture, whose short rows feed through in no time.
-        { duration: SHRED_MS * (inBox() ? 1.25 : 1), delay: (n % 2) * 14 + Math.random() * 28, easing: 'linear', fill: 'forwards' }
-      ).finished.then(() => strip.remove(), () => strip.remove())
-    }
-  }
+export const shredFrom = (from: HTMLElement | null): (() => void) | undefined => crumpleFrom(from, 'bin')
+
+/** How long the scrunch takes, and how long the ball takes to reach the Bin. */
+const SCRUNCH_MS = 300
+const TOSS_MS = 280
+
+/** Ten points round the edge, pulled in by different amounts: the outline of a ball of paper. */
+const FLAT = '0% 0%, 50% 0%, 100% 0%, 100% 50%, 100% 100%, 50% 100%, 0% 100%, 0% 50%, 25% 25%, 75% 75%'
+export const ballOutline = (): string => {
+  const pull = (): number => 18 + Math.random() * 22
+  return `${pull()}% ${pull()}%, 50% ${pull() - 8}%, ${100 - pull()}% ${pull()}%, ${100 - pull() + 6}% 50%, ${100 - pull()}% ${100 - pull()}%, 50% ${100 - pull() + 8}%, ${pull()}% ${100 - pull()}%, ${pull() - 6}% 50%, 40% 40%, 60% 60%`
 }
 
 /**
  * Thrown away, shown: a copy of the sheet scrunches into a ball (its outline
  * crumpling inward, creases darkening, its words blurring as they fold under)
- * and is tossed off in a short arc (after reactbits' Paper Crumple, drawn
- * flat rather than in 3D). For a draft cleared, which goes nowhere; what goes
- * to the Bin is shredded instead. Like `lift`, before the change; returns a `land`.
+ * and is tossed: into the Bin (`to: 'bin'`, when the sidebar's Bin shows) or
+ * off in a short arc (a draft cleared, which goes nowhere). Drawn flat, with
+ * elements made for the motion and removed after it: nothing is left when idle.
  */
-export function crumpleFrom(from: HTMLElement | null): (() => void) | undefined {
+export function crumpleFrom(from: HTMLElement | null, to: 'bin' | 'away' = 'away'): (() => void) | undefined {
   if (byKeys()) return undefined
   const shot = snapshot(from)
   if (!shot) return undefined
@@ -289,26 +271,126 @@ export function crumpleFrom(from: HTMLElement | null): (() => void) | undefined 
       // A shade lighter than the page, so a ball of it reads as paper, not a hole.
       backgroundImage: 'linear-gradient(color-mix(in oklab, var(--foreground) 12%, var(--popover)), color-mix(in oklab, var(--foreground) 12%, var(--popover)))', backgroundColor: 'Canvas'
     })
+    sheet.setAttribute('data-crumple', to)
     sheet.append(picture)
     document.body.append(sheet)
-    // Ten points round the edge, pulled in by different amounts: the outline of a ball of paper.
-    const flat = '0% 0%, 50% 0%, 100% 0%, 100% 50%, 100% 100%, 50% 100%, 0% 100%, 0% 50%, 25% 25%, 75% 75%'
-    const pull = (): number => 18 + Math.random() * 22
-    const ball = `${pull()}% ${pull()}%, 50% ${pull() - 8}%, ${100 - pull()}% ${pull()}%, ${100 - pull() + 6}% 50%, ${100 - pull()}% ${100 - pull()}%, 50% ${100 - pull() + 8}%, ${pull()}% ${100 - pull()}%, ${pull() - 6}% 50%, 40% 40%, 60% 60%`
+    const ball = ballOutline()
     const size = Math.min(box.width, box.height)
     // Into a ball, whatever the sheet's shape: a long row squeezed only evenly stayed a ribbon.
-    const across = Math.min(1, 48 / box.width)
-    const down = Math.min(1, 48 / box.height)
+    const across = Math.min(1, 44 / box.width)
+    const down = Math.min(1, 44 / box.height)
     const turn = (Math.random() < 0.5 ? -1 : 1) * (18 + Math.random() * 14)
-    // Scrunched where it was, quickly; then tossed down and aside, falling faster as it goes.
-    picture.animate([{ filter: 'blur(0px)', opacity: 1 }, { filter: 'blur(1.5px)', opacity: 0.55 }], { duration: 120, easing: OUT, fill: 'forwards' })
+    const shade = `inset 0 0 ${size * 0.5}px rgb(0 0 0 / 0.32)`
+    const bin = to === 'bin' ? binRow() : null
+    // Where the ball goes: the Bin's middle, or down and aside off the foot.
+    const [dx, dy] = bin
+      ? [bin.end.left + bin.end.width / 2 - (box.left + box.width / 2), bin.end.top + bin.end.height / 2 - (box.top + box.height / 2)]
+      : [turn > 0 ? 70 : -70, Math.max(Math.min(size, 48) * 0.6 + 120, innerHeight - box.top + 40)]
+    const toss = bin ? TOSS_MS : TOSS_MS * 1.2
+    const all = (inBox() ? 1.15 : 1) * (SCRUNCH_MS + toss)
+    const at = SCRUNCH_MS / (SCRUNCH_MS + toss)
+    picture.animate([{ filter: 'blur(0px)', opacity: 1 }, { filter: 'blur(1.5px)', opacity: 0.55 }], { duration: SCRUNCH_MS * 0.5, easing: OUT, fill: 'forwards' })
     void sheet.animate(
       [
-        { clipPath: `polygon(${flat})`, transform: 'rotate(0deg) scale(1, 1)', boxShadow: 'inset 0 0 0 rgb(0 0 0 / 0)', opacity: 1, easing: EASING },
-        { clipPath: `polygon(${ball})`, transform: `rotate(${turn}deg) scale(${across}, ${down})`, boxShadow: `inset 0 0 ${size * 0.5}px rgb(0 0 0 / 0.32)`, opacity: 1, offset: 0.4, easing: IN_OUT },
-        { clipPath: `polygon(${ball})`, transform: `translate(${turn > 0 ? 70 : -70}px, ${Math.min(size, 48) * 0.6 + 120}px) rotate(${turn * 6}deg) scale(${across * 0.9}, ${down * 0.9})`, boxShadow: `inset 0 0 ${size * 0.5}px rgb(0 0 0 / 0.32)`, opacity: 0 }
+        { clipPath: `polygon(${FLAT})`, transform: 'translate(0px, 0px) rotate(0deg) scale(1, 1)', boxShadow: 'inset 0 0 0 rgb(0 0 0 / 0)', opacity: 1, easing: EASING },
+        { clipPath: `polygon(${ball})`, transform: `translate(0px, 0px) rotate(${turn}deg) scale(${across}, ${down})`, boxShadow: shade, opacity: 1, offset: at, easing: IN_OUT },
+        // Tossed: a little up first when it flies to the Bin, so it reads as thrown, not slid.
+        ...(bin ? [{ clipPath: `polygon(${ball})`, transform: `translate(${dx * 0.5}px, ${dy * 0.5 - 24}px) rotate(${turn * 3}deg) scale(${across * 0.8}, ${down * 0.8})`, boxShadow: shade, opacity: 1, offset: at + (1 - at) * 0.5 }] : []),
+        { clipPath: `polygon(${ball})`, transform: `translate(${dx}px, ${dy}px) rotate(${turn * 6}deg) scale(${across * (bin ? 0.45 : 0.9)}, ${down * (bin ? 0.45 : 0.9)})`, boxShadow: shade, opacity: bin ? 0.85 : 0 }
       ],
-      { duration: 300, easing: 'linear', fill: 'forwards' }
-    ).finished.then(() => sheet.remove(), () => sheet.remove())
+      { duration: all, easing: 'linear', fill: 'forwards' }
+    ).finished.then(() => (sheet.remove(), bin?.nod()), () => sheet.remove())
+  }
+}
+
+/**
+ * Taken back out of the Bin, shown: a copy of the row starts as a ball of
+ * paper and smooths flat where it was, then fades as the row leaves the Bin.
+ * By a key, or with motion off, it simply goes.
+ */
+export function uncrumpleFrom(from: HTMLElement | null): void {
+  if (byKeys()) return
+  const shot = snapshot(from)
+  if (!shot) return
+  const { box, picture } = shot
+  const sheet = document.createElement('div')
+  Object.assign(sheet.style, {
+    position: 'fixed', left: `${box.left}px`, top: `${box.top}px`, width: `${box.width}px`, height: `${box.height}px`,
+    zIndex: '60', pointerEvents: 'none', overflow: 'hidden', borderRadius: '6px',
+    backgroundImage: 'linear-gradient(color-mix(in oklab, var(--foreground) 6%, var(--popover)), color-mix(in oklab, var(--foreground) 6%, var(--popover)))', backgroundColor: 'Canvas'
+  })
+  sheet.setAttribute('data-crumple', 'back')
+  sheet.append(picture)
+  document.body.append(sheet)
+  const across = Math.min(1, 44 / box.width)
+  const down = Math.min(1, 44 / box.height)
+  const shade = `inset 0 0 ${Math.min(box.width, box.height) * 0.5}px rgb(0 0 0 / 0.28)`
+  picture.animate([{ filter: 'blur(1.5px)', opacity: 0.5 }, { filter: 'blur(0px)', opacity: 1 }], { duration: 260, easing: OUT, fill: 'forwards' })
+  void sheet.animate(
+    [
+      { clipPath: `polygon(${ballOutline()})`, transform: `rotate(-20deg) scale(${across}, ${down})`, boxShadow: shade, opacity: 1, easing: OUT },
+      { clipPath: `polygon(${FLAT})`, transform: 'rotate(0deg) scale(1, 1)', boxShadow: 'inset 0 0 0 rgb(0 0 0 / 0)', opacity: 1, offset: 0.7 },
+      { clipPath: `polygon(${FLAT})`, transform: 'rotate(0deg) scale(1, 1)', boxShadow: 'inset 0 0 0 rgb(0 0 0 / 0)', opacity: 0 }
+    ],
+    { duration: 380, easing: 'linear', fill: 'forwards' }
+  ).finished.then(() => sheet.remove(), () => sheet.remove())
+}
+
+/** How long a sticky is held before it is a ball, and how long before a press starts to crumple at all (a click never does). */
+export const HOLD_MS = 900
+const HOLD_WAIT_MS = 160
+
+/**
+ * Press and hold to throw away (a sticky): after a moment the sheet starts to
+ * crumple, more the longer it is held, so the hold is the confirmation. Let go
+ * early and it smooths flat again from wherever it got to; held to the end it
+ * is a ball, drops off the window's foot, and `done` is called, after which
+ * it smooths back out in its place. With motion off or Reduce motion it only
+ * fades as it is held. Gives back `release`, for the pointer let go or gone,
+ * and `held`, whether the press became a hold (so its click is not also a click).
+ */
+export function holdToCrumple(el: HTMLElement, done: () => void): { release: () => void; held: () => boolean } {
+  const flat = still()
+  let crumple: Animation | null = null
+  let finished = false
+  const wait = setTimeout(() => {
+    const box = el.getBoundingClientRect()
+    const across = Math.min(1, 52 / box.width)
+    const down = Math.min(1, 52 / box.height)
+    const turn = (Math.random() < 0.5 ? -1 : 1) * (14 + Math.random() * 10)
+    crumple = el.animate(flat
+      ? [{ opacity: 1 }, { opacity: 0.35 }]
+      : [
+          { clipPath: `polygon(${FLAT})`, transform: 'rotate(0deg) scale(1, 1)', boxShadow: 'inset 0 0 0 rgb(0 0 0 / 0)', filter: 'brightness(1)' },
+          { clipPath: `polygon(${ballOutline()})`, transform: `rotate(${turn}deg) scale(${across}, ${down})`, boxShadow: `inset 0 0 ${Math.min(box.width, box.height) * 0.4}px rgb(0 0 0 / 0.35)`, filter: 'brightness(0.94)' }
+        ],
+      // Slow at first and gathering, as a hand closing on paper: the start is still easy to take back.
+      { duration: HOLD_MS - HOLD_WAIT_MS, easing: 'cubic-bezier(0.5, 0, 0.75, 0.6)', fill: 'forwards' })
+    el.setAttribute('data-crumpling', '')
+    crumple.finished.then(() => {
+      finished = true
+      // A ball now: it drops off the foot of the window, and only then is it thrown away.
+      const fall = innerHeight - el.getBoundingClientRect().top + 40
+      const drop = flat
+        ? el.animate([{ opacity: 0.35 }, { opacity: 0 }], { duration: 120, fill: 'forwards' })
+        : el.animate([{ translate: '0 0' }, { translate: `0 ${fall}px` }], { duration: 260, easing: 'cubic-bezier(0.55, 0, 1, 0.45)', fill: 'forwards' })
+      drop.finished.then(() => {
+        done()
+        // Back in its place, smoothing out of the ball: the card now says where it went, with the way back.
+        drop.cancel()
+        crumple?.reverse()
+        crumple?.finished.then(() => (crumple?.cancel(), el.removeAttribute('data-crumpling')), () => undefined)
+      }, () => undefined)
+    }, () => undefined)
+  }, HOLD_WAIT_MS)
+  return {
+    held: () => crumple !== null,
+    release: () => {
+      clearTimeout(wait)
+      if (!crumple || finished) return
+      // Let go early: it smooths flat again from where it got to, quicker than it went.
+      crumple.playbackRate = -3
+      crumple.finished.then(() => (crumple?.cancel(), el.removeAttribute('data-crumpling')), () => undefined)
+    }
   }
 }

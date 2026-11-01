@@ -29,6 +29,8 @@ import { Signed } from './signature'
 import { cut } from '../../../../main/clip'
 import { X } from '@/components/ui/icons'
 import { EASING, still } from '@/lib/motion'
+import { holdToCrumple } from '@/lib/fly-home'
+import { moveToBin } from '@/lib/to-bin'
 import { APP_NAME } from '../../../../main/name'
 import { num } from '../../../../main/dates'
 
@@ -424,6 +426,12 @@ export function StickyNote({ type, id }: { type: string; id: string }): React.JS
   // The peel waits while the pointer rests on the card or it is hidden, so “Bring it back” is still there to reach.
   const peel = usePatience(gone === 'bin' ? 4000 : 2500, () => window.api.stick(type, id, false), !!gone)
   const card = useRef<HTMLDivElement>(null)
+  // A press on the X held long enough: the card is crumpled and thrown in the Bin (Bring it back, on the card, undoes it).
+  const holding = useRef<{ release: () => void; held: () => boolean } | null>(null)
+  const toBin = (): void => {
+    setAsking(false)
+    void moveToBin([{ type: note?.tier === 'capture' || type === 'capture' ? 'capture' : (note?.tier ?? type), id }])
+  }
   const tilt = tiltOf(id, Number(new URLSearchParams(location.search).get('nth')) || 0)
   useStickyMotion(card, GLASS ? 0 : tilt)
   // A box ticked here shows at once; the stored note takes over when it comes back.
@@ -651,8 +659,23 @@ export function StickyNote({ type, id }: { type: string; id: string }): React.JS
               onClick={() => (chime('tuck'), window.api.hideSticky(type, id, titleNow.current))} className={STICKY_BUTTON}>
               <Minus className="size-3.5" strokeWidth={2.25} />
             </button></Tip>
-            <Tip label="Take it off the desktop  ⌘W">
-            <button type="button" aria-label="Take it off the desktop" onClick={takeDown}
+            <Tip label="Take it off the desktop  ⌘W. Hold to put it in the Bin">
+            <button type="button" aria-label="Take it off the desktop" data-sticky-close
+              // Held, the card crumples more the longer the press, and at the end goes to the Bin; let go early, it smooths flat.
+              onPointerDown={(event) => {
+                if (event.button !== 0 || !card.current || gone) return
+                event.currentTarget.setPointerCapture(event.pointerId)
+                holding.current = holdToCrumple(card.current, toBin)
+              }}
+              onPointerUp={() => holding.current?.release()}
+              onPointerCancel={() => holding.current?.release()}
+              onLostPointerCapture={() => holding.current?.release()}
+              onClick={() => {
+                // A press that became a hold is not also a click.
+                const was = holding.current
+                holding.current = null
+                if (!was?.held()) takeDown()
+              }}
               className={`${STICKY_BUTTON} gap-1 ${asking ? 'w-auto px-1.5 text-xs text-foreground' : ''}`}>
               {asking && <Rolling by="word" text="Take down?" />}
               <X className="size-3.5" />
