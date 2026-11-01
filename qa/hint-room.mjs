@@ -206,8 +206,12 @@ try {
     }
   }
 
-  // Reading: a gem opened in the box from its hint's menu; opened again, the next hint waits while it is read.
-  await untilHint()
+  // Reading: a gem opened in the box from its hint's menu (a capture would open in the box to finish, not to read);
+  // opened again, the next hint waits while it is read.
+  for (let i = 0; i < 12; i++) {
+    await untilHint()
+    if ((await page.evaluate(() => document.querySelector('[data-hint-mark]')?.textContent.trim())) === 'Came back') break
+  }
   await page.click('[data-hint-words]', { button: 'right' }); await wait(400)
   await page.locator('[role=menu] [role=menuitem]', { hasText: 'Open it' }).first().click().catch(() => {})
   await wait(1000)
