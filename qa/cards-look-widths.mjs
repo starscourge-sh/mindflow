@@ -21,7 +21,8 @@ try {
   await waitFor(() => has('[data-deck-grid] [data-deck]'))
   for (const theme of ['everforest', 'paper']) {
     await look(theme)
-    for (const width of [900, 1100, 1300, 1600]) {
+    // Every 20 px from 700 to 1300 in the dark theme, and the four usual widths in Paper.
+    for (const width of theme === 'everforest' ? Array.from({ length: 31 }, (_, at) => 700 + at * 20) : [900, 1100, 1300, 1600]) {
       await c.size(width, 900)
       await h.waitForTimeout(700)
       const seen = await h.evaluate(() => {
@@ -43,17 +44,30 @@ try {
         // A word broken across two lines in a deck's name: its own range draws more than one box. Only a very long word may break, at
         // its soft hyphens, with a real hyphen; a name past two lines ends in "…" (its menu names it whole), so a clamped name is not read here.
         const broken = [...document.querySelectorAll('[data-deck-grid] [data-deck] h3')].flatMap((one) => { const text = one.firstChild; if (!text || text.nodeType !== 3) return []; const out = []; let at = 0; for (const word of text.textContent.split(' ')) { const range = document.createRange(); range.setStart(text, at); range.setEnd(text, at + word.length); const rects = [...range.getClientRects()].filter((r) => r.width > 0 && r.bottom <= one.getBoundingClientRect().bottom + 1); if (word.length > 1 && !word.includes('\u00AD') && one.scrollHeight <= one.clientHeight + 1 && rects.length > 1) out.push(word); at += word.length + 1 } return out })
-        return { broken, cut, ways, more, ownShown, numberRows: Object.values(numberRows), worst: Math.round(worst * 100) / 100, w: Math.round(tiles[0].width), h: Math.round(tiles[0].height), rows: new Set(tops).size, labels, coverage: box ? said : 'none', today: !!today, stripes: /repeating-linear-gradient/.test(bg) }
+        const make = bar.querySelector('[data-deck-make]')
+        const makeShown = !!make?.offsetParent && make.getBoundingClientRect().width > 0
+        const study = document.querySelector('[data-study-now]').getBoundingClientRect().height
+        const button = make.getBoundingClientRect().height
+        const feet = [...document.querySelectorAll('[data-deck-foot]')].filter((one) => one.getBoundingClientRect().height > 24).length
+        const side = document.querySelector('aside[data-chrome]')
+        const railTop = side ? Math.round(side.getBoundingClientRect().top) : -1
+        const railNarrow = side ? side.getBoundingClientRect().width < 80 : false
+        const railIcons = [...document.querySelectorAll('[data-rail-folders] svg')].map((one) => one.getAttribute('class'))
+        return { makeShown, study, button, feet, railTop, railNarrow, railIcons, broken, cut, ways, more, ownShown, numberRows: Object.values(numberRows), worst: Math.round(worst * 100) / 100, w: Math.round(tiles[0].width), h: Math.round(tiles[0].height), rows: new Set(tops).size, labels, coverage: box ? said : 'none', today: !!today, stripes: /repeating-linear-gradient/.test(bg) }
       })
       check(`${theme} ${width}: tiles square-ish (within 6%)`, seen.worst <= 0.06, JSON.stringify({ worst: seen.worst, w: seen.w, h: seen.h }))
       check(`${theme} ${width}: the toolbar is one row, nothing cut off, the tab's own controls all shown`, seen.rows === 1 && !seen.cut.length && seen.ownShown, JSON.stringify({ rows: seen.rows, cut: seen.cut, ownShown: seen.ownShown }))
       check(`${theme} ${width}: the ways in that do not fit fold into More, in order`, seen.ways === 4 ? !seen.more : seen.more && seen.ways >= 0, JSON.stringify({ ways: seen.ways, more: seen.more }))
+      check(`${theme} ${width}: "Make a card" never folds`, seen.makeShown)
+      check(`${theme} ${width}: "Study now" no taller than the toolbar's buttons`, seen.study <= seen.button + 0.5, JSON.stringify({ study: seen.study, button: seen.button }))
+      check(`${theme} ${width}: a deck tile's foot is one line`, seen.feet === 0, String(seen.feet))
+      if (seen.railNarrow) check(`${theme} ${width}: the icon rail starts below the traffic lights, its two folder icons differ`, seen.railTop >= 34 && new Set(seen.railIcons).size === seen.railIcons.length, JSON.stringify({ top: seen.railTop, icons: seen.railIcons }))
       check(`${theme} ${width}: no deck name breaks inside a word`, !seen.broken.length, JSON.stringify(seen.broken))
       check(`${theme} ${width}: the four numbers stand 4 across or 2 and 2, never 3 and 1`, ['4', '2,2'].includes(seen.numberRows.join()), JSON.stringify(seen.numberRows))
       check(`${theme} ${width}: the year's four numbers are never cut`, !seen.labels.length, JSON.stringify(seen.labels))
       check(`${theme} ${width}: the coverage line stays in its box`, seen.coverage === 0 || seen.coverage === 'none', String(seen.coverage))
       check(`${theme} ${width}: today is ringed inside its square, the satin has no stripes`, seen.today && !seen.stripes, JSON.stringify(seen))
-      if (shots) await h.screenshot({ path: join(shots, `width-${width}-${theme}.png`) })
+      if (shots && [700, 760, 900, 1100, 1300, 1600].includes(width)) await h.screenshot({ path: join(shots, `width-${width}-${theme}.png`) })
     }
   }
   // Pointing at a day: a hairline ring on its square, its month label brightens, no tip; zoomed shots of today and the pointed day.

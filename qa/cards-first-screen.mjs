@@ -71,7 +71,7 @@ try {
   await waitFor(() => has('[data-deck-grid]'))
 
   // 4. Sub-decks: "+N sub-decks" on the tile opens their tree under the grid, which folds on chevrons.
-  check('4. a deck with sub-decks says how many', /\+2 sub-decks/.test(await text('[data-deck-kids="biology"]')), await text('[data-deck-kids="biology"]'))
+  check('4. a deck with sub-decks says how many', /\+2 inside/.test(await text('[data-deck-kids="biology"]')), await text('[data-deck-kids="biology"]'))
   await h.click('[data-deck-kids="biology"]')
   check('4. it opens their tree under the grid', await waitFor(() => has('[data-deck-inside-of="biology"] [data-deck-row="biology-cells-parts"]'), 2000))
   check('4. a sub-deck with its own inside has a fold chevron', await has('[data-deck-inside-of="biology"] [data-deck-fold-kids="biology-cells"]'))
@@ -80,7 +80,7 @@ try {
   await h.click('[data-deck-inside-of="biology"] [data-deck-fold-kids="biology-cells"]')
   check('4. unfolding brings it back', await waitFor(() => has('[data-deck-row="biology-cells-parts"]'), 2000))
   await h.click('[data-deck-kids="biology"]')
-  check('4. "Hide sub-decks" puts the tree away', await waitFor(() => h.evaluate(() => !document.querySelector('[data-deck-inside-of="biology"]')), 2000))
+  check('4. "Hide inside" puts the tree away', await waitFor(() => h.evaluate(() => !document.querySelector('[data-deck-inside-of="biology"]')), 2000))
 
   // 5. The year above the decks, seen on first open, with its four numbers.
   check('5. the year of study sits above the decks, in the first screen', await h.evaluate(() => { const year = document.querySelector('[data-study-year-map]').getBoundingClientRect(); const first = document.querySelector('[data-deck-grid]').getBoundingClientRect(); return year.bottom <= first.top && year.bottom < window.innerHeight }))
