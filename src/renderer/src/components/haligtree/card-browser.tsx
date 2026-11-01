@@ -1,3 +1,4 @@
+import { ReviewToolbar } from './review-toolbar'
 import { TriangleAlert } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { chime } from '@/lib/sound'
@@ -286,7 +287,7 @@ function EditCard({ card, tint, onDone }: { card: BrowsedCard; tint: string; onD
  * have cards; a card that needs work offers its fix in place. Picked cards
  * (⇧-click, x, ⌘A) are paused, tagged or untagged together, or sent to the Bin.
  */
-export function CardBrowser({ onOpen, aim, only, newest, onAll, onShow }: { onOpen: (type: string, id: string) => void; /** Open with "Add many at once" out (⌘K), aimed at a deck, or for one card in it. */ aim?: { deck: string | null; one: boolean } | null
+export function CardBrowser({ onOpen, aim, only, newest, onAll, onShow, onPicture }: { /** "From a picture" in the toolbar. */ onPicture?: () => void; onOpen: (type: string, id: string) => void; /** Open with "Add many at once" out (⌘K), aimed at a deck, or for one card in it. */ aim?: { deck: string | null; one: boolean } | null
   /** Just these cards (the ones an import or "Add many at once" made), with a way back to all. */ only?: string[] | null; /** Just the newest this many cards (an import's), with the same way back. */ newest?: number | null; onAll?: () => void; /** Show just the cards just made. */ onShow?: (ids: string[]) => void }): React.JSX.Element {
   const [pasting, setPasting] = useState(!!aim)
   const [aimed, setAimed] = useState(aim ?? null)
@@ -482,7 +483,7 @@ export function CardBrowser({ onOpen, aim, only, newest, onAll, onShow }: { onOp
   if (!cards.length)
     return (
       <div className="flex flex-col gap-3 px-5 pt-4 pb-10">
-        {!pasting && emptyPockets.length > 0 && <div data-card-pockets className="grid grid-cols-2 gap-3 sm:grid-cols-[repeat(auto-fill,minmax(11rem,1fr))]">{emptyPockets}</div>}
+        {!pasting && emptyPockets.length > 0 && <div data-card-pockets className="grid grid-cols-2 gap-3 sm:grid-cols-[repeat(auto-fill,minmax(10.5rem,12.5rem))]">{emptyPockets}</div>}
         {paste ?? <Empty title="No cards yet" action={<span className="flex flex-wrap items-center gap-2"><Button size="sm" data-make-open onClick={() => (chime('open'), setAimed({ deck: null, one: true }), setPasting(true))}>Make a card</Button><Button variant="ghost" size="sm" data-paste-open onClick={() => (chime('open'), setAimed(null), setPasting(true))}>Add many at once</Button><Button variant="ghost" size="sm" data-cards-import onClick={() => (chime('open'), void window.api.importFrom('files'))}>Import from Anki or a spreadsheet</Button></span>}>Make one card, paste a list or a spreadsheet of them, or bring in an Anki deck (.apkg, .colpkg) or a CSV.</Empty>}
       </div>
     )
@@ -612,14 +613,16 @@ export function CardBrowser({ onOpen, aim, only, newest, onAll, onShow }: { onOp
   return (
     <div data-card-browser data-density={density} data-group={view.group} className="flex flex-col gap-3 px-5 pt-4 pb-20">
       <div className="flex flex-wrap items-center gap-2">
-        <div className="min-w-56 flex-1"><ListSearch value={query} onChange={setQuery} onDone={() => {}} placeholder="Search cards" /></div>
+        <ReviewToolbar onMake={() => (setAimed({ deck: aimed?.deck ?? null, one: true }), setPasting(!(pasting && aimed?.one)))} onMany={() => (setAimed(aimed ? { deck: aimed.deck, one: false } : null), setPasting(!(pasting && !aimed?.one)))} onPicture={() => onPicture?.()}
+          make={{ 'data-make-open': '', 'aria-expanded': pasting && !!aimed?.one }} many={{ 'data-paste-open': '', 'aria-expanded': pasting && !aimed?.one }} right={
+          <div className="w-56 max-sm:w-full"><ListSearch value={query} onChange={setQuery} onDone={() => {}} placeholder="Search cards" /></div>} />
+      </div>
+      <div className="flex flex-wrap items-center justify-end gap-2">
         {(density === 'grid' || opened) && !flowing && (
           <Tip label="Turn every card on show over, to test yourself  ⇧Space">
             <Button variant="ghost" size="sm" data-turn-all aria-pressed={allOver} onClick={turnAll}>{allOver ? 'All face up' : 'Turn all over'}</Button>
           </Tip>
         )}
-        <Button variant="ghost" size="sm" data-make-open aria-expanded={pasting && !!aimed?.one} onClick={() => (chime(pasting && aimed?.one ? 'fold' : 'open'), setAimed({ deck: aimed?.deck ?? null, one: true }), setPasting(!(pasting && aimed?.one)))}>Make a card</Button>
-        <Button variant="ghost" size="sm" data-paste-open aria-expanded={pasting && !aimed?.one} onClick={() => (chime(pasting && !aimed?.one ? 'fold' : 'open'), setAimed(aimed ? { deck: aimed.deck, one: false } : null), setPasting(!(pasting && !aimed?.one)))}>Add many at once</Button>
         <Display view={view} onChange={setView} facets={facets} items={cards} count={cards.length} sorts={SORTS} groups={GROUPS}
           sortNote={view.group === 'source' ? 'Within each book or video, cards go in page or time order.' : undefined}
           density={density} onDensity={(next) => setView({ ...view, density: next })} densities={['small', 'grid', 'list', 'compact']} names={{ small: 'Pockets', grid: 'Cards', compact: 'Table' }} />
@@ -680,7 +683,7 @@ export function CardBrowser({ onOpen, aim, only, newest, onAll, onShow }: { onOp
             </div>
           ) : density === 'small' ? (
             // Pockets: one a deck or tag, its own cards fanned out of the top.
-            <div data-card-pockets className="grid grid-cols-2 gap-3 sm:grid-cols-[repeat(auto-fill,minmax(11rem,1fr))]">
+            <div data-card-pockets className="grid grid-cols-2 gap-3 sm:grid-cols-[repeat(auto-fill,minmax(10.5rem,12.5rem))]">
               {groups.map(([name, one]) => <Pocket key={name} name={name} title={shownGroup(name)} cards={one} onOpen={() => (setOpened(name), setFlowing(false))} />)}
               {/* A deck made by hand and still empty: its own pocket, with the two ways to fill it. */}
               {!view.group || view.group === 'none' || view.group === 'deck' ? emptyPockets : null}

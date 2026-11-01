@@ -1,3 +1,4 @@
+import { ReviewToolbar } from './review-toolbar'
 import { useEffect, useRef, useState } from 'react'
 import { motion } from 'motion/react'
 import { chime } from '@/lib/sound'
@@ -75,7 +76,7 @@ export function ReviewArea({ focus, onOpen, onFocus }: { focus?: string; onOpen:
   if (tab === 'cards')
     return (
       <Page title="Review" lead={tabs} actions={studyNow}>
-        <div data-review-page className="page-sheet mx-auto w-full"><CardBrowser key={aim ? `${aim.deck}:${aim.one}` : only ? `only:${only.length}` : ''} onOpen={onOpen} aim={aim} only={only} newest={only ? null : newest} onAll={() => (chime('undo'), setOnly(null), setNewest(null))} onShow={show} /></div>
+        <div data-review-page className="page-sheet mx-auto w-full"><CardBrowser key={aim ? `${aim.deck}:${aim.one}` : only ? `only:${only.length}` : ''} onOpen={onOpen} aim={aim} only={only} newest={only ? null : newest} onAll={() => (chime('undo'), setOnly(null), setNewest(null))} onShow={show} onPicture={() => (chime('open'), setPicture({ deck: null }), setTab('decks'))} /></div>
       </Page>
     )
   if (tab === 'decks')
@@ -91,7 +92,10 @@ export function ReviewArea({ focus, onOpen, onFocus }: { focus?: string; onOpen:
   if (tab === 'stats')
     return (
       <Page title="Review" lead={tabs} actions={studyNow}>
-        <div data-review-stats data-review-page className="page-sheet mx-auto w-full px-5 pt-4 pb-20"><StudySection example={false} /></div>
+        <div data-review-stats data-review-page className="page-sheet mx-auto w-full px-5 pt-4 pb-20">
+          <ReviewToolbar onMake={() => (setAim({ deck: null, one: true }), setTab('cards'))} onMany={() => (setAim({ deck: null, one: false }), setTab('cards'))} onPicture={() => (chime('open'), setPicture({ deck: null }), setTab('decks'))} />
+          <StudySection example={false} />
+        </div>
       </Page>
     )
   return <ReviewView key={studying ?? ''} tag={studying ?? (focus && !focus.startsWith(':') ? focus : undefined)} lead={tabs} actions={studyNow} />
