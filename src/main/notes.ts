@@ -1,5 +1,6 @@
 import { BrowserWindow, dialog, ipcMain, nativeImage, screen } from 'electron'
-import { copyFile, mkdir, readFile, stat } from 'fs/promises'
+import { copyFile, mkdir, readFile, rm, stat } from 'fs/promises'
+import { begin, end } from './jobs'
 import { join } from 'path'
 
 import { LABEL, atomically, changed, database } from './captures'
@@ -518,7 +519,16 @@ export function registerNotes({ load, guard, home, homeWindow }: Windows): void 
     let saved = 0
     // Two notes with one name each get their own folder: "Untitled 2".
     const folders = new Set<string>()
+    // “Stop” (main/jobs.ts): what this save made, files and folders, is taken away again.
+    const signal = begin('attachments')
+    const made: string[] = []
+    const putBack = async (): Promise<{ stopped: true }> => {
+      for (const path of made.reverse()) await rm(path, { recursive: true, force: true }).catch(() => undefined)
+      return { stopped: true }
+    }
+    try {
     for (const { note, found } of files) {
+      if (signal.aborted) return await putBack()
       // One note's files go straight in; every note's go in a folder each.
       let folder = filePaths[0]
       if (files.length > 1 || !notes?.length) {
@@ -528,9 +538,11 @@ export function registerNotes({ load, guard, home, homeWindow }: Windows): void 
         folders.add(one.toLowerCase())
         folder = join(filePaths[0], one)
       }
-      await mkdir(folder, { recursive: true })
+      const first = await mkdir(folder, { recursive: true })
+      if (first) made.push(first)
       const taken = new Set<string>()
       for (const [n, { src, name }] of found.entries()) {
+        if (signal.aborted) return await putBack()
         // An address that does not name a file in the store is not followed.
         const file = stored(src)
         if (!file) continue
@@ -541,8 +553,15 @@ export function registerNotes({ load, guard, home, homeWindow }: Windows): void 
         let one = base
         for (let k = 2; taken.has(one.toLowerCase()); k++) one = base.replace(/(\.[^.]+)?$/, ` ${k}$1`)
         taken.add(one.toLowerCase())
-        await copyFile(join(assetsDir(), file), join(folder, one)).then(() => saved++, () => undefined)
+        // A file of that name already there is written over, as before, and not taken away on “Stop”.
+        const to = join(folder, one)
+        const there = await stat(to).then(() => true, () => false)
+        await copyFile(join(assetsDir(), file), to).then(() => (saved++, there || made.push(to)), () => undefined)
       }
+    }
+    if (signal.aborted) return await putBack()
+    } finally {
+      end('attachments', signal)
     }
     // What was written, out of how many: a file missing from the store is told, not counted.
     return { saved, total }

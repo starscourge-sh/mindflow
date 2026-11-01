@@ -8,7 +8,7 @@ import { chime } from '@/lib/sound'
 import { cn } from '@/lib/cn'
 import { num } from '../../../../main/dates'
 import type { Asked, NotesFolder } from '../../../../main/apple-notes'
-import { Kbd, Rolling } from './ui'
+import { Kbd, Rolling, stopJob, toast } from './ui'
 import { Orb } from './orb'
 import { APP_NAME } from '../../../../main/name'
 
@@ -58,6 +58,8 @@ export function ImportFolders(): React.JSX.Element | null {
   const readNotes = (): void => {
     setStep({ at: 'asking' })
     void window.api.haligtree<Asked>('notes-import:folders').then((said) => {
+      // “Stop”: back to the start, nothing read.
+      if ('stopped' in said) return (setStep({ at: 'ask' }), toast('Stopped: nothing was read from Notes', undefined, 'info'))
       if ('refused' in said) return (chime('nope'), setStep({ at: 'refused', why: said.refused, detail: said.detail }))
       remember()
       chime('open')
@@ -164,7 +166,7 @@ export function ImportFolders(): React.JSX.Element | null {
 
           {step.at === 'asking' && (
             <div className="flex flex-col items-start gap-2 px-5 pb-6">
-              <Orb state="working" label="Asking Notes for its folders…" />
+              <Orb state="working" label="Asking Notes for its folders…" stop={() => stopJob('notes-folders')} />
               <p className="text-body text-foreground/85">If macOS asks whether {APP_NAME} may control Notes, choose “OK”.</p>
             </div>
           )}

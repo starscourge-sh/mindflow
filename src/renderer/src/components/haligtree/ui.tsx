@@ -963,9 +963,10 @@ export const untoast = (): void => void window.dispatchEvent(new CustomEvent('ha
 /**
  * A real wait said in words: an orb chip where toasts come up, for as long as
  * the work takes. For work started from a menu, with no button to hold it.
+ * Given the job's name (main/jobs.ts), the chip carries “Stop”.
  */
-export async function waiting<T>(label: string, state: OrbState, work: Promise<T>): Promise<T> {
-  window.dispatchEvent(new CustomEvent('haligtree:wait', { detail: { label, state } }))
+export async function waiting<T>(label: string, state: OrbState, work: Promise<T>, job?: string): Promise<T> {
+  window.dispatchEvent(new CustomEvent('haligtree:wait', { detail: { label, state, job } }))
   // The beam turns with it: the window's edge says so as well as the chip.
   const end = startWorking()
   try {
@@ -975,6 +976,9 @@ export async function waiting<T>(label: string, state: OrbState, work: Promise<T
     window.dispatchEvent(new CustomEvent('haligtree:wait', { detail: null }))
   }
 }
+
+/** “Stop” on a long job (main/jobs.ts): it takes back what it wrote, and its caller says “Stopped”. */
+export const stopJob = (name: string): void => void window.api.haligtree('job-stop', name)
 
 /** Give a nugget its question, so review can test it: asked in place. */
 export const askQuestion = (id: string): Promise<void> =>
@@ -1242,7 +1246,7 @@ export function Toaster(): React.JSX.Element | null {
   const [shown, setShown] = useState<{ text: string; undo?: () => void; tone?: ToastTone; action?: ToastAction; made?: Made; key: number } | null>(null)
   const shownNow = useRef(shown)
   shownNow.current = shown
-  const [wait, setWait] = useState<{ label: string; state: OrbState } | null>(null)
+  const [wait, setWait] = useState<{ label: string; state: OrbState; job?: string } | null>(null)
   useEffect(() => {
     const onWait = (event: Event): void => setWait((event as CustomEvent).detail)
     window.addEventListener('haligtree:wait', onWait)
@@ -1453,7 +1457,7 @@ export function Toaster(): React.JSX.Element | null {
     <MilestoneAsker />
     <RestoreAsker />
     <Beam />
-    {wait && !shown && <div style={spot} className="pointer-events-none fixed right-[var(--toast-right,0px)] bottom-[var(--toast-bottom,1.25rem)] left-[var(--toast-left,0px)] z-[60] flex justify-center">
+    {wait && !wait.job && !shown && <div style={spot} className="pointer-events-none fixed right-[var(--toast-right,0px)] bottom-[var(--toast-bottom,1.25rem)] left-[var(--toast-left,0px)] z-[60] flex justify-center">
       <Orb state={wait.state} label={wait.label} className="bg-popover shadow-(--mf-panel-shadow) animate-in fade-in-0 slide-in-from-bottom-2 duration-200" />
     </div>}
     {/* Centred along the bottom, where the eye drops after acting. It
@@ -1462,6 +1466,8 @@ export function Toaster(): React.JSX.Element | null {
     {/* Words not saved yet: one line above the toasts, up until they are in. */}
     <SaveTroubleLine />
     <ImportProgress />
+    {/* A job that can be stopped keeps its “Stop” in reach above any toast, never hidden behind one. */}
+    {wait?.job && <Orb state={wait.state} label={wait.label} stop={() => stopJob(wait.job!)} className="bg-popover shadow-(--mf-panel-shadow) animate-in fade-in-0 slide-in-from-bottom-2 duration-200" />}
     <AnimatePresence mode="popLayout" initial={false}>
     {shown && <motion.div
       key={shown.key}

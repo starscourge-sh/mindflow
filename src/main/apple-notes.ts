@@ -22,9 +22,10 @@ import { assetsDir, lookAhead } from './pictures'
 export type NotesFolder = { id: string; name: string; count: number }
 type NotesNote = { folder: string; id: string; title: string; html: string; created: string; modified: string; locked?: boolean }
 /** What asking Notes came to: its folders, or why there are none to show. */
-export type Asked = { folders: NotesFolder[] } | { refused: 'denied' | 'waiting' | 'none' | 'failed'; detail?: string }
+export type Asked = { folders: NotesFolder[] } | { refused: 'denied' | 'waiting' | 'none' | 'failed'; detail?: string } | { stopped: true }
 type NotesReader = {
-  folders: () => Promise<Asked>
+  /** Its folders; “Stop” (`signal`) ends the helper at once. */
+  folders: (signal?: AbortSignal) => Promise<Asked>
   /** Each note of these folders in turn, until done, refused or stopped. */
   read: (folders: string[], each: (note: NotesNote) => Promise<void>, signal: AbortSignal) => Promise<'done' | 'denied' | 'stopped' | 'failed'>
 }
@@ -80,9 +81,10 @@ const waiting = (text: string): boolean => /-1712|timed out/i.test(text)
 const binFolder = (name: string): boolean => /^recently deleted$/i.test(name.split(' / ').pop() ?? '')
 
 const real: NotesReader = {
-  folders: () =>
+  folders: (signal) =>
     new Promise((done) => {
       const run = spawn('osascript', ['-l', 'JavaScript', '-e', FOLDERS])
+      signal?.addEventListener('abort', () => run.kill())
       let out = ''
       let err = ''
       run.stdout.on('data', (chunk) => (out += chunk))
@@ -92,6 +94,7 @@ const real: NotesReader = {
       run.on('error', (error) => (clearTimeout(late), done({ refused: 'failed', detail: error.message })))
       run.on('close', () => {
         clearTimeout(late)
+        if (signal?.aborted) return done({ stopped: true })
         if (refused(err)) return done({ refused: 'denied' })
         if (waiting(err) || (!out && !err)) return done({ refused: 'waiting' })
         try {
@@ -139,8 +142,11 @@ const fake = (file: string): NotesReader => {
   const load = async (): Promise<Export> => JSON.parse(await readFile(file, 'utf8')) as Export
   const pause = Number(process.env.HALIGTREE_QA_APPLE_NOTES_WAIT) || 0
   return {
-    folders: async () => {
+    folders: async (signal) => {
       const said = await load()
+      // As slow to answer as twenty notes are to read, so a test can stop it.
+      if (pause) await new Promise((wait) => setTimeout(wait, pause * 20))
+      if (signal?.aborted) return { stopped: true }
       if (said.denied) return { refused: 'denied' }
       return { folders: said.folders.map((one) => ({ id: one.id, name: one.name, count: one.notes.length })) }
     },

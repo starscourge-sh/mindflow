@@ -2,6 +2,7 @@ import { parseDate } from 'chrono-node'
 import { Notification, app, dialog, ipcMain, net, session, shell } from 'electron'
 import { createHash, randomUUID } from 'crypto'
 import { cp, mkdir, readFile, readdir, rm, writeFile } from 'fs/promises'
+import { begin, end as endJob } from './jobs'
 import type { DatabaseSync } from 'node:sqlite'
 import { existsSync, readFileSync } from 'fs'
 import { basename, join } from 'path'
@@ -4657,19 +4658,32 @@ export function registerHaligtree(): void {
     const { filePaths } = await dialog.showOpenDialog({ title: 'Export everything to…', properties: ['openDirectory', 'createDirectory'] })
     if (!filePaths[0]) return null
     // The beam turns in every window while it is written out.
+    // “Stop” (main/jobs.ts): the folder this export made is taken away again.
+    const signal = begin('export')
     return busy(async () => {
-      const folder = join(filePaths[0], SANDBOX ? `${APP_NAME} sandbox export ${dayKey()}` : `${APP_NAME.toLowerCase()}-${dayKey()}`)
+      // A folder of its own each time: a second export on one day is "… 2", so a stopped one never touches the first.
+      const named = join(filePaths[0], SANDBOX ? `${APP_NAME} sandbox export ${dayKey()}` : `${APP_NAME.toLowerCase()}-${dayKey()}`)
+      let folder = named
+      for (let k = 2; await readdir(folder).then(() => true, () => false); k++) folder = `${named} ${k}`
       await mkdir(join(folder, 'markdown'), { recursive: true })
+      const stopped = async (): Promise<{ stopped: true }> => {
+        await rm(folder, { recursive: true, force: true }).catch(() => undefined)
+        return { stopped: true }
+      }
       // Every table, so nothing stays behind in the app: sessions, settings and all.
       const tables = (db.prepare("select name from sqlite_master where type = 'table' and name not like 'sqlite_%'").all() as { name: string }[]).map((row) => row.name)
       const data = Object.fromEntries(tables.map((table) => [table, db.prepare(`select * from ${table}`).all()]))
       await writeFile(join(folder, 'haligtree.json'), JSON.stringify(data, null, 2))
-      for (const [name, text] of notesAsMarkdown(db, '../assets/')) await writeFile(join(folder, 'markdown', name), text)
-      // The pictures and files the notes point at.
+      for (const [name, text] of notesAsMarkdown(db, '../assets/')) {
+        if (signal.aborted) return stopped()
+        await writeFile(join(folder, 'markdown', name), text)
+      }
+      // The pictures and files the notes point at, one by one, so “Stop” ends it between two.
       // None kept yet is not a failure; any other is said, not dropped.
-      const pictures = await cp(join(app.getPath('userData'), 'assets'), join(folder, 'assets'), { recursive: true }).then(() => true, (error: NodeJS.ErrnoException) => error?.code === 'ENOENT')
+      const pictures = await cp(join(app.getPath('userData'), 'assets'), join(folder, 'assets'), { recursive: true, filter: () => !signal.aborted }).then(() => true, (error: NodeJS.ErrnoException) => error?.code === 'ENOENT')
+      if (signal.aborted) return stopped()
       return pictures ? folder : { folder, pictures: false }
-    })
+    }).finally(() => endJob('export', signal))
   })
 
   // --- related: the notes that share tags with this one

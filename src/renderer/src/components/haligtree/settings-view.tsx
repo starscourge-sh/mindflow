@@ -36,7 +36,7 @@ import { SoundPacks } from './sound-packs'
 import { FontPicker } from './font-picker'
 import { TEXT_SIZES } from '@/lib/editor-setup'
 import { SCRUB, ScrubField } from '../pdf/scrub-field'
-import { BackToTop, Kbd, Rolling, Tip, ask, quietly, refuse, toast, useSmooth } from './ui'
+import { BackToTop, Kbd, Rolling, Tip, ask, quietly, refuse, stopJob, toast, useSmooth, waiting } from './ui'
 import { working } from './beam'
 import { Term } from './term'
 import { Button } from '@/components/ui/button'
@@ -2096,9 +2096,14 @@ function MarkdownCopy(): React.JSX.Element {
   )
 }
 
-/** Everything into a folder you choose, said where once written: this button's, and the menu bar's File > Export everything… */
-export const exportEverything = (): Promise<void> => haligtree.exportAll().then((done) => {
+/**
+ * Everything into a folder you choose, said where once written: this button's, and the menu bar's File > Export everything…
+ * From the menu bar, with no button to stand in, the wait and its “Stop” show where toasts come up.
+ */
+export const exportEverything = (inPlace = false): Promise<void> => (inPlace ? haligtree.exportAll() : waiting('Exporting…', 'working', haligtree.exportAll(), 'export')).then((done) => {
   if (!done) return
+  // “Stop”: the folder it had begun is gone again (main/haligtree.ts).
+  if (typeof done !== 'string' && 'stopped' in done) return toast('Stopped: nothing was exported', undefined, 'info')
   const folder = typeof done === 'string' ? done : done.folder
   const where = folder.split('/').slice(-2).join('/')
   if (typeof done !== 'string') return refuse(`Exported to ${where}, but the pictures and files could not be copied`)
@@ -2109,11 +2114,11 @@ export const exportEverything = (): Promise<void> => haligtree.exportAll().then(
 /** Export, an orb saying so in its place for as long as it takes. */
 function ExportButton(): React.JSX.Element {
   const [busy, setBusy] = useState(false)
-  if (busy) return <Orb label="Exporting…" />
+  if (busy) return <Orb label="Exporting…" stop={() => stopJob('export')} />
   return (
     <Button variant="outline" size="sm" onClick={() => {
       setBusy(true)
-      void exportEverything().finally(() => setBusy(false))
+      void exportEverything(true).finally(() => setBusy(false))
     }}>
       <AliveIcon icon={DownloadIcon} size={16} /> Export
     </Button>

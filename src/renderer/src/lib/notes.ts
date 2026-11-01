@@ -217,8 +217,10 @@ export async function archive(table: NoteTable, ids: string[], on: boolean, quie
 
 /** Every picture and file in these notes (or every note), under its own name, to a folder. */
 export async function saveAttachments(list?: { table: NoteTable; id: string }[]): Promise<void> {
-  const done = await waiting('Saving files…', 'working', call<{ saved: number; total: number } | 0 | null>('notes:attachments', list))
+  const done = await waiting('Saving files…', 'working', call<{ saved: number; total: number } | { stopped: true } | 0 | null>('notes:attachments', list), 'attachments')
   if (done === null) return
+  // “Stop”: what it had saved is taken away again (main/notes.ts).
+  if (done && 'stopped' in done) return toast('Stopped: no files were saved', undefined, 'info')
   if (!done) return refuse(list ? 'No pictures or files in this note' : 'No pictures or files anywhere yet')
   const { saved, total } = done
   if (!saved) return refuse(`Could not save ${total === 1 ? 'the file' : `any of the ${num(total)} files`}. Pick a folder you can write to and try again`, 'error')

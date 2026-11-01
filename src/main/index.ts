@@ -76,6 +76,7 @@ import { registerUnused } from './unused'
 import { registerMedia } from './media'
 import { registerCollect } from './collect'
 import { registerTranscribe } from './transcribe'
+import { begin, end as endJob, registerJobs } from './jobs'
 import { registerDictation } from './dictation'
 import { registerPeople } from './people'
 import { registerSources } from './sources'
@@ -3973,6 +3974,7 @@ app.whenReady().then(() => {
   registerMedia()
   registerCollect()
   registerTranscribe()
+  registerJobs()
   registerDictation()
   registerObsidian()
   registerPictures()
@@ -4197,7 +4199,11 @@ app.whenReady().then(() => {
     return importVault()
   })
   // Apple Notes and a vault's folders: asked for, chosen in the main window's sheet, brought in, or stopped.
-  ipcMain.handle('haligtree:notes-import:folders', () => notesReader().folders())
+  // “Stop” while Notes is asked (main/jobs.ts): the helper ends, and nothing was read.
+  ipcMain.handle('haligtree:notes-import:folders', () => {
+    const signal = begin('notes-folders')
+    return notesReader().folders(signal).finally(() => endJob('notes-folders', signal))
+  })
   ipcMain.handle('haligtree:notes-import:run', (_event, from: unknown, folders: unknown, root: unknown) =>
     void importFolders(from === 'Obsidian' ? 'Obsidian' : 'Apple Notes', Array.isArray(folders) ? (folders as NotesFolder[]) : [], typeof root === 'string' ? root : undefined))
   ipcMain.handle('haligtree:notes-import:stop', () => void stopping?.abort())
