@@ -131,7 +131,7 @@ function EventRow({ event, past }: { event: MacEvent; past: boolean }): React.JS
           <span className="h-full w-[4px] rounded-full" style={{ background: color }} />
         </span>
         <span className="min-w-0 flex-1">
-          <span className="line-clamp-2 text-[0.9375rem] font-medium text-foreground [overflow-wrap:anywhere]">{event.title}</span>
+          <span className="line-clamp-2 text-[0.9375rem] font-medium text-foreground hyphens-auto [overflow-wrap:break-word]">{event.title}</span>
           <span className="mt-0.5 block truncate text-sm text-muted-foreground">
             {[event.allDay ? 'All day' : `${clock(event.start)} to ${clock(event.end)}`, event.calendar || 'Calendar'].join(' · ')}
           </span>

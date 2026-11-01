@@ -350,7 +350,7 @@ export function NotePreview(): React.JSX.Element | null {
         </div>
       ) : (
         <div className="mb-1 flex items-start gap-2.5">
-          <p data-preview-title className="private-text line-clamp-3 min-w-0 flex-1 font-semibold [overflow-wrap:anywhere] text-foreground">{shown.title}</p>
+          <p data-preview-title className="private-text line-clamp-3 min-w-0 flex-1 font-semibold hyphens-auto [overflow-wrap:break-word] text-foreground">{shown.title}</p>
           {picture}
         </div>
       )}
@@ -361,7 +361,7 @@ export function NotePreview(): React.JSX.Element | null {
           : <p data-preview-line className="private-text line-clamp-6 whitespace-pre-line rounded-md bg-foreground/[0.04] px-2.5 py-2 text-foreground">{shown.text}</p>
       ) : shown.thought ? (
         // Its words in full ink: a thought is read, not glanced at.
-        <p data-preview-text className="private-text max-h-[10lh] overflow-hidden whitespace-pre-line [overflow-wrap:anywhere] text-foreground [mask-image:linear-gradient(to_bottom,black_8lh,transparent_10lh)]">{shown.text}</p>
+        <p data-preview-text className="private-text max-h-[10lh] overflow-hidden whitespace-pre-line hyphens-auto [overflow-wrap:break-word] text-foreground [mask-image:linear-gradient(to_bottom,black_8lh,transparent_10lh)]">{shown.text}</p>
       ) : shown.text && (
         // A few lines that fade out where they are cut, not a hard stop mid-word.
         <p data-preview-text className="private-text max-h-[7.5lh] overflow-hidden whitespace-pre-line text-muted-foreground [mask-image:linear-gradient(to_bottom,black_5.5lh,transparent_7.5lh)]">{shown.text}</p>

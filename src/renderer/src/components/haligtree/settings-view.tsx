@@ -1790,7 +1790,7 @@ function CelebrationPicks({ settings, on, set }: { settings: Settings; on: boole
                         <Play className="size-3" fill="currentColor" /> Preview
                       </Button>
                     </div>
-                    <span data-moment-status className="block text-meta text-pretty text-muted-foreground [overflow-wrap:anywhere]">{status}</span>
+                    <span data-moment-status className="block text-meta text-pretty text-muted-foreground hyphens-auto [overflow-wrap:break-word]">{status}</span>
                     <div className={`-ml-2 mt-1 ${on ? '' : 'pointer-events-none opacity-50'}`} aria-disabled={!on}>
                       <Chips className="flex-wrap" options={[{ id: 'drawing', label: kind === 'taskDone' ? 'Just the tick' : `${APP_NAME}’s drawing` }, { id: 'file', label: 'Your file' }, { id: 'giphy', label: 'Giphy' }]}
                       on={(id) => id === source}

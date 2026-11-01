@@ -188,7 +188,7 @@ export function OptionsMenu({ sections, options = [], actions = [], app = false,
         </DropdownMenuTrigger>
       </Tip>
       <DropdownMenuContent align={align} side={side} collisionPadding={12} className="w-64 text-control" onCloseAutoFocus={backToWriting}>
-        {heading && <DropdownMenuLabel data-menu-heading className="w-0 min-w-full px-2 pt-2 pb-1 text-control font-semibold whitespace-normal text-foreground [overflow-wrap:anywhere]">{heading}</DropdownMenuLabel>}
+        {heading && <DropdownMenuLabel data-menu-heading className="w-0 min-w-full px-2 pt-2 pb-1 text-control font-semibold whitespace-normal text-foreground hyphens-auto [overflow-wrap:break-word]">{heading}</DropdownMenuLabel>}
         <MenuSections sections={parts} />
       </DropdownMenuContent>
     </DropdownMenu>

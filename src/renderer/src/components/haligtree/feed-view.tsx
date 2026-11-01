@@ -464,7 +464,7 @@ function Thread({ post, onBack, onOpen, onOpenOther }: { post: FeedPost; onBack:
                 <span aria-hidden className="text-muted-foreground">·</span>
                 <time data-feed-gloss-at dateTime={gloss.createdAt} className="text-muted-foreground tabular-nums">{written(gloss.createdAt, years)}</time>
               </p>
-              <p className="text-body leading-relaxed whitespace-pre-line [overflow-wrap:anywhere] text-foreground/90 private-text">{gloss.body}</p>
+              <p className="text-body leading-relaxed whitespace-pre-line hyphens-auto [overflow-wrap:break-word] text-foreground/90 private-text">{gloss.body}</p>
             </div>
           </li>
         ))}
@@ -633,7 +633,7 @@ export function Post({ post, onOpen, onOpenOther, onThread, alone = false, joine
               onClick={(event) => !(event.target as HTMLElement).closest('a, button') && window.getSelection()?.isCollapsed !== false && onOpen()}
               onKeyDown={(event) => event.key === 'Enter' && (event.preventDefault(), onOpen())}
               className="cursor-pointer rounded-lg border bg-accent/25 px-4 py-3 transition-colors hover:border-foreground/20 hover:bg-accent/40 focus-visible:outline-2 focus-visible:outline-ring">
-              <blockquote className="font-serif text-reading whitespace-pre-line [overflow-wrap:anywhere] text-foreground line-clamp-[10]"><Linked text={words} links={post.links} onOpen={onOpenOther} /></blockquote>
+              <blockquote className="font-serif text-reading whitespace-pre-line hyphens-auto [overflow-wrap:break-word] text-foreground line-clamp-[10]"><Linked text={words} links={post.links} onOpen={onOpenOther} /></blockquote>
               {post.who && <figcaption data-feed-author className="mt-2 text-control font-medium text-foreground/80"><span {...hoverNote('person', post.who)}>{post.who}</span></figcaption>}
               {/* The page or PDF it came from, at its page: one click opens it there. */}
               {post.from && (
@@ -647,8 +647,8 @@ export function Post({ post, onOpen, onOpenOther, onThread, alone = false, joine
             </figure>
           ) : (
             <>
-              <button type="button" data-feed-title onClick={onOpen} className="w-fit rounded-sm text-left text-body font-semibold [overflow-wrap:anywhere] text-foreground underline-offset-2 hover:underline">{title}</button>
-              {post.type !== 'question' && text && <p className="line-clamp-[8] text-body leading-relaxed whitespace-pre-line [overflow-wrap:anywhere] text-foreground/90"><Linked text={text} links={post.links} onOpen={onOpenOther} /></p>}
+              <button type="button" data-feed-title onClick={onOpen} className="w-fit rounded-sm text-left text-body font-semibold hyphens-auto [overflow-wrap:break-word] text-foreground underline-offset-2 hover:underline">{title}</button>
+              {post.type !== 'question' && text && <p className="line-clamp-[8] text-body leading-relaxed whitespace-pre-line hyphens-auto [overflow-wrap:break-word] text-foreground/90"><Linked text={text} links={post.links} onOpen={onOpenOther} /></p>}
             </>
           )}
           {post.tags.length > 0 && (
@@ -690,7 +690,7 @@ export function Post({ post, onOpen, onOpenOther, onThread, alone = false, joine
           </div>
           <div className="flex min-w-0 flex-1 flex-col items-start gap-0.5">
             <button type="button" data-feed-latest onClick={onThread} {...hoverThought(post.id, hang.id, title)}
-              className="group/hang line-clamp-2 min-w-0 rounded-sm text-left text-control text-foreground/85 [overflow-wrap:anywhere] hover:text-foreground">
+              className="group/hang line-clamp-2 min-w-0 rounded-sm text-left text-control text-foreground/85 hyphens-auto [overflow-wrap:break-word] hover:text-foreground">
               <span className="private-text group-hover/hang:underline">{cutWords(hang.body, 140)}</span>
               <span data-feed-latest-date className="text-meta whitespace-nowrap text-muted-foreground"> · {hang.author === 'ai' ? 'AI, ' : ''}{ago(hang.createdAt)}</span>
             </button>
@@ -801,7 +801,7 @@ function PollPost({ post, onOpen, mark }: { post: FeedPost; onOpen: () => void; 
         <div className="flex w-9 shrink-0 flex-col items-center"><Avatar name="You" size={36} className="mt-0.5 shrink-0" /></div>
         <div className="flex min-w-0 flex-1 flex-col gap-2">
           <PostHead post={post} said="decided" />
-          <p data-feed-poll-ask className="text-body [overflow-wrap:anywhere] text-foreground">You chose <strong className="font-semibold">{post.title.replace(/[.\s]+$/, '')}</strong>. Was it right?</p>
+          <p data-feed-poll-ask className="text-body hyphens-auto [overflow-wrap:break-word] text-foreground">You chose <strong className="font-semibold">{post.title.replace(/[.\s]+$/, '')}</strong>. Was it right?</p>
           <div role="group" aria-label="Was it right?" className="grid w-[19.5rem] max-w-full grid-cols-3 gap-2">
             {POLL.map((one) => (
               <button key={one.value} type="button" data-feed-poll={one.value} aria-pressed={answer === one.value} onClick={() => choose(one.value)}
@@ -858,10 +858,10 @@ function QuizPost({ post, onOpen, mark }: { post: FeedPost; onOpen: () => void; 
         <div className="flex w-9 shrink-0 flex-col items-center"><Avatar name="You" size={36} className="mt-0.5 shrink-0" /></div>
         <div className="flex min-w-0 flex-1 flex-col gap-2">
           <PostHead post={post} />
-          <p data-feed-quiz-prompt className="text-body font-semibold [overflow-wrap:anywhere] text-foreground">{quiz.prompt}</p>
+          <p data-feed-quiz-prompt className="text-body font-semibold hyphens-auto [overflow-wrap:break-word] text-foreground">{quiz.prompt}</p>
           {shown ? (
             <>
-              <p data-feed-quiz-answer className="line-clamp-[8] rounded-lg border bg-accent/25 px-4 py-3 text-body leading-relaxed whitespace-pre-line [overflow-wrap:anywhere] text-foreground">{quiz.answer}</p>
+              <p data-feed-quiz-answer className="line-clamp-[8] rounded-lg border bg-accent/25 px-4 py-3 text-body leading-relaxed whitespace-pre-line hyphens-auto [overflow-wrap:break-word] text-foreground">{quiz.answer}</p>
               <div className={cn('grid max-w-[28rem] gap-2', two ? 'grid-cols-2' : 'grid-cols-4')}>
                 {grades.map(({ grade: value, label, hint, tone }) => (
                   <Tip key={value} label={`${hint}: back ${backIn(intervals[value])}`}>

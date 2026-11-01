@@ -389,7 +389,7 @@ function Card({ task, at, open, picked, room, onClick }: { task: Task; at: boole
       {/* The mark in a column of its own, kept only when a task in the box has one: the title and its line start in one place. */}
       {room && <span className="mt-[3px] flex shrink-0"><TaskPriority task={task} room /></span>}
       <span className="flex min-w-0 flex-1 flex-col items-start gap-0.5">
-      <span data-task-title className="line-clamp-2 min-w-0 text-pretty [overflow-wrap:anywhere]">{text}</span>
+      <span data-task-title className="line-clamp-2 min-w-0 text-pretty hyphens-auto [overflow-wrap:break-word]">{text}</span>
       <span data-task-meta className="flex min-w-0 flex-wrap items-center gap-x-2.5 text-xs text-muted-foreground">
         <TaskWhen task={task} />
         {!task.dueAt && !task.deadline && <span>No date</span>}

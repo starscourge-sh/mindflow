@@ -631,7 +631,7 @@ export function Prop({ icon: Icon, alive, children, onClick, active, tint, secre
         ? <AliveIcon icon={alive} size={16} style={tint ? { color: `var(--tt-color-text-${tint})` } : undefined} />
         : Icon && <Icon className="size-4 shrink-0" style={tint ? { color: `var(--tt-color-text-${tint})` } : undefined} />}
       {/* A long name takes a second line rather than being cut in the narrow details column. */}
-      <span className={`min-w-0 line-clamp-2 [overflow-wrap:anywhere] ${secret ? 'private-text' : ''}`}>{children}</span>
+      <span className={`min-w-0 line-clamp-2 hyphens-auto [overflow-wrap:break-word] ${secret ? 'private-text' : ''}`}>{children}</span>
     </Tag>
   )
   return tip ? <Tip label={tip} side="left">{prop}</Tip> : prop

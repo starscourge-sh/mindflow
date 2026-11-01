@@ -108,7 +108,7 @@ export function PairRow({ names, live, isPinned, narrow, menu, onOpen, onClose, 
         <MCard key={index} className="flex min-w-0 flex-1 flex-col items-start gap-1">
           <span data-pair-card-pane={index} data-private={one.private ? '' : undefined} className="flex w-full min-w-0 flex-col items-start gap-1">
             <one.icon className="size-4 shrink-0" style={{ color: one.tint }} />
-            <span className="private-text line-clamp-3 text-[12px] leading-snug font-semibold [overflow-wrap:anywhere]">{one.title}</span>
+            <span className="private-text line-clamp-3 text-[12px] leading-snug font-semibold hyphens-auto [overflow-wrap:break-word]">{one.title}</span>
             {one.kind && <span className="text-[10px] text-muted-foreground">{one.kind}</span>}
             <span className="w-full pt-1"><MLines widths={[92, 74, 84]} /></span>
           </span>

@@ -227,7 +227,7 @@ function Tile({ card, pinned, actions, onHover }: { card: Card; pinned: boolean;
           {src && !broken
             ? <span className="aspect-square h-full shrink-0 overflow-hidden rounded-l-md shadow-[2px_0_10px_-4px_color-mix(in_oklab,var(--mf-shadow-ink)_30%,transparent)]"><Picture src={src} onBroken={() => setBroken(true)} /></span>
             : <KindMark card={card} className="aspect-square h-full shrink-0 rounded-l-md" />}
-          <span className="private-text line-clamp-2 min-w-0 flex-1 text-control leading-tight font-medium [overflow-wrap:anywhere] text-foreground">{nameOf(card)}</span>
+          <span className="private-text line-clamp-2 min-w-0 flex-1 text-control leading-tight font-medium hyphens-auto [overflow-wrap:break-word] text-foreground">{nameOf(card)}</span>
           {pinned && <Pin className="absolute right-3 size-3.5 text-muted-foreground transition-opacity group-focus-within/tile:opacity-0 group-hover/tile:opacity-0" aria-label="Pinned" />}
         </button>
         {readable(card) && (
@@ -273,13 +273,13 @@ function RowCard({ card, list, at, actions }: { card: Card; list: Card[]; at: nu
                     {/* Its kind, and its first words where a picture would be: white on the dark of the cover. */}
                     <span className={`absolute inset-0 flex flex-col justify-between p-3 ${grain.paper ? '' : 'text-white'}`}>
                       <KindIcon card={card} paper={grain.paper} className="size-4 text-white/80 drop-shadow-[0_1px_2px_rgb(0_0_0/0.35)]" />
-                      {wordsOf(card.excerpt) && <span className={`private-text line-clamp-4 text-xs leading-snug [overflow-wrap:anywhere] ${grain.paper ? '' : 'text-white/90 [text-shadow:0_1px_2px_rgb(0_0_0/0.4)]'}`} style={grain.paper ? { color: PAPER_INK } : undefined}>{wordsOf(card.excerpt)}</span>}
+                      {wordsOf(card.excerpt) && <span className={`private-text line-clamp-4 text-xs leading-snug hyphens-auto [overflow-wrap:break-word] ${grain.paper ? '' : 'text-white/90 [text-shadow:0_1px_2px_rgb(0_0_0/0.4)]'}`} style={grain.paper ? { color: PAPER_INK } : undefined}>{wordsOf(card.excerpt)}</span>}
                     </span>
                   </>
                 )}
               </span>
               <span className="flex min-w-0 flex-1 flex-col gap-0.5 px-2 pb-2">
-                <span className="private-text line-clamp-2 text-control leading-snug font-medium [overflow-wrap:anywhere] text-foreground">{nameOf(card)}</span>
+                <span className="private-text line-clamp-2 text-control leading-snug font-medium hyphens-auto [overflow-wrap:break-word] text-foreground">{nameOf(card)}</span>
                 {card.sub && (
                   <span className="mt-auto flex min-w-0 items-center gap-2 pt-1 text-xs text-muted-foreground">
                     <span className="truncate">{card.sub}</span>
@@ -294,8 +294,8 @@ function RowCard({ card, list, at, actions }: { card: Card; list: Card[]; at: nu
                 <KindMark card={card} grain={false} className="size-5 rounded-[5px] [&_svg]:size-3" />
                 {kindLabel(card)}
               </span>
-              <span className="private-text line-clamp-3 text-[0.9375rem] leading-snug font-semibold [overflow-wrap:anywhere] text-foreground">{nameOf(card)}</span>
-              {wordsOf(card.excerpt) && <span className="private-text line-clamp-3 text-xs [overflow-wrap:anywhere] leading-relaxed text-muted-foreground">{wordsOf(card.excerpt)}</span>}
+              <span className="private-text line-clamp-3 text-[0.9375rem] leading-snug font-semibold hyphens-auto [overflow-wrap:break-word] text-foreground">{nameOf(card)}</span>
+              {wordsOf(card.excerpt) && <span className="private-text line-clamp-3 text-xs hyphens-auto [overflow-wrap:break-word] leading-relaxed text-muted-foreground">{wordsOf(card.excerpt)}</span>}
               {/* The date at the foot: down here Read never covers it. The row's heading names the tag, so the card does not again. */}
               {card.sub && (
                 <span className="mt-auto flex min-w-0 items-center gap-2 pt-1 text-xs text-muted-foreground/80">
@@ -470,7 +470,7 @@ function TaskRow({ task, actions, room = false }: { task: Task; actions: Actions
     } aside={at || task.recurrence ? <span className="mt-0.5 flex shrink-0 items-center gap-2 text-xs text-muted-foreground"><TaskWhen task={task} /></span> : undefined}>
       <span className="flex min-w-0 items-start gap-2">
         {room && <span className="mt-[0.3rem]"><TaskPriority task={task} room /></span>}
-        <span data-task-title className={`line-clamp-2 [overflow-wrap:anywhere] transition-colors ${done ? 'text-muted-foreground line-through' : 'text-foreground'}`}>{nameOf(card)}</span>
+        <span data-task-title className={`line-clamp-2 hyphens-auto [overflow-wrap:break-word] transition-colors ${done ? 'text-muted-foreground line-through' : 'text-foreground'}`}>{nameOf(card)}</span>
         {/* The tags give way before the name does: a long one is cut to "…" while the name keeps its line. */}
         <span className="mt-[0.2rem] flex min-w-12 max-w-[40%] shrink-[4]"><Tags tags={taskName(task.title).tags} alone /></span>
       </span>
@@ -592,7 +592,7 @@ function Quotes({ title, onAll, cards, actions }: { title: ReactNode; onAll?: ()
               <Lean by={4} className="h-full" inner={`flex flex-col ${card.foot ? 'rounded-xl bg-foreground/[0.04]' : ''}`}>
               <button type="button" data-nav data-private={card.private ? '' : undefined} data-picked={actions.picked?.(card) || undefined} data-drag-open={`${card.type}:${card.id}`} onClick={(event) => actions.open(card, event)}
                 className={`flex w-full flex-1 flex-col gap-2 rounded-xl p-4 text-left outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-ring/50 ${card.foot ? 'pb-2 hover:bg-foreground/[0.03]' : 'bg-foreground/[0.04] hover:bg-foreground/[0.07]'}`}>
-                <span className="private-text pr-7 font-heading text-[1.0625rem] leading-snug [overflow-wrap:anywhere] text-foreground">{nameOf(card)}</span>
+                <span className="private-text pr-7 font-heading text-[1.0625rem] leading-snug hyphens-auto [overflow-wrap:break-word] text-foreground">{nameOf(card)}</span>
                 {wordsOf(card.excerpt) && <span className="private-text line-clamp-3 text-xs leading-relaxed text-muted-foreground">{wordsOf(card.excerpt)}</span>}
                 <Signed who={card.who} where={card.where} year={card.year} className="private-text -mt-0.5 text-xs text-muted-foreground" />
                 <span className="mt-auto flex items-center gap-1.5 text-xs text-muted-foreground/80">
@@ -935,7 +935,7 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
                 <List title="Questions you're holding" onAll={() => onView('questions')}>
                   {questions.map((card) => (
                     <ListRow key={card.id} card={card} actions={actions} lead={<Orbit className="mt-0.5 size-4 shrink-0 text-muted-foreground" />}>
-                      <span className="private-text line-clamp-2 [overflow-wrap:anywhere] text-foreground">{nameOf(card)}</span>
+                      <span className="private-text line-clamp-2 hyphens-auto [overflow-wrap:break-word] text-foreground">{nameOf(card)}</span>
                       {/* Never the question again: a first clue that only repeats its words is left out. */}
                       {!(card.clue && flat(card.title) && flat(card.clue).startsWith(flat(card.title))) && <span className="line-clamp-1 text-xs text-muted-foreground">{card.clue ? `“${card.clue.replace(/\s+/g, ' ')}”` : 'No clues yet'}</span>}
                     </ListRow>
@@ -960,7 +960,7 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
                   {tidy.map((card) => (
                     <ListRow key={card.id} card={card} actions={actions} lead={<KindMark card={card} grain={false} className="mt-px size-5 shrink-0 rounded-[5px] [&_svg]:size-3" />}
                       aside={<span className="mt-0.5 shrink-0 text-xs text-muted-foreground">{whenInLine(card.at)}</span>}>
-                      <span className="private-text line-clamp-2 [overflow-wrap:anywhere] text-foreground">{nameOf(card)}</span>
+                      <span className="private-text line-clamp-2 hyphens-auto [overflow-wrap:break-word] text-foreground">{nameOf(card)}</span>
                     </ListRow>
                   ))}
                 </List>
@@ -970,7 +970,7 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
                   {again.map((card) => (
                     <ListRow key={card.id} card={card} actions={actions} lead={<Repeat2 className="mt-0.5 size-4 shrink-0 text-muted-foreground" />}
                       aside={<span className="mt-0.5 shrink-0 rounded-full bg-foreground/[0.06] px-2 py-0.5 text-xs text-muted-foreground tabular-nums">{card.count}×</span>}>
-                      <span className="private-text line-clamp-2 [overflow-wrap:anywhere] text-foreground">{nameOf(card)}</span>
+                      <span className="private-text line-clamp-2 hyphens-auto [overflow-wrap:break-word] text-foreground">{nameOf(card)}</span>
                       {card.sub && <span className="text-xs text-muted-foreground">{card.sub}</span>}
                     </ListRow>
                   ))}

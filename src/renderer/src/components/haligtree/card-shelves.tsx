@@ -1,4 +1,4 @@
-import { deckTitle } from './decks'
+import { deckTitle, nameFit, softBreaks } from './decks'
 import { haligtree, useLive, type Settings } from '@/lib/haligtree'
 import { useEffect, useRef, useState } from 'react'
 import { chime } from '@/lib/sound'
@@ -194,8 +194,8 @@ export function Pocket({ name, title = name, cards, onOpen }: { name: string; /*
   if (!shapes)
     return (
       <button type="button" data-pocket={name} data-pocket-plain onClick={() => (chime('open'), onOpen())}
-        className="mf-metal mf-metal-hover transition-transform duration-100 ease-out active:scale-[0.985] motion-reduce:transition-none motion-reduce:active:scale-100 flex aspect-square min-w-0 cursor-pointer flex-col gap-1.5 self-start overflow-hidden rounded-[6px] p-3.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring">
-        <span className="line-clamp-2 font-serif text-lg leading-snug text-foreground [overflow-wrap:anywhere]">{title}</span>
+        className="mf-metal mf-metal-hover transition-transform duration-100 ease-out active:scale-[0.985] motion-reduce:transition-none motion-reduce:active:scale-100 @container flex aspect-square min-w-0 cursor-pointer flex-col gap-1.5 self-start overflow-hidden rounded-[6px] p-3.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        <span className="line-clamp-2 font-serif leading-snug text-foreground hyphens-manual [overflow-wrap:normal]" style={nameFit(title)}>{softBreaks(title)}</span>
         <span className="text-sm text-muted-foreground tabular-nums"><span className={due ? 'font-semibold text-foreground' : ''}>{num(due)} due</span> · {num(fresh)} new</span>
         <span className="mt-auto flex items-center gap-1.5 text-sm text-muted-foreground tabular-nums">{num(cards.length)} {cards.length === 1 ? 'card' : 'cards'}{due > 0 && <span aria-hidden className="size-1.5 rounded-full bg-primary" />}</span>
       </button>
@@ -246,8 +246,8 @@ export function EmptyPocket({ deck, onPaste }: { deck: string; /** Paste cards i
   const shapes = useLive(haligtree.settings, null as Settings | null)?.deckShapes === true
   if (!shapes)
     return (
-      <div data-pocket={name} data-pocket-empty={deck} data-pocket-plain className="mf-metal flex aspect-square min-w-0 flex-col gap-1.5 self-start overflow-hidden rounded-[6px] p-3.5">
-        <span className="line-clamp-2 font-serif text-lg leading-snug text-foreground [overflow-wrap:anywhere]">{deckTitle(deck)}</span>
+      <div data-pocket={name} data-pocket-empty={deck} data-pocket-plain className="@container mf-metal flex aspect-square min-w-0 flex-col gap-1.5 self-start overflow-hidden rounded-[6px] p-3.5">
+        <span className="line-clamp-2 font-serif leading-snug text-foreground hyphens-manual [overflow-wrap:normal]" style={nameFit(deckTitle(deck))}>{softBreaks(deckTitle(deck))}</span>
         <span className="text-sm text-muted-foreground">Empty deck</span>
         <span className="mt-auto flex flex-wrap gap-1.5">
           <button type="button" data-pocket-make onClick={() => (chime('open'), onPaste(true))} className="h-8 cursor-pointer rounded-md border border-foreground/10 bg-background px-2.5 text-control font-medium text-foreground outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring">Make a card</button>

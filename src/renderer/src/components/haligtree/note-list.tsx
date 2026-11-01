@@ -610,7 +610,7 @@ function ListRow({ entry, lit }: { entry: Entry; lit: boolean }): React.JSX.Elem
         <span className="flex items-center gap-2">
           <PaneMark id={entry.id} />
           <span
-            className={`private-text min-w-0 flex-1 ${entry.wrap ? 'line-clamp-2 [overflow-wrap:anywhere]' : 'truncate'} ${entry.done ? DONE_WORDS : ''}`}
+            className={`private-text min-w-0 flex-1 ${entry.wrap ? 'line-clamp-2 hyphens-auto [overflow-wrap:break-word]' : 'truncate'} ${entry.done ? DONE_WORDS : ''}`}
           >
             <Named entry={entry} />
           </span>
@@ -681,7 +681,7 @@ function SmallTile({ entry, words }: { entry: Entry; words?: string }): React.JS
       {/* The name, pointed at or under the keyboard, over the foot of the tile: whole, on up to three lines, never cut at the tile's edge. */}
       <span
         data-tile-name
-        className={`private-text pointer-events-none absolute inset-x-0 bottom-0 line-clamp-3 bg-linear-to-t from-black/75 via-black/55 to-transparent px-2 pt-5 pb-1.5 text-[11px] leading-snug font-medium [overflow-wrap:anywhere] text-white opacity-0 transition-opacity duration-150 group-hover/row:opacity-100 group-data-[cursor]/row:opacity-100`}
+        className={`private-text pointer-events-none absolute inset-x-0 bottom-0 line-clamp-3 bg-linear-to-t from-black/75 via-black/55 to-transparent px-2 pt-5 pb-1.5 text-[11px] leading-snug font-medium hyphens-auto [overflow-wrap:break-word] text-white opacity-0 transition-opacity duration-150 group-hover/row:opacity-100 group-data-[cursor]/row:opacity-100`}
       >
         <Named entry={entry} />
       </span>

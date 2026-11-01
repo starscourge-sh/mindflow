@@ -34,6 +34,20 @@ export function deckTitle(tag: string, known: string[] = []): string {
   return [...ups, tag].map((one) => { const part = prev ? one.slice(prev.length + 1) : one; prev = one; return sayDeck(part) }).join(' / ')
 }
 
+/**
+ * A deck name's size on its tile (an @container): the title size, or smaller
+ * when its longest word would not fit the line (a serif letter is about 0.56
+ * of its size wide), so a word is never broken; `room` is what the line gives up (the ⋯).
+ */
+/** A very long word (over 14 letters) given soft hyphens every few letters: if it must break, it breaks there, with a real hyphen, never mid-letter-pair at random. */
+export const softBreaks = (name: string): string =>
+  name.split(' ').map((word) => (word.length > 14 ? word.replace(/(\p{L}{6})(?=\p{L}{4})/gu, '$1\u00AD') : word)).join(' ')
+
+export const nameFit = (name: string, room = '0rem'): React.CSSProperties => {
+  const longest = Math.max(4, ...name.split(/\s+/).map((word) => word.length))
+  return { fontSize: `max(0.8125rem, min(1.125rem, calc((100cqw - ${room}) / ${(longest * 0.56).toFixed(2)})))` }
+}
+
 /** Under a deck: the deck itself, or one inside it. */
 export const inDeck = (tags: string[], deck: string): boolean => tags.some((one) => one === deck || one.startsWith(`${deck}-`))
 

@@ -16,7 +16,7 @@ import { Check, ChevronRight } from 'lucide-react'
 import { StudyYear } from './study-stats'
 import type { Settings } from '@/lib/haligtree'
 import { moveToBin } from '@/lib/to-bin'
-import { cardsSaid, deckTagOf, deckTitle, makeDeck, sayDeck, useOwnDecks, type OwnDeck } from './decks'
+import { cardsSaid, deckTagOf, deckTitle, makeDeck, nameFit, sayDeck, softBreaks, useOwnDecks, type OwnDeck } from './decks'
 import { Coverage, coverageOf, type BrowsedCard } from './card-browser'
 import { TabControls } from './review-toolbar'
 import { Tip } from './ui'
@@ -245,7 +245,7 @@ function DeckTile({ id, own = false, drag, name, title, due, fresh, all, held, c
         onKeyDown={(event) => (event.key === 'Enter' || event.key === ' ') && event.target === event.currentTarget && (event.preventDefault(), onClick())}
         {...(drag ? { draggable: true, onDragStart: (event: React.DragEvent) => (event.dataTransfer.effectAllowed = 'move', event.dataTransfer.setData('text/plain', `#${id}`), drag.start()),
           onDragEnter: drag.enter, onDragOver: (event: React.DragEvent) => event.preventDefault(), onDragEnd: drag.end, onDrop: (event: React.DragEvent) => (event.preventDefault(), drag.drop()) } : {}) as Record<string, unknown>}
-        className={`relative flex aspect-square min-w-0 cursor-pointer flex-col gap-1.5 self-start overflow-hidden rounded-[6px] mf-metal mf-metal-hover p-3.5 text-left outline-none active:scale-[0.985] motion-reduce:active:scale-100 focus-visible:ring-2 focus-visible:ring-ring ${drag?.lifted ? 'opacity-40' : ''}`}>
+        className={`@container relative flex aspect-square min-w-0 cursor-pointer flex-col gap-1.5 self-start overflow-hidden rounded-[6px] mf-metal mf-metal-hover p-3.5 text-left outline-none active:scale-[0.985] motion-reduce:active:scale-100 focus-visible:ring-2 focus-visible:ring-ring ${drag?.lifted ? 'opacity-40' : ''}`}>
         <span className="absolute top-1.5 right-1.5" onClick={(event) => event.stopPropagation()}>
           <OptionsMenu sections={menu} heading={name} label="Deck options" tip={false} side="bottom" align="end" className="cursor-pointer" />
         </span>
@@ -255,7 +255,7 @@ function DeckTile({ id, own = false, drag, name, title, due, fresh, all, held, c
               : <GroupCover name={own ? `#${id}` : id} tint={groupTint(own ? `#${id}` : id)} label={null} className="size-10 shrink-0 rounded-[4px]" />}
           </span>
         )}
-        <h3 className="line-clamp-2 pr-7 font-serif text-lg leading-snug text-foreground [overflow-wrap:anywhere]">{name}</h3>
+        <h3 className="line-clamp-2 pr-7 font-serif leading-snug text-foreground hyphens-manual [overflow-wrap:normal]" style={nameFit(name, '1.75rem')}>{softBreaks(name)}</h3>
         <span data-deck-counts className="text-sm text-muted-foreground tabular-nums">
           {all ? <><Counts due={due} fresh={fresh} />{held > 0 && <> · {num(held)} held</>}</> : <span data-deck-empty>Empty: click to make a card</span>}
         </span>
@@ -554,8 +554,8 @@ function DeckList({ own, shelves, onStudy, place = {} }: { own: OwnDeck[]; shelv
     <div key={key} data-deck-row={key} className={`${cols} min-h-8 text-control`}>
       <span className="flex min-w-0 items-center gap-1">
         <Fold id={key} kids={kids} open={!shut.has(key)} name={name} flip={() => flip(key)} />
-        {study ? <button type="button" data-deck-row-study={key} onClick={() => (chime('riffle'), study())} className="line-clamp-2 min-w-0 cursor-pointer rounded-[4px] px-1 text-left text-foreground [overflow-wrap:anywhere] hover:bg-accent">{name}</button>
-          : <span className="line-clamp-2 min-w-0 px-1 text-muted-foreground [overflow-wrap:anywhere]">{name}</span>}
+        {study ? <button type="button" data-deck-row-study={key} onClick={() => (chime('riffle'), study())} className="line-clamp-2 min-w-0 cursor-pointer rounded-[4px] px-1 text-left text-foreground hyphens-auto [overflow-wrap:break-word] hover:bg-accent">{name}</button>
+          : <span className="line-clamp-2 min-w-0 px-1 text-muted-foreground hyphens-auto [overflow-wrap:break-word]">{name}</span>}
       </span>
       <span className={`flex items-center justify-end gap-1.5 tabular-nums ${due > 0 ? 'font-semibold text-foreground' : 'text-muted-foreground/60'}`}>{due > 0 && <span aria-hidden className="size-1.5 rounded-full bg-primary" />}{due < 0 ? '–' : num(due)}</span>
       <span className={`text-right tabular-nums ${fresh > 0 ? 'text-foreground' : 'text-muted-foreground/60'}`}>{fresh < 0 ? '–' : num(fresh)}</span>
