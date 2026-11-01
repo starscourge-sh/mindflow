@@ -11,6 +11,7 @@ import { Page, Tip, openTag, toast, typing } from './ui'
 import { RowMenu, copyLinkItem, type MenuItem } from './row-menu'
 import { Avatar } from './avatar'
 import { openSource } from '@/lib/sources'
+import { distinctInitials } from '@/lib/people'
 import { dayLinkName } from './day-view'
 import { FeedHeading, Post, SideCard, kindWord, written } from './feed-view'
 
@@ -265,6 +266,7 @@ function WeekStrip({ weeks, onWeek }: { weeks: LikedSide['weeks']; onWeek: (star
 /** Beside Liked: what you keep liking (tags, sources), and what you liked a year ago today. */
 function LikedSideColumn({ side, onOpen }: { side: LikedSide; onOpen: (post: LikedPost) => void }): React.JSX.Element {
   const row = 'flex w-full min-w-0 items-center gap-2 rounded-md px-2 py-1.5 text-left text-control text-foreground transition-colors hover:bg-accent/60'
+  const letters = distinctInitials(side.sources.map((one) => one.name))
   return (
     <aside data-liked-side aria-label="Beside Liked" className="sticky top-[33px] mt-[3.25rem] hidden max-h-[calc(100dvh-8rem)] w-[15.5rem] shrink-0 flex-col gap-3 overflow-y-auto overscroll-contain @[56rem]/page:flex">
       {side.yearAgo.length > 0 && (
@@ -288,7 +290,7 @@ function LikedSideColumn({ side, onOpen }: { side: LikedSide; onOpen: (post: Lik
           ))}
           {side.sources.map((one) => (
             <button key={one.name} type="button" data-liked-source={one.name} onClick={() => (chime('page'), openSource('attribution', one.name))} className={row}>
-              <Avatar name={one.name} size={20} className="shrink-0" />
+              <Avatar name={one.name} size={20} letters={letters.get(one.name.trim())} className="shrink-0" />
               <span className="min-w-0 flex-1 truncate">{one.name}</span>
               <span className="shrink-0 whitespace-nowrap text-muted-foreground tabular-nums">{likesSaid(one.n)}</span>
             </button>

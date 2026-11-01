@@ -59,6 +59,32 @@ export const initials = (name: string): string => {
   return (first + last).toUpperCase()
 }
 
+/**
+ * Initials that tell apart every name shown together: two names that would both be "S1" ("Source 1",
+ * "Someone, Number 1") take a letter more from the first word, the first that differs ("SU1", "SM1").
+ */
+export const distinctInitials = (names: string[]): Map<string, string> => {
+  const unique = [...new Set(names.map((one) => one.trim()).filter(Boolean))]
+  const choices = (name: string): string[] => {
+    const words = name.replace(/[^\p{L}\p{N}\s'-]/gu, '').trim().split(/\s+/).filter(Boolean)
+    const first = [...(words[0] ?? '')]
+    const end = words.length > 1 ? [...words[words.length - 1]] : []
+    return [initials(name), `${first[0] ?? ''}${end.slice(0, 2).join('')}`.toUpperCase(), ...first.slice(1).map((one) => `${first[0]}${one}${end[0] ?? ''}`.toUpperCase())]
+  }
+  const plain = unique.map(initials)
+  const out = new Map<string, string>()
+  const used = new Set<string>()
+  // A name no other shares keeps its two letters; the rest, in order, take the first of their choices not taken.
+  unique.forEach((name, at) => { if (plain.filter((one) => one === plain[at]).length === 1) (out.set(name, plain[at]), used.add(plain[at])) })
+  for (const name of unique) {
+    if (out.has(name)) continue
+    const pick = choices(name).find((one) => !used.has(one) && !plain.includes(one) || (one === initials(name) && !used.has(one))) ?? `${initials(name)}${used.size}`
+    out.set(name, pick)
+    used.add(pick)
+  }
+  return out
+}
+
 /** A hue for a name that never changes: the same person, the same colour, in every window. */
 export const hueOf = (name: string): number => {
   let hash = 0

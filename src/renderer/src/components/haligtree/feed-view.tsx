@@ -12,6 +12,7 @@ import type { Feed, FeedPost, FeedSide, PollAnswer, Reaction } from '../../../..
 import { useGrades } from './review-view'
 import { backIn } from '@/lib/back-in'
 import { openSource, sources, type SourceSummary } from '@/lib/sources'
+import { distinctInitials } from '@/lib/people'
 import { Kbd, Page, Tip, jumpTo, openTag, quietly, toast, typing } from './ui'
 import { Switch } from '@/components/ui/switch'
 import { Avatar } from './avatar'
@@ -1023,6 +1024,8 @@ export function SideColumn({ onOpen }: { onOpen: (type: string, id: string) => v
   if (unloaded(side)) return null
   const people = all.filter((one) => one.field === 'attribution')
   const faces = [...people].sort((a, b) => b.count - a.count || a.name.localeCompare(b.name)).slice(0, FACES)
+  // One set of letters for every face in the column, so two names never wear the same "S1".
+  const letters = distinctInitials([...faces.map((one) => one.name), ...side.quiet.filter((one) => one.kind === 'source').map((one) => one.name)])
   const go = (run: () => void): void => (chime('page'), run())
   const row = 'flex w-full min-w-0 items-center gap-2 rounded-md px-2 py-1.5 text-left text-control text-foreground transition-colors hover:bg-accent/60'
   return (
@@ -1035,7 +1038,7 @@ export function SideColumn({ onOpen }: { onOpen: (type: string, id: string) => v
             {faces.map((one) => (
               <button key={one.name} type="button" {...hoverNote('person', one.name)} data-feed-face={one.name} aria-label={`Open ${one.name}'s page, ${num(one.count)} ${one.count === 1 ? 'note' : 'notes'}`} onClick={() => go(() => openSource('attribution', one.name))}
                 className="rounded-full ring-offset-2 ring-offset-background transition-transform duration-150 ease-(--mf-ease) hover:scale-[1.06] focus-visible:ring-2 focus-visible:ring-ring">
-                <Avatar name={one.name} size={34} />
+                <Avatar name={one.name} size={34} letters={letters.get(one.name.trim())} />
               </button>
             ))}
           </div>
@@ -1051,7 +1054,7 @@ export function SideColumn({ onOpen }: { onOpen: (type: string, id: string) => v
         <SideCard name="quiet" title="Not heard from in a while">
           {side.quiet.map((one) => (
             <button key={`${one.kind}:${one.name}`} type="button" data-feed-quiet={one.kind} onClick={() => go(() => (one.kind === 'tag' ? openTag(one.name) : openSource('attribution', one.name)))} className={row}>
-              {one.kind === 'tag' ? <span aria-hidden className="flex size-5 shrink-0 items-center justify-center text-muted-foreground">#</span> : <Avatar name={one.name} size={20} className="shrink-0" />}
+              {one.kind === 'tag' ? <span aria-hidden className="flex size-5 shrink-0 items-center justify-center text-muted-foreground">#</span> : <Avatar name={one.name} size={20} letters={letters.get(one.name.trim())} className="shrink-0" />}
               <span className="min-w-0 flex-1 truncate">{one.name}</span>
               <span className="shrink-0 whitespace-nowrap text-muted-foreground tabular-nums">{quietFor(one.last)}</span>
             </button>

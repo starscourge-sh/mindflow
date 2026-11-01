@@ -22,7 +22,7 @@ const hashOf = (name: string): number => {
  * With “Avatars” set to “Initials” (the root's data-avatars), the initials sit
  * in a soft round tint instead.
  */
-export function Avatar({ name, size = 16, className = '', look }: { name: string; size?: number; className?: string; /** Settings' sample: this look whatever the setting says. */ look?: 'shapes' | 'initials' }): React.JSX.Element | null {
+export function Avatar({ name, size = 16, className = '', look, letters }: { name: string; size?: number; className?: string; /** Settings' sample: this look whatever the setting says. */ look?: 'shapes' | 'initials'; /** Its letters, where names shown together would otherwise share them (distinctInitials). */ letters?: string }): React.JSX.Element | null {
   const avatar = useAvatar(name)
   // Its page waits for the pictures' read and this one's decode, a moment at most: never initials, then the picture.
   useDecoded(avatar, !peopleRead())
@@ -47,7 +47,7 @@ export function Avatar({ name, size = 16, className = '', look }: { name: string
             </defs>
             <path d={SHAPES[shape]} fill={`url(#${id})`} />
           </svg>
-          <span>{initials(trimmed)}</span>
+          <span>{letters ?? initials(trimmed)}</span>
         </>
       )}
     </span>

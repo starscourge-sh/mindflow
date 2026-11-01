@@ -137,6 +137,10 @@ try {
     check(`${people} sources: 8 faces at most, and "All N sources" past that`, faces <= 8 && (total > 8 ? (await all.count()) === 1 : (await all.count()) === 0), `${faces} faces, ${(await all.count()) ? await all.innerText() : 'no link'}`)
     const wrapped = await h.evaluate(() => [...document.querySelectorAll('[data-feed-side] :is([data-feed-quiet], [data-feed-week], [data-feed-all-sources]) > span')].filter((one) => one.getBoundingClientRect().height > 24).map((one) => one.textContent))
     check(`${people} sources: no count or name wraps`, !wrapped.length, wrapped.join(' | '))
+    const marks = await h.evaluate(() => [...document.querySelectorAll('[data-feed-side] [data-feed-face], [data-feed-side] [data-feed-quiet="source"]')].map((one) => [one.getAttribute('data-feed-face') ?? one.querySelector('.truncate')?.textContent ?? '', one.querySelector('[data-avatar="initials"] > span')?.textContent ?? null]))
+    const byLetters = new Map()
+    for (const [name, letters] of marks) if (letters) byLetters.set(letters, new Set([...(byLetters.get(letters) ?? []), name.trim()]))
+    check(`${people} sources: no two names in the column wear the same letters`, [...byLetters.values()].every((names) => names.size === 1), JSON.stringify(marks))
     const face = h.locator('[data-feed-face]').last()
     if (await face.count()) {
       await face.hover()
