@@ -10,6 +10,9 @@ import { changed, database } from './captures'
 import { scheduler } from './haligtree'
 import { assetsDir, lookAhead } from './pictures'
 import { cut } from './clip'
+import { existsSync, readFileSync } from 'fs'
+import { nativeImage } from 'electron'
+import { fromAddOn, fromAnki, inShares, type Cover, type Hide, type Occlusion } from './occlusion'
 import { kindFieldsOf, kindTags, tagWord, whoFieldOf } from './deck-fields'
 
 /** What one .apkg brought in, for the import's notice. */
@@ -132,6 +135,37 @@ const linked = (html: string): string =>
     const text = words.replace(/<[^>]+>/g, '').trim()
     return !text || text === href || text === address ? address : `[${text}](${address})`
   })
+
+/**
+ * A picture-hiding note's card as a card from a picture: its picture, its
+ * covers and which of them this card asks. Anki's own (23.10 and later) keeps
+ * the covers in its Occlusion field, a cloze number each; the common add-on
+ * keeps each card's covers as an SVG, its Question Mask. `false`: no picture
+ * or no covers to be read, so it is skipped and counted.
+ */
+function pictureCard(names: string[], raw: string[], ord: number, media: Map<string, string>): { occlusion: Occlusion; answer: string } | false {
+  const field = (pattern: RegExp): string => raw[names.findIndex((name) => pattern.test(name))] ?? ''
+  const pictureOf = (html: string): string | undefined => media.get(/<img[^>]*src="([^"]+)"/i.exec(html)?.[1] ?? '')
+  const src = pictureOf(field(/^image$/i)) ?? raw.map(pictureOf).find(Boolean)
+  if (!src) return false
+  const own = raw.find((one) => one.includes('image-occlusion:'))
+  let read: { covers: Cover[]; hide: Hide } | null = null
+  let ask = 1
+  if (own) {
+    read = fromAnki(own)
+    ask = ord + 1
+    const file = join(assetsDir(), src.split('/').pop() ?? '')
+    const size = existsSync(file) ? nativeImage.createFromPath(file).getSize() : { width: 0, height: 0 }
+    read = { ...read, covers: inShares(read.covers, size.width, size.height) }
+  } else {
+    const mask = pictureOf(field(/question mask/i))
+    const file = mask ? join(assetsDir(), mask.split('/').pop() ?? '') : ''
+    read = file && existsSync(file) ? fromAddOn(readFileSync(file, 'utf8')) : null
+  }
+  if (!read || !read.covers.some((one) => one.group === ask)) return false
+  const words = [field(/^header$/i), field(/^back extra$|^remarks$|^extra 1$/i)].map((one) => wordsOf(one, media).replace(/!\[\]\([^)]*\)/g, '').trim()).filter(Boolean)
+  return { occlusion: { src, covers: read.covers, ask, hide: read.hide }, answer: words.join('\n\n') || 'Shown on the picture' }
+}
 
 /** A field's HTML as the app's own words: the deck's styling dropped, pictures and sounds as links to the book's copies. */
 function wordsOf(html: string, media: Map<string, string>): string {
@@ -310,8 +344,9 @@ export async function importApkg(path: string, steps: Steps = {}): Promise<ApkgC
           steps.progress?.(at + 1, cards.length, 'cards')
           const model = models.get(String(card.mid)) ?? { name: '', cloze: false, fields: [], templates: [] }
           const raw = card.flds.split('\x1f')
-          // Anki's own picture-hiding notes wait for image occlusion here.
-          if (/image occlusion/i.test(model.name) || raw.some((field) => field.includes('image-occlusion:'))) {
+          // Anki's own picture-hiding notes (23.10 and later) and the common add-on's: cards from a picture here too.
+          const pictured = /image occlusion/i.test(model.name) || raw.some((field) => field.includes('image-occlusion:')) ? pictureCard(model.fields, raw, card.ord, media) : null
+          if (pictured === false) {
             counts.skipped += 1
             continue
           }
@@ -345,6 +380,8 @@ export async function importApkg(path: string, steps: Steps = {}): Promise<ApkgC
             // The second card of a "Basic (and reversed)" note asks the back first.
             else if (card.ord === 1 && back) [front, back] = [back, front]
           }
+          // A picture card asks with its picture, and answers with the words its note gives (its header, its extra) if any.
+          if (pictured) [front, back] = ['What is hidden?', pictured.answer]
           if (!front.trim() || !back.trim()) {
             counts.skipped += 1
             continue
@@ -365,7 +402,7 @@ export async function importApkg(path: string, steps: Steps = {}): Promise<ApkgC
           for (const one of kindFields) counts.links.kinds.add(one)
           const kinds = kindTags(kindFields.map((name) => wordsOf(values.get(name) ?? '', media)))
           // The deck's own fields, as words, kept with the card: so a wrong guess can be changed later from the shelf.
-          const kept = JSON.stringify({ _anki: { fields: Object.fromEntries(model.fields.filter((name) => !SOURCE_FIELD.test(name)).map((name) => [name, wordsOf(values.get(name) ?? '', media).replace(/!\[\]\([^)]*\)/g, '').replace(/\s+/g, ' ').trim()]).filter(([, value]) => value && value.length <= 200)), who: whoField, kinds: kindFields, tags: kinds } })
+          const kept = JSON.stringify({ _anki: { fields: Object.fromEntries(model.fields.filter((name) => !SOURCE_FIELD.test(name)).map((name) => [name, wordsOf(values.get(name) ?? '', media).replace(/!\[\]\([^)]*\)/g, '').replace(/\s+/g, ' ').trim()]).filter(([, value]) => value && value.length <= 200)), who: whoField, kinds: kindFields, tags: kinds }, ...(pictured ? { occlusion: pictured.occlusion } : {}) })
           const tags = [...new Set([deck && tagWord(deck), ...card.tags.trim().split(/\s+/).filter(Boolean).map(tagWord), ...kinds].filter(Boolean))]
           usedDecks.add(card.did)
           // When it was made in Anki is a fact about the deck, not the day it came into this book.
