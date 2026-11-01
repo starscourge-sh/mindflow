@@ -76,17 +76,19 @@ function DayCells({ days, say, onHover, rows, cell, left, right }: { days: { day
   const most = Math.max(1, ...days.map((one) => one.n))
   const today = dayjs().format('YYYY-MM-DD')
   const [on, setOn] = useState<string | null>(null)
-  // A few rows (the 30 days) read in day order, a row at a time, oldest first, today the last cell; a year in week columns, as the year above the decks.
-  const across = Math.ceil(days.length / rows)
-  const flow = rows <= 2 ? { gridTemplateColumns: `repeat(${across}, minmax(0, ${cell}px))`, gridAutoFlow: 'row' as const } : { gridTemplateRows: `repeat(${rows}, ${cell}px)`, gridAutoColumns: `${cell}px`, gridAutoFlow: 'column' as const }
+  // One row (the 30 days): oldest on the left, today the last, the cells as tall as the year's and widening to fill the well, a faint tick under
+  // each Monday; a year in week columns, as the year above the decks. The same chart at two zooms.
+  const single = rows === 1
+  const flow = single ? { gridTemplateColumns: `repeat(${days.length}, minmax(0, 1fr))`, gridTemplateRows: `${cell}px` } : { gridTemplateRows: `repeat(${rows}, ${cell}px)`, gridAutoColumns: `${cell}px`, gridAutoFlow: 'column' as const }
   return (
     <div className="flex justify-center overflow-hidden">
       {/* The labels share the cells' width, so "30 days ago" sits under the first cell and "today" under the last. */}
-      <div className={`grid gap-1.5 ${rows <= 2 ? 'w-full max-w-[40rem]' : 'shrink-0'}`}>
-        <div data-day-cells className="grid" style={{ ...flow, gap: 3, justifyContent: 'space-between' }} onPointerLeave={() => (setOn(null), onHover(null))}>
+      <div className={`grid gap-1 ${single ? 'w-full' : 'shrink-0'}`}>
+        <div data-day-cells className="grid" style={{ ...flow, gap: 3 }} onPointerLeave={() => (setOn(null), onHover(null))}>
           {days.map((one) => <span key={one.day} data-day={one.day} data-n={one.n} {...(on === one.day ? { 'data-day-on': '' } : {})} onPointerEnter={() => (setOn(one.day), onHover(say(one)))}
-            className={`aspect-square rounded-[2px] ${on === one.day ? 'transition-none' : 'transition-[box-shadow] duration-[120ms]'}`} style={{ background: shadeOf(stepOf(one.n, most)), boxShadow: ringOf(one.day === today, on === one.day) }} />)}
+            className={`${single ? '' : 'aspect-square'} rounded-[2px] ${on === one.day ? 'transition-none' : 'transition-[box-shadow] duration-[120ms]'}`} style={{ background: shadeOf(stepOf(one.n, most)), boxShadow: ringOf(one.day === today, on === one.day) }} />)}
         </div>
+        {single && <div aria-hidden data-day-mondays className="grid h-1" style={{ gridTemplateColumns: `repeat(${days.length}, minmax(0, 1fr))`, gap: 3 }}>{days.map((day) => <span key={day.day} className={`mx-auto h-1 w-px ${dayjs(day.day).day() === 1 ? 'bg-foreground/35' : ''}`} />)}</div>}
         <Ends left={left} right={right} />
       </div>
     </div>
@@ -128,7 +130,7 @@ function StudyCards({ studied }: { studied: Studied }): React.JSX.Element {
         <MonoCard name="reviews" title={span === 'month' ? 'Cards reviewed each day' : 'Days you reviewed, the darker the more cards'} value={span === 'month' ? reviews : yearTotal} unit={span === 'month' ? 'reviews in 30 days' : 'reviews in a year'}
           side={<Switch options={[{ id: 'month', label: '30 days' }, { id: 'year', label: 'Year' }]} value={span} pick={setSpan} />}
           hovered={onReviews} point="Each square is a day, the darker the more cards, as in the year above the decks.">
-          <DayCells key={span} days={days} say={reviewsSaid} onHover={sayReviews} rows={span === 'month' ? 2 : 7} cell={span === 'month' ? 40 : 10} left={span === 'month' ? '30 days ago' : 'a year ago'} right="today" />
+          <DayCells key={span} days={days} say={reviewsSaid} onHover={sayReviews} rows={span === 'month' ? 1 : 7} cell={span === 'month' ? 11 : 10} left={span === 'month' ? '30 days ago' : 'a year ago'} right="today" />
         </MonoCard>
       </div>
       <MonoCard name="minutes" title="Minutes reviewing each day" value={Math.round(shownMinutes.reduce((sum, one) => sum + one.n, 0))} unit={`minutes in ${range === 'week' ? '7' : '30'} days`} chips={studiedDays ? <Chip>{plural(studiedDays, 'day', 'days')}</Chip> : undefined}
@@ -223,14 +225,15 @@ export function StudyYear({ compact = false }: { /** Above the decks: the same y
   const grid = { gridTemplateColumns: `repeat(${weeks}, ${cell}px)`, columnGap: 3 }
   return (
     <section data-study-year-map {...(compact ? { 'data-compact': '' } : {})} aria-label="A year of study" className="grid gap-3 rounded-[5px] mf-metal px-4 py-3">
-      <div data-year-numbers className="grid grid-cols-[repeat(auto-fit,minmax(8.5rem,1fr))] gap-x-4 gap-y-2">
+      {/* Four across when they fit, else two and two: never three and one left alone. */}
+      <div className="@container"><div data-year-numbers className="grid grid-cols-2 gap-x-4 gap-y-2 @[38rem]:grid-cols-4">
         {numbers.map(([value, label]) => (
           <p key={label} data-year-number={label} className="grid min-w-0">
             <span className="font-serif text-xl leading-tight text-foreground tabular-nums">{value}</span>
             <span className="text-sm text-muted-foreground">{label}</span>
           </p>
         ))}
-      </div>
+      </div></div>
       {/* The latest weeks always show: on a narrow window the oldest are cut on the left. */}
       <div className="flex justify-end overflow-hidden">
         <div className="grid shrink-0 grid-cols-[auto_auto] gap-x-1.5 gap-y-1 text-[10px] leading-none text-muted-foreground">
