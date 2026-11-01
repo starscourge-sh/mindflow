@@ -37,6 +37,13 @@ const ROOM_TALL = window.api.room.top + window.api.room.bottom
 /** The card's height: with room round it, the window is taller than the card by that room. */
 const cardHeight = (): number => (ROOM ? (document.querySelector<HTMLElement>('.app-container')?.offsetHeight ?? window.innerHeight) : window.innerHeight)
 
+/** The card held at `height` (quick capture's overhang), whatever room the window keeps under it; and let go. */
+const pin = (height: number): void => {
+  document.documentElement.style.setProperty('--mf-card-held', `${height}px`)
+  document.documentElement.setAttribute('data-card-held', '')
+}
+const unpin = (): void => document.documentElement.removeAttribute('data-card-held')
+
 /** How tall the window has to be to show the whole note without scrolling, two lines at least; null with no note in it. */
 function needed(column: HTMLElement | null): number | null {
   // A voice note recording in the writing's place (voice-note.tsx): the words
@@ -118,6 +125,8 @@ export function useFitBox(column: RefObject<HTMLElement | null>, full: boolean, 
     // Already asked for, but gliding there: a snap still lands it at once.
     if (height === sent.current && !snap) return
     sent.current = height
+    // Held while a pop-up hangs into the room below: the card still grows or shrinks with the writing.
+    if (document.documentElement.hasAttribute('data-card-held')) pin(height)
     window.api.fitBox(height, snap)
   }, [])
 
@@ -140,10 +149,17 @@ export function useFitBox(column: RefObject<HTMLElement | null>, full: boolean, 
       if (ask !== below.current) {
         below.current = ask
         if (ask && !('growing' in root.dataset)) (root.dataset.growing = ''), setTimeout(() => delete root.dataset.growing, 500)
+        // The card is held at its height while the window grows room under it: the page's own room below is a fixed
+        // 48px, so unheld the card stretched into the new room, read as taller, gave the room back, shrank, and asked
+        // again, the window jumping between the two sizes every few frames while the slash menu flipped above and below.
+        if (ask) pin(card)
         void window.api.roomBelow(ask).then((given) => {
-          if (!ask || given || below.current !== ask) return
+          if (below.current !== ask) return
+          if (!ask) return unpin()
+          if (given) return
           grewForPop.current = true
           below.current = 0
+          unpin()
           send(FULL, true)
         })
       }
