@@ -1351,6 +1351,18 @@ export function registerHaligtree(): void {
       db.prepare("update settings set value = ? where key = 'sidebarShown'").run(JSON.stringify([...shown, 'calendar']))
     db.prepare("insert or replace into settings (key, value) values ('sidebarCalendarOnce', 'true')").run()
   }
+  // Questions left Writing's row for a row of its own: a sidebar set up before shows it too, once, just under Writing.
+  if (!db.prepare("select 1 from settings where key = 'sidebarQuestionsOnce'").get()) {
+    const read = (key: string): unknown => { try { return JSON.parse((db.prepare('select value from settings where key = ?').get(key) as { value: string } | undefined)?.value ?? 'null') } catch { return null } }
+    const shown = read('sidebarShown')
+    if (Array.isArray(shown) && !shown.includes('questions')) db.prepare("update settings set value = ? where key = 'sidebarShown'").run(JSON.stringify([...shown, 'questions']))
+    const order = read('sidebarOrder')
+    if (Array.isArray(order) && !order.includes('questions')) {
+      const at = order.indexOf('articles')
+      db.prepare("update settings set value = ? where key = 'sidebarOrder'").run(JSON.stringify(at < 0 ? [...order, 'questions'] : [...order.slice(0, at + 1), 'questions', ...order.slice(at + 1)]))
+    }
+    db.prepare("insert or replace into settings (key, value) values ('sidebarQuestionsOnce', 'true')").run()
+  }
   // Every page shows in the sidebar now, so a sidebar set up before gets them all, once.
   // Only which ones show goes back to the default; your order (sidebarOrder) stays.
   if (!db.prepare("select 1 from settings where key = 'sidebarAllOnce'").get()) {

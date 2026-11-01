@@ -55,14 +55,8 @@ export async function offerTag(list: 'article' | 'nugget' | null, id: string, na
  * dropped by another's top or bottom edge, it moves to just before or after
  * it, in the list's own order, as in Finder's sidebar.
  */
-export function SideFolders({ list, counted, open, shown, here, onOpen, onUnfold, lead, leadHere = false, noFolders = false }: {
+export function SideFolders({ list, counted, open, shown, here, onOpen, onUnfold }: {
   list: 'article' | 'nugget'
-  /** A page of the list's own hung first off the same trunk, above the folders: Writing's Questions. */
-  lead?: React.ReactNode
-  /** That page is the one open: the lit way down runs to it. */
-  leadHere?: boolean
-  /** The folders switched off in the sidebar (Customize sidebar): only the lead hangs here. */
-  noFolders?: boolean
   /** Each folder's count shown, as the sidebar's own counts are (Customize sidebar). */
   counted: boolean
   /** Unfolded under the row. */
@@ -157,18 +151,16 @@ export function SideFolders({ list, counted, open, shown, here, onOpen, onUnfold
   // The folder you are in, or one it sits inside: the lit way down runs through each.
   const holds = (id: string): boolean => id === here || kids(id).some((one) => holds(one.id))
   const rows = (parent: string | null, depth: number): React.JSX.Element | null => {
-    const these = parent === null && noFolders ? [] : kids(parent)
-    const first = parent === null ? lead : null
+    const these = kids(parent)
     // Groups that gather by a rule hang after the folders, off the same trunk: folders first, as a beginner meets them.
     const many = smart.length > GROUPS_SHOWN && !everyGroup
-    const gathered = parent === null && !noFolders ? (many ? smart.filter((one, at) => at < GROUPS_SHOWN || here === GROUP_KEY + one.id) : smart) : []
-    if (!these.length && !first && !gathered.length) return null
+    const gathered = parent === null ? (many ? smart.filter((one, at) => at < GROUPS_SHOWN || here === GROUP_KEY + one.id) : smart) : []
+    if (!these.length && !gathered.length) return null
     const lit = these.findIndex((one) => holds(one.id))
     const litGroup = gathered.findIndex((one) => here === GROUP_KEY + one.id)
-    const before = (first ? 1 : 0) + these.length
+    const before = these.length
     return (
-      <Branches current={first && leadHere ? 0 : lit >= 0 ? lit + (first ? 1 : 0) : litGroup >= 0 ? before + litGroup : -1} className="ml-5 flex flex-col gap-px">
-        {first}
+      <Branches current={lit >= 0 ? lit : litGroup >= 0 ? before + litGroup : -1} className="ml-5 flex flex-col gap-px">
         {these.flatMap((group) => {
           const inner = rows(group.id, depth + 1)
           return [
@@ -177,7 +169,7 @@ export function SideFolders({ list, counted, open, shown, here, onOpen, onUnfold
           ]
         })}
         {gathered.map((group) => <SmartRow key={group.id} group={group} shown={shown} counted={counted} here={here === GROUP_KEY + group.id} onOpen={() => onOpen(GROUP_KEY + group.id)} />)}
-        {parent === null && !noFolders && smart.length > GROUPS_SHOWN && (
+        {parent === null && smart.length > GROUPS_SHOWN && (
           <button type="button" data-side-row data-groups-more={smart.length} onClick={() => (chime(everyGroup ? 'fold' : 'slide'), setEveryGroup(!everyGroup))}
             className="flex w-full min-w-0 items-center gap-2 rounded-md py-1 pr-2 pl-2 text-muted-foreground hover:text-foreground">
             <span className="size-4 shrink-0" />

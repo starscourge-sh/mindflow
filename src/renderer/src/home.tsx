@@ -101,7 +101,7 @@ import { noteActions } from '@/lib/notes'
 import { headingIn } from '@/lib/capture-links'
 import { openApart } from '@/lib/apart'
 import { MediaView } from '@/components/haligtree/media-view'
-import { G_ALIASES, JOURNAL_SCALES, QUESTIONS_PLACE, OFF_SIDEBAR, startPageOf, PlaceIcon, SECTIONS, SIDE_GROUPS, ShowList, showGroup, type Place, placeDrawing, TASK_PAGES, dropInBlock, dropOrder, orderItems, risen, litRow, showWords, sidebarParts, useInOrder, useOrder, useSections, useShown } from '@/components/haligtree/places'
+import { G_ALIASES, JOURNAL_SCALES, OFF_SIDEBAR, startPageOf, PlaceIcon, SECTIONS, SIDE_GROUPS, ShowList, showGroup, type Place, placeDrawing, TASK_PAGES, dropInBlock, dropOrder, orderItems, risen, litRow, showWords, sidebarParts, useInOrder, useOrder, useSections, useShown } from '@/components/haligtree/places'
 import { BlockList, SortableList, SortableRow } from '@/components/haligtree/sortable'
 import { pageTravel } from '@/lib/page-travel'
 import { Branches } from '@/components/haligtree/branches'
@@ -868,7 +868,7 @@ export function Home(): React.JSX.Element {
   if (byHand.page !== view.id) setByHand({ page: view.id, open: {} })
   const hand = byHand.page === view.id ? byHand.open : {}
   const following = (key: string, page: string, kept: boolean, keep: (open: boolean) => void): [boolean, (open: boolean) => void] =>
-    follow ? [hand[key] ?? (view.id === page || (page === 'articles' && (view.id === 'questions' || view.id === 'lookups'))), (open) => setByHand({ page: view.id, open: { ...hand, [key]: open } })] : [kept, keep]
+    follow ? [hand[key] ?? view.id === page, (open) => setByHand({ page: view.id, open: { ...hand, [key]: open } })] : [kept, keep]
   const [tagsOpen, setTagsOpen] = following('tags', 'tags', tagsKept, keepTags)
   const [articleFolders, setArticleFolders] = following('article', 'articles', articleKept, keepArticle)
   const [nuggetFolders, setNuggetFolders] = following('nugget', 'nuggets', nuggetKept, keepNugget)
@@ -1450,7 +1450,7 @@ export function Home(): React.JSX.Element {
   const placesTo = (key?: string): Action[] => [
     ...SECTIONS.map((section) => ({ label: `Go to ${section.label}`, keys: `G ${section.key.toUpperCase()}`, run: () => setView({ id: section.id }, key) })),
     // The Tasks row's other tabs, and the pages that are a chip or a menu line now: still a G and a letter away.
-    ...([['Upcoming', 'upcoming', 'U'], ['Later', 'later', 'Z'], ['Routines', 'routines', 'O'], ['All tasks', 'alltasks', '*'], ['Urgent and important', 'matrix', 'Q'], ['Questions', 'questions', 'H'], ['Questions: Looked up', 'lookups', '.']] as const).map(([name, id, letter]) => ({ label: `Go to ${name}`, keys: `G ${letter}`, run: () => setView({ id }, key) }))
+    ...([['Upcoming', 'upcoming', 'U'], ['Later', 'later', 'Z'], ['Routines', 'routines', 'O'], ['All tasks', 'alltasks', '*'], ['Urgent and important', 'matrix', 'Q'], ['Questions: Looked up', 'lookups', '.']] as const).map(([name, id, letter]) => ({ label: `Go to ${name}`, keys: `G ${letter}`, run: () => setView({ id }, key) }))
   ]
 
   /** A pane's page: the step it is on, drawn with everything it opens kept in that pane. */
@@ -1867,14 +1867,11 @@ export function Home(): React.JSX.Element {
               const scales = section.id === 'day' && !narrow ? JOURNAL_SCALES.filter((one) => !shown.includes(one.id)) : []
               const folders = list && !narrow && settings?.sidebarFolders?.[list] !== false ? (list === 'article' ? articles : nuggets) : null
               const [unfolded, setUnfolded] = list === 'article' ? [articleFolders, setArticleFolders] : list === 'nugget' ? [nuggetFolders, setNuggetFolders] : [journalOpen, setJournalOpen]
-              // Questions, a page of its own, hangs under Writing first, above its folders, off the same trunk.
-              const asking = list === 'article' && !narrow
-              const inQuestions = list === 'article' && (view.id === 'questions' || view.id === 'lookups')
-              // What the chevron over the icon folds: Writing's Questions and folders, Gems' folders, or Journal's scales.
-              const folds = !!(folders && list) || asking || scales.length > 0
+              // What the chevron over the icon folds: Writing's and Gems' folders, or Journal's scales.
+              const folds = !!(folders && list) || scales.length > 0
               const inFolder = view.id === section.id ? view.folder : undefined
               const inScale = scales.some((one) => one.id === view.id)
-              const here = lit(section.id) && !inFolder && !inScale && !inQuestions
+              const here = lit(section.id) && !inFolder && !inScale
               return (
               <SortableRow key={section.id} id={section.id} glide={still ? undefined : `side-${section.id}`}>
               <RowMenu items={placeMenu(section, among)}>
@@ -1893,7 +1890,7 @@ export function Home(): React.JSX.Element {
                 aria-label={section.label}
                 aria-current={here ? 'page' : undefined}
                 onClick={() => open('view', section.id)}
-                className={`group relative flex items-center gap-2.5 rounded-md py-1.5 transition-colors duration-80 ${narrow ? 'justify-center px-0' : 'px-2'} ${here || inFolder || inScale || inQuestions ? 'text-foreground' : 'text-foreground/80'} data-[queue-hot]:bg-[color-mix(in_oklab,var(--tt-color-text-blue)_16%,transparent)] data-[queue-hot]:text-foreground data-[queue-hot]:ring-1 data-[queue-hot]:ring-[color-mix(in_oklab,var(--tt-color-text-blue)_45%,transparent)]`}
+                className={`group relative flex items-center gap-2.5 rounded-md py-1.5 transition-colors duration-80 ${narrow ? 'justify-center px-0' : 'px-2'} ${here || inFolder || inScale ? 'text-foreground' : 'text-foreground/80'} data-[queue-hot]:bg-[color-mix(in_oklab,var(--tt-color-text-blue)_16%,transparent)] data-[queue-hot]:text-foreground data-[queue-hot]:ring-1 data-[queue-hot]:ring-[color-mix(in_oklab,var(--tt-color-text-blue)_45%,transparent)]`}
               >
                 {/* While anything is being dragged, a fold row keeps its icon and count: the row moving under a still
                     pointer flipped it to its chevron and back. */}
@@ -1946,39 +1943,15 @@ export function Home(): React.JSX.Element {
                 </Branches>
                 </Unfold>
               )}
-              {/* On the icon rail, Questions keeps a place of its own under Writing's icon, so it is a press away at any width. */}
-              {narrow && list === 'article' && (
-                <SidePeek id="questions" keys="G H">
-                  <button type="button" data-side-row data-side-questions aria-label="Questions" aria-current={inQuestions ? 'page' : undefined}
-                    onClick={() => setView({ id: 'questions' })} className={`flex w-full items-center justify-center rounded-md py-1.5 ${inQuestions ? 'text-foreground' : 'text-foreground/80'}`}>
-                    <PlaceIcon place={QUESTIONS_PLACE} full={inQuestions} />
-                  </button>
-                </SidePeek>
-              )}
               {/* On the icon rail, Writing's and Gems' folders and groups are a menu away, under their icon. */}
               {narrow && list && settings?.sidebarFolders?.[list] !== false && (
                 <RailFolders list={list} onOpen={(id) => setView({ id: section.id, folder: id })} />
               )}
-              {(folders || asking) && list && (
+              {folders && list && (
                 // Its own drags, not the row's: a folder pressed on is not Writing carried away.
                 <div onPointerDown={(event) => event.stopPropagation()}>
-                  <SideFolders list={list} counted={countsOn} open={unfolded || inQuestions} here={inFolder} shown={shownIn(list, folders ?? [])} noFolders={!folders}
-                    onOpen={(id) => (asideClick() ? (spendAsideClick(), aside({ id: section.id, folder: id })) : setView({ id: section.id, folder: id }))} onUnfold={() => setUnfolded(true)}
-                    leadHere={inQuestions} lead={asking ? (
-                      <SidePeek id="questions" keys="G H">
-                      <button type="button" data-side-row data-side-questions aria-current={inQuestions ? 'page' : undefined}
-                        onClick={() => (asideClick() ? (spendAsideClick(), aside({ id: 'questions' })) : setView({ id: 'questions' }))}
-                        className={`group flex w-full min-w-0 items-center gap-2 rounded-md py-1 pr-2 pl-2 ${inQuestions ? 'text-foreground' : 'text-foreground/80'}`}>
-                        <span className="flex size-4 shrink-0 items-center justify-center [&_svg]:size-3.5"><PlaceIcon place={QUESTIONS_PLACE} full={inQuestions} /></span>
-                        <Weighted on={inQuestions} className="flex-1 text-left">Questions</Weighted>
-                        {countsIn && countOf('questions') ? (
-                          <Tip label={countSaid('questions', counts.questions)}>
-                            <span data-side-count="questions"><Count n={counts.questions} className="text-xs text-muted-foreground" /></span>
-                          </Tip>
-                        ) : null}
-                      </button>
-                      </SidePeek>
-                    ) : undefined} />
+                  <SideFolders list={list} counted={countsOn} open={unfolded} here={inFolder} shown={shownIn(list, folders)}
+                    onOpen={(id) => (asideClick() ? (spendAsideClick(), aside({ id: section.id, folder: id })) : setView({ id: section.id, folder: id }))} onUnfold={() => setUnfolded(true)} />
                 </div>
               )}
               </SortableRow>

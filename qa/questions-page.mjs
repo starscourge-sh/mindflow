@@ -28,18 +28,18 @@ try {
   const writing = await h.evaluate(() => ({
     chips: [...document.querySelectorAll('[data-list-tabs] button')].map((one) => one.textContent.trim()),
     questionRows: document.querySelectorAll('[role="main"] [data-row][data-type="question"]').length,
-    side: !!document.querySelector('aside [data-side-questions]')
+    side: !!document.querySelector('aside [data-side-row][aria-label="Questions"]')
   }))
   check('Writing has no “All / Questions” switch', writing.chips.length === 0, JSON.stringify(writing.chips))
   check('Writing lists no questions', writing.questionRows === 0, writing.questionRows)
-  check('Questions is a row of its own under Writing in the sidebar', writing.side)
+  check('Questions is a row of its own in the sidebar', writing.side)
   if (shots) await h.screenshot({ path: `${shots}/writing.png` })
 
   // Into Questions from its sidebar row, as a person would.
-  await h.locator('aside [data-side-questions]').click()
+  await h.locator('aside [data-side-row][aria-label="Questions"]').click()
   await h.waitForTimeout(900)
   const opened = await h.evaluate(() => ({
-    current: document.querySelector('aside [data-side-questions]')?.getAttribute('aria-current'),
+    current: document.querySelector('aside [data-side-row][aria-label="Questions"]')?.getAttribute('aria-current'),
     writingCurrent: document.querySelector('aside [data-side-row][aria-label="Writing"]')?.getAttribute('aria-current'),
     tabs: [...document.querySelectorAll('[data-question-filter] button')].map((one) => one.textContent.trim()),
     said: document.querySelector('[data-question-said] span:not(.invisible)')?.textContent,

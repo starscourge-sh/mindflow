@@ -56,6 +56,9 @@ export const SECTIONS: (Place & { key: string })[] = [
   // Its Week, Month and Year keep this row lit (litRow), unless that page is a row of its own.
   { id: 'day', emoji: '☀️', label: 'Journal', icon: Sun, key: 'p', tint: 'orange', group: 'Write' },
   { id: 'articles', emoji: '📝', label: 'Writing', icon: FileText, alive: FileDescriptionIcon, key: 'a', tint: 'brown', group: 'Write' },
+  // What you keep wondering about, each collecting clues: a row of its own under Writing, never one of Writing's folders,
+  // so it is not mistaken for a folder of the same name. Its Looked up tab lights it too (litRow).
+  { id: 'questions', emoji: '🪐', label: 'Questions', icon: Orbit, key: 'h', tint: 'blue', group: 'Write' },
   { id: 'nuggets', emoji: '💎', label: 'Gems', icon: Gem, key: 'n', tint: 'pink', group: 'Write' },
   { id: 'review', emoji: '🧠', label: 'Review', icon: Brain, key: 'r', tint: 'purple', group: 'Write' },
   // One row for every task list: Today, Upcoming, Later and Routines are its tabs (tasks-view.tsx).
@@ -94,9 +97,6 @@ export const JOURNAL_SCALES: Place[] = [
   { id: 'yearpage', emoji: '🗺️', label: 'Year', icon: CalendarRange, tint: 'yellow' }
 ]
 
-/** Questions, a page of its own hung under Writing's row, first, above its folders (home.tsx). */
-export const QUESTIONS_PLACE: Place = { id: 'questions', emoji: '❓', label: 'Questions', icon: Orbit, tint: 'blue' }
-
 /**
  * The sidebar's two lists of notes, not pages: Pinned (what you pinned) and
  * Recent (the last few you opened), under the first run of pages. Each has a
@@ -125,20 +125,20 @@ export const SHAPE = SIDEBAR_SHAPE
  * G and a letter for pages that are not rows of their own any more: the task
  * lists are tabs of one row now, and still a G away.
  */
-export const G_ALIASES: Record<string, string> = { u: 'upcoming', '+': 'upcoming', z: 'later', o: 'routines', '*': 'alltasks', q: 'matrix', l: 'all', h: 'questions', '.': 'lookups' }
+export const G_ALIASES: Record<string, string> = { u: 'upcoming', '+': 'upcoming', z: 'later', o: 'routines', '*': 'alltasks', q: 'matrix', l: 'all', '.': 'lookups' }
 
 /** The task lists that are tabs of the one Tasks row: on any of them, its row is lit. */
 export const TASK_PAGES = ['today', 'tomorrow', 'week', 'upcoming', 'later', 'routines', 'alltasks', 'matrix']
 
 /**
  * The row a page lights, the one rule: a page opened from a row lights that
- * row, whichever tab, mode or date it is on. A task list lights Tasks, a
- * question Writing (whose own child row, Questions, is lit under it), every capture list the Inbox, and Day, Week, Month and Year
+ * row, whichever tab, mode or date it is on. A task list lights Tasks, Looked up
+ * lights Questions, every capture list the Inbox, and Day, Week, Month and Year
  * light Journal on any date; Week's or Month's page lights its own row while
  * that row is in the sidebar (`shown`).
  */
 export const litRow = (id: string, shown: string[] = []): string =>
-  TASK_PAGES.includes(id) ? 'today' : id === 'questions' || id === 'lookups' ? 'articles' : id === 'all' || id.startsWith('kind:') ? 'inbox'
+  TASK_PAGES.includes(id) ? 'today' : id === 'lookups' ? 'questions' : id === 'all' || id.startsWith('kind:') ? 'inbox'
     : (id === 'weekpage' || id === 'monthpage') && shown.includes(id) ? id : id === 'weekpage' || id === 'monthpage' || id === 'yearpage' ? 'day' : id
 
 /** The sidebar's places, in their usual order: the same in every book. */

@@ -23,7 +23,7 @@ type MenuActs = {
 
 /** The places the View menu goes to, in the sidebar's order (places.tsx SECTIONS). */
 const PLACES: [string, string][] = [
-  ['inbox', 'Inbox'], ['home', 'Home'], ['day', 'Journal'], ['articles', 'Writing'], ['nuggets', 'Gems'],
+  ['inbox', 'Inbox'], ['home', 'Home'], ['day', 'Journal'], ['articles', 'Writing'], ['questions', 'Questions'], ['nuggets', 'Gems'],
   ['review', 'Review'], ['today', 'Tasks'], ['calendar', 'Calendar'], ['feed', 'Feed'], ['map', 'Map']
 ]
 

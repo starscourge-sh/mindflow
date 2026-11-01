@@ -1,7 +1,7 @@
-// The sidebar has one shape in every book: Inbox, Home, Journal, Writing, Gems, Review,
+// The sidebar has one shape in every book: Inbox, Home, Journal, Writing, Questions, Gems, Review,
 // Tasks and Calendar as one list, then Pinned, Tags and the Bin. The sandbox
 // starts the way its owner laid it out: the Feed with the writing.
-// No Types group, no Everything or Questions row, no group headings. Tried in
+// No Types group, no Everything row, no group headings; the rows under Journal, Writing and Gems (scales, folders) are not counted. Tried in
 // a new book of your own, in that book after its settings are put back to an
 // older book's (its own order, rows hidden, a growing sidebar), and in the
 // sandbox, a second book.
@@ -16,7 +16,7 @@ import { sandbox } from './sandbox-lib.mjs'
 
 const { check, done } = checks()
 const DATA = process.env.QA_DATA
-const SHAPE = ['Inbox', 'Home', 'Journal', 'Writing', 'Gems', 'Review', 'Tasks', 'Calendar']
+const SHAPE = ['Inbox', 'Home', 'Journal', 'Writing', 'Questions', 'Gems', 'Review', 'Tasks', 'Calendar']
 
 /** The sidebar as it is drawn: each row's name in order, a gap as "|", and any heading's words. */
 const read = (h) => h.evaluate(() => {
@@ -24,7 +24,7 @@ const read = (h) => h.evaluate(() => {
   const parts = []
   for (const one of nav?.querySelectorAll('[data-side-row], [data-side-gap]') ?? []) {
     if (one.hasAttribute('data-side-gap')) parts.push('|')
-    else parts.push(one.getAttribute('aria-label') ?? one.textContent.trim())
+    else if (one.getAttribute('aria-label')) parts.push(one.getAttribute('aria-label'))
   }
   return { parts, text: nav?.innerText ?? '' }
 })
@@ -38,7 +38,7 @@ const look = async (where, open, shape = SHAPE) => {
     check(`${where}: the rows start ${shape.join(', ')}`, JSON.stringify(rows.slice(0, shape.length)) === JSON.stringify(shape), rows.join(', '))
     const gap = parts.indexOf('|')
     check(`${where}: one list, no gap inside it`, gap < 0 || gap > parts.indexOf('Calendar'), parts.join(' '))
-    check(`${where}: no Types, Everything, Questions, Notes or Saved`, !/\b(Types|Everything|Questions|Notes|Saved|Matrix|Tomorrow|This week's tasks)\b/.test(text), text.replace(/\s+/g, ' ').slice(0, 300))
+    check(`${where}: no Types, Everything, Notes or Saved`, !/\b(Types|Everything|Notes|Saved|Matrix|Tomorrow|This week's tasks)\b/.test(text), text.replace(/\s+/g, ' ').slice(0, 300))
     check(`${where}: the Bin comes after the rest`, rows.indexOf('Bin') > rows.indexOf('Calendar'), rows.join(', '))
     const pinned = text.indexOf('Pinned'), tags = text.indexOf('Tags'), bin = text.indexOf('Bin')
     check(`${where}: Pinned, Tags and the Bin in that order (where there are pins and tags)`, (pinned < 0 || pinned < bin) && (tags < 0 || tags < bin) && (pinned < 0 || tags < 0 || pinned < tags), `${pinned} ${tags} ${bin}`)
@@ -69,7 +69,7 @@ try {
   }
   // 3. The sandbox: another book, the same shape.
   process.env.QA_ARGS = '--sandbox'
-  await look('the sandbox', () => sandbox({ width: 1200, height: 860 }), ['Inbox', 'Home', 'Journal', 'Writing', 'Gems', 'Feed', 'Review', 'Tasks', 'Calendar'])
+  await look('the sandbox', () => sandbox({ width: 1200, height: 860 }), ['Inbox', 'Home', 'Journal', 'Writing', 'Questions', 'Gems', 'Feed', 'Review', 'Tasks', 'Calendar'])
 } catch (error) {
   check('ran', false, error.stack)
 }

@@ -14,7 +14,7 @@ try {
   await v('settings:set', { hintRate: 0, smartGroups: [{ id: 'g1', list: 'article', name: 'Rome', tags: ['rome'] }] })
   await h.evaluate(() => localStorage.setItem('sidebar:folders:article', 'true'))
   await go('articles')
-  for (const [name, row] of [['Writing (a sibling, for comparison)', 'aside [data-side-row][aria-label="Writing"]'], ['Questions', 'aside [data-side-questions]'], ['the group', 'aside [data-side-group]']]) {
+  for (const [name, row] of [['Writing (a sibling, for comparison)', 'aside [data-side-row][aria-label="Writing"]'], ['Questions', 'aside [data-side-row][aria-label="Questions"]'], ['the group', 'aside [data-side-group]']]) {
     const box = await h.locator(row).first().boundingBox()
     for (const [part, x] of [['name', box.x + 40], ['count', box.x + box.width - 14]]) {
       await h.mouse.move(5, 5)
