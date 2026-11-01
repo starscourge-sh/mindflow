@@ -165,6 +165,9 @@ try {
   await wait(600)
   await go('settings')
   await wait(1200)
+  // Settings shows one section at a time, the last one looked at (Your book on a fresh book): Avatars is under Appearance.
+  await h.locator('[data-section="Appearance"]').click()
+  await wait(800)
   const row = h.locator('[data-choices="Avatars"]')
   await row.scrollIntoViewIfNeeded()
   check('Settings has "Avatars" with a sample of each', await row.locator('[data-preview="avatars"]').count() === 2)
