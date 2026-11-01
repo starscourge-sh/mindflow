@@ -321,7 +321,8 @@ function PersonHead({ page, name }: { page: SourcePage | null; name: string }): 
             <Fact label="Born" placeholder="Born" value={page?.born ?? ''} onSave={(born) => facts({ born })} />
             {/* Someone still living reads "1964 to now": "now" is only a hint, typed over once they have died. */}
             {(page?.born || page?.died) && <>
-              <span className="px-0.5">to</span>
+              {/* No room of its own: the years' own padding is the space, so "1870 to 1924" reads as one span of years. */}
+              <span>to</span>
               <Fact label="Died" placeholder="now" value={page?.died ?? ''} onSave={(died) => facts({ died })} />
             </>}
           </p>
@@ -421,6 +422,9 @@ function Bio({ field, name, page }: { field: SourceField; name: string; page: So
 /** A quote's words, without quotation marks of their own: the page sets its own. */
 const bare = (text: string): string => withoutTags(text).replace(/\s+/g, ' ').trim().replace(/^["“”‘’']+|["“”‘’']+$/g, '').trim()
 
+/** Words that say how sure a credit is, not where the words are from. */
+const NOT_A_PLACE = /^((un|mis)?attributed( to)?|unknown|apocryphal|disputed)$/i
+
 /**
  * Their words as quotes: each in quotation marks, with where and when it is
  * from under it; click opens it, right-click offers the rest.
@@ -429,7 +433,9 @@ function Quotes({ field, name, page, items, onOpen }: { field: SourceField; name
   return (
     <ul data-quotes className="-mx-3 flex flex-col gap-1">
       {items.map((item) => {
-        const from = field === 'attribution' ? item.medium?.trim() : item.attribution?.trim()
+        // "attributed" or "unknown" says how sure the credit is, not where the words are from: never a place under a quote.
+        const said = field === 'attribution' ? item.medium?.trim() : item.attribution?.trim()
+        const from = said && !NOT_A_PLACE.test(said) ? said : ''
         const year = field === 'attribution' ? (item.medium ? page.years[personKey(item.medium)] : '') : page.born
         const ref = item.location ? (isPage(item.location) ? `p. ${item.location}` : item.location) : ''
         const under = [from, ref, year].filter(Boolean).join(' · ')
