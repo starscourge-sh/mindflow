@@ -78,6 +78,29 @@ section[data-group] :is(h2, h3)[data-landed] {
   min-height: 1.5rem;
 }
 
+/* Open beside the column, the list is the same at rest and under the pointer: the editor's outline grows its rows
+   and drops their indent when hovered (it opens then), which here moved every row 12px left and 4px down. Each row
+   keeps one box, its words right after its branch as in the sidebar's trees, and the hover fill hugs the words. */
+.mf-page-toc[data-wide] .tiptap-toc-item,
+.mf-page-toc[data-wide]:hover .tiptap-toc-item,
+.mf-page-toc[data-wide][data-open] .tiptap-toc-item {
+  min-height: 1.75rem;
+  padding-left: 0;
+  justify-content: flex-start;
+  background-color: transparent;
+}
+.mf-page-toc[data-wide] .tiptap-toc-text {
+  width: auto;
+  max-width: 100%;
+  border-radius: calc(var(--radius) - 2px);
+  transition: background-color 80ms var(--mf-ease);
+}
+.mf-page-toc[data-wide] .tiptap-toc-item:hover .tiptap-toc-text,
+.mf-page-toc[data-wide] .tiptap-toc-item[data-keyed] .tiptap-toc-text {
+  background-color: var(--accent);
+  color: var(--accent-foreground);
+}
+
 /* A group's count after its name ("2 of 9"): lighter, so the name leads. */
 .mf-page-toc .tiptap-toc-item[data-level='1'] .mf-page-toc-note {
   font-weight: 400;
