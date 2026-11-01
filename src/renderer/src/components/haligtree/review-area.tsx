@@ -1,4 +1,4 @@
-import { ReviewToolbar } from './review-toolbar'
+import { ReviewToolbar, ToolbarSlot } from './review-toolbar'
 import { useEffect, useRef, useState } from 'react'
 import { motion } from 'motion/react'
 import { chime } from '@/lib/sound'
@@ -35,6 +35,8 @@ export function ReviewArea({ focus, onOpen, onFocus }: { focus?: string; onOpen:
   const [only, setOnly] = useState<string[] | null>(null)
   // "Make cards from a picture", aimed at a deck or none: open over the Decks page.
   const [picture, setPicture] = useState<{ deck: string | null } | null>(null)
+  // The toolbar's right end, where each tab draws its own controls.
+  const [slot, setSlot] = useState<HTMLElement | null>(null)
   // Just the cards an import made, from its "Show the new cards" (":newest:" and how many it made).
   const [newest, setNewest] = useState<number | null>(focus?.startsWith(':newest:') ? Number(focus.slice(8)) || null : null)
   const [tab, setTab] = useState<ReviewTab>(newest || focus === ':cards' || focus === ':paste' || focus?.startsWith(':new:') ? 'cards' : focus === ':stats' ? 'stats' : focus === ':today' || (focus && !focus.startsWith(':')) ? 'today' : 'decks')
@@ -73,29 +75,29 @@ export function ReviewArea({ focus, onOpen, onFocus }: { focus?: string; onOpen:
       className={`h-8 cursor-pointer rounded-md border px-3 text-control font-medium max-sm:h-9 transition-colors ${tab === 'today' ? 'border-foreground/15 bg-background text-foreground shadow-sm' : 'border-transparent bg-primary text-primary-foreground hover:bg-primary/90'}`}>Study now</button>
   )
   const show = (ids: string[]): void => (chime('open'), setStudying(null), setAim(null), setPicture(null), setOnly(ids), setTab('cards'))
-  if (tab === 'cards')
+  const formOpen: 'make' | 'many' | 'picture' | null = picture ? 'picture' : tab === 'cards' && aim ? (aim.one ? 'make' : 'many') : null
+  // A form opened from the toolbar: Make a card and Add many open in All cards, under the toolbar; pressed again, they close.
+  const openForm = (one: boolean): void => {
+    setPicture(null)
+    if (tab === 'cards' && aim && aim.one === one) return setAim(null)
+    setOnly(null)
+    setNewest(null)
+    setAim({ deck: null, one })
+    setTab('cards')
+  }
+  if (tab === 'cards' || tab === 'decks' || tab === 'stats')
     return (
       <Page title="Review" lead={tabs} actions={studyNow}>
-        <div data-review-page className="page-sheet mx-auto w-full"><CardBrowser key={aim ? `${aim.deck}:${aim.one}` : only ? `only:${only.length}` : ''} onOpen={onOpen} aim={aim} only={only} newest={only ? null : newest} onAll={() => (chime('undo'), setOnly(null), setNewest(null))} onShow={show} onPicture={() => (chime('open'), setPicture({ deck: null }), setTab('decks'))} /></div>
-      </Page>
-    )
-  if (tab === 'decks')
-    return (
-      <Page title="Review" lead={tabs} actions={studyNow}>
-        <div data-review-page className="page-sheet mx-auto w-full">
-          {picture ? (
-            <div className="px-5 pt-4 pb-20"><PictureCards deck={picture.deck} onClose={() => (chime('fold'), setPicture(null))} onShow={show} /></div>
-          ) : <DeckShelf onOpen={onOpen} onStudy={(tag) => (setStudying(tag), setTab('today'))} onPaste={(deck, one = false) => (setAim({ deck, one }), setTab('cards'))} onPicture={(deck) => (chime('open'), setPicture({ deck }))} />}
-        </div>
-      </Page>
-    )
-  if (tab === 'stats')
-    return (
-      <Page title="Review" lead={tabs} actions={studyNow}>
-        <div data-review-stats data-review-page className="page-sheet mx-auto w-full px-5 pt-4 pb-20">
-          <ReviewToolbar onMake={() => (setAim({ deck: null, one: true }), setTab('cards'))} onMany={() => (setAim({ deck: null, one: false }), setTab('cards'))} onPicture={() => (chime('open'), setPicture({ deck: null }), setTab('decks'))} />
-          <StudySection example={false} />
-        </div>
+        <ToolbarSlot.Provider value={slot}>
+          <div data-review-page className="page-sheet mx-auto w-full">
+            {/* The toolbar, the same on every tab and whatever is open: forms open under it. */}
+            <div className="px-5 pt-4"><ReviewToolbar open={formOpen} onSlot={setSlot} onMake={() => openForm(true)} onMany={() => openForm(false)} onPicture={() => picture ? (chime('fold'), setPicture(null)) : (chime('open'), setPicture({ deck: null }))} /></div>
+            {picture && <div className="px-5 pt-4"><PictureCards deck={picture.deck} onClose={() => (chime('fold'), setPicture(null))} onShow={show} /></div>}
+            {tab === 'cards' && <CardBrowser key={aim ? `${aim.deck}:${aim.one}` : only ? `only:${only.length}` : ''} onOpen={onOpen} aim={aim} only={only} newest={only ? null : newest} onAll={() => (chime('undo'), setOnly(null), setNewest(null))} onShow={show} onAimDone={() => setAim(null)} />}
+            {tab === 'decks' && <DeckShelf onOpen={onOpen} onStudy={(tag) => (setStudying(tag), setTab('today'))} onPaste={(deck, one = false) => (setPicture(null), setAim({ deck, one }), setTab('cards'))} onPicture={(deck) => (chime('open'), setPicture({ deck }))} />}
+            {tab === 'stats' && <div data-review-stats className="px-5 pt-4 pb-20"><StudySection example={false} /></div>}
+          </div>
+        </ToolbarSlot.Provider>
       </Page>
     )
   return <ReviewView key={studying ?? ''} tag={studying ?? (focus && !focus.startsWith(':') ? focus : undefined)} lead={tabs} actions={studyNow} />

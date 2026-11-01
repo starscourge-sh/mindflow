@@ -18,7 +18,7 @@ import type { Settings } from '@/lib/haligtree'
 import { moveToBin } from '@/lib/to-bin'
 import { cardsSaid, deckTagOf, deckTitle, makeDeck, sayDeck, useOwnDecks, type OwnDeck } from './decks'
 import { Coverage, coverageOf, type BrowsedCard } from './card-browser'
-import { ReviewToolbar } from './review-toolbar'
+import { TabControls } from './review-toolbar'
 import { Tip } from './ui'
 import { motion } from 'motion/react'
 import { EASE, still } from '@/lib/motion'
@@ -86,7 +86,7 @@ export function DeckShelf({ onOpen, onStudy, onPaste, onPicture }: { onOpen: (ty
   const folded = tops.filter((deck) => !shown.includes(deck))
   // The three ways cards come in, always at the top, whatever is below: as Anki's "Create Deck" and "Import File" are.
   const top = (
-    <ReviewToolbar deckTop onMake={() => onPaste(null, true)} onMany={() => onPaste(null)} onPicture={() => onPicture(null)} right={<>
+    <TabControls>
       <Button variant="ghost" size="sm" className="h-8 cursor-pointer px-3" data-deck-new onClick={() => (chime('open'), newDeck())}>New deck</Button>
       {/* Pockets or a plain list, in the same two-part control as Review's tabs beside it. */}
       <span role="radiogroup" aria-label="Show decks as" data-deck-look-pick className="flex h-8 items-center max-sm:h-9 rounded-lg border border-foreground/10 bg-accent/40 p-0.5 text-control">
@@ -95,7 +95,7 @@ export function DeckShelf({ onOpen, onStudy, onPaste, onPicture }: { onOpen: (ty
             className={`h-7 cursor-pointer rounded-md max-sm:h-8 border px-3 transition-colors ${look === one ? 'border-foreground/15 bg-background text-foreground shadow-sm' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>{one === 'pockets' ? 'Pockets' : 'List'}</button>
         ))}
       </span>
-    </>} />
+    </TabControls>
   )
   // No cards of your own yet (the example deck is not yours): the ways in, each with a tiny example, and the example deck to learn by doing.
   if (!shelves?.length && !own.some((deck) => deck.tag !== EXAMPLE_TAG))
@@ -171,18 +171,17 @@ export function DeckShelf({ onOpen, onStudy, onPaste, onPicture }: { onOpen: (ty
     void call('decks:order', order).then(() => (chime('settled'), quietly(() => void call('decks:order', was))))
   }
   // Dropped on another deck, a deck takes its place and the rest move along; the order is kept.
-  const drop = (onto: string): void => {
-    const from = dragging
+  // Dropped anywhere on the decks (the dragged one itself stands where it will land): the order shown while dragging is kept.
+  const drop = (): void => {
+    const order = preview(tops).map((one) => one.tag)
+    const was = tops.map((one) => one.tag)
     setDragging(null)
     setOver(null)
-    if (!from || from === onto) return
-    const order = preview(tops).map((one) => one.tag)
-    void onto
-    const was = tops.map((one) => one.tag)
+    if (order.join() === was.join()) return
     void call('decks:order', order).then(() => (chime('settled'), quietly(() => void call('decks:order', was))))
   }
   const tile = (deck: OwnDeck): React.JSX.Element => (
-    <DeckTile key={deck.tag} id={deck.tag} own drag={deck.depth === 0 ? { over: false, lifted: dragging === deck.tag, start: () => setDragging(deck.tag), enter: () => dragging && deck.tag !== dragging && setOver(deck.tag), end: () => (setDragging(null), setOver(null)), drop: () => drop(deck.tag) } : undefined} name={deckName(deck)} title={deckTitle(deck.tag, own.map((one) => one.tag))} due={deck.due} fresh={deck.fresh} all={deck.cards} held={0} cover={null} shapes={shapes}
+    <DeckTile key={deck.tag} id={deck.tag} own drag={deck.depth === 0 ? { over: false, lifted: dragging === deck.tag, start: () => setDragging(deck.tag), enter: () => dragging && deck.tag !== dragging && setOver(deck.tag), end: () => (setDragging(null), setOver(null)), drop } : undefined} name={deckName(deck)} title={deckTitle(deck.tag, own.map((one) => one.tag))} due={deck.due} fresh={deck.fresh} all={deck.cards} held={0} cover={null} shapes={shapes}
       kids={own.filter((one) => one.tag.startsWith(`${deck.tag}-`) && one.depth === deck.depth + 1).length} open={kidsOpen.has(deck.tag)} onKids={() => openKids(deck.tag)} menu={ownMenu(deck)}
       onClick={() => (deck.cards ? (chime('riffle'), onStudy(deck.tag)) : (chime('open'), onPaste(deck.tag, true)))} />
   )
@@ -193,7 +192,7 @@ export function DeckShelf({ onOpen, onStudy, onPaste, onPicture }: { onOpen: (ty
       <StudySets sets={sets} onStudy={onStudy} />
       <BookCoverage />
       {/* Pockets: squarish tiles, 2 to 4 across by width; each studies when clicked, its actions in its ⋯ menu and on right-click. */}
-      <div data-deck-grid className="grid grid-cols-2 gap-3 sm:grid-cols-[repeat(auto-fill,minmax(10.5rem,12.5rem))]">
+      <div data-deck-grid className="grid grid-cols-[repeat(auto-fill,minmax(9.5rem,1fr))] gap-3 [&>*]:max-w-[13rem]">
         {shown.map(tile)}
         {allTags && folded.map(tile)}
         {sharedTiles}
@@ -246,7 +245,7 @@ function DeckTile({ id, own = false, drag, name, title, due, fresh, all, held, c
         onKeyDown={(event) => (event.key === 'Enter' || event.key === ' ') && event.target === event.currentTarget && (event.preventDefault(), onClick())}
         {...(drag ? { draggable: true, onDragStart: (event: React.DragEvent) => (event.dataTransfer.effectAllowed = 'move', event.dataTransfer.setData('text/plain', `#${id}`), drag.start()),
           onDragEnter: drag.enter, onDragOver: (event: React.DragEvent) => event.preventDefault(), onDragEnd: drag.end, onDrop: (event: React.DragEvent) => (event.preventDefault(), drag.drop()) } : {}) as Record<string, unknown>}
-        className={`relative flex aspect-square min-w-0 cursor-pointer flex-col gap-1.5 rounded-[6px] mf-metal mf-metal-hover p-3.5 text-left outline-none active:scale-[0.985] motion-reduce:active:scale-100 focus-visible:ring-2 focus-visible:ring-ring ${drag?.lifted ? 'opacity-40' : ''}`}>
+        className={`relative flex aspect-square min-w-0 cursor-pointer flex-col gap-1.5 self-start overflow-hidden rounded-[6px] mf-metal mf-metal-hover p-3.5 text-left outline-none active:scale-[0.985] motion-reduce:active:scale-100 focus-visible:ring-2 focus-visible:ring-ring ${drag?.lifted ? 'opacity-40' : ''}`}>
         <span className="absolute top-1.5 right-1.5" onClick={(event) => event.stopPropagation()}>
           <OptionsMenu sections={menu} heading={name} label="Deck options" tip={false} side="bottom" align="end" className="cursor-pointer" />
         </span>

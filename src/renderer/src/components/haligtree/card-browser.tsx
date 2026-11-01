@@ -1,4 +1,4 @@
-import { ReviewToolbar } from './review-toolbar'
+import { TabControls } from './review-toolbar'
 import { TriangleAlert } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { chime } from '@/lib/sound'
@@ -34,11 +34,12 @@ const DAY = 86400000
 const today = (): number => new Date().setHours(0, 0, 0, 0)
 
 // The words Anki users know, each in the colour the counts above use.
-const STAGES: { id: string; label: string; tint: string }[] = [
-  { id: 'new', label: 'New', tint: 'var(--tt-color-text-blue)' },
-  { id: 'learning', label: 'Learning', tint: 'var(--tt-color-text-orange)' },
-  { id: 'learnt', label: 'Learnt (gaps under 15 days)', tint: 'var(--tt-color-text-green)' },
-  { id: 'known', label: 'Known (remembered after 15 days)', tint: 'var(--tt-color-text-purple)' }
+/** Each stage: its full name for the Stage filter and grouping, where it is explained once, and one short word for a row's cell. */
+const STAGES: { id: string; label: string; word: string; tint: string }[] = [
+  { id: 'new', label: 'New', word: 'New', tint: 'var(--tt-color-text-blue)' },
+  { id: 'learning', label: 'Learning', word: 'Learning', tint: 'var(--tt-color-text-orange)' },
+  { id: 'learnt', label: 'Learnt (gaps under 15 days)', word: 'Learnt', tint: 'var(--tt-color-text-green)' },
+  { id: 'known', label: 'Known (remembered after 15 days)', word: 'Known', tint: 'var(--tt-color-text-purple)' }
 ]
 const stageOf = (card: BrowsedCard): string => (card.known ? 'known' : card.stage)
 const tintOf = (card: BrowsedCard): string => STAGES.find((one) => one.id === stageOf(card))!.tint
@@ -202,13 +203,12 @@ export function Coverage({ cards }: { cards: BrowsedCard[] }): React.JSX.Element
   const last = Math.max(...pages)
   const cells = Math.min(last, 120)
   const lit = new Set(pages.map((page) => Math.min(cells - 1, Math.floor(((page - 1) / last) * cells))))
-  const gaps = cells - lit.size
   return (
-    <div data-coverage className="flex items-center gap-3 px-2 pt-1 pb-2 text-xs text-muted-foreground">
-      <div className="flex h-1.5 flex-1 gap-px overflow-hidden rounded-full" aria-hidden>
+    <div data-coverage className="flex flex-wrap items-center gap-x-3 gap-y-1 px-2 pt-1 pb-2 text-xs text-muted-foreground">
+      <div className="flex h-1.5 min-w-24 flex-1 gap-px overflow-hidden rounded-full" aria-hidden>
         {Array.from({ length: cells }, (_, at) => <span key={at} className={`flex-1 ${lit.has(at) ? 'bg-[var(--tt-brand-color-400)]' : 'bg-foreground/10'}`} />)}
       </div>
-      <span className="shrink-0 tabular-nums">Cards on {num(pages.length)} of {num(last)} pages{gaps > cells / 3 ? ', the bare stretches have none' : ''}</span>
+      <span data-coverage-said className="min-w-0 tabular-nums">{num(pages.length)} of {num(last)} pages have cards</span>
     </div>
   )
 }
@@ -287,7 +287,7 @@ function EditCard({ card, tint, onDone }: { card: BrowsedCard; tint: string; onD
  * have cards; a card that needs work offers its fix in place. Picked cards
  * (⇧-click, x, ⌘A) are paused, tagged or untagged together, or sent to the Bin.
  */
-export function CardBrowser({ onOpen, aim, only, newest, onAll, onShow, onPicture }: { /** "From a picture" in the toolbar. */ onPicture?: () => void; onOpen: (type: string, id: string) => void; /** Open with "Add many at once" out (⌘K), aimed at a deck, or for one card in it. */ aim?: { deck: string | null; one: boolean } | null
+export function CardBrowser({ onOpen, aim, only, newest, onAll, onShow, onAimDone }: { /** Its form closed: the toolbar's button is no longer pressed. */ onAimDone?: () => void; onOpen: (type: string, id: string) => void; /** Open with "Add many at once" out (⌘K), aimed at a deck, or for one card in it. */ aim?: { deck: string | null; one: boolean } | null
   /** Just these cards (the ones an import or "Add many at once" made), with a way back to all. */ only?: string[] | null; /** Just the newest this many cards (an import's), with the same way back. */ newest?: number | null; onAll?: () => void; /** Show just the cards just made. */ onShow?: (ids: string[]) => void }): React.JSX.Element {
   const [pasting, setPasting] = useState(!!aim)
   const [aimed, setAimed] = useState(aim ?? null)
@@ -472,7 +472,7 @@ export function CardBrowser({ onOpen, aim, only, newest, onAll, onShow, onPictur
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
   if (!cards) return <div />
   // "Make a card" (a deck's, a pocket's, ⌘K's "New card in"): the two-field card; otherwise the paste box.
-  const closePaste = (): void => (chime('fold'), setPasting(false), setAimed(null))
+  const closePaste = (): void => (chime('fold'), setPasting(false), setAimed(null), onAimDone?.())
   const paste = !pasting ? null : aimed?.one
     ? <NewCard key={`one:${aimed.deck}`} deck={aimed.deck ?? undefined} onClose={closePaste} />
     : <PasteCards key={`${aimed?.deck}`} deck={aimed?.deck ?? undefined} onClose={closePaste} onShow={onShow} />
@@ -483,7 +483,7 @@ export function CardBrowser({ onOpen, aim, only, newest, onAll, onShow, onPictur
   if (!cards.length)
     return (
       <div className="flex flex-col gap-3 px-5 pt-4 pb-10">
-        {!pasting && emptyPockets.length > 0 && <div data-card-pockets className="grid grid-cols-2 gap-3 sm:grid-cols-[repeat(auto-fill,minmax(10.5rem,12.5rem))]">{emptyPockets}</div>}
+        {!pasting && emptyPockets.length > 0 && <div data-card-pockets className="grid grid-cols-[repeat(auto-fill,minmax(9.5rem,1fr))] gap-3 [&>*]:max-w-[13rem]">{emptyPockets}</div>}
         {paste ?? <Empty title="No cards yet" action={<span className="flex flex-wrap items-center gap-2"><Button size="sm" data-make-open onClick={() => (chime('open'), setAimed({ deck: null, one: true }), setPasting(true))}>Make a card</Button><Button variant="ghost" size="sm" data-paste-open onClick={() => (chime('open'), setAimed(null), setPasting(true))}>Add many at once</Button><Button variant="ghost" size="sm" data-cards-import onClick={() => (chime('open'), void window.api.importFrom('files'))}>Import from Anki or a spreadsheet</Button></span>}>Make one card, paste a list or a spreadsheet of them, or bring in an Anki deck (.apkg, .colpkg) or a CSV.</Empty>}
       </div>
     )
@@ -516,7 +516,7 @@ export function CardBrowser({ onOpen, aim, only, newest, onAll, onShow, onPictur
   const short = (card: BrowsedCard): string => [card.lapses >= 2 && `Forgotten ${num(card.lapses)} times`, card.things > 4 && `Asks for ${num(card.things)} things`, (card.seconds ?? 0) >= 40 && `Slow: ${num(card.seconds!)}s`].filter(Boolean)[0] as string
   const mark = (card: BrowsedCard): React.JSX.Element | null => !needs(card).length || working ? null : (
     <span data-card-needs={needs(card).join(' ')} data-card-big={needs(card).some((one) => one === 'big' || one === 'slow') || undefined} aria-label={said(card)}
-      className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-[4px] bg-foreground/[0.06] px-1.5 text-xs leading-5 font-medium text-foreground">
+      className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-[4px] bg-foreground/[0.06] px-1.5 text-xs leading-4 font-medium text-foreground">
       <TriangleAlert aria-hidden className="size-3 text-muted-foreground" />{short(card)}
     </span>
   )
@@ -551,7 +551,7 @@ export function CardBrowser({ onOpen, aim, only, newest, onAll, onShow, onPictur
           {question(card, 'truncate text-control font-medium')}
           <span className="flex min-w-0 items-center gap-1.5 text-muted-foreground">{mark(card)}<span className="truncate">{answerShown(card) || 'No answer yet'}</span></span>
           <span className={`text-right tabular-nums ${dueSaid(card) === 'due now' ? 'text-foreground' : 'text-muted-foreground'}`}>{dueSaid(card) === 'new' ? '' : dueSaid(card)}</span>
-          <span className="flex items-center gap-1.5 text-muted-foreground"><span aria-hidden className="size-1.5 shrink-0 rounded-full" style={{ background: tintOf(card) }} />{STAGES.find((one) => one.id === stageOf(card))!.label}</span>
+          <span data-card-stage-cell className="flex min-w-0 items-center gap-1.5 whitespace-nowrap text-muted-foreground"><span aria-hidden className="size-1.5 shrink-0 rounded-full" style={{ background: tintOf(card) }} />{STAGES.find((one) => one.id === stageOf(card))!.word}</span>
           <span className="truncate text-right text-muted-foreground">{card.tags.slice(0, 2).map((one) => deckTitle(one, tags)).join(', ')}</span>
         </div>
       )
@@ -573,7 +573,7 @@ export function CardBrowser({ onOpen, aim, only, newest, onAll, onShow, onPictur
               <span className={`tabular-nums ${dueSaid(card) === 'due now' ? 'text-foreground' : ''}`}>{dueSaid(card)}</span>
               <span aria-hidden className="text-foreground/25">·</span>
             </>}
-            <span data-card-stage className="flex items-center gap-1"><span aria-hidden className="size-1.5 rounded-full" style={{ background: tintOf(card) }} />{STAGES.find((one) => one.id === stageOf(card))!.label.toLowerCase()}</span>
+            <span data-card-stage className="flex items-center gap-1"><span aria-hidden className="size-1.5 rounded-full" style={{ background: tintOf(card) }} />{STAGES.find((one) => one.id === stageOf(card))!.word.toLowerCase()}</span>
           </span>
           {card.tags.length > 0 && <span className="max-w-full truncate">{card.tags.slice(0, 2).map((one) => deckTitle(one, tags)).join(', ')}</span>}
         </span>
@@ -612,12 +612,9 @@ export function CardBrowser({ onOpen, aim, only, newest, onAll, onShow, onPictur
 
   return (
     <div data-card-browser data-density={density} data-group={view.group} className="flex flex-col gap-3 px-5 pt-4 pb-20">
-      <div className="flex flex-wrap items-center gap-2">
-        <ReviewToolbar onMake={() => (setAimed({ deck: aimed?.deck ?? null, one: true }), setPasting(!(pasting && aimed?.one)))} onMany={() => (setAimed(aimed ? { deck: aimed.deck, one: false } : null), setPasting(!(pasting && !aimed?.one)))} onPicture={() => onPicture?.()}
-          make={{ 'data-make-open': '', 'aria-expanded': pasting && !!aimed?.one }} many={{ 'data-paste-open': '', 'aria-expanded': pasting && !aimed?.one }} right={
-          <div className="w-56 max-sm:w-full"><ListSearch value={query} onChange={setQuery} onDone={() => {}} placeholder="Search cards" /></div>} />
-      </div>
-      <div className="flex flex-wrap items-center justify-end gap-2">
+      {/* Its own controls in the toolbar's right end, never a row of their own. */}
+      <TabControls>
+        <div className="w-48"><ListSearch value={query} onChange={setQuery} onDone={() => {}} placeholder="Search cards" /></div>
         {(density === 'grid' || opened) && !flowing && (
           <Tip label="Turn every card on show over, to test yourself  ⇧Space">
             <Button variant="ghost" size="sm" data-turn-all aria-pressed={allOver} onClick={turnAll}>{allOver ? 'All face up' : 'Turn all over'}</Button>
@@ -626,7 +623,7 @@ export function CardBrowser({ onOpen, aim, only, newest, onAll, onShow, onPictur
         <Display view={view} onChange={setView} facets={facets} items={cards} count={cards.length} sorts={SORTS} groups={GROUPS}
           sortNote={view.group === 'source' ? 'Within each book or video, cards go in page or time order.' : undefined}
           density={density} onDensity={(next) => setView({ ...view, density: next })} densities={['small', 'grid', 'list', 'compact']} names={{ small: 'Pockets', grid: 'Cards', compact: 'Table' }} />
-      </div>
+      </TabControls>
       {paste}
       {just && (
         // Just what came in: said in a line of its own, with the way back to every card.
@@ -683,7 +680,7 @@ export function CardBrowser({ onOpen, aim, only, newest, onAll, onShow, onPictur
             </div>
           ) : density === 'small' ? (
             // Pockets: one a deck or tag, its own cards fanned out of the top.
-            <div data-card-pockets className="grid grid-cols-2 gap-3 sm:grid-cols-[repeat(auto-fill,minmax(10.5rem,12.5rem))]">
+            <div data-card-pockets className="grid grid-cols-[repeat(auto-fill,minmax(9.5rem,1fr))] gap-3 [&>*]:max-w-[13rem]">
               {groups.map(([name, one]) => <Pocket key={name} name={name} title={shownGroup(name)} cards={one} onOpen={() => (setOpened(name), setFlowing(false))} />)}
               {/* A deck made by hand and still empty: its own pocket, with the two ways to fill it. */}
               {!view.group || view.group === 'none' || view.group === 'deck' ? emptyPockets : null}
