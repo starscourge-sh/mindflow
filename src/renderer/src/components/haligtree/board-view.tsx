@@ -821,6 +821,7 @@ function LaneBox({ id, title, count, folded, here, onFold, menu, children }: {
   menu: ReactNode
   children: ReactNode
 }): React.JSX.Element {
+  const [laneMenu, setLaneMenu] = useState(false)
   const { setNodeRef, attributes, listeners, transform, transition, isDragging } = useSortable({ id, transition: still() ? null : { duration: 220, easing: EASING } })
   // An empty list still takes a card dropped on it.
   const { setNodeRef: dropRef } = useDroppable({ id: `${id}:drop`, data: { lane: id } })
@@ -843,7 +844,9 @@ function LaneBox({ id, title, count, folded, here, onFold, menu, children }: {
   return (
     <section ref={setNodeRef} data-sortable-id={id} style={style}
       className={`mf-island group/lane flex max-h-full w-72 shrink-0 flex-col rounded-xl border bg-accent/25 ${here ? 'ring-1 ring-ring' : ''}`} data-board-cursor={here || undefined}>
-      <header className="flex h-10 shrink-0 items-center gap-0.5 pr-1.5 pl-1">
+      <header className="flex h-10 shrink-0 items-center gap-0.5 pr-1.5 pl-1"
+        // A right click on the heading opens the list's one menu, the same its ⋯ opens, by its ⋯.
+        onContextMenu={(event) => (event.preventDefault(), event.stopPropagation(), setLaneMenu(true))}>
         <button type="button" aria-label={`Drag ${name}`} {...attributes} {...listeners} tabIndex={-1}
           className="flex h-7 w-4 shrink-0 cursor-grab touch-none items-center justify-center text-muted-foreground opacity-0 transition-opacity group-hover/lane:opacity-60 hover:opacity-100 active:cursor-grabbing">
           <Grip className="size-3.5" />
@@ -853,7 +856,7 @@ function LaneBox({ id, title, count, folded, here, onFold, menu, children }: {
         </Tip>
         <h3 className="ml-1 min-w-0 truncate text-meta font-semibold">{name}</h3>
         <Count n={count} className="ml-1.5 text-xs text-muted-foreground" />
-        <DropdownMenu modal={false}>
+        <DropdownMenu modal={false} open={laneMenu} onOpenChange={setLaneMenu}>
           <Tip label="More">
             <DropdownMenuTrigger asChild>
               <button type="button" aria-label={`${name} menu`} className={`${TOOL} ml-auto`}><AliveIcon icon={DotsHorizontalIcon} size={16} /></button>
@@ -893,6 +896,8 @@ function CardBox({ id, editor, card, here, editing, disabled, onPick, onTick, on
       style={{ transform: transform ? `translate3d(${Math.round(transform.x)}px, ${Math.round(transform.y)}px, 0)` : undefined, transition, opacity: isDragging ? 0.3 : undefined }}
       onClick={(event) => !clicks(event) && onPick()}
       onDoubleClick={() => !editing && onEdit()}
+      // A right click opens the card's one menu, the same its ⋯ opens, by its ⋯.
+      onContextMenu={(event) => void (!editing && (event.preventDefault(), event.stopPropagation(), onPick(), setMenuOpen(true)))}
       className={`group/card relative flex shrink-0 touch-none items-start gap-2 rounded-lg border bg-background px-2.5 py-2 text-control transition-colors hover:border-foreground/15 ${here ? 'border-ring ring-1 ring-ring' : ''}`}>
       {task && (
         <button type="button" role="checkbox" aria-checked={checked} aria-label={checked ? 'Not done' : 'Done'} onClick={(event) => (event.stopPropagation(), onTick())}
