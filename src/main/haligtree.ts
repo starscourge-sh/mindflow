@@ -2454,6 +2454,23 @@ export function registerHaligtree(): void {
   // asked of them. Each holds clues, dated, a gloss row each, so past-you
   // stays readable beside present-you. They end when you have got it (an
   // article, seeded with the clues) or let them go; both stay readable.
+  // A line that only says where words came from ("From HTOP, under "Dream Weaver".") is never a question's name.
+  const ORIGIN = /^from\s+.{1,120}?(,\s*under\s+["“'‘].+["”'’])?\.?$/i
+  /** A question's name from its words: its first line that asks something, else its first line that is not where it came from. */
+  const askedIn = (text: string): string => {
+    const lines = text.split('\n').map((one) => one.replace(/(^|\s)#[\p{L}\p{N}_/-]+/gu, '$1').replace(/\s+/g, ' ').trim()).filter((one) => one && !ORIGIN.test(one))
+    return lines.find((one) => one.endsWith('?')) ?? lines[0] ?? ''
+  }
+  // Questions named by that line before (an import's notes started with it): named once from their own words.
+  if (!db.prepare("select 1 from settings where key = 'questionOriginNamesOnce'").get()) {
+    for (const row of db.prepare("select id, title from nuggets where tier = 'question'").all() as { id: string; title: string }[]) {
+      if (!ORIGIN.test(row.title.trim())) continue
+      const words = (db.prepare('select body from glosses where item_id = ? order by created_at limit 1').get(row.id) as { body: string } | undefined)?.body ?? ''
+      const named = askedIn(words)
+      if (named) db.prepare('update nuggets set title = ? where id = ?').run(cut(named, 300), row.id)
+    }
+    db.prepare("insert or replace into settings (key, value) values ('questionOriginNamesOnce', 'true')").run()
+  }
   const capturedWords = (id: string): { title: string; text: string; private: number } | undefined => {
     const row = db.prepare(`select ${LABEL} as title, body, private from captures where id = ?`).get(id) as { title: string; body: string; private: number } | undefined
     return row && { title: row.title, text: plain(JSON.parse(row.body ?? 'null')).trim() || row.title, private: row.private }
@@ -2465,7 +2482,7 @@ export function registerHaligtree(): void {
     const from = captureId ? capturedWords(captureId) : undefined
     const id = randomUUID()
     db.prepare("insert into nuggets (id, tier, kind, title, body, capture_id, private, created_at, updated_at) values (?, 'question', 'note', ?, 'null', ?, ?, ?, ?)")
-      .run(id, cut((title || from?.title || 'Untitled').trim(), 300), captureId ?? null, from?.private ?? 0, now(), now())
+      .run(id, cut((title || (from && (askedIn(from.text) || from.title)) || 'Untitled').trim(), 300), captureId ?? null, from?.private ?? 0, now(), now())
     resolveWaiting(linkOf('nuggets', id))
     if (from && captureId) {
       db.prepare('insert into glosses (id, item_id, body, created_at, source_id) values (?, ?, ?, ?, ?)').run(randomUUID(), id, from.text, now(), captureId)

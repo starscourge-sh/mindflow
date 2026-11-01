@@ -10,7 +10,7 @@ import { EASE, shift } from '@/lib/motion'
 
 import { HaligtreeEditor } from '../haligtree'
 import { chime } from '@/lib/sound'
-import { useLive, haligtree, when, shownName, withTagsOf, type Item, type ItemFull, type Settings } from '@/lib/haligtree'
+import { useLive, haligtree, when, shownName, splitTags, withTagsOf, type Item, type ItemFull, type Settings } from '@/lib/haligtree'
 import { flying, follow, noteLinkText } from '@/lib/capture-links'
 import { archive, saveAttachments, useOpenNote } from '@/lib/notes'
 import { openApart } from '@/lib/apart'
@@ -313,7 +313,8 @@ export const comesBack = (item: Item, on = true): string | null => {
 export const questionEntry = (item: Item, inView = false, menu?: MenuItem[], backOn = true): Entry => ({
   id: item.id,
   type: 'question',
-  title: item.title,
+  // The question in its own words, its tags left out (a card said "#work" in its question).
+  title: splitTags(item.title).text || item.title,
   tags: [],
   icon: Orbit,
   tint: clueTint(item.clues),

@@ -16,6 +16,8 @@ const shots = process.env.QA_SHOTS
 try {
   await v('settings:set', { hintRate: 0 })
   await h.evaluate(() => localStorage.setItem('sidebar:folders:article', 'true'))
+  // Questions open on their cards now; this probe reads the list's rows, a Display choice away.
+  await h.evaluate(() => localStorage.setItem('view:question', JSON.stringify({ sort: 'newest', group: 'none', filter: {}, density: 'list' })))
   // Three held, one answered (its clues become a page), so both lists have rows.
   const ids = []
   for (const title of ['Why does the sea look blue?', 'Is Hamlet mad, or only pretending?', 'What did the Romans eat for breakfast?']) ids.push(await v('question:new', title))

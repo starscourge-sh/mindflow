@@ -1589,7 +1589,8 @@ export function useItemDisplay(name: string, every: Item[], withGroups = false):
   })
   // Spread over the page, the list keeps a size of its own: a grid, unless you chose another.
   const wide = view.pane === 'wide'
-  const density = (wide ? view.wideDensity ?? 'grid' : view.density) ?? 'list'
+  // Questions open on their cards (the user, 1 Nov); every other list on rows. A choice made in Display is kept.
+  const density = (wide ? view.wideDensity ?? 'grid' : view.density) ?? (name === 'question' ? 'small' : 'list')
   const display = (
     <Display
       view={view}

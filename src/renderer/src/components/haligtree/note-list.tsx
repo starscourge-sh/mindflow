@@ -151,7 +151,9 @@ export function Cover({
           style={paper ? { color: PAPER_INK } : undefined}
           className={`private-text relative whitespace-pre-line ${paper ? '' : grain ? 'text-white/90 [text-shadow:0_1px_2px_rgb(0_0_0/0.4)]' : 'text-muted-foreground'} ${large ? 'line-clamp-5 text-xs leading-snug' : 'line-clamp-4 text-[10px] leading-tight'}`}
         >
-          {(() => { const shown = large ? rest(words, entry.title) : words; return shown && unlinked(shown).trim() ? <LinkedWords text={shown} /> : entry.title || entry.line || 'Untitled' })()}
+          {/* A question's card says the question itself, never the first words of what it holds (its first line was
+              once where its note came from: "From HTOP, under "Dream Weaver"."). */}
+          {(() => { const shown = entry.type === 'question' ? '' : large ? rest(words, entry.title) : words; return shown && unlinked(shown).trim() ? <LinkedWords text={shown} /> : entry.title || entry.line || 'Untitled' })()}
         </span>
       )}
     </span>
@@ -684,6 +686,8 @@ function SmallTile({ entry, words }: { entry: Entry; words?: string }): React.JS
         className={`private-text pointer-events-none absolute inset-x-0 bottom-0 line-clamp-3 bg-linear-to-t from-black/75 via-black/55 to-transparent px-2 pt-5 pb-1.5 text-[11px] leading-snug font-medium hyphens-auto [overflow-wrap:break-word] text-white opacity-0 transition-opacity duration-150 group-hover/row:opacity-100 group-data-[cursor]/row:opacity-100`}
       >
         <Named entry={entry} />
+        {/* An answered question's answer, under its name, in the same caption. */}
+        {entry.answer && <span data-tile-answer className="mt-0.5 block font-normal text-white/85 [&_*]:!text-white/85">{entry.answer}</span>}
       </span>
     </>
   )
