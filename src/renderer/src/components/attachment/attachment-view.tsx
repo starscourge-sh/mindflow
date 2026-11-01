@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react"
 import { NodeViewWrapper, useEditorState, type NodeViewProps } from "@tiptap/react"
 import { NodeSelection } from "@tiptap/pm/state"
-import { AlignCenter, AlignLeft, AlignRight, AudioLines, Columns2, ListTree, MoveHorizontal, MoveVertical, PanelLeft, Pause, PictureInPicture2, Play, RectangleVertical, RotateCcw, ScrollText } from "lucide-react"
+import { AlignCenter, AlignLeft, AlignRight, Columns2, ListTree, MoveHorizontal, MoveVertical, PanelLeft, Pause, PictureInPicture2, Play, RectangleVertical, RotateCcw, ScrollText } from "lucide-react"
 import { AliveIcon } from "@/components/ui/alive-icon"
 import DownloadIcon from "@/components/ui/download-icon"
 import ExternalLinkIcon from "@/components/ui/external-link-icon"
@@ -25,6 +25,7 @@ import { hasWords, isTranscribing, onTranscribing, transcribe, transcriptOf } fr
 import { bubblesOf } from "@/lib/bubbles"
 import { playAt } from "@/extensions/line-cards"
 import { Orb } from "@/components/haligtree/orb"
+import { LiveBars } from "@/components/haligtree/live-bars"
 import { FileText as File, FileText, Fit as Maximize, Volume2, VolumeX } from "@/components/ui/icons"
 
 /**
@@ -497,9 +498,11 @@ function AudioBlock(props: NodeViewProps): React.JSX.Element {
     <NodeViewWrapper className={`tiptap-attachment is-audio${selected ? " is-selected" : ""}${playing ? " is-playing" : ""}`} data-state={state} data-words={worded ? "" : undefined}>
       <audio ref={ref as React.RefObject<HTMLAudioElement>} src={src} preload="metadata" />
       <div className="tiptap-attachment-card">
-        <AudioLines className="tiptap-attachment-icon" />
+        {/* Media's own waveform mark, moving with the sound as it plays (live-bars.tsx): one mark for every recording. */}
+        <LiveBars sound={ref as React.RefObject<HTMLAudioElement | null>} playing={playing} className="tiptap-attachment-icon" />
         <span className="tiptap-attachment-body">
-          <span className="tiptap-attachment-name" title={name || undefined}>{soundTitle(name, length)}</span>
+          {/* No file-name tip: "Voice note · 0:47" is the name, and the tip covered the row above. */}
+          <span className="tiptap-attachment-name">{soundTitle(name, length)}</span>
           {noWords && <span data-no-words="row" className="tiptap-attachment-words items-center gap-1.5 text-xs text-muted-foreground">{noWords}</span>}
         </span>
         {controls}
