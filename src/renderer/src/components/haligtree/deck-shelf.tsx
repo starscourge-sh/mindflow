@@ -1,18 +1,21 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { chime } from '@/lib/sound'
 import { call, haligtree, unloaded, useLive } from '@/lib/haligtree'
 import { num, plural } from '../../../../main/dates'
-import { ask, askSure, openTag, quietly, refuse, toast } from './ui'
+import { ask, askSure, quietly, refuse, toast } from './ui'
 import { EXAMPLE_TAG } from '../../../../main/name'
 import { Button } from '@/components/ui/button'
-import { Chip } from './display'
-import { OptionsMenu, type Section } from './options-menu'
+import { Chip, Chips } from './display'
+import { INPUT_FRAME } from './hash-field'
 import { SCRUB, ScrubField } from '../pdf/scrub-field'
 import { Tree, treeOf } from './branches'
 import { GroupCover } from './group-cover'
 import { groupTint } from './card-shelves'
-import { RowMenu, type MenuItem, type RowItem } from './row-menu'
-import { Check, ChevronRight, LayoutGrid, List as ListIcon, Plus } from 'lucide-react'
+import { RowMenu, openFromGrip, type RowItem } from './row-menu'
+import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, ArrowUpDown, BookmarkPlus, ChevronRight, Eye, EyeOff, FolderPlus, GraduationCap, Hourglass, Image, Layers, LayoutGrid, Link, List as ListIcon, ListPlus, Pencil, Plus, Share, SlidersHorizontal, Trash2, type LucideIcon } from 'lucide-react'
+import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
+import { AliveIcon } from '@/components/ui/alive-icon'
+import DotsHorizontalIcon from '@/components/ui/dots-horizontal-icon'
 import { StudyYear } from './study-stats'
 import type { Settings } from '@/lib/haligtree'
 import { moveToBin } from '@/lib/to-bin'
@@ -53,7 +56,7 @@ const MANY = 8
 /** The most pockets drawn before the fold. */
 const POCKETS = 24
 
-export function DeckShelf({ onOpen, onStudy, onPaste, onPicture }: { onOpen: (type: string, id: string) => void; /** Study a deck's or topic's tag in Today. */ onStudy: (tag: string) => void; /** Paste cards into a deck, or make one card in it, in All cards. */ onPaste: (deck: string | null, one?: boolean) => void; /** Make cards from a picture, into a deck or none. */ onPicture: (deck: string | null) => void }): React.JSX.Element {
+export function DeckShelf({ onOpen, onStudy, onPaste, onPicture, onShow }: { /** Show these cards in All cards, and only them. */ onShow: (ids: string[]) => void; onOpen: (type: string, id: string) => void; /** Study a deck's or topic's tag in Today. */ onStudy: (tag: string) => void; /** Paste cards into a deck, or make one card in it, in All cards. */ onPaste: (deck: string | null, one?: boolean) => void; /** Make cards from a picture, into a deck or none. */ onPicture: (deck: string | null) => void }): React.JSX.Element {
   const [gallery, setGallery] = useState<string | null>(null)
   const [linking, setLinking] = useState<string | null>(null)
   const [allTags, setAllTags] = useState(false)
@@ -68,10 +71,76 @@ export function DeckShelf({ onOpen, onStudy, onPaste, onPicture }: { onOpen: (ty
   const [dragging, setDragging] = useState<string | null>(null)
   const [over, setOver] = useState<string | null>(null)
   const sets = useLive(() => call<{ name: string; tag: string }[]>('sets:list'), [] as { name: string; tag: string }[], [], ['item'])
+  // The deck whose settings are open, beside its pocket or row.
+  const [sheet, setSheet] = useState<{ tag: string; name: string; at: HTMLElement } | null>(null)
   if (unloaded(shelves) || !own) return <div />
   const newDeck = (inside?: string): void => void makeDeck(inside)
   // In the order you dragged them to, then the most due first.
   const tops = ownOrder(own.filter((deck) => deck.depth === 0), study.place)
+  // A deck one place earlier or later, from its menu: the keyboard's way to reorder, with Undo.
+  const move = (tag: string, by: number): void => {
+    const was = tops.map((one) => one.tag)
+    const order = [...was]
+    const at = order.indexOf(tag)
+    order.splice(at, 1)
+    order.splice(at + by, 0, tag)
+    void call('decks:order', order).then(() => (chime('settled'), quietly(() => void call('decks:order', was))))
+  }
+  const show = (shelf: Shelf): void =>
+    void call<number>('decks:show', shelf.name, !shelf.shown).then(() => {
+      chime(shelf.shown ? 'fold' : 'noted')
+      toast(shelf.shown ? `${shelf.name} is back on its shelf, out of Gems` : `${shelf.name} shows in Gems, Feed and Home now`, () => void call('decks:show', shelf.name, shelf.shown).then(() => chime('undo')))
+    })
+  const settings = (tag: string, name: string, at: HTMLElement | null): void => void (at && (chime('open'), setSheet({ tag, name, at })))
+  // A deck's cards in All cards, and only them: its sub-decks' too, as studying it takes them.
+  const cardsOf = (tag: string): void => void call<{ id: string; tags: string[] }[]>('cards:all').then((all) => onShow(all.filter((card) => card.tags.some((one) => one === tag || one.startsWith(`${tag}-`))).map((card) => card.id)))
+  const sideways = look === 'pockets'
+  /**
+   * One menu for a deck, the same from its ⋯ and from a right click, on a
+   * pocket and on a List row: study it, make cards in it, its settings, keep
+   * or share it, arrange it, and Delete last. In the order they are used.
+   */
+  const ownItems = (deck: OwnDeck, at: () => HTMLElement | null): RowItem[] => {
+    if (deck.tag === EXAMPLE_TAG) return exampleItems(onStudy)
+    const place = tops.indexOf(deck)
+    return [
+      deck.cards > 0 && { label: 'Study', keys: 'S', icon: glyph(GraduationCap), run: () => (chime('riffle'), onStudy(deck.tag)) },
+      'separator',
+      { label: 'Make a card', icon: glyph(Plus), run: () => (chime('open'), onPaste(deck.tag, true)) },
+      { label: 'Add many at once', icon: glyph(ListPlus), run: () => (chime('open'), onPaste(deck.tag)) },
+      { label: 'Cards from a picture', icon: glyph(Image), run: () => onPicture(deck.tag) },
+      'separator',
+      { label: 'Deck settings…', icon: glyph(SlidersHorizontal), run: () => settings(deck.tag, deckName(deck), at()) },
+      'separator',
+      deck.cards > 0 && { label: 'Save as a study set…', icon: glyph(BookmarkPlus), run: () => void saveSet(deck.tag) },
+      deck.cards > 0 && { label: 'Share as an Anki deck…', icon: glyph(Share), run: () => void shareDeck(deck.tag, deckName(deck)) },
+      'separator',
+      { label: 'New deck inside', icon: glyph(FolderPlus), run: () => newDeck(deck.tag) },
+      { label: 'Rename…', icon: glyph(Pencil), run: () => void renameDeck(deck.tag) },
+      // Without a mouse: the same move as dragging it, one place at a time, folded into one line.
+      deck.depth === 0 && place >= 0 && tops.length > 1 && { label: 'Move', icon: glyph(ArrowUpDown), items: [
+        place > 0 && { label: 'Earlier', icon: glyph(sideways ? ArrowLeft : ArrowUp), run: () => move(deck.tag, -1) },
+        place < tops.length - 1 && { label: 'Later', icon: glyph(sideways ? ArrowRight : ArrowDown), run: () => move(deck.tag, 1) }
+      ] },
+      deck.cards > 0 && { label: 'Show its cards', icon: glyph(Layers), run: () => cardsOf(deck.tag) },
+      { label: 'Delete deck…', hint: 'Its cards are kept', danger: true, icon: glyph(Trash2), run: () => void deleteDeck(deck.tag) }
+    ]
+  }
+  // A shared deck's menu, in the same order as one of your own, with what an import adds (held cards, Gems, links).
+  const sharedItems = (shelf: Shelf, at: () => HTMLElement | null): RowItem[] => [
+    shelf.held < shelf.cards && { label: 'Study', keys: 'S', icon: glyph(GraduationCap), run: () => (chime('riffle'), onStudy(deckTag(shelf.name))) },
+    { label: shelf.held > 0 ? 'Start the held cards' : 'Hold new cards', icon: glyph(Hourglass), run: () => startDeck(shelf.name, shelf.name, shelf.held > 0) },
+    'separator',
+    { label: 'Deck settings…', icon: glyph(SlidersHorizontal), run: () => settings(deckTag(shelf.name), shelf.name, at()) },
+    { label: shelf.shown ? 'Keep out of Gems' : 'Show in Gems', icon: glyph(shelf.shown ? EyeOff : Eye), run: () => show(shelf) },
+    { label: 'Links…', icon: glyph(Link), run: () => (chime('open'), setLinking(shelf.name)) },
+    'separator',
+    shelf.pictures > 0 && { label: gallery === shelf.name ? 'Hide pictures' : 'Pictures', icon: glyph(Image), run: () => (chime('open'), setGallery(gallery === shelf.name ? null : shelf.name)) },
+    { label: 'Show its cards', icon: glyph(Layers), run: () => void call<string[]>('decks:cards', shelf.name).then(onShow) },
+    { label: 'Delete deck…', hint: 'Its cards go to the Bin', danger: true, icon: glyph(Trash2), run: () => void removeShared(shelf) }
+  ]
+  const listMenu = (target: { own: OwnDeck } | { shelf: Shelf }, at: () => HTMLElement | null): RowItem[] => ('own' in target ? ownItems(target.own, at) : sharedItems(target.shelf, at))
+  const settingsSheet = sheet && <DeckSettings key={sheet.tag} tag={sheet.tag} name={sheet.name} at={sheet.at} study={study} onClose={() => setSheet(null)} />
   const many = tops.length > MANY
   // At most POCKETS on show at once, the most due first: a big collection reads better in the List, which the fold offers.
   // While a deck is dragged over another, the others make room live: the dragged one stands where it would land.
@@ -117,63 +186,21 @@ export function DeckShelf({ onOpen, onStudy, onPaste, onPicture }: { onOpen: (ty
         <StudyYear compact />
         <StudySets sets={sets} onStudy={onStudy} />
         <BookCoverage />
-        <DeckList own={own} shelves={shelves ?? []} onStudy={onStudy} place={study.place} />
+        <DeckList own={own} shelves={shelves ?? []} onStudy={onStudy} place={study.place} menu={listMenu} />
+        {linking && <Links deck={linking} onDone={() => setLinking(null)} />}
+        {gallery && <Gallery deck={gallery} onOpen={onOpen} />}
+        {settingsSheet}
       </div>
     )
-  // A shared deck's menu, the same as one of your own: its review settings, then what its buttons do, and Delete, which takes the imported deck away.
-  const sharedMenu = (shelf: Shelf): Section[] => [
-    ...deckSettings(deckTag(shelf.name), study),
-    { items: [
-      ...(shelf.held < shelf.cards ? [{ label: 'Study', run: () => (chime('riffle'), onStudy(deckTag(shelf.name))) }] : []),
-      { label: shelf.held > 0 ? 'Start the held cards' : 'Hold new cards', run: () => startDeck(shelf.name, shelf.name, shelf.held > 0) },
-      { label: shelf.shown ? 'Keep out of Gems' : 'Show in Gems', run: () => show(shelf) },
-      { label: 'Links…', run: () => (chime('open'), setLinking(shelf.name)) },
-      { label: 'Delete deck…', hint: 'Takes the imported deck away, to the Bin', run: () => void removeShared(shelf) }
-    ] }
-  ]
-  const show = (shelf: Shelf): void =>
-    void call<number>('decks:show', shelf.name, !shelf.shown).then(() => {
-      chime(shelf.shown ? 'fold' : 'noted')
-      toast(shelf.shown ? `${shelf.name} is back on its shelf, out of Gems` : `${shelf.name} shows in Gems, Feed and Home now`, () => void call('decks:show', shelf.name, shelf.shown).then(() => chime('undo')))
-    })
-  // Your own deck's menu: its review settings, then what can be done with it. The example deck's: study it, or take it away.
-  const ownMenu = (deck: OwnDeck): Section[] => deck.tag === EXAMPLE_TAG ? exampleMenu(onStudy) : [
-    ...deckSettings(deck.tag, study),
-    { items: [
-      ...(deck.cards ? [{ label: 'Study', run: () => (chime('riffle'), onStudy(deck.tag)) }] : []),
-      ...(deck.cards ? [{ label: 'Save as a study set…', hint: 'A name for an occasion, like an exam: one click drills every card in it', run: () => void saveSet(deck.tag) }] : []),
-      { label: 'Name its two sides…', hint: study.sides[deck.tag] ? `Now “${study.sides[deck.tag][0]}” and “${study.sides[deck.tag][1]}”` : 'Like “English” and “Spanish”, in place of question and answer', run: () => void nameSides(deck.tag, study.sides[deck.tag] ?? null) },
-      ...(deck.cards ? [{ label: 'Share as an Anki deck…', hint: 'Saves an .apkg file anyone can open in Anki', run: () => void shareDeck(deck.tag, deckName(deck)) }] : []),
-      { label: 'Make a card', run: () => (chime('open'), onPaste(deck.tag, true)) },
-      { label: 'Add many at once', run: () => (chime('open'), onPaste(deck.tag)) },
-      { label: 'Make cards from a picture', run: () => onPicture(deck.tag) },
-      { label: 'New deck inside', run: () => newDeck(deck.tag) },
-      // Without a mouse: the same move as dragging it, one place at a time.
-      ...(deck.depth === 0 && tops.indexOf(deck) > 0 ? [{ label: 'Move earlier', run: () => move(deck.tag, -1) }] : []),
-      ...(deck.depth === 0 && tops.indexOf(deck) >= 0 && tops.indexOf(deck) < tops.length - 1 ? [{ label: 'Move later', run: () => move(deck.tag, 1) }] : []),
-      { label: 'Open its page', hint: 'Everything tagged with it, on the tag’s page', run: () => openTag(deck.tag) },
-      { label: 'Rename deck…', run: () => void renameDeck(deck.tag) },
-      { label: 'Delete deck…', hint: 'Its cards are kept', run: () => void deleteDeck(deck.tag) }
-    ] }
-  ]
   const sharedTiles = (shelves ?? []).map((shelf) => {
     const topics = shelf.topics.length > 1 ? treeOf([...shelf.topics].sort((a, b) => a.deck.localeCompare(b.deck)), (topic) => topic.deck.split('::').length).length : 0
     const allHeld = shelf.held > 0 && shelf.held === shelf.cards
     return (
       <DeckTile key={shelf.name} id={shelf.name} name={shelf.name} title={shelf.name} due={shelf.due} fresh={shelf.fresh} all={shelf.cards} held={shelf.held} cover={shelf.cover} shapes={shapes}
-        kids={topics} open={kidsOpen.has(shelf.name)} onKids={() => openKids(shelf.name)} menu={[...sharedMenu(shelf).slice(0, -1), { items: [...sharedMenu(shelf).at(-1)!.items, ...(shelf.pictures > 0 ? [{ label: gallery === shelf.name ? 'Hide pictures' : 'Pictures', run: () => (chime('open'), setGallery(gallery === shelf.name ? null : shelf.name)) }] : [])] }]}
+        kids={topics} open={kidsOpen.has(shelf.name)} onKids={() => openKids(shelf.name)} items={(at) => sharedItems(shelf, at)}
         onClick={() => (allHeld ? startDeck(shelf.name, shelf.name, true) : (chime('riffle'), onStudy(deckTag(shelf.name))))} />
     )
   })
-  // A deck one place earlier or later, from its menu: the keyboard's way to reorder, with Undo.
-  const move = (tag: string, by: number): void => {
-    const was = tops.map((one) => one.tag)
-    const order = [...was]
-    const at = order.indexOf(tag)
-    order.splice(at, 1)
-    order.splice(at + by, 0, tag)
-    void call('decks:order', order).then(() => (chime('settled'), quietly(() => void call('decks:order', was))))
-  }
   // Dropped on another deck, a deck takes its place and the rest move along; the order is kept.
   // Dropped anywhere on the decks (the dragged one itself stands where it will land): the order shown while dragging is kept.
   const drop = (): void => {
@@ -186,7 +213,7 @@ export function DeckShelf({ onOpen, onStudy, onPaste, onPicture }: { onOpen: (ty
   }
   const tile = (deck: OwnDeck): React.JSX.Element => (
     <DeckTile key={deck.tag} id={deck.tag} own drag={deck.depth === 0 ? { over: false, lifted: dragging === deck.tag, start: () => setDragging(deck.tag), enter: () => dragging && deck.tag !== dragging && setOver(deck.tag), end: () => (setDragging(null), setOver(null)), drop } : undefined} name={deckName(deck)} title={deckTitle(deck.tag, own.map((one) => one.tag))} due={deck.due} fresh={deck.fresh} all={deck.cards} held={0} cover={null} shapes={shapes}
-      kids={own.filter((one) => one.tag.startsWith(`${deck.tag}-`) && one.depth === deck.depth + 1).length} open={kidsOpen.has(deck.tag)} onKids={() => openKids(deck.tag)} menu={ownMenu(deck)}
+      kids={own.filter((one) => one.tag.startsWith(`${deck.tag}-`) && one.depth === deck.depth + 1).length} open={kidsOpen.has(deck.tag)} onKids={() => openKids(deck.tag)} items={(at) => ownItems(deck, at)}
       onClick={() => (deck.cards ? (chime('riffle'), onStudy(deck.tag)) : (chime('open'), onPaste(deck.tag, true)))} />
   )
   return (
@@ -221,12 +248,13 @@ export function DeckShelf({ onOpen, onStudy, onPaste, onPicture }: { onOpen: (ty
             <button type="button" onClick={() => openKids(key)} aria-expanded className="flex cursor-pointer items-center gap-1 justify-self-start rounded-[4px] px-1 text-control font-medium text-foreground hover:bg-accent/50">
               <ChevronRight className="size-3.5 rotate-90 text-muted-foreground" />Inside {deck ? deck.label : shelf!.name}
             </button>
-            <DeckList own={deck ? own.filter((one) => one === deck || one.tag.startsWith(`${deck.tag}-`)) : []} shelves={shelf ? [shelf] : []} onStudy={onStudy} />
+            <DeckList own={deck ? own.filter((one) => one === deck || one.tag.startsWith(`${deck.tag}-`)) : []} shelves={shelf ? [shelf] : []} onStudy={onStudy} menu={listMenu} />
           </section>
         )
       })}
       {linking && <Links deck={linking} onDone={() => setLinking(null)} />}
       {gallery && <Gallery deck={gallery} onOpen={onOpen} />}
+      {settingsSheet}
     </div>
   )
 }
@@ -237,22 +265,21 @@ export function DeckShelf({ onOpen, onStudy, onPaste, onPicture }: { onOpen: (ty
  * "+N sub-decks" when it has them. The whole tile studies it; everything else
  * is in its ⋯ menu and on right-click.
  */
-function DeckTile({ id, own = false, drag, name, title, due, fresh, all, held, cover, shapes, kids, open, onKids, menu, onClick }: {
+function DeckTile({ id, own = false, drag, name, title, due, fresh, all, held, cover, shapes, kids, open, onKids, items, onClick }: {
   id: string; own?: boolean; /** A top deck of your own drags to a new place among the others. */ drag?: { over: boolean; lifted: boolean; start: () => void; enter: () => void; end: () => void; drop: () => void }; name: string; title: string; due: number; fresh: number; all: number; held: number; cover: string | null; shapes: boolean
-  kids: number; open: boolean; onKids: () => void; menu: Section[]; onClick: () => void
+  kids: number; open: boolean; onKids: () => void; /** Its one menu, from ⋯ and from a right click; given the pocket, so its settings open beside it. */ items: (at: () => HTMLElement | null) => RowItem[]; onClick: () => void
 }): React.JSX.Element {
   void title
+  const box = useRef<HTMLDivElement | null>(null)
   return (
-    <RowMenu items={() => rowItems(menu)}>
+    <RowMenu items={() => items(() => box.current)}>
       {/* Laid out by motion: when a dragged deck passes over, the others slide to make room (at once with motion off). */}
-      <motion.div layout={!still()} transition={{ duration: 0.2, ease: EASE }} role="button" tabIndex={0} data-deck={own ? `#${id}` : id} {...(own ? { 'data-own-deck': id } : {})} onClick={onClick}
+      <motion.div ref={box} layout={!still()} transition={{ duration: 0.2, ease: EASE }} role="button" tabIndex={0} data-deck={own ? `#${id}` : id} {...(own ? { 'data-own-deck': id } : {})} onClick={onClick}
         onKeyDown={(event) => (event.key === 'Enter' || event.key === ' ') && event.target === event.currentTarget && (event.preventDefault(), onClick())}
         {...(drag ? { draggable: true, onDragStart: (event: React.DragEvent) => (event.dataTransfer.effectAllowed = 'move', event.dataTransfer.setData('text/plain', `#${id}`), drag.start()),
           onDragEnter: drag.enter, onDragOver: (event: React.DragEvent) => event.preventDefault(), onDragEnd: drag.end, onDrop: (event: React.DragEvent) => (event.preventDefault(), drag.drop()) } : {}) as Record<string, unknown>}
         className={`@container relative flex aspect-square min-w-0 cursor-pointer flex-col gap-1.5 self-start overflow-hidden rounded-[6px] mf-metal mf-metal-hover p-3.5 text-left outline-none active:scale-[0.985] motion-reduce:active:scale-100 focus-visible:ring-2 focus-visible:ring-ring ${drag?.lifted ? 'opacity-40' : ''}`}>
-        <span className="absolute top-1.5 right-1.5" onClick={(event) => event.stopPropagation()}>
-          <OptionsMenu sections={menu} heading={name} label="Deck options" tip={false} side="bottom" align="end" className="cursor-pointer" />
-        </span>
+        <span className="absolute top-1.5 right-1.5"><MenuDots /></span>
         {(cover || shapes) && (
           <span data-deck-face={own ? `#${id}` : id} className="flex">
             {cover ? <img src={cover} alt="" className="size-10 shrink-0 rounded-[4px] object-cover" />
@@ -342,49 +369,6 @@ function Links({ deck, onDone }: { deck: string; onDone: () => void }): React.JS
   )
 }
 
-/** A deck's review settings, from its menu: its own new cards a day and how its typed answers are checked (the tag's own, as on its page). */
-function deckSettings(tag: string, study: { typed: Record<string, string>; newPerDay: Record<string, number>; retention: Record<string, number>; timer: Record<string, number> }): Section[] {
-  const perDay = study.newPerDay[tag]
-  const timer = study.timer[tag]
-  const setTimer = (to: number | null): void => void haligtree.setTag(tag, { timer: to }).then(() => (chime('settled'), quietly(() => void haligtree.setTag(tag, { timer: timer ?? null }))))
-  const keep = study.retention[tag]
-  const setKeep = (to: number | null): void => void haligtree.setTag(tag, { retention: to }).then(() => (chime('settled'), quietly(() => void haligtree.setTag(tag, { retention: keep ?? null }))))
-  const typed = study.typed[tag] ?? ''
-  const setPerDay = (to: number | null): void => void haligtree.setTag(tag, { newPerDay: to }).then(() => (chime('settled'), quietly(() => void haligtree.setTag(tag, { newPerDay: perDay ?? null }))))
-  const setTyped = (to: 'exact' | 'meaning' | null): void => void haligtree.setTag(tag, { typed: to }).then(() => (chime('settled'), quietly(() => void haligtree.setTag(tag, { typed: (typed || null) as 'exact' | 'meaning' | null }))))
-  return [
-    { label: 'New cards a day', items: [
-      { label: 'As in Settings', on: perDay === undefined, set: (on: boolean) => void (on && setPerDay(null)) },
-      // Its own number: dragged sideways, stepped with the arrows, or typed (a sum too: +5, 20*2).
-      { label: 'Its own', field: <ScrubField label={`New cards a day for ${tag}`} min={0} max={999} value={perDay ?? 10} onChange={(n) => void haligtree.setTag(tag, { newPerDay: n })} className={SCRUB} /> },
-      { label: 'None', hint: 'Only reviews: no new cards start', on: perDay === 0, set: (on: boolean) => void (on && setPerDay(0)) }
-    ] },
-    // Anki's desired retention per deck: a language seen more often, an old exam's deck less.
-    { label: 'How much to remember', items: [
-      { label: 'As in Settings', on: keep === undefined, set: (on: boolean) => void (on && setKeep(null)) },
-      { label: 'Its own', field: <span className="flex items-center gap-0.5"><ScrubField label={`How much to remember of ${tag}`} min={70} max={99} value={Math.round((keep ?? 0.9) * 100)} onChange={(n) => void haligtree.setTag(tag, { retention: n / 100 })} className={SCRUB} />%</span> }
-    ] },
-    // An on-screen clock on each card: when it runs out the answer shows, as Anki's "maximum answer seconds" with its answer shown.
-    { label: 'Timer on each card', items: [
-      { label: 'None', on: timer === undefined, set: (on: boolean) => void (on && setTimer(null)) },
-      ...[10, 20, 30, 60].map((seconds) => ({ label: `${seconds} seconds`, hint: 'A clock counts down under the card; at the end its answer shows', on: timer === seconds, set: (on: boolean) => void (on && setTimer(seconds)) }))
-    ] },
-    { label: 'How typed answers are checked', items: [
-      { label: 'Usual', hint: 'An accent or unit left out is part wrong; a slip of a letter can count; capitals do not', on: !typed, set: (on: boolean) => void (on && setTyped(null)) },
-      { label: 'Exact', hint: 'Every mark counts, capitals too: formulas, symbols, case names', on: typed === 'exact', set: (on: boolean) => void (on && setTyped('exact')) },
-      { label: 'Meaning', hint: 'Accents and small slips pass: names, terms, dates in words', on: typed === 'meaning', set: (on: boolean) => void (on && setTyped('meaning')) }
-    ] }
-  ]
-}
-
-/** The ⋯ menu's sections as a right-click menu: each labelled part a line opening its choices beside it, the one in use ticked. */
-const rowItems = (sections: Section[]): RowItem[] => sections.flatMap((section): RowItem[] => {
-  const lines = section.items.flatMap((item): MenuItem[] => typeof item === 'string' || 'more' in item || 'field' in item ? [] : [
-    'set' in item ? { label: item.label, hint: item.hint, run: () => item.set(true), trail: item.on ? <Check className="size-3.5" /> : undefined } : { label: item.label, hint: item.hint, run: item.run, danger: /^Delete/.test(item.label) }
-  ])
-  return section.label ? [{ label: section.label, items: lines }] : ['separator', ...lines]
-})
-
 /** Your own top decks in the order you dragged them to; the ones never placed after, the most due first. */
 export const ownOrder = (decks: OwnDeck[], place: Record<string, number>): OwnDeck[] =>
   [...decks].sort((a, b) => (place[a.tag] ?? Infinity) - (place[b.tag] ?? Infinity) || b.due - a.due || b.cards - a.cards || a.tag.localeCompare(b.tag))
@@ -396,17 +380,6 @@ async function saveSet(tag: string): Promise<void> {
   await call('sets:save', name, tag)
   chime('noted')
   toast(`“${name.trim()}” is a study set: it drills every card in ${deckTitle(tag)}, due or not`, () => void call('sets:remove', name.trim()).then(() => chime('undo')))
-}
-
-/** Name a deck's two sides ("English / Spanish"), with Undo; empty puts back question and answer. */
-async function nameSides(tag: string, was: [string, string] | null): Promise<void> {
-  const words = await ask(`What are the two sides of ${deckTitle(tag)} called?`, 'English / Spanish', undefined, was ? `${was[0]} / ${was[1]}` : '')
-  if (words === null || words === undefined) return
-  const parts = words.split('/').map((one) => one.trim())
-  if (words.trim() && (parts.length !== 2 || !parts[0] || !parts[1])) return refuse('Two names with a / between them: English / Spanish')
-  await haligtree.setTag(tag, { sides: words.trim() ? [parts[0], parts[1]] : null })
-  chime('settled')
-  toast(words.trim() ? `Cards in ${deckTitle(tag)} ask in “${parts[0]}” and answer in “${parts[1]}”` : `${deckTitle(tag)} asks a question and its answer again`, () => void haligtree.setTag(tag, { sides: was }).then(() => chime('undo')))
 }
 
 /** Save one deck as an Anki package where you pick. */
@@ -555,10 +528,14 @@ export function DeckFace({ name, due, fresh, shapes, faded = false, small = fals
  * the accent), New and Cards in columns; sub-decks hang off the trunk under
  * their deck and fold with its chevron. Clicking a name studies it.
  */
-function DeckList({ own, shelves, onStudy, place = {} }: { own: OwnDeck[]; shelves: Shelf[]; onStudy: (tag: string) => void; /** The order you dragged the decks to. */ place?: Record<string, number> }): React.JSX.Element {
+type Target = { own: OwnDeck } | { shelf: Shelf }
+function DeckList({ own, shelves, onStudy, place = {}, menu }: { own: OwnDeck[]; shelves: Shelf[]; onStudy: (tag: string) => void; /** The order you dragged the decks to. */ place?: Record<string, number>
+  /** A deck's one menu, the same as its pocket's: on the row's ⋯ and on a right click. */ menu: (target: Target, at: () => HTMLElement | null) => RowItem[] }): React.JSX.Element {
   const [shut, flip] = useShut()
-  const cols = 'grid grid-cols-[minmax(0,1fr)_3.5rem_3.5rem_4rem] items-center gap-x-2'
-  const row = (key: string, name: string, _title: string, due: number, fresh: number, all: number, kids: number, study: (() => void) | null): React.JSX.Element => (
+  const cols = 'grid grid-cols-[minmax(0,1fr)_3.5rem_3.5rem_4rem_2rem] items-center gap-x-2'
+  const row = (key: string, name: string, _title: string, due: number, fresh: number, all: number, kids: number, study: (() => void) | null, target: Target | null = null): React.JSX.Element => {
+    const at = (): HTMLElement | null => document.querySelector<HTMLElement>(`[data-deck-row="${CSS.escape(key)}"]`)
+    const line = (
     <div key={key} data-deck-row={key} className={`${cols} min-h-8 text-control`}>
       <span className="flex min-w-0 items-center gap-1">
         <Fold id={key} kids={kids} open={!shut.has(key)} name={name} flip={() => flip(key)} />
@@ -568,23 +545,27 @@ function DeckList({ own, shelves, onStudy, place = {} }: { own: OwnDeck[]; shelv
       <span className={`flex items-center justify-end gap-1.5 tabular-nums ${due > 0 ? 'font-semibold text-foreground' : 'text-muted-foreground/60'}`}>{due > 0 && <span aria-hidden className="size-1.5 rounded-full bg-primary" />}{due < 0 ? '–' : num(due)}</span>
       <span className={`text-right tabular-nums ${fresh > 0 ? 'text-foreground' : 'text-muted-foreground/60'}`}>{fresh < 0 ? '–' : num(fresh)}</span>
       <span className="text-right text-muted-foreground tabular-nums">{num(all)}</span>
+      {/* Its menu, or the same room kept empty (a shared deck's topic has none), so the numbers line up. */}
+      <span className="flex justify-end">{target && <MenuDots />}</span>
     </div>
-  )
+    )
+    return target ? <RowMenu key={key} items={() => menu(target, at)}>{line}</RowMenu> : line
+  }
   const tops = ownOrder(own.filter((deck) => deck.depth === 0), place)
   return (
     <div data-deck-list role="table" aria-label="Decks" className="grid rounded-[5px] mf-metal px-3 py-2">
       <div className={`${cols} border-b border-foreground/10 pb-1.5 text-sm text-muted-foreground`}>
-        <span className="pl-6">Deck</span><span className="text-right">Due</span><span className="text-right">New</span><span className="text-right">Cards</span>
+        <span className="pl-6">Deck</span><span className="text-right">Due</span><span className="text-right">New</span><span className="text-right">Cards</span><span />
       </div>
       {tops.map((deck) => {
         const inside = own.filter((one) => one.tag.startsWith(`${deck.tag}-`))
         return (
           <div key={deck.tag}>
-            {row(deck.tag, deckName(deck), deckName(deck), deck.due, deck.fresh, deck.cards, inside.filter((one) => one.depth === 1).length, deck.cards ? () => onStudy(deck.tag) : null)}
+            {row(deck.tag, deckName(deck), deckName(deck), deck.due, deck.fresh, deck.cards, inside.filter((one) => one.depth === 1).length, deck.cards ? () => onStudy(deck.tag) : null, { own: deck })}
             {inside.length > 0 && !shut.has(deck.tag) && (
               <div className="pl-3">
                 <Tree nodes={treeOf(inside, (one) => one.depth)} here={-1} className="pl-3" open={(node) => !shut.has(node.item.tag)}
-                  row={({ item: one, kids }) => row(one.tag, sayDeck(one.label), deckTitle(one.tag, own.map((deck) => deck.tag)), one.due, one.fresh, one.cards, kids.length, one.cards ? () => onStudy(one.tag) : null)} />
+                  row={({ item: one, kids }) => row(one.tag, sayDeck(one.label), deckTitle(one.tag, own.map((deck) => deck.tag)), one.due, one.fresh, one.cards, kids.length, one.cards ? () => onStudy(one.tag) : null, { own: one })} />
               </div>
             )}
           </div>
@@ -594,7 +575,7 @@ function DeckList({ own, shelves, onStudy, place = {} }: { own: OwnDeck[]; shelv
         const topics = shelf.topics.length > 1 ? [...shelf.topics].sort((a, b) => a.deck.localeCompare(b.deck)) : []
         return (
           <div key={shelf.name}>
-            {row(shelf.name, shelf.name, shelf.name, shelf.due, shelf.fresh, shelf.cards, topics.length ? treeOf(topics, (topic) => topic.deck.split('::').length).length : 0, shelf.held < shelf.cards ? () => onStudy(deckTag(shelf.name)) : null)}
+            {row(shelf.name, shelf.name, shelf.name, shelf.due, shelf.fresh, shelf.cards, topics.length ? treeOf(topics, (topic) => topic.deck.split('::').length).length : 0, shelf.held < shelf.cards ? () => onStudy(deckTag(shelf.name)) : null, { shelf })}
             {topics.length > 0 && !shut.has(shelf.name) && (
               <div className="pl-3">
                 <Tree nodes={treeOf(topics, (topic) => topic.deck.split('::').length)} here={-1} className="pl-3" open={(node) => !shut.has(node.item.deck)}
@@ -605,6 +586,101 @@ function DeckList({ own, shelves, onStudy, place = {} }: { own: OwnDeck[]; shelv
         )
       })}
     </div>
+  )
+}
+
+/** A menu line's drawing, at the size every menu draws one. */
+const glyph = (Icon: LucideIcon): React.JSX.Element => <Icon aria-hidden data-menu-icon="" className="size-3.5 shrink-0 text-muted-foreground" />
+
+/**
+ * A deck's ⋯: opens the deck's right-click menu under it, the one menu,
+ * so the two can never say different things (the app's rule: a ⋯ is its
+ * right click, for a mouse that does not think of one).
+ */
+function MenuDots(): React.JSX.Element {
+  return (
+    <button type="button" aria-label="Deck menu" data-deck-dots onClick={openFromGrip}
+      className="flex size-7 cursor-pointer items-center justify-center rounded-md text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring max-sm:size-8">
+      <AliveIcon icon={DotsHorizontalIcon} size={16} />
+    </button>
+  )
+}
+
+/** What each timer and typed-answer check does, said once under its row: the one chosen. */
+const TIMERS = [0, 10, 20, 30, 60]
+const TYPED: { id: string; label: string; says: string }[] = [
+  { id: '', label: 'Usual', says: 'An accent or unit left out is part wrong; a slip of a letter can count; capitals do not.' },
+  { id: 'exact', label: 'Exact', says: 'Every mark counts, capitals too: formulas, symbols, case names.' },
+  { id: 'meaning', label: 'Meaning', says: 'Accents and small slips pass: names, terms, dates in words.' }
+]
+
+/** One setting in the sheet: its name, its choices, and what the one chosen does, on a quiet line under. */
+function Setting({ name, says, children, id }: { name: string; says?: string; children: React.ReactNode; id: string }): React.JSX.Element {
+  return (
+    <div data-deck-setting={id} className="grid gap-1.5">
+      <span className="text-control font-medium text-foreground">{name}</span>
+      <div className="flex min-h-8 flex-wrap items-center gap-1.5 text-xs">{children}</div>
+      {says && <span className="text-xs leading-snug text-muted-foreground">{says}</span>}
+    </div>
+  )
+}
+
+/**
+ * A deck's settings, opened from its menu's "Deck settings…" beside its
+ * pocket or row: new cards a day, how much to remember, the timer, how typed
+ * answers are checked and what its two sides are called. Each a row of
+ * choices, the one in use lit, what it does said once under it. Every change
+ * is kept at once, with Undo.
+ */
+function DeckSettings({ tag, name, at, study, onClose }: { tag: string; name: string; at: HTMLElement; study: { sides: Record<string, [string, string]>; typed: Record<string, string>; newPerDay: Record<string, number>; retention: Record<string, number>; timer: Record<string, number> }; onClose: () => void }): React.JSX.Element {
+  const perDay = study.newPerDay[tag]
+  const keep = study.retention[tag]
+  const timer = study.timer[tag] ?? 0
+  const typed = study.typed[tag] ?? ''
+  const sides = study.sides[tag] ?? null
+  const set = (change: Parameters<typeof haligtree.setTag>[1], back: Parameters<typeof haligtree.setTag>[1]): void =>
+    void haligtree.setTag(tag, change).then(() => (chime('settled'), quietly(() => void haligtree.setTag(tag, back))))
+  const [front, setFront] = useState(sides?.[0] ?? '')
+  const [back, setBack] = useState(sides?.[1] ?? '')
+  // Both named, or both left empty for question and answer; kept as you leave the field.
+  const saveSides = (): void => {
+    const to: [string, string] | null = front.trim() && back.trim() ? [front.trim(), back.trim()] : null
+    if (JSON.stringify(to) === JSON.stringify(sides) || (!to && (front.trim() || back.trim()))) return
+    set({ sides: to }, { sides })
+  }
+  return (
+    <Popover open onOpenChange={(open) => void (!open && (chime('fold'), onClose()))}>
+      <PopoverAnchor virtualRef={{ current: at }} />
+      {/* Beside the deck, never over it: what it is set for stays in view. */}
+      <PopoverContent side={window.innerWidth < 720 ? "bottom" : "left"} align="start" sideOffset={8} data-deck-settings={tag} className="w-80 max-w-[calc(100vw-1rem)] gap-3.5 p-4 text-control" onFocusOutside={(event) => event.preventDefault()}>
+        <span className="font-serif text-lg leading-tight text-foreground [overflow-wrap:break-word]">{name}</span>
+        <Setting id="new" name="New cards a day" says={perDay === 0 ? 'Only reviews: no new cards start.' : undefined}>
+          <Chips options={[{ id: '', label: 'As in Settings' }, { id: 'own', label: 'Its own' }, { id: 'none', label: 'None' }]}
+            on={(id) => id === (perDay === undefined ? '' : perDay === 0 ? 'none' : 'own')}
+            pick={(id) => set({ newPerDay: id === '' ? null : id === 'none' ? 0 : (perDay || 10) }, { newPerDay: perDay ?? null })} />
+          {perDay !== undefined && perDay > 0 && <ScrubField label={`New cards a day for ${name}`} min={1} max={999} value={perDay} className={SCRUB} onChange={(n) => void haligtree.setTag(tag, { newPerDay: n })} />}
+        </Setting>
+        <Setting id="keep" name="How much to remember" says={keep !== undefined ? 'Higher brings its cards back sooner and more often.' : undefined}>
+          <Chips options={[{ id: '', label: 'As in Settings' }, { id: 'own', label: 'Its own' }]} on={(id) => (id === 'own') === (keep !== undefined)}
+            pick={(id) => set({ retention: id === '' ? null : (keep ?? 0.9) }, { retention: keep ?? null })} />
+          {keep !== undefined && <span className="flex items-center gap-0.5"><ScrubField label={`How much to remember of ${name}`} min={70} max={99} value={Math.round(keep * 100)} className={SCRUB} onChange={(n) => void haligtree.setTag(tag, { retention: n / 100 })} />%</span>}
+        </Setting>
+        <Setting id="timer" name="Timer on each card" says={timer ? 'A clock counts down under the card; at the end its answer shows.' : undefined}>
+          <Chips options={TIMERS.map((seconds) => ({ id: String(seconds), label: seconds ? `${seconds} s` : 'None' }))} on={(id) => id === String(timer)}
+            pick={(id) => set({ timer: Number(id) || null }, { timer: study.timer[tag] ?? null })} />
+        </Setting>
+        <Setting id="typed" name="Typed answers" says={TYPED.find((one) => one.id === typed)?.says}>
+          <Chips options={TYPED} on={(id) => id === typed} pick={(id) => set({ typed: (id || null) as 'exact' | 'meaning' | null }, { typed: (typed || null) as 'exact' | 'meaning' | null })} />
+        </Setting>
+        <Setting id="sides" name="Its two sides" says="Like English and Spanish, in place of question and answer.">
+          {[[front, setFront, 'Question'], [back, setBack, 'Answer']].map(([value, change, hint]) => (
+            <input key={hint as string} aria-label={`${hint as string} side`} value={value as string} placeholder={hint as string} onChange={(event) => (change as (to: string) => void)(event.target.value)}
+              onBlur={saveSides} onKeyDown={(event) => event.key === 'Enter' && (event.currentTarget.blur())}
+              className={`${INPUT_FRAME} h-8 w-0 flex-1 text-control`} />
+          ))}
+        </Setting>
+      </PopoverContent>
+    </Popover>
   )
 }
 
@@ -620,11 +696,9 @@ const removeExample = (): void =>
   })
 
 /** The example deck's menu, on its pocket and its row: study it, or take it away. */
-const exampleMenu = (onStudy: (tag: string) => void): Section[] => [
-  { items: [
-    { label: 'Study', run: () => (chime('riffle'), onStudy(EXAMPLE_TAG)) },
-    { label: 'Remove the example deck', hint: 'All ten cards, for good; it never counted in your stats', run: removeExample }
-  ] }
+const exampleItems = (onStudy: (tag: string) => void): RowItem[] => [
+  { label: 'Study', keys: 'S', icon: glyph(GraduationCap), run: () => (chime('riffle'), onStudy(EXAMPLE_TAG)) },
+  { label: 'Remove the example deck', hint: 'All ten cards, for good; it never counted in your stats', danger: true, icon: glyph(Trash2), run: removeExample }
 ]
 
 /** One way in: a tile like a deck's pocket, its name, what it does in a line, and a tiny example of what you will make. */

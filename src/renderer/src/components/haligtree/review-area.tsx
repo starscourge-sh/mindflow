@@ -95,7 +95,7 @@ export function ReviewArea({ focus, onOpen, onFocus }: { focus?: string; onOpen:
             <div className="px-5 pt-4"><ReviewToolbar open={formOpen} onSlot={setSlot} onCompact={setCompact} onMake={() => openForm(true)} onMany={() => openForm(false)} onPicture={() => picture ? (chime('fold'), setPicture(null)) : (chime('open'), setPicture({ deck: null }))} /></div>
             {picture && <div className="px-5 pt-4"><PictureCards deck={picture.deck} onClose={() => (chime('fold'), setPicture(null))} onShow={show} /></div>}
             {tab === 'cards' && <CardBrowser key={aim ? `${aim.deck}:${aim.one}` : only ? `only:${only.length}` : ''} onOpen={onOpen} aim={aim} only={only} newest={only ? null : newest} onAll={() => (chime('undo'), setOnly(null), setNewest(null))} onShow={show} onAimDone={() => setAim(null)} />}
-            {tab === 'decks' && <DeckShelf onOpen={onOpen} onStudy={(tag) => (setStudying(tag), setTab('today'))} onPaste={(deck, one = false) => (setPicture(null), setAim({ deck, one }), setTab('cards'))} onPicture={(deck) => (chime('open'), setPicture({ deck }))} />}
+            {tab === 'decks' && <DeckShelf onOpen={onOpen} onStudy={(tag) => (setStudying(tag), setTab('today'))} onPaste={(deck, one = false) => (setPicture(null), setAim({ deck, one }), setTab('cards'))} onPicture={(deck) => (chime('open'), setPicture({ deck }))} onShow={show} />}
             {tab === 'stats' && <div data-review-stats className="px-5 pt-4 pb-20"><StudySection example={false} /></div>}
           </div>
         </ToolbarCompact.Provider></ToolbarSlot.Provider>
