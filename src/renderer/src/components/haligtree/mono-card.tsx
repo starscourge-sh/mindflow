@@ -42,7 +42,6 @@ import { useRef, useState, type ReactNode } from 'react'
 import { AnimatePresence, motion, useReducedMotion, MotionGlobalConfig } from 'motion/react'
 import { Rolling } from './ui'
 import { Chips } from './display'
-import { FLOAT } from '@/lib/float'
 import { useSeen } from '@/lib/reads-in'
 
 const EASE = [0.16, 1, 0.3, 1] as const
@@ -89,37 +88,26 @@ export function MonoCard({ name, title, value, unit, chips, side, point, childre
   const arrived = useArrived()
   const stage = useRef<HTMLDivElement>(null)
   // As Amicro's cards do, the big number turns to the mark pointed at ("6" and "reviews, Sat 31 Oct"), and back on leaving.
-  const swap = hovered ? (/^([\d,.]+%?)\s+(.*)$/.exec(hovered) ?? (/^No /.test(hovered) ? [hovered, '0', hovered.replace(/^No /, '')] : null)) : null
-  const [at, setAt] = useState<{ x: number; y: number; w: number } | null>(null)
-  const follow = (event: React.PointerEvent): void => {
-    const box = stage.current?.getBoundingClientRect()
-    if (box) setAt({ x: event.clientX - box.left, y: event.clientY - box.top, w: box.width })
-  }
+  const swap = hovered ? (/^([\d,.]+%?)\s+(.*)$/.exec(hovered) ?? (/^No /.test(hovered) ? [hovered, '0', hovered.replace(/^No /, '')] : [hovered, typeof value === 'number' ? value.toLocaleString() : value, hovered])) : null
   return (
     <motion.section data-mono-card={name} aria-label={title} className="flex min-w-0 flex-col gap-2 rounded-xl border border-border bg-card p-4"
       initial={still ? false : { opacity: 0, scale: 0.98, y: 6 }} animate={arrived ? { opacity: 1, scale: 1, y: 0 } : { opacity: 0, scale: 0.98, y: 6 }} transition={{ duration: 0.25, ease: EASE }}>
       <p className="text-xs font-medium text-muted-foreground">{title}</p>
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex flex-wrap items-baseline gap-2">
+      {/* One line, at rest and while a mark is pointed at: the readout takes the number's place here and nowhere else, so nothing grows. */}
+      <div data-mono-head className="flex flex-nowrap items-center justify-between gap-2">
+        <div className="flex min-w-0 flex-1 flex-nowrap items-baseline gap-2 overflow-hidden">
           <span data-mono-value={value} data-mono-shown={swap ? swap[1] : value} className="text-[1.75rem] leading-none font-semibold text-foreground tabular-nums"><Rolling text={swap ? swap[1] : typeof value === 'number' ? value.toLocaleString() : value} /></span>
-          {(swap ? swap[2] : unit) && <span className="text-sm text-muted-foreground">{swap ? swap[2] : unit}</span>}
-          {chips}
+          {(swap ? swap[2] : unit) && <span className="min-w-0 truncate text-sm text-muted-foreground">{swap ? swap[2] : unit}</span>}
+          {chips && <span className={`flex shrink-0 gap-1 ${swap ? 'invisible' : ''}`}>{chips}</span>}
         </div>
         {side}
       </div>
       {children && (
-        <div ref={stage} className="relative rounded-lg bg-foreground/[0.035] p-3" onPointerMove={follow} onPointerLeave={() => setAt(null)}>
+        <div ref={stage} className="relative rounded-lg bg-foreground/[0.035] p-3">
           {children}
-          {/* The tip that follows the pointer, gliding to it as recharts' tooltip does (400ms ease). */}
-          {hovered && at && (
-            <span data-mono-tip className={`pointer-events-none absolute top-0 left-0 z-10 rounded-md px-2.5 py-1.5 text-xs whitespace-nowrap ${FLOAT}`}
-              style={{ transform: `translate(${Math.round(Math.max(0, Math.min(at.x + 10, at.w - 180)))}px, ${Math.round(Math.max(0, at.y - 40))}px)`, transition: still ? 'none' : 'transform 400ms ease' }}>
-              {hovered}
-            </span>
-          )}
         </div>
       )}
-      <p data-mono-point className="min-h-5 text-sm text-muted-foreground" aria-live="polite">{hovered ?? point}</p>
+      <p data-mono-point className="min-h-5 text-sm text-muted-foreground">{point}</p>
     </motion.section>
   )
 }

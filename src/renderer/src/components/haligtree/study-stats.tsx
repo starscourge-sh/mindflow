@@ -64,21 +64,38 @@ const dayWords = (day: string): string => dayjs(day).format('ddd D MMM')
 
 /** Five steps of ink, as GitHub's and Anki's heatmaps have: none, then four by share of the busiest day. */
 const INK_STEPS = [7, 30, 50, 70, 92]
+/** Today: a ring drawn inside its own square, so no edge of the grid can clip it. */
+const TODAY_RING = 'inset 0 0 0 1.5px var(--foreground), inset 0 0 0 2.5px var(--background)'
+/** The square pointed at: one hairline of ink inside it. */
+const HOVER_RING = 'inset 0 0 0 1px color-mix(in oklab, var(--foreground) 85%, transparent)'
 const stepOf = (n: number, most: number): number => (n ? Math.min(4, 1 + Math.floor((n / Math.max(1, most)) * 3.999)) : 0)
 const shadeOf = (step: number): string => `color-mix(in oklab, var(--foreground) ${INK_STEPS[step]}%, transparent)`
 
 /** Days as square cells 3 px apart in the year's five steps of ink, today ringed: the 30 days and the year in Stats, drawn as the year above the decks is. */
-function DayCells({ days, say, onHover, rows, cell }: { days: { day: string; n: number }[]; say: (day: { day: string; n: number }) => string; onHover: (said: string | null) => void; rows: number; cell: number }): React.JSX.Element {
+function DayCells({ days, say, onHover, rows, cell, left, right }: { days: { day: string; n: number }[]; say: (day: { day: string; n: number }) => string; onHover: (said: string | null) => void; rows: number; cell: number; /** Said under the first cell and the last. */ left: string; right: string }): React.JSX.Element {
   const most = Math.max(1, ...days.map((one) => one.n))
   const today = dayjs().format('YYYY-MM-DD')
+  const [on, setOn] = useState<string | null>(null)
+  // A few rows (the 30 days) read in day order, a row at a time, oldest first, today the last cell; a year in week columns, as the year above the decks.
+  const across = Math.ceil(days.length / rows)
+  const flow = rows <= 2 ? { gridTemplateColumns: `repeat(${across}, minmax(0, ${cell}px))`, gridAutoFlow: 'row' as const } : { gridTemplateRows: `repeat(${rows}, ${cell}px)`, gridAutoColumns: `${cell}px`, gridAutoFlow: 'column' as const }
   return (
     <div className="flex justify-center overflow-hidden">
-      <div data-day-cells className="grid shrink-0" style={{ gridTemplateRows: `repeat(${rows}, ${cell}px)`, gridAutoColumns: `${cell}px`, gridAutoFlow: 'column', gap: 3 }} onPointerLeave={() => onHover(null)}>
-        {days.map((one) => <span key={one.day} data-day={one.day} data-n={one.n} onPointerEnter={() => onHover(say(one))} className={`rounded-[2px] ${one.day === today ? 'outline outline-1 outline-offset-1 outline-foreground' : ''}`} style={{ background: shadeOf(stepOf(one.n, most)) }} />)}
+      {/* The labels share the cells' width, so "30 days ago" sits under the first cell and "today" under the last. */}
+      <div className={`grid gap-1.5 ${rows <= 2 ? 'w-full max-w-[40rem]' : 'shrink-0'}`}>
+        <div data-day-cells className="grid" style={{ ...flow, gap: 3, justifyContent: 'space-between' }} onPointerLeave={() => (setOn(null), onHover(null))}>
+          {days.map((one) => <span key={one.day} data-day={one.day} data-n={one.n} {...(on === one.day ? { 'data-day-on': '' } : {})} onPointerEnter={() => (setOn(one.day), onHover(say(one)))}
+            className={`aspect-square rounded-[2px] ${on === one.day ? 'transition-none' : 'transition-[box-shadow] duration-[120ms]'}`} style={{ background: shadeOf(stepOf(one.n, most)), boxShadow: ringOf(one.day === today, on === one.day) }} />)}
+        </div>
+        <Ends left={left} right={right} />
       </div>
     </div>
   )
 }
+
+/** A day's square: today ringed (two rings, ink inside the page's colour), the one pointed at with one hairline of ink; both drawn inside the square, so nothing can clip them. */
+const ringOf = (today: boolean, pointed: boolean): string | undefined =>
+  [today ? TODAY_RING : '', pointed ? HOVER_RING : ''].filter(Boolean).join(', ') || undefined
 
 /**
  * The study numbers as cards, in the look of Amicro's Mono Charts: each
@@ -111,8 +128,7 @@ function StudyCards({ studied }: { studied: Studied }): React.JSX.Element {
         <MonoCard name="reviews" title={span === 'month' ? 'Cards reviewed each day' : 'Days you reviewed, the darker the more cards'} value={span === 'month' ? reviews : yearTotal} unit={span === 'month' ? 'reviews in 30 days' : 'reviews in a year'}
           side={<Switch options={[{ id: 'month', label: '30 days' }, { id: 'year', label: 'Year' }]} value={span} pick={setSpan} />}
           hovered={onReviews} point="Each square is a day, the darker the more cards, as in the year above the decks.">
-          <DayCells key={span} days={days} say={reviewsSaid} onHover={sayReviews} rows={span === 'month' ? 2 : 7} cell={span === 'month' ? 22 : 10} />
-          <Ends left={span === 'month' ? '30 days ago' : 'a year ago'} right="today" />
+          <DayCells key={span} days={days} say={reviewsSaid} onHover={sayReviews} rows={span === 'month' ? 2 : 7} cell={span === 'month' ? 40 : 10} left={span === 'month' ? '30 days ago' : 'a year ago'} right="today" />
         </MonoCard>
       </div>
       <MonoCard name="minutes" title="Minutes reviewing each day" value={Math.round(shownMinutes.reduce((sum, one) => sum + one.n, 0))} unit={`minutes in ${range === 'week' ? '7' : '30'} days`} chips={studiedDays ? <Chip>{plural(studiedDays, 'day', 'days')}</Chip> : undefined}
@@ -164,6 +180,7 @@ function StudyCards({ studied }: { studied: Studied }): React.JSX.Element {
 export function StudyYear({ compact = false }: { /** Above the decks: the same year, its squares a little smaller. */ compact?: boolean }): React.JSX.Element {
   const studied = useLive(() => window.api.haligtree('study:stats') as Promise<Studied>, null as Studied | null, [], ['item'])
   const [on, setOn] = useState<string | null>(null)
+  const [point, setPoint] = useState<number | null>(null)
   const weeks = 53
   const cell = compact ? 10 : 11
   // Whole weeks, Monday at the top, ending on this week: today sits in the last column.
@@ -175,7 +192,7 @@ export function StudyYear({ compact = false }: { /** Above the decks: the same y
   const numbers: [string, string][] = [
     [plural(studied?.streak.current ?? 0, 'day', 'days'), 'streak now'],
     [plural(studied?.streak.longest ?? 0, 'day', 'days'), 'longest streak'],
-    [plural(studied?.average ?? 0, 'card', 'cards'), 'a day, on days studied'],
+    [plural(studied?.average ?? 0, 'card', 'cards'), 'a day when studying'],
     [`${share}%`, 'of days studied']
   ]
   // Five steps of ink, as GitHub's and Anki's heatmaps have: none, then four by share of the busiest day.
@@ -188,23 +205,29 @@ export function StudyYear({ compact = false }: { /** Above the decks: the same y
     if (week === 0) return start.add(3, 'week').month() === first.month() ? first.format('MMM') : ''
     return first.month() !== first.subtract(1, 'week').month() ? first.format('MMM') : ''
   })
-  const cells = days.map((one) => {
+  const cells = days.map((one, at) => {
     const n = studied?.year[one.day] ?? 0
+    const pointed = point === at
     return (
-      <span key={one.day} data-day={one.day} data-n={n} {...(one.day === todayKey ? { 'data-today': '' } : {})} onPointerEnter={() => setOn(one.later ? null : `${plural(n, 'review', 'reviews')}, ${dayWords(one.day)}${one.day === todayKey ? ' (today)' : ''}`)}
-        className={`rounded-[2px] ${one.day === todayKey ? 'outline outline-1 outline-offset-1 outline-foreground' : ''}`}
-        style={{ width: cell, height: cell, background: one.later ? 'transparent' : shade(level(n)) }} />
+      <span key={one.day} data-day={one.day} data-n={n} {...(one.day === todayKey ? { 'data-today': '' } : {})} {...(pointed ? { 'data-day-on': '' } : {})}
+        onPointerEnter={() => one.later ? (setPoint(null), setOn(null)) : (setPoint(at), setOn(`${plural(n, 'review', 'reviews')}, ${dayWords(one.day)}${one.day === todayKey ? ' (today)' : ''}`))}
+        className={`rounded-[2px] ${pointed ? 'transition-none' : 'transition-[box-shadow] duration-[120ms]'}`}
+        style={{ width: cell, height: cell, background: one.later ? 'transparent' : shade(level(n)), boxShadow: ringOf(one.day === todayKey, pointed) }} />
     )
   })
+  // The month over the pointed week and the weekday of its row brighten, as GitHub's graph does.
+  const pointWeek = point === null ? -1 : Math.floor(point / 7)
+  const pointMonth = pointWeek < 0 ? -1 : months.slice(0, pointWeek + 1).map((name, at) => (name ? at : -1)).filter((at) => at >= 0).at(-1) ?? -1
+  const pointRow = point === null ? -1 : point % 7
   const total = plural(Object.values(studied?.year ?? {}).reduce((sum, n) => sum + n, 0), 'review', 'reviews')
   const grid = { gridTemplateColumns: `repeat(${weeks}, ${cell}px)`, columnGap: 3 }
   return (
     <section data-study-year-map {...(compact ? { 'data-compact': '' } : {})} aria-label="A year of study" className="grid gap-3 rounded-[5px] mf-metal px-4 py-3">
-      <div data-year-numbers className="grid grid-cols-4 gap-x-4 gap-y-2 max-sm:grid-cols-2">
+      <div data-year-numbers className="grid grid-cols-[repeat(auto-fit,minmax(8.5rem,1fr))] gap-x-4 gap-y-2">
         {numbers.map(([value, label]) => (
           <p key={label} data-year-number={label} className="grid min-w-0">
             <span className="font-serif text-xl leading-tight text-foreground tabular-nums">{value}</span>
-            <span className="truncate text-sm text-muted-foreground">{label}</span>
+            <span className="text-sm text-muted-foreground">{label}</span>
           </p>
         ))}
       </div>
@@ -212,9 +235,9 @@ export function StudyYear({ compact = false }: { /** Above the decks: the same y
       <div className="flex justify-end overflow-hidden">
         <div className="grid shrink-0 grid-cols-[auto_auto] gap-x-1.5 gap-y-1 text-[10px] leading-none text-muted-foreground">
           <span />
-          <div aria-hidden data-year-months className="grid" style={grid}>{months.map((name, week) => <span key={week} className="overflow-visible whitespace-nowrap">{name}</span>)}</div>
-          <div aria-hidden className="grid" style={{ gridTemplateRows: `repeat(7, ${cell}px)`, rowGap: 3 }}>{['Mon', '', 'Wed', '', 'Fri', '', ''].map((name, at) => <span key={at} className="flex items-center">{name}</span>)}</div>
-          <div data-year-grid className="grid" style={{ ...grid, gridTemplateRows: `repeat(7, ${cell}px)`, rowGap: 3, gridAutoFlow: 'column' }} onPointerLeave={() => setOn(null)}>{cells}</div>
+          <div aria-hidden data-year-months className="grid" style={grid}>{months.map((name, week) => <span key={week} className={`overflow-visible whitespace-nowrap ${week === pointMonth ? 'text-foreground transition-none' : 'transition-colors duration-[120ms]'}`}>{name}</span>)}</div>
+          <div aria-hidden className="grid" style={{ gridTemplateRows: `repeat(7, ${cell}px)`, rowGap: 3 }}>{['Mon', '', 'Wed', '', 'Fri', '', ''].map((name, at) => <span key={at} className={`${at === pointRow ? 'text-foreground transition-none' : 'transition-colors duration-[120ms]'} flex items-center`}>{name}</span>)}</div>
+          <div data-year-grid className="grid" style={{ ...grid, gridTemplateRows: `repeat(7, ${cell}px)`, rowGap: 3, gridAutoFlow: 'column' }} onPointerLeave={() => (setOn(null), setPoint(null))}>{cells}</div>
         </div>
       </div>
       <p data-year-said className="flex h-5 items-center justify-between gap-3 text-sm text-muted-foreground tabular-nums">
