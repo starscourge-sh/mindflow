@@ -1,3 +1,5 @@
+import { deckTitle } from './decks'
+import { haligtree, useLive, type Settings } from '@/lib/haligtree'
 import { useEffect, useRef, useState } from 'react'
 import { chime } from '@/lib/sound'
 import { still } from '@/lib/motion'
@@ -123,7 +125,7 @@ export function Poster({ card, over, onTurn, picked, onPick, question, answer, s
     <div data-card-face={side} className={`mf-poster relative flex aspect-[4/5] w-full min-w-0 flex-col overflow-hidden rounded-lg ${size === 'lg' ? 'p-6' : ledge ? 'p-4 pb-12' : 'p-4'} ${picked ? 'ring-2 ring-[var(--tt-brand-color-400)]' : ''}`} style={{ '--tint': tint } as React.CSSProperties}>
       {children}
       <div className="mt-auto flex items-end justify-between gap-2 pt-2 text-[11px] leading-tight text-foreground/70">
-        <span className="min-w-0 truncate">{where || (card.tags[0] ? `#${card.tags[0]}` : '')}</span>
+        <span className="min-w-0 truncate">{where || (card.tags[0] ? deckTitle(card.tags[0]) : '')}</span>
         <span className="flex shrink-0 items-center gap-1">
           {dueShort(card) !== 'new' && <span>{dueShort(card)}</span>}
           <span data-card-stage className="flex items-center gap-1"><span aria-hidden className="size-1.5 rounded-full" style={{ background: STAGE_TINT[stage] }} />{stage}</span>
@@ -173,9 +175,8 @@ const Screws = (): React.JSX.Element => (
  * its name at the back, a glass front in its colour with the count and what is
  * due on it. Pointed at, the fan opens and its cards come round in turn.
  */
-export function Pocket({ name, cards, onOpen }: { name: string; cards: BrowsedCard[]; onOpen: () => void }): React.JSX.Element {
-  // The tags as written that this pocket holds (#learn holds #learn-haligtree), said on hover.
-  const held = [...new Set(cards.map((one) => one.tags.find((tag) => `#${tag.split('-')[0]}` === name)).filter(Boolean))].map((tag) => `#${tag}`)
+export function Pocket({ name, title = name, cards, onOpen }: { name: string; /** Its name as shown: a deck's words, never its #tag. */ title?: string; cards: BrowsedCard[]; onOpen: () => void }): React.JSX.Element {
+  const shapes = useLive(haligtree.settings, null as Settings | null)?.deckShapes === true
   const tint = groupTint(name)
   const [turn, setTurn] = useState(0)
   const [hover, setHover] = useState(false)
@@ -187,10 +188,26 @@ export function Pocket({ name, cards, onOpen }: { name: string; cards: BrowsedCa
     return () => clearInterval(every)
   }, [hover, shown.length])
   const due = cards.filter((one) => !one.paused && one.dueAt && Date.parse(one.dueAt) <= Date.now()).length
+  const fresh = cards.filter((one) => !one.paused && one.stage === 'new').length
   const fan = [-8, -3, 3, 8]
+  // By default a pocket is the Decks tab's tile: satin in the theme's ink, square, its count large; "Shapes on decks" brings back the coloured glass.
+  if (!shapes)
+    return (
+      <button type="button" data-pocket={name} data-pocket-plain onClick={() => (chime('open'), onOpen())}
+        className="mf-metal mf-metal-hover transition-transform duration-100 ease-out active:scale-[0.985] grid aspect-square min-w-0 cursor-pointer grid-rows-[minmax(0,1fr)_auto] gap-2 rounded-[5px] p-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        <span className="flex items-baseline gap-1.5 self-start">
+          <span className="font-serif text-4xl leading-none text-foreground tabular-nums">{num(due || cards.length)}</span>
+          <span className="text-sm text-muted-foreground">{due ? 'due' : cards.length === 1 ? 'card' : 'cards'}</span>
+          {due > 0 && <span aria-hidden className="mb-1 size-1.5 self-center rounded-full bg-primary" />}
+        </span>
+        <span className="grid min-w-0 gap-0.5">
+          <span className="truncate font-serif text-base leading-tight text-foreground">{title}</span>
+          <span className="truncate text-sm text-muted-foreground tabular-nums">{num(cards.length)} {cards.length === 1 ? 'card' : 'cards'}{due ? ` · ${num(due)} due` : fresh ? ` · ${num(fresh)} new` : ''}</span>
+        </span>
+      </button>
+    )
   return (
     <button type="button" data-pocket={name} onClick={() => (chime('open'), onOpen())} onPointerEnter={() => setHover(true)} onPointerLeave={() => (setHover(false), setTurn(0))}
-      title={held.length && held.join(' ') !== name ? `${name}: ${held.slice(0, 8).join(', ')}${held.length > 8 ? '…' : ''}` : undefined}
       className="group/pocket flex flex-col items-center gap-2 rounded-xl p-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring">
       <div className="relative h-52 w-full max-w-[15rem] [overflow-x:clip]">
         {/* The cover at the back, then up to three of its own cards, fanned. */}
@@ -218,7 +235,7 @@ export function Pocket({ name, cards, onOpen }: { name: string; cards: BrowsedCa
         </div>
       </div>
       <span className="flex max-w-full items-baseline gap-1.5 text-control">
-        <span className="truncate font-medium text-foreground">{name}</span>
+        <span className="truncate font-medium text-foreground">{title}</span>
         <span className="shrink-0 text-foreground/60 tabular-nums">· {num(cards.length)} {cards.length === 1 ? 'card' : 'cards'}</span>
       </span>
     </button>
@@ -232,6 +249,20 @@ export function Pocket({ name, cards, onOpen }: { name: string; cards: BrowsedCa
 export function EmptyPocket({ deck, onPaste }: { deck: string; /** Paste cards into it, or (one) make a single card. */ onPaste: (one: boolean) => void }): React.JSX.Element {
   const name = `#${deck}`
   const tint = groupTint(name)
+  const shapes = useLive(haligtree.settings, null as Settings | null)?.deckShapes === true
+  if (!shapes)
+    return (
+      <div data-pocket={name} data-pocket-empty={deck} data-pocket-plain className="mf-metal grid aspect-square min-w-0 grid-rows-[minmax(0,1fr)_auto] gap-2 rounded-[5px] p-3">
+        <span className="flex flex-wrap content-start gap-1.5">
+          <button type="button" data-pocket-make onClick={() => (chime('open'), onPaste(true))} className="h-8 cursor-pointer rounded-md border border-foreground/10 bg-background px-2.5 text-control font-medium text-foreground hover:bg-accent">Make a card</button>
+          <button type="button" data-pocket-paste onClick={() => (chime('open'), onPaste(false))} className="h-8 cursor-pointer rounded-md border border-foreground/10 bg-background px-2.5 text-control font-medium text-foreground hover:bg-accent">Add many</button>
+        </span>
+        <span className="grid min-w-0 gap-0.5">
+          <span className="truncate font-serif text-base leading-tight text-foreground">{deckTitle(deck)}</span>
+          <span className="text-sm text-muted-foreground">Empty deck</span>
+        </span>
+      </div>
+    )
   return (
     <div data-pocket={name} data-pocket-empty={deck} className="flex flex-col items-center gap-2 rounded-xl p-2">
       <div className="relative h-52 w-full max-w-[15rem] [overflow-x:clip]">
@@ -247,7 +278,7 @@ export function EmptyPocket({ deck, onPaste }: { deck: string; /** Paste cards i
         </div>
       </div>
       <span className="flex max-w-full items-baseline gap-1.5 text-control">
-        <span className="truncate font-medium text-foreground">{name}</span>
+        <span className="truncate font-medium text-foreground">{deckTitle(deck)}</span>
         <span className="shrink-0 text-foreground/60">· empty deck</span>
       </span>
     </div>

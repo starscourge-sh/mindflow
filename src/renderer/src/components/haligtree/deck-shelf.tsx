@@ -16,7 +16,7 @@ import { Check, ChevronRight } from 'lucide-react'
 import { StudyYear } from './study-stats'
 import type { Settings } from '@/lib/haligtree'
 import { moveToBin } from '@/lib/to-bin'
-import { cardsSaid, deckTagOf, makeDeck, useOwnDecks, type OwnDeck } from './decks'
+import { cardsSaid, deckTagOf, deckTitle, makeDeck, sayDeck, useOwnDecks, type OwnDeck } from './decks'
 import { Coverage, coverageOf, type BrowsedCard } from './card-browser'
 
 type Topic = { deck: string; label: string; cards: number; held: number }
@@ -60,12 +60,11 @@ export function DeckShelf({ onOpen, onStudy, onPaste, onPicture }: { onOpen: (ty
   const shelves = useLive(() => call<Shelf[]>('decks:list'), null as Shelf[] | null, [], ['item'])
   const own = useOwnDecks()
   const study = useLive(haligtree.tagStudy, { sides: {}, timer: {}, place: {}, typed: {}, newPerDay: {}, retention: {} } as Awaited<ReturnType<typeof haligtree.tagStudy>>, [], ['item'])
-  if (unloaded(shelves) || !own) return <div />
-  const newDeck = (inside?: string): void => void makeDeck(inside)
-  // The most due first. With many, the decks you made and the tags with cards in Review lead; the rest wait behind a fold.
   const [dragging, setDragging] = useState<string | null>(null)
   const [over, setOver] = useState<string | null>(null)
   const sets = useLive(() => call<{ name: string; tag: string }[]>('sets:list'), [] as { name: string; tag: string }[], [], ['item'])
+  if (unloaded(shelves) || !own) return <div />
+  const newDeck = (inside?: string): void => void makeDeck(inside)
   // In the order you dragged them to, then the most due first.
   const tops = ownOrder(own.filter((deck) => deck.depth === 0), study.place)
   const many = tops.length > MANY
@@ -163,7 +162,7 @@ export function DeckShelf({ onOpen, onStudy, onPaste, onPicture }: { onOpen: (ty
     void call('decks:order', order).then(() => (chime('settled'), quietly(() => void call('decks:order', was))))
   }
   const tile = (deck: OwnDeck): React.JSX.Element => (
-    <DeckTile key={deck.tag} id={deck.tag} own drag={deck.depth === 0 ? { over: over === deck.tag && dragging !== deck.tag, lifted: dragging === deck.tag, start: () => setDragging(deck.tag), enter: () => dragging && setOver(deck.tag), end: () => (setDragging(null), setOver(null)), drop: () => drop(deck.tag) } : undefined} name={deckName(deck)} title={`#${deck.tag}`} due={deck.due} fresh={deck.fresh} all={deck.cards} held={0} cover={null} shapes={shapes}
+    <DeckTile key={deck.tag} id={deck.tag} own drag={deck.depth === 0 ? { over: over === deck.tag && dragging !== deck.tag, lifted: dragging === deck.tag, start: () => setDragging(deck.tag), enter: () => dragging && setOver(deck.tag), end: () => (setDragging(null), setOver(null)), drop: () => drop(deck.tag) } : undefined} name={deckName(deck)} title={deckTitle(deck.tag, own.map((one) => one.tag))} due={deck.due} fresh={deck.fresh} all={deck.cards} held={0} cover={null} shapes={shapes}
       kids={own.filter((one) => one.tag.startsWith(`${deck.tag}-`) && one.depth === deck.depth + 1).length} open={kidsOpen.has(deck.tag)} onKids={() => openKids(deck.tag)} menu={ownMenu(deck)}
       onClick={() => (deck.cards ? (chime('riffle'), onStudy(deck.tag)) : (chime('open'), onPaste(deck.tag, true)))} />
   )
@@ -226,7 +225,7 @@ function DeckTile({ id, own = false, drag, name, title, due, fresh, all, held, c
         {...(drag ? { draggable: true, 'data-deck-drop': drag.over ? '' : undefined, onDragStart: (event: React.DragEvent) => (event.dataTransfer.effectAllowed = 'move', event.dataTransfer.setData('text/plain', `#${id}`), drag.start()),
           onDragEnter: drag.enter, onDragOver: (event: React.DragEvent) => event.preventDefault(), onDragEnd: drag.end, onDrop: (event: React.DragEvent) => (event.preventDefault(), drag.drop()) } : {})}
         onKeyDown={(event) => (event.key === 'Enter' || event.key === ' ') && event.target === event.currentTarget && (event.preventDefault(), onClick())}
-        className={`relative grid aspect-[6/5] min-w-0 cursor-pointer grid-rows-[minmax(0,1fr)_auto] gap-2 rounded-[5px] border border-foreground/10 bg-accent/25 p-3 text-left outline-none transition-colors hover:bg-accent/50 focus-visible:ring-2 focus-visible:ring-ring ${drag?.lifted ? 'opacity-40' : ''} ${drag?.over ? 'ring-2 ring-primary/60' : ''}`}>
+        className={`relative grid aspect-square min-w-0 cursor-pointer grid-rows-[minmax(0,1fr)_auto] gap-2 rounded-[5px] mf-metal mf-metal-hover p-3 text-left outline-none transition-transform duration-100 ease-out active:scale-[0.985] focus-visible:ring-2 focus-visible:ring-ring ${drag?.lifted ? 'opacity-40' : ''} ${drag?.over ? 'ring-2 ring-primary/60' : ''}`}>
         <span className="absolute top-1.5 right-1.5" onClick={(event) => event.stopPropagation()}>
           <OptionsMenu sections={menu} label="Deck options" side="bottom" align="end" className="cursor-pointer" />
         </span>
@@ -365,29 +364,29 @@ export const ownOrder = (decks: OwnDeck[], place: Record<string, number>): OwnDe
 
 /** Save a deck as a study set, named for the occasion, with Undo. */
 async function saveSet(tag: string): Promise<void> {
-  const name = await ask(`A study set from #${tag}`, 'Name it for the occasion: Biology exam, Friday')
+  const name = await ask(`A study set from ${deckTitle(tag)}`, 'Name it for the occasion: Biology exam, Friday')
   if (!name?.trim()) return
   await call('sets:save', name, tag)
   chime('noted')
-  toast(`“${name.trim()}” is a study set: it drills every card in #${tag}, due or not`, () => void call('sets:remove', name.trim()).then(() => chime('undo')))
+  toast(`“${name.trim()}” is a study set: it drills every card in ${deckTitle(tag)}, due or not`, () => void call('sets:remove', name.trim()).then(() => chime('undo')))
 }
 
 /** Name a deck's two sides ("English / Spanish"), with Undo; empty puts back question and answer. */
 async function nameSides(tag: string, was: [string, string] | null): Promise<void> {
-  const words = await ask(`What are the two sides of #${tag} called?`, 'English / Spanish', undefined, was ? `${was[0]} / ${was[1]}` : '')
+  const words = await ask(`What are the two sides of ${deckTitle(tag)} called?`, 'English / Spanish', undefined, was ? `${was[0]} / ${was[1]}` : '')
   if (words === null || words === undefined) return
   const parts = words.split('/').map((one) => one.trim())
   if (words.trim() && (parts.length !== 2 || !parts[0] || !parts[1])) return refuse('Two names with a / between them: English / Spanish')
   await haligtree.setTag(tag, { sides: words.trim() ? [parts[0], parts[1]] : null })
   chime('settled')
-  toast(words.trim() ? `Cards in #${tag} ask in “${parts[0]}” and answer in “${parts[1]}”` : `#${tag} asks a question and its answer again`, () => void haligtree.setTag(tag, { sides: was }).then(() => chime('undo')))
+  toast(words.trim() ? `Cards in ${deckTitle(tag)} ask in “${parts[0]}” and answer in “${parts[1]}”` : `${deckTitle(tag)} asks a question and its answer again`, () => void haligtree.setTag(tag, { sides: was }).then(() => chime('undo')))
 }
 
 /** Save one deck as an Anki package where you pick. */
 async function shareDeck(tag: string, name: string): Promise<void> {
   const done = await call<{ saved: boolean; cards: number; pictureOnly: number; file?: string }>('decks:apkg', tag, name)
   const left = done.pictureOnly ? ` ${cardsSaid(done.pictureOnly)} from a picture stayed behind: Anki keeps picture covers its own way.` : ''
-  if (!done.cards) return refuse(done.pictureOnly ? `Only cards from a picture are in #${tag}: Anki keeps picture covers its own way` : `#${tag} holds no cards to share yet`)
+  if (!done.cards) return refuse(done.pictureOnly ? `Only cards from a picture are in ${deckTitle(tag)}: Anki keeps picture covers its own way` : `${deckTitle(tag)} holds no cards to share yet`)
   if (!done.saved) return
   chime('noted')
   toast(`Saved ${done.file}: ${cardsSaid(done.cards)} anyone can open in Anki.${left}`)
@@ -405,8 +404,8 @@ function StudySets({ sets, onStudy }: { sets: { name: string; tag: string }[]; o
       <span className="text-foreground/70">Study sets</span>
       {sets.map((set) => (
         <RowMenu key={set.name} items={[{ label: 'Study', run: () => (chime('riffle'), onStudy(set.tag)) }, 'separator', { label: 'Remove the set', hint: 'The deck and its cards stay', danger: true, run: () => void call('sets:remove', set.name).then(() => (chime('fold'), toast(`“${set.name}” is no longer a study set`, () => void call('sets:save', set.name, set.tag).then(() => chime('undo'))))) }]}>
-          <button type="button" data-study-set={set.name} title={`Every card in #${set.tag}, due or not`} onClick={() => (chime('riffle'), onStudy(set.tag))}
-            className="h-8 max-w-64 cursor-pointer truncate rounded-[5px] border border-foreground/10 bg-accent/25 px-3 text-foreground hover:bg-accent/50 max-sm:h-9">{set.name}</button>
+          <button type="button" data-study-set={set.name} title={`Every card in ${deckTitle(set.tag)}, due or not`} onClick={() => (chime('riffle'), onStudy(set.tag))}
+            className="h-8 max-w-64 cursor-pointer truncate rounded-[5px] mf-metal mf-metal-hover px-3 text-foreground max-sm:h-9">{set.name}</button>
         </RowMenu>
       ))}
     </div>
@@ -424,7 +423,7 @@ function BookCoverage(): React.JSX.Element | null {
   const books = [...Map.groupBy(all.filter((card) => card.made === 'pdf' && card.source), (card) => card.source)].filter(([, cards]) => coverageOf(cards)).sort((a, b) => b[1].length - a[1].length)
   if (!books.length) return null
   return (
-    <section data-book-coverage className="grid gap-1 rounded-[5px] border border-foreground/10 bg-accent/25 px-3 py-2">
+    <section data-book-coverage className="grid gap-1 rounded-[5px] mf-metal px-3 py-2">
       <span className="text-control text-foreground/70">How much of each book has cards</span>
       {(every ? books : books.slice(0, 3)).map(([book, cards]) => (
         <div key={book} data-book-covered={book} className="grid grid-cols-[minmax(0,12rem)_minmax(0,1fr)] items-center gap-x-3 max-sm:grid-cols-1">
@@ -439,24 +438,24 @@ function BookCoverage(): React.JSX.Element | null {
 
 /** Rename a deck: the tag is renamed everywhere it is written, with Undo. */
 async function renameDeck(tag: string): Promise<void> {
-  const words = await ask(`Rename the deck #${tag}`, 'Its new name', undefined, tag)
+  const words = await ask(`Rename the deck ${deckTitle(tag)}`, 'Its new name', undefined, sayDeck(tag))
   const to = words && deckTagOf(words)
   if (!to || to === tag) return
   const done = await haligtree.renameTag(tag, to)
   if (!done) return refuse('That name cannot be a deck')
   chime('noted')
-  toast(`The deck #${tag} is #${done} now`, () => void haligtree.undoRenameTag().then(() => chime('undo')))
+  toast(`The deck ${deckTitle(tag)} is ${deckTitle(done)} now`, () => void haligtree.undoRenameTag().then(() => chime('undo')))
 }
 
 /** Delete a deck: the tag comes off its cards, which stay, with Undo. */
 async function deleteDeck(tag: string): Promise<void> {
   const holding = (await call<{ id: string; tags: string[] }[]>('cards:all')).filter((card) => card.tags.includes(tag)).map((card) => card.id)
-  const sure = await askSure(`Delete the deck #${tag}?`, holding.length ? `The #${tag} tag comes off its ${cardsSaid(holding.length)}. The cards themselves are kept, in All cards.` : 'It holds no cards. Nothing else changes.', 'Delete deck')
+  const sure = await askSure(`Delete the deck ${deckTitle(tag)}?`, holding.length ? `Its ${cardsSaid(holding.length)} leave the deck. The cards themselves are kept, in All cards.` : 'It holds no cards. Nothing else changes.', 'Delete deck')
   if (!sure) return
   const before = holding.length ? await call<{ id: string; body: string | null }[]>('cards:retag', holding, tag, false) : []
   await haligtree.setTag(tag, { deck: false })
   chime('fold')
-  toast(`The deck #${tag} is gone; its ${cardsSaid(holding.length)} kept`, () => void Promise.all([call('cards:retag:undo', before), haligtree.setTag(tag, { deck: true })]).then(() => chime('undo')))
+  toast(`The deck ${deckTitle(tag)} is gone; its ${cardsSaid(holding.length)} kept`, () => void Promise.all([call('cards:retag:undo', before), haligtree.setTag(tag, { deck: true })]).then(() => chime('undo')))
 }
 
 /** Delete an imported deck: asked first, then all its cards go to the Bin together, with one Undo. */
@@ -517,7 +516,7 @@ export function DeckFace({ name, due, fresh, shapes, faded = false, small = fals
   const size = small ? 'size-14 [&_.text-3xl]:text-lg [&_.text-xs]:text-[10px]' : 'size-24'
   if (shapes) return <GroupCover name={name} tint={groupTint(name)} label={null} className={`${size} shrink-0 rounded-[5px] shadow-sm ${faded ? 'opacity-60' : ''}`} />
   return (
-    <div aria-hidden data-deck-face={name} className={`grid ${size} shrink-0 content-center justify-items-center gap-0.5 rounded-[5px] border border-foreground/10 bg-background shadow-sm ${faded ? 'opacity-60' : ''}`}>
+    <div aria-hidden data-deck-face={name} className={`grid ${size} shrink-0 content-center justify-items-center gap-0.5 rounded-[5px] mf-metal ${faded ? 'opacity-60' : ''}`}>
       <span className={`font-serif text-3xl leading-none tabular-nums ${due ? 'text-primary' : fresh ? 'text-foreground' : 'text-foreground/35'}`}>{num(due || fresh)}</span>
       <span className="text-xs text-muted-foreground">{fresh && !due ? 'new' : 'due'}</span>
     </div>
@@ -546,7 +545,7 @@ function DeckList({ own, shelves, onStudy, place = {} }: { own: OwnDeck[]; shelv
   )
   const tops = ownOrder(own.filter((deck) => deck.depth === 0), place)
   return (
-    <div data-deck-list role="table" aria-label="Decks" className="grid rounded-[5px] border border-foreground/10 bg-accent/25 px-3 py-2">
+    <div data-deck-list role="table" aria-label="Decks" className="grid rounded-[5px] mf-metal px-3 py-2">
       <div className={`${cols} border-b border-foreground/10 pb-1.5 text-sm text-muted-foreground`}>
         <span className="pl-6">Deck</span><span className="text-right">Due</span><span className="text-right">New</span><span className="text-right">Cards</span>
       </div>
@@ -554,11 +553,11 @@ function DeckList({ own, shelves, onStudy, place = {} }: { own: OwnDeck[]; shelv
         const inside = own.filter((one) => one.tag.startsWith(`${deck.tag}-`))
         return (
           <div key={deck.tag}>
-            {row(deck.tag, deckName(deck), `#${deck.tag}`, deck.due, deck.fresh, deck.cards, inside.filter((one) => one.depth === 1).length, deck.cards ? () => onStudy(deck.tag) : null)}
+            {row(deck.tag, deckName(deck), deckName(deck), deck.due, deck.fresh, deck.cards, inside.filter((one) => one.depth === 1).length, deck.cards ? () => onStudy(deck.tag) : null)}
             {inside.length > 0 && !shut.has(deck.tag) && (
               <div className="pl-3">
                 <Tree nodes={treeOf(inside, (one) => one.depth)} here={-1} className="pl-3" open={(node) => !shut.has(node.item.tag)}
-                  row={({ item: one, kids }) => row(one.tag, one.label, `#${one.tag}`, one.due, one.fresh, one.cards, kids.length, one.cards ? () => onStudy(one.tag) : null)} />
+                  row={({ item: one, kids }) => row(one.tag, sayDeck(one.label), deckTitle(one.tag, own.map((deck) => deck.tag)), one.due, one.fresh, one.cards, kids.length, one.cards ? () => onStudy(one.tag) : null)} />
               </div>
             )}
           </div>
@@ -583,7 +582,7 @@ function DeckList({ own, shelves, onStudy, place = {} }: { own: OwnDeck[]; shelv
 }
 
 /** A deck's name as a person reads it: the example deck in plain words, the rest as tagged. */
-const deckName = (deck: OwnDeck): string => (deck.tag === EXAMPLE_TAG ? 'How remembering works' : deck.label)
+const deckName = (deck: OwnDeck): string => (deck.tag === EXAMPLE_TAG ? 'How remembering works' : sayDeck(deck.label))
 
 /** Take the example deck away, all of it, with Undo (which brings it back fresh). */
 const removeExample = (): void =>

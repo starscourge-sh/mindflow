@@ -75,13 +75,13 @@ export function ReviewArea({ focus, onOpen, onFocus }: { focus?: string; onOpen:
   if (tab === 'cards')
     return (
       <Page title="Review" lead={tabs} actions={studyNow}>
-        <div className="page-sheet mx-auto w-full"><CardBrowser key={aim ? `${aim.deck}:${aim.one}` : only ? `only:${only.length}` : ''} onOpen={onOpen} aim={aim} only={only} newest={only ? null : newest} onAll={() => (chime('undo'), setOnly(null), setNewest(null))} onShow={show} /></div>
+        <div data-review-page className="page-sheet mx-auto w-full"><CardBrowser key={aim ? `${aim.deck}:${aim.one}` : only ? `only:${only.length}` : ''} onOpen={onOpen} aim={aim} only={only} newest={only ? null : newest} onAll={() => (chime('undo'), setOnly(null), setNewest(null))} onShow={show} /></div>
       </Page>
     )
   if (tab === 'decks')
     return (
       <Page title="Review" lead={tabs} actions={studyNow}>
-        <div className="page-sheet mx-auto w-full">
+        <div data-review-page className="page-sheet mx-auto w-full">
           {picture ? (
             <div className="px-5 pt-4 pb-20"><PictureCards deck={picture.deck} onClose={() => (chime('fold'), setPicture(null))} onShow={show} /></div>
           ) : <DeckShelf onOpen={onOpen} onStudy={(tag) => (setStudying(tag), setTab('today'))} onPaste={(deck, one = false) => (setAim({ deck, one }), setTab('cards'))} onPicture={(deck) => (chime('open'), setPicture({ deck }))} />}
@@ -91,7 +91,7 @@ export function ReviewArea({ focus, onOpen, onFocus }: { focus?: string; onOpen:
   if (tab === 'stats')
     return (
       <Page title="Review" lead={tabs} actions={studyNow}>
-        <div data-review-stats className="max-w-[calc(62ch+2.5rem)] px-5 pb-20"><StudySection example={false} /></div>
+        <div data-review-stats data-review-page className="page-sheet mx-auto w-full px-5 pt-4 pb-20"><StudySection example={false} /></div>
       </Page>
     )
   return <ReviewView key={studying ?? ''} tag={studying ?? (focus && !focus.startsWith(':') ? focus : undefined)} lead={tabs} actions={studyNow} />
