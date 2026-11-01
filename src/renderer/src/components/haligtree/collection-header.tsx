@@ -9,7 +9,7 @@ import DotsHorizontalIcon from '@/components/ui/dots-horizontal-icon'
 import PaintIcon from '@/components/ui/paint-icon'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuShortcut, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { LOOKABLE, openLook } from '@/components/image/image-look'
-import { RowMenu, dangerLast, fits, flat, type MenuItem, type RowItem } from './row-menu'
+import { RowMenu, dangerLast, fits, openFromGrip, type MenuItem, type RowItem } from './row-menu'
 import { Tip } from './ui'
 import { GrainFill, PAPER_INK, useNoteCover } from './grain'
 import { Tilt } from './tilt'
@@ -386,7 +386,11 @@ export function TrackList({ columns, tracks }: { columns: { label: string; size:
                     <button type="button" aria-pressed={track.add.on} onClick={track.add.run} className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-foreground/[0.08] hover:text-foreground aria-pressed:text-primary [&_svg]:size-4">{track.add.icon}</button>
                   </Tip>
                 )}
-                <MenuButton small items={flat(track.menu)} />
+                {/* Its right-click menu, opened under it: the same lines, nested the same, never a second list. */}
+                <button type="button" aria-label="More" data-track-dots onClick={openFromGrip}
+                  className="flex size-7 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-foreground/[0.08] hover:text-foreground active:scale-[0.97] motion-reduce:active:scale-100">
+                  <AliveIcon icon={DotsHorizontalIcon} size={16} />
+                </button>
               </span>
             </div>
           </RowMenu>
