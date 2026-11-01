@@ -114,7 +114,10 @@ export function useFitBox(column: RefObject<HTMLElement | null>, full: boolean, 
   const grewForPop = useRef(false)
   const want = useCallback((): number => {
     const popped = document.querySelector(POPS)
-    if (pillNow.current && !popped) return PILL
+    // The pill stays one line with a list open (/, #, @): the list hangs into the room below it. It grew to full
+    // height whenever one opened, and shrank back as it closed (qa/pill-steady.mjs). Only where the screen has no
+    // room below does it grow, as the box does.
+    if (pillNow.current && (!popped || (ROOM && !grewForPop.current))) return PILL
     // With room round the card, a pop-up hangs past the card's foot rather than growing the card.
     const height = fullNow.current || (popped && (!ROOM || grewForPop.current)) ? FULL : (needed(column.current) ?? FULL)
     return Math.min(FULL, Math.max(SHORT, height))

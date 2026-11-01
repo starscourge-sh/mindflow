@@ -1058,7 +1058,10 @@ export default function App(): React.JSX.Element {
   const oneLine = oneLineOn && !welcoming
   const [opened, setOpened] = useState(false)
   const [wraps, setWraps] = useState(false)
-  const pill = oneLine && !reading && !editing && !offer && !lesson && !opened && !wraps && !plan?.tokens.length
+  // A tag, a mention or a / typed is still one line: the pill stays the pill (its list hangs outside, in the room below
+  // it), and grows only when the words pass one line. As a token it grew to the box's short height on the list closing
+  // and shrank back once the token was gone (qa/pill-steady.mjs).
+  const pill = oneLine && !reading && !editing && !offer && !lesson && !opened && !wraps
   // Measured before it is drawn, so a second line grows the box in the frame it appears.
   React.useLayoutEffect(() => {
     if (!oneLine) return
