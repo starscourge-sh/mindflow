@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
+import { createPortal } from 'react-dom'
+import { useLayerOpen } from '@/lib/layer-watch'
 import { layerOpen } from '@/lib/menu-keys'
 import { AnimatePresence, motion, useIsPresent, type Easing, type Variants } from 'motion/react'
 import { Volume2, VolumeX, X } from 'lucide-react'
@@ -207,27 +209,33 @@ export function Celebrations({ place }: { place: 'home' | 'box' }): React.JSX.El
   }, [place])
 
   const box = place === 'box'
-  return (
-    <>
-    {/* Under menus, search and dialogs (z-50 and up): a celebration never covers what you are using. */}
-    <div data-celebration className={`pointer-events-none fixed z-[45] ${box ? 'inset-x-0 bottom-[7.75rem] flex justify-center' : 'right-5 bottom-5'}`}>
-      <AnimatePresence>
-        {shown && !shown.sprite && (
+  // Never while a menu, picker or dialog is open: it waits for it to close (a card already up steps away and comes back).
+  const blocked = useLayerOpen(!!shown)
+  // In the main window, at the sidebar's foot (home.tsx), so it never covers a page; with the sidebar folded, its corner.
+  const dock = !box && shown && !shown.sprite ? document.querySelector<HTMLElement>('[data-corner-dock]') : null
+  const card = shown && !shown.sprite && !blocked && (
           <Card
             key={shown.key}
             moment={shown.moment}
             media={shown.media}
             origin={box ? 'bottom center' : 'bottom right'}
             onDone={() => setShown(null)}
+            docked={!!dock}
             onTooLong={() => setShown((now) => now && { ...now, media: pickOwn(now.moment.kind, own.current) ?? pick(items.current) })}
           />
-        )}
-      </AnimatePresence>
+        )
+  return (
+    <>
+    {dock ? createPortal(<div data-celebration className="pointer-events-none pb-2 empty:hidden"><AnimatePresence>{card}</AnimatePresence></div>, dock) : (
+    // Under menus, search and dialogs (z-50 and up), and never shown while one is open.
+    <div data-celebration className={`pointer-events-none fixed z-[45] ${box ? 'inset-x-0 bottom-[7.75rem] flex justify-center' : 'right-5 bottom-5'}`}>
+      <AnimatePresence>{card}</AnimatePresence>
     </div>
+    )}
     {/* A sprite's own strip along the bottom, clipped at its sides so it never shows past the note. */}
     <div data-celebration className={`pointer-events-none fixed z-[45] overflow-hidden ${box ? 'inset-x-0 bottom-[7.75rem] h-72' : 'inset-x-0 bottom-0 h-80'}`}>
       <AnimatePresence>
-        {shown?.sprite && (
+        {shown?.sprite && !blocked && (
           <Sprite key={shown.key} moment={shown.moment} media={shown.media!} size={shown.sprite} from={box ? 'left' : 'right'} onDone={() => setShown(null)} />
         )}
       </AnimatePresence>
@@ -345,10 +353,12 @@ function usePutAway(onDone: () => void): { done: React.RefObject<(hand?: boolean
 /** The small round buttons over the picture: solid near-black, so they read on any of them and the picture never shows through. */
 const OVER = 'absolute flex size-6 items-center justify-center rounded-full bg-neutral-900 text-white/90 transition-colors hover:bg-black hover:text-white'
 
-function Card({ moment, media, origin, fill, onDone, onTooLong }: {
+function Card({ moment, media, origin, fill, docked = false, onDone, onTooLong }: {
   moment: Moment
   media: Media | null
   origin: string
+  /** At the sidebar's foot: as wide as the sidebar, its picture shorter. */
+  docked?: boolean
   /** Over a sticky's paper, filling it, its headline in a bar along the bottom. */
   fill?: boolean
   onDone: () => void
@@ -374,7 +384,7 @@ function Card({ moment, media, origin, fill, onDone, onTooLong }: {
   // A GIF from Giphy is shown whole-ish, at its own shape (within reason), and
   // with Motion off or Reduce motion as its still frame.
   const giphy = !!media?.giphy && !broken
-  const tall = giphy && !fill && media?.width && media.height ? Math.round(Math.min(220, Math.max(130, (276 * media.height) / media.width))) : undefined
+  const tall = giphy && !fill && media?.width && media.height ? Math.round(Math.min(docked ? 140 : 220, Math.max(docked ? 96 : 130, ((docked ? 190 : 276) * media.height) / media.width))) : undefined
   const frozen = giphy && quick === 0 && !!media?.still
   return (
     <motion.div
@@ -392,9 +402,9 @@ function Card({ moment, media, origin, fill, onDone, onTooLong }: {
       onClick={() => done.current()}
       className={fill
         ? 'pointer-events-auto absolute inset-0 flex cursor-default flex-col overflow-hidden rounded-[inherit] bg-popover text-popover-foreground select-none'
-        : 'pointer-events-auto relative w-72 cursor-default rounded-xl border bg-popover p-1.5 text-popover-foreground shadow-(--mf-panel-shadow) select-none'}
+        : `pointer-events-auto relative ${docked ? 'w-full' : 'w-72'} cursor-default rounded-xl border bg-popover p-1.5 text-popover-foreground shadow-(--mf-panel-shadow) select-none`}
     >
-      <div className={`relative overflow-hidden ${fill ? 'min-h-0 flex-1' : 'h-40 rounded-lg'}`} style={{ background: `color-mix(in oklab, ${moment.tint} 30%, var(--popover))`, height: tall }}>
+      <div className={`relative overflow-hidden ${fill ? 'min-h-0 flex-1' : docked ? 'h-28 rounded-lg' : 'h-40 rounded-lg'}`} style={{ background: `color-mix(in oklab, ${moment.tint} 30%, var(--popover))`, height: tall }}>
         {media && !broken ? (
           frozen ? (
             <img src={media.still} alt="" draggable={false} onError={() => setBroken(true)} className="absolute inset-0 size-full object-cover" />

@@ -1,5 +1,7 @@
 import { useEffect, useState, type ReactElement } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
+import { createPortal } from 'react-dom'
+import { useLayerOpen } from '@/lib/layer-watch'
 import { chime } from '@/lib/sound'
 import { EASE, shift } from '@/lib/motion'
 import { useLive, haligtree, type Item, type Recap, type Settings, type SpanSession, type Task } from '@/lib/haligtree'
@@ -267,12 +269,15 @@ export function WrapOffer(): React.JSX.Element | null {
     close()
     void haligtree.setSettings({ wrapOffer: false }).then(() => toast('No more monthly wraps offered. Settings has them, under What comes back to you', () => void haligtree.setSettings({ wrapOffer: true })))
   }
-  return (
+  // A corner card as a milestone is: at the sidebar's foot where there is one, never while a menu or picker is open.
+  const blocked = useLayerOpen(!!offer)
+  const dock = offer ? document.querySelector<HTMLElement>('[data-corner-dock]') : null
+  const card = (
     <AnimatePresence>
-    {offer && <motion.aside data-wrap-offer={offer} aria-label={`Your ${name}, wrapped`}
+    {offer && !blocked && <motion.aside data-wrap-offer={offer} aria-label={`Your ${name}, wrapped`}
       initial={{ opacity: 0, transform: shift('translateY(8px)') }} animate={{ opacity: 1, transform: shift('translateY(0px)') }} transition={{ duration: 0.3, ease: EASE }}
       exit={{ opacity: 0, transform: shift('translateY(8px)'), transition: { duration: 0.15, ease: EASE } }}
-      className="fixed right-5 bottom-5 z-40 flex w-80 flex-col gap-3 rounded-xl border bg-background p-4 shadow-(--mf-panel-shadow)">
+      className={`${dock ? 'mb-2 w-full' : 'fixed right-5 bottom-5 z-40 w-80'} flex flex-col gap-3 rounded-xl border bg-background p-4 shadow-(--mf-panel-shadow)`}>
       <div className="flex items-start gap-2">
         <div className="min-w-0 flex-1">
           <p className="font-heading text-heading font-semibold text-foreground">Your {name}, wrapped</p>
@@ -280,7 +285,7 @@ export function WrapOffer(): React.JSX.Element | null {
         </div>
         <Tip label="Not now"><button type="button" aria-label="Not now" onClick={close} className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"><X className="size-3.5" /></button></Tip>
       </div>
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <Button size="sm" data-wrap-open onClick={() => (setOffer(null), openWrap(`month:${offer}`))}>Open</Button>
         <Button size="sm" variant="ghost" onClick={close}>Not now</Button>
         <span className="flex-1" />
@@ -289,6 +294,7 @@ export function WrapOffer(): React.JSX.Element | null {
     </motion.aside>}
     </AnimatePresence>
   )
+  return dock ? createPortal(card, dock) : card
 }
 
 /** The Settings row's own words, so they read the same as the offer. */

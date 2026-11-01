@@ -20,6 +20,7 @@ import type { SaveResult } from '../../../main/captures'
 import { clip, cut, quoted } from '../../../main/clip'
 import { ago, dayKey, num } from '../../../main/dates'
 import { NOTE_KEY } from '../../../main/name'
+import { forgives } from '@/lib/slash-rank'
 
 /**
  * Whether to offer writing a recall question or card for something: only on
@@ -244,6 +245,13 @@ export async function findCaptures(query: string): Promise<NoteSuggestion[]> {
     words ? readTags().catch(() => []) : [],
     words ? window.api.captures.find(query).then((found) => found.filter((one) => one.type === 'pdf' || one.type === 'web')).catch(() => []) : []
   ])
+  // Spelt right, nothing: a slip of the keys still finds it ("tolkein", "hamelt"), forgiven as ⌘K and the slash menu
+  // forgive one, by name, among every note and page; only then, so a right spelling never lists near ones.
+  if (words.length >= 3 && !captures.length && !items.length) {
+    const [notes, ...lists] = await Promise.all([window.api.captures.list().catch(() => []), ...(['nugget', 'article', 'question'] as const).map((tier) => haligtree.items(tier).catch(() => []))])
+    captures.push(...notes.filter((one) => one.status !== 'discarded' && one.label && forgives(words, one.label)).slice(0, 6))
+    items.push(...lists.flat().filter((one) => !one.archivedAt && forgives(words, one.title)).slice(0, 6).map((one) => ({ id: one.id, tier: one.tier as 'nugget' | 'article' | 'question', title: one.title, updatedAt: one.updatedAt ?? undefined })))
+  }
   const rows = [
     // A quiet word to choose by: when it was last written in.
     ...captures.map((capture) => row(capture.kind in linkKinds() ? capture.kind : 'note', { id: capture.id, label: capture.label || 'Untitled', key: captureKey(capture.number), hint: edited(capture.editedAt ?? capture.capturedAt) })),
