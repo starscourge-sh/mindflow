@@ -108,7 +108,15 @@ import LayoutSidebarRightIcon from '@/components/ui/layout-sidebar-right-icon'
 import GearIcon from '@/components/ui/gear-icon'
 import PenIcon from '@/components/ui/pen-icon'
 import { AliveIcon } from '@/components/ui/alive-icon'
-import { ShotButton } from '@/components/haligtree/shot-button'
+import { RoundPair, ShotButton, type RoundChoice } from '@/components/haligtree/shot-button'
+import { talkInto } from '@/components/haligtree/talk'
+import { AudioLines, TextCursorInput } from 'lucide-react'
+
+/** The microphone's two ways, as the camera's two: a voice note kept as sound, or the words typed as you talk. */
+const VOICE_CHOICES: RoundChoice[] = [
+  { id: 'record', label: 'Record: a voice note, kept in the note', Icon: AudioLines },
+  { id: 'dictate', label: 'Dictate: talk, and the words are typed', Icon: TextCursorInput }
+]
 import { useStoredFlag } from '@/lib/use-stored-flag'
 import { ShortcutSheet } from '@/components/haligtree/shortcut-sheet'
 import { WordNotes } from '@/components/haligtree/term'
@@ -2293,15 +2301,13 @@ export default function App(): React.JSX.Element {
               )}
               {/* The camera: a whole screen or just an area, as a picture in the note (shot-button.tsx). Out of the way of the first capture's lesson, whose word sits where it is. */}
               {!locked && <span data-lesson="hide" data-under-toast data-while-recording={recording ? 'dim' : undefined} inert={recording} className="inline-flex"><ShotButton onShot={(area) => void attachScreenshot(area)} /></span>}
-              {/* The microphone, beside the camera and in its look: a voice note, kept in the note where the caret is. */}
+              {/* The microphone, beside the camera and the camera's pair in its own: "Record" a voice note, kept in the
+                  note where the caret is, or "Dictate", talk to type into the words. Only one runs: starting one
+                  stops the other and keeps what it had. */}
               {!locked && (
                 <span data-lesson="hide" data-under-toast data-while-recording={recording ? 'dim' : undefined} inert={recording} className="inline-flex">
-                  <Tip label="Record a voice note">
-                    <button type="button" aria-label="Record a voice note" data-record-button onClick={() => (chime('tap'), editorRef.current && void recordInto(editorRef.current, recordSlot.current))}
-                      className="relative flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-full border border-border text-foreground outline-none transition-[color,background-color,border-color,scale] duration-150 ease-out hover:bg-input/50 active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-ring/30 dark:bg-input/30">
-                      <MicIcon className="size-[15px]" />
-                    </button>
-                  </Tip>
+                  <RoundPair label="Record or dictate" icon={<MicIcon className="size-[15px]" />} button={{ 'data-record-button': true }} choices={VOICE_CHOICES}
+                    onPick={(id) => editorRef.current && void (id === 'record' ? recordInto(editorRef.current, recordSlot.current) : talkInto('tap', editorRef.current))} />
                 </span>
               )}
               <span className="flex-1" />

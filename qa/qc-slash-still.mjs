@@ -28,7 +28,7 @@ try {
     if (under === 'text') for (const line of ['Voice note one', 'Voice note two', 'A third line of writing']) { await page.keyboard.type(line); await page.keyboard.press('Enter') }
     // Two voice notes, as in the user's box, kept one after the other.
     else for (let n = 0; n < 2; n += 1) {
-      await page.click('[data-record-button]')
+      await page.click('[data-record-button]'); await page.waitForTimeout(450); await page.click('[data-shot="record"]')
       await page.waitForSelector('[data-voice-recorder]', { timeout: 6000 })
       await wait(1200)
       await page.keyboard.press('Meta+Enter')

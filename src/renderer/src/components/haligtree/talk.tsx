@@ -12,6 +12,7 @@ import { refuse } from '@/components/haligtree/ui'
 import { haligtree, useLive, type Settings } from '@/lib/haligtree'
 import { chime } from '@/lib/sound'
 import { spoken } from '@/lib/spoken'
+import { dictation, stopRecording } from '@/lib/recording'
 
 /**
  * Talk to type, in any text field: hold the talk key (⌥Space, or the right
@@ -132,6 +133,8 @@ export async function talkInto(how: 'hold' | 'tap' = 'tap', editor?: Editor): Pr
   // One at a time, counted from the first wait: a second press while the
   // microphone is still being asked for would hang a second listener on the words.
   if (session || starting) return
+  // A voice note recording: stopped and kept first. Never both at once.
+  stopRecording(true)
   starting = true
   try {
     await beginTalk(how, editor)
@@ -194,6 +197,8 @@ export function talkCancel(): void {
 }
 
 export const talking = (): boolean => session !== null
+// Told to the recorder (lib/recording.ts): it stops dictation before a voice note starts.
+dictation.stop = () => void (session && talkStop())
 
 /** Where the caret is, for the Orb. */
 function caretBox(): { left: number; top: number } | null {

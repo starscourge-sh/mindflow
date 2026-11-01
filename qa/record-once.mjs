@@ -36,7 +36,7 @@ try {
   await watchMic()
 
   // A double click on the mic: the second lands while the first still waits for the microphone.
-  await page.evaluate(() => { const b = document.querySelector('[data-record-button]'); b.click(); b.click() })
+  await page.evaluate(() => { document.querySelector('[data-record-button]').click(); const b = document.querySelector('[data-shot="record"]'); b.click(); b.click() })
   await wait(1800)
   const twice = await state()
   check('a double click on the mic starts one recording', twice.recorders === 1 && twice.open <= 1, JSON.stringify(twice))
@@ -56,7 +56,7 @@ try {
   check('every microphone stream is closed after (the mic dot goes away)', kept.open === 0, JSON.stringify(kept))
 
   // Cancel after a double start: nothing kept, nothing left listening.
-  await page.evaluate(() => { const b = document.querySelector('[data-record-button]'); b.click(); b.click() })
+  await page.evaluate(() => { document.querySelector('[data-record-button]').click(); const b = document.querySelector('[data-shot="record"]'); b.click(); b.click() })
   await wait(1500)
   await page.keyboard.press('Escape'); await wait(800)
   const gone = await state()

@@ -27,3 +27,9 @@ export const recordingNow = (): boolean => !!live
 export function useRecording(): boolean {
   return useSyncExternalStore((change) => (told.add(change), () => void told.delete(change)), recordingNow)
 }
+
+/**
+ * Talk to type, told here by talk.tsx so the recorder can stop it without importing it: a voice note and dictation
+ * never run at once. Starting one stops the other and keeps what it had (talk.tsx stops a recording the same way).
+ */
+export const dictation: { stop: (() => void) | null } = { stop: null }

@@ -8,7 +8,7 @@ import { saveAttachment } from '@/extensions/image-drop'
 import { refuse } from '@/components/haligtree/ui'
 import { chime } from '@/lib/sound'
 import { wantsWords } from '@/lib/transcribe'
-import { setRecording } from '@/lib/recording'
+import { dictation, setRecording } from '@/lib/recording'
 import { cn } from '@/lib/cn'
 import { still } from '@/lib/motion'
 import { useCentreOn } from '@/lib/centre-on'
@@ -50,6 +50,8 @@ export async function recordVoice(slot?: HTMLElement | null, over?: HTMLElement 
   // with a microphone of its own, under the first.
   if (taken) return null
   taken = true
+  // Dictating: stopped first, its words kept. Never both at once.
+  dictation.stop?.()
   try {
     return await openRecorder(slot, over)
   } finally {

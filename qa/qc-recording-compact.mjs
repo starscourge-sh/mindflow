@@ -20,7 +20,7 @@ try {
   await wait(1500)
   if (await page.$('[aria-label="Show the side panel"]')) { await page.keyboard.press('Meta+Backslash'); await wait(1000) }
   const open = await boxWidth()
-  await page.click('[data-record-button]')
+  await page.click('[data-record-button]'); await page.waitForTimeout(450); await page.click('[data-shot="record"]')
   await page.waitForSelector('[data-voice-recorder]', { timeout: 6000 })
   await wait(1500)
   const recording = await boxWidth()

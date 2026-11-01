@@ -38,7 +38,7 @@ const look = (name) => page.evaluate((n) => { localStorage.setItem('theme', n ==
 // The box focused before a picture: unfocused, the window wears its dimming veil and every shot reads grey.
 const focusBox = () => c.electron.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find((w) => !w.webContents.getURL().includes('view=home') && w.isVisible())?.focus())
 const record = async () => {
-  await page.click('[data-record-button]')
+  await page.click('[data-record-button]'); await page.waitForTimeout(450); await page.click('[data-shot="record"]')
   await page.waitForSelector('[data-voice-recorder]', { timeout: 6000 }).catch(() => {})
 }
 
