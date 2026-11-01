@@ -13,7 +13,7 @@ import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
 import { Unfold, Weighted } from './glide'
 import { GroupIcon, IconChoice } from './kept-groups'
 import { RowMenu, openFromGrip, type RowItem } from './row-menu'
-import { FolderTree } from 'lucide-react'
+import { FolderPen, FolderHeart } from 'lucide-react'
 import { Count, Tip, quietly, refuse, toast } from './ui'
 import { GROUP_KEY, GroupMark, changeRule, removeGroup, renameGroup, ruleSaid, tagsSaid, useGathered, useSmartGroups, type SmartGroup } from '@/lib/smart-groups'
 
@@ -394,13 +394,17 @@ export function RailFolders({ list, onOpen }: { list: 'article' | 'nugget'; onOp
     ...(smart.length ? [{ heading: 'Groups: gathered by tags' } as RowItem, ...smart.map((group) => ({ label: group.name, hint: tagsSaid(group.tags), icon: <GroupMark className="size-3.5" style={{ color: 'var(--tt-color-text-purple)' }} />, run: () => onOpen(GROUP_KEY + group.id) }))] : [])
   ]
   const name = list === 'article' ? 'Writing' : 'Gems'
+  // Each list's own folder: a pen for Writing's, a heart for Gems', each named on hover, so the two are never one icon twice.
+  const Icon = list === 'article' ? FolderPen : FolderHeart
   return (
     <RowMenu items={items}>
       <div className="flex w-full">
-        <button type="button" data-side-row data-rail-folders={list} aria-label={`${name}'s folders and groups`} onClick={openFromGrip}
-          className="flex w-full items-center justify-center rounded-md py-1.5 text-foreground/80">
-          <FolderTree className="size-4" />
-        </button>
+        <Tip label={`${name}'s folders`} side="right">
+          <button type="button" data-side-row data-rail-folders={list} aria-label={`${name}'s folders and groups`} onClick={openFromGrip}
+            className="flex w-full cursor-pointer items-center justify-center rounded-md py-1.5 text-foreground/80">
+            <Icon className="size-4" />
+          </button>
+        </Tip>
       </div>
     </RowMenu>
   )
