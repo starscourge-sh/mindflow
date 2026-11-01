@@ -1591,7 +1591,8 @@ function CardTimer({ seconds, paused, onEnd }: { seconds: number; paused: boolea
   return (
     <span data-card-timer={left} role="timer" aria-label={`${left} seconds left`} className="flex items-center gap-2 text-control tabular-nums">
       <span className="relative h-1 w-20 overflow-hidden rounded-full bg-foreground/10" aria-hidden>
-        <span className={`absolute inset-y-0 left-0 rounded-full transition-[width] duration-1000 ease-linear ${low ? 'bg-[var(--tt-color-text-orange)]' : 'bg-foreground/40'}`} style={{ width: `${(left / seconds) * 100}%` }} />
+        {/* Shrinks by transform, a second at a time, linear as a clock runs; held still with motion off. */}
+        <span className={`absolute inset-0 origin-left rounded-full transition-transform duration-1000 ease-linear motion-reduce:transition-none ${low ? 'bg-[var(--tt-color-text-orange)]' : 'bg-foreground/40'}`} style={{ transform: `scaleX(${left / seconds})` }} />
       </span>
       <span className={`w-10 ${low ? 'text-[var(--tt-color-text-orange)]' : 'text-muted-foreground'}`}>{Math.floor(left / 60)}:{String(left % 60).padStart(2, '0')}</span>
     </span>
