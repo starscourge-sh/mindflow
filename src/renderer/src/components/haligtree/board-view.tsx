@@ -625,8 +625,8 @@ export function Board({ editor, id, tools }: { editor: Editor; id: string; /** W
   const done = shape.lanes.reduce((sum, lane) => sum + (lane.title === 'Archive' ? 0 : lane.cards.filter((card) => card.node.attrs.checked).length), 0)
   return (
     <div ref={root} tabIndex={-1} data-board className="flex min-h-[18rem] min-w-0 flex-1 flex-col outline-none" onPointerDown={(event) => {
-      // A click on the board keeps its keys; one into a field keeps the field.
-      if (!(event.target as HTMLElement).closest('input, textarea, [contenteditable="true"]')) setTimeout(() => !root.current?.contains(document.activeElement) && root.current?.focus({ preventScroll: true }))
+      // A click on the board keeps its keys; one into a field keeps the field, and a menu it opened (a ⋯, a right click) keeps the keys too.
+      if (event.button === 0 && !(event.target as HTMLElement).closest('input, textarea, [contenteditable="true"]')) setTimeout(() => !root.current?.contains(document.activeElement) && !document.activeElement?.closest('[role="menu"]') && root.current?.focus({ preventScroll: true }))
     }}>
       {/* What the note says before its first list, as it reads in the note. */}
       {shape.head.length > 0 && <Head editor={editor} at={shape.head.map((one) => one.pos)} />}
@@ -897,7 +897,7 @@ function CardBox({ id, editor, card, here, editing, disabled, onPick, onTick, on
       onClick={(event) => !clicks(event) && onPick()}
       onDoubleClick={() => !editing && onEdit()}
       // A right click opens the card's one menu, the same its ⋯ opens, by its ⋯.
-      onContextMenu={(event) => void (!editing && (event.preventDefault(), event.stopPropagation(), onPick(), setMenuOpen(true)))}
+      onContextMenu={(event) => void (!editing && (event.preventDefault(), event.stopPropagation(), setMenuOpen(true)))}
       className={`group/card relative flex shrink-0 touch-none items-start gap-2 rounded-lg border bg-background px-2.5 py-2 text-control transition-colors hover:border-foreground/15 ${here ? 'border-ring ring-1 ring-ring' : ''}`}>
       {task && (
         <button type="button" role="checkbox" aria-checked={checked} aria-label={checked ? 'Not done' : 'Done'} onClick={(event) => (event.stopPropagation(), onTick())}
