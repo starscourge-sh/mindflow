@@ -52,7 +52,8 @@ export function DeckShelf({ onOpen, onStudy, onPaste }: { onOpen: (type: string,
   const [linking, setLinking] = useState<string | null>(null)
   const [allTags, setAllTags] = useState(false)
   const [look, setLook] = useDeckLook()
-  const [shut, flip] = useShut()
+  const [kidsOpen, setKidsOpen] = useState<Set<string>>(new Set())
+  const openKids = (key: string): void => { const next = new Set(kidsOpen); chime(next.delete(key) ? 'fold' : (next.add(key), 'open')); setKidsOpen(next) }
   const shapes = useLive(haligtree.settings, null as Settings | null)?.deckShapes === true
   const shelves = useLive(() => call<Shelf[]>('decks:list'), null as Shelf[] | null, [], ['item'])
   const own = useOwnDecks()
@@ -96,8 +97,8 @@ export function DeckShelf({ onOpen, onStudy, onPaste }: { onOpen: (type: string,
     return (
       <div data-deck-shelf data-deck-look="list" className="grid grid-cols-[minmax(0,1fr)] gap-4 px-5 pt-4 pb-20">
         {top}
+        <StudyYear compact />
         <DeckList own={own} shelves={shelves ?? []} onStudy={onStudy} />
-        <StudyYear />
       </div>
     )
   // A shared deck's menu, the same as one of your own: its review settings, then what its buttons do, and Delete, which takes the imported deck away.
@@ -116,13 +117,43 @@ export function DeckShelf({ onOpen, onStudy, onPaste }: { onOpen: (type: string,
       chime(shelf.shown ? 'fold' : 'noted')
       toast(shelf.shown ? `${shelf.name} is back on its shelf, out of Gems` : `${shelf.name} shows in Gems, Feed and Home now`, () => void call('decks:show', shelf.name, shelf.shown).then(() => chime('undo')))
     })
+  // Your own deck's menu: its review settings, then what can be done with it.
+  const ownMenu = (deck: OwnDeck): Section[] => [
+    ...deckSettings(deck.tag, study),
+    { items: [
+      ...(deck.cards ? [{ label: 'Study', run: () => (chime('riffle'), onStudy(deck.tag)) }] : []),
+      { label: 'Make a card', run: () => (chime('open'), onPaste(deck.tag, true)) },
+      { label: 'Add many at once', run: () => (chime('open'), onPaste(deck.tag)) },
+      { label: 'New deck inside', run: () => newDeck(deck.tag) },
+      { label: 'Open its page', hint: 'Its notes, gems and cards, on the tag’s page', run: () => openTag(deck.tag) },
+      { label: 'Rename deck…', run: () => void renameDeck(deck.tag) },
+      { label: 'Delete deck…', hint: 'Its cards are kept', run: () => void deleteDeck(deck.tag) }
+    ] }
+  ]
+  const sharedTiles = (shelves ?? []).map((shelf) => {
+    const topics = shelf.topics.length > 1 ? treeOf([...shelf.topics].sort((a, b) => a.deck.localeCompare(b.deck)), (topic) => topic.deck.split('::').length).length : 0
+    const allHeld = shelf.held > 0 && shelf.held === shelf.cards
+    return (
+      <DeckTile key={shelf.name} id={shelf.name} name={shelf.name} title={shelf.name} due={shelf.due} fresh={shelf.fresh} all={shelf.cards} held={shelf.held} cover={shelf.cover} shapes={shapes}
+        kids={topics} open={kidsOpen.has(shelf.name)} onKids={() => openKids(shelf.name)} menu={[...sharedMenu(shelf).slice(0, -1), { items: [...sharedMenu(shelf).at(-1)!.items, ...(shelf.pictures > 0 ? [{ label: gallery === shelf.name ? 'Hide pictures' : 'Pictures', run: () => (chime('open'), setGallery(gallery === shelf.name ? null : shelf.name)) }] : [])] }]}
+        onClick={() => (allHeld ? startDeck(shelf.name, shelf.name, true) : (chime('riffle'), onStudy(deckTag(shelf.name))))} />
+    )
+  })
+  const tile = (deck: OwnDeck): React.JSX.Element => (
+    <DeckTile key={deck.tag} id={deck.tag} own name={deck.label} title={`#${deck.tag}`} due={deck.due} fresh={deck.fresh} all={deck.cards} held={0} cover={null} shapes={shapes}
+      kids={own.filter((one) => one.tag.startsWith(`${deck.tag}-`) && one.depth === deck.depth + 1).length} open={kidsOpen.has(deck.tag)} onKids={() => openKids(deck.tag)} menu={ownMenu(deck)}
+      onClick={() => (deck.cards ? (chime('riffle'), onStudy(deck.tag)) : (chime('open'), onPaste(deck.tag, true)))} />
+  )
   return (
-    <div data-deck-shelf data-deck-look="pockets" className="grid grid-cols-[minmax(0,1fr)] gap-3 px-5 pt-4 pb-20">
-      {/* Your own decks and the shared ones in one list, in one look: a deck is a tag your cards share. */}
+    <div data-deck-shelf data-deck-look="pockets" className="grid grid-cols-[minmax(0,1fr)] gap-4 px-5 pt-4 pb-20">
       {top}
-      {shown.map((deck) => (
-        <OwnDeckShelf key={deck.tag} deck={deck} inside={own.filter((one) => one.tag.startsWith(`${deck.tag}-`))} onStudy={onStudy} onPaste={onPaste} onNew={newDeck} shapes={shapes} />
-      ))}
+      <StudyYear compact />
+      {/* Pockets: squarish tiles, 2 to 4 across by width; each studies when clicked, its actions in its ⋯ menu and on right-click. */}
+      <div data-deck-grid className="grid grid-cols-2 gap-3 sm:grid-cols-[repeat(auto-fill,minmax(10.5rem,13.5rem))]">
+        {shown.map(tile)}
+        {allTags && folded.map(tile)}
+        {sharedTiles}
+      </div>
       {folded.length > 0 && (
         <span className="flex flex-wrap items-center gap-1">
           <button type="button" data-deck-fold aria-expanded={allTags} onClick={() => (chime(allTags ? 'fold' : 'open'), setAllTags(!allTags))}
@@ -133,74 +164,66 @@ export function DeckShelf({ onOpen, onStudy, onPaste }: { onOpen: (type: string,
             className="cursor-pointer rounded-md px-2 py-1 text-control font-medium text-foreground/80 hover:bg-accent/50 hover:text-foreground">See every deck in the List</button>
         </span>
       )}
-      {allTags && folded.map((deck) => (
-        <OwnDeckShelf key={deck.tag} deck={deck} inside={own.filter((one) => one.tag.startsWith(`${deck.tag}-`))} onStudy={onStudy} onPaste={onPaste} onNew={newDeck} shapes={shapes} />
-      ))}
-      {(shelves ?? []).map((shelf) => (
-        <RowMenu key={shelf.name} items={() => rowItems(sharedMenu(shelf))}>
-        <section data-deck={shelf.name} className="flex gap-4 rounded-[5px] border border-foreground/10 bg-accent/25 p-4">
-          {shelf.cover ? (
-            <img src={shelf.cover} alt="" className="size-24 shrink-0 rounded-[5px] object-cover" />
-          ) : <DeckFace name={shelf.name} due={shelf.due} fresh={shelf.fresh} shapes={shapes} />}
-          <div className="grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)] content-start gap-2">
-            {/* One line, however long the deck's name: the whole of it shows on hover. */}
-            <div className="flex items-center gap-2">
-              <h3 title={shelf.name} className="min-w-0 flex-1 truncate font-serif text-lg leading-tight text-foreground">{shelf.name}</h3>
-              <OptionsMenu sections={sharedMenu(shelf)} label="Deck options" side="bottom" align="end" className="cursor-pointer" />
-            </div>
-            {/* The counts that matter on their own line, in the body's size: new, due today, and held. */}
-            <p data-deck-counts className="text-sm text-foreground tabular-nums">
-              <Counts due={shelf.due} fresh={shelf.fresh} cards={shelf.cards} />
-              {shelf.held > 0 && <> · <b className="font-semibold">{num(shelf.held)} held</b> until you start them</>}
-            </p>
-            {shelf.topics.length > 1 && (
-              // Its topics hung off the one trunk every nested list in the app uses, as your own decks' are: the name, its count, and its own two actions; a topic with its own fold shut.
-              <div data-deck-topics className="max-w-md pl-2">
-                <Tree here={-1} className="pl-3" open={(node) => !shut.has(node.item.deck)} nodes={treeOf([...shelf.topics].sort((a, b) => a.deck.localeCompare(b.deck)), (topic) => topic.deck.split('::').length)} row={(node) => (
-                  <div key={node.item.deck} className="flex items-center gap-1 py-0.5 text-control">
-                    <Fold kids={node.kids.length} open={!shut.has(node.item.deck)} name={node.item.label} flip={() => flip(node.item.deck)} />
-                    <span className="min-w-0 flex-1 truncate text-foreground">{node.item.label}</span>
-                    <span className="pr-1 text-sm text-muted-foreground tabular-nums">{cards(node.item.cards)}</span>
-                    {node.item.held < node.item.cards && (
-                      <Button variant="ghost" size="sm" className="h-7 cursor-pointer px-2.5" data-topic-study={node.item.deck}
-                        onClick={() => (chime('riffle'), onStudy(deckTag(node.item.deck)))}>Study</Button>
-                    )}
-                    <Button variant="ghost" size="sm" className="h-7 cursor-pointer px-2.5" data-topic-start={node.item.deck}
-                      onClick={() => startDeck(node.item.deck, node.item.label, node.item.held > 0)}>
-                      {node.item.held > 0 ? `Start ${num(node.item.held)}` : 'Hold'}
-                    </Button>
-                  </div>
-                )} />
-              </div>
-            )}
-            <div className="flex flex-wrap gap-2 pt-1">
-              {/* Study what is started; start what is held. The deck-wide button says it is for all of it, the topics' each their count. */}
-              {shelf.held < shelf.cards && (
-                <Button size="sm" className="cursor-pointer" data-deck-study onClick={() => (chime('riffle'), onStudy(deckTag(shelf.name)))}>Study</Button>
-              )}
-              <Button size="sm" variant={shelf.held > 0 && shelf.held === shelf.cards ? 'default' : 'ghost'} className="cursor-pointer" data-deck-start onClick={() => startDeck(shelf.name, shelf.name, shelf.held > 0)}>
-                {shelf.held > 0 ? (shelf.held === shelf.cards ? 'Start all' : 'Start the rest') : 'Hold new cards'}
-              </Button>
-              <Button variant="ghost" size="sm" className="cursor-pointer" data-deck-gems aria-pressed={shelf.shown} onClick={() => show(shelf)}>
-                {shelf.shown ? 'Keep out of Gems' : 'Show in Gems'}
-              </Button>
-              <Button variant="ghost" size="sm" className="cursor-pointer" data-deck-links aria-expanded={linking === shelf.name}
-                onClick={() => (chime(linking === shelf.name ? 'fold' : 'open'), setLinking(linking === shelf.name ? null : shelf.name))}>Links</Button>
-              {shelf.pictures > 0 && (
-                <Button variant="ghost" size="sm" className="cursor-pointer" data-deck-gallery aria-expanded={gallery === shelf.name}
-                  onClick={() => (chime(gallery === shelf.name ? 'fold' : 'open'), setGallery(gallery === shelf.name ? null : shelf.name))}>
-                  {gallery === shelf.name ? 'Hide pictures' : 'Pictures'}
-                </Button>
-              )}
-            </div>
-            {linking === shelf.name && <Links deck={shelf.name} onDone={() => setLinking(null)} />}
-            {gallery === shelf.name && <Gallery deck={shelf.name} onOpen={onOpen} />}
-          </div>
-        </section>
-        </RowMenu>
-      ))}
-      <StudyYear />
+      {/* The sub-decks of each deck opened from its "+N sub-decks", under the grid: the same tree as the List, trunk lines and chevrons. */}
+      {[...kidsOpen].map((key) => {
+        const deck = own.find((one) => one.tag === key)
+        const shelf = (shelves ?? []).find((one) => one.name === key)
+        if (!deck && !shelf) return null
+        return (
+          <section key={key} data-deck-inside-of={key} className="grid gap-1">
+            <button type="button" onClick={() => openKids(key)} aria-expanded className="flex cursor-pointer items-center gap-1 justify-self-start rounded-[4px] px-1 text-control font-medium text-foreground hover:bg-accent/50">
+              <ChevronRight className="size-3.5 rotate-90 text-muted-foreground" />Inside {deck ? deck.label : shelf!.name}
+            </button>
+            <DeckList own={deck ? own.filter((one) => one === deck || one.tag.startsWith(`${deck.tag}-`)) : []} shelves={shelf ? [shelf] : []} onStudy={onStudy} />
+          </section>
+        )
+      })}
+      {linking && <Links deck={linking} onDone={() => setLinking(null)} />}
+      {gallery && <Gallery deck={gallery} onOpen={onOpen} />}
     </div>
+  )
+}
+
+/**
+ * A deck as a pocket: a squarish tile with how many are due large in ink (a
+ * small accent dot says some are), its name and "N due · N new" under it, and
+ * "+N sub-decks" when it has them. The whole tile studies it; everything else
+ * is in its ⋯ menu and on right-click.
+ */
+function DeckTile({ id, own = false, name, title, due, fresh, all, held, cover, shapes, kids, open, onKids, menu, onClick }: {
+  id: string; own?: boolean; name: string; title: string; due: number; fresh: number; all: number; held: number; cover: string | null; shapes: boolean
+  kids: number; open: boolean; onKids: () => void; menu: Section[]; onClick: () => void
+}): React.JSX.Element {
+  const big = due || fresh || all
+  return (
+    <RowMenu items={() => rowItems(menu)}>
+      <div role="button" tabIndex={0} title={title} data-deck={own ? `#${id}` : id} {...(own ? { 'data-own-deck': id } : {})} onClick={onClick}
+        onKeyDown={(event) => (event.key === 'Enter' || event.key === ' ') && event.target === event.currentTarget && (event.preventDefault(), onClick())}
+        className="relative grid aspect-[6/5] min-w-0 cursor-pointer grid-rows-[minmax(0,1fr)_auto] gap-2 rounded-[5px] border border-foreground/10 bg-accent/25 p-3 text-left outline-none transition-colors hover:bg-accent/50 focus-visible:ring-2 focus-visible:ring-ring">
+        <span className="absolute top-1.5 right-1.5" onClick={(event) => event.stopPropagation()}>
+          <OptionsMenu sections={menu} label="Deck options" side="bottom" align="end" className="cursor-pointer" />
+        </span>
+        <span data-deck-face={own ? `#${id}` : id} className="flex min-h-0 items-start gap-2">
+          {cover ? <img src={cover} alt="" className="size-12 shrink-0 rounded-[4px] object-cover" />
+            : shapes ? <GroupCover name={own ? `#${id}` : id} tint={groupTint(own ? `#${id}` : id)} label={null} className="size-12 shrink-0 rounded-[4px]" /> : null}
+          <span className="flex items-baseline gap-1.5">
+            <span className={`font-serif text-4xl leading-none tabular-nums ${big ? 'text-foreground' : 'text-foreground/35'}`}>{num(big)}</span>
+            <span className="text-sm text-muted-foreground">{due ? 'due' : fresh ? 'new' : all ? (all === 1 ? 'card' : 'cards') : 'cards'}</span>
+            {due > 0 && <span aria-hidden data-due-dot className="mb-1 size-1.5 self-center rounded-full bg-primary" />}
+          </span>
+        </span>
+        <span className="grid min-w-0 gap-0.5">
+          <h3 className="truncate font-serif text-base leading-tight text-foreground">{name}</h3>
+          <span data-deck-counts className="truncate text-sm text-muted-foreground tabular-nums">
+            {all ? <><Counts due={due} fresh={fresh} />{held > 0 && <> · {num(held)} held</>}</> : <span data-deck-empty>Empty: click to make a card</span>}
+          </span>
+          {kids > 0 && (
+            <button type="button" data-deck-kids={id} aria-expanded={open} onClick={(event) => (event.stopPropagation(), onKids())}
+              className="cursor-pointer justify-self-start rounded-[4px] px-1 -mx-1 text-sm text-muted-foreground hover:bg-accent hover:text-foreground">{open ? 'Hide' : '+'}{open ? ' sub-decks' : `${num(kids)} ${kids === 1 ? 'sub-deck' : 'sub-decks'}`}</button>
+          )}
+        </span>
+      </div>
+    </RowMenu>
   )
 }
 
@@ -294,64 +317,6 @@ function deckSettings(tag: string, study: { typed: Record<string, string>; newPe
   ]
 }
 
-/**
- * One of your own decks, on a shelf in the same look as a shared deck's: a
- * card of it as the cover, its counts, the decks inside it as rows, and its
- * actions. An empty one says how to fill it, with both ways.
- */
-function OwnDeckShelf({ deck, inside, onStudy, onPaste, onNew, shapes }: { deck: OwnDeck; inside: OwnDeck[]; onStudy: (tag: string) => void; onPaste: (deck: string, one?: boolean) => void; onNew: (inside?: string) => void; shapes: boolean }): React.JSX.Element {
-  const [shut, flip] = useShut()
-  const study = useLive(haligtree.tagStudy, { typed: {}, newPerDay: {}, retention: {} } as Awaited<ReturnType<typeof haligtree.tagStudy>>, [], ['item'])
-  const menu = (tag: string): Section[] => [
-    ...deckSettings(tag, study),
-    { items: [
-      { label: 'New deck inside', run: () => onNew(tag) },
-      { label: 'Open its page', hint: 'Its notes, gems and cards, on the tag’s page', run: () => openTag(tag) },
-      { label: 'Rename deck…', run: () => void renameDeck(tag) },
-      { label: 'Delete deck…', hint: 'Its cards are kept', run: () => void deleteDeck(tag) }
-    ] }
-  ]
-  return (
-    <RowMenu items={() => rowItems(menu(deck.tag))}>
-    <section data-deck={`#${deck.tag}`} data-own-deck={deck.tag} className="flex gap-4 rounded-[5px] border border-foreground/10 bg-accent/25 p-4">
-      <DeckFace name={`#${deck.tag}`} due={deck.due} fresh={deck.fresh} shapes={shapes} faded={!deck.cards} />
-      <div className="grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)] content-start gap-2">
-        <div className="flex items-center gap-2">
-          <h3 title={`#${deck.tag}`} className="min-w-0 flex-1 truncate font-serif text-lg leading-tight text-foreground">{deck.label}</h3>
-          <OptionsMenu sections={menu(deck.tag)} label="Deck options" side="bottom" align="end" className="cursor-pointer" />
-        </div>
-        <p data-deck-counts className="text-sm text-foreground tabular-nums">
-          {deck.cards ? <Counts due={deck.due} fresh={deck.fresh} cards={deck.cards} /> : <span data-deck-empty>Empty. Make a card or add many at once.</span>}
-        </p>
-        {inside.length > 0 && (
-          // The decks inside it, hung off the one trunk every nested list in the app uses.
-          <div data-deck-inside className="max-w-md pl-2">
-            <Tree nodes={treeOf(inside, (one) => one.depth)} here={-1} className="pl-3" open={(node) => !shut.has(node.item.tag)} row={({ item: one, kids }) => (
-              <RowMenu key={one.tag} items={() => rowItems(menu(one.tag))}>
-              <div data-deck-child={one.tag} onContextMenu={(event) => event.stopPropagation()} className="flex items-center gap-1 py-0.5 text-control">
-                <Fold kids={kids.length} open={!shut.has(one.tag)} name={one.label} flip={() => flip(one.tag)} />
-                <span title={`#${one.tag}`} className="min-w-0 flex-1 truncate text-foreground">{one.label}</span>
-                <span className="pr-1 text-sm text-muted-foreground tabular-nums">{one.cards ? <><DueFirst due={one.due} />{cardsSaid(one.cards)}</> : 'empty'}</span>
-                {one.cards > 0
-                  ? <Button variant="ghost" size="sm" className="h-7 cursor-pointer px-2.5" data-child-study={one.tag} onClick={() => (chime('riffle'), onStudy(one.tag))}>Study</Button>
-                  : <Button variant="ghost" size="sm" className="h-7 cursor-pointer px-2.5" data-child-paste={one.tag} onClick={() => (chime('open'), onPaste(one.tag))}>Add many at once</Button>}
-                <OptionsMenu sections={menu(one.tag)} label="Deck options" side="bottom" align="end" className="size-7 cursor-pointer" />
-              </div>
-              </RowMenu>
-            )} />
-          </div>
-        )}
-        <div className="flex flex-wrap gap-2 pt-1">
-          {deck.cards > 0 && <Button size="sm" className="cursor-pointer" data-deck-study onClick={() => (chime('riffle'), onStudy(deck.tag))}>Study</Button>}
-          <Button size="sm" variant={deck.cards ? 'ghost' : 'default'} className="cursor-pointer" data-deck-make onClick={() => (chime('open'), onPaste(deck.tag, true))}>Make a card</Button>
-          <Button variant="ghost" size="sm" className="cursor-pointer" data-deck-paste onClick={() => (chime('open'), onPaste(deck.tag))}>Add many at once</Button>
-        </div>
-      </div>
-    </section>
-    </RowMenu>
-  )
-}
-
 /** The ⋯ menu's sections as a right-click menu: each labelled part a line opening its choices beside it, the one in use ticked. */
 const rowItems = (sections: Section[]): RowItem[] => sections.flatMap((section): RowItem[] => {
   const lines = section.items.flatMap((item): MenuItem[] => typeof item === 'string' || 'more' in item || 'field' in item ? [] : [
@@ -419,18 +384,16 @@ function Fold({ kids, open, name, flip }: { kids: number; open: boolean; name: s
   )
 }
 
-/** Due first, in the one accent, as Anki users read a deck; then new, then how many in all. */
-function Counts({ due, fresh, cards: all }: { due: number; fresh: number; cards: number }): React.JSX.Element {
+/** Due first, in ink and bold when there are some, as Anki users read a deck; then new. */
+function Counts({ due, fresh }: { due: number; fresh: number }): React.JSX.Element {
   return (
     <>
-      <span data-count-due={due} className={due ? 'font-semibold text-primary' : 'text-muted-foreground'}>{num(due)} due</span>
-      <span> · {num(fresh)} new · </span>
-      <span>{cards(all)}</span>
+      <span data-count-due={due} className={due ? 'font-semibold text-foreground' : ''}>{num(due)} due</span>
+      <span> · {num(fresh)} new</span>
     </>
   )
 }
 
-const DueFirst = ({ due }: { due: number }): React.JSX.Element | null => (due ? <span className="mr-2 font-semibold text-primary">{num(due)} due</span> : null)
 
 /**
  * A deck's face: by default a plain index-card box in the theme's one tone,
@@ -464,7 +427,7 @@ function DeckList({ own, shelves, onStudy }: { own: OwnDeck[]; shelves: Shelf[];
         {study ? <button type="button" title={title} data-deck-row-study={key} onClick={() => (chime('riffle'), study())} className="min-w-0 cursor-pointer truncate rounded-[4px] px-1 text-left text-foreground hover:bg-accent">{name}</button>
           : <span title={title} className="min-w-0 truncate px-1 text-muted-foreground">{name}</span>}
       </span>
-      <span className={`text-right tabular-nums ${due > 0 ? 'font-semibold text-primary' : 'text-muted-foreground/60'}`}>{due < 0 ? '–' : num(due)}</span>
+      <span className={`flex items-center justify-end gap-1.5 tabular-nums ${due > 0 ? 'font-semibold text-foreground' : 'text-muted-foreground/60'}`}>{due > 0 && <span aria-hidden className="size-1.5 rounded-full bg-primary" />}{due < 0 ? '–' : num(due)}</span>
       <span className={`text-right tabular-nums ${fresh > 0 ? 'text-foreground' : 'text-muted-foreground/60'}`}>{fresh < 0 ? '–' : num(fresh)}</span>
       <span className="text-right text-muted-foreground tabular-nums">{num(all)}</span>
     </div>

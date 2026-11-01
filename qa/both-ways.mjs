@@ -32,7 +32,7 @@ const shot = async (name, again) => {
 try {
   await call('tag:set', 'zoo', { deck: true })
   // 1. Make a card, Both ways: two cards, one each way, both in the deck.
-  const openNew = async () => { await decks(); await h.evaluate(() => document.querySelector('[data-own-deck="zoo"] [data-deck-make]').click()); return waitFor(() => has('[data-new-card]')) }
+  const openNew = async () => { await decks(); await h.click('[data-own-deck="zoo"] button[aria-label="Deck options"]'); await h.locator('[role="menuitem"]', { hasText: 'Make a card' }).first().click(); return waitFor(() => has('[data-new-card]')) }
   check('1. Make a card opens', await openNew())
   check('1. it has a "Both ways" switch', await has('[data-new-both]'))
   await h.locator('[data-new-question]').fill('perro')
@@ -56,7 +56,7 @@ try {
 
   // 3. Paste cards, Both ways: two cards a line, said on the button.
   await decks()
-  await h.evaluate(() => document.querySelector('[data-own-deck="zoo"] [data-deck-paste]').click())
+  await h.click('[data-own-deck="zoo"] button[aria-label="Deck options"]'); await h.locator('[role="menuitem"]', { hasText: 'Add many at once' }).first().click()
   check('3. Paste cards offers "Both ways"', await waitFor(() => has('[data-paste-ways]')))
   await h.locator('[data-paste-text]').fill('rojo | red\nazul | blue')
   await h.evaluate(() => document.querySelector('[data-paste-ways] button[aria-label="Both ways"]').click())

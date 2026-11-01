@@ -58,7 +58,7 @@ try {
   check('1. New deck asks for a name in place', await answer('Zymurgy'))
   check('1. the new deck shows at once, empty', await waitFor(() => has('[data-own-deck="zymurgy"] [data-deck-empty]')))
   check('1. it is a tag: #zymurgy, made as a deck', (await call('decks:made')).includes('zymurgy'))
-  check('1. it offers Paste cards and Make a card', await has('[data-own-deck="zymurgy"] [data-deck-paste]') && await has('[data-own-deck="zymurgy"] [data-deck-make]'))
+  check('1. the empty deck says a click makes a card', /click to make a card/.test(await h.evaluate(() => document.querySelector('[data-own-deck="zymurgy"]')?.textContent ?? '')))
   // Its review settings from its menu.
   await h.locator('[data-own-deck="zymurgy"] button[aria-label="Deck options"]').first().click()
   await h.waitForTimeout(400)
@@ -69,7 +69,7 @@ try {
   // 2. A nested deck sits under its parent.
   await h.click('[data-deck-new]')
   await answer('Zymurgy/Cells')
-  check('2. "Zymurgy/Cells" shows inside Zymurgy', await waitFor(() => has('[data-own-deck="zymurgy"] [data-deck-child="zymurgy-cells"]')))
+  check('2. "Zymurgy/Cells" shows inside Zymurgy', await waitFor(() => has('[data-own-deck="zymurgy"] [data-deck-kids="zymurgy"]')))
   check('2. and not as a deck of its own beside it', !(await has('[data-own-deck="zymurgy-cells"]')))
   await shot('decks-tab', decks)
 

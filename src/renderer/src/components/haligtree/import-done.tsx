@@ -228,6 +228,7 @@ export function ImportDoneCard(): React.JSX.Element {
               ) : done.decks ? (
                 <>
                   <Button variant="ghost" size="lg" onClick={() => (chime('tap'), close())}>Done</Button>
+                  {(done.decks ?? 0) > 0 && <Button variant="ghost" size="lg" data-show-new="" onClick={() => (chime('tap'), close(), window.api.openInHome('view', 'review', `:newest:${done.decks}`))}>Show the new cards</Button>}
                   <Button size="lg" data-autofocus="" data-open-decks="" onClick={() => (chime('tap'), close(), window.api.openInHome('view', 'review', ':decks'))}>Open Decks</Button>
                 </>
               ) : done.gems ? (

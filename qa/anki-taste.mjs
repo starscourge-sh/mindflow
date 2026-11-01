@@ -45,7 +45,7 @@ try {
   await call('tag:set', 'zoo', { deck: true, retention: 0.95, newPerDay: 15 })
 
   // 1. New card: the switch beside the Deck field and "Make the card".
-  const openNew = async () => { await decks(); await h.evaluate(() => document.querySelector('[data-own-deck="zoo"] [data-deck-make]').click()); await waitFor(() => has('[data-new-card]')) }
+  const openNew = async () => { await decks(); await h.click('[data-own-deck="zoo"] button[aria-label="Deck options"]'); await h.locator('[role="menuitem"]', { hasText: 'Make a card' }).first().click(); await waitFor(() => has('[data-new-card]')) }
   await openNew()
   check('1. "Both ways" is Haligtree\'s Switch', await h.evaluate(() => document.querySelector('[data-new-both]')?.getAttribute('data-slot') === 'switch'))
   check('1. the hand on the switch', (await pointAt('[data-new-both]')) === 'pointer')

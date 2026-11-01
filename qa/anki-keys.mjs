@@ -18,7 +18,7 @@ try {
   await waitFor(() => h.evaluate(() => !!document.querySelector('[data-review-tab="decks"]')))
   await h.evaluate(() => document.querySelector('[data-review-tab="decks"]').click())
   await waitFor(() => h.evaluate(() => !!document.querySelector('[data-own-deck="kiwi"] [data-deck-study]')))
-  await h.evaluate(() => document.querySelector('[data-own-deck="kiwi"] [data-deck-study]').click())
+  await h.click('[data-own-deck="kiwi"]')
   await waitFor(async () => mine.includes(await asked()))
   check('a card of ours is in front', mine.includes(await asked()), await asked())
   await h.evaluate(() => document.activeElement?.blur())

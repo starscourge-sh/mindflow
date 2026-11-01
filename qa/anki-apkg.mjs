@@ -102,6 +102,10 @@ try {
   check('the notice counts what came in', /^8 cards are in/.test(notice) && /From Biology: Cells/.test(notice) && /8 cards, 1 picture/.test(notice) && /A card as Review asks it/.test(notice) && !/Biology\.apkg/.test(notice) && /1 picture/.test(notice) && /1 sound/.test(notice), notice)
   check('the notice says what Anki\'s words are here, and where shared decks are', /Coming from Anki\? A deck sits on Review › Decks/.test(notice) && /Review › All cards/.test(notice) && /ankiweb\.net\/shared\/decks/.test(notice), notice)
   await h.screenshot({ path: join(process.env.QA_SHOTS ?? dir, 'anki-apkg-notice.png') })
+  // One click from the notice shows just the cards this import made.
+  check('the notice offers "Show the new cards"', await h.evaluate(() => !!document.querySelector('[data-show-new]')))
+  await h.evaluate(() => document.querySelector('[data-show-new]')?.click())
+  check('"Show the new cards" shows just the 8 that came in', await waitFor(() => h.evaluate(() => document.querySelector('[data-cards-only]')?.getAttribute('data-cards-only') === '8'), 5000), await h.evaluate(() => document.querySelector('[data-cards-only]')?.textContent ?? 'none'))
   await h.keyboard.press('Escape')
   await waitFor(() => h.evaluate(() => !document.querySelector('[data-import-done]')))
   // A shared deck lives on its own shelf: out of Gems and Media's grid until the person says otherwise.
@@ -118,7 +122,7 @@ try {
   await h.evaluate(() => document.querySelector('[data-review-tab="decks"]')?.click())
   await waitFor(() => h.evaluate(() => !!document.querySelector('[data-deck-shelf]')))
   const shelf = await h.evaluate(() => document.querySelector('[data-deck-shelf]')?.innerText ?? '')
-  check('Review › Decks shows the deck, its cover and its counts', /Biology/.test(shelf) && /8 cards/.test(shelf) && await h.evaluate(() => !!document.querySelector('[data-deck] img')), shelf)
+  check('Review › Decks shows the deck, its cover and its counts', /Biology\n\d+ due · \d+ new/.test(shelf) && await h.evaluate(() => !!document.querySelector('[data-deck] img')), shelf.replace(/\n/g, ' | ').slice(0, 400))
   await c.both(join(process.env.QA_SHOTS ?? dir, 'anki-apkg-decks'))
   // Your own decks and the shared one in one picture: the last of yours over the shared shelf, light and dark.
   for (const [theme, said] of [['paper', 'light'], ['dark', 'dark']]) {
@@ -133,11 +137,16 @@ try {
   await c.theme('paper')
   await c.go('review')
   await h.evaluate(() => document.querySelector('[data-review-tab="decks"]')?.click())
-  await waitFor(() => h.evaluate(() => !!document.querySelector('[data-deck-gems]')))
-  await h.evaluate(() => document.querySelector('[data-deck-gems]')?.click())
+  // "Show in Gems" and back, from the deck's ⋯ menu: a pocket's actions live there.
+  const fromMenu = async (words) => {
+    await waitFor(() => h.evaluate(() => !!document.querySelector('[data-deck]:not([data-own-deck]) button[aria-label="Deck options"]')))
+    await h.click('[data-deck]:not([data-own-deck]) button[aria-label="Deck options"]')
+    await h.locator('[role="menuitem"]', { hasText: words }).first().click()
+  }
+  await fromMenu('Show in Gems')
   check('"Show in Gems" brings them into Gems', await waitFor(async () => (await inGems()) === 2))
-  await waitFor(() => h.evaluate(() => document.querySelector('[data-deck-gems]')?.textContent === 'Keep out of Gems'))
-  await h.evaluate(() => document.querySelector('[data-deck-gems]')?.click())
+  await h.waitForTimeout(600)
+  await fromMenu('Keep out of Gems')
   check('"Keep out of Gems" puts them back on the shelf', await waitFor(async () => (await inGems()) === 0))
   await h.evaluate(() => document.querySelector('[data-review-tab="today"]')?.click())
   // Learn mode: a dozen steps, answered anyhow; what it offers to pick is read at each.
@@ -181,7 +190,8 @@ try {
   await c.go('review')
   await h.evaluate(() => document.querySelector('[data-review-tab="decks"]')?.click())
   await waitFor(() => h.evaluate(() => !!document.querySelector('[data-deck="Biology"]')))
-  check('the shared deck\'s topics hang off the tree', await h.evaluate(() => !!document.querySelector('[data-deck="Biology"] [data-deck-topics] svg path')))
+  await h.evaluate(() => document.querySelector('[data-deck-kids="Biology"]')?.click())
+  check('the shared deck\'s topics hang off the tree', await waitFor(() => h.evaluate(() => !!document.querySelector('[data-deck-inside-of="Biology"] svg path')), 2000))
   check('the shared deck has a ⋯ menu', await h.evaluate(() => !!document.querySelector('[data-deck="Biology"] button[aria-label="Deck options"]')))
   // Right-clicked where it is, even with a notice over it: the menu opens at the heading.
   await h.evaluate(() => { const at = document.querySelector('[data-deck="Biology"] h3'); at.scrollIntoView({ block: 'center' }); const box = at.getBoundingClientRect(); at.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, clientX: box.left + 10, clientY: box.top + 5, button: 2 })) })

@@ -149,7 +149,7 @@ function StudyCards({ studied, week }: { studied: Studied; week: number }): Reac
  * so the page is still when it shows; the day pointed at is said in a line
  * whose room is kept.
  */
-export function StudyYear(): React.JSX.Element {
+export function StudyYear({ compact = false }: { /** A strip above the decks: the four numbers in one line beside a small year, so it shows on first open. */ compact?: boolean }): React.JSX.Element {
   const studied = useLive(() => window.api.haligtree('study:stats') as Promise<Studied>, null as Studied | null, [], ['item'])
   const [on, setOn] = useState<string | null>(null)
   const weeks = 53
@@ -164,6 +164,30 @@ export function StudyYear(): React.JSX.Element {
     [plural(studied?.average ?? 0, 'card', 'cards'), 'a day, on days studied'],
     [`${share}%`, 'of days studied']
   ]
+  const cells = days.map((one) => {
+    const n = studied?.year[one.day] ?? 0
+    return (
+      <span key={one.day} data-day={one.day} data-n={n} onPointerEnter={() => setOn(one.later ? null : `${plural(n, 'review', 'reviews')}, ${dayWords(one.day)}`)}
+        className={`aspect-square w-full ${compact ? 'rounded-[1.5px]' : 'rounded-[2px]'}`}
+        style={{ background: one.later ? 'transparent' : n ? `color-mix(in oklab, var(--foreground) ${Math.round(25 + 70 * Math.min(1, n / most))}%, transparent)` : 'color-mix(in oklab, var(--foreground) 7%, transparent)' }} />
+    )
+  })
+  const total = plural(Object.values(studied?.year ?? {}).reduce((sum, n) => sum + n, 0), 'review', 'reviews')
+  if (compact)
+    return (
+      <section data-study-year-map data-compact aria-label="A year of study" className="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-[5px] border border-foreground/10 bg-accent/25 px-3 py-2.5">
+        <div className="grid min-w-0 flex-1 gap-1">
+          <p data-year-numbers className="flex flex-wrap gap-x-4 gap-y-0.5 text-sm text-muted-foreground tabular-nums">
+            {numbers.map(([value, label]) => <span key={label} data-year-number={label}><b className="font-semibold text-foreground">{value}</b> {label}</span>)}
+          </p>
+          <p data-year-said className="h-5 truncate text-sm text-muted-foreground tabular-nums">{on ?? `${total} this year, a square a day`}</p>
+        </div>
+        {/* The latest weeks always show: on a narrow window the oldest are cut on the left. */}
+        <div className="flex max-w-full justify-end overflow-hidden">
+          <div data-year-grid className="grid shrink-0 gap-[2px]" style={{ gridTemplateColumns: `repeat(${weeks}, 8px)`, gridTemplateRows: 'repeat(7, 8px)', gridAutoFlow: 'column' }} onPointerLeave={() => setOn(null)}>{cells}</div>
+        </div>
+      </section>
+    )
   return (
     <section data-study-year-map aria-label="A year of study" className="grid gap-3 rounded-[5px] border border-foreground/10 bg-accent/25 p-4">
       <div data-year-numbers className="grid grid-cols-2 gap-x-6 gap-y-2 sm:grid-cols-4">
@@ -174,19 +198,10 @@ export function StudyYear(): React.JSX.Element {
           </p>
         ))}
       </div>
-      <div data-year-grid className="grid gap-[2px]" style={{ gridTemplateColumns: `repeat(${weeks}, minmax(0, 1fr))`, gridTemplateRows: 'repeat(7, auto)', gridAutoFlow: 'column' }} onPointerLeave={() => setOn(null)}>
-        {days.map((one) => {
-          const n = studied?.year[one.day] ?? 0
-          return (
-            <span key={one.day} data-day={one.day} data-n={n} onPointerEnter={() => setOn(one.later ? null : `${plural(n, 'review', 'reviews')}, ${dayWords(one.day)}`)}
-              className="aspect-square w-full rounded-[2px]"
-              style={{ background: one.later ? 'transparent' : n ? `color-mix(in oklab, var(--foreground) ${Math.round(25 + 70 * Math.min(1, n / most))}%, transparent)` : 'color-mix(in oklab, var(--foreground) 7%, transparent)' }} />
-          )
-        })}
-      </div>
+      <div data-year-grid className="grid gap-[2px]" style={{ gridTemplateColumns: `repeat(${weeks}, minmax(0, 1fr))`, gridTemplateRows: 'repeat(7, auto)', gridAutoFlow: 'column' }} onPointerLeave={() => setOn(null)}>{cells}</div>
       <p data-year-said className="flex h-5 items-center justify-between gap-3 text-sm text-muted-foreground tabular-nums">
         <span className="min-w-0 truncate">{on ?? 'A square a day, the darker the more cards.'}</span>
-        <span className="shrink-0">{plural(Object.values(studied?.year ?? {}).reduce((sum, n) => sum + n, 0), 'review', 'reviews')} this year</span>
+        <span className="shrink-0">{total} this year</span>
       </p>
     </section>
   )

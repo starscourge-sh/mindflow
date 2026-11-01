@@ -50,26 +50,39 @@ try {
   check('2. "Make a card", "Add many at once" and "Import" are at the top', /Make a card/.test(top) && /Add many at once/.test(top) && /Import/.test(top), top)
   check('2. Import names Anki and CSV', /Anki/.test(await text('[data-deck-import]')) && /CSV/.test(await text('[data-deck-import]')))
 
-  // 3. Decks: a plain face, due first, squarer, no Coolshapes by default.
+  // 3. Pockets: squarish tiles in a grid, a plain face, due first in ink, no Coolshapes by default, one filled button on the page.
   check('3. no Coolshapes cover on any deck by default', !(await has('[data-deck-shelf] [data-group-cover]')))
-  check('3. each deck has a plain face with its due count, or its new count when none is due', await has('[data-deck-face="#biology"]') && /^5 ?new$/.test(await text('[data-deck-face="#biology"]')))
+  check('3. each deck shows its due count large, or its new count when none is due', await has('[data-deck-face="#biology"]') && /^5 ?new$/.test((await text('[data-deck-face="#biology"]')).trim()), await text('[data-deck-face="#biology"]'))
   const counts = await text('[data-own-deck="spanish"] [data-deck-counts]')
-  check('3. the counts say due first, then new, then cards', /^\d+ due · \d+ new · \d+ cards?$/.test(counts.trim()), counts)
+  check('3. the counts say due first, then new', /^\d+ due · \d+ new$/.test(counts.trim()), counts)
   const radius = await h.evaluate(() => parseFloat(getComputedStyle(document.querySelector('[data-own-deck="biology"]')).borderTopLeftRadius))
   check('3. a deck is squarer: a corner of 4 to 6 px', radius >= 4 && radius <= 6, `${radius}px`)
-  check('3. the parent counts the cards of the decks inside it', /5 cards/.test(await text('[data-own-deck="biology"] [data-deck-counts]')), await text('[data-own-deck="biology"] [data-deck-counts]'))
+  check('3. the parent counts the cards of the decks inside it', /5 new/.test(await text('[data-own-deck="biology"] [data-deck-counts]')), await text('[data-own-deck="biology"] [data-deck-counts]'))
+  const grid = await h.evaluate(() => { const tiles = [...document.querySelectorAll('[data-deck-grid] > [data-deck]')].map((one) => one.getBoundingClientRect()); return { across: new Set(tiles.map((r) => Math.round(r.top))).size ? tiles.filter((r) => Math.round(r.top) === Math.round(tiles[0].top)).length : 0, w: Math.round(tiles[0]?.width ?? 0), h: Math.round(tiles[0]?.height ?? 0) } })
+  check('3. decks are tiles, 2 to 4 across, about 170 to 230 px wide', grid.across >= 2 && grid.across <= 4 && grid.w >= 165 && grid.w <= 235, JSON.stringify(grid))
+  check('3. no button on a tile but its menu and its sub-decks', await h.evaluate(() => [...document.querySelectorAll('[data-deck-grid] [data-deck] button')].every((one) => one.matches('[aria-label="Deck options"], [data-deck-kids]'))))
+  check('3. one filled button on the page: "Study now"', await h.evaluate(() => { const fill = getComputedStyle(document.querySelector('[data-study-now]')).backgroundColor; return [...document.querySelectorAll('button')].filter((one) => one.offsetParent && getComputedStyle(one).backgroundColor === fill).length === 1 }))
+  check('3. due numbers are in ink, the accent only on a small dot', await h.evaluate(() => { const due = document.querySelector('[data-deck-grid] [data-count-due]:not([data-count-due="0"])'); return !due || getComputedStyle(due).color === getComputedStyle(document.querySelector('[data-deck-grid] h3')).color }))
+  check('3. the tabs sit on the left of the page line, "Study now" on the right', await h.evaluate(() => document.querySelector('[data-review-tabs]').getBoundingClientRect().right < document.querySelector('[data-study-now]').getBoundingClientRect().left && document.querySelector('[data-review-tabs]').getBoundingClientRect().left < window.innerWidth / 2))
+  await h.click('[data-own-deck="spanish"]')
+  check('3. clicking a tile studies it', await waitFor(() => h.evaluate(() => document.querySelector('[data-study-now]')?.getAttribute('aria-pressed') === 'true'), 3000))
+  await h.click('[data-review-tab="decks"]')
+  await waitFor(() => has('[data-deck-grid]'))
 
-  // 4. Sub-decks fold on a chevron, drawn on the trunk.
-  check('4. a sub-deck with its own inside has a fold chevron', await has('[data-own-deck="biology"] [data-deck-fold-kids="cells"]'))
-  check('4. its child shows while open', await has('[data-deck-child="biology-cells-parts"]'))
-  await h.click('[data-own-deck="biology"] [data-deck-fold-kids="cells"]')
-  check('4. folding hides the deck inside it', await waitFor(() => h.evaluate(() => !document.querySelector('[data-deck-child="biology-cells-parts"]')), 2000))
-  check('4. the chevron says it is folded', (await h.getAttribute('[data-own-deck="biology"] [data-deck-fold-kids="cells"]', 'aria-expanded')) === 'false')
-  await h.click('[data-own-deck="biology"] [data-deck-fold-kids="cells"]')
-  check('4. unfolding brings it back', await waitFor(() => has('[data-deck-child="biology-cells-parts"]'), 2000))
+  // 4. Sub-decks: "+N sub-decks" on the tile opens their tree under the grid, which folds on chevrons.
+  check('4. a deck with sub-decks says how many', /\+2 sub-decks/.test(await text('[data-deck-kids="biology"]')), await text('[data-deck-kids="biology"]'))
+  await h.click('[data-deck-kids="biology"]')
+  check('4. it opens their tree under the grid', await waitFor(() => has('[data-deck-inside-of="biology"] [data-deck-row="biology-cells-parts"]'), 2000))
+  check('4. a sub-deck with its own inside has a fold chevron', await has('[data-deck-inside-of="biology"] [data-deck-fold-kids="cells"]'))
+  await h.click('[data-deck-inside-of="biology"] [data-deck-fold-kids="cells"]')
+  check('4. folding hides the deck inside it', await waitFor(() => h.evaluate(() => !document.querySelector('[data-deck-row="biology-cells-parts"]')), 2000))
+  await h.click('[data-deck-inside-of="biology"] [data-deck-fold-kids="cells"]')
+  check('4. unfolding brings it back', await waitFor(() => has('[data-deck-row="biology-cells-parts"]'), 2000))
+  await h.click('[data-deck-kids="biology"]')
+  check('4. "Hide sub-decks" puts the tree away', await waitFor(() => h.evaluate(() => !document.querySelector('[data-deck-inside-of="biology"]')), 2000))
 
-  // 5. The year under the decks, with its four numbers.
-  check('5. the year of study sits under the decks', await h.evaluate(() => { const year = document.querySelector('[data-study-year-map]'); const last = [...document.querySelectorAll('[data-deck]')].pop(); return !!year && !!last && year.getBoundingClientRect().top > last.getBoundingClientRect().bottom }))
+  // 5. The year above the decks, seen on first open, with its four numbers.
+  check('5. the year of study sits above the decks, in the first screen', await h.evaluate(() => { const year = document.querySelector('[data-study-year-map]').getBoundingClientRect(); const first = document.querySelector('[data-deck-grid]').getBoundingClientRect(); return year.bottom <= first.top && year.bottom < window.innerHeight }))
   check('5. it has a square a day for 53 weeks', (await h.evaluate(() => document.querySelectorAll('[data-year-grid] [data-day]').length)) === 371)
   const numbers = await h.evaluate(() => [...document.querySelectorAll('[data-year-number]')].map((one) => one.textContent))
   check('5. streak now, longest streak, average day and share of days studied', ['streak now', 'longest streak', 'a day, on days studied', 'of days studied'].every((one) => numbers.some((line) => line.endsWith(one))), numbers.join(' | '))
