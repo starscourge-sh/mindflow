@@ -39,7 +39,8 @@ const OTHER_PICTURE = drawingFor('a link card').url
  * between them as between radio buttons.
  */
 export function Choices({ options, on, pick, label, min = '7.5rem', tall = false }: {
-  options: { id: string; label: string; show: ReactNode }[]
+  /** `said`: one line under the name, saying what the choice does. */
+  options: { id: string; label: string; show: ReactNode; said?: string }[]
   on: (id: string) => boolean
   pick: (id: string) => void
   label: string
@@ -69,6 +70,7 @@ export function Choices({ options, on, pick, label, min = '7.5rem', tall = false
               {option.show}
             </span>
             <span className={`px-0.5 text-control ${chosen ? 'text-foreground' : 'text-muted-foreground group-hover:text-foreground'}`}><Weighted on={chosen}>{option.label}</Weighted></span>
+            {option.said && <span data-choice-said className="px-0.5 text-meta text-muted-foreground text-pretty">{option.said}</span>}
           </button>
         )
       })}
@@ -667,21 +669,36 @@ const NOTE_LINES = (ink: string): React.JSX.Element => (
     <span className="block h-[2px] w-[70%] rounded-full" style={{ background: ink }} />
   </span>
 )
-/** A sticky on the desktop in each material: paper, frost (the picture blurred and whitened, leaning) or glass (blurred and dimmed, straight). */
-const Sticky = ({ made }: { made: 'paper' | 'frost' | 'glass' }): React.JSX.Element => (
-  <span className="absolute inset-0" style={{ background: WALL }}>
-    <span className="absolute top-2.5 left-1/2 block h-11 w-14 -translate-x-1/2 overflow-hidden rounded-[5px] shadow-[0_4px_10px_-3px_color-mix(in_oklab,var(--mf-shadow-ink)_40%,transparent)]" style={{ transform: `translateX(-50%) rotate(${made === 'glass' ? 0 : -3}deg)`, background: made === 'paper' ? '#f6e7a6' : undefined }}>
-      {made !== 'paper' && <span className="absolute -inset-4 blur-[7px]" style={{ background: WALL }} />}
-      {made === 'frost' && <span className="absolute inset-0 bg-white/55" />}
-      {made === 'glass' && <span className="absolute inset-0 bg-[rgb(20_20_28/0.38)] ring-1 ring-white/25 ring-inset" />}
-      <span className="relative block">{NOTE_LINES(made === 'glass' ? 'rgb(255 255 255 / 0.8)' : 'rgb(40 34 25 / 0.6)')}</span>
+/** Your own desktop picture (main/frost.ts), read once for the material previews; the made-up one until it comes, or when it can't be read. */
+let wallpaper: Promise<string | null> | null = null
+function useWallpaper(): string {
+  const [url, setUrl] = useState<string | null>(null)
+  useEffect(() => {
+    let live = true
+    void (wallpaper ??= window.api?.wallpaper?.() ?? Promise.resolve(null)).then((one) => live && setUrl(one), () => undefined)
+    return () => void (live = false)
+  }, [])
+  return url ? `center / cover no-repeat url("${url}")` : WALL
+}
+/**
+ * A sticky on your desktop in each material, drawn over your own desktop picture: paper is the note's own colour,
+ * solid, nothing showing through; glass is the Mac's window glass, your desktop showing through it, blurred.
+ */
+function Sticky({ made }: { made: 'paper' | 'glass' }): React.JSX.Element {
+  const desk = useWallpaper()
+  return (
+    <span className="absolute inset-0" style={{ background: desk }}>
+      <span className="absolute top-2.5 left-1/2 block h-12 w-16 -translate-x-1/2 overflow-hidden rounded-[5px] shadow-[0_6px_14px_-4px_rgb(0_0_0/0.45)]" style={{ background: made === 'paper' ? '#f6e7a6' : undefined }}>
+        {made === 'glass' && <span className="absolute -inset-4 blur-[8px] saturate-150" style={{ background: desk }} />}
+        {made === 'glass' && <span className="absolute inset-0 bg-[rgb(255_255_255/0.22)] ring-1 ring-white/40 ring-inset" />}
+        <span className="relative block">{NOTE_LINES(made === 'glass' ? 'rgb(20 20 28 / 0.75)' : 'rgb(40 34 25 / 0.6)')}</span>
+      </span>
     </span>
-  </span>
-)
+  )
+}
 export const stickyChoices = [
-  { id: 'paper', label: 'Paper' },
-  { id: 'frost', label: 'Wallpaper frost' },
-  { id: 'glass', label: 'Glass' }
+  { id: 'paper', label: 'Paper', said: 'Solid, in the note’s own colour. Nothing shows through.' },
+  { id: 'glass', label: 'Glass', said: 'The Mac’s own window glass: your desktop shows through, blurred.' }
 ].map((one) => ({ ...one, show: <Sticky made={one.id as 'paper'} /> }))
 
 /** A sticky that now and then lifts a little and settles, every few seconds here (every half hour or so for real), and when pointed at. */

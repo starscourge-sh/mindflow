@@ -169,6 +169,15 @@ export function frostWindow(win: BrowserWindow, up: () => boolean, paper = false
  * transparency change. Nothing at all while every sticky is put away.
  */
 export function registerFrost(): void {
+  // Settings' material previews: a small, sharp copy of the main screen's own picture, so each sample sits on your
+  // desktop rather than a made-up one. Read here only, never sent anywhere; none when it can't be read.
+  ipcMain.handle('wallpaper', async () => {
+    await ask()
+    const display = screen.getPrimaryDisplay()
+    const one = pictures.get(display.id) ?? [...pictures.values()][0]
+    const thumb = one ? await nativeImage.createThumbnailFromPath(one.path, { width: 480, height: 480 }).catch(() => null) : null
+    return thumb && !thumb.isEmpty() ? thumb.toDataURL() : null
+  })
   ipcMain.handle('frost', (event) => {
     const win = BrowserWindow.fromWebContents(event.sender)
     return win && windows.has(win) ? frostOf(win) : null

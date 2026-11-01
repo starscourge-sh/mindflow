@@ -330,6 +330,8 @@ const api = {
   tuckBeacon: (id: string): void => ipcRenderer.send('beacon:tuck', id),
   /** A sticky's frost: the desktop picture blurred, its screen and where the window is; asked once, then told on each change. */
   frost: (): Promise<Frost | null> => ipcRenderer.invoke('frost'),
+  /** The main screen's desktop picture, small, for Settings' sticky material previews; null when it can't be read. */
+  wallpaper: (): Promise<string | null> => ipcRenderer.invoke('wallpaper'),
   onFrost: (listen: (frost: Frost) => void): (() => void) => {
     const relay = (_event: unknown, frost: Frost): void => listen(frost)
     ipcRenderer.on('frost', relay)

@@ -1084,9 +1084,9 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
           <Setting title="Show sticky notes" note="Every sticky note out, or all put away where they were." more="Goal cards go with them. ⌃⌥⌘N from anywhere.">
             <Switch checked={settings.stickiesShown} onCheckedChange={(stickiesShown) => set({ stickiesShown })} />
           </Setting>
-          <Setting title="Sticky note material" note="What sticky notes and goal cards look like on the desktop." keywords="sticky notes are made of paper frost glass sticky notes frosted glass blur wallpaper desktop transparent paper vibrancy"
-            below={<Choices label="Sticky note material" options={stickyChoices} on={(id) => id === (settings.stickiesFrosted === false ? 'paper' : settings.stickiesGlass ? 'glass' : 'frost')}
-              pick={(id) => set({ stickiesFrosted: id !== 'paper', stickiesGlass: id === 'glass' })} />} />
+          <Setting title="Sticky note material" note="What sticky notes and goal cards look like on the desktop." keywords="sticky notes are made of paper glass sticky notes frosted glass blur wallpaper desktop transparent see-through solid opaque vibrancy"
+            below={<Choices label="Sticky note material" options={stickyChoices} on={(id) => id === (settings.stickiesFrosted !== false && settings.stickiesGlass ? 'glass' : 'paper')}
+              pick={(id) => set({ stickiesFrosted: id === 'glass', stickiesGlass: id === 'glass' })} />} />
           <Setting title="Stickies stir" note="Every half hour or so, one sticky lifts a little, so your eye finds it." more="Like paper in a draught. Never while you write in it." keywords="stickies stir now and then sticky notes stir move motion wiggle attention banner blindness notice">
             <StirSample on={settings.stickiesStir !== false} />
             <Switch checked={settings.stickiesStir !== false} onCheckedChange={(stickiesStir) => set({ stickiesStir })} />
