@@ -739,6 +739,8 @@ function Surface({
   }, [dragScroll])
 
   const [searchOpen, setSearchOpen] = useState(false)
+  // Find taken away (the pill): an open bar goes with it.
+  useEffect(() => void (!search && setSearchOpen(false)), [search])
   const [sourceOpen, setSourceOpen] = useState(showSource)
   const emptyAtStart = typeof defaultContent === "string" ? !defaultContent.trim() : !JSON.stringify(defaultContent ?? null).includes('"text":"')
   // Through a ref: extensions are built once, and the handler can change.
@@ -820,6 +822,7 @@ function Surface({
   )
 
   const finder = useLatest(findNotes)
+  const searchable = useLatest(search)
   const opener = useLatest(onOpenNote)
   const headingFinder = useLatest(findHeadings)
   // @tiptap/react already routes `onUpdate` to the newest props. The ref is for
@@ -1482,7 +1485,8 @@ function Surface({
         start: emptyAtStart ? "insert" : vimStart,
         // A line has nowhere for o, O, V or dd to go.
         singleLine: shape === "line",
-        onSearch: () => setSearchOpen(true),
+        // Find only where this editor has it: not in quick capture's one-line pill, where Vim's / opens nothing.
+        onSearch: () => void (searchable.current && setSearchOpen(true)),
       }),
       ...(tokens.length
         ? // `onToken` reads a ref, which the rule cannot tell from reading one
@@ -2055,7 +2059,7 @@ function Surface({
         {(fixedItems !== false || search) && (
           // The holder spans the editor's width but is see-through to the
           // pointer, so only its controls catch clicks, not the lines under it.
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 z-50 m-auto">
+          <div data-find-holder className="pointer-events-none absolute inset-x-0 bottom-0 z-50 m-auto">
           <div className="w-full flex flex-col gap-1 items-center py-3 select-none">
             {/* Its room opens at once (a growing height stretched the bar's
                 words); opened by a click the bar fades and rises 4px into it,
