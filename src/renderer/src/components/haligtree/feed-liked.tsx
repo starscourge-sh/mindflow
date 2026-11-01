@@ -7,7 +7,7 @@ import { cn } from '@/lib/cn'
 import { useHere } from '@/lib/split'
 import { dayjs, num } from '../../../../main/dates'
 import type { LikedPost, LikedSide } from '../../../../main/feed'
-import { Page, Tip, openTag, toast, typing } from './ui'
+import { Docked, Page, Tip, openTag, toast, typing } from './ui'
 import { RowMenu, copyLinkItem, type MenuItem } from './row-menu'
 import { Avatar } from './avatar'
 import { openSource } from '@/lib/sources'
@@ -147,9 +147,10 @@ export function FeedLiked({ tabs, onOpen }: { tabs: React.ReactNode; onOpen: (ty
   // Always a line, so the tabs under it sit where Notes' and Reading's do.
   const lead = <span data-liked-holds className="truncate text-control text-muted-foreground">{side.total ? `${likesSaid(side.total)} on ${num(side.notes)} ${side.notes === 1 ? 'post' : 'posts'}` : 'No likes yet'}</span>
   return (
-    <Page title="Feed" waiting={waiting} lead={lead}>
-      <div ref={root} data-feed-liked className="flex items-start gap-8 px-5 pt-[33px] pb-16">
-        <div className="flex min-w-0 flex-1 flex-col">
+    <Page title="Feed" dock waiting={waiting} lead={lead}>
+      {/* The likes scroll by themselves; the side column is docked at the page's right edge, full height. */}
+      <Docked side={side.total > 0 ? <LikedSideColumn side={side} onOpen={open} /> : null}>
+      <div ref={root} data-feed-liked className="flex min-w-0 flex-col px-5 pt-[33px] pb-16">
           {tabs}
           {!posts?.length && !side.total ? (
             <p data-liked-empty className="py-10 text-body text-foreground">Nothing liked yet. Tap the heart on a post in Notes and it is kept here, the newest first.</p>
@@ -190,9 +191,8 @@ export function FeedLiked({ tabs, onOpen }: { tabs: React.ReactNode; onOpen: (ty
               </div>
             </>
           )}
-        </div>
-        {side.total > 0 && <LikedSideColumn side={side} onOpen={open} />}
       </div>
+      </Docked>
     </Page>
   )
 }
@@ -268,7 +268,7 @@ function LikedSideColumn({ side, onOpen }: { side: LikedSide; onOpen: (post: Lik
   const row = 'flex w-full min-w-0 items-center gap-2 rounded-md px-2 py-1.5 text-left text-control text-foreground transition-colors hover:bg-accent/60'
   const letters = distinctInitials(side.sources.map((one) => one.name))
   return (
-    <aside data-liked-side aria-label="Beside Liked" className="sticky top-[33px] mt-[3.25rem] hidden max-h-[calc(100dvh-8rem)] w-[15.5rem] shrink-0 flex-col gap-3 overflow-y-auto overscroll-contain @[56rem]/page:flex">
+    <aside data-liked-side aria-label="Beside Liked" className="page-dock-side">
       {side.yearAgo.length > 0 && (
         <SideCard name="year-ago" title={side.yearAgoExact ? 'You liked a year ago today' : 'You liked a year ago this week'}>
           {side.yearAgo.map((post) => (

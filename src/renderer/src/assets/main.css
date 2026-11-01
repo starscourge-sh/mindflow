@@ -1025,6 +1025,53 @@ html:is([data-width='page'], [data-width='wide']) header.page-column {
   max-width: none;
   padding-inline: max(1.25rem, calc((100% - var(--mf-col-page)) / 2 + 1.25rem));
 }
+/* A page with a side column docked at its right edge (Docked, ui.tsx): the
+   page's column scrolls by itself, starting where the line above starts; the
+   side column runs the window's height, its hairline on the left. */
+.page-dock {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  container-type: inline-size;
+}
+.page-dock-main {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+.page-dock-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+html:is([data-width='page'], [data-width='wide']) .page-dock-column,
+[data-pane]:is([data-width='page'], [data-width='wide']) .page-dock-column {
+  max-width: calc(max(0px, (100cqw - var(--mf-col-page)) / 2) + var(--mf-col-page));
+  padding-left: max(0px, (100cqw - var(--mf-col-page)) / 2);
+}
+[data-pane][data-width='full'] .page-dock-column {
+  max-width: none;
+  padding-left: 0;
+}
+.page-dock-side {
+  display: none;
+  flex: none;
+  flex-direction: column;
+  gap: 0.75rem;
+  width: 17.5rem;
+  height: 100%;
+  min-height: 0;
+  padding: 1rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-left: 1px solid var(--tt-border-color);
+}
+/* Only once there is room for it beside the page's column, as before. */
+@container (min-width: 56rem) {
+  .page-dock-side { display: flex; }
+}
 /* Today's sheet (the brief and the page under it): a centred column like
    any page, edge to edge with Full width. */
 html:is([data-width='page'], [data-width='wide']) .page-sheet {

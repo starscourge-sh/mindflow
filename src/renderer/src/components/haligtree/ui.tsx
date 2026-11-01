@@ -1542,6 +1542,29 @@ export function Toaster(): React.JSX.Element | null {
  * toward where you sent them over a few frames instead of in fixed jumps. The
  * editor scrolls itself and is left alone; this is the lists and pages.
  */
+/**
+ * A page with a side column docked at its right edge, full height, its
+ * hairline on the left, as a book's panel in Media and the reader sit: the
+ * page's own column scrolls by itself at the left (on the same left edge as
+ * the line above), the side column holds still and scrolls inside itself
+ * only when it holds more than the window. For a `Page` with `dock`.
+ */
+export function Docked({ side, children }: { side: ReactNode; children: ReactNode }): React.JSX.Element {
+  const [box, setBox] = useState<HTMLDivElement | null>(null)
+  useSmooth(box)
+  return (
+    <div className="page-dock" data-page-dock>
+      <div className="page-dock-main">
+        <div ref={setBox} className="page-dock-scroll" data-page-dock-scroll>
+          <div className="page-dock-column">{children}</div>
+        </div>
+        <BackToTop target={box} />
+      </div>
+      {side}
+    </div>
+  )
+}
+
 export function SmoothScroll({ children, wide = false, fit = false, beside }: { children: ReactNode; wide?: boolean; fit?: boolean | 'columns'; /** Drawn over the box, not in it, given the box: a page's contents. */ beside?: (box: HTMLDivElement | null) => ReactNode }): React.JSX.Element {
   const [box, setBox] = useState<HTMLDivElement | null>(null)
   useSmooth(box)

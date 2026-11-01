@@ -13,7 +13,7 @@ import { useGrades } from './review-view'
 import { backIn } from '@/lib/back-in'
 import { openSource, sources, type SourceSummary } from '@/lib/sources'
 import { distinctInitials } from '@/lib/people'
-import { Kbd, Page, Tip, jumpTo, openTag, quietly, toast, typing } from './ui'
+import { Docked, Kbd, Page, Tip, jumpTo, openTag, quietly, toast, typing } from './ui'
 import { Switch } from '@/components/ui/switch'
 import { Avatar } from './avatar'
 import { GlossLine, cutWords, openGloss } from './gloss-line'
@@ -383,9 +383,10 @@ function FeedNotes({ onOpen, tabs, pages }: { onOpen: (type: string, id: string)
     return () => window.removeEventListener('keydown', onKey, true)
   })
   return (
-    <Page title="Feed" waiting={unloaded(feed) || real === null} lead={holds ? <span data-feed-holds className="truncate text-control text-muted-foreground">{holds}</span> : undefined}>
-      <div ref={root} data-feed className="flex items-start gap-8 px-5 pt-[33px] pb-16">
-      <div className="flex min-w-0 flex-1 flex-col">
+    <Page title="Feed" dock waiting={unloaded(feed) || real === null} lead={holds ? <span data-feed-holds className="truncate text-control text-muted-foreground">{holds}</span> : undefined}>
+      {/* The posts scroll by themselves; the side column is docked at the page's right edge, full height. */}
+      <Docked side={!feed.safe && !preview && feed.posts.length > 0 ? <SideColumn onOpen={onOpen} /> : null}>
+      <div ref={root} data-feed className="flex min-w-0 flex-col px-5 pt-[33px] pb-16">
         {!shown && tabs}
         {shown ? (
           <Thread post={shown} onBack={back} onOpen={() => open(shown.type, shown.id)} onOpenOther={open} />
@@ -418,8 +419,7 @@ function FeedNotes({ onOpen, tabs, pages }: { onOpen: (type: string, id: string)
           </>
         )}
       </div>
-      {!feed.safe && !preview && feed.posts.length > 0 && <SideColumn onOpen={onOpen} />}
-      </div>
+      </Docked>
     </Page>
   )
 }
@@ -1029,8 +1029,8 @@ export function SideColumn({ onOpen }: { onOpen: (type: string, id: string) => v
   const go = (run: () => void): void => (chime('page'), run())
   const row = 'flex w-full min-w-0 items-center gap-2 rounded-md px-2 py-1.5 text-left text-control text-foreground transition-colors hover:bg-accent/60'
   return (
-    // Never taller than the window: past that it scrolls on its own.
-    <aside data-feed-side aria-label="Beside the Feed" className="sticky top-[33px] mt-[3.25rem] hidden max-h-[calc(100dvh-8rem)] w-[15.5rem] shrink-0 flex-col gap-3 overflow-y-auto overscroll-contain @[56rem]/page:flex">
+    // Docked at the page's right edge, the window's height: it scrolls on its own only when it holds more.
+    <aside data-feed-side aria-label="Beside the Feed" className="page-dock-side">
       {faces.length > 0 && (
         <SideCard name="sources" title="Your sources">
           <div className="flex flex-wrap gap-1.5 px-2 pt-0.5 pb-1.5">
