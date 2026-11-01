@@ -14,18 +14,22 @@ export const HINT_ABOVE = 132
 /** The room kept on the side a hint sits on: its width (320, main.css), its 12px gap and a 12px margin. */
 export const HINT_SIDE = 344
 
-export function hintRoom(place: Box, workArea: Box, base: Room): { side: HintSide; room: Room } {
+/**
+ * `oneLine`: "One line to start" keeps the round controls beside the pill's right end, Spotlight's way (main.css),
+ * so that side's room is theirs, kept always, and a hint goes above or to the left.
+ */
+export function hintRoom(place: Box, workArea: Box, base: Room, oneLine = false): { side: HintSide; room: Room } {
   const above = place.y - workArea.y - 8
   const leftFree = place.x - workArea.x - 8
   const rightFree = workArea.x + workArea.width - (place.x + place.width) - 8
-  const side: HintSide = above >= base.top + HINT_ABOVE ? 'above' : leftFree >= HINT_SIDE ? 'left' : rightFree >= HINT_SIDE ? 'right' : null
+  const side: HintSide = above >= base.top + HINT_ABOVE ? 'above' : leftFree >= HINT_SIDE ? 'left' : !oneLine && rightFree >= HINT_SIDE ? 'right' : null
   return {
     side,
     room: {
       ...base,
       top: side === 'above' ? Math.min(base.top + HINT_ROOM, above) : base.top,
       left: side === 'left' ? HINT_SIDE : base.left,
-      right: side === 'right' ? HINT_SIDE : base.right
+      right: side === 'right' || oneLine ? HINT_SIDE : base.right
     }
   }
 }

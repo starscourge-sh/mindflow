@@ -635,7 +635,7 @@ function roomForHint(win: BrowserWindow, place: Electron.Rectangle): Promise<voi
   const was = rooms.get(win)
   if (!was) return null
   const { workArea } = screen.getDisplayMatching(place)
-  const { side, room } = hintRoom(place, workArea, { ...BOX_ROOM, bottom: was.bottom })
+  const { side, room } = hintRoom(place, workArea, { ...BOX_ROOM, bottom: was.bottom }, boxOneLine() && !isWelcoming())
   if (hintSide === side && room.top === was.top && room.left === was.left && room.right === was.right) return null
   hintSide = side
   setRoom(win, room)

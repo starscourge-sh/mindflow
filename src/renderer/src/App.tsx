@@ -28,6 +28,7 @@ import { BOX_PINS } from './components/pins'
 import { THROWS, comboOf } from './lib/keys'
 import { GraphChip, InboxGraph, useGraphShown } from './components/haligtree/inbox-graph'
 import { HintCard, HintRoom } from './components/hint-card'
+import { createPortal } from 'react-dom'
 import { TodayPanel } from './components/haligtree/today-panel'
 import { selectionActions } from './components/haligtree/selection-actions'
 import { ReviewView } from './components/haligtree/review-view'
@@ -1810,14 +1811,14 @@ export default function App(): React.JSX.Element {
           {(() => {
             const Icon = (CAPTURE_TYPES.find((one) => one.id === kind) ?? CAPTURE_TYPES[0]).icon
             return (
-              <div data-pill-drag="start" className="flex h-full w-[4.5rem] items-center pl-4" style={pill ? ({ WebkitAppRegion: 'drag' } as CSSProperties) : undefined}>
+              <div data-pill-drag="start" className="flex h-full w-[4.75rem] items-center justify-end pr-1.5" style={pill ? ({ WebkitAppRegion: 'drag' } as CSSProperties) : undefined}>
                 {/* To its right: above, in a window one line tall, it was cut off. */}
                 <Tip label="Kind, and more" side="right">
                   <button type="button" data-pill-kind tabIndex={-1} aria-label="Show the kind and more" disabled={!pill}
                     onMouseDown={(event) => event.preventDefault()}
                     onClick={() => (chime('slide'), setOpened(true))}
                     style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}
-                    className={cn('flex size-8 cursor-pointer items-center justify-center text-muted-foreground transition-[color,scale] duration-150 ease-out hover:text-foreground active:scale-[0.97] [&_svg]:size-4', pill && 'pointer-events-auto')}>
+                    className={cn('flex size-8 cursor-pointer items-center justify-center text-muted-foreground transition-[color,scale] duration-150 ease-out hover:text-foreground active:scale-[0.97] [&_svg]:size-5', pill && 'pointer-events-auto')}>
                     <Icon />
                   </button>
                 </Tip>
@@ -2142,20 +2143,31 @@ export default function App(): React.JSX.Element {
               }}
             />
             {/* A draft left an hour or more: a small chip, never the top of the box. */}
-            {leftover && !editing && (
-              <div data-leftover-row className="px-[4.75rem] pt-1.5">
-                <Tip label="Put it back in quick capture to finish or keep">
+            {/* While it is the pill (in quick capture's room), the chip is drawn outside the writing's scroller, in the
+                page's own layer, so it is never overflow there for the caret to scroll the words away to (main.css). */}
+            {leftover && !editing && (pill && window.api.room.left ? createPortal(<div data-leftover-row className="px-[4.75rem] pt-1.5">
+                {/* No tip: its own words say what it is and what a click does, and a tip over it was a second surface. */}
                   <button type="button" data-leftover onMouseDown={(event) => event.preventDefault()} onClick={leftoverBack}
-                    className="inline-flex max-w-full items-center gap-1.5 rounded-full bg-accent/60 px-2.5 py-0.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground active:scale-[0.97]">
+                    className="inline-flex max-w-full cursor-pointer items-center gap-1.5 rounded-full bg-accent/60 px-2.5 py-0.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground active:scale-[0.97]">
                     {/* What it is, then what a click does, in words: "Still to keep" left a newcomer guessing at both. */}
                     <span className="shrink-0">Unsaved from earlier:</span>
                     <span className="truncate text-foreground/80">{leftoverName(leftover)}</span>
                     <span aria-hidden className="text-muted-foreground/60">·</span>
                     <span className="shrink-0 font-medium text-foreground">Bring it back</span>
                   </button>
-                </Tip>
+              </div>, document.body) : (
+              <div data-leftover-row className="px-[4.75rem] pt-1.5">
+                {/* No tip: its own words say what it is and what a click does, and a tip over it was a second surface. */}
+                  <button type="button" data-leftover onMouseDown={(event) => event.preventDefault()} onClick={leftoverBack}
+                    className="inline-flex max-w-full cursor-pointer items-center gap-1.5 rounded-full bg-accent/60 px-2.5 py-0.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground active:scale-[0.97]">
+                    {/* What it is, then what a click does, in words: "Still to keep" left a newcomer guessing at both. */}
+                    <span className="shrink-0">Unsaved from earlier:</span>
+                    <span className="truncate text-foreground/80">{leftoverName(leftover)}</span>
+                    <span aria-hidden className="text-muted-foreground/60">·</span>
+                    <span className="shrink-0 font-medium text-foreground">Bring it back</span>
+                  </button>
               </div>
-            )}
+            ))}
             {/* Reading another capture with a note half written: the way back
                 to it stays in view, so a link followed never loses the draft. */}
             {waiting && (

@@ -35,3 +35,10 @@ test('the side panel open on a 1440 laptop at the top middle: no room on either 
 test('no room anywhere: the hint waits, the room as it always is', () => {
   assert.deepEqual(hintRoom(at(100, 60, 1240), SCREEN, BASE), { side: null, room: BASE })
 })
+
+test('"One line to start": the right is the round controls\' room, always; a hint goes left or above', () => {
+  const { side, room } = hintRoom(at(20, 60), SCREEN, BASE, true)
+  assert.equal(side, null)
+  assert.equal(room.right, HINT_SIDE)
+  assert.equal(hintRoom(at(400, 94), SCREEN, BASE, true).side, 'left')
+})

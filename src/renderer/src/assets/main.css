@@ -2722,6 +2722,65 @@ html[data-tuck-open] :is(.mf-card, [data-goal-card]) { scale: 1 !important; }
    editor's block handles (the + and the grip) stay away while it is the pill. */
 .app-container[data-pill] .tiptap-drag-handle { display: none !important; }
 
+/* The pill read as macOS 26 Spotlight's: large words with the kind glyph just before them (App.tsx, data-pill-ends),
+   one size whether it is the pill or has grown, so the words never change size as it grows. */
+/* Up 4px: the writing column's top padding was set for 17px words; at 20px they sat below the pill's middle.
+   A touch tighter, as large text wants (apple-design, typography): Spotlight's words are set close. */
+.app-container[data-one-line] .tiptap.ProseMirror.haligtree-editor { font-size: calc(1.1875rem * var(--mf-text-scale, 1)); line-height: 1.3; letter-spacing: -0.01em; margin-top: -4px; }
+/* Its round controls stand beside its right end at its own height, in the room main keeps there (hint-room.ts),
+   and stay there as it grows down into the box, as Spotlight's do over its results. Only they show of the strip. */
+html[data-overhang] .app-container[data-one-line] [data-drag-strip] {
+  display: flex;
+  height: 0;
+  padding: 0;
+  pointer-events: none;
+  -webkit-app-region: no-drag;
+}
+html[data-overhang] .app-container[data-one-line] [data-drag-strip] > :not(:has(.mf-top)),
+html[data-overhang] .app-container[data-one-line] [data-drag-strip] :has(> .mf-top) > :not(.mf-top) {
+  display: none;
+}
+html[data-overhang] .app-container[data-one-line] .mf-top {
+  top: var(--mf-room-top);
+  right: auto;
+  left: calc(100vw - var(--mf-room-right) + 12px);
+  height: 56px;
+  pointer-events: auto;
+}
+html[data-overhang] .app-container[data-one-line] :is(.mf-pill button, [data-aside] > *) {
+  height: 56px;
+  min-width: 56px;
+  font-size: 15px;
+  padding-inline: 20px;
+}
+html[data-overhang] .app-container[data-one-line] .mf-pill button {
+  width: 56px;
+  padding: 0;
+}
+html[data-overhang] .app-container[data-one-line] :is(.mf-pill button, [data-aside] > *) svg {
+  width: 20px;
+  height: 20px;
+}
+/* A draft from earlier, offered while it is the pill: its own round chip under the pill, in the room below it,
+   never over the pill's edge or its words. Grown into the box, it sits under the writing line as before. */
+/* Drawn in the page's own layer (App.tsx), so placed by the room: under the pill's left end, 8px below it. */
+html[data-overhang] body > [data-leftover-row] {
+  position: fixed;
+  top: calc(var(--mf-room-top) + 56px + 8px);
+  left: var(--mf-room-left);
+  padding: 0;
+}
+html[data-overhang] body > [data-leftover-row] [data-leftover] {
+  height: 32px;
+  padding-inline: 14px;
+  font-size: 13px;
+  background: var(--background);
+  box-shadow: var(--mf-round-shadow);
+}
+html[data-overhang] body > [data-leftover-row] [data-leftover]:hover {
+  background: color-mix(in oklab, var(--foreground) 7%, var(--background));
+}
+
 /* All cards' index cards (card-browser.tsx): card stock, cream on a light theme and a warm lifted paper on a dark one,
    a fine edge all round, the red rule an index card has under its heading, and a small lift under the pointer. */
 :root { --mf-index-paper: color-mix(in oklab, var(--background) 35%, #fffcf3); --mf-index-rule: color-mix(in oklab, #c2410c 38%, transparent); }
