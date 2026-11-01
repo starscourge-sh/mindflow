@@ -228,8 +228,15 @@ try {
   await shape('box-top-right')
   await putBox('middle')
   const longGem = await pinHint('long')
-  await reopen()
+  await page.evaluate(() => { window.qaShown = 0; window.api.onShown(() => window.qaShown++) })
+  // Opened until the pinned gem shows, three times at most, each miss logged with whether the page heard the open.
+  for (let i = 0; i < 3; i++) {
+    await reopen()
+    if (await page.waitForSelector('[data-hint-words]', { timeout: 2500 }).catch(() => null)) break
+    console.log('long: missed an open', JSON.stringify(await page.evaluate(() => ({ shown: window.qaShown, room: document.querySelector('[data-hint-room]')?.outerHTML.slice(0, 120) }))))
+  }
   const long = { ...(await hint()), gem: longGem }
+  if (!long.top && long.top !== 0) console.log('long: none shown', JSON.stringify(await page.evaluate(() => ({ rnd: Math.random(), room: document.querySelector('[data-hint-room]')?.outerHTML.slice(0, 300), away: document.querySelector('[data-hint-room]')?.getAttribute('data-away'), visible: document.visibilityState }))), JSON.stringify(await c.electron.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find((w) => w.webContents.getURL().includes('/index.html'))?.isVisible())))
   check('a long hint: three lines at most, clear of the card and inside the window', seen(long) && !long.overCard && long.inWindow && long.lines <= 3, JSON.stringify(long))
   if (film) {
     for (const look of ['light', 'dark']) {
@@ -241,7 +248,11 @@ try {
   // Reading: a gem opened in the box from its hint's menu (a capture would open in the box to finish, not to read);
   // opened again, the next hint waits while it is read.
   const readGem = await pinHint('gem')
-  await reopen()
+  for (let i = 0; i < 3; i++) {
+    await reopen()
+    if (await page.waitForSelector('[data-hint-words]', { timeout: 2500 }).catch(() => null)) break
+    console.log('reading: missed an open', JSON.stringify(await page.evaluate(() => ({ shown: window.qaShown }))))
+  }
   await page.waitForSelector('[data-hint-words]', { timeout: 5000 }).catch(() => {})
   await page.click('[data-hint-words]', { button: 'right' }); await wait(400)
   await page.locator('[role=menu] [role=menuitem]', { hasText: 'Open it' }).first().click().catch(() => {})
