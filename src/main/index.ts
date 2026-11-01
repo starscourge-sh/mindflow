@@ -76,12 +76,8 @@ import { registerUnused } from './unused'
 import { registerMedia } from './media'
 import { registerCollect } from './collect'
 import { registerTranscribe } from './transcribe'
-<<<<<<< HEAD
-import { begin, end as endJob, registerJobs } from './jobs'
-import { registerLabels } from './labels'
-=======
 import { Stopped, begin, end as endJob, registerJobs } from './jobs'
->>>>>>> 54794dca (Every long job can be stopped now: importing files and Anki decks (while it opens the deck and keeps its pictures), a whole folder of notes and its pictures, looking for unused files, Scenery's picture copies and the web reader's “Reading the page…”. Each “Stop” is the same quiet word, Esc on it too. A deck stopped part way keeps nothing, its pictures taken out of the store again; a folder keeps the notes already in, each whole, and says how to carry on; Scenery keeps the copies it made; the reader keeps nothing and offers “Read it again”. The import chip keeps its width while it counts, so its “Stop” never moves. Version 0.4.0-beta.81. New probe qa/stop-more.mjs.)
+import { registerLabels } from './labels'
 import { registerDictation } from './dictation'
 import { registerPeople } from './people'
 import { registerSources } from './sources'
