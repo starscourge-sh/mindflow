@@ -1,5 +1,5 @@
-// The Map's foot works on small windows: the key (or its "Key" button) and the "wandering on their own"
-// card sit side by side, never over each other, inside the map, low and short; the key folds into a button when narrow.
+// The Map's foot: two quiet chips, "Key" and "N on their own", side by side at every size, never over each
+// other, inside the map, one height, one line each.
 //   QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 [SHOT=<dir>] node qa/map-foot.mjs
 import { mkdirSync } from 'fs'
 import { checks } from './harness.mjs'
@@ -33,8 +33,8 @@ try {
       check(`${tag}: both sit inside the map`, got.map && inside(got.key) && inside(got.lonely), JSON.stringify(got))
       check(`${tag}: the foot stays low: under a fifth of the map's height`, got.map && Math.max(got.key?.h ?? 0, got.lonely?.h ?? 0) <= got.map.h / 5, JSON.stringify(got))
       check(`${tag}: the card's words fit on one line`, got.oneLine, JSON.stringify(got.lonely))
-      if (w === 900) check(`${tag}: the key folds into one "Key" button`, got.folded, JSON.stringify(got.key))
-      if (w === 1440) check(`${tag}: with room, the key is shown in full`, !got.folded, JSON.stringify(got.key))
+      check(`${tag}: the key is one "Key" chip`, got.folded, JSON.stringify(got.key))
+      check(`${tag}: both chips are one height`, !got.lonely || got.key?.h === got.lonely.h, JSON.stringify(got))
       if (SHOT) await h.screenshot({ path: `${SHOT}/map-${theme}-${w}.png` })
     }
   }

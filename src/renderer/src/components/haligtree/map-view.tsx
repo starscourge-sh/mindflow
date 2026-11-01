@@ -147,13 +147,12 @@ function LinkMap({ onOpen, modes }: { onOpen: (type: string, id: string) => void
   const count = (example ? examples.nodes.length : real?.nodes.length) ?? 0
   // Notes only: a tag's or a picture's dot is not a note.
   const dots = map?.nodes.filter((node) => node.type !== 'tag' && node.type !== 'picture').length ?? 0
-  // A calm key, as a printed map's: two groups, each a short word then its marks, never broken across lines.
-  // Wide, one quiet line with a hairline between the groups; in the "Key" popover, each group a small table.
-  const legend = (stacked: boolean): React.JSX.Element => {
+  // A calm key, as a printed map's, in the "Key" popover: two groups, each a short word over a small table of marks.
+  const legend = (): React.JSX.Element => {
     const group = (label: string, items: React.ReactNode[]): React.JSX.Element => (
-      <div data-map-key-group={label} className={stacked ? 'flex flex-col gap-1.5' : 'contents whitespace-nowrap'}>
+      <div data-map-key-group={label} className="flex flex-col gap-1.5">
         <span className="font-medium text-foreground/80">{label}</span>
-        <div className={stacked ? 'grid grid-cols-2 gap-x-4 gap-y-1' : 'flex items-center gap-3'}>{items}</div>
+        <div className="grid grid-cols-2 gap-x-4 gap-y-1">{items}</div>
       </div>
     )
     const tagItems = now.groups ? now.groups.filter((one) => one.query.trim()).slice(0, 6).map((one, n) => <span key={n} className="flex min-w-0 items-center gap-1.5"><span className="size-2 shrink-0 rounded-full" style={{ background: hueTint(one.colour) }} /><span className="truncate">{one.query}</span></span>) : [
@@ -167,7 +166,7 @@ function LinkMap({ onOpen, modes }: { onOpen: (type: string, id: string) => void
     return (
       <>
         {group(now.groups ? 'Colour: group' : 'Colour: tag', tagItems)}
-        {stacked && <span aria-hidden className="h-px bg-border" />}
+        <span aria-hidden className="h-px bg-border" />
         {group('Icon: kind', kindItems)}
       </>
     )
@@ -200,18 +199,16 @@ function LinkMap({ onOpen, modes }: { onOpen: (type: string, id: string) => void
         <Example on={example} flush className="min-h-0 flex-1" tryIt={<>type <TypedMark>@</TypedMark> in any note and pick another one. The two show up here as dots, joined by a line.</>}>
         {dots ? <GraphCanvas map={map!} onOpen={open} fit={fit} fly={fly} replay={replay} look={example ? undefined : canvasLook} paint={example ? undefined : paint} className="flex-1">
           {replaying && !example && <Replay nodes={map!.nodes} show={replay} onClose={() => (chime('off'), setReplaying(false))} />}
-          {/* The map's foot, one row that never lays one part over another: the key on the left (folded into
-              one "Key" button when the map is narrow), the notes left off on the right. */}
+          {/* The map's foot: two quiet chips of one height, as Obsidian keeps its graph bare. The key on the left
+              (what the colours and icons mean, opened on a click), the notes left off on the right. */}
           <div data-map-foot className="@container/foot pointer-events-none absolute inset-x-4 bottom-3 flex items-end justify-between gap-3" style={panel && !example ? { right: 'calc(18rem + 1.5rem)' } : undefined}>
-            {/* What the colours and icons mean: the colour is the tag, the icon the kind. */}
-            <div data-map-key className="hidden min-w-0 grid-cols-[auto_auto] items-center gap-x-3 gap-y-1 rounded-lg border bg-background px-3 py-1.5 text-meta text-muted-foreground @[52rem]/foot:grid">{legend(false)}</div>
             <Popover onOpenChange={(open) => open && chime('open')}>
               <PopoverTrigger asChild>
-                <Button data-map-key-button variant="outline" className="pointer-events-auto h-10 gap-2 bg-background px-3 text-control dark:bg-background @[52rem]/foot:hidden">
-                  <Palette className="size-4" />Key
+                <Button data-map-key-button variant="outline" size="sm" className="pointer-events-auto gap-1.5 bg-background text-muted-foreground hover:text-foreground dark:bg-background">
+                  <Palette className="size-3.5" />Key
                 </Button>
               </PopoverTrigger>
-              <PopoverContent align="start" side="top" className="flex w-72 flex-col gap-2.5 p-3 text-meta text-muted-foreground">{legend(true)}</PopoverContent>
+              <PopoverContent align="start" side="top" className="flex w-72 flex-col gap-2.5 p-3 text-meta text-muted-foreground">{legend()}</PopoverContent>
             </Popover>
             {/* The notes left off, one click away: each opens, ready for an @ to put it on the map. */}
             {map!.alone && !example ? <Lonely count={map!.alone} notes={map!.lonely ?? []} onOpen={onOpen} /> : null}
@@ -399,18 +396,14 @@ function Lonely({ count, notes: list, onOpen }: { count: number; notes: NonNulla
   return (
     <Popover onOpenChange={(open) => open && chime('open')}>
       <PopoverTrigger asChild>
-        {/* Said as what you could do next, not a pile left undone (notes wandering, not unlinked): the count large, the way in beside it. */}
-        <Button data-map-lonely variant="outline" className="pointer-events-auto ml-auto h-10 min-w-0 shrink-0 gap-2 bg-background px-3 text-control dark:bg-background">
-          <Unlink className="size-4" />
-          <span className="text-lg leading-none font-semibold tabular-nums">{num(count)}</span>
-          {/* Said in full where there is room; on a narrow map, the short way. */}
-          <span className="hidden @[40rem]/foot:inline">{count === 1 ? 'note wandering on its own' : 'notes wandering on their own'}</span>
-          <span className="@[40rem]/foot:hidden">{count === 1 ? 'on its own' : 'on their own'}</span>
-          <span className="font-medium text-primary">Find them company</span>
+        
+        <Button data-map-lonely variant="outline" size="sm" className="pointer-events-auto ml-auto min-w-0 shrink-0 gap-1.5 bg-background text-muted-foreground hover:text-foreground dark:bg-background">
+          <Unlink className="size-3.5" />
+          <span className="tabular-nums">{num(count)} on {count === 1 ? 'its' : 'their'} own</span>
         </Button>
       </PopoverTrigger>
       <PopoverContent align="end" side="top" className="w-80 gap-0 p-0 text-control">
-        <p className="border-b px-3 py-2 text-foreground">Open one and type <TypedMark>@</TypedMark> to link it to another note. Linked, it joins the map.</p>
+        <p className="border-b px-3 py-2 text-foreground"><span className="font-medium">Find them company.</span> Open one and type <TypedMark>@</TypedMark> to link it to another note. Linked, it joins the map.</p>
         <ul className="max-h-72 overflow-y-auto p-1">
           {list.slice(0, 300).map((one) => {
             const kind = kindOf(one.kind) ?? CAPTURE_TYPES[0]

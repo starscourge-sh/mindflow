@@ -90,8 +90,8 @@ export function MapPanel({ look, groups, onChange, onClose }: {
         <Section id="look" title="Look" open={look.open.look} onFold={fold}>
           <Range id="names" label="Names show" value={(20 - look.names) / 17} min={0} max={1} step={0.01} ends={['Close up', 'From far off']}
             set={(value, save) => onChange({ names: Math.round((20 - value * 17) * 10) / 10 }, save)} />
-          <Range id="dots" label="Dot size" value={look.dotSize} min={0.5} max={2.5} step={0.05} percent={MAP_LOOK.dotSize} set={(value, save) => onChange({ dotSize: value }, save)} />
-          <Range id="lines" label="Line thickness" value={look.lineSize} min={0.3} max={4} step={0.05} percent={MAP_LOOK.lineSize} set={(value, save) => onChange({ lineSize: value }, save)} />
+          <Range id="dots" label="Dot size" value={look.dotSize} min={0.2} max={2.5} step={0.05} percent={MAP_LOOK.dotSize} set={(value, save) => onChange({ dotSize: value }, save)} />
+          <Range id="lines" label="Line thickness" value={look.lineSize} min={0.1} max={4} step={0.05} percent={MAP_LOOK.lineSize} set={(value, save) => onChange({ lineSize: value }, save)} />
           <Toggle id="arrows" label="Arrows on links" on={look.arrows} set={(on) => onChange({ arrows: on })} />
         </Section>
         <Section id="layout" title="Layout" open={look.open.layout} onFold={fold}>

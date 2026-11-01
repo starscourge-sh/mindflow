@@ -34,8 +34,8 @@ export type MapLook = {
 
 export const MAP_LOOK: MapLook = {
   tags: false, files: true, pictures: false, hideLonely: true, search: '', groups: null,
-  names: 9, dotSize: 1, lineSize: 1, arrows: false,
-  centre: 0.1, push: 1, linkPull: 0.6, linkLength: 18,
+  names: 12.3, dotSize: 0.5, lineSize: 0.3, arrows: true,
+  centre: 0, push: 1, linkPull: 0.3, linkLength: 35,
   open: { filters: true, groups: true, look: true, layout: false }
 }
 

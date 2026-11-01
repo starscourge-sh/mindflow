@@ -635,7 +635,8 @@ export function GraphCanvas({ map, onOpen, centre, you, about, fit: fitRef, fly,
       }
       // "Arrows": a small head where each link lands, so which note points to which shows.
       if (tuned.current.arrows && !small) {
-        const size = 5 / view.k
+        // In step with the dots, so small dots never wear heads bigger than themselves.
+        const size = (5 * Math.sqrt(tuned.current.dotSize)) / view.k
         for (const line of lines) {
           if (!line.way) continue
           const hot = !!shown && (line.source === shown || line.target === shown)
