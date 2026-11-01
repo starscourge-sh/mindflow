@@ -281,7 +281,8 @@ try {
   // "One line to start", the pill: the hint waits until the pill grows.
   await v('settings:set', { boxOneLine: true })
   await reopen()
-  check('the pill: the hint waits unseen', !seen(await hint()))
+  const pillHint = await hint()
+  check('the pill: the hint waits unseen', !seen(pillHint), JSON.stringify({ pillHint, pill: await page.evaluate(() => ({ pill: !!document.querySelector('.app-container[data-pill]'), away: document.querySelector('[data-hint-room]')?.getAttribute('data-away'), text: document.querySelector('.app-container')?.innerText.slice(0, 120) })) }))
   await shape('pill', async () => {})
   await v('settings:set', { boxOneLine: false })
 
