@@ -2924,6 +2924,10 @@ if (process.env.HALIGTREE_USER_DATA && process.env.HALIGTREE_QA_AWAY) {
   }
   const proto = BrowserWindow.prototype
   const setBounds = proto.setBounds
+  // HALIGTREE_QA_ONSCREEN: windows stay where the app puts them, seen, for a probe that must watch real windows
+  // (qa/sticky-paper-onscreen.mjs); still silent, unfocused and dialog-free.
+  const onscreen = !!process.env.HALIGTREE_QA_ONSCREEN
+  if (!onscreen) {
   proto.show = function (this: BrowserWindow) { away(this); this.showInactive() }
   proto.focus = function () {}
   // Where it was asked to be is kept for the checks to read too (qa/welcome-intro.mjs).
@@ -2949,8 +2953,9 @@ if (process.env.HALIGTREE_USER_DATA && process.env.HALIGTREE_QA_AWAY) {
     proto.setPosition = function (this: BrowserWindow, x: number, y: number) { virtual.set(this, { ...this.getBounds(), x, y }) }
     app.on('browser-window-created', (_, win) => virtual.set(win, getBounds.call(win)))
   }
-  app.focus = () => {}
   app.on('browser-window-created', (_, win) => away(win))
+  } else proto.show = function (this: BrowserWindow) { this.showInactive() }
+  app.focus = () => {}
   // Parked in the same spot, two runs side by side cover each other's windows,
   // and macOS then stops a covered window's frames: its page waits forever for
   // the next one. Every window keeps drawing, covered or not.
@@ -4632,11 +4637,20 @@ app.whenReady().then(() => {
       // The card stays where it was, the same size: as paper it has room round it, as glass none.
       const at = cardFrame(key, win)
       builtGlass.set(key, glass)
-      // The old one fades out as the new one fades in where it was: one card changing its material, not a blink.
+      // The old one stays until the new one is on screen, then fades out as it fades in: one card changing its
+      // material. Faded at once, every card was gone until its new page had drawn (a blink in a built run, seconds
+      // in a development one, where pages compile as they load: "my stickies disappear when I pick Paper").
       stickies.delete(key)
-      fadeOutSticky(win)
+      leaving.add(win)
       quietly.add(key)
       stick(type, rest.join(':'), true, at)
+      const made = stickies.get(key)
+      if (!made || made === win || made.isDestroyed() || !win.isVisible()) fadeOutSticky(win)
+      else {
+        const swap = (): void => fadeOutSticky(win)
+        made.once('show', swap)
+        made.once('closed', swap)
+      }
     }
     applyStickies()
     updateTray()

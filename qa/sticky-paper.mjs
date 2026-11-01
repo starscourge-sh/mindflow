@@ -13,13 +13,13 @@ const { electron, h } = c
 const v = (channel, ...args) => h.evaluate(([one, rest]) => window.api.haligtree(one, ...rest), [channel, args])
 const cards = () => electron.evaluate(async ({ BrowserWindow }) => Promise.all(BrowserWindow.getAllWindows()
   .filter((w) => !w.isDestroyed() && w.webContents.getURL().includes('view=sticky'))
-  .map(async (w) => {
-    const png = w.isVisible() ? (await w.webContents.capturePage()).toBitmap() : Buffer.alloc(0)
+  .map(async (w) => { try {
+    const png = w.isVisible() ? await w.webContents.capturePage().then((one) => one.toBitmap(), () => Buffer.alloc(0)) : Buffer.alloc(0)
     let inked = 0
     for (let i = 3; i < png.length; i += 4 * 97) if (png[i] > 200) inked++
     const b = w.getBounds()
-    return { b: `${b.x},${b.y},${b.width}x${b.height}`, id: w.id, type: new URL(w.webContents.getURL()).searchParams.get('type'), key: new URL(w.webContents.getURL()).searchParams.get('id')?.slice(0, 6), shown: w.isVisible(), opacity: w.qaOpacity ?? 1, inked }
-  })))
+    return { b: `${b.x},${b.y},${b.width}x${b.height}`, id: w.id, type: new URL(w.webContents.getURL()).searchParams.get('type'), key: new URL(w.webContents.getURL()).searchParams.get('id')?.slice(0, 6), shown: w.isVisible(), opacity: w.qaOpacity ?? 1, inked } } catch { return null }
+  })).then((all) => all.filter(Boolean)))
 try {
   await electron.evaluate(({ BrowserWindow }) => {
     const destroy = BrowserWindow.prototype.destroy
