@@ -600,7 +600,7 @@ const glyph = (Icon: LucideIcon): React.JSX.Element => <Icon aria-hidden data-me
 function MenuDots(): React.JSX.Element {
   return (
     <button type="button" aria-label="Deck menu" data-deck-dots onClick={openFromGrip}
-      className="flex size-7 cursor-pointer items-center justify-center rounded-md text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring max-sm:size-8">
+      className="flex size-7 cursor-pointer items-center justify-center rounded-md text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.97] motion-reduce:active:scale-100 max-sm:size-8">
       <AliveIcon icon={DotsHorizontalIcon} size={16} />
     </button>
   )
