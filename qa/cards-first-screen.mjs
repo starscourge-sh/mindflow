@@ -52,7 +52,7 @@ try {
 
   // 3. Decks: a plain face, due first, squarer, no Coolshapes by default.
   check('3. no Coolshapes cover on any deck by default', !(await has('[data-deck-shelf] [data-group-cover]')))
-  check('3. each deck has a plain face with its due count, or its new count when none is due', await has('[data-deck-face="#biology"]') && /^5 ?5 new$/.test(await text('[data-deck-face="#biology"]')))
+  check('3. each deck has a plain face with its due count, or its new count when none is due', await has('[data-deck-face="#biology"]') && /^5 ?new$/.test(await text('[data-deck-face="#biology"]')))
   const counts = await text('[data-own-deck="spanish"] [data-deck-counts]')
   check('3. the counts say due first, then new, then cards', /^\d+ due · \d+ new · \d+ cards?$/.test(counts.trim()), counts)
   const radius = await h.evaluate(() => parseFloat(getComputedStyle(document.querySelector('[data-own-deck="biology"]')).borderTopLeftRadius))

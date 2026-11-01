@@ -14,7 +14,7 @@ try {
     const t0 = Date.now()
     await electron.evaluate(async ({ dialog, Menu }, path) => {
       dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [path] })
-      const find = (menu, label = '') => { for (const one of menu?.items ?? []) { if (one.label === 'Files…' && /import/i.test(label)) return one; const deep = find(one.submenu, one.label); if (deep) return deep } return null }
+      const find = (menu, label = '') => { for (const one of menu?.items ?? []) { if (/^Files/.test(one.label) && /import/i.test(label)) return one; const deep = find(one.submenu, one.label); if (deep) return deep } return null }
       find(Menu.getApplicationMenu())?.click()
     }, join(dir, name))
     let notice = ''

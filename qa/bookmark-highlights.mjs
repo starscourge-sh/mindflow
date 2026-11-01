@@ -32,7 +32,7 @@ const c = await sandbox({ width: 1200, height: 800 })
 const { h, electron } = c
 const importOnce = () => electron.evaluate(async ({ dialog, Menu }, path) => {
   dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [path] })
-  const find = (menu, label = '') => { for (const one of menu?.items ?? []) { if (one.label === 'Files…' && /import/i.test(label)) return one; const deep = find(one.submenu, one.label); if (deep) return deep } return null }
+  const find = (menu, label = '') => { for (const one of menu?.items ?? []) { if (/^Files/.test(one.label) && /import/i.test(label)) return one; const deep = find(one.submenu, one.label); if (deep) return deep } return null }
   find(Menu.getApplicationMenu())?.click()
 }, file)
 const links = () => h.evaluate(async () => Promise.all((await window.api.captures.list()).filter((one) => one.kind === 'link').map(async (one) => ({ title: one.title, body: JSON.stringify((await window.api.captures.get(one.id))?.body ?? '') }))))

@@ -1625,7 +1625,7 @@ export function Home(): React.JSX.Element {
             { label: 'Decide what to keep', hint: 'Decide: once a week, look over what waited', run: () => openPass('decide') },
             { label: 'Import Obsidian or Notion…', hint: 'A vault or a Notion export', words: 'markdown vault bring in', cue: null, run: () => void window.api.importFrom('vault') },
             { label: 'Import from Apple Notes…', hint: 'Folder by folder, into Writing, to sort', cue: null, run: () => void window.api.importFrom('apple-notes') },
-            { label: 'Import highlights and files…', hint: 'Readwise, Kindle, Markdown, bookmarks or Anki', words: 'import anki flashcards cards apkg kindle', cue: null, run: () => void window.api.importFrom('files') },
+            { label: 'Import highlights and files…', hint: 'Readwise, Kindle, Markdown, bookmarks, Anki decks (.apkg, .colpkg) or CSV', words: 'import anki flashcards cards apkg kindle', cue: null, run: () => void window.api.importFrom('files') },
             { label: 'Switch book…', hint: 'Another book of yours, or the sandbox', cue: null, run: () => askBook('switch') },
             ...(SANDBOX ? [] : [
               { label: 'New book…', hint: 'An empty one, apart from this', cue: null, run: () => void askNewBook() },
@@ -1705,9 +1705,11 @@ export function Home(): React.JSX.Element {
             ...practiceActions,
             { label: 'Study stats', hint: 'Reviews a day, how often you remember, what falls due', cue: null, run: () => setView({ id: 'review', focus: ':stats' }) },
             { label: 'Decks', hint: 'Your decks, and shared Anki decks on their own shelf', cue: null, run: () => setView({ id: 'review', focus: ':decks' }) },
-            { label: 'New deck', hint: 'A deck is a tag your cards share: name it, then paste cards or make one', words: 'flashcard flashcards anki', cue: null, run: () => (setView({ id: 'review', focus: ':decks' }), void makeDeck()) },
+            { label: 'New deck', hint: 'A deck is a tag your cards share: name it, then make a card or add many at once', words: 'flashcard flashcards anki', cue: null, run: () => (setView({ id: 'review', focus: ':decks' }), void makeDeck()) },
             ...deckTags.map((tag) => ({ label: `New card in #${tag}`, hint: 'Type the question and its answer, in Review', cue: null, run: () => setView({ id: 'review', focus: `:new:${tag}` }) })),
-            { label: 'Paste cards', hint: 'A list, one card a line: front | back', words: 'flashcard flashcards anki', cue: null, run: () => setView({ id: 'review', focus: ':paste' }) },
+            { label: 'Add many cards at once', hint: 'Paste a list or a spreadsheet, one card a line: front | back', words: 'paste cards flashcard flashcards anki', cue: null, run: () => setView({ id: 'review', focus: ':paste' }) },
+            { label: 'Study now', hint: 'The cards due today, in Review', cue: null, run: () => setView({ id: 'review', focus: ':today' }) },
+            { label: 'Import an Anki deck or CSV…', hint: 'An .apkg, .colpkg or a spreadsheet of cards', words: 'import anki flashcards apkg', cue: null, run: () => void window.api.importFrom('files') },
             { label: 'Liked', hint: 'Every post you hearted, newest first, week by week', cue: null, run: () => (setView({ id: 'feed', focus: ':liked' }), showLiked()) },
             { label: 'Browse all cards', hint: 'Search, sort, pause and tag them, in Review', cue: null, run: () => setView({ id: 'review', focus: ':cards' }) },
             // Study one tag's cards, scheduled as in any review.

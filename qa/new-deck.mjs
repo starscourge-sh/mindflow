@@ -53,7 +53,7 @@ try {
 
   // 1. New deck from the Decks tab: asked in place, shown at once, empty, with its two ways in.
   await decks()
-  check('1. the Decks tab says what a deck is', /A deck is a tag your cards share/.test(await h.evaluate(() => document.querySelector('[data-deck-shelf], [data-empty]')?.textContent ?? '')))
+  check('1. the Decks tab offers the ways cards come in at its top', /Make a card/.test(await h.evaluate(() => document.querySelector('[data-deck-top]')?.textContent ?? '')))
   await h.click('[data-deck-new]')
   check('1. New deck asks for a name in place', await answer('Zymurgy'))
   check('1. the new deck shows at once, empty', await waitFor(() => has('[data-own-deck="zymurgy"] [data-deck-empty]')))
@@ -76,7 +76,7 @@ try {
   // 3. The empty deck is a pocket in All cards that offers Paste cards, aimed at it.
   await cards('small')
   check('3. the empty deck is a pocket in All cards', await waitFor(() => has('[data-pocket-empty="zymurgy"]')))
-  check('3. it says "Paste cards or make one"', /Paste cards or make one/.test(await h.evaluate(() => document.querySelector('[data-pocket-empty="zymurgy"]')?.textContent ?? '')))
+  check('3. it says "Make a card or add many at once"', /Make a card or add many at once/.test(await h.evaluate(() => document.querySelector('[data-pocket-empty="zymurgy"]')?.textContent ?? '')))
   await shot('decks-pockets', async () => { await cards('small'); await waitFor(() => has('[data-pocket-empty]')); await waitFor(() => h.evaluate(() => !document.querySelector('[data-home], [data-view="home"]') && document.getAnimations().every((one) => one.playState !== 'running' || one.effect?.getTiming().iterations === Infinity)), 4000); await h.waitForTimeout(800) })
   // The theme put back reloads the page: back to the pockets first.
   await cards('small'); await waitFor(() => has('[data-pocket-empty="zymurgy"] [data-pocket-paste]'))

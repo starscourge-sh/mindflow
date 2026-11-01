@@ -44,6 +44,8 @@ export function startDeck(deck: string, label: string, on: boolean): void {
  */
 /** Past this many decks of your own, only those made as decks or with cards in Review show before the fold. */
 const MANY = 8
+/** The most pockets drawn before the fold. */
+const POCKETS = 24
 
 export function DeckShelf({ onOpen, onStudy, onPaste }: { onOpen: (type: string, id: string) => void; /** Study a deck's or topic's tag in Today. */ onStudy: (tag: string) => void; /** Paste cards into a deck, or make one card in it, in All cards. */ onPaste: (deck: string | null, one?: boolean) => void }): React.JSX.Element {
   const [gallery, setGallery] = useState<string | null>(null)
@@ -60,7 +62,8 @@ export function DeckShelf({ onOpen, onStudy, onPaste }: { onOpen: (type: string,
   // The most due first. With many, the decks you made and the tags with cards in Review lead; the rest wait behind a fold.
   const tops = own.filter((deck) => deck.depth === 0).sort((a, b) => b.due - a.due || b.cards - a.cards || a.tag.localeCompare(b.tag))
   const many = tops.length > MANY
-  const shown = many ? tops.filter((deck) => deck.made || deck.active > 0) : tops
+  // At most POCKETS on show at once, the most due first: a big collection reads better in the List, which the fold offers.
+  const shown = (many ? tops.filter((deck) => deck.made || deck.active > 0) : tops).slice(0, POCKETS)
   const folded = tops.filter((deck) => !shown.includes(deck))
   // The three ways cards come in, always at the top, whatever is below: as Anki's "Create Deck" and "Import File" are.
   const top = (
@@ -81,7 +84,7 @@ export function DeckShelf({ onOpen, onStudy, onPaste }: { onOpen: (type: string,
   )
   if (!shelves?.length && !own.length)
     return (
-      <div data-deck-shelf className="grid gap-4 px-5 pt-4 pb-20">
+      <div data-deck-shelf className="grid grid-cols-[minmax(0,1fr)] gap-4 px-5 pt-4 pb-20">
         {top}
         <Empty title="No decks yet">
           A deck is a set of cards you study together. Make a card, add many at once from a list or a spreadsheet, or import a deck from Anki (.apkg, .colpkg) or a CSV file.
@@ -91,7 +94,7 @@ export function DeckShelf({ onOpen, onStudy, onPaste }: { onOpen: (type: string,
     )
   if (look === 'list')
     return (
-      <div data-deck-shelf data-deck-look="list" className="grid gap-4 px-5 pt-4 pb-20">
+      <div data-deck-shelf data-deck-look="list" className="grid grid-cols-[minmax(0,1fr)] gap-4 px-5 pt-4 pb-20">
         {top}
         <DeckList own={own} shelves={shelves ?? []} onStudy={onStudy} />
         <StudyYear />
@@ -114,17 +117,21 @@ export function DeckShelf({ onOpen, onStudy, onPaste }: { onOpen: (type: string,
       toast(shelf.shown ? `${shelf.name} is back on its shelf, out of Gems` : `${shelf.name} shows in Gems, Feed and Home now`, () => void call('decks:show', shelf.name, shelf.shown).then(() => chime('undo')))
     })
   return (
-    <div data-deck-shelf data-deck-look="pockets" className="grid gap-3 px-5 pt-4 pb-20">
+    <div data-deck-shelf data-deck-look="pockets" className="grid grid-cols-[minmax(0,1fr)] gap-3 px-5 pt-4 pb-20">
       {/* Your own decks and the shared ones in one list, in one look: a deck is a tag your cards share. */}
       {top}
       {shown.map((deck) => (
         <OwnDeckShelf key={deck.tag} deck={deck} inside={own.filter((one) => one.tag.startsWith(`${deck.tag}-`))} onStudy={onStudy} onPaste={onPaste} onNew={newDeck} shapes={shapes} />
       ))}
       {folded.length > 0 && (
-        <button type="button" data-deck-fold aria-expanded={allTags} onClick={() => (chime(allTags ? 'fold' : 'open'), setAllTags(!allTags))}
-          className="cursor-pointer justify-self-start rounded-md px-2 py-1 text-control font-medium text-foreground/80 hover:bg-accent/50 hover:text-foreground">
-          {allTags ? 'Hide the other tags' : `Show all tags with cards (${num(folded.length)} more)`}
-        </button>
+        <span className="flex flex-wrap items-center gap-1">
+          <button type="button" data-deck-fold aria-expanded={allTags} onClick={() => (chime(allTags ? 'fold' : 'open'), setAllTags(!allTags))}
+            className="cursor-pointer rounded-md px-2 py-1 text-control font-medium text-foreground/80 hover:bg-accent/50 hover:text-foreground">
+            {allTags ? 'Hide the other decks' : `Show ${num(folded.length)} more ${folded.length === 1 ? 'deck' : 'decks'}`}
+          </button>
+          <button type="button" data-deck-fold-list onClick={() => (chime('tap'), setLook('list'))}
+            className="cursor-pointer rounded-md px-2 py-1 text-control font-medium text-foreground/80 hover:bg-accent/50 hover:text-foreground">See every deck in the List</button>
+        </span>
       )}
       {allTags && folded.map((deck) => (
         <OwnDeckShelf key={deck.tag} deck={deck} inside={own.filter((one) => one.tag.startsWith(`${deck.tag}-`))} onStudy={onStudy} onPaste={onPaste} onNew={newDeck} shapes={shapes} />
@@ -135,7 +142,7 @@ export function DeckShelf({ onOpen, onStudy, onPaste }: { onOpen: (type: string,
           {shelf.cover ? (
             <img src={shelf.cover} alt="" className="size-24 shrink-0 rounded-[5px] object-cover" />
           ) : <DeckFace name={shelf.name} due={shelf.due} fresh={shelf.fresh} shapes={shapes} />}
-          <div className="grid min-w-0 flex-1 content-start gap-2">
+          <div className="grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)] content-start gap-2">
             {/* One line, however long the deck's name: the whole of it shows on hover. */}
             <div className="flex items-center gap-2">
               <h3 title={shelf.name} className="min-w-0 flex-1 truncate font-serif text-lg leading-tight text-foreground">{shelf.name}</h3>
@@ -308,7 +315,7 @@ function OwnDeckShelf({ deck, inside, onStudy, onPaste, onNew, shapes }: { deck:
     <RowMenu items={() => rowItems(menu(deck.tag))}>
     <section data-deck={`#${deck.tag}`} data-own-deck={deck.tag} className="flex gap-4 rounded-[5px] border border-foreground/10 bg-accent/25 p-4">
       <DeckFace name={`#${deck.tag}`} due={deck.due} fresh={deck.fresh} shapes={shapes} faded={!deck.cards} />
-      <div className="grid min-w-0 flex-1 content-start gap-2">
+      <div className="grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)] content-start gap-2">
         <div className="flex items-center gap-2">
           <h3 title={`#${deck.tag}`} className="min-w-0 flex-1 truncate font-serif text-lg leading-tight text-foreground">{deck.label}</h3>
           <OptionsMenu sections={menu(deck.tag)} label="Deck options" side="bottom" align="end" className="cursor-pointer" />
@@ -437,7 +444,7 @@ export function DeckFace({ name, due, fresh, shapes, faded = false, small = fals
   return (
     <div aria-hidden data-deck-face={name} className={`grid ${size} shrink-0 content-center justify-items-center gap-0.5 rounded-[5px] border border-foreground/10 bg-background shadow-sm ${faded ? 'opacity-60' : ''}`}>
       <span className={`font-serif text-3xl leading-none tabular-nums ${due ? 'text-primary' : fresh ? 'text-foreground' : 'text-foreground/35'}`}>{num(due || fresh)}</span>
-      <span className="text-xs text-muted-foreground">{fresh && !due ? `${num(fresh)} new` : 'due'}</span>
+      <span className="text-xs text-muted-foreground">{fresh && !due ? 'new' : 'due'}</span>
     </div>
   )
 }

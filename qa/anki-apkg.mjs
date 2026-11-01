@@ -65,7 +65,7 @@ const c = await sandbox({ width: 1200, height: 800 })
 const { h, electron } = c
 const importOnce = (path = file) => electron.evaluate(async ({ dialog, Menu }, path) => {
   dialog.showOpenDialog = async () => ({ canceled: false, filePaths: [path] })
-  const find = (menu, label = '') => { for (const one of menu?.items ?? []) { if (one.label === 'Files…' && /import/i.test(label)) return one; const deep = find(one.submenu, one.label); if (deep) return deep } return null }
+  const find = (menu, label = '') => { for (const one of menu?.items ?? []) { if (/^Files/.test(one.label) && /import/i.test(label)) return one; const deep = find(one.submenu, one.label); if (deep) return deep } return null }
   find(Menu.getApplicationMenu())?.click()
 }, path)
 // The sandbox's own sample cards are left out: only what came from the deck.

@@ -75,10 +75,10 @@ try {
   await c.go('home')
   await h.keyboard.press('Meta+k')
   await h.waitForTimeout(500)
-  await h.keyboard.type('Paste cards', { delay: 15 })
+  await h.keyboard.type('Add many cards at once', { delay: 15 })
   await h.waitForTimeout(500)
   await h.keyboard.press('Enter')
-  check('⌘K "Paste cards" opens it', await waitFor(() => h.evaluate(() => !!document.querySelector('[data-paste-text]'))))
+  check('⌘K "Add many cards at once" opens it', await waitFor(() => h.evaluate(() => !!document.querySelector('[data-paste-text]'))))
 } catch (error) {
   check('the run finished', false, error.message.split('\n')[0])
 } finally {

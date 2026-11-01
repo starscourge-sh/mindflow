@@ -74,7 +74,7 @@ export function setAppMenu(acts: MenuActs): void {
           submenu: [
             { label: 'From Obsidian or Notion…', click: acts.importVault },
             { label: 'From Apple Notes…', click: () => acts.inHome('haligtree:import-folders', { from: 'Apple Notes' }) },
-            { label: 'Files…', click: acts.importFiles }
+            { label: 'Files, Anki Decks or CSV…', click: acts.importFiles }
           ]
         },
         { label: 'Export everything…', click: () => acts.inHome('haligtree:export-all') },

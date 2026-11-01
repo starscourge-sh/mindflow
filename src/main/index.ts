@@ -3861,7 +3861,7 @@ function updateTray(): void {
         submenu: [
           { label: 'From Obsidian or Notion…', click: () => void importVault() },
           { label: 'From Apple Notes…', click: () => inHome('haligtree:import-folders', { from: 'Apple Notes' }) },
-          { label: 'Files…', click: () => void importFiles() },
+          { label: 'Files, Anki Decks or CSV…', click: () => void importFiles() },
           ...(SANDBOX ? [] : [{ type: 'separator' as const }, { label: 'Into another book…', click: () => inHome('haligtree:book-import') }])
         ]
       },
