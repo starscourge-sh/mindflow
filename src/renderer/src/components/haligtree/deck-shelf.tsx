@@ -497,10 +497,10 @@ function useShut(): [Set<string>, (name: string) => void] {
 }
 
 /** The chevron that folds a deck's sub-decks away, or the same room kept empty, so names line up. */
-function Fold({ kids, open, name, flip }: { kids: number; open: boolean; name: string; flip: () => void }): React.JSX.Element {
+function Fold({ id, kids, open, name, flip }: { /** The deck's tag or a shared topic's path, for probes: the name shown can change. */ id: string; kids: number; open: boolean; name: string; flip: () => void }): React.JSX.Element {
   if (!kids) return <span aria-hidden className="size-5 shrink-0" />
   return (
-    <button type="button" data-deck-fold-kids={name} aria-expanded={open} aria-label={`${open ? 'Fold' : 'Unfold'} the decks inside ${name}`} onClick={(event) => (event.stopPropagation(), flip())}
+    <button type="button" data-deck-fold-kids={id} aria-expanded={open} aria-label={`${open ? 'Fold' : 'Unfold'} the decks inside ${name}`} onClick={(event) => (event.stopPropagation(), flip())}
       className="grid size-5 shrink-0 cursor-pointer place-items-center rounded-[4px] text-muted-foreground hover:bg-accent hover:text-foreground">
       <ChevronRight className={`size-3.5 transition-transform duration-150 motion-reduce:transition-none ${open ? 'rotate-90' : ''}`} />
     </button>
@@ -546,7 +546,7 @@ function DeckList({ own, shelves, onStudy, place = {} }: { own: OwnDeck[]; shelv
   const row = (key: string, name: string, title: string, due: number, fresh: number, all: number, kids: number, study: (() => void) | null): React.JSX.Element => (
     <div key={key} data-deck-row={key} className={`${cols} min-h-8 text-control`}>
       <span className="flex min-w-0 items-center gap-1">
-        <Fold kids={kids} open={!shut.has(key)} name={name} flip={() => flip(key)} />
+        <Fold id={key} kids={kids} open={!shut.has(key)} name={name} flip={() => flip(key)} />
         {study ? <button type="button" title={title} data-deck-row-study={key} onClick={() => (chime('riffle'), study())} className="min-w-0 cursor-pointer truncate rounded-[4px] px-1 text-left text-foreground hover:bg-accent">{name}</button>
           : <span title={title} className="min-w-0 truncate px-1 text-muted-foreground">{name}</span>}
       </span>

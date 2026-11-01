@@ -73,10 +73,10 @@ try {
   check('4. a deck with sub-decks says how many', /\+2 sub-decks/.test(await text('[data-deck-kids="biology"]')), await text('[data-deck-kids="biology"]'))
   await h.click('[data-deck-kids="biology"]')
   check('4. it opens their tree under the grid', await waitFor(() => has('[data-deck-inside-of="biology"] [data-deck-row="biology-cells-parts"]'), 2000))
-  check('4. a sub-deck with its own inside has a fold chevron', await has('[data-deck-inside-of="biology"] [data-deck-fold-kids="Cells"]'))
-  await h.click('[data-deck-inside-of="biology"] [data-deck-fold-kids="Cells"]')
+  check('4. a sub-deck with its own inside has a fold chevron', await has('[data-deck-inside-of="biology"] [data-deck-fold-kids="biology-cells"]'))
+  await h.click('[data-deck-inside-of="biology"] [data-deck-fold-kids="biology-cells"]')
   check('4. folding hides the deck inside it', await waitFor(() => h.evaluate(() => !document.querySelector('[data-deck-row="biology-cells-parts"]')), 2000))
-  await h.click('[data-deck-inside-of="biology"] [data-deck-fold-kids="Cells"]')
+  await h.click('[data-deck-inside-of="biology"] [data-deck-fold-kids="biology-cells"]')
   check('4. unfolding brings it back', await waitFor(() => has('[data-deck-row="biology-cells-parts"]'), 2000))
   await h.click('[data-deck-kids="biology"]')
   check('4. "Hide sub-decks" puts the tree away', await waitFor(() => h.evaluate(() => !document.querySelector('[data-deck-inside-of="biology"]')), 2000))
@@ -90,6 +90,9 @@ try {
   check('5. one review today: a streak of 1 day now, the longest at least that', stats.streak?.current === 1 && stats.streak?.longest >= 1 && numbers[0].startsWith('1 day'), JSON.stringify(stats.streak))
 
   // 6. Nothing moves: the top row and the tabs keep their boxes as the page loads, as tabs switch, and on hover.
+  // From the top of the page: pointing at a day in 5 may have scrolled it, and a tab switch opens a page at its top.
+  await h.evaluate(() => { for (let at = document.querySelector('[data-deck-top]'); at; at = at.parentElement) at.scrollTop = 0 })
+  await h.waitForTimeout(200)
   const before = await boxes('[data-deck-top] > *, [data-review-tabs] > *, [data-study-now]')
   await h.hover('[data-deck-make]')
   await h.waitForTimeout(300)
