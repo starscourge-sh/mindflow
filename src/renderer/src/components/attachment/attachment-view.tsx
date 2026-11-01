@@ -14,7 +14,7 @@ import { Roll } from "@/lib/roll"
 import { host } from "@/lib/host"
 import { PdfPages, pdfTitle } from "@/components/pdf/pdf-pages"
 import { learnTitle, openPdf } from "@/components/pdf/pdf-reader"
-import { usePaperPages } from "@/components/pdf/paper"
+import { useDarkPages, usePaperPages } from "@/components/pdf/paper"
 import { usePdfCover } from "@/components/pdf/pdf-cover"
 import { PdfSide, usePdfOutline, type RailTab } from "@/components/pdf/pdf-rail"
 import type { PDFDocumentProxy } from "pdfjs-dist"
@@ -550,6 +550,8 @@ function PdfBlock(props: NodeViewProps): React.JSX.Element {
   const cover = usePdfCover(src, name)
   // Its pages look as the reader's do: white, or "Paper pages" when that is on (one setting for both).
   const [paper, setPaper] = usePaperPages()
+  // "Dark pages" set in the reader turns a PDF in a note dark too, as "Paper pages" does.
+  const [dark, setDark] = useDarkPages()
   // How its pages sit, as you last left them for every PDF in a note.
   const [fit, setFit] = useState<"width" | "height">(() => (localStorage.getItem("pdf-note-fit") === "height" ? "height" : "width"))
   const [spread, setSpread] = useState(() => localStorage.getItem("pdf-note-spread") === "two")
@@ -602,7 +604,7 @@ function PdfBlock(props: NodeViewProps): React.JSX.Element {
   return (
     <NodeViewWrapper
       ref={block}
-      className={`tiptap-attachment is-pdf${selected ? " is-selected" : ""}${paper ? " is-paper" : ""}`}
+      className={`tiptap-attachment is-pdf${selected ? " is-selected" : ""}${paper && !dark ? " is-paper" : ""}${dark ? " is-dark" : ""}`}
       data-pdf-fit={fit}
       data-pdf-spread={spread ? "two" : "one"}
       data-pdf-rail={rail ?? ""}
@@ -640,12 +642,12 @@ function PdfBlock(props: NodeViewProps): React.JSX.Element {
         {tool("Fit height", fit === "height", () => fitTo("height"), <MoveVertical className="tiptap-button-icon" />, "Fit height: a whole page in view")}
         {tool("One page", !spread, () => spreadTo(false), <RectangleVertical className="tiptap-button-icon" />)}
         {tool("Two pages", spread, () => spreadTo(true), <Columns2 className="tiptap-button-icon" />, "Two pages side by side")}
-        {tool(paper ? "White pages" : "Paper pages", paper, () => setPaper(!paper), <ScrollText className="tiptap-button-icon" />, paper ? "White pages" : "Paper pages: easier on the eyes, pictures kept true")}
+        {tool(paper && !dark ? "White pages" : "Paper pages", paper && !dark, () => (setPaper(dark ? true : !paper), setDark(false)), <ScrollText className="tiptap-button-icon" />, paper && !dark ? "White pages" : "Paper pages: easier on the eyes, pictures kept true")}
       </div>
       <div className="tiptap-pdf-body" contentEditable={false}>
         {rail && doc && <PdfSide doc={doc} page={page} outline={outline} tab={rail} onTab={railTo} onGo={go} />}
         <div ref={scroller} className="tiptap-pdf-scroll" onMouseDown={(event) => event.stopPropagation()}>
-          <PdfPages src={src} scroller={scroller} fit={fit} spread={spread} onLoad={(loaded) => (setDoc(loaded), void pdfTitle(loaded, name).then((read) => learnTitle(src, read)))} />
+          <PdfPages src={src} scroller={scroller} fit={fit} spread={spread} dark={dark} onLoad={(loaded) => (setDoc(loaded), void pdfTitle(loaded, name).then((read) => learnTitle(src, read)))} />
         </div>
       </div>
     </NodeViewWrapper>

@@ -1,3 +1,5 @@
+import { Columns2, RectangleVertical, Rows3 } from "lucide-react"
+import { LAYOUTS, type PageLayout } from "./paper"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { ChevronRight } from "lucide-react"
 import { Tree, treeOf, type TreeNode } from "@/components/haligtree/branches"
@@ -172,7 +174,11 @@ export const chapterAt = (outline: OutlineRow[], page: number): number =>
  * The rail with its lists: the pages small, or the outline with the chapter
  * you are in lit. One for the reader and for a PDF shown in a note.
  */
-export function PdfSide({ doc, page, outline, tab, onTab, onGo, narrow, onDrag }: { doc: PDFDocumentProxy; page: number; outline: OutlineRow[]; tab: RailTab; onTab: (tab: RailTab) => void; onGo: (page: number) => void; narrow?: boolean; onDrag?: () => void }): React.JSX.Element {
+/** A book's spreads as it opens: the cover alone, then two pages a spread. */
+const spreadsOf = (count: number): number[][] => [[1], ...Array.from({ length: Math.ceil((count - 1) / 2) }, (_, at) => [2 + at * 2, 3 + at * 2].filter((one) => one <= count))]
+const LAYOUT_ICONS: Record<PageLayout, React.ComponentType<{ className?: string }>> = { continuous: Rows3, single: RectangleVertical, spread: Columns2 }
+
+export function PdfSide({ doc, page, outline, tab, onTab, onGo, narrow, onDrag, layout, onLayout }: { doc: PDFDocumentProxy; page: number; outline: OutlineRow[]; tab: RailTab; onTab: (tab: RailTab) => void; onGo: (page: number) => void; narrow?: boolean; onDrag?: () => void; /** How the pages lie: the thumbnails follow it, and its choice sits over them. */ layout?: PageLayout; onLayout?: (to: PageLayout) => void }): React.JSX.Element {
   const hereAt = chapterAt(outline, page)
   const shown = tab === "outline" && !outline.length ? "pages" : tab
   // The chapter lit comes into view in the rail, as Preview's does.
@@ -182,7 +188,27 @@ export function PdfSide({ doc, page, outline, tab, onTab, onGo, narrow, onDrag }
   }, [hereAt, shown])
   return (
     <PdfRail tab={shown} tabs={[{ id: "pages", label: "Pages" }, ...(outline.length ? [{ id: "outline" as const, label: "Outline" }] : [])]} onTab={onTab} narrow={narrow} onDrag={onDrag}>
-      {shown === "pages" && Array.from({ length: doc.numPages }, (_, index) => <PdfThumb key={index} doc={doc} page={index + 1} here={index + 1 === page} onGo={() => onGo(index + 1)} />)}
+      {shown === "pages" && layout && onLayout && (
+        <div className="pdf-rail-layout" role="radiogroup" aria-label="Page layout">
+          {LAYOUTS.map((one) => {
+            const Icon = LAYOUT_ICONS[one.id]
+            return (
+              <button key={one.id} type="button" role="radio" aria-checked={layout === one.id} aria-label={one.label} title={one.label} data-rail-layout={one.id} className="pdf-rail-layout-choice" onClick={() => onLayout(one.id)}>
+                <Icon className="size-3.5" />
+              </button>
+            )
+          })}
+        </div>
+      )}
+      {/* In "Two pages" the thumbnails lie as the spread does: the cover alone on the right, then pairs. */}
+      {shown === "pages" && layout === "spread"
+        ? spreadsOf(doc.numPages).map((pair) => (
+            <div key={pair.join("-")} className="pdf-thumb-pair" data-thumb-pair={pair.join("-")}>
+              {pair[0] === 1 && <span aria-hidden className="pdf-thumb-gap" />}
+              {pair.map((one) => <PdfThumb key={one} doc={doc} page={one} here={one === page} onGo={() => onGo(one)} />)}
+            </div>
+          ))
+        : shown === "pages" && Array.from({ length: doc.numPages }, (_, index) => <PdfThumb key={index} doc={doc} page={index + 1} here={index + 1 === page} onGo={() => onGo(index + 1)} />)}
       {shown === "outline" && <PdfOutline outline={outline} hereAt={hereAt} list={list} onGo={onGo} />}
     </PdfRail>
   )

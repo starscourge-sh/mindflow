@@ -56,7 +56,33 @@ try {
   const two = await sheets()
   const [p1, p2, p3] = two.pages
   check('"Two pages": the cover lies alone on the right, then 2 and 3 side by side', p1 && p2 && p3 && p2.y > p1.y + 10 && Math.abs(p2.y - p3.y) <= 1 && p3.x > p2.x && p1.x > p2.x, JSON.stringify(two.pages))
+  // A wide, short window: two pages fitted to the width alone would run off the bottom.
+  await c.size(1900, 720); await wait(1200)
+  const wide = await sheets()
+  check('"Two pages" at Fit in a wide, short window: the whole spread fits the window\'s height', wide.pages[0] && wide.pages[0].h <= wide.view.height + 1, JSON.stringify({ page: wide.pages[0], view: wide.view }))
+  await h.screenshot({ path: `${SHOT}-two-wide.png` })
+  await c.size(1300, 860); await wait(1000)
   await c.both(`${SHOT}-two`)
+  // The sidebar's thumbnails lie as the spread does, and the sidebar offers the layouts too.
+  if (!(await h.$('.pdf-rail'))) await h.click('.pdf-reader button[aria-label="Sidebar"]')
+  await wait(800)
+  const rail = await h.evaluate(() => ({ pairs: [...document.querySelectorAll('.pdf-rail [data-thumb-pair]')].slice(0, 3).map((one) => one.dataset.thumbPair), choice: document.querySelector('.pdf-rail [data-rail-layout][aria-checked="true"]')?.dataset.railLayout }))
+  check('the thumbnails follow the spread: 1 alone, then 2-3, 4-5', rail.pairs.join() === '1,2-3,4-5', JSON.stringify(rail))
+  check('the sidebar shows the layout chosen, "Two pages"', rail.choice === 'spread', JSON.stringify(rail))
+
+  // Switching layouts from the sidebar, a frame every 50ms: the page settles into the new layout, never blank.
+  await h.click('.pdf-rail [data-rail-layout="continuous"]')
+  const switching = []
+  for (let i = 0; i < 16; i++) {
+    switching.push(await h.evaluate(() => ({ layout: document.querySelector('.pdf-reader')?.dataset.layout, drawn: document.querySelectorAll('.pdf-reader .pdf-page canvas').length })))
+    await h.screenshot({ path: `${SHOT}-switch-${String(i).padStart(2, '0')}.png` }); await wait(50)
+  }
+  check('switching from the sidebar: continuous at once, the pages never blank', switching.every((one) => one.layout === 'continuous' && one.drawn > 0), JSON.stringify(switching.slice(0, 4)))
+
+  // The View menu's items lay the pages out too.
+  await c.electron.evaluate(({ Menu }) => Menu.getApplicationMenu().items.find((one) => one.label === 'View').submenu.items.find((one) => one.label === 'Two Pages').click())
+  await wait(1200)
+  check('View › Two Pages lays the pages out as a spread', await h.evaluate(() => document.querySelector('.pdf-reader')?.dataset.layout) === 'spread', '')
 
   await pick('Single page')
   const one = await sheets()
@@ -72,6 +98,8 @@ try {
 
   // Dark pages: the ground dark, the red square still red.
   await h.click('.pdf-reader button[aria-label="Page layout"]'); await wait(300)
+  const looks = await h.evaluate(() => [...document.querySelectorAll('[data-page-layout-menu] [data-look-choice]')].map((one) => one.textContent))
+  check('the page look is one choice of three: Paper, White, Dark', looks.join() === 'Paper pages,White pages,Dark pages', JSON.stringify(looks))
   await h.locator('[data-page-layout-menu] [data-dark-pages]').click(); await wait(2500)
   await h.keyboard.press('Escape')
   const look = await h.evaluate(() => {
@@ -83,6 +111,7 @@ try {
   check('"Dark pages": the page is dark', look.dark && look.ground.every((one) => one < 60), JSON.stringify(look))
   check('"Dark pages": the picture keeps its own colours (the red square stays red)', look.square[0] > 180 && look.square[1] < 80, JSON.stringify(look))
   await c.both(`${SHOT}-dark`)
+  check('with dark pages the "Paper pages" switch is off and offers paper', await h.evaluate(() => document.querySelector('.pdf-reader button[aria-label="Paper pages"]')?.dataset.activeState === 'off'), '')
   await h.click('.pdf-reader button[aria-label="Page layout"]'); await wait(300)
   await h.locator('[data-page-layout-menu] [data-dark-pages]').click(); await wait(500)
 } catch (error) {

@@ -108,6 +108,11 @@ export function setAppMenu(acts: MenuActs): void {
         { label: 'Show or Hide Sidebar', ...shown('Command+B'), click: () => acts.inHome('haligtree:sidebar') },
         { label: 'Open in a split to the right', ...shown('Command+\\'), click: () => acts.inHome('haligtree:split-right') },
         { type: 'separator' },
+        // A PDF's pages, as Preview's View menu lays them out: told to the reader open in the main window.
+        { label: 'Continuous Scroll', click: () => acts.inHome('haligtree:pdf-layout', 'continuous') },
+        { label: 'Single Page', click: () => acts.inHome('haligtree:pdf-layout', 'single') },
+        { label: 'Two Pages', click: () => acts.inHome('haligtree:pdf-layout', 'spread') },
+        { type: 'separator' },
         { label: 'Safe Mode', accelerator: acts.safeKey, click: acts.safeMode },
         { type: 'separator' },
         // No page zoom: these step the app's own size, saved and the same in every window. Pressed, ⌘+ ⌘− ⌘0 are

@@ -22,8 +22,8 @@ import { usePdfCover } from "./pdf-cover"
 import { showDetails, useDetailsShown } from "@/lib/reading"
 import { PdfPages, offsetsIn, pdfAuthor, pdfTitle, wordsIn, type PdfMark } from "./pdf-pages"
 import { FitActions } from "@/components/haligtree/ui"
-import { LAYOUTS, useDarkPages, usePageLayout, usePaperPages, type PageLayout } from "./paper"
-import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { LAYOUTS, LOOKS, useDarkPages, usePageLayout, usePageLook, usePaperPages, type PageLayout, type PageLook } from "./paper"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { ScrubField } from "./scrub-field"
 import { still } from "@/lib/motion"
 
@@ -138,7 +138,19 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
   const [page, setPage] = useState(start ?? 1)
   const [paper, setPaper] = usePaperPages()
   const [dark, setDark] = useDarkPages()
+  const [look, setLook] = usePageLook()
   const [layout, setLayout] = usePageLayout(src)
+  // The View menu's "Continuous Scroll", "Single Page" and "Two Pages" (app-menu.ts).
+  const layoutNow = useRef(setLayout)
+  layoutNow.current = setLayout
+  useEffect(() => {
+    const onMenu = (event: Event): void => {
+      const to = (event as CustomEvent<string>).detail
+      if (to === "continuous" || to === "single" || to === "spread") (chime("tap"), layoutNow.current(to))
+    }
+    window.addEventListener("haligtree:pdf-layout", onMenu)
+    return () => window.removeEventListener("haligtree:pdf-layout", onMenu)
+  }, [])
   const [marks, setMarks] = useState<PdfMark[]>([])
   const [flash] = useState(() => {
     const mark = flashNext
@@ -880,9 +892,13 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
                 ))}
               </DropdownMenuRadioGroup>
               <DropdownMenuSeparator />
-              <DropdownMenuCheckboxItem checked={dark} data-dark-pages onCheckedChange={(on) => (chime(on ? "on" : "off"), setDark(!!on))}>
-                Dark pages
-              </DropdownMenuCheckboxItem>
+              <DropdownMenuRadioGroup value={look} onValueChange={(to) => (chime("tap"), setLook(to as PageLook))}>
+                {LOOKS.map((one) => (
+                  <DropdownMenuRadioItem key={one.id} value={one.id} data-look-choice={one.id} data-dark-pages={one.id === "dark" ? "" : undefined}>
+                    {one.label}
+                  </DropdownMenuRadioItem>
+                ))}
+              </DropdownMenuRadioGroup>
             </DropdownMenuContent>
           </DropdownMenu>
         </FitActions>
@@ -922,7 +938,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
       <div ref={chip} className="pdf-zoom-chip" aria-hidden />
       <div ref={body} className="pdf-reader-body" data-rail-squeeze={squeeze}>
       {railShown && doc && (
-        <PdfSide doc={doc} page={page} outline={outline} tab={railShown} onTab={showRail} onGo={go} narrow={squeeze === "narrow"} onDrag={() => setByHand(true)} />
+        <PdfSide doc={doc} page={page} outline={outline} tab={railShown} onTab={showRail} onGo={go} narrow={squeeze === "narrow"} onDrag={() => setByHand(true)} layout={layout} onLayout={(to) => (chime("tap"), setLayout(to))} />
       )}
       <ContextMenu>
         <ContextMenuTrigger asChild>

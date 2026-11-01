@@ -54,6 +54,24 @@ export function useDarkPages(): [boolean, (on: boolean) => void] {
   return [dark, set]
 }
 
+/** How pages look, one choice of three as Preview's: "Paper pages", "White pages" or "Dark pages". */
+export type PageLook = "paper" | "white" | "dark"
+export const LOOKS: { id: PageLook; label: string }[] = [
+  { id: "paper", label: "Paper pages" },
+  { id: "white", label: "White pages" },
+  { id: "dark", label: "Dark pages" },
+]
+export function usePageLook(): [PageLook, (to: PageLook) => void] {
+  const [paper, setPaper] = usePaperPages()
+  const [dark, setDark] = useDarkPages()
+  const look: PageLook = dark ? "dark" : paper ? "paper" : "white"
+  const set = (to: PageLook): void => {
+    setDark(to === "dark")
+    if (to !== "dark") setPaper(to === "paper")
+  }
+  return [look, set]
+}
+
 /** The colours a dark page is drawn in: the dark theme's ground and ink. */
 export const DARK_PAGE = { background: "#1c1a17", foreground: "#e9e3d7" }
 

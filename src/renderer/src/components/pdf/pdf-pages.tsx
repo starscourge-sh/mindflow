@@ -354,7 +354,8 @@ export function PdfPages({
   // Two a row share the width, less the gap between them; fit height never lets a page outgrow the width either.
   const across = spread ? (width - GAP) / 2 - 1 : width
   const wide = size && width ? across / size.w : 0
-  const scale = (fit === "height" && size && tall > 0 ? Math.min(wide, tall / size.h) : wide) * zoom
+  // A spread at Fit fits its whole height too, as Preview's Two Pages does: two pages never run off the bottom.
+  const scale = ((fit === "height" || spread) && size && tall > 0 ? Math.min(wide, tall / size.h) : wide) * zoom
 
   // The page at the top of the view, and how far down it: kept as you scroll,
   // and put back when the pages change size (a pane gliding open, the rail
