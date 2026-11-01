@@ -498,6 +498,10 @@ export const haligtree = {
   learnAdd: () => call<number>('learn:add'),
   /** The Learn Haligtree cards just added taken back, any reviewed since kept. Gives back how many went. */
   learnUndo: () => call<number>('learn:undo'),
+  /** The example deck a beginner can try from Review (main/example-deck.ts): how many of its cards there are, adding it, and taking it all away. */
+  exampleCount: () => call<number>('example:count'),
+  exampleAdd: () => call<number>('example:add'),
+  exampleRemove: () => call<number>('example:remove'),
   taskFrom: (ids: string[], text: string) => call<Made | null>('tasks:from', ids, text),
   bulk: (ids: string[], change: { tag?: string; capturedAt?: string }) => call<number>('captures:bulk', ids, change),
   setCapture: (id: string, field: 'attribution' | 'medium' | 'capturedAt' | 'origin', value: string | number | null) => call('capture:set', id, field, value),

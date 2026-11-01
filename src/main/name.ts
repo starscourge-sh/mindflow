@@ -11,3 +11,6 @@ export const NOTE_KEY = APP_NAME[0].toUpperCase()
 
 /** The tag on the "Learn the app" deck, named after the app so it never shows an old name. */
 export const LEARN_TAG = `learn-${APP_NAME.toLowerCase()}`
+
+/** The tag on the example deck a beginner can try from Review (main/example-deck.ts): plain words, as it shows as a deck. */
+export const EXAMPLE_TAG = 'how-remembering-works'

@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { chime } from '@/lib/sound'
 import { call, haligtree, unloaded, useLive } from '@/lib/haligtree'
 import { num } from '../../../../main/dates'
-import { Empty, ask, askSure, openTag, quietly, refuse, toast } from './ui'
+import { ask, askSure, openTag, quietly, refuse, toast } from './ui'
+import { EXAMPLE_TAG } from '../../../../main/name'
 import { Button } from '@/components/ui/button'
 import { Chip } from './display'
 import { OptionsMenu, type Section } from './options-menu'
@@ -69,27 +70,26 @@ export function DeckShelf({ onOpen, onStudy, onPaste }: { onOpen: (type: string,
   // The three ways cards come in, always at the top, whatever is below: as Anki's "Create Deck" and "Import File" are.
   const top = (
     <div data-deck-top className="flex flex-wrap items-center gap-2">
-      <Button variant="outline" size="sm" className="cursor-pointer" data-deck-make onClick={() => (chime('open'), onPaste(null, true))}>Make a card</Button>
-      <Button variant="outline" size="sm" className="cursor-pointer" data-deck-paste onClick={() => (chime('open'), onPaste(null))}>Add many at once</Button>
-      <Button variant="outline" size="sm" className="cursor-pointer" data-deck-import onClick={() => (chime('open'), void window.api.importFrom('files'))}>Import<span className="font-normal text-muted-foreground">Anki or CSV</span></Button>
+      <Button variant="outline" size="sm" className="h-8 cursor-pointer px-3" data-deck-make onClick={() => (chime('open'), onPaste(null, true))}>Make a card</Button>
+      <Button variant="outline" size="sm" className="h-8 cursor-pointer px-3" data-deck-paste onClick={() => (chime('open'), onPaste(null))}>Add many at once</Button>
+      <Button variant="outline" size="sm" className="h-8 cursor-pointer px-3" data-deck-import onClick={() => (chime('open'), void window.api.importFrom('files'))}>Import<span className="font-normal text-muted-foreground">Anki or CSV</span></Button>
       <span className="flex-1" />
-      <Button variant="ghost" size="sm" className="cursor-pointer" data-deck-new onClick={() => (chime('open'), newDeck())}>New deck</Button>
+      <Button variant="ghost" size="sm" className="h-8 cursor-pointer px-3" data-deck-new onClick={() => (chime('open'), newDeck())}>New deck</Button>
       {/* Pockets or a plain list, in the same two-part control as Review's tabs beside it. */}
-      <span role="radiogroup" aria-label="Show decks as" data-deck-look-pick className="flex h-8 items-center rounded-lg border border-foreground/10 bg-accent/40 p-0.5 text-control">
+      <span role="radiogroup" aria-label="Show decks as" data-deck-look-pick className="flex h-8 items-center max-sm:h-9 rounded-lg border border-foreground/10 bg-accent/40 p-0.5 text-control">
         {(['pockets', 'list'] as const).map((one) => (
           <button key={one} type="button" role="radio" aria-checked={look === one} data-deck-look-to={one} onClick={() => void (look !== one && (chime('tap'), setLook(one)))}
-            className={`h-7 cursor-pointer rounded-md border px-3 transition-colors ${look === one ? 'border-foreground/15 bg-background text-foreground shadow-sm' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>{one === 'pockets' ? 'Pockets' : 'List'}</button>
+            className={`h-7 cursor-pointer rounded-md max-sm:h-8 border px-3 transition-colors ${look === one ? 'border-foreground/15 bg-background text-foreground shadow-sm' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>{one === 'pockets' ? 'Pockets' : 'List'}</button>
         ))}
       </span>
     </div>
   )
-  if (!shelves?.length && !own.length)
+  // No cards of your own yet (the example deck is not yours): the ways in, each with a tiny example, and the example deck to learn by doing.
+  if (!shelves?.length && !own.some((deck) => deck.tag !== EXAMPLE_TAG))
     return (
-      <div data-deck-shelf className="grid grid-cols-[minmax(0,1fr)] gap-4 px-5 pt-4 pb-20">
+      <div data-deck-shelf data-deck-first className="grid grid-cols-[minmax(0,1fr)] gap-4 px-5 pt-4 pb-20">
         {top}
-        <Empty title="No decks yet">
-          A deck is a set of cards you study together. Make a card, add many at once from a list or a spreadsheet, or import a deck from Anki (.apkg, .colpkg) or a CSV file.
-        </Empty>
+        <FirstWays example={own.find((deck) => deck.tag === EXAMPLE_TAG) ?? null} onMake={() => (chime('open'), onPaste(null, true))} onStudy={onStudy} />
         <StudyYear />
       </div>
     )
@@ -117,15 +117,15 @@ export function DeckShelf({ onOpen, onStudy, onPaste }: { onOpen: (type: string,
       chime(shelf.shown ? 'fold' : 'noted')
       toast(shelf.shown ? `${shelf.name} is back on its shelf, out of Gems` : `${shelf.name} shows in Gems, Feed and Home now`, () => void call('decks:show', shelf.name, shelf.shown).then(() => chime('undo')))
     })
-  // Your own deck's menu: its review settings, then what can be done with it.
-  const ownMenu = (deck: OwnDeck): Section[] => [
+  // Your own deck's menu: its review settings, then what can be done with it. The example deck's: study it, or take it away.
+  const ownMenu = (deck: OwnDeck): Section[] => deck.tag === EXAMPLE_TAG ? exampleMenu(onStudy) : [
     ...deckSettings(deck.tag, study),
     { items: [
       ...(deck.cards ? [{ label: 'Study', run: () => (chime('riffle'), onStudy(deck.tag)) }] : []),
       { label: 'Make a card', run: () => (chime('open'), onPaste(deck.tag, true)) },
       { label: 'Add many at once', run: () => (chime('open'), onPaste(deck.tag)) },
       { label: 'New deck inside', run: () => newDeck(deck.tag) },
-      { label: 'Open its page', hint: 'Its notes, gems and cards, on the tag’s page', run: () => openTag(deck.tag) },
+      { label: 'Open its page', hint: 'Everything tagged with it, on the tag’s page', run: () => openTag(deck.tag) },
       { label: 'Rename deck…', run: () => void renameDeck(deck.tag) },
       { label: 'Delete deck…', hint: 'Its cards are kept', run: () => void deleteDeck(deck.tag) }
     ] }
@@ -140,7 +140,7 @@ export function DeckShelf({ onOpen, onStudy, onPaste }: { onOpen: (type: string,
     )
   })
   const tile = (deck: OwnDeck): React.JSX.Element => (
-    <DeckTile key={deck.tag} id={deck.tag} own name={deck.label} title={`#${deck.tag}`} due={deck.due} fresh={deck.fresh} all={deck.cards} held={0} cover={null} shapes={shapes}
+    <DeckTile key={deck.tag} id={deck.tag} own name={deckName(deck)} title={`#${deck.tag}`} due={deck.due} fresh={deck.fresh} all={deck.cards} held={0} cover={null} shapes={shapes}
       kids={own.filter((one) => one.tag.startsWith(`${deck.tag}-`) && one.depth === deck.depth + 1).length} open={kidsOpen.has(deck.tag)} onKids={() => openKids(deck.tag)} menu={ownMenu(deck)}
       onClick={() => (deck.cards ? (chime('riffle'), onStudy(deck.tag)) : (chime('open'), onPaste(deck.tag, true)))} />
   )
@@ -442,7 +442,7 @@ function DeckList({ own, shelves, onStudy }: { own: OwnDeck[]; shelves: Shelf[];
         const inside = own.filter((one) => one.tag.startsWith(`${deck.tag}-`))
         return (
           <div key={deck.tag}>
-            {row(deck.tag, deck.label, `#${deck.tag}`, deck.due, deck.fresh, deck.cards, inside.filter((one) => one.depth === 1).length, deck.cards ? () => onStudy(deck.tag) : null)}
+            {row(deck.tag, deckName(deck), `#${deck.tag}`, deck.due, deck.fresh, deck.cards, inside.filter((one) => one.depth === 1).length, deck.cards ? () => onStudy(deck.tag) : null)}
             {inside.length > 0 && !shut.has(deck.tag) && (
               <div className="pl-3">
                 <Tree nodes={treeOf(inside, (one) => one.depth)} here={-1} className="pl-3" open={(node) => !shut.has(node.item.tag)}
@@ -467,5 +467,86 @@ function DeckList({ own, shelves, onStudy }: { own: OwnDeck[]; shelves: Shelf[];
         )
       })}
     </div>
+  )
+}
+
+/** A deck's name as a person reads it: the example deck in plain words, the rest as tagged. */
+const deckName = (deck: OwnDeck): string => (deck.tag === EXAMPLE_TAG ? 'How remembering works' : deck.label)
+
+/** Take the example deck away, all of it, with Undo (which brings it back fresh). */
+const removeExample = (): void =>
+  void haligtree.exampleRemove().then((n) => {
+    if (!n) return
+    chime('shelve')
+    toast('The example deck is gone', () => void haligtree.exampleAdd().then(() => chime('undo')))
+  })
+
+/** The example deck's menu, on its pocket and its row: study it, or take it away. */
+const exampleMenu = (onStudy: (tag: string) => void): Section[] => [
+  { items: [
+    { label: 'Study', run: () => (chime('riffle'), onStudy(EXAMPLE_TAG)) },
+    { label: 'Remove the example deck', hint: 'All ten cards, for good; it never counted in your stats', run: removeExample }
+  ] }
+]
+
+/** One way in: a tile like a deck's pocket, its name, what it does in a line, and a tiny example of what you will make. */
+function Way({ id, title, line, onClick, children }: { id: string; title: string; line: string; onClick: () => void; children: React.ReactNode }): React.JSX.Element {
+  return (
+    <div role="button" tabIndex={0} data-first-way={id} onClick={onClick}
+      onKeyDown={(event) => (event.key === 'Enter' || event.key === ' ') && event.target === event.currentTarget && (event.preventDefault(), onClick())}
+      className="grid min-w-0 cursor-pointer content-start gap-3 rounded-[5px] border border-foreground/10 bg-accent/25 p-4 text-left outline-none transition-colors hover:bg-accent/50 focus-visible:ring-2 focus-visible:ring-ring">
+      <span className="grid gap-1">
+        <h3 className="font-serif text-xl leading-tight text-foreground">{title}</h3>
+        <span className="text-sm leading-snug text-muted-foreground">{line}</span>
+      </span>
+      {/* The example, in the app's card look: what this way makes. */}
+      <span aria-hidden data-first-sample className="grid gap-1.5 rounded-[4px] border border-foreground/10 bg-background px-3 py-2.5">{children}</span>
+    </div>
+  )
+}
+
+/**
+ * Review's Decks page before you have a card of your own: the ways in, each
+ * with a tiny example of what it makes, and the example deck that teaches
+ * spaced repetition by doing it. "Make cards from a picture" joins them when
+ * image occlusion lands.
+ */
+function FirstWays({ example, onMake, onStudy }: { example: OwnDeck | null; onMake: () => void; onStudy: (tag: string) => void }): React.JSX.Element {
+  const tryIt = (): void => void haligtree.exampleAdd().then(() => (chime('riffle'), onStudy(EXAMPLE_TAG)))
+  return (
+    <section data-first-ways className="grid gap-3 pt-2">
+      <span className="grid gap-1">
+        <h2 className="font-serif text-2xl leading-tight text-foreground">Your first cards</h2>
+        <p className="max-w-[62ch] leading-relaxed text-muted-foreground">A card asks one question. Review brings it back just before you would forget it, and waits longer each time you remember.</p>
+      </span>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <Way id="make" title="Make your first card" line="Type a question, then its answer." onClick={onMake}>
+          <span className="font-serif text-base leading-snug font-semibold text-foreground">What is the capital of Peru?</span>
+          <span className="border-t border-dashed border-foreground/15" />
+          <span className="text-sm text-foreground/80">Lima</span>
+        </Way>
+        <Way id="import" title="Import from Anki" line="A deck someone shared with you, or a spreadsheet of words and meanings." onClick={() => (chime('open'), void window.api.importFrom('files'))}>
+          <span className="flex items-baseline justify-between gap-3 text-sm"><span className="truncate text-foreground">Biology.apkg</span><span className="shrink-0 text-muted-foreground">Anki deck</span></span>
+          <span className="border-t border-foreground/10" />
+          <span className="flex items-baseline justify-between gap-3 text-sm"><span className="truncate text-foreground">Spanish words.csv</span><span className="shrink-0 text-muted-foreground">spreadsheet</span></span>
+        </Way>
+      </div>
+      {/* The example deck: offered, or there with its counts, a way to study it and one click to take it away. */}
+      <div data-first-example={example ? 'added' : 'offered'} className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-[5px] border border-dashed border-foreground/15 px-4 py-3">
+        <span className="grid min-w-0 flex-1 basis-64 gap-0.5">
+          <span className="font-serif text-base leading-tight text-foreground">{example ? 'How remembering works' : 'Or learn how it works by doing it'}</span>
+          <span className="text-sm leading-snug text-muted-foreground">
+            {example ? <><Counts due={example.due} fresh={example.fresh} />. The example deck: never counted in your streak or stats.</>
+              : 'An example deck of 10 cards, about five minutes. It never counts in your streak or stats, and one click takes it away.'}
+          </span>
+        </span>
+        {example ? (
+          <span className="flex flex-wrap items-center gap-2">
+            {example.due + example.fresh > 0 && <Button variant="outline" size="sm" className="h-8 cursor-pointer px-3" data-example-study onClick={() => (chime('riffle'), onStudy(EXAMPLE_TAG))}>Study it</Button>}
+            <Button variant="ghost" size="sm" className="h-8 cursor-pointer px-3" data-example-remove onClick={removeExample}>Remove the example deck</Button>
+          </span>
+        ) : <Button variant="outline" size="sm" className="h-8 cursor-pointer px-3" data-example-try onClick={tryIt}>Try the example deck</Button>}
+      </div>
+    </section>
   )
 }

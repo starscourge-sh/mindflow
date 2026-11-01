@@ -14,7 +14,7 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Chips } from './display'
 import { Rolling, Typed, refuse, toast } from './ui'
-import { APP_NAME, LEARN_TAG } from '../../../../main/name'
+import { APP_NAME, EXAMPLE_TAG, LEARN_TAG } from '../../../../main/name'
 
 /**
  * Studying beyond the day's queue: the practice rounds above Review, the
@@ -137,13 +137,21 @@ export function FitToMe(): React.JSX.Element | null {
 
 /** What a practice round is, said once at its top. */
 export function RoundLine({ round, onLeave }: { round: Round; onLeave: () => void }): React.JSX.Element {
+  // The example deck says what it is in words, not as its tag.
+  if (round === `#${EXAMPLE_TAG}`)
+    return (
+      <div className="flex items-center gap-3 px-5 pt-4 text-sm">
+        <p className="flex-1"><strong className="font-semibold">The example deck.</strong> <span className="text-muted-foreground">Scheduled for real, never counted in your streak or stats.</span></p>
+        <Button variant="ghost" size="sm" className="cursor-pointer" onClick={onLeave}>Back to today’s cards</Button>
+      </div>
+    )
   return (
     <div className="flex items-center gap-3 px-5 pt-4 text-sm">
       <p className="flex-1">
         <strong className="font-semibold">{round === 'starred' ? 'Starred' : round.startsWith('#') ? `Studying ${round}` : BUCKETS.find((one) => one.id === round)?.label}.</strong>{' '}
         <span className="text-muted-foreground">{round.startsWith('#') ? 'With the tags under it, due cards first. Each grade counts.' : 'An extra round. Nothing moves unless you grade it.'}</span>
       </p>
-      <Button variant="ghost" size="sm" onClick={onLeave}>Back to today’s cards</Button>
+      <Button variant="ghost" size="sm" className="cursor-pointer" onClick={onLeave}>Back to today’s cards</Button>
     </div>
   )
 }

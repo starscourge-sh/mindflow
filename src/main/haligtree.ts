@@ -1,6 +1,6 @@
 import { parseDate } from 'chrono-node'
 import { Notification, app, dialog, ipcMain, net, session, shell } from 'electron'
-import { randomUUID } from 'crypto'
+import { createHash, randomUUID } from 'crypto'
 import { cp, mkdir, readFile, readdir, rm, writeFile } from 'fs/promises'
 import type { DatabaseSync } from 'node:sqlite'
 import { existsSync, readFileSync } from 'fs'
@@ -26,6 +26,8 @@ import { LEECH_AT, balancedDay, bucketOf, thingsIn, withinTagLimits, daysInARow,
 import { syncLineCards } from './line-cards'
 import { busy } from './busy'
 import { LEARN_DECK, LEARN_EARLIER, LEARN_TAG } from './learn-deck'
+import { EXAMPLE_DECK, EXAMPLE_TAG, FORGETTING_CURVE } from './example-deck'
+import { assetsDir } from './pictures'
 import { ALERT_AT, againAlerts, dueAlerts } from './task-alerts'
 import { eventFromBin, eventToBin, eventsInBin, forgetEvents } from './events'
 import { forgetPractices, practiceFromBin, practiceToBin, practicesInBin } from './practices'
@@ -2726,7 +2728,8 @@ export function registerHaligtree(): void {
     })
     // Your own cards first: a big imported deck never holds back the ones
     // you wrote from today's reading.
-    const shared = (one: { row: Record<string, unknown> }): boolean => String(one.row.origin ?? '').startsWith('anki:')
+    // The example deck keeps its order too: it teaches, one idea leading to the next.
+    const shared = (one: { row: Record<string, unknown> }): boolean => String(one.row.origin ?? '').startsWith('anki:') || String(one.row.body ?? '').endsWith(`#${EXAMPLE_TAG}"`)
     // Yours shuffled, siblings apart; an imported deck keeps its own order (a frequency list stays in frequency order).
     const mine = shuffleNew(unseen.filter((one) => !one.exam && !shared(one)).map((one) => ({ ...one, id: String(one.row.id), group: (one.row.lineOf as string | null) ?? null })), dayKey())
     // A tag with its own new cards a day takes no more than that (a tag under it counts toward it too).
@@ -2807,8 +2810,10 @@ export function registerHaligtree(): void {
     // brought inside an exam's date.
     const due = capped(card.due, examOf()(row))
     db.prepare('update nuggets set state = ?, due_at = ?, edited_since_review = 0 where id = ?').run(JSON.stringify(card), due.toISOString(), id)
-    const logged = db.prepare('insert into review_log (item_id, grade, reviewed_at, ms, first) values (?, ?, ?, ?, ?)').run(id, grade, now(), ms, row.state ? 0 : 1)
-    keepForUndo(id, logged.lastInsertRowid, before)
+    // The example deck's cards are scheduled but never logged: no streak, heatmap or stats of yours counts them.
+    const example = String(row.body ?? '').endsWith(`#${EXAMPLE_TAG}"`)
+    const logged = example ? null : db.prepare('insert into review_log (item_id, grade, reviewed_at, ms, first) values (?, ?, ?, ?, ?)').run(id, grade, now(), ms, row.state ? 0 : 1)
+    keepForUndo(id, logged?.lastInsertRowid ?? null, before)
     return write(due.toISOString())
   })
   // A card's own past: each review, its grade, and when it is next due.
@@ -2940,13 +2945,13 @@ export function registerHaligtree(): void {
     const kept = db.prepare('select count(*) as n, coalesce(sum(grade > 1), 0) as recalled from review_log where first = 0 and reviewed_at >= ?').get(day(-29)) as { n: number; recalled: number }
     // Due in each of the next 14 days, today counting what is already overdue.
     const due = Array.from({ length: 14 }, () => 0)
-    for (const row of db.prepare(`select due_at as at from nuggets where coalesce(prompt, '') != '' and suspended = 0 and archived_at is null and binned_at is null and superseded_by is null and due_at is not null and due_at < ?`).all(day(14)) as { at: string }[])
+    for (const row of db.prepare(`select due_at as at from nuggets where coalesce(prompt, '') != '' and coalesce(body, '') not like '%#${EXAMPLE_TAG}"' and suspended = 0 and archived_at is null and binned_at is null and superseded_by is null and due_at is not null and due_at < ?`).all(day(14)) as { at: string }[])
       due[Math.max(0, Math.floor((Date.parse(row.at) - startOfDay(0)) / 86400000))] += 1
     // Known: remembered at least once across a gap of 15 days or more, the
     // only proof a card has moved past short-term memory. Of every card.
     const known = (db.prepare(`select count(distinct item_id) n from (select item_id, grade, julianday(reviewed_at) - julianday(lag(reviewed_at) over (partition by item_id order by reviewed_at)) gap from review_log)
-      where grade > 1 and gap >= 15 and item_id in (select id from nuggets where coalesce(prompt, '') != '' and archived_at is null and binned_at is null)`).get() as { n: number }).n
-    const cards = (db.prepare(`select count(*) n from nuggets where coalesce(prompt, '') != '' and archived_at is null and binned_at is null and superseded_by is null`).get() as { n: number }).n
+      where grade > 1 and gap >= 15 and item_id in (select id from nuggets where coalesce(prompt, '') != '' and coalesce(body, '') not like '%#${EXAMPLE_TAG}"' and archived_at is null and binned_at is null)`).get() as { n: number }).n
+    const cards = (db.prepare(`select count(*) n from nuggets where coalesce(prompt, '') != '' and coalesce(body, '') not like '%#${EXAMPLE_TAG}"' and archived_at is null and binned_at is null and superseded_by is null`).get() as { n: number }).n
     // Seconds a card, each counted as 60 at most, and the share of days since the first review (up to a year) with any.
     const pace = (db.prepare('select avg(min(ms, 60000)) ms from review_log where ms is not null and reviewed_at >= ?').get(day(-29)) as { ms: number | null }).ms
     const first = (db.prepare('select min(reviewed_at) at from review_log').get() as { at: string | null }).at
@@ -2957,7 +2962,7 @@ export function registerHaligtree(): void {
     for (const row of db.prepare('select reviewed_at as at, min(ms, 60000) ms from review_log where ms is not null and reviewed_at >= ?').all(day(-29)) as { at: string; ms: number }[]) spentOn.set(local(row.at), (spentOn.get(local(row.at)) ?? 0) + row.ms / 60000)
     const minutes = month.map((one) => Math.round((spentOn.get(one.day) ?? 0) * 10) / 10)
     // Every card by where it stands (new, still being learnt, learnt) and by where it came from.
-    const live = db.prepare(`select state, coalesce(nullif(deck, ''), nullif(medium, ''), '') as source, created_at as at from nuggets where coalesce(prompt, '') != '' and archived_at is null and binned_at is null and superseded_by is null`).all() as { state: string | null; source: string; at: string }[]
+    const live = db.prepare(`select state, coalesce(nullif(deck, ''), nullif(medium, ''), '') as source, created_at as at from nuggets where coalesce(prompt, '') != '' and coalesce(body, '') not like '%#${EXAMPLE_TAG}"' and archived_at is null and binned_at is null and superseded_by is null`).all() as { state: string | null; source: string; at: string }[]
     const stages = { new: 0, learning: 0, learnt: 0 }
     const from = new Map<string, number>()
     for (const row of live) {
@@ -2968,7 +2973,7 @@ export function registerHaligtree(): void {
     const sources = [...from].sort((a, b) => b[1] - a[1]).slice(0, 5).map(([name, n]) => ({ name: name || 'Typed in', n }))
     // Twelve weeks, oldest first: known cards at the end of each week (first known on the review that proved it) beside every card made by then.
     const weekEnds = Array.from({ length: 12 }, (_, at) => startOfDay((at - 11) * 7 + 1))
-    const knownAt = (db.prepare(`select min(reviewed_at) at from (select item_id, reviewed_at, grade, julianday(reviewed_at) - julianday(lag(reviewed_at) over (partition by item_id order by reviewed_at)) gap from review_log) where grade > 1 and gap >= 15 and item_id in (select id from nuggets where coalesce(prompt, '') != '' and archived_at is null and binned_at is null) group by item_id`).all() as { at: string }[]).map((row) => Date.parse(row.at))
+    const knownAt = (db.prepare(`select min(reviewed_at) at from (select item_id, reviewed_at, grade, julianday(reviewed_at) - julianday(lag(reviewed_at) over (partition by item_id order by reviewed_at)) gap from review_log) where grade > 1 and gap >= 15 and item_id in (select id from nuggets where coalesce(prompt, '') != '' and coalesce(body, '') not like '%#${EXAMPLE_TAG}"' and archived_at is null and binned_at is null) group by item_id`).all() as { at: string }[]).map((row) => Date.parse(row.at))
     const growth = weekEnds.map((end) => ({ end: new Date(end - 1).toISOString().slice(0, 10), known: knownAt.filter((at) => at < end).length, made: live.filter((row) => Date.parse(row.at) < end).length }))
     // Notes and gems kept in each of the last six months, oldest first.
     const months = Array.from({ length: 6 }, (_, at) => dayjs().startOf('month').subtract(5 - at, 'month'))
@@ -3366,6 +3371,34 @@ export function registerHaligtree(): void {
     learnAdded = []
     const gone = atomically(() => ids.filter((id) => db.prepare('delete from nuggets where id = ? and state is null').run(id).changes > 0).length)
     return write(gone)
+  })
+
+  // --- the example deck a beginner can try (main/example-deck.ts): scheduled
+  // for real, never logged as reviews (review:grade), gone in one click.
+  const exampleIds = (): string[] => (db.prepare('select id from nuggets where body like ?').all(`%#${EXAMPLE_TAG}"`) as { id: string }[]).map((row) => row.id)
+  handle('example:count', () => exampleIds().length)
+  handle('example:add', async () => {
+    if (exampleIds().length) return write(0)
+    // The drawing kept as any pasted picture is, by the hash of its bytes.
+    const bytes = Buffer.from(FORGETTING_CURVE)
+    const name = `${createHash('sha256').update(bytes).digest('hex')}.svg`
+    await mkdir(assetsDir(), { recursive: true })
+    if (!existsSync(join(assetsDir(), name))) await writeFile(join(assetsDir(), name), bytes)
+    // Asked in order, each a moment after the last, as the queue takes new cards oldest first.
+    const start = Date.now()
+    atomically(() => EXAMPLE_DECK.forEach(({ question, answer, picture }, at) => {
+      const when = new Date(start + at * 1000).toISOString()
+      const prompt = picture ? `${question}\n\n![A line falling fast, and a line lifted back up by each review](haligtree://assets/${name})` : question
+      db.prepare("insert into nuggets (id, tier, kind, title, body, prompt, source, created_at, updated_at) values (?, ?, 'note', ?, ?, ?, '', ?, ?)")
+        .run(randomUUID(), cardTier(), question, JSON.stringify(`${answer}\n\n#${EXAMPLE_TAG}`), prompt, when, when)
+    }))
+    return write(EXAMPLE_DECK.length)
+  })
+  // Gone for good, not to the Bin: it was only ever an example, and nothing of it was logged.
+  handle('example:remove', () => {
+    const ids = exampleIds()
+    atomically(() => ids.forEach((id) => db.prepare('delete from nuggets where id = ?').run(id)))
+    return write(ids.length)
   })
 
   // --- the review reminder, at the time set in Settings
