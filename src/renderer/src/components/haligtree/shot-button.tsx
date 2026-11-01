@@ -3,7 +3,6 @@ import { Monitor, SquareDashed, X } from 'lucide-react'
 import CameraIcon from '@/components/ui/camera-icon'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import { Tip } from '@/components/haligtree/ui'
-import { edge } from '@/lib/haptics'
 import { chime } from '@/lib/sound'
 import { still } from '@/lib/motion'
 import { cn } from '@/lib/cn'
@@ -56,11 +55,11 @@ export function ShotButton({ onShot }: { onShot: (area: boolean) => void }): Rea
   const calm = still()
   const toggle = (on: boolean): void => {
     if (on === open) return
-    // A tap under the finger as the two choices fan out, and again on the one taken (the trackpad's own, haptic.ts).
-    if (on && root.current) (chime('slide'), edge(), setAt(0), setWhere(spots(root.current)))
+    // Heard as the two choices fan out. No trackpad tap: those are kept for stepping a value (lib/haptics.ts).
+    if (on && root.current) (chime('slide'), setAt(0), setWhere(spots(root.current)))
     setOpen(on)
   }
-  const pick = (area: boolean): void => (edge(), setOpen(false), onShot(area))
+  const pick = (area: boolean): void => (setOpen(false), onShot(area))
   // What is in their way steps back while they are open.
   useEffect(() => {
     if (!open || !root.current) return
@@ -119,7 +118,7 @@ export function ShotButton({ onShot }: { onShot: (area: boolean) => void }): Rea
       {CHOICES.map((one, index) => (
         <Tip key={one.label} label={one.label}>
           <button type="button" data-shot={one.area ? 'area' : 'screen'} aria-label={one.label} tabIndex={open ? 0 : -1} aria-hidden={!open}
-            onClick={() => pick(one.area)} onPointerEnter={() => (index !== at && window.api.tap?.(), setAt(index))}
+            onClick={() => pick(one.area)} onPointerEnter={() => setAt(index)}
             className={cn('absolute top-0 left-0 z-10 flex cursor-pointer items-center justify-center rounded-full border text-foreground outline-none hover:border-foreground/25 active:scale-[0.97]', open ? 'border-foreground/10' : 'border-transparent', open && at === index && 'border-foreground/25')}
             style={{ width: SIZE, height: SIZE, ...place(index), pointerEvents: open ? 'auto' : 'none' }}>
             <one.Icon className="size-3.5" strokeWidth={2} />
