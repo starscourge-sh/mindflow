@@ -251,10 +251,17 @@ export function NotePreview(): React.JSX.Element | null {
   useLayoutEffect(() => {
     const card = place.current
     if (!shown || !card) return
-    const box = card.getBoundingClientRect()
-    if (box.right > window.innerWidth - 12) card.style.left = `${Math.max(12, window.innerWidth - 12 - box.width)}px`
-    if (box.bottom > window.innerHeight - 12) Object.assign(card.style, { top: `${Math.max(12, window.innerHeight - 12 - box.height)}px`, bottom: '' })
-    if (box.top < 12) Object.assign(card.style, { top: '12px', bottom: '' })
+    const fit = (): void => {
+      const box = card.getBoundingClientRect()
+      if (box.right > window.innerWidth - 12) card.style.left = `${Math.max(12, window.innerWidth - 12 - box.width)}px`
+      if (box.bottom > window.innerHeight - 12) Object.assign(card.style, { top: `${Math.max(12, window.innerHeight - 12 - box.height)}px`, bottom: '' })
+      if (box.top < 12) Object.assign(card.style, { top: '12px', bottom: '' })
+    }
+    fit()
+    // Again whenever it grows: a person's summary and picture come in after it opens, and the card must stay inside then too.
+    const sizes = new ResizeObserver(fit)
+    sizes.observe(card)
+    return () => sizes.disconnect()
   }, [shown])
   // Esc puts the card away, and only the card: the note under it keeps the
   // keys. The pointer still on the link, it stays away until the pointer leaves.
@@ -339,7 +346,7 @@ export function NotePreview(): React.JSX.Element | null {
         // A few lines that fade out where they are cut, not a hard stop mid-word.
         <p data-preview-text className="private-text max-h-[7.5lh] overflow-hidden whitespace-pre-line text-muted-foreground [mask-image:linear-gradient(to_bottom,black_5.5lh,transparent_7.5lh)]">{shown.text}</p>
       )}
-      {shown.tally && <p data-preview-count className={`${shown.text ? 'mt-1.5 ' : ''}text-body font-semibold text-foreground`}>{shown.tally}</p>}
+      {shown.tally && <p data-preview-count className={`${shown.text ? 'mt-1.5 ' : ''}text-body text-foreground`}>{shown.tally}</p>}
       {!!shown.latest?.length && (
         <ul data-preview-latest className="private-text mt-1.5 flex flex-col gap-0.5 text-foreground">
           {shown.latest.map((title, at) => <li key={at} className="truncate">{title}</li>)}
