@@ -4273,9 +4273,28 @@ $run-next: '.react-renderer:has(> .tiptap-attachment.is-audio) + .react-renderer
       display: none;
     }
 
+    // A share of the row, the same in every row of a stack: a longer bar on a wide page, never under 12rem.
     .tiptap-media-controls {
-      flex: 0 0 12rem;
+      flex: 0 0 clamp(12rem, 45%, 24rem);
       min-width: 0;
+    }
+
+    // Short of room, "No transcript" is cut, never the "Transcribe" you tap.
+    .tiptap-attachment-words > span:first-child {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .tiptap-attachment-words > :is(button, span[aria-hidden]) {
+      flex: none;
+    }
+
+    // Big enough to tap at any text size.
+    .tiptap-media-play {
+      flex: none;
+      width: 32px;
+      height: 32px;
     }
 
     // The speed and the sound on or off are a lone recording's: in a stack the row keeps to play, the bar and the time.
