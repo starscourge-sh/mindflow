@@ -1,10 +1,10 @@
 // Every way to show or link another note asks its question and lists the notes
 // as you type, in a note, in quick capture and in a note's own window:
 // "/note" offers "Link to a note" first and "Embed a note" next; either opens
-// the same list as typing `[[` or `![[`, headed "Show which note here?" for an
+// the same list as typing `[[`, headed "Show a note's words here" for an
 // embed; Enter takes the top match; a name with no note says "Make a new note
-// “…”" and makes nothing until picked; Esc takes the unfinished `![[name` away.
-// The spelling pill never offers to finish a name typed after `[[`, `![[`,
+// “…”" and makes nothing until picked; Esc takes the unfinished `[[name` away.
+// The spelling pill never offers to finish a name typed after `[[`,
 // `@` or `#`. The slash items that ask for a link keep their question over the
 // box as you type.
 //   QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/slash-prompts.mjs
@@ -34,27 +34,35 @@ const spell = (pg) => pg.evaluate(() => document.querySelector('[data-spell-hint
 const notes = async () => (await h.evaluate(() => window.api.captures.list())).map((one) => one.label ?? one.title ?? '')
 const fresh = (pg, sel) => pg.evaluate((sel) => { const ed = document.querySelector(sel).editor; ed.chain().focus().setContent('<p>Start.</p><p></p>').focus('end').run() }, sel)
 
-/** The `![[` round in one editor: the list, Enter, the make row, Esc, and no spelling pill. */
+/** "Embed a note" from the / menu, then a name typed into its list. */
+const embedding = async (pg, name) => {
+  await pg.keyboard.type('/embed a note', { delay: 30 }); await pg.waitForTimeout(700)
+  await pg.keyboard.press('Enter'); await pg.waitForTimeout(600)
+  await pg.keyboard.type(name, { delay: 30 })
+}
+const EMBED_ASK = "Show a note's words here"
+
+/** The "Embed a note" round in one editor: the list, Enter, the make row, Esc, and no spelling pill. */
 const embedRound = async (where, pg, sel) => {
   const wait = (ms) => pg.waitForTimeout(ms)
   await fresh(pg, sel); await wait(300)
-  await pg.keyboard.type('![[youtu', { delay: 40 }); await wait(900)
+  await embedding(pg, 'youtu'); await wait(900)
   const m = await menu(pg)
-  check(`${where}: "![[youtu" opens the note list headed "Show which note here?"`, m?.ask === 'Show which note here?', JSON.stringify(m))
+  check(`${where}: "Embed a note", "youtu" opens the note list headed "${EMBED_ASK}"`, m?.ask.startsWith(EMBED_ASK), JSON.stringify(m))
   check(`${where}: it lists the YouTube note`, m?.rows.some((one) => one.text === 'YouTube ideas'), JSON.stringify(m?.rows))
   await wait(1600)
-  check(`${where}: no spelling pill inside "![["`, (await spell(pg)) === null, String(await spell(pg)))
+  check(`${where}: no spelling pill inside the embed's "[["`, (await spell(pg)) === null, String(await spell(pg)))
   await pg.keyboard.press('Enter'); await wait(800)
   const found = embeds(await doc(pg, sel))
-  check(`${where}: Enter shows the top match here`, found.some((one) => one.includes('YouTube ideas')) && !(await words(pg, sel)).includes('![['), JSON.stringify(found))
+  check(`${where}: Enter shows the top match here`, found.some((one) => one.includes('YouTube ideas')) && !(await words(pg, sel)).includes('[['), JSON.stringify(found))
   // A name with no note (not the one made above): said as a choice, nothing made, and Esc leaves no trace.
   await fresh(pg, sel); await wait(300)
   const before = (await notes()).length
-  await pg.keyboard.type('![[Velvet herons', { delay: 30 }); await wait(900)
+  await embedding(pg, 'Velvet herons'); await wait(900)
   const none = await menu(pg)
   check(`${where}: no match says "Make a new note “Velvet herons”"`, none?.rows.some((one) => one.make && one.text === 'Make a new note “Velvet herons”'), JSON.stringify(none?.rows))
   await pg.keyboard.press('Escape'); await wait(600)
-  check(`${where}: Esc takes "![[Velvet herons" away and closes the list`, !(await words(pg, sel)).includes('Zebra') && !(await menu(pg)), JSON.stringify(await words(pg, sel)))
+  check(`${where}: Esc takes "[[Velvet herons" away and closes the list`, !(await words(pg, sel)).includes('Zebra') && !(await menu(pg)), JSON.stringify(await words(pg, sel)))
   check(`${where}: nothing made without asking`, (await notes()).length === before && !embeds(await doc(pg, sel)).length, `${before} -> ${(await notes()).length}`)
 }
 
@@ -76,21 +84,21 @@ try {
   await h.keyboard.press('ArrowDown'); await wait(200)
   await h.keyboard.press('Enter'); await wait(900)
   const asked = await menu(h)
-  check('"Embed a note" asks "Show which note here?" and lists notes', asked?.ask === 'Show which note here?' && asked.rows.length > 0, JSON.stringify(asked))
+  check(`"Embed a note" asks "${EMBED_ASK}" and lists notes`, asked?.ask.startsWith(EMBED_ASK) && asked.rows.length > 0, JSON.stringify(asked))
   check('"/note" is gone once picked', !(await words(h, sel)).includes('/note'), await words(h, sel))
   await h.keyboard.type('youtu', { delay: 40 }); await wait(900)
   const typed = await menu(h)
   // The question's words start where the rows' words do (their icon's left edge).
   const edges = await h.evaluate(() => { const box = [...document.querySelectorAll('.tiptap-suggestion-popup .tiptap-slash-menu')].pop(); const ask = box?.querySelector('.tiptap-slash-menu-ask'); const row = box?.querySelector('button svg'); if (!ask || !row) return null; const range = document.createRange(); range.selectNodeContents(ask); return { ask: Math.round(range.getBoundingClientRect().left), row: Math.round(row.getBoundingClientRect().left) } })
   check('the question lines up with the rows', edges && Math.abs(edges.ask - edges.row) <= 1, JSON.stringify(edges))
-  check('typing narrows it to the YouTube note, the question still showing', typed?.ask === 'Show which note here?' && typed.rows[0]?.text === 'YouTube ideas', JSON.stringify(typed))
+  check('typing narrows it to the YouTube note, the question still showing', typed?.ask.startsWith(EMBED_ASK) && typed.rows[0]?.text === 'YouTube ideas', JSON.stringify(typed))
   if (shots) await c.both(`${shots}/embed-picker`)
   await h.keyboard.press('Escape'); await wait(500)
-  check('Esc cancels: no "/note", no "![[" left', !/\/note|!\[\[/.test(await words(h, sel)) && !embeds(await doc(h, sel)).length, await words(h, sel))
+  check('Esc cancels: no "/note", no "[[" left', !/\/note|\[\[/.test(await words(h, sel)) && !embeds(await doc(h, sel)).length, await words(h, sel))
 
   // The make row, picked: the note is made and shown.
   await fresh(h, sel); await wait(300)
-  await h.keyboard.type('![[Zebra quilts', { delay: 30 }); await wait(900)
+  await embedding(h, 'Zebra quilts'); await wait(900)
   if (shots) await c.both(`${shots}/embed-make`)
   await h.keyboard.press('Enter'); await wait(1500)
   check('picking "Make a new note “Zebra quilts”" makes it and shows it', (await notes()).includes('Zebra quilts') && embeds(await doc(h, sel)).some((one) => /"id":"[^"]+"/.test(one) && one.includes('Zebra quilts')), JSON.stringify(embeds(await doc(h, sel))))
@@ -124,7 +132,7 @@ try {
     check(`${query} keeps its question "${ask}" over the box while typing`, label === ask, String(label))
     if (shots && query === '/youtube') await c.both(`${shots}/slash-youtube`)
     await h.keyboard.press('Escape'); await wait(500)
-    check(`${query}: Esc takes "${query}" away and closes the box, as in the ![[ list`, !(await words(h, sel)).includes(query) && !(await h.evaluate(() => !!document.querySelector('[data-slash-prompt]'))), await words(h, sel))
+    check(`${query}: Esc takes "${query}" away and closes the box, as in the embed list`, !(await words(h, sel)).includes(query) && !(await h.evaluate(() => !!document.querySelector('[data-slash-prompt]'))), await words(h, sel))
   }
 
   await embedRound('a note', h, sel)

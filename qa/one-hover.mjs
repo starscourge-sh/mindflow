@@ -6,7 +6,7 @@
 // the user's "tooltips on top of popups".
 // Reached: picked words in the PDF and the web reader, a highlight's menu, a
 // note's block menu, its "⋯" menu, the sidebar's row menus, the slash, [[ and
-// ![[ lists, and the decks' and cards' menus in Review.
+// "Embed a note" lists, and the decks' and cards' menus in Review.
 //   QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 QA_ARGS=--sandbox node qa/one-hover.mjs
 import { PDFDocument, StandardFonts } from 'pdf-lib'
 import { checks } from './harness.mjs'
@@ -127,17 +127,21 @@ try {
   if (await dots.count()) { await dots.click(); await wait(400); await sweep('note ⋯ menu', async () => { await dots.click(); await wait(400) }) }
   else check('note ⋯ menu: found', false, 'no ⋯ button')
 
-  // The slash, [[ and ![[ lists, typed at the end of the note.
-  for (const typed of ['/', '[[', '![[']) {
+  // The slash and [[ lists, and "Embed a note"'s, typed at the end of the note.
+  for (const typed of ['/', '[[', '/embed a note\n']) {
     // Typed where a person types: a click at the end of the note's last line, so the keys land in it.
     const end = await h.evaluate((sel) => { const r = [...document.querySelectorAll(`${sel} > p`)].at(-1)?.getBoundingClientRect(); return r && { x: r.right - 4, y: r.top + r.height / 2 } }, EDITOR)
     if (end) await h.mouse.click(end.x, end.y)
     await h.evaluate((sel) => document.querySelector(sel).editor.commands.focus('end'), EDITOR)
     await wait(300)
-    await h.keyboard.type(typed)
+    // On a line of its own: the [[ left before it is words, and / starts a menu only at a word's start.
+    if (typed.endsWith('\n')) await h.keyboard.press('Enter')
+    await h.keyboard.type(typed.trim())
+    // "Embed a note" is picked from the / menu: its list opens on Enter.
+    if (typed.endsWith('\n')) { await wait(700); await h.keyboard.press('Enter') }
     await h.waitForSelector('.tiptap-slash-menu-list button', { timeout: 3000 }).catch(() => {})
     await wait(300)
-    await sweep(`${typed} list`)
+    await sweep(`${typed.trim()} list`)
     await h.evaluate((sel) => { const ed = document.querySelector(sel).editor; const { to } = ed.state.selection; ed.commands.deleteRange({ from: Math.max(1, to - 3), to }) }, EDITOR)
   }
 

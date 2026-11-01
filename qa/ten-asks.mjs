@@ -7,7 +7,7 @@
 //  6. a Word is a lookup: asked until answered, waiting in Lookups; "Look up" on a picked word saves it
 //  7. a change of kind keeps the old kind's fields out of sight and brings them back
 //  8. "Share with a new page" makes the words a page of their own, still shown in place and editable there
-//  9. `![[Name]]` shows another note whole, live: changed elsewhere, it changes here
+//  9. "Embed a note" shows another note whole, live: changed elsewhere, it changes here
 // 10. Read, its links in place: a note, its embeds and the notes it links to, in one scroll
 // Link pages are answered by a stub in the main process and the dictionary is a local server: nothing reaches the internet.
 //   npx electron-vite build --outDir out-ten
@@ -222,9 +222,10 @@ try {
   await open(shower)
   await caretAtEnd('Shower note')
   await h.keyboard.press('Enter')
-  await h.keyboard.type('![[Probe source note]]', { delay: 15 }); await wait(2000)
+  await h.keyboard.type('/embed a note', { delay: 15 }); await wait(700); await h.keyboard.press('Enter'); await wait(600)
+  await h.keyboard.type('Probe source note', { delay: 15 }); await wait(900); await h.keyboard.press('Enter'); await wait(2000)
   const embedded = await h.evaluate(() => document.querySelector('[data-embedded-note] .ProseMirror')?.textContent ?? '')
-  check('9. `![[Probe source note]]` shows that note whole', /Its words live here/.test(embedded), embedded)
+  check('9. "Embed a note", "Probe source note" shows that note whole', /Its words live here/.test(embedded), embedded)
   await h.evaluate(async (id) => {
     const now = await window.api.captures.get(id)
     await window.api.captures.save(id, { body: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Probe source note' }] }, { type: 'paragraph', content: [{ type: 'text', text: 'Changed somewhere else.' }] }] }, base: now.body })

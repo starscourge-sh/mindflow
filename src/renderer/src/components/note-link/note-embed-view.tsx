@@ -221,7 +221,7 @@ function EmbeddedLine({ link, block, label, onUnembed }: { link: string; block: 
   )
 }
 
-/** The block in a note: the other note drawn in place, and found by name when typed as `![[Name]]`. */
+/** The block in a note: the other note drawn in place, and found by name when it came in as an Obsidian `![[Name]]`. */
 export function NoteEmbedView({ node, updateAttributes, editor, getPos }: NodeViewProps): React.JSX.Element {
   const { id, label, block } = node.attrs as { id: string; label: string; block: string }
   // A note named but not found: as a link to nothing, it is made only when asked for.

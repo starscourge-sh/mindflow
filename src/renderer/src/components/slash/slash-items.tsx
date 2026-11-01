@@ -16,6 +16,7 @@ import type { SlashItem } from '@/extensions/slash-command'
 import { retypeList } from '@/lib/retype-list'
 import { linkCard } from '@/lib/link-card'
 import { emptyColumns } from '@/extensions/columns'
+import { embedNote } from '@/extensions/note-link'
 
 // --- Icons ---
 import { HeadingOneIcon } from '@/components/tiptap-icons/heading-one-icon'
@@ -300,8 +301,8 @@ export const slashItems: SlashItem[] = [
     // to draw in rather than asking where to put it first.
     run: (editor) => editor.chain().focus().insertContent({ type: 'excalidraw' }).run()
   },
-  // Both write the mark you could have typed, so the same note list opens as
-  // for `[[` and `![[`, matching as you type, with Enter taking the first.
+  // Both open the note list `[[` opens, matching as you type, with Enter taking
+  // the first; an embed's list says so over its rows.
   // A link first: what "/note" most often means is pointing at another note.
   {
     title: 'Link to a note',
@@ -314,12 +315,12 @@ export const slashItems: SlashItem[] = [
   {
     title: 'Embed a note',
     group: 'Media',
-    hint: '![[name]]',
-    keywords: ['embed', 'transclude', 'transclusion', 'note', 'page', 'show'],
+    hint: 'its words, live',
+    keywords: ['embed', 'transclude', 'transclusion', 'note', 'page', 'show', 'include', 'quote'],
     icon: <EmbedIcon />,
     // Shown whole and live: edited here, it is edited where it lives.
     when: (editor) => !!editor.schema.nodes.noteEmbed,
-    run: (editor) => void editor.chain().focus().insertContent('![[').run()
+    run: (editor) => embedNote(editor)
   },
   {
     title: 'Bookmark',

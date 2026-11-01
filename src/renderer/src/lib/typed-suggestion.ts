@@ -3,7 +3,7 @@ import type { EditorState, Transaction } from "@tiptap/pm/state"
 
 /**
  * Whether the caret is inside a mark being typed: a suggestion list open
- * ("/", "@", "#", ":", "[[", "![["), or a `[[` not yet closed. What follows
+ * ("/", "@", "#", ":", "[["), or a `[[` not yet closed. What follows
  * the mark is a name being looked up, not a word to spell, so nothing else
  * offers to finish it (spell-pill.tsx).
  */

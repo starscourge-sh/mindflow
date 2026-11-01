@@ -93,7 +93,7 @@ const SlashList = forwardRef(function SlashList(
           value={value}
           onChange={(event) => setValue(event.target.value)}
           onKeyDown={(event) => {
-            // Escape gives up, as it does in the ![[ list: the "/bookmark" goes
+            // Escape gives up, as it does in the embed list: the "/bookmark" goes
             // and the caret is back in the words, so the menu closes with nothing left behind.
             if (event.key === "Escape") {
               event.preventDefault()
