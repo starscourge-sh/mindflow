@@ -153,7 +153,11 @@ function MenuSections({ sections }: { sections: Section[] }): React.JSX.Element 
  * matters first (the words, their kind, Create) stays in view, the rest is a
  * click or its own key away. Each switch keeps its shortcut, shown here.
  */
-export function OptionsMenu({ sections, options = [], actions = [], app = false, label = 'Options', icon = <AliveIcon icon={DotsHorizontalIcon} size={16} />, side = 'top', align = 'start', className = '' }: {
+export function OptionsMenu({ sections, options = [], actions = [], app = false, label = 'Options', icon = <AliveIcon icon={DotsHorizontalIcon} size={16} />, side = 'top', align = 'start', className = '', tip = true, heading }: {
+  /** A line at the menu's top naming what it is for, whole: a deck's full name when its tile cuts it short. */
+  heading?: string
+  /** False on a thing that is itself a surface (a deck tile): a menu button says what it is by opening, one hover one surface. */
+  tip?: boolean
   /** The menu in labelled parts; or, for a short one, options then actions. */
   sections?: Section[]
   options?: Option[]
@@ -169,7 +173,7 @@ export function OptionsMenu({ sections, options = [], actions = [], app = false,
   const parts = sections ?? [{ items: [...options, ...(app ? (['sounds', 'theme'] as const) : [])] }, { items: actions }]
   return (
     <DropdownMenu modal={false}>
-      <Tip label={label}>
+      <Tip label={tip ? label : ''}>
         <DropdownMenuTrigger asChild>
           <button
             type="button"
@@ -183,7 +187,8 @@ export function OptionsMenu({ sections, options = [], actions = [], app = false,
           </button>
         </DropdownMenuTrigger>
       </Tip>
-      <DropdownMenuContent align={align} side={side} className="w-64 text-control" onCloseAutoFocus={backToWriting}>
+      <DropdownMenuContent align={align} side={side} collisionPadding={12} className="w-64 text-control" onCloseAutoFocus={backToWriting}>
+        {heading && <DropdownMenuLabel data-menu-heading className="w-0 min-w-full px-2 pt-2 pb-1 text-control font-semibold whitespace-normal text-foreground [overflow-wrap:anywhere]">{heading}</DropdownMenuLabel>}
         <MenuSections sections={parts} />
       </DropdownMenuContent>
     </DropdownMenu>
