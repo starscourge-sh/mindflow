@@ -367,6 +367,39 @@ html[data-overhang] .mf-pill > * + * {
 html[data-overhang] .mf-pill > * + *::before {
   display: none;
 }
+/* Quick capture's hint (hint-card.tsx, HintRoom): out of the card, in the room above its top left edge, its foot
+   level with the round controls' foot and its right edge short of the first of them. Opaque, with the round
+   controls' shadow. It waits unseen while a menu, a picker, ⌘K or the snip and mic choices are open (its own
+   right-click menu aside), and goes at the first word: a fade, nothing in the card moving. */
+html[data-overhang] [data-hint-room] {
+  position: fixed;
+  left: var(--mf-room);
+  right: calc(var(--mf-room) + 180px);
+  bottom: calc(100vh - var(--mf-room-top) + 8px);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  pointer-events: none;
+  transition: opacity 160ms var(--mf-ease);
+}
+html[data-overhang] [data-hint-in] {
+  pointer-events: auto;
+}
+html[data-overhang] [data-hint-room] [data-hint-surface] {
+  margin: 0;
+  box-shadow: var(--mf-round-shadow);
+}
+html[data-overhang] [data-hint-room] [data-hint-card] {
+  margin: 0;
+}
+html[data-overhang] [data-hint-room][data-away],
+html[data-overhang]:not([data-hint-menu]):has([role=menu], [role=dialog], [role=alertdialog], [role=listbox], .tiptap-suggestion-popup) [data-hint-room] {
+  opacity: 0;
+}
+html[data-overhang] [data-hint-room][data-away] [data-hint-in],
+html[data-overhang]:not([data-hint-menu]):has([role=menu], [role=dialog], [role=alertdialog], [role=listbox], .tiptap-suggestion-popup) [data-hint-in] {
+  pointer-events: none;
+}
 /* The round surface's shadow and hairline, one recipe for every round control
    and pill that belongs with them (quick capture's controls, the voice pills). */
 :root {

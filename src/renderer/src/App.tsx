@@ -27,7 +27,7 @@ import { Waiting, textOf } from './components/rot-cards'
 import { BOX_PINS } from './components/pins'
 import { THROWS, comboOf } from './lib/keys'
 import { GraphChip, InboxGraph, useGraphShown } from './components/haligtree/inbox-graph'
-import { HintCard } from './components/hint-card'
+import { HintCard, HintRoom } from './components/hint-card'
 import { TodayPanel } from './components/haligtree/today-panel'
 import { selectionActions } from './components/haligtree/selection-actions'
 import { ReviewView } from './components/haligtree/review-view'
@@ -2276,13 +2276,22 @@ export default function App(): React.JSX.Element {
             {started && !plus && !focus && !lesson && textOf(body).trim().split(/\s+/).length >= 3 && (
               <div data-under-tall-toast><BoxOffers quietAsk={plan?.kind === 'todo' || !!loneQuestion(plan, boxText)} words={textOf(body)} linked={JSON.stringify(body)} all={offersAll} onHidden={setOffersHidden} onClue={clueToPinned} onLog={logToGoal} onAsk={keepAsQuestion} /></div>
             )}
-            {/* A hint sits at the foot of the box: a glance at something you
-                wrote once, while you are here to write. Usually empty. */}
-            <div data-chrome data-under-tall-toast data-hint-foot className="px-[4.75rem]">
-              {!focus && !lesson && <HintCard onOpen={openAny} />}
-            </div>
+            {/* A hint: a glance at something you wrote once, while you are here to write. Usually empty. In a
+                note's own window it sits at the foot of the card; in quick capture, in the room above it (below). */}
+            {!window.api.room.left && (
+              <div data-chrome data-under-tall-toast data-hint-foot className="px-[4.75rem]">
+                {!focus && !lesson && <HintCard onOpen={openAny} />}
+              </div>
+            )}
             </motion.div>
             </>
+            )}
+            {/* Quick capture's hint, out of the card: above its top left edge, beside the round controls, never
+                over them. Kept while it waits (the pill, a menu, ⌘K, recording, reading) and gone at the first word. */}
+            {!!window.api.room.left && !focus && !lesson && (
+              <HintRoom away={started || pill || recording || !!reading || !!searching}>
+                <HintCard onOpen={openAny} />
+              </HintRoom>
             )}
             {!reading && (
             <main ref={footer} data-chrome data-zen-row className="@container/row flex items-center gap-1 pt-2 pb-3 px-[4.75rem]">

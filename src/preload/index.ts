@@ -174,6 +174,9 @@ const api = {
   fitBox: (height: number, snap = false): void => ipcRenderer.send('window:fit', height, snap),
   /** The room main keeps round this window's card (quick capture's overhang), 0 for a window that is all card. */
   room: ((): { left: number; top: number; right: number; bottom: number } => ipcRenderer.sendSync('window:room'))(),
+  /** Main changed the room above the card while the box was away (a hint's room): the page moves its card to match and says so once drawn. */
+  onRoomTop: (listen: (top: number) => void): void => void ipcRenderer.on('window:room-top', (_event, top: number) => listen(top)),
+  roomDrawn: (): void => ipcRenderer.send('window:room-drawn'),
   /** Room below the card for a pop-up to hang into, the card staying put; false where the screen has none. */
   roomBelow: (px: number): Promise<boolean> => ipcRenderer.invoke('window:room-below', px),
   /** The main window: fill the screen, or back to its compact size. */

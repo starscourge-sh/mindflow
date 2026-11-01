@@ -33,7 +33,7 @@ const POPS = [
 /** The room main keeps round the box's card (its overhang); 0 in a window that is all card. */
 const ROOM = window.api.room.bottom
 /** All the room the window keeps above and below the card. */
-const ROOM_TALL = window.api.room.top + window.api.room.bottom
+const roomTall = (): number => (parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--mf-room-top')) || window.api.room.top) + window.api.room.bottom
 /** The card's height: with room round it, the window is taller than the card by that room. */
 const cardHeight = (): number => (ROOM ? (document.querySelector<HTMLElement>('.app-container')?.offsetHeight ?? window.innerHeight) : window.innerHeight)
 
@@ -179,7 +179,7 @@ export function useFitBox(column: RefObject<HTMLElement | null>, full: boolean, 
       const still = (): void => {
         const pop = document.querySelector(POPS)
         const at = pop ? JSON.stringify(pop.getBoundingClientRect()) : ''
-        const roomy = cardHeight() >= FULL - 1 || (ROOM > 0 && window.innerHeight >= cardHeight() + ROOM_TALL + below.current - 1)
+        const roomy = cardHeight() >= FULL - 1 || (ROOM > 0 && window.innerHeight >= cardHeight() + roomTall() + below.current - 1)
         if (!pop || (at === last && roomy) || ++frames > 12) {
           settling.current = false
           return void delete root.dataset.growing

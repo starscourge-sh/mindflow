@@ -19,4 +19,10 @@ if (window.api.room.left) {
   document.documentElement.style.setProperty('--mf-room', `${window.api.room.left}px`)
   document.documentElement.style.setProperty('--mf-room-top', `${window.api.room.top}px`)
   clearRoom()
+  // More or less room above the card, set by main while the box is away: the card moves down by as much in the
+  // same frame, so on screen it stays exactly where main put it, and main shows the box once that is drawn.
+  window.api.onRoomTop((top) => {
+    document.documentElement.style.setProperty('--mf-room-top', `${top}px`)
+    requestAnimationFrame(() => requestAnimationFrame(() => window.api.roomDrawn()))
+  })
 }

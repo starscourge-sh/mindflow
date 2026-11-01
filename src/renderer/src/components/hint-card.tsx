@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { seeTheBin } from '@/lib/to-bin'
 import { shredFrom } from '@/lib/fly-home'
 import { RowMenu } from './haligtree/row-menu'
@@ -209,7 +209,8 @@ export function HintCard({ onOpen }: { onOpen: (type: string, id: string) => voi
           exit={{ opacity: 0, transform: shift('translateY(-4px)'), transition: { duration: 0.16, ease: EASE } }}
           transition={{ duration: 0.24, ease: EASE }}
           // Grey, not the brand tint: held, never owed.
-          className="mt-2 mb-3 overflow-hidden rounded-lg border bg-accent/40 px-3 py-2.5 text-sm"
+          data-hint-surface
+          className="mt-2 mb-3 overflow-hidden rounded-lg border bg-[color-mix(in_srgb,var(--accent)_40%,var(--background))] px-3 py-2.5 text-sm"
         >
           <QuestionBack back={back} onOpen={onOpen} onDone={() => setBack(null)} again={backWords}
             onUndone={(words) => (setBackWords(words), setBack(back))} />
@@ -222,7 +223,8 @@ export function HintCard({ onOpen }: { onOpen: (type: string, id: string) => voi
           animate={{ opacity: 1, transform: shift('translateY(0px) scale(1)') }}
           exit={{ opacity: 0, transform: shift('translateY(-4px)'), transition: { duration: 0.16, ease: EASE } }}
           transition={{ duration: 0.24, ease: EASE }}
-          className="mt-2 mb-3 overflow-hidden rounded-lg border bg-accent/40 px-3 py-2.5 text-sm"
+          data-hint-surface
+          className="mt-2 mb-3 overflow-hidden rounded-lg border bg-[color-mix(in_srgb,var(--accent)_40%,var(--background))] px-3 py-2.5 text-sm"
         >
           <p className="text-xs text-muted-foreground">{backLine(due)}</p>
           <button type="button" onClick={() => (chime('open'), onOpen(due.type, due.id), setDue(null))} className="mb-1.5 block text-left text-sm text-foreground hover:underline">
@@ -236,16 +238,17 @@ export function HintCard({ onOpen }: { onOpen: (type: string, id: string) => voi
         <motion.div
           key={hint.id}
           data-hint-card
+          data-hint-surface={postcard ? undefined : ''}
           initial={{ opacity: 0, transform: shift('translateY(-6px) scale(0.98)') }}
           animate={{ opacity: 1, transform: shift('translateY(0px) scale(1)') }}
           exit={{ opacity: 0, transform: shift('translateY(-4px)'), transition: { duration: 0.16, ease: EASE } }}
           transition={{ duration: 0.24, ease: EASE }}
-          className={postcard ? 'group/hint mt-2 mb-3 text-sm' : 'group/hint mt-2 mb-3 overflow-hidden rounded-lg border border-[color-mix(in_srgb,var(--tt-brand-color-400)_22%,transparent)] bg-[color-mix(in_srgb,var(--tt-brand-color-400)_10%,transparent)] px-3 py-2.5 text-sm'}
+          className={postcard ? 'group/hint mt-2 mb-3 text-sm' : 'group/hint mt-2 mb-3 overflow-hidden rounded-lg border border-[color-mix(in_srgb,var(--tt-brand-color-400)_22%,transparent)] bg-[color-mix(in_srgb,var(--tt-brand-color-400)_10%,var(--background))] px-3 py-2.5 text-sm'}
         >
           {/* A memory, with Postcards on, comes as a postcard: the same card inside. */}
           <Postcarded on={postcard} at={(hint as { at?: string }).at} seed={hint.id}>
           {/* Being fixed, a right click in the words keeps their Cut, Copy and Paste too. */}
-          <RowMenu writes={fixing !== null} items={offered.map(({ tip, keys, run }) => ({ label: tip, keys, run, danger: tip === 'Move to the Bin' }))}>
+          <RowMenu writes={fixing !== null} onOpenChange={(open) => document.documentElement.toggleAttribute('data-hint-menu', open)} items={offered.map(({ tip, keys, run }) => ({ label: tip, keys, run, danger: tip === 'Move to the Bin' }))}>
             {fixing !== null ? (
               // Grows with the words and sits where they sat, so a two-line hint
               // stays two lines and the card does not jump.
@@ -335,5 +338,38 @@ export function HintCard({ onOpen }: { onOpen: (type: string, id: string) => voi
         </motion.div>
       )}
     </AnimatePresence>
+  )
+}
+
+/**
+ * Quick capture's hint, out of the card (main.css, [data-hint-room]): in the room above the card's top left edge,
+ * its foot level with the round controls' foot and stopping short of the first of them, so it never covers one.
+ * It rises into the room main keeps above the card (HINT_ROOM there); where the screen leaves too little, near its
+ * top, it waits unseen. `away` hides it without letting it go: while a menu, ⌘K, a recording or the pill is up it
+ * waits, and the first word typed sends it off. Nothing in the card moves when it comes or goes.
+ */
+export function HintRoom({ away, children }: { away: boolean; children: ReactNode }): React.JSX.Element {
+  const room = useRef<HTMLDivElement>(null)
+  const [right, setRight] = useState<number | null>(null)
+  const [fits, setFits] = useState(true)
+  useLayoutEffect(() => {
+    const measure = (): void => {
+      const controls = document.querySelector('.mf-top')?.getBoundingClientRect()
+      setRight(controls?.width ? Math.round(window.innerWidth - controls.left + 12) : null)
+      const card = room.current?.firstElementChild?.firstElementChild?.getBoundingClientRect()
+      setFits(!card || card.top >= 6)
+    }
+    const sizes = new ResizeObserver(measure)
+    if (room.current) sizes.observe(room.current)
+    const controls = document.querySelector('.mf-top')
+    if (controls) sizes.observe(controls)
+    window.addEventListener('resize', measure)
+    measure()
+    return () => (sizes.disconnect(), window.removeEventListener('resize', measure))
+  }, [])
+  return (
+    <div ref={room} data-hint-room data-away={away || !fits || undefined} style={right === null ? undefined : { right }}>
+      <div data-hint-in>{children}</div>
+    </div>
   )
 }

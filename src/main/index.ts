@@ -538,6 +538,15 @@ function toggleWindow(): void {
     if (panelFrom) panelFrom = { x: panelFrom.x + dx, became: panelFrom.became + dx }
     win.setBounds(place)
   }
+  // The room above the card, for a hint: set while the box is still away, and shown only once the page has moved
+  // its card down to match, so the card never jumps as it opens (qa/hint-room.mjs).
+  const roomed = roomAbove(win, place)
+  if (roomed) return void roomed.then(() => win.isDestroyed() || showPrompt(win))
+  showPrompt(win)
+}
+
+/** The box shown where it was just put. */
+function showPrompt(win: BrowserWindow): void {
   arrive(win)
   recordOpen('prompt')
   beaconMoment('open')
@@ -616,6 +625,29 @@ ipcMain.on('window:room', (event) => {
   const win = BrowserWindow.fromWebContents(event.sender)
   event.returnValue = (win && rooms.get(win)) || evenRoom(0)
 })
+/** The most the box keeps above its card beyond BOX_ROOM.top: a hint's height, which sits there (hint-card.tsx). */
+const HINT_ROOM = 168
+/**
+ * As much room above the box's card as the screen has, up to a hint's height above the round controls. Changed only
+ * while the box is away, the page told first; resolves once it has drawn the card at the new room. Null when it is
+ * as it was, the usual case: the box opens where it did.
+ */
+function roomAbove(win: BrowserWindow, place: Electron.Rectangle): Promise<void> | null {
+  const was = rooms.get(win)
+  if (!was) return null
+  const { workArea } = screen.getDisplayMatching(place)
+  const top = Math.max(BOX_ROOM.top, Math.min(BOX_ROOM.top + HINT_ROOM, place.y - workArea.y - 8))
+  if (top === was.top) return null
+  setRoom(win, { ...was, top })
+  return new Promise((resolve) => {
+    const done = (): void => (clearTimeout(late), ipcMain.removeListener('window:room-drawn', heard), resolve())
+    const heard = (event: Electron.IpcMainEvent): void => void (event.sender === win.webContents && done())
+    // A page that never answers (it crashed) still shows.
+    const late = setTimeout(done, 250)
+    ipcMain.on('window:room-drawn', heard)
+    win.webContents.send('window:room-top', top)
+  })
+}
 /** More (or less) room round a window's card, the card staying exactly where it is. */
 function setRoom(win: BrowserWindow, room: Room): void {
   const was = rooms.get(win)
@@ -4892,7 +4924,7 @@ app.whenReady().then(() => {
     const { workArea } = screen.getDisplayMatching(card)
     // Off the screen's foot the room would hide the pop-up: the box grows instead (window:fit), as before.
     if (want && card.y + card.height + BOX_ROOM.bottom + want > workArea.y + workArea.height) return false
-    setRoom(win, { ...BOX_ROOM, bottom: BOX_ROOM.bottom + want })
+    setRoom(win, { ...(rooms.get(win) ?? BOX_ROOM), bottom: BOX_ROOM.bottom + want })
     return true
   })
   ipcMain.on('window:fit', (event, height: unknown, snap: unknown) => {
