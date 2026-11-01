@@ -2219,8 +2219,9 @@ export function Home(): React.JSX.Element {
 
         </div>
         {/* Where a corner card lands (a milestone), Arc's way: at the sidebar's foot, the list above it giving up the
-            room and scrolling, so it never covers a page or a menu (celebrate.tsx). Empty, it takes no room. */}
-        {!narrow && <div data-corner-dock className="mx-2 mb-2 shrink-0 empty:hidden" />}
+            room and scrolling, so it never covers a page or a menu (celebrate.tsx). Empty, it takes no room. Its own
+            band, under the same hairline as the foot row, so the list's faded last row reads as the list's edge, never as tucked behind the card. */}
+        {!narrow && <div data-corner-dock className="mx-2 mb-2 shrink-0 border-t pt-2 empty:hidden" />}
         {/* One row at the foot, the way Notion keeps its workspace menu: Settings,
             Safe mode, Blurring, the keys and the tour wait behind Haligtree's name.
             Safe mode on still shows, since a quiet box should say why. */}

@@ -20,15 +20,20 @@ const theme = async (dark) => { await h.evaluate((on) => document.documentElemen
 
 try {
   for (const [at, who] of people.entries()) await make({ kind: 'quote', body: doc(`A line from ${who}, number ${at}.`), attribution: who })
-  // Three of them get a photo: a drawn square of colour with a face-ish circle, saved as the app saves one.
+  // Three of them get a picture, saved as the app saves one: a soft painted-looking sky over hills, drawn here
+  // (never a figure, so no screenshot can be mistaken for a stock "no photo" placeholder).
   for (const [at, who] of people.slice(0, 3).entries()) {
     const url = await h.evaluate(async (hue) => {
       const canvas = document.createElement('canvas')
       canvas.width = canvas.height = 256
       const g = canvas.getContext('2d')
-      g.fillStyle = `hsl(${hue} 45% 55%)`; g.fillRect(0, 0, 256, 256)
-      g.fillStyle = `hsl(${hue} 30% 85%)`; g.beginPath(); g.arc(128, 110, 60, 0, Math.PI * 2); g.fill()
-      g.beginPath(); g.ellipse(128, 260, 100, 80, 0, 0, Math.PI * 2); g.fill()
+      const sky = g.createLinearGradient(0, 0, 0, 256)
+      sky.addColorStop(0, `hsl(${hue} 30% 78%)`); sky.addColorStop(1, `hsl(${hue + 30} 25% 62%)`)
+      g.fillStyle = sky; g.fillRect(0, 0, 256, 256)
+      for (const [y, l] of [[170, 45], [200, 35], [230, 28]]) {
+        g.fillStyle = `hsl(${hue + 90} 18% ${l}%)`; g.beginPath(); g.moveTo(0, 256); g.lineTo(0, y)
+        for (let x = 0; x <= 256; x += 32) g.lineTo(x, y - 18 * Math.sin((x + y) / 40)); g.lineTo(256, 256); g.fill()
+      }
       const blob = await new Promise((done) => canvas.toBlob(done, 'image/png'))
       return window.api.saveImage('image/png', new Uint8Array(await blob.arrayBuffer()))
     }, 40 + at * 90)
