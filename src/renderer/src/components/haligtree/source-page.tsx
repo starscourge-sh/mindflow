@@ -18,6 +18,7 @@ import { RowMenu } from './row-menu'
 import { withoutTags } from '../../../../main/tag-words'
 import { useReading } from '@/lib/reads-in'
 import { firstSentences, sameTitle, useWiki } from '@/lib/wiki'
+import { cn } from '@/lib/cn'
 import { personKey } from '../../../../main/names'
 import { useSelectAll } from '@/lib/select-all'
 import { usePicking } from '@/lib/pick-range'
@@ -331,13 +332,33 @@ function Bio({ field, name, page }: { field: SourceField; name: string; page: So
     const fits = !!wiki.page && sameTitle(wiki.page.title, name)
     void sources.bio(field, name, fits ? firstSentences(wiki.page!.extract) : '', fits ? wiki.page!.url : '')
   }, [wiki.state, wiki.page, page, field, name])
-  // The page waits for its line, so the words never drop in after it opens: the page's own read, then (the first
-  // time only) Wikipedia's answer and its saving. Offline, nothing to wait for; never longer than the page's limit.
-  useReading(!page || (!page.bioAt && wiki.state !== 'offline'))
+  // The page waits only for its own read, never for Wikipedia: the first time, the line's room is kept at once (three
+  // quiet lines), the words fade into it when they come, and nothing under it moves. Kept once fetched, so every
+  // later visit has it at once, offline too. No answer in 4 seconds: the room closes, once, and the words wait for
+  // the next visit rather than dropping in later.
+  useReading(!page)
+  const asking = !!page && !page.bioAt && wiki.state !== 'offline'
+  const [fresh] = useState(() => !page?.bioAt)
+  const [late, setLate] = useState(false)
+  useEffect(() => {
+    if (!asking) return
+    const wait = setTimeout(() => setLate(true), 4000)
+    return () => clearTimeout(wait)
+  }, [asking])
   const [text, setText] = useState(page?.bio ?? '')
   const [writing, setWriting] = useState(false)
   useEffect(() => setText(page?.bio ?? ''), [page?.bio])
   if (!page) return null
+  if ((asking || (late && fresh)) && !writing) return (
+    <div data-bio-room={late ? 'closed' : 'waiting'} aria-hidden className="grid px-5 transition-[grid-template-rows,opacity,margin] duration-300 ease-out motion-reduce:transition-none"
+      style={{ gridTemplateRows: late ? '0fr' : '1fr', opacity: late ? 0 : 1, marginTop: late ? 0 : '1rem' }}>
+      <div className="min-h-0 overflow-hidden">
+        <div className="py-1 text-heading leading-relaxed">
+          {['100%', '94%', '58%'].map((width) => <span key={width} className="block h-[1lh] py-[0.32lh]"><span className="block h-full rounded-sm bg-foreground/[0.06]" style={{ width }} /></span>)}
+        </div>
+      </div>
+    </div>
+  )
   const save = (): void => {
     setWriting(false)
     const typed = text.replace(/\s+/g, ' ').trim()
@@ -352,7 +373,7 @@ function Bio({ field, name, page }: { field: SourceField; name: string; page: So
     </button>
   )
   return (
-    <div data-bio className="mt-4 px-5">
+    <div data-bio className={cn('mt-4 px-5', fresh && page.bio && 'min-h-[calc(3lh+0.5rem)] text-heading leading-relaxed [animation:mf-fade_300ms_ease-out] motion-reduce:[animation:none]')}>
       <textarea data-bio-text value={text} rows={1} autoFocus={writing} aria-label={field === 'attribution' ? 'About them' : 'About it'}
         placeholder={field === 'attribution' ? 'A line about them' : 'A line about it'}
         onChange={(event) => setText(event.target.value)} onBlur={save}
@@ -526,7 +547,7 @@ export function SourcePageView({ focus, onOpen }: { focus?: string; onOpen: (typ
           </div>
         </div>
         )}
-        <Bio key={`${field}:${name}:${page ? page.bioAt ?? 'asked' : 'reading'}`} field={field} name={name} page={page} />
+        <Bio key={`${field}:${name}`} field={field} name={name} page={page} />
         {page && (
           <>
             {voices.theirs.length > 0 && (
