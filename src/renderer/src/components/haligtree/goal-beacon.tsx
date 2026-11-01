@@ -192,13 +192,13 @@ function Card({ id, today, preview }: { id: string; today: string; /** A goal no
           <span className="text-control text-muted-foreground">{dayMonth(`${goal.goalAt}T12:00`)} has passed.</span>
         </div>
       ) : (
-        <div className="flex items-end gap-3" style={{ color: left > 30 ? 'var(--foreground)' : warmth(left) }}>
+        // The big number with one plain line under it, never squeezed into a column beside it.
+        <div data-goal-left className="flex min-w-0 flex-col gap-1.5" style={{ color: left > 30 ? 'var(--foreground)' : warmth(left) }}>
           {left === 0
             ? <span className="font-heading text-4xl leading-none font-bold tracking-tight">Today</span>
-            : <DotMatrix text={String(left)} className="h-12" />}
-          <span className="pb-0.5 text-xs leading-tight text-muted-foreground">
-            {left === 0 ? 'is the day' : left === 1 ? 'day left' : 'days left'}<br />
-            to {dayMonth(`${goal.goalAt}T12:00`)} · {percent(wayThrough(from, goal.goalAt))}
+            : <DotMatrix text={String(left)} className="h-12 self-start" />}
+          <span data-goal-left-said className="truncate text-control text-muted-foreground">
+            {left === 0 ? 'is the day' : `${left === 1 ? 'day' : 'days'} left, until ${dayMonth(`${goal.goalAt}T12:00`)}`}
           </span>
         </div>
       )}
@@ -211,6 +211,8 @@ function Card({ id, today, preview }: { id: string; today: string; /** A goal no
         </p>
       )}
       <div className="min-h-0 flex-1 text-foreground"><Journey compact goal={id} from={from} target={goal.goalAt} today={today} logs={goal.glosses} /></div>
+      {/* The grid said in place, so a dot means something without pointing at it. */}
+      {left >= 0 && !said && <p data-goal-key className="text-meta leading-snug text-muted-foreground text-pretty">Each dot is a day, {percent(wayThrough(from, goal.goalAt))} of the way gone. Coloured dots have a log; the last, ringed, is the day.</p>}
     </div>
   )
 }
