@@ -359,10 +359,12 @@ function Bio({ field, name, page }: { field: SourceField; name: string; page: So
   }, [wiki.state, wiki.page, page, field, name])
   // The page waits only for its own read, never for Wikipedia: the first time, the line's room is kept at once (three
   // quiet lines), the words fade into it when they come, and nothing under it moves. Kept once fetched, so every
-  // later visit has it at once, offline too. No answer in 4 seconds: the room closes, once, and the words wait for
-  // the next visit rather than dropping in later.
+  // later visit has it at once, offline too. No answer in 4 seconds: the room closes, once, and its orb stops with it.
+  // The moment the lookup ends, late or not, the line shows what came: its words, or "Add a line about them" when
+  // nothing did. A closed room left in place read as a failed page, its orb still turning (Oscar Wilde, 1 Nov).
   useReading(!page)
   const asking = !!page && !page.bioAt && wiki.state !== 'offline'
+  // Asked on this visit: the words fade in when they come, the room kept for them.
   const [fresh] = useState(() => !page?.bioAt)
   const [late, setLate] = useState(false)
   useEffect(() => {
@@ -374,12 +376,12 @@ function Bio({ field, name, page }: { field: SourceField; name: string; page: So
   const [writing, setWriting] = useState(false)
   useEffect(() => setText(page?.bio ?? ''), [page?.bio])
   if (!page) return null
-  if ((asking || (late && fresh)) && !writing) return (
+  if (asking && !writing) return (
     <div data-bio-room={late ? 'closed' : 'waiting'} aria-hidden className="grid px-5 transition-[grid-template-rows,opacity,margin] duration-300 ease-out motion-reduce:transition-none"
       style={{ gridTemplateRows: late ? '0fr' : '1fr', opacity: late ? 0 : 1, marginTop: late ? 0 : '1rem' }}>
       <div className="min-h-0 overflow-hidden">
         {/* The app's one way to say "a real wait": the orb and its shimmering words (main.css .mf-shimmer), never grey bars. Its room is the line's usual three lines, so nothing moves when the words come. */}
-        <div className="py-1 text-heading leading-relaxed"><div className="flex h-[3lh] items-start"><Orb label={`Looking up ${name}…`} /></div></div>
+        <div className="py-1 text-heading leading-relaxed"><div className="flex h-[3lh] items-start">{!late && <Orb label={`Looking up ${name}…`} />}</div></div>
       </div>
     </div>
   )

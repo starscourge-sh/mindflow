@@ -57,7 +57,8 @@ try {
   const rooms = never.filter((one) => one.shown).map((one) => one.room)
   const shownAt = never.find((one) => one.shown)
   check('Never Person: the page shows within 500ms', !!shownAt && shownAt.t <= 500, JSON.stringify(shownAt))
-  check('Never Person: the room waits, then closes once after 4s', rooms[0]?.startsWith('room-waiting') && rooms.at(-1)?.startsWith('room-closed') && never.find((one) => one.room.startsWith('room-closed')).t >= 3900, `${rooms[0]} .. ${rooms.at(-1)}`)
+  // Then, when main gives up (5s), "Add a line about them": a closed room left alone read as a failed page (Oscar Wilde, 1 Nov).
+  check('Never Person: the room waits, closes once after 4s, then the lookup over, "Add a line"', rooms[0]?.startsWith('room-waiting') && never.find((one) => one.room.startsWith('room-closed'))?.t >= 3900 && rooms.at(-1)?.startsWith('add'), `${rooms[0]} .. ${rooms.at(-1)}`)
   if (shots) await h.screenshot({ path: `${shots}/person-never.png` })
   await h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:view', { detail: 'home' })))
   await h.waitForTimeout(600)
