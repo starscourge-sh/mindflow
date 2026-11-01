@@ -305,7 +305,7 @@
    (macOS's frost filled the whole window, room and all, so it is gone), with crisp rounded corners and the
    app's one soft shadow: warm ink on light pages, black and fuller on dark ones. */
 html[data-overhang] #root {
-  padding: var(--mf-room-top) var(--mf-room) var(--mf-room);
+  padding: var(--mf-room-top) var(--mf-room-right, var(--mf-room)) var(--mf-room) var(--mf-room-left, var(--mf-room));
 }
 /* Held at its height while a pop-up hangs into extra room below it (lib/fit-box.ts): never stretched into that room. */
 html[data-overhang][data-card-held] .app-container {
@@ -334,13 +334,13 @@ html.dark[data-overhang] .app-container {
    so the pointer reaching them is no longer "in the window". */
 html[data-overhang] [data-drag-strip] {
   top: var(--mf-room-top);
-  left: var(--mf-room);
-  right: var(--mf-room);
+  left: var(--mf-room-left, var(--mf-room));
+  right: var(--mf-room-right, var(--mf-room));
 }
 html[data-overhang] .mf-top {
   position: fixed;
   top: calc(var(--mf-room-top) - 40px);
-  right: var(--mf-room);
+  right: var(--mf-room-right, var(--mf-room));
   gap: 8px;
   transform: none !important;
 }
@@ -367,20 +367,34 @@ html[data-overhang] .mf-pill > * + * {
 html[data-overhang] .mf-pill > * + *::before {
   display: none;
 }
-/* Quick capture's hint (hint-card.tsx, HintRoom): out of the card, in the room above its top left edge, its foot
-   level with the round controls' foot and its right edge short of the first of them. Opaque, with the round
-   controls' shadow. It waits unseen while a menu, a picker, ⌘K or the snip and mic choices are open (its own
-   right-click menu aside), and goes at the first word: a fade, nothing in the card moving. */
+/* Quick capture's hint (hint-card.tsx, HintRoom): out of the card, in the room main keeps for it. Above the card's
+   top left edge, its foot level with the round controls' foot and its right edge short of the first of them; or,
+   where the screen has no room above (the box at the top middle), beside the card on the side with room, its top
+   level with the card's. Opaque, with the round controls' shadow. It waits unseen while a menu, a picker, ⌘K or the
+   snip and mic choices are open (its own right-click menu aside), and goes at the first word: a fade, nothing in
+   the card moving. With no room anywhere it waits. */
 html[data-overhang] [data-hint-room] {
   position: fixed;
-  left: var(--mf-room);
-  right: calc(var(--mf-room) + 180px);
-  bottom: calc(100vh - var(--mf-room-top) + 8px);
   display: flex;
   flex-direction: column;
-  justify-content: flex-end;
   pointer-events: none;
   transition: opacity 160ms var(--mf-ease);
+}
+html[data-overhang][data-hint-side='above'] [data-hint-room] {
+  left: var(--mf-room-left);
+  right: calc(var(--mf-room-right) + 180px);
+  bottom: calc(100vh - var(--mf-room-top) + 8px);
+  justify-content: flex-end;
+}
+html[data-overhang]:is([data-hint-side='left'], [data-hint-side='right']) [data-hint-room] {
+  top: var(--mf-room-top);
+  width: 320px;
+}
+html[data-overhang][data-hint-side='left'] [data-hint-room] {
+  left: calc(var(--mf-room-left) - 320px - 12px);
+}
+html[data-overhang][data-hint-side='right'] [data-hint-room] {
+  right: calc(var(--mf-room-right) - 320px - 12px);
 }
 html[data-overhang] [data-hint-in] {
   pointer-events: auto;
@@ -392,12 +406,18 @@ html[data-overhang] [data-hint-room] [data-hint-surface] {
 html[data-overhang] [data-hint-room] [data-hint-card] {
   margin: 0;
 }
+/* Waiting: no room for it anywhere, or away (the first word, the pill, recording, reading, ⌘K), or a pop-up open.
+   The first key fades it with the footer (data-zen, lib/zen.ts), in the same beat; `away` keeps it gone after. */
+html[data-overhang]:not([data-hint-side]) [data-hint-room],
 html[data-overhang] [data-hint-room][data-away],
-html[data-overhang]:not([data-hint-menu]):has([role=menu], [role=dialog], [role=alertdialog], [role=listbox], .tiptap-suggestion-popup) [data-hint-room] {
+html[data-overhang][data-zen] [data-hint-room],
+html[data-overhang]:not([data-hint-menu]):has([role=menu], [role=dialog], [role=alertdialog], [role=listbox], .tiptap-suggestion-popup, [data-shot-button][data-open]) [data-hint-room] {
   opacity: 0;
 }
+html[data-overhang]:not([data-hint-side]) [data-hint-in],
 html[data-overhang] [data-hint-room][data-away] [data-hint-in],
-html[data-overhang]:not([data-hint-menu]):has([role=menu], [role=dialog], [role=alertdialog], [role=listbox], .tiptap-suggestion-popup) [data-hint-in] {
+html[data-overhang][data-zen] [data-hint-in],
+html[data-overhang]:not([data-hint-menu]):has([role=menu], [role=dialog], [role=alertdialog], [role=listbox], .tiptap-suggestion-popup, [data-shot-button][data-open]) [data-hint-in] {
   pointer-events: none;
 }
 /* The round surface's shadow and hairline, one recipe for every round control

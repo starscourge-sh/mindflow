@@ -309,7 +309,7 @@ export function HintCard({ onOpen }: { onOpen: (type: string, id: string) => voi
           ) : (
             <div className="mt-1.5 flex min-h-6 items-center gap-1 text-xs text-muted-foreground">
               {/* What it is, quietly: a gem that came back, a memory, or a capture still waiting. */}
-              <span data-hint-mark className={`mr-auto inline-flex items-center gap-1 ${hint.memory ? 'text-[var(--tt-brand-color-400)]' : ''}`}>
+              <span data-hint-mark className={`mr-auto inline-flex items-center gap-1 whitespace-nowrap ${hint.memory ? 'text-[var(--tt-brand-color-400)]' : ''}`}>
                 {!hint.memory && hint.id !== hint.captureId && <RotateCcw aria-hidden className="size-3" />}
                 {hint.memory ?? (hint.id === hint.captureId ? `From your Inbox · a ${hint.kind} still waiting` : 'came back')}
               </span>
@@ -321,7 +321,7 @@ export function HintCard({ onOpen }: { onOpen: (type: string, id: string) => voi
                   <Tooltip key={tip}>
                     <TooltipTrigger asChild>
                       <button type="button" data-hint-vote={icon === ThumbsUp ? 'up' : 'down'} onClick={run}
-                        className="rounded-md px-1.5 py-0.5 opacity-0 transition-[opacity,background-color,color] duration-150 group-hover/hint:opacity-100 focus-visible:opacity-100 hover:bg-accent hover:text-foreground active:scale-[0.97]">
+                        className="whitespace-nowrap rounded-md px-1.5 py-0.5 opacity-0 transition-[opacity,background-color,color] duration-150 group-hover/hint:opacity-100 focus-visible:opacity-100 hover:bg-accent hover:text-foreground active:scale-[0.97]">
                         {word}
                       </button>
                     </TooltipTrigger>
@@ -344,8 +344,8 @@ export function HintCard({ onOpen }: { onOpen: (type: string, id: string) => voi
 /**
  * Quick capture's hint, out of the card (main.css, [data-hint-room]): in the room above the card's top left edge,
  * its foot level with the round controls' foot and stopping short of the first of them, so it never covers one.
- * It rises into the room main keeps above the card (HINT_ROOM there); where the screen leaves too little, near its
- * top, it waits unseen. `away` hides it without letting it go: while a menu, ⌘K, a recording or the pill is up it
+ * It rises into the room main keeps above the card (main's hint-room.ts), or, with no room above (the top middle of the
+ * screen), sits beside the card on the side with room; with room nowhere it waits unseen. `away` hides it without letting it go: while a menu, ⌘K, a recording or the pill is up it
  * waits, and the first word typed sends it off. Nothing in the card moves when it comes or goes.
  */
 export function HintRoom({ away, children }: { away: boolean; children: ReactNode }): React.JSX.Element {
@@ -355,17 +355,21 @@ export function HintRoom({ away, children }: { away: boolean; children: ReactNod
   useLayoutEffect(() => {
     const measure = (): void => {
       const controls = document.querySelector('.mf-top')?.getBoundingClientRect()
-      setRight(controls?.width ? Math.round(window.innerWidth - controls.left + 12) : null)
+      // Above the card it stops short of the round controls; beside it, its width is the room's (main.css).
+      setRight(controls?.width && document.documentElement.dataset.hintSide === 'above' ? Math.round(window.innerWidth - controls.left + 12) : null)
       const card = room.current?.firstElementChild?.firstElementChild?.getBoundingClientRect()
-      setFits(!card || card.top >= 6)
+      setFits(!card || (card.top >= 6 && card.left >= 6 && card.right <= window.innerWidth - 6 && card.bottom <= window.innerHeight - 6))
     }
     const sizes = new ResizeObserver(measure)
     if (room.current) sizes.observe(room.current)
     const controls = document.querySelector('.mf-top')
     if (controls) sizes.observe(controls)
+    // Main moves the room (above, or beside) while the box is away.
+    const sides = new MutationObserver(measure)
+    sides.observe(document.documentElement, { attributes: true, attributeFilter: ['data-hint-side', 'style'] })
     window.addEventListener('resize', measure)
     measure()
-    return () => (sizes.disconnect(), window.removeEventListener('resize', measure))
+    return () => (sizes.disconnect(), sides.disconnect(), window.removeEventListener('resize', measure))
   }, [])
   return (
     <div ref={room} data-hint-room data-away={away || !fits || undefined} style={right === null ? undefined : { right }}>

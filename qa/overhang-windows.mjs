@@ -185,14 +185,19 @@ try {
   await box.evaluate(() => window.api.showPrompt())
   await wait(1200)
   let at = await boxWin()
-  const RM = await box.evaluate(() => window.api.room)
+  // The room as it is now: main gives more above or beside the card for a hint where the screen has it (hint-room.ts).
+  const RM = await box.evaluate(() => {
+    const now = (name, was) => parseFloat(getComputedStyle(document.documentElement).getPropertyValue(name)) || was
+    const room = window.api.room
+    return { ...room, top: now('--mf-room-top', room.top), left: now('--mf-room-left', room.left), right: now('--mf-room-right', room.right) }
+  })
   const ROOM = RM.left
   const drawn = await box.evaluate(() => {
     const r = document.querySelector('.app-container').getBoundingClientRect()
     const root = getComputedStyle(document.getElementById('root'))
     return { x: r.x, y: r.y, width: r.width, height: r.height, innerWidth, innerHeight, dataRoom: document.documentElement.hasAttribute('data-overhang'), pad: root.paddingTop, html: getComputedStyle(document.documentElement).backgroundColor, body: getComputedStyle(document.body).backgroundColor }
   })
-  check('quick capture: the page is told the room round its card', ROOM > 0 && RM.top > ROOM && drawn.dataRoom, JSON.stringify({ RM, drawn }))
+  check('quick capture: the page is told the room round its card', ROOM > 0 && RM.top >= 88 && drawn.dataRoom, JSON.stringify({ RM, drawn }))
   check('quick capture: the window is larger than its card, by the room on every side', at.real.width === at.card.width + RM.left + RM.right && at.real.height === at.card.height + RM.top + RM.bottom && at.card.x - at.real.x === RM.left && at.card.y - at.real.y === RM.top, JSON.stringify(at))
   check('quick capture: the page draws the card where main says it is', Math.round(drawn.x) === RM.left && Math.round(drawn.y) === RM.top && Math.round(drawn.width) === at.card.width && Math.round(drawn.height) === at.card.height, JSON.stringify(drawn))
   check('quick capture: the room is see-through (nothing painted behind the card)', /rgba\(0, 0, 0, 0\)|transparent/.test(drawn.html) && /rgba\(0, 0, 0, 0\)|transparent/.test(drawn.body), JSON.stringify(drawn))

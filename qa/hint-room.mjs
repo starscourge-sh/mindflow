@@ -1,21 +1,31 @@
-// Quick capture's hint sits out of the card, in the room above its top left edge, beside the round controls and
-// never over them. The card, its footer and the round controls do not move when it comes or goes; it fades at the
-// first word, waits while ⌘K is open, and waits unseen with the box near the top of the screen. Frames every 50ms
-// through open, type, ⌘K and close, light and dark, into QA_SHOTS/hint-frames-<look>/.
-//   QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 QA_ARGS=--sandbox node qa/hint-room.mjs
+// Quick capture's hint sits out of the card: above it where the screen has room, or beside it on the side with room
+// (the box at the top middle of the screen, where it opens by default), never over the card or a round control.
+// The card, its footer and the round controls do not move when it comes or goes; it fades at the first word, waits
+// while ⌘K is open, waits while the pill, a recording or reading is up, and with no room anywhere it waits.
+// Every shape is filmed, a frame every 50ms through open, type, ⌘K and close, light and dark, into
+// QA_SHOTS/<shape>-<look>/.
+//   QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 QA_ARGS='--sandbox --use-fake-device-for-media-stream --use-fake-ui-for-media-stream' node qa/hint-room.mjs
 import { mkdirSync } from 'fs'
 import { checks } from './harness.mjs'
 import { sandbox } from './sandbox-lib.mjs'
-process.env.QA_ARGS ??= '--sandbox'
+process.env.QA_ARGS ??= '--sandbox --use-fake-device-for-media-stream --use-fake-ui-for-media-stream'
+// Each window keeps the place it is given as its own while parked off screen, so the box can be put by an edge.
+process.env.HALIGTREE_QA_VIRTUAL ??= '1'
 
 const { check, done } = checks()
 const c = await sandbox({ width: 1100, height: 760 })
 const { page, v } = c
 const wait = (ms) => page.waitForTimeout(ms)
-const shots = process.env.QA_SHOTS ?? '/tmp'
+const shots = process.env.QA_SHOTS ?? '/tmp/hint'
+const film = process.env.QA_FILM !== '0'
 const EDITOR = '.tiptap.ProseMirror.haligtree-editor:not(.is-line)'
 
-/** Where the card sits on the screen (main's own record), and where its footer and round controls sit in it. */
+/** Where the card sits on the screen (main's own record). */
+const screenCard = () => c.electron.evaluate(({ BrowserWindow }) => {
+  const box = BrowserWindow.getAllWindows().find((w) => !w.isDestroyed() && w.webContents.getURL().includes('/index.html'))
+  return box ? box.getBounds() : null
+})
+/** Where the footer and round controls sit in the card. */
 const where = () => page.evaluate(() => {
   const card = document.querySelector('.app-container').getBoundingClientRect()
   const rel = (el) => { const r = el.getBoundingClientRect(); return [Math.round(r.left - card.left), Math.round(r.top - card.top), Math.round(r.width), Math.round(r.height)] }
@@ -25,31 +35,50 @@ const where = () => page.evaluate(() => {
     size: [Math.round(card.width), Math.round(card.height)]
   }
 })
-const screenCard = () => c.electron.evaluate(({ BrowserWindow }) => {
-  const box = BrowserWindow.getAllWindows().find((w) => !w.isDestroyed() && w.webContents.getURL().includes('/index.html'))
-  return box ? box.getBounds() : null
-})
-const hint = () => page.evaluate(() => {
+const hint = async (expect = true) => (expect && (await page.waitForSelector('[data-hint-room] [data-hint-in] > *', { timeout: 3000 }).catch(() => {})), page.evaluate(() => {
   const room = document.querySelector('[data-hint-room]')
-  const one = document.querySelector('[data-hint-card], [data-hint-room] [data-hint-surface]')
+  const one = document.querySelector('[data-hint-room] [data-hint-in] > *')
   if (!one) return null
   const r = one.getBoundingClientRect()
   const card = document.querySelector('.app-container').getBoundingClientRect()
+  const hit = (x) => !(x.right <= r.left || x.left >= r.right || x.bottom <= r.top || x.top >= r.bottom)
   const controls = [...document.querySelectorAll('.mf-top [data-aside] > *, .mf-top .mf-pill button')].filter((el) => el.getBoundingClientRect().width).map((el) => el.getBoundingClientRect())
   return {
+    side: document.documentElement.dataset.hintSide ?? null,
     top: Math.round(r.top), bottom: Math.round(r.bottom), left: Math.round(r.left), right: Math.round(r.right),
-    cardTop: Math.round(card.top), cardLeft: Math.round(card.left),
-    firstControl: Math.round(Math.min(...controls.map((x) => x.left))),
-    overControl: controls.some((x) => !(x.right <= r.left || x.left >= r.right || x.bottom <= r.top || x.top >= r.bottom)),
-    opacity: room ? Number(getComputedStyle(room).opacity) : 1
+    card: [Math.round(card.left), Math.round(card.top), Math.round(card.right), Math.round(card.bottom)],
+    overCard: hit(card), overControl: controls.some(hit),
+    inWindow: r.top >= 0 && r.left >= 0 && r.right <= innerWidth && r.bottom <= innerHeight,
+    opacity: room ? Number(getComputedStyle(room).opacity) : 1,
+    lines: (() => { const w = one.querySelector('[data-hint-words]'); return w ? Math.round(w.getBoundingClientRect().height / parseFloat(getComputedStyle(w).lineHeight)) : 0 })()
   }
-})
+}))
+const seen = (h) => !!h && h.opacity > 0.5
 const reopen = async () => {
   await page.evaluate(() => window.api.hidePrompt()); await wait(500)
   await page.evaluate(() => window.api.showPrompt()); await wait(1400)
 }
+/** Opened until a hint comes (the store hands out none now and then). */
+const untilHint = async () => {
+  for (let i = 0; i < 6; i++) {
+    await reopen()
+    if (await page.waitForSelector('[data-hint-words]', { timeout: 2500 }).catch(() => null)) return true
+  }
+  return false
+}
+/** The box put at a spot on its screen (as if dragged there), kept for the next open. */
+const putBox = (spot) => c.electron.evaluate(({ BrowserWindow, screen }, spot) => {
+  const box = BrowserWindow.getAllWindows().find((w) => !w.isDestroyed() && w.webContents.getURL().includes('/index.html'))
+  if (!box) return
+  const at = box.getBounds()
+  const area = screen.getDisplayMatching(at).workArea
+  const x = spot === 'left' ? area.x + 20 : spot === 'right' ? area.x + area.width - at.width - 20 : Math.round(area.x + (area.width - at.width) / 2)
+  const y = spot === 'low' ? area.y + 300 : area.y + 60
+  box.setPosition(x, y)
+}, spot)
+const theme = (look) => page.evaluate((n) => (localStorage.setItem('theme', n), window.dispatchEvent(new StorageEvent('storage', { key: 'theme' }))), look === 'light' ? 'paper' : 'dark')
 /** A frame every 50ms for `ms`, while `act` runs. */
-async function film(dir, name, ms, act) {
+async function roll(dir, name, ms, act) {
   let n = 0
   let going = true
   const rolling = (async () => {
@@ -64,75 +93,155 @@ async function film(dir, name, ms, act) {
   going = false
   await rolling
 }
+/** One shape filmed, light and dark: open, type, ⌘K, close. `ready` puts the box in the shape once it is open. */
+async function shape(name, ready = async () => {}) {
+  if (!film) return
+  for (const look of ['light', 'dark']) {
+    const dir = `${shots}/${name}-${look}`
+    mkdirSync(dir, { recursive: true })
+    await theme(look)
+    await page.evaluate(() => window.api.hidePrompt()); await wait(500)
+    await roll(dir, '1-open', 1300, async () => { await page.evaluate(() => window.api.showPrompt()); await wait(700); await ready() })
+    await page.mouse.move(2, 2)
+    await roll(dir, '2-type', 500, async () => { await page.click(EDITOR).catch(() => {}); await page.keyboard.type('a') })
+    await page.keyboard.press('Backspace'); await wait(200)
+    await roll(dir, '3-cmdk', 700, () => page.keyboard.press('Meta+k'))
+    await page.keyboard.press('Escape'); await wait(300)
+    await roll(dir, '4-close', 500, () => page.evaluate(() => window.api.hidePrompt()))
+  }
+}
 
 try {
-  await v('settings:set', { hintRate: 0, rotCount: 0, sounds: false })
+  await v('settings:set', { hintRate: 0, rotCount: 0, sounds: false, boxOneLine: false, boxPlace: 'last', boxScreen: 'same' })
+  // Plenty for hints to come from: the store hands each out only now and then.
+  for (let n = 0; n < 30; n += 1) await c.h.evaluate((body) => window.api.captures.create({ body }), `A long one, number ${n + 1}: the best way to remember something is to explain it to someone else in your own words, then find the part you could not explain, and go back to the source for exactly that part.`)
   await reopen()
   if (await page.$('[aria-label="Hide the side panel"]')) { await page.keyboard.press('Meta+Backslash'); await wait(1000) }
-  // Low enough on the screen for a hint's room above it.
-  await c.electron.evaluate(({ BrowserWindow, screen }) => {
-    const box = BrowserWindow.getAllWindows().find((w) => !w.isDestroyed() && w.webContents.getURL().includes('/index.html'))
-    if (box) box.setPosition(box.getBounds().x, screen.getPrimaryDisplay().workArea.y + 240)
-  })
-  await reopen()
+  // The top middle of the screen, where it opens the first time: 60px under the menu bar.
+  await putBox('middle')
   await reopen()
   const bare = { card: await screenCard(), in: await where() }
 
+  // The default spot, the top middle of the screen: no room above, so it sits beside the card.
   await v('settings:set', { hintRate: 1 })
   await page.evaluate(() => { Math.random = () => 0.99 })
   await reopen()
   await page.waitForSelector('[data-hint-card]', { timeout: 5000 }).catch(() => {})
   await page.mouse.move(2, 2); await wait(500)
-  const shown = await hint()
-  check('a hint came', !!shown, JSON.stringify(shown))
-  check('the hint is out of the card, above its top edge', shown && shown.bottom <= shown.cardTop - 4 && shown.top >= 0, JSON.stringify(shown))
-  check('…its left edge on the card\'s left edge', shown && Math.abs(shown.left - shown.cardLeft) <= 1, JSON.stringify(shown))
-  check('…and it never covers a round control', shown && !shown.overControl && shown.right <= shown.firstControl - 8, JSON.stringify(shown))
+  const top = await hint()
+  if (process.env.QA_DEBUG) console.log(await page.evaluate(() => ({ side: document.documentElement.dataset.hintSide, room: document.querySelector('[data-hint-room]')?.outerHTML.slice(0, 200) })))
+  check('the top middle of the screen: a hint shows', seen(top), JSON.stringify(top))
+  check('…beside the card (no room above it there), level with its top', top?.side === 'left' && top.right <= top.card[0] - 8 && top.top === top.card[1], JSON.stringify(top))
+  check('…never over the card or a round control, never cut off', top && !top.overCard && !top.overControl && top.inWindow, JSON.stringify(top))
   const withHint = { card: await screenCard(), in: await where() }
-  check('the card stays exactly where it opens without a hint (on the screen)', JSON.stringify(withHint.card) === JSON.stringify(bare.card), `${JSON.stringify(bare.card)} vs ${JSON.stringify(withHint.card)}`)
+  // The toast lane is measured from the footer's place in the window, which moved with the room.
+  const lane = await page.evaluate(() => {
+    const el = document.querySelector('[style*="--toast-right"]')
+    const create = document.querySelector('main[data-zen-row]')?.lastElementChild?.getBoundingClientRect()
+    return { said: el ? parseFloat(el.style.getPropertyValue('--toast-right')) : null, now: create ? Math.round(innerWidth - create.left) : null }
+  })
+  check('the toast lane follows the card into its new place in the window', lane.said !== null && lane.said === lane.now, JSON.stringify(lane))
+  check('the card opens exactly where it does without a hint (on the screen)', JSON.stringify(withHint.card) === JSON.stringify(bare.card), `${JSON.stringify(bare.card)} vs ${JSON.stringify(withHint.card)}`)
   check('the footer and round controls sit where they do without a hint', JSON.stringify(withHint.in) === JSON.stringify(bare.in), `${JSON.stringify(bare.in)} vs ${JSON.stringify(withHint.in)}`)
-
-  await page.click(EDITOR); await page.keyboard.type('a'); await wait(400)
+  await page.click(EDITOR); await page.keyboard.type('a'); await wait(800)
   const typed = await hint()
-  check('the first keystroke sends the hint off (faded, clicks pass)', !typed || typed.opacity === 0, JSON.stringify(typed))
+  check('the first keystroke sends the hint off', !seen(typed), JSON.stringify(typed))
   check('…and nothing in the card moved', JSON.stringify(await where()) === JSON.stringify(withHint.in))
   await page.keyboard.press('Backspace'); await wait(300)
-
   await reopen()
-  await page.waitForSelector('[data-hint-card]', { timeout: 5000 }).catch(() => {})
   await page.keyboard.press('Meta+k'); await wait(600)
-  const searching = await hint()
-  check('⌘K open: the hint waits unseen', !searching || searching.opacity === 0, JSON.stringify(searching))
+  check('⌘K open: the hint waits unseen', !seen(await hint(false)))
   await page.keyboard.press('Escape'); await wait(400)
+  await page.click('[data-record-button]'); await wait(800)
+  check('the snip and mic choices open: the hint waits unseen', !seen(await hint()))
+  await page.keyboard.press('Escape'); await wait(400)
+  await shape('full-box')
 
-  // Near the top of the screen: no room above for it, so it waits.
-  await c.electron.evaluate(({ BrowserWindow, screen }) => {
-    const box = BrowserWindow.getAllWindows().find((w) => !w.isDestroyed() && w.webContents.getURL().includes('/index.html'))
-    if (box) box.setPosition(box.getBounds().x, screen.getPrimaryDisplay().workArea.y + 20)
-  })
+  // With the side panel: the card grows to the right, the hint stays on the left.
   await reopen()
-  const high = await hint()
-  check('the box near the top of the screen: the hint waits unseen, never cut off', !high || high.opacity === 0 || high.top >= 0, JSON.stringify(high))
+  await page.keyboard.press('Meta+Backslash'); await wait(1400)
+  await reopen()
+  const panel = await hint()
+  check('with the side panel: the hint beside the card on the left, clear of it', seen(panel) && panel.side === 'left' && !panel.overCard && panel.inWindow, JSON.stringify(panel))
+  await shape('full-box-side-panel')
+  await page.keyboard.press('Meta+Backslash'); await wait(1400)
 
-  for (const look of ['light', 'dark']) {
-    const dir = `${shots}/hint-frames-${look}`
-    mkdirSync(dir, { recursive: true })
-    await page.evaluate((n) => (localStorage.setItem('theme', n), window.dispatchEvent(new StorageEvent('storage', { key: 'theme' }))), look === 'light' ? 'paper' : 'dark')
-    await c.electron.evaluate(({ BrowserWindow, screen }) => {
-      const box = BrowserWindow.getAllWindows().find((w) => !w.isDestroyed() && w.webContents.getURL().includes('/index.html'))
-      if (box) box.setPosition(box.getBounds().x, screen.getPrimaryDisplay().workArea.y + 240)
-    })
-    await page.evaluate(() => window.api.hidePrompt()); await wait(500)
-    await film(dir, '1-open', 1200, () => page.evaluate(() => window.api.showPrompt()))
-    await page.mouse.move(2, 2)
-    await film(dir, '2-type', 500, async () => { await page.click(EDITOR); await page.keyboard.type('a') })
-    await page.keyboard.press('Backspace'); await reopen()
-    await film(dir, '3-cmdk', 700, () => page.keyboard.press('Meta+k'))
-    await page.keyboard.press('Escape'); await wait(300)
-    await film(dir, '4-close', 500, () => page.evaluate(() => window.api.hidePrompt()))
+  // Lower on the screen: room above, so it sits above the card's top left edge, beside the round controls.
+  await putBox('low'); await reopen()
+  const low = await hint()
+  check('lower on the screen: the hint above the card, its left edge on the card\'s', seen(low) && low.side === 'above' && low.bottom <= low.card[1] - 8 && low.left === low.card[0], JSON.stringify(low))
+  check('…clear of the round controls and the card', low && !low.overControl && !low.overCard && low.inWindow, JSON.stringify(low))
+  await shape('box-low')
+
+  // Near the left edge of the screen at the top: the hint goes to the right.
+  await putBox('left'); await reopen()
+  const left = await hint()
+  check('the box at the top left of the screen: the hint beside it on the right', seen(left) && left.side === 'right' && left.left >= left.card[2] + 8 && left.inWindow, JSON.stringify(left))
+  await shape('box-top-left')
+  await putBox('right'); await reopen()
+  const right = await hint()
+  check('the box at the top right of the screen: the hint beside it on the left', seen(right) && right.side === 'left' && right.right <= right.card[0] - 8 && right.inWindow, JSON.stringify(right))
+  await shape('box-top-right')
+  await putBox('middle')
+  for (let i = 0; i < 12; i++) {
+    await untilHint()
+    if ((await page.evaluate(() => document.querySelector('[data-hint-words]')?.textContent.length ?? 0)) > 160) break
   }
+  const long = await hint()
+  check('a long hint: three lines at most, clear of the card and inside the window', seen(long) && !long.overCard && long.inWindow && long.lines <= 3, JSON.stringify(long))
+  if (film) {
+    for (const look of ['light', 'dark']) {
+      mkdirSync(`${shots}/long-gem-${look}`, { recursive: true }); await theme(look); await wait(500)
+      await page.screenshot({ path: `${shots}/long-gem-${look}/still.png` })
+    }
+  }
+
+  // "One line to start", the pill: the hint waits until the pill grows.
+  await v('settings:set', { boxOneLine: true })
+  await reopen()
+  check('the pill: the hint waits unseen', !seen(await hint()))
+  await shape('pill', async () => {})
+  await v('settings:set', { boxOneLine: false })
+
+  // Reading: a gem opened in the box from its hint's menu; opened again, the next hint waits while it is read.
+  await untilHint()
+  await page.click('[data-hint-words]', { button: 'right' }); await wait(400)
+  await page.locator('[role=menu] [role=menuitem]', { hasText: 'Open it' }).first().click().catch(() => {})
+  await wait(1000)
+  await page.evaluate(() => window.api.hidePrompt()); await wait(500)
+  await page.evaluate(() => window.api.showPrompt()); await wait(1600)
+  for (let i = 0; i < 5 && !(await page.$('[data-hint-card]')); i++) { await page.evaluate(() => window.api.hidePrompt()); await wait(400); await page.evaluate(() => window.api.showPrompt()); await wait(1600) }
+  const readingNow = await page.evaluate(() => document.body.innerText.includes('Back to your note'))
+  check('reading a note in the box: the next hint waits unseen', readingNow && !!(await page.$('[data-hint-card]')) && !seen(await hint(false)), `reading ${readingNow}`)
+  if (film) for (const look of ['light', 'dark']) {
+    const dir = `${shots}/reading-${look}`; mkdirSync(dir, { recursive: true }); await theme(look)
+    await roll(dir, '1-reading', 600, async () => {})
+  }
+  await page.click('button:has-text("Back to your note")').catch(() => {}); await wait(600)
+
+  // Recording: the compact recorder card, no hint.
+  await reopen()
+  await page.click('[data-record-button]'); await wait(450); await page.click('[data-shot="record"]').catch(() => {})
+  await page.waitForSelector('[data-voice-recorder]', { timeout: 6000 }).catch(() => {})
+  await wait(400)
+  check('recording: no hint', !seen(await hint()))
+  if (film) for (const look of ['light', 'dark']) {
+    const dir = `${shots}/recording-${look}`; mkdirSync(dir, { recursive: true }); await theme(look)
+    await roll(dir, '1-recording', 800, async () => {})
+  }
+  await page.keyboard.press('Escape'); await wait(600)
+  await page.keyboard.press('Escape'); await wait(600)
+
+  // Focus mode: no hint, as before.
+  await reopen()
+  await page.keyboard.press('Meta+Shift+KeyF'); await wait(600)
+  check('focus mode: no hint', !seen(await hint()))
+  await shape('focus')
+  await page.evaluate(() => window.api.showPrompt()); await wait(800)
+  await page.keyboard.press('Meta+Shift+KeyF'); await wait(600)
+
 } catch (error) {
-  check('the run finished', false, error.message.split('\n')[0])
+  check('the run finished', false, error.message.split('\n')[0] + ' ' + (error.stack.match(/hint-room.mjs:\d+/g) ?? []).join(' '))
 } finally {
   await c.close?.()
 }

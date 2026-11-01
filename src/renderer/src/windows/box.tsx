@@ -19,10 +19,21 @@ if (window.api.room.left) {
   document.documentElement.style.setProperty('--mf-room', `${window.api.room.left}px`)
   document.documentElement.style.setProperty('--mf-room-top', `${window.api.room.top}px`)
   clearRoom()
-  // More or less room above the card, set by main while the box is away: the card moves down by as much in the
-  // same frame, so on screen it stays exactly where main put it, and main shows the box once that is drawn.
-  window.api.onRoomTop((top) => {
-    document.documentElement.style.setProperty('--mf-room-top', `${top}px`)
+  document.documentElement.style.setProperty('--mf-room-left', `${window.api.room.left}px`)
+  document.documentElement.style.setProperty('--mf-room-right', `${window.api.room.right}px`)
+  // The room round the card for a hint (above it, or beside it on the side with room), set by main while the box is
+  // away: the card moves by as much in the same frame, so on screen it stays exactly where main put it, and main
+  // shows the box once that is drawn.
+  window.api.onRoomHint(({ top, left, right, side }) => {
+    const root = document.documentElement
+    root.style.setProperty('--mf-room-top', `${top}px`)
+    root.style.setProperty('--mf-room-left', `${left}px`)
+    root.style.setProperty('--mf-room-right', `${right}px`)
+    if (side) root.dataset.hintSide = side
+    else delete root.dataset.hintSide
+    // What places itself by the card's place in the window (the toast lane in the footer, the hint) measures again:
+    // the window's resize came before the card moved in it.
+    window.dispatchEvent(new Event('resize'))
     requestAnimationFrame(() => requestAnimationFrame(() => window.api.roomDrawn()))
   })
 }
