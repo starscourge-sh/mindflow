@@ -62,3 +62,14 @@ export function findItems<T extends Findable>(items: T[], query: string): T[] {
     .sort((a, b) => a.score - b.score || a.at - b.at)
     .map(({ item }) => item)
 }
+
+/**
+ * Whether what was typed finds this text, forgiving one slip a word: every word
+ * typed is inside it, or starts or is one slip from one of its words. The test
+ * every search by name shares (⌘K's actions, Settings, the note pickers).
+ */
+export function forgives(query: string, text: string): boolean {
+  const typed = words(query)
+  const own = text.toLowerCase()
+  return typed.every((word) => own.includes(word)) || nearWords(typed, text)
+}

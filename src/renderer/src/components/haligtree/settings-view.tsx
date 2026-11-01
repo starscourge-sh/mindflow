@@ -77,6 +77,7 @@ import { TimeField } from './time-field'
 import { BarWordsSample, BlurSample, CentredSample, DayHintsSample, FoldSample, TypePauseSample, SpellSample, HomeMonthSample, TimeGoneSample, TitleTopSample, TypewriterSample, Choices, CountSample, ListPictureSample, MarksSample, MiniBubble, MotionSample, PictureSample, POSTCARD_BORDERS, StirSample, TempusSample, ThemeFileGuide, TuckSample, ThemeTiles, barChoices, boxPlaceChoices, boxScreenChoices, bubbleChoices, highlightChoices, paperChoices, pictureSizeChoices, tagLookChoices, IconColourSample, menuIconChoices, linkChoices, meaningChoices, pillSitsChoices, postcardChoices, saveStarterTheme, stickyChoices, timerShowsChoices, widthChoices, TranscribeSample, TalkSample, TidySample } from './settings-show'
 import { BookOpen as BookHeart, Brain, HardDrive, CircleHelp as LifeBuoy, ListTodo as ListChecks, Camera as Mountain, Brush as Palette, Pencil as PenLine, Search as SearchIcon, Sparkles, Volume2, X } from '@/components/ui/icons'
 import { APP_NAME } from '../../../../main/name'
+import { forgives } from '@/lib/slash-rank'
 
 /**
  * What the search at the top asks for, and whether the island a row sits in
@@ -89,7 +90,8 @@ function Switch(props: React.ComponentProps<typeof PlainSwitch>): React.JSX.Elem
   const name = useContext(SettingName)
   return <PlainSwitch aria-label={name} {...props} />
 }
-const matches = (query: string, ...texts: string[]): boolean => !query.trim() || texts.join(' ').toLowerCase().includes(query.trim().toLowerCase())
+// A slip of the keys still finds it, as in the / menu: "apperance" is Appearance.
+const matches = (query: string, ...texts: string[]): boolean => !query.trim() || texts.join(' ').toLowerCase().includes(query.trim().toLowerCase()) || forgives(query, texts.join(' '))
 
 /**
  * One setting, as a row in an island the way System Settings groups them: its
@@ -1214,7 +1216,7 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
         </Group>
 
         <Group section="Writing" title="Voice notes">
-          <Setting title="Transcribe voice notes as you record them" note="A recording's words are written under it as soon as you keep it, each line with its time." more="Made on this Mac by its own speech recognition; nothing is sent anywhere. Off, “Transcribe” on a recording (its cc button, its right-click menu, or ⌘K) does it when you ask." keywords="voice note recording audio transcribe transcript words speech dictation text speech recognition captions"
+          <Setting title="Transcribe voice notes as you record them" note="A recording's words are written under it as soon as you keep it, each line with its time." more="Made on this Mac by its own speech recognition; nothing is sent anywhere. Off, “Transcribe” on a recording (its cc button, its right-click menu, or ⌘K) does it when you ask." keywords="voice note recording audio transcribe transcript words speech dictation dictate speech to text speech recognition captions"
             below={<TranscribeSample on={settings.transcribeAsYouRecord === true} />}>
             <Switch checked={settings.transcribeAsYouRecord === true} onCheckedChange={(transcribeAsYouRecord) => set({ transcribeAsYouRecord })} />
           </Setting>
@@ -1257,7 +1259,7 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
           <BookRows />
         </Group>
         <Group section="Import and backups" title="Import and export">
-          <Setting title="Import" note="Notes from Apple Notes, Obsidian or Notion, highlights and cards." more="Apple Notes and an Obsidian vault folder by folder, into Writing, to sort. An unzipped Notion export, Readwise or Kindle highlights, Markdown files, bookmarks or Anki cards." keywords="import apple notes obsidian vault notion export readwise kindle markdown bookmarks anki bring move">
+          <Setting title="Import" note="Notes from Apple Notes, Obsidian or Notion, highlights and cards." more="Apple Notes and an Obsidian vault folder by folder, into Writing, to sort. An unzipped Notion export, Readwise or Kindle highlights, Markdown files, bookmarks or Anki cards." keywords="import apple notes obsidian vault notion export readwise kindle markdown bookmarks anki flashcard flashcards apkg bring move">
             <ImportButton what="apple-notes">Apple Notes…</ImportButton>
             <ImportButton what="vault">Obsidian or Notion…</ImportButton>
             <ImportButton what="files">Files…</ImportButton>

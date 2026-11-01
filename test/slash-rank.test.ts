@@ -54,3 +54,19 @@ test('a slip of the keys still finds it, and meaning words find Dictate and Reco
   assert.deepEqual(findItems(items, 'speach').map((one) => one.title), ['Dictate'])
   assert.deepEqual(findItems(items, 'hx').map((one) => one.title), [])
 })
+
+test('forgives: one slip and meaning words, as ⌘K and Settings search', async () => {
+  const { forgives } = await import('../src/renderer/src/lib/slash-rank.ts')
+  const record = 'Record a voice note Kept as a new capture dictate dictation transcribe speech to text voice memo talk'
+  assert.ok(forgives('dictate', record))
+  assert.ok(forgives('transcibe', record))
+  assert.ok(forgives('speech to text', record))
+  assert.ok(forgives('recrod', record))
+  const imports = 'Import highlights and files… Readwise, Kindle, Markdown, bookmarks or Anki import anki flashcards'
+  assert.ok(forgives('import anki', imports))
+  assert.ok(forgives('flashcard', imports))
+  assert.ok(forgives('apperance', 'Appearance Theme'))
+  assert.ok(!forgives('zebra', record))
+  assert.ok(!forgives('tbale chair', 'Table'))
+  assert.ok(forgives('', 'anything'))
+})

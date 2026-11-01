@@ -1598,8 +1598,8 @@ export function Home(): React.JSX.Element {
             // Back after a while, the sidebar shows only capture and Today: the way to the rest, from here too (the sidebar's own button is not there when it is narrow or hidden).
             ...(quiet ? [{ label: 'Show everything', hint: 'Every page in the sidebar again', cue: null, run: () => void call('return:show-all').then(() => chime('unshelve')) }] : []),
             { label: 'New capture', keys: 'C', run: () => window.api.showPrompt() },
-            { label: 'Record a voice note', hint: 'Kept as a new capture', cue: null, run: () => void recordAsCapture((id) => open('capture', id)) },
-            ...(recordingsWithoutWords() ? [{ label: 'Transcribe the voice notes', hint: 'Their words under each, on this Mac', cue: null, run: transcribePage }] : []),
+            { label: 'Record a voice note', hint: 'Kept as a new capture', words: 'dictate dictation transcribe speech to text voice memo talk speak microphone', cue: null, run: () => void recordAsCapture((id) => open('capture', id)) },
+            ...(recordingsWithoutWords() ? [{ label: 'Transcribe the voice notes', hint: 'Their words under each, on this Mac', words: 'dictation speech to text', cue: null, run: transcribePage }] : []),
             { label: 'New question', cue: null, run: () => void startQuestion(open) },
             { label: 'New goal', cue: null, run: () => void startGoal(open) },
             // One action for every open goal's beacon, then a short list: each goal, and the two settings it is not on.
@@ -1623,9 +1623,9 @@ export function Home(): React.JSX.Element {
             { label: 'Write out my day', hint: 'Today as a list you write', cue: null, run: () => (setView({ id: 'today' }), writeOutDay()) },
             { label: 'Tidy captures', hint: 'Tidy: a few minutes tagging your latest captures', run: () => openPass('tidy') },
             { label: 'Decide what to keep', hint: 'Decide: once a week, look over what waited', run: () => openPass('decide') },
-            { label: 'Import Obsidian or Notion…', hint: 'A vault or a Notion export', cue: null, run: () => void window.api.importFrom('vault') },
+            { label: 'Import Obsidian or Notion…', hint: 'A vault or a Notion export', words: 'markdown vault bring in', cue: null, run: () => void window.api.importFrom('vault') },
             { label: 'Import from Apple Notes…', hint: 'Folder by folder, into Writing, to sort', cue: null, run: () => void window.api.importFrom('apple-notes') },
-            { label: 'Import highlights and files…', hint: 'Readwise, Kindle, Markdown, bookmarks or Anki', cue: null, run: () => void window.api.importFrom('files') },
+            { label: 'Import highlights and files…', hint: 'Readwise, Kindle, Markdown, bookmarks or Anki', words: 'import anki flashcards cards apkg kindle', cue: null, run: () => void window.api.importFrom('files') },
             { label: 'Switch book…', hint: 'Another book of yours, or the sandbox', cue: null, run: () => askBook('switch') },
             ...(SANDBOX ? [] : [
               { label: 'New book…', hint: 'An empty one, apart from this', cue: null, run: () => void askNewBook() },
@@ -1705,9 +1705,9 @@ export function Home(): React.JSX.Element {
             ...practiceActions,
             { label: 'Study stats', hint: 'Reviews a day, how often you remember, what falls due', cue: null, run: () => setView({ id: 'review', focus: ':stats' }) },
             { label: 'Decks', hint: 'Your decks, and shared Anki decks on their own shelf', cue: null, run: () => setView({ id: 'review', focus: ':decks' }) },
-            { label: 'New deck', hint: 'A deck is a tag your cards share: name it, then paste cards or make one', cue: null, run: () => (setView({ id: 'review', focus: ':decks' }), void makeDeck()) },
+            { label: 'New deck', hint: 'A deck is a tag your cards share: name it, then paste cards or make one', words: 'flashcard flashcards anki', cue: null, run: () => (setView({ id: 'review', focus: ':decks' }), void makeDeck()) },
             ...deckTags.map((tag) => ({ label: `New card in #${tag}`, hint: 'Type the question and its answer, in Review', cue: null, run: () => setView({ id: 'review', focus: `:new:${tag}` }) })),
-            { label: 'Paste cards', hint: 'A list, one card a line: front | back', cue: null, run: () => setView({ id: 'review', focus: ':paste' }) },
+            { label: 'Paste cards', hint: 'A list, one card a line: front | back', words: 'flashcard flashcards anki', cue: null, run: () => setView({ id: 'review', focus: ':paste' }) },
             { label: 'Liked', hint: 'Every post you hearted, newest first, week by week', cue: null, run: () => (setView({ id: 'feed', focus: ':liked' }), showLiked()) },
             { label: 'Browse all cards', hint: 'Search, sort, pause and tag them, in Review', cue: null, run: () => setView({ id: 'review', focus: ':cards' }) },
             // Study one tag's cards, scheduled as in any review.

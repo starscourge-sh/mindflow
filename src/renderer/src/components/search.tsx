@@ -44,6 +44,7 @@ import { PICKED_MARK, usePickMixed } from './haligtree/pick-mixed'
 import { clip } from '../../../main/clip'
 import { APP_NAME } from '../../../main/name'
 import { hoverNote } from './haligtree/note-preview'
+import { forgives } from '@/lib/slash-rank'
 
 type Capture = Awaited<ReturnType<typeof window.api.captures.find>>[number]
 
@@ -53,7 +54,7 @@ type Capture = Awaited<ReturnType<typeof window.api.captures.find>>[number]
 /** `choices`: one action that opens a short list in place, "Goal on screen…" and then which goal and how. */
 /** `heard`: words typed that ask for it outright ("20 min"): the action they make goes first, in its place. */
 /** `typedChoice`: in its list of choices, words typed that make one of their own (“40” for 40 minutes), offered first. */
-export type Action = { label: string; /** What it does, quietly after its name, and found by search: the label stays a short name. */ hint?: string; keys?: string; run: () => void; cue?: Cue | null; own?: boolean; typed?: boolean; themes?: (theme: Theme, was?: Theme) => void; choices?: () => Choice[]; typedChoice?: (typed: string) => Choice | null; heard?: (typed: string) => Action | null; icon?: ComponentProps<typeof AliveIcon>['icon']; /** One of the rows a search with no match offers: what the words become. */ keep?: Keep }
+export type Action = { label: string; /** What it does, quietly after its name, and found by search: the label stays a short name. */ hint?: string; /** Other words a person might search for it by, never shown: "dictate" for recording. */ words?: string; keys?: string; run: () => void; cue?: Cue | null; own?: boolean; typed?: boolean; themes?: (theme: Theme, was?: Theme) => void; choices?: () => Choice[]; typedChoice?: (typed: string) => Choice | null; heard?: (typed: string) => Action | null; icon?: ComponentProps<typeof AliveIcon>['icon']; /** One of the rows a search with no match offers: what the words become. */ keep?: Keep }
 /** What words that match nothing can be kept as, from ⌘K. `box`: written into quick capture. */
 export type Keep = 'note' | 'task' | 'question' | 'box'
 const KEPT_AS: Record<Keep, string> = { note: 'as a note', task: 'as a task', question: 'as a question', box: 'in quick capture' }
@@ -144,7 +145,7 @@ export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'tas
     ...(asked ? [{ label: `What ${APP_NAME} means by ${asked.forms[0]}`, cue: null, run: () => openWord(asked.id) }] : []),
     ...heard,
     ...[...actions, { label: `${APP_NAME}’s words`, hint: 'What its own names mean', typed: true, cue: null, run: () => openWord(ALL_WORDS) }]
-      .filter((one) => !(heard.length && one.heard) && (!one.typed || settled.trim()) && settledWords.every((word) => `${one.label} ${one.hint ?? ''}`.toLowerCase().includes(word)))
+      .filter((one) => !(heard.length && one.heard) && (!one.typed || settled.trim()) && forgives(settledWords.join(' '), `${one.label} ${one.hint ?? ''} ${one.words ?? ''}`))
       .sort((a, b) => (settled.trim() ? Number(!!b.own) - Number(!!a.own) : 0)).slice(0, settled.trim() ? 4 : 12)
   ]
   // An action the words name ("What's new") is what Enter does; keeping the words as a note comes after it.
