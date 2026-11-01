@@ -1,3 +1,4 @@
+import { deckTitle } from './decks'
 import { useState } from 'react'
 import { chime } from '@/lib/sound'
 import { num } from '../../../../main/dates'
@@ -38,7 +39,7 @@ export function PasteCards({ onClose, deck: aimed, onShow }: { onClose: () => vo
     const tagged = cards.map(({ term, meaning }) => ({ term, meaning: marks.length ? `${meaning}\n\n${marks.map((one) => `#${one}`).join(' ')}` : meaning, both }))
     void window.api.haligtree<string[]>('cards:list', tagged).then((ids) => {
       chime('noted')
-      toast(`${ids.length === 1 ? 'Card made' : `${num(ids.length)} cards made`}${marks.length ? ` in ${deck.trim() ? 'the deck ' : ''}#${marks[0]}` : ''}`, () => void window.api.haligtree('cards:list:undo', ids).then(() => chime('undo')), 'success', onShow && ids.length > 1 ? { label: 'Show them', key: 'S', run: () => onShow(ids) } : undefined, ids.length === 1 ? { type: 'nugget', id: ids[0], title: tagged[0].term } : undefined)
+      toast(`${ids.length === 1 ? 'Card made' : `${num(ids.length)} cards made`}${marks.length ? ` in ${deck.trim() ? `the deck ${deckTitle(marks[0])}` : `#${marks[0]}`}` : ''}`, () => void window.api.haligtree('cards:list:undo', ids).then(() => chime('undo')), 'success', onShow && ids.length > 1 ? { label: 'Show them', key: 'S', run: () => onShow(ids) } : undefined, ids.length === 1 ? { type: 'nugget', id: ids[0], title: tagged[0].term } : undefined)
       setText('')
       onClose()
     })
@@ -48,7 +49,7 @@ export function PasteCards({ onClose, deck: aimed, onShow }: { onClose: () => vo
     // lines written straight onto ruled paper, and the cards they make laid out below.
     <section data-paste-cards className="mf-index-card flex flex-col gap-3 px-5 pt-4 pb-3">
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        <h3 className="flex-1 font-heading text-heading font-semibold">{aimed ? `Add many at once into #${tagOf(aimed)}` : 'Add many at once'}</h3>
+        <h3 className="flex-1 font-heading text-heading font-semibold">{aimed ? `Add many at once into ${deckTitle(tagOf(aimed))}` : 'Add many at once'}</h3>
         <span className="text-control text-foreground/70">Paste a list or a spreadsheet, one card a line, front then back, or drop a .txt, .csv or .tsv here</span>
       </div>
       <div aria-hidden className="mf-index-rule" />
