@@ -14,7 +14,7 @@ import { stepTap } from '@/lib/haptics'
 import { detent, slotTicker } from '@/lib/proximity'
 import { Arrow } from './marks'
 import Lenis from 'lenis'
-import { useLive, haligtree } from '@/lib/haligtree'
+import { call, useLive, haligtree } from '@/lib/haligtree'
 import { UNATTRIBUTED } from '@/lib/sources'
 import { useReadsIn, useSeen } from '@/lib/reads-in'
 import { chime, quietFor, setVolume, soundOn } from '@/lib/sound'
@@ -1013,9 +1013,10 @@ export const whyFailed = (error: unknown): string => {
  * place: Enter answers, Escape lets it go. Resolves to the words, or null.
  * With `skip` (its label, "Keep it without"), the line is asked for, never
  * forced: Enter on nothing, or that button, resolves to '' and it goes on.
+ * With `instead`, one more way out beside it ("Not a quote"): it runs, and the question resolves to null.
  */
-export const ask = (question: string, placeholder = '', field?: 'attribution' | 'medium' | 'tag', initial = '', skip?: string): Promise<string | null> =>
-  new Promise((answer) => void window.dispatchEvent(new CustomEvent('haligtree:ask', { detail: { question, placeholder, field, initial, skip, answer } })))
+export const ask = (question: string, placeholder = '', field?: 'attribution' | 'medium' | 'tag', initial = '', skip?: string, instead?: { label: string; run: () => void }): Promise<string | null> =>
+  new Promise((answer) => void window.dispatchEvent(new CustomEvent('haligtree:ask', { detail: { question, placeholder, field, initial, skip, instead, answer } })))
 
 /** The question's field when it is a tag: "#" drawn before the caret, and what is typed read as a tag (hash-field.tsx). */
 function AskTag({ initial, placeholder, onDone }: { initial: string; placeholder: string; onDone: (words: string | null) => void }): React.JSX.Element {
@@ -1067,7 +1068,7 @@ export const askParts = (question: string): { title: string; hint: string } => {
 }
 
 function Asker(): React.JSX.Element | null {
-  const [asked, setAsked] = useState<{ question: string; placeholder: string; field?: 'attribution' | 'medium' | 'tag'; initial?: string; skip?: string; answer: (words: string | null) => void } | null>(null)
+  const [asked, setAsked] = useState<{ question: string; placeholder: string; field?: 'attribution' | 'medium' | 'tag'; initial?: string; skip?: string; instead?: { label: string; run: () => void }; answer: (words: string | null) => void } | null>(null)
   useEffect(() => {
     const onAsk = (event: Event): void => {
       chime('open')
@@ -1123,6 +1124,7 @@ function Asker(): React.JSX.Element | null {
         </div>
         <div data-ask-keys className="mt-4 flex items-center gap-1.5 text-meta text-foreground/70">
           {asked.skip && <button type="button" data-ask-skip className="-ml-2 cursor-pointer rounded-md px-2 py-1 transition-colors hover:bg-foreground/[0.05] hover:text-foreground" onClick={() => done('')}>{asked.skip}</button>}
+          {asked.instead && <button type="button" data-ask-instead className="cursor-pointer rounded-md px-2 py-1 transition-colors hover:bg-foreground/[0.05] hover:text-foreground" onClick={() => { const run = asked.instead!.run; done(null); run() }}>{asked.instead.label}</button>}
           <span className="flex-1" />
           <ShadKbd>↵</ShadKbd> keeps it<span className="w-2" /><ShadKbd>Esc</ShadKbd> leaves it
         </div>
@@ -1919,6 +1921,9 @@ export function AskWho({ id, initial = '', onDone }: { id: string; initial?: str
       {/* Pressed without taking the focus from the field, so its blur does not close the line first. */}
       <button type="button" data-ask-who-unattributed className="shrink-0 cursor-pointer rounded-md px-2 py-0.5 text-meta text-foreground/70 transition-colors hover:bg-foreground/[0.05] hover:text-foreground"
         onPointerDown={(event) => event.preventDefault()} onClick={() => keep(UNATTRIBUTED)}>{UNATTRIBUTED}</button>
+      {/* Never a quote at all: a note again, with Undo, and the line closes. */}
+      <button type="button" data-ask-who-not-quote className="shrink-0 cursor-pointer rounded-md px-2 py-0.5 text-meta text-foreground/70 transition-colors hover:bg-foreground/[0.05] hover:text-foreground"
+        onPointerDown={(event) => event.preventDefault()} onClick={() => void call<{ kind: string; fields: string | null } | null>('notes:kind', 'captures', id, 'note').then((was) => { onDone(); if (was) (chime('retag'), toast('Not a quote: kept as a note of yours', () => void call('notes:kind:undo', 'captures', id, was))) })}>Not a quote</button>
     </div>
   )
 }

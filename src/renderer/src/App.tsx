@@ -1575,13 +1575,13 @@ export default function App(): React.JSX.Element {
       return
     }
     // What a paste is, when the kind was left alone: a bare link is a link,
-    // and where it came from is the site; a long block is a quote, the
-    // container for what comes out of it later.
+    // and where it came from is the site. Length alone never makes a quote: long notes of your own
+    // ("Raycast notes") were typed as quotes and then asked for a source they never had.
     const url = plan ? plan.url : null
     // The suggestion is worked out a moment after typing stops; a save before
     // then works it out here, so a quick "Call the plumber" is still a todo.
     const said = plan ? plan.kind : chosen ? kind : (boxGuess(firstLine(doc)) ?? kind)
-    const sorted = said !== 'note' ? said : url ? 'link' : text.length > 600 ? 'quote' : said
+    const sorted = said !== 'note' ? said : url ? 'link' : said
     const where = medium || (url ? linkSite(url, plan?.card?.title) : '')
     // A tag marked "makes a task" (#bug, #fix and the rest by default) is a
     // todo wearing a label: it goes to the task list at once, as a todo does.

@@ -857,7 +857,7 @@ function bring(name: string, found: Found[]): number {
     const text = one.text.trim()
     if (!text || seen.get(name, JSON.stringify(text))) continue
     const at = one.at && !Number.isNaN(Date.parse(one.at)) ? new Date(one.at).toISOString() : new Date().toISOString()
-    const kind = text.length > 600 || one.who ? 'quote' : guessKind(text, 'note')
+    const kind = one.who ? 'quote' : guessKind(text, 'note')
     const { id, number } = insert({ title: '', kind, body: text, source: name }, at)
     set.run(one.who?.trim() || null, one.where?.trim() || null, id)
     void writeMarkdown(number, text)

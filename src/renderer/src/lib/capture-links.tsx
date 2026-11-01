@@ -144,7 +144,14 @@ export async function takeExit(id: string, status: string): Promise<unknown> {
     const title = (await window.api.captures.get(id))?.label ?? ''
     const guess = /["”']\s*[-—–]\s*([^"“”]{2,60})$/.exec(title)?.[1]?.trim() ?? /^([^:"“]{2,40}):/.exec(title)?.[1]?.trim() ?? ''
     // Not known: "Unattributed" is its source, said once, never asked again.
-    const said = await ask('Who said it? A quote is kept with its source.', 'e.g. Alan Kay, or a colleague in standup', 'attribution', guess, UNATTRIBUTED)
+    // Never a quote at all: a note again (with Undo), and nothing is promoted.
+    let notQuote = false
+    const said = await ask('Who said it? A quote is kept with its source.', 'e.g. Alan Kay, or a colleague in standup', 'attribution', guess, UNATTRIBUTED, { label: 'Not a quote', run: () => (notQuote = true) })
+    if (notQuote) {
+      const was = await window.api.haligtree<{ kind: string; fields: string | null } | null>('notes:kind', 'captures', id, 'note')
+      if (was) (chime('retag'), toast('Not a quote: kept as a note of yours', () => void window.api.haligtree('notes:kind:undo', 'captures', id, was)))
+      return 'cancelled'
+    }
     if (said === null) return 'cancelled'
     const who = said || UNATTRIBUTED
     await haligtree.setCapture(id, 'attribution', who)

@@ -8,7 +8,7 @@ import { openLook } from '@/components/image/image-look'
 import { Button } from '@/components/ui/button'
 import { kindOf } from '@/components/capture-kinds/capture-kind-picker'
 import { chime } from '@/lib/sound'
-import { unloaded, useLive, haligtree } from '@/lib/haligtree'
+import { call, unloaded, useLive, haligtree } from '@/lib/haligtree'
 import { UNATTRIBUTED, VOICE_TINT, askRename, openSource, pageRef, readFocus, sources, type SourceField, type SourceItem, type SourceSummary, type Voice } from '@/lib/sources'
 import { Avatar, avatarFrame } from './avatar'
 import { NoteList, type Entry } from './note-list'
@@ -46,6 +46,24 @@ const FIELD_SAID: Record<SourceField, { one: string; icon: typeof User }> = { at
 /** Give a note a who, wherever it lives: a capture's field, or a gem's. */
 const setSource = (item: { type: string; id: string }, field: SourceField, name: string | null): Promise<unknown> =>
   item.type === 'capture' ? haligtree.setCapture(item.id, field, name) : haligtree.saveItem(item.id, { [field]: name })
+
+/**
+ * The two ways out of "who said it?" besides answering: nobody knows (it stays a quote, its source
+ * "Unattributed", never asked again), or it was never a quote (a note again, or a gem of yours). Each
+ * with its notice and Undo. The Sources page's rows and a quote's own "No source yet" line offer both.
+ */
+export async function sourceUnknown(item: { type: string; id: string }): Promise<void> {
+  await setSource(item, 'attribution', UNATTRIBUTED)
+  chime('noted')
+  toast('Source unknown: kept as a quote, and not asked about again', () => void setSource(item, 'attribution', null))
+}
+export async function notAQuote(item: { type: string; id: string }): Promise<void> {
+  const table: NoteTable = item.type === 'capture' ? 'captures' : 'nuggets'
+  const was = await call<{ kind: string; fields: string | null } | null>('notes:kind', table, item.id, 'note')
+  if (!was) return
+  chime('retag')
+  toast(item.type === 'capture' ? 'Not a quote: kept as a note of yours' : 'Not a quote: kept as a gem of yours', () => void call('notes:kind:undo', table, item.id, was))
+}
 
 /** Under a note's who and where: a way to each one's page. */
 function SourceLinks({ who, where, pdf }: { who?: string | null; where?: string | null; pdf?: PdfIn | null }): React.JSX.Element | null {
@@ -95,9 +113,15 @@ export function SourceFoot({ who, where, quote = false, gem = false, cite, body 
     </div>
   )
   if (!quote && !gem) return null
+  const item = cite && { type: cite.table === 'captures' ? 'capture' : 'nugget', id: cite.id }
   return (
     <p data-chrome data-no-source className="page-narrow mx-auto mt-2 w-full px-[4.5rem] text-body text-foreground">
       {quote ? 'No source yet. Say who said it in the details, so this quote stays with them.' : 'No source yet, so this counts as a note of yours. Say who or where it is from in the details to keep it as their idea.'}
+      {/* A quote whose source nobody knows, or that was never a quote, has its way out right here. */}
+      {quote && item && <>
+        {' '}<button type="button" data-source-unknown onClick={() => void sourceUnknown(item)} className="cursor-pointer text-muted-foreground underline decoration-dotted underline-offset-4 hover:text-foreground">Source unknown</button>
+        {' · '}<button type="button" data-not-quote onClick={() => void notAQuote(item)} className="cursor-pointer text-muted-foreground underline decoration-dotted underline-offset-4 hover:text-foreground">Not a quote</button>
+      </>}
     </p>
   )
 }
@@ -667,7 +691,7 @@ export function SourcesView({ onOpen }: { onOpen: (type: string, id: string) => 
   }
   const give = async (item: { type: string; id: string; label: string }): Promise<void> => {
     // Not known: "Unattributed" is its source, and it is not asked about again.
-    const said = await ask('Who said it? A quote is kept with its source.', 'e.g. Alan Kay', 'attribution', '', UNATTRIBUTED)
+    const said = await ask('Who said it? A quote is kept with its source.', 'e.g. Alan Kay', 'attribution', '', UNATTRIBUTED, { label: 'Not a quote', run: () => void notAQuote(item) })
     if (said === null) return
     const who = said.trim() || UNATTRIBUTED
     await setSource(item, 'attribution', who)
@@ -746,13 +770,20 @@ export function SourcesView({ onOpen }: { onOpen: (type: string, id: string) => 
           // light wraps only its own words, its "Add who" beside them, never a band across the page.
           <section data-missing-source className="mf-island mx-3 mt-5 rounded-xl border bg-accent/25 px-3 py-3">
             <h3 className="flex items-center gap-2 text-heading font-semibold"><Quote className="size-4 shrink-0" style={{ color: VOICE_TINT.theirs }} />{missing.length === 1 ? 'A quote has no source' : `${num(missing.length)} quotes have no source`}</h3>
-            <p className="mt-0.5 mb-2 text-control text-foreground/90 text-pretty">A quote is someone’s words: say whose, so it never drifts away from them.</p>
+            <p className="mt-0.5 mb-2 text-control text-foreground/90 text-pretty">A quote is someone’s words: say whose, so it never drifts away from them. Point at one to say whose, that nobody knows, or that it is not a quote.</p>
             <ul className="flex flex-col gap-1">
               {missing.slice(0, allMissing ? undefined : 5).map((item) => (
-                <li key={item.id} data-missing-row={item.id} className="flex min-w-0 items-center gap-3">
-                  <button type="button" className="-mx-1.5 min-w-0 truncate rounded-md px-1.5 py-0.5 text-left text-body hover:bg-accent" onClick={() => onOpen(item.type, item.id)}>{item.label || 'Untitled'}</button>
-                  <Button variant="outline" size="sm" className="ml-auto shrink-0" data-give-source={item.id} onClick={() => void give(item)}>Add who</Button>
+                // The three ways out show on the row pointed at (always, where nothing can point), in room kept for them, so nothing moves.
+                <RowMenu key={item.id} items={[{ label: 'Open', run: () => onOpen(item.type, item.id) }, { label: 'Add who…', run: () => void give(item) }, { label: 'Source unknown', run: () => void sourceUnknown(item) }, { label: 'Not a quote', run: () => void notAQuote(item) }]}>
+                <li data-missing-row={item.id} className="group/missing flex min-w-0 items-center gap-3 rounded-md hover:bg-accent/60 focus-within:bg-accent/60">
+                  <button type="button" className="min-w-0 flex-1 cursor-pointer truncate rounded-md px-1.5 py-0.5 text-left text-body" onClick={() => onOpen(item.type, item.id)}>{item.label || 'Untitled'}</button>
+                  <span data-missing-ways className="flex shrink-0 items-center opacity-0 transition-opacity duration-150 group-hover/missing:opacity-100 group-focus-within/missing:opacity-100 [@media(hover:none)]:opacity-100">
+                    <Button variant="ghost" size="sm" data-give-source={item.id} onClick={() => void give(item)}>Add who</Button>
+                    <Button variant="ghost" size="sm" data-source-unknown={item.id} onClick={() => void sourceUnknown(item)}>Unknown</Button>
+                    <Button variant="ghost" size="sm" data-not-quote={item.id} onClick={() => void notAQuote(item)}>Not a quote</Button>
+                  </span>
                 </li>
+                </RowMenu>
               ))}
             </ul>
             {missing.length > 5 && (

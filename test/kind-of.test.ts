@@ -16,11 +16,11 @@ test('a question, a label or a quote is not a todo', () => {
   assert.equal(kindOf('"The obstacle is the way"'), 'quote')
 })
 
-test('a joke is a note that gets #bit, a long block a quote, and #bit stays a tag', () => {
+test('a joke is a note that gets #bit, a long block stays a note, and #bit stays a tag', () => {
   assert.equal(kindOf('joke: why did the chicken cross the road'), null)
   assert.equal(isBit('Bit: there is no place like 127.0.0.1'), true)
   assert.equal(isBit('a bit of rain today'), false)
-  assert.equal(guessKind('x'.repeat(601), 'note'), 'quote')
+  assert.equal(guessKind('a thought of mine. '.repeat(40), 'note'), 'note')
   assert.equal(guessKind('a line for later #bit', 'note'), 'note')
   assert.equal(guessKind('"The obstacle is the way" #quote', 'note'), 'quote')
 })
@@ -97,4 +97,11 @@ test('a short "What is X?" is a Word to look up; a longer question is not', () =
     assert.equal(kindOf(line), 'word', line)
   for (const line of ['What is the point of all this work?', 'What is it like to be a bat, really?', 'Why is the sky blue?', 'What is the meaning of life?', 'What is the point?', "What's the best plan?"])
     assert.notEqual(kindOf(line), 'word', line)
+})
+
+test('your own notes are never quotes: a long note, or "Name: words" with an aside of yours', () => {
+  assert.equal(guessKind(`Raycast notes\n${'Raycast can do clipboard history and snippets. '.repeat(20)}`, 'note'), 'note')
+  assert.equal(kindOf('Vigil: for everything you capture, a place to keep it (is this a good tag line)'), null)
+  assert.equal(kindOf('Vigil: for everything you capture, a place to keep it?'), null)
+  assert.equal(kindOf('Seneca: we suffer more often in imagination than in reality'), 'quote')
 })

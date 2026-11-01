@@ -138,8 +138,6 @@ export function guessKind(chunk: string, fallback: string): string {
   const tag = /#(quote|goal|word)\b/.exec(chunk)?.[1]
   if (tag) return tag === 'goal' ? 'todo' : tag
   if (/^\s*[-*]\s+\[ \]/.test(chunk)) return 'todo'
-  // A long block is a quote: what was an excerpt, the container for what comes out of it.
-  if (chunk.length > 600) return 'quote'
   return kindOf(text.replace(/^\s*[-*]\s*\[?/, '')) ?? fallback
 }
 
@@ -207,8 +205,12 @@ export function kindOf(line: string): string | null {
   if (/\b(every!?\s+(other )?(\d+ )?(day|week|month|year|morning|evening|night|weekday|weekend|monday|tuesday|wednesday|thursday|friday|saturday|sunday)s?|daily|weekly|fortnightly|monthly|yearly)\b/i.test(text) && !/\?\s*$/.test(text)) return 'todo'
   if (/^(decided|decision|going with|chose|we('ll| will) go with)\b/i.test(text)) return 'checkback'
   // A question is a question, not a todo; "Name: words" is a quote only when
-  // there are words enough to be said, not a label like "Shopping list: eggs".
-  if (/^["“].+["”]/.test(text) || (/["“].+["”]/.test(text) && saidBy(text).said) || /^[A-Z][\w.'-]*(?: [A-Z][\w.'-]*){0,2}( \([^)]*\))?: (?:\S+\s+){4,}\S/.test(text) || /^["“'].+["”']\s*[-—]\s*\w/.test(text)) return 'quote'
+  // there are words enough to be said, not a label like "Shopping list: eggs", and only when
+  // the words carry no aside of your own: "Vigil: for everything you capture (is this a good
+  // tag line)" asks you something, so it is your note, not Vigil's words.
+  const named = /^[A-Z][\w.'-]*(?: [A-Z][\w.'-]*){0,2}( \([^)]*\))?: ((?:\S+\s+){4,}\S.*)$/.exec(text)
+  const aside = !!named && (/\?/.test(named[2]) || /\([^)]*\)/.test(named[2]))
+  if (/^["“].+["”]/.test(text) || (/["“].+["”]/.test(text) && saidBy(text).said) || (named && !aside) || /^["“'].+["”']\s*[-—]\s*\w/.test(text)) return 'quote'
   if (/^[\p{L}\p{N}_'-]+$/u.test(text) || /\bmeaning$/i.test(text) || /^(define|what does .+ mean)/i.test(text) || SHORT_WHAT.test(text)) return 'word'
   return null
 }
