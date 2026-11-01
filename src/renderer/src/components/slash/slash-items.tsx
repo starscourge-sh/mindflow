@@ -269,7 +269,7 @@ export const slashItems: SlashItem[] = [
   {
     title: 'Record',
     group: 'Media',
-    keywords: ['voice', 'audio', 'microphone', 'mic', 'sound'],
+    keywords: ['voice', 'audio', 'microphone', 'mic', 'sound', 'voice note', 'voice memo', 'transcribe', 'transcript'],
     hint: 'a voice note',
     icon: <MicIcon />,
     run: (editor) => void recordInto(editor)
@@ -277,7 +277,7 @@ export const slashItems: SlashItem[] = [
   {
     title: 'Dictate',
     group: 'Media',
-    keywords: ['talk', 'type', 'speak', 'speech', 'voice', 'dictation', 'microphone', 'mic'],
+    keywords: ['talk', 'type', 'speak', 'speech', 'voice', 'dictation', 'microphone', 'mic', 'transcribe', 'speech to text', 'voice to text', 'voice typing'],
     hint: 'type by talking',
     icon: <MicIcon />,
     run: (editor) => void talkInto('tap', editor)

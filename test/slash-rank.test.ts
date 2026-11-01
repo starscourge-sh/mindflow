@@ -45,3 +45,12 @@ test('the middle of a word finds nothing', () => {
 test('nothing typed keeps the menu as it is', () => {
   assert.deepEqual(find(''), items.map((item) => item.title))
 })
+
+test('a slip of the keys still finds it, and meaning words find Dictate and Record', () => {
+  const items = [{ title: 'Dictate', group: 'Media', keywords: ['talk', 'transcribe', 'speech to text'] }, { title: 'Record', group: 'Media', keywords: ['voice', 'transcribe'] }, { title: 'Table', group: 'Media' }, { title: 'Divider', group: 'Basic', keywords: ['hr'] }]
+  assert.deepEqual(findItems(items, 'dicate').map((one) => one.title), ['Dictate'])
+  assert.deepEqual(findItems(items, 'transcribe').map((one) => one.title), ['Dictate', 'Record'])
+  assert.deepEqual(findItems(items, 'tabel').map((one) => one.title), ['Table'])
+  assert.deepEqual(findItems(items, 'speach').map((one) => one.title), ['Dictate'])
+  assert.deepEqual(findItems(items, 'hx').map((one) => one.title), [])
+})
