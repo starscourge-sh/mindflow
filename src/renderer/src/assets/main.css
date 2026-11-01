@@ -312,17 +312,6 @@ html[data-overhang][data-card-held] .app-container {
   height: var(--mf-card-held);
   flex: none;
 }
-/* ⌘K's dim in quick capture lies over the card only, in its shape, not over the clear room round it, where it drew a
-   grey rectangle on the desktop. The palette still hangs past the card's foot into the room below (lib/fit-box.ts). */
-html[data-overhang] [data-search-scrim] {
-  inset: auto;
-  top: var(--mf-room-top);
-  left: var(--mf-room);
-  right: var(--mf-room);
-  height: var(--mf-card-held, calc(100% - var(--mf-room-top) - var(--mf-room)));
-  border-radius: 14px;
-  padding-top: 12px;
-}
 html[data-overhang] .app-container {
   --mf-window-tint: 100%;
   border-radius: 14px;
@@ -355,9 +344,12 @@ html[data-overhang] .mf-top {
   gap: 8px;
   transform: none !important;
 }
+/* The chip never steps aside here: the round controls sit beside it, not over it. Said through Tailwind's own
+   variable, because the build folds `transform` and `translate` into one `transform` and dropped `translate: none`,
+   so the chip's step aside (85px with the pointer in) left a wide gap, and drawn mid-step, over the pencil. */
 html[data-overhang] .mf-top [data-aside] {
   transform: none !important;
-  translate: none !important;
+  --tw-translate-x: 0px !important;
 }
 html[data-overhang] .mf-pill {
   position: static;
@@ -511,6 +503,11 @@ body {
 
 .app-container.pointer-in .mf-dots {
   opacity: 1;
+}
+/* Never on quick capture's card: grey over another app they read as the window's own lights, drawn inactive
+   (1 Nov, 09.24.07). Esc, ⌘W and a click away put it away. */
+html[data-overhang] .mf-dots {
+  display: none;
 }
 
 /* `--foreground` and not `currentColor`: the button below hides its glyph by

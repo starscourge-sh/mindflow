@@ -219,8 +219,10 @@ try {
   }
   await box.mouse.move(Math.round(drawn.x + drawn.width / 2), Math.round(drawn.y + drawn.height / 2))
   await wait(400)
-  const gaps = orbs.slice(1).map((one, i) => one.left - orbs[i].right)
-  check('quick capture: an even gap between them', gaps.every((gap) => gap === gaps[0]), JSON.stringify(gaps))
+  // In the order they show, left to right (the page lists the pinned chip after the round buttons).
+  const row = [...orbs].sort((a, b) => a.left - b.left)
+  const gaps = row.slice(1).map((one, i) => one.left - row[i].right)
+  check('quick capture: an even gap between them', gaps.every((gap) => gap === gaps[0]), JSON.stringify(row.map((one) => [one.label.slice(0, 12), one.left, one.right])))
   check('quick capture: each is round and shows the hand', orbs.every((one) => one.radius === '999px' && one.cursor === 'pointer'), JSON.stringify(orbs.map((one) => [one.radius, one.cursor])))
   const boxMove = (x, y) => electron.evaluate(({ BrowserWindow }, [id, x, y]) => BrowserWindow.fromId(id).webContents.sendInputEvent({ type: 'mouseMove', x, y }), [at.id, x, y])
   await boxMove(Math.round(drawn.x + drawn.width / 2), Math.round(drawn.y + drawn.height / 2))

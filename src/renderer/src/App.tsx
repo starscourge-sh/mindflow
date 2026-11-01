@@ -1852,6 +1852,10 @@ export default function App(): React.JSX.Element {
       <AnimatePresence>
       {searching && (
         <Search
+          // On the card and no further: the window never grows for it, nothing is cut off at its foot, and the
+          // chips above the card stay where they are (it filled the whole window before, room and all, and asked
+          // for room below, so the window grew under it and the palette was clipped while it settled).
+          inCard
           initial={searchFrom}
           choose={searchChoose}
           // Words that match nothing: kept here, in the box, as the main window keeps them.

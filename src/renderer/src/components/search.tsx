@@ -81,7 +81,7 @@ const groupOf = (at: string): string => {
  * they were captured, with the one under the cursor previewed on the right.
  * Arrows move, Enter opens, Escape closes.
  */
-export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'task', 'question'], initial = '', actions: everyAction = [], placeholder, menus = true, scope, choose: chooseFirst, inPane }: { /** Drawn inside a pane of the split (⌘\\) as its page, not over the window: no scrim, not a dialog, and Esc (onClose) closes the pane. What it opens takes the pane's place. */ inPane?: { title: string; lead: ReactNode }; /** Opened straight on one action's choices, by its label (“Start focus…” from its key anywhere). */ choose?: string; /** Opened about one thing (a task picked on the Calendar): its name before the words, and only its actions until ⌫ leaves it. */ scope?: { label: string; actions: Action[] }; onOpen: (type: string, id: string) => void; /** ⌥↵: open it beside the page, in a pane of its own (the main window's split view). */ onAside?: (type: string, id: string) => void; onClose: () => void; /** Words that match nothing, kept as something new (Arc's "search or make"). */ onKeep?: (as: Keep, text: string) => void; keeps?: Keep[]; initial?: string; actions?: Action[]; placeholder?: string; /** A right click on a result offers what its list's would; off where a pick is all a result is for. */ menus?: boolean }): React.JSX.Element {
+export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'task', 'question'], initial = '', actions: everyAction = [], placeholder, menus = true, scope, choose: chooseFirst, inPane, inCard = false }: { /** Drawn over quick capture's card and no further, at the card's own size and corners: the window never grows for it and the chips round the card stay in sight. */ inCard?: boolean;/** Drawn inside a pane of the split (⌘\\) as its page, not over the window: no scrim, not a dialog, and Esc (onClose) closes the pane. What it opens takes the pane's place. */ inPane?: { title: string; lead: ReactNode }; /** Opened straight on one action's choices, by its label (“Start focus…” from its key anywhere). */ choose?: string; /** Opened about one thing (a task picked on the Calendar): its name before the words, and only its actions until ⌫ leaves it. */ scope?: { label: string; actions: Action[] }; onOpen: (type: string, id: string) => void; /** ⌥↵: open it beside the page, in a pane of its own (the main window's split view). */ onAside?: (type: string, id: string) => void; onClose: () => void; /** Words that match nothing, kept as something new (Arc's "search or make"). */ onKeep?: (as: Keep, text: string) => void; keeps?: Keep[]; initial?: string; actions?: Action[]; placeholder?: string; /** A right click on a result offers what its list's would; off where a pick is all a result is for. */ menus?: boolean }): React.JSX.Element {
   const [query, setQuery] = useState(initial)
   const [scoped, setScoped] = useState(!!scope)
   const actions = scoped && scope ? scope.actions : everyAction
@@ -183,7 +183,7 @@ export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'tas
   useEffect(() => void (inPane && seen && box.current?.focus({ preventScroll: true })), [seen]) // eslint-disable-line react-hooks/exhaustive-deps
   // Notion's highlight pane: on by default, and a button to put it away.
   const [pane, setPane] = useState(true)
-  const roomy = useSyncExternalStore(followRoomy, () => matchMedia(ROOMY).matches)
+  const roomy = useSyncExternalStore(followRoomy, () => matchMedia(ROOMY).matches) && !inCard
   useEffect(() => {
     let old = false
     const late = setTimeout(() => setSlow(true), 300)
@@ -303,8 +303,8 @@ export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'tas
     // rises 6px into place. By ⌘K it is simply there (sheetMotion).
     // In a pane it is the page itself: the same box, list and keys, with a calm line over them saying what the pane is for.
     <motion.div role={present && !inPane ? 'dialog' : undefined} aria-modal={(present && !inPane) || undefined} aria-label="Search"
-      {...(inPane ? {} : sheet.scrim)} data-pane-picker={inPane ? '' : undefined} data-search-scrim={inPane ? undefined : ''}
-      className={inPane ? 'flex min-h-0 min-w-0 flex-1 flex-col' : `fixed inset-0 z-50 flex items-start justify-center bg-black/40 pt-[10vh] ${present ? '' : 'pointer-events-none'}`} onMouseDown={inPane ? undefined : onClose}>
+      {...(inPane ? {} : sheet.scrim)} data-pane-picker={inPane ? '' : undefined} data-keeps-size={inCard || undefined}
+      className={inPane ? 'flex min-h-0 min-w-0 flex-1 flex-col' : inCard ? `absolute inset-0 z-50 flex rounded-[inherit] ${present ? '' : 'pointer-events-none'}` : `fixed inset-0 z-50 flex items-start justify-center bg-black/40 pt-[10vh] ${present ? '' : 'pointer-events-none'}`} onMouseDown={inPane ? undefined : onClose}>
       {inPane && (
         <div className="shrink-0 px-5 pt-8 pb-4">
           <h2 className="text-title font-medium">{inPane.title}</h2>
@@ -313,7 +313,7 @@ export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'tas
       )}
       <motion.div
         {...(inPane ? {} : sheet.panel)}
-        className={inPane ? 'mx-3 mb-3 flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border text-sm' : `flex h-[70vh] w-[min(56rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-xl text-sm ${FLOAT}`} onMouseDown={(event) => event.stopPropagation()}>
+        className={inPane ? 'mx-3 mb-3 flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border text-sm' : inCard ? 'flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-[inherit] bg-background text-sm' : `flex h-[70vh] w-[min(56rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-xl text-sm ${FLOAT}`} onMouseDown={(event) => event.stopPropagation()}>
         <label className="flex items-center gap-3 border-b px-4 py-3">
           <span className="text-muted-foreground"><AliveIcon icon={MagnifierIcon} size={16} /></span>
           {scoped && scope && !picking && !choosing && (
