@@ -7,6 +7,9 @@ import { chime } from '@/lib/sound'
 
 /** Where a tab puts its own controls (Pockets or List, the search, Display): the toolbar's right end. */
 export const ToolbarSlot = createContext<HTMLElement | null>(null)
+/** True when the row is too narrow for the tab's controls in words: they show as icons (a + for New deck, an icon switch), never clipped. */
+export const ToolbarCompact = createContext(false)
+export const useToolbarCompact = (): boolean => useContext(ToolbarCompact)
 
 /** A tab's own controls, drawn in the toolbar's right end; nothing while the toolbar is not there. */
 export function TabControls({ children }: { children: ReactNode }): React.JSX.Element | null {
@@ -23,10 +26,11 @@ type Way = { id: 'make' | 'many' | 'picture' | 'import'; label: ReactNode; words
  * same row, never hidden. When the row is too narrow for all four, the
  * last ones fold, in order, into a "More" menu at the end of the row.
  */
-export function ReviewToolbar({ onMake, onMany, onPicture, open, onSlot }: {
+export function ReviewToolbar({ onMake, onMany, onPicture, open, onSlot, onCompact }: {
   onMake: () => void; onMany: () => void; onPicture: () => void
   /** The form that is out under it, if any. */ open: 'make' | 'many' | 'picture' | null
   onSlot: (slot: HTMLElement | null) => void
+  /** Told when the tab's controls must go compact to fit. */ onCompact: (compact: boolean) => void
 }): React.JSX.Element {
   const ways: Way[] = [
     { id: 'make', label: 'Make a card', words: 'Make a card', mark: { 'data-deck-make': '', 'data-make-open': '' }, run: () => (chime(open === 'make' ? 'fold' : 'open'), onMake()) },
@@ -38,6 +42,9 @@ export function ReviewToolbar({ onMake, onMany, onPicture, open, onSlot }: {
   const slot = useRef<HTMLSpanElement | null>(null)
   const widths = useRef<number[]>([])
   const [fits, setFits] = useState(ways.length)
+  // The tab's controls' width in words, kept while they are compact, so the row knows when there is room for words again.
+  const wide = useRef(0)
+  const compact = useRef(false)
   // How many of the four fit beside the tab's own controls; the rest fold into More. Measured on every resize of the row or the slot.
   useLayoutEffect(() => {
     const bar = row.current
@@ -49,13 +56,20 @@ export function ReviewToolbar({ onMake, onMany, onPicture, open, onSlot }: {
       buttons.forEach((one, at) => { if (one.offsetWidth) widths.current[at] = one.offsetWidth })
       // The right end is given the room of the widest tab's controls (All cards' search and Display), so the same ways fold on every tab and nothing shifts when switching.
       const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16
-      const room = bar.clientWidth - Math.max(slot.current?.offsetWidth ?? 0, 24 * rem) - GAP * 2
+      const own = slot.current?.offsetWidth ?? 0
+      if (!compact.current) wide.current = own
+      // "Make a card" never folds: with it and More, is there room for the tab's controls in words? If not, they go compact.
+      const least = (widths.current[0] ?? 0) + MORE + GAP * 2
+      const goCompact = bar.clientWidth - Math.max(wide.current, 0) - GAP * 2 < least
+      if (goCompact !== compact.current) { compact.current = goCompact; onCompact(goCompact) }
+      const room = bar.clientWidth - Math.max(own, goCompact ? 0 : 24 * rem) - GAP * 2
       const all = widths.current.reduce((sum, w) => sum + w + GAP, 0)
       if (all <= room) return setFits(ways.length)
       let used = MORE
       let count = 0
       for (const w of widths.current) { if (used + w + GAP > room) break; used += w + GAP; count += 1 }
-      setFits(count)
+      // Import folds first, then From a picture, then Add many; Make a card stays.
+      setFits(Math.max(1, count))
     }
     measure()
     const watch = new ResizeObserver(measure)

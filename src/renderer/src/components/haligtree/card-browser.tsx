@@ -1,4 +1,4 @@
-import { TabControls } from './review-toolbar'
+import { TabControls, useToolbarCompact } from './review-toolbar'
 import { TriangleAlert } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { chime } from '@/lib/sound'
@@ -295,6 +295,7 @@ export function CardBrowser({ onOpen, aim, only, newest, onAll, onShow, onAimDon
   const made = useMadeDecks()
   // Marked for the probes and the Performance panel: how long the cards take to come, and to be drawn (card-shelves.tsx).
   const cards = useLive(() => (performance.mark('cards:asked'), call<BrowsedCard[]>('cards:all').then((all) => (performance.mark('cards:came'), all))), null as BrowsedCard[] | null, [], ['item'])
+  const compact = useToolbarCompact()
   const [query, setQuery] = useState('')
   const [tag, setTag] = useState<string | null>(null)
   const [view, setView] = useView('cards', { sort: 'due', group: 'none' })
@@ -614,7 +615,7 @@ export function CardBrowser({ onOpen, aim, only, newest, onAll, onShow, onAimDon
     <div data-card-browser data-density={density} data-group={view.group} className="flex flex-col gap-3 px-5 pt-4 pb-20">
       {/* Its own controls in the toolbar's right end, never a row of their own. */}
       <TabControls>
-        <div className="w-48"><ListSearch value={query} onChange={setQuery} onDone={() => {}} placeholder="Search cards" /></div>
+        <div className={compact ? 'w-28' : 'w-48'}><ListSearch value={query} onChange={setQuery} onDone={() => {}} placeholder="Search cards" /></div>
         {(density === 'grid' || opened) && !flowing && (
           <Tip label="Turn every card on show over, to test yourself  ⇧Space">
             <Button variant="ghost" size="sm" data-turn-all aria-pressed={allOver} onClick={turnAll}>{allOver ? 'All face up' : 'Turn all over'}</Button>

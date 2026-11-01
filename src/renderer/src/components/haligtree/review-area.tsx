@@ -1,4 +1,4 @@
-import { ReviewToolbar, ToolbarSlot } from './review-toolbar'
+import { ReviewToolbar, ToolbarCompact, ToolbarSlot } from './review-toolbar'
 import { useEffect, useRef, useState } from 'react'
 import { motion } from 'motion/react'
 import { chime } from '@/lib/sound'
@@ -37,6 +37,7 @@ export function ReviewArea({ focus, onOpen, onFocus }: { focus?: string; onOpen:
   const [picture, setPicture] = useState<{ deck: string | null } | null>(null)
   // The toolbar's right end, where each tab draws its own controls.
   const [slot, setSlot] = useState<HTMLElement | null>(null)
+  const [compact, setCompact] = useState(false)
   // Just the cards an import made, from its "Show the new cards" (":newest:" and how many it made).
   const [newest, setNewest] = useState<number | null>(focus?.startsWith(':newest:') ? Number(focus.slice(8)) || null : null)
   const [tab, setTab] = useState<ReviewTab>(newest || focus === ':cards' || focus === ':paste' || focus?.startsWith(':new:') ? 'cards' : focus === ':stats' ? 'stats' : focus === ':today' || (focus && !focus.startsWith(':')) ? 'today' : 'decks')
@@ -59,10 +60,10 @@ export function ReviewArea({ focus, onOpen, onFocus }: { focus?: string; onOpen:
   const go = (to: ReviewTab): void => void ((tab !== to || picture) && (chime(to === 'today' ? 'riffle' : 'tap'), setStudying(null), setAim(null), setOnly(null), setNewest(null), setPicture(null), setTab(to)))
   // The tabs on the left of the page's line, where they stay put; "Study now", the page's one filled button, on the right.
   const tabs = (
-    <span role="tablist" data-review-tabs className="flex h-8 items-center max-sm:h-9 rounded-lg border border-foreground/10 bg-accent/40 p-0.5 text-control">
+    <span role="tablist" data-review-tabs className="flex h-8 items-center rounded-lg border border-foreground/10 bg-accent/40 p-0.5 text-control">
       {TABS.map((one) => (
         <button key={one.id} type="button" role="tab" aria-selected={tab === one.id} data-review-tab={one.id} onClick={() => go(one.id)}
-          className={`relative h-7 cursor-pointer max-sm:h-8 rounded-md px-3 transition-colors ${tab === one.id ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'}`}>
+          className={`relative h-7 cursor-pointer rounded-md px-3 transition-colors ${tab === one.id ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'}`}>
           {tab === one.id && <motion.span layoutId="review-tab" className="absolute inset-0 -z-10 rounded-md border border-foreground/15 bg-background shadow-sm" transition={{ type: 'spring', stiffness: 500, damping: 38 }} />}
           {one.label}
         </button>
@@ -72,7 +73,7 @@ export function ReviewArea({ focus, onOpen, onFocus }: { focus?: string; onOpen:
   // Today's cards, in place of the old Today tab: pressed while you study.
   const studyNow = (
     <button type="button" data-review-tab="today" data-study-now aria-pressed={tab === 'today'} onClick={() => go('today')}
-      className={`h-8 cursor-pointer rounded-md border px-3 text-control font-medium max-sm:h-9 transition-colors ${tab === 'today' ? 'border-foreground/15 bg-background text-foreground shadow-sm' : 'border-transparent bg-primary text-primary-foreground hover:bg-primary/90'}`}>Study now</button>
+      className={`h-8 cursor-pointer rounded-md border px-3 text-control font-medium transition-colors ${tab === 'today' ? 'border-foreground/15 bg-background text-foreground shadow-sm' : 'border-transparent bg-primary text-primary-foreground hover:bg-primary/90'}`}>Study now</button>
   )
   const show = (ids: string[]): void => (chime('open'), setStudying(null), setAim(null), setPicture(null), setOnly(ids), setTab('cards'))
   const formOpen: 'make' | 'many' | 'picture' | null = picture ? 'picture' : tab === 'cards' && aim ? (aim.one ? 'make' : 'many') : null
@@ -88,16 +89,16 @@ export function ReviewArea({ focus, onOpen, onFocus }: { focus?: string; onOpen:
   if (tab === 'cards' || tab === 'decks' || tab === 'stats')
     return (
       <Page title="Review" lead={tabs} actions={studyNow}>
-        <ToolbarSlot.Provider value={slot}>
+        <ToolbarSlot.Provider value={slot}><ToolbarCompact.Provider value={compact}>
           <div data-review-page className="page-sheet mx-auto w-full">
             {/* The toolbar, the same on every tab and whatever is open: forms open under it. */}
-            <div className="px-5 pt-4"><ReviewToolbar open={formOpen} onSlot={setSlot} onMake={() => openForm(true)} onMany={() => openForm(false)} onPicture={() => picture ? (chime('fold'), setPicture(null)) : (chime('open'), setPicture({ deck: null }))} /></div>
+            <div className="px-5 pt-4"><ReviewToolbar open={formOpen} onSlot={setSlot} onCompact={setCompact} onMake={() => openForm(true)} onMany={() => openForm(false)} onPicture={() => picture ? (chime('fold'), setPicture(null)) : (chime('open'), setPicture({ deck: null }))} /></div>
             {picture && <div className="px-5 pt-4"><PictureCards deck={picture.deck} onClose={() => (chime('fold'), setPicture(null))} onShow={show} /></div>}
             {tab === 'cards' && <CardBrowser key={aim ? `${aim.deck}:${aim.one}` : only ? `only:${only.length}` : ''} onOpen={onOpen} aim={aim} only={only} newest={only ? null : newest} onAll={() => (chime('undo'), setOnly(null), setNewest(null))} onShow={show} onAimDone={() => setAim(null)} />}
             {tab === 'decks' && <DeckShelf onOpen={onOpen} onStudy={(tag) => (setStudying(tag), setTab('today'))} onPaste={(deck, one = false) => (setPicture(null), setAim({ deck, one }), setTab('cards'))} onPicture={(deck) => (chime('open'), setPicture({ deck }))} />}
             {tab === 'stats' && <div data-review-stats className="px-5 pt-4 pb-20"><StudySection example={false} /></div>}
           </div>
-        </ToolbarSlot.Provider>
+        </ToolbarCompact.Provider></ToolbarSlot.Provider>
       </Page>
     )
   return <ReviewView key={studying ?? ''} tag={studying ?? (focus && !focus.startsWith(':') ? focus : undefined)} lead={tabs} actions={studyNow} />
