@@ -39,7 +39,7 @@
  * With reduced motion or motion off, every one of these shows its end at once.
  */
 import { useRef, useState, type ReactNode } from 'react'
-import { AnimatePresence, motion, useReducedMotion, MotionGlobalConfig } from 'motion/react'
+import { motion, useReducedMotion, MotionGlobalConfig } from 'motion/react'
 import { Rolling } from './ui'
 import { Chips } from './display'
 import { useSeen } from '@/lib/reads-in'
@@ -141,31 +141,34 @@ export function DotMatrix({ days, say, onHover, columns = 7, dot = 14 }: { days:
 }
 
 /**
- * Rounded pill bars, one per value, keyed so a range change glides each bar
- * to its new height and slides the rest in or out. They grow from the
- * baseline on arrival, a step apart; the one pointed at stands on a faint
- * band and the others dim.
+ * Bars, one per value, the same width in every chart (6 px, 3 px rounded at
+ * the top, square on the baseline), standing on one hairline baseline, with
+ * a quiet hairline at the tallest and its value: the scale. A day with none
+ * draws nothing. Pointing at a bar dims the others; nothing moves or redraws.
  */
-export function PillBars({ values, keys, say, onHover, className = 'h-20' }: { values: number[]; keys?: string[]; say: (at: number) => string; onHover: (said: string | null) => void; className?: string }): React.JSX.Element {
+export function PillBars({ values, keys, say, onHover, className = 'h-20', unit = '' }: { values: number[]; keys?: string[]; say: (at: number) => string; onHover: (said: string | null) => void; className?: string; /** Said after the top value ("min"). */ unit?: string }): React.JSX.Element {
   const still = useStillness()
   const arrived = useArrived()
   const [on, setOn] = useState<number | null>(null)
   const most = Math.max(1, ...values)
-  const glide = { duration: still ? 0 : DRAW, ease: RECHARTS_EASE }
   return (
-    <div data-focus-bars data-hovered={on ?? undefined} className={`flex items-end ${className}`} onPointerLeave={() => (setOn(null), onHover(null))}>
-      <AnimatePresence initial={false}>
+    <div data-focus-bars data-hovered={on ?? undefined} className={`relative ${className}`} onPointerLeave={() => (setOn(null), onHover(null))}>
+      {/* The scale: a hairline at the tallest bar with its value, and the baseline. */}
+      <span aria-hidden data-bars-top className="pointer-events-none absolute inset-x-0 top-0 border-t border-foreground/10" />
+      <span aria-hidden className="pointer-events-none absolute top-0 right-0 -translate-y-full pb-0.5 text-[10px] leading-none text-muted-foreground tabular-nums">{Math.round(most).toLocaleString()}{unit && ` ${unit}`}</span>
+      <span aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 border-t border-foreground/20" />
+      <div className="absolute inset-0 flex items-end">
         {values.map((n, at) => (
-          <motion.span key={keys?.[at] ?? at} layout={!still} data-bar={at} data-say={say(at)} onPointerEnter={() => (setOn(at), onHover(say(at)))}
-            initial={still ? false : { opacity: 0 }} animate={{ opacity: on === null || on === at ? 1 : 0.35 }} exit={still ? undefined : { opacity: 0, transition: { duration: 0.12 } }}
-            transition={{ opacity: { duration: 0.15 }, layout: glide }}
-            className={`relative flex h-full flex-1 items-end rounded-full px-[1.5px] ${on === at ? 'bg-foreground/[0.06]' : ''}`}>
-            <motion.span initial={still ? false : { height: '0%' }} animate={{ height: arrived ? `${n ? Math.max(8, (n / most) * 100) : 4}%` : '0%' }}
-              transition={{ ...glide, delay: still ? 0 : Math.min(0.3, at * 0.012) }}
-              className="block w-full rounded-full" style={{ background: INK, opacity: n ? 1 : 0.12 }} />
-          </motion.span>
+          <span key={keys?.[at] ?? at} data-bar={at} data-say={say(at)} onPointerEnter={() => (setOn(at), onHover(say(at)))}
+            className={`flex h-full flex-1 items-end justify-center rounded-[3px] ${on === at ? 'bg-foreground/[0.06]' : ''}`}>
+            {n > 0 && (
+              <motion.span initial={still ? false : { scaleY: 0 }} animate={{ scaleY: arrived ? 1 : 0, opacity: on === null || on === at ? 1 : 0.35 }}
+                transition={{ scaleY: { duration: still ? 0 : DRAW, ease: RECHARTS_EASE, delay: still ? 0 : Math.min(0.3, at * 0.012) }, opacity: { duration: 0.12 } }}
+                className="block w-1.5 origin-bottom rounded-t-[3px]" style={{ height: `${Math.max(4, (n / most) * 100)}%`, background: INK }} />
+            )}
+          </span>
         ))}
-      </AnimatePresence>
+      </div>
     </div>
   )
 }
@@ -189,9 +192,10 @@ export function Arc({ percent, label, className = 'max-w-[220px]' }: { percent: 
 }
 
 /**
- * A soft spline through points, with a dashed one to set it against. The
- * full line draws in; pointing stands a dashed guide at the nearest point and
- * grows its dot from 3.5 to 5.5.
+ * Lines through points, straight from one to the next (a curve would swing
+ * below zero or past a point between them), every series continuous to the
+ * last point; a dashed one to set the full one against. Pointing stands a
+ * guide at the nearest point and rings its dot; nothing grows or redraws.
  */
 export function Spline({ lines, say, onHover }: { lines: { values: number[]; dashed?: boolean; name: string }[]; say: (at: number) => string; onHover: (said: string | null) => void }): React.JSX.Element {
   const still = useStillness()
@@ -201,29 +205,24 @@ export function Spline({ lines, say, onHover }: { lines: { values: number[]; das
   const most = Math.max(1, ...lines.flatMap((line) => line.values))
   const [w, h] = [300, 90]
   const x = (at: number): number => (count < 2 ? w / 2 : (at / (count - 1)) * (w - 12) + 6)
-  const y = (n: number): number => h - 8 - (n / most) * (h - 16)
-  // Catmull-Rom through the points, as cubic Beziers: soft, and through every point (recharts' "monotone" look).
-  const curve = (values: number[]): string => values.map((n, at) => {
-    if (at === 0) return `M ${x(0)} ${y(n)}`
-    const [p0, p1, p2, p3] = [values[Math.max(0, at - 2)], values[at - 1], n, values[Math.min(values.length - 1, at + 1)]]
-    const c1 = [x(at - 1) + (x(at) - x(Math.max(0, at - 2))) / 6, y(p1) + (y(p2) - y(p0)) / 6]
-    const c2 = [x(at) - (x(Math.min(values.length - 1, at + 1)) - x(at - 1)) / 6, y(p2) - (y(p3) - y(p1)) / 6]
-    return `C ${c1[0]} ${c1[1]} ${c2[0]} ${c2[1]} ${x(at)} ${y(n)}`
-  }).join(' ')
+  const y = (n: number): number => h - 8 - (Math.max(0, n) / most) * (h - 16)
+  const straight = (values: number[]): string => values.map((n, at) => `${at ? 'L' : 'M'} ${x(at).toFixed(2)} ${y(n).toFixed(2)}`).join(' ')
   const full = lines.find((line) => !line.dashed)
   return (
     <div data-mono-spline data-hovered={on ?? undefined} className="relative h-24" onPointerLeave={() => (setOn(null), onHover(null))}>
-      <svg viewBox={`0 0 ${w} ${h}`} className="absolute inset-0 h-full w-full overflow-visible" preserveAspectRatio="none" role="img" aria-label={lines.map((line) => line.name).join(' and ')}>
-        {on !== null && <line data-mono-guide x1={x(on)} x2={x(on)} y1={0} y2={h} stroke={INK} strokeOpacity={0.3} strokeWidth={1} strokeDasharray="3 3" vectorEffect="non-scaling-stroke" />}
+      {/* Faded in as a whole, never drawn along its length: a drawn-in line dashes itself and can stop short. */}
+      <motion.svg viewBox={`0 0 ${w} ${h}`} className="absolute inset-0 h-full w-full overflow-visible" preserveAspectRatio="none" role="img" aria-label={lines.map((line) => line.name).join(' and ')}
+        initial={still ? false : { opacity: 0 }} animate={{ opacity: arrived ? 1 : 0 }} transition={{ duration: still ? 0 : 0.3, ease: EASE }}>
+        <line x1={0} x2={w} y1={h - 8} y2={h - 8} stroke={INK} strokeOpacity={0.2} strokeWidth={1} vectorEffect="non-scaling-stroke" />
+        <line data-mono-guide x1={x(on ?? 0)} x2={x(on ?? 0)} y1={0} y2={h} stroke={INK} strokeOpacity={on === null ? 0 : 0.3} strokeWidth={1} strokeDasharray="3 3" vectorEffect="non-scaling-stroke" />
         {lines.map((line) => (
-          <motion.path key={line.name} d={curve(line.values)} fill="none" stroke={INK} strokeOpacity={line.dashed ? 0.4 : 1} strokeWidth={line.dashed ? 1.5 : 3} strokeDasharray={line.dashed ? '4 4' : undefined} strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke"
-            initial={still || line.dashed ? false : { pathLength: 0 }} animate={{ pathLength: arrived || line.dashed ? 1 : 0 }} transition={{ duration: DRAW, ease: RECHARTS_EASE }} />
+          <path key={line.name} data-mono-line={line.dashed ? 'dashed' : 'full'} d={straight(line.values)} fill="none" stroke={INK} strokeOpacity={line.dashed ? 0.45 : 1} strokeWidth={2} strokeDasharray={line.dashed ? '5 4' : undefined} strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
         ))}
-      </svg>
-      {/* The dots as round marks over the stretched drawing, so they stay round. */}
+      </motion.svg>
+      {/* The full line's dots as round marks over the stretched drawing, so they stay round; the one pointed at gets a ring, its size never changes. */}
       {full && full.values.map((n, at) => (
-        <motion.span key={at} data-mono-dot={at} className="pointer-events-none absolute rounded-full" animate={{ width: on === at ? 11 : 7, height: on === at ? 11 : 7 }} transition={{ duration: still ? 0 : 0.15 }}
-          style={{ left: `${(x(at) / w) * 100}%`, top: `${(y(n) / h) * 100}%`, translate: '-50% -50%', background: INK, boxShadow: `0 0 0 2px ${on === at ? 'color-mix(in oklab, var(--foreground) 45%, transparent)' : 'var(--card)'}` }} />
+        <span key={at} data-mono-dot={at} className="pointer-events-none absolute size-2 rounded-full"
+          style={{ left: `${(x(at) / w) * 100}%`, top: `${(y(n) / h) * 100}%`, translate: '-50% -50%', background: INK, boxShadow: `0 0 0 2px var(--card)${on === at ? ', 0 0 0 4px color-mix(in oklab, var(--foreground) 45%, transparent)' : ''}` }} />
       ))}
       <div className="absolute inset-0 flex">
         {Array.from({ length: count }, (_, at) => <span key={at} data-say={say(at)} className="h-full flex-1" onPointerEnter={() => (setOn(at), onHover(say(at)))} />)}
@@ -241,7 +240,7 @@ export function ToneBar({ parts }: { parts: { name: string; n: number }[] }): Re
     <div data-mono-tones>
       <div className="flex h-4 gap-[3px]">
         {parts.filter((one) => one.n).map((one, at) => (
-          <motion.span key={one.name} aria-label={`${one.name}: ${one.n.toLocaleString()}`} className="h-full origin-left rounded-full" style={{ flex: one.n, background: INK, opacity: TONES[parts.indexOf(one)] ?? 0.22 }}
+          <motion.span key={one.name} aria-label={`${one.name}: ${one.n.toLocaleString()}`} className="h-full origin-left rounded-full" style={{ flex: `${one.n} 1 0`, minWidth: 12, background: INK, opacity: TONES[parts.indexOf(one)] ?? 0.22 }}
             initial={still ? false : { scaleX: 0.85, opacity: 0 }} animate={arrived ? { scaleX: 1, opacity: TONES[parts.indexOf(one)] ?? 0.22 } : { scaleX: 0.85, opacity: 0 }} transition={{ delay: still ? 0 : at * 0.05, duration: 0.25 }} />
         ))}
         {!total && <span className="h-full flex-1 rounded-full" style={{ background: INK, opacity: 0.08 }} />}
@@ -255,7 +254,7 @@ export function ToneBar({ parts }: { parts: { name: string; n: number }[] }): Re
   )
 }
 
-/** Amicro's stage funnel: one rounded bar a row, widest first, staggered in at 0.05s; the row pointed at grows to 1.03 and the rest dim. */
+/** Amicro's stage funnel: one rounded bar a row, widest first, staggered in at 0.05s; pointing dims the other rows, nothing grows. */
 export function Funnel({ rows, say, onHover }: { rows: { name: string; n: number }[]; say: (row: { name: string; n: number }) => string; onHover: (said: string | null) => void }): React.JSX.Element {
   const still = useStillness()
   const arrived = useArrived()
@@ -268,7 +267,7 @@ export function Funnel({ rows, say, onHover }: { rows: { name: string; n: number
           <span className="truncate text-muted-foreground">{one.name}</span>
           <span className="h-3">
             <motion.span className="block h-full origin-left rounded-full" style={{ width: `${Math.max(4, (one.n / most) * 100)}%`, background: INK }}
-              initial={still ? false : { scaleX: 0.85, opacity: 0 }} animate={arrived ? { scaleX: on === one.name ? 1.03 : 1, opacity: 1 } : { scaleX: 0.85, opacity: 0 }} transition={{ delay: still || on !== null ? 0 : at * 0.05, duration: on !== null ? 0.2 : 0.25 }} />
+              initial={still ? false : { scaleX: 0.85, opacity: 0 }} animate={arrived ? { scaleX: 1, opacity: 1 } : { scaleX: 0.85, opacity: 0 }} transition={{ delay: still ? 0 : at * 0.05, duration: 0.25 }} />
           </span>
           <strong className="font-semibold text-foreground tabular-nums">{one.n.toLocaleString()}</strong>
         </div>
