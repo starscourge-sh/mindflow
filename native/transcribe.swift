@@ -101,12 +101,27 @@ if #available(macOS 26, *) {
       let analyzer = SpeechAnalyzer(modules: [transcriber])
       try await analyzer.start(inputAudioFile: try AVAudioFile(forReading: url), finishAfterFile: true)
       var all: [String] = []
+      // Apple's parts come a phrase or a word at a time ("a", "2"): put together a sentence or so at a time, at a
+      // full stop, a pause, or every 12 seconds, as the older path below does, each said as soon as it is whole.
+      var words: [String] = []
+      var start = 0.0, end = 0.0
+      func line() {
+        if words.isEmpty { return }
+        say(["segment": ["text": words.joined(separator: " "), "start": start, "end": end]])
+        all.append(contentsOf: words)
+        words = []
+      }
       for try await result in transcriber.results where result.isFinal {
         let text = String(result.text.characters).trimmingCharacters(in: .whitespacesAndNewlines)
         if text.isEmpty { continue }
-        say(["segment": ["text": text, "start": result.range.start.seconds, "end": result.range.end.seconds]])
-        all.append(text)
+        let from = result.range.start.seconds
+        if !words.isEmpty && (from - end > 1.2 || from - start > 12) { line() }
+        if words.isEmpty { start = from }
+        words.append(text)
+        end = result.range.end.seconds
+        if let last = text.last, ".?!".contains(last) { line() }
       }
+      line()
       say(["done": ["text": all.joined(separator: " "), "onDevice": true]])
       exit(0)
     } catch {

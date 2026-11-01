@@ -62,6 +62,8 @@ ipcRenderer.on('menu:close', () => {
 })
 // A note renamed and the links to it written again: the window it was renamed in says so, with an Undo.
 ipcRenderer.on('links:renamed', (_event, info: unknown) => window.dispatchEvent(new CustomEvent('haligtree:links-renamed', { detail: info })))
+// How far into a recording its words have been made out (main/transcribe.ts), as each part comes.
+ipcRenderer.on('transcribe:heard', (_event, src: string, seconds: number) => window.dispatchEvent(new CustomEvent('haligtree:transcribe-heard', { detail: { src, seconds } })))
 // A book made, renamed or deleted: every list of them looks again.
 ipcRenderer.on('books:changed', () => window.dispatchEvent(new CustomEvent('haligtree:books-changed')))
 

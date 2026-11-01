@@ -14,14 +14,32 @@ import { tidySpeech } from "@/lib/fillers"
  * become cards like any others.
  */
 type Segment = { text: string; start: number; end: number }
-type Transcript = { segments: Segment[]; text: string } | { error: { code: string; message: string } }
+type Transcript = { segments: Segment[]; text: string } | { error: { code: string; message: string } } | { stopped: true }
 
 /** Recordings being turned into words now, by their stored address: their block shows the Orb. */
 const busy = new Set<string>()
+/** How far into each recording its words have reached, in seconds, from the helper's own parts as they come. */
+const reached = new Map<string, number>()
 const listeners = new Set<() => void>()
 const tell = (): void => listeners.forEach((one) => one())
+window.addEventListener("haligtree:transcribe-heard", (event) => {
+  const { src, seconds } = (event as CustomEvent<{ src: string; seconds: number }>).detail
+  if (!busy.has(src) || seconds <= (reached.get(src) ?? 0)) return
+  reached.set(src, seconds)
+  tell()
+})
 
 export const isTranscribing = (src: string): boolean => busy.has(src)
+/** How far the words have reached (0 until the first part is made out). */
+export const heardOf = (src: string): number => reached.get(src) ?? 0
+/** "Stop": the helper ends, nothing is written, and it says "Stopped". */
+export const stopTranscribing = (src: string): void => {
+  if (!busy.has(src)) return
+  halted.add(src)
+  void window.api.haligtree("transcribe-stop", src)
+}
+/** Stopped while its copy was still being made, before the helper was asked: it is never asked. */
+const halted = new Set<string>()
 export const onTranscribing = (listener: () => void): (() => void) => (listeners.add(listener), () => void listeners.delete(listener))
 
 export const isAudio = (node: ProseMirrorNode | null | undefined): boolean =>
@@ -34,9 +52,15 @@ const clock = (seconds: number): string => {
   return h ? `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}` : `${m}:${String(s).padStart(2, "0")}`
 }
 
-/** A recording the Mac cannot read (Chromium's .weba) as a WAV it can: Chromium decodes it, at 16 kHz, one channel. */
-async function wavOf(src: string): Promise<Uint8Array> {
+/**
+ * A recording the Mac cannot read well as a WAV it can: Chromium decodes it, at 16 kHz, one channel. Chromium's
+ * own recordings are those: a .weba, and a voice note, which is Opus in an MP4 with no length written (AVFoundation
+ * opens it as 886,063 seconds long and Apple's speech recognition never finishes it). Null for any other file.
+ */
+async function wavOf(src: string): Promise<Uint8Array | null> {
   const bytes = await (await fetch(src)).arrayBuffer()
+  const head = new TextDecoder("latin1").decode(new Uint8Array(bytes, 0, Math.min(bytes.byteLength, 65536)))
+  if (!/\.weba$/i.test(src) && !head.includes("Opus")) return null
   const decoded = await new OfflineAudioContext(1, 1, 16000).decodeAudioData(bytes)
   const rate = 16000
   const length = Math.ceil(decoded.duration * rate)
@@ -91,14 +115,14 @@ export async function transcribe(editor: Editor, src: string): Promise<void> {
   tell()
   try {
     let wav: Uint8Array | undefined
-    if (/\.weba$/i.test(src)) {
-      try {
-        wav = await wavOf(src)
-      } catch {
-        return refuse("This recording could not be read for words")
-      }
+    try {
+      wav = (await wavOf(src)) ?? undefined
+    } catch {
+      return refuse("This recording could not be read for words")
     }
+    if (halted.has(src)) return toast("Stopped", undefined, "info")
     const result = await window.api.haligtree<Transcript>("transcribe", src, wav)
+    if ("stopped" in result || halted.has(src)) return toast("Stopped", undefined, "info")
     if ("error" in result) return refuse(result.error.message)
     if (editor.isDestroyed) return
     const had = wordsAfter(editor, src)
@@ -130,6 +154,8 @@ export async function transcribe(editor: Editor, src: string): Promise<void> {
     refuse("The words could not be made out. Try again")
   } finally {
     busy.delete(src)
+    reached.delete(src)
+    halted.delete(src)
     tell()
   }
 }

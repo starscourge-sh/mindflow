@@ -1,4 +1,4 @@
-import { execFile } from 'node:child_process'
+import { spawn, type ChildProcess } from 'node:child_process'
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { basename, join } from 'node:path'
@@ -13,24 +13,48 @@ import { assetsDir } from './pictures'
  * costs nothing, so it is fine in a sold app.
  */
 export type Segment = { text: string; start: number; end: number }
-export type Transcript = { segments: Segment[]; text: string; onDevice: boolean } | { error: { code: string; message: string } }
+export type Transcript = { segments: Segment[]; text: string; onDevice: boolean } | { error: { code: string; message: string } } | { stopped: true }
 
 const STORED = /^(?:haligtree|mindflow):\/\/assets\/([a-f0-9]{64}\.[a-z0-9]+)$/
 
-/** Run the helper and read its JSON lines. */
-function run(args: string[]): Promise<Record<string, unknown>[]> {
+/** The helper at work on each recording now, by its stored address: what "Stop" ends. */
+const working = new Map<string, ChildProcess>()
+/** Recordings stopped by the person: their run says so rather than failing. */
+const stopping = new Set<string>()
+
+/** Run the helper and read its JSON lines, each handed to `each` as it comes (a segment, as it is heard). */
+function run(args: string[], each?: (line: Record<string, unknown>) => void, key?: string): Promise<Record<string, unknown>[]> {
   return new Promise((resolve) => {
-    execFile(helper, args, { timeout: 10 * 60_000, maxBuffer: 32 * 1024 * 1024 }, (_failed, stdout) => {
-      const lines: Record<string, unknown>[] = []
-      for (const line of String(stdout ?? '').split('\n')) {
-        try {
-          if (line.trim()) lines.push(JSON.parse(line))
-        } catch {
-          // A line that is not the helper's own: left out.
-        }
+    const lines: Record<string, unknown>[] = []
+    const child = spawn(helper, args, { stdio: ['ignore', 'pipe', 'ignore'] })
+    if (key) working.set(key, child)
+    let rest = ''
+    const read = (text: string): void => {
+      try {
+        if (!text.trim()) return
+        const line = JSON.parse(text)
+        lines.push(line)
+        each?.(line)
+      } catch {
+        // A line that is not the helper's own: left out.
       }
-      resolve(lines)
+    }
+    child.stdout.setEncoding('utf8')
+    child.stdout.on('data', (chunk: string) => {
+      const parts = (rest + chunk).split('\n')
+      rest = parts.pop() ?? ''
+      parts.forEach(read)
     })
+    // Never left waiting on a helper that does not finish: ten minutes is longer than any recording takes.
+    const late = setTimeout(() => child.kill(), 10 * 60_000)
+    const end = (): void => {
+      clearTimeout(late)
+      if (key && working.get(key) === child) working.delete(key)
+      read(rest)
+      resolve(lines)
+    }
+    child.on('close', end)
+    child.on('error', end)
   })
 }
 
@@ -43,12 +67,18 @@ async function allowed(): Promise<string> {
   return String(asked?.status ?? 'denied')
 }
 
-/** The words in one stored recording. `wav` is a copy the renderer made of one AVFoundation cannot read (a .weba). */
-export async function transcribe(src: string, wav?: Uint8Array, locale?: string): Promise<Transcript> {
+/**
+ * The words in one stored recording. `wav` is a copy the renderer made (lib/transcribe.ts): the app's own voice
+ * notes are Opus in an MP4 with no length written, which AVFoundation opens as days long and never finishes.
+ * `heard` is told how far into the recording the words have reached, as each part is made out.
+ */
+export async function transcribe(src: string, wav?: Uint8Array, locale?: string, heard?: (seconds: number) => void): Promise<Transcript> {
   if (process.platform !== 'darwin') return { error: { code: 'unavailable', message: "Voice notes can be turned into words only on a Mac for now" } }
   const stored = STORED.exec(src)
   if (!stored) return { error: { code: 'missing', message: 'The recording could not be found' } }
+  stopping.delete(src)
   const status = await allowed()
+  if (stopping.delete(src)) return { stopped: true }
   if (status !== 'granted')
     return { error: { code: 'denied', message: 'Haligtree may not use speech recognition. Allow it in System Settings, under Privacy & Security, then Speech Recognition' } }
   let folder: string | null = null
@@ -59,7 +89,11 @@ export async function transcribe(src: string, wav?: Uint8Array, locale?: string)
       file = join(folder, 'recording.wav')
       await writeFile(file, wav)
     }
-    const lines = await run([file, locale || app.getLocale()])
+    const lines = await run([file, locale || app.getLocale()], (line) => {
+      const end = (line.segment as Segment | undefined)?.end
+      if (typeof end === 'number') heard?.(end)
+    }, src)
+    if (stopping.delete(src)) return { stopped: true }
     const error = lines.find((one) => one.error)?.error as { code: string; message: string } | undefined
     // Apple's own words for a Mac with Siri and Dictation off say what, not what to do.
     if (error && /siri and dictation are disabled/i.test(error.message))
@@ -73,7 +107,17 @@ export async function transcribe(src: string, wav?: Uint8Array, locale?: string)
   }
 }
 
+/** "Stop" on a recording being made out: the helper ends at once, and nothing is written. */
+export function stopTranscribing(src: string): void {
+  stopping.add(src)
+  working.get(src)?.kill()
+}
+
 export function registerTranscribe(): void {
-  ipcMain.handle('haligtree:transcribe', (_event, src: unknown, wav: unknown, locale: unknown) =>
-    transcribe(String(src ?? ''), wav instanceof Uint8Array ? wav : undefined, typeof locale === 'string' ? locale : undefined))
+  ipcMain.handle('haligtree:transcribe', (event, src: unknown, wav: unknown, locale: unknown) => {
+    const where = String(src ?? '')
+    return transcribe(where, wav instanceof Uint8Array ? wav : undefined, typeof locale === 'string' ? locale : undefined,
+      (seconds) => !event.sender.isDestroyed() && event.sender.send('transcribe:heard', where, seconds))
+  })
+  ipcMain.handle('haligtree:transcribe-stop', (_event, src: unknown) => stopTranscribing(String(src ?? '')))
 }
