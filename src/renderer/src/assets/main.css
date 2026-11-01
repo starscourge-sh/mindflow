@@ -2778,13 +2778,15 @@ textarea[data-talking]::selection {
 
 /* Satin metal: Review's one surface for decks, pockets and panels. No colour and no picture, only the theme's own ink:
    a faint vertical sheen, a 1px light along the top edge, a soft shadow inside the bottom. Opaque, so no blur is needed. */
+:root { --mf-metal-bg: linear-gradient(to bottom, color-mix(in oklab, var(--foreground) 7%, var(--background)), color-mix(in oklab, var(--foreground) 3%, var(--background)) 55%, color-mix(in oklab, var(--foreground) 5%, var(--background)));
+  --mf-metal-shadow: inset 0 1px 0 color-mix(in oklab, white 14%, transparent), inset 0 -10px 18px -14px color-mix(in oklab, black 30%, transparent), 0 1px 2px color-mix(in oklab, black 10%, transparent); }
 .mf-metal {
-  background: linear-gradient(to bottom, color-mix(in oklab, var(--foreground) 7%, var(--background)), color-mix(in oklab, var(--foreground) 3%, var(--background)) 55%, color-mix(in oklab, var(--foreground) 5%, var(--background)));
+  background: var(--mf-metal-bg);
   border: 1px solid color-mix(in oklab, var(--foreground) 11%, transparent);
-  box-shadow: inset 0 1px 0 color-mix(in oklab, white 14%, transparent), inset 0 -10px 18px -14px color-mix(in oklab, black 30%, transparent), 0 1px 2px color-mix(in oklab, black 10%, transparent);
+  box-shadow: var(--mf-metal-shadow);
 }
-.mf-metal-hover:hover { background: linear-gradient(to bottom, color-mix(in oklab, var(--foreground) 11%, var(--background)), color-mix(in oklab, var(--foreground) 6%, var(--background)) 55%, color-mix(in oklab, var(--foreground) 8%, var(--background))); }
+.mf-metal-hover:hover { border-color: color-mix(in oklab, var(--foreground) 18%, transparent); background: linear-gradient(to bottom, color-mix(in oklab, var(--foreground) 11%, var(--background)), color-mix(in oklab, var(--foreground) 6%, var(--background)) 55%, color-mix(in oklab, var(--foreground) 8%, var(--background))); }
 
 /* Review's Stats in the Decks tab's look: one surface (satin, 5px corners), so the three tabs read as one page. */
-[data-review-stats] [data-mono-card], [data-review-stats] .mf-island { border-radius: 5px; background: linear-gradient(to bottom, color-mix(in oklab, var(--foreground) 7%, var(--background)), color-mix(in oklab, var(--foreground) 3%, var(--background)) 55%, color-mix(in oklab, var(--foreground) 5%, var(--background))); border: 1px solid color-mix(in oklab, var(--foreground) 11%, transparent); box-shadow: inset 0 1px 0 color-mix(in oklab, white 14%, transparent), inset 0 -10px 18px -14px color-mix(in oklab, black 30%, transparent); }
+[data-review-stats] [data-mono-card], [data-review-stats] .mf-island { border-radius: 5px; background: var(--mf-metal-bg); border: 1px solid color-mix(in oklab, var(--foreground) 11%, transparent); box-shadow: var(--mf-metal-shadow); }
 [data-review-stats] > :first-child, [data-review-stats] > :first-child > :first-child { margin-top: 0; }

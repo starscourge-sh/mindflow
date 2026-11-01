@@ -136,6 +136,9 @@ export function DeckShelf({ onOpen, onStudy, onPaste, onPicture }: { onOpen: (ty
       { label: 'Add many at once', run: () => (chime('open'), onPaste(deck.tag)) },
       { label: 'Make cards from a picture', run: () => onPicture(deck.tag) },
       { label: 'New deck inside', run: () => newDeck(deck.tag) },
+      // Without a mouse: the same move as dragging it, one place at a time.
+      ...(deck.depth === 0 && tops.indexOf(deck) > 0 ? [{ label: 'Move earlier', run: () => move(deck.tag, -1) }] : []),
+      ...(deck.depth === 0 && tops.indexOf(deck) >= 0 && tops.indexOf(deck) < tops.length - 1 ? [{ label: 'Move later', run: () => move(deck.tag, 1) }] : []),
       { label: 'Open its page', hint: 'Everything tagged with it, on the tag’s page', run: () => openTag(deck.tag) },
       { label: 'Rename deck…', run: () => void renameDeck(deck.tag) },
       { label: 'Delete deck…', hint: 'Its cards are kept', run: () => void deleteDeck(deck.tag) }
@@ -150,6 +153,15 @@ export function DeckShelf({ onOpen, onStudy, onPaste, onPicture }: { onOpen: (ty
         onClick={() => (allHeld ? startDeck(shelf.name, shelf.name, true) : (chime('riffle'), onStudy(deckTag(shelf.name))))} />
     )
   })
+  // A deck one place earlier or later, from its menu: the keyboard's way to reorder, with Undo.
+  const move = (tag: string, by: number): void => {
+    const was = tops.map((one) => one.tag)
+    const order = [...was]
+    const at = order.indexOf(tag)
+    order.splice(at, 1)
+    order.splice(at + by, 0, tag)
+    void call('decks:order', order).then(() => (chime('settled'), quietly(() => void call('decks:order', was))))
+  }
   // Dropped on another deck, a deck takes its place and the rest move along; the order is kept.
   const drop = (onto: string): void => {
     const from = dragging
@@ -225,7 +237,7 @@ function DeckTile({ id, own = false, drag, name, title, due, fresh, all, held, c
         {...(drag ? { draggable: true, 'data-deck-drop': drag.over ? '' : undefined, onDragStart: (event: React.DragEvent) => (event.dataTransfer.effectAllowed = 'move', event.dataTransfer.setData('text/plain', `#${id}`), drag.start()),
           onDragEnter: drag.enter, onDragOver: (event: React.DragEvent) => event.preventDefault(), onDragEnd: drag.end, onDrop: (event: React.DragEvent) => (event.preventDefault(), drag.drop()) } : {})}
         onKeyDown={(event) => (event.key === 'Enter' || event.key === ' ') && event.target === event.currentTarget && (event.preventDefault(), onClick())}
-        className={`relative grid aspect-square min-w-0 cursor-pointer grid-rows-[minmax(0,1fr)_auto] gap-2 rounded-[5px] mf-metal mf-metal-hover p-3 text-left outline-none transition-transform duration-100 ease-out active:scale-[0.985] focus-visible:ring-2 focus-visible:ring-ring ${drag?.lifted ? 'opacity-40' : ''} ${drag?.over ? 'ring-2 ring-primary/60' : ''}`}>
+        className={`relative grid aspect-square min-w-0 cursor-pointer grid-rows-[minmax(0,1fr)_auto] gap-2 rounded-[5px] mf-metal mf-metal-hover p-3 text-left outline-none transition-transform duration-100 ease-out active:scale-[0.985] motion-reduce:transition-none motion-reduce:active:scale-100 focus-visible:ring-2 focus-visible:ring-ring ${drag?.lifted ? 'opacity-40' : ''} ${drag?.over ? 'ring-2 ring-primary/60' : ''}`}>
         <span className="absolute top-1.5 right-1.5" onClick={(event) => event.stopPropagation()}>
           <OptionsMenu sections={menu} label="Deck options" side="bottom" align="end" className="cursor-pointer" />
         </span>
@@ -405,7 +417,7 @@ function StudySets({ sets, onStudy }: { sets: { name: string; tag: string }[]; o
       {sets.map((set) => (
         <RowMenu key={set.name} items={[{ label: 'Study', run: () => (chime('riffle'), onStudy(set.tag)) }, 'separator', { label: 'Remove the set', hint: 'The deck and its cards stay', danger: true, run: () => void call('sets:remove', set.name).then(() => (chime('fold'), toast(`“${set.name}” is no longer a study set`, () => void call('sets:save', set.name, set.tag).then(() => chime('undo'))))) }]}>
           <button type="button" data-study-set={set.name} title={`Every card in ${deckTitle(set.tag)}, due or not`} onClick={() => (chime('riffle'), onStudy(set.tag))}
-            className="h-8 max-w-64 cursor-pointer truncate rounded-[5px] mf-metal mf-metal-hover px-3 text-foreground max-sm:h-9">{set.name}</button>
+            className="h-8 max-w-64 cursor-pointer truncate rounded-[5px] mf-metal mf-metal-hover px-3 text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring max-sm:h-9">{set.name}</button>
         </RowMenu>
       ))}
     </div>
