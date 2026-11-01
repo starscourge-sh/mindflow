@@ -8,7 +8,7 @@ import { pictureIn } from '@/lib/answer-picture'
 import { num } from '../../../../main/dates'
 import { boxOf, coverOf, groupsOf, overlap, snapped, type Cover, type CoverKind, type Hide, type Label, type Occlusion } from '../../../../main/occlusion'
 import { Kbd, refuse, toast } from './ui'
-import { deckTagOf } from './decks'
+import { DeckPick, deckTagOf } from './decks'
 
 /** Every cover in one solid colour of the theme: letters never show through. The asked one glows softly. */
 const COVER = 'color-mix(in oklab, var(--foreground) 72%, var(--background))'
@@ -357,8 +357,7 @@ export function PictureCards({ deck: aimed, onClose, onShow }: { deck?: string |
           setPicked(new Set())
           if (was.covers.length) toast('The picture and its covers are put aside', () => (chime('undo'), setPicture(was.picture), setLabels(was.labels), setCovers(was.covers), setHistory(was.history)))
         }}>Another picture</Button>}
-        <label className="flex items-center gap-1.5 text-control"><span className="text-foreground/70">Deck</span>
-          <input data-picture-deck value={deck} onChange={(event) => setDeck(event.target.value)} placeholder="none" className="w-36 bg-transparent text-foreground outline-none placeholder:italic placeholder:text-muted-foreground" /></label>
+        <DeckPick value={deck} onChange={setDeck} />
         <span className="ml-auto text-sm text-muted-foreground max-sm:hidden">
           {picture ? <><Kbd>A</Kbd> covers every label, <Kbd>G</Kbd> groups, <Kbd>⌫</Kbd> removes, <Kbd>⌘Z</Kbd> undoes</> : <><Kbd>Esc</Kbd> closes</>}
         </span>

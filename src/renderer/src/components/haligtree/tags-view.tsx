@@ -106,7 +106,7 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
   const [cursor, setCursor] = useListKeys(example ? 0 : topics.length, { onOpen: (index) => setChosen(topics[index].tag) })
   const top = topics[0]?.count ?? 1
   const speaking = useLive(haligtree.tagSpeak, {} as Record<string, string>, [], ['item'])
-  const study = useLive(haligtree.tagStudy, { typed: {}, newPerDay: {} } as Awaited<ReturnType<typeof haligtree.tagStudy>>, [], ['item'])
+  const study = useLive(haligtree.tagStudy, { sides: {}, timer: {}, place: {}, typed: {}, newPerDay: {}, retention: {} } as Awaited<ReturnType<typeof haligtree.tagStudy>>, [], ['item'])
   const current = tags.find((one) => one.tag === chosen)
   // How ready each tag with an exam date is, for the open tag's bar.
   const exams = useLive(haligtree.exams, [] as Awaited<ReturnType<typeof haligtree.exams>>)

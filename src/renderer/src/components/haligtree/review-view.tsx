@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { tagsIn } from '../../../../main/tag-words'
 import { byDefault, useToolKeys } from '@/lib/tool-keys'
 import { fieldOf } from '@/components/capture-list'
 import { quoted } from '../../../../main/clip'
@@ -193,7 +194,7 @@ export function ReviewView({ compact = false, tag, actions, lead }: { compact?: 
   const counts = useLive(haligtree.buckets, null as Record<Round, number> | null, [], ['item'])
   const speaking = useLive(haligtree.tagSpeak, {} as Record<string, string>, [], ['item'])
   // How strictly each tag's typed answers are checked, set on the tag's page.
-  const tagStudy = useLive(haligtree.tagStudy, { typed: {}, newPerDay: {} } as Awaited<ReturnType<typeof haligtree.tagStudy>>, [], ['item'])
+  const tagStudy = useLive(haligtree.tagStudy, { sides: {}, timer: {}, place: {}, typed: {}, newPerDay: {}, retention: {} } as Awaited<ReturnType<typeof haligtree.tagStudy>>, [], ['item'])
   const days = useLive(haligtree.daysInARow, null as { run: number; banked: number } | null, [], ['item'])
   const slipping_ = useLive(haligtree.slipping, [] as Item[], [], ['item'])
   const inboxLeft = useLive(inboxOpen, null as number | null, [], undefined, 'review-inbox')
@@ -233,6 +234,10 @@ export function ReviewView({ compact = false, tag, actions, lead }: { compact?: 
 
   // Made from a picture: its covers asked in place of a question, lifted off to answer.
   const occlusion = card ? occlusionOf(card.fields) : null
+  // Its deck's names for the two sides ("English", "Spanish") and its timer, by the card's tags.
+  const words = card ? `${card.title ?? ''} ${card.prompt ?? ''} ${textOf(card.body)}` : ''
+  const sides = card ? byDeck(words, tagStudy.sides) : null
+  const limit = card && !occlusion ? byDeck(words, tagStudy.timer) : null
   const reveal = (): void => {
     setOver(true)
     if (shown) return
@@ -683,6 +688,7 @@ export function ReviewView({ compact = false, tag, actions, lead }: { compact?: 
               </Tip>
               {/* The question is editable in place: a card forgotten again and again
                   is usually asking the wrong thing, and this is where you notice. */}
+              {sides && <p data-side-front className="mb-1 text-sm text-muted-foreground">{sides[0]}</p>}
               <h2
                 key={`${card.id}-${rewrites}`}
                 ref={heading}
@@ -747,7 +753,7 @@ export function ReviewView({ compact = false, tag, actions, lead }: { compact?: 
                   pictureOnAnswer(file)
                 }}>
                 {/* What it answers, small at the top: the question is on the other side now. */}
-                <p className="px-5 pt-3 text-xs text-muted-foreground"><WithPictures text={asked} small /></p>
+                <p className="px-5 pt-3 text-xs text-muted-foreground">{sides && <span data-side-back className="font-medium text-foreground/80">{sides[1]}, for </span>}<WithPictures text={asked} small /></p>
                 <HaligtreeEditor
                   key={pictured}
                   defaultContent={(card.body as JSONContent | string | null) ?? ''}
@@ -867,12 +873,12 @@ export function ReviewView({ compact = false, tag, actions, lead }: { compact?: 
             className="min-h-0 resize-none rounded-none border-0 bg-transparent px-5 py-0 font-serif text-heading leading-[2.25rem] shadow-none placeholder:font-sans placeholder:text-body placeholder:italic placeholder:text-muted-foreground focus-visible:ring-0 dark:bg-transparent md:text-heading"
             style={{ backgroundImage: 'repeating-linear-gradient(to bottom, transparent 0 calc(2.25rem - 1px), color-mix(in oklab, var(--foreground) 12%, transparent) calc(2.25rem - 1px) 2.25rem)', backgroundAttachment: 'local' }}
           />
-          <Button size="lg"
- onClick={reveal}
- className="cursor-pointer self-start"
->
-            Show the answer
-          </Button>
+          <span className="flex flex-wrap items-center gap-3 self-start">
+            <Button size="lg" onClick={reveal} className="cursor-pointer" data-show-answer>
+              {sides ? `Show the ${sides[1]}` : 'Show the answer'}
+            </Button>
+            {limit && <CardTimer key={`${card.id}-${at}`} seconds={limit} paused={editing} onEnd={reveal} />}
+          </span>
           </>
         )}
         {!shown && (
@@ -1558,6 +1564,40 @@ export function Flip({ over, onTurn, front, back }: { over: boolean; onTurn: (ov
  * kept from the start so nothing moves. Once shown, "Show the whole picture"
  * lifts every other cover too, to look it all over.
  */
+/** A deck's setting for a card, by the card's tags: its own deck's, or the nearest deck above it. */
+function byDeck<T>(text: string, byTag: Record<string, T>): T | null {
+  const tags = tagsIn(text)
+  for (const tag of tags) if (byTag[tag] !== undefined) return byTag[tag]
+  for (const tag of tags) for (const [parent, value] of Object.entries(byTag)) if (tag.startsWith(`${parent}-`)) return value
+  return null
+}
+
+/**
+ * A card's timer, set on its deck: the seconds left beside "Show the answer"
+ * and a thin bar running down. At the end the answer shows by itself. Held
+ * while the question is being edited.
+ */
+function CardTimer({ seconds, paused, onEnd }: { seconds: number; paused: boolean; onEnd: () => void }): React.JSX.Element {
+  const [left, setLeft] = useState(seconds)
+  const end = useRef(onEnd)
+  end.current = onEnd
+  useEffect(() => {
+    if (paused) return
+    const tick = window.setInterval(() => setLeft((n) => Math.max(0, n - 1)), 1000)
+    return () => window.clearInterval(tick)
+  }, [paused])
+  useEffect(() => void (left === 0 && end.current()), [left])
+  const low = left <= Math.min(5, Math.ceil(seconds / 4))
+  return (
+    <span data-card-timer={left} role="timer" aria-label={`${left} seconds left`} className="flex items-center gap-2 text-control tabular-nums">
+      <span className="relative h-1 w-20 overflow-hidden rounded-full bg-foreground/10" aria-hidden>
+        <span className={`absolute inset-y-0 left-0 rounded-full transition-[width] duration-1000 ease-linear ${low ? 'bg-[var(--tt-color-text-orange)]' : 'bg-foreground/40'}`} style={{ width: `${(left / seconds) * 100}%` }} />
+      </span>
+      <span className={`w-10 ${low ? 'text-[var(--tt-color-text-orange)]' : 'text-muted-foreground'}`}>{Math.floor(left / 60)}:{String(left % 60).padStart(2, '0')}</span>
+    </span>
+  )
+}
+
 function PictureFace({ occlusion, shown, answer, onReveal }: { occlusion: Occlusion; shown: boolean; answer: string; onReveal: () => void }): React.JSX.Element {
   const [all, setAll] = useState(false)
   // The label first: the deck's tag and the book's link under it are for the card's page, not for here.

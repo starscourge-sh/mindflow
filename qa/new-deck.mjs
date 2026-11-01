@@ -133,7 +133,7 @@ try {
   await h.keyboard.type('New card in #kiln', { delay: 20 })
   await h.waitForTimeout(800)
   await h.keyboard.press('Enter')
-  check('6. ⌘K "New card in #kiln" opens a two-field card aimed at it', await waitFor(async () => (await h.evaluate(() => document.querySelector('[data-new-deck]')?.value)) === 'kiln' && await has('[data-new-question]') && await has('[data-new-answer]')))
+  check('6. ⌘K "New card in #kiln" opens a two-field card aimed at it', await waitFor(async () => (await h.evaluate(() => document.querySelector('[data-deck-pick]')?.getAttribute('data-deck-pick'))) === 'kiln' && await has('[data-new-question]') && await has('[data-new-answer]')))
   // Tab to the answer, ⌘↵ keeps it, in the deck.
   await h.waitForTimeout(300)
   await h.keyboard.type('What is a kiln?')

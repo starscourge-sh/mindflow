@@ -17,6 +17,7 @@ import { StudyYear } from './study-stats'
 import type { Settings } from '@/lib/haligtree'
 import { moveToBin } from '@/lib/to-bin'
 import { cardsSaid, deckTagOf, makeDeck, useOwnDecks, type OwnDeck } from './decks'
+import { Coverage, coverageOf, type BrowsedCard } from './card-browser'
 
 type Topic = { deck: string; label: string; cards: number; held: number }
 export type Shelf = { name: string; cover: string | null; sample: string; pictures: number; cards: number; fresh: number; due: number; held: number; shown: boolean; topics: Topic[] }
@@ -58,11 +59,15 @@ export function DeckShelf({ onOpen, onStudy, onPaste, onPicture }: { onOpen: (ty
   const shapes = useLive(haligtree.settings, null as Settings | null)?.deckShapes === true
   const shelves = useLive(() => call<Shelf[]>('decks:list'), null as Shelf[] | null, [], ['item'])
   const own = useOwnDecks()
-  const study = useLive(haligtree.tagStudy, { typed: {}, newPerDay: {}, retention: {} } as Awaited<ReturnType<typeof haligtree.tagStudy>>, [], ['item'])
+  const study = useLive(haligtree.tagStudy, { sides: {}, timer: {}, place: {}, typed: {}, newPerDay: {}, retention: {} } as Awaited<ReturnType<typeof haligtree.tagStudy>>, [], ['item'])
   if (unloaded(shelves) || !own) return <div />
   const newDeck = (inside?: string): void => void makeDeck(inside)
   // The most due first. With many, the decks you made and the tags with cards in Review lead; the rest wait behind a fold.
-  const tops = own.filter((deck) => deck.depth === 0).sort((a, b) => b.due - a.due || b.cards - a.cards || a.tag.localeCompare(b.tag))
+  const [dragging, setDragging] = useState<string | null>(null)
+  const [over, setOver] = useState<string | null>(null)
+  const sets = useLive(() => call<{ name: string; tag: string }[]>('sets:list'), [] as { name: string; tag: string }[], [], ['item'])
+  // In the order you dragged them to, then the most due first.
+  const tops = ownOrder(own.filter((deck) => deck.depth === 0), study.place)
   const many = tops.length > MANY
   // At most POCKETS on show at once, the most due first: a big collection reads better in the List, which the fold offers.
   const shown = (many ? tops.filter((deck) => deck.made || deck.active > 0) : tops).slice(0, POCKETS)
@@ -99,7 +104,9 @@ export function DeckShelf({ onOpen, onStudy, onPaste, onPicture }: { onOpen: (ty
       <div data-deck-shelf data-deck-look="list" className="grid grid-cols-[minmax(0,1fr)] gap-4 px-5 pt-4 pb-20">
         {top}
         <StudyYear compact />
-        <DeckList own={own} shelves={shelves ?? []} onStudy={onStudy} />
+        <StudySets sets={sets} onStudy={onStudy} />
+        <BookCoverage />
+        <DeckList own={own} shelves={shelves ?? []} onStudy={onStudy} place={study.place} />
       </div>
     )
   // A shared deck's menu, the same as one of your own: its review settings, then what its buttons do, and Delete, which takes the imported deck away.
@@ -123,6 +130,9 @@ export function DeckShelf({ onOpen, onStudy, onPaste, onPicture }: { onOpen: (ty
     ...deckSettings(deck.tag, study),
     { items: [
       ...(deck.cards ? [{ label: 'Study', run: () => (chime('riffle'), onStudy(deck.tag)) }] : []),
+      ...(deck.cards ? [{ label: 'Save as a study set…', hint: 'A name for an occasion, like an exam: one click drills every card in it', run: () => void saveSet(deck.tag) }] : []),
+      { label: 'Name its two sides…', hint: study.sides[deck.tag] ? `Now “${study.sides[deck.tag][0]}” and “${study.sides[deck.tag][1]}”` : 'Like “English” and “Spanish”, in place of question and answer', run: () => void nameSides(deck.tag, study.sides[deck.tag] ?? null) },
+      ...(deck.cards ? [{ label: 'Share as an Anki deck…', hint: 'Saves an .apkg file anyone can open in Anki', run: () => void shareDeck(deck.tag, deckName(deck)) }] : []),
       { label: 'Make a card', run: () => (chime('open'), onPaste(deck.tag, true)) },
       { label: 'Add many at once', run: () => (chime('open'), onPaste(deck.tag)) },
       { label: 'Make cards from a picture', run: () => onPicture(deck.tag) },
@@ -141,8 +151,19 @@ export function DeckShelf({ onOpen, onStudy, onPaste, onPicture }: { onOpen: (ty
         onClick={() => (allHeld ? startDeck(shelf.name, shelf.name, true) : (chime('riffle'), onStudy(deckTag(shelf.name))))} />
     )
   })
+  // Dropped on another deck, a deck takes its place and the rest move along; the order is kept.
+  const drop = (onto: string): void => {
+    const from = dragging
+    setDragging(null)
+    setOver(null)
+    if (!from || from === onto) return
+    const order = tops.map((one) => one.tag).filter((tag) => tag !== from)
+    order.splice(order.indexOf(onto), 0, from)
+    const was = tops.map((one) => one.tag)
+    void call('decks:order', order).then(() => (chime('settled'), quietly(() => void call('decks:order', was))))
+  }
   const tile = (deck: OwnDeck): React.JSX.Element => (
-    <DeckTile key={deck.tag} id={deck.tag} own name={deckName(deck)} title={`#${deck.tag}`} due={deck.due} fresh={deck.fresh} all={deck.cards} held={0} cover={null} shapes={shapes}
+    <DeckTile key={deck.tag} id={deck.tag} own drag={deck.depth === 0 ? { over: over === deck.tag && dragging !== deck.tag, lifted: dragging === deck.tag, start: () => setDragging(deck.tag), enter: () => dragging && setOver(deck.tag), end: () => (setDragging(null), setOver(null)), drop: () => drop(deck.tag) } : undefined} name={deckName(deck)} title={`#${deck.tag}`} due={deck.due} fresh={deck.fresh} all={deck.cards} held={0} cover={null} shapes={shapes}
       kids={own.filter((one) => one.tag.startsWith(`${deck.tag}-`) && one.depth === deck.depth + 1).length} open={kidsOpen.has(deck.tag)} onKids={() => openKids(deck.tag)} menu={ownMenu(deck)}
       onClick={() => (deck.cards ? (chime('riffle'), onStudy(deck.tag)) : (chime('open'), onPaste(deck.tag, true)))} />
   )
@@ -150,6 +171,8 @@ export function DeckShelf({ onOpen, onStudy, onPaste, onPicture }: { onOpen: (ty
     <div data-deck-shelf data-deck-look="pockets" className="grid grid-cols-[minmax(0,1fr)] gap-4 px-5 pt-4 pb-20">
       {top}
       <StudyYear compact />
+      <StudySets sets={sets} onStudy={onStudy} />
+      <BookCoverage />
       {/* Pockets: squarish tiles, 2 to 4 across by width; each studies when clicked, its actions in its ⋯ menu and on right-click. */}
       <div data-deck-grid className="grid grid-cols-2 gap-3 sm:grid-cols-[repeat(auto-fill,minmax(11rem,1fr))]">
         {shown.map(tile)}
@@ -192,16 +215,18 @@ export function DeckShelf({ onOpen, onStudy, onPaste, onPicture }: { onOpen: (ty
  * "+N sub-decks" when it has them. The whole tile studies it; everything else
  * is in its ⋯ menu and on right-click.
  */
-function DeckTile({ id, own = false, name, title, due, fresh, all, held, cover, shapes, kids, open, onKids, menu, onClick }: {
-  id: string; own?: boolean; name: string; title: string; due: number; fresh: number; all: number; held: number; cover: string | null; shapes: boolean
+function DeckTile({ id, own = false, drag, name, title, due, fresh, all, held, cover, shapes, kids, open, onKids, menu, onClick }: {
+  id: string; own?: boolean; /** A top deck of your own drags to a new place among the others. */ drag?: { over: boolean; lifted: boolean; start: () => void; enter: () => void; end: () => void; drop: () => void }; name: string; title: string; due: number; fresh: number; all: number; held: number; cover: string | null; shapes: boolean
   kids: number; open: boolean; onKids: () => void; menu: Section[]; onClick: () => void
 }): React.JSX.Element {
   const big = due || fresh || all
   return (
     <RowMenu items={() => rowItems(menu)}>
       <div role="button" tabIndex={0} title={title} data-deck={own ? `#${id}` : id} {...(own ? { 'data-own-deck': id } : {})} onClick={onClick}
+        {...(drag ? { draggable: true, 'data-deck-drop': drag.over ? '' : undefined, onDragStart: (event: React.DragEvent) => (event.dataTransfer.effectAllowed = 'move', event.dataTransfer.setData('text/plain', `#${id}`), drag.start()),
+          onDragEnter: drag.enter, onDragOver: (event: React.DragEvent) => event.preventDefault(), onDragEnd: drag.end, onDrop: (event: React.DragEvent) => (event.preventDefault(), drag.drop()) } : {})}
         onKeyDown={(event) => (event.key === 'Enter' || event.key === ' ') && event.target === event.currentTarget && (event.preventDefault(), onClick())}
-        className="relative grid aspect-[6/5] min-w-0 cursor-pointer grid-rows-[minmax(0,1fr)_auto] gap-2 rounded-[5px] border border-foreground/10 bg-accent/25 p-3 text-left outline-none transition-colors hover:bg-accent/50 focus-visible:ring-2 focus-visible:ring-ring">
+        className={`relative grid aspect-[6/5] min-w-0 cursor-pointer grid-rows-[minmax(0,1fr)_auto] gap-2 rounded-[5px] border border-foreground/10 bg-accent/25 p-3 text-left outline-none transition-colors hover:bg-accent/50 focus-visible:ring-2 focus-visible:ring-ring ${drag?.lifted ? 'opacity-40' : ''} ${drag?.over ? 'ring-2 ring-primary/60' : ''}`}>
         <span className="absolute top-1.5 right-1.5" onClick={(event) => event.stopPropagation()}>
           <OptionsMenu sections={menu} label="Deck options" side="bottom" align="end" className="cursor-pointer" />
         </span>
@@ -292,8 +317,10 @@ function Links({ deck, onDone }: { deck: string; onDone: () => void }): React.JS
 }
 
 /** A deck's review settings, from its menu: its own new cards a day and how its typed answers are checked (the tag's own, as on its page). */
-function deckSettings(tag: string, study: { typed: Record<string, string>; newPerDay: Record<string, number>; retention: Record<string, number> }): Section[] {
+function deckSettings(tag: string, study: { typed: Record<string, string>; newPerDay: Record<string, number>; retention: Record<string, number>; timer: Record<string, number> }): Section[] {
   const perDay = study.newPerDay[tag]
+  const timer = study.timer[tag]
+  const setTimer = (to: number | null): void => void haligtree.setTag(tag, { timer: to }).then(() => (chime('settled'), quietly(() => void haligtree.setTag(tag, { timer: timer ?? null }))))
   const keep = study.retention[tag]
   const setKeep = (to: number | null): void => void haligtree.setTag(tag, { retention: to }).then(() => (chime('settled'), quietly(() => void haligtree.setTag(tag, { retention: keep ?? null }))))
   const typed = study.typed[tag] ?? ''
@@ -311,6 +338,11 @@ function deckSettings(tag: string, study: { typed: Record<string, string>; newPe
       { label: 'As in Settings', on: keep === undefined, set: (on: boolean) => void (on && setKeep(null)) },
       { label: 'Its own', field: <span className="flex items-center gap-0.5"><ScrubField label={`How much to remember of ${tag}`} min={70} max={99} value={Math.round((keep ?? 0.9) * 100)} onChange={(n) => void haligtree.setTag(tag, { retention: n / 100 })} className={SCRUB} />%</span> }
     ] },
+    // An on-screen clock on each card: when it runs out the answer shows, as Anki's "maximum answer seconds" with its answer shown.
+    { label: 'Timer on each card', items: [
+      { label: 'None', on: timer === undefined, set: (on: boolean) => void (on && setTimer(null)) },
+      ...[10, 20, 30, 60].map((seconds) => ({ label: `${seconds} seconds`, hint: 'A clock counts down under the card; at the end its answer shows', on: timer === seconds, set: (on: boolean) => void (on && setTimer(seconds)) }))
+    ] },
     { label: 'How typed answers are checked', items: [
       { label: 'Usual', hint: 'An accent or unit left out is part wrong; a slip of a letter can count; capitals do not', on: !typed, set: (on: boolean) => void (on && setTyped(null)) },
       { label: 'Exact', hint: 'Every mark counts, capitals too: formulas, symbols, case names', on: typed === 'exact', set: (on: boolean) => void (on && setTyped('exact')) },
@@ -326,6 +358,84 @@ const rowItems = (sections: Section[]): RowItem[] => sections.flatMap((section):
   ])
   return section.label ? [{ label: section.label, items: lines }] : ['separator', ...lines]
 })
+
+/** Your own top decks in the order you dragged them to; the ones never placed after, the most due first. */
+export const ownOrder = (decks: OwnDeck[], place: Record<string, number>): OwnDeck[] =>
+  [...decks].sort((a, b) => (place[a.tag] ?? Infinity) - (place[b.tag] ?? Infinity) || b.due - a.due || b.cards - a.cards || a.tag.localeCompare(b.tag))
+
+/** Save a deck as a study set, named for the occasion, with Undo. */
+async function saveSet(tag: string): Promise<void> {
+  const name = await ask(`A study set from #${tag}`, 'Name it for the occasion: Biology exam, Friday')
+  if (!name?.trim()) return
+  await call('sets:save', name, tag)
+  chime('noted')
+  toast(`“${name.trim()}” is a study set: it drills every card in #${tag}, due or not`, () => void call('sets:remove', name.trim()).then(() => chime('undo')))
+}
+
+/** Name a deck's two sides ("English / Spanish"), with Undo; empty puts back question and answer. */
+async function nameSides(tag: string, was: [string, string] | null): Promise<void> {
+  const words = await ask(`What are the two sides of #${tag} called?`, 'English / Spanish', undefined, was ? `${was[0]} / ${was[1]}` : '')
+  if (words === null || words === undefined) return
+  const parts = words.split('/').map((one) => one.trim())
+  if (words.trim() && (parts.length !== 2 || !parts[0] || !parts[1])) return refuse('Two names with a / between them: English / Spanish')
+  await haligtree.setTag(tag, { sides: words.trim() ? [parts[0], parts[1]] : null })
+  chime('settled')
+  toast(words.trim() ? `Cards in #${tag} ask in “${parts[0]}” and answer in “${parts[1]}”` : `#${tag} asks a question and its answer again`, () => void haligtree.setTag(tag, { sides: was }).then(() => chime('undo')))
+}
+
+/** Save one deck as an Anki package where you pick. */
+async function shareDeck(tag: string, name: string): Promise<void> {
+  const done = await call<{ saved: boolean; cards: number; pictureOnly: number; file?: string }>('decks:apkg', tag, name)
+  const left = done.pictureOnly ? ` ${cardsSaid(done.pictureOnly)} from a picture stayed behind: Anki keeps picture covers its own way.` : ''
+  if (!done.cards) return refuse(done.pictureOnly ? `Only cards from a picture are in #${tag}: Anki keeps picture covers its own way` : `#${tag} holds no cards to share yet`)
+  if (!done.saved) return
+  chime('noted')
+  toast(`Saved ${done.file}: ${cardsSaid(done.cards)} anyone can open in Anki.${left}`)
+}
+
+/**
+ * Study sets: a deck saved under the name of an occasion ("Biology exam,
+ * Friday"), Anki's filtered deck in plain words. One click drills every card
+ * in it, due or not; right-click to take the set away.
+ */
+function StudySets({ sets, onStudy }: { sets: { name: string; tag: string }[]; onStudy: (tag: string) => void }): React.JSX.Element | null {
+  if (!sets.length) return null
+  return (
+    <div data-study-sets className="flex flex-wrap items-center gap-2 text-control">
+      <span className="text-foreground/70">Study sets</span>
+      {sets.map((set) => (
+        <RowMenu key={set.name} items={[{ label: 'Study', run: () => (chime('riffle'), onStudy(set.tag)) }, 'separator', { label: 'Remove the set', hint: 'The deck and its cards stay', danger: true, run: () => void call('sets:remove', set.name).then(() => (chime('fold'), toast(`“${set.name}” is no longer a study set`, () => void call('sets:save', set.name, set.tag).then(() => chime('undo'))))) }]}>
+          <button type="button" data-study-set={set.name} title={`Every card in #${set.tag}, due or not`} onClick={() => (chime('riffle'), onStudy(set.tag))}
+            className="h-8 max-w-64 cursor-pointer truncate rounded-[5px] border border-foreground/10 bg-accent/25 px-3 text-foreground hover:bg-accent/50 max-sm:h-9">{set.name}</button>
+        </RowMenu>
+      ))}
+    </div>
+  )
+}
+
+/**
+ * How much of each book you have made cards from, on the first screen: the
+ * same thin bar All cards shows grouped by source, for the books with cards
+ * on two pages or more, the most carded first.
+ */
+function BookCoverage(): React.JSX.Element | null {
+  const all = useLive(() => call<BrowsedCard[]>('cards:all'), [] as BrowsedCard[], [], ['item'])
+  const [every, setEvery] = useState(false)
+  const books = [...Map.groupBy(all.filter((card) => card.made === 'pdf' && card.source), (card) => card.source)].filter(([, cards]) => coverageOf(cards)).sort((a, b) => b[1].length - a[1].length)
+  if (!books.length) return null
+  return (
+    <section data-book-coverage className="grid gap-1 rounded-[5px] border border-foreground/10 bg-accent/25 px-3 py-2">
+      <span className="text-control text-foreground/70">How much of each book has cards</span>
+      {(every ? books : books.slice(0, 3)).map(([book, cards]) => (
+        <div key={book} data-book-covered={book} className="grid grid-cols-[minmax(0,12rem)_minmax(0,1fr)] items-center gap-x-3 max-sm:grid-cols-1">
+          <span className="truncate pt-1 text-control text-foreground" title={book}>{book}</span>
+          <Coverage cards={cards} />
+        </div>
+      ))}
+      {books.length > 3 && <button type="button" data-book-coverage-all onClick={() => (chime(every ? 'fold' : 'open'), setEvery(!every))} className="cursor-pointer justify-self-start rounded-md px-2 py-1 text-control font-medium text-foreground/80 hover:bg-accent/50 hover:text-foreground">{every ? 'Show three' : `Show all ${num(books.length)} books`}</button>}
+    </section>
+  )
+}
 
 /** Rename a deck: the tag is renamed everywhere it is written, with Undo. */
 async function renameDeck(tag: string): Promise<void> {
@@ -419,7 +529,7 @@ export function DeckFace({ name, due, fresh, shapes, faded = false, small = fals
  * the accent), New and Cards in columns; sub-decks hang off the trunk under
  * their deck and fold with its chevron. Clicking a name studies it.
  */
-function DeckList({ own, shelves, onStudy }: { own: OwnDeck[]; shelves: Shelf[]; onStudy: (tag: string) => void }): React.JSX.Element {
+function DeckList({ own, shelves, onStudy, place = {} }: { own: OwnDeck[]; shelves: Shelf[]; onStudy: (tag: string) => void; /** The order you dragged the decks to. */ place?: Record<string, number> }): React.JSX.Element {
   const [shut, flip] = useShut()
   const cols = 'grid grid-cols-[minmax(0,1fr)_3.5rem_3.5rem_4rem] items-center gap-x-2'
   const row = (key: string, name: string, title: string, due: number, fresh: number, all: number, kids: number, study: (() => void) | null): React.JSX.Element => (
@@ -434,7 +544,7 @@ function DeckList({ own, shelves, onStudy }: { own: OwnDeck[]; shelves: Shelf[];
       <span className="text-right text-muted-foreground tabular-nums">{num(all)}</span>
     </div>
   )
-  const tops = own.filter((deck) => deck.depth === 0)
+  const tops = ownOrder(own.filter((deck) => deck.depth === 0), place)
   return (
     <div data-deck-list role="table" aria-label="Decks" className="grid rounded-[5px] border border-foreground/10 bg-accent/25 px-3 py-2">
       <div className={`${cols} border-b border-foreground/10 pb-1.5 text-sm text-muted-foreground`}>

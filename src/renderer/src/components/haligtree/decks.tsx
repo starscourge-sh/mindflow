@@ -4,6 +4,9 @@ import { call, haligtree, useLive } from '@/lib/haligtree'
 import { num } from '../../../../main/dates'
 import { ask, toast } from './ui'
 import type { BrowsedCard } from './card-browser'
+import { ChevronDown } from 'lucide-react'
+import { EXAMPLE_TAG } from '../../../../main/name'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 
 /**
  * Your own decks. In Haligtree a deck is a tag your cards share: there is no
@@ -68,3 +71,37 @@ export function useOwnDecks(): OwnDeck[] | null {
 export const useMadeDecks = (): string[] => useLive(haligtree.madeDecks, [] as string[], [], ['item'])
 
 export const cardsSaid = (n: number): string => `${num(n)} ${n === 1 ? 'card' : 'cards'}`
+
+/**
+ * Which deck a new card goes in, as a real control: a quiet button naming
+ * the deck ("No deck" when none) that opens your decks as a tree, the one in
+ * use ticked, and "New deck…" at the end to make one and pick it.
+ */
+export function DeckPick({ value, onChange }: { value: string; onChange: (tag: string) => void }): React.JSX.Element {
+  const decks = useOwnDecks() ?? []
+  const tag = deckTagOf(value)
+  return (
+    <DropdownMenu modal={false}>
+      <DropdownMenuTrigger asChild>
+        <button type="button" data-deck-pick={tag || 'none'} aria-label="Deck"
+          className="flex h-8 max-w-56 cursor-pointer items-center gap-1.5 rounded-md border border-foreground/10 px-2.5 text-control hover:bg-accent/50 max-sm:h-9">
+          <span className="text-foreground/70">Deck</span>
+          <span className={`truncate ${tag ? 'text-foreground' : 'text-muted-foreground'}`}>{tag ? `#${tag}` : 'No deck'}</span>
+          <ChevronDown className="size-3.5 shrink-0 text-muted-foreground" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="max-h-80 w-64">
+        <DropdownMenuRadioGroup value={tag} onValueChange={(to) => (chime('tap'), onChange(to))}>
+          <DropdownMenuRadioItem value="" data-deck-pick-to="none" className="cursor-pointer">No deck</DropdownMenuRadioItem>
+          {decks.filter((deck) => deck.tag !== EXAMPLE_TAG).map((deck) => (
+            <DropdownMenuRadioItem key={deck.tag} value={deck.tag} data-deck-pick-to={deck.tag} className="cursor-pointer" style={{ paddingLeft: `${2 + deck.depth * 0.75}rem` }}>
+              <span className="truncate">{deck.label}</span>
+            </DropdownMenuRadioItem>
+          ))}
+        </DropdownMenuRadioGroup>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem data-deck-pick-new className="cursor-pointer" onSelect={() => void makeDeck().then((made) => made && onChange(made))}>New deck…</DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}

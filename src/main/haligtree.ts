@@ -29,6 +29,7 @@ import { busy } from './busy'
 import { LEARN_DECK, LEARN_EARLIER, LEARN_TAG } from './learn-deck'
 import { EXAMPLE_DECK, EXAMPLE_TAG, FORGETTING_CURVE } from './example-deck'
 import { assetsDir } from './pictures'
+import { asHtml, deckPackage } from './anki-export'
 import { ALERT_AT, againAlerts, dueAlerts } from './task-alerts'
 import { eventFromBin, eventToBin, eventsInBin, forgetEvents } from './events'
 import { forgetPractices, practiceFromBin, practiceToBin, practicesInBin } from './practices'
@@ -1224,6 +1225,14 @@ export function registerHaligtree(): void {
   column('tag_meta', 'retention real')
   // A deck made by hand in Review (New deck): shown as a deck before it holds a card.
   column('tag_meta', 'deck integer not null default 0')
+  // A deck's place in the order you dragged it to (null: by due, then size, then name).
+  column('tag_meta', 'place integer')
+  // What a deck's two sides are called ("English|Spanish"); null: question and answer.
+  column('tag_meta', 'sides text')
+  // Seconds a deck's card may take before its answer shows by itself; null: no timer.
+  column('tag_meta', 'timer integer')
+  // A study set: a name for an occasion ("Biology exam, Friday") and the deck it drills.
+  db.exec('create table if not exists study_sets (name text primary key, tag text not null, made_at text not null)')
   // Why the answer is so, one line under it in review.
   column('nuggets', 'why text')
   // A question held open: when it was settled, and how ('answered' or 'let go').
@@ -4143,18 +4152,70 @@ export function registerHaligtree(): void {
   handle('tag:speak', () => Object.fromEntries((db.prepare('select tag, speak from tag_meta where speak is not null').all() as { tag: string; speak: string }[]).map((row) => [row.tag, row.speak])))
   // How each tag's typed answers are checked, and the tags with their own new cards a day.
   handle('tag:study', () => {
-    const rows = db.prepare('select tag, typed, new_per_day as newPerDay, retention from tag_meta where typed is not null or new_per_day is not null or retention is not null').all() as { tag: string; typed: string | null; newPerDay: number | null; retention: number | null }[]
+    const rows = db.prepare('select tag, typed, new_per_day as newPerDay, retention, sides, timer, place from tag_meta where typed is not null or new_per_day is not null or retention is not null or sides is not null or timer is not null or place is not null').all() as { tag: string; typed: string | null; newPerDay: number | null; retention: number | null; sides: string | null; timer: number | null; place: number | null }[]
     return {
+      sides: Object.fromEntries(rows.filter((row) => row.sides).map((row) => [row.tag, row.sides!.split('|') as [string, string]])) as Record<string, [string, string]>,
+      timer: Object.fromEntries(rows.filter((row) => row.timer !== null).map((row) => [row.tag, row.timer])) as Record<string, number>,
+      place: Object.fromEntries(rows.filter((row) => row.place !== null).map((row) => [row.tag, row.place])) as Record<string, number>,
       retention: Object.fromEntries(rows.filter((row) => row.retention !== null).map((row) => [row.tag, row.retention])) as Record<string, number>,
       typed: Object.fromEntries(rows.filter((row) => row.typed).map((row) => [row.tag, row.typed])) as Record<string, 'exact' | 'meaning'>,
       newPerDay: Object.fromEntries(rows.filter((row) => row.newPerDay !== null).map((row) => [row.tag, row.newPerDay])) as Record<string, number>
     }
   })
   // The decks made by hand in Review, held or not by cards yet.
+  // Decks in the order dragged to: each top deck's place, the first 0.
+  handle('decks:order', (tags: string[]) => {
+    db.exec('begin')
+    tags.forEach((tag, at) => {
+      db.prepare('insert or ignore into tag_meta (tag) values (?)').run(tag)
+      db.prepare('update tag_meta set place = ? where tag = ?').run(at, tag)
+    })
+    db.exec('commit')
+    return write(true)
+  })
+  // One deck (and the decks inside it) as an Anki package, saved where you pick: its cards as new
+  // Basic notes, sides named as the deck names them, pictures packed in. Cards from a picture stay
+  // behind (Anki keeps its picture covers another way) and the result says how many.
+  handle('decks:apkg', async (tag: string, name: string) => {
+    const sides = ((db.prepare('select sides from tag_meta where tag = ?').get(tag) as { sides: string | null } | undefined)?.sides?.split('|') ?? ['Front', 'Back']) as [string, string]
+    const rows = (db.prepare(`select prompt, title, body, fields from nuggets where coalesce(prompt, '') != '' and archived_at is null and binned_at is null and superseded_by is null and deck is null`).all() as { prompt: string; title: string | null; body: string | null; fields: string | null }[])
+      .map((row) => ({ ...row, answer: cardWords(row.body ?? 'null') }))
+      .map((row) => ({ ...row, tags: tagsIn(`${row.title ?? ''} ${row.prompt} ${row.answer}`) }))
+      .filter((row) => row.tags.some((one) => one === tag || one.startsWith(`${tag}-`)))
+    const pictureOnly = rows.filter((row) => /"occlusion"/.test(row.fields ?? '')).length
+    const PICTURE = /!\[[^\]]*\]\(((?:haligtree|mindflow):\/\/assets\/([^)\s]+))\)/g
+    const html = (words: string, pictures: { name: string; file: string }[]): string =>
+      asHtml(words.replace(/(^|\s)#[\p{L}\p{N}_-]+/gu, '').trim()).replace(PICTURE, (_all, _src: string, file: string) => {
+        const named = basename(file)
+        const path = join(assetsDir(), named)
+        if (!existsSync(path)) return ''
+        pictures.push({ name: named, file: path })
+        return `<img src="${named}">`
+      })
+    const cards = rows.filter((row) => !/"occlusion"/.test(row.fields ?? '')).map((row) => {
+      const pictures: { name: string; file: string }[] = []
+      return { front: html(row.prompt, pictures), back: html(row.answer, pictures), tags: row.tags, pictures }
+    })
+    if (!cards.length) return { saved: false, cards: 0, pictureOnly }
+    const { canceled, filePath } = await dialog.showSaveDialog({ defaultPath: `${name.replace(/[/\\:]+/g, ' ').trim() || tag}.apkg`, filters: [{ name: 'Anki deck', extensions: ['apkg'] }] })
+    if (canceled || !filePath) return { saved: false, cards: cards.length, pictureOnly }
+    await writeFile(filePath, await deckPackage(name, sides, cards))
+    return { saved: true, cards: cards.length, pictureOnly, file: basename(filePath) }
+  })
+  // Study sets, newest first; saving one under a name in use moves it to the new deck.
+  handle('sets:list', () => db.prepare('select name, tag from study_sets order by made_at desc').all())
+  handle('sets:save', (name: string, tag: string) => {
+    if (!name.trim() || !tag) return false
+    db.prepare('insert or replace into study_sets (name, tag, made_at) values (?, ?, ?)').run(name.trim().slice(0, 60), tag, new Date().toISOString())
+    return write(true)
+  })
+  handle('sets:remove', (name: string) => (db.prepare('delete from study_sets where name = ?').run(name), write(true)))
   handle('decks:made', () => (db.prepare('select tag from tag_meta where deck = 1 order by tag').all() as { tag: string }[]).map((row) => row.tag))
   handle('tag:meta', () => db.prepare('select tag, color, action, backdrop, home_hidden as homeHidden from tag_meta').all())
-  handle('tag:set', (tag: string, patch: { deck?: boolean; homeHidden?: boolean; backdrop?: string | null; color?: string | null; action?: boolean; aliasOf?: string | null; examAt?: string | null; priority?: 'maintaining' | 'paused' | null; lands?: string | null; speak?: string | null; typed?: string | null; newPerDay?: number | null; retention?: number | null }) => {
+  handle('tag:set', (tag: string, patch: { deck?: boolean; homeHidden?: boolean; backdrop?: string | null; color?: string | null; action?: boolean; aliasOf?: string | null; examAt?: string | null; priority?: 'maintaining' | 'paused' | null; lands?: string | null; speak?: string | null; typed?: string | null; newPerDay?: number | null; retention?: number | null; sides?: [string, string] | null; timer?: number | null }) => {
     db.prepare('insert or ignore into tag_meta (tag) values (?)').run(tag)
+    if (patch.sides !== undefined) db.prepare('update tag_meta set sides = ? where tag = ?').run(patch.sides && patch.sides[0].trim() && patch.sides[1].trim() ? `${patch.sides[0].trim().slice(0, 30)}|${patch.sides[1].trim().slice(0, 30)}` : null, tag)
+    if (patch.timer !== undefined) db.prepare('update tag_meta set timer = ? where tag = ?').run(Number.isInteger(patch.timer) && patch.timer! >= 3 && patch.timer! <= 600 ? patch.timer : null, tag)
     if (patch.retention !== undefined) db.prepare('update tag_meta set retention = ? where tag = ?').run(typeof patch.retention === 'number' && patch.retention >= 0.7 && patch.retention <= 0.99 ? patch.retention : null, tag)
     if (patch.typed !== undefined) db.prepare('update tag_meta set typed = ? where tag = ?').run(['exact', 'meaning'].includes(patch.typed ?? '') ? patch.typed : null, tag)
     if (patch.deck !== undefined) db.prepare('update tag_meta set deck = ? where tag = ?').run(patch.deck ? 1 : 0, tag)

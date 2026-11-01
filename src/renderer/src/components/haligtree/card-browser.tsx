@@ -80,8 +80,8 @@ function spot(card: BrowsedCard): number {
 }
 const pageOf = (card: BrowsedCard): number | null => (/\d:\d/.test(card.at) ? null : /\d+/.exec(card.at) ? Number(/\d+/.exec(card.at)![0]) : null)
 
-/** The deck it came in, or its first tag: what a person means by "which deck". */
-const deckOf = (card: BrowsedCard): string => (card.made === 'deck' ? card.source : card.tags[0] ? `#${card.tags[0].split('-')[0]}` : 'No deck')
+/** The deck it came in, or its first tag, the whole of it (#biology-cells, not #biology): what a person means by "which deck". */
+const deckOf = (card: BrowsedCard): string => (card.made === 'deck' ? card.source : card.tags[0] ? `#${card.tags[0]}` : 'No deck')
 
 const SORTS: Choice[] = [
   { id: 'due', label: 'Due soonest' },
@@ -187,14 +187,17 @@ function DueAhead({ cards }: { cards: BrowsedCard[] }): React.JSX.Element | null
   )
 }
 
+/** Whether a book's cards sit on two pages or more: enough for a coverage bar. */
+export const coverageOf = (cards: BrowsedCard[]): boolean => new Set(cards.map(pageOf).filter((one) => one !== null)).size >= 2
+
 /**
  * A book's pages as one thin bar, from page 1 to the last page with a card:
  * marked where a page has cards, bare where it has none, so the parts of a
  * book you never made cards from show at a glance.
  */
-function Coverage({ cards }: { cards: BrowsedCard[] }): React.JSX.Element | null {
+export function Coverage({ cards }: { cards: BrowsedCard[] }): React.JSX.Element | null {
   const pages = [...new Set(cards.map(pageOf).filter((one): one is number => one !== null))]
-  if (pages.length < 2) return null
+  if (!coverageOf(cards)) return null
   const last = Math.max(...pages)
   const cells = Math.min(last, 120)
   const lit = new Set(pages.map((page) => Math.min(cells - 1, Math.floor(((page - 1) / last) * cells))))
