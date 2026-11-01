@@ -63,7 +63,122 @@ guard status == .authorized else {
   if status == .notDetermined { fail("not-asked", "Haligtree hasn't been allowed speech recognition yet") }
   fail("denied", "Haligtree may not use speech recognition. Allow it in System Settings, under Privacy & Security, then Speech Recognition")
 }
-let locale = Locale(identifier: args.first ?? Locale.current.identifier)
+// `listen --file <recording> [locale]`: a test, the recording heard in the microphone's place (macOS 26 path).
+let testFile: String? = args.first == "--file" && args.count > 1 ? args[1] : nil
+let rest = testFile == nil ? args : Array(args.dropFirst(2))
+let locale = Locale(identifier: rest.first ?? Locale.current.identifier)
+
+/** The microphone's tap: each buffer to `feed`, and its level said about 20 times a second, for the pill's waveform. */
+nonisolated(unsafe) var lastLevel = Date.distantPast
+func tapMicrophone(_ engine: AVAudioEngine, _ feed: @escaping (AVAudioPCMBuffer) -> Void) -> AVAudioFormat {
+  let input = engine.inputNode
+  let format = input.outputFormat(forBus: 0)
+  guard format.sampleRate > 0 else { fail("mic", "No microphone could be used. Check one is connected and allowed") }
+  input.installTap(onBus: 0, bufferSize: 1024, format: format) { buffer, _ in
+    feed(buffer)
+    guard Date().timeIntervalSince(lastLevel) >= 0.05, let samples = buffer.floatChannelData?[0], buffer.frameLength > 0 else { return }
+    lastLevel = Date()
+    var sum: Float = 0
+    for i in 0..<Int(buffer.frameLength) { sum += samples[i] * samples[i] }
+    let rms = (sum / Float(buffer.frameLength)).squareRoot()
+    say(["level": (Double(min(1, rms)) * 1000).rounded() / 1000])
+  }
+  engine.prepare()
+  do { try engine.start() } catch { fail("mic", "No microphone could be used. Check one is connected and allowed") }
+  return format
+}
+
+/** The app says when to stop: a line "stop" on standard input, or closing it; "cancel" ends at once. */
+func waitForStop(_ then: @escaping @Sendable () -> Void) {
+  Thread.detachNewThread {
+    while let line = readLine() {
+      if line == "cancel" { exit(0) }
+      if line == "stop" { break }
+    }
+    then()
+  }
+}
+
+// macOS 26 and later: SpeechAnalyzer, as transcribe.swift reads recordings. It works with Siri and Dictation
+// off, where the older SFSpeechRecognizer below stops with Apple's "Siri and Dictation are disabled".
+if #available(macOS 26, *) {
+  Task {
+    guard let wanted = await SpeechTranscriber.supportedLocale(equivalentTo: locale) else {
+      fail("unavailable", "Speech recognition isn't available for this language on this Mac")
+    }
+    let transcriber = SpeechTranscriber(locale: wanted, transcriptionOptions: [], reportingOptions: [.volatileResults], attributeOptions: [])
+    do {
+      // The words for this language are fetched once by macOS, then kept on the Mac.
+      if let install = try await AssetInventory.assetInstallationRequest(supporting: [transcriber]) {
+        try await install.downloadAndInstall()
+      }
+      let analyzer = SpeechAnalyzer(modules: [transcriber])
+      guard let wants = await SpeechAnalyzer.bestAvailableAudioFormat(compatibleWith: [transcriber]) else {
+        fail("unavailable", "Speech recognition isn't available on this Mac right now")
+      }
+      let (stream, feed) = AsyncStream<AnalyzerInput>.makeStream()
+      let engine = AVAudioEngine()
+      nonisolated(unsafe) var converter: AVAudioConverter?
+      let hear: (AVAudioPCMBuffer) -> Void = { buffer in
+        // The microphone's own rate and layout into the one the analyzer reads.
+        if converter == nil { converter = AVAudioConverter(from: buffer.format, to: wants) }
+        guard let converter else { return }
+        let room = AVAudioFrameCount((Double(buffer.frameLength) * wants.sampleRate / buffer.format.sampleRate).rounded(.up)) + 16
+        guard let out = AVAudioPCMBuffer(pcmFormat: wants, frameCapacity: room) else { return }
+        nonisolated(unsafe) var given = false
+        var problem: NSError?
+        converter.convert(to: out, error: &problem) { _, status in
+          if given { status.pointee = .noDataNow; return nil }
+          given = true
+          status.pointee = .haveData
+          return buffer
+        }
+        if problem == nil && out.frameLength > 0 { feed.yield(AnalyzerInput(buffer: out)) }
+      }
+      if let path = testFile {
+        // A recording in the microphone's place, through the same steps, so it can be proven from the terminal.
+        let file = try AVAudioFile(forReading: URL(fileURLWithPath: path))
+        say(["ready": ["onDevice": true]])
+        while let chunk = AVAudioPCMBuffer(pcmFormat: file.processingFormat, frameCapacity: 4096), (try? file.read(into: chunk)) != nil, chunk.frameLength > 0 {
+          converter = converter ?? AVAudioConverter(from: chunk.format, to: wants)
+          hear(chunk)
+        }
+        feed.finish()
+      } else {
+        _ = tapMicrophone(engine, hear)
+        say(["ready": ["onDevice": true]])
+        waitForStop {
+          engine.stop()
+          engine.inputNode.removeTap(onBus: 0)
+          feed.finish()
+        }
+      }
+      try await analyzer.start(inputSequence: stream)
+      // Settled words so far, and the ones still being made out after them.
+      let reading = Task {
+        var settled = ""
+        for try await result in transcriber.results {
+          let text = String(result.text.characters)
+          if result.isFinal {
+            settled += text
+            say(["partial": ["text": settled.trimmingCharacters(in: .whitespacesAndNewlines)]])
+          } else {
+            say(["partial": ["text": (settled + text).trimmingCharacters(in: .whitespacesAndNewlines)]])
+          }
+        }
+        return settled
+      }
+      try await analyzer.finalizeAndFinishThroughEndOfInput()
+      let words = (try? await reading.value) ?? ""
+      say(["final": ["text": words.trimmingCharacters(in: .whitespacesAndNewlines)]])
+      exit(0)
+    } catch {
+      fail("failed", "Talk to type could not hear the words: \(error.localizedDescription)")
+    }
+  }
+  dispatchMain()
+}
+
 guard let recognizer = SFSpeechRecognizer(locale: locale) ?? SFSpeechRecognizer() else {
   fail("unavailable", "Speech recognition isn't available for this language on this Mac")
 }
@@ -80,22 +195,7 @@ request.shouldReportPartialResults = true
 if #available(macOS 13, *) { request.addsPunctuation = true }
 
 let engine = AVAudioEngine()
-let input = engine.inputNode
-let format = input.outputFormat(forBus: 0)
-guard format.sampleRate > 0 else { fail("mic", "No microphone could be used. Check one is connected and allowed") }
-// The level, for the pill's waveform: the RMS of what came in, said about 20 times a second.
-nonisolated(unsafe) var lastLevel = Date.distantPast
-input.installTap(onBus: 0, bufferSize: 1024, format: format) { buffer, _ in
-  request.append(buffer)
-  guard Date().timeIntervalSince(lastLevel) >= 0.05, let samples = buffer.floatChannelData?[0], buffer.frameLength > 0 else { return }
-  lastLevel = Date()
-  var sum: Float = 0
-  for i in 0..<Int(buffer.frameLength) { sum += samples[i] * samples[i] }
-  let rms = (sum / Float(buffer.frameLength)).squareRoot()
-  say(["level": (Double(min(1, rms)) * 1000).rounded() / 1000])
-}
-engine.prepare()
-do { try engine.start() } catch { fail("mic", "No microphone could be used. Check one is connected and allowed") }
+_ = tapMicrophone(engine) { request.append($0) }
 
 nonisolated(unsafe) var latest = ""
 let task = recognizer.recognitionTask(with: request) { result, error in
@@ -115,14 +215,9 @@ let task = recognizer.recognitionTask(with: request) { result, error in
 }
 say(["ready": ["onDevice": true]])
 
-// The app says when to stop: a line on standard input, or closing it.
-Thread.detachNewThread {
-  while let line = readLine() {
-    if line == "cancel" { exit(0) }
-    if line == "stop" { break }
-  }
+waitForStop {
   engine.stop()
-  input.removeTap(onBus: 0)
+  engine.inputNode.removeTap(onBus: 0)
   request.endAudio()
 }
 dispatchMain()
