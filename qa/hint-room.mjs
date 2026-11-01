@@ -133,6 +133,14 @@ try {
   check('the top middle of the screen: a hint shows', seen(top), JSON.stringify(top))
   check('…beside the card (no room above it there), level with its top', top?.side === 'left' && top.right <= top.card[0] - 8 && top.top === top.card[1], JSON.stringify(top))
   check('…never over the card or a round control, never cut off', top && !top.overCard && !top.overControl && top.inWindow, JSON.stringify(top))
+  const look = await page.evaluate(() => {
+    const card = document.querySelector('[data-hint-card]')
+    const why = card?.querySelector('[data-hint-mark]')?.getBoundingClientRect()
+    const words = card?.querySelector('[data-hint-words]')?.getBoundingClientRect()
+    return { why: why && words ? why.bottom <= words.top : null, fill: card && getComputedStyle(card).backgroundColor, box: getComputedStyle(document.querySelector('.app-container')).backgroundColor, whySize: card && parseFloat(getComputedStyle(card.querySelector('[data-hint-mark]')).fontSize) }
+  })
+  check('why it is here is read first: its own line above the words, 13px or more', look.why === true && look.whySize >= 13, JSON.stringify(look))
+  check('its fill is the box\'s own', look.fill === look.box, JSON.stringify(look))
   const withHint = { card: await screenCard(), in: await where() }
   // The toast lane is measured from the footer's place in the window, which moved with the room.
   const lane = await page.evaluate(() => {
@@ -231,6 +239,18 @@ try {
   }
   await page.keyboard.press('Escape'); await wait(600)
   await page.keyboard.press('Escape'); await wait(600)
+
+  // Lesson mode (the first capture's lesson in the welcome): no hint, as before.
+  await reopen()
+  await page.evaluate(() => { document.documentElement.setAttribute('data-welcome-ph', ''); document.documentElement.setAttribute('data-welcome-first', '') }); await wait(500)
+  check('lesson mode: no hint', !seen(await hint(false)))
+  if (film) for (const look of ['light', 'dark']) {
+    const dir = `${shots}/lesson-${look}`; mkdirSync(dir, { recursive: true }); await theme(look)
+    await roll(dir, '1-lesson', 600, async () => {})
+    await roll(dir, '2-type', 500, async () => { await page.click(EDITOR).catch(() => {}); await page.keyboard.type('a') })
+    await page.keyboard.press('Backspace')
+  }
+  await page.evaluate(() => { document.documentElement.removeAttribute('data-welcome-ph'); document.documentElement.removeAttribute('data-welcome-first') }); await wait(300)
 
   // Focus mode: no hint, as before.
   await reopen()

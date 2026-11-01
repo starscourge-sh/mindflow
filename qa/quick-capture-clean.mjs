@@ -3,7 +3,7 @@
 // the caret in it, and the leftover waits in a small "Still to keep" chip
 // named by what it is ("Voice note · 0:56"), one click from coming back. A
 // gem that comes back sits under the writing line as a gift: its words in the
-// heading serif, a quiet "came back" mark, two words on hover only ("Keep it
+// heading serif, why it is here on a line above them ("Came back"), two words on hover only ("Keep it
 // coming", "Less like this"), the rest in its right-click menu. "Create more"
 // keeps its word beside its switch.
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/quick-capture-clean.mjs
@@ -77,7 +77,7 @@ try {
   check('the gem sits under the writing line', gem?.under, JSON.stringify(gem))
   // The hint is a gem or a capture still waiting in the Inbox, as the dice fall.
   const isGem = gem?.mark !== null && !/Inbox/.test(gem?.mark ?? '')
-  check('a quiet mark: "came back" for a gem, never "Saved · a gem"', isGem ? gem.mark === 'came back' : /still waiting/.test(gem?.mark ?? ''), String(gem?.mark))
+  check('why it is here, on its own line above the words: "Came back" for a gem, "Still in your Inbox" for a capture', isGem ? gem.mark === 'Came back' : gem?.mark === 'Still in your Inbox', String(gem?.mark))
   check('two words, "Keep it coming" (or "Keep it") and "Less like this", hidden until hovered', JSON.stringify(gem?.votes) === (isGem ? '["Keep it coming","Less like this"]' : '["Keep it","Less like this"]') && gem.restOpacity.every((one) => one === '0'), JSON.stringify(gem))
   check('open, fix and not now are not buttons on it', gem?.iconButtons === 0, String(gem?.iconButtons))
   const wordsClass = await page.evaluate(() => document.querySelector('[data-hint-words]')?.className ?? '')
