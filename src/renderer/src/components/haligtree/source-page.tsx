@@ -770,14 +770,16 @@ export function SourcesView({ onOpen }: { onOpen: (type: string, id: string) => 
           // light wraps only its own words, its "Add who" beside them, never a band across the page.
           <section data-missing-source className="mf-island mx-3 mt-5 rounded-xl border bg-accent/25 px-3 py-3">
             <h3 className="flex items-center gap-2 text-heading font-semibold"><Quote className="size-4 shrink-0" style={{ color: VOICE_TINT.theirs }} />{missing.length === 1 ? 'A quote has no source' : `${num(missing.length)} quotes have no source`}</h3>
-            <p className="mt-0.5 mb-2 text-control text-foreground/90 text-pretty">A quote is someone’s words: say whose, so it never drifts away from them. Point at one to say whose, that nobody knows, or that it is not a quote.</p>
+            <p className="mt-0.5 mb-2 text-control text-foreground/90 text-pretty">A quote is someone’s words: say whose, so it never drifts from them. Point at one for its choices.</p>
             <ul className="flex flex-col gap-1">
               {missing.slice(0, allMissing ? undefined : 5).map((item) => (
                 // The three ways out show on the row pointed at (always, where nothing can point), in room kept for them, so nothing moves.
+                // Narrow (a phone's width): the words keep the whole line, and the three ways come over its right end on an opaque band
+                // when it is pointed at or tapped, each a full tap tall; rows never grow to two lines.
                 <RowMenu key={item.id} items={[{ label: 'Open', run: () => onOpen(item.type, item.id) }, { label: 'Add who…', run: () => void give(item) }, { label: 'Source unknown', run: () => void sourceUnknown(item) }, { label: 'Not a quote', run: () => void notAQuote(item) }]}>
-                <li data-missing-row={item.id} className="group/missing flex min-w-0 items-center gap-3 rounded-md hover:bg-accent/60 focus-within:bg-accent/60">
-                  <button type="button" className="min-w-0 flex-1 cursor-pointer truncate rounded-md px-1.5 py-0.5 text-left text-body" onClick={() => onOpen(item.type, item.id)}>{item.label || 'Untitled'}</button>
-                  <span data-missing-ways className="flex shrink-0 items-center opacity-0 transition-opacity duration-150 group-hover/missing:opacity-100 group-focus-within/missing:opacity-100 [@media(hover:none)]:opacity-100">
+                <li data-missing-row={item.id} className="group/missing relative flex min-w-0 items-center gap-3 rounded-md hover:bg-accent/60 focus-within:bg-accent/60 max-sm:min-h-8">
+                  <button type="button" title={item.label || undefined} className="min-w-0 flex-1 cursor-pointer truncate rounded-md px-1.5 py-0.5 text-left text-body" onClick={() => onOpen(item.type, item.id)}>{item.label || 'Untitled'}</button>
+                  <span data-missing-ways className="flex shrink-0 items-center opacity-0 transition-opacity duration-150 group-hover/missing:opacity-100 group-focus-within/missing:opacity-100 [@media(hover:none)]:opacity-100 max-sm:absolute max-sm:inset-y-0 max-sm:right-0 max-sm:rounded-md max-sm:bg-accent max-sm:pl-2 max-sm:[&>button]:h-8">
                     <Button variant="ghost" size="sm" data-give-source={item.id} onClick={() => void give(item)}>Add who</Button>
                     <Button variant="ghost" size="sm" data-source-unknown={item.id} onClick={() => void sourceUnknown(item)}>Unknown</Button>
                     <Button variant="ghost" size="sm" data-not-quote={item.id} onClick={() => void notAQuote(item)}>Not a quote</Button>

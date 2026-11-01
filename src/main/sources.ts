@@ -388,11 +388,12 @@ export function registerSources(): void {
   })
 
   // Quotes and sourced-looking gems that have lost their source, or never had one: each is nudged to get one.
+  // Every one, so the count said over them is true (it said "200" with 505 waiting); the page shows five at a time.
   ipcMain.handle('haligtree:sources:missing', () => [
     ...db.prepare(`select 'capture' as type, id, kind, ${LABEL} as label, captured_at as at from captures
-      where status != 'discarded' and kind = 'quote' and coalesce(trim(attribution), '') = '' and coalesce(trim(medium), '') = '' order by captured_at desc limit 200`).all(),
+      where status != 'discarded' and kind = 'quote' and coalesce(trim(attribution), '') = '' and coalesce(trim(medium), '') = '' order by captured_at desc`).all(),
     ...db.prepare(`select tier as type, id, kind, coalesce(nullif(title, ''), label('', body)) as label, created_at as at from nuggets
-      where tier = 'nugget' and binned_at is null and kind = 'quote' and coalesce(trim(attribution), '') = '' and coalesce(trim(medium), '') = '' order by created_at desc limit 200`).all()
+      where tier = 'nugget' and binned_at is null and kind = 'quote' and coalesce(trim(attribution), '') = '' and coalesce(trim(medium), '') = '' order by created_at desc`).all()
   ] as { type: string; id: string; kind: string; label: string; at: string }[])
 
   // The source-centred map: each who and where as a dot, joined to every note from it,

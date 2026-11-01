@@ -52,7 +52,8 @@ export const peopleRead = (): boolean => read
 
 /** One or two letters for a name: its first and last words' first letters. */
 export const initials = (name: string): string => {
-  const words = name.replace(/[^\p{L}\p{N}\s'-]/gu, '').trim().split(/\s+/).filter(Boolean)
+  // The person, not the note after the comma: "Gandalf, in J.R.R. Tolkien" is G, "Homer, tr. Samuel Butler" is H.
+  const words = (name.split(',')[0] || name).replace(/[^\p{L}\p{N}\s'-]/gu, '').trim().split(/\s+/).filter(Boolean)
   if (!words.length) return '?'
   const first = [...words[0]][0] ?? ''
   const last = words.length > 1 ? ([...words[words.length - 1]][0] ?? '') : ''
