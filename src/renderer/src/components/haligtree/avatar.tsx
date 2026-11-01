@@ -14,29 +14,54 @@ const hashOf = (name: string): number => {
   return hash
 }
 
-/** Each shape as a mask, made once: a photo wears its person's shape, so photos and shapes sit side by side as one family. */
-const masks = new Map<number, string>()
-const maskOf = (shape: number): string => {
-  const made = masks.get(shape)
-  if (made) return made
-  const url = `url("data:image/svg+xml,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'><path d='${SHAPES[shape]}'/></svg>`)}")`
-  masks.set(shape, url)
-  return url
+/** A colour the theme names (any CSS colour, oklch too) as 0 to 1 red, green and blue, read through a 1px canvas. */
+const rgbOf = (color: string): [number, number, number] => {
+  const paint = document.createElement('canvas').getContext('2d', { willReadFrequently: true })!
+  paint.fillStyle = color.trim() || '#000'
+  paint.fillRect(0, 0, 1, 1)
+  const [r, g, b] = paint.getImageData(0, 0, 1, 1).data
+  return [r / 255, g / 255, b / 255]
 }
-/** The frame a person's face is cut to, for whatever lies over it (a hover shade): their shape, or round under "Initials" (box-extras.css .mf-avatar-frame). */
-export const avatarFrame = (name: string): CSSProperties => ({ '--mf-avatar-mask': maskOf(hashOf(name.trim()) % SHAPES.length) }) as CSSProperties
+let duotone: SVGSVGElement | null = null
+/**
+ * Every photo of a person is printed in the theme's two tones, its ink and its paper, so a page of
+ * faces reads as one printed set (the user, 1 Nov). One SVG filter, `#mf-duotone`: grey first, then
+ * each grey mapped from the darker of the two colours to the lighter, so a dark theme is never a
+ * negative. Read again whenever the theme changes. The saved pictures are never touched.
+ */
+function ensureDuotone(): void {
+  if (duotone) return
+  const ns = 'http://www.w3.org/2000/svg'
+  duotone = document.createElementNS(ns, 'svg')
+  duotone.setAttribute('aria-hidden', 'true')
+  duotone.setAttribute('style', 'position:absolute;width:0;height:0;overflow:hidden')
+  duotone.innerHTML = `<filter id="mf-duotone" color-interpolation-filters="sRGB"><feColorMatrix type="matrix" values="0.2126 0.7152 0.0722 0 0  0.2126 0.7152 0.0722 0 0  0.2126 0.7152 0.0722 0 0  0 0 0 1 0"/><feComponentTransfer><feFuncR type="table"/><feFuncG type="table"/><feFuncB type="table"/></feComponentTransfer></filter>`
+  document.body.appendChild(duotone)
+  const paint = (): void => {
+    const root = getComputedStyle(document.documentElement)
+    const ink = rgbOf(root.getPropertyValue('--foreground'))
+    const paper = rgbOf(root.getPropertyValue('--background'))
+    const light = (one: number[]): number => 0.2126 * one[0] + 0.7152 * one[1] + 0.0722 * one[2]
+    const [dark, bright] = light(ink) < light(paper) ? [ink, paper] : [paper, ink]
+    const funcs = duotone!.querySelectorAll('feFuncR, feFuncG, feFuncB')
+    funcs.forEach((one, at) => one.setAttribute('tableValues', `${dark[at].toFixed(3)} ${bright[at].toFixed(3)}`))
+  }
+  paint()
+  // The theme lives on the root's class and style (main.tsx): read the two colours again whenever either changes.
+  new MutationObserver(() => requestAnimationFrame(paint)).observe(document.documentElement, { attributes: true, attributeFilter: ['class', 'style', 'data-theme'] })
+}
 
 /**
  * A person's face, small, wherever their name is: the picture you gave them,
  * or else their initials over a shape from Coolshapes picked by their name,
  * so the same name always wears the same one. The shape is filled with two of
- * the theme's tag tints, soft enough that the letters read in every theme; a
- * picture is cut to that same shape, so faces and shapes never look mismatched.
+ * the theme's tag tints, soft enough that the letters read in every theme.
  * With “Avatars” set to “Initials” (the root's data-avatars), the initials sit
  * in a soft round tint instead.
  */
 export function Avatar({ name, size = 16, className = '', look, letters }: { name: string; size?: number; className?: string; /** Settings' sample: this look whatever the setting says. */ look?: 'shapes' | 'initials'; /** Its letters, where names shown together would otherwise share them (distinctInitials). */ letters?: string }): React.JSX.Element | null {
   const avatar = useAvatar(name)
+  if (avatar) ensureDuotone()
   // Its page waits for the pictures' read and this one's decode, a moment at most: never initials, then the picture.
   useDecoded(avatar, !peopleRead())
   const trimmed = name.trim()
@@ -45,11 +70,12 @@ export function Avatar({ name, size = 16, className = '', look, letters }: { nam
   const shape = hash % SHAPES.length
   const from = (hash >>> 4) % TINTS.length
   const to = (from + 1 + ((hash >>> 9) % (TINTS.length - 1))) % TINTS.length
-  const style = { '--mf-avatar-mask': maskOf(shape), '--mf-avatar-size': `${size}px`, '--mf-avatar-hue': hueOf(trimmed), '--mf-shape-from': `var(--tt-color-text-${TINTS[from]})`, '--mf-shape-to': `var(--tt-color-text-${TINTS[to]})` } as CSSProperties
+  const style = { '--mf-avatar-size': `${size}px`, '--mf-avatar-hue': hueOf(trimmed), '--mf-shape-from': `var(--tt-color-text-${TINTS[from]})`, '--mf-shape-to': `var(--tt-color-text-${TINTS[to]})` } as CSSProperties
   const id = `mf-shape-${hash.toString(36)}`
   return (
-    <span aria-hidden data-avatar={avatar ? 'picture' : 'initials'} data-avatar-shape={shape} data-look={look} className={`mf-avatar ${className}`} style={style}>
-      {avatar ? <img src={avatar} alt="" draggable={false} /> : (
+    <span aria-hidden data-avatar={avatar ? 'picture' : 'initials'} data-avatar-shape={avatar ? undefined : shape} data-look={look} className={`mf-avatar ${className}`} style={style}>
+      {/* A photo twice: printed in the theme's two tones, and in its own colours over it, shown while pointed at. */}
+      {avatar ? <><img src={avatar} alt="" draggable={false} className="mf-avatar-print" /><img src={avatar} alt="" draggable={false} className="mf-avatar-real" /></> : (
         <>
           <svg viewBox="0 0 200 200" className="mf-avatar-shape" aria-hidden>
             <defs>
@@ -74,6 +100,7 @@ export function Avatar({ name, size = 16, className = '', look, letters }: { nam
  */
 export function PersonMenu({ name, children }: { name: string; children: ReactElement }): React.JSX.Element {
   const avatar = useAvatar(name)
+  if (avatar) ensureDuotone()
   const who = name.trim()
   // Read as the menu opens: "Paste a picture" only with a picture on the clipboard, so it never answers "none there".
   const [clipped, setClipped] = useState(false)

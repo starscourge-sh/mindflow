@@ -33,7 +33,14 @@
   box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--foreground) 16%, transparent);
   pointer-events: none;
 }
-.mf-avatar img { width: 100%; height: 100%; object-fit: cover; }
+/* Pinned to the face's own box, so a tall or wide picture never grows it and never reaches over the name under it. */
+.mf-avatar img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 18%; }
+/* A photo in the theme's two tones (avatar.tsx, #mf-duotone), its own colours laid over it and shown while the face, or
+   the row or card it is in, is pointed at: a 150ms crossfade, at once with Reduce Motion. One round frame for every photo. */
+.mf-avatar .mf-avatar-print { filter: url(#mf-duotone); }
+.mf-avatar .mf-avatar-real { opacity: 0; transition: opacity 150ms var(--mf-ease, ease-out); }
+:is(.mf-avatar:hover, .group:hover .mf-avatar, [data-face]:hover .mf-avatar, [data-person-photo]:hover .mf-avatar) .mf-avatar-real { opacity: 1; }
+@media (prefers-reduced-motion: reduce) { .mf-avatar .mf-avatar-real { transition: none; } }
 /* A shape from Coolshapes under the initials (avatar.tsx): soft tints of the theme's own, the letters in its ink. */
 .mf-avatar-shape { display: none; }
 .mf-avatar > span { position: relative; }
@@ -53,14 +60,6 @@
 :is(:root:not([data-avatars='initials']) .mf-avatar[data-avatar-shape='4']:not([data-look='initials']), .mf-avatar[data-avatar-shape='4'][data-look='shapes']) > span { font-size: min(calc(var(--s) * 0.32), 1.75rem); transform: translateY(calc(var(--s) * 0.13)); }
 :is(:root:not([data-avatars='initials']) .mf-avatar[data-avatar-shape='5']:not([data-look='initials']), .mf-avatar[data-avatar-shape='5'][data-look='shapes']) > span { font-size: min(calc(var(--s) * 0.38), 2rem); transform: translateY(calc(var(--s) * 0.05)); }
 .mf-signed > .mf-avatar { align-self: center; }
-/* A picture wears its person's shape too (avatar.tsx maskOf), so a photo beside a shape is one family; under
-   "Initials" both are round. Anything laid over a face (the person page's hover shade) takes the same frame. */
-:is(:root:not([data-avatars='initials']) .mf-avatar[data-avatar='picture']:not([data-look='initials']), .mf-avatar[data-avatar='picture'][data-look='shapes']) img,
-:root:not([data-avatars='initials']) .mf-avatar-frame {
-  -webkit-mask: var(--mf-avatar-mask) center / 100% 100% no-repeat;
-  mask: var(--mf-avatar-mask) center / 100% 100% no-repeat;
-  border-radius: 0;
-}
 
 /* A toast in the box sits in the footer's row: what shares the row with it steps back. */
 [data-under-toast] { transition: opacity 0.15s var(--mf-ease); }
@@ -114,3 +113,5 @@
    recorder both showed, and the box grew and came back down. */
 :is([data-recording], :has(> [data-recorder-slot]:not(:empty))) > :not([data-recorder-slot], [data-leftover-row]) { display: none; }
 [data-while-recording='dim'] { opacity: 0; pointer-events: none; transition: opacity 150ms var(--mf-ease, ease-out); }
+
+:root[data-motion='off'] .mf-avatar .mf-avatar-real { transition: none; }
