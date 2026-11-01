@@ -42,3 +42,14 @@ test('"One line to start": the right is the round controls\' room, always; a hin
   assert.equal(room.right, HINT_SIDE)
   assert.equal(hintRoom(at(400, 94), SCREEN, BASE, true).side, 'left')
 })
+
+test('"One line to start" at three screen widths: the controls\' room on the right only where the screen has it', () => {
+  for (const width of [1280, 1440, 1920]) {
+    const screen = { x: 0, y: 25, width, height: 875 }
+    const middle = at(Math.round((width - 640) / 2), 94)
+    // A 1280 screen leaves 312px beside a 640px box at its middle, short of the controls' 344: above the pill there.
+    assert.equal(hintRoom(middle, screen, BASE, true).room.right, width >= 1440 ? HINT_SIDE : BASE.right, `top middle of a ${width} screen`)
+    // At the right edge there is no room for them there: the room stays as it is, and the page puts them above the pill.
+    assert.equal(hintRoom(at(width - 660, 94), screen, BASE, true).room.right, BASE.right, `right edge of a ${width} screen`)
+  }
+})

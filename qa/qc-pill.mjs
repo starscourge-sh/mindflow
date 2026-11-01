@@ -56,6 +56,9 @@ const read = () => page.evaluate((sel) => {
     placeholder: holder ? { content: holder.content, letter: holder.letterSpacing, decoration: holder.textDecorationLine, font: parseFloat(holder.fontSize) } : null,
     offerOverCard: hit(offer, card),
     controlsOverCard: controls.some((one) => hit(one, card)),
+    width: innerWidth,
+    above: document.documentElement.hasAttribute('data-controls-above'),
+    offerFill: (() => { const o = document.querySelector('[data-leftover]'); if (!o) return null; const paint = (color) => { const c = document.createElement('canvas'); c.width = c.height = 1; const x = c.getContext('2d'); x.fillStyle = color; x.fillRect(0, 0, 1, 1); return [...x.getImageData(0, 0, 1, 1).data].join(',') }; return { offer: paint(getComputedStyle(o).backgroundColor), pill: paint(getComputedStyle(document.querySelector('.app-container')).backgroundColor) } })(),
     tips: [...document.querySelectorAll('[role=tooltip]')].filter((one) => one.getBoundingClientRect().width).length
   }
 }, EDITOR)
@@ -69,7 +72,32 @@ try {
   check('the kind glyph sits close to the words, Spotlight\'s way (16px or less between)', plain.icon && plain.textLeft !== null && plain.textLeft - plain.icon.right <= 16, JSON.stringify({ icon: plain.icon, textLeft: plain.textLeft }))
   check('the words sit on the pill\'s middle, level with the glyph (within 2px)', plain.middle !== null && Math.abs(plain.middle - (plain.card.top + plain.card.bottom) / 2) <= 2 && Math.abs(plain.middle - (plain.icon.top + plain.icon.bottom) / 2) <= 2, JSON.stringify({ middle: plain.middle, card: plain.card, icon: plain.icon }))
   check('the placeholder is words, never a row of dots (no wide spacing, no underline)', plain.placeholder && /Write/.test(plain.placeholder.content) && (plain.placeholder.letter === 'normal' || parseFloat(plain.placeholder.letter) < 2) && plain.placeholder.decoration === 'none', JSON.stringify(plain.placeholder))
-  check('the round controls stand beside the pill\'s right end at its height, never over it', plain.controls.length >= 3 && !plain.controlsOverCard && plain.controls.every((one) => one.left >= plain.card.right + 8 && one.top === plain.card.top && one.bottom - one.top === plain.card.bottom - plain.card.top), JSON.stringify({ card: plain.card, controls: plain.controls }))
+  // Every round control whole in the window, wherever the box is and whatever the text size: beside the pill where
+  // the screen has room on its right, above it where it does not.
+  const placeBox = (spot) => c.electron.evaluate(({ BrowserWindow, screen }, spot) => {
+    const box = BrowserWindow.getAllWindows().find((w) => !w.isDestroyed() && w.webContents.getURL().includes('/index.html'))
+    const at = box.getBounds()
+    const area = screen.getDisplayMatching(at).workArea
+    box.setPosition(spot === 'right' ? area.x + area.width - at.width - 20 : Math.round(area.x + (area.width - at.width) / 2), area.y + 60)
+  }, spot)
+  const whole = (r) => r.controls.length >= 3 && r.controls.every((one) => one.left >= 0 && one.right <= r.width && one.top >= 0)
+  for (const [name, spot, size] of [['the top middle of the screen', 'middle', null], ['the right edge of the screen', 'right', null], ['the top middle, text at 20px', 'middle', 20]]) {
+    await placeBox(spot)
+    await page.evaluate((px) => { document.documentElement.style.fontSize = px ? `${px}px` : '' }, size)
+    await reopen()
+    const r = await read()
+    check(`${name}: every round control whole in the window, ${r.above ? 'above' : 'beside'} the pill`, whole(r) && !r.controlsOverCard && (r.above ? r.controls.every((one) => one.bottom <= r.card.top) : r.controls.every((one) => one.left >= r.card.right + 8)), JSON.stringify({ card: r.card, width: r.width, above: r.above, controls: r.controls }))
+    if (spot === 'right') check('…and at the right edge they go above the pill', r.above, String(r.above))
+    if (film) for (const look of ['light', 'dark']) {
+      await theme(look); await wait(400)
+      const dir = `${shots}/pill-controls-${spot}${size ? '-20px' : ''}`; mkdirSync(dir, { recursive: true })
+      await page.screenshot({ path: `${dir}/${look}.png` })
+    }
+  }
+  await page.evaluate(() => { document.documentElement.style.fontSize = '' })
+  await placeBox('middle'); await reopen()
+  const plain2 = await read()
+  check('the round controls stand beside the pill\'s right end at its height, never over it', plain2.controls.length >= 3 && !plain2.controlsOverCard && plain2.controls.every((one) => one.left >= plain2.card.right + 8 && one.top === plain2.card.top && one.bottom - one.top === plain2.card.bottom - plain2.card.top), JSON.stringify({ card: plain2.card, controls: plain2.controls }))
 
   // A draft left from earlier: offered under the pill, never over it.
   await page.evaluate(() => {
@@ -80,6 +108,8 @@ try {
   const left = await read()
   check('a draft from earlier: offered by its own chip', !!left.offer, JSON.stringify(left))
   check('…never over the pill or its words', left.offer && !left.offerOverCard, JSON.stringify({ offer: left.offer, card: left.card }))
+  check('…8px under the pill', left.offer && left.offer.top - left.card.bottom === 8, JSON.stringify({ offer: left.offer, card: left.card }))
+  check('…on a lighter surface than the pill, an offer apart from the bar', left.offerFill && left.offerFill.offer !== left.offerFill.pill, JSON.stringify(left.offerFill))
   await page.hover('[data-leftover]').catch(() => {}); await wait(900)
   check('…and no tip over it on hover (one hover, one surface)', (await read()).tips === 0)
   await page.mouse.move(2, 2)

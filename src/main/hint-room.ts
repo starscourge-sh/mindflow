@@ -29,7 +29,7 @@ export function hintRoom(place: Box, workArea: Box, base: Room, oneLine = false)
       ...base,
       top: side === 'above' ? Math.min(base.top + HINT_ROOM, above) : base.top,
       left: side === 'left' ? HINT_SIDE : base.left,
-      right: side === 'right' || oneLine ? HINT_SIDE : base.right
+      right: side === 'right' || (oneLine && rightFree >= HINT_SIDE) ? HINT_SIDE : base.right
     }
   }
 }

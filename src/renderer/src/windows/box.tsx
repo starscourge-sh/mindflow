@@ -24,8 +24,19 @@ if (window.api.room.left) {
   // The room round the card for a hint (above it, or beside it on the side with room), set by main while the box is
   // away: the card moves by as much in the same frame, so on screen it stays exactly where main put it, and main
   // shows the box once that is drawn.
+  // "One line to start" sets its round controls beside the pill. Every one of them is kept in the window: where they
+  // would run past its edge, they go above the pill instead, and a new room from main (an open somewhere else) tries beside again (main.css).
+  const fitControls = (): void => {
+    const root = document.documentElement
+    if (!document.querySelector('.app-container[data-one-line]') || 'controlsAbove' in root.dataset) return
+    const controls = document.querySelector('.mf-top')?.getBoundingClientRect()
+    if (controls?.width && controls.right > window.innerWidth - 4) root.dataset.controlsAbove = ''
+  }
+  new MutationObserver(() => requestAnimationFrame(fitControls)).observe(document.body, { subtree: true, attributes: true, attributeFilter: ['data-one-line'] })
+  window.addEventListener('resize', () => requestAnimationFrame(fitControls))
   window.api.onRoomHint(({ top, left, right, side }) => {
     const root = document.documentElement
+    delete root.dataset.controlsAbove
     root.style.setProperty('--mf-room-top', `${top}px`)
     root.style.setProperty('--mf-room-left', `${left}px`)
     root.style.setProperty('--mf-room-right', `${right}px`)
@@ -34,6 +45,6 @@ if (window.api.room.left) {
     // What places itself by the card's place in the window (the toast lane in the footer, the hint) measures again:
     // the window's resize came before the card moved in it.
     window.dispatchEvent(new Event('resize'))
-    requestAnimationFrame(() => requestAnimationFrame(() => window.api.roomDrawn()))
+    requestAnimationFrame(() => (fitControls(), requestAnimationFrame(() => window.api.roomDrawn())))
   })
 }
