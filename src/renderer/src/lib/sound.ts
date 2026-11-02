@@ -278,7 +278,11 @@ let hushedUntil = -Infinity
  */
 export const quietFor = (ms: number): void => void (hushedUntil = performance.now() + ms)
 
+/** Every cue asked for, played or not (silent tests, Sounds off), newest last: what a probe reads to know none was. */
+const askedCues: string[] = []
+;(window as unknown as { haligtreeCued?: string[] }).haligtreeCued = askedCues
 export function chime(cue: Cue): void {
+  if (askedCues.push(cue) > 50) askedCues.shift()
   if (held()) return
   for (const listen of cueListeners) listen(cue)
   if (performance.now() < hushedUntil) return
