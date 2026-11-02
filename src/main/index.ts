@@ -61,6 +61,7 @@ import { cursorInBackground, cursorShown, tap, tapKinds, taps } from './haptic'
 import { fetchOutside, isOutside } from './outside'
 import { registerNotes } from './notes'
 import { registerGroups } from './groups'
+import { registerSections } from './sections'
 import { registerPeriods } from './periods'
 import { nextMilestones, registerMilestones } from './milestones'
 import { registerEvents } from './events'
@@ -4038,6 +4039,7 @@ app.whenReady().then(() => {
   registerSpellGuesses()
   registerNotes({ load, guard, home: (type, id) => sendHome(type, id, undefined, 'window'), homeWindow: () => (home && !home.isDestroyed() ? home : null) })
   registerGroups()
+  registerSections()
   registerNoteImports()
   registerPeriods()
   // Words written, counted as you save, for Stats: once every page's table is there.

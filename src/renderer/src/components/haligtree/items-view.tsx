@@ -85,12 +85,11 @@ import { ThoughtDock } from './thought-bar'
 import { dayjs, num, plural } from '../../../../main/dates'
 import { moment } from '@/lib/clock'
 import { Signed } from './signature'
-import { groups as noteGroupsApi, tintOf, useGroups, type NoteGroup } from '@/lib/groups'
-import { FolderGrid, type Shelved } from './folder-grid'
+import { groups as noteGroupsApi, sections as handApi, tintOf, useGroups, useSections, type NoteGroup, type NoteSection } from '@/lib/groups'
 import { useReveal } from './islands'
 import { DEPTH, dropMany, flatten, gather, groupId, groupOf, isGroup, KEY, layoutOf, moveMany, reorderAs, sameLayout, shownKeys, step as stepLayout, tidy, type Layout } from '@/lib/group-layout'
 import type { Cue } from '@/lib/sound'
-import { GroupIcon, type Bundle, type Folds, type GroupView, type Part as KeptPart } from './kept-groups'
+import { GroupIcon, HAND, type Bundle, type Folds, type GroupView, type HandGroup, type Part as KeptPart } from './kept-groups'
 import { asideItem, useHere } from '@/lib/split'
 import { queueMenu } from '@/lib/reading-queue'
 import { Apart } from '@/lib/apart'
@@ -119,6 +118,9 @@ export const itemEntry = (item: Item, menu?: RowItem[] | (() => RowItem[])): Ent
 }
 /** What an empty folder's card is drawn from in a grid: a folder emptied stays, with no note of its own to show. */
 const NO_GROUPS: NoteGroup[] = []
+const NO_HANDS: NoteSection[] = []
+/** The notes in none of your own groups, headed so they never read as the last group's. */
+const NO_HAND = 'Not in a group'
 const EMPTY = (tier: string): Item => ({ tier, kind: 'note', title: '', createdAt: new Date().toISOString() }) as Item
 const rowOf = (item: Item): Entry => {
   // A gem with no source is a note of yours: drawn as one, until it says who or where from.
@@ -276,6 +278,9 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
   const smart = useSmartGroups(tier === 'nugget' ? 'nugget' : 'article')
   const gatherer = sideFolder?.startsWith(GROUP_KEY) ? smart.find((one) => GROUP_KEY + one.id === sideFolder) : undefined
   const gathered = useGathered(gatherer)
+  // Groups made by hand (main/sections.ts): sections of the list or folder on show, never folders; a note stays where it lives.
+  const hand = useSections(questionsOnly ? 'question' : tier)
+  const handsHere = unloaded(hand) || gatherer ? NO_HANDS : hand.filter((one) => one.folder === (opened?.id ?? null))
   const listed = useMemo(() => {
     if (gatherer) return all.filter((one) => gathered?.has(one.id))
     if (!opened) return all
@@ -299,17 +304,22 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
   const [listOut, setListOut] = useState(false)
   useEffect(() => setListOut(false), [boarded])
   // Not grouped, or grouped by kind with only one kind: a plain list, with no sections.
-  const plain = arranged.length <= 1 && !arranged[0]?.[0]
+  const plain = arranged.length <= 1 && !arranged[0]?.[0] && !handsHere.length
   const groups = spread && query.trim() ? arranged.map(([name, list]) => [name, list.filter((one) => matches(one.title, query, one.fields))] as [string, Item[]]).filter(([, list]) => list.length) : arranged
   // x, ⌘-click and ⇧-click pick rows: several nuggets make one article, and any rows make a group.
   const [chosen, setChosen] = useState<string[]>([])
   // Groups show as groups in every sort and every grouping, as Finder's folders do. Grouped by kind or date, they come
   // first in your own order, then the loose notes in their sections; inside a group its notes go by kind (or date) too.
-  const heads = plain ? undefined : new Map(groups.flatMap(([name, list]) => list.map((one) => [one.id, name] as const)))
+  // Order: folders, then your own groups with their notes, then the rest in Display's grouping (kind, date) or none.
+  const handOf = new Map(handsHere.flatMap((one) => one.members.map((id) => [id, one] as const)))
+  const heads = plain ? undefined : new Map(groups.flatMap(([name, list]) => list.map((one) => [one.id, handOf.has(one.id) ? HAND + handOf.get(one.id)!.id : name || (handsHere.length ? NO_HAND : name)] as const)))
+  const everyShown = groups.flatMap(([, list]) => list)
+  const handFirst = handsHere.length ? [...handsHere.flatMap((group) => everyShown.filter((one) => handOf.get(one.id) === group)), ...everyShown.filter((one) => !handOf.has(one.id))] : everyShown
   // A note in a folder lives there alone (memory: folders-isolate): the list's top level is its folders, then the loose
   // notes, in every order; a folder's notes show only once it is opened. Groups are the one way a note shows twice.
-  const folding = useFolding(tier, all, ownOrder, order, !questionsOnly && !gatherer && (density === 'list' || density === 'compact') && !(spread && query.trim()) ? groups.flatMap(([, list]) => list) : null,
-    view.sort === 'manual' && plain, () => setChosen([]), chosen, mine, heads, opened?.id, true)
+  // Questions shows Writing's folders only where they hold questions, each counted in questions (qa/folder-rows.mjs).
+  const folding = useFolding(tier, all, ownOrder, order, !gatherer && (density === 'list' || density === 'compact') && !(spread && query.trim()) ? handFirst : null,
+    view.sort === 'manual' && plain, () => setChosen([]), chosen, mine, heads, opened?.id, questionsOnly, handsHere)
   // As tiles, each group is one folder card; opened, the grid shows only its notes, under a chip back.
   // Questions are never in Writing's folders as a list: they are drawn plain, each as a question.
   const noteGroups = questionsOnly || gatherer ? NO_GROUPS : filed
@@ -317,7 +327,7 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
   const [inGroup, setInGroup] = useState<string | null>(null)
   const folder = tiled && inGroup ? noteGroups.find((one) => one.id === inGroup) : undefined
   const flat = groups.flatMap(([, list]) => list)
-  const tiles = tiled && !folder && !questionsOnly && !gatherer ? folding.tiles(flat) : null
+  const tiles = tiled && !folder && !gatherer ? folding.tiles(flat) : null
   const folders = new Map(tiles?.flatMap((one) => ('group' in one ? [[KEY + one.group.id, one] as const] : [])))
   const items = folding.rows
     ?? (folder ? flat.filter((one) => folder.members.includes(one.id))
@@ -555,10 +565,34 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
   useEffect(() => window.api.captures.onChange(() => open && pick(open.id)), [open?.id])
   // The right-click menu: the same on a row and on a card.
   // Right-clicked among several picked: the menu speaks for all of them. Made once, not once a row.
+  // Notes into a group made by hand (or, with null, out of theirs), said once, with Undo.
+  const intoHand = (section: string | null, ids: string[]): void => {
+    const target = handsHere.find((one) => one.id === section)
+    const these = ids.filter((id) => (handOf.get(id)?.id ?? null) !== section && !isGroup(id))
+    if (!these.length) return refuse(target ? `Already in ${target.name}` : 'Already in no group')
+    void handApi.place(these.map((id) => ({ id, section }))).then((was) => {
+      chime(section ? 'gather' : 'separate')
+      toast(section ? `Added ${plural(these.length, 'note')} to ${target?.name ?? 'the group'}` : `Took ${plural(these.length, 'note')} out of ${handOf.get(these[0])?.name ?? 'its group'}`,
+        () => void handApi.place(was).then(() => chime('gather')))
+    })
+  }
+  const newHand = (ids: string[]): void => void handApi.make(questionsOnly ? 'question' : tier, opened?.id ?? null, 'New group', ids).then((id) => {
+    chime('promote')
+    toast(ids.length ? `Made a group of ${plural(ids.length, 'note')}` : 'Made a group', () => void handApi.remove(id))
+  })
+  // A row's group lines: into one of the groups made by hand here, a new one, or out of its own.
+  const handMenu = (ids: string[]): RowItem[] => [{
+    label: 'Group', items: [
+      ...handsHere.filter((one) => ids.some((id) => handOf.get(id)?.id !== one.id)).map((one): RowItem => ({ label: `Into ${one.name}`, run: () => intoHand(one.id, ids) })),
+      { label: ids.length > 1 ? `New group of ${num(ids.length)}` : 'New group with this', hint: 'A heading in this list; the notes stay where they live', run: () => newHand(ids) },
+      ids.some((id) => handOf.has(id)) && { label: 'Out of its group', run: () => intoHand(null, ids) }
+    ].filter(Boolean) as RowItem[]
+  }]
   const manyMenu: RowItem[] | null = chosen.length > 1 ? [
     { label: `Make ${num(chosen.length)} tasks`, run: makeEach },
     'separator',
     ...folding.menu(chosen),
+    ...handMenu(chosen),
     'separator',
     binItem(binRefs(chosen), () => setChosen([])),
     'separator',
@@ -582,6 +616,7 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
     !allPicked && { label: 'Select all', about: 'list', keys: '⌘A', run: selectAll },
     'separator',
     ...folding.menu([item.id]),
+    ...handMenu([item.id]),
     'separator',
     copyLinkItem(`${item.tier}:${item.id}`, item.title),
     { label: 'Copy title', run: () => copy(item.title) },
@@ -613,7 +648,7 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
     ? items.reduce<[string, Entry[]][]>((sections, one) => {
         const card = folders.get(one.id)
         // A folder: the group's own colour and icon, and its first notes small inside it.
-        const entry = !card ? entryOf(one) : { ...itemEntry(card.items[0] ?? one), id: one.id, title: card.group.name, tags: [], menu: undefined, sub: `${plural(card.items.length, 'note')}`, marks: undefined, private: false, wrap: false,
+        const entry = !card ? entryOf(one) : { ...itemEntry(card.items[0] ?? one), id: one.id, title: card.group.name, tags: [], menu: undefined, sub: plural(card.items.length, questionsOnly ? 'question' : tier === 'nugget' ? 'gem' : 'page'), marks: undefined, private: false, wrap: false,
           folder: { icon: card.group.icon, color: card.group.color, count: card.items.length, members: card.items.slice(0, 4).map((item) => itemEntry(item)) } }
         // Grouped by kind or date, the folders first, then the loose tiles in their sections.
         const name = (!card && !folder && heads?.get(one.id)) || ''
@@ -791,11 +826,6 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
         </div>
         {/* A folded group shows as its heading even when nothing loose is left, so the list is not empty then.
             Until your groups are read too, nothing: the notes alone would flash as a plain list first. */}
-        {/* Writing's and Gems' folders as a grid of folders over the loose notes; opened, a folder's own subfolders the same way. */}
-        {!unloaded(noteGroups) && listShown && folding.shelf.length > 0 && (
-          <FolderGrid list={tier === 'nugget' ? 'nugget' : 'article'} folders={folding.shelf} renaming={folding.renaming} born={folding.born} onRenaming={folding.onRenaming}
-            onOpen={(id) => (onFolder ? onFolder(id) : setInGroup(id))} onNewNote={pick} />
-        )}
         {unloaded(noteGroups) || !listShown ? null : folderEmpty && !query.trim() ? (
           // An empty folder, opened: the page's own quiet state under its path bar, on the same left edge as it
           // and as every other page's empty block; the folder's own icon for its picture, the button named as the toolbar's.
@@ -804,11 +834,11 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
               action={<Button variant="secondary" size="sm" data-folder-new-note="" onClick={() => void noteGroupsApi.note(opened!.id).then((id) => id && (chime('promote'), pick(id)))}><Plus className="size-3.5" />{tier === 'nugget' ? 'New gem' : 'New page'}</Button>}>
               Drag notes here, or start one.
             </Empty>
-        ) : items.length || (folding.rows && noteGroups.some((one) => one.members.some((id) => all.some((item) => item.id === id && !item.archivedAt)))) ? (
+        ) : items.length || handsHere.length || (folding.rows && noteGroups.some((one) => one.members.some((id) => all.some((item) => item.id === id && !item.archivedAt)))) ? (
           <NoteList groups={entries} density={density} table="nuggets" selected={spread ? peek ?? undefined : coming ?? open?.id} cursor={cursor} onCursor={setCursor} chosen={chosen}
             onPick={spread ? (id) => (isGroup(id) ? pick(id) : (setPeek(id), setCursor(items.findIndex((one) => one.id === id)))) : pickRow} onOpen={spread ? pickRow : undefined}
             picking={picking} onMove={view.sort === 'manual' ? onMove : undefined} after={glossAfter} className={spread ? 'list-edge my-3' : 'list-edge my-2'}
-            folds={folding.rows ? { ...folding.folds(menuFor), onNewNote: pick, onSort: setSorting, onSorted: markSorted, onOpenFolder: onFolder ?? undefined } : undefined} />
+            folds={folding.rows ? { ...folding.folds(menuFor, entryOf), onHandDrop: (ids, section) => (intoHand(section, ids), setChosen([])), onNewNote: pick, onSort: setSorting, onSorted: markSorted, onOpenFolder: onFolder ?? undefined } : undefined} />
         ) : questionsOnly && !unloaded(all) && !all.length ? (
           // No questions yet: the page as it will look, as every other list shows itself.
           <Example tryIt="press H on a note in your Inbox, or “New question” above. It is held here, gathering dated clues until you know.">
@@ -1589,7 +1619,7 @@ export function useItemDisplay(name: string, every: Item[], withGroups = false):
     due: (a, b) => (a.dueAt ?? '9').localeCompare(b.dueAt ?? '9'),
     rating: (a, b) => (propOf(b).rating ?? 0) - (propOf(a).rating ?? 0) || b.createdAt.localeCompare(a.createdAt),
     manual: ownOrder
-  }, withGroups ? {} : {
+  }, {
     kind: (one) => CAPTURE_TYPES.find((type) => type.id === one.kind)?.label ?? 'Note',
     date: (one) => period(one.createdAt)
   })
@@ -1609,8 +1639,8 @@ export function useItemDisplay(name: string, every: Item[], withGroups = false):
       sorts={[{ id: 'newest', label: 'Newest' }, { id: 'changed', label: 'Recently changed' }, { id: 'untouched', label: 'Longest unchanged' }, { id: 'name', label: 'A to Z' }, ...(kinds ? [{ id: 'kind', label: 'Kind' }] : []), ...(all.some((one) => one.dueAt) ? [{ id: 'due', label: 'Next review' }] : []), ...(rated ? [{ id: 'rating', label: 'Highest rated' }] : []), ...byProp.choices, { id: 'manual', label: 'Custom order' }]}
       // What the chosen order does with groups, said under the choices.
       sortNote={withGroups ? groupsSaid(view.sort) : undefined}
-      // A list with folders is never cut into kinds or dates: its folders are its sections.
-      groups={withGroups ? [] : [...(kinds ? [{ id: 'kind', label: 'Kind' }] : []), { id: 'none', label: 'None' }, { id: 'date', label: 'Date' }]}
+      // Grouping cuts the loose notes into sections (by kind or date) under the folders: a group is never a folder (qa/list-grouping.mjs).
+      groups={[...(kinds ? [{ id: 'kind', label: 'Kind' }] : []), { id: 'none', label: 'None' }, { id: 'date', label: 'Date' }]}
       density={density}
       onDensity={(next) => setView({ ...view, [wide ? 'wideDensity' : 'density']: next })}
     />
@@ -1636,13 +1666,8 @@ const ORDER = new WeakMap<Layout, Map<string, number>>()
 /** The list itself, as a drop place in the path bar: no folder. */
 const TOP = ':top'
 
-function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) => number, order: string[], shown: Item[] | null, ordered: boolean, done: () => void, chosen: string[], toOwn: () => (() => void) | undefined, heads?: Map<string, string>, within?: string, gridded = false): {
+function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) => number, order: string[], shown: Item[] | null, ordered: boolean, done: () => void, chosen: string[], toOwn: () => (() => void) | undefined, heads?: Map<string, string>, within?: string, borrowed = false, hands: NoteSection[] = NO_HANDS): {
   rows: Item[] | null
-  /** With `gridded`, the folders at this level, drawn as a grid of folders over the loose notes (folder-grid.tsx), never as rows. */
-  shelf: Shelved[]
-  renaming: string | null
-  onRenaming: (id: string | null) => void
-  born: string | null
   /** The list as tiles: each group as one folder, at the top, then the loose notes. */
   tiles: (list: Item[]) => ({ group: NoteGroup; items: Item[] } | { item: Item })[]
   step: (id: string, by: number) => number | null
@@ -1650,7 +1675,8 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
   menu: (ids: string[]) => RowItem[]
   /** A new group of these, named at once. */
   gatherNew: (ids: string[]) => void
-  folds: (menuFor: (item: Item) => RowItem[]) => Omit<Folds, 'onNewNote'>
+  /** The rows drawn by `entryOf` where given (a question as a question), else as a note. */
+  folds: (menuFor: (item: Item) => RowItem[], entryOf?: (item: Item) => Entry) => Omit<Folds, 'onNewNote'>
   reveal: (id: string) => boolean
   /** These notes carried onto a folder in the sidebar: into that group, at its end. */
   moveInto: (group: string, ids: string[]) => boolean
@@ -1712,7 +1738,8 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
         if (!isGroup(id)) return visible.has(id) ? [{ item: visible.get(id)! }] : []
         if (depth >= DEPTH) return []
         const inner = partsIn(groupId(id), depth + 1)
-        return [{ sub: groupId(id), items: inner.flatMap((one) => ('item' in one ? [one.item] : one.items)), parts: inner }]
+        const items = inner.flatMap((one) => ('item' in one ? [one.item] : one.items))
+        return borrowed && !items.length ? [] : [{ sub: groupId(id), items, parts: inner }]
       })
       return ordered ? parts : [...parts.filter((one) => 'sub' in one), ...parts.filter((one): one is { item: Item } => 'item' in one).sort((a, b) => bySort(a.item, b.item))]
     }
@@ -1728,11 +1755,13 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
   }
   // What a group shows open: its notes, and each subgroup's while that is open too.
   const onShow = (one: { parts?: Part[] }): Item[] => (one.parts ?? []).flatMap((part) => ('item' in part ? [part.item] : isOpen(part.sub) ? onShow(part) : []))
-  // Drawn as a grid of folders (gridded), a folder is never a row: the rows, the keys and the folds are the loose notes alone.
-  const level = (from: Layout): Block[] => (gridded ? blocks(from).filter((one) => !one.group) : blocks(from))
+  // Borrowed (Questions shows Writing's folders), a folder holding none of this list's notes is not shown at all.
+  // A hand-made group folded shows its heading alone: its notes are not rows until it is unfolded.
+  const handOf = new Map(hands.flatMap((one) => one.members.map((id) => [id, one] as const)))
+  const level = (from: Layout): Block[] => blocks(from).filter((one) => (one.group ? !borrowed || one.items.length : !handOf.get(one.items[0].id)?.folded))
+  const [handRenaming, setHandRenaming] = useState<string | null>(null)
   const rowsOf = (from: Layout): Item[] => level(from).flatMap((one) => (!one.group ? one.items : isOpen(one.group) ? onShow(one) : []))
-  const every_ = blocks(layout)
-  const now = gridded ? every_.filter((one) => !one.group) : every_
+  const now = level(layout)
   const keys = now.flatMap((one) => (one.group
     ? [KEY + one.group, ...(isOpen(one.group) ? (one.parts ?? []).flatMap((part) => ('item' in part ? [part.item.id] : [KEY + part.sub, ...(isOpen(part.sub) ? part.items.map((item) => item.id) : [])])) : [])]
     : [one.items[0].id]))
@@ -1863,15 +1892,35 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
     ]
   }
   // Grouped by kind or date, each section of loose notes under its name, with how many are loose in it.
-  const sectionOf = (one: Block): string | undefined => (one.group ? undefined : heads?.get(one.items[0].id))
+  const sectionOf = (one: Block): string | undefined => (one.group || handOf.has(one.items[0].id) ? undefined : heads?.get(one.items[0].id))
   const loose = new Map<string, number>()
   for (const one of now) if (sectionOf(one)) loose.set(sectionOf(one)!, (loose.get(sectionOf(one)!) ?? 0) + 1)
   const headOf = (one: Block, at: number): [string, number] | undefined => {
     const name = sectionOf(one)
     return name && (at === 0 || sectionOf(now[at - 1]) !== name) ? [name, loose.get(name)!] : undefined
   }
-  const folds = (menuFor: (item: Item) => RowItem[]): Omit<Folds, 'onNewNote'> => ({
-    bundles: now.map((one, at): Bundle => {
+  // Each hand-made group's heading on its first note; folded or empty, a heading of its own, in its place among the groups.
+  const withHands = (list: Bundle[]): Bundle[] => {
+    if (!hands.length) return list
+    const said = (group: NoteSection): HandGroup => ({ id: group.id, name: group.name, folded: !!group.folded, count: group.members.filter((id) => byId.has(id) && !byId.get(id)!.archivedAt).length })
+    const out: Bundle[] = []
+    let next = 0
+    const upTo = (end: number): void => {
+      for (; next < end; next++) out.push({ entries: [], hand: said(hands[next]) })
+    }
+    for (const one of list) {
+      const group = one.group ? undefined : handOf.get(one.entries[0]?.id ?? '')
+      const at = group ? hands.indexOf(group) : one.group ? 0 : hands.length
+      if (group && at < next) { out.push(one); continue }
+      upTo(at)
+      if (group) (out.push({ ...one, hand: said(group) }), next++)
+      else out.push(one)
+    }
+    upTo(hands.length)
+    return out
+  }
+  const folds = (menuFor: (item: Item) => RowItem[], entryOf: (item: Item) => Entry = (item) => itemEntry(item, () => menuFor(item))): Omit<Folds, 'onNewNote'> => ({
+    bundles: withHands(now.map((one, at): Bundle => {
       const view = (id: string, items: Item[]): GroupView => {
         const group = info.get(id)
         return { id, name: group?.name ?? layout.make?.name ?? 'Folder', icon: group?.icon ?? null, color: group?.color ?? null, open: isOpen(id), members: items.map((item) => item.id), parting: parting.includes(id), unsorted: items.filter((item) => item.unsorted && !item.archivedAt).map((item) => item.id) }
@@ -1879,12 +1928,12 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
       return {
         head: headOf(one, at),
         group: one.group ? view(one.group, one.items) : undefined,
-        entries: one.items.map((item) => itemEntry(item, () => menuFor(item))),
+        entries: one.items.map((item) => entryOf(item)),
         parts: one.parts?.map(function shape(part: Part): KeptPart {
-          return 'item' in part ? { entry: itemEntry(part.item, () => menuFor(part.item)) } : { group: view(part.sub, part.items), entries: part.items.map((item) => itemEntry(item, () => menuFor(item))), parts: part.parts.map(shape) }
+          return 'item' in part ? { entry: entryOf(part.item) } : { group: view(part.sub, part.items), entries: part.items.map((item) => entryOf(item)), parts: part.parts.map(shape) }
         })
       }
-    }),
+    })),
     preview: (ids, target, how) => {
       const next = dropMany(base, ids, target, how, shut, () => ({ id: 'new', name: '' }))
       return next && !sameLayout(next, base) && ids.every((id) => inside(next, id)) ? { before: base, after: next, shown: shownKeys(next, shut) } : null
@@ -1913,10 +1962,14 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
     },
     renaming,
     onRenaming: setRenaming,
-    born
+    born,
+    noun: borrowed ? 'question' : tier === 'nugget' ? 'gem' : 'page',
+    list: tier,
+    handRenaming,
+    onHandRenaming: setHandRenaming
   })
   const tiles = (list: Item[]): ({ group: NoteGroup; items: Item[] } | { item: Item })[] =>
-    blocks(layout, list).flatMap((one): ({ group: NoteGroup; items: Item[] } | { item: Item })[] => (one.group && info.get(one.group) ? [{ group: info.get(one.group)!, items: one.items }] : one.items.map((item) => ({ item }))))
+    blocks(layout, list).flatMap((one): ({ group: NoteGroup; items: Item[] } | { item: Item })[] => (one.group && info.get(one.group) ? (borrowed && !one.items.length ? [] : [{ group: info.get(one.group)!, items: one.items }]) : one.items.map((item) => ({ item }))))
   // The open note's group (and subgroup) opened for now, quietly, when it is shut: its row is never out of sight.
   const reveal = (id: string): boolean => {
     const one = blocks(layout).find((block) => block.group && block.items.some((item) => item.id === id))
@@ -1950,7 +2003,5 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
     return true
   }
   const newFolder = (): void => void noteGroupsApi.make(tier, 'New folder', within ?? null).then((id) => (chime('promote'), setRenaming(id), setBorn(id), quietly(() => void noteGroupsApi.remove(id))))
-  // Each folder at this level with its notes (its subfolders' too) and its own subfolders, for the grid.
-  const shelf: Shelved[] = gridded ? every_.flatMap((one) => (one.group && info.get(one.group) ? [{ group: info.get(one.group)!, items: one.items, subs: (one.parts ?? []).flatMap((part) => ('sub' in part && info.get(part.sub) ? [info.get(part.sub)!] : [])) }] : [])) : []
-  return { rows: shown ? rowsOf(layout) : null, shelf, renaming, onRenaming: setRenaming, born, tiles, step, menu, gatherNew, folds, reveal, moveInto, newFolder }
+  return { rows: shown ? rowsOf(layout) : null, tiles, step, menu, gatherNew, folds, reveal, moveInto, newFolder }
 }

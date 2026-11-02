@@ -17,7 +17,7 @@ import { chime, click } from '@/lib/sound'
 import { slotTicker } from '@/lib/proximity'
 import { archive } from '@/lib/notes'
 import { EASING, spring as springs, still } from '@/lib/motion'
-import { GROUP_COLORS, groups, tintOf } from '@/lib/groups'
+import { GROUP_COLORS, groups, sections, tintOf } from '@/lib/groups'
 import { KEY, groupOf, groupsAround, isGroup, type How, type Layout } from '@/lib/group-layout'
 import { cn } from '@/lib/cn'
 import { Overlay, SETTLE } from './sortable'
@@ -26,11 +26,8 @@ import { Rolling, Tip, VirtualList, refuse, toast, quietly } from './ui'
 import type { Entry } from './note-list'
 import { ROW_PAD, ROW_SHAPE, ROW_TILE } from './row-shape'
 import { Branches } from './branches'
-import { X } from '@/components/ui/icons'
-import { brief, num } from '../../../../main/dates'
+import { brief, num, plural } from '../../../../main/dates'
 
-/** A group's heading, open or folded: a slim title bar, 36px tall, a page's tile high. */
-const HEAD = 'h-9 py-0'
 
 /**
  * Groups in a kept list, Dia's way with tabs: a row with an icon, a name in
@@ -53,7 +50,80 @@ export type Part = { entry: Entry } | { group: GroupView; entries: Entry[]; /** 
 const onShow = (part: Part): number => ('entry' in part ? 1 : !part.group.open ? 0 : part.parts ? part.parts.reduce((sum, one) => sum + onShow(one), 0) : part.entries.length)
 /** A line of the list: one note at the top level, or a group and its notes (every one, its subgroups' too), with `parts` in the order they show.
  * `head`: a loose note that starts a section of a list grouped by kind or date, the section's name and how many loose notes it holds. */
-export type Bundle = { group?: GroupView; entries: Entry[]; parts?: Part[]; head?: [string, number] }
+export type Bundle = { group?: GroupView; entries: Entry[]; parts?: Part[]; head?: [string, number]; hand?: HandGroup }
+/** A group made by hand (main/sections.ts): a named section of the list, heading its notes; folded or empty, its heading alone. */
+export type HandGroup = { id: string; name: string; folded: boolean; count: number }
+
+/**
+ * A hand-made group's heading, as Things heads a part of a project: its name over a hairline, a chevron that folds it,
+ * its count on the right. A note carried onto it goes in (split-drop.tsx); right-click renames, folds or deletes it,
+ * its notes staying where they live.
+ */
+export function HandHead({ group, first, list, noun, renaming, onRenaming }: { group: HandGroup; first: boolean; list: string; noun: string; renaming: boolean; onRenaming: (on: boolean) => void }): React.JSX.Element {
+  const [named, setNamed] = useState<string | null>(null)
+  useEffect(() => void (named !== null && named === group.name && setNamed(null)), [named, group.name])
+  const name = named ?? group.name
+  const fold = (): void => {
+    chime(group.folded ? 'untuck' : 'tuck')
+    void sections.set(group.id, { folded: !group.folded }).then(() => quietly(() => void sections.set(group.id, { folded: group.folded })))
+  }
+  const rename = (next: string): void => {
+    onRenaming(false)
+    const was = group.name
+    if (!next.trim() || next.trim() === was) return
+    setNamed(next.trim())
+    void sections.set(group.id, { name: next.trim() }).then(() => quietly(() => void sections.set(group.id, { name: was })))
+  }
+  const remove = (): void => {
+    chime('separate')
+    void sections.remove(group.id).then((was) => {
+      if (!was) return refuse('That group is already gone')
+      toast(`Deleted the group ${group.name}: ${group.count === 1 ? 'its note stays' : group.count ? `its ${num(group.count)} notes stay` : 'it was empty'}`, () => void sections.restore(was).then(() => chime('gather')))
+    })
+  }
+  return (
+    <ContextMenu>
+      <ContextMenuTrigger asChild>
+        <div data-hand-group={group.id} data-list={list}
+          className={cn('group/hand relative flex items-center gap-1.5 rounded-md list-ink pb-1.5 transition-colors duration-150 data-[hand-hot]:bg-[color-mix(in_oklab,var(--tt-color-text-blue)_12%,transparent)] data-[hand-hot]:ring-1 data-[hand-hot]:ring-[color-mix(in_oklab,var(--tt-color-text-blue)_45%,transparent)]', first ? 'pt-2' : 'pt-5')}>
+          <button type="button" data-hand-fold="" aria-label={group.folded ? `Unfold ${name}` : `Fold ${name}`} aria-expanded={!group.folded} onClick={fold}
+            onKeyDown={(event) => {
+              if ((event.key === 'ArrowLeft' && !group.folded) || (event.key === 'ArrowRight' && group.folded)) (event.preventDefault(), event.stopPropagation(), fold())
+              if (event.key === 'F2' || event.key === 'Enter') (event.preventDefault(), event.stopPropagation(), onRenaming(true))
+            }}
+            className="flex min-w-0 flex-1 cursor-pointer items-center gap-1.5 rounded-sm text-left outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            <ChevronRight aria-hidden className="size-3.5 shrink-0 text-muted-foreground transition-transform duration-200 motion-reduce:transition-none" style={{ transitionTimingFunction: OUT, transform: `rotate(${group.folded ? 0 : 90}deg)` }} />
+            {renaming ? (
+              <input autoFocus defaultValue={name} aria-label="Group name" placeholder="Name the group"
+                onClick={(event) => event.stopPropagation()}
+                onFocus={(event) => event.target.select()}
+                onKeyDown={(event) => {
+                  event.stopPropagation()
+                  if (event.key === 'Enter') rename(event.currentTarget.value)
+                  if (event.key === 'Escape') (event.preventDefault(), onRenaming(false))
+                }}
+                onBlur={(event) => rename(event.target.value)}
+                className="min-w-0 flex-1 rounded-sm bg-accent/60 px-1 text-control font-semibold text-foreground outline-none ring-1 ring-ring/40" />
+            ) : (
+              <span data-hand-name="" className="min-w-0 truncate text-control font-semibold text-foreground">{name}</span>
+            )}
+          </button>
+          <span data-hand-count={group.count} className="shrink-0 text-meta text-muted-foreground tabular-nums">{plural(group.count, noun)}</span>
+          {/* Things' heading rule: a hairline under the name, the width of the rows. */}
+          <span aria-hidden className="pointer-events-none absolute inset-x-[calc(var(--list-ink)-var(--list-edge))] bottom-0.5 h-px bg-foreground/12" />
+        </div>
+      </ContextMenuTrigger>
+      <ContextMenuContent className="w-56">
+        <ContextMenuItem onSelect={() => onRenaming(true)}>Rename group</ContextMenuItem>
+        <ContextMenuItem onSelect={fold}>{group.folded ? 'Unfold group' : 'Fold group'}</ContextMenuItem>
+        <ContextMenuSeparator />
+        <ContextMenuItem onSelect={remove}>Delete group, keep its notes</ContextMenuItem>
+      </ContextMenuContent>
+    </ContextMenu>
+  )
+}
+/** A hand-made group's key among the list's lines (items-view.tsx). */
+export const HAND = 'hand:'
 
 /** A section's name over its rows, in a list grouped by kind or date. */
 export const SectionHead = ({ head, first }: { head: [string, number]; first: boolean }): React.JSX.Element => (
@@ -87,6 +157,15 @@ export type Folds = {
   onRenaming: (id: string | null) => void
   /** A group just made, which arrives rather than appears. */
   born: string | null
+  /** What the list holds, for a folder's count: "page", "gem", "question". */
+  noun?: string
+  /** The list, for a hand-made group as a drop place. */
+  list?: string
+  /** The hand-made group whose name is being written. */
+  handRenaming?: string | null
+  onHandRenaming?: (id: string | null) => void
+  /** Notes let go over a hand-made group's heading: into that group. */
+  onHandDrop?: (ids: string[], section: string) => void
   /** "Sort these": a pass through a group's notes not yet sorted. */
   onSort?: (ids: string[]) => void
   /** Kept as they are: these notes sorted, or back to not yet sorted (for Undo). */
@@ -302,7 +381,7 @@ function Node({ id, children, inner, indent = 0 }: { id: string; children: React
  * every list does; `index` counts rows on show, which is what the keyboard's
  * cursor counts.
  */
-export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo, onFold, onNewNote, onOpenFolder, renaming, onRenaming, born, onSort, onSorted, face, after, arrived, cursor, estimate, className }: Folds & {
+export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo, onFold, onNewNote, onOpenFolder, renaming, onRenaming, born, noun, list, handRenaming, onHandRenaming, onHandDrop, onSort, onSorted, face, after, arrived, cursor, estimate, className }: Folds & {
   face: (entry: Entry, index: number) => React.JSX.Element
   after?: (entry: Entry) => ReactNode
   arrived: (id: string) => boolean
@@ -357,6 +436,8 @@ export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo
   insetRef.current = inset
   const [aim, setAim] = useState<Aim | null>(null)
   const aimed = useRef<Aim | null>(null)
+  /** The hand-made group's heading a note is carried over, lit. */
+  const handAim = useRef<HTMLElement | null>(null)
   const ticks = useRef(slotTicker()).current
   // A group carried takes its notes and its subgroups' rows along: they wait where they are.
   // Where the room opens: just after this row on show (-1, at the very top), so the rows slide apart by one row there.
@@ -437,6 +518,16 @@ export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo
     const { active, activatorEvent, delta } = event
     dragY.set(delta.y)
     const id = String(active.id)
+    // Over a hand-made group's heading, a note carried goes into that group: the heading lights, the rows rest, and the
+    // list's own drag keeps it (never the split view's places, which come up only at the page's edge).
+    const at0 = activatorEvent instanceof PointerEvent ? { x: activatorEvent.clientX + delta.x, y: activatorEvent.clientY + delta.y } : null
+    const heading = at0 && !isGroup(id) && onHandDrop ? document.elementsFromPoint(at0.x, at0.y).map((el) => el.closest<HTMLElement>('[data-hand-group]')).find(Boolean) ?? null : null
+    if (heading !== handAim.current) {
+      if (handAim.current) delete handAim.current.dataset.handHot
+      if (heading) (heading.dataset.handHot = '', click('tick'))
+      handAim.current = heading
+    }
+    if (heading) return (unspring(), undwell(), point(null))
     // A group's room is its block folded, measured once it has folded.
     if (isGroup(id)) {
       const wrap = document.querySelector<HTMLElement>(`[data-group-block="${CSS.escape(id.slice(KEY.length))}"]`)?.parentElement
@@ -561,6 +652,8 @@ export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo
     return () => clearTimeout(again)
   }, [shape]) // eslint-disable-line react-hooks/exhaustive-deps
   const end = (): void => {
+    if (handAim.current) delete handAim.current.dataset.handHot
+    handAim.current = null
     lastMove.current = null
     sided.current = null
     unspring()
@@ -571,7 +664,10 @@ export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo
   }
   const onDragEnd = ({ active }: DragEndEvent): void => {
     const now = aimed.current
+    const heading = handAim.current?.dataset.handGroup
+    const carriedIds = manyRef.current.length > 1 ? manyRef.current : [String(active.id)]
     end()
+    if (heading && onHandDrop) return (setSnap(true), onHandDrop(carriedIds, heading))
     if (!now || now.target === String(active.id)) return chime('stay')
     setSnap(true)
     onDrop(manyRef.current.length > 1 ? manyRef.current : [String(active.id)], now.target, now.how)
@@ -594,7 +690,7 @@ export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo
   // A group's block, and inside it each subgroup's, drawn the same way one level in.
   const block = (group: GroupView, entries: Entry[], parts: Part[] | undefined, start: number, inner = false): React.JSX.Element => (
     <GroupBlock key={group.id} group={group} entries={entries} parts={parts} start={start} cursor={cursor} estimate={estimate} row={row} inner={inner} carried={carried === KEY + group.id} renaming={renaming === group.id}
-      born={born === group.id} onRenaming={(on) => onRenaming(on ? group.id : null)} onFold={(open) => onFold(group, open)} onNewNote={onNewNote} onOpenFolder={onOpenFolder} onSort={onSort} onSorted={onSorted}
+      born={born === group.id} onRenaming={(on) => onRenaming(on ? group.id : null)} onFold={(open) => onFold(group, open)} onNewNote={onNewNote} onOpenFolder={onOpenFolder} onSort={onSort} onSorted={onSorted} noun={noun}
       sub={(child, at) => block(child.group, child.entries, child.parts, at, true)} />
   )
   return (
@@ -604,16 +700,21 @@ export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo
       <SortableContext items={keys} strategy={unmoved}>
         <Shaped aim={aim} keys={keys} hand={carried} many={many} span={span} inset={inset} row={rowH} snap={snap} blocks={blockRows}>
           {ordered && <OwnOrderHint />}
-          <VirtualList items={lines} keyOf={({ one }) => (one.group ? KEY + one.group.id + (shownIn(one) > BIG ? ':big' : '') : one.entries[0].id)} holds={({ one }, id) => one.entries.some((entry) => entry.id === id)} cursor={line >= 0 ? line : undefined} estimate={estimate} className={className}
+          <VirtualList items={lines} keyOf={({ one }) => (one.group ? KEY + one.group.id + (shownIn(one) > BIG ? ':big' : '') : one.entries[0]?.id ?? HAND + one.hand?.id)} holds={({ one }, id) => one.entries.some((entry) => entry.id === id)} cursor={line >= 0 ? line : undefined} estimate={estimate} className={className}
             // A big group's line is keyed apart from a small one's: emptied in one step (2,500 rows to none), the list
             // would place every row under it by the height it measured before, scroll there and draw it all twice.
             sizeOf={({ one }) => (one.group?.open ? estimate * (1 + shownIn(one)) : estimate)}>
             {({ one, start }) =>
               one.group ? (
-                // A little air above and below every group, so two in a row never touch: 6px, the air the drag allows for (its fit), now the block keeps none of its own.
-                <div className="py-1.5">
+                // A folder row keeps the rows' own rhythm, as Finder's list does: no air of its own above or below.
+                <div>
                 {block(one.group, one.entries, one.parts, start)}
                 </div>
+              ) : one.hand ? (
+                <>
+                  <HandHead group={one.hand} first={start === 0 && one === bundles.find((b) => !b.group)} list={list ?? 'article'} noun={noun ?? 'note'} renaming={handRenaming === one.hand.id} onRenaming={(on) => onHandRenaming?.(on ? one.hand!.id : null)} />
+                  {one.entries[0] && row(one.entries[0], start)}
+                </>
               ) : one.head ? (
                 <>
                   <SectionHead head={one.head} first={start === 0} />
@@ -859,12 +960,12 @@ function Count({ n }: { n: number }): React.JSX.Element {
 }
 
 
-/** A group's small icon and its chevron, side by side in the column a page's tile takes, so its name starts where a page's title does. */
+/** A folder's chevron and its small folder drawing, side by side in the column a page's tile takes, so its name starts where a page's title does. */
 function GroupTile({ group, onFold, ...rest }: { group: GroupView; onFold?: () => void } & React.HTMLAttributes<HTMLSpanElement>): React.JSX.Element {
   return (
-    <span {...rest} data-group-tile="" className="flex h-9 w-9 shrink-0 items-center justify-center gap-0.5">
+    <span {...rest} data-group-tile="" className="flex h-9 w-9 shrink-0 items-center justify-start">
       {/* Finder's disclosure triangle: the one part of the row that folds it open in place; the rest opens the folder. */}
-      <span data-group-fold="" role="button" aria-label={group.open ? 'Fold' : 'Unfold'} className="-m-0.5 grid place-items-center rounded-sm p-0.5 transition-colors hover:bg-foreground/10"
+      <span data-group-fold="" role="button" aria-label={group.open ? 'Fold' : 'Unfold'} className="-ml-1 grid h-7 w-3.5 shrink-0 cursor-pointer place-items-center rounded-sm transition-colors hover:bg-foreground/10"
         onClick={(event) => onFold && (event.stopPropagation(), event.preventDefault(), onFold())}>
         <ChevronRight
           aria-hidden
@@ -872,7 +973,29 @@ function GroupTile({ group, onFold, ...rest }: { group: GroupView; onFold?: () =
           style={{ transitionTimingFunction: OUT, transform: `rotate(${group.open ? 90 : 0}deg)` }}
         />
       </span>
-      <GroupIcon icon={group.icon} color={group.color} className="size-3.5" />
+      <FolderMark icon={group.icon} color={group.color} />
+    </span>
+  )
+}
+
+/**
+ * A folder drawn small, for a row: its tab and back, its front in the folder's colour (the theme's ink where it has
+ * none), and its emoji or icon on the front, so a folder row reads as a folder beside a page's tile.
+ */
+export function FolderMark({ icon, color, className }: { icon: string | null; color: string | null; className?: string }): React.JSX.Element {
+  const ink = color ? `var(--tt-color-text-${color})` : 'var(--foreground)'
+  return (
+    <span data-folder-mark="" aria-hidden className={cn('relative block h-[1.375rem] w-[1.75rem] shrink-0', className)} style={{ '--ink': ink } as CSSProperties}>
+      {/* The back, with its tab. */}
+      <svg viewBox="0 0 28 22" className="absolute inset-0 size-full overflow-visible">
+        <path d="M1 3a2 2 0 0 1 2-2h6.2a2 2 0 0 1 1.4.6l1.4 1.4h13a2 2 0 0 1 2 2V19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2Z"
+          style={{ fill: 'color-mix(in oklab, var(--ink) 26%, var(--background))', stroke: 'color-mix(in oklab, var(--ink) 34%, transparent)', strokeWidth: 0.75 }} />
+      </svg>
+      {/* The front, its icon on it. */}
+      <span className="absolute inset-x-[1px] bottom-[1px] top-[5px] flex items-center justify-center rounded-[2.5px] shadow-[inset_0_1px_0_color-mix(in_oklab,white_45%,transparent)] [&>span]:text-[0.6875rem] [&_svg]:size-3"
+        style={{ background: 'color-mix(in oklab, var(--ink) 15%, var(--background))', border: '0.75px solid color-mix(in oklab, var(--ink) 26%, transparent)' }}>
+        {icon ? <GroupIcon icon={icon} color={color} className="size-3" /> : null}
+      </span>
     </span>
   )
 }
@@ -900,8 +1023,10 @@ export const change = (group: GroupView, patch: Parameters<typeof groups.set>[1]
   })
 }
 
-function GroupBlock({ group, entries, parts, start, cursor, estimate, row, carried, renaming, born, onRenaming, onFold, onNewNote, onOpenFolder, onSort, onSorted, sub, inner = false }: {
+function GroupBlock({ group, entries, parts, start, cursor, estimate, row, carried, renaming, born, onRenaming, onFold, onNewNote, onOpenFolder, onSort, onSorted, sub, noun = 'note', inner = false }: {
   onOpenFolder?: (id: string) => void
+  /** What this list holds, for its count: "17 pages", "17 gems", "17 questions". */
+  noun?: string
   group: GroupView
   entries: Entry[]
   /** Its notes and subgroups in order; left out, its notes alone. */
@@ -926,7 +1051,6 @@ function GroupBlock({ group, entries, parts, start, cursor, estimate, row, carri
 }): React.JSX.Element {
   const [menu, setMenu] = useState(false)
   const [picking, setPicking] = useState(false)
-  const [pointing, setPointing] = useState(false)
   const [parted, setParting] = useState(false)
   const parting = parted || !!group.parting
   // Just made: its row unfolds above the two notes, a moment after it is drawn.
@@ -993,11 +1117,11 @@ function GroupBlock({ group, entries, parts, start, cursor, estimate, row, carri
     setNamed(next.trim())
     change(group, { name: next.trim() })
   }
-  const shown = (menu || picking || renaming || landing || pointing || !arrived || born) && !parting
+  const shown = (menu || picking || renaming || landing || !arrived || born) && !parting
   // Pointed at: its own panel deepens, never a subgroup's inside it.
   const [over, setOver] = useState(false)
   // Deeper while pointed at. While something is carried, every panel rests, and only the one it would land in lights (PanelParts' wash).
-  const depth = (tint ? 6 : 3.5) * (hand ? 1 : pointing ? 2.2 : shown || over ? 1.6 : 1)
+  const depth = (tint ? 6 : 3.5) * (hand ? 1 : shown || over ? 1.6 : 1)
   return (
     <div
       ref={block}
@@ -1018,8 +1142,8 @@ function GroupBlock({ group, entries, parts, start, cursor, estimate, row, carri
         className={cn(
           'pointer-events-none absolute inset-0 -z-10 origin-top transition-[opacity,scale] duration-200 motion-reduce:transition-none',
           carried && 'opacity-0!',
-          // A subfolder has no box of its own: its panel shows only to light where a drop would land.
-          inner && !landing && 'opacity-0',
+          // A folder has no box of its own: its panel shows only to light where a drop would land.
+          !landing && 'opacity-0',
           parting && 'scale-[0.98] opacity-0!',
           !arrived && 'scale-[0.97] opacity-0'
         )}
@@ -1041,10 +1165,9 @@ function GroupBlock({ group, entries, parts, start, cursor, estimate, row, carri
           <Node id={key}>
             <Popover open={picking} onOpenChange={setPicking}>
               <ContextMenu onOpenChange={setMenu}>
-                <Tip label={renaming || menu || !onOpenFolder ? '' : 'Click to fold or unfold. ⌘-click, or “Open folder” in its menu, opens it as its own page'}>
                 <ContextMenuTrigger asChild data-row-menu>
                   {renaming ? (
-                    <div className={cn(ROW_SHAPE, HEAD, 'data-[state=open]:bg-transparent!')}>
+                    <div className={cn(ROW_SHAPE, ROW_PAD, 'data-[state=open]:bg-transparent!')}>
                       <PopoverAnchor asChild><GroupTile group={group} /></PopoverAnchor>
                       <input
                         autoFocus
@@ -1056,7 +1179,7 @@ function GroupBlock({ group, entries, parts, start, cursor, estimate, row, carri
                           if (event.key === 'Escape') (event.preventDefault(), event.stopPropagation(), onRenaming(false))
                         }}
                         onBlur={(event) => rename(event.target.value)}
-                        className="min-w-0 flex-1 rounded-sm bg-transparent text-xs font-semibold outline-none placeholder:text-muted-foreground"
+                        className="min-w-0 flex-1 rounded-sm bg-transparent text-control font-medium outline-none placeholder:text-muted-foreground"
                         placeholder="Name the folder"
                       />
                     </div>
@@ -1066,36 +1189,29 @@ function GroupBlock({ group, entries, parts, start, cursor, estimate, row, carri
                       data-group-row={group.id}
                       aria-expanded={group.open}
                       aria-label={name}
-                      // As in Obsidian's file explorer and Notion's sidebar: a click anywhere on the row folds or unfolds it at once,
-                      // and never opens it; ⌘-click (or "Open folder" in its menu, or its row in the sidebar) opens it as its own page.
-                      // A double click on the name renames it, its two clicks' folds cancelling out.
-                      onClick={(event) => {
-                        if (event.detail > 1) return
-                        if (event.metaKey && onOpenFolder) return (chime('open'), onOpenFolder(group.id))
-                        fold()
-                      }}
-                      onDoubleClick={() => (onFold(!group.open), onRenaming(true))}
-                      // Enter and Space fold it, ← folds and → unfolds, as a folder in a tree does; F2 renames it, as in Obsidian.
+                      // As in Finder's list view: the chevron folds it open in place; a click on the rest of the row opens it as its
+                      // own page (where there is no page to open, it folds).
+                      onClick={() => (onOpenFolder ? (chime('open'), onOpenFolder(group.id)) : fold())}
+                      // Enter opens it; Space, → and ← fold it open and shut, as a folder in a tree does; F2 renames it, as in Finder.
                       onKeyDown={(event) => {
+                        if (event.key === 'Enter' && onOpenFolder) return (event.preventDefault(), event.stopPropagation(), chime('open'), onOpenFolder(group.id))
                         if ((event.key === 'ArrowLeft' && group.open) || (event.key === 'ArrowRight' && !group.open) || event.key === 'Enter' || event.key === ' ') (event.preventDefault(), event.stopPropagation(), fold())
                         if (event.key === 'F2') (event.preventDefault(), onRenaming(true))
                       }}
                       // The panel marks it while its menu is open: no second mark on the row.
                       // A slim title bar: its box and focus ring are a page row's (row-shape.ts), its icon and chevron sit in a page's tile column,
                       // so its name starts on the page titles' line; only its right side keeps room for its buttons.
-                      className={cn(ROW_SHAPE, HEAD, 'data-[state=open]:bg-transparent!')}
-                      style={{ paddingRight: group.unsorted?.length && onSort ? '12.5rem' : '2.25rem' }}
+                      // A row as tall as a page's, its folder in the tile column, its name on the titles' line, its count on the right.
+                      className={cn(ROW_SHAPE, ROW_PAD, 'cursor-pointer hover:bg-accent/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-accent/60')}
+                      style={{ paddingRight: group.unsorted?.length && onSort ? '19rem' : undefined }}
                     >
                       <PopoverAnchor asChild><GroupTile group={group} onFold={fold} /></PopoverAnchor>
-                      <span className="min-w-0 truncate text-xs font-semibold">{name}</span>
-                      {/* How many it holds, open or folded, quiet after the name. */}
-                      <span data-count="" className="-ml-1 shrink-0 text-xs text-muted-foreground tabular-nums">· {num(count)}</span>
-                      {/* Open, a hairline under it, inside the group's box. */}
-                      {group.open && !inner && <span aria-hidden data-head-line="" className="pointer-events-none absolute inset-x-2 bottom-0 h-px" style={{ background: `color-mix(in srgb, var(--group-tint) ${tint ? 18 : 10}%, transparent)` }} />}
+                      <span data-folder-row-name="" className="min-w-0 flex-1 truncate text-control font-medium text-foreground">{name}</span>
+                      {/* How many it holds, open or folded, on the right as Finder says it, in this list's own word. */}
+                      <span data-count={count} className="shrink-0 text-meta text-muted-foreground tabular-nums">{plural(count, noun)}</span>
                     </button>
                   )}
                 </ContextMenuTrigger>
-                </Tip>
                 <GroupMenu group={group} members={entries.map((entry) => entry.id)} onOpenFolder={onOpenFolder && (() => (chime('open'), onOpenFolder(group.id)))} onSeparate={separate} onRename={() => onRenaming(true)} onIcon={() => setPicking(true)} onNewNote={onNewNote} onSort={onSort} onSorted={onSorted} />
               </ContextMenu>
               {/* Open until an icon is picked, Esc, or a click elsewhere: the focus moving on as the menu shuts never closes it. */}
@@ -1111,28 +1227,13 @@ function GroupBlock({ group, entries, parts, start, cursor, estimate, row, carri
                   data-sort-these={group.unsorted.length}
                   onClick={() => onSort(group.unsorted!)}
                   onPointerDown={(event) => event.stopPropagation()}
-                  className="absolute top-1/2 right-8 flex h-6 -translate-y-1/2 cursor-pointer! items-center gap-1.5 rounded-full px-2.5 text-control font-medium text-foreground transition-[filter] hover:brightness-95 dark:hover:brightness-125"
+                  className="absolute top-1/2 right-24 flex h-6 -translate-y-1/2 cursor-pointer! items-center gap-1.5 rounded-full px-2.5 text-control font-medium text-foreground transition-[filter] hover:brightness-95 dark:hover:brightness-125"
                   style={{ background: `color-mix(in srgb, var(--tt-color-text-orange) 14%, var(--background))` }}
                 >
                   <span aria-hidden className="size-1.5 rounded-full bg-[var(--tt-color-text-orange)]" />
                   <span className="tabular-nums"><Rolling text={group.unsorted.length} /> to sort</span>
                   <span aria-hidden className="text-foreground/40">·</span>
                   <span>Sort these</span>
-                </button>
-              </Tip>
-            )}
-            {!renaming && (
-              <Tip label={`Delete folder, keep its ${count === 1 ? 'note' : `${num(count)} notes`}`}>
-                <button
-                  type="button"
-                  onClick={separate}
-                  onMouseEnter={() => setPointing(true)}
-                  onMouseLeave={() => setPointing(false)}
-                  // Not a handle: pressing here never lifts the group.
-                  onPointerDown={(event) => event.stopPropagation()}
-                  className={cn('absolute top-1/2 right-0.5 flex size-6 -translate-y-1/2 cursor-pointer! items-center justify-center rounded-md text-muted-foreground transition-opacity duration-150 hover:bg-accent hover:text-foreground focus-visible:opacity-100', over || shown ? 'opacity-100' : 'opacity-0')}
-                >
-                  <X className="size-3.5" />
                 </button>
               </Tip>
             )}
@@ -1150,16 +1251,14 @@ function GroupBlock({ group, entries, parts, start, cursor, estimate, row, carri
           // A big group draws only the rows near the screen, as a plain list does: one of 2,500 drew every one, and ⌘A or a
           // fold froze the window. A small one draws them all, the way its carried rows and panel are measured.
           return placed.length > BIG ? (
-            <div className="pb-[3px]">
+            <div className="ml-[26px] pb-[3px]">
               <VirtualList items={placed} keyOf={({ part }) => ('entry' in part ? part.entry.id : part.group.id)} cursor={inside >= 0 ? inside : undefined} estimate={estimate} rowClass="pb-px">
                 {one}
               </VirtualList>
             </div>
-          ) : placed.length && inner ? (
-            // A subfolder's own, as the sidebar's tree draws them: stepped in under its heading, hung off a thin trunk, no box of its own.
-            <Branches current={-1} className="ml-[26px] flex flex-col gap-px pb-1">{placed.map(one)}</Branches>
           ) : placed.length ? (
-            <div className="flex flex-col gap-px pb-1">{placed.map(one)}</div>
+            // What it holds, as the sidebar's tree draws them: stepped in under its row, hung off a thin trunk, no box of its own (children look like children).
+            <Branches current={-1} className="ml-[26px] flex flex-col gap-px pb-1">{placed.map(one)}</Branches>
           ) : (
             // A folder made empty, or emptied: it stays, as a row of its own in the list's shape (a dashed tile,
             // a line and a quiet line under it, on the page titles' edge), and a click starts its first note.

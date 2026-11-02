@@ -60,6 +60,19 @@ export function useKept<T>(name: string, read: () => Promise<T>, initial: T, dep
 /** Kept by name, so a page opened again starts on its groups, not on a plain list that sorts itself a beat later. */
 export const useGroups = (list: string): NoteGroup[] => useKept('groups', () => groups.list(list), [] as NoteGroup[], [list])
 
+/** A group made by hand: a named section of a list or of one folder (null: the list's top level), as Things' headings are (main/sections.ts). */
+export type NoteSection = { id: string; name: string; folder: string | null; folded: number; members: string[] }
+type SectionKept = { section: Record<string, string | number | null>; ids: string[] }
+export const sections = {
+  list: (list: string) => call<NoteSection[]>('sections', list),
+  make: (list: string, folder: string | null, name: string, ids: string[] = []) => call<string>('sections:make', list, folder, name, ids),
+  set: (id: string, patch: { name?: string; folded?: boolean }) => call<boolean>('sections:set', id, patch),
+  remove: (id: string) => call<SectionKept | null>('sections:delete', id),
+  restore: (was: SectionKept) => call<boolean>('sections:restore', was),
+  place: (moves: { id: string; section: string | null }[]) => call<{ id: string; section: string | null }[]>('sections:place', moves)
+}
+export const useSections = (list: string): NoteSection[] => useKept('sections', () => sections.list(list), [] as NoteSection[], [list])
+
 /** The colours a group can take: the editor's own, light and dark. */
 export const GROUP_COLORS = ['gray', 'orange', 'yellow', 'green', 'blue', 'purple', 'pink', 'red'] as const
 export const tintOf = (color: string | null | undefined): string | undefined => (color ? `var(--tt-color-text-${color})` : undefined)

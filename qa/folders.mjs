@@ -161,8 +161,8 @@ try {
   await c.h.waitForTimeout(800)
   await c.v('groups:nest', rent, null)
   await c.h.waitForTimeout(800)
-  // In the list, an empty folder is a folder of its own in the grid, its front saying "Empty" (folder-grid.tsx).
-  check('in the list, an empty one is a folder of its own that says it is empty', (await c.h.locator(`[data-folder-tile="${money}"] [data-folder-empty]`).count()) === 1)
+  // In the list, an empty folder is a row of its own, counted "0 pages" (kept-groups.tsx).
+  check('in the list, an empty one is a folder row of its own that says it is empty', ((await c.h.locator(`[role="main"] [data-group-row="${money}"] [data-count]`).textContent()) ?? '').trim() === '0 pages')
   await c.v('groups:nest', rent, money)
   await c.h.waitForTimeout(500)
 
@@ -173,7 +173,7 @@ try {
   await writingRow.hover()
   await c.h.locator('[data-folder-new="article"]').click()
   await c.h.waitForTimeout(700)
-  const field = c.h.locator('[data-folder-name]')
+  const field = c.h.locator('aside [data-folder-name]')
   check('the + makes a folder with its name open for typing', (await field.count()) === 1)
   await field.fill('Taxes')
   await field.press('Enter')
@@ -190,8 +190,8 @@ try {
   await folder(made.id).click({ button: 'right' })
   await c.h.getByRole('menuitem', { name: 'Rename…' }).click()
   await c.h.waitForTimeout(400)
-  await c.h.locator('[data-folder-name]').fill('taxes')
-  await c.h.locator('[data-folder-name]').press('Enter')
+  await c.h.locator('aside [data-folder-name]').fill('taxes')
+  await c.h.locator('aside [data-folder-name]').press('Enter')
   await c.h.waitForTimeout(1200)
   check('the offer comes once, not again on a rename back', (await c.h.getByText(/tagged #taxes in\?/).count()) <= 1)
 
@@ -205,12 +205,12 @@ try {
   await c.h.evaluate(() => document.querySelectorAll('[data-pane] *').forEach((one) => one.scrollHeight > one.clientHeight + 4 && (one.scrollTop = 0)))
   await c.h.waitForTimeout(600)
   check('a third level shows in the tree, a step further in', (await folder(lisbon).count()) === 1 && (await indent(lisbon)) > (await indent(rent)), `${await indent(rent)} → ${await indent(lisbon)}`)
-  // In the list, folders are a grid of folders, one level at a time (folder-grid.tsx): Rent opened shows Lisbon as a
-  // folder inside it, and Lisbon opened shows its note as a row.
+  // In the list, folders are rows, one level at a time: Rent opened shows Lisbon as a folder row inside it, and Lisbon
+  // opened (a click on its row) shows its note as a row.
   await folder(rent).click()
   await c.h.waitForTimeout(900)
-  check('and in the list, inside Rent', (await c.h.locator(`[role="main"] [data-folder-tile="${lisbon}"]`).count()) === 1)
-  await c.h.locator(`[role="main"] [data-folder-tile="${lisbon}"] button`).first().click()
+  check('and in the list, inside Rent', (await c.h.locator(`[role="main"] [data-group-row="${lisbon}"]`).count()) === 1)
+  await c.h.locator(`[role="main"] [data-group-row="${lisbon}"] [data-folder-row-name]`).first().click()
   await c.h.waitForTimeout(900)
   check('with its note under it', (await c.h.locator(`[role="main"] [data-row][data-id="${r1}"]`).count()) === 1)
   await c.go('articles')
@@ -245,7 +245,7 @@ try {
   await c.size(1280, 250)
   const spot = { y: 0 }
   await c.go("articles")
-  await c.h.locator(`[data-folder-tile="${money}"]`).first().evaluate((one) => { const r = one.getBoundingClientRect(); one.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: r.left + 30, clientY: innerHeight - 60, button: 2 })) })
+  await c.h.locator(`[role="main"] [data-group-row="${money}"]`).first().evaluate((one) => { const r = one.getBoundingClientRect(); one.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: r.left + 30, clientY: innerHeight - 60, button: 2 })) })
   spot.y = await c.h.evaluate(() => innerHeight - 60)
   await c.h.waitForTimeout(400)
   const menu = await c.h.evaluate(() => { const one = document.querySelector('[role="menu"]')?.getBoundingClientRect(); return one && { top: one.top, bottom: one.bottom, room: innerHeight } })

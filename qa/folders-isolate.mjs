@@ -1,5 +1,5 @@
 // A note in a folder lives there alone: Writing's and Gems' top level is their folders, then the loose notes, in every
-// order; a folder's notes show only once it is opened; the sort menu has no "Folders first" and no Grouping.
+// order; a folder's notes show only once it is opened; the sort menu has no "Folders first", and Grouping is back (it cuts the loose notes, never a folder's).
 //
 //   QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-fi/main/index.js HALIGTREE_QA_AWAY=1 QA_ARGS=--sandbox node qa/folders-isolate.mjs
 import { checks } from './harness.mjs'
@@ -10,9 +10,9 @@ const s = await sandbox({ width: 1300, height: 860 })
 const { h, v, go, close, errors } = s
 const shots = process.env.QA_SHOTS
 const look = () => h.evaluate(() => {
-  // Folders are a grid of folders over the loose notes now (folder-grid.tsx): each tile an F, then the rows.
-  const rows = [...document.querySelectorAll('[role="main"] [data-folder-tile], [role="main"] [data-group-row], [role="main"] [data-row]')]
-  return { order: rows.map((one) => (one.hasAttribute('data-group-row') || one.hasAttribute('data-folder-tile') ? 'F' : 'n')).join(''), ids: rows.filter((one) => !one.hasAttribute('data-group-row')).map((one) => one.getAttribute('data-row')), marks: document.querySelectorAll('[role="main"] [data-row-folder]').length }
+  // Folders are rows of the list (kept-groups.tsx): each an F, then the note rows.
+  const rows = [...document.querySelectorAll('[role="main"] [data-group-row], [role="main"] [data-row]')]
+  return { order: rows.map((one) => (one.hasAttribute('data-group-row') ? 'F' : 'n')).join(''), ids: rows.filter((one) => !one.hasAttribute('data-group-row')).map((one) => one.getAttribute('data-id')), marks: document.querySelectorAll('[role="main"] [data-row-folder]').length }
 })
 try {
   await v('settings:set', { hintRate: 0 })
@@ -34,7 +34,7 @@ try {
     const shelf = (await v('groups', list)).filter((one) => !one.parent && one.members.length)
     const target = shelf[0]
     // Opened (a click on its folder), it shows what it holds: its own notes as rows.
-    await h.locator(`[role="main"] [data-folder-tile="${target.id}"] button`).first().click()
+    await h.locator(`[role="main"] [data-group-row="${target.id}"] [data-folder-row-name]`).first().click()
     await h.waitForTimeout(900)
     const open = await look()
     const notes = open.order.replace(/F/g, '').length
@@ -45,7 +45,7 @@ try {
     await h.locator('[data-display]').first().click().catch(() => {})
     await h.waitForTimeout(400)
     const menu = await h.evaluate(() => document.body.innerText)
-    check(`${page}: no "Folders first" and no Grouping in Display`, !/Folders first/.test(menu) && !/\bGrouping\b/.test(menu))
+    check(`${page}: no "Folders first" in Display, and Grouping is there`, !/Folders first/.test(menu) && /\bGrouping\b/.test(menu))
     await h.keyboard.press('Escape')
   }
   check('no page errors', errors.length === 0, errors.join(' | '))
