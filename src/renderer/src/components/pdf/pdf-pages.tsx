@@ -187,14 +187,16 @@ async function truePictures(proxy: PDFPageProxy, viewport: ReturnType<PDFPagePro
     }
     const dark = ink.getImageData(x, y, w, h)
     const [o, d] = [own.data, dark.data]
+    // Written out by hand, not Math.max: a whole Retina page in about 30ms rather than 300.
     for (let i = 0; i < o.length; i += 4) {
       // How coloured the true pixel is: grey, black and white take the dark page's tones, colour stays.
-      const chroma = (Math.max(o[i], o[i + 1], o[i + 2]) - Math.min(o[i], o[i + 1], o[i + 2])) / 255
-      const keep = Math.min(1, Math.max(0, (chroma - 0.08) / 0.17))
-      if (keep === 0) continue
-      d[i] += (o[i] - d[i]) * keep
-      d[i + 1] += (o[i + 1] - d[i + 1]) * keep
-      d[i + 2] += (o[i + 2] - d[i + 2]) * keep
+      const r = o[i], g = o[i + 1], b = o[i + 2]
+      const chroma = (r > g ? (r > b ? r : b) : g > b ? g : b) - (r < g ? (r < b ? r : b) : g < b ? g : b)
+      if (chroma <= 20) continue
+      const keep = chroma >= 64 ? 1 : (chroma - 20) / 44
+      d[i] += (r - d[i]) * keep
+      d[i + 1] += (g - d[i + 1]) * keep
+      d[i + 2] += (b - d[i + 2]) * keep
     }
     ink.putImageData(dark, x, y)
   }
