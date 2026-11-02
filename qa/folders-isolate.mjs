@@ -24,6 +24,8 @@ try {
       await go(page)
       await h.waitForTimeout(900)
       const seen = await look()
+      // The frame the check reads, and what the page holds then.
+      if (shots) await h.screenshot({ path: `${shots}/${page}-${sort}-read.png` })
       const leaked = seen.ids.filter((id) => inFolders.has(id))
       check(`${page}, ${sort}: folders first, then loose notes, none from inside a folder`, /^F+n*$/.test(seen.order) && !leaked.length && !seen.marks, JSON.stringify({ order: seen.order, leaked: leaked.length, marks: seen.marks }))
     }

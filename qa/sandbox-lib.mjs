@@ -26,6 +26,25 @@ export const CALM_HOUR = '14:10'
  * the small hours) reads the same whatever the real clock says. `now()` is
  * the probe's own clock, moved the same way.
  */
+/**
+ * Waits until the sandbox is wholly laid down. It used to give up after 30 seconds and carry on: on a busy machine
+ * the seeding (which makes Writing's folders near its end) outlasted that, and probes read a half-made book, its pages
+ * there and its folders not (folders-isolate: "nnn", then no folder to open). Now it waits up to 3 minutes, says how
+ * long seeding took, and stops the probe with a plain error rather than test a half-made book.
+ */
+async function untilSeeded(read, h) {
+  const started = Date.now()
+  while (Date.now() - started < 180_000) {
+    const state = await read()
+    if (state?.seeded || (state && !state.on)) {
+      if (Date.now() - started > 10_000) console.log(`(sandbox took ${Math.round((Date.now() - started) / 1000)}s to seed)`)
+      return
+    }
+    await h.waitForTimeout(200)
+  }
+  throw new Error('The sandbox was not seeded after 3 minutes: not testing a half-made book')
+}
+
 export async function sandbox({ width = 1000, height = 700, seeded = true, at } = {}) {
   const qa = await open()
   const { electron, page } = qa
@@ -54,11 +73,7 @@ export async function sandbox({ width = 1000, height = 700, seeded = true, at } 
     // moments, while the sandbox is still being laid down, sometimes takes the
     // renderer down inside Electron itself (about one run in eight), which no
     // person does and no app code causes.
-    for (let i = 0; i < 150; i++) {
-      const state = await h.evaluate(() => window.api.haligtree('sandbox:state')).catch(() => null)
-      if (state?.seeded || (state && !state.on)) break
-      await h.waitForTimeout(200)
-    }
+    await untilSeeded(() => h.evaluate(() => window.api.haligtree('sandbox:state')).catch(() => null), h)
     await h.waitForTimeout(1000)
     await h.reload()
     await page.reload().catch(() => {})
@@ -68,13 +83,7 @@ export async function sandbox({ width = 1000, height = 700, seeded = true, at } 
   page.on('pageerror', (e) => errors.push('BOX PAGEERROR ' + e.message))
   await h.waitForLoadState('domcontentloaded')
   const v = (channel, ...args) => h.evaluate(([c, a]) => window.api.haligtree(c, ...a), [channel, args])
-  if (seeded) {
-    for (let i = 0; i < 150; i++) {
-      const state = await v('sandbox:state').catch(() => null)
-      if (state?.seeded || (state && !state.on)) break
-      await h.waitForTimeout(200)
-    }
-  }
+  if (seeded) await untilSeeded(() => v('sandbox:state').catch(() => null), h)
   const size = async (w, hh) => {
     await electron.evaluate(({ BrowserWindow }, [w, hh]) => { const win = BrowserWindow.getAllWindows().find((one) => one.webContents.getURL().includes('view=home')); win?.setBounds({ x: 40, y: 40, width: w, height: hh }); win?.show() }, [w, hh])
     await h.waitForTimeout(500)
