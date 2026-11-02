@@ -1696,7 +1696,7 @@ function RenderedKey({ name, mark, down, scale }: { name: string; mark: string; 
           <img alt="" draggable={false} srcSet={keyPicture(name, look, false)} width={w} height={h} className="absolute inset-0 select-none"
             style={{ opacity: down ? 0 : 1, transition: `opacity 0ms linear ${down ? 100 : 0}ms` }} />
           <img alt="" draggable={false} data-pressed srcSet={keyPicture(name, look, true)} width={w} height={h} className="absolute inset-0 select-none"
-            style={{ opacity: down ? 1 : 0, transition: 'opacity 100ms ease-out' }} />
+            style={{ opacity: down ? 1 : 0, transition: 'opacity 100ms var(--mf-ease)' }} />
         </span>
       ))}
     </span>

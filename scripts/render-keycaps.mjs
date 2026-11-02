@@ -26,15 +26,16 @@ const SINK_PX = 2
 
 const LOOKS = {
   // Linear colours. Cream: warm paper white, a mid-grey legend. Charcoal: warm near black, a pale legend.
-  cream: { cap: [0.74, 0.665, 0.52], ink: [0.17, 0.16, 0.145], exposure: 0.78 },
-  charcoal: { cap: [0.03, 0.029, 0.028], ink: [0.36, 0.35, 0.33], exposure: 0.9 }
+  // Cream leans to the app's Paper (warm, a little yellow); charcoal's legend is a mid grey, not white.
+  cream: { cap: [0.70, 0.585, 0.40], ink: [0.15, 0.135, 0.11], exposure: 0.8, sheen: 0.4 },
+  charcoal: { cap: [0.03, 0.029, 0.028], ink: [0.15, 0.145, 0.135], exposure: 0.9, sheen: 0.12 }
 }
 
 const SHADER = /* glsl */ `#version 300 es
 precision highp float;
 out vec4 outColor;
 uniform vec2 uSize;
-uniform float uSpan, uSink, uPress, uMark, uExposure;
+uniform float uSpan, uSink, uPress, uMark, uExposure, uSheen;
 uniform vec3 uCap, uInk;
 
 const float H = 7.6;      // cap height, mm
@@ -154,7 +155,7 @@ vec4 shade(vec2 frag) {
     float dd = nh * nh * (a2 - 1.0) + 1.0;
     float spec = a2 / (3.14159 * dd * dd);
     float fres = 0.04 + 0.96 * pow(1.0 - max(dot(n, v), 0.0), 5.0);
-    col += vec3(1.0) * spec * fres * max(dot(n, key), 0.0) * sh * 0.55;
+    col += vec3(1.0) * spec * fres * max(dot(n, key), 0.0) * sh * uSheen;
     col += vec3(0.7, 0.75, 0.8) * fres * 0.06 * sky * ao;
     return vec4(pow(aces(col * uExposure), vec3(1.0 / 2.2)), 1.0);
   }
@@ -199,7 +200,7 @@ const draw = (o) => {
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW)
   const at = gl.getAttribLocation(prog, 'p'); gl.enableVertexAttribArray(at); gl.vertexAttribPointer(at, 2, gl.FLOAT, false, 0, 0)
   const u = (n) => gl.getUniformLocation(prog, n)
-  gl.uniform2f(u('uSize'), o.w, o.h); gl.uniform1f(u('uSpan'), o.span); gl.uniform1f(u('uSink'), o.sink); gl.uniform1f(u('uPress'), o.press); gl.uniform1f(u('uMark'), o.mark); gl.uniform1f(u('uExposure'), o.exposure)
+  gl.uniform2f(u('uSize'), o.w, o.h); gl.uniform1f(u('uSpan'), o.span); gl.uniform1f(u('uSink'), o.sink); gl.uniform1f(u('uPress'), o.press); gl.uniform1f(u('uMark'), o.mark); gl.uniform1f(u('uExposure'), o.exposure); gl.uniform1f(u('uSheen'), o.sheen)
   gl.uniform3fv(u('uCap'), o.cap); gl.uniform3fv(u('uInk'), o.ink)
   gl.viewport(0, 0, o.w, o.h); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT)
   gl.drawArrays(gl.TRIANGLES, 0, 3); gl.finish()
@@ -213,11 +214,11 @@ app.whenReady().then(async () => {
   mkdirSync(OUT, { recursive: true })
   // Millimetres per CSS pixel, so the press is the same 2px at every scale.
   const sink = (SINK_PX * SPAN) / CSS.w
-  for (const [look, { cap, ink, exposure }] of Object.entries(LOOKS))
+  for (const [look, { cap, ink, exposure, sheen }] of Object.entries(LOOKS))
     for (const [mark, name] of [[0, 'cmd'], [1, 'dot']])
       for (const down of [false, true])
         for (const scale of [2, 3]) {
-          const url = await win.webContents.executeJavaScript(`render(${JSON.stringify({ w: CSS.w * scale, h: CSS.h * scale, span: SPAN, sink: down ? sink : 0, press: down ? 1 : 0, mark, cap, ink, exposure })})`)
+          const url = await win.webContents.executeJavaScript(`render(${JSON.stringify({ w: CSS.w * scale, h: CSS.h * scale, span: SPAN, sink: down ? sink : 0, press: down ? 1 : 0, mark, cap, ink, exposure, sheen })})`)
           const file = join(OUT, `key-${name}-${look}${down ? '-down' : ''}@${scale}x.webp`)
           if (url.startsWith('error:')) throw new Error(url)
           writeFileSync(file, Buffer.from(url.split(',')[1], 'base64'))

@@ -9,6 +9,7 @@ import { sandbox } from './sandbox-lib.mjs'
 
 const { check, done } = checks()
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+const shots = process.env.QA_SHOTS ?? '/tmp'
 // Light and dark at the welcome's usual size, and both again in a narrow window (560px wide).
 for (const [theme, width] of [['light', 1280], ['dark', 1280], ['light', 560], ['dark', 560]]) {
   const c = await sandbox({ width, height: 800, seeded: false })
@@ -18,6 +19,16 @@ for (const [theme, width] of [['light', 1280], ['dark', 1280], ['light', 560], [
     await v('settings:set', { keys: { '⌘.': '⌘.' } })
     await c.look(theme)
     await h.evaluate(() => {
+      // The keys are pressed by the welcome's own timers, a tenth of a second apart. To picture them down, the probe
+      // holds those timers the moment both keys are down: any that come due while held wait for the release and then
+      // run in order, a beat (40ms) apart, so each step still paints on its own. A timer cleared while held never runs.
+      const hold = (window.__hold = { on: false, stage: '', queue: [] })
+      const real = window.setTimeout.bind(window)
+      const realClear = window.clearTimeout.bind(window)
+      const cleared = new Set()
+      window.setTimeout = (fn, ms, ...args) => { const id = real(() => (hold.on ? hold.queue.push([id, () => fn(...args)]) : fn(...args)), ms); return id }
+      window.clearTimeout = (id) => (cleared.add(id), realClear(id))
+      window.__release = () => { hold.on = false; hold.queue.splice(0).forEach(([id, f], i) => real(() => (cleared.has(id) ? undefined : f()), 40 * i)) }
       const seen = (window.__keys = { first: null, down: new Set(), back: new Set() })
       new MutationObserver(() => {
         const box = document.querySelector('[data-keycaps]')
@@ -28,6 +39,7 @@ for (const [theme, width] of [['light', 1280], ['dark', 1280], ['light', 560], [
           const boxes = keys.map((k) => { const r = k.getBoundingClientRect(); return { w: Math.round(r.width), h: Math.round(r.height), bottom: Math.round(r.bottom), top: Math.round(r.top) } })
           seen.first = { svgs: box.querySelectorAll('svg').length, keys: keys.map((k) => k.dataset.key), looks, boxes }
         }
+        if (!seen.heldDown && keys.length === 2 && keys.every((k) => k.dataset.down !== undefined)) (seen.heldDown = true, (hold.on = true), (hold.stage = 'pressed'))
         for (const k of keys) {
           if (k.dataset.down !== undefined) seen.down.add(k.dataset.key)
           else if (seen.down.has(k.dataset.key) && !seen.back.has(k.dataset.key)) {
@@ -52,8 +64,16 @@ for (const [theme, width] of [['light', 1280], ['dark', 1280], ['light', 560], [
     // The way on; while the intro still covers the footer, its own Skip first.
     const next = async () => { if (await h.$("[data-intro]:not(.opacity-0) [data-skip-intro]")) await h.click("[data-skip-intro]", { timeout: 3000 }).catch(() => {}); await ((await h.$(`footer button:has-text("Skip trying it")`)) ? h.click(`footer button:has-text("Skip trying it")`, { timeout: 5000 }) : h.click(`footer button:has-text("Next"), footer button:has-text("Show me")`, { timeout: 5000 })).catch(() => h.keyboard.press("Enter")) }
     for (let i = 0; i < 16 && !(await chapter()).includes('Catch'); i++) (await next(), await wait(700))
-    // The keys are up for a moment only (less on a busy machine): everything about them is read in the page as it
-    // happens (above), and here the probe only waits for both to have been let go.
+    // Held with both down (past the 100ms fade): a picture of them, then let go.
+    for (const stage of ['pressed']) {
+      for (let i = 0; i < 300 && !(await h.evaluate((st) => window.__hold.on && window.__hold.stage === st, stage)); i++) await wait(50)
+      await wait(400)
+      const box = await (await h.$('[data-keycaps]'))?.boundingBox()
+      if (box) await h.screenshot({ path: `${shots}/keycaps-${name}-${stage}.png`, clip: { x: box.x - 60, y: box.y - 40, width: box.width + 120, height: box.height + 80 } })
+      check(`${name}: held ${stage}, pictured`, !!box)
+      await h.evaluate(() => window.__release())
+    }
+    // Everything else about the keys is read in the page as it happens (above): wait for both to have been let go.
     for (let i = 0; i < 200 && (await h.evaluate(() => window.__keys.back.size)) < 2; i++) await wait(100)
     const loaded = await h.evaluate(() => window.__keys.loaded ?? [])
     const rest = await h.evaluate(() => window.__keys.rest ?? [])
