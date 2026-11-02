@@ -1785,7 +1785,20 @@ export default function App(): React.JSX.Element {
     if (!row) return setToastLane(undefined)
     const place = (): void => {
       const last = row.lastElementChild?.getBoundingClientRect()
-      if (!last || !last.width) return
+      if (!last || !last.width) {
+        // No footer drawn: the one-line pill. The lane the grown box last set would put a notice over the pill's
+        // words, so it sits just above the card instead, centred on it, in the room the window keeps there.
+        const card = document.querySelector('.app-container')?.getBoundingClientRect()
+        if (!card?.width) return
+        document.body.removeAttribute('data-toast-raised')
+        // The round controls, when they sit above the pill (a narrow screen), keep their own room: the notice is
+        // centred in what is left of the card's width, left of them.
+        const controls = document.querySelector('.mf-top')?.getBoundingClientRect()
+        const end = controls?.width && controls.bottom <= card.top + 1 && controls.left > card.left ? Math.min(card.right, controls.left - 8) : card.right
+        const above = { '--toast-left': `${Math.round(card.left)}px`, '--toast-right': `${Math.round(window.innerWidth - end)}px`, '--toast-bottom': `${Math.round(window.innerHeight - card.top + 8)}px` } as CSSProperties
+        setToastLane((was) => (JSON.stringify(was) === JSON.stringify(above) ? was : above))
+        return
+      }
       // The whole row left of Create, the kind stepping back while it is up, so a notice and its
       // button fit on one line. A toast is about 34px tall: centred on the Create button.
       // One short enough is centred under the writing, as everywhere else. One too long to pass
