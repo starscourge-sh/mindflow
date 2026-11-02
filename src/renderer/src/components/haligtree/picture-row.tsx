@@ -43,7 +43,7 @@ export function PictureRow({ items, onOpen, menuFor, direct = false, counter = '
   return (
     // Its own clicks and drags stay its own. Its sides fade out, so a picture leaves the row rather than being cut off.
     <div ref={box} data-picture-row={still ? 'still' : 'moving'} onClick={(event) => event.stopPropagation()} style={{ height }}
-      className={`relative ${still ? '' : '[mask-image:linear-gradient(to_right,transparent,#000_7%,#000_93%,transparent)]'} ${className}`}>
+      className={`relative ${still ? '' : '[mask-image:linear-gradient(to_right,transparent,#000_7%,#000_93%,transparent)] [&:has([data-fits])]:[mask-image:none]'} ${className}`}>
       {still ? (
         <StillRow items={items} onOpen={onOpen} menuFor={menuFor} counter={counter} label={label} height={height} />
       ) : (

@@ -120,20 +120,20 @@ try {
   check('3 books: a short row stops at its ends (one cover each, no copies), the last read in the middle', three?.words.includes('Middlemarch') && three.fetched === 3, JSON.stringify(three))
   await shot('home-3-books')
 
-  // A click on a cover opens it at once.
+  // A click on a cover opens it at once. A row that fits starts at its left edge, so the first cover is near it.
   await go('home'); await wait(1000)
   await see('[data-continue-reading]')
   await h.evaluate(() => (window.__opened = null))
-  const box = await h.evaluate(() => { const r = document.querySelector('[data-continue-reading] [data-flex-carousel]').getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 } })
+  const box = await h.evaluate(() => { const r = document.querySelector('[data-continue-reading] [data-flex-carousel]').getBoundingClientRect(); return { x: r.x + 60, y: r.y + r.height / 2 - 30 } })
   await h.mouse.move(box.x, box.y); await wait(300)
   check('the hand over a cover', await h.evaluate(() => getComputedStyle(document.querySelector('[data-continue-reading] [data-flex-carousel]')).cursor) === 'pointer')
   await h.mouse.click(box.x, box.y, { button: 'right' })
   const coverMenu = await menuLines()
-  check('right-click on a cover: the book\'s own menu (Continue at its page, Show in Finder)', coverMenu.some((l) => /^Continue at p\. 12/.test(l)) && coverMenu.some((l) => /Show in Finder/.test(l)), JSON.stringify(coverMenu))
+  check('right-click on a cover: the book\'s own menu (Continue at its page, Show in Finder)', coverMenu.some((l) => /^Continue at p\. 401/.test(l)) && coverMenu.some((l) => /Show in Finder/.test(l)), JSON.stringify(coverMenu))
   await h.mouse.click(box.x, box.y); await wait(400)
   const clicked = await h.evaluate(() => window.__opened)
   // Three fit whole, so they sit centred: the one in the middle is the second, its title under it as the pointer rests there.
-  check('a click opens the book under it at its page', clicked?.src === books[1] && clicked.page === 12, JSON.stringify(clicked))
+  check('a click opens the book under it at its page', clicked?.src === books[2] && clicked.page === 401, JSON.stringify(clicked))
   await h.keyboard.press('Escape'); await wait(600)
 
   // Keyboard: Tab to it, → turns, ↵ opens at the page. (Opening a book made it the last read, so the order is read from the row.)

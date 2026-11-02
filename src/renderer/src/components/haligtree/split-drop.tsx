@@ -400,15 +400,15 @@ function ZoneBox({ zone, hot, lean, grow }: { zone: Zone; hot: boolean; lean: Mo
       data-hot={hot ? '' : undefined}
       aria-label={label}
       // Dia's card: dark and solid on the page, a dashed edge just inside it; the edge takes the accent while it is the place.
-      className="absolute flex flex-col items-center justify-center gap-2.5 rounded-[22px] bg-[color-mix(in_oklab,var(--foreground)_88%,var(--background))] text-background shadow-[0_24px_60px_-24px_color-mix(in_oklab,var(--mf-shadow-ink)_50%,transparent)]"
+      className="absolute flex flex-col items-center justify-center gap-2.5 rounded-[22px] border bg-popover text-foreground shadow-[0_24px_60px_-24px_color-mix(in_oklab,var(--mf-shadow-ink)_50%,transparent)]"
       style={{ left: zone.left, top: zone.top, width: zone.width, height: zone.height, x: lean, scale: grow, transformOrigin: zone.side === 'left' ? 'left center' : 'right center' }}
       initial={{ opacity: 0, scale: 0.96 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ type: 'spring', duration: 0.24, bounce: 0 }}
     >
-      <span aria-hidden className={`pointer-events-none absolute inset-2 rounded-[15px] border-2 border-dashed transition-colors duration-150 ${hot ? 'border-[var(--tt-brand-color-400)]' : 'border-background/20'}`} />
-      <span className={`relative flex items-center justify-center transition-colors duration-150 [&_svg]:size-5 ${hot ? 'text-[var(--tt-brand-color-400)]' : 'text-background/75'}`}><SplitMark side={zone.side} /></span>
-      <span className={`relative px-2 text-center font-medium transition-colors duration-150 ${narrow ? 'text-xs leading-tight' : 'text-control'} ${hot ? 'text-background' : 'text-background/75'}`}>{label}</span>
+      <span aria-hidden className={`pointer-events-none absolute inset-2 rounded-[15px] border-2 border-dashed transition-colors duration-150 ${hot ? 'border-[var(--tt-brand-color-400)]' : 'border-foreground/20'}`} />
+      <span className={`relative flex items-center justify-center transition-colors duration-150 [&_svg]:size-5 ${hot ? 'text-[var(--tt-brand-color-400)]' : 'text-muted-foreground'}`}><SplitMark side={zone.side} /></span>
+      <span className={`relative px-2 text-center font-medium transition-colors duration-150 ${narrow ? 'text-xs leading-tight' : 'text-control'} ${hot ? 'text-foreground' : 'text-muted-foreground'}`}>{label}</span>
     </motion.div>
   )
 }

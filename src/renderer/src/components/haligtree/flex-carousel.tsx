@@ -16,6 +16,9 @@ import { num } from '../../../../main/dates'
 import type { CSSProperties } from 'react'
 import { Renderer, Program, Mesh, Triangle, Plane, Texture, RenderTarget } from 'ogl'
 
+/** Room kept at a fitted row's left edge, for the first card's shadow. */
+const FIT_INSET = 4
+
 export interface FlexCarouselItem {
   /** The picture, or a way to fetch it, asked for only as it nears the view. */
   src: string | (() => Promise<string | null | undefined>)
@@ -586,9 +589,12 @@ export default function FlexCarousel({
       }
       layout = m
 
-      // A short row that fits whole is shown whole, centred, and stays put.
+      // A short row that fits whole is shown whole, from the row's left edge where its heading and the rows under it
+      // start, and stays put: centred, one book sat alone in the middle of an empty band.
+      // Said on the row, so its frame drops the side fades: nothing is cut off, so nothing needs to fade.
+      container.toggleAttribute('data-fits', fits(m))
       if (fits(m)) {
-        goal = (m.centers[0] + m.centers[m.centers.length - 1]) / 2
+        goal = m.centers[0] - m.widths[0] / 2 + width / 2 - FIT_INSET
         if (!rise.done && !rise.running) pos = goal
         chosen = Math.min(chosen, n - 1)
       }
