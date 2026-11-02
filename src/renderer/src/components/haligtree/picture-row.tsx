@@ -30,7 +30,20 @@ export function PictureRow({ items, onOpen, menuFor, direct = false, counter = '
 }): React.JSX.Element {
   const box = useRef<HTMLDivElement>(null)
   const seen = useInView(box, { once: true, margin: '200px' })
-  const still = useStill()
+  const quiet = useStill()
+  // A row that fits whole is a still row, like Home's other shelves: nothing to move through, so nothing moves.
+  // Only once there are more pictures than fit does it become the flowing row.
+  const [width, setWidth] = useState(0)
+  useLayoutEffect(() => {
+    const el = box.current
+    if (!el) return
+    const sized = new ResizeObserver(() => setWidth(el.clientWidth))
+    sized.observe(el)
+    setWidth(el.clientWidth)
+    return () => sized.disconnect()
+  }, [])
+  const fits = width > 0 && items.length * (stillCardWidth(items, height) + GAP) - GAP <= width
+  const still = quiet || fits
   // The card under the pointer, read as the menu opens.
   const under = useRef(-1)
   const menu = menuFor && ((): RowItem[] => {
@@ -45,7 +58,7 @@ export function PictureRow({ items, onOpen, menuFor, direct = false, counter = '
     <div ref={box} data-picture-row={still ? 'still' : 'moving'} onClick={(event) => event.stopPropagation()} style={{ height }}
       className={`relative ${still ? '' : '[mask-image:linear-gradient(to_right,transparent,#000_7%,#000_93%,transparent)] [&:has([data-fits])]:[mask-image:none]'} ${className}`}>
       {still ? (
-        <StillRow items={items} onOpen={onOpen} menuFor={menuFor} counter={counter} label={label} height={height} />
+        <StillRow items={items} onOpen={onOpen} menuFor={menuFor} counter={counter} label={label} height={height} whole={fits} />
       ) : (
         seen && (
           <Suspense fallback={null}>
@@ -60,13 +73,15 @@ export function PictureRow({ items, onOpen, menuFor, direct = false, counter = '
 const GAP = 12
 /** Under each picture: its title and its line. */
 const WORDS = 44
+/** One width for every still picture, from the first one's shape. */
+const stillCardWidth = (items: FlexCarouselItem[], height: number): number =>
+  Math.round(Math.max(40, height - WORDS - 12) * Math.min(Math.max(items[0]?.aspect ?? 0.8, 0.6), 1.5))
 
 /** The still row: one shape for every picture, so only those in view are drawn, however many there are. */
-function StillRow({ items, onOpen, menuFor, counter, label, height }: { items: FlexCarouselItem[]; onOpen: (index: number) => void; menuFor?: (index: number) => RowItem[]; counter: 'of' | 'slash'; label: string; height: number }): React.JSX.Element {
+function StillRow({ items, onOpen, menuFor, counter, label, height, whole = false }: { items: FlexCarouselItem[]; onOpen: (index: number) => void; menuFor?: (index: number) => RowItem[]; counter: 'of' | 'slash'; label: string; height: number; /** All of it fits: no fade at its end. */ whole?: boolean }): React.JSX.Element {
   const scroller = useRef<HTMLDivElement>(null)
   const picH = Math.max(40, height - WORDS - 12)
-  const shape = items[0]?.aspect ?? 0.8
-  const cardW = Math.round(picH * Math.min(Math.max(shape, 0.6), 1.5))
+  const cardW = stillCardWidth(items, height)
   const [range, setRange] = useState<[number, number]>([0, 12])
   useLayoutEffect(() => {
     const el = scroller.current
@@ -83,7 +98,7 @@ function StillRow({ items, onOpen, menuFor, counter, label, height }: { items: F
     return () => (el.removeEventListener('scroll', measure), sized.disconnect())
   }, [cardW, items.length])
   return (
-    <div ref={scroller} role="list" aria-label={label} className="h-full overflow-x-auto overflow-y-hidden pb-2 [mask-image:linear-gradient(to_right,#000_94%,transparent)]">
+    <div ref={scroller} role="list" aria-label={label} className={`h-full overflow-x-auto overflow-y-hidden pb-2 ${whole ? '' : '[mask-image:linear-gradient(to_right,#000_94%,transparent)]'}`}>
       <div className="relative h-full" style={{ width: items.length * (cardW + GAP) - GAP }}>
         {items.slice(range[0], range[1]).map((item, i) => {
           const at = range[0] + i

@@ -201,7 +201,7 @@ export function ReadingRow({ going }: { going: Book[] }): React.JSX.Element {
     [going]
   )
   return (
-    <div data-reading-row className="-mx-2">
+    <div data-reading-row className="-mx-2 has-[[data-picture-row=still]]:mx-0">
       <PictureRow key={going.map((one) => `${one.src}:${one.page}`).join()} items={items} height={250} cardHeight={0.72} direct label="Continue reading" menuFor={(at) => bookMenu(going[at])}
         onOpen={(at) => {
           const one = going[at]

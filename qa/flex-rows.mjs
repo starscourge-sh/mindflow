@@ -50,7 +50,7 @@ const row = (where) => h.evaluate((where) => {
   if (!box) return null
   const r = box.getBoundingClientRect()
   const car = box.querySelector('[data-flex-carousel]')
-  const words = car ? [...car.querySelectorAll('[aria-hidden=true] span')].map((one) => one.textContent) : []
+  const words = car ? [...car.querySelectorAll('[aria-hidden=true] span')].map((one) => one.textContent) : [...box.querySelectorAll('[data-still-picture] span')].map((one) => one.textContent).filter(Boolean)
   return { mode: box.dataset.pictureRow, top: Math.round(r.top), height: Math.round(r.height), canvas: !!car?.querySelector('canvas'), fetched: Number(car?.dataset.fetched ?? 0), active: Number(car?.dataset.active ?? -1), words, still: box.querySelectorAll('[data-still-picture]').length }
 }, where)
 const see = async (where) => (await h.evaluate((where) => document.querySelector(`${where} [data-picture-row]`)?.scrollIntoView({ block: 'center' }), where), await wait(2500))
@@ -84,8 +84,11 @@ try {
   await go('media'); await go('home'); await wait(1500)
   await see('[data-continue-reading]')
   const one = await row('[data-continue-reading]')
-  check('1 book: a covers row on Home, in the WebGL carousel', one?.mode === 'moving' && one.canvas, JSON.stringify(one))
+  // A row that fits whole is still, like Home's other shelves; only more than fit makes it flow.
+  check('1 book: a still covers row on Home, no carousel', one?.mode === 'still' && !one.canvas && one.still === 1, JSON.stringify(one))
   check('its title and "p. 134 of 336" under the cover', one?.words.includes('Meditations') && one.words.includes('p. 134 of 336'), JSON.stringify(one?.words))
+  const flush = await h.evaluate(() => { const head = document.querySelector('[data-continue-reading] h2, [data-continue-reading] h3'); const card = document.querySelector('[data-continue-reading] [data-still-picture]'); return head && card ? Math.round(card.getBoundingClientRect().left - head.getBoundingClientRect().left) : null })
+  check("the cover starts exactly under its heading", flush !== null && Math.abs(flush) <= 2, flush)
   await shot('home-1-book')
   await v('pdf:read', books[1], 12, 280)
   await v('pdf:read', books[2], 401, 880)
@@ -94,11 +97,6 @@ try {
   // Stillness: the row's box and what is below it, at first paint and after the covers are in.
   await go('home')
   await h.evaluate(() => document.querySelector('[data-continue-reading]')?.scrollIntoView({ block: 'center', behavior: 'instant' }))
-  const firstPaint = await h.evaluate(() => {
-    const box = document.querySelector('[data-continue-reading] [data-picture-row]')
-    const next = document.querySelector('[data-continue-reading]')?.nextElementSibling
-    return box && { h: Math.round(box.getBoundingClientRect().height), next: Math.round(next?.getBoundingClientRect().top ?? -1) }
-  })
   const frames = []
   for (let i = 0; i < 40; i++) {
     frames.push(await h.evaluate(() => {
@@ -109,53 +107,40 @@ try {
     if (shots && i % 4 === 0) await h.screenshot({ path: `${shots}/home-load-${String(i).padStart(2, '0')}.png`, clip: { x: 0, y: 0, width: 1300, height: 900 } })
     await wait(50)
   }
-  check('nothing moves as the covers load: the row keeps 250px and the section below stays put, 40 frames 50ms apart', new Set(frames).size === 1 && firstPaint?.h === 250, `${JSON.stringify(firstPaint)} ${[...new Set(frames)].join(' | ')}`)
-  const hug = await h.evaluate(() => {
-    const box = document.querySelector('[data-continue-reading] [data-picture-row]').getBoundingClientRect()
-    const words = [...document.querySelectorAll('[data-continue-reading] [data-flex-carousel] [aria-hidden=true] span')].map((one) => one.getBoundingClientRect())
-    return { box: Math.round(box.height), titleTop: Math.round(words[0].top - box.top), below: Math.round(box.bottom - words[words.length - 1].bottom) }
-  })
-  check('the row hugs its covers: the title starts 196px down (a 180px cover from 6px, then 10px), and ends within 20px of the box\'s foot', hug.titleTop >= 190 && hug.titleTop <= 200 && hug.below >= 0 && hug.below <= 20, JSON.stringify(hug))
+  check('nothing moves as the covers load: the row keeps 250px and the section below stays put, 40 frames 50ms apart', new Set(frames).size === 1 && frames[0].startsWith('250:'), [...new Set(frames)].join(' | '))
   const three = await row('[data-continue-reading]')
-  check('3 books: a short row stops at its ends (one cover each, no copies), the last read in the middle', three?.words.includes('Middlemarch') && three.fetched === 3, JSON.stringify(three))
+  check('3 books: three still covers, each with its title and page', three?.mode === 'still' && three.still === 3 && ['Middlemarch', 'Walden', 'Meditations'].every((t) => three.words.includes(t)), JSON.stringify(three))
   await shot('home-3-books')
 
-  // A click on a cover opens it at once. A row that fits starts at its left edge, so the first cover is near it.
+  // A click on a cover opens it at once; right-click is the book's own menu; the hand shows.
   await go('home'); await wait(1000)
   await see('[data-continue-reading]')
   await h.evaluate(() => (window.__opened = null))
-  const box = await h.evaluate(() => { const r = document.querySelector('[data-continue-reading] [data-flex-carousel]').getBoundingClientRect(); return { x: r.x + 60, y: r.y + r.height / 2 - 30 } })
-  await h.mouse.move(box.x, box.y); await wait(300)
-  check('the hand over a cover', await h.evaluate(() => getComputedStyle(document.querySelector('[data-continue-reading] [data-flex-carousel]')).cursor) === 'pointer')
-  await h.mouse.click(box.x, box.y, { button: 'right' })
+  const first = h.locator('[data-continue-reading] [data-still-picture="0"]')
+  // Books read within the same moment may sit in either order, so the first cover is read, not assumed.
+  const firstTitle = await first.evaluate((el) => [...el.querySelectorAll('span')].map((one) => one.textContent).find(Boolean))
+  const AT = { Meditations: [books[0], 134], Walden: [books[1], 12], Middlemarch: [books[2], 401] }
+  await first.hover(); await wait(200)
+  check('the hand over a cover', await h.evaluate(() => getComputedStyle(document.querySelector('[data-continue-reading] [data-still-picture="0"]')).cursor) === 'pointer')
+  await first.click({ button: 'right' })
   const coverMenu = await menuLines()
-  check('right-click on a cover: the book\'s own menu (Continue at its page, Show in Finder)', coverMenu.some((l) => /^Continue at p\. 401/.test(l)) && coverMenu.some((l) => /Show in Finder/.test(l)), JSON.stringify(coverMenu))
-  await h.mouse.click(box.x, box.y); await wait(400)
+  check('right-click on a cover: the book\'s own menu (Continue at its page, Show in Finder)', coverMenu.some((l) => l.startsWith(`Continue at p. ${AT[firstTitle]?.[1]}`)) && coverMenu.some((l) => /Show in Finder/.test(l)), JSON.stringify(coverMenu))
+  await first.click(); await wait(400)
   const clicked = await h.evaluate(() => window.__opened)
-  // Three fit whole, so they sit centred: the one in the middle is the second, its title under it as the pointer rests there.
-  check('a click opens the book under it at its page', clicked?.src === books[2] && clicked.page === 401, JSON.stringify(clicked))
+  check('a click opens the book under it at its page', clicked?.src === AT[firstTitle]?.[0] && clicked.page === AT[firstTitle]?.[1], JSON.stringify(clicked))
   await h.keyboard.press('Escape'); await wait(600)
 
-  // Keyboard: Tab to it, → turns, ↵ opens at the page. (Opening a book made it the last read, so the order is read from the row.)
-  const PAGES = { Meditations: 'p. 134 of 336', Walden: 'p. 12 of 280', Middlemarch: 'p. 401 of 880' }
-  const SRC = { Meditations: books[0], Walden: books[1], Middlemarch: books[2] }
+  // Keyboard: each cover is a button; Tab to one and ↵ opens it at its page.
   await reset()
   await go('media'); await go('home'); await wait(1000)
   await see('[data-continue-reading]')
-  await h.focus('[data-continue-reading] [data-flex-carousel]')
-  const start = await row('[data-continue-reading]')
-  await h.keyboard.press('ArrowRight'); await wait(900)
-  const turned = await row('[data-continue-reading]')
-  check('→ turns to the next book, its title and page under it', turned?.active === 1 && turned.words[0] !== start.words[0] && turned.words[1] === PAGES[turned.words[0]], JSON.stringify([start?.words, turned?.words]))
-  await h.keyboard.press('ArrowRight'); await h.keyboard.press('ArrowRight'); await wait(900)
-  const end = await row('[data-continue-reading]')
-  check('a short row stops at its end: → past the last stays on the last', end?.active === 2, JSON.stringify({ end, focus: await h.evaluate(() => document.activeElement?.outerHTML.slice(0, 80)) }))
-  await h.keyboard.press('ArrowLeft'); await wait(900)
-  const before = await row('[data-continue-reading]')
+  await h.focus('[data-continue-reading] [data-still-picture="1"]')
+  const picked = await h.evaluate(() => [...(document.activeElement?.querySelectorAll('span') ?? [])].map((one) => one.textContent).find(Boolean))
   await h.evaluate(() => (window.__opened = null))
   await h.keyboard.press('Enter'); await wait(400)
   const opened = await h.evaluate(() => window.__opened)
-  check('↵ opens the picked book at its page', before?.active === 1 && opened?.src === SRC[before.words[0]] && `p. ${opened.page} of` === PAGES[before.words[0]].replace(/ of \d+$/, ' of'), JSON.stringify({ opened, before: before?.words }))
+  const SRC = { Meditations: books[0], Walden: books[1], Middlemarch: books[2] }
+  check('↵ on a focused cover opens that book', !!picked && opened?.src === SRC[picked], JSON.stringify({ picked, opened }))
 
   // The PDF shelf: the same row at its top.
   await go('media'); await wait(800)
@@ -164,7 +149,7 @@ try {
   await h.locator('[data-library] [data-book]').first().click({ button: 'right' })
   const shelfMenu = await menuLines()
   check('the shelf\'s book card has the same menu', shelfMenu.some((l) => /^Continue at p\./.test(l)) && shelfMenu.some((l) => /Show in Finder/.test(l)), JSON.stringify(shelfMenu))
-  check('Media\'s PDF shelf opens on the same covers row', shelf?.canvas && shelf.words.some((w) => /^p\. /.test(w)), JSON.stringify(shelf))
+  check('Media\'s PDF shelf opens on the same covers row', shelf && (shelf.canvas || shelf.still > 0) && shelf.words.some((w) => /^p\. /.test(w)), JSON.stringify(shelf))
   await shot('media-pdf-shelf')
 
   // --- Recent pictures: 12.
