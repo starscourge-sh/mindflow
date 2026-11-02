@@ -236,6 +236,10 @@ test('an answer counts the things it asks you to recall', () => {
   // A sentence with commas is one thing.
   assert.equal(thingsIn('Because, as Ebbinghaus found in 1885, memory fades fast at first and then slowly'), 1)
   assert.equal(thingsIn('Lima'), 1)
+  // Lines that are a word's meaning, not a list, are one thing.
+  assert.equal(thingsIn('Wicked or criminal, especially in a sly way.\nExample: a nefarious plot to seize power.\nSimilar: villainous, sinister, wicked.\nFrom Latin nefas, a wrong against the gods.'), 1)
+  assert.equal(thingsIn('1. Mercury\n2. Venus\n3. Earth'), 3)
+  assert.equal(thingsIn('Mercury\nVenus\nEarth'), 3)
 })
 
 test('a tag with its own new cards a day starts no more than that', () => {

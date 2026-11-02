@@ -271,7 +271,10 @@ export function balancedDay(days: number, load: (day: number) => number, lighter
  */
 export function thingsIn(answer: string): number {
   const lines = answer.split('\n').map((line) => line.trim()).filter(Boolean)
-  if (lines.length > 1) return lines.length
+  // Lines are things only when they are a list: marked as one (-, *, •, 1.), or every line short. A word's meaning
+  // set out over a few lines (the sense, an example, its kin) is one thing to recall, not six ("Nefarious").
+  const listed = (line: string): boolean => /^([-*•–]|\d+[.)])\s/.test(line)
+  if (lines.length > 1) return lines.every(listed) || lines.every((line) => line.split(/\s+/).length <= 4) ? lines.length : 1
   const parts = (lines[0] ?? '').split(/[;,]| and /).map((part) => part.trim()).filter(Boolean)
   // A sentence with commas is not a list: only short parts count as things.
   return parts.length > 1 && parts.every((part) => part.split(' ').length <= 4) ? parts.length : 1

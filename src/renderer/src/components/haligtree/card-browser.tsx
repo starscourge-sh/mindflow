@@ -512,9 +512,9 @@ export function CardBrowser({ onOpen, aim, only, newest, onAll, onShow, onAimDon
   // a small warning mark: orange is Learning's and red is danger's, so it takes neither. Its fixes, one click each, where you asked
   // to see what needs work (grouped or filtered by it).
   const working = view.group === 'needs' || (view.filter.needs ?? []).length > 0
-  const said = (card: BrowsedCard): string => [card.lapses >= 2 && `Forgotten ${num(card.lapses)} times${card.leech ? ', a leech' : ''}`, card.things > 4 && `asks for ${num(card.things)} things (more than 4)`, (card.seconds ?? 0) >= 40 && `takes ${num(card.seconds!)} seconds each time`].filter(Boolean).join('; ')
+  const said = (card: BrowsedCard): string => [card.lapses >= 2 && `Forgotten ${num(card.lapses)} times${card.leech ? ', a leech' : ''}`, card.things > 4 && `${num(card.things)} answers to recall at once: more than 4 is hard to keep`, (card.seconds ?? 0) >= 40 && `takes ${num(card.seconds!)} seconds each time`].filter(Boolean).join('; ')
   // Grouped or filtered by it, the fixes line says it in words instead.
-  const short = (card: BrowsedCard): string => [card.lapses >= 2 && `Forgotten ${num(card.lapses)} times`, card.things > 4 && `Asks for ${num(card.things)} things`, (card.seconds ?? 0) >= 40 && `Slow: ${num(card.seconds!)}s`].filter(Boolean)[0] as string
+  const short = (card: BrowsedCard): string => [card.lapses >= 2 && `Forgotten ${num(card.lapses)} times`, card.things > 4 && `${num(card.things)} answers to recall at once`, (card.seconds ?? 0) >= 40 && `Slow: ${num(card.seconds!)}s`].filter(Boolean)[0] as string
   const mark = (card: BrowsedCard): React.JSX.Element | null => !needs(card).length || working ? null : (
     <span data-card-needs={needs(card).join(' ')} data-card-big={needs(card).some((one) => one === 'big' || one === 'slow') || undefined} aria-label={said(card)}
       className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-[4px] bg-foreground/[0.06] px-1.5 text-xs leading-4 font-medium text-foreground">
