@@ -403,7 +403,6 @@ const PAINTINGS: Record<string, string> = {
   'dnieper-moonlight': "Moonlit Night on the Dnieper, Arkhip Kuindzhi",
   'lake-george': "Lake George, John Frederick Kensett",
   'approaching-thunder-storm': "Approaching Thunder Storm, Martin Johnson Heade",
-  'birch-grove': "Birch Grove, Arkhip Kuindzhi"
 }
 /** A credit for the day's picture, the way a caption names a painting: its name, then where it hangs. */
 const credit = (name?: string, folder?: string): string | null =>

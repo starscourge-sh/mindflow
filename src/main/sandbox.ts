@@ -76,6 +76,9 @@ moveOldIn(app.getPath('appData'), realRoot(), process.env, SANDBOX)
 export const BOOK = pickBook()
 /** Where this run keeps everything. */
 /** Where Haligtree's own paintings are written: always the book's own folder now, wherever an older one was. */
+/** Haligtree's own paintings taken out of the set: Birch Grove (2 Nov 2026, the user asked). */
+const RETIRED_PAINTINGS = ['birch-grove.webp']
+
 export const packFolder = (): string => (SANDBOX ? join(sandboxRoot(), 'Sandbox scenery') : join(dataRoot(), 'Scenery'))
 /**
  * Whether a chosen folder is Haligtree's own paintings (any copy of them, under this app's support folder, by its
@@ -477,6 +480,8 @@ export function registerSandbox(): void {
       if ((await stat(join(folder, file.name)).catch(() => null))?.size === file.bytes.length) continue
       await writeFile(join(folder, file.name), file.bytes)
     }
+    // Paintings no longer shipped leave the folder too, or a book set up before keeps showing them.
+    for (const gone of RETIRED_PAINTINGS) await rm(join(folder, gone), { force: true })
     return folder
   })
 

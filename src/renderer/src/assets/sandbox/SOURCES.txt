@@ -131,5 +131,4 @@ painting whose painter died before 1950 (public domain), cropped to 16:9 at 1600
       https://commons.wikimedia.org/wiki/File:Kensett_John_F_Lake_George.jpg
   scenery/approaching-thunder-storm.webp  Martin Johnson Heade (1819 to 1904), Approaching Thunder Storm, 1859.
       https://commons.wikimedia.org/wiki/File:Martin_Johnson_Heade_Approaching_Thunderstorm_ATC.jpg
-  scenery/birch-grove.webp  Arkhip Kuindzhi (1842 to 1910), Birch Grove, 1879.
       https://commons.wikimedia.org/wiki/File:0828Ha._Kuindzhi_A.I._Birch_Grove,_1879.jpg
