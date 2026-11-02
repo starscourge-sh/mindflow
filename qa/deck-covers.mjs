@@ -1,7 +1,7 @@
 // A deck or tag with no picture wears a cover drawn from Coolshapes, picked by its name: the same
 // name gets the same cover on every render, two names get two covers, and it is drawn in the group's
-// own colour on paper (light) and charcoal (dark). Checked in All cards' pockets and shelves, Review ›
-// Decks (a deck with no pictures) and Your month's tag card, at 14 tags and at 300, light and dark.
+// own colour on paper (light) and charcoal (dark). Checked on Review ›
+// Decks (with "Shapes on decks"; All cards draws no deck at all) (a deck with no pictures) and Your month's tag card, at 14 tags and at 300, light and dark.
 //   QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 QA_ARGS=--sandbox QA_SHOTS=dir node qa/deck-covers.mjs
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs'
 import { join } from 'path'
@@ -47,7 +47,7 @@ const openCards = async (patch) => {
   await h.waitForLoadState('domcontentloaded')
   await c.go('review')
   await h.evaluate(() => document.querySelector('[data-review-tab="cards"]')?.click())
-  await waitFor(() => h.evaluate(() => !!document.querySelector('[data-card-list] :is([data-pick], [data-pocket], [data-shelf])')))
+  await waitFor(() => h.evaluate(() => !!document.querySelector('[data-card-list] [data-pick]')))
   await h.mouse.move(5, 5)
   await h.waitForTimeout(500)
 }
@@ -78,28 +78,9 @@ const tinted = (list) => list.length > 0 && list.every((one) => one.stop === one
 try {
   await waitFor(() => h.evaluate(() => !!document.querySelector('main')))
   await call('cards:list', make(135, SUBJECTS))
-  // Pockets, rendered twice: the same name draws the same cover.
-  await openCards({ density: 'small', group: 'none', filter: {} })
-  const first = await covers('[data-pocket]')
-  await openCards({ density: 'small', group: 'none', filter: {} })
-  const second = await covers('[data-pocket]')
-  const pockets = await h.evaluate(() => document.querySelectorAll('[data-pocket]').length)
-  const fronts = await h.evaluate(() => [...document.querySelectorAll('[data-pocket]')].filter((one) => { const glass = one.querySelector('.mf-glass')?.getBoundingClientRect(); const shape = one.querySelector('.mf-glass [data-group-cover] svg[data-shape]')?.getBoundingClientRect(); return !!glass && !!shape && shape.width > 20 && shape.right > glass.left && shape.left < glass.right }).length)
-  check('14: every pocket wears a drawn cover', new Set(first.map((one) => one.name)).size === pockets, `${new Set(first.map((one) => one.name)).size} named covers, ${pockets} pockets`)
-  check('14: every pocket\'s glass front shows its cover\'s shapes', fronts === pockets, `${fronts} of ${pockets}`)
-  check('a pocket\'s back and front are the same cover', first.every((one) => first.filter((other) => other.name === one.name).every((other) => other.drawn === one.drawn)))
-  check('the same name draws the same cover on a second render', first.length > 0 && first.every((one) => second.find((again) => again.name === one.name)?.drawn === one.drawn), JSON.stringify(first.slice(0, 3)))
-  const named = [...new Map(first.map((one) => [one.name, one])).values()]
-  check('14: no two names share a cover', new Set(named.map((one) => one.drawn)).size === named.length, first.map((one) => `${one.name} ${one.drawn}`).join(', '))
-  const pocketsSeen = await both('covers-14-pockets', () => openCards({ density: 'small', group: 'none', filter: {} }))
-  check('light: each cover is drawn in its group\'s own colour', tinted(pocketsSeen.light), JSON.stringify(pocketsSeen.light.slice(0, 2)))
-  check('dark: each cover is drawn in its group\'s own colour', tinted(pocketsSeen.dark), JSON.stringify(pocketsSeen.dark.slice(0, 2)))
-  check('light and dark lay it on their own page (paper, then charcoal)', pocketsSeen.light[0]?.page !== pocketsSeen.dark[0]?.page, `${pocketsSeen.light[0]?.page} / ${pocketsSeen.dark[0]?.page}`)
-  // Shelves.
+  // All cards holds only cards: no deck there wears a cover, grouped by deck or not.
   await openCards({ density: 'grid', group: 'deck' })
-  const shelves = await h.evaluate(() => [...document.querySelectorAll('[data-shelf]')].map((one) => { const tile = one.querySelector('header [data-group-cover]')?.getBoundingClientRect(); return !!tile && tile.width >= 44 && tile.width <= 52 }))
-  check('14: every shelf wears its cover as a tile about 48px', shelves.length > 3 && shelves.every(Boolean), `${shelves.filter(Boolean).length} of ${shelves.length}`)
-  await both('covers-14-shelves', () => openCards({ density: 'grid', group: 'deck' }))
+  check('All cards: no deck cover, no stack, only card faces under deck headings', (await covers('[data-card-browser]')).length === 0 && await h.evaluate(() => !document.querySelector('[data-card-browser] :is([data-pocket], .mf-pile)') && !!document.querySelector('[data-card-face="front"]')))
   // A deck with no pictures on Review › Decks.
   await h.evaluate((url) => { location.href = url }, `file://${deckFile}`)
   await waitFor(() => h.evaluate(() => !!document.querySelector('[data-apkg-go], [data-import-done]')))
@@ -122,9 +103,17 @@ try {
   await waitFor(() => h.evaluate(() => !!document.querySelector('[data-own-deck="zymurgy"] [data-group-cover]')))
   const deck = await covers('[data-deck="Geography"]')
   const own = await covers('[data-own-deck="zymurgy"]')
-  check('Decks, with "Shapes on decks" on: a deck made by hand wears its drawn cover, the one its pocket wears', own.length === 1 && tinted(own) && own[0].name === '#zymurgy', JSON.stringify(own))
+  check('Decks, with "Shapes on decks" on: a deck made by hand wears its drawn cover', own.length === 1 && tinted(own) && own[0].name === '#zymurgy', JSON.stringify(own))
   check('Decks, with "Shapes on decks" on: a deck with no pictures wears its drawn cover, in its colour', deck.length === 1 && tinted(deck), JSON.stringify(deck))
-  await both('covers-decks', openDecks)
+  const first = await covers('[data-deck-grid]')
+  await c.go('home')
+  await openDecks()
+  const second = await covers('[data-deck-grid]')
+  check('the same name draws the same cover on a second render', first.length > 3 && first.every((one) => second.find((again) => again.name === one.name)?.drawn === one.drawn), JSON.stringify(first.slice(0, 3)))
+  check('14: no two names share a cover', new Set(first.map((one) => one.drawn)).size === first.length, first.map((one) => `${one.name} ${one.drawn}`).join(', '))
+  const decksSeen = await both('covers-decks', openDecks)
+  check('light: each cover is drawn in its group\'s own colour', tinted(decksSeen.light), JSON.stringify(decksSeen.light.slice(0, 2)))
+  check('dark: each cover is drawn in its group\'s own colour', tinted(decksSeen.dark), JSON.stringify(decksSeen.dark.slice(0, 2)))
   // Your month's tag card.
   const openMonth = async () => {
     await c.send('recap', 'yourmonth')
@@ -143,24 +132,15 @@ try {
   // 300 tags: every cover different, scrolled through.
   const tags = Array.from({ length: 300 }, (_, at) => `${SUBJECTS[at % SUBJECTS.length]}${at >= SUBJECTS.length ? `${Math.floor(at / SUBJECTS.length)}` : ''}`)
   for (let from = 0; from < 1200; from += 600) await call('cards:list', make(600, tags, from))
-  await openCards({ density: 'small', group: 'none', filter: {} })
-  const drawn = new Map()
-  for (let step = 0; step < 200; step++) {
-    for (const one of await covers('[data-pocket]')) drawn.set(one.name, one.drawn)
-    const moved = await h.evaluate(() => {
-      const box = [...document.querySelectorAll('*')].find((one) => one.contains(document.querySelector('[data-pocket]')) && one.scrollHeight > one.clientHeight + 4 && /(auto|scroll)/.test(getComputedStyle(one).overflowY))
-      if (!box) return false
-      const was = box.scrollTop
-      box.scrollTop += box.clientHeight * 0.8
-      return box.scrollTop !== was
-    })
-    if (!moved) break
-    await h.waitForTimeout(120)
-  }
-  check('300: a cover read from at least 300 pockets', drawn.size >= 300, `${drawn.size}`)
+  // Every deck on Decks, shapes on: each its own cover.
+  await c.go('home')
+  await openDecks()
+  await h.evaluate(() => document.querySelector('[data-deck-fold]')?.click())
+  await h.waitForTimeout(1500)
+  const drawn = new Map((await covers('[data-deck-grid]')).map((one) => [one.name, one.drawn]))
+  check('300: a cover read from at least 300 decks', drawn.size >= 300, `${drawn.size}`)
   check('300: no two names share a cover', new Set(drawn.values()).size === drawn.size, `${new Set(drawn.values()).size} different of ${drawn.size}`)
-  await both('covers-300-pockets', () => openCards({ density: 'small', group: 'none', filter: {} }))
-  await both('covers-300-shelves', () => openCards({ density: 'grid', group: 'deck' }))
+  await both('covers-300-decks', async () => { await c.go('home'); await openDecks() })
   check('no errors on the page', c.errors.length === 0, c.errors.slice(0, 3).join(' | '))
 } finally {
   await c.close()

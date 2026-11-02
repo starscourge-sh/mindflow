@@ -59,10 +59,8 @@ try {
   const decksLeft = await box('[data-deck-top]')
   await shot('decks')
   await tab('cards')
-  await waitFor(() => has('[data-pocket]'))
-  const pocket = await box('[data-pocket] > [data-pile-top]')
-  check('1. All cards pockets are the same tile: satin, square, about the same width', await has('[data-pocket][data-pocket-plain] > [data-pile-top].mf-metal') && Math.abs(pocket.w / pocket.h - 1) <= 0.1 && Math.abs(pocket.w - tile.w) <= 24, JSON.stringify({ pocket, tile }))
-  check('1. no coloured glass or Coolshapes in All cards by default', !(await has('[data-card-pockets] .mf-glass, [data-card-pockets] [data-group-cover]')))
+  await waitFor(() => has('[data-card-list] [data-pick]'))
+  check('1. All cards is the cards, never a deck tile: a list of rows, no pile', (await h.evaluate(() => document.querySelector('[data-card-browser]')?.getAttribute('data-density'))) === 'list' && !(await has('[data-card-browser] :is(.mf-pile, [data-pocket])')))
 
   // 1b. Dense tiles: about 200 px, the name leads, satin you can see, no tip at all (one hover, one surface).
   await tab('decks')
@@ -139,20 +137,18 @@ try {
   const strip = await h.evaluate(() => { const all = [...document.querySelectorAll('[data-day-cells] [data-day]')].map((one) => one.getBoundingClientRect()); const well = document.querySelector('[data-day-cells]').getBoundingClientRect(); return { n: all.length, rows: new Set(all.map((r) => Math.round(r.top))).size, h: Math.round(all[0].height), spans: Math.round(all.at(-1).right - all[0].left) >= Math.round(well.width) - 2, mondays: document.querySelectorAll('[data-day-mondays] .bg-foreground\\/35').length } })
   check('1d. Stats 30 days: one row of 30 small cells spanning the well, heatmap corners, Mondays ticked', cells && cells.radius === '2px' && strip.n === 30 && strip.rows === 1 && strip.h <= 12 && strip.spans && strip.mondays >= 4 && !(await has('[data-mono-dots]')), JSON.stringify({ cells, strip }))
   await tab('cards')
-  await waitFor(() => has('[data-pocket]'))
+  await waitFor(() => has('[data-card-list] [data-pick]'))
 
   // 2. Decks by name, never as #tags.
-  const pocketsText = await h.evaluate(() => [...document.querySelectorAll('[data-pocket]')].map((one) => one.textContent).join(' | '))
-  check('2. pockets name decks in words ("Biology / Cells"), no #', /Biology \/ Cells/.test(pocketsText) && !/#/.test(pocketsText), pocketsText.slice(0, 200))
   const cardsLeft = await box('[data-card-browser] > div')
-  await shot('cards-pockets')
+  await shot('cards-list')
   // The list grouped by deck: headings by name.
   await h.evaluate(() => { const v = JSON.parse(localStorage.getItem('view:cards') ?? '{}'); localStorage.setItem('view:cards', JSON.stringify({ ...v, density: 'list', group: 'deck' })) })
   await review(); await tab('cards')
   await waitFor(() => has('[data-card-group], [data-island]'))
-  const heads = await h.evaluate(() => [...document.querySelectorAll('[data-card-group] h2, [data-island] h2, [data-island] [data-island-title]')].map((one) => one.textContent).join(' | '))
+  const heads = await h.evaluate(() => [...document.querySelectorAll('[data-card-group] h2, [data-island] [data-island-head]')].map((one) => one.textContent).join(' | '))
   const chips = await h.evaluate(() => [...document.querySelectorAll('[data-card-browser] [role="radio"], [data-card-browser] [data-chip]')].map((one) => one.textContent).join(' | '))
-  check('2. grouped by deck, the headings and chips carry no #', !/#/.test(heads) && !/#/.test(chips), `${heads.slice(0, 160)} || ${chips.slice(0, 160)}`)
+  check('2. grouped by deck, the headings name decks in words ("Biology / Cells") and they and the chips carry no #', /Biology \/ Cells/.test(heads) && !/#/.test(heads) && !/#/.test(chips), `${heads.slice(0, 160)} || ${chips.slice(0, 160)}`)
 
   // Every row in the Table and the List one line high: a stage cell says one word.
   for (const density of ['compact', 'list']) {
@@ -227,7 +223,7 @@ try {
   await review()
 
   // 7. All cards' view names.
-  check('7. the views are Pockets, Cards, List and Table', true)
+  check('7. the views are List, Cards and Table', true)
 
   // Slice 4. Decks in your own order.
   await waitFor(() => has('[data-deck-grid] [data-own-deck]'))

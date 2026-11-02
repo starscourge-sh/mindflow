@@ -1,22 +1,16 @@
-import { deckTitle, nameFit, softBreaks } from './decks'
-import { haligtree, useLive, type Settings } from '@/lib/haligtree'
+import { deckTitle } from './decks'
 import { useEffect, useRef, useState } from 'react'
 import { chime } from '@/lib/sound'
 import { still } from '@/lib/motion'
 import { num } from '../../../../main/dates'
-import { useSideways } from './display'
 import { Flip } from './review-view'
 import { tagTint } from './tag-icon'
-import { GroupCover } from './group-cover'
-import { PileEdges } from './deck-pile'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
 import type { BrowsedCard } from './card-browser'
 
 /**
- * All cards drawn as things you can pick up: pockets (one a deck or tag, its
- * cards fanned out of a glass front), shelves (a group's cards standing behind
- * a glass ledge in its colour), a plain grid of cards, and "Flip through" (a
- * cover flow of one group). Every card is a poster: the question large in the
+ * All cards drawn as cards: a grid of single card faces, and "Flip through"
+ * (a cover flow of the cards on show). Never a stack: a stack is a deck, on
+ * the Decks tab. Every card is a poster: the question large in the
  * serif, a snip's picture or a quiet figure drawn from its tag, and its source
  * small at the foot, on card stock tinted with its tag's colour.
  */
@@ -33,11 +27,6 @@ export const groupTint = (name: string): string => tagTint(name.replace(/^#/, ''
 
 /** A card's colour: its first tag's, or its deck's. */
 export const cardTint = (card: BrowsedCard): string => groupTint(card.tags[0] ?? card.source ?? card.id)
-
-/** A group's cover where it has no picture: its Coolshapes cover (group-cover.tsx), with no name on it, as the name is said beside it. */
-export function Cover({ name, tint, className = '' }: { name: string; tint: string; className?: string }): React.JSX.Element {
-  return <GroupCover name={name} tint={tint} label={null} className={className} />
-}
 
 /**
  * A quiet line figure for a card with no picture, in its tag's colour: one of
@@ -106,7 +95,7 @@ const STAGE_TINT: Record<string, string> = { new: 'var(--tt-color-text-blue)', l
  * to its answer; ⌘- and ⇧-click pick it. Only a known card (remembered after
  * 15 days) carries a sheen: its reward, and nothing else shines.
  */
-export function Poster({ card, over, onTurn, picked, onPick, question, answer, size = 'md', ledge = false }: {
+export function Poster({ card, over, onTurn, picked, onPick, question, answer, size = 'md' }: {
   card: BrowsedCard
   over: boolean
   onTurn: (over: boolean) => void
@@ -115,15 +104,13 @@ export function Poster({ card, over, onTurn, picked, onPick, question, answer, s
   question: React.ReactNode
   answer: string
   size?: 'sm' | 'md' | 'lg'
-  /** Standing on a shelf: a band of bare paper at its foot for the glass ledge, its words above it. */
-  ledge?: boolean
 }): React.JSX.Element {
   const tint = cardTint(card)
   const lean = useLean()
   const stage = card.known ? 'known' : card.stage
   const where = [card.source, card.at].filter(Boolean).join(', ')
   const face = (side: 'front' | 'back', children: React.ReactNode): React.JSX.Element => (
-    <div data-card-face={side} className={`mf-poster relative flex aspect-[4/5] w-full min-w-0 flex-col overflow-hidden rounded-lg ${size === 'lg' ? 'p-6' : ledge ? 'p-4 pb-12' : 'p-4'} ${picked ? 'ring-2 ring-[var(--tt-brand-color-400)]' : ''}`} style={{ '--tint': tint } as React.CSSProperties}>
+    <div data-card-face={side} className={`mf-poster relative flex aspect-[4/5] w-full min-w-0 flex-col overflow-hidden rounded-lg ${size === 'lg' ? 'p-6' : 'p-4'} ${picked ? 'ring-2 ring-[var(--tt-brand-color-400)]' : ''}`} style={{ '--tint': tint } as React.CSSProperties}>
       {children}
       <div className="mt-auto flex items-end justify-between gap-2 pt-2 text-[11px] leading-tight text-foreground/70">
         <span className="min-w-0 truncate">{where || (card.tags[0] ? deckTitle(card.tags[0]) : '')}</span>
@@ -154,171 +141,6 @@ export function Poster({ card, over, onTurn, picked, onPick, question, answer, s
           <p className={`text-foreground/90 ${size === 'lg' ? 'text-lg leading-relaxed line-clamp-[10]' : 'text-sm leading-relaxed line-clamp-[8]'}`}>{answer || 'No answer yet'}</p>
         </>)} />
     </div>
-  )
-}
-
-/**
- * The group's cover drawn on its glass front, the shapes in its own tones over
- * the glass's tint (no page behind them), so a pocket says which it is at a
- * glance. `quiet` fades them where words sit on the glass.
- */
-const Front = ({ name, tint, quiet = false }: { name: string; tint: string; quiet?: boolean }): React.JSX.Element => (
-  <GroupCover name={name} tint={tint} label={null} className="pointer-events-none !absolute inset-0" style={{ background: 'transparent', opacity: quiet ? 0.45 : 0.9 }} />
-)
-
-/** Four screws, one in each corner of a glass front or ledge. */
-const Screws = (): React.JSX.Element => (
-  <>{['top-2 left-2', 'top-2 right-2', 'bottom-2 left-2', 'bottom-2 right-2'].map((at) => <span key={at} aria-hidden className={`mf-screw absolute ${at}`} />)}</>
-)
-
-/**
- * A group as a pocket: its cards fanned out of the top, the cover drawn from
- * its name at the back, a glass front in its colour with the count and what is
- * due on it. Pointed at, the fan opens and its cards come round in turn.
- */
-export function Pocket({ name, title = name, cards, onOpen }: { name: string; /** Its name as shown: a deck's words, never its #tag. */ title?: string; cards: BrowsedCard[]; onOpen: () => void }): React.JSX.Element {
-  const shapes = useLive(haligtree.settings, null as Settings | null)?.deckShapes === true
-  const tint = groupTint(name)
-  const [turn, setTurn] = useState(0)
-  const [hover, setHover] = useState(false)
-  const shown = cards.slice(0, 4)
-  // Pointed at, the front card goes to the back every 1.6 s, as a hand riffles a pack.
-  useEffect(() => {
-    if (!hover || shown.length < 2 || still()) return
-    const every = setInterval(() => setTurn((at) => at + 1), 1600)
-    return () => clearInterval(every)
-  }, [hover, shown.length])
-  const due = cards.filter((one) => !one.paused && one.dueAt && Date.parse(one.dueAt) <= Date.now()).length
-  const fresh = cards.filter((one) => !one.paused && one.stage === 'new').length
-  const fan = [-8, -3, 3, 8]
-  // By default a pocket is the Decks tab's tile: satin in the theme's ink, square, its count large; "Shapes on decks" brings back the coloured glass.
-  if (!shapes)
-    return (
-      <button type="button" data-pocket={name} data-pocket-plain onClick={() => (chime('open'), onOpen())}
-        className="mf-pile transition-transform duration-100 ease-out active:scale-[0.985] motion-reduce:transition-none motion-reduce:active:scale-100 min-w-0 cursor-pointer self-start text-left outline-none">
-        {/* The same pile as a deck on the Decks tab: edges under the top card, one standing proud when some are due. */}
-        <PileEdges cards={cards.length} due={due} />
-        <span data-pile-top className="mf-pile-top mf-metal mf-metal-hover @container flex flex-col gap-1.5 overflow-hidden rounded-[6px] p-3.5">
-          <span className="line-clamp-2 font-serif leading-snug text-foreground hyphens-manual [overflow-wrap:normal]" style={nameFit(title)}>{softBreaks(title)}</span>
-          <span className="text-sm text-muted-foreground tabular-nums"><span className={due ? 'font-semibold text-foreground' : ''}>{num(due)} due</span> · {num(fresh)} new</span>
-          <span className="mt-auto flex items-center gap-1.5 text-sm text-muted-foreground tabular-nums">{num(cards.length)} {cards.length === 1 ? 'card' : 'cards'}</span>
-        </span>
-      </button>
-    )
-  return (
-    <button type="button" data-pocket={name} onClick={() => (chime('open'), onOpen())} onPointerEnter={() => setHover(true)} onPointerLeave={() => (setHover(false), setTurn(0))}
-      className="group/pocket flex flex-col items-center gap-2 rounded-xl p-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring">
-      <div className="relative h-52 w-full max-w-[15rem] [overflow-x:clip]">
-        {/* The cover at the back, then up to three of its own cards, fanned. */}
-        <div className="mf-fan absolute inset-x-12 top-1 h-40 overflow-hidden rounded-md shadow-sm" style={{ '--fan': `${fan[0]}deg`, '--fan-x': '-8%', zIndex: 1 } as React.CSSProperties}>
-          <Cover name={name} tint={tint} className="h-full w-full" />
-        </div>
-        {shown.slice(0, 3).map((card, at) => {
-          const order = (at + turn) % Math.min(3, shown.length)
-          // Only the card in front shows its words; those behind show their drawing, so no clipped half-words.
-          const front = order === Math.min(3, shown.length) - 1
-          return (
-            <div key={card.id} data-fan-front={front || undefined} className="mf-fan mf-poster absolute inset-x-12 top-3 flex h-40 flex-col gap-1 overflow-hidden rounded-md p-2.5 shadow-sm" style={{ '--tint': cardTint(card), '--fan': `${fan[order + 1]}deg`, '--fan-x': `${(order - 1) * 8}%`, zIndex: 2 + order } as React.CSSProperties}>
-              {front
-                ? <span className="line-clamp-4 font-heading text-[11px] font-semibold leading-snug text-foreground">{card.prompt.replace(/!\[[^\]]*\]\([^)]*\)/g, '').trim()}</span>
-                : <div className="h-14 opacity-70"><Figure id={card.id} tint={cardTint(card)} /></div>}
-              {front && card.picture && <img src={card.picture} alt="" onError={(event) => (event.currentTarget.hidden = true)} className="mt-auto max-h-14 w-full rounded-sm object-cover" />}
-            </div>
-          )
-        })}
-        {/* The glass front, in the group's colour, its cover's shapes on it. */}
-        <div className="mf-glass absolute inset-x-0 bottom-0 z-10 flex h-[46%] flex-col justify-end overflow-hidden rounded-xl px-4 pb-3" style={{ '--tint': tint } as React.CSSProperties}>
-          <Front name={name} tint={tint} />
-          <Screws />
-          {due > 0 && <span data-pocket-due className="relative self-end rounded-full bg-background/85 px-2 py-0.5 text-xs font-medium tabular-nums text-foreground">{num(due)} due</span>}
-        </div>
-      </div>
-      <span className="flex max-w-full items-baseline gap-1.5 text-control">
-        <span className="truncate font-medium text-foreground">{title}</span>
-        <span className="shrink-0 text-foreground/60 tabular-nums">· {num(cards.length)} {cards.length === 1 ? 'card' : 'cards'}</span>
-      </span>
-    </button>
-  )
-}
-
-/**
- * A deck made by hand with no cards yet, as a pocket in the same look: its
- * cover behind the glass, no cards fanned, and the two ways to fill it.
- */
-export function EmptyPocket({ deck, onPaste }: { deck: string; /** Paste cards into it, or (one) make a single card. */ onPaste: (one: boolean) => void }): React.JSX.Element {
-  const name = `#${deck}`
-  const tint = groupTint(name)
-  const shapes = useLive(haligtree.settings, null as Settings | null)?.deckShapes === true
-  if (!shapes)
-    return (
-      <div data-pocket={name} data-pocket-empty={deck} data-pocket-plain className="@container mf-metal flex aspect-square min-w-0 flex-col gap-1.5 self-start overflow-hidden rounded-[6px] p-3.5">
-        <span className="line-clamp-2 font-serif leading-snug text-foreground hyphens-manual [overflow-wrap:normal]" style={nameFit(deckTitle(deck))}>{softBreaks(deckTitle(deck))}</span>
-        <span className="text-sm text-muted-foreground">Empty deck</span>
-        <span className="mt-auto flex flex-wrap gap-1.5">
-          <button type="button" data-pocket-make onClick={() => (chime('open'), onPaste(true))} className="h-8 cursor-pointer rounded-md border border-foreground/10 bg-background px-2.5 text-control font-medium text-foreground outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring">Make a card</button>
-          <button type="button" data-pocket-paste onClick={() => (chime('open'), onPaste(false))} className="h-8 cursor-pointer rounded-md border border-foreground/10 bg-background px-2.5 text-control font-medium text-foreground outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring">Add many</button>
-        </span>
-      </div>
-    )
-  return (
-    <div data-pocket={name} data-pocket-empty={deck} className="flex flex-col items-center gap-2 rounded-xl p-2">
-      <div className="relative h-52 w-full max-w-[15rem] [overflow-x:clip]">
-        <div className="absolute inset-x-12 top-1 h-40 overflow-hidden rounded-md opacity-60 shadow-sm"><Cover name={name} tint={tint} className="h-full w-full" /></div>
-        <div className="mf-glass absolute inset-x-0 bottom-0 z-10 flex h-[46%] flex-col items-center justify-center gap-1.5 overflow-hidden rounded-xl px-4" style={{ '--tint': tint } as React.CSSProperties}>
-          <Front name={name} tint={tint} quiet />
-          <Screws />
-          <span className="relative text-control text-foreground">Make a card or add many at once</span>
-          <span className="relative flex gap-1.5">
-            <button type="button" data-pocket-paste onClick={() => (chime('open'), onPaste(false))} className="cursor-pointer rounded-md bg-background/85 px-2 py-0.5 text-xs font-medium text-foreground hover:bg-background">Add many</button>
-            <button type="button" data-pocket-make onClick={() => (chime('open'), onPaste(true))} className="cursor-pointer rounded-md bg-background/85 px-2 py-0.5 text-xs font-medium text-foreground hover:bg-background">Make one</button>
-          </span>
-        </div>
-      </div>
-      <span className="flex max-w-full items-baseline gap-1.5 text-control">
-        <span className="truncate font-medium text-foreground">{deckTitle(deck)}</span>
-        <span className="shrink-0 text-foreground/60">· empty deck</span>
-      </span>
-    </div>
-  )
-}
-
-/**
- * A group as a shelf: its name and count, ‹ › to slide along, and its cards
- * standing behind a glass ledge in its colour. A long group shows its first
- * cards and a last one that opens the rest.
- */
-export function Shelf({ name, count, onOpen, children }: { name: string; count: number; onOpen?: () => void; children: React.ReactNode }): React.JSX.Element {
-  const row = useSideways()
-  const box = useRef<HTMLDivElement | null>(null)
-  const tint = groupTint(name)
-  // Its cards are made only while the shelf is within two screens of sight: 300 shelves cost 300 headings, not 7,000 cards.
-  const shelf = useRef<HTMLElement | null>(null)
-  const [near, setNear] = useState(false)
-  useEffect(() => {
-    const node = shelf.current
-    if (!node) return
-    const watch = new IntersectionObserver(([entry]) => setNear(entry.isIntersecting), { rootMargin: '200% 0px' })
-    watch.observe(node)
-    return () => watch.disconnect()
-  }, [])
-  const slide = (way: 1 | -1): void => {
-    chime('tap')
-    box.current?.scrollBy({ left: way * box.current.clientWidth * 0.8, behavior: still() ? 'auto' : 'smooth' })
-  }
-  return (
-    <section ref={shelf} data-shelf={name} className="mt-6 first:mt-1">
-      <header className="mb-2 flex items-baseline gap-3 px-1">
-        <Cover name={name} tint={tint} className="size-12 shrink-0 self-center rounded-lg" />
-        <button type="button" onClick={onOpen} className="min-w-0 truncate font-heading text-heading font-semibold text-foreground hover:underline">{name}</button>
-        <span className="ml-auto shrink-0 text-control text-foreground/60 tabular-nums">{num(count)} {count === 1 ? 'card' : 'cards'}</span>
-        <button type="button" aria-label="Back along" disabled={!row.edges.left} onClick={() => slide(-1)} className="rounded p-1 text-foreground/70 hover:bg-accent disabled:opacity-30"><ChevronLeft className="size-4" /></button>
-        <button type="button" aria-label="On along" disabled={!row.edges.right} onClick={() => slide(1)} className="rounded p-1 text-foreground/70 hover:bg-accent disabled:opacity-30"><ChevronRight className="size-4" /></button>
-      </header>
-      <div className="relative">
-        <div ref={(node) => { box.current = node; row.ref(node) }} style={row.style} className={`${row.className} flex min-h-[19rem] gap-4 px-4 pt-2 pb-2`}>{near ? children : null}</div>
-        <div aria-hidden className="mf-glass mf-ledge pointer-events-none absolute inset-x-0 bottom-0 h-12 rounded-xl" style={{ '--tint': tint } as React.CSSProperties}><Screws /></div>
-      </div>
-    </section>
   )
 }
 

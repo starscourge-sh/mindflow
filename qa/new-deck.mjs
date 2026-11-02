@@ -76,14 +76,14 @@ try {
   check('2. and not as a deck of its own beside it', !(await has('[data-own-deck="zymurgy-cells"]')))
   await shot('decks-tab', decks)
 
-  // 3. The empty deck is a pocket in All cards that offers Paste cards, aimed at it.
-  await cards('small')
-  check('3. the empty deck is a pocket in All cards', await waitFor(() => has('[data-pocket-empty="zymurgy"]')))
-  check('3. it says "Make a card or add many at once"', /Make a card.*Add many/.test(await h.evaluate(() => document.querySelector('[data-pocket-empty="zymurgy"]')?.textContent ?? '')))
-  await shot('decks-pockets', async () => { await cards('small'); await waitFor(() => has('[data-pocket-empty]')); await waitFor(() => h.evaluate(() => !document.querySelector('[data-home], [data-view="home"]') && document.getAnimations().every((one) => one.playState !== 'running' || one.effect?.getTiming().iterations === Infinity)), 4000); await h.waitForTimeout(800) })
-  // The theme put back reloads the page: back to the pockets first.
-  await cards('small'); await waitFor(() => has('[data-pocket-empty="zymurgy"] [data-pocket-paste]'))
-  await h.evaluate(() => document.querySelector('[data-pocket-empty="zymurgy"] [data-pocket-paste]').click())
+  // 3. The empty deck is a deck on Decks (All cards holds only cards), and its menu's "Add many at once" is aimed at it.
+  await decks()
+  check('3. the empty deck shows on Decks', await waitFor(() => has('[data-own-deck="zymurgy"]')))
+  await cards('grid')
+  check('3. and All cards draws no deck at all, only cards', !(await has('[data-card-browser] :is([data-pocket], .mf-pile)')))
+  await decks()
+  await h.locator('[data-own-deck="zymurgy"]').click({ button: 'right' })
+  await h.getByRole('menuitem', { name: /^Add many at once/ }).first().click()
   check('3. its Paste cards opens aimed at the deck', await waitFor(async () => (await h.evaluate(() => document.querySelector('[data-paste-deck]')?.value)) === 'zymurgy'))
   await h.locator('[data-paste-text]').fill('What is zymurgy? | The study of fermentation')
   await h.evaluate(() => document.querySelector('[data-paste-add]').click())

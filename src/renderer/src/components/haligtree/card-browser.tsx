@@ -18,7 +18,7 @@ import { PasteCards } from './paste-cards'
 import { NewCard } from './new-card'
 import { SplitForm } from './study'
 import { AnotherWay } from './another-way'
-import { EmptyPocket, FlipThrough, Pocket, Poster, Shelf, Windowed, groupTint } from './card-shelves'
+import { FlipThrough, Poster, Windowed, groupTint } from './card-shelves'
 import { deckTitle, makeDeck, useMadeDecks } from './decks'
 import { Empty, Tip, toast, typing } from './ui'
 import { Input } from '@/components/ui/input'
@@ -164,6 +164,12 @@ const under = (tags: string[], tag: string): boolean => tags.some((one) => one =
  * A group's next 30 days of reviews as 30 thin bars, today first (with what
  * is overdue): where a deck's reviews are about to pile up, seen before they do.
  */
+/** How many of a group's cards are due now, said in its heading beside the count; nothing when none are. */
+function DueNow({ cards }: { cards: BrowsedCard[] }): React.JSX.Element | null {
+  const due = cards.filter((card) => !card.paused && card.dueAt && Date.parse(card.dueAt) <= Date.now()).length
+  return due ? <span data-group-due={due} className="text-xs font-medium text-foreground tabular-nums">{num(due)} due now</span> : null
+}
+
 function DueAhead({ cards }: { cards: BrowsedCard[] }): React.JSX.Element | null {
   const days = Array.from({ length: 30 }, () => 0)
   for (const card of cards) {
@@ -291,18 +297,18 @@ export function CardBrowser({ onOpen, aim, only, newest, onAll, onShow, onAimDon
   /** Just these cards (the ones an import or "Add many at once" made), with a way back to all. */ only?: string[] | null; /** Just the newest this many cards (an import's), with the same way back. */ newest?: number | null; onAll?: () => void; /** Show just the cards just made. */ onShow?: (ids: string[]) => void }): React.JSX.Element {
   const [pasting, setPasting] = useState(!!aim)
   const [aimed, setAimed] = useState(aim ?? null)
-  // The decks made by hand: an empty one is a pocket of its own, saying how to fill it.
-  const made = useMadeDecks()
   // Marked for the probes and the Performance panel: how long the cards take to come, and to be drawn (card-shelves.tsx).
+  // The decks made by hand, empty ones too: where "Move to deck…" can send a card.
+  const made = useMadeDecks()
   const cards = useLive(() => (performance.mark('cards:asked'), call<BrowsedCard[]>('cards:all').then((all) => (performance.mark('cards:came'), all))), null as BrowsedCard[] | null, [], ['item'])
   const compact = useToolbarCompact()
   const [query, setQuery] = useState('')
   const [tag, setTag] = useState<string | null>(null)
   const [view, setView] = useView('cards', { sort: 'due', group: 'none' })
-  // Pockets first: the whole book at a glance, one pocket a deck or tag.
-  const density: Density = view.density ?? 'small'
-  // A group opened from its pocket or its shelf, and whether it is being flipped through.
-  const [opened, setOpened] = useState<string | null>(null)
+  // The cards themselves, one row a card, soonest due first: a list unless the grid of card faces or the table is chosen.
+  // Never a stack: decks are the Decks tab's. The old "Pockets" choice, kept in a saved view, reads as the list.
+  const density: Density = view.density === 'grid' || view.density === 'compact' ? view.density : 'list'
+  // The grid's cards flipped through one at a time, and which is in the middle.
   const [flowing, setFlowing] = useState(false)
   const [flowAt, setFlowAt] = useState(0)
   // A few hundred drawn at a time: a book of 5,000 cards opens at once, and shows more as asked.
@@ -349,8 +355,8 @@ export function CardBrowser({ onOpen, aim, only, newest, onAll, onShow, onAimDon
     .filter((card) => !words || `${card.prompt} ${card.answer} ${card.source} ${card.tags.map((one) => `#${one}`).join(' ')}`.toLowerCase().includes(words))
   const [[, ordered]] = arrange(found, view, facets, ORDER)
   // Cut into groups, each in its own order; a book's cards in page order whatever the sort, as a book is read.
-  // Pockets are always of something: by deck or tag unless another grouping is chosen.
-  const grouping = GROUPING[view.group] ?? (density === 'small' ? GROUPING.deck : undefined)
+  // Grouped only when asked, in Display: each group a heading over its own cards.
+  const grouping = GROUPING[view.group]
   const groups: [string, BrowsedCard[]][] = useMemo(() => {
     if (!grouping) return [['', ordered]]
     const out = new Map<string, BrowsedCard[]>()
@@ -359,10 +365,10 @@ export function CardBrowser({ onOpen, aim, only, newest, onAll, onShow, onAimDon
     const rank = (entry: [string, BrowsedCard[]]): number | string => grouping.rank(entry[0], entry[1])
     return [...out].sort((a, b) => { const [x, y] = [rank(a), rank(b)]; return typeof x === 'number' && typeof y === 'number' ? x - y : String(x).localeCompare(String(y)) })
   }, [ordered, grouping, view.group, view.sort]) // eslint-disable-line react-hooks/exhaustive-deps
-  const island = useIslands('cards', !!grouping && view.islands !== false && (density === 'list' || density === 'compact'))
+  // Each group folds under its heading, in every density: in the grid, a deck's first card faces and "Show more".
+  const island = useIslands('cards', !!grouping && view.islands !== false)
   const { groups: drawn, islands } = island(groups)
-  const inGroup = opened ? groups.find(([name]) => name === opened)?.[1] ?? null : null
-  const shown = inGroup ?? drawn.flatMap(([, one]) => one)
+  const shown = drawn.flatMap(([, one]) => one)
   const several = usePickMixed(ordered.map((card) => ({ type: 'nugget', id: card.id, title: card.prompt })), { here })
   const picked = ordered.filter((card) => several.picked({ type: 'nugget', id: card.id }))
   const pause = (ids: string[], on: boolean): void => void call('cards:pause', ids, on).then(() => {
@@ -420,8 +426,8 @@ export function CardBrowser({ onOpen, aim, only, newest, onAll, onShow, onAimDon
   // The keys, as the Anki Browser and the app's lists have them: arrows and
   // J/K move, Space turns a card over (⇧Space, every card), Enter opens, E edits.
   // ⌘A, x, ⌫ and Esc come from picking (usePickMixed), on the card with the focus.
-  const now = useRef({ shown, density, turnAll, editing, flowing, flowAt, opened })
-  now.current = { shown, density, turnAll, editing, flowing, flowAt, opened }
+  const now = useRef({ shown, density, turnAll, editing, flowing, flowAt })
+  now.current = { shown, density, turnAll, editing, flowing, flowAt }
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
       if (!here() || typing() || event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) return
@@ -431,7 +437,7 @@ export function CardBrowser({ onOpen, aim, only, newest, onAll, onShow, onAimDon
       const at = items.findIndex((one) => one.contains(document.activeElement))
       const card = at >= 0 ? now.current.shown.find((one) => `nugget:${one.id}` === items[at].dataset.pick) : undefined
       // Flip through: ← and → bring the next card to the middle, Space turns it over.
-      if (now.current.flowing && now.current.opened) {
+      if (now.current.flowing) {
         const centre = now.current.shown[now.current.flowAt]
         if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') {
           event.preventDefault()
@@ -441,7 +447,7 @@ export function CardBrowser({ onOpen, aim, only, newest, onAll, onShow, onAimDon
         if (event.key === ' ' && centre) return (event.preventDefault(), chime('tap'), turn(centre.id))
         if (event.key === 'Enter' && centre) return (event.preventDefault(), chime('open'), onOpen('nugget', centre.id))
       }
-      const grid = now.current.density === 'grid' || !!now.current.opened
+      const grid = now.current.density === 'grid'
       const go = (to: number): void => {
         const next = items[Math.max(0, Math.min(items.length - 1, to))]
         next?.focus()
@@ -472,19 +478,14 @@ export function CardBrowser({ onOpen, aim, only, newest, onAll, onShow, onAimDon
     return () => window.removeEventListener('keydown', onKey)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
   if (!cards) return <div />
-  // "Make a card" (a deck's, a pocket's, ⌘K's "New card in"): the two-field card; otherwise the paste box.
+  // "Make a card" (a deck's, ⌘K's "New card in"): the two-field card; otherwise the paste box.
   const closePaste = (): void => (chime('fold'), setPasting(false), setAimed(null), onAimDone?.())
   const paste = !pasting ? null : aimed?.one
     ? <NewCard key={`one:${aimed.deck}`} deck={aimed.deck ?? undefined} onClose={closePaste} />
     : <PasteCards key={`${aimed?.deck}`} deck={aimed?.deck ?? undefined} onClose={closePaste} onShow={onShow} />
-  // The decks made by hand that hold no card yet, under no other pocket: each its own, with the ways to fill it.
-  const emptyPockets = made
-    .filter((deck) => !made.some((up) => deck.startsWith(`${up}-`)) && !tags.some((one) => under([one], deck)) && !groups.some(([name]) => name === `#${deck.split('-')[0]}`))
-    .map((deck) => <EmptyPocket key={deck} deck={deck} onPaste={(one) => (setAimed({ deck, one }), setPasting(true))} />)
   if (!cards.length)
     return (
       <div className="flex flex-col gap-3 px-5 pt-4 pb-10">
-        {!pasting && emptyPockets.length > 0 && <div data-card-pockets className="grid grid-cols-[repeat(auto-fill,minmax(9.5rem,1fr))] gap-3 [&>*]:max-w-[13rem]">{emptyPockets}</div>}
         {paste ?? <Empty title="No cards yet" action={<span className="flex flex-wrap items-center gap-2"><Button size="sm" data-make-open onClick={() => (chime('open'), setAimed({ deck: null, one: true }), setPasting(true))}>Make a card</Button><Button variant="ghost" size="sm" data-paste-open onClick={() => (chime('open'), setAimed(null), setPasting(true))}>Add many at once</Button><Button variant="ghost" size="sm" data-cards-import onClick={() => (chime('open'), void window.api.importFrom('files'))}>Import from Anki or a spreadsheet</Button></span>}>Make one card, paste a list or a spreadsheet of them, or bring in an Anki deck (.apkg, .colpkg) or a CSV.</Empty>}
       </div>
     )
@@ -582,8 +583,8 @@ export function CardBrowser({ onOpen, aim, only, newest, onAll, onShow, onAimDon
     )
   }
 
-  const poster = (card: BrowsedCard, size: 'sm' | 'md' | 'lg' = 'md', ledge = false): React.JSX.Element => (
-    <Poster card={card} size={size} ledge={ledge} over={over.has(card.id)} onTurn={(to) => turn(card.id, to)} picked={several.picked(pick(card))}
+  const poster = (card: BrowsedCard, size: 'sm' | 'md' | 'lg' = 'md'): React.JSX.Element => (
+    <Poster card={card} size={size} over={over.has(card.id)} onTurn={(to) => turn(card.id, to)} picked={several.picked(pick(card))}
       onPick={(event) => several.click(event, pick(card))} question={question(card)} answer={answerShown(card)} />
   )
 
@@ -591,7 +592,7 @@ export function CardBrowser({ onOpen, aim, only, newest, onAll, onShow, onAimDon
     <div key={card.id} data-card-row={card.id} className="contents">
       {editing === card.id
         ? <div className={density === 'grid' ? 'col-span-full' : ''}><EditCard card={card} tint={tintOf(card)} onDone={() => { setEditing(null); requestAnimationFrame(() => list.current?.querySelector<HTMLElement>(`[data-pick="nugget:${card.id}"]`)?.focus()) }} /></div>
-        : <RowMenu items={() => menu(card)}>{density === 'grid' || opened ? <div className="relative min-w-0">{poster(card)}{/* A card too big, slow or often forgotten is marked on its poster too, as in a list. */}{mark(card) && <span className="flex pt-1.5">{mark(card)}</span>}</div> : row(card)}</RowMenu>}
+        : <RowMenu items={() => menu(card)}>{density === 'grid' ? <div className="relative min-w-0">{poster(card)}{/* A card too big, slow or often forgotten is marked on its poster too, as in a list. */}{mark(card) && <span className="flex pt-1.5">{mark(card)}</span>}</div> : row(card)}</RowMenu>}
       {fixer(card)}
     </div>
   )
@@ -601,8 +602,8 @@ export function CardBrowser({ onOpen, aim, only, newest, onAll, onShow, onAimDon
     </button>
   )
   // The grid of cards is drawn where you are looking (and a screen either side), however many thousand it holds.
-  const body = (list: BrowsedCard[]): React.JSX.Element => density === 'grid' || opened
-    ? <div data-card-grid><Windowed items={list} render={cell} className="grid grid-cols-[repeat(auto-fill,minmax(12.5rem,1fr))] items-start gap-5 p-1" /></div>
+  const body = (list: BrowsedCard[]): React.JSX.Element => density === 'grid'
+    ? <div data-card-grid><Windowed items={list} render={cell} className="grid grid-cols-[repeat(auto-fill,minmax(min(12.5rem,calc(50%-0.75rem)),1fr))] items-start gap-5 p-1 max-sm:gap-3" /></div>
     : <><div className={`flex flex-col ${density === 'compact' ? 'text-xs' : ''}`}>{list.slice(0, limit).map(cell)}</div>{more(list)}</>
   const head = density === 'compact' && (
     <div aria-hidden className="grid grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_6.5rem_5rem_8rem] gap-x-3 border-b px-3 pb-1 text-xs font-medium text-muted-foreground">
@@ -611,19 +612,29 @@ export function CardBrowser({ onOpen, aim, only, newest, onAll, onShow, onAimDon
   )
   const allOver = shown.length > 0 && shown.every((card) => over.has(card.id))
 
+  // The grid's own two actions: in the toolbar's right end, or, when the window is too narrow for them there, in a line of their own above the counts.
+  const gridActions = density === 'grid' && (
+    <>
+      {!flowing && (
+        <Tip label="Turn every card on show over, to test yourself  ⇧Space">
+          <Button variant="ghost" size="sm" data-turn-all aria-pressed={allOver} onClick={turnAll}>{allOver ? 'All face up' : 'Turn all over'}</Button>
+        </Tip>
+      )}
+      <Tip label="The cards on show one at a time, large  ← →">
+        <Button variant="ghost" size="sm" data-card-flow aria-pressed={flowing} onClick={() => (chime(flowing ? 'fold' : 'open'), setFlowing(!flowing), setFlowAt(0))}>{flowing ? 'All at once' : 'Flip through'}</Button>
+      </Tip>
+    </>
+  )
+
   return (
     <div data-card-browser data-density={density} data-group={view.group} className="flex flex-col gap-3 px-5 pt-4 pb-20">
       {/* Its own controls in the toolbar's right end, never a row of their own. */}
       <TabControls>
         <div className={compact ? 'w-28' : 'w-48'}><ListSearch value={query} onChange={setQuery} onDone={() => {}} placeholder="Search cards" /></div>
-        {(density === 'grid' || opened) && !flowing && (
-          <Tip label="Turn every card on show over, to test yourself  ⇧Space">
-            <Button variant="ghost" size="sm" data-turn-all aria-pressed={allOver} onClick={turnAll}>{allOver ? 'All face up' : 'Turn all over'}</Button>
-          </Tip>
-        )}
+        {!compact && gridActions}
         <Display view={view} onChange={setView} facets={facets} items={cards} count={cards.length} sorts={SORTS} groups={GROUPS}
           sortNote={view.group === 'source' ? 'Within each book or video, cards go in page or time order.' : undefined}
-          density={density} onDensity={(next) => setView({ ...view, density: next })} densities={['small', 'grid', 'list', 'compact']} names={{ small: 'Pockets', grid: 'Cards', compact: 'Table' }} />
+          density={density} onDensity={(next) => setView({ ...view, density: next })} densities={['list', 'grid', 'compact']} names={{ grid: 'Cards', compact: 'Table' }} />
       </TabControls>
       {paste}
       {just && (
@@ -633,9 +644,9 @@ export function CardBrowser({ onOpen, aim, only, newest, onAll, onShow, onAimDon
           <button type="button" data-cards-all onClick={onAll} className="cursor-pointer font-medium underline decoration-foreground/25 underline-offset-4 hover:decoration-foreground/60">Show every card</button>
         </p>
       )}
-      {/* One line of the most used tags, sliding sideways, never wrapping; every tag is in Display's Tag filter, and each is a pocket. */}
-      {/* Named as the pockets are, by the top of each tag (#learn takes in #learn-haligtree); none in Pockets, which are the tags themselves. */}
-      {density !== 'small' && <Chips sideways className="" options={[{ id: '', label: `All ${num(cards.length)}` }, ...tops.slice(0, 12).map((one) => ({ id: one, label: deckTitle(one, tags) }))]} on={(id) => (tag ?? '') === id} pick={(id) => (setTag(id || null), setOpened(null))} />}
+      {/* One line of the most used decks, sliding sideways, never wrapping; every one is in Display's Deck filter. */}
+      {/* Named by the top of each tag (#learn takes in #learn-haligtree). */}
+      <Chips sideways className="" options={[{ id: '', label: `All ${num(cards.length)}` }, ...tops.slice(0, 12).map((one) => ({ id: one, label: deckTitle(one, tags) }))]} on={(id) => (tag ?? '') === id} pick={(id) => (setTag(id || null), setFlowAt(0))} />
       {several.count > 0 && (
         <div data-card-picked className="flex flex-wrap items-center gap-2 rounded-lg border bg-accent/30 px-3 py-2 text-sm">
           <span className="font-medium">{num(several.count)} picked</span>
@@ -651,6 +662,7 @@ export function CardBrowser({ onOpen, aim, only, newest, onAll, onShow, onAimDon
         </div>
       )}
       {several.bar}
+      {compact && gridActions && <div data-card-actions className="-ml-3 flex items-center gap-1">{gridActions}</div>}
       {/* New, learning and due, as Anki users count a deck: for what is on show. */}
       <p data-card-counts className="flex flex-wrap gap-x-4 text-sm">
         <span><strong className="font-semibold text-[var(--tt-color-text-blue)] tabular-nums">{num(ordered.filter((one) => one.stage === 'new' && !one.paused).length)}</strong> new</span>
@@ -665,39 +677,11 @@ export function CardBrowser({ onOpen, aim, only, newest, onAll, onShow, onAimDon
         </Empty>
       ) : (
         <div ref={list} data-card-list>
-          {opened && inGroup ? (
-            // One group, opened: its cards, or flipped through one at a time.
-            <div data-card-opened={opened}>
-              <div className="mb-3 flex flex-wrap items-center gap-3">
-                <button type="button" data-card-back onClick={() => (chime('fold'), setOpened(null), setFlowing(false))} className="rounded-md px-1.5 py-1 text-control text-foreground/70 hover:bg-accent hover:text-foreground">‹ All cards</button>
-                <h2 className="font-heading text-title font-semibold text-foreground">{shownGroup(opened)}</h2>
-                <span className="text-control text-foreground/60 tabular-nums">{num(inGroup.length)} {inGroup.length === 1 ? 'card' : 'cards'}</span>
-                <span className="flex-1" />
-                <Chips options={[{ id: 'cards', label: 'Cards' }, { id: 'flow', label: 'Flip through' }]} on={(id) => (id === 'flow') === flowing} pick={(id) => (chime('tap'), setFlowing(id === 'flow'), setFlowAt(0))} />
-              </div>
-              {flowing
-                ? <FlipThrough cards={inGroup} at={Math.min(flowAt, inGroup.length - 1)} onAt={setFlowAt} render={(card) => <RowMenu items={() => menu(card)}><div>{poster(card, 'lg')}</div></RowMenu>} />
-                : body(inGroup)}
+          {flowing && density === 'grid' ? (
+            // Flip through: the cards on show one at a time, the one in the middle large.
+            <div data-card-flowing>
+              <FlipThrough cards={shown} at={Math.min(flowAt, shown.length - 1)} onAt={setFlowAt} render={(card) => <RowMenu items={() => menu(card)}><div>{poster(card, 'lg')}</div></RowMenu>} />
             </div>
-          ) : density === 'small' ? (
-            // Pockets: one a deck or tag, its own cards fanned out of the top.
-            <div data-card-pockets className="grid grid-cols-[repeat(auto-fill,minmax(calc(9.5rem_+_15px),1fr))] gap-x-3 gap-y-1 [&>*]:max-w-[calc(13rem_+_15px)]">
-              {groups.map(([name, one]) => <Pocket key={name} name={name} title={shownGroup(name)} cards={one} onOpen={() => (setOpened(name), setFlowing(false))} />)}
-              {/* A deck made by hand and still empty: its own pocket, with the two ways to fill it. */}
-              {!view.group || view.group === 'none' || view.group === 'deck' ? emptyPockets : null}
-            </div>
-          ) : density === 'grid' && grouping ? (
-            // Shelves: a group's cards standing behind a glass ledge in its colour; a long one ends in a card that opens the rest.
-            groups.map(([name, one]) => (
-              <Shelf key={name} name={name} count={one.length} onOpen={() => (chime('open'), setOpened(name))}>
-                {one.slice(0, 24).map((card) => <div key={card.id} data-card-row={card.id} className="w-48">{editing === card.id ? <EditCard card={card} tint={tintOf(card)} onDone={() => setEditing(null)} /> : <RowMenu items={() => menu(card)}><div>{poster(card, 'md', true)}</div></RowMenu>}</div>)}
-                {one.length > 24 && (
-                  <button type="button" data-shelf-more onClick={() => (chime('open'), setOpened(name))} className="mf-poster flex aspect-[4/5] w-48 flex-col items-center justify-center gap-1 rounded-lg font-heading text-heading font-semibold text-foreground" style={{ '--tint': groupTint(name) } as React.CSSProperties}>
-                    +{num(one.length - 24)}<span className="font-sans text-control font-normal text-foreground/70">more, open the group</span>
-                  </button>
-                )}
-              </Shelf>
-            ))
           ) : <>
           {head}
           {drawn.map(([name, one]) => {
@@ -705,10 +689,10 @@ export function CardBrowser({ onOpen, aim, only, newest, onAll, onShow, onAimDon
             const inner = <>{view.group === 'source' && <Coverage cards={whole} />}{body(one)}</>
             if (!name) return <div key="all">{inner}</div>
             return islands?.[name]
-              ? <IslandBox key={name} name={shownGroup(name)} island={islands[name]} shown={one.length} extra={<DueAhead cards={whole} />}>{inner}</IslandBox>
+              ? <IslandBox key={name} name={shownGroup(name)} island={islands[name]} shown={one.length} unit={['card', 'cards']} extra={<span className="flex items-center gap-3"><DueNow cards={whole} /><DueAhead cards={whole} /></span>}>{inner}</IslandBox>
               : (
                 <section key={name} data-card-group={name} className="mt-4 first:mt-0">
-                  <h2 className="flex items-center gap-2 px-2 pb-1.5 text-control font-semibold">{shownGroup(name)}<span className="font-normal text-muted-foreground tabular-nums">{num(whole.length)}</span><span className="ml-auto"><DueAhead cards={whole} /></span></h2>
+                  <h2 className="flex items-center gap-2 px-2 pb-1.5 text-control font-semibold">{shownGroup(name)}<span className="font-normal text-muted-foreground tabular-nums">· {num(whole.length)} {whole.length === 1 ? 'card' : 'cards'}</span><span className="ml-auto flex items-center gap-3"><DueNow cards={whole} /><DueAhead cards={whole} /></span></h2>
                   {inner}
                 </section>
               )

@@ -67,17 +67,16 @@ try {
   check('Pointed at: the top card lifts 2px, never more', frames.at(-1) === -2 && frames.every((one) => one <= 0 && one >= -2), frames.join(' '))
   check('Pointed at: the tile\'s own box does not move', (await box()) === before, `${before} / ${await box()}`)
   await h.mouse.move(5, 5)
-  // All cards: the same pile.
-  await h.evaluate(() => { localStorage.setItem('view:cards', JSON.stringify({ sort: 'due', group: 'none', filter: {}, density: 'small' })) })
+  // All cards: never a pile, grouped by deck too; each deck a heading over its own card faces.
+  await h.evaluate(() => { localStorage.setItem('view:cards', JSON.stringify({ sort: 'due', group: 'deck', filter: {}, density: 'grid' })) })
   await h.reload()
   await h.waitForLoadState('domcontentloaded')
   await c.go('review')
   await waitFor(() => has('[data-review-tab]'))
   await h.evaluate(() => document.querySelector('[data-review-tab="cards"]')?.click())
-  await waitFor(() => has('[data-pocket="#pilemany"]'))
+  await waitFor(() => has('[data-card-face="front"]'))
   await h.waitForTimeout(400)
-  const pockets = await h.evaluate(() => Object.fromEntries([...document.querySelectorAll('[data-pocket^="#pile"]')].map((one) => [one.getAttribute('data-pocket'), one.querySelectorAll(':scope > [data-pile-edge]').length])))
-  check('All cards: the same piles (0, 1, 2, 3, 5 edges)', pockets['#pileone'] === 0 && pockets['#piletwo'] === 1 && pockets['#pilefour'] === 2 && pockets['#pileeight'] === 3 && pockets['#pilemany'] === 5, JSON.stringify(pockets))
+  check('All cards: no pile anywhere, a heading a deck, single card faces', await h.evaluate(() => !document.querySelector('[data-card-browser] :is(.mf-pile, [data-pile-edge], [data-pocket])') && document.querySelectorAll('[data-card-list] [data-island-head]').length >= 5 && document.querySelectorAll('[data-card-list] [data-card-face="front"]').length > 0))
   if (shots) await h.screenshot({ path: join(shots, 'pile-cards-light.png') })
   // Move to the Bin from a right-click: the row crumples and goes at the sidebar's Bin.
   await c.go('articles')

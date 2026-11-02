@@ -1,6 +1,6 @@
 // All cards at two sizes: the user's real book (about 135 cards, 14 tags) and a
-// shared-deck user's (5,000 cards, 300 tags). Pockets, Cards (shelves and the
-// plain grid), an opened group, Flip through, the list and compact rows, light
+// shared-deck user's (5,000 cards, 300 tags). The list first, Cards (grouped by
+// deck under headings, and the plain grid), Flip through, the list and compact rows, light
 // and dark, each screenshotted; and checks that each draws and answers its keys.
 //   QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 QA_ARGS=--sandbox QA_SHOTS=dir node qa/all-cards-scale.mjs
 import { join } from 'path'
@@ -30,7 +30,7 @@ const setView = (patch) => h.evaluate((patch) => {
 const open = async () => {
   await c.go('review')
   await h.evaluate(() => document.querySelector('[data-review-tab="cards"]')?.click())
-  await waitFor(() => h.evaluate(() => !!document.querySelector('[data-card-list] :is([data-pick], [data-pocket])')))
+  await waitFor(() => h.evaluate(() => !!document.querySelector('[data-card-list] [data-pick]')))
   await h.mouse.move(5, 5)
 }
 // The page read again from scratch, then waited for until it shows the view asked for: on a busy machine a
@@ -56,25 +56,18 @@ const shot = async (name, again) => {
   await again()
 }
 const views = async (size) => {
-  await reopen({ density: 'small', group: 'none', filter: {} })
-  const decks = new Set((await call('cards:all')).map((one) => one.tags[0] ? `#${one.tags[0].split('-')[0]}` : 'No tag')).size
-  await waitFor(() => h.evaluate((n) => document.querySelectorAll('[data-pocket]').length === n, decks))
-  const pockets = await h.evaluate(() => document.querySelectorAll('[data-pocket]').length)
-  check(`${size}: a pocket for each deck or tag`, pockets === decks, `${pockets} of ${decks}`)
+  // Opened as anyone first finds it: a list of the cards, one row a card, never a stack.
+  await h.evaluate(() => localStorage.removeItem('view:cards'))
+  await h.reload()
+  await h.waitForLoadState('domcontentloaded')
+  await open()
+  check(`${size}: All cards opens as a list of the cards, no stack`, await waitFor(() => h.evaluate(() => document.querySelector('[data-card-browser]')?.getAttribute('data-density') === 'list' && !document.querySelector('[data-card-browser] :is([data-pocket], .mf-pile)'))))
   const chipRow = () => h.evaluate(() => { const row = [...document.querySelectorAll('[data-card-browser] [data-hover-quiet]')].find((one) => [...one.querySelectorAll('button')].some((b) => /^All \d/.test(b.getAttribute('aria-label') ?? ''))); return row ? { nowrap: getComputedStyle(row).flexWrap === 'nowrap', height: row.getBoundingClientRect().height } : null })
-  check(`${size}: no tag chips over the pockets, which are the tags`, (await chipRow()) === null)
-  check(`${size}: only the front card of a pocket shows words`, await h.evaluate(() => [...document.querySelectorAll('[data-pocket] .mf-fan.mf-poster:not([data-fan-front])')].every((one) => !(one.textContent ?? '').trim())))
-  await shot(`scale-${size}-pockets`, () => open())
   await reopen({ density: 'grid', group: 'deck' })
-  check(`${size}: the tag chips are one line that slides sideways`, await waitFor(async () => { const row = await chipRow(); return !!row && row.nowrap && row.height < 48 }))
-  check(`${size}: a shelf's ledge covers no words`, await waitFor(() => h.evaluate(() => {
-    const shelf = document.querySelector('[data-shelf]')
-    const ledge = shelf?.querySelector('.mf-ledge')?.getBoundingClientRect()
-    const feet = [...(shelf?.querySelectorAll('[data-card-face="front"] [data-card-stage]') ?? [])].map((one) => one.getBoundingClientRect())
-    return !!ledge && feet.length > 0 && feet.every((foot) => foot.bottom <= ledge.top + 1)
-  })))
-  check(`${size}: Cards grouped stands each group on a shelf`, await waitFor(() => h.evaluate(() => document.querySelectorAll('[data-shelf]').length > 3)))
-  await shot(`scale-${size}-shelves`, () => open())
+  check(`${size}: the deck chips are one line that slides sideways`, await waitFor(async () => { const row = await chipRow(); return !!row && row.nowrap && row.height < 48 }))
+  const decks = new Set((await call('cards:all')).map((one) => one.tags[0] ? one.tags[0].split('-')[0] : '')).size
+  check(`${size}: Cards grouped by deck: a heading a deck, single card faces under it, no stack`, await waitFor(() => h.evaluate((n) => document.querySelectorAll('[data-card-list] [data-island-head]').length >= Math.min(n, 3) && document.querySelectorAll('[data-card-list] [data-card-face="front"]').length > 0 && !document.querySelector('[data-card-browser] :is([data-pocket], .mf-pile, [data-shelf])'), decks)))
+  await shot(`scale-${size}-grouped`, () => open())
   // Waited for by its own signal (the first run of cards drawn), then timed from the page's own marks.
   await h.evaluate(() => performance.clearMarks())
   await reopen({ density: 'grid', group: 'none' })
@@ -90,12 +83,8 @@ const views = async (size) => {
   await shot(`scale-${size}-list`, () => open())
   await reopen({ density: 'compact', group: 'deck' })
   await shot(`scale-${size}-compact`, () => open())
-  // A pocket opened, then flipped through.
-  const openFirst = async () => { await reopen({ density: 'small', group: 'none' }); await h.evaluate(() => document.querySelector('[data-pocket]')?.click()); await waitFor(() => h.evaluate(() => !!document.querySelector('[data-card-opened]'))) }
-  await openFirst()
-  check(`${size}: a pocket opens its group`, await waitFor(() => h.evaluate(() => !!document.querySelector('[data-card-opened] [data-card-grid]'))))
-  await shot(`scale-${size}-opened`, openFirst)
-  const flow = async () => { await openFirst(); await h.evaluate(() => [...document.querySelectorAll('[data-card-opened] button[aria-pressed]')].find((one) => /Flip through/.test(`${one.textContent} ${one.getAttribute('aria-label')}`))?.click()); await waitFor(() => h.evaluate(() => !!document.querySelector('[data-flip-through]'))) }
+  // The grid flipped through, one card at a time.
+  const flow = async () => { await reopen({ density: 'grid', group: 'none' }); await h.evaluate(() => document.querySelector('[data-card-flow]')?.click()); await waitFor(() => h.evaluate(() => !!document.querySelector('[data-flip-at="0"]'))) }
   await flow()
   const centre = () => h.evaluate(() => document.querySelector('[data-flip-at="0"] [data-pick]')?.dataset.pick)
   const first = await centre()
