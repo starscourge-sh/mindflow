@@ -237,6 +237,10 @@ const reset = async (grown) => {
   for (let i = 0; i < 2; i++) await page.keyboard.press('Escape').catch(() => {})
   await page.evaluate(() => window.api.showPrompt())
   await wait(500)
+  // The pinned chip opens the side panel, from the pill too: put away again, so each journey starts from the pill.
+  if (await page.evaluate(() => [...document.querySelectorAll('[data-box-panel]')].some((one) => one.getBoundingClientRect().width > 100 && one.getBoundingClientRect().right <= innerWidth + 1))) {
+    await page.keyboard.press('Meta+\\'); await wait(1200)
+  }
   await page.click(EDITOR)
   await page.keyboard.press('Meta+a')
   await page.keyboard.press('Backspace')

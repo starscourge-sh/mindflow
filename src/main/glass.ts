@@ -1,4 +1,6 @@
-import { BrowserWindow, ipcMain } from 'electron'
+import { app, BrowserWindow, ipcMain } from 'electron'
+import { writeFileSync } from 'node:fs'
+import { join } from 'node:path'
 import glassFile from '../../resources/glass.node?asset&asarUnpack'
 
 /**
@@ -32,6 +34,14 @@ export function registerGlass(): void {
       .filter((one): one is number[] => Array.isArray(one) && one.length === 5 && one.every((n) => Number.isFinite(n)))
       .map((one) => one.map((n) => Math.round(n * zoom * 100) / 100))
     glassShapes.set(win.id, { dark: dark === true, shapes: scaled })
-    load()?.(win.getNativeWindowHandle(), dark === true, scaled)
+    const native = load()
+    native?.(win.getNativeWindowHandle(), dark === true, scaled)
+    // What the glass is doing, in the data folder (glass.json): whether the Mac's blur is on, and under what, in each window.
+    try {
+      const said = Object.fromEntries([...glassShapes].map(([id, one]) => [BrowserWindow.fromId(id)?.webContents.getURL().replace(/^.*\?/, '?').slice(0, 80) ?? String(id), { blur: !!native && one.shapes.length > 0, ...one }]))
+      writeFileSync(join(app.getPath('userData'), 'glass.json'), JSON.stringify({ nativeLoaded: !!native, at: new Date().toISOString(), windows: said }, null, 1))
+    } catch {
+      // A read-only data folder: the glass goes on all the same.
+    }
   })
 }
