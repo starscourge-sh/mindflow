@@ -664,12 +664,8 @@ export function StickyNote({ type, id }: { type: string; id: string }): React.JS
               // Held, the card crumples more the longer the press, and at the end goes to the Bin; let go early, it smooths flat.
               onPointerDown={(event) => {
                 if (event.button !== 0 || !card.current || gone) return
-                event.currentTarget.setPointerCapture(event.pointerId)
                 holding.current = holdToCrumple(card.current, toBin)
               }}
-              onPointerUp={() => holding.current?.release()}
-              onPointerCancel={() => holding.current?.release()}
-              onLostPointerCapture={() => holding.current?.release()}
               onClick={() => {
                 // A press that became a hold is not also a click.
                 const was = holding.current

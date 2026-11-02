@@ -353,6 +353,8 @@ export function holdToCrumple(el: HTMLElement, done: () => void): { release: () 
   const flat = still()
   let crumple: Animation | null = null
   let finished = false
+  // Let go early: its run, played back to the start, also "finishes"; that is not a ball.
+  let released = false
   const wait = setTimeout(() => {
     const box = el.getBoundingClientRect()
     const across = Math.min(1, 52 / box.width)
@@ -368,6 +370,7 @@ export function holdToCrumple(el: HTMLElement, done: () => void): { release: () 
       { duration: HOLD_MS - HOLD_WAIT_MS, easing: 'cubic-bezier(0.5, 0, 0.75, 0.6)', fill: 'forwards' })
     el.setAttribute('data-crumpling', '')
     crumple.finished.then(() => {
+      if (released) return
       finished = true
       // A ball now: it drops off the foot of the window, and only then is it thrown away.
       const fall = innerHeight - el.getBoundingClientRect().top + 40
@@ -383,14 +386,16 @@ export function holdToCrumple(el: HTMLElement, done: () => void): { release: () 
       }, () => undefined)
     }, () => undefined)
   }, HOLD_WAIT_MS)
-  return {
-    held: () => crumple !== null,
-    release: () => {
-      clearTimeout(wait)
-      if (!crumple || finished) return
-      // Let go early: it smooths flat again from where it got to, quicker than it went.
-      crumple.playbackRate = -3
-      crumple.finished.then(() => (crumple?.cancel(), el.removeAttribute('data-crumpling')), () => undefined)
-    }
+  const release = (): void => {
+    for (const type of ['pointerup', 'pointercancel', 'blur'] as const) removeEventListener(type, release, true)
+    clearTimeout(wait)
+    if (!crumple || finished) return
+    released = true
+    // Let go early: it smooths flat again from where it got to, quicker than it went.
+    crumple.playbackRate = -3
+    crumple.finished.then(() => (crumple?.cancel(), el.removeAttribute('data-crumpling')), () => undefined)
   }
+  // Let go anywhere counts: as the sheet shrinks, the pointer is soon off it, and its controls with it.
+  for (const type of ['pointerup', 'pointercancel', 'blur'] as const) addEventListener(type, release, true)
+  return { held: () => crumple !== null, release }
 }
