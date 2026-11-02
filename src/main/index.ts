@@ -548,7 +548,11 @@ function toggleWindow(): void {
   // The room above the card, for a hint: set while the box is still away, and shown only once the page has moved
   // its card down to match, so the card never jumps as it opens (qa/hint-room.mjs).
   const roomed = roomForHint(win, place)
-  if (roomed) return void roomed.then(() => win.isDestroyed() || showPrompt(win))
+  // AeroSpace keeps the box on the workspace it was first seen on, and hides it there by parking it in the screen's
+  // bottom-right corner: opened from another workspace it came up and was taken away again, or flashed in the
+  // corner. It is moved to the workspace in view first, as the stickies are (followWorkspace).
+  const here = boxToWorkspaceHere(win)
+  if (roomed || here) return void Promise.all([roomed, here]).then(() => win.isDestroyed() || showPrompt(win))
   showPrompt(win)
 }
 
@@ -1837,6 +1841,21 @@ function parkedBy(win: BrowserWindow): void {
   const seenH = Math.max(0, Math.min(b.y + b.height, area.y + area.height) - Math.max(b.y, area.y))
   if (seenW * seenH > b.width * b.height * 0.1) return
   followWorkspace()
+}
+/**
+ * The box to the AeroSpace workspace in view before it shows (null without AeroSpace, or in a test run): moved by its
+ * window number, as AeroSpace names it. Never slower than AeroSpace's own answer, 1.5 seconds at the very most.
+ */
+function boxToWorkspaceHere(win: BrowserWindow): Promise<void> | null {
+  if (!AEROSPACE || (process.env.HALIGTREE_QA_AWAY && !process.env.HALIGTREE_QA_FOLLOW)) return null
+  return (async () => {
+    const here = await aerospace('list-workspaces', '--focused')
+    if (!here || win.isDestroyed()) return
+    const id = win.getMediaSourceId().split(':')[1]
+    const rows = await aerospace('list-windows', '--all', '--format', '%{window-id}|%{workspace}')
+    const mine = rows.split('\n').map((row) => row.split('|')).find(([one]) => one === id)
+    if (mine && mine[1] !== here) await aerospace('move-node-to-workspace', '--window-id', id, here)
+  })()
 }
 let following: ReturnType<typeof setTimeout> | null = null
 function followWorkspace(): void {
