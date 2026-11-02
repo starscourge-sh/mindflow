@@ -10,6 +10,7 @@ import { sandbox } from './sandbox-lib.mjs'
 const { check, done } = checks()
 const s = await sandbox({ width: 1400, height: 880 })
 const { h, v, go, close, errors } = s
+if (process.env.QA_THEME) await s.theme(process.env.QA_THEME)
 const shots = process.env.QA_SHOTS
 const M = '[role="main"]'
 const wait = (ms) => h.waitForTimeout(ms)

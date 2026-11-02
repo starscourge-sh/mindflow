@@ -38,6 +38,18 @@
   }
 }
 
+/* A folder drawn small in a row (kept-groups.tsx): how much of its ink its back, front and edge take. On a dark page
+   the light theme's mix read as a dim smudge, so the dark themes take more ink, as clear as it is on paper. */
+[data-folder-mark] {
+  --mark-back: 26%;
+  --mark-front: 15%;
+  --mark-edge: 34%;
+}
+.dark:not(.light, .paper, [data-light]) [data-folder-mark] {
+  --mark-back: 50%;
+  --mark-front: 32%;
+  --mark-edge: 62%;
+}
 /* A list page's two left edges, from its column's left. Boxes and lines sit
    on the box edge: the add box's border, a tab's pill, the example card, a
    heading's rule, a row's highlight. Words and marks start on the ink edge,

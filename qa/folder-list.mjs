@@ -10,6 +10,8 @@ import { sandbox } from './sandbox-lib.mjs'
 const { check, done } = checks()
 const s = await sandbox({ width: 1300, height: 860 })
 const { h, v, go, close, errors } = s
+const wait = (ms) => h.waitForTimeout(ms)
+if (process.env.QA_THEME) await s.theme(process.env.QA_THEME)
 const shots = process.env.QA_SHOTS
 const M = '[role="main"]'
 const setView = (list, view) => h.evaluate(([key, view]) => localStorage.setItem(key, JSON.stringify({ sort: 'newest', group: 'none', filter: {}, density: 'list', ...view })), [`view:${list}`, view])
@@ -134,6 +136,21 @@ try {
   await h.keyboard.press('Meta+z')
   await h.waitForTimeout(900)
   check('⌘Z brings the group back with its notes', (await v('sections', 'article')).some((one) => one.id === section && one.members.length === 3))
+
+  // A group made from the list itself: right-click its empty space, "New group", named in place, empty.
+  await fresh('articles')
+  const space = await h.locator(`${M} [data-list-space]`).boundingBox()
+  await h.mouse.click(space.x + 200, space.y + space.height - 30, { button: 'right' })
+  await wait(400)
+  await h.getByRole('menuitem', { name: 'New group' }).click()
+  await wait(900)
+  const naming = await h.evaluate(() => document.activeElement?.getAttribute('aria-label'))
+  await h.keyboard.type('Someday')
+  await h.keyboard.press('Enter')
+  await wait(800)
+  const empty = (await v('sections', 'article')).find((one) => one.name === 'Someday')
+  check('right-click on the list\'s empty space, "New group": an empty group, named in place', naming === 'Group name' && !!empty && empty.members.length === 0 && (await h.locator(`${M} [data-hand-group="${empty?.id}"]`).count()) === 1, String(naming))
+  if (shots) await h.screenshot({ path: `${shots}/new-empty-group.png` })
 
   // Questions: only folders that hold questions, counted in questions.
   const qs = []

@@ -48,7 +48,7 @@ import { canMoveTier, moveTier } from './gem-or-card'
 import { Empty, focusField, Island, Page, Prop, Props, Remembered, refuse, quietly, toast, useListKeys, useReadKey, typing, pin, Stepper, startAt, Typed, showTopTitle, Pressed, askClearWho, Rolling } from './ui'
 import { Term } from './term'
 import { AGES, Chips, Display, FilterChips, arrange, period, useView, type Density, type Facet, type View } from './display'
-import { copy, copyLinkItem, type MenuItem, type RowItem } from './row-menu'
+import { RowMenu, copy, copyLinkItem, type MenuItem, type RowItem } from './row-menu'
 import { stickOnDesktop } from './sticky-note'
 import { Lineage } from './lineage'
 import { ReviewHistory } from './review-view'
@@ -578,8 +578,15 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
   }
   const newHand = (ids: string[]): void => void handApi.make(questionsOnly ? 'question' : tier, opened?.id ?? null, 'New group', ids).then((id) => {
     chime('promote')
+    // Named as it is made, in place, as a new folder is.
+    folding.renameHand(id)
     toast(ids.length ? `Made a group of ${plural(ids.length, 'note')}` : 'Made a group', () => void handApi.remove(id))
   })
+  // The list's own menu, on its empty space (a row's own menu answers on a row): a group or a folder, made here.
+  const listMenu: RowItem[] = folding.rows ? [
+    { label: 'New group', hint: 'A heading in this list; notes stay where they live', run: () => newHand([]) },
+    !questionsOnly && { label: 'New folder', keys: '⇧⌘N', run: () => folding.newFolder() }
+  ].filter(Boolean) as RowItem[] : []
   // A row's group lines: into one of the groups made by hand here, a new one, or out of its own.
   const handMenu = (ids: string[]): RowItem[] => [{
     label: 'Group', items: [
@@ -835,10 +842,14 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
               Drag notes here, or start one.
             </Empty>
         ) : items.length || handsHere.length || (folding.rows && noteGroups.some((one) => one.members.some((id) => all.some((item) => item.id === id && !item.archivedAt)))) ? (
+          <RowMenu list items={listMenu}>
+          <div data-list-space="" className="min-h-full pb-24">
           <NoteList groups={entries} density={density} table="nuggets" selected={spread ? peek ?? undefined : coming ?? open?.id} cursor={cursor} onCursor={setCursor} chosen={chosen}
             onPick={spread ? (id) => (isGroup(id) ? pick(id) : (setPeek(id), setCursor(items.findIndex((one) => one.id === id)))) : pickRow} onOpen={spread ? pickRow : undefined}
             picking={picking} onMove={view.sort === 'manual' ? onMove : undefined} after={glossAfter} className={spread ? 'list-edge my-3' : 'list-edge my-2'}
             folds={folding.rows ? { ...folding.folds(menuFor, entryOf), onHandDrop: (ids, section) => (intoHand(section, ids), setChosen([])), onNewNote: pick, onSort: setSorting, onSorted: markSorted, onOpenFolder: onFolder ?? undefined } : undefined} />
+          </div>
+          </RowMenu>
         ) : questionsOnly && !unloaded(all) && !all.length ? (
           // No questions yet: the page as it will look, as every other list shows itself.
           <Example tryIt="press H on a note in your Inbox, or “New question” above. It is held here, gathering dated clues until you know.">
@@ -1682,6 +1693,8 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
   moveInto: (group: string, ids: string[]) => boolean
   /** A new, empty folder in the one open (or the list itself), its name open for typing. */
   newFolder: () => void
+  /** A hand-made group's name opened for typing. */
+  renameHand: (id: string | null) => void
 } {
   const list = useGroups(tier)
   const [held, setHeld] = useState<Layout | null>(null)
@@ -2014,5 +2027,5 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
     return true
   }
   const newFolder = (): void => void noteGroupsApi.make(tier, 'New folder', within ?? null).then((id) => (chime('promote'), setRenaming(id), setBorn(id), quietly(() => void noteGroupsApi.remove(id))))
-  return { rows: shown ? rowsOf(layout) : null, tiles, step, menu, gatherNew, folds, reveal, moveInto, newFolder }
+  return { rows: shown ? rowsOf(layout) : null, tiles, step, menu, gatherNew, folds, reveal, moveInto, newFolder, renameHand: setHandRenaming }
 }

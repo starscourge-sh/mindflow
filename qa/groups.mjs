@@ -74,6 +74,8 @@ async function carry(c, from, to, at = 0.5, { hold, up = true, shift = false } =
 }
 /** The rows as drawn, top to bottom, and which are picked. */
 const order = (c) => c.h.evaluate(() => [...document.querySelectorAll('[data-row]:not([data-lifted] *)')].sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top).map((one) => one.textContent.replace(/(now|\d+(mo|[dwyhm])).*$/, '').trim()))
+/** The loose rows, top to bottom: the rows outside every folder (folders stand first, Finder's way). */
+const looseOrder = (c) => c.h.evaluate(() => [...document.querySelectorAll('[data-row]:not([data-lifted] *)')].filter((one) => !one.closest('[data-group-block]')).sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top).map((one) => one.textContent.replace(/(now|\d+(mo|[dwyhm])).*$/, '').trim()))
 const picked = (c) => c.h.evaluate(() => [...document.querySelectorAll('[data-row][data-picked]:not([data-lifted] *)')].map((one) => one.textContent.replace(/(now|\d+(mo|[dwyhm])).*$/, '').trim()))
 const memberTitles = async (c, name) => {
   const group = await named(c, name)
@@ -247,7 +249,7 @@ if (c) try {
     hold: async () => (await c.h.waitForTimeout(200), await frames(c, 'q-stack-edge', 3, 40))
   })
   await c.h.waitForTimeout(700)
-  const rows = await order(c)
+  const rows = await looseOrder(c)
   check('two picked rows move to the edge together', rows.slice(0, 3).join('|') === "What The Matrix gets right about choosing|Mnemosyne's problem: how memory fades|Interleaving beats blocking", rows.slice(0, 3).join(' | '))
 
   // 7d. Two picked in a group, carried out: both leave it.
@@ -271,7 +273,7 @@ if (c) try {
   await (await reach(c, 'Interleaving beats blocking')).click({ modifiers: ['Meta'] })
   await carry(c, row(c, "Mnemosyne's problem"), row(c, 'Interleaving beats blocking'), 0.9)
   await c.h.waitForTimeout(700)
-  const alone = await order(c)
+  const alone = await looseOrder(c)
   check('an unpicked row goes alone and the picks are let go', (await picked(c)).length === 0 && alone.slice(0, 3).join('|') === "What The Matrix gets right about choosing|Interleaving beats blocking|Mnemosyne's problem: how memory fades", alone.slice(0, 3).join(' | '))
 
   // 7f. Picked rows let go on the middle of a row outside any group: a new group of all of them.
@@ -305,6 +307,9 @@ if (c) try {
     const back = await named(c, 'Reading')
     check(`${how}: one ⌘Z brings both notes back`, back?.members.length === 2 && (await c.h.locator('[data-group-row]', { hasText: 'Reading' }).count()) === 1, JSON.stringify(back ?? null))
   }
+  // Every folder starts shut: Reading opened by its chevron, so its notes are rows to carry.
+  await head(c, 'Reading').locator('[data-group-fold]').click()
+  await c.h.waitForTimeout(500)
   await apart('dragged out', async () => {
     await carry(c, row(c, 'Notes on Zettelkasten'), row(c, 'What The Matrix gets right'), 0.9, { hold: async () => (await c.h.waitForTimeout(200), await frames(c, 'z-dissolve-drag', 2, 40)) })
     await frames(c, 'z-dissolve-going', 5, 40)
@@ -358,22 +363,21 @@ if (c) try {
   await c.h.keyboard.press('ArrowLeft')
   await frames(c, 'j-fold', 6, 35)
   await c.h.waitForTimeout(300)
-  check('← folds the group', (await named(c, 'Memory'))?.folded === 1)
-  check('and its count shows', /\b3$/.test((await head(c, 'Memory').locator('[data-count]').textContent()) ?? ''), await head(c, 'Memory').locator('[data-count]').textContent())
+  // Folds are the list's own, not saved: every folder starts shut (beta.83).
+  check('← folds the group', (await head(c, 'Memory').getAttribute('aria-expanded')) === 'false')
+  check('and its count shows, in pages', /^3 pages$/.test((await head(c, 'Memory').locator('[data-count]').textContent()) ?? ''), await head(c, 'Memory').locator('[data-count]').textContent())
   await c.h.keyboard.press('ArrowRight')
   await c.h.waitForTimeout(450)
-  check('→ unfolds it', (await named(c, 'Memory'))?.folded === 0)
+  check('→ unfolds it', (await head(c, 'Memory').getAttribute('aria-expanded')) === 'true')
 
-  // 9. The ×: pointed at, the panel deepens and says what Separate keeps; clicked, it comes apart; ⌘Z puts it back.
-  const memory = c.h.locator('[data-group-block]', { has: c.h.locator('[data-group-row]', { hasText: 'Memory' }) })
-  await head(c, 'Memory').hover()
-  await c.h.waitForTimeout(200)
-  await memory.locator('button[aria-label^="Delete folder"]').hover()
-  await c.h.waitForTimeout(700)
-  const tip = await c.h.evaluate(() => [...document.querySelectorAll('[role="tooltip"], [data-slot="tooltip-content"]')].map((one) => one.textContent).join(' '))
-  check('the × says what it keeps', tip.includes('Delete folder, keep its 3 notes'), tip)
+  // 9. Delete from the folder's right-click menu (its row has no × now, Finder's way): the line says what it keeps;
+  // chosen, it comes apart; ⌘Z puts it back.
+  await head(c, 'Memory').click({ button: 'right' })
+  await c.h.waitForTimeout(300)
+  const line = c.h.locator('[data-folder-delete]')
+  check('the menu says what Delete keeps', ((await line.textContent()) ?? '').includes('Delete folder, keep its notes'), await line.textContent())
   await frames(c, 'k-x-hover', 1, 0)
-  await memory.locator('button[aria-label^="Delete folder"]').click()
+  await line.click()
   await frames(c, 'l-separate', 8, 35)
   await c.h.waitForTimeout(600)
   check('Separate takes the group away and keeps its notes', !(await named(c, 'Memory')) && (await row(c, 'The forgetting curve').count()) === 1)
@@ -394,11 +398,13 @@ c = process.env.ONLY ? null : await open(false)
 if (c) try {
   await articles(c)
   const memory = await named(c, 'Memory')
-  check('after a restart the groups are kept', memory?.color === 'blue' && memory.members.length === 3 && memory.folded === 1 && !!(await named(c, 'Reading')), JSON.stringify(await groupsNow(c)))
+  check('after a restart the groups are kept', memory?.color === 'blue' && memory.members.length === 3 && !!(await named(c, 'Reading')), JSON.stringify(await groupsNow(c)))
   check('and Memory is still drawn folded', (await row(c, 'The forgetting curve').count()) === 0)
   const rest = await row(c, 'Interleaving beats blocking').evaluate((el) => getComputedStyle(el).cursor)
   check('a row at rest shows the hand (it opens on a click)', rest === 'pointer', rest)
-  // A faint grip at its left edge, only after a moment's rest on it.
+  // A faint grip at its left edge, only after a moment's rest on it: from a pointer resting off the list.
+  await c.h.mouse.move(5, 5)
+  await c.h.waitForTimeout(400)
   await row(c, 'Interleaving beats blocking').hover()
   await c.h.waitForTimeout(80)
   const early = await row(c, 'Interleaving beats blocking').evaluate((el) => Number(getComputedStyle(el.closest('[data-sortable-id]').querySelector('[data-grip]')).opacity))

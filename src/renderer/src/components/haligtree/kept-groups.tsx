@@ -985,15 +985,15 @@ function GroupTile({ group, onFold, ...rest }: { group: GroupView; onFold?: () =
 export function FolderMark({ icon, color, className }: { icon: string | null; color: string | null; className?: string }): React.JSX.Element {
   const ink = color ? `var(--tt-color-text-${color})` : 'var(--foreground)'
   return (
-    <span data-folder-mark="" aria-hidden className={cn('relative block h-[1.375rem] w-[1.75rem] shrink-0', className)} style={{ '--ink': ink } as CSSProperties}>
+    <span data-folder-mark="" aria-hidden className={cn('relative block h-[1.375rem] w-[1.75rem] shrink-0 transition-transform duration-150 ease-out group-active/row:scale-[0.94] motion-reduce:transition-none', className)} style={{ '--ink': ink } as CSSProperties}>
       {/* The back, with its tab. */}
       <svg viewBox="0 0 28 22" className="absolute inset-0 size-full overflow-visible">
         <path d="M1 3a2 2 0 0 1 2-2h6.2a2 2 0 0 1 1.4.6l1.4 1.4h13a2 2 0 0 1 2 2V19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2Z"
-          style={{ fill: 'color-mix(in oklab, var(--ink) 26%, var(--background))', stroke: 'color-mix(in oklab, var(--ink) 34%, transparent)', strokeWidth: 0.75 }} />
+          style={{ fill: 'color-mix(in oklab, var(--ink) var(--mark-back), var(--background))', stroke: 'color-mix(in oklab, var(--ink) var(--mark-edge), transparent)', strokeWidth: 0.75 }} />
       </svg>
       {/* The front, its icon on it. */}
       <span className="absolute inset-x-[1px] bottom-[1px] top-[5px] flex items-center justify-center rounded-[2.5px] shadow-[inset_0_1px_0_color-mix(in_oklab,white_45%,transparent)] [&>span]:text-[0.6875rem] [&_svg]:size-3"
-        style={{ background: 'color-mix(in oklab, var(--ink) 15%, var(--background))', border: '0.75px solid color-mix(in oklab, var(--ink) 26%, transparent)' }}>
+        style={{ background: 'color-mix(in oklab, var(--ink) var(--mark-front), var(--background))', border: '0.75px solid color-mix(in oklab, var(--ink) var(--mark-edge), transparent)' }}>
         {icon ? <GroupIcon icon={icon} color={color} className="size-3" /> : null}
       </span>
     </span>

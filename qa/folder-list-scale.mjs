@@ -51,6 +51,11 @@ try {
   check('the list\'s folders stand in the sidebar\'s order', orders.list.length > 10 && orders.list.join() === orders.side.join(), JSON.stringify({ list: orders.list.length, side: orders.side.length }))
   await add(450)
   await shoot('500-30')
+  // 5,000 pages: QA_BIG=1 (it takes minutes to make them one by one).
+  if (process.env.QA_BIG) {
+    await add(4500)
+    await shoot('5000-30')
+  }
   check('no page errors', errors.length === 0, errors.join(' | '))
 } finally {
   await close()
