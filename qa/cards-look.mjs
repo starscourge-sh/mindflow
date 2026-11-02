@@ -50,23 +50,24 @@ try {
   await waitFor(() => has('[data-deck-grid] [data-deck]'))
 
   // 1. One pocket look: square satin tiles, no colour and no Coolshapes.
-  const tile = await box('[data-deck-grid] [data-own-deck]')
+  // The deck's top card: the pile's room around it (cards behind, the due tab) is not the card.
+  const tile = await box('[data-deck-grid] [data-own-deck] > [data-pile-top]')
   check('1. a deck tile is square-ish (within 10%)', tile && Math.abs(tile.w / tile.h - 1) <= 0.1, JSON.stringify(tile))
-  check('1. a deck tile is satin metal, no Coolshapes', await h.evaluate(() => document.querySelector('[data-deck-grid] [data-own-deck]').classList.contains('mf-metal') && !document.querySelector('[data-deck-shelf] [data-group-cover]')))
-  const tileBg = await h.evaluate(() => getComputedStyle(document.querySelector('[data-deck-grid] [data-own-deck]')).backgroundImage)
+  check('1. a deck tile is satin metal, no Coolshapes', await h.evaluate(() => document.querySelector('[data-deck-grid] [data-own-deck] > [data-pile-top]').classList.contains('mf-metal') && !document.querySelector('[data-deck-shelf] [data-group-cover]')))
+  const tileBg = await h.evaluate(() => getComputedStyle(document.querySelector('[data-deck-grid] [data-own-deck] > [data-pile-top]')).backgroundImage)
   check('1. its sheen is in the theme ink: a gradient, no hue of its own', /gradient/.test(tileBg), tileBg.slice(0, 80))
   const decksLeft = await box('[data-deck-top]')
   await shot('decks')
   await tab('cards')
   await waitFor(() => has('[data-pocket]'))
-  const pocket = await box('[data-pocket]')
-  check('1. All cards pockets are the same tile: satin, square, about the same width', await has('[data-pocket][data-pocket-plain].mf-metal') && Math.abs(pocket.w / pocket.h - 1) <= 0.1 && Math.abs(pocket.w - tile.w) <= 24, JSON.stringify({ pocket, tile }))
+  const pocket = await box('[data-pocket] > [data-pile-top]')
+  check('1. All cards pockets are the same tile: satin, square, about the same width', await has('[data-pocket][data-pocket-plain] > [data-pile-top].mf-metal') && Math.abs(pocket.w / pocket.h - 1) <= 0.1 && Math.abs(pocket.w - tile.w) <= 24, JSON.stringify({ pocket, tile }))
   check('1. no coloured glass or Coolshapes in All cards by default', !(await has('[data-card-pockets] .mf-glass, [data-card-pockets] [data-group-cover]')))
 
   // 1b. Dense tiles: about 200 px, the name leads, satin you can see, no tip at all (one hover, one surface).
   await tab('decks')
   await waitFor(() => has('[data-deck-grid] [data-own-deck]'))
-  const dense = await h.evaluate(() => { const one = document.querySelector('[data-deck-grid] [data-own-deck]'); const r = one.getBoundingClientRect(); const first = [...one.querySelectorAll('h3, [data-deck-counts]')][0]; return { w: Math.round(r.width), h: Math.round(r.height), lead: first?.tagName, bg: getComputedStyle(one).backgroundImage } })
+  const dense = await h.evaluate(() => { const one = document.querySelector('[data-deck-grid] [data-own-deck]'); const r = one.querySelector(':scope > [data-pile-top]').getBoundingClientRect(); const first = [...one.querySelectorAll('h3, [data-deck-counts]')][0]; return { w: Math.round(r.width), h: Math.round(r.height), lead: first?.tagName, bg: getComputedStyle(one.querySelector(':scope > [data-pile-top]')).backgroundImage } })
   check('1b. a deck tile is about 200 px square', dense.w >= 168 && dense.w <= 215 && Math.abs(dense.w - dense.h) <= 2, JSON.stringify({ w: dense.w, h: dense.h }))
   check('1b. its name leads, above its counts', dense.lead === 'H3', dense.lead)
   check('1b. its satin is smooth: a sheen and a pooled light, no stripes', !/repeating-linear-gradient/.test(dense.bg) && (dense.bg.match(/gradient/g) ?? []).length >= 2, dense.bg.slice(0, 60))

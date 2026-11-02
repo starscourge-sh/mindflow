@@ -645,6 +645,7 @@ export function ReviewView({ compact = false, tag, actions, lead }: { compact?: 
         initial={byKeys() ? false : 'from'}
         animate="here"
         exit="gone"
+        data-review-sheet
         className="flex flex-col gap-6 px-5 pt-4 pb-8"
       >
         {lineCard && (
@@ -1511,6 +1512,19 @@ export function Flip({ over, onTurn, onLater, front, back }: { over: boolean; on
       onPointerDown={(event) => {
         if (event.button !== 0 || own(event.target)) return
         grip.current = { x: event.clientX, y: event.clientY, base: aim.current, moved: false, down: false, width: event.currentTarget.offsetWidth, trail: [] }
+        // A quick flick can be off the card before its first move is seen (a press near its edge):
+        // once the pointer has gone 6px and left it, the card takes it back, so the rest of the move is the card's.
+        const card = event.currentTarget
+        const keep = (moving: PointerEvent): void => {
+          const held = grip.current
+          if (!held || held.moved) return stop()
+          if (Math.hypot(moving.clientX - held.x, moving.clientY - held.y) < 6 || card.contains(moving.target as Node)) return
+          card.setPointerCapture(moving.pointerId)
+          stop()
+        }
+        const stop = (): void => (removeEventListener('pointermove', keep, true), removeEventListener('pointerup', stop, true))
+        addEventListener('pointermove', keep, true)
+        addEventListener('pointerup', stop, true)
       }}
       onPointerMove={(event) => {
         const held = grip.current

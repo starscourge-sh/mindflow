@@ -224,7 +224,7 @@ export function DeckShelf({ onOpen, onStudy, onPaste, onPicture, onShow }: { /**
       <StudySets sets={sets} onStudy={onStudy} />
       <BookCoverage />
       {/* Pockets: squarish tiles, 2 to 4 across by width; each studies when clicked, its actions in its ⋯ menu and on right-click. */}
-      <div data-deck-grid className="grid grid-cols-[repeat(auto-fill,minmax(9.5rem,1fr))] gap-x-3 gap-y-5 pt-1.5 [&>*]:max-w-[13rem]">
+      <div data-deck-grid className="grid grid-cols-[repeat(auto-fill,minmax(calc(9.5rem_+_15px),1fr))] gap-x-3 gap-y-1 [&>*]:max-w-[calc(13rem_+_15px)]">
         {shown.map(tile)}
         {allTags && folded.map(tile)}
         {sharedTiles}
@@ -279,7 +279,7 @@ function DeckTile({ id, own = false, drag, name, title, due, fresh, all, held, c
         onKeyDown={(event) => (event.key === 'Enter' || event.key === ' ') && event.target === event.currentTarget && (event.preventDefault(), onClick())}
         {...(drag ? { draggable: true, onDragStart: (event: React.DragEvent) => (event.dataTransfer.effectAllowed = 'move', event.dataTransfer.setData('text/plain', `#${id}`), drag.start()),
           onDragEnter: drag.enter, onDragOver: (event: React.DragEvent) => event.preventDefault(), onDragEnd: drag.end, onDrop: (event: React.DragEvent) => (event.preventDefault(), drag.drop()) } : {}) as Record<string, unknown>}
-        className={`mf-pile aspect-square min-w-0 cursor-pointer self-start rounded-[6px] text-left outline-none active:scale-[0.985] motion-reduce:active:scale-100 focus-visible:ring-2 focus-visible:ring-ring ${drag?.lifted ? 'opacity-40' : ''}`}>
+        className={`mf-pile min-w-0 cursor-pointer self-start text-left outline-none active:scale-[0.985] motion-reduce:active:scale-100 ${drag?.lifted ? 'opacity-40' : ''}`}>
         {/* The deck as a pile: its edges under the top card, more as it grows, one standing proud when some are due. */}
         <PileEdges cards={all} due={due} />
         <div data-pile-top className="mf-pile-top mf-metal mf-metal-hover @container flex flex-col gap-1.5 overflow-hidden rounded-[6px] p-3.5">
@@ -297,7 +297,7 @@ function DeckTile({ id, own = false, drag, name, title, due, fresh, all, held, c
         {/* No big number: the counts under the name already say it. At the foot, how many in all, and a dot when some are due. */}
         {/* The foot is one line, never wrapped or hyphenated: "3 cards · +1 inside", the second part giving way first. */}
         <span data-deck-foot className="mt-auto flex min-w-0 items-center gap-1.5 text-sm whitespace-nowrap text-muted-foreground tabular-nums">
-          <span className="flex shrink-0 items-center gap-1.5">{all ? plural(all, 'card') : ''}{due > 0 && <span aria-hidden data-due-dot className="size-1.5 rounded-full bg-primary" />}</span>
+          <span className="flex shrink-0 items-center gap-1.5">{all ? plural(all, 'card') : ''}</span>
           {kids > 0 && (
             <>
               {all > 0 && <span aria-hidden>·</span>}

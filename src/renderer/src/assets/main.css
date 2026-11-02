@@ -3059,32 +3059,51 @@ textarea[data-talking]::selection {
 }
 .mf-metal-hover:hover { border-color: color-mix(in oklab, var(--foreground) 22%, transparent); filter: brightness(1.04); }
 
-/* A deck as a square pile (deck-pile.tsx): the top card in satin, its edges peeking out under it, more as the deck grows,
-   and one card standing a little proud above it when some are due. No colour, no tilt. The edges sit outside the tile's box,
-   so the grid keeps its room. Pointed at, the top card lifts 2px and the edges fan a touch; motion off, they hold still. */
-.mf-pile { position: relative; isolation: isolate; }
-.mf-pile-top { position: absolute; inset: 0; z-index: 2; transition: transform 160ms var(--mf-ease), border-color 160ms var(--mf-ease); }
-.mf-pile-edge, .mf-pile-proud {
-  position: absolute; pointer-events: none; border-radius: 6px;
+/* A deck as a square pile (deck-pile.tsx). The tile keeps room for the biggest pile (5 cards behind: 15px right, 20px down)
+   and for the due tab above (24px), so tiles line up whatever their size; the face is square inside that room. Each card
+   behind is whole, the same satin with its own hairline, 3px right and 4px down from the one before: the pile shows along
+   the right and the bottom. A deck with cards due has one card standing 7px above the rest, its tab saying how many.
+   No colour, no tilt. Pointed at, the top card lifts 2px and the cards behind fan out a touch; motion off, they hold still. */
+.mf-pile { --pile-top: 24px; --pile-right: 15px; --pile-bottom: 20px; position: relative; isolation: isolate; display: block; }
+.mf-pile-room { display: block; aspect-ratio: 1; margin: var(--pile-top) var(--pile-right) var(--pile-bottom) 0; }
+.mf-pile-top, .mf-pile-card {
+  position: absolute; top: var(--pile-top); left: 0; right: var(--pile-right); bottom: var(--pile-bottom); border-radius: 6px;
+}
+.mf-pile:focus-visible > .mf-pile-top { outline: 2px solid var(--ring); outline-offset: 2px; }
+.mf-pile-top { z-index: 20; transition: transform 160ms var(--mf-ease), border-color 160ms var(--mf-ease); }
+.mf-pile-card {
+  pointer-events: none;
   background: var(--mf-metal-bg);
-  border: 1px solid color-mix(in oklab, var(--foreground) 13%, transparent);
-  box-shadow: 0 1px 2px color-mix(in oklab, black 18%, transparent);
+  border: 1px solid color-mix(in oklab, var(--foreground) 18%, transparent);
+  /* No shadow on each: a shadow per card smudged a big pile into one grey wedge. Only the back card casts one (below). */
+  box-shadow: inset 0 1px 1px color-mix(in oklab, white 40%, transparent);
   transition: transform 160ms var(--mf-ease);
 }
+.mf-pile-edge:last-of-type { box-shadow: inset 0 1px 1px color-mix(in oklab, white 40%, transparent), 0 2px 6px -2px color-mix(in oklab, black 30%, transparent); }
 .mf-pile-edge {
-  inset: calc(var(--n) * 2.5px) calc(var(--n) * 3.5px) calc(var(--n) * -2.5px);
-  z-index: calc(1 - var(--n));
-  filter: brightness(calc(1 - var(--n) * 0.035));
+  z-index: calc(10 - var(--n));
+  transform: translate(calc(var(--n) * 3px), calc(var(--n) * 4px));
+  /* Further back is a shade deeper, so each card reads as its own. */
+  filter: brightness(calc(1 - var(--n) * 0.05));
 }
-.mf-pile-proud { inset: -5px 9px 4px; z-index: 1; }
+.mf-pile-proud { z-index: 15; transform: translateY(-7px); }
+.mf-pile-tab {
+  /* Part of the card standing up, not a label stuck on it: the same satin and hairline, its top corners rounded as the card's are; its foot sits on the card's own top hairline, so the two read as one line. */
+  position: absolute; bottom: calc(100% - 1px); right: 12px; height: 18px; padding: 0 8px; display: flex; align-items: center;
+  border-radius: 6px 6px 0 0; background: var(--mf-metal-bg);
+  border: 1px solid color-mix(in oklab, var(--foreground) 18%, transparent);
+  font-size: 12px; line-height: 1; font-weight: 600; color: var(--foreground); white-space: nowrap;
+}
 @media (hover: hover) and (pointer: fine) {
   :root:not([data-motion='off']) .mf-pile:hover > .mf-pile-top { transform: translateY(-2px); }
-  :root:not([data-motion='off']) .mf-pile:hover > .mf-pile-edge { transform: translate(calc(var(--side) * var(--n) * 0.8px), calc(var(--n) * 0.8px)); }
-  :root:not([data-motion='off']) .mf-pile:hover > .mf-pile-proud { transform: translateY(-1px); }
+  :root:not([data-motion='off']) .mf-pile:hover > .mf-pile-edge { transform: translate(calc(var(--n) * 3.6px), calc(var(--n) * 4.8px)); }
+  :root:not([data-motion='off']) .mf-pile:hover > .mf-pile-proud { transform: translateY(-8px); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .mf-pile-top, .mf-pile-edge, .mf-pile-proud { transition: none; }
-  .mf-pile:hover > .mf-pile-top, .mf-pile:hover > .mf-pile-edge, .mf-pile:hover > .mf-pile-proud { transform: none !important; }
+  .mf-pile-top, .mf-pile-card { transition: none; }
+  .mf-pile:hover > .mf-pile-top { transform: none; }
+  .mf-pile:hover > .mf-pile-edge { transform: translate(calc(var(--n) * 3px), calc(var(--n) * 4px)); }
+  .mf-pile:hover > .mf-pile-proud { transform: translateY(-7px); }
 }
 
 /* Review's Stats in the Decks tab's look: one surface (satin, 5px corners), so the three tabs read as one page. */
