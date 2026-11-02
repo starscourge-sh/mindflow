@@ -13,7 +13,7 @@ import { ArrowUp, Compass, CornerDownLeft, FolderInput, Shuffle, Undo2, Volume2,
 import { ReaderCard, drawBookName, seedOf } from './reader-card'
 import { renameBook, useShelf } from '@/lib/books'
 import { shift, spring, still } from '@/lib/motion'
-import { sayName, ARRIVE_MS, BEAT_MS, PENTA, soundOn, ambience, bedResolve, bedShift, bell, chime, click, fold, pageTurn, quietBed, titleChime } from '@/lib/sound'
+import { sayName, ARRIVE_MS, BEAT_MS, PENTA, soundOn, ambience, bedLift, bedResolve, bedShift, bell, chime, click, fold, pageTurn, quietBed, titleChime } from '@/lib/sound'
 import { applyTheme, currentTheme, type Theme } from '@/lib/theme'
 import { comboOf, fixed, keyFor, listen, saveKeys, useKeyChanges } from '@/lib/keys'
 import { NO_SETUP, onboarding, type Onboarding, type Setup } from '@/lib/onboarding'
@@ -367,10 +367,12 @@ export function Welcome(): React.JSX.Element | null {
     if (up) tellBox(examples(), true)
   }, [up]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // The welcome's sound bed follows the pages: each turn a soft shift in the key, the last page the chord come home, gone when it ends.
+  // The welcome's sound bed follows the pages: each turn a soft shift in the key, Name it a lift, the last page the chord come home, gone when it ends.
   useEffect(() => {
     if (at < 0) return quietBed()
     if (at === LAST) bedResolve()
+    // Naming the book is the welcome's reveal: the music lifts there, then settles.
+    else if (at === NAME) bedLift()
     else if (at > WHY) bedShift(at)
   }, [at])
   useEffect(() => () => quietBed(0.4), [])

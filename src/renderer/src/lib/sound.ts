@@ -1092,11 +1092,17 @@ export function ambience(): void {
   hear('cue:ambience')
 }
 
+/** The voices sounding over the bed now, by the layer they belong to (a chapter's pair, the lift, the resolve), for the probes. */
+const layers = new Map<string, number>()
+;(window as unknown as { haligtreeBed?: () => { swell: number; layers: Record<string, number> } | null }).haligtreeBed = () =>
+  bed ? { swell: Math.round(bed.swell.gain.value * 1000) / 1000, layers: Object.fromEntries(layers) } : null
+
 /** A soft voice under the bed: in from nothing over `rise`, held, gone over `fall`. */
-function pad(hz: number, level: number, rise: number, hold: number, fall: number): void {
+function pad(hz: number, level: number, rise: number, hold: number, fall: number, layer = 'shift'): void {
   if (!bed) return
   const { context, out } = bed
   const now = context.currentTime
+  layers.set(layer, (layers.get(layer) ?? 0) + 1)
   const gain = context.createGain()
   gain.gain.setValueAtTime(0.0001, now)
   gain.gain.linearRampToValueAtTime(level, now + rise)
@@ -1111,6 +1117,7 @@ function pad(hz: number, level: number, rise: number, hold: number, fall: number
     voice.connect(gain)
     voice.start(now)
     voice.stop(now + rise + hold + fall + 0.1)
+    if (detune > 0) voice.onended = () => void (layers.get(layer)! > 1 ? layers.set(layer, layers.get(layer)! - 1) : layers.delete(layer))
   }
 }
 
@@ -1129,6 +1136,30 @@ export function bedShift(chapter: number): void {
   hear('cue:bed-shift')
 }
 
+/**
+ * Naming the book, the welcome's reveal: as a film's score lifts when the thing
+ * is finally shown, the bed swells to more than twice itself over a second and
+ * a half and a layer joins over it, the chord's own D major an octave up, its
+ * notes climbing in one after another, with a high glass note on the top. It
+ * holds while the book stands up and is named, then settles back to a little
+ * over the bed, never all the way down, so the last page's homecoming has
+ * somewhere to land.
+ */
+export function bedLift(): void {
+  if (!bed) return
+  if (!enabled || !volume) return quietBed(0.3)
+  const now = bed.context.currentTime
+  bed.swell.gain.cancelScheduledValues(now)
+  bed.swell.gain.setValueAtTime(bed.swell.gain.value, now)
+  bed.swell.gain.setTargetAtTime(BED * 2.4, now, 0.5)
+  bed.swell.gain.setTargetAtTime(BED * 1.25, now + 5, 2.5)
+  // The lift's layer: D, F sharp, A and the D above, in a beat apart, rising together, held, let go slowly.
+  const notes = [[293.66, 0.011], [369.99, 0.009], [440, 0.008], [587.33, 0.006]] as const
+  notes.forEach(([hz, level], i) => setTimeout(() => pad(hz, level, 1.6, 3.4 - i * 0.2, 5, 'lift'), i * 180))
+  bell(PENTA[0] * 4, 0.006, 'lift', 0.9)
+  hear('cue:bed-lift')
+}
+
 /** The last page: the chord comes home. Its colour note (the E) lets go, and a plain D major swells under it. */
 export function bedResolve(): void {
   if (!bed) return
@@ -1136,7 +1167,7 @@ export function bedResolve(): void {
   const now = bed.context.currentTime
   bed.voices[2].gain.cancelScheduledValues(now)
   bed.voices[2].gain.setTargetAtTime(0, now, 0.8)
-  for (const [hz, level] of [[146.83, 0.012], [220, 0.009], [293.66, 0.008], [369.99, 0.006]]) pad(hz, level, 1.8, 3, 6)
+  for (const [hz, level] of [[146.83, 0.012], [220, 0.009], [293.66, 0.008], [369.99, 0.006]]) pad(hz, level, 1.8, 3, 6, 'resolve')
   bell(PENTA[0] * 2, 0.014, 'resolve')
   hear('cue:bed-resolve')
 }
@@ -1146,6 +1177,7 @@ export function quietBed(seconds = 1.6): void {
   if (!bed) return
   const { context, out, sources } = bed
   bed = null
+  layers.clear()
   const now = context.currentTime
   out.gain.cancelScheduledValues(now)
   out.gain.setValueAtTime(out.gain.value, now)
