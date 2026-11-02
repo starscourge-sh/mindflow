@@ -36,7 +36,7 @@ try {
   const proud = await h.evaluate(() => [...document.querySelectorAll('[data-deck-grid] [data-deck]')].map((one) => {
     const face = one.querySelector(':scope > [data-pile-top]').getBoundingClientRect()
     const card = one.querySelector(':scope > [data-pile-proud]')?.getBoundingClientRect()
-    return { deck: one.getAttribute('data-deck'), due: Number(one.querySelector('[data-count-due]')?.getAttribute('data-count-due') ?? 0), up: card ? Math.round(face.top - card.top) : 0, above: Math.round(one.getBoundingClientRect().top - (card ?? face).getBoundingClientRect().top), tops: Math.round(face.top - one.getBoundingClientRect().top) }
+    return { deck: one.getAttribute('data-deck'), due: Number(one.querySelector('[data-count-due]')?.getAttribute('data-count-due') ?? 0), up: card ? Math.round(face.top - card.top) : 0, above: Math.round(one.getBoundingClientRect().top - (card ?? face).top), tops: Math.round(face.top - one.getBoundingClientRect().top) }
   }))
   const dueDecks = proud.filter((one) => one.due > 0)
   check('Decks: a deck with cards due has a card standing 6 to 8px above its top card', dueDecks.length >= 1 && dueDecks.every((one) => one.up >= 6 && one.up <= 8), JSON.stringify(proud))

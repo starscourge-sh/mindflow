@@ -39,7 +39,7 @@ try {
   const times = await h.evaluate(() => window.__times ?? [])
   const twoAt = graded.map((one, n) => (one.length === 2 ? times[n] : null)).filter((one) => one !== null)
   const gone = twoAt.length ? Math.round(twoAt.at(-1) - twoAt[0]) : -1
-  check('...and it is gone within about 300ms (400 allowed on a busy machine), one card left', gone >= 0 && gone <= 400 && graded.at(-1).length === 1, `${gone}ms on screen leaving`)
+  check('...and it is gone within about 300ms (400 allowed on a busy machine), one card left', gone >= 0 && gone <= 400 && graded.at(-1).length === 1, `${gone}ms on screen leaving, last frame ${JSON.stringify(graded.at(-1))}`)
   // By a key: no motion at all.
   await h.evaluate(() => document.activeElement?.blur())
   await h.keyboard.press('Space')
