@@ -2084,7 +2084,7 @@ export function Home(): React.JSX.Element {
                       }
                       return <PairRow key={pair.id} live={live} isPinned={false} narrow={narrow} names={views.map(paneName)} menu={pairMenu(views, live ? {} : null, undefined, true)} name={pair.name} onAlone={(index) => openAlone(views[index])}
                         onRename={rename}
-                        forgetLabel={live ? 'Close the split' : 'Remove from “Side by side”'}
+                        forgetLabel={live ? 'Close the split' : 'Remove this pair from the sidebar'}
                         onForget={() => {
                           if (live) return separate(split.front)
                           const was = keptRef.current
