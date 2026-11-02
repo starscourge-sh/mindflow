@@ -233,7 +233,7 @@ export function MonthPlan({ tasks, onDay, onSide, onOpen, onWeek, onMonth, onSho
           if (!over || line.kind === 'back' || line.kind === 'ready') return chime('stay')
           moveToDay(line.task, String(over.id), line.kind)
         }}>
-      <div ref={frame} className={`flex flex-col overflow-hidden rounded-xl border bg-border ${bare ? 'min-h-0 flex-1' : ''}`}>
+      <div ref={frame} data-swipe-own className={`flex flex-col overflow-hidden rounded-xl border bg-border ${bare ? 'min-h-0 flex-1' : ''}`}>
         <div className={COLS} aria-hidden>
           <div className="bg-background px-1 py-1 text-center text-control font-medium text-muted-foreground">Wk</div>
           {days.slice(0, 7).map((day) => (

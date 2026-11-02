@@ -29,6 +29,19 @@ type Props = {
   go: (key: string, to: number) => void
 }
 
+/** The places along a trail from where you are, the nearest first: each once, named for what was on show there. */
+function placesFrom(trail: Trail, way: -1 | 1, nameOf: Props['nameOf']): List['rows'] {
+  const seen = new Set([nameOf(trail.views[trail.at] as never).title])
+  const rows: List['rows'] = []
+  for (let index = trail.at + way; index >= 0 && index < trail.views.length && rows.length < 9; index += way) {
+    const name = nameOf(trail.views[index] as never)
+    if (seen.has(name.title)) continue
+    seen.add(name.title)
+    rows.push({ index, name })
+  }
+  return rows
+}
+
 const LINE = 110 // px of fingers to the tap
 const SIZE = 56
 const HOLD = 900 // ms resting past the tap before the list opens
@@ -51,9 +64,21 @@ export function SwipeBack({ front, trailOf, nameOf, go }: Props): React.JSX.Elem
     let hold = 0
     let rest = 0
     let dy = 0
+    // With natural scrolling (the Mac's default) the wheel's deltas run against the fingers. Read again as each swipe starts.
+    let natural = true
+    const readNatural = (): void => void window.api.naturalScrolling?.().then((on) => (natural = on))
+    readNatural()
+    const fingersX = (event: WheelEvent): number => (natural ? -event.deltaX : event.deltaX)
+    const fingersY = (event: WheelEvent): number => (natural ? -event.deltaY : event.deltaY)
+    // Every swipe's steps and the reason it ended, the last 300, for the probe (qa/swipe-back.mjs) and for a report.
+    const log = ((window as { __swipeLog?: unknown[] }).__swipeLog ??= []) as unknown[]
+    const note = (entry: Record<string, unknown>): void => void (log.push({ t: Math.round(performance.now()), ...entry }) > 300 && log.shift())
+    let liftWait = 0
     const draw = (): void => setShown(g ? { way: g.way, rect: g.rect, pull: g.pull, armed: g.armed } : null)
-    const end = (): void => {
+    const end = (why: string): void => {
+      note({ end: why, pull: g ? Math.round(g.pull) : null, armed: g?.armed ?? null })
       clearTimeout(hold)
+      clearTimeout(liftWait)
       clearTimeout(rest)
       g = null
       spent = true
@@ -65,16 +90,17 @@ export function SwipeBack({ front, trailOf, nameOf, go }: Props): React.JSX.Elem
     const openList = (): void => {
       if (!g) return
       const trail = props.current.trailOf(g.key)
-      if (!trail) return end()
-      const rows: List['rows'] = []
-      for (let index = trail.at + g.way; index >= 0 && index < trail.views.length && rows.length < 9; index += g.way) rows.push({ index, name: props.current.nameOf(trail.views[index] as never) })
+      if (!trail) return end('list: no trail')
+      const rows = placesFrom(trail, g.way, props.current.nameOf)
+      if (!rows.length) return end('list: nowhere to go')
       setList({ key: g.key, way: g.way, rect: g.rect, rows, pick: 0, moved: false })
       chime('slide')
+      note({ end: 'list opened', pull: Math.round(g.pull) })
       dy = 0
       g = null
       draw()
     }
-    const lifted = (): void => {
+    const lifted = (why: string): void => {
       const open = listRef.current
       if (open) {
         // Let go after choosing with the fingers: go there. Opened and not moved, it stays open to be answered.
@@ -85,8 +111,10 @@ export function SwipeBack({ front, trailOf, nameOf, go }: Props): React.JSX.Elem
       if (!g) return
       const { key, way, armed } = g
       const trail = props.current.trailOf(key)
-      end()
-      if (armed && trail) goBy(key, trail.at + way)
+      end(armed ? `go: ${why}` : `cancel: ${why} short of the tap`)
+      // To the nearest place that looks different from this one: a step that only changed a tab's scroll is not a place.
+      const to = trail && placesFrom(trail, way, props.current.nameOf)[0]
+      if (armed && to) goBy(key, to.index)
     }
     const startable = (event: WheelEvent): G | null => {
       const target = event.target instanceof Element ? event.target : null
@@ -100,9 +128,9 @@ export function SwipeBack({ front, trailOf, nameOf, go }: Props): React.JSX.Elem
       const paneEl = target.closest<HTMLElement>('[data-pane]')
       const key = paneEl?.dataset.pane ?? props.current.front()
       const trail = props.current.trailOf(key)
-      // Fingers to the right (the wheel's deltaX below 0 with natural scrolling): Back.
-      const way: -1 | 1 = event.deltaX < 0 ? -1 : 1
-      if (!trail || trail.at + way < 0 || trail.at + way >= trail.views.length) return null
+      // Fingers to the right: Back.
+      const way: -1 | 1 = fingersX(event) > 0 ? -1 : 1
+      if (!trail || !placesFrom(trail, way, props.current.nameOf).length) return null
       const rect = (paneEl ?? document.querySelector('[data-pane]') ?? document.body).getBoundingClientRect()
       return { key, way, pull: 0, armed: false, steps: [], rect }
     }
@@ -116,7 +144,8 @@ export function SwipeBack({ front, trailOf, nameOf, go }: Props): React.JSX.Elem
         if (spent && !fresh) return
         spent = false
         event.preventDefault()
-        dy += event.deltaY
+        // Fingers down, the pick goes down.
+        dy += fingersY(event)
         const by = Math.trunc(dy / 36)
         if (!by) return
         dy -= by * 36
@@ -124,30 +153,43 @@ export function SwipeBack({ front, trailOf, nameOf, go }: Props): React.JSX.Elem
         if (pick !== open.pick) (detent(), setList({ ...open, pick, moved: true }))
         return
       }
-      if (fresh) (spent = false, (ignored = false))
+      if (fresh) (spent = false, (ignored = false), readNatural())
       if (spent || ignored) return
       if (!g) {
-        if (event.defaultPrevented || event.ctrlKey || event.metaKey || Math.abs(event.deltaX) < 2 || Math.abs(event.deltaX) < Math.abs(event.deltaY) * 1.5) return void (ignored = !fresh || Math.abs(event.deltaY) > 2)
+        // Whether the page used the wheel is not asked: smooth scrolling (Lenis) takes every wheel with any up or down in it,
+        // and a sideways swipe nearly always has a little. What turns sideways itself says so with data-swipe-own.
+        const why = event.ctrlKey || event.metaKey ? 'a key held' : !event.deltaX || Math.abs(event.deltaX) < Math.abs(event.deltaY) * 1.5 ? 'not sideways' : null
+        if (why) return void ((ignored = !fresh || Math.abs(event.deltaY) > 2), note({ skip: why, dx: event.deltaX, dy: event.deltaY }))
         g = startable(event)
-        if (!g) return void (ignored = true)
+        if (!g) return void ((ignored = true), note({ skip: 'a scroller, the Map or nowhere to go', dx: event.deltaX }))
       }
       event.preventDefault()
-      const fingers = -event.deltaX * -g.way // toward the middle of the page from the edge it came from
+      const fingers = fingersX(event) * -g.way // toward the middle of the page from the edge it came from
       g.pull = Math.max(0, g.pull + fingers)
       g.steps.push(Math.abs(event.deltaX))
+      note({ dx: event.deltaX, dy: event.deltaY, pull: Math.round(g.pull), armed: g.armed })
+      // Past the tap it stays armed unless the fingers clearly come back toward the edge.
       if (!g.armed && g.pull >= LINE) (g.armed = true, edge())
-      else if (g.armed && g.pull < LINE * 0.8) g.armed = false
+      else if (g.armed && g.pull < LINE * 0.5) g.armed = false
       draw()
-      // The trackpad's glide: four steps in a row, each shorter than the one before. The fingers are off.
+      clearTimeout(liftWait)
+      // The trackpad's glide past the tap: four steps in a row, each shorter than the one before. The fingers are off.
+      // Short of the tap a slowing is never an end (fingers slow mid-swipe too): the glide may yet carry it past.
       const tail = g.steps.slice(-4)
-      if (g.steps.length > 6 && tail.length === 4 && tail.every((one, n) => !n || one < tail[n - 1] * 0.97)) return lifted()
+      if (g.armed && g.steps.length > 6 && tail.length === 4 && tail.every((one, n) => !n || one < tail[n - 1] * 0.97)) return lifted('glide')
       clearTimeout(hold)
       clearTimeout(rest)
       // Resting past the tap: the list. Resting short of it, a while: put away.
       if (g.armed) hold = window.setTimeout(openList, HOLD)
-      else rest = window.setTimeout(() => g && !g.armed && end(), 700)
+      else rest = window.setTimeout(() => g && !g.armed && end('cancel: rested short of the tap'), 700)
     }
-    const onLifted = (): void => lifted()
+    // Main's word that a scroll ended can be late, from the scroll before: it counts only if no wheel step follows it.
+    const onLifted = (): void => {
+      note({ lifted: true })
+      clearTimeout(liftWait)
+      if (listRef.current) return lifted('lift')
+      liftWait = window.setTimeout(() => lifted('lift'), 60)
+    }
     window.addEventListener('wheel', onWheel, { passive: false })
     window.addEventListener('haligtree:swipe-lifted', onLifted)
     const off = window.api.onSwipeLifted?.(onLifted)
@@ -157,6 +199,7 @@ export function SwipeBack({ front, trailOf, nameOf, go }: Props): React.JSX.Elem
       off?.()
       clearTimeout(hold)
       clearTimeout(rest)
+      clearTimeout(liftWait)
     }
   }, [])
 

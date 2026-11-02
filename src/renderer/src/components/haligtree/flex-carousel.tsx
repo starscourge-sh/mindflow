@@ -1025,6 +1025,7 @@ export default function FlexCarousel({
   return (
     <div
       ref={containerRef}
+      data-swipe-own
       className={`relative h-full w-full cursor-grab touch-pan-y rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring select-none overflow-hidden overscroll-contain [-webkit-tap-highlight-color:transparent] data-[hover=focus]:cursor-zoom-in data-[hover=close]:cursor-zoom-out data-[hover=open]:cursor-pointer data-[dragging]:cursor-grabbing ${className}`}
       style={{ ...style, '--flex-carousel-half': `${Math.min(Math.max(cardHeight, 0.05), 1) * 50}%`, '--flex-carousel-under': direct ? `calc(${Math.min(Math.max(cardHeight, 0.05), 1) * 100}% + ${TOP + 10}px)` : undefined } as CSSProperties}
       role="region"

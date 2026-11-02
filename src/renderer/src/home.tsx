@@ -49,7 +49,7 @@ import { TagsView } from './components/haligtree/tags-view'
 import { RailFolders, SideFolders, newFolder } from './components/haligtree/side-folders'
 import { GROUP_KEY, newSmartGroup } from '@/lib/smart-groups'
 import { hoverNote } from './components/haligtree/note-preview'
-import { groups } from '@/lib/groups'
+import { groups, useGroups } from '@/lib/groups'
 import { SourcePageView, SourcesView } from './components/haligtree/source-page'
 import { prefetchTag, renameTag } from './components/haligtree/tag-read'
 import { TasksView, askDate, askSessions } from './components/haligtree/tasks-view'
@@ -1358,6 +1358,14 @@ export function Home(): React.JSX.Element {
   }
   // A place in the app (Settings, Gems) is named by itself, with no kind: "Page" is a piece of writing.
   const paneName = (view: View): PaneName => noteIn(view)?.name ?? { title: labelOf(view) || APP_NAME, ...pageLook(view) }
+  // A step named for what was on show there, for swipe back's list: the note open in it, else the place and its folder ("Writing › YouTube").
+  const writingFolders = useGroups('article')
+  const gemFolders = useGroups('nugget')
+  const swipeName = (view: View): PaneName => {
+    const name = paneName(view)
+    const folder = view.folder && !noteIn(view) ? [...writingFolders, ...gemFolders].find((one) => one.id === view.folder)?.name : undefined
+    return folder ? { ...name, title: `${name.title} › ${folder}` } : name
+  }
   // The one thing you were last in (a note, a book, an article), for Home's line after a long absence (resume-cards.tsx).
   const lastName = view.focus && (view.id === 'pdf' || view.id === 'web' || holdsNotes(view.id)) ? paneName(view).title : null
   useEffect(() => {
@@ -2400,7 +2408,7 @@ export function Home(): React.JSX.Element {
         menuFor={(key) => pairMenu(split.panes.map((pane) => pane.trail.views[pane.trail.at]), { key })}
         panes={split.panes.map(({ key, trail, width }) => { const name = paneName(trail.views[trail.at]); return { key, width, at: trail.at, label: name.title, private: name.private, node: pageFor(key, trail.views[trail.at]) } })}
       />
-      <SwipeBack front={() => frontRef.current} nameOf={(view: View) => paneName(view)} go={(key, to) => step(to - (splitRef.current.panes.find((one) => one.key === key)?.trail.at ?? to), key)}
+      <SwipeBack front={() => frontRef.current} nameOf={swipeName} go={(key, to) => step(to - (splitRef.current.panes.find((one) => one.key === key)?.trail.at ?? to), key)}
         trailOf={(key) => splitRef.current.panes.find((one) => one.key === key)?.trail ?? null} />
       {/* Beside the page, not over it, while there is room; over its right edge in a narrow window. */}
       <AnimatePresence>

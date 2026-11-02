@@ -107,7 +107,7 @@ function QueueLine({ row, at, rows, pick }: { row: QueueRow; at: number; rows: Q
   ]
   return (
     <RowMenu items={menu}>
-      <div data-row data-id={row.itemId} data-queue-row={row.id} data-private={row.private ? '' : undefined} onWheel={swipe.onWheel}
+      <div data-row data-id={row.itemId} data-queue-row={row.id} data-swipe-own data-private={row.private ? '' : undefined} onWheel={swipe.onWheel}
         data-picked={pick.picked ? '' : undefined} data-cursor={pick.cursor || undefined}
         onClickCapture={(event) => pick.onPickClick(event) && (event.preventDefault(), event.stopPropagation())}
         className={`group/q relative flex cursor-grab items-center gap-3 rounded-md px-3 py-2 transition-[background-color,transform,opacity] duration-150 hover:bg-accent/50 data-[cursor]:bg-accent/50 ${PICKED_MARK}`}

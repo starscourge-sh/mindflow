@@ -1262,6 +1262,8 @@ function qaTrace(name: string, win: BrowserWindow, more: Record<string, unknown>
   void win.webContents.capturePage().then((image) => writeFile(`${stem}.png`, image.toPNG())).catch(() => undefined)
 }
 /** A dragged row came over a new place in a list: one light tap (renderer's slotTicker throttles it). */
+// Swipe back reads the fingers' way: with natural scrolling the wheel's deltas run against them.
+ipcMain.handle('scroll:natural', () => process.platform === 'darwin' && naturalScrolling())
 ipcMain.on('haptic:tap', (_event, kind: unknown) => tap(kind === 'level' ? 'level' : 'align'))
 ipcMain.on('sticky:ready', (event) => {
   const go = readyWaits.get(event.sender.id)

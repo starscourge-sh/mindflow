@@ -548,6 +548,8 @@ const api = {
     return () => ipcRenderer.off('usage:via', relay)
   },
 
+  /** Whether the Mac scrolls naturally (the wheel's deltas run against the fingers), read fresh from the system. */
+  naturalScrolling: (): Promise<boolean> => ipcRenderer.invoke('scroll:natural') as Promise<boolean>,
   /** In the main window: the trackpad's fingers lifted after a scroll (main reads it from Chromium), for swipe back. */
   onSwipeLifted: (listen: () => void): (() => void) => {
     const relay = (): void => listen()
