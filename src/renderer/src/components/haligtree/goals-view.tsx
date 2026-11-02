@@ -83,7 +83,7 @@ const onHome = (goal: Item): boolean => !!goal.starredAt
 const setOnHome = (goal: Item, on: boolean): void => {
   chime(on ? 'stick' : 'unstick')
   void haligtree.star(goal.id, on).then(() =>
-    toast(on ? 'Shown on Home: it comes first at the top of Home' : 'Off Home: the nearest goals show there instead', () => void haligtree.star(goal.id, !on)))
+    toast(on ? 'Shown on Home: only the goals you choose show there' : 'Off Home', () => void haligtree.star(goal.id, !on)))
 }
 
 /** The goals strip put away from Home and today's Journal page; undoable, and Settings › Goals brings it back. */
@@ -298,7 +298,7 @@ const goalMenu = (item: Item): MenuItem[] => [
   'separator',
   onIce(item) ? { label: 'Take off ice', hint: 'Open again, its day moved out by the days it waited', run: () => thaw(item) }
     : !item.closedAt && { label: 'Put on ice', hint: someday(item) ? 'Paused: out of the list until taken off' : 'Paused: its countdown stops', run: () => settle(item, 'on ice') },
-  !item.closedAt && !someday(item) && { label: onHome(item) ? 'Take off Home' : 'Show on Home', hint: onHome(item) ? 'The nearest show instead' : 'First at the top of Home', run: () => setOnHome(item, !onHome(item)) },
+  !item.closedAt && !someday(item) && { label: onHome(item) ? 'Take off Home' : 'Show on Home', hint: onHome(item) ? 'Off the top of Home' : 'At the top of Home', run: () => setOnHome(item, !onHome(item)) },
   { label: item.private ? 'Make it not private' : 'Make it private', run: () => void haligtree.setPrivate('nuggets', item.id, !item.private) },
   // Goals pause on ice, not in the archive: only one archived before keeps a way back.
   !!item.archivedAt && { label: 'Unarchive', hint: 'Back in sight', run: () => void archive('nuggets', [item.id], false) },
@@ -626,7 +626,7 @@ function GoalDetail({ item, top }: { item: ItemFull; top?: React.ReactNode }): R
                 {beacon === 'always' ? 'On every Space, all the time.' : beacon === 'sometimes' ? 'Out a few times a day, then tucked away. In the last week it stays.' : 'The menu bar and Home still show it.'}
               </span>
             </div>
-            <Prop icon={House} active={onHome(item)} onClick={() => setOnHome(item, !onHome(item))} tip={onHome(item) ? 'First at the top of Home; click to let the nearest show' : 'The top of Home shows the nearest goals; this puts it first'}>
+            <Prop icon={House} active={onHome(item)} onClick={() => setOnHome(item, !onHome(item))} tip={onHome(item) ? 'Shown at the top of Home; click to take it off' : 'Show it at the top of Home: once you choose any, only the ones you choose show there'}>
               <span data-goal-home={onHome(item) ? 'on' : 'off'}>{onHome(item) ? 'Shown on Home' : 'Show on Home'}</span>
             </Prop>
           </Island>
@@ -1033,9 +1033,9 @@ export function GoalStrip({ onOpen, className = '' }: { onOpen?: (type: string, 
   const today = useToday()
   const open = openOnes(all)
   if (!open.length || settings?.goalStrip === false) return null
-  // The ones chosen for Home first (three at most), then the nearest: two rows, or three when the chosen fill them.
+  // Chosen for Home, only those show (three at most); none chosen, the nearest two.
   const chosen = open.filter(onHome).slice(0, 3)
-  const shown = [...chosen, ...open.filter((one) => !chosen.includes(one))].slice(0, chosen.length >= 2 ? 3 : 2)
+  const shown = chosen.length ? chosen : open.slice(0, 2)
   return (
     <div className={`flex flex-col ${className}`} role="group" aria-label="Goals">
       {shown.map((goal) => {
@@ -1044,7 +1044,7 @@ export function GoalStrip({ onOpen, className = '' }: { onOpen?: (type: string, 
         // Right-click: what to do with this goal here, and the strip itself put away (Settings, Goals, brings it back).
         const menu: MenuItem[] = [
           { label: 'Open the goal', run: () => onOpen?.('goal', goal.id) },
-          { label: onHome(goal) ? 'Stop putting it first' : 'Put it first', run: () => setOnHome(goal, !onHome(goal)) },
+          { label: onHome(goal) ? 'Take off Home' : 'Show on Home', run: () => setOnHome(goal, !onHome(goal)) },
           'separator',
           { label: 'Hide goals here', run: hideStrip }
         ]
