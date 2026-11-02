@@ -17,7 +17,9 @@ const titles = () => h.evaluate(() => [...document.querySelectorAll('[data-pane]
 const title = async () => (await titles())[0]
 // One wheel step at a point, as the trackpad sends it.
 const wheel = (x, y, dx, dy = 0) => h.evaluate(([x, y, dx, dy]) => document.elementFromPoint(x, y).dispatchEvent(new WheelEvent('wheel', { deltaX: dx, deltaY: dy, bubbles: true, cancelable: true })), [x, y, dx, dy])
-const lift = () => h.evaluate(() => window.dispatchEvent(new Event('haligtree:swipe-lifted')))
+// The Mac's word that the fingers touched or lifted, as main passes it on from native/glass.mm.
+const phase = (kind) => h.evaluate((kind) => window.dispatchEvent(new CustomEvent('haligtree:swipe-phase', { detail: kind })), kind)
+const lift = () => phase('ended')
 const arrow = () => h.evaluate(() => document.querySelector('[data-swipe-arrow]')?.dataset.swipeArrow ?? null)
 const listRows = () => h.evaluate(() => [...document.querySelectorAll('[data-swipe-list] [role=option]')].map((one) => one.textContent.trim()))
 const X = 700, Y = 450
@@ -36,6 +38,7 @@ const swipe = async (steps, dx = 12 * R, x = X, frames) => {
 }
 const pause = (ms) => h.waitForTimeout(ms)
 
+await phase('began')
 await go('questions'); await go('settings'); await go('articles'); await go('nuggets')
 const start = await title()
 console.log('trail ends on', start)
@@ -76,7 +79,7 @@ await pause(300)
 await swipe(14); await pause(1300)
 const rows2 = await listRows()
 await pause(300)
-await wheel(X, Y, 0, 40 * DOWN); await pause(50)
+await wheel(X, Y, 0, 24 * DOWN); await pause(50)
 await lift(); await pause(800)
 check('two fingers down then let go picks the next one', (await title()) === rows2[1], await title())
 
@@ -98,16 +101,19 @@ check('...and carries on past it', (await arrow()) === 'armed')
 await lift(); await pause(600)
 check('...then goes back on let go', (await title()) !== here, `${here} -> ${await title()}`)
 
-// A late word that an earlier scroll ended, mid-swipe, is not a let go.
+// Held still short of the tap, the arrow stays as long as the fingers rest; lifting puts it away.
 await h.keyboard.press('Meta+BracketRight'); await pause(700)
 await pause(300)
-await at8([8, 8, 8, 8])
-await lift()
-await at8([8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8])
-await pause(16)
-check('a stray scroll end mid-swipe does not end it', (await arrow()) === 'armed', JSON.stringify((await ends()).slice(-1)))
-await lift(); await pause(600)
-check('...and the let go after it goes back', (await title()) !== here)
+await phase('began'); await at8([8, 8, 8, 8, 8, 8]); await pause(2500)
+check('held short of the tap for 2.5s, the arrow stays', (await arrow()) === 'pulling', JSON.stringify((await ends()).slice(-1)))
+await lift(); await pause(400)
+check('...and lifting there puts it away, going nowhere', !(await arrow()) && (await title()) === here)
+
+// Past the tap, lifted with no glide at all: it goes back, never the list.
+await pause(300)
+await phase('began'); await swipe(14); await pause(300); await lift(); await pause(1200)
+check('past the tap, a still lift goes back, never the list', (await title()) !== here && !(await listRows()).length, await title())
+await h.keyboard.press('Meta+BracketRight'); await pause(700)
 
 // Far, fast and jerky, a long way past the tap: still back, once.
 await h.keyboard.press('Meta+BracketRight'); await pause(700)
@@ -124,6 +130,16 @@ await lift(); await pause(700)
 check('a diagonal swipe goes back', (await title()) !== here, JSON.stringify(await h.evaluate(() => window.__swipeLog.slice(-6))))
 const reasons = await ends()
 check('every ending has a stated reason', reasons.every(Boolean), [...new Set(reasons)].join(' | '))
+await h.keyboard.press('Meta+BracketRight'); await pause(700)
+
+// Forward from near the window's right edge: the list opens leftwards and stays inside the window.
+await h.keyboard.press('Meta+BracketLeft'); await pause(700)
+const W = await h.evaluate(() => innerWidth)
+await pause(300)
+await swipe(14, -12 * R, W - 30); await pause(1300)
+const box = await h.evaluate(() => { const r = document.querySelector('[data-swipe-list]')?.getBoundingClientRect(); return r && { left: r.left, right: r.right } })
+check('a Forward list near the right edge stays inside the window', box && box.right <= W && box.left >= 0, JSON.stringify(box) + ' in ' + W)
+await h.keyboard.press('Escape'); await pause(400)
 await h.keyboard.press('Meta+BracketRight'); await pause(700)
 
 // A sideways scroller under the pointer that can still go keeps the wheel.

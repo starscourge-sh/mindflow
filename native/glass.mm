@@ -83,8 +83,43 @@ static napi_value Glass(napi_env env, napi_callback_info info) {
   return nothing;
 }
 
+// Swipe back's fingers (swipe-back.tsx): a page hears the wheel but never whether the fingers lifted. The scroll
+// NSEvent says: its phase ends when they lift (a glide may follow, as momentum); resting fingers send no end.
+//   watchScroll(listen)   listen(kind, windowNumber): kind 'began' or 'ended' (the fingers lifted).
+static napi_threadsafe_function scrollListener = NULL;
+static id scrollMonitor = nil;
+
+static void CallScroll(napi_env env, napi_value js, void *context, void *data) {
+  NSArray *pair = (__bridge_transfer NSArray *)data;
+  if (!env) return;
+  napi_value args[2], global;
+  napi_create_string_utf8(env, [(NSString *)pair[0] UTF8String], NAPI_AUTO_LENGTH, &args[0]);
+  napi_create_double(env, [(NSNumber *)pair[1] doubleValue], &args[1]);
+  napi_get_global(env, &global);
+  napi_call_function(env, global, js, 2, args, NULL);
+}
+
+static napi_value WatchScroll(napi_env env, napi_callback_info info) {
+  size_t argc = 1;
+  napi_value argv[1], nothing, name;
+  napi_get_undefined(env, &nothing);
+  if (napi_get_cb_info(env, info, &argc, argv, NULL, NULL) != napi_ok || argc < 1 || scrollMonitor) return nothing;
+  napi_create_string_utf8(env, "scroll", NAPI_AUTO_LENGTH, &name);
+  if (napi_create_threadsafe_function(env, argv[0], NULL, name, 0, 1, NULL, NULL, NULL, CallScroll, &scrollListener) != napi_ok) return nothing;
+  napi_unref_threadsafe_function(env, scrollListener);
+  scrollMonitor = [NSEvent addLocalMonitorForEventsMatchingMask:NSEventMaskScrollWheel handler:^NSEvent *(NSEvent *event) {
+    NSString *kind = nil;
+    if (event.phase == NSEventPhaseBegan) kind = @"began";
+    else if (event.phase == NSEventPhaseEnded || event.phase == NSEventPhaseCancelled) kind = @"ended";
+    if (kind) napi_call_threadsafe_function(scrollListener, (__bridge_retained void *)@[kind, @(event.windowNumber)], napi_tsfn_nonblocking);
+    return event;
+  }];
+  return nothing;
+}
+
 NAPI_MODULE_INIT() {
   napi_value fn;
+  if (napi_create_function(env, "watchScroll", NAPI_AUTO_LENGTH, WatchScroll, NULL, &fn) == napi_ok) napi_set_named_property(env, exports, "watchScroll", fn);
   if (napi_create_function(env, "glass", NAPI_AUTO_LENGTH, Glass, NULL, &fn) == napi_ok) napi_set_named_property(env, exports, "glass", fn);
   return exports;
 }

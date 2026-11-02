@@ -73,12 +73,13 @@ export function SwipeBack({ front, trailOf, nameOf, go }: Props): React.JSX.Elem
     // Every swipe's steps and the reason it ended, the last 300, for the probe (qa/swipe-back.mjs) and for a report.
     const log = ((window as { __swipeLog?: unknown[] }).__swipeLog ??= []) as unknown[]
     const note = (entry: Record<string, unknown>): void => void (log.push({ t: Math.round(performance.now()), ...entry }) > 300 && log.shift())
-    let liftWait = 0
+    // The Mac says when the fingers touch and lift (main, from native/glass.mm). Once it has spoken, that is all that
+    // ends a swipe: resting still never does. Without it (another system), the trackpad's glide and a quiet stand in.
+    let phases = false
     const draw = (): void => setShown(g ? { way: g.way, rect: g.rect, pull: g.pull, armed: g.armed } : null)
     const end = (why: string): void => {
       note({ end: why, pull: g ? Math.round(g.pull) : null, armed: g?.armed ?? null })
       clearTimeout(hold)
-      clearTimeout(liftWait)
       clearTimeout(rest)
       g = null
       spent = true
@@ -146,9 +147,10 @@ export function SwipeBack({ front, trailOf, nameOf, go }: Props): React.JSX.Elem
         event.preventDefault()
         // Fingers down, the pick goes down.
         dy += fingersY(event)
-        const by = Math.trunc(dy / 36)
+        // A row for about every 24px the fingers travel.
+        const by = Math.trunc(dy / 24)
         if (!by) return
-        dy -= by * 36
+        dy -= by * 24
         const pick = Math.max(0, Math.min(open.rows.length - 1, open.pick + Math.sign(by)))
         if (pick !== open.pick) (detent(), setList({ ...open, pick, moved: true }))
         return
@@ -172,34 +174,32 @@ export function SwipeBack({ front, trailOf, nameOf, go }: Props): React.JSX.Elem
       if (!g.armed && g.pull >= LINE) (g.armed = true, edge())
       else if (g.armed && g.pull < LINE * 0.5) g.armed = false
       draw()
-      clearTimeout(liftWait)
-      // The trackpad's glide past the tap: four steps in a row, each shorter than the one before. The fingers are off.
+      // Without the Mac's word: the trackpad's glide past the tap: four steps in a row, each shorter than the one before. The fingers are off.
       // Short of the tap a slowing is never an end (fingers slow mid-swipe too): the glide may yet carry it past.
       const tail = g.steps.slice(-4)
-      if (g.armed && g.steps.length > 6 && tail.length === 4 && tail.every((one, n) => !n || one < tail[n - 1] * 0.97)) return lifted('glide')
+      if (!phases && g.armed && g.steps.length > 6 && tail.length === 4 && tail.every((one, n) => !n || one < tail[n - 1] * 0.97)) return lifted('glide')
       clearTimeout(hold)
       clearTimeout(rest)
-      // Resting past the tap: the list. Resting short of it, a while: put away.
+      // Resting past the tap: the list. Resting short of it stays (only lifting ends it), unless no word of lifting comes.
       if (g.armed) hold = window.setTimeout(openList, HOLD)
-      else rest = window.setTimeout(() => g && !g.armed && end('cancel: rested short of the tap'), 700)
+      else if (!phases) rest = window.setTimeout(() => g && !g.armed && end('cancel: quiet short of the tap'), 700)
     }
-    // Main's word that a scroll ended can be late, from the scroll before: it counts only if no wheel step follows it.
-    const onLifted = (): void => {
-      note({ lifted: true })
-      clearTimeout(liftWait)
-      if (listRef.current) return lifted('lift')
-      liftWait = window.setTimeout(() => lifted('lift'), 60)
+    const onPhase = (kind: string): void => {
+      phases = true
+      note({ phase: kind })
+      if (kind === 'ended') lifted('lift')
     }
+    // A probe sends the same words the Mac would (qa/swipe-back.mjs).
+    const onProbe = (event: Event): void => onPhase(String((event as CustomEvent).detail))
     window.addEventListener('wheel', onWheel, { passive: false })
-    window.addEventListener('haligtree:swipe-lifted', onLifted)
-    const off = window.api.onSwipeLifted?.(onLifted)
+    window.addEventListener('haligtree:swipe-phase', onProbe)
+    const off = window.api.onSwipePhase?.(onPhase)
     return () => {
       window.removeEventListener('wheel', onWheel)
-      window.removeEventListener('haligtree:swipe-lifted', onLifted)
+      window.removeEventListener('haligtree:swipe-phase', onProbe)
       off?.()
       clearTimeout(hold)
       clearTimeout(rest)
-      clearTimeout(liftWait)
     }
   }, [])
 
@@ -257,7 +257,12 @@ export function SwipeBack({ front, trailOf, nameOf, go }: Props): React.JSX.Elem
             exit={{ opacity: 0, transition: { duration: 0.12 } }}
             transition={calm ? { duration: 0.15 } : { type: 'spring', duration: 0.32, bounce: 0.18 }}
             className="fixed z-50 flex w-64 flex-col gap-0.5 rounded-xl border bg-popover p-1.5 text-popover-foreground shadow-(--mf-panel-shadow)"
-            style={{ top: Math.max(8, mid - 24), ...(list.way === -1 ? { left: list.rect.left + 8 } : { left: list.rect.right - 8 - 256 }), transformOrigin: list.way === -1 ? 'left center' : 'right center' }}>
+            // Always inside the window: Forward's opens leftwards from the right edge, and a long list rises to fit.
+            style={{
+              top: Math.max(8, Math.min(mid - 24, window.innerHeight - 8 - 14 - list.rows.length * 38)),
+              left: Math.max(8, Math.min(window.innerWidth - 8 - 256, list.way === -1 ? list.rect.left + 8 : Math.min(list.rect.right, window.innerWidth) - 8 - 256)),
+              transformOrigin: list.way === -1 ? 'left center' : 'right center'
+            }}>
             {list.rows.map((row, n) => {
               const Icon = row.name.icon
               return (

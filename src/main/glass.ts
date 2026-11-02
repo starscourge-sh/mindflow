@@ -9,16 +9,28 @@ import glassFile from '../../resources/glass.node?asset&asarUnpack'
  * (`glass:shapes`); none takes the glass away (Reduce Transparency, a solid look, the card put away).
  */
 let glassy: ((handle: Buffer, dark: boolean, shapes: number[][]) => void) | null | undefined
+type Watch = (listen: (kind: 'began' | 'ended', windowNumber: number) => void) => void
+let watcher: Watch | null = null
 function load(): typeof glassy {
   if (glassy !== undefined || process.platform !== 'darwin') return glassy ?? null
   try {
-    const module = { exports: {} as { glass?: typeof glassy } }
+    const module = { exports: {} as { glass?: typeof glassy; watchScroll?: Watch } }
     process.dlopen(module, glassFile)
     glassy = module.exports.glass ?? null
+    watcher = module.exports.watchScroll ?? null
   } catch {
     glassy = null
   }
   return glassy
+}
+
+/** The trackpad's fingers touching and lifting, from the Mac's scroll events (native/glass.mm), for swipe back. Every listener hears every window's. */
+const scrollListeners: Parameters<Watch>[0][] = []
+export function watchScroll(listen: Parameters<Watch>[0]): void {
+  load()
+  if (!watcher) return
+  if (!scrollListeners.length) watcher((kind, number) => scrollListeners.forEach((one) => one(kind, number)))
+  scrollListeners.push(listen)
 }
 
 /** What each window last asked for, for a probe (qa/glass.mjs). */

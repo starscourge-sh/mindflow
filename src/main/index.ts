@@ -81,7 +81,7 @@ import { registerTranscribe } from './transcribe'
 import { Stopped, begin, end as endJob, registerJobs } from './jobs'
 import { registerLabels } from './labels'
 import { registerDictation } from './dictation'
-import { glassShapes, registerGlass } from './glass'
+import { glassShapes, registerGlass, watchScroll } from './glass'
 import { registerPeople } from './people'
 import { registerSources } from './sources'
 import { registerFeed } from './feed'
@@ -2008,11 +2008,12 @@ function makeHome(): BrowserWindow {
   })
   // Small enough to sit in a corner, not so small its pages fold up.
   home.setMinimumSize(560, 400)
-  // Swipe back (swipe-back.tsx): the page hears the wheel but never the fingers lifting. Chromium ends a trackpad's
-  // scroll when they lift (or when its glide runs out), and never while they rest still, so that end is passed on.
+  // Swipe back (swipe-back.tsx): the page hears the wheel but never the fingers. The Mac's scroll event says when
+  // they touch and lift (its phase, native/glass.mm); resting still says nothing. Passed on for this window only.
   const sideways = home
-  sideways.webContents.on('input-event', (_event, input) => {
-    if (input.type === 'gestureScrollEnd' && !sideways.isDestroyed()) sideways.webContents.send('swipe:lifted')
+  const number = Number(sideways.getMediaSourceId().split(':')[1])
+  watchScroll((kind, windowNumber) => {
+    if (!sideways.isDestroyed() && windowNumber === number) sideways.webContents.send('swipe:phase', kind)
   })
   // Its place said again once made: a window made before it is shown can be
   // put in the middle of the screen instead of where it was asked to be.

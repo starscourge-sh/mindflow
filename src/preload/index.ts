@@ -550,11 +550,11 @@ const api = {
 
   /** Whether the Mac scrolls naturally (the wheel's deltas run against the fingers), read fresh from the system. */
   naturalScrolling: (): Promise<boolean> => ipcRenderer.invoke('scroll:natural') as Promise<boolean>,
-  /** In the main window: the trackpad's fingers lifted after a scroll (main reads it from Chromium), for swipe back. */
-  onSwipeLifted: (listen: () => void): (() => void) => {
-    const relay = (): void => listen()
-    ipcRenderer.on('swipe:lifted', relay)
-    return () => ipcRenderer.off('swipe:lifted', relay)
+  /** In the main window: the trackpad's fingers touched ('began') or lifted ('ended'), from the Mac's scroll events, for swipe back. */
+  onSwipePhase: (listen: (kind: 'began' | 'ended') => void): (() => void) => {
+    const relay = (_event: unknown, kind: 'began' | 'ended'): void => listen(kind)
+    ipcRenderer.on('swipe:phase', relay)
+    return () => ipcRenderer.off('swipe:phase', relay)
   },
 
   /** Put the window away. It keeps its contents and its place on screen. */
