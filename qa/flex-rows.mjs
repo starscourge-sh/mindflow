@@ -20,11 +20,12 @@ const wait = (ms) => h.waitForTimeout(ms)
 const shots = process.env.QA_SHOTS
 const shot = (name) => shots && h.screenshot({ path: `${shots}/${name}.png` })
 
+const COVERS = { Meditations: '0.55 0.18 0.16', Walden: '0.16 0.38 0.30', Middlemarch: '0.18 0.24 0.48' }
 const PDF = (word) => {
   const objects = ['<< /Type /Catalog /Pages 2 0 R >>', '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
     '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 300 420] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>',
     null, '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>']
-  const stream = `BT /F1 30 Tf 40 300 Td (${word}) Tj ET`
+  const stream = `${COVERS[word] ?? '0.4 0.4 0.4'} rg 0 0 300 420 re f 0.95 0.9 0.8 rg 24 24 252 3 re f 1 1 1 rg BT /F1 30 Tf 30 340 Td (${word}) Tj ET BT /F1 12 Tf 30 316 Td (A NOVEL) Tj ET`
   objects[3] = `<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`
   let out = '%PDF-1.4\n'
   const at = []
@@ -70,6 +71,8 @@ try {
     await make([para(`Reading ${word}`), { type: 'attachment', attrs: { src, name: `${word}.pdf`, size: 900 } }])
     books.push(src)
   }
+  // The test books have one real page: opening one in the reader marks it read, so their places are put back.
+  const reset = async () => { await v('pdf:read', books[0], 134, 336); await v('pdf:read', books[1], 12, 280); await v('pdf:read', books[2], 401, 880) }
   await v('pdf:read', books[0], 134, 336)
   await go('media'); await go('home'); await wait(1500)
   await see('[data-continue-reading]')
@@ -99,7 +102,13 @@ try {
     if (shots && i % 4 === 0) await h.screenshot({ path: `${shots}/home-load-${String(i).padStart(2, '0')}.png`, clip: { x: 0, y: 0, width: 1300, height: 900 } })
     await wait(50)
   }
-  check('nothing moves as the covers load: the row keeps 300px and the section below stays put, 40 frames 50ms apart', new Set(frames).size === 1 && firstPaint?.h === 300, `${JSON.stringify(firstPaint)} ${[...new Set(frames)].join(' | ')}`)
+  check('nothing moves as the covers load: the row keeps 250px and the section below stays put, 40 frames 50ms apart', new Set(frames).size === 1 && firstPaint?.h === 250, `${JSON.stringify(firstPaint)} ${[...new Set(frames)].join(' | ')}`)
+  const hug = await h.evaluate(() => {
+    const box = document.querySelector('[data-continue-reading] [data-picture-row]').getBoundingClientRect()
+    const words = [...document.querySelectorAll('[data-continue-reading] [data-flex-carousel] [aria-hidden=true] span')].map((one) => one.getBoundingClientRect())
+    return { box: Math.round(box.height), titleTop: Math.round(words[0].top - box.top), below: Math.round(box.bottom - words[words.length - 1].bottom) }
+  })
+  check('the row hugs its covers: the title starts 196px down (a 180px cover from 6px, then 10px), and ends within 20px of the box\'s foot', hug.titleTop >= 190 && hug.titleTop <= 200 && hug.below >= 0 && hug.below <= 20, JSON.stringify(hug))
   const three = await row('[data-continue-reading]')
   check('3 books: a short row stops at its ends (one cover each, no copies), the last read in the middle', three?.words.includes('Middlemarch') && three.fetched === 3, JSON.stringify(three))
   await shot('home-3-books')
@@ -118,8 +127,6 @@ try {
   await h.keyboard.press('Escape'); await wait(600)
 
   // Keyboard: Tab to it, → turns, ↵ opens at the page. (Opening a book made it the last read, so the order is read from the row.)
-  // The test books have one real page: opening one in the reader marks it read, so their places are put back.
-  const reset = async () => { await v('pdf:read', books[0], 134, 336); await v('pdf:read', books[1], 12, 280); await v('pdf:read', books[2], 401, 880) }
   const PAGES = { Meditations: 'p. 134 of 336', Walden: 'p. 12 of 280', Middlemarch: 'p. 401 of 880' }
   const SRC = { Meditations: books[0], Walden: books[1], Middlemarch: books[2] }
   await reset()
@@ -177,19 +184,51 @@ try {
   await shot('wrapped-flow')
   await h.keyboard.press('Escape'); await wait(800)
 
+  // --- Dark: every row, and the grain on the Journal banner.
+  if (shots) {
+    const dark = (on) => h.evaluate((on) => { localStorage.setItem('theme', on ? 'dark' : 'paper'); window.dispatchEvent(new StorageEvent('storage', { key: 'theme' })) }, on)
+    await reset()
+    await dark(true); await wait(600)
+    await go('media'); await go('home'); await wait(1000); await see('[data-continue-reading]')
+    await shot('dark-home-continue')
+    await go('media'); await wait(800)
+    await h.locator('[data-page=media] [data-media-kinds] button', { hasText: 'Pictures' }).first().click(); await wait(2500)
+    await shot('dark-media-recent')
+    await h.locator('[data-page=media] [data-media-kinds] button', { hasText: 'PDFs' }).first().click(); await wait(3500)
+    await shot('dark-media-pdf-shelf')
+    await go('day'); await wait(2500)
+    await h.evaluate(() => document.documentElement.toggleAttribute('data-awake', true))
+    const banner = await h.evaluate(() => { const r = document.querySelector('[data-scene]')?.getBoundingClientRect(); return r && { x: r.x, y: r.y, width: r.width, height: r.height } })
+    if (banner) await h.screenshot({ path: `${shots}/dark-grain-banner.png`, clip: banner })
+    await go('home'); await wait(800)
+    await h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:wrap', { detail: `month:${new Date().toISOString().slice(0, 7)}` }))); await wait(2500)
+    for (let i = 0; i < 9 && !(await h.evaluate(() => !!document.querySelector('[data-wrap-flow]'))); i++) (await h.keyboard.press('ArrowRight'), await wait(1200))
+    await wait(3000)
+    await shot('dark-wrapped-flow')
+    await h.keyboard.press('Escape'); await wait(800)
+    await dark(false); await wait(600)
+  }
+
+  // --- Show all: Continue reading's "Show all" goes to Media.
+  await reset()
+  await go('media'); await go('home'); await wait(1200); await see('[data-continue-reading]')
+  await h.locator('[data-continue-reading] button', { hasText: 'Show all' }).first().click(); await wait(1200)
+  check('Continue reading\'s "Show all" opens Media', await h.evaluate(() => !!document.querySelector('[data-page=media]')))
+  await shot('show-all-media')
+
   // --- Motion off: still rows of the same height, only those in view drawn.
   await reset()
   await v('settings:set', { motion: false })
   await go('media'); await wait(1500)
   const still = await row('[data-recent-pictures]')
-  check('Motion off: a still row, the same 300px, no WebGL', still?.mode === 'still' && still.height === 300 && !still.canvas, JSON.stringify(still))
+  check('Motion off: a still row, the same 250px, no WebGL', still?.mode === 'still' && still.height === 250 && !still.canvas, JSON.stringify(still))
   await shot('media-recent-still')
   await go('home'); await wait(1200)
   await see('[data-continue-reading]')
   const homeStill = await row('[data-continue-reading]')
   await shot('home-still')
   console.log('  still row box', await h.evaluate(() => { const el = document.querySelector('[data-continue-reading] [data-picture-row] [role=list]'); return el && { cw: el.clientWidth, sw: el.scrollWidth } }))
-  check('Motion off on Home: still covers, the same 300px, all three drawn', homeStill?.mode === 'still' && homeStill.height === 300 && homeStill.still === 3, JSON.stringify(homeStill))
+  check('Motion off on Home: still covers, the same 250px, all three drawn', homeStill?.mode === 'still' && homeStill.height === 250 && homeStill.still === 3, JSON.stringify(homeStill))
   await h.evaluate(() => (window.__opened = null))
   const firstStill = await h.locator('[data-continue-reading] [data-still-picture="0"]').innerText()
   await h.locator('[data-continue-reading] [data-still-picture="0"]').click(); await wait(400)

@@ -78,7 +78,7 @@ function StillRow({ items, onOpen, counter, label, height }: { items: FlexCarous
           const place = counter === 'slash' ? `${num(at + 1).padStart(2, '0')} / ${num(items.length).padStart(2, '0')}` : `${num(at + 1)} of ${num(items.length)}`
           return (
             <button key={at} type="button" role="listitem" onClick={() => onOpen(at)} data-still-picture={at}
-              className="group absolute top-0 flex cursor-pointer flex-col gap-1.5 rounded-lg text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="group absolute top-0 flex cursor-pointer flex-col gap-1.5 rounded-lg text-left outline-none transition-transform duration-150 ease-out focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.97]"
               style={{ left: at * (cardW + GAP), width: cardW }}>
               <StillPicture src={item.src} height={picH} />
               <span className="truncate text-control font-medium text-foreground">{item.title || 'Untitled'}</span>

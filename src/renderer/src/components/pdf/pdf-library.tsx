@@ -188,7 +188,7 @@ export function ReadingRow({ going }: { going: Book[] }): React.JSX.Element {
   )
   return (
     <div data-reading-row className="-mx-2">
-      <PictureRow key={going.map((one) => `${one.src}:${one.page}`).join()} items={items} height={300} cardHeight={0.62} direct label="Continue reading"
+      <PictureRow key={going.map((one) => `${one.src}:${one.page}`).join()} items={items} height={250} cardHeight={0.72} direct label="Continue reading"
         onOpen={(at) => {
           const one = going[at]
           if (!one) return

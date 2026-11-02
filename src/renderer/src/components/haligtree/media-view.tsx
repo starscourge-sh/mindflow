@@ -100,7 +100,7 @@ export function MediaView({ onOpen }: { onOpen: (type: string, id: string) => vo
           {recent.length > 0 && (
             <section data-recent-pictures className="mb-4 flex flex-col gap-2">
               <h3 className="text-body font-medium text-foreground">Recent pictures</h3>
-              <PictureRow key={recent.map((one) => `${one.id}:${one.src}`).join()} items={recentItems} height={300} cardHeight={0.62} direct counter="slash" label="Recent pictures" onOpen={(at) => recent[at] && open(recent[at])} />
+              <PictureRow key={recent.map((one) => `${one.id}:${one.src}`).join()} items={recentItems} height={250} cardHeight={0.72} direct counter="slash" label="Recent pictures" onOpen={(at) => recent[at] && open(recent[at])} />
             </section>
           )}
           {shown.length ? (

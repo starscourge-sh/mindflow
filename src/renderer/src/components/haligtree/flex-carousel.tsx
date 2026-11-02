@@ -75,6 +75,8 @@ const TAPS = 12
 // At most this many pixels drawn, however large the window.
 const PIXEL_BUDGET = 4.5e6
 const RISE = 2.1
+/** Room above a top-set row, for the press and the focus ring. */
+const TOP = 6
 
 const wrap = (value: number, size: number): number => ((((value + size / 2) % size) + size) % size) - size / 2
 /** A distance along the row: the short way round on an endless one, straight on a short one. */
@@ -338,6 +340,8 @@ export default function FlexCarousel({
     const anisotropy = renderer.getExtension('EXT_texture_filter_anisotropic') ? 8 : 0
 
     let slots: Slot[] = []
+    // The card pressed, and how far it has given (0 to 1).
+    const press = { index: -1, amount: 0 }
     // In a row that fits whole, the one picked (by a key, or the pointer resting on it).
     let chosen = 0
     let titleX = 0
@@ -667,9 +671,18 @@ export default function FlexCarousel({
 
       const effects = introEffects()
       const homeX = width / 2
-      const homeY = height / 2
+      // A row where a click opens sits at the top of its box, its titles right under it: no band of nothing above.
+      const homeY = s.direct ? TOP + m.cardH / 2 : height / 2
       const halfW = (GLASS.width * width) / 2
       const halfH = (GLASS.height * width) / 2
+
+      // The press gives at once and comes back over about 160ms.
+      const pressTarget = pointer.down && !pointer.dragging && press.index >= 0 ? 1 : 0
+      if (press.amount !== pressTarget) {
+        press.amount = pressTarget > press.amount ? Math.min(1, press.amount + dt / 0.08) : Math.max(0, press.amount - dt / 0.16)
+        animating = true
+      }
+      if (!pressTarget && press.amount === 0) press.index = -1
 
       for (const slot of slots) {
         if (slot.loaded && slot.ready < 1) {
@@ -695,7 +708,7 @@ export default function FlexCarousel({
             if (Math.abs(rel) - w / 2 > width + 40) continue
             const fx = effects.card ? effects.card(rel) : null
             let x = homeX + rel
-            let scale = shrink * (fx ? fx.scale : 1)
+            let scale = shrink * (fx ? fx.scale : 1) * (i === press.index ? 1 - 0.03 * press.amount : 1)
             let alpha = fx ? fx.alpha : 1
             // The close one grows; the rest part to the sides and fade.
             if (focusAmount > 0) {
@@ -748,7 +761,8 @@ export default function FlexCarousel({
         lensUniforms.uFlow.value = GLASS.bend * (Math.max(halfW, 1) + Math.max(halfH, 1)) * 0.45
         lensUniforms.uDispersion.value = GLASS.dispersion * 0.12
         // Brought close, a picture is shown straight, without the bend.
-        lensUniforms.uStrength.value = effects.strength * (1 - focusEase)
+        // A row that fits whole lies flat: no bend at its edges to cut into the titles under it.
+        lensUniforms.uStrength.value = fits(m) ? 0 : effects.strength * (1 - focusEase)
         lensUniforms.uSceneAlpha.value = effects.sceneAlpha
         renderer.render({ scene: lensMesh })
       }
@@ -803,6 +817,7 @@ export default function FlexCarousel({
       skipIntro()
       const [x, y] = localPoint(e)
       Object.assign(pointer, { down: true, id: e.pointerId, touch: e.pointerType === 'touch', startX: x, startY: y, x, y, startPos: pos, dragging: false, samples: [{ x, t: performance.now() }] })
+      press.index = instances.find((inst) => x >= inst.x0 && x <= inst.x1 && y >= inst.y0 && y <= inst.y1)?.index ?? -1
       if (Math.abs(vel) > 40) {
         goal = pos
         vel = 0
@@ -840,6 +855,15 @@ export default function FlexCarousel({
         }
         if (pointer.dragging) {
           pos = pointer.startPos - (x - pointer.startX)
+          // Past the ends of a short row it gives less the further it goes, rather than stopping dead.
+          const m = layout
+          if (m && !m.ring && m.centers.length) {
+            const lo = fits(m) ? (m.centers[0] + m.centers[m.centers.length - 1]) / 2 : m.centers[0]
+            const hi = fits(m) ? lo : m.centers[m.centers.length - 1]
+            const damp = (over: number): number => (over * 120) / (over + 120)
+            if (pos > hi) pos = hi + damp(pos - hi)
+            else if (pos < lo) pos = lo - damp(lo - pos)
+          }
           goal = pos
           vel = 0
           const now = performance.now()
@@ -990,7 +1014,7 @@ export default function FlexCarousel({
     <div
       ref={containerRef}
       className={`relative h-full w-full cursor-grab touch-pan-y rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring select-none overflow-hidden overscroll-contain [-webkit-tap-highlight-color:transparent] data-[hover=focus]:cursor-zoom-in data-[hover=close]:cursor-zoom-out data-[hover=open]:cursor-pointer data-[dragging]:cursor-grabbing ${className}`}
-      style={{ ...style, '--flex-carousel-half': `${Math.min(Math.max(cardHeight, 0.05), 1) * 50}%` } as CSSProperties}
+      style={{ ...style, '--flex-carousel-half': `${Math.min(Math.max(cardHeight, 0.05), 1) * 50}%`, '--flex-carousel-under': direct ? `calc(${Math.min(Math.max(cardHeight, 0.05), 1) * 100}% + ${TOP + 10}px)` : undefined } as CSSProperties}
       role="region"
       aria-roledescription="carousel"
       aria-label={label}
@@ -1001,7 +1025,7 @@ export default function FlexCarousel({
       {/* Under the middle picture: its note's name, and where it is in the row. */}
       {current && revealed && (
         <div
-          className="pointer-events-none absolute inset-x-0 top-[calc(50%_+_var(--flex-carousel-half)_*_var(--flex-carousel-lift,1)_+_14px)] translate-x-(--flex-carousel-x) flex flex-col items-center gap-1 px-4 text-center animate-in fade-in-0 duration-300"
+          className="pointer-events-none absolute inset-x-0 top-(--flex-carousel-under,calc(50%_+_var(--flex-carousel-half)_*_var(--flex-carousel-lift,1)_+_14px)) translate-x-(--flex-carousel-x) flex flex-col items-center gap-1 px-4 text-center animate-in fade-in-0 duration-300"
           aria-hidden="true"
         >
           {/* Each turn's title rises in quickly; turned by a key (the recap's arrows), it is simply there. */}
