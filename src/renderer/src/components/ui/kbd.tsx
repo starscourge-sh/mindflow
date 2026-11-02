@@ -5,7 +5,7 @@ function Kbd({ className, ...props }: React.ComponentProps<"kbd">) {
     <kbd
       data-slot="kbd"
       className={cn(
-        "pointer-events-none inline-flex h-5 w-fit min-w-5 items-center justify-center gap-1 rounded-xs bg-muted px-1 font-sans text-[0.625rem] font-medium text-muted-foreground select-none in-data-[slot=tooltip-content]:bg-foreground/10 in-data-[slot=tooltip-content]:text-popover-foreground [&_svg:not([class*='size-'])]:size-3",
+        "pointer-events-none inline-flex h-5 w-fit min-w-5 shrink-0 items-center whitespace-nowrap [overflow-wrap:normal] justify-center gap-1 rounded-xs bg-muted px-1 font-sans text-[0.625rem] font-medium text-muted-foreground select-none in-data-[slot=tooltip-content]:bg-foreground/10 in-data-[slot=tooltip-content]:text-popover-foreground [&_svg:not([class*='size-'])]:size-3",
         className
       )}
       {...props}
@@ -40,7 +40,7 @@ function TipText({ text }: { text: string }) {
   return (
     <span data-tip-text className="inline-flex flex-col gap-0.5">
       <span className="inline-flex items-center gap-1.5">
-        {words && <span>{words}</span>}
+        {words && <span className="min-w-0">{words}</span>}
         {keyed && <>{"  "}<Kbd data-tip-key className="bg-foreground/10 text-popover-foreground">{keys}</Kbd></>}
       </span>
       {more.length > 0 && <span data-tip-more className="text-muted-foreground">{more.join(" ")}</span>}

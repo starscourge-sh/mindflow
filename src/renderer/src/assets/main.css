@@ -237,6 +237,8 @@
 }
 
 @layer base {
+  /* A key is one mark: "⇧⌘R" never breaks over two lines, whatever the words around it do. */
+  kbd { white-space: nowrap; overflow-wrap: normal; flex-shrink: 0; }
   * {
     @apply border-border outline-ring/50;
   }
