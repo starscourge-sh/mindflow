@@ -21,7 +21,7 @@ try {
   const names = { [f4]: 'Folder 4', [f3]: 'Folder 3', [d1]: 'Deep 1', [d2]: 'Deep 2', [d3]: 'Deep 3' }
   const top = [`g:${f4}`, `g:${d1}`, loose]
   const shape = { [f4]: [`g:${f3}`], [f3]: [n1, n2], [d1]: [`g:${d2}`], [d2]: [`g:${d3}`], [d3]: [n3] }
-  for (const id of [f4, f3, d1, d2, d3]) await c.v('groups:arrange', 'article', { top, groups: shape, make: { id, name: names[id] } })
+  for (const id of [f4, f3, d1, d2, d3]) await c.v('groups:arrange', 'article', { top, groups: shape, make: { id, name: names[id], folder: true } })
   await h.waitForTimeout(1500)
   // Each folder row: a branch (a path in the trunk's svg) ending at the row's middle.
   const twigsOf = (ids) => h.evaluate((list) => list.map((id) => {
@@ -60,12 +60,13 @@ try {
   for (const [id, how] of made ? await twigsOf([made]) : []) check(`a branch to ${names[id]}`, how === 'ok', how)
   for (const [id, how] of await twigs()) check(`on Writing, dark: a branch to ${names[id]}`, how === 'ok', how)
   await h.screenshot({ path: `${process.env.QA_DATA}/tree-list.png` })
-  // The Writing list: each folder has its block, a nested one inside its parent's.
+  // The Writing list: a folder is a place, so only the top folders are rows there; the folders inside them show only
+  // once their folder is opened (the sidebar draws the whole tree).
   const blocks = await h.evaluate((pairs) => pairs.map(([id, parent]) => {
-    const block = document.querySelector(`[data-group-block="${id}"]`)
-    return [id, !block ? 'no block' : parent && !block.parentElement?.closest(`[data-group-block="${parent}"]`) ? 'not inside its parent' : 'ok']
+    const block = document.querySelector(`[role="main"] [data-group-block="${id}"]`)
+    return [id, parent ? (block ? 'drawn in the list, unopened' : 'ok') : block ? 'ok' : 'no block']
   }), [[f4, null], [f3, f4], [d1, null], [d2, d1], [d3, d2]])
-  for (const [id, how] of blocks) check(`Writing list: ${names[id]} drawn in place`, how === 'ok', how)
+  for (const [id, how] of blocks) check(`Writing list: ${names[id]} ${id === f4 || id === d1 ? 'is a row' : 'shows only inside its folder'}`, how === 'ok', how)
 } catch (error) {
   check('the run finished', false, error.message.split('\n')[0])
 } finally {
