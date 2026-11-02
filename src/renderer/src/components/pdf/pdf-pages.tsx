@@ -253,13 +253,28 @@ function mixPaper(o: Uint8ClampedArray, d: Uint8ClampedArray, w: number, h: numb
   const line = new Float32Array(cols + 1), least = new Float32Array(cols + 1)
   for (let py = 0; py < h; py++) {
     const fy = Math.min(rows - 1, Math.max(0, (py + 0.5) / TILE - 0.5)), ty = Math.floor(fy), vy = fy - ty, below = Math.min(rows - 1, ty + 1)
+    let print = true
     for (let tx = 0; tx < cols; tx++) {
       const up = weight[ty * cols + tx], down = weight[below * cols + tx]
       line[tx] = up * (1 - vy) + down * vy
       least[tx] = up < down ? up : down
+      if (least[tx] < 1) print = false
     }
     line[cols] = line[cols - 1]
     least[cols] = least[cols - 1]
+    // A row of print alone, as most rows of a page are: only its coloured pixels are kept.
+    if (print) {
+      for (let i = py * w * 4, end = i + w * 4; i < end; i += 4) {
+        const r = o[i], g = o[i + 1], bl = o[i + 2]
+        const chroma = (r > g ? (r > bl ? r : bl) : g > bl ? g : bl) - (r < g ? (r < bl ? r : bl) : g < bl ? g : bl)
+        if (chroma <= 20) continue
+        const keep = chroma >= 64 ? 1 : (chroma - 20) / 44
+        d[i] += (r - d[i]) * keep
+        d[i + 1] += (g - d[i + 1]) * keep
+        d[i + 2] += (bl - d[i + 2]) * keep
+      }
+      continue
+    }
     for (let px = 0; px < w; px++) {
       const i = (py * w + px) * 4
       const r = o[i], g = o[i + 1], bl = o[i + 2]
