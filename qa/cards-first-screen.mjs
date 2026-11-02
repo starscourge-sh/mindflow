@@ -129,7 +129,9 @@ try {
   check('8. Decks is one click back', await waitFor(() => has('[data-deck-shelf]'), 3000))
 
   // 9. "Add many at once": its toast offers "Show them", which shows just those cards.
-  await h.click('[data-deck-top] [data-deck-paste]')
+  // On the toolbar, or in its More menu when the row is too narrow for it.
+  if (await h.isVisible('[data-deck-top] [data-deck-paste]')) await h.click('[data-deck-top] [data-deck-paste]')
+  else { await h.click('[data-toolbar-more]'); await h.waitForTimeout(300); await h.click('[data-toolbar-more-item="many"]') }
   await waitFor(() => has('[data-paste-text]'))
   check('9. the box is called "Add many at once" and says it takes a spreadsheet', /Add many at once/.test(await text('[data-paste-cards] h3')) && /spreadsheet/.test(await text('[data-paste-cards]')))
   await h.fill('[data-paste-text]', 'uno | one\ndos | two\ntres | three')
