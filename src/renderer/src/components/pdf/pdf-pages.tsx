@@ -157,8 +157,12 @@ async function picturesOn(proxy: PDFPageProxy): Promise<number[][]> {
 
 /**
  * "Dark pages" keeps pictures true: pdf.js draws a page in the colours given
- * and tints its pictures with them too, so each picture's box is copied back
- * from the page drawn in its own colours.
+ * and turns its pictures to the same two tones, so each picture is put back
+ * from the page drawn in its own colours. Not every picture is a photo: a
+ * scanned page, or a magazine page laid as one white picture with words over
+ * it, is paper. A picture that is mostly white paper keeps the dark page's
+ * ground and ink and only its coloured parts true (an orange drawing stays
+ * orange); any other picture is put back whole.
  */
 async function truePictures(proxy: PDFPageProxy, viewport: ReturnType<PDFPageProxy["getViewport"]>, canvas: HTMLCanvasElement, density: number): Promise<void> {
   const boxes = await picturesOn(proxy)
@@ -168,14 +172,44 @@ async function truePictures(proxy: PDFPageProxy, viewport: ReturnType<PDFPagePro
   plain.height = canvas.height
   await proxy.render({ canvas: plain, viewport, transform: density === 1 ? undefined : [density, 0, 0, density, 0, 0] }).promise
   const ink = canvas.getContext("2d")
-  if (!ink) return
+  const truth = plain.getContext("2d")
+  if (!ink || !truth) return
   for (const box of boxes) {
     const [x1, y1] = carry(box[0], box[1], viewport.transform)
     const [x2, y2] = carry(box[2], box[3], viewport.transform)
-    const x = Math.floor(Math.min(x1, x2) * density), y = Math.floor(Math.min(y1, y2) * density)
-    const w = Math.ceil(Math.abs(x2 - x1) * density), h = Math.ceil(Math.abs(y2 - y1) * density)
-    if (w > 0 && h > 0) ink.drawImage(plain, x, y, w, h, x, y, w, h)
+    const x = Math.max(0, Math.floor(Math.min(x1, x2) * density)), y = Math.max(0, Math.floor(Math.min(y1, y2) * density))
+    const w = Math.min(canvas.width - x, Math.ceil(Math.abs(x2 - x1) * density)), h = Math.min(canvas.height - y, Math.ceil(Math.abs(y2 - y1) * density))
+    if (w <= 0 || h <= 0) continue
+    const own = truth.getImageData(x, y, w, h)
+    if (!isPaper(own.data)) {
+      ink.drawImage(plain, x, y, w, h, x, y, w, h)
+      continue
+    }
+    const dark = ink.getImageData(x, y, w, h)
+    const [o, d] = [own.data, dark.data]
+    for (let i = 0; i < o.length; i += 4) {
+      // How coloured the true pixel is: grey, black and white take the dark page's tones, colour stays.
+      const chroma = (Math.max(o[i], o[i + 1], o[i + 2]) - Math.min(o[i], o[i + 1], o[i + 2])) / 255
+      const keep = Math.min(1, Math.max(0, (chroma - 0.08) / 0.17))
+      if (keep === 0) continue
+      d[i] += (o[i] - d[i]) * keep
+      d[i + 1] += (o[i + 1] - d[i + 1]) * keep
+      d[i + 2] += (o[i + 2] - d[i + 2]) * keep
+    }
+    ink.putImageData(dark, x, y)
   }
+}
+
+/** A picture that is at least a third white paper (light and without colour): a scan, or a page laid as one picture. */
+function isPaper(data: Uint8ClampedArray): boolean {
+  let paper = 0, seen = 0
+  // Every 7th pixel is enough to tell.
+  for (let i = 0; i < data.length; i += 28) {
+    const hi = Math.max(data[i], data[i + 1], data[i + 2]), lo = Math.min(data[i], data[i + 1], data[i + 2])
+    seen++
+    if (lo > 215 && hi - lo < 25) paper++
+  }
+  return seen > 0 && paper / seen >= 1 / 3
 }
 
 /** The page's marks, drawn as soft bands under its words, measured fresh at the zoom it is drawn at. */
