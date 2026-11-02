@@ -3,7 +3,8 @@ import { BookOpen } from "lucide-react"
 import { call, useLive } from "@/lib/haligtree"
 import { chime } from "@/lib/sound"
 import { openPdf } from "./pdf-reader"
-import { usePdfCover } from "./pdf-cover"
+import { pdfCover, usePdfCover } from "./pdf-cover"
+import { PictureRow } from "@/components/haligtree/picture-row"
 import { BookMap, InYourNotes, PageBar, inNotes, useCited } from "./book-links"
 import { BookHead, BookInfo, readLibrary, type Book } from "./book-head"
 import { BackToTop } from "@/components/haligtree/ui"
@@ -40,6 +41,7 @@ export function PdfLibrary({ query, top }: { query: string; /** What sits over t
       .sort((a, b) => (b.readAt ?? b.addedAt).localeCompare(a.readAt ?? a.addedAt))
       .filter((one) => words.every((word) => `${titleOf(one)} ${one.author} ${one.name}`.toLowerCase().includes(word)))
   }, [all, query])
+  const going = useGoing(all)
   const [chosen, setChosen] = useState<string | null>(null)
   useEffect(() => {
     if (!chosen && books[0]) setChosen(books[0].src)
@@ -57,6 +59,12 @@ export function PdfLibrary({ query, top }: { query: string; /** What sits over t
         <div ref={setScroller} className="pdf-library-scroll" data-shelf-scroll>
           <div className="pdf-library-column">
             {top}
+            {!query.trim() && going.length > 0 && (
+              <section className="mb-4 flex flex-col gap-2" data-shelf-continue>
+                <h3 className="text-body font-medium text-foreground">Continue reading</h3>
+                <ReadingRow going={going} />
+              </section>
+            )}
             {books.length ? (
               <div className={`pdf-library-shelf${books.length <= 3 ? " is-few" : ""}`} role="listbox" aria-label="Your PDFs">
                 {books.map((one) => (
@@ -150,39 +158,44 @@ function Inspector({ one, onOpen }: { one: Book; onOpen: () => void }): React.JS
  */
 export function ContinueReading({ heading, extra = [] }: { heading: (count: number) => React.ReactNode; /** Other things left part way (an article, a Review sitting, a draft), after the books. */ extra?: React.ReactNode[] }): React.JSX.Element | null {
   const all = useLive(readLibrary, [] as Book[])
-  const going = all
-    .filter((one) => one.readAt && one.page && one.pages && one.page < one.pages)
-    .sort((a, b) => b.readAt!.localeCompare(a.readAt!))
-    .slice(0, 4)
+  const going = useGoing(all)
   if (!going.length && !extra.length) return null
   return (
     <section className="flex flex-col gap-3 px-5 @[44rem]/page:px-8" data-continue-reading>
       {heading(going.length + extra.length)}
-      <div className="continue-reading">
-        {going.map((one) => (
-          <ReadingCard key={one.src} one={one} />
-        ))}
-        {extra}
-      </div>
+      {going.length > 0 && <ReadingRow going={going} />}
+      {extra.length > 0 && <div className="continue-reading">{extra}</div>}
     </section>
   )
 }
 
-function ReadingCard({ one }: { one: Book }): React.JSX.Element {
-  const cover = usePdfCover(one.src, one.name)
-  const read = percent(one) ?? 0
+/** The books part way through, last read first. */
+const useGoing = (all: Book[]): Book[] =>
+  useMemo(() => all.filter((one) => one.readAt && one.page && one.pages && one.page < one.pages).sort((a, b) => b.readAt!.localeCompare(a.readAt!)), [all])
+
+/** A book's cover as a page is shaped, before it is drawn. */
+const COVER_SHAPE = 0.72
+
+/**
+ * The books part way through as a row of covers flowing through glass (Flex
+ * Carousel), each with its title and "p. 134 of 336"; a click opens the book
+ * at that page. Covers are drawn only as they near the view.
+ */
+export function ReadingRow({ going }: { going: Book[] }): React.JSX.Element {
+  const items = useMemo(
+    () => going.map((one) => ({ src: () => pdfCover(one.src, one.name).then((cover) => cover?.image), title: titleOf(one), note: `p. ${one.page!.toLocaleString()} of ${one.pages!.toLocaleString()}`, aspect: COVER_SHAPE })),
+    [going]
+  )
   return (
-    <button type="button" className="continue-book" data-book={one.src} onClick={() => (chime("open"), openPdf(one.src, one.name, one.page ?? undefined))}>
-      <span className="continue-book-cover" data-pdf-peek={one.src} data-pdf-peek-name={one.name} data-pdf-peek-page={one.page ?? undefined}>{cover?.image ? <img src={cover.image} alt="" draggable={false} /> : <span className="pdf-book-blank" />}</span>
-      <span className="continue-book-words">
-        <span className="continue-book-title">{titleOf(one)}</span>
-        <span className="continue-book-where">
-          Page {one.page} of {one.pages} · {read}%
-        </span>
-        <span className="continue-book-track">
-          <span style={{ width: `${read}%` }} />
-        </span>
-      </span>
-    </button>
+    <div data-reading-row className="-mx-2">
+      <PictureRow key={going.map((one) => `${one.src}:${one.page}`).join()} items={items} height={300} cardHeight={0.62} direct label="Continue reading"
+        onOpen={(at) => {
+          const one = going[at]
+          if (!one) return
+          chime("open")
+          openPdf(one.src, one.name, one.page ?? undefined)
+        }}
+      />
+    </div>
   )
 }

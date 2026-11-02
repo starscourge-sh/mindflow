@@ -12,15 +12,23 @@
  */
 import { useEffect, useRef, useState } from 'react'
 import { useByKeys } from '@/lib/motion'
+import { num } from '../../../../main/dates'
 import type { CSSProperties } from 'react'
 import { Renderer, Program, Mesh, Triangle, Plane, Texture, RenderTarget } from 'ogl'
 
-interface FlexCarouselItem {
-  src: string
+export interface FlexCarouselItem {
+  /** The picture, or a way to fetch it, asked for only as it nears the view. */
+  src: string | (() => Promise<string | null | undefined>)
   title?: string
+  /** A line under the title in place of the count ("p. 134 of 336"). */
+  note?: string
+  /** Its shape (width over height) before it loads, so the row does not shift as it does. */
+  aspect?: number
 }
 
 interface Slot {
+  wanted: boolean
+  want: () => void
   texture: Texture
   aspect: number
   loaded: boolean
@@ -32,6 +40,8 @@ interface Slot {
 }
 
 interface Metrics {
+  /** The row is long enough to go round endlessly; a short one stops at its ends. */
+  ring: boolean
   cardH: number
   widths: number[]
   centers: number[]
@@ -67,6 +77,8 @@ const PIXEL_BUDGET = 4.5e6
 const RISE = 2.1
 
 const wrap = (value: number, size: number): number => ((((value + size / 2) % size) + size) % size) - size / 2
+/** A distance along the row: the short way round on an endless one, straight on a short one. */
+const around = (m: Metrics, value: number): number => (m.ring ? wrap(value, m.loop) : value)
 const clamp01 = (value: number): number => Math.min(Math.max(value, 0), 1)
 const easeOutQuint = (value: number): number => 1 - Math.pow(1 - clamp01(value), 5)
 const easeInOut = (value: number): number => {
@@ -216,6 +228,9 @@ export default function FlexCarousel({
   radius = 10,
   squeeze = 0.2,
   onOpen,
+  direct = false,
+  counter = 'of',
+  label = 'Pictures',
   className = '',
   style
 }: {
@@ -225,11 +240,17 @@ export default function FlexCarousel({
   radius?: number
   squeeze?: number
   onOpen?: (index: number) => void
+  /** A click opens the picture at once, rather than first bringing it close; ← → turn it and ↵ opens. */
+  direct?: boolean
+  /** How the place in the row is said: "3 of 12", or "03 / 12". */
+  counter?: 'of' | 'slash'
+  /** What the row is, for VoiceOver. */
+  label?: string
   className?: string
   style?: CSSProperties
 }): React.JSX.Element {
   const containerRef = useRef<HTMLDivElement>(null)
-  const settingsRef = useRef({ cardHeight, gap, radius, squeeze })
+  const settingsRef = useRef({ cardHeight, gap, radius, squeeze, direct })
   const itemsRef = useRef(items)
   const openRef = useRef(onOpen)
   const [active, setActive] = useState(0)
@@ -241,7 +262,7 @@ export default function FlexCarousel({
   useEffect(() => {
     itemsRef.current = items
     openRef.current = onOpen
-    settingsRef.current = { cardHeight, gap, radius, squeeze }
+    settingsRef.current = { cardHeight, gap, radius, squeeze, direct }
   })
 
   // Built once: a new set of pictures is a new carousel (its key says so).
@@ -317,6 +338,10 @@ export default function FlexCarousel({
     const anisotropy = renderer.getExtension('EXT_texture_filter_anisotropic') ? 8 : 0
 
     let slots: Slot[] = []
+    // In a row that fits whole, the one picked (by a key, or the pointer resting on it).
+    let chosen = 0
+    let titleX = 0
+    let fetched = 0
     let width = 1
     let height = 1
     let pos = 0
@@ -343,9 +368,22 @@ export default function FlexCarousel({
     const focus = { index: -1, pending: -1, t: 0, v: 0, target: 0 }
     let instances: Instance[] = []
 
+    // A slot is only a place in the row until it nears the view: then its picture is fetched and drawn.
     const loadSlot = (item: FlexCarouselItem): Slot => {
       const texture = new Texture(gl, { generateMipmaps: true, minFilter: gl.LINEAR_MIPMAP_LINEAR, magFilter: gl.LINEAR, anisotropy })
-      const slot: Slot = { texture, aspect: 0.8, loaded: false, failed: false, ready: 0, color: [0.5, 0.5, 0.5], image: [1, 1], dispose: () => {} }
+      const slot: Slot = { wanted: false, want: () => {}, texture, aspect: item.aspect ?? 0.8, loaded: false, failed: false, ready: 0, color: [0.5, 0.5, 0.5], image: [1, 1], dispose: () => {} }
+      slot.want = () => {
+        if (slot.wanted) return
+        slot.wanted = true
+        // How many have been fetched, for the probes: only those near the view.
+        container.setAttribute('data-fetched', String(++fetched))
+        fetchSlot(item, slot)
+      }
+      return slot
+    }
+
+    const fetchSlot = (item: FlexCarouselItem, slot: Slot): void => {
+      const texture = slot.texture
       const image = new Image()
       image.crossOrigin = 'anonymous'
       image.decoding = 'async'
@@ -385,13 +423,17 @@ export default function FlexCarousel({
         dirty = true
         start()
       }
-      image.src = item.src
+      if (typeof item.src === 'string') image.src = item.src
+      else
+        void item.src().then(
+          (src) => alive && (src ? (image.src = src) : image.onerror?.(new Event('error'))),
+          () => alive && image.onerror?.(new Event('error'))
+        )
       slot.dispose = () => {
         image.onload = null
         image.onerror = null
         gl.deleteTexture(texture.texture)
       }
-      return slot
     }
 
     const metrics = (): Metrics => {
@@ -400,18 +442,23 @@ export default function FlexCarousel({
       const widths = slots.map((slot) => slot.aspect * cardH)
       const centers: number[] = []
       let cursor = 0
+      let widest = 0
       for (let i = 0; i < widths.length; i++) {
         centers.push(cursor + widths[i] / 2)
         cursor += widths[i] + s.gap
+        widest = Math.max(widest, widths[i])
       }
-      return { cardH, widths, centers, gap: s.gap, loop: Math.max(cursor, 1) }
+      // Endless only when a copy of the row could never show twice at once.
+      return { ring: cursor > width + widest * 2, cardH, widths, centers, gap: s.gap, loop: Math.max(cursor, 1) }
     }
+
+    const fits = (m: Metrics): boolean => !m.ring && m.loop - m.gap <= width * 0.92
 
     const nearest = (m: Metrics, at: number): number => {
       let best = 0
       let bestDist = Infinity
       for (let i = 0; i < m.centers.length; i++) {
-        const dist = Math.abs(wrap(m.centers[i] - at, m.loop))
+        const dist = Math.abs(around(m, m.centers[i] - at))
         if (dist < bestDist) {
           bestDist = dist
           best = i
@@ -420,21 +467,29 @@ export default function FlexCarousel({
       return best
     }
 
-    const snapPoint = (m: Metrics, at: number): number => at + wrap(m.centers[nearest(m, at)] - at, m.loop)
+    const snapPoint = (m: Metrics, at: number): number => at + around(m, m.centers[nearest(m, at)] - at)
 
     // Where the row was, kept as the pictures change size (a picture loading, the window resizing).
     const remap = (from: Metrics, to: Metrics, at: number): number => {
       const i = nearest(from, at)
-      const offset = wrap(at - from.centers[i], from.loop)
+      const offset = around(from, at - from.centers[i])
       const cycles = Math.round((at - offset - from.centers[i]) / from.loop)
       return cycles * to.loop + to.centers[i] + offset * (to.widths[i] / from.widths[i])
     }
 
     const step = (m: Metrics, delta: number): void => {
+      // A row that fits stays put: a step picks the next one along, its title moving under it.
+      if (fits(m)) {
+        chosen = Math.max(0, Math.min(m.centers.length - 1, chosen + delta))
+        dirty = true
+        start()
+        return
+      }
       let at = snapPoint(m, goal)
       let index = nearest(m, at)
       const n = m.centers.length
       for (let k = 0; k < Math.abs(delta); k++) {
+        if (!m.ring && (delta > 0 ? index >= n - 1 : index <= 0)) break
         const next = (index + (delta > 0 ? 1 : n - 1)) % n
         at += delta > 0 ? m.widths[index] / 2 + m.gap + m.widths[next] / 2 : -(m.widths[next] / 2 + m.gap + m.widths[index] / 2)
         index = next
@@ -521,12 +576,23 @@ export default function FlexCarousel({
       }
       layout = m
 
-      // The entrance waits for every picture, or three and a half seconds.
-      if (!rise.running && !rise.done && (slots.every((slot) => slot.loaded || slot.failed) || now - rise.readyAt > 3500)) {
+      // A short row that fits whole is shown whole, centred, and stays put.
+      if (fits(m)) {
+        goal = (m.centers[0] + m.centers[m.centers.length - 1]) / 2
+        if (!rise.done && !rise.running) pos = goal
+        chosen = Math.min(chosen, n - 1)
+      }
+
+      // Fetched only near the view: the pictures within a width and a half of the middle.
+      for (let i = 0; i < n; i++) if (!slots[i].wanted && Math.abs(around(m, m.centers[i] - pos)) - m.widths[i] / 2 < width * 1.5) slots[i].want()
+
+      // The entrance waits for every picture in view, or three and a half seconds.
+      if (!rise.running && !rise.done && (slots.every((slot) => !slot.wanted || slot.loaded || slot.failed) || now - rise.readyAt > 3500)) {
         goal = snapPoint(m, goal)
         pos = goal
         rise.running = true
-        rise.t = 0
+        // Where a click opens (rows seen many times a day: Home, Media), no entrance: the row is simply there.
+        rise.t = settingsRef.current.direct ? 1 : 0
       }
       if (rise.running) {
         rise.t = Math.min(1, rise.t + dt / RISE)
@@ -557,14 +623,14 @@ export default function FlexCarousel({
         } else animating = true
       } else animating = true
 
-      if (Math.abs(pos) > m.loop * 8) {
+      if (m.ring && Math.abs(pos) > m.loop * 8) {
         const back = Math.round(pos / m.loop) * m.loop
         pos -= back
         goal -= back
         pointer.startPos -= back
       }
 
-      const current = nearest(m, pos)
+      const current = fits(m) ? chosen : nearest(m, pos)
       if (current !== activeIndex) {
         activeIndex = current
         setActive(current)
@@ -623,8 +689,8 @@ export default function FlexCarousel({
         const draws: Draw[] = []
         for (let i = 0; i < n; i++) {
           const w = m.widths[i]
-          const baseRel = wrap(m.centers[i] - pos, m.loop)
-          for (let k = -3; k <= 3; k++) {
+          const baseRel = around(m, m.centers[i] - pos)
+          for (let k = m.ring ? -3 : 0; k <= (m.ring ? 3 : 0); k++) {
             const rel = baseRel + k * m.loop
             if (Math.abs(rel) - w / 2 > width + 40) continue
             const fx = effects.card ? effects.card(rel) : null
@@ -687,12 +753,26 @@ export default function FlexCarousel({
         renderer.render({ scene: lensMesh })
       }
 
+      // The title sits under the picked one: the middle one, or in a row that fits, wherever it is.
+      const under = instances.find((inst) => inst.index === activeIndex)
+      const nextX = under && fits(m) ? (under.x0 + under.x1) / 2 - width / 2 : 0
+      if (Math.abs(nextX - titleX) > 0.5) {
+        titleX = nextX
+        container.style.setProperty('--flex-carousel-x', `${titleX.toFixed(1)}px`)
+      }
+
       // The pointer says what a click would do: bring one close, or open the close one.
       let nextHover = ''
       if (pointer.over && !pointer.dragging && rise.done) {
         const hit = instances.find((inst) => pointer.x >= inst.x0 && pointer.x <= inst.x1 && pointer.y >= inst.y0 && pointer.y <= inst.y1)
         if (focus.target > 0) nextHover = hit?.index === focus.index ? 'open' : 'close'
-        else if (hit) nextHover = 'focus'
+        else if (hit) nextHover = s.direct ? 'open' : 'focus'
+        // Resting on one in a row that fits picks it: its title comes under it.
+        if (hit && fits(m) && hit.index !== chosen && focus.target === 0) {
+          chosen = hit.index
+          dirty = true
+          animating = true
+        }
       }
       if (nextHover !== hover) {
         hover = nextHover
@@ -799,6 +879,7 @@ export default function FlexCarousel({
         return
       }
       if (!hit) return
+      if (settingsRef.current.direct) return void openRef.current?.(hit.index)
       if (hit.index === activeIndex && Math.abs(goal - pos) < 2) openFocus(hit.index)
       else {
         goal = snapPoint(m, pos + (hit.x0 + hit.x1) / 2 - width / 2)
@@ -839,6 +920,22 @@ export default function FlexCarousel({
       start()
     }
 
+    // Its own keys, where a click opens: ← and → turn it, ↵ or Space opens the one in the middle.
+    const onKey = (e: KeyboardEvent): void => {
+      if (!settingsRef.current.direct || e.metaKey || e.ctrlKey || e.altKey) return
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+        // Its own: the page's arrow keys (which walk Home's rows) never hear it.
+        e.preventDefault()
+        e.stopPropagation()
+        skipIntro()
+        step(metrics(), e.key === 'ArrowRight' ? 1 : -1)
+      } else if ((e.key === 'Enter' || e.key === ' ') && activeIndex >= 0) {
+        e.preventDefault()
+        e.stopPropagation()
+        openRef.current?.(activeIndex)
+      }
+    }
+
     // A window put away stops drawing; shown again, it picks up where it was.
     const onVisibility = (): void => (document.hidden ? stop() : start())
 
@@ -848,6 +945,7 @@ export default function FlexCarousel({
     container.addEventListener('pointerleave', onPointerLeave)
     container.addEventListener('pointercancel', onPointerCancel)
     container.addEventListener('wheel', onWheel, { passive: false })
+    container.addEventListener('keydown', onKey)
     document.addEventListener('visibilitychange', onVisibility)
 
     const resizeObserver = new ResizeObserver(resize)
@@ -875,6 +973,7 @@ export default function FlexCarousel({
       container.removeEventListener('pointerleave', onPointerLeave)
       container.removeEventListener('pointercancel', onPointerCancel)
       container.removeEventListener('wheel', onWheel)
+      container.removeEventListener('keydown', onKey)
       document.removeEventListener('visibilitychange', onVisibility)
       slots.forEach((slot) => slot.dispose())
       slots = []
@@ -884,31 +983,36 @@ export default function FlexCarousel({
   }, [])
 
   const current = items[active] ?? items[0]
+  const place = counter === 'slash' ? `${num(active + 1).padStart(2, '0')} / ${num(items.length).padStart(2, '0')}` : `${num(active + 1)} of ${num(items.length)}`
+  const said = current?.note ?? place
 
   return (
     <div
       ref={containerRef}
-      className={`relative h-full w-full cursor-grab touch-pan-y select-none overflow-hidden overscroll-contain [-webkit-tap-highlight-color:transparent] data-[hover=focus]:cursor-zoom-in data-[hover=close]:cursor-zoom-out data-[hover=open]:cursor-pointer data-[dragging]:cursor-grabbing ${className}`}
+      className={`relative h-full w-full cursor-grab touch-pan-y rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring select-none overflow-hidden overscroll-contain [-webkit-tap-highlight-color:transparent] data-[hover=focus]:cursor-zoom-in data-[hover=close]:cursor-zoom-out data-[hover=open]:cursor-pointer data-[dragging]:cursor-grabbing ${className}`}
       style={{ ...style, '--flex-carousel-half': `${Math.min(Math.max(cardHeight, 0.05), 1) * 50}%` } as CSSProperties}
       role="region"
       aria-roledescription="carousel"
-      aria-label="Pictures"
+      aria-label={label}
+      tabIndex={direct ? 0 : undefined}
+      data-flex-carousel
+      data-active={active}
     >
       {/* Under the middle picture: its note's name, and where it is in the row. */}
       {current && revealed && (
         <div
-          className="pointer-events-none absolute inset-x-0 top-[calc(50%_+_var(--flex-carousel-half)_*_var(--flex-carousel-lift,1)_+_14px)] flex flex-col items-center gap-1 px-4 text-center animate-in fade-in-0 duration-300"
+          className="pointer-events-none absolute inset-x-0 top-[calc(50%_+_var(--flex-carousel-half)_*_var(--flex-carousel-lift,1)_+_14px)] translate-x-(--flex-carousel-x) flex flex-col items-center gap-1 px-4 text-center animate-in fade-in-0 duration-300"
           aria-hidden="true"
         >
           {/* Each turn's title rises in quickly; turned by a key (the recap's arrows), it is simply there. */}
           <span key={active} className={`max-w-full truncate text-body font-medium text-foreground ${keyedTurn ? '' : 'animate-in fade-in-0 slide-in-from-bottom-1 duration-200'}`}>
             {current.title || 'Untitled'}
           </span>
-          <span className="text-meta text-muted-foreground tabular-nums">{focusOpen ? 'Click it to open' : `${active + 1} of ${items.length}`}</span>
+          <span className="text-meta text-muted-foreground tabular-nums">{focusOpen ? 'Click it to open' : said}</span>
         </div>
       )}
       <div className="sr-only" aria-live="polite" aria-atomic="true">
-        {current ? `${current.title || 'Untitled'}, ${active + 1} of ${items.length}` : ''}
+        {current ? `${current.title || 'Untitled'}, ${current.note ? `${current.note}, ` : ''}${num(active + 1)} of ${num(items.length)}` : ''}
       </div>
     </div>
   )

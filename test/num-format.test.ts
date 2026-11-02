@@ -36,7 +36,6 @@ const ALLOWED: [file: string, bit: string, why: string][] = [
   ['src/main/frost.ts', '${file.size}', 'a cache key from a file size'],
   ['src/main/index.ts', '"${stored.size}"', 'a byte count kept in a link title, read back by code'],
   ['src/main/haligtree.ts', 'What is hidden? ${index + 1} of ${groups.length}', 'one picture has at most a few dozen hidden parts'],
-  ['src/renderer/src/components/haligtree/flex-carousel.tsx', '${active + 1} of ${items.length}', 'cards on one carousel, read aloud only'],
   ['src/renderer/src/components/haligtree/calendar-view.tsx', 'span ${days.length}', 'a CSS grid span'],
   ['src/renderer/src/components/haligtree/display.tsx', 'repeat(${views.length}', 'a CSS grid column count'],
   ['src/renderer/src/components/haligtree/study-stats.tsx', 'repeat(${days.length}', 'a CSS grid column count'],

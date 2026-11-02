@@ -7,6 +7,7 @@ import { smallPicture } from '@/lib/notes'
 import { headingIn } from '@/lib/capture-links'
 import { usePdfCover } from '@/components/pdf/pdf-cover'
 import { PdfLibrary } from '@/components/pdf/pdf-library'
+import { PictureRow } from './picture-row'
 import { GRACE } from '@/components/pdf/pdf-peek'
 import { canSplit, openAside } from '@/lib/split'
 import { chime } from '@/lib/sound'
@@ -84,6 +85,9 @@ export function MediaView({ onOpen }: { onOpen: (type: string, id: string) => vo
     </div>
   )
   const library = all.length > 0 && kind === 'pdf'
+  // The newest pictures as a flowing row over the grid, for looking; the grid below is for finding.
+  const recent = useMemo(() => (query.trim() || decks || (kind !== 'all' && kind !== 'picture') ? [] : shown.filter((one) => one.kind === 'picture')), [shown, query, decks, kind])
+  const recentItems = useMemo(() => recent.map((one) => ({ src: () => smallPicture(one.src, true), title: one.title || 'Untitled', aspect: 4 / 3 })), [recent])
   return (
     <Page title="Media" dock={library} waiting={unloaded(all)} count={unloaded(all) || !all.length ? undefined : shown.length} unit={['file', 'files']}
       search={all.length > 0 && <ListSearch value={query} placeholder="Find by note, name or words" onChange={setQuery} onDone={() => shown[0] && open(shown[0])} />}>
@@ -93,6 +97,12 @@ export function MediaView({ onOpen }: { onOpen: (type: string, id: string) => vo
       ) : all.length ? (
         <div ref={box} data-media-grid className="mx-5 mb-4">
           {kinds}
+          {recent.length > 0 && (
+            <section data-recent-pictures className="mb-4 flex flex-col gap-2">
+              <h3 className="text-body font-medium text-foreground">Recent pictures</h3>
+              <PictureRow key={recent.map((one) => `${one.id}:${one.src}`).join()} items={recentItems} height={300} cardHeight={0.62} direct counter="slash" label="Recent pictures" onOpen={(at) => recent[at] && open(recent[at])} />
+            </section>
+          )}
           {shown.length ? (
             <VirtualList items={lines} keyOf={(line) => line.key} holds={(line, key) => line.tiles.some((one) => `${one.type}:${one.id}:${one.src}` === key)} estimate={TILE * 0.75 + 52 + GAP} rowClass="">
               {(line) => (

@@ -1,6 +1,6 @@
-import { lazy, Suspense, useEffect, useRef, useState, type ReactElement, type ReactNode } from 'react'
+import { useEffect, useState, type ReactElement, type ReactNode } from 'react'
 import { quoted } from '../../../../main/clip'
-import { AnimatePresence, animate, motion, MotionGlobalConfig, useInView, useMotionValue, useReducedMotion, useTransform, type Variants } from 'motion/react'
+import { AnimatePresence, animate, motion, useMotionValue, useTransform, type Variants } from 'motion/react'
 
 import { chime } from '@/lib/sound'
 import { haligtree, type Mood, type Recap as Data, splitTags } from '@/lib/haligtree'
@@ -15,7 +15,7 @@ import { dated, dayjs, dayName, noon, num, plural } from '../../../../main/dates
 import { X } from '@/components/ui/icons'
 
 // WebGL and its library, fetched only when a strip of pictures is first shown.
-const FlexCarousel = lazy(() => import('./flex-carousel'))
+import { PictureRow } from './picture-row'
 
 /** The light each page sits in: the year opens at dawn and closes at night. */
 const RECAP_MOODS: Record<string, Mood> = { intro: 'day', captures: 'day', shape: 'day', busiest: 'day', tags: 'dusk', sources: 'dusk', pictures: 'dusk', exits: 'interior', reviewed: 'night', marked: 'night', outro: 'night', none: 'night' }
@@ -128,32 +128,8 @@ const openPicture = (picture: Picture): void => (chime('open'), window.api.openI
  * Nothing at all with fewer than five.
  */
 export function PictureStrip({ pictures, className = '' }: { pictures: Picture[] | null; className?: string }): React.JSX.Element | null {
-  const box = useRef<HTMLDivElement>(null)
-  const seen = useInView(box, { once: true })
-  const reduced = useReducedMotion()
   if (!pictures || pictures.length < FEW_PICTURES) return null
-  if (reduced || MotionGlobalConfig.skipAnimations)
-    return (
-      <div className={`-mx-1 flex gap-3 overflow-x-auto px-1 pb-2 ${className}`}>
-        {pictures.map((picture) => (
-          <button key={picture.id} type="button" onClick={() => openPicture(picture)} className="group flex w-max shrink-0 flex-col gap-1.5 text-left">
-            <img src={picture.src} alt="" draggable={false} className="h-40 w-auto rounded-[10px] bg-accent object-cover" />
-            <span className="max-w-48 truncate text-meta text-muted-foreground group-hover:text-foreground">{picture.title || 'Untitled'}</span>
-          </button>
-        ))}
-      </div>
-    )
-  return (
-    // Its own clicks and drags stay its own: the recap's click turns the page.
-    // Its sides fade out, so a picture leaves the row rather than being cut off.
-    <div ref={box} onClick={(event) => event.stopPropagation()} className={`h-[25rem] [mask-image:linear-gradient(to_right,transparent,#000_7%,#000_93%,transparent)] ${className}`}>
-      {seen && (
-        <Suspense fallback={null}>
-          <FlexCarousel key={pictures.map((picture) => picture.id).join()} items={pictures} cardHeight={0.52} onOpen={(at) => openPicture(pictures[at])} />
-        </Suspense>
-      )}
-    </div>
-  )
+  return <PictureRow key={pictures.map((picture) => picture.id).join()} items={pictures} height={400} onOpen={(at) => openPicture(pictures[at])} className={className} />
 }
 
 /**

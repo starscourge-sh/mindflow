@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactElement } from 'react'
+import { useEffect, useMemo, useState, type ReactElement } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { createPortal } from 'react-dom'
 import { useCornerDock, useLayerOpen } from '@/lib/layer-watch'
@@ -8,7 +8,9 @@ import { useLive, haligtree, type Item, type Recap, type Settings, type SpanSess
 import { taskName } from '@/lib/tasks'
 import { Button } from '@/components/ui/button'
 import { X } from '@/components/ui/icons'
-import { Big, Ranked } from './recap-view'
+import { Big, Ranked, usePicturesFrom } from './recap-view'
+import { PictureRow } from './picture-row'
+import { drawingFor } from './grain'
 import { Scenery } from './scenery'
 import { Kbd, Tip, Typed, toast } from './ui'
 import { PlanDid, plannedVsDid, shortSaid } from './planned-did'
@@ -107,10 +109,17 @@ function Story({ id, onClose }: { id: string; onClose: () => void }): React.JSX.
   useEffect(() => void wrapOf(span).then(setData), [id]) // eslint-disable-line react-hooks/exhaustive-deps
   const [at, setAt] = useState(0)
   const [dir, setDir] = useState(1)
+  // The span's pictures, and its gems with none of their own on their paper drawing: one flowing row.
+  const pictures = usePicturesFrom(dayjs(span.from).startOf('day').toISOString(), dayjs(span.to).endOf('day').toISOString())
+  const flow = useMemo(() => {
+    if (!data || !pictures) return []
+    const pictured = new Set(pictures.map((one) => one.id))
+    return [...pictures, ...data.gems.filter((gem) => !pictured.has(gem.id)).map((gem) => ({ src: drawingFor(gem.id).url, title: gem.title || 'Untitled', type: 'gem', id: gem.id }))]
+  }, [data, pictures])
   // Motion off skips every animation (lib/haligtree.ts); Reduce motion keeps the fades and `shift` drops the slide.
 
   const cards: ReactElement[] = []
-  if (data) {
+  if (data && pictures) {
     const { recap, focus, plan, gems, run, well, name } = data
     const title = span.period === 'month' ? `Your ${name}, wrapped` : 'Your week, wrapped'
     const quiet = !recap.captures && !focus.sessions && !plan.rows.length && !gems.length && !well.length
@@ -153,7 +162,13 @@ function Story({ id, onClose }: { id: string; onClose: () => void }): React.JSX.
         </div>
       )])
     }
-    if (gems.length) middle.push([4, (
+    if (flow.length) middle.push([4, (
+      <div key="gems" className="space-y-4" data-wrap-flow>
+        {gems.length ? <Big n={gems.length}>{gems.length === 1 ? 'gem kept, and what you saw' : 'gems kept, and what you saw'}</Big> : <p className="text-title"><Typed story text="What you saw" /></p>}
+        <PictureRow key={flow.map((one) => one.id).join()} items={flow} height={300} label="Pictures and gems" onOpen={(at) => flow[at] && (chime('open'), window.api.openInHome(flow[at].type, flow[at].id))} className="-mx-4" />
+      </div>
+    )])
+    else if (gems.length) middle.push([4, (
       <div key="gems" className="space-y-6">
         <Big n={gems.length}>{gems.length === 1 ? 'gem kept' : 'gems kept'}</Big>
         <ul className="space-y-1.5 text-heading text-foreground">{gems.slice(0, 3).map((gem) => <li key={gem.id} className="truncate">“{gem.title || 'Untitled'}”</li>)}</ul>
