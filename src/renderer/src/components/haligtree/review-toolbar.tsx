@@ -1,9 +1,11 @@
-import { createContext, useContext, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
-import { ChevronDown } from 'lucide-react'
+import { ChevronDown, Sparkles, StickyNote } from 'lucide-react'
+import { Tip } from './ui'
 import { chime } from '@/lib/sound'
+import { haligtree, useLive, type Settings } from '@/lib/haligtree'
 
 /** Where a tab puts its own controls (Stacks or List, the search, Display): the toolbar's right end. */
 export const ToolbarSlot = createContext<HTMLElement | null>(null)
@@ -15,6 +17,48 @@ export const useToolbarCompact = (): boolean => useContext(ToolbarCompact)
 export function TabControls({ children }: { children: ReactNode }): React.JSX.Element | null {
   const slot = useContext(ToolbarSlot)
   return slot ? createPortal(children, slot) : null
+}
+
+export type Finish = 'satin' | 'paper'
+const FINISHES: { id: Finish; label: string }[] = [{ id: 'satin', label: 'Satin' }, { id: 'paper', label: 'Paper' }]
+
+/** Review's finish, worn at once by every deck, panel and card: the attribute on the page's root that main.css reads. */
+export function wearFinish(finish: Finish): void {
+  document.documentElement.dataset.reviewFinish = finish
+}
+
+/**
+ * "Satin · Paper": Review's two finishes, in the same two-part control as
+ * "Stacks · List". Pressed, the whole of Review changes at once, and the
+ * choice is kept (Settings › Review has it too).
+ */
+export function FinishPick(): React.JSX.Element {
+  const compact = useToolbarCompact()
+  const settings = useLive(haligtree.settings, null as Settings | null)
+  const [picked, setPicked] = useState<Finish | null>(null)
+  // Pressed, it shows at once; the saved choice takes over as it comes back (or as Settings changes it).
+  useEffect(() => setPicked(null), [settings?.reviewFinish])
+  const finish: Finish = picked ?? settings?.reviewFinish ?? 'satin'
+  const pick = (to: Finish): void => {
+    if (to === finish) return
+    chime('tap')
+    setPicked(to)
+    wearFinish(to)
+    void haligtree.setSettings({ reviewFinish: to })
+  }
+  return (
+    <span role="radiogroup" aria-label="Finish" data-review-finish-pick className="flex h-8 items-center rounded-lg border border-foreground/10 bg-accent/40 p-0.5 text-control">
+      {FINISHES.map((one) => {
+        const Icon = one.id === 'satin' ? Sparkles : StickyNote
+        const button = (
+          <button key={one.id} type="button" role="radio" aria-checked={finish === one.id} aria-label={one.label} data-review-finish-to={one.id} onClick={() => pick(one.id)}
+            className={`h-7 cursor-pointer rounded-md border ${compact ? 'px-2' : 'px-3'} transition-colors ${finish === one.id ? 'border-foreground/15 bg-background text-foreground shadow-sm' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>{compact ? <Icon className="size-3.5" /> : one.label}</button>
+        )
+        // Narrow, in icons as "Stacks · List" goes, each named on hover.
+        return compact ? <Tip key={one.id} label={one.label}>{button}</Tip> : button
+      })}
+    </span>
+  )
 }
 
 type Way = { id: 'make' | 'many' | 'picture' | 'import'; label: ReactNode; words: string; mark: Record<string, string>; run: () => void }
@@ -40,6 +84,7 @@ export function ReviewToolbar({ onMake, onMany, onPicture, open, onSlot, onCompa
   ]
   const row = useRef<HTMLDivElement>(null)
   const slot = useRef<HTMLSpanElement | null>(null)
+  const right = useRef<HTMLSpanElement>(null)
   const widths = useRef<number[]>([])
   const [fits, setFits] = useState(ways.length)
   // The tab's controls' width in words, kept while they are compact, so the row knows when there is room for words again.
@@ -56,13 +101,14 @@ export function ReviewToolbar({ onMake, onMany, onPicture, open, onSlot, onCompa
       buttons.forEach((one, at) => { if (one.offsetWidth) widths.current[at] = one.offsetWidth })
       // The right end is given the room of the widest tab's controls (All cards' search and Display), so the same ways fold on every tab and nothing shifts when switching.
       const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16
-      const own = slot.current?.offsetWidth ?? 0
+      // The right-hand group: the tab's own controls and the finish beside them.
+      const own = right.current?.offsetWidth ?? 0
       if (!compact.current) wide.current = own
       // "Make a card" never folds: with it and More, is there room for the tab's controls in words? If not, they go compact.
       const least = (widths.current[0] ?? 0) + MORE + GAP * 2
       const goCompact = bar.clientWidth - Math.max(wide.current, 0) - GAP * 2 < least
       if (goCompact !== compact.current) { compact.current = goCompact; onCompact(goCompact) }
-      const room = bar.clientWidth - Math.max(own, goCompact ? 0 : 24 * rem) - GAP * 2
+      const room = bar.clientWidth - Math.max(own, goCompact ? 0 : 24 * rem + own - (slot.current?.offsetWidth ?? 0)) - GAP * 2
       const all = widths.current.reduce((sum, w) => sum + w + GAP, 0)
       if (all <= room) return setFits(ways.length)
       let used = MORE
@@ -74,7 +120,7 @@ export function ReviewToolbar({ onMake, onMany, onPicture, open, onSlot, onCompa
     measure()
     const watch = new ResizeObserver(measure)
     watch.observe(bar)
-    if (slot.current) watch.observe(slot.current)
+    if (right.current) watch.observe(right.current)
     return () => watch.disconnect()
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
   const button = 'h-8 shrink-0 cursor-pointer px-3 max-sm:h-9 aria-pressed:border-foreground/25 aria-pressed:bg-accent aria-pressed:text-foreground'
@@ -95,7 +141,10 @@ export function ReviewToolbar({ onMake, onMany, onPicture, open, onSlot, onCompa
           </DropdownMenuContent>
         </DropdownMenu>
       )}
-      <span ref={(el) => { slot.current = el; onSlot(el) }} data-review-tab-controls className="ml-auto flex shrink-0 items-center gap-2 pl-2 [&>*]:shrink-0" />
+      <span ref={right} data-review-right className="ml-auto flex shrink-0 items-center gap-2 pl-2">
+        <span ref={(el) => { slot.current = el; onSlot(el) }} data-review-tab-controls className="flex shrink-0 items-center gap-2 [&>*]:shrink-0" />
+        <FinishPick />
+      </span>
     </div>
   )
 }

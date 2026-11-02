@@ -6,6 +6,7 @@ import { TagColourPick } from './components/haligtree/tag-colour-pick'
 import { themeActions } from '@/lib/theme'
 import { useAbandonAction } from '@/lib/abandon'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties } from 'react'
+import { wearFinish } from './components/haligtree/review-toolbar'
 import { BookOpen, ChevronsDownUp, ChevronsUpDown, FileText, PanelsTopLeft, Plus, Settings as SettingsLine } from 'lucide-react'
 import CameraIcon from '@/components/ui/camera-icon'
 import CameraOffIcon from '@/components/ui/camera-off-icon'
@@ -861,6 +862,8 @@ export function Home(): React.JSX.Element {
   const sideChosen = useChosen(sideList, '[data-side-row][aria-current="page"]:not([inert] *)', `${view.id}:${view.focus ?? ''}`)
   // A calm sidebar: what serves capturing and coming back. One switched off is not there at all, a G or ⌘K away.
   const settings = useLive(haligtree.settings, null as Settings | null)
+  // Review's finish, satin or paper, worn from the start and whenever it changes (review-toolbar.tsx).
+  useEffect(() => { if (settings) wearFinish(settings.reviewFinish ?? 'satin') }, [settings?.reviewFinish]) // eslint-disable-line react-hooks/exhaustive-deps
   // With "Open folders on their page", Writing's and Gems' folders and the tags follow the page open: unfolded on
   // their page (or one of its folders), folded away elsewhere. The arrow still turns them by hand, for as long as you
   // stay on that page; leaving it forgets what the hand did.

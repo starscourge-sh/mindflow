@@ -671,7 +671,7 @@ export function ReviewView({ compact = false, tag, actions, lead }: { compact?: 
           onTurn={turnTo}
           onLater={bury}
           front={
-            <div className="relative h-full rounded-lg border bg-accent/30 px-5 py-6">
+            <div data-finish-face className="relative h-full rounded-lg border bg-accent/30 px-5 py-6">
               <Tip label="More">
                 <button type="button" aria-label="More" data-review-more
                   onClick={(event) => {
@@ -747,7 +747,7 @@ export function ReviewView({ compact = false, tag, actions, lead }: { compact?: 
             // lost: there its stroke is drawn stronger, to a soft graphite arc.
             <BorderBeam size="md" colorVariant="mono" strength={0.5} style={surface === 'light' ? ({ '--beam-stroke-opacity': 12 } as React.CSSProperties) : undefined} duration={5} theme={surface} active={alive && over} borderRadius={8} className="h-full">
               {/* The answer sits at the box's edge, not in a page's wide margins. */}
-              <div data-answer-side className="h-full rounded-lg border bg-accent/30 [--mf-padding:0.625rem_1rem_0.625rem_1.25rem] [&_.tiptap-word-count]:hidden"
+              <div data-finish-face data-answer-side className="h-full rounded-lg border bg-accent/30 [--mf-padding:0.625rem_1rem_0.625rem_1.25rem] [&_.tiptap-word-count]:hidden"
                 onDragOver={(event) => pictureIn(event.dataTransfer) !== null || [...event.dataTransfer.items].some((one) => one.type.startsWith('image/')) ? event.preventDefault() : undefined}
                 onDrop={(event) => {
                   const file = pictureIn(event.dataTransfer)
@@ -1134,10 +1134,10 @@ function ExampleCard(): React.JSX.Element {
   const { grades, two } = useGrades()
   return (
     <div className="flex flex-col gap-4 px-5 py-6">
-      <div className="rounded-lg border bg-accent/30 px-5 py-6">
+      <div data-finish-face className="rounded-lg border bg-accent/30 px-5 py-6">
         <h2 className="font-heading text-title font-semibold tracking-[-0.018em] text-balance">{exampleCard.prompt}</h2>
       </div>
-      <div className="rounded-lg border bg-accent/30 px-5 py-4">
+      <div data-finish-face className="rounded-lg border bg-accent/30 px-5 py-4">
         <p className="text-xs text-muted-foreground">From {exampleCard.from}</p>
         <p className="mt-1.5 leading-relaxed">{exampleCard.answer}</p>
       </div>
@@ -1645,7 +1645,7 @@ function PictureFace({ occlusion, shown, answer, onReveal }: { occlusion: Occlus
   // The label first: the deck's tag and the book's link under it are for the card's page, not for here.
   const said = answer.split('\n').map((line) => line.trim()).filter((line) => line && !line.startsWith('#') && !line.startsWith('[')).join(', ')
   return (
-    <div data-picture-face={shown ? 'shown' : 'asked'} onClick={() => !shown && onReveal()} className={`grid gap-3 rounded-lg border bg-accent/30 px-5 py-5 ${shown ? '' : 'cursor-pointer'}`}>
+    <div data-finish-face data-picture-face={shown ? 'shown' : 'asked'} onClick={() => !shown && onReveal()} className={`grid gap-3 rounded-lg border bg-accent/30 px-5 py-5 ${shown ? '' : 'cursor-pointer'}`}>
       <p className="text-sm text-muted-foreground">{occlusion.hide === 'all' ? 'What is under the glowing cover?' : 'What is hidden?'}</p>
       <CoveredPicture occlusion={occlusion} shown={shown} all={all} />
       <div className="flex min-h-8 flex-wrap items-center gap-3">

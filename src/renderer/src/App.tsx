@@ -64,6 +64,7 @@ import { keepTyped } from './lib/keep-typed'
 import { notePromoted } from './lib/promote'
 import { noteActions, useOpenNote } from './lib/notes'
 import { haligtree, type Item, type PinnedQuestion, type Settings } from './lib/haligtree'
+import { wearFinish } from './components/haligtree/review-toolbar'
 import { markFromBox } from './lib/milestones'
 import { makeListTasks, makeTask, makeTasks, oneTask, picked, taskName } from './lib/tasks'
 import { boxKind, boxList } from './lib/line-tasks'
@@ -536,6 +537,8 @@ export default function App(): React.JSX.Element {
   // Hidden from screen recordings and shares unless let in, for a demo or a
   // Loom; remembered, and put back on every start.
   const appSettings = useLive(haligtree.settings, null as Settings | null)
+  // Review's finish on the card studied in the box too (review-toolbar.tsx).
+  useEffect(() => { if (appSettings) wearFinish(appSettings.reviewFinish ?? 'satin') }, [appSettings?.reviewFinish]) // eslint-disable-line react-hooks/exhaustive-deps
   // ⌘K's Abandon session, while one runs.
   const abandonAction = useAbandonAction()
   const practiceActions = usePracticeActions()

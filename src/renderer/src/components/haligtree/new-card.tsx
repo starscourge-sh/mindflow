@@ -46,7 +46,7 @@ export function NewCard({ deck: aimed, onClose }: { deck?: string; onClose: () =
     if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) return void (event.preventDefault(), save())
   }
   return (
-    <section data-new-card onKeyDown={keys} className="flex flex-col gap-3 rounded-lg border bg-accent/30 px-5 pt-4 pb-3">
+    <section data-new-card data-finish-face onKeyDown={keys} className="flex flex-col gap-3 rounded-lg border bg-accent/30 px-5 pt-4 pb-3">
       <p className="text-sm text-foreground/80">
         <b className="font-semibold text-foreground">New card{tag ? ` in ${deckTitle(tag)}` : ''}.</b> {sides ? `${sides[0]}, then ${sides[1]}` : 'A question, then its answer'}: one thing a card.
       </p>

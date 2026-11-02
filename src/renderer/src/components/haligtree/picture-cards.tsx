@@ -252,7 +252,7 @@ export function PictureCards({ deck: aimed, onClose, onShow }: { deck?: string |
     : picture ? 'No labels found on it: draw a cover over each part to ask.' : ''
 
   return (
-    <section data-picture-cards onKeyDown={keys} tabIndex={-1} className="flex flex-col gap-3 rounded-[5px] border bg-accent/30 px-5 pt-4 pb-3 outline-none">
+    <section data-picture-cards data-finish-face onKeyDown={keys} tabIndex={-1} className="flex flex-col gap-3 rounded-[5px] border bg-accent/30 px-5 pt-4 pb-3 outline-none">
       <p className="text-sm text-foreground/80">
         <b className="font-semibold text-foreground">Cards from a picture.</b> Cover the labels of a diagram; each cover, or each group of covers, is a card that asks what it hides.
       </p>
