@@ -50,7 +50,7 @@ try {
   check('2. "Make a card", "Add many at once" and "Import" are at the top', /Make a card/.test(top) && /Add many at once/.test(top) && /Import/.test(top), top)
   check('2. Import names Anki and CSV', /Anki/.test(await text('[data-deck-import]')) && /CSV/.test(await text('[data-deck-import]')))
 
-  // 3. Pockets: squarish tiles in a grid, a plain face, due first in ink, no Coolshapes by default, one filled button on the page.
+  // 3. Stacks: squarish tiles in a grid, a plain face, due first in ink, no Coolshapes by default, one filled button on the page.
   check('3. no Coolshapes cover on any deck by default', !(await has('[data-deck-shelf] [data-group-cover]')))
   // The name leads the tile and its counts sit under it, due first: no big number repeating them (user, 1 Nov).
   check('3. each deck says its due count first, then new, under its name', /^0 due · 5 new$/.test((await text('[data-own-deck="biology"] [data-deck-counts]')).trim()) && await h.evaluate(() => document.querySelector('[data-own-deck="biology"] h3')?.compareDocumentPosition(document.querySelector('[data-own-deck="biology"] [data-deck-counts]')) === Node.DOCUMENT_POSITION_FOLLOWING), await text('[data-own-deck="biology"] [data-deck-counts]'))

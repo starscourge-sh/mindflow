@@ -5,7 +5,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { ChevronDown } from 'lucide-react'
 import { chime } from '@/lib/sound'
 
-/** Where a tab puts its own controls (Pockets or List, the search, Display): the toolbar's right end. */
+/** Where a tab puts its own controls (Stacks or List, the search, Display): the toolbar's right end. */
 export const ToolbarSlot = createContext<HTMLElement | null>(null)
 /** True when the row is too narrow for the tab's controls in words: they show as icons (a + for New deck, an icon switch), never clipped. */
 export const ToolbarCompact = createContext(false)

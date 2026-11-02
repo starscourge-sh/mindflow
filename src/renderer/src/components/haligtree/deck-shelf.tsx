@@ -162,11 +162,11 @@ export function DeckShelf({ onOpen, onStudy, onPaste, onPicture, onShow }: { /**
       {compact
         ? <Tip label="New deck"><Button variant="ghost" size="sm" aria-label="New deck" className="size-8 cursor-pointer p-0" data-deck-new onClick={() => (chime('open'), newDeck())}><Plus className="size-4" /></Button></Tip>
         : <Button variant="ghost" size="sm" className="h-8 cursor-pointer px-3" data-deck-new onClick={() => (chime('open'), newDeck())}>New deck</Button>}
-      {/* Pockets or a plain list, in the same two-part control as Review's tabs beside it. */}
+      {/* Stacks (code name "pockets") or a plain list, in the same two-part control as Review's tabs beside it. */}
       <span role="radiogroup" aria-label="Show decks as" data-deck-look-pick className="flex h-8 items-center rounded-lg border border-foreground/10 bg-accent/40 p-0.5 text-control">
         {(['pockets', 'list'] as const).map((one) => (
-          <button key={one} type="button" role="radio" aria-checked={look === one} aria-label={one === 'pockets' ? 'Pockets' : 'List'} data-deck-look-to={one} onClick={() => void (look !== one && (chime('tap'), setLook(one)))}
-            className={`h-7 cursor-pointer rounded-md border ${compact ? 'px-2' : 'px-3'} transition-colors ${look === one ? 'border-foreground/15 bg-background text-foreground shadow-sm' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>{compact ? (one === 'pockets' ? <LayoutGrid className="size-3.5" /> : <ListIcon className="size-3.5" />) : one === 'pockets' ? 'Pockets' : 'List'}</button>
+          <button key={one} type="button" role="radio" aria-checked={look === one} aria-label={one === 'pockets' ? 'Stacks' : 'List'} data-deck-look-to={one} onClick={() => void (look !== one && (chime('tap'), setLook(one)))}
+            className={`h-7 cursor-pointer rounded-md border ${compact ? 'px-2' : 'px-3'} transition-colors ${look === one ? 'border-foreground/15 bg-background text-foreground shadow-sm' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>{compact ? (one === 'pockets' ? <LayoutGrid className="size-3.5" /> : <ListIcon className="size-3.5" />) : one === 'pockets' ? 'Stacks' : 'List'}</button>
         ))}
       </span>
     </TabControls>

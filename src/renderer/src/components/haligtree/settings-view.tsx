@@ -700,7 +700,7 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
             <Switch checked={settings.thumbnails !== false} onCheckedChange={(thumbnails) => set({ thumbnails })} />
           </Setting>
           <Setting title="Covers" note="What a note with no picture of its own wears on its card and row." more="Each is tinted to the note's colour." keywords="covers cover drawings paper sketch gradients tiles thumbnails grid cards placeholder folder grain" below={<CoverChoice settings={settings} set={set} />} />
-          <Setting title="Shapes on decks" note="In Review, each deck wears a coloured shape drawn from its name. Off, every deck is a plain box in your theme's tone, its due count large." keywords="decks deck covers shapes coolshapes pockets review cards colour plain">
+          <Setting title="Shapes on decks" note="In Review, each deck wears a coloured shape drawn from its name. Off, every deck is a plain box in your theme's tone, its due count large." keywords="decks deck covers shapes coolshapes stacks review cards colour plain">
             <span data-deck-shapes-sample className="flex items-center gap-1.5"><DeckFace name="Biology" due={12} fresh={30} shapes={settings.deckShapes === true} small /></span>
             <Switch aria-label="Shapes on decks" checked={settings.deckShapes === true} onCheckedChange={(deckShapes) => set({ deckShapes })} />
           </Setting>
