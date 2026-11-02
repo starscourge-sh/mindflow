@@ -630,7 +630,7 @@ export function CardBrowser({ onOpen, aim, only, newest, onAll, onShow, onAimDon
     <div data-card-browser data-density={density} data-group={view.group} className="flex flex-col gap-3 px-5 pt-4 pb-20">
       {/* Its own controls in the toolbar's right end, never a row of their own. */}
       <TabControls>
-        <div className={compact ? 'w-32' : 'w-44'}><ListSearch value={query} onChange={setQuery} onDone={() => {}} placeholder="Search cards" /></div>
+        <div className={compact ? 'w-28' : 'w-44'}><ListSearch value={query} onChange={setQuery} onDone={() => {}} placeholder={compact ? 'Search' : 'Search cards'} /></div>
         {!compact && gridActions}
         <Display view={view} onChange={setView} facets={facets} items={cards} count={cards.length} sorts={SORTS} groups={GROUPS}
           sortNote={view.group === 'source' ? 'Within each book or video, cards go in page or time order.' : undefined}
