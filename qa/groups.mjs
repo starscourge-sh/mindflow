@@ -581,13 +581,17 @@ if (c) await c.close()
 // and between them: every row and group row drawn apart from every other, in a
 // light and a dark theme, before and after drags, with nothing left moved.
 const overlaps = (c) => c.h.evaluate(() => {
+  // The list's own rows only: a note open beside the list has rows of its own (its outline, its links) at the same
+  // heights, which a check by height alone read as overlapping the list's. Two boxes overlap only across and down.
   const boxes = [...document.querySelectorAll('[data-row]:not([data-lifted] *), [data-group-row]:not([data-lifted] *)')]
+    .filter((el) => !el.closest('[data-open]'))
     .map((el) => ({ name: el.textContent.slice(0, 24), box: el.getBoundingClientRect() })).filter((one) => one.box.height > 0)
   const bad = []
+  const r = (b) => `[${Math.round(b.left)},${Math.round(b.top)} ${Math.round(b.width)}x${Math.round(b.height)}]`
   for (let i = 0; i < boxes.length; i++)
     for (let j = i + 1; j < boxes.length; j++) {
       const a = boxes[i].box, b = boxes[j].box
-      if (a.top < b.bottom - 1 && b.top < a.bottom - 1) bad.push(`${boxes[i].name} / ${boxes[j].name}`)
+      if (a.top < b.bottom - 1 && b.top < a.bottom - 1 && a.left < b.right - 1 && b.left < a.right - 1) bad.push(`${boxes[i].name} ${r(a)} / ${boxes[j].name} ${r(b)}`)
     }
   // Panels: each group's apart from the next.
   const panels = [...document.querySelectorAll('[data-group-block]')].map((el) => el.getBoundingClientRect()).sort((a, b) => a.top - b.top)
@@ -717,6 +721,9 @@ try {
   })
   check('the eye and the folder\'s count end on one right edge', !!columns && Math.abs(columns.eye - columns.count) <= 2, JSON.stringify(columns))
   await frames(c, 'column-light', 1, 0)
+  // Proof of what the old check flagged: rows of the note open beside the list, at the same heights as list rows.
+  console.log('beside the list: ' + JSON.stringify(await c.h.evaluate(() => [...document.querySelectorAll('[data-open] [data-row]')].slice(0, 3).map((el) => { const b = el.getBoundingClientRect(); return `${el.textContent.slice(0, 24)} [${Math.round(b.left)},${Math.round(b.top)} ${Math.round(b.width)}x${Math.round(b.height)}]` }))))
+  console.log('list rows: ' + JSON.stringify(await c.h.evaluate(() => [...document.querySelectorAll('[data-row]')].filter((el) => !el.closest('[data-open]')).slice(0, 2).map((el) => { const b = el.getBoundingClientRect(); return `${el.textContent.slice(0, 24)} [${Math.round(b.left)},${Math.round(b.top)} ${Math.round(b.width)}x${Math.round(b.height)}]` }))))
   let bad = await overlaps(c)
   check('with a filter on, no rows overlap and panels keep apart', bad.length === 0, bad.slice(0, 4).join('; '))
   // Drag a free note into the second group's middle row, and look at the gap.
@@ -755,6 +762,15 @@ try {
   // one ghost the whole way, and a group's panel lit the whole time the
   // pointer is within it.
   {
+    // Folders shut again (they were opened to reach their notes), so loose rows are in view under them.
+    for (let i = 0; i < 10; i++) {
+      const open = c.h.locator('[data-group-row][aria-expanded="true"] [data-group-fold]').first()
+      if (!(await open.count())) break
+      await open.click()
+      await c.h.waitForTimeout(250)
+    }
+    await c.h.mouse.move(900, 700)
+    await c.h.waitForTimeout(300)
     // A loose row in view, near the bottom, to carry up and then down across every group.
     const loose = await c.h.evaluate(() => [...document.querySelectorAll('[data-row]:not([data-lifted] *)')].filter((one) => !one.closest('[data-group-block]')).map((one) => one.getBoundingClientRect()).filter((box) => box.bottom < innerHeight - 10).pop())
     const from = { x: loose.x, y: loose.y, height: loose.height }
@@ -764,16 +780,24 @@ try {
     await c.h.mouse.move(from.x + 60, from.y + from.height / 2 - 10, { steps: 4 })
     await c.h.mouse.move(from.x + 60, top.y - 20, { steps: 10 })
     await c.h.waitForTimeout(200)
-    await c.h.evaluate(() => void (window.__ghost = document.querySelector('[data-ghost]')))
+    // The carried card is a div[data-ghost] (kept-groups.tsx Ghost). A bare [data-ghost] also matched the empty-field
+    // placeholders (ghost.tsx, a span), which come and go as the list redraws under the pointer: read as "another ghost".
+    await c.h.evaluate(() => void (window.__ghost = document.querySelector('div[data-ghost]')))
+    const started = await c.h.evaluate(() => ({ card: !!document.querySelector('div[data-ghost]'), spans: document.querySelectorAll('span[data-ghost]').length, carrying: getComputedStyle(document.body).cursor }))
+    console.log(`sweep start: ${JSON.stringify(started)}`)
+    check('the sweep\'s drag has started: the carried card is there', started.card, JSON.stringify(started))
     let swapped = 0, dark = [], inside = null, since = 0, shots = 0
     for (let y = top.y - 20; y < 740; y += 3) {
       await c.h.mouse.move(from.x + 60, y)
       await c.h.waitForTimeout(16)
       const seen = await c.h.evaluate((y) => {
-        const ghost = document.querySelector('[data-ghost]')
+        const ghost = document.querySelector('div[data-ghost]')
         const block = [...document.querySelectorAll('[data-group-block]')].find((one) => { const box = one.getBoundingClientRect(); return y > box.top + 2 && y < box.bottom - 2 })
-        const panel = block?.querySelector('[data-panel]')
-        return { same: !!ghost && ghost === window.__ghost, group: block?.dataset.groupBlock ?? null, lit: panel ? Number(getComputedStyle(panel).opacity) : null, label: document.querySelector('[data-drag-label]')?.textContent ?? '' }
+        // A folder has no box of its own now (children look like children): its panel lights only where a drop would
+        // land, so within a folder the check is that letting go there is offered, and no other panel is lit.
+        const landing = [...document.querySelectorAll('[data-group-block][data-landing]')].map((one) => one.dataset.groupBlock)
+        const label = document.querySelector('[data-drag-label]')?.textContent ?? ''
+        return { same: !!ghost && ghost === window.__ghost, group: block?.dataset.groupBlock ?? null, lit: landing.length <= 1 && (!!label || landing.length === 1) ? 1 : 0, label: `${label} | landing ${landing.join(',')}` }
       }, y)
       if (!seen.same) swapped++
       if (seen.group !== inside) (inside = seen.group, since = Date.now())
@@ -784,7 +808,7 @@ try {
     await c.h.mouse.up()
     await c.h.waitForTimeout(400)
     check('one ghost the whole way down', swapped === 0, `${swapped} samples saw another`)
-    check('a group\'s panel stays lit while the pointer is within it', dark.length === 0, dark.slice(0, 4).join('; '))
+    check('within a folder, letting go is offered the whole time and at most one panel lights', dark.length === 0, dark.slice(0, 4).join('; '))
   }
   await c.theme('dark')
   await c.size(1100, 760)

@@ -713,6 +713,8 @@ export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo
               ) : one.hand ? (
                 <>
                   <HandHead group={one.hand} first={start === 0 && one === bundles.find((b) => !b.group)} list={list ?? 'article'} noun={noun ?? 'note'} renaming={handRenaming === one.hand.id} onRenaming={(on) => onHandRenaming?.(on ? one.hand!.id : null)} />
+                  {/* Empty, one quiet line says what it is for; it goes with its first note. */}
+                  {!one.entries[0] && !one.hand.folded && one.hand.count === 0 && <p data-hand-empty="" className="list-ink pt-1 pb-2 text-meta text-muted-foreground">Drag notes here</p>}
                   {one.entries[0] && row(one.entries[0], start)}
                 </>
               ) : one.head ? (

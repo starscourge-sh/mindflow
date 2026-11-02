@@ -151,6 +151,7 @@ try {
   const empty = (await v('sections', 'article')).find((one) => one.name === 'Someday')
   check('right-click on the list\'s empty space, "New group": an empty group, named in place', naming === 'Group name' && !!empty && empty.members.length === 0 && (await h.locator(`${M} [data-hand-group="${empty?.id}"]`).count()) === 1, String(naming))
   if (shots) await h.screenshot({ path: `${shots}/new-empty-group.png` })
+  check('an empty group says "Drag notes here" under its heading, once', ((await h.locator(`${M} [data-hand-empty]`).allTextContents()).join() === 'Drag notes here'))
 
   // Questions: only folders that hold questions, counted in questions.
   const qs = []
