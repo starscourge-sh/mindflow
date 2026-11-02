@@ -1775,7 +1775,7 @@ function NextArrow({ on, page, quiet }: { on: boolean; /** Each page's own arrow
 function BoxKeys(): React.JSX.Element {
   useKeyChanges()
   const caps = capsOf(keyFor('⌘.') || '⌘.')
-  const chip = 'h-6 min-w-6 rounded-full border-primary-foreground/30 bg-primary-foreground/15 text-primary-foreground'
+  const chip = 'h-6 min-w-6 rounded-[0.3em] border-primary-foreground/30 bg-primary-foreground/15 text-primary-foreground'
   // Two caps fit beside the words; a longer chord is one chip, so the button stays one line.
   return caps.length > 2 ? <Kbd className={`${chip} px-2`}>{caps.join('')}</Kbd> : <>{caps.map((key, i) => <Kbd key={i} className={chip}>{key}</Kbd>)}</>
 }
