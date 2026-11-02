@@ -891,7 +891,7 @@ export function GroupIcon({ icon, color, className = 'size-4' }: { icon: string 
 }
 
 /** Set a group's look: it shows in place, and ⌘Z takes it back. */
-const change = (group: GroupView, patch: Parameters<typeof groups.set>[1]): void => {
+export const change = (group: GroupView, patch: Parameters<typeof groups.set>[1]): void => {
   const was = { name: group.name, icon: group.icon, color: group.color }
   void groups.set(group.id, patch).then(() => {
     quietly(() => void groups.set(group.id, was))
@@ -1227,7 +1227,7 @@ function Fold({ open, children }: { open: boolean; children: ReactNode }): React
 }
 
 /** A right click on a group's row: Haligtree's own menu, with its colours as a row of dots. */
-function GroupMenu({ group, members, onOpenFolder, onSeparate, onRename, onIcon, onNewNote, onSort, onSorted }: {
+export function GroupMenu({ group, members, onOpenFolder, onSeparate, onRename, onIcon, onNewNote, onSort, onSorted }: {
   group: GroupView
   onOpenFolder?: () => void
   members: string[]

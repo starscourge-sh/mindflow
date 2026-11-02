@@ -119,6 +119,8 @@ try {
   const listRow = (title) => c.h.locator('[data-pane] [data-row][data-id]', { hasText: title }).first()
   const carryTo = async (from, to) => {
     await from.scrollIntoViewIfNeeded()
+    // The folder too: a sidebar with many folders holds Gems' below its fold, as a person would scroll to it.
+    await to.scrollIntoViewIfNeeded().catch(() => {})
     await c.h.waitForTimeout(300)
     const a = await from.boundingBox()
     const b = await to.boundingBox()
@@ -159,7 +161,8 @@ try {
   await c.h.waitForTimeout(800)
   await c.v('groups:nest', rent, null)
   await c.h.waitForTimeout(800)
-  check('in the list, an empty one is a row of its own that says how it fills', ((await c.h.locator(`[data-group-row="${money}"]`).count()) === 1) && (await c.h.getByText('Drag notes in, or click to start one').count()) > 0)
+  // In the list, an empty folder is a folder of its own in the grid, its front saying "Empty" (folder-grid.tsx).
+  check('in the list, an empty one is a folder of its own that says it is empty', (await c.h.locator(`[data-folder-tile="${money}"] [data-folder-empty]`).count()) === 1)
   await c.v('groups:nest', rent, money)
   await c.h.waitForTimeout(500)
 
@@ -202,14 +205,16 @@ try {
   await c.h.evaluate(() => document.querySelectorAll('[data-pane] *').forEach((one) => one.scrollHeight > one.clientHeight + 4 && (one.scrollTop = 0)))
   await c.h.waitForTimeout(600)
   check('a third level shows in the tree, a step further in', (await folder(lisbon).count()) === 1 && (await indent(lisbon)) > (await indent(rent)), `${await indent(rent)} → ${await indent(lisbon)}`)
-  // Scrolled down the list until Lisbon's row is drawn.
-  for (let i = 0; i < 20 && !(await c.h.locator(`[data-group-row="${lisbon}"]`).count()); i++) {
-    await c.h.mouse.move(800, 500)
-    await c.h.mouse.wheel(0, 400)
-    await c.h.waitForTimeout(150)
-  }
-  check('and in the list, inside Rent', (await c.h.locator(`[data-group-row="${rent}"]`).count()) === 1 && (await c.h.locator(`[data-subgroup] [data-group-row="${lisbon}"]`).count()) === 1)
-  check('with its note under it', (await c.h.locator(`[data-subgroup]:has([data-group-row="${lisbon}"]) [data-row][data-id="${r1}"]`).count()) === 1)
+  // In the list, folders are a grid of folders, one level at a time (folder-grid.tsx): Rent opened shows Lisbon as a
+  // folder inside it, and Lisbon opened shows its note as a row.
+  await folder(rent).click()
+  await c.h.waitForTimeout(900)
+  check('and in the list, inside Rent', (await c.h.locator(`[role="main"] [data-folder-tile="${lisbon}"]`).count()) === 1)
+  await c.h.locator(`[role="main"] [data-folder-tile="${lisbon}"] button`).first().click()
+  await c.h.waitForTimeout(900)
+  check('with its note under it', (await c.h.locator(`[role="main"] [data-row][data-id="${r1}"]`).count()) === 1)
+  await c.go('articles')
+  await c.h.waitForTimeout(600)
 
   // Folders dragged in the sidebar: Ideas into Money.
   await folder(ideas).dragTo(folder(money))
@@ -240,7 +245,7 @@ try {
   await c.size(1280, 250)
   const spot = { y: 0 }
   await c.go("articles")
-  await c.h.locator(`[data-group-row="${money}"]`).first().evaluate((one) => { const r = one.getBoundingClientRect(); one.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: r.left + 30, clientY: innerHeight - 60, button: 2 })) })
+  await c.h.locator(`[data-folder-tile="${money}"]`).first().evaluate((one) => { const r = one.getBoundingClientRect(); one.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: r.left + 30, clientY: innerHeight - 60, button: 2 })) })
   spot.y = await c.h.evaluate(() => innerHeight - 60)
   await c.h.waitForTimeout(400)
   const menu = await c.h.evaluate(() => { const one = document.querySelector('[role="menu"]')?.getBoundingClientRect(); return one && { top: one.top, bottom: one.bottom, room: innerHeight } })

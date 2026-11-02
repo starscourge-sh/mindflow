@@ -10,8 +10,9 @@ const s = await sandbox({ width: 1300, height: 860 })
 const { h, v, go, close, errors } = s
 const shots = process.env.QA_SHOTS
 const look = () => h.evaluate(() => {
-  const rows = [...document.querySelectorAll('[role="main"] [data-group-row], [role="main"] [data-row]')]
-  return { order: rows.map((one) => (one.hasAttribute('data-group-row') ? 'F' : 'n')).join(''), ids: rows.filter((one) => !one.hasAttribute('data-group-row')).map((one) => one.getAttribute('data-row')), marks: document.querySelectorAll('[role="main"] [data-row-folder]').length }
+  // Folders are a grid of folders over the loose notes now (folder-grid.tsx): each tile an F, then the rows.
+  const rows = [...document.querySelectorAll('[role="main"] [data-folder-tile], [role="main"] [data-group-row], [role="main"] [data-row]')]
+  return { order: rows.map((one) => (one.hasAttribute('data-group-row') || one.hasAttribute('data-folder-tile') ? 'F' : 'n')).join(''), ids: rows.filter((one) => !one.hasAttribute('data-group-row')).map((one) => one.getAttribute('data-row')), marks: document.querySelectorAll('[role="main"] [data-row-folder]').length }
 })
 try {
   await v('settings:set', { hintRate: 0 })
@@ -30,12 +31,14 @@ try {
     // Opened, a folder shows what it holds.
     const shelf = (await v('groups', list)).filter((one) => !one.parent && one.members.length)
     const target = shelf[0]
-    await h.locator(`[role="main"] [data-group-row="${target.id}"]`).click()
-    await h.waitForTimeout(500)
+    // Opened (a click on its folder), it shows what it holds: its own notes as rows.
+    await h.locator(`[role="main"] [data-folder-tile="${target.id}"] button`).first().click()
+    await h.waitForTimeout(900)
     const open = await look()
-    const at = (await h.evaluate(() => [...document.querySelectorAll('[role="main"] [data-group-row]')].map((one) => one.getAttribute('data-group-row')))).indexOf(target.id)
-    const after = open.order.split('F')[at + 1] ?? ''
-    check(`${page}: ${target.name} opened shows its ${target.members.length} notes under it`, after.length === target.members.length, open.order)
+    const notes = open.order.replace(/F/g, '').length
+    check(`${page}: ${target.name} opened shows its ${target.members.length} notes`, notes === target.members.length, open.order)
+    await go(page)
+    await h.waitForTimeout(600)
     if (shots) await h.screenshot({ path: `${shots}/${page}-folder-open.png` })
     await h.locator('[data-display]').first().click().catch(() => {})
     await h.waitForTimeout(400)

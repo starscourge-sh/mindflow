@@ -86,6 +86,7 @@ import { dayjs, num, plural } from '../../../../main/dates'
 import { moment } from '@/lib/clock'
 import { Signed } from './signature'
 import { groups as noteGroupsApi, tintOf, useGroups, type NoteGroup } from '@/lib/groups'
+import { FolderGrid, type Shelved } from './folder-grid'
 import { useReveal } from './islands'
 import { DEPTH, dropMany, flatten, gather, groupId, groupOf, isGroup, KEY, layoutOf, moveMany, reorderAs, sameLayout, shownKeys, step as stepLayout, tidy, type Layout } from '@/lib/group-layout'
 import type { Cue } from '@/lib/sound'
@@ -308,7 +309,7 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
   // A note in a folder lives there alone (memory: folders-isolate): the list's top level is its folders, then the loose
   // notes, in every order; a folder's notes show only once it is opened. Groups are the one way a note shows twice.
   const folding = useFolding(tier, all, ownOrder, order, !questionsOnly && !gatherer && (density === 'list' || density === 'compact') && !(spread && query.trim()) ? groups.flatMap(([, list]) => list) : null,
-    view.sort === 'manual' && plain, () => setChosen([]), chosen, mine, heads, opened?.id)
+    view.sort === 'manual' && plain, () => setChosen([]), chosen, mine, heads, opened?.id, true)
   // As tiles, each group is one folder card; opened, the grid shows only its notes, under a chip back.
   // Questions are never in Writing's folders as a list: they are drawn plain, each as a question.
   const noteGroups = questionsOnly || gatherer ? NO_GROUPS : filed
@@ -790,6 +791,11 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
         </div>
         {/* A folded group shows as its heading even when nothing loose is left, so the list is not empty then.
             Until your groups are read too, nothing: the notes alone would flash as a plain list first. */}
+        {/* Writing's and Gems' folders as a grid of folders over the loose notes; opened, a folder's own subfolders the same way. */}
+        {!unloaded(noteGroups) && listShown && folding.shelf.length > 0 && (
+          <FolderGrid list={tier === 'nugget' ? 'nugget' : 'article'} folders={folding.shelf} renaming={folding.renaming} born={folding.born} onRenaming={folding.onRenaming}
+            onOpen={(id) => (onFolder ? onFolder(id) : setInGroup(id))} onNewNote={pick} />
+        )}
         {unloaded(noteGroups) || !listShown ? null : folderEmpty && !query.trim() ? (
           // An empty folder, opened: the page's own quiet state under its path bar, on the same left edge as it
           // and as every other page's empty block; the folder's own icon for its picture, the button named as the toolbar's.
@@ -1630,8 +1636,13 @@ const ORDER = new WeakMap<Layout, Map<string, number>>()
 /** The list itself, as a drop place in the path bar: no folder. */
 const TOP = ':top'
 
-function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) => number, order: string[], shown: Item[] | null, ordered: boolean, done: () => void, chosen: string[], toOwn: () => (() => void) | undefined, heads?: Map<string, string>, within?: string): {
+function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) => number, order: string[], shown: Item[] | null, ordered: boolean, done: () => void, chosen: string[], toOwn: () => (() => void) | undefined, heads?: Map<string, string>, within?: string, gridded = false): {
   rows: Item[] | null
+  /** With `gridded`, the folders at this level, drawn as a grid of folders over the loose notes (folder-grid.tsx), never as rows. */
+  shelf: Shelved[]
+  renaming: string | null
+  onRenaming: (id: string | null) => void
+  born: string | null
   /** The list as tiles: each group as one folder, at the top, then the loose notes. */
   tiles: (list: Item[]) => ({ group: NoteGroup; items: Item[] } | { item: Item })[]
   step: (id: string, by: number) => number | null
@@ -1717,8 +1728,11 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
   }
   // What a group shows open: its notes, and each subgroup's while that is open too.
   const onShow = (one: { parts?: Part[] }): Item[] => (one.parts ?? []).flatMap((part) => ('item' in part ? [part.item] : isOpen(part.sub) ? onShow(part) : []))
-  const rowsOf = (from: Layout): Item[] => blocks(from).flatMap((one) => (!one.group ? one.items : isOpen(one.group) ? onShow(one) : []))
-  const now = blocks(layout)
+  // Drawn as a grid of folders (gridded), a folder is never a row: the rows, the keys and the folds are the loose notes alone.
+  const level = (from: Layout): Block[] => (gridded ? blocks(from).filter((one) => !one.group) : blocks(from))
+  const rowsOf = (from: Layout): Item[] => level(from).flatMap((one) => (!one.group ? one.items : isOpen(one.group) ? onShow(one) : []))
+  const every_ = blocks(layout)
+  const now = gridded ? every_.filter((one) => !one.group) : every_
   const keys = now.flatMap((one) => (one.group
     ? [KEY + one.group, ...(isOpen(one.group) ? (one.parts ?? []).flatMap((part) => ('item' in part ? [part.item.id] : [KEY + part.sub, ...(isOpen(part.sub) ? part.items.map((item) => item.id) : [])])) : [])]
     : [one.items[0].id]))
@@ -1936,5 +1950,7 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
     return true
   }
   const newFolder = (): void => void noteGroupsApi.make(tier, 'New folder', within ?? null).then((id) => (chime('promote'), setRenaming(id), setBorn(id), quietly(() => void noteGroupsApi.remove(id))))
-  return { rows: shown ? rowsOf(layout) : null, tiles, step, menu, gatherNew, folds, reveal, moveInto, newFolder }
+  // Each folder at this level with its notes (its subfolders' too) and its own subfolders, for the grid.
+  const shelf: Shelved[] = gridded ? every_.flatMap((one) => (one.group && info.get(one.group) ? [{ group: info.get(one.group)!, items: one.items, subs: (one.parts ?? []).flatMap((part) => ('sub' in part && info.get(part.sub) ? [info.get(part.sub)!] : [])) }] : [])) : []
+  return { rows: shown ? rowsOf(layout) : null, shelf, renaming, onRenaming: setRenaming, born, tiles, step, menu, gatherNew, folds, reveal, moveInto, newFolder }
 }
