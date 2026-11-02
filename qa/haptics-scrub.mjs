@@ -116,13 +116,13 @@ try {
   check('↑ ↑ on the number: two light taps', keyed.length === 2 && keyed.every((k) => k === 'align'), JSON.stringify(keyed))
   await h.keyboard.press('Escape'); await wait(200)
 
-  // 7. Reading: scrolling the pages taps as each comes into place, never faster than one each 80ms.
+  // 7. Reading: scrolling the pages taps nothing. Page-turn taps were unreliable and were taken out (2 Nov).
   const pages = await h.locator('.pdf-reader-scroll').boundingBox()
   await h.mouse.move(pages.x + pages.width / 2, pages.y + pages.height / 2)
   const readFrom = await page()
   const read = await tapsOf(async () => { for (let i = 0; i < 6; i++) { await h.mouse.wheel(0, 500); await wait(160) } })
   const readTo = await page()
-  check('scrolling the pages slowly: one tap for each page come into place', readTo - readFrom >= 2 && read.length === readTo - readFrom, `${readFrom} -> ${readTo} ${JSON.stringify(read)}`)
+  check('scrolling the pages: no taps as pages come into place', readTo - readFrom >= 2 && read.length === 0, `${readFrom} -> ${readTo} ${JSON.stringify(read)}`)
   const fling = await tapsOf(async () => { await h.mouse.wheel(0, 8000); await wait(30); await h.mouse.wheel(0, 8000) })
   check('a fling over many pages: one tap, not a buzz', fling.length <= 2, `${await page()} ${JSON.stringify(fling)}`)
 

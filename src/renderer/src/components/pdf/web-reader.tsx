@@ -1,5 +1,4 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
-import { detent } from '@/lib/haptics'
 import { useToolKeys } from '@/lib/tool-keys'
 import {
   ChevronDown,
@@ -102,17 +101,7 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
     if (body.current) grows.observe(body.current)
     const stop = (): void => void (placed.current = true)
     let top = box.scrollTop
-    // The section on show: how many headings have passed a third of the way down.
-    const line = (): number => box.getBoundingClientRect().top + box.clientHeight / 3
-    const sectionAt = (): number => [...(body.current?.querySelectorAll('h1, h2, h3') ?? [])].filter((one) => one.getBoundingClientRect().top <= line()).length
-    let section = sectionAt()
-    const onScroll = (): void => {
-      top = box.scrollTop
-      const now = sectionAt()
-      // A new section coming into place, as you read: one light trackpad tap (none while it settles where you left it).
-      if (now !== section && placed.current) detent()
-      section = now
-    }
+    const onScroll = (): void => void (top = box.scrollTop)
     box.addEventListener('scroll', onScroll, { passive: true })
     box.addEventListener('wheel', stop, { passive: true })
     box.addEventListener('pointerdown', stop)

@@ -248,7 +248,9 @@ function PdfOutline({ outline, hereAt, list, onGo }: { outline: OutlineRow[]; he
     const open = !folded.has(at)
     const here = at === hereAt
     return (
-      <button key={at} type="button" data-outline-row data-twig-top={rem} aria-current={here ? "location" : undefined} title={item.title}
+      <button key={at} type="button" data-outline-row data-outline-title={item.title} data-twig-top={rem} aria-current={here ? "location" : undefined}
+        // The whole title as a tip only when the row cuts it short (a squeezed rail): never words already on show.
+        onPointerEnter={(event) => { const row = event.currentTarget; row.title = [row, ...row.querySelectorAll("*")].some((one) => one.scrollWidth > one.clientWidth + 1 || one.scrollHeight > one.clientHeight + 2) ? item.title : "" }}
         onClick={() => onGo(item.page)}
         className={`flex min-w-0 items-start gap-2.5 rounded-md px-2 py-1.5 text-left ${here ? "text-foreground" : "text-foreground/80"}`}>
         <Weighted on={here} className="min-w-0 *:line-clamp-2 *:whitespace-normal *:break-words">{item.title}</Weighted>

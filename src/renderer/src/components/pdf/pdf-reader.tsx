@@ -1,5 +1,4 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
-import { stepTap } from "@/lib/haptics"
 import { useToolKeys } from "@/lib/tool-keys"
 import type { PDFDocumentProxy } from "pdfjs-dist"
 import { BookOpen, ChevronDown, ChevronUp, Gem, Minus, PanelLeft, PanelRight, Plus, Scissors, ScrollText, Search, SquareStack, X } from "lucide-react"
@@ -820,7 +819,6 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
       setPage(at)
       onPage?.(at)
       // Each page coming into place taps the trackpad (a fling's in-between pages fold into one); its ends and chapters, firmly.
-      if (byHandScroll.current) stepTap(at, 1, doc?.numPages ?? 1, chapters)
     }
   }
 
