@@ -6,7 +6,7 @@ import {
   Library, Lightbulb, Link, List, ListChecks, ListStart, Lock, LockOpen, LogOut, Map as MapIcon, Maximize2, MessageCircleQuestion, MessageSquare, Minimize2, Monitor,
   MonitorUp, MoveRight, NotebookText, Palette, Scissors, Pause, Play, Scale, PanelLeft, PanelRight, Pencil, Pin, PinOff, Plus, Quote, Repeat, RotateCcw, Search, Settings, Shapes, Shield,
   ShieldCheck, Smile, Snowflake, Sparkles, SquareCheck, SquareKanban, SquarePen, Star, StickyNote, Sun, Tag, Target, Timer, Trash2, Type, Undo2, Ungroup, Upload,
-  Speech, ThumbsDown, ThumbsUp, Unlink, User, Video, Volume2, VolumeX, WandSparkles, Wrench, X, Zap, PenLine, SpellCheck, Mic, ArrowLeftRight, ClipboardPaste, SlidersHorizontal, Minus, Highlighter, Layers, Heart, ArrowUpToLine, ArrowDownToLine, ToggleLeft, ToggleRight, FlipVertical2, type LucideIcon
+  Speech, ThumbsDown, ThumbsUp, Unlink, User, Video, Volume2, VolumeX, WandSparkles, Wrench, X, Zap, PenLine, SpellCheck, Mic, ArrowLeftRight, ClipboardPaste, SlidersHorizontal, Minus, Highlighter, Layers, Heart, ArrowUpToLine, ArrowDownToLine, ToggleLeft, ToggleRight, FlipVertical2, GalleryVertical, File as FileIcon, Moon, ScrollText, Magnet, Mountain, PaintBucket, type LucideIcon
 } from 'lucide-react'
 
 /**
@@ -17,6 +17,19 @@ import {
  */
 const RULES: [RegExp, LucideIcon][] = [
   // Lines found falling back to the dot (test/menu-icons.test.ts lists any new ones).
+  // The PDF reader's Pages menu: how pages are laid out, and how they look.
+  [/^continuous scroll/i, GalleryVertical],
+  [/^single page$/i, FileIcon],
+  [/^two pages$/i, BookOpen],
+  [/^paper pages$/i, ScrollText],
+  [/^white pages$/i, Sun],
+  [/^dark pages$/i, Moon],
+  [/^captures\b/i, Inbox],
+  [/^no deck$/i, CircleOff],
+  [/^a landscape sketch/i, Mountain],
+  [/^its colou?r$/i, PaintBucket],
+  [/^snap to other shapes/i, Magnet],
+  [/^keep the tool/i, Lock],
   [/^put it first/i, ArrowUpToLine],
   [/^stop putting it first/i, ArrowDownToLine],
   [/^record a voice note/i, Mic],

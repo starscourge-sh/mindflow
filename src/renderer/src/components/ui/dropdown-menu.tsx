@@ -175,7 +175,7 @@ function DropdownMenuRadioItem({
           />
         </DropdownMenuPrimitive.ItemIndicator>
       </span>
-      {children}
+      {withMenuIcon(children)}
     </DropdownMenuPrimitive.RadioItem>
   )
 }

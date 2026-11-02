@@ -4,7 +4,7 @@ import { call, haligtree, useLive } from '@/lib/haligtree'
 import { plural } from '../../../../main/dates'
 import { ask, toast } from './ui'
 import type { BrowsedCard } from './card-browser'
-import { ChevronDown } from 'lucide-react'
+import { ChevronDown, Layers } from 'lucide-react'
 import { EXAMPLE_TAG } from '../../../../main/name'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 
@@ -124,6 +124,7 @@ export function DeckPick({ value, onChange }: { value: string; onChange: (tag: s
           <DropdownMenuRadioItem value="" data-deck-pick-to="none" className="cursor-pointer">No deck</DropdownMenuRadioItem>
           {decks.filter((deck) => deck.tag !== EXAMPLE_TAG).map((deck) => (
             <DropdownMenuRadioItem key={deck.tag} value={deck.tag} data-deck-pick-to={deck.tag} className="cursor-pointer" style={{ paddingLeft: `${2 + deck.depth * 0.75}rem` }}>
+              <Layers aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />
               <span className="truncate">{sayDeck(deck.label)}</span>
             </DropdownMenuRadioItem>
           ))}

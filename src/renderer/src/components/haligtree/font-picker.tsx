@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Type } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -44,19 +45,19 @@ export function FontPicker({ value, setting = 'noteFont', same }: {
         }}>
           {same && (
             <>
-              <DropdownMenuRadioItem value="same">{same}</DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="same"><Type aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />{same}</DropdownMenuRadioItem>
               <DropdownMenuSeparator />
             </>
           )}
           {NOTE_FONTS.map((one) => (
-            <DropdownMenuRadioItem key={one.id} value={one.id} style={{ fontFamily: familyOf(one.id) }}>{one.label}</DropdownMenuRadioItem>
+            <DropdownMenuRadioItem key={one.id} value={one.id} style={{ fontFamily: familyOf(one.id) }}><Type aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />{one.label}</DropdownMenuRadioItem>
           ))}
           {!!mac?.length && (
             <>
               <DropdownMenuSeparator />
               <DropdownMenuLabel className="text-meta text-muted-foreground">On this Mac</DropdownMenuLabel>
               {mac.map((family) => (
-                <DropdownMenuRadioItem key={family} value={family} style={{ fontFamily: `"${family}"` }}>{family}</DropdownMenuRadioItem>
+                <DropdownMenuRadioItem key={family} value={family} style={{ fontFamily: `"${family}"` }}><Type aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />{family}</DropdownMenuRadioItem>
               ))}
             </>
           )}
