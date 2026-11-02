@@ -41,6 +41,15 @@ const reach = async (c, title) => {
   await one.scrollIntoViewIfNeeded().catch(() => {})
   return one
 }
+/** Every folder starts shut (beta.83): each one on show opened by its chevron, so the notes in it are rows. */
+const openAll = async (c) => {
+  for (let i = 0; i < 10; i++) {
+    const shut = c.h.locator('[data-group-row][aria-expanded="false"] [data-group-fold]').first()
+    if (!(await shut.count())) return
+    await shut.click()
+    await c.h.waitForTimeout(250)
+  }
+}
 const head = (c, name) => (name ? c.h.locator('[data-group-row]', { hasText: name }) : c.h.locator('[data-group-row]')).first()
 const groupsNow = (c) => c.v('groups', 'article')
 const named = async (c, name) => (await groupsNow(c)).find((one) => one.name === name)
@@ -181,9 +190,13 @@ if (c) try {
   const sub = await c.h.locator('[data-slot="context-menu-sub-content"] [role="menuitem"]').allTextContents()
   check('Move to folder lists Memory and New folder…', sub.includes('Memory') && sub.includes('New folder…'), sub.join(' | '))
   await frames(c, 'h-submenu', 1, 0)
-  await c.h.keyboard.press('Escape')
-  await c.h.keyboard.press('Escape')
-  await c.h.waitForTimeout(250)
+  // Escape only while a menu is open: one Escape too many clears the picks (the list's own Escape), and whether the
+  // submenu and its menu shut on one press or two depends on timing.
+  for (let i = 0; i < 3 && (await c.h.locator('[data-slot="context-menu-content"], [data-slot="context-menu-sub-content"]').count()); i++) {
+    await c.h.keyboard.press('Escape')
+    await c.h.waitForTimeout(200)
+  }
+  check('the two are still picked once the menu is shut', (await picked(c)).length === 2, JSON.stringify(await picked(c)))
 
   // 7. ⌃⌘N groups the two picked, and its name is ready.
   await c.h.mouse.move(900, 700)
@@ -332,7 +345,7 @@ if (c) try {
   await apart('archived', async () => {
     await (await reach(c, 'Notes on Zettelkasten')).click({ button: 'right' })
     await c.h.waitForTimeout(250)
-    await c.h.locator('[role="menuitem"]', { hasText: /^Archive$/ }).click()
+    await c.h.locator('[role="menuitem"]', { hasText: /^Archive(Kept|$)/ }).click()
   })
   // And one row alone can never be a group.
   await c.h.mouse.move(900, 700)
@@ -403,13 +416,25 @@ if (c) try {
   const rest = await row(c, 'Interleaving beats blocking').evaluate((el) => getComputedStyle(el).cursor)
   check('a row at rest shows the hand (it opens on a click)', rest === 'pointer', rest)
   // A faint grip at its left edge, only after a moment's rest on it: from a pointer resting off the list.
+  // Read in the page itself, timed from the pointer's own arrival: Playwright's hover() can take longer than the 400ms
+  // wait under load, so an "early" read taken after it was sometimes already late (1 then 1).
   await c.h.mouse.move(5, 5)
   await c.h.waitForTimeout(400)
-  await row(c, 'Interleaving beats blocking').hover()
-  await c.h.waitForTimeout(80)
-  const early = await row(c, 'Interleaving beats blocking').evaluate((el) => Number(getComputedStyle(el.closest('[data-sortable-id]').querySelector('[data-grip]')).opacity))
-  await c.h.waitForTimeout(700)
-  const late = await row(c, 'Interleaving beats blocking').evaluate((el) => Number(getComputedStyle(el.closest('[data-sortable-id]').querySelector('[data-grip]')).opacity))
+  const target = await row(c, 'Interleaving beats blocking').boundingBox()
+  await c.h.evaluate(() => {
+    window.__grip = null
+    window.addEventListener('pointerover', (event) => {
+      const grip = event.target instanceof Element ? event.target.closest('[data-sortable-id]')?.querySelector('[data-grip]') : null
+      if (!grip || window.__grip) return
+      const read = () => Number(getComputedStyle(grip).opacity)
+      window.__grip = { early: null, late: null }
+      setTimeout(() => (window.__grip.early = read()), 80)
+      setTimeout(() => (window.__grip.late = read()), 800)
+    })
+  })
+  await c.h.mouse.move(target.x + 120, target.y + target.height / 2)
+  await c.h.waitForTimeout(1000)
+  const { early, late } = await c.h.evaluate(() => window.__grip ?? { early: -1, late: -1 })
   check('the grip comes in only after resting a moment', early < 0.2 && late > 0.8, `${early} then ${late}`)
   await frames(c, 'grip-light', 1, 0)
   // The grip in the margin is the handle: the open hand over it.
@@ -446,6 +471,7 @@ if (c) try {
   await c.theme('dark')
   await c.size(1100, 760)
   await articles(c)
+  await openAll(c)
   await carry(c, row(c, 'Interleaving beats blocking'), row(c, 'What The Matrix gets right'), 0.5, {
     up: false,
     hold: async () => (await c.h.waitForTimeout(250), await frames(c, 'a-middle-dark', 4, 40))
@@ -499,6 +525,7 @@ if (c) try {
   check('and the sort is still Newest', (await c.h.evaluate(() => JSON.parse(localStorage.getItem('view:article')).sort)) === 'newest')
   // Into a group by its middle still works, sorted or not.
   const grouped = (await groupsNow(c)).reduce((sum, one) => sum + one.members.length, 0)
+  await openAll(c)
   await carry(c, row(c, loose[0]), c.h.locator('[data-group-block]').first().locator('[data-row]').first(), 0.5)
   await c.h.waitForTimeout(700)
   check('sorted, a row still joins a group, and the sort stays', (await c.h.evaluate(() => JSON.parse(localStorage.getItem('view:article')).sort)) === 'newest' && (await groupsNow(c)).reduce((sum, one) => sum + one.members.length, 0) === grouped + 1)
@@ -609,6 +636,7 @@ try {
   // Two of them, far down the list (it draws only the rows near what shows): scrolled to, and moved by the menu, as a hand would from there.
   const hide = others.slice(0, 2)
   const reveal = async (title) => {
+    await openAll(c)
     if (!(await row(c, title).count())) await c.h.evaluate(() => { const box = document.querySelector('[data-row]')?.closest('.overflow-y-auto'); if (box) box.scrollTop = 0 })
     for (let i = 0; i < 40 && !(await row(c, title).count()); i++) {
       await c.h.evaluate(() => { const box = document.querySelector('[data-row]')?.closest('.overflow-y-auto'); if (box) box.scrollTop += box.clientHeight * 0.8 })
@@ -637,10 +665,11 @@ try {
   await c.h.waitForTimeout(250)
   await c.h.locator('[role="menuitem"]', { hasText: 'Remove from folder' }).click()
   await c.h.waitForTimeout(700)
-  check('a hidden row sits between the groups', await c.h.evaluate((id) => {
+  // Out of its folder, it is a loose row, and loose rows come after every folder (Finder's way, since beta.83).
+  check('a hidden row taken out of a folder is loose, under the folders', await c.h.evaluate((id) => {
     const at = document.querySelector(`[data-row][data-id="${id}"]`)
     const blocks = [...document.querySelectorAll('[data-group-block]')]
-    return !!at && !at.closest('[data-group-block]') && blocks.some((b) => b.compareDocumentPosition(at) & Node.DOCUMENT_POSITION_FOLLOWING) && blocks.some((b) => b.compareDocumentPosition(at) & Node.DOCUMENT_POSITION_PRECEDING)
+    return !!at && !at.closest('[data-group-block]') && blocks.length > 0 && blocks.every((b) => b.compareDocumentPosition(at) & Node.DOCUMENT_POSITION_FOLLOWING)
   }, hide[1].id))
   await unfiltered(true)
   let groupsHere = await c.v('groups', 'nugget')
@@ -657,7 +686,9 @@ try {
   check('and Got it puts it away', (await c.h.locator('[data-own-order-hint]').count()) === 0)
   // Renamed, the new name shows at once and the old never flashes back.
   const old = (await c.h.locator('[data-group-row]').first().textContent()).trim()
-  await c.h.locator('[data-group-row]').first().dblclick()
+  // A click on a folder row opens it now (Finder's list view): F2 renames it in place.
+  await c.h.locator('[data-group-row]').first().focus()
+  await c.h.keyboard.press('F2')
   await c.h.waitForTimeout(200)
   await c.h.keyboard.press('Meta+a')
   await c.h.keyboard.type('Planets')
@@ -672,7 +703,8 @@ try {
   await c.h.waitForTimeout(300)
   check('a click beside the chips changes nothing', (await c.h.evaluate(() => localStorage.getItem('view:nugget'))) === filterBefore)
   check('no separate clear button beside the chips', (await c.h.locator('[aria-label="Clear the filters"]').count()) === 0)
-  // A private row's eye and a group's × sit on one line down the right.
+  // A private row's eye and a folder's count sit on one right edge.
+  await openAll(c)
   const firstGroup = c.h.locator('[data-group-block]').first()
   await c.v('private', 'nuggets', await firstGroup.locator('[data-row]').first().getAttribute('data-id'), true)
   await c.h.waitForTimeout(800)
@@ -680,10 +712,10 @@ try {
   await c.h.waitForTimeout(400)
   const columns = await c.h.evaluate(() => {
     const eye = [...document.querySelectorAll('[data-group-block] [data-row] .sr-only')].find((one) => one.textContent === 'Private')?.parentElement?.querySelector('svg')?.getBoundingClientRect()
-    const cross = document.querySelector('[data-group-block] button[aria-label^="Delete folder"] svg')?.getBoundingClientRect()
-    return eye && cross ? { eye: eye.left + eye.width / 2, cross: cross.left + cross.width / 2 } : null
+    const count = document.querySelector('[data-group-block] [data-group-row] [data-count]')?.getBoundingClientRect()
+    return eye && count ? { eye: eye.right, count: count.right } : null
   })
-  check('the eye and the × share one column', !!columns && Math.abs(columns.eye - columns.cross) <= 2, JSON.stringify(columns))
+  check('the eye and the folder\'s count end on one right edge', !!columns && Math.abs(columns.eye - columns.count) <= 2, JSON.stringify(columns))
   await frames(c, 'column-light', 1, 0)
   let bad = await overlaps(c)
   check('with a filter on, no rows overlap and panels keep apart', bad.length === 0, bad.slice(0, 4).join('; '))
