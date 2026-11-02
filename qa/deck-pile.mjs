@@ -34,14 +34,14 @@ try {
   check('Decks: 1 card, no edges; 2, one; 4, two; 8, three; 40, five', seen.pileone?.edges === 0 && seen.piletwo?.edges === 1 && seen.pilefour?.edges === 2 && seen.pileeight?.edges === 3 && seen.pilemany?.edges === 5, JSON.stringify(seen))
   // The sandbox's own decks have cards due (Astrophysics, Film); the piles made here have none.
   const proud = await h.evaluate(() => [...document.querySelectorAll('[data-deck-grid] [data-deck]')].map((one) => {
-    const tab = one.querySelector(':scope > [data-pile-proud] [data-pile-due]')
     const face = one.querySelector(':scope > [data-pile-top]').getBoundingClientRect()
     const card = one.querySelector(':scope > [data-pile-proud]')?.getBoundingClientRect()
-    return { deck: one.getAttribute('data-deck'), due: Number(tab?.getAttribute('data-pile-due') ?? 0), said: tab?.textContent ?? '', up: card ? Math.round(face.top - card.top) : 0, tabUp: tab ? Math.round(face.top - tab.getBoundingClientRect().top) : 0 }
+    return { deck: one.getAttribute('data-deck'), due: Number(one.querySelector('[data-count-due]')?.getAttribute('data-count-due') ?? 0), up: card ? Math.round(face.top - card.top) : 0, above: Math.round(one.getBoundingClientRect().top - (card ?? face).getBoundingClientRect().top), tops: Math.round(face.top - one.getBoundingClientRect().top) }
   }))
   const dueDecks = proud.filter((one) => one.due > 0)
   check('Decks: a deck with cards due has a card standing 6 to 8px above its top card', dueDecks.length >= 1 && dueDecks.every((one) => one.up >= 6 && one.up <= 8), JSON.stringify(proud))
-  check('...with "N due" on its tab, readable above the pile', dueDecks.every((one) => /^\d[\d,]* due$/.test(one.said) && one.tabUp >= 20), JSON.stringify(dueDecks))
+  check('...the card standing up stays inside the tile (nothing above it), and the count is said once, on the face', dueDecks.every((one) => one.above <= 0) && await h.evaluate(() => !document.querySelector('.mf-pile-tab, [data-pile-due]')), JSON.stringify(dueDecks))
+  check('every top card starts the same distance down its tile, so rows line up at the top', new Set(proud.map((one) => one.tops)).size === 1, proud.map((one) => one.tops).join(' '))
   check('Decks: a deck with none due has no card standing up', Object.values(seen).every((one) => !one.proud), JSON.stringify(seen))
   // Each card behind is whole: 3px right and 4px down from the one before, its own hairline showing on the right and the bottom.
   const steps = await h.evaluate(() => { const one = document.querySelector('[data-own-deck="pilemany"]'); const face = one.querySelector(':scope > [data-pile-top]').getBoundingClientRect(); return [...one.querySelectorAll(':scope > [data-pile-edge]')].map((edge) => { const r = edge.getBoundingClientRect(); return `${Math.round(r.right - face.right)}/${Math.round(r.bottom - face.bottom)}/${getComputedStyle(edge).borderRightWidth}` }) })

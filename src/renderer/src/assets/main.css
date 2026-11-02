@@ -3060,11 +3060,11 @@ textarea[data-talking]::selection {
 .mf-metal-hover:hover { border-color: color-mix(in oklab, var(--foreground) 22%, transparent); filter: brightness(1.04); }
 
 /* A deck as a square pile (deck-pile.tsx). The tile keeps room for the biggest pile (5 cards behind: 15px right, 20px down)
-   and for the due tab above (24px), so tiles line up whatever their size; the face is square inside that room. Each card
+   and for the card standing up when some are due (8px above), so tiles line up whatever their size; the face is square inside that room. Each card
    behind is whole, the same satin with its own hairline, 3px right and 4px down from the one before: the pile shows along
-   the right and the bottom. A deck with cards due has one card standing 7px above the rest, its tab saying how many.
+   the right and the bottom. A deck with cards due has one card standing 7px above the rest; the count is on the face, said once.
    No colour, no tilt. Pointed at, the top card lifts 2px and the cards behind fan out a touch; motion off, they hold still. */
-.mf-pile { --pile-top: 24px; --pile-right: 15px; --pile-bottom: 20px; position: relative; isolation: isolate; display: block; }
+.mf-pile { --pile-top: 8px; --pile-right: 15px; --pile-bottom: 20px; position: relative; isolation: isolate; display: block; }
 .mf-pile-room { display: block; aspect-ratio: 1; margin: var(--pile-top) var(--pile-right) var(--pile-bottom) 0; }
 .mf-pile-top, .mf-pile-card {
   position: absolute; top: var(--pile-top); left: 0; right: var(--pile-right); bottom: var(--pile-bottom); border-radius: 6px;
@@ -3087,13 +3087,6 @@ textarea[data-talking]::selection {
   filter: brightness(calc(1 - var(--n) * 0.05));
 }
 .mf-pile-proud { z-index: 15; transform: translateY(-7px); }
-.mf-pile-tab {
-  /* Part of the card standing up, not a label stuck on it: the same satin and hairline, its top corners rounded as the card's are; its foot sits on the card's own top hairline, so the two read as one line. */
-  position: absolute; bottom: calc(100% - 1px); right: 12px; height: 18px; padding: 0 8px; display: flex; align-items: center;
-  border-radius: 6px 6px 0 0; background: var(--mf-metal-bg);
-  border: 1px solid color-mix(in oklab, var(--foreground) 18%, transparent);
-  font-size: 12px; line-height: 1; font-weight: 600; color: var(--foreground); white-space: nowrap;
-}
 @media (hover: hover) and (pointer: fine) {
   :root:not([data-motion='off']) .mf-pile:hover > .mf-pile-top { transform: translateY(-2px); }
   :root:not([data-motion='off']) .mf-pile:hover > .mf-pile-edge { transform: translate(calc(var(--n) * 3.6px), calc(var(--n) * 4.8px)); }
