@@ -825,6 +825,10 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
             <Switch disabled={!settings.scenery} checked={settings.sceneryTime} onCheckedChange={(sceneryTime) => set({ sceneryTime })} />
           </Setting>
           <DimSetting settings={settings} set={set} />
+          <Setting off={!settings.scenery && 'Turn “Scenery” on to change this.'} title="Film grain" note="A fine moving grain over the pictures, as on a film still." more="Over the picture only, never the words. It holds still with Motion off." keywords="scenery grain noise film texture analog"
+            below={<DimPreview dim={settings.sceneryDim} on={settings.scenery} folders={settings.sceneryFolders} grain={settings.sceneryGrain !== false} words={false} height="h-20" />}>
+            <Switch disabled={!settings.scenery} checked={settings.sceneryGrain !== false} onCheckedChange={(sceneryGrain) => set({ sceneryGrain })} />
+          </Setting>
         </Group>
 
         <Group section="Writing" title="As you write">
@@ -1594,7 +1598,7 @@ function DimSetting({ settings, set }: { settings: Settings; set: (patch: Partia
   const dim = live ?? settings.sceneryDim
   return (
     <Setting off={!settings.scenery && 'Turn “Scenery” on to change this.'} title="Dimness" note="How far the pictures fade toward the page colour." more="Under words they fade further, as below." keywords="scenery dim darken fade brightness opacity preview"
-      below={<DimPreview dim={dim} on={settings.scenery} folders={settings.sceneryFolders} />}>
+      below={<DimPreview dim={dim} on={settings.scenery} folders={settings.sceneryFolders} grain={settings.sceneryGrain !== false} />}>
       <SettingSlider disabled={!settings.scenery} min={0} max={0.9} step={0.05} rest={0.5} value={settings.sceneryDim} onLive={setLive} onSave={(sceneryDim) => set({ sceneryDim })} />
       <span className={SLIDER_VALUE}><Rolling text={`${Math.round(dim * 100)}%`} /></span>
     </Setting>

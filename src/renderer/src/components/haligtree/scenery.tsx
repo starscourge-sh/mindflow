@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useState, type ReactNode } from 'react'
 import { useReading } from '@/lib/reads-in'
 import { decoded, warm, WAIT } from '@/lib/decoded'
 import { contrast } from '@/lib/on-accent'
+import { FilmGrain } from './film-grain'
 import { AnimatePresence, motion } from 'motion/react'
 import { useLive, haligtree, type Mood, type Scene, type Settings } from '@/lib/haligtree'
 import { dayOf } from '@/lib/notes'
@@ -285,6 +286,8 @@ export function Scenery({ place, seed, mood, text = 'none', fade = false, wide =
         )}
       </AnimatePresence>
       </div>
+      {/* Film grain over the painting, under the veil and every word. */}
+      {shown && settings?.sceneryGrain !== false && <FilmGrain />}
       {shown && <div data-wash={cloudy ? 'cloud' : 'light'} className="mf-wash absolute inset-0" />}
       {/* The veil for the words, with the painting only: alone on the empty box it was a dark gradient, the flash. */}
       {shown && <div className="absolute inset-0" style={{ background: over }} />}

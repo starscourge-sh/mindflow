@@ -10,6 +10,7 @@ import { Rolling, Tip, refuse, stopJob, toast } from './ui'
 import { StopButton } from './orb'
 import { Highlight, useChosen, useFluidHover } from './glide'
 import { spring } from '@/lib/motion'
+import { FilmGrain } from './film-grain'
 
 /**
  * Settings that change a look show the look: the Covers choice as rows of
@@ -177,18 +178,19 @@ const veil = (strength: number): string => `color-mix(in srgb, var(--background)
  * says, moving with it, and a line of words at its foot dimmed further the way
  * Scenery does under words.
  */
-export function DimPreview({ dim, on, folders }: { dim: number; on: boolean; folders: string[] }): React.JSX.Element {
+export function DimPreview({ dim, on, folders, grain = true, height = 'h-28', words = true }: { dim: number; on: boolean; folders: string[]; /** Film grain over it, as Scenery lays it. */ grain?: boolean; height?: string; words?: boolean }): React.JSX.Element {
   const found = useLive(() => (on && folders.length ? haligtree.scenery(folders) : Promise.resolve(null)), null as Awaited<ReturnType<typeof haligtree.scenery>> | null, [on, JSON.stringify(folders)])
   // A wide one, the kind that sits over a rest moment.
   const scene = found?.scenes.find((one) => one.width >= one.height * 1.3) ?? found?.scenes[0]
   const strong = Math.max(dim, 0.82)
   return (
-    <div data-dim-preview className={`relative mt-3 h-28 overflow-hidden rounded-lg border transition-opacity ${on ? '' : 'opacity-50'}`} style={{ background: scene?.color }}>
+    <div data-dim-preview className={`relative mt-3 ${height} overflow-hidden rounded-lg border transition-opacity ${on ? '' : 'opacity-50'}`} style={{ background: scene?.color }}>
       {scene ? (
         <>
           <img src={scene.url} alt="" decoding="async" draggable={false} className="absolute inset-0 size-full object-cover" style={{ objectPosition: 'center 42%' }} />
-          <div className="absolute inset-0" style={{ background: `linear-gradient(to bottom, ${veil(dim)} 0%, ${veil(dim)} 30%, ${veil(strong)} 68%, ${veil(strong)} 100%)` }} />
-          <p className="absolute right-4 bottom-3 left-4 text-body text-foreground"><strong className="font-medium">Inbox empty.</strong> <span className="text-muted-foreground">Nothing waiting; go and look at the sky.</span></p>
+          {grain && <FilmGrain />}
+          <div className="absolute inset-0" style={{ background: words ? `linear-gradient(to bottom, ${veil(dim)} 0%, ${veil(dim)} 30%, ${veil(strong)} 68%, ${veil(strong)} 100%)` : veil(dim) }} />
+          {words && <p className="absolute right-4 bottom-3 left-4 text-body text-foreground"><strong className="font-medium">Inbox empty.</strong> <span className="text-muted-foreground">Nothing waiting; go and look at the sky.</span></p>}
         </>
       ) : (
         <p className="absolute inset-0 flex items-center justify-center px-4 text-center text-control text-muted-foreground">Add a folder above to see how its pictures look at this dimness.</p>

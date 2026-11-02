@@ -480,6 +480,8 @@ const DEFAULTS = {
   sceneryFocus: true,
   sceneryTime: true,
   sceneryDim: 0.5,
+  // A fine moving film grain over every painting.
+  sceneryGrain: true,
   sceneryShuffle: 0,
   // Covers: soft grainy pictures from one folder, behind whatever has no
   // picture of its own (a tag, a text-only note), each thing always the same
