@@ -16,7 +16,7 @@ import { CAPTURE_TYPES } from '../capture-kinds/capture-kind-picker'
 import { chime, click } from '@/lib/sound'
 import { slotTicker } from '@/lib/proximity'
 import { archive } from '@/lib/notes'
-import { EASING, spring as springs, still } from '@/lib/motion'
+import { EASING, byKeys, spring as springs, still } from '@/lib/motion'
 import { GROUP_COLORS, groups, tintOf } from '@/lib/groups'
 import { KEY, groupOf, groupsAround, isGroup, type How, type Layout } from '@/lib/group-layout'
 import { cn } from '@/lib/cn'
@@ -976,7 +976,7 @@ function GroupBlock({ group, entries, parts, start, cursor, estimate, row, carri
   // A folder is a place: one row that opens it. A group is the panel it always was, its notes inside it in the list.
   const place = group.folder
   // Just made: its row unfolds above the two notes, a moment after it is drawn.
-  const [arrived, setArrived] = useState(!born || still())
+  const [arrived, setArrived] = useState(!born || still() || byKeys())
   useEffect(() => {
     if (arrived) return
     const frame = requestAnimationFrame(() => setArrived(true))
@@ -1153,7 +1153,7 @@ function GroupBlock({ group, entries, parts, start, cursor, estimate, row, carri
                     </button>
                   )}
                 </ContextMenuTrigger>
-                <GroupMenu group={group} members={entries.map((entry) => entry.id)} onOpenFolder={place && onOpenFolder ? () => (chime('open'), onOpenFolder(group.id)) : undefined} onSeparate={separate} onRename={() => onRenaming(true)} onIcon={() => setPicking(true)} onNewNote={onNewNote} onSort={onSort} onSorted={onSorted} />
+                <GroupMenu group={group} members={entries.map((entry) => entry.id)} onOpenFolder={onOpenFolder && (() => (chime('open'), onOpenFolder(group.id)))} onSeparate={separate} onRename={() => onRenaming(true)} onIcon={() => setPicking(true)} onNewNote={onNewNote} onSort={onSort} onSorted={onSorted} />
               </ContextMenu>
               {/* Open until an icon is picked, Esc, or a click elsewhere: the focus moving on as the menu shuts never closes it. */}
               <PopoverContent align="start" className="w-auto gap-0 overflow-hidden p-0" onFocusOutside={(event) => event.preventDefault()}>
@@ -1305,7 +1305,7 @@ export function GroupMenu({ group, members, onOpenFolder, onSeparate, onRename, 
   useEffect(() => void groups.links(group.id).then(setLinks), [group.id])
   return (
     <ContextMenuContent className="w-56" onCloseAutoFocus={(event) => event.preventDefault()}>
-      {onOpenFolder && <ContextMenuItem data-group-open onSelect={later(onOpenFolder)}>Open folder</ContextMenuItem>}
+      {onOpenFolder && <ContextMenuItem data-group-open onSelect={later(onOpenFolder)}>{group.folder ? 'Open folder' : 'Open as a page'}</ContextMenuItem>}
       {onOpenFolder && <ContextMenuSeparator />}
       {left.length > 0 && onSort && <ContextMenuItem onSelect={later(() => onSort(left))}>Sort these ({num(left.length)})</ContextMenuItem>}
       {left.length > 0 && onSorted && <ContextMenuItem onSelect={() => onSorted(left, true)}>Mark all as sorted</ContextMenuItem>}

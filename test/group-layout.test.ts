@@ -203,3 +203,9 @@ test('carried left out of its folder, a note lands just under it, and nowhere el
   assert.equal(drop(base(), 'a', 'g:G', 'out', new Set(), make), null)
   assert.equal(drop(base(), 'b', 'c', 'out', new Set(), make), null)
 })
+
+test('gathering at the top level keeps an empty folder standing where it was', () => {
+  const made = gather({ top: ['g:E', 'a', 'b'], groups: { E: [] } }, 'a', ['b'], { id: 'n', name: 'Group 1' })
+  assert.deepEqual(made.top, ['g:E', 'g:n'])
+  assert.deepEqual(made.groups.E, [])
+})

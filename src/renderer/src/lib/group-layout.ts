@@ -171,7 +171,9 @@ export function gather(layout: Layout, target: string, ids: string[], make: { id
   const groups: Record<string, string[]> = {}
   for (const [group, list] of Object.entries(layout.groups)) {
     const rest = list.filter((one) => !members.includes(one))
-    if (rest.length) groups[group] = rest
+    // One this gathering emptied goes (tidy says whether it may); one that was empty already (a folder waiting for
+    // notes) stays where it stands: it vanished from the list when a group was made beside it.
+    if (rest.length || !list.length) groups[group] = rest
   }
   const top: string[] = []
   for (const key of layout.top) {

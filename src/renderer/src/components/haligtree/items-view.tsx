@@ -1725,7 +1725,12 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
     walk(side.top)
     return rank
   }, [order, list])
-  const bySide = (a?: string, b?: string): number => (sideRank.get(a ?? '') ?? 0) - (sideRank.get(b ?? '') ?? 0)
+  // Folders first, then groups, each in the sidebar's order; one just made (not saved yet) after the rest of its kind, so
+  // it never shows above the folders for a frame and then jumps down.
+  const bySide = (a?: string, b?: string): number => {
+    const kind = Number(isFolder(info.get(b ?? '') ?? (list.find((one) => one.id === b)))) - Number(isFolder(info.get(a ?? '') ?? (list.find((one) => one.id === a))))
+    return kind || (sideRank.get(a ?? '') ?? Number.MAX_SAFE_INTEGER) - (sideRank.get(b ?? '') ?? Number.MAX_SAFE_INTEGER)
+  }
   const info = new Map([...known.current].filter(([id]) => list.some((one) => one.id === id) || parting.includes(id)))
   // A folder is a place: it never unfolds in the list, and what it holds shows only on its own page (folders isolate).
   // A group is a panel in the list, open unless you folded it, as it always was.

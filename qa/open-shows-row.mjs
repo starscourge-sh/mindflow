@@ -230,7 +230,7 @@ try {
   // 12. Writing: a note inside a folded group of your own, sent here.
   const arts = (await v('items', 'article')).filter((one) => !one.archivedAt && !one.private).map((one) => one.id)
   const gid = await h.evaluate(() => crypto.randomUUID())
-  await v('groups:arrange', 'article', { top: [`g:${gid}`, ...arts.slice(2)], groups: { [gid]: arts.slice(0, 2) }, make: { id: gid, name: 'QA group', folder: true } })
+  await v('groups:arrange', 'article', { top: [`g:${gid}`, ...arts.slice(2)], groups: { [gid]: arts.slice(0, 2) }, make: { id: gid, name: 'QA group' } })
   await v('groups:set', gid, { folded: true })
   await go('articles'); await wait(1200)
   check('starts hidden: the article is not drawn in its folded group', !(await drawn('articles', arts[1])))

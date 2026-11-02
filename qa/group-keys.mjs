@@ -16,6 +16,18 @@ const wait = (ms) => h.waitForTimeout(ms)
 const M = '[role="main"]'
 const loose = () => h.evaluate(() => [...document.querySelectorAll('[role="main"] [data-sortable-id]')].filter((el) => !el.getAttribute('data-sortable-id').startsWith('g:') && !el.parentElement.closest('[data-group-block]')).map((el) => { const r = el.getBoundingClientRect(); return { id: el.getAttribute('data-sortable-id'), x: r.x, y: r.y, h: r.height } }))
 const groupsNow = async () => (await v('groups', 'article')).filter((one) => !one.folder)
+// Frames every 50 ms while a key changes the list, for looking at by eye (QA_SHOTS).
+const film = async (name, n = 8) => { for (let i = 0; i < n; i++) { if (shots) await h.screenshot({ path: `${shots}/${name}-${String(i).padStart(2, '0')}.png` }); await wait(50) } }
+// Two of the list's own rows drawn over each other, across and down.
+const overlaps = () => h.evaluate(() => {
+  const boxes = [...document.querySelectorAll('[role="main"] [data-row]:not([data-lifted] *), [role="main"] [data-group-row]:not([data-lifted] *)')].filter((el) => !el.closest('[data-open]')).map((el) => ({ name: el.textContent.slice(0, 20), box: el.getBoundingClientRect() })).filter((one) => one.box.height > 0)
+  const bad = []
+  for (let i = 0; i < boxes.length; i++) for (let j = i + 1; j < boxes.length; j++) {
+    const a = boxes[i].box, b = boxes[j].box
+    if (a.top < b.bottom - 1 && b.top < a.bottom - 1 && a.left < b.right - 1 && b.left < a.right - 1) bad.push(`${boxes[i].name} / ${boxes[j].name}`)
+  }
+  return bad
+})
 const carry = async (from, toY) => {
   await h.mouse.move(from.x + 80, from.y + from.h / 2)
   await h.mouse.down()
@@ -52,7 +64,8 @@ try {
   await h.locator(`${M} [data-row][data-id="${rows[1].id}"]`).first().click({ modifiers: ['Meta'] })
   await wait(400)
   await h.keyboard.press('Meta+g')
-  await wait(900)
+  await film('cmd-g')
+  await wait(500)
   const named = await h.evaluate(() => ({ label: document.activeElement?.getAttribute('aria-label'), value: document.activeElement?.value }))
   await h.keyboard.press('Escape')
   await wait(400)
@@ -88,7 +101,8 @@ try {
   await h.locator(`${M} [data-group-block="${kept.id}"] [data-row][data-id="${kept.members[0]}"]`).first().click({ modifiers: ['Meta'] })
   await wait(300)
   await h.keyboard.press('Meta+Shift+g')
-  await wait(900)
+  await film('shift-cmd-g')
+  await wait(500)
   console.log('said', await h.evaluate(() => [...document.querySelectorAll('[data-sonner-toast]')].map((t) => t.textContent).join(' | ')), JSON.stringify(await groupsNow()))
   const all = await v('items', 'article')
   check('⇧⌘G ungroups it, both notes still in the list', (await groupsNow()).length === 0 && kept.members.every((id) => all.some((one) => one.id === id)))
@@ -102,6 +116,54 @@ try {
   await h.locator(`${M} [data-group-block="${kept.id}"] [data-group-separate]`).click()
   await wait(1200)
   check('the × on the group\'s row separates it', (await groupsNow()).length === 0)
+
+  // "Open as a page" on a group's right-click opens it alone, as the old menu did.
+  await h.keyboard.press('Meta+z')
+  await wait(900)
+  const again = (await groupsNow())[0]
+  await h.locator(`${M} [data-group-row="${again.id}"]`).click({ button: 'right' })
+  await wait(300)
+  const lines = await h.evaluate(() => [...document.querySelectorAll('[data-slot="context-menu-content"] [role="menuitem"]')].map((m) => m.textContent.trim() || 'dot'))
+  check('the group\'s menu is the old one: Open as a page, New note in group, Separate, Duplicate group, the colours, Rename…, Change icon…, Archive group', ['Open as a page', 'New note in group', 'Separate', 'Duplicate group', 'Rename…', 'Change icon…', 'Archive group'].every((one) => lines.includes(one)) && lines.filter((one) => one === 'dot').length === 8, lines.join(' | '))
+  await h.locator('[role="menuitem"]', { hasText: 'Open as a page' }).click()
+  await wait(900)
+  check('"Open as a page" opens the group alone, its two notes shown', await h.evaluate((id) => !!document.querySelector(`[data-path-part="${id}"][aria-current="page"]`), again.id) && (await h.locator(`${M} [data-row]`).count()) === 2)
+
+  // Several picked carried past two open groups in a short window: no two rows are ever drawn over each other.
+  await go('nuggets'); await go('articles'); await wait(900)
+  await size(1100, 760)
+  for (let i = 0; i < 3; i++) await v('article:new').then((id) => v('item:save', id, { title: `Probe loose ${i + 1}` }))
+  await wait(900)
+  rows = await loose()
+  await h.locator(`${M} [data-row][data-id="${rows[0].id}"]`).first().click({ modifiers: ['Meta'] })
+  await wait(300)
+  await h.locator(`${M} [data-row][data-id="${rows[1].id}"]`).first().click({ modifiers: ['Meta'] })
+  await h.keyboard.press('Meta+g')
+  await wait(700)
+  await h.keyboard.press('Escape')
+  await wait(400)
+  rows = await loose()
+  const a = rows.at(-1), b = rows.at(-2)
+  await h.locator(`${M} [data-row][data-id="${a.id}"]`).first().click({ modifiers: ['Meta'] })
+  await h.locator(`${M} [data-row][data-id="${b.id}"]`).first().click({ modifiers: ['Meta'] })
+  await wait(300)
+  rows = await loose()
+  const from = rows.find((one) => one.id === a.id), target = rows[0]
+  const seen = []
+  await h.mouse.move(from.x + 80, from.y + from.h / 2)
+  await h.mouse.down()
+  for (let i = 1; i <= 24; i++) {
+    await h.mouse.move(from.x + 80, from.y + from.h / 2 + (target.y + target.h * 0.1 - from.y - from.h / 2) * i / 24)
+    await wait(50)
+    seen.push(...(await overlaps()))
+    if (shots && i % 3 === 0) await h.screenshot({ path: `${shots}/carry-two-${String(i).padStart(2, '0')}.png` })
+  }
+  await wait(400)
+  seen.push(...(await overlaps()))
+  await h.mouse.up()
+  await wait(900)
+  seen.push(...(await overlaps()))
+  check('carrying two picked rows past the groups, no two rows are ever drawn over each other', seen.length === 0, [...new Set(seen)].slice(0, 4).join('; '))
   check('no page errors', errors.length === 0, errors.join(' | '))
 } finally {
   await close()

@@ -337,7 +337,7 @@ try {
   for (const title of [LONG, 'Observer', 'Strategy', '日本語のノート']) { const id = await v('article:new'); await v('item:save', id, { title }); notes.push(id) }
   groupId = 'fp'
   const before = await v('groups', 'article').catch(() => [])
-  await v('groups:arrange', 'article', { top: ['g:fp', notes[3]], groups: { fp: notes.slice(0, 3) }, make: { id: 'fp', name: 'Comparative Literature and Critical Theory reading for the seminar', folder: true } }).catch((e) => console.log('group', e.message))
+  await v('groups:arrange', 'article', { top: ['g:fp', notes[3]], groups: { fp: notes.slice(0, 3) }, make: { id: 'fp', name: 'Comparative Literature and Critical Theory reading for the seminar' } }).catch((e) => console.log('group', e.message))
   if (!before) groupId = null
 
   for (const style of STYLES) for (const theme of THEMES) {
