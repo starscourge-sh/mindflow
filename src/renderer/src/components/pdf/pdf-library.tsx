@@ -8,6 +8,8 @@ import { PictureRow } from "@/components/haligtree/picture-row"
 import { BookMap, InYourNotes, PageBar, inNotes, useCited } from "./book-links"
 import { BookHead, BookInfo, readLibrary, type Book } from "./book-head"
 import { BackToTop } from "@/components/haligtree/ui"
+import { RowMenu, type RowItem } from "@/components/haligtree/row-menu"
+import { canSplit } from "@/lib/split"
 export type { Book } from "./book-head"
 
 /**
@@ -84,10 +86,21 @@ export function PdfLibrary({ query, top }: { query: string; /** What sits over t
   )
 }
 
+/** A book's right-click menu, on the shelf and in Continue reading. */
+export function bookMenu(one: Book): RowItem[] {
+  return [
+    { label: one.page ? `Continue at p. ${one.page.toLocaleString()}` : "Open", keys: "↵", run: () => (chime("open"), openPdf(one.src, one.name, one.page ?? undefined)) },
+    canSplit() && { label: "Open to the side", run: () => (chime("open"), openPdf(one.src, one.name, one.page ?? undefined, undefined, true)) },
+    "separator",
+    { label: "Show in Finder", run: () => void window.api.showFile(one.src) }
+  ]
+}
+
 function BookCard({ one, picked, onPick, onOpen }: { one: Book; picked: boolean; onPick: () => void; onOpen: () => void }): React.JSX.Element {
   const cover = usePdfCover(one.src, one.name)
   const read = percent(one)
   return (
+    <RowMenu items={bookMenu(one)}>
     <button type="button" role="option" aria-selected={picked} data-book={one.src} className={`pdf-book${picked ? " is-picked" : ""}`} onClick={onPick} onDoubleClick={onOpen} onKeyDown={(event) => event.key === "Enter" && onOpen()}>
       <span className="pdf-book-cover" data-pdf-peek={one.src} data-pdf-peek-name={one.name} data-pdf-peek-scrub="">
         {cover?.image ? <img src={cover.image} alt="" draggable={false} /> : <span className="pdf-book-blank"><BookOpen className="size-6" /></span>}
@@ -103,6 +116,7 @@ function BookCard({ one, picked, onPick, onOpen }: { one: Book; picked: boolean;
         {one.highlights > 0 && <span className="pdf-book-marks"> · {one.highlights} highlight{one.highlights === 1 ? "" : "s"}</span>}
       </span>
     </button>
+    </RowMenu>
   )
 }
 
@@ -188,7 +202,7 @@ export function ReadingRow({ going }: { going: Book[] }): React.JSX.Element {
   )
   return (
     <div data-reading-row className="-mx-2">
-      <PictureRow key={going.map((one) => `${one.src}:${one.page}`).join()} items={items} height={250} cardHeight={0.72} direct label="Continue reading"
+      <PictureRow key={going.map((one) => `${one.src}:${one.page}`).join()} items={items} height={250} cardHeight={0.72} direct label="Continue reading" menuFor={(at) => bookMenu(going[at])}
         onOpen={(at) => {
           const one = going[at]
           if (!one) return

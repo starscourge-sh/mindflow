@@ -120,7 +120,7 @@ const RULES: [RegExp, LucideIcon][] = [
   [/^see the original/i, ExternalLink],
   [/new window|own window|in a window/i, AppWindow],
   // A page opened in the app's own reader is a book opened; the arrow out stays for leaving the app ("Open in the default app").
-  [/^open at page|^open in the reader/i, BookOpen],
+  [/^open at page|^open in the reader|^continue at p\./i, BookOpen],
   [/^open .*sandbox|sandbox/i, Shapes],
   [/^open|^go to|^show .*note|^read from here|^read the inbox|^write in it/i, ExternalLink],
   // Groups.

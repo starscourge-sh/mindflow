@@ -230,6 +230,7 @@ export default function FlexCarousel({
   radius = 10,
   squeeze = 0.2,
   onOpen,
+  onUnder,
   direct = false,
   counter = 'of',
   label = 'Pictures',
@@ -242,6 +243,8 @@ export default function FlexCarousel({
   radius?: number
   squeeze?: number
   onOpen?: (index: number) => void
+  /** Told which card the pointer is on (-1 for none), for its right-click menu. */
+  onUnder?: (index: number) => void
   /** A click opens the picture at once, rather than first bringing it close; ← → turn it and ↵ opens. */
   direct?: boolean
   /** How the place in the row is said: "3 of 12", or "03 / 12". */
@@ -255,6 +258,7 @@ export default function FlexCarousel({
   const settingsRef = useRef({ cardHeight, gap, radius, squeeze, direct })
   const itemsRef = useRef(items)
   const openRef = useRef(onOpen)
+  const underRef = useRef(onUnder)
   const [active, setActive] = useState(0)
   // Whether this turn came by a key, read once as it turns (its title is then simply there).
   const keyedTurn = useByKeys(active)
@@ -264,6 +268,7 @@ export default function FlexCarousel({
   useEffect(() => {
     itemsRef.current = items
     openRef.current = onOpen
+    underRef.current = onUnder
     settingsRef.current = { cardHeight, gap, radius, squeeze, direct }
   })
 
@@ -364,6 +369,7 @@ export default function FlexCarousel({
     let layout: Metrics | null = null
     let resnap = false
     let hover = ''
+    let underCard = -1
     let lift = 1
     let energy = 0
     let lastPos = 0
@@ -787,6 +793,12 @@ export default function FlexCarousel({
           dirty = true
           animating = true
         }
+      }
+      // Which card the pointer is on, for its right-click menu (-1: none).
+      const nextUnder = pointer.over ? (instances.find((inst) => pointer.x >= inst.x0 && pointer.x <= inst.x1 && pointer.y >= inst.y0 && pointer.y <= inst.y1)?.index ?? -1) : -1
+      if (nextUnder !== underCard) {
+        underCard = nextUnder
+        underRef.current?.(underCard)
       }
       if (nextHover !== hover) {
         hover = nextHover

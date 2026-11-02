@@ -1,5 +1,6 @@
 import { Lean } from './lean'
 import { ContinueReading } from '@/components/pdf/pdf-library'
+import { showMediaKind } from './media-view'
 import { useResumeCards, WelcomeBack } from './resume-cards'
 import { useReadsIn } from '@/lib/reads-in'
 import { TimeGone } from './time-gone'
@@ -922,7 +923,7 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
           {feature && <Feature card={feature.card} line={feature.line} actions={actions} />}
 
           {/* The books part way through: each opens at the page you left it. */}
-          <ContinueReading extra={resume} heading={() => <Heading title="Continue reading" onAll={() => onView('media')} />} />
+          <ContinueReading extra={resume} heading={() => <Heading title="Continue reading" onAll={() => (showMediaKind('pdf'), onView('media'))} />} />
 
           {(nextUp.length > 0 || questions.length > 0) && (
             <div className="grid gap-x-6 gap-y-8 px-3 @[44rem]/page:grid-cols-2 @[44rem]/page:px-6">

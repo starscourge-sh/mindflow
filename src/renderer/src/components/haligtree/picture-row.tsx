@@ -3,6 +3,7 @@ import { useInView } from 'motion/react'
 import { useStill } from '@/lib/motion'
 import { num } from '../../../../main/dates'
 import type { FlexCarouselItem } from './flex-carousel'
+import { RowMenu, type RowItem } from './row-menu'
 
 const FlexCarousel = lazy(() => import('./flex-carousel'))
 
@@ -13,9 +14,11 @@ const FlexCarousel = lazy(() => import('./flex-carousel'))
  * With Motion off or Reduce motion it is a still row of the same height,
  * scrolled sideways, drawing only the pictures in view.
  */
-export function PictureRow({ items, onOpen, direct = false, counter = 'of', label = 'Pictures', cardHeight = 0.52, height, className = '' }: {
+export function PictureRow({ items, onOpen, menuFor, direct = false, counter = 'of', label = 'Pictures', cardHeight = 0.52, height, className = '' }: {
   items: FlexCarouselItem[]
   onOpen: (index: number) => void
+  /** A card's right-click menu: the one that thing has everywhere else. Off a card, the middle one's. */
+  menuFor?: (index: number) => RowItem[]
   /** A click opens at once (and ← → ↵ work), rather than first bringing the picture close. */
   direct?: boolean
   counter?: 'of' | 'slash'
@@ -28,16 +31,25 @@ export function PictureRow({ items, onOpen, direct = false, counter = 'of', labe
   const box = useRef<HTMLDivElement>(null)
   const seen = useInView(box, { once: true, margin: '200px' })
   const still = useStill()
+  // The card under the pointer, read as the menu opens.
+  const under = useRef(-1)
+  const menu = menuFor && ((): RowItem[] => {
+    const active = Number(box.current?.querySelector<HTMLElement>('[data-flex-carousel]')?.dataset.active ?? 0)
+    return menuFor(under.current >= 0 ? under.current : active)
+  })
+  const carousel = (
+    <FlexCarousel key={items.length} items={items} cardHeight={cardHeight} onOpen={onOpen} onUnder={(at) => (under.current = at)} direct={direct} counter={counter} label={label} />
+  )
   return (
     // Its own clicks and drags stay its own. Its sides fade out, so a picture leaves the row rather than being cut off.
     <div ref={box} data-picture-row={still ? 'still' : 'moving'} onClick={(event) => event.stopPropagation()} style={{ height }}
       className={`relative ${still ? '' : '[mask-image:linear-gradient(to_right,transparent,#000_7%,#000_93%,transparent)]'} ${className}`}>
       {still ? (
-        <StillRow items={items} onOpen={onOpen} counter={counter} label={label} height={height} />
+        <StillRow items={items} onOpen={onOpen} menuFor={menuFor} counter={counter} label={label} height={height} />
       ) : (
         seen && (
           <Suspense fallback={null}>
-            <FlexCarousel key={items.length} items={items} cardHeight={cardHeight} onOpen={onOpen} direct={direct} counter={counter} label={label} />
+            {menu ? <RowMenu items={menu}><div className="size-full">{carousel}</div></RowMenu> : carousel}
           </Suspense>
         )
       )}
@@ -50,7 +62,7 @@ const GAP = 12
 const WORDS = 44
 
 /** The still row: one shape for every picture, so only those in view are drawn, however many there are. */
-function StillRow({ items, onOpen, counter, label, height }: { items: FlexCarouselItem[]; onOpen: (index: number) => void; counter: 'of' | 'slash'; label: string; height: number }): React.JSX.Element {
+function StillRow({ items, onOpen, menuFor, counter, label, height }: { items: FlexCarouselItem[]; onOpen: (index: number) => void; menuFor?: (index: number) => RowItem[]; counter: 'of' | 'slash'; label: string; height: number }): React.JSX.Element {
   const scroller = useRef<HTMLDivElement>(null)
   const picH = Math.max(40, height - WORDS - 12)
   const shape = items[0]?.aspect ?? 0.8
@@ -76,7 +88,7 @@ function StillRow({ items, onOpen, counter, label, height }: { items: FlexCarous
         {items.slice(range[0], range[1]).map((item, i) => {
           const at = range[0] + i
           const place = counter === 'slash' ? `${num(at + 1).padStart(2, '0')} / ${num(items.length).padStart(2, '0')}` : `${num(at + 1)} of ${num(items.length)}`
-          return (
+          const card = (
             <button key={at} type="button" role="listitem" onClick={() => onOpen(at)} data-still-picture={at}
               className="group absolute top-0 flex cursor-pointer flex-col gap-1.5 rounded-lg text-left outline-none transition-transform duration-150 ease-out focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.97]"
               style={{ left: at * (cardW + GAP), width: cardW }}>
@@ -85,6 +97,7 @@ function StillRow({ items, onOpen, counter, label, height }: { items: FlexCarous
               <span className="-mt-1 truncate text-meta text-muted-foreground tabular-nums group-hover:text-foreground">{item.note ?? place}</span>
             </button>
           )
+          return menuFor ? <RowMenu key={at} items={menuFor(at)}>{card}</RowMenu> : card
         })}
       </div>
     </div>

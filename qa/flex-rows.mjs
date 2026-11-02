@@ -54,6 +54,13 @@ const row = (where) => h.evaluate((where) => {
   return { mode: box.dataset.pictureRow, top: Math.round(r.top), height: Math.round(r.height), canvas: !!car?.querySelector('canvas'), fetched: Number(car?.dataset.fetched ?? 0), active: Number(car?.dataset.active ?? -1), words, still: box.querySelectorAll('[data-still-picture]').length }
 }, where)
 const see = async (where) => (await h.evaluate((where) => document.querySelector(`${where} [data-picture-row]`)?.scrollIntoView({ block: 'center' }), where), await wait(2500))
+/** The lines of the right-click menu now open, then shut it. */
+const menuLines = async () => {
+  await wait(400)
+  const lines = await h.evaluate(() => [...document.querySelectorAll('[role=menu] [role=menuitem]')].map((one) => one.textContent.trim()))
+  await h.keyboard.press('Escape'); await wait(300)
+  return lines
+}
 const below = (sel) => h.evaluate((sel) => Math.round(document.querySelector(sel)?.getBoundingClientRect().top ?? -1), sel)
 
 try {
@@ -120,6 +127,9 @@ try {
   const box = await h.evaluate(() => { const r = document.querySelector('[data-continue-reading] [data-flex-carousel]').getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 } })
   await h.mouse.move(box.x, box.y); await wait(300)
   check('the hand over a cover', await h.evaluate(() => getComputedStyle(document.querySelector('[data-continue-reading] [data-flex-carousel]')).cursor) === 'pointer')
+  await h.mouse.click(box.x, box.y, { button: 'right' })
+  const coverMenu = await menuLines()
+  check('right-click on a cover: the book\'s own menu (Continue at its page, Show in Finder)', coverMenu.some((l) => /^Continue at p\. 12/.test(l)) && coverMenu.some((l) => /Show in Finder/.test(l)), JSON.stringify(coverMenu))
   await h.mouse.click(box.x, box.y); await wait(400)
   const clicked = await h.evaluate(() => window.__opened)
   // Three fit whole, so they sit centred: the one in the middle is the second, its title under it as the pointer rests there.
@@ -151,6 +161,9 @@ try {
   await go('media'); await wait(800)
   await h.locator('[data-page=media] [data-media-kinds] button', { hasText: 'PDFs' }).first().click(); await wait(4500)
   const shelf = await row('[data-shelf-continue]')
+  await h.locator('[data-library] [data-book]').first().click({ button: 'right' })
+  const shelfMenu = await menuLines()
+  check('the shelf\'s book card has the same menu', shelfMenu.some((l) => /^Continue at p\./.test(l)) && shelfMenu.some((l) => /Show in Finder/.test(l)), JSON.stringify(shelfMenu))
   check('Media\'s PDF shelf opens on the same covers row', shelf?.canvas && shelf.words.some((w) => /^p\. /.test(w)), JSON.stringify(shelf))
   await shot('media-pdf-shelf')
 
@@ -164,6 +177,12 @@ try {
   await shot('media-recent-12')
   const pic = await h.evaluate(() => { const r = document.querySelector('[data-recent-pictures] [data-flex-carousel]').getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 } })
   const title = (await row('[data-recent-pictures]')).words[0]
+  await h.mouse.move(pic.x, pic.y); await wait(300)
+  await h.mouse.click(pic.x, pic.y, { button: 'right' })
+  const picMenu = await menuLines()
+  await h.locator('[data-page=media] [data-media]').first().click({ button: 'right' })
+  const tileMenu = await menuLines()
+  check('right-click on a recent picture: the same menu as its grid tile', picMenu.length > 2 && JSON.stringify(picMenu) === JSON.stringify(tileMenu), `${JSON.stringify(picMenu)} vs ${JSON.stringify(tileMenu)}`)
   await h.mouse.click(pic.x, pic.y); await wait(1200)
   const left = await h.evaluate(() => !document.querySelector('[data-recent-pictures]'))
   const where = await h.evaluate(() => document.querySelector('.ProseMirror')?.textContent?.slice(0, 40) ?? '')
@@ -213,16 +232,22 @@ try {
   await reset()
   await go('media'); await go('home'); await wait(1200); await see('[data-continue-reading]')
   await h.locator('[data-continue-reading] button', { hasText: 'Show all' }).first().click(); await wait(1200)
-  check('Continue reading\'s "Show all" opens Media', await h.evaluate(() => !!document.querySelector('[data-page=media]')))
+  const landed = await h.evaluate(() => { const shelf = document.querySelector('[data-page=media] [data-shelf-continue]'); const r = shelf?.getBoundingClientRect(); return { media: !!document.querySelector('[data-page=media]'), pdfs: !!document.querySelector('[data-library]'), inView: !!r && r.top >= 0 && r.top < innerHeight } })
+  check('Continue reading\'s "Show all" opens Media on the PDF shelf, its books in progress in view', landed.media && landed.pdfs && landed.inView, JSON.stringify(landed))
   await shot('show-all-media')
 
   // --- Motion off: still rows of the same height, only those in view drawn.
   await reset()
   await v('settings:set', { motion: false })
   await go('media'); await wait(1500)
+  // "Show all" left Media on the PDFs: back to the pictures.
+  await h.locator('[data-page=media] [data-media-kinds] button', { hasText: 'Pictures' }).first().click(); await wait(1500)
   const still = await row('[data-recent-pictures]')
   check('Motion off: a still row, the same 250px, no WebGL', still?.mode === 'still' && still.height === 250 && !still.canvas, JSON.stringify(still))
   await shot('media-recent-still')
+  await h.locator('[data-recent-pictures] [data-still-picture="0"]').click({ button: 'right' })
+  const stillMenu = await menuLines()
+  check('Motion off: right-click on a still picture gives its menu too', stillMenu.some((l) => l.startsWith('Open note')) && stillMenu.some((l) => /Show in Finder/.test(l)), JSON.stringify(stillMenu))
   await go('home'); await wait(1200)
   await see('[data-continue-reading]')
   const homeStill = await row('[data-continue-reading]')

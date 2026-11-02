@@ -31,6 +31,14 @@ const GAP = 12
 
 const readMedia = (): Promise<Media[]> => call<Media[]>('media:list')
 
+let nextKind: MediaKind | null = null
+const takeKind = (): MediaKind | null => ((kind) => ((nextKind = null), kind))(nextKind)
+/** Media, opened (or already open) on one kind. */
+export function showMediaKind(kind: MediaKind): void {
+  nextKind = kind
+  window.dispatchEvent(new CustomEvent('haligtree:media-kind', { detail: kind }))
+}
+
 /**
  * Every picture, screenshot, GIF, PDF and recording kept in the book's notes,
  * as a grid, newest note first. Pointed at, a tile says the note it is in;
@@ -39,7 +47,13 @@ const readMedia = (): Promise<Media[]> => call<Media[]>('media:list')
 export function MediaView({ onOpen }: { onOpen: (type: string, id: string) => void }): React.JSX.Element {
   const all = useLive(readMedia, [] as Media[])
   const [query, setQuery] = useState('')
-  const [kind, setKind] = useState<'all' | MediaKind>('all')
+  // Opened on a kind ("Show all" under Continue reading opens it on the PDFs), else every kind.
+  const [kind, setKind] = useState<'all' | MediaKind>(() => takeKind() ?? 'all')
+  useEffect(() => {
+    const on = (event: Event): void => setKind((event as CustomEvent<MediaKind>).detail)
+    window.addEventListener('haligtree:media-kind', on)
+    return () => window.removeEventListener('haligtree:media-kind', on)
+  }, [])
   useStepped(kind, setKind)
   // A shared deck's pictures (hundreds of paintings) wait under their own chip, so the book's own stay in view.
   const [decks, setDecks] = useState(false)
@@ -100,7 +114,7 @@ export function MediaView({ onOpen }: { onOpen: (type: string, id: string) => vo
           {recent.length > 0 && (
             <section data-recent-pictures className="mb-4 flex flex-col gap-2">
               <h3 className="text-body font-medium text-foreground">Recent pictures</h3>
-              <PictureRow key={recent.map((one) => `${one.id}:${one.src}`).join()} items={recentItems} height={250} cardHeight={0.72} direct counter="slash" label="Recent pictures" onOpen={(at) => recent[at] && open(recent[at])} />
+              <PictureRow key={recent.map((one) => `${one.id}:${one.src}`).join()} items={recentItems} height={250} cardHeight={0.72} direct counter="slash" label="Recent pictures" onOpen={(at) => recent[at] && open(recent[at])} menuFor={(at) => mediaMenu(recent[at], () => open(recent[at]))} />
             </section>
           )}
           {shown.length ? (
@@ -129,12 +143,10 @@ export function MediaView({ onOpen }: { onOpen: (type: string, id: string) => vo
 /** What a file's tile says it is, in place of a picture. */
 const WORD: Record<MediaKind, string> = { picture: 'Picture', gif: 'GIF', pdf: 'PDF', audio: 'Recording' }
 
-function Tile({ one, onOpen }: { one: Media; onOpen: () => void }): React.JSX.Element {
+/** A picture's or a file's right-click menu, on its tile and in the "Recent pictures" row. */
+export function mediaMenu(one: Media, onOpen: () => void): RowItem[] {
   const picture = one.kind === 'picture' || one.kind === 'gif'
-  // A PDF is named by the title it carries, as the reader names it, and shows its first page.
-  const cover = usePdfCover(one.kind === 'pdf' ? one.src : null, one.name)
-  const label = cover?.title || one.name || one.title || 'Untitled'
-  const items: RowItem[] = [
+  return [
     { label: 'Open note', keys: '↵', run: onOpen },
     canSplit() && { label: 'Open to the side', keys: '⌥-click', run: () => (openAside(one.type, one.id), headingIn(one.type, one.id, one.src)) },
     'separator',
@@ -142,6 +154,13 @@ function Tile({ one, onOpen }: { one: Media; onOpen: () => void }): React.JSX.El
     picture && { label: 'Copy image', run: () => void window.api.copyImage(one.src).then((done) => (done ? (chime('copy'), toast('Copied the picture')) : refuse('Could not copy it', 'error'))) },
     { label: 'Show in Finder', run: () => void window.api.showFile(one.src) }
   ]
+}
+
+function Tile({ one, onOpen }: { one: Media; onOpen: () => void }): React.JSX.Element {
+  // A PDF is named by the title it carries, as the reader names it, and shows its first page.
+  const cover = usePdfCover(one.kind === 'pdf' ? one.src : null, one.name)
+  const label = cover?.title || one.name || one.title || 'Untitled'
+  const items = mediaMenu(one, onOpen)
   return (
     <RowMenu items={items}>
       <button type="button" data-media={one.kind} data-src={one.src} data-note={`${one.type}:${one.id}`} data-pdf-peek={one.kind === 'pdf' ? one.src : undefined} data-pdf-peek-name={one.kind === 'pdf' ? one.name : undefined} onClick={onOpen} className={tileClass(false, false, false)}>
