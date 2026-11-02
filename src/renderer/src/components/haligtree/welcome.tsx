@@ -9,7 +9,7 @@ import { TAGLINE } from '../../../../main/tagline'
 import { fittedTitle, quoted } from '../../../../main/clip'
 import { Fragment, useEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from 'react'
 import { AnimatePresence, MotionConfig, motion, useIsPresent } from 'motion/react'
-import { ArrowUp, Compass, CornerDownLeft, FolderInput, Shuffle, Volume2, VolumeX } from 'lucide-react'
+import { ArrowUp, Compass, CornerDownLeft, FolderInput, Shuffle, Undo2, Volume2, VolumeX } from 'lucide-react'
 import { ReaderCard, drawBookName, seedOf } from './reader-card'
 import { renameBook, useShelf } from '@/lib/books'
 import { shift, spring, still } from '@/lib/motion'
@@ -273,6 +273,8 @@ export function Welcome(): React.JSX.Element | null {
   const trail = useRef<number[]>([])
   // The answers acted on and their summary shown: going back to You shows the summary again, as it was left.
   const [paid, setPaid] = useState(false)
+  // The name page's way to keep the name on screen, called by Next and Enter only.
+  const nameSave = useRef<(() => void) | null>(null)
   // The goal's real card (welcome-you.tsx, applySetup puts it on the desktop): out on the page that says what was done,
   // tucked into the screen's edge, as every sticky tucks, on every other page once it has been seen. Only flipped as you
   // come to that page or leave it, so a card you bring out or tuck yourself on a later page stays as you left it.
@@ -480,6 +482,8 @@ export function Welcome(): React.JSX.Element | null {
     if (!settled()) return
     if (reel.current.more?.()) return void chime('page')
     if (at === DIAL && picked.current) applyTheme(picked.current)
+    // The book's name is kept only going on from its page (Next or Enter), never by Back, the skip or closing.
+    if (at === NAME) nameSave.current?.()
     go(at + 1)
   }
   // Back returns to the screen seen just before, as it was left: an earlier part of this page first, then the page before (the one skipped from, after a skip).
@@ -651,7 +655,7 @@ export function Welcome(): React.JSX.Element | null {
               {at === WRITE && <WriteChapter play={play} report={report} setup={setup} />}
               {at === BACK && <RememberChapter play={play} report={report} setup={setup} />}
               {at === DIAL && <DialChapter play={play} report={report} onPick={(theme) => (picked.current = theme)} mine={mine} />}
-              {at === NAME && <NameChapter play={play} report={report} onNext={next} />}
+              {at === NAME && <NameChapter play={play} report={report} onNext={next} save={nameSave} />}
               {at === LAST && <WelcomeStamp still={!play} />}
               {at === LAST && <Start state={state} onState={setState} name={name} kept={before.current.size + caught.length} mine={caught.length} skipped={skipped} importing={importing} still={!play} onPick={start} setup={setup} onImport={(what) => (leave('notes'), void window.api.importFrom(what))} />}
             </motion.section>
@@ -1553,37 +1557,40 @@ const NAME_LINE = 'It shows on your reader card, in the sidebar and in “Settin
 /**
  * Your book's name, typed on its reader card: the first time the card is
  * seen, its name changing as you type. A name is drawn for you ("Chapel of
- * Anticipation"), shown as the field's placeholder, and “Draw another” draws
- * a new one (and a new card with it). Enter goes on; left empty, the drawn
- * name is kept. Saved as the page is left, by any way out, as the open
- * book's name: the sidebar's switcher, the card and “Settings” all read it.
+ * Anticipation"), shown as the field's placeholder, and “Draw another” shows
+ * a new one in the field (and a new card with it), only to try on: your own
+ * name (the book's, or the one you typed) stays one step back, by “Back to”
+ * under the field or ⌘Z in it, and typing always wins. Nothing is kept until
+ * Next or Enter (save): then the name on screen becomes the open book's name,
+ * which the sidebar's switcher, the card and “Settings” all read. Back, the
+ * skip and closing the welcome leave the book as it was.
  */
-function NameChapter({ play, report, onNext }: { play: boolean; report: (now: Reel) => void; onNext: () => void }): React.JSX.Element {
+function NameChapter({ play, report, onNext, save }: { play: boolean; report: (now: Reel) => void; onNext: () => void; save: React.MutableRefObject<(() => void) | null> }): React.JSX.Element {
   useReport(report, true, () => undefined)
   const shelf = useShelf()
-  const [drawn, setDrawn] = useState(() => drawBookName())
+  const [drawn] = useState(() => drawBookName())
   const [rise, setRise] = useState<'wait' | 'go' | undefined>(play ? 'wait' : undefined)
   const [typed, setTyped] = useState<string | null>(null)
+  // A drawn name tried on: in the field, never saved unless you go on with it.
+  const [preview, setPreview] = useState<string | null>(null)
   const [look, setLook] = useState<{ seed?: number } | null>(null)
   useEffect(() => void haligtree.settings().then((now) => setLook({ seed: now.readerSeed })), [])
   // A book already named (the welcome played again) starts with its name; "My book" is no one's name, so it starts empty.
   const own = shelf && shelf.name !== DEFAULT_BOOK && shelf.current !== 'sandbox' ? shelf.name : ''
-  const value = typed ?? own
+  const mine = typed ?? own
+  const value = preview ?? mine
   const shown = value.trim() || drawn
-  // "Draw another" draws a new card with the name (a new picture, colours and title), whether or not the card was
-  // drawn before; typing keeps the card as it is.
+  // "Draw another" draws a new card with the name (a new picture, colours and title); going back to your own name
+  // brings your own card back with it.
   const [redrawn, setRedrawn] = useState<number | null>(null)
-  // The names Draw another has put in the field, so one written by hand is told apart and never replaced.
-  const drawnNames = useRef(new Set<string>())
   const seed = redrawn ?? look?.seed ?? seedOf(drawn)
-  const kept = useRef({ shown, seed, shelf, look, redrawn })
-  kept.current = { shown, seed, shelf, look, redrawn }
-  useEffect(() => () => {
-    const { shown, seed, shelf, look, redrawn } = kept.current
+  const back = (): void => (chime('undo'), setPreview(null), setRedrawn(null))
+  save.current = () => {
     if (!shelf || !look || SANDBOX || shelf.current === 'sandbox') return
     if (look.seed === undefined || redrawn !== null) void haligtree.setSettings({ readerSeed: seed })
     if (shown !== shelf.name) void renameBook(shelf.current, shown)
-  }, [])
+  }
+  useEffect(() => () => void (save.current = null), [save])
   return (
     <>
       <Words title="Name your book." still={!play} done>{NAME_LINE}</Words>
@@ -1593,25 +1600,29 @@ function NameChapter({ play, report, onNext }: { play: boolean; report: (now: Re
           {/* Written in the pen's hand, as the owner signs a new book inside its cover (the title card's line). "Draw
               another" inside the field at its end, on its row and its edge, as a field's own button sits. */}
           <div className="relative">
-            <input id="mf-book-name" data-welcome-book-name autoFocus spellCheck={false} className={`${FIELD} h-14 w-full pr-40 text-[1.625rem] leading-none tracking-[-0.01em] [font-family:'Haligtree_Signature',cursive] placeholder:text-(--mf-wl-quiet)`} placeholder={drawn} value={value} maxLength={60}
-              onChange={(event) => setTyped(event.target.value)}
+            <input id="mf-book-name" data-welcome-book-name data-preview={preview === null ? undefined : ''} autoFocus spellCheck={false} className={`${FIELD} h-14 w-full pr-40 text-[1.625rem] leading-none tracking-[-0.01em] [font-family:'Haligtree_Signature',cursive] placeholder:text-(--mf-wl-quiet)`} placeholder={drawn} value={value} maxLength={60}
+              onChange={(event) => (setTyped(event.target.value), setPreview(null))}
               onKeyDown={(event) => {
                 if (event.key === 'Enter') (event.preventDefault(), onNext())
                 else if (event.key === 'Escape') (event.preventDefault(), event.currentTarget.blur())
+                // ⌘Z over a drawn name: your own name back, as one step.
+                else if (preview !== null && event.key.toLowerCase() === 'z' && (event.metaKey || event.ctrlKey) && !event.shiftKey) (event.preventDefault(), back())
               }} />
             <button type="button" data-name-draw onClick={() => {
               chime('anew')
-              // A name written by hand is theirs: kept, and only the card is drawn again. A drawn one (or none) is drawn anew with it.
-              const own = !!value.trim() && !drawnNames.current.has(value.trim())
-              const next = own ? value.trim() : drawBookName(Math.random, value.trim() || drawn)
-              drawnNames.current.add(next)
-              if (!own) (setDrawn(next), setTyped(next))
-              setRedrawn(own ? Math.floor(Math.random() * 2 ** 31) : seedOf(next))
+              const next = drawBookName(Math.random, preview ?? (mine.trim() || drawn))
+              setPreview(next)
+              setRedrawn(seedOf(next))
             }} className={`${QUIET_BUTTON} absolute top-1/2 right-1.5 -translate-y-1/2`}>
               <Shuffle className="size-4" strokeWidth={1.8} /> Draw another
             </button>
           </div>
-          <p data-name-keeps className="text-[0.9375rem] leading-snug text-(--mf-wl-body)">{value.trim() ? <>Press <Kbd className="mx-0.5 h-6 min-w-6 align-[-0.2em]"><CornerDownLeft className="size-3" strokeWidth={2.4} /></Kbd> to go on.</> : <>Left empty, it is called “{drawn}”.</>}</p>
+          {/* Its room kept whichever line shows, so the page never moves as a name is drawn or taken back. */}
+          <p data-name-keeps className="flex h-9 items-center text-[0.9375rem] leading-snug text-(--mf-wl-body)">
+            {preview !== null && mine.trim()
+              ? <button type="button" data-name-own onClick={back} className={`${QUIET_BUTTON} -ml-3 max-w-full`}><Undo2 className="size-4 shrink-0" strokeWidth={1.8} /><span className="truncate">Back to “{mine.trim()}”</span><Kbd className="h-6 min-w-6 shrink-0">⌘Z</Kbd></button>
+              : value.trim() ? <span>Press <Kbd className="mx-0.5 h-6 min-w-6 align-[-0.2em]"><CornerDownLeft className="size-3" strokeWidth={2.4} /></Kbd> to go on.</span> : <span>Left empty, it is called “{drawn}”.</span>}
+          </p>
         </motion.div>
         {/* The book stands up into its pose once it can be seen, not while the page is still coming in. */}
         <motion.div className="shrink-0" initial={play ? { opacity: 0, scale: 0.96 } : false} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.4, ease: ENTER, delay: 0.2 }}
