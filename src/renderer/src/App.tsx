@@ -918,7 +918,10 @@ export default function App(): React.JSX.Element {
       box.refit()
     })
   }
-  useEffect(() => void window.api.setPanel(panel), [oneLineOn]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Said to main only once the settings are read: before, "One line to start" reads as off, the full box's panel
+  // was asked for, and the box widened and narrowed again as it opened.
+  const settingsRead = appSettings !== null
+  useEffect(() => void (settingsRead && window.api.setPanel(panel)), [oneLineOn, settingsRead]) // eslint-disable-line react-hooks/exhaustive-deps
   // A recording starts or ends with the panel chosen: it glides away for the recorder card, and back after, the choice kept.
   const wasRecording = useRef(recording)
   useEffect(() => {
