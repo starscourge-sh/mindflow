@@ -135,6 +135,7 @@ import { openPlaybook } from '@/lib/playbook'
 import { menuShowing } from '@/lib/menu-keys'
 import { ArrowRight, ChevronRight, CircleHelp } from '@/components/ui/icons'
 import { still } from '@/lib/motion'
+import { SwipeBack } from '@/components/haligtree/swipe-back'
 import { calendarAside, calendarPalette, revealOnCalendar } from '@/lib/calendar-scope'
 import { dated, dayjs, dayKey, daysFromToday, noon, num, plural } from '../../main/dates'
 import { WrapOffer, WrapSheet, monthToWrap, openWrap } from '@/components/haligtree/wrap-story'
@@ -434,7 +435,7 @@ export function Home(): React.JSX.Element {
       return push(trail, next, scroll)
     })
   }
-  const step = (by: -1 | 1, key = frontRef.current): void => {
+  const step = (by: number, key = frontRef.current): void => {
     via('back')
     const scroll = scrolled(key)
     setTrail(key, ({ views, at }) => {
@@ -2399,6 +2400,8 @@ export function Home(): React.JSX.Element {
         menuFor={(key) => pairMenu(split.panes.map((pane) => pane.trail.views[pane.trail.at]), { key })}
         panes={split.panes.map(({ key, trail, width }) => { const name = paneName(trail.views[trail.at]); return { key, width, at: trail.at, label: name.title, private: name.private, node: pageFor(key, trail.views[trail.at]) } })}
       />
+      <SwipeBack front={() => frontRef.current} nameOf={(view: View) => paneName(view)} go={(key, to) => step(to - (splitRef.current.panes.find((one) => one.key === key)?.trail.at ?? to), key)}
+        trailOf={(key) => splitRef.current.panes.find((one) => one.key === key)?.trail ?? null} />
       {/* Beside the page, not over it, while there is room; over its right edge in a narrow window. */}
       <AnimatePresence>
         {recent && (

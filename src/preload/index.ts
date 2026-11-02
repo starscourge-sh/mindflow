@@ -548,6 +548,13 @@ const api = {
     return () => ipcRenderer.off('usage:via', relay)
   },
 
+  /** In the main window: the trackpad's fingers lifted after a scroll (main reads it from Chromium), for swipe back. */
+  onSwipeLifted: (listen: () => void): (() => void) => {
+    const relay = (): void => listen()
+    ipcRenderer.on('swipe:lifted', relay)
+    return () => ipcRenderer.off('swipe:lifted', relay)
+  },
+
   /** Put the window away. It keeps its contents and its place on screen. */
   hideWindow: (): void => ipcRenderer.send('window:hide'),
 

@@ -2006,6 +2006,12 @@ function makeHome(): BrowserWindow {
   })
   // Small enough to sit in a corner, not so small its pages fold up.
   home.setMinimumSize(560, 400)
+  // Swipe back (swipe-back.tsx): the page hears the wheel but never the fingers lifting. Chromium ends a trackpad's
+  // scroll when they lift (or when its glide runs out), and never while they rest still, so that end is passed on.
+  const sideways = home
+  sideways.webContents.on('input-event', (_event, input) => {
+    if (input.type === 'gestureScrollEnd' && !sideways.isDestroyed()) sideways.webContents.send('swipe:lifted')
+  })
   // Its place said again once made: a window made before it is shown can be
   // put in the middle of the screen instead of where it was asked to be.
   home.setBounds(place)
