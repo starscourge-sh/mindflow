@@ -53,6 +53,14 @@ type Row = { key: string; mark: ReactNode; title: string; text: string; run: () 
 /** A task ticked here: kept in its place, struck through, with what to put back if it is unticked. */
 type Ticked = { task: Task; was?: Finished; /** Ticked with the pointer: its pen line is written, not just there. */ pen?: boolean }
 
+/** The pool under the report's title, by how light the painting is (0 black, 1 white): full on a light painting,
+ * a sixth of that on a night one, whose own dark already carries white words. */
+const pool = (light = 0.5): string => {
+  const k = Math.min(1, Math.max(1 / 6, (light - 0.2) / 0.3))
+  const a = (n: number): string => (n * k).toFixed(3)
+  return `radial-gradient(ellipse 75% 70% at 50% 55%, rgb(0 0 0 / ${a(0.44)}), rgb(0 0 0 / ${a(0.16)}) 70%, rgb(0 0 0 / ${a(0.06)}))`
+}
+
 export function DayBrief({ day, onOpen, onListed, between }: {
   day: string
   /** The day's writing, between the day's name and its tasks: what you write comes before what you do. */
@@ -266,9 +274,13 @@ export function DayBrief({ day, onOpen, onListed, between }: {
                 : grain && <GrainFill cover={grain} large shade="none" className="-z-10" />}
               {/* A soft dark pool behind the words, never a band: the
                   painting still reads at the edges, the title on any of it.
+                  Only as dark as the painting needs: a light one gets the full
+                  pool, a night one (already dark under white words) only a
+                  touch, or a moonlit river read as a black slab.
                   Only once the painting is up: alone on the bare page it read
                   as a broken gradient for the moment the picture took. */}
-              <div aria-hidden className="absolute inset-0 -z-10 transition-opacity duration-500 [[data-scene]:not([data-shown])~&]:opacity-0 bg-[radial-gradient(ellipse_75%_70%_at_50%_55%,rgb(0_0_0/0.44),rgb(0_0_0/0.16)_70%,rgb(0_0_0/0.06))]" />
+              <div aria-hidden data-report-pool className="absolute inset-0 -z-10 transition-opacity duration-500 [[data-scene]:not([data-shown])~&]:opacity-0"
+                style={{ backgroundImage: pool(scene?.light) }} />
             </>
           )}
           <h2 className={`flex size-full flex-col justify-center px-6 leading-[0.92] ${picture ? 'items-center text-center' : 'items-start'}`}
@@ -288,9 +300,11 @@ export function DayBrief({ day, onOpen, onListed, between }: {
       </div>
       <div className="pt-2.5">
         <div className="flex items-start gap-6">
-          <p className="line-clamp-2 min-w-0 flex-1 text-[0.9375rem] leading-snug text-pretty text-muted-foreground">
-            {/* Not before the day is read: "Nothing is due" typed over a full day was wrong for a moment. */}
-            {!unloaded(tasks) && <Typed text={greeting} delay={350} step={22} />}
+          <p className="relative line-clamp-2 min-w-0 flex-1 text-[0.9375rem] leading-snug text-pretty text-muted-foreground">
+            {/* Not before the day is read: "Nothing is due" typed over a full day was wrong for a moment. The whole line,
+                unseen, holds its room while it types: typed into, a second line came part way and the page under it
+                dropped 22px. */}
+            {!unloaded(tasks) && <><span aria-hidden className="invisible">{greeting}</span><span className="absolute inset-0"><Typed text={greeting} delay={350} step={22} /></span></>}
           </p>
           {named && <PictureCredit className="max-w-[35%] pt-0.5 text-right">{named}</PictureCredit>}
         </div>
