@@ -31,6 +31,8 @@ import { plural, num } from '../../../../main/dates'
 /** A page column this wide reads comfortably; below it the rail squeezes, below `TIGHT` it folds away. */
 const COMFY = 520
 const TIGHT = 420
+/** A rail narrower than this cuts the outline's titles to a word: it opens on the pages instead. */
+const OUTLINE_ROOM = 180
 /** The pages' padding either side (pdf.css, .pdf-reader-scroll). */
 const PAD = 48
 
@@ -285,7 +287,11 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
     return () => watch.disconnect()
   }, [])
   const squeeze: "full" | "narrow" | "folded" = byHand ? "full" : room - railWidth() - PAD < COMFY ? (room - NARROW - PAD < TIGHT ? "folded" : "narrow") : "full"
-  const railShown = squeeze === "folded" ? null : rail
+  // Squeezed, the outline's titles cut to "The…": the rail opens on the pages
+  // instead, which read at any width. Outline picked by hand in this reader stays.
+  const [tabByHand, setTabByHand] = useState(false)
+  const cramped = (squeeze === "narrow" ? NARROW : railWidth()) < OUTLINE_ROOM
+  const railShown = squeeze === "folded" ? null : rail === "outline" && cramped && !tabByHand ? "pages" : rail
   const toggleRail = (): void => (setByHand(true), showRail(railShown ? null : rail ?? "pages"))
   const [lit, setLit] = useState<string | null>(null)
   const goToMark = (one: PdfMark): void => {
@@ -939,7 +945,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
       <div ref={chip} className="pdf-zoom-chip" aria-hidden />
       <div ref={body} className="pdf-reader-body" data-rail-squeeze={squeeze}>
       {railShown && doc && (
-        <PdfSide doc={doc} page={page} outline={outline} tab={railShown} onTab={showRail} onGo={go} narrow={squeeze === "narrow"} onDrag={() => setByHand(true)} layout={layout} onLayout={(to) => (chime("tap"), setLayout(to))} />
+        <PdfSide doc={doc} page={page} outline={outline} tab={railShown} onTab={(tab) => (setTabByHand(true), showRail(tab))} onGo={go} narrow={squeeze === "narrow"} onDrag={() => setByHand(true)} layout={layout} onLayout={(to) => (chime("tap"), setLayout(to))} />
       )}
       <ContextMenu>
         <ContextMenuTrigger asChild>
