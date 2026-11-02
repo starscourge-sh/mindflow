@@ -52,7 +52,7 @@ export function FinishPick(): React.JSX.Element {
         const Icon = one.id === 'satin' ? Sparkles : StickyNote
         const button = (
           <button key={one.id} type="button" role="radio" aria-checked={finish === one.id} aria-label={one.label} data-review-finish-to={one.id} onClick={() => pick(one.id)}
-            className={`h-7 cursor-pointer rounded-md border ${compact ? 'px-2' : 'px-3'} transition-colors ${finish === one.id ? 'border-foreground/15 bg-background text-foreground shadow-sm' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>{compact ? <Icon className="size-3.5" /> : one.label}</button>
+            className={`h-7 cursor-pointer rounded-md border ${compact ? 'px-2' : 'px-2.5'} transition-colors ${finish === one.id ? 'border-foreground/15 bg-background text-foreground shadow-sm' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>{compact ? <Icon className="size-3.5" /> : one.label}</button>
         )
         // Narrow, in icons as "Stacks · List" goes, each named on hover.
         return compact ? <Tip key={one.id} label={one.label}>{button}</Tip> : button
