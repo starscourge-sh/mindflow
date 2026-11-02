@@ -9,7 +9,7 @@ import { unloaded, useLive, haligtree, whenInLine, type Finished, type Item, typ
 import { Rolling, Tags, Tip, Typed, quietly, toast } from './ui'
 import { Rule, Struck, Tick } from './marks'
 import { stickOnDesktop } from './sticky-note'
-import { PictureCredit, Scenery, sceneCredit, useDayScene } from './scenery'
+import { AnotherPicture, PictureCredit, Scenery, sceneCredit, useDayScene } from './scenery'
 import { GrainFill, useCover, useCoversRead } from './grain'
 import { openPass } from './pass'
 import { KindBack, backLine, returning, type Returning } from './kind-back'
@@ -308,7 +308,7 @@ export function DayBrief({ day, onOpen, onListed, between }: {
                 Only once everything it speaks of is read, so it is typed once, never typed again a moment later. */}
             {heard && <Typed text={greeting} delay={350} step={22} />}
           </p>
-          {named && <PictureCredit className="max-w-[35%] pt-0.5 text-right">{named}</PictureCredit>}
+          {named && <span className="flex max-w-[35%] items-start justify-end gap-1"><PictureCredit className="pt-0.5 text-right">{named}</PictureCredit><AnotherPicture /></span>}
         </div>
       </div>
       {/* The next marked day, counted down: a click changes it. */}

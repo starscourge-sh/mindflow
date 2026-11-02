@@ -5,6 +5,9 @@ import { contrast } from '@/lib/on-accent'
 import { AnimatePresence, motion } from 'motion/react'
 import { useLive, haligtree, type Mood, type Scene, type Settings } from '@/lib/haligtree'
 import { dayOf } from '@/lib/notes'
+import { chime } from '@/lib/sound'
+import { Shuffle } from 'lucide-react'
+import { Tip, toast } from './ui'
 
 /**
  * Scenery: a picture from your own folders at the moments that are rest, not
@@ -38,9 +41,14 @@ const hash = (text: string): number => {
  * else the right shape, else any. Wide places never get a tall picture: a
  * portrait cut to a strip is a picture of someone's chin.
  */
+/** Below this a painting reads as black under a page's words (the measure scenery.ts calls a night picture). */
+const NEAR_BLACK = 0.13
+
 function choose(scenes: Scene[], seed: string, moods: Mood[] | null, wide: boolean): Scene | null {
-  const shaped = wide ? scenes.filter((one) => one.width >= one.height * 1.2) : scenes
-  const tiers = [shaped.filter((one) => !moods || moods.includes(one.mood)), shaped, scenes]
+  // A Day, Week or Month banner is never near black (Moonlit Night on the Dnieper): it read as a dark slab, not a painting.
+  const bright = /^(day|week|month):/.test(seed) ? scenes.filter((one) => one.light >= NEAR_BLACK) : scenes
+  const shaped = wide ? bright.filter((one) => one.width >= one.height * 1.2) : bright
+  const tiers = [shaped.filter((one) => !moods || moods.includes(one.mood)), shaped, bright.length ? bright : scenes]
   const pool = tiers.find((one) => one.length) ?? []
   const key = `${seed}:${moods?.join() ?? ''}:${wide}`
   // Kept once shown: the list grows and reorders as the folders are read again,
@@ -402,6 +410,26 @@ const credit = (name?: string, folder?: string): string | null =>
 export const sceneCredit = (scene?: Scene | null): string | null => (scene ? credit(scene.name, scene.folder) : null)
 
 /** A picture's credit as a caption reads under a print: on the page in full, never in a system tooltip. */
+/** Beside a banner's credit: another picture, at once, with Undo. Every banner moves on together, as Settings' "Show another" does. */
+export function AnotherPicture(): React.JSX.Element | null {
+  const { settings } = useScenery()
+  if (!settings?.scenery) return null
+  const another = (): void => {
+    const was = settings.sceneryShuffle ?? 0
+    void haligtree.setSettings({ sceneryShuffle: was + 1 })
+    chime('scene')
+    toast('Another picture', () => void haligtree.setSettings({ sceneryShuffle: was }))
+  }
+  return (
+    <Tip label="Another picture">
+      <button type="button" data-another-picture onClick={another}
+        className="inline-flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground/70 transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring">
+        <Shuffle className="size-3.5" />
+      </button>
+    </Tip>
+  )
+}
+
 export function PictureCredit({ children, className = '' }: { children: ReactNode; className?: string }): React.JSX.Element {
   return <span data-picture-credit className={`min-w-0 text-meta leading-snug text-pretty text-muted-foreground italic ${className}`}>{children}</span>
 }
@@ -424,7 +452,7 @@ export function DayBanner({ day, seed = `day:${day}` }: { day: string; /** A wee
       {/* Not the hour's mood: a day keeps one picture from morning to night. */}
       <Scenery place="today" seed={seed} mood={['day', 'dusk', 'night', 'interior']} fade className="absolute inset-0" rounded="rounded-xl" soft />
     </div>
-    {named && <figcaption className="mt-1.5 flex justify-end"><PictureCredit className="text-right">{named}</PictureCredit></figcaption>}
+    {named && <figcaption className="mt-1.5 flex items-center justify-end gap-1"><PictureCredit className="text-right">{named}</PictureCredit><AnotherPicture /></figcaption>}
     </figure>
   )
 }
