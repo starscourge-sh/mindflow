@@ -252,9 +252,10 @@ let panelOpen = true
 let expandedNow = false
 /**
  * The side panel as the box wears it now: never while the welcome runs, which
- * teaches the small box alone. Your own choice (panelOpen) is kept for after.
+ * teaches the small box alone. Your own choice (panelOpen) is kept for after. "One line to start" says the panel is
+ * open only when ⌘\ (or its button, or the pinned chip) grows the pill into the box with it.
  */
-const panelShown = (): boolean => panelOpen && !isWelcoming() && !boxOneLine()
+const panelShown = (): boolean => panelOpen && !isWelcoming()
 /** How wide the box should be now: one of its two widths, never one a glide left it at. */
 const boxWidth = (): number => (panelShown() ? WITH_PANEL : WIDTH)
 /** How tall the box should be now. */

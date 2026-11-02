@@ -889,10 +889,13 @@ export default function App(): React.JSX.Element {
   // While the welcome runs the box is its small self, the panel unopened whatever was chosen
   // (main sizes the window to match); the choice itself is kept for after.
   const welcoming = useWelcoming()
-  // “One line to start” has no side panel: the pill is the box alone.
+  // “One line to start” opens as the pill alone; ⌘\ (or the panel button, or the pinned chip) grows it into the box
+  // with the side panel open, until ⌘\ again puts it away and the box folds back to the pill; the panel you chose
+  // for the full box ("One line to start" off) is kept as it was.
   const oneLineOn = appSettings?.boxOneLine === true
+  const [pillPanel, setPillPanel] = useState(false)
   // While a voice note records, the box is the compact recorder card alone: the panel steps away and comes back after.
-  const panel = chosenPanel && !welcoming && !oneLineOn && !recording
+  const panel = (oneLineOn ? pillPanel : chosenPanel) && !welcoming && !recording
   const [tab, setTab] = useState<Tab>('inbox')
   // The panel stays drawn while the window glides shut, so closing slides
   // it out of view instead of leaving an empty strip, and is drawn before
@@ -903,7 +906,8 @@ export default function App(): React.JSX.Element {
   panelWanted.current = panel
   const setPanel = (open: boolean): void => {
     chime(open ? 'slide' : 'fold')
-    setPanelOpen(open)
+    if (oneLineOn) setPillPanel(open)
+    else setPanelOpen(open)
     panelWanted.current = open
     if (open) setPanelDrawn(true)
     // The panel's glide sets the height too; the writing's own waits for it to land.
@@ -920,7 +924,7 @@ export default function App(): React.JSX.Element {
   useEffect(() => {
     if (wasRecording.current === recording) return
     wasRecording.current = recording
-    if (!chosenPanel || welcoming || oneLineOn) return
+    if (!(oneLineOn ? pillPanel : chosenPanel) || welcoming) return
     if (panel) setPanelDrawn(true)
     box.held.current = true
     void window.api.setPanel(panel).then(() => {
@@ -1066,7 +1070,11 @@ export default function App(): React.JSX.Element {
   // A tag, a mention or a / typed is still one line: the pill stays the pill (its list hangs outside, in the room below
   // it), and grows only when the words pass one line. As a token it grew to the box's short height on the list closing
   // and shrank back once the token was gone (qa/pill-steady.mjs).
-  const pill = oneLine && !reading && !editing && !offer && !lesson && !opened && !wraps
+  // A word's meaning (or "Did you mean") lies under the word, in room kept after the writing: the pill grows into the
+  // box to show it. Kept as the pill, that room scrolled the one line up inside its clip and cut the word along its
+  // middle (the user's "humanoid").
+  const meaningShown = definition?.state === 'found' || definition?.state === 'fix'
+  const pill = oneLine && !reading && !editing && !offer && !lesson && !opened && !wraps && !panel && !meaningShown
   // Measured before it is drawn, so a second line grows the box in the frame it appears.
   React.useLayoutEffect(() => {
     if (!oneLine) return
@@ -1911,7 +1919,7 @@ export default function App(): React.JSX.Element {
             ...(recordingsWithoutWords() ? [{ label: 'Transcribe the voice notes', hint: 'Their words under each, on this Mac', cue: null, run: transcribePage }] : []),
             { label: 'New question', cue: null, run: () => void startQuestion(openAny) },
             // Not offered in "One line to start", which has no side panel to show.
-            ...(oneLineOn ? [] : [{ label: panel ? 'Hide the side panel' : 'Show the side panel', keys: '⌘\\', cue: null, run: () => (setPanel(!panel), quietly(() => setPanel(panel))) }]),
+            { label: panel ? 'Hide the side panel' : 'Show the side panel', keys: '⌘\\', cue: null, run: () => (setPanel(!panel), quietly(() => setPanel(panel))) },
             ...TABS.map((one, index) => ({ label: `Go to ${({ inbox: 'Inbox', today: 'Tasks', review: 'Review', kept: 'Saved', recent: 'Recent' } as Record<string, string>)[one] ?? one}`, keys: `⌃${index + 1}`, run: () => {
               setTab(one)
               if (!panel) setPanel(true)
@@ -2000,7 +2008,7 @@ export default function App(): React.JSX.Element {
       </AnimatePresence>
       <FocusNote />
       <FocusScenery />
-      <Header panel={panel} drawn={panelDrawn} onPanel={oneLineOn ? undefined : () => setPanel(!panel)} nav={trail.stack.length > 1 && (
+      <Header panel={panel} drawn={panelDrawn} onPanel={() => setPanel(!panel)} nav={trail.stack.length > 1 && (
         // Back and forward, joined in one pill as Safari and Raycast do it.
         <span className="mf-segs ml-3 self-center rounded-full border border-foreground/15 [&_svg]:size-3">
           {([['Back  ⌘[', -1, ChevronLeft], ['Forward  ⌘]', 1, ChevronRight]] as const).map(([label, by, Icon]) => (
@@ -2024,13 +2032,12 @@ export default function App(): React.JSX.Element {
         // chip up here says they are there, and opens it on them. Kept with
         // the panel open too, so it never pops out as the panel slides in.
         : pinned.length > 0 && !lesson && !unloaded(pinned) ? (
-          // "One line to start" has no side panel: there the chip opens the Inbox in the main window, where they are.
-          // Its name says what pressing it does, for the bar's word when Tab chooses it.
-          <Tip label={oneLineOn ? `Your ${plural(Math.min(BOX_PINS, pinned.length), 'pinned note')}, in the Inbox` : panel ? 'Show the Inbox in the side panel  ⌃1' : 'Open the Inbox in the side panel  ⌘\\'}>
+          // Its name says what pressing it does, for the bar's word when Tab chooses it. From the pill too: the pill grows
+          // into the box with the panel open on them.
+          <Tip label={panel ? 'Show the Inbox in the side panel  ⌃1' : `Your ${plural(Math.min(BOX_PINS, pinned.length), 'pinned note')}, in the side panel  ⌘\\`}>
             <button type="button" data-waiting style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}
               onMouseDown={(event) => event.preventDefault()}
               onClick={() => {
-                if (oneLineOn) return void (chime('tap'), window.api.openInHome('view', 'inbox'))
                 setTab('inbox')
                 setPanel(true)
               }}
