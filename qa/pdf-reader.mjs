@@ -47,13 +47,15 @@ const makePdf = async () => {
 
 // The dictionary and Wikipedia, as small servers here (honoured only in a probe): words are looked up without the internet.
 const { createServer } = await import('node:http')
-const lookups = createServer((req, res) => {
+// Answered after a moment, as a real dictionary and Wikipedia are, so the wait itself can be seen.
+const answer = (req, res) => {
   res.setHeader('content-type', 'application/json')
   if (req.url.startsWith('/dict/quiet')) return res.end(JSON.stringify([{ word: 'quiet', meanings: [{ partOfSpeech: 'adjective', definitions: [{ definition: 'Making little or no noise.' }] }] }]))
   if (req.url.startsWith('/wiki/quiet')) return res.end(JSON.stringify({ type: 'standard', title: 'Quiet', description: 'Absence of noise', extract: 'Quiet is the lack of noise or disturbance.', thumbnail: { source: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a0/Quiet.jpg/320px-Quiet.jpg' }, content_urls: { desktop: { page: 'https://en.wikipedia.org/wiki/Quiet' } } }))
   res.statusCode = 404
   res.end('{}')
-})
+}
+const lookups = createServer((req, res) => void setTimeout(() => answer(req, res), 3000))
 await new Promise((done) => lookups.listen(0, '127.0.0.1', done))
 process.env.HALIGTREE_QA_DICT = `http://127.0.0.1:${lookups.address().port}/dict/`
 process.env.HALIGTREE_QA_WIKI = `http://127.0.0.1:${lookups.address().port}/wiki/`
@@ -427,7 +429,16 @@ try {
     getSelection().removeAllRanges()
     getSelection().addRange(range)
   }); await wait(400)
-  await h.keyboard.press('l'); await wait(1500)
+  // While it is asked: the app's own orb and shimmering words, never grey bars; seen dark, then light.
+  await c.look('dark'); await wait(300)
+  await h.keyboard.press('l'); await wait(300)
+  const waiting = await h.evaluate(() => [...document.querySelectorAll('.look-up .mf-orb-pill .mf-shimmer')].map((one) => one.textContent))
+  check('while it is looked up, the card waits with the orb and its words', waiting.length > 0 && waiting.every((one) => /…$/.test(one ?? '')), JSON.stringify(waiting))
+  await h.screenshot({ path: `${process.env.QA_SHOTS ?? '/tmp'}/pdf-look-up-waiting-dark.png` })
+  await c.look('light'); await wait(150)
+  await h.screenshot({ path: `${process.env.QA_SHOTS ?? '/tmp'}/pdf-look-up-waiting-light.png` })
+  await h.waitForSelector('.look-up [data-look="wikipedia"] .look-up-extract', { timeout: 10000 }).catch(() => {})
+  await h.waitForSelector('.look-up [data-look="dictionary"] .look-up-meaning', { timeout: 10000 }).catch(() => {}); await wait(300)
   // A reader's Look Up: the word as a headword, its meaning, Wikipedia under a hairline; no field up front, the licence in the link's tip.
   const lookCard = await h.evaluate(() => { const one = document.querySelector('.look-up'); return one ? { words: one.querySelector('.look-up-headword')?.textContent, font: getComputedStyle(one.querySelector('.look-up-headword')).fontFamily, meaning: one.querySelector('[data-look="dictionary"] .look-up-meaning')?.textContent, wiki: one.querySelector('[data-look="wikipedia"] .look-up-extract')?.textContent, licence: one.querySelector('.look-up-link')?.getAttribute('title'), field: !!one.querySelector('input') } : null })
   check('L looks the words up: the word as a serif headword, the dictionary and Wikipedia, the licence in the link, no field up front', lookCard?.words === 'quiet' && /Fraunces/.test(lookCard.font) && /little or no noise/.test(lookCard.meaning) && /lack of noise/.test(lookCard.wiki) && /CC BY-SA/.test(lookCard.licence ?? '') && !lookCard.field, JSON.stringify(lookCard))
