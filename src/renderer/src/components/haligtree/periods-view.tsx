@@ -92,9 +92,9 @@ const NOW_SAID: Record<Scale, string> = { day: 'Today', week: 'This week', month
  * Day · Week · Month · Year, then ← and →, then the jump back to now. The
  * same spot and the same widths on all four, so switching between them moves
  * nothing under the pointer. The jump back keeps its own words ("This
- * month" says more than "Now") with room kept for the widest of the four, so
- * it is one width on every page. What each page adds goes in its own group at
- * the bar's far right (the Page's `actions`).
+ * month" says more than "Now"), its T right beside them; it starts in the same
+ * spot on every page and nothing follows it. What each page adds goes in its
+ * own group at the bar's far right (the Page's `actions`).
  */
 export function PeriodSteps({ scale, onScale, atNow, go }: { scale: Scale; onScale?: (scale: Scale) => void; atNow: boolean; go: (by: -1 | 1 | 0) => void }): React.JSX.Element {
   const name = scale
@@ -109,11 +109,12 @@ export function PeriodSteps({ scale, onScale, atNow, go }: { scale: Scale; onSca
         <Button variant="ghost" size="icon-sm" data-period-step="after" aria-label={`The ${name} after`} onClick={() => go(1)}><ArrowRight className="size-3.5" /></Button>
       </Tip>
       {/* Always here, greyed on the present one: nothing in the bar comes or goes as you step. */}
-      <Button variant="ghost" size="sm" data-period-now disabled={atNow} onClick={() => go(0)}>
-        <span className="grid justify-items-start [&>*]:col-start-1 [&>*]:row-start-1">
-          {(Object.keys(NOW_SAID) as Scale[]).map((one) => <span key={one} className={one === scale ? undefined : 'invisible'}>{NOW_SAID[one]}</span>)}
-        </span>
-        <Pressed keys="T" />
+      {/* Its key right beside its words, as "New" has its C: it starts in one spot on all four pages and is the
+          bar's last control, so its own width can follow its words. Room kept for "This month" left "Today" a lone T
+          across a gap. */}
+      <Button variant="ghost" size="sm" data-period-now disabled={atNow} onClick={() => go(0)} className="pr-1.5">
+        {NOW_SAID[scale]}
+        <Pressed keys="T" className="ml-0.5 h-[18px] min-w-[18px] rounded-[5px]" />
       </Button>
     </span>
   )
@@ -260,7 +261,7 @@ export function WeekPage({ start, onOpen, onScale, onRecent, recentOpen, onDay }
         </span>
       }
     >
-      <div className="page-sheet mx-auto w-full px-5 pt-8 pb-16 [--mf-padding:0.5rem_0]">
+      <div className="page-sheet mx-auto w-full px-5 pt-5 @min-[66rem]/page:pt-8 pb-16 [--mf-padding:0.5rem_0]">
         <DayBanner day={monday} seed={`week:${monday}`} />
         <Masthead parts={[weekSpan(monday), current && 'This week']}
           headline={fields.theme || fields.summary?.split(/(?<=[.!?])\s|\n/)[0] || weekName(monday)} named={!!(fields.theme || fields.summary)} />
@@ -379,7 +380,7 @@ export function MonthPage({ onScale, start, onDay }: { onScale?: (scale: Scale) 
         </span>
       }
     >
-      <div className="page-sheet mx-auto w-full px-5 pt-8 pb-16">
+      <div className="page-sheet mx-auto w-full px-5 pt-5 @min-[66rem]/page:pt-8 pb-16">
         <DayBanner day={`${month}-01`} seed={`month:${month}`} />
         <Masthead parts={[!!fields.season && dayjs(`${month}-01`).format('MMMM YYYY'), current && 'This month']}
           headline={fields.season || monthName(month)} named={!!fields.season} />
@@ -450,7 +451,7 @@ export function YearPage({ start, onScale, onMonth, onDay }: { start?: string; o
       title="Year"
       lead={<PeriodSteps scale="year" onScale={onScale} atNow={current} go={go} />}
     >
-      <div className="page-sheet mx-auto w-full px-5 pt-8 pb-16">
+      <div className="page-sheet mx-auto w-full px-5 pt-5 @min-[66rem]/page:pt-8 pb-16">
         <h1 className="text-title font-semibold tabular-nums"><Rolling text={year} /></h1>
         <p className="mt-1 text-meta text-muted-foreground">
           {!unloaded(months) && <Typed key={`${year}-${named}`} text={named ? `Your seasons of life, month by month: ${named} of ${num(all.length)} named so far.` : 'No month has a name yet. Looking back, give one a name on its month\'s page.'} step={28} />}

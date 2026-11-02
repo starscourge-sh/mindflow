@@ -25,7 +25,8 @@ const read = () => h.evaluate(() => {
   for (const one of steps.querySelectorAll('button[aria-pressed]')) rects[`tab ${one.getAttribute('aria-label')}`] = box(one)
   for (const one of steps.querySelectorAll('[data-period-step]')) rects[`arrow ${one.dataset.periodStep}`] = box(one)
   const now = steps.querySelector('[data-period-now]')
-  if (now) rects.jump = box(now)
+  // The jump back starts in one spot; its width follows its words ("Today", "This month"), its T beside them.
+  if (now) rects['jump back starts'] = String(Math.round(now.getBoundingClientRect().left))
   const on = steps.querySelector('button[aria-pressed="true"]')?.getAttribute('aria-label') ?? null
   const actions = [...document.querySelectorAll('[data-period-actions]')].find((one) => one.getBoundingClientRect().width > 0)
   const words = actions ? [...actions.querySelectorAll('button')].filter((one) => one.getBoundingClientRect().width > 0).map((one) => ({ name: one.getAttribute('aria-label') || one.innerText.trim(), word: /[A-Za-z]{2,}/.test(one.innerText.replace(/\s+/g, '')), icon: !!one.querySelector('svg') })) : []
