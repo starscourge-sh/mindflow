@@ -2888,7 +2888,8 @@ function createWindow(): void {
     app.off('browser-window-focus', toOtherWindow)
   })
   mainWindow.on('ready-to-show', () => {
-    if (!process.env.HALIGTREE_USER_DATA) return
+    // HALIGTREE_QA_COLD: a test run's box waits for ⌘. as a person's does, for a probe of the first open (qa/box-first-place.mjs).
+    if (!process.env.HALIGTREE_USER_DATA || process.env.HALIGTREE_QA_COLD) return
     arrive(mainWindow)
     recordOpen('prompt')
     mainWindow.webContents.send('window:shown')
