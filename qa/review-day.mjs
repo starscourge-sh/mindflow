@@ -75,8 +75,11 @@ try {
   await h.evaluate(() => document.querySelector('[data-review-tab="cards"]')?.click())
   check('"All cards" counts the known ones', await waitFor(() => h.evaluate(() => /known \(remembered after 15 days or more\)/.test(document.querySelector('[data-card-known]')?.textContent ?? ''))))
   // All cards opens as a list of the cards: the planets card is a row of it, marked.
+  // Found by its words, as a person would among 400 others.
+  await waitFor(() => h.evaluate(() => !!document.querySelector('[data-review-tab-controls] input')))
+  await h.locator('[data-review-tab-controls] input').first().fill('planets')
   // Marked by an icon now, its words in its label: "asks for 6 things (more than 4)".
-  check('a six-item answer is marked as asking for 6 things', await waitFor(() => h.evaluate(() => [...document.querySelectorAll('[data-card-big]')].some((one) => /asks for 6 things/.test(one.getAttribute('aria-label') ?? '')))), await h.evaluate(() => [...document.querySelectorAll('[data-card-big]')].map((one) => one.getAttribute('aria-label')).join(' | ')))
+  check('a six-item answer is marked as asking for 6 things', await waitFor(() => h.evaluate(() => [...document.querySelectorAll('[data-card-big]')].some((one) => /(asks for 6 things|^6 answers)/.test(one.getAttribute('aria-label') ?? '')))), await h.evaluate(() => [...document.querySelectorAll('[data-card-big]')].map((one) => one.getAttribute('aria-label')).join(' | ')))
   await h.locator('[data-card-big]').first().scrollIntoViewIfNeeded()
   await c.both(`${shots}/review-day-browser`)
 
