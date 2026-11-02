@@ -1716,6 +1716,11 @@ export function Home(): React.JSX.Element {
             { label: 'Browse all cards', hint: 'Search, sort, pause and tag them, in Review', cue: null, run: () => setView({ id: 'review', focus: ':cards' }) },
             // Study one tag's cards, scheduled as in any review.
             ...(cardTags ?? []).map((tag) => ({ label: `Study #${tag}`, hint: 'Its cards in Review, with the tags under it', cue: null, run: () => setView({ id: 'review', focus: tag }) })),
+            // Figma's grouping, for the notes picked in Writing, Gems or Questions (items-view.tsx does it, with Undo).
+            ...(view.id === 'nuggets' || view.id === 'articles' || view.id === 'questions' ? [
+              { label: 'Group the picked notes', hint: 'In place, in this list or folder', words: 'group gather', keys: '⌘G', cue: null, run: () => void window.dispatchEvent(new CustomEvent('haligtree:group', { detail: false })) },
+              { label: 'Ungroup', hint: 'The group the picked notes are in comes apart; they stay where they are', words: 'separate ungroup', keys: '⇧⌘G', cue: null, run: () => void window.dispatchEvent(new CustomEvent('haligtree:group', { detail: true })) }
+            ] : []),
             { label: 'Keyboard shortcuts', keys: '?', cue: null, run: () => window.dispatchEvent(new CustomEvent('haligtree:shortcuts')) },
             { label: 'Clear unused pictures…', cue: null, run: () => window.dispatchEvent(new CustomEvent('haligtree:unused')) },
             ...themeActions((text, undo) => toast(text, undo)),

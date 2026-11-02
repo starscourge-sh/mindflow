@@ -21,9 +21,9 @@ try {
   const [b1, b2, r1, r2, i1, i2, l1, l2] = ids
   // Money holds two notes and Rent (two more); Ideas holds two.
   const money = 'f-money', rent = 'f-rent', ideas = 'f-ideas'
-  await c.v('groups:arrange', 'article', { top: [`g:${money}`, l1, l2], groups: { [money]: [b1, b2] }, make: { id: money, name: 'Money' } })
-  await c.v('groups:arrange', 'article', { top: [`g:${money}`, `g:${ideas}`, l1, l2], groups: { [money]: [b1, b2], [ideas]: [i1, i2] }, make: { id: ideas, name: 'Ideas' } })
-  await c.v('groups:arrange', 'article', { top: [`g:${money}`, `g:${ideas}`, l1, l2], groups: { [money]: [b1, b2, `g:${rent}`], [rent]: [r1, r2], [ideas]: [i1, i2] }, make: { id: rent, name: 'Rent' } })
+  await c.v('groups:arrange', 'article', { top: [`g:${money}`, l1, l2], groups: { [money]: [b1, b2] }, make: { id: money, name: 'Money', folder: true } })
+  await c.v('groups:arrange', 'article', { top: [`g:${money}`, `g:${ideas}`, l1, l2], groups: { [money]: [b1, b2], [ideas]: [i1, i2] }, make: { id: ideas, name: 'Ideas', folder: true } })
+  await c.v('groups:arrange', 'article', { top: [`g:${money}`, `g:${ideas}`, l1, l2], groups: { [money]: [b1, b2, `g:${rent}`], [rent]: [r1, r2], [ideas]: [i1, i2] }, make: { id: rent, name: 'Rent', folder: true } })
   await c.h.waitForTimeout(800)
 
   const folder = (id) => c.h.locator(`[data-side-folder="${id}"]`)

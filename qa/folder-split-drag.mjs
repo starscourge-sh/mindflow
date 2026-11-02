@@ -1,7 +1,7 @@
 // Dragging in the folder list with the split view about: a note carried to the page's edge brings up the split places
-// (and nothing in the list lights with them); with two panes open, a note carried onto a hand-made group's heading or a
-// folder row in the list goes in, the split places never come up, only one place is lit in any frame, the heading never
-// moves under the pointer, and the dropped note lands once.
+// (and nothing in the list lights with them); with two panes open, a note carried onto a group's panel or a folder row
+// in the list goes in, the split places never come up, only one place is lit in any frame, the group's row never moves
+// under the pointer, and the dropped note lands once.
 //
 //   QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 QA_ARGS=--sandbox node qa/folder-split-drag.mjs
 import { checks } from './harness.mjs'
@@ -48,7 +48,11 @@ try {
   const groups = await v('groups', 'article')
   const inFolders = new Set(groups.flatMap((one) => one.members))
   const loose = (await v('items', 'article')).filter((one) => !inFolders.has(one.id) && !one.archivedAt)
-  const section = await v('sections:make', 'article', null, 'To revise', [loose[0].id])
+  // A group of two loose notes, as a drop on a note's middle makes one.
+  const section = 'probe-group'
+  const second = await v('article:new')
+  await v('item:save', second, { title: 'Probe second in the group' })
+  await v('groups:arrange', 'article', { top: [`g:${section}`, ...loose.slice(1).map((one) => one.id)], groups: { [section]: [loose[0].id, second] }, make: { id: section, name: 'To revise' } })
   await go('articles')
   await wait(800)
   // 1. A note carried to the right edge: the split places come up and light, nothing in the list lights with them.
@@ -60,17 +64,17 @@ try {
   check('let go there, a second pane opens', panes === 2, panes)
   await h.mouse.move(5, 300)
   await wait(500)
-  // 2. With two panes: a loose note carried onto the hand-made heading in the list.
-  const headSel = `${M} [data-hand-group="${section}"]`
+  // 2. With two panes: a loose note carried onto the group's row in the list.
+  const headSel = `${M} [data-group-row="${section}"]`
   const head = await h.locator(headSel).first().boundingBox()
   const third = await h.locator(`${M} [data-row][data-id="${loose[2].id}"]`).first().boundingBox()
   const topOf = () => h.evaluate((sel) => Math.round(document.querySelector(sel)?.getBoundingClientRect().top ?? -1), headSel)
   const into = await carry('heading', { x: third.x + 80, y: third.y + third.height / 2 }, { x: head.x + 160, y: head.y + head.height / 2 + 4 }, 16, topOf)
-  const overHead = into.filter((one) => one.hand)
-  check('carried onto the heading in a split: it lights, the split places never come up', overHead.length > 0 && into.every((one) => one.zones === 0), JSON.stringify(into.map((one) => `z${one.zones}h${one.hand}l${one.landing}`)))
+  const overHead = into.filter((one) => one.landing)
+  check('carried onto the group in a split: it lights, the split places never come up', overHead.length > 0 && into.every((one) => one.zones === 0), JSON.stringify(into.map((one) => `z${one.zones}h${one.hand}l${one.landing}`)))
   check('only one place lit in any frame', into.every((one) => one.hand + one.queue + one.landing + one.hotZones <= 1))
-  check('the heading never moves while it is aimed at', new Set(overHead.map((one) => one.top)).size === 1, JSON.stringify(overHead.map((one) => one.top)))
-  const now = (await v('sections', 'article')).find((one) => one.id === section)
+  check('the group\'s row never moves while it is aimed at', new Set(overHead.map((one) => one.top)).size === 1, JSON.stringify(overHead.map((one) => one.top)))
+  const now = (await v('groups', 'article')).find((one) => one.id === section)
   check('let go, the note is in the group, once', now.members.includes(loose[2].id) && (await h.locator(`${M} [data-row][data-id="${loose[2].id}"]`).count()) === 1, JSON.stringify(now.members))
   // 3. A loose note carried onto a folder row's middle, in the split.
   const folder = groups.find((one) => !one.parent)

@@ -102,7 +102,9 @@ const RULES: [RegExp, LucideIcon][] = [
   [/in quick capture/i, Pin],
   [/^pin\b|^keep .*on screen|^pin the layout/i, Pin],
   [/to the side|as split|^split|beside it|^add (left|right) split|pane to the (left|right)/i, Columns2],
-  [/^separate/i, Ungroup],
+  [/^separate|^ungroup/i, Ungroup],
+  // Figma's ⌘G: notes gathered into a group in place, drawn as the stack a group starts with.
+  [/^group (the picked|[0-9,]+ notes)/i, Layers],
   [/^decide/i, Scale],
   [/^queue$|^read next/i, ListStart],
   // The views of a note (the top of a note's "…"): each its own drawing.

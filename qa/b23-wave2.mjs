@@ -91,7 +91,7 @@ try {
   // 18. A group's icon opens the icon picker; the row does not fold.
   const ids = []
   for (const title of ['Group page one', 'Group page two']) { const one = await v('article:new'); await v('item:save', one, { title }); ids.push(one) }
-  await v('groups:arrange', 'article', { top: ['g:qw2'], groups: { qw2: ids }, make: { id: 'qw2', name: 'Wave two group' } })
+  await v('groups:arrange', 'article', { top: ['g:qw2'], groups: { qw2: ids }, make: { id: 'qw2', name: 'Wave two group', folder: true } })
   // Groups show as rows in a plain list (not grouped by kind or date).
   await h.evaluate(() => localStorage.setItem('view:article', JSON.stringify({ sort: 'newest', group: 'none', filter: {}, density: 'list' })))
   await go('home')

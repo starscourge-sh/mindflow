@@ -17,9 +17,9 @@ import { atomically, changed, database } from './captures'
  * Every channel here starts `haligtree:`, so the preload passes it through.
  */
 
-export type Group = { id: string; name: string; icon: string | null; color: string | null; folded: number; members: string[]; parent: string | null }
+export type Group = { id: string; name: string; icon: string | null; color: string | null; folded: number; members: string[]; parent: string | null; folder: number }
 /** A list as it should be: its top level in order (notes and `g:` groups), and each group's notes in order. */
-export type Layout = { top: string[]; groups: Record<string, string[]>; make?: { id: string; name: string }; revive?: { id: string; name: string; icon: string | null; color: string | null; folded: number }[] }
+export type Layout = { top: string[]; groups: Record<string, string[]>; make?: { id: string; name: string; folder?: boolean }; revive?: { id: string; name: string; icon: string | null; color: string | null; folded: number; folder?: number }[] }
 
 const now = (): string => new Date().toISOString()
 const KEY = 'g:'
@@ -42,6 +42,9 @@ export function registerGroups(): void {
   // The group a group sits in: three levels at most (group-layout.ts).
   column('note_groups', 'parent_id text')
   column('nuggets', 'group_order real')
+  // A folder is a place (it opens, it holds its notes alone); a group (0) is a panel of notes inside whatever list
+  // it is in. Every group made before this column came is a folder, as the list has shown them since 1 Nov.
+  column('note_groups', 'folder integer not null default 1')
   db.exec('create index if not exists nuggets_by_group on nuggets(group_id, group_order)')
 
   const handle = (channel: string, run: (...args: never[]) => unknown): void =>
@@ -63,16 +66,16 @@ export function registerGroups(): void {
   }
 
   handle('groups', (list: string) =>
-    (db.prepare('select id, name, icon, color, folded, parent_id as parent from note_groups where list = ? order by created_at').all(list) as Omit<Group, 'members'>[])
+    (db.prepare('select id, name, icon, color, folded, parent_id as parent, folder from note_groups where list = ? order by created_at').all(list) as Omit<Group, 'members'>[])
       .map((group) => ({ ...group, members: members(group.id) })))
 
   // A whole list's shape at once: what a drag, a new group or a step with the keys leaves.
   handle('groups:arrange', (list: string, layout: Layout) => {
     atomically(() => {
-      if (layout.make) db.prepare('insert into note_groups (id, list, name, created_at) values (?, ?, ?, ?)').run(layout.make.id, list, layout.make.name, now())
+      if (layout.make) db.prepare('insert into note_groups (id, list, name, folder, created_at) values (?, ?, ?, ?, ?)').run(layout.make.id, list, layout.make.name, layout.make.folder ? 1 : 0, now())
       // An Undo of what took a group apart brings it back as it was.
       for (const one of layout.revive ?? [])
-        db.prepare('insert or ignore into note_groups (id, list, name, icon, color, folded, created_at) values (?, ?, ?, ?, ?, ?, ?)').run(one.id, list, one.name, one.icon, one.color, one.folded, now())
+        db.prepare('insert or ignore into note_groups (id, list, name, icon, color, folded, folder, created_at) values (?, ?, ?, ?, ?, ?, ?, ?)').run(one.id, list, one.name, one.icon, one.color, one.folded, one.folder ?? 1, now())
       const placed = new Set<string>()
       const put = db.prepare('update nuggets set group_id = ?, group_order = ? where id = ?')
       // An imported note moved out of the group it came in (or into another) is sorted: it has a place now.
@@ -101,7 +104,7 @@ export function registerGroups(): void {
   // Separate: the notes stay, where they were, and only the group goes. What
   // it was comes back, for Undo to put it together again.
   handle('groups:separate', (id: string) => {
-    const group = db.prepare('select id, list, name, icon, color, folded, created_at as createdAt, parent_id as parent from note_groups where id = ?').get(id) as Record<string, string | number | null> | undefined
+    const group = db.prepare('select id, list, name, icon, color, folded, created_at as createdAt, parent_id as parent, folder from note_groups where id = ?').get(id) as Record<string, string | number | null> | undefined
     if (!group) return null
     const ids = members(id)
     // Its notes and its subfolders go up one level, into the folder that held it (or the list itself), as Finder's
@@ -117,9 +120,9 @@ export function registerGroups(): void {
     return { group, ids, subs }
   })
   handle('groups:restore', (was: { group: Record<string, string | number | null>; ids: string[]; subs?: string[] }) => {
-    const { id, list, name, icon, color, folded, createdAt, parent } = was.group
+    const { id, list, name, icon, color, folded, createdAt, parent, folder } = was.group
     atomically(() => {
-      db.prepare('insert or replace into note_groups (id, list, name, icon, color, folded, created_at, parent_id) values (?, ?, ?, ?, ?, ?, ?, ?)').run(id, list, name, icon, color, folded, createdAt, parent ?? null)
+      db.prepare('insert or replace into note_groups (id, list, name, icon, color, folded, created_at, parent_id, folder) values (?, ?, ?, ?, ?, ?, ?, ?, ?)').run(id, list, name, icon, color, folded, createdAt, parent ?? null, folder ?? 1)
       const put = db.prepare('update nuggets set group_id = ?, group_order = ? where id = ?')
       was.ids.forEach((one, at) => put.run(id, at, one))
       for (const sub of was.subs ?? []) db.prepare('update note_groups set parent_id = ? where id = ?').run(id, sub)
@@ -133,7 +136,7 @@ export function registerGroups(): void {
 
   // A second group of copies of its notes, right after it, named so you can tell them apart.
   handle('groups:duplicate', (id: string) => {
-    const group = db.prepare('select list, name, icon, color from note_groups where id = ?').get(id) as { list: string; name: string; icon: string | null; color: string | null } | undefined
+    const group = db.prepare('select list, name, icon, color, parent_id as parent, folder from note_groups where id = ?').get(id) as { list: string; name: string; icon: string | null; color: string | null; parent: string | null; folder: number } | undefined
     if (!group) return null
     const copy = randomUUID()
     const columns = (db.prepare('pragma table_info(nuggets)').all() as { name: string }[]).map((one) => one.name)
@@ -141,7 +144,7 @@ export function registerGroups(): void {
     const ids = members(id)
     let made: string[] = []
     atomically(() => {
-      db.prepare('insert into note_groups (id, list, name, icon, color, created_at) values (?, ?, ?, ?, ?, ?)').run(copy, group.list, `${group.name} copy`, group.icon, group.color, now())
+      db.prepare('insert into note_groups (id, list, name, icon, color, parent_id, folder, created_at) values (?, ?, ?, ?, ?, ?, ?, ?)').run(copy, group.list, `${group.name} copy`, group.icon, group.color, group.parent, group.folder, now())
       const clone = db.prepare(`insert into nuggets (id, group_id, group_order, created_at, updated_at, ${columns.join(', ')})
         select ?, ?, ?, ?, ?, ${columns.join(', ')} from nuggets where id = ?`)
       made = ids.map((one, at) => {
@@ -207,9 +210,9 @@ export function registerGroups(): void {
   })
 
   // An empty group, a folder made from the sidebar: in `parent`, or at the top level.
-  handle('groups:make', (list: string, name: string, parent: string | null = null) => {
+  handle('groups:make', (list: string, name: string, parent: string | null = null, folder = true) => {
     const id = randomUUID()
-    db.prepare('insert into note_groups (id, list, name, parent_id, created_at) values (?, ?, ?, ?, ?)').run(id, list, name, parent, now())
+    db.prepare('insert into note_groups (id, list, name, parent_id, folder, created_at) values (?, ?, ?, ?, ?, ?)').run(id, list, name, parent, folder ? 1 : 0, now())
     changed()
     return id
   })

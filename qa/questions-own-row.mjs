@@ -15,7 +15,7 @@ const shot = (name) => shots && h.screenshot({ path: `${shots}/${name}.png` }).c
 try {
   const id = await v('article:new')
   await v('item:save', id, { title: 'Why is the sky blue' })
-  await v('groups:arrange', 'article', { top: ['g:f-questions'], groups: { 'f-questions': [id] }, make: { id: 'f-questions', name: 'Questions' } })
+  await v('groups:arrange', 'article', { top: ['g:f-questions'], groups: { 'f-questions': [id] }, make: { id: 'f-questions', name: 'Questions', folder: true } })
   await h.waitForTimeout(900)
   // Writing's folders unfolded, so the folder called Questions shows.
   const fold = h.locator('aside [data-folders-fold="article"]')

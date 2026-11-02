@@ -182,11 +182,12 @@ export function Lead({
 }): React.JSX.Element {
   const [picture, broken] = usePicture(entry.id, false)
   const grain = useNoteCover(picture === undefined && !entry.face ? entry.id : null)
-  if (entry.face) return <span className={cn(ROW_TILE, 'overflow-visible', className)}>{entry.face}</span>
+  if (entry.face) return <span data-row-mark="" className={cn(ROW_TILE, 'overflow-visible', className)}>{entry.face}</span>
   return (
     <span
       // A paper cover is a light drawing: on a dark page a column of them read as bright squares, so there it is a quiet square instead (main.css, data-lead-paper).
       data-lead-paper={!picture && grain?.paper ? '' : undefined}
+      data-row-mark=""
       className={cn(ROW_TILE, picture && 'private-text bg-accent', className)}
       style={picture || grain ? undefined : tileTint(entry.tint)}
     >

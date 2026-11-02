@@ -7,7 +7,7 @@ import type { Layout } from '@/lib/group-layout'
  * with its notes in order, and the few things done to one.
  */
 
-export type NoteGroup = { id: string; name: string; icon: string | null; color: string | null; folded: number; members: string[]; /** The group a subgroup sits in. */ parent: string | null }
+export type NoteGroup = { id: string; name: string; icon: string | null; color: string | null; folded: number; members: string[]; /** The group a subgroup sits in. */ parent: string | null; /** 1: a folder, a place that opens; 0: a group, a panel of notes in the list it is in. */ folder: number }
 type Separated = { group: Record<string, string | number | null>; ids: string[]; subs?: string[] }
 
 export const groups = {
@@ -21,7 +21,7 @@ export const groups = {
   clone: (list: string, ids: string[]) => call<string[]>('groups:clone', list, ids),
   unclone: (ids: string[]) => call<boolean>('groups:unclone', ids),
   note: (id: string) => call<string | null>('groups:note', id),
-  make: (list: string, name: string, parent: string | null = null) => call<string>('groups:make', list, name, parent),
+  make: (list: string, name: string, parent: string | null = null, folder = true) => call<string>('groups:make', list, name, parent, folder),
   remove: (id: string) => call<boolean>('groups:delete', id),
   place: (moves: { id: string; group: string | null; order?: number | null }[]) => call<{ id: string; group: string | null; order: number | null }[]>('groups:place', moves),
   nest: (id: string, parent: string | null) => call<boolean>('groups:nest', id, parent)
@@ -59,19 +59,8 @@ export function useKept<T>(name: string, read: () => Promise<T>, initial: T, dep
 }
 /** Kept by name, so a page opened again starts on its groups, not on a plain list that sorts itself a beat later. */
 export const useGroups = (list: string): NoteGroup[] => useKept('groups', () => groups.list(list), [] as NoteGroup[], [list])
-
-/** A group made by hand: a named section of a list or of one folder (null: the list's top level), as Things' headings are (main/sections.ts). */
-export type NoteSection = { id: string; name: string; folder: string | null; folded: number; members: string[] }
-type SectionKept = { section: Record<string, string | number | null>; ids: string[] }
-export const sections = {
-  list: (list: string) => call<NoteSection[]>('sections', list),
-  make: (list: string, folder: string | null, name: string, ids: string[] = []) => call<string>('sections:make', list, folder, name, ids),
-  set: (id: string, patch: { name?: string; folded?: boolean }) => call<boolean>('sections:set', id, patch),
-  remove: (id: string) => call<SectionKept | null>('sections:delete', id),
-  restore: (was: SectionKept) => call<boolean>('sections:restore', was),
-  place: (moves: { id: string; section: string | null }[]) => call<{ id: string; section: string | null }[]>('sections:place', moves)
-}
-export const useSections = (list: string): NoteSection[] => useKept('sections', () => sections.list(list), [] as NoteSection[], [list])
+/** A folder, not a group: older kept copies (before the column) count as folders. */
+export const isFolder = (group: Pick<NoteGroup, 'folder'> | undefined): boolean => !!group && group.folder !== 0
 
 /** The colours a group can take: the editor's own, light and dark. */
 export const GROUP_COLORS = ['gray', 'orange', 'yellow', 'green', 'blue', 'purple', 'pink', 'red'] as const

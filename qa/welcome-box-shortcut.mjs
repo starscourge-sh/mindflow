@@ -23,7 +23,7 @@ try {
   // A book already in use: pages in a group, welcomed before, the key set to ⌘. by hand.
   const ids = []
   for (const title of ['Old page one', 'Old page two']) { const one = await v('article:new'); await v('item:save', one, { title }); ids.push(one) }
-  await v('groups:arrange', 'article', { top: ['g:old'], groups: { old: ids }, make: { id: 'old', name: 'Old group' } })
+  await v('groups:arrange', 'article', { top: ['g:old'], groups: { old: ids }, make: { id: 'old', name: 'Old group', folder: true } })
   await v('onboarding:set', { welcomed: new Date().toISOString(), newsSeen: true })
   await v('settings:set', { keys: { '⌘.': '⌘.' }, boxAutoHide: true })
   await wait(600)

@@ -89,13 +89,20 @@ test('several carried at once land together, in their order', async () => {
   assert.deepEqual(made.groups.n, ['d', 'a', 'e'])
 })
 
-test('a group left with one note stays a group', () => {
+test('a folder left with one note stays a folder', () => {
   // c carried out of G past e: G keeps b, and nothing comes apart.
   const raw = drop(base(), 'c', 'e', 'after', none, make)!
   assert.deepEqual(raw.groups.G, ['b'])
-  const { layout, dissolved } = tidy(raw)
+  const { layout, dissolved } = tidy(raw, new Set(['G']))
   assert.deepEqual(dissolved, [])
   assert.deepEqual(layout, raw)
+})
+
+test('a group left with one note comes apart, its note where the group was', () => {
+  const raw = drop(base(), 'c', 'e', 'after', none, make)!
+  const { layout, dissolved } = tidy(raw)
+  assert.deepEqual(dissolved, ['G'])
+  assert.deepEqual(layout.top, ['a', 'b', 'd', 'e', 'c'])
 })
 
 test('a group of one is drawn as a group, and an empty one first in what holds it', () => {
@@ -159,7 +166,7 @@ test('a note steps out of a subgroup into its group, not to the top', () => {
 
 test('a subgroup left with one note stays inside its group', () => {
   const raw = drop(nested(), 'x', 'd', 'after', none, make)!
-  assert.deepEqual(tidy(raw).layout.groups.S, ['c'])
+  assert.deepEqual(tidy(raw, new Set(['G', 'S'])).layout.groups.S, ['c'])
 })
 
 test('a subgroup stays inside its group with no notes of its own', () => {

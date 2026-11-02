@@ -46,7 +46,7 @@ try {
     await v('item:save', id, { title })
     ids.push(id)
   }
-  await v('groups:arrange', 'article', { top: ['g:obs', 'g:yt'], groups: { obs: ids.slice(0, 4), yt: ids.slice(4) }, make: { id: 'obs', name: 'Obsidian' }, revive: [{ id: 'yt', name: 'YouTube', icon: null, color: 'blue', folded: 0 }] })
+  await v('groups:arrange', 'article', { top: ['g:obs', 'g:yt'], groups: { obs: ids.slice(0, 4), yt: ids.slice(4) }, make: { id: 'obs', name: 'Obsidian', folder: true }, revive: [{ id: 'yt', name: 'YouTube', icon: null, color: 'blue', folded: 0 }] })
   await c.go('articles')
   await wait(800)
 

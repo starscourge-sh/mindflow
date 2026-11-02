@@ -17,7 +17,7 @@ import { chime, click } from '@/lib/sound'
 import { slotTicker } from '@/lib/proximity'
 import { archive } from '@/lib/notes'
 import { EASING, spring as springs, still } from '@/lib/motion'
-import { GROUP_COLORS, groups, sections, tintOf } from '@/lib/groups'
+import { GROUP_COLORS, groups, tintOf } from '@/lib/groups'
 import { KEY, groupOf, groupsAround, isGroup, type How, type Layout } from '@/lib/group-layout'
 import { cn } from '@/lib/cn'
 import { Overlay, SETTLE } from './sortable'
@@ -25,7 +25,8 @@ import { copy } from './row-menu'
 import { Rolling, Tip, VirtualList, refuse, toast, quietly } from './ui'
 import type { Entry } from './note-list'
 import { ROW_PAD, ROW_SHAPE, ROW_TILE } from './row-shape'
-import { Branches } from './branches'
+/** A group's title bar: as tall as a thumbnail, no taller (the old panels' slim head). */
+const HEAD = 'h-9 py-0'
 import { brief, num, plural } from '../../../../main/dates'
 
 
@@ -43,88 +44,14 @@ import { brief, num, plural } from '../../../../main/dates'
  * small label by the pointer says it in words.
  */
 
-export type GroupView = { id: string; name: string; icon: string | null; color: string | null; open: boolean; members: string[]; /** Coming apart (left with one note): drawn going. */ parting?: boolean; /** Its imported notes not yet sorted. */ unsorted?: string[] }
+export type GroupView = { id: string; name: string; /** A folder: a place that opens, never a panel that folds. */ folder: boolean; icon: string | null; color: string | null; open: boolean; members: string[]; /** Coming apart (left with one note): drawn going. */ parting?: boolean; /** Its imported notes not yet sorted. */ unsorted?: string[] }
 /** A part of a group: one of its notes, or a subgroup and its notes. */
 export type Part = { entry: Entry } | { group: GroupView; entries: Entry[]; /** Its own notes and subgroups, three levels deep. */ parts?: Part[] }
 /** The rows a part shows: one for a note, and an open subgroup's own on show, folded ones inside it left out. */
 const onShow = (part: Part): number => ('entry' in part ? 1 : !part.group.open ? 0 : part.parts ? part.parts.reduce((sum, one) => sum + onShow(one), 0) : part.entries.length)
 /** A line of the list: one note at the top level, or a group and its notes (every one, its subgroups' too), with `parts` in the order they show.
  * `head`: a loose note that starts a section of a list grouped by kind or date, the section's name and how many loose notes it holds. */
-export type Bundle = { group?: GroupView; entries: Entry[]; parts?: Part[]; head?: [string, number]; hand?: HandGroup }
-/** A group made by hand (main/sections.ts): a named section of the list, heading its notes; folded or empty, its heading alone. */
-export type HandGroup = { id: string; name: string; folded: boolean; count: number }
-
-/**
- * A hand-made group's heading, as Things heads a part of a project: its name over a hairline, a chevron that folds it,
- * its count on the right. A note carried onto it goes in (split-drop.tsx); right-click renames, folds or deletes it,
- * its notes staying where they live.
- */
-export function HandHead({ group, first, list, noun, renaming, onRenaming }: { group: HandGroup; first: boolean; list: string; noun: string; renaming: boolean; onRenaming: (on: boolean) => void }): React.JSX.Element {
-  const [named, setNamed] = useState<string | null>(null)
-  useEffect(() => void (named !== null && named === group.name && setNamed(null)), [named, group.name])
-  const name = named ?? group.name
-  const fold = (): void => {
-    chime(group.folded ? 'untuck' : 'tuck')
-    void sections.set(group.id, { folded: !group.folded }).then(() => quietly(() => void sections.set(group.id, { folded: group.folded })))
-  }
-  const rename = (next: string): void => {
-    onRenaming(false)
-    const was = group.name
-    if (!next.trim() || next.trim() === was) return
-    setNamed(next.trim())
-    void sections.set(group.id, { name: next.trim() }).then(() => quietly(() => void sections.set(group.id, { name: was })))
-  }
-  const remove = (): void => {
-    chime('separate')
-    void sections.remove(group.id).then((was) => {
-      if (!was) return refuse('That group is already gone')
-      toast(`Deleted the group ${group.name}: ${group.count === 1 ? 'its note stays' : group.count ? `its ${num(group.count)} notes stay` : 'it was empty'}`, () => void sections.restore(was).then(() => chime('gather')))
-    })
-  }
-  return (
-    <ContextMenu>
-      <ContextMenuTrigger asChild>
-        <div data-hand-group={group.id} data-list={list}
-          className={cn('group/hand relative flex items-center gap-1.5 rounded-md list-ink pb-1.5 transition-colors duration-150 data-[hand-hot]:bg-[color-mix(in_oklab,var(--tt-color-text-blue)_12%,transparent)] data-[hand-hot]:ring-1 data-[hand-hot]:ring-[color-mix(in_oklab,var(--tt-color-text-blue)_45%,transparent)]', first ? 'pt-2' : 'pt-5')}>
-          <button type="button" data-hand-fold="" aria-label={group.folded ? `Unfold ${name}` : `Fold ${name}`} aria-expanded={!group.folded} onClick={fold}
-            onKeyDown={(event) => {
-              if ((event.key === 'ArrowLeft' && !group.folded) || (event.key === 'ArrowRight' && group.folded)) (event.preventDefault(), event.stopPropagation(), fold())
-              if (event.key === 'F2' || event.key === 'Enter') (event.preventDefault(), event.stopPropagation(), onRenaming(true))
-            }}
-            className="flex min-w-0 flex-1 cursor-pointer items-center gap-1.5 rounded-sm text-left outline-none focus-visible:ring-2 focus-visible:ring-ring">
-            <ChevronRight aria-hidden className="size-3.5 shrink-0 text-muted-foreground transition-transform duration-200 motion-reduce:transition-none" style={{ transitionTimingFunction: OUT, transform: `rotate(${group.folded ? 0 : 90}deg)` }} />
-            {renaming ? (
-              <input autoFocus defaultValue={name} aria-label="Group name" placeholder="Name the group"
-                onClick={(event) => event.stopPropagation()}
-                onFocus={(event) => event.target.select()}
-                onKeyDown={(event) => {
-                  event.stopPropagation()
-                  if (event.key === 'Enter') rename(event.currentTarget.value)
-                  if (event.key === 'Escape') (event.preventDefault(), onRenaming(false))
-                }}
-                onBlur={(event) => rename(event.target.value)}
-                className="min-w-0 flex-1 rounded-sm bg-accent/60 px-1 text-control font-semibold text-foreground outline-none ring-1 ring-ring/40" />
-            ) : (
-              <span data-hand-name="" className="min-w-0 truncate text-control font-semibold text-foreground">{name}</span>
-            )}
-          </button>
-          <span data-hand-count={group.count} className="shrink-0 text-meta text-muted-foreground tabular-nums">{plural(group.count, noun)}</span>
-          {/* Things' heading rule: a hairline under the name, the width of the rows. */}
-          <span aria-hidden className="pointer-events-none absolute inset-x-[calc(var(--list-ink)-var(--list-edge))] bottom-0.5 h-px bg-foreground/12" />
-        </div>
-      </ContextMenuTrigger>
-      <ContextMenuContent className="w-56">
-        <ContextMenuItem onSelect={() => onRenaming(true)}>Rename group</ContextMenuItem>
-        <ContextMenuItem onSelect={fold}>{group.folded ? 'Unfold group' : 'Fold group'}</ContextMenuItem>
-        <ContextMenuSeparator />
-        <ContextMenuItem onSelect={remove}>Delete group, keep its notes</ContextMenuItem>
-      </ContextMenuContent>
-    </ContextMenu>
-  )
-}
-/** A hand-made group's key among the list's lines (items-view.tsx). */
-export const HAND = 'hand:'
-
+export type Bundle = { group?: GroupView; entries: Entry[]; parts?: Part[]; head?: [string, number] }
 /** A section's name over its rows, in a list grouped by kind or date. */
 export const SectionHead = ({ head, first }: { head: [string, number]; first: boolean }): React.JSX.Element => (
   <div data-group-head={head[0]} className={`px-2 pb-1 text-xs text-muted-foreground ${first ? 'pt-1' : 'pt-4'}`}>
@@ -159,13 +86,8 @@ export type Folds = {
   born: string | null
   /** What the list holds, for a folder's count: "page", "gem", "question". */
   noun?: string
-  /** The list, for a hand-made group as a drop place. */
+  /** The list it is. */
   list?: string
-  /** The hand-made group whose name is being written. */
-  handRenaming?: string | null
-  onHandRenaming?: (id: string | null) => void
-  /** Notes let go over a hand-made group's heading: into that group. */
-  onHandDrop?: (ids: string[], section: string) => void
   /** "Sort these": a pass through a group's notes not yet sorted. */
   onSort?: (ids: string[]) => void
   /** Kept as they are: these notes sorted, or back to not yet sorted (for Undo). */
@@ -186,8 +108,6 @@ const INDENT = 0
 const DWELL = 550
 /** How far left of where it was taken up a row is carried before it means "out of its folder", as dragging left outdents in Notion. */
 const OUTDENT = 40
-/** A row's name in the hint, short enough to leave the carried one readable. */
-const short = (text: string): string => (text.length > 24 ? `${text.slice(0, 23).trimEnd()}…` : text || 'Untitled')
 
 /**
  * What letting go now would do, and the words for it: read off the layout the
@@ -381,7 +301,7 @@ function Node({ id, children, inner, indent = 0 }: { id: string; children: React
  * every list does; `index` counts rows on show, which is what the keyboard's
  * cursor counts.
  */
-export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo, onFold, onNewNote, onOpenFolder, renaming, onRenaming, born, noun, list, handRenaming, onHandRenaming, onHandDrop, onSort, onSorted, face, after, arrived, cursor, estimate, className }: Folds & {
+export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo, onFold, onNewNote, onOpenFolder, renaming, onRenaming, born, noun, onSort, onSorted, face, after, arrived, cursor, estimate, className }: Folds & {
   face: (entry: Entry, index: number) => React.JSX.Element
   after?: (entry: Entry) => ReactNode
   arrived: (id: string) => boolean
@@ -436,8 +356,6 @@ export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo
   insetRef.current = inset
   const [aim, setAim] = useState<Aim | null>(null)
   const aimed = useRef<Aim | null>(null)
-  /** The hand-made group's heading a note is carried over, lit. */
-  const handAim = useRef<HTMLElement | null>(null)
   const ticks = useRef(slotTicker()).current
   // A group carried takes its notes and its subgroups' rows along: they wait where they are.
   // Where the room opens: just after this row on show (-1, at the very top), so the rows slide apart by one row there.
@@ -506,8 +424,7 @@ export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo
     dwell.current = { key, since: performance.now(), timer: setTimeout(() => lastMove.current && onDragMove(lastMove.current), DWELL) }
     return false
   }
-  const titles = useMemo(() => new Map(bundles.flatMap((one) => [...one.entries, ...(one.parts ?? []).flatMap(function all(part: Part): Entry[] { return 'entry' in part ? [part.entry] : [...part.entries, ...(part.parts ?? []).flatMap(all)] })].map((entry) => [entry.id, entry.title] as const))), [bundles])
-  const name = (group: string | null | undefined): string => info.get(group ?? '')?.name ?? 'the folder'
+  const name = (group: string | null | undefined): string => info.get(group ?? '')?.name ?? 'the group'
   // A group carried over the middle of anything inside a top-level group (its row, a subgroup's row, a note) aims at that group as a whole.
   const outerOf = (key: string): string | undefined => {
     const inner = isGroup(key) ? key.slice(KEY.length) : home.get(key)
@@ -518,16 +435,6 @@ export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo
     const { active, activatorEvent, delta } = event
     dragY.set(delta.y)
     const id = String(active.id)
-    // Over a hand-made group's heading, a note carried goes into that group: the heading lights, the rows rest, and the
-    // list's own drag keeps it (never the split view's places, which come up only at the page's edge).
-    const at0 = activatorEvent instanceof PointerEvent ? { x: activatorEvent.clientX + delta.x, y: activatorEvent.clientY + delta.y } : null
-    const heading = at0 && !isGroup(id) && onHandDrop ? document.elementsFromPoint(at0.x, at0.y).map((el) => el.closest<HTMLElement>('[data-hand-group]')).find(Boolean) ?? null : null
-    if (heading !== handAim.current) {
-      if (handAim.current) delete handAim.current.dataset.handHot
-      if (heading) (heading.dataset.handHot = '', click('tick'))
-      handAim.current = heading
-    }
-    if (heading) return (unspring(), undwell(), point(null))
     // A group's room is its block folded, measured once it has folded.
     if (isGroup(id)) {
       const wrap = document.querySelector<HTMLElement>(`[data-group-block="${CSS.escape(id.slice(KEY.length))}"]`)?.parentElement
@@ -620,8 +527,10 @@ export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo
       const n = ids.length
       const some = n > 1 ? `${num(n)} ` : ''
       const outer = make ? groupOf(land.after, KEY + into) ?? null : null
+      // Inside a folder a new group is simply a group there; inside a group it is a subgroup, as the old list said.
+      const sub = !!outer && !info.get(outer)?.folder
       const words =
-        make ? `${n > 1 ? `New folder of ${num(n + 1)}` : 'New folder'} with ${short(titles.get(where) ?? '')}${outer ? ` in ${name(outer)}` : ''}`
+        make ? (sub ? (n > 1 ? `New subgroup of ${num(n + 1)}` : `New subgroup in ${name(outer)}`) : n > 1 ? `New group of ${num(n + 1)}` : 'New group')
         : into !== own ? (into ? (isGroup(lead) ? `Put inside ${name(into)}` : own ? `Move ${some}to ${name(into)}` : `Add ${some}to ${name(into)}`) : isGroup(lead) ? `Move out of ${name(own)}` : `Remove ${some}from ${name(own)}`)
         : `${n > 1 ? `Move ${num(n)} here` : 'Move here'}${ordered ? '' : ' · Custom order'}`
       // In the gap row's own group (or first in the group whose row it is), the room sits close under it.
@@ -652,8 +561,6 @@ export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo
     return () => clearTimeout(again)
   }, [shape]) // eslint-disable-line react-hooks/exhaustive-deps
   const end = (): void => {
-    if (handAim.current) delete handAim.current.dataset.handHot
-    handAim.current = null
     lastMove.current = null
     sided.current = null
     unspring()
@@ -664,10 +571,7 @@ export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo
   }
   const onDragEnd = ({ active }: DragEndEvent): void => {
     const now = aimed.current
-    const heading = handAim.current?.dataset.handGroup
-    const carriedIds = manyRef.current.length > 1 ? manyRef.current : [String(active.id)]
     end()
-    if (heading && onHandDrop) return (setSnap(true), onHandDrop(carriedIds, heading))
     if (!now || now.target === String(active.id)) return chime('stay')
     setSnap(true)
     onDrop(manyRef.current.length > 1 ? manyRef.current : [String(active.id)], now.target, now.how)
@@ -700,7 +604,7 @@ export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo
       <SortableContext items={keys} strategy={unmoved}>
         <Shaped aim={aim} keys={keys} hand={carried} many={many} span={span} inset={inset} row={rowH} snap={snap} blocks={blockRows}>
           {ordered && <OwnOrderHint />}
-          <VirtualList items={lines} keyOf={({ one }) => (one.group ? KEY + one.group.id + (shownIn(one) > BIG ? ':big' : '') : one.entries[0]?.id ?? HAND + one.hand?.id)} holds={({ one }, id) => one.entries.some((entry) => entry.id === id)} cursor={line >= 0 ? line : undefined} estimate={estimate} className={className}
+          <VirtualList items={lines} keyOf={({ one }) => (one.group ? KEY + one.group.id + (shownIn(one) > BIG ? ':big' : '') : one.entries[0].id)} holds={({ one }, id) => one.entries.some((entry) => entry.id === id)} cursor={line >= 0 ? line : undefined} estimate={estimate} className={className}
             // A big group's line is keyed apart from a small one's: emptied in one step (2,500 rows to none), the list
             // would place every row under it by the height it measured before, scroll there and draw it all twice.
             sizeOf={({ one }) => (one.group?.open ? estimate * (1 + shownIn(one)) : estimate)}>
@@ -710,13 +614,6 @@ export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo
                 <div>
                 {block(one.group, one.entries, one.parts, start)}
                 </div>
-              ) : one.hand ? (
-                <>
-                  <HandHead group={one.hand} first={start === 0 && one === bundles.find((b) => !b.group)} list={list ?? 'article'} noun={noun ?? 'note'} renaming={handRenaming === one.hand.id} onRenaming={(on) => onHandRenaming?.(on ? one.hand!.id : null)} />
-                  {/* Empty, one quiet line says what it is for; it goes with its first note. */}
-                  {!one.entries[0] && !one.hand.folded && one.hand.count === 0 && <p data-hand-empty="" className="list-ink pt-1 pb-2 text-meta text-muted-foreground">Drag notes here</p>}
-                  {one.entries[0] && row(one.entries[0], start)}
-                </>
               ) : one.head ? (
                 <>
                   <SectionHead head={one.head} first={start === 0} />
@@ -946,7 +843,7 @@ function OwnOrderHint(): React.JSX.Element | null {
   return (
     <p data-own-order-hint="" className="mb-1 flex items-center gap-2 px-2 text-xs text-muted-foreground animate-in fade-in-0 duration-300">
       <GripVertical aria-hidden className="size-3 shrink-0" />
-      <span className="min-w-0 flex-1">Drag a row to move it, or to the left to take it out of its folder. Hold it on another row to make a folder.</span>
+      <span className="min-w-0 flex-1">Drag a row to move it, or to the left to take it out of its group. Hold it on another row to make a group.</span>
       <button type="button" onClick={done} className="flex h-6 shrink-0 items-center rounded px-1.5 hover:bg-accent hover:text-foreground">Got it</button>
     </p>
   )
@@ -962,20 +859,40 @@ function Count({ n }: { n: number }): React.JSX.Element {
 }
 
 
-/** A folder's chevron and its small folder drawing, side by side in the column a page's tile takes, so its name starts where a page's title does. */
-function GroupTile({ group, onFold, ...rest }: { group: GroupView; onFold?: () => void } & React.HTMLAttributes<HTMLSpanElement>): React.JSX.Element {
+/** A folder's small drawing, in exactly the box a page's thumbnail takes (row-shape.ts), so the list's left column never changes size. */
+function GroupTile({ group, ...rest }: { group: GroupView } & React.HTMLAttributes<HTMLSpanElement>): React.JSX.Element {
   return (
-    <span {...rest} data-group-tile="" className="flex h-9 w-9 shrink-0 items-center justify-start">
-      {/* Finder's disclosure triangle: the one part of the row that folds it open in place; the rest opens the folder. */}
-      <span data-group-fold="" role="button" aria-label={group.open ? 'Fold' : 'Unfold'} className="-ml-1 grid h-7 w-3.5 shrink-0 cursor-pointer place-items-center rounded-sm transition-colors hover:bg-foreground/10"
-        onClick={(event) => onFold && (event.stopPropagation(), event.preventDefault(), onFold())}>
-        <ChevronRight
-          aria-hidden
-          className="size-3 shrink-0 text-muted-foreground transition-transform duration-200 motion-reduce:transition-none"
-          style={{ transitionTimingFunction: OUT, transform: `rotate(${group.open ? 90 : 0}deg)` }}
-        />
+    <span {...rest} data-group-tile="" data-row-mark="" className={ROW_TILE}>
+      <FolderMark icon={group.icon} color={group.color} className="h-[1.75rem] w-9" />
+    </span>
+  )
+}
+
+/**
+ * A click on a group's icon changes it, as in Notion; the rest of the row folds. The press is noted as it is pressed,
+ * so the click that follows can land on the row instead: the row reads this and opens the picker rather than folding.
+ */
+let iconPressed = 0
+const pressedIcon = (): boolean => {
+  const was = Date.now() - iconPressed < 1000
+  iconPressed = 0
+  return was
+}
+
+/** A group's small icon and its chevron, side by side in the box a page's thumbnail takes, so its name starts where a page's title does. */
+function PanelTile({ group, onIcon, ...rest }: { group: GroupView; onIcon?: () => void } & React.HTMLAttributes<HTMLSpanElement>): React.JSX.Element {
+  return (
+    <span {...rest} data-group-tile="" data-row-mark="" className="flex size-9 shrink-0 items-center justify-center gap-0.5">
+      <span data-group-icon="" role="button" aria-label="Change icon" className="-m-0.5 grid cursor-pointer place-items-center rounded-sm p-0.5 transition-colors hover:bg-foreground/10"
+        onPointerDown={() => void (onIcon && (iconPressed = Date.now()))}
+        onClick={(event) => onIcon && (event.stopPropagation(), event.preventDefault(), (iconPressed = 0), chime('open'), onIcon())}>
+        <GroupIcon icon={group.icon} color={group.color} className="size-3.5" />
       </span>
-      <FolderMark icon={group.icon} color={group.color} />
+      <ChevronRight
+        aria-hidden
+        className="size-3 shrink-0 text-muted-foreground transition-transform duration-200 motion-reduce:transition-none"
+        style={{ transitionTimingFunction: OUT, transform: `rotate(${group.open ? 90 : 0}deg)` }}
+      />
     </span>
   )
 }
@@ -1053,8 +970,11 @@ function GroupBlock({ group, entries, parts, start, cursor, estimate, row, carri
 }): React.JSX.Element {
   const [menu, setMenu] = useState(false)
   const [picking, setPicking] = useState(false)
+  const [pointing, setPointing] = useState(false)
   const [parted, setParting] = useState(false)
   const parting = parted || !!group.parting
+  // A folder is a place: one row that opens it. A group is the panel it always was, its notes inside it in the list.
+  const place = group.folder
   // Just made: its row unfolds above the two notes, a moment after it is drawn.
   const [arrived, setArrived] = useState(!born || still())
   useEffect(() => {
@@ -1105,8 +1025,9 @@ function GroupBlock({ group, entries, parts, start, cursor, estimate, row, carri
     setParting(true)
     setTimeout(async () => {
       const was = await groups.separate(group.id)
-      if (!was) return (setParting(false), refuse('That folder is already gone'))
-      toast(`Deleted ${group.name}: ${count === 1 ? 'its note moved up' : count ? `its ${num(count)} notes moved up` : 'it was empty'}`, () => void groups.restore(was).then(() => chime('gather')))
+      if (!was) return (setParting(false), refuse(place ? 'That folder is already gone' : 'That group is already gone'))
+      toast(place ? `Deleted ${group.name}: ${count === 1 ? 'its note moved up' : count ? `its ${num(count)} notes moved up` : 'it was empty'}` : `Separated: ${count === 1 ? 'the note stays' : `all ${num(count)} notes stay`}`,
+        () => void groups.restore(was).then(() => chime('gather')))
     }, still() ? 0 : 140 + count * 40)
   }
   // A new name shows at once and stays, never the old one flashing back while the save is on its way.
@@ -1119,11 +1040,11 @@ function GroupBlock({ group, entries, parts, start, cursor, estimate, row, carri
     setNamed(next.trim())
     change(group, { name: next.trim() })
   }
-  const shown = (menu || picking || renaming || landing || !arrived || born) && !parting
+  const shown = (menu || picking || renaming || landing || pointing || !arrived || born) && !parting
   // Pointed at: its own panel deepens, never a subgroup's inside it.
   const [over, setOver] = useState(false)
   // Deeper while pointed at. While something is carried, every panel rests, and only the one it would land in lights (PanelParts' wash).
-  const depth = (tint ? 6 : 3.5) * (hand ? 1 : shown || over ? 1.6 : 1)
+  const depth = (tint ? 6 : 3.5) * (hand ? 1 : pointing ? 2.2 : shown || over ? 1.6 : 1)
   return (
     <div
       ref={block}
@@ -1134,7 +1055,8 @@ function GroupBlock({ group, entries, parts, start, cursor, estimate, row, carri
       onPointerOver={(event) => setOver(!(event.target as Element).closest('[data-group-block]') || (event.target as Element).closest('[data-group-block]') === event.currentTarget)}
       onPointerLeave={() => setOver(false)}
       // At the top level its panel is the rows' own box: folded, it is one row's box, and what is in it starts and ends where every other row does (qa/row-shape.mjs).
-      className="group/fold relative isolate"
+      data-folder-row={place ? '' : undefined}
+      className={cn('group/fold relative isolate', inner && !place && 'px-1 py-0.5')}
       style={{ '--group-tint': tint ?? 'var(--foreground)' } as CSSProperties}
     >
       {/* The panel: always there, faint, with a hairline round it; deeper while pointed at, or while something is about to happen to it. */}
@@ -1144,8 +1066,8 @@ function GroupBlock({ group, entries, parts, start, cursor, estimate, row, carri
         className={cn(
           'pointer-events-none absolute inset-0 -z-10 origin-top transition-[opacity,scale] duration-200 motion-reduce:transition-none',
           carried && 'opacity-0!',
-          // A folder has no box of its own: its panel shows only to light where a drop would land.
-          !landing && 'opacity-0',
+          // A folder has no box of its own: its panel shows only to light where a drop would land. A group's is always there.
+          place && !landing && 'opacity-0',
           parting && 'scale-[0.98] opacity-0!',
           !arrived && 'scale-[0.97] opacity-0'
         )}
@@ -1169,52 +1091,69 @@ function GroupBlock({ group, entries, parts, start, cursor, estimate, row, carri
               <ContextMenu onOpenChange={setMenu}>
                 <ContextMenuTrigger asChild data-row-menu>
                   {renaming ? (
-                    <div className={cn(ROW_SHAPE, ROW_PAD, 'data-[state=open]:bg-transparent!')}>
-                      <PopoverAnchor asChild><GroupTile group={group} /></PopoverAnchor>
+                    <div className={cn(ROW_SHAPE, place ? ROW_PAD : HEAD, 'data-[state=open]:bg-transparent!')}>
+                      <PopoverAnchor asChild>{place ? <GroupTile group={group} /> : <PanelTile group={group} onIcon={() => setPicking(true)} />}</PopoverAnchor>
                       <input
                         autoFocus
                         defaultValue={group.name}
-                        aria-label="Folder name"
+                        aria-label={place ? 'Folder name' : 'Group name'}
                         onFocus={(event) => event.target.select()}
                         onKeyDown={(event) => {
                           if (event.key === 'Enter') rename(event.currentTarget.value)
                           if (event.key === 'Escape') (event.preventDefault(), event.stopPropagation(), onRenaming(false))
                         }}
                         onBlur={(event) => rename(event.target.value)}
-                        className="min-w-0 flex-1 rounded-sm bg-transparent text-control font-medium outline-none placeholder:text-muted-foreground"
-                        placeholder="Name the folder"
+                        className={cn('min-w-0 flex-1 rounded-sm bg-transparent outline-none placeholder:text-muted-foreground', place ? 'text-control font-medium' : 'text-xs font-semibold')}
+                        placeholder={place ? 'Name the folder' : 'Name the group'}
                       />
                     </div>
+                  ) : place ? (
+                    <button
+                      type="button"
+                      data-group-row={group.id}
+                      aria-label={name}
+                      // A folder is a place, as in Finder: a click or Enter opens it, and nothing unfolds in the list.
+                      onClick={() => onOpenFolder && (chime('open'), onOpenFolder(group.id))}
+                      onKeyDown={(event) => {
+                        if ((event.key === 'Enter' || event.key === ' ') && onOpenFolder) return (event.preventDefault(), event.stopPropagation(), chime('open'), onOpenFolder(group.id))
+                        if (event.key === 'F2') (event.preventDefault(), onRenaming(true))
+                      }}
+                      // A row as tall as a page's, its folder in the thumbnail's own box, its name on the titles' line, its count on the right.
+                      className={cn(ROW_SHAPE, ROW_PAD, 'cursor-pointer hover:bg-accent/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-accent/60')}
+                      style={{ paddingRight: group.unsorted?.length && onSort ? '19rem' : undefined }}
+                    >
+                      <PopoverAnchor asChild><GroupTile group={group} /></PopoverAnchor>
+                      <span data-folder-row-name="" className="min-w-0 flex-1 truncate text-control font-medium text-foreground">{name}</span>
+                      {/* How many it holds, on the right as Finder says it, in this list's own word. */}
+                      <span data-count={count} className="shrink-0 text-meta text-muted-foreground tabular-nums">{plural(count, noun)}</span>
+                    </button>
                   ) : (
                     <button
                       type="button"
                       data-group-row={group.id}
                       aria-expanded={group.open}
-                      aria-label={name}
-                      // As in Finder's list view: the chevron folds it open in place; a click on the rest of the row opens it as its
-                      // own page (where there is no page to open, it folds).
-                      onClick={() => (onOpenFolder ? (chime('open'), onOpenFolder(group.id)) : fold())}
-                      // Enter opens it; Space, → and ← fold it open and shut, as a folder in a tree does; F2 renames it, as in Finder.
+                      onClick={() => (pressedIcon() ? (chime('open'), setPicking(true)) : fold())}
+                      onDoubleClick={() => onRenaming(true)}
+                      // ← folds and → unfolds, as a folder in a list does; F2 renames it.
                       onKeyDown={(event) => {
-                        if (event.key === 'Enter' && onOpenFolder) return (event.preventDefault(), event.stopPropagation(), chime('open'), onOpenFolder(group.id))
-                        if ((event.key === 'ArrowLeft' && group.open) || (event.key === 'ArrowRight' && !group.open) || event.key === 'Enter' || event.key === ' ') (event.preventDefault(), event.stopPropagation(), fold())
+                        if ((event.key === 'ArrowLeft' && group.open) || (event.key === 'ArrowRight' && !group.open)) (event.preventDefault(), fold())
                         if (event.key === 'F2') (event.preventDefault(), onRenaming(true))
                       }}
-                      // The panel marks it while its menu is open: no second mark on the row.
                       // A slim title bar: its box and focus ring are a page row's (row-shape.ts), its icon and chevron sit in a page's tile column,
                       // so its name starts on the page titles' line; only its right side keeps room for its buttons.
-                      // A row as tall as a page's, its folder in the tile column, its name on the titles' line, its count on the right.
-                      className={cn(ROW_SHAPE, ROW_PAD, 'cursor-pointer hover:bg-accent/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-accent/60')}
-                      style={{ paddingRight: group.unsorted?.length && onSort ? '19rem' : undefined }}
+                      className={cn(ROW_SHAPE, HEAD, 'cursor-pointer data-[state=open]:bg-transparent!')}
+                      style={{ paddingRight: group.unsorted?.length && onSort ? '12.5rem' : '2.25rem' }}
                     >
-                      <PopoverAnchor asChild><GroupTile group={group} onFold={fold} /></PopoverAnchor>
-                      <span data-folder-row-name="" className="min-w-0 flex-1 truncate text-control font-medium text-foreground">{name}</span>
-                      {/* How many it holds, open or folded, on the right as Finder says it, in this list's own word. */}
-                      <span data-count={count} className="shrink-0 text-meta text-muted-foreground tabular-nums">{plural(count, noun)}</span>
+                      <PopoverAnchor asChild><PanelTile group={group} onIcon={() => setPicking(true)} /></PopoverAnchor>
+                      <span className="min-w-0 truncate text-xs font-semibold">{name}</span>
+                      {/* How many it holds, open or folded, quiet after the name. */}
+                      <span data-count={count} className="-ml-1 shrink-0 text-xs text-muted-foreground tabular-nums">· {num(count)}</span>
+                      {/* Open, a hairline under it, inside the group's box. */}
+                      {group.open && <span aria-hidden data-head-line="" className="pointer-events-none absolute inset-x-2 bottom-0 h-px" style={{ background: `color-mix(in srgb, var(--group-tint) ${tint ? 18 : 10}%, transparent)` }} />}
                     </button>
                   )}
                 </ContextMenuTrigger>
-                <GroupMenu group={group} members={entries.map((entry) => entry.id)} onOpenFolder={onOpenFolder && (() => (chime('open'), onOpenFolder(group.id)))} onSeparate={separate} onRename={() => onRenaming(true)} onIcon={() => setPicking(true)} onNewNote={onNewNote} onSort={onSort} onSorted={onSorted} />
+                <GroupMenu group={group} members={entries.map((entry) => entry.id)} onOpenFolder={place && onOpenFolder ? () => (chime('open'), onOpenFolder(group.id)) : undefined} onSeparate={separate} onRename={() => onRenaming(true)} onIcon={() => setPicking(true)} onNewNote={onNewNote} onSort={onSort} onSorted={onSorted} />
               </ContextMenu>
               {/* Open until an icon is picked, Esc, or a click elsewhere: the focus moving on as the menu shuts never closes it. */}
               <PopoverContent align="start" className="w-auto gap-0 overflow-hidden p-0" onFocusOutside={(event) => event.preventDefault()}>
@@ -1229,8 +1168,8 @@ function GroupBlock({ group, entries, parts, start, cursor, estimate, row, carri
                   data-sort-these={group.unsorted.length}
                   onClick={() => onSort(group.unsorted!)}
                   onPointerDown={(event) => event.stopPropagation()}
-                  className="absolute top-1/2 right-24 flex h-6 -translate-y-1/2 cursor-pointer! items-center gap-1.5 rounded-full px-2.5 text-control font-medium text-foreground transition-[filter] hover:brightness-95 dark:hover:brightness-125"
-                  style={{ background: `color-mix(in srgb, var(--tt-color-text-orange) 14%, var(--background))` }}
+                  className="absolute top-1/2 flex h-6 -translate-y-1/2 cursor-pointer! items-center gap-1.5 rounded-full px-2.5 text-control font-medium text-foreground transition-[filter] hover:brightness-95 dark:hover:brightness-125"
+                  style={{ right: place ? '6rem' : '2rem', background: `color-mix(in srgb, var(--tt-color-text-orange) 14%, var(--background))` }}
                 >
                   <span aria-hidden className="size-1.5 rounded-full bg-[var(--tt-color-text-orange)]" />
                   <span className="tabular-nums"><Rolling text={group.unsorted.length} /> to sort</span>
@@ -1239,10 +1178,28 @@ function GroupBlock({ group, entries, parts, start, cursor, estimate, row, carri
                 </button>
               </Tip>
             )}
+            {/* A group's ×, shown while it is pointed at: Separate, its notes staying where they are. */}
+            {!place && !renaming && (
+              <Tip label={`Separate: keeps ${count === 1 ? 'the note' : `all ${num(count)} notes`}`}>
+                <button
+                  type="button"
+                  data-group-separate=""
+                  aria-label="Separate"
+                  onClick={separate}
+                  onMouseEnter={() => setPointing(true)}
+                  onMouseLeave={() => setPointing(false)}
+                  // Not a handle: pressing here never lifts the group.
+                  onPointerDown={(event) => event.stopPropagation()}
+                  className={cn('absolute top-[1.125rem] right-0.5 flex size-6 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-opacity duration-150 hover:bg-accent hover:text-foreground focus-visible:opacity-100', over || shown ? 'opacity-100' : 'opacity-0')}
+                >
+                  <Cross className="size-3.5" />
+                </button>
+              </Tip>
+            )}
           </Node>
         </div>
       </div>
-      <Fold open={group.open && !carried}>
+      <Fold open={!place && group.open && !carried}>
         {(() => {
           const one = ({ part, at }: (typeof placed)[number], index: number): React.JSX.Element =>
             'entry' in part
@@ -1253,14 +1210,14 @@ function GroupBlock({ group, entries, parts, start, cursor, estimate, row, carri
           // A big group draws only the rows near the screen, as a plain list does: one of 2,500 drew every one, and ⌘A or a
           // fold froze the window. A small one draws them all, the way its carried rows and panel are measured.
           return placed.length > BIG ? (
-            <div className="ml-[26px] pb-[3px]">
+            <div className="pb-[3px]">
               <VirtualList items={placed} keyOf={({ part }) => ('entry' in part ? part.entry.id : part.group.id)} cursor={inside >= 0 ? inside : undefined} estimate={estimate} rowClass="pb-px">
                 {one}
               </VirtualList>
             </div>
           ) : placed.length ? (
-            // What it holds, as the sidebar's tree draws them: stepped in under its row, hung off a thin trunk, no box of its own (children look like children).
-            <Branches current={-1} className="ml-[26px] flex flex-col gap-px pb-1">{placed.map(one)}</Branches>
+            // Inside its panel, as a group always showed them: the panel round them is what holds them.
+            <div className="flex flex-col gap-px pb-1">{placed.map(one)}</div>
           ) : (
             // A folder made empty, or emptied: it stays, as a row of its own in the list's shape (a dashed tile,
             // a line and a quiet line under it, on the page titles' edge), and a click starts its first note.
@@ -1341,6 +1298,8 @@ export function GroupMenu({ group, members, onOpenFolder, onSeparate, onRename, 
 }): React.JSX.Element {
   const later = (run: () => void) => () => void setTimeout(run, 0)
   const left = group.unsorted ?? []
+  // A folder's menu says folder; a group's says group, as its menu always did.
+  const word = group.folder ? 'folder' : 'group'
   // Read as the menu opens (it is drawn only while open): its notes' web links, for "Copy all links".
   const [links, setLinks] = useState<string[]>([])
   useEffect(() => void groups.links(group.id).then(setLinks), [group.id])
@@ -1351,13 +1310,14 @@ export function GroupMenu({ group, members, onOpenFolder, onSeparate, onRename, 
       {left.length > 0 && onSort && <ContextMenuItem onSelect={later(() => onSort(left))}>Sort these ({num(left.length)})</ContextMenuItem>}
       {left.length > 0 && onSorted && <ContextMenuItem onSelect={() => onSorted(left, true)}>Mark all as sorted</ContextMenuItem>}
       {left.length > 0 && <ContextMenuSeparator />}
-      <ContextMenuItem onSelect={() => void groups.note(group.id).then((id) => id && (chime('promote'), onNewNote(id)))}>New note in folder</ContextMenuItem>
+      <ContextMenuItem onSelect={() => void groups.note(group.id).then((id) => id && (chime('promote'), onNewNote(id)))}>New note in {word}</ContextMenuItem>
+      {!group.folder && <ContextMenuItem data-group-separate-item onSelect={onSeparate}>Separate</ContextMenuItem>}
       <ContextMenuItem
         onSelect={() =>
           void groups.duplicate(group.id).then((made) => made && (chime('copy'), toast('Duplicated, with a copy of each note', () => void groups.unclone(made.ids))))
         }
       >
-        Duplicate folder
+        Duplicate {word}
       </ContextMenuItem>
       {/* Only when its notes hold a web link: a line that would say "no links" is not offered. */}
       {links.length > 0 && (
@@ -1392,8 +1352,8 @@ export function GroupMenu({ group, members, onOpenFolder, onSeparate, onRename, 
       <ContextMenuItem onSelect={later(onRename)}>Rename…</ContextMenuItem>
       <ContextMenuItem onSelect={later(onIcon)}>Change icon…</ContextMenuItem>
       <ContextMenuSeparator />
-      <ContextMenuItem onSelect={() => void archive('nuggets', members, true)}>Archive folder</ContextMenuItem>
-      <ContextMenuItem data-folder-delete variant="destructive" onSelect={onSeparate}>Delete folder, keep its notes</ContextMenuItem>
+      <ContextMenuItem onSelect={() => void archive('nuggets', members, true)}>Archive {word}</ContextMenuItem>
+      {group.folder && <ContextMenuItem data-folder-delete variant="destructive" onSelect={onSeparate}>Delete folder, keep its notes</ContextMenuItem>}
     </ContextMenuContent>
   )
 }

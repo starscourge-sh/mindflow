@@ -25,12 +25,12 @@ try {
   const m = await h.evaluate(() => {
     const panel = document.querySelector('[data-preview]')?.getBoundingClientRect()
     const third = [...document.querySelectorAll('[data-sortable-id]')].filter((n) => !n.closest('aside') && !n.closest('[data-group-block]') && n.getClientRects().length)[2]?.getBoundingClientRect()
-    const said = document.body.innerText.includes('New folder')
+    const said = document.body.innerText.includes('New group')
     return { panel: panel && { top: Math.round(panel.top), bottom: Math.round(panel.bottom) }, third: third && { top: Math.round(third.top), bottom: Math.round(third.bottom) }, said }
   })
   await h.screenshot({ path: `${process.env.SHOTS ?? '/tmp'}/new-group-preview.png`, clip: { x: 0, y: 380, width: 1500, height: 520 } })
   await h.keyboard.press('Escape'); await h.mouse.up()
-  check('dropping onto a row says "New folder"', m.said)
+  check('dropping onto a row says "New group"', m.said)
   check('the panel is drawn', !!m.panel, JSON.stringify(m))
   check(`the next row sits below the panel, not inside it (${m.third?.top} vs ${m.panel?.bottom})`, m.panel && m.third && m.third.top >= m.panel.bottom - 2, JSON.stringify(m))
 } finally {

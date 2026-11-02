@@ -1,7 +1,8 @@
 // Writing, Gems and Questions show one list, Finder's list view: folder rows first (as tall as a note's row, a small
-// folder drawn in the tile column, a chevron, a name, a count in the list's own word), then your own groups (headings
-// made by hand) with their notes, then the rest, cut by Display's Grouping. A group is never a folder: it never takes a
-// note out of where it lives. Questions shows only the folders that hold questions, counted in questions.
+// folder drawn in the thumbnail's own box, a name, a count in the list's own word, no chevron: a folder is a place and
+// a click opens it), then your groups (the panels a drop on a note's middle makes) with their notes inside, then the
+// rest, cut by Display's Grouping. A group never takes a note out of its folder. Questions shows only the folders that
+// hold questions, counted in questions.
 //
 //   QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 QA_ARGS=--sandbox node qa/folder-list.mjs
 import { checks } from './harness.mjs'
@@ -16,13 +17,13 @@ const shots = process.env.QA_SHOTS
 const M = '[role="main"]'
 const setView = (list, view) => h.evaluate(([key, view]) => localStorage.setItem(key, JSON.stringify({ sort: 'newest', group: 'none', filter: {}, density: 'list', ...view })), [`view:${list}`, view])
 const look = () => h.evaluate(() => {
-  const rows = [...document.querySelectorAll('[role="main"] [data-group-row], [role="main"] [data-hand-group], [role="main"] [data-row]')]
+  const rows = [...document.querySelectorAll('[role="main"] [data-group-row], [role="main"] [data-row]')]
   return {
-    order: rows.map((one) => (one.hasAttribute('data-group-row') ? 'F' : one.hasAttribute('data-hand-group') ? 'G' : 'n')).join(''),
+    order: rows.map((one) => (one.hasAttribute('data-group-row') ? (one.closest('[data-folder-row]') ? 'F' : 'G') : 'n')).join(''),
     ids: rows.filter((one) => one.hasAttribute('data-row')).map((one) => one.getAttribute('data-id')),
     grid: document.querySelectorAll('[data-folder-grid], [data-folder-tile]').length,
     heads: [...document.querySelectorAll('[role="main"] [data-group-head]')].map((one) => one.getAttribute('data-group-head')),
-    counts: [...document.querySelectorAll('[role="main"] [data-group-row] [data-count]')].map((one) => one.textContent.trim())
+    counts: [...document.querySelectorAll('[role="main"] [data-folder-row] [data-group-row] [data-count]')].map((one) => one.textContent.trim())
   }
 })
 const fresh = async (page) => { await go(page === 'articles' ? 'nuggets' : 'articles'); await go(page); await h.waitForTimeout(700) }
@@ -46,23 +47,14 @@ try {
     check(`${page}: every folder counts in ${noun}s`, seen.counts.length > 0 && seen.counts.every((one) => new RegExp(`^[\\d,]+ ${noun}s?$`).test(one)), seen.counts.join(' | '))
     const target = (await v('groups', list)).find((one) => !one.parent && one.members.length >= 2)
     const row = h.locator(`${M} [data-group-row="${target.id}"]`)
-    // The chevron unfolds it in place, its notes under tree lines; again, it folds.
-    await row.locator('[data-group-fold]').click()
-    await h.waitForTimeout(500)
-    const unfolded = await h.evaluate((id) => ({ rows: document.querySelectorAll(`[role="main"] [data-group-block="${id}"] [data-row]`).length, lines: !!document.querySelector(`[role="main"] [data-group-block="${id}"] svg path`), open: document.querySelector(`[role="main"] [data-group-row="${id}"]`).getAttribute('aria-expanded') }), target.id)
-    if (shots) await h.screenshot({ path: `${shots}/${page}-unfolded.png` })
-    check(`${page}: the chevron unfolds ${target.name} in place, its notes under tree lines`, unfolded.open === 'true' && unfolded.rows > 0 && unfolded.lines, JSON.stringify(unfolded))
-    await row.locator('[data-group-fold]').click()
-    await h.waitForTimeout(400)
-    check(`${page}: the chevron folds it again`, (await row.getAttribute('aria-expanded')) === 'false')
-    // → and ← from the keyboard.
+    // A folder is a place: no chevron, nothing unfolds in the list, and a click or Enter opens it.
+    const plainRow = await h.evaluate((id) => { const row = document.querySelector(`[role="main"] [data-group-row="${id}"]`); return { chevron: !!row.querySelector('[data-group-fold], svg.lucide-chevron-right'), expanded: row.getAttribute('aria-expanded'), inside: document.querySelectorAll(`[role="main"] [data-group-block="${id}"] [data-row]`).length } }, target.id)
+    check(`${page}: ${target.name}'s row has no chevron and shows none of its notes in the list`, !plainRow.chevron && plainRow.expanded === null && plainRow.inside === 0, JSON.stringify(plainRow))
     await row.focus()
     await h.keyboard.press('ArrowRight')
     await h.waitForTimeout(300)
-    const right = await row.getAttribute('aria-expanded')
-    await h.keyboard.press('ArrowLeft')
-    await h.waitForTimeout(300)
-    check(`${page}: → unfolds and ← folds the focused folder row`, right === 'true' && (await row.getAttribute('aria-expanded')) === 'false')
+    check(`${page}: → on the folder row unfolds nothing`, (await h.evaluate((id) => document.querySelectorAll(`[role="main"] [data-group-block="${id}"] [data-row]`).length, target.id)) === 0)
+    await row.focus()
     // Enter opens it as its page.
     await h.keyboard.press('Enter')
     await h.waitForTimeout(800)
@@ -94,64 +86,39 @@ try {
     await setView(list, {})
   }
 
-  // A group made by hand inside a folder: its notes under its heading, then the rest; fold, delete, and the notes stay.
-  const folder = (await v('groups', 'article')).find((one) => !one.parent && one.members.length >= 3)
-  const section = await v('sections:make', 'article', folder.id, 'Probe heading', folder.members.slice(0, 2))
+  // A group inside a folder: a note dropped on another's middle makes the old panel, both notes in it, and both stay in the folder.
+  const folder = (await v('groups', 'article')).find((one) => !one.parent && one.folder && one.members.length >= 3)
   await fresh('articles')
   await h.locator(`${M} [data-group-row="${folder.id}"] [data-folder-row-name]`).click()
   await h.waitForTimeout(900)
-  const made = await look()
-  if (shots) await h.screenshot({ path: `${shots}/hand-group.png` })
-  check('a hand-made group inside a folder heads its 2 notes, then the rest under "Not in a group"', made.order.startsWith('Gnn') && made.heads.includes('Not in a group') && new Set(made.ids.slice(0, 2)).size === 2 && folder.members.slice(0, 2).every((id) => made.ids.slice(0, 2).includes(id)), made.order)
-  check('its heading counts 2 pages', (await h.locator(`${M} [data-hand-count]`).first().textContent()).trim() === '2 pages')
-  await h.locator(`${M} [data-hand-fold]`).click()
-  await h.waitForTimeout(600)
-  const folded = await look()
-  check('folded, the heading stays and its notes go', folded.order.startsWith('Gn') && !folded.ids.slice(0, 2).some((id) => folder.members.slice(0, 2).includes(id)), folded.order)
-  await h.locator(`${M} [data-hand-fold]`).click()
-  await h.waitForTimeout(600)
-  // A note carried onto the heading goes in.
-  const third = folder.members[2]
-  const from = h.locator(`${M} [data-row][data-id="${third}"]`).first()
-  const to = h.locator(`${M} [data-hand-group="${section}"]`)
-  const a = await from.boundingBox()
-  const b = await to.boundingBox()
-  await h.mouse.move(a.x + 60, a.y + a.height / 2)
+  const boxes = await h.evaluate(() => [...document.querySelectorAll('[role="main"] [data-sortable-id]')].filter((one) => !one.getAttribute('data-sortable-id').startsWith('g:')).slice(0, 2).map((one) => { const r = one.getBoundingClientRect(); return { id: one.getAttribute('data-sortable-id'), x: r.x, y: r.y, h: r.height } }))
+  const [one, two] = boxes
+  await h.mouse.move(one.x + 80, one.y + one.h / 2)
   await h.mouse.down()
-  for (let i = 1; i <= 12; i++) { await h.mouse.move(a.x + 60, a.y + a.height / 2 + ((b.y + b.height / 2) - (a.y + a.height / 2)) * i / 12); await h.waitForTimeout(30) }
-  await h.waitForTimeout(300)
+  for (let i = 1; i <= 16; i++) { await h.mouse.move(one.x + 80, one.y + one.h / 2 + (two.y - one.y) * i / 16); await h.waitForTimeout(30) }
+  await h.waitForTimeout(800)
   await h.mouse.up()
   await h.waitForTimeout(900)
-  const after = (await v('sections', 'article')).find((one) => one.id === section)
-  check('a note carried onto the heading joins the group, and stays in its folder', after.members.includes(third) && (await v('groups', 'article')).find((one) => one.id === folder.id).members.includes(third), JSON.stringify(after.members))
-  // Right-click, delete the group: its notes stay in the folder.
-  await to.click({ button: 'right' })
-  await h.waitForTimeout(300)
-  await h.getByRole('menuitem', { name: 'Delete group, keep its notes' }).click()
-  await h.waitForTimeout(800)
-  const gone = await look()
-  const still = (await v('groups', 'article')).find((one) => one.id === folder.id).members
-  check('deleted, the heading goes and its notes stay in the folder', !gone.order.includes('G') && folder.members.every((id) => still.includes(id)) && gone.ids.length === folder.members.length, gone.order)
-  // ⌘Z brings it back.
-  await h.keyboard.press('Meta+z')
-  await h.waitForTimeout(900)
-  check('⌘Z brings the group back with its notes', (await v('sections', 'article')).some((one) => one.id === section && one.members.length === 3))
-
-  // A group made from the list itself: right-click its empty space, "New group", named in place, empty.
+  const naming = await h.evaluate(() => ({ label: document.activeElement?.getAttribute('aria-label'), value: document.activeElement?.value }))
+  await h.keyboard.press('Escape')
+  await h.waitForTimeout(400)
+  const made = (await v('groups', 'article')).find((g) => !g.folder && g.parent === folder.id)
+  const inFolder = await look()
+  if (shots) await h.screenshot({ path: `${shots}/group-in-folder.png` })
+  check('inside a folder, a note on another\'s middle makes a group there, its name open as the old one was ("Group N")', naming.label === 'Group name' && /^Group \d+$/.test(naming.value ?? '') && !!made && made.members.length === 2, JSON.stringify(naming))
+  check('the group is a panel holding both notes in the list', inFolder.order.startsWith('Gnn') && [one.id, two.id].every((id) => inFolder.ids.slice(0, 2).includes(id)), inFolder.order)
+  check('the folder still counts them, and they are not shown loose at the top level', (await v('items', 'article')).filter((x) => [one.id, two.id].includes(x.id)).length === 2)
   await fresh('articles')
+  const topIds = (await look()).ids
+  check('at the top level, the notes in the folder\'s group stay hidden (folders isolate)', ![one.id, two.id].some((id) => topIds.includes(id)))
+
+  // The list's empty space offers New folder; there is no hand-made heading any more.
   const space = await h.locator(`${M} [data-list-space]`).boundingBox()
   await h.mouse.click(space.x + 200, space.y + space.height - 30, { button: 'right' })
   await wait(400)
-  await h.getByRole('menuitem', { name: 'New group' }).click()
-  await wait(900)
-  const naming = await h.evaluate(() => document.activeElement?.getAttribute('aria-label'))
-  await h.keyboard.type('Someday')
-  await h.keyboard.press('Enter')
-  await wait(800)
-  const empty = (await v('sections', 'article')).find((one) => one.name === 'Someday')
-  check('right-click on the list\'s empty space, "New group": an empty group, named in place', naming === 'Group name' && !!empty && empty.members.length === 0 && (await h.locator(`${M} [data-hand-group="${empty?.id}"]`).count()) === 1, String(naming))
-  if (shots) await h.screenshot({ path: `${shots}/new-empty-group.png` })
-  check('an empty group says "Drag notes here" under its heading, once', ((await h.locator(`${M} [data-hand-empty]`).allTextContents()).join() === 'Drag notes here'))
+  const offered = await h.evaluate(() => [...document.querySelectorAll('[role="menuitem"]')].map((m) => m.textContent.trim()))
+  await h.keyboard.press('Escape')
+  check('right-click on the list\'s empty space offers "New folder"', offered.some((t) => t.startsWith('New folder')), offered.join(' | '))
 
   // Questions: only folders that hold questions, counted in questions.
   const qs = []

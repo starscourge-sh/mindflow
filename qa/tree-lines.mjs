@@ -49,7 +49,7 @@ try {
   await h.locator('[data-side-row][aria-label="Writing"]').hover()
   await h.locator('[data-folders-fold="article"]').click(); await h.waitForTimeout(1200)
   // Made in the app: an empty folder, then "New folder inside" it, named, the way the user built theirs.
-  await c.v('groups:arrange', 'article', { top: [...top, 'g:f-empty'], groups: shape, make: { id: 'f-empty', name: 'Folder 5' } })
+  await c.v('groups:arrange', 'article', { top: [...top, 'g:f-empty'], groups: shape, make: { id: 'f-empty', name: 'Folder 5', folder: true } })
   await h.waitForTimeout(800)
   await h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:folder-new', { detail: { list: 'article', parent: 'f-empty' } })))
   await h.waitForTimeout(800)

@@ -6,7 +6,7 @@ import { createPortal } from 'react-dom'
 import { haligtree } from '@/lib/haligtree'
 import { DEPTH, KEY, layoutOf, moveTo } from '@/lib/group-layout'
 import { notes } from '@/lib/notes'
-import { groups, useGroups, useKept, type NoteGroup } from '@/lib/groups'
+import { groups, isFolder, useGroups, useKept, type NoteGroup } from '@/lib/groups'
 import { chime } from '@/lib/sound'
 import { num } from '../../../../main/dates'
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
@@ -151,7 +151,7 @@ export function SideFolders({ list, counted, open, shown, here, onOpen, onUnfold
   // The folder you are in, or one it sits inside: the lit way down runs through each.
   const holds = (id: string): boolean => id === here || kids(id).some((one) => holds(one.id))
   const rows = (parent: string | null, depth: number): React.JSX.Element | null => {
-    const these = kids(parent)
+    const these = kids(parent).filter(isFolder)
     // Groups that gather by a rule hang after the folders, off the same trunk: folders first, as a beginner meets them.
     const many = smart.length > GROUPS_SHOWN && !everyGroup
     const gathered = parent === null ? (many ? smart.filter((one, at) => at < GROUPS_SHOWN || here === GROUP_KEY + one.id) : smart) : []
@@ -375,14 +375,14 @@ function SmartRow({ group, shown, counted, here, onOpen }: { group: SmartGroup; 
 export function RailFolders({ list, onOpen }: { list: 'article' | 'nugget'; onOpen: (id: string) => void }): React.JSX.Element | null {
   const all = useGroups(list)
   const smart = useSmartGroups(list)
-  if (!all.length && !smart.length) return null
-  const under = (parent: string | null): RowItem[] => all.filter((one) => (one.parent ?? null) === parent).map((group) => {
+  if (!all.some(isFolder) && !smart.length) return null
+  const under = (parent: string | null): RowItem[] => all.filter((one) => isFolder(one) && (one.parent ?? null) === parent).map((group) => {
     const kids = under(group.id)
     const icon = <GroupIcon icon={group.icon} color={group.color} className="size-3.5" />
     return kids.length ? { label: group.name, icon, items: [{ label: `Open ${group.name}`, icon, run: () => onOpen(group.id) }, 'separator', ...kids] } : { label: group.name, icon, run: () => onOpen(group.id) }
   })
   const items: RowItem[] = [
-    ...(all.length ? [{ heading: 'Folders' } as RowItem, ...under(null)] : []),
+    ...(all.some(isFolder) ? [{ heading: 'Folders' } as RowItem, ...under(null)] : []),
     ...(smart.length ? [{ heading: 'Groups: gathered by tags' } as RowItem, ...smart.map((group) => ({ label: group.name, hint: tagsSaid(group.tags), icon: <GroupMark className="size-3.5" style={{ color: 'var(--tt-color-text-purple)' }} />, run: () => onOpen(GROUP_KEY + group.id) }))] : [])
   ]
   const name = list === 'article' ? 'Writing' : 'Gems'

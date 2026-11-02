@@ -12,9 +12,10 @@
 export type Layout = {
   top: string[]
   groups: Record<string, string[]>
-  make?: { id: string; name: string }
+  /** A group (or, with `folder`, a folder) this change makes. */
+  make?: { id: string; name: string; folder?: boolean }
   /** Groups to bring back as they were, for an Undo of what took them apart. */
-  revive?: { id: string; name: string; icon: string | null; color: string | null; folded: number }[]
+  revive?: { id: string; name: string; icon: string | null; color: string | null; folded: number; folder?: number }[]
 }
 /** Where a note goes: into a group (or the top level, null), just after `after` (or first, null). */
 type Place = { group: string | null; after: string | null }
@@ -306,12 +307,24 @@ export function dropMany(layout: Layout, ids: string[], target: string, how: How
 }
 
 /**
- * Kept for the list's one place where a change is written: a group is a
- * place, as a folder is, so nothing comes apart any more; only Separate or
- * Delete takes one away.
+ * A group (not a folder: `folders`) left with one note, or none, comes apart, as
+ * it always did: what was in it stays where it was, in whatever held it. A
+ * folder is a place and stays, empty or not; only Delete takes one away.
  */
-export function tidy(layout: Layout): { layout: Layout; dissolved: string[] } {
-  return { layout, dissolved: [] }
+export function tidy(layout: Layout, folders: Set<string> = new Set()): { layout: Layout; dissolved: string[] } {
+  const dissolved: string[] = []
+  let now = layout
+  for (let pass = 0; pass < 3; pass++) {
+    const gone = Object.keys(now.groups).filter((group) => !folders.has(group) && now.groups[group].length < 2)
+    if (!gone.length) break
+    dissolved.push(...gone)
+    const was = now
+    const open = (key: string): string[] => (isGroup(key) && gone.includes(groupId(key)) ? was.groups[groupId(key)] ?? [] : [key])
+    const groups: Record<string, string[]> = {}
+    for (const [group, keys] of Object.entries(was.groups)) if (!gone.includes(group)) groups[group] = keys.flatMap(open)
+    now = { ...was, top: was.top.flatMap(open), groups }
+  }
+  return { layout: now, dissolved }
 }
 
 /**

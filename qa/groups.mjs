@@ -2,7 +2,7 @@
 // happens: a drag rested on a row's middle (the group about to form) and near its
 // edge (only a line), a note carried out of its group, a group forming,
 // picking rows with ⌘-click and the menu that speaks for them, ⌃⌘N, ← and →
-// on a group's row, folding, Separate and its Undo; then a restart to see it
+// on a group's row, folding, Separate and its Undo (groups as they were before groups became folders, 1 Nov); then a restart to see it
 // all kept, the hand cursors, a dark theme, and the chips another sort shows.
 //
 //   npx electron-vite build --outDir out-groups
@@ -19,7 +19,7 @@ const check = (name, ok, detail = '') => { results.push(!!ok); console.log(`${ok
 const TITLES = ['Spaced repetition, a primer', 'How memory palaces work', 'Reading list for October', 'Notes on Zettelkasten', 'The forgetting curve', 'Interleaving beats blocking']
 
 const open = async (fresh = true) => {
-  const c = await sandbox({ width: 1100, height: 760 })
+  const c = await sandbox({ width: 1100, height: 1000 })
   // From a book with no folders yet: the sandbox's own are taken away, their notes left where they are.
   if (fresh) for (const list of ['article', 'nugget']) for (const group of await c.v('groups', list)) await c.v('groups:delete', group.id)
   // Your own order, as a list: where groups show.
@@ -41,10 +41,10 @@ const reach = async (c, title) => {
   await one.scrollIntoViewIfNeeded().catch(() => {})
   return one
 }
-/** Every folder starts shut (beta.83): each one on show opened by its chevron, so the notes in it are rows. */
+/** Any group folded opened again (a click on its row), so the notes in it are rows. */
 const openAll = async (c) => {
   for (let i = 0; i < 10; i++) {
-    const shut = c.h.locator('[data-group-row][aria-expanded="false"] [data-group-fold]').first()
+    const shut = c.h.locator('[data-group-row][aria-expanded="false"]').first()
     if (!(await shut.count())) return
     await shut.click()
     await c.h.waitForTimeout(250)
@@ -95,7 +95,7 @@ const memberTitles = async (c, name) => {
 let c = process.env.ONLY ? null : await open()
 if (c) try {
   await c.theme('light')
-  await c.size(1100, 760)
+  await c.size(1100, 1000)
   for (const title of TITLES) {
     const id = await c.v('article:new')
     await c.v('item:save', id, { title, attribution: title.includes('primer') ? 'https://gwern.net/spaced-repetition' : null })
@@ -110,7 +110,7 @@ if (c) try {
       await c.h.waitForTimeout(700)
       await frames(c, 'a-middle', 6, 40)
       check('over a row\'s middle, a preview of the group shows', await c.h.locator('[data-preview]').count() === 1)
-      check('and the label says so, naming the row', (await said(c)) === 'New folder with Spaced repetition, a pr…', await said(c))
+      check('and the label says so, naming the row', (await said(c)) === 'New group', await said(c))
       check('and no insertion line', await c.h.locator('[data-drop-line]').count() === 0)
     }
   })
@@ -121,7 +121,7 @@ if (c) try {
   let list = await groupsNow(c)
   check('let go there, a group of two forms', list.length === 1 && list[0].members.length === 2)
   const focused = await c.h.evaluate(() => document.activeElement?.getAttribute('aria-label'))
-  check('its name is being written', focused === 'Folder name', String(focused))
+  check('its name is being written, as the old group\'s was', focused === 'Group name', String(focused))
   await c.h.keyboard.type('Memory')
   await c.h.keyboard.press('Enter')
   await c.h.waitForTimeout(400)
@@ -188,7 +188,7 @@ if (c) try {
   await c.h.locator('[data-slot="context-menu-sub-trigger"]', { hasText: 'Move to folder' }).hover()
   await c.h.waitForTimeout(350)
   const sub = await c.h.locator('[data-slot="context-menu-sub-content"] [role="menuitem"]').allTextContents()
-  check('Move to folder lists Memory and New folder…', sub.includes('Memory') && sub.includes('New folder…'), sub.join(' | '))
+  check('Move to folder offers New folder…, and never the group Memory (a group is not a folder)', !sub.includes('Memory') && sub.includes('New folder…'), sub.join(' | '))
   await frames(c, 'h-submenu', 1, 0)
   // Escape only while a menu is open: one Escape too many clears the picks (the list's own Escape), and whether the
   // submenu and its menu shut on one press or two depends on timing.
@@ -198,14 +198,14 @@ if (c) try {
   }
   check('the two are still picked once the menu is shut', (await picked(c)).length === 2, JSON.stringify(await picked(c)))
 
-  // 7. ⌃⌘N groups the two picked, and its name is ready.
+  // 7. ⌘G (Figma's) groups the two picked, and its name is ready.
   await c.h.mouse.move(900, 700)
-  await c.h.keyboard.press('Control+Meta+n')
+  await c.h.keyboard.press('Meta+g')
   await frames(c, 'i-ctrlcmdn', 6, 35)
   await c.h.waitForTimeout(300)
   list = await groupsNow(c)
-  check('⌃⌘N makes a group of the picked rows', list.length === 2 && list.some((one) => one.members.length === 2 && /^Folder \d+$/.test(one.name)), JSON.stringify(list.map((one) => one.name)))
-  check('with its name being written', (await c.h.evaluate(() => document.activeElement?.getAttribute('aria-label'))) === 'Folder name')
+  check('⌘G makes a group of the picked rows', list.length === 2 && list.some((one) => one.members.length === 2 && /^Group \d+$/.test(one.name)), JSON.stringify(list.map((one) => one.name)))
+  check('with its name being written', (await c.h.evaluate(() => document.activeElement?.getAttribute('aria-label'))) === 'Group name')
   await c.h.keyboard.type('Reading')
   await c.h.keyboard.press('Enter')
   await c.h.waitForTimeout(400)
@@ -276,8 +276,8 @@ if (c) try {
     }
   })
   await c.h.waitForTimeout(700)
-  // A group is a folder: left with one note, it stays.
-  check('both leave, and the group stays with the one left', (await named(c, 'Memory'))?.members.length === 1 && (await c.h.locator('[data-group-row]', { hasText: 'Memory' }).count()) === 1)
+  // As it always did: a group left with one note comes apart, that note staying where it was.
+  check('both leave, and the group, left with one, comes apart', !(await named(c, 'Memory')) && (await c.h.locator('[data-group-row]', { hasText: 'Memory' }).count()) === 0)
   await c.h.keyboard.press('Meta+z')
   await c.h.waitForTimeout(800)
   check('and one ⌘Z brings the group and all three back', (await named(c, 'Memory'))?.members.length === 3 && (await named(c, 'Memory'))?.name === 'Memory')
@@ -296,7 +296,7 @@ if (c) try {
     hold: async () => {
       // A new folder only once the pointer has rested on the row.
       await c.h.waitForTimeout(900)
-      check('over a lone row, the label says a group of three', (await said(c)).startsWith('New folder of 3 with What The Matrix'), await said(c))
+      check('over a lone row, the label says a group of three', (await said(c)).startsWith('New group of 3'), await said(c))
     }
   })
   await c.h.waitForTimeout(700)
@@ -307,22 +307,18 @@ if (c) try {
   await c.h.waitForTimeout(800)
   check('and ⌘Z takes it apart again', (await groupsNow(c)).length === 2)
 
-  // 7g. A group is a folder: Reading holds two, and taking one out, by any
-  // way, leaves it holding the other; ⌘Z puts both back.
+  // 7g. Reading holds two, and taking one out, by any way, leaves one: it comes apart, as a group always did; ⌘Z puts both back.
   const apart = async (how, take) => {
     await take()
     await c.h.waitForTimeout(900)
     const left = await memberTitles(c, 'Reading')
     // Archived, the note only steps out of sight: it is still the group's.
-    check(`${how}: the group stays, holding the other note`, left.includes('Reading list for October') && (how === 'archived' || left.length === 1) && (await c.h.locator('[data-group-row]', { hasText: 'Reading' }).count()) === 1, left.join(' | '))
+    check(`${how}: ${how === 'archived' ? 'the group stays, the archived note still its own' : 'the group comes apart, the other note staying'}`, how === 'archived' ? left.includes('Reading list for October') : !(await named(c, 'Reading')) && (await row(c, 'Reading list for October').count()) === 1, left.join(' | '))
     await c.h.keyboard.press('Meta+z')
     await c.h.waitForTimeout(900)
     const back = await named(c, 'Reading')
     check(`${how}: one ⌘Z brings both notes back`, back?.members.length === 2 && (await c.h.locator('[data-group-row]', { hasText: 'Reading' }).count()) === 1, JSON.stringify(back ?? null))
   }
-  // Every folder starts shut: Reading opened by its chevron, so its notes are rows to carry.
-  await head(c, 'Reading').locator('[data-group-fold]').click()
-  await c.h.waitForTimeout(500)
   await apart('dragged out', async () => {
     await carry(c, row(c, 'Notes on Zettelkasten'), row(c, 'What The Matrix gets right'), 0.9, { hold: async () => (await c.h.waitForTimeout(200), await frames(c, 'z-dissolve-drag', 2, 40)) })
     await frames(c, 'z-dissolve-going', 5, 40)
@@ -330,17 +326,7 @@ if (c) try {
   await apart('Remove from group', async () => {
     await (await reach(c, 'Notes on Zettelkasten')).click({ button: 'right' })
     await c.h.waitForTimeout(250)
-    await c.h.locator('[role="menuitem"]', { hasText: 'Remove from folder' }).click()
-  })
-  await apart('Move to folder', async () => {
-    await (await reach(c, 'Notes on Zettelkasten')).click({ button: 'right' })
-    await c.h.waitForTimeout(250)
-    await c.h.locator('[data-slot="context-menu-sub-trigger"]', { hasText: 'Move to folder' }).hover()
-    await c.h.waitForTimeout(350)
-    // Into the submenu by the keys, as a hand would glide there: its first line is Memory.
-    await c.h.keyboard.press('ArrowRight')
-    await c.h.waitForTimeout(150)
-    await c.h.keyboard.press('Enter')
+    await c.h.locator('[role="menuitem"]', { hasText: 'Remove from group' }).click()
   })
   await apart('archived', async () => {
     await (await reach(c, 'Notes on Zettelkasten')).click({ button: 'right' })
@@ -359,7 +345,7 @@ if (c) try {
   await (await reach(c, 'Interleaving beats blocking')).click({ button: 'right' })
   await c.h.waitForTimeout(250)
   const single = await c.h.locator('[data-slot="context-menu-content"] [role="menuitem"]').allTextContents()
-  check('one row\'s menu offers no new group of one', !single.some((one) => one.startsWith('New folder')), single.join(' | '))
+  check('one row\'s menu offers no new group of one', !single.some((one) => one.startsWith('New folder') || /^Group \d/.test(one)), single.join(' | '))
   await c.h.keyboard.press('Escape')
   await c.h.waitForTimeout(250)
 
@@ -376,19 +362,17 @@ if (c) try {
   await c.h.keyboard.press('ArrowLeft')
   await frames(c, 'j-fold', 6, 35)
   await c.h.waitForTimeout(300)
-  // Folds are the list's own, not saved: every folder starts shut (beta.83).
   check('← folds the group', (await head(c, 'Memory').getAttribute('aria-expanded')) === 'false')
-  check('and its count shows, in pages', /^3 pages$/.test((await head(c, 'Memory').locator('[data-count]').textContent()) ?? ''), await head(c, 'Memory').locator('[data-count]').textContent())
+  check('and its count shows after its name, as the old group\'s did', /^· 3$/.test((await head(c, 'Memory').locator('[data-count]').textContent()) ?? ''), await head(c, 'Memory').locator('[data-count]').textContent())
   await c.h.keyboard.press('ArrowRight')
   await c.h.waitForTimeout(450)
   check('→ unfolds it', (await head(c, 'Memory').getAttribute('aria-expanded')) === 'true')
 
-  // 9. Delete from the folder's right-click menu (its row has no × now, Finder's way): the line says what it keeps;
-  // chosen, it comes apart; ⌘Z puts it back.
+  // 9. Separate from the group's right-click menu, as the old one had it: chosen, it comes apart; ⌘Z puts it back.
   await head(c, 'Memory').click({ button: 'right' })
   await c.h.waitForTimeout(300)
-  const line = c.h.locator('[data-folder-delete]')
-  check('the menu says what Delete keeps', ((await line.textContent()) ?? '').includes('Delete folder, keep its notes'), await line.textContent())
+  const line = c.h.locator('[data-group-separate-item]')
+  check('the menu offers Separate', ((await line.textContent()) ?? '') === 'Separate', await line.textContent())
   await frames(c, 'k-x-hover', 1, 0)
   await line.click()
   await frames(c, 'l-separate', 8, 35)
@@ -397,8 +381,8 @@ if (c) try {
   await c.h.keyboard.press('Meta+z')
   await c.h.waitForTimeout(800)
   check('⌘Z puts the group back together', (await named(c, 'Memory'))?.members.length === 3)
-  // Folded, to see the fold kept after a restart.
-  await head(c, 'Memory').locator('[data-group-fold]').click()
+  // Folded (a click on its row, as it always was), to see the fold kept after a restart.
+  await head(c, 'Memory').click()
   await c.h.waitForTimeout(500)
 } catch (error) {
   console.error(error)
@@ -623,7 +607,7 @@ try {
     const byId = (one) => c.h.locator(`button[data-row][data-id="${one.id}"]`).first()
     await byId(ungrouped[g * 1]).click({ modifiers: ['Meta'] })
     await byId(ungrouped[g * 1 + 2]).click({ modifiers: ['Meta'] })
-    await c.h.keyboard.press('Control+Meta+n')
+    await c.h.keyboard.press('Meta+g')
     await c.h.waitForTimeout(500)
     await c.h.keyboard.press('Enter')
     await c.h.waitForTimeout(400)
@@ -652,7 +636,7 @@ try {
     await reveal(title)
     await row(c, title).click({ button: 'right' })
     await c.h.waitForTimeout(250)
-    await c.h.locator('[data-slot="context-menu-sub-trigger"]', { hasText: 'Move to folder' }).hover()
+    await c.h.locator('[data-slot="context-menu-sub-trigger"]', { hasText: 'Move to group' }).hover()
     await c.h.waitForTimeout(350)
     await c.h.keyboard.press('ArrowRight')
     await c.h.waitForTimeout(150)
@@ -667,10 +651,10 @@ try {
   await reveal(titleOf(hide[1]))
   await row(c, titleOf(hide[1])).click({ button: 'right' })
   await c.h.waitForTimeout(250)
-  await c.h.locator('[role="menuitem"]', { hasText: 'Remove from folder' }).click()
+  await c.h.locator('[role="menuitem"]', { hasText: 'Remove from group' }).click()
   await c.h.waitForTimeout(700)
-  // Out of its folder, it is a loose row, and loose rows come after every folder (Finder's way, since beta.83).
-  check('a hidden row taken out of a folder is loose, under the folders', await c.h.evaluate((id) => {
+  // Out of its group, it is a loose row, after the groups, as the groups stand first.
+  check('a hidden row taken out of a group is loose, under the groups', await c.h.evaluate((id) => {
     const at = document.querySelector(`[data-row][data-id="${id}"]`)
     const blocks = [...document.querySelectorAll('[data-group-block]')]
     return !!at && !at.closest('[data-group-block]') && blocks.length > 0 && blocks.every((b) => b.compareDocumentPosition(at) & Node.DOCUMENT_POSITION_FOLLOWING)
@@ -707,7 +691,7 @@ try {
   await c.h.waitForTimeout(300)
   check('a click beside the chips changes nothing', (await c.h.evaluate(() => localStorage.getItem('view:nugget'))) === filterBefore)
   check('no separate clear button beside the chips', (await c.h.locator('[aria-label="Clear the filters"]').count()) === 0)
-  // A private row's eye and a folder's count sit on one right edge.
+  // A private row's eye and the group's × (Separate, shown while pointed at) sit on one right edge.
   await openAll(c)
   const firstGroup = c.h.locator('[data-group-block]').first()
   await c.v('private', 'nuggets', await firstGroup.locator('[data-row]').first().getAttribute('data-id'), true)
@@ -716,10 +700,10 @@ try {
   await c.h.waitForTimeout(400)
   const columns = await c.h.evaluate(() => {
     const eye = [...document.querySelectorAll('[data-group-block] [data-row] .sr-only')].find((one) => one.textContent === 'Private')?.parentElement?.querySelector('svg')?.getBoundingClientRect()
-    const count = document.querySelector('[data-group-block] [data-group-row] [data-count]')?.getBoundingClientRect()
+    const count = document.querySelector('[data-group-block] [data-group-separate] svg')?.getBoundingClientRect()
     return eye && count ? { eye: eye.right, count: count.right } : null
   })
-  check('the eye and the folder\'s count end on one right edge', !!columns && Math.abs(columns.eye - columns.count) <= 2, JSON.stringify(columns))
+  check('the eye and the group\'s × end on one right edge', !!columns && Math.abs(columns.eye - columns.count) <= 2, JSON.stringify(columns))
   await frames(c, 'column-light', 1, 0)
   // Proof of what the old check flagged: rows of the note open beside the list, at the same heights as list rows.
   console.log('beside the list: ' + JSON.stringify(await c.h.evaluate(() => [...document.querySelectorAll('[data-open] [data-row]')].slice(0, 3).map((el) => { const b = el.getBoundingClientRect(); return `${el.textContent.slice(0, 24)} [${Math.round(b.left)},${Math.round(b.top)} ${Math.round(b.width)}x${Math.round(b.height)}]` }))))
@@ -750,8 +734,8 @@ try {
   const shownNow = (await order(c)).filter(Boolean)
   await carry(c, row(c, shownNow[shownNow.length - 1].slice(0, 18)), row(c, shownNow[1].slice(0, 18)), 0.1)
   await c.h.waitForTimeout(800)
-  for (let i = 0; i < 3; i++) { await c.h.locator('[data-group-row]').nth(i).locator('[data-group-fold]').click(); await c.h.waitForTimeout(350) }
-  for (let i = 0; i < 3; i++) { await c.h.locator('[data-group-row]').nth(i).locator('[data-group-fold]').click(); await c.h.waitForTimeout(350) }
+  for (let i = 0; i < 3; i++) { await c.h.locator('[data-group-row]').nth(i).click(); await c.h.waitForTimeout(350) }
+  for (let i = 0; i < 3; i++) { await c.h.locator('[data-group-row]').nth(i).click(); await c.h.waitForTimeout(350) }
   await c.h.mouse.move(900, 700)
   await c.h.waitForTimeout(400)
   bad = await overlaps(c)
@@ -764,7 +748,7 @@ try {
   {
     // Folders shut again (they were opened to reach their notes), so loose rows are in view under them.
     for (let i = 0; i < 10; i++) {
-      const open = c.h.locator('[data-group-row][aria-expanded="true"] [data-group-fold]').first()
+      const open = c.h.locator('[data-group-row][aria-expanded="true"]').first()
       if (!(await open.count())) break
       await open.click()
       await c.h.waitForTimeout(250)

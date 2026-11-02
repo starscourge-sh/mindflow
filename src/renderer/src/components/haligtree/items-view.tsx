@@ -85,11 +85,11 @@ import { ThoughtDock } from './thought-bar'
 import { dayjs, num, plural } from '../../../../main/dates'
 import { moment } from '@/lib/clock'
 import { Signed } from './signature'
-import { groups as noteGroupsApi, sections as handApi, tintOf, useGroups, useSections, type NoteGroup, type NoteSection } from '@/lib/groups'
+import { groups as noteGroupsApi, isFolder, tintOf, useGroups, type NoteGroup } from '@/lib/groups'
 import { useReveal } from './islands'
 import { DEPTH, dropMany, flatten, gather, groupId, groupOf, isGroup, KEY, layoutOf, moveMany, reorderAs, sameLayout, shownKeys, step as stepLayout, tidy, type Layout } from '@/lib/group-layout'
 import type { Cue } from '@/lib/sound'
-import { GroupIcon, HAND, type Bundle, type Folds, type GroupView, type HandGroup, type Part as KeptPart } from './kept-groups'
+import { GroupIcon, type Bundle, type Folds, type GroupView, type Part as KeptPart } from './kept-groups'
 import { asideItem, useHere } from '@/lib/split'
 import { queueMenu } from '@/lib/reading-queue'
 import { Apart } from '@/lib/apart'
@@ -118,9 +118,6 @@ export const itemEntry = (item: Item, menu?: RowItem[] | (() => RowItem[])): Ent
 }
 /** What an empty folder's card is drawn from in a grid: a folder emptied stays, with no note of its own to show. */
 const NO_GROUPS: NoteGroup[] = []
-const NO_HANDS: NoteSection[] = []
-/** The notes in none of your own groups, headed so they never read as the last group's. */
-const NO_HAND = 'Not in a group'
 const EMPTY = (tier: string): Item => ({ tier, kind: 'note', title: '', createdAt: new Date().toISOString() }) as Item
 const rowOf = (item: Item): Entry => {
   // A gem with no source is a note of yours: drawn as one, until it says who or where from.
@@ -278,9 +275,6 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
   const smart = useSmartGroups(tier === 'nugget' ? 'nugget' : 'article')
   const gatherer = sideFolder?.startsWith(GROUP_KEY) ? smart.find((one) => GROUP_KEY + one.id === sideFolder) : undefined
   const gathered = useGathered(gatherer)
-  // Groups made by hand (main/sections.ts): sections of the list or folder on show, never folders; a note stays where it lives.
-  const hand = useSections(questionsOnly ? 'question' : tier)
-  const handsHere = unloaded(hand) || gatherer ? NO_HANDS : hand.filter((one) => one.folder === (opened?.id ?? null))
   const listed = useMemo(() => {
     if (gatherer) return all.filter((one) => gathered?.has(one.id))
     if (!opened) return all
@@ -304,22 +298,20 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
   const [listOut, setListOut] = useState(false)
   useEffect(() => setListOut(false), [boarded])
   // Not grouped, or grouped by kind with only one kind: a plain list, with no sections.
-  const plain = arranged.length <= 1 && !arranged[0]?.[0] && !handsHere.length
+  const plain = arranged.length <= 1 && !arranged[0]?.[0]
   const groups = spread && query.trim() ? arranged.map(([name, list]) => [name, list.filter((one) => matches(one.title, query, one.fields))] as [string, Item[]]).filter(([, list]) => list.length) : arranged
   // x, ⌘-click and ⇧-click pick rows: several nuggets make one article, and any rows make a group.
   const [chosen, setChosen] = useState<string[]>([])
   // Groups show as groups in every sort and every grouping, as Finder's folders do. Grouped by kind or date, they come
   // first in your own order, then the loose notes in their sections; inside a group its notes go by kind (or date) too.
   // Order: folders, then your own groups with their notes, then the rest in Display's grouping (kind, date) or none.
-  const handOf = new Map(handsHere.flatMap((one) => one.members.map((id) => [id, one] as const)))
-  const heads = plain ? undefined : new Map(groups.flatMap(([name, list]) => list.map((one) => [one.id, handOf.has(one.id) ? HAND + handOf.get(one.id)!.id : name || (handsHere.length ? NO_HAND : name)] as const)))
+  const heads = plain ? undefined : new Map(groups.flatMap(([name, list]) => list.map((one) => [one.id, name] as const)))
   const everyShown = groups.flatMap(([, list]) => list)
-  const handFirst = handsHere.length ? [...handsHere.flatMap((group) => everyShown.filter((one) => handOf.get(one.id) === group)), ...everyShown.filter((one) => !handOf.has(one.id))] : everyShown
   // A note in a folder lives there alone (memory: folders-isolate): the list's top level is its folders, then the loose
   // notes, in every order; a folder's notes show only once it is opened. Groups are the one way a note shows twice.
   // Questions shows Writing's folders only where they hold questions, each counted in questions (qa/folder-rows.mjs).
-  const folding = useFolding(tier, all, ownOrder, order, !gatherer && (density === 'list' || density === 'compact') && !(spread && query.trim()) ? handFirst : null,
-    view.sort === 'manual' && plain, () => setChosen([]), chosen, mine, heads, opened?.id, questionsOnly, handsHere)
+  const folding = useFolding(tier, all, ownOrder, order, !gatherer && (density === 'list' || density === 'compact') && !(spread && query.trim()) ? everyShown : null,
+    view.sort === 'manual' && plain, () => setChosen([]), chosen, mine, heads, opened?.id, questionsOnly)
   // As tiles, each group is one folder card; opened, the grid shows only its notes, under a chip back.
   // Questions are never in Writing's folders as a list: they are drawn plain, each as a question.
   const noteGroups = questionsOnly || gatherer ? NO_GROUPS : filed
@@ -522,6 +514,18 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
     })
     void makeTasks(notes).then((made) => made && setChosen([]))
   }
+  // ⌘K's "Group the picked notes" and "Ungroup": the same as ⌘G and ⇧⌘G.
+  const groupKeys = useRef<(ungroup: boolean) => void>(() => undefined)
+  groupKeys.current = (ungroup) => {
+    const these = chosen.length ? chosen : items[at.current] ? [items[at.current].id] : []
+    if (ungroup) folding.ungroup(these)
+    else folding.groupNew(these)
+  }
+  useEffect(() => {
+    const onGroup = (event: Event): void => void (here() && groupKeys.current(!!(event as CustomEvent<boolean>).detail))
+    window.addEventListener('haligtree:group', onGroup)
+    return () => window.removeEventListener('haligtree:group', onGroup)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
       if (!here()) return
@@ -531,6 +535,13 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
         event.preventDefault()
         event.stopPropagation()
         return folding.gatherNew(chosen.length ? chosen : items[at.current] ? [items[at.current].id] : [])
+      }
+      // ⌘G groups the picked rows where they are, as Figma does (⌘K's "Group the picked notes" too); ⇧⌘G takes apart the group they (or the row under the cursor) are in.
+      if (event.metaKey && !event.ctrlKey && !event.altKey && event.code === 'KeyG' && folding.rows) {
+        event.preventDefault()
+        event.stopPropagation()
+        const these = chosen.length ? chosen : items[at.current] ? [items[at.current].id] : []
+        return event.shiftKey ? folding.ungroup(these) : folding.groupNew(these)
       }
       // Escape lets the selection go, and only that: taken first, so the
       // list does not also close what is open.
@@ -565,41 +576,12 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
   useEffect(() => window.api.captures.onChange(() => open && pick(open.id)), [open?.id])
   // The right-click menu: the same on a row and on a card.
   // Right-clicked among several picked: the menu speaks for all of them. Made once, not once a row.
-  // Notes into a group made by hand (or, with null, out of theirs), said once, with Undo.
-  const intoHand = (section: string | null, ids: string[]): void => {
-    const target = handsHere.find((one) => one.id === section)
-    const these = ids.filter((id) => (handOf.get(id)?.id ?? null) !== section && !isGroup(id))
-    if (!these.length) return refuse(target ? `Already in ${target.name}` : 'Already in no group')
-    void handApi.place(these.map((id) => ({ id, section }))).then((was) => {
-      chime(section ? 'gather' : 'separate')
-      toast(section ? `Added ${plural(these.length, 'note')} to ${target?.name ?? 'the group'}` : `Took ${plural(these.length, 'note')} out of ${handOf.get(these[0])?.name ?? 'its group'}`,
-        () => void handApi.place(was).then(() => chime('gather')))
-    })
-  }
-  const newHand = (ids: string[]): void => void handApi.make(questionsOnly ? 'question' : tier, opened?.id ?? null, 'New group', ids).then((id) => {
-    chime('promote')
-    // Named as it is made, in place, as a new folder is.
-    folding.renameHand(id)
-    toast(ids.length ? `Made a group of ${plural(ids.length, 'note')}` : 'Made a group', () => void handApi.remove(id))
-  })
-  // The list's own menu, on its empty space (a row's own menu answers on a row): a group or a folder, made here.
-  const listMenu: RowItem[] = folding.rows ? [
-    { label: 'New group', hint: 'A heading in this list; notes stay where they live', run: () => newHand([]) },
-    !questionsOnly && { label: 'New folder', keys: '⇧⌘N', run: () => folding.newFolder() }
-  ].filter(Boolean) as RowItem[] : []
-  // A row's group lines: into one of the groups made by hand here, a new one, or out of its own.
-  const handMenu = (ids: string[]): RowItem[] => [{
-    label: 'Group', items: [
-      ...handsHere.filter((one) => ids.some((id) => handOf.get(id)?.id !== one.id)).map((one): RowItem => ({ label: `Into ${one.name}`, run: () => intoHand(one.id, ids) })),
-      { label: ids.length > 1 ? `New group of ${num(ids.length)}` : 'New group with this', hint: 'A heading in this list; the notes stay where they live', run: () => newHand(ids) },
-      ids.some((id) => handOf.has(id)) && { label: 'Out of its group', run: () => intoHand(null, ids) }
-    ].filter(Boolean) as RowItem[]
-  }]
+  // The list's own menu, on its empty space (a row's own menu answers on a row): a folder, made here.
+  const listMenu: RowItem[] = folding.rows && !questionsOnly ? [{ label: 'New folder', keys: '⇧⌘N', run: () => folding.newFolder() }] : []
   const manyMenu: RowItem[] | null = chosen.length > 1 ? [
     { label: `Make ${num(chosen.length)} tasks`, run: makeEach },
     'separator',
     ...folding.menu(chosen),
-    ...handMenu(chosen),
     'separator',
     binItem(binRefs(chosen), () => setChosen([])),
     'separator',
@@ -623,7 +605,6 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
     !allPicked && { label: 'Select all', about: 'list', keys: '⌘A', run: selectAll },
     'separator',
     ...folding.menu([item.id]),
-    ...handMenu([item.id]),
     'separator',
     copyLinkItem(`${item.tier}:${item.id}`, item.title),
     { label: 'Copy title', run: () => copy(item.title) },
@@ -695,6 +676,9 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
               </Tip>
               <Tip label="At the end of your reading queue; ⌥-click to read them next">
                 <Button variant="ghost" size="sm" onClick={(event) => void enqueue(chosen, event.altKey)}>Add to queue</Button>
+              </Tip>
+              <Tip label="Group them here  ⌘G">
+                <Button variant="ghost" size="sm" onClick={() => folding.groupNew(chosen)}>Group</Button>
               </Tip>
               <Tip label="Put them in a new folder  ⌃⌘N">
                 <Button variant="ghost" size="sm" onClick={() => folding.gatherNew(chosen)}>New folder</Button>
@@ -841,13 +825,13 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
               action={<Button variant="secondary" size="sm" data-folder-new-note="" onClick={() => void noteGroupsApi.note(opened!.id).then((id) => id && (chime('promote'), pick(id)))}><Plus className="size-3.5" />{tier === 'nugget' ? 'New gem' : 'New page'}</Button>}>
               Drag notes here, or start one.
             </Empty>
-        ) : items.length || handsHere.length || (folding.rows && noteGroups.some((one) => one.members.some((id) => all.some((item) => item.id === id && !item.archivedAt)))) ? (
+        ) : items.length || (folding.rows && noteGroups.some((one) => one.members.some((id) => all.some((item) => item.id === id && !item.archivedAt)))) ? (
           <RowMenu list items={listMenu}>
           <div data-list-space="" className="min-h-full pb-24">
           <NoteList groups={entries} density={density} table="nuggets" selected={spread ? peek ?? undefined : coming ?? open?.id} cursor={cursor} onCursor={setCursor} chosen={chosen}
             onPick={spread ? (id) => (isGroup(id) ? pick(id) : (setPeek(id), setCursor(items.findIndex((one) => one.id === id)))) : pickRow} onOpen={spread ? pickRow : undefined}
             picking={picking} onMove={view.sort === 'manual' ? onMove : undefined} after={glossAfter} className={spread ? 'list-edge my-3' : 'list-edge my-2'}
-            folds={folding.rows ? { ...folding.folds(menuFor, entryOf), onHandDrop: (ids, section) => (intoHand(section, ids), setChosen([])), onNewNote: pick, onSort: setSorting, onSorted: markSorted, onOpenFolder: onFolder ?? undefined } : undefined} />
+            folds={folding.rows ? { ...folding.folds(menuFor, entryOf), onNewNote: pick, onSort: setSorting, onSorted: markSorted, onOpenFolder: onFolder ?? undefined } : undefined} />
           </div>
           </RowMenu>
         ) : questionsOnly && !unloaded(all) && !all.length ? (
@@ -1677,7 +1661,7 @@ const ORDER = new WeakMap<Layout, Map<string, number>>()
 /** The list itself, as a drop place in the path bar: no folder. */
 const TOP = ':top'
 
-function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) => number, order: string[], shown: Item[] | null, ordered: boolean, done: () => void, chosen: string[], toOwn: () => (() => void) | undefined, heads?: Map<string, string>, within?: string, borrowed = false, hands: NoteSection[] = NO_HANDS): {
+function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) => number, order: string[], shown: Item[] | null, ordered: boolean, done: () => void, chosen: string[], toOwn: () => (() => void) | undefined, heads?: Map<string, string>, within?: string, borrowed = false): {
   rows: Item[] | null
   /** The list as tiles: each group as one folder, at the top, then the loose notes. */
   tiles: (list: Item[]) => ({ group: NoteGroup; items: Item[] } | { item: Item })[]
@@ -1693,8 +1677,10 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
   moveInto: (group: string, ids: string[]) => boolean
   /** A new, empty folder in the one open (or the list itself), its name open for typing. */
   newFolder: () => void
-  /** A hand-made group's name opened for typing. */
-  renameHand: (id: string | null) => void
+  /** The picked notes (or one) gathered into a new group in place, Figma's ⌘G. */
+  groupNew: (ids: string[]) => void
+  /** The groups these notes (or groups) are in taken apart, their notes staying where they are: Figma's ⇧⌘G. */
+  ungroup: (ids: string[]) => void
 } {
   const list = useGroups(tier)
   const [held, setHeld] = useState<Layout | null>(null)
@@ -1741,8 +1727,10 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
   }, [order, list])
   const bySide = (a?: string, b?: string): number => (sideRank.get(a ?? '') ?? 0) - (sideRank.get(b ?? '') ?? 0)
   const info = new Map([...known.current].filter(([id]) => list.some((one) => one.id === id) || parting.includes(id)))
-  // Every folder starts shut: what it holds shows only once it is opened, here or as its own page.
-  const isOpen = (id: string): boolean => opened[id] ?? false
+  // A folder is a place: it never unfolds in the list, and what it holds shows only on its own page (folders isolate).
+  // A group is a panel in the list, open unless you folded it, as it always was.
+  const folders = new Set(list.filter(isFolder).map((one) => one.id))
+  const isOpen = (id: string): boolean => !folders.has(id) && (opened[id] ?? !info.get(id)?.folded)
   const shut = new Set(list.filter((one) => !isOpen(one.id)).map((one) => one.id))
   // In your own order, as you laid it out. In any other sort, the groups stay
   // together at the top in your own order, and the sort orders the notes in
@@ -1781,9 +1769,7 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
   const onShow = (one: { parts?: Part[] }): Item[] => (one.parts ?? []).flatMap((part) => ('item' in part ? [part.item] : isOpen(part.sub) ? onShow(part) : []))
   // Borrowed (Questions shows Writing's folders), a folder holding none of this list's notes is not shown at all.
   // A hand-made group folded shows its heading alone: its notes are not rows until it is unfolded.
-  const handOf = new Map(hands.flatMap((one) => one.members.map((id) => [id, one] as const)))
-  const level = (from: Layout): Block[] => blocks(from).filter((one) => (one.group ? !borrowed || one.items.length : !handOf.get(one.items[0].id)?.folded))
-  const [handRenaming, setHandRenaming] = useState<string | null>(null)
+  const level = (from: Layout): Block[] => blocks(from).filter((one) => (one.group ? !borrowed || one.items.length : true))
   const rowsOf = (from: Layout): Item[] => level(from).flatMap((one) => (!one.group ? one.items : isOpen(one.group) ? onShow(one) : []))
   const now = level(layout)
   const keys = now.flatMap((one) => (one.group
@@ -1794,7 +1780,7 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
   // A group left unnamed is named for what its notes share: a tag on all of
   // them, or their kind, or else the next free "Group 2", so no two read the same.
   const byId = new Map(every.map((one) => [one.id, one]))
-  const naming = (ids: string[]): string => {
+  const naming = (ids: string[], folder = false): string => {
     const notes = ids.flatMap((id) => (byId.has(id) ? [byId.get(id)!] : []))
     const taken = new Set(list.map((one) => one.name.toLowerCase()))
     const tags = notes.map((one) => splitTags(one.title).tags)
@@ -1802,15 +1788,17 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
     const kind = notes.length && notes.every((one) => one.kind === notes[0].kind) && notes[0].kind !== 'note' ? CAPTURE_TYPES.find((one) => one.id === notes[0].kind)?.label : undefined
     const said = tag ? tag[0].toUpperCase() + tag.slice(1) : kind ? `${kind}s` : null
     if (said && !taken.has(said.toLowerCase())) return said
-    let n = list.length + 1
-    while (taken.has(`folder ${n}`)) n++
-    return `Folder ${n}`
+    const word = folder ? 'Folder' : 'Group'
+    let n = list.filter((one) => isFolder(one) === folder).length + 1
+    while (taken.has(`${word.toLowerCase()} ${n}`)) n++
+    return `${word} ${n}`
   }
-  const make = (ids: string[] = []) => (): { id: string; name: string } => ({ id: crypto.randomUUID(), name: naming(ids) })
+  // A drop on a note's middle, or ⌘G, makes a group; ⌃⌘N and "New folder" make a folder.
+  const make = (ids: string[] = [], folder = false) => (): { id: string; name: string; folder: boolean } => ({ id: crypto.randomUUID(), name: naming(ids, folder), folder })
   const commit = (raw: Layout, cue: Cue, said?: string, unsort?: () => void, loud = false): void => {
     const was = layout
     // A group left with one note comes apart, in the same step, and the same Undo.
-    const { layout: next, dissolved } = tidy(raw)
+    const { layout: next, dissolved } = tidy(raw, new Set([...folders, ...(raw.make?.folder ? [raw.make.id] : [])]))
     chime(dissolved.length ? 'separate' : cue)
     if (dissolved.length && !matchMedia('(prefers-reduced-motion: reduce)').matches && document.documentElement.dataset.motion !== 'off') {
       setHeld(raw)
@@ -1820,7 +1808,7 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
     if (next.make) (setRenaming(next.make.id), setBorn(next.make.id))
     done()
     const gone = Object.keys(was.groups).filter((id) => !next.groups[id])
-    const revive = gone.flatMap((id) => (known.current.has(id) ? [(({ name, icon, color, folded }) => ({ id, name, icon, color, folded }))(known.current.get(id)!)] : []))
+    const revive = gone.flatMap((id) => (known.current.has(id) ? [(({ name, icon, color, folded, folder }) => ({ id, name, icon, color, folded, folder }))(known.current.get(id)!)] : []))
     const apart = dissolved.map((id) => known.current.get(id)?.name).filter(Boolean)
     const back = (): void => {
       // Drawn back at once, as the change itself was.
@@ -1832,8 +1820,13 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
     }
     // A new group is drawn in front of you with its name open for typing: no toast, ⌘Z still takes it back. One a drop
     // made (`loud`) says so, with its Undo: a drag can make one you did not mean to.
-    void noteGroupsApi.arrange(tier, next).then(() => said && (next.make && !apart.length && !loud ? quietly(back) : toast(apart.length ? `${said}: ${apart.join(', ')} came apart` : said, back)))
+    // A group gone from the list's shape (taken apart, or left with one note) goes from the book too; a folder stays, as a place.
+    // Undo brings it back as it was (`revive`).
+    const ended = gone.filter((id) => !folders.has(id))
+    void noteGroupsApi.arrange(tier, next).then(() => Promise.all(ended.map((id) => noteGroupsApi.remove(id)))).then(() => said && (next.make && !apart.length && !loud ? quietly(back) : toast(apart.length ? `${said}: ${apart.join(', ')} came apart` : said, back)))
   }
+  // A folder never goes inside a group: a group is a panel in a list, a folder a place.
+  const folderInGroup = (from: Layout): boolean => Object.entries(from.groups).some(([group, keys]) => !folders.has(group) && keys.some((key) => isGroup(key) && folders.has(groupId(key))))
   // In an open folder, every move keeps what it moves inside that folder.
   const inside = (from: Layout, key: string): boolean => {
     if (!within) return true
@@ -1862,17 +1855,45 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
     const these = inOrder(ids)
     // A group is two notes or more.
     if (these.length < 2) return refuse('Pick two or more rows to make a folder')
-    commit(gather(layout, these[0], these, make(these)()), 'gather', these.length > 1 ? `Put ${num(these.length)} notes in a new folder` : 'New folder')
+    commit(gather(layout, these[0], these, make(these, true)(), groupOf(layout, these[0]) ?? null), 'gather', these.length > 1 ? `Put ${num(these.length)} notes in a new folder` : 'New folder')
+  }
+  // Figma's ⌘G: the picked notes gathered into a group where the first of them is, in the list or folder you are in.
+  const groupNew = (ids: string[]): void => {
+    const these = inOrder(ids.filter((id) => !isGroup(id)))
+    if (these.length < 2) return refuse('Pick two or more notes to group them')
+    const own = groupOf(layout, these[0])
+    // Inside a group already, they make a group inside it (three levels at most); else one where the first note is.
+    const next = gather(layout, these[0], these, make(these)(), own ?? null)
+    if (!inside(next, these[0])) return refuse('Pick notes in this folder to group them')
+    commit(next, 'gather', `Grouped ${notes(these.length)}`)
+  }
+  // Figma's ⇧⌘G: each group the picks are in (or a group's own row) comes apart; its notes stay where it was. One Undo.
+  const ungroup = (ids: string[]): void => {
+    const apart = new Set<string>()
+    for (const id of ids) {
+      if (isGroup(id) && !folders.has(groupId(id))) { apart.add(groupId(id)); continue }
+      for (let at = groupOf(layout, id); at; at = groupOf(layout, KEY + at)) if (!folders.has(at)) { apart.add(at); break }
+    }
+    if (!apart.size) return refuse(ids.length > 1 ? 'None of these is in a group' : 'Not in a group')
+    const open = (key: string): string[] => (isGroup(key) && apart.has(groupId(key)) ? (layout.groups[groupId(key)] ?? []).flatMap(open) : [key])
+    const groups: Record<string, string[]> = {}
+    for (const [group, keys] of Object.entries(layout.groups)) if (!apart.has(group)) groups[group] = keys.flatMap(open)
+    const names = [...apart].map((id) => info.get(id)?.name).filter(Boolean)
+    commit({ top: layout.top.flatMap(open), groups }, 'separate', apart.size === 1 ? `Ungrouped ${names[0] ?? 'the group'}` : `Ungrouped ${num(apart.size)} groups`)
   }
   const menu = (ids: string[]): RowItem[] => {
     const these = inOrder(ids)
     const n = these.length
     // The open folder itself is where its loose notes already are: nothing to remove them from.
-    const theirs = new Set(these.map((one) => groupOf(layout, one)).filter((one) => one && one !== within))
+    const theirs = new Set(these.map((one) => groupOf(layout, one)).filter((one) => one && one !== within && folders.has(one)))
+    const inGroups = these.some((one) => { const at = groupOf(layout, one); return !!at && !folders.has(at) })
     // All in one pass, at the group's end: one at a time went over the whole list for each, and 2,500 took seconds.
     const picked = new Set(these)
     const into = (group: string): Layout => moveMany(layout, these, { group, after: (layout.groups[group] ?? []).filter((one) => !picked.has(one)).at(-1) ?? null })
-    const others = list.filter((one) => layout.groups[one.id] && !(theirs.size === 1 && theirs.has(one.id)))
+    const others = list.filter((one) => isFolder(one) && layout.groups[one.id] && !(theirs.size === 1 && theirs.has(one.id)))
+    // Groups on show where these notes are (the list, or the open folder), not the one they are all in already.
+    const here = groupOf(layout, these[0]) ?? null
+    const groupsHere = list.filter((one) => !isFolder(one) && layout.groups[one.id] && inside(layout, KEY + one.id) && !these.every((id) => groupOf(layout, id) === one.id) && (groupOf(layout, KEY + one.id) ?? null) === (here && !folders.has(here) ? groupOf(layout, KEY + here) ?? null : here))
     // Two folders of one name (a "Drafts" in "Notes" and one in "Essays") said with the folders they sit in: "Notes / Drafts".
     const named = (one: (typeof list)[number]): string => one.name.trim().toLowerCase()
     const placeOf = (one: (typeof list)[number]): string => {
@@ -1882,6 +1903,25 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
       return path.length > 1 ? path.join(' / ') : one.name
     }
     return [
+      n > 1 && { label: `Group ${num(n)} notes`, keys: '⌘G', run: () => groupNew(these) },
+      // The groups in this list (or folder) to put them in, as the old "Move to group" did.
+      groupsHere.length > 0 && {
+        label: 'Move to group',
+        items: groupsHere.map((one) => ({
+          label: one.name,
+          icon: <GroupIcon icon={one.icon} color={one.color} className="size-3.5" />,
+          run: () => commit(moveMany(layout, these, { group: one.id, after: (layout.groups[one.id] ?? []).filter((id) => !picked.has(id)).at(-1) ?? null }), 'gather', `Moved ${notes(n)} to ${one.name}`)
+        }))
+      },
+      inGroups && {
+        label: 'Remove from group',
+        // Out of each group, just after it, in whatever holds it, in their order: the group stays if two are left.
+        run: () => {
+          const groupsOf = new Set(these.map((one) => groupOf(layout, one)).filter((one): one is string => !!one && !folders.has(one)))
+          commit([...groupsOf].reduce<Layout>((next, own) => moveMany(next, these.filter((one) => groupOf(layout, one) === own), { group: groupOf(next, KEY + own) ?? null, after: KEY + own }), layout), 'separate', `Removed ${notes(n)} from ${groupsOf.size === 1 ? info.get([...groupsOf][0])?.name ?? 'the group' : 'their groups'}`)
+        }
+      },
+      inGroups && { label: 'Ungroup', keys: '⇧⌘G', run: () => ungroup(these) },
       n > 1 && { label: `New folder with ${num(n)} notes`, keys: '⌃⌘N', run: () => gatherNew(these) },
       {
         label: 'Move to folder',
@@ -1916,38 +1956,19 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
     ]
   }
   // Grouped by kind or date, each section of loose notes under its name, with how many are loose in it.
-  const sectionOf = (one: Block): string | undefined => (one.group || handOf.has(one.items[0].id) ? undefined : heads?.get(one.items[0].id))
+  const sectionOf = (one: Block): string | undefined => (one.group ? undefined : heads?.get(one.items[0].id))
   const loose = new Map<string, number>()
   for (const one of now) if (sectionOf(one)) loose.set(sectionOf(one)!, (loose.get(sectionOf(one)!) ?? 0) + 1)
   const headOf = (one: Block, at: number): [string, number] | undefined => {
     const name = sectionOf(one)
     return name && (at === 0 || sectionOf(now[at - 1]) !== name) ? [name, loose.get(name)!] : undefined
   }
-  // Each hand-made group's heading on its first note; folded or empty, a heading of its own, in its place among the groups.
-  const withHands = (list: Bundle[]): Bundle[] => {
-    if (!hands.length) return list
-    const said = (group: NoteSection): HandGroup => ({ id: group.id, name: group.name, folded: !!group.folded, count: group.members.filter((id) => byId.has(id) && !byId.get(id)!.archivedAt).length })
-    const out: Bundle[] = []
-    let next = 0
-    const upTo = (end: number): void => {
-      for (; next < end; next++) out.push({ entries: [], hand: said(hands[next]) })
-    }
-    for (const one of list) {
-      const group = one.group ? undefined : handOf.get(one.entries[0]?.id ?? '')
-      const at = group ? hands.indexOf(group) : one.group ? 0 : hands.length
-      if (group && at < next) { out.push(one); continue }
-      upTo(at)
-      if (group) (out.push({ ...one, hand: said(group) }), next++)
-      else out.push(one)
-    }
-    upTo(hands.length)
-    return out
-  }
   const folds = (menuFor: (item: Item) => RowItem[], entryOf: (item: Item) => Entry = (item) => itemEntry(item, () => menuFor(item))): Omit<Folds, 'onNewNote'> => ({
-    bundles: withHands(now.map((one, at): Bundle => {
+    bundles: now.map((one, at): Bundle => {
       const view = (id: string, items: Item[]): GroupView => {
         const group = info.get(id)
-        return { id, name: group?.name ?? layout.make?.name ?? 'Folder', icon: group?.icon ?? null, color: group?.color ?? null, open: isOpen(id), members: items.map((item) => item.id), parting: parting.includes(id), unsorted: items.filter((item) => item.unsorted && !item.archivedAt).map((item) => item.id) }
+        const folder = group ? isFolder(group) : !!layout.make?.folder
+        return { id, name: group?.name ?? layout.make?.name ?? (folder ? 'Folder' : 'Group'), folder, icon: group?.icon ?? null, color: group?.color ?? null, open: isOpen(id), members: items.map((item) => item.id), parting: parting.includes(id), unsorted: items.filter((item) => item.unsorted && !item.archivedAt).map((item) => item.id) }
       }
       return {
         head: headOf(one, at),
@@ -1957,14 +1978,14 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
           return 'item' in part ? { entry: entryOf(part.item) } : { group: view(part.sub, part.items), entries: part.items.map((item) => entryOf(item)), parts: part.parts.map(shape) }
         })
       }
-    })),
+    }),
     preview: (ids, target, how) => {
       const next = dropMany(base, ids, target, how, shut, () => ({ id: 'new', name: '' }))
-      return next && !sameLayout(next, base) && ids.every((id) => inside(next, id)) ? { before: base, after: next, shown: shownKeys(next, shut) } : null
+      return next && !sameLayout(next, base) && ids.every((id) => inside(next, id)) && !folderInGroup(next) ? { before: base, after: next, shown: shownKeys(next, shut) } : null
     },
     onDrop: (ids, target, how) => {
       const seen = dropMany(base, ids, target, how, shut, make([target, ...ids]))
-      if (!seen || sameLayout(seen, base) || !ids.every((id) => inside(seen, id))) return chime('stay')
+      if (!seen || sameLayout(seen, base) || !ids.every((id) => inside(seen, id)) || folderInGroup(seen)) return chime('stay')
       // Only a move within where it already is needs your own order, laid out as you saw it. Joining or leaving a
       // group keeps the sort, and your own order as it was: the row takes its sorted place in its new group.
       const reorder = !ordered && !seen.make && groupOf(base, ids[0]) === groupOf(seen, ids[0])
@@ -1973,24 +1994,25 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
       const active = ids[0]
       const was = isGroup(active) ? undefined : groupOf(layout, active)
       const lands = isGroup(active) ? undefined : groupOf(next, active)
-      const name = (id?: string): string => (id && (info.get(id)?.name ?? next.make?.name)) || 'the folder'
+      const name = (id?: string): string => (id && (info.get(id)?.name ?? next.make?.name)) || 'the group'
       const n = ids.length > 1 ? ` ${num(ids.length)}` : ''
+      // A group made by a drop shows in front of you with its name open for typing, as it always did: no toast, ⌘Z takes it back.
       commit(next, next.make || (lands && lands !== was) ? 'gather' : was && !lands ? 'separate' : 'shift',
-        next.make ? `Made a new folder, ${next.make.name}` : lands && lands !== was ? `Added${n} to ${name(lands)}` : was && !lands ? `Removed${n} from ${name(was)}` : `Moved${n}`, unsort, !!next.make)
+        next.make ? 'Grouped' : lands && lands !== was ? `Added${n} to ${name(lands)}` : was && !lands ? `Removed${n} from ${name(was)}` : `Moved${n}`, unsort)
     },
     picked: chosen,
     onLetGo: () => done(),
     ordered,
     onFold: (group, open) => {
+      if (group.folder) return
       setOpened((was) => ({ ...was, [group.id]: open }))
+      void noteGroupsApi.set(group.id, { folded: !open })
     },
     renaming,
     onRenaming: setRenaming,
     born,
     noun: borrowed ? 'question' : tier === 'nugget' ? 'gem' : 'page',
     list: tier,
-    handRenaming,
-    onHandRenaming: setHandRenaming
   })
   const tiles = (list: Item[]): ({ group: NoteGroup; items: Item[] } | { item: Item })[] =>
     blocks(layout, list).flatMap((one): ({ group: NoteGroup; items: Item[] } | { item: Item })[] => (one.group && info.get(one.group) ? (borrowed && !one.items.length ? [] : [{ group: info.get(one.group)!, items: one.items }]) : one.items.map((item) => ({ item }))))
@@ -2027,5 +2049,5 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
     return true
   }
   const newFolder = (): void => void noteGroupsApi.make(tier, 'New folder', within ?? null).then((id) => (chime('promote'), setRenaming(id), setBorn(id), quietly(() => void noteGroupsApi.remove(id))))
-  return { rows: shown ? rowsOf(layout) : null, tiles, step, menu, gatherNew, folds, reveal, moveInto, newFolder, renameHand: setHandRenaming }
+  return { rows: shown ? rowsOf(layout) : null, tiles, step, menu, gatherNew, groupNew, ungroup, folds, reveal, moveInto, newFolder }
 }

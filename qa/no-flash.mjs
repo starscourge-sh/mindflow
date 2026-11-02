@@ -218,7 +218,7 @@ try {
   // Writing with a group of its own, as an imported book has: the case that flashed as a plain list first.
   const notes = []
   for (const title of ['Flash one', 'Flash two', 'Flash three']) { const id = await v('article:new'); await v('item:save', id, { title }); notes.push(id) }
-  await v('groups:arrange', 'article', { top: ['g:nf', notes[2]], groups: { nf: notes.slice(0, 2) }, make: { id: 'nf', name: 'Drawn once' } })
+  await v('groups:arrange', 'article', { top: ['g:nf', notes[2]], groups: { nf: notes.slice(0, 2) }, make: { id: 'nf', name: 'Drawn once', folder: true } })
   const tag = (await v('tags'))[0]?.tag
   // A big book answers its reads a beat apart: slowed here, as there.
   await electron.evaluate(({ ipcMain }, uneven) => {
