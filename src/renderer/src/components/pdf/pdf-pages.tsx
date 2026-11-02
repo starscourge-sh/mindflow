@@ -160,9 +160,9 @@ async function picturesOn(proxy: PDFPageProxy): Promise<number[][]> {
  * and turns its pictures to the same two tones, so each picture is put back
  * from the page drawn in its own colours. Not every picture is a photo: a
  * scanned page, or a magazine page laid as one white picture with words over
- * it, is paper. A picture that is mostly white paper keeps the dark page's
- * ground and ink and only its coloured parts true (an orange drawing stays
- * orange); any other picture is put back whole.
+ * it, is mostly paper. Such a picture is read piece by piece (mixPaper): its
+ * print takes the dark page's ground and ink, coloured parts kept (an orange
+ * drawing stays orange), its photos kept true. Any other picture is put back whole.
  */
 async function truePictures(proxy: PDFPageProxy, viewport: ReturnType<PDFPageProxy["getViewport"]>, canvas: HTMLCanvasElement, density: number): Promise<void> {
   const boxes = await picturesOn(proxy)
@@ -186,19 +186,101 @@ async function truePictures(proxy: PDFPageProxy, viewport: ReturnType<PDFPagePro
       continue
     }
     const dark = ink.getImageData(x, y, w, h)
-    const [o, d] = [own.data, dark.data]
-    // Written out by hand, not Math.max: a whole Retina page in about 30ms rather than 300.
-    for (let i = 0; i < o.length; i += 4) {
-      // How coloured the true pixel is: grey, black and white take the dark page's tones, colour stays.
+    mixPaper(own.data, dark.data, w, h)
+    ink.putImageData(dark, x, y)
+  }
+}
+
+/** The side of a square read as one piece of a page-sized picture: print, or part of a photo. */
+const TILE = 24
+
+/**
+ * A page-sized picture holds print and photos side by side (a portrait on a
+ * scanned page): each piece of it is read on its own. A piece of print is
+ * paper and ink, its few in-between tones spread thin (the soft edges of
+ * letters); a piece of a photo or a painting gathers many pixels on one
+ * in-between tone (a cheek, a gradient). Print takes the dark page's ground
+ * and ink, coloured pixels kept; photo pieces keep every pixel true. A piece
+ * that is one flat dark (a black robe, a painting's dark ground) belongs to
+ * the photo it touches, else to the print (inside a heavy letter). The
+ * weights blend across each piece's middle, so no grid shows; bare white
+ * paper always darkens and dark beside a photo stays the photo's, so no pale
+ * rim is left round a photo.
+ */
+function mixPaper(o: Uint8ClampedArray, d: Uint8ClampedArray, w: number, h: number): void {
+  const cols = Math.ceil(w / TILE), rows = Math.ceil(h / TILE)
+  // 0 print, 1 photo, 2 not yet known.
+  const kind = new Uint8Array(cols * rows)
+  const bins = new Uint32Array(32)
+  for (let ty = 0; ty < rows; ty++) for (let tx = 0; tx < cols; tx++) {
+    bins.fill(0)
+    let seen = 0, paper = 0, inked = 0
+    // Every other pixel each way is enough to tell.
+    for (let py = ty * TILE; py < Math.min(h, ty * TILE + TILE); py += 2) for (let px = tx * TILE; px < Math.min(w, tx * TILE + TILE); px += 2) {
+      const i = (py * w + px) * 4
       const r = o[i], g = o[i + 1], b = o[i + 2]
+      const lum = (r * 77 + g * 150 + b * 29) >> 8
       const chroma = (r > g ? (r > b ? r : b) : g > b ? g : b) - (r < g ? (r < b ? r : b) : g < b ? g : b)
-      if (chroma <= 20) continue
-      const keep = chroma >= 64 ? 1 : (chroma - 20) / 44
+      bins[lum >> 3]++
+      seen++
+      if (lum > 190 && chroma < 30) paper++
+      else if (lum < 70) inked++
+    }
+    // A photo's tones gather (a cheek, a gradient); the soft edges of print spread thin across many.
+    let gathered = 0
+    for (let bin = 9; bin < 30; bin++) if (bins[bin] > gathered) gathered = bins[bin]
+    kind[ty * cols + tx] = gathered / seen >= 0.15 ? 1 : paper / seen >= 0.1 && inked / seen < 0.5 ? 0 : 2
+  }
+  // Flat pieces join the photo they touch.
+  const queue: number[] = []
+  kind.forEach((one, at) => one === 1 && queue.push(at))
+  while (queue.length) {
+    const at = queue.pop()!
+    const tx = at % cols, ty = (at - tx) / cols
+    for (const next of [tx > 0 ? at - 1 : -1, tx < cols - 1 ? at + 1 : -1, ty > 0 ? at - cols : -1, ty < rows - 1 ? at + cols : -1]) {
+      if (next >= 0 && kind[next] === 2) (kind[next] = 1, queue.push(next))
+    }
+  }
+  // How much of the dark page's tones each piece takes: 1 for print, 0 for a photo.
+  const weight = Float32Array.from(kind, (one) => (one === 1 ? 0 : 1))
+  // Each column's piece and how far across it, worked out once; each row's weights blended once.
+  const left = new Int32Array(w), across = new Float32Array(w)
+  for (let px = 0; px < w; px++) {
+    const fx = Math.min(cols - 1, Math.max(0, (px + 0.5) / TILE - 0.5))
+    left[px] = Math.min(cols - 2, Math.floor(fx))
+    across[px] = fx - left[px]
+  }
+  const line = new Float32Array(cols + 1), least = new Float32Array(cols + 1)
+  for (let py = 0; py < h; py++) {
+    const fy = Math.min(rows - 1, Math.max(0, (py + 0.5) / TILE - 0.5)), ty = Math.floor(fy), vy = fy - ty, below = Math.min(rows - 1, ty + 1)
+    for (let tx = 0; tx < cols; tx++) {
+      const up = weight[ty * cols + tx], down = weight[below * cols + tx]
+      line[tx] = up * (1 - vy) + down * vy
+      least[tx] = up < down ? up : down
+    }
+    line[cols] = line[cols - 1]
+    least[cols] = least[cols - 1]
+    for (let px = 0; px < w; px++) {
+      const i = (py * w + px) * 4
+      const r = o[i], g = o[i + 1], bl = o[i + 2]
+      const lum = (r * 77 + g * 150 + bl * 29) >> 8
+      const tx = Math.max(0, left[px]), a = line[tx], b = line[tx + 1]
+      // Bare paper always darkens, so no pale rim is left round a photo; dark next to a photo stays the photo's.
+      const mix = lum > 235 && (r > g ? r - g : g - r) < 16 && (g > bl ? g - bl : bl - g) < 16 ? 1
+        : lum < 90 ? (least[tx] < least[tx + 1] ? least[tx] : least[tx + 1])
+        : a === b ? a : a + (b - a) * across[px]
+      if (mix === 0) {
+        d[i] = r, d[i + 1] = g, d[i + 2] = bl
+        continue
+      }
+      // How coloured the true pixel is: grey, black and white take the dark page's tones, colour stays.
+      const chroma = (r > g ? (r > bl ? r : bl) : g > bl ? g : bl) - (r < g ? (r < bl ? r : bl) : g < bl ? g : bl)
+      const keep = 1 - mix * (chroma <= 20 ? 1 : chroma >= 64 ? 0 : (64 - chroma) / 44)
+      if (keep === 0) continue
       d[i] += (r - d[i]) * keep
       d[i + 1] += (g - d[i + 1]) * keep
-      d[i + 2] += (b - d[i + 2]) * keep
+      d[i + 2] += (bl - d[i + 2]) * keep
     }
-    ink.putImageData(dark, x, y)
   }
 }
 

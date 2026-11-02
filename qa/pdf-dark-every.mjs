@@ -25,6 +25,28 @@ const W = 400, H = 560
 /** Lines of "print" on a white ground, from 60 to 200 pixels down, as a scanned page has them. */
 const scanned = (x, y) => (y >= 60 && y < 200 && x >= 40 && x < 360 && (y - 60) % 16 < 8 ? [20, 20, 20] : [250, 250, 248])
 /** A white page-sized picture with an orange disc in it, as a magazine's illustration. */
+/** A page laid as one picture at twice the page's size: print up top, a dark painted portrait, an orange block. */
+const noise = (x, y) => ((Math.sin(x * 12.9898 + y * 78.233) * 43758.5453) % 1) * 20 - 10
+const shade = (c, n) => c.map((v) => Math.max(0, Math.min(255, Math.round(v + n))))
+const portraitPage = (x, y) => {
+  if (y >= 80 && y < 400 && x >= 80 && x < 720) return (y - 80) % 32 < 14 ? [18, 18, 18] : [252, 251, 248]
+  if (x >= 80 && x < 440 && y >= 480 && y < 1040) {
+    const n = noise(x, y)
+    if (y >= 900) return shade([12, 12, 14], n / 2)
+    const fx = (x - 260) / 90, fy = (y - 690) / 120, r = fx * fx + fy * fy
+    if (r < 1 && fy < -0.45) return shade([72, 62, 56], n)
+    if (r < 1) { const t = Math.sqrt(r); return shade([215 - 105 * t, 170 - 95 * t, 140 - 85 * t], n / 2) }
+    return shade([24, 19, 16], n)
+  }
+  if (x >= 520 && x < 720 && y >= 520 && y < 760) return [235, 120, 30]
+  return [252, 251, 248]
+}
+/** The mean colour the portrait page's picture has over a box (fractions of the page). */
+const meanOf = ([x1, y1, x2, y2]) => {
+  const sum = [0, 0, 0]; let n = 0
+  for (let y = Math.round(y1 * 1120); y < Math.round(y2 * 1120); y++) for (let x = Math.round(x1 * 800); x < Math.round(x2 * 800); x++) { const c = portraitPage(x, y); sum[0] += c[0]; sum[1] += c[1]; sum[2] += c[2]; n++ }
+  return sum.map((one) => Math.round(one / n))
+}
 const magazine = (x, y) => ((x - 200) ** 2 + (y - 300) ** 2 < 80 ** 2 ? [235, 120, 30] : [255, 255, 255])
 
 const makePdf = async () => {
@@ -44,6 +66,8 @@ const makePdf = async () => {
   three.drawRectangle({ x: 0, y: 0, width: W, height: H, color: rgb(1, 1, 1) })
   three.drawImage(await pdf.embedPng(png(W, H, magazine)), { x: 0, y: 0, width: W, height: H })
   words(three)
+  // 4: a page laid as one picture holding print and a dark painted portrait.
+  pdf.addPage([W, H]).drawImage(await pdf.embedPng(png(800, 1120, portraitPage)), { x: 0, y: 0, width: W, height: H })
   return [...(await pdf.save())]
 }
 
@@ -81,10 +105,14 @@ try {
     { n: 1, name: 'a page that paints its own white', print: [0.08, 0.08, 0.9, 0.3] },
     { n: 2, name: 'a scanned page', print: [0.08, 0.1, 0.9, 0.36] },
     { n: 3, name: 'a magazine page (a white picture the size of the page)', print: [0.08, 0.08, 0.9, 0.3], disc: [0.45, 0.5, 0.55, 0.57] },
+    {
+      n: 4, name: 'a page drawn as one picture with print and a dark portrait', print: [0.1, 0.07, 0.9, 0.36], ground: [0.62, 0.75, 0.95, 0.95], disc: [0.7, 0.5, 0.85, 0.64],
+      true: [['the portrait\'s dark ground', [0.12, 0.45, 0.2, 0.52]], ['its face', [0.29, 0.58, 0.36, 0.64]], ['its hair', [0.29, 0.52, 0.36, 0.54]], ['its black robe', [0.15, 0.83, 0.5, 0.91]], ['its edge, beside the paper', [0.5, 0.6, 0.548, 0.7]]],
+    },
   ]
   for (const kind of kinds) {
     await show(kind.n); await wait(2500)
-    const ground = await read(kind.n, paper)
+    const ground = await read(kind.n, kind.ground ?? paper)
     const print = await read(kind.n, kind.print)
     check(`${kind.name}: the ground is dark (mean lightness under 0.25)`, ground && ground.mean < 0.25, JSON.stringify(ground))
     check(`${kind.name}: the print is light on it`, print && print.mean < 0.5 && print.top > 0.6, JSON.stringify(print))
@@ -92,6 +120,11 @@ try {
       const disc = await read(kind.n, kind.disc)
       const [r, g, b] = disc?.colour ?? [0, 0, 0]
       check(`${kind.name}: the orange drawing stays orange`, r > 190 && g > 80 && g < 170 && b < 90, JSON.stringify(disc))
+    }
+    for (const [name, box] of kind.true ?? []) {
+      const got = await read(kind.n, box), want = meanOf(box)
+      const off = Math.max(...want.map((one, k) => Math.abs(one - (got?.colour[k] ?? 999))))
+      check(`${kind.name}: ${name} keeps its own colours (within 18)`, off <= 18, `${JSON.stringify(got?.colour)} against ${JSON.stringify(want)}`)
     }
     await c.both(`${SHOT}-page${kind.n}`)
   }
@@ -120,7 +153,7 @@ try {
   check('the PDF in the note is in "Dark pages"', await h.evaluate((sel) => document.querySelector(sel)?.classList.contains('is-dark'), BLOCK), '')
   for (const kind of kinds.slice(1)) {
     await show(kind.n, BLOCK); await wait(2500)
-    const ground = await read(kind.n, paper, BLOCK)
+    const ground = await read(kind.n, kind.ground ?? paper, BLOCK)
     const print = await read(kind.n, kind.print, BLOCK)
     check(`in a note, ${kind.name}: dark ground, light print`, ground && ground.mean < 0.25 && print && print.top > 0.6, JSON.stringify({ ground, print }))
   }
