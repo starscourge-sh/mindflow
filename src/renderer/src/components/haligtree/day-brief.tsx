@@ -250,6 +250,8 @@ export function DayBrief({ day, onOpen, onListed, between }: {
     : morning ? 'Nothing is due and nothing is waiting, so ease into it.' : 'Nothing is due and nothing is waiting. The rest is yours.'
   const weekday = dayjs(now).format('dddd')
   const greeting = `Happy ${weekday}. ${said}`
+  // Everything the greeting speaks of, read: said before, it was typed again a moment later, longer.
+  const heard = ![tasks, waiting, questions, back, repeats, marks].some(unloaded) && due !== null && !!settings
 
   const named = sceneCredit(scene)
   const picture = !!scene || !!grain
@@ -300,11 +302,11 @@ export function DayBrief({ day, onOpen, onListed, between }: {
       </div>
       <div className="pt-2.5">
         <div className="flex items-start gap-6">
-          <p className="relative line-clamp-2 min-w-0 flex-1 text-[0.9375rem] leading-snug text-pretty text-muted-foreground">
-            {/* Not before the day is read: "Nothing is due" typed over a full day was wrong for a moment. The whole line,
-                unseen, holds its room while it types: typed into, a second line came part way and the page under it
-                dropped 22px. */}
-            {!unloaded(tasks) && <><span aria-hidden className="invisible">{greeting}</span><span className="absolute inset-0"><Typed text={greeting} delay={350} step={22} /></span></>}
+          <p data-day-greeting className="relative line-clamp-2 min-h-[2lh] min-w-0 flex-1 text-[0.9375rem] leading-snug text-pretty text-muted-foreground">
+            {/* Two lines kept from the first frame, the most it ever shows: a one-line greeting that ran to two as it
+                typed, or as a late read (a review due, a mark coming) made it longer, dropped the page under it 22px.
+                Only once everything it speaks of is read, so it is typed once, never typed again a moment later. */}
+            {heard && <Typed text={greeting} delay={350} step={22} />}
           </p>
           {named && <PictureCredit className="max-w-[35%] pt-0.5 text-right">{named}</PictureCredit>}
         </div>

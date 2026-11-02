@@ -8,10 +8,12 @@ process.env.QA_ARGS ??= '--sandbox'
 
 const { check, done } = checks()
 const c = await sandbox({ width: 1280, height: 860 })
-const { h, go, send } = c
+const { h, go, send, size } = c
 const today = new Date().toLocaleDateString('en-CA')
 try {
-  for (const reduced of [false, true]) {
+  // Wide, the greeting under the picture is one line; narrower, two; narrower still, more than two (it is cut to two).
+  for (const [width, reduced] of [[1280, false], [1280, true], [900, false], [640, false]]) {
+    await size(width, 860)
     await h.emulateMedia({ reducedMotion: reduced ? 'reduce' : 'no-preference' })
     await go('inbox')
     await h.evaluate(() => {
@@ -40,10 +42,12 @@ try {
     await send('day', today)
     await h.waitForTimeout(8800)
     const { tops, what } = await h.evaluate(() => ({ tops: window.__tops, what: window.__what }))
+    const said = await h.evaluate(() => { const p = document.querySelector('[data-day-greeting]'); if (!p) return 'no greeting'; const line = parseFloat(getComputedStyle(p).lineHeight); return `greeting box ${Math.round(p.getBoundingClientRect().height / line)} lines, its words ${Math.round(p.scrollHeight / line)} lines in full: ${p.textContent.slice(0, 60)}` })
+    console.log(`${width}px:`, said)
     const first = tops.find(([t]) => t >= 0)
     const moved = tops.length ? Math.max(...tops.map(([, top]) => Math.abs(top - tops[0][1]))) : Infinity
     const jump = tops.findIndex(([, top]) => Math.abs(top - tops[0][1]) > 2)
-    check(`${reduced ? 'reduced motion: ' : ''}the writing box stays put for 8 s (moved ${moved.toFixed(1)}px${jump >= 0 ? ` at ${tops[jump][0]}ms` : ''}, ${tops.length} samples from ${first?.[0]}ms)`, tops.length > 100 && moved <= 2,
+    check(`${width}px ${reduced ? 'reduced motion: ' : ''}the writing box stays put for 8 s (moved ${moved.toFixed(1)}px${jump >= 0 ? ` at ${tops[jump][0]}ms` : ''}, ${tops.length} samples from ${first?.[0]}ms)`, tops.length > 100 && moved <= 2,
       what.join(' | '))
   }
 } catch (error) {
