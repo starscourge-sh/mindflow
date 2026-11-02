@@ -1716,6 +1716,17 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
     return () => clearTimeout(grown)
   }, [born])
   const layout = held ?? saved
+  // The folders in the sidebar's order (side-folders.tsx), so the list and the sidebar never disagree: the list's own
+  // layout put a folder where its newest note stood, and 30 folders read upside down beside the sidebar's.
+  const sideRank = useMemo(() => {
+    const ranked = new Set(order)
+    const side = layoutOf([...order, ...list.flatMap((one) => one.members.filter((id) => !ranked.has(id)))], list)
+    const rank = new Map<string, number>()
+    const walk = (keys: string[]): void => keys.forEach((key) => isGroup(key) && (rank.set(groupId(key), rank.size), walk(side.groups[groupId(key)] ?? [])))
+    walk(side.top)
+    return rank
+  }, [order, list])
+  const bySide = (a?: string, b?: string): number => (sideRank.get(a ?? '') ?? 0) - (sideRank.get(b ?? '') ?? 0)
   const info = new Map([...known.current].filter(([id]) => list.some((one) => one.id === id) || parting.includes(id)))
   // Every folder starts shut: what it holds shows only once it is opened, here or as its own page.
   const isOpen = (id: string): boolean => opened[id] ?? false
@@ -1741,7 +1752,7 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
         const items = inner.flatMap((one) => ('item' in one ? [one.item] : one.items))
         return borrowed && !items.length ? [] : [{ sub: groupId(id), items, parts: inner }]
       })
-      return ordered ? parts : [...parts.filter((one) => 'sub' in one), ...parts.filter((one): one is { item: Item } => 'item' in one).sort((a, b) => bySort(a.item, b.item))]
+      return ordered ? parts : [...parts.filter((one): one is Extract<Part, { sub: string }> => 'sub' in one).sort((a, b) => bySide(a.sub, b.sub)), ...parts.filter((one): one is { item: Item } => 'item' in one).sort((a, b) => bySort(a.item, b.item))]
     }
     const laid = (root ? from.groups[root] ?? [] : from.top).flatMap((key): Block[] => {
       if (!isGroup(key)) return visible.has(key) ? [{ items: [visible.get(key)!] }] : []
@@ -1751,7 +1762,7 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
     })
     // Folders first, in your order, as Finder keeps them on top; then the loose notes, as sorted (or where you put them).
     const loose = laid.filter((one) => !one.group)
-    return [...laid.filter((one) => one.group), ...(ordered ? loose : loose.sort((a, b) => bySort(a.items[0], b.items[0])))]
+    return [...laid.filter((one) => one.group).sort((a, b) => bySide(a.group, b.group)), ...(ordered ? loose : loose.sort((a, b) => bySort(a.items[0], b.items[0])))]
   }
   // What a group shows open: its notes, and each subgroup's while that is open too.
   const onShow = (one: { parts?: Part[] }): Item[] => (one.parts ?? []).flatMap((part) => ('item' in part ? [part.item] : isOpen(part.sub) ? onShow(part) : []))

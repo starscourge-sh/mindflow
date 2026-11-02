@@ -42,6 +42,13 @@ try {
   }
   await add(38)
   await shoot('50-30')
+  // The list's folders stand in the sidebar's order.
+  const orders = await h.evaluate(() => {
+    const list = [...document.querySelectorAll('[role="main"] [data-group-row]')].map((one) => one.getAttribute('data-group-row'))
+    const side = [...document.querySelectorAll('aside [data-side-folder]')].map((one) => one.getAttribute('data-side-folder')).filter((id) => list.includes(id))
+    return { list, side }
+  })
+  check('the list\'s folders stand in the sidebar\'s order', orders.list.length > 10 && orders.list.join() === orders.side.join(), JSON.stringify({ list: orders.list.length, side: orders.side.length }))
   await add(450)
   await shoot('500-30')
   check('no page errors', errors.length === 0, errors.join(' | '))
