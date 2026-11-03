@@ -1,6 +1,7 @@
 // Small leftovers from the 3 Nov bug notes, each read in the page:
 // - Settings' theme dial: no two swatches on its ring touch (each at least 40px from the next, centre to centre)
 // - Today's "Happy <day>" line is there whole from its first frame, never typed in (the Journal box types its own hints)
+// - Settings' "Tucked at the edge" chips set the sticky tuck and bring it back
 // - Writing: an empty folder is drawn hollow (dashed outline, no front); one with pages is not
 // - a picture's caption riding beside the pointer is 0.6875rem (11px), down from 0.75rem (Settings' picture sample shows the same label)
 //   QA_ARGS=--sandbox QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 [QA_SHOTS=dir] node qa/small-leftovers.mjs
@@ -10,7 +11,7 @@ process.env.QA_ARGS ??= '--sandbox'
 const { check, done } = checks()
 const shots = process.env.QA_SHOTS
 const c = await sandbox({ width: 1280, height: 860 })
-const { h, send } = c
+const { h, send, v } = c
 const wait = (ms) => h.waitForTimeout(ms)
 try {
   // The dial.
@@ -45,6 +46,19 @@ try {
   check('A picture\'s caption beside the pointer is a size down: 0.6875rem (11px at 16px text; it was 0.75rem)', size === '0.6875rem', String(size))
   if (shots) await h.screenshot({ path: `${shots}/caption-follow.png`, clip: { x: box.x - 160, y: box.y - 40, width: box.width + 320, height: box.height + 120 } })
   await h.mouse.move(5, 5)
+  // "Tucked at the edge": its chips set the tuck that ⌃⌥⌘H sets, and show it.
+  await c.go('settings')
+  await h.click('[data-section="What comes back to you"]').catch(() => undefined)
+  await wait(900)
+  const chip = (name) => h.locator(`button[aria-label="${name}"][aria-pressed]`).first()
+  await chip('By name').scrollIntoViewIfNeeded()
+  await chip('By name').click()
+  await wait(500)
+  const tucked = (await c.v('settings')).stickiesTucked
+  if (shots) await h.screenshot({ path: `${shots}/tuck-setting.png` })
+  await chip('Out').click()
+  await wait(500)
+  check('Settings › "Tucked at the edge": "By name" tucks every sticky, "Out" brings them out', tucked === 'tabs' && (await c.v('settings')).stickiesTucked === 'off', `${tucked} then ${(await c.v('settings')).stickiesTucked}`)
   // Today's greeting: whole from the first frame it shows.
   const today = await h.evaluate(() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` })
   await h.evaluate(() => { window.__greet = []; const end = performance.now() + 5000; const tick = () => { const p = document.querySelector('[data-day-greeting]'); if (p && p.textContent) window.__greet.push(p.querySelector('.mf-typed, [data-line]') ? -1 : p.textContent.length); if (performance.now() < end) requestAnimationFrame(tick) }; requestAnimationFrame(tick) })

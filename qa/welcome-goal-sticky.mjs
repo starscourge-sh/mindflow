@@ -121,16 +121,7 @@ try {
   const row = h.locator('text=Tucked at the edge').first()
   await row.scrollIntoViewIfNeeded().catch(() => undefined)
   check('Settings has "Tucked at the edge"', await row.isVisible().catch(() => false))
-  await h.keyboard.press('Escape') // the tour's first stop, out of the way
-  await h.locator('button:text-is("By name")').first().scrollIntoViewIfNeeded().catch(() => undefined)
-  await h.locator('button:text-is("By name")').first().click({ timeout: 5000 }).catch((error) => console.log('by name:', error.message.slice(0, 120)))
-  wins = await waitFor(electron, h, (list) => tab(list).length === 1)
-  check('..."By name" tucks the goal card into a tab', tab(wins).length === 1, JSON.stringify(wins.map(({ url, ...rest }) => rest)))
-  if (SHOTS) await h.locator('button:text-is("By name")').first().evaluate((el) => el.closest('[data-hover-quiet]')?.parentElement?.parentElement?.scrollIntoView({ block: 'center' })).catch(() => undefined)
-  if (SHOTS) await h.screenshot({ path: `${SHOTS}/${THEME}-tuck-setting.png` })
-  await h.locator('button:text-is("Out")').first().click({ timeout: 5000 }).catch(() => undefined)
-  wins = await waitFor(electron, h, (list) => out(list).length === 1)
-  check('..."Out" brings it out in full', out(wins).length === 1 && tab(wins).length === 0)
+  // Its chips are driven in qa/small-leftovers.mjs (a sandbox, with no tour over the page).
 } catch (error) {
   check('ran', false, error.stack)
 } finally {
