@@ -8,6 +8,7 @@ import CopyIcon from '@/components/ui/copy-icon'
 import DownloadIcon from '@/components/ui/download-icon'
 import { call, haligtree, useLive } from '@/lib/haligtree'
 import { useShelf } from '@/lib/books'
+import { useFitText } from '@/lib/fit-text'
 import { chime } from '@/lib/sound'
 import { still } from '@/lib/motion'
 import markGold from '@/assets/mark-gold-leaves.png'
@@ -114,11 +115,16 @@ const HIGH_BOOK = 375
 // Turned the other way at rest: its fore-edge and old pages toward you, the spine round the far side.
 // The pose's springs: soft and a little bouncy, so the book sways into each pose and rocks once, never snaps.
 const POSE = { stiffness: 90, damping: 11 }
-const REST_TURN = -34
+// Turned a little only, so the cover faces you and the fore-edge just shows (it stood at -34°, which read as facing away).
+const REST_TURN = -12
 const REST_LEAN = 10
 /** Where it comes up from the first time it is shown: lying back, near flat, turned further away. */
-const ARRIVE_TURN = -62
+const ARRIVE_TURN = -40
 const ARRIVE_LEAN = 68
+/** How far past its pose it comes as it arrives, as a share of the way it came up: negative is forward. */
+const ARRIVE_PAST = -0.2
+/** How far from the book, in pixels, the pointer still turns it fully; beyond, it eases off to a faint follow. */
+const NEAR_BOOK = 160
 /**
  * Old paper seen edge on: fine leaf lines (vertical at the fore-edge, across at the foot, crossed here so both show),
  * a grain, and a yellowing that deepens toward the outer edges as old books' pages do.
@@ -314,11 +320,18 @@ export function ReaderCard({ seed: saved, point, named, bare = false, arrive }: 
   const turned = useTransform(() => turn.get() + tilt.y.get() + spinY.get() + rise.get() * (ARRIVE_TURN - REST_TURN))
   // And at rest it leans back a little too, as a book stood on a shelf is seen from just above (Stripe Press's pose).
   const lean = useSpring(still() ? 0 : REST_LEAN, POSE)
-  // Arriving, it starts from lying back and turned away, then the springs stand it up into its pose, once.
-  // Soft enough to stand a touch past its pose and settle back, as a book set down rocks once.
-  useEffect(() => void (arrive === 'go' && rise.get() > 0 && animate(rise, 0, { type: 'spring', stiffness: 50, damping: 8, restDelta: 0.001 })), [arrive]) // eslint-disable-line react-hooks/exhaustive-deps
-  // On the welcome it keeps an eye on the pointer about the page: turned and leaned a few degrees toward wherever it
-  // is, on the pose's own springs, until the pointer comes onto the book and it faces you.
+  // Arriving, it starts from lying back and turned away, comes up and a little further forward than its pose (about
+  // 12°), then settles back into it on a spring with no bounce, once. A held book tipped toward you, then set right.
+  useEffect(() => {
+    if (arrive !== 'go' || rise.get() <= 0) return
+    const forward = animate(rise, ARRIVE_PAST, { duration: 0.7, ease: [0.22, 1, 0.36, 1] })
+    let back: ReturnType<typeof animate> | undefined
+    void forward.then(() => void (back = animate(rise, 0, { type: 'spring', stiffness: 70, damping: 17, restDelta: 0.001 })))
+    return () => (forward.stop(), back?.stop())
+  }, [arrive]) // eslint-disable-line react-hooks/exhaustive-deps
+  // On the welcome it keeps an eye on the pointer: close by the book it turns and leans a few degrees toward it, on the
+  // pose's own springs, until the pointer comes onto it and it faces you; across the rest of the page it only stirs.
+  // It followed the pointer anywhere in the window at full strength, so every move about the page swung it.
   const over = useRef(false)
   // While its picture is taken: the pointer over it leaves it be.
   const shooting = useRef(false)
@@ -329,10 +342,13 @@ export function ReaderCard({ seed: saved, point, named, bare = false, arrive }: 
     const follow = (event: PointerEvent): void => {
       const box = card.current?.getBoundingClientRect()
       if (!box || over.current || grab.current) return
-      const dx = Math.max(-1, Math.min(1, (event.clientX - (box.left + box.width / 2)) / (innerWidth / 2)))
-      const dy = Math.max(-1, Math.min(1, (event.clientY - (box.top + box.height / 2)) / (innerHeight / 2)))
-      turn.set(REST_TURN + dx * 10)
-      lean.set(REST_LEAN - dy * 6)
+      const dx = Math.max(-1, Math.min(1, (event.clientX - (box.left + box.width / 2)) / (box.width / 2 + 60)))
+      const dy = Math.max(-1, Math.min(1, (event.clientY - (box.top + box.height / 2)) / (box.height / 2 + 60)))
+      // How far the pointer is from the book's edge: full strength close by, a faint touch far off.
+      const off = Math.hypot(Math.max(box.left - event.clientX, 0, event.clientX - box.right), Math.max(box.top - event.clientY, 0, event.clientY - box.bottom))
+      const near = 0.06 + 0.94 * Math.max(0, 1 - off / NEAR_BOOK)
+      turn.set(REST_TURN + dx * 9 * near)
+      lean.set(REST_LEAN - dy * 6 * near)
     }
     addEventListener('pointermove', follow)
     return () => removeEventListener('pointermove', follow)
@@ -385,6 +401,8 @@ export function ReaderCard({ seed: saved, point, named, bare = false, arrive }: 
   }
   useEffect(() => void (point && card.current?.scrollIntoView({ block: 'center' })), [point])
   const name = named ?? shelf?.name ?? ''
+  const nameLine = useRef<HTMLParagraphElement>(null)
+  useFitText(nameLine, name, { most: 22, least: 13, way: 'down' })
   const seed = saved ?? seedOf(name)
   const { title, hues, shape } = cardOf(seed)
   const stamps = facts ? stampsOf(facts) : []
@@ -493,7 +511,8 @@ export function ReaderCard({ seed: saved, point, named, bare = false, arrive }: 
           style={{ transform: `translateZ(${THICK / 2}px)`, borderRadius: BOOK_CORNERS, color: 'var(--mf-card-c)' }}
         >
           <ShapePicture shape={shape} />
-          <p data-reader-name className="mt-3 line-clamp-2 text-[1.375rem] leading-[1.12] font-bold tracking-[-0.015em] break-words" style={{ fontFamily: "'Fraunces Variable', Georgia, serif" }}>{name || ' '}</p>
+          {/* Smaller the longer the name, so every name up to the field's 60 letters shows whole, in up to three lines. */}
+          <p ref={nameLine} data-reader-name className="mt-3 line-clamp-3 leading-[1.12] font-bold tracking-[-0.015em] break-words" style={{ fontFamily: "'Fraunces Variable', Georgia, serif", fontSize: 22 }}>{name || ' '}</p>
           {/* Plain words, not rolled: a roll measures its letters on the page, and on a book turned in 3D (it turns toward the
               pointer) they measure short, so the words were cut through their middles. */}
           <p data-reader-title={title} className="mt-2 font-mono text-[0.5625rem] font-medium tracking-[0.16em] uppercase opacity-80">{title}</p>

@@ -12,6 +12,7 @@ import { AnimatePresence, MotionConfig, motion, useIsPresent } from 'motion/reac
 import { ArrowUp, Compass, CornerDownLeft, FolderInput, Shuffle, Undo2, Volume2, VolumeX } from 'lucide-react'
 import { ReaderCard, drawBookName, seedOf } from './reader-card'
 import { renameBook, useShelf } from '@/lib/books'
+import { useFitText } from '@/lib/fit-text'
 import { shift, spring, still, still as calm } from '@/lib/motion'
 import { sayName, ARRIVE_MS, BEAT_MS, PENTA, soundOn, ambience, bedHome, bedLift, bedResolve, bedShift, bell, chime, click, fold, pageTurn, quietBed, titleChime } from '@/lib/sound'
 import { applyTheme, currentTheme, type Theme } from '@/lib/theme'
@@ -1660,6 +1661,8 @@ function NameChapter({ play, report, onNext, save }: { play: boolean; report: (n
   const mine = typed ?? own
   const value = preview ?? mine
   const shown = value.trim() || drawn
+  const nameField = useRef<HTMLInputElement>(null)
+  useFitText(nameField, value || drawn, { most: 26, least: 11, way: 'across' })
   // "Draw another" draws a new card with the name (a new picture, colours and title); going back to your own name
   // brings your own card back with it.
   const [redrawn, setRedrawn] = useState<number | null>(null)
@@ -1680,7 +1683,8 @@ function NameChapter({ play, report, onNext, save }: { play: boolean; report: (n
           {/* Written in the pen's hand, as the owner signs a new book inside its cover (the title card's line). "Draw
               another" inside the field at its end, on its row and its edge, as a field's own button sits. */}
           <div className="relative">
-            <input id="mf-book-name" data-welcome-book-name data-preview={preview === null ? undefined : ''} autoFocus spellCheck={false} className={`${FIELD} h-14 w-full pr-40 text-[1.625rem] leading-none tracking-[-0.01em] [font-family:'Haligtree_Signature',cursive] placeholder:text-(--mf-wl-quiet)`} placeholder={drawn} value={value} maxLength={60}
+            {/* Smaller the longer the name, so the whole name shows in the field at every length up to its 60 letters. */}
+            <input ref={nameField} id="mf-book-name" data-welcome-book-name data-preview={preview === null ? undefined : ''} autoFocus spellCheck={false} className={`${FIELD} h-14 w-full pr-40 leading-none tracking-[-0.01em] [font-family:'Haligtree_Signature',cursive] placeholder:text-(--mf-wl-quiet)`} placeholder={drawn} value={value} maxLength={60} style={{ fontSize: 26 }}
               onChange={(event) => (setTyped(event.target.value), setPreview(null))}
               onKeyDown={(event) => {
                 if (event.key === 'Enter') (event.preventDefault(), onNext())

@@ -1,6 +1,6 @@
 // The welcome's "Name it" book: it stands up from lying back and goes a touch past its pose before settling (a
 // spring with a little give), and while the pointer moves about the page (not on the book) it turns a few degrees
-// toward it.
+// toward it, and only faintly far off (it swung a long way before, 1 Nov: "too sensitive to mouse movement").
 //   QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/welcome-book-motion.mjs
 import { sandbox } from './sandbox-lib.mjs'
 let failed = 0
@@ -56,7 +56,7 @@ try {
   const right = await turn()
   await h.mouse.move(20, 450, { steps: 8 }); await h.waitForTimeout(900)
   const left = await turn()
-  check('it turns toward the pointer moving about the page', right !== null && left !== null && right - left > 6, `pointer right ${right}°, left ${left}°`)
+  check('it barely turns toward the pointer far off about the page (qa/welcome-book-pose.mjs checks close by)', right !== null && left !== null && Math.abs(right - left) <= 4, `pointer right ${right}°, left ${left}°`)
 } catch (error) {
   check('the run finished', false, error.message.split('\n')[0])
 } finally {
