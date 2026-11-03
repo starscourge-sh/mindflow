@@ -809,9 +809,9 @@ function Progress({ at, seen, onBack }: { at: number; /** The chapters already s
       <span className="sr-only">{at > 0 ? `Chapter ${at} of ${CHAPTERS.length}: ${CHAPTERS[at - 1]}` : 'Welcome'}</span>
       {/* Nothing comes before the first page: Back keeps its place there, unseen, so the marks never shift. */}
       <button type="button" onClick={onBack} tabIndex={at > WHY ? 0 : -1} aria-hidden={at > WHY ? undefined : true}
-        // Come to the second page, it blobs into being where it was kept: from a soft small drop to its size, a touch past and back.
-        className={`-ml-3 flex h-[clamp(2rem,4.2vmin,2.5rem)] items-center rounded-[0.6rem] px-3 hover:bg-foreground/[0.06] hover:text-foreground active:scale-[0.97] motion-reduce:transition-none ${at > WHY ? '' : 'invisible scale-[0.4] opacity-0 blur-[3px]'}`}
-        style={{ transition: still() ? 'none' : 'visibility 380ms linear, opacity 240ms var(--mf-ease), scale 380ms cubic-bezier(0.34, 1.56, 0.64, 1), filter 300ms var(--mf-ease), background-color 150ms ease, color 150ms ease' }}>
+        // Come to the second page, it blobs into being where it was kept: from 90%, soft and clear, to its size, a touch past and back, in 260ms.
+        className={`-ml-3 flex h-[clamp(2rem,4.2vmin,2.5rem)] items-center rounded-[0.6rem] px-3 hover:bg-foreground/[0.06] hover:text-foreground active:scale-[0.97] motion-reduce:transition-none ${at > WHY ? '' : 'invisible scale-[0.9] opacity-0 blur-[2px]'}`}
+        style={{ transition: still() ? 'none' : 'visibility 260ms linear, opacity 200ms var(--mf-ease), scale 260ms cubic-bezier(0.34, 1.56, 0.64, 1), filter 200ms var(--mf-ease), background-color 150ms ease, color 150ms ease' }}>
         Back
       </button>
       {/* Narrower still (the smallest window), the marks make room too, so the skip link is never under the way on. */}

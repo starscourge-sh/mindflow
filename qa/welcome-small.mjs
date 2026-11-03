@@ -1,6 +1,6 @@
 // Two small things in the welcome, read every frame in the page:
-// - Back blobs into being on the second page: from small, soft and clear to its size (a touch past, then back),
-//   over a few hundred ms, never there in one frame
+// - Back blobs into being on the second page: from 90%, soft and clear, to its size (a touch past, then back),
+//   in 260ms, never there in one frame
 // - on Write, the "caught on a walk" thought starts typing within 2s of the chapter opening (it waited about 4.7s)
 //   QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 [QA_SHOTS=dir] node qa/welcome-small.mjs
 import { checks } from './harness.mjs'
@@ -33,8 +33,8 @@ try {
   console.log('Back now:', await h.evaluate(() => { const el = [...document.querySelectorAll('.mf-welcome footer button')].find((one) => one.textContent.trim() === 'Back'); const st = getComputedStyle(el); return `${st.opacity} ${st.scale} ${st.visibility} ${st.transitionDuration} | ${el.className.slice(-80)}` }))
   const shown = frames.filter(([o]) => o > 0)
   const between = shown.filter(([o, s]) => o < 0.98 || Math.abs(s - 1) > 0.02)
-  check('Back blobs in: several frames on the way from small and clear to its size', between.length >= 4 && frames[0][0] === 0 && frames.at(-1)[2] === 'visible' && frames[0][1] < 0.6 && frames.at(-1)[0] === 1 && frames.at(-1)[1] === 1, frames.map(([o, s]) => `${o}/${s}`).join(' '))
-  check('...a touch past its size on the way (a blob, not a fade)', frames.some(([, s]) => s > 1.01), String(Math.max(...frames.map(([, s]) => s))))
+  check('Back blobs in: several frames on the way from small and clear to its size', between.length >= 4 && frames[0][0] === 0 && frames.at(-1)[2] === 'visible' && frames[0][1] <= 0.9 && frames.at(-1)[0] === 1 && frames.at(-1)[1] === 1, frames.map(([o, s]) => `${o}/${s}`).join(' '))
+  check('...a touch past its size on the way (a blob, not a fade)', frames.some(([, s]) => s > 1.004), String(Math.max(...frames.map(([, s]) => s))))
   // On to Write.
   const chapter = () => h.evaluate(() => document.querySelector('.mf-welcome footer .sr-only')?.textContent ?? '')
   const next = async () => { await ((await h.$('footer button:has-text("Skip trying it")')) ? h.click('footer button:has-text("Skip trying it")', { timeout: 5000 }) : h.click('footer button:has-text("Next"), footer button:has-text("Show me")', { timeout: 5000 })).catch(() => h.keyboard.press('Enter')) }
