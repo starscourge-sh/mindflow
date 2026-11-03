@@ -41,7 +41,9 @@ export function followGlass(parts: () => (Element | null)[], off: () => boolean 
   const frame = (): void => {
     const shapes = shapesNow()
     const dark = pageIsDark()
-    const said = JSON.stringify([dark, shapes])
+    // The window's size too: main draws the glass's mask at the window's size, so a window grown or shrunk round the
+    // same shapes (room below for a menu) needs them told again, or the mask is left at the old size.
+    const said = JSON.stringify([dark, shapes, innerWidth, innerHeight])
     if (said !== sent) {
       sent = said
       window.api.glass(dark, shapes)

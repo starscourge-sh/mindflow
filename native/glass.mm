@@ -60,7 +60,6 @@ static napi_value Glass(napi_env env, napi_callback_info info) {
   }
   if (!glass) {
     glass = [[MFGlassView alloc] initWithFrame:content.bounds];
-    glass.autoresizingMask = NSViewWidthSizable | NSViewHeightSizable;
     glass.blendingMode = NSVisualEffectBlendingModeBehindWindow;
     // Kept on while another app is in front, as Raycast's is: the box is a panel that does not take the app's focus.
     glass.state = NSVisualEffectStateActive;
@@ -69,6 +68,12 @@ static napi_value Glass(napi_env env, napi_callback_info info) {
   // Dark: the heavy HUD material, the desktop's colour coming through darkened. Light: the popover's, paler.
   glass.material = dark ? NSVisualEffectMaterialHUDWindow : NSVisualEffectMaterialPopover;
   glass.appearance = [NSAppearance appearanceNamed:dark ? NSAppearanceNameVibrantDark : NSAppearanceNameVibrantLight];
+  // Never stretched with the window: the mask is drawn at the window's size now, so a window that grows (room for a
+  // menu below the card) would stretch it, and the blurred shapes slid down and grew tall away from the card they
+  // belong under. Held at this size, pinned to the window's top left (where the page measures from), until the page
+  // sends its shapes again for the new size (lib/glass.ts sends on every change of the window's size too).
+  glass.autoresizingMask = content.isFlipped ? (NSViewMaxXMargin | NSViewMaxYMargin) : (NSViewMaxXMargin | NSViewMinYMargin);
+  glass.frame = content.bounds;
   NSSize size = content.bounds.size;
   std::vector<Shape> drawn = shapes;
   // The mask: opaque where the shapes are, clear elsewhere. Drawn flipped, so the page's top-left numbers fit as they are.
@@ -81,6 +86,26 @@ static napi_value Glass(napi_env env, napi_callback_info info) {
     return YES;
   }];
   return nothing;
+}
+
+// For a probe (qa/glass-grow.mjs): the glass's size and its mask's, against the window's: [viewW, viewH, maskW, maskH,
+// contentW, contentH], or nothing when there is no glass. The mask drawn for one size and shown at another is stretched.
+static napi_value GlassFrame(napi_env env, napi_callback_info info) {
+  size_t argc = 1;
+  napi_value argv[1], nothing, out;
+  napi_get_undefined(env, &nothing);
+  if (napi_get_cb_info(env, info, &argc, argv, NULL, NULL) != napi_ok || argc < 1) return nothing;
+  NSView *content = contentOf(env, argv[0]);
+  NSVisualEffectView *glass = content ? [content viewWithTag:kTag] : nil;
+  if (!glass) return nothing;
+  double v[6] = {glass.frame.size.width, glass.frame.size.height, glass.maskImage.size.width, glass.maskImage.size.height, content.bounds.size.width, content.bounds.size.height};
+  napi_create_array_with_length(env, 6, &out);
+  for (uint32_t i = 0; i < 6; i++) {
+    napi_value n;
+    napi_create_double(env, v[i], &n);
+    napi_set_element(env, out, i, n);
+  }
+  return out;
 }
 
 // Swipe back's fingers (swipe-back.tsx): a page hears the wheel but never whether the fingers lifted. The scroll
@@ -121,5 +146,6 @@ NAPI_MODULE_INIT() {
   napi_value fn;
   if (napi_create_function(env, "watchScroll", NAPI_AUTO_LENGTH, WatchScroll, NULL, &fn) == napi_ok) napi_set_named_property(env, exports, "watchScroll", fn);
   if (napi_create_function(env, "glass", NAPI_AUTO_LENGTH, Glass, NULL, &fn) == napi_ok) napi_set_named_property(env, exports, "glass", fn);
+  if (napi_create_function(env, "glassFrame", NAPI_AUTO_LENGTH, GlassFrame, NULL, &fn) == napi_ok) napi_set_named_property(env, exports, "glassFrame", fn);
   return exports;
 }
