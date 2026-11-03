@@ -52,9 +52,9 @@ try {
   check('it stands up from turned away', Math.abs(start - end) > 15, `${start?.toFixed(1)} → ${end?.toFixed(1)}`)
   check('and goes a little past its pose before settling', past > 0.5 && past < 12, `${past.toFixed(1)}° past`)
   // Follows the pointer about the page.
-  await h.mouse.move(1380, 450, { steps: 8 }); await h.waitForTimeout(900)
+  await h.mouse.move(700, 895, { steps: 8 }); await h.waitForTimeout(900)
   const right = await turn()
-  await h.mouse.move(20, 450, { steps: 8 }); await h.waitForTimeout(900)
+  await h.mouse.move(20, 895, { steps: 8 }); await h.waitForTimeout(900)
   const left = await turn()
   check('it barely turns toward the pointer far off about the page (qa/welcome-book-pose.mjs checks close by)', right !== null && left !== null && Math.abs(right - left) <= 4, `pointer right ${right}°, left ${left}°`)
 } catch (error) {
