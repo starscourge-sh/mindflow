@@ -1,5 +1,5 @@
 // The welcome's ⌘ and . keys on Catch are Haligtree's own render (scripts/render-keycaps.mjs), not a borrowed picture:
-// two keys, each with its mark, cream in the dark and charcoal on paper, the same size on one baseline, and each
+// two keys, each with its mark, cream in the dark and charcoal on paper, tinted in the theme's ink (Gruvbox too), the same size on one baseline, and each
 // swaps to its pressed frame and back on its own, in light and dark, at 1280 and 560 wide.
 //
 //   npx electron-vite build --outDir out-w
@@ -11,13 +11,14 @@ const { check, done } = checks()
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 const shots = process.env.QA_SHOTS ?? '/tmp'
 // Light and dark at the welcome's usual size, and both again in a narrow window (560px wide).
-for (const [theme, width] of [['light', 1280], ['dark', 1280], ['light', 560], ['dark', 560]]) {
+for (const [theme, width] of [['gruvbox', 1280], ['light', 1280], ['dark', 1280], ['light', 560], ['dark', 560]]) {
   const c = await sandbox({ width, height: 800, seeded: false })
   const { h, v } = c
   const name = `${theme}-${width}`
   try {
     await v('settings:set', { keys: { '⌘.': '⌘.' } })
-    await c.look(theme)
+    if (theme === 'light' || theme === 'dark') await c.look(theme)
+    else await h.evaluate((n) => { localStorage.setItem('theme', n); window.dispatchEvent(new StorageEvent('storage', { key: 'theme' })) }, theme), await wait(400)
     await h.evaluate(() => {
       // The keys are pressed by the welcome's own timers, a tenth of a second apart. To picture them down, the probe
       // holds those timers the moment both keys are down: any that come due while held wait for the release and then
@@ -46,7 +47,11 @@ for (const [theme, width] of [['light', 1280], ['dark', 1280], ['light', 560], [
             seen.back.add(k.dataset.key)
             // The moment it is let go, the frame at rest of the look on show is up again, whole.
             const look = [...k.querySelectorAll('[data-look]')].find((l) => getComputedStyle(l).display !== 'none')
-            seen.rest = [...(seen.rest ?? []), getComputedStyle(look.querySelector('img:not([data-pressed])')).opacity]
+            seen.rest = [...(seen.rest ?? []), getComputedStyle(look.querySelector('img:not([data-pressed])').closest('[data-key-frame]') ?? look.querySelector('img:not([data-pressed])')).opacity]
+            // Each frame tinted in the theme's ink: a layer cut to the cap, blended by colour, painted in --foreground.
+            const ink = getComputedStyle(document.documentElement).getPropertyValue('--foreground').trim()
+            const probe = document.createElement('span'); probe.style.color = ink; document.body.append(probe); const want = getComputedStyle(probe).color; probe.remove()
+            seen.tints = [...box.querySelectorAll('[data-key-tint]')].map((t) => { const s = getComputedStyle(t); return s.mixBlendMode === 'color' && s.backgroundColor === want && /url/.test(s.maskImage || s.webkitMaskImage) })
             // And every picture of both looks had loaded (a broken or missing file has no natural width).
             seen.loaded = [...box.querySelectorAll('img')].map((i) => [i.currentSrc.split('/').pop(), i.naturalWidth])
           }
@@ -92,6 +97,8 @@ for (const [theme, width] of [['light', 1280], ['dark', 1280], ['light', 560], [
     const went = await h.evaluate(() => [[...window.__keys.down], [...window.__keys.back]])
     check(`${name}: each key swaps to its pressed frame and back`, went[0].length === 2 && went[1].length === 2, JSON.stringify(went))
     check(`${name}: let go, each key is back to its frame at rest`, rest.length === 2 && rest.every((r) => r === '1'), JSON.stringify(rest))
+    const tints = await h.evaluate(() => window.__keys.tints ?? [])
+    check(`${name}: every frame of both keys takes the theme's ink colour (8 tinted frames)`, tints.length === 8 && tints.every(Boolean), JSON.stringify(tints))
   } finally {
     await c.close()
   }

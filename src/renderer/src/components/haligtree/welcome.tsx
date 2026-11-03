@@ -1791,12 +1791,27 @@ function RenderedKey({ name, mark, down, scale }: { name: string; mark: string; 
       {(['cream', 'charcoal'] as const).map((look) => (
         <span key={look} data-look={look} className={`absolute inset-0 ${look === 'cream' ? '[[data-light]_&]:hidden' : 'hidden [[data-light]_&]:block'}`}>
           {/* At rest: hidden only once the pressed frame has fully come up over it, back at once on release. */}
-          <img alt="" draggable={false} srcSet={keyPicture(name, look, false)} width={w} height={h} className="absolute inset-0 select-none"
-            style={{ opacity: down ? 0 : 1, transition: `opacity 0ms linear ${down ? 100 : 0}ms` }} />
-          <img alt="" draggable={false} data-pressed srcSet={keyPicture(name, look, true)} width={w} height={h} className="absolute inset-0 select-none"
-            style={{ opacity: down ? 1 : 0, transition: 'opacity 100ms var(--mf-ease)' }} />
+          <TintedKey src={keyPicture(name, look, false)} w={w} h={h} style={{ opacity: down ? 0 : 1, transition: `opacity 0ms linear ${down ? 100 : 0}ms` }} />
+          <TintedKey pressed src={keyPicture(name, look, true)} w={w} h={h} style={{ opacity: down ? 1 : 0, transition: 'opacity 100ms var(--mf-ease)' }} />
         </span>
       ))}
+    </span>
+  )
+}
+
+/**
+ * One frame of a rendered key, in the theme's own colour: the picture keeps
+ * its light and shade, and a layer cut to the cap's shape lends it the hue of
+ * the theme's ink (Gruvbox's warm cream or brown, Nord's cool grey), so the
+ * cap is never the plain cream or charcoal it was rendered in.
+ */
+function TintedKey({ src, w, h, pressed = false, style }: { src: string; w: number; h: number; pressed?: boolean; style: React.CSSProperties }): React.JSX.Element {
+  const shape = `url("${src.split(' ')[0]}")`
+  return (
+    <span data-key-frame className="absolute inset-0 isolate" style={style}>
+      <img alt="" draggable={false} data-pressed={pressed || undefined} srcSet={src} width={w} height={h} className="absolute inset-0 select-none" />
+      <span aria-hidden data-key-tint className="absolute inset-0 mix-blend-color"
+        style={{ background: 'var(--foreground)', maskImage: shape, WebkitMaskImage: shape, maskSize: '100% 100%', WebkitMaskSize: '100% 100%' }} />
     </span>
   )
 }
