@@ -431,6 +431,9 @@ export function Welcome(): React.JSX.Element | null {
     if (closing) return
     if (picked.current) applyTheme(picked.current)
     fillBox(null)
+    // What the welcome tucked comes back out as it ends, every way out: left tucked, the goal card and every sticky
+    // stayed a tab at the edge for good, whatever Settings said.
+    if (goalSeen.current) (goalSeen.current = null), void haligtree.setSettings({ stickiesTucked: 'off' })
     // The first welcome, going on into the book: its ending, the name carried into the sidebar and the chord come home
     // on it. Played again, skipped out of, or into the sandbox or an import: the bed simply goes, slowly.
     const ending = how === 'fresh' && !replay && !state?.welcomed && !quiet && !SANDBOX

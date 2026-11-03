@@ -1089,6 +1089,10 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
           <Setting title="Show sticky notes" note="Every sticky note out, or all put away where they were." more="Goal cards go with them. ⌃⌥⌘N from anywhere.">
             <Switch checked={settings.stickiesShown} onCheckedChange={(stickiesShown) => set({ stickiesShown })} />
           </Setting>
+          <Setting title="Tucked at the edge" note="Every sticky and goal card as a tab at the screen's edge, by name or flat, or out in full." more="⌃⌥⌘H from anywhere. A goal card set to “Tuck away” also follows its clock." keywords="tuck stickies away tabs edge flat names bring back out hidden tucked">
+            <Chips className="shrink-0" options={[{ id: 'off', label: 'Out' }, { id: 'tabs', label: 'By name' }, { id: 'flat', label: 'Flat' }]}
+              on={(id) => id === (settings.stickiesTucked ?? 'off')} pick={(stickiesTucked) => set({ stickiesTucked: stickiesTucked as Settings['stickiesTucked'] })} />
+          </Setting>
           <Setting title="Sticky note material" note="What sticky notes and goal cards look like on the desktop." keywords="sticky notes are made of paper glass sticky notes frosted glass blur wallpaper desktop transparent see-through solid opaque vibrancy"
             below={<Choices label="Sticky note material" options={stickyChoices} on={(id) => id === (settings.stickiesFrosted !== false && settings.stickiesGlass ? 'glass' : 'paper')}
               pick={(id) => set({ stickiesFrosted: id === 'glass', stickiesGlass: id === 'glass' })} />} />

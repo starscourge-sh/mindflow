@@ -42,8 +42,9 @@ const waitFor = async (electron, h, want, ms = 4000) => {
   for (const end = Date.now() + ms; Date.now() < end; await h.waitForTimeout(150)) if (want((now = await goalWindows(electron)))) return now
   return now
 }
-const out = (list) => list.filter((one) => one.shown && one.width > 150)
-const tab = (list) => list.filter((one) => one.shown && one.width <= 40 && one.x + one.width === one.right)
+const out = (list) => list.filter((one) => one.shown && one.width >= 150)
+// A tab: narrow (a named tab is about 70px of its window), its right side at the screen's edge.
+const tab = (list) => list.filter((one) => one.shown && one.width < 150 && one.x + one.width >= one.right - 20)
 
 const c = await sandbox({ width: 1280, height: 800, seeded: false })
 const { h, electron } = c
@@ -102,6 +103,34 @@ try {
   await h.click(NEXT)
   wins = await waitFor(electron, h, (list) => tab(list).length === 1)
   check('and tucks again as the summary is left', tab(wins).length === 1)
+  // The welcome closed: the card it tucked comes back out, and stickies are not left tucked (the Settings say "Out").
+  for (let i = 0; i < 6 && (await h.$('.mf-welcome')); i++) {
+    if (await h.$('.mf-welcome [data-choice]')) await h.keyboard.press('1')
+    else await h.click('.mf-welcome footer [data-skip]', { timeout: 3000 }).catch(() => undefined)
+    await h.waitForTimeout(1500)
+  }
+  await h.waitForSelector('.mf-welcome', { state: 'detached', timeout: 15000 }).catch(() => undefined)
+  check('the welcome closes', !(await h.$('.mf-welcome')))
+  wins = await waitFor(electron, h, (list) => out(list).length === 1, 6000)
+  check('...and its goal card is out in full again, not left tucked', out(wins).length === 1 && tab(wins).length === 0, JSON.stringify(wins.map(({ url, ...rest }) => rest)))
+  check('...the setting says so ("stickiesTucked" off)', (await h.evaluate(() => window.api.haligtree('settings'))).stickiesTucked === 'off')
+  // Settings shows the tuck and changes it: "By name" tucks the card to a tab, "Out" brings it back.
+  await c.go('settings')
+  await h.click('[data-section="What comes back to you"]').catch(() => undefined)
+  await h.waitForTimeout(700)
+  const row = h.locator('text=Tucked at the edge').first()
+  await row.scrollIntoViewIfNeeded().catch(() => undefined)
+  check('Settings has "Tucked at the edge"', await row.isVisible().catch(() => false))
+  await h.keyboard.press('Escape') // the tour's first stop, out of the way
+  await h.locator('button:text-is("By name")').first().scrollIntoViewIfNeeded().catch(() => undefined)
+  await h.locator('button:text-is("By name")').first().click({ timeout: 5000 }).catch((error) => console.log('by name:', error.message.slice(0, 120)))
+  wins = await waitFor(electron, h, (list) => tab(list).length === 1)
+  check('..."By name" tucks the goal card into a tab', tab(wins).length === 1, JSON.stringify(wins.map(({ url, ...rest }) => rest)))
+  if (SHOTS) await h.locator('button:text-is("By name")').first().evaluate((el) => el.closest('[data-hover-quiet]')?.parentElement?.parentElement?.scrollIntoView({ block: 'center' })).catch(() => undefined)
+  if (SHOTS) await h.screenshot({ path: `${SHOTS}/${THEME}-tuck-setting.png` })
+  await h.locator('button:text-is("Out")').first().click({ timeout: 5000 }).catch(() => undefined)
+  wins = await waitFor(electron, h, (list) => out(list).length === 1)
+  check('..."Out" brings it out in full', out(wins).length === 1 && tab(wins).length === 0)
 } catch (error) {
   check('ran', false, error.stack)
 } finally {
