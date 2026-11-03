@@ -105,7 +105,7 @@ function needed(column: HTMLElement | null): number | null {
  * not scrolled into view (the growing shows it), so the writing never jumps
  * up and settles back down.
  */
-export function useFitBox(column: RefObject<HTMLElement | null>, full: boolean, pill = false, ready = true): { held: { current: boolean }; refit: () => void; guard: (editor: Editor) => void } {
+export function useFitBox(column: RefObject<HTMLElement | null>, full: boolean, pill = false, ready = true): { held: { current: boolean }; refit: () => void; guard: (editor: Editor) => void; aim: (asPill: boolean) => void } {
   // Nothing is asked of the window until the page knows its own shape (the settings read): main shows the box at its
   // first fit, and a fit sent before "One line to start" was known showed the whole box for a frame, then the pill.
   const readyNow = useRef(ready)
@@ -258,5 +258,19 @@ export function useFitBox(column: RefObject<HTMLElement | null>, full: boolean, 
     } } }))
   }, [want, send])
 
-  return { held, refit: () => refit(true), guard }
+  /**
+   * The height the box will want once the panel is put away, told before main starts the panel's glide: main glides
+   * width and height together to it, in one move. Told after (the panel's glide holds the fit), main glided the width
+   * in and the height only to the last height the full box asked for (280), a large empty card, then shrank it to the
+   * pill in a second glide (the tracker: "moving from oneliner prompt to ⌘\ looks like... glitchy, formless").
+   */
+  const aim = useCallback((asPill: boolean): void => {
+    const was = pillNow.current
+    pillNow.current = asPill
+    const height = want()
+    pillNow.current = was
+    send(height, false)
+  }, [want, send])
+
+  return { held, refit: () => refit(true), guard, aim }
 }

@@ -907,9 +907,12 @@ export default function App(): React.JSX.Element {
   const [panelKept, setPanelDrawn] = useState(panel)
   const panelDrawn = panelKept && !welcoming
   const panelWanted = useRef(panel)
+  const pillAfterPanel = useRef(false)
   panelWanted.current = panel
   const setPanel = (open: boolean): void => {
     chime(open ? 'slide' : 'fold')
+    // Put away: the height the box will want without it, told first, so the box narrows and shortens in one glide.
+    if (!open) box.aim(pillAfterPanel.current)
     if (oneLineOn) setPillPanel(open)
     else setPanelOpen(open)
     panelWanted.current = open
@@ -1082,6 +1085,8 @@ export default function App(): React.JSX.Element {
   // middle (the user's "humanoid").
   const meaningShown = definition?.state === 'found' || definition?.state === 'fix'
   const pill = oneLine && !reading && !editing && !offer && !lesson && !opened && !wraps && !panel && !meaningShown
+  // Whether it will be the pill once the panel is put away (setPanel tells the box's height before the glide).
+  pillAfterPanel.current = oneLine && !reading && !editing && !offer && !lesson && !opened && !wraps && !meaningShown
   // Measured before it is drawn, so a second line grows the box in the frame it appears.
   React.useLayoutEffect(() => {
     if (!oneLine) return
