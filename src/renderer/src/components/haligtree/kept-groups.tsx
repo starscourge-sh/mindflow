@@ -860,10 +860,10 @@ function Count({ n }: { n: number }): React.JSX.Element {
 
 
 /** A folder's small drawing, in exactly the box a page's thumbnail takes (row-shape.ts), so the list's left column never changes size. */
-function GroupTile({ group, ...rest }: { group: GroupView } & React.HTMLAttributes<HTMLSpanElement>): React.JSX.Element {
+function GroupTile({ group, empty = false, ...rest }: { group: GroupView; empty?: boolean } & React.HTMLAttributes<HTMLSpanElement>): React.JSX.Element {
   return (
     <span {...rest} data-group-tile="" data-row-mark="" className={ROW_TILE}>
-      <FolderMark icon={group.icon} color={group.color} className="h-[1.75rem] w-9" />
+      <FolderMark icon={group.icon} color={group.color} empty={empty} className="h-[1.75rem] w-9" />
     </span>
   )
 }
@@ -901,8 +901,19 @@ function PanelTile({ group, onIcon, ...rest }: { group: GroupView; onIcon?: () =
  * A folder drawn small, for a row: its tab and back, its front in the folder's colour (the theme's ink where it has
  * none), and its emoji or icon on the front, so a folder row reads as a folder beside a page's tile.
  */
-export function FolderMark({ icon, color, className }: { icon: string | null; color: string | null; className?: string }): React.JSX.Element {
+export function FolderMark({ icon, color, className, empty = false }: { icon: string | null; color: string | null; className?: string; /** Nothing in it: drawn open and hollow, no front, so an empty folder reads as empty at a glance. */ empty?: boolean }): React.JSX.Element {
   const ink = color ? `var(--tt-color-text-${color})` : 'var(--foreground)'
+  if (empty)
+    return (
+      <span data-folder-mark="" data-folder-empty="" aria-hidden className={cn('relative block h-[1.375rem] w-[1.75rem] shrink-0 transition-transform duration-150 ease-out group-active/row:scale-[0.94] motion-reduce:transition-none', className)} style={{ '--ink': ink } as CSSProperties}>
+        {/* Only its outline, dashed, the inside the page's own colour: a folder with nothing in it. */}
+        <svg viewBox="0 0 28 22" className="absolute inset-0 size-full overflow-visible">
+          <path d="M1 3a2 2 0 0 1 2-2h6.2a2 2 0 0 1 1.4.6l1.4 1.4h13a2 2 0 0 1 2 2V19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2Z"
+            style={{ fill: 'transparent', stroke: 'color-mix(in oklab, var(--ink) var(--mark-edge), transparent)', strokeWidth: 1, strokeDasharray: '2.5 2' }} />
+        </svg>
+        {icon && <span className="absolute inset-x-0 bottom-0 top-[4px] flex items-center justify-center opacity-45 grayscale-[0.6] [&>span]:text-[0.6875rem] [&_svg]:size-3"><GroupIcon icon={icon} color={color} className="size-3" /></span>}
+      </span>
+    )
   return (
     <span data-folder-mark="" aria-hidden className={cn('relative block h-[1.375rem] w-[1.75rem] shrink-0 transition-transform duration-150 ease-out group-active/row:scale-[0.94] motion-reduce:transition-none', className)} style={{ '--ink': ink } as CSSProperties}>
       {/* The back, with its tab. */}
@@ -1092,7 +1103,7 @@ function GroupBlock({ group, entries, parts, start, cursor, estimate, row, carri
                 <ContextMenuTrigger asChild data-row-menu>
                   {renaming ? (
                     <div className={cn(ROW_SHAPE, place ? ROW_PAD : HEAD, 'data-[state=open]:bg-transparent!')}>
-                      <PopoverAnchor asChild>{place ? <GroupTile group={group} /> : <PanelTile group={group} onIcon={() => setPicking(true)} />}</PopoverAnchor>
+                      <PopoverAnchor asChild>{place ? <GroupTile group={group} empty={count === 0} /> : <PanelTile group={group} onIcon={() => setPicking(true)} />}</PopoverAnchor>
                       <input
                         autoFocus
                         defaultValue={group.name}
@@ -1122,7 +1133,7 @@ function GroupBlock({ group, entries, parts, start, cursor, estimate, row, carri
                       className={cn(ROW_SHAPE, ROW_PAD, 'cursor-pointer hover:bg-accent/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring data-[state=open]:bg-accent/60')}
                       style={{ paddingRight: group.unsorted?.length && onSort ? '19rem' : undefined }}
                     >
-                      <PopoverAnchor asChild><GroupTile group={group} /></PopoverAnchor>
+                      <PopoverAnchor asChild><GroupTile group={group} empty={count === 0} /></PopoverAnchor>
                       <span data-folder-row-name="" className="min-w-0 flex-1 truncate text-control font-medium text-foreground">{name}</span>
                       {/* How many it holds, on the right as Finder says it, in this list's own word. */}
                       <span data-count={count} className="shrink-0 text-meta text-muted-foreground tabular-nums">{plural(count, noun)}</span>
