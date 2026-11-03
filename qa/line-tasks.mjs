@@ -1,7 +1,8 @@
 // Lines in a note made tasks: three lines selected offer “3 tasks”, each becomes
-// a to-do linked to its task, ticking either ticks the other; a pasted list
-// offers “Make 3 tasks”; a pasted mixed page offers “Sort this out”, whose
-// sheet sorts it into tasks, a link, a word, a saying and notes, with one Undo.
+// a to-do linked to its task, ticking either ticks the other; a pasted list or
+// a pasted mixed page is offered nothing (the user: "if i want that ill do it
+// via the selection menu"); "Sort this out" sorts a page into tasks, a link, a
+// word, a saying and notes, with one Undo.
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-plan/main/index.js HALIGTREE_QA_AWAY=1 SHOTS=<dir> node qa/line-tasks.mjs
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
@@ -79,26 +80,23 @@ await v('task:done', made[2].id)
 await wait(1400)
 check('the task ticked elsewhere ticks the line', await h.locator(`li[data-task-id="${made[2].id}"]`).getAttribute('data-checked') === 'true')
 
-// A pasted list offers tasks.
+// A pasted list is offered nothing.
 await editor.click()
 await h.keyboard.press('Meta+ArrowDown')
 await h.keyboard.press('Enter')
 await paste('Oil the hinges\nReturn the drill\nSweep the porch')
-await wait(700)
-const offer = h.getByRole('button', { name: /Make 3 tasks/ })
-check('a pasted list offers “Make 3 tasks”', await offer.isVisible().catch(() => false))
-await offer.click().catch(() => {})
-await wait(1500)
-check('the pasted lines became linked tasks', (await h.locator('li[data-task-id]').count()) === 6)
+await wait(900)
+check('a pasted list offers nothing (no “Make 3 tasks”)', !(await h.getByRole('button', { name: /Make \d+ tasks/ }).isVisible().catch(() => false)))
+check('and makes no tasks of its own', (await h.locator('li[data-task-id]').count()) === 3)
 
-// A pasted mixed page offers Sort this out.
+// A pasted mixed page is offered nothing either; "Sort this out" opens as asked.
 await h.keyboard.press('Meta+ArrowDown')
 await h.keyboard.press('Enter')
-await paste(['Now:', '- [ ] Write the toast for Sam', '- [x] Book the hall', 'Next:', '- Choose the music', 'Bits:', '"Measure twice, cut once."', 'Words:', 'liminal', 'https://example.com/an-essay', 'Ideas:', 'A walking map of old shop signs'].join('\n'))
-await wait(700)
-const sortOffer = h.getByRole('button', { name: /Sort this out/ })
-check('a mixed page offers “Sort this out”', await sortOffer.isVisible().catch(() => false))
-await sortOffer.click().catch(() => {})
+const mixedPage = ['Now:', '- [ ] Write the toast for Sam', '- [x] Book the hall', 'Next:', '- Choose the music', 'Bits:', '"Measure twice, cut once."', 'Words:', 'liminal', 'https://example.com/an-essay', 'Ideas:', 'A walking map of old shop signs'].join('\n')
+await paste(mixedPage)
+await wait(900)
+check('a pasted mixed page offers nothing (no “Sort this out”)', !(await h.getByRole('button', { name: /Sort this out/ }).isVisible().catch(() => false)))
+await h.evaluate(([text, origin]) => window.dispatchEvent(new CustomEvent('haligtree:sort-out', { detail: { text, origin } })), [mixedPage, id])
 await wait(900)
 check('the sheet opens with every line', (await h.locator('[data-sort-row]').count()) === 7, `${await h.locator('[data-sort-row]').count()}`)
 const kinds = await h.locator('[data-sort-row]').evaluateAll((rows) => rows.map((row) => row.getAttribute('data-kind')))
@@ -145,7 +143,7 @@ await undo.click().catch(() => {})
 await wait(1500)
 check('one Undo takes it all back', !(await tasks()).some((one) => one.title === 'Write the toast for Sam') && (await h.evaluate(() => window.api.captures.list())).length === beforeCaptures)
 
-// Quick capture: a pasted list offers tasks there too, and a mixed page sends “Sort this out” to the main window.
+// Quick capture: a pasted list or mixed page is offered nothing there either.
 const { page } = c
 await page.evaluate(() => window.api.showPrompt())
 await page.waitForTimeout(800)
@@ -157,7 +155,7 @@ await page.evaluate((t) => {
   editor.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }))
 }, 'Buy bulbs\nFix the shed door')
 await page.waitForTimeout(700)
-check('the box offers “Make 2 tasks” for a pasted list', await page.getByRole('button', { name: /Make 2 tasks/ }).isVisible().catch(() => false))
+check('the box offers nothing for a pasted list', !(await page.getByRole('button', { name: /Make \d+ tasks/ }).isVisible().catch(() => false)))
 await page.screenshot({ path: `${dir}/4-box-list.png` })
 await page.keyboard.press('Meta+a')
 await page.keyboard.press('Backspace')
@@ -167,12 +165,8 @@ await page.evaluate((t) => {
   data.setData('text/plain', t)
   editor.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }))
 }, ['Now:', '- [ ] Ring the vet', '- [ ] Order the paint', 'Bits:', '"Little by little, a little becomes a lot."', 'Words:', 'sonder', 'Ideas:', 'A shelf for borrowed books'].join('\n'))
-await page.waitForTimeout(700)
-await page.getByRole('button', { name: /Sort this out/ }).click().catch(() => {})
-await wait(1500)
-check('the box sends “Sort this out” to the main window', (await h.locator('[data-sort-row]').count()) === 5, `${await h.locator('[data-sort-row]').count()}`)
-await h.keyboard.press('Escape')
-await wait(400)
+await page.waitForTimeout(900)
+check('the box offers nothing for a pasted mixed page', !(await page.getByRole('button', { name: /Sort this out/ }).isVisible().catch(() => false)))
 
 // A list typed out in quick capture is offered as tasks at its third line.
 await page.evaluate(() => window.api.showPrompt())

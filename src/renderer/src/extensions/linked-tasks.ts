@@ -2,12 +2,8 @@ import { Extension } from "@tiptap/core"
 import { Plugin, PluginKey } from "@tiptap/pm/state"
 import { haligtree, type Task } from "@/lib/haligtree"
 import { boxKind, boxList, linkedItems, makeLineTasks } from "@/lib/line-tasks"
-import { openSort } from "@/lib/sort-out"
 import { toast } from "@/components/haligtree/ui"
-import { isList, readLines, tasksOf, tasksSaid, worthSorting } from "../../../main/day-lines"
-import { APP_NAME } from '../../../main/name'
-import { cardListOf } from "../../../main/card-lists"
-import { termLines } from "../../../main/study"
+import { tasksSaid } from "../../../main/day-lines"
 import { num } from '../../../main/dates'
 
 /**
@@ -15,8 +11,7 @@ import { num } from '../../../main/dates'
  * two are kept as one. Ticking the line ticks the task; the task ticked
  * anywhere else (Today, the box, a sticky) ticks the line, in an open note as
  * it happens and in a closed one when it next opens. A pasted list is
- * offered as tasks, and a long mixed page as "Sort this out", in a notice
- * that never gets in the way of the paste itself.
+ * offered nothing: the selection menu makes lines tasks when asked.
  */
 
 const KEY = new PluginKey("linkedTasks")
@@ -113,8 +108,6 @@ export const LinkedTasks = Extension.create<{ origin: () => string | null; box: 
 
   addProseMirrorPlugins() {
     const editor = this.editor
-    const origin = this.options.origin
-    const inBox = this.options.box
     return [new Plugin({
       key: KEY,
       // A line split off a linked one (Enter at its end) or a copy pasted in
@@ -131,29 +124,11 @@ export const LinkedTasks = Extension.create<{ origin: () => string | null; box: 
         return tr
       },
       props: {
-        handlePaste: (view, event) => {
-          const text = event.clipboardData?.getData("text/plain") ?? ""
-          // In quick capture made a Todo, what Create will make is said under the box instead.
-          // A list of cards lands as cards, and a "term - meaning" list is
-          // offered as cards (extensions/line-cards.ts): neither as tasks.
-          if (!editor.isEditable || !isList(text) || (inBox() && boxKind.todo) || cardListOf(text) || termLines(text).length) return false
+        // A pasted list is offered nothing: the user, "if i want that ill do it via the selection menu" ("3 tasks" on
+        // the lines picked, components/haligtree/selection-actions.tsx). Stamped, so the typed-list offer above does not
+        // take a pasted list for one typed out.
+        handlePaste: () => {
           ;(editor.storage as unknown as Record<string, { pasted: number }>).linkedTasks.pasted = Date.now()
-          const from = view.state.selection.from
-          // After the paste has landed: offered, never done for you.
-          setTimeout(() => {
-            if (editor.isDestroyed) return
-            const to = editor.state.selection.to
-            if (worthSorting(text)) return toast(`A page of mixed lines. ${APP_NAME} can sort it into tasks, links, words and sayings`, undefined, "info", { label: "Sort this out", key: "S", run: () => openSort(text, origin()) })
-            // Read as Today's page reads lines: indented ones are steps of the line above.
-            // In quick capture, taken up, the box becomes a Todo: Create makes the tasks, said under the box.
-            const box = inBox() && boxKind.pick
-            const lines = box ? boxList(editor)?.list ?? [] : tasksOf(readLines(text))
-            // Nothing it could make (the lines landed in a code block, say, as a table pasted from a terminal does): no offer
-            // of "Make 0 tasks".
-            if (!lines.length) return
-            const said = tasksSaid(lines)
-            toast(`A list of ${readLines(text).length} lines`, undefined, "info", { label: `Make ${said === "a task" ? "it a task" : said}`, key: "T", run: () => (box ? box() : void makeLineTasks(editor, from, to, origin())) })
-          }, 0)
           return false
         },
       },

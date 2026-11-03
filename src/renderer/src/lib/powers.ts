@@ -175,7 +175,7 @@ export const POWERS: Power[] = [
     show: { view: 'today', at: ROW, text: 'Right-click a task and choose “Date”, then “Do this first today”.' } },
   { id: 'writeday', group: 'Planning', name: 'Write out your day', tryIt: 'In Tasks, choose “Write out my day”, write a line and press ↵.', line: 'Today as a page you write: one task a line under “Now”, “Next” and “Later”, the top three first, steps by ⇥, ticked lines struck where they are.', keys: ['⌥↑', '⌥↓', '⌘↵'],
     show: { view: 'today', at: '[data-write-day]', find: 'Write out my day', text: 'Choose “Write out my day”, then write a line and press ↵.' } },
-  { id: 'linetasks', group: 'Planning', name: 'Lines into tasks', tryIt: 'Select three lines in a note and choose “3 tasks”.', line: 'Several lines of a note made tasks at once, each line keeps a box that ticks with its task; a long pasted page sorted into tasks, links, words and sayings.',
+  { id: 'linetasks', group: 'Planning', name: 'Lines into tasks', tryIt: 'Select three lines in a note and choose “3 tasks”.', line: 'Several lines of a note made tasks at once, each line keeps a box that ticks with its task.',
     show: { view: 'inbox', text: 'Open a note, select a few lines, and choose “tasks” in the bar.' } },
   { id: '135', group: 'Planning', name: '1-3-5', tryIt: 'In Today, press F and pick “1-3-5” under “Grouping”.', line: 'Lay Today out as one big thing, three medium and five small, in the order you give them.',
     show: { view: 'today', at: '[data-display]', text: 'Press F or click here, and pick “1-3-5” under “Grouping”.' } },

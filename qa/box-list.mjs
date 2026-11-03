@@ -4,7 +4,7 @@
 // indented lines steps of the task above, a #tag on its own line's task, a
 // line named like an open task joining it. ⌘Z takes every one back and puts
 // the box back as it was. The × keeps it one note. A pasted list in a Note
-// offers the same and makes the box a Task. A page of mixed lines offers
+// is offered nothing (the selection menu does that). A page of mixed lines offers
 // "Sort this out" instead, never both.
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/box-list.mjs
 import { sandbox } from './sandbox-lib.mjs'
@@ -86,19 +86,13 @@ try {
   const kept = (await page.evaluate(() => window.api.captures.list())).filter((one) => (one.label ?? '').startsWith('buy milk and eggs'))
   check('kept as one note', kept.length === 2 && !(await named('essay')), `${kept.length} captures`)
 
-  // A list pasted into a Note offers the tasks; taken up, the box is a Task.
+  // A list pasted into a Note is offered nothing: no "A list of", no "Make 3 tasks".
   await fresh()
   await page.keyboard.press('Meta+1')
   await electron.evaluate(({ clipboard }) => clipboard.writeText('- water the plants\n- read chapter 4\n- essay two:\n  - outline\n  - draft'))
   await page.keyboard.press('Meta+v')
   await page.waitForTimeout(900)
-  const offer = await page.evaluate(() => (/A list of [^\n]+\n[^\n]+/.exec(document.body.innerText) ?? [''])[0])
-  check('a pasted list in a Note is offered as tasks', /Make 3 tasks, 2 steps/.test(offer), offer)
-  await page.getByRole('button', { name: /Make 3 tasks/ }).first().click()
-  await page.waitForTimeout(700)
-  check('taken up, the box says what Create makes', /Make 3 tasks, 2 steps/.test(await will()), await will())
-  // The kind is called Task since a32f2c4e; it leads the box's footer.
-  check('and is a Task', await page.evaluate(() => (document.querySelector('main[data-chrome]')?.innerText ?? '').split('\n')[0].trim() === 'Task'))
+  check('a pasted list in a Note is offered nothing', !(await page.getByRole('button', { name: /Make \d+ tasks/ }).count()), await page.evaluate(() => document.body.innerText.slice(0, 200)))
   await page.keyboard.press('Meta+a'); await page.keyboard.press('Backspace')
 
   // A page of mixed lines: "Sort this out", not tasks a line.
