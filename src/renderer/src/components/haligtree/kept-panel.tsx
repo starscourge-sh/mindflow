@@ -33,7 +33,8 @@ const TIERS = [{ id: 'nugget', label: 'Gems' }, { id: 'article', label: 'Writing
  * holding (open ones only; the settled wait in the main window), newest first, each one
  * opened right here. j and k move, Enter opens, and a right click has the rest.
  */
-export function KeptPanel({ onOpen, open, onRead }: { onOpen: (type: string, id: string) => void; open?: string; onRead: (items: Readable[], start: number) => void }): React.JSX.Element {
+/** `inFront`: quick capture's panel says when its list is the one in front, so ⌘A and ⌫ never reach it out of sight. */
+export function KeptPanel({ onOpen, open, onRead, inFront }: { onOpen: (type: string, id: string) => void; open?: string; onRead: (items: Readable[], start: number) => void; inFront?: () => boolean }): React.JSX.Element {
   const [tier, setTier] = useState<'nugget' | 'article' | 'question'>('nugget')
   // Archived, or in the Bin, is out of sight here as in the main window.
   const all = useLive(() => haligtree.items(tier).then((list) => list.filter((one) => !one.archivedAt && (tier !== 'question' || !one.closedAt))), [] as Item[], [tier], ['item'])
@@ -76,7 +77,7 @@ export function KeptPanel({ onOpen, open, onRead }: { onOpen: (type: string, id:
   // ⌫ on what is picked (or the row under the cursor): to the Bin at once, with Undo.
   const binRefs = (ids: string[]): { type: string; id: string }[] => ids.map((id) => ({ type: tier, id }))
   const toBin = (ids: string[]): void => void moveToBin(binRefs(ids)).then((n) => n && setChosen([]))
-  const selectAll = useSelectAll(() => items.map((one) => one.id), chosen, setChosen, { here, onDelete: toBin, current: () => items[cursor]?.id, titleOf: (id) => all.find((one) => one.id === id)?.title })
+  const selectAll = useSelectAll(() => items.map((one) => one.id), chosen, setChosen, { here: inFront ?? here, scoped: !!inFront, onDelete: toBin, current: () => items[cursor]?.id, titleOf: (id) => all.find((one) => one.id === id)?.title })
   // A Set, read once a row: with thousands picked, includes on every row froze the window.
   const chosenSet = new Set(chosen)
   const allPicked = items.length > 0 && items.every((one) => chosenSet.has(one.id))

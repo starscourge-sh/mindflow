@@ -71,6 +71,7 @@ import { boxKind, boxList } from './lib/line-tasks'
 import { openSort } from './lib/sort-out'
 import { tasksSaid } from '../../main/day-lines'
 import { useSelectAll } from './lib/select-all'
+import { listInFront, useListScope } from './lib/list-front'
 import { usePicking } from './lib/pick-range'
 import { PickDays } from './components/haligtree/late-tasks'
 import { binItem, moveToBin } from './lib/to-bin'
@@ -2912,7 +2913,17 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
     ids.map((id) => ({ type: 'capture', id, status: captures.find((one) => one.id === id)?.status }))
   const toBin = (ids: string[]): void => void moveToBin(binRefs(ids)).then((n) => n && setChosen([]))
   const cursorAt = useRef(-1)
-  const selectAll = useSelectAll(() => every.map((one) => one.id), chosen, setChosen, { enabled: tab === 'inbox', onDelete: toBin, current: () => shownNow.current[cursorAt.current]?.id, titleOf: (id) => captures.find((one) => one.id === id)?.label })
+  // Only while the list is the one in front, on screen, and the pointer or the keys were last in it: with the keys
+  // anywhere else in the box (the writing, a definition Tab moved to, the pill with the panel put away), ⌘A picked the
+  // whole Inbox out of sight, "48 selected", and ⌫ then sent them all to the Bin with the tearing sound (the tracker).
+  const panelRoot = useRef<HTMLDivElement>(null)
+  useListScope(panelRoot)
+  const panelInFront = (): boolean => {
+    const at = panelRoot.current
+    const r = at?.getBoundingClientRect()
+    return !!at && !!r && r.width > 40 && r.left < innerWidth - 40 && listInFront() === at
+  }
+  const selectAll = useSelectAll(() => every.map((one) => one.id), chosen, setChosen, { enabled: tab === 'inbox', scoped: true, here: panelInFront, onDelete: toBin, current: () => shownNow.current[cursorAt.current]?.id, titleOf: (id) => captures.find((one) => one.id === id)?.label })
   const allPicked = every.length > 0 && every.every((one) => chosen.includes(one.id))
   // ⌘-click, ⇧-click, ⇧↑ and ⇧↓ pick as Finder does.
   const picking = usePicking(shown.map((one) => one.id), chosen, setChosen)
@@ -2991,7 +3002,7 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
   }
 
   return provide(
-    <div data-box-panel className="relative flex h-full w-full flex-col p-2" style={readsStyle}>
+    <div ref={panelRoot} data-box-panel className="relative flex h-full w-full flex-col p-2" style={readsStyle}>
       <div data-hover-quiet role="tablist" aria-label="Side panel" className="isolate mb-2 flex gap-1 rounded-lg border border-foreground/10 bg-foreground/[0.045] p-0.5 text-sm">
         {/* Drag a tab along the row into your own order. Right click one to move it a step, or to show or hide a tab; the last one stays. */}
         <SortableList axis="x" items={tabs} keyOf={(one) => one.id} onMove={dropOrder('boxTabsOrder', BOX_TABS.map((one) => one.id), (id) => BOX_TABS.find((one) => one.id === id)?.label)}>
@@ -3148,7 +3159,7 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
             ) : tab === 'today' ? (
               <TodayPanel onOpen={(id) => onOpenAny('task', id)} open={reading} />
             ) : tab === 'kept' ? (
-              <KeptPanel onOpen={onOpenAny} open={reading} onRead={onRead} />
+              <KeptPanel onOpen={onOpenAny} open={reading} onRead={onRead} inFront={panelInFront} />
             ) : tab === 'recent' ? (
               <RecentPanel className="flex-1 [&>header]:h-8 [&>header]:border-0 [&>header]:px-2" onOpen={onOpenAny} />
             ) : (
