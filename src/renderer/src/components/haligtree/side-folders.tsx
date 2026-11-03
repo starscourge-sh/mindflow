@@ -317,11 +317,13 @@ function Folder({ list, group, depth, n, here, naming, onNamed, onRename, onOpen
                 onClick={() => onOpen(group.id)}
                 // Under the row's own icon, a step in for each level.
                 style={{ paddingLeft: left }}
-                className={`flex w-full min-w-0 items-center gap-2 rounded-md py-1 pr-2 ${here ? 'text-foreground' : 'text-foreground/80'} ${over ? HOT : ''} ${drag.carried === group.id ? 'opacity-40' : ''} data-[queue-hot]:bg-[color-mix(in_oklab,var(--tt-color-text-blue)_16%,transparent)] data-[queue-hot]:text-foreground data-[queue-hot]:ring-1 data-[queue-hot]:ring-[color-mix(in_oklab,var(--tt-color-text-blue)_45%,transparent)] data-[folder-no]:cursor-not-allowed data-[folder-no]:opacity-50`}
+                // A long name ("Words worth knowing" at the sidebar's narrowest) goes on to a second line rather than
+                // being cut; the count stays on its first line, on the same baseline as every other row's.
+                className={`flex w-full min-w-0 items-baseline gap-2 rounded-md py-1 pr-2 ${here ? 'text-foreground' : 'text-foreground/80'} ${over ? HOT : ''} ${drag.carried === group.id ? 'opacity-40' : ''} data-[queue-hot]:bg-[color-mix(in_oklab,var(--tt-color-text-blue)_16%,transparent)] data-[queue-hot]:text-foreground data-[queue-hot]:ring-1 data-[queue-hot]:ring-[color-mix(in_oklab,var(--tt-color-text-blue)_45%,transparent)] data-[folder-no]:cursor-not-allowed data-[folder-no]:opacity-50`}
               >
                 {/* Room for the icon, which is its own button over this one. */}
                 <span className="size-4 shrink-0" />
-                <Weighted on={here} className="flex-1 text-left">{group.name}</Weighted>
+                <Weighted on={here} className="flex-1 text-left *:line-clamp-2 *:!whitespace-normal *:[overflow-wrap:anywhere]">{group.name}</Weighted>
                 {n !== null && <Count n={n} className="text-xs text-muted-foreground" />}
               </button>
             </RowMenu>
