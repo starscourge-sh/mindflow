@@ -77,7 +77,11 @@ const before = (field: Field): string =>
 /** The words so far, shown where the caret was: faint in a note, picked and greyed in a plain field. */
 function show(field: Field, text: string): void {
   if (field.kind === 'editor') {
-    if (!field.editor.isDestroyed) field.editor.view.dispatch(field.editor.state.tr.setMeta(KEY, text))
+    if (field.editor.isDestroyed) return
+    field.editor.view.dispatch(field.editor.state.tr.setMeta(KEY, text))
+    // The newest words kept in sight as they arrive: once the box was full they ran on out of view below it (the
+    // user's 8bc629d7: "it does not auto scroll as the person continues to speak"). The caret sits after them.
+    keepInSight(field.editor.view.dom.querySelector<HTMLElement>('[data-talk="faint"]'))
     return
   }
   const { input } = field
@@ -89,6 +93,24 @@ function show(field: Field, text: string): void {
   else if (field.length) document.execCommand('delete')
   field.length = words.length
   input.setSelectionRange(field.at, field.at + field.length)
+}
+
+/** The last line of the faint words brought into view in whatever scrolls the note, only when it is out of sight. */
+function keepInSight(words: HTMLElement | null): void {
+  const text = words?.lastChild
+  if (!words || !text) return
+  const range = document.createRange()
+  range.selectNodeContents(text)
+  range.collapse(false)
+  const end = range.getBoundingClientRect()
+  for (let at = words.parentElement; at; at = at.parentElement) {
+    const { overflowY } = getComputedStyle(at)
+    if (!/(auto|scroll)/.test(overflowY) || at.scrollHeight <= at.clientHeight) continue
+    const box = at.getBoundingClientRect()
+    const room = 12
+    if (end.bottom > box.bottom - room) at.scrollTop += end.bottom - box.bottom + room
+    return
+  }
 }
 
 /** The words settled: typed into a note for good, the caret after them. */

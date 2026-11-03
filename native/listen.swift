@@ -163,7 +163,11 @@ if #available(macOS 26, *) {
     guard let wanted = await SpeechTranscriber.supportedLocale(equivalentTo: locale) else {
       fail("unavailable", "Speech recognition isn't available for this language on this Mac")
     }
-    let transcriber = SpeechTranscriber(locale: wanted, transcriptionOptions: [], reportingOptions: [.volatileResults], attributeOptions: [])
+    // Volatile and fast, Apple's own mix for live words (its progressive preset): the words show as they are said.
+    // Volatile alone waited for more of the sentence before saying each guess, so the live words lagged well behind
+    // the voice (the user's 8bc629d7: "pretty slow. the final full version seems fine though"); the settled words are
+    // made out again in full as each phrase ends, so the words kept are as good as before.
+    let transcriber = SpeechTranscriber(locale: wanted, transcriptionOptions: [], reportingOptions: [.volatileResults, .fastResults], attributeOptions: [])
     do {
       // The words for this language are fetched once by macOS, then kept on the Mac.
       if let install = try await AssetInventory.assetInstallationRequest(supporting: [transcriber]) {
@@ -191,7 +195,9 @@ if #available(macOS 26, *) {
         }
         if problem == nil && out.frameLength > 0 { feed.yield(AnalyzerInput(buffer: out)) }
       }
-      if let path = testFile {
+      // LISTEN_PACED=1: the recording fed as fast as it plays, as a voice is, so a test can time the live words.
+      let paced = ProcessInfo.processInfo.environment["LISTEN_PACED"] == "1"
+      if let path = testFile, !paced {
         // A recording in the microphone's place, through the same steps, so it can be proven from the terminal.
         // Held first, as the microphone's buffers are while the analyzer gets ready.
         let file = try AVAudioFile(forReading: URL(fileURLWithPath: path))
@@ -202,6 +208,17 @@ if #available(macOS 26, *) {
         held.close()
       }
       held.open(hear, finish: { feed.finish() })
+      if let path = testFile, paced {
+        let file = try AVAudioFile(forReading: URL(fileURLWithPath: path))
+        say(["ready": ["onDevice": true]])
+        Thread.detachNewThread {
+          while let chunk = AVAudioPCMBuffer(pcmFormat: file.processingFormat, frameCapacity: 1024), (try? file.read(into: chunk)) != nil, chunk.frameLength > 0 {
+            held.take(chunk)
+            Thread.sleep(forTimeInterval: Double(chunk.frameLength) / file.processingFormat.sampleRate)
+          }
+          held.close()
+        }
+      }
       try await analyzer.start(inputSequence: stream)
       // Settled words so far, and the ones still being made out after them.
       let reading = Task {
