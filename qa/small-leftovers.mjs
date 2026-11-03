@@ -73,6 +73,8 @@ try {
   const trips = folders.find((one) => one.text.includes('Trips to write up'))
   check('Writing: the empty folder "Trips to write up" is drawn hollow', !!trips?.empty, JSON.stringify(folders))
   check('...and the folders with pages are not', folders.filter((one) => !one.text.includes('Trips')).every((one) => !one.empty) && folders.length >= 3)
+  const side = await h.evaluate(() => [...document.querySelectorAll('[data-folder-icon]')].map((one) => ({ name: one.getAttribute('aria-label'), empty: !!one.querySelector('[data-folder-empty]') })))
+  check('Sidebar: "Trips to write up" (0) is drawn empty too, a faint icon in a dashed outline; folders with notes are not', side.some((one) => /Trips to write up/.test(one.name) && one.empty) && side.filter((one) => !/Trips to write up/.test(one.name)).every((one) => !one.empty), JSON.stringify(side.filter((one) => one.empty)))
   if (shots) await h.locator('[data-group-tile]').first().evaluate((el) => el.scrollIntoView({ block: 'center' })), await h.screenshot({ path: `${shots}/folders-light.png` })
   await c.look('dark'); await wait(500)
   if (shots) await h.screenshot({ path: `${shots}/folders-dark.png` })

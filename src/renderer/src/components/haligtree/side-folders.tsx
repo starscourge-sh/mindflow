@@ -323,7 +323,7 @@ function Folder({ list, group, depth, n, here, naming, onNamed, onRename, onOpen
               >
                 {/* Room for the icon, which is its own button over this one. */}
                 <span className="size-4 shrink-0" />
-                <Weighted on={here} className="flex-1 text-left *:line-clamp-2 *:!whitespace-normal *:[overflow-wrap:anywhere]">{group.name}</Weighted>
+                <Weighted on={here} className={`flex-1 text-left *:line-clamp-2 *:!whitespace-normal *:[overflow-wrap:anywhere] ${n === 0 && !here ? 'text-muted-foreground' : ''}`}>{group.name}</Weighted>
                 {n !== null && <Count n={n} className="text-xs text-muted-foreground" />}
               </button>
             </RowMenu>
@@ -333,7 +333,10 @@ function Folder({ list, group, depth, n, here, naming, onNamed, onRename, onOpen
             // Pressed anywhere in the row's height round it (28px,
             // as the row's own targets), not just the 20px tile it draws.
             className="absolute top-1 flex size-5 cursor-pointer items-center before:absolute before:-inset-1 before:content-[''] justify-center rounded-md transition-[background-color,box-shadow] duration-100 hover:bg-foreground/10 hover:ring-1 hover:ring-foreground/20">
-            <GroupIcon icon={group.icon} color={group.color} className="size-3.5" />
+            {/* Nothing in it: its icon faint in a dashed outline, as an empty folder is drawn in its list. */}
+            {n === 0
+              ? <span data-folder-empty="" className="flex size-5 items-center justify-center rounded-[4px] border border-dashed border-foreground/35"><span className="opacity-45 grayscale-[0.6]"><GroupIcon icon={group.icon} color={group.color} className="size-3" /></span></span>
+              : <GroupIcon icon={group.icon} color={group.color} className="size-3.5" />}
           </button>
         </div>
       </PopoverAnchor>
