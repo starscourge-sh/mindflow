@@ -65,6 +65,10 @@ const iconOf = (kind: string): Path2D => (paths ??= Object.fromEntries(Object.en
 
 // Pictures for the busiest notes that have one, kept across visits: a data address, so the canvas stays readable.
 const pictures = new Map<string, HTMLImageElement | null>()
+/** How long a map left panned or zoomed away from its dots waits, with no input, before it eases back to fit. */
+const HOME_AFTER = 2000
+/** How long the glide back to fit takes, by itself or from the Fit button: one motion for both. */
+const HOME_GLIDE = 600
 /** How many dots show their picture, and only close up: the busiest few hubs. */
 const PICTURED = 5
 
@@ -949,9 +953,34 @@ export function GraphCanvas({ map, onOpen, centre, you, about, fit: fitRef, fly,
     fit.current = () => {
       if (!width || !height) return
       const to = fitted()
-      glide(to, fittedOnce ? 400 : 0)
+      glide(to, fittedOnce ? HOME_GLIDE : 0)
       fittedOnce = true
       if (shown && !drag) ((focus = null), fade(0))
+    }
+    // Panned or zoomed away from the map and left there, it eases back to fit after a couple of seconds of no input;
+    // any input starts the wait again. Away: under half of the map in the frame, or zoomed out to under half the size
+    // it fits at. Close up on one part, with the map filling the frame, is reading, not lost: it stays. Not on a note's
+    // own map, which scrolls with its page.
+    let homing = 0
+    const away = (): boolean => {
+      if (!width || !height || !dots.length) return false
+      const xs = dots.map((dot) => dot.x!), ys = dots.map((dot) => dot.y!)
+      const at = (x: number, mid: number, offset: number): number => mid + offset + x * view.k
+      const [x0, x1] = [at(Math.min(...xs), width / 2, view.x), at(Math.max(...xs), width / 2, view.x)]
+      const [y0, y1] = [at(Math.min(...ys), height / 2, view.y), at(Math.max(...ys), height / 2, view.y)]
+      const seenW = Math.max(0, Math.min(x1, width) - Math.max(x0, 0)), seenH = Math.max(0, Math.min(y1, height) - Math.max(y0, 0))
+      // A map a single dot wide still counts as in sight when its dot is.
+      const share = (Math.max(seenW, 1) * Math.max(seenH, 1)) / (Math.max(x1 - x0, 1) * Math.max(y1 - y0, 1))
+      return share < 0.5 || view.k < fitK * 0.5
+    }
+    const home = (): void => {
+      window.clearTimeout(homing)
+      if (small || gone) return
+      homing = window.setTimeout(() => {
+        if (drag || !away()) return
+        glide(fitted(), HOME_GLIDE)
+        if (shown) ((focus = null), fade(0))
+      }, HOME_AFTER)
     }
     // The replay grows the map as Obsidian's "Animate" does: the layout holds only the dots that have arrived, each
     // new one put beside the first of its links already there (or in the middle), and a little heat, so the others
@@ -1084,6 +1113,7 @@ export function GraphCanvas({ map, onOpen, centre, you, about, fit: fitRef, fly,
     let flick = { vx: 0, vy: 0, at: 0 }
     const down = (event: PointerEvent): void => {
       if (event.button !== 0) return
+      window.clearTimeout(homing)
       el.setPointerCapture(event.pointerId)
       // The note itself stays put in the middle of its own map: dragging it moves the view.
       const dot = hit(event)
@@ -1139,6 +1169,7 @@ export function GraphCanvas({ map, onOpen, centre, you, about, fit: fitRef, fly,
         }
       }
       point(hit(event), event)
+      home()
     }
     const leave = (): void => void (drag || point(null))
     const wheel = (event: WheelEvent): void => {
@@ -1164,6 +1195,7 @@ export function GraphCanvas({ map, onOpen, centre, you, about, fit: fitRef, fly,
       // The light goes out on its usual fade, never all at once mid-fade (the whole map flashed back).
       if (focus) ((focus = null), fade(0))
       redraw()
+      home()
     }
     el.addEventListener('pointerdown', down)
     el.addEventListener('pointermove', move)
@@ -1176,6 +1208,7 @@ export function GraphCanvas({ map, onOpen, centre, you, about, fit: fitRef, fly,
       // as React's trial run in development does), the next draw fades in again.
       if (!arrive.size) for (const dot of dots) placed.current.set(dot.id, { x: dot.x!, y: dot.y! })
       cancelAnimationFrame(asked)
+      window.clearTimeout(homing)
       retune.current = repaint.current = () => undefined
       gone = true
       clearInterval(beat)
