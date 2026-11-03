@@ -219,7 +219,7 @@ const SHRED_MS = 420
  * The row cut into strips where it was, narrow as a shredder cuts whatever
  * the width (16 to 24 of them), each strip the row's own picture behind it.
  */
-function strips(box: Box, picture: HTMLElement, x: number, y: number, kind: 'bin' | 'back'): HTMLElement[] {
+function strips(box: Box, picture: HTMLElement, x: number, y: number): HTMLElement[] {
   const count = Math.max(16, Math.min(24, Math.round(box.width / 7)))
   const width = box.width / count
   return Array.from({ length: count }, (_, n) => {
@@ -231,7 +231,7 @@ function strips(box: Box, picture: HTMLElement, x: number, y: number, kind: 'bin
       backgroundImage: 'linear-gradient(var(--popover), var(--popover))', backgroundColor: 'Canvas',
       boxShadow: '0 1px 2px rgb(0 0 0 / 0.18)'
     })
-    strip.setAttribute('data-shred', kind)
+    strip.setAttribute('data-shred', '')
     const piece = picture.cloneNode(true) as HTMLElement
     piece.style.transform = `translate(${x - n * width}px, ${y}px)`
     strip.append(piece)
@@ -261,7 +261,7 @@ export function shredFrom(from: HTMLElement | null): (() => void) | undefined {
   if (!shot) return undefined
   const { box, picture, x, y } = shot
   return () => {
-    for (const [n, strip] of strips(box, picture, x, y, 'bin').entries()) {
+    for (const [n, strip] of strips(box, picture, x, y).entries()) {
       const turn = (Math.random() * 2 - 1) * 14
       const fall = box.height * 1.6 + 40 + Math.random() * 60
       // Fed in together, a short drop as the blades take it; then each strip
@@ -278,30 +278,6 @@ export function shredFrom(from: HTMLElement | null): (() => void) | undefined {
         { duration: SHRED_MS * (inBox() ? 1.25 : 1), delay: (n % 2) * 14 + Math.random() * 28, easing: 'linear', fill: 'forwards' }
       ).finished.then(() => strip.remove(), () => strip.remove())
     }
-  }
-}
-
-/**
- * Taken back out of the Bin, shown: the shredder run backwards where the row
- * was, its strips rising together into the whole row, which then fades as
- * the row leaves the Bin. By a key, or with motion off, it simply goes.
- */
-export function unshredFrom(from: HTMLElement | null): void {
-  if (byKeys()) return
-  const shot = snapshot(from)
-  if (!shot) return
-  const { box, picture, x, y } = shot
-  for (const [n, strip] of strips(box, picture, x, y, 'back').entries()) {
-    const turn = (Math.random() * 2 - 1) * 10
-    const fall = Math.min(40, box.height * 0.8 + 16)
-    void strip.animate(
-      [
-        { transform: `translateY(${fall}px) rotate(${turn}deg) skewY(${turn * 0.4}deg)`, opacity: 0, easing: OUT },
-        { transform: 'translateY(0) rotate(0deg)', opacity: 1, offset: 0.7 },
-        { transform: 'translateY(0) rotate(0deg)', opacity: 0 }
-      ],
-      { duration: SHRED_MS, delay: (n % 2) * 14 + Math.random() * 24, easing: 'linear', fill: 'both' }
-    ).finished.then(() => strip.remove(), () => strip.remove())
   }
 }
 
