@@ -33,9 +33,15 @@ const offTop = (deg: number): number => ((((deg + 180) % 360) + 360) % 360) - 18
 /** 1 at the notch, falling smoothly to 0 at `reach` degrees away. */
 const near = (deg: number, reach: number): number => falloff(offTop(deg), reach)
 
-export function ThemeDial({ size = 200, big = false, calm = false, wear = (theme) => applyTheme(theme, false), onPick, onFullTurn, say }: { size?: number; /** The name under it set as a title, for the welcome's centrepiece. */ big?: boolean; /** It does not turn itself: already shown, or settled. */ calm?: boolean; /** How the window puts a theme on as it passes (the welcome spreads it from the notch). */ wear?: (theme: Theme) => void; onPick: (theme: Theme) => void; onFullTurn?: () => void; /** Said in place of the theme's name, for a moment. */ say?: string }): React.JSX.Element {
+/** The room each swatch needs round the ring (its three dots, grown at the top), so neighbours never touch. */
+const SWATCH_ROOM = 48
+
+export function ThemeDial({ size: asked = 200, big = false, calm = false, wear = (theme) => applyTheme(theme, false), onPick, onFullTurn, say }: { size?: number; /** The name under it set as a title, for the welcome's centrepiece. */ big?: boolean; /** It does not turn itself: already shown, or settled. */ calm?: boolean; /** How the window puts a theme on as it passes (the welcome spreads it from the notch). */ wear?: (theme: Theme) => void; onPick: (theme: Theme) => void; onFullTurn?: () => void; /** Said in place of the theme's name, for a moment. */ say?: string }): React.JSX.Element {
   const themes = allThemes()
   const n = themes.length
+  // Never smaller than its themes need: a ring of 14 (and any imported) at 168px crowded each swatch into the next.
+  // The ring sits at size / 2 - band * 0.6 with band = 0.14 * size, so its length is about 2.6 * size.
+  const size = Math.max(asked, Math.ceil((n * SWATCH_ROOM) / (Math.PI * (1 - 0.14 * 1.2))))
   const per = 360 / n
   const [at, setAt] = useState(() => Math.max(0, themes.indexOf(currentTheme())))
   // The ring's turn, in degrees: minus the detent at the top, times `per`. Not wrapped, so a turn is a turn.
