@@ -88,6 +88,27 @@ export const packFolder = (): string => (SANDBOX ? join(sandboxRoot(), 'Sandbox 
 export const isPack = (folder: string): boolean => /\/Application Support\/(haligtree|mindflow|vigil)\/.*\/?(Scenery|Sandbox scenery)$/i.test(folder)
 export const dataRoot = (): string => (SANDBOX ? sandboxRoot() : BOOK ? bookRoot(BOOK) : realRoot())
 /** A test run or the sandbox: no iCloud, no login item, no copies anywhere else. */
+/**
+ * Where a picture copied from another of your books (or the sandbox) still is: every store but this one's, which
+ * already said it has none. Stored by the hash of their bytes, so a file of that name anywhere is the same picture.
+ * Notes copied from the sandbox and pasted into a book of yours said "A picture isn't here": its file was only in
+ * the sandbox's store (the user's 48bff0c1).
+ */
+export function assetElsewhere(name: string): string | null {
+  let books: string[] = []
+  try {
+    books = readShelf().books.map((one) => bookRoot(one.id))
+  } catch {
+    // No shelf: your own folder and the sandbox's.
+  }
+  const here = dataRoot()
+  for (const root of [realRoot(), sandboxRoot(), ...books]) {
+    if (root === here) continue
+    const file = join(root, 'assets', name)
+    if (existsSync(file)) return file
+  }
+  return null
+}
 export const apart = (): boolean => SANDBOX || !!process.env.HALIGTREE_USER_DATA
 
 const CARRY = 'carry.json'

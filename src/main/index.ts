@@ -104,7 +104,7 @@ import { registerPdfHighlights } from './pdf-highlights'
 import { registerWebArticles } from './web-articles'
 import { registerWordLog } from './word-log'
 import { frostWindow, registerFrost, retellFrost } from './frost'
-import { BOOK, SANDBOX, arrived, handedOff, windingDown, onHandOff, readShelf, realRoot, registerSandbox, relaunch, restartNow, useDataFolder, writeShelf } from './sandbox'
+import { BOOK, SANDBOX, arrived, assetElsewhere, handedOff, windingDown, onHandOff, readShelf, realRoot, registerSandbox, relaunch, restartNow, useDataFolder, writeShelf } from './sandbox'
 import { MOVED, shortPath, untoldMove, type Moved } from './old-data'
 import { books, here, nameOf, nextImport, registerBooks } from './books'
 import { wideThumb } from './video-thumbs'
@@ -4193,7 +4193,14 @@ app.whenReady().then(() => {
     try {
       // Awaited inside the try: a missing asset rejects, and letting that
       // escape prints a stack instead of the 404 the line above returns.
-      return await servedFile(join(assetsDir(), name), request)
+      const file = join(assetsDir(), name)
+      // Not in this book's store: a picture copied from another book or the sandbox is fetched from there and kept
+      // here, so the note keeps it whichever book is open next (assetElsewhere).
+      if (!existsSync(file)) {
+        const other = assetElsewhere(name)
+        if (other) await mkdir(assetsDir(), { recursive: true }).then(() => copyFile(other, file))
+      }
+      return await servedFile(file, request)
     } catch {
       return new Response('not found', { status: 404 })
     }
