@@ -1,8 +1,8 @@
 // The pile in motion, as a person does it:
 // - Review: a card graded with a click tucks under the pile (drops a little, shrinks, goes behind the next);
 //   graded with a key it is simply gone; a flick down on the card puts it off until tomorrow and grades nothing.
-// - A sticky's X pressed and held crumples it more the longer the hold; let go early and it smooths flat with
-//   nothing moved; held to the end it drops off the window's foot into the Bin, and "Bring it back" undoes it.
+// - A sticky's X is a plain close: held, it never crumples, and let go it asks "Take down?"; its note put in
+//   the Bin elsewhere, the card says so and "Bring it back" undoes it.
 // Every frame is read in the page (requestAnimationFrame), so short motion is never missed between screenshots.
 //   QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 QA_ARGS=--sandbox [QA_SHOTS=dir] node qa/pile-motion.mjs
 import { join } from 'path'
@@ -78,7 +78,7 @@ try {
   await wait(500)
   check('Review, dragged down a little and let go slowly: it springs back, the same card', (await asked()) === still)
 
-  // ---- A sticky: press and hold ----
+  // ---- A sticky: its X is a plain close, never a hold that crumples ----
   const captures = await h.evaluate(() => window.api.captures.list?.() ?? [])
   const one = (Array.isArray(captures) ? captures : []).find((x) => x?.id && x.status === 'open' && x.title)
   check('a capture to stick', !!one)
@@ -92,29 +92,21 @@ try {
   const card = () => { const el = document.querySelector('[data-clear] > div'); const m = new DOMMatrix(getComputedStyle(el).transform); return { s: Math.round(m.a * 100) / 100, clip: getComputedStyle(el).clipPath.slice(0, 22) } }
   await sticky.mouse.move(cb.x + cb.width / 2, cb.y + cb.height / 2)
   await wait(400)
-  await record(sticky, card, 2500)
-  await sticky.mouse.down()
-  // Let go part way, timed by the sheet itself (a busy machine stretches any fixed wait): once it is about a fifth crumpled.
-  await sticky.waitForFunction(() => new DOMMatrix(getComputedStyle(document.querySelector('[data-clear] > div')).transform).a < 0.85, null, { polling: 16, timeout: 8000 })
-  await sticky.mouse.up()
-  await wait(2000)
-  const early = await frames(sticky)
-  const least = Math.min(...early.map((f) => f.s))
-  check('Sticky, held part way: it crumples, more each frame it is held', least < 0.9 && early.slice(0, early.indexOf(early.find((f) => f.s === least))).every((f, n, all) => n === 0 || f.s <= all[n - 1].s), early.map((f) => f.s).join(' '))
-  check('...let go early: it smooths flat again', early.at(-1).s === 1 && !early.at(-1).clip.startsWith('polygon'), JSON.stringify(early.at(-1)))
-  check('...and nothing moved to the Bin', (await h.evaluate((id) => window.api.captures.get(id), one.id)).status !== 'discarded')
-  check('...nor taken off the desktop (a hold is not a click)', !!electron.windows().find((w) => w.url().includes(`id=${one.id}`)) && !(await sticky.evaluate(() => document.body.textContent.includes('Take down?'))))
-  // Held to the end.
-  await record(sticky, card, 2200)
-  await sticky.mouse.move(cb.x + cb.width / 2, cb.y + cb.height / 2)
+  await record(sticky, card, 1800)
   await sticky.mouse.down()
   for (let n = 0; n < 6; n++) { await wait(200); if (shots) await sticky.screenshot({ path: join(shots, `sticky-hold-${n}.png`) }) }
   await sticky.mouse.up()
-  await wait(900)
-  const full = await frames(sticky)
-  check('Sticky, held to the end: it becomes a ball', Math.min(...full.map((f) => f.s)) < 0.4, full.map((f) => f.s).join(' '))
-  check('...and its note is in the Bin', (await h.evaluate((id) => window.api.captures.get(id), one.id)).status === 'discarded')
-  check('...the card smooths back to say so, with "Bring it back"', await sticky.evaluate(() => document.body.textContent.includes('This note went to the Bin')))
+  await wait(700)
+  const held = await frames(sticky)
+  check('Sticky, its X held 1.2s: the card never crumples (whole size, no ball outline, every frame)', held.length > 20 && held.every((f) => f.s >= 0.97 && !f.clip.startsWith('polygon')), held.map((f) => f.s).join(' '))
+  check('...nothing moved to the Bin', (await h.evaluate((id) => window.api.captures.get(id), one.id)).status !== 'discarded')
+  check('...let go, it is a plain press of the X: it asks "Take down?"', await sticky.evaluate(() => document.body.innerText.replace(/\s+/g, '').includes('Takedown?')))
+  check('...the tip says only what the X does', await sticky.evaluate(() => !document.body.innerHTML.includes('Hold to put it in the Bin')))
+  await sticky.keyboard.press('Escape')
+  await wait(300)
+  // Put in the Bin from the main window: the card says so, with the way back.
+  await h.evaluate((id) => window.api.captures.saveMany([{ id, patch: { status: 'discarded', bin: true } }]), one.id)
+  check('Its note moved to the Bin: the card says so, with "Bring it back"', await waitFor(sticky, () => sticky.evaluate(() => document.body.textContent.includes('This note went to the Bin'))))
   if (shots) await sticky.screenshot({ path: join(shots, 'sticky-after.png') })
   await sticky.locator('text=Bring it back').click()
   await wait(900)
