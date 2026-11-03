@@ -6,7 +6,7 @@ import { CAPTURE_TYPES } from '../capture-kinds/capture-kind-picker'
 import { chime } from '@/lib/sound'
 import { issues, type Repeat } from '@/lib/issues'
 import { unloaded, useLive, haligtree, whenInLine, type Finished, type Item, type Settings, type Task } from '@/lib/haligtree'
-import { Rolling, Tags, Tip, Typed, quietly, toast } from './ui'
+import { Rolling, Tags, Tip, quietly, toast } from './ui'
 import { Rule, Struck, Tick } from './marks'
 import { stickOnDesktop } from './sticky-note'
 import { AnotherPicture, PictureCredit, Scenery, sceneCredit, useDayScene } from './scenery'
@@ -308,8 +308,9 @@ export function DayBrief({ day, onOpen, onListed, between }: {
           <p data-day-greeting className="relative line-clamp-2 min-h-[2lh] min-w-0 flex-1 text-[0.9375rem] leading-snug text-pretty text-muted-foreground">
             {/* Two lines kept from the first frame, the most it ever shows: a one-line greeting that ran to two as it
                 typed, or as a late read (a review due, a mark coming) made it longer, dropped the page under it 22px.
-                Only once everything it speaks of is read, so it is typed once, never typed again a moment later. */}
-            {heard && <Typed text={greeting} delay={350} step={22} />}
+                Only once everything it speaks of is read, so it is said once, never changed a moment later. Plain words, not
+                typed in: the Journal's box below types its own hints, and two lines typing at once fought for the eye. */}
+            {heard && greeting}
           </p>
           {named && <span className="flex max-w-[35%] items-start justify-end gap-1"><PictureCredit className="pt-0.5 text-right">{named}</PictureCredit><AnotherPicture /></span>}
         </div>
