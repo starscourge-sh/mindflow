@@ -113,7 +113,8 @@ export function Beam(): React.JSX.Element | null {
  * a red frame far out on the screen while a voice note recorded.
  */
 function useCardEdge(): React.CSSProperties | null {
-  const roomy = Object.values(window.api?.room ?? {}).some((one) => one > 0)
+  const room = window.api?.room
+  const roomy = !!room && [room.left, room.top, room.right, room.bottom].some((one) => one > 0)
   const [edge, setEdge] = useState<React.CSSProperties | null>(null)
   useEffect(() => {
     if (!roomy) return
