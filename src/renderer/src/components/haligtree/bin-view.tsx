@@ -25,7 +25,7 @@ import { num, plural } from '../../../../main/dates'
 import { quoted } from '../../../../main/clip'
 import { linkKinds } from '@/lib/capture-links'
 import { menuOpen } from '@/lib/menu-keys'
-import { uncrumpleFrom } from '@/lib/fly-home'
+import { unshredFrom } from '@/lib/fly-home'
 
 /**
  * The Bin: one place for everything moved there, of every kind. A capture,
@@ -156,10 +156,10 @@ export function BinView({ onOpen, focus }: { onOpen?: (type: string, id: string)
     window.addEventListener('keydown', onKey, true)
     return () => window.removeEventListener('keydown', onKey, true)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
-  // Its row, while it is still in the list: what un-crumples where it was as it goes back.
+  // Its row, while it is still in the list: what is un-shredded where it was as it goes back.
   const rowOf = (one: Binned): HTMLElement | null => document.querySelector<HTMLElement>(`[data-bin-row][data-id="${CSS.escape(one.id)}"]`)
   const restore = (one: Binned): void => {
-    uncrumpleFrom(rowOf(one))
+    unshredFrom(rowOf(one))
     void haligtree.restore(one.type, one.id).then(() => {
       chime('undo')
       toast(`${KIND_SAID[one.type] ?? 'It'} restored: back where it was`, () => void unbin(one), 'success', onOpen && one.type !== 'task' && one.type !== 'calendar' ? { label: 'Open', key: 'O', run: () => onOpen(one.type, one.id) } : undefined)
@@ -167,7 +167,7 @@ export function BinView({ onOpen, focus }: { onOpen?: (type: string, id: string)
   }
   // Several back where they were, in one go, and back in the Bin with one undo.
   const restoreMany = (list: Binned[]): void => {
-    for (const one of list.slice(0, 8)) uncrumpleFrom(rowOf(one))
+    for (const one of list.slice(0, 8)) unshredFrom(rowOf(one))
     void haligtree.restoreMany(list.map((one) => ({ type: one.type, id: one.id }))).then(() => {
       chime('unshelve')
       setPicked([])

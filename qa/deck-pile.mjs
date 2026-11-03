@@ -1,7 +1,7 @@
 // A deck is a square pile: no edges for 1 card, 1 for 2, 2 for 4, up to 5; one card proud above it
 // when some are due; pointed at, the top card lifts 2px and the tile's own box does not move. The same
-// on Review › Decks and in All cards' pockets. Then "Move to the Bin" from a right-click crumples the
-// row into a ball that is tossed at the sidebar's Bin, and Restore on the Bin page un-crumples it.
+// on Review › Decks and in All cards' pockets. Then "Move to the Bin" from a right-click shreds the
+// row into strips (never a ball of paper), and Restore on the Bin page runs the shredder backwards.
 //   QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 QA_ARGS=--sandbox QA_SHOTS=dir node qa/deck-pile.mjs
 import { join } from 'path'
 import { checks } from './harness.mjs'
@@ -78,49 +78,42 @@ try {
   await h.waitForTimeout(400)
   check('All cards: no pile anywhere, a heading a deck, single card faces', await h.evaluate(() => !document.querySelector('[data-card-browser] :is(.mf-pile, [data-pile-edge], [data-pocket])') && document.querySelectorAll('[data-card-list] [data-island-head]').length >= 5 && document.querySelectorAll('[data-card-list] [data-card-face="front"]').length > 0))
   if (shots) await h.screenshot({ path: join(shots, 'pile-cards-light.png') })
-  // Move to the Bin from a right-click: the row crumples and goes at the sidebar's Bin.
+  // Move to the Bin from a right-click: the row goes through the shredder, never crumpled into a ball.
   await c.go('articles')
   await h.waitForTimeout(1500)
-  // The sidebar scrolled so its Bin shows, as on a short window: the ball has somewhere to go.
-  await h.evaluate(() => document.querySelector('[data-side-row][aria-label="Bin"]')?.scrollIntoView({ block: 'nearest' }))
-  await h.waitForTimeout(300)
   const rowEl = h.locator('[data-id]').first()
   const id = await rowEl.getAttribute('data-id')
+  const rowBox = await rowEl.boundingBox()
   await rowEl.click({ button: 'right' })
   await h.waitForTimeout(500)
-  await record('[data-crumple="bin"]')
+  await record('[data-shred="bin"], [data-crumple]')
+  const count = () => h.evaluate(() => { window.__most = 0; window.__balls = 0; const end = performance.now() + 2500; const tick = () => { window.__most = Math.max(window.__most, document.querySelectorAll('[data-shred="bin"]').length); window.__balls += document.querySelectorAll('[data-crumple]').length; if (performance.now() < end) requestAnimationFrame(tick) }; requestAnimationFrame(tick) })
+  await count()
   await h.getByRole('menuitem', { name: /^Move to the Bin/ }).first().click()
-  for (let n = 0; n < 12; n++) { if (shots) await h.screenshot({ path: join(shots, `crumple-${String(n).padStart(2, '0')}.png`) }); await h.waitForTimeout(50) }
-  await h.waitForTimeout(4200)
+  for (let n = 0; n < 12; n++) { if (shots) await h.screenshot({ path: join(shots, `shred-${String(n).padStart(2, '0')}.png`) }); await h.waitForTimeout(50) }
+  await h.waitForTimeout(2600)
+  const [most, balls] = await h.evaluate(() => [window.__most, window.__balls])
+  check('Move to the Bin: the row is cut into 16 to 24 strips', most >= 16 && most <= 24, `${most} strips`)
+  check('...never crumpled into a ball', balls === 0, `${balls} ball frames`)
   const all = await recorded()
-  const balls = all.slice(all.findIndex(Boolean))
-  const bin = await h.evaluate(() => { const r = document.querySelector('[data-side-row][aria-label="Bin"]')?.getBoundingClientRect(); return r ? { x: r.x, y: r.y, w: r.width } : null })
-  const flying = balls.filter(Boolean)
-  check('Move to the Bin: the row is crumpled (shrinks to a ball)', flying.length >= 4 && Number(flying.at(-1).split(',')[2]) < Number(flying[0].split(',')[2]), balls.join(' | '))
-  // The Bin row in sight: the ball goes left to it. Scrolled out of the sidebar: it drops off the window's foot.
-  const binSeen = !!bin && bin.y > 0 && bin.y < H
-  const [x0, y0] = flying[0]?.split(',').map(Number) ?? []
-  const [x1, y1] = flying.at(-1)?.split(',').map(Number) ?? []
-  check('the sidebar\'s Bin is in sight for this run', binSeen, JSON.stringify(bin))
-  // Landed: the ball's last place is on the Bin row (its middle within the row).
-  const [, , w1] = flying.at(-1)?.split(',').map(Number) ?? []
-  const mid = { x: x1 + w1 / 2, y: y1 + w1 / 2 }
-  check('...and the ball is tossed into the sidebar\'s Bin, then gone', !balls.at(-1) && flying.length > 3 && x1 < x0 && mid.x >= bin.x && mid.x <= bin.x + bin.w && Math.abs(mid.y - (bin.y + 16)) < 30, `${JSON.stringify(bin)} ${balls.filter(Boolean).join(' | ')}`)
-  check('Nothing is left on the page once it has landed', await h.evaluate(() => !document.querySelector('[data-crumple]')))
-  // Restore on the Bin page: the row un-crumples where it was.
+  const fell = all.filter(Boolean).map((one) => Number(one.split(',')[1]))
+  check('...the strips fall from where the row was', fell.length >= 4 && Math.abs(fell[0] - rowBox.y) < 20 && fell.at(-1) > fell[0], fell.join(' '))
+  check('Nothing is left on the page once they have fallen', await h.evaluate(() => !document.querySelector('[data-shred], [data-crumple]')))
+  // Restore on the Bin page: the shredder run backwards, its strips rising into the row where it was.
   await c.go('discarded')
   await waitFor(() => has(`[data-bin-row][data-id="${id}"]`))
   await h.waitForTimeout(600)
   await h.locator(`[data-bin-row][data-id="${id}"]`).click({ button: 'right' })
   await h.waitForTimeout(500)
-  await record('[data-crumple="back"]')
+  await record('[data-shred="back"]')
   await h.getByRole('menuitem', { name: /^Restore/ }).first().click()
-  for (let n = 0; n < 8; n++) { if (shots) await h.screenshot({ path: join(shots, `uncrumple-${n}.png`) }); await h.waitForTimeout(50) }
+  for (let n = 0; n < 8; n++) { if (shots) await h.screenshot({ path: join(shots, `unshred-${n}.png`) }); await h.waitForTimeout(50) }
   await h.waitForTimeout(4600)
   const got = await recorded()
-  const back = got.slice(got.findIndex(Boolean)).map((one) => one && Number(one.split(',')[2]))
-  const grow = back.filter(Boolean)
-  check('Restore: the row un-crumples from a ball to flat, then goes', grow.length >= 2 && grow.at(-1) > grow[0] && !back.at(-1), back.join(' '))
+  const back = got.slice(got.findIndex(Boolean)).map((one) => one && Number(one.split(',')[1]))
+  const rise = back.filter((one) => one !== null)
+  check('Restore: the strips rise back into the row, then go', rise.length >= 2 && rise.at(-1) < rise[0] && !back.at(-1), back.join(' '))
+  check('...and nothing crumpled', await h.evaluate(() => !document.querySelector('[data-crumple]')))
   check('no errors on the page', c.errors.length === 0, c.errors.slice(0, 3).join(' | '))
 } finally {
   await c.close()
