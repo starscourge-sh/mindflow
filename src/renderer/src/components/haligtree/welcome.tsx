@@ -12,7 +12,7 @@ import { AnimatePresence, MotionConfig, motion, useIsPresent } from 'motion/reac
 import { ArrowUp, Compass, CornerDownLeft, FolderInput, Shuffle, Undo2, Volume2, VolumeX } from 'lucide-react'
 import { ReaderCard, drawBookName, seedOf } from './reader-card'
 import { renameBook, useShelf } from '@/lib/books'
-import { shift, spring, still } from '@/lib/motion'
+import { shift, spring, still, still as calm } from '@/lib/motion'
 import { sayName, ARRIVE_MS, BEAT_MS, PENTA, soundOn, ambience, bedLift, bedResolve, bedShift, bell, chime, click, fold, pageTurn, quietBed, titleChime } from '@/lib/sound'
 import { applyTheme, currentTheme, type Theme } from '@/lib/theme'
 import { comboOf, fixed, keyFor, listen, saveKeys, useKeyChanges } from '@/lib/keys'
@@ -766,7 +766,11 @@ function Words({ title, still, done, wide = false, children }: { title: string; 
         <Rise text={title} still={still} />
       </h1>
       {children && (
-        <motion.div className={`${BODY} ${wide ? 'max-w-[64ch]' : 'max-w-[46ch]'}`} initial={still ? false : { opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3, ease: ENTER, delay: 0.2 }}>
+        // The line comes in on its own once the page is up and the headline's words have risen: a short rise as it
+        // fades in, in the headline's family (ENTER), so it is seen arriving rather than showing with the paper.
+        // Reduce Motion: the same moment, a plain fade (no rise). Going back to a page already seen: there at once.
+        <motion.div data-words-line className={`${BODY} ${wide ? 'max-w-[64ch]' : 'max-w-[46ch]'}`} initial={still && !calm() ? false : calm() ? { opacity: 0 } : { opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+          transition={calm() ? { duration: 0.4, ease: 'easeOut', delay: 0.3 } : { duration: 0.45, ease: ENTER, delay: 0.5 }}>
           {children}
         </motion.div>
       )}
