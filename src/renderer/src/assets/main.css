@@ -1509,6 +1509,15 @@ body:has([data-card]:focus) [data-cursor] {
 
 /* Home, just come into from the welcome: the page's parts come up under the
    welcome's turning paper, the line saying it was opened first, the rest after. */
+/* The first welcome's ending: the book's name, carried down from the page, lands in the sidebar's foot and takes the
+   light for a moment (welcome.tsx, Finale). */
+.mf-name-landed { animation: mf-name-landed 1400ms var(--mf-ease) both; }
+@keyframes mf-name-landed {
+  0% { color: inherit; text-shadow: none; }
+  25% { color: var(--foreground); text-shadow: 0 0 14px color-mix(in oklab, var(--primary) 55%, transparent); }
+  100% { text-shadow: 0 0 14px transparent; }
+}
+@media (prefers-reduced-motion: reduce) { .mf-name-landed { animation: none; } }
 .mf-opened > * { animation: mf-rise 520ms var(--mf-ease) both; animation-delay: 520ms; }
 .mf-opened > [data-book-opened] { animation-duration: 900ms; animation-delay: 380ms; }
 .mf-opened > :nth-child(n + 4) { animation-delay: 620ms; }

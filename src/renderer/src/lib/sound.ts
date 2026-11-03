@@ -1172,6 +1172,26 @@ export function bedResolve(): void {
   hear('cue:bed-resolve')
 }
 
+/**
+ * The first welcome's ending, as the book opens: the home chord's root and
+ * fifth low under the bed one last time, the high D rung as the name lands in
+ * the sidebar, and the whole bed let go over three seconds, so the music
+ * resolves on the moment instead of stopping before it.
+ */
+export function bedHome(): void {
+  if (!bed) return
+  if (!enabled || !volume) return quietBed(0.3)
+  const now = bed.context.currentTime
+  bed.swell.gain.cancelScheduledValues(now)
+  bed.swell.gain.setValueAtTime(bed.swell.gain.value, now)
+  bed.swell.gain.setTargetAtTime(BED * 1.6, now, 0.3)
+  for (const [hz, level] of [[73.42, 0.012], [146.83, 0.01], [220, 0.007]]) pad(hz, level, 0.5, 0.6, 2.4, 'home')
+  bell(PENTA[0] * 2, 0.012, 'home', 1.1)
+  hear('cue:bed-home')
+  const ending = bed
+  setTimeout(() => bed === ending && quietBed(3), 900)
+}
+
 /** The bed goes, over `seconds`: the welcome ended, was skipped past its end, or sounds were turned off. */
 export function quietBed(seconds = 1.6): void {
   if (!bed) return

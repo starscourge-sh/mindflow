@@ -2248,7 +2248,7 @@ export function Home(): React.JSX.Element {
               <button type="button" aria-label={`${APP_NAME} menu`}
                 className={`flex min-w-0 items-center gap-2 rounded-md py-1.5 text-foreground/80 transition-colors hover:bg-accent/60 data-[state=open]:bg-accent/60 ${narrow ? 'justify-center px-0' : 'flex-1 px-2'}`}>
                 <AliveIcon icon={GearIcon} size={16} />
-                {!narrow && <span className="flex-1 truncate text-left">{SANDBOX ? 'Sandbox' : <BookName />}</span>}
+                {!narrow && <span data-sidebar-book-name className="flex-1 truncate text-left">{SANDBOX ? 'Sandbox' : <BookName />}</span>}
                 {!narrow && <AliveIcon icon={DownChevron} size={14} className="text-muted-foreground" />}
               </button>
             </DropdownMenuTrigger>

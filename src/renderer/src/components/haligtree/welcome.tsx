@@ -13,7 +13,7 @@ import { ArrowUp, Compass, CornerDownLeft, FolderInput, Shuffle, Undo2, Volume2,
 import { ReaderCard, drawBookName, seedOf } from './reader-card'
 import { renameBook, useShelf } from '@/lib/books'
 import { shift, spring, still, still as calm } from '@/lib/motion'
-import { sayName, ARRIVE_MS, BEAT_MS, PENTA, soundOn, ambience, bedLift, bedResolve, bedShift, bell, chime, click, fold, pageTurn, quietBed, titleChime } from '@/lib/sound'
+import { sayName, ARRIVE_MS, BEAT_MS, PENTA, soundOn, ambience, bedHome, bedLift, bedResolve, bedShift, bell, chime, click, fold, pageTurn, quietBed, titleChime } from '@/lib/sound'
 import { applyTheme, currentTheme, type Theme } from '@/lib/theme'
 import { comboOf, fixed, keyFor, listen, saveKeys, useKeyChanges } from '@/lib/keys'
 import { NO_SETUP, onboarding, type Onboarding, type Setup } from '@/lib/onboarding'
@@ -247,6 +247,10 @@ export function Welcome(): React.JSX.Element | null {
   const [rushed, setRushed] = useState(false)
   // Into your own book: the welcome's page turns over onto the app's Home, under it already, which comes up as the paper goes.
   const [closing, setClosing] = useState(false)
+  // The first welcome's ending, once in a lifetime: your book's name, written on the page, carried down into the
+  // sidebar where it lives from now on, as the paper goes and the music comes home (Finale).
+  const [finale, setFinale] = useState<string | null>(null)
+  const book = useShelf()
   const closeTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
   // The Sounds setting, for the arrival's own sound button.
   const [loud, setLoud] = useState(true)
@@ -421,13 +425,16 @@ export function Welcome(): React.JSX.Element | null {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [at < 0])
 
-  const closed = (): void => (clearTimeout(closeTimer.current), setClosing(false), setAt(-1))
+  const closed = (): void => (clearTimeout(closeTimer.current), setClosing(false), setFinale(null), setAt(-1))
   const leave = (how: 'fresh' | 'sandbox' | 'notes' | 'closed'): void => {
     if (closing) return
     if (picked.current) applyTheme(picked.current)
     fillBox(null)
-    // The welcome's sound bed goes with it, slowly.
-    quietBed()
+    // The first welcome, going on into the book: its ending, the name carried into the sidebar and the chord come home
+    // on it. Played again, skipped out of, or into the sandbox or an import: the bed simply goes, slowly.
+    const ending = how === 'fresh' && !replay && !state?.welcomed && !quiet && !SANDBOX
+    if (ending) bedHome()
+    else quietBed()
     // Whatever was answered and not yet acted on (the welcome skipped past the summary): done now, once.
     void applySetup(setup).then((next) => onboarding.set({ setup: next })).catch(() => toast('Your answers could not be acted on just now. Set the same things any time in Settings.', undefined, 'warning'))
     void onboarding.set({ welcomed: new Date().toISOString(), newsSeen: true, welcoming: false, ...(veteran.current && how !== 'fresh' ? { hidden: true } : {}) })
@@ -435,10 +442,11 @@ export function Welcome(): React.JSX.Element | null {
     // screen, which fades up over it: Home, about to be replaced by the restart,
     // never shows in between. It goes only if the sandbox cannot open.
     if (how === 'sandbox') setOpening(true)
-    else if (quiet) setAt(-1)
     else {
+      // Reduce Motion: a calm cross-fade to Home, never a cut.
       setClosing(true)
-      closeTimer.current = setTimeout(closed, 1500)
+      if (ending) setFinale(book && book.name !== DEFAULT_BOOK ? book.name : APP_NAME)
+      closeTimer.current = setTimeout(closed, quiet ? 450 : 1500)
     }
     if (how !== 'sandbox') {
       // Said once on Home: the day the book was opened, and the first thing written in it here.
@@ -617,7 +625,7 @@ export function Welcome(): React.JSX.Element | null {
     <MotionConfig reducedMotion={quiet ? 'always' : 'never'}>
     <motion.div ref={dialog} tabIndex={-1} role="dialog" aria-modal aria-label={`Welcome to ${APP_NAME}`} inert={opening} onKeyDown={(event) => event.stopPropagation()}
       data-closing={closing ? '' : undefined} data-story={story().id} data-dial={at === DIAL ? '' : undefined} data-page={lightPage ? 'light' : 'dark'} onPointerDown={() => void (closing && closed())}
-      initial={false} animate={{ opacity: closing ? 0 : 1 }} transition={closing ? { delay: 0.45, duration: 0.9, ease: MOVE } : { duration: 0 }}
+      initial={false} animate={{ opacity: closing ? 0 : 1 }} transition={closing ? (quiet ? { duration: 0.4, ease: 'easeOut' } : { delay: 0.45, duration: 0.9, ease: MOVE }) : { duration: 0 }}
       className="mf-welcome fixed inset-0 z-[70] flex outline-none flex-col overflow-clip bg-background text-foreground [container-type:inline-size]">
       <Backdrop family={at === WRITE ? 'ruled' : at === DIAL ? 'dots' : 'none'} page={at} arrival={arrival} arriving={mist && veiled && at === WHY} onBloomed={() => (setBloomed(true), !rushed && titleChime(0.45))} />
       {/* The first screen's autumn leaves, blowing behind the words; Next blows them away, and a
@@ -717,7 +725,73 @@ export function Welcome(): React.JSX.Element | null {
         </footer>
       </div>
     </motion.div>
+    {finale && <Finale name={finale} />}
     </MotionConfig>
+  )
+}
+
+/**
+ * The first welcome's last moment, about 1.4 seconds: the book's name, as it
+ * was signed on its card, comes up in the middle of the page as the paper
+ * starts to turn away, then is carried down to the sidebar's foot, shrinking
+ * into the name the sidebar keeps from now on, which takes the light as it
+ * lands (main.css, mf-name-landed). Over the app, never in its way: nothing
+ * here takes a click or a key, and any key or click ends it at once (Welcome,
+ * closing). With the sidebar folded it settles where it is and fades.
+ */
+function Finale({ name }: { name: string }): React.JSX.Element {
+  const self = useRef<HTMLParagraphElement>(null)
+  useEffect(() => {
+    const el = self.current
+    if (!el) return
+    const t0 = performance.now()
+    const TOTAL = 1400
+    const rise = (p: number): number => 1 - (1 - p) ** 3
+    const carry = (p: number): number => (p < 0.5 ? 4 * p ** 3 : 1 - (-2 * p + 2) ** 3 / 2)
+    // Its own place, untransformed: the middle of the window, as laid out (read each frame, as the window settles).
+    const place = (): { left: number; top: number; width: number; height: number } => ({ left: el.offsetLeft, top: el.offsetTop, width: el.offsetWidth, height: el.offsetHeight })
+    const big = parseFloat(getComputedStyle(el).fontSize)
+    let lit = false
+    let frame = 0
+    // Followed every frame, not measured once: the first welcome's window is still settling to its size as it ends,
+    // and the sidebar's foot moves with it.
+    const tick = (now: number): void => {
+      const t = Math.min(1, (now - t0) / TOTAL)
+      const home = place()
+      const target = document.querySelector<HTMLElement>('[data-sidebar-book-name]')
+      const box = target?.getBoundingClientRect()
+      const there = target && box && box.width ? box : null
+      // Fading as it arrives, gone the moment it is over the sidebar's own name: never two names on top of each other.
+      const shown = t < 0.25 ? rise(t / 0.25) : t < 0.66 ? 1 : Math.max(0, 1 - (t - 0.66) / 0.24)
+      const up = t < 0.25 ? 10 * (1 - rise(t / 0.25)) : 0
+      const go = t < 0.25 ? 0 : carry(Math.min(1, (t - 0.25) / 0.65))
+      let x = 0
+      let y = up
+      let scale = 0.96 + 0.04 * Math.min(1, rise(t / 0.25))
+      if (there) {
+        const size = parseFloat(getComputedStyle(target!).fontSize) / big
+        // The two names' left edges and middles meet: the carried one lands over the sidebar's own.
+        const toX = there.left - (home.left + home.width / 2 - (home.width * size) / 2)
+        const toY = there.top + there.height / 2 - (home.top + home.height / 2)
+        x = toX * go
+        y = up + toY * go
+        scale = scale + (size - scale) * go
+        if (!lit && t >= 0.72) (lit = true), target!.classList.add('mf-name-landed')
+      } else y = up - 4 * go
+      el.style.opacity = String(shown)
+      el.style.transform = `translate(${x}px, ${y}px) scale(${scale})`
+      if (t < 1) frame = requestAnimationFrame(tick)
+    }
+    frame = requestAnimationFrame(tick)
+    const unlit = setTimeout(() => document.querySelector('[data-sidebar-book-name]')?.classList.remove('mf-name-landed'), 2700)
+    return () => (cancelAnimationFrame(frame), clearTimeout(unlit))
+  }, [])
+  return (
+    <div aria-hidden data-finale="" className="pointer-events-none fixed inset-0 z-[71] grid place-items-center">
+      <p ref={self} data-finale-name="" style={{ opacity: 0 }} className="origin-center text-[2.75rem] leading-none whitespace-nowrap text-foreground [font-family:'Haligtree_Signature',cursive]">
+        {name}
+      </p>
+    </div>
   )
 }
 
