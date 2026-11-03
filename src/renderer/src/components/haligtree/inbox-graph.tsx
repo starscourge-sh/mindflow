@@ -13,8 +13,6 @@ import { num } from '../../../../main/dates'
 type Mode = 'captures' | 'tags'
 type Range = 'week' | 'month' | 'all'
 const DAYS: Record<Range, number> = { week: 7, month: 31, all: Infinity }
-/** Each capture is joined to at most this many others under one tag, the nearest in time: clusters, not a hairball. */
-const NEIGHBOURS = 3
 /** The newest this many, so a big Inbox still settles quickly. */
 const MOST = 400
 
@@ -34,8 +32,8 @@ const keep = (key: string, value: string): void => {
 }
 
 /**
- * What you have been capturing, as a map. Captures: each a dot, joined to
- * others that share a tag, so what you keep coming back to gathers into
+ * What you have been capturing, as a map. Captures: each a dot, joined to the
+ * tags it shares with others (each tag a dot too), so what you keep coming back to gathers into
  * clusters. Tags: each tag a dot, joined to the tags it turns up with, the
  * line thicker the more captures carry both. Drawn by the Map's own canvas.
  */
@@ -44,7 +42,7 @@ export function InboxGraph({ captures, onOpen, compact = false }: { captures: Ca
   const [range, setRange] = useState<Range>(() => (['week', 'month', 'all'].includes(kept('inboxGraph:range', 'month')) ? kept('inboxGraph:range', 'month') as Range : 'month'))
   const tagRows = useLive(haligtree.tags, [] as Awaited<ReturnType<typeof haligtree.tags>>)
   const fit = useRef<() => void>(() => undefined)
-  const graph = useMemo((): Graph & { left: number } => {
+  const graph = useMemo((): Graph & { left: number; captures: number } => {
     const since = Date.now() - DAYS[range] * 86_400_000
     const colour = new Map(tagRows.map((one) => [one.tag, one.color ?? undefined]))
     const list = captures.filter((one) => new Date(one.capturedAt).getTime() >= since).slice(0, MOST)
@@ -66,44 +64,38 @@ export function InboxGraph({ captures, onOpen, compact = false }: { captures: Ca
         nodes: [...count].map(([tag, n]) => ({ type: 'tag', id: tag, title: `#${tag}`, kind: 'tag', links: n, tag, tint: colour.get(tag) })),
         edges: [...pairs].map(([key, n]) => [...key.split(' '), n] as [string, string, number]),
         alone: 0,
+        captures: count.size,
         left: tagged.filter(({ tags }) => !tags.length).length
       }
     }
-    const byTag = new Map<string, number[]>()
-    tagged.forEach(({ tags }, at) => {
-      for (const tag of new Set(tags)) byTag.set(tag, [...(byTag.get(tag) ?? []), at])
-    })
-    const weight = new Map<string, number>()
-    for (const members of byTag.values())
-      // The list is newest first: each joined to the next few under the tag.
-      members.forEach((at, n) => {
-        for (const other of members.slice(n + 1, n + 1 + NEIGHBOURS)) {
-          const key = `${Math.min(at, other)} ${Math.max(at, other)}`
-          weight.set(key, (weight.get(key) ?? 0) + 1)
-        }
-      })
-    const links = new Map<number, number>()
-    for (const key of weight.keys()) for (const at of key.split(' ').map(Number)) links.set(at, (links.get(at) ?? 0) + 1)
-    const shown = tagged.filter((_, at) => links.has(at))
+    // Each tag shared by two or more captures is a dot of its own, and each capture is joined to its tags: a tag's
+    // captures gather round it, so what you keep coming back to reads as a named cluster, and a capture with two tags
+    // sits between them. Captures were joined to one another before, each to the next few under a tag, and a tag of
+    // hundreds was a long string the layout folded into snakes and arcs, its lines crossing everywhere.
+    const count = new Map<string, number>()
+    for (const { tags } of tagged) for (const tag of new Set(tags)) count.set(tag, (count.get(tag) ?? 0) + 1)
+    const shared = (tag: string): boolean => (count.get(tag) ?? 0) > 1
+    const shown = tagged.map(({ one, tags }) => ({ one, tags: [...new Set(tags)].filter(shared) })).filter(({ tags }) => tags.length)
+    const hubs = [...count].filter(([, n]) => n > 1)
     return {
-      nodes: shown.map(({ one, tags }) => ({ type: 'capture', id: one.id, title: splitTags(one.label).text || one.label, kind: one.kind, links: links.get(tagged.findIndex((row) => row.one === one)) ?? 0, tag: tags[0], tint: tags[0] ? colour.get(tags[0]) : undefined, private: !!one.private })),
-      edges: [...weight].map(([key, n]) => {
-        const [a, b] = key.split(' ').map(Number)
-        return [tagged[a].one.id, tagged[b].one.id, n] as [string, string, number]
-      }),
+      nodes: [
+        ...hubs.map(([tag, n]) => ({ type: 'tag', id: tag, title: `#${tag}`, kind: 'tag', links: n, tag, tint: colour.get(tag) })),
+        ...shown.map(({ one, tags }) => ({ type: 'capture', id: one.id, title: splitTags(one.label).text || one.label, kind: one.kind, links: tags.length, tag: tags[0], tint: colour.get(tags[0]), private: !!one.private }))
+      ],
+      edges: shown.flatMap(({ one, tags }) => tags.map((tag) => [one.id, tag, 1] as [string, string, number])),
       alone: 0,
+      captures: shown.length,
       left: tagged.length - shown.length
     }
   }, [captures, mode, range, tagRows])
-  const dots = graph.nodes.length
+  // What the line under the map counts: captures (the tags among them are their clusters' names), or tags.
+  const dots = graph.captures
   // A dot clicked: the cluster it belongs to (or, a tag, the captures carrying it), listed under the map.
   const [picked, setPicked] = useState<{ title: string; ids: string[]; tag?: string } | null>(null)
+  // A capture's cluster: every capture carrying one of its tags.
   const clusterOf = (id: string): string[] => {
-    const near = new Map<string, string[]>()
-    for (const [a, b] of graph.edges) (near.set(a, [...(near.get(a) ?? []), b]), near.set(b, [...(near.get(b) ?? []), a]))
-    const seen = new Set([id])
-    for (const at of seen) for (const next of near.get(at) ?? []) seen.add(next)
-    return [...seen]
+    const mine = new Set(graph.edges.filter(([a]) => a === id).map(([, b]) => b))
+    return [...new Set(graph.edges.filter(([, b]) => mine.has(b)).map(([a]) => a))]
   }
   const pick = (type: string, id: string): void => {
     chime('open')
@@ -120,7 +112,7 @@ export function InboxGraph({ captures, onOpen, compact = false }: { captures: Ca
       {/* The choices wrap in their own group; Fit stays at the first line's right whatever the width. */}
       <div className="flex shrink-0 items-start gap-2 px-1 pb-1.5 text-control text-muted-foreground">
         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1">
-        <Chips options={[{ id: 'captures', label: 'Captures', tip: 'Captures joined by the tags they share' }, { id: 'tags', label: 'Tags', tip: 'Tags joined by how often they come together' }]} on={(id) => id === mode}
+        <Chips options={[{ id: 'captures', label: 'Captures', tip: 'Captures gathered round the tags they share' }, { id: 'tags', label: 'Tags', tip: 'Tags joined by how often they come together' }]} on={(id) => id === mode}
           pick={(id) => (setMode(id as Mode), setPicked(null), keep('inboxGraph:mode', id))} className="flex-nowrap" />
         <Chips options={[{ id: 'week', label: 'This week' }, { id: 'month', label: 'This month' }, { id: 'all', label: 'All' }]} on={(id) => id === range}
           pick={(id) => (setRange(id as Range), setPicked(null), keep('inboxGraph:range', id))} className="flex-nowrap" />

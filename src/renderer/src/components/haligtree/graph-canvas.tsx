@@ -994,6 +994,8 @@ export function GraphCanvas({ map, onOpen, centre, you, about, fit: fitRef, fly,
       const held = new Set(sim.nodes())
       return dots.map((dot) => ({ id: dot.id, title: dot.title, x: dot.x, y: dot.y, r: dot.r, colour: shadesOf(tokenOf(dot)).base, held: held.has(dot), rank: rank.get(dot) }))
     }
+    // And every line, by the ids of its two ends, so a probe can count where lines cross.
+    ;(el as HTMLCanvasElement & { mapLines?: () => string[][] }).mapLines = () => lines.map((line) => [line.source.id, line.target.id])
     if (fly) fly.current = (id: string) => {
       const dot = byId.get(id)
       if (!dot || !width) return false
