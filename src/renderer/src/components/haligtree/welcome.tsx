@@ -1464,7 +1464,9 @@ function writeBeats(): Beat<FlowShot>[] {
 
 function WriteChapter({ play, report, setup }: { play: boolean; report: (now: Reel) => void; setup?: Setup }): React.JSX.Element {
   const [beats] = useState(writeBeats)
-  const show = useScript<FlowShot>(FLOW_START, beats, play, 1, glance(`${WRITE_TITLE} ${WRITE_LINE} ${forYou(setup, 'write')}`))
+  // The thought starts typing once the title and the first sentence are glanced at (about 1.2s), not the whole line
+  // (4.2s): its box stood empty that long. The rest of the line is read while it types; nothing after it moves sooner.
+  const show = useScript<FlowShot>(FLOW_START, beats, play, 1, glance(`${WRITE_TITLE} ${WRITE_LINE.split('. ')[0]}.`))
   useReport(report, show.done, show.settle, show.part)
   return (
     <>
