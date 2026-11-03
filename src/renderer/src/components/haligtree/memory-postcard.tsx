@@ -55,8 +55,11 @@ export function MemoryPostcard({ at, seed, className = '', hold = true, children
   return (
     <Float hold={hold}>
     <div className={`rounded-xl bg-(--mf-postcard) p-1.5 shadow-[0_1px_2px_color-mix(in_oklab,var(--mf-shadow-ink)_14%,transparent),0_10px_28px_-10px_color-mix(in_oklab,var(--mf-shadow-ink)_35%,transparent)] ${className}`}>
-      <div className="rounded-lg bg-background px-3 pt-3 pb-2.5">
-        <div aria-hidden className="relative float-right -mt-1 -mr-0.5 mb-1 ml-3 h-14 w-[10.5rem]">
+      {/* The stamp and postmark sit beside the words on a wide card; on a narrow one (quick capture's hint beside the
+          box, 320px) they take their own row at the top right and the words run the card's full width under them.
+          Floated there, the words had about 100px beside them: "The degree / of / satisfactio..." (the user's 277ae401). */}
+      <div className="@container rounded-lg bg-background px-3 pt-3 pb-2.5">
+        <div aria-hidden className="relative float-right -mt-1 -mr-0.5 mb-1 ml-3 h-14 w-[10.5rem] @max-[26rem]:float-none @max-[26rem]:ml-auto @max-[26rem]:mb-1.5">
           {/* The stamp: gone, with its border, when there is no scene to put in it. */}
           <div className="absolute top-0 right-0 h-[3.25rem] w-11 rotate-[4deg] rounded-[3px] bg-white p-[3px] shadow-[0_1px_3px_color-mix(in_oklab,var(--mf-shadow-ink)_25%,transparent)] [&:not(:has(*))]:hidden">
             <Stamp seed={seed}>
