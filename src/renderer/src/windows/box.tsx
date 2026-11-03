@@ -17,11 +17,14 @@ start(<App />)
 // A note's own window (the same page) has no room and is left as it is.
 if (window.api.room.left) {
   document.documentElement.dataset.overhang = ''
-  document.documentElement.style.setProperty('--mf-room', `${window.api.room.left}px`)
+  // The room below the card (main.css pads the page's foot with it); the sides have their own, below.
+  document.documentElement.style.setProperty('--mf-room', `${window.api.room.bottom}px`)
   document.documentElement.style.setProperty('--mf-room-top', `${window.api.room.top}px`)
   clearRoom()
   document.documentElement.style.setProperty('--mf-room-left', `${window.api.room.left}px`)
   document.documentElement.style.setProperty('--mf-room-right', `${window.api.room.right}px`)
+  // The side its hint goes on, as main made the window (an open somewhere else tells it again, onRoomHint below).
+  if (window.api.room.side) document.documentElement.dataset.hintSide = window.api.room.side
   // The room round the card for a hint (above it, or beside it on the side with room), set by main while the box is
   // away: the card moves by as much in the same frame, so on screen it stays exactly where main put it, and main
   // shows the box once that is drawn.

@@ -636,7 +636,8 @@ const relimit = new WeakMap<BrowserWindow, () => void>()
 // Asked of main, not passed on the command line: a renderer process can be shared, and its arguments with it.
 ipcMain.on('window:room', (event) => {
   const win = BrowserWindow.fromWebContents(event.sender)
-  event.returnValue = (win && rooms.get(win)) || evenRoom(0)
+  // The box hears which side its hint room is on too, set as it was made (createWindow).
+  event.returnValue = win && rooms.has(win) ? { ...rooms.get(win), ...(win === prompt ? { side: hintSide ?? null } : {}) } : evenRoom(0)
 })
 /**
  * Room round the box's card for a hint, out of the card (hint-room.ts says where). Changed only while the box is
@@ -2841,7 +2842,12 @@ function createWindow(): void {
   protect(mainWindow)
   // From here every size and place is the card's; the window keeps BOX_ROOM round it, clicks passing through there.
   const first = mainWindow.getBounds()
-  overhang(mainWindow, BOX_ROOM)
+  // Made with the room its first open will want for a hint (roomForHint), not BOX_ROOM: given it at that open, the
+  // window grew 592px while away and the Mac showed the page's last picture at the old size for a frame, the card
+  // off to the left, then jumping to the middle (qa/box-first-place.mjs). Opened where it was made, nothing changes.
+  const start = hintRoom(first, screen.getDisplayMatching(first).workArea, BOX_ROOM, boxOneLine() && !isWelcoming())
+  hintSide = start.side
+  overhang(mainWindow, start.room)
   mainWindow.setBounds(first)
   // Moved while a size glide is under way (dragged by hand, or put somewhere by main): the glide stops, landing its
   // size where the box is now. Left going, its target kept the old place, and putting the box away landed it there
