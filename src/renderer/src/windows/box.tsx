@@ -82,8 +82,10 @@ if (window.api.room.left) {
         return
       }
       const all = buttons()
-      if (!all.length) return
+      // No controls drawn (the card squeezed, or none yet): the key is still the box's and does nothing, never the
+      // browser's move to the next field, nor a key no one took, which the Mac answers with its error beep.
       event.preventDefault()
+      if (!all.length) return
       event.stopPropagation()
       // ⇧Tab from the first of them comes back to the writing.
       if (out && event.shiftKey && picked === 0) return pick(-1)
