@@ -12,6 +12,7 @@ const { page, v } = c
 const wait = (ms) => page.waitForTimeout(ms)
 try {
   await v('settings:set', { hintRate: 1, rotCount: 0, sounds: false, boxOneLine: false })
+  if (process.env.LOOK) await c.look(process.env.LOOK)
   let found = null
   // The dice: low enough that a memory is dealt where the sandbox has one.
   for (const roll of [0.05, 0.1, 0.15, 0.2, 0.25, 0.3]) {
