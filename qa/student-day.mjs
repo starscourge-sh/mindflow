@@ -103,8 +103,8 @@ await step('the new card is in today\'s Review queue', async () => {
 await step('Review opens and shows a card with a way to answer it', async () => {
   await c.send('view', 'review'); await wait(1500)
   await c.both(`${shots}/day-review`)
-  const seen = await h.evaluate(() => document.querySelector('main, [data-view]')?.textContent?.replace(/\s+/g, ' ').slice(0, 300) ?? document.body.textContent.slice(0, 300))
-  return [/show|answer|again|good|easy|study|start/i.test(seen), seen.slice(0, 160)]
+  const seen = await h.evaluate(() => document.body.innerText)
+  return [/Study now/.test(seen), /Space turns one over/.test(seen) ? 'Study now, and how to answer said' : seen.slice(0, 160)]
 })
 await step('studying: Space shows the answer, a grade moves to the next card', async () => {
   const start = h.locator('button:visible', { hasText: /^Study now/ }).first()

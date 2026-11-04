@@ -2777,7 +2777,10 @@ export function registerHaligtree(): void {
     // The example deck keeps its order too: it teaches, one idea leading to the next.
     const shared = (one: { row: Record<string, unknown> }): boolean => String(one.row.origin ?? '').startsWith('anki:') || String(one.row.body ?? '').endsWith(`#${EXAMPLE_TAG}"`)
     // Yours shuffled, siblings apart; an imported deck keeps its own order (a frequency list stays in frequency order).
-    const mine = shuffleNew(unseen.filter((one) => !one.exam && !shared(one)).map((one) => ({ ...one, id: String(one.row.id), group: (one.row.lineOf as string | null) ?? null })), dayKey())
+    const shuffled = shuffleNew(unseen.filter((one) => !one.exam && !shared(one)).map((one) => ({ ...one, id: String(one.row.id), group: (one.row.lineOf as string | null) ?? null })), dayKey())
+    // A card written today leads them: what you just wrote down is what you came to study, so older new cards wait first.
+    const wroteToday = (one: { row: Record<string, unknown> }): boolean => String(one.row.createdAt ?? '') >= today
+    const mine = [...shuffled.filter(wroteToday), ...shuffled.filter((one) => !wroteToday(one))]
     // A tag with its own new cards a day takes no more than that (a tag under it counts toward it too).
     const tagNew = new Map((db.prepare('select tag, new_per_day as n from tag_meta where new_per_day is not null').all() as { tag: string; n: number }[]).map((row) => [row.tag, row.n]))
     const tagsOf = (row: Record<string, unknown>): string[] => {
