@@ -97,7 +97,7 @@ const film = async (act, ms = 900) => {
     window.__lineHeard = true
     const box = (el) => { const r = el?.getBoundingClientRect(); return r ? [r.left, r.top, r.right, r.bottom].map((n) => Math.round(n)) : null }
     const tick = () => {
-      window.__film.push([Math.round(performance.now() - t0), 'controlsAbove' in document.documentElement.dataset, box(document.querySelector('.mf-top')), box(document.querySelector('.app-container')), !!document.querySelector('.app-container[data-pill]'), [...document.querySelectorAll('.mf-top [data-aside] > *, .mf-top .mf-pill button')].filter((el) => el.offsetWidth > 0).map(box)])
+      window.__film.push([Math.round(performance.now() - t0), 'controlsAbove' in document.documentElement.dataset, box(document.querySelector('.mf-top')), box(document.querySelector('.app-container')), !!document.querySelector('.app-container[data-pill]'), [...document.querySelectorAll('.mf-top [data-aside] > *, .mf-top .mf-pill button')].filter((el) => el.offsetWidth > 0).map(box), (() => { const one = document.querySelector('main[data-zen-row] > *'); return one && one.getBoundingClientRect().height > 0 ? Number(getComputedStyle(one).opacity) : 0 })()])
       if (performance.now() - t0 < 1400) requestAnimationFrame(tick)
     }
     requestAnimationFrame(tick)
@@ -144,12 +144,16 @@ async function growAndFold(look) {
   const boxAt = after.find((f) => !f[4])?.[0]
   const tallerAt = after.find((f) => f[3] && f[3][3] - f[3][1] > 58)?.[0]
   console.log(`${look}: new line at ${grown.line}ms, first frame ${after[0]?.[0]}ms, drawn as the box at ${boxAt}ms, taller at ${tallerAt}ms`)
-  check(`${look} grow: drawn as the box in the frame the new line appears, not as the pill (${boxAt - grown.line}ms)`, boxAt !== undefined && boxAt - grown.line <= 34 && !after.some((f) => f[0] > grown.line + 20 && f[0] < boxAt), JSON.stringify({ line: grown.line, first: after[0]?.[0], boxAt }))
+  check(`${look} grow: drawn as the box in the frame the new line appears, not as the pill (${boxAt - grown.line}ms)`, boxAt !== undefined && boxAt === after[0]?.[0], JSON.stringify({ line: grown.line, first: after[0]?.[0], boxAt }))
   // Main grows the window: a message to it and its first resize, up to four frames (578ms on the old build).
   check(`${look} grow: the box is growing within 67ms of the new line (${tallerAt - grown.line}ms)`, tallerAt !== undefined && tallerAt - grown.line <= 67, JSON.stringify({ line: grown.line, tallerAt }))
   check(`${look} grow: the box grew (not the pill any more)`, !g.pill, JSON.stringify(g))
   check(`${look} grow: the round controls sit in a row above the box, level with its right edge`, !!g.row && !!g.card && g.row[3] <= g.card[1] - 4 && Math.abs(g.row[2] - g.card[2]) <= 2, JSON.stringify(g))
   check(`${look} grow: they glide there from beside the pill, nothing drawn at the new place first (${g.start}px in that frame, at most ${g.step}px a frame of ${g.trip}px)`, g.start <= 12 && g.trip > 0 && g.step <= g.trip * 0.55 && g.count >= 30, JSON.stringify(g))
+  // The footer (the kind, Create) comes with the box, whole, in the frame it grows: never an empty card first.
+  const footerLate = (frames) => frames.filter((f) => !f[4] && f[6] < 0.95).map((f) => `${f[0]}ms ${f[6]}`)
+  const late = footerLate(grown.frames)
+  check(`${look} grow: the footer shows whole in every frame of the box (${late.length} frames without it)`, !late.length, late.slice(0, 6).join(', '))
   const folded = await film(async () => { await page.keyboard.press('Meta+a'); await page.keyboard.press('Backspace'); await page.keyboard.type('One line') }, 1400)
   const f = read(folded)
   check(`${look} fold: back to the pill`, f.pill, JSON.stringify(f))
@@ -160,6 +164,14 @@ async function growAndFold(look) {
     folded.pictures.forEach((png, i) => writeFileSync(join(shots, `fold-${look}-${String(i).padStart(2, '0')}.png`), png))
     writeFileSync(join(shots, `grow-fold-${look}.json`), JSON.stringify({ grown: grown.frames, folded: folded.frames }))
   }
+  // The side panel opened from the pill: the box grows with its footer whole, in the same way.
+  await page.keyboard.press('Meta+a'); await page.keyboard.press('Backspace'); await wait(1400)
+  const paneled = await film(async () => { await page.keyboard.press('Meta+Backslash') }, 1400)
+  const pLate = paneled.frames.filter((f) => !f[4] && f[6] < 0.95).map((f) => `${f[0]}ms ${f[6]}`)
+  const pBox = paneled.frames.find((f) => !f[4])
+  check(`${look} side panel: the box grows with it, its footer whole in every frame (${pLate.length} without)`, !!pBox && !pLate.length, pBox ? pLate.slice(0, 6).join(', ') : 'never grew')
+  if (shots) paneled.pictures.forEach((png, i) => writeFileSync(join(shots, `panel-${look}-${String(i).padStart(2, '0')}.png`), png))
+  await page.keyboard.press('Meta+Backslash'); await wait(800)
   await page.evaluate(() => window.api.hidePrompt()); await wait(500)
 }
 

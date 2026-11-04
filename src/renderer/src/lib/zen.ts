@@ -23,8 +23,13 @@ export function useZen(hide: boolean): void {
     const root = document.documentElement
     let timer = 0
     let at: { x: number; y: number } | null = null
+    // Buttons that came into view while you type (quick capture's pill grown into the box: its footer, what sending
+    // it will do) stay in view until the typing pauses once. Faded at once, the box grew as an empty card and its
+    // footer came only a second later, which read as the box growing late.
+    let arrived = false
     const back = (): void => {
       window.clearTimeout(timer)
+      arrived = false
       root.removeAttribute('data-zen')
     }
     const onKey = (event: KeyboardEvent): void => {
@@ -32,10 +37,23 @@ export function useZen(hide: boolean): void {
       if (event.metaKey || event.ctrlKey || event.isComposing) return
       if (event.key.length !== 1 && event.key !== 'Backspace' && event.key !== 'Delete' && event.key !== 'Enter') return
       if (!(event.target as Element | null)?.closest?.('.ProseMirror')) return
-      root.setAttribute('data-zen', '')
+      if (!arrived) root.setAttribute('data-zen', '')
       window.clearTimeout(timer)
       timer = window.setTimeout(back, PAUSE)
     }
+    // The pill grown into the box: its footer shows with it, in the same frame (it is not drawn in the pill, so it
+    // has no fade to come in by).
+    const grew = new MutationObserver((changes) => {
+      if (!changes.some((one) => one.oldValue !== null && !(one.target as Element).hasAttribute('data-pill'))) return
+      arrived = true
+      // Shown as it is drawn, with no fade in: the page read its look once already while the key that grew it was
+      // down (faded, under data-zen), and from there it faded in over 200ms. data-zen-arrived holds the fade off for
+      // that first frame only (box-extras.css).
+      root.setAttribute('data-zen-arrived', '')
+      root.removeAttribute('data-zen')
+      requestAnimationFrame(() => requestAnimationFrame(() => root.removeAttribute('data-zen-arrived')))
+    })
+    grew.observe(document.body, { subtree: true, attributes: true, attributeFilter: ['data-pill'], attributeOldValue: true })
     // Only a hand that moves: Chromium also fires a move at a still pointer
     // when the page changes under it, as it does with every letter typed.
     const onMove = (event: PointerEvent): void => {
@@ -53,6 +71,7 @@ export function useZen(hide: boolean): void {
     window.addEventListener('blur', back)
     return () => {
       back()
+      grew.disconnect()
       window.removeEventListener('keydown', onKey, true)
       window.removeEventListener('pointermove', onMove, true)
       document.removeEventListener('focusout', onFocusOut, true)

@@ -75,6 +75,7 @@
    buttons" keeps them away until the pointer is over their own place. A menu
    one of them opened keeps it in view, and a kind other than Note stays. */
 [data-zen-target], [data-zen-row] > * { transition: opacity 200ms var(--mf-ease); }
+:root[data-zen-arrived] :is([data-zen-target], [data-zen-row] > *) { transition: none !important; }
 :root[data-zen] :is([data-zen-target], [data-zen-row] > :not([data-zen-keep]), .tiptap-drag-handle, [data-selection-layer]):not(:has([data-state=open], [aria-expanded=true])) {
   opacity: 0 !important;
   pointer-events: none !important;
