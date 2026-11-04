@@ -97,6 +97,11 @@ export function CaptureKindPicker({ value, onChange, suggested = false, flat = f
       const pitch = (second.getBoundingClientRect().top - first.getBoundingClientRect().top) / scale
       const above = (box.top - (list.closest<HTMLElement>('[data-slot="popover-content"]')?.getBoundingClientRect().top ?? box.top)) / scale
       const room = (parseFloat(getComputedStyle(list).getPropertyValue('--radix-popover-content-available-height')) || innerHeight) - above
+      // From the pill, which keeps the box's room under it (main's hintRoom), every row whole where they all fit:
+      // cut at three and a half, the last one ("Word") showed faded and cut off with room to spare below it.
+      const rows = list.querySelectorAll('[cmdk-item]').length
+      const all = top + pitch * (rows - 1) + first.offsetHeight + 4
+      if (pill && all <= room) return void (list.style.maxHeight = `${all}px`)
       const whole = Math.max(1, Math.min(3, Math.floor((room - top - first.offsetHeight * 0.66) / pitch)))
       list.style.maxHeight = `${top + pitch * whole + first.offsetHeight * 0.66}px`
     }
@@ -105,7 +110,7 @@ export function CaptureKindPicker({ value, onChange, suggested = false, flat = f
     watch.observe(list)
     if (list.firstElementChild) watch.observe(list.firstElementChild)
     return () => watch.disconnect()
-  }, [])
+  }, [pill])
   const current = CAPTURE_TYPES.find((Ctype) => Ctype.id === value) ?? CAPTURE_TYPES[0]
   // Always the one order (kindRank), Note first: each kind keeps its own number for ⌘1-9.
   const order: CaptureType[] = CAPTURE_TYPES.map((type) => type.id)

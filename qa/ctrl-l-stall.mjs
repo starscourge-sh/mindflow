@@ -79,6 +79,15 @@ try {
       await capture(`ctrl-l-${name}-${look}`)
       check(`${look} ${name}: ⌃L draws at least 40 frames in 900ms (${n})`, n >= 40)
       check(`${look} ${name}: the type list shows`, shown)
+      // Every row whole, the last one too, in the room the pill keeps under it (none faded and cut at the foot).
+      const rows = await page.evaluate(() => {
+        const list = document.querySelector('[cmdk-list]')
+        if (!list) return null
+        const box = list.getBoundingClientRect()
+        const all = [...list.querySelectorAll('[cmdk-item]')]
+        return { all: all.length, whole: all.filter((one) => { const r = one.getBoundingClientRect(); return r.top >= box.top - 0.5 && r.bottom <= box.bottom + 0.5 && r.bottom <= innerHeight }).length }
+      })
+      check(`${look} ${name}: every row of the type list shows whole (${rows?.whole} of ${rows?.all})`, !!rows && rows.all > 0 && rows.whole === rows.all)
       await page.keyboard.press('Escape'); await wait(500)
     }
     await page.evaluate(() => window.api.hidePrompt()); await wait(500)
