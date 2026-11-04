@@ -943,7 +943,7 @@ export default function App(): React.JSX.Element {
       box.refit()
     })
   }, [recording]) // eslint-disable-line react-hooks/exhaustive-deps
-  // From the writing to the list and back without the mouse: ⌃J or ⌃K leaves
+  // From the writing to the list and back without the mouse: ⌃J (or ⌃K, from outside the words) leaves
   // the note for the panel's list (opening the panel if it is shut), and I
   // comes back, as vim's insert does. A menu open in the note keeps ⌃J and ⌃K.
   useEffect(() => {
@@ -953,7 +953,21 @@ export default function App(): React.JSX.Element {
       const active = document.activeElement as HTMLElement | null
       const inNote = !!active?.closest?.('.ProseMirror') || !active || active === document.body
       const key = event.key.toLowerCase()
-      if (event.ctrlKey && inNote && (key === 'j' || key === 'k')) {
+      // ⌃K in the writing is the Mac's own "delete to the end of the line", as in every text field; it goes to the
+      // list only from outside the writing.
+      const inWriting = !!active?.closest?.('.ProseMirror')
+      if (event.ctrlKey && !event.shiftKey && key === 'k' && inWriting && !layerOpen()) {
+        event.preventDefault()
+        const words = getSelection()
+        if (words?.isCollapsed) {
+          words.modify('extend', 'forward', 'lineboundary')
+          // At the end of a line it takes the line break, as the Mac's does.
+          if (words.isCollapsed) words.modify('extend', 'forward', 'character')
+        }
+        if (words && !words.isCollapsed) document.execCommand('delete')
+        return
+      }
+      if (event.ctrlKey && inNote && (key === 'j' || (key === 'k' && !inWriting))) {
         if (layerOpen()) return
         active?.blur()
         if (!panel) setPanel(true)
@@ -1045,6 +1059,9 @@ export default function App(): React.JSX.Element {
       if (!event.metaKey || (event.key !== 'k' && event.key !== 'p') || (event.key === 'k' && caretInLink())) return
       event.preventDefault()
       event.stopPropagation()
+      // Quick capture's window is a small see-through card: ⌘K opens in the main window, the same box as everywhere
+      // else, never squeezed into the card (in the one-line pill only its input showed, a flat bar).
+      if (document.documentElement.hasAttribute('data-overhang')) return window.api.openInHome('search', event.key === 'k' ? 'all' : 'notes')
       setSearching(event.key === 'k' || 'notes')
     }
     window.addEventListener('keydown', onKey, true)
@@ -2408,6 +2425,7 @@ export default function App(): React.JSX.Element {
               {/* A kind other than Note stays in sight while the rest fades as you type. */}
               <span data-under-toast data-zen-keep={kind !== 'note' || undefined} data-while-recording={recording ? 'dim' : undefined} inert={recording} className="inline-flex"><CaptureKindPicker
                 suggested={!chosen && kind !== 'note' && !lesson}
+                pill={pill}
                 value={kind}
                 onChange={pick}
               /></span>

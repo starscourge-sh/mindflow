@@ -1265,6 +1265,8 @@ export function Home(): React.JSX.Element {
   useEffect(() => window.api.onSentTo((type, id, heading) => {
     // The shortcuts list asked for from quick capture, opened here (shortcut-sheet.tsx).
     if (type === 'shortcuts') window.dispatchEvent(new CustomEvent('haligtree:shortcuts', { detail: id }))
+    // ⌘K (or ⌘P) from quick capture, opened here (App.tsx).
+    else if (type === 'search') setSearching(id === 'notes' ? 'notes' : 'all')
     // The passes lay themselves over whatever is open, rather than being a place.
     else if (type === 'view' && (id === 'tidy' || id === 'decide')) openPass(id)
     // Review on one of its pages (":decks" from an import's notice).
