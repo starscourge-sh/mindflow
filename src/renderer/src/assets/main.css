@@ -1026,6 +1026,12 @@ html:is([data-width='page'], [data-width='wide']) .haligtree-editor-wrapper:not(
 html:is([data-width='page'], [data-width='wide']) .note-pane .haligtree-editor-wrapper:not(.is-line) .tiptap.ProseMirror.haligtree-editor {
   max-width: calc(var(--mf-col-note) + 9.5rem);
 }
+/* A day's writing in the Journal reads as a note does: lines of about seventy characters, from the same left edge
+   as the day's name and tasks, not across the whole sheet (note 1c7d6afe, "too long": a hundred and twenty a line). */
+html:is([data-width='page'], [data-width='wide']) [data-day-write] .haligtree-editor-wrapper:not(.is-line) .tiptap.ProseMirror.haligtree-editor {
+  max-width: var(--mf-col-note);
+  margin-inline: 0;
+}
 /* An open note's writing column is measured on its own: beside a list and
    its details it can be far narrower than the page, and gutters set for the
    page's width left a title a word a line. Narrow, the left keeps room for the
