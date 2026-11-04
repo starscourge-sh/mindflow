@@ -32,8 +32,12 @@ const POPS = [
 
 /** The room main keeps round the box's card (its overhang); 0 in a window that is all card. */
 const ROOM = window.api.room.bottom
+/** The room under the card its own menus may use (a hint below the card may hold more, given up while one is open). */
+const MENU_ROOM = window.api.room.menu ?? ROOM
+/** The room under the card as it is now: more while a hint sits there (box.tsx sets it as main changes it). */
+const roomUnder = (): number => parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--mf-room')) || ROOM
 /** All the room the window keeps above and below the card. */
-const roomTall = (): number => (parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--mf-room-top')) || window.api.room.top) + window.api.room.bottom
+const roomTop = (): number => parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--mf-room-top')) || window.api.room.top
 /** The card's height: with room round it, the window is taller than the card by that room. */
 const cardHeight = (): number => (ROOM ? (document.querySelector<HTMLElement>('.app-container')?.offsetHeight ?? window.innerHeight) : window.innerHeight)
 
@@ -156,7 +160,7 @@ export function useFitBox(column: RefObject<HTMLElement | null>, full: boolean, 
     // Room round the card (main's overhang): a pop-up in a short box gets room below the card's foot, the window
     // growing down while the card stays put; only where the screen has no room there does the card grow, as before.
     if (ROOM && !held.current && !document.hidden) {
-      const ask = popped && !grewForPop.current && card < FULL - 1 ? Math.max(0, FULL - card - ROOM) : 0
+      const ask = popped && !grewForPop.current && card < FULL - 1 ? Math.max(0, FULL - card - MENU_ROOM) : 0
       if (!popped) grewForPop.current = false
       if (ask !== below.current) {
         below.current = ask
@@ -191,7 +195,7 @@ export function useFitBox(column: RefObject<HTMLElement | null>, full: boolean, 
       const still = (): void => {
         const pop = document.querySelector(POPS)
         const at = pop ? JSON.stringify(pop.getBoundingClientRect()) : ''
-        const roomy = cardHeight() >= FULL - 1 || (ROOM > 0 && window.innerHeight >= cardHeight() + roomTall() + below.current - 1)
+        const roomy = cardHeight() >= FULL - 1 || (ROOM > 0 && window.innerHeight >= cardHeight() + roomTop() + Math.max(MENU_ROOM + below.current, roomUnder()) - 1)
         if (!pop || (at === last && roomy) || ++frames > 12) {
           settling.current = false
           return void delete root.dataset.growing

@@ -100,6 +100,8 @@ const putBox = async (spot) => {
   const landed = await screenCard()
   return { ...asked, held: landed.x === asked.x && landed.y === asked.y, first }
 }
+/** Under the card: its top 8px or more below the card's foot, its left edge on the card's, all of it in the window. */
+const under = (x) => x?.side === 'below' && x.top >= x.card[3] + 8 && x.left === x.card[0] && x.inWindow
 const placeBox = (spot) => c.electron.evaluate(({ BrowserWindow, screen }, spot) => {
   const box = BrowserWindow.getAllWindows().find((w) => !w.isDestroyed() && w.webContents.getURL().includes('/index.html'))
   if (!box) return
@@ -169,7 +171,7 @@ try {
   const top = await hint()
   if (process.env.QA_DEBUG) console.log(await page.evaluate(() => ({ side: document.documentElement.dataset.hintSide, room: document.querySelector('[data-hint-room]')?.outerHTML.slice(0, 200) })))
   check('the top middle of the screen: a hint shows', seen(top), JSON.stringify(top))
-  check('…beside the card (no room above it there), level with its top', top?.side === 'left' && top.right <= top.card[0] - 8 && top.top === top.card[1], JSON.stringify(top))
+  check('…under the card (no room above it there), its left edge on the card\'s (note 277ae401)', under(top), JSON.stringify(top))
   check('…never over the card or a round control, never cut off', top && !top.overCard && !top.overControl && top.inWindow, JSON.stringify(top))
   const look = await page.evaluate(() => {
     const card = document.querySelector('[data-hint-card]')
@@ -190,6 +192,19 @@ try {
   check('the toast lane follows the card into its new place in the window', lane.said !== null && lane.said === lane.now, JSON.stringify(lane))
   check('the card opens exactly where it does without a hint (on the screen)', JSON.stringify(withHint.card) === JSON.stringify(bare.card), `${JSON.stringify(bare.card)} vs ${JSON.stringify(withHint.card)}`)
   check('the footer and round controls sit where they do without a hint', JSON.stringify(withHint.in) === JSON.stringify(bare.in), `${JSON.stringify(bare.in)} vs ${JSON.stringify(withHint.in)}`)
+  // The room under the card is the "/" and "#" menus' too: one open, the hint is gone in the same frame, never both.
+  await page.click('main[data-zen-row] [data-kind-chip]'); await wait(60)
+  const kinds = await page.evaluate(() => ({ menu: !!document.querySelector('[role=menu], [role=dialog]'), opacity: getComputedStyle(document.querySelector('[data-hint-room]')).opacity }))
+  check('a menu opened from the footer: the hint is gone at once, no fade under the menu', kinds.menu && kinds.opacity === '0', JSON.stringify(kinds))
+  await page.keyboard.press('Escape'); await wait(300)
+  await page.click(EDITOR); await page.keyboard.type('/'); await wait(500)
+  const slash = await page.evaluate(() => {
+    const pop = document.querySelector('.tiptap-suggestion-popup')?.getBoundingClientRect()
+    return { pop: !!pop, below: pop ? pop.top >= document.querySelector('.app-container').getBoundingClientRect().top : null, opacity: getComputedStyle(document.querySelector('[data-hint-room]')).opacity }
+  })
+  check('"/" typed: its menu opens and the hint is gone (the two never show together)', slash.pop && slash.opacity === '0', JSON.stringify(slash))
+  await page.keyboard.press('Escape'); await page.keyboard.press('Backspace'); await wait(300)
+  await reopen(); await hint()
   await page.click(EDITOR); await page.keyboard.type('a'); await wait(800)
   const typed = await hint()
   check('the first keystroke sends the hint off', !seen(typed), JSON.stringify(typed))
@@ -214,7 +229,7 @@ try {
   await page.keyboard.press('Meta+Backslash'); await wait(1400)
   await reopen()
   const panel = await hint()
-  check('with the side panel: the hint beside the card on the left, clear of it', seen(panel) && panel.side === 'left' && !panel.overCard && panel.inWindow, JSON.stringify(panel))
+  check('with the side panel: the hint under the card, clear of it', seen(panel) && under(panel) && !panel.overCard, JSON.stringify(panel))
   await shape('full-box-side-panel')
   await reopen()
   if (await page.$('[aria-label="Hide the side panel"]')) { await page.keyboard.press('Meta+Backslash'); await wait(1400) }
@@ -229,11 +244,11 @@ try {
   // Near the left edge of the screen at the top: the hint goes to the right.
   const askedLeft = await putBox('left'); await reopen()
   const left = { ...(await hint()), asked: askedLeft, landed: await screenCard() }
-  check('the box at the top left of the screen: the hint beside it on the right', seen(left) && left.side === 'right' && left.left >= left.card[2] + 8 && left.inWindow, JSON.stringify(left))
+  check('the box at the top left of the screen: the hint under it', seen(left) && under(left), JSON.stringify(left))
   await shape('box-top-left')
   const askedRight = await putBox('right'); await reopen()
   const right = { ...(await hint()), asked: askedRight, landed: await screenCard() }
-  check('the box at the top right of the screen: the hint beside it on the left', seen(right) && right.side === 'left' && right.right <= right.card[0] - 8 && right.inWindow, JSON.stringify(right))
+  check('the box at the top right of the screen: the hint under it', seen(right) && under(right), JSON.stringify(right))
   await shape('box-top-right')
   await putBox('middle')
   const longGem = await pinHint('long')

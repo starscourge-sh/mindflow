@@ -637,7 +637,8 @@ const relimit = new WeakMap<BrowserWindow, () => void>()
 ipcMain.on('window:room', (event) => {
   const win = BrowserWindow.fromWebContents(event.sender)
   // The box hears which side its hint room is on too, set as it was made (createWindow).
-  event.returnValue = win && rooms.has(win) ? { ...rooms.get(win), ...(win === prompt ? { side: hintSide ?? null } : {}) } : evenRoom(0)
+  // `menu`: the room below the card it keeps for its own menus' feet, whatever a hint below adds to it (fit-box.ts).
+  event.returnValue = win && rooms.has(win) ? { ...rooms.get(win), ...(win === prompt ? { side: hintSide ?? null, menu: BOX_ROOM.bottom } : {}) } : evenRoom(0)
 })
 /**
  * Room round the box's card for a hint, out of the card (hint-room.ts says where). Changed only while the box is
@@ -648,9 +649,10 @@ function roomForHint(win: BrowserWindow, place: Electron.Rectangle): Promise<voi
   const was = rooms.get(win)
   if (!was) return null
   const { workArea } = screen.getDisplayMatching(place)
-  const { side, room } = hintRoom(place, workArea, { ...BOX_ROOM, bottom: was.bottom }, boxOneLine() && !isWelcoming())
-  if (hintSide === side && room.top === was.top && room.left === was.left && room.right === was.right) return null
+  const { side, room } = hintRoom(place, workArea, BOX_ROOM, boxOneLine() && !isWelcoming())
+  if (hintSide === side && room.top === was.top && room.left === was.left && room.right === was.right && room.bottom === was.bottom) return null
   hintSide = side
+  hintBelow = room.bottom
   setRoom(win, room)
   return new Promise((resolve) => {
     const done = (): void => (clearTimeout(late), ipcMain.removeListener('window:room-drawn', heard), resolve())
@@ -663,6 +665,9 @@ function roomForHint(win: BrowserWindow, place: Electron.Rectangle): Promise<voi
 }
 /** Where the last open put a hint's room. */
 let hintSide: HintSide | undefined
+/** The room under the card as the last open left it: more than BOX_ROOM's when a hint sits there. A menu that hangs
+ * into it adds only what it needs beyond that, and closing gives it back to the hint (window:room-below). */
+let hintBelow = BOX_ROOM.bottom
 /** More (or less) room round a window's card, the card staying exactly where it is. */
 function setRoom(win: BrowserWindow, room: Room): void {
   const was = rooms.get(win)
@@ -2847,6 +2852,7 @@ function createWindow(): void {
   // off to the left, then jumping to the middle (qa/box-first-place.mjs). Opened where it was made, nothing changes.
   const start = hintRoom(first, screen.getDisplayMatching(first).workArea, BOX_ROOM, boxOneLine() && !isWelcoming())
   hintSide = start.side
+  hintBelow = start.room.bottom
   overhang(mainWindow, start.room)
   mainWindow.setBounds(first)
   // Moved while a size glide is under way (dragged by hand, or put somewhere by main): the glide stops, landing its
@@ -5053,7 +5059,7 @@ app.whenReady().then(() => {
     const { workArea } = screen.getDisplayMatching(card)
     // Off the screen's foot the room would hide the pop-up: the box grows instead (window:fit), as before.
     if (want && card.y + card.height + BOX_ROOM.bottom + want > workArea.y + workArea.height) return false
-    setRoom(win, { ...(rooms.get(win) ?? BOX_ROOM), bottom: BOX_ROOM.bottom + want })
+    setRoom(win, { ...(rooms.get(win) ?? BOX_ROOM), bottom: Math.max(hintBelow, BOX_ROOM.bottom + want) })
     return true
   })
   ipcMain.on('window:fit', (event, height: unknown, snap: unknown) => {

@@ -160,10 +160,11 @@ if (window.api.room.left) {
   }
   new MutationObserver(() => requestAnimationFrame(fitControls)).observe(document.body, { subtree: true, attributes: true, attributeFilter: ['data-one-line'] })
   window.addEventListener('resize', () => requestAnimationFrame(fitControls))
-  window.api.onRoomHint(({ top, left, right, side }) => {
+  window.api.onRoomHint(({ top, left, right, bottom, side }) => {
     const root = document.documentElement
     delete root.dataset.controlsAbove
     root.style.setProperty('--mf-room-top', `${top}px`)
+    root.style.setProperty('--mf-room', `${bottom}px`)
     root.style.setProperty('--mf-room-left', `${left}px`)
     root.style.setProperty('--mf-room-right', `${right}px`)
     if (side) root.dataset.hintSide = side

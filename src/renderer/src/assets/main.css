@@ -397,8 +397,9 @@ html[data-overhang] .mf-pill > * + *::before {
 }
 /* Quick capture's hint (hint-card.tsx, HintRoom): out of the card, in the room main keeps for it. Above the card's
    top left edge, its foot level with the round controls' foot and its right edge short of the first of them; or,
-   where the screen has no room above (the box at the top middle), beside the card on the side with room, its top
-   level with the card's. Opaque, with the round controls' shadow. It waits unseen while a menu, a picker, ⌘K or the
+   where the screen has no room above (the box at the top middle), under the card at its left edge, in the room the
+   "/" and "#" menus hang into (it goes at once, no fade, as one opens, so the two never overlap); or, with no room
+   there either, beside the card on the side with room, its top level with the card's. Opaque, with the round controls' shadow. It waits unseen while a menu, a picker, ⌘K or the
    snip and mic choices are open (its own right-click menu aside), and goes at the first word: a fade, nothing in
    the card moving. With no room anywhere it waits. */
 html[data-overhang] [data-hint-room] {
@@ -413,6 +414,14 @@ html[data-overhang][data-hint-side='above'] [data-hint-room] {
   right: calc(var(--mf-room-right) + 180px);
   bottom: calc(100vh - var(--mf-room-top) + 8px);
   justify-content: flex-end;
+}
+html[data-overhang][data-hint-side='below'] [data-hint-room] {
+  left: var(--mf-room-left);
+  top: calc(100vh - var(--mf-room) + 12px);
+  width: 320px;
+}
+html[data-overhang][data-hint-side='below']:not([data-hint-menu]):has([role=menu], [role=dialog], [role=alertdialog], [role=listbox], .tiptap-suggestion-popup, [data-shot-button][data-open]) [data-hint-room] {
+  transition: none;
 }
 html[data-overhang]:is([data-hint-side='left'], [data-hint-side='right']) [data-hint-room] {
   top: var(--mf-room-top);
