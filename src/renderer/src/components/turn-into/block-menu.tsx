@@ -344,10 +344,10 @@ export function BlockMenu({
     </DropdownMenuItem>
   ))
 
-  // A picture or a video right-clicked is its block: one menu, the same however it opens (a right-click, the grip),
+  // A picture right-clicked is its block: one menu, the same however it opens (a right-click, the grip),
   // its own lines first and the block's after, never its lines on top and the rest folded under a second "Picture ›"
   // (tracker: "what is the reasoning for the differentiation").
-  const itself = !clickedOnly && (clicked?.kind === "picture" || clicked?.kind === "video")
+  const itself = !clickedOnly && clicked?.kind === "picture" && !!imageSrc
   const apart = itself ? null : clicked
   /**
    * Under a clicked thing (a link, a PDF page), the block's own lines fold into one "Block ›" row:
