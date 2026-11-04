@@ -8,6 +8,7 @@ import { MCard, MLines, Peek } from './peek'
 import { RowMenu, openFromGrip, type RowItem } from './row-menu'
 import { quietly, Tip } from './ui'
 import { cut } from '../../../../main/clip'
+import { num } from '../../../../main/dates'
 
 /**
  * Split pairs, Dia's way: the panes open side by side read as ONE row in the
@@ -229,7 +230,7 @@ export function PairRow(props: PairProps): React.JSX.Element {
 export function PairFold({ pairs }: { pairs: (PairProps & { key: string })[] }): React.JSX.Element {
   const live = pairs.some((one) => one.live)
   const items: RowItem[] = [
-    { heading: `${pairs.length} splits` },
+    { heading: `${num(pairs.length)} splits` },
     ...pairs.map((one): RowItem => ({
       label: one.name || short(bothNames(one.names)),
       icon: <SplitMark names={one.names} small />,
@@ -239,11 +240,11 @@ export function PairFold({ pairs }: { pairs: (PairProps & { key: string })[] }):
   return (
     <RowMenu items={items}>
       <div className="flex flex-col">
-        <Tip label={`${pairs.length} splits: click to see them all`} side="right">
-          <button type="button" data-side-row data-pair-fold={pairs.length} aria-label={`${pairs.length} splits`} onClick={openFromGrip}
+        <Tip label={`${num(pairs.length)} splits: click to see them all`} side="right">
+          <button type="button" data-side-row data-pair-fold={pairs.length} aria-label={`${num(pairs.length)} splits`} onClick={openFromGrip}
             className={`relative -mx-1 flex items-center justify-center rounded-md py-1 ${live ? 'bg-[color-mix(in_srgb,var(--tt-brand-color-400)_9%,transparent)]' : ''}`}>
             <SplitMark names={pairs.find((one) => one.live)?.names ?? pairs[0].names} />
-            <span data-pair-count className="absolute -top-1 -right-0.5 flex h-3.5 min-w-3.5 ring-2 ring-background items-center justify-center rounded-full bg-foreground px-1 text-[9px] leading-none font-semibold tabular-nums text-background">{pairs.length}</span>
+            <span data-pair-count className="absolute -top-1 -right-0.5 flex h-3.5 min-w-3.5 ring-2 ring-background items-center justify-center rounded-full bg-foreground px-1 text-[9px] leading-none font-semibold tabular-nums text-background">{num(pairs.length)}</span>
           </button>
         </Tip>
       </div>
