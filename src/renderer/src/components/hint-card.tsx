@@ -101,8 +101,10 @@ export function HintCard({ onOpen }: { onOpen: (type: string, id: string) => voi
     () =>
       window.api.onShown(async () => {
         setAsking(false)
-        setBack(null)
-        setDue(null)
+        // Last open's card goes at once, with no way out drawn: left in until the pick below came back, it was still
+        // leaving while the new one came in, two cards stacked in the opening frames ("Came back" over "Still in
+        // your Inbox", qa/hint-room.mjs). Only one hint ever shows.
+        clearAll()
         const coming = await returningHint()
         setDue(coming)
         if (coming) return setHint(null)
@@ -120,6 +122,19 @@ export function HintCard({ onOpen }: { onOpen: (type: string, id: string) => voi
       }),
     []
   )
+  // Every card put away at once (none drawn on its way out): the box gone, or brought up again.
+  const [round, setRound] = useState(0)
+  const clearAll = (): void => {
+    setHint(null)
+    setBack(null)
+    setDue(null)
+    setRound((n) => n + 1)
+  }
+  useEffect(() => {
+    const away = (): void => void (document.visibilityState === 'hidden' && clearAll())
+    document.addEventListener('visibilitychange', away)
+    return () => document.removeEventListener('visibilitychange', away)
+  }, [])
   // Dwell: how long it was on screen before the window went. Every hint
   // produces one, where a vote is rare, so it is the signal that says most.
   useEffect(() => {
@@ -200,7 +215,7 @@ export function HintCard({ onOpen }: { onOpen: (type: string, id: string) => voi
   // shown less, never kept or moved to the Bin from here.
   const offered = hint?.memory ? actions.filter(({ icon }) => icon !== ThumbsUp && icon !== Trash2 && icon !== EyeOff) : actions
   return (
-    <AnimatePresence>
+    <AnimatePresence key={round}>
       {back && !hint && (
         <motion.div
           key={`back-${back.id}`}

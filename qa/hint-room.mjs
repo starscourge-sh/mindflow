@@ -14,7 +14,7 @@ process.env.HALIGTREE_QA_VIRTUAL ??= '1'
 
 const { check, done } = checks()
 const c = await sandbox({ width: 1100, height: 760, at: CALM_HOUR })
-const { page, v } = c
+const { page, v, h } = c
 const wait = (ms) => page.waitForTimeout(ms)
 const shots = process.env.QA_SHOTS ?? '/tmp/hint'
 const film = process.env.QA_FILM !== '0'
@@ -212,13 +212,36 @@ try {
   await page.keyboard.press('Backspace'); await wait(300)
   await reopen()
   await page.keyboard.press('Meta+k'); await wait(600)
-  check('⌘K open: the hint waits unseen', !seen(await hint(false)))
+  // ⌘K opens its box in the main window now (e5ad3bb6), nothing of it in this one: nothing here for the hint to give
+  // way to (this check was written when ⌘K's box opened over the card, and the hint hid under it).
+  const inHome = await h.waitForSelector('[cmdk-dialog], [data-slot=dialog-content] [cmdk-root]', { timeout: 2500 }).then(() => true, () => false)
+  check('⌘K open: its box opens in the main window, none in the capture window over the hint', inHome && !(await page.$('[cmdk-dialog], [data-slot=dialog-content] [cmdk-root]')), JSON.stringify({ inHome }))
+  await h.keyboard.press('Escape').catch(() => {})
   await page.keyboard.press('Escape'); await wait(400)
   // Typed in, ⌘K opened and closed, put away: the next open deals a hint again.
   await page.click(EDITOR); await page.keyboard.type('a'); await wait(300); await page.keyboard.press('Backspace')
   await page.keyboard.press('Meta+k'); await wait(600); await page.keyboard.press('Escape'); await wait(400)
   await reopen()
   check('typed in, ⌘K opened and closed, put away: the next open shows a hint', seen(await hint()))
+  // Only one hint ever shows: put away with a hint up and brought up again, every frame of the opening counts the cards
+  // drawn (last open's card leaving while the new one came in drew both, stacked, in frame 0).
+  let most = 0
+  for (let i = 0; i < 6; i++) {
+    await page.evaluate(() => window.api.hidePrompt()); await wait(400)
+    await page.evaluate(() => {
+      window.__most = 0
+      const t0 = performance.now()
+      const count = () => {
+        const cards = [...document.querySelectorAll('[data-hint-card], [data-hint-surface]')].filter((el) => !el.parentElement?.closest('[data-hint-card], [data-hint-surface]') && el.getBoundingClientRect().height > 4 && Number(getComputedStyle(el).opacity) > 0.05)
+        window.__most = Math.max(window.__most, cards.length)
+        if (performance.now() - t0 < 1500) requestAnimationFrame(count)
+      }
+      requestAnimationFrame(count)
+    })
+    await page.evaluate(() => window.api.showPrompt()); await wait(1600)
+    most = Math.max(most, await page.evaluate(() => window.__most))
+  }
+  check(`six opens one after another: never more than one hint drawn in any frame (${most})`, most <= 1)
   await page.click('[data-record-button]'); await wait(800)
   check('the snip and mic choices open: the hint waits unseen', !seen(await hint()))
   await page.keyboard.press('Escape'); await wait(400)
