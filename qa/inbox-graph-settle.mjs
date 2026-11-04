@@ -78,32 +78,39 @@ try {
     console.log(JSON.stringify((await h.evaluate(async () => (await window.api.captures.list()).slice(0, 3).map((one) => [one.label, one.status, one.capturedAt])))))
     if (!(await h.$('[data-inbox-graph]'))) await h.click('button:has-text("Graph")')
     await h.waitForSelector('[data-inbox-graph] canvas', { timeout: 8000 })
-    await h.click('[data-inbox-graph] button:has-text("All")')
+    // Over all time ("All"), each of the graph's two views: the captures round their tags, and the tags alone.
+    await h.click('[data-inbox-graph] button[aria-label="All"]')
+    for (const view of ['Captures', 'Tags']) {
+    await h.locator(`[data-inbox-graph] button[aria-label="${view}"]`).first().click()
     await h.mouse.move(5, 5)
-    await film(`graph-${size}`)
+    await film(`graph-${size}-${view}`)
     await wait(4000)
     const a = await dots(); await wait(1200); const b = await dots()
     const moved = Math.max(0, ...a.map((one, at) => Math.hypot(one.x - b[at].x, one.y - b[at].y)))
     const over = overlaps(b)
     const edge = await edges()
     const cross = await crossings(b)
-    check(`${size}: lines rarely cross`, cross.share <= 1, `${cross.crossed} crossings over ${cross.lines} lines, ${cross.share.toFixed(2)} a line`)
-    check(`${size}: the graph shows its dots`, b.length >= Math.min(size, 5) - 1, `${b.length} dots`)
-    check(`${size}: no two dots overlap once settled`, over.pairs === 0, `${over.pairs} pairs, worst ${over.worst.toFixed(1)}px into each other`)
-    check(`${size}: nothing drifts after it has settled`, moved < 1, `${moved.toFixed(2)} map units in 1.2s`)
+    check(`${size} ${view}: lines rarely cross`, cross.share <= 1, `${cross.crossed} crossings over ${cross.lines} lines, ${cross.share.toFixed(2)} a line`)
+    check(`${size} ${view}: the graph shows its dots`, b.length >= Math.min(size, 5) - 1, `${b.length} dots`)
+    check(`${size} ${view}: no two dots overlap once settled`, over.pairs === 0, `${over.pairs} pairs, worst ${over.worst.toFixed(1)}px into each other`)
+    check(`${size} ${view}: nothing drifts after it has settled`, moved < 1, `${moved.toFixed(2)} map units in 1.2s`)
     // Every tag dot carries its name (a tag dot is its cluster's name; one near #garden at 500 had none).
     const named = new Set(await h.evaluate(() => document.querySelector('[data-inbox-graph] canvas')?.mapNamed?.() ?? []))
     const tagDots = b.filter((one) => String(one.title).startsWith('#'))
     const unnamed = tagDots.filter((one) => !named.has(one.id)).map((one) => one.title)
-    check(`${size}: every tag dot has its name`, tagDots.length > 0 && !unnamed.length, `${tagDots.length} tags, without a name: ${unnamed.join(', ') || 'none'}`)
-    check(`${size}: the whole map sits inside its frame`, Math.min(edge.left, edge.top, edge.right, edge.bottom) >= 8, `clear of the edges by ${['left', 'top', 'right', 'bottom'].map((k) => `${k} ${Math.round(edge[k])}`).join(', ')}`)
-    if (shots) for (const name of ['light', 'dark']) { await look(name); await wait(300); await (await h.$('[data-inbox-graph]')).screenshot({ path: `${shots}/graph-${size}-settled-${name}.png` }) }
+    const crossed = await h.evaluate(() => document.querySelector('[data-inbox-graph] canvas')?.mapCrossed?.() ?? null)
+    check(`${size} ${view}: no line out to a name runs through another name`, Array.isArray(crossed) && !crossed.length, (crossed ?? ['no report']).slice(0, 4).join(' | '))
+    const refused = await h.evaluate(() => document.querySelector('[data-inbox-graph] canvas')?.mapRefused?.() ?? [])
+    check(`${size} ${view}: every tag dot has its name`, tagDots.length > 0 && !unnamed.length, `${tagDots.length} tags, without a name: ${unnamed.join(', ') || 'none'}${refused.length ? `; refused: ${refused.join(' | ')}` : ''}`)
+    check(`${size} ${view}: the whole map sits inside its frame`, Math.min(edge.left, edge.top, edge.right, edge.bottom) >= 8, `clear of the edges by ${['left', 'top', 'right', 'bottom'].map((k) => `${k} ${Math.round(edge[k])}`).join(', ')}`)
+    if (shots) for (const name of ['light', 'dark']) { await look(name); await wait(300); await (await h.$('[data-inbox-graph]')).screenshot({ path: `${shots}/graph-${size}-${view}-${name}.png` }) }
     await look('light')
+    }
   }
   check('no errors on the page', !c.errors.length, c.errors.slice(0, 2).join(' | '))
 } catch (error) {
   if (shots) await h.screenshot({ path: `${shots}/error.png` }).catch(() => {})
-  check('the run finished', false, error.message.split('\n')[0])
+  check('the run finished', false, error.message.split('\n').slice(0, 12).join(' / '))
 }
 await c.close()
 done()

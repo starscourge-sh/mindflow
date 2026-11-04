@@ -182,6 +182,9 @@ export function GraphCanvas({ map, onOpen, centre, you, about, fit: fitRef, fly,
   const [hover, setHover] = useState<{ dot: Dot; x: number; y: number; r: number } | null>(null)
   const blocked = useRef<number[][]>([])
   const namedAtRest = useRef<string[]>([])
+  // For a probe too: each line out to a name that runs through another name, as "its dot's name > the name crossed".
+  const crossedAtRest = useRef<string[]>([])
+  const refusedAtRest = useRef<string[]>([])
   const card = useRef<HTMLDivElement>(null)
   // The card goes where it covers no lit dot or name: above if it can, else
   // below, beside or at a corner, whichever is clearest and stays in the frame.
@@ -702,12 +705,15 @@ export function GraphCanvas({ map, onOpen, centre, you, about, fit: fitRef, fly,
           if (list.length >= 80) break
           if (inFrame(dot) && (dot.rings || dot.type === 'tag' || dot.r * view.k >= tuned.current.names) && got(dot) > 0) list.push(dot)
         }
-        return list
+        // The tags first, each its cluster's name: they claim their room before any other name and its line does
+        // (at 50 captures, the lines out to busier captures' names hemmed #health in on every side, and it had none).
+        return [...list.filter((dot) => dot.type === 'tag'), ...list.filter((dot) => dot.type !== 'tag')]
       }
       // The names, for the dot pointed at (its neighbours) or, with none, the ones named at rest. While the light
       // fades in or out both are drawn, each at its share, so the names at rest step back as the lit ones come
       // instead of all going in one frame.
       const nameAll = (shown: Dot | null, strength: number): { dot: Dot; box: number[] }[] => {
+        if (!shown) refusedAtRest.current = []
         const say = shown ? [...near.get(shown.id)!].map((id) => byId.get(id)!).sort((a, b) => b.links - a.links) : middle ? named : sayFrom()
         const most = Math.min(24, Math.round(10 * Math.sqrt(Math.max(1, view.k / fitK))))
         // Only the dots in sight can be in a name's way.
@@ -720,6 +726,25 @@ export function GraphCanvas({ map, onOpen, centre, you, about, fit: fitRef, fly,
         // Names keep a little air between them, so two never read as one line.
         const air = small ? 0 : 6 / view.k
         const overlaps = (a: number[], b: number[]): boolean => !(a[2] + air < b[0] || a[0] - air > b[2] || a[3] + air < b[1] || a[1] - air > b[3])
+        // The fine lines from a dot out to its name: no other name may sit on one, and none may cross another name
+        // (at 500 captures a line ran through "number 461"). [x1, y1, x2, y2] in the map's own units, with its dot.
+        const lines: { dot: Dot; line: number[] }[] = []
+        // Where the names start in `taken` (before them, the dots' own circles kept clear).
+        const firstName = taken.length
+        /** Whether the line a-b passes through the box, a little air round it (Liang-Barsky). */
+        const crosses = ([x1, y1, x2, y2]: number[], box: number[]): boolean => {
+          const [l, t, r, b] = [box[0] - air, box[1] - air, box[2] + air, box[3] + air]
+          let lo = 0, hi = 1
+          const dx = x2 - x1, dy = y2 - y1
+          for (const [p, q] of [[-dx, x1 - l], [dx, r - x1], [-dy, y1 - t], [dy, b - y1]]) {
+            if (p === 0) { if (q < 0) return false; continue }
+            const at = q / p
+            if (p < 0) lo = Math.max(lo, at)
+            else hi = Math.min(hi, at)
+            if (lo > hi) return false
+          }
+          return true
+        }
         context.font = `500 ${11 / view.k}px ${font}`
         context.textBaseline = 'middle'
         context.textAlign = 'left'
@@ -750,11 +775,25 @@ export function GraphCanvas({ map, onOpen, centre, you, about, fit: fitRef, fly,
             return Math.hypot(Math.max(box[0], Math.min(other.x!, box[2])) - other.x!, Math.max(box[1], Math.min(other.y!, box[3])) - other.y!) < reach
           }
           // Free of every other name, and (on the Map) of the dots `blocks` says.
+          // From the dot's edge to the nearest point of a name's box: the line a name further out is drawn with.
+          const lineTo = (box: number[]): number[] => {
+            const tx = Math.max(box[0], Math.min(dot.x!, box[2])), ty = Math.max(box[1], Math.min(dot.y!, box[3]))
+            const far = Math.hypot(tx - dot.x!, ty - dot.y!) || 1, edgeAt = reachOf(dot) / far
+            return [dot.x! + (tx - dot.x!) * edgeAt, dot.y! + (ty - dot.y!) * edgeAt, tx, ty]
+          }
+          // Its line, for a name further out, crosses no name already placed. Names only: on a small map `taken` starts
+          // with every named dot's own circle, and a line from a dot in a crowded cluster ran into a neighbour's circle
+          // whichever way it went, so #health at 50 captures was refused all 180 places it tried and had no name.
+          const clearLine = (box: number[]): boolean => !taken.slice(firstName).some((one) => one.dot !== dot && one.dot !== shown && crosses(lineTo(box), one.box))
           const free = (blocks: (other: Dot) => boolean) => (box: number[]): boolean =>
             !taken.some((one) => one.dot !== dot && (!lead || one.dot === shown) && overlaps(box, one.box)) &&
+            !lines.some((one) => one.dot !== dot && crosses(one.line, box)) &&
             // A name cut off by the frame's edge is left out on a small map.
             !(small && (box[0] < frame[0] || box[2] > frame[2] || box[1] < frame[1] || box[3] > frame[3])) &&
-            !(clear && nearby.some((other) => other !== dot && blocks(other) && touches(box, other)))
+            !(clear && nearby.some((other) => other !== dot && blocks(other) && touches(box, other))) &&
+            // Never over a tag's dot, even on its pill: a tag is its cluster's name, and with another name over it, every
+            // line out to its own name ran through that one (#money's over #health's at 50 captures: #health had none).
+            !nearby.some((other) => other !== dot && other.type === 'tag' && touches(box, other))
           const boxesAt = (further: number): number[][] => spots.map(([x, y], at) => {
             // Pushed straight out from the dot: right, left, up or down.
             const [dx, dy] = [[1, 0], [-1, 0], [0, -1], [0, 1]][lead ? at + 2 : at < 2 && away ? 1 - at : at]
@@ -765,7 +804,9 @@ export function GraphCanvas({ map, onOpen, centre, you, about, fit: fitRef, fly,
           // all four spots touch a dot, a little further out with a fine line to
           // it, or else on a solid pill that may sit over small dots, never a name.
           let leader = false, pill = false
-          if (!spot && clear && !shown && must(dot)) {
+          // A tag, its cluster's name, looks further out even on a small map: there a line out to another name can
+          // hem it in where it would sit, and it had no name at all (#health at 50 captures).
+          if (!spot && (clear || dot.type === 'tag') && !shown && must(dot)) {
             // The line itself crosses no other dot, so it cannot seem to name that one.
             const crossesNone = (box: number[]): boolean => {
               const tx = Math.max(box[0], Math.min(dot.x!, box[2])) - dot.x!, ty = Math.max(box[1], Math.min(dot.y!, box[3])) - dot.y!
@@ -776,29 +817,52 @@ export function GraphCanvas({ map, onOpen, centre, you, about, fit: fitRef, fly,
                 return Math.hypot(dot.x! + t * tx - other.x!, dot.y! + t * ty - other.y!) < reachOf(other) + 2 / view.k
               })
             }
-            for (const further of [14, 28, 44]) if (!spot && (spot = boxesAt(further / view.k).find((box) => free(() => true)(box) && crossesNone(box)))) leader = true
+            for (const further of [14, 28, 44]) if (!spot && (spot = boxesAt(further / view.k).find((box) => free(() => true)(box) && crossesNone(box) && clearLine(box)))) leader = true
             // A pill keeps off the hubs, near if it can, further out with its line if not.
             const big = (other: Dot): boolean => other.rings > 0 || other.r >= 7
-            for (const further of [0, 14, 28, 44]) if (!spot && (spot = boxesAt(further / view.k).find(free(big)))) ((pill = true), (leader = further > 0))
+            // A pill is drawn wider than its words by its padding: checked at that size, or it was placed over the
+            // dot beside it (#money's over #health's at 50 captures, so every line out from #health ran through it).
+            const padded = (box: number[]): number[] => [box[0] - pad, box[1] - pad / 2, box[2] + pad, box[3] + pad / 2]
+            for (const further of [0, 14, 28, 44]) if (!spot && (spot = boxesAt(further / view.k).find((box) => free(big)(padded(box)) && (!further || clearLine(box))))) ((pill = true), (leader = further > 0))
             // Still none: on its pill further out with its line, clear of every other name, over small dots if it must.
-            for (const further of [0, 14, 28, 44, 64, 88]) if (!spot && (spot = boxesAt(further / view.k).find(free(() => false)))) ((pill = true), (leader = further > 0))
+            // Its line may cross no name, so it may have to go further out than before, and at a slant as well as
+            // straight out: hemmed in on all four sides by names and their lines, #health at 50 captures had none.
+            const slanted = (further: number): number[][] => boxesAt(further).flatMap((box) => [box, ...[[1, 1], [1, -1], [-1, 1], [-1, -1]].map(([sx, sy]) => [box[0] + sx * further * 0.7, box[1] + sy * further * 0.7, box[2] + sx * further * 0.7, box[3] + sy * further * 0.7])])
+            for (const further of [0, 14, 28, 44, 64, 88, 112, 140, 170]) if (!spot && (spot = slanted(further / view.k).find((box) => free(() => false)(padded(box)) && (!further || clearLine(box))))) ((pill = true), (leader = further > 0))
           }
-          if (!spot) continue
+          if (!spot) {
+            // For a probe: why each place a name that must show was tried in was refused.
+            if (!shown && must(dot)) {
+              const tally: Record<string, number> = {}
+              const tried = [0, 14, 28, 44, 64, 88, 112, 140, 170].flatMap((further) => boxesAt(further / view.k).flatMap((box) => [box, ...[[1, 1], [1, -1], [-1, 1], [-1, -1]].map(([sx, sy]) => [box[0] + sx * further * 0.7 / view.k, box[1] + sy * further * 0.7 / view.k, box[2] + sx * further * 0.7 / view.k, box[3] + sy * further * 0.7 / view.k])]))
+              for (const box of tried) {
+                const why = [
+                  taken.some((one) => one.dot !== dot && overlaps(box, one.box)) && 'a name or dot there',
+                  lines.some((one) => one.dot !== dot && crosses(one.line, box)) && 'a line through it',
+                  small && (box[0] < frame[0] || box[2] > frame[2] || box[1] < frame[1] || box[3] > frame[3]) && 'past the frame',
+                  !clearLine(box) && `its line through ${taken.slice(firstName).filter((one) => one.dot !== dot && crosses(lineTo(box), one.box)).map((one) => titleOf(one.dot)).slice(0, 2).join('/')}`
+                ].filter(Boolean).join(' + ') || 'free'
+                tally[why] = (tally[why] ?? 0) + 1
+              }
+              refusedAtRest.current.push(`${titleOf(dot)}: ${Object.entries(tally).map(([why, n]) => `${why} ${n}`).join(', ')}`)
+            }
+            continue
+          }
           said++
+          if (leader) lines.push({ dot, line: lineTo(spot) })
           taken.push({ dot: shown ?? dot, box: pill ? [spot[0] - pad, spot[1] - pad / 2, spot[2] + pad, spot[3] + pad / 2] : spot })
           context.globalAlpha = strength * (growing ? seen(dot, now) : 1) * got(dot)
           if (!context.globalAlpha) continue
           const sx = dot.px - dot.x!, sy = dot.py - dot.y!
           if (leader) {
             // From the dot's edge to the nearest point of its name.
-            const tx = Math.max(spot[0], Math.min(dot.x!, spot[2])), ty = Math.max(spot[1], Math.min(dot.y!, spot[3]))
-            const far = Math.hypot(tx - dot.x!, ty - dot.y!) || 1, edgeAt = reachOf(dot) / far
+            const [x1, y1, tx, ty] = lineTo(spot)
             context.save()
             context.strokeStyle = lit
             context.globalAlpha *= 0.6
             context.lineWidth = 1 / view.k
             context.beginPath()
-            context.moveTo(dot.x! + (tx - dot.x!) * edgeAt + sx, dot.y! + (ty - dot.y!) * edgeAt + sy)
+            context.moveTo(x1 + sx, y1 + sy)
             context.lineTo(tx + sx, ty + sy)
             context.stroke()
             context.restore()
@@ -819,6 +883,7 @@ export function GraphCanvas({ map, onOpen, centre, you, about, fit: fitRef, fly,
           context.strokeText(words, x, y)
           context.fillText(words, x, y)
         }
+        if (!shown) crossedAtRest.current = lines.flatMap((one) => taken.slice(firstName).filter((other) => other.dot !== one.dot && crosses(one.line, other.box)).map((other) => `${titleOf(one.dot)} > ${titleOf(other.dot)}`))
         return taken
       }
       if (shown && amount < 1) nameAll(null, 1 - amount)
@@ -1032,6 +1097,8 @@ export function GraphCanvas({ map, onOpen, centre, you, about, fit: fitRef, fly,
     }
     // And every line, by the ids of its two ends, so a probe can count where lines cross.
     ;(el as HTMLCanvasElement & { mapNamed?: () => string[] }).mapNamed = () => namedAtRest.current
+    ;(el as HTMLCanvasElement & { mapCrossed?: () => string[] }).mapCrossed = () => crossedAtRest.current
+    ;(el as HTMLCanvasElement & { mapRefused?: () => string[] }).mapRefused = () => refusedAtRest.current
     ;(el as HTMLCanvasElement & { mapLines?: () => string[][] }).mapLines = () => lines.map((line) => [line.source.id, line.target.id])
     if (fly) fly.current = (id: string) => {
       const dot = byId.get(id)
