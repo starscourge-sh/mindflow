@@ -123,7 +123,7 @@ try {
   await c.go('gems')
   await wait(800)
   await h.evaluate(() => document.activeElement instanceof HTMLElement && document.activeElement.blur())
-  await h.keyboard.press('Alt+Meta+Backslash')
+  await h.keyboard.press('Meta+Backslash')
   await wait(1200)
   await c.go('feed')
   await wait(800)

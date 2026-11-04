@@ -28,7 +28,7 @@ const words = (at) => h.evaluate((i) => document.querySelectorAll('[data-pane]')
 // Open another note in a new pane right of the front one, by ⌘\ and its name.
 const besides = async (words) => {
   await h.evaluate(() => document.activeElement?.blur?.())
-  await h.keyboard.press('Meta+Backslash'); await wait(500)
+  await h.keyboard.press('Alt+Meta+Backslash'); await wait(500)
   await h.keyboard.type(words); await wait(1200)
   await h.keyboard.press('Enter'); await wait(1800)
 }

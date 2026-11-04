@@ -663,20 +663,16 @@ export function Home(): React.JSX.Element {
     moveFront(by)
     if (to) toast(`${paneName(to.trail.views[to.trail.at]).title} has the keys now`, undefined, 'info')
   }
-  /** ⌥⌘\: the page in front, again beside it. A note stays in one pane, so the copy shows its list with nothing open. */
-  const splitFront = (): void => {
-    aside(holdsNotes(view.id) ? { id: view.id, tab: view.tab } : { id: view.id, focus: view.focus, tab: view.tab })
-  }
   /**
-   * ⌘\, Obsidian's way: a new pane right of the one in front, with the keys,
-   * opening on a picker (⌘K's search, in the pane) for anything to open there.
-   * Split already, it goes in beside the front one; there is no limit (aside).
+   * A new pane right of the one in front, with the keys; split already, it goes in beside the front one, with no
+   * limit. ⌘\, Obsidian's way: it shows the page in front again (a note stays in one pane, so the copy shows its list
+   * with nothing open), and ⌘O there searches for what to open in it. ⌥⌘\: it opens on that search at once.
    */
-  const splitRight = (): void => {
+  const splitRight = (asking = false): void => {
     const now = splitRef.current
     const at = Math.max(0, now.panes.findIndex((one) => one.key === now.front))
     chime('slide')
-    const made = fresh([{ id: 'pick' }])
+    const made = fresh([asking ? { id: 'pick' } : holdsNotes(view.id) ? { id: view.id, tab: view.tab } : { id: view.id, focus: view.focus, tab: view.tab }])
     const n = now.panes.length + 1
     const kept = now.sizes.length === now.panes.length ? now.sizes : now.panes.map(() => 1 / now.panes.length)
     const total = kept.reduce((sum, one) => sum + one, 0) || 1
@@ -1117,7 +1113,15 @@ export function Home(): React.JSX.Element {
       // Split view. ⌥⌘\ opens the page in front again beside it; ⌘\ a new pane to its right, to open anything in.
       if (event.metaKey && !event.ctrlKey && !event.shiftKey && event.code === 'Backslash') {
         event.preventDefault()
-        return event.altKey ? splitFront() : splitRight()
+        return splitRight(event.altKey)
+      }
+      // ⌘O, Obsidian's quick switcher: search for what to open in the pane in front, in its place. A note open in
+      // front takes ⌘O first, out to its own window (lib/apart.tsx).
+      if (event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey && event.code === 'KeyO' && !event.defaultPrevented) {
+        event.preventDefault()
+        if (view.id === 'pick') return
+        chime('open')
+        return setView({ id: 'pick' })
       }
       // ⌃H and ⌃L move between panes as Vim moves between windows, ⌃W closes
       // one. Only while split, and taken before the editor (which keeps none
@@ -1245,8 +1249,8 @@ export function Home(): React.JSX.Element {
     const onNewPage = (): void => void haligtree.newArticle().then((id) => (chime('promote'), open('article', id)))
     const onExport = (): void => void exportEverything()
     const onSidebar = (): void => (chime(sidebar ? 'fold' : 'slide'), setSidebar(!sidebar))
-    // View > Open in a split to the right, clicked: the new pane eases in, as anything a pointer opens.
-    const onSplitRight = (): void => (byPointer(), splitRight())
+    // View > Split the Page, or Open in a split to the right (asking), clicked: the new pane eases in, as anything a pointer opens.
+    const onSplitRight = (event: Event): void => (byPointer(), splitRight((event as CustomEvent<boolean | undefined>).detail === true))
     window.addEventListener('haligtree:split-right', onSplitRight)
     window.addEventListener('haligtree:new-page', onNewPage)
     window.addEventListener('haligtree:export-all', onExport)
@@ -1490,10 +1494,17 @@ export function Home(): React.JSX.Element {
         className="flex min-w-0 flex-1"
       >
         {view.id === 'pick' ? (
-          // ⌘\'s new pane: ⌘K's own search, as the pane's page, for anything to open here.
-          <Search inPane={{ title: 'Open anything here', lead: <>A page, a list, a note, a task, a day, or a place like the Inbox or the Calendar. <Kbd>↵</Kbd> opens it in this pane, <Kbd>esc</Kbd> closes the pane.</> }}
-            actions={placesTo(key)} placeholder="Type a name, or a place to go…" onClose={() => closePane(key)}
+          // ⌥⌘\'s new pane, or ⌘O in any pane: ⌘K's own search, as the pane's page, for anything to open here.
+          // Asked for over a page (⌘O), Esc goes back to that page; on a new pane, it closes the pane.
+          (() => {
+            const before = (splitRef.current.panes.find((one) => one.key === key)?.trail.at ?? 0) > 0
+            return (
+          <Search inPane={{ title: 'Open anything here', lead: <>A page, a list, a note, a task, a day, or a place like the Inbox or the Calendar. <Kbd>↵</Kbd> opens it in this pane, <Kbd>esc</Kbd> {before ? 'goes back' : 'closes the pane'}.</> }}
+            actions={placesTo(key)} placeholder="Type a name, or a place to go…"
+            onClose={() => (before ? setTrail(key, (trail) => ({ ...trail, views: trail.views.slice(0, trail.at), at: trail.at - 1 })) : closePane(key))}
             onOpen={(type, id) => (via('search'), go(type, id))} onAside={(type, id) => (via('search'), aside(stepOf(type, id), key))} />
+            )
+          })()
         ) : view.id === 'home' ? (
           <HomeView onOpen={(type, id) => (via('home'), go(type, id))} onView={(id, focus) => (via('home'), setView({ id, focus }, key))} />
         ) : view.id === 'discarded' ? (
@@ -1673,11 +1684,9 @@ export function Home(): React.JSX.Element {
             { label: sidebar ? 'Hide the sidebar' : 'Show the sidebar', keys: '⌘B', cue: sidebar ? 'fold' : 'slide', run: () => (setSidebar(!sidebar), (sidebar ? toast('Sidebar hidden. ⌘B brings it back', () => setSidebar(sidebar)) : quietly(() => setSidebar(sidebar)))) },
             { label: sidebar || detailsShown() ? 'Hide every sidebar' : 'Show every sidebar', keys: '⇧⌘B', cue: null, run: () => { const open = sidebar || detailsShown(); chime(open ? 'fold' : 'slide'); showDetails(!open); setSidebar(!open); (open ? toast('Every sidebar hidden. ⇧⌘B brings them back', () => (showDetails(open), setSidebar(open))) : quietly(() => (showDetails(open), setSidebar(open)))) } },
             { label: fill ? 'Back to compact' : 'Fill the screen', keys: '⌃⇧F', cue: null, run: () => (setFill(!fill), (fill ? quietly(() => setFill(fill)) : toast('Filling the screen. ⌃⇧F goes back', () => setFill(fill)))) },
-            { label: 'Open in a split to the right', hint: 'Split: a new pane beside this one, to open anything in', keys: '⌘\\', cue: null, run: splitRight },
-            { label: 'Split the page', hint: 'Split: this page again, beside it', keys: '⌥⌘\\', cue: null, run: () => {
-              splitFront()
-              toast(`Split: ${paneName(view).title} is on the right too. ⌃W closes it`)
-            } },
+            { label: 'Split the page', hint: 'Split: this page again, beside it; ⌘O there opens something else', keys: '⌘\\', cue: null, run: () => splitRight() },
+            { label: 'Open in a split to the right', hint: 'Split: a new pane beside this one, searching for what to open', keys: '⌥⌘\\', cue: null, run: () => splitRight(true) },
+            { label: 'Open something here', hint: 'Search for a page or note to open in this pane', keys: '⌘O', cue: null, run: () => setView({ id: 'pick' }) },
             { label: 'Reopen what you closed', hint: 'The last pane closed, or the last note left', keys: '⇧⌘T', cue: null, run: reopen },
             ...(split.panes.length > 1 ? [
               { label: 'Close this pane', keys: '⌃W', cue: null, run: () => closePane() },

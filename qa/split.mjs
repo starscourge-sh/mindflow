@@ -78,7 +78,7 @@ if (!process.env.REPORTS_ONLY) try {
 
   // --- ⌥⌘\: the front page again, beside it (the list, the note staying in one pane) ----
   await blur()
-  await press('Alt+Meta+Backslash')
+  await press('Meta+Backslash')
   list = await panes(h)
   check('⌥⌘\\ opens a third pane, in front', list.length === 3 && list[2].front, show(list))
   let t = await trails(h)
@@ -395,7 +395,7 @@ try {
   await c.size(1300, 900); await wait(700)
   if (list.length === 3) await closeAt(3)
   await blur()
-  await press('Alt+Meta+Backslash')
+  await press('Meta+Backslash')
   list = await panes(h)
   check('report 4b: from the rightmost pane, ⌥⌘\\ adds a third pane', list.length === 3 && list.every((one) => one.shown), show(list))
   // The copy shows the list: one of its notes opened there, so each pane is named for what it shows.

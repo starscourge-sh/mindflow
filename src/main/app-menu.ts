@@ -106,7 +106,8 @@ export function setAppMenu(acts: MenuActs): void {
         { type: 'separator' },
         // ⌘B and ⌘\ are the page's own keys (home.tsx): told them, as a press would.
         { label: 'Show or Hide Sidebar', ...shown('Command+B'), click: () => acts.inHome('haligtree:sidebar') },
-        { label: 'Open in a split to the right', ...shown('Command+\\'), click: () => acts.inHome('haligtree:split-right') },
+        { label: 'Split the Page', ...shown('Command+\\'), click: () => acts.inHome('haligtree:split-right') },
+        { label: 'Open in a split to the right', ...shown('Alt+Command+\\'), click: () => acts.inHome('haligtree:split-right', true) },
         { type: 'separator' },
         // A PDF's pages, as Preview's View menu lays them out: told to the reader open in the main window.
         { label: 'Continuous Scroll', click: () => acts.inHome('haligtree:pdf-layout', 'continuous') },

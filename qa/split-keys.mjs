@@ -71,7 +71,7 @@ try {
   await go('inbox')
   await h.evaluate(() => document.activeElement?.blur?.())
   const left = (await panes())[0]
-  await h.keyboard.press('Meta+Backslash'); await wait(400)
+  await h.keyboard.press('Alt+Meta+Backslash'); await wait(400)
   let list = await panes()
   const focused = await h.evaluate(() => !!document.activeElement?.closest('[data-pane-picker]') && document.activeElement?.tagName === 'INPUT')
   check('⌘\\ opens a second pane on the right, in front, on the picker', list.length === 2 && list[1].picker && list[1].front && !list[0].picker, JSON.stringify(list))
@@ -100,7 +100,7 @@ try {
 
   // --- ⌘\ again: a third pane beside the front one; Esc closes it, the keys go left -----
   await h.evaluate(() => document.activeElement?.blur?.())
-  await h.keyboard.press('Meta+Backslash'); await wait(400)
+  await h.keyboard.press('Alt+Meta+Backslash'); await wait(400)
   list = await panes()
   check('⌘\\ while split adds another pane right of the front one', list.length === 3 && list[2].picker && list[2].front, JSON.stringify(list.map((one) => one.picker)))
   await h.keyboard.press('Escape'); await wait(500)
@@ -110,7 +110,7 @@ try {
   // --- ⌘\ from the left pane: the new one goes between ---------------------------------
   await h.locator('[data-pane]').first().click({ position: { x: 200, y: 20 } }); await wait(300)
   await h.evaluate(() => document.activeElement?.blur?.())
-  await h.keyboard.press('Meta+Backslash'); await wait(400)
+  await h.keyboard.press('Alt+Meta+Backslash'); await wait(400)
   list = await panes()
   check('⌘\\ from the left pane puts the new one right of it, between', list.length === 3 && list[1].picker && list[1].front, JSON.stringify(list.map((one) => one.picker)))
   await h.keyboard.press('Escape'); await wait(500)
@@ -119,7 +119,7 @@ try {
 
   // --- a place from the picker: Go to Calendar ---------------------------------------
   await h.evaluate(() => document.activeElement?.blur?.())
-  await h.keyboard.press('Meta+Backslash'); await wait(400)
+  await h.keyboard.press('Alt+Meta+Backslash'); await wait(400)
   await h.keyboard.type('calendar'); await wait(900)
   await h.keyboard.press('Enter'); await wait(1200)
   list = await panes()
@@ -128,7 +128,7 @@ try {
   // --- the menu: ⌘B and ⌘\ on the right items; a click fades in -------------------------
   const view = await c.electron.evaluate(({ Menu }) => Menu.getApplicationMenu().items.find((top) => top.label === 'View').submenu.items.filter((one) => one.type !== 'separator').map((one) => [one.label, one.accelerator ?? '']))
   const acc = Object.fromEntries(view)
-  check(`View has “Show or Hide Sidebar” on ⌘B and “Open in a split to the right” on ⌘\\ (${acc['Show or Hide Sidebar']}, ${acc['Open in a split to the right']})`, acc['Show or Hide Sidebar'] === 'Command+B' && acc['Open in a split to the right'] === 'Command+\\')
+  check(`View has “Show or Hide Sidebar” on ⌘B and “Open in a split to the right” on ⌥⌘\\ (${acc['Show or Hide Sidebar']}, ${acc['Open in a split to the right']})`, acc['Show or Hide Sidebar'] === 'Command+B' && acc['Open in a split to the right'] === 'Alt+Command+\\')
   await h.keyboard.press('Control+w'); await wait(400)
   await h.keyboard.press('Control+w'); await wait(400)
   const count = (await panes()).length
