@@ -79,14 +79,11 @@ export function CaptureKindPicker({ value, onChange, suggested = false, flat = f
   const [open, setOpen] = useState(false)
   // The row under the cursor, kept here so moving through the list can be heard.
   const [row, setRow] = useState('')
-  // Three and a half rows tall: the half row, cut off under a light shade,
-  // says there are more below, without the box filling the window. The fade
-  // at the cut is CommandList's own (mf-more), as on every menu.
+  // As tall as its rows, each whole, where the room allows; the fade at the
+  // foot when it scrolls is CommandList's own (mf-more), as on every menu.
   const watchList = useCallback((list: HTMLDivElement | null) => {
     if (!list) return
-    // Row to row, gaps between them included: three whole rows, then the fourth cut through its words
-    // (two thirds of the row: half of one shows only its padding and the tops of its letters).
-    // In a short window, as many whole rows as the popover has room for, still with the half row after them.
+    // Row to row, gaps between them included, against the room the popover has under it.
     // Measured in the list's own size: while the popover grows in, the screen sizes are scaled down.
     const size = (): void => {
       const [first, second] = [...list.querySelectorAll<HTMLElement>('[cmdk-item]')]
@@ -97,19 +94,22 @@ export function CaptureKindPicker({ value, onChange, suggested = false, flat = f
       const pitch = (second.getBoundingClientRect().top - first.getBoundingClientRect().top) / scale
       const above = (box.top - (list.closest<HTMLElement>('[data-slot="popover-content"]')?.getBoundingClientRect().top ?? box.top)) / scale
       const room = (parseFloat(getComputedStyle(list).getPropertyValue('--radix-popover-content-available-height')) || innerHeight) - above
-      // From the pill, which keeps the box's room under it (main's hintRoom), every row whole where they all fit:
-      // cut at three and a half, the last one ("Word") showed faded and cut off with room to spare below it.
+      // Every row whole where they all fit, in the pill and the grown box alike: cut at three and a half, the fourth
+      // ("Word") showed faded and cut off with room to spare below it. Short of room, as many rows as fit, each whole,
+      // the list scrolling for the rest with its own fade at the foot (mf-more) saying there are more.
       const rows = list.querySelectorAll('[cmdk-item]').length
       const all = top + pitch * (rows - 1) + first.offsetHeight + 4
-      if (pill && all <= room) return void (list.style.maxHeight = `${all}px`)
-      const whole = Math.max(1, Math.min(3, Math.floor((room - top - first.offsetHeight * 0.66) / pitch)))
-      list.style.maxHeight = `${top + pitch * whole + first.offsetHeight * 0.66}px`
+      if (all <= room) return void (list.style.maxHeight = `${all}px`)
+      const whole = Math.max(1, Math.min(rows, Math.floor((room - top - first.offsetHeight - 4) / pitch) + 1))
+      list.style.maxHeight = `${top + pitch * (whole - 1) + first.offsetHeight + 4}px`
     }
     size()
     const watch = new ResizeObserver(size)
     watch.observe(list)
     if (list.firstElementChild) watch.observe(list.firstElementChild)
-    return () => watch.disconnect()
+    // The window growing room under the list (the pill's, for its pop-ups) gives it more rows to show.
+    addEventListener('resize', size)
+    return () => (watch.disconnect(), removeEventListener('resize', size))
   }, [pill])
   const current = CAPTURE_TYPES.find((Ctype) => Ctype.id === value) ?? CAPTURE_TYPES[0]
   // Always the one order (kindRank), Note first: each kind keeps its own number for ⌘1-9.
