@@ -89,6 +89,12 @@ const film = async (act, ms = 900) => {
   await page.evaluate(() => {
     window.__film = []
     const t0 = performance.now()
+    // The moment the new line is made: the key that makes it (⇧↩) reaching the page, before any frame shows it.
+    window.__line = null
+    window.__t0 = t0
+    // Once in the page's life: each film starts its own clock (__t0) and clears __line.
+    if (!window.__lineHeard) addEventListener('keydown', (event) => { if (event.key === 'Enter' && window.__line === null) window.__line = Math.round(performance.now() - window.__t0) }, true)
+    window.__lineHeard = true
     const box = (el) => { const r = el?.getBoundingClientRect(); return r ? [r.left, r.top, r.right, r.bottom].map((n) => Math.round(n)) : null }
     const tick = () => {
       window.__film.push([Math.round(performance.now() - t0), 'controlsAbove' in document.documentElement.dataset, box(document.querySelector('.mf-top')), box(document.querySelector('.app-container')), !!document.querySelector('.app-container[data-pill]'), [...document.querySelectorAll('.mf-top [data-aside] > *, .mf-top .mf-pill button')].filter((el) => el.offsetWidth > 0).map(box)])
@@ -101,10 +107,12 @@ const film = async (act, ms = 900) => {
   await act()
   while (Date.now() - t0 < ms) { if (shots) pictures.push(await page.screenshot()); else await wait(16) }
   await wait(Math.max(0, 1450 - (Date.now() - t0)))
-  return { frames: await page.evaluate(() => window.__film), pictures }
+  return { frames: await page.evaluate(() => window.__film), line: await page.evaluate(() => window.__line), pictures }
 }
-/** Each control's largest step from one frame to the next (in px per 16ms), and its step in the frame the shape changed (a jump shows
+/** Each control's largest step from one frame to the next, against the whole way it goes (`trip`), and its step in the frame the shape changed (a jump shows
  * there: the row drawn at its new place before it glides); where the row ends against the card. */
+// A frame the page was too busy to draw (the fold's render) makes the next step longer: up to 55% of the way, never
+// all of it at once.
 const read = ({ frames }) => {
   let step = 0
   let start = 0
@@ -112,13 +120,14 @@ const read = ({ frames }) => {
   for (let i = 1; i < frames.length; i++) {
     const [a, b] = [frames[i - 1][5], frames[i][5]]
     if (!a?.length || !b?.length) continue
-    // Per 16ms: a frame the page was too busy to draw (the fold's render) makes the next step longer, not a jump.
     const by = moved(a, b)
-    step = Math.max(step, Math.round(by / Math.max(1, (frames[i][0] - frames[i - 1][0]) / 16.7)))
+    step = Math.max(step, by)
     if (frames[i - 1][4] !== frames[i][4]) start = by
   }
   const [, above, row, card, pill] = frames.at(-1)
-  return { step, start, above, row, card, pill, count: frames.length }
+  const ends = [frames.find((f) => f[5]?.length)?.[5], frames.at(-1)[5]]
+  const trip = ends[0] && ends[1] ? moved(ends[0], ends[1]) : 0
+  return { step, start, trip, above, row, card, pill, count: frames.length }
 }
 async function growAndFold(look) {
   await page.evaluate(() => window.api.showPrompt()); await wait(1200)
@@ -126,14 +135,23 @@ async function growAndFold(look) {
   await page.keyboard.type('One line')
   const grown = await film(async () => { await page.keyboard.press('Shift+Enter'); await page.keyboard.type('two') })
   const g = read(grown)
+  // From the new line to the page drawn as the box (its first frame), and to the box drawn taller as main grows the
+  // window round it (the window's own glide starts there, over a frame or two: the page asks main to grow it).
+  const after = grown.frames.filter((f) => f[0] >= grown.line)
+  const boxAt = after.find((f) => !f[4])?.[0]
+  const tallerAt = after.find((f) => f[3] && f[3][3] - f[3][1] > 58)?.[0]
+  console.log(`${look}: new line at ${grown.line}ms, first frame ${after[0]?.[0]}ms, drawn as the box at ${boxAt}ms, taller at ${tallerAt}ms`)
+  check(`${look} grow: drawn as the box in the frame the new line appears, not as the pill (${boxAt - grown.line}ms)`, boxAt !== undefined && boxAt - grown.line <= 34 && !after.some((f) => f[0] > grown.line + 20 && f[0] < boxAt), JSON.stringify({ line: grown.line, first: after[0]?.[0], boxAt }))
+  // Main grows the window: a message to it and its first resize, up to four frames (578ms on the old build).
+  check(`${look} grow: the box is growing within 67ms of the new line (${tallerAt - grown.line}ms)`, tallerAt !== undefined && tallerAt - grown.line <= 67, JSON.stringify({ line: grown.line, tallerAt }))
   check(`${look} grow: the box grew (not the pill any more)`, !g.pill, JSON.stringify(g))
   check(`${look} grow: the round controls sit in a row above the box, level with its right edge`, !!g.row && !!g.card && g.row[3] <= g.card[1] - 4 && Math.abs(g.row[2] - g.card[2]) <= 2, JSON.stringify(g))
-  check(`${look} grow: they glide there from beside the pill, nothing drawn at the new place first (${g.start}px in that frame, at most ${g.step}px a frame)`, g.start <= 12 && g.step <= 120 && g.count >= 30, JSON.stringify(g))
+  check(`${look} grow: they glide there from beside the pill, nothing drawn at the new place first (${g.start}px in that frame, at most ${g.step}px a frame of ${g.trip}px)`, g.start <= 12 && g.trip > 0 && g.step <= g.trip * 0.55 && g.count >= 30, JSON.stringify(g))
   const folded = await film(async () => { await page.keyboard.press('Meta+a'); await page.keyboard.press('Backspace'); await page.keyboard.type('One line') }, 1400)
   const f = read(folded)
   check(`${look} fold: back to the pill`, f.pill, JSON.stringify(f))
   check(`${look} fold: the round controls are beside the pill again, at its height`, !!f.row && !!f.card && f.row[0] >= f.card[2] + 4 && Math.abs(f.row[1] - f.card[1]) <= 2, JSON.stringify(f))
-  check(`${look} fold: they glide back (${f.start}px in the frame it folds, at most ${f.step}px a frame)`, f.start <= 12 && f.step <= 120, JSON.stringify(f))
+  check(`${look} fold: they glide back (${f.start}px in the frame it folds, at most ${f.step}px a frame of ${f.trip}px)`, f.start <= 12 && f.trip > 0 && f.step <= f.trip * 0.55, JSON.stringify(f))
   if (shots) {
     grown.pictures.forEach((png, i) => writeFileSync(join(shots, `grow-${look}-${String(i).padStart(2, '0')}.png`), png))
     folded.pictures.forEach((png, i) => writeFileSync(join(shots, `fold-${look}-${String(i).padStart(2, '0')}.png`), png))

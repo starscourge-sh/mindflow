@@ -28,7 +28,7 @@ import { BOX_PINS } from './components/pins'
 import { THROWS, comboOf } from './lib/keys'
 import { GraphChip, InboxGraph, useGraphShown } from './components/haligtree/inbox-graph'
 import { HintCard, HintRoom } from './components/hint-card'
-import { createPortal } from 'react-dom'
+import { createPortal, flushSync } from 'react-dom'
 import { TodayPanel } from './components/haligtree/today-panel'
 import { selectionActions } from './components/haligtree/selection-actions'
 import { ReviewView } from './components/haligtree/review-view'
@@ -1104,14 +1104,24 @@ export default function App(): React.JSX.Element {
   const pill = oneLine && !reading && !editing && !offer && !lesson && !opened && !wraps && !panel && !meaningShown
   // Whether it will be the pill once the panel is put away (setPanel tells the box's height before the glide).
   pillAfterPanel.current = oneLine && !reading && !editing && !offer && !lesson && !opened && !wraps && !meaningShown
-  // Measured before it is drawn, so a second line grows the box in the frame it appears.
-  React.useLayoutEffect(() => {
-    if (!oneLine) return
+  // Measured before it is drawn, so a second line grows the box in the frame it appears: on each change in the editor
+  // (onReady below), not only when the box draws again. The box draws again only once the editor's words are handed
+  // up, half a second after the typing stops (haligtree-editor.tsx SAVE_DEBOUNCE_MS), and a new line sat squeezed
+  // into the pill all that while.
+  const wrapsNow = useRef(wraps)
+  wrapsNow.current = wraps
+  const measureWraps = useRef<() => boolean | null>(() => null)
+  measureWraps.current = () => {
+    if (!oneLine) return null
     const doc = column.current?.querySelector<HTMLElement>('.ProseMirror')
     const first = doc?.firstElementChild as HTMLElement | null | undefined
-    if (!doc || !first) return
+    if (!doc || !first) return null
     const line = parseFloat(getComputedStyle(first).lineHeight) || 26
-    setWraps(doc.childElementCount > 1 || first.offsetHeight > line * 1.5)
+    return doc.childElementCount > 1 || first.offsetHeight > line * 1.5
+  }
+  React.useLayoutEffect(() => {
+    const next = measureWraps.current()
+    if (next !== null) setWraps(next)
   })
   // Emptied (sent, or cleared): back to the pill for the next one.
   useEffect(() => void (!boxText.trim() && setOpened(false)), [boxText])
@@ -2200,6 +2210,11 @@ export default function App(): React.JSX.Element {
                 words.ready(editor)
                 if (toEnd.current) (toEnd.current = false, requestAnimationFrame(() => editor.commands.focus('end')))
                 box.guard(editor)
+                // A second line typed: the pill grows into the box before this frame is drawn (see measureWraps).
+                editor.on('update', () => {
+                  const next = measureWraps.current()
+                  if (next !== null && next !== wrapsNow.current) flushSync(() => setWraps(next))
+                })
                 // First among its plugins, so a click on a lit tag keeps it plain rather than opening it.
                 if (!planNow(editor))
                   editor.registerPlugin(boxTokensPlugin({
