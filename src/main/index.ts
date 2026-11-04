@@ -5640,11 +5640,29 @@ app.whenReady().then(() => {
   }
   // The site's own addresses go along as imageSource and iconSource, so
   // nothing is lost by keeping the copies.
-  ipcMain.handle('fetch-link-metadata', async (_event, url: unknown) => {
+  // A few pages at a time: about 60 links pasted at once were all asked together, waited behind one another for the
+  // network, and each ran out its 8 seconds before its page answered, so every card fell back to its plain link, while
+  // one link alone came through. Each waits its turn here, its 8 seconds counted from when it is asked.
+  const AT_ONCE = 4
+  let asking = 0
+  const turns: (() => void)[] = []
+  const inTurn = async <T,>(job: () => Promise<T>): Promise<T> => {
+    // A turn ending hands its place straight to the next in line.
+    if (asking >= AT_ONCE) await new Promise<void>((go) => turns.push(go))
+    else asking++
+    try {
+      return await job()
+    } finally {
+      const next = turns.shift()
+      if (next) next()
+      else asking--
+    }
+  }
+  ipcMain.handle('fetch-link-metadata', (_event, url: unknown) => inTurn(async () => {
     const found = await lookUp(url)
     const [image, icon] = await Promise.all([keepWide(found.image), keep(found.icon)])
     return { ...found, image, icon, imageSource: found.image, iconSource: found.icon }
-  })
+  }))
   // A web page in the reader: its article kept offline, its pictures kept as a card's are.
   registerWebArticles(keep)
   // A card made before its pictures were kept, or imported with the site's
