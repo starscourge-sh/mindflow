@@ -417,6 +417,10 @@
 // toolbar's own stacking order would paint over the popup inside it.
 .tiptap-suggestion-popup {
   z-index: 50;
+  // Capped to the room on its side of the line (IN_WINDOW): the menu inside shrinks to it and its list scrolls.
+  display: flex;
+  flex-direction: column;
+  > * { min-height: 0; }
 }
 
 // Typed tokens. These are decorations, so the underlying text is untouched;

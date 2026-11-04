@@ -4,7 +4,7 @@ import type {
   RefAttributes,
 } from "react"
 import { ReactRenderer } from "@tiptap/react"
-import { shift } from "@floating-ui/react"
+import { shift, size } from "@floating-ui/react"
 import { chime, click } from "@/lib/sound"
 import { listDirection } from "@/lib/menu-keys"
 import type { PluginKey } from "@tiptap/pm/state"
@@ -16,8 +16,24 @@ import {
   type SuggestionProps,
 } from "@tiptap/suggestion"
 
-/** Every typed menu (/, @, [[, #) slides back inside the window rather than running off its edge: a narrow window, or a mark typed near the right. */
-export const IN_WINDOW: SuggestionOptions["floatingUi"] = { middleware: [shift({ padding: 8 })] }
+/**
+ * Every typed menu (/, @, [[, #) slides back inside the window rather than running off its edge: a narrow window, or a
+ * mark typed near the right. And it is never taller than the room on its side of the line: typed low on the Journal's
+ * page, the "/" menu ran 8px past the window's foot, its last rows out of reach; now it stops 8px short and its list
+ * scrolls inside it. Quick capture's window (data-overhang) is left to grow round its menus instead (fit-box.ts).
+ */
+export const IN_WINDOW: SuggestionOptions["floatingUi"] = {
+  middleware: [
+    shift({ padding: 8 }),
+    size({
+      padding: 8,
+      apply: ({ availableHeight, elements }) => {
+        const grows = document.documentElement.hasAttribute("data-overhang")
+        elements.floating.style.maxHeight = grows ? "" : `${Math.max(160, Math.floor(availableHeight))}px`
+      },
+    }),
+  ],
+}
 
 /** What a suggestion list hands back to the plugin. */
 export interface SuggestionListHandle {

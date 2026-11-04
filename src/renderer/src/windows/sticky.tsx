@@ -24,6 +24,18 @@ start(
   </>
 )
 
+// ⌘K, ⌘P and ⌘/ from a sticky open in the main window, as they do from quick capture: a sticky is too small to hold
+// them, and before they did nothing at all here (qa/every-overlay.mjs). What the sticky's own writing took (⌘K on a
+// link) is left to it.
+window.addEventListener('keydown', (event) => {
+  if (event.defaultPrevented || !event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return
+  const key = event.key.toLowerCase()
+  if (key !== 'k' && key !== 'p' && key !== '/') return
+  event.preventDefault()
+  if (key === '/') window.api.openInHome('shortcuts', '')
+  else window.api.openInHome('search', key === 'k' ? 'all' : 'notes')
+})
+
 // Made as glass (the setting): the Mac's blur under the card, or under the flat tab while it is tucked, and nowhere
 // else in the window (lib/glass.ts). A named tab is solid paper and stands on none.
 if (params.has('glass')) followGlass(() => [...document.querySelectorAll('.mf-card, [data-goal-card], [data-goals-sticky], [data-tuck-tab="flat"] > div')])

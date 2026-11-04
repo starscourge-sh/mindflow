@@ -17,6 +17,7 @@ import type { SuggestionProps } from "@tiptap/suggestion"
 import {
   createSuggestionRenderer,
   type SuggestionListHandle,
+  IN_WINDOW,
 } from "@/components/suggestion/suggestion-renderer"
 import { realMove } from "@/lib/real-move"
 
@@ -106,6 +107,7 @@ export const EmojiSuggestion = OnceEmoji.configure({
     // As Slack and GitHub do: a colon starts one only at the start of a word
     // ("tldr:" is a colon, not an emoji), and the list waits for two letters.
     allowedPrefixes: [" "],
+    floatingUi: IN_WINDOW,
     shouldShow: typedOnly(),
     items: ({ editor, query }) => {
       const term = query.toLowerCase()
