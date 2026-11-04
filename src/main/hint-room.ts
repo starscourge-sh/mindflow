@@ -1,8 +1,7 @@
 /**
- * Where quick capture's hint goes, out of the card (hint-card.tsx, HintRoom): above the card where the screen has
- * room there, or else under it (the room the "/" and "#" menus hang into, which the hint gives up while one is
- * open), or else beside it on the side with room (the left first, as the side panel opens to the right), or
- * nowhere, and then a hint waits. And the room the window keeps round the card for it.
+ * Where quick capture's hint goes, out of the card (hint-card.tsx, HintRoom): under the card at its left edge (the
+ * room the "/" and "#" menus hang into, which the hint gives up while one is open), or above it only where the
+ * screen has no room under it, or nowhere, and then a hint waits. And the room the window keeps round the card for it.
  */
 export type Room = { left: number; top: number; right: number; bottom: number }
 export type HintSide = 'above' | 'below' | 'left' | 'right' | null
@@ -25,18 +24,18 @@ export const CARD_FULL = 600
 export function hintRoom(place: Box, workArea: Box, base: Room, oneLine = false): { side: HintSide; room: Room } {
   const above = place.y - workArea.y - 8
   const under = workArea.y + workArea.height - (place.y + Math.max(place.height, CARD_FULL)) - 8
-  const leftFree = place.x - workArea.x - 8
   const rightFree = workArea.x + workArea.width - (place.x + place.width) - 8
-  const side: HintSide =
-    above >= base.top + HINT_ABOVE ? 'above' : under >= base.bottom + HINT_ABOVE ? 'below' : leftFree >= HINT_SIDE ? 'left' : !oneLine && rightFree >= HINT_SIDE ? 'right' : null
+  // Under the card always, at its left edge (note 277ae401: "would have been better displayed below the prompt not
+  // to its left"); above only where the screen has no room under it; never beside it.
+  const side: HintSide = under >= base.bottom + HINT_ABOVE ? 'below' : above >= base.top + HINT_ABOVE ? 'above' : null
   return {
     side,
     room: {
       ...base,
       top: side === 'above' ? Math.min(base.top + HINT_ROOM, above) : base.top,
       bottom: side === 'below' ? Math.min(base.bottom + HINT_ROOM, under) : base.bottom,
-      left: side === 'left' ? HINT_SIDE : base.left,
-      right: side === 'right' || (oneLine && rightFree >= HINT_SIDE) ? HINT_SIDE : base.right
+      left: base.left,
+      right: oneLine && rightFree >= HINT_SIDE ? HINT_SIDE : base.right
     }
   }
 }

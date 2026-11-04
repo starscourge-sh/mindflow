@@ -237,7 +237,7 @@ try {
   // Lower on the screen: room above, so it sits above the card's top left edge, beside the round controls.
   await putBox('low'); await reopen()
   const low = await hint()
-  check('lower on the screen: the hint above the card, its left edge on the card\'s', seen(low) && low.side === 'above' && low.bottom <= low.card[1] - 8 && low.left === low.card[0], JSON.stringify(low))
+  check('lower on the screen: under the card while there is room there, else above it, its left edge on the card\'s, never beside it', seen(low) && (under(low) || (low.side === 'above' && low.bottom <= low.card[1] - 8 && low.left === low.card[0])), JSON.stringify(low))
   check('…clear of the round controls and the card', low && !low.overControl && !low.overCard && low.inWindow, JSON.stringify(low))
   await shape('box-low')
 
