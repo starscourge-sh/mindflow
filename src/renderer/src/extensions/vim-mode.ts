@@ -1620,6 +1620,17 @@ function joinLines(view: EditorView, count: number): void {
     ) {
       break
     }
+    // A picture, a card or a rule between the two lines is a line of its own:
+    // the join stops at it. Reaching past it to the next line of writing
+    // replaced the picture with the space between them (the tracker: "in vim
+    // shift+j and all images disappeared").
+    let between = false
+    tr.doc.nodesBetween(end, next, (node) => {
+      if (between) return false
+      if (node.isAtom || node.isText) between = true
+      return !between
+    })
+    if (between) break
 
     // Do not double up when the line already ends in a space.
     const separator = tr.doc.textBetween(end - 1, end) === " " ? "" : " "
