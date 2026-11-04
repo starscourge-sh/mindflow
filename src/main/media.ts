@@ -1,4 +1,4 @@
-import { app, ipcMain, systemPreferences } from 'electron'
+import { app, ipcMain, shell, systemPreferences } from 'electron'
 import { LABEL, database } from './captures'
 import { dayName } from './dates'
 
@@ -119,6 +119,8 @@ export function registerMedia(): void {
     if (now === 'denied' || now === 'restricted') return false
     return systemPreferences.askForMediaAccess('microphone')
   })
+  // The Mac's own page for it, from any "No microphone" message (ui.tsx, refuseMic).
+  ipcMain.handle('haligtree:mic:privacy', () => void shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone'))
   ipcMain.handle('haligtree:media:list', () => {
     const db = database()
     // Only bodies that point into the store are read at all.

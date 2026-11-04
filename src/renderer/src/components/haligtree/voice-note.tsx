@@ -5,7 +5,7 @@ import { NodeSelection } from '@tiptap/pm/state'
 import { Check, Mic, Square, X } from 'lucide-react'
 
 import { saveAttachment } from '@/extensions/image-drop'
-import { refuse } from '@/components/haligtree/ui'
+import { refuse, refuseMic } from '@/components/haligtree/ui'
 import { chime } from '@/lib/sound'
 import { wantsWords } from '@/lib/transcribe'
 import { dictation, setRecording } from '@/lib/recording'
@@ -62,14 +62,14 @@ let taken = false
 
 async function openRecorder(slot?: HTMLElement | null, over?: HTMLElement | null): Promise<Recording | null> {
   if (!(await window.api.haligtree<boolean>('mic:ask'))) {
-    refuse('Haligtree may not use the microphone. Allow it in System Settings, under Privacy & Security, then Microphone')
+    refuseMic(true)
     return null
   }
   let stream: MediaStream
   try {
     stream = await navigator.mediaDevices.getUserMedia({ audio: true })
   } catch {
-    refuse('No microphone could be used. Check one is connected and allowed')
+    refuseMic(false)
     return null
   }
   const host = document.createElement('div')

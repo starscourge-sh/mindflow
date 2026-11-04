@@ -996,6 +996,16 @@ export const refuse = (text: string, tone: ToastTone = 'warning'): void => {
 }
 
 /**
+ * The microphone could not be used, said plainly, with the way to the Mac's Privacy › Microphone page (S): every
+ * place that starts recording (talk to type, "/ Dictate", a voice note) says it this one way. `denied`: macOS said
+ * no; else no microphone answered at all.
+ */
+export const refuseMic = (denied: boolean): void => {
+  chime('nope')
+  toast(denied ? `${APP_NAME} may not use the microphone. Allow it in System Settings › Privacy & Security › Microphone` : 'No microphone found. Connect one, or check it is allowed in System Settings › Privacy & Security › Microphone', undefined, 'warning', { label: 'Open Microphone settings', key: 'S', run: () => void window.api.haligtree('mic:privacy') })
+}
+
+/**
  * Why a save failed, in plain words, from the error the main process sent
  * back: the database's own wording means nothing to someone writing a note,
  * so the common ones say what to do instead.

@@ -7,7 +7,7 @@ import { Plugin, PluginKey, TextSelection } from '@tiptap/pm/state'
 import { Decoration, DecorationSet } from '@tiptap/pm/view'
 
 import { startWorking } from '@/components/haligtree/beam'
-import { refuse } from '@/components/haligtree/ui'
+import { refuse, refuseMic } from '@/components/haligtree/ui'
 import { haligtree, useLive, type Settings } from '@/lib/haligtree'
 import { chime } from '@/lib/sound'
 import { spoken } from '@/lib/spoken'
@@ -175,7 +175,7 @@ async function beginTalk(how: 'hold' | 'tap', editor?: Editor): Promise<void> {
   if (!field) return
   if (field.kind === 'editor') field.editor.view.focus()
   if (!(await window.api.haligtree<boolean>('mic:ask'))) {
-    refuse('Haligtree may not use the microphone. Allow it in System Settings, under Privacy & Security, then Microphone')
+    refuseMic(true)
     return
   }
   const started = await window.api.haligtree<{ ok: true } | { error: { code: string; message: string } }>('dictate:start')
@@ -195,7 +195,9 @@ async function beginTalk(how: 'hold' | 'tap', editor?: Editor): Promise<void> {
       if (now.levels.length > BARS) now.levels.shift()
       tell()
     } else if (line.error) {
-      refuse(String((line.error as { message: string }).message))
+      // The helper heard no microphone at all (native/listen.swift, code "mic"): said the one way, with the way to settings.
+      if ((line.error as { code?: string }).code === 'mic') refuseMic(false)
+      else refuse(String((line.error as { message: string }).message))
       end('cancelled')
     } else if (line.partial || line.final) {
       now.heard = spoken(String(((line.partial ?? line.final) as { text: string }).text), lead)
