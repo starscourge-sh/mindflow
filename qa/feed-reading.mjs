@@ -80,7 +80,7 @@ try {
   check('the reader shows the read time', /\d+ min read/.test((await h.locator('[data-read-minutes]').textContent()) ?? ''))
   const face = await h.evaluate(() => getComputedStyle(document.querySelector('[aria-label="Reading"] .tiptap.ProseMirror p')).fontFamily)
   check('the reader sets the words in serif', face === (await h.evaluate(() => getComputedStyle(document.querySelector('[data-read-minutes]').closest('article').querySelector('h1')).fontFamily)) || (/serif/i.test(face) && !/sans-serif/i.test(face.split(',')[0])), face)
-  check('the foot bar has Reply, Restack and Open to edit', (await h.locator('[data-reading-reply]').count()) === 1 && (await h.locator('[data-reading-restack]').count()) === 1 && (await h.locator('[data-reading-edit]').count()) === 1)
+  check('the foot bar has Add a thought, Say it again and Open to edit', (await h.locator('[data-reading-reply]').count()) === 1 && (await h.locator('[data-reading-restack]').count()) === 1 && (await h.locator('[data-reading-edit]').count()) === 1)
   for (const name of ['light', 'dark']) {
     await paint(name)
     await h.waitForTimeout(500)
@@ -116,7 +116,7 @@ try {
     return sel.toString()
   })
   await h.waitForTimeout(500)
-  check('choosing words shows "Restack this line"', chose && (await h.locator('[data-read-restack-line]').isVisible()), chose)
+  check('choosing words shows "Say this line again"', chose && (await h.locator('[data-read-restack-line]').isVisible()), chose)
   // Keeping it as a gem still shows from the same choice.
   const keepGem = await h.evaluate(() => [...document.querySelectorAll('button')].some((one) => /gem/i.test(one.textContent ?? one.getAttribute('aria-label') ?? '') && one.getBoundingClientRect().height > 0))
   check('a chosen line can still be kept as a gem', keepGem)
@@ -132,7 +132,7 @@ try {
     const full = await Promise.all(named.map(async (one) => ({ id: one.id, body: await window.api.haligtree('notes:body', 'nuggets', one.id).catch(() => null) })))
     return full.filter((one) => JSON.stringify(one.body ?? '').includes(`nugget:${id}`))
   }, [firstId, chose.replace(/\s+/g, ' ').trim()])
-  check('the restack is a new gem linking to the Page', made.length === 1, String(made.length) + ' ' + (await h.evaluate(() => document.body.innerText.match(/Restacked[^\n]*|could not[^\n]*/)?.[0] ?? 'no toast')))
+  check('the restack is a new gem linking to the Page', made.length === 1, String(made.length) + ' ' + (await h.evaluate(() => document.body.innerText.match(/Kept in your words[^\n]*|could not[^\n]*/)?.[0] ?? 'no toast')))
   check('the restack is kept for tomorrow', !(await v('feed')).posts.some((one) => one.id === made[0]?.id))
 
   // Back on the list: out of Unread, on top of History.

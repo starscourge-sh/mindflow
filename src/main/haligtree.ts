@@ -521,6 +521,8 @@ const DEFAULTS = {
   goalStrip: true,
   // Pages in the Feed's Notes, beside gems and notes: off to start, as a Feed of short things reads best; Reading has the pages.
   feedPages: false,
+  // Notes with a picture in them, and a mostly imported book's notes, in the Feed too: off, so the Feed holds only what you chose to keep.
+  feedPictures: false,
   // Home's month calendar marks the days you opened Haligtree; off until chosen.
   monthOpened: false,
   // The same calendar's other mark: how many things you captured each day, and the days with none.
@@ -926,6 +928,7 @@ function settings(): Settings {
  */
 /** Whether the Feed's Notes takes pages too, beside gems and notes (Settings, or the switch on the Feed itself). */
 export const feedTakesPages = (): boolean => settings().feedPages === true
+export const feedTakesPictures = (): boolean => settings().feedPictures === true
 
 export function gate(): { blackout: boolean; hidePrivate: boolean } {
   // Handed off to another book or the sandbox: nothing of this one surfaces any more.

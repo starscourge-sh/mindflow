@@ -36,10 +36,10 @@ try {
   // The action row, X's way: Reply, Restack, the heart and ⋯, with Less of this as the × at the top right.
   const actions = await h.locator('[data-feed-post="nugget"]').first().evaluate((post) => ({
     row: [...post.querySelectorAll('[data-feed-actions] > *')].filter((one) => one.getBoundingClientRect().width > 0 && one.tagName !== 'SPAN').map((one) => one.getAttribute('aria-label') || one.textContent.trim()),
-    hide: !!post.querySelector('[data-feed-reaction="less"][aria-label="Less of this"]'),
+    hide: !!post.querySelector('[data-feed-hide] [data-menu="hide"]'),
     like: !!post.querySelector('[data-feed-actions] [data-feed-reaction="like"]')
   }))
-  check('the action row is slim: Reply, Restack, Read later, Like and More, with a × to see less', ['Reply', 'Restack', 'Read later', 'More'].every((word, at) => actions.row.findIndex((one) => one.startsWith(word)) >= at - 0 && actions.row.some((one) => one.startsWith(word))) && actions.like && actions.hide, JSON.stringify(actions))
+  check('the action row is slim: Add a thought, Say it again, Read later, Like and More, with a × to see less', ['Add a thought', 'Say it again', 'Read later', 'More'].every((word, at) => actions.row.findIndex((one) => one.startsWith(word)) >= at - 0 && actions.row.some((one) => one.startsWith(word))) && actions.like && actions.hide, JSON.stringify(actions))
 
   // 2. Pictures whole, at their own shape: never cropped, no bars beside them, no taller than 520px.
   const shown = await h.locator('[data-feed-picture]').evaluateAll((all) => all.map((box) => {
@@ -148,7 +148,7 @@ try {
   const other = (await v('feed')).posts.find((one) => one.type === 'nugget' && !one.react && one.id !== target.id && !one.faded)
   const less = h.locator(`[data-pane] [data-feed-id="${other.id}"]`)
   await less.scrollIntoViewIfNeeded()
-  await less.locator('[data-feed-reaction="less"]').click()
+  await less.locator('[data-menu="hide"]').click(), await h.locator('[role="menu"] [data-menu-item="less"]').click()
   await wait(1200)
   const said = await less.locator('[data-feed-faded]').innerText().catch(() => '')
   check('the post says how far it has faded', /Shown less often \(once\)/.test(said), said)

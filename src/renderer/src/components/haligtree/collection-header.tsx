@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { contrast } from '@/lib/on-accent'
-
+import { cn } from '@/lib/cn'
 import { chime } from '@/lib/sound'
 import { keyFor } from '@/lib/keys'
 import { smallPicture } from '@/lib/notes'
@@ -238,15 +238,15 @@ export function QuietAction({ label, onClick, pressed, children }: { label: stri
 }
 
 /** ··· as a button: the same lines a right click gives. */
-export function MenuButton({ items, label = 'More', small = false, name }: { items: MenuItem[]; label?: string; small?: boolean; /** Its data-menu, for a probe. */ name?: string }): React.JSX.Element {
+export function MenuButton({ items, label = 'More', small = false, name, icon, className }: { items: MenuItem[]; label?: string; small?: boolean; /** Its data-menu, for a probe. */ name?: string; /** In place of the three dots (a post's ×). */ icon?: React.ReactNode; className?: string }): React.JSX.Element {
   // The same rule as a right click: a page's own ⋯ is the list's menu, so only lines that cannot run here are left out.
   const shown = dangerLast(fits(items, true)).filter(Boolean) as Exclude<MenuItem, false | null | undefined>[]
   return (
     <DropdownMenu modal={false}>
       <Tip label={label}>
         <DropdownMenuTrigger asChild>
-          <button type="button" aria-label={label} data-menu={name} className={small ? 'flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-foreground/[0.08] hover:text-foreground data-[state=open]:text-foreground' : QUIET}>
-            <AliveIcon icon={DotsHorizontalIcon} size={small ? 16 : 20} />
+          <button type="button" aria-label={label} data-menu={name} className={cn(small ? 'flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-foreground/[0.08] hover:text-foreground data-[state=open]:text-foreground' : QUIET, className)}>
+            {icon ?? <AliveIcon icon={DotsHorizontalIcon} size={small ? 16 : 20} />}
           </button>
         </DropdownMenuTrigger>
       </Tip>

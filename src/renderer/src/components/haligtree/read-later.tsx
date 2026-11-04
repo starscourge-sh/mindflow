@@ -44,7 +44,7 @@ export function useReadLater(id: string): { queued: boolean; toggle: () => void 
   return { queued, toggle }
 }
 
-const TIP = 'Read later: put it at the end of your queue'
+const TIP = 'Read later: it waits for you at the end of your Queue, in the sidebar'
 const TIP_IN = 'In your queue: press to take it out'
 
 /** The icon on a post's row: a clock, filled in its colour once it waits in the queue. */

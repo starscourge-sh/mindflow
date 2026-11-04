@@ -898,7 +898,7 @@ export function ReadThrough({ items: given, start = 0, onClose, queue: started, 
 }
 
 /**
- * Words chosen in a long read: "Restack this line" under them, the choice
+ * Words chosen in a long read: "Say this line again" under them, the choice
  * kept as it is pressed, so the line goes into a restack as it was chosen.
  */
 function LineRestack({ host, onLine }: { host: HTMLElement | null; onLine: (line: string) => void }): React.JSX.Element | null {
@@ -922,7 +922,7 @@ function LineRestack({ host, onLine }: { host: HTMLElement | null; onLine: (line
       onClick={() => (chime('tap'), onLine(at.line), window.getSelection()?.removeAllRanges(), setAt(null))}
       style={{ left: at.left, top: at.top }}
       className="fixed z-20 flex h-7 -translate-x-1/2 items-center gap-1.5 rounded-full border bg-background px-3 text-control text-foreground shadow-sm transition-colors hover:bg-accent">
-      <Repeat2 className="size-3.5" /> Restack this line
+      <Repeat2 className="size-3.5" /> Say this line again
     </button>
   )
 }

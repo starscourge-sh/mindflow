@@ -73,25 +73,42 @@ export const written = (at: string, years = false): string => {
 }
 
 /** The line over a post, when there is one: one you restacked, or one from long ago. */
-const contextOf = (post: FeedPost): string | null => {
-  if (post.restack) return 'You restacked'
+const contextOf = (post: FeedPost): string => {
+  if (post.restack) return 'You said it again'
   // Kept long ago and linked to nothing: opened, an @ in it links it.
   if (post.unlinked) return `From the archives: you kept this ${num(post.unlinked)} months ago and never linked it.`
-  // Brought in by an importer: from your archives, whatever its date says.
-  if (post.archive) return 'From the archives'
+  // Brought in by an importer: from your archives, whatever its date says (a note, only with the Settings switch).
+  if (post.archive) return post.type === 'capture' && post.kind !== 'quote' ? `From the archives: ${PICTURES_SWITCH}` : 'From the archives'
   // A thought added lately is hearing from it: only what has been quiet a year is from the archives.
   const last = [post.seen, post.gloss?.at, post.made].filter((one): one is string => !!one).sort().at(-1)!
   const made = dayjs(post.made)
   if (made.format('MM-DD') === dayjs().format('MM-DD') && made.year() < dayjs().year()) return dayjs().year() - made.year() === 1 ? 'A year ago today' : `${dayjs().year() - made.year()} years ago today`
   if (dayjs().diff(dayjs(last), 'day') >= 365) return 'From the archives'
-  return null
+  return whyHere(post)
+}
+
+/**
+ * Why a post is in the Feed at all, in plain words, said over every post that has no other line: what you kept it as,
+ * and how long it has been away ("A quote you kept, back after 3 weeks"). A note that came only because of a Settings
+ * switch says where that switch is.
+ */
+const PICTURES_SWITCH = 'Settings › Hints and cards'
+export const whyHere = (post: Pick<FeedPost, 'type' | 'kind' | 'seen' | 'archive'>): string => {
+  const what = post.kind === 'quote' ? 'A quote you kept'
+    : post.type === 'nugget' ? 'A gem you kept'
+    : post.type === 'question' ? 'A question you hold'
+    : post.type === 'day' ? 'A Journal day'
+    : post.type === 'article' ? 'A page of yours'
+    : null
+  if (!what) return `${post.archive ? 'A note you brought in' : 'A note with a picture'}: ${PICTURES_SWITCH}`
+  return `${what}, ${post.seen ? `back after ${quietFor(post.seen)}` : 'its first time in your Feed'}`
 }
 
 /** Your own history with it, where it says something: "3 replies over 2 years", "seen 4 times". */
 const repliesSaid = (post: FeedPost): string | null => {
   // One reply is the line hanging off the post already; "Show all" from two.
   if (post.replies < 2) return null
-  const n = `Show all ${num(post.replies)} replies`
+  const n = `All ${num(post.replies)} thoughts`
   if (!post.firstReply) return n
   const years = dayjs().year() - dayjs(post.firstReply).year() + 1
   const months = dayjs().diff(dayjs(post.firstReply), 'month')
@@ -115,6 +132,10 @@ const REACTIONS: { value: Reaction; label: string; tip: string; icon: typeof Hea
   { value: 'use', label: 'Use this', tip: "Use this: puts a link to it on today's Journal page", icon: CornerDownRight, cue: 'added', said: "On today's Journal page" },
   { value: 'less', label: 'Less of this', tip: 'Less of this: it comes up less often', icon: EyeOff, cue: 'away', said: 'You will see this less often' }
 ]
+
+/** What the row's first two say they are for, in a newcomer's words (Reading's foot bar says the same). */
+export const THOUGHT_TIP = 'Add a thought: a dated line kept under this note, shown with it when it comes back'
+export const AGAIN_TIP = 'Put it in your own words today: saying it again is how it sticks. Yours comes first tomorrow, this one quoted under it.'
 
 /** How often "Less of this" has faded it, in words: "once", "twice", "3 times". */
 const timesSaid = (n: number): string => (n === 1 ? 'once' : n === 2 ? 'twice' : `${num(n)} times`)
@@ -188,6 +209,8 @@ export function TabChips<T extends string>({ name, tabs, value, onChange, classN
 }
 
 const FINISHED = 'feedFinished'
+/** Set once the action row has been explained under a first post. */
+const EXPLAINED = 'feedRowExplained'
 /** The day whose Feed you read to its end, for Home's card. */
 const feedFinished = (): string | null => {
   try {
@@ -340,6 +363,23 @@ function FeedNotes({ onOpen, tabs, pages }: { onOpen: (type: string, id: string)
   const holds = feed.posts.length && !feed.safe && !preview ? listed : null
   // J and K move a cursor between posts, L likes, R replies, Enter opens; on a quiz card, Space shows the answer and 1 to 4 grade it, as in Review.
   const [cursor, setCursor] = useState(-1)
+  // The first time the row is met, one line under the first post says what it is for; never again after.
+  const [explain] = useState(() => {
+    try {
+      return !localStorage.getItem(EXPLAINED)
+    } catch {
+      return false
+    }
+  })
+  const plain = preview || feed.safe ? -1 : feed.posts.findIndex((post) => !post.poll && !post.quiz)
+  useEffect(() => {
+    if (!explain || plain < 0) return
+    try {
+      localStorage.setItem(EXPLAINED, '1')
+    } catch {
+      // Said again next time.
+    }
+  }, [explain, plain])
   const here = useHere()
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
@@ -364,6 +404,8 @@ function FeedNotes({ onOpen, tabs, pages }: { onOpen: (type: string, id: string)
         return
       }
       if (post.poll) return
+      // ⌫: the post's note to the Bin, with the Undo "Move to the Bin" gives; the cursor stays where it was, on the next one.
+      if ((event.key === 'Backspace' || event.key === 'Delete') && post.type !== 'day') return void (event.preventDefault(), node.dispatchEvent(new Event('haligtree:feed-bin')))
       if (event.code === 'KeyL') press('[data-feed-reaction="like"]')
       else if (event.code === 'KeyR') (event.preventDefault(), openGloss(post.id))
       else if (event.key === 'Enter' && !(event.target as HTMLElement | null)?.closest?.('button, a, [role="link"]')) (event.preventDefault(), open(post.type, post.id))
@@ -410,7 +452,7 @@ function FeedNotes({ onOpen, tabs, pages }: { onOpen: (type: string, id: string)
                 const mark = { at, cursor: at === cursor, onPoint: () => setCursor(at) }
                 return post.poll ? <PollPost key={`poll:${post.id}`} post={post} mark={mark} onOpen={() => open(post.poll!.open.type, post.poll!.open.id)} />
                   : post.quiz ? <QuizPost key={`quiz:${post.id}`} post={post} mark={mark} onOpen={() => open('nugget', post.id)} />
-                  : <Post key={`${post.type}:${post.id}`} post={post} mark={mark} onOpen={() => open(post.type, post.id)} onOpenOther={open} onThread={() => openThread(post)} />
+                  : <Post key={`${post.type}:${post.id}`} post={post} mark={mark} onOpen={() => open(post.type, post.id)} onOpenOther={open} onThread={() => openThread(post)} explain={explain && at === plain} />
               })}
             </ol>
             <footer ref={endRef} data-feed-end className="flex flex-col items-center gap-1.5 py-12 text-center">
@@ -470,14 +512,16 @@ function Thread({ post, onBack, onOpen, onOpenOther }: { post: FeedPost; onBack:
         ))}
       </ol>
       <div className="border-t pt-3 pl-12">
-        {!unloaded(glosses) && <GlossLine id={post.id} latest={false} open={!thread.length} placeholder="Your reply, in your own words" />}
+        {!unloaded(glosses) && <GlossLine id={post.id} latest={false} open={!thread.length} placeholder="Your thought, in your own words" />}
       </div>
     </section>
   )
 }
 
-export function Post({ post, onOpen, onOpenOther, onThread, alone = false, joined = false, preview = false, likedLine, onUnlike, mark }: {
+export function Post({ post, onOpen, onOpenOther, onThread, alone = false, joined = false, preview = false, likedLine, onUnlike, mark, explain = false }: {
   post: FeedPost
+  /** The first post the first time: one line under its row says what the row is for. */
+  explain?: boolean
   /** In Notes: its place, and the J/K cursor. */
   mark?: Mark
   onOpen: () => void
@@ -522,6 +566,18 @@ export function Post({ post, onOpen, onOpenOther, onThread, alone = false, joine
     const one = REACTIONS.find((it) => it.value === value)!
     return { id: value, label: one.label, hint: one.tip, icon: <one.icon className="size-4" />, trail: chosen === value ? <Check className="ml-auto size-4 text-primary" /> : undefined, run: () => choose(value) }
   }
+  // The note behind it to the Bin: the post goes at once, and Undo (⌘Z too) brings both back. From ⋯, the × and ⌫.
+  const toBin = (): void => {
+    setBinned(true)
+    void moveToBin([{ type: post.type, id: post.id }], () => setBinned(false)).then((n) => n || setBinned(false))
+  }
+  const binItem: MenuItem = { id: 'bin', label: 'Move to the Bin', danger: true, icon: <Trash2 className="size-4" />, run: toBin }
+  useEffect(() => {
+    const node = self.current
+    if (!node || post.type === 'day' || preview) return
+    node.addEventListener('haligtree:feed-bin', toBin)
+    return () => node.removeEventListener('haligtree:feed-bin', toBin)
+  })
   const menu: MenuItem[] = [
     post.type !== 'day' && reaction('changed'),
     reaction('use'),
@@ -537,10 +593,7 @@ export function Post({ post, onOpen, onOpenOther, onThread, alone = false, joine
     { id: 'share-x', label: 'Share to X', hint: 'Its words in X, its picture copied to paste in', icon: <Share className="size-4" />, run: () => void shareX() },
     // Housekeeping last: the note, gem, question or writing behind it to the Bin, the post gone at once and back with Undo. A day is not a thing to bin.
     post.type !== 'day' && 'separator',
-    post.type !== 'day' && { id: 'bin', label: 'Move to the Bin', danger: true, icon: <Trash2 className="size-4" />, run: () => {
-      setBinned(true)
-      void moveToBin([{ type: post.type, id: post.id }], () => setBinned(false)).then((n) => n || setBinned(false))
-    } }
+    post.type !== 'day' && binItem
   ]
   const cardOf = (): CardPost => ({ account, said: `${kindWord(post)} · ${written(post.made, true)}`, title, text: quote ? words : text, quote, who: post.who, picture: broken ? undefined : picture })
   const saveImage = async (): Promise<void> => {
@@ -579,7 +632,7 @@ export function Post({ post, onOpen, onOpenOther, onThread, alone = false, joine
     likedLine ?? (chosen && chosen !== 'less' && REACTIONS.find((one) => one.value === chosen)!.said),
     // Its likes over time, never anyone else's: today's counts at once.
     Math.max(post.liked, chosen === 'like' ? 1 : 0) >= 2 && `liked ${num(Math.max(post.liked, chosen === 'like' ? 1 : 0))} times`,
-    post.seenTimes >= 2 && `seen ${num(post.seenTimes)} times`
+    post.seenTimes >= 2 && `came back to you ${timesSaid(post.seenTimes)}`
   ].filter(Boolean) as string[]
   const replies = repliesSaid(post)
   // The newest thought on it, hung under the post (not on its own page, where the thread is).
@@ -619,12 +672,9 @@ export function Post({ post, onOpen, onOpenOther, onThread, alone = false, joine
             )}
             {/* Less of this, as X and Substack hide a post: a quiet × at its top right, held in the line's height. */}
             {post.type !== 'day' && !preview && !onUnlike && (
-              <Tip label={REACTIONS[3].tip}>
-                <button type="button" data-feed-reaction="less" aria-pressed={chosen === 'less'} aria-label="Less of this" onClick={() => choose('less')}
-                  className={cn('-my-1.5 -mr-1.5 ml-auto flex size-7 shrink-0 items-center justify-center self-center rounded-md text-muted-foreground transition-colors hover:bg-foreground/[0.06] hover:text-foreground', chosen === 'less' && 'text-primary hover:text-primary')}>
-                  <X className="size-4" />
-                </button>
-              </Tip>
+              <span data-feed-hide aria-pressed={chosen === 'less'} className={cn('-my-1.5 -mr-1.5 ml-auto flex shrink-0 self-center', chosen === 'less' && '[&>button]:text-primary')}>
+                <MenuButton small name="hide" label="Less of this, or the Bin" icon={<X className="size-4" />} items={[reaction('less'), binItem]} />
+              </span>
             )}
           </p>
           {quote ? (
@@ -708,19 +758,19 @@ export function Post({ post, onOpen, onOpenOther, onThread, alone = false, joine
         <div aria-hidden className="w-9 shrink-0" />
         <div className="flex min-w-0 flex-1 flex-col gap-1.5">
           {/* Writing a reply opens here, under the latest; closed, it takes no room. */}
-          {!alone && !preview && <GlossLine id={post.id} quiet latest={false} className="mt-0.5" placeholder={chosen === 'changed' ? 'What you think now, in your own words' : 'Your reply, in your own words'} />}
+          {!alone && !preview && <GlossLine id={post.id} quiet latest={false} className="mt-0.5" placeholder={chosen === 'changed' ? 'What you think now, in your own words' : 'Your thought, in your own words'} />}
           {/* Every control keeps its own fixed place: choosing one changes its colour, never the row. */}
           <div data-feed-actions className={cn('-ml-2 flex items-center gap-1 text-muted-foreground', preview && 'hidden')}>
-            {(
+            <Tip label={THOUGHT_TIP}>
               <button type="button" data-feed-reply onClick={() => openGloss(post.id)}
                 className="flex h-7 items-center gap-1.5 rounded-md px-2 text-control transition-colors hover:bg-foreground/[0.06] hover:text-foreground">
-                <MessageCircle className="size-4" /> Reply
+                <MessageCircle className="size-4" /> Add a thought
               </button>
-            )}
-            <Tip label="Restack: say it again in your own words, with this quoted under it">
-              <button type="button" data-feed-restack aria-label="Restack" aria-pressed={restacking} onClick={() => (chime(restacking ? 'fold' : 'tap'), setRestacking(!restacking))}
+            </Tip>
+            <Tip label={AGAIN_TIP}>
+              <button type="button" data-feed-restack aria-label="Say it again" aria-pressed={restacking} onClick={() => (chime(restacking ? 'fold' : 'tap'), setRestacking(!restacking))}
                 className={cn('flex h-7 items-center gap-1.5 rounded-md px-2 text-control transition-colors hover:bg-foreground/[0.06] hover:text-foreground', restacking && 'text-foreground')}>
-                <Repeat2 className="size-4 shrink-0" /> Restack
+                <Repeat2 className="size-4 shrink-0" /> Say it again
               </button>
             </Tip>
             {post.type !== 'day' && post.type !== 'poll' && post.type !== 'quiz' && <ReadLaterLabelled id={post.id} />}
@@ -752,6 +802,11 @@ export function Post({ post, onOpen, onOpenOther, onThread, alone = false, joine
                   <button type="button" data-show-as-before onClick={() => (setChosen(null), showAsBefore(post.type === 'question' ? 'nugget' : post.type, post.id))} className="rounded-sm text-foreground underline-offset-2 hover:underline">Show as before</button>
                 </span>
               )}
+            </p>
+          )}
+          {explain && (
+            <p data-feed-explain className="text-control text-foreground/80">
+              “Add a thought” keeps a dated line under it, “Say it again” puts it in your own words for tomorrow, and “Read later” keeps it in your Queue.
             </p>
           )}
           {restacking && <Restack post={post} onDone={() => setRestacking(false)} onOpen={(id) => onOpenOther('nugget', id)} />}
@@ -971,16 +1026,16 @@ export function Restack({ post, onDone, onOpen, initial = '' }: { post: Restacka
     const said = words.trim()
     if (!said) return
     const id = await call<string | null>('feed:restack', `${post.type}:${post.id}`, said)
-    if (!id) return toast('That note could not be restacked', undefined, 'error')
+    if (!id) return toast('That could not be kept: the note it quotes may be in the Bin', undefined, 'error')
     chime('send')
     onDone()
-    toast("Restacked: it comes first in tomorrow's Feed", () => void call('feed:unrestack', id).then(() => chime('undo')), 'success', { label: 'Open', key: 'O', run: () => onOpen(id) })
+    toast("Kept in your words: it comes first in tomorrow's Feed", () => void call('feed:unrestack', id).then(() => chime('undo')), 'success', { label: 'Open', key: 'O', run: () => onOpen(id) })
   }
   return (
     <div data-feed-composer className="mt-1 flex flex-col gap-2 rounded-xl border bg-background p-3 focus-within:border-foreground/25" onKeyDown={(event) => event.stopPropagation()} onClick={(event) => event.stopPropagation()}>
       <div className="flex gap-2.5">
         <Avatar name="You" size={28} className="shrink-0" />
-        <textarea ref={field} rows={2} value={words} aria-label="Your restack" placeholder="Why it matters to you now"
+        <textarea ref={field} rows={2} value={words} aria-label="In your own words" placeholder="Why it matters to you now"
           onChange={(event) => setWords(event.target.value)}
           onKeyDown={(event) => {
             if (event.key === 'Enter' && event.metaKey) (event.preventDefault(), void keep())
@@ -994,7 +1049,7 @@ export function Restack({ post, onDone, onOpen, initial = '' }: { post: Restacka
         <button type="button" onClick={() => (chime('fold'), onDone())} className="h-7 rounded-md px-2.5 transition-colors hover:bg-foreground/[0.06] hover:text-foreground">Cancel</button>
         <button type="button" data-feed-restack-save disabled={!words.trim()} onClick={() => void keep()}
           className="flex h-7 items-center gap-1.5 rounded-md bg-primary px-2.5 font-medium text-primary-foreground transition-opacity disabled:opacity-40">
-          Restack <Kbd className="border-primary-foreground/30 text-primary-foreground">⌘↵</Kbd>
+          Say it again <Kbd className="border-primary-foreground/30 text-primary-foreground">⌘↵</Kbd>
         </button>
       </div>
     </div>

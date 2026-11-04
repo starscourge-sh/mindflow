@@ -4,7 +4,7 @@ import { randomUUID } from 'crypto'
 
 import { LABEL, changed, database } from './captures'
 import { cut } from './clip'
-import { cardForQuiz, cardWords, dueCards, feedTakesPages, gate, plain } from './haligtree'
+import { cardForQuiz, cardWords, dueCards, feedTakesPages, feedTakesPictures, gate, plain } from './haligtree'
 import { tagsIn } from './tag-words'
 import { linkedAmong } from './notes'
 import { LEARN_TAG } from './name'
@@ -155,6 +155,9 @@ export function registerFeed(): void {
     create table if not exists feed_reads (day text primary key, id text not null);
     create table if not exists feed_polls (day text not null, key text not null, answer text not null, gloss text, primary key (day, key));
     create table if not exists feed_quiz (day text not null, id text not null, grade integer not null, due text not null, primary key (day, id))`)
+  // Which of the Feed's switches (Pages too, notes with pictures) a day's set was picked under: flipped, the day is picked again.
+  try { db.exec('alter table feed_days add column mode text') } catch { /* there already */ }
+  const modeNow = (): string => `${feedTakesPages() ? 'pages' : ''}|${feedTakesPictures() ? 'pictures' : ''}`
 
   // --- polls: a decision made weeks ago, asked about again.
   type Decision = { table: 'captures' | 'nuggets'; id: string; title: string; fields: string; made: string }
@@ -242,12 +245,15 @@ export function registerFeed(): void {
       and id not in (select capture_id from nuggets where capture_id is not null)`).all() as Row[]
     // A note or a page of yours with a picture in it: the posts you look at, not only read.
     const PICTURED = "(body like '%](%.webp)%' or body like '%](%.png)%' or body like '%](%.jp%g)%' or body like '%\"type\":\"image\"%')"
+    // Only once asked for (Settings, "Also show notes with pictures"): by default the Feed holds what you chose to keep,
+    // gems, quotes, held questions and Journal days, never an Inbox note that happens to have a screenshot in it.
+    const loose = feedTakesPictures()
     const pictured = [
-      ...db.prepare(`select 'capture' as type, id, kind, ${LABEL} as title, body, null as who, captured_at as made, surfaced_at as visited, surfacing_weight as weight, (imported_at is not null) as archive
+      ...(!loose ? [] : db.prepare(`select 'capture' as type, id, kind, ${LABEL} as title, body, null as who, captured_at as made, surfaced_at as visited, surfacing_weight as weight, (imported_at is not null) as archive
         from captures where kind not in ('quote', 'task') and private = 0 and status != 'discarded' and archived_at is null and ${PICTURED}
-        and id not in (select capture_id from nuggets where capture_id is not null)`).all(),
+        and id not in (select capture_id from nuggets where capture_id is not null)`).all()),
       // A book that came mostly from elsewhere: its imported notes come too, from day one, "From the archives".
-      ...(mostlyImported() ? db.prepare(`select 'capture' as type, id, kind, ${LABEL} as title, body, null as who, captured_at as made, surfaced_at as visited, surfacing_weight as weight, 1 as archive
+      ...(loose && mostlyImported() ? db.prepare(`select 'capture' as type, id, kind, ${LABEL} as title, body, null as who, captured_at as made, surfaced_at as visited, surfacing_weight as weight, 1 as archive
         from captures where imported_at is not null and kind not in ('quote', 'task') and private = 0 and status != 'discarded' and archived_at is null and not ${PICTURED}
         and length(coalesce(body, '')) > 40 and id not in (select capture_id from nuggets where capture_id is not null)`).all() : []),
       ...db.prepare(`select 'article' as type, id, kind, coalesce(nullif(title, ''), label('', body)) as title, body, null as who, created_at as made, last_visited_at as visited, surfacing_weight as weight
@@ -370,7 +376,8 @@ export function registerFeed(): void {
     const byKey = new Map(rows.map((row) => [`${row.type}:${row.id}`, row]))
     const { seen, times } = seenOf()
     const lastSeen = (row: Row): string | null => [row.visited, seen.get(row.id)].filter(Boolean).sort().at(-1) ?? null
-    let keys = (db.prepare('select keys from feed_days where day = ?').get(today) as { keys: string } | undefined)?.keys
+    const kept = db.prepare('select keys, mode from feed_days where day = ?').get(today) as { keys: string; mode: string | null } | undefined
+    let keys = kept && (kept.mode ?? modeNow()) === modeNow() ? kept.keys : undefined
     if (!keys) {
       // Each kind longest unseen first, then taken in turns so no one kind fills the day.
       // The hints' rhythm: time since you last saw it, times how often you want it ("Less of this" fades it).
@@ -399,7 +406,7 @@ export function registerFeed(): void {
       const askedIds = new Set(asks.map((key) => key.slice(key.lastIndexOf(':') + 1)))
       for (const one of rows.filter((row) => askedIds.has(row.id))) rows.splice(rows.indexOf(one), 1)
       // Gems you restacked before today come first, once: "You restacked".
-      const stacked = (db.prepare('select id from feed_restacks where made_day < ? and shown_day is null order by made_day').all(today) as { id: string }[])
+      const stacked = (db.prepare('select id from feed_restacks where made_day < ? and (shown_day is null or shown_day = ?) order by made_day').all(today, today) as { id: string }[])
         .map((one) => byKey.get(`nugget:${one.id}`)).filter((one): one is Row => !!one && !askedIds.has(one.id))
       for (const one of stacked) rows.splice(rows.indexOf(one), 1)
       const lanes = [
@@ -433,7 +440,7 @@ export function registerFeed(): void {
       keys = JSON.stringify(list)
       db.prepare('update feed_restacks set shown_day = ? where shown_day is null and made_day < ?').run(today, today)
       // Kept for the day only from the Feed's goal (feed-view.tsx, FEED_NOTES): below it each look picks afresh, so the day it is met starts full.
-      if (pooled >= 20) db.prepare('insert or replace into feed_days (day, keys) values (?, ?)').run(today, keys)
+      if (pooled >= 20) db.prepare('insert or replace into feed_days (day, keys, mode) values (?, ?, ?)').run(today, keys, modeNow())
     }
     const glossOf = db.prepare('select body, created_at as at from glosses where item_id = ? order by created_at desc limit 1')
     const glossSpan = db.prepare('select count(*) as n, min(created_at) as first from glosses where item_id = ?')

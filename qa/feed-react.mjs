@@ -72,7 +72,7 @@ try {
   const order = () => h.locator('[data-feed-post]').evaluateAll((all) => all.map((one) => one.dataset.feedId).join(','))
   const orderBefore = await order()
   const top = await third.evaluate((one) => one.getBoundingClientRect().top)
-  await third.locator('[data-feed-reaction="less"]').click()
+  await third.locator('[data-menu="hide"]').click(), await h.locator('[role="menu"] [data-menu-item="less"]').click()
   await h.waitForTimeout(900)
   await h.mouse.move(5, 5)
   await h.waitForTimeout(500)
@@ -82,7 +82,7 @@ try {
   await h.locator('button:has-text("Undo")').first().click().catch(() => {})
   await h.waitForTimeout(900)
   check('Undo brings it back to full', Number(await third.evaluate((one) => getComputedStyle(one).opacity)) > 0.95 && await reactionOf(thirdId) === null)
-  await third.locator('[data-feed-reaction="less"]').click()
+  await third.locator('[data-menu="hide"]').click(), await h.locator('[role="menu"] [data-menu-item="less"]').click()
   await h.waitForTimeout(900)
 
   await h.reload()
@@ -91,7 +91,7 @@ try {
   await h.waitForTimeout(1000)
   check('reactions are still chosen after a reload',
     await h.locator(`[data-feed-id="${firstId}"]`).getAttribute('data-feed-react') === 'changed' &&
-    await h.locator(`[data-feed-id="${thirdId}"] [data-feed-reaction="less"]`).getAttribute('aria-pressed') === 'true')
+    await h.locator(`[data-feed-id="${thirdId}"] [data-feed-hide]`).getAttribute('aria-pressed') === 'true')
 
   for (const name of ['light', 'dark']) {
     await theme(name)
@@ -116,7 +116,7 @@ try {
   void scrollBefore
   // Where the post sits on screen: a picture above it that draws a beat later moves the scroll, never the post (scroll anchoring).
   const topAt = await host.evaluate((one) => Math.round(one.getBoundingClientRect().top))
-  check('the post says its replies', /2 replies/.test(await host.locator('[data-feed-replies]').innerText().catch(() => '')), await host.locator('[data-feed-history]').innerText().catch(() => ''))
+  check('the post says its replies', /2 thoughts/.test(await host.locator('[data-feed-replies]').innerText().catch(() => '')), await host.locator('[data-feed-history]').innerText().catch(() => ''))
   await host.locator('[data-feed-date]').click()
   await h.waitForTimeout(900)
   check('the date opens the post on its own', await h.locator('[data-feed-thread]').count() === 1 && await h.locator('[data-feed-thread] [data-feed-post]').count() === 1)
@@ -136,7 +136,7 @@ try {
   check('back returns to the same place in the list', await h.locator('[data-feed-thread]').count() === 0 && Math.abs(topBack - topAt) < 4, `post at ${topAt} -> ${topBack}, scroll ${scrollAt} -> ${scrollBack}`)
   await host.locator('[data-feed-replies]').click()
   await h.waitForTimeout(700)
-  check('"2 replies" opens the thread too', await h.locator('[data-feed-thread]').count() === 1)
+  check('"All 2 thoughts" opens the thread too', await h.locator('[data-feed-thread]').count() === 1)
   await h.keyboard.press('Escape')
   await h.waitForTimeout(600)
   check('Esc goes back', await h.locator('[data-feed-thread]').count() === 0, await h.evaluate(() => [...document.querySelectorAll('[role="dialog"], [role="menu"]')].map((one) => one.outerHTML.slice(0, 120)).join(' | ') + ' / ' + document.activeElement?.outerHTML.slice(0, 100)))
@@ -183,7 +183,7 @@ try {
   await go('feed')
   await h.waitForTimeout(1200)
   const top1 = h.locator('[data-feed-post]').first()
-  check('tomorrow it comes first, as "You restacked"', (await top1.locator('[data-feed-context]').innerText().catch(() => '')).includes('You restacked') && (await top1.innerText()).includes('Kept for tomorrow'))
+  check('tomorrow it comes first, as "You said it again"', (await top1.locator('[data-feed-context]').innerText().catch(() => '')).includes('You said it again') && (await top1.innerText()).includes('Kept for tomorrow'))
   check('with the old note quoted under it', await top1.locator('[data-feed-quoted]').count() === 1)
 
   check('no page errors', !errors.length, errors.join(' | '))

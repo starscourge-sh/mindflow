@@ -8,12 +8,12 @@ import { chime } from '@/lib/sound'
 import { cn } from '@/lib/cn'
 import { dayjs, num } from '../../../../main/dates'
 import type { Reading, ReadingPage } from '../../../../main/feed'
-import { Page } from './ui'
+import { Page, Tip } from './ui'
 import { openGloss } from './gloss-line'
 import { GroupIcon } from './kept-groups'
 import { TagIcon } from './tag-icon'
 import { ReadThrough } from './read-through'
-import { FeedHeading, Restack, SideColumn, TabChips } from './feed-view'
+import { AGAIN_TIP, FeedHeading, Restack, SideColumn, THOUGHT_TIP, TabChips } from './feed-view'
 import { ReadLaterButton, ReadLaterLabelled, useReadLater } from './read-later'
 
 /**
@@ -152,10 +152,13 @@ export function FeedReading({ tabs, onOpen }: { tabs: React.ReactNode; onOpen: (
             foot: (
               <div className="flex flex-col gap-3">
                 <div data-reading-actions className="flex items-center gap-1 border-y py-2 text-muted-foreground">
+                  <Tip label={THOUGHT_TIP}>
                   <button type="button" data-reading-reply onClick={() => (chime('tap'), openGloss(reader.id))}
                     className="flex h-8 items-center gap-1.5 rounded-md px-2.5 text-control transition-colors hover:bg-foreground/[0.06] hover:text-foreground">
-                    <MessageCircle className="size-4" /> Reply
+                    <MessageCircle className="size-4" /> Add a thought
                   </button>
+                  </Tip>
+                  <Tip label={AGAIN_TIP}>
                   <button type="button" data-reading-restack aria-pressed={line !== null}
                     onMouseDown={(event) => event.preventDefault()}
                     onClick={() => {
@@ -164,8 +167,9 @@ export function FeedReading({ tabs, onOpen }: { tabs: React.ReactNode; onOpen: (
                       setLine(window.getSelection()?.toString().replace(/\s+/g, ' ').trim() ?? '')
                     }}
                     className={cn('flex h-8 items-center gap-1.5 rounded-md px-2.5 text-control transition-colors hover:bg-foreground/[0.06] hover:text-foreground', line !== null && 'text-foreground')}>
-                    <Repeat2 className="size-4" /> Restack
+                    <Repeat2 className="size-4" /> Say it again
                   </button>
+                  </Tip>
                   <ReadLaterLabelled id={reader.id} className="h-8 px-2.5" />
                   <span className="flex-1" />
                   <button type="button" data-reading-edit onClick={() => (chime('open'), close(), onOpen('article', reader.id))}
