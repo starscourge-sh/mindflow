@@ -1,10 +1,13 @@
 import type { Editor, JSONContent } from '@tiptap/core'
 import { chime } from './sound'
 import { toast } from '@/components/haligtree/ui'
+import { haligtree } from './haligtree'
 
 /**
- * "Move to a new page": the words picked become a note of their own, and a link
- * to it is left where they were. Words inside one line make a page of that
+ * "Move to a new page": the words picked become a page of their own in Writing,
+ * named by their first line, and a link to it is left where they were. A page,
+ * as the button says: it was made as a note in the Inbox, so "page" was not
+ * where it went (the tracker: "something fishy about it"). Words inside one line make a page of that
  * line's words; several lines make a page of those lines. ⌘Z in the note
  * puts the words back; the new page stays, as a page made by hand would.
  *
@@ -12,7 +15,7 @@ import { toast } from '@/components/haligtree/ui'
  * still drawn where they were, live (extensions/note-embed.ts): editing them
  * here edits the page, and the page can be shown anywhere else too.
  */
-export async function turnIntoPage(editor: Editor, origin?: string, { embed = false }: { embed?: boolean } = {}): Promise<string | null> {
+export async function turnIntoPage(editor: Editor, { embed = false }: { embed?: boolean } = {}): Promise<string | null> {
   const { state } = editor
   const { from, to, empty, $from, $to } = state.selection
   if (empty) return null
@@ -26,7 +29,8 @@ export async function turnIntoPage(editor: Editor, origin?: string, { embed = fa
   let id: string
   try {
     const body = { type: 'doc', content: content.length ? content : [{ type: 'paragraph', content: [{ type: 'text', text }] }] }
-    id = await window.api.captures.create({ kind: 'note', body, ...(origin ? { origin } : {}) })
+    id = await haligtree.newArticle()
+    await haligtree.saveItem(id, { title, body })
   } catch {
     chime('nope')
     toast('Could not make the page', undefined, 'error')
@@ -36,13 +40,13 @@ export async function turnIntoPage(editor: Editor, origin?: string, { embed = fa
   const doc = editor.isDestroyed ? null : editor.state.doc
   if (!doc || to > doc.content.size || doc.textBetween(from, to, '\n').trim() !== text) {
     chime('settled')
-    toast('Made into a page; the words stay here, since the note changed meanwhile', undefined, 'success', undefined, { type: 'capture', id, title })
+    toast('Made into a page; the words stay here, since the note changed meanwhile', undefined, 'success', undefined, { type: 'article', id, title })
     return id
   }
-  const link = { type: 'noteLink', attrs: { id, label: title } }
+  const link = { type: 'noteLink', attrs: { id: `article:${id}`, label: title } }
   const shown = embed && !!editor.schema.nodes.noteEmbed
-  editor.chain().focus().insertContentAt({ from, to }, shown ? { type: 'noteEmbed', attrs: { id, label: title } } : inLine ? link : { type: 'paragraph', content: [link] }).run()
+  editor.chain().focus().insertContentAt({ from, to }, shown ? { type: 'noteEmbed', attrs: { id: `article:${id}`, label: title } } : inLine ? link : { type: 'paragraph', content: [link] }).run()
   chime('settled')
-  toast(shown ? 'Shared with a new page: edit it here or there, the same words' : 'Moved to a new page: the link takes you there', undefined, 'success', undefined, { type: 'capture', id, title })
+  toast(shown ? 'Synced with a new page in Writing: edit it here or there, the same words' : 'Moved to a new page in Writing: the link takes you there', undefined, 'success', undefined, { type: 'article', id, title })
   return id
 }

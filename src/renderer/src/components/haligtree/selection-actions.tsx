@@ -86,7 +86,7 @@ export function selectionActions(origin: Origin, { reading = false }: { reading?
           <Tooltip delay={200}>
             <TooltipTrigger asChild>
               <button type="button" className={button} aria-label="Move to a new page" data-turn-into-page
-                onClick={() => void turnIntoPage(editor, origin.captureId)}>
+                onClick={() => void turnIntoPage(editor)}>
                 <FileOutput /> <span className="tiptap-button-text">Move out</span>
               </button>
             </TooltipTrigger>
@@ -96,7 +96,7 @@ export function selectionActions(origin: Origin, { reading = false }: { reading?
             <TooltipTrigger asChild>
               {/* "Synced", not "Share": nothing leaves the book, the words just live in two places. */}
               <button type="button" className={button} aria-label="Sync with a new page" data-pull-out
-                onClick={() => void turnIntoPage(editor, origin.captureId, { embed: true })}>
+                onClick={() => void turnIntoPage(editor, { embed: true })}>
                 <Repeat2 /> <span className="tiptap-button-text">Sync</span>
               </button>
             </TooltipTrigger>

@@ -112,11 +112,22 @@ try {
   if (offered) {
     await button.click(); await wait(800)
     const made = await h.$eval(ED, (root) => { const out = []; root.editor.state.doc.descendants((n) => { if (n.type.name === 'noteLink') out.push(n.attrs) }); return out.find((one) => one.label.startsWith('A sentence')) ?? null })
-    const page = made && await h.evaluate((id) => window.api.captures.get(id), made.id)
+    const page = made && await h.evaluate((id) => window.api.haligtree('item', id.replace(/^article:/, '')), made.id)
     const text = JSON.stringify(page?.body ?? '')
     const left = await h.$eval(ED, (root) => root.editor.getText())
     check('a link to the new page is left in its place', !!made && !left.includes('A sentence to lift out.') && left.includes('And one that stays.'), JSON.stringify(made))
-    check('the new page holds the sentence', text.includes('A sentence to lift out.'), text.slice(0, 120))
+    check('the new page is a page in Writing and holds the sentence', page?.tier === 'article' && /^article:/.test(made.id) && text.includes('A sentence to lift out.'), text.slice(0, 120))
+    // "Sync": the words stay here, shown live, and live on a new page too; an edit here is an edit there.
+    await pick('And one that stays.')
+    await wait(500)
+    await h.locator('[data-pull-out]').click(); await wait(1200)
+    const synced = await h.$eval(ED, (root) => { let out = null; root.editor.state.doc.descendants((n) => { if (n.type.name === 'noteEmbed') out = n.attrs }); return out })
+    const shownHere = await h.evaluate(() => document.querySelector('.note-pane [data-note-embed], .note-pane .note-embed')?.textContent ?? '')
+    check('Sync leaves the words shown here, from a new page in Writing', /^article:/.test(synced?.id ?? '') && shownHere.includes('And one that stays.'), JSON.stringify({ synced, shownHere: shownHere.slice(0, 80) }))
+    const inner = h.locator('.note-pane .ProseMirror .ProseMirror').filter({ hasText: 'And one that stays.' }).first()
+    await inner.click(); await h.keyboard.press('End'); await h.keyboard.type(' Edited here.'); await wait(1500)
+    const there = synced && await h.evaluate((id) => window.api.haligtree('item', id.replace(/^article:/, '')), synced.id)
+    check('an edit to the synced words here is saved on the page', JSON.stringify(there?.body ?? '').includes('Edited here.'), JSON.stringify(there?.body ?? '').slice(0, 160))
   }
 
   // 5. Try it for 5 minutes, from a task's panel.
