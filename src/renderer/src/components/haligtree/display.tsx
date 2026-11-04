@@ -430,9 +430,11 @@ const DISPLAY_ASKED = 'haligtree:display'
 /** Open the Display of the page in front, from a menu line where it has no button of its own. */
 export const openDisplay = (): void => void window.dispatchEvent(new CustomEvent(DISPLAY_ASKED))
 
-export function Display<T>({ view, onChange, facets, sorts: given, groups: offered = [], defaults = {}, compact = false, density, onDensity, densities = DENSITIES.map((one) => one.id), names = {}, count, hidden = false, sortNote, items }: {
+export function Display<T>({ view, onChange, facets, sorts: given, groups: offered = [], defaults = {}, compact = false, density, onDensity, densities = DENSITIES.map((one) => one.id), names = {}, count, hidden = false, sortNote, items, onOpen }: {
   /** No button of its own: opened by F, or from a page's ⋯ (openDisplay), as a sheet from the right. */
   hidden?: boolean
+  /** Told as it opens and shuts: the one-line pill grows into the box to hold the sheet. */
+  onOpen?: (open: boolean) => void
   /** Icon only, where the row beside it needs the room. */
   compact?: boolean
   /** How many the whole list holds, filters aside: with one or none there is nothing to order, so no order is offered or named. */
@@ -477,6 +479,7 @@ export function Display<T>({ view, onChange, facets, sorts: given, groups: offer
     // had nothing to sit by and opened in the window's corner: the sheet then.
     if (next) setSheet(!button.current?.getClientRects().length || !button.current.offsetParent)
     setOpen(next)
+    onOpen?.(next)
   }
   // Split, only the pane in front answers keys.
   const here = useHere()
@@ -665,7 +668,9 @@ export function Display<T>({ view, onChange, facets, sorts: given, groups: offer
       </PopoverContent>
     </Popover>}
     <Sheet open={open && sheet} onOpenChange={show}>
-      <SheetContent side="right" className="w-80 max-w-[85vw] gap-0 p-0 text-control sm:max-w-80" tabIndex={-1}
+      {/* In quick capture it lies over the card at the card's height, scrolling inside (lib/fit-box.ts): the window
+          grown for it left the shade hanging below the card over the desktop. */}
+      <SheetContent side="right" data-keeps-size className="w-80 max-w-[85vw] gap-0 p-0 text-control sm:max-w-80" tabIndex={-1}
         onCloseAutoFocus={(event) => event.preventDefault()}
         onKeyDown={onKeyDown}
         onInteractOutside={inside}

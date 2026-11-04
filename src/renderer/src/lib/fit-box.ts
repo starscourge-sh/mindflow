@@ -23,7 +23,8 @@ const KEEPS = '[data-keeps-size]'
 const POPS = [
   `[role=dialog]:not(${KEEPS})`,
   '[role=alertdialog]',
-  `[role=menu]:not(${KEEPS})`,
+  // A menu drawn inside a pop-up that keeps the box's size (Display's Sort by list, in its sheet) is part of it.
+  `[role=menu]:not(${KEEPS}):not(${KEEPS} *)`,
   `[role=listbox]:not(${KEEPS} *)`,
   `[data-radix-popper-content-wrapper]:not(:has([role=tooltip])):not(:has(${KEEPS}))`,
   '.tiptap-suggestion-popup',

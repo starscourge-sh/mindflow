@@ -1091,6 +1091,8 @@ export default function App(): React.JSX.Element {
   // welcome runs, which teaches the whole box.
   const oneLine = oneLineOn && !welcoming
   const [opened, setOpened] = useState(false)
+  // The Inbox's Display, opened by F with no list in sight: the pill grows into the box for its sheet to lie over.
+  const [sheetUp, setSheetUp] = useState(false)
   // A draft of more than one line opens grown, at the height its words need: worked out from the draft itself, before
   // the editor is drawn, so the box never shows as the pill first and grows a moment later.
   const [wraps, setWraps] = useState(() => (body?.content ?? []).filter((one) => hasContent({ type: 'doc', content: [one] })).length > 1)
@@ -1101,7 +1103,7 @@ export default function App(): React.JSX.Element {
   // box to show it. Kept as the pill, that room scrolled the one line up inside its clip and cut the word along its
   // middle (the user's "humanoid").
   const meaningShown = definition?.state === 'found' || definition?.state === 'fix'
-  const pill = oneLine && !reading && !editing && !offer && !lesson && !opened && !wraps && !panel && !meaningShown
+  const pill = oneLine && !reading && !editing && !offer && !lesson && !opened && !wraps && !panel && !meaningShown && !sheetUp
   // Whether it will be the pill once the panel is put away (setPanel tells the box's height before the glide).
   pillAfterPanel.current = oneLine && !reading && !editing && !offer && !lesson && !opened && !wraps && !meaningShown
   // Measured before it is drawn, so a second line grows the box in the frame it appears: on each change in the editor
@@ -2513,6 +2515,8 @@ export default function App(): React.JSX.Element {
           <PointMenu at={noteMenuAt} onClose={() => setNoteMenuAt(null)} sections={[noteSection]} />
           <SourceDrawer open={source} doc={body} onOpenChange={setSource} />
           {editing && <DetailsDrawer open={details} id={editing.id} captures={captures} onOpenChange={setDetails} onOpen={openAny} />}
+          {/* No list in sight (the pill, the box with its panel shut): F, off the writing, still opens the Inbox's Display, as a sheet over the box. */}
+          {(focus || !panelDrawn) && !welcoming && <InboxDisplay captures={captures} onOpen={setSheetUp} />}
         </ResizablePanel>
 
         {!focus && panelDrawn && <ResizableHandle withHandle />}
@@ -2878,6 +2882,17 @@ function ReadFrom({ tip, children }: { tip: string; children: React.ReactElement
 }
 
 const FIELD = 'field-sizing-content min-w-28 max-w-60 shrink-0 text-ellipsis rounded-full border border-foreground/10 px-2 py-0.5 text-meta placeholder:text-muted-foreground hover:border-foreground/20 focus:border-foreground/20'
+
+/**
+ * The Inbox's Display with no button of its own, for when the side panel is
+ * shut: the same view the panel's Inbox keeps, so a filter picked here is the
+ * one the list shows once the panel opens. Opened by F, it comes as a sheet.
+ */
+function InboxDisplay({ captures, onOpen }: { captures: CaptureMeta[]; onOpen: (open: boolean) => void }): React.JSX.Element {
+  const days = useInboxDays()
+  const { display } = useCaptureDisplay('prompt:captures', captures.filter((capture) => capture.status !== 'open' || !!capture.archivedAt || inInboxWindow(capture, days)), { status: ['open'] })
+  return React.cloneElement(display, { hidden: true, onOpen })
+}
 
 function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab, setTab }: {
   tab: Tab
