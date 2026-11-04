@@ -1,6 +1,6 @@
 import { Extension } from "@tiptap/core"
 import type { NodeViewProps } from "@tiptap/react"
-import { Plugin } from "@tiptap/pm/state"
+import { NodeSelection, Plugin, TextSelection } from "@tiptap/pm/state"
 import { Decoration, DecorationSet } from "@tiptap/pm/view"
 
 /**
@@ -18,6 +18,23 @@ export const SelectedNodes = Extension.create({
     return [
       new Plugin({
         props: {
+          /**
+           * Typing while a picture (or a card, a file, a drawing) is picked
+           * writes on a new line under it, never over it: the picked block
+           * is easy to miss, and a letter typed replaced it (the tracker:
+           * "my typing replaces it: rather type below the image").
+           */
+          handleTextInput: (view, _from, _to, text) => {
+            const { selection, schema } = view.state
+            if (!(selection instanceof NodeSelection) || !selection.node.isBlock || !selection.node.isAtom) return false
+            const paragraph = schema.nodes.paragraph
+            const $after = view.state.doc.resolve(selection.to)
+            if (!paragraph || !$after.parent.canReplaceWith($after.index(), $after.index(), paragraph)) return false
+            const tr = view.state.tr.insert(selection.to, paragraph.create(null, schema.text(text)))
+            tr.setSelection(TextSelection.create(tr.doc, selection.to + 1 + text.length))
+            view.dispatch(tr.scrollIntoView())
+            return true
+          },
           decorations: (state) => {
             const { from, to, empty } = state.selection
             if (empty) return null
