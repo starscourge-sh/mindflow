@@ -5131,10 +5131,41 @@ app.whenReady().then(() => {
     const { canceled, filePath } = await dialog.showSaveDialog({ defaultPath: name })
     if (canceled || !filePath) return false
 
-    const sheet = `body{font:14px/1.6 -apple-system,system-ui,sans-serif;margin:0;color:#111}
-      img{max-width:100%}pre{background:#f4f4f5;padding:.75em;border-radius:6px;overflow:auto}
-      blockquote{margin:0 0 0 1em;padding-left:1em;border-left:3px solid #ddd;color:#555}
-      table{border-collapse:collapse}td,th{border:1px solid #ddd;padding:.35em .6em}`
+    // Set as a book page is (the user: "pdf export looks like dogshit"): a serif at 11pt on a 32em measure, headings
+    // that step down in size with more room above than below, task boxes drawn, quotes and callouts in a quiet
+    // band, pictures whole and never cut across a page, the title and page number at the foot of every page.
+    const title = name.replace(/\.pdf$/i, '')
+    // Letter where the Mac is set to a country that uses it, A4 everywhere else.
+    const paper = /[-_](US|CA|MX|PH|CL|CO|VE)$/i.test(app.getLocaleCountryCode() ? `-${app.getLocaleCountryCode()}` : app.getLocale()) ? 'letter' : 'A4'
+    const sheet = `@page{size:${paper};margin:22mm 0 20mm}
+      html{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+      body{font:11pt/1.55 "New York","Iowan Old Style",Charter,Georgia,serif;color:#1c1b19;margin:0 auto;max-width:32em;padding:0 2em;
+        font-variant-numeric:oldstyle-nums proportional-nums;hanging-punctuation:first;text-rendering:optimizeLegibility;orphans:3;widows:3}
+      h1,h2,h3,h4{font-family:-apple-system,"SF Pro Display",system-ui,sans-serif;line-height:1.2;letter-spacing:-.01em;break-after:avoid;text-wrap:balance;font-weight:650}
+      h1{font-size:22pt;margin:0 0 .6em}h2{font-size:15pt;margin:1.8em 0 .5em}h3{font-size:12.5pt;margin:1.5em 0 .4em}h4{font-size:11pt;margin:1.3em 0 .3em}
+      p{margin:0 0 .75em}a{color:inherit;text-decoration:underline;text-decoration-color:#b9b2a5;text-underline-offset:.15em}
+      strong{font-weight:650}mark{background:#f6e7a8;color:inherit;padding:0 .1em;border-radius:2px}
+      ul,ol{margin:0 0 .75em;padding-left:1.4em}li{margin:.15em 0}li>p{margin:0}
+      ul[data-type=taskList]{list-style:none;padding-left:0}
+      ul[data-type=taskList] li{display:flex;gap:.55em;align-items:baseline}
+      ul[data-type=taskList] li>label{flex:none}ul[data-type=taskList] li>div{flex:1}
+      ul[data-type=taskList] input{appearance:none;width:.8em;height:.8em;border:1.2px solid #8d877c;border-radius:50%;margin:0;position:relative;top:.08em}
+      ul[data-type=taskList] li[data-checked=true]>div{color:#8d877c;text-decoration:line-through;text-decoration-color:#b9b2a5}
+      ul[data-type=taskList] li[data-checked=true] input{background:#8d877c}
+      blockquote{margin:1em 0;padding:.1em 0 .1em 1em;border-left:2px solid #d6d0c4;color:#4a463f;font-style:italic}
+      [data-callout]{margin:1em 0;padding:.7em 1em;background:#f4f1ea;border-radius:6px;break-inside:avoid}
+      [data-callout]>:last-child,blockquote>:last-child{margin-bottom:0}
+      hr{border:0;border-top:1px solid #d6d0c4;margin:1.8em 25%}
+      img,video{display:block;max-width:100%;max-height:220mm;height:auto;margin:1em auto;border-radius:4px;break-inside:avoid}
+      figure{margin:1em 0;break-inside:avoid}figcaption,[data-caption]{font:9pt/1.4 -apple-system,system-ui,sans-serif;color:#6b665d;text-align:center;margin-top:.4em}
+      code{font:.88em ui-monospace,"SF Mono",Menlo,monospace;background:#f4f1ea;padding:.05em .3em;border-radius:3px}
+      pre{font:9pt/1.5 ui-monospace,"SF Mono",Menlo,monospace;background:#f4f1ea;padding:.8em 1em;border-radius:6px;white-space:pre-wrap;break-inside:avoid}
+      pre code{background:none;padding:0;font-size:inherit}
+      table{border-collapse:collapse;width:100%;margin:1em 0;font-size:.92em;break-inside:avoid}
+      td,th{border-bottom:1px solid #e2ddd3;padding:.4em .6em;text-align:left;vertical-align:top}th{font-weight:650;border-bottom-color:#b9b2a5}
+      .tiptap-note-link-icon,[data-drag-handle],button{display:none}`
+    const escaped = (text: string): string => text.replace(/[&<>"]/g, (one) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[one]!)
+    const foot = `<div style="width:100%;font:8pt -apple-system,system-ui,sans-serif;color:#8d877c"><div style="width:352pt;margin:0 auto;display:flex;justify-content:space-between"><span>${escaped(title)}</span><span class="pageNumber"></span></div></div>`
 
     // The beam turns in every window while the PDF is laid out and written.
     return busy(async () => {
@@ -5142,12 +5173,17 @@ app.whenReady().then(() => {
       try {
         await printer.loadURL(
           `data:text/html;charset=utf-8,${encodeURIComponent(
-            `<meta charset="utf-8"><style>${sheet}</style>${html}`
+            `<!doctype html><html lang="en"><meta charset="utf-8"><title>${escaped(title)}</title><style>${sheet}</style><body>${html}</body></html>`
           )}`
         )
+        // Every picture drawn before the page is printed: one still loading printed as a blank box.
+        await printer.webContents.executeJavaScript('Promise.all([...document.images].map((one) => one.complete ? 0 : new Promise((done) => (one.onload = one.onerror = done)))).then(() => document.fonts.ready).then(() => 0)')
         const pdf = await printer.webContents.printToPDF({
           printBackground: true,
-          margins: { top: 0.6, bottom: 0.6, left: 0.6, right: 0.6 }
+          preferCSSPageSize: true,
+          displayHeaderFooter: true,
+          headerTemplate: '<span></span>',
+          footerTemplate: foot
         })
         await writeFile(filePath, pdf)
         return true
