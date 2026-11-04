@@ -75,6 +75,17 @@ export function ReadDetails({ src, name, cover, title, author, pages, page, chap
       </div>
       <div ref={setBox} className="book-panel-body" data-panel-scroll>
 
+      {/* First: the way from the book to the notes that hold it or link into it (the tracker: "no way to go from a pdf
+          to the note its linked from"). Under a long run of highlights it was out of sight. */}
+      <section className="read-details-section" data-in-notes>
+        <div className="read-details-heading">
+          <h3>
+            In your notes <span className="read-details-count">{inNotes(cited).length.toLocaleString()}</span>
+          </h3>
+        </div>
+        <InYourNotes cited={cited} parts={parts} here={page} empty="No note holds it or links into it yet." />
+      </section>
+
       <section className="read-details-section">
         <div className="read-details-heading">
           <h3>
@@ -136,15 +147,6 @@ export function ReadDetails({ src, name, cover, title, author, pages, page, chap
         ) : (
           <p className="read-details-empty">Pick words and press H to highlight them. Every highlight gathers here.</p>
         )}
-      </section>
-
-      <section className="read-details-section">
-        <div className="read-details-heading">
-          <h3>
-            In your notes <span className="read-details-count">{inNotes(cited).length.toLocaleString()}</span>
-          </h3>
-        </div>
-        <InYourNotes cited={cited} parts={parts} here={page} empty="No note holds it or links into it yet." />
       </section>
       {book && <BookInfo one={book} linked={inNotes(cited).length} />}
       </div>

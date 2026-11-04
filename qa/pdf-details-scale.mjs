@@ -164,6 +164,9 @@ try {
         check(`${theme}: every block starts on one left edge (within 2px)`, Math.max(...lefts) - Math.min(...lefts) <= 2, JSON.stringify(m.edges))
       }
       await c.look('light')
+      // The way from the book to its notes comes first, in view as the panel opens, above even 500 highlights.
+      const first = await h.evaluate(() => { const d = document.querySelector('.read-details .book-panel-body'); const heads = [...d.querySelectorAll('.read-details-heading h3')].map((one) => one.textContent.trim().split(/\s/)[0] + (one.textContent.includes('notes') ? ' notes' : '')); const at = d.querySelector('[data-in-notes]').getBoundingClientRect(); return { heads, inView: at.top < d.getBoundingClientRect().bottom && at.top >= d.getBoundingClientRect().top - 1 } })
+      check('"In your notes" comes before the highlights, in view as the panel opens', first.heads[0] === 'In notes' && first.inView, JSON.stringify(first))
       await h.evaluate(() => { const d = document.querySelector('.read-details .book-panel-body'); d.scrollTop = d.scrollHeight / 2 })
       await wait(800)
       check('500 highlights: scrolled down, "Back to top" shows', !!(await h.$('.read-details-frame button[aria-label="Back to top"]')))
