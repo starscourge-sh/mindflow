@@ -321,6 +321,20 @@
 html[data-overhang] #root {
   padding: var(--mf-room-top) var(--mf-room-right, var(--mf-room)) var(--mf-room) var(--mf-room-left, var(--mf-room));
 }
+/* A sheet (Display from "Newest", a drawer) belongs to the card, not the see-through window round it: it slides in
+   at the card's own edge, its height, under the card's corners, and its shade covers the card alone. Laid against the
+   window, it hung off the card's side over the desktop with the whole screen dimmed (note 97e52120). */
+html[data-overhang] :is([data-slot='sheet-overlay'], [data-slot='sheet-content']) {
+  top: var(--mf-room-top);
+  bottom: var(--mf-room);
+  height: auto;
+}
+html[data-overhang] [data-slot='sheet-overlay'] {
+  left: var(--mf-room-left, var(--mf-room));
+  right: var(--mf-room-right, var(--mf-room));
+  border-radius: 14px;
+}
+html[data-overhang] [data-slot='sheet-content'] { right: var(--mf-room-right, var(--mf-room)); border-radius: 0 14px 14px 0; }
 /* Held at its height while a pop-up hangs into extra room below it (lib/fit-box.ts): never stretched into that room. */
 html[data-overhang][data-card-held] .app-container {
   height: var(--mf-card-held);
