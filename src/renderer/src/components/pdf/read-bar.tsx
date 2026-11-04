@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from "react"
+import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import { BookOpenText, Copy, Gem, Highlighter, Quote, SquareDashed, SquareStack, Trash2 } from "lucide-react"
 import { Toolbar } from "@/components/tiptap-ui-primitive/toolbar"
 import { ContextMenuItem, ContextMenuSeparator, ContextMenuShortcut } from "@/components/ui/context-menu"
@@ -83,38 +83,51 @@ function Swatch({ color, on, later = false }: { color: string; on: boolean; /** 
  * and "Copy" with the book and page. Each shows its key.
  */
 /**
- * Where a bar or a field floats over the picked words: centred on them and
- * kept inside the pane (a half-width pane cut the bar off at its edge), above
- * them unless that would hide words there (a heading, the line before), then
- * under the picked line, so the words round the picked ones stay in sight.
+ * Where a field floats over the picked words: on the page they are on (a PDF's sheet, an article's column), never
+ * over the grey margin beside it, and clear of every line of words: above the picked words when that is clear, else
+ * under the picked line, else the nearest clear place out from there. Measured and placed before the first paint
+ * (a layout effect), and `placed` says when: the field is focused only then, without scrolling, so the pane never
+ * scrolls to where it was first drawn (the last try drew it at the pane's corner, focused, and the pane jumped there,
+ * taking the picked words out from under the next click).
  */
-function usePlaced(box: React.RefObject<HTMLDivElement | null>, at: { x: number; y: number; bottom?: number }): React.CSSProperties {
-  const [width, setWidth] = useState(0)
-  const [room, setRoom] = useState(Infinity)
-  const [below, setBelow] = useState(false)
+function usePlaced(box: React.RefObject<HTMLDivElement | null>, at: { x: number; y: number; bottom?: number }): { style: React.CSSProperties; placed: boolean } {
+  const [place, setPlace] = useState<{ left: number; top: number } | null>(null)
   useLayoutEffect(() => {
     const el = box.current
-    if (!el) return
-    setWidth(el.offsetWidth)
-    setRoom(el.parentElement?.clientWidth ?? Infinity)
-  }, [box])
-  useLayoutEffect(() => {
-    const el = box.current
-    if (!el || !width || at.bottom === undefined) return
-    const r = el.getBoundingClientRect()
+    const pane = el?.parentElement
+    if (!el || !pane) return
+    const width = el.offsetWidth
+    const height = el.offsetHeight
+    // The pane's own coordinates (what at is given in) as the screen has them.
+    const drawn = el.getBoundingClientRect()
+    const ox = drawn.left - el.offsetLeft
+    const oy = drawn.top - el.offsetTop
+    const pages = [...pane.querySelectorAll<HTMLElement>(".pdf-page, .web-reader-body")].map((one) => ({ one, r: one.getBoundingClientRect() }))
+    const page = pages.find(({ r }) => r.top - oy <= at.y && r.bottom - oy >= at.y)
+    const lo = (page ? page.r.left - ox : 0) + 8
+    const hi = (page ? page.r.right - ox : pane.clientWidth) - width - 8
+    const left = hi >= lo ? Math.max(lo, Math.min(at.x - width / 2, hi)) : Math.max(8, Math.min(at.x - width / 2, pane.clientWidth - width - 8))
     // The words it would sit on: a PDF's text pieces, an article's lines (measured as drawn, line by line).
-    const hides = [...(el.parentElement?.querySelectorAll(".textLayer span, .web-reader-body :is(p, li, h1, h2, h3, h4, h5, h6, blockquote, figcaption, td)") ?? [])].some((one) => {
-      if (!one.textContent?.trim() || one.querySelector(".textLayer span, p")) return false
-      const range = document.createRange()
-      range.selectNodeContents(one)
-      return [...range.getClientRects()].some((line) => line.width && line.left < r.right && line.right > r.left && line.top < r.bottom && line.bottom > r.top)
-    })
-    setBelow(hides)
-  }, [box, width, at.x, at.y, at.bottom])
-  return {
-    left: Math.max(8, Math.min(at.x - width / 2, room - width - 8)),
-    top: below && at.bottom !== undefined ? at.bottom + 8 : Math.max(8, at.y - 48),
-  }
+    const pieces = [...(page?.one ?? pane).querySelectorAll(".textLayer span, .web-reader-body :is(p, li, h1, h2, h3, h4, h5, h6, blockquote, figcaption, td)")]
+    const hides = (top: number): boolean => {
+      const r = { left: ox + left, right: ox + left + width, top: oy + top, bottom: oy + top + height }
+      return pieces.some((one) => {
+        if (!one.textContent?.trim() || one.querySelector(".textLayer span, p")) return false
+        const range = document.createRange()
+        range.selectNodeContents(one)
+        return [...range.getClientRects()].some((line) => line.width && line.left < r.right && line.right > r.left && line.top < r.bottom && line.bottom > r.top)
+      })
+    }
+    const above = at.y - height - 8
+    const below = (at.bottom ?? at.y) + 8
+    const top0 = page ? page.r.top - oy + 8 : 8
+    const foot = page ? page.r.bottom - oy - height - 8 : Infinity
+    const tries = [above, below, ...Array.from({ length: 30 }, (_, n) => [above - (n + 1) * 8, below + (n + 1) * 8]).flat()]
+    const clear = at.bottom === undefined ? undefined : tries.find((top) => top >= top0 && top <= foot && !hides(top))
+    setPlace({ left, top: clear ?? (at.bottom === undefined || above >= top0 ? Math.max(top0, above) : below) })
+  }, [box, at.x, at.y, at.bottom])
+  // Before it is measured: unseen, by the words (never the pane's corner), so nothing moves for it.
+  return { style: place ?? { left: Math.max(8, at.x - 160), top: Math.max(8, at.y - 48), opacity: 0 }, placed: !!place }
 }
 
 /**
@@ -324,17 +337,20 @@ function ColourRow({ on, onPick }: { on: string | null | undefined; onPick: (col
  */
 export function WhyAfter({ at, onSave, onDone, ask }: { at: { x: number; y: number; /** Where the picked words' last line ends: the field goes under it when the line above holds words. */ bottom?: number }; onSave: (why: string) => void; onDone: () => void; /** Asked for a card's question instead: what it says, and the line that says what is kept. */ ask?: { kept: string; label: string; placeholder: string } }): React.JSX.Element {
   const box = useRef<HTMLDivElement>(null)
-  const place = usePlaced(box, at)
+  const field = useRef<HTMLInputElement>(null)
+  const { style, placed } = usePlaced(box, at)
   const [why, setWhy] = useState("")
+  // Focused once it is in its place, and without scrolling the pane to it.
+  useEffect(() => { if (placed) field.current?.focus({ preventScroll: true }) }, [placed])
   return (
-    <div ref={box} className="pdf-keep-bar pdf-why" style={place}>
+    <div ref={box} className="pdf-keep-bar pdf-why" style={style}>
       <Toolbar variant="floating">
         <span className="pdf-why-kept">
           {ask ? <SquareStack className="tiptap-button-icon" /> : <Gem className="tiptap-button-icon" />}
           {ask?.kept ?? "Kept"}
         </span>
         <input
-          autoFocus
+          ref={field}
           className="pdf-why-field"
           type="text"
           aria-label={ask?.label ?? "Why keep this"}
