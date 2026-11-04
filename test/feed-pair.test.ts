@@ -56,6 +56,12 @@ test('kept within the same hour is the last reason; two hours apart is not', () 
   assert.equal(findPair([a, far], FILING, [a.text, b.text, a.text, b.text]), null)
 })
 
+test('imported notes are never "kept within the same hour": the hour is the import\'s', () => {
+  const a = note('a', 'Granite counter tops.', ['kitchen'], { imported: true })
+  const b = note('b', 'Lisbon trams at night.', ['travel'], { made: '2026-01-01T10:05:00.000Z', imported: true })
+  assert.equal(findPair([a, b], FILING, [a.text, b.text, a.text, b.text]), null)
+})
+
 test('no honest pair, no pair', () => {
   assert.equal(findPair([], FILING, []), null)
   assert.equal(findPair([note('a', 'Alone here.', ['solo'])], FILING, ['Alone here.']), null)

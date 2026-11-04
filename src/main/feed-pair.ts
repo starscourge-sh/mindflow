@@ -5,7 +5,7 @@
  * source quoted, or kept within the same hour. Filing tags (#quote, #mine and
  * the like) count for nothing. No honest pair, no post.
  */
-export type PairNote = { key: string; id: string; title: string; text: string; tags: string[]; who: string | null; made: string }
+export type PairNote = { key: string; id: string; title: string; text: string; tags: string[]; who: string | null; made: string; /** Brought in by an importer: its date is the import's, so never "kept within the same hour". */ imported?: boolean }
 export type PairWhy = { kind: 'word'; word: string } | { kind: 'source'; source: string } | { kind: 'hour' }
 export type Pair = { a: PairNote; b: PairNote; why: PairWhy }
 
@@ -51,7 +51,7 @@ export function findPair(notes: PairNote[], filing: Set<string>, book: string[],
   const source = turn(sources)
   if (source) return source
 
-  const sorted = [...usable].sort((x, y) => x.made.localeCompare(y.made))
+  const sorted = usable.filter((note) => !note.imported).sort((x, y) => x.made.localeCompare(y.made))
   const hours: Pair[] = []
   for (let i = 0; i < sorted.length; i++)
     for (let j = i + 1; j < sorted.length && new Date(sorted[j].made).getTime() - new Date(sorted[i].made).getTime() <= HOUR; j++)

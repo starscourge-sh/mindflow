@@ -768,20 +768,21 @@ export function Post({ post, onOpen, onOpenOther, onThread, alone = false, joine
           {/* Writing a reply opens here, under the latest; closed, it takes no room. */}
           {!alone && !preview && <GlossLine id={post.id} quiet latest={false} className="mt-0.5" placeholder={chosen === 'changed' ? 'What you think now, in your own words' : 'Your thought, in your own words'} />}
           {/* Every control keeps its own fixed place: choosing one changes its colour, never the row. */}
-          <div data-feed-actions className={cn('-ml-2 flex items-center gap-1 text-muted-foreground', preview && 'hidden')}>
+          {/* On a narrow window (a phone's width) the three keep their icons and say their words in their tips. */}
+          <div data-feed-actions className={cn('@container/actions -ml-2 flex items-center gap-1 whitespace-nowrap text-muted-foreground', preview && 'hidden')}>
             <Tip label={THOUGHT_TIP}>
-              <button type="button" data-feed-reply onClick={() => openGloss(post.id)}
+              <button type="button" data-feed-reply aria-label="Add a thought" onClick={() => openGloss(post.id)}
                 className="flex h-7 items-center gap-1.5 rounded-md px-2 text-control transition-colors hover:bg-foreground/[0.06] hover:text-foreground">
-                <MessageCircle className="size-4" /> Add a thought
+                <MessageCircle className="size-4 shrink-0" /> <span className="hidden @[26rem]/actions:inline">Add a thought</span>
               </button>
             </Tip>
             <Tip label={AGAIN_TIP}>
               <button type="button" data-feed-restack aria-label="Say it again" aria-pressed={restacking} onClick={() => (chime(restacking ? 'fold' : 'tap'), setMind(false), setRestacking(!restacking))}
                 className={cn('flex h-7 items-center gap-1.5 rounded-md px-2 text-control transition-colors hover:bg-foreground/[0.06] hover:text-foreground', restacking && 'text-foreground')}>
-                <Repeat2 className="size-4 shrink-0" /> Say it again
+                <Repeat2 className="size-4 shrink-0" /> <span className="hidden @[26rem]/actions:inline">Say it again</span>
               </button>
             </Tip>
-            {post.type !== 'day' && post.type !== 'poll' && post.type !== 'quiz' && <ReadLaterLabelled id={post.id} />}
+            {post.type !== 'day' && post.type !== 'poll' && post.type !== 'quiz' && <ReadLaterLabelled id={post.id} wordsClassName="hidden @[26rem]/actions:grid" />}
             {/* The like, where the thumb looks for it (a Journal day too: liked, it comes back sooner); the rest are in ⋯. Chosen, it fills in red and nothing moves. */}
             {/* Right-clicked, the heart's own menu: like or unlike, and every post you liked. */}
             <RowMenu items={[{ id: 'like', label: chosen === 'like' ? 'Unlike' : 'Like', icon: <Heart className="size-4" />, run: () => (onUnlike ? onUnlike() : choose('like')) }, { id: 'see-liked', label: 'See everything you liked', hint: 'Liked, in the Feed', icon: <ArrowUpRight className="size-4" />, run: () => (chime('page'), showLiked()) }]}>

@@ -441,7 +441,7 @@ export function registerFeed(): void {
       // Gems and quotes are the most of it: two each a turn, a question, a day, a picture and an archive one.
       const share = [2, 2, 1, 1, 1, 1]
       // One "Two subjects, one thread" a day at most, where an honest pair exists: its room kept among the day's twenty-odd.
-      const pair = pairOf([...byKey.values()], Number(today.replace(/\D/g, '')) || 0)
+      const pair = pairOf([...byKey.values()].filter((row) => !askedIds.has(row.id)), Number(today.replace(/\D/g, '')) || 0)
       const room = Math.max(0, SIZE - asks.length - stacked.length - (pair ? 1 : 0))
       const picked: Row[] = []
       while (picked.length < room && lanes.some((lane) => lane.length))
@@ -519,7 +519,7 @@ export function registerFeed(): void {
   // --- "Two subjects, one thread": two notes with no tag in common that share a rare word, a source, or an hour.
   const textOf = (body: string | null): string => { try { return plain(JSON.parse(body ?? '')) } catch { return body ?? '' } }
   const pairOf = (rows: Row[], seed: number): string | null => {
-    const notes: PairNote[] = rows.filter((row) => row.type !== 'day' && row.type !== 'article').map((row) => ({ key: `${row.type}:${row.id}`, id: row.id, title: row.title, text: textOf(row.body), tags: tagsOfRow(row), who: row.who, made: row.made }))
+    const notes: PairNote[] = rows.filter((row) => row.type !== 'day' && row.type !== 'article').map((row) => ({ key: `${row.type}:${row.id}`, id: row.id, title: row.title, text: textOf(row.body), tags: tagsOfRow(row).filter((tag) => tag !== 'bit' && tag !== LEARN_TAG), who: row.who, made: row.made, imported: !!row.archive }))
     // How rare a word is: across every note of the book you could be shown, kept or not.
     const book = [
       ...db.prepare("select title, body from nuggets where private = 0 and binned_at is null and tier not in ('card', 'deck')").all(),

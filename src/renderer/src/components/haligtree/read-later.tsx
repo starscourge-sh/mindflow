@@ -61,15 +61,15 @@ export function ReadLaterButton({ id, className }: { id: string; className?: str
 }
 
 /** With its word, for the reader's foot bar. */
-export function ReadLaterLabelled({ id, className }: { id: string; className?: string }): React.JSX.Element {
+export function ReadLaterLabelled({ id, className, wordsClassName }: { id: string; className?: string; /** Its words' own class: hidden on a narrow row, the tip still saying them. */ wordsClassName?: string }): React.JSX.Element {
   const { queued, toggle } = useReadLater(id)
   return (
     <Tip label={queued ? TIP_IN : TIP}>
-      <button type="button" data-read-later={queued ? 'in' : 'out'} aria-pressed={queued} onClick={toggle}
+      <button type="button" data-read-later={queued ? 'in' : 'out'} aria-pressed={queued} aria-label={queued ? 'In your queue' : 'Read later'} onClick={toggle}
         className={cn('flex h-7 items-center gap-1.5 rounded-md px-2 text-control transition-colors hover:bg-foreground/[0.06] hover:text-foreground', queued && 'text-primary hover:text-primary', className)}>
         <Clock className="size-4 shrink-0" strokeWidth={queued ? 2.4 : 2} />
         {/* Both words held in one place, so the row never moves when it changes. */}
-        <span className="grid">
+        <span className={cn('grid', wordsClassName)}>
           <span className={cn('col-start-1 row-start-1', queued && 'invisible')}>Read later</span>
           <span aria-hidden={!queued} className={cn('col-start-1 row-start-1', !queued && 'invisible')}>In your queue</span>
         </span>
