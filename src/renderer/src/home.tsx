@@ -116,7 +116,7 @@ import { NavContext, type Nav, type Step } from '@/lib/nav'
 import { SplitPanes, type PaneApi } from '@/components/haligtree/panes'
 import { SplitDrop, type Carried, type Side } from '@/components/haligtree/split-drop'
 import { rowOf } from '@/components/haligtree/row-card'
-import { PairRow, pinLayout, sameLayout, short, unpinLayout, usePinnedLayouts, type PaneName } from '@/components/haligtree/split-pairs'
+import { PairFold, PairRow, type PairProps, pinLayout, sameLayout, short, unpinLayout, usePinnedLayouts, type PaneName } from '@/components/haligtree/split-pairs'
 import type { BookRef } from '@/lib/books'
 import type { RowItem } from '@/components/haligtree/row-menu'
 import { asideClick, asideItem, keepTitle, setPaneNotes, setPanes, spendAsideClick, titleOf, type PaneWidth } from '@/lib/split'
@@ -1428,6 +1428,9 @@ export function Home(): React.JSX.Element {
    * the page's name in the top bar, a pane's tab), Dia's menu for a split
    * with what Haligtree has: its layout, the notes in it, and its panes.
    */
+  /** Folded to icons, more than three splits are one split icon with their count, opening them all as a menu. */
+  const foldPairs = (rows: React.ReactElement<PairProps>[]): React.ReactElement[] =>
+    narrow && rows.length > 3 ? [<PairFold key="fold" pairs={rows.map((row) => ({ ...row.props, key: String(row.key) }))} />] : rows
   const pairMenu = (views: View[], live: { key?: string } | null, pinnedId?: string, row = false): RowItem[] => {
     const notes = views.map(noteIn).filter((one): one is NonNullable<ReturnType<typeof noteIn>> => !!one)
     const refs: BookRef[] = notes.filter((one) => one.type !== 'task').map((one) => ({ table: one.type === 'capture' ? 'captures' : 'nuggets', id: one.id }))
@@ -2106,7 +2109,7 @@ export function Home(): React.JSX.Element {
                 return (<>
                   {narrow ? <div className="mt-3" /> : <div data-side-heading="split" className="mt-3 mb-0.5 px-2 py-0.5 text-meta text-muted-foreground">Side by side</div>}
                   <div className="flex flex-col gap-0.5">
-                    {rows.map((pair) => {
+                    {foldPairs(rows.map((pair) => {
                       const live = split.panes.length > 1 && (pair.id === split.id || (pair.id === 'live' && !split.id))
                       const views = pair.panes.map((pane) => pane.trail.views[pane.trail.at])
                       const rename = (name: string): void => {
@@ -2137,7 +2140,7 @@ export function Home(): React.JSX.Element {
                             return [{ ...one, panes, front: panes.some((pane) => pane.key === one.front) ? one.front : panes[0].key, sizes: sizes.map((size) => size / total) }]
                           }))
                         }} />
-                    })}
+                    }))}
                   </div>
                 </>)
               })()}
@@ -2150,14 +2153,14 @@ export function Home(): React.JSX.Element {
               )}
               {pinsOn && !quiet && (pins.length > 0 || layouts.length > 0) && (<div data-side-drop="pinned" className="rounded-md data-[queue-hot]:bg-[color-mix(in_oklab,var(--primary)_12%,transparent)] data-[queue-hot]:ring-1 data-[queue-hot]:ring-[color-mix(in_oklab,var(--primary)_40%,transparent)]">
                 {heading(pinsGroup, pinsOpen, setPinsOpen)}
-                <Unfold open={pinsOpen || narrow}><Branches current={(() => { const at = pins.findIndex((pin) => pin.id === view.focus); return at < 0 ? -1 : layouts.length + at })()} bare={narrow} className={`flex flex-col gap-px ${narrow ? '' : 'ml-5'}`}>{[
-                  ...layouts.map((one) => {
+                <Unfold open={pinsOpen || narrow}><Branches current={(() => { const at = pins.findIndex((pin) => pin.id === view.focus); return at < 0 ? -1 : (narrow && layouts.length > 3 ? 1 : layouts.length) + at })()} bare={narrow} className={`flex flex-col gap-px ${narrow ? '' : 'ml-5'}`}>{[
+                  ...foldPairs(layouts.map((one) => {
                     const live = split.panes.length > 1 && sameLayout(one.views, split.panes.map((pane) => pane.trail.views[pane.trail.at]))
                     return <PairRow key={one.id} live={live} isPinned narrow={narrow} names={one.views.map(paneName)} menu={pairMenu(one.views, live ? {} : null, one.id, true)} onAlone={(index) => openAlone(one.views[index])}
                       onForget={live ? () => separate(split.front) : undefined}
                       onOpen={(index) => (live ? (chime('tap'), toFront(split.panes[index].key)) : openLayout(one.views, one.sizes))}
                       onClose={live ? (index) => closePane(split.panes[index].key) : undefined} />
-                  }),
+                  })),
                   // Pins drag into your own order too; carried off the sidebar, one still opens to the side.
                   <SortableList key="pins" items={pins} keyOf={(pin) => `${pin.type}:${pin.id}`} onMove={narrow ? undefined : dropOrder('pinOrder', pinsUsual.map((pin) => `${pin.type}:${pin.id}`), (id) => pinsUsual.find((pin) => `${pin.type}:${pin.id}` === id)?.title || 'Untitled')}>{(items) => items.map((pin) => {
                   const kind = CAPTURE_TYPES.find((type) => type.id === pin.kind) ?? CAPTURE_TYPES[0]

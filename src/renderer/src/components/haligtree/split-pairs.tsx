@@ -5,8 +5,8 @@ import { Pin, X } from 'lucide-react'
 import { chime } from '@/lib/sound'
 import type { Step } from '@/lib/nav'
 import { MCard, MLines, Peek } from './peek'
-import { RowMenu, type RowItem } from './row-menu'
-import { quietly } from './ui'
+import { RowMenu, openFromGrip, type RowItem } from './row-menu'
+import { quietly, Tip } from './ui'
 import { cut } from '../../../../main/clip'
 
 /**
@@ -72,7 +72,8 @@ const quoted = (title: string): string => (/^["“'‘]/.test(title) ? short(tit
  * right-click menu, each pane opened alone or closed, Rename…, Close the
  * split, then the pair's menu. Folded to icons, the panes' kinds stacked.
  */
-export function PairRow({ names, live, isPinned, narrow, menu, onOpen, onClose, onAlone, name, onRename, onForget, forgetLabel = 'Close the split' }: {
+/** What a pair's row is given, here and in the fold of many (PairFold). */
+export type PairProps = {
   names: PaneName[]
   live: boolean
   isPinned: boolean
@@ -88,19 +89,50 @@ export function PairRow({ names, live, isPinned, narrow, menu, onOpen, onClose, 
   /** The pair goes: the split on screen closed, or one kept let go. */
   onForget?: () => void
   forgetLabel?: string
-}): React.JSX.Element {
+}
+
+/**
+ * A pair's own menu lines: each pane opened alone or closed, Rename… (where
+ * the row has room to rename in), Close the split, then the pair's menu.
+ */
+const pairItems = ({ names, menu, onClose, onAlone, onRename, onForget, forgetLabel = 'Close the split' }: PairProps, rename?: () => void): RowItem[] => [
+  ...(onAlone ? names.map((one, index): RowItem => ({ label: `Open ${quoted(shownName(one.title))} alone`, icon: <one.icon className="size-3.5 shrink-0" style={{ color: one.tint }} />, run: () => onAlone(index) })) : []),
+  'separator',
+  ...(onClose ? names.map((one, index): RowItem => ({ label: `Close ${quoted(shownName(one.title))}`, run: () => onClose(index) })) : []),
+  'separator',
+  onRename && rename && { label: 'Rename…', run: rename },
+  // A plain ✕ either way: a kept split let go from the list goes nowhere near the Bin.
+  onForget && { label: forgetLabel, icon: <X aria-hidden data-menu-icon="" className="size-3.5 shrink-0 text-muted-foreground" />, run: onForget },
+  'separator',
+  ...menu
+]
+
+/** The pair's panes named the way a hover says them: "MOC - YouTube | Tasks". */
+const bothNames = (names: PaneName[]): string => names.map((one) => shownName(one.title)).join(' | ')
+
+/**
+ * A split drawn as one icon for the narrow sidebar: a small rounded window
+ * divided down the middle, each half holding its pane's own mark at the
+ * sidebar's icon size. Two marks squeezed over each other read as a broken icon.
+ */
+export function SplitMark({ names, small = false }: { names: PaneName[]; /** A menu line's: the size of the other lines' icons. */ small?: boolean }): React.JSX.Element {
+  const two = names.slice(0, 2)
+  return (
+    <span aria-hidden data-split-mark className={`flex shrink-0 items-stretch rounded-[5px] bg-foreground/[0.035] ring-1 ring-foreground/25 ${small ? 'h-3 w-4' : 'h-6 w-[37px]'}`}>
+      {two.map((one, index) => (
+        <span key={index} data-split-half={index} className={`flex flex-1 items-center justify-center ${index ? 'border-l border-foreground/25' : ''}`}>
+          {!small && <one.icon className="size-4 shrink-0" style={{ color: one.tint }} />}
+        </span>
+      ))}
+    </span>
+  )
+}
+
+export function PairRow(props: PairProps): React.JSX.Element {
+  const { names, live, isPinned, narrow, onOpen, name, onRename } = props
   const [renaming, setRenaming] = useState(false)
-  const items: RowItem[] = [
-    ...(onAlone ? names.map((one, index): RowItem => ({ label: `Open ${quoted(shownName(one.title))} alone`, icon: <one.icon className="size-3.5 shrink-0" style={{ color: one.tint }} />, run: () => onAlone(index) })) : []),
-    'separator',
-    ...(onClose ? names.map((one, index): RowItem => ({ label: `Close ${quoted(shownName(one.title))}`, run: () => onClose(index) })) : []),
-    'separator',
-    onRename && { label: 'Rename…', run: () => void setTimeout(() => setRenaming(true), 120) },
-    // A plain ✕ either way: a kept split let go from the list goes nowhere near the Bin.
-    onForget && { label: forgetLabel, icon: <X aria-hidden data-menu-icon="" className="size-3.5 shrink-0 text-muted-foreground" />, run: onForget },
-    'separator',
-    ...menu
-  ]
+  // Folded to icons there is no room to type a name in: Rename… waits for the wide sidebar.
+  const items = pairItems(props, narrow ? undefined : () => void setTimeout(() => setRenaming(true), 120))
   const said = name || names.map((one) => one.title).join(' and ')
   // The split drawn small, each pane where it sits on screen.
   const art = (): React.ReactNode => (
@@ -117,20 +149,17 @@ export function PairRow({ names, live, isPinned, narrow, menu, onOpen, onClose, 
       ))}
     </div>
   )
-  const text = `**${name ? `“${name}”, side by side.` : live ? 'Side by side, on screen now.' : isPinned ? 'A pinned layout.' : 'Side by side, kept for later.'}** ${narrow || name ? 'Click to open it.' : 'Click a name to open that side.'} Right-click for more.`
+  // Folded to icons, the hover names both pages first: the icon alone cannot.
+  const text = narrow ? `**${name ? `“${name}”: ` : ''}${bothNames(names)}.** ${live ? 'Side by side, on screen now.' : isPinned ? 'A pinned layout.' : 'Kept for later.'} Click to open it. Right-click for more.` : `**${name ? `“${name}”, side by side.` : live ? 'Side by side, on screen now.' : isPinned ? 'A pinned layout.' : 'Side by side, kept for later.'}** ${narrow || name ? 'Click to open it.' : 'Click a name to open that side.'} Right-click for more.`
   if (narrow) {
     return (
       <RowMenu items={items}>
         {/* A box of its own for the menu to hold: the preview holds the row. */}
         <div className="flex flex-col">
         <Peek art={art} text={text}>
-        <button type="button" data-side-row data-pair-row={live ? 'live' : isPinned ? 'pinned' : 'kept'} aria-label={said} onClick={() => onOpen(0)}
-          className={`flex items-center justify-center rounded-md py-1.5 ${live ? 'bg-[color-mix(in_srgb,var(--tt-brand-color-400)_9%,transparent)]' : ''}`}>
-          {names.slice(0, 2).map((one, index) => (
-            <span key={index} className={`flex size-4.5 items-center justify-center rounded-full bg-background shadow-[0_0_0_1.5px_var(--background)] ${index ? '-ml-1.5' : ''}`} style={{ zIndex: 3 - index }}>
-              <one.icon className="size-3" style={{ color: one.tint }} />
-            </span>
-          ))}
+        <button type="button" data-side-row data-pair-row={live ? 'live' : isPinned ? 'pinned' : 'kept'} aria-label={bothNames(names)} onClick={() => onOpen(0)}
+          className={`-mx-1 flex items-center justify-center rounded-md py-1 ${live ? 'bg-[color-mix(in_srgb,var(--tt-brand-color-400)_9%,transparent)]' : ''}`}>
+          <SplitMark names={names} />
         </button>
         </Peek>
         </div>
@@ -187,6 +216,36 @@ export function PairRow({ names, live, isPinned, narrow, menu, onOpen, onClose, 
         )}
       </div>
       </Peek>
+      </div>
+    </RowMenu>
+  )
+}
+
+/**
+ * More than three splits in the narrow sidebar: one split icon with their
+ * count, which opens them all as a menu, each opened from its line or its
+ * own lines kept under it, the menu its row would have had.
+ */
+export function PairFold({ pairs }: { pairs: (PairProps & { key: string })[] }): React.JSX.Element {
+  const live = pairs.some((one) => one.live)
+  const items: RowItem[] = [
+    { heading: `${pairs.length} splits` },
+    ...pairs.map((one): RowItem => ({
+      label: one.name || short(bothNames(one.names)),
+      icon: <SplitMark names={one.names} small />,
+      items: [{ label: 'Open the split', run: () => one.onOpen(one.name ? -1 : 0) }, 'separator', ...pairItems(one)]
+    }))
+  ]
+  return (
+    <RowMenu items={items}>
+      <div className="flex flex-col">
+        <Tip label={`${pairs.length} splits: click to see them all`} side="right">
+          <button type="button" data-side-row data-pair-fold={pairs.length} aria-label={`${pairs.length} splits`} onClick={openFromGrip}
+            className={`relative -mx-1 flex items-center justify-center rounded-md py-1 ${live ? 'bg-[color-mix(in_srgb,var(--tt-brand-color-400)_9%,transparent)]' : ''}`}>
+            <SplitMark names={pairs.find((one) => one.live)?.names ?? pairs[0].names} />
+            <span data-pair-count className="absolute -top-1 -right-0.5 flex h-3.5 min-w-3.5 ring-2 ring-background items-center justify-center rounded-full bg-foreground px-1 text-[9px] leading-none font-semibold tabular-nums text-background">{pairs.length}</span>
+          </button>
+        </Tip>
       </div>
     </RowMenu>
   )
