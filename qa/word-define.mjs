@@ -118,6 +118,23 @@ for (const [word, holds] of [['serendipity', 'chance'], ['ephemera', 'short time
     expect((await said()).toLowerCase().includes(holds), `it says: ${(await said()).slice(0, 160)}`)
   })
 }
+// --- Wikipedia's line under the meaning (the real Wikipedia, as Look Up asks it) ---
+await check('wiki: "serendipity" shows its meaning and a Wikipedia line together, the meaning never moving', async () => {
+  await type('serendipity')
+  expect(await until(async () => (await define()) === 'ghost'), 'no meaning')
+  const before = await page.evaluate(() => Math.round(document.querySelector('[data-define] [data-meaning] > button')?.getBoundingClientRect().top ?? -1))
+  expect(await until(() => page.evaluate(() => !!document.querySelector('[data-define-wiki]')), 8000), 'no Wikipedia line')
+  const line = await page.evaluate(() => document.querySelector('[data-define-wiki]').textContent)
+  expect(/serendipity/i.test(line) && /Wikipedia$/.test(line.trim()), `it says: ${line}`)
+  const after = await page.evaluate(() => Math.round(document.querySelector('[data-define] [data-meaning] > button')?.getBoundingClientRect().top ?? -1))
+  expect(before === after, `the meaning moved ${before} → ${after}`)
+  if (process.env.SHOTS) for (const look of ['light', 'dark']) {
+    await page.evaluate((look) => document.documentElement.classList.toggle('dark', look === 'dark'), look)
+    await wait(200)
+    await page.screenshot({ path: `${process.env.SHOTS}/define-wiki-${look}.png` })
+  }
+  await page.evaluate(() => document.documentElement.classList.remove('dark'))
+})
 await check('mac: quick, with no wait shown, no beam, and the writing never moves', async () => {
   await watch()
   await type('lugubrious')

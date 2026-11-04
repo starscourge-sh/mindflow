@@ -10,6 +10,7 @@ import { Kbd, refuse, toast } from './ui'
 import { RowMenu } from './row-menu'
 import { menuShowing } from '@/lib/menu-keys'
 import { haligtree } from '@/lib/haligtree'
+import { firstSentences, pageFor, useWiki } from '@/lib/wiki'
 import './word-define.css'
 
 /**
@@ -177,6 +178,9 @@ export function DefineGhost({ definition, onKeep, onHide, onFix, picked = false,
   const shownLate = useRef(false)
   shownLate.current = late
   const looking = definition?.state === 'looking'
+  // Wikipedia's line on the same word, under the meaning, as Look Up shows them together: only its own article.
+  const wiki = useWiki(definition?.state === 'found' ? definition.word : null)
+  const article = wiki.page && definition && pageFor(wiki.page, definition.word) && wiki.page.extract ? wiki.page : null
   useEffect(() => {
     if (!looking) return setLate(false)
     const timer = setTimeout(() => setLate(true), waits().shown)
@@ -292,6 +296,14 @@ export function DefineGhost({ definition, onKeep, onHide, onFix, picked = false,
         </button>
         {found.example && <p className="text-control leading-snug text-muted-foreground italic">“{found.example}”</p>}
         {found.also && <p className="text-control leading-snug text-muted-foreground"><span className="font-medium">Also:</span> {found.also}</p>}
+        {/* The word's Wikipedia line, once it comes: below everything above, so nothing already shown moves. */}
+        {article && (
+          <p data-define-wiki className="mt-1 border-t border-foreground/10 pt-1.5 text-control leading-snug text-muted-foreground text-pretty">
+            {firstSentences(article.extract, 1)}{' '}
+            <a href={article.url} title="Text from Wikipedia, CC BY-SA" onMouseDown={(event) => event.preventDefault()} onClick={(event) => (event.preventDefault(), window.open(article.url))}
+              className="cursor-pointer whitespace-nowrap text-foreground/80 underline decoration-foreground/25 underline-offset-2 hover:text-foreground">Wikipedia</a>
+          </p>
+        )}
         {/* What Create will keep, said plainly, and where the meaning came from. */}
         <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-control">
           <span data-define-keep className={`inline-flex items-center gap-1.5 ${kept ? 'font-medium text-foreground' : 'text-muted-foreground'}`}>
