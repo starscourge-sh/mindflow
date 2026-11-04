@@ -96,18 +96,6 @@ function needed(column: HTMLElement | null): number | null {
 }
 
 /**
- * Marks the note's scroller while all its words are in view, so it has no fade (main.css). The fade is driven by
- * the scroll (a scroll timeline), and a scroller that stops scrolling keeps the last value it had: typed into while
- * the box was still the pill's height, the caret scrolled the words up a line, the box grew to fit them all, and
- * its top stayed faded (qa/pill-polish.mjs).
- */
-function markFits(column: HTMLElement | null): void {
-  const scroller = column?.querySelector<HTMLElement>('.mf-faded .haligtree-editor-content')
-  if (!scroller) return
-  scroller.toggleAttribute('data-fits', scroller.scrollHeight <= scroller.clientHeight + 1)
-}
-
-/**
  * Keeps the box as tall as its writing, between SHORT and FULL. Grows at once;
  * shrinks at once only when clearly shorter, otherwise after a pause. Full
  * height while a pop-up is open or a task is read, back after.
@@ -230,7 +218,7 @@ export function useFitBox(column: RefObject<HTMLElement | null>, full: boolean, 
     const soon = (): void => {
       if (frame) return
       // No frames are drawn while the window is away: a timer instead.
-      const run = (): void => void ((frame = 0), refit(), markFits(column.current))
+      const run = (): void => void ((frame = 0), refit())
       frame = document.hidden ? (setTimeout(run, 16) as unknown as number) : requestAnimationFrame(run)
     }
     // A pop-up is hidden in the same task it arrives in, before it is ever drawn.

@@ -1,6 +1,8 @@
 // The session timer's bubble, and the glow round the screen when a session ends: pill.html.
 import '../assets/main.css'
 import 'slot-text/style.css'
+// Faded edges off once a list is all in view (lib/fade-fits.ts).
+import '../lib/fade-fits'
 import { FocusPill, ScreenGlow } from '../components/haligtree/focus-pill'
 import { params, start } from '../main'
 import { clearRoom } from '../lib/clear-room'

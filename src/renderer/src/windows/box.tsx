@@ -6,6 +6,8 @@
 // code still runs before the shell's.
 import '../assets/main.css'
 import 'slot-text/style.css'
+// Faded edges off once a list is all in view (lib/fade-fits.ts).
+import '../lib/fade-fits'
 import App from '../App'
 import { start } from '../main'
 import { clearRoom } from '../lib/clear-room'

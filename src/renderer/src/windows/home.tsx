@@ -1,6 +1,8 @@
 // The main window: home.html.
 import '../assets/main.css'
 import 'slot-text/style.css'
+// Faded edges off once a list is all in view (lib/fade-fits.ts).
+import '../lib/fade-fits'
 import { useEffect, type ReactNode } from 'react'
 import { Home } from '../home'
 import { start } from '../main'

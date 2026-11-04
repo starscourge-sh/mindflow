@@ -1425,8 +1425,6 @@ body {
   animation-timeline: scroll(self), scroll(self);
   animation-range: 0 0.75rem, calc(100% - 2.5rem) 100%;
 }
-/* Everything in view (fit-box.ts marks it): no fade, whatever the scroll last left behind. */
-.mf-faded .haligtree-editor-content[data-fits] { animation: none; }
 
 /* A list that scrolls (a menu, the palette, the shortcut sheet) fades at an
    edge only while there is more past it, so a row cut in half by the edge
@@ -1458,6 +1456,8 @@ body {
   animation-range: 0 1.5rem, calc(100% - 2.5rem) 100%;
 }
 @keyframes mf-less { from { --mf-less: 0px; } to { --mf-less: 1.5rem; } }
+/* All of it in view (lib/fade-fits.ts marks it): no fade at either edge, whatever the scroll last left behind. */
+:is(.mf-more, .mf-fade-end, .page-dock-side, .page-dock-scroll, [data-reading-pane] .note-pane, [data-reading-pane] .note-pane .haligtree-editor-content, .mf-faded .haligtree-editor-content)[data-all-shown] { animation: none; }
 @keyframes mf-more { from { --mf-more: 2.5rem; } to { --mf-more: 0px; } }
 /* Not motion, so the Motion setting leaves it on. */
 [data-motion='off'] :is(.mf-more, .mf-faded .haligtree-editor-content, .page-dock-side, .page-dock-scroll, .mf-fade-end, [data-reading-pane] .note-pane, [data-reading-pane] .note-pane .haligtree-editor-content) { animation-duration: auto !important; }
