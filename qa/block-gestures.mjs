@@ -1,6 +1,6 @@
 // Blocks and panes, driven in the real main window on sandbox data:
 //   1. lines picked and dragged by the grip onto a toggle's own line go inside it;
-//   2. a box dragged from the margin picks several blocks, ⌫ removes them, ⌘Z brings them back;
+//   2. a box dragged from the margin picks several blocks, stops at the page's edge, ⌫ removes them, ⌘Z brings them back;
 //   3. words picked, then a web address pasted: the words become that link;
 //      a note link pasted: the words become a link to that note, saying the words;
 //   4. "Move to a new page" on a sentence: a new page with it, a link left in its place;
@@ -73,6 +73,14 @@ try {
   const marginX = box.x + 2
   await h.mouse.move(marginX, g.y + 2)
   await h.mouse.down()
+  // Carried out over the sidebar and the window's top first: the box stops at the page's edge (note ca5b1d51).
+  await h.mouse.move(4, 4, { steps: 10 })
+  const past = await h.evaluate(() => {
+    const mark = document.querySelector('[data-marquee]')?.getBoundingClientRect()
+    const side = document.querySelector('aside')?.getBoundingClientRect()
+    return mark ? { left: Math.round(mark.left), top: Math.round(mark.top), side: Math.round(side?.right ?? 0) } : null
+  })
+  check('a box carried past the page stops at its edge, never over the sidebar or the window\'s top', !!past && past.left >= past.side && past.top > 4, JSON.stringify(past))
   await h.mouse.move(marginX + 200, d.y + d.height / 2, { steps: 10 })
   const shown = await h.evaluate(() => !!document.querySelector('[data-marquee]'))
   await h.mouse.up()

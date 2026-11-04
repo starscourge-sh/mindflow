@@ -112,13 +112,25 @@ const inMargin = (view: EditorView, event: MouseEvent): boolean => {
   return !blocksOf(view).some((one) => event.clientX >= one.rect.left && event.clientX <= one.rect.right && event.clientY >= one.rect.top && event.clientY <= one.rect.bottom)
 }
 
+/** The page the editor scrolls in, on screen: the nearest scrolling box round it, or the editor itself. */
+function pageOf(view: EditorView): DOMRect {
+  for (let at = view.dom.parentElement; at; at = at.parentElement) {
+    if (/(auto|scroll)/.test(getComputedStyle(at).overflowY)) return at.getBoundingClientRect()
+  }
+  return view.dom.getBoundingClientRect()
+}
+
 function marquee(view: EditorView, event: MouseEvent): boolean {
   if (event.button !== 0 || event.metaKey || event.ctrlKey || event.altKey || !view.editable || !inMargin(view, event)) return false
   event.preventDefault()
   const x0 = event.clientX
   const y0 = event.clientY
+  // The box stays on the page it began on: dragged past it (over the sidebar, out of quick capture's card into the
+  // see-through room round it), it stops at the page's edge (note ca5b1d51: "why can I do this").
+  const page = pageOf(view)
   let box: HTMLDivElement | null = null
-  const move = (moved: MouseEvent): void => {
+  const move = (event: MouseEvent): void => {
+    const moved = { clientX: Math.min(page.right, Math.max(page.left, event.clientX)), clientY: Math.min(page.bottom, Math.max(page.top, event.clientY)) }
     if (!box && Math.hypot(moved.clientX - x0, moved.clientY - y0) < 5) return
     if (!box) {
       box = document.createElement("div")
