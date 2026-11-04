@@ -967,12 +967,14 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
         {(id === 'now' || open[id]) && (
           <>
             <SortableList items={longer ? shown.slice(0, 8) : shown} keyOf={(task) => task.id} onMove={move(id)} places={{ drop: dropOn(id), said: placeSaid, foot: foot(id) }}>
-              {/* The top three and the rest: a heading of its own under the third, with room above it as a section has, only when there is a rest.
-                  Its own line between the rows, never part of one, so a row dragged leaves it where it is. */}
+              {/* The top three, then the rest of today: a small heading inside Now, under the third, only when there is a rest.
+                  No rule and no section's room above it: it is still today, so it never reads as a list of its own ahead of
+                  Next (note 94925dc0: "why would 'the rest' be in front of 'next'"). Its own line between the rows, never part
+                  of one, so a row dragged leaves it where it is. */}
               {(items) => items.flatMap((task) => id === 'now' && task.id === openNow[2]?.id && openNow.length > 3 ? [row(task, id), (
-                <div key="top-three" data-top-three className={`mb-1 flex items-baseline gap-2 ${compact ? 'mt-6 ml-6' : 'mt-8 border-t border-foreground/[0.08] pt-7 pl-6'}`}>
-                  <span className="text-base font-semibold text-foreground">The rest</span>
-                  <span className="text-sm text-muted-foreground">· once the first three are done</span>
+                <div key="top-three" data-top-three className="mt-4 mb-1 ml-6 flex items-baseline gap-2">
+                  <span className="text-sm font-semibold text-foreground">Also today</span>
+                  <span className="text-sm text-muted-foreground">· after the first three</span>
                 </div>
               )] : [row(task, id)])}
             </SortableList>

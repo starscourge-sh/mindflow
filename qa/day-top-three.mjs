@@ -33,9 +33,9 @@ try {
   await h.keyboard.press('Escape'); await wait(400)
   const label = await h.evaluate(() => document.querySelector('[data-top-three]')?.textContent ?? '')
   check('the line under the first three says what it parts', /first three/.test(label), label)
-  // A section of its own: a heading in the page's own colour, with a section's room above it (not a faint rule).
-  const part = await h.evaluate(() => { const one = document.querySelector('[data-top-three]'); const above = one.previousElementSibling.getBoundingClientRect(); const head = one.firstElementChild; return { gap: one.getBoundingClientRect().top - above.bottom, weight: Number(getComputedStyle(head).fontWeight), size: parseFloat(getComputedStyle(head).fontSize), rule: !!one.querySelector('.h-px') } })
-  check('"The rest" reads as a second section: a heading, room above, no rule', part.gap >= 20 && part.weight >= 600 && part.size >= 16 && !part.rule, JSON.stringify(part))
+  // Still today: a small heading inside Now, never a section of its own ahead of Next (no rule, smaller than Next's heading).
+  const part = await h.evaluate(() => { const one = document.querySelector('[data-top-three]'); const head = one.firstElementChild; const next = document.querySelector('[data-day-section="next"] header button'); return { label: head.textContent, border: parseFloat(getComputedStyle(one).borderTopWidth), size: parseFloat(getComputedStyle(head).fontSize), next: next ? parseFloat(getComputedStyle(next).fontSize) : 99, inNow: !!one.closest('[data-day-section="now"]') } })
+  check('"Also today" reads as part of Today, under Now: no rule, smaller than Next\'s heading', part.label === 'Also today' && part.inNow && part.border === 0 && part.size < part.next, JSON.stringify(part))
   const id = (await v('tasks')).find((t) => t.title.includes('water the plants'))?.id
   await h.locator(`[data-day-line="${id}"] [role=checkbox]`).first().click(); await wait(900)
   const tint = await h.evaluate((id) => {
