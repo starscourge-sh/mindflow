@@ -823,7 +823,8 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
     const at = shown.findIndex((one) => one.id === open?.id)
     if (at >= 0 && !example) readAhead('task', [shown[at - 1]?.id, shown[at + 1]?.id])
   }, [open?.id]) // eslint-disable-line react-hooks/exhaustive-deps
-  const [cursor, setCursor] = useListKeys(example ? 0 : shown.length, { onOpen: (index) => pick(shown[index].id), enabled: !matrixed, opened: shown.findIndex((one) => one.id === (coming ?? open?.id)), onExtend: (from, to) => several.extend(shown[from]?.id, shown[to].id),
+  // Written out, the page's own lines answer the keys (day-list.tsx): the list's rows are not drawn, so no key may act on one unseen.
+  const [cursor, setCursor] = useListKeys(example ? 0 : shown.length, { onOpen: (index) => pick(shown[index].id), enabled: !matrixed && !written, opened: shown.findIndex((one) => one.id === (coming ?? open?.id)), onExtend: (from, to) => several.extend(shown[from]?.id, shown[to].id),
     // Esc in the list puts the open task away, as its ✕ does: never while some are picked (Esc lets those go first) or a menu is up.
     onEscape: () => void (open && !several.chosen.length && !document.querySelector('[role="menu"], [role="dialog"]') && (chime('fold'), setOpen(null))) })
   // Back from the Bin by Undo: open again if a task was open, else the keyboard on its row.
@@ -862,7 +863,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
   // Split, only the pane in front answers keys.
   const here = useHere()
   // x, ⇧-click and ⌘A pick several, to do, move or close together.
-  const several = useTaskPick(example || matrixed ? [] : shown, cursor, { here, off: example || matrixed })
+  const several = useTaskPick(example || matrixed || written ? [] : shown, cursor, { here, off: example || matrixed || written })
   // One light over the rows, gliding to the nearest, as the sidebar's does: the gap between two tasks never goes dark.
   const rowsBox = useRef<HTMLDivElement>(null)
   const rowsHover = useFluidHover(rowsBox, { items: '[data-task-row]' })
@@ -876,6 +877,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
         // Written out, A starts a new line on the page instead.
         return written ? writeOutDay() : addRef.current?.focus()
       }
+      if (written) return
       const task = example ? undefined : shown[cursor]
       if (!task) return
       if (event.altKey && (event.code === 'KeyJ' || event.code === 'KeyK')) {

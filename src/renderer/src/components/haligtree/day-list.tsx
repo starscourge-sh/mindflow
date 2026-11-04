@@ -666,32 +666,52 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
     return true
   }
 
-  // The picked line's keys, ahead of the page's own (the Journal's T for today, the Tasks page's row keys).
+  // The line's keys, ahead of the page's own (the Journal's T for today), as a row on the other Tasks tabs has them:
+  // on the line picked (Esc, or ↑ ↓ and J K from nothing picked), or else on the line the pointer rests on. T M W N L
+  // send it, E ticks it, ↵ writes in it again, ↑ ↓ J K pick the one beside it. Before, only a line picked with Esc
+  // answered, so a key pressed over a line did nothing at all (note ac5c2fa3).
   useEffect(() => {
-    if (!picked) return
     const onKey = (event: KeyboardEvent): void => {
       if (event.metaKey || event.ctrlKey || event.altKey || event.defaultPrevented) return
       if (document.activeElement?.closest('input, textarea, [contenteditable=true], [role=menu], [role=dialog]')) return
-      const list = lists[picked.section]
-      const at = list.findIndex((one) => one.id === picked.id)
-      if (at < 0) return setPicked(null)
+      if (!box.current?.isConnected || box.current.closest('[inert]')) return
       const take = (): void => (event.preventDefault(), event.stopImmediatePropagation())
-      if (event.key === 'Escape') return (take(), setPicked(null))
-      if (event.key === 'Enter') return (take(), setPicked(null), go(`t:${picked.id}`))
-      if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+      const down = event.key === 'ArrowDown' || event.key === 'j'
+      const up = event.key === 'ArrowUp' || event.key === 'k'
+      // The Journal's short list keeps its page's own keys under the pointer; a line picked there still answers.
+      // The line under the pointer, read as the key comes, never kept: a row redrawn under a resting pointer has no leave.
+      const under = compact ? null : box.current.querySelector<HTMLElement>('[data-day-line]:hover')
+      const pointed = under ? { id: under.dataset.dayLine!, section: under.dataset.section as Section } : null
+      const on = picked ?? pointed
+      if (!on) {
+        // Nothing picked or pointed at: ↓ or J picks the first line of the day, ↑ or K the last.
+        if (compact || !(down || up)) return
+        const list = lists.now
+        const to = down ? list[0] : list.at(-1)
+        if (!to) return
         take()
-        const to = list[at + (event.key === 'ArrowUp' ? -1 : 1)]
-        return to ? (chime('tick'), setPicked({ id: to.id, section: picked.section })) : chime('nope')
+        return void (chime('tick'), setPicked({ id: to.id, section: 'now' }))
       }
+      const list = lists[on.section]
+      const at = list.findIndex((one) => one.id === on.id)
+      if (at < 0) return picked ? setPicked(null) : undefined
+      if (event.key === 'Escape') return picked ? (take(), setPicked(null)) : undefined
+      if (event.key === 'Enter') return (take(), setPicked(null), go(`t:${on.id}`))
+      if (down || up) {
+        take()
+        const to = list[at + (up ? -1 : 1)]
+        return to ? (chime('tick'), setPicked({ id: to.id, section: on.section })) : chime('nope')
+      }
+      if (event.key === 'e') return (take(), setPicked(null), tick(list[at]))
       const place = PLACES.find((one) => one.key && one.key.toLowerCase() === event.key.toLowerCase())
       if (!place) return
       take()
       setPicked(null)
-      void sendTo(list[at], picked.section, place.id)
+      void sendTo(list[at], on.section, place.id)
     }
     // A press anywhere but on the line (or its menu) lets it go.
     const off = (event: PointerEvent): void => {
-      if (!(event.target as Element | null)?.closest(`[data-day-line="${CSS.escape(picked.id)}"], [role=menu]`)) setPicked(null)
+      if (picked && !(event.target as Element | null)?.closest(`[data-day-line="${CSS.escape(picked.id)}"], [role=menu]`)) setPicked(null)
     }
     window.addEventListener('keydown', onKey, true)
     window.addEventListener('pointerdown', off, true)
@@ -779,6 +799,8 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
       <SortableRow key={task.id} id={task.id}>
         <div data-day-line={task.id} data-section={section} data-done={struck || undefined} data-top={first || undefined} data-rank={rank || undefined}
           data-picked={picked?.id === task.id || undefined}
+          // Pointing at another line moves the keys to it, as the light under the rows follows the pointer on every list.
+          onPointerEnter={() => void (picked && picked.id !== task.id && setPicked(null))}
           className={`group/line relative rounded-md ${task.id === openId || picked?.id === task.id ? 'bg-accent/50' : ''} ${arrived(task.id) ? 'mf-arrive' : ''}`}>
           {/* Right-clicked, the menu a task has on every list, with the words' own Cut, Copy and Paste after it. */}
           {/* Where it can go first, each with its key once the line is picked (Esc). */}
@@ -1052,7 +1074,9 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
           <span><Kbd>@</Kbd> link a note</span>
           <span><Kbd>⇥</Kbd> a step of the line above</span>
           <span><Kbd>⌥↑</Kbd> <Kbd>⌥↓</Kbd> reorder</span>
-          <span><Kbd>Esc</Kbd> then <Kbd>M</Kbd> <Kbd>W</Kbd> <Kbd>N</Kbd> <Kbd>L</Kbd> tomorrow, next week, Next, Later</span>
+          <span><Kbd>T</Kbd> <Kbd>M</Kbd> <Kbd>W</Kbd> <Kbd>N</Kbd> <Kbd>L</Kbd> on the line pointed at: today, tomorrow, next week, Next, Later</span>
+          <span><Kbd>E</Kbd> tick it</span>
+          <span><Kbd>↑</Kbd> <Kbd>↓</Kbd> pick a line</span>
           <span><Kbd>⌘↵</Kbd> tick</span>
 
         </p>
