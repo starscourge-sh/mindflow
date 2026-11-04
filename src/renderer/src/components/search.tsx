@@ -14,6 +14,7 @@ import { CAPTURE_TYPES } from './capture-kinds/capture-kind-picker'
 import { whereFrom } from './capture-list'
 import { HaligtreeEditor } from './haligtree'
 import { AskWho, Kbd, Rolling, Tags, Typed, Pressed } from './haligtree/ui'
+import { Marked } from './haligtree/shortcut-sheet'
 import { useWorking } from './haligtree/beam'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import { Orb } from './haligtree/orb'
@@ -476,7 +477,7 @@ export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'tas
                   <RowMenu items={menus ? live.current.menuOf(capture) : []}>
                   <button
                     type="button"
-                    className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left ${PICKED_MARK}`}
+                    className={`flex w-full flex-wrap items-center gap-x-2 rounded-md px-2 py-1.5 text-left ${PICKED_MARK}`}
                     data-search-at={on || undefined}
                     onMouseMove={(event) => realMove(event) && setAt(live.current.doing + index)}
                     data-row
@@ -495,6 +496,8 @@ export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'tas
                     {capture.type === 'task' && <TaskDay task={tasks.find((one) => one.id === capture.id)} />}
                     {whereFrom(capture.source, capture.label) && <span className="min-w-0 max-w-[40%] truncate text-xs text-muted-foreground">· {whereFrom(capture.source, capture.label)}</span>}
                     {on && !asking && !preview && capture.type === 'capture' && <span className="ml-auto shrink-0 text-xs text-muted-foreground">{capture.attribution ?? 'Tab: who said it'}</span>}
+                    {/* Why it came up: the line the words are on, the words marked, under the name. */}
+                    {capture.line && <span data-found-line className="basis-full truncate pl-6 text-sm text-muted-foreground"><Marked text={capture.line} query={words.join(' ')} /></span>}
                   </button>
                   </RowMenu>
                   )} />

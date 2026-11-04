@@ -495,18 +495,18 @@ export function registerCaptures(): void {
   // Everything search can find, newest first, each with its words in lower case: read once and
   // kept until anything is written, so a letter typed is a pass over memory, not over the book.
   type Found = { type: string; id: string; number: number | null; kind: string; status: string; source: string; attribution: string | null; label: string; capturedAt: string }
-  type Searchable = Found & { text: string; there?: string[] }
+  type Searchable = Found & { text: string; raw?: string; there?: string[] }
   let everything: { at: number; rows: Searchable[] } | null = null
   const searchable = (): Searchable[] => {
     if (everything?.at === writes()) return everything.rows
     const rows = db.prepare(
       `select * from (
          select 'capture' as type, id, number, kind, status, source, attribution, ${LABEL} as label, captured_at as capturedAt,
-           (${LABEL} || ' ' || words(id, body) || ' ' || coalesce(medium, '') || ' ' || coalesce(attribution, '') || ' ' || coalesce(fields, '') || ' ' || coalesce(aliases, '')) as text
+           (${LABEL} || ' ' || words(id, body) || char(31) || coalesce(medium, '') || ' ' || coalesce(attribution, '') || ' ' || coalesce(fields, '') || ' ' || coalesce(aliases, '')) as text
            from captures where status != 'discarded'
          union all
          select tier, id, null, kind, 'open', '', attribution, coalesce(nullif(title, ''), label('', body)), created_at,
-           (coalesce(title, '') || ' ' || ${SHOWN_WORDS} || ' ' || coalesce(attribution, '') || ' ' || coalesce(fields, '') || ' ' || coalesce(aliases, '')) from nuggets where tier not in ('card', 'deck') and binned_at is null
+           (coalesce(title, '') || ' ' || ${SHOWN_WORDS} || char(31) || coalesce(attribution, '') || ' ' || coalesce(fields, '') || ' ' || coalesce(aliases, '')) from nuggets where tier not in ('card', 'deck') and binned_at is null
          union all
          select 'task', id, number, 'todo', status, '', null, title, created_at, (title || ' ' || coalesce(notes, '')) from tasks where status != 'dropped'
          union all
@@ -515,7 +515,7 @@ export function registerCaptures(): void {
          select 'day', day, null, 'day', 'open', '', null, day, day || 'T12:00:00.000Z', ${DAY_WORDS} from (${DAYS}) d
        ) order by capturedAt desc`
     ).all() as unknown as Searchable[]
-    for (const one of rows) one.text = String(one.text ?? '').toLowerCase()
+    for (const one of rows) one.text = (one.raw = String(one.text ?? '')).toLowerCase()
     // The PDFs kept in notes, by their titles, among the rest by when their note was made.
     const pdfs = [...pdfsToFind(db), ...articlesToFind(db)]
     if (pdfs.length) rows.push(...pdfs), rows.sort((a, b) => (a.capturedAt < b.capturedAt ? 1 : a.capturedAt > b.capturedAt ? -1 : 0))
@@ -543,7 +543,29 @@ export function registerCaptures(): void {
       for (const one of rows) if (out.length < n && keep(one)) out.push(one)
       return out
     }
-    const shown = ({ text: _, there: __, ...one }: Searchable): Found => one
+    // The line the words were found on, as it reads, with a little either side: so a row says why it
+    // came up. None when the name alone holds them, as the name already shows it.
+    const lineOf = (one: Searchable): string | undefined => {
+      const raw = one.raw ?? ''
+      const name = (one.label ?? '').trim()
+      // The words only, never the who, where and properties after them (char 31 marks where they start).
+      const words = raw.split('\u001f')[0]
+      const body = words.startsWith(name) ? words.slice(name.length) : words
+      const lower = body.toLowerCase()
+      const hits = terms.map((term) => lower.indexOf(term)).filter((at) => at >= 0)
+      if (!hits.length) return undefined
+      const at = Math.min(...hits)
+      const start = lower.lastIndexOf('\n', at) + 1
+      const stop = lower.indexOf('\n', at)
+      const line = body.slice(start, stop < 0 ? body.length : stop)
+      const from = at - start
+      if (!line.trim() || line.trim() === name) return undefined
+      // Up to 40 characters before the word, cut at a space, so the word is always in sight.
+      const cut = from > 40 ? line.indexOf(' ', from - 40) + 1 || from - 40 : 0
+      const shownLine = line.slice(cut, cut + 160).trim()
+      return `${cut > 0 ? '…' : ''}${shownLine}${cut + 160 < line.length ? '…' : ''}`
+    }
+    const shown = ({ text: _, there: __, raw: ___, ...one }: Searchable): Found & { line?: string } => ({ ...one, line: lineOf({ text: _, raw: ___, ...one }) })
     const found = once(take((one) => terms.every((term) => one.text.includes(term)), 60).map(shown))
     if (filters.length) return found.filter((one) => one.type !== 'task' && one.type !== 'event' && one.type !== 'day' && passes(fieldsOf(db, one.type, one.id), filters))
     // Few or none as typed: spelling forgiven (near.ts), the closest words standing in for a slip of the keys.

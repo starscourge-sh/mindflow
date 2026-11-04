@@ -10,9 +10,10 @@ import { Lock, Search as SearchIcon, X } from '@/components/ui/icons'
 
 /** What was searched for, marked where it appears in a label. */
 export function Marked({ text, query }: { text: string; query: string }): ReactNode {
-  const q = query.trim()
-  if (!q) return text
-  const parts = text.split(new RegExp(`(${q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'i'))
+  // Each word searched for, the longest first, so "cell biology" marks both words wherever they are.
+  const words = [...new Set(query.trim().split(/\s+/).filter(Boolean))].sort((a, b) => b.length - a.length)
+  if (!words.length) return text
+  const parts = text.split(new RegExp(`(${words.map((word) => word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})`, 'i'))
   return parts.map((part, n) => (n % 2 ? <mark key={n} className="rounded-xs bg-[var(--tt-color-highlight-yellow)] text-inherit">{part}</mark> : part))
 }
 
