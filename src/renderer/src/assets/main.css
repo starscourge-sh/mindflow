@@ -411,7 +411,8 @@ html[data-overhang] [data-hint-room] {
 }
 html[data-overhang][data-hint-side='above'] [data-hint-room] {
   left: var(--mf-room-left);
-  right: calc(var(--mf-room-right) + 180px);
+  /* Short of the row above the card, as wide as it is measured ("1 pinned" and the round controls, App.tsx), and 12px more. */
+  right: calc(var(--mf-room-right) + var(--mf-top-row, 180px) + 12px);
   bottom: calc(100vh - var(--mf-room-top) + 8px);
   justify-content: flex-end;
 }

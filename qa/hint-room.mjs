@@ -48,6 +48,8 @@ const hint = async (expect = true) => (expect && (await page.waitForSelector('[d
     top: Math.round(r.top), bottom: Math.round(r.bottom), left: Math.round(r.left), right: Math.round(r.right),
     card: [Math.round(card.left), Math.round(card.top), Math.round(card.right), Math.round(card.bottom)],
     overCard: hit(card), overControl: controls.some(hit),
+    // The row above the card ("1 pinned" and the round controls): how far the hint stops short of its first control, where the two share a line.
+    rowGap: controls.length && controls.some((x) => !(x.bottom <= r.top || x.top >= r.bottom)) ? Math.round(Math.min(...controls.map((x) => x.left)) - r.right) : null,
     inWindow: r.top >= 0 && r.left >= 0 && r.right <= innerWidth && r.bottom <= innerHeight,
     opacity: room ? Number(getComputedStyle(room).opacity) : 1,
     lines: (() => { const w = one.querySelector('[data-hint-words]'); return w ? Math.round(w.getBoundingClientRect().height / parseFloat(getComputedStyle(w).lineHeight)) : 0 })()
@@ -264,6 +266,7 @@ try {
   const low = await hint()
   check('lower on the screen: under the card while there is room there, else above it, its left edge on the card\'s, never beside it', seen(low) && (under(low) || (low.side === 'above' && low.bottom <= low.card[1] - 8 && low.left === low.card[0])), JSON.stringify(low))
   check('…clear of the round controls and the card', low && !low.overControl && !low.overCard && low.inWindow, JSON.stringify(low))
+  check('…above the grown box, it stops 8px or more short of the whole row ("1 pinned" and the buttons)', low && (low.side !== 'above' || low.rowGap === null || low.rowGap >= 8), JSON.stringify(low))
   await shape('box-low')
 
   // Near the left edge of the screen at the top: the hint goes to the right.

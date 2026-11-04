@@ -331,7 +331,12 @@ const Header = ({ panel, drawn, onPanel, onNew, menu, nav, title, aside }: {
     // The chip's step aside for the pill (a transform, so not in its width) counted in
     // always, so the title never re-centres as the pointer comes and goes.
     const aside = (): number => (at.querySelector('[data-aside]') ? parseFloat(getComputedStyle(document.documentElement).fontSize) * 5.75 : 0)
-    const measure = (): void => setRoom(Math.max(at.offsetWidth + aside(), at.querySelector<HTMLElement>('.mf-pill')?.offsetWidth ?? 0))
+    const measure = (): void => {
+      const wide = Math.max(at.offsetWidth + aside(), at.querySelector<HTMLElement>('.mf-pill')?.offsetWidth ?? 0)
+      setRoom(wide)
+      // Quick capture's hint above the card stops short of this whole row ("1 pinned" and the round controls), however wide.
+      document.documentElement.style.setProperty('--mf-top-row', `${wide}px`)
+    }
     const watch = new ResizeObserver(measure)
     watch.observe(at)
     return () => watch.disconnect()
