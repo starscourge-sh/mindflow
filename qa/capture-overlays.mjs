@@ -3,10 +3,12 @@
 // (nothing of it drawn in the capture window), or sits inside the capture window whole, the kind menu attached to
 // its chip; and the blur under the card is where the card is, never a shape left where the card was (the user's
 // 4f19f8eb: the card's top see-through, ghost copies of the pill lower down).
+// With HALIGTREE_QA_ONSCREEN=1 it also films the pill growing into the box and folding back, every frame: the round
+// controls beside the pill, in a row above the box at its right edge, gliding between (note 57aa1710).
 // Pictures of the capture window itself, by its window id, go to QA_SHOTS (HALIGTREE_QA_ONSCREEN=1 to take them).
 //   QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 QA_ARGS=--sandbox node qa/capture-overlays.mjs
 import { execFileSync } from 'child_process'
-import { mkdirSync } from 'fs'
+import { mkdirSync, writeFileSync } from 'fs'
 import { join } from 'path'
 import { checks } from './harness.mjs'
 import { CALM_HOUR, sandbox } from './sandbox-lib.mjs'
@@ -82,10 +84,71 @@ const OVERLAYS = [
   { name: 'cmd-slash', open: async () => { await page.keyboard.press('Meta+/') }, close: async () => { await page.keyboard.press('Escape'); await h.keyboard.press('Escape').catch(() => {}) }, big: true }
 ]
 
+/** The round controls' row through a change, every frame (16ms), with the card: [ms, row, card, pill]. */
+const film = async (act, ms = 900) => {
+  await page.evaluate(() => {
+    window.__film = []
+    const t0 = performance.now()
+    const box = (el) => { const r = el?.getBoundingClientRect(); return r ? [r.left, r.top, r.right, r.bottom].map((n) => Math.round(n)) : null }
+    const tick = () => {
+      window.__film.push([Math.round(performance.now() - t0), 'controlsAbove' in document.documentElement.dataset, box(document.querySelector('.mf-top')), box(document.querySelector('.app-container')), !!document.querySelector('.app-container[data-pill]'), [...document.querySelectorAll('.mf-top [data-aside] > *, .mf-top .mf-pill button')].filter((el) => el.offsetWidth > 0).map(box)])
+      if (performance.now() - t0 < 1400) requestAnimationFrame(tick)
+    }
+    requestAnimationFrame(tick)
+  })
+  const pictures = []
+  const t0 = Date.now()
+  await act()
+  while (Date.now() - t0 < ms) { if (shots) pictures.push(await page.screenshot()); else await wait(16) }
+  await wait(Math.max(0, 1450 - (Date.now() - t0)))
+  return { frames: await page.evaluate(() => window.__film), pictures }
+}
+/** Each control's largest step from one frame to the next (in px per 16ms), and its step in the frame the shape changed (a jump shows
+ * there: the row drawn at its new place before it glides); where the row ends against the card. */
+const read = ({ frames }) => {
+  let step = 0
+  let start = 0
+  const moved = (a, b) => Math.max(...a.map((one, i) => (b[i] ? Math.max(Math.abs(one[0] - b[i][0]), Math.abs(one[1] - b[i][1])) : 0)))
+  for (let i = 1; i < frames.length; i++) {
+    const [a, b] = [frames[i - 1][5], frames[i][5]]
+    if (!a?.length || !b?.length) continue
+    // Per 16ms: a frame the page was too busy to draw (the fold's render) makes the next step longer, not a jump.
+    const by = moved(a, b)
+    step = Math.max(step, Math.round(by / Math.max(1, (frames[i][0] - frames[i - 1][0]) / 16.7)))
+    if (frames[i - 1][4] !== frames[i][4]) start = by
+  }
+  const [, above, row, card, pill] = frames.at(-1)
+  return { step, start, above, row, card, pill, count: frames.length }
+}
+async function growAndFold(look) {
+  await page.evaluate(() => window.api.showPrompt()); await wait(1200)
+  await page.click(EDITOR); await page.keyboard.press('Meta+a'); await page.keyboard.press('Backspace'); await wait(500)
+  await page.keyboard.type('One line')
+  const grown = await film(async () => { await page.keyboard.press('Shift+Enter'); await page.keyboard.type('two') })
+  const g = read(grown)
+  check(`${look} grow: the box grew (not the pill any more)`, !g.pill, JSON.stringify(g))
+  check(`${look} grow: the round controls sit in a row above the box, level with its right edge`, !!g.row && !!g.card && g.row[3] <= g.card[1] - 4 && Math.abs(g.row[2] - g.card[2]) <= 2, JSON.stringify(g))
+  check(`${look} grow: they glide there from beside the pill, nothing drawn at the new place first (${g.start}px in that frame, at most ${g.step}px a frame)`, g.start <= 12 && g.step <= 120 && g.count >= 30, JSON.stringify(g))
+  const folded = await film(async () => { await page.keyboard.press('Meta+a'); await page.keyboard.press('Backspace'); await page.keyboard.type('One line') }, 1400)
+  const f = read(folded)
+  check(`${look} fold: back to the pill`, f.pill, JSON.stringify(f))
+  check(`${look} fold: the round controls are beside the pill again, at its height`, !!f.row && !!f.card && f.row[0] >= f.card[2] + 4 && Math.abs(f.row[1] - f.card[1]) <= 2, JSON.stringify(f))
+  check(`${look} fold: they glide back (${f.start}px in the frame it folds, at most ${f.step}px a frame)`, f.start <= 12 && f.step <= 120, JSON.stringify(f))
+  if (shots) {
+    grown.pictures.forEach((png, i) => writeFileSync(join(shots, `grow-${look}-${String(i).padStart(2, '0')}.png`), png))
+    folded.pictures.forEach((png, i) => writeFileSync(join(shots, `fold-${look}-${String(i).padStart(2, '0')}.png`), png))
+    writeFileSync(join(shots, `grow-fold-${look}.json`), JSON.stringify({ grown: grown.frames, folded: folded.frames }))
+  }
+  await page.evaluate(() => window.api.hidePrompt()); await wait(500)
+}
+
 try {
   await c.v('settings:set', { hintRate: 0, rotCount: 0, sounds: false, boxOneLine: true })
   for (const look of ['dark', 'light']) {
     await c.look(look)
+    // On screen only: parked off screen at its edge, the window has no room beside the pill, so its controls sit above it.
+    if (process.env.HALIGTREE_QA_ONSCREEN) await growAndFold(look)
+    if (process.env.QA_GROW_ONLY) continue
     for (const shape of ['pill', 'grown']) {
       await page.evaluate(() => window.api.showPrompt()); await wait(1200)
       await page.click(EDITOR); await page.keyboard.press('Meta+a'); await page.keyboard.press('Backspace'); await wait(400)

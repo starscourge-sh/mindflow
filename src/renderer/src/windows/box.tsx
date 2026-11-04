@@ -154,11 +154,43 @@ if (window.api.room.left) {
   // would run past its edge, they go above the pill instead, and a new room from main (an open somewhere else) tries beside again (main.css).
   const fitControls = (): void => {
     const root = document.documentElement
-    if (!document.querySelector('.app-container[data-one-line]') || 'controlsAbove' in root.dataset) return
+    if (!document.querySelector('.app-container[data-one-line][data-pill]') || 'controlsAbove' in root.dataset) return
     const controls = document.querySelector('.mf-top')?.getBoundingClientRect()
     if (controls?.width && controls.right > window.innerWidth - 4) root.dataset.controlsAbove = ''
   }
-  new MutationObserver(() => requestAnimationFrame(fitControls)).observe(document.body, { subtree: true, attributes: true, attributeFilter: ['data-one-line'] })
+  new MutationObserver(() => requestAnimationFrame(fitControls)).observe(document.body, { subtree: true, attributes: true, attributeFilter: ['data-one-line', 'data-pill'] })
+  // Beside the pill, and in a row above the box once it grows (main.css): each round control glides from one place to
+  // the other, in the same frame the pill grows or folds, never jumping. Where each was is kept from the last frame
+  // drawn; the new place is read before the next paint (a MutationObserver runs before it), and each starts from its
+  // old place and size. `translate` and `scale`, not `transform`: the overhang holds `transform: none !important`.
+  let was: DOMRect[] = []
+  let shapeWas = ''
+  const shapeNow = (): string => (document.querySelector('.app-container[data-pill]') ? 'pill' : 'box')
+  const keep = (): void => {
+    const now = buttons()
+    if (now.length && !shapeWas) shapeWas = shapeNow()
+    if (shapeNow() === shapeWas && !now.some((one) => one.getAnimations().length)) was = now.map((one) => one.getBoundingClientRect())
+    requestAnimationFrame(keep)
+  }
+  keep()
+  new MutationObserver(() => {
+    const shape = shapeNow()
+    if (!shapeWas || shape === shapeWas) return
+    shapeWas = shape
+    const now = buttons()
+    const from = was
+    was = now.map((one) => one.getBoundingClientRect())
+    if (from.length !== now.length || matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    now.forEach((one, i) => {
+      for (const old of one.getAnimations()) old.cancel()
+      const to = one.getBoundingClientRect()
+      if (!to.height) return
+      one.animate([
+        { translate: `${from[i].left - to.left}px ${from[i].top - to.top}px`, scale: `${from[i].width / to.width} ${from[i].height / to.height}`, transformOrigin: '0 0' },
+        { translate: '0 0', scale: '1 1', transformOrigin: '0 0' }
+      ], { duration: 260, easing: 'cubic-bezier(0.16, 1, 0.3, 1)' })
+    })
+  }).observe(document.body, { subtree: true, attributes: true, attributeFilter: ['data-pill'] })
   window.addEventListener('resize', () => requestAnimationFrame(fitControls))
   window.api.onRoomHint(({ top, left, right, bottom, side }) => {
     const root = document.documentElement
