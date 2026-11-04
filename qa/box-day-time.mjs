@@ -37,6 +37,12 @@ try {
   check('a plain thought stays a note', (await captured('tides')) && !(await task('tides')))
   await send('the talk was yesterday 3pm')
   check('a time already gone stays a note', (await captured('the talk')) && !(await task('the talk')))
+  // A day alone, no clock time (e24263d5: "it does not think this is a task???").
+  await send('use the 200 USD credits to render the first youtube video? on wednesday', 'box-day-alone.png')
+  const credits = await task('200 USD credits')
+  check('"use the 200 USD credits to render the first youtube video? on wednesday" is a task, on a Wednesday', !!credits && new Date(credits.dueAt).getDay() === 3, JSON.stringify([credits?.title, credits?.dueAt]))
+  await send('I loved the film on sunday')
+  check('a day in a line that tells of something stays a note', (await captured('loved the film')) && !(await task('loved the film')))
 } finally {
   const passed = results.filter(Boolean).length
   console.log(`${passed}/${results.length} passed`)

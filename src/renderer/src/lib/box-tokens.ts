@@ -194,8 +194,16 @@ export function boxGuess(text: string, now = new Date()): CaptureType | null {
   const guessed = kindOf(text) as CaptureType | null
   if (guessed || /\?\s*$/.test(text) || isProse(text)) return guessed
   const read = readTask(text, now)
-  return read.due && !read.allDay && !dayjs(read.due).isBefore(dayjs(now).startOf('day')) ? 'todo' : null
+  if (!read.due || dayjs(read.due).isBefore(dayjs(now).startOf('day'))) return null
+  if (!read.allDay) return 'todo'
+  // A day alone ("render the first video on wednesday", "party on friday") is a task too, as long as the line is
+  // something to do rather than something told: not "I loved the film on sunday" or "the meeting went well today"
+  // (e24263d5: "it does not think this is a task???").
+  return TOLD.test(text.trim()) ? null : 'todo'
 }
+
+/** A line that tells of something rather than asking it of you: it starts with who or what, or speaks of the past. */
+const TOLD = /^(i|i'm|i’m|i've|i’ve|we|we're|he|she|they|it|it's|it’s|my|our|his|her|their|there|yesterday|today was)\b|\b(was|were|went|did|had|loved|liked|hated|enjoyed|saw|felt|yesterday|ago|last)\b/i
 
 function readCached(text: string, now: Date, plain: { from: number; to: number }[]): Read {
   const id = `${Math.floor(now.getTime() / 60_000)}|${plain.map((one) => `${one.from}-${one.to}`).join(',')}|${text}`
