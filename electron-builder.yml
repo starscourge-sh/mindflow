@@ -15,6 +15,19 @@ files:
   - 'package.json'
 asarUnpack:
   - resources/**
+# Haligtree in Finder's "Open With" for Markdown and PDFs (main: fromFinder). Alternate: offered,
+# never made the default behind your back; pick it as the default in Get Info if you want it.
+fileAssociations:
+  - ext: [md, markdown]
+    name: Markdown document
+    role: Viewer
+    rank: Alternate
+    mimeType: text/markdown
+  - ext: pdf
+    name: PDF document
+    role: Viewer
+    rank: Alternate
+    mimeType: application/pdf
 win:
   executableName: haligtree
 nsis:

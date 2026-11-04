@@ -47,7 +47,7 @@ import iconGold from '../../resources/icon-gold.png?asset'
 import { registerUsage, type Via } from './usage'
 import { resolveWaiting, resolveWithin } from './renames'
 import { importApkg, HOLD_OVER, type ApkgAsk, type ApkgChoice } from './anki-apkg'
-import { alreadyImported, captureText, changed, rescueDrawing, database, shutDatabase, importAnki, importBookmarks, importHighlights, importMarkdown, importNote, linkImported, recordOpen, registerCaptures, registerImportConversion, whenChanged, dropDuplicateTags, setImporting, type Imported } from './captures'
+import { alreadyImported, captureFile, captureText, changed, rescueDrawing, database, shutDatabase, importAnki, importBookmarks, importHighlights, importMarkdown, importNote, linkImported, recordOpen, registerCaptures, registerImportConversion, whenChanged, dropDuplicateTags, setImporting, type Imported } from './captures'
 import { isPrivateFile, looksPrivate } from './import'
 import { warmChrono } from './lazy/chrono'
 import { warmEmoji } from './lazy/emoji'
@@ -100,7 +100,7 @@ import { cameraAccess, displayOf, noteScreenAtStart, privacySettings, screenAcce
 import { registerFocusStats } from './focus-stats'
 import { registerSimilar } from './similar'
 import { registerJournal } from './journal'
-import { registerPdfHighlights } from './pdf-highlights'
+import { pdfsToFind, registerPdfHighlights } from './pdf-highlights'
 import { registerWebArticles } from './web-articles'
 import { registerWordLog } from './word-log'
 import { frostWindow, registerFrost, retellFrost } from './frost'
@@ -3087,9 +3087,34 @@ const fromCli = (argv: string[]): string | null => {
 if (!locked) app.quit()
 app.on('second-instance', (_event, argv) => {
   const text = fromCli(argv)
+  const files = argv.slice(1).filter(isFinderFile)
   if (text) captureText(text)
+  else if (files.length) files.forEach(fromFinder)
   else toggleWindow()
 })
+
+/**
+ * A Markdown file or a PDF opened with Haligtree from Finder ("Open With", a
+ * double-click once it is the default, or dropped on the Dock icon). A PDF
+ * opens in the reader, kept in a note named after it; Markdown comes in as
+ * one page in Writing named after its file. Either opened again is the same one, never
+ * a second copy. Asked before the app is ready (it was opened by the file),
+ * they wait for it here.
+ */
+const isFinderFile = (path: string): boolean => /\.(md|markdown|pdf)$/i.test(path)
+const finderFiles: string[] = []
+let openFinderFile: ((path: string) => Promise<void>) | null = null
+function fromFinder(path: string): void {
+  if (!isFinderFile(path)) return
+  if (openFinderFile) void openFinderFile(path)
+  else finderFiles.push(path)
+}
+app.on('open-file', (event, path) => {
+  event.preventDefault()
+  fromFinder(path)
+})
+// Windows and Linux hand the file to a first launch as an argument.
+if (process.platform !== 'darwin') process.argv.slice(1).filter(isFinderFile).forEach(fromFinder)
 
 /**
  * A whole Obsidian vault, each note one capture (or an article, from a
@@ -5083,6 +5108,35 @@ app.whenReady().then(() => {
 
     return `haligtree://assets/${hash}.${suffix}`
   }
+
+  // Files opened with Haligtree from Finder (fromFinder, above), now that the store and the book are up.
+  openFinderFile = async (path) => {
+    const name = basename(path)
+    try {
+      if (/\.pdf$/i.test(name)) {
+        const bytes = new Uint8Array(await readFile(path))
+        if (Buffer.from(bytes.subarray(0, 5)).toString('latin1') !== '%PDF-') return inHome('haligtree:toast', { text: `${name} is not a PDF Haligtree can read.`, tone: 'warning' })
+        // Stored by its bytes, so the same book opened again, under any name, is the one already kept.
+        const src = await storeFile(name, bytes)
+        const kept = pdfsToFind(database()).find((one) => one.id.startsWith(`${src}|`))
+        if (!kept) captureFile(name.replace(/\.pdf$/i, ''), { type: 'attachment', attrs: { src, name, size: bytes.byteLength } }, path)
+        return sendHome('pdf', kept?.id ?? `${src}|${name}`)
+      }
+      const before = alreadyImported(path)
+      const made = before ?? importNote(path, await readFile(path, 'utf8'), (await stat(path)).mtime, false, true)
+      if (made === 'empty') return inHome('haligtree:toast', { text: `${name} is empty, so there was nothing to bring in.`, tone: 'info' })
+      if (made === 'already here') return
+      if (!before) {
+        changed()
+        for (const win of BrowserWindow.getAllWindows()) win.webContents.send('imports:ready')
+      }
+      const [type, id] = made.link.startsWith('article:') ? ['article', made.link.slice(8)] : ['capture', made.link]
+      sendHome(type, id)
+    } catch (error) {
+      inHome('haligtree:toast', { text: `${name} could not be opened: ${error instanceof Error ? error.message : String(error)}`, tone: 'error' })
+    }
+  }
+  for (const path of finderFiles.splice(0)) void openFinderFile(path)
 
   // A link to a PDF on the web, opened in the reader: fetched once into the
   // book's own files, as a card's picture is, and kept by its address, so

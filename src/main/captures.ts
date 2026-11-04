@@ -836,6 +836,15 @@ export function rescueDrawing(scene: unknown): void {
   changed()
 }
 
+/** A note holding one block, a PDF opened from Finder: named, dated now, remembering the file it came from. Its id. */
+export function captureFile(title: string, block: unknown, source: string): string {
+  const { id, number } = insert({ title, kind: 'note', body: { type: 'doc', content: [block] } as never, source }, new Date().toISOString())
+  db.prepare('update captures set named = 1 where id = ?').run(id)
+  void writeMarkdown(number, markdown({ type: 'doc', content: [block] } as never))
+  changed()
+  return id
+}
+
 /** A capture from the command line: plain words, its kind guessed from them. */
 export function captureText(text: string): void {
   insert({ title: '', kind: kindOf(text) ?? 'note', body: isBit(text) && !tagged(text, 'bit') ? withTag(text, 'bit') : text }, new Date().toISOString())
