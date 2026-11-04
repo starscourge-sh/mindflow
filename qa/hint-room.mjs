@@ -211,11 +211,13 @@ try {
   check('…and nothing in the card moved', JSON.stringify(await where()) === JSON.stringify(withHint.in))
   await page.keyboard.press('Backspace'); await wait(300)
   await reopen()
+  // From the writing, where ⌘K is taken (focused, not clicked: a click would count as a start and send the hint off).
+  await page.focus(EDITOR).catch(() => {})
   await page.keyboard.press('Meta+k'); await wait(600)
   // ⌘K opens its box in the main window now (e5ad3bb6), nothing of it in this one: nothing here for the hint to give
   // way to (this check was written when ⌘K's box opened over the card, and the hint hid under it).
-  const inHome = await h.waitForSelector('[cmdk-dialog], [data-slot=dialog-content] [cmdk-root]', { timeout: 2500 }).then(() => true, () => false)
-  check('⌘K open: its box opens in the main window, none in the capture window over the hint', inHome && !(await page.$('[cmdk-dialog], [data-slot=dialog-content] [cmdk-root]')), JSON.stringify({ inHome }))
+  const inHome = await h.waitForSelector('[cmdk-dialog], [data-slot=dialog-content] [cmdk-root], [role=dialog][aria-label="Search"]', { timeout: 2500 }).then(() => true, () => false)
+  check('⌘K open: its box opens in the main window, none in the capture window over the hint', inHome && !(await page.$('[cmdk-dialog], [data-slot=dialog-content] [cmdk-root], [role=dialog][aria-label="Search"]')), JSON.stringify({ inHome }))
   await h.keyboard.press('Escape').catch(() => {})
   await page.keyboard.press('Escape'); await wait(400)
   // Typed in, ⌘K opened and closed, put away: the next open deals a hint again.

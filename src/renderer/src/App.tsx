@@ -1110,6 +1110,8 @@ export default function App(): React.JSX.Element {
   // into the pill all that while.
   const wrapsNow = useRef(wraps)
   wrapsNow.current = wraps
+  const oneLineNow = useRef(oneLine)
+  oneLineNow.current = oneLine
   const measureWraps = useRef<() => boolean | null>(() => null)
   measureWraps.current = () => {
     if (!oneLine) return null
@@ -2219,9 +2221,15 @@ export default function App(): React.JSX.Element {
                 if (toEnd.current) (toEnd.current = false, requestAnimationFrame(() => editor.commands.focus('end')))
                 box.guard(editor)
                 // A second line typed: the pill grows into the box before this frame is drawn (see measureWraps).
+                // Only a new line counts here, never words wrapping: a change can come while the card is not yet at
+                // its width (a draft put in as the box opens, the card 344px wide mid-resize), and there a one-line
+                // draft ("Rosetta Stone") wrapped a letter to a line and grew into the box (qa/hint-room.mjs). Words
+                // passing one line are still measured as the box draws, at its own width (the layout effect above).
                 editor.on('update', () => {
-                  const next = measureWraps.current()
-                  if (next !== null && next !== wrapsNow.current) flushSync(() => setWraps(next))
+                  if (!oneLineNow.current || wrapsNow.current) return
+                  const doc = column.current?.querySelector<HTMLElement>('.ProseMirror')
+                  // A new block, or a line break in the one (⇧↩): both are a new line whatever the width.
+                  if (doc && (doc.childElementCount > 1 || doc.querySelector('br:not(.ProseMirror-trailingBreak)'))) flushSync(() => setWraps(true))
                 })
                 // First among its plugins, so a click on a lit tag keeps it plain rather than opening it.
                 if (!planNow(editor))
