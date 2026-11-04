@@ -286,7 +286,10 @@ export function DayGrid({ days, onOpenDay, label, calendar = false }: { days: st
           const reviews = calendar ? (marked.reviews[day] ?? 0) : 0
           const due = calendar && day >= today ? (load[daysBetween(today, day)] ?? 0) : 0
           const page = calendar && pages.has(day)
-          // A calendar day: reviews done tint it, a marked day rings it; elsewhere a mark tints it, as before.
+          // A calendar day: reviews done tint it, a marked day rings it; elsewhere a mark tints it, as before. Every day
+          // has its cell, quiet when empty and today's stronger, so the row reads as one even strip: with a box only on
+          // the day something was kept, the other days were bare numbers and the row looked broken (the user's "when
+          // no box, it looks broken").
           const style: React.CSSProperties | undefined = calendar
             ? {
                 background: reviews ? `color-mix(in oklab, var(--tt-color-text-purple) ${Math.round(6 + (reviews / most) * 16)}%, transparent)` : undefined,
@@ -307,7 +310,7 @@ export function DayGrid({ days, onOpenDay, label, calendar = false }: { days: st
               <button type="button" data-grid-day={day} data-page={page || undefined} data-reviews={reviews || undefined} data-due={due || undefined} aria-current={now ? 'date' : undefined}
                 aria-label={`${dayName(noon(day))}${said.length ? `, ${said.join(', ')}` : ''}`}
                 onClick={() => (chime('tap'), onOpenDay ? onOpenDay(day) : void markDay(day, here[0]))}
-                className={`@container relative flex min-h-12 min-w-0 flex-col items-start gap-0.5 rounded-md px-1.5 py-1 text-left transition-colors hover:bg-accent/60 ${now && !(calendar && reviews) ? 'bg-accent/40' : ''}`}
+                className={`@container relative flex min-h-12 min-w-0 flex-col items-start gap-0.5 rounded-md px-1.5 py-1 text-left transition-colors hover:bg-accent/60 ${now && !(calendar && reviews) ? 'bg-accent' : 'bg-foreground/[0.04]'}`}
                 style={style}>
                 <span className="flex w-full items-baseline gap-1">
                   <span className={`text-xs tabular-nums ${now ? 'font-semibold text-[var(--tt-brand-color-400)]' : gone ? 'text-muted-foreground' : 'text-foreground'}`}>{noon(day).date()}</span>
