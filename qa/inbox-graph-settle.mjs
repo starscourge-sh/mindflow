@@ -91,6 +91,11 @@ try {
     check(`${size}: the graph shows its dots`, b.length >= Math.min(size, 5) - 1, `${b.length} dots`)
     check(`${size}: no two dots overlap once settled`, over.pairs === 0, `${over.pairs} pairs, worst ${over.worst.toFixed(1)}px into each other`)
     check(`${size}: nothing drifts after it has settled`, moved < 1, `${moved.toFixed(2)} map units in 1.2s`)
+    // Every tag dot carries its name (a tag dot is its cluster's name; one near #garden at 500 had none).
+    const named = new Set(await h.evaluate(() => document.querySelector('[data-inbox-graph] canvas')?.mapNamed?.() ?? []))
+    const tagDots = b.filter((one) => String(one.title).startsWith('#'))
+    const unnamed = tagDots.filter((one) => !named.has(one.id)).map((one) => one.title)
+    check(`${size}: every tag dot has its name`, tagDots.length > 0 && !unnamed.length, `${tagDots.length} tags, without a name: ${unnamed.join(', ') || 'none'}`)
     check(`${size}: the whole map sits inside its frame`, Math.min(edge.left, edge.top, edge.right, edge.bottom) >= 8, `clear of the edges by ${['left', 'top', 'right', 'bottom'].map((k) => `${k} ${Math.round(edge[k])}`).join(', ')}`)
     if (shots) for (const name of ['light', 'dark']) { await look(name); await wait(300); await (await h.$('[data-inbox-graph]')).screenshot({ path: `${shots}/graph-${size}-settled-${name}.png` }) }
     await look('light')

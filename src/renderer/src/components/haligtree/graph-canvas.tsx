@@ -181,6 +181,7 @@ export function GraphCanvas({ map, onOpen, centre, you, about, fit: fitRef, fly,
   // The dot pointed at, by its middle and size on the screen.
   const [hover, setHover] = useState<{ dot: Dot; x: number; y: number; r: number } | null>(null)
   const blocked = useRef<number[][]>([])
+  const namedAtRest = useRef<string[]>([])
   const card = useRef<HTMLDivElement>(null)
   // The card goes where it covers no lit dot or name: above if it can, else
   // below, beside or at a corner, whichever is clearest and stays in the frame.
@@ -699,7 +700,7 @@ export function GraphCanvas({ map, onOpen, centre, you, about, fit: fitRef, fly,
         const list: Dot[] = []
         for (const dot of ranked) {
           if (list.length >= 80) break
-          if (inFrame(dot) && (dot.rings || dot.r * view.k >= tuned.current.names) && got(dot) > 0) list.push(dot)
+          if (inFrame(dot) && (dot.rings || dot.type === 'tag' || dot.r * view.k >= tuned.current.names) && got(dot) > 0) list.push(dot)
         }
         return list
       }
@@ -727,8 +728,11 @@ export function GraphCanvas({ map, onOpen, centre, you, about, fit: fitRef, fly,
         context.strokeStyle = ring
         context.lineJoin = 'round'
         let said = 0
+        // Named whatever the crowd: the busiest hubs, and every tag (a tag dot is a cluster's name, and with none it
+        // is a dot nobody can read; note: one tag near #garden at 500 captures had no name).
+        const must = (dot: Dot): boolean => ranked.indexOf(dot) < 6 || dot.type === 'tag'
         for (const dot of say) {
-          if (clear && !shown && said >= most) break
+          if (clear && !shown && said >= most && !must(dot)) continue
           const words = titleOf(dot)
           const wide = context.measureText(words).width
           const away = from ? dot.x! < from.x! || (dot === from && dot.x! > 0) : false
@@ -761,7 +765,7 @@ export function GraphCanvas({ map, onOpen, centre, you, about, fit: fitRef, fly,
           // all four spots touch a dot, a little further out with a fine line to
           // it, or else on a solid pill that may sit over small dots, never a name.
           let leader = false, pill = false
-          if (!spot && clear && !shown && ranked.indexOf(dot) < 6) {
+          if (!spot && clear && !shown && must(dot)) {
             // The line itself crosses no other dot, so it cannot seem to name that one.
             const crossesNone = (box: number[]): boolean => {
               const tx = Math.max(box[0], Math.min(dot.x!, box[2])) - dot.x!, ty = Math.max(box[1], Math.min(dot.y!, box[3])) - dot.y!
@@ -776,7 +780,8 @@ export function GraphCanvas({ map, onOpen, centre, you, about, fit: fitRef, fly,
             // A pill keeps off the hubs, near if it can, further out with its line if not.
             const big = (other: Dot): boolean => other.rings > 0 || other.r >= 7
             for (const further of [0, 14, 28, 44]) if (!spot && (spot = boxesAt(further / view.k).find(free(big)))) ((pill = true), (leader = further > 0))
-            if (!spot && (spot = boxesAt(0).find(free(() => false)))) pill = true
+            // Still none: on its pill further out with its line, clear of every other name, over small dots if it must.
+            for (const further of [0, 14, 28, 44, 64, 88]) if (!spot && (spot = boxesAt(further / view.k).find(free(() => false)))) ((pill = true), (leader = further > 0))
           }
           if (!spot) continue
           said++
@@ -818,6 +823,8 @@ export function GraphCanvas({ map, onOpen, centre, you, about, fit: fitRef, fly,
       }
       if (shown && amount < 1) nameAll(null, 1 - amount)
       const taken = nameAll(shown, shown ? amount : 1 - amount)
+      // For a probe: which dots carry a name at rest (mapNamed below).
+      if (!shown) namedAtRest.current = taken.map(({ dot }) => dot.id)
       context.textAlign = 'left'
       // The lit dots and their names, on the screen: what the card must not cover.
       const screen = (at: number, middle: number, offset: number): number => middle + offset + at * view.k
@@ -1024,6 +1031,7 @@ export function GraphCanvas({ map, onOpen, centre, you, about, fit: fitRef, fly,
       return dots.map((dot) => ({ id: dot.id, title: dot.title, x: dot.x, y: dot.y, r: dot.r, colour: shadesOf(tokenOf(dot)).base, held: held.has(dot), rank: rank.get(dot) }))
     }
     // And every line, by the ids of its two ends, so a probe can count where lines cross.
+    ;(el as HTMLCanvasElement & { mapNamed?: () => string[] }).mapNamed = () => namedAtRest.current
     ;(el as HTMLCanvasElement & { mapLines?: () => string[][] }).mapLines = () => lines.map((line) => [line.source.id, line.target.id])
     if (fly) fly.current = (id: string) => {
       const dot = byId.get(id)
