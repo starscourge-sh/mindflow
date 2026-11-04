@@ -1144,7 +1144,7 @@ export default function App(): React.JSX.Element {
   useEffect(() => void (!boxText.trim() && setOpened(false)), [boxText])
   foldPill.current = () => (oneLine && opened && !wraps && !plan?.tokens.length ? (chime('fold'), setOpened(false), true) : false)
   // The window as tall as the writing, from short to full (or one line, as the pill): see fit-box.
-  const box = useFitBox(column, Boolean(reading), pill, appSettings !== null)
+  const box = useFitBox(column, Boolean(reading) || sheetUp, pill, appSettings !== null)
   // No two-finger swipe back and forward here: ⌘ and two fingers throw the box, and the two fought. ⌘[ and ⌘] still step back and on.
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
