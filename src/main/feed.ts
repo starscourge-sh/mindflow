@@ -45,6 +45,8 @@ export type FeedPost = {
   links?: { to: string; label: string }[]
   /** A quote's page or PDF, as its link back says: its name, the page (a PDF's), and the link that opens it there. */
   from?: { name: string; page: number | null; href: string }
+  /** "Changed my mind": the note you said it again in, and when. Shown as one quiet line that opens it. */
+  changedTo?: { id: string; at: string } | null
   /** A gem you restacked: the note it quotes. */
   restack: { type: FeedPost['type']; id: string; title: string; text: string; who: string | null; kind: string } | null
   /** A decision made weeks ago, asked about again: what you said today, and every answer you have given it. */
@@ -157,6 +159,10 @@ export function registerFeed(): void {
     create table if not exists feed_quiz (day text not null, id text not null, grade integer not null, due text not null, primary key (day, id))`)
   // Which of the Feed's switches (Pages too, notes with pictures) a day's set was picked under: flipped, the day is picked again.
   try { db.exec('alter table feed_days add column mode text') } catch { /* there already */ }
+  // A note you changed your mind on: the new one, said again in your words, and when. One a note, the latest kept.
+  db.exec('create table if not exists feed_changed (id text primary key, new_id text not null, at text not null)')
+  const changedOf = db.prepare('select new_id as id, at from feed_changed where id = ? and new_id in (select id from nuggets where binned_at is null)')
+  ipcMain.handle('haligtree:feed:changed', (_event, id: string): { id: string; at: string } | null => (changedOf.get(String(id)) as { id: string; at: string } | undefined) ?? null)
   const modeNow = (): string => `${feedTakesPages() ? 'pages' : ''}|${feedTakesPictures() ? 'pictures' : ''}`
 
   // --- polls: a decision made weeks ago, asked about again.
@@ -484,7 +490,8 @@ export function registerFeed(): void {
         react: reacts.get(key) ?? null, replies: span.n, firstReply: span.first, seenTimes: times.get(row.id) ?? 0, faded: fadedSteps(weightOf(row)), liked: likedSteps(row.type === 'day' ? row.weight : weightOf(row)), tags: tagsOfRow(row).filter((tag) => tag !== 'bit' && tag !== LEARN_TAG).slice(0, 3), restack: quoted(row),
         links: linksOf(row.body ?? ''),
         from: row.kind === 'quote' ? fromOf(row.body) : undefined,
-        archive: !!row.archive
+        archive: !!row.archive,
+        changedTo: (changedOf.get(row.id) as { id: string; at: string } | undefined) ?? null
       }
     }
     const posts = (JSON.parse(keys) as string[]).filter((key) => {
@@ -807,7 +814,7 @@ export function registerFeed(): void {
   }
 
   // --- restack: a new gem in your words, linking to the old note, at the top of tomorrow's Feed.
-  ipcMain.handle('haligtree:feed:restack', (_event, key: string, text: string): string | null => {
+  ipcMain.handle('haligtree:feed:restack', (_event, key: string, text: string, mind = false): string | null => {
     const said = String(text ?? '').trim()
     const old = lookUp(key)
     if (!said || !old) return null
@@ -819,6 +826,11 @@ export function registerFeed(): void {
     ] }
     db.prepare("insert into nuggets (id, kind, title, body, created_at, updated_at) values (?, 'note', ?, ?, ?, ?)").run(id, cut(said.split('\n')[0], 160), JSON.stringify(doc), at, at)
     db.prepare('insert into feed_restacks (id, of_key, made_day) values (?, ?, ?)').run(id, key, dayKey())
+    // "Changed my mind": the old note is marked, so wherever it shows it points to what you think now.
+    if (mind) {
+      db.prepare('insert or replace into feed_changed (id, new_id, at) values (?, ?, ?)').run(old.id, id, at)
+      changed({ kind: old.type === 'capture' ? 'capture' : 'item', id: old.id })
+    }
     changed({ kind: 'item', id })
     return id
   })
@@ -827,6 +839,7 @@ export function registerFeed(): void {
     db.prepare('delete from glosses where item_id = ?').run(id)
     db.prepare('delete from nuggets where id = ?').run(id)
     db.prepare('delete from feed_restacks where id = ?').run(id)
+    db.prepare('delete from feed_changed where new_id = ?').run(id)
     changed({ kind: 'item', id })
     return true
   })

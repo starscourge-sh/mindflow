@@ -30,6 +30,7 @@ import { drawCard, xText, type CardPost } from '@/lib/feed-card'
 import { LOOKABLE, lookAtPicture } from '@/components/image/image-look'
 import { openAside } from '@/lib/split'
 import { FeedLiked } from './feed-liked'
+import { ChangedLink } from './changed-line'
 import { RowMenu } from './row-menu'
 import { useHere } from '@/lib/split'
 import { followPdfLink } from '@/components/pdf/pdf-reader'
@@ -134,6 +135,8 @@ const REACTIONS: { value: Reaction; label: string; tip: string; icon: typeof Hea
 ]
 
 /** What the row's first two say they are for, in a newcomer's words (Reading's foot bar says the same). */
+/** How "Changed my mind" starts the note said again. */
+const MIND = 'I used to think this. Now: '
 export const THOUGHT_TIP = 'Add a thought: a dated line kept under this note, shown with it when it comes back'
 export const AGAIN_TIP = 'Put it in your own words today: saying it again is how it sticks. Yours comes first tomorrow, this one quoted under it.'
 
@@ -556,6 +559,8 @@ export function Post({ post, onOpen, onOpenOther, onThread, alone = false, joine
   const [chosen, setChosen] = useState<Reaction | null>(post.react)
   useEffect(() => setChosen(post.react), [post.react])
   const [restacking, setRestacking] = useState(false)
+  // Opened by "Changed my mind": the same composer, already started, and the old note marked once it is kept.
+  const [mind, setMind] = useState(false)
   const [binned, setBinned] = useState(false)
   const self = useRef<HTMLLIElement>(null)
   // A quote's link back is said once, on its own line under it, not again at the foot of its words.
@@ -579,7 +584,8 @@ export function Post({ post, onOpen, onOpenOther, onThread, alone = false, joine
     return () => node.removeEventListener('haligtree:feed-bin', toBin)
   })
   const menu: MenuItem[] = [
-    post.type !== 'day' && reaction('changed'),
+    // Said again, started for you: the new note comes first tomorrow, and this one points to it from now on.
+    post.type !== 'day' && { id: 'changed', label: 'Changed my mind', icon: <RefreshCcw className="size-4" />, run: () => (chime('tap'), setMind(true), setRestacking(true)) },
     reaction('use'),
     post.type !== 'day' && reaction('less'),
     'separator',
@@ -706,6 +712,7 @@ export function Post({ post, onOpen, onOpenOther, onThread, alone = false, joine
               {post.tags.map((tag) => <button key={tag} type="button" data-feed-tag={tag} {...hoverNote('tag', tag)} onClick={(event) => (chime('page'), openTag(tag, event.altKey))} className="rounded-sm text-muted-foreground hover:text-foreground hover:underline">#{tag}</button>)}
             </p>
           )}
+          {post.changedTo && !preview && <ChangedLink to={post.changedTo} onOpen={(id) => onOpenOther('nugget', id)} />}
           {post.restack && <Quoted note={post.restack} onOpen={() => onOpenOther(post.restack!.type, post.restack!.id)} />}
           {/* Its picture still on its way, drawn before: its room kept, so the posts below never move. */}
           {!picture && shape && !broken && <div aria-hidden data-feed-picture-room className="mt-1 max-w-full rounded-xl border bg-accent/40" style={{ width: `min(100%, ${Math.round(720 * shape)}px)`, aspectRatio: String(shape) }} />}
@@ -768,7 +775,7 @@ export function Post({ post, onOpen, onOpenOther, onThread, alone = false, joine
               </button>
             </Tip>
             <Tip label={AGAIN_TIP}>
-              <button type="button" data-feed-restack aria-label="Say it again" aria-pressed={restacking} onClick={() => (chime(restacking ? 'fold' : 'tap'), setRestacking(!restacking))}
+              <button type="button" data-feed-restack aria-label="Say it again" aria-pressed={restacking} onClick={() => (chime(restacking ? 'fold' : 'tap'), setMind(false), setRestacking(!restacking))}
                 className={cn('flex h-7 items-center gap-1.5 rounded-md px-2 text-control transition-colors hover:bg-foreground/[0.06] hover:text-foreground', restacking && 'text-foreground')}>
                 <Repeat2 className="size-4 shrink-0" /> Say it again
               </button>
@@ -809,7 +816,7 @@ export function Post({ post, onOpen, onOpenOther, onThread, alone = false, joine
               “Add a thought” keeps a dated line under it, “Say it again” puts it in your own words for tomorrow, and “Read later” keeps it in your Queue.
             </p>
           )}
-          {restacking && <Restack post={post} onDone={() => setRestacking(false)} onOpen={(id) => onOpenOther('nugget', id)} />}
+          {restacking && <Restack post={post} mind={mind} initial={mind ? MIND : ''} onDone={() => (setRestacking(false), setMind(false))} onOpen={(id) => onOpenOther('nugget', id)} />}
         </div>
       </div>
     </li>
@@ -1017,15 +1024,16 @@ function Quoted({ note, onOpen }: { note: NonNullable<FeedPost['restack']> | Res
 /** What a restack quotes: a post, or a Page from Reading. */
 type Restackable = Pick<FeedPost, 'type' | 'id' | 'kind' | 'title' | 'text' | 'who'>
 /** Restack: a new gem in your words, the old note quoted under it. ⌘↵ keeps it; it comes first in tomorrow's Feed. `initial`: a line chosen from it, to say again. */
-export function Restack({ post, onDone, onOpen, initial = '' }: { post: Restackable; onDone: () => void; onOpen: (id: string) => void; initial?: string }): React.JSX.Element {
+export function Restack({ post, onDone, onOpen, initial = '', mind = false }: { post: Restackable; onDone: () => void; onOpen: (id: string) => void; initial?: string; /** "Changed my mind": the old note is marked as changed once it is kept. */ mind?: boolean }): React.JSX.Element {
   const [words, setWords] = useState(initial)
   useEffect(() => setWords(initial), [initial])
   const field = useRef<HTMLTextAreaElement>(null)
-  useEffect(() => void requestAnimationFrame(() => field.current?.focus()), [])
+  // The caret after what is already there, so "Now: " is typed straight on.
+  useEffect(() => void requestAnimationFrame(() => { const box = field.current; if (box) (box.focus(), box.setSelectionRange(box.value.length, box.value.length)) }), [])
   const keep = async (): Promise<void> => {
     const said = words.trim()
-    if (!said) return
-    const id = await call<string | null>('feed:restack', `${post.type}:${post.id}`, said)
+    if (!said || said === MIND.trim()) return
+    const id = await call<string | null>('feed:restack', `${post.type}:${post.id}`, said, mind)
     if (!id) return toast('That could not be kept: the note it quotes may be in the Bin', undefined, 'error')
     chime('send')
     onDone()
@@ -1047,7 +1055,7 @@ export function Restack({ post, onDone, onOpen, initial = '' }: { post: Restacka
       <div className="flex items-center justify-end gap-2 text-control text-muted-foreground">
         <span className="mr-auto pl-[38px]">A new gem, linked to this one</span>
         <button type="button" onClick={() => (chime('fold'), onDone())} className="h-7 rounded-md px-2.5 transition-colors hover:bg-foreground/[0.06] hover:text-foreground">Cancel</button>
-        <button type="button" data-feed-restack-save disabled={!words.trim()} onClick={() => void keep()}
+        <button type="button" data-feed-restack-save disabled={!words.trim() || words.trim() === MIND.trim()} onClick={() => void keep()}
           className="flex h-7 items-center gap-1.5 rounded-md bg-primary px-2.5 font-medium text-primary-foreground transition-opacity disabled:opacity-40">
           Say it again <Kbd className="border-primary-foreground/30 text-primary-foreground">⌘↵</Kbd>
         </button>

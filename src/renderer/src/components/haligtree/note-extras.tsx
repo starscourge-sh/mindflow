@@ -1,4 +1,5 @@
 import { useVim } from '@/lib/vim'
+import { ChangedLine } from './changed-line'
 import { useEffect, useRef, useState } from 'react'
 import { useShowLine } from '@/lib/show-in-list'
 import { layerOpen } from '@/lib/menu-keys'
@@ -632,6 +633,7 @@ export function NoteHeader({ left, back, type = 'capture', edited, captured, mad
   // Its line says Vim's keys only to someone who has Vim on.
   const vim = useVim()
   return (
+    <>
     <div data-note-head className={`@container/head flex min-h-7 items-center justify-between gap-2 px-3 @[40rem]/page:px-[clamp(0.75rem,10%,4.25rem)] ${className}`}>
       {reading && <ReadThrough items={[{ type, id: versions.id }]} onClose={() => setReading(false)} />}
       {left ?? <span />}
@@ -715,6 +717,9 @@ export function NoteHeader({ left, back, type = 'capture', edited, captured, mad
         )} />
       )}
     </div>
+    {/* A note you changed your mind on says so under its head, and opens what you think now. */}
+    {type !== 'task' && type !== 'goal' && <ChangedLine id={String(versions.id)} className="mx-3 mt-1 @[40rem]/page:mx-[clamp(0.75rem,10%,4.25rem)]" />}
+    </>
   )
 }
 

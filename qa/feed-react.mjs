@@ -40,16 +40,13 @@ try {
   check('the like is kept', await reactionOf(firstId) === 'like')
   check('a like brings it back sooner (one step up)', (await weightOf()) === 1, String(await weightOf()))
 
-  // Changing it: one a post a day.
+  // "Changed my mind" is not a reaction: it opens "Say it again", already started (qa/feed-changed.mjs follows it through).
   await fromMenu(first, 'changed')
   await h.waitForTimeout(700)
-  check('"Changed my mind" opens Reply with the cursor in it', await h.evaluate(() => document.activeElement?.tagName === 'TEXTAREA' && !!document.activeElement.closest('[data-gloss]')))
-  check('"Changed my mind" asks what you think now', (await h.evaluate(() => document.activeElement?.getAttribute('placeholder') ?? '')).includes('think now'))
-  await h.keyboard.type('Not so sure any more', { delay: 10 })
-  await h.keyboard.press('Enter')
-  await h.waitForTimeout(1000)
-  check('one reaction a post: the like is let go, and its step taken back', await first.locator('[data-feed-reaction="like"]').getAttribute('aria-pressed') === 'false' && await reactionOf(firstId) === 'changed' && (await weightOf()) === 0)
-  check('the row is still where it was', await boxes(first) === before)
+  check('"Changed my mind" opens "Say it again" already started', (await h.evaluate(() => document.activeElement?.closest('[data-feed-composer]') ? document.activeElement.value : '')).startsWith('I used to think this. Now:'))
+  await h.keyboard.press('Escape')
+  await h.waitForTimeout(400)
+  check('the like stays', await reactionOf(firstId) === 'like')
 
   // Use this: a link to it on today's Journal page.
   const second = nth(1)
@@ -90,7 +87,7 @@ try {
   await go('feed')
   await h.waitForTimeout(1000)
   check('reactions are still chosen after a reload',
-    await h.locator(`[data-feed-id="${firstId}"]`).getAttribute('data-feed-react') === 'changed' &&
+    await h.locator(`[data-feed-id="${firstId}"]`).getAttribute('data-feed-react') === 'like' &&
     await h.locator(`[data-feed-id="${thirdId}"] [data-feed-hide]`).getAttribute('aria-pressed') === 'true')
 
   for (const name of ['light', 'dark']) {
