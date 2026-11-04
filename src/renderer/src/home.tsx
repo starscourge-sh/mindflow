@@ -1263,8 +1263,10 @@ export function Home(): React.JSX.Element {
     }
   })
   useEffect(() => window.api.onSentTo((type, id, heading) => {
+    // The shortcuts list asked for from quick capture, opened here (shortcut-sheet.tsx).
+    if (type === 'shortcuts') window.dispatchEvent(new CustomEvent('haligtree:shortcuts', { detail: id }))
     // The passes lay themselves over whatever is open, rather than being a place.
-    if (type === 'view' && (id === 'tidy' || id === 'decide')) openPass(id)
+    else if (type === 'view' && (id === 'tidy' || id === 'decide')) openPass(id)
     // Review on one of its pages (":decks" from an import's notice).
     else if (type === 'view' && id === 'review' && heading?.startsWith(':')) setView({ id, focus: heading })
     // The Bin at what was just put there (a "Moved to the Bin" toast's click).

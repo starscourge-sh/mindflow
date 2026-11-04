@@ -264,6 +264,9 @@ export function KeysEditor({ search = '' }: { search?: string }): React.JSX.Elem
   )
 }
 
+/** Quick capture's own window (its card in a larger see-through window, main's overhang). */
+const inCapture = (): boolean => document.documentElement.hasAttribute('data-overhang')
+
 /**
  * ? anywhere you are not typing, or ⌘/ even while you are: every shortcut over the window, searchable,
  * gone again with Esc or another ?. The same list Settings shows.
@@ -281,12 +284,21 @@ export function ShortcutSheet(): React.JSX.Element | null {
       if (!command && !plain) return
       event.preventDefault()
       chime('open')
+      // Quick capture's window is a small see-through card: the whole list opens in the main window instead, never
+      // as a dark box the size of the capture window floating over the desktop.
+      if (inCapture()) return window.api.openInHome('shortcuts', '')
       setQuery('')
       setOpen(true)
     }
     // The palette's "Keyboard shortcuts" asks for it by name.
     // Reading's ? asks for its own keys: the list opens found on “Reading”.
-    const onAsk = (event: Event): void => (chime('open'), setQuery(typeof (event as CustomEvent).detail === 'string' ? (event as CustomEvent).detail : ''), setOpen(true))
+    const onAsk = (event: Event): void => {
+      const asked = typeof (event as CustomEvent).detail === 'string' ? (event as CustomEvent).detail : ''
+      chime('open')
+      if (inCapture()) return window.api.openInHome('shortcuts', asked)
+      setQuery(asked)
+      setOpen(true)
+    }
     window.addEventListener('keydown', onKey)
     window.addEventListener('haligtree:shortcuts', onAsk)
     return () => {
