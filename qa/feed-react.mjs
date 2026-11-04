@@ -101,11 +101,14 @@ try {
 
   // The thread: opened from the date, glosses oldest first, back to the same place.
   const host = h.locator(`[data-feed-id="${firstId}"]`)
-  await host.locator('[data-feed-reply]').click()
-  await h.waitForTimeout(300)
-  await h.keyboard.type('A third thought', { delay: 10 })
-  await h.keyboard.press('Enter')
-  await h.waitForTimeout(900)
+  // Two thoughts ("Changed my mind" no longer writes one: it opens "Say it again").
+  for (const said of ['A second thought', 'A third thought']) {
+    await host.locator('[data-feed-reply]').click()
+    await h.waitForTimeout(300)
+    await h.keyboard.type(said, { delay: 10 })
+    await h.keyboard.press('Enter')
+    await h.waitForTimeout(900)
+  }
   await h.locator(`[data-feed-id="${thirdId}"]`).scrollIntoViewIfNeeded()
   const scrollBefore = await h.evaluate(() => { const at = [...document.querySelectorAll('*')].find((one) => one.contains(document.querySelector('[data-feed]')) && one.scrollHeight > one.clientHeight + 10 && /(auto|scroll)/.test(getComputedStyle(one).overflowY)); return at?.scrollTop ?? -1 })
   await host.scrollIntoViewIfNeeded()

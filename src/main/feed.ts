@@ -440,14 +440,14 @@ export function registerFeed(): void {
       ]
       // Gems and quotes are the most of it: two each a turn, a question, a day, a picture and an archive one.
       const share = [2, 2, 1, 1, 1, 1]
-      const room = Math.max(0, SIZE - asks.length - stacked.length)
+      // One "Two subjects, one thread" a day at most, where an honest pair exists: its room kept among the day's twenty-odd.
+      const pair = pairOf([...byKey.values()], Number(today.replace(/\D/g, '')) || 0)
+      const room = Math.max(0, SIZE - asks.length - stacked.length - (pair ? 1 : 0))
       const picked: Row[] = []
       while (picked.length < room && lanes.some((lane) => lane.length))
         lanes.forEach((lane, at) => picked.push(...lane.splice(0, share[at]).slice(0, room - picked.length)))
       const list = [...stacked, ...order(picked)].map((row) => `${row.type}:${row.id}`)
       asks.forEach((key, at) => list.splice(Math.min(list.length, 3 + at * 5), 0, key))
-      // One "Two subjects, one thread" a day at most, where an honest pair exists, set among the rest.
-      const pair = pairOf([...byKey.values()], Number(today.replace(/\D/g, '')) || 0)
       if (pair) list.splice(Math.min(list.length, 8), 0, pair)
       keys = JSON.stringify(list)
       db.prepare('update feed_restacks set shown_day = ? where shown_day is null and made_day < ?').run(today, today)

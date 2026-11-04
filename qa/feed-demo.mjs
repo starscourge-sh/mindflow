@@ -15,6 +15,8 @@ const s = await sandbox({ width: 1400, height: 900 })
 const { h, v, go, errors, size, close } = s
 const paint = (name) => h.evaluate((n) => { localStorage.setItem('theme', n); window.dispatchEvent(new StorageEvent('storage', { key: 'theme' })); document.documentElement.classList.toggle('dark', n === 'dark') }, name)
 try {
+  // The launch video's Feed shows the sandbox's paintings, which are notes, not gems: they come with this switch on (off by default).
+  await v('settings:set', { feedPictures: true })
   const feed = await v('feed')
   const year = new Date().getFullYear()
   const multi = feed.posts.filter((one) => one.replies >= 3 && one.firstReply && new Date(one.firstReply).getFullYear() <= year - 2)
@@ -29,7 +31,8 @@ try {
     return { quote: on('[data-feed-quote]'), picture: on('[data-feed-picture]'), replies: [...document.querySelectorAll('[data-feed-replies]')].some((one) => one.getBoundingClientRect().top < bottom && /over \d+ years/.test(one.textContent ?? '')), contexts: [...document.querySelectorAll('[data-feed-context]')].map((one) => one.textContent) }
   })
   check('the first screen has a quote card', firstScreen.quote)
-  check('the first screen has a picture', firstScreen.picture)
+  // Each post now says why it is there in a line of its own and a "Two subjects, one thread" post is among them, the first picture can sit below the fold: within two and a half screens.
+  check('a picture within the first two and a half screens', firstScreen.picture || await h.evaluate(() => [...document.querySelectorAll('[data-feed-picture]')].some((one) => one.getBoundingClientRect().top < window.innerHeight * 2.5)))
   check('the first screen has a "replies over" line', firstScreen.replies)
   const contexts = await h.locator('[data-feed-context]').allInnerTexts()
   check('an archive post is in today\'s set', contexts.includes('From the archives'), contexts.join(' | '))

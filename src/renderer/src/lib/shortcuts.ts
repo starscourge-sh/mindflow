@@ -69,7 +69,7 @@ export const SHORTCUTS: Shortcut[] = [
   { group: 'Getting around', keys: 'G Z', does: 'Go to Tasks, Later: this month, this year, someday', where: 'Main window' },
   { group: 'Getting around', keys: 'G O', does: 'Go to Tasks, Routines', where: 'Main window' },
   { group: 'Getting around', keys: 'G Q', does: 'Go to Urgent and important: every task in four boxes', where: 'Main window' },
-  { group: 'Getting around', keys: 'G W', does: 'Go to Feed: the day\'s own things, as a timeline that ends', where: 'Main window' },
+  { group: 'Getting around', keys: 'G W', does: 'Go to Feed: the day\'s own things, a short list that ends', where: 'Main window' },
   { group: 'Getting around', keys: 'G ,', does: 'Go to Media: every picture, PDF and recording your notes keep', where: 'Main window' },
   { group: 'Getting around', keys: 'G +', does: 'Go to Tasks, Upcoming: tomorrow is at the top', where: 'Main window' },
   { group: 'Getting around', keys: 'G H', does: 'Go to Questions, under Writing in the sidebar', where: 'Main window' },
@@ -225,6 +225,8 @@ export const SHORTCUTS: Shortcut[] = [
 
   { group: 'Board', keys: '⌥⌘B', does: 'Show a note of headings and lists, or of nested bullets, as a board, or back', where: 'Main window' },
   { group: 'Board', keys: 'H', does: 'List to the left (L to the right)', where: 'Main window' },
+  { group: 'Feed', keys: 'J', does: 'Next post (K the one before); L likes it, R adds a thought, ↵ opens it', where: 'Feed' },
+  { group: 'Feed', keys: '⌫', does: 'Move the post under the cursor to the Bin; ⌘Z brings it back', where: 'Feed' },
   { group: 'Board', keys: 'J', does: 'Next card (K the one before)', where: 'Main window' },
   { group: 'Board', keys: 'X', does: 'Tick the card (a checklist card; a bullet has no box)', where: 'Main window' },
   { group: 'Board', keys: '↵', does: 'Edit the card', where: 'Main window' },
