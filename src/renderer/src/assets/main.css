@@ -1411,6 +1411,8 @@ body {
   animation-timeline: scroll(self), scroll(self);
   animation-range: 0 0.75rem, calc(100% - 2.5rem) 100%;
 }
+/* Everything in view (fit-box.ts marks it): no fade, whatever the scroll last left behind. */
+.mf-faded .haligtree-editor-content[data-fits] { animation: none; }
 
 /* A list that scrolls (a menu, the palette, the shortcut sheet) fades at an
    edge only while there is more past it, so a row cut in half by the edge
