@@ -1123,6 +1123,14 @@ export default function App(): React.JSX.Element {
     const next = measureWraps.current()
     if (next !== null) setWraps(next)
   })
+  // Grown or folded, the block handle forgets where it was: placed while the pointer was over the pill's line, it
+  // stayed there as the box grew, its grip over the first letter of the writing until the pointer moved again.
+  React.useLayoutEffect(() => {
+    const editor = editorRef.current
+    if (!oneLine || !editor || editor.isDestroyed) return
+    editor.view.dispatch(editor.state.tr.setMeta('hideDragHandle', true))
+    document.querySelectorAll('.tiptap-drag-handle.is-shown').forEach((one) => one.classList.remove('is-shown'))
+  }, [pill]) // eslint-disable-line react-hooks/exhaustive-deps
   // Emptied (sent, or cleared): back to the pill for the next one.
   useEffect(() => void (!boxText.trim() && setOpened(false)), [boxText])
   foldPill.current = () => (oneLine && opened && !wraps && !plan?.tokens.length ? (chime('fold'), setOpened(false), true) : false)
