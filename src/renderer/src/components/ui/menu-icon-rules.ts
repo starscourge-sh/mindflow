@@ -4,7 +4,7 @@ import {
   CircleX, Clipboard, Clock, Folder, Columns2, Copy, CopyPlus, Dice5, DoorOpen, Dot, Download, Eraser, ExternalLink, Eye, EyeOff, FilePlus, FileText, Files, Flag,
   FolderInput, FolderMinus, FolderPlus, Footprints, Gift, GraduationCap, Hash, History, Hourglass, House, Image, Inbox, Keyboard, LayoutGrid,
   Library, Lightbulb, Link, List, ListChecks, ListStart, Lock, LockOpen, LogOut, Map as MapIcon, Maximize2, MessageCircleQuestion, MessageSquare, Minimize2, Monitor,
-  MonitorUp, MoveRight, NotebookText, Palette, Scissors, Pause, Play, Scale, PanelLeft, PanelRight, Pencil, Pin, PinOff, Plus, Quote, Repeat, RotateCcw, Search, Settings, Shapes, Shield,
+  MonitorUp, MoveRight, NotebookText, Palette, Scissors, Pause, Play, Scale, ScanText, PanelLeft, PanelRight, Pencil, Pin, PinOff, Plus, Quote, Repeat, RotateCcw, Search, Settings, Shapes, Shield,
   ShieldCheck, Smile, Snowflake, Sparkles, SquareCheck, SquareKanban, SquarePen, Star, StickyNote, Sun, Tag, Target, Timer, Trash2, Type, Undo2, Ungroup, Upload,
   Speech, ThumbsDown, ThumbsUp, Unlink, User, Video, Volume2, VolumeX, WandSparkles, Wrench, X, Zap, PenLine, SpellCheck, Mic, ArrowLeftRight, ClipboardPaste, SlidersHorizontal, Minus, Highlighter, Layers, Heart, ArrowUpToLine, ArrowDownToLine, ToggleLeft, ToggleRight, FlipVertical2, GalleryVertical, File as FileIcon, Moon, ScrollText, Magnet, Mountain, PaintBucket, type LucideIcon
 } from 'lucide-react'
@@ -139,6 +139,7 @@ const RULES: [RegExp, LucideIcon][] = [
   [/^move|^send/i, MoveRight],
   // Copies.
   [/copy to book|into which book|another book/i, BookCopy],
+  [/^copy text from (an )?image/i, ScanText],
   [/^copy .*links?$|^copy link|all links/i, Link],
   [/^duplicate/i, CopyPlus],
   [/^copy/i, Copy],

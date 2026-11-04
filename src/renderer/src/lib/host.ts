@@ -47,6 +47,8 @@ export interface HaligtreeHost {
   showFile?: (src: string) => Promise<boolean>
   /** Put a stored image on the system clipboard. */
   copyImage?: (src: string) => Promise<boolean>
+  /** The words in a stored picture, read by the system: '' with none, null when it could not be read. */
+  imageText?: (src: string) => Promise<string | null>
   /** Drag a stored picture or file out to another app, as the real file under `name`. */
   dragOut?: (src: string, name: string, face?: string) => void
   /** A word's spelling suggestions when it is misspelt, null when it is not. */

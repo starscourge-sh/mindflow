@@ -11,6 +11,7 @@ import { PictureRow } from './picture-row'
 import { GRACE } from '@/components/pdf/pdf-peek'
 import { canSplit, openAside } from '@/lib/split'
 import { chime } from '@/lib/sound'
+import { copyImageText, readable } from '@/lib/image-text'
 import { Empty, Page, refuse, toast, VirtualList } from './ui'
 import { Chip } from './display'
 import { ListSearch, tileClass } from './note-list'
@@ -152,6 +153,7 @@ export function mediaMenu(one: Media, onOpen: () => void): RowItem[] {
     'separator',
     { label: 'Copy link', hint: 'Paste it into any note to show it there too', run: () => void copyMedia(one) },
     picture && { label: 'Copy image', run: () => void window.api.copyImage(one.src).then((done) => (done ? (chime('copy'), toast('Copied the picture')) : refuse('Could not copy it', 'error'))) },
+    picture && readable(one.src) && { label: 'Copy text from image', run: () => void copyImageText(one.src) },
     { label: 'Show in Finder', run: () => void window.api.showFile(one.src) }
   ]
 }

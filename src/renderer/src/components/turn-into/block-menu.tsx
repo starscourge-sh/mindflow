@@ -21,6 +21,7 @@ import { startCaption } from "@/extensions/caption"
 import { isAudio, transcribe } from "@/lib/transcribe"
 import { BLOCK_COLORS, COLORABLE } from "@/extensions/block-color"
 import { host, said } from "@/lib/host"
+import { copyImageText, readable } from "@/lib/image-text"
 import { listDirection } from "@/lib/menu-keys"
 import { fitToWidth } from "@/lib/table"
 import { SpellingRows, type Misspelling } from "./spelling"
@@ -528,6 +529,14 @@ export function BlockMenu({
             <button type="button" onClick={() => void copyImage()}>
               <MenuGlyph label="Copy image" />
               <span className="tiptap-slash-menu-title">Copy image</span>
+            </button>
+          </DropdownMenuItem>
+        ) : null}
+        {imageSrc && readable(imageSrc) && matches("Copy text from image") ? (
+          <DropdownMenuItem asChild>
+            <button type="button" data-image-text onClick={() => void copyImageText(imageSrc)}>
+              <MenuGlyph label="Copy text from image" />
+              <span className="tiptap-slash-menu-title">Copy text from image</span>
             </button>
           </DropdownMenuItem>
         ) : null}

@@ -126,6 +126,9 @@ const api = {
   /** Put a stored image on the system clipboard. */
   copyImage: (src: string): Promise<boolean> => ipcRenderer.invoke('copy-image', src),
 
+  /** The words in a stored picture, read by the Mac (Apple's Vision): '' with none, null when it could not be read. */
+  imageText: (src: string): Promise<string | null> => ipcRenderer.invoke('image-text', src),
+
   /** One light tap on a Force Touch trackpad (main/haptic.ts): a dragged row reached a new place. */
   tap: (): void => ipcRenderer.send('haptic:tap'),
   /** The firmer tap (the Mac's level change): a dial's stop clicking into place under the finger. */
