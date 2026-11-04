@@ -344,12 +344,17 @@ export function BlockMenu({
     </DropdownMenuItem>
   ))
 
+  // A picture or a video right-clicked is its block: one menu, the same however it opens (a right-click, the grip),
+  // its own lines first and the block's after, never its lines on top and the rest folded under a second "Picture ›"
+  // (tracker: "what is the reasoning for the differentiation").
+  const itself = !clickedOnly && (clicked?.kind === "picture" || clicked?.kind === "video")
+  const apart = itself ? null : clicked
   /**
-   * Under a clicked thing (a link, a PDF page, a picture), the block's own lines fold into one "Block ›" row:
+   * Under a clicked thing (a link, a PDF page), the block's own lines fold into one "Block ›" row:
    * the menu is about what was clicked, and the line it sits in is one step away. A filter shows them all, flat.
    */
   const underClicked = (rows: React.ReactNode): React.ReactNode =>
-    clicked && !term ? (
+    apart && !term ? (
       <DropdownMenuSub>
         <DropdownMenuSubTrigger data-block-sub>
           <MenuGlyph label="Block" />
@@ -445,19 +450,19 @@ export function BlockMenu({
         {spelling && !term ? <SpellingRows editor={editor} spelling={spelling} /> : null}
 
         {/* What the click landed on first; the block's lines after, so nothing is lost. */}
-        {clicked ? <ClickedRows editor={editor} clicked={clicked} matches={matches} onDone={() => onOpenChange(false)} /> : null}
+        {apart ? <ClickedRows editor={editor} clicked={apart} matches={matches} onDone={() => onOpenChange(false)} /> : null}
 
         {/* A note with no block handles (read-only, a card, a sticky): the clicked thing's lines alone. */}
         {clickedOnly ? null : underClicked(<>
-        {convertible && !term && !clicked ? (
+        {convertible && !term && !apart ? (
           <div className="tiptap-slash-menu-group">Turn into</div>
         ) : null}
-        {convertible && (!clicked || term) ? conversionRows : null}
+        {convertible && (!apart || term) ? conversionRows : null}
 
         {term ? null : <div className="tiptap-slash-menu-group" data-kind-heading={kindName ?? undefined}>{kindName ?? "Block"}</div>}
 
         {/* Under a clicked thing the block's conversions fold into one line, as a submenu. */}
-        {convertible && clicked && !term ? (
+        {convertible && apart && !term ? (
           <DropdownMenuSub>
             <DropdownMenuSubTrigger data-turn-into-sub>
               <MenuGlyph label="Turn it into" />
@@ -540,6 +545,10 @@ export function BlockMenu({
             </button>
           </DropdownMenuItem>
         ) : null}
+        {/* Where its file lives (Open in the default app, Show in Finder), among the picture's own lines. */}
+        {/* Opened from the grip, the same lines as from a right-click on the picture. */}
+        {itself && clicked ? <ClickedRows within editor={editor} clicked={clicked} matches={matches} onDone={() => onOpenChange(false)} />
+          : !clicked && imageSrc ? <ClickedRows within editor={editor} clicked={{ kind: "picture", src: imageSrc }} matches={matches} onDone={() => onOpenChange(false)} /> : null}
 
         {recording && matches("Play from start") ? (
           <DropdownMenuItem asChild>

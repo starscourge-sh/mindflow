@@ -361,12 +361,12 @@ export function clickedLines(editor: Editor, clicked: Clicked): Line[] {
 }
 
 /** The clicked thing's lines, drawn as the block menu draws its own. */
-export function ClickedRows({ editor, clicked, matches, onDone }: { editor: Editor; clicked: Clicked; matches: (label: string) => boolean; onDone: () => void }): React.JSX.Element {
+export function ClickedRows({ editor, clicked, matches, onDone, within = false }: { editor: Editor; clicked: Clicked; matches: (label: string) => boolean; onDone: () => void; /** Among the block's own lines (a picture is its block): no heading of its own, nothing the block's lines say already. */ within?: boolean }): React.JSX.Element {
   return (
     <>
-      <div className="tiptap-slash-menu-group" data-clicked-group={clicked.kind}>{clickedName(clicked)}</div>
+      {within ? null : <div className="tiptap-slash-menu-group" data-clicked-group={clicked.kind}>{clickedName(clicked)}</div>}
       {clickedLines(editor, clicked)
-        .filter((line) => matches(line.label))
+        .filter((line) => matches(line.label) && !(within && line.data === "image-text"))
         .map((line) => (
           <DropdownMenuItem key={line.label} asChild>
             <button type="button" data-clicked={line.data} onClick={() => (onDone(), line.run())}>
