@@ -1151,7 +1151,8 @@ export function useCaptureDisplay(name: string, all: CaptureMeta[], filter?: Vie
   const isTask = (one: CaptureMeta): boolean => one.kind === 'task'
   const statuses = [...new Set(kept.filter((one) => !isTask(one)).map((one) => one.status))]
   // With a choice of which tasks show, the Task chip stays even when none is on show: it is where you choose others.
-  const withTasks = !!taskChoice || kept.some(isTask) || !!filter?.kind?.includes('task') || !!view.filter.kind?.includes('task')
+  // A list no task ever reaches (the Inbox: a task leaves it for Tasks) has no Task chip, whatever was picked before.
+  const withTasks = !!taskChoice || kept.some(isTask) || kept.some((one) => one.kind === 'todo') || !!filter?.kind?.includes('task')
   const progress = [...new Set(kept.flatMap((one) => [fieldOf(one.fields, 'status') ?? fieldOf(one.fields, 'state')].filter((v): v is string => !!v)))].sort()
   const stars = [...new Set(kept.map((one) => Number(fieldOf(one.fields, 'rating'))).filter((n) => n >= 1 && n <= 5))].sort((a, b) => b - a)
   const facets: Facet<CaptureMeta>[] = [

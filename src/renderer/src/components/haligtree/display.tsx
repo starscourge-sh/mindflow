@@ -91,6 +91,16 @@ export function useView(name: string, initial: { sort: string; group: string; fi
 }
 
 /** The list as the view asks: filtered, ordered, then cut into groups. */
+/**
+ * The choices of a facet still in force: one the list no longer offers (a kind none of its items is now, a tag
+ * gone) is let go of, rather than holding the list at "Nothing matches" behind a chip that names nothing here
+ * (quick capture's Inbox kept a Task chip on, with no task ever in it). Kept in the saved view, it counts again
+ * once the list offers it.
+ */
+function live<T>(view: View, facet: Facet<T>): string[] {
+  return (view.filter[facet.key] ?? []).filter((id) => facet.options.some((one) => one.id === id))
+}
+
 export function arrange<T>(
   items: T[],
   view: View,
@@ -100,7 +110,7 @@ export function arrange<T>(
 ): [string, T[]][] {
   const kept = items.filter((item) =>
     facets.every((facet) => {
-      const chosen = view.filter[facet.key] ?? []
+      const chosen = live(view, facet)
       return !chosen.length || chosen.some((option) => facet.test(item, option))
     })
   )
@@ -355,7 +365,7 @@ export function FilterChips<T>({ view, onChange, facets, defaults = {}, quick = 
   wrap?: boolean
 }): React.JSX.Element | null {
   const set = facets.flatMap((facet) =>
-    (view.filter[facet.key] ?? []).filter((id) => !(defaults[facet.key] ?? []).includes(id)).map((id) => ({ facet, option: facet.options.find((one) => one.id === id) ?? { id, label: id } }))
+    live(view, facet).filter((id) => !(defaults[facet.key] ?? []).includes(id)).map((id) => ({ facet, option: facet.options.find((one) => one.id === id)! }))
   )
   const row = useSideways()
   const box = useRef<HTMLDivElement | null>(null)
