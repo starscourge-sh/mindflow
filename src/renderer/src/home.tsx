@@ -864,18 +864,19 @@ export function Home(): React.JSX.Element {
   const settings = useLive(haligtree.settings, null as Settings | null)
   // Review's finish, satin or paper, worn from the start and whenever it changes (review-toolbar.tsx).
   useEffect(() => { if (settings) wearFinish(settings.reviewFinish ?? 'satin') }, [settings?.reviewFinish]) // eslint-disable-line react-hooks/exhaustive-deps
-  // With "Open folders on their page", Writing's and Gems' folders and the tags follow the page open: unfolded on
-  // their page (or one of its folders), folded away elsewhere. The arrow still turns them by hand, for as long as you
-  // stay on that page; leaving it forgets what the hand did.
+  // With "Open folders on their page", Writing's and Gems' folders and the tags unfold as their page (or one of its
+  // folders) opens. Leaving never folds them: only the arrow does, so a fold never shuts by itself as you click
+  // elsewhere (the user: "weird that the writing tab collapses itself when you click on a different tab").
   const follow = !!settings?.foldersFollow
-  const [byHand, setByHand] = useState<{ page: string; open: Record<string, boolean> }>({ page: view.id, open: {} })
-  if (byHand.page !== view.id) setByHand({ page: view.id, open: {} })
-  const hand = byHand.page === view.id ? byHand.open : {}
-  const following = (key: string, page: string, kept: boolean, keep: (open: boolean) => void): [boolean, (open: boolean) => void] =>
-    follow ? [hand[key] ?? view.id === page, (open) => setByHand({ page: view.id, open: { ...hand, [key]: open } })] : [kept, keep]
-  const [tagsOpen, setTagsOpen] = following('tags', 'tags', tagsKept, keepTags)
-  const [articleFolders, setArticleFolders] = following('article', 'articles', articleKept, keepArticle)
-  const [nuggetFolders, setNuggetFolders] = following('nugget', 'nuggets', nuggetKept, keepNugget)
+  useEffect(() => {
+    if (!follow) return
+    if (view.id === 'articles' && !articleKept) keepArticle(true)
+    if (view.id === 'nuggets' && !nuggetKept) keepNugget(true)
+    if (view.id === 'tags' && !tagsKept) keepTags(true)
+  }, [follow, view.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  const [tagsOpen, setTagsOpen] = [tagsKept, keepTags]
+  const [articleFolders, setArticleFolders] = [articleKept, keepArticle]
+  const [nuggetFolders, setNuggetFolders] = [nuggetKept, keepNugget]
   const shownAll = useShown('sidebarShown')
   // Back after a long time away: only the Inbox, Journal and Tasks, until the next start or "Show everything".
   const away = useLive(() => call<{ days: number; quiet: boolean }>('return:quiet'), { days: 0, quiet: false })

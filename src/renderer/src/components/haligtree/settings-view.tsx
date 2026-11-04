@@ -419,14 +419,14 @@ function PeekSample({ side, on }: { side: 'left' | 'right'; on: boolean }): Reac
 
 /**
  * Writing and Gems with a folder under each: Writing is the page open, and
- * pointing at the sample goes to Gems. With the setting on, the folders
- * follow the page open; off, they stay as they were left.
+ * pointing at the sample goes to Gems. With the setting on, Gems' folder
+ * unfolds as its page opens and Writing's stays open; off, both stay as left.
  */
 function FoldersFollowSample({ on }: { on: boolean }): React.JSX.Element {
   const line = (name: string, first: boolean): React.JSX.Element => (
     <>
       <span className={`rounded-sm px-1.5 transition-colors duration-200 motion-reduce:transition-none ${first ? 'bg-accent group-hover/follow:bg-transparent' : 'group-hover/follow:bg-accent'}`}>{name}</span>
-      <span className={`overflow-hidden pl-4 text-muted-foreground transition-[opacity,max-height] duration-200 motion-reduce:transition-none ${!on ? 'max-h-5 opacity-100' : first ? 'max-h-5 opacity-100 group-hover/follow:max-h-0 group-hover/follow:opacity-0' : 'max-h-0 opacity-0 group-hover/follow:max-h-5 group-hover/follow:opacity-100'}`}>📁 {first ? 'Money' : 'Quotes'}</span>
+      <span className={`overflow-hidden pl-4 text-muted-foreground transition-[opacity,max-height] duration-200 motion-reduce:transition-none ${!on || first ? 'max-h-5 opacity-100' : 'max-h-0 opacity-0 group-hover/follow:max-h-5 group-hover/follow:opacity-100'}`}>📁 {first ? 'Money' : 'Quotes'}</span>
     </>
   )
   return (
@@ -765,7 +765,7 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
               </Setting>
             )
           })}
-          <Setting title="Open folders on their page" note="Writing's and Gems' folders, and your tags, unfold while their page is open and fold away when you go elsewhere." more="The arrow still opens or shuts them by hand until you leave the page. Point at the sample to see it." keywords="folders tags fold unfold follow auto open close collapse expand sidebar page">
+          <Setting title="Open folders on their page" note="Writing's and Gems' folders, and your tags, unfold when their page opens." more="Going elsewhere leaves them open; only the arrow folds them. Point at the sample to see it." keywords="folders tags fold unfold follow auto open close collapse expand sidebar page">
             <FoldersFollowSample on={!!settings.foldersFollow} />
             <Switch checked={!!settings.foldersFollow} onCheckedChange={(foldersFollow) => set({ foldersFollow })} aria-label="Open folders on their page" />
           </Setting>
