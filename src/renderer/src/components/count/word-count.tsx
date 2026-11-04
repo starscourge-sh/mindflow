@@ -180,7 +180,7 @@ function PickedCount({ dom, words, characters }: { dom: HTMLElement; words: numb
     <span
       data-picked-count
       style={{ left: at.x, top: at.y }}
-      className="pointer-events-none fixed z-50 -translate-x-1/2 -translate-y-full rounded-full border border-border bg-popover px-2.5 py-0.5 text-xs whitespace-nowrap text-popover-foreground tabular-nums shadow-[0_2px_8px_rgb(0_0_0/0.18)]">
+      className="mf-frost pointer-events-none fixed z-50 -translate-x-1/2 -translate-y-full rounded-full border border-border bg-popover px-2.5 py-0.5 text-xs whitespace-nowrap text-popover-foreground tabular-nums shadow-[0_2px_8px_rgb(0_0_0/0.18)]">
       {num(words)} {words === 1 ? "word" : "words"} · {num(characters)} {characters === 1 ? "character" : "characters"} selected
     </span>,
     document.body

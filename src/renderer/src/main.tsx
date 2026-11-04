@@ -46,6 +46,7 @@ import { MotionConfig } from 'motion/react'
 import { stillTransforms } from './lib/motion'
 import { TooltipProvider } from './components/ui/tooltip'
 import { putDetailsAway } from './lib/reading'
+import { guardFrost } from './lib/frost-guard'
 import { APP_NAME } from '../../main/name'
 
 // Before the first paint, and before anything renders: the page wears a theme
@@ -67,6 +68,8 @@ window.addEventListener('focus', blurred(false))
 // see-through windows, where a veil would paint the corners: they keep the fade.
 const opened = new URLSearchParams(window.location.search)
 if (opened.get('view') === 'home' || opened.has('drawing')) document.documentElement.dataset.dim = 'veil'
+// Those same solid windows are where menus and pop-ups are frosted: each one kept opaque where frost cannot draw.
+if (document.documentElement.dataset.dim === 'veil') guardFrost()
 // A window never scrolls as a whole: each page scrolls inside itself. Something
 // reaching past the edge, brought into view by focus, would otherwise slide the
 // sidebar and title bar off the window; no CSS stops a scroll asked for that way.

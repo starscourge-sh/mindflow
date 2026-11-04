@@ -501,7 +501,7 @@ function EventCard({ peek, calendar, onEdit, onClose, onNote }: {
       }}
       onDoubleClick={() => !one.readOnly && edit()}
       style={{ left: spot?.left ?? -9999, top: spot?.top ?? 0, width: CARD, transformOrigin: spot?.from === 'left' ? 'right top' : 'left top' }}
-      className="fixed z-50 flex flex-col gap-3 rounded-xl border bg-popover px-4 pt-3 pb-4 text-popover-foreground shadow-(--mf-panel-shadow) outline-none">
+      className="mf-frost fixed z-50 flex flex-col gap-3 rounded-xl border bg-popover px-4 pt-3 pb-4 text-popover-foreground shadow-(--mf-panel-shadow) outline-none">
       <div className="-mr-2 flex items-center gap-2">
         <span aria-hidden className="size-3 shrink-0 rounded-[3px]" style={{ background: one.color }} />
         <span data-cal-pop-calendar className="min-w-0 flex-1 truncate text-control font-medium text-foreground">{calendar}{one.readOnly ? ' (read only)' : ''}</span>

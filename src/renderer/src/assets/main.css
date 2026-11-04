@@ -3204,3 +3204,28 @@ html[data-overhang][data-glass] [data-hint-room] [data-hint-surface] {
 :root[data-glass] body[data-sticky='glass'] .mf-card {
   box-shadow: inset 0 0 0 1px color-mix(in oklab, white 9%, transparent), inset 0 1px 0 color-mix(in oklab, white 12%, transparent);
 }
+
+/* Frost: menus, pop-ups, tips, hover cards, ⌘K and the Display sheet in the solid windows (the main one and a
+   drawing's, data-dim='veil' from main.tsx) are frosted glass, as macOS draws its menus: the page under them
+   blurred and its colour carried up, through a fill of the theme's own popover colour, with a hairline rim (FLOAT's
+   ring) and a lighter top edge where the light catches it. Backdrop blur only sees what is inside its nearest
+   parent that fades, masks, clips or filters, so these surfaces are portalled to the body or kept out of such
+   parents (qa/frost.mjs checks every one); any that lands inside one anyway is marked data-frost-off and left opaque (lib/frost-guard.ts).
+   The box, stickies and a note's window sit on see-through windows: there the fill stays whole. So does it under
+   Reduce Transparency, an imported light theme or a sticky's solid look (data-solid), and in Brutal. */
+:root {
+  --mf-frost-fill: 88%;
+  /* Quiet words on frost come half way to the main ink, Apple's vibrancy rule: what shows through the fill takes
+     some contrast away, and grey words would lose it first. Set here, read on the frost (no loop). */
+  --mf-frost-quiet: color-mix(in oklab, var(--muted-foreground) 42%, var(--popover-foreground));
+}
+@media (prefers-reduced-transparency: no-preference) {
+  :root[data-dim='veil']:not([data-solid]):not([data-style='brutal']) .mf-frost:not([data-frost-off]) {
+    background-color: color-mix(in oklab, var(--popover) var(--mf-frost-fill), transparent);
+    -webkit-backdrop-filter: blur(24px) saturate(1.6);
+    backdrop-filter: blur(24px) saturate(1.6);
+    --muted-foreground: var(--mf-frost-quiet);
+    /* Tailwind's shadow stack (FLOAT's ring and panel shadow) has a slot for an inset one: the lit top edge goes there. */
+    --tw-inset-shadow: inset 0 1px 0 color-mix(in oklab, white 9%, transparent);
+  }
+}

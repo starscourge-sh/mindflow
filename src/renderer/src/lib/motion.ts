@@ -264,12 +264,15 @@ export function keyedMotion(from: TargetAndTransition, to: TargetAndTransition, 
  * `keyed` is read once, as it opens; how it leaves is read as it leaves.
  */
 export function sheetMotion(keyed: boolean, rise = 0.12): { scrim: MotionProps; panel: MotionProps } {
-  const away = (soft: Record<string, unknown>) => () => (byKeys() ? { opacity: 0, transition: { duration: 0 } } : { ...soft, transition: { duration: 0.09, ease: EASE } })
+  const away = (soft: Record<string, unknown>, hidden: Record<string, unknown> = { opacity: 0 }) => () => (byKeys() ? { ...hidden, transition: { duration: 0 } } : { ...soft, transition: { duration: 0.09, ease: EASE } })
+  // The scrim's shade fades, not the scrim: it holds the panel, and a parent fading under 1 leaves the panel's
+  // frost (main.css .mf-frost) blurring nothing, the page under it sharp through the fill.
+  const clear = { backgroundColor: 'rgba(0, 0, 0, 0)' }
   return {
     scrim: {
-      initial: keyed ? false : { opacity: 0 },
-      animate: { opacity: 1, transition: { duration: 0.12, ease: EASE } },
-      variants: { gone: away({ opacity: 0 }) },
+      initial: keyed ? false : clear,
+      animate: { backgroundColor: 'rgba(0, 0, 0, 0.4)', transition: { duration: 0.12, ease: EASE } },
+      variants: { gone: away(clear, clear) },
       exit: 'gone'
     },
     panel: {

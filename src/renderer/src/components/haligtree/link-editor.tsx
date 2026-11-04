@@ -104,7 +104,7 @@ export function LinkEditor({ editor }: { editor: Editor | null }): React.JSX.Ele
       data-link-editor
       role="dialog"
       aria-label="Edit link"
-      className="fixed z-[70] flex w-[22rem] max-w-[calc(100vw-1rem)] flex-col gap-2 rounded-lg border bg-popover p-2 shadow-(--mf-panel-shadow)"
+      className="mf-frost fixed z-[70] flex w-[22rem] max-w-[calc(100vw-1rem)] flex-col gap-2 rounded-lg border bg-popover p-2 shadow-(--mf-panel-shadow)"
       style={{ left: open.left, top: open.top }}
     >
       <input
