@@ -31,6 +31,8 @@ export function YoutubeView({ node, editor, getPos }: NodeViewProps): React.JSX.
   const [playing, setPlaying] = useState(false)
   const [noPicture, setNoPicture] = useState(!id)
   const [offline, setOffline] = useState(false)
+  // YouTube would not serve the player here (main saw it sent away): the face again, saying so.
+  const [refused, setRefused] = useState(false)
   const [typing, setTyping] = useState(typePauseOn)
   // A time clicked in the note ("[13:03]", extensions/line-cards.ts) plays from there.
   const [from, setFrom] = useState<number | null>(null)
@@ -40,8 +42,18 @@ export function YoutubeView({ node, editor, getPos }: NodeViewProps): React.JSX.
   const play = (): void => {
     if (!navigator.onLine) return setOffline(true)
     setOffline(false)
+    setRefused(false)
     setPlaying(true)
   }
+  useEffect(() => {
+    const onRefused = (event: Event): void => {
+      if ((event as CustomEvent<string>).detail !== player) return
+      setPlaying(false)
+      setRefused(true)
+    }
+    window.addEventListener("haligtree:video-refused", onRefused)
+    return () => window.removeEventListener("haligtree:video-refused", onRefused)
+  }, [player])
   useEffect(() => {
     const onTime = (event: Event): void => {
       const { seconds, video } = (event as CustomEvent<{ seconds: number; video: Element }>).detail
@@ -55,7 +67,7 @@ export function YoutubeView({ node, editor, getPos }: NodeViewProps): React.JSX.
     return () => window.removeEventListener("haligtree:video-at", onTime)
   })
   return (
-    <NodeViewWrapper data-youtube-video="" data-from={from ?? undefined} data-state={playing ? "playing" : offline ? "offline" : noPicture ? "no-picture" : "ready"}>
+    <NodeViewWrapper data-youtube-video="" data-from={from ?? undefined} data-state={playing ? "playing" : offline ? "offline" : refused ? "refused" : noPicture ? "no-picture" : "ready"}>
       {playing ? (
         <iframe key={player} src={player} onLoad={(event) => listenTo(event.currentTarget)} title={title ?? "YouTube video"} allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowFullScreen />
       ) : (
@@ -68,10 +80,12 @@ export function YoutubeView({ node, editor, getPos }: NodeViewProps): React.JSX.
             <span className="mf-video-title">{title ?? (noPicture ? "A YouTube video" : "YouTube")}</span>
             {offline ? (
               <span className="mf-video-note">You are offline, so it cannot play now.</span>
+            ) : refused ? (
+              <span className="mf-video-note">YouTube would not play it here just now.</span>
             ) : noPicture ? (
               <span className="mf-video-note">Its picture could not load. Press play to try the video.</span>
             ) : null}
-            {(offline || noPicture) && (
+            {(offline || refused || noPicture) && (
               <a href={watch} className="mf-video-note underline" onMouseDown={(event) => event.preventDefault()} onClick={(event) => (event.preventDefault(), window.open(watch))}>Open it on YouTube</a>
             )}
           </div>

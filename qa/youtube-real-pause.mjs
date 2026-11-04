@@ -32,6 +32,13 @@ try {
   for (let i = 0; i < 20 && state?.playerState !== 1; i++) { await wait(750); state = await said() }
   // Where the player frame ended up, so a blocked network (YouTube's "sorry" page) reads as that, not as a broken switch.
   const frames = await c.electron.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().flatMap((w) => w.webContents.mainFrame.framesInSubtree.map((f) => f.url)).filter((u) => /youtube|google/.test(u)))
+  // Turned away by YouTube (its "unusual traffic" page): the block says so, with a way to YouTube, never an empty frame.
+  const refused = await h.evaluate(() => { const block = document.querySelector('[data-open] [data-youtube-video]'); return { state: block?.getAttribute('data-state'), words: block?.textContent ?? '', frame: !!block?.querySelector('iframe') } })
+  if (frames.some((url) => /google\.com\/sorry/.test(url)) || refused.state === 'refused') {
+    check('YouTube refused the player: the block says so, with a link to YouTube, no empty frame', refused.state === 'refused' && /would not play it here/.test(refused.words) && /Open it on YouTube/.test(refused.words) && !refused.frame, JSON.stringify(refused))
+    await c.both(`${shots}/youtube-refused`)
+    throw new Error(`YouTube refused the player on this connection, so typing against the real player could not be tried (${frames.join(' ').slice(0, 80)})`)
+  }
   check('the real player plays', state?.playerState === 1, `${JSON.stringify(state)} frames: ${frames.join(' ')}`)
   await ed((e) => { const end = e.state.doc.content.size; e.chain().focus().insertContentAt(end, { type: 'paragraph' }).setTextSelection(end + 1).run() })
   await wait(200)

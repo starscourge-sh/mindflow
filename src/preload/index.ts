@@ -66,6 +66,8 @@ ipcRenderer.on('links:renamed', (_event, info: unknown) => window.dispatchEvent(
 ipcRenderer.on('transcribe:heard', (_event, src: string, seconds: number) => window.dispatchEvent(new CustomEvent('haligtree:transcribe-heard', { detail: { src, seconds } })))
 // A book made, renamed or deleted: every list of them looks again.
 ipcRenderer.on('books:changed', () => window.dispatchEvent(new CustomEvent('haligtree:books-changed')))
+// A YouTube player YouTube would not serve here (sent on to its "sorry" page): the block says so (youtube-view.tsx).
+ipcRenderer.on('video:refused', (_event, src: string) => window.dispatchEvent(new CustomEvent('haligtree:video-refused', { detail: src })))
 
 // Custom APIs for renderer
 const api = {

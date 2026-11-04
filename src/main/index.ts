@@ -4067,6 +4067,12 @@ app.whenReady().then(() => {
   // "Error 153"), and Haligtree's pages are files. Say where it is shown from.
   session.defaultSession.webRequest.onBeforeSendHeaders({ urls: ['https://www.youtube-nocookie.com/*', 'https://www.youtube.com/embed/*'] }, (details, done) =>
     done({ requestHeaders: { ...details.requestHeaders, Referer: 'https://haligtree.app/' } }))
+  // YouTube turning the player away (its "unusual traffic" page, or anywhere off YouTube): the block is told, so it
+  // says so with a way to watch it on YouTube, rather than showing an empty frame.
+  session.defaultSession.webRequest.onBeforeRedirect({ urls: ['https://www.youtube-nocookie.com/embed/*', 'https://www.youtube.com/embed/*'] }, (details) => {
+    if (/^https:\/\/(www\.)?(youtube-nocookie\.com|youtube\.com)\//.test(details.redirectURL)) return
+    for (const win of BrowserWindow.getAllWindows()) win.webContents.send('video:refused', details.url)
+  })
   // The microphone only for a voice note, which asks macOS first (media.ts,
   // `mic:ask`, with the sentence in electron-builder.yml); the camera for a
   // selfie. Only Haligtree's own pages: a web page shown inside never gets either.
