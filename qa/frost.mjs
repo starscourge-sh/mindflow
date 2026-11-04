@@ -14,7 +14,8 @@ mkdirSync(SHOTS, { recursive: true })
 const results = []
 const check = (name, ok, detail = '') => (results.push(!!ok), console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? `  (${detail})` : ''}`))
 const c = await sandbox({ width: 1200, height: 820 })
-const { h, v, go, look } = c
+const { h, v, go, look, send } = c
+const ED = '.note-pane .tiptap.ProseMirror.haligtree-editor:not(.is-line)'
 const wait = (ms) => h.waitForTimeout(ms)
 const cdp = await h.context().newCDPSession(h)
 const transparency = (reduce) => cdp.send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-transparency', value: reduce ? 'reduce' : 'no-preference' }] })
@@ -35,7 +36,7 @@ const busy = () => h.evaluate(() => {
 // Watches every frame from now until read: each surface matching `sel`, and everything round it.
 const watch = (sel) => h.evaluate((sel) => {
   const log = (window.__frost = { broken: [], seen: 0 })
-  const until = performance.now() + 700
+  const until = performance.now() + 4000
   const frame = () => {
     for (const el of document.querySelectorAll(sel)) {
       if (!el.getBoundingClientRect().width) continue
@@ -62,6 +63,15 @@ const material = (sel) => h.evaluate((sel) => {
 
 const shut = async () => { await h.keyboard.press('Escape'); await wait(300); await h.mouse.move(600, 790); await wait(200) }
 let note
+let page
+// A note open in the main window, its last line clicked into, for the editor's own menus.
+const inNote = async () => {
+  await send('capture', page)
+  await h.locator(ED).waitFor({ timeout: 10000 })
+  await wait(1200)
+  await h.locator(`${ED} p`, { hasText: 'Negligence needs' }).first().click()
+  await h.keyboard.press('End')
+}
 const visible = (sel) => h.locator(sel).filter({ visible: true }).first()
 const SURFACES = [
   ['a right-click menu', '[data-slot="context-menu-content"]', async () => {
@@ -85,6 +95,15 @@ const SURFACES = [
     await h.evaluate(() => document.querySelectorAll('[data-display]').forEach((one) => (one.style.display = 'none')))
     await h.keyboard.press('f')
   }],
+  ['the editor\'s right-click menu', '.tiptap-block-menu', async () => {
+    await inNote()
+    await h.locator(`${ED} p`, { hasText: 'Negligence needs' }).first().click({ button: 'right', position: { x: 30, y: 6 } })
+  }],
+  ['the editor\'s / menu', '.tiptap-slash-menu', async () => {
+    await inNote()
+    await h.keyboard.press('Enter')
+    await h.keyboard.type('/')
+  }],
   ['⌘K', '[role="dialog"][aria-label="Search"] > div', async () => {
     await h.keyboard.press('Meta+k')
   }]
@@ -93,6 +112,7 @@ const SURFACES = [
 try {
   await v('settings:set', { hintRate: 0 })
   note = (await v('feed')).posts.find((one) => one.type === 'nugget')?.id
+  page = await h.evaluate(() => window.api.captures.create({ kind: 'note', body: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Negligence needs a breach of duty.' }] }, { type: 'paragraph', content: [{ type: 'text', text: 'Duty, breach, cause, harm.' }] }] } }))
   for (const theme of ['light', 'dark']) {
     await look(theme)
     for (const [name, sel, open] of SURFACES) {

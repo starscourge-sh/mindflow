@@ -3208,7 +3208,8 @@ html[data-overhang][data-glass] [data-hint-room] [data-hint-surface] {
 /* Frost: menus, pop-ups, tips, hover cards, ⌘K and the Display sheet in the solid windows (the main one and a
    drawing's, data-dim='veil' from main.tsx) are frosted glass, as macOS draws its menus: the page under them
    blurred and its colour carried up, through a fill of the theme's own popover colour, with a hairline rim (FLOAT's
-   ring) and a lighter top edge where the light catches it. Backdrop blur only sees what is inside its nearest
+   ring) and a lighter top edge where the light catches it. The editor's own menus and panels
+   (haligtree-editor.scss) are the same material. Backdrop blur only sees what is inside its nearest
    parent that fades, masks, clips or filters, so these surfaces are portalled to the body or kept out of such
    parents (qa/frost.mjs checks every one); any that lands inside one anyway is marked data-frost-off and left opaque (lib/frost-guard.ts).
    The box, stickies and a note's window sit on see-through windows: there the fill stays whole. So does it under
@@ -3220,7 +3221,7 @@ html[data-overhang][data-glass] [data-hint-room] [data-hint-surface] {
   --mf-frost-quiet: color-mix(in oklab, var(--muted-foreground) 42%, var(--popover-foreground));
 }
 @media (prefers-reduced-transparency: no-preference) {
-  :root[data-dim='veil']:not([data-solid]):not([data-style='brutal']) .mf-frost:not([data-frost-off]) {
+  :root[data-dim='veil']:not([data-solid]):not([data-style='brutal']) :is(.mf-frost, .tiptap-slash-menu, .tiptap-block-menu, .tiptap-emoji-list, .tiptap-table-menu, .tiptap-image-panel, .tiptap-icon-picker):not([data-frost-off]) {
     background-color: color-mix(in oklab, var(--popover) var(--mf-frost-fill), transparent);
     -webkit-backdrop-filter: blur(24px) saturate(1.6);
     backdrop-filter: blur(24px) saturate(1.6);
