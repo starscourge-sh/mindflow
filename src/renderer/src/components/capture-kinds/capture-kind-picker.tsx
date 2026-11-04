@@ -11,7 +11,7 @@ import {
   CommandList,
   CommandShortcut,
 } from "@/components/ui/command"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { useShortcut } from "@/lib/use-shortcut"
 
 import type { BlockColor } from "@/extensions/block-color"
@@ -63,8 +63,13 @@ export function kindRank(kind: string): number {
 export const byKind = (a: string, b: string): number => kindRank(a) - kindRank(b)
 
 /** The pill, and the list it opens. */
-export function CaptureKindPicker({ value, onChange, suggested = false, flat = false }: {
+/** Quick capture's one-line pill: its kind mark, where ⌃L's list hangs from while the footer's chip is out of sight. */
+const PILL_MARK = { current: { getBoundingClientRect: (): DOMRect => document.querySelector('[data-pill-kind]')?.getBoundingClientRect() ?? new DOMRect() } }
+
+export function CaptureKindPicker({ value, onChange, suggested = false, flat = false, pill = false }: {
   value: CaptureType
+  /** Shown as quick capture's one-line pill: the footer, and this chip in it, are out of sight. */
+  pill?: boolean
   onChange: (kind: CaptureType) => void
   /** A row of a panel's island: flat and filling the row, no box inside the box. */
   flat?: boolean
@@ -124,8 +129,11 @@ export function CaptureKindPicker({ value, onChange, suggested = false, flat = f
         </PopoverTrigger>
       </Tip>
 
-      {/* Opens over the box at the size it is, scrolling inside itself when short (lib/fit-box.ts KEEPS). */}
-      <PopoverContent data-keeps-size className="w-64 gap-0 p-0" style={keyed ? { animation: 'none' } : undefined} align="start">
+      {/* In the pill the chip is out of sight: the list hangs from the pill's kind mark, under it, in room the window
+          makes below the pill as it does for "/" (lib/fit-box.ts). */}
+      {pill && <PopoverAnchor virtualRef={PILL_MARK} />}
+      {/* In the box, it opens over the box at the size it is, scrolling inside itself when short (lib/fit-box.ts KEEPS). */}
+      <PopoverContent data-keeps-size={pill ? undefined : ''} side="bottom" sideOffset={6} className="w-64 gap-0 p-0" style={keyed ? { animation: 'none' } : undefined} align="start">
         <Command
           // Each type its own note as you move through them, as the themes
           // have: a scale under the list. Picking one lands with a chord.
