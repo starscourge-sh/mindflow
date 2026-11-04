@@ -9,6 +9,17 @@ const SCREEN = { x: 0, y: 25, width: 1440, height: 875 }
 const SHORT = { x: 0, y: 25, width: 1440, height: 700 }
 const at = (x: number, y: number, width = 640) => ({ x, y, width, height: 280 })
 
+test('"One line to start": room under the pill for the box a new line grows it into, where the screen has it', () => {
+  const pill = (y: number) => ({ x: 400, y, width: 640, height: 56 })
+  // The pill at the top of the screen: 48 + (280 - 56) under it, more than the hint's own room.
+  assert.equal(hintRoom(pill(94), SCREEN, BASE, true).room.bottom, BASE.bottom + 280 - 56)
+  // Near the screen's foot it keeps what the screen has, never less than its own room.
+  assert.equal(hintRoom(pill(700), SCREEN, BASE, true).room.bottom, 25 + 875 - (700 + 56) - 8)
+  assert.equal(hintRoom(pill(860), SCREEN, BASE, true).room.bottom, BASE.bottom)
+  // Not "One line to start": as before, the hint's room alone.
+  assert.equal(hintRoom(pill(94), SCREEN, BASE).room.bottom, Math.min(BASE.bottom + 168, 25 + 875 - (94 + 600) - 8))
+})
+
 test('the top middle of a laptop screen: the hint sits under the card (note 277ae401)', () => {
   const { side, room } = hintRoom(at(400, 25 + 69), SCREEN, BASE)
   assert.equal(side, 'below')

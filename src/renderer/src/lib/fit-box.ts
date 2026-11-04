@@ -125,6 +125,8 @@ export function useFitBox(column: RefObject<HTMLElement | null>, full: boolean, 
   /** Room asked for below the card while a pop-up is open; and whether the screen had none, so the card grew instead. */
   const below = useRef(0)
   const grewForPop = useRef(false)
+  /** Held at a grown height until the window has grown round it (send). */
+  const grown = useRef(false)
   const want = useCallback((): number => {
     const popped = document.querySelector(POPS)
     // The pill stays one line with a list open (/, #, @): the list hangs into the room below it. It grew to full
@@ -141,8 +143,17 @@ export function useFitBox(column: RefObject<HTMLElement | null>, full: boolean, 
     // Already asked for, but gliding there: a snap still lands it at once.
     if (height === sent.current && !snap) return
     sent.current = height
-    // Held while a pop-up hangs into the room below: the card still grows or shrinks with the writing.
+    // Held while a pop-up hangs into the room below, or while the window catches up with a grow: the card still grows
+    // or shrinks with the writing.
     if (document.documentElement.hasAttribute('data-card-held')) pin(height)
+    // Growing (a new line in the pill), into room the window already keeps under the card (main's hintRoom keeps the
+    // grown box's under the pill): drawn at its new height in this frame, held there until the window has grown round
+    // it. Waiting on main's resize (a message and a setBounds, 40 to 60ms), the second line showed cut off at the
+    // pill's foot for a few frames.
+    else if (ROOM && !below.current && !document.hidden && height > cardHeight() + 1 && window.innerHeight - roomTop() >= height) {
+      pin(height)
+      grown.current = true
+    }
     window.api.fitBox(height, snap)
   }, [])
 
@@ -229,6 +240,14 @@ export function useFitBox(column: RefObject<HTMLElement | null>, full: boolean, 
     const changes = new MutationObserver(() => void (room(), soon()))
     changes.observe(document.body, { childList: true, subtree: true, characterData: true })
     window.addEventListener('resize', soon)
+    // The window has grown round a card drawn ahead of it: let go, the card filling its room at the same height.
+    const caught = (): void => {
+      if (!grown.current || below.current) return
+      if (window.innerHeight - roomTop() - roomUnder() < sent.current - 1) return
+      grown.current = false
+      unpin()
+    }
+    window.addEventListener('resize', caught)
     const sizes = new ResizeObserver(soon)
     if (column.current) sizes.observe(column.current)
     // A picture or a card's image arriving makes its block taller.
@@ -238,6 +257,7 @@ export function useFitBox(column: RefObject<HTMLElement | null>, full: boolean, 
       changes.disconnect()
       sizes.disconnect()
       window.removeEventListener('resize', soon)
+      window.removeEventListener('resize', caught)
       document.removeEventListener('load', soon, true)
       clearTimeout(wait.current)
     }

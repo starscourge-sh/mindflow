@@ -178,7 +178,7 @@ const api = {
   /** The box's height as its writing needs it: it grows down to it, up to its full size. */
   fitBox: (height: number, snap = false): void => ipcRenderer.send('window:fit', height, snap),
   /** The room main keeps round this window's card (quick capture's overhang), 0 for a window that is all card. */
-  room: ((): { left: number; top: number; right: number; bottom: number; side?: 'above' | 'below' | 'left' | 'right' | null; menu?: number } => ipcRenderer.sendSync('window:room'))(),
+  room: ((): { left: number; top: number; right: number; bottom: number; side?: 'above' | 'below' | 'left' | 'right' | null; menu?: number; pill?: number } => ipcRenderer.sendSync('window:room'))(),
   /** Main changed the room round the card while the box was away, for a hint (above it, beside it, or none): the page moves its card to match and says so once drawn. */
   onRoomHint: (listen: (room: { top: number; left: number; right: number; bottom: number; side: 'above' | 'below' | 'left' | 'right' | null }) => void): void =>
     void ipcRenderer.on('window:room-hint', (_event, room) => listen(room)),

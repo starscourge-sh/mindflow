@@ -2220,16 +2220,20 @@ export default function App(): React.JSX.Element {
                 words.ready(editor)
                 if (toEnd.current) (toEnd.current = false, requestAnimationFrame(() => editor.commands.focus('end')))
                 box.guard(editor)
-                // A second line typed: the pill grows into the box before this frame is drawn (see measureWraps).
-                // Only a new line counts here, never words wrapping: a change can come while the card is not yet at
-                // its width (a draft put in as the box opens, the card 344px wide mid-resize), and there a one-line
-                // draft ("Rosetta Stone") wrapped a letter to a line and grew into the box (qa/hint-room.mjs). Words
-                // passing one line are still measured as the box draws, at its own width (the layout effect above).
+                // A second line typed, or words wrapping past the one: the pill grows into the box before this frame is
+                // drawn (see measureWraps). Words wrapping count only with the card at the pill's own width: a change
+                // can come while it is not yet (a draft put in as the box opens, the card 344px wide mid-resize), and
+                // there a one-line draft ("Rosetta Stone") wrapped a letter to a line and grew into the box
+                // (qa/hint-room.mjs). Measured at any other width, they wait for the box to draw (the layout effect above).
                 editor.on('update', () => {
                   if (!oneLineNow.current || wrapsNow.current) return
                   const doc = column.current?.querySelector<HTMLElement>('.ProseMirror')
+                  if (!doc) return
                   // A new block, or a line break in the one (⇧↩): both are a new line whatever the width.
-                  if (doc && (doc.childElementCount > 1 || doc.querySelector('br:not(.ProseMirror-trailingBreak)'))) flushSync(() => setWraps(true))
+                  if (doc.childElementCount > 1 || doc.querySelector('br:not(.ProseMirror-trailingBreak)')) return flushSync(() => setWraps(true))
+                  const card = doc.closest<HTMLElement>('.app-container')
+                  const settled = !!card && !!window.api.room.pill && Math.abs(card.getBoundingClientRect().width - window.api.room.pill) < 1
+                  if (settled && measureWraps.current()) flushSync(() => setWraps(true))
                 })
                 // First among its plugins, so a click on a lit tag keeps it plain rather than opening it.
                 if (!planNow(editor))

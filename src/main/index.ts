@@ -638,7 +638,8 @@ ipcMain.on('window:room', (event) => {
   const win = BrowserWindow.fromWebContents(event.sender)
   // The box hears which side its hint room is on too, set as it was made (createWindow).
   // `menu`: the room below the card it keeps for its own menus' feet, whatever a hint below adds to it (fit-box.ts).
-  event.returnValue = win && rooms.has(win) ? { ...rooms.get(win), ...(win === prompt ? { side: hintSide ?? null, menu: BOX_ROOM.bottom } : {}) } : evenRoom(0)
+  // `pill`: the pill's own width, so the page measures words wrapping only once the card is at it (App.tsx).
+  event.returnValue = win && rooms.has(win) ? { ...rooms.get(win), ...(win === prompt ? { side: hintSide ?? null, menu: BOX_ROOM.bottom, pill: WIDTH } : {}) } : evenRoom(0)
 })
 /**
  * Room round the box's card for a hint, out of the card (hint-room.ts says where). Changed only while the box is

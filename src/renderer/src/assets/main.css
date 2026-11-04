@@ -420,6 +420,11 @@ html[data-overhang][data-hint-side='below'] [data-hint-room] {
   top: calc(100vh - var(--mf-room) + 12px);
   width: 320px;
 }
+/* The card drawn ahead of its window, held at its new height while the window grows round it (lib/fit-box.ts): the
+   hint under it goes under that height, where it will be once the window has grown, never over the card's foot. */
+html[data-overhang][data-card-held][data-hint-side='below'] [data-hint-room] {
+  top: calc(var(--mf-room-top) + var(--mf-card-held) + 12px);
+}
 html[data-overhang][data-hint-side='below']:not([data-hint-menu]):has([role=menu], [role=dialog], [role=alertdialog], [role=listbox], .tiptap-suggestion-popup, [data-shot-button][data-open]) [data-hint-room] {
   transition: none;
 }
