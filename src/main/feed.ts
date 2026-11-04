@@ -9,6 +9,7 @@ import { tagsIn } from './tag-words'
 import { linkedAmong } from './notes'
 import { LEARN_TAG } from './name'
 import { dayKey, dayjs } from './dates'
+import { findPair, type PairNote } from './feed-pair'
 
 /**
  * The Feed: about twenty of your own things a day, picked once and kept for
@@ -18,7 +19,7 @@ import { dayKey, dayjs } from './dates'
  * a #bit, nothing at all in Safe mode.
  */
 export type FeedPost = {
-  type: 'capture' | 'nugget' | 'article' | 'question' | 'day' | 'poll' | 'quiz'
+  type: 'capture' | 'nugget' | 'article' | 'question' | 'day' | 'poll' | 'quiz' | 'pair'
   id: string
   kind: string
   title: string
@@ -53,6 +54,8 @@ export type FeedPost = {
   poll?: { open: { type: 'capture' | 'nugget'; id: string }; answer: PollAnswer | null; answers: Record<PollAnswer, number> }
   /** A Review card due, asked here: its question, its answer, each grade's next date, and today's grade once given. */
   quiz?: { prompt: string; answer: string; intervals: Record<number, string>; graded: { grade: number; due: string } | null }
+  /** "Two subjects, one thread": two notes with no tag in common, and what they share (feed-pair.ts). */
+  pair?: { notes: { type: FeedPost['type']; id: string; kind: string; title: string; text: string; who: string | null; tags: string[] }[]; why: { kind: 'word'; word: string } | { kind: 'source'; source: string } | { kind: 'hour' } }
   /** Brought in by an importer: shown "From the archives". */
   archive?: boolean
   /** Kept this many months ago and never linked: shown "From the archives", one a Feed at most. */
@@ -443,6 +446,9 @@ export function registerFeed(): void {
         lanes.forEach((lane, at) => picked.push(...lane.splice(0, share[at]).slice(0, room - picked.length)))
       const list = [...stacked, ...order(picked)].map((row) => `${row.type}:${row.id}`)
       asks.forEach((key, at) => list.splice(Math.min(list.length, 3 + at * 5), 0, key))
+      // One "Two subjects, one thread" a day at most, where an honest pair exists, set among the rest.
+      const pair = pairOf([...byKey.values()], Number(today.replace(/\D/g, '')) || 0)
+      if (pair) list.splice(Math.min(list.length, 8), 0, pair)
       keys = JSON.stringify(list)
       db.prepare('update feed_restacks set shown_day = ? where shown_day is null and made_day < ?').run(today, today)
       // Kept for the day only from the Feed's goal (feed-view.tsx, FEED_NOTES): below it each look picks afresh, so the day it is met starts full.
@@ -495,10 +501,12 @@ export function registerFeed(): void {
       }
     }
     const posts = (JSON.parse(keys) as string[]).filter((key) => {
+      if (key.startsWith('pair:')) return true
       const id = key.slice(key.lastIndexOf(':') + 1)
       return !shown.has(id) && !!shown.add(id)
     }).flatMap((key): FeedPost[] => {
       if (key.startsWith('poll:') || key.startsWith('quiz:')) return asked(key)
+      if (key.startsWith('pair:')) return paired(key)
       const row = byKey.get(key)
       return row ? [postOf(row, key)] : []
     })
@@ -507,6 +515,29 @@ export function registerFeed(): void {
     if (lone) posts.splice(Math.min(posts.length, 6), 0, { ...postOf(lone, `${lone.type}:${lone.id}`), unlinked: Math.max(3, dayjs().diff(dayjs(lone.made), 'month')) })
     return { day: today, posts, safe: false }
   })
+
+  // --- "Two subjects, one thread": two notes with no tag in common that share a rare word, a source, or an hour.
+  const textOf = (body: string | null): string => { try { return plain(JSON.parse(body ?? '')) } catch { return body ?? '' } }
+  const pairOf = (rows: Row[], seed: number): string | null => {
+    const notes: PairNote[] = rows.filter((row) => row.type !== 'day' && row.type !== 'article').map((row) => ({ key: `${row.type}:${row.id}`, id: row.id, title: row.title, text: textOf(row.body), tags: tagsOfRow(row), who: row.who, made: row.made }))
+    // How rare a word is: across every note of the book you could be shown, kept or not.
+    const book = [
+      ...db.prepare("select title, body from nuggets where private = 0 and binned_at is null and tier not in ('card', 'deck')").all(),
+      ...db.prepare(`select ${LABEL} as title, body from captures where private = 0 and status != 'discarded' and id not in (select capture_id from nuggets where capture_id is not null)`).all()
+    ].map((one) => `${(one as { title: string }).title} ${textOf((one as { body: string | null }).body)}`)
+    const found = findPair(notes, filingTags(), book, seed)
+    return found ? `pair:${JSON.stringify({ a: found.a.key, b: found.b.key, why: found.why })}` : null
+  }
+  /** A pair's post, read now: both notes as they are, each with its tags; gone if either has gone. */
+  const paired = (key: string): FeedPost[] => {
+    let saved: { a: string; b: string; why: NonNullable<FeedPost['pair']>['why'] }
+    try { saved = JSON.parse(key.slice(5)) } catch { return [] }
+    const rows = [saved.a, saved.b].map((one) => pool().find((row) => `${row.type}:${row.id}` === one))
+    if (rows.some((row) => !row)) return []
+    const filing = filingTags()
+    const notes = (rows as Row[]).map((row) => ({ type: row.type, id: row.id, kind: row.kind, title: row.title, text: words(row), who: row.who?.trim() || null, tags: tagsOfRow(row).filter((tag) => !filing.has(tag.toLowerCase()) && tag !== 'bit' && tag !== LEARN_TAG).slice(0, 3) }))
+    return [{ type: 'pair', id: `${rows[0]!.id}+${rows[1]!.id}`, kind: 'pair', title: '', text: '', who: null, made: [rows[0]!.made, rows[1]!.made].sort().at(-1)!, seen: null, gloss: null, clue: null, react: null, replies: 0, firstReply: null, seenTimes: 0, faded: 0, liked: 0, tags: [], restack: null, pair: { notes, why: saved.why } }]
+  }
 
   // --- the side column: who and what you have not heard from, and this week's tags.
   const tagsOfRow = (row: { title: string; body: string | null }): string[] => {

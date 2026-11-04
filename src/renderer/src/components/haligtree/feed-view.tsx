@@ -64,7 +64,7 @@ const SAMPLE_POSTS: FeedPost[] = ([
 }))
 const react = (post: FeedPost, reaction: Reaction | null): Promise<Reaction | null> => call<Reaction | null>('feed:react', `${post.type}:${post.id}`, reaction)
 
-const KIND_WORD: Record<FeedPost['type'], string> = { nugget: 'Gem', capture: 'Note', article: 'Page', question: 'Question', day: 'Journal', poll: 'Poll', quiz: 'Quiz card' }
+const KIND_WORD: Record<FeedPost['type'], string> = { nugget: 'Gem', capture: 'Note', article: 'Page', question: 'Question', day: 'Journal', poll: 'Poll', quiz: 'Quiz card', pair: 'Thread' }
 export const kindWord = (post: { kind: string; type: FeedPost['type'] }): string => (post.kind === 'quote' ? 'Quote' : KIND_WORD[post.type])
 
 /** A date: "4 Mar", with the year once it is not this year's, or always (`years`) in a thread that spans years. */
@@ -406,7 +406,7 @@ function FeedNotes({ onOpen, tabs, pages }: { onOpen: (type: string, id: string)
         else if (event.key === 'Enter' && !(event.target as HTMLElement | null)?.closest?.('button, a, [role="link"]')) (event.preventDefault(), open('nugget', post.id))
         return
       }
-      if (post.poll) return
+      if (post.poll || post.pair) return
       // ⌫: the post's note to the Bin, with the Undo "Move to the Bin" gives; the cursor stays where it was, on the next one.
       if ((event.key === 'Backspace' || event.key === 'Delete') && post.type !== 'day') return void (event.preventDefault(), node.dispatchEvent(new Event('haligtree:feed-bin')))
       if (event.code === 'KeyL') press('[data-feed-reaction="like"]')
@@ -453,7 +453,8 @@ function FeedNotes({ onOpen, tabs, pages }: { onOpen: (type: string, id: string)
             <ol className="flex flex-col">
               {feed.posts.map((post, at) => {
                 const mark = { at, cursor: at === cursor, onPoint: () => setCursor(at) }
-                return post.poll ? <PollPost key={`poll:${post.id}`} post={post} mark={mark} onOpen={() => open(post.poll!.open.type, post.poll!.open.id)} />
+                return post.pair ? <PairPost key={`pair:${post.id}`} post={post} mark={mark} onOpen={open} />
+                  : post.poll ? <PollPost key={`poll:${post.id}`} post={post} mark={mark} onOpen={() => open(post.poll!.open.type, post.poll!.open.id)} />
                   : post.quiz ? <QuizPost key={`quiz:${post.id}`} post={post} mark={mark} onOpen={() => open('nugget', post.id)} />
                   : <Post key={`${post.type}:${post.id}`} post={post} mark={mark} onOpen={() => open(post.type, post.id)} onOpenOther={open} onThread={() => openThread(post)} explain={explain && at === plain} />
               })}
@@ -844,6 +845,49 @@ const answersSaid = (answers: Record<PollAnswer, number>): string =>
   POLL.filter((one) => answers[one.value]).map((one) => `${num(answers[one.value])} ${one.value}`).join(', ')
 
 /** A decision made weeks ago, asked again: "You chose it. Was it right?", and what you said kept on it as a dated thought. */
+/** The words that say why two notes are one thread: "Both say *entropy*", "Both quote Seneca", "Kept within the same hour". */
+const pairSaid = (why: NonNullable<FeedPost['pair']>['why']): React.ReactNode =>
+  why.kind === 'word' ? <>Both say <em data-feed-pair-word className="font-medium text-foreground">{why.word}</em></>
+    : why.kind === 'source' ? <>Both quote <span className="font-medium text-foreground">{why.source}</span></>
+    : 'Kept within the same hour'
+
+/**
+ * "Two subjects, one thread": two notes with no tag in common that share an
+ * unusual word, a source or an hour, side by side, each with its tags and each
+ * opening its note, and the reason in plain words. Found without AI (feed-pair.ts).
+ */
+function PairPost({ post, onOpen, mark }: { post: FeedPost; onOpen: (type: string, id: string) => void; mark?: Mark }): React.JSX.Element {
+  const { notes, why } = post.pair!
+  const tags = notes.map((note) => note.tags[0]).filter(Boolean)
+  return (
+    <li data-feed-post="pair" data-feed-id={post.id} data-feed-at={mark?.at} onPointerDown={mark?.onPoint} className="relative isolate flex flex-col gap-1 border-b py-4 first:pt-0 last:border-b-0">
+      <CursorRing on={!!mark?.cursor} />
+      <p data-feed-context className="pl-12 text-control text-muted-foreground">Two subjects, one thread</p>
+      <div className="flex gap-3">
+        <div className="flex w-9 shrink-0 flex-col items-center"><Avatar name="You" size={36} className="mt-0.5 shrink-0" /></div>
+        <div className="flex min-w-0 flex-1 flex-col gap-2">
+          <p data-feed-pair-why className="text-body text-foreground/90">
+            {pairSaid(why)}
+            {tags.length === 2 && <span className="text-muted-foreground"> · #{tags[0]} and #{tags[1]}</span>}
+          </p>
+          <div className="flex flex-col gap-2">
+            {notes.map((note) => (
+              <div key={note.id} data-feed-pair-note={note.id} className="flex min-w-0 flex-col gap-1.5">
+                <Quoted note={note} onOpen={() => onOpen(note.type, note.id)} />
+                {note.tags.length > 0 && (
+                  <p className="flex flex-wrap gap-x-2 px-1 text-control">
+                    {note.tags.map((tag) => <button key={tag} type="button" {...hoverNote('tag', tag)} onClick={(event) => (chime('page'), openTag(tag, event.altKey))} className="rounded-sm text-muted-foreground hover:text-foreground hover:underline">#{tag}</button>)}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </li>
+  )
+}
+
 function PollPost({ post, onOpen, mark }: { post: FeedPost; onOpen: () => void; mark?: Mark }): React.JSX.Element {
   const poll = post.poll!
   const [answer, setAnswer] = useState<PollAnswer | null>(poll.answer)
