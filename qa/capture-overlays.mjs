@@ -54,8 +54,10 @@ const state = () => page.evaluate(() => {
       return { kind: el.getAttribute('role') ?? el.dataset.slot ?? el.className.slice(0, 30), box: box(el), cut, scrolls: list.scrollHeight > list.clientHeight + 1, inWindow: r.left >= 0 && r.top >= 0 && r.right <= innerWidth + 0.5 && r.bottom <= innerHeight + 0.5 }
     })
   const controls = [...document.querySelectorAll('.mf-top [data-aside] > *, .mf-top .mf-pill button')].filter((el) => el.offsetWidth > 0).map(box)
-  const chip = document.querySelector('[data-kind-chip]')
-  return { card: card ? box(card) : null, controls, pops, chip: chip ? box(chip) : null, size: [innerWidth, innerHeight], pill: !!document.querySelector('.app-container[data-pill]') }
+  // The list hangs from what is in sight: the pill's kind mark in the one-line pill, the footer's chip in the grown box.
+  const pill = !!document.querySelector('.app-container[data-pill]')
+  const chip = document.querySelector(pill ? '[data-pill-kind]' : '[data-kind-chip]')
+  return { card: card ? box(card) : null, controls, pops, chip: chip && chip.getBoundingClientRect().width > 0 ? box(chip) : null, size: [innerWidth, innerHeight], pill }
 })
 /** Every blur shape sits on a part drawn now (the card or a round control or the hint), within 2px. */
 const glassTrue = (s, shapes) => {
@@ -115,6 +117,9 @@ try {
           const pop = s.pops[0]
           check(`${name}: opens, whole inside the capture window`, !!pop && s.pops.every((p) => p.inWindow), JSON.stringify(s.pops))
           check(`${name}: no row cut off without a way to scroll to it`, !!pop && s.pops.every((p) => !p.cut || p.scrolls), JSON.stringify(s.pops))
+          if (one.kindMenu) {
+            check(`${name}: the kind mark it hangs from is in sight`, !!s.chip, JSON.stringify({ chip: s.chip }))
+          }
           if (one.kindMenu && pop && s.chip) {
             const gap = pop.box[1] >= s.chip[1] + s.chip[3] ? pop.box[1] - (s.chip[1] + s.chip[3]) : s.chip[1] - (pop.box[1] + pop.box[3])
             check(`${name}: the kind menu hangs from its chip (${gap}px from it)`, gap >= 0 && gap <= 12, JSON.stringify({ chip: s.chip, pop: pop.box }))
