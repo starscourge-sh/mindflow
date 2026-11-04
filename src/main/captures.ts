@@ -236,7 +236,7 @@ export const LIST = `id, number, title, ${LABEL} as label, kind, status, source,
 /** Every property name in use on a note or page: what `name:value` in a search can filter on. */
 const propertyNames = (db: DatabaseSync): string[] =>
   (db.prepare(`select distinct key from (select j.key from captures, json_each(captures.fields) j where json_valid(captures.fields)
-    union select j.key from nuggets, json_each(nuggets.fields) j where json_valid(nuggets.fields)) where key != '_kept'`).all() as { key: string }[]).map((row) => row.key)
+    union select j.key from nuggets, json_each(nuggets.fields) j where json_valid(nuggets.fields)) where key not in ('_kept', '_meaningRead')`).all() as { key: string }[]).map((row) => row.key)
 /** A note's properties, read for a filter. */
 const fieldsOf = (db: DatabaseSync, type: string, id: string): Record<string, unknown> => {
   try {

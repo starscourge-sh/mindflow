@@ -8,7 +8,7 @@
 export const propSaid = (name: string): string => name.charAt(0).toUpperCase() + name.slice(1)
 
 // kanban-plugin is the switch that draws a note as a board (board-view.tsx), Obsidian's own name for it: not a property to sort by.
-const KEPT = new Set(['_kept', 'decidedAt', 'heldAt', 'answeredAt', 'rating', 'status', 'kanban-plugin'])
+const KEPT = new Set(['_kept', '_meaningRead', 'decidedAt', 'heldAt', 'answeredAt', 'rating', 'status', 'kanban-plugin'])
 
 const read = (fields: string | null | undefined): Record<string, unknown> => {
   try {

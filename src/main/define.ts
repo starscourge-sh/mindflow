@@ -72,6 +72,17 @@ async function nearest(word: string): Promise<string[]> {
     .map((one) => one.one)
 }
 
+/** A meaning that reads as the word's forms, not what it means: "(runs) (, running) (past participle; run)." (kept before MAC_READ 2). */
+export const garbled = (meaning: string): boolean => /^\((?!of |usually |be |in |with |as |often )|^[[,;]|\[|\(,|past participle|third singular|^\(\w+s\)/i.test(meaning.trim())
+let fresh: ((word: string) => Promise<Answer>) | null = null
+/** The word asked of the dictionary again, past what is kept: its meaning, or null. */
+export const defineAgain = async (word: string): Promise<Defined | null> => {
+  const clean = word.trim().toLowerCase()
+  if (!WORD.test(clean) || !fresh) return null
+  const answer = await fresh(clean).catch(() => null)
+  return answer && 'found' in answer && !garbled(answer.found.definition) ? answer.found : null
+}
+
 export function registerDefine(): void {
   const db = database()
   db.exec('create table if not exists word_meanings (word text primary key, answer text not null, at text not null)')
@@ -120,6 +131,8 @@ export function registerDefine(): void {
       return { offline: true }
     }
   }
+
+  fresh = (word) => ask(word, true)
 
   ipcMain.handle('haligtree:define', async (_event, raw: unknown) => {
     const word = typeof raw === 'string' ? raw.trim().toLowerCase() : ''

@@ -33,7 +33,7 @@ const typeOf = (field: Field): Prop['type'] =>
   field.type === 'rating' ? 'rating' : field.type === 'long' ? 'long' : field.type === 'choice' ? 'choice' : field.type === 'date' ? 'date' : field.type === 'link' ? 'link' : 'text'
 
 /** Keys the app keeps for itself, never shown: when a thing was decided or answered, a deck card's own Anki fields. */
-const KEPT = new Set(['_kept', 'decidedAt', 'heldAt', 'answeredAt', '_anki'])
+const KEPT = new Set(['_kept', 'decidedAt', 'heldAt', 'answeredAt', '_anki', '_meaningRead'])
 
 /** A value, said short: "3 Nov", "Yes", "★★★★". */
 function said(prop: Prop): string {

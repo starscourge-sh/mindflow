@@ -13,6 +13,7 @@ import { centredOn, glide, stillNow } from './glide'
 /** How far a note's own window rises into place as it opens. */
 const RISE = 14
 import { tagsIn } from './tag-words'
+import { defineAgain, garbled } from './define'
 import { cut } from './clip'
 import { NOTE_KEY } from './name'
 import { fileLink } from './pdf-highlights'
@@ -264,8 +265,22 @@ export function registerNotes({ load, guard, home, homeWindow }: Windows): void 
     const kept = (parse(row?.kept ?? null) as string[] | null) ?? []
     return row ? tagsIn(`${row.title ?? ''} ${plain(parse(row.body))}`).filter((tag) => !kept.includes(tag)) : []
   })
-  handle('notes:fields', (name: string, id: string) =>
-    parse((db.prepare(`select fields from ${table(name)} where id = ?`).get(id) as { fields: string | null } | undefined)?.fields) ?? {})
+  handle('notes:fields', (name: string, id: string) => {
+    const row = db.prepare(`select fields${table(name) === 'captures' ? ', kind, title, body' : ''} from ${table(name)} where id = ?`).get(id) as { fields: string | null; kind?: string; title?: string | null; body?: string | null } | undefined
+    const fields = (parse(row?.fields ?? null) as Record<string, unknown> | null) ?? {}
+    // A Word saved with its forms for a meaning ("(runs) (, running)…", an older reading of the Mac's Dictionary):
+    // read again once, as it is next shown, and the new meaning kept in its place.
+    if (row?.kind === 'word' && typeof fields.definition === 'string' && garbled(fields.definition) && !fields._meaningRead) {
+      const word = (row.title?.trim() || plain(parse(row.body ?? null)).trim()).split(/\s+/)[0] ?? ''
+      void defineAgain(word).then((found) => {
+        const now = (parse((db.prepare(`select fields from captures where id = ?`).get(id) as { fields: string | null } | undefined)?.fields ?? null) as Record<string, unknown> | null) ?? {}
+        const next = { ...now, _meaningRead: 1, ...(found ? { definition: found.definition, ...(found.example && !now.example ? { example: found.example } : {}) } : {}) }
+        db.prepare(`update captures set fields = ? where id = ?`).run(JSON.stringify(next), id)
+        changed()
+      })
+    }
+    return fields
+  })
   // A new kind loses nothing: every property stays the note's own and shows
   // (a field of the old kind is a plain property now). What was there is handed back whole for the undo.
   handle('notes:kind', (name: string, id: string, kind: string) => {
@@ -284,7 +299,7 @@ export function registerNotes({ load, guard, home, homeWindow }: Windows): void 
     if (names && Date.now() - names.at < 60_000) return names.list
     const typed = new Map((db.prepare('select name, type, options from properties').all() as { name: string; type: string; options: string | null }[]).map((row) => [row.name.toLowerCase(), row]))
     const used = db.prepare(`select distinct key from (select j.key from captures, json_each(captures.fields) j where json_valid(captures.fields)
-      union select j.key from nuggets, json_each(nuggets.fields) j where json_valid(nuggets.fields)) where key != '_kept'`).all() as { key: string }[]
+      union select j.key from nuggets, json_each(nuggets.fields) j where json_valid(nuggets.fields)) where key not in ('_kept', '_meaningRead')`).all() as { key: string }[]
     const found = new Map<string, { name: string; type: string | null; options: string[] }>()
     for (const { key } of used) found.set(key.toLowerCase(), { name: key, type: typed.get(key.toLowerCase())?.type ?? null, options: [] })
     for (const row of typed.values()) found.set(row.name.toLowerCase(), { name: row.name, type: row.type, options: (parse(row.options) as string[] | null) ?? [] })

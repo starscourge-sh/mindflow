@@ -25,6 +25,28 @@ export function whenOnline(run: () => void): () => void {
   return () => window.removeEventListener('online', back)
 }
 
+/**
+ * A page asked for its preview: the returned `done(read)` says how it went. A link whose page could not be read stays
+ * the plain link and says why quietly, once for all the links read together ("Couldn't read 3 pages"), never a
+ * notice each. Offline is said by noteOffline instead.
+ */
+let reading = 0
+let unread = 0
+export function readingPage(): (read: boolean) => void {
+  reading++
+  let told = false
+  return (read) => {
+    if (told) return
+    told = true
+    reading--
+    if (!read && !offline()) unread++
+    if (reading || !unread) return
+    const many = unread
+    unread = 0
+    void import('@/components/haligtree/ui').then(({ toast }) => toast(many === 1 ? "Couldn't read this page: it stays a plain link" : `Couldn't read ${many} pages: they stay plain links`, undefined, 'info'))
+  }
+}
+
 /** A card just filled in late, after being offline: it fades up rather than popping. */
 export function fadeFilled(editor: Editor, at: number): void {
   if (still()) return
