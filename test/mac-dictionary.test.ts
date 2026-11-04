@@ -56,3 +56,21 @@ test('another spelling in brackets is passed over', () => {
 test('nothing found reads as nothing', () => {
   assert.equal(readMac(''), null)
 })
+
+test("a verb's forms before its first sense are left out, not shown as the meaning", () => {
+  const run = readMac('run | rʌn | verb (runs) (, running) (past; ran | ran |) (past participle; run) 1 [no object] move at a speed faster than a walk, never having both or all the feet on the ground at the same time: the dog ran across the road | she ran the last few yards. • run as a sport or for exercise: I run every morning. 2 pass or cause to pass quickly in a particular direction: the rumour ran through the pack.')
+  assert.equal(run?.definition, 'Move at a speed faster than a walk, never having both or all the feet on the ground at the same time.')
+  assert.equal(run?.example, 'the dog ran across the road')
+  assert.equal(run?.also, 'Pass or cause to pass quickly in a particular direction.')
+  const take = readMac("take | teɪk | verb (past took | tʊk |) (past participle; taken | ˈteɪk(ə)n |) [with object] 1 lay hold of (something) with one's hands; reach for and hold: Mrs Morgan took another biscuit.")
+  assert.equal(take?.definition, "Lay hold of (something) with one's hands; reach for and hold.")
+  const put = readMac('put | pʊt | verb (puts, putting; past and past participle put) [with object and adverbial] 1 move to or place in a particular position: I put my hand out towards her.')
+  assert.equal(put?.definition, 'Move to or place in a particular position.')
+  const well = readMac('well 1 | wɛl | adverb (better, best) 1 in a good or satisfactory way: the whole team played well.')
+  assert.equal(well?.definition, 'In a good or satisfactory way.')
+})
+
+test('a grammar note inside a sense is left out of the meaning', () => {
+  const read = readMac('lead 1 | liːd | verb (past and past participle led) [with object] 1 cause (a person or animal) to go with one: she led him into the house. 2 (usually lead to) [no object, with adverbial of direction] be a route or means of access to a particular place: the door led to a long hall.')
+  assert.equal(read?.also, '(usually lead to) be a route or means of access to a particular place.')
+})

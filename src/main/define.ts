@@ -26,7 +26,10 @@ const WORD = /^\p{L}[\p{L}'-]{1,40}$/u
 const MAC = !QA_DICT || process.env.HALIGTREE_QA_MAC_DICT === 'on'
 
 /** `source`: where the meaning came from, said under it. `also`: a second sense, when there is one. */
-export type Defined = { word: string; phonetic: string; audio: string; part: string; definition: string; example: string; also?: string; source?: 'mac' | 'web' }
+export type Defined = { word: string; phonetic: string; audio: string; part: string; definition: string; example: string; also?: string; source?: 'mac' | 'web'; read?: number }
+// How the Mac's entries are read (mac-dictionary.ts). A meaning kept from an older reading is asked again:
+// before 2, "run" was kept as its forms, "(runs) (, running) (past participle; run).", not its meaning.
+const MAC_READ = 2
 export type Answer = { found: Defined } | { miss: true; fix: string | null } | { offline: true } | null
 
 type Entry = { word?: string; phonetic?: string; phonetics?: { text?: string; audio?: string }[]; meanings?: { partOfSpeech?: string; definitions?: { definition?: string; example?: string }[] }[] }
@@ -81,6 +84,7 @@ export function registerDefine(): void {
     const row = db.prepare('select answer, at from word_meanings where word = ?').get(word) as { answer: string; at: string } | undefined
     if (!row) return undefined
     const answer = JSON.parse(row.answer) as Answer
+    if (answer && 'found' in answer && answer.found.source === 'mac' && answer.found.read !== MAC_READ) return undefined
     // A word it did not know is asked again after a day: the dictionary grows.
     if (answer && 'miss' in answer && Date.now() - Date.parse(row.at) > 86_400_000) return undefined
     return answer
@@ -92,17 +96,21 @@ export function registerDefine(): void {
   const ask = async (word: string, fresh = false): Promise<Answer> => {
     const known = fresh ? undefined : kept(word)
     if (known && !('miss' in known)) return known
+    let unanswered = false
     if (MAC) {
-      const entry = readMac(await macLookUp(word))
+      const said = await macLookUp(word)
+      unanswered = said === null
+      const entry = readMac(said)
       if (entry) {
-        const found: Defined = { ...entry, audio: '', source: 'mac' }
+        const found: Defined = { ...entry, audio: '', source: 'mac', read: MAC_READ }
         keep(word, { found })
         return { found }
       }
     }
     try {
       const response = await net.fetch(`${BASE}${encodeURIComponent(word)}`, { signal: AbortSignal.timeout(4000) })
-      if (response.status === 404) return { miss: true, fix: null }
+      // Not on the web, and the Mac's Dictionary never answered: not known yet, rather than not a word.
+      if (response.status === 404) return unanswered ? { offline: true } : { miss: true, fix: null }
       if (!response.ok) return { offline: true }
       const found = read((await response.json()) as Entry[])
       if (!found) return { miss: true, fix: null }
