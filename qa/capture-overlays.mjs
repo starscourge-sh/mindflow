@@ -130,7 +130,7 @@ const read = ({ frames }) => {
   return { step, start, trip, above, row, card, pill, count: frames.length }
 }
 async function growAndFold(look) {
-  await page.evaluate(() => window.api.showPrompt()); await wait(1200)
+  await page.evaluate(() => window.api.revealPrompt()); await wait(1200)
   await page.click(EDITOR); await page.keyboard.press('Meta+a'); await page.keyboard.press('Backspace'); await wait(500)
   await page.keyboard.type('One line')
   const grown = await film(async () => { await page.keyboard.press('Shift+Enter'); await page.keyboard.type('two') })
@@ -183,7 +183,7 @@ try {
     if (process.env.HALIGTREE_QA_ONSCREEN) await growAndFold(look)
     if (process.env.QA_GROW_ONLY) continue
     for (const shape of ['pill', 'grown']) {
-      await page.evaluate(() => window.api.showPrompt()); await wait(1200)
+      await page.evaluate(() => window.api.revealPrompt()); await wait(1200)
       await page.click(EDITOR); await page.keyboard.press('Meta+a'); await page.keyboard.press('Backspace'); await wait(400)
       if (shape === 'grown') {
         await page.keyboard.type('Grown box'); await page.keyboard.press('Shift+Enter'); await page.keyboard.type('two lines'); await wait(900)
@@ -225,7 +225,7 @@ try {
         check(`${name}: the blur is still under the card, nothing left where it was`, true_.ok, JSON.stringify({ card: s.card, size: s.size, stray: true_.stray }))
         await one.close(shape); await wait(600)
         await h.keyboard.press('Escape').catch(() => {})
-        await page.evaluate(() => window.api.showPrompt()); await wait(500)
+        await page.evaluate(() => window.api.revealPrompt()); await wait(500)
       }
       await page.evaluate(() => window.api.hidePrompt()); await wait(500)
     }
