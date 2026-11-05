@@ -158,6 +158,7 @@ export function useFluidHover(box: RefObject<HTMLElement | null>, { items, axis 
     const py = y - at.top - el.clientTop + el.scrollTop
     let nearest: HTMLElement | null = null
     let best = Infinity
+    let bestAcross = Infinity
     // The rows' own reach: the gaps between them belong to the nearest, but
     // the empty part of a box wider than its rows (a row of chips in a full
     // width bar) is no one's, so a click out there picks nothing.
@@ -174,7 +175,10 @@ export function useFluidHover(box: RefObject<HTMLElement | null>, { items, axis 
       const dx = px - (s.left + s.width / 2)
       const dy = py - (s.top + s.height / 2)
       const far = axis === 'x' ? Math.abs(dx) : axis === 'y' ? Math.abs(dy) : Math.hypot(dx, dy)
-      if (far < best) (best = far), (nearest = row)
+      // Rows side by side in a column (a split's two halves) are equally near along y: the one nearer
+      // across wins, never simply the first, or a pointer coming in at the right lit the left half first.
+      const across = axis === 'y' ? Math.abs(dx) : axis === 'x' ? Math.abs(dy) : 0
+      if (far < best || (far === best && across < bestAcross)) (best = far), (bestAcross = across), (nearest = row)
     }
     const SLACK = 6
     if (px < reach.left - SLACK || px > reach.right + SLACK || py < reach.top - SLACK || py > reach.bottom + SLACK) return null
@@ -310,12 +314,10 @@ export function useChosen(box: RefObject<HTMLElement | null>, selector: string, 
  * row it started on, moved and scaled to each row it travels to, and quietly
  * given its row's own size once it rests there. With Reduce motion it only fades.
  */
-export function Highlight({ spot, session = 0, snap, from, travel = spring.fast, className }: {
+export function Highlight({ spot, session = 0, snap, travel = spring.fast, className }: {
   spot: Spot | null
   session?: number
   snap?: boolean
-  /** Where a fresh light fades in from: the chosen row, so pointing grows out of it. */
-  from?: Spot | null
   travel?: Transition
   className?: string
 }): React.JSX.Element {
@@ -350,7 +352,9 @@ export function Highlight({ spot, session = 0, snap, from, travel = spring.fast,
           data-glide=""
           className={cn('pointer-events-none absolute top-0 left-0 -z-10 origin-top-left rounded-md bg-accent/60', className)}
           style={size}
-          initial={{ opacity: 0, ...at(from ?? spot) }}
+          // A fresh light (the pointer just come in) fades in where it lands, on the row under the pointer from
+          // its first frame: grown out of the chosen row, it was drawn on its way there, over rows not pointed at.
+          initial={{ opacity: 0, ...at(spot) }}
           animate={{ opacity: 1, ...at(spot) }}
           exit={{ opacity: 0, transition: spring.fast.exit }}
           transition={{ ...(now || resizing ? { duration: 0 } : travel), opacity: { duration: spring.fast.duration } }}
