@@ -38,9 +38,11 @@
  * switch is the app's own sliding pill (Chips), and the big number rolls.
  * With reduced motion or motion off, every one of these shows its end at once.
  */
-import { useRef, useState, type ReactNode } from 'react'
+import { useId, useRef, useState, type ReactNode } from 'react'
 import { motion, useReducedMotion, MotionGlobalConfig } from 'motion/react'
 import { Rolling } from './ui'
+import { TrendingDown, TrendingUp } from 'lucide-react'
+import { line as path, area as fill, curveMonotoneX } from 'd3-shape'
 import { Chips } from './display'
 import { useSeen } from '@/lib/reads-in'
 
@@ -61,9 +63,21 @@ const useArrived = (): boolean => {
   return seen || still
 }
 
-/** A tone of the ink: Amicro's three steps (full, 0.52, 0.22) and its faint track. */
+/**
+ * A tone of the ink: Amicro's three steps, lifted so the faintest still passes
+ * 3:1 against the card on every theme and finish (qa/charts-pass.mjs measures
+ * it), and the faint track for what is not data (a day with none, the rest of a gauge).
+ */
 const INK = 'var(--foreground)'
-const TONES = [1, 0.52, 0.22]
+export const TONES = [1, 0.8, 0.62]
+/** The faintest a mark that is data may be: below it, a mark fails 3:1 on the paper. */
+export const INK_FLOOR = 0.62
+/**
+ * A heatmap's five steps of ink, as GitHub's and Anki's have: none (faint, not data), then four by share of the busiest
+ * day, the lightest still 3:1 against its card on every theme and finish. Every day grid in the app shades from these.
+ */
+export const INK_STEPS = [9, 62, 75, 88, 100]
+export const inkShade = (step: number): string => `color-mix(in oklab, var(--foreground) ${INK_STEPS[step]}%, transparent)`
 
 /** A small round chip beside the big number: "5 of 7 days", "12 weeks". */
 export function Chip({ children }: { children: ReactNode }): React.JSX.Element {
@@ -77,37 +91,42 @@ export function Switch<T extends string>({ options, value, pick }: { options: { 
 
 /**
  * One card per idea: the number, what it counts, chips, a switch on the
- * right, the picture on its stage, then one line that says the point. While
- * a mark is pointed at, its value follows the pointer in a tip and takes the
- * place of the point.
+ * right, the picture straight on the card (never a darker panel inside it),
+ * then one bold line that says the point, with an arrow when it says a rise or
+ * a fall, and under it in quiet ink what the marks are. While a mark is pointed at, its value takes the number's place.
+ * With too little to draw (`enough` false) the card keeps its number and says
+ * one sentence in the picture's place: never a chart that is mostly empty frame.
  */
-export function MonoCard({ name, title, value, unit, chips, side, point, children, hovered }: {
-  name: string; title: string; value: string | number; unit?: string; chips?: ReactNode; side?: ReactNode; point: ReactNode; children?: ReactNode; hovered?: string | null
+export function MonoCard({ name, title, value, unit, chips, side, point, trend, note, children, hovered, enough = true, sparse }: {
+  name: string; title: string; value: string | number; unit?: string; chips?: ReactNode; side?: ReactNode; point: ReactNode; trend?: 'up' | 'down'; children?: ReactNode; hovered?: string | null
+  /** Under the point in quiet ink, as shadcn's range line: what the marks are. */ note?: ReactNode
+  /** Whether there is enough to draw a chart from. */ enough?: boolean
+  /** Said in the chart's place while there is not enough. */ sparse?: ReactNode
 }): React.JSX.Element {
   const still = useStillness()
   const arrived = useArrived()
   const stage = useRef<HTMLDivElement>(null)
   // As Amicro's cards do, the big number turns to the mark pointed at ("6" and "reviews, Sat 31 Oct"), and back on leaving.
   const swap = hovered ? (/^([\d,.]+%?)\s+(.*)$/.exec(hovered) ?? (/^No /.test(hovered) ? [hovered, '0', hovered.replace(/^No /, '')] : [hovered, typeof value === 'number' ? value.toLocaleString() : value, hovered])) : null
+  const Arrow = trend === 'up' ? TrendingUp : TrendingDown
   return (
-    <motion.section data-mono-card={name} aria-label={title} className="flex min-w-0 flex-col gap-2 rounded-xl border border-border bg-card p-4"
+    <motion.section data-mono-card={name} aria-label={title} className="flex min-w-0 flex-col gap-2 rounded-[6px] border border-border bg-card p-3"
       initial={still ? false : { opacity: 0, scale: 0.98, y: 6 }} animate={arrived ? { opacity: 1, scale: 1, y: 0 } : { opacity: 0, scale: 0.98, y: 6 }} transition={{ duration: 0.25, ease: EASE }}>
       <p className="text-xs font-medium text-muted-foreground">{title}</p>
       {/* One line, at rest and while a mark is pointed at: the readout takes the number's place here and nowhere else, so nothing grows. */}
       <div data-mono-head className="flex flex-nowrap items-center justify-between gap-2">
         <div className="flex min-w-0 flex-1 flex-nowrap items-baseline gap-2 overflow-hidden">
-          <span data-mono-value={value} data-mono-shown={swap ? swap[1] : value} className="text-[1.75rem] leading-none font-semibold text-foreground tabular-nums"><Rolling text={swap ? swap[1] : typeof value === 'number' ? value.toLocaleString() : value} /></span>
+          <span data-mono-value={value} data-mono-shown={swap ? swap[1] : value} className="text-2xl leading-none font-semibold text-foreground tabular-nums"><Rolling text={swap ? swap[1] : typeof value === 'number' ? value.toLocaleString() : value} /></span>
           {(swap ? swap[2] : unit) && <span className="min-w-0 truncate text-sm text-muted-foreground">{swap ? swap[2] : unit}</span>}
           {chips && <span className={`flex shrink-0 gap-1 ${swap ? 'invisible' : ''}`}>{chips}</span>}
         </div>
         {side}
       </div>
-      {children && (
-        <div ref={stage} className="relative rounded-lg bg-foreground/[0.035] p-3">
-          {children}
-        </div>
-      )}
-      <p data-mono-point className="min-h-5 text-sm text-muted-foreground">{point}</p>
+      {enough && children && <div ref={stage} data-mono-stage className="relative py-1">{children}</div>}
+      {/* Too little to draw: the one sentence takes the point's place, which would only describe marks that are not there. */}
+      {enough || !sparse ? <p data-mono-point className="flex min-h-5 items-center gap-1.5 text-sm font-medium text-foreground">{point}{trend && <Arrow aria-label={trend === 'up' ? 'up' : 'down'} className="size-4 shrink-0" />}</p>
+        : <p data-mono-point data-chart-sparse className="min-h-5 text-sm font-medium text-foreground">{sparse}</p>}
+      {note && enough && <p data-mono-note className="-mt-1.5 text-xs text-muted-foreground">{note}</p>}
     </motion.section>
   )
 }
@@ -125,7 +144,7 @@ export function DotMatrix({ days, say, onHover, columns = 7, dot = 14 }: { days:
   const still = useStillness()
   const arrived = useArrived()
   const most = Math.max(1, ...days.map((one) => one.n))
-  const tone = (n: number): number => (n === 0 ? 0.08 : 0.3 + 0.7 * Math.min(1, n / most))
+  const tone = (n: number): number => (n === 0 ? 0.1 : INK_FLOOR + (1 - INK_FLOOR) * Math.min(1, n / most))
   const across = Math.ceil(days.length / columns)
   return (
     // Packed tight at their own size, never spread to fill the stage (memory compact-dots: spaced-out dots read as low effort).
@@ -142,8 +161,8 @@ export function DotMatrix({ days, say, onHover, columns = 7, dot = 14 }: { days:
 }
 
 /**
- * Bars, one per value, the same width in every chart (6 px, the heatmap's 2 px corner at
- * the top, square on the baseline), standing on one hairline baseline, with
+ * Bars, one per value, the same width in every chart (6 px pills, round at both
+ * ends as Mono's pill pillars are), standing on one hairline baseline, with
  * a quiet hairline at the tallest and its value: the scale. A day with none
  * draws nothing. Pointing at a bar dims the others; nothing moves or redraws.
  */
@@ -165,7 +184,7 @@ export function PillBars({ values, keys, say, onHover, className = 'h-20', unit 
             {n > 0 && (
               <motion.span initial={still ? false : { scaleY: 0 }} animate={{ scaleY: arrived ? 1 : 0, opacity: on === null || on === at ? 1 : 0.35 }}
                 transition={{ scaleY: { duration: still ? 0 : DRAW, ease: RECHARTS_EASE, delay: still ? 0 : Math.min(0.3, at * 0.012) }, opacity: { duration: 0.12 } }}
-                className="block w-1.5 origin-bottom rounded-t-[2px]" style={{ height: `${Math.max(4, (n / most) * 100)}%`, background: INK }} />
+                className="block w-1.5 origin-bottom rounded-full" style={{ height: `max(6px, ${(n / most) * 100}%)`, background: INK }} />
             )}
           </span>
         ))}
@@ -193,37 +212,49 @@ export function Arc({ percent, label, className = 'max-w-[220px]' }: { percent: 
 }
 
 /**
- * Lines through points, straight from one to the next (a curve would swing
- * below zero or past a point between them), every series continuous to the
- * last point; a dashed one to set the full one against. Pointing stands a
- * guide at the nearest point and rings its dot; nothing grows or redraws.
+ * Lines through points on a monotone curve (it bends between points but never
+ * swings past them or below zero, as shadcn's and Mono's splines do), every
+ * series continuous to the last point; a dashed one to set the full one
+ * against. The full line has a soft wash under it, a filled dot on every point
+ * and, with few points, its value over each. Pointing stands a guide at the
+ * nearest point and rings its dot; nothing grows or redraws.
  */
 export function Spline({ lines, say, onHover }: { lines: { values: number[]; dashed?: boolean; name: string }[]; say: (at: number) => string; onHover: (said: string | null) => void }): React.JSX.Element {
   const still = useStillness()
   const arrived = useArrived()
   const [on, setOn] = useState<number | null>(null)
+  const wash = useId()
   const count = lines[0]?.values.length ?? 0
   const most = Math.max(1, ...lines.flatMap((line) => line.values))
   const [w, h] = [300, 90]
   const x = (at: number): number => (count < 2 ? w / 2 : (at / (count - 1)) * (w - 12) + 6)
-  const y = (n: number): number => h - 8 - (Math.max(0, n) / most) * (h - 16)
-  const straight = (values: number[]): string => values.map((n, at) => `${at ? 'L' : 'M'} ${x(at).toFixed(2)} ${y(n).toFixed(2)}`).join(' ')
+  const y = (n: number): number => h - 8 - (Math.max(0, n) / most) * (h - 22)
+  const curve = (values: number[]): string => path<number>().x((_, at) => x(at)).y((n) => y(n)).curve(curveMonotoneX)(values) ?? ''
+  const under = (values: number[]): string => fill<number>().x((_, at) => x(at)).y0(h - 8).y1((n) => y(n)).curve(curveMonotoneX)(values) ?? ''
   const full = lines.find((line) => !line.dashed)
+  // A value over each point only while there are few enough to read (shadcn's labelled line): six or fewer.
+  const labelled = count <= 6
   return (
     <div data-mono-spline data-hovered={on ?? undefined} className="relative h-24" onPointerLeave={() => (setOn(null), onHover(null))}>
       {/* Faded in as a whole, never drawn along its length: a drawn-in line dashes itself and can stop short. */}
       <motion.svg viewBox={`0 0 ${w} ${h}`} className="absolute inset-0 h-full w-full overflow-visible" preserveAspectRatio="none" role="img" aria-label={lines.map((line) => line.name).join(' and ')}
         initial={still ? false : { opacity: 0 }} animate={{ opacity: arrived ? 1 : 0 }} transition={{ duration: still ? 0 : 0.3, ease: EASE }}>
+        <defs><linearGradient id={wash} x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stopColor={INK} stopOpacity={0.16} /><stop offset="100%" stopColor={INK} stopOpacity={0} /></linearGradient></defs>
         <line x1={0} x2={w} y1={h - 8} y2={h - 8} stroke={INK} strokeOpacity={0.2} strokeWidth={1} vectorEffect="non-scaling-stroke" />
-        <line data-mono-guide x1={x(on ?? 0)} x2={x(on ?? 0)} y1={0} y2={h} stroke={INK} strokeOpacity={on === null ? 0 : 0.3} strokeWidth={1} strokeDasharray="3 3" vectorEffect="non-scaling-stroke" />
+        <line data-mono-guide x1={x(on ?? 0)} x2={x(on ?? 0)} y1={0} y2={h} stroke={INK} strokeOpacity={on === null ? 0 : 0.3} strokeWidth={1} vectorEffect="non-scaling-stroke" />
+        {full && <path data-mono-wash d={under(full.values)} fill={`url(#${wash})`} />}
         {lines.map((line) => (
-          <path key={line.name} data-mono-line={line.dashed ? 'dashed' : 'full'} d={straight(line.values)} fill="none" stroke={INK} strokeOpacity={line.dashed ? 0.45 : 1} strokeWidth={2} strokeDasharray={line.dashed ? '5 4' : undefined} strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+          <path key={line.name} data-mono-line={line.dashed ? 'dashed' : 'full'} d={curve(line.values)} fill="none" stroke={INK} strokeOpacity={line.dashed ? 0.56 : 1} strokeWidth={2} strokeDasharray={line.dashed ? '5 4' : undefined} strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
         ))}
       </motion.svg>
-      {/* The full line's dots as round marks over the stretched drawing, so they stay round; the one pointed at gets a ring, its size never changes. */}
+      {/* The full line's dots as round marks over the stretched drawing, so they stay round; a ring of the card keeps each clear of the line. */}
       {full && full.values.map((n, at) => (
-        <span key={at} data-mono-dot={at} className="pointer-events-none absolute size-[5px] rounded-full"
-          style={{ left: `${(x(at) / w) * 100}%`, top: `${(y(n) / h) * 100}%`, translate: '-50% -50%', background: INK, boxShadow: `0 0 0 1.5px var(--card)${on === at ? ', 0 0 0 3px color-mix(in oklab, var(--foreground) 45%, transparent)' : ''}` }} />
+        <span key={at} data-mono-dot={at} className="pointer-events-none absolute size-[7px] rounded-full"
+          style={{ left: `${(x(at) / w) * 100}%`, top: `${(y(n) / h) * 100}%`, translate: '-50% -50%', background: INK, boxShadow: `0 0 0 2px var(--card)${on === at ? ', 0 0 0 3.5px color-mix(in oklab, var(--foreground) 45%, transparent)' : ''}` }} />
+      ))}
+      {full && labelled && full.values.map((n, at) => (
+        <span key={`v${at}`} aria-hidden data-mono-label className="pointer-events-none absolute text-[10px] leading-none text-muted-foreground tabular-nums"
+          style={{ left: `${(x(at) / w) * 100}%`, top: `${(y(n) / h) * 100}%`, translate: '-50% -14px' }}>{Math.round(n).toLocaleString()}</span>
       ))}
       <div className="absolute inset-0 flex">
         {Array.from({ length: count }, (_, at) => <span key={at} data-say={say(at)} className="h-full flex-1" onPointerEnter={() => (setOn(at), onHover(say(at)))} />)}
@@ -239,16 +270,16 @@ export function ToneBar({ parts }: { parts: { name: string; n: number }[] }): Re
   const total = parts.reduce((sum, one) => sum + one.n, 0)
   return (
     <div data-mono-tones>
-      <div className="flex h-3 gap-px">
+      <div className="flex h-2.5 gap-0.5 overflow-hidden rounded-full">
         {parts.filter((one) => one.n).map((one, at) => (
-          <motion.span key={one.name} aria-label={`${one.name}: ${one.n.toLocaleString()}`} className="h-full origin-left rounded-[2px]" style={{ flex: `${one.n} 1 0`, minWidth: 12, background: INK, opacity: TONES[parts.indexOf(one)] ?? 0.22 }}
-            initial={still ? false : { scaleX: 0.85, opacity: 0 }} animate={arrived ? { scaleX: 1, opacity: TONES[parts.indexOf(one)] ?? 0.22 } : { scaleX: 0.85, opacity: 0 }} transition={{ delay: still ? 0 : at * 0.05, duration: 0.25 }} />
+          <motion.span key={one.name} aria-label={`${one.name}: ${one.n.toLocaleString()}`} className="h-full origin-left" style={{ flex: `${one.n} 1 0`, minWidth: 12, background: INK, opacity: TONES[parts.indexOf(one)] ?? INK_FLOOR }}
+            initial={still ? false : { scaleX: 0.85, opacity: 0 }} animate={arrived ? { scaleX: 1, opacity: TONES[parts.indexOf(one)] ?? INK_FLOOR } : { scaleX: 0.85, opacity: 0 }} transition={{ delay: still ? 0 : at * 0.05, duration: 0.25 }} />
         ))}
-        {!total && <span className="h-full flex-1 rounded-[2px]" style={{ background: INK, opacity: 0.08 }} />}
+        {!total && <span className="h-full flex-1" style={{ background: INK, opacity: 0.1 }} />}
       </div>
       <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
         {parts.map((one, at) => (
-          <span key={one.name} data-tone={one.name} className="inline-flex items-center gap-1.5"><span className="size-2 rounded-[2px]" style={{ background: INK, opacity: TONES[at] ?? 0.22 }} />{one.name} <strong className="font-semibold text-foreground tabular-nums">{one.n.toLocaleString()}</strong></span>
+          <span key={one.name} data-tone={one.name} className="inline-flex items-center gap-1.5"><span className="size-2 rounded-[2px]" style={{ background: INK, opacity: TONES[at] ?? INK_FLOOR }} />{one.name} <strong className="font-semibold text-foreground tabular-nums">{one.n.toLocaleString()}</strong></span>
         ))}
       </div>
     </div>
@@ -266,8 +297,8 @@ export function Funnel({ rows, say, onHover }: { rows: { name: string; n: number
       {rows.map((one, at) => (
         <div key={one.name} data-say={say(one)} onPointerEnter={() => (setOn(one.name), onHover(say(one)))} className="grid grid-cols-[minmax(0,9rem)_1fr_auto] items-center gap-3 text-xs transition-opacity duration-200" style={{ opacity: on === null || on === one.name ? 1 : 0.4 }}>
           <span className="truncate text-muted-foreground">{one.name}</span>
-          <span className="h-2.5">
-            <motion.span className="block h-full origin-left rounded-[2px]" style={{ width: `${Math.max(4, (one.n / most) * 100)}%`, background: INK }}
+          <span className="h-2">
+            <motion.span className="block h-full origin-left rounded-full" style={{ width: `${Math.max(4, (one.n / most) * 100)}%`, background: INK }}
               initial={still ? false : { scaleX: 0.85, opacity: 0 }} animate={arrived ? { scaleX: 1, opacity: 1 } : { scaleX: 0.85, opacity: 0 }} transition={{ delay: still ? 0 : at * 0.05, duration: 0.25 }} />
           </span>
           <strong className="font-semibold text-foreground tabular-nums">{one.n.toLocaleString()}</strong>

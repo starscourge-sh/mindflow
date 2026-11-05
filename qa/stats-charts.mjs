@@ -1,5 +1,5 @@
-// Review's Stats charts say only what they draw, and hold still under the pointer. Lines are straight from point
-// to point (no curve swinging below zero), every series runs to its last point, the dashed line a caption names is
+// Review's Stats charts say only what they draw, and hold still under the pointer. Lines are monotone curves (they
+// bend between points but never swing past one or below zero), every series runs to its last point, the dashed line a caption names is
 // drawn dashed; bars are one width in every chart with a scale (a hairline at the tallest and its value) and no
 // zero bars; no part of a split bar is a sliver; headlines say "1 minute", never "1 minutes". Pointing at every
 // point and bar moves no mark and no card: films a frame every 50 ms across each chart (QA_SHOTS), in Everforest
@@ -23,32 +23,34 @@ try {
   await waitFor(() => has('[data-review-stats] [data-mono-card]'))
   await h.waitForTimeout(1200)
   const drawn = await h.evaluate(() => {
-    const lines = [...document.querySelectorAll('[data-review-stats] [data-mono-line]')].map((one) => ({ kind: one.getAttribute('data-mono-line'), curved: /[CSQT]/.test(one.getAttribute('d')), dash: one.getAttribute('stroke-dasharray'), points: (one.getAttribute('d').match(/[ML]/g) ?? []).length }))
+    const lines = [...document.querySelectorAll('[data-review-stats] [data-mono-line]')].map((one) => ({ kind: one.getAttribute('data-mono-line'), curved: /[CSQT]/.test(one.getAttribute('d')), dash: one.getAttribute('stroke-dasharray'), points: (one.getAttribute('d').match(/[MLC]/g) ?? []).length }))
     const captions = [...document.querySelectorAll('[data-review-stats] [data-mono-card]')].map((card) => ({ says: /dashed/.test(card.querySelector('[data-mono-point]')?.textContent ?? ''), dashed: !!card.querySelector('[data-mono-line="dashed"][stroke-dasharray]') }))
     const bars = [...new Set([...document.querySelectorAll('[data-review-stats] [data-bar] > span')].map((one) => Math.round(one.getBoundingClientRect().width)))]
     const zero = document.querySelectorAll('[data-review-stats] [data-bar]').length - document.querySelectorAll('[data-review-stats] [data-bar] > span').length
-    const scale = document.querySelectorAll('[data-review-stats] [data-bars-top]').length
+    const scale = [...document.querySelectorAll('[data-review-stats] [data-focus-bars]')].every((one) => one.querySelector('[data-bars-top]')) && document.querySelectorAll('[data-review-stats] [data-bars-top]').length
     const slivers = [...document.querySelectorAll('[data-review-stats] [data-mono-tones] > div:first-child > span')].filter((one) => one.getBoundingClientRect().width < 11).length
     const text = document.querySelector('[data-review-stats]').textContent
     return { lines, captions, bars, zero, scale, slivers, grammar: /(^|\D)1 (minutes|reviews|cards|sources|days)\b/.test(text) }
   })
-  check('lines are straight from point to point, never a curve', drawn.lines.length > 0 && drawn.lines.every((one) => !one.curved), JSON.stringify(drawn.lines))
+  check('lines are monotone curves (shadcn and Mono), drawn through every point', drawn.lines.length > 0 && drawn.lines.every((one) => one.curved), JSON.stringify(drawn.lines))
   check('every series in a chart reaches the same last point', [...new Set(drawn.lines.map((one) => one.points))].length <= 2 && drawn.lines.every((one) => one.points >= 2), JSON.stringify(drawn.lines.map((one) => one.points)))
   check('a caption that names a dashed line has one drawn dashed', drawn.captions.every((one) => !one.says || one.dashed), JSON.stringify(drawn.captions))
   check('bars are one width in every chart', drawn.bars.length === 1, JSON.stringify(drawn.bars))
-  check('bar charts carry a scale (a hairline at the tallest with its value)', drawn.scale >= 2, String(drawn.scale))
+  check('every bar chart drawn carries a scale (a hairline at the tallest with its value)', drawn.scale >= 1, String(drawn.scale))
   check('no part of a split bar is a sliver', drawn.slivers === 0, String(drawn.slivers))
   check('headlines count in words that agree ("1 minute", not "1 minutes")', !drawn.grammar)
-  // The heatmap's language: no capsules. Bars, split-bar parts, source bars and chips at most a 4 px corner; line dots 5 px.
+  // Mono's geometry (the charts pass): bars, source bars and the split bar are pills, round at the ends; chips and
+  // day squares keep a small corner; line dots are filled and 7 px, ringed in the card.
   const shapes = await h.evaluate(() => {
-    const marks = [...document.querySelectorAll('[data-review-stats] [data-bar] > span, [data-review-stats] [data-mono-tones] > div:first-child > span, [data-review-stats] [data-mono-funnel] span.block, [data-review-stats] [data-mono-chip], [data-review-stats] [data-day]')]
-    const round = marks.filter((one) => parseFloat(getComputedStyle(one).borderTopLeftRadius) > 4).map((one) => `${one.tagName}.${(one.className.baseVal ?? one.className).slice(0, 40)}`)
+    const marks = [...document.querySelectorAll('[data-review-stats] [data-bar] > span, [data-review-stats] [data-mono-funnel] span.block')]
+    const round = marks.filter((one) => parseFloat(getComputedStyle(one).borderTopLeftRadius) < Math.min(one.getBoundingClientRect().width, one.getBoundingClientRect().height) / 2 - 0.5).map((one) => `${one.tagName}.${(one.className.baseVal ?? one.className).slice(0, 40)}`)
+    const square = [...document.querySelectorAll('[data-review-stats] [data-mono-chip], [data-review-stats] [data-day]')].filter((one) => parseFloat(getComputedStyle(one).borderTopLeftRadius) > 4).length
     const dots = [...new Set([...document.querySelectorAll('[data-review-stats] [data-mono-dot]')].map((one) => Math.round(one.getBoundingClientRect().width)))]
     const gap = getComputedStyle(document.querySelector('[data-review-stats] [data-mono-tones] > div:first-child')).columnGap
-    return { marks: marks.length, round, dots, gap }
+    return { marks: marks.length, round, square, dots, gap }
   })
-  check('no capsules: every bar, part, source bar and chip has at most a 4 px corner', shapes.marks > 0 && !shapes.round.length, JSON.stringify(shapes))
-  check('line dots are 5 px so the lines lead; the split bar\'s parts butt with a 1 px gap', shapes.dots.every((one) => one <= 5) && shapes.gap === '1px', JSON.stringify(shapes))
+  check('bars and source bars are pills; chips and day squares keep a corner of 4 px at most', shapes.marks > 0 && !shapes.round.length && !shapes.square, JSON.stringify(shapes))
+  check('line dots are filled and 7 px; the split bar\'s parts sit 2 px apart', shapes.dots.length > 0 && shapes.dots.every((one) => one === 7) && Math.abs(parseFloat(shapes.gap) - 2) < 0.25, JSON.stringify(shapes))
   for (const theme of ['everforest', 'paper']) {
     await look(theme)
     await h.waitForTimeout(600)

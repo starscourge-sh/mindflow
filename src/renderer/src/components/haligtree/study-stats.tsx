@@ -1,7 +1,7 @@
 import { haligtree, useLive } from '@/lib/haligtree'
 import { useReading } from '@/lib/reads-in'
 import { useState } from 'react'
-import { Ends, Funnel, MonoCard, PillBars, Spline, Switch, ToneBar, Chip, useHover } from './mono-card'
+import { INK_STEPS, inkShade, Ends, Funnel, MonoCard, PillBars, Spline, Switch, ToneBar, Chip, useHover } from './mono-card'
 import { N, Section } from './stats-view'
 import { dayMonth, dayjs, num, plural } from '../../../../main/dates'
 
@@ -61,16 +61,16 @@ export function StudySection({ example }: { example: boolean }): React.JSX.Eleme
 }
 
 const dayWords = (day: string): string => dayjs(day).format('ddd D MMM')
+/** Days with something on them before a day chart draws: fewer and the chart is mostly empty frame. */
+const DRAW_DAYS = 3
 
-/** Five steps of ink, as GitHub's and Anki's heatmaps have: none, then four by share of the busiest day. */
-const INK_STEPS = [7, 30, 50, 70, 92]
 /** Today: a ring drawn inside its own square, so no edge of the grid can clip it. */
 // Today in the theme's accent, so it never reads as the ink ring a pointed day wears.
 const TODAY_RING = 'inset 0 0 0 1.5px var(--primary), inset 0 0 0 2.5px var(--background)'
 /** The square pointed at: one hairline of ink inside it. */
 const HOVER_RING = 'inset 0 0 0 1px color-mix(in oklab, var(--foreground) 85%, transparent)'
 const stepOf = (n: number, most: number): number => (n ? Math.min(4, 1 + Math.floor((n / Math.max(1, most)) * 3.999)) : 0)
-const shadeOf = (step: number): string => `color-mix(in oklab, var(--foreground) ${INK_STEPS[step]}%, transparent)`
+const shadeOf = inkShade
 
 /** Days as square cells 3 px apart in the year's five steps of ink, today ringed: the 30 days and the year in Stats, drawn as the year above the decks is. */
 function DayCells({ days, say, onHover, rows, cell, left, right }: { days: { day: string; n: number }[]; say: (day: { day: string; n: number }) => string; onHover: (said: string | null) => void; rows: number; cell: number; /** Said under the first cell and the last. */ left: string; right: string }): React.JSX.Element {
@@ -126,44 +126,61 @@ function StudyCards({ studied }: { studied: Studied }): React.JSX.Element {
   const firstKnown = studied.growth[0]?.known ?? 0
   const keptNow = studied.kept[studied.kept.length - 1]
   const reviewsSaid = (one: { day: string; n: number }): string => `${plural(one.n, 'review', 'reviews')}, ${dayWords(one.day)}`
+  // Enough to draw: each chart shows once it has this much, and says its number and one sentence before then.
+  const reviewDays = days.filter((one) => one.n).length
+  const dueDays = studied.due.filter(Boolean).length
+  const keptMonths = studied.kept.filter((one) => one.notes + one.gems).length
+  const grew = new Set(studied.growth.map((one) => one.made)).size >= 2 || studied.growth.some((one) => one.known)
+  const keptBefore = studied.kept[studied.kept.length - 2]
+  // This month against the last, said as shadcn's footer says it ("Up 12% on last month") with its arrow.
+  const keptAll = (one: { notes: number; gems: number } | undefined): number => (one ? one.notes + one.gems : 0)
+  const keptChange = keptBefore && keptAll(keptBefore) ? Math.round(((keptAll(keptNow) - keptAll(keptBefore)) / keptAll(keptBefore)) * 100) : null
+  const keptTrend = keptChange ? (keptChange > 0 ? 'up' : 'down') : undefined
   return (
     <div className="grid gap-3 sm:grid-cols-2">
       <div data-study-month className="sm:col-span-2" {...(span === 'year' ? { 'data-study-year': '' } : {})}>
-        <MonoCard name="reviews" title={span === 'month' ? 'Cards reviewed each day' : 'Days you reviewed, the darker the more cards'} value={span === 'month' ? reviews : yearTotal} unit={`${(span === 'month' ? reviews : yearTotal) === 1 ? 'review' : 'reviews'} in ${span === 'month' ? '30 days' : 'a year'}`}
+        <MonoCard name="reviews" title={span === 'month' ? 'Cards reviewed each day' : 'Days you reviewed'} value={span === 'month' ? reviews : yearTotal} unit={`${(span === 'month' ? reviews : yearTotal) === 1 ? 'review' : 'reviews'} in ${span === 'month' ? '30 days' : 'a year'}`}
           side={<Switch options={[{ id: 'month', label: '30 days' }, { id: 'year', label: 'Year' }]} value={span} pick={setSpan} />}
-          hovered={onReviews} point="Each square is a day, the darker the more cards, as in the year above the decks.">
+          hovered={onReviews} point="A square a day: the bolder, the more cards." enough={reviewDays >= DRAW_DAYS}
+          sparse={reviewDays ? `Reviews on ${plural(reviewDays, 'day', 'days')} so far: the squares start at ${DRAW_DAYS}.` : `No reviews ${span === 'month' ? 'in 30 days' : 'this year'} yet: a review in Review shows here.`}>
           <DayCells key={span} days={days} say={reviewsSaid} onHover={sayReviews} rows={span === 'month' ? 1 : 7} cell={span === 'month' ? 11 : 10} left={span === 'month' ? '30 days ago' : 'a year ago'} right="today" />
         </MonoCard>
       </div>
       <MonoCard name="minutes" title="Minutes reviewing each day" value={Math.round(shownMinutes.reduce((sum, one) => sum + one.n, 0))} unit={`${Math.round(shownMinutes.reduce((sum, one) => sum + one.n, 0)) === 1 ? 'minute' : 'minutes'} in ${range === 'week' ? '7' : '30'} days`} chips={studiedDays ? <Chip>{plural(studiedDays, 'day', 'days')}</Chip> : undefined}
         side={<Switch options={[{ id: 'week', label: '7 days' }, { id: 'month', label: '30 days' }]} value={range} pick={setRange} />}
-        hovered={onMinutes} point={studied.seconds !== null ? `A card takes you about ${plural(studied.seconds, 'second', 'seconds')}.` : 'Time is counted from the next review on.'}>
+        hovered={onMinutes} point={studied.seconds !== null ? `About ${plural(studied.seconds, 'second', 'seconds')} a card.` : 'Counted from your next review on.'} enough={studiedDays >= DRAW_DAYS}
+        sparse={studiedDays ? `Time on ${plural(studiedDays, 'day', 'days')} so far: the bars start at ${DRAW_DAYS}.` : 'No time spent reviewing in these days yet.'}>
         <PillBars values={shownMinutes.map((one) => one.n)} keys={shownMinutes.map((one) => one.day)} say={(at) => `${shownMinutes[at].n ? `${num(Math.round(shownMinutes[at].n))} min` : 'No reviews'}, ${dayWords(shownMinutes[at].day)}`} onHover={sayMinutes} className="h-16" unit="min" />
         <Ends left={range === 'week' ? '7 days ago' : '30 days ago'} right="today" />
       </MonoCard>
-      <MonoCard name="known" title="Cards you know" value={studied.known} unit={`of ${plural(studied.cards, 'card', 'cards')}`} chips={last && last.known > firstKnown ? <Chip>{`+${num(last.known - firstKnown)} in 12 weeks`}</Chip> : undefined}
-        hovered={onKnown} point="Known means remembered after a gap of 15 days or more. The dashed line is every card you have made.">
+      <MonoCard name="known" title="Cards you know" value={studied.known} unit={`of ${plural(studied.cards, 'card', 'cards')}`}
+        hovered={onKnown} trend={last && last.known > firstKnown ? 'up' : undefined} point={last && last.known > firstKnown ? `Up ${num(last.known - firstKnown)} known in 12 weeks` : 'Known: remembered after 15 days or more'}
+        note={last && last.known > firstKnown ? 'Known: remembered after 15 days or more. Dashed: every card made.' : 'Dashed: every card made.'} enough={grew}
+        sparse={studied.cards ? 'Your cards have not changed in 12 weeks: the line starts once they grow.' : 'No cards yet: make one from any note and it counts here.'}>
         <Spline lines={[{ name: 'cards known', values: studied.growth.map((one) => one.known) }, { name: 'cards made', values: studied.growth.map((one) => one.made), dashed: true }]}
           say={(at) => `${num(studied.growth[at].known)} known of ${num(studied.growth[at].made)} made, week to ${dayWords(studied.growth[at].end)}`} onHover={sayKnown} />
         <Ends left="12 weeks ago" right="this week" />
       </MonoCard>
       <MonoCard name="stages" title="Where your cards stand" value={studied.cards} unit={studied.cards === 1 ? 'card' : 'cards'}
-        point={studied.stages.learnt ? `${num(studied.stages.learnt)} learnt, ${num(studied.stages.learning)} still being learnt, ${num(studied.stages.new)} not studied yet.` : 'Every card starts new, and is learnt once it sticks.'}>
+        point={studied.stages.learnt ? `${num(studied.stages.learnt)} learnt so far.` : 'Every card starts new, and is learnt once it sticks.'} enough={studied.cards > 0} sparse="No cards yet: each one starts new and is learnt once it sticks.">
         <ToneBar parts={[{ name: 'Learnt', n: studied.stages.learnt }, { name: 'Learning', n: studied.stages.learning }, { name: 'Not studied yet', n: studied.stages.new }]} />
       </MonoCard>
       <MonoCard name="sources" title="Cards by where they came from" value={studied.sources.length} unit={studied.sources.length === 1 ? 'source' : 'sources'}
-        hovered={onSources} point={studied.sources[0] ? `Most come from ${studied.sources[0].name}.` : 'Cards made from a book or a note show here.'}>
+        hovered={onSources} point={studied.sources[0] ? `Most from ${studied.sources[0].name}.` : 'Cards made from a book or a note show here.'} enough={studied.sources.length >= 2}
+        sparse={studied.sources[0] ? `All from ${studied.sources[0].name}.` : 'Cards made from a book or a note show here.'}>
         <Funnel rows={studied.sources} say={(one) => `${plural(one.n, 'card', 'cards')} from ${one.name}`} onHover={saySources} />
       </MonoCard>
       <div data-study-due>
         <MonoCard name="due" title="Cards coming due" value={coming} unit="in two weeks" chips={<Chip>{`${num(studied.due[0])} today`}</Chip>}
-          hovered={onDue} point={`${plural(studied.due[0], 'card is', 'cards are')} due today.`}>
+          hovered={onDue} point={`${plural(studied.due[0], 'card is', 'cards are')} due today.`} enough={dueDays >= DRAW_DAYS}
+          sparse={!coming ? 'Nothing falls due in the next two weeks.' : dueDays === 1 && studied.due[0] ? `${coming === 1 ? 'It is' : 'All are'} due today.` : `Due on ${plural(dueDays, 'day', 'days')} in the next two weeks.`}>
           <PillBars values={studied.due} say={(at) => `${plural(studied.due[at], 'card', 'cards')} due ${at === 0 ? 'today' : at === 1 ? 'tomorrow' : dayMonth(new Date(Date.now() + at * 86400000))}`} onHover={sayDue} className="h-16" />
           <Ends left="today" right="in two weeks" />
         </MonoCard>
       </div>
       <MonoCard name="kept" title="Notes and gems kept" value={keptNow ? keptNow.notes + keptNow.gems : 0} unit="this month" chips={keptNow ? <><Chip>{plural(keptNow.notes, 'note', 'notes')}</Chip><Chip>{plural(keptNow.gems, 'gem', 'gems')}</Chip></> : undefined}
-        hovered={onKept} point="The full line is notes, the dashed line gems, month by month.">
+        hovered={onKept} trend={keptTrend} point={keptChange ? `${keptChange > 0 ? 'Up' : 'Down'} ${Math.abs(keptChange)}% on last month` : keptChange === 0 ? 'The same as last month' : 'Notes and gems, month by month'} note="Full line: notes. Dashed: gems." enough={keptMonths >= 2}
+        sparse={keptMonths ? 'Only this month so far: the line starts with a second.' : 'Nothing kept in six months yet.'}>
         <Spline lines={[{ name: 'notes', values: studied.kept.map((one) => one.notes) }, { name: 'gems', values: studied.kept.map((one) => one.gems), dashed: true }]}
           say={(at) => `${dayjs(`${studied.kept[at].month}-01`).format('MMMM')}: ${plural(studied.kept[at].notes, 'note', 'notes')}, ${plural(studied.kept[at].gems, 'gem', 'gems')}`} onHover={sayKept} />
         <Ends left="six months ago" right="this month" />
@@ -200,7 +217,7 @@ export function StudyYear({ compact = false }: { /** Above the decks: the same y
     [`${share}%`, 'of days studied']
   ]
   // Five steps of ink, as GitHub's and Anki's heatmaps have: none, then four by share of the busiest day.
-  const INK = [7, 30, 50, 70, 92]
+  const INK = INK_STEPS
   const level = (n: number): number => (n ? Math.min(4, 1 + Math.floor((n / most) * 3.999)) : 0)
   const shade = (step: number): string => `color-mix(in oklab, var(--foreground) ${INK[step]}%, transparent)`
   // A month's name over the first week that starts in it; the year's first column only when its month has room before the next.
