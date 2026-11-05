@@ -31,6 +31,7 @@ try {
   await v('settings:set', { sounds: false, progressBars: 'dino' })
   const short = await make('Pack for Lisbon', 9, -3)
   const year = await make('Run the Comrades', 365, -10)
+  const camino = await make('Walk the Camino', 600, -10)
   const logged = await make('Finish chapter three', 45, -40)
   for (const [n, ago] of [[1, 0], [2, 2], [3, 9], [4, 20]]) {
     await v('clue', logged, `Log ${n}`)
@@ -114,7 +115,7 @@ try {
 
   // The road: only its own days, each mark named on the chart, the logged ones lit.
   const road = async () => h.evaluate(() => {
-    const svg = document.querySelector('[data-open] [data-road] svg')
+    const svg = document.querySelector('[data-open] [data-road]')
     const dots = svg ? [...svg.querySelectorAll('[data-road-day]')] : []
     return {
       dots: dots.length,
@@ -129,6 +130,40 @@ try {
   for (const word of ['Today', 'Halfway', 'A month to go', 'A week to go', 'The day']) check(`the year road names "${word}" on the chart`, seen.labels.some((one) => one.startsWith(word)), seen.labels.join(' | '))
   check('caption: "0 of 11 days logged" (the days gone so far)', /^0 of 11 days logged/.test(seen.caption), seen.caption)
   await shot('page-year')
+  // A long road wraps so its dots stay about 10px, each row with its months, each name over its own row.
+  const roadLook = () => h.evaluate(() => {
+    const road = document.querySelector('div[data-open] [data-road]')
+    const dots = [...(road?.querySelectorAll('[data-road-day] > circle:last-child') ?? [])].map((one) => one.getBoundingClientRect().width)
+    const bands = [...(road?.querySelectorAll('[data-road-band]') ?? [])]
+    const bandOf = (el) => bands.indexOf(el.closest('[data-road-band]'))
+    const labels = [...(road?.querySelectorAll('[data-road-label]') ?? [])].map((one) => ({ word: one.textContent, band: bandOf(one) }))
+    const box = road?.getBoundingClientRect()
+    const inside = [...(road?.querySelectorAll('[data-road-label], [data-road-day]') ?? [])].every((one) => { const r = one.getBoundingClientRect(); return box && r.left >= box.left - 1 && r.right <= box.right + 1 })
+    return { smallest: dots.length ? Math.min(...dots) : 0, dots: dots.length, bands: bands.length, monthsLeft: road?.querySelectorAll('[data-road-months]').length ?? 0, labels, last: bands.length - 1, inside }
+  })
+  const roadShot = async (name) => { if (!SHOTS) return; await h.evaluate(() => document.querySelector('div[data-open] [data-road]')?.scrollIntoView({ block: 'start' })); await h.waitForTimeout(300); await shot(name) }
+  const longRoad = async (name, days) => {
+    const seen = await roadLook()
+    check(`${name}: ${days} days drawn, no dot under 9.5px`, seen.dots === days && seen.smallest >= 9.5, JSON.stringify({ dots: seen.dots, smallest: seen.smallest }))
+    check(`${name}: wrapped into rows, each with its months at the left`, seen.bands > 1 && seen.monthsLeft === seen.bands, JSON.stringify({ bands: seen.bands, months: seen.monthsLeft }))
+    check(`${name}: "Today" over the first row, "The day" over the last`, seen.labels.some((one) => one.word === 'Today' && one.band === 0) && seen.labels.some((one) => one.word === 'The day' && one.band === seen.last), JSON.stringify(seen.labels))
+    check(`${name}: every dot and name inside the road`, seen.inside)
+  }
+  await longRoad('the year road beside the list', 376)
+  await roadShot('road-year')
+  await openGoal(camino)
+  await longRoad('a 611-day road beside the list', 611)
+  await shot('page-camino')
+  await roadShot('road-camino')
+  // Its page alone, at the default width with the list folded away: wider rows, still about 10px.
+  await size(900, 800)
+  await longRoad('a 611-day road in a narrower window', 611)
+  await shot('page-camino-narrow')
+  await roadShot('road-camino-narrow')
+  await size(1280, 800)
+  // The stat line breaks only between its parts.
+  const parts = await h.evaluate(() => [...document.querySelectorAll('div[data-open] [data-meta-part]')].map((one) => ({ text: one.textContent, lines: one.getClientRects().length, wraps: one.getBoundingClientRect().height > 26 })))
+  check('every part of the stat line stays on one line', parts.length > 0 && parts.every((one) => !one.wraps), JSON.stringify(parts))
   const emptyLog = await h.evaluate(() => document.querySelector('[data-open] [data-log-empty]')?.textContent ?? '')
   check('an empty log is one short line', emptyLog.length > 0 && emptyLog.length <= 60, emptyLog)
 
@@ -177,6 +212,10 @@ try {
   await shot('sibling-home')
   await go('upcoming')
   await shot('sibling-tasks')
+  const upcoming = await h.evaluate(() => { const one = document.querySelector('h2.list-ink'); if (!one) return null; const c = getComputedStyle(one); const n = one.querySelector('span'); return { size: c.fontSize, weight: c.fontWeight, rule: c.borderBottomWidth, ink: c.color, count: n ? getComputedStyle(n).color : '' } })
+  await go('goals')
+  const dayHead = await h.evaluate(() => { const one = [...document.querySelectorAll('[data-group-head]')].find((h) => /2027|2026/.test(h.getAttribute('data-group-head'))); if (!one) return null; const c = getComputedStyle(one); const n = one.querySelector('span'); return { size: c.fontSize, weight: c.fontWeight, rule: c.borderBottomWidth, ink: c.color, count: n ? getComputedStyle(n).color : '' } })
+  check("a goal day's heading is drawn as Upcoming's: same size, weight, rule, ink, and its count set off in quieter ink", !!upcoming && !!dayHead && JSON.stringify(upcoming) === JSON.stringify(dayHead) && dayHead.count !== dayHead.ink, JSON.stringify({ upcoming, dayHead }))
   check('no page errors', errors.length === 0, errors.slice(0, 3).join(' | '))
 } catch (error) {
   check('ran to the end', false, String(error?.stack ?? error).slice(0, 400))

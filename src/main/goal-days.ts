@@ -72,22 +72,24 @@ export type Dot = {
 }
 export type Journey = { by: 'day' | 'week'; dots: Dot[]; cols: number; rows: number; months: { col: number; label: string }[] }
 
-/** Past this many days a dot is a week, so a goal two years off still fits. */
+/** Past this many days a dot is a week, so a goal two years off still fits (on the beacon; a goal's page wraps its road and keeps days to ROAD_DAYS). */
 export const LONG = 400
+/** On a goal's page a dot is a day up to three years: its road wraps into rows, so the days stay large enough to see and point at. */
+export const ROAD_DAYS = 1100
 
 /**
  * The road from the start to the target, a dot a day: a column a week, Monday
  * at the top, and a month's name over the column it starts in. Longer than
  * LONG days, a dot a week instead: a column a month, its weeks down it.
  */
-export function journey(from: string, target: string, today = dayKey()): Journey {
+export function journey(from: string, target: string, today = dayKey(), long = LONG): Journey {
   const start = daysBetween(from, target) < 0 ? target : from
   const total = daysBetween(start, target)
   const dots: Dot[] = []
   const months: { col: number; label: string }[] = []
   // The year only where it turns, or on the first label when it is not this year: "Sept 2026" beside "Oct" read as one label.
   const label = (day: string): string => (dayjs(day).month() === 0 || (!months.length && !dayjs(day).isSame(dayjs(), 'year')) ? dayjs(day).format('MMM YYYY') : dayjs(day).format('MMM'))
-  if (total <= LONG) {
+  if (total <= long) {
     // Its column is the week it falls in, counted from the start's Monday.
     const lead = (noon(start).day() + 6) % 7
     for (let n = 0; n <= total; n++) {

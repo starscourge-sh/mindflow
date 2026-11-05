@@ -36,7 +36,7 @@ import { inkOf, useMilestones, type Milestone } from '@/lib/milestones'
 import { stickOnDesktop } from './sticky-note'
 import { usePickNotes } from './pick-notes'
 import { asideItem, useHere } from '@/lib/split'
-import { daysBetween, daysLeft, journey, leftSaid, percent, wayThrough, type Dot } from '../../../../main/goal-days'
+import { ROAD_DAYS, daysBetween, daysLeft, journey, leftSaid, percent, wayThrough, type Dot } from '../../../../main/goal-days'
 import { leftLoud, loud } from '@/lib/loud'
 import { clip, quoted } from '../../../../main/clip'
 import { ArchiveRestore, Check, Eye, EyeOff, X } from '@/components/ui/icons'
@@ -759,15 +759,8 @@ const logsIn = (days: Map<string, Gloss[]>, dot: Dot): Gloss[] => {
   return out
 }
 
-/**
- * The road from the day a goal was set to its day: a dot a day, a column a
- * week, as the focus timer draws its figures. Gone days lit, today breathing,
- * days with a log in the accent, the day itself ringed. Pointed at, a dot
- * says its day and its logs; clicked, the logs below show only that day.
- * `compact` is the beacon's: no names, and only the marked dots (today, the
- * day, the milestones, days with a log) say what they are when pointed at.
- */
-export function Journey({ goal, from, target, today, logs, picked, onPick, compact = false }: {
+/** What a road needs to draw itself, on the page or on the beacon. */
+type RoadProps = {
   /** The goal whose road it is: only the days marked for it show on it. */
   goal: string
   from: string
@@ -777,14 +770,227 @@ export function Journey({ goal, from, target, today, logs, picked, onPick, compa
   picked?: Dot | null
   onPick?: (dot: Dot | null) => void
   compact?: boolean
+}
+
+/**
+ * The road from the day a goal was set to its day, a dot a day. On its page
+ * (Road) every marked dot is named in words and a long road wraps into rows;
+ * `compact` is the beacon's dense field (Field), where only the marked dots
+ * say what they are when pointed at.
+ */
+export function Journey(props: RoadProps): React.JSX.Element {
+  return props.compact ? <Field {...props} /> : <Road {...props} />
+}
+
+/** The milestones on a road (the same ones that celebrate) and the days marked for this goal. */
+function useMarks(goal: string, from: string, target: string): { milestoneIn: (dot: Dot) => string | undefined; markIn: (dot: Dot) => Milestone | undefined; marksIn: (dot: Dot) => Milestone[] } {
+  const shiftDay = (day: string, by: number): string => { const at = new Date(`${day}T12:00`); at.setDate(at.getDate() + by); return dayKey(at.toISOString()) }
+  const span = Math.round((new Date(`${target}T12:00`).getTime() - new Date(`${from}T12:00`).getTime()) / 86_400_000)
+  const marks: [string, string][] = [[shiftDay(from, Math.round(span / 2)), 'halfway'], [shiftDay(target, -30), 'a month to go'], [shiftDay(target, -7), 'a week to go']]
+  // Days marked for this goal on the road (an exam, a launch): a ring in their colour.
+  // A day marked for something else, or for another goal, is not this goal's and stays off its road.
+  const marked = useMilestones(from, target).filter((one) => markOf(one) === goal)
+  const marksIn = (dot: Dot): Milestone[] => marked.filter((one) => one.day >= dot.day && one.day <= dot.last)
+  return {
+    milestoneIn: (dot) => marks.find(([day]) => day >= from && day >= dot.day && day <= dot.last)?.[1],
+    markIn: (dot) => marksIn(dot)[0],
+    marksIn
+  }
+}
+
+/** One dot of a road: gone days dim, logged days in the accent, today breathing, the day itself ringed. */
+function RoadDot({ dot, x, y, cell, logged, marker, mark, on, compact, onEnter, onClick }: {
+  dot: Dot; x: number; y: number; cell: number; logged: boolean; marker?: string; mark?: Milestone; on: boolean; compact: boolean
+  onEnter?: () => void; onClick?: () => void
 }): React.JSX.Element {
+  const colour = logged ? ACCENT : 'currentColor'
+  // Quiet by default: days gone are dim, a logged day bright, and only
+  // today and the day itself at full strength, so the eye goes to where you are.
+  // On the page the plain days are a little stronger: there they are read one by one, not as a field.
+  const opacity = dot.today ? 1 : logged ? (dot.past && compact ? 0.7 : 1) : marker ? 0.5 : dot.past ? (compact ? 0.24 : 0.3) : compact ? 0.12 : 0.16
+  return (
+    <g data-road-day={dot.day} data-road-logged={logged || undefined} onMouseEnter={onEnter} onClick={onClick} className={compact ? undefined : 'cursor-pointer'}>
+      {/* A bigger, unseen target, so the pointer finds each one. */}
+      {!compact && <rect x={x - cell / 2} y={y - cell / 2} width={cell} height={cell} fill="transparent" />}
+      {dot.target && <circle cx={x} cy={y} r={0.56 * cell} fill="none" stroke={ACCENT} strokeWidth={0.14 * cell} />}
+      {dot.today && <circle cx={x} cy={y} r={0.56 * cell} fill="none" stroke={ACCENT} strokeWidth={0.1 * cell} className="mf-goal-today" />}
+      {marker && !dot.target && !dot.today && <circle cx={x} cy={y} r={0.52 * cell} fill="none" stroke="currentColor" strokeWidth={0.08 * cell} style={{ opacity: 0.6 }} />}
+      {mark && !dot.target && <circle data-road-marked={mark.id} cx={x} cy={y} r={0.56 * cell} fill="none" stroke={inkOf(mark)} strokeWidth={0.12 * cell} />}
+      {on && <circle cx={x} cy={y} r={0.6 * cell} fill="none" stroke="currentColor" strokeWidth={0.08 * cell} />}
+      <circle cx={x} cy={y} r={(dot.target ? 0.32 : dot.today ? 0.4 : 0.34) * cell} fill={dot.target && !logged ? ACCENT : colour} style={{ opacity: dot.target ? 1 : opacity }} />
+    </g>
+  )
+}
+
+/** A dot pointed at on the page: its day, what it marks, and its last log or how far off it is. */
+function DotTip({ dot, today, days, milestoneIn, markIn }: { dot: Dot; today: string; days: Map<string, Gloss[]>; milestoneIn: (dot: Dot) => string | undefined; markIn: (dot: Dot) => Milestone | undefined }): React.JSX.Element {
+  const shown = logsIn(days, dot)
+  const mark = markIn(dot)
+  return (
+    <>
+      <span className="block font-medium">
+        {dot.day === dot.last ? dayName(`${dot.day}T12:00`) : `${dayMonth(`${dot.day}T12:00`)} to ${dayMonth(`${dot.last}T12:00`)}`}
+        {dot.today ? ' · today' : dot.target ? ' · the day' : milestoneIn(dot) ? ` · ${milestoneIn(dot)}` : ''}
+        {mark ? ` · ${mark.icon ? `${mark.icon} ` : ''}${mark.title}` : ''}
+      </span>
+      <span className="block text-muted-foreground">{shown.length ? `${logsSaid(shown.length)}: ${clip(shown[shown.length - 1].body.replace(/\s+/g, ' '), 81)}` : dot.past || dot.today ? 'No log' : leftSaid(daysLeft(dot.day, today)).toLowerCase()}</span>
+    </>
+  )
+}
+
+/** Smallest a dot's cell may be on the page: a dot about 10px across, still seen and pointed at. */
+const ROAD_CELL = 15
+/** Largest: a short road's dots stop growing here. */
+const ROAD_MOST = 22
+/** The months' column at the left of a wrapped road. */
+const ROAD_LEFT = 64
+const LANE = 15
+/** "Nov" for "2026-11-05". */
+const monthOf = (day: string): string => dayMonth(`${day}T12:00`, 'never').split(' ')[1]
+
+/**
+ * A goal's road on its page: only its own days, from the day it was set to
+ * the day itself. Short, one row of days across the width. Longer, a week a
+ * column, Monday at the top. Too long for the width at a dot about 10px, it
+ * wraps into rows of weeks, each with its months at the left, so the days stay
+ * dots you can see and point at. Every marked dot is named in words over its
+ * own row: Today, Halfway, A month to go, A week to go, The day, the goal's
+ * own days. Pointed at, a dot says its day and its logs; clicked, the logs
+ * below show only that day.
+ */
+function Road({ goal, from, target, today, logs, picked, onPick }: RoadProps): React.JSX.Element {
+  const road = journey(from, target, today, ROAD_DAYS)
+  const days = useMemo(() => logDays(logs), [logs])
+  const { milestoneIn, markIn, marksIn } = useMarks(goal, from, target)
+  const [hover, setHover] = useState<Dot | null>(null)
+  const [width, setWidth] = useState(0)
+  const box = useRef<HTMLDivElement>(null)
+  useLayoutEffect(() => {
+    const node = box.current
+    if (!node) return
+    const watch = new ResizeObserver(() => setWidth(node.clientWidth))
+    watch.observe(node)
+    setWidth(node.clientWidth)
+    return () => watch.disconnect()
+  }, [])
+  // One row of days, a week a column, or weeks wrapped into rows of `per` columns.
+  const line = road.by === 'day' && road.dots.length * 14 <= width
+  const across = line ? road.dots.length : road.cols
+  const wrap = !line && width > 0 && width / across < ROAD_CELL
+  const left = wrap ? ROAD_LEFT : 0
+  const per = wrap ? Math.max(4, Math.floor((width - left) / ROAD_CELL)) : across
+  const step = !width ? ROAD_MOST : wrap ? ROAD_CELL : line ? width / across : Math.min(width / across, ROAD_MOST)
+  const cell = Math.min(step, ROAD_MOST)
+  const rows = line ? 1 : road.rows
+  // Each dot's band (row of the wrapped road) and its column inside it.
+  const placed = road.dots.map((dot, index) => {
+    const col = line ? index : dot.col
+    return { dot, band: Math.floor(col / per), x: (col % per + 0.5) * step }
+  })
+  const bands = Math.max(1, Math.ceil(across / per))
+  const wide = per * step
+  return (
+    <div ref={box} data-road-wrapped={wrap || undefined} className="relative w-full" onMouseLeave={() => setHover(null)}>
+      {width > 0 && Array.from({ length: bands }, (_, band) => {
+        const here = placed.filter((one) => one.band === band)
+        if (!here.length) return null
+        // Every marked dot in this row named in words over it, lifted a lane where two would touch,
+        // and no hair from a higher name runs through a lower one.
+        const marks = here.flatMap(({ dot, x }) => {
+          const words: [string, string?][] = []
+          if (dot.today) words.push(['Today'])
+          const milestone = milestoneIn(dot)
+          if (milestone && !dot.target) words.push([milestone[0].toUpperCase() + milestone.slice(1)])
+          for (const one of marksIn(dot)) words.push([clip(one.title, 24), inkOf(one)])
+          if (dot.target) words.push(['The day', ACCENT])
+          return words.map(([word, ink], n) => ({ key: `${dot.day}-${n}`, x, word, ink, size: word.length * 6.2 + 4 }))
+        })
+        const named: (typeof marks[number] & { lane: number; left: number })[] = []
+        for (const mark of marks) {
+          const at = Math.max(0, Math.min(wide - mark.size, mark.x - mark.size / 2))
+          const covers = (from: number, to: number, x: number): boolean => x >= from - 4 && x <= to + 4
+          const clash = (lane: number, hairs: boolean): boolean => named.some((one) =>
+            one.lane === lane ? at < one.left + one.size + 8 && one.left < at + mark.size + 8 : !hairs ? false : one.lane > lane ? covers(at, at + mark.size, one.x) : covers(one.left, one.left + one.size, mark.x))
+          let lane = 0
+          while (lane < 4 && clash(lane, true)) lane += 1
+          if (lane === 4) for (lane = 0; clash(lane, false); lane += 1);
+          named.push({ ...mark, lane, left: at })
+        }
+        const lanes = named.length ? Math.max(...named.map((one) => one.lane)) + 1 : 0
+        const top = lanes ? lanes * LANE + 6 : band ? 10 : 0
+        const first = here[0].dot.day
+        const last = here[here.length - 1].dot.last
+        const shownHover = hover && here.some((one) => one.dot.day === hover.day) ? here.find((one) => one.dot.day === hover.day)! : null
+        // The months under a road that does not wrap, never two names touching.
+        const months: { x: number; label: string }[] = []
+        if (!wrap) for (const one of line ? road.dots.flatMap((dot, index) => (index === 0 || dot.day.endsWith('-01') ? [{ col: index, label: dayMonth(`${dot.day}T12:00`) }] : [])) : road.months) {
+          const was = months.at(-1)
+          const x = one.col * step
+          if (!was || was.x + was.label.length * 6.2 + 8 <= x) months.push({ x, label: one.label })
+        }
+        return (
+          <div key={band} data-road-band={band} className="relative flex" style={{ marginTop: band ? 8 : 0 }}>
+            {wrap && (
+              // Which months this row holds, at its left, level with its dots.
+              <div aria-hidden data-road-months className="shrink-0 pr-2 text-[11px] leading-tight text-muted-foreground tabular-nums" style={{ width: left, paddingTop: top }}>
+                {/* "Nov 2026" over "to Jan": the year where the road starts and wherever a row starts a new one. */}
+                <span className="block font-medium text-foreground/80">{monthOf(first)}{band === 0 || first.slice(0, 4) !== placed.find((one) => one.band === band - 1)?.dot.day.slice(0, 4) ? ` ${first.slice(0, 4)}` : ''}</span>
+                {monthOf(last) !== monthOf(first) && <span className="block">to {monthOf(last)}</span>}
+              </div>
+            )}
+            <div className="relative" style={{ width: wide }}>
+              {lanes > 0 && (
+                <div className="relative" style={{ height: top }}>
+                  {named.map((one) => (
+                    <span key={one.key} data-road-label className="absolute text-[11px] leading-none font-medium whitespace-nowrap text-foreground" style={{ left: one.left, bottom: one.lane * LANE + 6, color: one.ink }}>{one.word}</span>
+                  ))}
+                  {/* A hair from each name down to its dot's column. */}
+                  {named.map((one) => (
+                    <span key={`${one.key}-tick`} aria-hidden className="absolute bottom-0 w-px bg-foreground/25" style={{ left: one.x, height: one.lane * LANE + 4 }} />
+                  ))}
+                </div>
+              )}
+              {!lanes && top > 0 && <div style={{ height: top }} />}
+              <svg role="img" aria-label={`${dayMonth(`${first}T12:00`)} to ${dayMonth(`${last}T12:00`)}: ${num(here.length)} ${road.by === 'day' ? 'days' : 'weeks'}, ${num(here.filter((one) => one.dot.past).length)} gone`}
+                viewBox={`0 0 ${wide} ${rows * cell}`} style={{ width: wide }} className="block h-auto overflow-visible">
+                {here.map(({ dot, x }) => (
+                  <RoadDot key={dot.day} dot={dot} x={x} y={((line ? 0 : dot.row) + 0.5) * cell} cell={cell} logged={logsIn(days, dot).length > 0}
+                    marker={milestoneIn(dot)} mark={markIn(dot)} on={picked?.day === dot.day} compact={false}
+                    onEnter={() => setHover(dot)} onClick={onPick ? () => (chime('tap'), onPick(picked?.day === dot.day ? null : dot)) : undefined} />
+                ))}
+              </svg>
+              {months.length > 0 && (
+                <div aria-hidden className="relative mt-1.5 h-4 text-[11px] text-muted-foreground">
+                  {months.map((month) => <span key={month.x} className="absolute top-0 whitespace-nowrap" style={{ left: month.x }}>{month.label}</span>)}
+                </div>
+              )}
+              {shownHover && (
+                <div className={`pointer-events-none absolute z-10 w-max max-w-64 rounded-md ${shownHover.x < wide / 3 ? '-translate-x-3' : shownHover.x > (wide * 2) / 3 ? '-translate-x-[calc(100%-0.75rem)]' : '-translate-x-1/2'} bg-popover px-2.5 py-1.5 text-xs text-popover-foreground shadow-(--mf-panel-shadow) ring-1 ring-foreground/10`}
+                  style={{ left: shownHover.x, top: top + ((line ? 0 : shownHover.dot.row) + 1) * cell + 4 }}>
+                  <DotTip dot={shownHover.dot} today={today} days={days} milestoneIn={milestoneIn} markIn={markIn} />
+                </div>
+              )}
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+/**
+ * The beacon's road: a dense field, like a phone's dot widget: small dots,
+ * day after day, left to right, filling the card. The days before the goal
+ * was set fill the rows ahead of it, faint, so the field is always full and
+ * the goal's own days sit at its end, the day itself last. The card is
+ * dragged by its whole face, so the marked dots get a spot each to point at.
+ */
+function Field({ goal, from, target, today, logs }: RoadProps): React.JSX.Element {
   const road = journey(from, target, today)
   const days = useMemo(() => logDays(logs), [logs])
+  const { milestoneIn, markIn } = useMarks(goal, from, target)
   const [hover, setHover] = useState<Dot | null>(null)
-  // The road spans the whole width it is given, like the bars under it: the
-  // weeks spread out evenly, each dot as large as reads (22px at most, 12 on
-  // the beacon) and always round. Measured, so a short road never stops half way.
-  const most = compact ? 12 : 22
+  const most = 12
   const [width, setWidth] = useState(0)
   const [height, setHeight] = useState(0)
   const box = useRef<HTMLDivElement>(null)
@@ -797,98 +1003,24 @@ export function Journey({ goal, from, target, today, logs, picked, onPick, compa
     measure()
     return () => watch.disconnect()
   }, [])
-  // The beacon's road is a dense field instead, like a phone's dot widget:
-  // small dots, day after day, left to right, filling the card. The days
-  // before the goal was set fill the rows ahead of it, faint, so the field is
-  // always full and the goal's own days sit at its end, the day itself last.
-  const flow = compact && width > 0
-  // On the page, only the goal's own days, from the day it was set to the day
-  // itself. A short road is one row, a dot a day across the width; a longer
-  // one a week a column, its dots as large as the width allows (22px at most).
-  const line = !compact && width > 0 && road.by === 'day' && road.dots.length * 14 <= width
+  const flow = width > 0
   // A long road (a goal a year away) packs its dots smaller until it fits the card.
-  let across = flow ? Math.max(7, Math.floor(width / 9)) : line ? road.dots.length : road.cols
+  let across = flow ? Math.max(7, Math.floor(width / 9)) : road.cols
   while (flow && height > 0 && across < width / 3 && Math.ceil(road.dots.length / across) * (width / across) > height) across += 1
   const room = flow ? Math.max(Math.ceil(road.dots.length / across), Math.floor(height / (width / across))) : 0
   const lead = flow ? Math.min(365, Math.max(0, room * across - road.dots.length)) : 0
-  const down = flow ? Math.ceil((lead + road.dots.length) / across) : line ? 1 : road.rows
-  const place = (dot: Dot, index: number): Dot =>
-    flow ? { ...dot, col: (index + lead) % across, row: Math.floor((index + lead) / across) } : line ? { ...dot, col: index, row: 0 } : dot
-  const step = width ? (flow || line ? width / across : Math.min(width / across, most)) : most
+  const down = flow ? Math.ceil((lead + road.dots.length) / across) : road.rows
+  const place = (dot: Dot, index: number): Dot => (flow ? { ...dot, col: (index + lead) % across, row: Math.floor((index + lead) / across) } : dot)
+  const step = width ? width / across : most
   const cell = flow ? step : Math.min(step, most)
   const at = (dot: Dot): { x: number; y: number } => ({ x: (dot.col + 0.5) * step, y: (dot.row + 0.5) * cell })
-  // The milestones on the way, the same ones that celebrate: halfway, a month to go, a week to go.
-  const shiftDay = (day: string, by: number): string => { const at = new Date(`${day}T12:00`); at.setDate(at.getDate() + by); return dayKey(at.toISOString()) }
-  const span = Math.round((new Date(`${target}T12:00`).getTime() - new Date(`${from}T12:00`).getTime()) / 86_400_000)
-  const marks: [string, string][] = [[shiftDay(from, Math.round(span / 2)), 'halfway'], [shiftDay(target, -30), 'a month to go'], [shiftDay(target, -7), 'a week to go']]
-  const milestoneIn = (dot: Dot): string | undefined => marks.find(([day]) => day >= from && day >= dot.day && day <= dot.last)?.[1]
-  // Days marked for this goal on the road (an exam, a launch): a ring in their colour, named when pointed at.
-  // A day marked for something else, or for another goal, is not this goal's and stays off its road.
-  const marked = useMilestones(from, target).filter((one) => markOf(one) === goal)
-  const markIn = (dot: Dot): Milestone | undefined => marked.find((one) => one.day >= dot.day && one.day <= dot.last)
-  const shown = hover ? logsIn(days, hover) : []
-  // On the page every marked dot is named on the chart, in words, over its
-  // column: lifted to a second or third row where two would touch.
-  const wide = across * step
-  const named: { key: string; x: number; word: string; ink?: string; lane: number; left: number }[] = []
-  if (!compact && width > 0) {
-    const marks = road.dots.flatMap((given, index) => {
-      const dot = place(given, index)
-      const words: [string, string?][] = []
-      if (dot.today) words.push(['Today'])
-      const milestone = milestoneIn(dot)
-      if (milestone && !dot.target) words.push([milestone[0].toUpperCase() + milestone.slice(1)])
-      for (const one of marked.filter((m) => m.day >= dot.day && m.day <= dot.last)) words.push([clip(one.title, 24), inkOf(one)])
-      if (dot.target) words.push(['The day', ACCENT])
-      return words.map(([word, ink], n) => ({ key: `${dot.day}-${n}`, x: at(dot).x, word, ink }))
-    })
-    // A name never touches another in its row, and no hair from a higher name runs through it (nor its own through one lower).
-    const sizes = new Map<string, number>()
-    for (const mark of marks) {
-      const size = mark.word.length * 6.2 + 4
-      const left = Math.max(0, Math.min(wide - size, mark.x - size / 2))
-      const covers = (from: number, to: number, x: number): boolean => x >= from - 4 && x <= to + 4
-      const clash = (lane: number, hairs: boolean): boolean => named.some((one) => {
-        const end = one.left + sizes.get(one.key)!
-        return one.lane === lane ? left < end + 8 && one.left < left + size + 8 : !hairs ? false : one.lane > lane ? covers(left, left + size, one.x) : covers(one.left, end, mark.x)
-      })
-      // The lowest row clear of names and hairs; where none is, the lowest clear of names alone.
-      let lane = 0
-      while (lane < 4 && clash(lane, true)) lane += 1
-      if (lane === 4) for (lane = 0; clash(lane, false); lane += 1);
-      sizes.set(mark.key, size)
-      named.push({ ...mark, lane, left })
-    }
-  }
-  const lanes = named.length ? Math.max(...named.map((one) => one.lane)) + 1 : 0
-  const LANE = 15
-  // The months under the road, where the day starts each one: by the week's column, or the day's place on one row.
-  const allMonths = !line ? road.months : road.dots.flatMap((dot, index) => (index === 0 || dot.day.endsWith('-01') ? [{ col: index, label: dayMonth(`${dot.day}T12:00`) }] : []))
-  // Never two month names touching: one too close to the last one kept is left out.
-  const months: typeof allMonths = []
-  for (const month of allMonths) {
-    const last = months.at(-1)
-    if (!last || last.col * step + last.label.length * 6.2 + 8 <= month.col * step) months.push(month)
-  }
   return (
-    <div ref={box} className={`relative w-full ${compact ? 'h-full' : ''}`}>
-      {!compact && lanes > 0 && (
-        <div className="relative" style={{ width: wide, height: lanes * LANE + 6 }}>
-          {named.map((one) => (
-            <span key={one.key} data-road-label className="absolute text-[11px] leading-none font-medium whitespace-nowrap text-foreground" style={{ left: one.left, bottom: one.lane * LANE + 6, color: one.ink }}>{one.word}</span>
-          ))}
-          {/* A hair from each name down to its dot's column. */}
-          {named.map((one) => (
-            <span key={`${one.key}-tick`} aria-hidden className="absolute bottom-0 w-px bg-foreground/25" style={{ left: one.x, height: one.lane * LANE + 4 }} />
-          ))}
-        </div>
-      )}
+    <div ref={box} className="relative h-full w-full">
       <svg
         role="img"
         aria-label={`${num(road.dots.length)} ${road.by === 'day' ? 'days' : 'weeks'} from ${dayMonth(`${from}T12:00`)} to ${dayMonth(`${target}T12:00`)}, ${num(road.dots.filter((dot) => dot.past).length)} gone`}
-        viewBox={`0 0 ${wide} ${down * cell}`}
-        style={compact ? undefined : { width: wide || '100%' }}
-        className={`block h-auto overflow-visible ${compact ? 'w-full' : ''}`}
+        viewBox={`0 0 ${across * step} ${down * cell}`}
+        className="block h-auto w-full overflow-visible"
         onMouseLeave={() => setHover(null)}
       >
         {Array.from({ length: lead }, (_, index) => (
@@ -896,51 +1028,17 @@ export function Journey({ goal, from, target, today, logs, picked, onPick, compa
         ))}
         {road.dots.map((given, index) => {
           const dot = place(given, index)
-          const logged = logsIn(days, dot).length > 0
-          const on = picked?.day === dot.day
-          const marker = milestoneIn(dot)
-          const colour = logged ? ACCENT : 'currentColor'
-          // Quiet by default: days gone are dim, a logged day a little brighter, and only
-          // today and the day itself at full strength, so the eye goes to where you are.
-          const opacity = dot.today ? 1 : logged ? (dot.past && compact ? 0.7 : 1) : marker ? 0.5 : dot.past ? 0.24 : 0.12
-          return (
-            <g key={dot.day} data-road-day={dot.day} data-road-logged={logged || undefined}
-              onMouseEnter={compact ? undefined : () => setHover(dot)}
-              onClick={compact || !onPick ? undefined : () => (chime('tap'), onPick(on ? null : dot))}
-              className={compact ? undefined : 'cursor-pointer'}>
-              {/* A bigger, unseen target, so the pointer finds each one. */}
-              {!compact && <rect x={dot.col * step} y={dot.row * cell} width={step} height={cell} fill="transparent" />}
-              {/* The day itself: a bold ring round a full dot, in the accent. */}
-              {dot.target && <circle cx={at(dot).x} cy={at(dot).y} r={0.56 * cell} fill="none" stroke={ACCENT} strokeWidth={0.14 * cell} />}
-              {/* Today: a halo that breathes round a full, bright dot. */}
-              {dot.today && <circle cx={at(dot).x} cy={at(dot).y} r={0.56 * cell} fill="none" stroke={ACCENT} strokeWidth={0.1 * cell} className="mf-goal-today" />}
-              {/* A milestone on the way (halfway, a month to go, a week to go): a quiet ring. */}
-              {marker && !dot.target && !dot.today && <circle cx={at(dot).x} cy={at(dot).y} r={0.52 * cell} fill="none" stroke="currentColor" strokeWidth={0.08 * cell} style={{ opacity: 0.6 }} />}
-              {markIn(dot) && !dot.target && <circle data-road-marked={markIn(dot)!.id} cx={at(dot).x} cy={at(dot).y} r={0.56 * cell} fill="none" stroke={inkOf(markIn(dot)!)} strokeWidth={0.12 * cell} />}
-              {on && <circle cx={at(dot).x} cy={at(dot).y} r={0.6 * cell} fill="none" stroke="currentColor" strokeWidth={0.08 * cell} />}
-              <circle cx={at(dot).x} cy={at(dot).y} r={(dot.target ? 0.32 : dot.today ? 0.4 : 0.34) * cell} fill={dot.target && !logged ? ACCENT : colour}
-                style={{ opacity: dot.target ? 1 : opacity }} />
-            </g>
-          )
+          return <RoadDot key={dot.day} dot={dot} x={at(dot).x} y={at(dot).y} cell={cell} logged={logsIn(days, dot).length > 0} marker={milestoneIn(dot)} mark={markIn(dot)} on={false} compact />
         })}
       </svg>
-      {!compact && (
-        <div aria-hidden className="relative mt-1.5 h-4 text-[11px] text-muted-foreground" style={{ width: wide || '100%' }}>
-          {months.map((month) => (
-            <span key={month.col} className="absolute top-0 -translate-x-[0.1em] whitespace-nowrap" style={{ left: month.col * step }}>{month.label}</span>
-          ))}
-        </div>
-      )}
-      {/* The beacon is dragged by its whole card, which swallows the pointer: the
-          marked dots get a small spot each that is not, to be pointed at. */}
-      {compact && road.dots.map((given, index) => {
+      {road.dots.map((given, index) => {
         const dot = place(given, index)
         if (!dot.today && !dot.target && !milestoneIn(dot) && !markIn(dot) && !logsIn(days, dot).length) return null
         const { x, y } = at(dot)
         return <span key={dot.day} aria-hidden data-road-mark onMouseEnter={() => setHover(dot)} onMouseLeave={() => setHover(null)}
           className="absolute rounded-full" style={{ left: x - cell * 0.6, top: y - cell * 0.6, width: cell * 1.2, height: cell * 1.2, WebkitAppRegion: 'no-drag' } as React.CSSProperties} />
       })}
-      {hover && compact && (() => {
+      {hover && (() => {
         const { x, y } = at(hover)
         const date = dayMonth(`${hover.day}T12:00`)
         const marker = milestoneIn(hover)
@@ -958,17 +1056,6 @@ export function Journey({ goal, from, target, today, logs, picked, onPick, compa
           </div>
         )
       })()}
-      {hover && !compact && (
-        <div className={`pointer-events-none absolute z-10 w-max max-w-64 rounded-md ${hover.col < across / 3 ? '-translate-x-3' : hover.col > (across * 2) / 3 ? '-translate-x-[calc(100%-0.75rem)]' : '-translate-x-1/2'} bg-popover px-2.5 py-1.5 text-xs text-popover-foreground shadow-(--mf-panel-shadow) ring-1 ring-foreground/10`}
-          style={{ left: (hover.col + 0.5) * step, top: (lanes ? lanes * LANE + 6 : 0) + (hover.row + 1) * cell + 4 }}>
-          <span className="block font-medium">
-            {hover.day === hover.last ? dayName(`${hover.day}T12:00`) : `${dayMonth(`${hover.day}T12:00`)} to ${dayMonth(`${hover.last}T12:00`)}`}
-            {hover.today ? ' · today' : hover.target ? ' · the day' : milestoneIn(hover) ? ` · ${milestoneIn(hover)}` : ''}
-            {markIn(hover) ? ` · ${markIn(hover)!.icon ? `${markIn(hover)!.icon} ` : ''}${markIn(hover)!.title}` : ''}
-          </span>
-          <span className="block text-muted-foreground">{shown.length ? `${logsSaid(shown.length)}: ${clip(shown[shown.length - 1].body.replace(/\s+/g, ' '), 81)}` : hover.past || hover.today ? 'No log' : `${leftSaid(daysLeft(hover.day, today)).toLowerCase()}`}</span>
-        </div>
-      )}
     </div>
   )
 }
