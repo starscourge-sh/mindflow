@@ -26,6 +26,9 @@ try {
   if (shots) await h.screenshot({ path: `${shots}/menu-open.png` })
   check('right-click on picked words opens the menu', open, '')
   check('and the page area keeps its colour', during === before, `${before} -> ${during}`)
+  const item = await h.evaluate(() => { const one = [...document.querySelectorAll('[role="menuitem"]')].find((el) => /^Look up/.test(el.textContent.trim())); const r = one?.getBoundingClientRect(); return r && { x: r.x + r.width / 2, y: r.y + r.height / 2 } })
+  await h.mouse.move(item.x, item.y); await wait(900)
+  check('pointing at Look up in the menu shows no preview card', !(await h.evaluate(() => !!document.querySelector('[data-menu-peek]'))), '')
   await h.keyboard.press('Escape'); await wait(300)
 
   await pickInPdf(h, 2, 7); await wait(300)
