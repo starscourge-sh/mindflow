@@ -1121,6 +1121,8 @@ function AskSheet({ at, review, label, onLeave, children, ...rest }: { at: Eleme
       <PopoverContent side="bottom" align={at ? 'start' : 'center'} sideOffset={8} collisionPadding={{ top: 52, right: 12, bottom: 12, left: 12 }} aria-label={label} data-finish-sheet={review || undefined} {...rest}
         // The field takes the focus, not the sheet; a menu closing never takes it back (quietClose).
         onOpenAutoFocus={(event) => { event.preventDefault(); (event.currentTarget as HTMLElement).querySelector<HTMLElement>('input, [data-sure-yes]')?.focus() }}
+        // Only a press outside, Esc or Cancel lets it go: the menu that opened it still moves the focus about as it closes.
+        onFocusOutside={(event) => event.preventDefault()}
         className="z-[80] w-[min(22rem,calc(100vw-1.5rem))] gap-2.5 rounded-xl p-3 text-control">
         {children}
       </PopoverContent>
