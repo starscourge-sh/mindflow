@@ -257,7 +257,7 @@ export function PickedMenu({ actions, about }: { actions: ReadActions; about: ()
         <ContextMenuShortcut>L</ContextMenuShortcut>
       </ContextMenuItem>
       {/* The words picked, aloud in the Mac's voice (every Mac), or in your own language (macOS 26 only). */}
-      <ContextMenuItem data-read-aloud onSelect={() => void readToMe(about().words)}>
+      <ContextMenuItem data-read-aloud onSelect={() => void readToMe(about().words, getSelection()?.anchorNode?.parentElement?.closest('.pdf-reader, .web-reader, [data-pane]') ?? null)}>
         <Volume2 />
         Read aloud
       </ContextMenuItem>

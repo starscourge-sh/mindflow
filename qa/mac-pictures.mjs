@@ -53,19 +53,34 @@ async function run(level) {
 
     await send('capture', id)
     await wait(1800)
+    // The picture's menu, and its words' lines under “Text in it ›”, opened as a person would, by pointing.
     const menu = async () => {
       await h.locator(`.ProseMirror img[src="${src}"]`).first().click({ button: 'right' })
+      await wait(500)
+      await h.hover('[data-clicked="image-words"]').catch(() => {})
       await wait(500)
       return h.evaluate(() => [...document.querySelectorAll('[role="menuitem"]')].map((row) => ({ text: row.textContent.trim(), icon: !!row.querySelector('svg'), hand: getComputedStyle(row).cursor })))
     }
     let rows = await menu()
     const has = (label) => rows.some((one) => one.text.startsWith(label))
+    // A picture taller than the room above or below it: the menu opens at the pointer, every line in sight.
+    const room = await h.evaluate(() => {
+      const menu = document.querySelector('.tiptap-block-menu:not(.tiptap-block-menu-sub)')
+      const list = menu?.querySelector('.tiptap-block-menu-list') ?? menu
+      const box = menu?.getBoundingClientRect()
+      return box && { rows: [...list.children].map((one) => one.textContent.trim().slice(0, 14) + ':' + Math.round(one.getBoundingClientRect().height)).join(' | '), need: list.scrollHeight, scrolls: list.scrollHeight > list.clientHeight + 1, top: Math.round(box.top), bottom: Math.round(box.bottom), height: Math.round(box.height), win: innerHeight }
+    })
+    // Not squeezed into the strip above the picture: every line, or as many as every block menu's cap allows (24rem).
+    check(`${level}: on a tall picture the menu opens at the pointer at its full height, inside the window`, room && (!room.scrolls || room.height >= 380) && room.top >= 8 && room.bottom <= room.win - 8, JSON.stringify({ ...room, rows: undefined }))
     check(`${level}: a picture in a note offers ${LINES.join(', ')}`, LINES.every(has), rows.map((one) => one.text).join(' / '))
     check(`${level}: “Translate the text” is offered ${translate ? 'on this Mac' : 'nowhere (it needs macOS 26)'}`, has('Translate the text') === translate)
     check(`${level}: each line has an icon and the hand`, rows.filter((one) => [...LINES, 'Translate the text'].some((label) => one.text.startsWith(label))).every((one) => one.icon && one.hand === 'pointer'))
     if (process.env.SHOT && level === 'macos26') await both(`${process.env.SHOT}/pictures-menu`)
 
     if (level === 'macos26') {
+      await h.keyboard.press('Escape')
+      await wait(300)
+      rows = await menu()
       await h.getByRole('menuitem', { name: /^Copy text from image/ }).click()
       let copied = ''
       for (let i = 0; i < 40 && !/Marcus Aurelius/.test(copied); i++) (await wait(250), (copied = await electron.evaluate(({ clipboard }) => clipboard.readText())))
@@ -100,8 +115,8 @@ async function run(level) {
       await tile.scrollIntoViewIfNeeded()
       await tile.click({ button: 'right' })
       await wait(500)
-      // Its copy lines sit together under “Copy”, as on every row.
-      await h.getByRole('menuitem', { name: /^Copy$/ }).hover().catch(() => {})
+      // Its words' lines sit together under “Text in it”, as on a picture in a note.
+      await h.getByRole('menuitem', { name: /^Text in it/ }).hover().catch(() => {})
       await wait(500)
       const media = await h.evaluate(() => [...document.querySelectorAll('[role="menuitem"]')].map((row) => row.textContent.trim()))
       check('Media offers the same lines on the picture', [...LINES, 'Translate the text'].every((label) => media.some((one) => one.startsWith(label))), media.join(' / '))

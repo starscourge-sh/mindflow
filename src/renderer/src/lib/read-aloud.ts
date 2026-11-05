@@ -89,9 +89,14 @@ function textOf(within: HTMLElement): { text: string; at: { node: Text; from: nu
   return { text, at }
 }
 
-export async function readToMe(words: string | HTMLElement, onEnd?: () => void): Promise<boolean> {
+/** The notice that says it is reading, closed (only it) when the reading ends, however it ends. */
+let notice = ''
+
+export async function readToMe(words: string | HTMLElement, place?: Element | null): Promise<boolean> {
   stopReading()
   const page = typeof words === 'string' ? null : textOf(words)
+  // Where the words are read from: once it is gone (another page opened, the reader closed), so is the voice.
+  const from = typeof words === 'string' ? (place ?? null) : words
   const text = page ? page.text : String(words)
   if (!text.trim()) return false
   const language = await window.api.haligtree<string>('language', text.slice(0, 2000)).catch(() => 'en')
@@ -108,14 +113,18 @@ export async function readToMe(words: string | HTMLElement, onEnd?: () => void):
     CSS.highlights.set('read-aloud', new Highlight(range))
   }
   let timer: ReturnType<typeof setInterval> | undefined
+  let watch: ReturnType<typeof setInterval> | undefined
   const end = (): void => {
     if (!stopping) return
     stopping = null
     clearInterval(timer)
+    clearInterval(watch)
+    window.removeEventListener('pagehide', end)
+    if (notice) window.dispatchEvent(new CustomEvent('haligtree:untoast', { detail: { text: notice } }))
+    notice = ''
     document.removeEventListener('keydown', onKey, true)
     if (typeof CSS !== 'undefined' && CSS.highlights) CSS.highlights.delete('read-aloud')
     speechSynthesis.cancel()
-    onEnd?.()
     window.dispatchEvent(new CustomEvent('haligtree:reading', { detail: false }))
   }
   // Esc stops the voice first, before it does anything else.
@@ -129,7 +138,10 @@ export async function readToMe(words: string | HTMLElement, onEnd?: () => void):
   document.addEventListener('keydown', onKey, true)
   window.dispatchEvent(new CustomEvent('haligtree:reading', { detail: true }))
   // Something is being said: the way to stop it is in sight, and Esc does it too.
-  toast(`Reading it aloud, in ${new Intl.DisplayNames(['en'], { type: 'language' }).of(language.split('-')[0]) ?? 'your language'}. Esc stops it.`, undefined, 'info', { label: 'Stop', key: 's', run: stopReading })
+  notice = `Reading it aloud, in ${new Intl.DisplayNames(['en'], { type: 'language' }).of(language.split('-')[0]) ?? 'your language'}. Esc stops it.`
+  toast(notice, undefined, 'info', { label: 'Stop', key: 's', run: stopReading })
+  window.addEventListener('pagehide', end)
+  if (from) watch = setInterval(() => !from.isConnected && end(), 300)
   said.push({ text, language })
   if (window.api.quiet) {
     // Nothing heard under test: each word lit in turn, as the voice's own marks would.

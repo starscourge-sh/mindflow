@@ -153,7 +153,8 @@ export function mediaMenu(one: Media, onOpen: () => void): RowItem[] {
     'separator',
     { label: 'Copy link', hint: 'Paste it into any note to show it there too', run: () => void copyMedia(one) },
     picture && { label: 'Copy image', run: () => void window.api.copyImage(one.src).then((done) => (done ? (chime('copy'), toast('Copied the picture')) : refuse('Could not copy it', 'error'))) },
-    ...(picture ? pictureLines(one.src) : []),
+    // Its words' lines under one, as on a picture in a note.
+    picture && pictureLines(one.src).length > 0 && { label: 'Text in it', items: pictureLines(one.src) },
     { label: 'Show in Finder', run: () => void window.api.showFile(one.src) }
   ]
 }

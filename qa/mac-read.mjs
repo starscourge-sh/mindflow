@@ -50,6 +50,40 @@ async function run(level) {
       await wait(300)
       const after = await h.evaluate(() => [!!CSS.highlights.get('read-aloud'), !!document.querySelector('[role="dialog"][aria-label="Search"]')])
       check('Esc stops it: nothing lit, and nothing else closes', !after[0], JSON.stringify(after))
+      const noticeNow = () => h.evaluate(() => /Reading it aloud/.test(document.body.innerText))
+      check('Esc closes the “Reading it aloud” notice too', !(await noticeNow()))
+      const readFromK = async () => {
+        await h.keyboard.press('Meta+k')
+        await wait(500)
+        await h.keyboard.type('Read it to me', { delay: 20 })
+        await wait(700)
+        await h.keyboard.press('Enter')
+        await wait(400)
+      }
+      // To the end of the words: the notice goes with the voice (its own clock would keep it 6 s).
+      await readFromK()
+      const during = await noticeNow()
+      if (process.env.SHOT) await c.both(`${process.env.SHOT}/read-notice-during`)
+      await wait(2200)
+      if (process.env.SHOT) await c.both(`${process.env.SHOT}/read-notice-after`)
+      check('read to the end, the notice closes with the voice, no “Stop” left over', during && !(await noticeNow()), `during ${during}`)
+      // A new reading over one still going: the first ends, one notice shows.
+      await h.evaluate(() => { window.__reading = []; window.addEventListener('haligtree:reading', (event) => window.__reading.push(event.detail)) })
+      await readFromK()
+      // (⌘K then says “Stop reading”; the note's “…” menu starts a reading anew.)
+      await h.getByRole('button', { name: 'More' }).first().click()
+      await wait(400)
+      await h.getByRole('menuitem', { name: /Read it to me/ }).click()
+      await wait(400)
+      const turns = await h.evaluate(() => window.__reading.join(','))
+      check('a new reading ends the one going first, and one notice shows', turns === 'true,false,true' && (await noticeNow()), turns)
+      // Leaving the page: the voice and its notice stop.
+      await c.go('inbox')
+      await wait(900)
+      const left = await h.evaluate(() => [window.__reading.at(-1), !!CSS.highlights.get('read-aloud')])
+      check('leaving the page stops it, and closes the notice', left[0] === false && !left[1] && !(await noticeNow()), JSON.stringify(left))
+      await send('capture', id)
+      await wait(1200)
 
       // A Spanish note, from its "…" menu.
       const es = await h.evaluate((body) => window.api.captures.create({ kind: 'note', body }), { type: 'doc', content: [para('El que lee mucho y anda mucho, ve mucho y sabe mucho.')] })

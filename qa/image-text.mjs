@@ -37,6 +37,9 @@ await electron.evaluate(({ clipboard }) => clipboard.writeText('before'))
 const menuFor = async (one) => {
   await h.locator(`.ProseMirror img[src="${one}"]`).first().click({ button: 'right' })
   await wait(500)
+  // The words' lines sit under “Text in it ›”: pointed at, as a person would.
+  await h.hover('[data-clicked="image-words"]').catch(() => {})
+  await wait(500)
   return h.evaluate(() => [...document.querySelectorAll('[role="menuitem"]')].map((row) => row.textContent.trim()))
 }
 const rows = await menuFor(src)
@@ -46,6 +49,8 @@ check('it has its own icon (not the fallback dot)', /scan-text/.test(icon), icon
 const cursor = await h.evaluate(() => { const row = [...document.querySelectorAll('[role="menuitem"]')].find((one) => /^Copy text from image/.test(one.textContent.trim())); return row ? getComputedStyle(row).cursor : '' })
 check('the row shows the hand', cursor === 'pointer', cursor)
 if (process.env.QA_SHOTS) await both(`${process.env.QA_SHOTS}/image-text-menu`)
+// Pictures taken in light and dark close the menu: opened again as a person would.
+if (process.env.QA_SHOTS) (await h.keyboard.press('Escape'), await wait(300), await menuFor(src))
 await h.getByRole('menuitem', { name: /Copy text from image/ }).click()
 let copied = ''
 for (let i = 0; i < 40 && !/move to a new page/i.test(copied); i++) (await wait(250), (copied = await electron.evaluate(({ clipboard }) => clipboard.readText())))

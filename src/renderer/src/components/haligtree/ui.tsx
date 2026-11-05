@@ -1438,7 +1438,13 @@ export function Toaster(): React.JSX.Element | null {
       const message = String(event.reason?.message ?? event.reason ?? '')
       if (message.includes('Error invoking remote method')) refuse(`Not saved: ${whyFailed(event.reason)}.`, 'error')
     }
-    const onGone = (): void => (stop(), setShown(null))
+    // Closed by whoever showed it; with words given, only while those words are the ones shown.
+    const onGone = (event: Event): void => {
+      const text = (event as CustomEvent<{ text?: string } | null>).detail?.text
+      if (text && shownNow.current?.text !== text) return
+      stop()
+      setShown(null)
+    }
     window.addEventListener('haligtree:toast', onToast)
     window.addEventListener('haligtree:untoast', onGone)
     window.addEventListener('unhandledrejection', onFail)

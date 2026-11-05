@@ -146,6 +146,7 @@ const RULES: [RegExp, LucideIcon][] = [
   // Copies.
   [/copy to book|into which book|another book/i, BookCopy],
   [/^copy text from (an )?image/i, ScanText],
+  [/^text in it/i, ScanText],
   [/^make it a note/i, NotebookText],
   [/^find this in my notes/i, Search],
   [/^translate/i, Languages],

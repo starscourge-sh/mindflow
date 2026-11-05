@@ -1,7 +1,7 @@
 import { getMarkRange, type Editor } from "@tiptap/core"
 import { TextSelection } from "@tiptap/pm/state"
 
-import { DropdownMenuItem } from "@/components/tiptap-ui-primitive/dropdown-menu"
+import { DropdownMenuItem, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger } from "@/components/tiptap-ui-primitive/dropdown-menu"
 import { MenuGlyph } from "@/components/ui/menu-icon"
 import { removeLink } from "@/components/haligtree/link-editor"
 import { copyLink } from "@/components/haligtree/row-menu"
@@ -141,7 +141,7 @@ export function clickedName(clicked: Clicked): string {
   return "Picked words"
 }
 
-type Line = { label: string; run: () => void; hint?: string; data?: string; edits?: boolean }
+type Line = { label: string; run: () => void; hint?: string; data?: string; edits?: boolean; /** Lines of their own, opened to the side: a picture's "Text in it". */ sub?: Line[] }
 
 /** A note link's id as the app keeps it: `tier:id` for most, a bare id for a capture. */
 const split = (link: string): [string, string] =>
@@ -330,7 +330,8 @@ export function clickedLines(editor: Editor, clicked: Clicked): Line[] {
     const lines: Array<Line | false> = [
       own && !!host().openFile && { label: "Open in the default app", data: "default-app", run: () => void host().openFile?.(src) },
       own && !!host().showFile && { label: "Show in Finder", data: "finder", run: () => void host().showFile?.(src) },
-      ...(clicked.kind === "picture" ? pictureLines(src) : []),
+      // Its words' lines together under one, so the picture's menu stays short enough to show whole.
+      clicked.kind === "picture" && pictureLines(src, editor.view.dom).length > 0 && { label: "Text in it", hint: "Read by your Mac", data: "image-words", run: () => undefined, sub: pictureLines(src, editor.view.dom) },
       !own && { label: clicked.kind === "video" ? "Open in the browser" : "Open the picture's address", data: "browser", run: () => void window.open(src) },
       !own && { label: "Copy address", data: "copy-address", run: () => copyText(src, "Address copied") },
     ]
@@ -366,8 +367,33 @@ export function ClickedRows({ editor, clicked, matches, onDone, within = false }
     <>
       {within ? null : <div className="tiptap-slash-menu-group" data-clicked-group={clicked.kind}>{clickedName(clicked)}</div>}
       {clickedLines(editor, clicked)
+        // Filtered, a folded line's own lines show flat where they match.
+        .flatMap((line) => (line.sub && !matches(line.label) ? line.sub : [line]))
         .filter((line) => matches(line.label))
-        .map((line) => (
+        .map((line) => line.sub ? (
+          <DropdownMenuSub key={line.label}>
+            <DropdownMenuSubTrigger asChild>
+              <button type="button" data-clicked={line.data}>
+                <MenuGlyph label={line.label} />
+                <span className="tiptap-slash-menu-title">{line.label}</span>
+                <span className="tiptap-slash-menu-hint">&rsaquo;</span>
+              </button>
+            </DropdownMenuSubTrigger>
+            <DropdownMenuSubContent className="tiptap-block-menu tiptap-block-menu-sub">
+              <div className="tiptap-block-menu-list">
+                {line.sub.map((one) => (
+                  <DropdownMenuItem key={one.label} asChild>
+                    <button type="button" data-clicked={one.data} onClick={() => (onDone(), one.run())}>
+                      <MenuGlyph label={one.label} />
+                      <span className="tiptap-slash-menu-title">{one.label}</span>
+                      {one.hint ? <span className="tiptap-slash-menu-hint">{one.hint}</span> : null}
+                    </button>
+                  </DropdownMenuItem>
+                ))}
+              </div>
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
+        ) : (
           <DropdownMenuItem key={line.label} asChild>
             <button type="button" data-clicked={line.data} onClick={() => (onDone(), line.run())}>
               <MenuGlyph label={line.label} />

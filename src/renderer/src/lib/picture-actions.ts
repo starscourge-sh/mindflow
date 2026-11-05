@@ -55,13 +55,14 @@ async function translateIt(src: string): Promise<void> {
   if (text) await translateWords(text)
 }
 
-export function pictureLines(src: string): PictureLine[] {
+/** `place`: where the picture is shown; reading its words aloud stops once that is gone. */
+export function pictureLines(src: string, place?: Element | null): PictureLine[] {
   if (!readable(src)) return []
   const lines: (PictureLine | false)[] = [
     { label: 'Copy text from image', hint: 'Read by your Mac', data: 'image-text', run: () => void copyImageText(src) },
     { label: 'Make it a note', hint: 'The picture and its words', data: 'image-note', run: () => void makeNote(src) },
     canSplit() && { label: 'Find this in my notes', data: 'image-find', run: () => void findIt(src) },
-    { label: 'Read it to me', hint: 'Its words, aloud', data: 'image-read', run: () => void wordsOf(src).then((text) => void (text && readToMe(text))) },
+    { label: 'Read it to me', hint: 'Its words, aloud', data: 'image-read', run: () => void wordsOf(src).then((text) => void (text && readToMe(text, place ?? document.querySelector(`[data-src="${src}"]`)?.parentElement))) },
     meets(capsNow(), 'macos26') && { label: 'Translate the text', hint: 'Into your language', data: 'image-translate', run: () => void translateIt(src) }
   ]
   return lines.filter((one): one is PictureLine => !!one)
