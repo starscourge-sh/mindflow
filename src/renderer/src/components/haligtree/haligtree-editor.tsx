@@ -852,6 +852,8 @@ function Surface({
   const blockTarget = useRef<BlockTarget | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
   // A right-click's spot, so its menu opens under the pointer; the grip's opens at the grip.
+  /** The room a block's right-click menu needs to open beside the block, whole: its longest list (a picture's). */
+  const MENU_ROOM = 560
   const [menuAt, setMenuAt] = useState<{ x: number; y: number; width?: number; height?: number } | null>(null)
   // A right-click on a misspelt word, whose suggestions head that menu.
   const [spelling, setSpelling] = useState<Misspelling | null>(null)
@@ -1653,10 +1655,13 @@ function Surface({
       if (!node) return
       event.preventDefault()
       blockTarget.current = { pos, name: node.type.name, level: headingRank(node) ?? undefined }
-      // A whole block (a recording, a picture): the menu beside it, not over its own controls.
+      // A whole block (a recording, a picture): the menu under or over it, clear of its own controls, when there
+      // is a menu's room there. A tall picture leaves none on either side: then it opens at the pointer, as any
+      // right-click menu does, rather than squeezed into the strip above.
       const drawn = atom === null ? null : editor.view.nodeDOM(atom)
       const edge = drawn instanceof HTMLElement ? drawn.getBoundingClientRect() : null
-      setMenuAt(edge ? { x: edge.left, y: edge.top, width: edge.width, height: edge.height } : { x: event.clientX, y: event.clientY })
+      const room = edge ? Math.max(window.innerHeight - edge.bottom, edge.top) >= MENU_ROOM : false
+      setMenuAt(edge && room ? { x: edge.left, y: edge.top, width: edge.width, height: edge.height } : { x: event.clientX, y: event.clientY })
       setSpelling(misspeltAt(editor, event.clientX, event.clientY))
       setClicked(clickedAt(editor, event))
       setTimeout(() => setMenuOpen(true))
