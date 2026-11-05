@@ -428,6 +428,7 @@ export function CardBrowser({ onOpen, aim, only, newest, onAll, onShow, onAimDon
   // ⌘A, x, ⌫ and Esc come from picking (usePickMixed), on the card with the focus.
   const now = useRef({ shown, density, turnAll, editing, flowing, flowAt })
   now.current = { shown, density, turnAll, editing, flowing, flowAt }
+  const lastKey = useRef('')
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
       if (!here() || typing() || event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) return
@@ -463,7 +464,12 @@ export function CardBrowser({ onOpen, aim, only, newest, onAll, onShow, onAimDon
         return row.filter(({ box }) => box.top === nearest).sort((a, b) => Math.abs(a.box.left - from.left) - Math.abs(b.box.left - from.left))[0].n
       }
       const key = event.key
-      if (key === 'ArrowDown' || key === 'j') go(grid && key === 'ArrowDown' ? below(1) : at + 1)
+      // G to the last card, g g to the first, as every list does (ui.tsx useListKeys).
+      const afterG = lastKey.current === 'g'
+      lastKey.current = key === 'g' && !afterG ? 'g' : ''
+      if (key === 'G' && event.shiftKey) go(items.length - 1)
+      else if (key === 'g' && afterG) go(0)
+      else if (key === 'ArrowDown' || key === 'j') go(grid && key === 'ArrowDown' ? below(1) : at + 1)
       else if (key === 'ArrowUp' || key === 'k') go(grid && key === 'ArrowUp' ? below(-1) : at < 0 ? 0 : at - 1)
       else if (grid && key === 'ArrowRight') go(at + 1)
       else if (grid && key === 'ArrowLeft') go(at - 1)
