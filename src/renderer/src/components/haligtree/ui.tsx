@@ -241,7 +241,9 @@ export function Page({ title, lead, count, unit = ['item', 'items'], actions, se
   const [listWidth, grip] = useListWidth()
   // Drawn once, when its reads and those of every part on it are in (lib/reads-in.tsx).
   const { provide, style } = useReadsIn(waiting, apart)
-  const countSaid = count ? <span data-list-count={count} className={cn('min-w-0 truncate whitespace-nowrap tabular-nums', lead && 'mr-2', unit[1] === 'selected' && 'font-medium text-foreground')}><Rolling text={count} /> {count === 1 ? unit[0] : unit[1]}</span> : null
+  const countSaid = count ? <span data-list-count={count} data-count-apart={lead ? '' : undefined}
+    // Beside tabs, set apart by a hairline and a smaller size, so it never reads as one more tab.
+    className={cn('min-w-0 truncate whitespace-nowrap tabular-nums', lead && 'mr-2 border-l border-foreground/15 pl-3 text-xs', unit[1] === 'selected' && 'font-medium text-foreground')}><Rolling text={count} /> {count === 1 ? unit[0] : unit[1]}</span> : null
   return provide(
     <section data-chrome={aside || undefined} data-apart={apart ? 'list' : undefined} className={cn('relative flex min-w-0 flex-1 flex-col', aside && 'hidden flex-none @[56rem]/page:flex')}
       style={{ ...(aside ? { width: listWidth, maxWidth: '60%' } : {}), ...style }}>
