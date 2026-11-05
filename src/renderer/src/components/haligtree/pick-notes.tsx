@@ -25,6 +25,8 @@ export function usePickNotes(shown: string[], cursor: number, { here, noun, tier
   menu: (id: string) => MenuItem[] | null
   /** The lines a single row's menu adds: Select, Select all. */
   rowItems: (id: string) => MenuItem[]
+  /** Let the picked go, quietly: after something done to them said so itself (grouped). */
+  letGo: () => void
 } {
   const [chosen, setChosen] = useState<string[]>([])
   const live = chosen.filter((id) => shown.includes(id))
@@ -74,5 +76,5 @@ export function usePickNotes(shown: string[], cursor: number, { here, noun, tier
     { label: 'Clear the selection', keys: 'esc', run: clear }
   ] : null
   const rowItems = (id: string): MenuItem[] => ['separator', { label: live.includes(id) ? 'Unselect' : 'Select', about: 'list', keys: 'X', run: () => toggle(id) }, !allPicked && { label: 'Select all', about: 'list', keys: '⌘A', run: selectAll }]
-  return { chosen: live, toggle, picking, bar, menu, rowItems }
+  return { chosen: live, toggle, picking, bar, menu, rowItems, letGo: () => setChosen([]) }
 }

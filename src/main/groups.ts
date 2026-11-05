@@ -254,7 +254,8 @@ export function registerGroups(): void {
     if (!group) return null
     const fresh = randomUUID()
     const last = db.prepare('select max(group_order) as at from nuggets where group_id = ?').get(id) as { at: number | null }
-    const tier = group.list === 'article' ? 'article' : 'nugget'
+    // A new goal in a goal group is a someday one until it is given a day.
+    const tier = group.list === 'article' ? 'article' : group.list === 'goal' ? 'goal' : 'nugget'
     atomically(() => {
       db.prepare("insert into nuggets (id, tier, kind, title, body, created_at, updated_at, group_id, group_order) values (?, ?, 'note', ?, 'null', ?, ?, ?, ?)")
         .run(fresh, tier, tier === 'article' ? 'Untitled' : '', now(), now(), id, (last.at ?? -1) + 1)

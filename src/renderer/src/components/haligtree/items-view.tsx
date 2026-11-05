@@ -1661,7 +1661,9 @@ const ORDER = new WeakMap<Layout, Map<string, number>>()
 /** The list itself, as a drop place in the path bar: no folder. */
 const TOP = ':top'
 
-function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) => number, order: string[], shown: Item[] | null, ordered: boolean, done: () => void, chosen: string[], toOwn: () => (() => void) | undefined, heads?: Map<string, string>, within?: string, borrowed = false): {
+export function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) => number, order: string[], shown: Item[] | null, ordered: boolean, done: () => void, chosen: string[], toOwn: () => (() => void) | undefined, heads?: Map<string, string>, within?: string, borrowed = false,
+  /** Another kind of list using these groups (Goals): what its rows are called, its menu only the group lines, and its rows kept in the list's own sort (a drag only joins or leaves a group). */
+  kind?: { noun: [string, string] }): {
   rows: Item[] | null
   /** The list as tiles: each group as one folder, at the top, then the loose notes. */
   tiles: (list: Item[]) => ({ group: NoteGroup; items: Item[] } | { item: Item })[]
@@ -1756,7 +1758,7 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
         if (depth >= DEPTH) return []
         const inner = partsIn(groupId(id), depth + 1)
         const items = inner.flatMap((one) => ('item' in one ? [one.item] : one.items))
-        return borrowed && !items.length ? [] : [{ sub: groupId(id), items, parts: inner }]
+        return (borrowed || kind) && !items.length ? [] : [{ sub: groupId(id), items, parts: inner }]
       })
       return ordered ? parts : [...parts.filter((one): one is Extract<Part, { sub: string }> => 'sub' in one).sort((a, b) => bySide(a.sub, b.sub)), ...parts.filter((one): one is { item: Item } => 'item' in one).sort((a, b) => bySort(a.item, b.item))]
     }
@@ -1774,7 +1776,8 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
   const onShow = (one: { parts?: Part[] }): Item[] => (one.parts ?? []).flatMap((part) => ('item' in part ? [part.item] : isOpen(part.sub) ? onShow(part) : []))
   // Borrowed (Questions shows Writing's folders), a folder holding none of this list's notes is not shown at all.
   // A hand-made group folded shows its heading alone: its notes are not rows until it is unfolded.
-  const level = (from: Layout): Block[] => blocks(from).filter((one) => (one.group ? !borrowed || one.items.length : true))
+  // A list of another kind (Goals' tabs) shows a group only where it holds some of what is on show.
+  const level = (from: Layout): Block[] => blocks(from).filter((one) => (one.group ? !(borrowed || kind) || one.items.length : true))
   const rowsOf = (from: Layout): Item[] => level(from).flatMap((one) => (!one.group ? one.items : isOpen(one.group) ? onShow(one) : []))
   const now = level(layout)
   const keys = now.flatMap((one) => (one.group
@@ -1855,7 +1858,7 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
     if (!at) ORDER.set(layout, (at = new Map(flatten(layout).map((one, index) => [one, index]))))
     return [...ids].sort((a, b) => (at.get(a) ?? 0) - (at.get(b) ?? 0))
   }
-  const notes = (n: number): string => (n === 1 ? 'note' : `${num(n)} notes`)
+  const notes = (n: number): string => (kind ? (n === 1 ? kind.noun[0] : `${num(n)} ${kind.noun[1]}`) : n === 1 ? 'note' : `${num(n)} notes`)
   const gatherNew = (ids: string[]): void => {
     const these = inOrder(ids)
     // A group is two notes or more.
@@ -1865,11 +1868,11 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
   // Figma's ⌘G: the picked notes gathered into a group where the first of them is, in the list or folder you are in.
   const groupNew = (ids: string[]): void => {
     const these = inOrder(ids.filter((id) => !isGroup(id)))
-    if (these.length < 2) return refuse('Pick two or more notes to group them')
+    if (these.length < 2) return refuse(`Pick two or more ${kind?.noun[1] ?? 'notes'} to group them`)
     const own = groupOf(layout, these[0])
     // Inside a group already, they make a group inside it (three levels at most); else one where the first note is.
     const next = gather(layout, these[0], these, make(these)(), own ?? null)
-    if (!inside(next, these[0])) return refuse('Pick notes in this folder to group them')
+    if (!inside(next, these[0])) return refuse(`Pick ${kind?.noun[1] ?? 'notes'} in this folder to group them`)
     commit(next, 'gather', `Grouped ${notes(these.length)}`)
   }
   // Figma's ⇧⌘G: each group the picks are in (or a group's own row) comes apart; its notes stay where it was. One Undo.
@@ -1907,8 +1910,8 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
       for (let up = list.find((other) => other.id === one.parent); up && path.length < 4; up = list.find((other) => other.id === up!.parent)) path.unshift(up.name)
       return path.length > 1 ? path.join(' / ') : one.name
     }
-    return [
-      n > 1 && { label: `Group ${num(n)} notes`, keys: '⌘G', run: () => groupNew(these) },
+    const groupLines: RowItem[] = [
+      n > 1 && { label: `Group ${notes(n)}`, keys: '⌘G', run: () => groupNew(these) },
       // The groups in this list (or folder) to put them in, as the old "Move to group" did.
       groupsHere.length > 0 && {
         label: 'Move to group',
@@ -1926,7 +1929,11 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
           commit([...groupsOf].reduce<Layout>((next, own) => moveMany(next, these.filter((one) => groupOf(layout, one) === own), { group: groupOf(next, KEY + own) ?? null, after: KEY + own }), layout), 'separate', `Removed ${notes(n)} from ${groupsOf.size === 1 ? info.get([...groupsOf][0])?.name ?? 'the group' : 'their groups'}`)
         }
       },
-      inGroups && { label: 'Ungroup', keys: '⇧⌘G', run: () => ungroup(these) },
+      inGroups && { label: 'Ungroup', keys: '⇧⌘G', run: () => ungroup(these) }
+    ]
+    if (kind) return groupLines
+    return [
+      ...groupLines,
       n > 1 && { label: `New folder with ${num(n)} notes`, keys: '⌃⌘N', run: () => gatherNew(these) },
       {
         label: 'Move to folder',
@@ -1986,11 +1993,13 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
     }),
     preview: (ids, target, how) => {
       const next = dropMany(base, ids, target, how, shut, () => ({ id: 'new', name: '' }))
+      // Another kind keeps its own sort: a drop there only joins, leaves or makes a group.
+      if (kind && next && !next.make && ids.every((id) => groupOf(base, id) === groupOf(next, id))) return null
       return next && !sameLayout(next, base) && ids.every((id) => inside(next, id)) && !folderInGroup(next) ? { before: base, after: next, shown: shownKeys(next, shut) } : null
     },
     onDrop: (ids, target, how) => {
       const seen = dropMany(base, ids, target, how, shut, make([target, ...ids]))
-      if (!seen || sameLayout(seen, base) || !ids.every((id) => inside(seen, id)) || folderInGroup(seen)) return chime('stay')
+      if (!seen || sameLayout(seen, base) || !ids.every((id) => inside(seen, id)) || folderInGroup(seen) || (kind && !seen.make && ids.every((id) => groupOf(base, id) === groupOf(seen, id)))) return chime('stay')
       // Only a move within where it already is needs your own order, laid out as you saw it. Joining or leaving a
       // group keeps the sort, and your own order as it was: the row takes its sorted place in its new group.
       const reorder = !ordered && !seen.make && groupOf(base, ids[0]) === groupOf(seen, ids[0])
@@ -2016,7 +2025,7 @@ function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) =>
     renaming,
     onRenaming: setRenaming,
     born,
-    noun: borrowed ? 'question' : tier === 'nugget' ? 'gem' : 'page',
+    noun: kind ? kind.noun[0] : borrowed ? 'question' : tier === 'nugget' ? 'gem' : 'page',
     list: tier,
   })
   const tiles = (list: Item[]): ({ group: NoteGroup; items: Item[] } | { item: Item })[] =>

@@ -86,6 +86,8 @@ export type Folds = {
   born: string | null
   /** What the list holds, for a folder's count: "page", "gem", "question". */
   noun?: string
+  /** Its sections are days, headed as Tasks' Upcoming heads its days (Goals). */
+  days?: boolean
   /** The list it is. */
   list?: string
   /** "Sort these": a pass through a group's notes not yet sorted. */
@@ -301,7 +303,7 @@ function Node({ id, children, inner, indent = 0 }: { id: string; children: React
  * every list does; `index` counts rows on show, which is what the keyboard's
  * cursor counts.
  */
-export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo, onFold, onNewNote, onOpenFolder, renaming, onRenaming, born, noun, onSort, onSorted, face, after, arrived, cursor, estimate, className }: Folds & {
+export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo, onFold, onNewNote, onOpenFolder, renaming, onRenaming, born, noun, days, onSort, onSorted, face, after, arrived, cursor, estimate, className }: Folds & {
   face: (entry: Entry, index: number) => React.JSX.Element
   after?: (entry: Entry) => ReactNode
   arrived: (id: string) => boolean
@@ -616,7 +618,7 @@ export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo
                 </div>
               ) : one.head ? (
                 <>
-                  <SectionHead head={one.head} first={start === 0} />
+                  <SectionHead head={one.head} first={start === 0} day={days} />
                   {row(one.entries[0], start)}
                 </>
               ) : (
@@ -1164,7 +1166,7 @@ function GroupBlock({ group, entries, parts, start, cursor, estimate, row, carri
                     </button>
                   )}
                 </ContextMenuTrigger>
-                <GroupMenu group={group} members={entries.map((entry) => entry.id)} onOpenFolder={onOpenFolder && (() => (chime('open'), onOpenFolder(group.id)))} onSeparate={separate} onRename={() => onRenaming(true)} onIcon={() => setPicking(true)} onNewNote={onNewNote} onSort={onSort} onSorted={onSorted} />
+                <GroupMenu group={group} members={entries.map((entry) => entry.id)} onOpenFolder={onOpenFolder && (() => (chime('open'), onOpenFolder(group.id)))} onSeparate={separate} onRename={() => onRenaming(true)} onIcon={() => setPicking(true)} onNewNote={onNewNote} onSort={onSort} onSorted={onSorted} noun={noun === 'goal' ? 'goal' : 'note'} />
               </ContextMenu>
               {/* Open until an icon is picked, Esc, or a click elsewhere: the focus moving on as the menu shuts never closes it. */}
               <PopoverContent align="start" className="w-auto gap-0 overflow-hidden p-0" onFocusOutside={(event) => event.preventDefault()}>
@@ -1296,8 +1298,10 @@ function Fold({ open, children }: { open: boolean; children: ReactNode }): React
 }
 
 /** A right click on a group's row: Haligtree's own menu, with its colours as a row of dots. */
-export function GroupMenu({ group, members, onOpenFolder, onSeparate, onRename, onIcon, onNewNote, onSort, onSorted }: {
+export function GroupMenu({ group, members, onOpenFolder, onSeparate, onRename, onIcon, onNewNote, onSort, onSorted, noun = 'note' }: {
   group: GroupView
+  /** What a new one in it is: a note, a goal. */
+  noun?: string
   onOpenFolder?: () => void
   members: string[]
   onSeparate: () => void
@@ -1321,7 +1325,7 @@ export function GroupMenu({ group, members, onOpenFolder, onSeparate, onRename, 
       {left.length > 0 && onSort && <ContextMenuItem onSelect={later(() => onSort(left))}>Sort these ({num(left.length)})</ContextMenuItem>}
       {left.length > 0 && onSorted && <ContextMenuItem onSelect={() => onSorted(left, true)}>Mark all as sorted</ContextMenuItem>}
       {left.length > 0 && <ContextMenuSeparator />}
-      <ContextMenuItem onSelect={() => void groups.note(group.id).then((id) => id && (chime('promote'), onNewNote(id)))}>New note in {word}</ContextMenuItem>
+      <ContextMenuItem onSelect={() => void groups.note(group.id).then((id) => id && (chime('promote'), onNewNote(id)))}>New {noun} in {word}</ContextMenuItem>
       {!group.folder && <ContextMenuItem data-group-separate-item onSelect={onSeparate}>Separate</ContextMenuItem>}
       <ContextMenuItem
         onSelect={() =>
