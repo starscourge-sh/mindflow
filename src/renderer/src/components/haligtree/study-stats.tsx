@@ -83,7 +83,7 @@ function DayCells({ days, say, onHover, rows, cell, left, right }: { days: { day
   const single = rows === 1
   const flow = single ? { gridTemplateColumns: `repeat(${days.length}, ${cell}px)`, gridTemplateRows: `${cell}px` } : { gridTemplateRows: `repeat(${rows}, ${cell}px)`, gridAutoColumns: `${cell}px`, gridAutoFlow: 'column' as const }
   return (
-    <div className="flex justify-center overflow-hidden">
+    <div className={`flex ${single ? 'justify-start' : 'justify-center'} overflow-hidden`}>
       {/* The labels share the cells' width, so "30 days ago" sits under the first cell and "today" under the last. */}
       <div className="grid shrink-0 gap-1">
         <div data-day-cells className="grid" style={{ ...flow, gap: 3 }} onPointerLeave={() => (setOn(null), onHover(null))}>
@@ -142,14 +142,14 @@ function StudyCards({ studied }: { studied: Studied }): React.JSX.Element {
         <MonoCard name="reviews" title={span === 'month' ? 'Cards reviewed each day' : 'Days you reviewed'} value={span === 'month' ? reviews : yearTotal} unit={`${(span === 'month' ? reviews : yearTotal) === 1 ? 'review' : 'reviews'} in ${span === 'month' ? '30 days' : 'a year'}`}
           side={<Switch options={[{ id: 'month', label: '30 days' }, { id: 'year', label: 'Year' }]} value={span} pick={setSpan} />}
           hovered={onReviews} point="A square a day: the bolder, the more cards." enough={reviewDays >= DRAW_DAYS}
-          sparse={reviewDays ? `Reviews on ${plural(reviewDays, 'day', 'days')} so far: the squares start at ${DRAW_DAYS}.` : `No reviews ${span === 'month' ? 'in 30 days' : 'this year'} yet: a review in Review shows here.`}>
+          sparse={reviewDays ? `Reviewed on ${plural(reviewDays, 'day', 'days')} so far. Review on ${DRAW_DAYS} days to see each day here.` : `No reviews ${span === 'month' ? 'in 30 days' : 'this year'} yet: a review in Review shows here.`}>
           <DayCells key={span} days={days} say={reviewsSaid} onHover={sayReviews} rows={span === 'month' ? 1 : 7} cell={span === 'month' ? 11 : 10} left={span === 'month' ? '30 days ago' : 'a year ago'} right="today" />
         </MonoCard>
       </div>
       <MonoCard name="minutes" title="Minutes reviewing each day" value={Math.round(shownMinutes.reduce((sum, one) => sum + one.n, 0))} unit={`${Math.round(shownMinutes.reduce((sum, one) => sum + one.n, 0)) === 1 ? 'minute' : 'minutes'} in ${range === 'week' ? '7' : '30'} days`} chips={studiedDays ? <Chip>{plural(studiedDays, 'day', 'days')}</Chip> : undefined}
         side={<Switch options={[{ id: 'week', label: '7 days' }, { id: 'month', label: '30 days' }]} value={range} pick={setRange} />}
         hovered={onMinutes} point={studied.seconds !== null ? `About ${plural(studied.seconds, 'second', 'seconds')} a card.` : 'Counted from your next review on.'} enough={studiedDays >= DRAW_DAYS}
-        sparse={studiedDays ? `Time on ${plural(studiedDays, 'day', 'days')} so far: the bars start at ${DRAW_DAYS}.` : 'No time spent reviewing in these days yet.'}>
+        sparse={studiedDays ? `Time spent on ${plural(studiedDays, 'day', 'days')} so far. Review on ${DRAW_DAYS} days to see each day here.` : 'No time spent reviewing in these days yet.'}>
         <PillBars values={shownMinutes.map((one) => one.n)} keys={shownMinutes.map((one) => one.day)} say={(at) => `${shownMinutes[at].n ? `${num(Math.round(shownMinutes[at].n))} min` : 'No reviews'}, ${dayWords(shownMinutes[at].day)}`} onHover={sayMinutes} className="h-16" unit="min" />
         <Ends left={range === 'week' ? '7 days ago' : '30 days ago'} right="today" />
       </MonoCard>
