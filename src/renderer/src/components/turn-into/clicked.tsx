@@ -212,7 +212,7 @@ export function clickedLines(editor: Editor, clicked: Clicked): Line[] {
       !!id && type !== "capture" && own && {
         label: "Rename…", edits: true,
         data: "rename",
-        run: () => void ask("A new name", label, undefined, label).then((name) => {
+        run: () => void ask("A new name", label, { initial: label, action: "Rename" }).then((name) => {
           const next = name?.trim()
           if (!next || next === label) return
           void haligtree.saveItem(key, { title: next }).then(() => chime("noted"))
@@ -221,7 +221,7 @@ export function clickedLines(editor: Editor, clicked: Clicked): Line[] {
       {
         label: "Edit link text…", edits: true,
         data: "edit-text",
-        run: () => void ask("What the link says", label, undefined, shown).then((words) => {
+        run: () => void ask("What the link says", label, { initial: shown, action: "Change the words" }).then((words) => {
           if (words === null) return
           const node = editor.state.doc.nodeAt(pos)
           if (node?.type.name !== "noteLink") return
@@ -270,7 +270,7 @@ export function clickedLines(editor: Editor, clicked: Clicked): Line[] {
       linked && !!href && {
         label: "Change page…", edits: true,
         data: "change-page",
-        run: () => void ask("Which page should it open at?", String(page), undefined, String(page)).then((typed) => {
+        run: () => void ask("Which page should it open at?", String(page), { initial: String(page), action: "Change the page" }).then((typed) => {
           const next = Math.round(Number(typed))
           if (!typed || !Number.isFinite(next) || next < 1 || next === page || from == null || to == null) return
           const hash = new URLSearchParams(PDF_LINK.exec(href)?.[2] ?? "")
@@ -303,7 +303,7 @@ export function clickedLines(editor: Editor, clicked: Clicked): Line[] {
         label: "Edit formula…",
         edits: true,
         data: "edit-formula",
-        run: () => void ask("The formula, in LaTeX", latex, undefined, latex).then((typed) => {
+        run: () => void ask("The formula, in LaTeX", latex, { initial: latex, action: "Change the formula" }).then((typed) => {
           const next = typed?.trim()
           const node = editor.state.doc.nodeAt(pos)
           if (!next || next === latex || !node || !/Math$/.test(node.type.name)) return

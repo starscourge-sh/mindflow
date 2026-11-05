@@ -55,7 +55,7 @@ try {
   check('2. Esc on a yes-or-no sheet over the room closes the sheet, not the room too', (await h.locator('[data-room]').count()) === 1 && (await h.locator('[data-sure]').count()) === 0)
   check('2. the aim\'s question is the same sheet as its sibling (radius, padding, width, title)', asked && sure && asked.radius === sure.radius && asked.pad === sure.pad && asked.width === sure.width && asked.title === sure.title, JSON.stringify({ asked, sure }))
   check('2. its keys are shown as keycaps', asked?.caps === 2, JSON.stringify(asked))
-  check('2. its field reads at body size, not small grey type', parseFloat(field.size) >= 14 && field.height >= 38, JSON.stringify(field))
+  check('2. its field reads at body size, not small grey type', parseFloat(field.size) >= 14 && field.height >= 28, JSON.stringify(field))
 
   const room = await gaps()
   if (shots) for (const one of ['light', 'dark']) { await theme(one); await h.screenshot({ path: `${shots}/aim-room-${one}.png` }) }

@@ -999,7 +999,7 @@ export const stopJob = (name: string): void => void window.api.haligtree('job-st
 
 /** Give a nugget its question, so review can test it: asked in place. */
 export const askQuestion = (id: string): Promise<void> =>
-  ask('The question it answers, for review', 'A question this answers').then((prompt) => {
+  ask('The question it answers, for review', 'A question this answers', { action: 'Test me on it' }).then((prompt) => {
     if (prompt) void haligtree.saveItem(id, { prompt }).then(() => toast('Now tested: it will come up in review'))
   })
 
@@ -1035,57 +1035,68 @@ export const whyFailed = (error: unknown): string => {
   return `${raw || 'something went wrong'}. Try again, and restart ${APP_NAME} if it keeps happening`
 }
 
-/**
- * A question that needs a line from you before something can go on, asked in
- * place: Enter answers, Escape lets it go. Resolves to the words, or null.
- * With `skip` (its label, "Keep it without"), the line is asked for, never
- * forced: Enter on nothing, or that button, resolves to '' and it goes on.
- * With `instead`, one more way out beside it ("Not a quote"): it runs, and the question resolves to null.
- */
-export const ask = (question: string, placeholder = '', field?: 'attribution' | 'medium' | 'tag', initial = '', skip?: string, instead?: { label: string; run: () => void }): Promise<string | null> =>
-  new Promise((answer) => void window.dispatchEvent(new CustomEvent('haligtree:ask', { detail: { question, placeholder, field, initial, skip, instead, answer } })))
-
-/** The question's field when it is a tag: "#" drawn before the caret, and what is typed read as a tag (hash-field.tsx). */
-function AskTag({ initial, placeholder, onDone }: { initial: string; placeholder: string; onDone: (words: string | null) => void }): React.JSX.Element {
-  const [tag, setTag] = useState(() => asTag(initial))
-  return (
-    <HashField ref={(input) => void (input && setTimeout(() => input.focus(), 30))} autoFocus value={tag} onChange={setTag} placeholder={placeholder} aria-label="Tag"
-      className={ASK_FIELD}
-      onKeyDown={(event) => {
-        event.stopPropagation()
-        if (event.key === 'Enter') {
-          const kept = tag.replace(/-+$/, '')
-          if (kept && !isTag(kept)) return void chime('nope')
-          onDone(kept)
-        }
-        if (event.key === 'Escape') onDone(null)
-      }} />
-  )
-}
-
-/** The question's field when it is a name typed before: completes as you type, as Remembered does. */
-function AskRemembered({ field, initial, placeholder, onDone }: { field: 'attribution' | 'medium'; initial: string; placeholder: string; onDone: (words: string | null) => void }): React.JSX.Element {
-  const [words, setWords] = useState(initial)
-  return (
-    <Remembered field={field} value={words} onChange={setWords} placeholder={placeholder} autoFocus
-      className={ASK_FIELD}
-      onKeyDown={(event) => {
-        event.stopPropagation()
-        if (event.key === 'Enter') onDone(words)
-        if (event.key === 'Escape') onDone(null)
-      }} />
-  )
+/** How a question is asked: the field it needs, a guess, its ways out, the word on its button, and what opened it. */
+export type AskOptions = {
+  /** A tag ("#" drawn in the field), or a name typed before (completes as you type). */
+  field?: 'attribution' | 'medium' | 'tag'
+  /** A guess already in the field, offered, never kept unasked. */
+  initial?: string
+  /** Its label ("Keep it without"): the line is asked for, never forced; it resolves to ''. */
+  skip?: string
+  /** One more way out ("Not a quote"): it runs, and the question resolves to null. */
+  instead?: { label: string; run: () => void }
+  /** The primary button, naming what it does: "Make deck", "Tag 3", "Rename". */
+  action: string
+  /** What opened it, when the caller knows better than the last press (a row, a button). */
+  at?: Element | null
 }
 
 /**
- * The question's field, a line to write on as the Journal's Day page is: no box, the serif at reading size on a
- * hairline that darkens while you write. It was a soft grey well, still a form box, that read as borrowed.
+ * A question that needs a line from you before something can go on. Asked in a
+ * small sheet that grows out of what opened it (the row right-clicked, the
+ * button pressed), or, opened by a key, just under the window's top: the page
+ * stays as it is behind it. Its button says what it does; Enter does the same,
+ * Esc or a click away lets it go. Resolves to the words, or null.
  */
-const ASK_FIELD = "flex h-11 w-full min-w-0 items-center border-b border-foreground/15 bg-transparent font-['Fraunces_Variable',Georgia,serif] text-[1.125rem] text-foreground outline-none transition-colors placeholder:text-foreground/35 placeholder:italic focus-within:border-foreground/45 [&_input]:bg-transparent [&_input]:outline-none [&_input]:placeholder:italic [&_input]:placeholder:text-foreground/35"
+export const ask = (question: string, placeholder: string, options: AskOptions): Promise<string | null> =>
+  new Promise((answer) => void window.dispatchEvent(new CustomEvent('haligtree:ask', { detail: { question, placeholder, ...options, at: options.at ?? opener(), review: inReview(options.at), answer } })))
 
 /**
- * The question said as the Day page says things: its question as the title, what led to it as a quiet line under.
- * "A line in your own words, beside it. What does it say to you?" is titled "What does it say to you?".
+ * What a sheet grows out of: the last thing pressed outside a menu (a row
+ * right-clicked, a button), as its row or button; a key pressed since means it
+ * was asked by keys (⌘K), and the sheet sits under the window's top instead.
+ */
+let pressed: { el: Element; x: number; y: number } | null = null
+const ASIDE = '[role="menu"], [data-ask], [data-sure]'
+if (typeof window !== 'undefined') {
+  const press = (event: PointerEvent | MouseEvent): void => {
+    const el = event.target instanceof Element ? event.target : null
+    if (el && !el.closest(ASIDE)) pressed = { el, x: event.clientX, y: event.clientY }
+  }
+  window.addEventListener('pointerdown', press, true)
+  window.addEventListener('contextmenu', press, true)
+  window.addEventListener('keydown', (event) => {
+    if (!(event.target instanceof Element && event.target.closest(ASIDE))) pressed = null
+  }, true)
+}
+/** Asked from Review: the sheet wears Review's finish (Satin's metal or Paper's stock), as Review's own cards do. */
+const inReview = (at?: Element | null): boolean => !!(at ?? pressed?.el)?.closest('[data-review-page]')
+const PRESSABLE = 'button, [role="button"], [role="row"], [data-row-menu], [data-side-row], [data-pick], li, label'
+/** The box a sheet hangs from: the pressed row or button, or the point pressed when that is a page-sized thing (the writing, a long list). */
+function opener(): DOMRect | null {
+  if (!pressed) return null
+  const { el, x, y } = pressed
+  const host = el.closest(PRESSABLE) ?? el
+  const box = host.isConnected ? host.getBoundingClientRect() : null
+  return box && box.height > 0 && box.height <= 280 ? box : new DOMRect(x, y, 0, 0)
+}
+
+/** The app's own field (ui/input.tsx's frame, as hash-field.tsx's INPUT_FRAME), the one Tasks and Settings type in, its words at ⌘K's size (14px): a line you write, not small grey type. */
+const ASK_FIELD = `min-w-0 rounded-md border border-input bg-input/20 px-2 py-0.5 transition-colors focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/30 dark:bg-input/30 h-7 w-full text-body text-foreground placeholder:text-foreground/70 [&_input]:placeholder:text-foreground/70`
+
+/**
+ * The question said at the app's own size: its question as a short bold line, what led to it as a quiet line under.
+ * "A line in your own words, beside it. What does it say to you?" is "What does it say to you?" over the rest.
  */
 export const askParts = (question: string): { title: string; hint: string } => {
   const sentences = question.match(/[^.?!]+[.?!]?/g)?.map((one) => one.trim()).filter(Boolean) ?? [question]
@@ -1094,78 +1105,110 @@ export const askParts = (question: string): { title: string; hint: string } => {
   return { title: sentences[at], hint: sentences.filter((_, i) => i !== at).join(' ') }
 }
 
+/**
+ * The one sheet a question or a yes-or-no is asked in: the floating material
+ * at a card's corners, hung from what opened it (or under the window's top),
+ * no dimming. A heading line and a quiet line, what it holds, then the ways
+ * out on the left and Cancel and the one button that says what it does on the
+ * right. Esc, a click away or Cancel lets it go.
+ */
+function AskSheet({ at, review, label, onLeave, children, ...rest }: { at: Element | DOMRect | null; review: boolean; label: string; onLeave: () => void; children: ReactNode } & React.ComponentProps<'div'>): React.JSX.Element {
+  // Opened by keys: just under the window's top, in the middle, as ⌘K sits.
+  const anchor = { current: { getBoundingClientRect: () => (at instanceof Element ? at.getBoundingClientRect() : at ?? new DOMRect(window.innerWidth / 2, Math.round(window.innerHeight * 0.18), 0, 0)) } }
+  return (
+    <Popover open onOpenChange={(open) => !open && onLeave()}>
+      <PopoverAnchor virtualRef={anchor} />
+      <PopoverContent side="bottom" align={at ? 'start' : 'center'} sideOffset={8} collisionPadding={{ top: 52, right: 12, bottom: 12, left: 12 }} aria-label={label} data-finish-sheet={review || undefined} {...rest}
+        // The field takes the focus, not the sheet; a menu closing never takes it back (quietClose).
+        onOpenAutoFocus={(event) => { event.preventDefault(); (event.currentTarget as HTMLElement).querySelector<HTMLElement>('input, [data-sure-yes]')?.focus() }}
+        className="z-[80] w-[min(22rem,calc(100vw-1.5rem))] gap-2.5 rounded-xl p-3 text-control">
+        {children}
+      </PopoverContent>
+    </Popover>
+  )
+}
+
+/** A sheet's heading: its question in bold at the app's size, and the quiet line that led to it. */
+function AskHead({ title, hint }: { title: string; hint?: ReactNode }): React.JSX.Element {
+  return (
+    <div className="grid gap-0.5">
+      <h2 data-ask-title className="text-heading font-semibold text-balance text-foreground">{title}</h2>
+      {hint && <p data-ask-hint className="text-control text-pretty text-muted-foreground [&_strong]:font-semibold [&_strong]:text-foreground">{hint}</p>}
+    </div>
+  )
+}
+
+/** A sheet's foot: other ways out on the left, Cancel and the one button on the right, each with its key. */
+function AskFoot({ go, ready = true, danger = false, onGo, onCancel, children }: { go: string; ready?: boolean; /** Deleting: the button in the red tint every destructive action wears, never the accent. */ danger?: boolean; onGo: () => void; onCancel: () => void; children?: ReactNode }): React.JSX.Element {
+  return (
+    <div data-ask-keys className="flex flex-wrap items-center gap-1.5 pt-0.5">
+      {children}
+      <span className="flex-1" />
+      <Button type="button" variant="ghost" size="sm" data-ask-cancel className="cursor-pointer" onClick={onCancel}>Cancel <ShadKbd>Esc</ShadKbd></Button>
+      <Button type="button" size="sm" variant={danger ? 'destructive' : 'default'} data-ask-go data-sure-yes="" disabled={!ready} className="cursor-pointer" onClick={onGo}>{go} <ShadKbd>↵</ShadKbd></Button>
+    </div>
+  )
+}
+
+type Asked = AskOptions & { question: string; placeholder: string; at: Element | DOMRect | null; review: boolean; answer: (words: string | null) => void }
+
 function Asker(): React.JSX.Element | null {
-  const [asked, setAsked] = useState<{ question: string; placeholder: string; field?: 'attribution' | 'medium' | 'tag'; initial?: string; skip?: string; instead?: { label: string; run: () => void }; answer: (words: string | null) => void } | null>(null)
+  const [asked, setAsked] = useState<Asked | null>(null)
+  const [words, setWords] = useState('')
   useEffect(() => {
     const onAsk = (event: Event): void => {
+      const detail = (event as CustomEvent<Asked>).detail
       chime('open')
-      setAsked((event as CustomEvent).detail)
+      setWords(detail.field === 'tag' ? asTag(detail.initial ?? '') : detail.initial ?? '')
+      setAsked(detail)
     }
     window.addEventListener('haligtree:ask', onAsk)
     return () => window.removeEventListener('haligtree:ask', onAsk)
   }, [])
   if (!asked) return null
-  const done = (words: string | null): void => {
-    if (words?.trim()) chime('tap')
+  const done = (said: string | null): void => {
+    if (said?.trim()) chime('tap')
     // Optional, nothing written is an answer (kept without); Escape still is not.
-    asked.answer(words?.trim() || (asked.skip && words !== null ? '' : null))
+    asked.answer(said?.trim() || (asked.skip && said !== null ? '' : null))
     setAsked(null)
+  }
+  const go = (): void => {
+    if (asked.field !== 'tag') return done(words)
+    const kept = words.replace(/-+$/, '')
+    if (kept && !isTag(kept)) return void chime('nope')
+    done(kept)
+  }
+  const keys = (event: React.KeyboardEvent): void => {
+    event.stopPropagation()
+    if (event.key === 'Enter' && !event.nativeEvent.isComposing) (event.preventDefault(), go())
   }
   const { title, hint } = askParts(asked.question)
   return (
-    <div className="fixed inset-0 z-[60] flex items-start justify-center bg-black/40 pt-[22vh]" onMouseDown={() => done(null)}>
-      {/* A click on its padding keeps the focus in the field, so Escape still answers it. */}
-      <div role="dialog" aria-modal="true" aria-label={asked.question} data-ask className="flex w-[min(34rem,90vw)] flex-col rounded-2xl bg-popover px-7 pt-6 pb-5 shadow-(--mf-panel-shadow)"
-        onMouseDown={(event) => {
-          event.stopPropagation()
-          if (!(event.target instanceof HTMLInputElement) && !(event.target instanceof Element && event.target.closest('button'))) event.preventDefault()
-        }}>
-        {/* The Day page's way: a serif title at the page's scale, one quiet line under it. */}
-        <h2 data-ask-title className="text-[1.625rem] leading-tight font-semibold tracking-[-0.02em] text-balance text-foreground" style={{ fontFamily: 'var(--font-heading)' }}>{title}</h2>
-        {hint && <p data-ask-hint className="mt-1.5 text-[0.9375rem] leading-snug text-pretty text-muted-foreground">{hint}</p>}
-        <div className="mt-4">
-          {asked.field === 'tag' ? (
-            // A tag: the "#" drawn in the field, fixed, so it is never a question whether to type it.
-            <AskTag initial={asked.initial ?? ''} placeholder={asked.placeholder} onDone={done} />
-          ) : asked.field ? (
-            // Who said it before, completing as you type: it gets quicker with use.
-            <AskRemembered field={asked.field} initial={asked.initial ?? ''} placeholder={asked.placeholder} onDone={done} />
-          ) : (
-            <input
-              autoFocus
-              data-ask-field
-              className={ASK_FIELD}
-              // Again a beat later: a right-click menu hands the focus back to
-              // its row as it closes, after autofocus has already run.
-              ref={(input) => void (input && setTimeout(() => input.focus(), 30))}
-              placeholder={asked.placeholder}
-              // A guess (a name already in the words) is offered, never kept unasked.
-              defaultValue={asked.initial}
-              onKeyDown={(event) => {
-                event.stopPropagation()
-                if (event.key === 'Enter') done(event.currentTarget.value)
-                if (event.key === 'Escape') done(null)
-              }}
-            />
-          )}
-        </div>
-        <div data-ask-keys className="mt-4 flex items-center gap-1.5 text-meta text-foreground/70">
-          {asked.skip && <button type="button" data-ask-skip className="-ml-2 cursor-pointer rounded-md px-2 py-1 transition-colors hover:bg-foreground/[0.05] hover:text-foreground" onClick={() => done('')}>{asked.skip}</button>}
-          {asked.instead && <button type="button" data-ask-instead className="cursor-pointer rounded-md px-2 py-1 transition-colors hover:bg-foreground/[0.05] hover:text-foreground" onClick={() => { const run = asked.instead!.run; done(null); run() }}>{asked.instead.label}</button>}
-          <span className="flex-1" />
-          <ShadKbd>↵</ShadKbd> keeps it<span className="w-2" /><ShadKbd>Esc</ShadKbd> leaves it
-        </div>
-      </div>
-    </div>
+    <AskSheet at={asked.at} review={asked.review} label={asked.question} onLeave={() => done(null)} data-ask="">
+      <AskHead title={title} hint={hint} />
+      {asked.field === 'tag' ? (
+        // A tag: the "#" drawn in the field, fixed, so it is never a question whether to type it.
+        <HashField data-ask-field value={words} onChange={setWords} placeholder={asked.placeholder} aria-label="Tag" className={ASK_FIELD} onKeyDown={keys} />
+      ) : asked.field ? (
+        // Who said it before, completing as you type: it gets quicker with use.
+        <Remembered data-ask-field field={asked.field} value={words} onChange={setWords} placeholder={asked.placeholder} className={ASK_FIELD} onKeyDown={keys} />
+      ) : (
+        <input data-ask-field className={ASK_FIELD} placeholder={asked.placeholder} value={words} onChange={(event) => setWords(event.target.value)} onKeyDown={keys} />
+      )}
+      <AskFoot go={asked.action} ready={!!words.trim() || !!asked.skip} onGo={go} onCancel={() => done(null)}>
+        {asked.skip && <Button type="button" variant="ghost" size="sm" data-ask-skip className="-ml-1 cursor-pointer text-muted-foreground" onClick={() => done('')}>{asked.skip}</Button>}
+        {asked.instead && <Button type="button" variant="ghost" size="sm" data-ask-instead className="cursor-pointer text-muted-foreground" onClick={() => { const run = asked.instead!.run; done(null); run() }}>{asked.instead.label}</Button>}
+      </AskFoot>
+    </AskSheet>
   )
 }
 
-/** A yes or no, asked in the app's own sheet: true for `yes`, false for Cancel or Escape. */
-export const askSure = (question: string, detail: string, yes: string): Promise<boolean> =>
-  new Promise((answer) => void window.dispatchEvent(new CustomEvent('haligtree:sure', { detail: { question, detail, yes, answer } })))
+/** A yes or no, asked in the same sheet as a question: true for `yes`, false for Cancel, Escape or a click away. */
+export const askSure = (question: string, detail: ReactNode, yes: string, { at, danger = false }: { at?: Element | null; /** It deletes or replaces: the button in the red tint. */ danger?: boolean } = {}): Promise<boolean> =>
+  new Promise((answer) => void window.dispatchEvent(new CustomEvent('haligtree:sure', { detail: { question, detail, yes, danger, at: at ?? opener(), review: inReview(at), answer } })))
 
 function SureAsker(): React.JSX.Element | null {
-  const [asked, setAsked] = useState<{ question: string; detail: string; yes: string; answer: (ok: boolean) => void } | null>(null)
+  const [asked, setAsked] = useState<{ question: string; detail: ReactNode; yes: string; danger: boolean; at: Element | DOMRect | null; review: boolean; answer: (ok: boolean) => void } | null>(null)
   useEffect(() => {
     const onAsk = (event: Event): void => (chime('open'), setAsked((event as CustomEvent).detail))
     window.addEventListener('haligtree:sure', onAsk)
@@ -1178,25 +1221,15 @@ function SureAsker(): React.JSX.Element | null {
     setAsked(null)
   }
   return (
-    <div className="fixed inset-0 z-[80] flex items-start justify-center bg-black/40 pt-[22vh]" onMouseDown={() => answer(false)}>
-      <div role="alertdialog" aria-modal="true" aria-label={asked.question} data-sure
-        className="flex w-[min(34rem,90vw)] flex-col gap-3 rounded-2xl bg-popover px-7 pt-6 pb-5 shadow-(--mf-panel-shadow)"
-        onMouseDown={(event) => event.stopPropagation()}
-        onKeyDown={(event) => {
-          event.stopPropagation()
-          if (event.key === 'Escape') answer(false)
-        }}>
-        {/* The same sheet as a question asked for words (Asker): the Day page's serif title, the detail a quiet line. */}
-        <h2 className="text-[1.625rem] leading-tight font-semibold tracking-[-0.02em] text-balance text-foreground" style={{ fontFamily: 'var(--font-heading)' }}>{asked.question}</h2>
-        <p className="-mt-1.5 text-[0.9375rem] leading-snug text-pretty text-foreground">{asked.detail}</p>
-        <div className="mt-1 flex items-center justify-end gap-2">
-          <Button variant="ghost" size="sm" onClick={() => answer(false)}>Cancel <ShadKbd>Esc</ShadKbd></Button>
-          <Button autoFocus data-sure-yes size="sm" onClick={() => answer(true)}>{asked.yes} <ShadKbd>↵</ShadKbd></Button>
-        </div>
-      </div>
-    </div>
+    <AskSheet at={asked.at} review={asked.review} label={asked.question} onLeave={() => answer(false)} data-sure="" role="alertdialog"
+      // Its keys stay its own; Enter presses the button that has the focus (the yes, at first), as a button does.
+      onKeyDown={(event) => event.stopPropagation()}>
+      <AskHead title={asked.question} hint={asked.detail} />
+      <AskFoot go={asked.yes} danger={asked.danger} onGo={() => answer(true)} onCancel={() => answer(false)} />
+    </AskSheet>
   )
 }
+
 
 /** When anything was last typed into a field or the editor. */
 let lastEdit = 0

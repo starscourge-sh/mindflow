@@ -80,7 +80,7 @@ export function WordAim({ editor, id }: { editor: Editor | null; id: string }): 
   }
   const setOrChange = async (): Promise<void> => {
     const now = read(id)
-    const said = await ask(now ? 'A new aim for this piece? Empty clears it.' : 'How many words is this piece aiming for? 800, or 800 by a day.', '800 words, or 800 by Friday', undefined, now ? `${now.words}${now.by ? ` by ${dated(now.by, 'D MMMM')}` : ''}` : '')
+    const said = await ask(now ? 'A new aim for this piece?' : 'How many words is this piece aiming for? 800, or 800 by a day.', '800 words, or 800 by Friday', { initial: now ? `${now.words}${now.by ? ` by ${dated(now.by, 'D MMMM')}` : ''}` : '', skip: now ? 'Clear the aim' : undefined, action: 'Set the aim' })
     if (said === null) return
     if (!said.trim()) return clear()
     const next = parseAim(said)

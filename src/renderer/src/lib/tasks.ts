@@ -123,7 +123,7 @@ if (new URLSearchParams(location.search).get('view') === 'home') window.api.onSa
  * title to start from. Each capture is linked from it and leaves the inbox.
  */
 export async function oneTask(ids: string[], first = ''): Promise<Made | null> {
-  const text = await ask(`One task from these ${num(ids.length)}. What is it?`, 'e.g. sort out the freight rules by Thursday', undefined, first)
+  const text = await ask(`One task from these ${num(ids.length)}. What is it?`, 'e.g. sort out the freight rules by Thursday', { initial: first, action: 'Make the task' })
   if (!text) return null
   return makeTask({ captures: ids, text }, `One task, from ${num(ids.length)} captures`)
 }

@@ -154,7 +154,7 @@ export function manyTaskItems(ids: string[], { mixed = false, after = () => unde
     { label: mixed ? `Clear the date of ${n}` : 'Clear the date', run: go(() => together(ids, (task) => haligtree.saveTask(task.id, { due: null }), putBack, (k) => `Cleared the date of ${k === 1 ? 'the task' : `${num(k)} tasks`}`, 'off')) },
     { label: mixed ? `Priority for ${n}` : 'Priority', items: [1, 2, 3, 4, 0].map((level) => ({ label: PRIORITY_NAMES[level], run: go(() => together(ids, (task) => haligtree.saveTask(task.id, { priority: level }).then(() => task.priority), (task, was) => haligtree.saveTask(task.id, { priority: was }), (k) => `${PRIORITY_NAMES[level]}: ${k === 1 ? 'the task' : `${num(k)} tasks`}`, level ? 'on' : 'off')) })) },
     { label: mixed ? `Add a tag to ${n}…` : 'Add a tag…', run: go(async () => {
-      const tag = (await ask(`Tag ${ids.length === 1 ? 'it' : `these ${num(ids.length)}`} with`, 'thesis', 'tag'))?.trim().replace(/^#/, '')
+      const tag = (await ask(`Tag ${ids.length === 1 ? 'it' : `these ${num(ids.length)}`} with`, 'thesis', { field: 'tag', action: ids.length === 1 ? 'Tag it' : `Tag ${num(ids.length)}` }))?.trim().replace(/^#/, '')
       if (!tag) return
       await together(ids, async (task) => (taskName(task.title).tags.includes(tag) ? null : (await haligtree.saveTask(task.id, { title: `${task.title.trimEnd()} #${tag}` }), task.title)),
         (task, was) => was !== null && haligtree.saveTask(task.id, { title: was }), (k) => `Tagged ${k === 1 ? 'the task' : `${num(k)} tasks`} with #${tag}`, 'tag')

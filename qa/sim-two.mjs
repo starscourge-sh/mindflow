@@ -188,13 +188,13 @@ try {
     if (!window.api.answerRestore) return null
     window.dispatchEvent(new CustomEvent('haligtree:restore-ask', { detail: { name: 'haligtree-2026-10-14.db', token: 'probe' } }))
     await new Promise((done) => setTimeout(done, 400))
-    const one = document.querySelector('[data-restore-ask]')
+    const one = document.querySelector('[data-sure]')
     return one ? { text: one.textContent, bold: [...one.querySelectorAll('strong')].map((el) => el.textContent) } : null
   })
   await shot('restore-ask-dark')
   await h.keyboard.press('Escape')
   await h.waitForTimeout(300)
-  const gone = await h.evaluate(() => !document.querySelector('[data-restore-ask]'))
+  const gone = await h.evaluate(() => !document.querySelector('[data-sure]'))
   check('Restore from a backup asks in Haligtree’s own sheet, “Then Haligtree starts again” in bold, Esc says no', sheet && sheet.bold.some((one) => one.includes('Then Haligtree starts again')) && gone, JSON.stringify(sheet?.bold))
 
   // Controls that showed only on hover show for the keyboard too.

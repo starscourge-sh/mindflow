@@ -50,9 +50,10 @@ try {
     const t = getComputedStyle(title); const f = getComputedStyle(field)
     return { title: title.textContent, hint: hint?.textContent, titleSize: parseFloat(t.fontSize), titleFont: t.fontFamily, fieldBox: f.borderTopWidth, fieldLine: f.borderBottomWidth, fieldFont: f.fontFamily, keys: document.querySelectorAll('[data-ask-keys] kbd').length, skip: document.querySelector('[data-ask-skip]')?.textContent }
   })
-  check('1. the sheet titles the question at the page\'s scale, the rest a hint under it', sheet?.title === 'What does it say to you?' && sheet.hint && sheet.titleSize >= 24, JSON.stringify(sheet))
-  check('1. the field is a writing line in the serif, not a box', sheet?.fieldBox === '0px' && sheet.fieldLine !== '0px' && /Fraunces/.test(sheet.fieldFont), JSON.stringify(sheet))
-  check('1. keys as keycaps, and a visible way to keep it without a line', sheet?.keys === 2 && sheet.skip === 'Keep it without', JSON.stringify(sheet))
+  // The sheet at the app's own size (ask-sheet.mjs): the question as a bold line, the rest a hint under it, the app's field.
+  check('1. the sheet says the question as a heading line, the rest a hint under it', sheet?.title === 'What does it say to you?' && sheet.hint && sheet.titleSize < 20, JSON.stringify(sheet))
+  check('1. the field is the app\'s own field, a box with a hairline all round', sheet?.fieldBox === '1px' && sheet.fieldLine === '1px', JSON.stringify(sheet))
+  check('1. Cancel and its button with their keys, and a visible way to keep it without a line', sheet?.keys === 2 && sheet.skip === 'Keep it without', JSON.stringify(sheet))
   check('1. every button on it shows the hand', await h.evaluate(() => [...document.querySelectorAll('[data-ask] button')].every((b) => getComputedStyle(b).cursor === 'pointer')))
   await shoot('n-ask')
   await h.keyboard.press('Enter'); await wait(1200)

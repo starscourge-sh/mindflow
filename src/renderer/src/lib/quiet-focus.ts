@@ -7,6 +7,10 @@
 export function quietClose<E extends Event>(own?: (event: E) => void): (event: E) => void {
   return (event) => {
     own?.(event)
+    // What it ran asks for words (a sheet, a name typed in place): the focus goes to that field, never back to the row.
+    // It could not take it as it appeared: the menu held the focus until now.
+    const asked = document.querySelector<HTMLElement>('[data-name-in-place], [data-ask] [data-ask-field], [data-sure] [data-sure-yes]')
+    if (asked) return void (event.preventDefault(), asked.focus())
     if (event.defaultPrevented) return
     setTimeout(() => {
       const active = document.activeElement as HTMLElement | null

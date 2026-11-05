@@ -60,7 +60,7 @@ const readView = (): View => {
  * is now known by, and the old one again on Undo.
  */
 export async function renameTag(tag: string, onNow?: (tag: string) => void, typed?: string): Promise<void> {
-  const to = typed ?? await ask(`Rename #${tag} everywhere. A tag that exists already takes these in.`, 'new name', 'tag', tag)
+  const to = typed ?? await ask(`Rename #${tag} everywhere. A tag that exists already takes these in.`, 'new name', { field: 'tag', initial: tag, action: 'Rename the tag' })
   if (!to || to.replace(/^#/, '').toLowerCase() === tag) return
   const merging = (await haligtree.tags()).some((one) => one.tag === to.replace(/^#/, '').toLowerCase())
   const done = await haligtree.renameTag(tag, to)

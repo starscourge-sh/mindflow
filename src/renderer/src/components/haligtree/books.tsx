@@ -23,7 +23,7 @@ const TITLE: Record<Asked['mode'], string> = {
 /** Name a new book, then go into it. From the pickers, the Haligtree menu, ⌘K and the menu bar. */
 export async function askNewBook(): Promise<void> {
   if (SANDBOX) return refuse('Leave the sandbox first, then make a new book')
-  const name = (await ask('Name the new book', 'e.g. Fresh start, or Notion test'))?.trim()
+  const name = (await ask('Name the new book', 'e.g. Fresh start, or Notion test', { action: 'Make the book' }))?.trim()
   if (name) await newBook(name)
 }
 

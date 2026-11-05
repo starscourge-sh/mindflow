@@ -691,7 +691,7 @@ export function SourcesView({ onOpen }: { onOpen: (type: string, id: string) => 
   const list = useLive(sources.list, [] as SourceSummary[])
   const missing = useLive(sources.missing, [] as Awaited<ReturnType<typeof sources.missing>>)
   const make = async (field: SourceField): Promise<void> => {
-    const name = (await ask(field === 'attribution' ? 'Name the person' : 'Name the source', field === 'attribution' ? 'e.g. Marcus Aurelius' : 'e.g. Meditations, or a podcast', field))?.trim()
+    const name = (await ask(field === 'attribution' ? 'Name the person' : 'Name the source', field === 'attribution' ? 'e.g. Marcus Aurelius' : 'e.g. Meditations, or a podcast', { field, action: field === 'attribution' ? 'Add the person' : 'Add the source' }))?.trim()
     if (!name) return
     await sources.set(field, name)
     chime('page')
@@ -699,7 +699,7 @@ export function SourcesView({ onOpen }: { onOpen: (type: string, id: string) => 
   }
   const give = async (item: { type: string; id: string; label: string }): Promise<void> => {
     // Not known: "Unattributed" is its source, and it is not asked about again.
-    const said = await ask('Who said it? A quote is kept with its source.', 'e.g. Alan Kay', 'attribution', '', UNATTRIBUTED, { label: 'Not a quote', run: () => void notAQuote(item) })
+    const said = await ask('Who said it? A quote is kept with its source.', 'e.g. Alan Kay', { field: 'attribution', skip: UNATTRIBUTED, instead: { label: 'Not a quote', run: () => void notAQuote(item) }, action: 'Keep the quote' })
     if (said === null) return
     const who = said.trim() || UNATTRIBUTED
     await setSource(item, 'attribution', who)

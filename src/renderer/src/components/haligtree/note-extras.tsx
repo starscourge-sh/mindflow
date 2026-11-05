@@ -271,7 +271,7 @@ export function TopicName({ id }: { id: string }): React.JSX.Element | null {
   const { own, source } = read
   if (!source || own.trim() !== source.trim()) return null
   const name = async (): Promise<void> => {
-    const text = (await ask('What is it about, in your words?', 'e.g. why sleep helps memory', undefined, ''))?.trim()
+    const text = (await ask('What is it about, in your words?', 'e.g. why sleep helps memory', { action: 'Name it' }))?.trim()
     if (!text || text === own) return
     await window.api.captures.save(id, { title: text })
     chime('noted')

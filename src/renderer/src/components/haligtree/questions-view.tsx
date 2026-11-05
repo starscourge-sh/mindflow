@@ -178,7 +178,7 @@ function Suggested({ item }: { item: ItemFull }): React.JSX.Element | null {
 
 /** A new question, asked for in your own words, then opened to write in. Undoable. */
 export async function startQuestion(open: (type: string, id: string) => void): Promise<void> {
-  const title = await ask('What do you keep circling? Say it as a question, in your own words.', 'e.g. Why does Sunday evening feel heavy?')
+  const title = await ask('What do you keep circling? Say it as a question, in your own words.', 'e.g. Why does Sunday evening feel heavy?', { action: 'Keep the question' })
   if (!title) return
   const id = await haligtree.newQuestion(title)
   chime('hold')
@@ -536,7 +536,7 @@ const whenLower = (at: string): string => {
  * it was. Undo puts the old words back.
  */
 export async function reword(id: string, body: string, what: 'clue' | 'log'): Promise<void> {
-  const next = (await ask(`The ${what}, in better words`, body, undefined, body))?.trim()
+  const next = (await ask(`The ${what}, in better words`, body, { initial: body, action: 'Change the words' }))?.trim()
   if (!next || next === body) return
   const was = await haligtree.cutClue(id)
   if (!was) return refuse(`That ${what} is gone, so there is nothing to change`)

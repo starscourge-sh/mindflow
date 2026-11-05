@@ -59,7 +59,7 @@ export function sideMenu(type: string, id: string, title: string, { onOpen, pinn
     waiting && kind !== 'todo' && { label: 'Make it a task', run: () => void makeTask({ capture: id }) },
     !capture && {
       label: 'Rename…',
-      run: () => void ask('A new name', title, undefined, title).then((name) => {
+      run: () => void ask('A new name', title, { initial: title, action: 'Rename' }).then((name) => {
         const next = name?.trim()
         if (!next || next === title) return
         void haligtree.saveItem(id, { title: next }).then(() => (chime('noted'), quietly(() => void haligtree.saveItem(id, { title }))))
