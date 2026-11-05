@@ -3002,7 +3002,7 @@ export function registerHaligtree(): void {
       const answer = [named || 'Shown on the picture', link, [tag, ...(made.tags ?? [])].filter(Boolean).map((one) => `#${one}`).join(' ')].filter(Boolean).join('\n\n')
       const fields = JSON.stringify({ occlusion: { src: made.src, covers, ask: group, hide: made.hide === 'all' ? 'all' : 'one', ...(question ? { question } : {}) } })
       db.prepare("insert into nuggets (id, tier, kind, title, body, prompt, source, created_at, updated_at, fields, attribution, medium, passage) values (?, ?, 'note', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
-        .run(id, cardTier(), cut(`${asked} ${index + 1} of ${groups.length}`, 160), JSON.stringify(answer), asked, `picture:${note}:${group}`, now(), now(), fields, origin?.attribution ?? null, origin?.medium ?? null, origin?.passage ?? null)
+        .run(id, cardTier(), cut(`${asked} ${num(index + 1)} of ${num(groups.length)}`, 160), JSON.stringify(answer), asked, `picture:${note}:${group}`, now(), now(), fields, origin?.attribution ?? null, origin?.medium ?? null, origin?.passage ?? null)
       return id
     })
     return write(ids)
