@@ -1,4 +1,5 @@
 import type { Field } from '@/components/capture-kinds/kind-fields'
+import { readingNow, readToMe, stopReading } from './read-aloud'
 import { useEffect, useState, useSyncExternalStore } from 'react'
 import { moveToBin } from './to-bin'
 
@@ -234,6 +235,14 @@ const openToday = (): void => {
   window.api.openInHome('view', 'day')
 }
 
+/** The page in front: its pane's, or the window's only one. */
+const frontEditor = (): HTMLElement | null => (frontPane() ? document.querySelector(`[data-pane="${frontPane()}"]`)?.querySelector<HTMLElement>('.tiptap.ProseMirror') : null) ?? document.querySelector<HTMLElement>('.tiptap.ProseMirror')
+/** "Read it to me", for ⌘K and a note's "…": the page in front, aloud. */
+export const readFront = (): void => {
+  const editor = frontEditor()
+  if (editor) void readToMe(editor)
+}
+
 /**
  * What ⌘K offers for the note open now, and the day's page always: the same
  * in the box and the main window. The main window lists the page with its
@@ -247,7 +256,11 @@ export function noteActions({ day = true }: { day?: boolean } = {}): Action[] {
   const width: Action = fullWidth()
     ? { label: 'Contained width', cue: null, run: () => setFullWidth(false) }
     : { label: 'Full width', cue: null, run: () => setFullWidth(true) }
-  if (!note) return [...page, width, all]
+  // The page in front, read aloud by the Mac's voice, a word lit at a time; the same line stops it.
+  const read: Action[] = frontEditor()?.textContent?.trim()
+    ? [readingNow() ? { label: 'Stop reading', keys: 'esc', cue: null, run: stopReading } : { label: 'Read it to me', hint: 'Aloud, in your Mac\'s voice', cue: null, run: readFront }]
+    : []
+  if (!note) return [...page, ...read, width, all]
   // Marked as this note's own, so search ranks them above going somewhere.
   return [
     ...page,
@@ -258,6 +271,7 @@ export function noteActions({ day = true }: { day?: boolean } = {}): Action[] {
       { label: 'Move to the Bin', hint: 'This note', cue: null, run: () => void moveToBin([{ type: note.type, id: note.id }]) },
       { label: 'Open in a new window', hint: 'This note, in its own window', ...(canSplit() ? { keys: '⌘O' } : {}), cue: null, run: () => openApart(note.type, note.id) },
       { label: 'Set a word aim', hint: 'For this note: 800 words, or 800 by Friday', cue: null, run: () => void window.dispatchEvent(new CustomEvent('haligtree:aim')) },
+      ...read,
       { label: 'Version history', hint: 'Of this note', cue: null, run: () => window.dispatchEvent(new CustomEvent('haligtree:versions', { detail: note.id })) },
       { label: detailsShown(frontPane()) ? "Hide this note's details" : "Show this note's details", cue: null, run: () => showDetails(!detailsShown(frontPane()), frontPane()) },
       { label: 'Save attachments', hint: "This note's pictures and files", cue: null, run: () => void saveAttachments([{ table: note.table, id: note.id }]) },

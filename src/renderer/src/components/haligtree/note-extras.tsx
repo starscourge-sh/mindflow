@@ -20,7 +20,7 @@ import { Button } from '@/components/ui/button'
 import { stepTap } from '@/lib/haptics'
 import { chime, step, type Cue } from '@/lib/sound'
 import { tintFor } from '@/lib/pictures'
-import { notes, smallPicture, useThumb, type GraphNode, type MapEdge, type NoteTable, type Version } from '@/lib/notes'
+import { notes, readFront, smallPicture, useThumb, type GraphNode, type MapEdge, type NoteTable, type Version } from '@/lib/notes'
 import { useLive, haligtree } from '@/lib/haligtree'
 import { Chips } from './display'
 import { copy, fits, flat, type MenuItem, type RowItem } from './row-menu'
@@ -679,6 +679,7 @@ export function NoteHeader({ left, back, type = 'capture', edited, captured, mad
                 <DropdownMenuSeparator />
                 <DropdownMenuLabel data-view-group>View</DropdownMenuLabel>
                 {[
+                  { label: 'Read it to me', says: 'Aloud, in your Mac’s voice, each word lit as it is said; Esc stops it', run: readFront },
                   { label: 'Read', says: vim ? 'Read it through; Vim and ⌘L to edit; L opens its links in place' : 'Read it through; ⌘L to edit; L opens its links in place', run: () => (chime('open'), setReading(true)) },
                   ...(board ? [{ label: 'Board view', says: 'Its lines as cards on a board', run: board.toggle, keys: '⌥⌘B', on: board.on }] : []),
                   ...viewed.map((item) => ({ label: item.label, says: VIEW_SAYS[item.label], run: item.run, keys: item.keys }))

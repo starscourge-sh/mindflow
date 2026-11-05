@@ -1,5 +1,8 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react"
-import { BookOpenText, Copy, Gem, Highlighter, Quote, SquareDashed, SquareStack, Trash2 } from "lucide-react"
+import { BookOpenText, Copy, Gem, Highlighter, Languages, Quote, SquareDashed, SquareStack, Trash2, Volume2 } from "lucide-react"
+import { readToMe } from "@/lib/read-aloud"
+import { translateWords } from "@/lib/translate"
+import { capsNow, meets } from "@/lib/needs"
 import { Toolbar } from "@/components/tiptap-ui-primitive/toolbar"
 import { ContextMenuItem, ContextMenuSeparator, ContextMenuShortcut } from "@/components/ui/context-menu"
 import { MenuPeek, type MenuPeekEntry } from "@/components/haligtree/menu-peeks"
@@ -253,6 +256,17 @@ export function PickedMenu({ actions, about }: { actions: ReadActions; about: ()
         Look up
         <ContextMenuShortcut>L</ContextMenuShortcut>
       </ContextMenuItem>
+      {/* The words picked, aloud in the Mac's voice (every Mac), or in your own language (macOS 26 only). */}
+      <ContextMenuItem data-read-aloud onSelect={() => void readToMe(about().words)}>
+        <Volume2 />
+        Read aloud
+      </ContextMenuItem>
+      {meets(capsNow(), "macos26") && (
+        <ContextMenuItem data-translate data-mac-needs="macos26" onSelect={() => void translateWords(about().words)}>
+          <Languages />
+          Translate
+        </ContextMenuItem>
+      )}
       <ContextMenuItem data-peek="cite" onSelect={actions.copy}>
         <Quote />
         Copy with citation

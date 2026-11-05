@@ -1813,8 +1813,30 @@ const TranslateDemo: Demo = ({ live }) => {
   )
 }
 
+/** A note read aloud, each word lit in turn. */
+const READ_WORDS = 'Only our judgements are up to us; the rest is not.'.split(' ')
+const ReadAloudDemo: Demo = ({ live }) => {
+  const [at, setAt] = useState(-1)
+  useEffect(() => {
+    if (!live) return setAt(-1)
+    let i = 0
+    const timer = setInterval(() => setAt(i++ % (READ_WORDS.length + 4)), 330)
+    return () => clearInterval(timer)
+  }, [live])
+  return (
+    <Col>
+      <div className="rounded-lg border bg-background px-3 py-2.5 text-control leading-relaxed text-foreground">
+        {READ_WORDS.map((word, i) => (
+          <span key={i} className={`rounded-[3px] transition-colors duration-150 ${i === at ? 'bg-[color-mix(in_srgb,var(--tt-brand-color-400,#c08a2e)_30%,transparent)]' : ''}`}>{word}{' '}</span>
+        ))}
+      </div>
+      <p className="flex items-center gap-1.5 px-1 text-meta text-muted-foreground"><Kbd>esc</Kbd> stops it</p>
+    </Col>
+  )
+}
+
 export const DEMOS: Record<string, Demo> = {
-  picturewords: PictureWordsDemo, translate: TranslateDemo,
+  readaloud: ReadAloudDemo, picturewords: PictureWordsDemo, translate: TranslateDemo,
   box: BoxDemo, timer: TimerDemo, letter: LetterDemo, clue: ClueDemo, tagtask: TagTaskDemo, remind: RemindDemo, comingback: ComingBackDemo, onetask: OneTaskDemo, merge: MergeDemo,
   board: BoardDemo, versions: VersionsDemo, find: FindDemo, aliases: AliasesDemo, calc: CalcDemo, fold: FoldDemo, bit: BitDemo, glossary: GlossaryDemo,
   review: ReviewDemo, cloze: ClozeDemo, context: ContextDemo, readthrough: ReadThroughDemo, queue: QueueDemo, wrong: WrongDemo, suspend: SuspendDemo, questions: QuestionsDemo,

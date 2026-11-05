@@ -105,6 +105,12 @@ export const languageName = (code: string): string => new Intl.DisplayNames(['en
 
 export function registerUnderstand(): void {
   ipcMain.handle('haligtree:caps', () => caps())
+  // The language some words are in, as two letters; English when it cannot be told.
+  ipcMain.handle('haligtree:language', async (_event, text: unknown) => {
+    const read = await understand('read', { text: String(text ?? '').slice(0, 2000) })
+    const lang = String(read.lang ?? 'und')
+    return lang === 'und' ? 'en' : lang
+  })
   ipcMain.handle('haligtree:translate', (_event, text: unknown, to: unknown) => translate(String(text ?? ''), typeof to === 'string' && to ? to : undefined))
   // Asked now, so the answer is in hand before any page needs it.
   void caps()

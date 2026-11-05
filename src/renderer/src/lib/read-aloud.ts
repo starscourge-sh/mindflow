@@ -1,4 +1,5 @@
 import { tagsIn } from '../../../main/tag-words'
+import { toast } from '@/components/haligtree/ui'
 
 /** The languages a tag's answers can be read in, by the Mac's own voices (free, offline, nothing to download). */
 export const LANGUAGES = [
@@ -59,4 +60,91 @@ export function languageOf(text: string, byTag: Record<string, string>): string 
   // A tag under one that reads aloud reads aloud too: #spanish-verbs under #spanish.
   for (const tag of tagsIn(text)) for (const [parent, language] of Object.entries(byTag)) if (tag.startsWith(`${parent}-`)) return language
   return null
+}
+
+/**
+ * "Read it to me": a note, a Journal day or words picked in a book, read aloud by
+ * the Mac's own voice (every Mac, offline), in the language the words are in
+ * (Natural Language finds it), each word lit as it is said when the words are on
+ * the page (`within`). Esc, or the line again, stops it; so does reading something else.
+ * Under test nothing is heard: the words are lit one by one as if said.
+ */
+let stopping: (() => void) | null = null
+export const readingNow = (): boolean => !!stopping
+
+export function stopReading(): void {
+  stopping?.()
+}
+
+/** The words of `within`, a text node at a time, so a word said can be lit where it is. */
+function textOf(within: HTMLElement): { text: string; at: { node: Text; from: number }[] } {
+  const walker = document.createTreeWalker(within, NodeFilter.SHOW_TEXT, { acceptNode: (node) => (node.parentElement?.closest('[contenteditable="false"], .tiptap-token-hint') && !node.parentElement.closest('p, h1, h2, h3, li') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT) })
+  const at: { node: Text; from: number }[] = []
+  let text = ''
+  for (let node = walker.nextNode() as Text | null; node; node = walker.nextNode() as Text | null) {
+    if (!node.data.trim()) continue
+    at.push({ node, from: text.length })
+    text += `${node.data} `
+  }
+  return { text, at }
+}
+
+export async function readToMe(words: string | HTMLElement, onEnd?: () => void): Promise<boolean> {
+  stopReading()
+  const page = typeof words === 'string' ? null : textOf(words)
+  const text = page ? page.text : String(words)
+  if (!text.trim()) return false
+  const language = await window.api.haligtree<string>('language', text.slice(0, 2000)).catch(() => 'en')
+  const light = (index: number, length: number): void => {
+    if (!page || typeof CSS === 'undefined' || !CSS.highlights) return
+    const part = [...page.at].reverse().find((one) => one.from <= index)
+    if (!part) return
+    const start = index - part.from
+    const end = Math.min(part.node.data.length, start + Math.max(1, length))
+    if (start < 0 || start >= part.node.data.length) return
+    const range = document.createRange()
+    range.setStart(part.node, start)
+    range.setEnd(part.node, end)
+    CSS.highlights.set('read-aloud', new Highlight(range))
+  }
+  let timer: ReturnType<typeof setInterval> | undefined
+  const end = (): void => {
+    if (!stopping) return
+    stopping = null
+    clearInterval(timer)
+    document.removeEventListener('keydown', onKey, true)
+    if (typeof CSS !== 'undefined' && CSS.highlights) CSS.highlights.delete('read-aloud')
+    speechSynthesis.cancel()
+    onEnd?.()
+    window.dispatchEvent(new CustomEvent('haligtree:reading', { detail: false }))
+  }
+  // Esc stops the voice first, before it does anything else.
+  const onKey = (event: KeyboardEvent): void => {
+    if (event.key !== 'Escape') return
+    event.preventDefault()
+    event.stopPropagation()
+    end()
+  }
+  stopping = end
+  document.addEventListener('keydown', onKey, true)
+  window.dispatchEvent(new CustomEvent('haligtree:reading', { detail: true }))
+  // Something is being said: the way to stop it is in sight, and Esc does it too.
+  toast(`Reading it aloud, in ${new Intl.DisplayNames(['en'], { type: 'language' }).of(language.split('-')[0]) ?? 'your language'}. Esc stops it.`, undefined, 'info', { label: 'Stop', key: 's', run: stopReading })
+  said.push({ text, language })
+  if (window.api.quiet) {
+    // Nothing heard under test: each word lit in turn, as the voice's own marks would.
+    const marks = [...text.matchAll(/\S+/g)]
+    let i = 0
+    timer = setInterval(() => (i < marks.length ? light(marks[i].index!, marks[i++][0].length) : end()), 120)
+    return true
+  }
+  const utterance = new SpeechSynthesisUtterance(text)
+  utterance.lang = language
+  const voice = voiceFor(language.split('-')[0])
+  if (voice) utterance.voice = voice
+  utterance.onboundary = (event) => event.name === 'word' && light(event.charIndex, event.charLength || (text.slice(event.charIndex).match(/^\S+/)?.[0].length ?? 1))
+  utterance.onend = end
+  utterance.onerror = end
+  speechSynthesis.speak(utterance)
+  return true
 }

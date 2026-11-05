@@ -3030,6 +3030,11 @@ html[data-overhang] body > [data-leftover-row] [data-leftover]:hover {
 @media (prefers-reduced-motion: reduce) { .mf-lean, .mf-flow, .mf-poster-lamp { transition: none; } .mf-lean:hover { transform: none; } }
 :root[data-motion='off'] :is(.mf-lean, .mf-flow) { transition: none; }
 /* The looked-up words, marked where they sit for as long as the Look Up card is open: the selection's own colour, a quiet band. */
+/* Read it to me (lib/read-aloud.ts): the word being said. */
+::highlight(read-aloud) {
+  background-color: color-mix(in srgb, var(--tt-brand-color-400, #c08a2e) 30%, transparent);
+}
+
 ::highlight(look-up) {
   background-color: color-mix(in srgb, var(--tt-brand-color-400, #c08a2e) 30%, transparent);
 }

@@ -114,6 +114,8 @@ const RULES: [RegExp, LucideIcon][] = [
   // The views of a note (the top of a note's "…"): each its own drawing.
   [/writing room/i, PenLine],
   [/^read$/i, BookOpen],
+  [/^read it to me|^read aloud/i, Volume2],
+  [/^stop reading/i, VolumeX],
   [/^proofread/i, SpellCheck],
   [/close (the )?other panes/i, CircleX],
   [/^close (this )?pane|^close without/i, X],
