@@ -22,7 +22,7 @@ import { foldKept, goalsOut, toCheckBack } from './properties'
 import { celebrateAfter, goalPassed, watches, type MomentKind } from './celebrate'
 import type { MomentSource } from './moment-source'
 import { keepPins, warmGiphy } from './giphy'
-import { daysBetween, daysLeft, leftSaid } from './goal-days'
+import { YEAR, daysBetween, daysLeft, leftSaid } from './goal-days'
 import { LEECH_AT, balancedDay, bucketOf, thingsIn, withinTagLimits, daysInARow, fitFirstDays, minutesFor, shuffleNew, struggling, siblingsOf, burySiblings, type Bucket } from './study'
 import { syncLineCards } from './line-cards'
 import { busy } from './busy'
@@ -3564,16 +3564,20 @@ export function registerHaligtree(): void {
       const left = daysLeft(goal.goalAt, today)
       if (left < 0) continue
       const quiet = daysBetween(dayKey(goal.lastLog ?? goal.createdAt), today)
-      if (quiet < 7) continue
+      // More than a year away, a dream with a date: asked after a month of quiet, once a month, never weekly.
+      const far = left > YEAR
+      if (quiet < (far ? 30 : 7)) continue
       // Every week at first; every three days after a fortnight, or within a fortnight of the day; every day in the last week.
-      const every = left <= 7 ? 1 : quiet >= 14 || left <= 14 ? 3 : 7
+      const every = far ? 30 : left <= 7 ? 1 : quiet >= 14 || left <= 14 ? 3 : 7
       const last = (db.prepare('select day from nudges where key = ?').get(`goal:${goal.id}`) as { day: string } | undefined)?.day
       if (last && daysBetween(last, today) < every) continue
       db.prepare('insert or replace into nudges (key, day) values (?, ?)').run(`goal:${goal.id}`, today)
       const name = `${quoted(goal.title, 60)}`
       const said = left === 0 ? 'is today' : `is ${left === 1 ? 'tomorrow' : `${num(left)} days away`}`
       const weeks = quiet >= 14 ? `${Math.floor(quiet / 7)} weeks` : 'a week'
-      const text = left <= 14
+      const text = far
+        ? `${Math.floor(quiet / 7)} weeks without a word on ${name}. More than a year to go: a line now and then keeps it alive.`
+        : left <= 14
         ? `${name} ${said}, and the last log was ${quiet >= 14 ? `${weeks} ago` : 'a week ago'}. Worth a look today.`
         : quiet >= 14
           ? `${weeks[0].toUpperCase()}${weeks.slice(1)} without a word on ${name}. ${leftSaid(left)}. Where does it stand?`
