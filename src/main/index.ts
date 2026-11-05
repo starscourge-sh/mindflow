@@ -1205,8 +1205,30 @@ const insetOf = (key: string): Inset => builtGlass.get(key) ? { left: 0, top: 0,
  * unclickable throughout (HALIGTREE_QA_AWAY): only the record changes there.
  */
 const through = new WeakMap<BrowserWindow, boolean>()
+/**
+ * A file dragged in from another app (a screenshot's thumbnail, Finder) sends no pointer moves while clicks pass
+ * through, so the page never heard it cross onto the card and the drop fell to the app behind (the user, 5 Nov:
+ * a screenshot dropped on quick capture opened in the browser under it). So while a window lets clicks through,
+ * main asks it every 100 ms whether the pointer, where it now is, sits over something drawn (lib/clear-room.ts).
+ */
+const watched = new Set<BrowserWindow>()
+let lastPoint = ''
+setInterval(() => {
+  if (!watched.size) return
+  const at = screen.getCursorScreenPoint()
+  const key = `${at.x},${at.y}`
+  if (key === lastPoint) return
+  lastPoint = key
+  for (const win of watched) {
+    if (win.isDestroyed()) { watched.delete(win); continue }
+    if (!through.get(win) || !win.isVisible()) continue
+    const box = win.getContentBounds()
+    if (at.x >= box.x && at.x < box.x + box.width && at.y >= box.y && at.y < box.y + box.height) win.webContents.send('window:probe', at.x - box.x, at.y - box.y)
+  }
+}, 100).unref?.()
 const passThrough = (win: BrowserWindow, on: boolean): void => {
   through.set(win, on)
+  watched.add(win)
   win.setIgnoreMouseEvents(on || !!process.env.HALIGTREE_QA_AWAY, { forward: true })
 }
 ipcMain.on('window:solid', (event, solid: unknown) => {

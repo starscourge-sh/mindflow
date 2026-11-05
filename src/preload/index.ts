@@ -318,6 +318,12 @@ const api = {
   /** A sticky's page: told as its window comes in, peels off, is picked up or let go (`held`), or changes colour. */
   /** The pointer is over something drawn (true) or the clear room round the card (false): clicks there pass to the app behind (lib/clear-room.ts). */
   solid: (on: boolean): void => ipcRenderer.send('window:solid', on),
+  /** Main asking, while clicks pass through, whether this point (in the window) sits over something drawn: an outside drag sends no moves. */
+  onProbe: (listen: (x: number, y: number) => void): (() => void) => {
+    const relay = (_event: unknown, x: number, y: number): void => listen(x, y)
+    ipcRenderer.on('window:probe', relay)
+    return () => void ipcRenderer.off('window:probe', relay)
+  },
   /** A sticky's page has drawn what it holds: it may come onto the desktop now. */
   stickyReady: (): void => ipcRenderer.send('sticky:ready'),
   onStickyMotion: (listen: (what: 'arrive' | 'peel' | 'held' | 'tint', value?: unknown) => void): (() => void) => {

@@ -21,4 +21,10 @@ export function clearRoom(): void {
   }
   // A button held down (a drag, a selection running past the card) keeps the window's hold on the pointer until let go.
   window.addEventListener('mousemove', (event) => say(event.buttons !== 0 || !clear(event.target)), true)
+  // A file dragged in from another app sends no moves: main asks instead, point by point. Never while a button of
+  // our own is held (a selection run past the card keeps its hold, as above).
+  let held = false
+  window.addEventListener('mousedown', () => void (held = true), true)
+  window.addEventListener('mouseup', () => void (held = false), true)
+  window.api.onProbe?.((x, y) => held || say(!clear(document.elementFromPoint(x, y))))
 }
