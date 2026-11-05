@@ -116,13 +116,13 @@ const bothNames = (names: PaneName[]): string => names.map((one) => shownName(on
  * divided down the middle, each half holding its pane's own mark at the
  * sidebar's icon size. Two marks squeezed over each other read as a broken icon.
  */
-export function SplitMark({ names, small = false }: { names: PaneName[]; /** A menu line's: the size of the other lines' icons. */ small?: boolean }): React.JSX.Element {
+export function SplitMark({ names, size = 'rail' }: { names: PaneName[]; /** rail: the narrow sidebar's, at its icon size; row: a wide sidebar row's, at that row's icon size; menu: a menu line's, the size of the other lines' icons. */ size?: 'rail' | 'row' | 'menu' }): React.JSX.Element {
   const two = names.slice(0, 2)
   return (
-    <span aria-hidden data-split-mark className={`flex shrink-0 items-stretch rounded-[5px] bg-foreground/[0.035] ring-1 ring-foreground/25 ${small ? 'h-3 w-4' : 'h-6 w-[37px]'}`}>
+    <span aria-hidden data-split-mark className={`flex shrink-0 items-stretch rounded-[5px] bg-foreground/[0.035] ring-1 ring-foreground/25 ${size === 'menu' ? 'h-3 w-4' : size === 'row' ? 'h-5 w-[31px]' : 'h-6 w-[37px]'}`}>
       {two.map((one, index) => (
         <span key={index} data-split-half={index} className={`flex flex-1 items-center justify-center ${index ? 'border-l border-foreground/25' : ''}`}>
-          {!small && <one.icon className="size-4 shrink-0" style={{ color: one.tint }} />}
+          {size !== 'menu' && <one.icon className={`${size === 'row' ? 'size-3.5' : 'size-4'} shrink-0`} style={{ color: one.tint }} />}
         </span>
       ))}
     </span>
@@ -193,13 +193,9 @@ export function PairRow(props: PairProps): React.JSX.Element {
             className="mx-1 min-w-0 flex-1 rounded-sm bg-background px-1.5 py-0.5 text-control text-foreground outline-none ring-1 ring-ring/50"
           />
         ) : name ? (
-          // Named: both panes' icons, then the name.
+          // Named: the split-window icon the narrow sidebar shows, then the name.
           <button type="button" data-side-row data-pair-name onClick={() => onOpen(-1)} className="flex min-w-0 flex-1 items-center gap-2 rounded-md py-1 pl-1.5 text-left text-control text-foreground">
-            {isPinned && !live ? <Pin className="size-3.5 shrink-0 text-muted-foreground" /> : (
-              <span className="flex shrink-0 items-center">
-                {names.slice(0, 2).map((one, index) => <one.icon key={index} className={`size-3.5 ${index ? '-ml-1' : ''}`} style={{ color: one.tint }} />)}
-              </span>
-            )}
+            {isPinned && !live ? <Pin className="size-3.5 shrink-0 text-muted-foreground" /> : <SplitMark names={names} size="row" />}
             <span className="min-w-0 truncate">{name}</span>
           </button>
         ) : (
@@ -233,7 +229,7 @@ export function PairFold({ pairs }: { pairs: (PairProps & { key: string })[] }):
     { heading: `${num(pairs.length)} splits` },
     ...pairs.map((one): RowItem => ({
       label: one.name || short(bothNames(one.names)),
-      icon: <SplitMark names={one.names} small />,
+      icon: <SplitMark names={one.names} size="menu" />,
       items: [{ label: 'Open the split', run: () => one.onOpen(one.name ? -1 : 0) }, 'separator', ...pairItems(one)]
     }))
   ]
