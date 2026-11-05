@@ -1415,8 +1415,9 @@ body {
 }
 :root[data-noblur][data-dim='veil'][data-blurred='on'] body::after { opacity: 0; }
 
-/* The row a right-click menu belongs to stays marked while the menu is open. */
-[data-slot='context-menu-trigger'][data-state='open'] {
+/* The row a right-click menu belongs to stays marked while the menu is open.
+   Not a reader's whole page area: there the picked words are what is marked. */
+[data-slot='context-menu-trigger'][data-state='open']:not(.pdf-reader-scroll) {
   background-color: var(--accent);
   border-radius: calc(var(--radius) - 4px);
 }

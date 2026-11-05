@@ -180,12 +180,13 @@ export function LookUpCard({ words, at, from, range, onClose }: { words: string;
           // Kept: why, in one line, as the reader asks it after "Keep" (Enter saves, Esc skips).
           <span className="look-up-kept">
             <Gem className="size-3.5" />
+            Kept
             <input
               autoFocus
               className="look-up-why"
               type="text"
               aria-label="Why keep this"
-              placeholder="Why keep this?"
+              placeholder="Why? (optional)"
               value={why}
               onChange={(event) => setWhy(event.target.value)}
               onKeyDown={(event) => {
@@ -203,7 +204,7 @@ export function LookUpCard({ words, at, from, range, onClose }: { words: string;
           </span>
         ) : (
           <button type="button" className="look-up-keep" data-look-keep disabled={!!kept || meaning === "looking" || wiki === "looking"} onClick={() => void keep()}>
-            {kept ? (lookup && lookup.id === kept.id ? "Place added" : "Kept in Lookups") : lookup ? "Add this place" : known ? "Keep again" : "Keep"}
+            {kept ? (lookup && lookup.id === kept.id ? "Place added" : "Kept in Lookups") : lookup ? "Add this place" : known ? "Keep again" : !found && !page ? "Keep to answer later" : "Keep"}
           </button>
         )}
         {page && (
