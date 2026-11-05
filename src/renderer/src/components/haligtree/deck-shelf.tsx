@@ -19,7 +19,8 @@ import DotsHorizontalIcon from '@/components/ui/dots-horizontal-icon'
 import { StudyYear } from './study-stats'
 import type { Settings } from '@/lib/haligtree'
 import { moveToBin } from '@/lib/to-bin'
-import { cardsSaid, deckTagOf, deckTitle, makeDeck, nameFit, sayDeck, softBreaks, useOwnDecks, type OwnDeck } from './decks'
+import { cardsSaid, deckTagOf, deckTitle, madeDeck, nameFit, sayDeck, softBreaks, useNewDeckAsked, useOwnDecks, type OwnDeck } from './decks'
+import { NameInPlace } from './name-in-place'
 import { Coverage, coverageOf, type BrowsedCard } from './card-browser'
 import { TabControls, useToolbarCompact } from './review-toolbar'
 import { Tip } from './ui'
@@ -92,8 +93,24 @@ export function DeckShelf({ place, onPlace, onOpen, onStudy, onPaste, onPicture,
   const sets = useLive(() => call<{ name: string; tag: string }[]>('sets:list'), [] as { name: string; tag: string }[], [], ['item'])
   // The deck whose settings are open, beside its pocket or row.
   const [sheet, setSheet] = useState<{ tag: string; name: string; at: HTMLElement } | null>(null)
+  // A deck being named where it will stand, as Finder names a new folder: a new one (inside another, or not), or one renamed.
+  const [naming, setNaming] = useState<{ inside?: string } | { tag: string } | null>(null)
+  useNewDeckAsked(() => setNaming({}))
   if (unloaded(shelves) || !own) return <div />
-  const newDeck = (inside?: string): void => void makeDeck(inside)
+  const newDeck = (inside?: string): void => setNaming({ inside })
+  const renaming = naming && 'tag' in naming ? naming.tag : null
+  const named = (words: string | null): void => {
+    const was = naming
+    setNaming(null)
+    if (!was || !words) return
+    // A deck inside another shows only its own part ("Cells"): it stays inside.
+    const deck = 'tag' in was ? own.find((one) => one.tag === was.tag) : undefined
+    if (deck) return void renameDeck(deck.tag, deck.label === deck.tag ? words : `${deck.tag.slice(0, -deck.label.length - 1)}/${words}`)
+    if ('tag' in was) return
+    void madeDeck(words, was.inside)
+  }
+  // The new deck's own tile, its name field ready: first in the grid, under the button that made it.
+  const fresh = naming && !('tag' in naming) ? <NamingTile key="naming" inside={naming.inside} onDone={named} /> : null
   // In the order you dragged them to, then the most due first.
   const tops = ownOrder(own.filter((deck) => deck.depth === 0), study.place)
   // A deck one place earlier or later, from its menu: the keyboard's way to reorder, with Undo.
@@ -133,7 +150,7 @@ export function DeckShelf({ place, onPlace, onOpen, onStudy, onPaste, onPicture,
       { label: 'Cards from a picture', icon: glyph(Image), run: () => onPicture(deck.tag) },
       'separator',
       // Arrange it.
-      { label: 'Rename…', icon: glyph(Pencil), run: () => void renameDeck(deck.tag) },
+      { label: 'Rename…', icon: glyph(Pencil), run: () => setNaming({ tag: deck.tag }) },
       { label: 'New deck inside', icon: glyph(FolderPlus), run: () => newDeck(deck.tag) },
       // Without a mouse: the same move as dragging it, one place at a time, folded into one line.
       deck.depth === 0 && place >= 0 && tops.length > 1 && { label: 'Move in the list', icon: glyph(ArrowUpDown), items: [
@@ -199,6 +216,7 @@ export function DeckShelf({ place, onPlace, onOpen, onStudy, onPaste, onPicture,
     return (
       <div data-deck-shelf data-deck-first className="grid grid-cols-[minmax(0,1fr)] gap-4 px-5 pt-4 pb-20">
         {top}
+        {fresh && <div data-deck-grid className={GRID}>{fresh}</div>}
         <FirstWays example={own.find((deck) => deck.tag === EXAMPLE_TAG) ?? null} onMake={() => (chime('open'), onPaste(null, true))} onPicture={() => onPicture(null)} onStudy={onStudy} />
         <StudyYear />
       </div>
@@ -211,7 +229,7 @@ export function DeckShelf({ place, onPlace, onOpen, onStudy, onPaste, onPicture,
         <StudySets sets={sets} onStudy={onStudy} />
         <BookCoverage />
         {dueHint}
-        <DeckList own={own} shelves={shelves ?? []} onStudy={onStudy} place={study.place} menu={listMenu} />
+        <DeckList own={own} shelves={shelves ?? []} onStudy={onStudy} place={study.place} menu={listMenu} fresh={naming && !('tag' in naming) ? naming : null} renaming={renaming} onNamed={named} />
         {linking && <Links deck={linking} onDone={() => setLinking(null)} />}
         {gallery && <Gallery deck={gallery} onOpen={onOpen} />}
         {settingsSheet}
@@ -239,6 +257,7 @@ export function DeckShelf({ place, onPlace, onOpen, onStudy, onPaste, onPicture,
   const tile = (deck: OwnDeck): React.JSX.Element => (
     <DeckTile key={deck.tag} id={deck.tag} own drag={deck.depth === 0 ? { over: false, lifted: dragging === deck.tag, start: () => setDragging(deck.tag), enter: () => dragging && deck.tag !== dragging && setOver(deck.tag), end: () => (setDragging(null), setOver(null)), drop } : undefined} name={deckName(deck)} title={deckTitle(deck.tag, own.map((one) => one.tag))} due={deck.due} fresh={deck.fresh} all={deck.cards} held={0} cover={null} shapes={shapes}
       kids={own.filter((one) => one.tag.startsWith(`${deck.tag}-`) && one.depth === deck.depth + 1).length} open={kidsOpen.has(deck.tag)} onKids={() => openKids(deck.tag)} items={(at) => ownItems(deck, at)}
+      renaming={renaming === deck.tag} onNamed={named}
       onClick={() => (deck.cards ? (chime('riffle'), onStudy(deck.tag)) : (chime('open'), onPaste(deck.tag, true)))} />
   )
   return (
@@ -249,7 +268,8 @@ export function DeckShelf({ place, onPlace, onOpen, onStudy, onPaste, onPicture,
       <BookCoverage />
       {dueHint}
       {/* Pockets: squarish tiles, 2 to 4 across by width; each studies when clicked, its actions in its ⋯ menu and on right-click. */}
-      <div data-deck-grid className="grid grid-cols-[repeat(auto-fill,minmax(calc(9.5rem_+_15px),1fr))] gap-x-3 gap-y-1 [&>*]:max-w-[calc(13rem_+_15px)]">
+      <div data-deck-grid className={GRID}>
+        {fresh}
         {shown.map(tile)}
         {allTags && folded.map(tile)}
         {sharedTiles}
@@ -274,7 +294,7 @@ export function DeckShelf({ place, onPlace, onOpen, onStudy, onPaste, onPicture,
             <button type="button" onClick={() => openKids(key)} aria-expanded className="flex cursor-pointer items-center gap-1 justify-self-start rounded-[4px] px-1 text-control font-medium text-foreground hover:bg-accent/50">
               <ChevronRight className="size-3.5 rotate-90 text-muted-foreground" />Inside {deck ? deck.label : shelf!.name}
             </button>
-            <DeckList own={deck ? own.filter((one) => one === deck || one.tag.startsWith(`${deck.tag}-`)) : []} shelves={shelf ? [shelf] : []} onStudy={onStudy} menu={listMenu} />
+            <DeckList own={deck ? own.filter((one) => one === deck || one.tag.startsWith(`${deck.tag}-`)) : []} shelves={shelf ? [shelf] : []} onStudy={onStudy} menu={listMenu} renaming={renaming} onNamed={named} />
           </section>
         )
       })}
@@ -285,15 +305,39 @@ export function DeckShelf({ place, onPlace, onOpen, onStudy, onPaste, onPicture,
   )
 }
 
+/** The decks' grid: squarish tiles, 2 to 4 across by width. */
+const GRID = 'grid grid-cols-[repeat(auto-fill,minmax(calc(9.5rem_+_15px),1fr))] gap-x-3 gap-y-1 [&>*]:max-w-[calc(13rem_+_15px)]'
+
+/** A deck's name typed on its tile: the tile's own serif at the tile's size, ringed while it is written. */
+const NAME_FIELD = 'min-w-0 rounded-[4px] bg-transparent px-1 -mx-1 font-serif leading-snug text-foreground outline-none ring-1 ring-ring/45 placeholder:text-muted-foreground'
+
+/**
+ * A new deck's tile while it is named, where it will stand: an empty pile on
+ * the decks' own surface, its name field ready. Enter or a click away makes it
+ * (if named); Esc takes the tile away again.
+ */
+function NamingTile({ inside, onDone }: { inside?: string; onDone: (words: string | null) => void }): React.JSX.Element {
+  return (
+    <div data-deck-naming={inside ?? ''} className="mf-pile min-w-0 self-start">
+      <PileEdges cards={0} due={0} />
+      <div data-pile-top className="mf-pile-top mf-metal @container flex flex-col gap-1.5 overflow-hidden rounded-[6px] p-3.5">
+        <NameInPlace placeholder={inside ? 'Name the deck inside' : 'Name the deck'} label="Deck name" onDone={onDone} className={NAME_FIELD} style={{ fontSize: '1.125rem' }} />
+        <span className="text-sm text-muted-foreground">{inside ? `Inside ${deckTitle(inside)}` : 'A new deck, empty'}</span>
+      </div>
+    </div>
+  )
+}
+
 /**
  * A deck as a pocket: a squarish tile with how many are due large in ink (a
  * small accent dot says some are), its name and "N due · N not studied yet" under it, and
  * "+N sub-decks" when it has them. The whole tile studies it; everything else
  * is in its ⋯ menu and on right-click.
  */
-function DeckTile({ id, own = false, drag, name, title, due, fresh, all, held, cover, shapes, kids, open, onKids, items, onClick }: {
+function DeckTile({ id, own = false, drag, name, title, due, fresh, all, held, cover, shapes, kids, open, onKids, items, onClick, renaming = false, onNamed }: {
   id: string; own?: boolean; /** A top deck of your own drags to a new place among the others. */ drag?: { over: boolean; lifted: boolean; start: () => void; enter: () => void; end: () => void; drop: () => void }; name: string; title: string; due: number; fresh: number; all: number; held: number; cover: string | null; shapes: boolean
   kids: number; open: boolean; onKids: () => void; /** Its one menu, from ⋯ and from a right click; given the pocket, so its settings open beside it. */ items: (at: () => HTMLElement | null) => RowItem[]; onClick: () => void
+  /** Its name being changed where it stands. */ renaming?: boolean; onNamed?: (words: string | null) => void
 }): React.JSX.Element {
   void title
   const box = useRef<HTMLDivElement | null>(null)
@@ -302,7 +346,7 @@ function DeckTile({ id, own = false, drag, name, title, due, fresh, all, held, c
       {/* Laid out by motion: when a dragged deck passes over, the others slide to make room (at once with motion off). */}
       <motion.div ref={box} layout={!still()} transition={{ duration: 0.2, ease: EASE }} role="button" tabIndex={0} data-deck={own ? `#${id}` : id} {...(own ? { 'data-own-deck': id } : {})} onClick={onClick}
         onKeyDown={(event) => (event.key === 'Enter' || event.key === ' ') && event.target === event.currentTarget && (event.preventDefault(), onClick())}
-        {...(drag ? { draggable: true, onDragStart: (event: React.DragEvent) => (event.dataTransfer.effectAllowed = 'move', event.dataTransfer.setData('text/plain', `#${id}`), drag.start()),
+        {...(drag && !renaming ? { draggable: true, onDragStart: (event: React.DragEvent) => (event.dataTransfer.effectAllowed = 'move', event.dataTransfer.setData('text/plain', `#${id}`), drag.start()),
           onDragEnter: drag.enter, onDragOver: (event: React.DragEvent) => event.preventDefault(), onDragEnd: drag.end, onDrop: (event: React.DragEvent) => (event.preventDefault(), drag.drop()) } : {}) as Record<string, unknown>}
         className={`mf-pile min-w-0 cursor-pointer self-start text-left outline-none active:scale-[0.985] motion-reduce:active:scale-100 ${drag?.lifted ? 'opacity-40' : ''}`}>
         {/* The deck as a pile: its edges under the top card, more as it grows, one standing proud when some are due. */}
@@ -315,7 +359,9 @@ function DeckTile({ id, own = false, drag, name, title, due, fresh, all, held, c
               : <GroupCover name={own ? `#${id}` : id} tint={groupTint(own ? `#${id}` : id)} label={null} className="size-10 shrink-0 rounded-[4px]" />}
           </span>
         )}
-        <h3 className="line-clamp-2 pr-7 font-serif leading-snug text-foreground hyphens-manual [overflow-wrap:normal]" style={nameFit(name, '1.75rem')}>{softBreaks(name)}</h3>
+        {renaming && onNamed
+          ? <NameInPlace initial={name} placeholder="Name the deck" label="Deck name" onDone={onNamed} className={`${NAME_FIELD} mr-7`} style={nameFit(name, '1.75rem')} />
+          : <h3 className="line-clamp-2 pr-7 font-serif leading-snug text-foreground hyphens-manual [overflow-wrap:normal]" style={nameFit(name, '1.75rem')}>{softBreaks(name)}</h3>}
         <span data-deck-counts className="text-sm text-muted-foreground tabular-nums">
           {all ? <><Counts due={due} fresh={fresh} />{held > 0 && <>{' · '}<span className="whitespace-nowrap">{num(held)} held</span></>}</> : <span data-deck-empty>Empty: click to make a card</span>}
         </span>
@@ -405,7 +451,7 @@ export const ownOrder = (decks: OwnDeck[], place: Record<string, number>): OwnDe
 
 /** Save a deck as a study set, named for the occasion, with Undo. */
 async function saveSet(tag: string): Promise<void> {
-  const name = await ask(`A study set from ${deckTitle(tag)}`, 'Name it for the occasion: Biology exam, Friday')
+  const name = await ask(`A study set from ${deckTitle(tag)}`, 'Name it for the occasion: Biology exam, Friday', { action: 'Save the set' })
   if (!name?.trim()) return
   await call('sets:save', name, tag)
   chime('noted')
@@ -466,10 +512,12 @@ function BookCoverage(): React.JSX.Element | null {
   )
 }
 
-/** Rename a deck: the tag is renamed everywhere it is written, with Undo. */
-async function renameDeck(tag: string): Promise<void> {
-  const words = await ask(`Rename the deck ${deckTitle(tag)}`, 'Its new name', undefined, sayDeck(tag))
-  const to = words && deckTagOf(words)
+/** A deck's name typed in its List row: the row's own words, ringed while written. */
+const ROW_NAME = 'min-w-0 rounded-[4px] bg-transparent px-1 text-foreground outline-none ring-1 ring-ring/45 placeholder:text-muted-foreground'
+
+/** Rename a deck to `words` (typed on its tile or row): the tag is renamed everywhere it is written, with Undo. */
+async function renameDeck(tag: string, words: string): Promise<void> {
+  const to = deckTagOf(words)
   if (!to || to === tag) return
   const done = await haligtree.renameTag(tag, to)
   if (!done) return refuse('That name cannot be a deck')
@@ -480,7 +528,7 @@ async function renameDeck(tag: string): Promise<void> {
 /** Delete a deck: the tag comes off its cards, which stay, with Undo. */
 async function deleteDeck(tag: string): Promise<void> {
   const holding = (await call<{ id: string; tags: string[] }[]>('cards:all')).filter((card) => card.tags.includes(tag)).map((card) => card.id)
-  const sure = await askSure(`Delete the deck ${deckTitle(tag)}?`, holding.length ? `Its ${cardsSaid(holding.length)} leave the deck. The cards themselves are kept, in All cards.` : 'It holds no cards. Nothing else changes.', 'Delete deck')
+  const sure = await askSure(`Delete the deck ${deckTitle(tag)}?`, holding.length ? `Its ${cardsSaid(holding.length)} leave the deck. The cards themselves are kept, in All cards.` : 'It holds no cards. Nothing else changes.', 'Delete deck', { danger: true })
   if (!sure) return
   const before = holding.length ? await call<{ id: string; body: string | null }[]>('cards:retag', holding, tag, false) : []
   await haligtree.setTag(tag, { deck: false })
@@ -491,7 +539,7 @@ async function deleteDeck(tag: string): Promise<void> {
 /** Delete an imported deck: asked first, then all its cards go to the Bin together, with one Undo. */
 async function removeShared(shelf: Shelf): Promise<void> {
   const ids = await call<string[]>('decks:cards', shelf.name)
-  const sure = await askSure(`Delete the deck ${shelf.name}?`, `This removes the imported deck: its ${cardsSaid(ids.length)} go to the Bin, with their progress. Undo, or the Bin, brings them back. Your own decks and cards stay as they are.`, 'Delete deck')
+  const sure = await askSure(`Delete the deck ${shelf.name}?`, `This removes the imported deck: its ${cardsSaid(ids.length)} go to the Bin, with their progress. Undo, or the Bin, brings them back. Your own decks and cards stay as they are.`, 'Delete deck', { danger: true })
   if (!sure) return
   await moveToBin(ids.map((id) => ({ type: 'nugget', id })))
 }
@@ -560,7 +608,8 @@ export function DeckFace({ name, due, fresh, shapes, faded = false, small = fals
  * their deck and fold with its chevron. Clicking a name studies it.
  */
 type Target = { own: OwnDeck } | { shelf: Shelf }
-function DeckList({ own, shelves, onStudy, place = {}, menu }: { own: OwnDeck[]; shelves: Shelf[]; onStudy: (tag: string) => void; /** The order you dragged the decks to. */ place?: Record<string, number>
+function DeckList({ own, shelves, onStudy, place = {}, menu, fresh = null, renaming = null, onNamed }: { own: OwnDeck[]; shelves: Shelf[]; onStudy: (tag: string) => void; /** The order you dragged the decks to. */ place?: Record<string, number>
+  /** A new deck being named, on its own row at the top; a deck being renamed, in its row. */ fresh?: { inside?: string } | null; renaming?: string | null; onNamed?: (words: string | null) => void
   /** A deck's one menu, the same as its pocket's: on the row's ⋯ and on a right click. */ menu: (target: Target, at: () => HTMLElement | null) => RowItem[] }): React.JSX.Element {
   const [shut, flip] = useShut()
   const cols = 'grid grid-cols-[minmax(0,1fr)_3.5rem_5.5rem_4rem_2rem] items-center gap-x-2'
@@ -570,7 +619,8 @@ function DeckList({ own, shelves, onStudy, place = {}, menu }: { own: OwnDeck[];
     <div key={key} data-deck-row={key} className={`${cols} min-h-8 text-control`}>
       <span className="flex min-w-0 items-center gap-1">
         <Fold id={key} kids={kids} open={!shut.has(key)} name={name} flip={() => flip(key)} />
-        {study ? <button type="button" data-deck-row-study={key} onClick={() => (chime('riffle'), study())} className="line-clamp-2 min-w-0 cursor-pointer rounded-[4px] px-1 text-left text-foreground hyphens-auto [overflow-wrap:break-word] hover:bg-accent">{name}</button>
+        {renaming === key && onNamed ? <NameInPlace initial={name} placeholder="Name the deck" label="Deck name" onDone={onNamed} className={`${ROW_NAME} flex-1`} />
+          : study ? <button type="button" data-deck-row-study={key} onClick={() => (chime('riffle'), study())} className="line-clamp-2 min-w-0 cursor-pointer rounded-[4px] px-1 text-left text-foreground hyphens-auto [overflow-wrap:break-word] hover:bg-accent">{name}</button>
           : <span className="line-clamp-2 min-w-0 px-1 text-muted-foreground hyphens-auto [overflow-wrap:break-word]">{name}</span>}
       </span>
       <span className={`flex items-center justify-end gap-1.5 tabular-nums ${due > 0 ? 'font-semibold text-foreground' : 'text-muted-foreground/60'}`}>{due > 0 && <span aria-hidden className="size-1.5 rounded-full bg-primary" />}{due < 0 ? '–' : num(due)}</span>
@@ -588,6 +638,13 @@ function DeckList({ own, shelves, onStudy, place = {}, menu }: { own: OwnDeck[];
       <div className={`${cols} border-b border-foreground/10 pb-1.5 text-sm text-muted-foreground`}>
         <span className="pl-6">Deck</span><span className="text-right">Due</span><span className="text-right">Not studied</span><span className="text-right">Cards</span><span />
       </div>
+      {fresh && onNamed && (
+        <div data-deck-naming={fresh.inside ?? ''} className={`${cols} min-h-8 text-control`}>
+          <span className="flex min-w-0 items-center gap-1 pl-5">
+            <NameInPlace placeholder={fresh.inside ? `Name the deck inside ${deckTitle(fresh.inside)}` : 'Name the deck'} label="Deck name" onDone={onNamed} className={`${ROW_NAME} flex-1`} />
+          </span>
+        </div>
+      )}
       {tops.map((deck) => {
         const inside = own.filter((one) => one.tag.startsWith(`${deck.tag}-`))
         return (
@@ -683,7 +740,7 @@ function DeckSettings({ tag, name, at, study, onClose }: { tag: string; name: st
     <Popover open onOpenChange={(open) => void (!open && (chime('fold'), onClose()))}>
       <PopoverAnchor virtualRef={{ current: at }} />
       {/* Beside the deck, never over it: what it is set for stays in view. */}
-      <PopoverContent side={window.innerWidth < 720 ? "bottom" : "left"} align="start" sideOffset={8} data-deck-settings={tag} className="w-80 max-w-[calc(100vw-1rem)] gap-3.5 p-4 text-control" onFocusOutside={(event) => event.preventDefault()}>
+      <PopoverContent side={window.innerWidth < 720 ? "bottom" : "left"} align="start" sideOffset={8} data-deck-settings={tag} data-finish-sheet className="w-80 max-w-[calc(100vw-1rem)] gap-3.5 p-4 text-control" onFocusOutside={(event) => event.preventDefault()}>
         <span className="font-serif text-lg leading-tight text-foreground [overflow-wrap:break-word]">{name}</span>
         <Setting id="new" name="New cards a day" says={perDay === 0 ? 'Only reviews: no new cards start.' : undefined}>
           <Chips options={[{ id: '', label: 'As in Settings' }, { id: 'own', label: 'Its own' }, { id: 'none', label: 'None' }]}

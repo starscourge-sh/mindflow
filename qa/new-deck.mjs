@@ -32,6 +32,13 @@ const answer = async (words) => {
   await h.keyboard.press('Enter')
   return true
 }
+// A deck named in place, in the grid (ask-sheet.mjs): the name typed in its field, Enter.
+const inPlace = async (words) => {
+  if (!(await waitFor(() => h.evaluate(() => document.activeElement?.matches('[data-name-in-place]'))))) return false
+  await h.keyboard.type(words)
+  await h.keyboard.press('Enter')
+  return true
+}
 const tagsOf = async (id) => (await call('cards:all')).find((one) => one.id === id)?.tags ?? []
 const menuItem = (words) => h.locator('[role="menuitem"]', { hasText: words }).first()
 const shot = async (name, again) => {
@@ -55,7 +62,7 @@ try {
   await decks()
   check('1. the Decks tab offers the ways cards come in at its top', /Make a card/.test(await h.evaluate(() => document.querySelector('[data-deck-top]')?.textContent ?? '')))
   await h.click('[data-deck-new]')
-  check('1. New deck asks for a name in place', await answer('Zymurgy'))
+  check('1. New deck asks for a name in place', await inPlace('Zymurgy'))
   check('1. the new deck shows at once, empty', await waitFor(() => has('[data-own-deck="zymurgy"] [data-deck-empty]')))
   check('1. it is a tag: #zymurgy, made as a deck', (await call('decks:made')).includes('zymurgy'))
   check('1. the empty deck says a click makes a card', /click to make a card/.test(await h.evaluate(() => document.querySelector('[data-own-deck="zymurgy"]')?.textContent ?? '')))
@@ -71,7 +78,7 @@ try {
 
   // 2. A nested deck sits under its parent.
   await h.click('[data-deck-new]')
-  await answer('Zymurgy/Cells')
+  await inPlace('Zymurgy/Cells')
   check('2. "Zymurgy/Cells" shows inside Zymurgy', await waitFor(() => has('[data-own-deck="zymurgy"] [data-deck-kids="zymurgy"]')))
   check('2. and not as a deck of its own beside it', !(await has('[data-own-deck="zymurgy-cells"]')))
   await shot('decks-tab', decks)
@@ -84,7 +91,7 @@ try {
   await decks()
   await h.locator('[data-own-deck="zymurgy"]').click({ button: 'right' })
   await h.getByRole('menuitem', { name: /^Add many at once/ }).first().click()
-  check('3. its Paste cards opens aimed at the deck', await waitFor(async () => (await h.evaluate(() => document.querySelector('[data-paste-deck]')?.value)) === 'zymurgy'))
+  check('3. its Paste cards opens aimed at the deck', await waitFor(async () => (await h.evaluate(() => document.querySelector('[data-paste-cards] [data-deck-pick]')?.getAttribute('data-deck-pick'))) === 'zymurgy'))
   await h.locator('[data-paste-text]').fill('What is zymurgy? | The study of fermentation')
   await h.evaluate(() => document.querySelector('[data-paste-add]').click())
   check('3. the pasted card goes in the deck', await waitFor(async () => (await call('cards:all')).some((one) => one.prompt === 'What is zymurgy?' && one.tags.includes('zymurgy'))))
@@ -128,7 +135,7 @@ try {
   await h.keyboard.type('New deck', { delay: 20 })
   await h.waitForTimeout(800)
   await h.keyboard.press('Enter')
-  check('6. ⌘K "New deck" asks for a name', await answer('Kiln'))
+  check('6. ⌘K "New deck" names it in place, in the deck grid', await inPlace('Kiln'))
   check('6. and makes it', await waitFor(async () => (await call('decks:made')).includes('kiln')))
   check('6. on the Decks tab', await waitFor(() => has('[data-own-deck="kiln"]')))
   await h.keyboard.press('Meta+k')

@@ -89,7 +89,7 @@ import { Tour } from '@/components/haligtree/tour'
 import { SandboxHost, SandboxPill } from '@/components/haligtree/sandbox'
 import { SANDBOX, enterSandbox, leaveSandbox, resetSandbox } from '@/lib/sandbox'
 import { askBook } from '@/lib/books'
-import { makeDeck, useMadeDecks } from './components/haligtree/decks'
+import { nameNewDeck, useMadeDecks } from './components/haligtree/decks'
 import { BookName, askNewBook } from '@/components/haligtree/books'
 import { Welcome } from '@/components/haligtree/welcome'
 import { PageHint } from '@/components/haligtree/page-hint'
@@ -1741,7 +1741,7 @@ export function Home(): React.JSX.Element {
             ...practiceActions,
             { label: 'Study stats', hint: 'Reviews a day, how often you remember, what falls due', cue: null, run: () => setView({ id: 'review', focus: ':stats' }) },
             { label: 'Decks', hint: 'Your decks, and shared Anki decks on their own shelf', cue: null, run: () => setView({ id: 'review', focus: ':decks' }) },
-            { label: 'New deck', hint: 'A deck is a tag your cards share: name it, then make a card or add many at once', words: 'flashcard flashcards anki', cue: null, run: () => (setView({ id: 'review', focus: ':decks' }), void makeDeck()) },
+            { label: 'New deck', hint: 'A deck is a tag your cards share: name it, then make a card or add many at once', words: 'flashcard flashcards anki', cue: null, run: () => (setView({ id: 'review', focus: ':decks' }), nameNewDeck()) },
             ...deckTags.map((tag) => ({ label: `New card in #${tag}`, hint: 'Type the question and its answer, in Review', cue: null, run: () => setView({ id: 'review', focus: `:new:${tag}` }) })),
             { label: 'Add many cards at once', hint: 'Paste a list or a spreadsheet, one card a line: front | back', words: 'paste cards flashcard flashcards anki', cue: null, run: () => setView({ id: 'review', focus: ':paste' }) },
             { label: 'Study now', hint: 'The cards due today, in Review', cue: null, run: () => setView({ id: 'review', focus: ':today' }) },

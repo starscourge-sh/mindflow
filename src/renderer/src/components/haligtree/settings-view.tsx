@@ -37,7 +37,7 @@ import { SoundPacks } from './sound-packs'
 import { FontPicker } from './font-picker'
 import { TEXT_SIZES } from '@/lib/editor-setup'
 import { SCRUB, ScrubField } from '../pdf/scrub-field'
-import { BackToTop, Kbd, Rolling, Tip, ask, listEnd, quietly, refuse, stopJob, toast, useSmooth, waiting } from './ui'
+import { BackToTop, Kbd, Rolling, Tip, listEnd, quietly, refuse, stopJob, toast, useSmooth, waiting } from './ui'
 import { working } from './beam'
 import { Term } from './term'
 import { Button } from '@/components/ui/button'
@@ -70,8 +70,9 @@ import { RECORDING_KINDS } from '@/lib/recordings'
 import { SANDBOX, enterSandbox, leaveSandbox, startSandboxOver } from '@/lib/sandbox'
 import { HoldButton } from './hold-button'
 import { SiteBlockField, openAutomation, useBlockRefused } from './site-block-field'
-import { askBook, deleteBook, renameBook, switchBook, useShelf } from '@/lib/books'
-import { HueDots, askNewBook } from './books'
+import { askBook, deleteBook, newBook, renameBook, switchBook, useShelf } from '@/lib/books'
+import { HueDots } from './books'
+import { NameInPlace } from './name-in-place'
 import { useHere } from '@/lib/split'
 import { Lead, plain } from './lead'
 import { backedUpAgo, chooseBackupFolder } from '@/lib/backups'
@@ -127,8 +128,10 @@ function AeroSpaceSetting(): React.JSX.Element | null {
 /** A slider's value beside it: one width for every slider, so the sliders line up down a section. */
 const SLIDER_VALUE = 'w-24 text-right tabular-nums'
 
-function Setting({ title, aka, children, note, more, below, beside, keywords = '', under = false, off }: {
+function Setting({ title, aka, children, note, more, below, beside, keywords = '', under = false, off, naming }: {
   title: string
+  /** Its name being typed where the title stands (a book named or renamed), in place of the title. */
+  naming?: ReactNode
   /** What the one-line note had no room for, behind a “?” beside the title. Searched too. */
   more?: string
   /** Why its control is greyed out now, or why it has no effect yet, said under it in plain words (“Turn “Sounds” on to change this”). */
@@ -156,7 +159,7 @@ function Setting({ title, aka, children, note, more, below, beside, keywords = '
     <div data-setting data-setting-title={title} className={`py-3 pr-4 ${under ? 'pl-9' : 'pl-4'}`}>
       <div className={`flex flex-wrap justify-between gap-x-6 ${beside ? 'items-start gap-y-4' : 'items-center gap-y-2'}`}>
         <div className="min-w-0 flex-[1_1_13rem]">
-          <div className="text-body font-medium text-foreground"><Marked text={title} query={shown} />{aka && <span className="ml-1.5 font-normal text-muted-foreground">(<Term>{aka}</Term>)</span>}
+          <div className="text-body font-medium text-foreground">{naming ?? <Marked text={title} query={shown} />}{aka && <span className="ml-1.5 font-normal text-muted-foreground">(<Term>{aka}</Term>)</span>}
             {more && (
               <Tip label={more}>
                 <button type="button" data-setting-more aria-label={`More about “${title}”`} className="relative after:absolute after:-inset-1 after:rounded-full ml-1.5 inline-grid size-4 translate-y-[-1px] place-items-center rounded-full border border-border align-middle text-[0.625rem] leading-none font-semibold text-muted-foreground transition-colors hover:border-foreground/40 hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring">?</button>
@@ -1334,10 +1337,18 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
  */
 function BookRows(): React.JSX.Element {
   const shelf = useShelf()
-  const rename = async (id: string, name: string): Promise<void> => {
-    const now = (await ask('Rename the book', name, undefined, name))?.trim()
-    if (now && now !== name) void renameBook(id, now).then((ok) => ok && (chime('settled'), toast(`Now called ${now}`)))
-  }
+  // A book named where it is listed, as Finder names a folder: a new one on its own row under the others, or one renamed in its row.
+  const [naming, setNaming] = useState<string | null>(null)
+  const nameField = (book: { id: string; name: string } | null): React.JSX.Element => (
+    <NameInPlace initial={book?.name ?? ''} placeholder="Name the book" label="Book name"
+      className="w-full max-w-72 rounded-[4px] bg-transparent px-1 -mx-1 text-foreground outline-none ring-1 ring-ring/45 placeholder:font-normal placeholder:text-muted-foreground"
+      onDone={(words) => {
+        setNaming(null)
+        if (!words || words === book?.name) return
+        if (!book) return void newBook(words)
+        void renameBook(book.id, words).then((ok) => ok && (chime('settled'), toast(`Now called ${words}`)))
+      }} />
+  )
   const remove = async (id: string, name: string): Promise<void> => {
     const kept = await deleteBook(id).catch(() => null)
     // Nothing goes until its whole copy is safe with the backups: that is the one way it fails.
@@ -1348,16 +1359,16 @@ function BookRows(): React.JSX.Element {
   return (
     <>
       <Setting title="Books" note={`Each book is a ${APP_NAME} of its own, with its own notes and settings.`} more="Its own pictures and Getting started; your look comes along, and every book's notes are backed up each day they change. Give each a colour to tell them apart at a glance." keywords="books book vault vaults switch new another scratch library workspace">
-        {!SANDBOX && <Button variant="outline" size="sm" onClick={() => void askNewBook()}>New book…</Button>}
+        {!SANDBOX && <Button variant="outline" size="sm" data-book-new onClick={() => (chime('open'), setNaming('new'))}>New book</Button>}
         <Button variant="outline" size="sm" onClick={() => askBook('switch')}>Switch…</Button>
       </Setting>
       {shelf?.books.map((book) => (
-        <Setting key={book.id} under title={book.name}
+        <Setting key={book.id} under title={book.name} naming={naming === book.id ? nameField(book) : undefined}
           note={book.id === 'default' ? `Your first book, which cannot be deleted${book.current ? ', open now' : ''}.` : `Made ${book.createdAt ? new Date(book.createdAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : 'here'}${book.current ? ', open now' : ''}.${!SANDBOX && book.id !== 'default' && !book.current ? ' **Deleting it deletes everything in it, for good.**' : ''}`}
           more={book.id === 'default' ? `Where ${APP_NAME} has always kept your notes.` : book.current ? 'Switch to another book to delete this one.' : undefined}
           keywords="book rename reveal finder delete colour color accent tint space arc"
           below={SANDBOX ? undefined : <div className="mt-2 -ml-1"><HueDots id={book.id} value={book.color} /></div>}>
-          {!SANDBOX && <Button variant="ghost" size="sm" onClick={() => void rename(book.id, book.name)}>Rename</Button>}
+          {!SANDBOX && <Button variant="ghost" size="sm" data-book-rename={book.id} onClick={() => setNaming(book.id)}>Rename</Button>}
           {/* No "Show in Finder": a book is the app's own files deep in the system's folders, nothing to open by hand. */}
           {!book.current && <Button variant="ghost" size="sm" onClick={() => void switchBook(book.id)}>Open</Button>}
           {!SANDBOX && book.id !== 'default' && !book.current && (
@@ -1365,6 +1376,7 @@ function BookRows(): React.JSX.Element {
           )}
         </Setting>
       ))}
+      {naming === 'new' && <Setting under title="New book" note="An empty book, apart from this one. It opens once it has a name." naming={nameField(null)} />}
     </>
   )
 }
@@ -2340,7 +2352,7 @@ function FinishSample({ look }: { look: Settings['reviewFinish'] }): React.JSX.E
   return (
     <span data-review-finish={look} data-finish-sample={look} className="absolute inset-0 flex items-center justify-center gap-2.5">
       <span className="mf-pile w-9"><span className="mf-pile-room" /><span className="mf-pile-card mf-pile-edge" style={{ '--n': 1 } as React.CSSProperties} /><span className="mf-pile-top mf-metal" /></span>
-      <span data-finish-face className="h-9 w-12 rounded-[5px] border bg-accent/30" />
+      <span data-finish-face className="h-9 w-12 rounded-[6px] border" />
     </span>
   )
 }

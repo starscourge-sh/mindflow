@@ -1,4 +1,5 @@
 import { Fragment, createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { NameInPlace } from './name-in-place'
 import { DndContext, MeasuringStrategy, PointerSensor, closestCenter, pointerWithin, useDndContext, useSensor, useSensors, type CollisionDetection, type DragEndEvent, type DragMoveEvent, type DragStartEvent, type Modifier } from '@dnd-kit/core'
 import { SortableContext, useSortable, type SortingStrategy } from '@dnd-kit/sortable'
 
@@ -1106,16 +1107,10 @@ function GroupBlock({ group, entries, parts, start, cursor, estimate, row, carri
                   {renaming ? (
                     <div className={cn(ROW_SHAPE, place ? ROW_PAD : HEAD, 'data-[state=open]:bg-transparent!')}>
                       <PopoverAnchor asChild>{place ? <GroupTile group={group} empty={count === 0} /> : <PanelTile group={group} onIcon={() => setPicking(true)} />}</PopoverAnchor>
-                      <input
-                        autoFocus
-                        defaultValue={group.name}
-                        aria-label={place ? 'Folder name' : 'Group name'}
-                        onFocus={(event) => event.target.select()}
-                        onKeyDown={(event) => {
-                          if (event.key === 'Enter') rename(event.currentTarget.value)
-                          if (event.key === 'Escape') (event.preventDefault(), event.stopPropagation(), onRenaming(false))
-                        }}
-                        onBlur={(event) => rename(event.target.value)}
+                      <NameInPlace
+                        initial={group.name}
+                        label={place ? 'Folder name' : 'Group name'}
+                        onDone={(words) => (words === null ? onRenaming(false) : rename(words))}
                         className={cn('min-w-0 flex-1 rounded-sm bg-transparent outline-none placeholder:text-muted-foreground', place ? 'text-control font-medium' : 'text-xs font-semibold')}
                         placeholder={place ? 'Name the folder' : 'Name the group'}
                       />

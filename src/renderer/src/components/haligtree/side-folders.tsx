@@ -1,5 +1,6 @@
 import { asideItem } from '@/lib/split'
 import { useEffect, useState } from 'react'
+import { NameInPlace } from './name-in-place'
 import { Branches } from './branches'
 import { createPortal } from 'react-dom'
 
@@ -250,8 +251,8 @@ function Folder({ list, group, depth, n, here, naming, onNamed, onRename, onOpen
     { label: 'Open', run: () => onOpen(group.id) },
     // Beside the page in front, as a page's row offers it (⌥-click on the row does it too).
     asideItem('folder', `${list}:${group.id}`),
-    { label: 'Rename…', run: () => setTimeout(onRename, 120) },
-    { label: 'Change icon…', run: () => setTimeout(() => setPicking(true), 120) },
+    { label: 'Rename…', run: onRename },
+    { label: 'Change icon…', run: () => setPicking(true) },
     depth < DEPTH - 1 && { label: 'New folder inside', run: () => newFolder(list, group.id) },
     group.parent ? { label: 'Move to the top', run: () => onNest(group.id, null) } : null,
     'separator',
@@ -295,13 +296,8 @@ function Folder({ list, group, depth, n, here, naming, onNamed, onRename, onOpen
               style={{ left: `calc(${left} + 0.5rem)`, top: aimed === 'before' ? -1 : 'calc(100% + 1px)' }} />
           )}
           {naming ? (
-            <input autoFocus defaultValue={group.name} data-folder-name={group.id} aria-label="Folder name"
-              onFocus={(event) => event.currentTarget.select()}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter') name(event.currentTarget.value)
-                if (event.key === 'Escape') (event.stopPropagation(), onNamed())
-              }}
-              onBlur={(event) => name(event.target.value)}
+            <NameInPlace initial={group.name} data-folder-name={group.id} label="Folder name" placeholder="Name the folder"
+              onDone={(words) => (words === null ? onNamed() : name(words))}
               style={{ paddingLeft: `calc(${left} + 1.5rem)` }}
               className="w-full min-w-0 rounded-md bg-accent/60 py-1 pr-2 text-foreground outline-none ring-1 ring-ring/40" />
           ) : (
@@ -354,10 +350,20 @@ function Folder({ list, group, depth, n, here, naming, onNamed, onRename, onOpen
 function SmartRow({ group, shown, counted, here, onOpen }: { group: SmartGroup; shown: Set<string>; counted: boolean; here: boolean; onOpen: () => void }): React.JSX.Element {
   const gathered = useGathered(group)
   const n = gathered ? [...gathered].filter((id) => shown.has(id)).length : null
+  const [naming, setNaming] = useState(false)
+  // Renamed in its row, as a folder is: the same field, Enter or a click away keeps it, Esc leaves it.
+  if (naming)
+    return (
+      <div className="flex w-full min-w-0 items-center gap-2 py-1 pr-2 pl-2">
+        <span className="flex size-4 shrink-0 items-center justify-center"><GroupMark className="size-3.5" style={{ color: 'var(--tt-color-text-purple)' }} /></span>
+        <NameInPlace initial={group.name} data-group-name={group.id} label="Group name" placeholder="Name the group" onDone={(words) => (setNaming(false), words && void renameGroup(group, words))}
+          className="min-w-0 flex-1 rounded-md bg-accent/60 px-1 text-foreground italic outline-none ring-1 ring-ring/40" />
+      </div>
+    )
   return (
     <RowMenu items={[
       { label: 'Open', run: onOpen },
-      { label: 'Rename…', run: () => void renameGroup(group) },
+      { label: 'Rename…', run: () => setNaming(true) },
       { label: 'Change the rule…', hint: ruleSaid(group), run: () => void changeRule(group) },
       'separator',
       { label: 'Remove the group', hint: 'Its notes stay where they are', run: () => void removeGroup(group) }

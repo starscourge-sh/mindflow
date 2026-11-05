@@ -55,7 +55,7 @@ const ASKED = 'one tag, or several, as #rome #food: a note needs them all'
 
 /** A new group, its rule asked as one tag or several (named for the first), with Undo. */
 export async function newSmartGroup(list: 'article' | 'nugget', onOpen?: (id: string) => void): Promise<void> {
-  const tags = tagsIn(await ask(`Gather every ${list === 'article' ? 'page' : 'gem'} tagged…`, ASKED))
+  const tags = tagsIn(await ask(`Gather every ${list === 'article' ? 'page' : 'gem'} tagged…`, ASKED, { action: 'Make the group' }))
   if (!tags.length) return
   const name = tags.map((one) => one[0].toUpperCase() + one.slice(1)).join(' and ')
   const group: SmartGroup = { id: crypto.randomUUID(), list, name, tags }
@@ -66,15 +66,16 @@ export async function newSmartGroup(list: 'article' | 'nugget', onOpen?: (id: st
 }
 
 export async function changeRule(group: SmartGroup): Promise<void> {
-  const tags = tagsIn(await ask('Gather the ones tagged…', ASKED, undefined, group.tags.map((one) => `#${one}`).join(' ')))
+  const tags = tagsIn(await ask('Gather the ones tagged…', ASKED, { initial: group.tags.map((one) => `#${one}`).join(' '), action: 'Change the rule' }))
   if (!tags.length || tags.join(' ') === group.tags.join(' ')) return
   const was = await save((all) => all.map((one) => (one.id === group.id ? { ...one, tags } : one)))
   chime('noted')
   toast(`${group.name} now gathers ${ruleSaid({ ...group, tags }).toLowerCase()}`, () => void haligtree.setSettings({ smartGroups: was }))
 }
 
-export async function renameGroup(group: SmartGroup): Promise<void> {
-  const name = (await ask('Name the group', group.name, undefined, group.name))?.trim()
+/** A group renamed to `typed` (in its sidebar row), with Undo. */
+export async function renameGroup(group: SmartGroup, typed: string): Promise<void> {
+  const name = typed.trim()
   if (!name || name === group.name) return
   const was = await save((all) => all.map((one) => (one.id === group.id ? { ...one, name } : one)))
   chime('noted')

@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { chime } from '@/lib/sound'
 import { call, haligtree, useLive } from '@/lib/haligtree'
 import { plural } from '../../../../main/dates'
@@ -52,17 +52,40 @@ export const nameFit = (name: string, room = '0rem'): React.CSSProperties => {
 export const inDeck = (tags: string[], deck: string): boolean => tags.some((one) => one === deck || one.startsWith(`${deck}-`))
 
 /**
- * Ask for a new deck's name in place, make it, and say so with Undo.
- * Resolves to its tag, or null when let go. `inside` names it under a deck.
+ * A deck named `words` made (under `inside`), said with Undo. Resolves to its
+ * tag, or null when the words make no deck. Review's grid names it in place
+ * first; elsewhere (a card's "Move to deck", the deck picker) `makeDeck` asks.
  */
-export async function makeDeck(inside?: string): Promise<string | null> {
-  const words = await ask(inside ? `A deck inside ${deckTitle(inside)}` : 'Name the new deck', inside ? 'Cells' : 'Biology, or Biology/Cells for one inside it')
+export async function madeDeck(words: string | null, inside?: string): Promise<string | null> {
   const tag = words && deckTagOf(inside ? `${inside}/${words}` : words)
   if (!tag) return null
   await haligtree.setTag(tag, { deck: true })
   chime('noted')
   toast(`The deck ${deckTitle(tag)} is made`, () => void haligtree.setTag(tag, { deck: false }).then(() => chime('undo')))
   return tag
+}
+
+/** Away from the decks (a card's menu, the deck picker): the name asked in a small sheet from where you are. */
+export async function makeDeck(inside?: string): Promise<string | null> {
+  return madeDeck(await ask(inside ? `A deck inside ${deckTitle(inside)}` : 'Name the new deck', inside ? 'Cells' : 'Biology, or Biology/Cells for one inside it', { action: 'Make the deck' }), inside)
+}
+
+/**
+ * "New deck" from ⌘K: Review's Decks shows a new deck in its grid, its name
+ * field ready, as its own "New deck" button does. Kept until the Decks tab
+ * is there to take it, then taken once.
+ */
+let newAsked = false
+export const nameNewDeck = (): void => void ((newAsked = true), window.dispatchEvent(new Event('haligtree:new-deck')))
+export function useNewDeckAsked(take: () => void): void {
+  const latest = useRef(take)
+  latest.current = take
+  useEffect(() => {
+    const taken = (): void => void (newAsked && ((newAsked = false), latest.current()))
+    taken()
+    window.addEventListener('haligtree:new-deck', taken)
+    return () => window.removeEventListener('haligtree:new-deck', taken)
+  }, [])
 }
 
 export type OwnDeck = { tag: string; /** Made as a deck (New deck), not only a tag that holds cards. */ made: boolean; /** Its cards that come up in Review: not paused. */ active: number; /** The last part of its name, said under its parent. */ label: string; depth: number; cards: number; fresh: number; due: number; sample: string }
