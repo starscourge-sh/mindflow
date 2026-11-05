@@ -165,7 +165,7 @@ export function CollectionHeader({ tint, backdrop, cover, label, title, length =
   /** The one thing to know, on its own line under the name, larger than the counts (a goal's days left). */
   big?: ReactNode
   meta: ReactNode[]
-  actions: ReactNode
+  actions?: ReactNode
 }): React.JSX.Element {
   return (
     <header
@@ -200,7 +200,8 @@ export function CollectionHeader({ tint, backdrop, cover, label, title, length =
           </p>
         </div>
       </div>
-      <div className="page-column relative flex flex-wrap items-center gap-1 px-5 pb-4 @[44rem]/band:gap-2 @[44rem]/band:px-8 @[44rem]/band:pb-5">{actions}</div>
+      {/* No row at all when there is nothing to do here: an empty row read as a gap under the date line. */}
+      {actions && <div className="page-column relative flex flex-wrap items-center gap-1 px-5 pb-4 @[44rem]/band:gap-2 @[44rem]/band:px-8 @[44rem]/band:pb-5">{actions}</div>}
     </header>
   )
 }
