@@ -55,7 +55,7 @@ for (const level of Object.keys(RANK)) {
       const RANK = { every: 0, macos15: 1, macos26: 2, ai: 3 }
       return [...document.querySelectorAll('[data-power]')].filter((one) => RANK[one.getAttribute('data-mac-needs')] > rank).length
     }, RANK[level])
-    check(`${level}: the page says on this Mac how many need more (${needMore})`, Number(top.missing) === needMore && (needMore ? top.text.includes(`${needMore} need`) : top.text.includes('Everything here works.')), top.text)
+    check(`${level}: the page says on this Mac how many need more (${needMore})`, Number(top.missing) === needMore && (needMore ? top.text.includes(`${needMore} feature`) : top.text.includes('Everything here works.')), top.text)
     if (process.env.SHOT) {
       await c.h.evaluate(() => document.querySelector('[data-this-mac]')?.scrollIntoView({ block: 'center' }))
       await c.h.waitForTimeout(300)

@@ -19,7 +19,7 @@ import { LearnOffer } from './study'
 import { PageContents } from './page-contents'
 import './powers.css'
 import { APP_NAME } from '../../../../main/name'
-import { num } from '../../../../main/dates'
+import { num, plural } from '../../../../main/dates'
 
 /**
  * What Haligtree can do: every power the app keeps out of sight until you need
@@ -121,7 +121,7 @@ function ThisMac({ caps, missing }: { caps: Caps | null; missing: number }): Rea
       {caps && (
         <>
           <strong className="font-semibold text-foreground">On this Mac{caps.major ? ` (macOS ${caps.macos.replace(/\.0$/, '')})` : ''}.</strong>{' '}
-          {missing ? `${num(missing)} ${missing === 1 ? 'needs' : 'need'} a newer Mac or Apple Intelligence, and ${missing === 1 ? 'says' : 'say'} so on ${missing === 1 ? 'its card' : 'their cards'}; the rest work here.` : 'Everything here works.'}
+          {missing ? `${plural(missing, 'feature needs', 'features need')} a newer Mac or Apple Intelligence, and ${missing === 1 ? 'says' : 'say'} so on ${missing === 1 ? 'its card' : 'their cards'}; the rest work here.` : 'Everything here works.'}
         </>
       )}
     </p>

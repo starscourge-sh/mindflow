@@ -1,12 +1,12 @@
 import { Notification } from 'electron'
 import servicesFile from '../../resources/services.node?asset&asarUnpack'
-import { captureSent } from './captures'
+import { captureSent, setting } from './captures'
 
 /**
  * "Send to Haligtree" in every app's Services menu (native/services.mm; the menu
  * line itself is declared in electron-builder.yml): words picked anywhere land in
  * the Inbox as a quote, saying the app and page they came from, with nothing
- * copied, and a quiet notification says so. Every Mac; listed by macOS once the
+ * copied, and a notification says so (heard only with Sounds on). Every Mac; listed by macOS once the
  * app is in /Applications.
  */
 type Sent = { text: string; app?: string; url?: string; title?: string }
@@ -21,7 +21,8 @@ export function registerServices(): void {
       // Under test nothing shows on the screen.
       if (!captureSent(sent.text, sent) || process.env.HALIGTREE_QA_AWAY) return
       const words = sent.text.replace(/\s+/g, ' ').trim()
-      new Notification({ title: 'In your Inbox', body: `${words.length > 90 ? `${words.slice(0, 89)}…` : words}${sent.app ? `\nFrom ${sent.app}` : ''}`, silent: true }).show()
+      const sounds = setting('sounds', true)
+      new Notification({ title: 'In your Inbox', body: `${words.length > 90 ? `${words.slice(0, 89)}…` : words}${sent.app ? `\nFrom ${sent.app}` : ''}`, silent: !sounds }).show()
     })
     send = module.exports.send ?? null
     // A probe sends words through the same path, as macOS would.
