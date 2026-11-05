@@ -59,134 +59,111 @@ try {
     text: row.innerText.replace(/\s+/g, ' ').trim()
   })))
   const row = (id) => rows.find((one) => one.id === id) ?? { text: '', tiles: -1, dino: -1, bar: null }
-  check('every goal row is on the list', [short, year, logged, past, twinA, twinB, life].every((id) => rows.some((one) => one.id === id)), rows.length)
+  check('every dated goal row is on the Goals tab, the someday one is not', [short, year, logged, past, twinA, twinB].every((id) => rows.some((one) => one.id === id)) && !rows.some((one) => one.id === life), rows.length)
   check('no goal row has a flag tile', rows.every((one) => one.tiles === 0), rows.map((one) => one.tiles).join(','))
   check('no goal row has the dinosaur bar, even with dinosaur bars on', rows.every((one) => one.dino === 0), rows.map((one) => one.dino).join(','))
   check('a goal with no logs: "N days · nothing logged"', /Pack for Lisbon 9 days · nothing logged$/.test(row(short).text), row(short).text)
   check('a goal with logs: "4 logs, last today"', /Finish chapter three 45 days · 4 logs, last today$/.test(row(logged).text), row(logged).text)
   check('a goal past its day asks how it went', /3 days past: did you make it\?/.test(row(past).text), row(past).text)
   check('each dated row has a bar of the time gone', [short, year, logged, twinA].every((id) => /of the time gone$/.test(row(id).bar ?? '')), [short, year, logged, twinA].map((id) => row(id).bar).join(' | '))
-  check('a someday row has no bar and says Someday', row(life).bar === null && /Visit Hobbiton/.test(row(life).text), row(life).text)
+
   const heads = await h.evaluate(() => [...document.querySelectorAll('[data-group-head]')].map((one) => one.getAttribute('data-group-head')))
   check(`the two goals on ${longDay(key(120))} sit under that day's heading`, heads.includes(longDay(key(120))), heads.join(' | '))
-  check('Someday stays its own group', heads.includes('Someday'), heads.join(' | '))
+  check('Someday is its own tab, not a group on Goals', !heads.includes('Someday'), heads.join(' | '))
   const listText = await h.evaluate(() => document.querySelector('main')?.innerText ?? document.body.innerText)
   check('the list never says "of the way"', !/of the way/.test(listText))
-  // The count beside the tabs: not a tab (not in the tabs' row group), and plainly a count.
-  const count = await h.evaluate(() => {
-    const tabs = document.querySelector('[data-list-tabs]')?.getBoundingClientRect()
-    const said = document.querySelector('[data-list-count]')
-    const box = said?.getBoundingClientRect()
-    const tab = document.querySelector('[data-list-tabs] button')
-    return { text: said?.textContent ?? '', apart: said?.hasAttribute('data-count-apart') && getComputedStyle(said).borderLeftWidth === '1px', smaller: tab && said ? parseFloat(getComputedStyle(said).fontSize) < parseFloat(getComputedStyle(tab).fontSize) : false, inTabs: !!said?.closest('[data-list-tabs]') }
-  })
-  check('the goals count is plainly not a tab: outside the tabs, a hairline before it', count.text && !count.inTabs && count.apart, JSON.stringify(count))
+  // Each tab says its own count; the page's count no longer repeats it.
+  const counts = await h.evaluate(() => [...document.querySelectorAll('[data-list-tabs] button')].map((one) => one.getAttribute('aria-label')))
+  check('each tab carries its count', counts.length === 4 && counts.every((one) => /\d+$/.test(one ?? '')), counts.join(' | '))
   await shot('list')
   await size(390, 844)
   await shot('list-narrow')
   await size(1280, 800)
 
-  // The header: the number once, the day's date beside it, the cover with no number.
+  // The header: the title and its date line, no cover and no big number; the days said once, in the road's card.
   await openGoal(year)
   const head = await h.evaluate(() => {
-    const header = document.querySelector('[data-open] [data-collection-header]')
-    const cover = header?.querySelector('[data-cover]') ?? header?.firstElementChild?.firstElementChild
-    const box = (sel) => header?.parentElement?.querySelector(sel)?.getBoundingClientRect()
-    const add = [...(header?.querySelectorAll('button') ?? [])].find((b) => /Add a log/.test(b.closest('[data-state]')?.textContent ?? '') || b.getAttribute('aria-label') === 'Add a log')
+    const pane = document.querySelector('div[data-open]')
+    const header = pane?.querySelector('[data-collection-header]')
     return {
       text: header?.innerText ?? '',
-      cover: cover?.textContent ?? '',
-      big: header?.querySelector('[data-goal-left]')?.textContent ?? '',
-      set: header?.parentElement?.querySelector('[data-goal-set]')?.getBoundingClientRect().top ?? null,
-      setText: header?.parentElement?.querySelector('[data-goal-set]')?.textContent ?? '',
+      cover: !!header?.querySelector('.aspect-square'),
+      big: pane?.querySelector('[data-road-card] [data-goal-left]')?.textContent ?? '',
+      bigs: (pane?.innerText.match(/\b365 days\b/g) ?? []).length,
       more: header?.querySelector('[aria-label="More"]')?.getBoundingClientRect().top ?? null,
-      plus: header?.querySelector('[data-goal-add] button')?.getBoundingClientRect().top ?? null,
-      setH: box('[data-goal-set]')?.height ?? 0
+      plus: header?.querySelector('[data-goal-add] button')?.getBoundingClientRect().top ?? null
     }
   })
-  check('the days left are said once on the header', (head.text.match(/\b365\b/g) ?? []).length === 1, head.text.replace(/\s+/g, ' '))
-  check('a big "365 days" with the day\'s date', /^365 days/.test(head.big) && head.text.includes(longDay(key(365)).replace(/ \d{4}$/, '')), head.big)
-  check('the cover holds no number', !/\d/.test(head.cover), head.cover)
-  check('"Set on" says what the date is', /^Set on /.test(head.setText), head.setText)
-  check('"+", "..." and "Set on" sit on one row', head.set !== null && head.more !== null && head.plus !== null && Math.abs(head.set - head.more) < 14 && Math.abs(head.plus - head.more) < 2, JSON.stringify(head))
+  check('the header holds no cover picture and no days', !head.cover && !/\b365\b/.test(head.text), head.text.replace(/\s+/g, ' '))
+  check('the date line says the day it is for and when it was set', head.text.includes(`For ${longDay(key(365))}`) && /set \d+ \w+/.test(head.text), head.text.replace(/\s+/g, ' '))
+  check('a big "365 days" in the road card, said once on the page', /^365 days/.test(head.big) && head.bigs === 1, `${head.big} ×${head.bigs}`)
+  check('"+" and "..." sit on one row', head.more !== null && head.plus !== null && Math.abs(head.plus - head.more) < 2, JSON.stringify(head))
   const pageText = await h.evaluate(() => document.querySelector('div[data-open]')?.innerText ?? '')
   check('the page never says "of the way"', !/of the way/.test(pageText))
-  check('the page says the time gone', /of the time gone/.test(pageText), pageText.slice(0, 200))
+  check('the card says the time gone', /\d+% gone/.test(pageText), pageText.slice(0, 200))
 
-  // The road: only its own days, each mark named on the chart, the logged ones lit.
+  // The road: only its own days, small tight dots, every mark named in the key, the logged ones lit.
   const road = async () => h.evaluate(() => {
-    const svg = document.querySelector('[data-open] [data-road]')
-    const dots = svg ? [...svg.querySelectorAll('[data-road-day]')] : []
+    const card = document.querySelector('[data-open] [data-road-card]')
+    const dots = card ? [...card.querySelectorAll('[data-road-day]')] : []
+    const sizes = [...(card?.querySelectorAll('circle[data-dot]') ?? [])].map((one) => one.getBoundingClientRect().width)
+    const box = card?.getBoundingClientRect()
     return {
       dots: dots.length,
-      filler: svg ? svg.querySelectorAll('[data-road-before]').length + [...svg.querySelectorAll('circle')].filter((one) => one.style.opacity === '0.06').length : -1,
       lit: dots.filter((one) => one.hasAttribute('data-road-logged')).length,
-      labels: [...document.querySelectorAll('[data-open] [data-road-label]')].map((one) => one.textContent.trim()),
-      caption: document.querySelector('[data-open] [data-goal-showed]')?.textContent.replace(/\s+/g, ' ').trim() ?? ''
+      labels: [...(card?.querySelectorAll('[data-road-label]') ?? [])].map((one) => one.textContent.trim()),
+      pills: [...(card?.querySelectorAll('[data-road-pill]') ?? [])].map((one) => one.textContent.trim()).join(' | '),
+      smallest: sizes.length ? Math.min(...sizes) : 0,
+      largest: sizes.length ? Math.max(...sizes) : 0,
+      bands: card?.querySelectorAll('[data-road-band]').length ?? 0,
+      inside: [...(card?.querySelectorAll('[data-road-day], [data-road-label]') ?? [])].every((one) => { const r = one.getBoundingClientRect(); return box && r.left >= box.left - 1 && r.right <= box.right + 1 })
     }
   })
   let seen = await road()
-  check('a year-long road: 376 days, no filler before', seen.dots === 376 && seen.filler === 0, JSON.stringify({ dots: seen.dots, filler: seen.filler }))
-  for (const word of ['Today', 'Halfway', 'A month to go', 'A week to go', 'The day']) check(`the year road names "${word}" on the chart`, seen.labels.some((one) => one.startsWith(word)), seen.labels.join(' | '))
-  check('caption: "0 of 11 days logged" (the days gone so far)', /^0 of 11 days logged/.test(seen.caption), seen.caption)
+  check('a year-long road: 376 days, only its own', seen.dots === 376, seen.dots)
+  for (const word of ['Today', 'Halfway', 'A month to go', 'A week to go', 'The day']) check(`the year road names "${word}" in its key`, seen.labels.some((one) => one.startsWith(word)), seen.labels.join(' | '))
+  check('pill: "0 of 11 days logged" (the days gone so far)', /0 of 11 days logged/.test(seen.pills), seen.pills)
   await shot('page-year')
-  // A long road wraps so its dots stay about 10px, each row with its months, each name over its own row.
-  const roadLook = () => h.evaluate(() => {
-    const road = document.querySelector('div[data-open] [data-road]')
-    const dots = [...(road?.querySelectorAll('[data-road-day] > circle:last-child') ?? [])].map((one) => one.getBoundingClientRect().width)
-    const bands = [...(road?.querySelectorAll('[data-road-band]') ?? [])]
-    const bandOf = (el) => bands.indexOf(el.closest('[data-road-band]'))
-    const labels = [...(road?.querySelectorAll('[data-road-label]') ?? [])].map((one) => ({ word: one.textContent, band: bandOf(one) }))
-    const box = road?.getBoundingClientRect()
-    const inside = [...(road?.querySelectorAll('[data-road-label], [data-road-day]') ?? [])].every((one) => { const r = one.getBoundingClientRect(); return box && r.left >= box.left - 1 && r.right <= box.right + 1 })
-    return { smallest: dots.length ? Math.min(...dots) : 0, dots: dots.length, bands: bands.length, monthsLeft: road?.querySelectorAll('[data-road-months]').length ?? 0, labels, last: bands.length - 1, inside }
-  })
-  const roadShot = async (name) => { if (!SHOTS) return; await h.evaluate(() => document.querySelector('div[data-open] [data-road]')?.scrollIntoView({ block: 'start' })); await h.waitForTimeout(300); await shot(name) }
+  const roadShot = async (name) => { if (!SHOTS) return; await h.evaluate(() => document.querySelector('div[data-open] [data-road-card]')?.scrollIntoView({ block: 'start' })); await h.waitForTimeout(300); await shot(name) }
   const longRoad = async (name, days) => {
-    const seen = await roadLook()
-    check(`${name}: ${days} days drawn, no dot under 9.5px`, seen.dots === days && seen.smallest >= 9.5, JSON.stringify({ dots: seen.dots, smallest: seen.smallest }))
-    check(`${name}: wrapped into rows, each with its months at the left`, seen.bands > 1 && seen.monthsLeft === seen.bands, JSON.stringify({ bands: seen.bands, months: seen.monthsLeft }))
-    check(`${name}: "Today" over the first row, "The day" over the last`, seen.labels.some((one) => one.word === 'Today' && one.band === 0) && seen.labels.some((one) => one.word === 'The day' && one.band === seen.last), JSON.stringify(seen.labels))
-    check(`${name}: every dot and name inside the road`, seen.inside)
+    const seen = await road()
+    check(`${name}: ${days} days drawn, every dot 7 to 9px`, seen.dots === days && seen.smallest >= 7 && seen.largest <= 9, JSON.stringify({ dots: seen.dots, smallest: seen.smallest, largest: seen.largest }))
+    check(`${name}: every dot and name inside the card`, seen.inside)
   }
   await longRoad('the year road beside the list', 376)
   await roadShot('road-year')
   await openGoal(camino)
   await longRoad('a 611-day road beside the list', 611)
+  check('a 611-day road beside the list wraps into rows', (await road()).bands > 1)
   await shot('page-camino')
   await roadShot('road-camino')
-  // Its page alone, at the default width with the list folded away: wider rows, still about 10px.
   await size(900, 800)
   await longRoad('a 611-day road in a narrower window', 611)
   await shot('page-camino-narrow')
   await roadShot('road-camino-narrow')
   await size(1280, 800)
-  // The stat line breaks only between its parts.
+  // The date line breaks only between its parts.
   const parts = await h.evaluate(() => [...document.querySelectorAll('div[data-open] [data-meta-part]')].map((one) => ({ text: one.textContent, lines: one.getClientRects().length, wraps: one.getBoundingClientRect().height > 26 })))
-  check('every part of the stat line stays on one line', parts.length > 0 && parts.every((one) => !one.wraps), JSON.stringify(parts))
+  check('every part of the date line stays on one line', parts.length > 0 && parts.every((one) => !one.wraps), JSON.stringify(parts))
   const emptyLog = await h.evaluate(() => document.querySelector('[data-open] [data-log-empty]')?.textContent ?? '')
   check('an empty log is one short line', emptyLog.length > 0 && emptyLog.length <= 60, emptyLog)
 
   await openGoal(short)
   seen = await road()
-  check('a short road: 13 days, no filler before', seen.dots === 13 && seen.filler === 0, JSON.stringify({ dots: seen.dots, filler: seen.filler }))
+  check('a short road: 13 days in one line', seen.dots === 13 && seen.bands === 1, seen.dots)
   check('the short road names today and the day', ['Today', 'The day'].every((w) => seen.labels.some((one) => one.startsWith(w))), seen.labels.join(' | '))
   await shot('page-short')
   await size(390, 844)
   await shot('page-short-narrow')
   const sideways = await h.evaluate(() => [...document.querySelectorAll('[data-open] *')].some((one) => one.scrollWidth > one.clientWidth + 1 && getComputedStyle(one).overflowX === 'auto'))
   check('narrow: nothing scrolls sideways', !sideways)
-  const labelsIn = await h.evaluate(() => {
-    const box = document.querySelector('[data-open] [data-road]')?.getBoundingClientRect()
-    return [...document.querySelectorAll('[data-open] [data-road-label]')].every((one) => { const r = one.getBoundingClientRect(); return box && r.left >= box.left - 1 && r.right <= box.right + 1 })
-  })
-  check('narrow: every road label inside the road', labelsIn)
+  check('narrow: every road label inside the card', (await road()).inside)
   await size(1280, 800)
 
   await openGoal(logged)
   seen = await road()
-  check('logged days lit in the accent: 4', seen.lit === 4, seen.lit)
-  check('caption: "4 of 41 days logged"', /^4 of 41 days logged/.test(seen.caption), seen.caption)
+  check('logged days lit in the goal\'s colour: 4', seen.lit === 4, seen.lit)
+  check('pill: "4 of 41 days logged"', /4 of 41 days logged/.test(seen.pills), seen.pills)
   await shot('page-logs')
 
   await openGoal(past)
