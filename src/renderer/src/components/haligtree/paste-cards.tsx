@@ -43,9 +43,10 @@ export function PasteCards({ onClose, deck: aimed, onShow }: { onClose: () => vo
   }
   const count = cards.length * (both ? 2 : 1)
   const keys = (event: React.KeyboardEvent): void => {
-    event.stopPropagation()
+    // Typing stays in the form; the app's own chords (⌘K, ⌘F) still reach the app.
+    if (!event.metaKey && !event.ctrlKey) event.stopPropagation()
     if (event.key === 'Escape') return void (event.preventDefault(), onClose())
-    if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) return void (event.preventDefault(), add())
+    if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) return void (event.preventDefault(), event.stopPropagation(), add())
   }
   // What goes on every card, and what is left out, said once over the foot.
   const said = [marks.length ? `Each card gets ${marks.map((one) => `#${one}`).join(' ')}` : '', skipped > 0 ? plural(skipped, 'line has no back and stays', 'lines have no back and stay') + ' out' : ''].filter(Boolean).join('. ')

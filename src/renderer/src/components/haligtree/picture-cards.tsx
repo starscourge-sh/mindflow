@@ -319,7 +319,6 @@ export function PictureCards({ deck: aimed, onClose, onShow }: { deck?: string |
               Cover every label{found.length ? <span className="font-normal text-muted-foreground tabular-nums">{num(found.length)}</span> : null}<Kbd>A</Kbd>
             </Button>
             <Button variant="ghost" size="sm" className="h-8 cursor-pointer px-3" data-picture-group disabled={picked.size < 2} onClick={() => group(false)}>Ask as one card <Kbd>G</Kbd></Button>
-            <Button variant="ghost" size="sm" className="h-8 cursor-pointer px-3 text-muted-foreground" data-picture-other onClick={another}>Another picture</Button>
             <span className="flex-1" />
             <span role="radiogroup" aria-label="When asked" className="flex h-8 items-center rounded-lg border border-foreground/10 bg-accent/40 p-0.5 text-control max-sm:h-9">
               {(['one', 'all'] as const).map((one) => (
@@ -328,7 +327,11 @@ export function PictureCards({ deck: aimed, onClose, onShow }: { deck?: string |
               ))}
             </span>
           </div>
-          <p data-picture-status className="min-h-5 text-sm text-muted-foreground">{status}</p>
+          {/* What was found, and the way to start again with another picture, on the line under the tools (the tools stay on one line). */}
+          <div className="flex items-center gap-2">
+            <p data-picture-status className="min-h-5 flex-1 text-sm text-muted-foreground">{status}</p>
+            <Button variant="ghost" size="sm" className="-my-1 h-7 shrink-0 cursor-pointer px-2 text-muted-foreground" data-picture-other onClick={another}>Another picture</Button>
+          </div>
           {/* What the choice on the right does, in words, in the same place whichever is picked. */}
           <p data-picture-hide-said className="-mt-2 min-h-5 text-sm text-foreground/80">
             {hide === 'one' ? 'Hide one: each card covers only the label it asks; the others show.' : 'Hide all: every label stays covered; the one asked glows.'} <Kbd>⌫</Kbd> takes a picked cover off, <Kbd>⌘Z</Kbd> undoes.

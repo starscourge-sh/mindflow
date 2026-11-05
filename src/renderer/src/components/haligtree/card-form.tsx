@@ -56,7 +56,7 @@ export function CardFormFoot({ deck, onDeck, tags, onTags, both, onBoth, status,
   go: string
   ready: boolean
   onGo: () => void
-  /** The make button's data mark, for the probes. */
+  /** The make button's data mark, for the probes. Its width is kept for its longest words, so it never moves as the count changes. */
   mark: string
 }): React.JSX.Element {
   return (
@@ -75,7 +75,7 @@ export function CardFormFoot({ deck, onDeck, tags, onTags, both, onBoth, status,
         )}
         <span className="flex-1" />
         <Button variant="ghost" size="sm" className="h-8 cursor-pointer" data-card-form-cancel onClick={onCancel}>{cancel} <Kbd>Esc</Kbd></Button>
-        <Button size="sm" className="h-8 cursor-pointer tabular-nums" data-card-form-go {...{ [`data-${mark}`]: '' }} disabled={!ready} onClick={onGo}>{go} <Kbd>⌘↵</Kbd></Button>
+        <Button size="sm" className="h-8 min-w-40 cursor-pointer tabular-nums" data-card-form-go {...{ [`data-${mark}`]: '' }} disabled={!ready} onClick={onGo}>{go} <Kbd>⌘↵</Kbd></Button>
       </div>
     </div>
   )

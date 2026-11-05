@@ -39,9 +39,10 @@ export function NewCard({ deck: aimed, onClose }: { deck?: string; onClose: () =
     })
   }
   const keys = (event: React.KeyboardEvent): void => {
-    event.stopPropagation()
+    // Typing stays in the form; the app's own chords (⌘K, ⌘F) still reach the app.
+    if (!event.metaKey && !event.ctrlKey) event.stopPropagation()
     if (event.key === 'Escape') return void (event.preventDefault(), onClose())
-    if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) return void (event.preventDefault(), save())
+    if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) return void (event.preventDefault(), event.stopPropagation(), save())
   }
   return (
     <CardForm data-new-card head={`New card${tag ? ` in ${deckTitle(tag)}` : ''}`} line={`${sides ? `${sides[0]}, then ${sides[1]}` : 'A question, then its answer'}: one thing a card.`} keys={keys}
