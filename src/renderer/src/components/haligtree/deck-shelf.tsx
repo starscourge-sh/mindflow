@@ -314,7 +314,7 @@ function DeckTile({ id, own = false, drag, name, title, due, fresh, all, held, c
         )}
         <h3 className="line-clamp-2 pr-7 font-serif leading-snug text-foreground hyphens-manual [overflow-wrap:normal]" style={nameFit(name, '1.75rem')}>{softBreaks(name)}</h3>
         <span data-deck-counts className="text-sm text-muted-foreground tabular-nums">
-          {all ? <><Counts due={due} fresh={fresh} />{held > 0 && <> · {num(held)} held</>}</> : <span data-deck-empty>Empty: click to make a card</span>}
+          {all ? <><Counts due={due} fresh={fresh} />{held > 0 && <>{' · '}<span className="whitespace-nowrap">{num(held)} held</span></>}</> : <span data-deck-empty>Empty: click to make a card</span>}
         </span>
         {/* No big number: the counts under the name already say it. At the foot, how many in all, and a dot when some are due. */}
         {/* The foot is one line, never wrapped or hyphenated: "3 cards · +1 inside", the second part giving way first. */}
@@ -526,8 +526,9 @@ function Fold({ id, kids, open, name, flip }: { /** The deck's tag or a shared t
 function Counts({ due, fresh }: { due: number; fresh: number }): React.JSX.Element {
   return (
     <>
-      <span data-count-due={due} className={due ? 'font-semibold text-foreground' : ''}>{num(due)} due</span>
-      <span data-count-fresh={fresh}> · {num(fresh)} not studied yet</span>
+      {/* Each part whole on its line, the break only between them: never "3 not studied" and "yet" alone under it. */}
+      <span data-count-due={due} className={`whitespace-nowrap ${due ? 'font-semibold text-foreground' : ''}`}>{num(due)} due</span>
+      {' · '}<span data-count-fresh={fresh} className="whitespace-nowrap">{num(fresh)} not studied yet</span>
     </>
   )
 }
