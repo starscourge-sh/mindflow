@@ -919,30 +919,27 @@ function DotTip({ dot, today, days, milestoneIn, markIn }: { dot: Dot; today: st
 const DOT = 8
 const GAP = 2.5
 const STEP = DOT + GAP
-/** The tightest a road packs to fit a narrow card: 7px dots, 2px apart. */
-const TIGHT = 9
-/** Up to a month, a road is one line of days; up to WEEKS weeks, a column a week, Monday at the top; longer, a row a month, its days across by date, as a year-in-dots calendar is. */
+/** The tightest a road packs to fit a narrow card: 7px dots, a little over 2px apart. */
+const TIGHT = 9.3
+/** Up to a month, a road is one line of days; longer, a column a week, Monday at the top. */
 const ONE_LINE = 31
-const WEEKS = 18
 /** "Nov" for "2026-11-05", "Jan 2027" where a year turns. */
 const monthOf = (day: string, year = false): string => { const [, m] = dayMonth(`${day}T12:00`, 'never').split(' '); return year ? `${m} ${day.slice(0, 4)}` : m }
-/** How wide a row's month name is drawn, near enough, at 11px. */
-const nameWidth = (label: string): number => Math.ceil(label.length * 6.1) + 6
 
 /**
  * A goal's road as one compact card, after Mono's charts: one big number at
- * the top left with small pills beside it, then the road as one map, small
- * dots packed tight. Days gone are solid ink, days ahead barely there, today
- * the brightest dot, logged days in the goal's colour. Up to a month it is one
- * line of days with the months under it; longer, a row a month, its days
- * across by date and the month named at the row's start, so a whole year is
- * one block that fits any card. More than a year away it is a dot a week, a
- * column a month (journey), and says so; it turns into days by itself once
- * the day is within a year. Marked days (Halfway, A month to go, the goal's
- * own) are ticks over a line or rings round their dot, named in a key under
- * the card. On ice, the road stops on the day it went on ice, in a cool ink;
- * ended, on the day it ended. Pointed at, a dot says its day and its logs;
- * clicked, the logs below show only that day.
+ * the top left with small pills beside it, then the road, small dots packed
+ * tight, the months named under it. Days gone are solid ink, days ahead barely
+ * there, today the brightest dot, logged days in the goal's colour. Up to a
+ * month it is one line of days; longer, a column a week, Monday on top, as a
+ * year-of-days calendar is; a year of weeks too wide for the card wraps into
+ * two half-years, each its own row of whole weeks. More than a year away it is
+ * a dot a week, a column a month (journey), and says so; it turns into days
+ * by itself once the day is within a year. Marked days (Halfway, A month to
+ * go, the goal's own) are ticks over a line or rings round their dot, named in
+ * a key under the card. On ice, the road stops on the day it went on ice, in a
+ * cool ink; ended, on the day it ended. Pointed at, a dot says its day and its
+ * logs; clicked, the logs below show only that day.
  */
 function RoadCard({ item, from, target, today: now, picked, onPick }: { item: ItemFull; from: string; target: string; today: string; picked: Dot | null; onPick: (dot: Dot | null) => void }): React.JSX.Element {
   const iced = onIce(item)
@@ -965,39 +962,21 @@ function RoadCard({ item, from, target, today: now, picked, onPick }: { item: It
     return () => watch.disconnect()
   }, [])
   const line = !weeks && road.dots.length <= ONE_LINE
-  // Columns of days (a week each) or of weeks (a month each), as journey lays them out; else a row a month.
-  const columns = weeks || (!line && road.cols <= WEEKS)
-  // A row a month: its place in the months from the first, and its day of the month across.
-  const monthIndex = (day: string): number => Number(day.slice(0, 4)) * 12 + Number(day.slice(5, 7))
-  const first = road.dots[0]?.day ?? from
-  const months = line || columns ? [] : Array.from({ length: monthIndex(road.dots.at(-1)!.day) - monthIndex(first) + 1 }, (_, at) => {
-    const month = monthIndex(first) + at - 1
-    const day = `${Math.floor(month / 12)}-${String((month % 12) + 1).padStart(2, '0')}-01`
-    // Where a year turns its row is named by the year, as a calendar's is: "2027", never a wide "Jan 2027" that would push the dots out of a narrow card.
-    return day.slice(5, 7) === '01' && at > 0 ? day.slice(0, 4) : monthOf(day)
-  })
-  // A row a month while 31 days fit across the card; in a narrower card (a small window beside the list), a column a
-  // month with its days down it, the months named under, so it is still one map with dots of the usual size.
-  const across31 = months.length > 0 && Math.max(...months.map(nameWidth)) + 31 * TIGHT + 34 <= (width || 640)
-  const rowNames = across31 ? months : []
-  const down = months.length > 0 && !across31
-  // Named every third row (a season apart) and where a year turns, so the names never stack into a column of words.
-  const named = rowNames.map((name, row) => (row % 3 === 0 || /\d/.test(name) ? name : ''))
-  for (let row = 1; row < named.length; row++) if (named[row] && named[row - 1]) named[/\d/.test(named[row]) ? row - 1 : row] = ''
-  const lead = rowNames.length ? Math.max(...rowNames.map(nameWidth)) : 0
-  const across = line ? road.dots.length : columns ? road.cols : down ? months.length : 31
-  const rows = line ? 1 : columns ? road.rows : down ? 31 : rowNames.length
-  // As large as the room allows, never larger than the usual dot nor tighter than TIGHT: always one map.
-  const step = Math.min(STEP, Math.max(TIGHT, ((width || 640) - 34 - lead) / across))
-  const dot = step >= STEP ? DOT : Math.max(7, step - 2)
+  // Longer than a line, the calendar shape journey lays out: a column a week (Monday on top), or a column a month of weeks.
+  const across = line ? road.dots.length : road.cols
+  const rows = line ? 1 : road.rows
+  const room = (width || 640) - 34
+  // One map while every column fits at 7px dots. Wider (a year of weeks beside the list), whole columns wrap into even
+  // bands, two half-years for a year, each with its own months under it: never a gap in the middle of a row.
+  const bands = Math.max(1, Math.ceil((across * TIGHT - (TIGHT - 7)) / room))
+  const per = Math.ceil(across / bands)
+  const step = Math.min(STEP, Math.max(TIGHT, room / per))
+  const dot = step >= STEP ? DOT : Math.max(7, Math.min(DOT, step - 2.3))
   const placed = road.dots.map((one, index) => {
-    const date = Number(one.day.slice(8, 10)) - 1
-    const month = monthIndex(one.day) - monthIndex(first)
-    const col = line ? index : columns ? one.col : down ? month : date
-    const row = line ? 0 : columns ? one.row : down ? date : month
-    return { dot: one, x: lead + col * step + dot / 2, y: row * step + dot / 2 }
+    const col = line ? index : one.col
+    return { dot: one, band: Math.floor(col / per), x: (col % per) * step + dot / 2, y: (line ? 0 : one.row) * step + dot / 2 }
   })
-  const mapWidth = lead + across * step - (step - dot)
+  const mapWidth = per * step - (step - dot)
   const mapHeight = rows * step - (step - dot)
   const left = daysLeft(target, today)
   const gone = Math.max(1, Math.min(daysBetween(from, today), daysBetween(from, target)) + 1)
@@ -1016,11 +995,11 @@ function RoadCard({ item, from, target, today: now, picked, onPick }: { item: It
   })
   const ticked = new Map(marks.map((one) => [one.day, one.ink]))
   const shownHover = hover && placed.find((one) => one.dot.day === hover.day)
-  // The months under a line of days, or under the columns of weeks; a name where a month starts, never two touching.
-  const under: { x: number; label: string }[] = []
-  if (!rowNames.length) {
+  // The months under a band, a name where a month starts (the year where it turns, or on a band's first name when it is not this year), never two touching.
+  const monthsUnder = (here: typeof placed): { x: number; label: string }[] => {
+    const under: { x: number; label: string }[] = []
     const columns = new Map<number, string>()
-    for (const { dot: one, x } of placed) if (!columns.has(x)) columns.set(x, one.day)
+    for (const { dot: one, x } of here) if (!columns.has(x)) columns.set(x, one.day)
     let before = ''
     for (const [x, day] of columns) {
       const month = day.slice(0, 7)
@@ -1032,6 +1011,7 @@ function RoadCard({ item, from, target, today: now, picked, onPick }: { item: It
       }
       before = month
     }
+    return under
   }
   const unit = weeks ? 'weeks' : 'days'
   return (
@@ -1051,44 +1031,46 @@ function RoadCard({ item, from, target, today: now, picked, onPick }: { item: It
       </div>
       {/* More than a year away, the rule said once, in words, where the dots are. */}
       {weeks && <p data-road-rule className="mt-1.5 text-meta text-foreground/80">A dot a week until it's within a year</p>}
-      <div data-road-band={0} className="relative mt-3" onMouseLeave={() => setHover(null)}>
-        {width > 0 && (
-          <svg role="img" aria-label={`${dayMonth(`${placed[0].dot.day}T12:00`)} to ${dayMonth(`${placed.at(-1)!.dot.last}T12:00`)}, a dot a ${road.by}: ${num(placed.filter((one) => one.dot.past).length)} of ${num(placed.length)} ${unit} gone`}
-            width={mapWidth} height={mapHeight + 5} viewBox={`0 -5 ${mapWidth} ${mapHeight + 5}`} className="block overflow-visible">
-            {named.map((name, row) => name && (
-              <text key={row} x={0} y={row * step + dot / 2} dominantBaseline="central" className="fill-muted-foreground text-[11px]">{name}</text>
-            ))}
-            {placed.map(({ dot: one, x, y }) => {
-              const has = logsIn(days, one).length > 0
-              const tick = ticked.get(one.day) ?? (one.target ? ACCENT : undefined)
-              return (
-                <g key={one.day} data-road-day={one.day} data-road-now={one.today || undefined} data-road-logged={has || undefined} className="cursor-pointer"
-                  onMouseEnter={() => setHover(one)} onClick={() => (chime('tap'), onPick(picked?.day === one.day ? null : one))}>
-                  {/* The whole cell is its target, gap and all. */}
-                  <rect x={x - step / 2} y={y - step / 2} width={step} height={step} fill="transparent" />
-                  {/* A marked day: a tick over a line of days, a ring round its dot in a block; named in the key below. */}
-                  {tick && line && <rect data-road-tick x={x - 0.75} y={y - dot / 2 - 5} width={1.5} height={3.5} rx={0.75} fill={tick} />}
-                  {tick && !line && <circle data-road-tick cx={x} cy={y} r={dot / 2 + 1.2} fill="none" stroke={tick} strokeWidth={1} />}
-                  <circle data-dot cx={x} cy={y} r={dot / 2}
-                    fill={one.today ? (iced ? ICE : ACCENT) : has ? lit : ink}
-                    opacity={one.today || has ? 1 : one.past ? (iced ? 0.55 : 0.82) : 0.13} />
-                  {picked?.day === one.day && <circle cx={x} cy={y} r={dot / 2 + 1.25} fill="none" stroke="var(--foreground)" strokeWidth={1} />}
-                </g>
-              )
-            })}
-          </svg>
-        )}
-        {under.length > 0 && (
-          <div aria-hidden className="relative mt-1 h-3.5 text-[11px] leading-none text-muted-foreground" style={{ width: mapWidth }}>
-            {under.map((month) => <span key={month.x} className="absolute top-0 whitespace-nowrap" style={{ left: month.x }}>{month.label}</span>)}
-          </div>
-        )}
-        {shownHover && (
-          <div data-road-tip className={`pointer-events-none absolute z-10 w-max max-w-64 ${TIP} ${shownHover.x < mapWidth / 3 ? '-translate-x-3' : shownHover.x > (mapWidth * 2) / 3 ? '-translate-x-[calc(100%-0.75rem)]' : '-translate-x-1/2'}`}
-            style={{ left: shownHover.x, top: shownHover.y + step + 4 }}>
-            <DotTip dot={shownHover.dot} today={today} days={days} milestoneIn={milestoneIn} markIn={(one) => marksIn(one)[0]} />
-          </div>
-        )}
+      <div className="mt-3" onMouseLeave={() => setHover(null)}>
+        {width > 0 && Array.from({ length: bands }, (_, band) => {
+          const here = placed.filter((one) => one.band === band)
+          if (!here.length) return null
+          const under = monthsUnder(here)
+          return (
+            <div key={band} data-road-band={band} className={`relative ${band ? 'mt-2.5' : ''}`}>
+              <svg role="img" aria-label={`${dayMonth(`${here[0].dot.day}T12:00`)} to ${dayMonth(`${here.at(-1)!.dot.last}T12:00`)}, a dot a ${road.by}: ${num(here.filter((one) => one.dot.past).length)} of ${num(here.length)} ${unit} gone`}
+                width={mapWidth} height={mapHeight + 5} viewBox={`0 -5 ${mapWidth} ${mapHeight + 5}`} className="block overflow-visible">
+                {here.map(({ dot: one, x, y }) => {
+                  const has = logsIn(days, one).length > 0
+                  const tick = ticked.get(one.day) ?? (one.target ? ACCENT : undefined)
+                  return (
+                    <g key={one.day} data-road-day={one.day} data-road-now={one.today || undefined} data-road-logged={has || undefined} className="cursor-pointer"
+                      onMouseEnter={() => setHover(one)} onClick={() => (chime('tap'), onPick(picked?.day === one.day ? null : one))}>
+                      {/* The whole cell is its target, gap and all. */}
+                      <rect x={x - step / 2} y={y - step / 2} width={step} height={step} fill="transparent" />
+                      {/* A marked day: a tick over a line of days, a ring round its dot in a block; named in the key below. */}
+                      {tick && line && <rect data-road-tick x={x - 0.75} y={y - dot / 2 - 5} width={1.5} height={3.5} rx={0.75} fill={tick} />}
+                      {tick && !line && <circle data-road-tick cx={x} cy={y} r={dot / 2 + 1.2} fill="none" stroke={tick} strokeWidth={1} />}
+                      <circle data-dot cx={x} cy={y} r={dot / 2}
+                        fill={one.today ? (iced ? ICE : ACCENT) : has ? lit : ink}
+                        opacity={one.today || has ? 1 : one.past ? (iced ? 0.55 : 0.82) : 0.13} />
+                      {picked?.day === one.day && <circle cx={x} cy={y} r={dot / 2 + 1.25} fill="none" stroke="var(--foreground)" strokeWidth={1} />}
+                    </g>
+                  )
+                })}
+              </svg>
+              <div aria-hidden className="relative mt-1 h-3.5 text-[11px] leading-none text-muted-foreground" style={{ width: mapWidth }}>
+                {under.map((month) => <span key={month.x} className="absolute top-0 whitespace-nowrap" style={{ left: month.x }}>{month.label}</span>)}
+              </div>
+              {shownHover && shownHover.band === band && (
+                <div data-road-tip className={`pointer-events-none absolute z-10 w-max max-w-64 ${TIP} ${shownHover.x < mapWidth / 3 ? '-translate-x-3' : shownHover.x > (mapWidth * 2) / 3 ? '-translate-x-[calc(100%-0.75rem)]' : '-translate-x-1/2'}`}
+                  style={{ left: shownHover.x, top: shownHover.y + step + 4 }}>
+                  <DotTip dot={shownHover.dot} today={today} days={days} milestoneIn={milestoneIn} markIn={(one) => marksIn(one)[0]} />
+                </div>
+              )}
+            </div>
+          )
+        })}
       </div>
       {/* The key: what the dots mean, then every marked day by name. Whole items wrap; nothing stacks on anything. */}
       <ul aria-label="What the marks mean" className="mt-2.5 flex max-w-full flex-wrap gap-x-3 gap-y-1 text-meta text-muted-foreground" style={{ maxWidth: Math.max(mapWidth, 248) }}>
