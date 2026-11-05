@@ -1152,9 +1152,13 @@ export function useCaptureDisplay(name: string, all: CaptureMeta[], filter?: Vie
   const statuses = [...new Set(kept.filter((one) => !isTask(one)).map((one) => one.status))]
   // With a choice of which tasks show, the Task chip stays even when none is on show: it is where you choose others.
   // A list no task ever reaches (the Inbox: a task leaves it for Tasks) has no Task chip, whatever was picked before.
-  const withTasks = !!taskChoice || kept.some(isTask) || kept.some((one) => one.kind === 'todo') || !!filter?.kind?.includes('task')
-  const progress = [...new Set(kept.flatMap((one) => [fieldOf(one.fields, 'status') ?? fieldOf(one.fields, 'state')].filter((v): v is string => !!v)))].sort()
-  const stars = [...new Set(kept.map((one) => Number(fieldOf(one.fields, 'rating'))).filter((n) => n >= 1 && n <= 5))].sort((a, b) => b - a)
+  // The other chips are built from what the status picked lets through: the Inbox keeps the captures that left it
+  // (for its Status chip), and a chip built from those (Task, a tag only they carry) always showed "0 shown".
+  const picked = view.filter.status?.filter((one) => statuses.includes(one)) ?? []
+  const reach = picked.length ? kept.filter((one) => isTask(one) || picked.includes(one.status)) : kept
+  const withTasks = !!taskChoice || reach.some(isTask) || reach.some((one) => one.kind === 'todo')
+  const progress = [...new Set(reach.flatMap((one) => [fieldOf(one.fields, 'status') ?? fieldOf(one.fields, 'state')].filter((v): v is string => !!v)))].sort()
+  const stars = [...new Set(reach.map((one) => Number(fieldOf(one.fields, 'rating'))).filter((n) => n >= 1 && n <= 5))].sort((a, b) => b - a)
   const facets: Facet<CaptureMeta>[] = [
     // Whether it has taken an exit: offered when the list holds more than one,
     // so handled and discarded captures can be reached where it is all held.
@@ -1163,11 +1167,11 @@ export function useCaptureDisplay(name: string, all: CaptureMeta[], filter?: Vie
     ...(statuses.length > 1 || filter?.status ? [{ key: 'status', label: 'Status', options: ['open', 'promoted', 'resolved', 'discarded'].filter((one) => statuses.includes(one) || filter?.status?.includes(one)).map((id) => ({ id, label: statusSaid(id), icon: STATUS_ICON[id as keyof typeof STATUS_ICON] })), test: (one: CaptureMeta, status: string) => isTask(one) || one.status === status }] : []),
     // Tasks and the tasks caught in quick capture are one chip, "Task": two chips of one name would be a riddle.
     // In the one order, Note first (kindRank): with tasks among them, the tasks' chip stands where Task does.
-    { key: 'kind', label: 'Kind', options: CAPTURE_TYPES.flatMap((type) => (withTasks && type.id === 'todo' ? [TASK_KIND] : kept.some((one) => one.kind === type.id) ? [{ id: type.id, label: type.label, icon: type.icon, tint: type.tint }] : [])) as Choice[], test: (one, kind) => one.kind === kind || (withTasks && kind === 'task' && one.kind === 'todo') },
+    { key: 'kind', label: 'Kind', options: CAPTURE_TYPES.flatMap((type) => (withTasks && type.id === 'todo' ? [TASK_KIND] : reach.some((one) => one.kind === type.id) ? [{ id: type.id, label: type.label, icon: type.icon, tint: type.tint }] : [])) as Choice[], test: (one, kind) => one.kind === kind || (withTasks && kind === 'task' && one.kind === 'todo') },
     // A Word is a lookup: asked until its answer is written. Offered once there is one.
-    ...(kept.some((one) => one.lookup) ? [{ key: 'lookup', label: 'Meaning', options: [{ id: 'asked', label: 'No meaning yet' }, { id: 'answered', label: 'Written' }], test: (one: CaptureMeta, state: string) => one.lookup === state }] : []),
+    ...(reach.some((one) => one.lookup) ? [{ key: 'lookup', label: 'Meaning', options: [{ id: 'asked', label: 'No meaning yet' }, { id: 'answered', label: 'Written' }], test: (one: CaptureMeta, state: string) => one.lookup === state }] : []),
     { key: 'when', label: 'Captured', options: AGES, test: (one, when) => period(one.capturedAt) === when },
-    { key: 'tag', label: 'Tag', options: [...new Set(kept.flatMap((one) => splitTags(one.label).tags))].sort().map((tag) => ({ id: tag, label: `#${tag}`, icon: Tag, tint: tagTint(tag) })), test: (one, tag) => splitTags(one.label).tags.includes(tag) },
+    { key: 'tag', label: 'Tag', options: [...new Set(reach.flatMap((one) => splitTags(one.label).tags))].sort().map((tag) => ({ id: tag, label: `#${tag}`, icon: Tag, tint: tagTint(tag) })), test: (one, tag) => splitTags(one.label).tags.includes(tag) },
     { key: 'from', label: 'Came from', options: [{ id: 'typed', label: 'Typed here' }, { id: 'imported', label: 'Imported' }], test: (one, from) => (one.source ? 'imported' : 'typed') === from },
     { key: 'who', label: 'Who said it', options: [{ id: 'mine', label: 'My words' }, { id: 'theirs', label: 'Someone else' }], test: (one, who) => (one.attribution ? 'theirs' : 'mine') === who },
     // Properties a kind or a tag asks for: where you are with it, and its stars.
