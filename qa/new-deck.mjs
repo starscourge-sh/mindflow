@@ -161,7 +161,7 @@ try {
   const right = await h.evaluate(() => [...document.querySelectorAll('[role="menuitem"]')].map((one) => one.textContent ?? '').join(' | '))
   check('8. right-click has the ⋯ menu\'s lines', ['Deck settings…', 'New deck inside', 'Rename…', 'Delete deck…'].every((one) => right.includes(one)), right)
   await menuItem('Rename…').click()
-  await answer('Furnace')
+  await inPlace('Furnace')
   check('8. Rename deck renames the tag on its cards', await waitFor(async () => (await call('cards:all')).some((one) => one.prompt === 'What is a kiln?' && one.tags.includes('furnace'))))
   check('8. and it is still a deck', (await call('decks:made')).includes('furnace'))
   await waitFor(() => has('[data-own-deck="furnace"]'))
