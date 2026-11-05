@@ -829,7 +829,7 @@ function FirstWays({ example, onMake, onPicture, onStudy }: { example: OwnDeck |
           <span className="border-t border-foreground/10" />
           <span className="flex items-baseline justify-between gap-3 text-sm"><span className="truncate text-foreground">Spanish words.csv</span><span className="shrink-0 text-muted-foreground">spreadsheet</span></span>
         </Way>
-        <Way id="picture" title="Make cards from a picture" line="A diagram with labels: cover them, and each becomes a card." onClick={onPicture}>
+        <Way id="picture" title="Make cards from a picture" line="A diagram, a map or a painting: cover parts of it, and each cover becomes a card." onClick={onPicture}>
           {/* A drawn diagram: a cell, its labels covered, the one asked glowing in the theme's colour. */}
           <svg viewBox="0 0 120 44" className="h-11 w-full" aria-hidden>
             <circle cx="60" cy="22" r="17" fill="none" stroke="currentColor" strokeOpacity="0.35" strokeWidth="1.2" />
