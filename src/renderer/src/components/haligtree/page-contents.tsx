@@ -4,7 +4,7 @@ import { flushSync } from 'react-dom'
 import '@/components/haligtree/haligtree-editor.scss'
 import './page-contents.css'
 import { cue } from '@/lib/cues'
-import { glideTo } from './ui'
+import { glideTo, listEnd } from './ui'
 import { Tree, treeOf } from './branches'
 
 /** A row: its name, and, for a group that has one, a few words after it ("2 of 9"). */
@@ -210,11 +210,13 @@ export function PageContents({ page, scroller, label }: { page: HTMLElement | nu
         if (keyed === null) return
         const down = event.key === 'ArrowDown' || event.key === 'j'
         const up = event.key === 'ArrowUp' || event.key === 'k'
+        // G and g g as End and Home.
+        const end = listEnd(event)
         // Spent here: the page's own j and k move between its controls.
-        if (down || up || event.key === 'Home' || event.key === 'End') {
+        if (down || up || end || event.key === 'Home' || event.key === 'End') {
           event.preventDefault()
           event.stopPropagation()
-          const next = event.key === 'Home' ? 0 : event.key === 'End' ? entries.length - 1 : Math.min(entries.length - 1, Math.max(0, keyed + (down ? 1 : -1)))
+          const next = event.key === 'Home' || end === 'first' ? 0 : event.key === 'End' || end === 'last' ? entries.length - 1 : Math.min(entries.length - 1, Math.max(0, keyed + (down ? 1 : -1)))
           if (next !== keyed) cue('outline-step', next)
           setKeyed(next)
         } else if (event.key === 'Enter' || event.key === ' ') {

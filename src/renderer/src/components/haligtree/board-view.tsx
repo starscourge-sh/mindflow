@@ -20,7 +20,7 @@ import { taskSaid, haligtree } from '@/lib/haligtree'
 import { keyFor } from '@/lib/keys'
 import { dayMonth, num } from '../../../../main/dates'
 import { Overlay, SETTLE, snapshot } from './sortable'
-import { Count, Tip, refuse, toast, untoast, whyFailed } from './ui'
+import { Count, Tip, listEnd, refuse, toast, untoast, whyFailed } from './ui'
 import { useHere } from '@/lib/split'
 import { Check, ChevronDown, ChevronRight, Search, X } from '@/components/ui/icons'
 import { EASING, still } from '@/lib/motion'
@@ -418,6 +418,13 @@ export function Board({ editor, id, tools }: { editor: Editor; id: string; /** W
       const at = cursor ?? (open[0] ? { lane: open[0].at, card: shown(open[0].at) ? 0 : -1 } : null)
       if (!at) return
       const key = event.key
+      // G and g g: the last card of the list the cursor is in, and its first.
+      const end = event.altKey ? null : listEnd(event)
+      if (end) {
+        take()
+        const count = shown(at.lane)
+        return setCursor({ lane: at.lane, card: count ? (end === 'last' ? count - 1 : 0) : -1 })
+      }
       const down = key === 'ArrowDown' || key === 'j'
       const up = key === 'ArrowUp' || key === 'k'
       const left = key === 'ArrowLeft' || key === 'h'

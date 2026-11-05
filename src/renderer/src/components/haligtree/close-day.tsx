@@ -11,7 +11,7 @@ import { unloaded, useLive, haligtree, when, type Settings, type Task } from '@/
 import { placed, taskName } from '@/lib/tasks'
 import { frogOn } from '@/lib/day-plan'
 import { Button } from '@/components/ui/button'
-import { Kbd, Tags, toast } from './ui'
+import { Kbd, Tags, listEnd, toast } from './ui'
 import { shiftTo } from './tasks-view'
 import { CloseWeekSheet } from './close-week'
 import { DayLog } from './day-log'
@@ -260,7 +260,9 @@ function Pass({ onClose }: { onClose: () => void }): React.JSX.Element {
       const field = (document.activeElement as HTMLElement | null)?.closest?.('input, textarea, [contenteditable="true"]')
       if (field || event.metaKey || event.ctrlKey || event.altKey) return
       const task = open[cursor]
-      if (event.key === 'j' || event.key === 'ArrowDown') (event.preventDefault(), setCursor((at) => Math.min(open.length - 1, at + 1)))
+      const end = listEnd(event)
+      if (end) (event.preventDefault(), setCursor(end === 'last' ? Math.max(0, open.length - 1) : 0))
+      else if (event.key === 'j' || event.key === 'ArrowDown') (event.preventDefault(), setCursor((at) => Math.min(open.length - 1, at + 1)))
       else if (event.key === 'k' || event.key === 'ArrowUp') (event.preventDefault(), setCursor((at) => Math.max(0, at - 1)))
       else if (task && ['t', 'n', 'b', 'd'].includes(event.key.toLowerCase())) (event.preventDefault(), void choose(task, ({ t: 'tomorrow', n: 'move', b: 'bin', d: 'bin' } as const)[event.key.toLowerCase() as 't' | 'n' | 'b' | 'd']))
       else return

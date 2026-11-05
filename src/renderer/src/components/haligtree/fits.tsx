@@ -10,7 +10,7 @@ import { hoursSaid } from '@/lib/day-plan'
 import { moveToBin } from '@/lib/to-bin'
 import { Chips } from './display'
 import { RowMenu, copy, type RowItem } from './row-menu'
-import { Kbd, Rolling, Tags, Tip, toast, quietly } from './ui'
+import { Kbd, Rolling, Tags, Tip, listEnd, toast, quietly } from './ui'
 import { LengthChip, completeTask, startOn, taskMenu, useTaskNow } from './tasks-view'
 import { PICKED_ROW } from './task-pick'
 import { QUADS, byMatrix } from './matrix-view'
@@ -148,6 +148,7 @@ function Fits({ start, onClose }: { start: number; onClose: () => void }): React
     const plain = !event.metaKey && !event.ctrlKey && !event.altKey
     const index = choices.indexOf(minutes)
     if (event.key === 'Escape') live.length ? (chime('off'), setPicked([])) : close()
+    else if (plain && listEnd(event)) setAt(listEnd(event) === 'last' ? Math.max(0, rows.length - 1) : 0)
     else if (plain && (event.key === 'ArrowDown' || event.key === 'j')) setAt((n) => Math.min(n + 1, rows.length - 1))
     else if (plain && (event.key === 'ArrowUp' || event.key === 'k')) setAt((n) => Math.max(n - 1, 0))
     else if (plain && event.key === 'ArrowRight' && index < choices.length - 1) (chime('tap'), pickLength(choices[index + 1]))

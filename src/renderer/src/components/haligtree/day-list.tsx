@@ -10,7 +10,7 @@ import { byKeys, useByKeys } from '@/lib/motion'
 import { readLines, tasksOf } from '../../../../main/day-lines'
 import { dayKey, num, startOfDay } from '../../../../main/dates'
 import { useToday } from '@/lib/use-today'
-import { Count, Book, Kbd, Rolling, Tags, Tip, Typed, refuse, toast, quietly } from './ui'
+import { Count, Book, Kbd, Rolling, Tags, Tip, Typed, listEnd, refuse, toast, quietly } from './ui'
 import { DROP_LIT, SortableList, SortableRow } from './sortable'
 import { Struck, Tick } from './marks'
 import { completeTask, dayCleared, landed, moveTo, onToday, pickDate, shiftTo, startOn, taskMenu, useTaskNow } from './tasks-view'
@@ -684,6 +684,15 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
       const under = compact ? null : box.current.querySelector<HTMLElement>('[data-day-line]:hover')
       const pointed = under ? { id: under.dataset.dayLine!, section: under.dataset.section as Section } : null
       const on = picked ?? pointed
+      // G and g g: the last line of the list, and its first.
+      const end = listEnd(event)
+      if (end && !compact) {
+        const list = lists[on?.section ?? 'now']
+        const to = end === 'last' ? list.at(-1) : list[0]
+        if (!to) return
+        take()
+        return void (chime('tick'), setPicked({ id: to.id, section: on?.section ?? 'now' }))
+      }
       if (!on) {
         // Nothing picked or pointed at: ↓ or J picks the first line of the day, ↑ or K the last.
         if (compact || !(down || up)) return

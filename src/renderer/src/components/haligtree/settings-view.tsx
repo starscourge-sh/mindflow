@@ -37,7 +37,7 @@ import { SoundPacks } from './sound-packs'
 import { FontPicker } from './font-picker'
 import { TEXT_SIZES } from '@/lib/editor-setup'
 import { SCRUB, ScrubField } from '../pdf/scrub-field'
-import { BackToTop, Kbd, Rolling, Tip, ask, quietly, refuse, stopJob, toast, useSmooth, waiting } from './ui'
+import { BackToTop, Kbd, Rolling, Tip, ask, listEnd, quietly, refuse, stopJob, toast, useSmooth, waiting } from './ui'
 import { working } from './beam'
 import { Term } from './term'
 import { Button } from '@/components/ui/button'
@@ -492,7 +492,12 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
         (one) => one.tabIndex >= 0 && !one.matches(':disabled') && one.checkVisibility() && !one.matches('input:not([type]), input[type="text"], input[type="search"]')
       )
       const at = controls.indexOf(active as HTMLElement)
-      if (event.key === 'j' || event.key === 'k') {
+      // G and g g: the page's last control, and its first.
+      const end = listEnd(event)
+      if (end) {
+        event.preventDefault()
+        ;(end === 'last' ? controls.at(-1) : controls[0])?.focus()
+      } else if (event.key === 'j' || event.key === 'k') {
         event.preventDefault()
         controls[Math.max(0, Math.min(controls.length - 1, at + (event.key === 'j' ? 1 : -1)))]?.focus()
       } else if ((event.key === 'h' || event.key === 'l') && active?.getAttribute('role') === 'slider') {

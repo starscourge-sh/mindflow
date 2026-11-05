@@ -789,6 +789,24 @@ const rowShown = (): void => void window.dispatchEvent(new Event('haligtree:row-
  * the editor none of it: the editor has its own vim. The same
  * keys in every list in the app, which is the whole point of having one hook.
  */
+/**
+ * G and g g, a list's last and first row, read one way for every list: this
+ * hook's and those with keys of their own (a board, the matrix, the day's
+ * lines). Asked once per key, before anything else turns it away, so the
+ * first g of a pair is heard; asked twice for one key (two lists listening),
+ * it answers the same.
+ */
+const ends: { event: Event | null; said: 'first' | 'last' | null; last: string } = { event: null, said: null, last: '' }
+export function listEnd(event: KeyboardEvent | React.KeyboardEvent): 'first' | 'last' | null {
+  const raw = 'nativeEvent' in event ? event.nativeEvent : event
+  if (ends.event === raw) return ends.said
+  if (raw.key === 'Shift') return null
+  const said = raw.metaKey || raw.ctrlKey || raw.altKey ? null : raw.key === 'G' ? 'last' : raw.key === 'g' && ends.last === 'g' ? 'first' : null
+  // A finished g g starts over, so a third g is the start of the next pair.
+  Object.assign(ends, { event: raw, said, last: said === 'first' ? '' : raw.key })
+  return said
+}
+
 export function useListKeys(count: number, { onOpen, onEscape, enabled = true, opened = -1, onExtend }: {
   onOpen?: (index: number) => void
   /** ⇧↑ or ⇧↓: the cursor moved from one row to the next, for picking a run (lib/pick-range.ts). */
@@ -805,7 +823,6 @@ export function useListKeys(count: number, { onOpen, onEscape, enabled = true, o
   // -1 until a key is pressed: the ring belongs to the keyboard, so a list you
   // only ever click never shows one.
   const [at, setAt] = useState(-1)
-  const last = useRef('')
   const latest = useRef({ count, onOpen, onEscape, onExtend, at })
   latest.current = { count, onOpen, onEscape, onExtend, at }
   useEffect(() => setAt((index) => Math.min(index, Math.max(0, count - 1))), [count])
@@ -843,10 +860,8 @@ export function useListKeys(count: number, { onOpen, onEscape, enabled = true, o
       if ((chord && event.key === 'j') || (!inBox && !chord && (event.key === 'j' || event.key === 'ArrowDown'))) return move(at + 1)
       if ((chord && event.key === 'k') || (!inBox && !chord && (event.key === 'k' || event.key === 'ArrowUp'))) return move(at - 1)
       if (inBox) return
-      if (event.key === 'G') return move(count - 1)
-      // A finished G G starts over, so a third g is the start of the next pair.
-      if (event.key === 'g' && last.current === 'g') return void ((last.current = ''), move(0))
-      last.current = event.key
+      const end = listEnd(event)
+      if (end) return move(end === 'last' ? count - 1 : 0)
       // Enter on a button or field reached with Tab is that control's own,
       // unless it is one of the rows.
       const held = document.activeElement

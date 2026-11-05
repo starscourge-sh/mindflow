@@ -5,7 +5,7 @@ import { realMove } from '@/lib/real-move'
 import { EASE, still as calm, useByKeys } from '@/lib/motion'
 import { unloaded, useLive, haligtree, type PeriodPage, type Task } from '@/lib/haligtree'
 import { Button } from '@/components/ui/button'
-import { Kbd, Tags, toast } from './ui'
+import { Kbd, Tags, listEnd, toast } from './ui'
 import { taskName } from '@/lib/tasks'
 import { onToday, shiftTo } from './tasks-view'
 import { WeekFit } from './week-fit'
@@ -129,7 +129,9 @@ function Pass({ onClose }: { onClose: () => void }): React.JSX.Element {
       const field = (document.activeElement as HTMLElement | null)?.closest?.('input, textarea, [contenteditable="true"]')
       if (field || event.metaKey || event.ctrlKey || event.altKey) return
       const task = open[cursor]
-      if (event.key === 'j' || event.key === 'ArrowDown') (event.preventDefault(), setCursor((at) => Math.min(open.length - 1, at + 1)))
+      const end = listEnd(event)
+      if (end) (event.preventDefault(), setCursor(end === 'last' ? Math.max(0, open.length - 1) : 0))
+      else if (event.key === 'j' || event.key === 'ArrowDown') (event.preventDefault(), setCursor((at) => Math.min(open.length - 1, at + 1)))
       else if (event.key === 'k' || event.key === 'ArrowUp') (event.preventDefault(), setCursor((at) => Math.max(0, at - 1)))
       else if (task && ['n', 's', 'b', 'd'].includes(event.key.toLowerCase())) (event.preventDefault(), void choose(task, ({ n: 'next', s: 'someday', b: 'bin', d: 'bin' } as const)[event.key.toLowerCase() as 'n' | 's' | 'b' | 'd']))
       else return

@@ -13,7 +13,7 @@ import { makeTask } from '@/lib/tasks'
 import { archive, changeKind } from '@/lib/notes'
 import { useLive, haligtree, type PassItem, type Settings } from '@/lib/haligtree'
 import { Button } from '@/components/ui/button'
-import { Rolling, Tip, Typed, toast, Remembered, quietly, askClearWho } from './ui'
+import { Rolling, Tip, Typed, toast, Remembered, quietly, askClearWho, listEnd } from './ui'
 import { CAPTURE_TYPES, asksFor, type CaptureType } from '../capture-kinds/capture-kind-picker'
 import { Term } from './term'
 import { HashField } from './hash-field'
@@ -279,6 +279,9 @@ function Pass({ mode, ids, onClose, onOpen }: { mode: PassMode; ids?: string[]; 
       event.stopPropagation()
       const key = event.key.toLowerCase()
       if (event.key === 'Escape') return onClose()
+      // G and g g, with J and K: the last note of the pass, and the first.
+      const end = listEnd(event)
+      if (vim && end && items?.length) return go(end === 'last' ? items.length - 1 : 0)
       // J and K only for someone with vim keys on; ↵ and ⇧↵ (and the arrows in Decide) for everyone.
       const back = (vim && key === 'k') || (event.key === 'Enter' && event.shiftKey) || (!tidy && (event.key === 'ArrowUp' || event.key === 'ArrowLeft'))
       if (finished) return void (back ? go(at - 1) : event.key === 'Enter' && next && (chime('tap'), next.run()))

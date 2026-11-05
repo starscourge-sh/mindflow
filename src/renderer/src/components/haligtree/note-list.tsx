@@ -20,7 +20,7 @@ import { GroupIcon, GroupedList, SectionHead, type Folds } from './kept-groups'
 import { cn } from '@/lib/cn'
 import { ROW_PAD, ROW_SHAPE, ROW_TILE, tileTint } from './row-shape'
 import { IslandBox, type IslandState } from './islands'
-import { Count, Tags, Tip, VirtualList, showRow, typing } from './ui'
+import { Count, Tags, Tip, VirtualList, listEnd, showRow, typing } from './ui'
 import { Button } from '@/components/ui/button'
 import type { Density, Pane } from './display'
 import { GrainFill, onPaper, PAPER_INK, useNoteCover } from './grain'
@@ -748,6 +748,9 @@ function GridKeys({
       const { lines, cursor } = latest.current
       const count = lines.reduce((n, one) => n + one.entries.length, 0)
       if (!count) return
+      // G and g g: the last note, and the first.
+      const end = listEnd(event)
+      if (end) return void (event.preventDefault(), onCursor(end === 'last' ? count - 1 : 0))
       const down = event.key === 'ArrowDown' || event.key === 'j'
       const up = event.key === 'ArrowUp' || event.key === 'k'
       const side = event.key === 'ArrowRight' ? 1 : event.key === 'ArrowLeft' ? -1 : 0

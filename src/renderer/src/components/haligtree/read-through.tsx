@@ -15,7 +15,7 @@ import { useLive, haligtree, when } from '@/lib/haligtree'
 import { cn } from '@/lib/cn'
 import { CAPTURE_TYPES } from '@/components/capture-kinds/capture-kind-picker'
 import { makeTask } from '@/lib/tasks'
-import { Kbd, Rolling, Tip } from './ui'
+import { Kbd, Rolling, Tip, listEnd } from './ui'
 import { exit } from '@/lib/capture-links'
 import { GlossComposer, openGloss } from './gloss-line'
 import { ThoughtBar } from './thought-bar'
@@ -585,6 +585,15 @@ export function ReadThrough({ items: given, start = 0, onClose, queue: started, 
         if (event.key === ']') return upNext.skip()
         if (letter === 'o') return upNext.open()
         return upNext.done()
+      }
+      // G and g g: the last note to read, and the first.
+      const end = listEnd(event)
+      if (end) {
+        event.preventDefault()
+        event.stopPropagation()
+        const to = end === 'last' ? stepFrom(items.length, -1) : stepFrom(-1, 1)
+        if (to >= 0 && to !== at) (chime('page'), setAt(to))
+        return
       }
       const next = letter === 'j' || event.key === 'ArrowDown' || event.key === 'ArrowRight' || event.key === ' '
       const back = letter === 'k' || event.key === 'ArrowUp' || event.key === 'ArrowLeft'

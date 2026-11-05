@@ -16,7 +16,7 @@ import { useOpened } from '@/lib/nav'
 import { readFresh, readNow } from '@/lib/early-read'
 import { isUrgent, quadrantOf, type Quadrant } from '../../../../main/task-words'
 import { dayjs, num } from '../../../../main/dates'
-import { Page, Pressed, Rolling, Tags, toast, typing, quietly } from './ui'
+import { Page, Pressed, Rolling, Tags, listEnd, toast, typing, quietly } from './ui'
 import { markRoom } from './task-input'
 import { TaskDetail, TaskPriority, TaskWhen, completeTask, taskMenu, useTaskNow } from './tasks-view'
 import { RowMenu } from './row-menu'
@@ -202,6 +202,14 @@ export function MatrixView({ focus, onOpen, today }: { focus?: string; onOpen?: 
         const order = [...column]
         ;[order[row], order[to]] = [order[to], order[row]]
         return take(() => reorder(order))
+      }
+      // G and g g: the last card on the page (the bottom box with any), and the first.
+      const end = listEnd(event)
+      if (end) {
+        const filled = [0, 1, 2, 3].filter((q) => boxes[q].length)
+        const q = end === 'last' ? filled.at(-1) : filled[0]
+        if (q === undefined) return
+        return take(() => setAt({ q, id: (end === 'last' ? boxes[q].at(-1) : boxes[q][0])!.id }))
       }
       // Across: the box beside, at the same height where it has one.
       const across = (q: number): void => {
