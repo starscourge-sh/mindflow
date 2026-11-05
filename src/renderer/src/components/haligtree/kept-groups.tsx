@@ -251,8 +251,8 @@ function Node({ id, children, inner, indent = 0 }: { id: string; children: React
       className="group/grip relative isolate"
       style={{ ...glide.style, opacity: isDragging && !room ? 0.3 : undefined }}
     >
-      {/* That a row can be carried, said quietly: a grip in the margin by its left edge, only once the pointer has rested on it a moment. */}
-      <GripVertical aria-hidden data-grip="" className="absolute top-1/2 size-3 -translate-y-1/2 text-muted-foreground/60 opacity-0 transition-opacity duration-150 group-hover/grip:opacity-100 group-hover/grip:delay-[400ms] motion-reduce:transition-none" style={{ left: indent - 13 }} />
+      {/* That a row can be carried, said quietly: a grip in the margin by its left edge, as soon as the pointer is on it, as Today's lines show theirs. */}
+      <GripVertical aria-hidden data-grip="" className="absolute top-1/2 size-3 -translate-y-1/2 text-muted-foreground/60 opacity-0 transition-opacity duration-150 group-hover/grip:opacity-100 motion-reduce:transition-none" style={{ left: indent - 13 }} />
       {room && (
         // One hint per drop: a soft band the size of the room, the line through its middle. Drawn anew at each new place.
         // It waits for the rows to make way, so it never shows over one sliding past.
