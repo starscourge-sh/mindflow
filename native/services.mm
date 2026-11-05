@@ -68,8 +68,8 @@ static napi_value Listen(napi_env env, napi_callback_info info) {
   napi_create_threadsafe_function(env, argv[0], NULL, name, 0, 1, NULL, NULL, NULL, Call, &told);
   napi_unref_threadsafe_function(env, told);
   provider = provider ?: [HTServices new];
+  // The menu line is declared in Info.plist; nothing to tell macOS at launch.
   NSApp.servicesProvider = provider;
-  NSUpdateDynamicServices();
   return nothing;
 }
 
