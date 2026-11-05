@@ -472,7 +472,7 @@ export function GoalsView({ focus, onOpen }: { focus?: string; onOpen?: (type: s
     return many ? [...(folding.menu(several.chosen) as MenuItem[]), 'separator', ...many]
       : [{ label: 'Open', keys: '↵', run: () => pick(one.id) }, ...goalMenu(one), 'separator', ...(folding.menu([one.id]) as MenuItem[]), ...several.rowItems(one.id),
         // About the whole list, not this goal: at the foot, with the list's other lines.
-        ...(openOnes(all).length > 1 ? ['separator' as const, { label: 'Stick all goals on the desktop', hint: 'Each in its own colour, with a legend', about: 'list' as const, run: showAllGoals }] : [])]
+        ...(openOnes(all).length > 1 ? ['separator' as const, { label: 'Stick all goals on the desktop', hint: 'Each in its own colour, with a legend', run: showAllGoals }] : [])]
   }
   const entryOf = (one: Item): Entry => goalEntry(one, today, menuFor(one))
   const entries = !listShown ? [] : items.map(entryOf)

@@ -70,7 +70,7 @@ try {
   await h.locator('text=Get to Mars before the dust storm').first().click({ button: 'right' }).catch(() => {})
   await wait(500)
   const inMenu = await h.evaluate(() => [...document.querySelectorAll('[role="menuitem"]')].some((one) => one.textContent.includes('Stick all goals on the desktop')))
-  check("a goal's menu offers “Stick all goals on the desktop”", inMenu)
+  check("the list's right-click menu offers “Stick all goals on the desktop”, at its foot", inMenu)
   await h.keyboard.press('Escape'); await wait(300)
   const button = h.locator('[data-all-goals-sticky]')
   check('the Goals page offers “All on one sticky”', (await button.count()) === 1)
