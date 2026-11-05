@@ -2993,12 +2993,14 @@ html[data-overhang] body > [data-leftover-row] [data-leftover]:hover {
 :root { --mf-index-paper: color-mix(in oklab, var(--background) 35%, #fffcf3); --mf-index-rule: color-mix(in oklab, #c2410c 38%, transparent); }
 :root:not(.light, .paper, [data-light]) { --mf-index-paper: color-mix(in oklab, var(--background) 84%, #f3ead6); --mf-index-rule: color-mix(in oklab, #f97316 34%, transparent); }
 .mf-index-card {
-  background: var(--mf-index-paper);
+  /* Review's finish, as every card in Review: satin metal, or Paper's stock (the red rule is Paper's alone). */
+  background: var(--mf-metal-bg);
   border: 1px solid color-mix(in oklab, var(--foreground) 11%, transparent);
   border-radius: 6px;
-  box-shadow: 0 1px 2px rgb(0 0 0 / 0.06);
+  box-shadow: var(--mf-metal-shadow);
 }
-.mf-index-rule { height: 1px; flex-shrink: 0; background: var(--mf-index-rule); }
+.mf-index-rule { height: 1px; flex-shrink: 0; background: color-mix(in oklab, var(--foreground) 12%, transparent); }
+[data-review-finish='paper'] .mf-index-rule { background: var(--mf-index-rule); }
 .mf-index-lift { transition: transform 200ms var(--mf-ease); }
 .mf-index-lift .mf-index-card { transition: box-shadow 200ms var(--mf-ease); }
 .mf-index-lift:hover { transform: translateY(-2px); }
@@ -3119,8 +3121,11 @@ textarea[data-talking]::selection {
 /* The cards behind a deck's top card: plain sheets, each with its edge, no lit rim. */
 [data-review-finish='paper'] .mf-pile-card { box-shadow: none; border-color: color-mix(in oklab, var(--foreground) 16%, transparent); }
 [data-review-finish='paper'] .mf-pile-edge:last-of-type { box-shadow: 0 2px 6px -2px rgb(0 0 0 / 0.25); }
-/* The cards themselves: the study card's two sides, Make a card, From a picture, the example card. */
-[data-review-finish='paper'] [data-finish-face] { background: var(--mf-metal-bg); border-color: var(--mf-finish-edge); border-radius: 6px; box-shadow: var(--mf-metal-shadow); }
+/* The cards themselves (the study card's two sides, the three card forms, the example card) and any sheet Review opens
+   (a deck's settings, a question asked from a deck): whichever finish is chosen, never a third material. */
+[data-finish-face] { background: var(--mf-metal-bg); border-color: color-mix(in oklab, var(--foreground) 11%, transparent); border-radius: 6px; box-shadow: var(--mf-metal-shadow); }
+[data-finish-sheet] { background: var(--mf-metal-bg); }
+[data-review-finish='paper'] :is([data-finish-face], [data-finish-sheet]) { border-color: var(--mf-finish-edge); }
 /* All cards: each card in the list an index card of its own; the Table on one sheet; the Cards grid and Flip through on card stock with only a hint of the deck's colour. */
 [data-review-finish='paper'] [data-card-browser][data-density='list'] [data-card-list] [data-pick] { margin-block: 3px; border-radius: 6px; background: var(--mf-metal-bg); box-shadow: inset 0 0 0 1px var(--mf-finish-edge), 0 1px 2px rgb(0 0 0 / 0.06); }
 [data-review-finish='paper'] [data-card-browser][data-density='list'] [data-card-list] [data-pick]:hover { background: var(--mf-paper-grain), color-mix(in oklab, var(--foreground) 4%, var(--mf-paper-stock)); }
@@ -3128,11 +3133,9 @@ textarea[data-talking]::selection {
 [data-review-finish='paper'] [data-card-browser][data-density='compact'] [data-card-list] { border-radius: 6px; background: var(--mf-metal-bg); box-shadow: inset 0 0 0 1px var(--mf-finish-edge), var(--mf-metal-shadow); padding-block: 4px; }
 :is(:root, *)[data-review-finish='paper'] .mf-poster { background: var(--mf-paper-grain), color-mix(in oklab, var(--tint, var(--foreground)) 6%, var(--mf-paper-stock)); border-color: var(--mf-finish-edge); border-radius: 6px; box-shadow: var(--mf-metal-shadow); }
 /* Settings' satin sample, shown while the page itself wears paper: the satin's own edges back. */
-/* "Add many at once" itself wears the same stock while Paper is on, so every paper in Review is one paper. */
-[data-review-finish='paper'] .mf-index-card { background: var(--mf-metal-bg); }
 [data-finish-sample='satin'] .mf-metal { border-color: color-mix(in oklab, var(--foreground) 11%, transparent); }
 [data-finish-sample='satin'] .mf-pile-card { border-color: color-mix(in oklab, var(--foreground) 18%, transparent); box-shadow: inset 0 1px 1px color-mix(in oklab, white 40%, transparent), 0 2px 6px -2px color-mix(in oklab, black 30%, transparent); }
-[data-finish-sample='satin'] [data-finish-face] { background: color-mix(in oklab, var(--accent) 30%, transparent); border-color: var(--border); box-shadow: none; }
+[data-finish-sample='satin'] [data-finish-face] { border-color: color-mix(in oklab, var(--foreground) 11%, transparent); }
 .mf-metal {
   background: var(--mf-metal-bg);
   border: 1px solid color-mix(in oklab, var(--foreground) 11%, transparent);

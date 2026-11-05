@@ -2983,7 +2983,7 @@ export function registerHaligtree(): void {
   // --- cards from a picture (image occlusion): one card for each group of covers, the picture and every cover kept on each,
   // so Review can hide that group alone ("one") or every cover with that group the one asked ("all").
   // `from`: the snip or note the picture came from, its book and page kept as a snip's card keeps them.
-  handle('cards:picture', (made: { src: string; covers: { group: number; text?: string }[]; hide: 'one' | 'all'; deck?: string; from?: { id: string } | null }) => {
+  handle('cards:picture', (made: { src: string; covers: { group: number; text?: string }[]; hide: 'one' | 'all'; deck?: string; tags?: string[]; from?: { id: string } | null }) => {
     const groups = [...new Set((made?.covers ?? []).map((one) => one.group))].sort((a, b) => a - b)
     if (!made?.src || !groups.length) return write([] as string[])
     const note = randomUUID()
@@ -2994,7 +2994,7 @@ export function registerHaligtree(): void {
     const ids = groups.map((group, index) => {
       const id = randomUUID()
       const named = made.covers.filter((one) => one.group === group).map((one) => one.text?.trim()).filter(Boolean).join(', ')
-      const answer = [named || 'Shown on the picture', link, tag ? `#${tag}` : ''].filter(Boolean).join('\n\n')
+      const answer = [named || 'Shown on the picture', link, [tag, ...(made.tags ?? [])].filter(Boolean).map((one) => `#${one}`).join(' ')].filter(Boolean).join('\n\n')
       const fields = JSON.stringify({ occlusion: { src: made.src, covers: made.covers, ask: group, hide: made.hide === 'all' ? 'all' : 'one' } })
       db.prepare("insert into nuggets (id, tier, kind, title, body, prompt, source, created_at, updated_at, fields, attribution, medium, passage) values (?, ?, 'note', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
         .run(id, cardTier(), cut(`What is hidden? ${index + 1} of ${groups.length}`, 160), JSON.stringify(answer), 'What is hidden?', `picture:${note}:${group}`, now(), now(), fields, origin?.attribution ?? null, origin?.medium ?? null, origin?.passage ?? null)

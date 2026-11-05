@@ -4,12 +4,9 @@ import { chime } from '@/lib/sound'
 import { num, plural } from '../../../../main/dates'
 import { Chips } from './display'
 import { toast } from './ui'
-import { Button } from '@/components/ui/button'
+import { CARD_FIELD, CardForm, CardFormFoot, tagsIn } from './card-form'
 
 import { SEPARATORS, cardsOf, guessSeparator, headingsOf, listLines as lines, type Separator } from '../../../../main/card-lists'
-
-/** One card a line, or two: the second asks the back first (a word and its meaning, a symptom and its disease). */
-const WAYS = [{ id: 'one', label: 'Front first' }, { id: 'both', label: 'Both ways', tip: 'Two cards a line: front first and back first. Never both on one day' }] as const
 
 /** A deck or tag as a #tag: "Spanish::Verbs" or "spanish verbs" becomes #spanish-verbs. */
 const tagOf = (words: string): string =>
@@ -33,7 +30,7 @@ export function PasteCards({ onClose, deck: aimed, onShow }: { onClose: () => vo
   const headings = headingsOf(text, separator)
   const threes = cards.filter((card) => card.three).length
   const skipped = lines(text).length - (headings ? 1 : 0) - cards.length
-  const marks = [tagOf(deck), ...tags.split(/[\s,]+/).map(tagOf)].filter(Boolean)
+  const marks = [tagOf(deck), ...tagsIn(tags)].filter(Boolean)
   const add = (): void => {
     if (!cards.length) return
     const tagged = cards.map(({ term, meaning }) => ({ term, meaning: marks.length ? `${meaning}\n\n${marks.map((one) => `#${one}`).join(' ')}` : meaning, both }))
@@ -44,15 +41,20 @@ export function PasteCards({ onClose, deck: aimed, onShow }: { onClose: () => vo
       onClose()
     })
   }
+  const count = cards.length * (both ? 2 : 1)
+  const keys = (event: React.KeyboardEvent): void => {
+    event.stopPropagation()
+    if (event.key === 'Escape') return void (event.preventDefault(), onClose())
+    if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) return void (event.preventDefault(), add())
+  }
+  // What goes on every card, and what is left out, said once over the foot.
+  const said = [marks.length ? `Each card gets ${marks.map((one) => `#${one}`).join(' ')}` : '', skipped > 0 ? plural(skipped, 'line has no back and stays', 'lines have no back and stay') + ' out' : ''].filter(Boolean).join('. ')
   return (
-    // On the same card stock as All cards' index cards: a heading in the serif, the
-    // lines written straight onto ruled paper, and the cards they make laid out below.
-    <section data-paste-cards className="mf-index-card flex flex-col gap-3 px-5 pt-4 pb-3">
-      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        <h3 className="flex-1 font-heading text-heading font-semibold">{aimed ? `Add many at once into ${deckTitle(tagOf(aimed))}` : 'Add many at once'}</h3>
-        <span className="text-control text-foreground/70">Paste a list or a spreadsheet, one card a line, front then back, or drop a .txt, .csv or .tsv here</span>
-      </div>
-      <div aria-hidden className="mf-index-rule" />
+    // The same form as "Make a card": the lines written straight onto the card, the cards they make laid out under them.
+    <CardForm data-paste-cards head={aimed ? `Add many at once into ${deckTitle(tagOf(aimed))}` : 'Add many at once'} keys={keys}
+      line="Paste a list or a spreadsheet, one card a line, front then back, or drop a .txt, .csv or .tsv on it."
+      foot={<CardFormFoot mark="paste-add" deck={deck} onDeck={setDeck} tags={tags} onTags={setTags} both={both} onBoth={setBoth} status={said || undefined}
+        onCancel={onClose} go={count ? `Add ${plural(count, 'card')}` : 'Add the cards'} ready={!!cards.length} onGo={add} />}>
       <textarea data-paste-text autoFocus value={text} onChange={(event) => setText(event.target.value)} rows={5}
         placeholder={'What does GPT stand for? | Generative Pre-trained Transformer\nhola | hello'}
         onDragOver={(event) => event.preventDefault()}
@@ -63,40 +65,26 @@ export function PasteCards({ onClose, deck: aimed, onShow }: { onClose: () => vo
           event.stopPropagation()
           void file.text().then((read) => (chime('noted'), setText(read)))
         }}
-        className="mf-index-lines w-full resize-y bg-transparent text-body leading-[1.75rem] outline-none placeholder:text-muted-foreground/70" />
+        className={`${CARD_FIELD} min-h-[7.5rem] text-body leading-relaxed`} />
       <div className="flex flex-wrap items-center gap-2 text-control">
         <span className="text-foreground/70">Split at</span>
         <Chips options={SEPARATORS} on={(id) => id === separator} pick={(id) => setChosen(id as Separator)} />
         {!chosen && text.trim() && <span className="text-foreground/70">found on its own</span>}
-        <span className="ml-2 text-foreground/70">Ask</span>
-        <span data-paste-ways><Chips options={WAYS} on={(id) => (id === 'both') === both} pick={(id) => setBoth(id === 'both')} /></span>
         {headings && <span data-paste-headings className="text-foreground/70">The first line names the columns, so it is not a card</span>}
         {threes > 0 && <span data-paste-threes className="text-foreground/70">{num(threes)} {threes === 1 ? 'line splits' : 'lines split'} in three or more: split at the first, the rest kept on the back</span>}
       </div>
       {cards.length > 0 && (
-        // The cards it will make, as cards: front over the rule, back under it.
+        // The cards it will make, as small cards: front over the dashed rule, back under it, as on the form itself.
         <div data-paste-preview className="grid max-h-72 grid-cols-[repeat(auto-fill,minmax(11rem,1fr))] gap-2.5 overflow-auto p-0.5">
           {cards.slice(0, 50).map((card, at) => (
-            <div key={at} className="mf-index-card flex aspect-[5/3] min-h-0 flex-col gap-1 overflow-hidden px-3 pt-2 pb-1.5 text-sm">
-              <span className="line-clamp-2 font-heading font-semibold leading-snug">{card.term}</span>
-              <div aria-hidden className="mf-index-rule" />
+            <div key={at} className="flex aspect-[5/3] min-h-0 flex-col gap-1 overflow-hidden rounded-[4px] border border-foreground/12 bg-background/40 px-3 pt-2 pb-1.5 text-control">
+              <span className="line-clamp-2 font-semibold leading-snug">{card.term}</span>
+              <div aria-hidden className="border-t border-dashed border-foreground/15" />
               <span className="line-clamp-2 text-foreground/75">{card.meaning.replace(/\n+/g, ' · ')}</span>
             </div>
           ))}
         </div>
       )}
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-dashed pt-2.5 text-control">
-        <label className="flex items-center gap-1.5"><span className="text-foreground/70">Deck</span>
-          <input data-paste-deck value={deck} onChange={(event) => setDeck(event.target.value)} placeholder="Spanish::Verbs" className="w-40 bg-transparent text-foreground outline-none placeholder:text-muted-foreground/70" /></label>
-        <label className="flex items-center gap-1.5"><span className="text-foreground/70">Tags</span>
-          <input data-paste-tags value={tags} onChange={(event) => setTags(event.target.value)} placeholder="more tags" className="w-32 bg-transparent text-foreground outline-none placeholder:text-muted-foreground/70" /></label>
-        <span className="flex-1 text-foreground/70">
-          {marks.length ? `Each card gets ${marks.map((one) => `#${one}`).join(' ')}` : ''}
-          {skipped > 0 ? `${marks.length ? '. ' : ''}${plural(skipped, 'line has no back and stays', 'lines have no back and stay')} out` : ''}
-        </span>
-        <Button variant="ghost" size="sm" onClick={onClose}>Cancel</Button>
-        <Button size="sm" data-paste-add disabled={!cards.length} onClick={add}>{cards.length ? `Add ${num(cards.length * (both ? 2 : 1))} ${cards.length * (both ? 2 : 1) === 1 ? 'card' : 'cards'}` : 'Add cards'}</Button>
-      </div>
-    </section>
+    </CardForm>
   )
 }

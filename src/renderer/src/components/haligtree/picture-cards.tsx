@@ -8,7 +8,9 @@ import { pictureIn } from '@/lib/answer-picture'
 import { num, plural } from '../../../../main/dates'
 import { boxOf, coverOf, groupsOf, overlap, snapped, type Cover, type CoverKind, type Hide, type Label, type Occlusion } from '../../../../main/occlusion'
 import { Kbd, refuse, toast } from './ui'
-import { DeckPick, deckTagOf, deckTitle } from './decks'
+import { deckTagOf, deckTitle } from './decks'
+import { CardForm, CardFormFoot, tagsIn } from './card-form'
+import { ImagePlus } from 'lucide-react'
 
 /** Every cover in one solid colour of the theme: letters never show through. The asked one glows softly. */
 const COVER = 'color-mix(in oklab, var(--foreground) 72%, var(--background))'
@@ -104,6 +106,8 @@ export function PictureCards({ deck: aimed, onClose, onShow }: { deck?: string |
   const [tool, setTool] = useState<Tool>('box')
   const [hide, setHide] = useState<Hide>('one')
   const [deck, setDeck] = useState(aimed ?? '')
+  const [tags, setTags] = useState('')
+  const file = useRef<HTMLInputElement>(null)
   const [drawing, setDrawing] = useState<Cover | null>(null)
   const sources = useLive(() => call<{ src: string; title: string; id: string | null }[]>('cards:picture:sources'), null as { src: string; title: string; id: string | null }[] | null)
   const size = useSize(picture?.src ?? '')
@@ -173,17 +177,19 @@ export function PictureCards({ deck: aimed, onClose, onShow }: { deck?: string |
   const make = (): void => {
     if (!picture || !covers.length) return refuse('Cover at least one label first')
     const tag = deckTagOf(deck)
-    void call<string[]>('cards:picture', { src: picture.src, covers: covers.map((one) => ({ ...one, group: renumber.get(one.group)! })), hide, deck: tag, from: picture.from }).then((ids) => {
+    void call<string[]>('cards:picture', { src: picture.src, covers: covers.map((one) => ({ ...one, group: renumber.get(one.group)! })), hide, deck: tag, tags: tagsIn(tags), from: picture.from }).then((ids) => {
       chime('added')
       onClose()
       toast(`${plural(ids.length, 'card')} made from the picture${tag ? ` in the deck ${deckTitle(tag)}` : ''}`, () => void call('cards:list:undo', ids).then(() => chime('undo')), 'success', onShow ? { label: 'Show them', key: 'S', run: () => onShow(ids) } : undefined)
     })
   }
   const keys = (event: React.KeyboardEvent): void => {
+    // ⌘↵ makes and Esc closes from anywhere in it, the tags field too, as in the other two forms.
+    if (event.metaKey && event.key === 'Enter') return void (event.preventDefault(), make())
+    if (event.key === 'Escape' && (event.target as HTMLElement).closest('input, textarea')) return void (event.preventDefault(), onClose())
     if ((event.target as HTMLElement).closest('input, textarea')) return
     const key = event.key.toLowerCase()
     if (event.metaKey && key === 'z') return void (event.preventDefault(), undo())
-    if (event.metaKey && event.key === 'Enter') return void (event.preventDefault(), make())
     if (event.metaKey || event.ctrlKey || event.altKey) return
     if (event.key === 'Escape') return void (event.preventDefault(), picked.size ? setPicked(new Set()) : onClose())
     if (event.key === 'Backspace' || event.key === 'Delete') return void (event.preventDefault(), remove())
@@ -246,16 +252,26 @@ export function PictureCards({ deck: aimed, onClose, onShow }: { deck?: string |
     change([...covers, snapped(done, found)])
   }
 
+  // Its covers are not lost: Undo puts the picture back as it was.
+  const another = (): void => {
+    const was = { picture, labels, covers, history }
+    chime('fold')
+    setPicture(null)
+    setLabels(null)
+    setCovers([])
+    setHistory([])
+    setPicked(new Set())
+    if (was.covers.length) toast('The picture and its covers are put aside', () => (chime('undo'), setPicture(was.picture), setLabels(was.labels), setCovers(was.covers), setHistory(was.history)))
+  }
   const status = labels === 'finding' ? 'Finding the labels on this Mac…'
     : labels && !Array.isArray(labels) ? labels.error
     : found.length ? `${plural(found.length, 'label')} found on this Mac, without the internet. Click one to cover it.`
     : picture ? 'No labels found on it: draw a cover over each part to ask.' : ''
 
   return (
-    <section data-picture-cards data-finish-face onKeyDown={keys} tabIndex={-1} className="flex flex-col gap-3 rounded-[5px] border bg-accent/30 px-5 pt-4 pb-3 outline-none">
-      <p className="text-sm text-foreground/80">
-        <b className="font-semibold text-foreground">Cards from a picture.</b> Cover the labels of a diagram; each cover, or each group of covers, is a card that asks what it hides.
-      </p>
+    <CardForm data-picture-cards head="Cards from a picture" line="Cover the labels of a diagram; each cover, or each group of covers, is a card that asks what it hides." keys={keys}
+      foot={<CardFormFoot mark="picture-make" deck={deck} onDeck={setDeck} tags={tags} onTags={setTags} onCancel={onClose}
+        go={covers.length ? `Make ${plural(groups.length, 'card')}` : 'Make the cards'} ready={!!covers.length} onGo={make} />}>
       {!picture ? (
         <div
           data-picture-drop
@@ -266,13 +282,12 @@ export function PictureCards({ deck: aimed, onClose, onShow }: { deck?: string |
             event.preventDefault()
             fromFile(file)
           }}
-          className="grid gap-3 rounded-[4px] border border-dashed border-foreground/20 bg-background px-4 py-4">
-          <span className="flex flex-wrap items-center gap-2 text-sm text-foreground/80">
-            <span>Paste a picture with <Kbd>⌘V</Kbd>, drop one here, or</span>
-            <label className="cursor-pointer">
-              <input type="file" accept="image/*" data-picture-file className="sr-only" onChange={(event) => fromFile(event.target.files?.[0] ?? null)} />
-              <span className="inline-flex h-8 cursor-pointer items-center rounded-md border px-3 text-control font-medium text-foreground transition-colors hover:bg-accent">Choose a picture…</span>
-            </label>
+          className="grid gap-3 rounded-[4px] border border-dashed border-foreground/20 px-4 py-4">
+          {/* The first thing to do, first: a real button, then the other ways in, said beside it. */}
+          <span className="flex flex-wrap items-center gap-3 text-control text-foreground/80">
+            <input ref={file} type="file" accept="image/*" data-picture-file className="sr-only" tabIndex={-1} onChange={(event) => fromFile(event.target.files?.[0] ?? null)} />
+            <Button size="sm" className="h-8 cursor-pointer gap-1.5 px-3" data-picture-choose onClick={() => (chime('open'), file.current?.click())}><ImagePlus className="size-4" />Choose a picture…</Button>
+            <span>or drop one on this box, or paste one with <Kbd>⌘V</Kbd></span>
           </span>
           {/* Snips from a book (they keep its title and page) and pictures already in notes. */}
           {!!sources?.length && (
@@ -301,9 +316,10 @@ export function PictureCards({ deck: aimed, onClose, onShow }: { deck?: string |
               ))}
             </span>
             <Button variant="outline" size="sm" className="h-8 cursor-pointer px-3" data-picture-cover-all disabled={!Array.isArray(labels) || !found.length} onClick={coverAll}>
-              Cover every label{found.length ? <span className="font-normal text-muted-foreground tabular-nums">{num(found.length)}</span> : null}
+              Cover every label{found.length ? <span className="font-normal text-muted-foreground tabular-nums">{num(found.length)}</span> : null}<Kbd>A</Kbd>
             </Button>
-            <Button variant="ghost" size="sm" className="h-8 cursor-pointer px-3" data-picture-group disabled={picked.size < 2} onClick={() => group(false)}>Ask as one card</Button>
+            <Button variant="ghost" size="sm" className="h-8 cursor-pointer px-3" data-picture-group disabled={picked.size < 2} onClick={() => group(false)}>Ask as one card <Kbd>G</Kbd></Button>
+            <Button variant="ghost" size="sm" className="h-8 cursor-pointer px-3 text-muted-foreground" data-picture-other onClick={another}>Another picture</Button>
             <span className="flex-1" />
             <span role="radiogroup" aria-label="When asked" className="flex h-8 items-center rounded-lg border border-foreground/10 bg-accent/40 p-0.5 text-control max-sm:h-9">
               {(['one', 'all'] as const).map((one) => (
@@ -315,7 +331,7 @@ export function PictureCards({ deck: aimed, onClose, onShow }: { deck?: string |
           <p data-picture-status className="min-h-5 text-sm text-muted-foreground">{status}</p>
           {/* What the choice on the right does, in words, in the same place whichever is picked. */}
           <p data-picture-hide-said className="-mt-2 min-h-5 text-sm text-foreground/80">
-            {hide === 'one' ? 'Hide one: each card covers only the label it asks; the others show.' : 'Hide all: every label stays covered; the one asked glows.'}
+            {hide === 'one' ? 'Hide one: each card covers only the label it asks; the others show.' : 'Hide all: every label stays covered; the one asked glows.'} <Kbd>⌫</Kbd> takes a picked cover off, <Kbd>⌘Z</Kbd> undoes.
           </p>
           <div className="relative mx-auto w-fit max-w-full select-none">
             <img src={picture.src} alt="" draggable={false} className="block max-h-[min(60vh,36rem)] w-auto max-w-full rounded-[4px]" />
@@ -341,27 +357,6 @@ export function PictureCards({ deck: aimed, onClose, onShow }: { deck?: string |
           </div>
         </>
       )}
-      <div className="flex flex-wrap items-center gap-2 pt-1">
-        <Button size="sm" className="h-8 min-w-[8.5rem] cursor-pointer tabular-nums" data-picture-make disabled={!covers.length} onClick={make}>
-          {covers.length ? `Make ${plural(groups.length, 'card')}` : 'Make the cards'}
-        </Button>
-        <Button variant="ghost" size="sm" className="h-8 cursor-pointer text-muted-foreground" onClick={onClose}>Cancel</Button>
-        {picture && <Button variant="ghost" size="sm" className="h-8 cursor-pointer text-muted-foreground" data-picture-other onClick={() => {
-          // Its covers are not lost: Undo puts the picture back as it was.
-          const was = { picture, labels, covers, history }
-          chime('fold')
-          setPicture(null)
-          setLabels(null)
-          setCovers([])
-          setHistory([])
-          setPicked(new Set())
-          if (was.covers.length) toast('The picture and its covers are put aside', () => (chime('undo'), setPicture(was.picture), setLabels(was.labels), setCovers(was.covers), setHistory(was.history)))
-        }}>Another picture</Button>}
-        <DeckPick value={deck} onChange={setDeck} />
-        <span className="ml-auto text-sm text-muted-foreground max-sm:hidden">
-          {picture ? <><Kbd>A</Kbd> covers every label, <Kbd>G</Kbd> groups, <Kbd>⌫</Kbd> removes, <Kbd>⌘Z</Kbd> undoes</> : <><Kbd>Esc</Kbd> closes</>}
-        </span>
-      </div>
-    </section>
+    </CardForm>
   )
 }

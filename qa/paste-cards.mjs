@@ -16,6 +16,18 @@ const call = (...args) => h.evaluate((args) => window.api.haligtree(...args), ar
 const preview = () => h.evaluate(() => [...document.querySelectorAll('[data-paste-preview] > div')].map((card) => [...card.querySelectorAll(':scope > span')].map((side) => side.textContent)))
 const pressed = () => h.evaluate(() => document.querySelector('[data-paste-cards] button[aria-pressed="true"]')?.getAttribute('aria-label'))
 const chip = (label) => h.evaluate((label) => [...document.querySelectorAll('[data-paste-cards] button[aria-pressed]')].find((one) => one.getAttribute('aria-label') === label)?.click(), label)
+// The deck, as Make a card picks one: the deck picker, "New deck…" when it is not one yet, named in its sheet.
+const deckTo = async (words) => {
+  await h.click('[data-paste-cards] [data-deck-pick]')
+  await h.waitForTimeout(300)
+  const tag = words.toLowerCase().replace('::', '-')
+  if (await h.locator(`[data-deck-pick-to="${tag}"]`).count()) return void (await h.click(`[data-deck-pick-to="${tag}"]`))
+  await h.click('[data-deck-pick-new]')
+  await waitFor(() => h.evaluate(() => document.activeElement?.matches('[data-ask-field]')))
+  await h.keyboard.type(words)
+  await h.keyboard.press('Enter')
+  await waitFor(() => h.evaluate((tag) => document.querySelector('[data-paste-cards] [data-deck-pick]')?.getAttribute('data-deck-pick') === tag, tag))
+}
 const shot = async (name, again) => {
   if (!shots) return
   for (const [theme, said] of [['paper', 'light'], ['dark', 'dark']]) {
@@ -46,11 +58,11 @@ try {
   await chip(';')
   check('switching the separator redraws the columns', await waitFor(async () => (await preview()).length === 0))
   await chip('|')
-  await h.locator('[data-paste-deck]').fill('Spanish::Basics')
-  await h.locator('[data-paste-tags]').fill('vocab')
+  await deckTo('Spanish::Basics')
+  await h.locator('[data-card-form-tags]').fill('vocab')
   check('a deck and tags say what goes on each card', /#spanish-basics #vocab/.test(await h.evaluate(() => document.querySelector('[data-paste-cards]').textContent)))
-  await shot('paste-cards', async () => { await open(); await h.locator('[data-paste-text]').fill(LIST); await h.locator('[data-paste-deck]').fill('Spanish::Basics') })
-  await h.locator('[data-paste-tags]').fill('vocab')
+  await shot('paste-cards', async () => { await open(); await h.locator('[data-paste-text]').fill(LIST); await deckTo('Spanish::Basics') })
+  await h.locator('[data-card-form-tags]').fill('vocab')
   const before = (await call('cards:all')).length
   await h.evaluate(() => document.querySelector('[data-paste-add]').click())
   const added = async () => (await call('cards:all')).filter((one) => ['hola', 'perro', 'gato'].includes(one.prompt))

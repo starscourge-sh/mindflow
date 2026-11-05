@@ -57,9 +57,9 @@ try {
   // 3. Paste cards, Both ways: two cards a line, said on the button.
   await decks()
   await h.click('[data-own-deck="zoo"] [data-deck-dots]'); await h.locator('[role="menuitem"]', { hasText: 'Add many at once' }).first().click()
-  check('3. Paste cards offers "Both ways"', await waitFor(() => has('[data-paste-ways]')))
+  check('3. Paste cards offers "Both ways"', await waitFor(() => has('[data-paste-cards] [data-new-both]')))
   await h.locator('[data-paste-text]').fill('rojo | red\nazul | blue')
-  await h.evaluate(() => document.querySelector('[data-paste-ways] button[aria-label="Both ways"]').click())
+  await h.evaluate(() => document.querySelector('[data-paste-cards] [data-new-both]').click())
   check('3. the button says 4 cards', /Add 4 cards/.test(await h.evaluate(() => document.querySelector('[data-paste-add]')?.textContent ?? '')))
   await h.evaluate(() => document.querySelector('[data-paste-add]').click())
   const pasted = async () => (await call('cards:all')).filter((one) => ['rojo', 'red', 'azul', 'blue'].includes(one.prompt))
