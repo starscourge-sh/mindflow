@@ -6,7 +6,7 @@ import { useStepped } from '@/lib/nav'
 import { ReviewView } from './review-view'
 import { CardBrowser } from './card-browser'
 import { StudySection } from './study-stats'
-import { DeckShelf } from './deck-shelf'
+import { DeckShelf, NO_PLACE, placeOf, placeWords, type DeckPlace } from './deck-shelf'
 import { PictureCards } from './picture-cards'
 import { Page } from './ui'
 
@@ -48,8 +48,16 @@ export function ReviewArea({ focus, onOpen, onFocus }: { focus?: string; onOpen:
   // Just the cards an import made, from its "Show the new cards" (":newest:" and how many it made).
   const [newest, setNewest] = useState<number | null>(focus?.startsWith(':newest:') ? Number(focus.slice(8)) || null : null)
   const [tab, setTab] = useState<ReviewTab>(newest || focus === ':cards' || focus === ':paste' || focus?.startsWith(':new:') ? 'cards' : focus === ':stats' ? 'stats' : focus === ':today' || (focus && !focus.startsWith(':')) ? 'today' : 'decks')
-  // Each tab, and studying one deck, is a step of the pane's trail: Back and Forward go between them.
-  useStepped(studying !== null ? `study:${studying}` : tab, (to) => (to.startsWith('study:') ? setStudying(to.slice(6)) : (setStudying(null), setTab(to as ReviewTab))))
+  // What is open on the Decks tab: a deck's sub-decks, a shared deck's pictures or its links.
+  const [place, setPlace] = useState<DeckPlace>(NO_PLACE)
+  // Each tab, studying one deck, and each thing opened on the Decks tab is a step of the pane's trail:
+  // Back and Forward go between them, and land on exactly what was on show.
+  useStepped(studying !== null ? `study:${studying}` : tab === 'decks' ? placeWords(place) : tab, (to) => {
+    if (to.startsWith('study:')) return void (setStudying(to.slice(6)), setTab('today'))
+    setStudying(null)
+    setPlace(to.startsWith('decks') ? placeOf(to) : NO_PLACE)
+    setTab((to.startsWith('decks') ? 'decks' : to) as ReviewTab)
+  })
   // Where Review is, said as a focus string, each time it changes.
   const here = tab === 'today' && studying ? studying : `:${tab}`
   const told = useRef(onFocus)
@@ -64,7 +72,7 @@ export function ReviewArea({ focus, onOpen, onFocus }: { focus?: string; onOpen:
     if (focus === ':decks' || focus === ':cards' || focus === ':stats' || focus === ':today') return void (setStudying(null), setAim(null), setOnly(null), setNewest(null), setTab(focus.slice(1) as ReviewTab))
     if (!focus.startsWith(':')) return void (setStudying(focus), setTab('today'))
   }, [focus]) // eslint-disable-line react-hooks/exhaustive-deps
-  const go = (to: ReviewTab): void => void ((tab !== to || picture) && (chime(to === 'today' ? 'riffle' : 'tap'), setStudying(null), setAim(null), setOnly(null), setNewest(null), setPicture(null), setTab(to)))
+  const go = (to: ReviewTab): void => void ((tab !== to || picture || studying) && (chime(to === 'today' ? 'riffle' : 'tap'), setStudying(null), setAim(null), setOnly(null), setNewest(null), setPicture(null), setPlace(NO_PLACE), setTab(to)))
   // The tabs on the left of the page's line, where they stay put; "Study now", the page's one filled button, on the right.
   const tabs = (
     <span role="tablist" data-review-tabs className="flex h-8 items-center rounded-lg border border-foreground/10 bg-accent/40 p-0.5 text-control">
@@ -105,11 +113,14 @@ export function ReviewArea({ focus, onOpen, onFocus }: { focus?: string; onOpen:
             {picture && <div className="px-5 pt-4"><PictureCards deck={picture.deck} onClose={() => (chime('fold'), setPicture(null))} onShow={show} /></div>}
             {/* One form at a time: "From a picture" opening shuts Make a card and Add many, even one opened from inside the list. */}
             {tab === 'cards' && <CardBrowser key={(aim ? `${aim.deck}:${aim.one}` : only ? `only:${only.length}` : '') + (picture ? ':picture' : '')} onOpen={onOpen} aim={aim} only={only} newest={only ? null : newest} onAll={() => (chime('undo'), setOnly(null), setNewest(null))} onShow={show} onAimDone={() => setAim(null)} />}
-            {tab === 'decks' && <DeckShelf onOpen={onOpen} onStudy={(tag) => (setStudying(tag), setTab('today'))} onPaste={(deck, one = false) => (setPicture(null), setAim({ deck, one }), setTab('cards'))} onPicture={(deck) => (chime('open'), setAim(null), setPicture({ deck }))} onShow={show} />}
+            {tab === 'decks' && <DeckShelf place={place} onPlace={setPlace} onOpen={onOpen} onStudy={(tag) => (setStudying(tag), setTab('today'))} onPaste={(deck, one = false) => (setPicture(null), setAim({ deck, one }), setTab('cards'))} onPicture={(deck) => (chime('open'), setAim(null), setPicture({ deck }))} onShow={show} />}
             {tab === 'stats' && <div data-review-stats className="px-5 pt-4 pb-20"><StudySection example={false} /></div>}
           </div>
         </ToolbarCompact.Provider></ToolbarSlot.Provider>
       </Page>
     )
-  return <ReviewView key={studying ?? ''} tag={studying ?? (focus && !focus.startsWith(':') ? focus : undefined)} lead={tabs} actions={studyNow} />
+  // A deck's study is left for today's cards ("Back to today’s cards", at its end too) or, with Esc, for the decks it was
+  // picked from: each a step, so Back returns to the deck.
+  return <ReviewView key={studying ?? ''} tag={studying ?? undefined} lead={tabs} actions={studyNow}
+    onLeave={studying !== null ? (to) => (setStudying(null), setTab(to)) : undefined} />
 }

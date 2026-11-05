@@ -46,6 +46,22 @@ export function startDeck(deck: string, label: string, on: boolean): void {
   })
 }
 
+/** What is open on the Decks tab: the decks inside a deck (each opened from its "+N sub-decks"), a shared deck's pictures, its links. */
+export type DeckPlace = { inside: string[]; pictures: string | null; links: string | null }
+export const NO_PLACE: DeckPlace = { inside: [], pictures: null, links: null }
+/** The Decks tab and what is open on it, as the words of a step: "decks", or "decks?inside=zoo&pictures=Paintings". */
+export const placeWords = (place: DeckPlace): string => {
+  const words = new URLSearchParams()
+  for (const one of place.inside) words.append('inside', one)
+  if (place.pictures) words.set('pictures', place.pictures)
+  if (place.links) words.set('links', place.links)
+  return words.size ? `decks?${words}` : 'decks'
+}
+export const placeOf = (words: string): DeckPlace => {
+  const said = new URLSearchParams(words.split('?')[1] ?? '')
+  return { inside: said.getAll('inside'), pictures: said.get('pictures'), links: said.get('links') }
+}
+
 /**
  * Review's Decks page: the shared decks you imported, each on its own shelf
  * with its cover, how many cards are new, due and held, and its topics, each
@@ -57,13 +73,14 @@ const MANY = 8
 /** The most pockets drawn before the fold. */
 const POCKETS = 24
 
-export function DeckShelf({ onOpen, onStudy, onPaste, onPicture, onShow }: { /** Show these cards in All cards, and only them. */ onShow: (ids: string[]) => void; onOpen: (type: string, id: string) => void; /** Study a deck's or topic's tag in Today. */ onStudy: (tag: string) => void; /** Paste cards into a deck, or make one card in it, in All cards. */ onPaste: (deck: string | null, one?: boolean) => void; /** Make cards from a picture, into a deck or none. */ onPicture: (deck: string | null) => void }): React.JSX.Element {
-  const [gallery, setGallery] = useState<string | null>(null)
-  const [linking, setLinking] = useState<string | null>(null)
+export function DeckShelf({ place, onPlace, onOpen, onStudy, onPaste, onPicture, onShow }: { /** What is open on the shelf, kept by Review as a step of its own. */ place: DeckPlace; onPlace: (place: DeckPlace) => void; /** Show these cards in All cards, and only them. */ onShow: (ids: string[]) => void; onOpen: (type: string, id: string) => void; /** Study a deck's or topic's tag in Today. */ onStudy: (tag: string) => void; /** Paste cards into a deck, or make one card in it, in All cards. */ onPaste: (deck: string | null, one?: boolean) => void; /** Make cards from a picture, into a deck or none. */ onPicture: (deck: string | null) => void }): React.JSX.Element {
+  const { pictures: gallery, links: linking } = place
+  const setGallery = (deck: string | null): void => onPlace({ ...place, pictures: deck })
+  const setLinking = (deck: string | null): void => onPlace({ ...place, links: deck })
   const [allTags, setAllTags] = useState(false)
   const [look, setLook] = useDeckLook()
-  const [kidsOpen, setKidsOpen] = useState<Set<string>>(new Set())
-  const openKids = (key: string): void => { const next = new Set(kidsOpen); chime(next.delete(key) ? 'fold' : (next.add(key), 'open')); setKidsOpen(next) }
+  const kidsOpen = new Set(place.inside)
+  const openKids = (key: string): void => { const next = new Set(kidsOpen); chime(next.delete(key) ? 'fold' : (next.add(key), 'open')); onPlace({ ...place, inside: [...next] }) }
   const shapes = useLive(haligtree.settings, null as Settings | null)?.deckShapes === true
   const shelves = useLive(() => call<Shelf[]>('decks:list'), null as Shelf[] | null, [], ['item'])
   const own = useOwnDecks()

@@ -109,7 +109,7 @@ function keepLeftOff(left: LeftOff): void {
 }
 
 /** `tag`: open on a round of that tag's cards (and the tags under it), from its page or ⌘K's "Study #tag". */
-export function ReviewView({ compact = false, tag, actions, lead }: { compact?: boolean; tag?: string; /** "Study now", on the right of the page's line. */ actions?: React.ReactNode; /** The Review area's tabs, on the left of the page's line. */ lead?: React.ReactNode }): React.JSX.Element {
+export function ReviewView({ compact = false, tag, actions, lead, onLeave }: { compact?: boolean; tag?: string; /** A deck's study left: for today's cards, or (Esc) for the decks. Each a step, kept by Review. */ onLeave?: (to: 'today' | 'decks') => void; /** "Study now", on the right of the page's line. */ actions?: React.ReactNode; /** The Review area's tabs, on the left of the page's line. */ lead?: React.ReactNode }): React.JSX.Element {
   const [queue, setQueue] = useState<Due[] | null>(null)
   const [reviewed, setReviewed] = useState<Set<string>>(new Set())
   const [at, setAt] = useState(0)
@@ -177,7 +177,7 @@ export function ReviewView({ compact = false, tag, actions, lead }: { compact?: 
     started.current = Date.now()
   }
   const startRound = (bucket: Round): void => void working(haligtree.round(bucket)).then((cards) => (chime('riffle'), fresh(cards, bucket)))
-  const leaveRound = (): void => void working(takeQueue()).then((cards) => (chime('fold'), fresh(cards, null)))
+  const leaveRound = (): void => (tag && onLeave ? (chime('fold'), onLeave('today')) : void working(takeQueue()).then((cards) => (chime('fold'), fresh(cards, null))))
   // Where you are, kept as you go: a practice round (its cards, how far in, which done) and the words typed
   // for the card in front, until the round ends or the day turns. A tag's study is opened from its page, so it is not kept.
   useEffect(() => {
@@ -481,6 +481,12 @@ export function ReviewView({ compact = false, tag, actions, lead }: { compact?: 
       }
       // Never while typing: in the prompt the editor sits beside the review.
       if (typing()) return
+      // Esc leaves a deck's study for the decks it was picked from.
+      if (event.key === 'Escape' && tag && onLeave) {
+        event.preventDefault()
+        chime('fold')
+        return onLeave('decks')
+      }
       // The slipping card's choices take the keys until one is made.
       if (slipping) {
         if (slipping.splitting) return
