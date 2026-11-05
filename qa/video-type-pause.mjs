@@ -1,6 +1,6 @@
-// Typing pauses the note's video and stamps the time: for a video file in the note and for a YouTube block
-// (a stubbed player that speaks YouTube's iframe messages). Two seconds after the typing stops it plays on;
-// ⌥K pauses and plays, ⌥J ⌥L skip; the switch on the block turns it off.
+// Typing pauses the note's video and stamps the time, for a video file in the note; a YouTube block is left be.
+// Two seconds after the typing stops it plays on;
+// ⌥K pauses and plays, ⌥J ⌥L skip.
 //   QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 QA_VIDEO=/path/clip.mp4 node qa/video-type-pause.mjs
 import { readFileSync } from 'fs'
 import { checks } from './harness.mjs'
@@ -96,21 +96,12 @@ try {
     const on = (e) => { if (e.source !== frame.contentWindow) return; removeEventListener('message', on); done(JSON.parse(e.data).info) }
     addEventListener('message', on)
   }))
-  check('YouTube: the stub player is playing', (await stub()).playerState === 1, JSON.stringify(await stub()))
+  // YouTube will not play inside Haligtree (it asks to sign in), so typing leaves it be: no pause, no time, no switch.
+  check('YouTube: the block has no "Pause while I type" switch', (await h.locator('[data-open] [data-youtube-video] [data-type-pause]').count()) === 0, '')
   await toEnd()
   await h.keyboard.type('Gravity'); await wait(500)
-  check('YouTube: typing pauses it', (await stub()).playerState === 2, JSON.stringify(await stub()))
-  check('YouTube: the new line starts with the time', /^\[4:0\d\] Gravity$/.test(await lastLine()), await lastLine())
-  await wait(2600)
-  check('YouTube: plays on after the typing stops', (await stub()).playerState === 1, JSON.stringify(await stub()))
+  check('YouTube: typing stamps no time', (await lastLine()) === 'Gravity', await lastLine())
   await c.both(`${shots}/video-type-pause`)
-  // The switch on the block turns it off for every note.
-  await h.locator('[data-open] [data-type-pause]').click(); await wait(300)
-  await toEnd()
-  await h.keyboard.type('Plain'); await wait(500)
-  check('switched off: typing leaves it playing', (await stub()).playerState === 1, JSON.stringify(await stub()))
-  check('switched off: no time stamped', (await lastLine()) === 'Plain', await lastLine())
-  check('the switch is remembered as the setting', (await v('settings')).typePause === false, '')
 } catch (error) {
   check('the run finished', false, error.message.split('\n')[0])
 } finally {

@@ -836,7 +836,7 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
           <Setting title="Math as you type" note="End a line with = to see its answer, and Tab or → writes it in." more="lunch = 25 names a number for the lines below, and units, time and money work too: 5 km in mi, 3h 20m + 45m, $40 * 3 in EUR.">
             <Switch checked={settings.calc} onCheckedChange={(calc) => set({ calc })} />
           </Setting>
-          <Setting title="Pause the video while I type" note="Start writing in a note with a playing video and it pauses; a new line gets the time, [4:05], and it plays on two seconds after you stop." more="For YouTube and video files in the note. ⌥K plays or pauses, ⌥J and ⌥L go back or on five seconds. Each video block has the same switch." keywords="video youtube pause typing time stamp mote">
+          <Setting title="Pause the video while I type" note="Start writing in a note with a playing video and it pauses; a new line gets the time, [4:05], and it plays on two seconds after you stop." more="For video files in the note. ⌥K plays or pauses, ⌥J and ⌥L go back or on five seconds." keywords="video pause typing time stamp mote">
             <TypePauseSample on={settings.typePause !== false} />
             <Switch checked={settings.typePause !== false} onCheckedChange={(typePause) => set({ typePause })} />
           </Setting>

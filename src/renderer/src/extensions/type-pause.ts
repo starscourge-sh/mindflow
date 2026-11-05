@@ -11,8 +11,8 @@ import { cue } from "@/lib/cues"
  * plays on. ⌥K plays or pauses, ⌥J and ⌥L go back or on five seconds, all
  * without leaving the line.
  *
- * Works for the note's first video: a YouTube block (its player spoken to
- * through YouTube's own iframe messages) or a video file in the note.
+ * Works for the note's first video file. Not YouTube: it will not play
+ * inside Haligtree (it asks to sign in), so there is nothing to pause.
  */
 
 const RESUME_AFTER_MS = 2000
@@ -34,47 +34,9 @@ interface Player {
   seek: (seconds: number) => void
 }
 
-// What each YouTube player last said of itself: playing or not, and where.
-const told = new WeakMap<MessageEventSource, { state: number; time: number }>()
-window.addEventListener("message", (event) => {
-  if (!event.source || typeof event.data !== "string" || !/youtube/.test(event.origin)) return
-  try {
-    const said = JSON.parse(event.data) as { event?: string; info?: { playerState?: number; currentTime?: number } | number }
-    const was = told.get(event.source) ?? { state: -1, time: 0 }
-    if (said.event === "infoDelivery" && typeof said.info === "object") told.set(event.source, { state: said.info.playerState ?? was.state, time: said.info.currentTime ?? was.time })
-    if (said.event === "onStateChange" && typeof said.info === "number") told.set(event.source, { ...was, state: said.info })
-  } catch {
-    // Not one of the player's messages.
-  }
-})
-
-/** Ask a YouTube player to tell us how it is doing, as YouTube's own script does when it loads. */
-export function listenTo(frame: HTMLIFrameElement): void {
-  frame.contentWindow?.postMessage(JSON.stringify({ event: "listening", id: 1, channel: "widget" }), "*")
-}
-
-const command = (frame: HTMLIFrameElement, func: string, args: unknown[] = []): void =>
-  frame.contentWindow?.postMessage(JSON.stringify({ event: "command", func, args }), "*")
-
-/** The note's first video, or null when it has none playing or ready to play. */
+/** The note's first video file, or null when it has none. */
 function playerIn(view: EditorView): Player | null {
-  const frame = view.dom.querySelector<HTMLIFrameElement>("[data-youtube-video] iframe")
   const file = view.dom.querySelector<HTMLVideoElement>("video.tiptap-attachment-video")
-  if (frame?.contentWindow) {
-    const source = frame.contentWindow
-    const now = (): { state: number; time: number } => told.get(source) ?? { state: -1, time: 0 }
-    return {
-      // Buffering (3) is on its way to playing: typed over then, it started playing under the writing, never paused.
-      playing: () => now().state === 1 || now().state === 3,
-      time: () => now().time,
-      play: () => command(frame, "playVideo"),
-      pause: () => {
-        told.set(source, { ...now(), state: 2 })
-        command(frame, "pauseVideo")
-      },
-      seek: (seconds) => command(frame, "seekTo", [Math.max(0, now().time + seconds), true]),
-    }
-  }
   if (file)
     return {
       playing: () => !file.paused && !file.ended,

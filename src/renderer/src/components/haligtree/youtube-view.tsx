@@ -2,8 +2,6 @@ import { useEffect, useState } from "react"
 import { NodeViewWrapper, type NodeViewProps } from "@tiptap/react"
 import { Play } from "lucide-react"
 
-import { listenTo, setTypePause, typePauseOn } from "@/extensions/type-pause"
-import { haligtree } from "@/lib/haligtree"
 
 /** The video's id from any of YouTube's addresses: watch, youtu.be, embed, shorts, the no-cookie one. */
 function videoId(src: string): string | null {
@@ -33,11 +31,10 @@ export function YoutubeView({ node, editor, getPos }: NodeViewProps): React.JSX.
   const [offline, setOffline] = useState(false)
   // YouTube would not serve the player here (main saw it sent away): the face again, saying so.
   const [refused, setRefused] = useState(false)
-  const [typing, setTyping] = useState(typePauseOn)
   // A time clicked in the note ("[13:03]", extensions/line-cards.ts) plays from there.
   const [from, setFrom] = useState<number | null>(null)
   const start = from ?? (Number(node.attrs.start) || 0)
-  const player = id ? `https://www.youtube-nocookie.com/embed/${id}?autoplay=1&enablejsapi=1${start ? `&start=${start}` : ""}` : src
+  const player = id ? `https://www.youtube-nocookie.com/embed/${id}?autoplay=1${start ? `&start=${start}` : ""}` : src
   const watch = id ? `https://www.youtube.com/watch?v=${id}${start ? `&t=${start}s` : ""}` : src
   const play = (): void => {
     if (!navigator.onLine) return setOffline(true)
@@ -69,7 +66,7 @@ export function YoutubeView({ node, editor, getPos }: NodeViewProps): React.JSX.
   return (
     <NodeViewWrapper data-youtube-video="" data-from={from ?? undefined} data-state={playing ? "playing" : offline ? "offline" : refused ? "refused" : noPicture ? "no-picture" : "ready"}>
       {playing ? (
-        <iframe key={player} src={player} onLoad={(event) => listenTo(event.currentTarget)} title={title ?? "YouTube video"} allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowFullScreen />
+        <iframe key={player} src={player} title={title ?? "YouTube video"} allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowFullScreen />
       ) : (
         <div className="mf-video-face" contentEditable={false}>
           {!noPicture && <img src={`https://img.youtube.com/vi/${id}/hqdefault.jpg`} alt="" draggable={false} onError={() => setNoPicture(true)} />}
@@ -91,15 +88,6 @@ export function YoutubeView({ node, editor, getPos }: NodeViewProps): React.JSX.
           </div>
         </div>
       )}
-      {/* Typing in the note pauses the video and stamps the time (extensions/type-pause.ts); one switch with Settings → Writing. */}
-      <button type="button" data-type-pause={typing ? "on" : "off"} contentEditable={false} aria-pressed={typing} className="mf-video-type-pause" onMouseDown={(event) => event.preventDefault()} onClick={() => {
-        setTypePause(!typing)
-        setTyping(!typing)
-        void haligtree.setSettings({ typePause: !typing })
-      }}>
-        <span aria-hidden className="mf-video-type-pause-dot" />
-        Pause while I type
-      </button>
     </NodeViewWrapper>
   )
 }
