@@ -1,17 +1,19 @@
 // A stack of voice notes in a note in the main window, at phone width (390 x 844) and at desktop width, light and
 // dark, with 2 and with 12 of them: nothing runs past the card or the window, no sideways scroll, the play button
 // at least 32px to tap, and the play button and the bar at the same place in every row. Pictures into QA_SHOTS.
-//   QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 QA_VOICE=/path/voice47.m4a node qa/voice-rows-phone.mjs
+//   QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/voice-rows-phone.mjs
+// QA_VOICE=/path/voice47.m4a uses a real recording; without it, a generated 47-second tone (qa/tone.mjs).
 import { readFileSync } from 'node:fs'
 import { checks } from './harness.mjs'
 import { sandbox } from './sandbox-lib.mjs'
+import { toneFile } from './tone.mjs'
 
 const { check, done } = checks()
 const c = await sandbox({ width: 1100, height: 760 })
 const { h } = c
 const wait = (ms) => h.waitForTimeout(ms)
 const shots = process.env.QA_SHOTS ?? '/tmp'
-const voice = [...readFileSync(process.env.QA_VOICE)]
+const voice = [...(process.env.QA_VOICE ? readFileSync(process.env.QA_VOICE) : toneFile(47, 5))]
 try {
   await c.v('settings:set', { hintRate: 0, rotCount: 0, sounds: false })
   for (const count of [2, 12]) {
@@ -40,9 +42,9 @@ try {
           return {
             rows: rows.length,
             sideways: document.scrollingElement.scrollWidth > innerWidth + 1 || [...document.querySelectorAll('.haligtree-editor-content')].some((one) => one.scrollWidth > one.clientWidth + 1),
-            spill: rows.filter((one) => [...one.querySelectorAll('.tiptap-media-controls, .tiptap-attachment-body')].some((part) => box(part).right > box(one.querySelector('.tiptap-attachment-card')).right + 1 || box(part).right > innerWidth)).length,
+            spill: rows.filter((one) => [...one.querySelectorAll('.tiptap-media-controls, .tiptap-attachment-body, [data-sound-player] > *')].some((part) => box(part).right > box(one.querySelector('.tiptap-attachment-card')).right + 1 || box(part).right > innerWidth)).length,
             tap: Math.min(...rows.map((one) => Math.min(box(one.querySelector('.tiptap-media-play')).width, box(one.querySelector('.tiptap-media-play')).height))),
-            places: new Set(rows.map((one) => `${Math.round(box(one.querySelector('.tiptap-media-play')).left)},${Math.round(box(one.querySelector('.tiptap-media-scrub')).width)}`)).size
+            places: new Set(rows.map((one) => `${Math.round(box(one.querySelector('.tiptap-media-play')).left)},${Math.round(box(one.querySelector('.tiptap-media-scrub, [data-wave]')).width)}`)).size
           }
         })
         const name = `${count} notes, ${w}px, ${look}`

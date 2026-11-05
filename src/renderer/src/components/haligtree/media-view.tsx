@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useStepped } from '@/lib/nav'
-import { AudioLines, Image as ImageIcon, ImagePlay, Layers, Pause } from 'lucide-react'
-import { FileText, Play } from '@/components/ui/icons'
+import { AudioLines, Image as ImageIcon, ImagePlay, Layers } from 'lucide-react'
+import { FileText } from '@/components/ui/icons'
 import { call, unloaded, useLive } from '@/lib/haligtree'
 import { smallPicture } from '@/lib/notes'
 import { headingIn } from '@/lib/capture-links'
@@ -15,7 +15,7 @@ import { pictureLines } from '@/lib/picture-actions'
 import { Empty, Page, refuse, toast, VirtualList } from './ui'
 import { Chip } from './display'
 import { ListSearch, tileClass } from './note-list'
-import { LiveBars } from './live-bars'
+import { SoundPlayer, soundTitle } from './sound-player'
 import { RowMenu, type RowItem } from './row-menu'
 import type { Media, MediaKind } from '../../../../main/media'
 
@@ -162,7 +162,8 @@ export function mediaMenu(one: Media, onOpen: () => void): RowItem[] {
 function Tile({ one, onOpen }: { one: Media; onOpen: () => void }): React.JSX.Element {
   // A PDF is named by the title it carries, as the reader names it, and shows its first page.
   const cover = usePdfCover(one.kind === 'pdf' ? one.src : null, one.name)
-  const label = cover?.title || one.name || one.title || 'Untitled'
+  // A recording by its name without ".wav", as its player names it.
+  const label = cover?.title || (one.kind === 'audio' && one.name ? soundTitle(one.name, null) : one.name) || one.title || 'Untitled'
   const items = mediaMenu(one, onOpen)
   return (
     <RowMenu items={items}>
@@ -215,27 +216,11 @@ function Face({ one, cover }: { one: Media; cover?: string }): React.JSX.Element
   )
 }
 
-/** A recording: plays where it sits, without opening its note. */
+/** A recording: plays where it sits, without opening its note, in the one sound player every recording wears. */
 function AudioFace({ one }: { one: Media }): React.JSX.Element {
-  const sound = useRef<HTMLAudioElement>(null)
-  const [playing, setPlaying] = useState(false)
-  const flip = (event: React.MouseEvent): void => {
-    event.stopPropagation()
-    const audio = sound.current
-    if (!audio) return
-    if (audio.paused) void audio.play()
-    else audio.pause()
-  }
   return (
-    <span className="flex size-full flex-col items-center justify-center gap-2 text-muted-foreground">
-      <LiveBars sound={sound} playing={playing} />
-      <span role="button" tabIndex={0} aria-label={playing ? 'Pause' : 'Play'} data-media-play onClick={flip}
-        onKeyDown={(event) => (event.key === 'Enter' || event.key === ' ') && (event.preventDefault(), event.stopPropagation(), flip(event as unknown as React.MouseEvent))}
-        className="flex h-7 items-center gap-1.5 rounded-full border bg-background px-3 text-xs font-medium text-foreground transition-colors hover:bg-accent">
-        {playing ? <Pause className="size-3.5" /> : <Play className="size-3.5" />}
-        {playing ? 'Pause' : 'Play'}
-      </span>
-      <audio ref={sound} src={one.src} crossOrigin="anonymous" preload="none" onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)} onEnded={() => setPlaying(false)} />
+    <span className="flex size-full items-center px-4">
+      <SoundPlayer src={one.src} className="w-full" />
     </span>
   )
 }

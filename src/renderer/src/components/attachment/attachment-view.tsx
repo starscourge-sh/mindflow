@@ -25,21 +25,9 @@ import { hasWords, heardOf, isTranscribing, onTranscribing, stopTranscribing, tr
 import { bubblesOf } from "@/lib/bubbles"
 import { playAt } from "@/extensions/line-cards"
 import { Orb } from "@/components/haligtree/orb"
-import { LiveBars } from "@/components/haligtree/live-bars"
+import { SoundPlayer, soundTitle } from "@/components/haligtree/sound-player"
 import { FileText as File, FileText, Fit as Maximize, Volume2, VolumeX } from "@/components/ui/icons"
 import { plural } from '../../../../main/dates'
-
-/**
- * A recording by what it is and how long: "Voice note · 0:56", never its file
- * name's ".m4a" or its size. One dropped in keeps its own name, without the
- * extension.
- */
-export function soundTitle(name: string | null | undefined, seconds: number | null): string {
-  const said = /^voice note\b/i.test(name ?? "") || !name ? "Voice note" : name.replace(/\.[a-z0-9]{2,5}$/i, "")
-  if (!seconds) return said
-  // Past an hour, 2:00:00, never "120:00".
-  return `${said} · ${clock(seconds)}`
-}
 
 /** 57.3 KB, not 58624. Binary units, because that is what a file manager shows. */
 function readableSize(bytes: number): string {
@@ -393,10 +381,11 @@ function useToolbarShown(props: NodeViewProps): boolean {
 
 /**
  * The length a recording or video shows before it plays: the one kept on the
- * block, and once found for one without (see useMedia), kept there, outside
- * Undo, as a fact about the file rather than an edit.
+ * block, and once found for one without (a video's by useMedia, a recording's
+ * as its waveform is read), kept there, outside Undo, as a fact about the file
+ * rather than an edit.
  */
-function useLength(props: NodeViewProps, audio = false): [number | null, (seconds: number) => void] {
+function useLength(props: NodeViewProps): [number | null, (seconds: number) => void] {
   const known = Number(props.node.attrs.duration) || null
   const learn = (seconds: number): void => {
     const at = props.getPos()
@@ -404,22 +393,6 @@ function useLength(props: NodeViewProps, audio = false): [number | null, (second
     if (at == null || !editor.isEditable || editor.state.doc.nodeAt(at)?.type.name !== "attachment") return
     editor.view.dispatch(editor.state.tr.setNodeAttribute(at, "duration", seconds).setMeta("addToHistory", false))
   }
-  const learnRef = useRef(learn)
-  learnRef.current = learn
-  // A recording kept before lengths were, or one dropped in: the length its
-  // file claims can be a guess that grows as it plays, so the sound itself is
-  // decoded once and timed. A video's is found by the player (useMedia).
-  const { src } = props.node.attrs
-  useEffect(() => {
-    if (!audio || known || !src) return
-    let gone = false
-    void fetch(src)
-      .then((answer) => answer.arrayBuffer())
-      .then((bytes) => new OfflineAudioContext(1, 1, 44100).decodeAudioData(bytes))
-      .then((sound) => !gone && sound.duration > 0 && learnRef.current(Math.round(sound.duration * 100) / 100))
-      .catch(() => {})
-    return () => void (gone = true)
-  }, [audio, known, src])
   return [known, learn]
 }
 
@@ -463,12 +436,12 @@ function Listening({ src, length }: { src: string; length: number | null }): Rea
   )
 }
 
-/** A recording: its name over the same controls, in a card like a file's. */
+/** A recording: the one sound player (sound-player.tsx) in a card like a file's, its transcript under it. */
 function AudioBlock(props: NodeViewProps): React.JSX.Element {
   const { src, name } = props.node.attrs
   const selected = isNodeSelected(props)
-  const [length, learn] = useLength(props, true)
-  const { ref, controls, playing, state } = useMedia(false, length, learn)
+  const [length, learn] = useLength(props)
+  const [playing, setPlaying] = useState(false)
   const listening = useSyncExternalStore(onTranscribing, () => isTranscribing(src))
   // Kept with "Transcribe voice notes as you record them" on: its words start as it first shows, once.
   useEffect(() => {
@@ -489,33 +462,20 @@ function AudioBlock(props: NodeViewProps): React.JSX.Element {
     <>
       <span>No transcript</span>
       <span aria-hidden>·</span>
-      <button type="button" data-transcribe onMouseDown={(event) => event.preventDefault()} onClick={() => void transcribe(props.editor, src)}
+      <button type="button" data-transcribe title="Its words under it, by Apple’s speech recognition" onMouseDown={(event) => event.preventDefault()} onClick={() => void transcribe(props.editor, src)}
         className="cursor-pointer rounded-sm font-medium text-foreground/80 underline-offset-2 transition-colors hover:text-foreground hover:underline active:scale-[0.97]">
         Transcribe
       </button>
     </>
   ) : null
-  // One status in one place: "No transcript · Transcribe" or "Listening… 0:14 of 0:47 · Stop", in the same slot
-  // (the row's fixed one in a run of recordings, the line under a lone card), so nothing beside it moves.
+  // One status in one place, the player's quiet line: "No transcript · Transcribe" or "Listening… 0:14 of 0:47 · Stop".
   const status = listening ? <Listening src={src} length={length} /> : noWords
   return (
-    <NodeViewWrapper className={`tiptap-attachment is-audio${selected ? " is-selected" : ""}${playing ? " is-playing" : ""}`} data-state={state} data-words={worded ? "" : undefined}>
-      <audio ref={ref as React.RefObject<HTMLAudioElement>} src={src} preload="metadata" />
+    <NodeViewWrapper className={`tiptap-attachment is-audio${selected ? " is-selected" : ""}${playing ? " is-playing" : ""}`} data-words={worded ? "" : undefined}>
       <div className="tiptap-attachment-card">
-        {/* Media's own waveform mark, moving with the sound as it plays (live-bars.tsx): one mark for every recording. */}
-        <LiveBars sound={ref as React.RefObject<HTMLAudioElement | null>} playing={playing} className="tiptap-attachment-icon" />
-        <span className="tiptap-attachment-body">
-          {/* No file-name tip: "Voice note · 0:47" is the name, and the tip covered the row above. */}
-          <span className="tiptap-attachment-name">{soundTitle(name, length)}</span>
-          {/* Always there in a run of recordings, empty or not, at one width: the play button and the bar sit at the same place in every row. */}
-          <span data-no-words="row" className="tiptap-attachment-words items-center gap-1.5 text-xs text-muted-foreground">{status}</span>
-        </span>
-        {controls}
+        <SoundPlayer src={src} name={soundTitle(name, null)} length={length} onLength={learn} onPlaying={setPlaying}
+          status={status && <span data-no-words className="flex min-w-0 items-center gap-1.5">{status}</span>} />
       </div>
-      {/* No words under it and none on their way: said in one quiet line under
-          the card, with the way to get them, never a silent nothing. Inside a
-          lone card's row it widened the name and pushed the player onto a second
-          line; in a run of recordings it sits on the row, beside the name (CSS). */}
       {worded && !listening && (
         <div data-voice-tabs contentEditable={false} className="flex flex-col gap-2 pt-1.5">
           <div role="tablist" className="flex items-center gap-1 text-xs">
@@ -531,7 +491,6 @@ function AudioBlock(props: NodeViewProps): React.JSX.Element {
           {tab === "transcript" && <Bubbles lines={transcriptOf(props.editor, src)} play={(at) => playAt(props.editor.view.dom as HTMLElement, src, at)} />}
         </div>
       )}
-      {status && <div data-no-words="under" contentEditable={false} className="flex h-6 items-center gap-1.5 overflow-hidden px-1 pt-1 text-xs text-muted-foreground">{status}</div>}
     </NodeViewWrapper>
   )
 }

@@ -1,6 +1,9 @@
 import { app, ipcMain, shell, systemPreferences } from 'electron'
 import { LABEL, database } from './captures'
 import { dayName } from './dates'
+import { readFile, rename, writeFile } from 'node:fs/promises'
+import { join } from 'node:path'
+import { assetsDir } from './pictures'
 
 /**
  * Media: every picture, GIF, PDF and recording kept in the book's notes, found
@@ -118,6 +121,26 @@ export function registerMedia(): void {
     if (now === 'granted') return true
     if (now === 'denied' || now === 'restricted') return false
     return systemPreferences.askForMediaAccess('microphone')
+  })
+  // A recording's waveform (lib/waveform.ts), worked out once from its sound and kept beside the file as
+  // `<file>.peaks`: the store names each file by the hash of its bytes, so what is kept never goes stale.
+  const peaksFile = (src: unknown): string | null => {
+    const found = /^(?:haligtree|mindflow):\/\/assets\/([a-f0-9]{64}\.[a-z0-9]+)$/.exec(String(src ?? ''))
+    return found && AUDIO.test(found[1]) ? join(assetsDir(), `${found[1]}.peaks`) : null
+  }
+  ipcMain.handle('haligtree:media:peaks', async (_event, src: unknown) => {
+    const file = peaksFile(src)
+    return file ? readFile(file, 'utf8').then((text) => JSON.parse(text), () => null) : null
+  })
+  ipcMain.handle('haligtree:media:keep-peaks', async (_event, src: unknown, kept: unknown) => {
+    const file = peaksFile(src)
+    const { peaks, seconds } = (kept ?? {}) as { peaks?: unknown; seconds?: unknown }
+    if (!file || !Array.isArray(peaks) || peaks.length > 4096 || !peaks.every((one) => Number.isInteger(one) && one >= 0 && one <= 255) || !(Number(seconds) > 0)) return false
+    // Written beside and renamed in, so a half-written one is never read.
+    const temporary = `${file}.${process.pid}.tmp`
+    await writeFile(temporary, JSON.stringify({ peaks, seconds: Number(seconds) }))
+    await rename(temporary, file)
+    return true
   })
   // The Mac's own page for it, from any "No microphone" message (ui.tsx, refuseMic).
   ipcMain.handle('haligtree:mic:privacy', () => void shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone'))

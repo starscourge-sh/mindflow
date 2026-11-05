@@ -1,0 +1,115 @@
+/* The one sound player (sound-player.tsx): play, the waveform with its playhead, the time; a quiet line under. */
+.mf-sound {
+  --mf-sound-faint: color-mix(in oklab, var(--foreground) 22%, transparent);
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) auto;
+  grid-template-rows: 32px auto;
+  align-items: center;
+  column-gap: 12px;
+  row-gap: 2px;
+  min-width: 0;
+  color: var(--foreground);
+  user-select: none;
+}
+
+.mf-sound-play {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  background: var(--foreground);
+  color: var(--background);
+  cursor: pointer;
+  transition: background-color 120ms var(--mf-ease), scale 120ms var(--mf-ease);
+}
+@media (hover: hover) and (pointer: fine) { .mf-sound-play:hover { background: color-mix(in oklab, var(--foreground) 86%, var(--background)); } }
+.mf-sound-play:active { scale: 0.97; }
+.mf-sound-play:focus-visible, .mf-sound-wave:focus-visible, .mf-sound-speed:focus-visible { outline: 2px solid color-mix(in oklab, var(--primary) 70%, transparent); outline-offset: 2px; }
+.mf-sound-play svg {
+  grid-area: 1 / 1;
+  width: 14px;
+  height: 14px;
+  opacity: 0;
+  transform: scale(0.9);
+  filter: blur(2px);
+  transition: opacity 0.1s var(--mf-ease), transform 0.16s var(--mf-ease), filter 0.1s var(--mf-ease);
+}
+.mf-sound-play [data-icon='paused'], .mf-sound-play [data-icon='playing'] { fill: currentColor; }
+/* The play triangle's weight sits left of its middle: nudged so it looks centred in the circle. */
+.mf-sound-play [data-icon='paused'] { translate: 1px 0; }
+.mf-sound-play[data-state='paused'] [data-icon='paused'],
+.mf-sound-play[data-state='playing'] [data-icon='playing'],
+.mf-sound-play[data-state='ended'] [data-icon='ended'] { opacity: 1; transform: none; filter: none; }
+
+/* The waveform: rounded bars, what has played in ink over the same bars faint. A quiet line holds its room until the
+   sound is read, then the bars fade in over it. */
+.mf-sound-wave {
+  position: relative;
+  height: 32px;
+  min-width: 0;
+  cursor: pointer;
+  border-radius: 4px;
+  touch-action: none;
+  background: linear-gradient(var(--mf-sound-faint), var(--mf-sound-faint)) center / 100% 2px no-repeat;
+}
+.mf-sound-wave[data-ready] { background: none; }
+.mf-sound-bars { position: absolute; top: 2px; left: 0; display: block; fill: var(--mf-sound-faint); }
+.mf-sound-wave[data-ready] .mf-sound-bars { animation: mf-sound-in 180ms var(--mf-ease); }
+.mf-sound-played { position: absolute; inset: 0; clip-path: inset(0 100% 0 0); pointer-events: none; }
+.mf-sound-played .mf-sound-bars { fill: var(--foreground); }
+/* The playhead: a tall thin handle in the accent, a little over the bars, with a round head to take hold of. */
+.mf-sound-head {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  left: 0;
+  width: 2px;
+  margin-left: -1px;
+  border-radius: 1px;
+  background: var(--primary);
+  pointer-events: none;
+}
+.mf-sound-head::before {
+  content: '';
+  position: absolute;
+  top: -3px;
+  left: -3px;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--primary);
+  box-shadow: 0 0 0 2px var(--background);
+  transition: scale 120ms var(--mf-ease);
+}
+@media (hover: hover) and (pointer: fine) { .mf-sound-wave:hover .mf-sound-head::before { scale: 1.25; } }
+.mf-sound-wave:active .mf-sound-head::before { scale: 1.25; }
+/* Where a click would jump to, while the pointer rests there. */
+.mf-sound-ghost { position: absolute; top: 2px; bottom: 2px; width: 1px; background: color-mix(in oklab, var(--foreground) 35%, transparent); pointer-events: none; }
+
+.mf-sound .mf-sound-time { justify-self: end; text-align: right; font-size: 0.8125rem; line-height: 1.125rem; font-variant-numeric: tabular-nums; color: var(--muted-foreground); }
+
+/* Under it, quietly: its name, the speed, and what the place adds. */
+.mf-sound-under {
+  grid-column: 2 / 4;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  height: 20px;
+  overflow: hidden;
+  font-size: 0.75rem;
+  line-height: 1rem;
+  color: var(--muted-foreground);
+  white-space: nowrap;
+}
+.mf-sound .mf-sound-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; font-size: 0.8125rem; color: var(--foreground); }
+.mf-sound .mf-sound-speed { display: inline-grid; flex: none; margin-left: auto; justify-items: end; cursor: pointer; border-radius: 4px; font-variant-numeric: tabular-nums; transition: color 120ms var(--mf-ease); }
+.mf-sound-speed > * { grid-area: 1 / 1; }
+.mf-sound-speed:hover { color: var(--foreground); }
+.mf-sound-reserve { visibility: hidden; }
+.mf-sound-status { display: flex; align-items: center; gap: 6px; min-width: 0; overflow: hidden; }
+
+@keyframes mf-sound-in { from { opacity: 0; } }
+:root[data-motion='off'] .mf-sound *, :root[data-motion='off'] .mf-sound *::before { animation: none !important; transition: none !important; }
+@media (prefers-reduced-motion: reduce) { .mf-sound *, .mf-sound *::before { animation: none !important; transition: none !important; } }

@@ -2765,23 +2765,19 @@ $media-brand: var(--tt-brand-color-500, currentColor);
   font-variant-numeric: tabular-nums;
 }
 
-// A recording's card carries the controls in its row, no pill of its own.
+// A recording's card holds the one sound player (sound-player.tsx): the card itself does nothing on a click, so no hand
+// and no hover wash; its play button, waveform and speed have their own.
 .tiptap-attachment.is-audio {
   position: relative;
 
-  // Beside the name when there is room, on a line of its own when not.
   .tiptap-attachment-card {
-    flex-wrap: wrap;
-    container: media / inline-size;
-  }
+    display: block;
+    padding: 0.625rem 0.875rem 0.5rem;
+    cursor: default;
 
-  .tiptap-media-controls {
-    flex: 1 1 15rem;
-    max-width: 24rem;
-    margin-inline-start: auto;
-    border: 0;
-    background: none;
-    box-shadow: none;
+    &:hover {
+      background-color: var(--tt-card-bg-color);
+    }
   }
 }
 
@@ -4164,102 +4160,10 @@ html[data-motion="off"] .tiptap.ProseMirror :is(.mf-kept, .mf-kept-icon button) 
   }
 }
 
-// Recordings side by side are one list in one frame, as Voice Memos lists
-// them: a row each (its glyph, name and length, its transcript state, play and
-// the bar), the speed and the sound only on the row that plays. Ten fit in
-// quick capture's fitted box. A lone recording keeps its own card.
+// Recordings side by side are one list in one frame, as Voice Memos lists them: the same player in each row,
+// joined by a hairline, so every play button, waveform and time sits at the same place in every row.
 $run-first: '.react-renderer:has(> .tiptap-attachment.is-audio):has(+ .react-renderer > .tiptap-attachment.is-audio)';
 $run-next: '.react-renderer:has(> .tiptap-attachment.is-audio) + .react-renderer:has(> .tiptap-attachment.is-audio)';
-
-.tiptap-attachment-words {
-  display: none;
-}
-
-#{$run-first},
-#{$run-next} {
-  > .tiptap-attachment.is-audio {
-    .tiptap-attachment-card {
-      flex-wrap: nowrap;
-      gap: 0.625rem;
-      padding: 0.125rem 0.75rem;
-    }
-
-    .tiptap-attachment-icon {
-      width: 1rem;
-      height: 1rem;
-    }
-
-    // Every row's parts at the same places in every state (idle, playing, dragging, transcribing), as Voice
-    // Memos lists them: the name over its status ("No transcript · Transcribe", "Listening… 0:14 of 0:47 · Stop"),
-    // each one line of one height and cut short, taking what room is left; the play button, the bar, the time
-    // and the speed a fixed width at the row's end, so the bar is the same length in every row and never moves.
-    .tiptap-attachment-body {
-      flex: 1 1 auto;
-      min-width: 0;
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 0;
-      white-space: nowrap;
-    }
-
-    .tiptap-attachment-name {
-      max-width: 100%;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .tiptap-attachment-words {
-      display: flex;
-      align-items: center;
-      height: 1.25rem;
-      max-width: 100%;
-      overflow: hidden;
-    }
-
-    [data-no-words="under"] {
-      display: none;
-    }
-
-    // A share of the row, the same in every row of a stack: a longer bar on a wide page, never under 12rem.
-    .tiptap-media-controls {
-      flex: 0 0 clamp(12rem, 45%, 24rem);
-      min-width: 0;
-    }
-
-    // Short of room, "No transcript" is cut, never the "Transcribe" you tap.
-    .tiptap-attachment-words > span:first-child {
-      min-width: 0;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .tiptap-attachment-words > :is(button, span[aria-hidden]) {
-      flex: none;
-    }
-
-    // Big enough to tap at any text size.
-    .tiptap-media-play {
-      flex: none;
-      width: 32px;
-      height: 32px;
-    }
-
-    // The speed and the sound on or off are a lone recording's: in a stack the row keeps to play, the bar and the time.
-    :is(.tiptap-media-volume, .tiptap-media-speed) {
-      display: none;
-    }
-
-    // Their room kept while it does not play, so the bar is the same length in every row and never jumps.
-    &:not(.is-playing) :is(.tiptap-media-speed, .tiptap-media-volume, .tiptap-media-time) {
-      visibility: hidden;
-    }
-
-    // The time a place on the bar stands for, only on the bar being pointed at or dragged: never left on another row.
-    .tiptap-media-scrub:not(:hover):not(:active) .tiptap-media-bubble {
-      display: none;
-    }
-  }
-}
 
 #{$run-first} > .tiptap-attachment.is-audio {
   margin-bottom: 0;

@@ -1,5 +1,5 @@
 import { app, ipcMain, shell } from 'electron'
-import { readdir, readFile, stat } from 'fs/promises'
+import { readdir, readFile, rm, stat } from 'fs/promises'
 import { join } from 'path'
 import { database } from './captures'
 import { assetsDir } from './pictures'
@@ -100,6 +100,8 @@ export function registerUnused(): void {
     for (const name of names) {
       if (typeof name !== 'string' || !still.has(name)) continue
       await shell.trashItem(join(assetsDir(), name)).then(() => (moved++, (size += still.get(name) ?? 0)), () => undefined)
+      // A recording's kept waveform (media.ts) goes with it.
+      await rm(join(assetsDir(), `${name}.peaks`), { force: true }).catch(() => undefined)
     }
     return { moved, size }
   })
