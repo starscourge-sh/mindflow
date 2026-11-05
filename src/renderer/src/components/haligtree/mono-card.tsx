@@ -247,10 +247,10 @@ export function Spline({ lines, say, onHover }: { lines: { values: number[]; das
           <path key={line.name} data-mono-line={line.dashed ? 'dashed' : 'full'} d={curve(line.values)} fill="none" stroke={INK} strokeOpacity={line.dashed ? 0.56 : 1} strokeWidth={2} strokeDasharray={line.dashed ? '5 4' : undefined} strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
         ))}
       </motion.svg>
-      {/* The full line's dots as round marks over the stretched drawing, so they stay round; a ring of the card keeps each clear of the line. */}
+      {/* The full line's dots as filled round marks over the stretched drawing, so they stay round; no ring of a fixed colour, which showed as a dark bead on a finish's own paper. The one pointed at gets a ring of ink. */}
       {full && full.values.map((n, at) => (
         <span key={at} data-mono-dot={at} className="pointer-events-none absolute size-[7px] rounded-full"
-          style={{ left: `${(x(at) / w) * 100}%`, top: `${(y(n) / h) * 100}%`, translate: '-50% -50%', background: INK, boxShadow: `0 0 0 2px var(--card)${on === at ? ', 0 0 0 3.5px color-mix(in oklab, var(--foreground) 45%, transparent)' : ''}` }} />
+          style={{ left: `${(x(at) / w) * 100}%`, top: `${(y(n) / h) * 100}%`, translate: '-50% -50%', background: INK, boxShadow: on === at ? '0 0 0 2px color-mix(in oklab, var(--foreground) 35%, transparent)' : undefined }} />
       ))}
       {full && labelled && full.values.map((n, at) => (
         <span key={`v${at}`} aria-hidden data-mono-label className="pointer-events-none absolute text-[10px] leading-none text-muted-foreground tabular-nums"
