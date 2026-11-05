@@ -153,7 +153,7 @@ export function Cover({ src, colour, seed, children, caption = '' }: { src?: str
  * `length`, the title's characters: a long one is set smaller, as a music app
  * sets a long album name, so a sentence never towers over the page.
  */
-export function CollectionHeader({ tint, backdrop, cover, label, title, length = 0, meta, actions }: {
+export function CollectionHeader({ tint, backdrop, cover, label, title, length = 0, big, meta, actions }: {
   tint: string | null
   /** A picture behind the header instead of the colour: one from the collection's notes, or a sketch. Faded into the page so the words read. */
   backdrop?: string | null
@@ -161,6 +161,8 @@ export function CollectionHeader({ tint, backdrop, cover, label, title, length =
   label: string
   title: ReactNode
   length?: number
+  /** The one thing to know, on its own line under the name, larger than the counts (a goal's days left). */
+  big?: ReactNode
   meta: ReactNode[]
   actions: ReactNode
 }): React.JSX.Element {
@@ -185,6 +187,7 @@ export function CollectionHeader({ tint, backdrop, cover, label, title, length =
           <span className="text-xs font-medium text-foreground/90">{label}</span>
           {/* The page's own name, as its heading: what a screen reader lands on and lists. */}
           <h1 className={`min-w-0 font-heading ${length > 70 ? 'text-[clamp(1.25rem,3.2cqi,2.25rem)] leading-[1.12]' : length > 28 ? 'text-[clamp(1.4rem,4.4cqi,3.25rem)] leading-[1.06]' : 'text-[clamp(1.6rem,6.5cqi,5rem)] leading-[1.02]'} font-bold tracking-[-0.035em] text-balance break-words text-foreground [&>span]:line-clamp-3 [&>span]:-mb-[0.2em] [&>span]:pb-[0.2em]`}>{title}</h1>
+          {big}
           <p className="mt-1 line-clamp-2 text-control text-muted-foreground">
             {meta.map((part, index) => (
               <span key={index}>

@@ -44,7 +44,7 @@ try {
     const rows = [...document.querySelectorAll('[data-row][data-id]')].map((one) => one.getAttribute('data-id'))
     return { text: row?.textContent ?? '', last: rows.at(-1) === id, page: document.body.innerText, someday: [...document.querySelectorAll('h2, h3, [data-section-head], div')].some((one) => one.childElementCount === 0 && one.textContent.trim() === 'Someday') }
   }, made.id)
-  check('its row says Someday and no logs yet', list.text.includes('Someday') && list.text.includes('no logs yet'), list.text)
+  check('its row says Someday and nothing logged', list.text.includes('Someday') && list.text.includes('nothing logged'), list.text)
   check('its row has no countdown, percent or bar', !/days? left|of the way|%/.test(list.text), list.text)
   check('it comes after the dated goals', list.last)
   check('a "Someday" heading shows', list.someday || /\nSomeday\n/.test(list.page))

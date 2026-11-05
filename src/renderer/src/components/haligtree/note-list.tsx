@@ -69,6 +69,8 @@ export type Entry = {
   marks?: ReactNode
   /** A bar under the line in a list, for what fills as it goes: a goal's road. */
   bar?: ReactNode
+  /** No tile at the row's start in a list: its words and its bar say it all (a goal). */
+  bare?: boolean
   /** Shown on the row under the pointer or the keyboard only: its handle. */
   hint?: string
   dim?: boolean
@@ -270,7 +272,8 @@ export function NoteList({
   after,
   folds,
   islands,
-  className = ''
+  className = '',
+  headCountOne = true
 }: {
   groups: [string, Entry[]][]
   density: Density
@@ -296,6 +299,8 @@ export function NoteList({
   folds?: Folds
   /** Each group drawn as an island of its own that folds, its first few showing (islands.tsx). Rows only. */
   islands?: Record<string, IslandState>
+  /** False: a heading over a single row says only its name (a goal's day), no "1" after it. */
+  headCountOne?: boolean
   className?: string
 }): React.JSX.Element {
   const grid = density === 'small' || density === 'grid'
@@ -409,7 +414,7 @@ export function NoteList({
         >
           {(one) => (
             <>
-              {one.head && <SectionHead head={one.head} first={one.start === 0} />}
+              {one.head && <SectionHead head={one.head} first={one.start === 0} count={headCountOne || one.head[1] > 1} />}
               {grid ? (
                 <div
                   className="grid"
@@ -608,7 +613,7 @@ function CompactRow({ entry, lit }: { entry: Entry; lit: boolean }): React.JSX.E
 function ListRow({ entry, lit }: { entry: Entry; lit: boolean }): React.JSX.Element {
   return (
     <>
-      {entry.lead ? <span aria-hidden className="size-9 shrink-0" /> : <Lead entry={entry} />}
+      {entry.bare ? null : entry.lead ? <span aria-hidden className="size-9 shrink-0" /> : <Lead entry={entry} />}
       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
         <span className="flex items-center gap-2">
           <PaneMark id={entry.id} />
