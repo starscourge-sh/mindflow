@@ -194,8 +194,11 @@ export function boxGuess(text: string, now = new Date()): CaptureType | null {
   const guessed = kindOf(text) as CaptureType | null
   if (guessed || /\?\s*$/.test(text) || isProse(text)) return guessed
   const read = readTask(text, now)
-  if (!read.due || dayjs(read.due).isBefore(dayjs(now).startOf('day'))) return null
-  if (!read.allDay) return 'todo'
+  // A day it is due by ("by 12pm", "due friday") makes a task as a day to do it on does: Today's lines read both, and
+  // the box read only the second, so "do something by 12pm" stayed a note there and was a task on Today.
+  const when = read.due ?? read.deadline
+  if (!when || dayjs(when).isBefore(dayjs(now).startOf('day'))) return null
+  if (read.due ? !read.allDay : read.deadlineTimed) return 'todo'
   // A day alone ("render the first video on wednesday", "party on friday") is a task too, as long as the line is
   // something to do rather than something told: not "I loved the film on sunday" or "the meeting went well today"
   // (e24263d5: "it does not think this is a task???").
