@@ -195,13 +195,13 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
             <Button variant="ghost" size="icon-sm" aria-label="All tags" className="@[56rem]/page:hidden" onClick={() => (chime('tap'), setChosen(null))}><ArrowLeft className="size-3.5" /></Button>
           </Tip>
           <Tip label="Write everything you remember about it, then see what you left out">
-            <Button variant="ghost" size="sm" data-blurt-open onClick={() => (chime('open'), setPractising(null), setBlurting(chosen))}>Blurt</Button>
+            <Button variant="outline" size="sm" className="h-8 cursor-pointer px-3" data-blurt-open onClick={() => (chime('open'), setPractising(null), setBlurting(chosen))}>Blurt</Button>
           </Tip>
           <Tip label="Its cards in Review, with the tags under it, the ones due first: each grade counts">
-            <Button variant="ghost" size="sm" data-study-tag onClick={() => (chime('open'), onOpen('study', chosen))}>Study</Button>
+            <Button variant="outline" size="sm" className="h-8 cursor-pointer px-3" data-study-tag onClick={() => (chime('open'), onOpen('study', chosen))}>Study</Button>
           </Tip>
           <Tip label="Go through its cards, nothing counted or scheduled">
-            <Button variant="ghost" size="sm" data-practise-open onClick={() => (chime('open'), setBlurting(null), setPractising(chosen))}>Practise</Button>
+            <Button variant="outline" size="sm" className="h-8 cursor-pointer px-3" data-practise-open onClick={() => (chime('open'), setBlurting(null), setPractising(chosen))}>Practise</Button>
           </Tip>
           <span role="tablist" className="flex h-8 items-center rounded-lg border border-foreground/10 bg-accent/40 p-0.5 text-control">
             {(['read', 'manage'] as const).map((one) => (

@@ -200,7 +200,7 @@ export function BinView({ onOpen, focus }: { onOpen?: (type: string, id: string)
           <Tip label="Clear the selection  Esc"><Button variant="ghost" size="icon-sm" aria-label="Clear the selection" onClick={clear}><X className="size-3.5" /></Button></Tip>
         </span>
       ) : binned.length > 0 ? <span className="flex items-center gap-1">
-        {shown.length > 1 && <Button size="sm" variant="ghost" onClick={() => restoreMany(shown)}>Restore {filtered ? `these ${num(shown.length)}` : `all ${num(shown.length)}`}</Button>}
+        {shown.length > 1 && <Button variant="outline" size="sm" className="h-8 cursor-pointer px-3" onClick={() => restoreMany(shown)}>Restore {filtered ? `these ${num(shown.length)}` : `all ${num(shown.length)}`}</Button>}
         {filtered ? (
           shown.length > 0 && <HoldButton hint={`The ${num(shown.length)} on show, deleted for good`} done="Deleting…" onHold={() => forget(shown.map(keyOf))}>{shown.length === 1 ? 'Hold to delete' : `Hold to delete ${num(shown.length)}`}</HoldButton>
         ) : <HoldButton hint="Everything in the Bin, deleted for good" done="Emptying…" onHold={empty}>Hold to empty</HoldButton>}

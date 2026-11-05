@@ -397,9 +397,9 @@ export function GoalsView({ focus, onOpen }: { focus?: string; onOpen?: (type: s
         lead={several.bar ? undefined : <div data-list-tabs className="flex shrink-0" style={{ marginLeft: 'calc(var(--list-edge) - var(--list-ink))' }}><Chips className="shrink-0" options={[{ id: 'open', label: 'Open' }, { id: 'settled', label: 'Ended' }, { id: 'iced', label: 'On ice' }]} on={(id) => id === show} pick={(id) => switchTo(id as Tab)} /></div>}
         actions={several.bar ??
           <span className="flex items-center gap-2">
-            {openOnes(all).length > 1 && <Button variant="ghost" size="sm" data-all-goals-sticky onClick={showAllGoals} title="Every open goal on one sticky, each in its own colour"><StickyNote className="size-3.5" /> All on one sticky</Button>}
+            {openOnes(all).length > 1 && <Button variant="outline" size="sm" className="h-8 cursor-pointer px-3" data-all-goals-sticky onClick={showAllGoals} title="Every open goal on one sticky, each in its own colour"><StickyNote className="size-3.5" />All on one sticky</Button>}
             {/* Always here, whichever chip is on: nothing in the bar comes or goes as you switch. */}
-            <Button variant="ghost" size="sm" onClick={() => void startGoal(go)}><Plus className="size-3.5" /> New goal</Button>
+            <Button variant="outline" size="sm" className="h-8 cursor-pointer px-3" data-new-goal onClick={() => void startGoal(go)}><Plus className="size-3.5" />New goal</Button>
           </span>
         }
       >

@@ -175,10 +175,10 @@ export function DeckShelf({ place, onPlace, onOpen, onStudy, onPaste, onPicture,
   // The three ways cards come in, always at the top, whatever is below: as Anki's "Create Deck" and "Import File" are.
   const top = (
     <TabControls>
-      {/* Narrow, in icons before they would ever be cut: a + for New deck, the switch as two icons; each named on hover. */}
+      {/* A real button, outlined as Review's toolbar buttons are. Narrow, in icons before they would ever be cut: a + for New deck, the switch as two icons; each named on hover. */}
       {compact
-        ? <Tip label="New deck"><Button variant="ghost" size="sm" aria-label="New deck" className="size-8 cursor-pointer p-0" data-deck-new onClick={() => (chime('open'), newDeck())}><Plus className="size-4" /></Button></Tip>
-        : <Button variant="ghost" size="sm" className="h-8 cursor-pointer px-3" data-deck-new onClick={() => (chime('open'), newDeck())}>New deck</Button>}
+        ? <Tip label="New deck"><Button variant="outline" size="sm" aria-label="New deck" className="size-8 cursor-pointer p-0" data-deck-new onClick={() => (chime('open'), newDeck())}><Plus className="size-4" /></Button></Tip>
+        : <Button variant="outline" size="sm" className="h-8 cursor-pointer px-3" data-deck-new onClick={() => (chime('open'), newDeck())}><Plus className="size-3.5" />New deck</Button>}
       {/* Stacks (code name "pockets") or a plain list, in the same two-part control as Review's tabs beside it. */}
       <span role="radiogroup" aria-label="Show decks as" data-deck-look-pick className="flex h-8 items-center rounded-lg border border-foreground/10 bg-accent/40 p-0.5 text-control">
         {(['pockets', 'list'] as const).map((one) => (
