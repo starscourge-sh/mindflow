@@ -124,11 +124,11 @@ try {
     check('the sticky leaves the someday goal out', !text.includes('Visit Hobbiton'))
     await all.close()
   }
-  // 6. Made it: crossed off, with the stamp.
+  // 6. “Cross it off”: crossed off, with the stamp.
   await send('goal', made.id)
   await wait(1200)
   await listen()
-  await h.locator('[data-open] button', { hasText: /^Made it$/ }).last().click()
+  await h.locator('[data-open] button', { hasText: /^Cross it off$/ }).last().click()
   await wait(1800)
   check('Made it closes it', (await goal(made.id)).closedHow === 'made it')
   check('the toast says crossed off', /Crossed off/.test(await lastToast()), await lastToast())
