@@ -133,7 +133,7 @@ try {
     await shot('goals')
     await c.go('home')
     await wait(1200)
-    check('goals', 'and a line that fills as the day comes closer (Home’s goal strip)', (await h.locator('[role="progressbar"][aria-label$="of the way"]').count()) > 0)
+    check('goals', 'and a line that fills as the day comes closer (Home’s goal strip)', (await h.locator('[role="progressbar"][aria-label$="of the time gone"]').count()) > 0)
     await c.send('goal', goal.id)
     await wait(1200)
     check('goals', 'opened, its road and its logs', (await h.locator('text=The road').count()) > 0)

@@ -257,7 +257,7 @@ try {
   await c.go('goals')
   await h.waitForTimeout(1200)
   const rows = await h.$$eval('[role="progressbar"]', (all) => all.map((one) => one.getAttribute('aria-label')))
-  check('the Goals page draws each open goal its bar', rows.filter((one) => /of the way/.test(one)).length >= 2, rows.join(' | '))
+  check('the Goals page draws each open goal its bar', rows.filter((one) => /of the time gone/.test(one)).length >= 2, rows.join(' | '))
   for (const look of looks) {
     await lookAt(h, look)
     await h.waitForTimeout(1000)

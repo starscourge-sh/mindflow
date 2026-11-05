@@ -3988,7 +3988,7 @@ function updateTray(): void {
     const when = left < 0 ? 'did you make it?' : left === 0 ? 'today' : `${plural(left, 'day')} left`
     // The goal on its own line and where it stands under it, smaller: a menu
     // taller and narrower, rather than one long line setting its width.
-    return { label: name, sublabel: `${when}  ·  ${percent(wayThrough(goal.goalFrom, goal.goalAt))} of the way`, click: () => sendHome('goal', goal.id, undefined, 'window') }
+    return { label: name, sublabel: `${when}  ·  ${percent(wayThrough(goal.goalFrom, goal.goalAt))} of the time gone`, click: () => sendHome('goal', goal.id, undefined, 'window') }
   })
   // Each row as one picture the menu's width: the unit at the left, the bar or
   // dots across, the percent at the right edge. Drawn by a page, since the

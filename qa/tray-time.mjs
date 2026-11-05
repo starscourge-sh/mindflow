@@ -28,14 +28,14 @@ try {
   console.log(labels.slice(0, 14).join(' | '))
   const head = items.findIndex((one) => one.label === 'Time gone')
   const goals = items.findIndex((one) => one.label === 'Goals')
-  check('the menu has a goal in its Goals part', goals >= 0 && items.some((one) => /of the way/.test(one.sublabel)), String(made))
+  check('the menu has a goal in its Goals part', goals >= 0 && items.some((one) => /of the time gone/.test(one.sublabel)), String(made))
   check('the time bars are under their own “Time gone”, a submenu apart from the goals', head > goals && items[head].enabled)
   const rows = items.slice(head + 1, head + 5)
   const said = rows.map((one) => one.toolTip)
   check('four rows under it: Today, This week, This month, This year', ['Today', 'This week', 'This month', 'This year'].every((name, i) => said[i]?.startsWith(name)), said.join(' / '))
   check('each says how much has gone, “83% gone”', said.length === 4 && said.every((one) => /\b\d{1,3}% gone$/.test(one)), said.join(' / '))
   check('drawn as pictures the menu\'s width, not plain lines', rows.every((one) => one.drawn && !one.enabled))
-  check('no row says “of the way”, which is the goal\'s words', !said.some((one) => /of the way/.test(one)))
+  check("no row says “of the time gone”, which is the goal's words", !said.some((one) => /of the time gone/.test(one)))
 } catch (error) {
   check('ran to the end', false, String(error).slice(0, 300))
 } finally {

@@ -212,7 +212,7 @@ function Card({ id, today, preview }: { id: string; today: string; /** A goal no
       )}
       <div className="min-h-0 flex-1 text-foreground"><Journey compact goal={id} from={from} target={goal.goalAt} today={today} logs={goal.glosses} /></div>
       {/* The grid said in place, so a dot means something without pointing at it. */}
-      {left >= 0 && !said && <p data-goal-key className="text-meta leading-snug text-muted-foreground text-pretty">Each dot is a {journey(from, goal.goalAt, today).by}, {percent(wayThrough(from, goal.goalAt))} of the way gone. Coloured dots have a log; the last, ringed, is the day.</p>}
+      {left >= 0 && !said && <p data-goal-key className="text-meta leading-snug text-muted-foreground text-pretty">Each dot is a {journey(from, goal.goalAt, today).by}, {percent(wayThrough(from, goal.goalAt))} of the time gone. Coloured dots have a log; the last, ringed, is the day.</p>}
     </div>
   )
 }
@@ -423,7 +423,7 @@ export function GoalsSticky(): React.JSX.Element {
             {focused && (
               <p data-goals-focus={focused.id} className="text-[11px] leading-snug">
                 <span className="private-text font-semibold">{focused.title}</span>
-                <span className="text-foreground"> · {leftSaid(daysLeft(focused.goalAt!, today))}, {percent(wayThrough(focused.goalFrom ?? dayKey(focused.createdAt), focused.goalAt!))} of the way</span>
+                <span className="text-foreground"> · {leftSaid(daysLeft(focused.goalAt!, today))}, {percent(wayThrough(focused.goalFrom ?? dayKey(focused.createdAt), focused.goalAt!))} of the time gone</span>
               </p>
             )}
             {/* The days marked ahead, in the lanes' own small type, each with the ring it wears on its lane. */}
