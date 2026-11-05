@@ -42,8 +42,9 @@ type Definition = {
   fix?: string
   /** Taken with Tab or a click: saved with the note as its definition and example. */
   kept: boolean
-  /** Wikipedia's line on the word, asked with the dictionary so both show in the one frame, the box grown once. */
-  wiki?: WikiPage | null
+  /** Wikipedia's line on the word: 'asking' until it answers, its page, or null with none. Its room is kept from the
+   * first frame, so the line fades in without growing the box again, and the meaning never waits for it. */
+  wiki?: WikiPage | null | 'asking'
 }
 
 /** How long a lookup may take before the orb shows: a quick answer never flickers it. */
@@ -65,12 +66,15 @@ export function useDefinition(word: string | null): { definition: Definition | n
     // A pause in the typing first: a word on its way to a sentence is not looked up.
     const wait = setTimeout(() => {
       setDefinition({ word: key, state: 'looking', kept: false })
-      // Wikipedia asked at the same time (main keeps its answers, and gives up on a slow one after 5 seconds): a line
-      // that came in after the meaning grew the box a second time.
-      const wiki = window.api.haligtree<WikiAnswer>('wiki', key).catch(() => null)
-      void Promise.all([window.api.haligtree<Answer>('define', key), wiki]).then(([answer, page]) => {
+      // Wikipedia asked at the same time, never waited for: its line fades into room the meaning already keeps for it.
+      let wikiNow: WikiPage | null | 'asking' = 'asking'
+      void window.api.haligtree<WikiAnswer>('wiki', key).catch(() => null).then((page) => {
+        wikiNow = page && 'extract' in page ? page : null
+        if (live) setDefinition((now) => (now && now.word === key && now.state === 'found' ? { ...now, wiki: wikiNow } : now))
+      })
+      void window.api.haligtree<Answer>('define', key).then((answer) => {
         if (!live) return
-        if (answer && 'found' in answer) setDefinition({ word: key, state: 'found', found: answer.found, kept: false, wiki: page && 'extract' in page ? page : null })
+        if (answer && 'found' in answer) setDefinition({ word: key, state: 'found', found: answer.found, kept: false, wiki: wikiNow })
         else if (answer && 'miss' in answer && answer.fix) setDefinition({ word: key, state: 'fix', fix: answer.fix, kept: false })
         else if (answer && 'miss' in answer) setDefinition({ word: key, state: 'none', kept: false })
         else quiet()
@@ -184,7 +188,7 @@ export function DefineGhost({ definition, onKeep, onHide, onFix, picked = false,
   shownLate.current = late
   const looking = definition?.state === 'looking'
   // Wikipedia's line on the same word, under the meaning, as Look Up shows them together: only its own article.
-  const page = definition?.state === 'found' ? definition.wiki : null
+  const page = definition?.state === 'found' && definition.wiki !== 'asking' ? definition.wiki : null
   const article = page && definition && pageFor(page, definition.word) && page.extract ? page : null
   useEffect(() => {
     if (!looking) return setLate(false)
@@ -214,13 +218,18 @@ export function DefineGhost({ definition, onKeep, onHide, onFix, picked = false,
       el.style.top = `${Math.round(word.bottom - box.top + surface.scrollTop + 4)}px`
       el.style.paddingLeft = `${Math.round(word.left - box.left)}px`
       el.style.visibility = ''
-      // Room kept after the writing for as much of it as hangs below, so the surface holds it whole.
-      // Measured from the last line, never from the writing's own bottom: that
-      // stretches with the window, so the box grew, the room shrank, the box
-      // shrank, and it never settled. Changed only by a real amount, so it rests.
+      // Room kept after the writing for as much of it as hangs below, so the surface holds it whole: from where the
+      // writing ends as fit-box counts it (its last line and padding, two lines at least) to the meaning's foot,
+      // nothing more. Counted from the last line alone, plus 40px, it gave the writing's second empty line again and
+      // the 40px besides, about 80px of empty box under "Tab to save it". Never from the writing's own bottom, which
+      // stretches with the window, so the box never settled. Changed only by a real amount, so it rests.
       if (room.current) {
-        const pad = parseFloat(getComputedStyle(prose).paddingBottom) || 0
-        const height = Math.max(0, Math.round(el.getBoundingClientRect().bottom + 40 - word.bottom - pad))
+        const style = getComputedStyle(prose)
+        const [padTop, padBottom] = [parseFloat(style.paddingTop) || 0, parseFloat(style.paddingBottom) || 0]
+        const line = parseFloat(getComputedStyle(prose.querySelector('p') ?? prose).lineHeight) || 26
+        const top = prose.getBoundingClientRect().top
+        const ends = top + Math.max(word.bottom - top + padBottom, padTop + 2 * line + padBottom)
+        const height = Math.max(0, Math.round(el.getBoundingClientRect().bottom - ends))
         if (Math.abs((parseFloat(room.current.style.height) || 0) - height) > 2) room.current.style.height = `${height}px`
       }
     }
@@ -301,14 +310,18 @@ export function DefineGhost({ definition, onKeep, onHide, onFix, picked = false,
         </button>
         {found.example && <p className="text-control leading-snug text-muted-foreground italic">“{found.example}”</p>}
         {found.also && <p className="text-control leading-snug text-muted-foreground"><span className="font-medium">Also:</span> {found.also}</p>}
-        {/* The word's Wikipedia line, asked with the meaning and shown with it. */}
-        {article && (
-          <p data-define-wiki className="mt-1 border-t border-foreground/10 pt-1.5 text-control leading-snug text-muted-foreground text-pretty">
-            {firstSentences(article.extract, 1)}{' '}
-            <a href={article.url} title="Text from Wikipedia, CC BY-SA" onMouseDown={(event) => event.preventDefault()} onClick={(event) => (event.preventDefault(), window.open(article.url))}
-              className="cursor-pointer whitespace-nowrap text-foreground/80 underline decoration-foreground/25 underline-offset-2 hover:text-foreground">Wikipedia</a>
-          </p>
-        )}
+        {/* The word's Wikipedia line: its room (two lines) kept from the meaning's first frame, the line fading into it
+            when Wikipedia answers, so the box grew once. With no article the room stays until the meaning goes. */}
+        <div data-define-wiki-room className={`mt-1 min-h-[calc(2lh+0.4375rem)] border-t pt-1.5 text-control leading-snug transition-colors duration-200 ${article ? 'border-foreground/10' : 'border-transparent'}`}>
+          {article && (
+            // Cut at two lines to stay in its room; the link to Wikipedia (its licence asks for it) kept whole beside it.
+            <p data-define-wiki className="mf-define-arrive flex min-w-0 items-end gap-2 text-muted-foreground">
+              <span className="line-clamp-2 min-w-0 text-pretty">{firstSentences(article.extract, 1)}</span>
+              <a href={article.url} title="Text from Wikipedia, CC BY-SA" onMouseDown={(event) => event.preventDefault()} onClick={(event) => (event.preventDefault(), window.open(article.url))}
+                className="shrink-0 cursor-pointer whitespace-nowrap text-foreground/80 underline decoration-foreground/25 underline-offset-2 hover:text-foreground">Wikipedia</a>
+            </p>
+          )}
+        </div>
         {/* What Create will keep, said plainly, and where the meaning came from. */}
         <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-control">
           <span data-define-keep className={`inline-flex items-center gap-1.5 ${kept ? 'font-medium text-foreground' : 'text-muted-foreground'}`}>
