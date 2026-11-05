@@ -92,7 +92,7 @@ try {
   await send('goal', made.id)
   await wait(1200)
   await listen()
-  await h.locator('[data-someday-day]').click()
+  await h.locator('[data-give-day]').click()
   await wait(500)
   const suggest = h.locator('[data-slot="popover-content"] button', { hasText: 'in 3 months' })
   if (await suggest.count()) {

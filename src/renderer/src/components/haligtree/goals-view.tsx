@@ -4,9 +4,9 @@ import { ReadsIn, useReading } from '@/lib/reads-in'
 import { binItem } from '@/lib/to-bin'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useToday } from '@/lib/use-today'
-import { CalendarOff, CalendarPlus, Flag, House, Plus, Snowflake, StickyNote, Telescope, Wind } from 'lucide-react'
+import { CalendarDays, CalendarPlus, Flag, Plus, Snowflake, StickyNote, Telescope } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
-import SimpleCheckedIcon from '@/components/ui/simple-checked-icon'
+import { menuIcon } from '@/components/ui/menu-icon-rules'
 
 import { EASE, still } from '@/lib/motion'
 import { chime, stamp } from '@/lib/sound'
@@ -30,7 +30,7 @@ import { ICE, KIND_ICON, kindOf } from '@/lib/goal-kind'
 import { archive, useOwnOrder } from '@/lib/notes'
 import { reword } from './questions-view'
 import { Term } from './term'
-import { CollectionHeader, MenuButton, QuietAction, useTint } from './collection-header'
+import { CollectionHeader, MenuButton, useTint } from './collection-header'
 import { DatePicker } from './date-picker'
 import { ago, dayKey, dayMonth, dayName, noon, num, plural } from '../../../../main/dates'
 import { ProgressBar, type BarStyle } from './progress-bar'
@@ -38,10 +38,10 @@ import { inkOf, useMilestones, type Milestone } from '@/lib/milestones'
 import { stickOnDesktop } from './sticky-note'
 import { usePickNotes } from './pick-notes'
 import { asideItem, useHere } from '@/lib/split'
-import { ROAD_DAYS, daysBetween, daysLeft, journey, leftSaid, percent, wayThrough, type Dot } from '../../../../main/goal-days'
+import { daysBetween, daysLeft, farOff, journey, leftSaid, percent, wayThrough, type Dot } from '../../../../main/goal-days'
 import { leftLoud, loud } from '@/lib/loud'
 import { clip, quoted } from '../../../../main/clip'
-import { ArchiveRestore, Check, Eye, EyeOff, X } from '@/components/ui/icons'
+import { Check, EyeOff, X } from '@/components/ui/icons'
 
 /**
  * Goals: a day you are working toward, kept in front of you until it comes.
@@ -331,33 +331,69 @@ const goalEntry = (item: Item, today: string, menu?: MenuItem[]): Entry => {
   }
 }
 
+/** The heading over the goals whose day is more than a year off, at the foot of Goals. */
+export const FAR_HEAD = 'More than a year away'
 /**
- * The open list's groups: goals that share a day under that day's heading
- * ("31 Dec 2027"); once any day is shared every day is headed, so a goal never
- * looks like one of the group above it. None shared, one plain list,
- * nearest first.
+ * The open list's sections: goals more than a year away under "More than a
+ * year away" at its foot (nearest first is already the list's order), drawn
+ * a dot a week until they come within a year, when they move up on their own.
+ * Goals that share a day sit under that day's heading ("31 Dec 2027"); once
+ * any day is shared every day within the year is headed, so a goal never
+ * looks like one of the group above it. Neither, one plain list.
  */
-const byDay = (dated: Item[]): Map<string, string> | undefined => {
-  const shared = dated.some((one, index) => index > 0 && dated[index - 1].goalAt === one.goalAt)
-  return shared ? new Map(dated.map((one) => [one.id, dayMonth(`${one.goalAt}T12:00`, 'always')])) : undefined
+const sectionsOf = (dated: Item[], today: string): Map<string, string> | undefined => {
+  const far = (one: Item): boolean => farOff(one.goalAt!, today)
+  const near = dated.filter((one) => !far(one))
+  const shared = near.some((one, index) => index > 0 && near[index - 1].goalAt === one.goalAt)
+  if (!shared && near.length === dated.length) return undefined
+  return new Map(dated.flatMap((one): [string, string][] => far(one) ? [[one.id, FAR_HEAD]] : shared ? [[one.id, dayMonth(`${one.goalAt}T12:00`, 'always')]] : []))
 }
 
-/** What a goal offers besides opening it: its row menu and its page's ··· share it. */
+/**
+ * A goal's actions, each with one name everywhere (its row's menu, its page's
+ * panel, its page's "…"), and so one icon: menus draw theirs from the words
+ * (menu-icon-rules.ts) and the panel asks the same rules (`ICON`).
+ */
+const ACT = {
+  made: (item: Pick<Item, 'goalAt'>): string => (someday(item) ? 'Cross it off' : 'Made it'),
+  missed: 'Missed',
+  giveUp: 'Give it up',
+  ice: 'Put on ice',
+  thaw: 'Take off ice',
+  reopen: 'Open it again',
+  home: (on: boolean): string => (on ? 'Take off Home' : 'Show on Home'),
+  secret: (on: boolean): string => (on ? 'Make it not private' : 'Make it private'),
+  someday: 'Make it someday'
+}
+/** A panel line's icon: the one its words wear in every menu. */
+const ICON = menuIcon
+
+/** How it ends, or that it goes on ice: the lines a goal keeper comes for, in the row's menu and the page's panel. */
+const endings = (item: Item): MenuItem[] => onIce(item) ? [{ label: ACT.thaw, hint: 'Open again, its day moved out by the days it waited', run: () => thaw(item) }]
+  : item.closedAt ? [{ label: ACT.reopen, run: () => reopen(item) }]
+  : [
+    { label: ACT.made(item), run: () => settle(item, 'made it') },
+    ...(someday(item) ? [] : [{ label: ACT.missed, run: () => settle(item, 'missed') }]),
+    { label: ACT.giveUp, hint: 'Kept under “Ended”', run: () => settle(item, 'let go') },
+    { label: ACT.ice, hint: someday(item) ? 'Paused: out of the list until taken off' : 'Paused: its countdown stops', run: () => settle(item, 'on ice') }
+  ]
+
+/** A goal's full right-click menu in a list: how it ends, where it shows, then the goal as a thing (a link, the Bin). */
 const goalMenu = (item: Item): MenuItem[] => [
   asideItem('goal', item.id),
   'separator',
-  onIce(item) ? { label: 'Take off ice', hint: 'Open again, its day moved out by the days it waited', run: () => thaw(item) }
-    : !item.closedAt && { label: 'Put on ice', hint: someday(item) ? 'Paused: out of the list until taken off' : 'Paused: its countdown stops', run: () => settle(item, 'on ice') },
-  !item.closedAt && !someday(item) && { label: onHome(item) ? 'Take off Home' : 'Show on Home', hint: onHome(item) ? 'Off the top of Home' : 'At the top of Home', run: () => setOnHome(item, !onHome(item)) },
-  { label: item.private ? 'Make it not private' : 'Make it private', run: () => void haligtree.setPrivate('nuggets', item.id, !item.private) },
+  ...endings(item),
+  'separator',
+  !item.closedAt && !someday(item) && { label: ACT.home(onHome(item)), hint: onHome(item) ? 'Off the top of Home' : 'At the top of Home', run: () => setOnHome(item, !onHome(item)) },
+  { label: ACT.secret(!!item.private), run: () => void haligtree.setPrivate('nuggets', item.id, !item.private) },
   // Goals pause on ice, not in the archive: only one archived before keeps a way back.
   !!item.archivedAt && { label: 'Unarchive', hint: 'Back in sight', run: () => void archive('nuggets', [item.id], false) },
-  binItem([{ type: 'goal', id: item.id }]),
   'separator',
-  { label: 'Stick all goals on the desktop', hint: 'Each in its own colour, with a legend', about: 'list', run: showAllGoals },
   copyLinkItem(`goal:${item.id}`, item.title),
-  { label: 'Copy the goal', run: () => copy(item.title) }
+  binItem([{ type: 'goal', id: item.id }])
 ]
+/** A goal page's "…": only what its panel does not already hold (the panel has how it ends, its day, Home and privacy). */
+const pageMenu = (item: Item): MenuItem[] => [asideItem('goal', item.id), 'separator', copyLinkItem(`goal:${item.id}`, item.title), binItem([{ type: 'goal', id: item.id }])]
 
 /**
  * Goals, in the main window: the open ones nearest first, the settled ones
@@ -384,7 +420,7 @@ export function GoalsView({ focus, onOpen }: { focus?: string; onOpen?: (type: s
   const own = useOwnOrder('goal')
   const letGo = useRef<() => void>(() => undefined)
   const folding = useFolding('goal', all, (a, b) => own.compare(a.id, b.id) || b.createdAt.localeCompare(a.createdAt), own.order, items, false, () => letGo.current(), [], () => undefined,
-    show === 'open' ? byDay(items) : undefined, undefined, false, { noun: ['goal', 'goals'] })
+    show === 'open' ? sectionsOf(items, today) : undefined, undefined, false, { noun: ['goal', 'goals'] })
   // The rows in the order they show: the groups first, then the loose goals.
   const rows = folding.rows ?? items
   // Only the last pick lands: a late answer for the goal before is dropped.
@@ -434,7 +470,9 @@ export function GoalsView({ focus, onOpen }: { focus?: string; onOpen?: (type: s
   const menuFor = (one: Item): MenuItem[] => {
     const many = several.menu(one.id)
     return many ? [...(folding.menu(several.chosen) as MenuItem[]), 'separator', ...many]
-      : [{ label: 'Open', keys: '↵', run: () => pick(one.id) }, 'separator', ...goalMenu(one), 'separator', ...(folding.menu([one.id]) as MenuItem[]), ...several.rowItems(one.id)]
+      : [{ label: 'Open', keys: '↵', run: () => pick(one.id) }, ...goalMenu(one), 'separator', ...(folding.menu([one.id]) as MenuItem[]), ...several.rowItems(one.id),
+        // About the whole list, not this goal: at the foot, with the list's other lines.
+        ...(openOnes(all).length > 1 ? ['separator' as const, { label: 'Stick all goals on the desktop', hint: 'Each in its own colour, with a legend', about: 'list' as const, run: showAllGoals }] : [])]
   }
   const entryOf = (one: Item): Entry => goalEntry(one, today, menuFor(one))
   const entries = !listShown ? [] : items.map(entryOf)
@@ -528,7 +566,7 @@ export function Answers({ item, small = false, onPick }: { item: { id: string; g
       {(['missed', 'let go'] as const).map((how) => (
         <button key={how} type="button" onClick={(event) => (event.stopPropagation(), pick(how))}
           className={`rounded-full text-muted-foreground transition-colors hover:bg-foreground/[0.07] hover:text-foreground ${size}`}>
-          {HOW[how]}
+          {how === 'missed' ? ACT.missed : ACT.giveUp}
         </button>
       ))}
       <button type="button" data-goal-more title="Not yet: give it seven more days" onClick={(event) => (event.stopPropagation(), more())}
@@ -565,11 +603,6 @@ function GoalDetail({ item, top }: { item: ItemFull; top?: React.ReactNode }): R
       toast(mode === 'always' ? 'On screen, on every Space' : mode === 'sometimes' ? 'On screen now and then: it comes out a few times a day' : 'Off screen: the menu bar and Home still show it',
         () => void haligtree.setBeacon(item.id, was)))
   }
-  const addLog = (): void => {
-    const field = document.querySelector<HTMLTextAreaElement>('[data-log-field]')
-    field?.scrollIntoView({ block: 'center', behavior: still() ? 'instant' : 'smooth' })
-    field?.focus({ preventScroll: true })
-  }
   // Its day given or taken away: a someday goal gets a road, a dated one joins the life list. Said, with Undo.
   const setDay = (day: string | null): void => {
     const was = { target: item.goalAt, from: item.goalFrom ?? from }
@@ -600,8 +633,10 @@ function GoalDetail({ item, top }: { item: ItemFull; top?: React.ReactNode }): R
   return (
     <div data-open={item.id} data-iced={iced || undefined} className="note-pane flex min-w-0 flex-[1.4] flex-col overflow-y-auto @[40rem]/page:flex-row @[40rem]/page:overflow-visible @[56rem]/page:border-l [&>*:first-child]:min-h-[16rem] [&>*:first-child]:shrink-0 @[40rem]/page:[&>*:first-child]:min-h-0 @[40rem]/page:[&>*:first-child]:shrink">
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto pt-3">
-        <div className="flex min-h-7 items-center gap-2 px-3 @[40rem]/page:px-[4.25rem]">
+        {/* Where it sits in the list, and on the right its "…", as a task's page has its ✕ there. */}
+        <div className="page-column flex min-h-7 w-full items-center gap-2 px-5 @[44rem]/note:px-8">
           {top ?? <span />}
+          <span className="ml-auto"><MenuButton small items={pageMenu(item)} /></span>
         </div>
         <CollectionHeader
           tint={tint}
@@ -610,8 +645,8 @@ function GoalDetail({ item, top }: { item: ItemFull; top?: React.ReactNode }): R
           label={label}
           length={item.title.length}
           meta={meta}
-          actions={<>
-            {/* The page's one clear action for its kind: a someday goal is given a day, an iced one taken off ice. */}
+          // The page's one clear action for its kind, when it has one: a someday goal is given a day, an iced one taken off ice.
+          actions={(dateless && !item.closedAt) || iced ? <>
             {dateless && !item.closedAt && (
               <DatePicker value={null} onChange={(iso) => iso && setDay(dayKey(iso))} suggest={['in 1 month', 'in 3 months', 'in 1 year']}
                 className={`${PRIMARY} bg-primary! text-primary-foreground! hover:bg-primary/85!`}>
@@ -619,15 +654,7 @@ function GoalDetail({ item, top }: { item: ItemFull; top?: React.ReactNode }): R
               </DatePicker>
             )}
             {iced && <button type="button" data-take-off-ice onClick={() => thaw(item)} className={`${PRIMARY} bg-primary text-primary-foreground hover:bg-primary/85`}><Snowflake className="size-4 shrink-0" />Take off ice</button>}
-            {/* Ended, a goal takes no more logs (its field is gone): no "+" that would do nothing. */}
-            {!item.closedAt && <span data-goal-add className="contents"><QuietAction label={dateless ? 'Log a step' : 'Add a log'} onClick={addLog}><Plus /></QuietAction></span>}
-            <MenuButton items={[
-              ...(iced ? [] : item.closedAt ? [{ label: 'Open it again', run: () => reopen(item) }]
-                : [{ label: dateless ? 'Cross it off' : 'Made it', run: () => settle(item, 'made it') }, ...(dateless ? [] : [{ label: 'Missed', run: () => settle(item, 'missed') }]), { label: 'Give it up', hint: 'Kept under “Ended”', run: () => settle(item, 'let go') }]),
-              'separator',
-              ...goalMenu(item)
-            ]} />
-          </>}
+          </> : null}
           title={
             <textarea
               rows={1}
@@ -646,9 +673,10 @@ function GoalDetail({ item, top }: { item: ItemFull; top?: React.ReactNode }): R
               }}
             />}
         />
-        <div className="page-narrow mx-auto w-full px-10 pb-16">
-          {!dateless && <RoadCard item={item} from={from} target={target} today={today} picked={picked} onPick={setPicked} />}
+        {/* One column under the name, on its left edge (the header's own gutters): why, the road, then the log field first under it, then the logs. */}
+        <div data-goal-body className="page-column flex w-full flex-col gap-4 px-5 pb-16 @[44rem]/note:px-8">
           <textarea
+            data-goal-why
             rows={1}
             defaultValue={item.why ?? ''}
             placeholder="Why it matters…"
@@ -661,11 +689,10 @@ function GoalDetail({ item, top }: { item: ItemFull; top?: React.ReactNode }): R
               const why = event.target.value.trim()
               if (why !== (item.why ?? '')) void haligtree.saveItem(item.id, { why: why || null }).then(() => chime('noted'))
             }}
-            className="private-text mt-4 block w-full resize-none bg-transparent px-2 text-body leading-relaxed text-foreground/85 italic outline-none [field-sizing:content] placeholder:text-foreground/70 placeholder:not-italic"
+            className="private-text block w-full resize-none bg-transparent text-body leading-relaxed text-foreground/85 italic outline-none [field-sizing:content] placeholder:text-foreground/70 placeholder:not-italic"
           />
-          {dateless && item.closedHow === 'made it' && <CrossedOff id={item.id} day={item.closedAt!} />}
           {!dateless && !item.closedAt && left < 0 && (
-            <div className="mt-5 flex flex-wrap items-center gap-3 rounded-xl border bg-accent/25 px-4 py-3">
+            <div className="flex flex-wrap items-center gap-3 rounded-xl border bg-accent/25 px-4 py-3">
               <span className="mr-auto min-w-0">
                 <span className="block font-medium">Did you make it?</span>
                 <span className="block text-body text-foreground">{dayName(`${target}T12:00`)} has passed. Say how it went, and <strong className="font-semibold">it moves to Ended</strong>.</span>
@@ -675,35 +702,39 @@ function GoalDetail({ item, top }: { item: ItemFull; top?: React.ReactNode }): R
           )}
           {dateless && !item.closedAt && (
             // No road and no days: what the life list is for, in one line, by the steps.
-            <p data-someday-said className="mt-3 px-2 text-control leading-snug text-foreground">
+            <p data-someday-said className="text-control leading-snug text-foreground">
               <strong className="font-semibold">On your someday list.</strong> No countdown: log each step you take toward it. When it draws near, “Give it a day” and it counts down under “Goals”.
             </p>
           )}
+          {!dateless && <RoadCard item={item} from={from} target={target} today={today} picked={picked} onPick={setPicked} />}
+          {dateless && item.closedHow === 'made it' && <CrossedOff id={item.id} day={item.closedAt!} />}
           <Logs item={item} picked={picked} onClear={() => setPicked(null)} />
         </div>
       </div>
 
       <Props>
         <Island compact title="Goal">
-          {/* Ended, a someday goal has no day to give: only its colour stays to change. */}
-          {dateless ? !item.closedAt && (
-            <DatePicker value={null} onChange={(iso) => iso && setDay(dayKey(iso))} suggest={['in 1 month', 'in 3 months', 'in 1 year']}>
-              <Telescope className="size-4 shrink-0" style={{ color: ink }} />
-              <span data-someday-day className="truncate">Someday · “Give it a day”</span>
-            </DatePicker>
-          ) : (<>
+          {/* A someday goal is given its day by the page's own filled “Give it a day”: no second one here, only its colour. */}
+          {!dateless && (<>
+            {/* Its two dates as facts, each changeable: the day it is for, and the day it started. */}
             <DatePicker value={`${target}T12:00`} onChange={(iso) => iso && dayKey(iso) !== target && moveDates({ target: dayKey(iso) })} suggest={['in 1 month', 'in 3 months', 'in 1 year']}>
               <Flag className="size-4 shrink-0" style={{ color: item.closedAt ? undefined : warmth(Math.max(left, 0)) }} />
-              <span className="truncate">For {dayMonth(`${target}T12:00`, 'always')}</span>
+              <span data-goal-for className="truncate"><span className="text-muted-foreground">For</span> <span className="text-foreground">{dayMonth(`${target}T12:00`, 'always')}</span></span>
             </DatePicker>
             <DatePicker value={`${from}T12:00`} onChange={(iso) => iso && dayKey(iso) !== from && moveDates({ from: dayKey(iso) })}>
-              <CalendarPlus className="size-4 shrink-0 text-muted-foreground" aria-hidden />
-              <span className="truncate text-muted-foreground">Set {dayMonth(`${from}T12:00`, 'always')}</span>
+              <CalendarDays className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+              <span data-goal-started className="truncate"><span className="text-muted-foreground">Started</span> <span className="text-foreground">{dayMonth(`${from}T12:00`, 'always')}</span></span>
             </DatePicker>
-            {!item.closedAt && <Prop icon={CalendarOff} onClick={() => setDay(null)} tip="Off the countdown, onto your life list"><span data-goal-no-day>No day: someday</span></Prop>}
+            {!item.closedAt && <Prop icon={ICON(ACT.someday)} onClick={() => setDay(null)} tip="Off the countdown, onto your someday list"><span data-goal-no-day>{ACT.someday}</span></Prop>}
           </>)}
           <GoalColor item={item} />
         </Island>
+        {/* How it ends, or that it pauses: what a goal keeper comes to the page for, so near the top. On ice, the page's own filled “Take off ice” is the one way back. */}
+        {!iced && <Island compact title={item.closedAt ? 'Ended' : 'How it went'}>
+          {endings(item).map((one) => one && one !== 'separator' && (
+            <Prop key={one.label} icon={ICON(one.label)} onClick={one.run} tip={one.hint}>{one.label}</Prop>
+          ))}
+        </Island>}
         {/* On screen is a countdown kept in sight: a someday goal has none to keep. */}
         {!item.closedAt && !dateless && (
           <Island compact title="On screen">
@@ -715,31 +746,19 @@ function GoalDetail({ item, top }: { item: ItemFull; top?: React.ReactNode }): R
                 {beacon === 'always' ? 'On every Space, all the time.' : beacon === 'sometimes' ? 'Out a few times a day, then tucked away. In the last week it stays.' : 'The menu bar and Home still show it.'}
               </span>
             </div>
-            <Prop icon={House} active={onHome(item)} onClick={() => setOnHome(item, !onHome(item))} tip={onHome(item) ? 'Shown at the top of Home; click to take it off' : 'Show it at the top of Home: once you choose any, only the ones you choose show there'}>
-              <span data-goal-home={onHome(item) ? 'on' : 'off'}>{onHome(item) ? 'Shown on Home' : 'Show on Home'}</span>
+            <Prop icon={ICON(ACT.home(onHome(item)))} active={onHome(item)} onClick={() => setOnHome(item, !onHome(item))} tip={onHome(item) ? 'Shown at the top of Home' : 'Once you choose any, only the ones you choose show at the top of Home'}>
+              <span data-goal-home={onHome(item) ? 'on' : 'off'}>{ACT.home(onHome(item))}</span>
             </Prop>
           </Island>
         )}
-        {/* On ice, the page's own filled “Take off ice” is the one way back: no second one here. */}
-        {!onIce(item) && <Island compact title={item.closedAt ? 'Ended' : 'How it went'}>
-          {item.closedAt ? (
-            <Prop icon={Wind} onClick={() => reopen(item)}>Open it again</Prop>
-          ) : (
-            <>
-              <Prop alive={SimpleCheckedIcon} onClick={() => settle(item, 'made it')} tip={dateless ? 'Struck through, kept at the foot of “Someday”' : undefined}>{dateless ? 'Cross it off' : 'Made it'}</Prop>
-              {!dateless && <Prop icon={Flag} onClick={() => settle(item, 'missed')}>Missed</Prop>}
-              <Prop icon={Wind} onClick={() => settle(item, 'let go')} tip="Kept under “Ended”">Give it up</Prop>
-              <Prop icon={Snowflake} onClick={() => settle(item, 'on ice')} tip={dateless ? 'Paused: out of the list until taken off' : 'Paused: off Home and the desktop, its countdown stopped'}>On ice</Prop>
-            </>
-          )}
-        </Island>}
         <Island compact name="Surfacing" title={<Term>Surfacing</Term>}>
-          <Prop icon={item.private ? EyeOff : Eye} active={!!item.private} onClick={() => void haligtree.setPrivate('nuggets', item.id, !item.private)}>
-            {item.private ? 'Private: its name stays hidden' : 'Its name can show'}
+          <Prop icon={ICON(ACT.secret(!!item.private))} active={!!item.private} onClick={() => void haligtree.setPrivate('nuggets', item.id, !item.private)}
+            tip={item.private ? 'Its name is hidden on the desktop, in the menu bar and on Home' : 'Hide its name on the desktop, in the menu bar and on Home'}>
+            {ACT.secret(!!item.private)}
           </Prop>
           {/* Goals pause on ice instead; only one archived before keeps a way back. */}
           {item.archivedAt && (
-            <Prop icon={ArchiveRestore} active onClick={() => void archive('nuggets', [item.id], false)} tip="Bring it back">Unarchive</Prop>
+            <Prop icon={ICON('Unarchive')} active onClick={() => void archive('nuggets', [item.id], false)} tip="Bring it back">Unarchive</Prop>
           )}
         </Island>
       </Props>
@@ -839,7 +858,7 @@ export function Journey(props: RoadProps): React.JSX.Element {
 }
 
 /** The milestones on a road (the same ones that celebrate) and the days marked for this goal. */
-function useMarks(goal: string, from: string, target: string): { milestoneIn: (dot: Dot) => string | undefined; markIn: (dot: Dot) => Milestone | undefined; marksIn: (dot: Dot) => Milestone[] } {
+function useMarks(goal: string, from: string, target: string): { milestoneIn: (dot: Dot) => string | undefined; milestoneDay: (dot: Dot) => string | undefined; markIn: (dot: Dot) => Milestone | undefined; marksIn: (dot: Dot) => Milestone[] } {
   const shiftDay = (day: string, by: number): string => { const at = new Date(`${day}T12:00`); at.setDate(at.getDate() + by); return dayKey(at.toISOString()) }
   const span = Math.round((new Date(`${target}T12:00`).getTime() - new Date(`${from}T12:00`).getTime()) / 86_400_000)
   const marks: [string, string][] = [[shiftDay(from, Math.round(span / 2)), 'halfway'], [shiftDay(target, -30), 'a month to go'], [shiftDay(target, -7), 'a week to go']]
@@ -849,6 +868,8 @@ function useMarks(goal: string, from: string, target: string): { milestoneIn: (d
   const marksIn = (dot: Dot): Milestone[] => marked.filter((one) => one.day >= dot.day && one.day <= dot.last)
   return {
     milestoneIn: (dot) => marks.find(([day]) => day >= from && day >= dot.day && day <= dot.last)?.[1],
+    // Its own day, not its dot's: on a road of weeks a dot is a week, and the key names the day itself.
+    milestoneDay: (dot) => marks.find(([day]) => day >= from && day >= dot.day && day <= dot.last)?.[0],
     markIn: (dot) => marksIn(dot)[0],
     marksIn
   }
@@ -898,30 +919,39 @@ function DotTip({ dot, today, days, milestoneIn, markIn }: { dot: Dot; today: st
 const DOT = 8
 const GAP = 2.5
 const STEP = DOT + GAP
-/** Up to a month, a road is one line of days; longer, a week a column, Monday at the top. */
+/** The tightest a road packs to fit a narrow card: 7px dots, 2px apart. */
+const TIGHT = 9
+/** Up to a month, a road is one line of days; up to WEEKS weeks, a column a week, Monday at the top; longer, a row a month, its days across by date, as a year-in-dots calendar is. */
 const ONE_LINE = 31
+const WEEKS = 18
 /** "Nov" for "2026-11-05", "Jan 2027" where a year turns. */
 const monthOf = (day: string, year = false): string => { const [, m] = dayMonth(`${day}T12:00`, 'never').split(' '); return year ? `${m} ${day.slice(0, 4)}` : m }
+/** How wide a row's month name is drawn, near enough, at 11px. */
+const nameWidth = (label: string): number => Math.ceil(label.length * 6.1) + 6
 
 /**
  * A goal's road as one compact card, after Mono's charts: one big number at
- * the top left with small pills beside it, then the road, a small dot a day
- * packed tight, then the months under it. Days gone are solid ink, days ahead
- * barely there, today the brightest dot, logged days in the goal's colour.
- * Marked days (Halfway, A month to go, the goal's own) are small ticks over
- * their dot's column, named in a key under the card, so no two names ever
- * touch. A long road wraps into rows of weeks, each as wide as the card allows.
- * On ice, the road stops on the day it went on ice, in a cool ink; ended, on
- * the day it ended. Pointed at, a dot says its day and its logs; clicked, the
- * logs below show only that day.
+ * the top left with small pills beside it, then the road as one map, small
+ * dots packed tight. Days gone are solid ink, days ahead barely there, today
+ * the brightest dot, logged days in the goal's colour. Up to a month it is one
+ * line of days with the months under it; longer, a row a month, its days
+ * across by date and the month named at the row's start, so a whole year is
+ * one block that fits any card. More than a year away it is a dot a week, a
+ * column a month (journey), and says so; it turns into days by itself once
+ * the day is within a year. Marked days (Halfway, A month to go, the goal's
+ * own) are ticks over a line or rings round their dot, named in a key under
+ * the card. On ice, the road stops on the day it went on ice, in a cool ink;
+ * ended, on the day it ended. Pointed at, a dot says its day and its logs;
+ * clicked, the logs below show only that day.
  */
 function RoadCard({ item, from, target, today: now, picked, onPick }: { item: ItemFull; from: string; target: string; today: string; picked: Dot | null; onPick: (dot: Dot | null) => void }): React.JSX.Element {
   const iced = onIce(item)
   // Frozen where it stopped: on ice since, or ended on, that day.
   const today = item.closedAt ? (dayKey(item.closedAt) < now ? dayKey(item.closedAt) : now) : now
-  const road = journey(from, target, today, ROAD_DAYS)
+  const road = journey(from, target, today)
+  const weeks = road.by === 'week'
   const days = useMemo(() => logDays(item.glosses), [item.glosses])
-  const { milestoneIn, marksIn } = useMarks(item.id, from, target)
+  const { milestoneIn, milestoneDay, marksIn } = useMarks(item.id, from, target)
   const [hover, setHover] = useState<Dot | null>(null)
   const [width, setWidth] = useState(0)
   // The room the page gives the card, measured outside it: the card itself is only as wide as its road.
@@ -934,17 +964,41 @@ function RoadCard({ item, from, target, today: now, picked, onPick }: { item: It
     setWidth(node.clientWidth)
     return () => watch.disconnect()
   }, [])
-  const line = road.by === 'day' && road.dots.length <= ONE_LINE
-  const across = line ? road.dots.length : road.cols
-  // As many columns a row as the card has room for, the rows evened out so the last is not a stub.
-  const room = Math.max(4, Math.floor(((width || 640) - 34) / STEP))
-  const bands = Math.max(1, Math.ceil(across / room))
-  const per = Math.ceil(across / bands)
-  const rows = line ? 1 : road.rows
-  const placed = road.dots.map((dot, index) => {
-    const col = line ? index : dot.col
-    return { dot, band: Math.floor(col / per), x: (col % per) * STEP + DOT / 2, y: (line ? 0 : dot.row) * STEP + DOT / 2 }
+  const line = !weeks && road.dots.length <= ONE_LINE
+  // Columns of days (a week each) or of weeks (a month each), as journey lays them out; else a row a month.
+  const columns = weeks || (!line && road.cols <= WEEKS)
+  // A row a month: its place in the months from the first, and its day of the month across.
+  const monthIndex = (day: string): number => Number(day.slice(0, 4)) * 12 + Number(day.slice(5, 7))
+  const first = road.dots[0]?.day ?? from
+  const months = line || columns ? [] : Array.from({ length: monthIndex(road.dots.at(-1)!.day) - monthIndex(first) + 1 }, (_, at) => {
+    const month = monthIndex(first) + at - 1
+    const day = `${Math.floor(month / 12)}-${String((month % 12) + 1).padStart(2, '0')}-01`
+    // Where a year turns its row is named by the year, as a calendar's is: "2027", never a wide "Jan 2027" that would push the dots out of a narrow card.
+    return day.slice(5, 7) === '01' && at > 0 ? day.slice(0, 4) : monthOf(day)
   })
+  // A row a month while 31 days fit across the card; in a narrower card (a small window beside the list), a column a
+  // month with its days down it, the months named under, so it is still one map with dots of the usual size.
+  const across31 = months.length > 0 && Math.max(...months.map(nameWidth)) + 31 * TIGHT + 34 <= (width || 640)
+  const rowNames = across31 ? months : []
+  const down = months.length > 0 && !across31
+  // Named every third row (a season apart) and where a year turns, so the names never stack into a column of words.
+  const named = rowNames.map((name, row) => (row % 3 === 0 || /\d/.test(name) ? name : ''))
+  for (let row = 1; row < named.length; row++) if (named[row] && named[row - 1]) named[/\d/.test(named[row]) ? row - 1 : row] = ''
+  const lead = rowNames.length ? Math.max(...rowNames.map(nameWidth)) : 0
+  const across = line ? road.dots.length : columns ? road.cols : down ? months.length : 31
+  const rows = line ? 1 : columns ? road.rows : down ? 31 : rowNames.length
+  // As large as the room allows, never larger than the usual dot nor tighter than TIGHT: always one map.
+  const step = Math.min(STEP, Math.max(TIGHT, ((width || 640) - 34 - lead) / across))
+  const dot = step >= STEP ? DOT : Math.max(7, step - 2)
+  const placed = road.dots.map((one, index) => {
+    const date = Number(one.day.slice(8, 10)) - 1
+    const month = monthIndex(one.day) - monthIndex(first)
+    const col = line ? index : columns ? one.col : down ? month : date
+    const row = line ? 0 : columns ? one.row : down ? date : month
+    return { dot: one, x: lead + col * step + dot / 2, y: row * step + dot / 2 }
+  })
+  const mapWidth = lead + across * step - (step - dot)
+  const mapHeight = rows * step - (step - dot)
   const left = daysLeft(target, today)
   const gone = Math.max(1, Math.min(daysBetween(from, today), daysBetween(from, target)) + 1)
   const logged = new Set(item.glosses.map((one) => dayKey(one.createdAt)).filter((day) => day >= from && day <= today)).size
@@ -952,19 +1006,37 @@ function RoadCard({ item, from, target, today: now, picked, onPick }: { item: It
   const lit = goalInk(item)
   // Every marked day, named once in the key, in road order: today, the milestones, the goal's own days, the day itself.
   const marks = placed.flatMap(({ dot }) => {
-    const out: { day: string; word: string; ink: string }[] = []
+    // `day` is the dot it marks, `on` the day it names (a week's dot names the day inside it).
+    const out: { day: string; on: string; word: string; ink: string }[] = []
     const milestone = milestoneIn(dot)
-    if (milestone && !dot.target) out.push({ day: dot.day, word: milestone[0].toUpperCase() + milestone.slice(1), ink: 'var(--foreground)' })
-    for (const one of marksIn(dot)) out.push({ day: dot.day, word: clip(one.title, 28), ink: inkOf(one) })
-    if (dot.target) out.push({ day: dot.day, word: 'The day', ink: ACCENT })
+    if (milestone && !dot.target) out.push({ day: dot.day, on: milestoneDay(dot) ?? dot.day, word: milestone[0].toUpperCase() + milestone.slice(1), ink: 'var(--foreground)' })
+    for (const one of marksIn(dot)) out.push({ day: dot.day, on: one.day, word: clip(one.title, 28), ink: inkOf(one) })
+    if (dot.target) out.push({ day: dot.day, on: target, word: 'The day', ink: ACCENT })
     return out
   })
   const ticked = new Map(marks.map((one) => [one.day, one.ink]))
   const shownHover = hover && placed.find((one) => one.dot.day === hover.day)
-  const bandWidth = per * STEP - GAP
+  // The months under a line of days, or under the columns of weeks; a name where a month starts, never two touching.
+  const under: { x: number; label: string }[] = []
+  if (!rowNames.length) {
+    const columns = new Map<number, string>()
+    for (const { dot: one, x } of placed) if (!columns.has(x)) columns.set(x, one.day)
+    let before = ''
+    for (const [x, day] of columns) {
+      const month = day.slice(0, 7)
+      if (month !== before) {
+        const label = monthOf(day, !under.length ? day.slice(0, 4) !== now.slice(0, 4) : day.slice(5, 7) === '01')
+        const at = x - dot / 2
+        const was = under.at(-1)
+        if (!was || was.x + was.label.length * 6.4 + 6 <= at) under.push({ x: at, label })
+      }
+      before = month
+    }
+  }
+  const unit = weeks ? 'weeks' : 'days'
   return (
-    <div ref={box} className="mt-2 w-full">
-    <section data-road-card aria-label="The road" className="w-fit max-w-full rounded-md border bg-[color-mix(in_oklab,var(--foreground)_3%,var(--background))] px-4 pt-3 pb-3" style={{ minWidth: Math.min(bandWidth + 34, 280) }}>
+    <div ref={box} className="w-full">
+    <section data-road-card data-road-by={road.by} aria-label="The road" className="w-fit max-w-full rounded-md border bg-[color-mix(in_oklab,var(--foreground)_3%,var(--background))] px-4 pt-3 pb-3" style={{ minWidth: Math.min(mapWidth + 34, 280) }}>
       {/* The one number, large, and beside it what it means, small. */}
       <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
         <span data-goal-left className="text-[1.5rem] leading-none font-semibold tracking-[-0.02em]" style={{ color: iced ? ICE : !item.closedAt && left <= 30 ? warmth(Math.max(left, 0)) : 'var(--foreground)' }}>
@@ -973,73 +1045,60 @@ function RoadCard({ item, from, target, today: now, picked, onPick }: { item: It
         <span className="text-meta text-muted-foreground">{iced ? 'left when it went on ice' : item.closedAt ? 'left when it ended' : left === 0 ? 'is the day' : left < 0 ? 'past the day' : `to ${dayMonth(`${target}T12:00`)}`}</span>
         <span className="flex flex-wrap gap-1 self-center">
           <span data-road-pill className="rounded-sm bg-foreground/[0.07] px-1.5 py-px text-meta text-foreground tabular-nums">{percent(wayThrough(from, target, new Date(`${today}T${today === now ? new Date().toTimeString().slice(0, 8) : '23:59:59'}`)))} gone</span>
-          <span data-road-pill className="rounded-sm bg-foreground/[0.07] px-1.5 py-px text-meta text-foreground tabular-nums">{num(logged)} of {num(gone)} days logged</span>
+          <span data-road-pill className="rounded-sm bg-foreground/[0.07] px-1.5 py-px text-meta text-foreground tabular-nums">{num(logged)} of {plural(gone, 'day')} logged</span>
           {iced && <span data-road-pill className="rounded-sm px-1.5 py-px text-meta" style={{ color: ICE, background: `color-mix(in oklab, ${ICE} 14%, transparent)` }}>Frozen {dayMonth(`${today}T12:00`)}</span>}
         </span>
       </div>
-      <div className="mt-3" onMouseLeave={() => setHover(null)}>
-        {width > 0 && Array.from({ length: bands }, (_, band) => {
-          const here = placed.filter((one) => one.band === band)
-          if (!here.length) return null
-          // The months under this row, a name where a month starts, never two touching.
-          // Each column's first day (a day's own, on one line); a name where its month differs from the column before.
-          const columns = new Map<number, string>()
-          for (const { dot, x } of here) if (!columns.has(x)) columns.set(x, dot.day)
-          const months: { x: number; label: string }[] = []
-          let before = ''
-          for (const [x, day] of columns) {
-            const month = day.slice(0, 7)
-            if (month !== before) {
-              const label = monthOf(day, !months.length && band === 0 ? day.slice(0, 4) !== now.slice(0, 4) : day.slice(5, 7) === '01')
-              const at = x - DOT / 2
-              const was = months.at(-1)
-              if (!was || was.x + was.label.length * 6.4 + 6 <= at) months.push({ x: at, label })
-            }
-            before = month
-          }
-          return (
-            <div key={band} data-road-band={band} className={`relative ${band ? 'mt-2.5' : ''}`}>
-              <svg role="img" aria-label={`${dayMonth(`${here[0].dot.day}T12:00`)} to ${dayMonth(`${here.at(-1)!.dot.last}T12:00`)}: ${num(here.filter((one) => one.dot.past).length)} of ${num(here.length)} ${road.by === 'day' ? 'days' : 'weeks'} gone`}
-                width={bandWidth} height={rows * STEP - GAP + 5} viewBox={`0 -5 ${bandWidth} ${rows * STEP - GAP + 5}`} className="block overflow-visible">
-                {here.map(({ dot, x, y }) => {
-                  const has = logsIn(days, dot).length > 0
-                  const tick = ticked.get(dot.day) ?? (dot.target ? ACCENT : undefined)
-                  return (
-                    <g key={dot.day} data-road-day={dot.day} data-road-now={dot.today || undefined} data-road-logged={has || undefined} className="cursor-pointer"
-                      onMouseEnter={() => setHover(dot)} onClick={() => (chime('tap'), onPick(picked?.day === dot.day ? null : dot))}>
-                      {/* The whole cell is its target, gap and all. */}
-                      <rect x={x - STEP / 2} y={y - STEP / 2} width={STEP} height={STEP} fill="transparent" />
-                      {/* A marked day: a small tick over its column, in the mark's ink; named in the key below. */}
-                      {tick && (line || dot.row === 0 || dot.target) && <rect data-road-tick x={x - 0.75} y={(line ? y : DOT / 2) - DOT / 2 - 5} width={1.5} height={3.5} rx={0.75} fill={tick} />}
-                      <circle data-dot cx={x} cy={y} r={DOT / 2}
-                        fill={dot.today ? (iced ? ICE : ACCENT) : has ? lit : ink}
-                        opacity={dot.today || has ? 1 : dot.past ? (iced ? 0.55 : 0.82) : 0.13} />
-                      {picked?.day === dot.day && <circle cx={x} cy={y} r={DOT / 2 + 1.25} fill="none" stroke="var(--foreground)" strokeWidth={1} />}
-                    </g>
-                  )
-                })}
-              </svg>
-              <div aria-hidden className="relative mt-1 h-3.5 text-[11px] leading-none text-muted-foreground" style={{ width: bandWidth }}>
-                {months.map((month) => <span key={month.x} className="absolute top-0 whitespace-nowrap" style={{ left: month.x }}>{month.label}</span>)}
-              </div>
-              {shownHover && shownHover.band === band && (
-                <div data-road-tip className={`pointer-events-none absolute z-10 w-max max-w-64 ${TIP} ${shownHover.x < bandWidth / 3 ? '-translate-x-3' : shownHover.x > (bandWidth * 2) / 3 ? '-translate-x-[calc(100%-0.75rem)]' : '-translate-x-1/2'}`}
-                  style={{ left: shownHover.x, top: shownHover.y + STEP + 4 }}>
-                  <DotTip dot={shownHover.dot} today={today} days={days} milestoneIn={milestoneIn} markIn={(dot) => marksIn(dot)[0]} />
-                </div>
-              )}
-            </div>
-          )
-        })}
+      {/* More than a year away, the rule said once, in words, where the dots are. */}
+      {weeks && <p data-road-rule className="mt-1.5 text-meta text-foreground/80">A dot a week until it's within a year</p>}
+      <div data-road-band={0} className="relative mt-3" onMouseLeave={() => setHover(null)}>
+        {width > 0 && (
+          <svg role="img" aria-label={`${dayMonth(`${placed[0].dot.day}T12:00`)} to ${dayMonth(`${placed.at(-1)!.dot.last}T12:00`)}, a dot a ${road.by}: ${num(placed.filter((one) => one.dot.past).length)} of ${num(placed.length)} ${unit} gone`}
+            width={mapWidth} height={mapHeight + 5} viewBox={`0 -5 ${mapWidth} ${mapHeight + 5}`} className="block overflow-visible">
+            {named.map((name, row) => name && (
+              <text key={row} x={0} y={row * step + dot / 2} dominantBaseline="central" className="fill-muted-foreground text-[11px]">{name}</text>
+            ))}
+            {placed.map(({ dot: one, x, y }) => {
+              const has = logsIn(days, one).length > 0
+              const tick = ticked.get(one.day) ?? (one.target ? ACCENT : undefined)
+              return (
+                <g key={one.day} data-road-day={one.day} data-road-now={one.today || undefined} data-road-logged={has || undefined} className="cursor-pointer"
+                  onMouseEnter={() => setHover(one)} onClick={() => (chime('tap'), onPick(picked?.day === one.day ? null : one))}>
+                  {/* The whole cell is its target, gap and all. */}
+                  <rect x={x - step / 2} y={y - step / 2} width={step} height={step} fill="transparent" />
+                  {/* A marked day: a tick over a line of days, a ring round its dot in a block; named in the key below. */}
+                  {tick && line && <rect data-road-tick x={x - 0.75} y={y - dot / 2 - 5} width={1.5} height={3.5} rx={0.75} fill={tick} />}
+                  {tick && !line && <circle data-road-tick cx={x} cy={y} r={dot / 2 + 1.2} fill="none" stroke={tick} strokeWidth={1} />}
+                  <circle data-dot cx={x} cy={y} r={dot / 2}
+                    fill={one.today ? (iced ? ICE : ACCENT) : has ? lit : ink}
+                    opacity={one.today || has ? 1 : one.past ? (iced ? 0.55 : 0.82) : 0.13} />
+                  {picked?.day === one.day && <circle cx={x} cy={y} r={dot / 2 + 1.25} fill="none" stroke="var(--foreground)" strokeWidth={1} />}
+                </g>
+              )
+            })}
+          </svg>
+        )}
+        {under.length > 0 && (
+          <div aria-hidden className="relative mt-1 h-3.5 text-[11px] leading-none text-muted-foreground" style={{ width: mapWidth }}>
+            {under.map((month) => <span key={month.x} className="absolute top-0 whitespace-nowrap" style={{ left: month.x }}>{month.label}</span>)}
+          </div>
+        )}
+        {shownHover && (
+          <div data-road-tip className={`pointer-events-none absolute z-10 w-max max-w-64 ${TIP} ${shownHover.x < mapWidth / 3 ? '-translate-x-3' : shownHover.x > (mapWidth * 2) / 3 ? '-translate-x-[calc(100%-0.75rem)]' : '-translate-x-1/2'}`}
+            style={{ left: shownHover.x, top: shownHover.y + step + 4 }}>
+            <DotTip dot={shownHover.dot} today={today} days={days} milestoneIn={milestoneIn} markIn={(one) => marksIn(one)[0]} />
+          </div>
+        )}
       </div>
       {/* The key: what the dots mean, then every marked day by name. Whole items wrap; nothing stacks on anything. */}
-      <ul aria-label="What the marks mean" className="mt-2.5 flex max-w-full flex-wrap gap-x-3 gap-y-1 text-meta text-muted-foreground" style={{ maxWidth: Math.max(bandWidth, 248) }}>
+      <ul aria-label="What the marks mean" className="mt-2.5 flex max-w-full flex-wrap gap-x-3 gap-y-1 text-meta text-muted-foreground" style={{ maxWidth: Math.max(mapWidth, 248) }}>
         <li className="flex items-center gap-1.5"><span className="size-2 rounded-full" style={{ background: ink, opacity: iced ? 0.55 : 0.82 }} />gone</li>
         <li className="flex items-center gap-1.5"><span className="size-2 rounded-full" style={{ background: lit }} />logged</li>
-        <li data-road-label className="flex items-center gap-1.5 text-foreground"><span className="size-2 rounded-full" style={{ background: iced ? ICE : ACCENT }} />{iced ? 'Went on ice' : item.closedAt ? 'Ended' : 'Today'}</li>
+        <li data-road-label className="flex items-center gap-1.5 text-foreground"><span className="size-2 rounded-full" style={{ background: iced ? ICE : ACCENT }} />{iced ? 'Went on ice' : item.closedAt ? 'Ended' : weeks ? 'This week' : 'Today'}</li>
         {marks.map((one) => (
           <li key={`${one.day}-${one.word}`} data-road-label className="flex items-center gap-1.5 whitespace-nowrap text-foreground">
-            <span className="h-2 w-[1.5px] rounded-full" style={{ background: one.ink }} />{one.word}<span className="text-muted-foreground tabular-nums">{dayMonth(`${one.day}T12:00`)}</span>
+            {line ? <span className="h-2 w-[1.5px] rounded-full" style={{ background: one.ink }} /> : <span className="size-2 rounded-full border-[1.5px]" style={{ borderColor: one.ink }} />}
+            {one.word}<span className="text-muted-foreground tabular-nums">{dayMonth(`${one.on}T12:00`)}</span>
           </li>
         ))}
       </ul>
@@ -1161,22 +1220,16 @@ function Logs({ item, picked, onClear }: { item: ItemFull; picked: Dot | null; o
     })
   }
   return (
-    <section data-chrome className="mt-8 w-full border-t pt-4 text-body">
-      <h3 className="mb-2 flex items-baseline gap-1.5 px-2 text-meta text-muted-foreground">
-        <span data-someday-steps={someday(item) || undefined}>{someday(item) ? 'Steps so far' : 'Progress log'}</span> {all.length > 0 && <Rolling text={all.length} className="tabular-nums" />}
-        {picked && (
-          <button type="button" onClick={() => (chime('tap'), onClear())} className="ml-auto flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs text-foreground/80 hover:bg-accent">
-            {picked.day === picked.last ? dayMonth(`${picked.day}T12:00`) : `Week of ${dayMonth(`${picked.day}T12:00`)}`} <X className="size-3" />
-          </button>
-        )}
-      </h3>
+    <>
+      {/* The page's main act, first under the road: write what you did, Enter keeps it. */}
       {!item.closedAt && (
-        <div className="mx-2 mb-3 flex items-start gap-2 rounded-lg border bg-accent/30 px-3 py-2 focus-within:border-foreground/25">
-          <Plus className="mt-1 size-3.5 shrink-0 text-muted-foreground" />
+        <div data-log-box className="flex items-start gap-2 rounded-lg border bg-accent/30 px-3 py-2 focus-within:border-foreground/25">
+          <Plus aria-hidden className="mt-1 size-3.5 shrink-0 text-muted-foreground" />
           <textarea
             data-log-field
             rows={1}
             value={words}
+            aria-label={someday(item) ? 'Log a step' : 'Add a log'}
             onChange={(event) => setWords(event.target.value)}
             onKeyDown={(event) => {
               event.stopPropagation()
@@ -1192,8 +1245,17 @@ function Logs({ item, picked, onClear }: { item: ItemFull; picked: Dot | null; o
           {words.trim() && <span className="mt-0.5 flex shrink-0 items-center gap-1 text-xs text-muted-foreground"><Kbd>↵</Kbd></span>}
         </div>
       )}
+    <section data-chrome className="w-full border-t pt-4 text-body">
+      <h3 className="mb-2 flex items-baseline gap-1.5 text-meta text-muted-foreground">
+        <span data-someday-steps={someday(item) || undefined}>{someday(item) ? 'Steps so far' : 'Progress log'}</span> {all.length > 0 && <Rolling text={all.length} className="tabular-nums" />}
+        {picked && (
+          <button type="button" onClick={() => (chime('tap'), onClear())} className="ml-auto flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs text-foreground/80 hover:bg-accent">
+            {picked.day === picked.last ? dayMonth(`${picked.day}T12:00`) : `Week of ${dayMonth(`${picked.day}T12:00`)}`} <X className="size-3" />
+          </button>
+        )}
+      </h3>
       {logs.length ? (
-        <ol ref={list} className="flex flex-col">
+        <ol ref={list} className="-mx-2 flex flex-col">
           <AnimatePresence initial={false}>
             {few.shown.map((log) => {
               const menu: MenuItem[] = lines.picked(log.id) && lines.count > 1 ? [
@@ -1241,12 +1303,13 @@ function Logs({ item, picked, onClear }: { item: ItemFull; picked: Dot | null; o
           </AnimatePresence>
         </ol>
       ) : (
-        <p className="px-2 pb-2 text-control text-muted-foreground">
+        <p className="pb-2 text-control text-muted-foreground">
           <span data-log-empty>{picked ? 'No log that day.' : item.closedAt ? 'No logs were kept.' : someday(item) ? 'No steps yet: write the first above.' : 'Nothing logged yet: write the first above.'}</span>
         </p>
       )}
-      <ShowMore total={logs.length} shown={few.shown.length} few={LOG_FEW} onMore={few.onMore} onFewer={few.onFewer} className="mx-1 mb-1" />
+      <ShowMore total={logs.length} shown={few.shown.length} few={LOG_FEW} onMore={few.onMore} onFewer={few.onFewer} className="-mx-1 mb-1" />
     </section>
+    </>
   )
 }
 

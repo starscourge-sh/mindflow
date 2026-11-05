@@ -90,14 +90,16 @@ try {
       cover: !!header?.querySelector('.aspect-square'),
       big: pane?.querySelector('[data-road-card] [data-goal-left]')?.textContent ?? '',
       bigs: (pane?.innerText.match(/\b365 days\b/g) ?? []).length,
-      more: header?.querySelector('[aria-label="More"]')?.getBoundingClientRect().top ?? null,
-      plus: header?.querySelector('[data-goal-add] button')?.getBoundingClientRect().top ?? null
+      more: pane?.querySelector('[aria-label="More"]')?.getBoundingClientRect().top ?? null,
+      stepper: pane?.querySelector('[data-stepper]')?.getBoundingClientRect().top ?? null,
+      plus: pane?.querySelector('[data-goal-add]') ? 1 : null
     }
   })
   check('the header holds no cover picture and no days', !head.cover && !/\b365\b/.test(head.text), head.text.replace(/\s+/g, ' '))
   check('the date line says the day it is for and when it was set', head.text.includes(`For ${longDay(key(365))}`) && /set \d+ \w+/.test(head.text), head.text.replace(/\s+/g, ' '))
   check('a big "365 days" in the road card, said once on the page', /^365 days/.test(head.big) && head.bigs === 1, `${head.big} ×${head.bigs}`)
-  check('"+" and "..." sit on one row', head.more !== null && head.plus !== null && Math.abs(head.plus - head.more) < 2, JSON.stringify(head))
+  // Round 3: the bare "+" is gone (the log field is the one way to log); the "…" sits on the top row with the stepper.
+  check('no bare "+"; the "…" sits on the stepper\'s row', head.plus === null && head.more !== null && head.stepper !== null && Math.abs(head.stepper - head.more) < 8, JSON.stringify(head))
   const pageText = await h.evaluate(() => document.querySelector('div[data-open]')?.innerText ?? '')
   check('the page never says "of the way"', !/of the way/.test(pageText))
   check('the card says the time gone', /\d+% gone/.test(pageText), pageText.slice(0, 200))
@@ -127,18 +129,19 @@ try {
   const roadShot = async (name) => { if (!SHOTS) return; await h.evaluate(() => document.querySelector('div[data-open] [data-road-card]')?.scrollIntoView({ block: 'start' })); await h.waitForTimeout(300); await shot(name) }
   const longRoad = async (name, days) => {
     const seen = await road()
-    check(`${name}: ${days} days drawn, every dot 7 to 9px`, seen.dots === days && seen.smallest >= 7 && seen.largest <= 9, JSON.stringify({ dots: seen.dots, smallest: seen.smallest, largest: seen.largest }))
+    check(`${name}: ${days} dots drawn, every dot 7 to 9px`, seen.dots === days && seen.smallest >= 7 && seen.largest <= 9, JSON.stringify({ dots: seen.dots, smallest: seen.smallest, largest: seen.largest }))
     check(`${name}: every dot and name inside the card`, seen.inside)
   }
   await longRoad('the year road beside the list', 376)
   await roadShot('road-year')
   await openGoal(camino)
-  await longRoad('a 611-day road beside the list', 611)
-  check('a 611-day road beside the list wraps into rows', (await road()).bands > 1)
+  // More than a year away: a dot a week, one map (goals round 3).
+  await longRoad('a 611-day road beside the list', 88)
+  check('a 611-day road beside the list is one map', (await road()).bands === 1)
   await shot('page-camino')
   await roadShot('road-camino')
   await size(900, 800)
-  await longRoad('a 611-day road in a narrower window', 611)
+  await longRoad('a 611-day road in a narrower window', 88)
   await shot('page-camino-narrow')
   await roadShot('road-camino-narrow')
   await size(1280, 800)
