@@ -171,12 +171,16 @@ export function RowMenu({ items, writes, list = false, onOpenChange, children }:
   if (!writes && !shown.some((item) => item !== 'separator')) return children
   return (
     <ContextMenu onOpenChange={(open) => (onOpenChange?.(open), open && ((after.current = 'back'), setOpened((count) => count + 1)))}>
-      <ContextMenuTrigger asChild data-row-menu onContextMenuCapture={writes ? (event) => {
+      <ContextMenuTrigger asChild data-row-menu onContextMenuCapture={(event) => {
+        // A row stays filled while its menu is open; anything taller (a deck's stack, a card, a tile) is ringed
+        // instead (main.css), as Finder rings an icon: a fill behind a card read as the page dimming.
+        event.currentTarget.toggleAttribute('data-menu-tall', event.currentTarget.getBoundingClientRect().height > 56)
+        if (!writes) return
         const field = writes instanceof HTMLElement ? writes : fieldOf(event.target)
         setWriting(field ? writingAt(field) : null)
         // Off the words with nothing of the row's own to offer: no empty menu.
         if (!field && !own.some((item) => item && item !== 'separator')) event.preventDefault()
-      } : undefined}>{children}</ContextMenuTrigger>
+      }}>{children}</ContextMenuTrigger>
       <ContextMenuContent
         className="w-60"
         // An item that opens its own picker (Change kind…) keeps the keys

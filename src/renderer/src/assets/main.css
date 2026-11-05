@@ -1417,9 +1417,15 @@ body {
 
 /* The row a right-click menu belongs to stays marked while the menu is open.
    Not a reader's whole page area: there the picked words are what is marked. */
-[data-slot='context-menu-trigger'][data-state='open']:not(.pdf-reader-scroll) {
+[data-slot='context-menu-trigger'][data-state='open']:not(.pdf-reader-scroll, [data-menu-tall]) {
   background-color: var(--accent);
   border-radius: calc(var(--radius) - 4px);
+}
+/* Taller than a row (a deck's stack, a card, a tile): a ring round it, never a fill behind it. */
+[data-slot='context-menu-trigger'][data-state='open'][data-menu-tall]:not(.pdf-reader-scroll) {
+  outline: 2px solid color-mix(in oklab, var(--foreground) 30%, transparent);
+  outline-offset: 3px;
+  border-radius: 8px;
 }
 
 /* A private item's words in a list or card: blurred to anyone glancing at the
