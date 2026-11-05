@@ -1,5 +1,5 @@
-// A notice in quick capture's one-line pill never sits over what you type: it goes just above the card, centred on
-// it. Checked on a fresh open, and after the box grew (a second line) and went back to the pill, where the grown
+// A notice in quick capture's one-line pill never sits over what you type: it goes just under the card, centred on
+// it, where the hint and the postcard go (a two-line notice with its Undo, above, spilled over the pill's words). Checked on a fresh open, and after the box grew (a second line) and went back to the pill, where the grown
 // box's own lane for notices was left behind and put the next one over the pill's words.
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/pill-notice-clear.mjs [shots-dir]
 import { sandbox } from './sandbox-lib.mjs'
@@ -27,6 +27,7 @@ try {
     const over = at.toast && at.card && at.toast[1] < at.card[3] && at.toast[3] > at.card[1] && at.toast[0] < at.card[2] && at.toast[2] > at.card[0]
     console.log(`  ${where}: ${JSON.stringify(at)}`)
     check(`${where}: the notice shows, in the pill, clear of the card, its words and its round controls`, at.pill && at.toast && !over && at.hits === 0, JSON.stringify(at))
+    check(`${where}: the notice sits under the card`, at.toast && at.card && at.toast[1] >= at.card[3], JSON.stringify(at))
     for (const look of ['light', 'dark']) {
       await c.look(look)
       await page.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:job-stopped', { detail: '“5m” stays as words, no timer' })))
@@ -39,6 +40,20 @@ try {
   await page.waitForTimeout(800)
   await page.keyboard.type('a thought')
   await notice('fresh open')
+  // The real one, with its Undo: words read as a date kept as words (Backspace straight after them).
+  await page.keyboard.press('Meta+a'); await page.keyboard.press('Backspace')
+  await page.keyboard.type('do something at 9pm'); await page.waitForTimeout(600)
+  await page.keyboard.press('Backspace'); await page.waitForTimeout(700)
+  const kept = await page.evaluate(() => {
+    const toast = document.querySelector('[role=status]')?.getBoundingClientRect()
+    const card = document.querySelector('.app-container')?.getBoundingClientRect()
+    return { text: document.querySelector('[role=status]')?.textContent ?? '', toast: toast && [Math.round(toast.top), Math.round(toast.bottom)], card: card && [Math.round(card.top), Math.round(card.bottom)], mid: toast && Math.round((toast.left + toast.right) / 2), cardMid: card && Math.round((card.left + card.right) / 2) }
+  })
+  check('"at 9pm" kept as words: its notice and Undo sit under the pill, clear of it', /stays as words/.test(kept.text) && kept.toast && kept.toast[0] >= kept.card[1], JSON.stringify(kept))
+  check('the notice is centred under the pill', Math.abs(kept.mid - kept.cardMid) <= 2, JSON.stringify(kept))
+  for (const look of ['light', 'dark']) { await c.look(look); await page.screenshot({ path: `${SHOTS}/pill-notice-undo-${look}.png` }).catch(() => {}) }
+  await c.look('light')
+  await page.keyboard.press('Meta+a'); await page.keyboard.press('Backspace'); await page.keyboard.type('a thought'); await page.waitForTimeout(600)
   // Grown to the box by a second line, then back to one line.
   await page.keyboard.press('Shift+Enter')
   await page.keyboard.type('a second line')

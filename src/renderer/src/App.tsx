@@ -1837,7 +1837,9 @@ export default function App(): React.JSX.Element {
       const last = row.lastElementChild?.getBoundingClientRect()
       if (!last || !last.width) {
         // No footer drawn: the one-line pill. The lane the grown box last set would put a notice over the pill's
-        // words, so it sits just above the card instead, centred on it, in the room the window keeps there.
+        // words, so it sits under the card instead, centred on it, in the room the window keeps there, as the hint
+        // and the postcard do. Above it, the room was shorter than a notice with its Undo, which then lay over the
+        // pill's words (and what is behind the window); only with no room under the card does it go above.
         const card = document.querySelector('.app-container')?.getBoundingClientRect()
         if (!card?.width) return
         document.body.removeAttribute('data-toast-raised')
@@ -1845,8 +1847,13 @@ export default function App(): React.JSX.Element {
         // centred in what is left of the card's width, left of them.
         const controls = document.querySelector('.mf-top')?.getBoundingClientRect()
         const end = controls?.width && controls.bottom <= card.top + 1 && controls.left > card.left ? Math.min(card.right, controls.left - 8) : card.right
-        const above = { '--toast-left': `${Math.round(card.left)}px`, '--toast-right': `${Math.round(window.innerWidth - end)}px`, '--toast-bottom': `${Math.round(window.innerHeight - card.top + 8)}px` } as CSSProperties
-        setToastLane((was) => (JSON.stringify(was) === JSON.stringify(above) ? was : above))
+        const sides = { '--toast-left': `${Math.round(card.left)}px`, '--toast-right': `${Math.round(window.innerWidth - end)}px` }
+        const roomUnder = window.innerHeight - card.bottom
+        // Under the card nothing of its own is in the way: centred on the whole card.
+        const lane = (roomUnder >= 72
+          ? { '--toast-left': `${Math.round(card.left)}px`, '--toast-right': `${Math.round(window.innerWidth - card.right)}px`, '--toast-top': `${Math.round(card.bottom + 8)}px`, '--toast-bottom': '0px' }
+          : { ...sides, '--toast-bottom': `${Math.round(window.innerHeight - card.top + 8)}px` }) as unknown as CSSProperties
+        setToastLane((was) => (JSON.stringify(was) === JSON.stringify(lane) ? was : lane))
         return
       }
       // The whole row left of Create, the kind stepping back while it is up, so a notice and its

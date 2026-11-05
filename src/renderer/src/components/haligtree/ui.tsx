@@ -1480,7 +1480,7 @@ export function Toaster(): React.JSX.Element | null {
     </div>}
     {/* Centred along the bottom, where the eye drops after acting. It
         leaves the way it came, and a new one takes its place at once. */}
-    <div ref={lane} style={spot} className="pointer-events-none fixed right-[var(--toast-right,0px)] bottom-[var(--toast-bottom,1.25rem)] left-[var(--toast-left,0px)] z-[60] flex flex-col items-center gap-2">
+    <div ref={lane} style={spot} className="pointer-events-none fixed top-[var(--toast-top,auto)] right-[var(--toast-right,0px)] bottom-[var(--toast-bottom,1.25rem)] left-[var(--toast-left,0px)] z-[60] flex flex-col items-center gap-2">
     {/* Words not saved yet: one line above the toasts, up until they are in. */}
     <SaveTroubleLine />
     <ImportProgress />
