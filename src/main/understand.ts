@@ -1,5 +1,5 @@
 import { execFile, spawn, type ChildProcessWithoutNullStreams } from 'node:child_process'
-import { ipcMain } from 'electron'
+import { app, ipcMain } from 'electron'
 import helper from '../../resources/understand?asset&asarUnpack'
 import { standIn, type Caps } from './needs'
 
@@ -81,8 +81,31 @@ export function understand(op: string, body: Record<string, unknown>): Promise<A
   })
 }
 
+/** The language a person reads in: the Mac's own, as two letters. */
+export const ownLanguage = (): string => (app.getPreferredSystemLanguages()[0] ?? app.getLocale() ?? 'en').split('-')[0].toLowerCase()
+
+/**
+ * Words put into your own language, on this Mac (Apple's Translation, macOS 26):
+ * the language they are in found first. Says why not, plainly, when it cannot.
+ */
+export async function translate(text: string, to = ownLanguage()): Promise<{ text: string; from: string; to: string } | { error: string }> {
+  const have = await caps()
+  if (have.major < 26) return { error: 'Translation needs macOS 26' }
+  const words = text.trim().slice(0, 20_000)
+  if (!words) return { error: 'There are no words to translate' }
+  const read = await understand('read', { text: words.slice(0, 2000) })
+  const from = String(read.lang ?? 'und')
+  if (from === 'und') return { error: 'The language of these words could not be told' }
+  if (from === to) return { error: `These words are already in ${languageName(to)}` }
+  const done = await understand('translate', { text: words, from, to })
+  return done.error ? { error: done.error.message } : { text: String(done.text ?? ''), from, to }
+}
+
+export const languageName = (code: string): string => new Intl.DisplayNames(['en'], { type: 'language' }).of(code) ?? code
+
 export function registerUnderstand(): void {
   ipcMain.handle('haligtree:caps', () => caps())
+  ipcMain.handle('haligtree:translate', (_event, text: unknown, to: unknown) => translate(String(text ?? ''), typeof to === 'string' && to ? to : undefined))
   // Asked now, so the answer is in hand before any page needs it.
   void caps()
 }

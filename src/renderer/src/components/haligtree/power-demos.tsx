@@ -1770,7 +1770,51 @@ const BinDemo: Demo = ({ live }) => {
   )
 }
 
+/** A notebook page kept as a picture: ⌘K finds it by the words written on it. */
+const PictureWordsDemo: Demo = ({ live }) => {
+  const at = useSteps([700, typeMs('stoics') - 200, 2600], live, 2)
+  const typed = useTyped('stoics', live && at >= 1)
+  return (
+    <Col>
+      <div className="flex items-center gap-2.5 rounded-lg border bg-background px-2.5 py-2">
+        <span aria-hidden className="relative h-10 w-14 shrink-0 overflow-hidden rounded-[4px] border bg-[repeating-linear-gradient(to_bottom,transparent_0_8px,color-mix(in_oklab,var(--tt-color-text-blue)_30%,transparent)_8px_9px)]">
+          <span className="absolute top-[3px] left-1 font-[Bradley_Hand,cursive] text-[0.5rem] leading-[9px] text-foreground/80">the Stoics<br />Marcus</span>
+        </span>
+        <span className="flex min-w-0 flex-col">
+          <span className="truncate text-control text-foreground">Lecture notes</span>
+          <span className="text-meta text-muted-foreground">A photo of your notebook</span>
+        </span>
+      </div>
+      <div className="rounded-lg border bg-background px-2.5 py-2">
+        <p className="flex items-center gap-1.5 text-control text-foreground"><Kbd>⌘K</Kbd> {at === 0 ? '' : typed}<Caret on={live && at === 1} /></p>
+        <p className={`mt-1.5 flex items-center gap-1.5 text-meta text-muted-foreground transition-opacity duration-300 ${at === 2 ? '' : 'opacity-0'}`}>
+          <span className="text-foreground/70">In a picture:</span> Lecture 4: the <mark className="rounded-[3px] bg-[var(--tt-color-highlight-yellow)] px-0.5 text-foreground">Stoics</mark>
+        </p>
+      </div>
+    </Col>
+  )
+}
+
+/** Words in another language, put into yours on this Mac. */
+const TranslateDemo: Demo = ({ live }) => {
+  const at = useSteps([1400, 2600], live, 1)
+  return (
+    <Col>
+      <div className="rounded-lg border bg-background px-3 py-2 text-control text-foreground">El que lee mucho y anda mucho, ve mucho y sabe mucho.</div>
+      <AnimatePresence mode="popLayout" initial={false}>
+        {at === 1 && (
+          <motion.div key="done" {...rise} className="rounded-lg border bg-background px-3 py-2">
+            <div className="text-meta text-muted-foreground">In English, from Spanish</div>
+            <div className="mt-0.5 text-control text-foreground">Who reads much and walks much, sees much and knows much.</div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </Col>
+  )
+}
+
 export const DEMOS: Record<string, Demo> = {
+  picturewords: PictureWordsDemo, translate: TranslateDemo,
   box: BoxDemo, timer: TimerDemo, letter: LetterDemo, clue: ClueDemo, tagtask: TagTaskDemo, remind: RemindDemo, comingback: ComingBackDemo, onetask: OneTaskDemo, merge: MergeDemo,
   board: BoardDemo, versions: VersionsDemo, find: FindDemo, aliases: AliasesDemo, calc: CalcDemo, fold: FoldDemo, bit: BitDemo, glossary: GlossaryDemo,
   review: ReviewDemo, cloze: ClozeDemo, context: ContextDemo, readthrough: ReadThroughDemo, queue: QueueDemo, wrong: WrongDemo, suspend: SuspendDemo, questions: QuestionsDemo,

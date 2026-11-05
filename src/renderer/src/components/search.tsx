@@ -232,6 +232,19 @@ export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'tas
   const [glossing, setGlossing] = useState(false)
   useEffect(() => setGlossing(false), [current?.id])
   const backToBox = (): void => (setGlossing(false), box.current?.focus())
+  // A modal holds the keys while it is open: a note under it taking focus back
+  // (a right-click menu that opened search closes, and hands focus to its note)
+  // would leave Esc and typing going to the note.
+  useEffect(() => {
+    // A pane's search is a page beside the note, not over it.
+    if (inPane) return
+    const keep = (event: FocusEvent): void => {
+      const target = event.target as HTMLElement | null
+      if (target?.closest?.('.ProseMirror') && !box.current?.closest('[role="dialog"]')?.contains(target)) box.current?.focus()
+    }
+    document.addEventListener('focusin', keep)
+    return () => document.removeEventListener('focusin', keep)
+  }, [!!inPane]) // eslint-disable-line react-hooks/exhaustive-deps
   // "Change theme…" turns the palette into the themes, each worn as the
   // highlight passes it; Enter keeps one, Escape puts the old one back.
   const [picking, setPicking] = useState<Action | null>(null)
@@ -498,7 +511,13 @@ export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'tas
                     {whereFrom(capture.source, capture.label) && <span className="min-w-0 max-w-[40%] truncate text-xs text-muted-foreground">· {whereFrom(capture.source, capture.label)}</span>}
                     {on && !asking && !preview && capture.type === 'capture' && <span className="ml-auto shrink-0 text-xs text-muted-foreground">{capture.attribution ?? 'Tab: who said it'}</span>}
                     {/* Why it came up: the line the words are on, the words marked, under the name. */}
-                    {capture.line && <span data-found-line className="basis-full truncate pl-6 text-sm text-muted-foreground"><Marked text={capture.line} query={words.join(' ')} /></span>}
+                    {capture.line && (
+                      <span data-found-line data-found-picture={capture.picture ? '' : undefined} className="flex basis-full items-center gap-2 truncate pl-6 text-sm text-muted-foreground">
+                        {/* Words read in a picture: the picture itself, small, beside them. */}
+                        {capture.picture && <img src={capture.picture} alt="" className="size-7 shrink-0 rounded-[4px] border border-border/60 object-cover" />}
+                        <span className="min-w-0 truncate">{capture.picture && <span className="text-foreground/70">In a picture: </span>}<Marked text={capture.line} query={words.join(' ')} /></span>
+                      </span>
+                    )}
                   </button>
                   </RowMenu>
                   )} />

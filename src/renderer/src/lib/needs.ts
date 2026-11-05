@@ -14,6 +14,10 @@ export function readCaps(): Promise<Caps> {
   return asking
 }
 
+/** What this Mac has, for a menu built in one go; asked as this window opens, so a menu opened later has it. */
+export const capsNow = (): Caps | null => kept
+if (typeof window !== 'undefined' && window.api) void readCaps().catch(() => undefined)
+
 /** This Mac's powers; null for the moment before main answers, when nothing beyond every Mac's is offered. */
 export function useCaps(): Caps | null {
   const [caps, setCaps] = useState(kept)

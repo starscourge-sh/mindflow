@@ -10,7 +10,7 @@ import { openPdf } from "@/components/pdf/pdf-reader"
 import { isWebPage, openArticle } from "@/components/pdf/web-reader"
 import { haligtree } from "@/lib/haligtree"
 import { host, said } from "@/lib/host"
-import { copyImageText, readable } from "@/lib/image-text"
+import { pictureLines } from "@/lib/picture-actions"
 import { lookUp } from "@/components/pdf/look-up"
 import { playAt } from "@/extensions/line-cards"
 
@@ -330,7 +330,7 @@ export function clickedLines(editor: Editor, clicked: Clicked): Line[] {
     const lines: Array<Line | false> = [
       own && !!host().openFile && { label: "Open in the default app", data: "default-app", run: () => void host().openFile?.(src) },
       own && !!host().showFile && { label: "Show in Finder", data: "finder", run: () => void host().showFile?.(src) },
-      clicked.kind === "picture" && readable(src) && { label: "Copy text from image", hint: "Read by your Mac", data: "image-text", run: () => void copyImageText(src) },
+      ...(clicked.kind === "picture" ? pictureLines(src) : []),
       !own && { label: clicked.kind === "video" ? "Open in the browser" : "Open the picture's address", data: "browser", run: () => void window.open(src) },
       !own && { label: "Copy address", data: "copy-address", run: () => copyText(src, "Address copied") },
     ]
@@ -366,7 +366,7 @@ export function ClickedRows({ editor, clicked, matches, onDone, within = false }
     <>
       {within ? null : <div className="tiptap-slash-menu-group" data-clicked-group={clicked.kind}>{clickedName(clicked)}</div>}
       {clickedLines(editor, clicked)
-        .filter((line) => matches(line.label) && !(within && line.data === "image-text"))
+        .filter((line) => matches(line.label))
         .map((line) => (
           <DropdownMenuItem key={line.label} asChild>
             <button type="button" data-clicked={line.data} onClick={() => (onDone(), line.run())}>

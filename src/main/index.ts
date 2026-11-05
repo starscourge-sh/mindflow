@@ -5419,15 +5419,6 @@ app.whenReady().then(() => {
     }
   })
 
-  // The words in a stored picture, read by the Mac itself (Apple's Vision, the reader behind Live Text), through
-  // the scripting bridge every Mac has: nothing to install, nothing sent anywhere. Lines top to bottom; '' when it
-  // holds no words, null when the picture could not be read.
-  ipcMain.handle('image-text', async (_event, src: unknown) => {
-    const name = typeof src === 'string' ? src.replace(/^(haligtree|mindflow):\/\/assets\//, '') : ''
-    if (!/^[a-f0-9]{64}\.[a-z0-9]+$/.test(name) || process.platform !== 'darwin') return null
-    return new Promise<string | null>((done) => execFile('/usr/bin/osascript', ['-l', 'JavaScript', '-e', READ_TEXT, join(assetsDir(), name)], { timeout: 20000, maxBuffer: 8 * 1024 * 1024 }, (error, out) => done(error ? null : out.replace(/\n$/, ''))))
-  })
-
   // A note drawn as a picture (renderer lib/note-picture.ts): the renderer lays
   // the blocks out over the window in a frame of their own, and this takes what
   // the window shows there, at the screen's own sharpness.
@@ -5841,18 +5832,4 @@ app.on('window-all-closed', () => {
 // In this file you can include the rest of your app's specific main process
 // code. You can also put them in separate files and require them here.
 
-/** Reads the words in a picture with Apple's Vision (osascript's JavaScript bridge): accurate, with language correction. */
-const READ_TEXT = `ObjC.import('Foundation'); ObjC.import('Vision');
-function run(argv) {
-  const request = $.VNRecognizeTextRequest.alloc.init
-  request.recognitionLevel = 0
-  request.usesLanguageCorrection = true
-  const handler = $.VNImageRequestHandler.alloc.initWithURLOptions($.NSURL.fileURLWithPath(argv[0]), $.NSDictionary.dictionary)
-  if (!handler.performRequestsError($.NSArray.arrayWithObject(request), Ref())) throw new Error('unread')
-  const lines = []
-  for (let i = 0; i < request.results.count; i++) {
-    const top = request.results.objectAtIndex(i).topCandidates(1)
-    if (top.count) lines.push(top.objectAtIndex(0).string.js)
-  }
-  return lines.join('\\n')
-}`
+

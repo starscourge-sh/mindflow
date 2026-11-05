@@ -7,6 +7,7 @@ import { z } from 'zod'
 import Papa from 'papaparse'
 import { join, posix } from 'path'
 import { hostname } from 'os'
+import { IN_PICTURE, pictureHolding, registerPictureWords, wordsOfPicture } from './picture-words'
 
 import { backUpWatched, checkMarkdown, writeMarkdown } from './backup'
 import { openDatabase } from './db-open'
@@ -360,6 +361,8 @@ export function registerCaptures(): void {
   type Part = { type?: string; text?: string; attrs?: Record<string, unknown>; marks?: Part[]; content?: Part[] }
   const wordsIn = (node: Part): string => [
     node.text,
+    // A picture's own words, read by the Mac (picture-words.ts): a screenshot or a notebook page is found by what it says.
+    node.type === 'image' ? wordsOfPicture(node.attrs?.src) : '',
     ...[node, ...(node.marks ?? [])].flatMap((one) => SAID.map((key) => one.attrs?.[key]).filter((value) => typeof value === 'string')),
     (node.content ?? []).map(wordsIn).join(node.type === 'paragraph' || node.type === 'heading' ? '' : '\n')
   ].filter(Boolean).join(' ')
@@ -497,6 +500,8 @@ export function registerCaptures(): void {
   type Found = { type: string; id: string; number: number | null; kind: string; status: string; source: string; attribution: string | null; label: string; capturedAt: string }
   type Searchable = Found & { text: string; raw?: string; there?: string[] }
   let everything: { at: number; rows: Searchable[] } | null = null
+  // New words read in a picture: every note's words and search's list are read again.
+  registerPictureWords(() => ((everything = null), read.clear()))
   const searchable = (): Searchable[] => {
     if (everything?.at === writes()) return everything.rows
     const rows = db.prepare(
@@ -562,10 +567,15 @@ export function registerCaptures(): void {
       if (!line.trim() || line.trim() === name) return undefined
       // Up to 40 characters before the word, cut at a space, so the word is always in sight.
       const cut = from > 40 ? line.indexOf(' ', from - 40) + 1 || from - 40 : 0
-      const shownLine = line.slice(cut, cut + 160).trim()
-      return `${cut > 0 ? '…' : ''}${shownLine}${cut + 160 < line.length ? '…' : ''}`
+      const shownLine = line.slice(cut, cut + 160).replace(IN_PICTURE, '').trim()
+      return `${line.startsWith(IN_PICTURE) ? IN_PICTURE : ''}${cut > 0 ? '…' : ''}${shownLine}${cut + 160 < line.length ? '…' : ''}`
     }
-    const shown = ({ text: _, there: __, raw: ___, ...one }: Searchable): Found & { line?: string } => ({ ...one, line: lineOf({ text: _, raw: ___, ...one }) })
+    // A line read in a picture says so, and brings the picture to show beside it.
+    const shown = ({ text: _, there: __, raw: ___, ...one }: Searchable): Found & { line?: string; picture?: string } => {
+      const line = lineOf({ text: _, raw: ___, ...one })
+      if (!line?.startsWith(IN_PICTURE)) return { ...one, line }
+      return { ...one, line: line.slice(1), picture: pictureHolding(line.slice(1)) }
+    }
     const found = once(take((one) => terms.every((term) => one.text.includes(term)), 60).map(shown))
     if (filters.length) return found.filter((one) => one.type !== 'task' && one.type !== 'event' && one.type !== 'day' && passes(fieldsOf(db, one.type, one.id), filters))
     // Few or none as typed: spelling forgiven (near.ts), the closest words standing in for a slip of the keys.
