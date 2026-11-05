@@ -1021,6 +1021,9 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
             <Switch checked={settings.tomorrowBox !== false} onCheckedChange={(tomorrowBox) => set({ tomorrowBox })} />
           </Setting>
           <MacCalendarSetting on={!!settings.macCalendar} set={(macCalendar) => set({ macCalendar })} />
+          <Setting title="Your notes in Spotlight" note="⌘Space finds your notes by their words, and opens them here." more={`Kept on this Mac, in Spotlight's own index. Private and #bit notes are never in it; turned off, every note is taken out. Once ${APP_NAME} is in your Applications folder.`} keywords="spotlight search command space mac find system index" data-mac-needs="every">
+            <Switch checked={settings.spotlight !== false} onCheckedChange={(spotlight) => set({ spotlight })} />
+          </Setting>
           <Setting title="Weekly digest" note="On Sundays, Home sums up your week." more="What you caught, kept, reviewed and finished, with the week's page a click away. From 6 in the evening a Mac notification says it too, never in quiet hours; nothing leaves this Mac." keywords="weekly digest sunday summary week review caught kept reviewed finished">
             <Switch checked={settings.weeklyDigest !== false} onCheckedChange={(weeklyDigest) => set({ weeklyDigest })} />
           </Setting>
