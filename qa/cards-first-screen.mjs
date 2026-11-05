@@ -114,7 +114,7 @@ try {
   // 7. The plain list, as Anki's.
   await h.click('[data-deck-look-to="list"]')
   check('7. the List switch shows the decks as a table', await waitFor(() => has('[data-deck-list]'), 2000))
-  check('7. its columns are Deck, Due, New, Cards', /Deck\s*Due\s*New\s*Cards/.test(await text('[data-deck-list] > div:first-child')))
+  check('7. its columns are Deck, Due, Not studied, Cards', /Deck\s*Due\s*Not studied\s*Cards/.test(await text('[data-deck-list] > div:first-child')))
   check('7. a sub-deck folds in the list too', await has('[data-deck-list] [data-deck-fold-kids="biology"]'))
   await h.click('[data-deck-list] [data-deck-fold-kids="biology"]')
   check('7. folded, its sub-decks are gone from the list', await waitFor(() => h.evaluate(() => !document.querySelector('[data-deck-row="biology-cells"]')), 2000))
