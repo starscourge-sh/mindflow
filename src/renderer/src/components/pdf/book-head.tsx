@@ -4,7 +4,10 @@ import type { PdfCover } from "./pdf-cover"
 import { plural } from '../../../../main/dates'
 
 /** What the library knows of a book: the reader's Details and the shelf's panel both show it. */
-export type Book = { src: string; name: string; title: string; author: string; pages: number | null; page: number | null; readAt: string | null; addedAt: string; highlights: number; gems: number; bytes: number | null }
+export type Book = { src: string; name: string; title: string; author: string; pages: number | null; page: number | null; readAt: string | null; addedAt: string; highlights: number; gems: number; bytes: number | null; /** At your pace, the day you finish it (main/pace.ts); null until two days of reading say. */ finishBy?: string | null }
+
+/** "At your pace, done by 21 Nov": said where a book's progress is. */
+export const paceLine = (book: Pick<Book, "finishBy">): string => (book.finishBy ? `done by ${new Date(`${book.finishBy}T12:00:00`).toLocaleDateString("en-GB", { day: "numeric", month: "short" })} at your pace` : "")
 
 /** Every PDF kept, once each, with what its card and panel say. */
 export const readLibrary = (): Promise<Book[]> => call<Book[]>("pdf:library")
@@ -48,6 +51,7 @@ export function BookInfo({ one, linked }: { one: Book; linked: number }): React.
     ["Added", day(one.addedAt)],
     ["Last opened", day(one.readAt)],
     ["Last page read", one.page ? `p. ${one.page.toLocaleString()}${one.pages ? ` of ${one.pages.toLocaleString()}` : ""}` : "Not yet"],
+    ...(one.finishBy ? [["Your pace", paceLine(one).replace(/^done/, "Done")] as [string, string]] : []),
     ["Highlights", one.highlights ? one.highlights.toLocaleString() : "None"],
     ["Gems from it", one.gems ? one.gems.toLocaleString() : "None"],
   ]

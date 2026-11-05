@@ -1878,8 +1878,23 @@ const SpotlightDemo: Demo = ({ live }) => {
   )
 }
 
+/** A book's page, and the day you finish it at your pace. */
+const PaceDemo: Demo = ({ live }) => {
+  const at = useSteps([1200, 2600], live, 1)
+  return (
+    <div className="flex items-end gap-3">
+      <div className="flex h-24 w-[4.25rem] flex-col justify-end rounded-[4px] border bg-background p-1.5"><div className="font-heading text-[0.625rem] leading-tight text-foreground">Middle&shy;march</div></div>
+      <div className="flex flex-col pb-0.5">
+        <span className="text-control font-medium text-foreground">Middlemarch</span>
+        <span className="text-meta text-muted-foreground tabular-nums">p. <Rolling text={at === 1 ? 412 : 380} /> of 880</span>
+        <span className={`text-meta text-muted-foreground transition-opacity duration-300 ${at === 1 ? '' : 'opacity-0'}`}>Done by 21 Nov</span>
+      </div>
+    </div>
+  )
+}
+
 export const DEMOS: Record<string, Demo> = {
-  spotlight: SpotlightDemo, services: ServicesDemo, readaloud: ReadAloudDemo, picturewords: PictureWordsDemo, translate: TranslateDemo,
+  pace: PaceDemo, spotlight: SpotlightDemo, services: ServicesDemo, readaloud: ReadAloudDemo, picturewords: PictureWordsDemo, translate: TranslateDemo,
   box: BoxDemo, timer: TimerDemo, letter: LetterDemo, clue: ClueDemo, tagtask: TagTaskDemo, remind: RemindDemo, comingback: ComingBackDemo, onetask: OneTaskDemo, merge: MergeDemo,
   board: BoardDemo, versions: VersionsDemo, find: FindDemo, aliases: AliasesDemo, calc: CalcDemo, fold: FoldDemo, bit: BitDemo, glossary: GlossaryDemo,
   review: ReviewDemo, cloze: ClozeDemo, context: ContextDemo, readthrough: ReadThroughDemo, queue: QueueDemo, wrong: WrongDemo, suspend: SuspendDemo, questions: QuestionsDemo,

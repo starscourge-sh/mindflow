@@ -1,4 +1,5 @@
 import { ipcMain } from 'electron'
+import { finishBy, type Day } from './pace'
 import { randomUUID } from 'crypto'
 import { readFile, writeFile } from 'fs/promises'
 import { statSync } from 'fs'
@@ -153,11 +154,15 @@ export function registerPdfHighlights(): void {
   ipcMain.handle('haligtree:pdf:unhighlight', (_event, id: unknown) => db.prepare('delete from pdf_highlights where id = ?').run(String(id)).changes > 0)
   // Where each PDF was last read: its page, how many it has, and when, so it opens where you left it.
   db.exec('create table if not exists pdf_reading (src text primary key, page integer not null, pages integer not null, read_at text not null)')
+  db.exec('create table if not exists pdf_days (src text not null, day text not null, furthest integer not null, primary key (src, day))')
+  const localDay = (): string => { const now = new Date(); return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}` }
   ipcMain.handle('haligtree:pdf:place', (_event, src: unknown) =>
     db.prepare('select page, pages, read_at as readAt from pdf_reading where src = ?').get(String(src)) ?? null)
   ipcMain.handle('haligtree:pdf:read', (_event, src: unknown, page: unknown, pages: unknown) => {
     if (typeof src !== 'string' || !Number.isInteger(page) || !Number.isInteger(pages) || (page as number) < 1) return false
     db.prepare('insert or replace into pdf_reading (src, page, pages, read_at) values (?, ?, ?, ?)').run(src, Math.min(page as number, pages as number), pages as number, new Date().toISOString())
+    // The furthest page each day, for your pace (pace.ts).
+    db.prepare('insert into pdf_days (src, day, furthest) values (?, ?, ?) on conflict (src, day) do update set furthest = max(furthest, excluded.furthest)').run(src, localDay(), Math.min(page as number, pages as number))
     return true
   })
   // What a book's Details and the library's inspector list: every note, gem and card that holds it or
@@ -205,12 +210,14 @@ export function registerPdfHighlights(): void {
       const file = /assets\/([^/]+\.pdf)$/i.exec(src)?.[1]
       try { return file ? statSync(join(assetsDir(), file)).size : null } catch { return null }
     }
+    const days = new Map<string, Day[]>()
+    for (const one of db.prepare('select src, day, furthest from pdf_days').all() as (Day & { src: string })[]) days.set(one.src, [...(days.get(one.src) ?? []), one])
     const covers = new Map((db.prepare('select src, author, pages from pdf_covers').all() as { src: string; author: string; pages: number | null }[]).map((one) => [one.src, one]))
     return pdfsToFind(db).map((one) => {
       const src = one.id.slice(0, one.id.indexOf('|'))
       const read = reading.get(src)
       const cover = covers.get(src)
-      return { src, name: one.id.slice(one.id.indexOf('|') + 1), title: one.label, author: cover?.author ?? '', pages: read?.pages ?? cover?.pages ?? null, page: read?.page ?? null, readAt: read?.readAt ?? null, addedAt: one.capturedAt, highlights: marks.get(src)?.n ?? 0, gems: marks.get(src)?.gems ?? 0, bytes: bytes(src) }
+      return { src, name: one.id.slice(one.id.indexOf('|') + 1), title: one.label, author: cover?.author ?? '', pages: read?.pages ?? cover?.pages ?? null, page: read?.page ?? null, readAt: read?.readAt ?? null, addedAt: one.capturedAt, highlights: marks.get(src)?.n ?? 0, gems: marks.get(src)?.gems ?? 0, bytes: bytes(src), finishBy: read ? finishBy(days.get(src) ?? [], read.page, read.pages, localDay()) : null }
     })
   })
   // Words looked up on Wikipedia: its free summary of the article they name (CC BY-SA, said with its link), asked from here so no page talks to the internet itself.

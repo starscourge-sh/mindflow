@@ -197,7 +197,7 @@ const COVER_SHAPE = 0.72
  */
 export function ReadingRow({ going }: { going: Book[] }): React.JSX.Element {
   const items = useMemo(
-    () => going.map((one) => ({ src: () => pdfCover(one.src, one.name).then((cover) => cover?.image), title: titleOf(one), note: `p. ${one.page!.toLocaleString()} of ${one.pages!.toLocaleString()}`, aspect: COVER_SHAPE })),
+    () => going.map((one) => ({ src: () => pdfCover(one.src, one.name).then((cover) => cover?.image), title: titleOf(one), note: `p. ${one.page!.toLocaleString()} of ${one.pages!.toLocaleString()}${one.finishBy ? `\nDone by ${new Date(`${one.finishBy}T12:00:00`).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}` : ""}`, aspect: COVER_SHAPE })),
     [going]
   )
   return (
