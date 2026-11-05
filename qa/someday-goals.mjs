@@ -44,15 +44,14 @@ try {
     const rows = [...document.querySelectorAll('[data-row][data-id]')].map((one) => one.getAttribute('data-id'))
     return { text: row?.textContent ?? '', last: rows.at(-1) === id, page: document.body.innerText, someday: [...document.querySelectorAll('h2, h3, [data-section-head], div')].some((one) => one.childElementCount === 0 && one.textContent.trim() === 'Someday') }
   }, made.id)
-  check('its row says Someday and nothing logged', list.text.includes('Someday') && list.text.includes('nothing logged'), list.text)
+  check('its row says when it was added and no steps yet', /Added \w+ \d{4}/.test(list.text) && list.text.includes('no steps logged yet'), list.text)
   check('its row has no countdown, percent or bar', !/days? left|of the way|%/.test(list.text), list.text)
-  check('it comes after the dated goals', list.last)
-  check('a "Someday" heading shows', list.someday || /\nSomeday\n/.test(list.page))
+  check('it sits under the “Someday” tab, which is picked', await h.evaluate(() => /^Someday/.test(document.querySelector('[data-list-tabs] button[aria-pressed="true"]')?.getAttribute('aria-label') ?? '')))
   // 3. Its page: no road, no days left.
   await send('goal', made.id)
   await wait(1200)
   const page = await h.evaluate(() => document.querySelector('[data-open]')?.innerText ?? '')
-  check('its page has no road and no days left', !/The road|days left|of the way/.test(page) && (await h.locator('[data-someday-page]').count()) === 1, page.slice(0, 300))
+  check('its page has no road and no days left', !/The road|days left|of the way/.test(page) && (await h.locator('[data-open] [data-road-card]').count()) === 0 && (await h.locator('[data-open] [data-give-day]').count()) === 1, page.slice(0, 300))
   check('its page has no Missed and no On screen', !/\bMissed\b|Keep this goal on screen/.test(page))
   check('no NaN or Invalid on its page', !bad(page))
   for (const look of ['light', 'dark']) {

@@ -720,10 +720,9 @@ function GoalDetail({ item, top }: { item: ItemFull; top?: React.ReactNode }): R
             </Prop>
           </Island>
         )}
-        <Island compact title={onIce(item) ? 'On ice' : item.closedAt ? 'Ended' : 'How it went'}>
-          {onIce(item) ? (
-            <Prop icon={Snowflake} onClick={() => thaw(item)} tip="Open again, its day moved out by the days it waited">Take off ice</Prop>
-          ) : item.closedAt ? (
+        {/* On ice, the page's own filled “Take off ice” is the one way back: no second one here. */}
+        {!onIce(item) && <Island compact title={item.closedAt ? 'Ended' : 'How it went'}>
+          {item.closedAt ? (
             <Prop icon={Wind} onClick={() => reopen(item)}>Open it again</Prop>
           ) : (
             <>
@@ -733,7 +732,7 @@ function GoalDetail({ item, top }: { item: ItemFull; top?: React.ReactNode }): R
               <Prop icon={Snowflake} onClick={() => settle(item, 'on ice')} tip={dateless ? 'Paused: out of the list until taken off' : 'Paused: off Home and the desktop, its countdown stopped'}>On ice</Prop>
             </>
           )}
-        </Island>
+        </Island>}
         <Island compact name="Surfacing" title={<Term>Surfacing</Term>}>
           <Prop icon={item.private ? EyeOff : Eye} active={!!item.private} onClick={() => void haligtree.setPrivate('nuggets', item.id, !item.private)}>
             {item.private ? 'Private: its name stays hidden' : 'Its name can show'}
