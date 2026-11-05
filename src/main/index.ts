@@ -3054,7 +3054,35 @@ if (process.env.HALIGTREE_USER_DATA && process.env.HALIGTREE_QA_AWAY) {
     app.on('browser-window-created', (_, win) => virtual.set(win, getBounds.call(win)))
   }
   app.on('browser-window-created', (_, win) => away(win))
+  // Shown without show(), parked all the same: the pill, the glow and the stickies call showInactive themselves.
+  const showInactive = proto.showInactive
+  proto.showInactive = function (this: BrowserWindow) { away(this); showInactive.call(this) }
+  proto.show = function (this: BrowserWindow) { away(this); showInactive.call(this) }
+  // Full screen is a Space of its own, past any parking: only what was asked is kept, for the checks to read.
+  const full = new WeakMap<BrowserWindow, boolean>()
+  proto.setFullScreen = function (this: BrowserWindow, on: boolean) { if (full.get(this) === on) return; full.set(this, on); this.emit(on ? 'enter-full-screen' : 'leave-full-screen') }
+  proto.isFullScreen = function (this: BrowserWindow) { return full.get(this) ?? false }
+  proto.setSimpleFullScreen = function () {}
+  proto.setKiosk = function () {}
+  // A screen plugged in or taken out puts windows back on a screen: parked again at once.
+  const repark = (): void => BrowserWindow.getAllWindows().forEach((win) => !win.isDestroyed() && away(win))
+  app.whenReady().then(() => { screen.on('display-added', repark); screen.on('display-removed', repark); screen.on('display-metrics-changed', repark) })
   } else proto.show = function (this: BrowserWindow) { this.showInactive() }
+  // Never in the Dock or the ⌘Tab list, never brought forward: a change of policy made the run the front app,
+  // taking the keys from whoever was typing. What was asked is kept for the checks to read.
+  if (process.platform === 'darwin') app.setActivationPolicy('accessory')
+  const asked = globalThis as { qaPolicy?: string }
+  asked.qaPolicy = 'regular'
+  app.setActivationPolicy = (policy) => void (asked.qaPolicy = policy)
+  if (app.dock) app.dock.isVisible = () => asked.qaPolicy === 'regular'
+  // Never the Mac's own keys: a run that took ⌘. took it from the Haligtree in use. The chords are still run by
+  // the checks (globalThis.haligtreeChords).
+  const keysHeld = new Set<string>()
+  globalShortcut.register = (accelerator) => (keysHeld.add(accelerator), true)
+  globalShortcut.registerAll = (accelerators) => accelerators.forEach((one) => keysHeld.add(one))
+  globalShortcut.isRegistered = (accelerator) => keysHeld.has(accelerator)
+  globalShortcut.unregister = (accelerator) => void keysHeld.delete(accelerator)
+  globalShortcut.unregisterAll = () => keysHeld.clear()
   app.focus = () => {}
   // Parked in the same spot, two runs side by side cover each other's windows,
   // and macOS then stops a covered window's frames: its page waits forever for

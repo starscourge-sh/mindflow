@@ -12,7 +12,7 @@ const { h, electron } = c
 const wait = (ms) => h.waitForTimeout(ms)
 // The Mac's own, in Electron's words: what no app should take from anywhere.
 const MAC = ['Control+Command+F', 'Control+Command+Q', 'Control+Command+Space', 'Command+Space', 'Alt+Command+Space', 'Shift+Command+3', 'Shift+Command+4', 'Shift+Command+5', 'Shift+Command+6', 'Alt+Command+Escape', 'Command+Tab', 'Control+Space', 'Control+Alt+Space', 'Control+Up', 'Control+Down', 'Control+Left', 'Control+Right', 'Alt+Command+D', 'Command+H', 'Alt+Command+H', 'Command+M', 'Command+Q', 'Command+W', 'Alt+Command+F5', 'Control+Command+N']
-const OURS = ['Command+.', 'Shift+Command+.', 'Alt+Command+S', 'Control+Alt+Command+N', 'Control+Alt+Command+T', 'Control+Alt+Command+=', 'Control+Alt+Command+S']
+const OURS = ['Command+.', 'Shift+Command+.', 'Control+Alt+Command+N', 'Control+Alt+Command+T', 'Control+Alt+Command+=', 'Control+Alt+Command+S']
 try {
   const held = await electron.evaluate(({ globalShortcut }, [mac, ours]) => ({
     mac: mac.filter((one) => globalShortcut.isRegistered(one)),
