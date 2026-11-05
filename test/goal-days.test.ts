@@ -3,7 +3,7 @@
 process.env.TZ = 'Europe/London'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-const { daysLeft, daysBetween, wayThrough, journey, leftSaid, percent, tempus, weekGoalLines } = await import('../src/main/goal-days.ts')
+const { daysLeft, daysBetween, wayThrough, journey, leftSaid, percent, tempus, weekGoalLines, farOff } = await import('../src/main/goal-days.ts')
 
 test('days left counts calendar days, 0 on the day', () => {
   assert.equal(daysLeft('2026-12-14', '2026-10-07'), 68)
@@ -53,7 +53,18 @@ test('the journey has a dot a day across month ends and clock changes', () => {
   assert.equal(road.dots.at(-1)?.target, true)
   assert.deepEqual(road.months.map((one) => one.label), [new Date().getFullYear() === 2026 ? 'Oct' : 'Oct 2026'])
   // A leap year's February has its 29th.
-  assert.ok(journey('2028-02-27', '2028-03-02').dots.some((dot) => dot.day === '2028-02-29'))
+  assert.ok(journey('2028-02-27', '2028-03-02', '2028-02-27').dots.some((dot) => dot.day === '2028-02-29'))
+})
+
+test('a goal more than a year away is a dot a week, and turns into days once it is within a year', () => {
+  assert.equal(farOff('2027-11-05', '2026-11-05'), false)
+  assert.equal(farOff('2027-11-06', '2026-11-05'), true)
+  assert.equal(journey('2026-11-05', '2027-11-04', '2026-11-05').by, 'day')
+  assert.equal(journey('2026-11-05', '2027-12-31', '2026-11-05').by, 'week')
+  // The same goal a few months on: within a year now, its whole road in days.
+  const later = journey('2026-11-05', '2027-12-31', '2027-02-01')
+  assert.equal(later.by, 'day')
+  assert.equal(later.dots.length, daysBetween('2026-11-05', '2027-12-31') + 1)
 })
 
 test('a road longer than a year has a dot a week', () => {
