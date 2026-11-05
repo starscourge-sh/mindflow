@@ -604,6 +604,8 @@ const DEFAULTS = {
   inboxDays: 7 as number,
   // Your Mac's calendar on Today and the week, read only; off until you ask for it.
   macCalendar: false,
+  // Your notes in Spotlight (spotlight.ts): on, never private ones; off takes them all out.
+  spotlight: true,
   // When the working day ends, for Today's "4 h left today".
   dayEnd: '22:00',
   // About how long a working day is, in hours: a day's meetings and tasks are weighed against it.
@@ -799,6 +801,7 @@ export const pillInNotch = (): boolean => settings().pillSits === 'notch'
 /** What a session does when the Mac sleeps in it (Settings, “When the Mac sleeps”). */
 export const sleepChoice = (): Settings['sessionSleep'] => settings().sessionSleep
 /** The focus timer and website blocking on (Settings, Tasks): off, nothing of either is offered. */
+export const spotlightOn = (): boolean => settings().spotlight !== false
 export const focusToolsOn = (): boolean => settings().focusTools === true
 /** Whether websites are blocked in a focus round, and which (Settings, “Blocking websites”). */
 export const blockPrefs = (): Pick<Settings, 'siteBlock' | 'blockSites'> => {
@@ -1412,6 +1415,8 @@ export function registerHaligtree(): void {
     if ('showSnoozed' in patch) changed()
     if (patch.safeMode !== undefined && patch.safeMode !== wasSafe) safeModeTold(patch.safeMode)
     if (patch.keys) keysTold(patch.keys)
+    // Spotlight's switch: notes put in or taken out now (spotlight.ts).
+    if ('spotlight' in patch) app.emit('haligtree:spotlight')
     if ('stickiesShown' in patch || 'stickiesTucked' in patch || 'stickiesFrosted' in patch || 'stickiesGlass' in patch) stickiesTold()
     if ('spellcheck' in patch || 'spellLanguages' in patch) spelling()
     if ('openAtLogin' in patch) atLogin()

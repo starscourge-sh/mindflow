@@ -82,6 +82,7 @@ import { Stopped, begin, end as endJob, registerJobs } from './jobs'
 import { registerLabels } from './labels'
 import { registerUnderstand } from './understand'
 import { registerServices } from './services'
+import { registerSpotlight, SPOTLIGHT_ITEM } from './spotlight'
 import { registerDictation } from './dictation'
 import { glassShapes, registerGlass, watchScroll } from './glass'
 import { registerPeople } from './people'
@@ -869,6 +870,16 @@ let home: BrowserWindow | null = null
  * Open the main window on one thing. A page already listening is told now;
  * one still starting picks it up when it asks (`home:sent`), and only once.
  */
+// A note chosen in Spotlight (spotlight.ts): opened in the main window. Its id is "type:id".
+app.on('continue-activity', (event, type, info) => {
+  if (type !== SPOTLIGHT_ITEM) return
+  const id = String((info as Record<string, unknown>)?.kCSSearchableItemActivityIdentifier ?? '')
+  const at = id.indexOf(':')
+  if (at < 0) return
+  event.preventDefault()
+  sendHome(id.slice(0, at), id.slice(at + 1), undefined, 'other')
+})
+
 function sendHome(type: string, id: string, heading?: string, via?: Via): void {
   openHome()
   // A heading link's heading goes along, so the note opens there.
@@ -4191,6 +4202,7 @@ app.whenReady().then(() => {
   registerLabels()
   registerUnderstand()
   registerServices()
+  registerSpotlight()
   registerDictation()
   registerGlass()
   registerObsidian()

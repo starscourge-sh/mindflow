@@ -1860,8 +1860,26 @@ const ServicesDemo: Demo = ({ live }) => {
   )
 }
 
+/** ⌘Space, a few words, and the note, as Spotlight lists it. */
+const SpotlightDemo: Demo = ({ live }) => {
+  const at = useSteps([600, typeMs('quokka walk') - 200, 2600], live, 2)
+  const typed = useTyped('quokka walk', live && at >= 1)
+  return (
+    <Col>
+      <div className="rounded-xl border bg-popover px-3 py-2 shadow-[0_6px_16px_-6px_color-mix(in_oklab,var(--mf-shadow-ink)_25%,transparent)]">
+        <p className="flex items-center gap-1.5 text-control text-foreground"><Kbd>⌘Space</Kbd> {at === 0 ? '' : typed}<Caret on={live && at === 1} /></p>
+        <div className={`mt-2 flex items-center gap-2 rounded-md bg-foreground/[0.05] px-2 py-1.5 transition-opacity duration-300 ${at === 2 ? '' : 'opacity-0'}`}>
+          <FileText className="size-3.5 text-muted-foreground" />
+          <span className="text-control text-foreground">A quokka walk along the cliffs</span>
+          <span className="ml-auto text-meta text-muted-foreground">{APP_NAME}</span>
+        </div>
+      </div>
+    </Col>
+  )
+}
+
 export const DEMOS: Record<string, Demo> = {
-  services: ServicesDemo, readaloud: ReadAloudDemo, picturewords: PictureWordsDemo, translate: TranslateDemo,
+  spotlight: SpotlightDemo, services: ServicesDemo, readaloud: ReadAloudDemo, picturewords: PictureWordsDemo, translate: TranslateDemo,
   box: BoxDemo, timer: TimerDemo, letter: LetterDemo, clue: ClueDemo, tagtask: TagTaskDemo, remind: RemindDemo, comingback: ComingBackDemo, onetask: OneTaskDemo, merge: MergeDemo,
   board: BoardDemo, versions: VersionsDemo, find: FindDemo, aliases: AliasesDemo, calc: CalcDemo, fold: FoldDemo, bit: BitDemo, glossary: GlossaryDemo,
   review: ReviewDemo, cloze: ClozeDemo, context: ContextDemo, readthrough: ReadThroughDemo, queue: QueueDemo, wrong: WrongDemo, suspend: SuspendDemo, questions: QuestionsDemo,

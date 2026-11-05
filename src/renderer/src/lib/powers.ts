@@ -226,6 +226,8 @@ export const POWERS: Power[] = [
     show: { view: 'inbox', at: ROW, text: '⌥⌘-click a row to open it in its own window.' } },
   { id: 'split', group: 'Windows', name: 'Pages side by side', line: 'Press ⌘\\ for a new pane on the right, then type to open anything in it: a page, a note, a task, a day or a place like the Inbox. ⌘B puts the sidebar away for room; ⌃H and ⌃L move between panes, ⌃W closes one.', keys: ['⌘\\', '⌘B'],
     show: { view: 'inbox', at: ROW, text: 'Press ⌘\\, type the name of a page, then ↵.' } },
+  { id: 'spotlight', group: 'Windows', name: 'Your notes in Spotlight', needs: 'every', tryIt: 'Press ⌘Space and type a few words from one of your notes.', line: `⌘Space finds your notes by their words, from anywhere on your Mac, and opens them in ${APP_NAME}. Private and #bit notes are never in it, and one switch in Settings takes them all out. Once ${APP_NAME} is in your Applications folder.`,
+    show: { view: 'settings', settings: 'What comes back to you', find: 'Your notes in Spotlight', at: '[data-setting]', text: 'On, unless you turn it off here.' } },
   { id: 'safe', group: 'Windows', name: 'Safe mode', line: 'One key stops hints, old captures and pinned notes coming up on their own, for when someone is looking over your shoulder.', keys: ['⌥⌘S'],
     show: { view: 'inbox', at: ROW, text: 'Press ⌥⌘S, and again to come back.' } },
   { id: 'notch', group: 'Windows', name: 'The bubble in the notch', tryIt: 'In Settings, set “Bubble sits” to “Under the notch”.', line: 'On a Mac with a notch, the session bubble can sit tucked around it, the time beside it, and open when you point at it.',
