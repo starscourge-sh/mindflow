@@ -124,8 +124,8 @@ export function setAppMenu(acts: MenuActs): void {
         { label: 'Smaller', accelerator: 'CommandOrControl+-', click: appSize(-1) },
         { type: 'separator' },
         { role: 'togglefullscreen' },
-        // For working on Haligtree, never in the built app.
-        ...(app.isPackaged ? [] : [{ type: 'separator' as const }, { role: 'reload' as const }, { role: 'toggleDevTools' as const }])
+        // For working on Haligtree, never in the built app. No ⌥⌘I (asked for, 5 Nov).
+        ...(app.isPackaged ? [] : [{ type: 'separator' as const }, { role: 'reload' as const }])
       ]
     },
     { role: 'windowMenu' },
