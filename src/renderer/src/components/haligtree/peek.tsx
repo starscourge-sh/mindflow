@@ -65,7 +65,7 @@ export function Peek({ art, text, keys, off = false, children }: { art: () => Re
   // Only for a resting pointer: Tab through the sidebar moves on without a
   // large card opening over the page at each stop (the row says its own name).
   return (
-    <Tooltip card open={open} onOpenChange={(next) => setOpen(next && !off && !carrying() && !previewsOff() && !!trigger.current?.matches(':hover'))} delayDuration={450} disableHoverableContent>
+    <Tooltip card open={open} onOpenChange={(next) => setOpen(next && !off && !carrying() && !previewsOff() && !!trigger.current?.matches(':hover'))} delayDuration={225} disableHoverableContent>
       <TooltipTrigger asChild ref={trigger} onPointerMove={(event) => {
         if (!realMove(event) || event.buttons || carrying()) event.preventDefault()
       }}>{children}</TooltipTrigger>
