@@ -1,15 +1,13 @@
 import { Extension } from "@tiptap/core"
 import type { Node as PMNode, Slice } from "@tiptap/pm/model"
-import { NodeSelection, Plugin, PluginKey, TextSelection } from "@tiptap/pm/state"
+import { NodeSelection, Plugin, PluginKey } from "@tiptap/pm/state"
 import type { EditorView } from "@tiptap/pm/view"
 
 /**
- * Three gestures on blocks, as Notion and Capacities have them:
+ * Two gestures on blocks, as Notion and Capacities have them:
  *
  * - Lines dragged onto a toggle's own line go INSIDE it, at the end, and the
  *   toggle opens to show them. Dropped anywhere else they move as usual.
- * - A box dragged from the empty margin picks every block it touches, so
- *   ⌫, ⌘C, Turn into and the grip's drag work on all of them at once.
  * - Words picked, then a web address or a note link pasted: the words become
  *   that link, keeping what they say.
  */
@@ -75,86 +73,6 @@ function dropInto(view: EditorView, event: DragEvent, slice: Slice, moved: boole
   if (node?.type.name === "details" && "open" in node.attrs && !node.attrs.open) tr.setNodeMarkup(details, undefined, { ...node.attrs, open: true })
   view.dispatch(tr.setMeta("uiEvent", "drop").scrollIntoView())
   view.focus()
-  return true
-}
-
-// --- marquee
-
-/** The top-level blocks, each with its place and its box on screen. */
-function blocksOf(view: EditorView): { pos: number; node: PMNode; rect: DOMRect }[] {
-  const out: { pos: number; node: PMNode; rect: DOMRect }[] = []
-  view.state.doc.forEach((node, pos) => {
-    const dom = view.nodeDOM(pos)
-    if (dom instanceof HTMLElement) out.push({ pos, node, rect: dom.getBoundingClientRect() })
-  })
-  return out
-}
-
-function pickBlocks(view: EditorView, top: number, bottom: number): number {
-  const hit = blocksOf(view).filter((one) => one.rect.bottom > top && one.rect.top < bottom && one.rect.height > 0)
-  if (!hit.length) return 0
-  const first = hit[0]
-  const last = hit[hit.length - 1]
-  const { doc } = view.state
-  const selection =
-    hit.length === 1 && first.node.isAtom
-      ? NodeSelection.create(doc, first.pos)
-      : TextSelection.between(doc.resolve(first.pos + 1), doc.resolve(last.pos + last.node.nodeSize - 1))
-  // Drawn with the mouse, as ProseMirror marks its own: vim mode takes it as a visual selection, so ⌫ removes it all.
-  if (!selection.eq(view.state.selection)) view.dispatch(view.state.tr.setSelection(selection).setMeta("marquee", true).setMeta("pointer", true))
-  return hit.length
-}
-
-/** A press in the editor's own margin, never on a block's words. */
-const inMargin = (view: EditorView, event: MouseEvent): boolean => {
-  if (event.target !== view.dom) return false
-  // Beside a block (left or right of it), or in the gap between two.
-  return !blocksOf(view).some((one) => event.clientX >= one.rect.left && event.clientX <= one.rect.right && event.clientY >= one.rect.top && event.clientY <= one.rect.bottom)
-}
-
-/** The page the editor scrolls in, on screen: the nearest scrolling box round it, or the editor itself. */
-function pageOf(view: EditorView): DOMRect {
-  for (let at = view.dom.parentElement; at; at = at.parentElement) {
-    if (/(auto|scroll)/.test(getComputedStyle(at).overflowY)) return at.getBoundingClientRect()
-  }
-  return view.dom.getBoundingClientRect()
-}
-
-function marquee(view: EditorView, event: MouseEvent): boolean {
-  if (event.button !== 0 || event.metaKey || event.ctrlKey || event.altKey || !view.editable || !inMargin(view, event)) return false
-  event.preventDefault()
-  const x0 = event.clientX
-  const y0 = event.clientY
-  // The box stays on the page it began on: dragged past it (over the sidebar, out of quick capture's card into the
-  // see-through room round it), it stops at the page's edge (note ca5b1d51: "why can I do this").
-  const page = pageOf(view)
-  let box: HTMLDivElement | null = null
-  const move = (event: MouseEvent): void => {
-    const moved = { clientX: Math.min(page.right, Math.max(page.left, event.clientX)), clientY: Math.min(page.bottom, Math.max(page.top, event.clientY)) }
-    if (!box && Math.hypot(moved.clientX - x0, moved.clientY - y0) < 5) return
-    if (!box) {
-      box = document.createElement("div")
-      box.className = "mf-marquee"
-      box.setAttribute("data-marquee", "")
-      document.body.appendChild(box)
-      view.focus()
-    }
-    const left = Math.min(x0, moved.clientX)
-    const top = Math.min(y0, moved.clientY)
-    Object.assign(box.style, { left: `${left}px`, top: `${top}px`, width: `${Math.abs(moved.clientX - x0)}px`, height: `${Math.abs(moved.clientY - y0)}px` })
-    pickBlocks(view, top, Math.max(y0, moved.clientY))
-  }
-  const up = (ended: MouseEvent): void => {
-    window.removeEventListener("mousemove", move, true)
-    window.removeEventListener("mouseup", up, true)
-    if (box) return void box.remove()
-    // A click in the margin, not a drag: the caret goes to the nearest line, as before.
-    const near = view.posAtCoords({ left: ended.clientX, top: ended.clientY })
-    view.focus()
-    if (near) view.dispatch(view.state.tr.setSelection(TextSelection.near(view.state.doc.resolve(near.pos))))
-  }
-  window.addEventListener("mousemove", move, true)
-  window.addEventListener("mouseup", up, true)
   return true
 }
 
@@ -228,9 +146,6 @@ export const BlockGestures = Extension.create({
         },
         props: {
           handlePaste: (view, event) => pasteOnto(view, event),
-          handleDOMEvents: {
-            mousedown: (view, event) => marquee(view, event),
-          },
         },
       }),
     ]

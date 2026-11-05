@@ -65,34 +65,16 @@ try {
   check('the toggle is lit while they are held over it', lit)
   check('and it opens to show them', await h.evaluate(() => !!document.querySelector('[data-type="details"].is-open')))
 
-  // 2. Marquee from the left margin over gamma and delta.
+  // 2. No box from the margin (taken out, 5 Nov: "looks tacky, let's get rid of the selection area"): a drag there draws nothing.
   const box = await h.locator(ED).boundingBox()
   const g = await h.locator(`${ED} > p`, { hasText: 'gamma line' }).boundingBox()
   const d = await h.locator(`${ED} > p`, { hasText: 'delta line' }).boundingBox()
-  // The far left edge of the margin: the block handle (48px, each control 24px to press) sits just inside it.
-  const marginX = box.x + 2
-  await h.mouse.move(marginX, g.y + 2)
+  await h.mouse.move(box.x + 2, g.y + 2)
   await h.mouse.down()
-  // Carried out over the sidebar and the window's top first: the box stops at the page's edge (note ca5b1d51).
-  await h.mouse.move(4, 4, { steps: 10 })
-  const past = await h.evaluate(() => {
-    const mark = document.querySelector('[data-marquee]')?.getBoundingClientRect()
-    const side = document.querySelector('aside')?.getBoundingClientRect()
-    return mark ? { left: Math.round(mark.left), top: Math.round(mark.top), side: Math.round(side?.right ?? 0) } : null
-  })
-  check('a box carried past the page stops at its edge, never over the sidebar or the window\'s top', !!past && past.left >= past.side && past.top > 4, JSON.stringify(past))
-  await h.mouse.move(marginX + 200, d.y + d.height / 2, { steps: 10 })
-  const shown = await h.evaluate(() => !!document.querySelector('[data-marquee]'))
+  await h.mouse.move(box.x + 200, d.y + d.height / 2, { steps: 10 })
+  const shown = await h.evaluate(() => !!document.querySelector('[data-marquee], .mf-marquee'))
   await h.mouse.up()
-  const picked = await h.$eval(ED, (root) => { const { from, to } = root.editor.state.selection; return root.editor.state.doc.textBetween(from, to, '|') })
-  check('a box from the margin is drawn', shown)
-  check('and picks the blocks it touches', picked === 'gamma line|delta line', picked)
-  await h.keyboard.press('Backspace'); await wait(300)
-  t = await tops()
-  check('⌫ removes the picked blocks', !t.includes('gamma line') && !t.includes('delta line'), t.join(' | '))
-  await h.keyboard.press('Meta+z'); await wait(300)
-  t = await tops()
-  check('⌘Z brings them back', t.includes('gamma line') && t.includes('delta line'), t.join(' | '))
+  check('a drag from the margin draws no selection box', !shown)
 
   // 3. Paste a web address, then a note link, onto picked words.
   const pick = (text) => h.$eval(ED, (root, text) => {

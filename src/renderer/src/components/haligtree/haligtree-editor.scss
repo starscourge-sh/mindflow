@@ -4109,16 +4109,6 @@ html[data-motion="off"] .tiptap.ProseMirror :is(.mf-kept, .mf-kept-icon button) 
   background-color: color-mix(in srgb, var(--primary) 8%, transparent);
 }
 
-// The box dragged from the margin to pick several blocks.
-.mf-marquee {
-  position: fixed;
-  z-index: 60;
-  pointer-events: none;
-  border: 1px solid color-mix(in srgb, var(--primary) 70%, transparent);
-  border-radius: 0.25rem;
-  background-color: color-mix(in srgb, var(--primary) 12%, transparent);
-}
-
 /* A note's properties, under its title (property-strip.tsx): quiet, never
    part of the words (extensions/property-lines.ts), the same place whether
    it holds none or many. */
