@@ -77,19 +77,20 @@ function DayCells({ days, say, onHover, rows, cell, left, right }: { days: { day
   const most = Math.max(1, ...days.map((one) => one.n))
   const today = dayjs().format('YYYY-MM-DD')
   const [on, setOn] = useState<string | null>(null)
-  // One row (the 30 days): oldest on the left, today the last, the cells as tall as the year's and widening to fill the well, a faint tick under
-  // each Monday; a year in week columns, as the year above the decks. The same chart at two zooms.
+  // One row (the 30 days): oldest on the left, today the last, the cells the year's own size, packed tight (never widened to fill the
+  // well: spaced-out cells read as low effort, memory compact-dots), a faint tick under each Monday; a year in week columns, as the year
+  // above the decks. The same chart at two zooms.
   const single = rows === 1
-  const flow = single ? { gridTemplateColumns: `repeat(${days.length}, minmax(0, 1fr))`, gridTemplateRows: `${cell}px` } : { gridTemplateRows: `repeat(${rows}, ${cell}px)`, gridAutoColumns: `${cell}px`, gridAutoFlow: 'column' as const }
+  const flow = single ? { gridTemplateColumns: `repeat(${days.length}, ${cell}px)`, gridTemplateRows: `${cell}px` } : { gridTemplateRows: `repeat(${rows}, ${cell}px)`, gridAutoColumns: `${cell}px`, gridAutoFlow: 'column' as const }
   return (
     <div className="flex justify-center overflow-hidden">
       {/* The labels share the cells' width, so "30 days ago" sits under the first cell and "today" under the last. */}
-      <div className={`grid gap-1 ${single ? 'w-full' : 'shrink-0'}`}>
+      <div className="grid shrink-0 gap-1">
         <div data-day-cells className="grid" style={{ ...flow, gap: 3 }} onPointerLeave={() => (setOn(null), onHover(null))}>
           {days.map((one) => <span key={one.day} data-day={one.day} data-n={one.n} {...(on === one.day ? { 'data-day-on': '' } : {})} onPointerEnter={() => (setOn(one.day), onHover(say(one)))}
             className={`${single ? '' : 'aspect-square'} rounded-[2px] ${on === one.day ? 'transition-none' : 'transition-[box-shadow] duration-[120ms]'}`} style={{ background: shadeOf(stepOf(one.n, most)), boxShadow: ringOf(one.day === today, on === one.day) }} />)}
         </div>
-        {single && <div aria-hidden data-day-mondays className="grid h-1" style={{ gridTemplateColumns: `repeat(${days.length}, minmax(0, 1fr))`, gap: 3 }}>{days.map((day) => <span key={day.day} className={`mx-auto h-1 w-px ${dayjs(day.day).day() === 1 ? 'bg-foreground/35' : ''}`} />)}</div>}
+        {single && <div aria-hidden data-day-mondays className="grid h-1" style={{ gridTemplateColumns: `repeat(${days.length}, ${cell}px)`, gap: 3 }}>{days.map((day) => <span key={day.day} className={`mx-auto h-1 w-px ${dayjs(day.day).day() === 1 ? 'bg-foreground/35' : ''}`} />)}</div>}
         <Ends left={left} right={right} />
       </div>
     </div>

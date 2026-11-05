@@ -128,7 +128,8 @@ export function DotMatrix({ days, say, onHover, columns = 7, dot = 14 }: { days:
   const tone = (n: number): number => (n === 0 ? 0.08 : 0.3 + 0.7 * Math.min(1, n / most))
   const across = Math.ceil(days.length / columns)
   return (
-    <div data-mono-dots className="mx-auto grid gap-1" style={{ gridTemplateColumns: `repeat(${across}, minmax(0, ${dot}px))`, gridTemplateRows: `repeat(${columns}, auto)`, gridAutoFlow: 'column', justifyContent: 'space-between', maxWidth: across * (dot + 8) }} onPointerLeave={() => onHover(null)}>
+    // Packed tight at their own size, never spread to fill the stage (memory compact-dots: spaced-out dots read as low effort).
+    <div data-mono-dots className="mx-auto grid w-fit max-w-full" style={{ gridTemplateColumns: `repeat(${across}, ${dot}px)`, gridTemplateRows: `repeat(${columns}, auto)`, gridAutoFlow: 'column', gap: Math.max(2, Math.min(3, dot / 4)) }} onPointerLeave={() => onHover(null)}>
       {days.map((one, at) => (
         <motion.span key={one.day} data-day={one.day} data-n={one.n} data-say={say(one)}
           onPointerEnter={() => onHover(say(one))}
