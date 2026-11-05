@@ -1,6 +1,6 @@
 import { useVim } from '@/lib/vim'
 import { ChangedLine } from './changed-line'
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useShowLine } from '@/lib/show-in-list'
 import { layerOpen } from '@/lib/menu-keys'
 import { createPortal } from 'react-dom'
@@ -10,7 +10,7 @@ import ClockIcon from '@/components/ui/clock-icon'
 import PenIcon from '@/components/ui/pen-icon'
 import UnlinkIcon from '@/components/ui/unlink-icon'
 
-import { CAPTURE_TYPES } from '../capture-kinds/capture-kind-picker'
+import { CAPTURE_TYPES, useKindKeyBehindDetails } from '../capture-kinds/capture-kind-picker'
 import { SUPER_TAGS, type Field } from '../capture-kinds/kind-fields'
 import { Search } from '../search'
 import { Command, CommandInput, CommandItem, CommandList, CommandShortcut } from '@/components/ui/command'
@@ -629,6 +629,8 @@ export function NoteHeader({ left, back, type = 'capture', edited, captured, mad
   const [reading, setReading] = useState(false)
   const detailsOut = useDetailsShown()
   const inPane = usePane()
+  // A capture's or gem's kind is picked in its details: ⌃L with them put away brings them out, the list open.
+  useKindKeyBehindDetails(details && !detailsOut && (versions.table === 'captures' || versions.table === 'nuggets'), useCallback(() => showDetails(true, inPane), [inPane]))
   const width = widthOf(useLive(haligtree.settings, null))
   // Its line says Vim's keys only to someone who has Vim on.
   const vim = useVim()

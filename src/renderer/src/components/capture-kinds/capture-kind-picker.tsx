@@ -119,6 +119,8 @@ export function CaptureKindPicker({ value, onChange, suggested = false, flat = f
   const [keyed, setKeyed] = useState(false)
   const byKey = useCallback((next: boolean) => void (setKeyed(true), setOpen(next)), [])
   useShortcut('l', byKey, open)
+  // Asked for with ⌃L while the details it lives in were put away: open as they come out.
+  useEffect(() => void (flat && kindAsked && ((kindAsked = false), byKey(true))), []) // eslint-disable-line react-hooks/exhaustive-deps
   // Opened by click or ⌃L, the cursor starts on the type it is now.
   useEffect(() => void (open && setRow(current.label)), [open]) // eslint-disable-line react-hooks/exhaustive-deps
   const Icon = current.icon
@@ -221,3 +223,24 @@ export const ASKS: Record<CaptureType, { who?: string; where?: string }> = {
 /** What the box asks, by kind and by the words: tagged #book, any kind asks who wrote it. */
 export const asksFor = (kind: CaptureType, text: string): (typeof ASKS)[CaptureType] =>
   /(?:^|\s)#book(?![\w-])/i.test(text) ? { ...ASKS[kind], who: 'Who wrote it', where: ASKS[kind]?.where ?? 'Where you heard of it' } : ASKS[kind] ?? {}
+
+/** ⌃L pressed on an open capture or gem whose details (where its kind picker lives) are put away. */
+let kindAsked = false
+/**
+ * ⌃L on an open capture or gem with its details put away: they come out with the kind list open, as with them out.
+ * Before, ⌃L did nothing there, though the shortcuts say it picks a kind on an open capture or gem.
+ */
+export function useKindKeyBehindDetails(on: boolean, bringOut: () => void): void {
+  useEffect(() => {
+    if (!on) return
+    const onKey = (event: KeyboardEvent): void => {
+      if (event.key.toLowerCase() !== 'l' || !event.ctrlKey || event.metaKey || event.altKey || event.shiftKey || event.defaultPrevented) return
+      if (document.querySelector('[cmdk-root], [role=menu], [role=listbox], [role=dialog], .tiptap-suggestion-popup')) return
+      event.preventDefault()
+      kindAsked = true
+      bringOut()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [on, bringOut])
+}

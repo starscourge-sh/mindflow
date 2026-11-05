@@ -1,7 +1,8 @@
 // Every shortcut and menu opened from every window, light and dark, with a picture of each to read by eye:
 // ⌘K, ⌘P, ⌘/, ⌃L, / # @, the kind chip, Display (F), the gear menu, Settings (⌘,), and the right-click menus on a row
 // and on picked words. Windows: the main window in Home (with a painting), Today, Writing, Journal, Feed, Map and
-// Review; quick capture's one-line pill and its grown box; and a sticky (Today's).
+// Review; quick capture's one-line pill and its grown box; and a sticky (Today's). Also every kind of row on Home
+// right-clicked (one of each kind), words picked on Home right-clicked, and ⌃L in the main window with a capture open.
 // For each pair it checks what any overlay must be: whole inside its window, no row cut off without a way to scroll
 // to it, an opaque surface (never see-through over the page), one at a time, and gone again after Esc. A shortcut
 // that has nothing to open in a place (a kind chip where there is no kind) is listed as "none" and passes.
@@ -158,7 +159,7 @@ async function judge(where, win, one, look, { isBox, reset }) {
     check(`${name}: opens Settings`, s)
   } else if (!here.length && !there.length) {
     // ⌃L picks a kind only on a capture or gem: none open in the main window's views or a sticky.
-    const fine = one.id === 'ctrl-l' && win !== box
+    const fine = one.id === 'ctrl-l' && win !== box && where !== 'Capture'
     cell = fine ? 'none (⌃L picks a kind only on an open capture or gem)' : 'nothing opened'
     if (!fine) check(`${name}: opens something`, false)
   } else {
@@ -184,6 +185,37 @@ async function judge(where, win, one, look, { isBox, reset }) {
   console.log(`  ${where} | ${one.label} | ${look} | ${cell}`)
 }
 
+/** Every kind of row on Home that has a right-click menu (one of each kind, by the marks it carries), never the sidebar's. */
+const homeRowKinds = () => h.evaluate(() => {
+  const kinds = new Map()
+  for (const one of document.querySelectorAll('[data-row-menu]')) {
+    if (one.closest('aside')) continue
+    const r = one.getBoundingClientRect()
+    if (r.width < 8 || r.height < 8) continue
+    const sig = `${one.tagName.toLowerCase()}:${Object.keys(one.dataset).filter((key) => !/^(rowMenu|state|slot|active|open)$/.test(key)).sort().join(',')}`
+    if (!kinds.has(sig)) kinds.set(sig, one)
+  }
+  document.querySelectorAll('[data-qa-kind]').forEach((one) => one.removeAttribute('data-qa-kind'))
+  return [...kinds].map(([sig, one], at) => (one.setAttribute('data-qa-kind', String(at)), sig))
+})
+/** Words picked on Home itself (a card's or a row's words, never the sidebar's), and the point to right-click them. */
+const pickHomeWords = () => h.evaluate(() => {
+  const walk = document.createTreeWalker(document.querySelector('main') ?? document.body, NodeFilter.SHOW_TEXT)
+  for (let text = walk.nextNode(); text; text = walk.nextNode()) {
+    const el = text.parentElement
+    if (!el || el.closest('aside, button, [role=button], input, textarea') || text.textContent.trim().length < 12) continue
+    const r = el.getBoundingClientRect()
+    if (r.top < 60 || r.bottom > innerHeight - 40 || r.width < 40) continue
+    const start = text.textContent.search(/\S/)
+    const range = document.createRange(); range.setStart(text, start); range.setEnd(text, Math.min(text.textContent.length, start + 8))
+    const sel = getSelection(); sel.removeAllRanges(); sel.addRange(range)
+    const b = range.getBoundingClientRect()
+    if (b.width < 4) continue
+    return [b.left + b.width / 2, b.top + b.height / 2]
+  }
+  return null
+})
+
 const VIEWS = [['Home', 'home'], ['Today', 'today'], ['Writing', 'articles'], ['Journal', 'day'], ['Feed', 'feed'], ['Map', 'map'], ['Review', 'review']]
 
 try {
@@ -193,6 +225,22 @@ try {
     for (const [where, view] of VIEWS) {
       if (only && !only.includes(where)) continue
       for (const one of OVERLAYS) await judge(where, h, one, look, { reset: async () => { await h.keyboard.press('Escape'); await go(view); if (view === 'home') await h.evaluate(() => { const card = [...document.querySelectorAll('div, p, span')].find((el) => el.childElementCount === 0 && /ago today$/.test(el.textContent.trim())); card?.scrollIntoView({ block: 'start' }) }) } })
+    }
+    if (!only || only.includes('Home rows')) {
+      const reset = async () => { await h.keyboard.press('Escape'); await go('home'); await h.waitForTimeout(300) }
+      await reset()
+      const kinds = await homeRowKinds()
+      check(`Home has rows with right-click menus (${look}): ${kinds.length} kinds`, kinds.length > 0, kinds.join(' '))
+      for (const [at, sig] of kinds.entries()) {
+        await judge('Home rows', h, { id: `home-row-${at}`, label: `right-click ${sig}`, open: async (win) => { await homeRowKinds(); await win.evaluate((n) => document.querySelector(`[data-qa-kind="${n}"]`)?.scrollIntoView({ block: 'center' }), at); return clickFirst(win, `[data-qa-kind="${at}"]`, { button: 'right' }) } }, look, { reset })
+      }
+      await judge('Home rows', h, { id: 'home-words', label: 'right-click picked words', open: async (win) => { const point = await pickHomeWords(); if (!point) return false; await win.mouse.click(point[0], point[1], { button: 'right' }); return true } }, look, { reset })
+    }
+    if (!only || only.includes('Capture')) {
+      const made = await h.evaluate(() => window.api.captures.create({ kind: 'note', body: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'A capture opened in the main window' }] }] } }))
+      const id = typeof made === 'string' ? made : made?.id
+      const reset = async () => { await h.keyboard.press('Escape'); await c.send('capture', id); await h.waitForTimeout(900) }
+      for (const one of OVERLAYS.filter((o) => ['ctrl-l', 'words-menu', 'slash'].includes(o.id))) await judge('Capture', h, one, look, { reset })
     }
     if (!only || only.includes('Pill') || only.includes('Grown')) {
       for (const shape of ['Pill', 'Grown']) {
