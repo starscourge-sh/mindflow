@@ -117,7 +117,7 @@ import { NavContext, type Nav, type Step } from '@/lib/nav'
 import { SplitPanes, type PaneApi } from '@/components/haligtree/panes'
 import { SplitDrop, type Carried, type Side } from '@/components/haligtree/split-drop'
 import { rowOf } from '@/components/haligtree/row-card'
-import { closeInLayout, PairFold, PairRow, type PairProps, pinLayout, sameLayout, short, unpinLayout, usePinnedLayouts, type PaneName } from '@/components/haligtree/split-pairs'
+import { closeInLayout, dropLayout, PairFold, PairRow, type PairProps, pinLayout, sameLayout, short, unpinLayout, usePinnedLayouts, type PaneName } from '@/components/haligtree/split-pairs'
 import type { BookRef } from '@/lib/books'
 import type { RowItem } from '@/components/haligtree/row-menu'
 import { asideClick, asideItem, keepTitle, setPaneNotes, setPanes, spendAsideClick, titleOf, type PaneWidth } from '@/lib/split'
@@ -2124,6 +2124,12 @@ export function Home(): React.JSX.Element {
                       return <PairRow key={pair.id} live={live} isPinned={false} narrow={narrow} names={views.map(paneName)} menu={pairMenu(views, live ? {} : null, undefined, true)} name={pair.name} onAlone={(index) => openAlone(views[index])}
                         onRename={rename}
                         forgetLabel="Close the split"
+                        onCloseAll={() => {
+                          const was = keptRef.current
+                          chime('fold')
+                          forgetPair(pair.id)
+                          toast(`Closed the split, ${views.map((one) => `“${short(shownName(paneName(one).title))}”`).join(' and ')}`, () => setKept(was))
+                        }}
                         onForget={() => {
                           if (live) return separate(split.front)
                           const was = keptRef.current
@@ -2165,6 +2171,7 @@ export function Home(): React.JSX.Element {
                     const live = split.panes.length > 1 && sameLayout(one.views, split.panes.map((pane) => pane.trail.views[pane.trail.at]))
                     return <PairRow key={one.id} live={live} isPinned narrow={narrow} names={one.views.map(paneName)} menu={pairMenu(one.views, live ? {} : null, one.id, true)} onAlone={(index) => openAlone(one.views[index])}
                       onForget={live ? () => separate(split.front) : undefined}
+                      onCloseAll={() => dropLayout(one.id, `Unpinned the split, ${one.views.map((view) => `“${short(shownName(paneName(view).title))}”`).join(' and ')}`)}
                       onOpen={(index) => (live ? (chime('tap'), toFront(split.panes[index].key)) : openLayout(one.views, one.sizes))}
                       onClose={(index) => (live ? closePane(split.panes[index].key) : closeInLayout(one.id, index, paneName(one.views[index]).title))} />
                   })),

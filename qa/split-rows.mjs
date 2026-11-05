@@ -40,7 +40,7 @@ const rects = (kind) => h.evaluate((sel) => {
   return {
     halves: [...(row?.querySelectorAll('[data-pair-pane]') ?? [])].map(r),
     names: [...(row?.querySelectorAll('[data-pair-pane] .truncate') ?? [])].map(r),
-    xs: [...(row?.querySelectorAll('[data-pair-x]') ?? [])].map((x) => ({ ...r(x), opacity: Number(getComputedStyle(x).opacity), cursor: getComputedStyle(x).cursor }))
+    xs: [...(row?.querySelectorAll('[data-pair-x], [data-pair-x-all]') ?? [])].map((x) => ({ ...r(x), opacity: Number(getComputedStyle(x).opacity), cursor: getComputedStyle(x).cursor }))
   }
 }, rowSel(kind))
 const panesNow = () => h.evaluate(() => [...document.querySelectorAll('[data-split-area] [data-pane]')].length)
@@ -85,11 +85,14 @@ try {
     const on = await rects(kind)
     await h.mouse.move(700, 600); await wait(500)
     const rest = await rects(kind)
-    check(`${kind}: a ✕ on each half while pointed at`, on.xs.length === 2 && on.xs.every((x) => x.opacity > 0.95), JSON.stringify(on.xs.map((x) => x.opacity)))
-    check(`${kind}: each ✕ sits at its half's right end, inside it`, on.xs.length === 2 && on.xs.every((x, i) => x.right <= on.halves[i].right + 0.5 && x.left >= on.halves[i].left && on.halves[i].right - x.right <= 4 && x.top >= on.halves[i].top - 1 && x.bottom <= on.halves[i].bottom + 1))
-    check(`${kind}: at rest no ✕ shows`, rest.xs.length === 2 && rest.xs.every((x) => x.opacity === 0), JSON.stringify(rest.xs.map((x) => x.opacity)))
+    // On screen a ✕ per half (closing one leaves the other open); kept for later, one ✕ for the pair at the row's end.
+    const want = kind === 'live' ? 2 : 1
+    const home = (i) => on.halves[kind === 'live' ? i : on.halves.length - 1]
+    check(`${kind}: ${kind === 'live' ? 'a ✕ on each half' : 'one ✕ for the whole pair'} while pointed at`, on.xs.length === want && on.xs.every((x) => x.opacity > 0.95), JSON.stringify(on.xs.map((x) => x.opacity)))
+    check(`${kind}: each ✕ sits at its ${kind === 'live' ? "half's" : "row's"} right end`, on.xs.length === want && on.xs.every((x, i) => x.right <= home(i).right + 0.5 && x.left >= home(i).left && home(i).right - x.right <= 4 && x.top >= home(i).top - 1 && x.bottom <= home(i).bottom + 1))
+    check(`${kind}: at rest no ✕ shows`, rest.xs.length === want && rest.xs.every((x) => x.opacity === 0), JSON.stringify(rest.xs.map((x) => x.opacity)))
     check(`${kind}: the names do not move when the ✕ shows`, rest.names.length === 2 && rest.names.every((n, i) => Math.abs(n.left - on.names[i].left) < 0.5 && Math.abs(n.right - on.names[i].right) < 0.5))
-    check(`${kind}: the ✕ shows the hand`, on.xs.length === 2 && on.xs.every((x) => x.cursor === 'pointer'))
+    check(`${kind}: the ✕ shows the hand`, on.xs.length === want && on.xs.every((x) => x.cursor === 'pointer'))
     for (const look of ['light', 'dark']) {
       await c.look(look); await h.mouse.move(on.halves[1].x, on.halves[1].y); await wait(400)
       await h.screenshot({ path: `${dir}/hover-${kind}-${look}.png`, clip: { x: 0, y: Math.max(0, right.y - 120), width: 320, height: 240 } })
@@ -112,13 +115,17 @@ try {
   check('on screen: Undo is there to press', await undoButton()); await wait(900)
   check('on screen: Undo lays the split out again', (await panesNow()) === 2 && !!(await h.$(rowSel('live'))), String(await panesNow()))
 
-  // Kept for later: its left half's ✕ lets the split go; Undo brings the row back.
+  // Kept for later: the row's one ✕ dims both names while pointed at, then lets the pair go; Undo brings the row back.
   at = await rects('kept')
-  await h.mouse.move(at.halves[0].x, at.halves[0].y); await wait(400)
-  await h.click(`${rowSel('kept')} [data-pair-x="0"]`); await wait(700)
-  check('kept: closing a half lets the split go', !(await h.$(rowSel('kept'))))
+  await h.mouse.move(at.halves[1].x, at.halves[1].y); await wait(300)
+  await h.hover(`${rowSel('kept')} [data-pair-x-all]`); await wait(400)
+  const dim = await h.evaluate((sel) => [...document.querySelectorAll(`${sel} [data-pair-pane]`)].map((el) => Number(getComputedStyle(el).opacity)), rowSel('kept'))
+  check('kept: pointing at its ✕ dims both names, so both are seen to go', dim.length === 2 && dim.every((o) => o < 0.6), JSON.stringify(dim))
+  await h.screenshot({ path: `${dir}/kept-x-all.png`, clip: { x: 0, y: Math.max(0, at.halves[1].y - 120), width: 320, height: 240 } })
+  await h.click(`${rowSel('kept')} [data-pair-x-all]`); await wait(700)
+  check('kept: its ✕ lets the pair go', !(await h.$(rowSel('kept'))))
   check('kept: the split on screen is untouched', (await panesNow()) === 2)
-  check('kept: it says so, with Undo', (await said()).filter((one) => /Closed .*\[Undo\]/.test(one)).length >= 2, JSON.stringify(await said()))
+  check('kept: it says so, with Undo', (await said()).some((one) => /Closed the split, .* and .*\[Undo\]/.test(one)), JSON.stringify(await said()))
   check('kept: Undo is there to press', await undoButton()); await wait(700)
   check('kept: Undo brings the row back', !!(await h.$(rowSel('kept'))))
 

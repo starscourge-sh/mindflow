@@ -55,6 +55,14 @@ export const unpinLayout = (id: string): void => {
   quietly(() => save(was))
 }
 
+/** A pinned pair let go whole (its row's one ✕): it leaves Pinned, said with Undo. */
+export const dropLayout = (id: string, said: string): void => {
+  const was = pinned
+  chime('fold')
+  save(pinned.filter((one) => one.id !== id))
+  toast(said, () => save(was))
+}
+
 /** One pane of a pinned layout closed (its half's ✕): a layout of one is no layout, so it goes, and Undo brings it back. */
 export const closeInLayout = (id: string, index: number, title: string): void => {
   const was = pinned
@@ -95,6 +103,11 @@ export type PairProps = {
   menu: RowItem[]
   onOpen: (index: number) => void
   onClose?: (index: number) => void
+  /**
+   * A pair of two that is not on screen: closing one half would end the pair anyway, so the row has one ✕ at its
+   * end that lets the pair go whole ("Close the split"), never a ✕ per half that seems to close one page.
+   */
+  onCloseAll?: () => void
   /** One pane opened on its own, the split kept under "Side by side". */
   onAlone?: (index: number) => void
   /** The pair's own name, given with "Rename…". */
@@ -143,7 +156,10 @@ export function SplitMark({ names, size = 'rail' }: { names: PaneName[]; /** rai
 }
 
 export function PairRow(props: PairProps): React.JSX.Element {
-  const { names, live, isPinned, narrow, onOpen, onClose, name, onRename } = props
+  const { names, live, isPinned, narrow, onOpen, name, onRename, onCloseAll } = props
+  // On screen, a half's ✕ closes that pane and the other stays open; kept for later, a pair of two goes whole.
+  const whole = !live && names.length === 2 && !!onCloseAll
+  const onClose = whole ? undefined : props.onClose
   const [renaming, setRenaming] = useState(false)
   // Folded to icons there is no room to type a name in: Rename… waits for the wide sidebar.
   const items = pairItems(props, narrow ? undefined : () => void setTimeout(() => setRenaming(true), 120))
@@ -219,12 +235,19 @@ export function PairRow(props: PairProps): React.JSX.Element {
             <span key={index} className="relative flex min-w-0 flex-1 items-center">
               {index > 0 && <span aria-hidden className="mx-0.5 h-3.5 w-px shrink-0 bg-foreground/15" />}
               <button type="button" data-side-row data-pair-pane={index} data-private={one.private ? '' : undefined} onClick={() => onOpen(index)}
-                className="peer flex min-w-0 flex-1 items-center gap-1.5 rounded-md py-1 pl-1.5 pr-1 text-left text-control text-foreground/85 hover:text-foreground">
+                className={`peer flex min-w-0 flex-1 items-center gap-1.5 rounded-md py-1 pl-1.5 pr-1 text-left text-control text-foreground/85 transition-opacity duration-[120ms] hover:text-foreground ${whole ? 'group-has-[[data-pair-x-all]:hover]/pair:opacity-45' : ''}`}>
                 {isPinned && !live && index === 0 ? <Pin className="size-3.5 shrink-0 text-muted-foreground" /> : <one.icon className="size-3.5 shrink-0" style={{ color: one.tint }} />}
-                <span data-pair-title className={`private-text min-w-0 flex-1 truncate ${onClose ? 'group-hover/pair:[mask-image:linear-gradient(to_left,transparent_16px,#000_30px)] group-has-[:focus-visible]/pair:[mask-image:linear-gradient(to_left,transparent_16px,#000_30px)]' : ''}`}>{one.title}</span>
+                <span data-pair-title className={`private-text min-w-0 flex-1 truncate ${onClose || (whole && index === names.length - 1) ? 'group-hover/pair:[mask-image:linear-gradient(to_left,transparent_16px,#000_30px)] group-has-[:focus-visible]/pair:[mask-image:linear-gradient(to_left,transparent_16px,#000_30px)]' : ''}`}>{one.title}</span>
               </button>
               {onClose && (
                 <button type="button" data-pair-x={index} aria-label={`Close ${quoted(shownName(one.title))}`} onClick={() => onClose(index)}
+                  className="absolute top-1/2 right-0.5 flex size-5 -translate-y-1/2 cursor-pointer items-center justify-center rounded-[5px] text-muted-foreground opacity-0 transition-[opacity,scale] duration-[120ms] ease-[cubic-bezier(0.16,1,0.3,1)] group-hover/pair:opacity-100 group-has-[:focus-visible]/pair:opacity-100 hover:bg-foreground/[0.07] hover:text-foreground focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-ring/70 active:scale-[0.97]">
+                  <X aria-hidden className="size-3.5" />
+                </button>
+              )}
+              {whole && index === names.length - 1 && (
+                // The pair's one ✕, at the row's end: both names dim while it is pointed at, so it says both go.
+                <button type="button" data-pair-x-all aria-label={`Close the split, ${bothNames(names)}`} onClick={onCloseAll}
                   className="absolute top-1/2 right-0.5 flex size-5 -translate-y-1/2 cursor-pointer items-center justify-center rounded-[5px] text-muted-foreground opacity-0 transition-[opacity,scale] duration-[120ms] ease-[cubic-bezier(0.16,1,0.3,1)] group-hover/pair:opacity-100 group-has-[:focus-visible]/pair:opacity-100 hover:bg-foreground/[0.07] hover:text-foreground focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-ring/70 active:scale-[0.97]">
                   <X aria-hidden className="size-3.5" />
                 </button>
