@@ -64,7 +64,8 @@ function playerIn(view: EditorView): Player | null {
     const source = frame.contentWindow
     const now = (): { state: number; time: number } => told.get(source) ?? { state: -1, time: 0 }
     return {
-      playing: () => now().state === 1,
+      // Buffering (3) is on its way to playing: typed over then, it started playing under the writing, never paused.
+      playing: () => now().state === 1 || now().state === 3,
       time: () => now().time,
       play: () => command(frame, "playVideo"),
       pause: () => {
