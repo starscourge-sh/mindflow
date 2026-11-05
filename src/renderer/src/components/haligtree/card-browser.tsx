@@ -36,7 +36,7 @@ const today = (): number => new Date().setHours(0, 0, 0, 0)
 // The words Anki users know, each in the colour the counts above use.
 /** Each stage: its full name for the Stage filter and grouping, where it is explained once, and one short word for a row's cell. */
 const STAGES: { id: string; label: string; word: string; tint: string }[] = [
-  { id: 'new', label: 'New', word: 'New', tint: 'var(--tt-color-text-blue)' },
+  { id: 'new', label: 'Not studied yet', word: 'Not studied', tint: 'var(--tt-color-text-blue)' },
   { id: 'learning', label: 'Learning', word: 'Learning', tint: 'var(--tt-color-text-orange)' },
   { id: 'learnt', label: 'Learnt (gaps under 15 days)', word: 'Learnt', tint: 'var(--tt-color-text-green)' },
   { id: 'known', label: 'Known (remembered after 15 days)', word: 'Known', tint: 'var(--tt-color-text-purple)' }
