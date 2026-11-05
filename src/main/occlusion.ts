@@ -157,7 +157,8 @@ export function fromAnki(field: string): { covers: Cover[]; hide: Hide } {
       covers.push({ kind: 'oval', x: n('left'), y: n('top'), w: rx * 2, h: ry * 2, group })
     } else if (kind === 'rect') covers.push({ kind: 'box', x: n('left'), y: n('top'), w: n('width'), h: n('height'), group })
   }
-  return { covers, hide: all ? 'all' : 'one' }
+  // A cover with no size hides nothing and would ask about nothing: never kept.
+  return { covers: covers.filter((one) => one.w > 0 && one.h > 0), hide: all ? 'all' : 'one' }
 }
 
 /**
@@ -189,7 +190,7 @@ export function fromAddOn(svg: string): { covers: Cover[]; hide: Hide } | null {
       if (points.length > 2) covers.push({ kind: 'shape', ...boxOf(points), points, group })
     }
   }
-  const ok = covers.filter((one) => [one.x, one.y, one.w, one.h].every(Number.isFinite))
+  const ok = covers.filter((one) => [one.x, one.y, one.w, one.h].every(Number.isFinite) && one.w > 0 && one.h > 0)
   return ok.some((one) => one.group === 1) ? { covers: ok, hide: ok.some((one) => one.group !== 1) ? 'all' : 'one' } : null
 }
 

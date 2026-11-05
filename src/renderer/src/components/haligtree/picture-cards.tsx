@@ -26,7 +26,7 @@ function Shape({ cover, w, h, fill, round = Math.min(w, h) * 0.012, ...rest }: {
   if (cover.kind === 'oval') return <ellipse cx={(cover.x + cover.w / 2) * w} cy={(cover.y + cover.h / 2) * h} rx={(cover.w / 2) * w} ry={(cover.h / 2) * h} {...(props as React.SVGProps<SVGEllipseElement>)} />
   if (cover.kind === 'shape' && cover.points) return <polygon points={cover.points.map(([x, y]) => `${x * w},${y * h}`).join(' ')} strokeLinejoin="round" {...(props as React.SVGProps<SVGPolygonElement>)} />
   if (cover.kind === 'brush' && cover.points)
-    return <polyline points={cover.points.map(([x, y]) => `${x * w},${y * h}`).join(' ')} fill="none" stroke={fill} strokeWidth={(cover.size ?? 0.03) * w} strokeLinecap="round" strokeLinejoin="round" {...(rest as React.SVGProps<SVGPolylineElement>)} />
+    return <polyline points={cover.points.map(([x, y]) => `${x * w},${y * h}`).join(' ')} fill="none" strokeLinecap="round" strokeLinejoin="round" {...(rest as React.SVGProps<SVGPolylineElement>)} stroke={fill} strokeWidth={(cover.size ?? 0.03) * w} />
   return <rect x={cover.x * w} y={cover.y * h} width={cover.w * w} height={cover.h * h} rx={round} {...(props as React.SVGProps<SVGRectElement>)} />
 }
 
