@@ -35,7 +35,9 @@ const TASK_SORTS: Record<string, (a: Task, b: Task) => number> = {
   newest: (a, b) => b.createdAt.localeCompare(a.createdAt),
   oldest: (a, b) => a.createdAt.localeCompare(b.createdAt)
 }
-type Scope = 'today' | 'upcoming' | 'routines' | keyof typeof BUCKETS | 'backlog' | 'waiting'
+type Scope = 'today' | 'upcoming' | 'routines' | keyof typeof BUCKETS | 'backlog' | 'waiting' | 'new'
+/** How far back "New" reaches: a task taken in the last two days, whatever list its date put it in. */
+const NEW_MS = 2 * 864e5
 const EMPTY: Record<Scope, { title: string; text: string }> = {
   today: { title: 'Nothing due today', text: 'A clear day. Anything with a date lands here on the day, and anything late stays on top until it is done.' },
   upcoming: { title: 'Nothing coming up', text: 'Put a day in the words, “friday” or “in 3 days”, and it waits here until then.' },
@@ -45,7 +47,8 @@ const EMPTY: Record<Scope, { title: string; text: string }> = {
   next: { title: 'Nothing next year', text: '“next year” keeps a task here, without a day, until the year comes round.' },
   someday: { title: 'Nothing for someday', text: '“learn Welsh someday”: the things you might do, kept where they do not nag.' },
   backlog: { title: 'Nothing without a date', text: 'A task with no date goes here, out of the way until you give it one.' },
-  waiting: { title: 'Waiting on no one', text: 'Fill in “Waiting on…” on a task’s page and it comes here, with a day to chase them.' }
+  waiting: { title: 'Waiting on no one', text: 'Fill in “Waiting on…” on a task’s page and it comes here, with a day to chase them.' },
+  new: { title: 'Nothing new', text: 'A task taken in the last two days waits here, newest first, whatever day it is for: open it to add to it or put it right.' }
 }
 // A task shows on the day it is scheduled, or the day it is due by if that is sooner.
 const SCOPES: Record<Scope, { label: string; test: (task: Task) => boolean }> = {
@@ -58,10 +61,12 @@ const SCOPES: Record<Scope, { label: string; test: (task: Task) => boolean }> = 
   year: { label: BUCKETS.year, test: (task) => !task.waitingOn && bucket(task) === 'year' },
   next: { label: BUCKETS.next, test: (task) => !task.waitingOn && bucket(task) === 'next' },
   someday: { label: BUCKETS.someday, test: (task) => !task.waitingOn && bucket(task) === 'someday' },
-  waiting: { label: 'Waiting', test: (task) => !!task.waitingOn }
+  waiting: { label: 'Waiting', test: (task) => !!task.waitingOn },
+  // As a note just taken is on top of the Inbox: a task just taken, wherever its date sent it (note 7ce1ac77).
+  new: { label: 'New', test: (task) => Date.now() - Date.parse(task.createdAt) < NEW_MS }
 }
 /** The lists as chips, and the rest in the "More" menu beside them. */
-const NEAR: Scope[] = ['today', 'upcoming', 'backlog']
+const NEAR: Scope[] = ['today', 'upcoming', 'backlog', 'new']
 const LATER: Scope[] = ['routines', 'month', 'year', 'next', 'someday', 'waiting']
 
 /**
@@ -89,9 +94,11 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
   const facets = taskFacets(tasks)
   // Today, Upcoming and Routines keep their own order (the first three, the days); the sort is for the lists with no day.
   // Those keep their order whatever is picked, so Display offers them no order to pick.
-  const dayOrdered = ['today', 'upcoming', 'routines'].includes(scope)
+  const dayOrdered = ['today', 'upcoming', 'routines', 'new'].includes(scope)
   const [[, narrowed]] = arrange(tasks, view, facets, dayOrdered ? {} : TASK_SORTS)
-  const due = narrowed.filter((task) => task.status === 'open' && SCOPES[scope].test(task))
+  const listed = narrowed.filter((task) => task.status === 'open' && SCOPES[scope].test(task))
+  // New is newest first always: the one just taken on top, as in the Inbox.
+  const due = scope === 'new' ? [...listed].sort(TASK_SORTS.newest) : listed
 
   const add = useRef<HTMLInputElement>(null)
   const [cursor] = useListKeys(example ? 0 : due.length, { onOpen: (index) => onOpen(due[index].id), opened: due.findIndex((task) => task.id === open), onExtend: (from, to) => several.extend(due[from]?.id, due[to].id) })
@@ -149,7 +156,8 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
       <Chips
         // The three lists used most as chips, the rest under "More": every chip
         // whole in the panel, never a list cut off behind the view button.
-        options={NEAR.map((id) => ({ id, label: count(id) ? `${SCOPES[id].label} ${num(count(id))}` : SCOPES[id].label }))}
+        // New goes without a number: what it holds is said by its rows, newest first, and four counts did not fit the box's panel.
+        options={NEAR.map((id) => ({ id, label: count(id) && id !== 'new' ? `${SCOPES[id].label} ${num(count(id))}` : SCOPES[id].label }))}
         on={(id) => id === scope}
         pick={(id) => setScope(id as Scope)}
         sideways
