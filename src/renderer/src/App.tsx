@@ -1107,8 +1107,15 @@ export default function App(): React.JSX.Element {
   // A word's meaning (or "Did you mean") lies under the word, in room kept after the writing: the pill grows into the
   // box to show it. Kept as the pill, that room scrolled the one line up inside its clip and cut the word along its
   // middle (the user's "humanoid").
-  const meaningShown = definition?.state === 'found' || definition?.state === 'fix'
-  const pill = oneLine && !reading && !editing && !offer && !lesson && !opened && !wraps && !panel && !meaningShown && !sheetUp
+  // From the pill, it shows once the window has grown room for the box under the pill (useFitBox's prepare), so the
+  // box is drawn at its whole height in the frame the meaning shows: before, it grew in three steps as the window
+  // caught up, its foot cut off meanwhile.
+  const meaningFound = definition?.state === 'found' || definition?.state === 'fix'
+  const pillOtherwise = oneLine && !reading && !editing && !offer && !lesson && !opened && !wraps && !panel && !sheetUp
+  const [roomFor, setRoomFor] = useState<string | null>(null)
+  const meaningShown = meaningFound && (!pillOtherwise || roomFor === definition?.word)
+  const meaningWaits = meaningFound && !meaningShown ? definition?.word ?? null : null
+  const pill = pillOtherwise && !meaningShown
   // Whether it will be the pill once the panel is put away (setPanel tells the box's height before the glide).
   pillAfterPanel.current = oneLine && !reading && !editing && !offer && !lesson && !opened && !wraps && !meaningShown
   // Measured before it is drawn, so a second line grows the box in the frame it appears: on each change in the editor
@@ -1145,6 +1152,16 @@ export default function App(): React.JSX.Element {
   foldPill.current = () => (oneLine && opened && !wraps && !plan?.tokens.length ? (chime('fold'), setOpened(false), true) : false)
   // The window as tall as the writing, from short to full (or one line, as the pill): see fit-box.
   const box = useFitBox(column, Boolean(reading) || sheetUp, pill, appSettings !== null)
+  // While it waits, the meaning is still "looking" under the word (the orb, if the wait was long enough to show it),
+  // and its place under the writing is kept: made afresh, it came a render after the box was measured, short.
+  useEffect(() => {
+    if (!meaningWaits) return
+    let live = true
+    void box.prepare().then((ready) => live && ready && setRoomFor(meaningWaits))
+    return () => void ((live = false), box.cancel())
+  }, [meaningWaits]) // eslint-disable-line react-hooks/exhaustive-deps
+  // The meaning gone (the word changed, or put away): the next one grows the pill afresh.
+  useEffect(() => void (!meaningFound && setRoomFor(null)), [meaningFound])
   // No two-finger swipe back and forward here: ⌘ and two fingers throw the box, and the two fought. ⌘[ and ⌘] still step back and on.
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
@@ -2265,7 +2282,7 @@ export default function App(): React.JSX.Element {
               // A kept note's mentions under it; a new draft has none yet.
               // A new Word's meaning, faint under the word itself, where it lands once kept.
               quietSpelling={!!defining}
-              after={editing ? <Mentions id={editing.id} compact onOpen={(type, id) => openAny(type, id)} /> : definition && <DefineGhost definition={definition} onKeep={keepDefinition} onHide={hideDefinition} picked={chosen} mode={meanings === 'off' ? 'one-word' : meanings} onFix={(fix) => definition && fixIn(editorRef.current, definition.word, fix)} />}
+              after={editing ? <Mentions id={editing.id} compact onOpen={(type, id) => openAny(type, id)} /> : definition && <DefineGhost definition={meaningWaits ? { ...definition, state: 'looking' } : definition} onKeep={keepDefinition} onHide={hideDefinition} picked={chosen} mode={meanings === 'off' ? 'one-word' : meanings} onFix={(fix) => definition && fixIn(editorRef.current, definition.word, fix)} />}
               onSource={() => setSource((open) => !open)}
               // A tag opens its page in the main window, as a note link opens there.
               onTag={(tag) => (chime('open'), window.api.openInHome('tag', tag))}

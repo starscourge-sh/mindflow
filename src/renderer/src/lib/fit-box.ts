@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, type RefObject } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, type RefObject } from 'react'
 import { Plugin } from '@tiptap/pm/state'
 import type { Editor } from '@tiptap/react'
 
@@ -56,6 +56,20 @@ const unpin = (): void => void (document.documentElement.removeAttribute('data-c
 
 /** How tall the window has to be to show the whole note without scrolling, two lines at least; null with no note in it. */
 function needed(column: HTMLElement | null): number | null {
+  // A card held shorter than what is around its writing (the pill held while it becomes the box) squeezes the writing
+  // to nothing, so what is around it reads short and the box grew in steps, each measure a little taller than the last.
+  // Measured held at the full height for the moment of the reading, in the same task, so no frame ever shows it.
+  const root = document.documentElement
+  const held = root.hasAttribute('data-card-held') ? root.style.getPropertyValue('--mf-card-held') : ''
+  if (!held) return measure(column)
+  root.style.setProperty('--mf-card-held', `${FULL}px`)
+  try {
+    return measure(column)
+  } finally {
+    root.style.setProperty('--mf-card-held', held)
+  }
+}
+function measure(column: HTMLElement | null): number | null {
   // A voice note recording in the writing's place (voice-note.tsx): the words
   // are hidden, so the box is as tall as what shows (the recorder, the chip
   // under it), with none of the empty room the writing would have had.
@@ -110,7 +124,7 @@ function needed(column: HTMLElement | null): number | null {
  * not scrolled into view (the growing shows it), so the writing never jumps
  * up and settles back down.
  */
-export function useFitBox(column: RefObject<HTMLElement | null>, full: boolean, pill = false, ready = true): { held: { current: boolean }; refit: () => void; guard: (editor: Editor) => void; aim: (asPill: boolean) => void } {
+export function useFitBox(column: RefObject<HTMLElement | null>, full: boolean, pill = false, ready = true): { held: { current: boolean }; refit: () => void; guard: (editor: Editor) => void; aim: (asPill: boolean) => void; prepare: () => Promise<boolean>; cancel: () => void } {
   // Nothing is asked of the window until the page knows its own shape (the settings read): main shows the box at its
   // first fit, and a fit sent before "One line to start" was known showed the whole box for a frame, then the pill.
   const readyNow = useRef(ready)
@@ -128,6 +142,11 @@ export function useFitBox(column: RefObject<HTMLElement | null>, full: boolean, 
   const grewForPop = useRef(false)
   /** Held at a grown height until the window has grown round it (send). */
   const grown = useRef(false)
+  /**
+   * The pill held as it is while the window grows to the full box under it (prepare), then the box drawn at its
+   * height in one frame: 'asking' while the window grows, 'ready' once it has, 'growing' for the one fit as the pill becomes the box.
+   */
+  const preparing = useRef<'asking' | 'ready' | 'growing' | null>(null)
   const want = useCallback((): number => {
     const popped = document.querySelector(POPS)
     // The pill stays one line with a list open (/, #, @): the list hangs into the room below it. It grew to full
@@ -155,6 +174,7 @@ export function useFitBox(column: RefObject<HTMLElement | null>, full: boolean, 
       pin(height)
       grown.current = true
     }
+    if (document.documentElement.hasAttribute('data-card-held') && preparing.current === 'growing') grown.current = true
     window.api.fitBox(height, snap)
   }, [])
 
@@ -221,7 +241,8 @@ export function useFitBox(column: RefObject<HTMLElement | null>, full: boolean, 
   }, [send])
 
   const refit = useCallback((now = false): void => {
-    if (!readyNow.current || held.current || room()) return
+    // The pill held while the window grows for the box: nothing asked of the window until it is the box.
+    if (!readyNow.current || held.current || preparing.current === 'asking' || preparing.current === 'ready' || room()) return
     const height = want()
     // Hidden, it is sized at once: it opens at what it needs, never growing in view.
     if (now || document.hidden || height > sent.current || height < sent.current - CLEARLY) return send(height, Math.abs(height - sent.current) <= LINES)
@@ -243,8 +264,11 @@ export function useFitBox(column: RefObject<HTMLElement | null>, full: boolean, 
     window.addEventListener('resize', soon)
     // The window has grown round a card drawn ahead of it: let go, the card filling its room at the same height.
     const caught = (): void => {
-      if (!grown.current || below.current) return
-      if (window.innerHeight - roomTop() - roomUnder() < sent.current - 1) return
+      if (!grown.current || below.current || preparing.current) return
+      const room = window.innerHeight - roomTop() - roomUnder()
+      // Grown round it, or come down to it from the full height prepare asked for: never let go on the way down,
+      // where the card would fill the taller window and shrink with it.
+      if (room < sent.current - 1 || room > sent.current + 1) return
       grown.current = false
       unpin()
     }
@@ -268,6 +292,13 @@ export function useFitBox(column: RefObject<HTMLElement | null>, full: boolean, 
   useEffect(() => refit(true), [full, refit])
   // The pill grown or folded back: in the one glide, never in steps.
   useEffect(() => refit(true), [pill, refit])
+  // Grown after prepare: at its height before the frame is drawn, the window already tall enough for it.
+  useLayoutEffect(() => {
+    if (pill || preparing.current !== 'ready') return
+    preparing.current = 'growing'
+    refit(true)
+    preparing.current = null
+  }, [pill, refit])
   // The settings read: the first fit, at the shape the box really has.
   useEffect(() => void (ready && refit(true)), [ready, refit])
 
@@ -297,5 +328,31 @@ export function useFitBox(column: RefObject<HTMLElement | null>, full: boolean, 
     send(height, false)
   }, [want, send])
 
-  return { held, refit: () => refit(true), guard, aim }
+  /**
+   * The pill about to become the box for something that needs the box's room at once (a word's meaning): the pill
+   * held as it is while the window grows to the full box under it (clicks pass through the room), resolved once it
+   * has; then the box is drawn at its own height in one frame, and the window comes up to it unseen. Without it the
+   * box grew in steps as the window caught up, its foot cut off meanwhile. `cancel` puts it back as it was.
+   */
+  const prepare = useCallback(async (): Promise<boolean> => {
+    if (!ROOM || !pillNow.current || document.hidden || preparing.current) return true
+    preparing.current = 'asking'
+    clearTimeout(wait.current)
+    pin(cardHeight())
+    sent.current = FULL
+    const given = await window.api.fitNow(FULL)
+    // Answered once main has set the window's size: the page hears of it in its next resize, if it has not yet.
+    if (given && Math.abs(window.innerHeight - given) > 1) await new Promise<void>((done) => window.addEventListener('resize', () => done(), { once: true }))
+    if (preparing.current !== 'asking') return false
+    preparing.current = 'ready'
+    return true
+  }, [])
+  const cancel = useCallback((): void => {
+    if (preparing.current !== 'asking' && !(preparing.current === 'ready' && pillNow.current)) return
+    preparing.current = null
+    unpin()
+    refit(true)
+  }, [refit])
+
+  return { held, refit: () => refit(true), guard, aim, prepare, cancel }
 }

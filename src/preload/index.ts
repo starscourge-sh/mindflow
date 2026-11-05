@@ -190,6 +190,8 @@ const api = {
   boxHome: (): void => ipcRenderer.send('window:home'),
   /** Room below the card for a pop-up to hang into, the card staying put; false where the screen has none. */
   roomBelow: (px: number): Promise<boolean> => ipcRenderer.invoke('window:room-below', px),
+  /** The box at `height` at once; answers with the window's inner height once it is there (null: no box window). */
+  fitNow: (height: number): Promise<number | null> => ipcRenderer.invoke('window:fit-now', height),
   /** The main window: fill the screen, or back to its compact size. */
   fillHome: (fill: boolean | 'toggle'): Promise<boolean> => ipcRenderer.invoke('home:fill', fill),
   /** Told whenever the main window fills the screen or comes back from it. */

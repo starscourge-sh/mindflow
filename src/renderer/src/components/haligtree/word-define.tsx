@@ -10,7 +10,7 @@ import { Kbd, refuse, toast } from './ui'
 import { RowMenu } from './row-menu'
 import { menuShowing } from '@/lib/menu-keys'
 import { haligtree } from '@/lib/haligtree'
-import { firstSentences, pageFor, useWiki } from '@/lib/wiki'
+import { firstSentences, pageFor, type WikiAnswer, type WikiPage } from '@/lib/wiki'
 import './word-define.css'
 
 /**
@@ -42,6 +42,8 @@ type Definition = {
   fix?: string
   /** Taken with Tab or a click: saved with the note as its definition and example. */
   kept: boolean
+  /** Wikipedia's line on the word, asked with the dictionary so both show in the one frame, the box grown once. */
+  wiki?: WikiPage | null
 }
 
 /** How long a lookup may take before the orb shows: a quick answer never flickers it. */
@@ -63,9 +65,12 @@ export function useDefinition(word: string | null): { definition: Definition | n
     // A pause in the typing first: a word on its way to a sentence is not looked up.
     const wait = setTimeout(() => {
       setDefinition({ word: key, state: 'looking', kept: false })
-      void (window.api.haligtree<Answer>('define', key)).then((answer) => {
+      // Wikipedia asked at the same time (main keeps its answers, and gives up on a slow one after 5 seconds): a line
+      // that came in after the meaning grew the box a second time.
+      const wiki = window.api.haligtree<WikiAnswer>('wiki', key).catch(() => null)
+      void Promise.all([window.api.haligtree<Answer>('define', key), wiki]).then(([answer, page]) => {
         if (!live) return
-        if (answer && 'found' in answer) setDefinition({ word: key, state: 'found', found: answer.found, kept: false })
+        if (answer && 'found' in answer) setDefinition({ word: key, state: 'found', found: answer.found, kept: false, wiki: page && 'extract' in page ? page : null })
         else if (answer && 'miss' in answer && answer.fix) setDefinition({ word: key, state: 'fix', fix: answer.fix, kept: false })
         else if (answer && 'miss' in answer) setDefinition({ word: key, state: 'none', kept: false })
         else quiet()
@@ -179,8 +184,8 @@ export function DefineGhost({ definition, onKeep, onHide, onFix, picked = false,
   shownLate.current = late
   const looking = definition?.state === 'looking'
   // Wikipedia's line on the same word, under the meaning, as Look Up shows them together: only its own article.
-  const wiki = useWiki(definition?.state === 'found' ? definition.word : null)
-  const article = wiki.page && definition && pageFor(wiki.page, definition.word) && wiki.page.extract ? wiki.page : null
+  const page = definition?.state === 'found' ? definition.wiki : null
+  const article = page && definition && pageFor(page, definition.word) && page.extract ? page : null
   useEffect(() => {
     if (!looking) return setLate(false)
     const timer = setTimeout(() => setLate(true), waits().shown)
@@ -296,7 +301,7 @@ export function DefineGhost({ definition, onKeep, onHide, onFix, picked = false,
         </button>
         {found.example && <p className="text-control leading-snug text-muted-foreground italic">“{found.example}”</p>}
         {found.also && <p className="text-control leading-snug text-muted-foreground"><span className="font-medium">Also:</span> {found.also}</p>}
-        {/* The word's Wikipedia line, once it comes: below everything above, so nothing already shown moves. */}
+        {/* The word's Wikipedia line, asked with the meaning and shown with it. */}
         {article && (
           <p data-define-wiki className="mt-1 border-t border-foreground/10 pt-1.5 text-control leading-snug text-muted-foreground text-pretty">
             {firstSentences(article.extract, 1)}{' '}

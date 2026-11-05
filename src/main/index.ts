@@ -5091,6 +5091,15 @@ app.whenReady().then(() => {
     setRoom(win, { ...(rooms.get(win) ?? BOX_ROOM), bottom: Math.max(hintBelow, BOX_ROOM.bottom + want) })
     return true
   })
+  // The box at a height at once, answered once the window is there with its inner height, so the page can draw what
+  // needs that room in the frame the window has it (a word's meaning grown out of the pill, fit-box's prepare).
+  ipcMain.handle('window:fit-now', async (event, height: unknown) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (!win || win !== prompt || typeof height !== 'number' || !Number.isFinite(height)) return null
+    fit = height
+    await refit(win, true)
+    return win.isDestroyed() ? null : win.getContentBounds().height
+  })
   ipcMain.on('window:fit', (event, height: unknown, snap: unknown) => {
     const win = BrowserWindow.fromWebContents(event.sender)
     if (!win || win !== prompt || typeof height !== 'number' || !Number.isFinite(height)) return
