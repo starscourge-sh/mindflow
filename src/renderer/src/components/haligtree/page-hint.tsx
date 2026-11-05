@@ -203,6 +203,42 @@ export function PageHint({ page: shown }: { page: string }): React.JSX.Element |
   )
 }
 
+/**
+ * Lines said once in place, near what they explain rather than under a page's
+ * title: shown the first time their thing is on screen, put away for good by
+ * Got it, back with the rest from Settings › Help. `after`: another line that
+ * must have been put away first, so the page never speaks twice at once.
+ */
+const ONCE: Record<string, { text: string; after?: string }> = {
+  // The first deck with a card due: what "due" means, in the Review line's voice.
+  'deck-due': { text: '**A card comes back just before you’d forget it.** When it’s back, it’s due.', after: 'review' }
+}
+
+export function OnceHint({ name, when }: { name: string; /** Its thing is on screen. */ when: boolean }): React.JSX.Element | null {
+  const state = useOnboarding()
+  const settings = useLive(haligtree.settings, null as Settings | null)
+  const [gone, setGone] = useState(false)
+  const once = ONCE[name]
+  const shown = !!once && when && !gone && !!state && !!settings && !settings.safeMode && (state.welcomed || state.sandbox) && state.pageHints
+    && !state.hintsSeen.includes(name) && (!once.after || state.hintsSeen.includes(once.after))
+    && !document.documentElement.hasAttribute('data-welcoming') && !document.documentElement.hasAttribute('data-touring')
+  const done = (): void => {
+    chime('tap')
+    setGone(true)
+    void onboarding.state().then((now) => onboarding.set({ hintsSeen: [...now.hintsSeen.filter((one) => one !== name), name] }))
+  }
+  const { lead, rest } = splitLead(once?.text ?? '')
+  return (
+    <AnimatePresence initial={false}>
+      {shown && (
+        <Line key={name} name={name} onDone={done} done="Got it">
+          <strong>{lead}</strong> <Typed text={rest} delay={0} within={220} />
+        </Line>
+      )}
+    </AnimatePresence>
+  )
+}
+
 function Line({ name, children, onDone, done, learned = false }: { name: string; children: React.ReactNode; onDone: () => void; done: string; /** Just done for the first time: the line says so, with no button. */ learned?: boolean }): React.JSX.Element {
   // A beat after the page, every time: there with the first paint it read as
   // part of the furniture, and was skipped. Its room is kept from the start, so
@@ -215,7 +251,7 @@ function Line({ name, children, onDone, done, learned = false }: { name: string;
     // too. The fold stays a height: the page under it has to rise with it,
     // and a clip or a scale would leave the room and close it with a jump.
     <motion.div className="shrink-0 overflow-hidden" exit={{ opacity: 0, height: 0, transition: { opacity: { duration: 0.12, ease: EASE }, height: { duration: 0.2, delay: 0.06, ease: EASE } } }}>
-    <motion.div role="note"
+    <motion.div role="note" data-hint-line={name}
       initial={enter ? { opacity: 0, transform: shift(first ? 'translateY(-4px)' : 'translateY(0px)') } : false}
       animate={{ opacity: 1, transform: shift('translateY(0px)') }}
       transition={{ duration: 0.2, ease: EASE }}

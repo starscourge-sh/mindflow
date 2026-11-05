@@ -26,6 +26,7 @@ import { Tip } from './ui'
 import { motion } from 'motion/react'
 import { EASE, still } from '@/lib/motion'
 import { PileEdges } from './deck-pile'
+import { OnceHint } from './page-hint'
 
 type Topic = { deck: string; label: string; cards: number; held: number }
 export type Shelf = { name: string; cover: string | null; sample: string; pictures: number; cards: number; fresh: number; due: number; held: number; shown: boolean; topics: Topic[] }
@@ -172,6 +173,8 @@ export function DeckShelf({ place, onPlace, onOpen, onStudy, onPaste, onPicture,
   }
   const shown = preview((many ? tops.filter((deck) => deck.made || deck.active > 0) : tops).slice(0, POCKETS))
   const folded = tops.filter((deck) => !shown.includes(deck))
+  // The first time a deck has a card due, what "due" means, once, just over the decks and their counts.
+  const dueHint = <OnceHint name="deck-due" when={own.some((deck) => deck.due > 0) || (shelves ?? []).some((shelf) => shelf.due > 0)} />
   // The three ways cards come in, always at the top, whatever is below: as Anki's "Create Deck" and "Import File" are.
   const top = (
     <TabControls>
@@ -204,6 +207,7 @@ export function DeckShelf({ place, onPlace, onOpen, onStudy, onPaste, onPicture,
         <StudyYear compact />
         <StudySets sets={sets} onStudy={onStudy} />
         <BookCoverage />
+        {dueHint}
         <DeckList own={own} shelves={shelves ?? []} onStudy={onStudy} place={study.place} menu={listMenu} />
         {linking && <Links deck={linking} onDone={() => setLinking(null)} />}
         {gallery && <Gallery deck={gallery} onOpen={onOpen} />}
@@ -240,6 +244,7 @@ export function DeckShelf({ place, onPlace, onOpen, onStudy, onPaste, onPicture,
       <StudyYear compact />
       <StudySets sets={sets} onStudy={onStudy} />
       <BookCoverage />
+      {dueHint}
       {/* Pockets: squarish tiles, 2 to 4 across by width; each studies when clicked, its actions in its ⋯ menu and on right-click. */}
       <div data-deck-grid className="grid grid-cols-[repeat(auto-fill,minmax(calc(9.5rem_+_15px),1fr))] gap-x-3 gap-y-1 [&>*]:max-w-[calc(13rem_+_15px)]">
         {shown.map(tile)}
