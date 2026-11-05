@@ -7,6 +7,7 @@ import { useFocusTools, useLive, haligtree, type Stats } from '@/lib/haligtree'
 import { exampleStats } from '@/lib/examples'
 import { GoalPreview, ReadyMoment, useReady } from './goal-preview'
 import { DaysHeatmap } from './days-heatmap'
+import { TONES } from './mono-card'
 import { StudySection } from './study-stats'
 import { WritingSection } from './writing-stats'
 import { Count, Island, Page, Rolling } from './ui'
@@ -109,9 +110,9 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
     stats.day.reviews > 0 && <>reviewed <N>{plural(stats.day.reviews, 'card', 'cards')}</N></>
   ].filter(Boolean)
   const exits = [
-    { status: 'promoted', label: 'became gems', color: 'var(--tt-color-text-purple)' },
-    { status: 'resolved', label: 'resolved', color: 'var(--tt-color-text-green)' },
-    { status: 'discarded', label: 'moved to the Bin', color: 'var(--tt-color-text-gray)' }
+    { status: 'promoted', label: 'became gems', tone: TONES[0] },
+    { status: 'resolved', label: 'resolved', tone: TONES[1] },
+    { status: 'discarded', label: 'moved to the Bin', tone: TONES[2] }
   ]
 
   return (
@@ -145,7 +146,8 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
         </Section>
 
         <Section title="Days you opened it" big={{ value: opened.size, label: 'of the last 84 days' }}>
-          {opened.size > 0 && <DaysHeatmap opened={opened} />}
+          {/* Drawn once three days are in; before then the number and the sentence say it all. */}
+          {opened.size >= 3 && <div data-chart="opened"><DaysHeatmap opened={opened} /></div>}
           <p>
             <N>{opened.size}</N> of the last 84 days. This is the one number that notices if the app stops being opened at all, so it is the one to watch.
           </p>
@@ -260,12 +262,15 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
 
         <Section title="When you capture" big={busiest ? { value: `${busiest.hour}:00`, label: 'your busiest hour' } : undefined}>
           {busiest ? <>
-          <div className="flex h-14 items-end gap-[3px]">
+          {/* Pills of the one ink on the card's own surface; an hour with none draws nothing. */}
+          <div data-chart="hours" className="flex h-14 items-end gap-[3px] border-b border-foreground/20">
             {Array.from({ length: 24 }, (_, hour) => {
               const n = stats.hours.find((row) => row.hour === hour)?.n ?? 0
               return (
                 <Tip key={hour} label={`${hour}:00 · ${num(n)}`}>
-                  <div className="flex-1 rounded-t-[2px] bg-muted-foreground/35" style={{ height: `${Math.max(3, (n / maxHour) * 100)}%` }} />
+                  <div className="flex h-full flex-1 items-end justify-center">
+                    {n > 0 && <span data-mark className="block w-1.5 rounded-full bg-foreground" style={{ height: `max(6px, ${(n / maxHour) * 100}%)` }} />}
+                  </div>
                 </Tip>
               )
             })}
@@ -278,7 +283,7 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
         </Section>
 
         <Section title="What you capture" big={stats.kinds[0] ? { value: stats.kinds[0].n, label: `${plural(stats.kinds[0].n, (CAPTURE_TYPES.find((one) => one.id === stats.kinds[0].kind) ?? CAPTURE_TYPES[0]).label.toLowerCase()).replace(/^[\d,]+ /, "")}, the most of any kind` } : undefined}>
-          <div className="space-y-2">
+          <div data-chart="kinds" className="space-y-2">
             {/* The bars in the one order of kinds, Note first (kindRank); the big number says which is most. */}
             {[...stats.kinds].sort((a, b) => byKind(a.kind, b.kind)).map(({ kind, n }) => {
               const type = CAPTURE_TYPES.find((one) => one.id === kind) ?? CAPTURE_TYPES[0]
@@ -286,8 +291,9 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
                 <div key={kind} className="flex items-center gap-3 text-sm">
                   <type.icon className="size-4 shrink-0" style={{ color: type.tint }} />
                   <span className="w-20 text-foreground">{type.label}</span>
-                  <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-border/60">
-                    <span className="block h-full rounded-full" style={{ width: percent(n, Math.max(...stats.kinds.map((one) => one.n))), background: type.tint }} />
+                  {/* The bar in the one ink; the kind's own colour stays on its icon, which names it. */}
+                  <span className="h-1.5 flex-1">
+                    <span data-mark className="block h-full min-w-1.5 rounded-full bg-foreground" style={{ width: percent(n, Math.max(...stats.kinds.map((one) => one.n))) }} />
                   </span>
                   <span className="min-w-10 shrink-0 text-right font-semibold text-foreground"><Count n={n} /></span>
                 </div>
@@ -300,10 +306,17 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
         <Section title="Where captures go" big={total ? { value: percent(total - (by.open ?? 0), total), label: 'sorted' } : undefined}>
           {/* No bar until something has taken an exit: an empty one reads as a failing grade. */}
           {exits.some((exit) => by[exit.status]) && (
-            <div className="flex h-2 overflow-hidden rounded-full bg-border/60">
-              {exits.map((exit) => (
-                <div key={exit.status} style={{ width: percent(by[exit.status] ?? 0, total), background: exit.color }} />
-              ))}
+            <div data-chart="exits">
+              <div className="flex h-2.5 gap-0.5 overflow-hidden rounded-full">
+                {/* Tones of the one ink, a 2 px gap between parts; what is still in the Inbox is the faint rest. */}
+                {exits.filter((exit) => by[exit.status]).map((exit) => (
+                  <div key={exit.status} data-mark style={{ flex: `${by[exit.status]} 1 0`, minWidth: 6, background: 'var(--foreground)', opacity: exit.tone }} />
+                ))}
+                {!!by.open && <div style={{ flex: `${by.open} 1 0`, background: 'var(--foreground)', opacity: 0.1 }} />}
+              </div>
+              <p className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs">
+                {exits.map((exit) => <span key={exit.status} className="inline-flex items-center gap-1.5"><span className="size-2 rounded-[2px]" style={{ background: 'var(--foreground)', opacity: exit.tone }} />{exit.label}</span>)}
+              </p>
             </div>
           )}
           <p>

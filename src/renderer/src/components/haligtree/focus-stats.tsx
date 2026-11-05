@@ -14,6 +14,7 @@ import { taskMenu, useTaskNow } from './tasks-view'
 import { taskName } from '@/lib/tasks'
 import type { Task } from '@/lib/haligtree'
 import { N, Section } from './stats-view'
+import { TONES } from './mono-card'
 
 /**
  * How focus sessions went, in two places: on a task's panel (how many, how
@@ -27,12 +28,16 @@ import { N, Section } from './stats-view'
 export const timeSaid = (minutes: number): string => (Math.round(minutes) < 1 ? 'Under a minute' : howLong(minutes))
 
 /** One colour a way a session can end: the theme's own accent, a paler one, and the page's line colour. */
-const TINT: Record<Outcome, string> = {
-  finished: 'var(--tt-brand-color-400)',
-  // Halfway to the page's grey ink, so it stays a paler accent on a dark page as on a light one.
-  early: 'color-mix(in oklab, var(--tt-brand-color-400) 50%, var(--muted-foreground))',
-  abandoned: 'color-mix(in oklab, var(--foreground) 30%, var(--background))'
-}
+/**
+ * Every focus chart in the one ink of the app's charts (mono-card): full, and two lighter tones that still pass 3:1
+ * on the card, so a part reads by its tone and its name in the key, never by a colour alone.
+ */
+const INK = 'var(--foreground)'
+const INK_MID = `color-mix(in oklab, var(--foreground) ${TONES[1] * 100}%, transparent)`
+const INK_LOW = `color-mix(in oklab, var(--foreground) ${TONES[2] * 100}%, transparent)`
+/** What is not data (a day with none): faint. */
+const INK_NONE = 'color-mix(in oklab, var(--foreground) 10%, transparent)'
+const TINT: Record<Outcome, string> = { finished: INK, early: INK_MID, abandoned: INK_LOW }
 const SAID: Record<Outcome, string> = { finished: 'ran its full length', early: 'ended early', abandoned: 'abandoned' }
 
 /**
@@ -50,19 +55,21 @@ export function Bars({ values, tips, tint, className, highlight, peak }: { value
       <span data-focus-peak className="pointer-events-none absolute top-0 text-xs font-medium whitespace-nowrap text-foreground tabular-nums"
         style={{ left: `${at}%`, transform: `translateX(${at < 12 ? '-10%' : at > 88 ? '-90%' : '-50%'})` }}>{peak(values[top])}</span>
     )}
-    <div data-focus-bars className={cn('flex items-end gap-[3px]', className)}>
+    <div data-focus-bars data-chart="focus-bars" className={cn('flex items-end gap-[3px]', className)}>
       {values.map((value, index) => (
         <Tip key={index} label={tips[index]}>
           {/* Full height, scaled from the foot: a change grows on the compositor, not by laying the row out again each frame. */}
-          <div
-            className="flex-1 origin-bottom rounded-t-[3px] transition-transform duration-240"
-            style={{
-              height: value ? '100%' : '2px',
-              transform: value ? `scaleY(${Math.max(0.06, value / max)})` : undefined,
-              background: value ? (tint?.(index) ?? 'var(--tt-brand-color-400)') : 'color-mix(in oklab, var(--foreground) 14%, var(--background))',
-              opacity: highlight === undefined || highlight === index || !value ? 1 : 0.72
-            }}
-          />
+          {/* A pill of the ink, round at both ends, at most 10 px wide so a short row never turns into blocks; a day with none keeps a faint stub. */}
+          <div className="flex h-full flex-1 items-end justify-center">
+            <div {...(value ? { 'data-mark': '' } : {})}
+              className="w-full max-w-2.5 rounded-full transition-[height] duration-240"
+              style={{
+                height: value ? `max(6px, ${(value / max) * 100}%)` : '2px',
+                background: value ? (tint?.(index) ?? INK) : INK_NONE,
+                opacity: highlight === undefined || highlight === index || !value ? 1 : 0.72
+              }}
+            />
+          </div>
         </Tip>
       ))}
     </div>
@@ -231,9 +238,9 @@ export function FocusSections({ example }: { example: boolean }): React.JSX.Elem
 
       {ran > 0 && (
         <Section title="How sessions end" big={{ value: `${finishedShare}%`, label: 'ran their full length' }}>
-          <div data-focus-ends className="flex h-2.5 gap-[2px] overflow-hidden rounded-[2px]">
+          <div data-focus-ends data-chart="focus-ends" className="flex h-2.5 gap-[2px] overflow-hidden rounded-full">
             {(['finished', 'early', 'abandoned'] as const).filter((one) => focus.outcomes[one]).map((one) => (
-              <div key={one} style={{ width: `${(focus.outcomes[one] / ran) * 100}%`, background: TINT[one] }} />
+              <div key={one} data-mark style={{ width: `${(focus.outcomes[one] / ran) * 100}%`, background: TINT[one] }} />
             ))}
           </div>
           <Ends counts={focus.outcomes} />
@@ -271,8 +278,8 @@ export function FocusSections({ example }: { example: boolean }): React.JSX.Elem
                   <Tags tags={taskName(one.title).tags} />
                 </button>
                 <span className="text-right tabular-nums text-foreground"><strong className="font-semibold">{timeSaid(one.minutes)}</strong> · {plural(one.sessions, 'session', 'sessions')}</span>
-                <span className="col-span-2 h-1.5 overflow-hidden rounded-[2px] bg-border/60">
-                  <span className="block h-full rounded-[2px]" style={{ width: `${Math.max(2, (one.minutes / focus.top[0].minutes) * 100)}%`, background: 'var(--tt-brand-color-400)' }} />
+                <span className="col-span-2 h-1.5">
+                  <span data-mark className="block h-full min-w-1.5 rounded-full" style={{ width: `${Math.max(2, (one.minutes / focus.top[0].minutes) * 100)}%`, background: INK }} />
                 </span>
               </div>
               </RowMenu>
@@ -297,16 +304,16 @@ export function FocusSections({ example }: { example: boolean }): React.JSX.Elem
                   </button>
                   <span className="text-right tabular-nums text-foreground">
                     <strong className="font-semibold">{timeSaid(one.minutes)}</strong>
-                    {one.grew && <span data-grew className="ml-2 font-medium" style={{ color: 'var(--tt-color-text-orange)' }}>Grew: {timeSaid(one.first)} to {timeSaid(one.last)} a session</span>}
+                    {one.grew && <span data-grew className="ml-2 font-medium text-foreground">Grew: {timeSaid(one.first)} to {timeSaid(one.last)} a session</span>}
                   </span>
-                  <span className="relative col-span-2 h-2 rounded-[2px] bg-border/60">
-                    <span className="block h-full rounded-[2px]" style={{ width: `${Math.max(2, (one.minutes / most) * 100)}%`, background: one.minutes > focus.taskTimes.average ? 'var(--tt-color-text-orange)' : 'color-mix(in oklab, var(--tt-brand-color-400) 50%, var(--background))' }} />
+                  <span className="relative col-span-2 h-2">
+                    <span data-mark className="block h-full min-w-2 rounded-full" style={{ width: `${Math.max(2, (one.minutes / most) * 100)}%`, background: one.minutes > focus.taskTimes.average ? INK : INK_LOW }} />
                     <span aria-hidden className="absolute -top-1 -bottom-1 w-0.5 rounded-full bg-foreground/70" style={{ left: `${(focus.taskTimes.average / most) * 100}%` }} />
                   </span>
                 </div>
               ))}
             </div>
-            {/* Said by where a bar ends, which reads in every theme; in some (Paper) orange and the accent are near the same brown. */}
+            {/* Said by where a bar ends and by its tone: past the average in the full ink, under it lighter. */}
             <p className="text-foreground">The line is the average: a bar past it took longer, and is drawn deeper{grew ? `; ${plural(grew, 'task', 'tasks')} grew, each session longer than the first` : ''}.</p>
           </Section>
         )
@@ -340,10 +347,10 @@ export function RoutineNumbers({ done, recurrence }: { done: { at: string }[]; r
           </p>
         )}
         {recurrence && (
-          <div className="grid w-fit grid-flow-col grid-rows-1 gap-[3px]" role="img" aria-label="The last four weeks">
+          <div data-chart="kept-up" className="grid w-fit grid-flow-col grid-rows-1 gap-[3px]" role="img" aria-label="The last four weeks">
             {grid.map((day) => (
               <Tip key={day} label={`${dated(day, 'ddd D MMM')} · ${days.has(day) ? 'done' : 'not done'}`}>
-                <div className="h-3 w-[7px] rounded-[2px]" style={{ background: days.has(day) ? 'var(--tt-brand-color-400)' : 'color-mix(in oklab, var(--foreground) 14%, var(--background))' }} />
+                <div {...(days.has(day) ? { 'data-mark': '' } : {})} className="h-3 w-[7px] rounded-[2px]" style={{ background: days.has(day) ? INK : INK_NONE }} />
               </Tip>
             ))}
           </div>
@@ -403,15 +410,15 @@ export function GoalSection({ example }: { example: boolean }): React.JSX.Elemen
   const ended = made + missed + letGo
   if (!ended && !open) return null
   const parts = [
-    { n: made, label: 'made it', tint: 'var(--tt-brand-color-400)' },
-    { n: missed, label: 'missed', tint: 'color-mix(in oklab, var(--tt-brand-color-400) 50%, var(--muted-foreground))' },
-    { n: letGo, label: 'given up', tint: 'color-mix(in oklab, var(--foreground) 30%, var(--background))' }
+    { n: made, label: 'made it', tint: INK },
+    { n: missed, label: 'missed', tint: INK_MID },
+    { n: letGo, label: 'given up', tint: INK_LOW }
   ]
   return (
     <Section title="Goals" big={ended ? { value: made, label: `made it, of ${plural(ended, 'goal', 'goals')} ended` } : { value: open, label: open === 1 ? 'goal under way' : 'goals under way' }}>
       {ended > 0 && (
-        <div data-goal-tally className="flex h-2.5 gap-[2px] overflow-hidden rounded-full">
-          {parts.filter((one) => one.n).map((one) => <div key={one.label} style={{ width: `${(one.n / ended) * 100}%`, background: one.tint }} />)}
+        <div data-goal-tally data-chart="goal-tally" className="flex h-2.5 gap-[2px] overflow-hidden rounded-full">
+          {parts.filter((one) => one.n).map((one) => <div key={one.label} data-mark style={{ width: `${(one.n / ended) * 100}%`, background: one.tint }} />)}
         </div>
       )}
       <p>
@@ -432,14 +439,14 @@ export function TagSection({ example }: { example: boolean }): React.JSX.Element
   const most = [...habits.tags].sort((a, b) => b.waiting - a.waiting)[0]
   return (
     <Section title="By tag" big={{ value: `#${habits.tags[0].tag}`, label: 'your most used tag' }}>
-      <div data-tag-split className="space-y-2.5">
+      <div data-tag-split data-chart="tag-split" className="space-y-2.5">
         {habits.tags.map((one) => (
           <div key={one.tag} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 text-sm">
             <span className="truncate font-medium text-foreground">#{one.tag}</span>
             <span className="text-right text-foreground tabular-nums"><strong className="font-semibold">{num(one.dealt)}</strong> dealt with · <strong className="font-semibold">{num(one.waiting)}</strong> waiting</span>
             <span className="col-span-2 flex h-1.5 gap-[2px] overflow-hidden rounded-full" style={{ width: `${Math.max(4, ((one.dealt + one.waiting) / top) * 100)}%` }}>
-              {one.dealt > 0 && <span className="h-full" style={{ flex: one.dealt, background: 'var(--tt-brand-color-400)' }} />}
-              {one.waiting > 0 && <span className="h-full" style={{ flex: one.waiting, background: 'color-mix(in oklab, var(--foreground) 30%, var(--background))' }} />}
+              {one.dealt > 0 && <span data-mark className="h-full" style={{ flex: one.dealt, background: INK }} />}
+              {one.waiting > 0 && <span data-mark className="h-full" style={{ flex: one.waiting, background: INK_LOW }} />}
             </span>
           </div>
         ))}
