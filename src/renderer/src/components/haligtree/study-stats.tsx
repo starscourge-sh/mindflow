@@ -147,8 +147,8 @@ function StudyCards({ studied }: { studied: Studied }): React.JSX.Element {
         <Ends left="12 weeks ago" right="this week" />
       </MonoCard>
       <MonoCard name="stages" title="Where your cards stand" value={studied.cards} unit={studied.cards === 1 ? 'card' : 'cards'}
-        point={studied.stages.learnt ? `${num(studied.stages.learnt)} learnt, ${num(studied.stages.learning)} still being learnt, ${num(studied.stages.new)} not yet seen.` : 'Every card starts new, and is learnt once it sticks.'}>
-        <ToneBar parts={[{ name: 'Learnt', n: studied.stages.learnt }, { name: 'Learning', n: studied.stages.learning }, { name: 'New', n: studied.stages.new }]} />
+        point={studied.stages.learnt ? `${num(studied.stages.learnt)} learnt, ${num(studied.stages.learning)} still being learnt, ${num(studied.stages.new)} not studied yet.` : 'Every card starts new, and is learnt once it sticks.'}>
+        <ToneBar parts={[{ name: 'Learnt', n: studied.stages.learnt }, { name: 'Learning', n: studied.stages.learning }, { name: 'Not studied yet', n: studied.stages.new }]} />
       </MonoCard>
       <MonoCard name="sources" title="Cards by where they came from" value={studied.sources.length} unit={studied.sources.length === 1 ? 'source' : 'sources'}
         hovered={onSources} point={studied.sources[0] ? `Most come from ${studied.sources[0].name}.` : 'Cards made from a book or a note show here.'}>

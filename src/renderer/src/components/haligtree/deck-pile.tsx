@@ -11,7 +11,7 @@ export const pileEdges = (cards: number): number => [2, 3, 5, 10, 20].filter((at
  * right and 4px down from the one before, whole, in the same satin with its
  * own hairline, so the pile shows along the right and the bottom. A deck with
  * cards due has one card standing up 7px above the others; how many is said
- * once, on the face ("1 due · 3 new"). The tile keeps room for the biggest
+ * once, on the face ("1 due · 3 not studied yet"). The tile keeps room for the biggest
  * pile and the card standing up, so every tile lines up and nothing moves
  * as a deck grows. Pointed at, the
  * top card lifts 2px and the cards behind fan out a touch (main.css).

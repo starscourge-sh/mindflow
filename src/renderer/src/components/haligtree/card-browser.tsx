@@ -663,9 +663,9 @@ export function CardBrowser({ onOpen, aim, only, newest, onAll, onShow, onAimDon
       )}
       {several.bar}
       {compact && gridActions && <div data-card-actions className="-ml-3 flex items-center gap-1">{gridActions}</div>}
-      {/* New, learning and due, as Anki users count a deck: for what is on show. */}
+      {/* Not studied yet, learning and due, as Anki users count a deck: for what is on show. */}
       <p data-card-counts className="flex flex-wrap gap-x-4 text-sm">
-        <span><strong className="font-semibold text-[var(--tt-color-text-blue)] tabular-nums">{num(ordered.filter((one) => one.stage === 'new' && !one.paused).length)}</strong> new</span>
+        <span><strong className="font-semibold text-[var(--tt-color-text-blue)] tabular-nums">{num(ordered.filter((one) => one.stage === 'new' && !one.paused).length)}</strong> not studied yet</span>
         <span><strong className="font-semibold text-[var(--tt-color-text-orange)] tabular-nums">{num(ordered.filter((one) => one.stage === 'learning' && !one.paused).length)}</strong> learning</span>
         <span><strong className="font-semibold text-[var(--tt-color-text-green)] tabular-nums">{num(ordered.filter((one) => one.dueAt && Date.parse(one.dueAt) <= Date.now() && !one.paused).length)}</strong> due now</span>
         <span data-card-known><strong className="font-semibold text-[var(--tt-color-text-purple)] tabular-nums">{num(ordered.filter((one) => one.known).length)}</strong> known <span className="text-muted-foreground">(remembered after 15 days or more)</span></span>

@@ -949,9 +949,9 @@ function TopLine({ at, total, exams, onPick, onLearn, onTrim }: { at: number; to
             </Tip>
           )}
           {fresh > 0 && (
-            <Tip label={`${num(fresh)} new ${fresh === 1 ? 'card' : 'cards'}: learn them in a guided round before they join the schedule`}>
+            <Tip label={`${plural(fresh, 'card')} not studied yet: learn them in a guided round before they join the schedule`}>
               <button type="button" data-learn-new onClick={() => (chime('open'), onLearn())} className={quiet}>
-                Learn {fresh > 8 ? '8' : num(fresh)} new
+                Learn {fresh > 8 ? '8' : num(fresh)} not studied yet
               </button>
             </Tip>
           )}
@@ -1058,7 +1058,7 @@ function Finished({ count, total, later = 0, compact, onPick, onLearn, ids = [] 
     void onboarding.state().then((state) => void (state.hintsSeen.includes('review') || onboarding.set({ hintsSeen: [...state.hintsSeen, 'review'] })))
   }, [done])
   const fresh = counts?.new ?? 0
-  const learn = fresh > 8 ? 'the first 8 new cards' : fresh === 1 ? 'the new card' : `the ${num(fresh)} new cards`
+  const learn = fresh > 8 ? 'the first 8 cards not studied yet' : fresh === 1 ? 'the card not studied yet' : `the ${num(fresh)} cards not studied yet`
   const ways = [
     inbox ? { id: 'inbox', label: `Next: ${plural(inbox, 'capture')} in your Inbox`, short: `your Inbox (${num(inbox)})`, run: () => (chime('open'), window.api.openInHome('view', 'inbox')) } : null,
     fresh ? { id: 'learn', label: `Next: learn ${learn}`, short: `learn ${learn}`, run: () => (chime('open'), onLearn()) } : null
@@ -1350,11 +1350,11 @@ const READY = [
   { key: 'solid', label: 'solid', color: 'var(--tt-color-text-green)' },
   { key: 'learning', label: 'learning', color: 'var(--tt-color-text-blue)' },
   { key: 'struggling', label: 'struggling', color: 'var(--tt-color-text-orange)' },
-  { key: 'unseen', label: 'not seen yet', color: 'var(--tt-color-text-gray)' }
+  { key: 'unseen', label: 'not studied yet', color: 'var(--tt-color-text-gray)' }
 ] as const
 
 /**
- * How ready one exam is: solid, learning, struggling and not yet seen, as
+ * How ready one exam is: solid, learning, struggling and not studied yet, as
  * one bar. No bar before anything has been seen: a sentence says so instead.
  */
 export function Readiness({ exam, named = true }: { exam: Exam; named?: boolean }): React.JSX.Element {

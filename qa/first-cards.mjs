@@ -78,7 +78,7 @@ try {
 
   // 5. Back on the decks: the example deck with its counts; still the first page, as no card is yours.
   await review()
-  check('5. the decks page shows the example deck added, with its counts', await waitFor(() => has('[data-first-example="added"]')) && /due · 9 new/.test(await text('[data-first-example="added"]')), await text('[data-first-example]'))
+  check('5. the decks page shows the example deck added, with its counts', await waitFor(() => has('[data-first-example="added"]')) && /due · 9 not studied yet/.test(await text('[data-first-example="added"]')), await text('[data-first-example]'))
   await both('first-5-added')
 
   // 6. Phone width: one column, no sideways scroll, tap targets at least 32 px.

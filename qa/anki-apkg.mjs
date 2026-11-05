@@ -122,7 +122,7 @@ try {
   await h.evaluate(() => document.querySelector('[data-review-tab="decks"]')?.click())
   await waitFor(() => h.evaluate(() => !!document.querySelector('[data-deck-shelf]')))
   const shelf = await h.evaluate(() => document.querySelector('[data-deck-shelf]')?.innerText ?? '')
-  check('Review › Decks shows the deck, its cover and its counts', /Biology\n\d+ due · \d+ new/.test(shelf) && await h.evaluate(() => !!document.querySelector('[data-deck] img')), shelf.replace(/\n/g, ' | ').slice(0, 400))
+  check('Review › Decks shows the deck, its cover and its counts', /Biology\n\d+ due · \d+ not studied yet/.test(shelf) && await h.evaluate(() => !!document.querySelector('[data-deck] img')), shelf.replace(/\n/g, ' | ').slice(0, 400))
   await c.both(join(process.env.QA_SHOTS ?? dir, 'anki-apkg-decks'))
   // Your own decks and the shared one in one picture: the last of yours over the shared shelf, light and dark.
   for (const [theme, said] of [['paper', 'light'], ['dark', 'dark']]) {

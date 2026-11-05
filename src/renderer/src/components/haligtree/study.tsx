@@ -8,7 +8,7 @@ import { makeTask } from '@/lib/tasks'
 import { EASE, shift } from '@/lib/motion'
 import { haligtree, useLive, type Item, type TagRead } from '@/lib/haligtree'
 import { BUCKETS, keyWords, mentions, type Bucket } from '../../../../main/study'
-import { num } from '../../../../main/dates'
+import { num, plural } from '../../../../main/dates'
 import { textOf } from '../rot-cards'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -58,7 +58,7 @@ export function FocusChips({ round, onPick, onLearn }: { round: Round | null; on
     {/* A line of its own under the chips: the new cards learnt in a guided round, rather than met a few a day. */}
     {onLearn && counts.new > 0 && (
       <p className="flex flex-wrap items-center gap-x-2 gap-y-1 px-5 pt-2 text-sm">
-        <span><strong className="font-semibold">{num(counts.new)} new {counts.new === 1 ? 'card' : 'cards'}.</strong> <span className="text-muted-foreground">Learn them in a guided round before they join the schedule.</span></span>
+        <span><strong className="font-semibold">{plural(counts.new, 'card')} not studied yet.</strong> <span className="text-muted-foreground">Learn them in a guided round before they join the schedule.</span></span>
         <button type="button" data-learn-new onClick={() => (chime('open'), onLearn())}
           className="flex h-6 items-center rounded-md border px-2 text-xs font-medium text-foreground transition-colors hover:bg-accent/60">
           Learn {counts.new > 8 ? 'the first 8' : counts.new === 1 ? 'it' : `the ${num(counts.new)}`}

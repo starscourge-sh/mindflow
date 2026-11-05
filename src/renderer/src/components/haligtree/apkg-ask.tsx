@@ -90,7 +90,7 @@ export function ApkgAskSheet(): React.JSX.Element {
           {big && (
             <div className="grid gap-2">
               <p className="text-body text-foreground">
-                <b className="font-semibold">{num(fresh)} new cards.</b> Start them all, or hold until you study each topic? Held cards wait on the shelf; start a topic when you read or watch it, and its cards will make sense.
+                <b className="font-semibold">{num(fresh)} cards not studied yet.</b> Start them all, or hold until you study each topic? Held cards wait on the shelf; start a topic when you read or watch it, and its cards will make sense.
               </p>
               <Pick name="start" value={start} onPick={setStart} options={[{ id: 'hold', label: 'Hold until I study each topic' }, { id: 'all', label: 'Start them all' }]} />
             </div>

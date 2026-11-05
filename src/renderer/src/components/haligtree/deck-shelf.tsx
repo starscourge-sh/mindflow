@@ -279,7 +279,7 @@ export function DeckShelf({ place, onPlace, onOpen, onStudy, onPaste, onPicture,
 
 /**
  * A deck as a pocket: a squarish tile with how many are due large in ink (a
- * small accent dot says some are), its name and "N due · N new" under it, and
+ * small accent dot says some are), its name and "N due · N not studied yet" under it, and
  * "+N sub-decks" when it has them. The whole tile studies it; everything else
  * is in its ⋯ menu and on right-click.
  */
@@ -517,12 +517,12 @@ function Fold({ id, kids, open, name, flip }: { /** The deck's tag or a shared t
   )
 }
 
-/** Due first, in ink and bold when there are some, as Anki users read a deck; then new. */
+/** Due first, in ink and bold when there are some, as Anki users read a deck; then those never studied, never "new", which Anki users read as today's new cards. */
 function Counts({ due, fresh }: { due: number; fresh: number }): React.JSX.Element {
   return (
     <>
       <span data-count-due={due} className={due ? 'font-semibold text-foreground' : ''}>{num(due)} due</span>
-      <span> · {num(fresh)} new</span>
+      <span data-count-fresh={fresh}> · {num(fresh)} not studied yet</span>
     </>
   )
 }
@@ -531,7 +531,7 @@ function Counts({ due, fresh }: { due: number; fresh: number }): React.JSX.Eleme
 /**
  * A deck's face: by default a plain index-card box in the theme's one tone,
  * the number due today large in the accent (what an Anki user reads first),
- * or, with none due, the new ones in ink. With "Shapes on decks" on in Settings, the
+ * or, with none due, those not studied yet in ink. With "Shapes on decks" on in Settings, the
  * Coolshapes cover drawn from its name instead.
  */
 export function DeckFace({ name, due, fresh, shapes, faded = false, small = false }: { name: string; due: number; fresh: number; shapes: boolean; faded?: boolean; /** The size Settings shows it at. */ small?: boolean }): React.JSX.Element {
@@ -540,21 +540,21 @@ export function DeckFace({ name, due, fresh, shapes, faded = false, small = fals
   return (
     <div aria-hidden data-deck-face={name} className={`grid ${size} shrink-0 content-center justify-items-center gap-0.5 rounded-[5px] mf-metal ${faded ? 'opacity-60' : ''}`}>
       <span className={`font-serif text-3xl leading-none tabular-nums ${due ? 'text-primary' : fresh ? 'text-foreground' : 'text-foreground/35'}`}>{num(due || fresh)}</span>
-      <span className="text-xs text-muted-foreground">{fresh && !due ? 'new' : 'due'}</span>
+      <span className="px-1 text-center text-xs leading-tight text-balance text-muted-foreground">{fresh && !due ? 'not studied yet' : 'due'}</span>
     </div>
   )
 }
 
 /**
  * Every deck as a plain table, as Anki's deck list: the name, then Due (in
- * the accent), New and Cards in columns; sub-decks hang off the trunk under
+ * the accent), Not studied and Cards in columns; sub-decks hang off the trunk under
  * their deck and fold with its chevron. Clicking a name studies it.
  */
 type Target = { own: OwnDeck } | { shelf: Shelf }
 function DeckList({ own, shelves, onStudy, place = {}, menu }: { own: OwnDeck[]; shelves: Shelf[]; onStudy: (tag: string) => void; /** The order you dragged the decks to. */ place?: Record<string, number>
   /** A deck's one menu, the same as its pocket's: on the row's ⋯ and on a right click. */ menu: (target: Target, at: () => HTMLElement | null) => RowItem[] }): React.JSX.Element {
   const [shut, flip] = useShut()
-  const cols = 'grid grid-cols-[minmax(0,1fr)_3.5rem_3.5rem_4rem_2rem] items-center gap-x-2'
+  const cols = 'grid grid-cols-[minmax(0,1fr)_3.5rem_5.5rem_4rem_2rem] items-center gap-x-2'
   const row = (key: string, name: string, _title: string, due: number, fresh: number, all: number, kids: number, study: (() => void) | null, target: Target | null = null): React.JSX.Element => {
     const at = (): HTMLElement | null => document.querySelector<HTMLElement>(`[data-deck-row="${CSS.escape(key)}"]`)
     const line = (
@@ -577,7 +577,7 @@ function DeckList({ own, shelves, onStudy, place = {}, menu }: { own: OwnDeck[];
   return (
     <div data-deck-list role="table" aria-label="Decks" className="grid rounded-[5px] mf-metal px-3 py-2">
       <div className={`${cols} border-b border-foreground/10 pb-1.5 text-sm text-muted-foreground`}>
-        <span className="pl-6">Deck</span><span className="text-right">Due</span><span className="text-right">New</span><span className="text-right">Cards</span><span />
+        <span className="pl-6">Deck</span><span className="text-right">Due</span><span className="text-right">Not studied</span><span className="text-right">Cards</span><span />
       </div>
       {tops.map((deck) => {
         const inside = own.filter((one) => one.tag.startsWith(`${deck.tag}-`))

@@ -53,12 +53,12 @@ try {
   // 3. Stacks: squarish tiles in a grid, a plain face, due first in ink, no Coolshapes by default, one filled button on the page.
   check('3. no Coolshapes cover on any deck by default', !(await has('[data-deck-shelf] [data-group-cover]')))
   // The name leads the tile and its counts sit under it, due first: no big number repeating them (user, 1 Nov).
-  check('3. each deck says its due count first, then new, under its name', /^0 due · 5 new$/.test((await text('[data-own-deck="biology"] [data-deck-counts]')).trim()) && await h.evaluate(() => document.querySelector('[data-own-deck="biology"] h3')?.compareDocumentPosition(document.querySelector('[data-own-deck="biology"] [data-deck-counts]')) === Node.DOCUMENT_POSITION_FOLLOWING), await text('[data-own-deck="biology"] [data-deck-counts]'))
+  check('3. each deck says its due count first, then those not studied yet, under its name', /^0 due · 5 not studied yet$/.test((await text('[data-own-deck="biology"] [data-deck-counts]')).trim()) && await h.evaluate(() => document.querySelector('[data-own-deck="biology"] h3')?.compareDocumentPosition(document.querySelector('[data-own-deck="biology"] [data-deck-counts]')) === Node.DOCUMENT_POSITION_FOLLOWING), await text('[data-own-deck="biology"] [data-deck-counts]'))
   const counts = await text('[data-own-deck="spanish"] [data-deck-counts]')
-  check('3. the counts say due first, then new', /^\d+ due · \d+ new$/.test(counts.trim()), counts)
+  check('3. the counts say due first, then not studied yet', /^\d+ due · \d+ not studied yet$/.test(counts.trim()), counts)
   const radius = await h.evaluate(() => parseFloat(getComputedStyle(document.querySelector('[data-own-deck="biology"] [data-pile-top]') ?? document.querySelector('[data-own-deck="biology"]')).borderTopLeftRadius))
   check('3. a deck is squarer: a corner of 4 to 6 px', radius >= 4 && radius <= 6, `${radius}px`)
-  check('3. the parent counts the cards of the decks inside it', /5 new/.test(await text('[data-own-deck="biology"] [data-deck-counts]')), await text('[data-own-deck="biology"] [data-deck-counts]'))
+  check('3. the parent counts the cards of the decks inside it', /5 not studied yet/.test(await text('[data-own-deck="biology"] [data-deck-counts]')), await text('[data-own-deck="biology"] [data-deck-counts]'))
   const grid = await h.evaluate(() => { const tiles = [...document.querySelectorAll('[data-deck-grid] > [data-deck]')].map((one) => one.getBoundingClientRect()); return { across: new Set(tiles.map((r) => Math.round(r.top))).size ? tiles.filter((r) => Math.round(r.top) === Math.round(tiles[0].top)).length : 0, w: Math.round(tiles[0]?.width ?? 0), h: Math.round(tiles[0]?.height ?? 0) } })
   check('3. decks are tiles, 2 or more across, about 170 to 260 px wide', grid.across >= 2 && grid.w >= 165 && grid.w <= 260, JSON.stringify(grid))
   check('3. no button on a tile but its menu and its sub-decks', await h.evaluate(() => [...document.querySelectorAll('[data-deck-grid] [data-deck] button')].every((one) => one.matches("[data-deck-dots], [data-deck-kids]"))))
