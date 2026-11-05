@@ -14,7 +14,7 @@ import { useMilestones, type Milestone } from '@/lib/milestones'
 import { DotMatrix } from './dot-matrix'
 import { Answers, Journey, goalInk, markOf, openOnes, useToday, warmth } from './goals-view'
 import { dayKey, dayMonth, num, plural } from '../../../../main/dates'
-import { daysBetween, daysLeft, journey, leftSaid, percent, wayThrough } from '../../../../main/goal-days'
+import { YEAR, daysBetween, daysLeft, farOff, journey, leftSaid, percent, wayThrough } from '../../../../main/goal-days'
 import { SandboxStamp } from '@/components/haligtree/sandbox'
 import { SANDBOX } from '@/lib/sandbox'
 import { Frost } from './frost'
@@ -212,7 +212,7 @@ function Card({ id, today, preview }: { id: string; today: string; /** A goal no
       )}
       <div className="min-h-0 flex-1 text-foreground"><Journey compact goal={id} from={from} target={goal.goalAt} today={today} logs={goal.glosses} /></div>
       {/* The grid said in place, so a dot means something without pointing at it. */}
-      {left >= 0 && !said && <p data-goal-key className="text-meta leading-snug text-muted-foreground text-pretty">Each dot is a {journey(from, goal.goalAt, today).by}, {percent(wayThrough(from, goal.goalAt))} of the time gone. Coloured dots have a log; the last, ringed, is the day.</p>}
+      {left >= 0 && !said && <p data-goal-key className="text-meta leading-snug text-muted-foreground text-pretty">Each dot is a {journey(from, goal.goalAt, today).by === 'week' ? 'week until it\'s within a year' : 'day'}, {percent(wayThrough(from, goal.goalAt))} of the time gone. Coloured dots have a log; the last, ringed, is the day.</p>}
     </div>
   )
 }
@@ -340,7 +340,10 @@ export function GoalsSticky(): React.JSX.Element {
 
   // One stretch of days for every lane: the first start to the last day, today always on it.
   const start = goals.reduce((first, one) => ((one.goalFrom ?? dayKey(one.createdAt)) < first ? (one.goalFrom ?? dayKey(one.createdAt)) : first), today)
-  const end = goals.reduce((last, one) => (one.goalAt! > last ? one.goalAt! : last), today)
+  // A year ahead at most while any goal is within a year: one far-off dream stretched every lane so thin the near ones were specks.
+  // Its lane runs off the right edge instead, fading, its days said in words.
+  const last = goals.reduce((most, one) => (one.goalAt! > most ? one.goalAt! : most), today)
+  const end = goals.some((one) => !farOff(one.goalAt!, today)) && farOff(last, today) ? dayKey(new Date(Date.now() + YEAR * 86_400_000)) : last
   const span = Math.max(1, daysBetween(start, end))
   const x = (day: string): number => Math.min(100, Math.max(0, (daysBetween(start, day) / span) * 100))
   const marksOf = (goal: Goal): Milestone[] => marks.filter((one) => markOf(one) === goal.id)
@@ -397,8 +400,8 @@ export function GoalsSticky(): React.JSX.Element {
                   </span>
                   <span className="relative block h-3.5">
                     <span aria-hidden data-goals-today className="absolute top-0 bottom-0 w-px bg-foreground/40" style={{ left: `${x(today)}%` }} />
-                    {/* The whole road faint, the part gone solid. */}
-                    <span className="absolute top-1/2 h-1 -translate-y-1/2 rounded-[2px]" style={{ left: `${x(from)}%`, width: `${Math.max(1, x(goal.goalAt!) - x(from))}%`, background: `color-mix(in oklab, ${ink} 28%, transparent)` }} />
+                    {/* The whole road faint, the part gone solid; a road past the year fades off the edge. */}
+                    <span className="absolute top-1/2 h-1 -translate-y-1/2 rounded-[2px]" style={{ left: `${x(from)}%`, width: `${Math.max(1, x(goal.goalAt!) - x(from))}%`, background: `color-mix(in oklab, ${ink} 28%, transparent)`, ...(goal.goalAt! > end ? { maskImage: 'linear-gradient(90deg, black 70%, transparent)' } : {}) }} />
                     <span data-goals-road className="absolute top-1/2 h-1 -translate-y-1/2 rounded-[2px]" style={{ left: `${x(from)}%`, width: `${Math.max(0, Math.min(x(today), x(goal.goalAt!)) - x(from))}%`, background: ink }} />
                     {/* Its logs, small dots above the road. */}
                     {[...new Set(goal.glosses.map((one) => dayKey(one.createdAt)))].map((day) => (
@@ -408,8 +411,8 @@ export function GoalsSticky(): React.JSX.Element {
                     {marksOf(goal).filter((one) => one.day >= from && one.day <= goal.goalAt!).map((one) => (
                       <span key={one.id} data-goals-mark={one.id} title={one.title} className="absolute top-1/2 size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 bg-popover" style={{ left: `${x(one.day)}%`, borderColor: ink }} />
                     ))}
-                    {/* Its day: a full dot, ringed. */}
-                    <span className="absolute top-1/2 size-3 -translate-x-1/2 -translate-y-1/2 rounded-full" style={{ left: `${x(goal.goalAt!)}%`, background: ink, boxShadow: `0 0 0 2px var(--popover), 0 0 0 3px ${ink}` }} />
+                    {/* Its day: a full dot, ringed; past the year, off the edge, said in words above. */}
+                    {goal.goalAt! <= end && <span className="absolute top-1/2 size-3 -translate-x-1/2 -translate-y-1/2 rounded-full" style={{ left: `${x(goal.goalAt!)}%`, background: ink, boxShadow: `0 0 0 2px var(--popover), 0 0 0 3px ${ink}` }} />}
                   </span>
                   </button>
                 )
