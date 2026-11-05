@@ -441,7 +441,8 @@ export function PictureCards({ deck: aimed, onClose, onShow }: { deck?: string |
   }
   const far = (a: [number, number], b: [number, number]): boolean => Math.hypot((a[0] - b[0]) * across, (a[1] - b[1]) * down_) >= 4
   const press = (event: React.PointerEvent<HTMLDivElement>): void => {
-    if (event.button !== 0 || !size) return
+    // One pointer at a time: a second finger mid-drag never makes the cover jump.
+    if (event.button !== 0 || !size || gesture.current) return
     if (editing) keepAnswer()
     ;(event.currentTarget.closest('[data-card-form]') as HTMLElement | null)?.focus({ preventScroll: true })
     const target = event.target as Element
@@ -720,6 +721,8 @@ export function PictureCards({ deck: aimed, onClose, onShow }: { deck?: string |
             <div ref={stage} data-picture-stage className={`relative mx-auto rounded-[4px] ${zoom > 1 ? 'overflow-auto' : 'overflow-hidden'}`} style={{ width: view.w || undefined, height: view.h || undefined }}>
               <div ref={board} data-picture-board className={`relative touch-none select-none ${tool === 'select' ? 'cursor-default' : 'cursor-crosshair'}`} style={{ width: across || undefined, height: down_ || undefined }}
                 onPointerDown={press} onPointerMove={drag} onPointerUp={lift}
+                // The pointer let go somewhere the board never heard of (the window lost it): finished as a letting go, never stuck mid-drag.
+                onLostPointerCapture={(event) => gesture.current && lift(event)}
                 onPointerCancel={() => (gesture.current = null, setDrawing(null), setMarquee(null))}
                 onDoubleClick={(event) => {
                   // The board holds the pointer while a press lasts, so the double-click is its own: the cover is the one under the pointer.
@@ -739,7 +742,7 @@ export function PictureCards({ deck: aimed, onClose, onShow }: { deck?: string |
                       <AnimatePresence initial={false}>
                         {covers.map((cover, index) => (
                           <motion.g key={cover.id ?? `c${index}`} data-made-cover={index} data-picked={picked.has(index) || undefined} data-hover={hover === index || undefined}
-                            onPointerEnter={() => setHover(index)} onPointerLeave={() => setHover((was) => (was === index ? null : was))}
+                            onPointerEnter={(event) => event.pointerType === 'mouse' && setHover(index)} onPointerLeave={() => setHover((was) => (was === index ? null : was))}
                             // A cover lands with a small settle, and lifts away when removed.
                             initial={still() ? { opacity: 0 } : { opacity: 0, scale: 1.08 }}
                             animate={{ opacity: 1, scale: 1 }}

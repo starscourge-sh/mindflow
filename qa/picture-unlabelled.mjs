@@ -83,6 +83,13 @@ try {
   const hintLine = await text('[data-picture-hint]')
   check('4. the hint line is one short line', hintLine.length > 0 && hintLine.length <= 90, `${hintLine.length}: ${hintLine}`)
   await shot('u-0-chosen')
+  // One hover, one surface: a tool's name and key in one tip, nothing else floating.
+  const tool0 = await h.evaluate(() => { const r = document.querySelector('[data-picture-tool="oval"]').getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 } })
+  await h.mouse.move(tool0.x, tool0.y); await h.waitForTimeout(900)
+  const floating = await h.evaluate(() => [...document.querySelectorAll('[role="tooltip"], [data-slot="tooltip-content"], [data-hover-card]')].filter((one) => one.getBoundingClientRect().width > 0).map((one) => one.textContent.trim()))
+  check('6. a tool shows one tip with its name and key, nothing else', floating.length === 1 && /Oval.*O/.test(floating[0]), JSON.stringify(floating))
+  await shot('u-0-tip')
+  await h.mouse.move(5, 5)
 
   // 1. Every way a person draws.
   await tool('b'); await h.mouse.click(...to(0.5, 0.5)); await honest('a click with the box tool', 0)
