@@ -7,6 +7,7 @@ import ArrowNarrowRightIcon from '@/components/ui/arrow-narrow-right-icon'
 import { chime } from '@/lib/sound'
 import { FOCUS_POWERS, GROUPS, POWERS, SEEN_KEY, useUsed, type Power } from '@/lib/powers'
 import { useFocusTools } from '@/lib/haligtree'
+import { lacks, meets, useCaps, WHICH, type Caps } from '@/lib/needs'
 import { SANDBOX, enterSandbox } from '@/lib/sandbox'
 import { useOnboarding } from '@/lib/onboarding'
 import { AliveIcon } from '@/components/ui/alive-icon'
@@ -41,7 +42,10 @@ export function PowersView({ onView }: { onView: (id: string, focus?: string) =>
       // Home simply keeps offering the page.
     }
   }, [])
-  const tried = used ? powers.filter((power) => used.has(power.id)).length : 0
+  const caps = useCaps()
+  // What this Mac lacks is still listed, marked, but not counted as there to try.
+  const here = powers.filter((power) => meets(caps, power.needs))
+  const tried = used ? here.filter((power) => used.has(power.id)).length : 0
   // Said after each group's name in the contents: how many of its cards you have tried.
   const note = (group: string): string => {
     const all = powers.filter((power) => power.group === group)
@@ -60,10 +64,11 @@ export function PowersView({ onView }: { onView: (id: string, focus?: string) =>
           {/* How far through, always: from 0, so there is something to fill. */}
           <div data-powers-tried className="mt-4 flex max-w-[22rem] flex-col gap-1.5">
             <p className="flex items-center gap-2 text-control text-muted-foreground">
-              <span className="font-semibold text-foreground tabular-nums">{num(tried)} of {num(powers.length)}</span> tried
+              <span className="font-semibold text-foreground tabular-nums">{num(tried)} of {num(here.length)}</span> tried
             </p>
-            <ProgressBar value={tried / powers.length} label={`${tried} of ${num(powers.length)} tried`} thick={3} />
+            <ProgressBar value={tried / here.length} label={`${tried} of ${num(here.length)} tried`} thick={3} />
           </div>
+          <ThisMac caps={caps} missing={powers.length - here.length} />
           {/* The same, as cards: about twenty questions on what is here, asked in Review a few a day. */}
           <LearnOffer className="-ml-2 mt-3" />
           {!focusTools && (
@@ -83,7 +88,7 @@ export function PowersView({ onView }: { onView: (id: string, focus?: string) =>
             {/* One column a group: each card its picture beside its words, read down like a list. */}
             <div className="mt-5 flex flex-col gap-3">
               {powers.filter((power) => power.group === group.id).map((power) => (
-                <Card key={power.id} power={power} used={!!used?.has(power.id)} onView={onView} />
+                <Card key={power.id} power={power} used={!!used?.has(power.id)} caps={caps} onView={onView} />
               ))}
             </div>
           </section>
@@ -105,7 +110,26 @@ const Tick = (): React.JSX.Element => (
   </span>
 )
 
-function Card({ power, used, onView }: { power: Power; used: boolean; onView: (id: string, focus?: string) => void }): React.JSX.Element {
+/**
+ * On this Mac: whether everything on the page works here, said once at the top,
+ * so nothing is promised to a Mac that cannot do it. Room kept from the first
+ * frame: the answer comes from main a moment after the page.
+ */
+function ThisMac({ caps, missing }: { caps: Caps | null; missing: number }): React.JSX.Element {
+  return (
+    <p data-this-mac={caps ? missing : ''} className="mt-4 min-h-[1.5rem] text-control text-muted-foreground">
+      {caps && (
+        <>
+          <strong className="font-semibold text-foreground">On this Mac{caps.major ? ` (macOS ${caps.macos.replace(/\.0$/, '')})` : ''}.</strong>{' '}
+          {missing ? `${num(missing)} ${missing === 1 ? 'needs' : 'need'} a newer Mac or Apple Intelligence, and ${missing === 1 ? 'says' : 'say'} so on ${missing === 1 ? 'its card' : 'their cards'}; the rest work here.` : 'Everything here works.'}
+        </>
+      )}
+    </p>
+  )
+}
+
+function Card({ power, used, caps, onView }: { power: Power; used: boolean; caps: Caps | null; onView: (id: string, focus?: string) => void }): React.JSX.Element {
+  const has = meets(caps, power.needs)
   const stage = useRef<HTMLDivElement>(null)
   // Plays only while most of it is on screen, and never with Motion off or Reduce motion.
   const seen = useInView(stage, { amount: 0.6 })
@@ -113,7 +137,7 @@ function Card({ power, used, onView }: { power: Power; used: boolean; onView: (i
   const calm = useStill()
   const Demo = DEMOS[power.id]
   return (
-    <article data-power={power.id} className="flex flex-col rounded-2xl border bg-[color-mix(in_oklab,var(--foreground)_2.5%,transparent)] p-1.5 @[40rem]/page:flex-row">
+    <article data-power={power.id} data-mac-needs={power.needs ?? 'every'} data-mac-lacking={has ? undefined : ''} className="flex flex-col rounded-2xl border bg-[color-mix(in_oklab,var(--foreground)_2.5%,transparent)] p-1.5 @[40rem]/page:flex-row">
       <div className="relative @[40rem]/page:w-[20rem] @[40rem]/page:shrink-0">
         {/* 9px: the card's 16px corner less its 6px edge and 1px line, so the corners nest. */}
         {/* Held to itself (contain): a demo's fold grows its card by height,
@@ -133,10 +157,14 @@ function Card({ power, used, onView }: { power: Power; used: boolean; onView: (i
         <p className="mt-2 text-control text-muted-foreground"><strong className="font-semibold text-foreground">Try it.</strong> {upper(power.tryIt ?? power.show.text)}</p>
         <div className="mt-auto flex items-center gap-1.5 pt-4">
           {power.keys?.map((keys) => <span key={keys} className="flex gap-0.5"><Pressed keys={keys} each={!keys.includes(' ')} /></span>)}
-          <button type="button" onClick={() => void showMe(power, onView)}
+          {/* Which Macs, quietly, where it works; where it does not, what it needs, at full ink, in Show me's place. */}
+          {has && <span data-which className="ml-1 text-meta text-muted-foreground">{WHICH[power.needs ?? 'every']}</span>}
+          {!has ? (
+            <span data-needs={power.needs} className="ml-auto flex h-7 items-center text-control font-medium text-foreground">{lacks(caps, power.needs!)}</span>
+          ) : <button type="button" onClick={() => void showMe(power, onView)}
             className="group/show -mr-1 ml-auto flex h-7 items-center gap-1 rounded-md pr-1.5 pl-2.5 text-control font-medium text-foreground/85 transition-colors duration-150 hover:bg-foreground/[0.06] hover:text-foreground active:scale-[0.97]">
             Show me <AliveIcon icon={ArrowNarrowRightIcon} size={14} className="text-muted-foreground transition-transform duration-150 group-hover/show:translate-x-0.5" />
-          </button>
+          </button>}
         </div>
       </div>
     </article>

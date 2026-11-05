@@ -4,6 +4,7 @@ import { notes } from './notes'
 import { onboarding } from './onboarding'
 import { SANDBOX } from './sandbox'
 import { APP_NAME, LEARN_TAG } from '../../../main/name'
+import type { Need } from '../../../main/needs'
 
 /**
  * What Haligtree can do, one card each: the powers the app never shows until you
@@ -41,6 +42,8 @@ export type Power = {
   show: Show
   /** Whether you have used it, from your own data; left out where no cheap, honest sign exists. */
   used?: (seen: Signs) => boolean
+  /** Which Macs get it (main/needs.ts); left out, every Mac. A Mac that lacks it is told so, never shown it as working. */
+  needs?: Need
 }
 
 export const GROUPS: { id: Group; line: string }[] = [
