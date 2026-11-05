@@ -9,6 +9,7 @@ import { Kbd, Rolling, Tip, Typed } from './ui'
 import { Button } from '@/components/ui/button'
 import { Scenery } from './scenery'
 import { RecapRadar, readShape } from './recap-radar'
+import { TONES } from './mono-card'
 import { inkOf, useMilestones } from '@/lib/milestones'
 import { EASE, byKeys, shift } from '@/lib/motion'
 import { dated, dayjs, dayName, noon, num, plural } from '../../../../main/dates'
@@ -218,11 +219,15 @@ export function Recap({ period, onClose }: { period: 'month' | 'year'; onClose: 
       <div key="exits" className="space-y-6">
         <p className="text-title"><Typed story text={`You kept ${data.kept}, resolved ${data.resolved} and moved ${data.discarded} to the Bin.`} /></p>
         {/* Drawn at its widths and wiped in from the left: a clip, not widths, so nothing is laid out again. */}
-        <motion.div initial={{ clipPath: 'inset(0 100% 0 0)' }} animate={{ clipPath: 'inset(0 0% 0 0)' }} transition={{ delay: 0.6, duration: 0.7, ease: EASE }} className="flex h-3 overflow-hidden rounded-full">
-          {[[data.kept, 'var(--tt-color-text-purple)'], [data.resolved, 'var(--tt-color-text-green)'], [data.discarded, 'var(--tt-color-text-gray)']].map(([n, color], index) => Number(n) > 0 && (
-            <div key={index} style={{ width: `${(Number(n) / (data.kept + data.resolved + data.discarded)) * 100}%`, background: String(color) }} />
+        <motion.div initial={{ clipPath: 'inset(0 100% 0 0)' }} animate={{ clipPath: 'inset(0 0% 0 0)' }} transition={{ delay: 0.6, duration: 0.7, ease: EASE }} data-chart="recap-exits" className="flex h-3 gap-0.5 overflow-hidden rounded-full">
+          {/* Tones of the one ink, a 2 px gap between parts, named in the key under it. */}
+          {[data.kept, data.resolved, data.discarded].map((n, index) => n > 0 && (
+            <div key={index} data-mark style={{ flex: `${n} 1 0`, minWidth: 6, background: 'var(--foreground)', opacity: TONES[index] }} />
           ))}
         </motion.div>
+        <p className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
+          {(['kept', 'resolved', 'moved to the Bin'] as const).map((label, index) => <span key={label} className="inline-flex items-center gap-1.5"><span className="size-2.5 rounded-[2px]" style={{ background: 'var(--foreground)', opacity: TONES[index] }} />{label}</span>)}
+        </p>
         <p className="text-muted-foreground">Moving one to the Bin keeps the promise as well as keeping it does.</p>
       </div>
     ),

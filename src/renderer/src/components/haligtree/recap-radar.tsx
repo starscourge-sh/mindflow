@@ -126,8 +126,9 @@ export function RecapRadar({ kinds, before: asked }: { kinds: Counted[]; before:
           <motion.path d={radial(was.map((n) => scale(n))) ?? ''} fill="none" stroke="var(--muted-foreground)" strokeWidth={1.25} strokeDasharray="3 4" strokeLinejoin="round"
             initial={still ? false : { opacity: 0 }} animate={{ opacity: 0.7 }} transition={{ delay: 0.2, duration: 0.4, ease: EASE }} />
         )}
-        <motion.path d={shape} fill="var(--tt-brand-color-400)" fillOpacity={0.18} stroke="var(--tt-brand-color-400)" strokeWidth={1.75} strokeLinejoin="round" />
-        {spokes.map((kind, i) => <Dot key={kind} angle={angle(i)} r={radii[i]} grow={grow} tint={typeOf(kind)?.tint ?? 'var(--foreground)'} near={near === i} />)}
+        {/* The one ink of every chart: a 2 px line with a soft wash inside and a filled dot on each spoke. */}
+        <motion.path d={shape} fill="var(--foreground)" fillOpacity={0.1} stroke="var(--foreground)" strokeWidth={2} strokeLinejoin="round" />
+        {spokes.map((kind, i) => <Dot key={kind} angle={angle(i)} r={radii[i]} grow={grow} tint="var(--foreground)" near={near === i} />)}
         {/* Each kind's name past the rim; pointed at, its count beside it, on the side away from the rim. */}
         {spokes.map((kind, i) => {
           const [x, y] = at(angle(i), R + 12)
@@ -137,7 +138,7 @@ export function RecapRadar({ kinds, before: asked }: { kinds: Counted[]; before:
           return (
             <g key={kind} transform={`translate(${x} ${y + (up ? -6 : Math.cos(angle(i)) < -0.3 ? 10 : 4)})`} textAnchor={anchor}>
               <text className="text-[0.6875rem]" fill={near === i ? 'var(--foreground)' : 'var(--muted-foreground)'}>{typeOf(kind)?.label}s</text>
-              <motion.text y={up ? -17 : 17} className="text-[0.6875rem] font-semibold tabular-nums" fill={typeOf(kind)?.tint} initial={false}
+              <motion.text y={up ? -17 : 17} className="text-[0.6875rem] font-semibold tabular-nums" fill="var(--foreground)" initial={false}
                 animate={{ opacity: near === i ? 1 : 0 }} transition={spring.fast}>{num(now[i])}</motion.text>
             </g>
           )

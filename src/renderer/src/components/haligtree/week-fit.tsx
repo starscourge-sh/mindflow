@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { TONES } from './mono-card'
 import { motion } from 'motion/react'
 import { chime } from '@/lib/sound'
 import { unloaded, useLive, haligtree, type Settings, type Task, type TaskWas } from '@/lib/haligtree'
@@ -19,7 +20,6 @@ import { APP_NAME } from '../../../../main/name'
  */
 
 const ORANGE = 'var(--tt-color-text-orange)'
-const BLUE = 'var(--tt-color-text-blue)'
 
 /** The working day, in minutes: Settings' "A working day is about N hours", 8 until changed. */
 function useWorkRoom(): number {
@@ -38,7 +38,7 @@ const eventsOn = (events: MacEvent[], day: string): MacEvent[] => {
 const restSaid = (load: DayLoad): string => (load.over ? `${lengthSaid(load.over)} over` : `${lengthSaid(load.free)} free`)
 
 
-/** A day as a bar: meetings, then tasks, against a mark where the working day ends; past it, amber. */
+/** A day as a bar: meetings in the full ink, then tasks a lighter tone of it, against a mark where the working day ends; past it, amber (the one status colour). */
 function LoadBar({ load, scale }: { load: DayLoad; scale: number }): React.JSX.Element {
   const part = (minutes: number): string => `${(minutes / scale) * 100}%`
   // Each part spans the bar and is scaled to its share from its own start, so
@@ -46,9 +46,9 @@ function LoadBar({ load, scale }: { load: DayLoad; scale: number }): React.JSX.E
   const grow = { type: 'spring', stiffness: 260, damping: 32 } as const
   const piece = (from: number, minutes: number): { x: string; scaleX: number } => ({ x: part(from), scaleX: Math.min(1, minutes / scale) })
   return (
-    <span aria-hidden className="relative block h-1.5 w-full overflow-hidden rounded-[2px] bg-foreground/[0.07]">
-      <motion.span className="absolute inset-0" style={{ background: BLUE, originX: 0 }} initial={false} animate={piece(0, load.meetings)} transition={grow} />
-      <motion.span className="absolute inset-0 bg-foreground/45" style={{ originX: 0 }} initial={false} animate={piece(load.meetings, load.tasks)} transition={grow} />
+    <span aria-hidden className="relative block h-1.5 w-full overflow-hidden rounded-full bg-foreground/[0.07]">
+      <motion.span className="absolute inset-0" style={{ background: 'var(--foreground)', originX: 0 }} initial={false} animate={piece(0, load.meetings)} transition={grow} />
+      <motion.span className="absolute inset-0" style={{ background: 'var(--foreground)', opacity: TONES[2], originX: 0 }} initial={false} animate={piece(load.meetings, load.tasks)} transition={grow} />
       {load.over > 0 && <motion.span className="absolute inset-0" style={{ background: ORANGE, originX: 0 }} initial={false} animate={piece(load.room, load.over)} transition={grow} />}
       <span className="absolute inset-y-[-2px] w-0.5 rounded-full bg-foreground/60" style={{ left: part(load.room) }} />
     </span>

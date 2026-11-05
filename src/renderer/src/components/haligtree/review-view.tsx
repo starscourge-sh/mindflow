@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { line, curveMonotoneX } from 'd3-shape'
 import { tagsIn } from '../../../../main/tag-words'
 import { byDefault, useToolKeys } from '@/lib/tool-keys'
 import { fieldOf } from '@/components/capture-list'
@@ -1466,8 +1467,9 @@ function StrengthLine({ id }: { id: string }): React.JSX.Element | null {
   return (
     <div data-strength className="flex flex-col gap-1 pb-1">
       <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Strength after each review" className="h-9 w-full max-w-[16rem] overflow-visible">
-        <polyline points={xy.map(([x, y]) => `${x},${y}`).join(' ')} fill="none" stroke="currentColor" strokeOpacity={0.45} strokeWidth={1.5} strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
-        {xy.map(([x, y], n) => <circle key={points[n].at} cx={x} cy={y} r={2.5} fill={GRADES[points[n].grade - 1]?.tone ?? 'currentColor'} />)}
+        {/* The charts' one ink: a 2 px monotone line (never past a point), each review a filled dot in its grade's tone, ringed in the page. */}
+        <path d={line().curve(curveMonotoneX)(xy.map(([x, y]) => [x, y])) ?? ''} fill="none" stroke="var(--foreground)" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+        {xy.map(([x, y], n) => <circle key={points[n].at} cx={x} cy={y} r={3.5} fill={GRADES[points[n].grade - 1]?.tone ?? 'var(--foreground)'} stroke="var(--background)" strokeWidth={1.5} />)}
       </svg>
       <span className="text-foreground">Holds about {last >= 1.5 ? `${num(Math.round(last))} days` : last >= 1 ? 'a day' : 'under a day'} now</span>
     </div>

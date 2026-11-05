@@ -107,7 +107,7 @@ function Activity({ days, month }: { days: number[]; month: string }): React.JSX
     <div className="relative mt-4">
       <div className="pointer-events-none absolute inset-x-0 top-[6px] flex items-center gap-2" aria-hidden>
         <span className="min-w-6 shrink-0 text-right font-mono text-[0.625rem] text-muted-foreground"><Count n={top} /></span>
-        <span className="h-px flex-1 border-t border-dashed border-border" />
+        <span className="h-px flex-1 border-t border-border" />
       </div>
       <span aria-hidden className="pointer-events-none absolute bottom-6 left-0 w-6 text-right font-mono text-[0.625rem] leading-none text-muted-foreground">0</span>
       <div
@@ -124,18 +124,18 @@ function Activity({ days, month }: { days: number[]; month: string }): React.JSX
           initial={still ? false : { clipPath: 'inset(-4px 100% -4px -4px)' }} animate={{ clipPath: 'inset(-4px -4px -4px -4px)' }} transition={{ duration: 1.2, ease: EASE }} role="img" aria-label={`Captures a day through ${dayjs(`${month}-01`).format('MMMM')}`}>
           <defs>
             <linearGradient id="mf-reflect-fill" x1="0" x2="0" y1="0" y2="1">
-              <stop offset="0%" stopColor="var(--tt-brand-color-400)" stopOpacity="0.22" />
-              <stop offset="100%" stopColor="var(--tt-brand-color-400)" stopOpacity="0" />
+              <stop offset="0%" stopColor="var(--foreground)" stopOpacity="0.16" />
+              <stop offset="100%" stopColor="var(--foreground)" stopOpacity="0" />
             </linearGradient>
           </defs>
           <line x1="0" x2={w} y1={h} y2={h} stroke="var(--border)" vectorEffect="non-scaling-stroke" />
           <path d={area} fill="url(#mf-reflect-fill)" />
-          <path d={line} fill="none" stroke="var(--tt-brand-color-400)" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+          <path d={line} fill="none" stroke="var(--foreground)" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
         </motion.svg>
         {at !== null && (
           <>
             <span aria-hidden className="pointer-events-none absolute inset-y-0 w-px bg-foreground/25" style={{ left: x(at) }} />
-            <span aria-hidden className="pointer-events-none absolute size-2.5 -translate-x-1/2 translate-y-1/2 rounded-full border-2 border-background bg-[var(--tt-brand-color-400)]"
+            <span aria-hidden className="pointer-events-none absolute size-2.5 -translate-x-1/2 translate-y-1/2 rounded-full border-2 border-background bg-foreground"
               style={{ left: x(at), bottom: `${(days[at] / top) * (1 - 6 / h) * 100}%` }} />
             <span className={`pointer-events-none absolute -top-8 -translate-x-1/2 whitespace-nowrap ${TIP}`}
               style={{ left: `clamp(3.5rem, ${x(at)}, calc(100% - 3.5rem))` }}>

@@ -228,7 +228,7 @@ function WeekStrip({ weeks, onWeek }: { weeks: LikedSide['weeks']; onWeek: (star
   const top = weeks.reduce((best, one) => (one.n > best.n ? one : best), weeks[0])
   const point = !year ? 'No likes in the last year' : `${likesSaid(year)} in the last year, the most in the week of ${written(top.start)} (${num(top.n)})`
   return (
-    <section data-liked-strip aria-label="Likes each week, the last year" className="mb-2 rounded-xl border bg-accent/25 px-4 pt-3 pb-2">
+    <section data-liked-strip aria-label="Likes each week, the last year" data-chart="liked-weeks" className="mb-2 rounded-[6px] border bg-card px-3 pt-3 pb-2">
       <p className="flex flex-wrap items-baseline justify-between gap-x-3 text-control">
         <span className="font-semibold text-foreground">Likes each week, the last year</span>
         <span data-liked-point className="text-foreground/80">{point}</span>
@@ -237,9 +237,10 @@ function WeekStrip({ weeks, onWeek }: { weeks: LikedSide['weeks']; onWeek: (star
         {weeks.map((one) => (
           <Tip key={one.start} label={`Week of ${written(one.start, true)}: ${likesSaid(one.n)}`}>
             <button type="button" data-liked-week={one.start} data-liked-week-n={one.n} disabled={!one.n} onClick={() => onWeek(one.start)}
-              className="group flex h-full min-w-0 flex-1 cursor-pointer items-end rounded-[2px] disabled:cursor-default">
-              <span className={cn('block w-full rounded-[2px] transition-colors', one.n ? 'bg-[var(--tt-color-text-red)]/70 group-hover:bg-[var(--tt-color-text-red)]' : 'bg-foreground/10')}
-                style={{ height: one.n ? `${Math.max(12, (one.n / most) * 100)}%` : '2px' }} />
+              className="group flex h-full min-w-0 flex-1 cursor-pointer items-end justify-center disabled:cursor-default">
+              {/* Pills of the one ink every chart uses, lighter at rest and full under the pointer; a week with none a faint stub. */}
+              <span {...(one.n ? { 'data-mark': '' } : {})} className={cn('block w-full max-w-1.5 rounded-full transition-opacity', one.n ? 'bg-foreground opacity-75 group-hover:opacity-100' : 'bg-foreground/10')}
+                style={{ height: one.n ? `max(6px, ${(one.n / most) * 100}%)` : '2px' }} />
             </button>
           </Tip>
         ))}

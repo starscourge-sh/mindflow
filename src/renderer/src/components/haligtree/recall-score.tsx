@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { line, curveMonotoneX } from 'd3-shape'
 import { chime } from '@/lib/sound'
 import { useLive, haligtree } from '@/lib/haligtree'
 import { toast } from './ui'
@@ -72,9 +73,10 @@ function Spark({ points }: { points: Score[] }): React.JSX.Element {
   const y = (score: number): number => height - 4 - ((score - 1) / 4) * (height - 8)
   return (
     <svg viewBox={`0 0 ${width} ${height}`} className="h-7 w-full max-w-40" role="img" aria-label={points.map((one) => `${dayjs(one.at).format('D MMM')}: ${one.score}`).join(', ')}>
-      <line x1="0" x2={width} y1={y(3)} y2={y(3)} stroke="var(--border)" strokeDasharray="2 3" />
-      {points.length > 1 && <polyline fill="none" stroke="var(--tt-color-text-blue)" strokeWidth="1.5" points={points.map((one, at) => `${x(at)},${y(one.score)}`).join(' ')} />}
-      {points.map((one, at) => <circle key={at} cx={x(at)} cy={y(one.score)} r="2.5" fill="var(--tt-color-text-blue)"><title>{`${dayjs(one.at).format('D MMMM')}: ${one.score} of 5`}</title></circle>)}
+      {/* The middle score as a quiet solid hairline; the scores in the charts' one ink, a 2 px monotone line with filled dots. */}
+      <line x1="0" x2={width} y1={y(3)} y2={y(3)} stroke="var(--border)" />
+      {points.length > 1 && <path fill="none" stroke="var(--foreground)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d={line().curve(curveMonotoneX)(points.map((one, at) => [x(at), y(one.score)])) ?? ''} />}
+      {points.map((one, at) => <circle key={at} cx={x(at)} cy={y(one.score)} r="3.5" fill="var(--foreground)" stroke="var(--background)" strokeWidth="1.5"><title>{`${dayjs(one.at).format('D MMMM')}: ${one.score} of 5`}</title></circle>)}
     </svg>
   )
 }
