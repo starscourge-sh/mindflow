@@ -877,6 +877,25 @@ export function captureFile(title: string, block: unknown, source: string): stri
   return id
 }
 
+/**
+ * Words sent from another app's Services menu ("Send to Haligtree"): a quote in the
+ * Inbox, saying where it came from (the page's address as a link, else the app),
+ * with nothing copied. Its id; '' when there were no words.
+ */
+export function captureSent(text: string, from: { app?: string; url?: string; title?: string }): string {
+  const lines = text.replace(/\r\n?/g, '\n').split(/\n{2,}/).map((one) => one.trim()).filter(Boolean)
+  if (!lines.length) return ''
+  const said = lines.map((line) => ({ type: 'paragraph', content: [{ type: 'text', text: line }] }))
+  const url = from.url && /^https?:\/\//.test(from.url) ? from.url : ''
+  const where = url ? [{ type: 'paragraph', content: [{ type: 'text', text: from.title || url, marks: [{ type: 'link', attrs: { href: url } }] }] }] : []
+  const { id } = insert({ title: '', kind: 'quote', body: { type: 'doc', content: [...said, ...where] } as never }, new Date().toISOString())
+  // Where it came from, said beside it in lists and search: the app (not an import, so no import date).
+  if (from.app) db.prepare('update captures set source = ? where id = ?').run(from.app, id)
+  recordOpen('services')
+  changed()
+  return id
+}
+
 /** A capture from the command line: plain words, its kind guessed from them. */
 export function captureText(text: string): void {
   insert({ title: '', kind: kindOf(text) ?? 'note', body: isBit(text) && !tagged(text, 'bit') ? withTag(text, 'bit') : text }, new Date().toISOString())

@@ -81,6 +81,7 @@ import { registerTranscribe } from './transcribe'
 import { Stopped, begin, end as endJob, registerJobs } from './jobs'
 import { registerLabels } from './labels'
 import { registerUnderstand } from './understand'
+import { registerServices } from './services'
 import { registerDictation } from './dictation'
 import { glassShapes, registerGlass, watchScroll } from './glass'
 import { registerPeople } from './people'
@@ -4189,6 +4190,7 @@ app.whenReady().then(() => {
   registerJobs()
   registerLabels()
   registerUnderstand()
+  registerServices()
   registerDictation()
   registerGlass()
   registerObsidian()

@@ -66,6 +66,8 @@ export const POWERS: Power[] = [
   // Catching
   { id: 'box', group: 'Catching', name: 'Quick capture, from any app', line: 'One key opens quick capture over whatever you are doing, and ⌘↵ puts it away.', keys: ['⌘.'],
     show: { box: true, text: 'Write anything and press ⌘↵.' }, used: (s) => s.steps.catch },
+  { id: 'services', group: 'Catching', name: 'Send to Haligtree, from any app', needs: 'every', tryIt: 'Pick some words in Safari, right-click them, and choose “Services”, then “Send to Haligtree”.', line: 'Pick words in any app, right-click, and “Send to Haligtree” puts them in your Inbox as a quote, saying the app and page they came from, with nothing copied. macOS lists it once Haligtree is in your Applications folder.',
+    show: { view: 'inbox', at: ROW, text: 'What you send lands at the top of the Inbox, as a quote.' } },
   { id: 'timer', group: 'Catching', name: 'Timers in plain words', line: 'Type 5m tea in quick capture and a timer starts, with a bell when it is done.', keys: ['⌘.'],
     show: { box: true, text: 'Type 5m tea and press ⌘↵.' } },
   { id: 'letter', group: 'Catching', name: 'Letters to future you', line: 'Add @1y to a note (or @6m, @3m, @2w) and it stays out of sight until then, then comes back in the Journal saying when you wrote it.', keys: ['⌘.'],

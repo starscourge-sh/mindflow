@@ -1835,8 +1835,33 @@ const ReadAloudDemo: Demo = ({ live }) => {
   )
 }
 
+/** Words picked in another app, sent through its Services menu, at the top of the Inbox. */
+const ServicesDemo: Demo = ({ live }) => {
+  const at = useSteps([1300, 1300, 2600], live, 2)
+  return (
+    <Col>
+      <div className="relative rounded-lg border bg-background px-3 py-2 text-control text-foreground">
+        <span className={at >= 1 ? 'rounded-[3px] bg-[color-mix(in_srgb,var(--tt-color-text-blue)_25%,transparent)]' : ''}>The obstacle is the way.</span>
+        <span className="text-muted-foreground"> Marcus wrote it in a tent.</span>
+        <AnimatePresence initial={false}>
+          {at === 1 && (
+            <motion.div key="menu" {...rise} className="absolute top-7 right-2 z-10 rounded-lg border bg-popover px-2.5 py-1.5 text-meta shadow-[0_6px_16px_-6px_color-mix(in_oklab,var(--mf-shadow-ink)_25%,transparent)]">
+              <div className="text-muted-foreground">Services</div>
+              <div className="font-medium text-foreground">Send to {APP_NAME}</div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+      <div className={`rounded-lg border bg-background px-3 py-2 transition-opacity duration-300 ${at === 2 ? '' : 'opacity-0'}`}>
+        <div className="text-meta text-muted-foreground">Inbox · from Safari</div>
+        <div className="text-control text-foreground">“The obstacle is the way.”</div>
+      </div>
+    </Col>
+  )
+}
+
 export const DEMOS: Record<string, Demo> = {
-  readaloud: ReadAloudDemo, picturewords: PictureWordsDemo, translate: TranslateDemo,
+  services: ServicesDemo, readaloud: ReadAloudDemo, picturewords: PictureWordsDemo, translate: TranslateDemo,
   box: BoxDemo, timer: TimerDemo, letter: LetterDemo, clue: ClueDemo, tagtask: TagTaskDemo, remind: RemindDemo, comingback: ComingBackDemo, onetask: OneTaskDemo, merge: MergeDemo,
   board: BoardDemo, versions: VersionsDemo, find: FindDemo, aliases: AliasesDemo, calc: CalcDemo, fold: FoldDemo, bit: BitDemo, glossary: GlossaryDemo,
   review: ReviewDemo, cloze: ClozeDemo, context: ContextDemo, readthrough: ReadThroughDemo, queue: QueueDemo, wrong: WrongDemo, suspend: SuspendDemo, questions: QuestionsDemo,
