@@ -616,7 +616,7 @@ export function ReviewView({ compact = false, tag, actions, lead, onLeave }: { c
       {/* One card at a time in the middle of the page, never a narrow card with an empty half beside it. */}
       <div className="page-sheet mx-auto w-full">
       {/* One quiet line over the card: where you are, and practice, new cards and exams folded into it. */}
-      {round ? <><RoundLine round={round} onLeave={leaveRound} /><Through at={at} total={queue.length} /></> : <TopLine at={earlier + at} total={earlier + queue.length} exams={exams} onPick={startRound} onLearn={() => setLearning(true)} onTrim={(cards) => {
+      {round ? <><RoundLine round={round} onLeave={leaveRound} /><Through at={at} total={queue.length} /></> : <TopLine at={earlier + at} total={earlier + queue.length} fresh={queue.filter((one) => one.first).length} exams={exams} onPick={startRound} onLearn={() => setLearning(true)} onTrim={(cards) => {
         // The queue is most at risk first: the first ones that fit the time are the ones to do now.
         chime('settled')
         setQueue((all) => all && all.slice(0, at + cards))
@@ -916,7 +916,7 @@ export function ReviewView({ compact = false, tag, actions, lead, onLeave }: { c
  * hover), the new cards to learn and Practise, which unfolds the rounds.
  * The card under it is the hero.
  */
-function TopLine({ at, total, exams, onPick, onLearn, onTrim }: { at: number; total: number; exams: Exam[]; onPick: (bucket: Round) => void; onLearn: () => void; /** Keep only as many cards as fit 25 minutes. */ onTrim: (cards: number) => void }): React.JSX.Element {
+function TopLine({ at, total, fresh: today, exams, onPick, onLearn, onTrim }: { at: number; total: number; /** Of today's cards, the new ones: counted from the queue itself. */ fresh: number; exams: Exam[]; onPick: (bucket: Round) => void; onLearn: () => void; /** Keep only as many cards as fit 25 minutes. */ onTrim: (cards: number) => void }): React.JSX.Element {
   const pace = useLive(haligtree.reviewPace, null as number | null, [], ['item'])
   const left = total - at
   const minutes = minutesFor(left, pace)
@@ -941,7 +941,7 @@ function TopLine({ at, total, exams, onPick, onLearn, onTrim }: { at: number; to
             </Tip>
           ))}
         </span>
-        <Through at={at} total={total} minutes={minutes} />
+        <Through at={at} total={total} minutes={minutes} fresh={today} />
         <span className="flex flex-wrap items-center justify-start gap-1 @lg:justify-end">
           {minutes > 30 && left > fits && (
             <Tip label={`A long day: the ${num(fits)} most at risk of fading first, about 25 minutes. The rest wait.`}>
@@ -968,9 +968,9 @@ function TopLine({ at, total, exams, onPick, onLearn, onTrim }: { at: number; to
 }
 
 /** Where you are in today's cards: "1 of 3", with a dot for each card while they fit on one line. */
-function Through({ at, total, minutes }: { at: number; total: number; /** About how long the cards left take, at your own pace. */ minutes?: number }): React.JSX.Element {
+function Through({ at, total, minutes, fresh }: { at: number; total: number; /** About how long the cards left take, at your own pace. */ minutes?: number; /** How many of today's cards are new ones. */ fresh?: number }): React.JSX.Element {
   return (
-    <div data-through className="flex items-center justify-center gap-3 text-xs text-muted-foreground tabular-nums">
+    <div data-through className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-xs text-muted-foreground tabular-nums">
       {total <= 12 ? (
         <span aria-hidden className="flex items-center gap-1.5">
           {Array.from({ length: total }, (_, index) => (
@@ -983,6 +983,8 @@ function Through({ at, total, minutes }: { at: number; total: number; /** About 
         </span>
       )}
       <Rolling text={`${num(at + 1)} of ${num(total)}`} by="word" />
+      {/* What today brings that you have not met: its new cards, out of the daily limit (Settings and each deck's own). */}
+      {fresh !== undefined && <span data-new-today={fresh} className="text-foreground/80">{fresh ? `${num(fresh)} new today` : 'no new cards today'}</span>}
       {minutes !== undefined && <span data-minutes-left className="text-foreground/80">about {num(minutes)} {minutes === 1 ? 'minute' : 'minutes'} left</span>}
     </div>
   )

@@ -97,7 +97,7 @@ export type Item = {
 /** On a question, a gloss is a clue; one kept from a capture says which (`V-12`). */
 export type Gloss = { id: string; body: string; author: 'user' | 'ai'; createdAt: string; sourceId?: string | null; sourceKey?: string | null }
 export type ItemFull = Item & { body: unknown; origins: string[]; glosses: Gloss[] }
-export type Due = Item & { body: unknown; intervals: Record<number, string>; gloss: string | null; exam: string | null }
+export type Due = Item & { body: unknown; intervals: Record<number, string>; gloss: string | null; exam: string | null; /** Never studied: one of today's new cards (in today's queue only). */ first?: boolean }
 /** How ready a tag with an exam date is. */
 export type Exam = { tag: string; at: string; days: number; total: number; solid: number; learning: number; struggling: number; unseen: number; behind: number; perDay: number }
 /** A tagged thing read whole on its tag's page. */
@@ -377,6 +377,8 @@ export const haligtree = {
   glosses: (id: string) => call<Gloss[]>('glosses', id),
   queue: () => call<Due[]>('review:queue'),
   dueCount: () => call<number>('review:counts'),
+  /** How many of today's cards are new ones, counted from today's queue. */
+  newToday: () => call<number>('review:new-today'),
   grade: (id: string, grade: 1 | 2 | 3 | 4, ms: number) => call<string>('review:grade', id, grade, ms),
   tasks: () => call<Task[]>('tasks'),
   /** A note hidden until a day ("2026-11-03"), or shown again (null). */

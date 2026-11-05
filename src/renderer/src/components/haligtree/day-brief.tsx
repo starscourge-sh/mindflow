@@ -97,6 +97,8 @@ export function DayBrief({ day, onOpen, onListed, between }: {
   const waiting = useLive(haligtree.passWaiting, { tidy: 0, decide: 0 })
   const due = useLive(haligtree.dueCount, null as number | null)
   const reviews = due ?? 0
+  // Of them, the new ones: counted from today's queue, as Review's own line counts them.
+  const fresh = useLive(haligtree.newToday, null as number | null, [], ['item'])
   const questions = useLive(() => haligtree.items('question'), [] as Item[], [], ['item'])
   // Decisions on their look-again day, experiments past their run-until.
   const back = useLive(returning, [] as Returning[], [], ['capture', 'item'])
@@ -124,7 +126,7 @@ export function DayBrief({ day, onOpen, onListed, between }: {
   // clue and the review line came in one by one and pushed the tasks down. The weather too, as it ends the centred date
   // line and moved it; asked of the internet, it is waited for a quarter of a second at most.
   // The picture too: the words sit centred over it, or plain with none, so whether there is one is known first.
-  useReading(scene === undefined || (!scene && !coversRead) || (sky === undefined && !skyWaited) || !settings || unloaded(tasks) || unloaded(waiting) || due === null || unloaded(questions) || unloaded(back) || unloaded(repeats) || unloaded(marks) || unloaded(mac) || unloaded(sessions))
+  useReading(scene === undefined || (!scene && !coversRead) || (sky === undefined && !skyWaited) || !settings || unloaded(tasks) || unloaded(waiting) || due === null || fresh === null || unloaded(questions) || unloaded(back) || unloaded(repeats) || unloaded(marks) || unloaded(mac) || unloaded(sessions))
   // On Today by the one rule the sidebar and the Today sticky count by: late ones in, "Waiting on" out.
   const open = tasks.filter(onToday)
   const late = open.filter((task) => (dueDay(task) ?? '') < today)
@@ -224,7 +226,7 @@ export function DayBrief({ day, onOpen, onListed, between }: {
       key: 'review',
       mark: <Brain className="size-4" />,
       title: 'Go through today’s review',
-      text: `${cap(say(reviews))} ${reviews === 1 ? 'thing comes' : 'things come'} back to you today. A few minutes helps you remember them.`,
+      text: `${cap(say(reviews))} ${reviews === 1 ? 'card' : 'cards'} today, ${fresh ? (fresh === reviews ? (reviews === 1 ? 'a new one' : 'all of them new') : `${say(fresh)} of them new`) : 'no new ones'}. A few minutes helps you remember them.`,
       run: () => window.api.openInHome('view', 'review', ':today')
     }] : [])
   ]

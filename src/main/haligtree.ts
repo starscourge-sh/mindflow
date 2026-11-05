@@ -2799,11 +2799,14 @@ export function registerHaligtree(): void {
     const rate = retentionOf()
     const up = lift ? new Set(queue.filter((one) => lift(one.row))) : null
     const lifted = up ? [...queue.filter((one) => up.has(one)), ...queue.filter((one) => !up.has(one))] : queue
+    // `first`: never studied, one of the day's new cards: how many today brings is counted from these, never by a second rule.
     return lifted.map(({ row, exam }) => ({
-      ...body(row), state: undefined, exam: exam?.tag ?? null, intervals: preview(row.state as string | null, (when) => capped(when, exam), rate(row))
+      ...body(row), state: undefined, first: !row.state, exam: exam?.tag ?? null, intervals: preview(row.state as string | null, (when) => capped(when, exam), rate(row))
     }))
   }
   handle('review:queue', () => reviewQueue())
+  // How many of today's cards are new ones, from the queue itself, for Home's line.
+  handle('review:new-today', () => (reviewQueue() as { first: boolean }[]).filter((one) => one.first).length)
   // One card as a session would show it, for a quiz post in the Feed: never one suspended, private or in the Bin.
   quizCard = (id) => {
     const row = db.prepare(`select ${ITEM}, body, state from nuggets where id = ? and coalesce(prompt, '') != '' and suspended = 0 and private = 0 and archived_at is null and binned_at is null`).get(id) as Record<string, unknown> | undefined
