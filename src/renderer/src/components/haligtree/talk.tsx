@@ -1,6 +1,6 @@
-import { useEffect, useSyncExternalStore } from 'react'
+import { useEffect, useState, useSyncExternalStore } from 'react'
 import { Check, X } from 'lucide-react'
-import { useCentreOn } from '@/lib/centre-on'
+import { RecorderBar } from './recorder-bar'
 import { createPortal } from 'react-dom'
 import type { Editor } from '@tiptap/core'
 import { Plugin, PluginKey, TextSelection } from '@tiptap/pm/state'
@@ -192,7 +192,7 @@ async function beginTalk(how: 'hold' | 'tap', editor?: Editor): Promise<void> {
       tell()
     } else if (typeof line.level === 'number') {
       now.levels.push(line.level)
-      if (now.levels.length > BARS) now.levels.shift()
+      if (now.levels.length > 8) now.levels.shift()
       tell()
     } else if (line.error) {
       // The helper heard no microphone at all (native/listen.swift, code "mic"): said the one way, with the way to settings.
@@ -228,6 +228,8 @@ export function talkCancel(): void {
 }
 
 export const talking = (): boolean => session !== null
+/** True while words are being heard in this window: quick capture gives its footer's row to the recorder bar. */
+export const useTalking = (): boolean => useSyncExternalStore(subscribe, talking)
 // Told to the recorder (lib/recording.ts): it stops dictation before a voice note starts.
 dictation.stop = () => void (session && talkStop())
 
@@ -304,45 +306,40 @@ export function Talk(): React.JSX.Element | null {
   return createPortal(<TalkPill />, document.body)
 }
 
-/** How many bars the pill's waveform shows, the newest at the right. */
-const BARS = 28
-
 /**
- * While words are heard: a small pill under the field, centred on it, in the
- * round controls' surface (mf-voice-pill): × drops the words, the voice's
- * level as bars, ✓ keeps them. The bars come from the helper's own levels;
- * an older helper sends none, and they rest flat.
+ * While words are heard: the recorder bar (recorder-bar.tsx), the one every listening thing wears: × drops the
+ * words, the voice's level as a waveform growing from the right, ✓ keeps them. In quick capture it takes the
+ * footer's row, growing out of the mic; elsewhere it floats under the field, centred on it. The level comes from the
+ * helper's own readings; an older helper sends none, and it rests flat.
  */
 function TalkPill(): React.JSX.Element | null {
   const field = session?.field
   const over = field ? (field.kind === 'editor' ? (field.editor.isDestroyed ? null : (field.editor.view.dom as HTMLElement)) : field.input) : null
-  const middle = useCentreOn(over)
+  const [slot] = useState(() => document.querySelector<HTMLElement>('[data-recorder-slot]'))
+  const [from] = useState(() => {
+    const mic = slot?.parentElement?.querySelector('[data-record-button]')?.getBoundingClientRect()
+    return mic && slot ? mic.left + mic.width / 2 - slot.getBoundingClientRect().left : null
+  })
   if (!session) return null
-  const levels = session.levels
-  const bars = Array.from({ length: BARS }, (_, i) => levels[levels.length - BARS + i] ?? 0)
-  return (
-    <div data-talk-pill role="group" aria-label="Talking to type" onMouseDown={(event) => event.preventDefault()}
-      className="mf-voice-pill fixed bottom-28 left-1/2 z-[1000] flex w-[220px] -translate-x-1/2 items-center gap-1.5 px-0.5 animate-in fade-in-0 duration-150"
-      style={middle === null ? undefined : { left: middle }}>
-      <button type="button" aria-label="Cancel" title="Drop the words  Esc" onClick={talkCancel}
-        className="flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-full text-muted-foreground transition-[color,background-color,scale] duration-150 hover:bg-accent hover:text-foreground active:scale-[0.97]">
-        <X className="size-3.5" />
-      </button>
-      {session.ready ? (
-        <span data-talk-level className="flex h-5 min-w-0 flex-1 items-center justify-center gap-[3px]">
-          {bars.map((level, i) => (
-            // Louder is taller, eased so a quiet voice still shows; silence is a dot.
-            <span key={i} className="w-[2px] rounded-full bg-foreground/70 transition-[height] duration-100 ease-out" style={{ height: `${Math.max(2, Math.min(20, Math.sqrt(level) * 60))}px` }} />
-          ))}
-        </span>
-      ) : (
-        // Until the microphone is on, it says so: listening is shown only once every word will be kept.
-        <span data-talk-getting-ready role="status" className="flex h-5 min-w-0 flex-1 items-center justify-center text-control"><span className="mf-shimmer" data-text="Getting ready…">Getting ready…</span></span>
-      )}
-      <button type="button" aria-label="Keep the words" title="Keep the words" onClick={talkStop}
-        className="flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-full bg-primary text-primary-foreground transition-transform duration-150 active:scale-[0.97]">
-        <Check className="size-3.5" strokeWidth={3} />
-      </button>
+  const bar = (
+    <div data-talk-pill onMouseDown={(event) => event.preventDefault()}>
+      <RecorderBar label="Talking to type" docked={!!slot} from={from} over={over}
+        // Louder is taller, eased so a quiet voice still shows.
+        level={() => Math.min(1, Math.sqrt(session?.levels.at(-1) ?? 0) * 3)}
+        waiting={!session.ready && <span data-talk-getting-ready role="status" className="mf-shimmer" data-text="Getting ready…">Getting ready…</span>}
+        start={(
+          <button type="button" aria-label="Cancel" title="Drop the words  Esc" onClick={talkCancel}
+            className="flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-full text-muted-foreground transition-[color,background-color,scale] duration-150 hover:bg-accent hover:text-foreground active:scale-[0.97]">
+            <X className="size-3.5" />
+          </button>
+        )}
+        end={(
+          <button type="button" aria-label="Keep the words" title="Keep the words" onClick={talkStop}
+            className="flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-full bg-primary text-primary-foreground transition-transform duration-150 active:scale-[0.97]">
+            <Check className="size-3.5" strokeWidth={3} />
+          </button>
+        )} />
     </div>
   )
+  return slot ? createPortal(bar, slot) : bar
 }

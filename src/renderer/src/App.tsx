@@ -101,7 +101,7 @@ import {
 } from "@/components/ui/resizable"
 import { Tip, Pressed, untoast } from '@/components/haligtree/ui'
 import { MicIcon, recordAsCapture, recordInto } from '@/components/haligtree/voice-note'
-import { recordingNow, stopRecording, useRecording } from '@/lib/recording'
+import { recordingNow, useRecording } from '@/lib/recording'
 import { recordingsWithoutWords, transcribePage } from '@/lib/transcribe'
 import { Celebrations } from '@/components/haligtree/celebrate'
 import { Mentions } from '@/components/haligtree/mentions'
@@ -112,7 +112,7 @@ import GearIcon from '@/components/ui/gear-icon'
 import PenIcon from '@/components/ui/pen-icon'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import { RoundPair, ShotButton, type RoundChoice } from '@/components/haligtree/shot-button'
-import { talkInto } from '@/components/haligtree/talk'
+import { talkInto, useTalking } from '@/components/haligtree/talk'
 import { AudioLines, TextCursorInput } from 'lucide-react'
 
 /** The microphone's two ways, as the camera's two: a voice note kept as sound, or the words typed as you talk. */
@@ -703,6 +703,8 @@ export default function App(): React.JSX.Element {
   // Quick capture's writing area hands its place to a voice note while it records (voice-note.tsx).
   const recordSlot = useRef<HTMLDivElement>(null)
   const recording = useRecording()
+  // Recording a voice note or talking to type: either way the recorder bar has the footer's row (recorder-bar.tsx).
+  const listening = useTalking() || recording
   const editorRef = useMemo(() => {
     let held: Editor | null = null
     return { get current() { return held && !held.isDestroyed ? held : null }, set current(editor: Editor | null) { held = editor } }
@@ -903,8 +905,7 @@ export default function App(): React.JSX.Element {
   // for the full box ("One line to start" off) is kept as it was.
   const oneLineOn = appSettings?.boxOneLine === true
   const [pillPanel, setPillPanel] = useState(false)
-  // While a voice note records, the box is the compact recorder card alone: the panel steps away and comes back after.
-  const panel = (oneLineOn ? pillPanel : chosenPanel) && !welcoming && !recording
+  const panel = (oneLineOn ? pillPanel : chosenPanel) && !welcoming
   const [tab, setTab] = useState<Tab>('inbox')
   // The panel stays drawn while the window glides shut, so closing slides
   // it out of view instead of leaving an empty strip, and is drawn before
@@ -934,20 +935,6 @@ export default function App(): React.JSX.Element {
   // was asked for, and the box widened and narrowed again as it opened.
   const settingsRead = appSettings !== null
   useEffect(() => void (settingsRead && window.api.setPanel(panel)), [oneLineOn, settingsRead]) // eslint-disable-line react-hooks/exhaustive-deps
-  // A recording starts or ends with the panel chosen: it glides away for the recorder card, and back after, the choice kept.
-  const wasRecording = useRef(recording)
-  useEffect(() => {
-    if (wasRecording.current === recording) return
-    wasRecording.current = recording
-    if (!(oneLineOn ? pillPanel : chosenPanel) || welcoming) return
-    if (panel) setPanelDrawn(true)
-    box.held.current = true
-    void window.api.setPanel(panel).then(() => {
-      box.held.current = false
-      if (!panelWanted.current) setPanelDrawn(false)
-      box.refit()
-    })
-  }, [recording]) // eslint-disable-line react-hooks/exhaustive-deps
   // From the writing to the list and back without the mouse: ⌃J (or ⌃K, from outside the words) leaves
   // the note for the panel's list (opening the panel if it is shut), and I
   // comes back, as vim's insert does. A menu open in the note keeps ⌃J and ⌃K.
@@ -1111,7 +1098,8 @@ export default function App(): React.JSX.Element {
   // box is drawn at its whole height in the frame the meaning shows: before, it grew in three steps as the window
   // caught up, its foot cut off meanwhile.
   const meaningFound = definition?.state === 'found' || definition?.state === 'fix'
-  const pillOtherwise = oneLine && !reading && !editing && !offer && !lesson && !opened && !wraps && !panel && !sheetUp
+  // Listening, it is the box: the recorder bar lives in its footer's row.
+  const pillOtherwise = oneLine && !reading && !editing && !offer && !lesson && !opened && !wraps && !panel && !sheetUp && !listening
   const [roomFor, setRoomFor] = useState<string | null>(null)
   const meaningShown = meaningFound && (!pillOtherwise || roomFor === definition?.word)
   const meaningWaits = meaningFound && !meaningShown ? definition?.word ?? null : null
@@ -2208,7 +2196,6 @@ export default function App(): React.JSX.Element {
                 eases in rather than snapping into place. */}
             <motion.div
               key={editing?.id ?? round}
-              data-recording={recording || undefined}
               className="flex min-h-0 flex-1 flex-col"
               // A right click on the note away from its lines opens what the gear
               // menu has for this note. A field keeps the system's own menu.
@@ -2235,8 +2222,6 @@ export default function App(): React.JSX.Element {
                   onDone={() => editorRef.current?.commands.focus()} onType={() => editorRef.current?.commands.focus()} />
               </div>
             )}
-            {/* While a voice note records, it takes the writing line's place; the words wait, hidden, under it (box-extras.css). */}
-            <div ref={recordSlot} data-recorder-slot className="px-[4.75rem] empty:hidden" />
             <CapturePrompt
               key={editing?.id ?? round}
               initial={editing?.body ?? readDraft()}
@@ -2485,11 +2470,14 @@ export default function App(): React.JSX.Element {
               </HintRoom>
             )}
             {!reading && (
-            <main ref={footer} data-chrome data-zen-row className="@container/row flex items-center gap-1 pt-2 pb-3 px-[4.75rem]">
+            <main ref={footer} data-chrome data-zen-row className="@container/row relative flex items-center gap-1 pt-2 pb-3 px-[4.75rem]">
+              {/* While a voice note records (or you talk to type), the recorder bar takes this row: it grows out of the
+                  mic over the row's own place, under the words, which stay in sight (recorder-bar.tsx). */}
+              <div ref={recordSlot} data-recorder-slot className="absolute inset-x-[4.75rem] top-2 bottom-3 empty:hidden" />
               {/* What matters first is the writing and Create; every other
                   switch is in here, each keeping its own key. */}
               {/* A kind other than Note stays in sight while the rest fades as you type. */}
-              <span data-under-toast data-zen-keep={kind !== 'note' || undefined} data-while-recording={recording ? 'dim' : undefined} inert={recording} className="inline-flex"><CaptureKindPicker
+              <span data-under-toast data-zen-keep={kind !== 'note' || undefined} data-while-recording={listening ? 'dim' : undefined} inert={listening} className="inline-flex"><CaptureKindPicker
                 suggested={!chosen && kind !== 'note' && !lesson}
                 pill={pill}
                 value={kind}
@@ -2505,36 +2493,36 @@ export default function App(): React.JSX.Element {
                 </span>
               )}
               {/* The camera: a whole screen or just an area, as a picture in the note (shot-button.tsx). Out of the way of the first capture's lesson, whose word sits where it is. */}
-              {!locked && <span data-lesson="hide" data-under-toast data-while-recording={recording ? 'dim' : undefined} inert={recording} className="inline-flex"><ShotButton onShot={(area) => void attachScreenshot(area)} /></span>}
+              {!locked && <span data-lesson="hide" data-under-toast data-while-recording={listening ? 'dim' : undefined} inert={listening} className="inline-flex"><ShotButton onShot={(area) => void attachScreenshot(area)} /></span>}
               {/* The microphone, beside the camera and the camera's pair in its own: "Record" a voice note, kept in the
                   note where the caret is, or "Dictate", talk to type into the words. Only one runs: starting one
                   stops the other and keeps what it had. */}
               {!locked && (
-                <span data-lesson="hide" data-under-toast data-while-recording={recording ? 'dim' : undefined} inert={recording} className="inline-flex">
+                <span data-lesson="hide" data-under-toast data-while-recording={listening ? 'dim' : undefined} inert={listening} className="inline-flex">
                   <RoundPair label="Record or dictate" icon={<MicIcon className="size-[15px]" />} button={{ 'data-record-button': true }} choices={VOICE_CHOICES}
                     onPick={(id) => editorRef.current && void (id === 'record' ? recordInto(editorRef.current, recordSlot.current) : talkInto('tap', editorRef.current))} />
                 </span>
               )}
               <span className="flex-1" />
               {/* In the sandbox, said here too: a practice box, not your own. */}
-              <span data-under-toast className="inline-flex"><SandboxChip /></span>
+              <span data-under-toast data-while-recording={listening ? 'dim' : undefined} className="inline-flex"><SandboxChip /></span>
               {/* Beside Create, as in Linear: on, a save keeps the box open for the next one. */}
               {!editing && (
                 <Tip label="Keep quick capture open after each save  ⌥C">
-                <label data-lesson="hide" data-under-toast data-while-recording={recording ? 'dim' : undefined} inert={recording} className="mr-2 flex shrink-0 cursor-pointer items-center gap-2 text-control whitespace-nowrap text-muted-foreground">
+                <label data-lesson="hide" data-under-toast data-while-recording={listening ? 'dim' : undefined} inert={listening} className="mr-2 flex shrink-0 cursor-pointer items-center gap-2 text-control whitespace-nowrap text-muted-foreground">
                   <Switch size="sm" checked={createMore} onCheckedChange={setCreateMore} aria-label="Create more" />
                   {/* A short row (Check back's day beside it): the switch alone, its name in its tip, so Create is never cut off. */}
                   <span className="@max-[24rem]/row:sr-only">Create more</span>
                 </label>
                 </Tip>
               )}
-              <span className="relative inline-flex shrink-0">
+              {/* Under the recorder bar while it records, whose red Stop sits where this is and answers ⌘↵ too. */}
+              <span data-while-recording={listening ? 'dim' : undefined} inert={listening} className="relative inline-flex shrink-0">
               {/* The button shows its own words and ⌘↵: the tip says only what it does not. */}
-              <Tip label={recording ? 'Ends the recording and keeps it in the note' : createMore && !editing ? 'Then empties quick capture for the next one' : (editing ? 'Back to your draft: changes already save as you make them' : 'Then empties it for the next one:  ⌥⌘↵')}>
-              {/* While a voice note records, Create would save the note without it: it ends the recording instead. */}
-              <Button variant="secondary" data-create onClick={(event) => (recording ? void stopRecording(true) : submit(event.altKey))} className="shrink-0 text-control">
+              <Tip label={createMore && !editing ? 'Then empties quick capture for the next one' : (editing ? 'Back to your draft: changes already save as you make them' : 'Then empties it for the next one:  ⌥⌘↵')}>
+              <Button variant="secondary" data-create onClick={(event) => submit(event.altKey)} className="shrink-0 text-control">
                 {/* Open on a saved note: closing it, since changes already save. */}
-                <Rolling text={recording ? 'Stop and keep' : editing ? 'Close note' : saved ? 'Saved' : plan?.clue && !editing ? (plusGoal ? 'Add log' : 'Add clue') : 'Create'} /> <kbd className="font-sans text-key opacity-70">⌘↵</kbd>
+                <Rolling text={editing ? 'Close note' : saved ? 'Saved' : plan?.clue && !editing ? (plusGoal ? 'Add log' : 'Add clue') : 'Create'} /> <kbd className="font-sans text-key opacity-70">⌘↵</kbd>
               </Button>
               </Tip>
               </span>

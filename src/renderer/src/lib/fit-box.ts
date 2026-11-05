@@ -70,19 +70,6 @@ function needed(column: HTMLElement | null): number | null {
   }
 }
 function measure(column: HTMLElement | null): number | null {
-  // A voice note recording in the writing's place (voice-note.tsx): the words
-  // are hidden, so the box is as tall as what shows (the recorder, the chip
-  // under it), with none of the empty room the writing would have had.
-  const recording = column?.querySelector<HTMLElement>('[data-recording], :has(> [data-recorder-slot]:not(:empty))')
-  if (recording) {
-    let shown = 0
-    for (const child of Array.from(recording.children) as HTMLElement[]) {
-      if (getComputedStyle(child).display === 'none') continue
-      const at = getComputedStyle(child)
-      shown += child.offsetHeight + (parseFloat(at.marginTop) || 0) + (parseFloat(at.marginBottom) || 0)
-    }
-    return Math.ceil(cardHeight() - recording.clientHeight + shown)
-  }
   const scroller = column?.querySelector<HTMLElement>('.mf-faded .haligtree-editor-content')
   const doc = scroller?.querySelector<HTMLElement>(':scope > .ProseMirror')
   if (!scroller || !doc) return null
