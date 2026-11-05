@@ -73,14 +73,16 @@ export function PictureRow({ items, onOpen, menuFor, direct = false, counter = '
 const GAP = 12
 /** Under each picture: its title and its line. */
 const WORDS = 44
+/** The room under the pictures: a line more when a note has two (a book's page, then the day you finish it), the pictures a little shorter for it. */
+const wordsRoom = (items: FlexCarouselItem[]): number => WORDS + (items.some((item) => item.note?.includes('\n')) ? 17 : 0)
 /** One width for every still picture, from the first one's shape. */
 const stillCardWidth = (items: FlexCarouselItem[], height: number): number =>
-  Math.round(Math.max(40, height - WORDS - 12) * Math.min(Math.max(items[0]?.aspect ?? 0.8, 0.6), 1.5))
+  Math.round(Math.max(40, height - wordsRoom(items) - 12) * Math.min(Math.max(items[0]?.aspect ?? 0.8, 0.6), 1.5))
 
 /** The still row: one shape for every picture, so only those in view are drawn, however many there are. */
 function StillRow({ items, onOpen, menuFor, counter, label, height, whole = false }: { items: FlexCarouselItem[]; onOpen: (index: number) => void; menuFor?: (index: number) => RowItem[]; counter: 'of' | 'slash'; label: string; height: number; /** All of it fits: no fade at its end. */ whole?: boolean }): React.JSX.Element {
   const scroller = useRef<HTMLDivElement>(null)
-  const picH = Math.max(40, height - WORDS - 12)
+  const picH = Math.max(40, height - wordsRoom(items) - 12)
   const cardW = stillCardWidth(items, height)
   const [range, setRange] = useState<[number, number]>([0, 12])
   useLayoutEffect(() => {
@@ -109,7 +111,8 @@ function StillRow({ items, onOpen, menuFor, counter, label, height, whole = fals
               style={{ left: at * (cardW + GAP), width: cardW }}>
               <StillPicture src={item.src} height={picH} />
               <span className="truncate text-control font-medium text-foreground">{item.title || 'Untitled'}</span>
-              <span className="-mt-1 truncate text-meta text-muted-foreground tabular-nums group-hover:text-foreground">{item.note ?? place}</span>
+              {/* A note of two lines (a book's page, then the day you finish it) keeps both, each whole. */}
+              <span className={`-mt-1 text-meta text-muted-foreground tabular-nums group-hover:text-foreground ${item.note?.includes('\n') ? 'line-clamp-2 whitespace-pre-line' : 'truncate'}`}>{item.note ?? place}</span>
             </button>
           )
           return menuFor ? <RowMenu key={at} items={menuFor(at)}>{card}</RowMenu> : card
