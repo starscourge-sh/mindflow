@@ -74,6 +74,8 @@ export type Entry = {
   /** Shown on the row under the pointer or the keyboard only: its handle. */
   hint?: string
   dim?: boolean
+  /** Its name in an ink of its own, in a list: a goal on ice, cool and faded, reads paused. */
+  ink?: string
   /** Whose words it is (theirs, what you understood, yours): a thin bar of that voice's colour at the row's start. */
   voice?: 'theirs' | 'understood' | 'mine'
   /** A task ticked off: its words struck through, as Recent and Today's list strike them. */
@@ -619,6 +621,7 @@ function ListRow({ entry, lit }: { entry: Entry; lit: boolean }): React.JSX.Elem
           <PaneMark id={entry.id} />
           <span
             className={`private-text min-w-0 flex-1 ${entry.wrap ? 'line-clamp-2 hyphens-auto [overflow-wrap:break-word]' : 'truncate'} ${entry.done ? DONE_WORDS : ''}`}
+            style={entry.ink ? { color: entry.ink } : undefined}
           >
             <Named entry={entry} />
           </span>

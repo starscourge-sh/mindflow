@@ -150,7 +150,10 @@ export const exampleGoals = (): Item[] => [
   item(4, { tier: 'goal', title: 'Watch all three Lord of the Rings, extended editions', goalFrom: dayKey(-150), goalAt: dayKey(-20), clues: 9, closedAt: at(-20), closedHow: 'made it' }),
   // Someday goals: the life list, no day to them.
   item(5, { tier: 'goal', title: 'Visit Hobbiton', goalFrom: dayKey(-200), clues: 1, lastLog: at(-40) }),
-  item(6, { tier: 'goal', title: 'Take my parents to Victoria Falls', goalFrom: dayKey(-90) })
+  item(6, { tier: 'goal', title: 'Take my parents to Victoria Falls', goalFrom: dayKey(-90) }),
+  item(7, { tier: 'goal', title: 'See the northern lights', goalFrom: dayKey(-400), clues: 3, closedAt: at(-60), closedHow: 'made it' }),
+  // Paused: on ice, its countdown stopped.
+  item(8, { tier: 'goal', title: 'Learn to juggle three balls', goalFrom: dayKey(-40), goalAt: dayKey(50), clues: 2, closedAt: at(-12), closedHow: 'on ice' })
 ]
 
 // --- tags, stats, the map

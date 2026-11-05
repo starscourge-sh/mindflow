@@ -4,7 +4,7 @@ import { ReadsIn, useReading } from '@/lib/reads-in'
 import { binItem } from '@/lib/to-bin'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useToday } from '@/lib/use-today'
-import { CalendarOff, CalendarPlus, Flag, House, Mountain, Plus, Snowflake, StickyNote, Wind } from 'lucide-react'
+import { CalendarOff, CalendarPlus, Flag, House, Plus, Snowflake, StickyNote, Telescope, Wind } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import SimpleCheckedIcon from '@/components/ui/simple-checked-icon'
 
@@ -13,7 +13,6 @@ import { chime, stamp } from '@/lib/sound'
 import { unloaded, useLastAsked, useLive, haligtree, type Gloss, type Item, type ItemFull, type Settings } from '@/lib/haligtree'
 import { exampleGoals } from '@/lib/examples'
 import { Example } from './example'
-import { archive } from '@/lib/notes'
 import { useKept, useOpened } from '@/lib/nav'
 import { readFresh, readNow, useAfterFirstPaint } from '@/lib/early-read'
 import { NoteComing } from './note-coming'
@@ -25,10 +24,12 @@ import { NoteList, type Entry } from './note-list'
 import { RowMenu, copy, copyLinkItem, type MenuItem } from './row-menu'
 import { PICKED_MARK } from './pick-mixed'
 import { usePickLines } from '@/lib/pick-lines'
-import { Empty, Island, Kbd, Page, Prop, Props, Rolling, Stepper, Tip, refuse, toast, useListKeys, quietly } from './ui'
+import { Empty, Island, Kbd, Page, Prop, Props, Rolling, Stepper, Tip, refuse, toast, typing, useListKeys, quietly } from './ui'
+import { useFolding } from './items-view'
+import { archive, useOwnOrder } from '@/lib/notes'
 import { reword } from './questions-view'
 import { Term } from './term'
-import { CollectionHeader, Cover, MenuButton, QuietAction, useTint } from './collection-header'
+import { CollectionHeader, MenuButton, QuietAction, useTint } from './collection-header'
 import { DatePicker } from './date-picker'
 import { ago, dayKey, dayMonth, dayName, noon, num, plural } from '../../../../main/dates'
 import { ProgressBar, type BarStyle } from './progress-bar'
@@ -51,6 +52,8 @@ import { ArchiveRestore, Check, Eye, EyeOff, X } from '@/components/ui/icons'
 
 type Beacon = 'always' | 'sometimes' | 'off'
 const ACCENT = 'var(--tt-brand-color-400)'
+/** A page's one clear action, filled, as Home's Open is: "Give it a day", "Take off ice". */
+const PRIMARY = 'flex h-8 shrink-0 cursor-pointer items-center gap-2 rounded-md px-3 text-control font-semibold transition-transform duration-150 active:scale-[0.97]'
 
 /** The colours a goal can wear (main's GOAL_COLORS), the names a tag's colours use. */
 export const GOAL_COLORS = ['blue', 'orange', 'green', 'purple', 'pink', 'yellow', 'red', 'brown'] as const
@@ -112,9 +115,35 @@ const onIce = (item: Pick<Item, 'closedHow'>): boolean => item.closedHow === 'on
 /** How a settled goal ended, and when: "Made it on 14 Dec"; or since when it is on ice. */
 const settledSaid = (item: Item): string => onIce(item) ? `On ice since ${dayMonth(item.closedAt!)}`
   : `${someday(item) && item.closedHow === 'made it' ? 'Crossed off' : HOW[item.closedHow ?? ''] ?? 'Ended'} on ${dayMonth(item.closedAt!)}`
-/** Which tab of Goals one sits under. */
-type Tab = 'open' | 'settled' | 'iced'
-const tabOf = (item: Item): Tab => (onIce(item) ? 'iced' : item.closedAt ? 'settled' : 'open')
+/**
+ * Which tab of Goals one sits under: a dated goal still open (Goals), the
+ * someday list (its crossed-off ones kept at its foot, as a life list keeps
+ * them), on ice, or ended.
+ */
+type Tab = 'open' | 'someday' | 'iced' | 'settled'
+const tabOf = (item: Pick<Item, 'goalAt' | 'closedAt' | 'closedHow'>): Tab =>
+  onIce(item) ? 'iced' : someday(item) && (!item.closedAt || item.closedHow === 'made it') ? 'someday' : item.closedAt ? 'settled' : 'open'
+/** The tabs, in their fixed order: the goals that count down first, then the life list, the paused, the ended. */
+const TABS: { id: Tab; label: string }[] = [{ id: 'open', label: 'Goals' }, { id: 'someday', label: 'Someday' }, { id: 'iced', label: 'On ice' }, { id: 'settled', label: 'Ended' }]
+
+/** The three kinds of goal, each told apart by its own mark: one with a day, one for someday, one on ice. A someday goal on ice stays someday. */
+export type GoalKind = 'dated' | 'someday' | 'iced'
+export const kindOf = (item: Pick<Item, 'goalAt' | 'closedHow'>): GoalKind => (someday(item) ? 'someday' : onIce(item) ? 'iced' : 'dated')
+/** A flag for a day you are aiming at; a telescope for the far-off life list (the star and the compass already mean a rating and what the app can do); a snowflake for paused. */
+export const KIND_ICON = { dated: Flag, someday: Telescope, iced: Snowflake } as const
+/** On ice: a cool, faded ink, so a paused goal reads paused at a glance. */
+export const ICE = 'color-mix(in oklab, var(--tt-color-text-blue) 55%, var(--muted-foreground))'
+/** A goal's mark, small, wherever it shows: its kind's icon in its kind's ink. */
+export function GoalMark({ item, className = 'size-3.5 shrink-0', style }: { item: Pick<Item, 'goalAt' | 'closedHow' | 'closedAt' | 'goalColor'>; className?: string; style?: React.CSSProperties }): React.JSX.Element {
+  const kind = kindOf(item)
+  const Icon = KIND_ICON[kind]
+  const ink = onIce(item) ? ICE : item.closedAt ? 'var(--muted-foreground)' : kind === 'someday' ? goalInk(item) : undefined
+  return <Icon data-goal-mark={kind} aria-label={kind === 'someday' ? 'Someday goal' : kind === 'iced' ? 'Goal on ice' : 'Goal'} className={className} style={{ color: ink, ...style }} />
+}
+/** "Jun 2026": when a someday goal went on the list. */
+const monthYear = (at: string): string => new Date(at).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+/** A someday goal's logs are its steps: "2 steps logged". */
+const stepsSaid = (n: number): string => (n ? `${plural(n, 'step')} logged` : 'no steps logged yet')
 /** The days-left colour: calm far out, the accent in the last month, strong in the last week. */
 export const warmth = (left: number): string =>
   left > 30 ? 'var(--muted-foreground)' : left > 7 ? ACCENT : 'var(--tt-color-text-red)'
@@ -225,7 +254,7 @@ export function GoalAsker(): React.JSX.Element | null {
           if (event.key === 'Enter' && !(event.target as HTMLElement).closest('[data-slot="popover-content"]')) (event.preventDefault(), keep())
         }}>
         <p className="flex items-center gap-2 text-sm">
-          {dateless ? <Mountain className="size-4" style={{ color: ACCENT }} /> : <Flag className="size-4" style={{ color: ACCENT }} />}
+          {dateless ? <Telescope className="size-4" style={{ color: ACCENT }} /> : <Flag className="size-4" style={{ color: ACCENT }} />}
           <Rolling by="word" text={dateless ? 'A someday goal: one for your life list, no day to it' : 'A goal: something to have done by a day'} />
         </p>
         <Input autoFocus value={title} onChange={(event) => setTitle(event.target.value)} placeholder={dateless ? 'e.g. Visit Hobbiton' : 'e.g. Run the 10k under an hour'} aria-label="The goal" />
@@ -256,17 +285,31 @@ export function GoalAsker(): React.JSX.Element | null {
 
 /** A goal as any list draws it: its name, then its days left, how far along, and its logs. */
 const goalEntry = (item: Item, today: string, menu?: MenuItem[]): Entry => {
+  // Paused: its mark, "On ice since 1 Nov" said plainly, and its name in a cool, faded ink. A someday one keeps its telescope.
+  if (onIce(item)) return {
+    id: item.id,
+    type: 'goal',
+    title: item.title,
+    tags: [],
+    icon: KIND_ICON[kindOf(item)],
+    sub: <span data-iced className="flex min-w-0 items-center gap-1.5" style={{ color: ICE }}><GoalMark item={item} className="size-3 shrink-0" /><span className="truncate">{settledSaid(item)} · {someday(item) ? stepsSaid(item.clues) : logsSaid(item.clues)}</span></span>,
+    marks: item.private ? <EyeOff className="size-3 shrink-0 text-muted-foreground" aria-label="Private" /> : null,
+    ink: ICE,
+    private: !!item.private,
+    bare: true,
+    menu
+  }
+  // The life list: no countdown, no bar, nothing warming; when it went on the list and the steps so far.
+  // Crossed off, struck through and kept at the list's foot.
   if (someday(item)) return {
     id: item.id,
     type: 'goal',
     title: item.title,
     tags: [],
-    // A mountain for the life list: calm in the goal's own colour, never warming, as nothing counts down.
-    icon: Mountain,
-    tint: item.closedAt ? undefined : goalInk(item),
-    sub: item.closedAt ? `${settledSaid(item)} · ${logsSaid(item.clues)}`
-      : <><span data-someday-row className="font-semibold text-foreground">Someday</span> · {loggedSaid(item)}</>,
+    icon: Telescope,
+    sub: <span className="flex min-w-0 items-center gap-1.5"><GoalMark item={item} className="size-3 shrink-0" /><span className="truncate">{item.closedAt ? settledSaid(item) : `Added ${monthYear(item.createdAt)}`} · {stepsSaid(item.clues)}</span></span>,
     marks: item.private ? <EyeOff className="size-3 shrink-0 text-muted-foreground" aria-label="Private" /> : null,
+    done: item.closedHow === 'made it',
     dim: !!item.closedAt,
     private: !!item.private,
     bare: true,
@@ -281,9 +324,9 @@ const goalEntry = (item: Item, today: string, menu?: MenuItem[]): Entry => {
     icon: Flag,
     tint: item.closedAt ? undefined : warmth(left),
     sub: item.closedAt
-      ? `${settledSaid(item)} · ${logsSaid(item.clues)}`
+      ? <span data-goal-mark="dated">{settledSaid(item)} · {logsSaid(item.clues)}</span>
       // The days left lead, in the goal's own warmth and bold: the one thing a glance down the list is for. Then its logs.
-      : <><span {...loud(leftLoud(left), 'font-semibold')} style={{ color: left > 30 ? 'var(--foreground)' : undefined }}>{left < 0 ? `${leftSaid(left)}: did you make it?` : left === 0 ? 'Today' : plural(left, 'day')}</span> · {loggedSaid(item)}</>,
+      : <span data-goal-mark="dated"><span {...loud(leftLoud(left), 'font-semibold')} style={{ color: left > 30 ? 'var(--foreground)' : undefined }}>{left < 0 ? `${leftSaid(left)}: did you make it?` : left === 0 ? 'Today' : plural(left, 'day')}</span> · {loggedSaid(item)}</span>,
     marks: item.private ? <EyeOff className="size-3 shrink-0 text-muted-foreground" aria-label="Private" /> : null,
     // A thin line of the time gone, plain whatever Settings draws bars as, warming as the day comes.
     bar: item.closedAt ? undefined : <GoalBar left={left} way={wayThrough(item.goalFrom ?? today, item.goalAt ?? today)} as="plain" />,
@@ -298,19 +341,11 @@ const goalEntry = (item: Item, today: string, menu?: MenuItem[]): Entry => {
  * The open list's groups: goals that share a day under that day's heading
  * ("31 Dec 2027"); once any day is shared every day is headed, so a goal never
  * looks like one of the group above it. None shared, one plain list,
- * nearest first. The someday ones last, under "Someday".
+ * nearest first.
  */
-const byDay = (dated: Item[], entries: Entry[]): [string, Entry[]][] => {
+const byDay = (dated: Item[]): Map<string, string> | undefined => {
   const shared = dated.some((one, index) => index > 0 && dated[index - 1].goalAt === one.goalAt)
-  const groups: [string, Entry[]][] = []
-  dated.forEach((one, index) => {
-    const name = shared ? dayMonth(`${one.goalAt}T12:00`, 'always') : ''
-    const last = groups.at(-1)
-    if (last && last[0] === name) last[1].push(entries[index])
-    else groups.push([name, [entries[index]]])
-  })
-  if (entries.length > dated.length) groups.push(['Someday', entries.slice(dated.length)])
-  return groups
+  return shared ? new Map(dated.map((one) => [one.id, dayMonth(`${one.goalAt}T12:00`, 'always')])) : undefined
 }
 
 /** What a goal offers besides opening it: its row menu and its page's ··· share it. */
@@ -342,9 +377,22 @@ export function GoalsView({ focus, onOpen }: { focus?: string; onOpen?: (type: s
   const [open, setOpen] = useState<ItemFull | null>(() => (focus ? readNow<ItemFull>('goal', focus) ?? null : null))
   // The one asked for while it is read: its pane and name at once (note-coming.tsx).
   const [coming, setComing] = useState<string | null>(() => (focus && !open ? focus : null))
-  // Open: the dated ones nearest first, then the someday ones under their own heading, as Tasks keeps Later last.
-  const listOf = (which: Tab): Item[] => which === 'open' ? [...openOnes(all), ...somedayOnes(all)] : all.filter((one) => one.closedAt && !one.archivedAt && tabOf(one) === which).sort((a, b) => b.closedAt!.localeCompare(a.closedAt!))
+  // Goals: the dated ones nearest first. Someday: the life list, newest first, the crossed-off ones at its foot.
+  // On ice and Ended: the latest first.
+  const listOf = (which: Tab): Item[] => which === 'open' ? openOnes(all)
+    : which === 'someday' ? [...somedayOnes(all), ...all.filter((one) => one.closedAt && !one.archivedAt && tabOf(one) === 'someday').sort((a, b) => b.closedAt!.localeCompare(a.closedAt!))]
+    : all.filter((one) => one.closedAt && !one.archivedAt && tabOf(one) === which).sort((a, b) => b.closedAt!.localeCompare(a.closedAt!))
   const items = listOf(show)
+  // Goals grouped by area of life ("Health", "Travel"), the way Writing groups its pages, with the same groups code
+  // (items-view's useFolding): ⌘G, ⇧⌘G, drag in and out, a name, a fold and tree lines. A group spans the kinds and
+  // shows under each tab with only that tab's goals in it; goals in no group stay loose below the groups, in the tab's
+  // own order (a drag only joins or leaves a group).
+  const own = useOwnOrder('goal')
+  const letGo = useRef<() => void>(() => undefined)
+  const folding = useFolding('goal', all, (a, b) => own.compare(a.id, b.id) || b.createdAt.localeCompare(a.createdAt), own.order, items, false, () => letGo.current(), [], () => undefined,
+    show === 'open' ? byDay(items) : undefined, undefined, false, { noun: ['goal', 'goals'] })
+  // The rows in the order they show: the groups first, then the loose goals.
+  const rows = folding.rows ?? items
   // Only the last pick lands: a late answer for the goal before is dropped.
   const asked = useLastAsked()
   const pick = (id: string): void => {
@@ -366,7 +414,7 @@ export function GoalsView({ focus, onOpen }: { focus?: string; onOpen?: (type: s
     else (asked(), setComing(null), setOpen(null))
   }
   // Opening one is a step Back returns from; Open or Settled is kept in it.
-  useOpened(open?.id, focus, pick, () => (asked(), setComing(null), setOpen(null)), { shown: items.map((one) => one.id), kind: 'item' })
+  useOpened(open?.id, focus, pick, () => (asked(), setComing(null), setOpen(null)), { shown: rows.map((one) => one.id), kind: 'item' })
   useKept('tab', show, setShow, 'open')
   // Read again when anything changes, so a log added from the box shows.
   useEffect(() => {
@@ -375,26 +423,53 @@ export function GoalsView({ focus, onOpen }: { focus?: string; onOpen?: (type: s
     const off = window.api.captures.onChange(() => open && void haligtree.item(open.id).then((found) => void (gone || setOpen(found))))
     return () => void ((gone = true), off())
   }, [open?.id])
-  const [cursor, setCursor] = useListKeys(items.length, { onOpen: (index) => pick(items[index].id), opened: items.findIndex((one) => one.id === (coming ?? open?.id)), onExtend: (from, to) => several.picking.extend(items[from]?.id, items[to].id) })
+  const [cursor, setCursor] = useListKeys(rows.length, { onOpen: (index) => pick(rows[index].id), opened: rows.findIndex((one) => one.id === (coming ?? open?.id)), onExtend: (from, to) => several.picking.extend(rows[from]?.id, rows[to].id) })
   const go = (type: string, id: string): void => (type === 'goal' ? pick(id) : onOpen?.(type, id))
   // x, ⇧-click and ⌘A pick several, for the queue or the archive together.
-  const several = usePickNotes(items.map((one) => one.id), cursor, { here: useHere(), noun: ['goal', 'goals'], tier: 'goal', titleOf: (id) => items.find((one) => one.id === id)?.title,
-    put: show === 'open' ? { label: 'Put on ice', hint: 'Paused: their countdowns stop', run: iceAll } : show === 'iced' ? { label: 'Take off ice', hint: 'Open again, each day moved out by the days it waited', run: thawAll } : undefined })
+  const here = useHere()
+  const several = usePickNotes(rows.map((one) => one.id), cursor, { here, noun: ['goal', 'goals'], tier: 'goal', titleOf: (id) => items.find((one) => one.id === id)?.title,
+    put: show === 'open' || show === 'someday' ? { label: 'Put on ice', hint: 'Paused: their countdowns stop', run: iceAll } : show === 'iced' ? { label: 'Take off ice', hint: 'Open again, each day moved out by the days it waited', run: thawAll } : undefined })
   // Sent here for one goal: the goal is drawn first and the list beside it
   // the frame after, whole (Page's `apart`), so its words never wait behind the list.
   const sent = !!focus && (coming ?? open?.id) === focus
   const [listFirst] = useState(!focus)
   const listLater = useAfterFirstPaint()
   const listShown = listFirst || listLater
-  const entries = !listShown ? [] : items.map((one) => goalEntry(one, today, several.menu(one.id) ?? [{ label: 'Open', keys: '↵', run: () => pick(one.id) }, 'separator', ...goalMenu(one), ...several.rowItems(one.id)]))
+  letGo.current = several.letGo
+  // A row's menu: what to do with it, the group lines, then picking. Right-clicked among several picked, it speaks for them all.
+  const menuFor = (one: Item): MenuItem[] => {
+    const many = several.menu(one.id)
+    return many ? [...(folding.menu(several.chosen) as MenuItem[]), 'separator', ...many]
+      : [{ label: 'Open', keys: '↵', run: () => pick(one.id) }, 'separator', ...goalMenu(one), 'separator', ...(folding.menu([one.id]) as MenuItem[]), ...several.rowItems(one.id)]
+  }
+  const entryOf = (one: Item): Entry => goalEntry(one, today, menuFor(one))
+  const entries = !listShown ? [] : items.map(entryOf)
+  // ⌘G groups the picked goals (or the one under the cursor), ⇧⌘G lets their group go; ⌘K's "Group" too.
+  const keyed = useRef<(ungroup: boolean) => void>(() => undefined)
+  keyed.current = (ungroup) => {
+    const these = several.chosen.length ? several.chosen : rows[cursor] ? [rows[cursor].id] : []
+    return ungroup ? folding.ungroup(these) : folding.groupNew(these)
+  }
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent): void => {
+      if (!here() || typing() || !event.metaKey || event.ctrlKey || event.altKey || event.code !== 'KeyG') return
+      event.preventDefault()
+      event.stopPropagation()
+      keyed.current(event.shiftKey)
+    }
+    const onGroup = (event: Event): void => void (here() && keyed.current(!!(event as CustomEvent<boolean>).detail))
+    window.addEventListener('keydown', onKey, true)
+    window.addEventListener('haligtree:group', onGroup)
+    return () => (window.removeEventListener('keydown', onKey, true), window.removeEventListener('haligtree:group', onGroup))
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
   return (
     // The list and the one open beside it come in together, once both are read (lib/reads-in.tsx).
     <ReadsIn className="contents">
       {/* Sent here for one goal: the page waits for it too, so it opens on the goal beside the list, not on the list alone first;
           the goal never waits for the list, which comes in whole beside it once drawn. */}
-      <Page aside={!!open || !!coming} waiting={unloaded(all) || (!!focus && (coming ?? open?.id) !== focus) || !listShown} apart={sent} title="Goals" count={several.chosen.length || items.length} unit={several.chosen.length ? ['selected', 'selected'] : ['goal', 'goals']}
+      <Page aside={!!open || !!coming} waiting={unloaded(all) || (!!focus && (coming ?? open?.id) !== focus) || !listShown} apart={sent} title="Goals" count={several.chosen.length || undefined} unit={several.chosen.length ? ['selected', 'selected'] : ['goal', 'goals']}
         // Which goals show, at the line's left before the count, on the list's edges as Tasks' tabs (qa/list-edges.mjs): apart from the buttons that make or gather goals.
-        lead={several.bar ? undefined : <div data-list-tabs className="flex shrink-0" style={{ marginLeft: 'calc(var(--list-edge) - var(--list-ink))' }}><Chips className="shrink-0" options={[{ id: 'open', label: 'Open' }, { id: 'settled', label: 'Ended' }, { id: 'iced', label: 'On ice' }]} on={(id) => id === show} pick={(id) => switchTo(id as Tab)} /></div>}
+        lead={several.bar ? undefined : <div data-list-tabs className="flex shrink-0" style={{ marginLeft: 'calc(var(--list-edge) - var(--list-ink))' }}><Chips className="shrink-0" options={TABS.map((one) => ({ ...one, count: unloaded(all) ? undefined : listOf(one.id).length }))} on={(id) => id === show} pick={(id) => switchTo(id as Tab)} /></div>}
         actions={several.bar ??
           <span className="flex items-center gap-2">
             {openOnes(all).length > 1 && <Button variant="outline" size="sm" className="h-8 cursor-pointer px-3" data-all-goals-sticky onClick={showAllGoals} title="Every open goal on one sticky, each in its own colour"><StickyNote className="size-3.5" />All on one sticky</Button>}
@@ -404,19 +479,21 @@ export function GoalsView({ focus, onOpen }: { focus?: string; onOpen?: (type: s
         }
       >
         {!listShown ? null : items.length ? (
-          <NoteList groups={show === 'open' ? byDay(openOnes(all), entries) : [['', entries]]} dayHeads density="list" table="nuggets" selected={coming ?? open?.id} cursor={cursor} onCursor={setCursor} onPick={pick} chosen={several.chosen} picking={several.picking} className="list-edge my-2" />
+          <NoteList groups={[['', entries]]} density="list" table="nuggets" selected={coming ?? open?.id} cursor={cursor} onCursor={setCursor} onPick={pick} chosen={several.chosen} picking={several.picking} className="list-edge my-2"
+            folds={folding.rows ? { ...folding.folds(menuFor, entryOf), picked: several.chosen, days: show === 'open', onNewNote: pick } : undefined} />
         ) : unloaded(all) ? null : !all.length ? (
           // None set yet: the page as it will look, with a few made-up ones.
           <Example tryIt={<><strong><button type="button" onClick={() => void startGoal(go)} className="text-foreground underline decoration-foreground/25 underline-offset-4 hover:decoration-foreground/60">set a goal</button>: a day you are aiming for.</strong> It counts down at the top of Home and keeps a log of the road there. Or leave the day out: a someday goal, for the life list.</>}>
-            <NoteList groups={(() => {
-              const shown = exampleGoals().filter((one) => (show === 'open') === !one.closedAt)
-              return ([['', shown.filter((one) => !someday(one)).map((one) => goalEntry(one, today))], ['Someday', shown.filter(someday).map((one) => goalEntry(one, today))]] as [string, Entry[]][]).filter(([, list]) => list.length)
-            })()} density="list" table="nuggets" cursor={-1} onPick={() => undefined} className="list-edge my-2" />
+            <NoteList groups={[['', exampleGoals().filter((one) => tabOf(one) === show).map((one) => goalEntry(one, today))]]} density="list" table="nuggets" cursor={-1} onPick={() => undefined} className="list-edge my-2" />
           </Example>
         ) : show === 'open' ? (
           <Empty title="No goals yet" action={<Button variant="secondary" size="sm" onClick={() => void startGoal(go)}><Plus className="size-3.5" /> New goal</Button>}>
             A goal is a day you are working toward. It stays in front of you, in the menu bar and at the top of Home, counts the days down, and keeps a log of the road there.
             Or pick “No day: someday” for the life list: Visit Hobbiton, Take my parents to Victoria Falls. No countdown, just there until you go.
+          </Empty>
+        ) : show === 'someday' ? (
+          <Empty title="Nothing on your someday list" action={<Button variant="secondary" size="sm" onClick={() => void startGoal(go)}><Plus className="size-3.5" /> New goal</Button>}>
+            Your life list: places to go, things to do one day, with no date on them. Make a goal and pick “No day: someday”. Log a step whenever you take one; when it draws near, give it a day and it counts down.
           </Empty>
         ) : show === 'iced' ? (
           <Empty title="No goals on ice">
@@ -429,7 +506,7 @@ export function GoalsView({ focus, onOpen }: { focus?: string; onOpen?: (type: s
         )}
       </Page>
       {coming && coming !== open?.id ? <NoteComing id={coming} title={all.find((one) => one.id === coming)?.title} /> : open && <GoalDetail key={open.id} item={open}
-        top={<ReadsIn apart reading={unloaded(all)} className="contents" data-apart="stepper"><Stepper at={items.findIndex((one) => one.id === open.id)} total={items.length} onStep={(to) => pick(items[to].id)} /></ReadsIn>} />}
+        top={<ReadsIn apart reading={unloaded(all)} className="contents" data-apart="stepper"><Stepper at={rows.findIndex((one) => one.id === open.id)} total={rows.length} onStep={(to) => pick(rows[to].id)} /></ReadsIn>} />}
     </ReadsIn>
   )
 }
@@ -483,7 +560,7 @@ function GoalDetail({ item, top }: { item: ItemFull; top?: React.ReactNode }): R
   const left = daysLeft(target, today)
   const logs = [...item.glosses].reverse()
   const [picked, setPicked] = useState<Dot | null>(null)
-  const ink = item.closedAt ? 'var(--muted-foreground)' : dateless ? goalInk(item) : warmth(Math.max(left, 0))
+  const ink = onIce(item) ? ICE : item.closedAt ? 'var(--muted-foreground)' : dateless ? goalInk(item) : warmth(Math.max(left, 0))
   const tint = useTint(null, ink)
   const beacon: Beacon = item.beacon ?? settings?.goalBeacon ?? 'sometimes'
   const setBeacon = (mode: Beacon): void => {
@@ -517,49 +594,51 @@ function GoalDetail({ item, top }: { item: ItemFull; top?: React.ReactNode }): R
     })
   }
   const lastLog = logs[0]?.createdAt
+  const iced = onIce(item)
+  // The kind, small over the name, with its mark: a goal, a someday goal, on ice, ended.
+  const label = <><GoalMark item={item} className="size-3.5 shrink-0" />{iced ? (dateless ? 'Someday goal, on ice' : 'Goal, on ice') : item.closedAt ? (dateless ? (item.closedHow === 'made it' ? 'Someday goal, crossed off' : 'Someday goal, ended') : 'Goal, ended') : dateless ? 'Someday goal' : 'Goal'}</>
+  // The date line: the day it is for and when it was set; paused or ended, since when, said first.
+  const meta = dateless
+    ? [item.closedAt ? settledSaid(item) : `Added ${monthYear(item.createdAt)}`, stepsSaid(logs.length), ...(lastLog ? [`last step ${ago(lastLog)}`] : [])]
+    : item.closedAt
+      ? [settledSaid(item), `for ${dayMonth(`${target}T12:00`, 'always')}`, logsSaid(logs.length)]
+      : [`For ${dayMonth(`${target}T12:00`, 'always')}`, `set ${dayMonth(`${from}T12:00`)}`, ...(lastLog ? [`last log ${ago(lastLog)}`] : [])]
   return (
-    <div data-open={item.id} className="note-pane flex min-w-0 flex-[1.4] flex-col overflow-y-auto @[40rem]/page:flex-row @[40rem]/page:overflow-visible @[56rem]/page:border-l [&>*:first-child]:min-h-[16rem] [&>*:first-child]:shrink-0 @[40rem]/page:[&>*:first-child]:min-h-0 @[40rem]/page:[&>*:first-child]:shrink">
+    <div data-open={item.id} data-iced={iced || undefined} className="note-pane flex min-w-0 flex-[1.4] flex-col overflow-y-auto @[40rem]/page:flex-row @[40rem]/page:overflow-visible @[56rem]/page:border-l [&>*:first-child]:min-h-[16rem] [&>*:first-child]:shrink-0 @[40rem]/page:[&>*:first-child]:min-h-0 @[40rem]/page:[&>*:first-child]:shrink">
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto pt-3">
         <div className="flex min-h-7 items-center gap-2 px-3 @[40rem]/page:px-[4.25rem]">
           {top ?? <span />}
         </div>
         <CollectionHeader
           tint={tint}
-          cover={<Cover colour={ink} seed={item.id}>
-            {/* Its mark, never its number: the days left are said once, large, beside it. */}
-            {dateless ? <Mountain className="size-[42cqi]" strokeWidth={1.6} /> : <Flag className="size-[42cqi]" strokeWidth={1.6} />}
-          </Cover>}
-          label={onIce(item) ? (dateless ? 'Someday goal, on ice' : 'Goal, on ice') : item.closedAt ? (dateless ? 'Someday goal, ended' : 'Goal, ended') : dateless ? 'Goal · Someday' : 'Goal'}
+          // No cover and no second number: the title, its date line, then the road's own card says the days once.
+          cover={null}
+          label={label}
           length={item.title.length}
-          meta={dateless
-            ? [item.closedAt ? settledSaid(item) : 'Someday, no day to it', logsSaid(logs.length), ...(lastLog ? [`last log ${ago(lastLog)}`] : [])]
-            : item.closedAt
-            ? [settledSaid(item), `for ${dayMonth(`${target}T12:00`)}`, logsSaid(logs.length)]
-            // The one number, large, with the day it counts to; then the time gone and the logs, in words.
-            : [...(left < 0 ? [] : [`${percent(wayThrough(from, target))} of the time gone`]), logsSaid(logs.length), ...(lastLog ? [`last log ${ago(lastLog)}`] : [])]}
-          // The one number, large, on its own line, with the day it counts to.
-          big={!dateless && !item.closedAt && (
-            <p className="flex flex-wrap items-baseline gap-x-2 text-control text-foreground">
-              <span data-goal-left className="text-[1.75rem] leading-tight font-semibold tracking-[-0.02em] tabular-nums" style={{ color: left > 30 ? 'var(--foreground)' : warmth(Math.max(left, 0)) }}>{left === 0 ? 'Today' : left < 0 ? leftSaid(left) : plural(left, 'day')}</span>
-              <span className="whitespace-nowrap">{left === 0 ? 'is the day' : left < 0 ? `since ${dayMonth(`${target}T12:00`, 'always')}` : `to ${dayMonth(`${target}T12:00`, 'always')}`}</span>
-            </p>
-          )}
+          meta={meta}
           actions={<>
+            {/* The page's one clear action for its kind: a someday goal is given a day, an iced one taken off ice. */}
+            {dateless && !item.closedAt && (
+              <DatePicker value={null} onChange={(iso) => iso && setDay(dayKey(iso))} suggest={['in 1 month', 'in 3 months', 'in 1 year']}
+                className={`${PRIMARY} bg-primary! text-primary-foreground! hover:bg-primary/85!`}>
+                <span data-give-day className="contents"><CalendarPlus className="size-4 shrink-0" />Give it a day</span>
+              </DatePicker>
+            )}
+            {iced && <button type="button" data-take-off-ice onClick={() => thaw(item)} className={`${PRIMARY} bg-primary text-primary-foreground hover:bg-primary/85`}><Snowflake className="size-4 shrink-0" />Take off ice</button>}
             {/* Ended, a goal takes no more logs (its field is gone): no "+" that would do nothing. */}
-            {!item.closedAt && <span data-goal-add className="contents"><QuietAction label="Add a log" onClick={addLog}><Plus /></QuietAction></span>}
+            {!item.closedAt && <span data-goal-add className="contents"><QuietAction label={dateless ? 'Log a step' : 'Add a log'} onClick={addLog}><Plus /></QuietAction></span>}
             <MenuButton items={[
-              ...(onIce(item) ? [] : item.closedAt ? [{ label: 'Open it again', run: () => reopen(item) }]
-                : [{ label: 'Made it', run: () => settle(item, 'made it') }, ...(dateless ? [] : [{ label: 'Missed', run: () => settle(item, 'missed') }]), { label: 'Give it up', hint: 'Kept under “Ended”', run: () => settle(item, 'let go') }]),
+              ...(iced ? [] : item.closedAt ? [{ label: 'Open it again', run: () => reopen(item) }]
+                : [{ label: dateless ? 'Cross it off' : 'Made it', run: () => settle(item, 'made it') }, ...(dateless ? [] : [{ label: 'Missed', run: () => settle(item, 'missed') }]), { label: 'Give it up', hint: 'Kept under “Ended”', run: () => settle(item, 'let go') }]),
               'separator',
               ...goalMenu(item)
             ]} />
-            {/* When it began, on the row with what you do to it: said as a date, not left to guess. */}
-            <span data-goal-set className="ml-2 text-xs text-muted-foreground">{dateless ? `Added on ${dayMonth(item.createdAt)}` : `Set on ${dayMonth(`${from}T12:00`)}`}</span>
           </>}
           title={
             <textarea
               rows={1}
               className="block w-full resize-none overflow-hidden bg-transparent pb-[0.12em] text-balance outline-none [field-sizing:content] placeholder:text-foreground/70"
+              style={iced ? { color: ICE } : undefined}
               defaultValue={item.title === 'Untitled' ? '' : item.title}
               placeholder="What are you working toward?"
               onKeyDown={(event) => {
@@ -574,6 +653,7 @@ function GoalDetail({ item, top }: { item: ItemFull; top?: React.ReactNode }): R
             />}
         />
         <div className="page-narrow mx-auto w-full px-10 pb-16">
+          {!dateless && <RoadCard item={item} from={from} target={target} today={today} picked={picked} onPick={setPicked} />}
           <textarea
             rows={1}
             defaultValue={item.why ?? ''}
@@ -587,7 +667,7 @@ function GoalDetail({ item, top }: { item: ItemFull; top?: React.ReactNode }): R
               const why = event.target.value.trim()
               if (why !== (item.why ?? '')) void haligtree.saveItem(item.id, { why: why || null }).then(() => chime('noted'))
             }}
-            className="private-text mt-1 block w-full resize-none bg-transparent px-2 text-body leading-relaxed text-foreground/85 italic outline-none [field-sizing:content] placeholder:text-foreground/70 placeholder:not-italic"
+            className="private-text mt-4 block w-full resize-none bg-transparent px-2 text-body leading-relaxed text-foreground/85 italic outline-none [field-sizing:content] placeholder:text-foreground/70 placeholder:not-italic"
           />
           {dateless && item.closedHow === 'made it' && <CrossedOff id={item.id} day={item.closedAt!} />}
           {!dateless && !item.closedAt && left < 0 && (
@@ -599,29 +679,12 @@ function GoalDetail({ item, top }: { item: ItemFull; top?: React.ReactNode }): R
               <Answers item={item} />
             </div>
           )}
-          {dateless ? (
-            <section data-someday-page className="mt-6">
-              <h3 className="mb-1 px-2 text-meta text-muted-foreground">Someday</h3>
-              {/* No road to draw: what it is for, and the steps so far, in plain words. */}
-              <p className="px-2 text-control leading-snug text-foreground">
-                {item.closedAt ? <>Kept here, logs and all.</>
-                  : <>No day and no countdown: it waits for its time. Log each step you take toward it. When it draws near, “Give it a day” and it gets a road.</>}
-                {logs.length ? <> <strong className="font-semibold">{logsSaid(logs.length)}</strong> since {dayMonth(item.createdAt)}.</> : null}
-              </p>
-            </section>
-          ) : <section className="mt-6">
-            <h3 className="mb-1 px-2 text-meta text-muted-foreground">The road</h3>
-            {/* The point first: how many of the days gone have a log; then the road's own span, quieter. */}
-            <p data-goal-showed className="mb-3 px-2 text-control leading-snug text-foreground tabular-nums">
-              {(() => {
-                const gone = Math.max(1, Math.min(daysBetween(from, today), daysBetween(from, target)) + 1)
-                const logged = new Set(item.glosses.map((one) => dayKey(one.createdAt)).filter((day) => day >= from && day <= today)).size
-                return <strong className="font-semibold">{num(logged)} of {num(gone)} {gone === 1 ? 'day' : 'days'} logged</strong>
-              })()}
-              <span className="text-muted-foreground"> so far · {num(daysBetween(from, target) + 1)} days, {dayMonth(`${from}T12:00`)} to {dayMonth(`${target}T12:00`)}</span>
+          {dateless && !item.closedAt && (
+            // No road and no days: what the life list is for, in one line, by the steps.
+            <p data-someday-said className="mt-3 px-2 text-control leading-snug text-foreground">
+              <strong className="font-semibold">On your someday list.</strong> No countdown: log each step you take toward it. When it draws near, “Give it a day” and it counts down under “Goals”.
             </p>
-            <div data-road className="px-2"><Journey goal={item.id} from={from} target={target} today={today} logs={item.glosses} picked={picked} onPick={setPicked} /></div>
-          </section>}
+          )}
           <Logs item={item} picked={picked} onClear={() => setPicked(null)} />
         </div>
       </div>
@@ -631,7 +694,7 @@ function GoalDetail({ item, top }: { item: ItemFull; top?: React.ReactNode }): R
           {/* Ended, a someday goal has no day to give: only its colour stays to change. */}
           {dateless ? !item.closedAt && (
             <DatePicker value={null} onChange={(iso) => iso && setDay(dayKey(iso))} suggest={['in 1 month', 'in 3 months', 'in 1 year']}>
-              <Mountain className="size-4 shrink-0" style={{ color: ink }} />
+              <Telescope className="size-4 shrink-0" style={{ color: ink }} />
               <span data-someday-day className="truncate">Someday · “Give it a day”</span>
             </DatePicker>
           ) : (<>
@@ -670,7 +733,7 @@ function GoalDetail({ item, top }: { item: ItemFull; top?: React.ReactNode }): R
             <Prop icon={Wind} onClick={() => reopen(item)}>Open it again</Prop>
           ) : (
             <>
-              <Prop alive={SimpleCheckedIcon} onClick={() => settle(item, 'made it')} tip={dateless ? 'Crossed off your list' : undefined}>Made it</Prop>
+              <Prop alive={SimpleCheckedIcon} onClick={() => settle(item, 'made it')} tip={dateless ? 'Struck through, kept at the foot of “Someday”' : undefined}>{dateless ? 'Cross it off' : 'Made it'}</Prop>
               {!dateless && <Prop icon={Flag} onClick={() => settle(item, 'missed')}>Missed</Prop>}
               <Prop icon={Wind} onClick={() => settle(item, 'let go')} tip="Kept under “Ended”">Give it up</Prop>
               <Prop icon={Snowflake} onClick={() => settle(item, 'on ice')} tip={dateless ? 'Paused: out of the list until taken off' : 'Paused: off Home and the desktop, its countdown stopped'}>On ice</Prop>
@@ -779,7 +842,7 @@ type RoadProps = {
  * say what they are when pointed at.
  */
 export function Journey(props: RoadProps): React.JSX.Element {
-  return props.compact ? <Field {...props} /> : <Road {...props} />
+  return <Field {...props} />
 }
 
 /** The milestones on a road (the same ones that celebrate) and the days marked for this goal. */
@@ -838,32 +901,37 @@ function DotTip({ dot, today, days, milestoneIn, markIn }: { dot: Dot; today: st
   )
 }
 
-/** Smallest a dot's cell may be on the page: a dot about 10px across, still seen and pointed at. */
-const ROAD_CELL = 15
-/** Largest: a short road's dots stop growing here. */
-const ROAD_MOST = 22
-/** The months' column at the left of a wrapped road. */
-const ROAD_LEFT = 64
-const LANE = 15
-/** "Nov" for "2026-11-05". */
-const monthOf = (day: string): string => dayMonth(`${day}T12:00`, 'never').split(' ')[1]
+/** A road's dot, its gap, and so its step: small and tight, as Mono's charts are (memory: compact-dots). */
+const DOT = 8
+const GAP = 2.5
+const STEP = DOT + GAP
+/** Up to a month, a road is one line of days; longer, a week a column, Monday at the top. */
+const ONE_LINE = 31
+/** "Nov" for "2026-11-05", "Jan 2027" where a year turns. */
+const monthOf = (day: string, year = false): string => { const [, m] = dayMonth(`${day}T12:00`, 'never').split(' '); return year ? `${m} ${day.slice(0, 4)}` : m }
 
 /**
- * A goal's road on its page: only its own days, from the day it was set to
- * the day itself. Short, one row of days across the width. Longer, a week a
- * column, Monday at the top. Too long for the width at a dot about 10px, it
- * wraps into rows of weeks, each with its months at the left, so the days stay
- * dots you can see and point at. Every marked dot is named in words over its
- * own row: Today, Halfway, A month to go, A week to go, The day, the goal's
- * own days. Pointed at, a dot says its day and its logs; clicked, the logs
- * below show only that day.
+ * A goal's road as one compact card, after Mono's charts: one big number at
+ * the top left with small pills beside it, then the road, a small dot a day
+ * packed tight, then the months under it. Days gone are solid ink, days ahead
+ * barely there, today the brightest dot, logged days in the goal's colour.
+ * Marked days (Halfway, A month to go, the goal's own) are small ticks over
+ * their dot's column, named in a key under the card, so no two names ever
+ * touch. A long road wraps into rows of weeks, each as wide as the card allows.
+ * On ice, the road stops on the day it went on ice, in a cool ink; ended, on
+ * the day it ended. Pointed at, a dot says its day and its logs; clicked, the
+ * logs below show only that day.
  */
-function Road({ goal, from, target, today, logs, picked, onPick }: RoadProps): React.JSX.Element {
+function RoadCard({ item, from, target, today: now, picked, onPick }: { item: ItemFull; from: string; target: string; today: string; picked: Dot | null; onPick: (dot: Dot | null) => void }): React.JSX.Element {
+  const iced = onIce(item)
+  // Frozen where it stopped: on ice since, or ended on, that day.
+  const today = item.closedAt ? (dayKey(item.closedAt) < now ? dayKey(item.closedAt) : now) : now
   const road = journey(from, target, today, ROAD_DAYS)
-  const days = useMemo(() => logDays(logs), [logs])
-  const { milestoneIn, markIn, marksIn } = useMarks(goal, from, target)
+  const days = useMemo(() => logDays(item.glosses), [item.glosses])
+  const { milestoneIn, marksIn } = useMarks(item.id, from, target)
   const [hover, setHover] = useState<Dot | null>(null)
   const [width, setWidth] = useState(0)
+  // The room the page gives the card, measured outside it: the card itself is only as wide as its road.
   const box = useRef<HTMLDivElement>(null)
   useLayoutEffect(() => {
     const node = box.current
@@ -873,107 +941,116 @@ function Road({ goal, from, target, today, logs, picked, onPick }: RoadProps): R
     setWidth(node.clientWidth)
     return () => watch.disconnect()
   }, [])
-  // One row of days, a week a column, or weeks wrapped into rows of `per` columns.
-  const line = road.by === 'day' && road.dots.length * 14 <= width
+  const line = road.by === 'day' && road.dots.length <= ONE_LINE
   const across = line ? road.dots.length : road.cols
-  const wrap = !line && width > 0 && width / across < ROAD_CELL
-  const left = wrap ? ROAD_LEFT : 0
-  const per = wrap ? Math.max(4, Math.floor((width - left) / ROAD_CELL)) : across
-  const step = !width ? ROAD_MOST : wrap ? ROAD_CELL : line ? width / across : Math.min(width / across, ROAD_MOST)
-  const cell = Math.min(step, ROAD_MOST)
+  // As many columns a row as the card has room for, the rows evened out so the last is not a stub.
+  const room = Math.max(4, Math.floor(((width || 640) - 34) / STEP))
+  const bands = Math.max(1, Math.ceil(across / room))
+  const per = Math.ceil(across / bands)
   const rows = line ? 1 : road.rows
-  // Each dot's band (row of the wrapped road) and its column inside it.
   const placed = road.dots.map((dot, index) => {
     const col = line ? index : dot.col
-    return { dot, band: Math.floor(col / per), x: (col % per + 0.5) * step }
+    return { dot, band: Math.floor(col / per), x: (col % per) * STEP + DOT / 2, y: (line ? 0 : dot.row) * STEP + DOT / 2 }
   })
-  const bands = Math.max(1, Math.ceil(across / per))
-  const wide = per * step
+  const left = daysLeft(target, today)
+  const gone = Math.max(1, Math.min(daysBetween(from, today), daysBetween(from, target)) + 1)
+  const logged = new Set(item.glosses.map((one) => dayKey(one.createdAt)).filter((day) => day >= from && day <= today)).size
+  const ink = iced ? ICE : 'var(--foreground)'
+  const lit = goalInk(item)
+  // Every marked day, named once in the key, in road order: today, the milestones, the goal's own days, the day itself.
+  const marks = placed.flatMap(({ dot }) => {
+    const out: { day: string; word: string; ink: string }[] = []
+    const milestone = milestoneIn(dot)
+    if (milestone && !dot.target) out.push({ day: dot.day, word: milestone[0].toUpperCase() + milestone.slice(1), ink: 'var(--foreground)' })
+    for (const one of marksIn(dot)) out.push({ day: dot.day, word: clip(one.title, 28), ink: inkOf(one) })
+    if (dot.target) out.push({ day: dot.day, word: 'The day', ink: ACCENT })
+    return out
+  })
+  const ticked = new Map(marks.map((one) => [one.day, one.ink]))
+  const shownHover = hover && placed.find((one) => one.dot.day === hover.day)
+  const bandWidth = per * STEP - GAP
   return (
-    <div ref={box} data-road-wrapped={wrap || undefined} className="relative w-full" onMouseLeave={() => setHover(null)}>
-      {width > 0 && Array.from({ length: bands }, (_, band) => {
-        const here = placed.filter((one) => one.band === band)
-        if (!here.length) return null
-        // Every marked dot in this row named in words over it, lifted a lane where two would touch,
-        // and no hair from a higher name runs through a lower one.
-        const marks = here.flatMap(({ dot, x }) => {
-          const words: [string, string?][] = []
-          if (dot.today) words.push(['Today'])
-          const milestone = milestoneIn(dot)
-          if (milestone && !dot.target) words.push([milestone[0].toUpperCase() + milestone.slice(1)])
-          for (const one of marksIn(dot)) words.push([clip(one.title, 24), inkOf(one)])
-          if (dot.target) words.push(['The day', ACCENT])
-          return words.map(([word, ink], n) => ({ key: `${dot.day}-${n}`, x, word, ink, size: word.length * 6.2 + 4 }))
-        })
-        const named: (typeof marks[number] & { lane: number; left: number })[] = []
-        for (const mark of marks) {
-          const at = Math.max(0, Math.min(wide - mark.size, mark.x - mark.size / 2))
-          const covers = (from: number, to: number, x: number): boolean => x >= from - 4 && x <= to + 4
-          const clash = (lane: number, hairs: boolean): boolean => named.some((one) =>
-            one.lane === lane ? at < one.left + one.size + 8 && one.left < at + mark.size + 8 : !hairs ? false : one.lane > lane ? covers(at, at + mark.size, one.x) : covers(one.left, one.left + one.size, mark.x))
-          let lane = 0
-          while (lane < 4 && clash(lane, true)) lane += 1
-          if (lane === 4) for (lane = 0; clash(lane, false); lane += 1);
-          named.push({ ...mark, lane, left: at })
-        }
-        const lanes = named.length ? Math.max(...named.map((one) => one.lane)) + 1 : 0
-        const top = lanes ? lanes * LANE + 6 : band ? 10 : 0
-        const first = here[0].dot.day
-        const last = here[here.length - 1].dot.last
-        const shownHover = hover && here.some((one) => one.dot.day === hover.day) ? here.find((one) => one.dot.day === hover.day)! : null
-        // The months under a road that does not wrap, never two names touching.
-        const months: { x: number; label: string }[] = []
-        if (!wrap) for (const one of line ? road.dots.flatMap((dot, index) => (index === 0 || dot.day.endsWith('-01') ? [{ col: index, label: dayMonth(`${dot.day}T12:00`) }] : [])) : road.months) {
-          const was = months.at(-1)
-          const x = one.col * step
-          if (!was || was.x + was.label.length * 6.2 + 8 <= x) months.push({ x, label: one.label })
-        }
-        return (
-          <div key={band} data-road-band={band} className="relative flex" style={{ marginTop: band ? 8 : 0 }}>
-            {wrap && (
-              // Which months this row holds, at its left, level with its dots.
-              <div aria-hidden data-road-months className="shrink-0 pr-2 text-[11px] leading-tight text-muted-foreground tabular-nums" style={{ width: left, paddingTop: top }}>
-                {/* "Nov 2026" over "to Jan": the year where the road starts and wherever a row starts a new one. */}
-                <span className="block font-medium text-foreground/80">{monthOf(first)}{band === 0 || first.slice(0, 4) !== placed.find((one) => one.band === band - 1)?.dot.day.slice(0, 4) ? ` ${first.slice(0, 4)}` : ''}</span>
-                {monthOf(last) !== monthOf(first) && <span className="block">to {monthOf(last)}</span>}
-              </div>
-            )}
-            <div className="relative" style={{ width: wide }}>
-              {lanes > 0 && (
-                <div className="relative" style={{ height: top }}>
-                  {named.map((one) => (
-                    <span key={one.key} data-road-label className="absolute text-[11px] leading-none font-medium whitespace-nowrap text-foreground" style={{ left: one.left, bottom: one.lane * LANE + 6, color: one.ink }}>{one.word}</span>
-                  ))}
-                  {/* A hair from each name down to its dot's column. */}
-                  {named.map((one) => (
-                    <span key={`${one.key}-tick`} aria-hidden className="absolute bottom-0 w-px bg-foreground/25" style={{ left: one.x, height: one.lane * LANE + 4 }} />
-                  ))}
-                </div>
-              )}
-              {!lanes && top > 0 && <div style={{ height: top }} />}
-              <svg role="img" aria-label={`${dayMonth(`${first}T12:00`)} to ${dayMonth(`${last}T12:00`)}: ${num(here.length)} ${road.by === 'day' ? 'days' : 'weeks'}, ${num(here.filter((one) => one.dot.past).length)} gone`}
-                viewBox={`0 0 ${wide} ${rows * cell}`} style={{ width: wide }} className="block h-auto overflow-visible">
-                {here.map(({ dot, x }) => (
-                  <RoadDot key={dot.day} dot={dot} x={x} y={((line ? 0 : dot.row) + 0.5) * cell} cell={cell} logged={logsIn(days, dot).length > 0}
-                    marker={milestoneIn(dot)} mark={markIn(dot)} on={picked?.day === dot.day} compact={false}
-                    onEnter={() => setHover(dot)} onClick={onPick ? () => (chime('tap'), onPick(picked?.day === dot.day ? null : dot)) : undefined} />
-                ))}
+    <div ref={box} className="mt-2 w-full">
+    <section data-road-card aria-label="The road" className="w-fit max-w-full rounded-md border bg-[color-mix(in_oklab,var(--foreground)_3%,var(--background))] px-4 pt-3 pb-3" style={{ minWidth: Math.min(bandWidth + 34, 280) }}>
+      {/* The one number, large, and beside it what it means, small. */}
+      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+        <span data-goal-left className="text-[1.5rem] leading-none font-semibold tracking-[-0.02em]" style={{ color: iced ? ICE : !item.closedAt && left <= 30 ? warmth(Math.max(left, 0)) : 'var(--foreground)' }}>
+          {left === 0 ? 'Today' : left < 0 ? leftSaid(left) : plural(left, 'day')}
+        </span>
+        <span className="text-meta text-muted-foreground">{iced ? 'left when it went on ice' : item.closedAt ? 'left when it ended' : left === 0 ? 'is the day' : left < 0 ? 'past the day' : `to ${dayMonth(`${target}T12:00`)}`}</span>
+        <span className="flex flex-wrap gap-1 self-center">
+          <span data-road-pill className="rounded-sm bg-foreground/[0.07] px-1.5 py-px text-meta text-foreground tabular-nums">{percent(wayThrough(from, target, new Date(`${today}T${today === now ? new Date().toTimeString().slice(0, 8) : '23:59:59'}`)))} gone</span>
+          <span data-road-pill className="rounded-sm bg-foreground/[0.07] px-1.5 py-px text-meta text-foreground tabular-nums">{num(logged)} of {num(gone)} days logged</span>
+          {iced && <span data-road-pill className="rounded-sm px-1.5 py-px text-meta" style={{ color: ICE, background: `color-mix(in oklab, ${ICE} 14%, transparent)` }}>Frozen {dayMonth(`${today}T12:00`)}</span>}
+        </span>
+      </div>
+      <div className="mt-3" onMouseLeave={() => setHover(null)}>
+        {width > 0 && Array.from({ length: bands }, (_, band) => {
+          const here = placed.filter((one) => one.band === band)
+          if (!here.length) return null
+          // The months under this row, a name where a month starts, never two touching.
+          // Each column's first day (a day's own, on one line); a name where its month differs from the column before.
+          const columns = new Map<number, string>()
+          for (const { dot, x } of here) if (!columns.has(x)) columns.set(x, dot.day)
+          const months: { x: number; label: string }[] = []
+          let before = ''
+          for (const [x, day] of columns) {
+            const month = day.slice(0, 7)
+            if (month !== before) {
+              const label = monthOf(day, !months.length && band === 0 ? day.slice(0, 4) !== now.slice(0, 4) : day.slice(5, 7) === '01')
+              const at = x - DOT / 2
+              const was = months.at(-1)
+              if (!was || was.x + was.label.length * 6.4 + 6 <= at) months.push({ x: at, label })
+            }
+            before = month
+          }
+          return (
+            <div key={band} data-road-band={band} className={`relative ${band ? 'mt-2.5' : ''}`}>
+              <svg role="img" aria-label={`${dayMonth(`${here[0].dot.day}T12:00`)} to ${dayMonth(`${here.at(-1)!.dot.last}T12:00`)}: ${num(here.filter((one) => one.dot.past).length)} of ${num(here.length)} ${road.by === 'day' ? 'days' : 'weeks'} gone`}
+                width={bandWidth} height={rows * STEP - GAP + 5} viewBox={`0 -5 ${bandWidth} ${rows * STEP - GAP + 5}`} className="block overflow-visible">
+                {here.map(({ dot, x, y }) => {
+                  const has = logsIn(days, dot).length > 0
+                  const tick = ticked.get(dot.day) ?? (dot.target ? ACCENT : undefined)
+                  return (
+                    <g key={dot.day} data-road-day={dot.day} data-road-now={dot.today || undefined} data-road-logged={has || undefined} className="cursor-pointer"
+                      onMouseEnter={() => setHover(dot)} onClick={() => (chime('tap'), onPick(picked?.day === dot.day ? null : dot))}>
+                      {/* The whole cell is its target, gap and all. */}
+                      <rect x={x - STEP / 2} y={y - STEP / 2} width={STEP} height={STEP} fill="transparent" />
+                      {/* A marked day: a small tick over its column, in the mark's ink; named in the key below. */}
+                      {tick && (line || dot.row === 0 || dot.target) && <rect data-road-tick x={x - 0.75} y={(line ? y : DOT / 2) - DOT / 2 - 5} width={1.5} height={3.5} rx={0.75} fill={tick} />}
+                      <circle data-dot cx={x} cy={y} r={DOT / 2}
+                        fill={dot.today ? (iced ? ICE : ACCENT) : has ? lit : ink}
+                        opacity={dot.today || has ? 1 : dot.past ? (iced ? 0.55 : 0.82) : 0.13} />
+                      {picked?.day === dot.day && <circle cx={x} cy={y} r={DOT / 2 + 1.25} fill="none" stroke="var(--foreground)" strokeWidth={1} />}
+                    </g>
+                  )
+                })}
               </svg>
-              {months.length > 0 && (
-                <div aria-hidden className="relative mt-1.5 h-4 text-[11px] text-muted-foreground">
-                  {months.map((month) => <span key={month.x} className="absolute top-0 whitespace-nowrap" style={{ left: month.x }}>{month.label}</span>)}
-                </div>
-              )}
-              {shownHover && (
-                <div className={`pointer-events-none absolute z-10 w-max max-w-64 rounded-md ${shownHover.x < wide / 3 ? '-translate-x-3' : shownHover.x > (wide * 2) / 3 ? '-translate-x-[calc(100%-0.75rem)]' : '-translate-x-1/2'} bg-popover px-2.5 py-1.5 text-xs text-popover-foreground shadow-(--mf-panel-shadow) ring-1 ring-foreground/10`}
-                  style={{ left: shownHover.x, top: top + ((line ? 0 : shownHover.dot.row) + 1) * cell + 4 }}>
-                  <DotTip dot={shownHover.dot} today={today} days={days} milestoneIn={milestoneIn} markIn={markIn} />
+              <div aria-hidden className="relative mt-1 h-3.5 text-[11px] leading-none text-muted-foreground" style={{ width: bandWidth }}>
+                {months.map((month) => <span key={month.x} className="absolute top-0 whitespace-nowrap" style={{ left: month.x }}>{month.label}</span>)}
+              </div>
+              {shownHover && shownHover.band === band && (
+                <div data-road-tip className={`pointer-events-none absolute z-10 w-max max-w-64 ${TIP} ${shownHover.x < bandWidth / 3 ? '-translate-x-3' : shownHover.x > (bandWidth * 2) / 3 ? '-translate-x-[calc(100%-0.75rem)]' : '-translate-x-1/2'}`}
+                  style={{ left: shownHover.x, top: shownHover.y + STEP + 4 }}>
+                  <DotTip dot={shownHover.dot} today={today} days={days} milestoneIn={milestoneIn} markIn={(dot) => marksIn(dot)[0]} />
                 </div>
               )}
             </div>
-          </div>
-        )
-      })}
+          )
+        })}
+      </div>
+      {/* The key: what the dots mean, then every marked day by name. Whole items wrap; nothing stacks on anything. */}
+      <ul aria-label="What the marks mean" className="mt-2.5 flex max-w-full flex-wrap gap-x-3 gap-y-1 text-meta text-muted-foreground" style={{ maxWidth: Math.max(bandWidth, 248) }}>
+        <li className="flex items-center gap-1.5"><span className="size-2 rounded-full" style={{ background: ink, opacity: iced ? 0.55 : 0.82 }} />gone</li>
+        <li className="flex items-center gap-1.5"><span className="size-2 rounded-full" style={{ background: lit }} />logged</li>
+        <li data-road-label className="flex items-center gap-1.5 text-foreground"><span className="size-2 rounded-full" style={{ background: iced ? ICE : ACCENT }} />{iced ? 'Went on ice' : item.closedAt ? 'Ended' : 'Today'}</li>
+        {marks.map((one) => (
+          <li key={`${one.day}-${one.word}`} data-road-label className="flex items-center gap-1.5 whitespace-nowrap text-foreground">
+            <span className="h-2 w-[1.5px] rounded-full" style={{ background: one.ink }} />{one.word}<span className="text-muted-foreground tabular-nums">{dayMonth(`${one.day}T12:00`)}</span>
+          </li>
+        ))}
+      </ul>
+    </section>
     </div>
   )
 }
@@ -1093,7 +1170,7 @@ function Logs({ item, picked, onClear }: { item: ItemFull; picked: Dot | null; o
   return (
     <section data-chrome className="mt-8 w-full border-t pt-4 text-body">
       <h3 className="mb-2 flex items-baseline gap-1.5 px-2 text-meta text-muted-foreground">
-        Progress log {all.length > 0 && <Rolling text={all.length} className="tabular-nums" />}
+        <span data-someday-steps={someday(item) || undefined}>{someday(item) ? 'Steps so far' : 'Progress log'}</span> {all.length > 0 && <Rolling text={all.length} className="tabular-nums" />}
         {picked && (
           <button type="button" onClick={() => (chime('tap'), onClear())} className="ml-auto flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs text-foreground/80 hover:bg-accent">
             {picked.day === picked.last ? dayMonth(`${picked.day}T12:00`) : `Week of ${dayMonth(`${picked.day}T12:00`)}`} <X className="size-3" />
@@ -1116,7 +1193,7 @@ function Logs({ item, picked, onClear }: { item: ItemFull; picked: Dot | null; o
               }
               if (event.key === 'Escape') event.currentTarget.blur()
             }}
-            placeholder="A log: what you did, where it stands, what you think"
+            placeholder={someday(item) ? 'A step: what you did toward it, what you found out' : 'A log: what you did, where it stands, what you think'}
             className="min-w-0 flex-1 resize-none bg-transparent text-control outline-none [field-sizing:content] placeholder:text-foreground/70"
           />
           {words.trim() && <span className="mt-0.5 flex shrink-0 items-center gap-1 text-xs text-muted-foreground"><Kbd>↵</Kbd></span>}
@@ -1172,7 +1249,7 @@ function Logs({ item, picked, onClear }: { item: ItemFull; picked: Dot | null; o
         </ol>
       ) : (
         <p className="px-2 pb-2 text-control text-muted-foreground">
-          <span data-log-empty>{picked ? 'No log that day.' : item.closedAt ? 'No logs were kept.' : 'Nothing logged yet: write the first above.'}</span>
+          <span data-log-empty>{picked ? 'No log that day.' : item.closedAt ? 'No logs were kept.' : someday(item) ? 'No steps yet: write the first above.' : 'Nothing logged yet: write the first above.'}</span>
         </p>
       )}
       <ShowMore total={logs.length} shown={few.shown.length} few={LOG_FEW} onMore={few.onMore} onFewer={few.onFewer} className="mx-1 mb-1" />
