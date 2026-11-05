@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { TAGS } from '@/extensions/tokens'
-import { ArrowRight, ArrowUpLeft, ChevronRight, GripVertical } from 'lucide-react'
+import { ArrowRight, ArrowUpLeft, ChevronRight, GripVertical, Plus } from 'lucide-react'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Button } from '@/components/ui/button'
 import { chime, tear } from '@/lib/sound'
@@ -809,6 +809,8 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
             return [...sendItems(task, section, open), ...taskMenu(task, { open, complete: () => tick(task), now: taskNow })]
           })()}>
           <div className="flex items-start gap-2.5 py-1 pr-1">
+            {/* A new line straight under this one, as the "+" beside a note's handle makes a block: what Enter at its end does. */}
+            {!struck && <AddBelow label="Add a line below" className="top-[0.3rem] -left-6 group-hover/line:opacity-60" onAdd={() => (setDraft({ section, after: task.id, text: '' }), go('draft'))} />}
             {/* The handle, shown on pointing; the whole row drags, the words never. */}
             {/* Shown on the line being written too: it says the line can move, and ⌥↑ ⌥↓ (said under the list) moves it from the keys. */}
             {/* One of the day's three: its number in the same place, giving way to the handle on pointing. */}
@@ -896,6 +898,7 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
             ]}>
             <div data-day-step={`${task.id}:${n}`} className={`group/step relative flex items-start gap-2 py-0.5 pl-12 transition-opacity ${struck ? 'opacity-55' : ''}`}>
               {/* Its menu from a grip, as the line's: a right click in the words would put the caret there first. */}
+              {!struck && <AddBelow label="Add a step below" className="top-[0.15rem] left-[0.25rem] group-hover/step:opacity-60" onAdd={() => (setDraft({ section, after: task.id, parent: { id: task.id, at: n + 1 }, text: '' }), go('draft'))} />}
               {!struck && <span data-grip title="Click for its menu" onClick={openFromGrip} className="absolute top-[0.3rem] left-[1.75rem] cursor-pointer"><GripVertical aria-hidden className="size-3 text-muted-foreground opacity-0 transition-opacity group-hover/step:opacity-60" /></span>}
               <button type="button" role="checkbox" aria-checked={one.done} aria-label={one.text} onClick={() => tickStep(task, n)}
                 className="relative after:absolute after:-inset-[5px] after:rounded-full mt-[0.2rem] grid size-3.5 shrink-0 place-items-center rounded-full border-[1.5px] transition-colors"
@@ -1136,5 +1139,21 @@ function NowCount({ open, late, done, three }: { open: number; /** Of the open, 
         </span>
       )}
     </>
+  )
+}
+
+/**
+ * The "+" left of a line's handle, shown on pointing: a new line straight under it, ready to write in. A narrow page
+ * leaves no gutter for it, as with a note's (haligtree-editor.scss): it would hang past the pane, under the sidebar.
+ * Enter at a line's end still makes one.
+ */
+function AddBelow({ label, className, onAdd }: { label: string; className: string; onAdd: () => void }): React.JSX.Element {
+  return (
+    <Tip label={label}>
+      <button type="button" tabIndex={-1} data-add-below aria-label={label} data-silent="" onClick={onAdd}
+        className={`absolute z-10 hidden size-5 @[62rem]/page:grid cursor-pointer place-items-center rounded-md text-muted-foreground opacity-0 transition-opacity hover:bg-accent hover:text-foreground hover:!opacity-100 ${className}`}>
+        <Plus aria-hidden className="size-3.5" />
+      </button>
+    </Tip>
   )
 }
