@@ -59,6 +59,7 @@ import { MatrixView } from './components/haligtree/matrix-view'
 import { bucket, onToday, picked, taskName } from './lib/tasks'
 import { stickOnDesktop } from './components/haligtree/sticky-note'
 import { Count, Kbd, Toaster, toast, refuse, typing, HELD, FocusNote, useFocusMode, SoundToggle, quietly } from './components/haligtree/ui'
+import { shownName } from '@/lib/haligtree'
 import { GrowFrom } from './components/haligtree/grow-from'
 import { FocusScenery } from './components/haligtree/scenery'
 import { TooltipProvider } from './components/ui/tooltip'
@@ -116,7 +117,7 @@ import { NavContext, type Nav, type Step } from '@/lib/nav'
 import { SplitPanes, type PaneApi } from '@/components/haligtree/panes'
 import { SplitDrop, type Carried, type Side } from '@/components/haligtree/split-drop'
 import { rowOf } from '@/components/haligtree/row-card'
-import { PairFold, PairRow, type PairProps, pinLayout, sameLayout, short, unpinLayout, usePinnedLayouts, type PaneName } from '@/components/haligtree/split-pairs'
+import { closeInLayout, PairFold, PairRow, type PairProps, pinLayout, sameLayout, short, unpinLayout, usePinnedLayouts, type PaneName } from '@/components/haligtree/split-pairs'
 import type { BookRef } from '@/lib/books'
 import type { RowItem } from '@/components/haligtree/row-menu'
 import { asideClick, asideItem, keepTitle, setPaneNotes, setPanes, spendAsideClick, titleOf, type PaneWidth } from '@/lib/split'
@@ -638,8 +639,12 @@ export function Home(): React.JSX.Element {
     const total = kept.reduce((sum, one) => sum + one, 0) || 1
     const next = key === now.front ? (panes[at - 1] ?? panes[0]).key : now.front
     setSplit({ panes, front: now.front === key ? next : now.front, sizes: kept.map((one) => one / total) })
-    // Closed by a slip of ⌃W or the ×: one Undo brings the pane back, where it was.
-    quietly(() => setSplit(now))
+    // Down to one pane the split is let go: it leaves "Side by side" too, as Separate does.
+    const keptWas = keptRef.current
+    if (panes.length === 1 && now.id) forgetPair(now.id)
+    // Closed by a slip of ⌃W, the pane's × or its half's ✕ in the sidebar: said, and one Undo brings it back, where it was.
+    const gone = now.panes[at].trail.views[now.panes[at].trail.at]
+    toast(`Closed “${short(shownName(paneName(gone).title))}”${panes.length === 1 ? ' from the split' : ''}`, () => (setSplit(now), setKept(keptWas)))
     lastFocus.current.delete(key)
     toFront(next)
   }
@@ -2129,7 +2134,9 @@ export function Home(): React.JSX.Element {
                         onOpen={(index) => (live ? (chime('tap'), index >= 0 && toFront(split.panes[index].key)) : backTo(pair.id, index >= 0 ? index : undefined))}
                         onClose={(index) => {
                           if (live) return closePane(split.panes[index].key)
+                          const was = keptRef.current
                           chime('fold')
+                          toast(`Closed “${short(shownName(views[index] ? paneName(views[index]).title : ''))}” from the split`, () => setKept(was))
                           // A kept pair down to one pane is no pair: it goes from the list.
                           setKept((list) => list.flatMap((one) => {
                             if (one.id !== pair.id) return [one]
@@ -2159,7 +2166,7 @@ export function Home(): React.JSX.Element {
                     return <PairRow key={one.id} live={live} isPinned narrow={narrow} names={one.views.map(paneName)} menu={pairMenu(one.views, live ? {} : null, one.id, true)} onAlone={(index) => openAlone(one.views[index])}
                       onForget={live ? () => separate(split.front) : undefined}
                       onOpen={(index) => (live ? (chime('tap'), toFront(split.panes[index].key)) : openLayout(one.views, one.sizes))}
-                      onClose={live ? (index) => closePane(split.panes[index].key) : undefined} />
+                      onClose={(index) => (live ? closePane(split.panes[index].key) : closeInLayout(one.id, index, paneName(one.views[index]).title))} />
                   })),
                   // Pins drag into your own order too; carried off the sidebar, one still opens to the side.
                   <SortableList key="pins" items={pins} keyOf={(pin) => `${pin.type}:${pin.id}`} onMove={narrow ? undefined : dropOrder('pinOrder', pinsUsual.map((pin) => `${pin.type}:${pin.id}`), (id) => pinsUsual.find((pin) => `${pin.type}:${pin.id}` === id)?.title || 'Untitled')}>{(items) => items.map((pin) => {
