@@ -2,6 +2,7 @@ import { useLayoutEffect, useRef } from 'react'
 import katex from '@/lib/shims/katex'
 import { typedAsGaps } from '@/lib/blanks'
 import 'katex/dist/katex.min.css'
+import { SoundPlayer, soundTitle } from './sound-player'
 
 /** A `$...$` formula in a line, by the editor's own rule (extensions/math.ts): "$20 and $500" stays money. */
 const FORMULA = /\$(?![\s$])((?:\\\$|[^$\n])*?[^\s\\$])\$(?!\d)/
@@ -41,14 +42,32 @@ function WithBlanks({ text }: { text: string }): React.JSX.Element {
   )
 }
 
-/** A question's words with its pictures (an Anki card's, written `![](haligtree://assets/...)`) and formulas (`$x^2$`) drawn in place. */
-export function WithPictures({ text, small = false }: { text: string; small?: boolean }): React.JSX.Element {
-  const parts = text.split(/!\[[^\]]*\]\((haligtree:\/\/assets\/[^)\s]+)\)/)
+/** A sound kept in a card's text (an Anki card's `[sound:bell.mp3]`, kept as `[bell.mp3](haligtree://assets/...)`). */
+const SOUND = /\[([^\]\n]*)\]\((haligtree:\/\/assets\/[a-f0-9]{64}\.(?:mp3|m4a|weba|wav|ogg|aac|flac))\)/
+
+/** Words with their sounds in the one sound player every recording wears; in a list row, only the sound's name. */
+function WithSounds({ text, small }: { text: string; small: boolean }): React.JSX.Element {
+  const parts = text.split(new RegExp(SOUND.source, 'g'))
   if (parts.length === 1) return <WithFormulas text={text} />
   return (
     <>
+      {parts.map((part, at) => {
+        if (at % 3 === 1) return null
+        if (at % 3 === 2) return small ? <span key={at} className="text-muted-foreground">{soundTitle(parts[at - 1], null)}</span> : <SoundPlayer key={at} src={part} name={soundTitle(parts[at - 1], null)} className="my-2 text-left" />
+        return part.trim() && <WithFormulas key={at} text={part.trim()} />
+      })}
+    </>
+  )
+}
+
+/** A question's words with its pictures (an Anki card's, written `![](haligtree://assets/...)`) and formulas (`$x^2$`) drawn in place. */
+export function WithPictures({ text, small = false }: { text: string; small?: boolean }): React.JSX.Element {
+  const parts = text.split(/!\[[^\]]*\]\((haligtree:\/\/assets\/[^)\s]+)\)/)
+  if (parts.length === 1) return <WithSounds text={text} small={small} />
+  return (
+    <>
       {parts.map((part, at) =>
-        at % 2 ? <img key={at} src={part} alt="" className={`${small ? 'my-1 max-h-12' : 'my-2 max-h-64'} block max-w-full rounded-md`} /> : part.trim() && <span key={at} className="whitespace-pre-line"><WithFormulas text={part.trim()} /></span>
+        at % 2 ? <img key={at} src={part} alt="" className={`${small ? 'my-1 max-h-12' : 'my-2 max-h-64'} block max-w-full rounded-md`} /> : part.trim() && <span key={at} className="whitespace-pre-line"><WithSounds text={part.trim()} small={small} /></span>
       )}
     </>
   )

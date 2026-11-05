@@ -102,6 +102,11 @@ const sizeAndLength = (title: unknown): { size: number; duration: number | null 
 }
 const FILE_LINK = /^haligtree:\/\/assets\/[a-f0-9]{64}\.(?!png|jpe?g|gif|webp|svg|avif|bmp)[a-z0-9]+$/
 
+/** A stored recording linked in a line of words, and where it is kept. */
+const SOUND_LINK = /^haligtree:\/\/assets\/[a-f0-9]{64}\.(?:mp3|m4a|weba|wav|ogg|aac|flac)$/
+const soundOf = (part: JSONContent): string => String(part.marks?.find((mark) => mark.type === "link")?.attrs?.href ?? "")
+const isSound = (part: JSONContent): boolean => part.type === "text" && SOUND_LINK.test(soundOf(part))
+
 /** A paragraph the reader ran together from several lines, as one paragraph a line. */
 function ownLines(paragraph: JSONContent): JSONContent[] {
   const lines: JSONContent[][] = [[]]
@@ -176,6 +181,14 @@ function tidyDocument(node: JSONContent, inText = false): JSONContent {
       return [...ownLines(child).map((line) => tidyDocument(line, false))]
     const tidied = tidyDocument(child, inline)
     if (tidied.type === "files") return [...lead, ...(tidied.content ?? [])]
+    // A sound beside words on its line (an Anki card's "Hund [sound:hund.mp3]"): the words stay, the sound plays in
+    // its own player under them, never left as a link to a file.
+    const sounds = !inline && tidied.type === "paragraph" ? (tidied.content ?? []).filter(isSound) : []
+    if (sounds.length) {
+      const words = (tidied.content ?? []).filter((part) => !isSound(part))
+      const said = words.some((part) => part.type !== "text" || part.text?.trim()) ? [{ ...tidied, content: words }] : []
+      return [...lead, ...said, ...sounds.map((part) => ({ type: "attachment", attrs: { src: soundOf(part), name: part.text ?? "" } }))]
+    }
     return /^(paragraph|heading)$/.test(child.type ?? "") && tidied.type === "attachment" ? [...lead, tidied] : [tidied]
   })
   return { ...node, content: inline ? marked(content) : absorbCaptions(content) }
