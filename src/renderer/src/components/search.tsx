@@ -46,6 +46,7 @@ import { clip } from '../../../main/clip'
 import { APP_NAME } from '../../../main/name'
 import { hoverNote } from './haligtree/note-preview'
 import { forgives } from '@/lib/slash-rank'
+import { ICE, KIND_ICON, type GoalKind } from '@/lib/goal-kind'
 
 type Capture = Awaited<ReturnType<typeof window.api.captures.find>>[number]
 
@@ -464,7 +465,7 @@ export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'tas
             )}
             {results.map((capture, index) => {
               // A task wears the task mark it has everywhere else, not the to-do kind's.
-              const kind = capture.type === 'task' ? TASK_KIND : capture.type === 'event' ? EVENT_KIND : capture.type === 'day' ? DAY_KIND : capture.type === 'pdf' ? PDF_KIND : capture.type === 'web' ? WEB_KIND : CAPTURE_TYPES.find((type) => type.id === capture.kind) ?? CAPTURE_TYPES[0]
+              const kind = capture.type === 'goal' ? goalLook(capture.kind) : capture.type === 'task' ? TASK_KIND : capture.type === 'event' ? EVENT_KIND : capture.type === 'day' ? DAY_KIND : capture.type === 'pdf' ? PDF_KIND : capture.type === 'web' ? WEB_KIND : CAPTURE_TYPES.find((type) => type.id === capture.kind) ?? CAPTURE_TYPES[0]
               const group = groupFor(index)
               const on = index + doing.length === at
               return (
@@ -614,6 +615,9 @@ const Kept = memo(({ draw }: { deps: unknown[]; draw: () => ReactNode }) => <>{d
 /** A journal day found, as the Journal and the Feed name it. */
 const DAY_KIND = { icon: Sun, tint: 'var(--tt-color-text-orange)' }
 const PDF_KIND = { icon: FileText, tint: 'var(--tt-color-text-red)' }
+/** A goal found, wearing its kind's mark (lib/goal-kind.ts): a flag, the someday telescope, or on ice. Search names its kind in `kind`. */
+const goalLook = (kind: string): { icon: (typeof KIND_ICON)[GoalKind]; tint: string } =>
+  ({ icon: KIND_ICON[(kind in KIND_ICON ? kind : 'dated') as GoalKind], tint: kind === 'iced' ? ICE : 'var(--tt-color-text-orange)' })
 /** A web page kept as an article. */
 const WEB_KIND = { icon: BookOpen, tint: 'var(--tt-color-text-blue)' }
 

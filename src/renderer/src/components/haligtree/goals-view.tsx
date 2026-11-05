@@ -26,6 +26,7 @@ import { PICKED_MARK } from './pick-mixed'
 import { usePickLines } from '@/lib/pick-lines'
 import { Empty, Island, Kbd, Page, Prop, Props, Rolling, Stepper, Tip, refuse, toast, typing, useListKeys, quietly } from './ui'
 import { useFolding } from './items-view'
+import { ICE, KIND_ICON, kindOf } from '@/lib/goal-kind'
 import { archive, useOwnOrder } from '@/lib/notes'
 import { reword } from './questions-view'
 import { Term } from './term'
@@ -126,13 +127,6 @@ const tabOf = (item: Pick<Item, 'goalAt' | 'closedAt' | 'closedHow'>): Tab =>
 /** The tabs, in their fixed order: the goals that count down first, then the life list, the paused, the ended. */
 const TABS: { id: Tab; label: string }[] = [{ id: 'open', label: 'Goals' }, { id: 'someday', label: 'Someday' }, { id: 'iced', label: 'On ice' }, { id: 'settled', label: 'Ended' }]
 
-/** The three kinds of goal, each told apart by its own mark: one with a day, one for someday, one on ice. A someday goal on ice stays someday. */
-export type GoalKind = 'dated' | 'someday' | 'iced'
-export const kindOf = (item: Pick<Item, 'goalAt' | 'closedHow'>): GoalKind => (someday(item) ? 'someday' : onIce(item) ? 'iced' : 'dated')
-/** A flag for a day you are aiming at; a telescope for the far-off life list (the star and the compass already mean a rating and what the app can do); a snowflake for paused. */
-export const KIND_ICON = { dated: Flag, someday: Telescope, iced: Snowflake } as const
-/** On ice: a cool, faded ink, so a paused goal reads paused at a glance. */
-export const ICE = 'color-mix(in oklab, var(--tt-color-text-blue) 55%, var(--muted-foreground))'
 /** A goal's mark, small, wherever it shows: its kind's icon in its kind's ink. */
 export function GoalMark({ item, className = 'size-3.5 shrink-0', style }: { item: Pick<Item, 'goalAt' | 'closedHow' | 'closedAt' | 'goalColor'>; className?: string; style?: React.CSSProperties }): React.JSX.Element {
   const kind = kindOf(item)

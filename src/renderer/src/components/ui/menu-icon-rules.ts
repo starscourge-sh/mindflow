@@ -182,7 +182,7 @@ const RULES: [RegExp, LucideIcon][] = [
   [/^unmark/i, RotateCcw],
   [/task|^complete|^done|^mark (it )?done/i, SquareCheck],
   [/^save as a gem/i, Lightbulb],
-  [/^resolve|^made it|answered/i, CircleCheck],
+  [/^resolve|^made it|^cross it off|answered/i, CircleCheck],
   [/^remind|^alarm/i, AlarmClock],
   [/^due|deadline|exam date/i, CalendarClock],
   [/today|tomorrow|this week|next week|^later|^someday|come back|^plan|^schedule|^snooze/i, CalendarDays],

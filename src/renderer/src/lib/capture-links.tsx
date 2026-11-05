@@ -21,6 +21,7 @@ import { clip, cut, quoted } from '../../../main/clip'
 import { ago, dayKey, num } from '../../../main/dates'
 import { NOTE_KEY } from '../../../main/name'
 import { forgives } from '@/lib/slash-rank'
+import { ICE, KIND_ICON, kindOf } from '@/lib/goal-kind'
 
 /**
  * Whether to offer writing a recall question or card for something: only on
@@ -196,6 +197,13 @@ export const linkKinds = (): Record<string, LinkKind & { group: string }> => (ki
 /** "edited today", "edited 3 days ago": what a note list says to choose by. */
 const edited = (at: string | null | undefined): string | undefined => (at ? `edited ${ago(at)}` : undefined)
 
+/** A goal's row wears its own kind's mark: the someday telescope, or the snowflake on ice. */
+const goalMarked = (item: { tier: string; goalAt?: string | null; closedHow?: string | null }, one: NoteSuggestion): NoteSuggestion => {
+  if ((item.tier as string) !== 'goal' || kindOf(item) === 'dated') return one
+  const Mark = KIND_ICON[kindOf(item)]
+  return { ...one, icon: <Mark data-goal-mark={kindOf(item)} className="size-4 shrink-0" style={{ color: kindOf(item) === 'iced' ? ICE : `var(--tt-color-text-${linkKinds().goal.color})` }} /> }
+}
+
 /** A row of the menu: its kind's icon, in its kind's colour. */
 const row = (kind: string, one: Omit<NoteSuggestion, 'kind' | 'icon' | 'group'>): NoteSuggestion => {
   const look = linkKinds()[kind] ?? linkKinds().note
@@ -263,7 +271,7 @@ export async function findCaptures(query: string): Promise<NoteSuggestion[]> {
     // A quiet word to choose by: when it was last written in.
     ...captures.map((capture) => row(capture.kind in linkKinds() ? capture.kind : 'note', { id: capture.id, label: shownName(capture.label ?? '') || 'Untitled', key: captureKey(capture.number), hint: edited(capture.editedAt ?? capture.capturedAt) })),
     // A nugget's or article's link carries its tier, so a click knows where to go.
-    ...items.map((item) => row(item.tier === 'nugget' ? 'idea' : item.tier, { id: `${item.tier}:${item.id}`, label: shownName(item.title ?? '') || 'Untitled', hint: edited(item.updatedAt) })),
+    ...items.map((item) => goalMarked(item, row(item.tier === 'nugget' ? 'idea' : item.tier, { id: `${item.tier}:${item.id}`, label: shownName(item.title ?? '') || 'Untitled', hint: edited(item.updatedAt) }))),
     // Open ones first, as the list already has them.
     ...tasks.filter((task) => task.title.toLowerCase().includes(words)).slice(0, 4)
       .map((task) => row('task', { id: `task:${task.id}`, label: shownName(task.title ?? '') || 'Untitled', key: `T-${task.number}` })),

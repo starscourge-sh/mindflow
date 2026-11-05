@@ -214,7 +214,7 @@ export function Chips({ options, on, pick, className = 'flex-wrap', sideways = f
         <button
           type="button"
           // Named plainly: the label is drawn twice over and letter by letter as it rolls.
-          aria-label={option.count === undefined ? option.label : `${option.label} ${option.count}`}
+          aria-label={option.count === undefined ? option.label : `${option.label} ${num(option.count)}`}
           aria-pressed={on(option.id)}
           data-row-drop={drops?.[option.id]}
           onClick={() => {
@@ -224,7 +224,7 @@ export function Chips({ options, on, pick, className = 'flex-wrap', sideways = f
           className={`rounded-full px-2 py-1 text-xs transition-colors duration-80 ${drops?.[option.id] ? DROP_LIT : ''} ${on(option.id) ? `${single ? '' : 'bg-accent'} text-foreground` : 'text-muted-foreground hover:text-foreground data-[fluid-hover-active]:text-foreground'}`}
         >
           <Weighted on={on(option.id)}><Rolling text={option.label} /></Weighted>
-          {option.count !== undefined && <span data-chip-count className="ml-1 text-muted-foreground tabular-nums"><Rolling text={option.count} /></span>}
+          {option.count !== undefined && <span data-chip-count className="ml-1 text-muted-foreground tabular-nums"><Rolling text={num(option.count)} /></span>}
         </button>
         </Tip>
       ))}

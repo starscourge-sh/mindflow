@@ -131,7 +131,8 @@ type GoalRoad = { title: string; goalFrom: string | null; goalAt: string | null;
 /**
  * What goals did in the week from this Monday, for its Journal page: one
  * passed halfway (by time, as its milestone is: a road of two weeks or
- * more, the day half of it had gone, while still open) or made it. Never
+ * more, the day half of it had gone, while still open) or made it, or a
+ * someday goal crossed off. Never
  * a day still to come, never a private goal. Worked out from the goal's
  * own dates, so it needs no history kept.
  */
@@ -140,7 +141,12 @@ export function weekGoalLines(goals: GoalRoad[], monday: string, today = dayKey(
   const inWeek = (day: string): boolean => day >= monday && day <= sunday && day <= today
   const out: string[] = []
   for (const goal of goals) {
-    if (goal.private || !goal.goalAt) continue
+    if (goal.private) continue
+    // A someday goal has no road, so no halfway: only the day it was crossed off its life list.
+    if (!goal.goalAt) {
+      if (goal.closedHow === 'made it' && goal.closedAt && inWeek(dayKey(goal.closedAt))) out.push(`Crossed off “${goal.title}”`)
+      continue
+    }
     const total = goal.goalFrom ? daysBetween(goal.goalFrom, goal.goalAt) : 0
     const half = goal.goalFrom && total >= 14 ? dayKey(noon(goal.goalFrom).add(Math.floor(total / 2), 'day')) : null
     if (half && inWeek(half) && (!goal.closedAt || dayKey(goal.closedAt) >= half)) out.push(`Halfway on “${goal.title}”`)

@@ -90,3 +90,10 @@ test("a week's page says a goal's halfway and its finish, only in that week and 
   const made = { title: 'Finish Dune', goalFrom: '2026-10-20', goalAt: '2026-10-30', closedAt: '2026-10-23T18:00:00.000Z', closedHow: 'made it' }
   assert.deepEqual(weekGoalLines([made, { ...made, closedHow: 'let go' }], '2026-10-19', '2026-10-25'), ['Finished “Finish Dune”'])
 })
+
+test("a week's page says a someday goal crossed off that week, and nothing else about it", () => {
+  const life = { title: 'Visit Hobbiton', goalFrom: '2026-01-01', goalAt: null, closedAt: '2026-10-21T10:00:00.000Z', closedHow: 'made it' }
+  assert.deepEqual(weekGoalLines([life], '2026-10-19', '2026-10-25'), ['Crossed off “Visit Hobbiton”'])
+  assert.deepEqual(weekGoalLines([{ ...life, closedHow: 'on ice' }, { ...life, closedAt: null, closedHow: null }], '2026-10-19', '2026-10-25'), [])
+  assert.deepEqual(weekGoalLines([{ ...life, private: 1 }], '2026-10-19', '2026-10-25'), [])
+})

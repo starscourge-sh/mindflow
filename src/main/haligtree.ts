@@ -1786,7 +1786,7 @@ export function registerHaligtree(): void {
 
   // What @ offers besides captures: nuggets and articles by name.
   handle('items:find', (query: unknown) =>
-    db.prepare("select id, tier, coalesce(nullif(title, ''), label('', body)) as name, coalesce(nullif(title, ''), label('', body)) as title, updated_at as updatedAt from nuggets where tier not in ('card', 'deck') and (name like ? escape '\\' or coalesce(aliases, '') like ? escape '\\') and superseded_by is null order by updated_at desc limit 6").all(`%${like(String(query))}%`, `%${like(String(query))}%`))
+    db.prepare("select id, tier, coalesce(nullif(title, ''), label('', body)) as name, coalesce(nullif(title, ''), label('', body)) as title, updated_at as updatedAt, goal_at as goalAt, closed_how as closedHow from nuggets where tier not in ('card', 'deck') and (name like ? escape '\\' or coalesce(aliases, '') like ? escape '\\') and superseded_by is null order by updated_at desc limit 6").all(`%${like(String(query))}%`, `%${like(String(query))}%`))
   // A page of your own from nothing: notes on linear algebra, say. An article
   // with no nuggets behind it, there to be written in.
   handle('article:new', () => {

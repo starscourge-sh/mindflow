@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { Flag } from 'lucide-react'
+import { KIND_ICON, kindOf } from '@/lib/goal-kind'
 
 import { menuShowing } from '@/lib/menu-keys'
 import { EASE, shift } from '@/lib/motion'
@@ -116,7 +116,7 @@ export function BoxOffers({ words, linked, all, onHidden, onClue, onLog, onAsk, 
               </Tip>
             </>
           ) : <>
-          {best.kind === 'question' ? <Orbit className="size-3.5 shrink-0" /> : <Flag className="size-3.5 shrink-0" />}
+          {best.kind === 'question' ? <Orbit className="size-3.5 shrink-0" /> : (() => { const Mark = KIND_ICON[kindOf(best.one)]; return <Mark data-goal-mark={kindOf(best.one)} className="size-3.5 shrink-0" /> })()}
           <span className="min-w-0 truncate">
             {best.kind === 'question' ? 'Helps answer' : 'Log to'}{' '}
             <span {...hoverNote(best.kind, best.one.id)} data-private={best.kind === 'goal' && best.one.private ? '' : undefined} className={`text-foreground/80 ${best.kind === 'goal' ? 'private-text' : ''}`}>“{short(best.one.title)}”</span>
