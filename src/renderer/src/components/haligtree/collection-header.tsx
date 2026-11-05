@@ -189,10 +189,11 @@ export function CollectionHeader({ tint, backdrop, cover, label, title, length =
           <h1 className={`min-w-0 font-heading ${length > 70 ? 'text-[clamp(1.25rem,3.2cqi,2.25rem)] leading-[1.12]' : length > 28 ? 'text-[clamp(1.4rem,4.4cqi,3.25rem)] leading-[1.06]' : 'text-[clamp(1.6rem,6.5cqi,5rem)] leading-[1.02]'} font-bold tracking-[-0.035em] text-balance break-words text-foreground [&>span]:line-clamp-3 [&>span]:-mb-[0.2em] [&>span]:pb-[0.2em]`}>{title}</h1>
           {big}
           <p className="mt-1 line-clamp-2 text-control text-muted-foreground">
+            {/* Each part whole on its line ("4 logs", never "4" then "logs"): the line breaks only between parts, after the dot. */}
             {meta.map((part, index) => (
               <span key={index}>
-                {index > 0 && <span aria-hidden className="mx-1.5">·</span>}
-                <span className={index === 0 ? 'font-medium text-foreground' : ''}>{part}</span>
+                <span data-meta-part className={`whitespace-nowrap ${index === 0 ? 'font-medium text-foreground' : ''}`}>{part}</span>
+                {index < meta.length - 1 && <><span aria-hidden className="mx-1.5">·</span>{'\u200B'}</>}
               </span>
             ))}
           </p>
