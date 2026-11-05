@@ -241,20 +241,36 @@ export function Page({ title, lead, count, unit = ['item', 'items'], actions, se
   const [listWidth, grip] = useListWidth()
   // Drawn once, when its reads and those of every part on it are in (lib/reads-in.tsx).
   const { provide, style } = useReadsIn(waiting, apart)
+  // A list beside an open item is never narrower than its tabs: dragged in, or kept from a wider list, a tab was cut to "Goa".
+  const leadBox = useRef<HTMLSpanElement>(null)
+  const [leadNeed, setLeadNeed] = useState(0)
+  useLayoutEffect(() => {
+    const node = leadBox.current?.querySelector<HTMLElement>('[data-list-tabs]')
+    if (!aside || !node) return setLeadNeed(0)
+    // The tabs whole, and the count beside them whole too ("5 open", never "5 oper").
+    const measure = (): void => {
+      const count = node.closest('header')?.querySelector<HTMLElement>('[data-list-count]')
+      setLeadNeed(node.offsetWidth + (count ? count.scrollWidth + 30 : 0))
+    }
+    const watch = new ResizeObserver(measure)
+    watch.observe(node)
+    measure()
+    return () => watch.disconnect()
+  }, [aside, !!lead, count]) // eslint-disable-line react-hooks/exhaustive-deps
   const countSaid = count ? <span data-list-count={count} data-count-apart={lead ? '' : undefined}
     // Beside tabs, set apart by a hairline and a smaller size, so it never reads as one more tab.
     className={cn('min-w-0 truncate whitespace-nowrap tabular-nums', lead && 'mr-2 border-l border-foreground/15 pl-3 text-xs', unit[1] === 'selected' && 'font-medium text-foreground')}><Rolling text={count} /> {count === 1 ? unit[0] : unit[1]}</span> : null
   return provide(
     <section data-chrome={aside || undefined} data-apart={apart ? 'list' : undefined} className={cn('relative flex min-w-0 flex-1 flex-col', aside && 'hidden flex-none @[56rem]/page:flex')}
-      style={{ ...(aside ? { width: listWidth, maxWidth: '60%' } : {}), ...style }}>
+      style={{ ...(aside ? { width: listWidth, maxWidth: '60%', minWidth: leadNeed ? leadNeed + 48 : undefined } : {}), ...style }}>
       {aside && grip}
       {/* The window's toolbar already names the section, so this line only
           carries what it shows (lead), the count and the actions, and goes when it has none. */}
       {(count !== undefined || actions || lead || search) && (
-        // Clipped to its own column: a crowded line (tabs, a two-figure count, the ⋯) gives up the count first and never draws over the page beside it.
+        // Clipped to its own column, so it never draws over the page beside it; beside an open item the list keeps the room its tabs and count need (leadNeed).
         <header data-chrome={aside || undefined} className={`${wide ? '' : 'page-column '}flex h-10 min-w-0 shrink-0 items-center gap-2 overflow-hidden border-b px-5 text-muted-foreground`}>
           {typeof title === 'string' && title.startsWith('#') ? <span className="font-medium text-foreground">{title}</span> : null}
-          {lead}
+          {lead && <span ref={leadBox} className="contents">{lead}</span>}
           {/* With tabs or a switch at the line's left (lead), the count goes to the right, before the actions, so it is
               never read as one more tab; without, it opens the line. Said plainly when it counts what is picked. */}
           {count && !lead ? countSaid : null}
