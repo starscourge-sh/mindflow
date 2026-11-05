@@ -17,6 +17,9 @@ import { num } from '../../../main/dates'
 type Segment = { text: string; start: number; end: number }
 type Transcript = { segments: Segment[]; text: string } | { error: { code: string; message: string } } | { stopped: true }
 
+/** What a failed transcription says with no internet. */
+export const OFFLINE = "This Mac needs the internet to make out these words. Connect, then press “Transcribe” again"
+
 /** Recordings being turned into words now, by their stored address: their block shows the Orb. */
 const busy = new Set<string>()
 /** How far into each recording its words have reached, in seconds, from the helper's own parts as they come. */
@@ -124,7 +127,9 @@ export async function transcribe(editor: Editor, src: string): Promise<void> {
     if (halted.has(src)) return toast("Stopped", undefined, "info")
     const result = await window.api.haligtree<Transcript>("transcribe", src, wav)
     if ("stopped" in result || halted.has(src)) return toast("Stopped", undefined, "info")
-    if ("error" in result) return refuse(result.error.message)
+    // Off the internet, a Mac that cannot make out words on its own (or has not yet fetched the language's words,
+    // once) fails with Apple's own message: said plainly instead.
+    if ("error" in result) return refuse((result.error.code === "failed" || result.error.code === "unavailable") && !navigator.onLine ? OFFLINE : result.error.message)
     if (editor.isDestroyed) return
     const had = wordsAfter(editor, src)
     if (!had) return
