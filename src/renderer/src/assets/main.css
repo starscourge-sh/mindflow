@@ -2758,6 +2758,8 @@ html[data-book-hue] [data-book-tint] {
      its toast opened behind the room, so "Word aim" seemed to do nothing. */
   position: fixed; inset: 0; z-index: 59;
   margin: 0; overflow-y: auto;
+  /* No bounce: an empty page never slides away under a swipe. */
+  overscroll-behavior: none;
   background: var(--background);
   padding: 16vh max(1.5rem, calc(50% - 21rem)) 30vh;
   animation: mf-room-in 260ms var(--mf-ease) both;
@@ -2790,7 +2792,8 @@ html[data-book-hue] [data-book-tint] {
 [data-room] .haligtree-editor-wrapper:not(.is-line),
 [data-room] .haligtree-editor-wrapper:not(.is-line) > .haligtree-editor-content { height: auto; max-height: none; overflow: visible; flex: none; }
 /* A page to write on, not a strip round the words: the paper (Settings › Paper) runs on down the room. */
-[data-room] .haligtree-editor-wrapper:not(.is-line) > .haligtree-editor-content { min-height: 60vh; }
+/* As tall as the room leaves (its padding and the caption above): taller, an empty page scrolled away from its own words. */
+[data-room] .haligtree-editor-wrapper:not(.is-line) > .haligtree-editor-content { min-height: calc(54vh - 3rem); }
 /* The page's outline, in the room, at the window's right edge: inside the column it stood over the words. */
 [data-room] .tiptap-toc { position: fixed; right: max(1rem, env(safe-area-inset-right, 0px)); }
 /* The focus band (writer-tools.tsx): all but the sentence or paragraph you

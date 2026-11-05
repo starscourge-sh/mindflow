@@ -93,9 +93,26 @@ export function useWritingQuiet(editor: Editor | null, day: string): number {
       root.removeAttribute('data-day-typing')
       setSpent(timeOf(day))
     }
+    // While writing, the page scrolls only across the words: the rest of it is faded to nothing but still there, and
+    // a swipe carried an empty page's words thousands of pixels away into blank paper (the user, 5 Nov: "not weird
+    // to you?"). The words' top never comes lower than where it stood as writing began, nor their end higher than a
+    // quarter of the way down the pane.
+    let scroller: HTMLElement | null = null
+    let startTop = 0
+    const hold = (): void => {
+      if (!scroller) return
+      const view = scroller.getBoundingClientRect()
+      const lines = dom.getBoundingClientRect()
+      const low = Math.max(startTop, view.top + view.height / 2)
+      const high = view.top + view.height / 4
+      if (lines.top > low) scroller.scrollTop += lines.top - low
+      else if (lines.bottom < high) scroller.scrollTop -= high - lines.bottom
+    }
     const back = (): void => {
       words = 0
       root.removeAttribute('data-day-writing')
+      scroller?.removeEventListener('scroll', hold)
+      scroller = null
     }
     const writing = (): void => {
       if (root.hasAttribute('data-day-writing')) return
@@ -104,6 +121,11 @@ export function useWritingQuiet(editor: Editor | null, day: string): number {
       const box = dom.closest<HTMLElement>('[data-caret-room]')
       root.style.setProperty('--mf-day-shift', `${box ? Math.round(shiftOf(box)) : 0}px`)
       root.setAttribute('data-day-writing', '')
+      for (let up = dom.parentElement; up; up = up.parentElement) {
+        if (/(auto|scroll)/.test(getComputedStyle(up).overflowY) && up.scrollHeight > up.clientHeight) { scroller = up; break }
+      }
+      startTop = dom.getBoundingClientRect().top
+      scroller?.addEventListener('scroll', hold)
     }
     const onKey = (event: KeyboardEvent): void => {
       if (event.metaKey || event.ctrlKey || event.isComposing) return
