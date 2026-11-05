@@ -61,7 +61,7 @@ try {
   check('every line has its drawing, none the stand-in dot', pocket.every((one) => one.icon && !one.dot), JSON.stringify(pocket.filter((one) => !one.icon || one.dot)))
   check('no tag page, no settings spelled out in the menu', !said.some((one) => /its page|tag’s page|As in Settings|seconds|How typed/.test(one)), said.join(' | '))
   check('one line for the settings, and the ways to make cards', ['Deck settings…', 'Make a card', 'Add many at once', 'Cards from a picture', 'Show its cards'].every((one) => said.some((line) => line.startsWith(one))), said.join(' | '))
-  check('Move earlier and later only inside "Move"', !said.some((one) => /^Move (earlier|later)/.test(one)) && said.includes('Move'), said.join(' | '))
+  check('Move earlier and later only inside "Move in the list"', !said.some((one) => /^Move (earlier|later)/.test(one)) && said.includes('Move in the list'), said.join(' | '))
 
   // Deck settings…: beside the pocket, each choice's meaning once.
   await h.locator('[data-own-deck="zoology"] [data-deck-dots]').first().click()

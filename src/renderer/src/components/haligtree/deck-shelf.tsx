@@ -123,26 +123,29 @@ export function DeckShelf({ place, onPlace, onOpen, onStudy, onPaste, onPicture,
     if (deck.tag === EXAMPLE_TAG) return exampleItems(onStudy)
     const place = tops.indexOf(deck)
     return [
+      // Use it: study it, or see what is in it.
       deck.cards > 0 && { label: 'Study', keys: 'S', icon: glyph(GraduationCap), run: () => (chime('riffle'), onStudy(deck.tag)) },
+      deck.cards > 0 && { label: 'Show its cards', icon: glyph(Layers), run: () => cardsOf(deck.tag) },
       'separator',
+      // Fill it.
       { label: 'Make a card', icon: glyph(Plus), run: () => (chime('open'), onPaste(deck.tag, true)) },
       { label: 'Add many at once', icon: glyph(ListPlus), run: () => (chime('open'), onPaste(deck.tag)) },
       { label: 'Cards from a picture', icon: glyph(Image), run: () => onPicture(deck.tag) },
       'separator',
-      { label: 'Deck settings…', icon: glyph(SlidersHorizontal), run: () => settings(deck.tag, deckName(deck), at()) },
-      'separator',
-      deck.cards > 0 && { label: 'Save as a study set…', icon: glyph(BookmarkPlus), run: () => void saveSet(deck.tag) },
-      deck.cards > 0 && { label: 'Share as an Anki deck…', icon: glyph(Share), run: () => void shareDeck(deck.tag, deckName(deck)) },
-      'separator',
-      { label: 'New deck inside', icon: glyph(FolderPlus), run: () => newDeck(deck.tag) },
+      // Arrange it.
       { label: 'Rename…', icon: glyph(Pencil), run: () => void renameDeck(deck.tag) },
+      { label: 'New deck inside', icon: glyph(FolderPlus), run: () => newDeck(deck.tag) },
       // Without a mouse: the same move as dragging it, one place at a time, folded into one line.
-      deck.depth === 0 && place >= 0 && tops.length > 1 && { label: 'Move', icon: glyph(ArrowUpDown), items: [
+      deck.depth === 0 && place >= 0 && tops.length > 1 && { label: 'Move in the list', icon: glyph(ArrowUpDown), items: [
         place > 0 && { label: 'Earlier', icon: glyph(sideways ? ArrowLeft : ArrowUp), run: () => move(deck.tag, -1) },
         place < tops.length - 1 && { label: 'Later', icon: glyph(sideways ? ArrowRight : ArrowDown), run: () => move(deck.tag, 1) }
       ] },
-      deck.cards > 0 && { label: 'Show its cards', icon: glyph(Layers), run: () => cardsOf(deck.tag) },
-      { label: 'Delete deck…', hint: 'Its cards are kept', danger: true, icon: glyph(Trash2), run: () => void deleteDeck(deck.tag) }
+      { label: 'Deck settings…', icon: glyph(SlidersHorizontal), run: () => settings(deck.tag, deckName(deck), at()) },
+      'separator',
+      // Take it elsewhere.
+      deck.cards > 0 && { label: 'Save as a study set…', hint: 'A named set to study for, like an exam', icon: glyph(BookmarkPlus), run: () => void saveSet(deck.tag) },
+      deck.cards > 0 && { label: 'Export for Anki…', hint: 'An .apkg file to share or open in Anki', icon: glyph(Share), run: () => void shareDeck(deck.tag, deckName(deck)) },
+      { label: 'Delete deck…', hint: 'Its cards stay, in All cards', danger: true, icon: glyph(Trash2), run: () => void deleteDeck(deck.tag) }
     ]
   }
   // A shared deck's menu, in the same order as one of your own, with what an import adds (held cards, Gems, links).
