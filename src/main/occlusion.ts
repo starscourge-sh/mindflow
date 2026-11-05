@@ -16,12 +16,15 @@ export type Cover = {
   size?: number
   /** Covers with the same group are asked together, as one card. */
   group: number
-  /** The label it hides, when it was found on the picture: the card's answer. */
+  /** The card's answer in words: the label it hides when one was found there, or words typed on the cover. */
   text?: string
+  /** The editor's own name for it while drawing, so it lands and lifts as itself; never kept on a card. */
+  id?: number
 }
 /** "one": only the asked cover hides its label; "all": every cover hides, the asked one glows. */
 export type Hide = 'one' | 'all'
-export type Occlusion = { src: string; covers: Cover[]; ask: number; hide: Hide }
+/** `question`: one line asked over the picture on every card (Anki's Header), or the plain "What is hidden?". */
+export type Occlusion = { src: string; covers: Cover[]; ask: number; hide: Hide; question?: string }
 export type Label = { text: string; x: number; y: number; w: number; h: number }
 
 /** A card's picture and covers, from its fields, if it was made from a picture. */
@@ -70,6 +73,62 @@ export function boxOf(points: [number, number][]): { x: number; y: number; w: nu
   const y = Math.min(...ys)
   return { x, y, w: Math.max(...xs) - x, h: Math.max(...ys) - y }
 }
+
+/** The room a cover takes on the picture: a brush's path with its stroke's width round it. */
+export function extent(cover: Cover, aspect = 1): { x: number; y: number; w: number; h: number } {
+  if (cover.kind !== 'brush' || !cover.points) return { x: cover.x, y: cover.y, w: cover.w, h: cover.h }
+  const box = boxOf(cover.points)
+  const rx = (cover.size ?? 0.03) / 2
+  const ry = rx * aspect
+  return { x: box.x - rx, y: box.y - ry, w: box.w + rx * 2, h: box.h + ry * 2 }
+}
+
+/** Twice the area of a free shape (any sign), as a share of the picture's: a shape drawn as a line has none. */
+const area = (points: [number, number][]): number => Math.abs(points.reduce((sum, [x, y], at) => {
+  const [nx, ny] = points[(at + 1) % points.length]
+  return sum + x * ny - nx * y
+}, 0)) / 2
+
+/**
+ * Whether a cover is big enough to be seen and meant, on a picture shown `w`
+ * by `h` points: at least `least` points each way (a free shape as much area
+ * as a square that size, a brush stroke that long). A click, or a tremble of
+ * the hand while clicking, makes nothing; every cover that counts is one you
+ * can see and number.
+ */
+export function seen(cover: Cover, w: number, h: number, least = 10): boolean {
+  if (![cover.x, cover.y, cover.w, cover.h].every(Number.isFinite)) return false
+  if (cover.kind === 'brush') {
+    const points = cover.points ?? []
+    const long = points.slice(1).reduce((sum, [x, y], at) => sum + Math.hypot((x - points[at][0]) * w, (y - points[at][1]) * h), 0)
+    return points.length > 1 && long >= least
+  }
+  if (cover.kind === 'shape') return (cover.points?.length ?? 0) > 2 && area(cover.points!) * w * h >= least * least && cover.w * w >= least / 2 && cover.h * h >= least / 2
+  return cover.w * w >= least && cover.h * h >= least
+}
+
+/** Kept inside the picture: moved back in where it pokes out (a brush's stroke too), never cut down. */
+export function inside(cover: Cover, aspect = 1): Cover {
+  const box = extent(cover, aspect)
+  const dx = box.x < 0 ? -box.x : box.x + box.w > 1 ? 1 - box.x - box.w : 0
+  const dy = box.y < 0 ? -box.y : box.y + box.h > 1 ? 1 - box.y - box.h : 0
+  return dx || dy ? moved(cover, dx, dy) : cover
+}
+
+/** A cover moved by a share of the picture. */
+export function moved(cover: Cover, dx: number, dy: number): Cover {
+  return { ...cover, x: cover.x + dx, y: cover.y + dy, points: cover.points?.map(([x, y]) => [x + dx, y + dy] as [number, number]) }
+}
+
+/** A cover stretched to a new box: a free shape's corners and a brush's path go with it. */
+export function resized(cover: Cover, to: { x: number; y: number; w: number; h: number }): Cover {
+  const sx = cover.w ? to.w / cover.w : 1
+  const sy = cover.h ? to.h / cover.h : 1
+  return { ...cover, ...to, points: cover.points?.map(([x, y]) => [to.x + (x - cover.x) * sx, to.y + (y - cover.y) * sy] as [number, number]) }
+}
+
+/** Whether two covers are one laid on the other: each lies almost wholly over the other. */
+export const stacked = (a: Cover, b: Cover): boolean => overlap(a, b) > 0.85 && overlap(b, a) > 0.85
 
 /** The groups in order, each once: card 1, card 2 and so on. */
 export const groupsOf = (covers: Cover[]): number[] => [...new Set(covers.map((one) => one.group))].sort((a, b) => a - b)

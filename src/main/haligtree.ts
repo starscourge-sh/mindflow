@@ -2983,8 +2983,13 @@ export function registerHaligtree(): void {
   // --- cards from a picture (image occlusion): one card for each group of covers, the picture and every cover kept on each,
   // so Review can hide that group alone ("one") or every cover with that group the one asked ("all").
   // `from`: the snip or note the picture came from, its book and page kept as a snip's card keeps them.
-  handle('cards:picture', (made: { src: string; covers: { group: number; text?: string }[]; hide: 'one' | 'all'; deck?: string; tags?: string[]; from?: { id: string } | null }) => {
-    const groups = [...new Set((made?.covers ?? []).map((one) => one.group))].sort((a, b) => a - b)
+  // `question`: one line asked over the picture on every card (Anki's Header); left empty, "What is hidden?".
+  handle('cards:picture', (made: { src: string; covers: { group: number; text?: string; w?: number; h?: number; id?: number }[]; hide: 'one' | 'all'; question?: string; deck?: string; tags?: string[]; from?: { id: string } | null }) => {
+    // A cover with no room on the picture asks nothing: never a card for it. The editor's own names for covers are not kept.
+    const covers = (made?.covers ?? []).filter((one) => Number(one.w) > 0 && Number(one.h) > 0).map(({ id: _id, ...one }) => ({ ...one, text: one.text?.trim() || undefined }))
+    const question = cut((made?.question ?? '').replace(/\s+/g, ' ').trim(), 200)
+    const asked = question || 'What is hidden?'
+    const groups = [...new Set(covers.map((one) => one.group))].sort((a, b) => a - b)
     if (!made?.src || !groups.length) return write([] as string[])
     const note = randomUUID()
     const origin = made.from?.id ? db.prepare('select attribution, medium, passage, body from nuggets where id = ?').get(made.from.id) as { attribution: string | null; medium: string | null; passage: string | null; body: string | null } | undefined : undefined
@@ -2993,11 +2998,11 @@ export function registerHaligtree(): void {
     const tag = made.deck?.trim().replace(/^#/, '')
     const ids = groups.map((group, index) => {
       const id = randomUUID()
-      const named = made.covers.filter((one) => one.group === group).map((one) => one.text?.trim()).filter(Boolean).join(', ')
+      const named = covers.filter((one) => one.group === group).map((one) => one.text).filter(Boolean).join(', ')
       const answer = [named || 'Shown on the picture', link, [tag, ...(made.tags ?? [])].filter(Boolean).map((one) => `#${one}`).join(' ')].filter(Boolean).join('\n\n')
-      const fields = JSON.stringify({ occlusion: { src: made.src, covers: made.covers, ask: group, hide: made.hide === 'all' ? 'all' : 'one' } })
+      const fields = JSON.stringify({ occlusion: { src: made.src, covers, ask: group, hide: made.hide === 'all' ? 'all' : 'one', ...(question ? { question } : {}) } })
       db.prepare("insert into nuggets (id, tier, kind, title, body, prompt, source, created_at, updated_at, fields, attribution, medium, passage) values (?, ?, 'note', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
-        .run(id, cardTier(), cut(`What is hidden? ${index + 1} of ${groups.length}`, 160), JSON.stringify(answer), 'What is hidden?', `picture:${note}:${group}`, now(), now(), fields, origin?.attribution ?? null, origin?.medium ?? null, origin?.passage ?? null)
+        .run(id, cardTier(), cut(`${asked} ${index + 1} of ${groups.length}`, 160), JSON.stringify(answer), asked, `picture:${note}:${group}`, now(), now(), fields, origin?.attribution ?? null, origin?.medium ?? null, origin?.passage ?? null)
       return id
     })
     return write(ids)

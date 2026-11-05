@@ -1656,10 +1656,11 @@ function PictureFace({ occlusion, shown, answer, onReveal }: { occlusion: Occlus
   const said = answer.split('\n').map((line) => line.trim()).filter((line) => line && !line.startsWith('#') && !line.startsWith('[')).join(', ')
   return (
     <div data-finish-face data-picture-face={shown ? 'shown' : 'asked'} onClick={() => !shown && onReveal()} className={`grid gap-3 rounded-[6px] border px-5 py-5 ${shown ? '' : 'cursor-pointer'}`}>
-      <p className="text-sm text-muted-foreground">{occlusion.hide === 'all' ? 'What is under the glowing cover?' : 'What is hidden?'}</p>
+      {/* The picture's own question when it was given one (Anki's Header), on both sides; else the plain one. */}
+      <p data-picture-question-shown className={occlusion.question ? 'text-body font-medium text-foreground' : 'text-sm text-muted-foreground'}>{occlusion.question || (occlusion.hide === 'all' ? 'What is under the glowing cover?' : 'What is hidden?')}</p>
       <CoveredPicture occlusion={occlusion} shown={shown} all={all} />
       <div className="flex min-h-8 flex-wrap items-center gap-3">
-        <p data-picture-answer className={`min-w-0 flex-1 font-heading text-heading font-semibold text-foreground ${shown ? '' : 'invisible'}`}>{said || 'Shown on the picture'}</p>
+        <p data-picture-answer className={`min-w-0 flex-1 font-heading text-heading font-semibold text-foreground ${shown ? '' : 'invisible'}`}>{said || 'Shown on the picture, under the cover'}</p>
         {occlusion.covers.some((one) => one.group !== occlusion.ask) && (
           <Button variant="ghost" size="sm" data-picture-all className={`h-8 cursor-pointer px-3 text-muted-foreground ${shown ? '' : 'invisible'}`} onClick={(event) => (event.stopPropagation(), chime(all ? 'fold' : 'open'), setAll(!all))}>
             {all ? 'Cover the rest again' : 'Show the whole picture'}
