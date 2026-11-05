@@ -273,7 +273,7 @@ export function NoteList({
   folds,
   islands,
   className = '',
-  headCountOne = true
+  dayHeads = false
 }: {
   groups: [string, Entry[]][]
   density: Density
@@ -299,8 +299,8 @@ export function NoteList({
   folds?: Folds
   /** Each group drawn as an island of its own that folds, its first few showing (islands.tsx). Rows only. */
   islands?: Record<string, IslandState>
-  /** False: a heading over a single row says only its name (a goal's day), no "1" after it. */
-  headCountOne?: boolean
+  /** Headings drawn as Tasks' Upcoming draws its days: the name in ink over a hairline, its count quieter beside it. */
+  dayHeads?: boolean
   className?: string
 }): React.JSX.Element {
   const grid = density === 'small' || density === 'grid'
@@ -414,7 +414,7 @@ export function NoteList({
         >
           {(one) => (
             <>
-              {one.head && <SectionHead head={one.head} first={one.start === 0} count={headCountOne || one.head[1] > 1} />}
+              {one.head && <SectionHead head={one.head} first={one.start === 0} day={dayHeads} />}
               {grid ? (
                 <div
                   className="grid"

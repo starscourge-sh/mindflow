@@ -53,9 +53,9 @@ const onShow = (part: Part): number => ('entry' in part ? 1 : !part.group.open ?
  * `head`: a loose note that starts a section of a list grouped by kind or date, the section's name and how many loose notes it holds. */
 export type Bundle = { group?: GroupView; entries: Entry[]; parts?: Part[]; head?: [string, number] }
 /** A section's name over its rows, in a list grouped by kind or date. */
-export const SectionHead = ({ head, first, count = true }: { head: [string, number]; first: boolean; count?: boolean }): React.JSX.Element => (
-  <div data-group-head={head[0]} className={`px-2 pb-1 text-xs text-muted-foreground ${first ? 'pt-1' : 'pt-4'}`}>
-    {head[0]} {count && <span className="tabular-nums"><Rolling text={head[1]} /></span>}
+export const SectionHead = ({ head, first, day = false }: { head: [string, number]; first: boolean; /** As Tasks' Upcoming heads its days. */ day?: boolean }): React.JSX.Element => (
+  <div data-group-head={head[0]} className={day ? `mx-2 mb-1 border-b pb-1.5 text-meta font-medium text-foreground ${first ? 'mt-1' : 'mt-6'}` : `px-2 pb-1 text-xs text-muted-foreground ${first ? 'pt-1' : 'pt-4'}`}>
+    {head[0]} <span className={`tabular-nums ${day ? 'font-normal text-muted-foreground' : ''}`}><Rolling text={head[1]} /></span>
   </div>
 )
 

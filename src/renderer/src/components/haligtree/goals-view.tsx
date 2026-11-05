@@ -404,7 +404,7 @@ export function GoalsView({ focus, onOpen }: { focus?: string; onOpen?: (type: s
         }
       >
         {!listShown ? null : items.length ? (
-          <NoteList groups={show === 'open' ? byDay(openOnes(all), entries) : [['', entries]]} headCountOne={false} density="list" table="nuggets" selected={coming ?? open?.id} cursor={cursor} onCursor={setCursor} onPick={pick} chosen={several.chosen} picking={several.picking} className="list-edge my-2" />
+          <NoteList groups={show === 'open' ? byDay(openOnes(all), entries) : [['', entries]]} dayHeads density="list" table="nuggets" selected={coming ?? open?.id} cursor={cursor} onCursor={setCursor} onPick={pick} chosen={several.chosen} picking={several.picking} className="list-edge my-2" />
         ) : unloaded(all) ? null : !all.length ? (
           // None set yet: the page as it will look, with a few made-up ones.
           <Example tryIt={<><strong><button type="button" onClick={() => void startGoal(go)} className="text-foreground underline decoration-foreground/25 underline-offset-4 hover:decoration-foreground/60">set a goal</button>: a day you are aiming for.</strong> It counts down at the top of Home and keeps a log of the road there. Or leave the day out: a someday goal, for the life list.</>}>
