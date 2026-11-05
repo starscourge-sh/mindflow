@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { TAGS } from '@/extensions/tokens'
-import { ArrowRight, ArrowUpLeft, ChevronRight, GripVertical, Plus } from 'lucide-react'
+import { ArrowRight, ArrowUpLeft, ChevronRight, GripVertical, Plus, Trash2 } from 'lucide-react'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Button } from '@/components/ui/button'
 import { chime, tear } from '@/lib/sound'
@@ -15,6 +15,7 @@ import { DROP_LIT, SortableList, SortableRow } from './sortable'
 import { Struck, Tick } from './marks'
 import { completeTask, dayCleared, landed, moveTo, onToday, pickDate, shiftTo, startOn, taskMenu, useTaskNow } from './tasks-view'
 import { RowMenu, openFromGrip, type RowItem } from './row-menu'
+import { binItem } from '@/lib/to-bin'
 import { PriorityMark, planFor } from './task-input'
 import { dayClosed, openCloseDay } from './close-day'
 import { useArrivals } from './note-list'
@@ -1029,7 +1030,9 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
           </div>
           <ul>
             {before.slice(0, 6).map((task) => (
-              <li key={task.id} data-before={task.id} className="group/before flex items-center gap-3 py-1">
+              // Right-clicked, the menu a task has on every list: Bin, a new day, Later.
+              <RowMenu key={task.id} items={() => taskMenu(task, { open: () => (chime('open'), onOpenTask ? onOpenTask(task.id) : window.api.openInHome('task', task.id)), complete: () => void completeTask(task), now: taskNow })}>
+              <li data-before={task.id} className="group/before flex items-center gap-3 py-1">
                 {/* Done already, just not ticked: ticked here, with Undo. */}
                 <Tip label="Done already">
                   <button type="button" role="checkbox" aria-checked={false} aria-label={`Done: ${task.title}`} onClick={() => void completeTask(task)}
@@ -1045,7 +1048,15 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
                     <ArrowRight className="size-3.5" /> To today
                   </button>
                 </Tip>
+                {/* Not wanted after all: to the Bin, with Undo. */}
+                <Tip label="Move to the Bin">
+                  <button type="button" data-before-bin={task.id} aria-label={`Move ${task.title} to the Bin`} onClick={binItem([{ type: 'task', id: task.id }]).run}
+                    className="grid size-6 shrink-0 cursor-pointer place-items-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground">
+                    <Trash2 className="size-3.5" />
+                  </button>
+                </Tip>
               </li>
+              </RowMenu>
             ))}
             {before.length > 6 && <li className="py-1 text-sm text-muted-foreground">and {num(before.length - 6)} more, all in “Move all to today”</li>}
           </ul>
