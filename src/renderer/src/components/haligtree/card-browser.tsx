@@ -647,9 +647,9 @@ export function CardBrowser({ onOpen, aim, only, newest, onAll, onShow, onAimDon
       {/* One line of the most used decks, sliding sideways, never wrapping; every one is in Display's Deck filter. */}
       {/* Named by the top of each tag (#learn takes in #learn-haligtree). */}
       <Chips sideways className="" options={[{ id: '', label: `All ${num(cards.length)}` }, ...tops.slice(0, 12).map((one) => ({ id: one, label: deckTitle(one, tags) }))]} on={(id) => (tag ?? '') === id} pick={(id) => (setTag(id || null), setFlowAt(0))} />
-      {several.count > 0 && (
-        <div data-card-picked className="flex flex-wrap items-center gap-2 rounded-lg border bg-accent/30 px-3 py-2 text-sm">
-          <span className="font-medium">{num(several.count)} picked</span>
+      {/* One bar for what is picked: the cards' own actions in the app's shared one, after its count. */}
+      {several.barWith(several.count > 0 && (
+        <span data-card-picked className="contents">
           <Button variant="ghost" size="sm" data-cards-pause onClick={() => pause(picked.map((one) => one.id), !picked.every((one) => one.paused))}>
             {picked.every((one) => one.paused) ? 'Bring back' : 'Pause'}
           </Button>
@@ -657,11 +657,8 @@ export function CardBrowser({ onOpen, aim, only, newest, onAll, onShow, onAimDon
             onKeyDown={(event) => event.key === 'Enter' && (event.preventDefault(), retag(picked.map((one) => one.id), true))} />
           <Button variant="ghost" size="sm" data-cards-tag onClick={() => retag(picked.map((one) => one.id), true)}>Add to deck</Button>
           <Button variant="ghost" size="sm" data-cards-untag onClick={() => retag(picked.map((one) => one.id), false)}>Take out of deck</Button>
-          <span className="flex-1" />
-          <span className="text-xs text-muted-foreground">⌫ to the Bin, Esc to let go</span>
-        </div>
-      )}
-      {several.bar}
+        </span>
+      ))}
       {compact && gridActions && <div data-card-actions className="-ml-3 flex items-center gap-1">{gridActions}</div>}
       {/* Not studied yet, learning and due, as Anki users count a deck: for what is on show. */}
       <p data-card-counts className="flex flex-wrap gap-x-4 text-sm">

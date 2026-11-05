@@ -39,6 +39,8 @@ export function usePickMixed(shown: Pickable[], { here = () => true, keys = true
   selectAll: () => void
   clear: () => void
   bar: React.JSX.Element | null
+  /** The same one bar with a page's own actions for what is picked after its count (All cards' Pause and decks): never a second bar. */
+  barWith: (own: React.ReactNode) => React.JSX.Element | null
   /** The right-click menu among several picked, or null for the row's own. */
   menu: (one: Pick<Pickable, 'type' | 'id'>) => RowItem[] | null
   /** What a single row's menu adds: Select, Select all. */
@@ -92,9 +94,10 @@ export function usePickMixed(shown: Pickable[], { here = () => true, keys = true
   const reads = list.filter((one) => one.type !== 'task')
   const makeEach = (): void => void makeTasks(tasks.map(noteOf)).then((made) => made && setChosen([]))
   const queue = (next: boolean): void => void enqueue(reads.map((one) => one.id), next).then(() => setChosen([]))
-  const bar = live.length ? (
-    <span className="flex flex-wrap items-center gap-1">
+  const barWith = (own: React.ReactNode): React.JSX.Element | null => live.length ? (
+    <span data-picked-bar className="flex flex-wrap items-center gap-1">
       <span className="mr-1 text-sm font-medium whitespace-nowrap text-foreground tabular-nums">{num(live.length)} selected</span>
+      {own}
       {tasks.length > 0 && (
         <Tip label="A task for each, linked to its note">
           <Button variant="secondary" size="sm" onClick={makeEach}>{tasks.length === 1 ? 'Make it a task' : `Make ${num(tasks.length)} tasks`}</Button>
@@ -114,6 +117,7 @@ export function usePickMixed(shown: Pickable[], { here = () => true, keys = true
       <Tip label="Clear the selection  Esc"><Button variant="ghost" size="icon-sm" aria-label="Clear the selection" onClick={clear}><X className="size-3.5" /></Button></Tip>
     </span>
   ) : null
+  const bar = barWith(null)
   const menu = (one: Pick<Pickable, 'type' | 'id'>): RowItem[] | null => live.includes(keyOf(one)) && live.length > 1 ? [
     tasks.length > 0 && { label: tasks.length === 1 ? 'Make it a task' : `Make ${num(tasks.length)} tasks`, run: makeEach },
     reads.length > 0 && { label: `Add ${num(reads.length)} to the queue`, run: () => queue(false) },
@@ -127,7 +131,7 @@ export function usePickMixed(shown: Pickable[], { here = () => true, keys = true
     { label: 'Clear the selection', keys: 'esc', run: clear }
   ] : null
   const rowItems = (one: Pick<Pickable, 'type' | 'id'>): MenuItem[] => ['separator', { label: live.includes(keyOf(one)) ? 'Unselect' : 'Select', about: 'list', keys: '⌘-click', run: () => toggle(one) }, !allPicked && { label: 'Select all', about: 'list', keys: keys ? '⌘A' : undefined, run: selectAll }]
-  return { picked: (one) => live.includes(keyOf(one)), toggle, click: (event, one) => picking.click(event, keyOf(one)), count: live.length, selectAll, clear, bar, menu, rowItems }
+  return { picked: (one) => live.includes(keyOf(one)), toggle, click: (event, one) => picking.click(event, keyOf(one)), count: live.length, selectAll, clear, bar, barWith, menu, rowItems }
 }
 
 /** How a picked card or row looks anywhere: the accent's tint and a ring in it, plain in every theme. */
