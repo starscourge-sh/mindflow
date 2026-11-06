@@ -4106,9 +4106,9 @@ function updateTray(): void {
       ...(SANDBOX ? [{ label: 'Back to my notes', click: leaveSandbox }, { label: 'Reset the sandbox…', click: () => (openHome(), makeHome().webContents.send('sandbox:ask-reset')) }, { type: 'separator' } as const] : []),
       // A meeting: started here, and while it records, its moment and its end.
       ...(meetingNow() ? [
-        { label: meetingState().state === 'saving' ? 'Keeping the meeting…' : 'Recording a meeting', enabled: false },
+        { label: meetingState().state === 'saving' ? 'Keeping the recording…' : 'Recording', enabled: false },
         { label: 'Note this moment', accelerator: chordFor('⌃⌥⌘M'), enabled: meetingState().state === 'live', click: () => void startMeeting() },
-        { label: 'Stop and keep the meeting', enabled: meetingState().state !== 'saving', click: () => void stopMeeting() }
+        { label: 'Stop and keep the recording', enabled: meetingState().state !== 'saving', click: () => void stopMeeting() }
       ] : [{ label: 'Record a call or lecture', accelerator: chordFor('⌃⌥⌘M'), click: () => void startMeeting() }]),
       { label: `Open ${APP_NAME}`, accelerator: chordFor('⌘.'), click: () => toggleWindow() },
       { label: 'Close the day…', click: () => inHome('haligtree:close-day') },

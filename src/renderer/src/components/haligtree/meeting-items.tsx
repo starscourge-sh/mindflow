@@ -15,7 +15,7 @@ export function MeetingItems({ since, onOpen, className }: { since: string; onOp
   if (!items.length) return null
   return (
     <section data-meeting-open-items className={className}>
-      <h2 className="mb-1 flex items-center gap-1.5 text-body font-semibold text-foreground"><ListChecks className="size-4" />From your meetings<span className="text-control font-normal text-muted-foreground tabular-nums">{num(items.length)}</span></h2>
+      <h2 className="mb-1 flex items-center gap-1.5 text-body font-semibold text-foreground"><ListChecks className="size-4" />From your recordings<span className="text-control font-normal text-muted-foreground tabular-nums">{num(items.length)}</span></h2>
       <ul className="divide-y divide-border/50">
         {items.slice(0, 12).map((item) => (
           <li key={`${item.note}-${item.id}`}>

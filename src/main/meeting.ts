@@ -274,7 +274,7 @@ async function ended(): Promise<void> {
   finished = null
   try {
     if (!saved) {
-      if (!['denied', 'failed'].includes(live.state)) live = { ...live, state: 'failed', message: live.message ?? 'The meeting program stopped before anything was kept' }
+      if (!['denied', 'failed'].includes(live.state)) live = { ...live, state: 'failed', message: live.message ?? 'The recording stopped before anything was kept' }
       tell()
       return
     }
@@ -284,7 +284,7 @@ async function ended(): Promise<void> {
     shown?.openNote(id)
     shown?.close()
   } catch (error) {
-    live = { ...live, state: 'failed', message: `The meeting could not be kept: ${(error as Error).message}` }
+    live = { ...live, state: 'failed', message: `The recording could not be kept: ${(error as Error).message}` }
     tell()
   } finally {
     if (live.state === 'saved') await rm(folder, { recursive: true, force: true }).catch(() => undefined)

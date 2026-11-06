@@ -74,7 +74,7 @@ try {
     await one.m.click('[data-meeting-start]'); await wait(800)
     const after = await shown()
     check('without the Mac\'s sound allowed: one plain line and the way to Settings', after.state === 'denied' && /Screen & System Audio Recording/.test(after.text) && /Open System Settings/.test(after.text), after.text)
-    check('and nothing records', !(await electron.evaluate(() => globalThis.trayMenu.some((one) => one.label === 'Recording a meeting'))))
+    check('and nothing records', !(await electron.evaluate(() => globalThis.trayMenu.some((one) => one.label === 'Recording'))))
     await after.m.getByText('Not now').click()
   } else {
     // Recording: the same key notes the moment; the menu bar says so and stops it.
@@ -87,8 +87,8 @@ try {
     await wait(300)
     check('⌃⌥⌘M while recording notes this moment', await one.m.evaluate(() => document.querySelectorAll('[aria-label="Moment noted"]').length) === 1)
     const menu = await electron.evaluate(() => globalThis.trayMenu.map((one) => one.label))
-    check('the menu bar offers the moment and the stop while recording', menu.includes('Note this moment') && menu.includes('Stop and keep the meeting') && !menu.includes('Record a call or lecture'), menu.slice(0, 8).join(' | '))
-    await electron.evaluate(() => globalThis.trayBuilt.items.find((one) => one.label === 'Stop and keep the meeting').click())
+    check('the menu bar offers the moment and the stop while recording', menu.includes('Note this moment') && menu.includes('Stop and keep the recording') && !menu.includes('Record a call or lecture'), menu.slice(0, 8).join(' | '))
+    await electron.evaluate(() => globalThis.trayBuilt.items.find((one) => one.label === 'Stop and keep the recording').click())
     await h.waitForSelector('[data-meeting-page]', { timeout: 30000 })
     check('stopped from the menu bar, the meeting is kept', true)
     // Meetings in ⌘K: the list under #recording.

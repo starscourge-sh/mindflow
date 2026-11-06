@@ -273,7 +273,7 @@ export function MeetingView({ node, editor, updateAttributes }: NodeViewProps): 
             {a.speakers.length > 0 && !Object.keys(a.names).length && <span className="text-meta text-muted-foreground">Told apart by voice: click a name to say who it is.</span>}
           </div>
           {a.audio
-            ? <div data-meeting-player><SoundPlayer src={a.audio} length={a.seconds} name="The meeting" /></div>
+            ? <div data-meeting-player><SoundPlayer src={a.audio} length={a.seconds} name="The recording" /></div>
             : <div data-meeting-no-audio className="text-control text-muted-foreground">The recording was deleted. The words are kept below.</div>}
 
           {a.moments.length > 0 && (

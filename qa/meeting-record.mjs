@@ -91,7 +91,7 @@ try {
   const pill = await electron.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find((one) => one.webContents.getURL().includes('view=meeting')).getBounds())
   check('tucked, the card is a small pill', pill.height < 100 && pill.width < 300, JSON.stringify(pill))
   await film(m, 'pill', 400)
-  await m.click('[aria-label="Show the meeting\'s words"]')
+  await m.click('[aria-label="Show the words"]')
   await m.waitForSelector('[data-meeting-card="live"]')
 
   // 6. To the end of the meeting, then stop: the meeting's page opens in the main window.

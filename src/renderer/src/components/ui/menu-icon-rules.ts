@@ -47,7 +47,7 @@ const RULES: [RegExp, LucideIcon][] = [
   [/^stop putting it first/i, ArrowDownToLine],
   [/^record a voice note/i, Mic],
   // A meeting: both sides of a call, who said what.
-  [/^(record (a call or lecture|this meeting)|recordings$|note this moment|stop and keep the meeting)/i, Users],
+  [/^(record (a call or lecture|this meeting)|recordings$|note this moment|stop and keep the recording)/i, Users],
   [/^delete the recording/i, Trash2],
   // A misheard word in a meeting line, fixed in place.
   [/^fix this line$/i, SpellCheck],

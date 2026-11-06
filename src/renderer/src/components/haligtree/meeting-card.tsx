@@ -106,7 +106,7 @@ export function MeetingCard(): React.JSX.Element {
     return (
       <div data-clear style={{ padding: ROOM }}>
         <div data-meeting-card="pill" className={cn(shell, 'flex-row items-center gap-2 rounded-full px-2')} style={PILL}>
-          <button type="button" aria-label="Show the meeting's words" onClick={() => setTucked(false)}
+          <button type="button" aria-label="Show the words" onClick={() => setTucked(false)}
             className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 pl-1.5 text-left [-webkit-app-region:no-drag]">
             <OnAir paused={live.state === 'paused'} />
             <span data-meeting-time className="text-control tabular-nums">{clock(live.seconds)}</span>
@@ -220,7 +220,7 @@ function Before({ live, onChoose }: { live: Live; onChoose: () => void }): React
     </div>
   )
   if (live.state === 'starting' || live.state === 'asking' || live.state === 'saving')
-    return <div className="flex h-full items-center justify-center"><Orb label={live.state === 'saving' ? 'Keeping the meeting…' : live.state === 'asking' ? 'macOS is asking…' : 'Getting ready…'} /></div>
+    return <div className="flex h-full items-center justify-center"><Orb label={live.state === 'saving' ? 'Keeping the recording…' : live.state === 'asking' ? 'macOS is asking…' : 'Getting ready…'} /></div>
   if (live.state === 'denied')
     return body("Haligtree can't hear the other side yet", <p>Allow Haligtree under “Screen & System Audio Recording” in System Settings, then start again.</p>, <>
       {close}
@@ -228,7 +228,7 @@ function Before({ live, onChoose }: { live: Live; onChoose: () => void }): React
       <button type="button" data-meeting-start onClick={() => void call('meeting:begin')} className={cn(BUTTON, 'bg-[var(--tt-brand-color-500)] mf-on-accent hover:brightness-110')}>Try again</button>
     </>)
   if (live.state === 'failed' || live.state === 'too-old' || live.state === 'saved')
-    return body(live.state === 'saved' ? 'Meeting kept' : 'The meeting was not recorded', <p>{live.message}</p>, live.state === 'saved' ? undefined : close)
+    return body(live.state === 'saved' ? 'Recording kept' : 'Nothing was recorded', <p>{live.message}</p>, live.state === 'saved' ? undefined : close)
   return body(live.event?.title ? `Record “${live.event.title}”` : 'Record a call or lecture', <>
     <p><b className="font-semibold text-foreground">{live.from.mic ? 'Your microphone and the sound from ' : 'The sound from '}{live.from.bundle ? live.from.name || 'one app' : 'this Mac'}</b>{live.from.bundle ? '' : ' (the call, in its app or the browser)'}, kept in your book. Nothing leaves this Mac.</p>
     <div className="space-y-1 [-webkit-app-region:no-drag]">
