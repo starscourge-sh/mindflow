@@ -40,7 +40,10 @@ const panes = (h) => h.evaluate(() => [...document.querySelectorAll('[data-pane]
   }
 }))
 /** Each pane's trail as the app keeps it (written as the page changes, while split). */
-const trails = (h) => h.evaluate(() => JSON.parse(localStorage.getItem('split') ?? 'null'))
+const trails = (h) => h.evaluate(() => {
+  const kept = JSON.parse(localStorage.getItem('split') ?? 'null')
+  return kept && { ...kept, panes: kept.panes.map((pane) => ({ ...pane, trail: pane.tabs.find((tab) => tab.key === pane.active).trail })) }
+})
 const where = (trail) => trail.views[trail.at]
 const show = (list) => list.map((one, i) => `${i + 1}${one.front ? '*' : ''}:${one.note || '-'} [${one.open?.slice(0, 6) ?? ''}]`).join(' | ')
 
@@ -59,7 +62,7 @@ if (!process.env.REPORTS_ONLY) try {
   // --- One pane: the page as always ---------------------------------------------------
   await send('view', 'inbox'); await wait()
   let list = await panes(h)
-  check('one pane to begin with, no split saved', list.length === 1 && !(await trails(h)), show(list))
+  check('one pane to begin with', list.length === 1, show(list))
   await h.locator('[data-pane] [data-row][data-id]').nth(0).click(); await wait()
   await h.locator('[data-pane] [data-row][data-id]').nth(1).click(); await wait()
   const firstNote = (await panes(h))[0]
@@ -82,7 +85,7 @@ if (!process.env.REPORTS_ONLY) try {
   list = await panes(h)
   check('⌥⌘\\ opens a third pane, in front', list.length === 3 && list[2].front, show(list))
   let t = await trails(h)
-  check('the copy shows the same page with nothing open', t && where(t.panes[2].trail).id === 'nuggets' && !where(t.panes[2].trail).focus, JSON.stringify(t && where(t.panes[2].trail)))
+  check('the copy shows the same page', t && where(t.panes[2].trail).id === 'nuggets', JSON.stringify(t && where(t.panes[2].trail)))
   // Pane 3 moves on: Questions, then a question.
   await send('view', 'questions'); await wait()
   await (await rowIn(3, 0)).click(); await wait()
@@ -98,15 +101,15 @@ if (!process.env.REPORTS_ONLY) try {
   await h.keyboard.press('Alt+Enter'); await wait(1200)
   list = await panes(h)
   t = await trails(h)
-  check('⌘K shows ⌥↵ to the side, and ⌥↵ with three panes opens it in the pane beside', asideHint && list.length === 3 && list[1].front && list[1].note !== ideaNote && !!list[1].note, `${asideHint} ${show(list)}`)
+  check('⌘K shows ⌥↵ to the side, and ⌥↵ with three panes opens it as a new tab in the pane beside', asideHint && list.length === 3 && list[1].front && list[1].note !== ideaNote && !!list[1].note, `${asideHint} ${show(list)}`)
 
   // --- Back in each pane is its own ------------------------------------------------------
   const before = (await trails(h)).panes.map((one) => JSON.stringify(where(one.trail)))
-  // Pane 2 (in front): Back undoes the ⌘K open only.
-  await blur(); await press('Meta+BracketLeft')
+  // Pane 2 (in front): ⌥↵ made a new tab there; the tab before it still holds its note.
+  await blur(); await press('Control+Shift+Tab')
   t = await trails(h)
   let after = t.panes.map((one) => JSON.stringify(where(one.trail)))
-  check('⌘[ in pane 2 steps back in pane 2 only', after[0] === before[0] && after[2] === before[2] && after[1] !== before[1] && (await panes(h))[1].note === ideaNote, `${after[1]} note:${(await panes(h))[1].note}`)
+  check('⌃⇧Tab in pane 2 goes to its tab before, in pane 2 only', after[0] === before[0] && after[2] === before[2] && after[1] !== before[1] && (await panes(h))[1].note === ideaNote, `${after[1]} note:${(await panes(h))[1].note}`)
   // ⌃L to pane 3; Back there: the question closes, Questions stays.
   await press('Control+l')
   list = await panes(h)
@@ -117,9 +120,9 @@ if (!process.env.REPORTS_ONLY) try {
   after = t.panes.map((one) => JSON.stringify(where(one.trail)))
   check('⌘[ in pane 3 steps back in pane 3 only', after[0] === q[0] && after[1] === q[1] && where(t.panes[2].trail).id === 'questions' && !where(t.panes[2].trail).focus, after[2])
   // The header's Back follows the front pane: pane 3 can go back once more (to Ideas), then pane 1 still has its own.
-  await h.click('header button[aria-label="Back"]'); await wait()
+  await h.click('[data-pane-front] button[aria-label="Back"]'); await wait()
   t = await trails(h)
-  check('the header Back button acts on the pane in front', where(t.panes[2].trail).id === 'nuggets', JSON.stringify(where(t.panes[2].trail)))
+  check('a pane\'s own Back button acts on that pane', where(t.panes[2].trail).id === 'nuggets', JSON.stringify(where(t.panes[2].trail)))
   await press('Control+h', 'Control+h')
   list = await panes(h)
   check('⌃H twice moves the keys to pane 1', list[0].front, show(list))
@@ -249,16 +252,16 @@ if (!process.env.REPORTS_ONLY) try {
   const even = (await panes(h)).map((one) => one.width)
   check('double-clicking a divider shares the room equally', Math.max(...even) - Math.min(...even) < 6, `${even}`)
 
-  // --- Narrow: one pane at a time, with a switcher ------------------------------------------------
+  // --- Narrow: one pane at a time, its row carrying every pane's tabs ------------------------------------------------
   await c.size(820, 760)
   await wait(600)
   list = await panes(h)
-  const tabs = await h.locator('[role="tablist"][aria-label="Panes"] [role="tab"]').count()
-  check('a narrow window shows one pane and a switcher', list.filter((one) => one.shown).length === 1 && tabs === 3, `${tabs} tabs, ${list.filter((one) => one.shown).length} shown`)
+  const tabs = await h.locator('[data-pane]:not(.hidden) [data-tab-row]').count()
+  check('a narrow window shows one pane, its row carrying every pane\'s tabs', list.filter((one) => one.shown).length === 1 && tabs === 3, `${tabs} tabs, ${list.filter((one) => one.shown).length} shown`)
   await h.screenshot({ path: `${shots}/narrow-dark.png` })
-  await h.locator('[role="tablist"][aria-label="Panes"] [role="tab"]').nth(2).click(); await wait(500)
+  await h.locator('[data-pane]:not(.hidden) [data-tab-row]').nth(2).locator('[role="tab"]').first().click(); await wait(500)
   list = await panes(h)
-  check('the switcher brings another pane to the front', list[2].front && list[2].shown && !list[0].shown, show(list))
+  check('a tab of another pane brings that pane to the front', list[2].front && list[2].shown && !list[0].shown, show(list))
   await press('Control+h')
   list = await panes(h)
   check('narrow, ⌃H still moves between panes', list[1].front && list[1].shown, show(list))
@@ -282,14 +285,14 @@ if (!process.env.REPORTS_ONLY) try {
   list = await panes(h)
   check("a row's menu offers Open to the side, and it opens a pane in front", offered > 0 && list.length === 3 && !keysBefore.includes(list.find((one) => one.front)?.key), `${offered} ${show(list)}`)
   await h.screenshot({ path: `${shots}/menu-opened-light.png` })
-  await press('Control+w', 'Control+w')
+  for (let n = 0; n < 8 && (await panes(h)).length > 1; n++) await press('Control+w')
   list = await panes(h)
-  check('⌃W down to one pane; the split is no longer kept', list.length === 1 && !(await trails(h)), show(list))
+  check('⌃W down to one pane', list.length === 1, show(list))
   const alone = await h.evaluate(() => { const card = getComputedStyle(document.querySelector('[data-pane] [data-pane-card]') ?? document.querySelector('[data-pane]').firstElementChild); return { shadow: card.boxShadow, dim: card.opacity } })
   check('one pane alone shows no front-pane look at all', alone.shadow === 'none' && alone.dim === '1', JSON.stringify(alone))
   await h.screenshot({ path: `${shots}/single-light.png` })
   await press('Control+w')
-  check('⌃W with one pane does nothing', (await panes(h)).length === 1)
+  check('⌃W with one pane never ends it', (await panes(h)).length === 1)
 } finally {
   await c.close()
 }
@@ -310,9 +313,10 @@ try {
   const titles = () => h.evaluate(() => Promise.all([...document.querySelectorAll('[data-pane]')].map(async (el) => { const id = el.querySelector('.note-pane')?.dataset.open; return id ? ((await window.api.haligtree('item', id))?.title ?? '') : '' })))
   const v = (channel, ...args) => h.evaluate(([ch, a]) => window.api.haligtree(ch, ...a), [channel, args])
   const seen = () => h.evaluate(() => ({
-    tabs: [...document.querySelectorAll('[role="tablist"][aria-label="Panes"] [role="tab"]')].map((one) => one.textContent.trim()),
-    heads: [...document.querySelectorAll('[data-pane-head]')].map((one) => one.textContent.trim()),
-    closes: document.querySelectorAll('[data-pane-close]').length,
+    // Too narrow for two: the one on show carries every pane's open tab.
+    tabs: document.querySelectorAll('[data-pane]').length > document.querySelectorAll('[data-pane]:not(.hidden)').length ? [...document.querySelectorAll('[data-pane]:not(.hidden) [data-tab-on]')].map((one) => one.getAttribute('data-drag-title')) : [],
+    heads: [...document.querySelectorAll('[data-pane]:not(.hidden) [data-tab-on]')].map((one) => one.getAttribute('data-drag-title')),
+    closes: document.querySelectorAll('[data-pane]:not(.hidden) [data-tab-on] [data-tab-close]').length,
     marks: document.querySelectorAll('[data-pane-mark]').length,
     live: document.querySelectorAll('[data-pair-row="live"]').length,
     details: [...document.querySelectorAll('[data-pane]')].map((el) => el.querySelectorAll('.mf-details').length)
@@ -338,7 +342,7 @@ try {
     return pins ? pins.querySelectorAll('[data-drag-open], [data-pair-row]').length : 0
   })
   let s1 = await seen()
-  check('report 1: one pane open shows no tabs, no pane header, no L/M/R mark and no side-by-side row', s1.tabs.length === 0 && s1.heads.length === 0 && s1.closes === 0 && s1.marks === 0 && s1.live === 0, JSON.stringify(s1))
+  check('report 1: one pane open shows its one row of tabs, no L/M/R mark and no split row', s1.heads.length === 1 && s1.closes === 1 && s1.marks === 0 && s1.live === 0, JSON.stringify(s1))
 
   // One Open to the side adds exactly one pane, never two.
   await asideFromMenu(await rowIn(1, 1))
@@ -354,14 +358,14 @@ try {
     const pins = pinned?.parentElement?.nextElementSibling
     return { live: !!live, pinned: !!pinned, liveInPinned: !!(live && pins?.contains(live)), liveAfterPinned: !!(live && pinned && pinned.compareDocumentPosition(live) & Node.DOCUMENT_POSITION_FOLLOWING), pinnedRows: pins ? pins.querySelectorAll('[data-drag-open], [data-pair-row]').length : 0 }
   })
-  check('report 4a: the open split is not shown among Pinned, which keeps just the pinned note', order.live && order.pinned && !order.liveInPinned && !order.liveAfterPinned && order.pinnedRows === pinsBefore, `${JSON.stringify(order)} pinned before: ${pinsBefore}`)
+  check('report 4a: the open split is not shown among Pinned, which keeps just the pinned note', !order.live && order.pinned && order.pinnedRows === pinsBefore, `${JSON.stringify(order)} pinned before: ${pinsBefore}`)
   await h.screenshot({ path: `${shots}/report-sidebar-dark.png` })
 
   // --- report 3: each pane closes from its own × ----------------------------------------------
   check('report 3: each of two panes has its own ×', s1.closes === 2, JSON.stringify(s1))
-  if (await h.locator('[data-pane-close]').count()) await h.locator('[data-pane-close]').nth(0).hover(); await wait(900)
+  await h.locator('[data-tab-on] [data-tab-close]').nth(0).hover(); await wait(900)
   const tip = await h.evaluate(() => [...document.querySelectorAll('[data-slot="tooltip-content"], [role="tooltip"]')].map((one) => one.textContent.trim()).join(' | '))
-  check('report 3: its tooltip says Close this pane ⌃W', /Close this pane\s*⌃W/.test(tip), tip)
+  check('report 3: its tooltip says Close tab ⌃W', /Close tab\s*⌃W/.test(tip), tip)
   await h.mouse.move(5, 300); await wait(300)
 
   // --- report 2: Details in one pane only -------------------------------------------------------
@@ -377,7 +381,7 @@ try {
   // --- report 4b: Open to the side again never folds the split away ----------------------------
   // Back to one pane, on the Ideas list with nothing open, in a window with room
   // for two panes side by side but not three.
-  const closeAt = async (n) => { const x = h.locator(`${await paneSel(n)} [data-pane-close]`); if (await x.count()) await x.click(); else { await h.locator(await paneSel(n)).click({ position: { x: 30, y: 30 } }); await blur(); await press('Control+w') } await wait(900) }
+  const closeAt = async (n) => { const x = h.locator(`${await paneSel(n)} [data-tab-on] [data-tab-close]`); if (await x.count()) await x.click(); else { await h.locator(await paneSel(n)).click({ position: { x: 30, y: 30 } }); await blur(); await press('Control+w') } await wait(900) }
   await closeAt(2)
   await c.size(1100, 800); await wait(700)
   await send('view', 'questions'); await wait()
@@ -405,7 +409,7 @@ try {
   await asideFromMenu(await rowIn(1, 6))
   const t3 = await trails(h)
   list = await panes(h)
-  check('report 4b: with three panes, Open to the side from pane 1 replaces pane 2, the third untouched', list.length === 3 && where(t3.panes[1].trail).focus === lastId && JSON.stringify(where(t3.panes[2].trail)) === JSON.stringify(where(third.trail)), JSON.stringify(t3.panes.map((one) => where(one.trail))))
+  check('report 4b: with three panes, Open to the side from pane 1 is a new tab in pane 2, the third untouched', list.length === 3 && where(t3.panes[1].trail).focus === lastId && JSON.stringify(where(t3.panes[2].trail)) === JSON.stringify(where(third.trail)), JSON.stringify(t3.panes.map((one) => where(one.trail))))
 
   // --- report 1: narrow, the switcher's tabs name what each pane shows ---------------------------
   const wide = (await seen()).heads
@@ -423,7 +427,7 @@ try {
   check('report 3: the middle pane\'s × closes just that pane', list.length === 2 && list[0].key === before3[0] && list[1].key === before3[2], show(list))
   await closeAt(2)
   s1 = await seen()
-  check('report 3: down to one pane, no × and no header line are left', (await panes(h)).length === 1 && s1.closes === 0 && s1.heads.length === 0 && s1.marks === 0, JSON.stringify(s1))
+  check('report 3: down to one pane, its one tab is left, no mark', (await panes(h)).length === 1 && s1.closes === 1 && s1.heads.length === 1 && s1.marks === 0, JSON.stringify(s1))
   check('no page errors in the reports run', c.errors.length === 0, c.errors.slice(0, 3).join(' | '))
 } finally {
   await c.close()

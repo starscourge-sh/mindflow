@@ -96,7 +96,7 @@ try {
   list = await panes()
   check(`typing “${name}” and ↵ opens it in that pane: two panes, the left unchanged`, list.length === 2 && !list[1].picker && list[1].front && list[0].page === left.page && list[0].title === left.title, JSON.stringify(list))
   // Back in that pane does not return to the picker.
-  check('the picker is not a step to go Back to', await h.evaluate(() => !JSON.parse(localStorage.getItem('split') ?? 'null')?.panes?.some((pane) => pane.trail.views.some((one) => one.id === 'pick'))))
+  check('the picker is not a step to go Back to', await h.evaluate(() => !JSON.parse(localStorage.getItem('split') ?? 'null')?.panes?.some((pane) => pane.tabs.some((tab) => tab.trail.views.some((one) => one.id === 'pick')))))
 
   // --- ⌘\ again: a third pane beside the front one; Esc closes it, the keys go left -----
   await h.evaluate(() => document.activeElement?.blur?.())

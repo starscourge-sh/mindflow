@@ -16,7 +16,7 @@ const panes = () => h.evaluate(() => [...document.querySelectorAll('[data-pane]'
   front: el.hasAttribute('data-pane-front'),
   picker: !!el.querySelector('[data-pane-picker]'),
   page: el.querySelector('[data-page]')?.getAttribute('data-page') ?? null,
-  close: !!el.querySelector('[data-pane-close]')
+  close: !!el.querySelector('[data-tab-on] [data-tab-close]')
 })))
 try {
   await v('settings:set', { hintRate: 0 })
@@ -42,7 +42,7 @@ try {
   await h.keyboard.press('Enter'); await wait(1200)
   list = await panes()
   check('↵ opens it in that pane, the left one as it was', list.length === 2 && list[1].page === 'calendar' && list[0].page !== 'calendar', JSON.stringify(list.map((one) => one.page)))
-  await h.locator('[data-pane]').nth(1).locator('[data-pane-close]').click(); await wait(700)
+  await h.locator('[data-pane]').nth(1).locator('[data-tab-on] [data-tab-close]').click(); await wait(700)
   check('its × closes it', (await panes()).length === 1)
 } finally { await c.close() }
 const passed = results.filter(Boolean).length

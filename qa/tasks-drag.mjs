@@ -40,10 +40,10 @@ const state = () => h.evaluate(() => ({
   dragging: document.documentElement.hasAttribute('data-split-drag'),
   dropToPin: [...document.querySelectorAll('[data-side-drop="pinned"]')].some((one) => one.offsetParent && one.textContent.includes('Drop here to pin')),
   panes: [...document.querySelectorAll('[data-pane]')].length,
-  heads: [...document.querySelectorAll('[data-pane-head] span')].map((one) => one.textContent),
+  heads: [...document.querySelectorAll('[data-tab-on]')].map((one) => one.getAttribute('data-drag-title')),
   open: [...document.querySelectorAll('[data-pane] [data-open][data-task-row] [data-task-title]')].map((one) => one.textContent)
 }))
-const single = async () => { for (let n = 0; n < 6 && (await state()).panes > 1; n++) (await h.locator('[data-pane-close]').last().click(), await h.waitForTimeout(600)) }
+const single = async () => { for (let n = 0; n < 6 && (await state()).panes > 1; n++) (await h.locator('[data-tab-on] [data-tab-close]').last().click(), await h.waitForTimeout(600)) }
 const clean = () => h.evaluate(() => !document.querySelector('[data-split-drop]') && !document.documentElement.hasAttribute('data-split-drag') && !document.querySelector('[data-queue-hot]'))
 const overlaps = (zone, box) => box && zone.left < box.right - 1 && zone.right > box.left + 1
 
@@ -189,20 +189,20 @@ if (await ed.count()) {
   check('…a second Esc, now in the list, closes it', !(await h.$('[data-close-beside]')))
 }
 
-// 9. "Side by side" menu: an icon on every line, "Close" a ✕.
+// 9. A tab's menu: an icon on every line, "Close" a ✕.
 await pickRow('analyse claims')
 await h.waitForTimeout(600)
 r = await row('admin forms')
 await carry('admin forms', [[page0.right - 16, r.y]])
 await h.waitForTimeout(900)
-const pair = h.locator('[data-pair-row="live"]').first()
+const pair = h.locator('[data-tab-on]').last()
 if (await pair.count()) {
   await pair.click({ button: 'right' })
   await h.waitForTimeout(500)
   const lines = await h.evaluate(() => [...document.querySelectorAll('[role="menu"] [role="menuitem"]')].map((one) => ({ text: one.textContent.trim(), dot: !!one.querySelector('svg.lucide-dot') })))
   await h.screenshot({ path: `${SHOT}/tasks-pair-menu.png` })
-  check('"Side by side" menu: no line falls back to a dot', lines.length > 0 && lines.every((one) => !one.dot), JSON.stringify(lines))
+  check('a tab\'s menu: no line falls back to a dot', lines.length > 0 && lines.every((one) => !one.dot), JSON.stringify(lines))
   await h.keyboard.press('Escape')
-} else check('a live "Side by side" row shows', false)
+} else check('a tab shows', false)
 await qa.app?.close?.().catch(() => {})
 done()

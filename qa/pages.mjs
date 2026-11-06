@@ -156,15 +156,15 @@ const runK = async (words) => {
   await h.keyboard.press('Enter')
   await wait(700)
 }
-await runK('Even out panes')
+await runK('Even out the split')
 const evened = await widthsOf()
-check(Math.abs(uneven[0] - uneven[1]) > 100 && Math.abs(evened[0] - evened[1]) <= 2, '⌘K Even out panes shares the room equally', `${uneven} → ${evened}`)
+check(Math.abs(uneven[0] - uneven[1]) > 100 && Math.abs(evened[0] - evened[1]) <= 2, '⌘K Even out the split shares the room equally', `${uneven} → ${evened}`)
 // The change is in front of you, so no toast (home.tsx evenPanes): ⌘Z lays the old widths back.
 await h.evaluate(() => document.activeElement?.blur?.())
 await h.keyboard.press('Meta+z'); await wait(600)
 const unevened = await widthsOf()
 check(Math.abs(unevened[0] - unevened[1]) > 100, 'and ⌘Z puts the widths back', `${evened} → ${unevened}`)
-await runK('Even out panes')
+await runK('Even out the split')
 // Closing the right pane: it narrows and fades while the left one widens on a spring.
 const closing = await h.locator('[data-split-area] > [data-pane]').nth(1).getAttribute('data-pane')
 await h.evaluate((key) => {
@@ -177,7 +177,7 @@ await h.evaluate((key) => {
     if (performance.now() - t0 < 450) requestAnimationFrame(step)
   }
   requestAnimationFrame(step)
-  document.querySelector(`[data-pane="${key}"] [data-pane-close]`).click()
+  document.querySelector(`[data-pane="${key}"] [data-tab-on] [data-tab-close]`).click()
 }, closing)
 await wait(80)
 await shot(h, 'pane-closing')
@@ -189,11 +189,11 @@ const after = await widthsOf()
 const between = mid.filter((one) => one.gone > 0 || (one.kept > evened[0] + 10 && one.kept < mid.at(-1).kept - 10))
 check(mid.length > 0 && between.length === 0, 'G1: the closed pane simply goes, and its neighbour takes the room in one step', mid.filter((_, i) => i % 3 === 0).map((one) => `${one.t}ms ${one.gone}/${one.kept} ${one.fade}`).join(', '))
 check(after.length === 1 && after[0] > evened[0] * 1.8, 'then the one left has all the room', `${after}`)
-// Close the other panes, from ⌘K, with Undo.
+// End the split, from ⌘K, with Undo.
 await h.keyboard.press('Meta+Alt+\\')
 await wait(900)
-await runK('Close the other panes')
-check((await widthsOf()).length === 1, '⌘K Close the other panes leaves one')
+await runK('End the split')
+check((await widthsOf()).length === 1, '⌘K End the split leaves one')
 
 // --- G2: a peek opens beside
 await c.send('capture', target.id)

@@ -98,7 +98,7 @@ async function run(name, setup, act) {
     const viaKey = await state()
     await keys('Meta+BracketRight')
     const forward = await state()
-    await h.evaluate(() => document.querySelector('header button[aria-label="Back"]')?.click())
+    await h.evaluate(() => document.querySelector('[data-pane] button[aria-label="Back"]')?.click())
     await wait()
     const viaButton = await state()
     const ok = !same(before, after) && same(before, viaKey) && same(before, viaButton) && same(after, forward)

@@ -1,7 +1,6 @@
 // Split view, Dia's way: "Open beside" from a pane opens in the pane right of
-// it, each showing exactly the note asked for; a click outside the split
-// leaves it, kept whole under "Side by side"; its row brings it back; a drag
-// to the edge adds a pane; four panes at 1600 wide each hold their own note;
+// it, each showing exactly the note asked for; a sidebar click stays in the
+// split, in the pane in front; a drag to the edge adds a pane; four panes at 1600 wide each hold their own note;
 // a narrow pane's properties never overlap. Shots to SHOTS.
 //
 //   npx electron-vite build --outDir out-x
@@ -27,7 +26,7 @@ const panes = () => h.evaluate(() => {
   return [...document.querySelectorAll('[data-split-area] [data-pane]')].map((el) => {
     const key = el.getAttribute('data-pane')
     const pane = kept?.panes.find((one) => one.key === key)
-    const view = pane ? pane.trail.views[pane.trail.at] : null
+    const view = pane ? (({ trail }) => trail.views[trail.at])(pane.tabs.find((one) => one.key === pane.active)) : null
     const title = el.querySelector('[data-note-title], .note-title, textarea')
     return { key, id: view?.id ?? null, focus: view?.focus ?? null, title: (title?.value ?? title?.textContent ?? '').trim().slice(0, 50), width: Math.round(el.getBoundingClientRect().width) }
   })
@@ -92,32 +91,12 @@ try {
   await wait(800)
   const pair = (await panes()).map((one) => one.focus)
 
-  // Gems in the sidebar: Gems alone, the pair kept under "Side by side" as it was.
+  // Gems in the sidebar: in the pane in front, the split staying as it was.
   await h.locator('[data-side-row][aria-label="Gems"]').first().click()
   await wait(1200)
-  const alone = await panes()
+  const stayed = await panes()
   const onGems = await h.locator('[data-side-row][aria-label="Gems"][aria-current="page"]').count()
-  check('Gems in the sidebar shows Gems alone', alone.length === 1 && onGems === 1, `${alone.length} pane, Gems lit ${onGems}`)
-  const keptRow = h.locator('[data-pair-row="kept"]')
-  const keptPanes = await keptRow.locator('[data-pair-pane]').allInnerTexts().catch(() => [])
-  const keptSplit = await h.evaluate(() => JSON.parse(localStorage.getItem('split-kept') ?? '[]'))
-  const keptFoci = keptSplit[0]?.panes.map((pane) => pane.trail.views[pane.trail.at].focus) ?? []
-  check('the pair is under "Side by side", unchanged', (await keptRow.count()) === 1 && keptPanes.length === 2 && JSON.stringify(keptFoci) === JSON.stringify(pair), `${keptPanes.join(' | ')}; ${JSON.stringify(keptFoci)}`)
-  await h.locator('[data-side-heading="split"]').scrollIntoViewIfNeeded()
-  await h.mouse.move(150, 400)
-  await wait(300)
-  await h.screenshot({ path: `${dir}/side-by-side-light.png`, clip: { x: 0, y: 0, width: 300, height: 880 } })
-  await c.theme('dark')
-  await wait(800)
-  await h.screenshot({ path: `${dir}/side-by-side-dark.png`, clip: { x: 0, y: 0, width: 300, height: 880 } })
-  await c.theme('light')
-  await wait(800)
-
-  // Its row brings both panes back, each on the same note.
-  await h.locator('[data-pair-row="kept"] [data-pair-pane="0"]').click()
-  await wait(1400)
-  const back = await panes()
-  check('the pair row brings both panes back with the same notes', back.length === 2 && JSON.stringify(back.map((one) => one.focus)) === JSON.stringify(pair), JSON.stringify(back.map((one) => one.focus)))
+  check('Gems in the sidebar opens in the pane in front; the split stays', stayed.length === 2 && stayed[0].focus === pair[0] && onGems === 1, `${stayed.length} panes, Gems lit ${onGems}: ${JSON.stringify(stayed.map((one) => [one.id, one.focus]))}`)
 
   // A drag to the right edge adds a pane.
   const pin = h.locator('[data-drag-open]').first()

@@ -109,7 +109,7 @@ try {
   await wait(1500)
   const panes = await h.evaluate(() => {
     const kept = JSON.parse(localStorage.getItem('split') ?? 'null')
-    return [...document.querySelectorAll('[data-pane]')].map((el) => { const pane = kept?.panes.find((one) => one.key === el.getAttribute('data-pane')); return pane ? pane.trail.views[pane.trail.at] : null })
+    return [...document.querySelectorAll('[data-pane]')].map((el) => { const pane = kept?.panes.find((one) => one.key === el.getAttribute('data-pane')); return pane ? (({ trail }) => trail.views[trail.at])(pane.tabs.find((one) => one.key === pane.active)) : null })
   })
   check('dragging a Feed post to the right edge opens a second pane with that note', panes.length === 2 && panes[0]?.id === 'feed' && panes[1]?.focus === replied.id, JSON.stringify(panes))
 
@@ -150,7 +150,7 @@ try {
   await wait(1500)
   const after = await h.evaluate(() => {
     const kept = JSON.parse(localStorage.getItem('split') ?? 'null')
-    return [...document.querySelectorAll('[data-pane]')].map((el) => { const pane = kept?.panes.find((one) => one.key === el.getAttribute('data-pane')); return pane ? pane.trail.views[pane.trail.at] : null })
+    return [...document.querySelectorAll('[data-pane]')].map((el) => { const pane = kept?.panes.find((one) => one.key === el.getAttribute('data-pane')); return pane ? (({ trail }) => trail.views[trail.at])(pane.tabs.find((one) => one.key === pane.active)) : null })
   })
   check('and letting go opens a second pane with that page', after.length === 2 && after[1]?.focus === pageId, JSON.stringify(after))
   check('no page errors', errors.length === 0, errors.join(' | '))

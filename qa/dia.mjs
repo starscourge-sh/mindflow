@@ -28,7 +28,7 @@ const row = (title) => h.locator('[data-pane] button[data-row]', { hasText: titl
 const panes = () => h.evaluate(() => {
   const keys = [...document.querySelectorAll('[data-pane]')].map((el) => el.getAttribute('data-pane'))
   const kept = JSON.parse(localStorage.getItem('split') ?? 'null')
-  return keys.map((key) => { const pane = kept?.panes.find((one) => one.key === key); return { key, open: pane ? pane.trail.views[pane.trail.at].focus ?? null : null } })
+  return keys.map((key) => { const pane = kept?.panes.find((one) => one.key === key); return { key, open: pane ? (({ trail }) => trail.views[trail.at])(pane.tabs.find((one) => one.key === pane.active)).focus ?? null : null } })
 })
 const area = () => h.evaluate(() => { const b = document.querySelector('[data-split-area]').getBoundingClientRect(); return { left: b.left, right: b.right, top: b.top, bottom: b.bottom } })
 const zones = () => h.evaluate(() => [...document.querySelectorAll('[data-split-zone]')].map((el) => ({ side: el.dataset.splitZone, hot: el.hasAttribute('data-hot'), label: el.textContent.trim() })))
@@ -148,7 +148,7 @@ try {
   // --- 5. Pane marks and the pair row ------------------------------------------------
   const marks = await h.locator('[data-pane-mark]').evaluateAll((all) => all.map((one) => one.dataset.paneMark))
   check('rows open in panes carry an L / M / R mark', marks.length >= 2 && marks.some((one) => one === 'L' || one === 'R'), marks.join(','))
-  check('the split shows as one row, under Side by side, not among Pinned', await h.locator('[data-pair-row="live"]').count() === 1 && await h.locator('[data-side-heading="split"]').count() === 1)
+  check('the split has no row of its own in the sidebar', await h.locator('[data-pair-row="live"], [data-side-heading="split"]').count() === 0)
   // Report of 10 Oct: the mark sat over the row's picture.
   const covered = await h.evaluate(() => [...document.querySelectorAll('[data-pane-mark]')].map((mark) => {
     const m = mark.getBoundingClientRect()
@@ -162,27 +162,17 @@ try {
   }))
   check('the L / M / R mark sits in its own room in the row, over nothing', covered.length > 0 && covered.every((one) => one.inRow && one.hits === 0), JSON.stringify(covered))
   await h.screenshot({ path: `${dir}/pair-row-light.png` })
-  await h.locator('[data-pair-row="live"]').click({ button: 'right' })
+  await h.locator('[data-tab-on]').first().click({ button: 'right' })
   await wait(400)
-  const pairMenu = await h.locator('[role="menu"]').last().innerText()
-  // The row's menu does what its card once offered: each pane alone or closed, Rename…, Close the split; said once each.
-  for (const words of ['Alone', 'Close “', 'Rename…', 'Close the split', 'Pin the layout', 'Duplicate the layout', 'Copy to book', 'Open in new window', 'Notes']) {
-    check(`the pair's menu has ${words}`, words === 'Alone' ? (pairMenu.match(/^Open “.+” alone$/gm) ?? []).length >= 2 : pairMenu.includes(words))
-  }
-  for (const words of ['Separate', 'Close pane', 'Close other panes']) check(`the pair's row menu no longer repeats ${words}`, !new RegExp(`^${words}$`, 'm').test(pairMenu))
-  const pairIcons = await h.locator('[role="menu"]').last().locator('[role^="menuitem"]').evaluateAll((all) => all.filter((one) => !one.querySelector('svg')).map((one) => one.textContent))
-  check('every line of the pair\'s menu has an icon', pairIcons.length === 0, pairIcons.join(' | '))
-  // A note's own actions, one level in.
-  await h.locator('[role="menu"]').last().locator('[role="menuitem"][aria-haspopup]', { hasText: 'How memory palaces work' }).hover()
-  await wait(500)
-  check('each note in the pair opens its own actions', await h.locator('[role="menu"]').count() >= 2)
+  const tabMenu = await h.locator('[role="menu"]').last().innerText()
+  for (const words of ['Close', 'Pin this split', 'Copy link']) check(`a tab's menu has ${words}`, tabMenu.includes(words))
+  for (const words of ['Separate', 'Close pane', 'Close other panes', 'Pin the layout']) check(`a tab's menu no longer says ${words}`, !new RegExp(`^${words}$`, 'm').test(tabMenu))
+  const tabIcons = await h.locator('[role="menu"]').last().locator('[role^="menuitem"]').evaluateAll((all) => all.filter((one) => !one.querySelector('svg')).map((one) => one.textContent))
+  check('every line of a tab\'s menu has an icon', tabIcons.length === 0, tabIcons.join(' | '))
   await h.screenshot({ path: `${dir}/pair-menu-light.png` })
-  await h.keyboard.press('Escape'); await h.keyboard.press('Escape'); await wait(300)
-  await h.locator('[data-pair-row="live"]').click({ button: 'right' })
-  await wait(300)
-  await h.locator('[role="menuitem"]', { hasText: 'Pin the layout' }).click()
+  await h.locator('[role="menuitem"]', { hasText: 'Pin this split' }).click()
   await wait(500)
-  check('Pin the layout keeps it in Pinned', (await h.evaluate(() => JSON.parse(localStorage.getItem('split-pins') ?? '[]').length)) === 1 && await h.locator('[data-pair-row][data-pinned]').count() === 1)
+  check('Pin this split keeps it in Pinned', (await h.evaluate(() => JSON.parse(localStorage.getItem('split-pins') ?? '[]').length)) === 1 && await h.locator('[data-pair-row][data-pinned]').count() === 1)
 
   // --- 4. Menu icons: a row's, a group's, the ⋯ ----------------------------------------
   await settle()
@@ -208,7 +198,7 @@ try {
   // --- 2. A folded group's notes on hover ---------------------------------------------
   // The two panes on the right close (side by side past the room, the panes scroll, so the one pressed last may be any).
   await h.keyboard.press('Escape'); await h.mouse.up(); await wait(300)
-  for (let i = 0; i < 2; i++) { await h.locator('[data-split-area] [data-pane]').last().locator('[data-pane-close]').click(); await wait(600) }
+  for (let i = 0; i < 2; i++) { await h.locator('[data-split-area] [data-pane]').last().locator('[data-tab-on] [data-tab-close]').click(); await wait(600) }
   const one = row('Spaced repetition, a primer')
   const two = row('Reading list for October')
   {
@@ -265,7 +255,7 @@ try {
   await wait(800)
   await toSide(row('The forgetting curve'), 'right', { frames: 'magnet-dark' })
   await wait(400)
-  await h.locator('[data-pair-row]').first().click({ button: 'right' })
+  await h.locator('[data-tab-on]').first().click({ button: 'right' })
   await wait(400)
   await h.screenshot({ path: `${dir}/pair-menu-dark.png` })
   await settle()

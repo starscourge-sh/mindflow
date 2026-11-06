@@ -13,7 +13,7 @@ const c = await sandbox({ width: 1300, height: 900 })
 const { h, go, look } = c
 const FRAMES = process.env.FRAMES
 
-const titles = () => h.evaluate(() => [...document.querySelectorAll('[data-pane]')].map((pane) => pane.querySelector('[data-pane-head] span')?.textContent?.trim() || document.querySelector('[data-pane-title]')?.textContent?.trim() || '?'))
+const titles = () => h.evaluate(() => [...document.querySelectorAll('[data-pane]')].map((pane) => pane.querySelector('[data-tab-on]')?.getAttribute('data-drag-title') || document.querySelector('[data-pane-title]')?.textContent?.trim() || '?'))
 const title = async () => (await titles())[0]
 // One wheel step at a point, as the trackpad sends it.
 const wheel = (x, y, dx, dy = 0) => h.evaluate(([x, y, dx, dy]) => document.elementFromPoint(x, y).dispatchEvent(new WheelEvent('wheel', { deltaX: dx, deltaY: dy, bubbles: true, cancelable: true })), [x, y, dx, dy])
@@ -180,6 +180,11 @@ await pause(300)
 await swipe(14, 12 * R, left.x); await lift(); await pause(800)
 const after = await titles()
 check('split: the left pane goes back in itself, the right stays', after.length === 2 && after[0] !== before[0] && after[1] === before[1], `${before.join(' / ')} -> ${after.join(' / ')}`)
+// The list a resting swipe opens hangs from the arrows of the pane it belongs to, and that pane takes the keys.
+await swipe(14, -12 * R, left.x); await pause(1300)
+const hung = await h.evaluate(() => { const list = document.querySelector('[data-swipe-list]')?.getBoundingClientRect(); const arrows = document.querySelector('[data-pane] [data-tab-arrows]').getBoundingClientRect(); return list && { list: [list.left, list.top], arrows: [arrows.left, arrows.bottom], front: document.querySelector('[data-pane]').hasAttribute('data-pane-front') } })
+check('split: the back list hangs from its own pane\'s arrows', hung && Math.abs(hung.list[0] - hung.arrows[0]) < 2 && hung.list[1] >= hung.arrows[1], JSON.stringify(hung))
+await h.keyboard.press('Escape'); await pause(300)
 
 console.log(`\n${results.filter(Boolean).length}/${results.length} passed`)
 await c.close()
