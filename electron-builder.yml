@@ -68,8 +68,8 @@ mac:
           - net.daringfireball.markdown
           - public.plain-text
         NSRequiredContext: {}
-    NSMicrophoneUsageDescription: Haligtree uses the microphone only while you record a voice note or hold the talk key to type by talking. Everything stays on this Mac and is sent nowhere.
-    NSAudioCaptureUsageDescription: null
+    NSMicrophoneUsageDescription: Haligtree uses the microphone only while you record a voice note or a meeting, or hold the talk key to type by talking. Everything stays on this Mac and is sent nowhere.
+    NSAudioCaptureUsageDescription: Haligtree records the sound from this Mac (the other side of a meeting in Teams or the browser) only while you record a meeting. Everything stays on this Mac and is sent nowhere.
     # Asked once, the first time a voice note is turned into words; the words are made on this Mac (native/transcribe.swift).
     NSSpeechRecognitionUsageDescription: Haligtree turns your voice notes into words on this Mac, only when you ask. Nothing is sent anywhere.
     NSBluetoothAlwaysUsageDescription: null
