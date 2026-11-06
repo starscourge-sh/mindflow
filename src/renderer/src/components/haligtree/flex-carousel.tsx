@@ -10,6 +10,7 @@
  * only a sideways wheel moves it, so a page still scrolls over it. It draws
  * only while it is on screen and the window is shown.
  */
+import { cn } from '@/lib/cn'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { chime } from '@/lib/sound'
@@ -1060,7 +1061,7 @@ export default function FlexCarousel({
 
   return (
     <div ref={frameRef} data-flex-carousel-frame className={`flex h-full w-full flex-col ${className}`} style={style}>
-      <div className="relative flex min-h-0 flex-1 items-start gap-3">
+      <div className="relative flex min-h-0 flex-1 items-start">
         <TurnButton way={-1} disabled={!ring && active <= 0} onClick={turnBy(-1)} top={direct ? `${TOP}px + ${cardHeight} * (100% + ${CAPTION}px) / 2` : '50%'} />
         <div
           ref={containerRef}
@@ -1103,8 +1104,9 @@ export default function FlexCarousel({
 function TurnButton({ way, disabled, onClick, top }: { way: 1 | -1; disabled: boolean; onClick: () => void; top: string }): React.JSX.Element {
   const Arrow = way === 1 ? ChevronRight : ChevronLeft
   return (
-    // Its own column as tall as the pictures' box, the button level with the pictures' middle.
-    <div className="relative h-full w-9 shrink-0">
+    // Outside the pictures' width, in the margin beside them (the user: "float outside of the designated width, so the
+    // carousel is not squeezed any further"), level with the pictures' middle. It takes no room from the row.
+    <div className={cn("absolute inset-y-0 w-9", way === 1 ? "-right-12" : "-left-12")}>
     <Tip label={way === 1 ? 'Next picture  →' : 'Previous picture  ←'}>
     <button type="button" data-flex-carousel-turn={way === 1 ? 'next' : 'previous'} aria-label={way === 1 ? 'Next picture' : 'Previous picture'}
       disabled={disabled} onClick={onClick} style={{ top: `calc(${top} - 18px)` }}

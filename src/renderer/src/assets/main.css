@@ -32,19 +32,15 @@
    card's own hairlines, a step darker again under the pointer, and again while you type. One style, every such field. */
 @property --mf-rule-ink { syntax: '<percentage>'; inherits: false; initial-value: 20%; }
 @utility mf-ruled {
-  /* The ink itself, thinned: the same in every theme and on every card, never a second colour to keep in step. */
+  /* A place to write, in "Make a card"'s own way (card-form.tsx): one dashed line under what you write, with room
+     above it, and the example in italics, never a stack of solid lines (the user, 6 Nov: one "feels more natural",
+     the other "looks like random stroke lines with little space in between"). The ink itself, thinned: the same in
+     every theme and on every card. Faintly there at rest, a step darker under the pointer and while typing. */
   --mf-rule: color-mix(in oklab, var(--foreground) var(--mf-rule-ink), transparent);
-  background-image: linear-gradient(to bottom, transparent calc(1lh - 1px), var(--mf-rule) calc(1lh - 1px));
-  background-size: 100% 1lh;
-  background-attachment: local;
+  border-bottom: 1px dashed var(--mf-rule);
+  padding-bottom: 0.75rem;
   transition: --mf-rule-ink 150ms var(--mf-ease, ease-out);
-  &:is(input) {
-    background-image: linear-gradient(var(--mf-rule), var(--mf-rule));
-    background-size: 100% 1px;
-    background-position: left bottom;
-    background-repeat: no-repeat;
-    padding-bottom: 0.25rem;
-  }
+  &::placeholder { font-style: italic; }
   &:hover, label:hover > & { --mf-rule-ink: 30%; }
   &:focus, &:focus-visible { --mf-rule-ink: 42%; }
   @media (prefers-reduced-motion: reduce) { transition: none; }

@@ -1,4 +1,4 @@
-// Free-text answer fields read as places to write: a faint ruled line under their text, like a notebook page, one
+// Free-text answer fields read as places to write, in Make a card's way: one dashed line under the text with room above it, the example in italics, one
 // shared style (mf-ruled). Visible at rest (measured against the card behind it, and darker than the card's own
 // hairlines), a step darker under the pointer, a step more while typing. The Month's Focus, Season of life and
 // Intentions, the Week's Summary, a goal's "Why it matters", Review's "Because…". Frames light and dark (Paper and
@@ -34,7 +34,7 @@ const measure = (selector) => h.evaluate((selector) => {
   const ink = style.getPropertyValue('--mf-rule-ink').trim()
   const line = rgb(style.getPropertyValue('--mf-rule').trim() || 'transparent', backCss)
   const hair = rgb(style.getPropertyValue('--border').trim(), backCss)
-  return { ink, line: ratio(line, back), hair: ratio(hair, back), ruled: style.backgroundImage.includes('gradient') }
+  return { ink, line: ratio(line, back), hair: ratio(hair, back), ruled: style.borderBottomStyle === 'dashed' && parseFloat(style.paddingBottom) >= 8, italic: getComputedStyle(field, '::placeholder').fontStyle === 'italic' }
 }, selector)
 
 const run = async (name, selector, hover = selector) => {
@@ -50,7 +50,7 @@ const run = async (name, selector, hover = selector) => {
   await wait(300)
   const typing = await measure(selector)
   console.log(name, JSON.stringify({ rest, over, typing }))
-  check(`${name}: ruled, the line visible at rest and darker than the card's hairlines`, rest?.ruled && rest.line > rest.hair && rest.line >= 1.25, JSON.stringify(rest))
+  check(`${name}: one dashed line with room above it (as Make a card), visible at rest and darker than the card's hairlines`, rest?.ruled && rest.line > rest.hair && rest.line >= 1.25, JSON.stringify(rest))
   check(`${name}: a step darker under the pointer`, over && over.line > rest.line, `${rest?.line} -> ${over?.line}`)
   check(`${name}: a step darker again while typing`, typing && typing.line > over.line, `${over?.line} -> ${typing?.line}`)
   await h.locator(selector).first().blur()
