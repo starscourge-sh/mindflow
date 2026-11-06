@@ -1,3 +1,4 @@
+import { MENU_LINE } from '@/lib/float'
 import { useRef, useState, type ReactElement, type ReactNode } from 'react'
 
 import { refuse, toast } from './ui'
@@ -93,7 +94,7 @@ const lines = (items: Shown[]): React.ReactNode =>
       <ContextMenuLabel key={`heading-${item.heading}`}>{item.heading}</ContextMenuLabel>
     ) : 'items' in item ? (
       <ContextMenuSub key={`${item.label}-${index}`}>
-        <ContextMenuSubTrigger>{item.icon}{item.label}</ContextMenuSubTrigger>
+        <ContextMenuSubTrigger>{item.icon}<span className={MENU_LINE}>{item.label}</span></ContextMenuSubTrigger>
         <ContextMenuSubContent className="w-52">{lines(item.items.filter(Boolean) as Shown[])}</ContextMenuSubContent>
       </ContextMenuSub>
     ) : (
@@ -101,7 +102,7 @@ const lines = (items: Shown[]): React.ReactNode =>
       <ContextMenuItem key={item.label} variant={item.danger ? 'destructive' : 'default'} onSelect={item.run}>
         {/* A line with a hint under its name begins with markup, not words, so it is given its drawing here: every line has one. */}
         {item.icon ?? (item.hint && <MenuGlyph label={item.label} small />)}
-        {item.hint ? <span className="flex min-w-0 flex-col"><span>{item.label}</span><span data-menu-hint className="max-w-64 text-xs leading-snug whitespace-normal text-muted-foreground">{item.hint}</span></span> : item.label}
+        {item.hint ? <span className="flex min-w-0 flex-col"><span className={MENU_LINE}>{item.label}</span><span data-menu-hint className="max-w-64 text-xs leading-snug whitespace-normal text-muted-foreground">{item.hint}</span></span> : <span className={MENU_LINE}>{item.label}</span>}
         {item.trail}
         {item.keys && keyFor(item.keys) && <ContextMenuShortcut>{keyFor(item.keys)}</ContextMenuShortcut>}
       </ContextMenuItem>

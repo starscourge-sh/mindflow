@@ -19,3 +19,6 @@ export const FLOAT = 'mf-frost bg-popover text-popover-foreground shadow-(--mf-p
 export const TIP = `${FLOAT} rounded-md px-2.5 py-1.5 text-xs`
 // A card is the same material as a menu (FLOAT's ring, not a border of its own), at a card's corners.
 export const CARD = `${FLOAT} rounded-xl`
+
+/** A menu line's words, cut where they run long: a note's whole title in a line ("Open …") blew the menu out across the window. */
+export const MENU_LINE = 'max-w-80 min-w-0 truncate'

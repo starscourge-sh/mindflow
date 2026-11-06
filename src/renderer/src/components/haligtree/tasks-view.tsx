@@ -613,7 +613,7 @@ export function taskMenu(task: Task, { open, complete = () => void completeTask(
     { label: 'Open', keys: '↵', run: open },
     asideItem('task', task.id),
     // The note under its name, to read or change (the tracker: "so how do i edit that attached file here?").
-    !!task.fromId && { label: `Open “${task.fromTitle || 'Untitled'}”`, hint: 'The note it came from', run: () => (chime('open'), window.dispatchEvent(new CustomEvent('haligtree:open', { detail: { type: 'capture', id: task.fromId } }))) },
+    !!task.fromId && { label: `Open “${splitTags(task.fromTitle ?? '').text || 'Untitled'}”`, hint: 'The note it came from', run: () => (chime('open'), window.dispatchEvent(new CustomEvent('haligtree:open', { detail: { type: 'capture', id: task.fromId } }))) },
     thought && { label: 'Add a thought…', keys: ';', run: thought }
   ]
   const leaving: RowItem[] = [

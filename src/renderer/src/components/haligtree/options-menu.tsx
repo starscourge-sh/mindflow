@@ -1,3 +1,4 @@
+import { MENU_LINE } from '@/lib/float'
 import { useState, type ComponentProps, type ReactNode } from 'react'
 import { chime, soundOn, step } from '@/lib/sound'
 import { AliveIcon } from '@/components/ui/alive-icon'
@@ -95,7 +96,7 @@ function ThemeItem(): React.JSX.Element {
 
 /** A line with more to say than its short name: the rest on a quiet second line under it, never a tip (a menu row shows no floating surface). */
 const Named = ({ label, hint }: { label: string; hint?: string }): React.JSX.Element =>
-  hint ? <span className="flex min-w-0 flex-col"><span>{label}</span><span data-menu-hint className="max-w-64 text-xs leading-snug whitespace-normal text-muted-foreground">{hint}</span></span> : <>{label}</>
+  hint ? <span className="flex min-w-0 flex-col"><span className={MENU_LINE}>{label}</span><span data-menu-hint className="max-w-64 text-xs leading-snug whitespace-normal text-muted-foreground">{hint}</span></span> : <span className={MENU_LINE}>{label}</span>
 
 /** One switch or action, as every part of the menu draws it, its hint under its name. */
 function Item({ one }: { one: Option | Action }): React.JSX.Element {
