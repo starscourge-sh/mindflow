@@ -2,7 +2,7 @@
 // line that says the days and the logs, a thin bar of the time gone; goals on
 // the same day under that day's heading; the page's number said once; the
 // road only from the day it was set, every marked dot named on the chart in
-// words, logged days lit, "0 of 13 days logged"; "of the way" said nowhere.
+// words, logged days lit, a "logged" count once something is; "of the way" said nowhere.
 // With SHOTS set, every state is filmed light and dark, wide and narrow,
 // beside Home and Tasks.
 //   SHOTS=/abs/dir QA_ARGS=--sandbox QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/goals-refresh.mjs
@@ -123,8 +123,9 @@ try {
   })
   let seen = await road()
   check('a year-long road: 376 days, only its own', seen.dots === 376, seen.dots)
-  for (const word of ['Today', 'Halfway', 'A month to go', 'A week to go', 'The day']) check(`the year road names "${word}" in its key`, seen.labels.some((one) => one.startsWith(word)), seen.labels.join(' | '))
-  check('pill: "0 of 11 days logged" (the days gone so far)', /0 of 11 days logged/.test(seen.pills), seen.pills)
+  // Named on the chart under their dots (qa/goal-road-card.mjs): the day and today always; a milestone whose name would touch another is left to its dot's tip.
+  for (const word of ['Today', 'The day']) check(`the year road names "${word}" under its dot`, seen.labels.some((one) => one.startsWith(word)), seen.labels.join(' | '))
+  check('nothing logged: no "logged" pill until the first log', !/logged/.test(seen.pills), seen.pills)
   await shot('page-year')
   const roadShot = async (name) => { if (!SHOTS) return; await h.evaluate(() => document.querySelector('div[data-open] [data-road-card]')?.scrollIntoView({ block: 'start' })); await h.waitForTimeout(300); await shot(name) }
   const longRoad = async (name, days) => {

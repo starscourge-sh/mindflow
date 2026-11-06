@@ -190,7 +190,7 @@ try {
     const r = await road()
     check(`${name} days: ${want === 'week' ? 'one map' : 'one map, or two half-years when the card is narrow'}, no gap in a row`, (want === 'week' ? r.bands === 1 : r.bands <= 2) && r.holes === 0, JSON.stringify(r))
     check(`${name} days: a dot a ${want}`, r.by === want, JSON.stringify(r))
-    if (want === 'week') check(`${name} days: the card says its rule in a line`, /dot a week until it.s within a year/i.test(r.rule), r.rule)
+    if (want === 'week') check(`${name} days: the card says its rule in a line`, /^Each dot is a week, the solid ones gone$/.test(r.rule), r.rule)
     for (const width of [1280, 1100, 760]) {
       await size(width, 800)
       await openGoal(id)

@@ -979,8 +979,6 @@ function RoadCard({ item, from, target, today: now, picked, onPick }: { item: It
   const mapWidth = per * step - (step - dot)
   const mapHeight = rows * step - (step - dot)
   const left = daysLeft(target, today)
-  const gone = Math.max(1, Math.min(daysBetween(from, today), daysBetween(from, target)) + 1)
-  const logged = new Set(item.glosses.map((one) => dayKey(one.createdAt)).filter((day) => day >= from && day <= today)).size
   const ink = iced ? ICE : 'var(--foreground)'
   const lit = goalInk(item)
   // Every marked day, named once in the key, in road order: today, the milestones, the goal's own days, the day itself.
@@ -988,7 +986,9 @@ function RoadCard({ item, from, target, today: now, picked, onPick }: { item: It
     // `day` is the dot it marks, `on` the day it names (a week's dot names the day inside it).
     const out: { day: string; on: string; word: string; ink: string }[] = []
     const milestone = milestoneIn(dot)
-    if (milestone && !dot.target) out.push({ day: dot.day, on: milestoneDay(dot) ?? dot.day, word: milestone[0].toUpperCase() + milestone.slice(1), ink: 'var(--foreground)' })
+    // A road of weeks has no room for "a month to go" and "a week to go" beside the day itself: they come with the days, within a year.
+    const near = weeks && daysBetween(milestoneDay(dot) ?? dot.day, target) < 45
+    if (milestone && !dot.target && !near) out.push({ day: dot.day, on: milestoneDay(dot) ?? dot.day, word: milestone[0].toUpperCase() + milestone.slice(1), ink: 'var(--foreground)' })
     for (const one of marksIn(dot)) out.push({ day: dot.day, on: one.day, word: clip(one.title, 28), ink: inkOf(one) })
     if (dot.target) out.push({ day: dot.day, on: target, word: 'The day', ink: ACCENT })
     return out
@@ -1004,7 +1004,8 @@ function RoadCard({ item, from, target, today: now, picked, onPick }: { item: It
     for (const [x, day] of columns) {
       const month = day.slice(0, 7)
       if (month !== before) {
-        const label = monthOf(day, !under.length ? day.slice(0, 4) !== now.slice(0, 4) : day.slice(5, 7) === '01')
+        // The first name carries its year when the band reaches into another year, so "Apr" never sits beside "Jan 2027" bare.
+        const label = monthOf(day, !under.length ? day.slice(0, 4) !== now.slice(0, 4) || here.at(-1)!.dot.last.slice(0, 4) !== day.slice(0, 4) : day.slice(5, 7) === '01')
         const at = x - dot / 2
         const was = under.at(-1)
         if (!was || was.x + was.label.length * 6.4 + 6 <= at) under.push({ x: at, label })
@@ -1014,23 +1015,48 @@ function RoadCard({ item, from, target, today: now, picked, onPick }: { item: It
     return under
   }
   const unit = weeks ? 'weeks' : 'days'
+  // One unit throughout: a road of weeks counts in weeks, a road of days in days.
+  const each = weeks ? 'week' : 'day'
+  const gonePlaced = placed.filter(({ dot: one }) => one.past || one.today)
+  const loggedDots = gonePlaced.filter(({ dot: one }) => logsIn(days, one).length > 0).length
+  const leftIn = left > 0 && weeks ? Math.ceil(left / 7) : left
+  // The marks named on the road itself, under their dots: the day, now, your own days, then the milestones,
+  // each where it is; one that would run into a name already placed is left to its dot's tip.
+  const nowWord = iced ? 'Went on ice' : item.closedAt ? 'Ended' : weeks ? 'This week' : 'Today'
+  const named = [
+    ...placed.filter(({ dot: one }) => one.target).map((one) => ({ ...one, word: 'The day', ink: ACCENT, rank: 0 })),
+    ...placed.filter(({ dot: one }) => one.today).map((one) => ({ ...one, word: nowWord, ink: iced ? ICE : ACCENT, rank: 1 })),
+    ...marks.filter((one) => one.word !== 'The day').map((one) => ({ ...placed.find((at) => at.dot.day === one.day)!, word: one.word, ink: one.ink === 'var(--foreground)' ? 'var(--muted-foreground)' : one.ink, rank: 2 }))
+  ].filter((one) => one.dot)
+  const wordsUnder = (band: number): { x: number; word: string; ink: string; end: boolean }[] => {
+    const out: { from: number; to: number; x: number; word: string; ink: string; end: boolean }[] = []
+    for (const one of named.filter((at) => at.band === band).sort((a, b) => a.rank - b.rank)) {
+      const wide = one.word.length * 6.2 + 4
+      const end = one.x - dot / 2 + wide > mapWidth
+      const from = end ? one.x + dot / 2 - wide : one.x - dot / 2
+      if (from < 0 || out.some((was) => from < was.to + 8 && from + wide > was.from - 8)) continue
+      out.push({ from, to: from + wide, x: one.x, word: one.word, ink: one.ink, end })
+    }
+    return out
+  }
   return (
     <div ref={box} className="w-full">
-    <section data-road-card data-road-by={road.by} aria-label="The road" className="w-fit max-w-full rounded-md border bg-[color-mix(in_oklab,var(--foreground)_3%,var(--background))] px-4 pt-3 pb-3" style={{ minWidth: Math.min(mapWidth + 34, 280) }}>
+    <section data-road-card data-road-by={road.by} aria-label="The road" className="w-fit max-w-full rounded-md border bg-[color-mix(in_oklab,var(--foreground)_3%,var(--background))] px-4 pt-3 pb-3" style={{ minWidth: mapWidth + 34 }}>
       {/* The one number, large, and beside it what it means, small. */}
       <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
         <span data-goal-left className="text-[1.5rem] leading-none font-semibold tracking-[-0.02em]" style={{ color: iced ? ICE : !item.closedAt && left <= 30 ? warmth(Math.max(left, 0)) : 'var(--foreground)' }}>
-          {left === 0 ? 'Today' : left < 0 ? leftSaid(left) : plural(left, 'day')}
+          {left === 0 ? 'Today' : left < 0 ? leftSaid(left) : plural(leftIn, each)}
         </span>
         <span className="text-meta text-muted-foreground">{iced ? 'left when it went on ice' : item.closedAt ? 'left when it ended' : left === 0 ? 'is the day' : left < 0 ? 'past the day' : `to ${dayMonth(`${target}T12:00`)}`}</span>
         <span className="flex flex-wrap gap-1 self-center">
           <span data-road-pill className="rounded-sm bg-foreground/[0.07] px-1.5 py-px text-meta text-foreground tabular-nums">{percent(wayThrough(from, target, new Date(`${today}T${today === now ? new Date().toTimeString().slice(0, 8) : '23:59:59'}`)))} gone</span>
-          <span data-road-pill className="rounded-sm bg-foreground/[0.07] px-1.5 py-px text-meta text-foreground tabular-nums">{num(logged)} of {plural(gone, 'day')} logged</span>
+          {/* Nothing logged yet says nothing: the count turns up with the first log. */}
+          {loggedDots > 0 && <span data-road-pill data-road-logged-count className="rounded-sm bg-foreground/[0.07] px-1.5 py-px text-meta text-foreground tabular-nums">{num(loggedDots)} of {plural(gonePlaced.length, each)} logged</span>}
           {iced && <span data-road-pill className="rounded-sm px-1.5 py-px text-meta" style={{ color: ICE, background: `color-mix(in oklab, ${ICE} 14%, transparent)` }}>Frozen {dayMonth(`${today}T12:00`)}</span>}
         </span>
       </div>
-      {/* More than a year away, the rule said once, in words, where the dots are. */}
-      {weeks && <p data-road-rule className="mt-1.5 text-meta text-foreground/80">A dot a week until it's within a year</p>}
+      {/* How to read it, in one line: what a dot is, and which have gone. */}
+      <p data-road-rule className="mt-1.5 text-meta text-foreground/80">Each dot is a {each}, the solid ones gone</p>
       <div className="mt-3" onMouseLeave={() => setHover(null)}>
         {width > 0 && Array.from({ length: bands }, (_, band) => {
           const here = placed.filter((one) => one.band === band)
@@ -1062,6 +1088,14 @@ function RoadCard({ item, from, target, today: now, picked, onPick }: { item: It
               <div aria-hidden className="relative mt-1 h-3.5 text-[11px] leading-none text-muted-foreground" style={{ width: mapWidth }}>
                 {under.map((month) => <span key={month.x} className="absolute top-0 whitespace-nowrap" style={{ left: month.x }}>{month.label}</span>)}
               </div>
+              {/* The marks named where they are, under their dots. */}
+              {wordsUnder(band).length > 0 && (
+                <div data-road-names className="relative mt-1 h-3.5 text-[11px] leading-none font-medium" style={{ width: mapWidth }}>
+                  {wordsUnder(band).map((one) => (
+                    <span key={one.word} data-road-label className="absolute top-0 whitespace-nowrap" style={{ color: one.ink, ...(one.end ? { right: mapWidth - one.x - dot / 2 } : { left: one.x - dot / 2 }) }}>{one.word}</span>
+                  ))}
+                </div>
+              )}
               {shownHover && shownHover.band === band && (
                 <div data-road-tip className={`pointer-events-none absolute z-10 w-max max-w-64 ${TIP} ${shownHover.x < mapWidth / 3 ? '-translate-x-3' : shownHover.x > (mapWidth * 2) / 3 ? '-translate-x-[calc(100%-0.75rem)]' : '-translate-x-1/2'}`}
                   style={{ left: shownHover.x, top: shownHover.y + step + 4 }}>
@@ -1072,18 +1106,6 @@ function RoadCard({ item, from, target, today: now, picked, onPick }: { item: It
           )
         })}
       </div>
-      {/* The key: what the dots mean, then every marked day by name. Whole items wrap; nothing stacks on anything. */}
-      <ul aria-label="What the marks mean" className="mt-2.5 flex max-w-full flex-wrap gap-x-3 gap-y-1 text-meta text-muted-foreground" style={{ maxWidth: Math.max(mapWidth, 248) }}>
-        <li className="flex items-center gap-1.5"><span className="size-2 rounded-full" style={{ background: ink, opacity: iced ? 0.55 : 0.82 }} />gone</li>
-        <li className="flex items-center gap-1.5"><span className="size-2 rounded-full" style={{ background: lit }} />logged</li>
-        <li data-road-label className="flex items-center gap-1.5 text-foreground"><span className="size-2 rounded-full" style={{ background: iced ? ICE : ACCENT }} />{iced ? 'Went on ice' : item.closedAt ? 'Ended' : weeks ? 'This week' : 'Today'}</li>
-        {marks.map((one) => (
-          <li key={`${one.day}-${one.word}`} data-road-label className="flex items-center gap-1.5 whitespace-nowrap text-foreground">
-            {line ? <span className="h-2 w-[1.5px] rounded-full" style={{ background: one.ink }} /> : <span className="size-2 rounded-full border-[1.5px]" style={{ borderColor: one.ink }} />}
-            {one.word}<span className="text-muted-foreground tabular-nums">{dayMonth(`${one.on}T12:00`)}</span>
-          </li>
-        ))}
-      </ul>
     </section>
     </div>
   )
