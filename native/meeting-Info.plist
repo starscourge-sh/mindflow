@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleIdentifier</key>
+  <string>com.starskourge.haligtree.meeting</string>
+  <key>CFBundleName</key>
+  <string>Haligtree</string>
+  <key>NSSpeechRecognitionUsageDescription</key>
+  <string>Haligtree writes out what is said in a meeting you record, on this Mac. Nothing is sent anywhere.</string>
+  <key>NSMicrophoneUsageDescription</key>
+  <string>Haligtree records your side of a meeting you choose to record.</string>
+  <key>NSAudioCaptureUsageDescription</key>
+  <string>Haligtree records the other side of a meeting you choose to record (Teams, the browser), on this Mac.</string>
+</dict>
+</plist>
