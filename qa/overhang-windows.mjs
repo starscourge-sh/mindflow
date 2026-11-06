@@ -272,7 +272,11 @@ try {
   await box.keyboard.press('Escape')
   await wait(500)
   const closed = await boxWin()
-  check('quick capture: the menu closed, the room below goes back to the rest', closed.real.height === closed.card.height + RM.top + RM.bottom, JSON.stringify(closed))
+  // "The rest" is the room round the card as it was before the menu opened: main keeps more below the card than the
+  // page was told as it loaded (window.api.room) whenever a hint's room is there (hint-room.ts), and the page is
+  // never told the bottom again, so the room is read from the window before and after, not from the page's first word.
+  const roomAround = (one) => ({ above: one.card.y - one.real.y, below: one.real.y + one.real.height - (one.card.y + one.card.height) })
+  check('quick capture: the menu closed, the room below goes back to the rest', JSON.stringify(roomAround(closed)) === JSON.stringify(roomAround(short)), JSON.stringify({ before: roomAround(short), open: roomAround(open), closed: roomAround(closed) }))
 
   // A truly short box: side panel shut, the box as short as its writing, the Actions menu opened.
   await box.locator('[aria-label="Hide the side panel"]').first().click()
