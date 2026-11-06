@@ -182,7 +182,7 @@ function Pass({ onClose }: { onClose: () => void }): React.JSX.Element {
               </p>
             )}
             <input value={well ?? page?.fields.summary ?? ''} onChange={(event) => setWell(event.target.value)} placeholder="What went well, in a line" aria-label="What went well"
-              className="mt-2.5 w-full rounded-md border bg-transparent px-2.5 py-1.5 text-body text-foreground outline-none placeholder:text-muted-foreground focus:border-ring" />
+              className="mf-ruled mt-2.5 w-full bg-transparent py-1.5 text-body text-foreground outline-none placeholder:text-muted-foreground" />
             <p className="mt-1 text-control text-muted-foreground">Kept as the week's summary, on its page.</p>
           </section>
 
@@ -221,7 +221,7 @@ function Pass({ onClose }: { onClose: () => void }): React.JSX.Element {
             <h3 className={heading}>The one thing for next week</h3>
             <input value={one ?? ahead?.fields.theme ?? ''} onChange={(event) => setOne(event.target.value)} placeholder="If only one thing gets done, it is…" aria-label="The one thing for next week"
               onKeyDown={(event) => event.key === 'Enter' && (event.preventDefault(), finish())}
-              className="mt-1.5 w-full rounded-md border bg-transparent px-2.5 py-1.5 text-body text-foreground outline-none placeholder:text-muted-foreground focus:border-ring" />
+              className="mf-ruled mt-1.5 w-full bg-transparent py-1.5 text-body text-foreground outline-none placeholder:text-muted-foreground" />
             <p className="mt-1 text-control text-muted-foreground">It heads next week's page.</p>
           </section>
         </div>

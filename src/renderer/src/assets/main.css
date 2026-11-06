@@ -26,6 +26,30 @@
     }
   }
 }
+/* A free-text answer (a month's Focus, a week's Summary, a goal's why, Review's "Because…") written on ruled lines, as on
+   a notebook page: so a field reads as a place to write, not a solid block. A line under every line of a box that
+   grows (the text sits on it as it wraps), one line under a one-line field. Faint at rest but a step darker than the
+   card's own hairlines, a step darker again under the pointer, and again while you type. One style, every such field. */
+@property --mf-rule-ink { syntax: '<percentage>'; inherits: false; initial-value: 20%; }
+@utility mf-ruled {
+  /* The ink itself, thinned: the same in every theme and on every card, never a second colour to keep in step. */
+  --mf-rule: color-mix(in oklab, var(--foreground) var(--mf-rule-ink), transparent);
+  background-image: linear-gradient(to bottom, transparent calc(1lh - 1px), var(--mf-rule) calc(1lh - 1px));
+  background-size: 100% 1lh;
+  background-attachment: local;
+  transition: --mf-rule-ink 150ms var(--mf-ease, ease-out);
+  &:is(input) {
+    background-image: linear-gradient(var(--mf-rule), var(--mf-rule));
+    background-size: 100% 1px;
+    background-position: left bottom;
+    background-repeat: no-repeat;
+    padding-bottom: 0.25rem;
+  }
+  &:hover, label:hover > & { --mf-rule-ink: 30%; }
+  &:focus, &:focus-visible { --mf-rule-ink: 42%; }
+  @media (prefers-reduced-motion: reduce) { transition: none; }
+}
+
 /* A small control (a tick, a dot, a chip) pressed anywhere in the 24px round
    it, with no change to how it looks or where it sits. It needs `relative`
    (or any position), and no box of its own or above it that clips: a name cut

@@ -689,7 +689,7 @@ function GoalDetail({ item, top }: { item: ItemFull; top?: React.ReactNode }): R
               const why = event.target.value.trim()
               if (why !== (item.why ?? '')) void haligtree.saveItem(item.id, { why: why || null }).then(() => chime('noted'))
             }}
-            className="private-text block w-full resize-none bg-transparent text-body leading-relaxed text-foreground/85 italic outline-none [field-sizing:content] placeholder:text-foreground/70 placeholder:not-italic"
+            className="mf-ruled private-text block w-full resize-none bg-transparent text-body leading-relaxed text-foreground/85 italic outline-none [field-sizing:content] placeholder:text-foreground/70 placeholder:not-italic"
           />
           {!dateless && !item.closedAt && left < 0 && (
             <div className="flex flex-wrap items-center gap-3 rounded-xl border bg-accent/25 px-4 py-3">

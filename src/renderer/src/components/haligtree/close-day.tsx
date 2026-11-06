@@ -363,9 +363,9 @@ function Pass({ onClose }: { onClose: () => void }): React.JSX.Element {
             {lineKept ? (
               <p className="mt-1.5 text-body text-foreground">“{line.trim()}” <span className="text-muted-foreground">is on today's page.</span></p>
             ) : (
-              <form className="mt-1.5 flex items-center gap-2 rounded-md border px-2.5 py-1.5 focus-within:border-ring" onSubmit={(event) => (event.preventDefault(), void keepLine())}>
+              <form className="mt-1.5 flex items-center gap-2 py-1" onSubmit={(event) => (event.preventDefault(), void keepLine())}>
                 <input value={line} onChange={(event) => setLine(event.target.value)} placeholder="What today was, in a line" aria-label="One line for today's page"
-                  className="min-w-0 flex-1 bg-transparent text-body outline-none placeholder:text-muted-foreground" />
+                  className="mf-ruled min-w-0 flex-1 bg-transparent text-body outline-none placeholder:text-muted-foreground" />
                 <Kbd>↵</Kbd>
               </form>
             )}
