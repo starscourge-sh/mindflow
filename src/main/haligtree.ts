@@ -20,6 +20,7 @@ import { clock, dayKey, dayMonth, dayjs, daysFromToday, monthName, noon, num, st
 import { backUpWatched, backupDir, backupStatus, checkMarkdown, chooseFolder } from './backup'
 import { SANDBOX, handedOff } from './sandbox'
 import { retireKinds, tagged as hasTag, withTag } from './kinds'
+import { mdWords, uncoded } from './md-words'
 import { foldKept, goalsOut, toCheckBack } from './properties'
 import { celebrateAfter, goalPassed, watches, type MomentKind } from './celebrate'
 import type { MomentSource } from './moment-source'
@@ -122,8 +123,6 @@ function notesAsMarkdown(db: DatabaseSync, assets: string, live = false): Map<st
   return files
 }
 
-/** Code's own "#" left out: a shell comment ("rm -rf x #then…") or a CSS colour is no tag. */
-const uncoded = (text: string): string => text.replace(/#/g, '')
 /** A body as words; `links` keeps each @ link as `[[@nugget:id|Label]]`, for a card that shows them as links. */
 export function plain(value: unknown, links = false): string {
   if (typeof value === 'string') {
@@ -138,17 +137,6 @@ export function plain(value: unknown, links = false): string {
   return value ? walk(value as { content?: unknown[] }) : ''
 }
 
-/** Markdown read as words, for a card's few lines: no marks, links as their words, pictures and tags of HTML out. */
-const mdWords = (text: string): string =>
-  plain(text)
-    // An address may hold brackets of its own ("…/Book (Library).pdf"), so a link ends at its own closing one.
-    .replace(/!\[[^\]]*\]\((?:[^()]|\([^()]*\))*\)/g, '')
-    .replace(/\[([^\]]*)\]\((?:[^()]|\([^()]*\))*\)/g, '$1')
-    .replace(/\[\[(?:[^\]|]*\|)?([^\]]*)\]\]/g, '$1')
-    .replace(/<[^>]+>/g, '')
-    .replace(/^\s*(?:#{1,6}|>|[-*+]|\d+\.)\s+/gm, '')
-    .replace(/\*\*|__|~~|==|`/g, '')
-    .replace(/(^|[\s(])[*_](?=\S)([^*_\n]*?\S)[*_](?=$|[\s).,;:!?])/gm, '$1$2')
 /** A stored body as words for a card: the editor's JSON walked, Markdown (bare, or saved as a JSON string) read without its marks. */
 export const cardWords = (raw: string): string => {
   let value: unknown = raw
@@ -1692,8 +1680,8 @@ export function registerHaligtree(): void {
   // The words as read: inline pieces run together, links as their names,
   // blocks on their own lines.
   const words = (value: unknown): string => {
-    // An imported page's [[@link|name]] reads as its name.
-    if (typeof value === 'string') return value.replace(/\[\[@[^|\]]+\|([^\]]+)\]\]/g, '$1')
+    // An imported page's Markdown reads as words, its [[@link|name]] as its name.
+    if (typeof value === 'string') return mdWords(value)
     const walk = (node: Doc): string =>
       node.type === 'noteLink' ? String(node.attrs?.label ?? '') :
       node.text ?? (node.content ?? []).map(walk).join(node.content?.every((child) => child.type === 'text' || child.type === 'noteLink' || child.type === 'hardBreak') ? '' : '\n')

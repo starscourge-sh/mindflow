@@ -1,4 +1,5 @@
 import { haligtree } from '@/lib/haligtree'
+import { mdWords } from '../../../main/md-words'
 
 /**
  * A break is the one moment you are told to stop working, so it is a good
@@ -23,7 +24,7 @@ type BreakSource = () => Promise<BreakMoment | null>
 /** A body's words, short: the stored title is usually its first line already. */
 const wordsOf = (title: string | undefined, body: unknown): string => {
   if (title?.trim()) return title.trim()
-  if (typeof body === 'string') return body.trim()
+  if (typeof body === 'string') return mdWords(body).trim()
   const walk = (node: { text?: string; content?: unknown[] } | null | undefined): string =>
     !node ? '' : node.text ?? (node.content ?? []).map((one) => walk(one as typeof node)).join(' ')
   return walk(body as { content?: unknown[] }).trim()

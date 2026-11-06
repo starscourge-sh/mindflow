@@ -6,17 +6,12 @@ import type { JSONContent } from '@tiptap/core'
 import { wordsOf } from '../../../main/import'
 import { unloaded, useLive, haligtree } from '@/lib/haligtree'
 import { BOX_PINS, Pins } from './pins'
+import { mdWords } from '../../../main/md-words'
 
 /** A body's words, whether it arrived as Markdown or as the editor's JSON. */
 export const textOf = (body: unknown): string => {
-  // Markdown read as words: no list markers, links as their words, no marks.
-  if (typeof body === 'string')
-    return body
-      .replace(/^\s*[-*]\s+/gm, '')
-      .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
-      .replace(/\[\[(?:[^\]|]*\|)?([^\]]*)\]\]/g, '$1')
-      .replace(/\$(?=\S)([^$\n]*?\S)\$(?!\d)/g, '$1')
-      .replace(/\*\*|__|`|==|~~/g, '')
+  // Markdown read as words: no list markers or task boxes, links as their words, no marks.
+  if (typeof body === 'string') return mdWords(body)
   // Blocks on their own lines; inside one, its words as written, emoji and all.
   const walk = (node: JSONContent): string =>
     node.content?.some((child) => child.text !== undefined || child.type === 'emoji') ? wordsOf(node) : node.text ?? (node.content ?? []).map(walk).join('\n')

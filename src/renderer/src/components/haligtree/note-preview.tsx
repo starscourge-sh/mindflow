@@ -1,4 +1,4 @@
-import { mdLinksAsWords } from '@/lib/md-links'
+import { mdWords } from '../../../../main/md-words'
 import { typedAsGaps } from '@/lib/blanks'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { onScrollAway } from '@/lib/scroll-away'
@@ -43,9 +43,9 @@ const INLINE = new Set(['paragraph', 'heading', 'codeBlock', 'text'])
 /** The words of a stored body, for a glance: no markup, each heading and paragraph on its own line. */
 export const glance = (body: unknown): string => {
   // Markdown kept as text (an import, a gem made from a PDF): a picture says nothing here (it shows as the card's
-  // own picture), a link reads as its words, never as its address.
+  // own picture), a link reads as its words, never as its address, a task without its box.
   if (typeof body === 'string')
-    return mdLinksAsWords(body.replace(/\[\[@[^|\]]+\|([^\]]+)\]\]/g, '$1'))
+    return mdWords(body)
   const walk = (node: { type?: string; text?: string; attrs?: { label?: string }; content?: unknown[] }): string =>
     node.type === 'noteLink' ? `@${node.attrs?.label ?? ''}` :
     node.type === 'hardBreak' ? '\n' :

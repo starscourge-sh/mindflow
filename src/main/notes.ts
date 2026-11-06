@@ -15,6 +15,7 @@ const RISE = 14
 import { tagsIn } from './tag-words'
 import { defineAgain, garbled } from './define'
 import { cut } from './clip'
+import { mdWords } from './md-words'
 import { NOTE_KEY } from './name'
 import { fileLink } from './pdf-highlights'
 
@@ -223,8 +224,11 @@ export function registerNotes({ load, guard, home, homeWindow }: Windows): void 
   const glances: Kept<string> = new Map()
   handle('notes:glance', (name: string) => {
     const rows = db.prepare(`select id, body from ${table(name)}`).all() as { id: string; body: string }[]
-    return Object.fromEntries(rows.map((row) => [row.id, remember(glances, `${table(name)}:${row.id}`, row.body, () =>
-      cut(plain(parse(row.body), true).replace(/\n{2,}/g, '\n').trim(), 280))]))
+    return Object.fromEntries(rows.map((row) => [row.id, remember(glances, `${table(name)}:${row.id}`, row.body, () => {
+      // Markdown (an import) read as words, as the editor's JSON is: no "- [ ]", no link's address.
+      const body = parse(row.body)
+      return cut((typeof body === 'string' ? mdWords(body, true) : plain(body, true)).replace(/\n{2,}/g, '\n').trim(), 280)
+    })]))
   })
 
   // --- your own order, one per list

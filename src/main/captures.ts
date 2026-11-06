@@ -25,6 +25,7 @@ import { registerRenames, resolveWaiting, watchName } from './renames'
 import { NOTE_KEY } from './name'
 import { pdfsToFind } from './pdf-highlights'
 import { articlesToFind } from './web-articles'
+import { mdWords } from './md-words'
 
 /** What the list shows. The body is only read when one is opened. */
 export interface CaptureMeta {
@@ -562,13 +563,18 @@ export function registerCaptures(): void {
       const at = Math.min(...hits)
       const start = lower.lastIndexOf('\n', at) + 1
       const stop = lower.indexOf('\n', at)
-      const line = body.slice(start, stop < 0 ? body.length : stop)
-      const from = at - start
-      if (!line.trim() || line.trim() === name) return undefined
+      const said = body.slice(start, stop < 0 ? body.length : stop)
+      // Read as words, as every line that shows a note's text is: no "- [ ]", no link's address, no "**".
+      const line = mdWords(said.replace(IN_PICTURE, '')).trim()
+      if (!line || line === name) return undefined
+      // The word found again in the words shown, so the cut keeps it in sight; one only in a link's address shows the line's start.
+      const lowLine = line.toLowerCase()
+      const shownHits = terms.map((term) => lowLine.indexOf(term)).filter((at) => at >= 0)
+      const from = shownHits.length ? Math.min(...shownHits) : 0
       // Up to 40 characters before the word, cut at a space, so the word is always in sight.
       const cut = from > 40 ? line.indexOf(' ', from - 40) + 1 || from - 40 : 0
-      const shownLine = line.slice(cut, cut + 160).replace(IN_PICTURE, '').trim()
-      return `${line.startsWith(IN_PICTURE) ? IN_PICTURE : ''}${cut > 0 ? '…' : ''}${shownLine}${cut + 160 < line.length ? '…' : ''}`
+      const shownLine = line.slice(cut, cut + 160).trim()
+      return `${said.startsWith(IN_PICTURE) ? IN_PICTURE : ''}${cut > 0 ? '…' : ''}${shownLine}${cut + 160 < line.length ? '…' : ''}`
     }
     // A line read in a picture says so, and brings the picture to show beside it.
     const shown = ({ text: _, there: __, raw: ___, ...one }: Searchable): Found & { line?: string; picture?: string } => {
