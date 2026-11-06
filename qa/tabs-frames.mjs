@@ -30,6 +30,33 @@ try {
   frames.sort((a, b) => a - b)
   console.log(`switching: ${frames.length} frames, median ${frames[frames.length >> 1]}ms, 95th ${frames[Math.floor(frames.length * 0.95)]}ms, worst ${frames[frames.length - 1]}ms`)
   check('every switch landed on the next tab', new Set(seen).size === notes.length, [...new Set(seen)].join(' | '))
+  // Key to the next painted frame, against the same note change by Back in one tab, which is what a person already has.
+  const timed = async (keys) => {
+    const out = []
+    for (let i = 0; i < 12; i++) {
+      await wait(500)
+      const armed = h.evaluate(() => new Promise((done) => {
+        const on = () => { const at = performance.now(); removeEventListener('keydown', on, true); requestAnimationFrame(() => requestAnimationFrame(() => done(Math.round(performance.now() - at)))) }
+        addEventListener('keydown', on, true)
+      }))
+      await h.keyboard.press(keys[i % keys.length])
+      out.push(await armed)
+    }
+    out.sort((a, b) => a - b)
+    return `median ${out[6]}ms, worst ${out[11]}ms`
+  }
+  const profile = process.env.PROFILE ? await h.context().newCDPSession(h) : null
+  if (profile) { await profile.send('Profiler.enable'); await profile.send('Profiler.start') }
+  console.log(`a tab switch, key to painted: ${await timed(['Control+Tab'])}`)
+  if (profile) {
+    const { profile: run } = await profile.send('Profiler.stop')
+    const self = new Map()
+    const gaps = run.timeDeltas
+    const byId = new Map(run.nodes.map((one) => [one.id, one]))
+    run.samples.forEach((id, at) => { const f = byId.get(id).callFrame; const name = `${f.functionName || '(anon)'} ${f.url.split('/').pop()?.split('?')[0]}:${f.lineNumber}`; self.set(name, (self.get(name) ?? 0) + gaps[at]) })
+    console.log([...self].sort((a, b) => b[1] - a[1]).slice(0, 25).map(([name, us]) => `${Math.round(us / 1000)}ms ${name}`).join('\n'))
+  }
+  await h.keyboard.press('Meta+[').catch(() => {})
   await wait(2000)
   const quiet = await h.evaluate(() => window.__frames.splice(0))
   quiet.sort((a, b) => a - b)

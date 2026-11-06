@@ -157,7 +157,7 @@ if (!process.env.REPORTS_ONLY) try {
   await press('Control+l')
   list = await panes(h)
   const text1b = await editor.textContent()
-  check('Vim on: ⌃L in normal mode moves the keys, the note untouched', list[1].front && text1b === text1, `${vimMode} ${text1.length} ${text1b.length} ${text1 === text1b ? '' : `${text1.slice(0, 60)} | ${text1b.slice(0, 60)}`} ${show(list)}`)
+  check('Vim on: ⌃L in normal mode moves the keys, the note untouched', list[1].front && text1b === text1, `${vimMode} ${text1.length} ${text1b.length} ${(() => { let at = 0; while (at < text1.length && text1[at] === text1b[at]) at++; return `at ${at}: "${text1.slice(Math.max(0, at - 20), at + 30)}" | "${text1b.slice(Math.max(0, at - 20), at + 110)}"` })()} ${show(list)}`)
   await press('Control+h')
   list = await panes(h)
   const back = await h.evaluate(() => !!document.activeElement?.closest('[data-pane]:nth-of-type(1) .ProseMirror'))
