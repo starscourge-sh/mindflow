@@ -6,6 +6,7 @@
 //     "not-ready" (the model is still downloading), "too-old" (before macOS 26).
 //   understand            then one request a line on stdin, one answer a line on stdout, the same id:
 //     {"id":1,"op":"embed","texts":["..."]}       {"id":1,"vectors":["<base64 Float32>"|null,...],"lang":["en",...]}
+//     {"id":5,"op":"roots","texts":["..."]}      {"id":5,"roots":[{"running":"run"},...]}   (many texts, roots only)
 //     {"id":2,"op":"read","text":"..."}           {"id":2,"lang":"en","roots":{"running":"run"},"names":[{"text":"Ada Lovelace","kind":"person"}]}
 //     {"id":3,"op":"write","instructions":"...","prompt":"..."}   {"id":3,"text":"..."}   (Apple Intelligence only)
 //     {"id":4,"op":"translate","text":"...","from":"es","to":"en"} {"id":4,"text":"..."}  (macOS 26, languages downloaded)
@@ -130,6 +131,20 @@ func read(_ text: String) -> [String: Any] {
     return true
   }
   return ["lang": lang?.rawValue ?? "und", "roots": roots, "names": names]
+}
+
+/** Only the roots, for many texts at once: what the book's offers index needs (a third of a full read's work). */
+let rootTagger = NLTagger(tagSchemes: [.lemma])
+func roots(_ text: String) -> [String: String] {
+  rootTagger.string = text
+  if let lang = language(text) { rootTagger.setLanguage(lang, range: text.startIndex..<text.endIndex) }
+  var out: [String: String] = [:]
+  rootTagger.enumerateTags(in: text.startIndex..<text.endIndex, unit: .word, scheme: .lemma, options: [.omitPunctuation, .omitWhitespace]) { tag, range in
+    let word = text[range].lowercased()
+    if let root = tag?.rawValue.lowercased(), root != word { out[word] = root }
+    return true
+  }
+  return out
 }
 
 func answer(_ id: Any, _ body: [String: Any]) {
@@ -275,6 +290,8 @@ while let text = readLine(strippingNewline: true) {
     answer(id, embed(request["texts"] as? [String] ?? []))
   case "read":
     answer(id, read(request["text"] as? String ?? ""))
+  case "roots":
+    answer(id, ["roots": (request["texts"] as? [String] ?? []).map { roots(String($0.prefix(4000))) }])
   case "write":
     #if canImport(FoundationModels)
     if #available(macOS 26, *), aiStatus() == "available" {

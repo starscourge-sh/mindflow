@@ -79,6 +79,24 @@ const linkWords = (editor: Editor, words: string, id: string, label: string): bo
   return true
 }
 
+/** Whether a celebration card is up anywhere in this window (celebrate.tsx draws them in [data-celebration]). */
+const showing = (): boolean => [...document.querySelectorAll('[data-celebration]')].some((one) => one.childElementCount > 0)
+function useCelebrating(): boolean {
+  const [now, setNow] = useState(showing)
+  useEffect(() => {
+    let frame = 0
+    const watch = new MutationObserver((records) => {
+      // Typing changes only the words: nothing to look at then, so a key never pays for this.
+      if (records.every((one) => (one.target as Element).closest?.('.ProseMirror'))) return
+      cancelAnimationFrame(frame)
+      frame = requestAnimationFrame(() => setNow(showing()))
+    })
+    watch.observe(document.body, { childList: true, subtree: true })
+    return () => (watch.disconnect(), cancelAnimationFrame(frame))
+  }, [])
+  return now
+}
+
 export function NoteOffers({ table, id, editor, onOpen }: { table: 'captures' | 'nuggets'; id: string; editor: Editor | null; onOpen: (type: string, id: string) => void }): React.JSX.Element | null {
   const [offer, setOffer] = useState<Offer | null>(null)
   const [on, setOn] = useState(true)
@@ -130,7 +148,10 @@ export function NoteOffers({ table, id, editor, onOpen }: { table: 'captures' | 
   }, [editor, on, id, key])
   const ownKey = useRef('')
 
-  if (!offer || !editor) return null
+  // A celebration on screen (a milestone, "100 captures kept") is a rare moment of its own: the offer waits
+  // until it has gone, so the eye has one thing at a time.
+  const celebrating = useCelebrating()
+  if (!offer || !editor || celebrating) return null
   const away = (): void => {
     const gone = dismissed()
     gone.add(`${ownKey.current}|${idOf(offer)}`)

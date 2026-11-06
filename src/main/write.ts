@@ -36,7 +36,7 @@ export function registerWrite(): void {
     if (!rows.length) return { error: 'Nothing was written this week to sum up' }
     const notes = rows.map((row) => `- ${row.title}: ${(row.text ?? '').replace(/\s+/g, ' ').slice(0, 300)}`).join('\n')
     return write(`You sum up someone's week from the notes they kept, in one short paragraph of three to five sentences, speaking to them as "you". ${PLAIN}`, notes,
-      `This week you kept ${plural(rows.length, 'note')}, among them “${rows[0].title}”. (Written by a stand-in for Apple Intelligence, for a test.)`)
+      `This week you kept ${plural(rows.length, 'note')}, among them “${rows[0].title.replace(/[.!?]+$/, '')}”. (Written by a stand-in for Apple Intelligence, for a test.)`)
   })
   ipcMain.handle('haligtree:ai:name', (_event, text: unknown) => {
     const words = String(text ?? '').trim()

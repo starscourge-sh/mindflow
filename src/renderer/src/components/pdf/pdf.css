@@ -480,14 +480,19 @@
   /* One height whatever it says (the button, or the orb while reading): the pages under it never move. */
   padding: 0 0.5rem 0 0.875rem;
   height: 3rem;
-  border-radius: 0.625rem;
-  border: 1px solid var(--border);
-  background: var(--background);
+  border-radius: 0.875rem;
+  border: 1px solid color-mix(in oklab, var(--foreground) 7%, transparent);
+  background: color-mix(in oklab, var(--foreground) 3%, transparent);
   font-size: var(--text-control, 0.8125rem);
   color: var(--muted-foreground);
 }
+.pdf-scan-line { container-type: inline-size; }
+/* One line whatever the width: the words give way (the second sentence first, then an ellipsis), the button never. */
+.pdf-scan-words { min-width: 0; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@container (max-width: 44rem) { .pdf-scan-more { display: none; } }
 .pdf-scan-button {
   flex: none;
+  white-space: nowrap;
   cursor: pointer;
   border-radius: 0.5rem;
   padding: 0.375rem 0.75rem;

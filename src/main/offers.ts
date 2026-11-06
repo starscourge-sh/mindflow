@@ -1,4 +1,6 @@
-import { ipcMain } from 'electron'
+import { app, ipcMain } from 'electron'
+import { writeFile } from 'node:fs/promises'
+import { join } from 'node:path'
 import { changed, database, whenChanged } from './captures'
 import { understand } from './understand'
 import { readFileSync } from 'node:fs'
@@ -16,6 +18,25 @@ import { RootIndex, alreadyWrote, cluesFor, linksIn, peopleIn, whichFolder, type
 type Row = { key: string; title: string; text: string; stamp: string; group: string | null; list: string | null }
 type Kept = { stamp: string; lemmas: Lemmas; meaning: Float32Array | null }
 const kept = new Map<string, Kept>()
+
+/** The roots read so far, kept beside the book, so a launch never reads its notes again (only what changed). */
+const keptFile = (): string => join(app.getPath('userData'), 'offer-roots.json')
+let loaded = false
+function loadKept(): void {
+  if (loaded) return
+  loaded = true
+  try {
+    for (const [key, one] of Object.entries(JSON.parse(readFileSync(keptFile(), 'utf8')) as Record<string, { stamp: string; lemmas: Lemmas }>))
+      kept.set(key, { stamp: one.stamp, lemmas: one.lemmas, meaning: null })
+  } catch {
+    // None yet: read now.
+  }
+}
+function saveKept(): void {
+  const out: Record<string, { stamp: string; lemmas: Lemmas }> = {}
+  for (const [key, one] of kept) out[key] = { stamp: one.stamp, lemmas: one.lemmas }
+  void writeFile(keptFile(), JSON.stringify(out)).catch(() => undefined)
+}
 let built: { at: number; index: RootIndex; rows: Row[] } | null = null
 let stale = true
 let building: Promise<{ index: RootIndex; rows: Row[] }> | null = null
@@ -58,12 +79,16 @@ async function index(): Promise<{ index: RootIndex; rows: Row[] }> {
   building ??= (async () => {
     stale = false
     const all = rows()
+    loadKept()
     const fresh = all.filter((row) => kept.get(row.key)?.stamp !== row.stamp)
-    for (let at = 0; at < fresh.length; at += 50) {
-      const batch = fresh.slice(at, at + 50)
-      const read = await readAll(batch.map((row) => `${row.title}\n${row.text}`))
-      batch.forEach((row, i) => kept.set(row.key, { stamp: row.stamp, meaning: null, ...read[i] }))
+    // Roots only, a hundred notes a request: 5,000 notes are read once, in the background, then kept on disk.
+    for (let at = 0; at < fresh.length; at += 100) {
+      const batch = fresh.slice(at, at + 100)
+      const said = await understand('roots', { texts: batch.map((row) => `${row.title}\n${row.text}`) }, 'background')
+      const read = (said.roots as Lemmas[] | undefined) ?? []
+      batch.forEach((row, i) => kept.set(row.key, { stamp: row.stamp, meaning: kept.get(row.key)?.meaning ?? null, lemmas: read[i] ?? {} }))
     }
+    if (fresh.length) saveKept()
     const notes: RootNote[] = all.map((row) => ({ key: row.key, title: row.title ?? '', text: row.text ?? '', lemmas: kept.get(row.key)?.lemmas }))
     built = { at: Date.now(), index: new RootIndex(notes), rows: all }
     return built

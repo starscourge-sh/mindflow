@@ -82,6 +82,11 @@ export class RootIndex {
     return tf
   }
 
+  /** How many notes hold a root. */
+  notesWith(root: string): number {
+    return this.df.get(this.keyOf(root)) ?? 0
+  }
+
   /** How rare a root is across the book: a root in every note says nothing. */
   idf(root: string): number {
     return Math.log(1 + this.notes.length / (this.df.get(this.keyOf(root)) ?? 1))
@@ -210,8 +215,9 @@ export function whichFolder(index: RootIndex, key: string, folders: Map<string, 
 /**
  * "Links suggest themselves": another note's title named in these words, root
  * by root ("the Stoics" names "Stoicism"), where it is not already a link.
- * A one-word title must be a rare root in the book, so "Notes" or "Ideas"
- * never asks to be linked everywhere.
+ * A one-word title must be a rare root in the book (in one note in twenty
+ * at most, or three in a small book), so "Notes" or "Ideas" never asks to be
+ * linked everywhere.
  */
 export function linksIn(index: RootIndex, text: string, lemmas: Lemmas | undefined, leave: string, linked: Set<string> = new Set()): { key: string; title: string; words: string }[] {
   const words = text.split(/([^\p{L}\p{N}]+)/u)
@@ -221,7 +227,8 @@ export function linksIn(index: RootIndex, text: string, lemmas: Lemmas | undefin
     if (note.key === leave || linked.has(note.key)) continue
     const title = index.folded(note.title, note.lemmas)
     if (!title.length || title.length > 5 || note.title.trim().split(/\s+/).length > 6) continue
-    if (title.length === 1 && (title[0].length < 5 || index.idf(title[0]) < Math.log(1 + 20))) continue
+    // One in twenty notes at most (three in a small book): a word nearly every note has names nothing.
+    if (title.length === 1 && (title[0].length < 5 || index.notesWith(title[0]) > Math.max(3, index.notes.length / 20))) continue
     const at = said.findIndex((_, i) => title.every((root, j) => said[i + j] === root))
     if (at < 0) continue
     // The words as written, for the offer to show: the run of tokens that matched.
