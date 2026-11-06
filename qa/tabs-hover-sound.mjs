@@ -14,7 +14,8 @@ const row = (name) => h.locator(`[data-side-row][aria-label="${name}"]`).first()
 const floating = () => h.evaluate(() => {
   const shown = (el) => { const b = el.getBoundingClientRect(); return b.width > 0 && b.height > 0 && getComputedStyle(el).visibility !== 'hidden' && Number(getComputedStyle(el).opacity) > 0.05 }
   return {
-    tips: [...document.querySelectorAll('[role="tooltip"], [data-slot="tooltip-content"]')].filter(shown).length,
+    // A tip on its way out (the shared 90ms fade, data-state closed) is leaving, not a second one.
+    tips: [...new Set([...document.querySelectorAll('[role="tooltip"], [data-slot="tooltip-content"]')].map((el) => el.closest('[data-slot="tooltip-content"]') ?? el))].filter((el) => el.getAttribute('data-state') !== 'closed').filter(shown).length,
     cards: [...document.querySelectorAll('[data-note-preview], [data-peek-card], [data-pair-card]')].filter(shown).length
   }
 })
