@@ -3,6 +3,8 @@ import './assets/main.css'
 import 'slot-text/style.css'
 // Faded edges off once a list is all in view (lib/fade-fits.ts).
 import './lib/fade-fits'
+// Every picture cut to a shape centred on its face or subject (Vision).
+import './lib/picture-focus'
 
 declare global {
   interface Window {
