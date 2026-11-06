@@ -119,7 +119,7 @@ const menuBar = (c, name) => c.electron.evaluate(({ BrowserWindow }, n) => {
   process.env.QA_ARGS = '--sandbox'
   const c = await sandbox({ width: 1100, height: 760 })
   try {
-    await c.v('settings:set', { sounds: true, volume: 1, motion: true })
+    await c.v('settings:set', { sounds: true, volume: 1, motion: true, progressBars: 'saber' })
     await stub(c)
     await trial(c, 'pill, Back to my notes', () => click(c.h, '[data-sandbox-pill] button', 'notes'), { up: false })
     await trial(c, 'pill, Reset then Hold to start over', async () => { await click(c.h, '[data-sandbox-pill] button', 'Reset'); await c.h.waitForTimeout(400); await hold(c.h, 'Hold to start over') }, { up: true })
@@ -143,7 +143,7 @@ const menuBar = (c, name) => c.electron.evaluate(({ BrowserWindow }, n) => {
   process.env.QA_ARGS = ''
   const c = await sandbox({ width: 1100, height: 760, seeded: false })
   try {
-    await c.v('settings:set', { sounds: true, volume: 1, motion: true })
+    await c.v('settings:set', { sounds: true, volume: 1, motion: true, progressBars: 'saber' })
     await c.v('onboarding:set', { welcomed: new Date().toISOString() })
     // Made before the first restart is caught: that lets go of the menu bar, which a new book updates.
     const id = await c.v('books:create', 'Scratch')

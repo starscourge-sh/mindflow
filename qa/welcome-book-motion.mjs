@@ -56,7 +56,7 @@ try {
   const right = await turn()
   await h.mouse.move(20, 895, { steps: 8 }); await h.waitForTimeout(900)
   const left = await turn()
-  check('it barely turns toward the pointer far off about the page (qa/welcome-book-pose.mjs checks close by)', right !== null && left !== null && Math.abs(right - left) <= 4, `pointer right ${right}°, left ${left}°`)
+  check('far off about the page it still follows, softly (qa/welcome-book-pose.mjs checks close by)', right !== null && left !== null && Math.abs(right - left) >= 2 && Math.abs(right - left) <= 14, `pointer right ${right}°, left ${left}°`)
 } catch (error) {
   check('the run finished', false, error.message.split('\n')[0])
 } finally {

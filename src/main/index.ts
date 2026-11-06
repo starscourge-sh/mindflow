@@ -114,7 +114,7 @@ import { pdfsToFind, registerPdfHighlights } from './pdf-highlights'
 import { registerWebArticles } from './web-articles'
 import { registerWordLog } from './word-log'
 import { frostWindow, registerFrost, retellFrost } from './frost'
-import { BOOK, SANDBOX, arrived, assetElsewhere, handedOff, windingDown, onHandOff, readShelf, realRoot, registerSandbox, relaunch, restartNow, useDataFolder, writeShelf } from './sandbox'
+import { BOOK, SANDBOX, arrived, barsHere, assetElsewhere, handedOff, windingDown, onHandOff, readShelf, realRoot, registerSandbox, relaunch, restartNow, useDataFolder, writeShelf } from './sandbox'
 import { MOVED, shortPath, untoldMove, type Moved } from './old-data'
 import { books, here, nameOf, nextImport, registerBooks } from './books'
 import { wideThumb } from './video-thumbs'
@@ -693,7 +693,7 @@ function load(win: BrowserWindow, query = ''): void {
   // The sandbox says so in every window's address, the one thing a page knows before it runs.
   if (SANDBOX) query = `${query || '?'}${query ? '&' : ''}sandbox=1`
   // Just restarted into (or out of) the sandbox: the main window finishes the moment the last run began.
-  if (process.argv.includes('--show-home') && query.includes('view=home')) query += '&arrived=1'
+  if (process.argv.includes('--show-home') && query.includes('view=home')) query += `&arrived=1&bars=${barsHere()}`
   const page = pageFor(query)
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
     win.loadURL(`${process.env['ELECTRON_RENDERER_URL'].replace(/\/$/, '')}/${page}${query}`)

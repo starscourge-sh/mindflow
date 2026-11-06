@@ -179,7 +179,7 @@ export async function takeExit(id: string, status: string): Promise<unknown> {
 let kinds: Record<string, LinkKind & { group: string }> | null = null
 // Made when first asked for, not as this file loads: the kind picker it reads may not have loaded yet.
 export const linkKinds = (): Record<string, LinkKind & { group: string }> => (kinds ??= {
-  ...Object.fromEntries(CAPTURE_TYPES.map((type) => [type.id, { label: type.label, group: `${type.label}s`, icon: type.icon, color: /text-(\w+)/.exec(type.tint)?.[1] ?? 'gray' }])),
+  ...Object.fromEntries(CAPTURE_TYPES.map((type) => [type.id, { label: type.label, group: type.many, icon: type.icon, color: /text-(\w+)/.exec(type.tint)?.[1] ?? 'gray' }])),
   idea: { label: 'Gem', group: 'Gems', icon: Gem, color: 'pink' },
   article: { label: 'Writing', group: 'Writing', icon: FileText, color: 'brown' },
   question: { label: 'Question', group: 'Questions', icon: Orbit, color: 'gray' },

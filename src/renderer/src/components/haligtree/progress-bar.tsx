@@ -211,7 +211,7 @@ export function ProgressBar({
           <span className="absolute -inset-y-2 -left-2 -right-2 overflow-hidden [mask-image:linear-gradient(to_right,transparent,black_8px)]">
             <span className="pb-blade absolute top-1/2 left-2 w-[calc(100%-1rem)] -translate-y-1/2 rounded-full" style={{ height: core }}>
               {/* Put away, a little further in, so not even its glow shows at the emitter. */}
-              <span className="block h-full w-full rounded-full" style={{ ...move, transform: `translateX(calc(${(shown - 1) * 100}% - ${(1 - shown) * 16}px))` }}>
+              <span data-bar-fill className="block h-full w-full rounded-full" style={{ ...move, transform: `translateX(calc(${(shown - 1) * 100}% - ${(1 - shown) * 16}px))` }}>
                 <span className="pb-core block h-full w-full rounded-full" />
               </span>
             </span>
@@ -239,7 +239,7 @@ export function ProgressBar({
         <span aria-hidden className="absolute inset-x-0 bottom-[2px] h-[1.5px] overflow-hidden">
           <span className={`pb-ground absolute inset-y-0 left-0 -right-28 ${done ? '' : 'pb-scroll'}`} />
         </span>
-        <span aria-hidden className={`absolute inset-y-0 left-0 ${done ? 'right-[34px]' : 'right-[24px]'}`} style={{ ...move, transform: `translateX(${shown * 100}%)` }}>
+        <span aria-hidden data-bar-fill className={`absolute inset-y-0 left-0 ${done ? 'right-[34px]' : 'right-[24px]'}`} style={{ ...move, transform: `translateX(${shown * 100}%)` }}>
           <span className="absolute bottom-[2px] h-[1.5px] w-[200vw] right-[calc(100%-12px)] bg-current opacity-55" />
           {/* The cacti come in from the right at one speed, pass under the
               dinosaur as it hops, and fade a little way behind it. */}
@@ -265,7 +265,7 @@ export function ProgressBar({
     <span {...bar} ref={self} data-charged={at >= CHARGE_FROM ? '' : undefined} className={`pb-plain relative block ${square ? '' : 'rounded-full'} ${className}`} style={{ height, background: line ? LINE_TRACK : track, '--pb-glow': paint } as CSSProperties}>
       {/* Cut here rather than on the bar, so the full glow (::after) can spill past its edge. */}
       <span className={`absolute inset-0 block overflow-hidden ${square ? '' : 'rounded-full'}`}>
-        <span className={`absolute inset-0 ${square ? '' : 'rounded-full'}`} style={{ ...move, background: paint, transform: `translateX(${(shown - 1) * 100}%)` }}>
+        <span data-bar-fill className={`absolute inset-0 ${square ? '' : 'rounded-full'}`} style={{ ...move, background: paint, transform: `translateX(${(shown - 1) * 100}%)` }}>
           {/* Nearly there, the leading end brightens: nothing below 90%, its brightest at full. */}
           {!line && <span aria-hidden className={`pb-cap absolute inset-y-0 right-0 w-1.5 bg-foreground transition-opacity duration-500 ${square ? '' : 'rounded-full'}`} style={{ opacity: 0.55 * charge(at) }} />}
         </span>

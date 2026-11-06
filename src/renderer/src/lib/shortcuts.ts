@@ -134,7 +134,7 @@ export const SHORTCUTS: Shortcut[] = [
   { group: 'Editing', keys: '⌥⌘↓', does: 'Next heading', where: 'In a note' },
   { group: 'Editing', keys: '⌥⌘↑', does: 'Heading before', where: 'In a note' },
   { group: 'Editing', keys: '⇥', does: 'Write in the answer after a line ending in =', where: 'In a note' },
-  { group: 'Editing', keys: '⇥', does: 'On a Word: keep the meaning offered under it', where: 'Quick capture' },
+  { group: 'Editing', keys: '⇥', does: 'On a Term: keep the meaning offered under it', where: 'Quick capture' },
   { group: 'Editing', keys: '⌥⌘+', does: 'Bigger text in notes (only the words; ⌘+ grows the whole app)', where: 'Both windows' },
   { group: 'Editing', keys: '⌥⌘−', does: 'Smaller text in notes', where: 'Both windows' },
   { group: 'Editing', keys: '/', does: 'Insert a block', where: 'In a note' },

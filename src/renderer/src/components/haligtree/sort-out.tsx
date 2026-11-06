@@ -28,7 +28,7 @@ import { menuOpen } from '@/lib/menu-keys'
 const KINDS: { id: Sort; label: string; said: [string, string] }[] = [
   { id: 'task', label: 'Task', said: ['task', 'tasks'] },
   { id: 'link', label: 'Link', said: ['link to read', 'links to read'] },
-  { id: 'word', label: 'Word', said: ['word to learn', 'words to learn'] },
+  { id: 'word', label: 'Term', said: ['term to learn', 'terms to learn'] },
   { id: 'saying', label: 'Saying', said: ['saying', 'sayings'] },
   { id: 'note', label: 'Note', said: ['note', 'notes'] },
   { id: 'skip', label: 'Leave', said: ['left out', 'left out'] }

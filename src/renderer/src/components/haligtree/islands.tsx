@@ -29,7 +29,7 @@ export type IslandState = {
 
 /** A kind's icon and colour, by the name its group is given (Tasks, Note, Quote...). */
 function kindOfGroup(name: string): (typeof CAPTURE_TYPES)[number] | undefined {
-  return CAPTURE_TYPES.find((type) => type.label === name || type.id === name || (name === 'Tasks' && type.id === 'todo'))
+  return CAPTURE_TYPES.find((type) => type.many === name || type.label === name || type.id === name)
 }
 
 /**

@@ -1661,10 +1661,12 @@ function NameChapter({ play, report, onNext, save }: { play: boolean; report: (n
   const [typed, setTyped] = useState<string | null>(null)
   // A drawn name tried on: in the field, never saved unless you go on with it.
   const [preview, setPreview] = useState<string | null>(null)
-  const [look, setLook] = useState<{ seed?: number } | null>(null)
-  useEffect(() => void haligtree.settings().then((now) => setLook({ seed: now.readerSeed })), [])
-  // A book already named (the welcome played again) starts with its name; "My book" is no one's name, so it starts empty.
-  const own = shelf && shelf.name !== DEFAULT_BOOK && shelf.current !== 'sandbox' ? shelf.name : ''
+  const [look, setLook] = useState<{ seed?: number; name?: string } | null>(null)
+  useEffect(() => void Promise.all([haligtree.settings(), SANDBOX ? window.api.haligtree<Carry | null>('sandbox:carry').catch(() => null) : null]).then(([now, carry]) => setLook(carry?.book ? { seed: carry.book.seed ?? now.readerSeed, name: carry.book.name } : { seed: now.readerSeed })), [])
+  // A book already named (the welcome played again) starts with its name, the book you came from when it plays in the
+  // sandbox; "My book" is no one's name, so it starts empty.
+  const named = look?.name ?? (shelf && shelf.current !== 'sandbox' ? shelf.name : '')
+  const own = named && named !== DEFAULT_BOOK ? named : ''
   const mine = typed ?? own
   const value = preview ?? mine
   const shown = value.trim() || drawn
@@ -1718,7 +1720,7 @@ function NameChapter({ play, report, onNext, save }: { play: boolean; report: (n
         {/* The book stands up into its pose once it can be seen, not while the page is still coming in. */}
         <motion.div className="shrink-0" initial={play ? { opacity: 0, scale: 0.96 } : false} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.4, ease: ENTER, delay: 0.2 }}
           onUpdate={(at) => void (rise === 'wait' && Number(at.opacity) > 0.15 && setRise('go'))}>
-          <ReaderCard seed={seed} named={shown} bare arrive={rise} />
+          <ReaderCard seed={seed} named={shown} bare arrive={rise} watching />
         </motion.div>
       </div>
     </>

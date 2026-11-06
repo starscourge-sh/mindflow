@@ -3,7 +3,7 @@
 //  2. dump mode: many lines picked, a capture each, kind and tags read from each line, one Undo
 //  3. a link named after its page offers to be named after its topic, the page's title kept as its source
 //  4. `[[New name]]` makes no page until it is opened; words picked and `[` `[` wrap into a link
-//  5. the kind list keeps one order (Note, Task, Quote, Word, Link, Check back), each with its number, however much one is used
+//  5. the kind list keeps one order (Note, Task, Quote, Term, Link, Check back), each with its number, however much one is used
 //  6. a Word is a lookup: asked until answered, waiting in Lookups; "Look up" on a picked word saves it
 //  7. a change of kind keeps the old kind's fields out of sight and brings them back
 //  8. "Share with a new page" makes the words a page of their own, still shown in place and editable there
@@ -278,10 +278,10 @@ try {
   await page.locator('[data-kind-chip]').first().click(); await page.waitForTimeout(800)
   const rows = await page.evaluate(() => [...document.querySelectorAll('[cmdk-item]')].map((one) => one.innerText.replace(/\s+/g, ' ').trim()))
   // Since 34b16e29 kinds keep one order everywhere (kindRank), never reordered by use:
-  // twenty-five check-backs later the list still reads Note, Task, Quote, Word, Link, Check back.
+  // twenty-five check-backs later the list still reads Note, Task, Quote, Term, Link, Check back.
   const at = rows.findIndex((one) => /^Check back/.test(one))
   const order = rows.map((one) => (/^Check back/.test(one) ? 'Check back' : one.split(' ')[0]))
-  check('5. the kinds keep their one order however much one is used: Note, Task, Quote, Word, Link, Check back', JSON.stringify(order) === JSON.stringify(['Note', 'Task', 'Quote', 'Word', 'Link', 'Check back']), order.join(' / '))
+  check('5. the kinds keep their one order however much one is used: Note, Task, Quote, Term, Link, Check back', JSON.stringify(order) === JSON.stringify(['Note', 'Task', 'Quote', 'Term', 'Link', 'Check back']), order.join(' / '))
   check('5. it keeps its own number, 6', /6$/.test(rows[at] ?? ''), rows[at])
   await page.keyboard.press('Escape'); await page.waitForTimeout(200); await page.keyboard.press('Escape')
 

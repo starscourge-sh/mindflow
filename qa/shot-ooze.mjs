@@ -54,7 +54,7 @@ const fieldLook = () => page.evaluate(() => {
   const field = document.querySelector('[placeholder="Where you met it"]')
   return field ? getComputedStyle(field).pointerEvents + ' ' + [...(function* () { for (let n = field; n; n = n.parentElement) yield Number(getComputedStyle(n).opacity) })()].reduce((a, b) => a * b, 1).toFixed(2) : 'none'
 })
-const KINDS = ['Note', 'Task', 'Quote', 'Word', 'Link', 'Decision', 'Experiment', 'Goal']
+const KINDS = ['Note', 'Task', 'Quote', 'Term', 'Link', 'Decision', 'Experiment', 'Goal']
 try {
   await v('settings:set', { sounds: false, hintRate: 0, rotCount: 0 })
   await page.evaluate(() => window.api.showPrompt())
@@ -114,14 +114,14 @@ try {
       await page.waitForTimeout(450)
       const got = await covered()
       check(`${name}, ${height} tall: they open up in an arc, inside the window, and what they sit on has stepped back`, got.arc && !got.hit.length && got.inside, JSON.stringify(got))
-      if (name === 'Word') check(`Word, ${height} tall: "Where you met it" sits under them and has stepped back`, got.under.some((one) => one.includes('Where you met it')) || /^none 0\.1/.test(await fieldLook()), `${JSON.stringify(got.under)} ${await fieldLook()}`)
-      if (SHOTS && (name === 'Word' || name === 'Note')) {
+      if (name === 'Term') check(`Word, ${height} tall: "Where you met it" sits under them and has stepped back`, got.under.some((one) => one.includes('Where you met it')) || /^none 0\.1/.test(await fieldLook()), `${JSON.stringify(got.under)} ${await fieldLook()}`)
+      if (SHOTS && (name === 'Term' || name === 'Note')) {
         const png = await c.electron.evaluate(async ({ BrowserWindow }) => (await BrowserWindow.getAllWindows().find((w) => !w.webContents.getURL().includes('view=')).webContents.capturePage()).toPNG().toString('base64'))
         writeFileSync(`${SHOTS}/box-${name.toLowerCase()}-${height}.png`, Buffer.from(png, 'base64'))
       }
       await page.keyboard.press('Escape')
       await page.waitForTimeout(250)
-      if (name === 'Word') check(`Word, ${height} tall: closing brings it back`, (await asideNow()) === 0 && /^auto 1\.00/.test(await fieldLook()), await fieldLook())
+      if (name === 'Term') check(`Word, ${height} tall: closing brings it back`, (await asideNow()) === 0 && /^auto 1\.00/.test(await fieldLook()), await fieldLook())
     }
   }
   await box('win.setMaximumSize(0, 0); win.setMinimumSize(200, 200)')

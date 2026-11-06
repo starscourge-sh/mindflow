@@ -10,7 +10,7 @@ import RefreshIcon from '@/components/ui/refresh-icon'
 import { Tip, refuse, toast } from '@/components/haligtree/ui'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { HoldButton } from '@/components/haligtree/hold-button'
-import { ProgressBar } from '@/components/haligtree/progress-bar'
+import { ProgressBar, type BarStyle } from '@/components/haligtree/progress-bar'
 import { applyTheme, currentTheme } from '@/lib/theme'
 import { EASE, shift } from '@/lib/motion'
 import { chime } from '@/lib/sound'
@@ -195,17 +195,20 @@ export function SandboxStamp({ inline = false }: { inline?: boolean }): React.JS
 let started = false
 
 /**
- * The way into (or out of) the sandbox, as a moment: the window goes quiet,
- * the words in the middle, and under them a blade lit (or put away) by
- * saberOn and saberOff in lib/sandbox.ts, which also play its sound and time
- * the two together. Always a blade, whatever bars you chose.
+ * The way into (or out of) the sandbox or a book, as a moment: the window goes
+ * quiet, the words in the middle, and under them a bar in the style of the book
+ * being gone to, moved by momentOn and momentOff in lib/sandbox.ts, which also
+ * play its sound and time the two together.
  */
-// Arrived by that restart: the window opens on the blade as it was left (lit
-// in the sandbox, put away back home), and lets it go.
+// Arrived by that restart: the window opens on the bar as it was left, and lets it go.
 const ARRIVED = new URLSearchParams(location.search).has('arrived')
+const ARRIVED_BARS = (new URLSearchParams(location.search).get('bars') ?? 'line') as BarStyle
+
+/** A lightsaber put away goes back in; every other bar only ever fills. */
+const grows = (going: GoingTo): boolean => going.up || going.bars !== 'saber'
 
 function Going(): React.JSX.Element | null {
-  const [going, setGoing] = useState<GoingTo | null>(ARRIVED ? { text: SANDBOX ? 'Opening the sandbox' : 'Back to your notes', up: SANDBOX, ms: 0 } : null)
+  const [going, setGoing] = useState<GoingTo | null>(ARRIVED ? { text: SANDBOX ? 'Opening the sandbox' : 'Back to your notes', up: SANDBOX, ms: 0, bars: ARRIVED_BARS } : null)
   const motionOn = document.documentElement.dataset.motion !== 'off'
   useEffect(() => {
     const on = (event: Event): void => setGoing((event as CustomEvent<GoingTo>).detail)
@@ -230,8 +233,10 @@ function Going(): React.JSX.Element | null {
           transition={{ duration: 0.2, ease: EASE }}
         >
           <p className="font-heading text-[clamp(1.5rem,4vw,2.5rem)] font-medium tracking-[-0.02em] text-foreground">{going.text}</p>
-          {/* At rest where it starts (put away to light, lit to put away); saber() moves it, on the sound's clock. With Motion off, none. */}
-          {motionOn && <ProgressBar as="saber" value={going.ms === 0 ? (going.up ? 1 : 0) : going.up ? 0 : 1} label={going.text} thick={4} blade="var(--primary)" className="w-[min(26rem,70vw)]" />}
+          {/* At rest where it starts; moment() moves it. Its room is held from the first frame, before the book's bars are known, so the words never shift. With Motion off, none. */}
+          <div className="flex h-[22px] w-[min(26rem,70vw)] items-center">
+            {motionOn && going.bars && <ProgressBar as={going.bars} silent value={going.ms === 0 ? (grows(going) ? 1 : 0) : grows(going) ? 0 : 1} label={going.text} thick={4} blade="var(--primary)" className="w-full" />}
+          </div>
         </motion.div>
       )}
     </AnimatePresence>,
@@ -348,7 +353,6 @@ export function SandboxHost(): React.JSX.Element | null {
       applyTheme(currentTheme(), false)
       // Its own pictures, whatever yours are: four public-domain landscapes for
       // Scenery and Haligtree's own grain for covers; your celebrations come along.
-      // Its bars are lightsabers whatever yours are: the book is someone else's, and they love Star Wars.
       const settings = { ...(carry?.settings ?? {}), scenery: true, sceneryFolders: [await builtInScenery()], coversFolder: '', boxAutoHide: true,
         // Its sidebar, laid out by its owner: the Feed with the writing, and the places they use most switched on.
         sidebarShown: ['inbox', 'home', 'day', 'articles', 'questions', 'nuggets', 'feed', 'review', 'today', 'calendar', 'tags', 'goals', 'queue', 'sources', 'stats', 'map', 'media', 'discarded', 'powers'],

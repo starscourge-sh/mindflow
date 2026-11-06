@@ -67,14 +67,14 @@ try {
   check('then settles once, with no rocking', turns <= 1, `${turns} changes of direction`)
   // At rest, the pointer far below it: a slight angle only.
   const rest = await pose()
-  check('at rest it faces you, at a slight angle only', Math.abs(rest.turn) <= 20 && Math.abs(rest.turn) >= 6, `turned ${rest.turn.toFixed(1)}°`)
+  check('at rest it stands turned so its pages show down the side', rest.turn <= -22 && rest.turn >= -38, `turned ${rest.turn.toFixed(1)}°`)
   // About the page, away from the book: hardly moves.
   const [bl, bt, bw, bh] = await book()
   await h.mouse.move(W - 10, H - 10, { steps: 8 }); await wait(900)
   const right = (await pose()).turn
   await h.mouse.move(10, H - 10, { steps: 8 }); await wait(900)
   const left = (await pose()).turn
-  check('the pointer across the rest of the page barely turns it', Math.abs(right - left) <= 4, `${Math.abs(right - left).toFixed(1)}° between the far right and far left`)
+  check('it follows the pointer across the whole page', right - left >= 4 && right - left <= 14, `${Math.abs(right - left).toFixed(1)}° between the far right and far left`)
   // Close by the book, just outside it on each side: it turns more.
   await h.mouse.move(bl + bw + 30, bt + bh / 2, { steps: 8 }); await wait(900)
   const nearRight = (await pose()).turn

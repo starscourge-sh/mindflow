@@ -37,13 +37,13 @@ const tint = (color: BlockColor): string => `var(--tt-color-text-${color})`
  * then the rest, here and everywhere kinds are listed (kindRank). A joke and a book are tags now (#bit, #book), a long paste a quote.
  */
 export const CAPTURE_TYPES = [
-  { id: "note", label: "Note", icon: NotebookText, tint: tint("gray"), does: "Anything else" },
-  { id: "todo", label: "Task", icon: ListTodo, tint: tint("orange"), does: "Goes to your tasks" },
-  { id: "quote", label: "Quote", icon: Quote, tint: tint("purple"), does: "Someone's words" },
-  { id: "word", label: "Word", icon: Bookmark, tint: tint("green"), does: "To look up" },
-  { id: "link", label: "Link", icon: Link, tint: tint("blue"), does: "Kept as a card" },
+  { id: "note", label: "Note", many: "Notes", icon: NotebookText, tint: tint("gray"), does: "Anything else" },
+  { id: "todo", label: "Task", many: "Tasks", icon: ListTodo, tint: tint("orange"), does: "Goes to your tasks" },
+  { id: "quote", label: "Quote", many: "Quotes", icon: Quote, tint: tint("purple"), does: "Someone's words" },
+  { id: "word", label: "Term", many: "Terms", icon: Bookmark, tint: tint("green"), does: "To look up" },
+  { id: "link", label: "Link", many: "Links", icon: Link, tint: tint("blue"), does: "Kept as a card" },
   // A date, then a question back to you: what a decision and an experiment both were.
-  { id: "checkback", label: "Check back", icon: CalendarClock, tint: tint("red"), does: "Asks you again on a date" },
+  { id: "checkback", label: "Check back", many: "Check backs", icon: CalendarClock, tint: tint("red"), does: "Asks you again on a date" },
 ] as const
 /** A kind by its id; an unknown one reads as a Note. */
 export const kindOf = (id: string): (typeof CAPTURE_TYPES)[number] => CAPTURE_TYPES.find((type) => type.id === id) ?? CAPTURE_TYPES[0]
@@ -56,7 +56,7 @@ export type CaptureType = (typeof CAPTURE_TYPES)[number]["id"]
  * where Task does; anything else after them all.
  */
 export function kindRank(kind: string): number {
-  const at = CAPTURE_TYPES.findIndex((type) => type.id === kind || type.label === kind || (type.id === "todo" && (kind === "task" || kind === "Tasks")))
+  const at = CAPTURE_TYPES.findIndex((type) => type.id === kind || type.label === kind || type.many === kind || (type.id === "todo" && (kind === "task" || kind === "Tasks")))
   return at < 0 ? CAPTURE_TYPES.length : at
 }
 /** Two kinds in that order, for a sort. */

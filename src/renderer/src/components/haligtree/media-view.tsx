@@ -89,9 +89,11 @@ export function MediaView({ onOpen }: { onOpen: (type: string, id: string) => vo
   }
 
   // The kinds, as Gems' are: one on at a time, pressed again to show every kind.
-  const kinds = (
+  // Only what the book holds: a tab for something you have none of leads to nothing. One asked for by name still shows, to say so.
+  const held = KINDS.filter((one) => one.id === kind || all.some((item) => item.kind === one.id && !item.deck))
+  const kinds = held.length + (anyDeck ? 1 : 0) < 2 ? <div className="pt-4" /> : (
     <div data-media-kinds className="flex flex-wrap gap-1 pt-4 pb-3 text-xs">
-      {KINDS.map((one) => (
+      {held.map((one) => (
         <Chip key={one.id} on={kind === one.id} onClick={() => (chime(kind === one.id ? 'off' : 'on'), setKind(kind === one.id ? 'all' : one.id))} mark={<one.icon className="size-3.5" />}>{one.label}</Chip>
       ))}
       {anyDeck && (

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 
-import { SANDBOX, enterSandbox, gatherCarry, leaveSandbox, saberOn } from './sandbox'
+import { SANDBOX, barsOf, enterSandbox, gatherCarry, leaveSandbox, momentOn } from './sandbox'
 import { haligtree } from './haligtree'
 import { EASING, still } from '@/lib/motion'
 import { num } from '../../../main/dates'
@@ -123,8 +123,11 @@ export async function switchBook(id: string, then?: 'vault' | 'files' | { root: 
   // Already here: nothing to restart.
   if (now.current === id) return
   const name = now.books.find((one) => one.id === id)?.name ?? 'the book'
-  const said = saberOn(`Opening ${name}`)
+  const bars = barsOf(id)
+  const said = momentOn(`Opening ${name}`, bars)
   const carry = await gatherCarry(CARRY_MORE)
+  // A book that has its own bars keeps them; only a new one wears yours.
+  if (await bars) delete carry.settings.progressBars
   await said
   await window.api.haligtree('books:switch', id, carry, then)
 }

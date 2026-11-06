@@ -1693,7 +1693,7 @@ export function useItemDisplay(name: string, every: Item[], withGroups = false):
     rating: (a, b) => (propOf(b).rating ?? 0) - (propOf(a).rating ?? 0) || b.createdAt.localeCompare(a.createdAt),
     manual: ownOrder
   }, {
-    kind: (one) => CAPTURE_TYPES.find((type) => type.id === one.kind)?.label ?? 'Note',
+    kind: (one) => CAPTURE_TYPES.find((type) => type.id === one.kind)?.many ?? 'Notes',
     date: (one) => period(one.createdAt),
     letter: (one) => letterOf(word(one)),
     ...(sourced ? { source: sectionOf } : {})

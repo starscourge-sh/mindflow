@@ -895,7 +895,7 @@ const OneWordBox = ({ meaning, chip = false }: { meaning: boolean; chip?: boolea
 )
 export const meaningChoices = [
   { id: 'one-word', label: 'Any one word', show: <OneWordBox meaning /> },
-  { id: 'word-kind', label: 'Only for Word', show: <OneWordBox meaning chip /> },
+  { id: 'word-kind', label: 'Only for Term', show: <OneWordBox meaning chip /> },
   { id: 'off', label: 'Never', show: <OneWordBox meaning={false} /> }
 ]
 

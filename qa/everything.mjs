@@ -109,7 +109,7 @@ try {
   await v('settings:set', { sidebarShown: was })
   await go('all'); await wait(800)
   // A fresh start: every kind on show, tasks to do.
-  for (const label of ['Task', 'Note', 'Quote', 'Link', 'Word']) await set(label, false)
+  for (const label of ['Task', 'Note', 'Quote', 'Link', 'Term']) await set(label, false)
   await set('Open', true)
   let s = await read()
   check('the page is called Everything', /Everything/.test(s?.title ?? ''), s?.title)

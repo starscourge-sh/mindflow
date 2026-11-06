@@ -677,7 +677,7 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
               </Empty>
             ) : lookups ? (
               <Empty title="No word waiting for a meaning">
-                {'A word or term saved as a Word waits here, asked, until you write what it means. Press ⌘. and type it, or ask “What is …?”. A question to carry for weeks belongs in Questions.'}
+                {'A word or phrase saved as a Term waits here, asked, until you write what it means. Press ⌘. and type it, or ask “What is …?”. A question to carry for weeks belongs in Questions.'}
               </Empty>
             ) : (
               <Empty title="Nothing here yet">
@@ -1203,7 +1203,7 @@ export function useCaptureDisplay(name: string, all: CaptureMeta[], filter?: Vie
     rating: (a, b) => Number(fieldOf(b.fields, 'rating') ?? 0) - Number(fieldOf(a.fields, 'rating') ?? 0) || b.capturedAt.localeCompare(a.capturedAt),
     manual: (a, b) => own.compare(a.id, b.id) || b.capturedAt.localeCompare(a.capturedAt)
   }, {
-    kind: (one) => (isTask(one) || one.kind === 'todo' ? 'Tasks' : CAPTURE_TYPES.find((type) => type.id === one.kind)?.label ?? 'Note'),
+    kind: (one) => (isTask(one) || one.kind === 'todo' ? 'Tasks' : CAPTURE_TYPES.find((type) => type.id === one.kind)?.many ?? 'Notes'),
     date: (one) => period(one.capturedAt),
     source: (one) => (isTask(one) ? 'Tasks' : one.source ? whereFrom(one.source) || 'Vault' : 'Typed here'),
     folder: (one) => one.folder ?? 'Archived',

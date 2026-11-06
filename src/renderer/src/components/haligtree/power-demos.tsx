@@ -511,7 +511,7 @@ const GlossaryDemo: Demo = ({ live }) => {
   return (
     <Col>
       <div className="rounded-xl border bg-background px-3 py-2.5">
-        <div className="text-meta text-muted-foreground">Word</div>
+        <div className="text-meta text-muted-foreground">Term</div>
         <div className="text-control text-foreground">What does petrichor mean?</div>
         <motion.div initial={false} animate={{ height: at === 1 ? 'auto' : 0, opacity: at === 1 ? 1 : 0 }} transition={{ duration: 0.35, ease: EASE }} className="overflow-hidden">
           <div className="pt-1.5 text-meta text-muted-foreground">The smell of rain on dry earth.</div>

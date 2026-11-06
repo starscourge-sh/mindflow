@@ -10,7 +10,6 @@
  * only a sideways wheel moves it, so a page still scrolls over it. It draws
  * only while it is on screen and the window is shown.
  */
-import { cn } from '@/lib/cn'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { chime } from '@/lib/sound'
@@ -84,6 +83,8 @@ const PIXEL_BUDGET = 4.5e6
 const RISE = 2.1
 /** Room above a top-set row, for the press and the focus ring. */
 const TOP = 6
+/** What the glass draws past the row, above and below: bent toward an edge, a picture's corners swing out of its height, and a canvas no taller than the row cut them off flat. */
+const BLEED = 40
 /** The row under the pictures for the picked one's title (two lines at most) and its place: the pictures never share it. */
 export const CAPTION = 60
 
@@ -463,7 +464,8 @@ export default function FlexCarousel({
     const metrics = (): Metrics => {
       const s = settingsRef.current
       // As tall a part of the whole row (pictures and the caption row under them) as asked, never past the pictures' box.
-      const cardH = Math.max(24, Math.min(height - TOP * 2, s.cardHeight * (height + CAPTION)))
+      const room = height - BLEED * 2
+      const cardH = Math.max(24, Math.min(room - TOP * 2, s.cardHeight * (room + CAPTION)))
       const widths = slots.map((slot) => slot.aspect * cardH)
       const centers: number[] = []
       let cursor = 0
@@ -687,7 +689,7 @@ export default function FlexCarousel({
       const focusAmount = clamp01(focus.t)
       const focusEase = easeInOut(focusAmount)
       const focusW = focus.index >= 0 && focus.index < n ? m.widths[focus.index] : m.cardH
-      const focusScale = Math.max(1, Math.min(1.3, (height * 0.84) / m.cardH, (width * 0.92) / focusW))
+      const focusScale = Math.max(1, Math.min(1.3, ((height - BLEED * 2) * 0.84) / m.cardH, (width * 0.92) / focusW))
       const nextLift = 1 + (focusScale - 1) * focusEase
       if (Math.abs(nextLift - lift) > 0.0005) {
         lift = nextLift
@@ -697,7 +699,7 @@ export default function FlexCarousel({
       const effects = introEffects()
       const homeX = width / 2
       // A row where a click opens sits at the top of its box, its titles right under it: no band of nothing above.
-      const homeY = s.direct ? TOP + m.cardH / 2 : height / 2
+      const homeY = s.direct ? BLEED + TOP + m.cardH / 2 : height / 2
       const halfW = (GLASS.width * width) / 2
       const halfH = (GLASS.height * width) / 2
 
@@ -783,7 +785,8 @@ export default function FlexCarousel({
         const inner = Math.max(4, GLASS.reach * (Math.max(halfW, 1) + Math.max(halfH, 1)) * 0.5)
         lensUniforms.uInner.value = inner
         lensUniforms.uOuter.value = inner * 1.6
-        lensUniforms.uFlow.value = GLASS.bend * (Math.max(halfW, 1) + Math.max(halfH, 1)) * 0.45
+        // Never further than the room drawn around the row: wide rows bent past it and were cut off flat.
+        lensUniforms.uFlow.value = Math.min(GLASS.bend * (Math.max(halfW, 1) + Math.max(halfH, 1)) * 0.45, BLEED + TOP - 2)
         lensUniforms.uDispersion.value = GLASS.dispersion * 0.12
         // Brought close, a picture is shown straight, without the bend.
         // A row that fits whole lies flat: no bend at its edges to cut into the titles under it.
@@ -1066,14 +1069,18 @@ export default function FlexCarousel({
         <div
           ref={containerRef}
           data-swipe-own
-          className={`relative h-full min-w-0 flex-1 cursor-grab touch-pan-y rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring select-none overflow-hidden overscroll-contain [-webkit-tap-highlight-color:transparent] [mask-image:linear-gradient(to_right,transparent,#000_7%,#000_93%,transparent)] data-[fits]:[mask-image:none] data-[hover=focus]:cursor-zoom-in data-[hover=close]:cursor-zoom-out data-[hover=open]:cursor-pointer data-[dragging]:cursor-grabbing`}
+          className={`group/row pointer-events-none relative min-w-0 flex-1 cursor-grab touch-pan-y outline-none select-none overflow-hidden overscroll-contain [-webkit-tap-highlight-color:transparent] [mask-image:linear-gradient(to_right,transparent,#000_7%,#000_93%,transparent)] data-[fits]:[mask-image:none] data-[hover=focus]:cursor-zoom-in data-[hover=close]:cursor-zoom-out data-[hover=open]:cursor-pointer data-[dragging]:cursor-grabbing`}
+          // Taller than the row by the glass's bleed; only the row itself (the box inside) takes the pointer, so the bleed never covers what is above or below.
+          style={{ height: `calc(100% + ${BLEED * 2}px)`, marginBlock: -BLEED }}
           role="region"
           aria-roledescription="carousel"
           aria-label={label}
           tabIndex={0}
           data-flex-carousel
           data-active={active}
-        />
+        >
+          <div aria-hidden data-flex-carousel-row className="pointer-events-auto absolute inset-x-0 rounded-lg group-focus-visible/row:ring-2 group-focus-visible/row:ring-inset group-focus-visible/row:ring-ring" style={{ inset: `${BLEED}px 0` }} />
+        </div>
         <TurnButton way={1} disabled={!ring && active >= n - 1} onClick={turnBy(1)} top={direct ? `${TOP}px + ${cardHeight} * (100% + ${CAPTION}px) / 2` : '50%'} />
       </div>
       {/* Its own row under the pictures, in the editor's caption look: the picked one's title, two lines at most, and
@@ -1105,8 +1112,9 @@ function TurnButton({ way, disabled, onClick, top }: { way: 1 | -1; disabled: bo
   const Arrow = way === 1 ? ChevronRight : ChevronLeft
   return (
     // Outside the pictures' width, in the margin beside them (the user: "float outside of the designated width, so the
-    // carousel is not squeezed any further"), level with the pictures' middle. It takes no room from the row.
-    <div className={cn("absolute inset-y-0 w-9", way === 1 ? "-right-12" : "-left-12")}>
+    // carousel is not squeezed any further"), level with the pictures' middle. It takes no room from the row. Short of
+    // margin, it comes in only as far as it must to stay on the page: past the page's edge it made the page scroll sideways.
+    <div className="absolute inset-y-0 w-9" style={{ [way === 1 ? 'right' : 'left']: 'max(-3rem, calc((100% - 100cqw) / 2 + 0.5rem))' }}>
     <Tip label={way === 1 ? 'Next picture  →' : 'Previous picture  ←'}>
     <button type="button" data-flex-carousel-turn={way === 1 ? 'next' : 'previous'} aria-label={way === 1 ? 'Next picture' : 'Previous picture'}
       disabled={disabled} onClick={onClick} style={{ top: `calc(${top} - 18px)` }}

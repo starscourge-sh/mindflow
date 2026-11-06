@@ -1,6 +1,7 @@
-import { hum, saberLength } from './sound'
+import { hum, paper, saberLength } from './sound'
 import { haligtree } from './haligtree'
 import { EASING, still } from '@/lib/motion'
+import type { BarStyle } from '@/components/haligtree/progress-bar'
 
 /**
  * The sandbox, as a window sees it: someone else's book to look around, in a data
@@ -13,8 +14,7 @@ export const SANDBOX = new URLSearchParams(location.search).has('sandbox')
  * What comes along into the sandbox: how Haligtree feels to you (sounds, motion,
  * your keys, margin marks, the sizes you read at, your progress bars) and
  * your celebrations, the GIFs and pictures that make a milestone yours. Its
- * scenery stays its own public-domain landscapes, and its bars are always
- * lightsabers, whatever yours are (SandboxHost): the book is someone else's.
+ * scenery stays its own public-domain landscapes (SandboxHost): the book is someone else's.
  */
 const CARRY_SETTINGS = ['motion', 'sounds', 'volume', 'soundPack', 'keys', 'marks', 'textSize', 'interfaceSize', 'progressBars', 'celebrationsFolder', 'celebrationPicks', 'celebrationSources', 'giphyKey', 'giphyWords', 'giphyStars', 'giphyPins', 'inRecordings'] as const
 /**
@@ -26,17 +26,19 @@ export const CARRY_CELEBRATIONS = ['celebrationsFolder', 'celebrationPicks', 'ce
 /** And from the window's own storage: the theme and Vim. Which windows show in screen recordings comes as a setting (inRecordings). */
 const CARRY_LOCAL = ['theme', 'custom-themes', 'style', 'vim'] as const
 
-export type Carry = { local: Record<string, string>; settings: Record<string, unknown>; /** A welcome asked for, to play on arrival; `at` tells one ask from the next. */ welcome?: { at: number } }
+export type Carry = { local: Record<string, string>; settings: Record<string, unknown>; /** The book you came from: the welcome, played here, shows its name and card, never saving to it. */ book?: { name: string; seed?: number }; /** A welcome asked for, to play on arrival; `at` tells one ask from the next. */ welcome?: { at: number } }
 
 /** The blade's curves. Lit: fast out of the hilt, then settling as the hum does. Put away: quick to answer too (never a slow-starting curve, which held the blade still just as you watch it). */
 export const SABER_OUT = 'cubic-bezier(0.16, 1, 0.3, 1)'
 const SABER_IN = EASING
+/** A line or the dinosaur has no recording to keep time with. */
+const QUIET_MS = 700
 
-/** What the overlay is told: its words, which way the blade goes, and for how long. */
-export type Going = { text: string; up: boolean; ms: number }
+/** What the overlay is told: its words, which way the blade goes, for how long (-1, not known yet), and the bars of the book being gone to. */
+export type Going = { text: string; up: boolean; ms: number; bars?: BarStyle }
 
-/** Each saber moment, newest last: what the QA runs read to see one ran, and how long its sound and blade took. */
-type Swung = { up: boolean; text: string; soundMs: number; bladeMs: number | null; blade: boolean }
+/** Each moment, newest last: what the QA runs read to see one ran, and how long its sound and bar took. */
+type Swung = { up: boolean; text: string; soundMs: number; bladeMs: number | null; blade: boolean; bars: BarStyle }
 const swung: Swung[] = []
 ;(window as unknown as { haligtreeSaber?: Swung[] }).haligtreeSaber = swung
 
@@ -48,44 +50,50 @@ async function onScreen(): Promise<void> {
     if (await window.api.isShown?.().catch(() => true) ?? true) return
 }
 
+/** The bars a book draws: its own, or null for a book not set out yet, which will wear yours. */
+export const barsOf = (book?: string): Promise<BarStyle | null> => window.api.haligtree<BarStyle | null>('books:bars', book).catch(() => null)
+
 /**
- * The one way the saber is lit or put away, wherever it happens (into or out
- * of the sandbox, starting it over, another book): the words over the
- * window, the blade, and its sound, started on the same frame. The sound is
- * the clock: the blade runs exactly as long as the decoded recording, so the
- * sound never ends before it does. With Motion off there is no blade, but
- * the moment lasts as long; Sounds and the volume decide whether it is heard.
+ * The one way of going to another book (into or out of the sandbox, starting
+ * it over): the words over the window and, under them, a bar in the style the
+ * book you are going to draws. A lightsaber is lit or put away, its recording
+ * the clock so the sound never ends before the blade; any other bar simply
+ * fills. With Motion off there is no bar, but the moment lasts as long; Sounds
+ * and the volume decide whether it is heard.
  */
-async function saber(up: boolean, text: string): Promise<void> {
-  // The screen goes up on this very frame, before the sound is even read: the
-  // page it leaves (the welcome) is never followed by a glimpse of the one
-  // under it. Its length (-1, not known yet) follows once the sound says.
-  const going = (ms: number): boolean => window.dispatchEvent(new CustomEvent<Going>('haligtree:going', { detail: { text, up, ms } }))
-  going(-1)
-  const ms = await saberLength(up)
-  going(ms)
-  // The overlay drawn, blade at rest, on screen, before anything starts: the
+async function moment(up: boolean, text: string, going: Promise<BarStyle | null>): Promise<void> {
+  // The screen goes up on this very frame, before anything is read: the page
+  // it leaves (the welcome) is never followed by a glimpse of the one under it.
+  const say = (ms: number, bars?: BarStyle): boolean => window.dispatchEvent(new CustomEvent<Going>('haligtree:going', { detail: { text, up, ms, bars } }))
+  say(-1)
+  const bars = (await going) ?? (document.documentElement.dataset.bars as BarStyle | undefined) ?? 'line'
+  const saber = bars === 'saber'
+  const ms = saber ? await saberLength(up) : QUIET_MS
+  say(ms, bars)
+  // The overlay drawn, bar at rest, on screen, before anything starts: the
   // sound never plays over a window not yet seen (a blank screen humming).
   await onScreen()
   await frame()
   await frame()
-  const calm = still()
-  const blade = calm ? null : document.querySelector<HTMLElement>('[data-going] .pb-blade > span')
-  const seen: Swung = { up, text, soundMs: ms, bladeMs: null, blade: !!blade }
+  const fill = still() ? null : document.querySelector<HTMLElement>('[data-going] [data-bar-fill]')
+  const seen: Swung = { up, text, soundMs: ms, bladeMs: null, blade: !!fill, bars }
   swung.push(seen)
-  hum(up)
-  if (blade) {
+  if (saber) hum(up)
+  else paper('slide')
+  if (fill) {
     const begun = performance.now()
-    const away = 'translateX(calc(-100% - 16px))'
-    const run = blade.animate([{ transform: up ? away : 'translateX(0)' }, { transform: up ? 'translateX(0)' : away }], { duration: ms, easing: up ? SABER_OUT : SABER_IN, fill: 'forwards' })
+    const away = saber ? 'translateX(calc(-100% - 16px))' : bars === 'dino' ? 'translateX(0)' : 'translateX(-100%)'
+    const whole = bars === 'dino' ? 'translateX(100%)' : 'translateX(0)'
+    const grow = !saber || up
+    const run = fill.animate([{ transform: grow ? away : whole }, { transform: grow ? whole : away }], { duration: ms, easing: saber && !up ? SABER_IN : SABER_OUT, fill: 'forwards' })
     void run.finished.then(() => void (seen.bladeMs = Math.round(performance.now() - begun))).catch(() => undefined)
   }
   await new Promise((done) => setTimeout(done, ms))
 }
-/** The blade lit, with its sound. */
-export const saberOn = (text: string): Promise<void> => saber(true, text)
-/** The blade put away, with its sound. */
-export const saberOff = (text: string): Promise<void> => saber(false, text)
+/** Going somewhere: the blade lit, if the book there draws one. */
+export const momentOn = (text: string, going: Promise<BarStyle | null>): Promise<void> => moment(true, text, going)
+/** Coming back: the blade put away, if the book there draws one. */
+export const momentOff = (text: string, going: Promise<BarStyle | null>): Promise<void> => moment(false, text, going)
 
 /** Your look, written down to carry: into the sandbox, or into another book with `more` (its scenery too). */
 export async function gatherCarry(more: readonly string[] = []): Promise<Carry> {
@@ -116,8 +124,9 @@ export async function enterSandbox({ welcome }: { /** A welcome to play once the
   opening = true
   try {
     // Up at once: your look is gathered behind it.
-    const said = saberOn('Opening the sandbox')
-    const carry: Carry = { ...(await gatherCarry()), ...(welcome ? { welcome: { at: Date.now() } } : {}) }
+    const said = momentOn('Opening the sandbox', barsOf('sandbox'))
+    const [look, here, mine] = await Promise.all([gatherCarry(), window.api.haligtree<{ name: string }>('books:list'), haligtree.settings()])
+    const carry: Carry = { ...look, book: { name: here.name, seed: mine.readerSeed }, ...(welcome ? { welcome: { at: Date.now() } } : {}) }
     await said
     await window.api.haligtree('sandbox:enter', carry)
   } catch (error) {
@@ -132,7 +141,7 @@ export async function leaveSandbox(): Promise<void> {
   const now = new Date()
   // At 11:11 exactly, one more line.
   const wish = now.getHours() % 12 === 11 && now.getMinutes() === 11 ? '. Make a wish' : ''
-  await saberOff(`Back to your notes${wish}`)
+  await momentOff(`Back to your notes${wish}`, barsOf())
   await window.api.haligtree('sandbox:leave')
 }
 
@@ -148,7 +157,9 @@ export async function resetSandbox(): Promise<void> {
 /** The sandbox as it began: its folder cleared, and the examples set out again. Only from a held button. */
 export async function startSandboxOver(): Promise<void> {
   if (!SANDBOX) return
-  await saberOn('Starting the sandbox over')
+  // Set out again from what you carried in, so it draws those bars.
+  const carry = await window.api.haligtree<Carry | null>('sandbox:carry').catch(() => null)
+  await momentOn('Starting the sandbox over', Promise.resolve((carry?.settings.progressBars as BarStyle | undefined) ?? null))
   await window.api.haligtree('sandbox:reset')
 }
 

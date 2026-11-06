@@ -127,7 +127,7 @@ export const POWERS: Power[] = [
   { id: 'bit', group: 'Writing', name: '#bit keeps it to yourself', tryIt: 'Tag a note #bit, then point at it in a list.', line: 'Tag a note #bit and it stays blurred in every list until you point at it.',
     show: { view: 'tags', find: '#bit', at: ROW, text: 'Anything tagged #bit is blurred in lists and never comes back as a hint.' }, used: (s) => s.tags.includes('bit') },
   { id: 'glossary', group: 'Writing', name: 'Your own glossary', tryIt: 'In quick capture, write a word alone on the first line and its meaning under it; then open it and, in its “Details”, choose “Save as a gem”.', line: 'Keep a word with what it means, and Review asks you what it means until it sticks.',
-    show: { view: 'kind:word', at: ROW, text: 'Every word you caught, with its meaning. Open one, click “Details” and choose “Save as a gem”, and Review asks you for it.' }, used: (s) => s.kinds.has('word') },
+    show: { view: 'kind:word', at: ROW, text: 'Every term you caught, with its meaning. Open one, click “Details” and choose “Save as a gem”, and Review asks you for it.' }, used: (s) => s.kinds.has('word') },
 
   // Remembering
   { id: 'review', group: 'Remembering', name: 'Gems come back to you', line: 'Give a gem a question and it returns as you start to forget it, and waits longer each time you remember it.',

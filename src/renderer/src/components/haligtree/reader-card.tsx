@@ -115,15 +115,15 @@ const HIGH_BOOK = 375
 // Turned the other way at rest: its fore-edge and old pages toward you, the spine round the far side.
 // The pose's springs: soft and a little bouncy, so the book sways into each pose and rocks once, never snaps.
 const POSE = { stiffness: 90, damping: 11 }
-// Turned a little only, so the cover faces you and the fore-edge just shows (it stood at -34°, which read as facing away).
-const REST_TURN = -12
+// Turned enough that the pages show down the fore-edge beside the cover: what makes it a book, not a card (the user, 6 Nov).
+const REST_TURN = -30
 const REST_LEAN = 10
 /** Where it comes up from the first time it is shown: lying back, near flat, turned further away. */
-const ARRIVE_TURN = -40
+const ARRIVE_TURN = -55
 const ARRIVE_LEAN = 68
 /** How far past its pose it comes as it arrives, as a share of the way it came up: negative is forward. */
 const ARRIVE_PAST = -0.2
-/** How far from the book, in pixels, the pointer still turns it fully; beyond, it eases off to a faint follow. */
+/** How far from the book, in pixels, the pointer turns it fully; beyond, it keeps following at half that, across the whole page. */
 const NEAR_BOOK = 160
 /**
  * Old paper seen edge on: fine leaf lines (vertical at the fore-edge, across at the foot, crossed here so both show),
@@ -290,7 +290,7 @@ function ShapePicture({ shape }: { shape: Shape }): React.JSX.Element {
   )
 }
 
-export function ReaderCard({ seed: saved, point, named, bare = false, arrive }: {
+export function ReaderCard({ seed: saved, point, named, bare = false, arrive, watching = false }: {
   seed: number | undefined
   /** The name to show in place of the open book's: the welcome's, as it is typed. */
   named?: string
@@ -300,6 +300,8 @@ export function ReaderCard({ seed: saved, point, named, bare = false, arrive }: 
   point?: number
   /** Shown for the first time (the welcome's “Name it”): it waits lying nearly flat ("wait"), then comes up into its pose ("go"), as Stripe Press's books do. Given "go" once it can be seen. */
   arrive?: 'wait' | 'go'
+  /** It watches the pointer anywhere on the page, as it does on the welcome. */
+  watching?: boolean
 }): React.JSX.Element {
   const shelf = useShelf()
   const facts = useLive(() => call<Facts>('reader:card'), null as Facts | null)
@@ -329,30 +331,31 @@ export function ReaderCard({ seed: saved, point, named, bare = false, arrive }: 
     void forward.then(() => void (back = animate(rise, 0, { type: 'spring', stiffness: 70, damping: 17, restDelta: 0.001 })))
     return () => (forward.stop(), back?.stop())
   }, [arrive]) // eslint-disable-line react-hooks/exhaustive-deps
-  // On the welcome it keeps an eye on the pointer: close by the book it turns and leans a few degrees toward it, on the
-  // pose's own springs, until the pointer comes onto it and it faces you; across the rest of the page it only stirs.
-  // It followed the pointer anywhere in the window at full strength, so every move about the page swung it.
+  // On the welcome it keeps an eye on the pointer: it turns and leans toward it wherever it goes on the page, by how far
+  // across the page it is, at half strength far off and in full close by, on the pose's own springs, until the pointer
+  // comes onto it and it faces you.
   const over = useRef(false)
   // While its picture is taken: the pointer over it leaves it be.
   const shooting = useRef(false)
   // Turned to face you: at once with motion off, on the pose's springs otherwise.
   const face = (): void => void (still() ? (turn.jump(0), lean.jump(0)) : (turn.set(0), lean.set(0)))
   useEffect(() => {
-    if (!arrive || still()) return
+    if (!watching || still()) return
     const follow = (event: PointerEvent): void => {
       const box = card.current?.getBoundingClientRect()
       if (!box || over.current || grab.current) return
-      const dx = Math.max(-1, Math.min(1, (event.clientX - (box.left + box.width / 2)) / (box.width / 2 + 60)))
-      const dy = Math.max(-1, Math.min(1, (event.clientY - (box.top + box.height / 2)) / (box.height / 2 + 60)))
-      // How far the pointer is from the book's edge: full strength close by, a faint touch far off.
+      // How far across the page from the book, -1 at one window edge to 1 at the other, so it moves all the way over.
+      const across = (at: number, from: number, size: number): number => Math.max(-1, Math.min(1, (at - from) / Math.max(1, at < from ? from : size - from)))
+      // How far the pointer is from the book's edge: close by it answers in full, measured by the book's own size.
       const off = Math.hypot(Math.max(box.left - event.clientX, 0, event.clientX - box.right), Math.max(box.top - event.clientY, 0, event.clientY - box.bottom))
-      const near = 0.06 + 0.94 * Math.max(0, 1 - off / NEAR_BOOK)
-      turn.set(REST_TURN + dx * 9 * near)
-      lean.set(REST_LEAN - dy * 6 * near)
+      const near = Math.max(0, 1 - off / NEAR_BOOK)
+      const by = (at: number, from: number, size: number, half: number): number => near * Math.max(-1, Math.min(1, (at - from) / (half + 60))) + (1 - near) * 0.5 * across(at, from, size)
+      turn.set(REST_TURN + by(event.clientX, box.left + box.width / 2, innerWidth, box.width / 2) * 9)
+      lean.set(REST_LEAN - by(event.clientY, box.top + box.height / 2, innerHeight, box.height / 2) * 6)
     }
     addEventListener('pointermove', follow)
     return () => removeEventListener('pointermove', follow)
-  }, [arrive]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [watching]) // eslint-disable-line react-hooks/exhaustive-deps
   const pitched = useTransform(() => tilt.x.get() + spinX.get() + lean.get() + rise.get() * (ARRIVE_LEAN - REST_LEAN))
   // The light on each face, from where it points now; 0 while its picture is taken, so the cover is shown as printed.
   const lit = useMotionValue(1)

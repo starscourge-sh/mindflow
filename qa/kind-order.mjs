@@ -1,5 +1,5 @@
 // Order implies purpose: wherever kinds are listed, Note comes first, then
-// Task, then Quote, Word, Link and Check back (kindRank). Read here from the
+// Task, then Quote, Term, Link and Check back (kindRank). Read here from the
 // Inbox's kind chips, its chips with "Show sorted too" on, its sections when
 // grouped by kind, Pages' and quick capture's kinds. The Inbox, with the switch
 // on or off, groups by date to start, newest first, as Pages does. Pages says
@@ -15,7 +15,7 @@ const { check, done } = checks()
 const c = await sandbox({ width: 1300, height: 900 })
 const { h, go, v } = c
 const wait = (ms) => h.waitForTimeout(ms)
-const ORDER = ['Note', 'Task', 'Tasks', 'Quote', 'Word', 'Link', 'Check back']
+const ORDER = ['Note', 'Notes', 'Task', 'Tasks', 'Quote', 'Quotes', 'Term', 'Terms', 'Link', 'Links', 'Check back', 'Check backs']
 const AGES = ['Today', 'This week', 'This month', 'This year', 'Older']
 const rank = (name) => { const at = ORDER.indexOf(name); return at < 0 ? 99 : at === 2 ? 1 : at }
 const inOrder = (names, by) => names.every((one, at) => at === 0 || by(names[at - 1]) <= by(one))

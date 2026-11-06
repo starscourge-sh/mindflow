@@ -32,7 +32,7 @@ export const SANDBOX = process.argv.includes('--sandbox')
 /** Your own data folder: a test run's, or the one the app has always used. */
 export const realRoot = (): string => process.env.HALIGTREE_USER_DATA ?? join(app.getPath('appData'), 'haligtree')
 /** The sandbox's folder, inside yours, which never reads it. */
-const sandboxRoot = (): string => join(realRoot(), 'sandbox')
+export const sandboxRoot = (): string => join(realRoot(), 'sandbox')
 
 /**
  * Books: more than one Haligtree of your own, each a data folder like the
@@ -323,6 +323,12 @@ const read = <T>(path: string, fallback: T): T => {
   } catch {
     return fallback
   }
+}
+/** The style of bar this run's book draws, for the window's first frame: its own, or the one carried in for a book not yet set out. */
+export const barsHere = (): string => {
+  const own = setting('progressBars')
+  const carried = read<{ settings?: { progressBars?: string } } | null>(join(dataRoot(), CARRY), null)
+  return String(own ?? carried?.settings?.progressBars ?? 'line')
 }
 const setting = (key: string): unknown => {
   const row = database().prepare('select value from settings where key = ?').get(key) as { value: string } | undefined

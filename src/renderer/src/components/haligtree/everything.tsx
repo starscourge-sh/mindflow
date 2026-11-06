@@ -326,7 +326,7 @@ export function taskGroups(rows: Row[]): [string, Row[]][] {
 }
 
 /** What a kind is called, many of it: for the empty page of a filter. */
-const many = (id: string): string => (id === 'task' ? 'tasks' : `${(CAPTURE_TYPES.find((type) => type.id === id)?.label ?? 'note').toLowerCase()}s`)
+const many = (id: string): string => (id === 'task' ? 'tasks' : (CAPTURE_TYPES.find((type) => type.id === id)?.many ?? 'Notes').toLowerCase())
 
 /** The empty page for what the filter chose: what it would hold, and how to get some. */
 export function emptyFor(kinds: string[], state: TaskState, filtered: boolean, made = 0): { title: string; body: string } {

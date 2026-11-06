@@ -85,7 +85,7 @@ try {
 
   await h.reload(); await wait(2500)
   await go('all'); await wait(900)
-  for (const label of ['Note', 'Quote', 'Link', 'Word']) if ((await kindChip(label).getAttribute('aria-pressed', { timeout: 800 }).catch(() => null)) === 'true') (await kindChip(label).click(), await wait(400))
+  for (const label of ['Note', 'Quote', 'Link', 'Term']) if ((await kindChip(label).getAttribute('aria-pressed', { timeout: 800 }).catch(() => null)) === 'true') (await kindChip(label).click(), await wait(400))
   if ((await kindChip('Task').getAttribute('aria-pressed', { timeout: 2000 }).catch(() => null)) !== 'true') (await kindChip('Task').click(), await wait(600))
 
   const has = (s, list) => list.filter((id) => s.ids.includes(id))

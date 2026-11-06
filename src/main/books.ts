@@ -7,7 +7,7 @@ import { join } from 'path'
 
 import { atomically, changed, database } from './captures'
 import { dayKey } from './dates'
-import { BOOK, SANDBOX, bookRoot, dataRoot, isBookId, readShelf, realRoot, relaunch, writeShelf } from './sandbox'
+import { BOOK, SANDBOX, bookRoot, dataRoot, isBookId, readShelf, realRoot, relaunch, sandboxRoot, writeShelf } from './sandbox'
 import { cut } from './clip'
 
 /**
@@ -336,6 +336,22 @@ export function registerBooks(backupBase: () => string, onChange: () => void): v
         s.paused_ms as pausedMs, s.paused_at as pausedAt, s.rounds, s.kind, s.extended_ms as extendedMs from sessions s left join tasks t on t.id = s.task_id
         where s.ended_at is null and (t.id is not null or s.task_id = '') order by s.started_at desc limit 1`).get()
       return row ? { ...row, book: kept, bookName: nameOf(kept), color: books().find((one) => one.id === kept)?.color ?? null } : forget()
+    } catch {
+      return null
+    } finally {
+      other?.close()
+    }
+  })
+  // The bars a book draws, read from its file without opening it here: the moment of going there wears them. Null: not set out yet, so it will wear yours.
+  handle('bars', (id: unknown) => {
+    const folder = id === 'sandbox' ? sandboxRoot() : folderOf(String(id ?? readShelf().last ?? 'default'))
+    const file = folder && join(folder, 'haligtree.db')
+    if (!file || !existsSync(file)) return null
+    let other: DatabaseSync | null = null
+    try {
+      other = new DatabaseSync(file, { readOnly: true })
+      const row = other.prepare("select value from settings where key = 'progressBars'").get() as { value: string } | undefined
+      return row ? JSON.parse(row.value) : 'line'
     } catch {
       return null
     } finally {
