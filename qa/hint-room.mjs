@@ -5,7 +5,7 @@
 // Every shape is filmed, a frame every 50ms through open, type, ⌘K and close, light and dark, into
 // QA_SHOTS/<shape>-<look>/.
 //   QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 QA_ARGS='--sandbox --use-fake-device-for-media-stream --use-fake-ui-for-media-stream' node qa/hint-room.mjs
-import { mkdirSync } from 'fs'
+import { mkdirSync, writeFileSync } from 'fs'
 import { checks } from './harness.mjs'
 import { CALM_HOUR, sandbox } from './sandbox-lib.mjs'
 process.env.QA_ARGS ??= '--sandbox --use-fake-device-for-media-stream --use-fake-ui-for-media-stream'
@@ -115,6 +115,21 @@ const placeBox = (spot) => c.electron.evaluate(({ BrowserWindow, screen }, spot)
   return { x, y }
 }, spot)
 const theme = (look) => page.evaluate((n) => (localStorage.setItem('theme', n), window.dispatchEvent(new StorageEvent('storage', { key: 'theme' }))), look === 'light' ? 'paper' : 'dark')
+/**
+ * One frame of the box, taken by main (webContents.capturePage), never by page.screenshot: a page.screenshot asked
+ * while the box is away (⌘K and the close both put it away mid-film) waits for a frame that never comes, gives up
+ * after 30s, and leaves Chromium holding the page at the size it had then. Every later open drew its card in that old
+ * width while the window around it had grown (the pill drawn 344px wide, three lines tall). capturePage answers at
+ * once, empty while the box is away, and lets go.
+ */
+const frame = async (path) => {
+  const png = await c.electron.evaluate(async ({ BrowserWindow }) => {
+    const box = BrowserWindow.getAllWindows().find((w) => !w.isDestroyed() && w.webContents.getURL().includes('/index.html'))
+    const image = box && (await box.webContents.capturePage())
+    return image && !image.isEmpty() ? image.toPNG().toString('base64') : ''
+  })
+  if (png) writeFileSync(path, Buffer.from(png, 'base64'))
+}
 /** A frame every 50ms for `ms`, while `act` runs. */
 async function roll(dir, name, ms, act) {
   let n = 0
@@ -122,7 +137,7 @@ async function roll(dir, name, ms, act) {
   const rolling = (async () => {
     while (going) {
       const at = Date.now()
-      await page.screenshot({ path: `${dir}/${name}-${String(n++).padStart(2, '0')}.png` }).catch(() => {})
+      await frame(`${dir}/${name}-${String(n++).padStart(2, '0')}.png`).catch(() => {})
       await new Promise((r) => setTimeout(r, Math.max(0, 50 - (Date.now() - at))))
     }
   })()
@@ -293,7 +308,7 @@ try {
   if (film) {
     for (const look of ['light', 'dark']) {
       mkdirSync(`${shots}/long-gem-${look}`, { recursive: true }); await theme(look); await wait(500)
-      await page.screenshot({ path: `${shots}/long-gem-${look}/still.png` })
+      await frame(`${shots}/long-gem-${look}/still.png`)
     }
   }
 
@@ -326,6 +341,13 @@ try {
   await reopen()
   const pillHint = await hint()
   check('the pill: the hint waits unseen', !seen(pillHint), JSON.stringify({ pillHint, pill: await page.evaluate(() => ({ pill: !!document.querySelector('.app-container[data-pill]'), away: document.querySelector('[data-hint-room]')?.getAttribute('data-away'), text: document.querySelector('.app-container')?.innerText.slice(0, 120) })) }))
+  // After all the filming before it: the pill at its own width and one line tall, in a page as wide as its window.
+  const pillSize = async () => ({
+    window: await c.electron.evaluate(({ BrowserWindow }) => BrowserWindow.prototype.getSize.call(BrowserWindow.getAllWindows().find((w) => !w.isDestroyed() && w.webContents.getURL().includes('/index.html')))[0]),
+    ...(await page.evaluate(() => { const r = document.querySelector('.app-container[data-pill]')?.getBoundingClientRect(); return { page: innerWidth, width: r ? Math.round(r.width) : 0, height: r ? Math.round(r.height) : 0, pill: window.api.room.pill } }))
+  })
+  const pillAt = await pillSize()
+  check('the pill: drawn at its full width, one line tall, in a page as wide as its window', pillAt.width === pillAt.pill && pillAt.height <= 60 && pillAt.page === pillAt.window, JSON.stringify(pillAt))
   await shape('pill', async () => {})
   await v('settings:set', { boxOneLine: false })
 
