@@ -68,6 +68,8 @@ export const POWERS: Power[] = [
     show: { box: true, text: 'Write anything and press ⌘↵.' }, used: (s) => s.steps.catch },
   { id: 'services', group: 'Catching', name: 'Send to Haligtree, from any app', needs: 'every', tryIt: 'Pick some words in Safari, right-click them, and choose “Services”, then “Send to Haligtree”.', line: 'Pick words in any app, right-click, and “Send to Haligtree” puts them in your Inbox as a quote, saying the app and page they came from, with nothing copied. macOS lists it once Haligtree is in your Applications folder.',
     show: { view: 'inbox', at: ROW, text: 'What you send lands at the top of the Inbox, as a quote.' } },
+  { id: 'calls', group: 'Catching', name: 'Record a call or lecture', needs: 'every', tryIt: 'Press ⌃⌥⌘M, or press ⌘K and choose “Record a call or lecture”.', line: 'Your microphone and the sound from this Mac, or from one app, kept in your book. Each voice is told apart and each line plays from its moment; words come as they are said where this Mac has the language on hand. Your noted moments and action items sit on its page, and typing can’t break it. Nothing leaves this Mac.', keys: ['⌃⌥⌘M'],
+    show: { view: 'inbox', at: ROW, text: 'A recording lands in the Inbox as a page of its own.' } },
   { id: 'timer', group: 'Catching', name: 'Timers in plain words', line: 'Type 5m tea in quick capture and a timer starts, with a bell when it is done.', keys: ['⌘.'],
     show: { box: true, text: 'Type 5m tea and press ⌘↵.' } },
   { id: 'letter', group: 'Catching', name: 'Letters to future you', line: 'Add @1y to a note (or @6m, @3m, @2w) and it stays out of sight until then, then comes back in the Journal saying when you wrote it.', keys: ['⌘.'],
