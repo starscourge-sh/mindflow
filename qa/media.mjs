@@ -97,7 +97,7 @@ try {
   check('the PDF tile is named by its title, else its file name without .pdf', pdfName === 'Lease', pdfName)
   const kept = await v('pdf:cover', pdf)
   check('its cover is kept in the book, ready at once next time', !!kept?.image?.startsWith('data:image/jpeg'), JSON.stringify(kept)?.slice(0, 60))
-  check('the recording tile plays where it sits', await h.evaluate((src) => !!document.querySelector(`[data-media][data-src="${src}"] [data-media-play]`), wav))
+  check('the recording tile plays where it sits', await h.evaluate((src) => !!document.querySelector(`[data-media][data-src="${src}"] [data-sound-play]`), wav))
   await shot(h, 'media-light')
 
   await h.locator('[data-page=media] input[placeholder^="Find"]').fill('tomatoes'); await wait(500)

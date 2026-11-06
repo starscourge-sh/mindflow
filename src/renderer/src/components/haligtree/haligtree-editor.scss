@@ -4165,6 +4165,83 @@ html[data-motion="off"] .tiptap.ProseMirror :is(.mf-kept, .mf-kept-icon button) 
 $run-first: '.react-renderer:has(> .tiptap-attachment.is-audio):has(+ .react-renderer > .tiptap-attachment.is-audio)';
 $run-next: '.react-renderer:has(> .tiptap-attachment.is-audio) + .react-renderer:has(> .tiptap-attachment.is-audio)';
 
+// In a run each row is the same player laid out flat, as Voice Memos lists them: play, the name over its transcript
+// state, the waveform, the time over the speed. Ten fit in quick capture's fitted box. The speed is the playing
+// row's alone; elsewhere its room is kept, so no row's waveform is a different length.
+#{$run-first},
+#{$run-next} {
+  > .tiptap-attachment.is-audio {
+    .tiptap-attachment-card {
+      padding-block: 3px;
+    }
+
+    .mf-sound {
+      // The name a third, the waveform the rest: at phone width both still read.
+      grid-template-columns: 32px minmax(0, 2fr) minmax(0, 3fr) auto;
+      grid-template-rows: 20px 20px;
+      row-gap: 0;
+    }
+
+    .mf-sound-play,
+    .mf-sound-wave {
+      grid-row: 1 / 3;
+    }
+
+    .mf-sound-play {
+      grid-column: 1;
+      align-self: center;
+    }
+
+    .mf-sound-wave {
+      grid-column: 3;
+      align-self: center;
+    }
+
+    .mf-sound-under {
+      display: contents;
+
+      > [aria-hidden] {
+        display: none;
+      }
+    }
+
+    .mf-sound-name {
+      grid-column: 2;
+      grid-row: 1;
+      align-self: end;
+    }
+
+    .mf-sound-status {
+      grid-column: 2;
+      grid-row: 2;
+      font-size: 0.75rem;
+      color: var(--muted-foreground);
+    }
+
+    .mf-sound-time {
+      grid-column: 4;
+      grid-row: 1;
+      align-self: end;
+    }
+
+    .mf-sound-speed {
+      grid-column: 4;
+      grid-row: 2;
+      font-size: 0.75rem;
+      color: var(--muted-foreground);
+    }
+
+    &:not(.is-playing) .mf-sound-speed {
+      visibility: hidden;
+    }
+
+    // A dozen round heads in a column read as a row of pins: the head shows on the row that plays or is pointed at.
+    &:not(.is-playing) .mf-sound-wave:not(:hover):not(:focus-visible) .mf-sound-head {
+      opacity: 0;
+    }
+  }
+}
+
 #{$run-first} > .tiptap-attachment.is-audio {
   margin-bottom: 0;
 

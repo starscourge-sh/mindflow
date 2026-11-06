@@ -33,8 +33,8 @@ try {
   check('Transcript shows the first 60 bubbles, each with its time, and how many more', first.bubbles === 60 && first.more === 'Show 60 more (240 left)' && first.firstTime === '0:00', JSON.stringify(first))
   const twice = await h.evaluate(() => [...document.querySelectorAll('.mf-transcript-line')].filter((el) => el.offsetParent).length)
   check('the plain lines step aside while the bubbles show: the words are on the page once', twice === 0, String(twice))
-  const title = await h.evaluate(() => document.querySelector('.tiptap-attachment-name')?.textContent)
-  check('a two-hour recording is named "Voice note · 2:00:00"', title === 'Voice note · 2:00:00', String(title))
+  const title = await h.evaluate(() => `${document.querySelector('.tiptap-attachment-name')?.textContent} · ${document.querySelector('[data-sound-time]')?.textContent}`)
+  check('a two-hour recording is named "Voice note" with "2:00:00" on the right', title === 'Voice note · 2:00:00', String(title))
   for (const name of ['light', 'dark']) { await c.look(name); await wait(300); await h.screenshot({ path: `${shots}/voice-tabs-${name}.png` }) }
   await c.look('light')
   for (let i = 0; i < 4; i += 1) { await h.click('[data-more-bubbles]'); await wait(200) }

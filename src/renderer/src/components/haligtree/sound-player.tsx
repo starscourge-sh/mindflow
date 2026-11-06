@@ -204,11 +204,13 @@ export function SoundPlayer({ src, name, length, onLength, onPlaying, status, cl
   const shown = hover !== null && end ? hover * end : started.current || at > 0 ? at : end
   const press = (run: () => void) => (event: React.KeyboardEvent): void => void ((event.key === 'Enter' || event.key === ' ') && (event.preventDefault(), event.stopPropagation(), run()))
   return (
-    <div data-sound-player data-state={state} className={`mf-sound${className ? ` ${className}` : ''}`} contentEditable={false}
-      // Its own: never the editor's selection, nor a click on what holds it (a Media tile opens its note).
-      onMouseDown={(event) => event.stopPropagation()} onClick={(event) => event.stopPropagation()}>
+    <div data-sound-player data-state={state} data-length={end || undefined} className={`mf-sound${className ? ` ${className}` : ''}`} contentEditable={false}
+      // Its controls are its own: a press on one never moves the editor's selection, nor opens what holds it (a Media
+      // tile opens its note). A press between them is the block's, which picks it, as any block is picked.
+      onMouseDown={(event) => (event.target as Element).closest('[data-sound-control]') && event.stopPropagation()}
+      onClick={(event) => (event.target as Element).closest('[data-sound-control]') && event.stopPropagation()}>
       <audio ref={sound} src={src} preload="metadata" />
-      <span role="button" tabIndex={0} data-sound-play className="tiptap-media-play mf-sound-play" data-state={state}
+      <span role="button" tabIndex={0} data-sound-play data-sound-control className="tiptap-media-play mf-sound-play" data-state={state}
         aria-label={ended ? 'Play again' : playing ? 'Pause' : 'Play'} title={ended ? 'Play again' : playing ? 'Pause' : 'Play'}
         onClick={toggle} onKeyDown={press(toggle)}>
         {/* All three drawn, one shown: the swap is a quick morph, never a wait. */}
@@ -216,7 +218,7 @@ export function SoundPlayer({ src, name, length, onLength, onPlaying, status, cl
         <Pause data-icon="playing" />
         <RotateCcw data-icon="ended" />
       </span>
-      <div ref={wave} data-wave role="slider" tabIndex={0} aria-label="Place in it" aria-valuemin={0} aria-valuemax={Math.round(end)} aria-valuenow={Math.round(at)} aria-valuetext={`${clock(at)} of ${clock(end)}`}
+      <div ref={wave} data-wave data-sound-control role="slider" tabIndex={0} aria-label="Place in it" aria-valuemin={0} aria-valuemax={Math.round(end)} aria-valuenow={Math.round(at)} aria-valuetext={`${clock(at)} of ${clock(end)}`}
         className="mf-sound-wave" data-ready={shape ? '' : undefined}
         onPointerDown={(event) => {
           if (event.button !== 0) return
@@ -243,9 +245,9 @@ export function SoundPlayer({ src, name, length, onLength, onPlaying, status, cl
       <div className="mf-sound-under">
         {name && <span className="tiptap-attachment-name mf-sound-name">{name}</span>}
         {name && status && <span aria-hidden>·</span>}
-        {status && <span className="mf-sound-status">{status}</span>}
+        {status && <span data-sound-control className="mf-sound-status">{status}</span>}
         {/* At the line's end, under the time: one width at every speed (the widest kept under it, right-aligned). */}
-        <span role="button" tabIndex={0} data-speed className="tiptap-media-speed mf-sound-speed" aria-label={`Speed ${rate} times`} title="Change the speed"
+        <span role="button" tabIndex={0} data-speed data-sound-control className="tiptap-media-speed mf-sound-speed" aria-label={`Speed ${rate} times`} title="Change the speed"
           onClick={speed} onKeyDown={press(speed)}>
           <span>{rate}×</span><span aria-hidden className="mf-sound-reserve">1.5×</span>
         </span>

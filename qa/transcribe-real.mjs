@@ -25,7 +25,7 @@ const EDITOR = '.tiptap.ProseMirror.haligtree-editor:not(.is-line)'
 const rows = () => page.$$eval('.tiptap-attachment.is-audio', (all) => all.map((one) => {
   const box = (el) => { const r = el?.getBoundingClientRect(); return r ? `${Math.round(r.left)},${Math.round(r.width)}` : null }
   const line = [...one.querySelectorAll('.tiptap-attachment-listening')].find((el) => el.offsetParent)
-  return { play: box(one.querySelector('.tiptap-media-play')), bar: box(one.querySelector('.tiptap-media-scrub')), listening: line?.textContent ?? null, clock: line?.dataset.listeningClock ?? null }
+  return { play: box(one.querySelector('.tiptap-media-play')), bar: box(one.querySelector('[data-wave]')), listening: line?.textContent ?? null, clock: line?.dataset.listeningClock ?? null }
 }))
 const secs = (clock) => { const [m, s] = clock.split(':').map(Number); return m * 60 + s }
 
@@ -55,10 +55,10 @@ try {
   // Play row 1, drag its bar, pause: every 50ms both rows keep their play button and bar, and at most one floating
   // thing (the bar's time bubble, only on the bar being dragged) shows.
   const still = []
-  const sample = async (what) => still.push({ what, rows: await rows(), floating: await page.$$eval('.tiptap-media-bubble, [role=tooltip]', (all) => all.filter((one) => one.getBoundingClientRect().width && getComputedStyle(one).display !== 'none').length) })
+  const sample = async (what) => still.push({ what, rows: await rows(), floating: await page.$$eval('.mf-sound-ghost, [role=tooltip]', (all) => all.filter((one) => one.getBoundingClientRect().width && getComputedStyle(one).display !== 'none').length) })
   await page.$$eval('.tiptap-attachment.is-audio .tiptap-media-play', (all) => all[0].click())
   for (let i = 0; i < 10; i += 1) { await sample('playing'); await wait(50) }
-  const bar = await page.$$eval('.tiptap-attachment.is-audio .tiptap-media-scrub input', (all) => { const r = all[1].getBoundingClientRect(); return { x: r.left, y: r.top + r.height / 2, w: r.width } })
+  const bar = await page.$$eval('.tiptap-attachment.is-audio [data-wave]', (all) => { const r = all[1].getBoundingClientRect(); return { x: r.left, y: r.top + r.height / 2, w: r.width } })
   await page.mouse.move(bar.x + 4, bar.y); await page.mouse.down()
   for (let i = 1; i <= 10; i += 1) { await page.mouse.move(bar.x + (bar.w * i) / 12, bar.y); await sample('dragging row 2'); await wait(50) }
   await page.mouse.up()

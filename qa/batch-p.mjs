@@ -89,32 +89,19 @@ try {
   if (process.env.SHOTS) await c.both(`${process.env.SHOTS}/map-key`, h.locator('[data-map-foot]'))
   await c.size(1300, 900)
 
-  // Media > Audio: the waveform mark moves while a recording plays, and is still when paused.
+  // Media > Audio: a recording's tile plays in the one sound player, its ink moving along its own waveform, and
+  // stands still when paused.
   await c.go('media'); await wait(1200)
   await h.locator('button, [role="tab"]').filter({ hasText: /^Audio$/ }).first().click().catch(() => {}); await wait(800)
-  if (await h.locator('[data-media-play]').count()) {
-    const wave = () => h.evaluate(() => [...document.querySelectorAll('[data-media-wave] line')].map((one) => one.getAttribute('transform') ?? '').join('|'))
-    await h.locator('[data-media-play]').first().click(); await wait(800)
+  if (await h.locator('[data-media] [data-sound-play]').count()) {
+    const at = () => h.evaluate(() => Number(document.querySelector('[data-media] [data-wave]')?.dataset.at ?? 0))
+    await h.locator('[data-media] [data-sound-play]').first().click(); await wait(800)
     const moving = []
-    for (let i = 0; i < 8; i++) (moving.push(await wave()), await wait(90))
-    // Paused: the bars ease back to the mark over about a quarter second, read every frame in the page.
-    const settling = h.evaluate(() => new Promise((done) => {
-      const seen = []
-      const start = performance.now()
-      const tick = () => {
-        seen.push([...document.querySelectorAll('[data-media-wave] line')].map((one) => one.getAttribute('transform') ?? '').join('|'))
-        if (performance.now() - start < 450) requestAnimationFrame(tick)
-        else done(seen)
-      }
-      requestAnimationFrame(tick)
-    }))
-    await h.locator('[data-media-play]').first().click()
-    const frames = await settling
-    const paused = await wave()
-    const between = new Set(frames.filter((one) => one.replace(/\|/g, '') !== '')).size
-    check('the audio tile\'s waveform moves with the sound, still when paused', new Set(moving).size > 3 && paused.replace(/\|/g, '') === '', `${new Set(moving).size} shapes; paused "${paused}"`)
-    check('and on pause it eases back to the mark over several frames, not in one jump', between >= 3, `${between} in-between shapes`)
-  } else console.log('NOTE  no recording in the sandbox: the moving waveform is not checked here')
+    for (let i = 0; i < 8; i++) (moving.push(await at()), await wait(90))
+    await h.locator('[data-media] [data-sound-play]').first().click(); await wait(200)
+    const paused = await at(); await wait(400)
+    check('the audio tile plays in place, its ink moving along its waveform, still when paused', new Set(moving).size > 3 && paused === (await at()), `${new Set(moving).size} places; paused at ${paused}`)
+  } else console.log('NOTE  no recording in the sandbox: the playing tile is not checked here')
 
   if (process.env.SHOTS) {
     await c.go('settings'); await h.locator('[data-reader-card]').scrollIntoViewIfNeeded(); await wait(1500)

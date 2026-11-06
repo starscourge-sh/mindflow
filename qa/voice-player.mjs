@@ -81,6 +81,8 @@ try {
   await page.click('[data-shot="record"]')
   await page.waitForSelector('[data-voice-recorder]', { timeout: 6000 }).catch(() => {})
   await wait(500)
+  // The first bar: Chromium's stand-in microphone beeps once a second.
+  for (let i = 0; i < 15 && !((await barState(page, '.ProseMirror'))?.inked > 0); i += 1) await wait(100)
   const grow = await page.evaluate(() => window.__clips)
   const inset = (one) => { const m = one?.clip.match(/inset\(0px ([\d.]+)px 0px ([\d.]+)px/); return m ? { right: Number(m[1]), left: Number(m[2]) } : null }
   const first = inset(grow[0])
@@ -148,6 +150,15 @@ try {
   await h.keyboard.press(' '); await wait(200)
   const note = await playerState(h, sel)
   check('no stock slider and no volume button', note.stock === 0 && note.volume === 0, JSON.stringify(note))
+
+  // A press on the player between its controls picks the block, as any block: then ⌫ takes it away and ⌘Z brings it back.
+  const count = () => h.evaluate((sel) => document.querySelectorAll(`${sel} [data-sound-player]`).length, EDITOR)
+  await h.click(`${sel} .mf-sound-name`); await wait(300)
+  const picked = await h.evaluate((sel) => { const { selection } = document.querySelector(sel).editor.state; return selection.node?.type.name ?? null }, EDITOR)
+  await h.keyboard.press('Backspace'); await wait(300)
+  const gone = await count()
+  await h.keyboard.press('Meta+z'); await wait(400)
+  check('a press on its name picks the recording; ⌫ removes it and ⌘Z brings it back', picked === 'attachment' && gone === 1 && (await count()) === 2, JSON.stringify({ picked, gone, back: await count() }))
 
   // 4. A note's own recorder floats at the bottom, centred on the note, clear of the line written into, in a long
   // note too, written at its very end.

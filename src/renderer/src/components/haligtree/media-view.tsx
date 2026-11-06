@@ -219,7 +219,8 @@ function Face({ one, cover }: { one: Media; cover?: string }): React.JSX.Element
 /** A recording: plays where it sits, without opening its note, in the one sound player every recording wears. */
 function AudioFace({ one }: { one: Media }): React.JSX.Element {
   return (
-    <span className="flex size-full items-center px-4">
+    // Played where it sits: a press anywhere on it is the player's, never the tile's (which opens the note).
+    <span className="flex size-full items-center px-4" onClick={(event) => event.stopPropagation()}>
       <SoundPlayer src={one.src} className="w-full" />
     </span>
   )

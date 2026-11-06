@@ -136,8 +136,8 @@ try {
       heights: [...new Set(rows.map((el) => Math.round(el.getBoundingClientRect().height)))],
       lastBottom: Math.round(last.bottom), foot: Math.round(foot),
       gaps: rows.slice(1).map((el, i) => Math.round(el.getBoundingClientRect().top - rows[i].getBoundingClientRect().bottom)),
-      speedShown: rows.filter((el) => shown(el.querySelector('.tiptap-media-speed'))).length,
-      words: rows.filter((el) => shown(el.querySelector('[data-no-words="row"]'))).length,
+      speedShown: rows.filter((el) => { const one = el.querySelector('.tiptap-media-speed'); return shown(one) && getComputedStyle(one).visibility !== 'hidden' }).length,
+      words: rows.filter((el) => shown(el.querySelector('[data-no-words="row"], [data-no-words]'))).length,
       cut: rows.filter((el) => { const n = el.querySelector('.tiptap-attachment-name'); return n.scrollWidth > n.clientWidth + 1 }).length,
       spill: rows.filter((el) => { const edge = el.querySelector('.tiptap-attachment-card').getBoundingClientRect().right; return [...el.querySelectorAll('.tiptap-attachment-card *')].some((k) => k.getBoundingClientRect().width && k.getBoundingClientRect().right > edge + 1) }).length
     }

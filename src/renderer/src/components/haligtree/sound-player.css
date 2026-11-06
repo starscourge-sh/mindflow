@@ -10,6 +10,7 @@
   min-width: 0;
   color: var(--foreground);
   user-select: none;
+  container-type: inline-size;
 }
 
 .mf-sound-play {
@@ -113,3 +114,8 @@
 @keyframes mf-sound-in { from { opacity: 0; } }
 :root[data-motion='off'] .mf-sound *, :root[data-motion='off'] .mf-sound *::before { animation: none !important; transition: none !important; }
 @media (prefers-reduced-motion: reduce) { .mf-sound *, .mf-sound *::before { animation: none !important; transition: none !important; } }
+/* Short of room, "No transcript" is cut, never the "Transcribe" you press. */
+.mf-sound-status [data-no-words] > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.mf-sound-status [data-no-words] > :not(:first-child) { flex: none; }
+/* Narrow (a phone, a stack of them), "Transcribe" alone says it: no "No transcript ·" cut to "N…" before it. */
+@container (max-width: 30rem) { .mf-sound-status [data-no-words] > :not(button) { display: none; } }

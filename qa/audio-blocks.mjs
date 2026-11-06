@@ -77,13 +77,14 @@ try {
   check('two recordings kept, each with its true length (within 0.3s of the sound decoded)', kept.length === 2 && kept.every((one, at) => one.duration > 1 && Math.abs(one.duration - decoded[at]) < 0.3), JSON.stringify(kept.map((one, at) => [one.name, one.duration, decoded[at]])))
   const first = await h.evaluate((sel) => {
     const block = document.querySelector(`${sel} .tiptap-attachment.is-audio`)
-    return { total: block.querySelector('.tiptap-media-total').textContent, max: Number(block.querySelector('input[type=range]').max), own: block.querySelector('audio').duration }
+    return { total: block.querySelector('[data-sound-time]').textContent, max: Number(block.querySelector('[data-sound-player]').dataset.length), own: block.querySelector('audio').duration }
   }, EDITOR)
-  check('before play, the bar and the time use the whole length', Math.abs(first.max - kept[0].duration) < 0.05 && first.total.trim() === `/ 0:0${Math.floor(kept[0].duration)}`, JSON.stringify(first))
+  check('before play, the bar and the time use the whole length', Math.abs(first.max - kept[0].duration) < 0.05 && first.total.trim() === `0:0${Math.floor(kept[0].duration)}`, JSON.stringify(first))
   // Played, sampled: the share done against the time passed is a straight line.
   const samples = await h.evaluate(async (sel) => {
     const block = document.querySelector(`${sel} .tiptap-attachment.is-audio`)
-    const input = block.querySelector('input[type=range]')
+    const wave = block.querySelector('[data-wave]')
+    const input = { get value() { return Number(wave.dataset.at) }, max: 1 }
     block.querySelector('audio').muted = true
     block.querySelector('.tiptap-media-play').click()
     const out = []
@@ -108,7 +109,7 @@ try {
     const block = document.querySelector(`${sel} .tiptap-attachment.is-audio`)
     let duration = null
     document.querySelector(sel).editor.state.doc.descendants((node) => void (node.type.name === 'attachment' && (duration = node.attrs.duration)))
-    return { duration, total: block.querySelector('.tiptap-media-total').textContent, max: Number(block.querySelector('input[type=range]').max), at: block.querySelector('audio').currentTime }
+    return { duration, total: block.querySelector('[data-sound-time]').textContent, max: Number(block.querySelector('[data-sound-player]').dataset.length), at: block.querySelector('audio').currentTime }
   }, EDITOR)
   check('one without a length finds it before play, keeps it, and starts at 0:00', Math.abs(learnt.duration - kept[0].duration) < 0.3 && Math.abs(learnt.max - learnt.duration) < 0.05 && learnt.at === 0, JSON.stringify(learnt))
   await c.send('article', id); await wait(1400)
@@ -117,7 +118,7 @@ try {
   await caretTo('Before')
   const [a, b] = await blocks()
   const titles = await h.evaluate((sel) => [...document.querySelectorAll(`${sel} .tiptap-attachment.is-audio`)].map((el) => el.querySelector('.tiptap-attachment-card')?.innerText.replace(/\s+/g, ' ').trim()), EDITOR)
-  check('each recording is named by its length, with no file kind or size', titles.length === 2 && titles.every((one) => /^Voice note · 0:0\d/.test(one) && !/m4a|weba|KB|MB/i.test(one)), JSON.stringify(titles))
+  check('each recording is named "Voice note" with its length on the right, with no file kind or size', titles.length === 2 && titles.every((one) => /0:0\d/.test(one) && /Voice note/.test(one) && !/m4a|weba|KB|MB/i.test(one)), JSON.stringify(titles))
   await h.mouse.move((b.left + b.right) / 2 - 150, (b.top + b.bottom) / 2); await wait(400)
   let now = await bars()
   check('hovering a recording shows no toolbar', now.length === 0, JSON.stringify(now))
@@ -213,7 +214,7 @@ try {
     const state = () => page.evaluate((sel) => ({
       bars: [...document.querySelectorAll(`${sel} [data-media-toolbar] .tiptap-toolbar`)].map((el) => { const r = el.getBoundingClientRect(); return { top: r.top, bottom: r.bottom, owner: [...document.querySelectorAll(`${sel} .tiptap-attachment`)].indexOf(el.closest('.tiptap-attachment')) } }),
       blocks: [...document.querySelectorAll(`${sel} .tiptap-attachment`)].map((el) => { const r = el.getBoundingClientRect(); return { top: r.top, bottom: r.bottom, picked: el.classList.contains('is-selected') } }),
-      total: document.querySelector(`${sel} .tiptap-media-total`)?.textContent,
+      total: document.querySelector(`${sel} [data-sound-time]`)?.textContent,
     }), sel)
     await page.evaluate((sel) => {
       const editor = document.querySelector(sel).editor
@@ -223,7 +224,7 @@ try {
     }, sel)
     await page.waitForTimeout(400)
     let now = await state()
-    check(`${label}: second picked, no toolbar, length shown`, now.bars.length === 0 && now.total?.trim() === `/ 0:0${Math.floor(kept[0].duration)}`, JSON.stringify(now))
+    check(`${label}: second picked, no toolbar, length shown`, now.bars.length === 0 && now.total?.trim() === `0:0${Math.floor(kept[0].duration)}`, JSON.stringify(now))
     await page.screenshot({ path: `${shots}/audio-blocks-${label.replace(/\W+/g, '-')}.png` })
     await page.evaluate((sel) => document.querySelector(sel).editor.chain().focus('start').run(), sel)
     await page.waitForTimeout(400)

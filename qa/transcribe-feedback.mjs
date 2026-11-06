@@ -37,7 +37,7 @@ try {
   await h.evaluate(() => { window.__waits = []; window.addEventListener('haligtree:beam-wait', (event) => window.__waits.push(event.detail)) })
   await h.click(`${EDITOR} .tiptap-attachment.is-audio .tiptap-attachment-name`, { button: 'right', force: true }); await wait(500)
   await h.click('.tiptap-block-menu [data-transcribe]')
-  await h.waitForSelector('[data-no-words=under] .tiptap-attachment-listening', { timeout: 4000 }).catch(() => {})
+  await h.waitForSelector('[data-no-words] .tiptap-attachment-listening', { timeout: 4000 }).catch(() => {})
   const line = () => h.evaluate(() => [...document.querySelectorAll('.tiptap-attachment-listening')].find((one) => one.offsetParent)?.querySelector('.mf-shimmer')?.textContent.trim() ?? '')
   const first = await line()
   await wait(2600)
