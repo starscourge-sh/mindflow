@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Editor, JSONContent } from '@tiptap/core'
-import { Copy, FolderInput, Link2, UserRoundPlus, X } from 'lucide-react'
+import { Copy, FolderInput, Link2, Sparkles, UserRoundPlus, X } from 'lucide-react'
 
 import { call, haligtree } from '@/lib/haligtree'
 import { follow } from '@/lib/capture-links'
@@ -8,6 +8,8 @@ import { moveToBin } from '@/lib/to-bin'
 import { sources } from '@/lib/sources'
 import { chime } from '@/lib/sound'
 import { toast } from './ui'
+import { nameFor } from './ai-offers'
+import { useHas } from '@/lib/needs'
 import type { NoteOffers as Offers } from '../../../../main/offers'
 
 /**
@@ -26,8 +28,16 @@ type Offer =
   | { kind: 'folder'; id: string; name: string }
   | { kind: 'link'; key: string; title: string; words: string }
   | { kind: 'person'; name: string; known: boolean }
+  | { kind: 'name'; name: string }
 
-const idOf = (offer: Offer): string => `${offer.kind}:${'key' in offer ? offer.key : 'id' in offer ? offer.id : offer.name}`
+const idOf = (offer: Offer): string => (offer.kind === 'name' ? 'name' : `${offer.kind}:${'key' in offer ? offer.key : 'id' in offer ? offer.id : offer.name}`)
+
+/** A note with no name of its own: no words in its first block (a picture, a recording) or a whole paragraph for a first line. */
+const unnamed = (editor: Editor): boolean => {
+  const first = editor.state.doc.firstChild
+  const line = first?.isTextblock ? first.textContent.trim() : ''
+  return !line || line.length > 80
+}
 const SEEN = 'note-offers:dismissed'
 const dismissed = (): Set<string> => {
   try {
@@ -74,6 +84,9 @@ export function NoteOffers({ table, id, editor, onOpen }: { table: 'captures' | 
   const [on, setOn] = useState(true)
   const key = table === 'captures' ? id : null
   const asked = useRef(0)
+  const canName = useRef(false)
+  canName.current = useHas('ai')
+  const named = useRef<string | null>(null)
   useEffect(() => void haligtree.settings().then((settings) => setOn(settings.noteOffers !== false)), [])
   useEffect(() => {
     if (!editor || !on) return
@@ -93,6 +106,12 @@ export function NoteOffers({ table, id, editor, onOpen }: { table: 'captures' | 
         ...found.links.map((one) => ({ kind: 'link' as const, ...one })),
         ...found.people.filter((one) => !linksIn(editor).includes(`person:${one.name}`)).map((one) => ({ kind: 'person' as const, ...one })),
       ]
+      // Apple Intelligence, where the Mac has it: a name for a note that has none (ai-offers.tsx).
+      // A note without a name is offered one first: it is how the note is found again.
+      if (canName.current && unnamed(editor) && !gone.has(`${own}|name`)) {
+        named.current ??= await nameFor(text)
+        if (named.current && live && turn === asked.current) all.unshift({ kind: 'name', name: named.current })
+      }
       setOffer(all.find((one) => !gone.has(`${own}|${idOf(one)}`)) ?? null)
       ownKey.current = own
     }
@@ -157,6 +176,16 @@ export function NoteOffers({ table, id, editor, onOpen }: { table: 'captures' | 
       if (linkWords(editor, offer.words, offer.key, offer.title)) (chime('noted'), toast(`Linked “${offer.title}”`, () => editor.commands.undo()))
       done()
     } }]
+  } else if (offer.kind === 'name') {
+    icon = <Sparkles className="size-4" />
+    lead = `Name it “${offer.name}”?`
+    rest = 'Written on this Mac by Apple Intelligence, from its words.'
+    actions = [{ label: 'Use this name', data: 'name', run: () => {
+      editor.chain().focus().insertContentAt(0, { type: 'heading', attrs: { level: 1 }, content: [{ type: 'text', text: offer.name }] }).run()
+      chime('noted')
+      toast(`Named “${offer.name}”`, () => editor.commands.undo())
+      done()
+    } }]
   } else {
     icon = <UserRoundPlus className="size-4" />
     lead = `${offer.name} is named here.`
@@ -170,7 +199,7 @@ export function NoteOffers({ table, id, editor, onOpen }: { table: 'captures' | 
     } }]
   }
   return (
-    <div data-note-offer={offer.kind} contentEditable={false} className="mf-note-offer not-prose">
+    <div data-note-offer={offer.kind} data-mac-needs={offer.kind === 'name' ? 'ai' : 'every'} contentEditable={false} className="mf-note-offer not-prose">
       <span aria-hidden className="mf-note-offer-icon">{icon}</span>
       <span className="min-w-0 flex-1"><b className="font-medium text-foreground">{lead}</b> {rest}</span>
       {actions.map((one) => (

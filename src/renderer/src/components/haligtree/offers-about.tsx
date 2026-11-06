@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { WhyLine } from './ai-offers'
 import { BookOpen, X } from 'lucide-react'
 
 import { call, haligtree } from '@/lib/haligtree'
@@ -51,7 +52,10 @@ export function QuestionClues({ id, title, onOpen }: { id: string; title: string
       <ul className="mt-1.5 flex flex-col gap-1">
         {list.map((one) => (
           <li key={one.key} data-offer-clue={one.key} className="flex items-center gap-2">
-            <button type="button" className="min-w-0 flex-1 cursor-pointer truncate rounded-sm text-left text-body text-foreground hover:underline" onClick={() => (chime('open'), follow(one.key, onOpen))}>{one.title}</button>
+            <span className="flex min-w-0 flex-1 flex-col">
+              <button type="button" className="cursor-pointer truncate rounded-sm text-left text-body text-foreground hover:underline" onClick={() => (chime('open'), follow(one.key, onOpen))}>{one.title}</button>
+              <WhyLine question={title} note={`${one.title}. ${one.words}`} />
+            </span>
             <button type="button" data-offer-keep className="mf-note-offer-button" onClick={() => void haligtree.addClue(id, `${one.title}: ${one.words}`).then((clue) => (chime('clue'), putAway(`${id}|${one.key}`), setShown(gone()), toast('Kept as a clue', clue ? () => void haligtree.dropClue(clue) : undefined)))}>Keep as a clue</button>
             <button type="button" aria-label="Not it" title="Not it" className="mf-note-offer-close" onClick={() => (chime('fold'), putAway(`${id}|${one.key}`), setShown(gone()))}><X className="size-3.5" /></button>
           </li>
