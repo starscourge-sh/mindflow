@@ -614,7 +614,8 @@ export const SpellSample = ({ on, words }: { on: boolean; words: string }): Reac
 /** A line with a date in it: on, the date is lit and its day said under it; off, plain words. */
 export const DatesSample = ({ on }: { on: boolean }): React.JSX.Element => (
   <span data-preview="dates-lit" data-on={on || undefined} className="flex h-9 w-40 items-center justify-center rounded-md border bg-background px-2 text-control text-foreground">
-    Essay due <span className={`ml-1 transition-colors duration-200 ${on ? 'mf-date-word' : ''}`}>Friday 3pm</span>
+    {/* One run of words: as two flex items, the space between them was dropped ("dueFriday"). */}
+    <span>Essay due <span className={`transition-colors duration-200 ${on ? 'mf-date-word' : ''}`}>Friday 3pm</span></span>
   </span>
 )
 
