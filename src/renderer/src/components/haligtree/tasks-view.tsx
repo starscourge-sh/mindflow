@@ -556,7 +556,7 @@ export const giveLength = (task: Task, minutes: number | null): void => {
   })
 }
 
-export function taskMenu(task: Task, { open, complete = () => void completeTask(task), move = moveTo, frog, now, thought }: {
+export function taskMenu(task: Task, { open, complete = () => void completeTask(task), move = moveTo, frog, now, thought, binKey = true }: {
   open: () => void
   /** Opens the list's own line for a thought on it, where the list has one (the button that shows on pointing, or ;). */
   thought?: () => void
@@ -566,6 +566,8 @@ export function taskMenu(task: Task, { open, complete = () => void completeTask(
   frog?: string | null
   /** The running session and the frog, from `useTaskNow`. */
   now?: TaskNow
+  /** Whether ⌫ moves the row to the Bin where this menu is shown: never promised where it does not (a page you write in). */
+  binKey?: boolean
 }): RowItem[] {
   const first = frog !== undefined ? frog : now?.frog
   const running = now?.focus && now.focus.taskId === task.id ? now.focus : null
@@ -618,9 +620,9 @@ export function taskMenu(task: Task, { open, complete = () => void completeTask(
     'separator',
     // Said as every list says it, so a task picked with ⌘A reads the same as a note: ⌫ does it.
     open_ && toNoteItem([task.id]),
-    open_ && { label: 'Move to the Bin', hint: 'Closed without doing; it can come back', keys: '⌫', danger: true, run: () => closeTask(task.id) },
+    open_ && { label: 'Move to the Bin', hint: 'Closed without doing; it can come back', keys: binKey ? '⌫' : undefined, danger: true, run: () => closeTask(task.id) },
     // A done one too: off the list and out of what counts as done, coming back done at its own time with Undo.
-    task.status === 'done' && { label: 'Move to the Bin', hint: 'No longer counted as done; it can come back', keys: '⌫', danger: true, run: () => void moveToBin([{ type: 'task', id: task.id, status: 'done' }]) }
+    task.status === 'done' && { label: 'Move to the Bin', hint: 'No longer counted as done; it can come back', keys: binKey ? '⌫' : undefined, danger: true, run: () => void moveToBin([{ type: 'task', id: task.id, status: 'done' }]) }
   ]
 }
 

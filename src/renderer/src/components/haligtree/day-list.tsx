@@ -511,6 +511,8 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
       rename(task, text, link)
       // From the start of a line with words, a new line above it, as in any editor.
       if (line.caret().start && text.trim()) return (setDraft({ section, after: list[at - 1]?.id ?? null, text: '' }), go('draft'), true)
+      // A line with steps: its first step, right under it, as an outliner does.
+      if (task.subtasks?.length) return (setDraft({ section, after: task.id, parent: { id: task.id, at: 0 }, text: '' }), go('draft'), true)
       if (!list[at + 1]) return (go(`new:${section}`), true)
       setDraft({ section, after: task.id, text: '' })
       return (go('draft'), true)
@@ -542,7 +544,8 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
         return (go('draft'), true)
       }
       renameStep(parent, n, text)
-      setDraft({ section, after: parent.id, parent: { id: parent.id, at: n + 1 }, text: '' })
+      // From the start of its words, a new step above it, as a line does.
+      setDraft({ section, after: parent.id, parent: { id: parent.id, at: line.caret().start ? n : n + 1 }, text: '' })
       return (go('draft'), true)
     }
     if (event.key === 'Backspace' && line.caret().start && !text) {
@@ -778,7 +781,7 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
       <RowMenu writes items={writtenMenu(section, 'draft', after, draft?.parent)}>
         {/* At the depth it is written at: a step's place and size under a line, a line's at the top. */}
         <div className={depth ? 'flex items-start gap-2 py-0.5 pl-12' : 'flex items-start gap-2.5 py-1 pl-6'}>
-          <span aria-hidden className={`mt-[0.2rem] shrink-0 rounded-full border-[1.5px] border-dashed border-muted-foreground/50 ${depth ? 'size-3.5' : 'size-[1.0625rem]'}`} />
+          <span aria-hidden className={`${depth ? 'mt-[0.36rem] size-3.5' : 'mt-[0.2rem] size-[1.0625rem]'} shrink-0 rounded-full border-[1.5px] border-dashed border-muted-foreground/50`} />
           <DayLine lineKey="draft" register={field('draft')} value={draft?.text ?? ''} label="A new line" attrs={{ 'data-draft': depth ? 'step' : 'line' }}
             onKey={draftKeys(section, 'draft', after, draft?.parent)}
             onPaste={(text) => !draft?.parent && pasteLines(section, text, after())}
@@ -815,7 +818,7 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
           {/* Where it can go first, each with its key once the line is picked (Esc). */}
           <RowMenu writes items={(() => {
             const open = (): void => (chime('open'), onOpenTask ? onOpenTask(task.id) : window.api.openInHome('task', task.id))
-            return [...sendItems(task, section, open), ...taskMenu(task, { open, complete: () => tick(task), now: taskNow })]
+            return [...(task.status === 'open' ? [{ label: 'Add a step', hint: 'Something to do as part of it', run: () => (setDraft({ section, after: task.id, parent: { id: task.id, at: task.subtasks?.length ?? 0 }, text: '' }), go('draft')) }, 'separator' as const] : []), ...sendItems(task, section, open), ...taskMenu(task, { open, complete: () => tick(task), now: taskNow, binKey: false })]
           })()}>
           <div className="flex items-start gap-2.5 py-1 pr-1">
             {/* A new line straight under this one, as the "+" beside a note's handle makes a block: what Enter at its end does. */}
@@ -883,6 +886,12 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
                     <button type="button" aria-label="Into today" onClick={() => void bring([task])} className="flex h-6 items-center gap-1 rounded-md px-1.5 text-control text-muted-foreground hover:bg-accent hover:text-foreground"><ArrowUpLeft className="size-3.5" />Today</button>
                   </Tip>
                 )}
+                <Tip label="Move to the Bin">
+                  <button type="button" data-line-bin={task.id} aria-label={`Move ${task.title} to the Bin`} onClick={binItem([{ type: 'task', id: task.id, status: task.status }]).run}
+                    className="grid size-6 shrink-0 cursor-pointer place-items-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground">
+                    <Trash2 className="size-3.5" />
+                  </button>
+                </Tip>
                 {/* Everything else about it (a day, a time, notes, how it repeats) is in its panel. */}
                 {onOpenTask && (
                   <Tip label="Open it: day, time, notes and more">
@@ -910,7 +919,7 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
               {!struck && <AddBelow label="Add a step below" className="top-[0.15rem] left-[0.25rem] group-hover/step:opacity-60" onAdd={() => (setDraft({ section, after: task.id, parent: { id: task.id, at: n + 1 }, text: '' }), go('draft'))} />}
               {!struck && <span data-grip title="Click for its menu" onClick={openFromGrip} className="absolute top-[0.3rem] left-[1.75rem] cursor-pointer"><GripVertical aria-hidden className="size-3 text-muted-foreground opacity-0 transition-opacity group-hover/step:opacity-60" /></span>}
               <button type="button" role="checkbox" aria-checked={one.done} aria-label={one.text} onClick={() => tickStep(task, n)}
-                className="relative after:absolute after:-inset-[5px] after:rounded-full mt-[0.2rem] grid size-3.5 shrink-0 place-items-center rounded-full border-[1.5px] transition-colors"
+                className="relative after:absolute after:-inset-[5px] after:rounded-full mt-[0.36rem] grid size-3.5 shrink-0 place-items-center rounded-full border-[1.5px] transition-colors"
                 style={{ borderColor: one.done ? 'var(--tt-color-text-green)' : 'color-mix(in oklab, var(--muted-foreground) 65%, transparent)', background: one.done ? 'var(--tt-color-text-green)' : undefined }}>
                 {one.done && <Tick seed={`${task.id}:${n}`} className="size-2 text-white" />}
               </button>
