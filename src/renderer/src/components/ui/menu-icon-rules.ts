@@ -1,5 +1,5 @@
 import {
-  AlarmClock, AppWindow, Archive, ArchiveRestore, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, ArrowUpDown, Ban, Bell, Braces, BookCopy, BookOpen, Bookmark, Brain, Calendar,
+  AlarmClock, AppWindow, BellOff, Archive, ArchiveRestore, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, ArrowUpDown, Ban, Bell, Braces, BookCopy, BookOpen, Bookmark, Brain, Calendar,
   CalendarClock, CalendarDays, CalendarPlus, CalendarX, Camera, CameraOff, ChartBar, CheckCheck, ChevronsDownUp, ChevronsUpDown, CircleCheck, CircleOff,
   CircleX, Clipboard, Clock, Folder, Columns2, Copy, CopyPlus, Dice5, DoorOpen, Dot, Download, Eraser, ExternalLink, Eye, EyeOff, FilePlus, FileText, Files, Flag,
   FolderInput, FolderMinus, FolderPlus, Footprints, Gift, GraduationCap, Hash, History, Hourglass, House, Image, Inbox, Keyboard, LayoutGrid,
@@ -22,6 +22,13 @@ const RULES: [RegExp, LucideIcon][] = [
   [/^(give me a hint|a stronger hint)$/i, Lightbulb],
   [/^five cards from (this chapter|these pages)$/i, Sparkles],
   [/^continuous scroll/i, GalleryVertical],
+  // A task in your Mac's Reminders.
+  [/^add to reminders$/i, Bell],
+  [/^take out of reminders$/i, BellOff],
+  // The offers under a note (note-offers.tsx), named as their lines are.
+  [/^you already wrote this/i, Copy],
+  [/^join them$/i, Layers],
+  [/^link it$/i, Link],
   [/^single page$/i, FileIcon],
   [/^two pages$/i, BookOpen],
   [/^paper pages$/i, ScrollText],
