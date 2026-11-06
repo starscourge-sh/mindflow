@@ -1,6 +1,8 @@
+import { animatingRound, whileChanging } from './while-changing'
+
 /**
  * Real glass, Raycast's way (main/glass.ts, native/glass.mm): the Mac's blur of the desktop under the shapes this page
- * draws on it, and nowhere else in its window. Each frame the window is on screen, the shapes `parts` names (their
+ * draws on it, and nowhere else in its window. Each frame anything on the page moves, the shapes `parts` names (their
  * boxes and rounded corners) are measured and told to main, only when they changed. None while `off` says so (Reduce
  * Transparency, a solid look, nothing to show), and every surface is opaque then: the page's CSS reads data-glass
  * ("dark" or "light", by the page's own colour, not a class: a theme like Paper is light whatever the Mac's look).
@@ -37,20 +39,23 @@ export function followGlass(parts: () => (Element | null)[], off: () => boolean 
       return [r.left, r.top, r.width, r.height, Math.min(parseFloat(getComputedStyle(el).borderTopLeftRadius) || 0, r.height / 2)].map((n) => Math.round(n * 10) / 10)
     }).filter((one) => one[2] > 1 && one[3] > 1)
   }
+  // Measured each frame only while something can move them (lib/while-changing.ts): at rest no frame is asked for.
   let sent = ''
-  const frame = (): void => {
+  whileChanging(() => {
     const shapes = shapesNow()
     const dark = pageIsDark()
+    // Set only when it changes: setting an attribute is a change to the page even to the same value.
+    const look = shapes.length ? (dark ? 'dark' : 'light') : undefined
+    if (root.dataset.glass !== look) {
+      if (look) root.dataset.glass = look
+      else delete root.dataset.glass
+    }
     // The window's size too: main draws the glass's mask at the window's size, so a window grown or shrunk round the
     // same shapes (room below for a menu) needs them told again, or the mask is left at the old size.
     const said = JSON.stringify([dark, shapes, innerWidth, innerHeight])
-    if (said !== sent) {
-      sent = said
-      window.api.glass(dark, shapes)
-    }
-    if (shapes.length) root.dataset.glass = dark ? 'dark' : 'light'
-    else delete root.dataset.glass
-    requestAnimationFrame(frame)
-  }
-  requestAnimationFrame(frame)
+    if (said === sent) return false
+    sent = said
+    window.api.glass(dark, shapes)
+    return true
+  }, () => animatingRound(parts()))
 }

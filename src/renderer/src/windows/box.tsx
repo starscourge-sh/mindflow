@@ -12,6 +12,7 @@ import App from '../App'
 import { start } from '../main'
 import { clearRoom } from '../lib/clear-room'
 import { followGlass } from '../lib/glass'
+import { whileChanging } from '../lib/while-changing'
 
 start(<App />)
 // Quick capture is a card inside a larger see-through window (main's overhang): the page draws the card inside
@@ -166,13 +167,17 @@ if (window.api.room.left) {
   let was: DOMRect[] = []
   let shapeWas = ''
   const shapeNow = (): string => (document.querySelector('.app-container[data-pill]') ? 'pill' : 'box')
-  const keep = (): void => {
+  // Kept only while the page changes (lib/while-changing.ts), not every frame at rest. Its own watch below is made
+  // after this one, so on the change to data-pill it reads `was` before the next frame keeps the new places.
+  whileChanging(() => {
     const now = buttons()
     if (now.length && !shapeWas) shapeWas = shapeNow()
-    if (shapeNow() === shapeWas && !now.some((one) => one.getAnimations().length)) was = now.map((one) => one.getBoundingClientRect())
-    requestAnimationFrame(keep)
-  }
-  keep()
+    if (shapeNow() !== shapeWas || now.some((one) => one.getAnimations().length)) return true
+    const places = now.map((one) => one.getBoundingClientRect())
+    const moved = places.length !== was.length || places.some((r, i) => r.x !== was[i].x || r.y !== was[i].y || r.width !== was[i].width || r.height !== was[i].height)
+    was = places
+    return moved
+  }, () => buttons().some((one) => one.getAnimations().length > 0))
   new MutationObserver(() => {
     const shape = shapeNow()
     if (!shapeWas || shape === shapeWas) return
