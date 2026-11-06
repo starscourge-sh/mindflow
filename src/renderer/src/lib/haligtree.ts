@@ -379,7 +379,7 @@ export const haligtree = {
   dueCount: () => call<number>('review:counts'),
   /** How many of today's cards are new ones, counted from today's queue. */
   newToday: () => call<number>('review:new-today'),
-  grade: (id: string, grade: 1 | 2 | 3 | 4, ms: number) => call<string>('review:grade', id, grade, ms),
+  grade: (id: string, grade: 1 | 2 | 3 | 4, ms: number, hints = 0) => call<string>('review:grade', id, grade, ms, hints),
   tasks: () => call<Task[]>('tasks'),
   /** A note hidden until a day ("2026-11-03"), or shown again (null). */
   snoozeCapture: (id: string, day: string | null) => call<boolean>('capture:snooze', id, day),

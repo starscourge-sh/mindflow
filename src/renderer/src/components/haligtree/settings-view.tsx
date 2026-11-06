@@ -1,3 +1,4 @@
+import { lacks, meets, useCaps } from '@/lib/needs'
 import { calendar } from '@/lib/mac-calendar'
 import { SidePeek } from './page-peeks'
 import { HabitList } from './habits'
@@ -1161,6 +1162,7 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
             below={<Choices label="Cards made while reading" options={readCardChoices} on={(id) => id === (settings.readCards ?? 'study')} pick={(id) => set({ readCards: id as 'study' | 'gem' })} />} />
           <Setting title="Grades" note="How you answer once a card is turned over." more="Four out of the box, as Anki shows them. Two is what many people end up using: Forgot when you hesitated at all, Got it when it came. With two, the keys 2 and 4 still give Hard and Easy, as in Anki." keywords="grade buttons again hard good easy forgot got it two four anki"
             below={<Choices label="Grades" options={gradeChoices} on={(id) => id === String(settings.grades ?? 4)} pick={(id) => set({ grades: Number(id) as 2 | 4 })} />} />
+          <StudyAiSetting on={settings.aiStudy !== false} set={(aiStudy) => set({ aiStudy })} />
           <Setting title="Review reminder" note="A reminder at the time you pick, when cards are due." more="A small card in the corner, like “12 cards, about 6 minutes” (a Mac notification when the screen is locked). Clicking it opens Review. Once a day, never in quiet hours or safe mode. Miss a day and nothing is owed: the cards wait." keywords="review reminder notification study time daily">
             {settings.reviewReminder && (
               <TimeField label="Reminder time" value={settings.reviewReminder} onChange={(reviewReminder) => set({ reviewReminder })} />
@@ -2357,5 +2359,24 @@ function FinishSample({ look }: { look: Settings['reviewFinish'] }): React.JSX.E
       <span className="mf-pile w-9"><span className="mf-pile-room" /><span className="mf-pile-card mf-pile-edge" style={{ '--n': 1 } as React.CSSProperties} /><span className="mf-pile-top mf-metal" /></span>
       <span data-finish-face className="h-9 w-12 rounded-[6px] border" />
     </span>
+  )
+}
+
+/**
+ * Apple Intelligence in Review and the reader: one switch for all three. On a
+ * Mac without it, said once in place of the switch, never a dead control.
+ */
+function StudyAiSetting({ on, set }: { on: boolean; set: (on: boolean) => void }): React.JSX.Element {
+  const caps = useCaps()
+  const has = meets(caps, 'ai')
+  return (
+    <div data-mac-needs="ai" data-mac-lacking={has ? undefined : ''}>
+      <Setting title="Apple Intelligence in Review" note="Typed answers checked by what they mean, a hint when you are stuck (H), and five cards from a chapter in the reader."
+        more={has ? 'On this Mac, with nothing sent anywhere. It only ever suggests: the grade is yours, a hint is never the answer, and no card is made until you keep it.' : undefined}
+        keywords="apple intelligence ai meaning hint cards chapter typed answer check foundation model"
+        off={has ? undefined : lacks(caps, 'ai')}>
+        {has && <Switch aria-label="Apple Intelligence in Review" checked={on} onCheckedChange={set} />}
+      </Setting>
+    </div>
   )
 }

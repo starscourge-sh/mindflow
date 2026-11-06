@@ -23,6 +23,7 @@ import { celebrateAfter, goalPassed, watches, type MomentKind } from './celebrat
 import type { MomentSource } from './moment-source'
 import { keepPins, warmGiphy } from './giphy'
 import { YEAR, daysBetween, daysLeft, leftSaid } from './goal-days'
+import { hintedGrade } from './study-ai'
 import { LEECH_AT, balancedDay, bucketOf, thingsIn, withinTagLimits, daysInARow, fitFirstDays, minutesFor, shuffleNew, struggling, siblingsOf, burySiblings, type Bucket } from './study'
 import { syncLineCards } from './line-cards'
 import { busy } from './busy'
@@ -606,6 +607,8 @@ const DEFAULTS = {
   macCalendar: false,
   // Your notes in Spotlight (spotlight.ts): on, never private ones; off takes them all out.
   spotlight: true,
+  // Apple Intelligence in Review and the reader (understand.ts): answers checked by meaning, hints, cards from a chapter.
+  aiStudy: true,
   // When the working day ends, for Today's "4 h left today".
   dayEnd: '22:00',
   // About how long a working day is, in hours: a day's meetings and tasks are weighed against it.
@@ -802,6 +805,7 @@ export const pillInNotch = (): boolean => settings().pillSits === 'notch'
 export const sleepChoice = (): Settings['sessionSleep'] => settings().sessionSleep
 /** The focus timer and website blocking on (Settings, Tasks): off, nothing of either is offered. */
 export const spotlightOn = (): boolean => settings().spotlight !== false
+export const aiStudyOn = (): boolean => settings().aiStudy !== false
 export const focusToolsOn = (): boolean => settings().focusTools === true
 /** Whether websites are blocked in a focus round, and which (Settings, “Blocking websites”). */
 export const blockPrefs = (): Pick<Settings, 'siteBlock' | 'blockSites'> => {
@@ -1089,7 +1093,7 @@ export function registerHaligtree(): void {
     );
     create table if not exists task_done (task_id text not null, done_at text not null);
     create table if not exists glosses (id text primary key, item_id text not null, body text not null, author text not null default 'user', created_at text not null);
-    create table if not exists review_log (item_id text not null, grade integer not null, reviewed_at text not null, ms integer, first integer not null default 0);
+    create table if not exists review_log (item_id text not null, grade integer not null, reviewed_at text not null, ms integer, first integer not null default 0, hints integer not null default 0);
     create table if not exists settings (key text primary key, value text not null);
   `)
   // Renamed in place, so what was typed as a source is kept as attribution.
@@ -2851,10 +2855,11 @@ export function registerHaligtree(): void {
     return { done: done.n, left: done.n ? reviewQueue().length : 0, last: done.last }
   })
   // Only a graded review moves a schedule: not opening, not searching.
-  handle('review:grade', (id: string, grade: Grade, ms: number) => {
+  // Hints taken before the answer (Review's "Give me a hint") schedule it a step lower each, never below Hard; the log keeps your own grade and the hints.
+  handle('review:grade', (id: string, grade: Grade, ms: number, hints = 0) => {
     const row = db.prepare(`select ${ITEM}, body, state from nuggets where id = ?`).get(id) as Record<string, unknown> & { state: string | null }
     const before = db.prepare('select state, due_at, edited_since_review from nuggets where id = ?').get(id) as { state: string | null; due_at: string | null; edited_since_review: number }
-    const { card } = scheduler(retentionOf()(row)).next(cardOf(row.state), new Date(), grade)
+    const { card } = scheduler(retentionOf()(row)).next(cardOf(row.state), new Date(), hintedGrade(grade, hints) as Grade)
     // Heavy days spread out: a card coming back in 3 days or more lands on
     // the lightest day near its own, and off a lighter weekday if one is set.
     const days = Math.round((card.due.getTime() - startOfDay()) / 86400000)
@@ -2869,7 +2874,7 @@ export function registerHaligtree(): void {
     db.prepare('update nuggets set state = ?, due_at = ?, edited_since_review = 0 where id = ?').run(JSON.stringify(card), due.toISOString(), id)
     // The example deck's cards are scheduled but never logged: no streak, heatmap or stats of yours counts them.
     const example = String(row.body ?? '').endsWith(`#${EXAMPLE_TAG}"`)
-    const logged = example ? null : db.prepare('insert into review_log (item_id, grade, reviewed_at, ms, first) values (?, ?, ?, ?, ?)').run(id, grade, now(), ms, row.state ? 0 : 1)
+    const logged = example ? null : db.prepare('insert into review_log (item_id, grade, reviewed_at, ms, first, hints) values (?, ?, ?, ?, ?, ?)').run(id, grade, now(), ms, row.state ? 0 : 1, hints)
     keepForUndo(id, logged?.lastInsertRowid ?? null, before)
     return write(due.toISOString())
   })
@@ -4419,6 +4424,8 @@ export function registerHaligtree(): void {
   )
   // A focus session: a goal, an optional length, and pauses that do not count.
   column('sessions', 'goal text')
+  // Hints taken before a card's answer (Review's "Give me a hint"), kept with its grade.
+  column('review_log', 'hints integer not null default 0')
   column('sessions', 'planned_ms integer')
   column('sessions', 'paused_ms integer not null default 0')
   column('sessions', 'paused_at text')

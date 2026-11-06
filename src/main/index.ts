@@ -54,7 +54,7 @@ import { warmEmoji } from './lazy/emoji'
 import { backupBase, backupDir } from './backup'
 import { pageFor } from './pages'
 import { hintRoom, type HintSide } from './hint-room'
-import { activeSession, extendRunning, whenNudge, atLogin, badge, beaconDefault, tuckRules, tempusDots, blurOn, boxAutoHide, boxOneLine, boxPlacement, gate, motionOn, stickyGlass, stickyStir, openGoals, registerHome, registerHaligtree, showStickies, stickyPrefs, stickyTuck, tuckStickies, toggleSafeMode, whenKeys, whenRecordings, whenIcon, appIcon, recordingPrefs, type Recordings, type OpenGoal, whenSafeMode, whenGoals, whenStickies, focusBubbleShown, focusToolsOn, whenFocusShows, pillInNotch, sleepChoice } from './haligtree'
+import { aiStudyOn, activeSession, extendRunning, whenNudge, atLogin, badge, beaconDefault, tuckRules, tempusDots, blurOn, boxAutoHide, boxOneLine, boxPlacement, gate, motionOn, stickyGlass, stickyStir, openGoals, registerHome, registerHaligtree, showStickies, stickyPrefs, stickyTuck, tuckStickies, toggleSafeMode, whenKeys, whenRecordings, whenIcon, appIcon, recordingPrefs, type Recordings, type OpenGoal, whenSafeMode, whenGoals, whenStickies, focusBubbleShown, focusToolsOn, whenFocusShows, pillInNotch, sleepChoice } from './haligtree'
 import { daysLeft, percent, tempus, wayThrough } from './goal-days'
 import { PEEK_OUT_MS, peeksOut, restNow, type Rest } from './goal-tuck'
 import { cursorInBackground, cursorShown, tap, tapKinds, taps } from './haptic'
@@ -80,7 +80,7 @@ import { registerCollect } from './collect'
 import { registerTranscribe } from './transcribe'
 import { Stopped, begin, end as endJob, registerJobs } from './jobs'
 import { registerLabels } from './labels'
-import { registerUnderstand } from './understand'
+import { registerStudyAi, registerUnderstand } from './understand'
 import { registerServices } from './services'
 import { registerSpotlight, SPOTLIGHT_ITEM } from './spotlight'
 import { registerDictation } from './dictation'
@@ -4201,6 +4201,7 @@ app.whenReady().then(() => {
   registerJobs()
   registerLabels()
   registerUnderstand()
+  registerStudyAi(aiStudyOn)
   registerServices()
   registerSpotlight()
   registerDictation()

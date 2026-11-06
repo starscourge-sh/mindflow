@@ -1,7 +1,7 @@
 import { execFile, spawn, type ChildProcessWithoutNullStreams } from 'node:child_process'
 import { app, ipcMain } from 'electron'
 import helper from '../../resources/understand?asset&asarUnpack'
-import { standIn, type Caps } from './needs'
+import { meets, standIn, type Caps } from './needs'
 
 /**
  * What this Mac can do, and the small helper (native/understand.swift) that
@@ -114,4 +114,25 @@ export function registerUnderstand(): void {
   ipcMain.handle('haligtree:translate', (_event, text: unknown, to: unknown) => translate(String(text ?? ''), typeof to === 'string' && to ? to : undefined))
   // Asked now, so the answer is in hand before any page needs it.
   void caps()
+}
+
+/**
+ * Review and reading with Apple Intelligence: an answer checked by what it
+ * means, a hint that is never the answer, cards from a chapter. Only on a Mac
+ * with it turned on, and only while Settings has it on; nothing leaves the Mac.
+ * Every answer is an offer: nothing is graded or made from it unasked.
+ */
+export function registerStudyAi(on: () => boolean): void {
+  const ask = async (op: string, body: Record<string, unknown>): Promise<Answer | { error: string }> => {
+    if (!meets(await caps(), 'ai')) return { error: 'Needs Apple Intelligence' }
+    if (!on()) return { error: 'Apple Intelligence in Review and reading is turned off in Settings' }
+    const said = await understand(op, body)
+    return said.error ? { error: said.error.message } : said
+  }
+  ipcMain.handle('haligtree:ai:judge', (_event, question: unknown, answer: unknown, said: unknown) =>
+    ask('judge', { question: String(question ?? ''), answer: String(answer ?? ''), said: String(said ?? '') }))
+  ipcMain.handle('haligtree:ai:hint', (_event, question: unknown, answer: unknown, level: unknown) =>
+    ask('hint', { question: String(question ?? ''), answer: String(answer ?? ''), level: Number(level) >= 2 ? 2 : 1 }))
+  ipcMain.handle('haligtree:ai:cards', (_event, title: unknown, text: unknown, count: unknown) =>
+    ask('cards', { title: String(title ?? ''), text: String(text ?? ''), count: Math.min(10, Math.max(1, Number(count) || 5)) }))
 }

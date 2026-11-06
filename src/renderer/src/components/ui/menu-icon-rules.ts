@@ -18,6 +18,9 @@ import {
 const RULES: [RegExp, LucideIcon][] = [
   // Lines found falling back to the dot (test/menu-icons.test.ts lists any new ones).
   // The PDF reader's Pages menu: how pages are laid out, and how they look.
+  // Review's hint from Apple Intelligence: a nudge, then a stronger one.
+  [/^(give me a hint|a stronger hint)$/i, Lightbulb],
+  [/^five cards from (this chapter|these pages)$/i, Sparkles],
   [/^continuous scroll/i, GalleryVertical],
   [/^single page$/i, FileIcon],
   [/^two pages$/i, BookOpen],
