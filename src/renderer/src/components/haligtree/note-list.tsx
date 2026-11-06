@@ -423,9 +423,7 @@ export function NoteList({
               ? 30
               : density === 'list'
                 ? 50
-                : worded
-                  ? (density === 'small' ? 118 : 178) + gap
-                  : density === 'small'
+                : density === 'small'
                     ? TILE.small + gap
                     : 260
           }
