@@ -1224,7 +1224,7 @@ export function registerHaligtree(): void {
   column('tag_meta', 'lands text')
   // What stands behind a tag page's header: 'colour', 'picture' (one from its notes) or 'sketch'; null picks for itself.
   column('tag_meta', 'backdrop text')
-  // Kept off Home's "More like" rows: the person asked never to see this tag's row there.
+  // Kept off Home's "More from" rows: the person asked never to see this tag's row there.
   column('tag_meta', 'home_hidden integer not null default 0')
   // The language a tag's answers are read aloud in when they show ("es", "ja"), or null for silent.
   column('tag_meta', 'speak text')

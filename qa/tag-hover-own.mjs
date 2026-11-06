@@ -1,6 +1,6 @@
 // A #tag inside a row lights in its own colour and underlines under the pointer, so it never
 // reads as the row's own highlight (they open different things). Today's task rows and Home's
-// "More like #tag" heading, light and dark.
+// "More from #tag" heading, light and dark.
 //   QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 QA_ARGS=--sandbox node qa/tag-hover-own.mjs
 import { checks } from './harness.mjs'
 import { sandbox } from './sandbox-lib.mjs'
@@ -44,13 +44,13 @@ try {
     await h.mouse.move(at.x + at.width / 2, at.y + at.height / 2, { steps: 6 })
     await h.waitForTimeout(300)
     const home = await look('[data-home-tag]')
-    check('Home "More like #tag": the tag is a link, tinted and underlined under the pointer', home.line === 'underline', JSON.stringify(home))
-    check('Home "More like #tag": the hand cursor', await heading.evaluate((el) => getComputedStyle(el).cursor) === 'pointer')
+    check('Home "More from #tag": the tag is a link, tinted and underlined under the pointer', home.line === 'underline', JSON.stringify(home))
+    check('Home "More from #tag": the hand cursor', await heading.evaluate((el) => getComputedStyle(el).cursor) === 'pointer')
     await c.both(`${shot}-home`)
     await heading.click()
     await h.waitForTimeout(800)
     check('clicking it opens the tag', await h.evaluate(() => location.hash + document.title).then((s) => s.length > 0))
-  } else console.log('note: no "More like" row in the seeded book')
+  } else console.log('note: no "More from" row in the seeded book')
 } catch (error) {
   check('the run finished', false, error.message.split('\n')[0])
 } finally {

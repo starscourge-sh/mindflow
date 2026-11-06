@@ -1,6 +1,6 @@
 // Two things: carried to a side, Dia's two tall cards come up, the one under
 // the pointer lit as the place; and Home's
-// "More like" rows never show the app's help deck or a #bit, and a row can be
+// "More from" rows never show the app's help deck or a #bit, and a row can be
 // taken off Home from its own menu, with the way back on the tag's page.
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/drop-room-tag-rows.mjs
 import { mkdirSync } from 'fs'
@@ -14,21 +14,21 @@ const { check, done } = checks()
 const s = await sandbox({ width: 1400, height: 900 })
 const { h, go, errors, close } = s
 const wait = (ms = 600) => h.waitForTimeout(ms)
-const rows = () => h.evaluate(() => [...document.querySelectorAll('section h2, section h3, section [role="heading"]')].map((el) => el.textContent.trim()).filter((t) => t.startsWith('More like')))
+const rows = () => h.evaluate(() => [...document.querySelectorAll('section h2, section h3, section [role="heading"]')].map((el) => el.textContent.trim()).filter((t) => t.startsWith('More from')))
 try {
   await go('home')
   await wait(1500)
   const first = await rows()
-  check('Home has "More like" rows', first.length > 0, JSON.stringify(first))
+  check('Home has "More from" rows', first.length > 0, JSON.stringify(first))
   check('no row for the help deck or #bit', !first.some((t) => /learn-haligtree|#bit\b/.test(t)), JSON.stringify(first))
-  const tag = first[0]?.replace(/^More like #/, '')
-  const section = h.locator('section', { hasText: `More like #${tag}` }).last()
+  const tag = first[0]?.replace(/^More from #/, '')
+  const section = h.locator('section', { hasText: `More from #${tag}` }).last()
   await section.locator('[data-menu="home-row"]').click()
   await wait(300)
   await h.getByRole('menuitem', { name: `Hide #${tag} from Home` }).click()
   await wait(1500)
   const after = await rows()
-  check('"Hide from Home" takes the row off', !after.includes(`More like #${tag}`), JSON.stringify(after))
+  check('"Hide from Home" takes the row off', !after.includes(`More from #${tag}`), JSON.stringify(after))
   await s.send('tag', tag)
   await wait(1500)
   await h.locator('[data-pane] [aria-label="More"]').first().click()
@@ -39,7 +39,7 @@ try {
   await wait(300)
   await go('home')
   await wait(1500)
-  check('and it is back on Home', (await rows()).includes(`More like #${tag}`), JSON.stringify(await rows()))
+  check('and it is back on Home', (await rows()).includes(`More from #${tag}`), JSON.stringify(await rows()))
 
   // The drop place: a Feed post carried to the right edge.
   await go('feed')
