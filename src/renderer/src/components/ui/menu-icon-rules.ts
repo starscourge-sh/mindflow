@@ -29,6 +29,8 @@ const RULES: [RegExp, LucideIcon][] = [
   [/^you already wrote this/i, Copy],
   [/^join them$/i, Layers],
   [/^link it$/i, Link],
+  [/^use this name$/i, Type],
+  [/^(keep it as|add it to) the summary$/i, Sparkles],
   [/^single page$/i, FileIcon],
   [/^two pages$/i, BookOpen],
   [/^paper pages$/i, ScrollText],

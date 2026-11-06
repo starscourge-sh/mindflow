@@ -1,4 +1,5 @@
 import { ANCHOR } from './tagline'
+import { registerWrite } from './write'
 import { registerReminders } from './reminders'
 import { registerAway } from './away'
 import { registerMacCalendar } from './mac-calendar'
@@ -4178,6 +4179,7 @@ app.whenReady().then(() => {
   registerOffers()
   registerAway()
   registerReminders()
+  registerWrite()
   // Your sun (sun.ts): today's sunrise and sunset for the city picked, or this Mac's time zone's.
   ipcMain.handle('haligtree:sun', () => sunToday(sunPlace()))
   ipcMain.handle('haligtree:sun:places', () => allPlaces().map(({ zone, city }) => ({ zone, city })))

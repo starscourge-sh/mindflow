@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type ReactElement } from 'react'
+import { WrappedParagraph } from './ai-offers'
 import { AnimatePresence, motion } from 'motion/react'
 import { createPortal } from 'react-dom'
 import { useCornerDock, useLayerOpen } from '@/lib/layer-watch'
@@ -195,6 +196,7 @@ function Story({ id, onClose }: { id: string; onClose: () => void }): React.JSX.
       <div key="outro" className="space-y-3">
         <p className="text-title"><Typed story text={`That was ${name}.`} /></p>
         <p className="text-muted-foreground"><Typed story delay={1200} text="Nothing here is a score. It is only what happened." /></p>
+        {span.period === 'week' && <WrappedParagraph monday={span.from} />}
       </div>
     )
   }

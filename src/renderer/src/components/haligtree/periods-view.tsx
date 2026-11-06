@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { WeekParagraph } from './ai-offers'
 import type { JSONContent } from '@tiptap/core'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import HistoryCircleIcon from '@/components/ui/history-circle-icon'
@@ -307,6 +308,8 @@ export function WeekPage({ start, onOpen, onScale, onRecent, recentOpen, onDay }
         <div className="mt-8"><DayGrid label="The week's days" days={Array.from({ length: 7 }, (_, at) => addDays(monday, at))} onOpenDay={onDay} /></div>
         {page && (
           <div key={key} className="mt-6">
+            {/* Apple Intelligence's paragraph of the week, kept as its summary only when asked (ai-offers.tsx). */}
+            <WeekParagraph monday={monday} had={fields.summary ?? ''} onKeep={(text) => saveField(key, 'summary', text)} />
             <Island>
               <Field label="Summary" long value={fields.summary ?? ''} placeholder="How did the week go, in a sentence or two?" onSave={(text) => saveField(key, 'summary', text)} />
               <Field label="People" value={fields.people ?? ''} placeholder="Who was in it" onSave={(text) => saveField(key, 'people', text)} />
