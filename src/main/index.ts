@@ -1124,6 +1124,8 @@ function showNudge(nudge: Nudge): boolean {
   let held = nudgeWins.get(spot)
   if (!held || held.win.isDestroyed()) {
     const win = new BrowserWindow({
+      // Named and unclosable like the focus pill, so AeroSpace never files it under one workspace (it is only hidden).
+      title: APP_NAME, closable: false,
       type: 'panel', width: NUDGE_WIDTH, height: 150, frame: false, transparent: true, backgroundColor: '#00000000', roundedCorners: false,
       resizable: false, movable: false, minimizable: false, maximizable: false, fullscreenable: false, focusable: false, skipTaskbar: true, hasShadow: false, show: false,
       // Left to idle while hidden: it hides only once its last card has slid away.
@@ -1161,6 +1163,10 @@ let meetingShape = ''
 function meetingWindow(): BrowserWindow {
   if (meetingWin && !meetingWin.isDestroyed()) return meetingWin
   const win = new BrowserWindow({
+    // Named for AeroSpace's floating rule and with no close button, like the focus pill and the stickies: a window
+    // with any window button left is filed under one workspace and hidden on the others, so the card stayed behind
+    // when you moved to the call's workspace (6 Nov). Its own Stop takes it down (closable again first).
+    title: APP_NAME, closable: false,
     type: 'panel', width: meetingSize.width, height: meetingSize.height, frame: false, transparent: true, backgroundColor: '#00000000', roundedCorners: false,
     resizable: false, minimizable: false, maximizable: false, fullscreenable: false, skipTaskbar: true, hasShadow: false, show: false,
     webPreferences: { preload: join(__dirname, '../preload/index.js'), sandbox: false }
@@ -4265,7 +4271,7 @@ app.whenReady().then(() => {
       if (win.webContents.isLoading()) win.webContents.once('did-finish-load', () => (sendMeeting(meetingState()), win.showInactive()))
       else win.showInactive()
     },
-    close: () => meetingWin?.close(),
+    close: () => { if (meetingWin && !meetingWin.isDestroyed()) (meetingWin.setClosable(true), meetingWin.close()) },
     openNote: (id) => sendHome('capture', id, undefined, 'window')
   })
   // The card tucked to a pill and back: its window the card's size, its bottom middle where it was.
