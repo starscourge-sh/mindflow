@@ -611,6 +611,10 @@ const DEFAULTS = {
   aiStudy: true,
   // Dates and times lit in notes as they are written, each saying the day it means (extensions/date-words.ts).
   datesLit: true,
+  // Where your sun is reckoned for: a time zone city from zone.tab ('Europe/Lisbon'), or '' for this Mac's own (sun.ts).
+  sunPlace: '',
+  // One quiet offer under a note from your own book: a link, a note it repeats, its folder, a person (offers.ts).
+  noteOffers: true,
   // When the working day ends, for Today's "4 h left today".
   dayEnd: '22:00',
   // About how long a working day is, in hours: a day's meetings and tasks are weighed against it.
@@ -801,6 +805,8 @@ let focusShowsTold: () => void = () => undefined
 export const whenFocusShows = (tell: () => void): void => void (focusShowsTold = tell)
 /** Whether the floating bubble shows during a session, or only the note's footer does. */
 export const focusBubbleShown = (): boolean => settings().focusShows !== 'note'
+/** The city your sun is reckoned for ('' for this Mac's time zone): sun.ts. */
+export const sunPlace = (): string => settings().sunPlace ?? ''
 /** The pill tucked under the notch, where the Mac has one. */
 export const pillInNotch = (): boolean => settings().pillSits === 'notch'
 /** What a session does when the Mac sleeps in it (Settings, “When the Mac sleeps”). */

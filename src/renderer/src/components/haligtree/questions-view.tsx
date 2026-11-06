@@ -1,4 +1,5 @@
 import { notePowers } from './note-powers'
+import { QuestionClues } from './offers-about'
 import { PropertyStrip } from './property-strip'
 import { useEffect, useRef, useState } from 'react'
 import { useReading } from '@/lib/reads-in'
@@ -447,6 +448,7 @@ export function QuestionDetail({ item, onOpen, top, back }: { item: ItemFull; on
               : <Tip label="Its clues, oldest first, become a page of writing"><Button data-question-answered variant="outline" size="sm" onClick={gotIt}><Check className="size-3.5" /> Answered</Button></Tip>}
           </div>
           <Suggested item={item} />
+          {!item.closedAt && <QuestionClues id={item.id} title={item.title} onOpen={(type, id) => onOpen?.(type, id)} />}
           {/* What a question is for, said once, while there is nothing on it yet. */}
           {!clues.length && (
             <p data-question-how className="mt-4 text-body text-muted-foreground text-pretty">

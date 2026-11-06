@@ -618,6 +618,16 @@ export const DatesSample = ({ on }: { on: boolean }): React.JSX.Element => (
   </span>
 )
 
+/** A note's last line and, on, the quiet offer under it; off, nothing under it. */
+export const OffersSample = ({ on }: { on: boolean }): React.JSX.Element => (
+  <span data-preview="offers" data-on={on || undefined} className="flex h-9 w-40 flex-col justify-center gap-1 rounded-md border bg-background px-2">
+    <span className="block h-[2px] w-[80%] rounded-full bg-foreground/30" />
+    <span className={`flex items-center gap-1 rounded-[4px] border px-1 text-[9px] leading-[13px] text-muted-foreground transition-opacity duration-200 ${on ? '' : 'opacity-0'}`}>
+      <b className="font-medium text-foreground">Names “Stoicism”.</b> Link it
+    </span>
+  </span>
+)
+
 /** The top bar once a note has scrolled: its first line there, faintly, or the bar left plain. */
 export const TitleTopSample = ({ on }: { on: boolean }): React.JSX.Element => (
   <span data-preview="title-top" className="flex h-9 w-40 flex-col overflow-hidden rounded-md border bg-background">

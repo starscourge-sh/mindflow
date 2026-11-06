@@ -54,7 +54,7 @@ import { warmEmoji } from './lazy/emoji'
 import { backupBase, backupDir } from './backup'
 import { pageFor } from './pages'
 import { hintRoom, type HintSide } from './hint-room'
-import { aiStudyOn, activeSession, extendRunning, whenNudge, atLogin, badge, beaconDefault, tuckRules, tempusDots, blurOn, boxAutoHide, boxOneLine, boxPlacement, gate, motionOn, stickyGlass, stickyStir, openGoals, registerHome, registerHaligtree, showStickies, stickyPrefs, stickyTuck, tuckStickies, toggleSafeMode, whenKeys, whenRecordings, whenIcon, appIcon, recordingPrefs, type Recordings, type OpenGoal, whenSafeMode, whenGoals, whenStickies, focusBubbleShown, focusToolsOn, whenFocusShows, pillInNotch, sleepChoice } from './haligtree'
+import { aiStudyOn, activeSession, extendRunning, whenNudge, atLogin, badge, beaconDefault, tuckRules, tempusDots, blurOn, boxAutoHide, boxOneLine, boxPlacement, gate, motionOn, stickyGlass, stickyStir, openGoals, registerHome, registerHaligtree, showStickies, stickyPrefs, stickyTuck, tuckStickies, toggleSafeMode, whenKeys, whenRecordings, whenIcon, appIcon, recordingPrefs, type Recordings, type OpenGoal, whenSafeMode, whenGoals, whenStickies, focusBubbleShown, focusToolsOn, whenFocusShows, pillInNotch, sleepChoice, sunPlace } from './haligtree'
 import { daysLeft, percent, tempus, wayThrough } from './goal-days'
 import { PEEK_OUT_MS, peeksOut, restNow, type Rest } from './goal-tuck'
 import { cursorInBackground, cursorShown, tap, tapKinds, taps } from './haptic'
@@ -103,6 +103,8 @@ import { registerSiteBlock } from './site-block'
 import { cameraAccess, displayOf, noteScreenAtStart, privacySettings, screenAccess, shootArea, shootScreen, tuckedWindow, unseen } from './shots'
 import { registerFocusStats } from './focus-stats'
 import { registerSimilar } from './similar'
+import { registerOffers } from './offers'
+import { allPlaces, sunToday } from './sun'
 import { registerJournal } from './journal'
 import { pdfsToFind, registerPdfHighlights } from './pdf-highlights'
 import { registerWebArticles } from './web-articles'
@@ -4171,6 +4173,10 @@ app.whenReady().then(() => {
   // Websites blocked while a focus round runs: said under the pill.
   registerSiteBlock({ notify: (notice) => void showNudge(notice) })
   registerSimilar()
+  registerOffers()
+  // Your sun (sun.ts): today's sunrise and sunset for the city picked, or this Mac's time zone's.
+  ipcMain.handle('haligtree:sun', () => sunToday(sunPlace()))
+  ipcMain.handle('haligtree:sun:places', () => allPlaces().map(({ zone, city }) => ({ zone, city })))
   registerJournal()
   registerPdfHighlights()
   registerSandbox()

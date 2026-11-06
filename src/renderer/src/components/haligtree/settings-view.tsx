@@ -1,5 +1,7 @@
 import { lacks, meets, useCaps } from '@/lib/needs'
 import { calendar } from '@/lib/mac-calendar'
+import { SunSetting } from './sun-setting'
+import { eveningAt } from '@/lib/sun'
 import { SidePeek } from './page-peeks'
 import { HabitList } from './habits'
 import { WRAP_SETTING, monthToWrap, openWrap } from './wrap-story'
@@ -79,7 +81,7 @@ import { Lead, plain } from './lead'
 import { backedUpAgo, chooseBackupFolder } from '@/lib/backups'
 import { ThemeDial } from './theme-dial'
 import { TimeField } from './time-field'
-import { BarWordsSample, BlurSample, DatesSample, CentredSample, DayHintsSample, FoldSample, TypePauseSample, SpellSample, HomeMonthSample, TimeGoneSample, TitleTopSample, TypewriterSample, Choices, CountSample, ListPictureSample, MarksSample, MiniBubble, MotionSample, PictureSample, POSTCARD_BORDERS, StirSample, TempusSample, ThemeFileGuide, TuckSample, ThemeTiles, barChoices, boxPlaceChoices, boxScreenChoices, bubbleChoices, highlightChoices, paperChoices, pictureSizeChoices, tagLookChoices, IconColourSample, menuIconChoices, linkChoices, meaningChoices, pillSitsChoices, postcardChoices, saveStarterTheme, stickyChoices, timerShowsChoices, widthChoices, TranscribeSample, TalkSample, TidySample } from './settings-show'
+import { BarWordsSample, BlurSample, DatesSample, OffersSample, CentredSample, DayHintsSample, FoldSample, TypePauseSample, SpellSample, HomeMonthSample, TimeGoneSample, TitleTopSample, TypewriterSample, Choices, CountSample, ListPictureSample, MarksSample, MiniBubble, MotionSample, PictureSample, POSTCARD_BORDERS, StirSample, TempusSample, ThemeFileGuide, TuckSample, ThemeTiles, barChoices, boxPlaceChoices, boxScreenChoices, bubbleChoices, highlightChoices, paperChoices, pictureSizeChoices, tagLookChoices, IconColourSample, menuIconChoices, linkChoices, meaningChoices, pillSitsChoices, postcardChoices, saveStarterTheme, stickyChoices, timerShowsChoices, widthChoices, TranscribeSample, TalkSample, TidySample } from './settings-show'
 import { BookOpen as BookHeart, Brain, HardDrive, CircleHelp as LifeBuoy, ListTodo as ListChecks, Camera as Mountain, Brush as Palette, Pencil as PenLine, Search as SearchIcon, Sparkles, Volume2, X } from '@/components/ui/icons'
 import { APP_NAME } from '../../../../main/name'
 import { forgives } from '@/lib/slash-rank'
@@ -129,7 +131,7 @@ function AeroSpaceSetting(): React.JSX.Element | null {
 /** A slider's value beside it: one width for every slider, so the sliders line up down a section. */
 const SLIDER_VALUE = 'w-24 text-right tabular-nums'
 
-function Setting({ title, aka, children, note, more, below, beside, keywords = '', under = false, off, naming }: {
+export function Setting({ title, aka, children, note, more, below, beside, keywords = '', under = false, off, naming }: {
   title: string
   /** Its name being typed where the title stands (a book named or renamed), in place of the title. */
   naming?: ReactNode
@@ -1016,16 +1018,21 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
         </Group>
         <Group section="What comes back to you" title="Every day">
           <Setting title="Close the day" note={`After this time each evening, ${APP_NAME} offers to close the day.`} more="What got done, where each open task goes, anything on your mind for tomorrow, a line for today's page and tomorrow's first task. ⌘K has it any time." keywords="evening close day shutdown wrap up review plan tomorrow frog first task">
-            {(settings.closeDay !== false || settings.tomorrowBox !== false) && <TimeField label="Offer it after" value={settings.closeDayAt ?? '18:00'} onChange={(closeDayAt) => set({ closeDayAt })} />}
+            {(settings.closeDay !== false || settings.tomorrowBox !== false) && (settings.closeDayAt === 'sunset' ? <span className="text-control text-muted-foreground">At sunset, {eveningAt(settings)}</span> : <TimeField label="Offer it after" value={settings.closeDayAt ?? '18:00'} onChange={(closeDayAt) => set({ closeDayAt })} />)}
             <Switch checked={settings.closeDay !== false} onCheckedChange={(closeDay) => set({ closeDay })} />
           </Setting>
           <Setting under title="Habits this season" note="Each one gets a tick on Close the day, and Stats shows how they went." more="No reminders and no streak to keep. A day not ticked shows what you wrote that night, so it keeps its reason." keywords="habit habits tracker tick checkbox daily season streak routine"
             below={<HabitList />} />
           <Setting under title="For tomorrow, at night" note="After that time, Today ends with a “For tomorrow” box for what is on your mind." more="Until 4 in the morning, on Tasks' Today and in the Journal; each line becomes a task for tomorrow. Writing it down helps you sleep." keywords="tomorrow bedtime worry list night evening sleep to-do brain dump"
-            below={<TomorrowPreview at={settings.closeDayAt ?? '18:00'} on={settings.tomorrowBox !== false} />}>
+            below={<TomorrowPreview at={eveningAt(settings)} on={settings.tomorrowBox !== false} />}>
             <Switch checked={settings.tomorrowBox !== false} onCheckedChange={(tomorrowBox) => set({ tomorrowBox })} />
           </Setting>
+          <SunSetting settings={settings} set={set} />
           <MacCalendarSetting on={!!settings.macCalendar} set={(macCalendar) => set({ macCalendar })} />
+          <Setting title="Offers from your notes" note="One quiet line under a note: a note it names, one it nearly repeats, the folder it reads like, a person it names." more="Also notes that may answer a question, and the notes for your next event on Today. Found by the words they share, on this Mac. Nothing changes until you choose; × puts one away for good." keywords="suggest suggestions related link folder duplicate repeat people clue question event calendar offers" data-mac-needs="every">
+            <OffersSample on={settings.noteOffers !== false} />
+            <Switch checked={settings.noteOffers !== false} onCheckedChange={(noteOffers) => set({ noteOffers })} />
+          </Setting>
           <Setting title="Your notes in Spotlight" note="⌘Space finds your notes by their words, and opens them here." more={`Kept on this Mac, in Spotlight's own index. Private and #bit notes are never in it; turned off, every note is taken out. Once ${APP_NAME} is in your Applications folder.`} keywords="spotlight search command space mac find system index" data-mac-needs="every">
             <Switch checked={settings.spotlight !== false} onCheckedChange={(spotlight) => set({ spotlight })} />
           </Setting>

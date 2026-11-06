@@ -22,6 +22,7 @@ import { DayList, readCleared, writtenLayout } from './day-list'
 import { TomorrowBox } from './tomorrow-lines'
 import { frogFirst, frogOn } from '@/lib/day-plan'
 import { useMacEvents } from '@/lib/mac-calendar'
+import { EventNotes } from './offers-about'
 import { DayTimeline } from './day-timeline'
 import { useSessionsSpan } from './session-span'
 import { CalendarNote } from './week-fit'
@@ -323,6 +324,8 @@ export function DayBrief({ day, onOpen, onListed, between }: {
       {lined && (
         <DayTimeline events={mac.events} tasks={inLine} sessions={sessions} now={now} done={struck} pen={(task) => !!ticked[task.id]?.pen} onTick={tick} />
       )}
+      {/* The next event's notes from your book, a line before it. */}
+      {day === dayjs(now).format('YYYY-MM-DD') && <EventNotes events={mac.events} now={now} onOpen={(type, id) => onOpen?.(type, id)} />}
       <CalendarNote said={mac} className="mt-5" />
       {between}
       {(shown.length > 0 || rows.length > 0 || written) && (

@@ -1923,7 +1923,24 @@ const ScanDemo: Demo = ({ live }) => {
   )
 }
 
+/** A note naming another's title, and the quiet line under it that links them. */
+const OffersDemo: Demo = ({ live }) => {
+  const at = useSteps([1600, 1400, 2400], live, 2)
+  return (
+    <Col>
+      <div className="rounded-lg border bg-background px-3 py-2 text-control text-foreground">
+        What the {at === 2 ? <span className="tiptap-note-link">Stoics</span> : 'Stoics'} meant by judgement, again.
+      </div>
+      <div className={`flex items-center gap-2 rounded-lg border bg-background px-2.5 py-1.5 text-meta text-muted-foreground transition-opacity duration-300 ${at === 1 ? '' : 'opacity-0'}`}>
+        <b className="font-medium text-foreground">Names “Stoicism”.</b> Link it?
+        <span className="ml-auto rounded-md bg-foreground/[0.07] px-2 py-0.5 font-medium text-foreground">Link it</span>
+      </div>
+    </Col>
+  )
+}
+
 export const DEMOS: Record<string, Demo> = {
+  offers: OffersDemo,
   scan: ScanDemo,
   dates: DatesDemo,
   pace: PaceDemo, spotlight: SpotlightDemo, services: ServicesDemo, readaloud: ReadAloudDemo, picturewords: PictureWordsDemo, translate: TranslateDemo,
