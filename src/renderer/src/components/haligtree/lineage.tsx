@@ -347,7 +347,7 @@ function Kinfolk({ node, onOpen }: { node: Node; onOpen?: (type: string, id: str
   if (node.key === 'me')
     return <div aria-current="page" aria-label={node.bare ? node.one.title || 'Untitled' : undefined} className={`${shape} bg-accent text-foreground ring-1 ring-border`} style={{ fontWeight: WEIGHT.chosen }} data-private={node.one.private ? '' : undefined}>{face}</div>
   const button = (
-    <Tip label={`Open the ${NAME[node.one.type] ?? 'note'}: ${titleOf(node.one) || 'Untitled'}`}>
+    <Tip side="bottom" label={`Open the ${NAME[node.one.type] ?? 'note'}: ${titleOf(node.one) || 'Untitled'}`}>
       <motion.button
         type="button"
         whileTap={{ scale: 0.97 }}
@@ -356,7 +356,9 @@ function Kinfolk({ node, onOpen }: { node: Node; onOpen?: (type: string, id: str
         // Drawn as its icon alone where there is no room: named all the same, for a screen reader.
         aria-label={node.bare ? `Open the ${NAME[node.one.type] ?? 'note'}: ${titleOf(node.one) || 'Untitled'}` : undefined}
         onClick={onOpen && (() => onOpen(node.one.type, node.one.id))}
-        className={`${shape} text-muted-foreground hover:bg-accent hover:text-foreground`}
+        data-family-node={node.key}
+        // A quiet shape at rest, the edge its link meets: with none, the line stopped in the air until pointed at.
+        className={`${shape} bg-foreground/[0.05] text-muted-foreground ring-1 ring-border/60 transition-colors hover:bg-accent hover:text-foreground`}
       >
         {face}
       </motion.button>
