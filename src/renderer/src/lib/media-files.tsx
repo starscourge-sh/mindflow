@@ -24,35 +24,37 @@ type Item = { path: string } | { name: string; bytes: Uint8Array } | { name: str
 /** Big enough that the wait should be said in words. */
 const LONG = 25 * 1024 * 1024
 
-/** Tell of a batch, with Undo for what it changed. `met` is told so the page can show the tile. */
-export function tellAdded(told: AddResult, onMet?: (src: string) => void): void {
+/** Tell of a batch, with Undo for what it changed. `onShow`: the page brings the file in question into view, wherever it was scrolled to. */
+export function tellAdded(told: AddResult, onShow?: (src: string) => void): void {
   const { added, revived, met, refused } = told
   const said = addSaid(told)
   if (!added.length && !revived.length) {
     if (refused.length) refuse(said)
     else (chime('look'), toast(said, undefined, 'info'))
-    if (met[0]) onMet?.(met[0].src)
+    if (met[0]) onShow?.(met[0].src)
     return
   }
   chime('noted')
+  const newest = [...added, ...revived].at(-1)
+  if (newest) onShow?.(newest.src)
   toast(said, () => void call('media:add:undo', { added: added.map((one) => one.src), revived: revived.map((one) => one.src) }).then(() => chime('undo')), refused.length ? 'warning' : 'success')
 }
 
-async function add(items: Item[], bytes: number, onMet?: (src: string) => void): Promise<void> {
+async function add(items: Item[], bytes: number, onShow?: (src: string) => void): Promise<void> {
   if (!items.length) return
   const work = call<AddResult>('media:add', items)
   const count = items.length
-  tellAdded(await (bytes > LONG ? waiting(count === 1 ? 'Adding the file…' : `Adding ${num(count)} files…`, 'working', work) : work), onMet)
+  tellAdded(await (bytes > LONG ? waiting(count === 1 ? 'Adding the file…' : `Adding ${num(count)} files…`, 'working', work) : work), onShow)
 }
 
 /** "Add": the Mac's own picker, then in they go. */
-export async function addFromPicker(onMet?: (src: string) => void): Promise<void> {
+export async function addFromPicker(onShow?: (src: string) => void): Promise<void> {
   const picked = await call<{ path: string; size: number }[]>('media:pick')
-  await add(picked.map(({ path }) => ({ path })), picked.reduce((sum, one) => sum + one.size, 0), onMet)
+  await add(picked.map(({ path }) => ({ path })), picked.reduce((sum, one) => sum + one.size, 0), onShow)
 }
 
 /** Files dropped on the page: by path where the Mac gives one, by bytes where another app handed over only the file. */
-export async function addDropped(files: File[], onMet?: (src: string) => void): Promise<void> {
+export async function addDropped(files: File[], onShow?: (src: string) => void): Promise<void> {
   const items = await Promise.all(files.map(async (file): Promise<Item> => {
     const path = window.api.pathOf(file)
     if (path) return { path }
@@ -62,7 +64,7 @@ export async function addDropped(files: File[], onMet?: (src: string) => void): 
       return { name: file.name, why: 'it could not be read. Drag it in from Finder instead' }
     }
   }))
-  await add(items, files.reduce((sum, one) => sum + one.size, 0), onMet)
+  await add(items, files.reduce((sum, one) => sum + one.size, 0), onShow)
 }
 
 // Sent from Finder's right-click: said here too, with Undo, if the main window is up.

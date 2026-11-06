@@ -16,19 +16,20 @@ const shot = (h, name) => SHOTS && h.screenshot({ path: `${SHOTS}/${name}.png` }
 const here = mkdtempSync(join(process.env.TMPDIR ?? tmpdir(), 'media-add-files-'))
 const write = (name, bytes) => (writeFileSync(join(here, name), bytes), join(here, name))
 
-const pdfBytes = (word, pad = 0) => {
+// `before`: how many bytes sit ahead of the objects, for a big file shaped as a real one, its table of contents at the very end.
+const pdfBytes = (word, before = 0) => {
   const objects = ['<< /Type /Catalog /Pages 2 0 R >>', '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
     '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 300 400] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>',
     null, '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>']
   const stream = `BT /F1 28 Tf 40 300 Td (${word}) Tj ET`
   objects[3] = `<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`
-  let out = '%PDF-1.4\n'
+  let out = before ? '' : '%PDF-1.4\n'
   const at = []
-  objects.forEach((body, i) => (at.push(out.length), (out += `${i + 1} 0 obj\n${body}\nendobj\n`)))
-  const xref = out.length
+  objects.forEach((body, i) => (at.push(before + out.length), (out += `${i + 1} 0 obj\n${body}\nendobj\n`)))
+  const xref = before + out.length
   out += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n${at.map((n) => `${String(n).padStart(10, '0')} 00000 n \n`).join('')}`
   out += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`
-  return Buffer.from(out + (pad ? '%'.repeat(pad) : ''))
+  return Buffer.from(out)
 }
 const wav = () => {
   const b = Buffer.alloc(44 + 8000)
@@ -352,8 +353,9 @@ if (part('book')) {
     check('added again, it is back', (await v('media:list')).find((t) => t.src === gone.src)?.gone === false)
     // A 500 MB PDF: in by path a piece at a time, onto the shelf, into the reader.
     const big = join(here, 'A very large book.pdf')
-    const small = pdfBytes('Large')
-    const fd = openSync(big, 'w'); writeSync(fd, small); const padding = Buffer.alloc(16 * 1024 * 1024, 37); for (let n = 0; n < 32; n++) writeSync(fd, padding); closeSync(fd)
+    const head = '%PDF-1.4\n%', piece = 16 * 1024 * 1024
+    const before = head.length + 32 * piece + 1
+    const fd = openSync(big, 'w'); writeSync(fd, head); const padding = Buffer.alloc(piece, 37); for (let n = 0; n < 32; n++) writeSync(fd, padding); writeSync(fd, '\n'); writeSync(fd, pdfBytes('Large', before)); closeSync(fd)
     await pickNext(electron, [big])
     const started = Date.now()
     await h.locator('[data-media-add]').click()
@@ -362,6 +364,9 @@ if (part('book')) {
     const huge = (await v('media:list')).find((t) => t.name === 'A very large book.pdf')
     check('a 500 MB PDF goes in', !!huge && huge.size > 500_000_000, `${huge?.size} in ${took}ms`)
     await shot(h, 'state-500mb')
+    // The window stays alive with it on the page: its cover is drawn off to one side.
+    const alive = await Promise.race([h.evaluate(() => new Promise((done) => requestAnimationFrame(() => done(true)))), new Promise((done) => setTimeout(() => done(false), 8000))])
+    check('and the window keeps answering', alive === true)
     await h.locator(`[data-media][data-src="${huge.src}"]`).click(); await wait(4000)
     check('and opens in the reader', await h.evaluate(() => !!document.querySelector('.pdf-reader')))
     await go('media'); await wait(800)
@@ -382,6 +387,7 @@ if (part('book')) {
     await shot(h, 'state-2000')
     check('no page errors in the book of its own', !b.errors.length, b.errors.slice(0, 3).join(' | '))
   } catch (error) {
+    console.log(error.message.slice(0, 900))
     check('the own-book run finished', false, error.message.split('\n')[0])
   } finally {
     await b.close()

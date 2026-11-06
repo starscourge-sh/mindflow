@@ -64,10 +64,10 @@ const looseChip = <Unlink className="size-3.5" />
 const bare = (name: string): string => name.replace(/\.[^.]+$/, '') || name
 
 /** "Add": the picker at once; beside it, the one thing it is not, a book you have no file for, which Sources already holds. */
-function AddControl({ onMet }: { onMet: (src: string) => void }): React.JSX.Element {
+function AddControl({ onShow }: { onShow: (src: string) => void }): React.JSX.Element {
   return (
     <span className="flex items-center gap-1">
-      <Button variant="outline" size="sm" className="h-8 cursor-pointer px-3" data-media-add onClick={() => void addFromPicker(onMet)}><Plus className="size-3.5" />Add</Button>
+      <Button variant="outline" size="sm" className="h-8 cursor-pointer px-3" data-media-add onClick={() => void addFromPicker(onShow)}><Plus className="size-3.5" />Add</Button>
       <DropdownMenu modal={false}>
         <DropdownMenuTrigger asChild>
           <Button variant="outline" size="sm" className="h-8 w-8 cursor-pointer px-0" data-media-add-more aria-label="More ways to add"><ChevronDown className="size-3.5" /></Button>
@@ -160,7 +160,7 @@ export function MediaView({ onOpen }: { onOpen: (type: string, id: string) => vo
     return () => window.removeEventListener('keydown', onKey, true)
   }, [here])
 
-  // A file asked for by name (⌘K), or already here when added again: the keys on that tile, in view, whatever was narrowing the page.
+  // A file asked for by name (⌘K), just added, or already here when added again: the keys on that tile, in view, whatever was narrowing the page.
   const [showing, setShowing] = useState<string | null>(takeMediaFile)
   useEffect(() => {
     const on = (event: Event): void => setShowing((event as CustomEvent<string>).detail)
@@ -209,7 +209,7 @@ export function MediaView({ onOpen }: { onOpen: (type: string, id: string) => vo
   // Files carried over the page: the whole page takes them.
   const [carrying, setCarrying] = useState(false)
   const carriesFiles = (event: React.DragEvent): boolean => event.dataTransfer.types.includes('Files')
-  const onMet = (src: string): void => setShowing(src)
+  const onShow = (src: string): void => setShowing(src)
 
   // The kinds, as Gems' are: one on at a time, pressed again to show every kind.
   // Only what the book holds: a tab for something you have none of leads to nothing. One asked for by name still shows, to say so.
@@ -242,7 +242,7 @@ export function MediaView({ onOpen }: { onOpen: (type: string, id: string) => vo
         event.preventDefault()
         event.stopPropagation()
         setCarrying(false)
-        void addDropped([...event.dataTransfer.files], onMet)
+        void addDropped([...event.dataTransfer.files], onShow)
       }}>
     <Page title="Media" dock={library} waiting={unloaded(all)} count={unloaded(all) || !all.length ? undefined : chosen.length || shown.length} unit={chosen.length ? ['selected', 'selected'] : ['file', 'files']}
       search={all.length > 0 && <ListSearch value={query} placeholder="Find by note, name or words" onChange={setQuery} onDone={() => shown[0] && open(shown[0])} />}
@@ -252,7 +252,7 @@ export function MediaView({ onOpen }: { onOpen: (type: string, id: string) => vo
         </div>
       )}
       // Only "Add" on the line, picked or not, so nothing on it moves: what acts on the picked is in their right-click and keys.
-      actions={<AddControl onMet={onMet} />}>
+      actions={<AddControl onShow={onShow} />}>
       {library ? (
         // PDFs as a library: a shelf of covers, each book once, the picked one's panel docked at the page's edge.
         <PdfLibrary query={query} top={kinds} files={all} onPut={(srcs) => setPutting(all.filter((one) => srcs.includes(one.src)))} />
@@ -280,7 +280,7 @@ export function MediaView({ onOpen }: { onOpen: (type: string, id: string) => vo
           )}
         </div>
       ) : unloaded(all) ? null : (
-        <Empty title="No pictures or files yet" action={<Button size="sm" className="h-8 cursor-pointer px-3" data-media-add-empty onClick={() => void addFromPicker(onMet)}><Plus className="size-3.5" />Add</Button>}>
+        <Empty title="No pictures or files yet" action={<Button size="sm" className="h-8 cursor-pointer px-3" data-media-add-empty onClick={() => void addFromPicker(onShow)}><Plus className="size-3.5" />Add</Button>}>
           Press “Add”, or drop pictures, GIFs, PDFs and audio anywhere on this page. Paste or drop one into a note and it shows up here too.
         </Empty>
       )}
