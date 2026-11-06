@@ -6,8 +6,14 @@ import { clock } from '@/components/haligtree/sound-player'
 /** Who a line's voice is, as named on its meeting (the first meeting block in the note), else "You" or "Speaker 2". */
 export function speakerOf(editor: Editor, who: string): string {
   if (who === 'you') return 'You'
+  // The meeting block sits at the top: found in a step or two, never by walking an hour of lines for every line.
+  const doc = editor.state.doc
   let names: Record<string, string> = {}
-  editor.state.doc.forEach((node) => void (node.type.name === 'meeting' && !Object.keys(names).length && (names = node.attrs.names ?? {})))
+  for (let i = 0; i < doc.childCount; i += 1) {
+    const node = doc.child(i)
+    if (node.type.name === 'meeting') { names = node.attrs.names ?? {}; break }
+    if (node.type.name === 'meetingLine') break
+  }
   return names[who] || `Speaker ${who.replace(/^s/, '')}`
 }
 
@@ -40,7 +46,7 @@ export const Meeting = Node.create({
     })
     return {
       audio: { default: '' }, you: { default: '' }, others: { default: '' }, seconds: { default: 0 }, startedAt: { default: '' },
-      event: json(null), people: json([]), speakers: json([]), names: json({}), moments: json([]), found: json(null), take: json(null), words: { default: null }
+      event: json(null), people: json([]), speakers: json([]), names: json({}), moments: json([]), found: json(null), take: json(null), words: { default: null }, tag: { default: '#meeting', rendered: false }
     }
   },
   parseHTML: () => [{ tag: 'div[data-meeting]' }],
@@ -89,6 +95,7 @@ export const MeetingLine = Node.create({
       let now = node
       const draw = (): void => {
         dom.dataset.who = now.attrs.who
+        dom.dataset.at = String(now.attrs.at)
         dom.toggleAttribute('data-marked', !!now.attrs.marked)
         name.dataset.speaker = now.attrs.who
         name.textContent = speakerOf(editor, now.attrs.who)

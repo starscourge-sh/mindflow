@@ -260,20 +260,23 @@ async function keep(): Promise<string> {
   const at = new Date(startedAt)
   const title = live.event?.title || `Meeting, ${at.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} at ${at.getHours()}:${String(at.getMinutes()).padStart(2, '0')}`
   const speakers = [...new Set(lines.filter((one) => one.speaker !== 'you').map((one) => one.speaker))]
-  const moments = live.moments.map((one) => ({ at: one.at, text: lines.find((line) => line.id === one.line)?.text ?? '' }))
+  // A moment is the line being said when it was noted: that line's own start and voice, so it plays from where the line begins.
+  const moments = live.moments.map((one) => {
+    const line = lines.find((said) => said.id === one.line)
+    return line ? { at: line.start, text: line.text, speaker: line.speaker } : { at: one.at, text: '' }
+  })
   const meeting = {
     type: 'meeting',
     attrs: {
       audio, you: tracks.you, others: tracks.others, seconds: saved!.seconds, startedAt, event: live.event, people: live.event?.people ?? [],
-      speakers, names: {}, moments, found, take, words: live.words
+      speakers, names: {}, moments, found, take, words: live.words, tag: '#meeting'
     }
   }
   const text = (words: string): unknown[] => (words ? [{ type: 'text', text: words }] : [])
   const noted = new Set(live.moments.map((one) => one.line))
   const said = lines.map((one) => ({ type: 'meetingLine', attrs: { who: one.speaker, at: one.start, end: one.end, marked: noted.has(one.id) }, content: text(one.text) }))
-  // Its first line says who it was with, and #meeting, so every meeting is found under the one tag.
-  const people = live.event?.people?.length ? `With ${live.event.people.join(', ')} ` : ''
-  const body = { type: 'doc', content: [{ type: 'heading', attrs: { level: 1 }, content: text(title) }, { type: 'paragraph', content: text(`${people}#meeting`) }, meeting, ...said, { type: 'paragraph' }] }
+  // The meeting block carries the #meeting tag itself (haligtree.ts, plain): every meeting under the one tag, shown once.
+  const body = { type: 'doc', content: [{ type: 'heading', attrs: { level: 1 }, content: text(title) }, meeting, ...said, { type: 'paragraph' }] }
   return keepMeeting(title, body)
 }
 
