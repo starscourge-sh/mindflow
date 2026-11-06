@@ -35,11 +35,16 @@ export function caps(): Promise<Caps> {
 
 type Answer = Record<string, unknown> & { error?: { code: string; message: string } }
 
-let child: ChildProcessWithoutNullStreams | null = null
+/**
+ * Two helpers: one for what a person is waiting on (a language, a translation, words read aloud), and one for
+ * the background (the book's roots read for offers, offers.ts), so a long read never makes the first wait.
+ */
+type Lane = 'now' | 'background'
+const children: Record<Lane, ChildProcessWithoutNullStreams | null> = { now: null, background: null }
 let next = 1
 const waiting = new Map<number, (answer: Answer) => void>()
 
-function start(): ChildProcessWithoutNullStreams {
+function start(lane: Lane): ChildProcessWithoutNullStreams {
   const one = spawn(helper, [], { stdio: ['pipe', 'pipe', 'pipe'] })
   let rest = ''
   one.stdout.setEncoding('utf8')
@@ -61,7 +66,7 @@ function start(): ChildProcessWithoutNullStreams {
   })
   one.stderr.resume()
   const gone = (): void => {
-    if (child === one) child = null
+    if (children[lane] === one) children[lane] = null
     for (const [, answer] of waiting) answer({ error: { code: 'failed', message: 'The helper stopped' } })
     waiting.clear()
   }
@@ -71,13 +76,13 @@ function start(): ChildProcessWithoutNullStreams {
 }
 
 /** One request to the helper, answered in its own time; never throws. */
-export function understand(op: string, body: Record<string, unknown>): Promise<Answer> {
+export function understand(op: string, body: Record<string, unknown>, lane: Lane = 'now'): Promise<Answer> {
   if (process.platform !== 'darwin') return Promise.resolve({ error: { code: 'unavailable', message: 'Only on a Mac' } })
-  child ??= start()
+  const child = (children[lane] ??= start(lane))
   const id = next++
   return new Promise((done) => {
     waiting.set(id, done)
-    child!.stdin.write(`${JSON.stringify({ ...body, id, op })}\n`)
+    child.stdin.write(`${JSON.stringify({ ...body, id, op })}\n`)
   })
 }
 

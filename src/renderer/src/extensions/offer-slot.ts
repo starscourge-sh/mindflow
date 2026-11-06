@@ -14,13 +14,16 @@ export const OfferSlot = Extension.create<{ box: () => HTMLElement }>({
   },
   addProseMirrorPlugins() {
     const { box } = this.options
-    const key = new PluginKey("offerSlot")
+    const key = new PluginKey<DecorationSet>("offerSlot")
+    // One widget, kept in the plugin's state and moved only when the words change: nothing redraws on a
+    // selection or while a note is read aloud, and the same element stays (its key).
+    const place = (doc: Parameters<typeof DecorationSet.create>[0]): DecorationSet =>
+      DecorationSet.create(doc, [Decoration.widget(doc.content.size, box, { side: 1, key: "offer-slot", ignoreSelection: true, stopEvent: () => true })])
     return [
-      new Plugin({
+      new Plugin<DecorationSet>({
         key,
-        props: {
-          decorations: (state) => DecorationSet.create(state.doc, [Decoration.widget(state.doc.content.size, box, { side: 1, key: "offer-slot", ignoreSelection: true, stopEvent: () => true })]),
-        },
+        state: { init: (_, state) => place(state.doc), apply: (tr, was) => (tr.docChanged ? place(tr.doc) : was) },
+        props: { decorations: (state) => key.getState(state) },
       }),
     ]
   },

@@ -24,14 +24,14 @@ const vectorOf = (one: unknown): Float32Array | null => (typeof one === 'string'
 
 /** The roots of some texts, read by the Mac (a few milliseconds each). */
 async function readAll(texts: string[]): Promise<{ lemmas: Lemmas }[]> {
-  const read = await Promise.all(texts.map((text) => understand('read', { text: text.slice(0, 4000) })))
+  const read = await Promise.all(texts.map((text) => understand('read', { text: text.slice(0, 4000) }, 'background')))
   return texts.map((_, i) => ({ lemmas: (read[i].roots as Lemmas | undefined) ?? {} }))
 }
 
 /** Meaning fingerprints, only ever for the few notes a tie-break compares (they are slow to make), kept. */
 async function meanings(texts: string[]): Promise<(Float32Array | null)[]> {
   if (!texts.length) return []
-  const meant = await understand('embed', { texts: texts.map((text) => text.slice(0, 1000)) })
+  const meant = await understand('embed', { texts: texts.map((text) => text.slice(0, 1000)) }, 'background')
   return texts.map((_, i) => vectorOf(((meant.vectors as unknown[] | undefined) ?? [])[i]))
 }
 async function meaningFor(book: RootIndex, all: Row[], text: string, lemmas: Lemmas, leave?: string): Promise<(key: string) => number> {
@@ -114,7 +114,7 @@ async function forNote(key: string, text: string, linked: string[]): Promise<Not
     const hit = whichFolder(book, key, members)
     if (hit) folder = { id: hit.folder, name: groups.find((group) => group.id === hit.folder)!.name }
   }
-  const names = await understand('read', { text: text.slice(0, 4000) })
+  const names = await understand('read', { text: text.slice(0, 4000) }, 'background')
   const people = new Set((database().prepare("select distinct attribution as name from captures where attribution is not null and attribution != '' union select distinct attribution from nuggets where attribution is not null and attribution != ''").all() as { name: string }[]).map((one) => one.name.toLowerCase()))
   return {
     links: linksIn(book, text, read.lemmas, key, new Set(linked)).slice(0, 3),
