@@ -848,8 +848,8 @@ export function ReviewView({ compact = false, tag, actions, lead, onLeave }: { c
               <div data-typed className="-mb-2 flex flex-col gap-1 text-sm">
                 {!verdict && <p className="whitespace-pre-line text-muted-foreground">You wrote: {said}</p>}
                 {judging ? (
-                  // In the room the verdict will take, so nothing under it moves when it comes.
-                  <p data-meaning-wait className="flex min-h-6 items-center"><Orb label="Checking what it means, on this Mac…" stop={stopJudge} /></p>
+                  // In about the room the verdict and its note line take, so the grades under it barely move when it comes.
+                  <p data-meaning-wait className="flex min-h-[4.5rem] items-start pt-0.5"><Orb label="Checking what it means, on this Mac…" stop={stopJudge} /></p>
                 ) : verdict ? (
                   <p data-meaning={verdict.verdict} className="min-h-6 text-body">
                     <strong className="font-semibold" style={{ color: GRADES[suggested - 1].tone }}>{VERDICT_SAID[verdict.verdict]}: you said “{cutWords(said, 48)}”, the card says “{cutWords(answerWords, 48)}”.</strong>{' '}
@@ -961,11 +961,14 @@ export function ReviewView({ compact = false, tag, actions, lead, onLeave }: { c
             {limit && <CardTimer key={`${card.id}-${at}`} seconds={limit} paused={editing} onEnd={reveal} />}
             {/* A nudge from the answer, never the answer, on this Mac: a second press, a stronger one, and that is all. */}
             {ai && answerWords && (hintsTaken < 2 || hints?.busy) && (
-              hints?.busy ? <span className="flex h-10 items-center"><Orb label={hintsTaken ? 'Thinking of a stronger hint…' : 'Thinking of a hint…'} stop={stopHint} /></span> : (
-                <Button variant="ghost" size="lg" data-hint-ask onClick={giveHint} className="cursor-pointer text-muted-foreground">
-                  {hintsTaken ? 'A stronger hint' : 'Give me a hint'} <Kbd>H</Kbd>
-                </Button>
-              )
+              // One fixed height for the button and the orb that takes its place, so the row never moves.
+              <span className="flex h-10 items-center">
+                {hints?.busy ? <Orb label={hintsTaken ? 'Thinking of a stronger hint…' : 'Thinking of a hint…'} stop={stopHint} /> : (
+                  <Button variant="ghost" size="lg" data-hint-ask onClick={giveHint} className="cursor-pointer text-muted-foreground">
+                    {hintsTaken ? 'A stronger hint' : 'Give me a hint'} <Kbd>H</Kbd>
+                  </Button>
+                )}
+              </span>
             )}
           </span>
           {(hintsTaken > 0 || hints?.error) && (
