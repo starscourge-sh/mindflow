@@ -206,16 +206,17 @@ export function CollectionHeader({ tint, backdrop, cover, label, title, length =
   )
 }
 
-/** The one filled button: read them, from the top. Worded like Home's Open, its key in the tip. */
+/** The one filled button: read them, from the top. Home's Open, the same size and shape, its key in the tip. */
 export function PlayButton({ label, onClick, icon: Icon = Read }: { label: string; onClick: () => void; icon?: React.ComponentType<{ className?: string }> }): React.JSX.Element {
   return (
     <Tip label={label}>
       <button
         type="button"
         onClick={onClick}
-        className="mr-1.5 flex h-9 shrink-0 items-center gap-2 rounded-full bg-primary px-4 text-control font-semibold text-primary-foreground shadow-[0_6px_16px_-8px_color-mix(in_oklab,var(--mf-shadow-ink)_50%,transparent)] transition-transform duration-150 ease-(--mf-ease) outline-none motion-safe:hover:scale-[1.03] focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.97]"
+        className="mr-1 flex h-8 shrink-0 cursor-pointer items-center gap-1.5 rounded-full bg-primary px-3.5 text-control font-semibold text-primary-foreground shadow-[0_6px_16px_-8px_color-mix(in_oklab,var(--mf-shadow-ink)_50%,transparent)] transition-transform duration-150 ease-(--mf-ease) outline-none motion-safe:hover:scale-[1.03] focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.97]"
       >
-        <Icon className="size-4" />
+        {/* On a phone's width the words alone, so the row's other actions stay on its line. */}
+        <span className="hidden @[26rem]/band:contents"><Icon className="size-4" /></span>
         {label.split('  ')[0]}
       </button>
     </Tip>

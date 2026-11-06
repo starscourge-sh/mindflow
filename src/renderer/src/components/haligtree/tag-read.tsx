@@ -1,24 +1,28 @@
 import { Orb } from './orb'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { TagColourPick } from './tag-colour-pick'
 import { useReading } from '@/lib/reads-in'
-import { tagTint } from './tag-icon'
+import { TagIcon, tagTint } from './tag-icon'
 import type { JSONContent } from '@tiptap/core'
-import { AlignJustify, Plus, Shuffle } from 'lucide-react'
+import { AlignJustify, ChevronDown, Plus } from 'lucide-react'
 
-import { HaligtreeEditor, TAGS } from '../haligtree'
 import { CAPTURE_TYPES } from '../capture-kinds/capture-kind-picker'
 import { useLive, haligtree, type Pin as Pinned, type TagRead, type Task } from '@/lib/haligtree'
 import { openApart } from '@/lib/apart'
 import { statusSaid } from '@/lib/capture-links'
 import { rowBody } from '@/lib/row-body'
 import { chime } from '@/lib/sound'
-import { Empty, Tags, ask, pin, refuse, toast, typing, useReadKey } from './ui'
+import { Empty, ask, pin, refuse, toast, typing, useReadKey } from './ui'
 import { RowMenu, copy, type MenuItem, type RowItem } from './row-menu'
 import { taskMenu, useTaskNow } from './tasks-view'
 import { ReadThrough, type Readable } from './read-through'
 import { addToQuestion } from './questions-view'
-import { BackdropMenu, CollectionHeader, coverFit, type Backdrop, coverWords, Cover, MenuButton, PlayButton, QuietAction, TrackList, ViewSwitch, pictureIn, useTint, wordsIn, type Track } from './collection-header'
+import { CollectionHeader, coverFit, type Backdrop, coverWords, Cover, PlayButton, TrackList, ViewSwitch, pictureIn, useTint, wordsIn, type Track } from './collection-header'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { AliveIcon } from '@/components/ui/alive-icon'
+import DotsHorizontalIcon from '@/components/ui/dots-horizontal-icon'
+import { glance } from './note-preview'
+import { madeDeck } from './decks'
+import { Tip } from './ui'
 import { Display, FilterChips, arrange, islandsOn, useView, type Facet } from './display'
 import { ListSearch } from './note-list'
 import { motion } from 'motion/react'
@@ -171,14 +175,14 @@ function OftenCover({ tag, shade }: { tag: string; shade: string }): React.JSX.E
 /** The longest tag the filter box can say in full ("Filter #…" at its narrowest); a longer one is "this tag". */
 const FILTER_ROOM = 14
 
-export function TagStream({ tag, color, onOpen, onTag, onManage }: {
+export function TagStream({ tag, color, onOpen, onTag, onStudy }: {
   tag: string
   color?: string | null
   onOpen: (type: string, id: string) => void
   /** Another tag's page, or this one renamed. */
   onTag: (tag: string) => void
-  /** Colour, alias and exam date, on the other tab. */
-  onManage: () => void
+  /** Its cards: in Review, gone through without counting, or a blank page to write all you remember. */
+  onStudy: (how: StudyWay) => void
 }): React.JSX.Element {
   // Shown at once from what was read before (a tag gone back to, or pointed
   // at in the sidebar), then read again; never another tag's notes.
@@ -312,7 +316,6 @@ export function TagStream({ tag, color, onOpen, onTag, onManage }: {
   const pinnedNote = (item: TagRead): boolean => pins.some((one) => one.id === item.id)
   const table = (item: TagRead): 'captures' | 'nuggets' => (item.type === 'capture' ? 'captures' : 'nuggets')
   const open = (item: TagRead, event?: React.MouseEvent | React.KeyboardEvent): void => (event?.metaKey ? openApart(item.type, item.id) : onOpen(item.type, item.id))
-  const rename = (): Promise<void> => renameTag(tag, onTag)
   // A note's right-click menu is the full one it has on its own page, and this page's "Read from here" after it.
   const rowMenu = (item: TagRead, index: number): RowItem[] => {
     const task = item.type === 'task' ? tasks.find((one) => one.id === item.id) : null
@@ -359,6 +362,10 @@ export function TagStream({ tag, color, onOpen, onTag, onManage }: {
       menu: several.menu(item) ?? [...rowMenu(item, index), ...several.rowItems(item)]
     }
   })
+  // What every row shown shares says nothing on any of them: a tag they all carry, and the kind when there is only one.
+  const shared = shown.length > 1 ? shown.slice(1).reduce((both, item) => both.filter((one) => item.tags.includes(one)), shown[0].tags) : []
+  const oneKind = new Set(shown.map(kindName)).size <= 1
+  const differs = { tags: shared, kind: !oneKind }
   // Under the day each was written, or changed; in A to Z, one run without days.
   const days: [string, TagRead[]][] = []
   for (const item of shown.slice(0, count)) {
@@ -373,30 +380,33 @@ export function TagStream({ tag, color, onOpen, onTag, onManage }: {
       <CollectionHeader
         tint={tint}
         backdrop={items ? backdrop : null}
-        cover={<Cover src={facts.cover} colour={colour} seed={`tag:${tag}`}>{`#${tag}`}</Cover>}
-        label="Tag"
-        // The header clamps its title's span to three lines, which stacks that span's children: the icon and the name go in a row inside it.
-        title={<span><span className="flex items-center gap-2"><TagColourPick tag={tag} color={color} className="size-[0.5em]" /><span className="min-w-0 break-words">#{tag}</span></span></span>}
+        // The cover is the picture, or the tag's mark: its name is said once, in the title beside it.
+        cover={<Cover src={facts.cover} colour={colour} seed={`tag:${tag}`}>#</Cover>}
+        label={<><TagIcon tag={tag} color={color} className="size-3.5" />Tag</>}
+        title={<TagTitle tag={tag} />}
         meta={[`${plural(counted.length, unit[0], unit[1])}`, ...(later ? [
-          <button key="later" type="button" data-later onClick={() => (chime(laterShown ? 'fold' : 'open'), setLaterShown(!laterShown))} className="font-medium text-foreground underline decoration-foreground/25 underline-offset-4 transition-colors hover:decoration-foreground/60">
+          <button key="later" type="button" data-later onClick={() => (chime(laterShown ? 'fold' : 'open'), setLaterShown(!laterShown))} className="cursor-pointer font-medium text-foreground underline decoration-foreground/25 underline-offset-4 transition-colors hover:decoration-foreground/60">
             {laterShown ? `hide the ${num(later)} resolved or done` : `${num(later)} more resolved or done`}
           </button>
-        ] : []), `since ${dayjs(first).format('MMM YYYY')}`, `last added ${ago(last)}`]}
+        ] : []), `last added ${ago(last)}`, `since ${dayjs(first).format('MMM YYYY')}`]}
+        // Every action on the tag, named, in one row: read it, study it, and the rest in ⋯.
         actions={<>
           <PlayButton label="Read through  R" onClick={() => read(readable)} />
-          <QuietAction label="Read in a random order" onClick={shuffled}><Shuffle /></QuietAction>
-          <BackdropMenu value={chosen === 'picture' && !facts.cover ? 'sketch' : chosen} hasPicture={!!facts.cover} onPreview={setTrying}
-            onChange={(to) => (setTrying(null), void haligtree.setTag(tag, { backdrop: to }))} />
-          <MenuButton items={[
-            { label: 'Rename or merge…', run: () => void rename() },
-            { label: 'Edit tag…', hint: 'Colour, alias and exam date', run: onManage },
-            // The way back for a row taken off Home, and the same choice made from here.
-            tagMeta.find((one) => one.tag === tag)?.homeHidden
-              ? { label: 'Show its row on Home', run: () => void haligtree.setTag(tag, { homeHidden: false }) }
-              : { label: 'Hide its row from Home', hint: 'Home stops showing “More from” this tag', run: () => void haligtree.setTag(tag, { homeHidden: true }) },
-            'separator',
-            { label: `Copy #${tag}`, run: () => copy(`#${tag}`, `Copied #${tag}`) }
-          ]} />
+          <StudyMenu onStudy={onStudy} />
+          <TagMenu tag={tag} color={color ?? null} onTag={onTag} onShuffle={readable.length > 1 ? shuffled : undefined}
+            backdrop={chosen === 'picture' && !facts.cover ? 'sketch' : chosen} hasPicture={!!facts.cover} onPreview={setTrying}
+            onBackdrop={(to) => (setTrying(null), void haligtree.setTag(tag, { backdrop: to }))}
+            homeHidden={!!tagMeta.find((one) => one.tag === tag)?.homeHidden} />
+        </>}
+      />
+      {/* One toolbar: the kinds as chips on the left; the words, the order and Stream or List on the right, on the rows' own right edge. */}
+      <div data-tag-toolbar className="page-column flex flex-wrap items-center gap-2 px-5 pb-1 @container/band @[44rem]/page:px-8">
+        <FilterChips view={display} onChange={setDisplay} facets={facets} className="flex-1" />
+        {/* On a narrow window the field gives way first, so the order and Stream or List stay on the line. */}
+        <span className="ml-auto flex min-w-0 items-center gap-1 [&>label]:w-44 [&>label]:min-w-24 [&>label]:shrink">
+          {items.length > 1 && <ListSearch value={query} onChange={setQuery} onDone={() => undefined} placeholder={[...tag].length > FILTER_ROOM ? 'Filter this tag' : `Filter #${tag}`} />}
+          <Display view={display} onChange={setDisplay} facets={facets} count={items.length} groups={[{ id: 'kind', label: 'Kind' }, { id: 'none', label: 'None' }]}
+            sorts={[{ id: 'newest', label: 'Newest' }, { id: 'oldest', label: 'Oldest' }, { id: 'changed', label: 'Recently changed' }, { id: 'name', label: 'A to Z' }]} />
           <ViewSwitch<View> value={view} onChange={(to) => {
             setView(to)
             try {
@@ -405,15 +415,6 @@ export function TagStream({ tag, color, onOpen, onTag, onManage }: {
               // Applied, not kept.
             }
           }} options={[{ id: 'stream', label: 'Stream', icon: <AlignJustify /> }, { id: 'list', label: 'List', icon: <List /> }]} />
-        </>}
-      />
-      {/* Sort and filter, as every list has them: the kinds as chips, the words and the order on the right. */}
-      <div className="page-column flex items-center gap-2 px-5 pb-1 @[44rem]/page:px-8">
-        <FilterChips view={display} onChange={setDisplay} facets={facets} className="flex-1" />
-        <span className="ml-auto flex shrink-0 items-center gap-1 [&>label]:w-44">
-          {items.length > 1 && <ListSearch value={query} onChange={setQuery} onDone={() => undefined} placeholder={[...tag].length > FILTER_ROOM ? 'Filter this tag' : `Filter #${tag}`} />}
-          <Display view={display} onChange={setDisplay} facets={facets} count={items.length} groups={[{ id: 'kind', label: 'Kind' }, { id: 'none', label: 'None' }]}
-            sorts={[{ id: 'newest', label: 'Newest' }, { id: 'oldest', label: 'Oldest' }, { id: 'changed', label: 'Recently changed' }, { id: 'name', label: 'A to Z' }]} />
         </span>
       </div>
       {narrowed && (
@@ -440,7 +441,7 @@ export function TagStream({ tag, color, onOpen, onTag, onManage }: {
             {groups.map(([name, list]) => {
               const Icon = list[0] && list[0].type !== 'capture' ? ICON[list[0].type as keyof typeof ICON] : null
               const rows = list.map((item) => <Entry key={`${item.type}-${item.id}`} item={item} onOpen={onOpen} picked={several.picked(item)} onPick={(event) => several.click(event, item)}
-                menu={several.menu(item) ?? [...rowMenu(item, shown.indexOf(item)), ...several.rowItems(item)]} />)
+                menu={several.menu(item) ?? [...rowMenu(item, shown.indexOf(item)), ...several.rowItems(item)]} differs={{ ...differs, kind: false }} />)
               return islands?.[name] ? <IslandBox key={name} name={name} island={islands[name]} shown={list.length} icon={Icon ? <Icon aria-hidden className="size-4 shrink-0 text-muted-foreground" /> : undefined}>{rows}</IslandBox>
                 : <section key={name}><h2 className="pt-4 pb-1.5 text-meta font-semibold text-muted-foreground">{name}</h2>{rows}</section>
             })}
@@ -454,7 +455,7 @@ export function TagStream({ tag, color, onOpen, onTag, onManage }: {
               {day && <h2 className="sticky top-0 z-10 -mx-1 bg-background px-1 pt-4 pb-1.5 text-meta font-semibold text-muted-foreground">{named(day)}</h2>}
               {/* The same menu, picking and picked look as the List view: what ⌘A picks is seen picked here too. */}
               {list.map((item) => <Entry key={`${item.type}-${item.id}`} item={item} onOpen={onOpen} picked={several.picked(item)} onPick={(event) => several.click(event, item)}
-                menu={several.menu(item) ?? [...rowMenu(item, shown.indexOf(item)), ...several.rowItems(item)]} />)}
+                menu={several.menu(item) ?? [...rowMenu(item, shown.indexOf(item)), ...several.rowItems(item)]} differs={differs} />)}
             </section>
           ))}
           <div ref={end} className="h-px" />
@@ -503,8 +504,8 @@ export function TagStream({ tag, color, onOpen, onTag, onManage }: {
 function Waiting({ tag, colour }: { tag: string; colour: string }): React.JSX.Element {
   return (
     <motion.div aria-busy className="flex w-full flex-col pb-16" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.12, duration: 0.25 }}>
-      <CollectionHeader tint={null} cover={<Cover colour={colour} seed={`tag:${tag}`}>{`#${tag}`}</Cover>} label="Tag" title={<span>#{tag}</span>} meta={['\u00a0']}
-        actions={<span className="h-9" />} />
+      <CollectionHeader tint={null} cover={<Cover colour={colour} seed={`tag:${tag}`}>#</Cover>} label={<><TagIcon tag={tag} className="size-3.5" />Tag</>} title={<TagTitle tag={tag} />} meta={['\u00a0']}
+        actions={<span className="h-8" />} />
       <div className="page-column w-full px-5 @[44rem]/page:px-8">
         {/* The app's one way to say "a real wait": the orb and its shimmering words, never grey bars. */}
         <div className="py-4"><Orb label={`Gathering #${tag}…`} /></div>
@@ -513,51 +514,166 @@ function Waiting({ tag, colour }: { tag: string; colour: string }): React.JSX.El
   )
 }
 
-function Entry({ item, onOpen, picked, onPick, menu }: { item: TagRead; onOpen: (type: string, id: string) => void; picked: boolean; /** ⌘ or ⇧ held: picked as Finder picks, and true. */ onPick: (event: React.MouseEvent | React.KeyboardEvent) => boolean; menu: RowItem[] }): React.JSX.Element {
+/** What a row says beside its words, when it differs from the rows around it: tags they do not all carry, and its kind where kinds are mixed. */
+type Differs = { tags: string[]; kind: boolean }
+
+/** How a note's words read in the stream: a few lines, clean text, never Markdown's marks or a line of only tags. */
+const LINES = 5
+const wordsOf = (item: TagRead): string => {
+  const said = glance(rowBody((item.body as JSONContent | string | null) ?? '', item.type !== 'capture' ? item.title : ''))
+  // Tags at the end of a line are the note's filing, not its words: the page already says which tag this is.
+  return said.split('\n').map((line) => line.replace(/(?:^|\s+)(?:#[^\s#]+\s*)+$/u, '').trim()).filter(Boolean).join('\n')
+}
+
+/**
+ * One note in the stream, read as a page of a commonplace book: its title
+ * when it has one, then its own words (a few lines, clean), then its picture
+ * at a reading size. Beside it, only what sets it apart from the rest.
+ */
+function Entry({ item, onOpen, picked, onPick, menu, differs }: { item: TagRead; onOpen: (type: string, id: string) => void; picked: boolean; /** ⌘ or ⇧ held: picked as Finder picks, and true. */ onPick: (event: React.MouseEvent | React.KeyboardEvent) => boolean; menu: RowItem[]; differs: Differs }): React.JSX.Element {
   const kind = CAPTURE_TYPES.find((one) => one.id === item.kind)
   const Icon = item.type === 'capture' ? kind?.icon ?? Inbox : ICON[item.type as keyof typeof ICON] ?? Gem
   // ⌥⌘-click: in a window of its own, as in every list; ⌘-click and ⇧-click pick it.
   const open = (event: React.MouseEvent | React.KeyboardEvent): void => void (event.metaKey && event.altKey ? openApart(item.type, item.id) : onPick(event) || onOpen(item.type, item.id))
+  const words = useMemo(() => wordsOf(item), [item])
+  const picture = useMemo(() => pictureIn(item.body), [item.body])
+  // A gem whose words are its title alone reads as those words, not as a bold heading over nothing.
+  const title = item.type !== 'capture' && item.title && words ? itemName(item.type, item.title).text : ''
+  const lead = words || (item.type !== 'capture' ? itemName(item.type, item.title || item.label).text : item.label)
+  const others = item.tags.filter((one) => !differs.tags.includes(one) && one !== 'bit')
+  const status = item.type === 'capture' && item.status !== 'open' ? statusSaid(item.status, item.keptIn).replace(/^./, (c) => c.toLowerCase()) : item.type === 'task' && item.status === 'done' ? 'done' : ''
+  const aside = differs.kind || others.length > 0 || !!status
   return (
     <RowMenu items={menu}>
-    <article data-private={item.private ? '' : undefined} data-picked={picked || undefined} className={`group/entry -mx-2 flex flex-col gap-1.5 border-b border-border/50 px-2 py-3 last:border-b-0 @[44rem]/page:flex-row @[44rem]/page:gap-4 ${PICKED_MARK}`}>
+    <article data-entry data-private={item.private ? '' : undefined} data-picked={picked || undefined} className={`group/entry -mx-2 flex flex-col gap-1.5 border-b border-border/50 px-2 py-3.5 last:border-b-0 @[44rem]/page:flex-row @[44rem]/page:gap-6 ${PICKED_MARK}`}>
       <div
         data-pick={`${item.type}:${item.id}`}
         role="link"
         tabIndex={0}
         aria-label={`Open ${item.label || 'it'}`}
-        // A toggle or a link inside the words does its own thing; anywhere else opens it.
         onClick={(event) => !(event.target as HTMLElement).closest('a, button, input, summary') && open(event)}
         onKeyDown={(event) => event.key === 'Enter' && event.target === event.currentTarget && open(event)}
-        className="private-text min-w-0 flex-1 cursor-pointer rounded-md outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring/50 [&_.tiptap.ProseMirror]:cursor-pointer [&_.haligtree-editor-content]:p-0 [&_.ProseMirror>p:last-child:has(>br:only-child)]:hidden"
+        className="private-text min-w-0 flex-1 cursor-pointer rounded-md outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring/50"
       >
-        {item.title && item.type !== 'capture' && <h3 className="mb-1 font-semibold">{item.title}</h3>}
-        <HaligtreeEditor
-          host={window.api}
-          tokens={TAGS}
-          readOnly
-          defaultContent={rowBody((item.body as JSONContent | string | null) ?? '', item.type !== 'capture' ? item.title : '')}
-          toolbar={false}
-          handles={false}
-          slash={false}
-          outline={false}
-          search={false}
-          vim={false}
-          autofocus={false}
-        />
+        {title && <h3 data-entry-title className="mb-1 font-semibold text-foreground">{title}</h3>}
+        <p data-entry-words className="max-w-[68ch] text-[0.9375rem] leading-relaxed whitespace-pre-line text-foreground/90" style={{ display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: LINES, overflow: 'hidden' }}>{lead || 'Untitled'}</p>
+        {picture && <img data-entry-picture src={picture} alt="" loading="lazy" draggable={false} className="mt-2.5 max-h-60 max-w-full rounded-md object-contain" />}
       </div>
-      {/* Its other routes back, then what it is: on the right, out of the words' way. */}
-      <aside className="flex shrink-0 flex-row flex-wrap items-center gap-x-3 gap-y-1.5 text-xs whitespace-nowrap text-muted-foreground @[44rem]/page:max-w-[38%] @[44rem]/page:flex-col @[44rem]/page:items-end @[44rem]/page:pt-1">
-        <Tags tags={item.tags} alone />
-        <span className="flex items-center gap-1 opacity-70 transition-opacity group-hover/entry:opacity-100">
-          <Icon className="size-3.5" style={kind && item.type === 'capture' ? { color: kind.tint } : undefined} />
-          {item.type === 'capture' ? kind?.label ?? NAME.capture : NAME[item.type] ?? item.type}
-          {item.status !== 'open' && item.type === 'capture' && <span>· {statusSaid(item.status, item.keptIn).replace(/^./, (c) => c.toLowerCase())}</span>}
-          {item.type === 'task' && item.status === 'done' && <span>· done</span>}
-          {item.fromNote && <span>· from a note</span>}
-        </span>
-      </aside>
+      {/* Only what sets it apart: its kind where kinds are mixed, a state, tags the others do not carry. Quiet, out of the words' way. */}
+      {aside && (
+        <aside data-entry-aside className="flex shrink-0 flex-row flex-wrap items-center gap-x-3 gap-y-1 text-xs whitespace-nowrap text-muted-foreground @[44rem]/page:max-w-[30%] @[44rem]/page:flex-col @[44rem]/page:items-end @[44rem]/page:pt-1">
+          {(differs.kind || status) && (
+            <span className="flex items-center gap-1">
+              {differs.kind && <><Icon className="size-3.5" style={kind && item.type === 'capture' ? { color: kind.tint } : undefined} />{item.type === 'capture' ? kind?.label ?? NAME.capture : NAME[item.type] ?? item.type}</>}
+              {status && <span>{differs.kind ? '· ' : ''}{status}</span>}
+            </span>
+          )}
+          {others.length > 0 && <span data-entry-tags className="truncate">{others.map((one) => `#${one}`).join(' ')}</span>}
+        </aside>
+      )}
     </article>
     </RowMenu>
+  )
+}
+
+/** The tag's name, once, on one line: set smaller as it grows so a long tag fits whole, and never broken at a hyphen. */
+function TagTitle({ tag }: { tag: string }): React.JSX.Element {
+  const k = Math.max(3, [...tag].length + 1) * 0.6
+  return (
+    <span data-tag-title className="block! w-full [container-type:inline-size]" title={`#${tag}`}>
+      <span className="block truncate whitespace-nowrap" style={{ fontSize: `clamp(1.25rem, min(24cqi, ${(100 / k).toFixed(2)}cqi), 4.25rem)` }}>#{tag}</span>
+    </span>
+  )
+}
+
+export type StudyWay = 'review' | 'practise' | 'blurt'
+
+/** Studying the tag, three ways in one button, each line saying what it does. */
+function StudyMenu({ onStudy }: { onStudy: (how: StudyWay) => void }): React.JSX.Element {
+  return (
+    <DropdownMenu modal={false}>
+      <DropdownMenuTrigger asChild>
+        <button type="button" data-study-menu className="flex h-8 shrink-0 cursor-pointer items-center gap-1.5 rounded-full border border-foreground/15 px-3 text-control font-medium text-foreground transition-[background-color,scale] duration-150 hover:bg-foreground/[0.06] active:scale-[0.97] data-[state=open]:bg-foreground/[0.06]">
+          Study <ChevronDown className="size-3.5 text-muted-foreground" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="w-72">
+        <DropdownMenuItem data-study-tag onSelect={() => (chime('open'), onStudy('review'))}>Review its cards (each grade counts)</DropdownMenuItem>
+        <DropdownMenuItem data-practise-open onSelect={() => (chime('open'), onStudy('practise'))}>Practise its cards (nothing counted)</DropdownMenuItem>
+        <DropdownMenuItem data-blurt-open onSelect={() => (chime('open'), onStudy('blurt'))}>Blurt: write all you remember</DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
+const COLOURS = ['gray', 'brown', 'orange', 'yellow', 'green', 'blue', 'purple', 'pink', 'red'] as const
+const BACKDROPS: { id: Backdrop; label: string }[] = [{ id: 'picture', label: "A note's picture" }, { id: 'sketch', label: 'A landscape sketch' }, { id: 'colour', label: 'Its colour' }]
+
+/**
+ * Everything else the tag can do, in one menu, every line named: read it in
+ * a random order, rename or merge, its colour and backdrop (each previewed as
+ * the pointer rests on it), a deck of its cards, its row on Home, a copy.
+ */
+function TagMenu({ tag, color, onTag, onShuffle, backdrop, hasPicture, onPreview, onBackdrop, homeHidden }: {
+  tag: string
+  color: string | null
+  onTag: (tag: string) => void
+  onShuffle?: () => void
+  backdrop: Backdrop
+  hasPicture: boolean
+  onPreview: (to: Backdrop | null) => void
+  onBackdrop: (to: Backdrop) => void
+  homeHidden: boolean
+}): React.JSX.Element {
+  const decks = useLive(haligtree.madeDecks, [] as string[])
+  const colourTo = (one: string): void => {
+    const next = color === one ? null : one
+    void haligtree.setTag(tag, { color: next }).then(() => (chime('settled'), toast(next ? `#${tag} is ${next} now` : `#${tag} has no colour now`, () => void haligtree.setTag(tag, { color }).then(() => chime('undo')))))
+  }
+  return (
+    <DropdownMenu modal={false} onOpenChange={(open) => !open && onPreview(null)}>
+      <Tip label="More for this tag">
+        <DropdownMenuTrigger asChild>
+          <button type="button" aria-label="More for this tag" data-tag-more className="flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-full text-muted-foreground transition-[color,background-color,scale] duration-150 hover:bg-foreground/[0.06] hover:text-foreground active:scale-[0.94] data-[state=open]:text-foreground">
+            <AliveIcon icon={DotsHorizontalIcon} size={20} />
+          </button>
+        </DropdownMenuTrigger>
+      </Tip>
+      <DropdownMenuContent align="start" className="w-60">
+        {onShuffle && <DropdownMenuItem onSelect={onShuffle}>Read in a random order</DropdownMenuItem>}
+        <DropdownMenuItem onSelect={() => void renameTag(tag, onTag)}>Rename or merge…</DropdownMenuItem>
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger data-tag-colour-menu>Colour</DropdownMenuSubTrigger>
+          <DropdownMenuSubContent className="w-44">
+            <DropdownMenuRadioGroup value={color ?? ''} onValueChange={colourTo}>
+              {COLOURS.map((one) => (
+                <DropdownMenuRadioItem key={one} value={one} data-tag-swatch={one}>
+                  <span aria-hidden className="size-3 shrink-0 rounded-full" style={{ background: `var(--tt-color-text-${one})` }} />
+                  <span className="capitalize">{one}</span>
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+          </DropdownMenuSubContent>
+        </DropdownMenuSub>
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger data-backdrop-menu>Backdrop</DropdownMenuSubTrigger>
+          <DropdownMenuSubContent className="w-56" onPointerLeave={() => onPreview(null)}>
+            <DropdownMenuRadioGroup value={backdrop} onValueChange={(to) => (chime('tap'), onBackdrop(to as Backdrop))}>
+              {BACKDROPS.filter((one) => one.id !== 'picture' || hasPicture).map((one) => (
+                <DropdownMenuRadioItem key={one.id} value={one.id} data-backdrop-choice={one.id} onPointerEnter={() => onPreview(one.id)} onFocus={() => onPreview(one.id)}>{one.label}</DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+          </DropdownMenuSubContent>
+        </DropdownMenuSub>
+        <DropdownMenuSeparator />
+        {!decks.includes(tag) && <DropdownMenuItem data-tag-deck onSelect={() => void madeDeck(tag)}>Make a deck of its cards</DropdownMenuItem>}
+        {/* The way back for a row taken off Home, and the same choice made from here. */}
+        {homeHidden
+          ? <DropdownMenuItem onSelect={() => void haligtree.setTag(tag, { homeHidden: false }).then(() => toast(`Home shows #${tag} again`))}>Show its row on Home</DropdownMenuItem>
+          : <DropdownMenuItem onSelect={() => void haligtree.setTag(tag, { homeHidden: true }).then(() => toast(`Home no longer shows “More from #${tag}”`, () => void haligtree.setTag(tag, { homeHidden: false })))}>Hide its row from Home</DropdownMenuItem>}
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onSelect={() => copy(`#${tag}`, `Copied #${tag}`)}>Copy #{tag}</DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }

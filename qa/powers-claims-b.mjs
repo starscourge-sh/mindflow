@@ -333,7 +333,7 @@ try {
   await card('blurt', async () => {
     await send('tag', 'astrophysics')
     await wait(1500)
-    await h.evaluate(() => document.querySelector('[data-blurt-open]')?.click())
+    await h.locator('[data-study-menu]').click(); await h.waitForTimeout(250); await h.locator('[data-blurt-open]').click()
     await wait(900)
     const writing = await text('[data-blurt="writing"]')
     const clock = /[45]:\d\d/.exec(writing)?.[0]
@@ -448,7 +448,7 @@ try {
     const due = Object.fromEntries((await v('tag:cards', 'learn-haligtree')).map((one) => [one.id, one.dueAt]))
     await send('tag', 'learn-haligtree')
     await wait(1500)
-    await h.evaluate(() => document.querySelector('[data-practise-open]')?.click())
+    await h.locator('[data-study-menu]').click(); await h.waitForTimeout(250); await h.locator('[data-practise-open]').click()
     await wait(900)
     const opened = (await text('[data-practise]')).includes('Nothing here is counted or scheduled')
     await blur()

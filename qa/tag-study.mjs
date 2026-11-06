@@ -26,8 +26,10 @@ try {
 
   // From the tag's page.
   await h.evaluate(() => window.api.openInHome('tag', 'astrophysics'))
-  await waitFor(() => h.evaluate(() => !!document.querySelector('[data-study-tag]')))
-  await h.evaluate(() => document.querySelector('[data-study-tag]').click())
+  await waitFor(() => h.evaluate(() => !!document.querySelector('[data-study-menu]')))
+  await h.locator('[data-study-menu]').click()
+  await h.waitForTimeout(250)
+  await h.locator('[data-study-tag]').click()
   check('"Study" on the tag\'s page opens Review on that tag', await waitFor(async () => /^Studying #astrophysics\./.test(await roundLine())), await roundLine())
   if (shots) await h.screenshot({ path: join(shots, 'tag-study.png') })
   const asked = await h.evaluate(() => document.querySelector('h2')?.textContent ?? '')

@@ -48,7 +48,7 @@ try {
   const tag = tags[0].tag
   await open(tag)
   const first = (await lines()).backdrop
-  await h.locator('[data-backdrop-menu]').click()
+  await h.locator('[data-tag-more]').click(); await wait(250); await h.locator('[data-backdrop-menu]').hover(); await h.locator('[data-backdrop-menu]').press('ArrowRight')
   await wait(400)
   const offered = await h.evaluate(() => [...document.querySelectorAll('[data-backdrop-choice]')].map((one) => one.dataset.backdropChoice))
   check('the menu offers a sketch and the colour, and a picture when its notes have one', offered.includes('sketch') && offered.includes('colour'), offered.join(', '))
@@ -60,10 +60,12 @@ try {
   await wait(400)
   const sketch = (await lines()).backdrop
   check('resting on the sketch shows a sketch', !!sketch && sketch.endsWith('.webp'), String(sketch))
+  // Esc backs out one layer at a time: the Backdrop list, then the ⋯ menu.
+  await h.keyboard.press('Escape')
   await h.keyboard.press('Escape')
   await wait(400)
   check('leaving the menu puts back what was there', (await lines()).backdrop === first)
-  await h.locator('[data-backdrop-menu]').click()
+  await h.locator('[data-tag-more]').click(); await wait(250); await h.locator('[data-backdrop-menu]').hover(); await h.locator('[data-backdrop-menu]').press('ArrowRight')
   await wait(300)
   await h.locator('[data-backdrop-choice="colour"]').click()
   await wait(700)

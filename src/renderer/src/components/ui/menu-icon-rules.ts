@@ -40,6 +40,7 @@ const RULES: [RegExp, LucideIcon][] = [
   [/^no deck$/i, CircleOff],
   [/^a landscape sketch/i, Mountain],
   [/^its colou?r$/i, PaintBucket],
+  [/^backdrop/i, Mountain],
   [/^snap to other shapes/i, Magnet],
   [/^keep the tool/i, Lock],
   [/^put it first/i, ArrowUpToLine],

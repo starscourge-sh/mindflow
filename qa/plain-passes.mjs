@@ -73,6 +73,8 @@ try {
   // Practise and Blurt, from a tag's page.
   const tag = (await v('tags')).find((one) => one.count > 2)?.tag
   await c.send('tag', tag); await wait(1400)
+  // Practise lives in the tag's Study menu.
+  await h.locator('[data-study-menu]').click(); await wait(250)
   const practise = h.locator('[data-practise-open]').first()
   if (await practise.count()) {
     await practise.click(); await wait(1200)
