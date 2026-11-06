@@ -335,6 +335,21 @@
 :root {
   --primary-foreground: oklch(from var(--primary) clamp(0.2, (0.62 - l) * 1000, 1) clamp(0, (l - 0.62) * 1000, 0.02) 100) !important;
 }
+/* A caption's look: the quiet line under a picture. The editor's captions (extensions/caption.ts) and a row of
+   pictures' title under its pictures (flex-carousel.tsx) both wear it. */
+.mf-caption-look {
+  font-size: 0.875em;
+  line-height: 1.45;
+  color: var(--mf-muted);
+}
+/* A carousel's title as it turns: the old one fades out as the new one fades in over it. */
+.mf-caption-in { animation: mf-caption-in 160ms var(--mf-ease) both; }
+.mf-caption-out { animation: mf-caption-out 120ms var(--mf-ease) both; pointer-events: none; }
+@keyframes mf-caption-in { from { opacity: 0; } }
+@keyframes mf-caption-out { to { opacity: 0; } }
+:root[data-motion='off'] .mf-caption-in { animation: none; }
+:root[data-motion='off'] .mf-caption-out { animation: none; opacity: 0; }
+
 .mf-on-accent {
   color: var(--pill-on-accent, oklch(from var(--tt-brand-color-400) clamp(0.2, (0.62 - l) * 1000, 1) clamp(0, (l - 0.62) * 1000, 0.02) 100));
 }

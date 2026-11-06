@@ -10,7 +10,10 @@
  * only a sideways wheel moves it, so a page still scrolls over it. It draws
  * only while it is on screen and the window is shown.
  */
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { chime } from '@/lib/sound'
+import { Tip } from './ui'
 import { useByKeys } from '@/lib/motion'
 import { num } from '../../../../main/dates'
 import type { CSSProperties } from 'react'
@@ -80,6 +83,8 @@ const PIXEL_BUDGET = 4.5e6
 const RISE = 2.1
 /** Room above a top-set row, for the press and the focus ring. */
 const TOP = 6
+/** The row under the pictures for the picked one's title (two lines at most) and its place: the pictures never share it. */
+export const CAPTION = 60
 
 const wrap = (value: number, size: number): number => ((((value + size / 2) % size) + size) % size) - size / 2
 /** A distance along the row: the short way round on an endless one, straight on a short one. */
@@ -267,6 +272,10 @@ export default function FlexCarousel({
   const keyedTurn = useByKeys(active)
   const [revealed, setRevealed] = useState(false)
   const [focusOpen, setFocusOpen] = useState(false)
+  // Whether the row goes round for ever (no ends to stop at), and a turn by the buttons either side.
+  const [ring, setRing] = useState(true)
+  const turn = useRef<(way: 1 | -1) => void>(() => undefined)
+  const frameRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     itemsRef.current = items
@@ -352,6 +361,7 @@ export default function FlexCarousel({
     const press = { index: -1, amount: 0 }
     // In a row that fits whole, the one picked (by a key, or the pointer resting on it).
     let chosen = 0
+    let ringNow = true
     let titleX = 0
     let fetched = 0
     let width = 1
@@ -451,7 +461,8 @@ export default function FlexCarousel({
 
     const metrics = (): Metrics => {
       const s = settingsRef.current
-      const cardH = Math.max(24, s.cardHeight * height)
+      // As tall a part of the whole row (pictures and the caption row under them) as asked, never past the pictures' box.
+      const cardH = Math.max(24, Math.min(height - TOP * 2, s.cardHeight * (height + CAPTION)))
       const widths = slots.map((slot) => slot.aspect * cardH)
       const centers: number[] = []
       let cursor = 0
@@ -593,6 +604,7 @@ export default function FlexCarousel({
       // start, and stays put: centred, one book sat alone in the middle of an empty band.
       // Said on the row, so its frame drops the side fades: nothing is cut off, so nothing needs to fade.
       container.toggleAttribute('data-fits', fits(m))
+      if (m.ring !== ringNow) setRing((ringNow = m.ring))
       if (fits(m)) {
         goal = m.centers[0] - m.widths[0] / 2 + width / 2 - FIT_INSET
         if (!rise.done && !rise.running) pos = goal
@@ -784,7 +796,7 @@ export default function FlexCarousel({
       const nextX = under && fits(m) ? (under.x0 + under.x1) / 2 - width / 2 : 0
       if (Math.abs(nextX - titleX) > 0.5) {
         titleX = nextX
-        container.style.setProperty('--flex-carousel-x', `${titleX.toFixed(1)}px`)
+        frameRef.current?.style.setProperty('--flex-carousel-x', `${titleX.toFixed(1)}px`)
       }
 
       // The pointer says what a click would do: bring one close, or open the close one.
@@ -962,16 +974,20 @@ export default function FlexCarousel({
       start()
     }
 
-    // Its own keys, where a click opens: ← and → turn it, ↵ or Space opens the one in the middle.
+    // Its own keys: ← and → turn it (as its buttons do); where a click opens, ↵ or Space opens the one in the middle.
+    turn.current = (way) => {
+      skipIntro()
+      step(metrics(), way)
+    }
     const onKey = (e: KeyboardEvent): void => {
-      if (!settingsRef.current.direct || e.metaKey || e.ctrlKey || e.altKey) return
+      if (e.metaKey || e.ctrlKey || e.altKey) return
       if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
         // Its own: the page's arrow keys (which walk Home's rows) never hear it.
         e.preventDefault()
         e.stopPropagation()
         skipIntro()
         step(metrics(), e.key === 'ArrowRight' ? 1 : -1)
-      } else if ((e.key === 'Enter' || e.key === ' ') && activeIndex >= 0) {
+      } else if (settingsRef.current.direct && (e.key === 'Enter' || e.key === ' ') && activeIndex >= 0) {
         e.preventDefault()
         e.stopPropagation()
         openRef.current?.(activeIndex)
@@ -1027,36 +1043,75 @@ export default function FlexCarousel({
   const current = items[active] ?? items[0]
   const place = counter === 'slash' ? `${num(active + 1).padStart(2, '0')} / ${num(items.length).padStart(2, '0')}` : `${num(active + 1)} of ${num(items.length)}`
   const said = current?.note ?? place
+  // The title it turned from, fading out as the new one fades in over it (a short crossfade); by a key, simply there.
+  const was = useRef(active)
+  const [from, setFrom] = useState(-1)
+  useLayoutEffect(() => {
+    if (was.current === active) return
+    setFrom(keyedTurn ? -1 : was.current)
+    was.current = active
+  }, [active, keyedTurn])
+  const n = items.length
+  const turnBy = (way: 1 | -1) => (): void => {
+    chime('tap')
+    turn.current(way)
+    containerRef.current?.focus({ preventScroll: true })
+  }
 
   return (
-    <div
-      ref={containerRef}
-      data-swipe-own
-      className={`relative h-full w-full cursor-grab touch-pan-y rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring select-none overflow-hidden overscroll-contain [-webkit-tap-highlight-color:transparent] data-[hover=focus]:cursor-zoom-in data-[hover=close]:cursor-zoom-out data-[hover=open]:cursor-pointer data-[dragging]:cursor-grabbing ${className}`}
-      style={{ ...style, '--flex-carousel-half': `${Math.min(Math.max(cardHeight, 0.05), 1) * 50}%`, '--flex-carousel-under': direct ? `calc(${Math.min(Math.max(cardHeight, 0.05), 1) * 100}% + ${TOP + 10}px)` : undefined } as CSSProperties}
-      role="region"
-      aria-roledescription="carousel"
-      aria-label={label}
-      tabIndex={direct ? 0 : undefined}
-      data-flex-carousel
-      data-active={active}
-    >
-      {/* Under the middle picture: its note's name, and where it is in the row. */}
-      {current && revealed && (
+    <div ref={frameRef} data-flex-carousel-frame className={`flex h-full w-full flex-col ${className}`} style={style}>
+      <div className="relative flex min-h-0 flex-1 items-start gap-3">
+        <TurnButton way={-1} disabled={!ring && active <= 0} onClick={turnBy(-1)} top={direct ? `${TOP}px + ${cardHeight} * (100% + ${CAPTION}px) / 2` : '50%'} />
         <div
-          className="pointer-events-none absolute inset-x-0 top-(--flex-carousel-under,calc(50%_+_var(--flex-carousel-half)_*_var(--flex-carousel-lift,1)_+_14px)) translate-x-(--flex-carousel-x) flex flex-col items-center gap-1 px-4 text-center animate-in fade-in-0 duration-300"
-          aria-hidden="true"
-        >
-          {/* Each turn's title rises in quickly; turned by a key (the recap's arrows), it is simply there. */}
-          <span key={active} className={`max-w-full truncate text-body font-medium text-foreground ${keyedTurn ? '' : 'animate-in fade-in-0 slide-in-from-bottom-1 duration-200'}`}>
-            {current.title || 'Untitled'}
-          </span>
-          <span className="text-meta text-muted-foreground tabular-nums">{focusOpen ? 'Click it to open' : said}</span>
-        </div>
-      )}
+          ref={containerRef}
+          data-swipe-own
+          className={`relative h-full min-w-0 flex-1 cursor-grab touch-pan-y rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring select-none overflow-hidden overscroll-contain [-webkit-tap-highlight-color:transparent] [mask-image:linear-gradient(to_right,transparent,#000_7%,#000_93%,transparent)] data-[fits]:[mask-image:none] data-[hover=focus]:cursor-zoom-in data-[hover=close]:cursor-zoom-out data-[hover=open]:cursor-pointer data-[dragging]:cursor-grabbing`}
+          role="region"
+          aria-roledescription="carousel"
+          aria-label={label}
+          tabIndex={0}
+          data-flex-carousel
+          data-active={active}
+        />
+        <TurnButton way={1} disabled={!ring && active >= n - 1} onClick={turnBy(1)} top={direct ? `${TOP}px + ${cardHeight} * (100% + ${CAPTION}px) / 2` : '50%'} />
+      </div>
+      {/* Its own row under the pictures, in the editor's caption look: the picked one's title, two lines at most, and
+          where it is in the row under it. Never over a picture. */}
+      <div data-flex-carousel-caption aria-hidden="true" className="relative grid shrink-0 px-12 pt-1.5 text-center" style={{ height: CAPTION }}>
+        {current && revealed && (
+          <>
+            {from >= 0 && items[from] && (
+              <span key={`was-${from}`} className="mf-caption-look mf-caption-out col-start-1 row-start-1 line-clamp-2 translate-x-(--flex-carousel-x) self-start">{items[from].title || 'Untitled'}</span>
+            )}
+            <span key={`now-${active}`} data-flex-carousel-title className={`mf-caption-look col-start-1 row-start-1 line-clamp-2 translate-x-(--flex-carousel-x) self-start ${from >= 0 ? 'mf-caption-in' : ''}`}>{current.title || 'Untitled'}</span>
+            <span className="absolute inset-x-0 bottom-0 translate-x-(--flex-carousel-x) text-meta text-muted-foreground tabular-nums">{focusOpen ? 'Click it to open' : said}</span>
+          </>
+        )}
+      </div>
       <div className="sr-only" aria-live="polite" aria-atomic="true">
         {current ? `${current.title || 'Untitled'}, ${current.note ? `${current.note}, ` : ''}${num(active + 1)} of ${num(items.length)}` : ''}
       </div>
+    </div>
+  )
+}
+
+/**
+ * A round button either side of the row that turns it one picture, in the look of the swipe-back arrow
+ * (swipe-back.tsx): the same round popover disc with its soft shadow and chevron, smaller. Disabled, not hidden, at
+ * a row's ends; a row that goes round has none.
+ */
+function TurnButton({ way, disabled, onClick, top }: { way: 1 | -1; disabled: boolean; onClick: () => void; top: string }): React.JSX.Element {
+  const Arrow = way === 1 ? ChevronRight : ChevronLeft
+  return (
+    // Its own column as tall as the pictures' box, the button level with the pictures' middle.
+    <div className="relative h-full w-9 shrink-0">
+    <Tip label={way === 1 ? 'Next picture  →' : 'Previous picture  ←'}>
+    <button type="button" data-flex-carousel-turn={way === 1 ? 'next' : 'previous'} aria-label={way === 1 ? 'Next picture' : 'Previous picture'}
+      disabled={disabled} onClick={onClick} style={{ top: `calc(${top} - 18px)` }}
+      className="absolute left-0 flex size-9 cursor-pointer items-center justify-center rounded-full border bg-popover text-popover-foreground shadow-(--mf-panel-shadow) outline-none transition-[scale,opacity,background-color] duration-120 ease-(--mf-ease) hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.97] disabled:cursor-default disabled:opacity-40 disabled:shadow-none disabled:hover:bg-popover">
+      <Arrow className="size-5" />
+    </button>
+    </Tip>
     </div>
   )
 }

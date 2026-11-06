@@ -50,7 +50,7 @@ const row = (where) => h.evaluate((where) => {
   if (!box) return null
   const r = box.getBoundingClientRect()
   const car = box.querySelector('[data-flex-carousel]')
-  const words = car ? [...car.querySelectorAll('[aria-hidden=true] span')].map((one) => one.textContent) : [...box.querySelectorAll('[data-still-picture] span')].map((one) => one.textContent).filter(Boolean)
+  const words = car ? [...box.querySelectorAll('[data-flex-carousel-caption] span:not(.mf-caption-out)')].map((one) => one.textContent) : [...box.querySelectorAll('[data-still-picture] span')].map((one) => one.textContent).filter(Boolean)
   return { mode: box.dataset.pictureRow, top: Math.round(r.top), height: Math.round(r.height), canvas: !!car?.querySelector('canvas'), fetched: Number(car?.dataset.fetched ?? 0), active: Number(car?.dataset.active ?? -1), words, still: box.querySelectorAll('[data-still-picture]').length }
 }, where)
 const see = async (where) => (await h.evaluate((where) => document.querySelector(`${where} [data-picture-row]`)?.scrollIntoView({ block: 'center' }), where), await wait(2500))

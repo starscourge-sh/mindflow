@@ -81,7 +81,7 @@ function leave(view: EditorView, at: number, text: string, then?: "below" | "med
 function captionView(view: EditorView, getPos: () => number | undefined, caption: string, focus: boolean): HTMLElement {
   const media = mediaBefore(view.state, getPos() ?? 0)?.node
   const wrap = document.createElement("div")
-  wrap.className = "mf-caption"
+  wrap.className = "mf-caption mf-caption-look"
   wrap.dataset.of = media?.type.name ?? ""
   const align = media?.attrs.align
   if (align) wrap.dataset.align = align

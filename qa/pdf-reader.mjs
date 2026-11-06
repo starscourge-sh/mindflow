@@ -721,7 +721,7 @@ try {
     const row = document.querySelector('[data-continue-reading] [data-picture-row]')
     if (!row) return null
     const flowing = row.querySelector('[data-flex-carousel]')
-    if (flowing) return { kind: 'moving', words: [...flowing.querySelectorAll('[aria-hidden=true] span')].map((one) => one.textContent), cover: Number(flowing.dataset.fetched ?? 0) > 0 && !!flowing.querySelector('canvas') }
+    if (flowing) return { kind: 'moving', words: [...flowing.closest('[data-flex-carousel-frame]').querySelectorAll('[data-flex-carousel-caption] span:not(.mf-caption-out)')].map((one) => one.textContent), cover: Number(flowing.dataset.fetched ?? 0) > 0 && !!flowing.querySelector('canvas') }
     const card = row.querySelector('[data-still-picture]')
     return card && { kind: 'still', words: [...card.querySelectorAll(':scope > span')].map((one) => one.textContent), cover: (card.querySelector('img')?.naturalWidth ?? 0) > 0 }
   })

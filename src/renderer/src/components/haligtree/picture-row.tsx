@@ -54,9 +54,9 @@ export function PictureRow({ items, onOpen, menuFor, direct = false, counter = '
     <FlexCarousel key={items.length} items={items} cardHeight={cardHeight} onOpen={onOpen} onUnder={(at) => (under.current = at)} direct={direct} counter={counter} label={label} />
   )
   return (
-    // Its own clicks and drags stay its own. Its sides fade out, so a picture leaves the row rather than being cut off.
+    // Its own clicks and drags stay its own. (The moving row fades out at its sides itself, inside its turn buttons.)
     <div ref={box} data-picture-row={still ? 'still' : 'moving'} onClick={(event) => event.stopPropagation()} style={{ height }}
-      className={`relative ${still ? '' : '[mask-image:linear-gradient(to_right,transparent,#000_7%,#000_93%,transparent)] [&:has([data-fits])]:[mask-image:none]'} ${className}`}>
+      className={`relative ${className}`}>
       {still ? (
         <StillRow items={items} onOpen={onOpen} menuFor={menuFor} counter={counter} label={label} height={height} whole={fits} />
       ) : (

@@ -1886,12 +1886,10 @@ html[data-motion="off"] :is(.prosemirror-dropcursor-block, .prosemirror-dropcurs
     margin-bottom: 0.375rem !important;
   }
 
+  // Its size and colour are the shared caption look (.mf-caption-look, main.css).
   .mf-caption {
     max-width: 100%;
     margin-bottom: 1.25rem;
-    font-size: 0.875em;
-    line-height: 1.45;
-    color: var(--mf-muted);
 
     &[data-align="center"] {
       margin-inline: auto;
