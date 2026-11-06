@@ -611,6 +611,13 @@ export const SpellSample = ({ on, words }: { on: boolean; words: string }): Reac
   </span>
 )
 
+/** A line with a date in it: on, the date is lit and its day said under it; off, plain words. */
+export const DatesSample = ({ on }: { on: boolean }): React.JSX.Element => (
+  <span data-preview="dates-lit" data-on={on || undefined} className="flex h-9 w-40 items-center justify-center rounded-md border bg-background px-2 text-control text-foreground">
+    Essay due <span className={`ml-1 transition-colors duration-200 ${on ? 'mf-date-word' : ''}`}>Friday 3pm</span>
+  </span>
+)
+
 /** The top bar once a note has scrolled: its first line there, faintly, or the bar left plain. */
 export const TitleTopSample = ({ on }: { on: boolean }): React.JSX.Element => (
   <span data-preview="title-top" className="flex h-9 w-40 flex-col overflow-hidden rounded-md border bg-background">

@@ -64,6 +64,7 @@ import { FullLineHighlight } from "@/extensions/full-line-highlight"
 import { LineCards } from "@/extensions/line-cards"
 import { PropertyLines } from "@/extensions/property-lines"
 import { LinkedTasks } from "@/extensions/linked-tasks"
+import { DateWords } from "@/extensions/date-words"
 import { TaskMarks } from "@/extensions/task-marks"
 import { Kept } from "@/extensions/kept"
 import { TaskLinkMenu } from "@/components/haligtree/task-link-menu"
@@ -517,6 +518,12 @@ export interface HaligtreeEditorProps {
    */
   documentId?: string | number | null
   /**
+   * When the words were written (a note's making, ISO): its dates are read as
+   * on that day, so "tomorrow" in an old note says which day it meant. A
+   * Journal day ("day-2026-11-06") is its own day; left out, today.
+   */
+  writtenOn?: string | null
+  /**
    * What the folded headings are remembered under, for an editor with no
    * `documentId`. Folding never changes the document, so this is all there is.
    *
@@ -607,6 +614,7 @@ export function HaligtreeEditor({
 
 function Surface({
   documentId,
+  writtenOn,
   foldKey,
   defaultContent = "",
   placeholder = "Write, or type / for commands…",
@@ -1303,6 +1311,15 @@ function Surface({
       // A to-do that is a task too, kept ticked as one; a pasted list offered as tasks.
       LinkedTasks.configure({ origin: () => (/^(?:capture|item)-(.+)$/.exec(String(documentId ?? ""))?.[1] ?? null), box: () => new URLSearchParams(location.search).get("view") === null && !documentId }),
       TaskMarks,
+      // Dates and times lit as they are written, each saying the day it means; never in a one-line field.
+      ...(shape === "line" ? [] : [DateWords.configure({
+        writtenOn: () => {
+          const day = /^day-(\d{4}-\d{2}-\d{2})$/.exec(String(documentId ?? ""))?.[1]
+          const at = day ? new Date(`${day}T12:00`) : writtenOn ? new Date(writtenOn) : null
+          return at && !Number.isNaN(at.getTime()) ? at : null
+        },
+        box: () => new URLSearchParams(location.search).get("view") === null && !documentId,
+      })]),
       // Words made into a gem, a capture or a task: marked as kept, their mark opening it.
       Kept,
       // Width and alignment live on the node so they survive a save. Width is a

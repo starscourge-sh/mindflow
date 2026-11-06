@@ -1893,7 +1893,23 @@ const PaceDemo: Demo = ({ live }) => {
   )
 }
 
+/** A date typed in a note, lit as it is written, and the day it means. */
+const DatesDemo: Demo = ({ live }) => {
+  const at = useSteps([typeMs('Essay due Friday 3pm') + 300, 2600], live, 1)
+  const typed = useTyped('Essay due Friday 3pm', live)
+  const lit = typed.length > 'Essay due '.length && (at === 1 || typed.endsWith('pm'))
+  return (
+    <Col>
+      <div className="relative rounded-lg border bg-background px-3 py-2 text-control text-foreground">
+        {lit ? <>Essay due <span className="mf-date-word">{typed.slice('Essay due '.length)}</span></> : typed}<Caret on={live && at === 0} />
+        <span className={`absolute -bottom-7 left-20 rounded-md border bg-popover px-2 py-0.5 text-meta text-foreground transition-opacity duration-300 ${at === 1 ? '' : 'opacity-0'}`}>Friday 7 November, 15:00</span>
+      </div>
+    </Col>
+  )
+}
+
 export const DEMOS: Record<string, Demo> = {
+  dates: DatesDemo,
   pace: PaceDemo, spotlight: SpotlightDemo, services: ServicesDemo, readaloud: ReadAloudDemo, picturewords: PictureWordsDemo, translate: TranslateDemo,
   box: BoxDemo, timer: TimerDemo, letter: LetterDemo, clue: ClueDemo, tagtask: TagTaskDemo, remind: RemindDemo, comingback: ComingBackDemo, onetask: OneTaskDemo, merge: MergeDemo,
   board: BoardDemo, versions: VersionsDemo, find: FindDemo, aliases: AliasesDemo, calc: CalcDemo, fold: FoldDemo, bit: BitDemo, glossary: GlossaryDemo,

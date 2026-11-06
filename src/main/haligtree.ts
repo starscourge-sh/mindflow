@@ -609,6 +609,8 @@ const DEFAULTS = {
   spotlight: true,
   // Apple Intelligence in Review and the reader (understand.ts): answers checked by meaning, hints, cards from a chapter.
   aiStudy: true,
+  // Dates and times lit in notes as they are written, each saying the day it means (extensions/date-words.ts).
+  datesLit: true,
   // When the working day ends, for Today's "4 h left today".
   dayEnd: '22:00',
   // About how long a working day is, in hours: a day's meetings and tasks are weighed against it.
