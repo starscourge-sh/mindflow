@@ -420,7 +420,7 @@ export function GoalsView({ focus, onOpen }: { focus?: string; onOpen?: (type: s
   const own = useOwnOrder('goal')
   const letGo = useRef<() => void>(() => undefined)
   const folding = useFolding('goal', all, (a, b) => own.compare(a.id, b.id) || b.createdAt.localeCompare(a.createdAt), own.order, items, false, () => letGo.current(), [], () => undefined,
-    show === 'open' ? sectionsOf(items, today) : undefined, undefined, false, { noun: ['goal', 'goals'] })
+    show === 'open' ? sectionsOf(items, today) : undefined, undefined, { noun: ['goal', 'goals'] })
   // The rows in the order they show: the groups first, then the loose goals.
   const rows = folding.rows ?? items
   // Only the last pick lands: a late answer for the goal before is dropped.

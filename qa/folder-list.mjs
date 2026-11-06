@@ -1,8 +1,8 @@
 // Writing, Gems and Questions show one list, Finder's list view: folder rows first (as tall as a note's row, a small
 // folder drawn in the thumbnail's own box, a name, a count in the list's own word, no chevron: a folder is a place and
 // a click opens it), then your groups (the panels a drop on a note's middle makes) with their notes inside, then the
-// rest, cut by Display's Grouping. A group never takes a note out of its folder. Questions shows only the folders that
-// hold questions, counted in questions.
+// rest, cut by Display's Grouping. A group never takes a note out of its folder. Questions is a view by kind: no folder
+// rows there, every question a plain row, one in a folder saying so on its line (qa/questions-no-folders.mjs).
 //
 //   QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 QA_ARGS=--sandbox node qa/folder-list.mjs
 import { checks } from './harness.mjs'
@@ -120,7 +120,7 @@ try {
   await h.keyboard.press('Escape')
   check('right-click on the list\'s empty space offers "New folder"', offered.some((t) => t.startsWith('New folder')), offered.join(' | '))
 
-  // Questions: only folders that hold questions, counted in questions.
+  // Questions: no folder rows; the two in a folder are plain rows that say where they live.
   const qs = []
   for (const title of ['Why is the sky blue?', 'Who built the first clock?', 'What is a commonplace book?']) qs.push(await v('question:new', title))
   const home = (await v('groups', 'article')).find((one) => !one.parent && one.members.length)
@@ -132,9 +132,10 @@ try {
   const q = await look()
   if (shots) await h.screenshot({ path: `${shots}/questions.png` })
   const rows = await h.evaluate(() => [...document.querySelectorAll('[role="main"] [data-group-row]')].map((one) => one.getAttribute('data-group-row')))
-  check(`Questions shows only ${home.name}, the one folder holding questions`, rows.length === 1 && rows[0] === home.id, JSON.stringify(rows))
-  check('its count says "2 questions"', q.counts.join() === '2 questions', q.counts.join(' | '))
-  check('the 2 questions in it are not loose at the top', !q.ids.some((id) => qs.slice(0, 2).includes(id)) && q.ids.includes(qs[2]), q.order)
+  check(`Questions shows no folder row, not even ${home.name}, which holds two`, rows.length === 0, JSON.stringify(rows))
+  check('all 3 questions are plain rows', qs.every((id) => q.ids.includes(id)), q.order)
+  const lines = await h.evaluate((ids) => ids.map((id) => document.querySelector(`[role="main"] [data-row][data-id="${id}"] [data-row-folder]`)?.textContent?.trim() ?? ''), qs)
+  check(`the 2 in ${home.name} say "in Writing › ${home.name}", the third nothing`, lines[0] === `in Writing › ${home.name}` && lines[1] === lines[0] && lines[2] === '', JSON.stringify(lines))
   check('no page errors', errors.length === 0, errors.join(' | '))
 } finally {
   await close()
