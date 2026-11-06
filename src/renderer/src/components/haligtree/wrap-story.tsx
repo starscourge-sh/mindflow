@@ -166,7 +166,7 @@ function Story({ id, onClose }: { id: string; onClose: () => void }): React.JSX.
     if (flow.length) middle.push([4, (
       <div key="gems" className="space-y-4" data-wrap-flow>
         {gems.length ? <Big n={gems.length}>{gems.length === 1 ? 'gem kept, and what you saw' : 'gems kept, and what you saw'}</Big> : <p className="text-title"><Typed story text="What you saw" /></p>}
-        <PictureRow key={flow.map((one) => one.id).join()} items={flow} height={300} label="Pictures and gems" onOpen={(at) => flow[at] && (chime('open'), window.api.openInHome(flow[at].type, flow[at].id))} className="-mx-4" />
+        <PictureRow items={flow} height={300} label="Pictures and gems" onOpen={(at) => flow[at] && (chime('open'), window.api.openInHome(flow[at].type, flow[at].id))} className="-mx-4" />
       </div>
     )])
     else if (gems.length) middle.push([4, (

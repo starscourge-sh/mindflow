@@ -43,7 +43,7 @@ const percent = (one: Book): number | null => (one.page && one.pages ? Math.roun
  * holds. One click picks it and the inspector at the right says all about it;
  * a double click, or "Continue", opens it where you left off.
  */
-export function PdfLibrary({ query, top, files, onPut }: { query: string; /** What sits over the shelf (the kinds), scrolling with it. */ top: React.ReactNode; /** Media's own record of each file, for what notes hold it. */ files: Media[]; /** "Put in a note…", for these books. */ onPut: (srcs: string[]) => void }): React.JSX.Element {
+export function PdfLibrary({ query, top, files, onPut, keys }: { /** Off while something over the page has the keys. */ keys: boolean; query: string; /** What sits over the shelf (the kinds), scrolling with it. */ top: React.ReactNode; /** Media's own record of each file, for what notes hold it. */ files: Media[]; /** "Put in a note…", for these books. */ onPut: (srcs: string[]) => void }): React.JSX.Element {
   const all = useLive(readLibrary, [] as Book[])
   const books = useMemo(() => {
     const words = query.trim().toLowerCase().split(/\s+/).filter(Boolean)
@@ -64,7 +64,7 @@ export function PdfLibrary({ query, top, files, onPut }: { query: string; /** Wh
   const picked = useMemo(() => pickedAll.filter((src) => order.includes(src)), [pickedAll, order])
   const toBin = (srcs: string[]): void => void binFiles(srcs, () => setPicked([]))
   const picking = usePicking(order, picked, setPicked)
-  useSelectAll(() => order, picked, setPicked, { here, onDelete: toBin, current: () => chosen, titleOf: (src) => books.find((one) => one.src === src)?.title })
+  useSelectAll(() => order, picked, setPicked, { enabled: keys, here, onDelete: toBin, current: () => chosen, titleOf: (src) => books.find((one) => one.src === src)?.title })
   const now = useRef(picked.length)
   now.current = picked.length
   useEffect(() => {
@@ -238,12 +238,12 @@ const COVER_SHAPE = 0.72
  */
 export function ReadingRow({ going }: { going: Book[] }): React.JSX.Element {
   const items = useMemo(
-    () => going.map((one) => ({ src: () => pdfCover(one.src, one.name).then((cover) => cover?.image), title: titleOf(one), note: `p. ${one.page!.toLocaleString()} of ${one.pages!.toLocaleString()}${one.finishBy ? `\nDone by ${new Date(`${one.finishBy}T12:00:00`).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}` : ""}`, aspect: COVER_SHAPE })),
+    () => going.map((one) => ({ id: one.src, src: () => pdfCover(one.src, one.name).then((cover) => cover?.image), title: titleOf(one), note: `p. ${one.page!.toLocaleString()} of ${one.pages!.toLocaleString()}${one.finishBy ? `\nDone by ${new Date(`${one.finishBy}T12:00:00`).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}` : ""}`, aspect: COVER_SHAPE })),
     [going]
   )
   return (
     <div data-reading-row className="-mx-2 has-[[data-picture-row=still]]:mx-0">
-      <PictureRow key={going.map((one) => `${one.src}:${one.page}`).join()} items={items} height={250} cardHeight={0.72} direct label="Continue reading" menuFor={(at) => bookMenu(going[at])}
+      <PictureRow items={items} height={250} cardHeight={0.72} direct label="Continue reading" menuFor={(at) => bookMenu(going[at])}
         onOpen={(at) => {
           const one = going[at]
           if (!one) return

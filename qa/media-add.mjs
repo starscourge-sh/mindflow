@@ -294,6 +294,160 @@ if (out) {
   }
 }
 
+// --- One sound per action, counted by name (the run is muted). Run on a development build too, where StrictMode makes every effect twice.
+if (part('sounds')) {
+  const n = await sandbox({ width: 1300, height: 860 })
+  const { h, v, go, electron } = n
+  const wait = (ms) => h.waitForTimeout(ms)
+  const heard = async (act) => { await h.evaluate(() => { window.haligtreeHeard.length = 0 }); await act(); await wait(1200); return h.evaluate(() => [...window.haligtreeHeard]) }
+  const one = (list) => list.length === 1
+  try {
+    await v('settings:set', { sounds: true, hintRate: 0 })
+    await go('media'); await wait(1000)
+    const a = write('Sound one.png', await pngFrom(h, 41)), b = write('Sound two.png', await pngFrom(h, 42))
+    await pickNext(electron, [a])
+    const added = await heard(() => h.locator('[data-media-add]').click())
+    check('"Add": one sound for the add', one(added), JSON.stringify(added))
+    const box = await h.locator('[data-page=media]').boundingBox()
+    const dropped = await heard(() => drop(h, [b], box.x + box.width / 2, box.y + box.height / 2))
+    check('a drop: one sound', one(dropped), JSON.stringify(dropped))
+    const again = await heard(() => drop(h, [b], box.x + box.width / 2, box.y + box.height / 2))
+    check('met again: one sound', one(again), JSON.stringify(again))
+    const t = (await v('media:list')).find((f) => f.name === 'Sound two.png')
+    const tile = await h.locator(`[data-id="${t.src}"]`).boundingBox()
+    await h.mouse.move(tile.x + 20, tile.y + 20); await h.mouse.move(tile.x + 40, tile.y + 40); await wait(150)
+    const binned = await heard(() => h.keyboard.press('Backspace'))
+    check('⌫: one sound', binned.length <= 2 && (await v('media:list')).every((f) => f.src !== t.src), JSON.stringify(binned))
+    const undone = await heard(() => h.keyboard.press('Meta+z'))
+    check('⌘Z: one sound', one(undone) && (await v('media:list')).some((f) => f.src === t.src), JSON.stringify(undone))
+    check('no page errors while counting sounds', !n.errors.length, n.errors.slice(0, 3).join(' | '))
+  } catch (error) {
+    console.log(error.message.slice(0, 500))
+    check('the sounds run finished', false, error.message.split('\n')[0])
+  } finally {
+    await n.close()
+  }
+}
+
+// --- "Recent pictures" across an add, a removal and an Undo: never rebuilt, never empty, the same picture in the middle.
+// And ⌫ on what the pointer rests on: a tile, a shelf book, never through the note picker or a sidebar row.
+if (part('row')) {
+  const r = await sandbox({ width: 1300, height: 860 })
+  const { h, v, go, electron } = r
+  const wait = (ms) => h.waitForTimeout(ms)
+  const row = '[data-recent-pictures] [data-flex-carousel]'
+  const title = () => h.evaluate(() => document.querySelector('[data-recent-pictures] [data-flex-carousel-title]')?.textContent ?? '')
+  const same = () => h.evaluate((sel) => document.querySelector(sel)?.dataset.mark === 'same', row)
+  // How much of the row is picture, from a screenshot of it: an empty row is one flat colour.
+  const painted = async (name) => {
+    const box = await h.locator(row).boundingBox()
+    const png = await h.screenshot(SHOTS ? { path: `${SHOTS}/${name}.png`, clip: box } : { clip: box })
+    return h.evaluate(async (data) => {
+      const image = new Image(); image.src = `data:image/png;base64,${data}`; await image.decode()
+      const canvas = document.createElement('canvas'); canvas.width = image.width; canvas.height = image.height
+      const pen = canvas.getContext('2d'); pen.drawImage(image, 0, 0)
+      const px = pen.getImageData(0, 0, canvas.width, canvas.height).data
+      const [r0, g0, b0] = [px[0], px[1], px[2]]
+      let count = 0
+      for (let i = 0; i < px.length; i += 4) if (Math.abs(px[i] - r0) + Math.abs(px[i + 1] - g0) + Math.abs(px[i + 2] - b0) > 40) count++
+      return count / (px.length / 4)
+    }, png.toString('base64'))
+  }
+  const burst = async (name) => { const out = []; for (let n = 0; n < 8; n++) out.push(await painted(`${name}-${n}`)); return out }
+  const emptyFrames = (list) => list.filter((one) => one < 0.05).length
+  const point = async (selector) => { const b = await h.locator(selector).first().boundingBox(); await h.mouse.move(b.x + 20, b.y + 20); await h.mouse.move(b.x + b.width / 2, b.y + b.height / 2); await wait(150) }
+  try {
+    await v('settings:set', { sounds: false, hintRate: 0, motion: true })
+    const file = write('New for the row.png', await pngFrom(h, 31))
+    await go('media'); await wait(1500)
+    await h.evaluate((sel) => { document.querySelector(sel).dataset.mark = 'same' }, row)
+    await h.click('[data-recent-pictures] [data-flex-carousel-turn=next]'); await wait(800)
+    const middle = await title()
+    await pickNext(electron, [file])
+    await h.locator('[data-media-add]').click()
+    const addFrames = await burst('row-add')
+    await wait(800)
+    check('an add: no frame of the row is empty', emptyFrames(addFrames) === 0, addFrames.map((one) => one.toFixed(2)).join(' '))
+    check('an add: the row was not rebuilt', await same())
+    check('an add: the same picture stays in the middle', await title() === middle, `${middle} → ${await title()}`)
+    const caption = await h.evaluate(() => document.querySelector('[data-recent-pictures] [data-flex-carousel-caption]')?.textContent ?? '')
+    check('an add: the row counts the new one', /03 \/ /.test(caption) || /02 \/ /.test(caption), caption)
+    await h.click('[data-recent-pictures] [data-flex-carousel-turn=previous]'); await wait(800)
+    await h.click('[data-recent-pictures] [data-flex-carousel-turn=previous]'); await wait(800)
+    check('turning back reaches the new one', await title() === 'New for the row', await title())
+    // The picture in the middle goes to the Bin, and comes back.
+    const fresh = (await v('media:list')).find((one) => one.name === 'New for the row.png')
+    await h.evaluate((src) => document.querySelector(`[data-media][data-src="${src}"]`)?.scrollIntoView({ block: 'center' }), fresh.src); await wait(300)
+    await point(`[data-id="${fresh.src}"]`)
+    await h.keyboard.press('Backspace')
+    await wait(60)
+    await h.evaluate(() => document.querySelector('[data-recent-pictures]')?.scrollIntoView({ block: 'center' }))
+    const binFrames = await burst('row-bin')
+    await wait(600)
+    check('⌫ on a pointed tile: a free file goes, with a notice', !(await v('media:list')).some((one) => one.src === fresh.src) && /Moved to the Bin/.test(await h.evaluate(() => document.body.innerText)))
+    check('removed: no frame of the row is empty, not rebuilt, a neighbour in the middle', emptyFrames(binFrames) === 0 && await same() && await title() !== 'New for the row', binFrames.map((one) => one.toFixed(2)).join(' '))
+    await h.keyboard.press('Meta+z')
+    const undoFrames = await burst('row-undo')
+    await wait(600)
+    check('⌘Z: back, no frame of the row empty, not rebuilt', (await v('media:list')).some((one) => one.src === fresh.src) && emptyFrames(undoFrames) === 0 && await same(), undoFrames.map((one) => one.toFixed(2)).join(' '))
+    // A file a note holds, pointed at: stays, and says so.
+    const noteHeld = (await v('media:list')).find((one) => one.uses.length && !one.deck && one.kind === 'picture')
+    await h.evaluate((src) => document.querySelector(`[data-media][data-src="${src}"]`)?.scrollIntoView({ block: 'center' }), noteHeld.src); await wait(300)
+    await point(`[data-id="${noteHeld.src}"]`)
+    await h.keyboard.press('Backspace'); await wait(500)
+    check('⌫ on a pointed tile a note holds: it stays, and says why', (await v('media:list')).some((one) => one.src === noteHeld.src) && /stays: \d+ notes? holds? it/.test(await h.evaluate(() => document.body.innerText)))
+    // A sidebar row pointed at never bins from the page, nor does the row itself go.
+    const bin0 = (await v('bin:list')).length, side = (await v('media:list')).length
+    await point('[data-side-row]')
+    await h.keyboard.press('Backspace'); await wait(500)
+    check('⌫ with the pointer on a sidebar row bins nothing from Media', (await v('media:list')).length === side && (await v('bin:list')).length === bin0)
+    await h.keyboard.press('Meta+z'); await wait(300)
+    // The note picker up, pointing over a result: ⌫ edits the words, nothing goes.
+    await h.evaluate((src) => document.querySelector(`[data-media][data-src="${src}"]`)?.scrollIntoView({ block: 'center' }), fresh.src); await wait(300)
+    await h.locator(`[data-media][data-src="${fresh.src}"]`).click({ button: 'right' }); await wait(350)
+    await h.locator('[role=menu] [role=menuitem]', { hasText: 'Put in a note' }).click(); await wait(600)
+    await h.keyboard.type('a'); await wait(500)
+    const rowOf = await h.evaluate(() => { const one = [...document.querySelectorAll('[role=dialog] button, [role=dialog] [data-id], [role=dialog] li')].find((el) => el.getBoundingClientRect().height > 20 && /note|gem|the/i.test(el.textContent ?? '')); const b = one?.getBoundingClientRect(); return b ? [b.x + b.width / 2, b.y + b.height / 2] : null })
+    if (rowOf) { await h.mouse.move(rowOf[0] - 4, rowOf[1]); await h.mouse.move(rowOf[0], rowOf[1]); await wait(150) }
+    const binB = (await v('bin:list')).length
+    await h.keyboard.press('Backspace'); await wait(300); await h.keyboard.press('Backspace'); await wait(400)
+    check('⌫ under the note picker bins nothing', (await v('bin:list')).length === binB && (await v('media:list')).some((one) => one.src === fresh.src))
+    // And with the box empty and the pointer back over a tile's place: still nothing.
+    await h.keyboard.press('Escape'); await wait(400)
+    if (await h.locator('[role=dialog] input').count()) { await h.keyboard.press('Escape'); await wait(300) }
+    // The shelf: a free book goes with Undo, a held one stays.
+    const pdfFree = write('Pointed free.pdf', pdfBytes('Free')), pdfHeld = write('Pointed held.pdf', pdfBytes('Held'))
+    const told = await h.evaluate((list) => window.api.haligtree('media:add', list.map((path) => ({ path }))), [pdfFree, pdfHeld])
+    const [free, held] = told.added
+    await h.evaluate((b) => window.api.captures.create({ kind: 'note', body: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Holds a book' }] }, { type: 'attachment', attrs: { src: b.src, name: b.name, size: b.size } }] } }), held); await wait(700)
+    await h.locator('[data-page=media] [data-media-kinds] button', { hasText: 'PDFs' }).first().click(); await wait(1200)
+    await point(`[data-library] [data-book="${free.src}"]`)
+    await h.keyboard.press('Backspace'); await wait(700)
+    check('⌫ on a pointed shelf book: a free one goes', !(await v('pdf:library')).some((one) => one.src === free.src) && /Moved to the Bin/.test(await h.evaluate(() => document.body.innerText)))
+    await h.keyboard.press('Meta+z'); await wait(800)
+    check('⌘Z puts the pointed book back', (await v('pdf:library')).some((one) => one.src === free.src))
+    await point(`[data-library] [data-book="${held.src}"]`)
+    await h.keyboard.press('Backspace'); await wait(600)
+    check('⌫ on a pointed shelf book a note holds: it stays, and says why', (await v('pdf:library')).some((one) => one.src === held.src) && /stays: 1 note holds it/.test(await h.evaluate(() => document.body.innerText)))
+    // An RTL name goes in, is found, and reads in its tile.
+    await h.locator('[data-page=media] [data-media-kinds] button', { hasText: 'PDFs' }).first().click(); await wait(500)
+    const rtl = write('مذكرات الرحلة إلى قرطبة.png', await pngFrom(h, 32))
+    await pickNext(electron, [rtl]); await h.locator('[data-media-add]').click(); await wait(1000)
+    const said = await h.evaluate(() => document.body.innerText)
+    check('an RTL file name goes in and is said right', /مذكرات الرحلة إلى قرطبة/.test(said), said.slice(-120))
+    const rtlBox = await h.evaluate(() => { const el = [...document.querySelectorAll('[data-media] .text-sm.font-medium')].find((one) => /مذكرات/.test(one.textContent)); if (!el) return null; const b = el.getBoundingClientRect(), t = el.closest('[data-id]').getBoundingClientRect(); return { inside: b.left >= t.left && b.right <= t.right, dir: getComputedStyle(el).direction, alignRight: getComputedStyle(el).textAlign } })
+    check('and sits inside its tile', rtlBox?.inside === true, JSON.stringify(rtlBox))
+    await h.evaluate(() => document.querySelector('[data-id] [data-media]')?.scrollIntoView({ block: 'center' })); await wait(200)
+    await shot(h, 'state-rtl')
+    check('no page errors on the row and the pointed keys', !r.errors.length, r.errors.slice(0, 3).join(' | '))
+  } catch (error) {
+    console.log(error.message.slice(0, 700))
+    check('the row run finished', false, error.message.split('\n')[0])
+  } finally {
+    await r.close()
+  }
+}
+
 // --- A book of its own, with every state of the page: 0, 1, 50, 2,000, a 500 MB PDF, an odd name, a file gone
 if (part('book')) {
   const before = process.env.QA_ARGS

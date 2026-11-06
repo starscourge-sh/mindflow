@@ -30,9 +30,16 @@ export interface FlexCarouselItem {
   note?: string
   /** Its shape (width over height) before it loads, so the row does not shift as it does. */
   aspect?: number
+  /** Which picture this is, so a new list keeps the ones already drawn. Left out: its title. */
+  id?: string
 }
 
+/** How many new pictures are made ready before they show. */
+const READIED = 12
+const idOf = (item: FlexCarouselItem): string => item.id ?? item.title ?? ''
+
 interface Slot {
+  id: string
   wanted: boolean
   want: () => void
   texture: Texture
@@ -234,7 +241,7 @@ void main() {
  * middle and close; a click on the close one calls `onOpen`.
  */
 export default function FlexCarousel({
-  items,
+  items: given,
   cardHeight = 0.5,
   gap = 12,
   radius = 10,
@@ -245,7 +252,8 @@ export default function FlexCarousel({
   counter = 'of',
   label = 'Pictures',
   className = '',
-  style
+  style,
+  onReady
 }: {
   items: FlexCarouselItem[]
   cardHeight?: number
@@ -263,12 +271,19 @@ export default function FlexCarousel({
   label?: string
   className?: string
   style?: CSSProperties
+  /** Its pictures in view are drawn. */
+  onReady?: () => void
 }): React.JSX.Element {
   const containerRef = useRef<HTMLDivElement>(null)
+  // The list being drawn: a new one arrives once its new pictures are ready, so the canvas and the words under it change together.
+  const [items, setItems] = useState(given)
+  // New pictures made ready ahead of a change, each taken as its card first wants it, so no card shows empty.
+  const readied = useRef(new Map<string, HTMLImageElement>())
   const settingsRef = useRef({ cardHeight, gap, radius, squeeze, direct })
   const itemsRef = useRef(items)
   const openRef = useRef(onOpen)
   const underRef = useRef(onUnder)
+  const readyRef = useRef(onReady)
   const [active, setActive] = useState(0)
   // Whether this turn came by a key, read once as it turns (its title is then simply there).
   const keyedTurn = useByKeys(active)
@@ -277,16 +292,17 @@ export default function FlexCarousel({
   // Whether the row goes round for ever (no ends to stop at), and a turn by the buttons either side.
   const [ring, setRing] = useState(true)
   const turn = useRef<(way: 1 | -1) => void>(() => undefined)
+  const take = useRef<(items: FlexCarouselItem[]) => void>(() => undefined)
   const frameRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    itemsRef.current = items
     openRef.current = onOpen
     underRef.current = onUnder
+    readyRef.current = onReady
     settingsRef.current = { cardHeight, gap, radius, squeeze, direct }
   })
 
-  // Built once: a new set of pictures is a new carousel (its key says so).
+  // Built once: a new list of pictures is taken in by `take`, below.
   useEffect(() => {
     const container = containerRef.current
     if (!container) return undefined
@@ -396,7 +412,7 @@ export default function FlexCarousel({
     // A slot is only a place in the row until it nears the view: then its picture is fetched and drawn.
     const loadSlot = (item: FlexCarouselItem): Slot => {
       const texture = new Texture(gl, { generateMipmaps: true, minFilter: gl.LINEAR_MIPMAP_LINEAR, magFilter: gl.LINEAR, anisotropy })
-      const slot: Slot = { wanted: false, want: () => {}, texture, aspect: item.aspect ?? 0.8, loaded: false, failed: false, ready: 0, color: [0.5, 0.5, 0.5], image: [1, 1], dispose: () => {} }
+      const slot: Slot = { id: idOf(item), wanted: false, want: () => {}, texture, aspect: item.aspect ?? 0.8, loaded: false, failed: false, ready: 0, color: [0.5, 0.5, 0.5], image: [1, 1], dispose: () => {} }
       slot.want = () => {
         if (slot.wanted) return
         slot.wanted = true
@@ -409,7 +425,9 @@ export default function FlexCarousel({
 
     const fetchSlot = (item: FlexCarouselItem, slot: Slot): void => {
       const texture = slot.texture
-      const image = new Image()
+      const ready = readied.current.get(slot.id)
+      readied.current.delete(slot.id)
+      const image = ready ?? new Image()
       image.crossOrigin = 'anonymous'
       image.decoding = 'async'
       image.onload = () => {
@@ -448,17 +466,18 @@ export default function FlexCarousel({
         dirty = true
         start()
       }
-      if (typeof item.src === 'string') image.src = item.src
-      else
-        void item.src().then(
-          (src) => alive && (src ? (image.src = src) : image.onerror?.(new Event('error'))),
-          () => alive && image.onerror?.(new Event('error'))
-        )
       slot.dispose = () => {
         image.onload = null
         image.onerror = null
         gl.deleteTexture(texture.texture)
       }
+      if (ready) image.onload?.(new Event('load'))
+      else if (typeof item.src === 'string') image.src = item.src
+      else
+        void item.src().then(
+          (src) => alive && (src ? (image.src = src) : image.onerror?.(new Event('error'))),
+          () => alive && image.onerror?.(new Event('error'))
+        )
     }
 
     const metrics = (): Metrics => {
@@ -631,6 +650,7 @@ export default function FlexCarousel({
           rise.running = false
           rise.done = true
           setRevealed(true)
+          readyRef.current?.()
         }
         animating = true
       }
@@ -1024,6 +1044,40 @@ export default function FlexCarousel({
     resnap = true
     start()
 
+    // A new list of pictures, with no rebuild: those already drawn keep their pictures, only new ones are fetched,
+    // and the picture in the middle stays in the middle wherever it now sits in the list. Gone, its neighbour takes its place.
+    take.current = (items) => {
+      if (items.length === slots.length && items.every((item, at) => idOf(item) === slots[at].id)) return
+      const was = layout ?? metrics()
+      const at = slots.length ? nearest(was, pos) : 0
+      const held = slots[fits(was) ? chosen : at]?.id
+      const offset = slots.length ? around(was, pos - was.centers[at]) : 0
+      const aim = slots.length ? around(was, goal - was.centers[at]) : 0
+      const kept = new Map(slots.map((slot) => [slot.id, slot]))
+      slots = items.map((item) => {
+        const slot = kept.get(idOf(item))
+        kept.delete(idOf(item))
+        return slot ?? loadSlot(item)
+      })
+      kept.forEach((slot) => slot.dispose())
+      press.index = focus.index = focus.pending = underCard = -1
+      focus.t = focus.v = focus.target = 0
+      setFocusOpen(false)
+      if (slots.length) {
+        const m = metrics()
+        const found = slots.findIndex((slot) => slot.id === held)
+        const to = found >= 0 ? found : Math.min(at, slots.length - 1)
+        pos = m.centers[to] + (found >= 0 ? offset : 0)
+        goal = m.centers[to] + (found >= 0 ? aim : 0)
+        chosen = to
+        layout = m
+        activeIndex = to
+        setActive(to)
+      }
+      dirty = true
+      start()
+    }
+
     return () => {
       alive = false
       stop()
@@ -1037,12 +1091,36 @@ export default function FlexCarousel({
       container.removeEventListener('wheel', onWheel)
       container.removeEventListener('keydown', onKey)
       document.removeEventListener('visibilitychange', onVisibility)
+      take.current = () => undefined
       slots.forEach((slot) => slot.dispose())
       slots = []
       gl.getExtension('WEBGL_lose_context')?.loseContext()
       canvas.remove()
     }
   }, [])
+
+  // A few new pictures (an add) are made ready first, so none shows as an empty card. A whole new list goes in at once and fetches as it nears the view.
+  useEffect(() => {
+    const drawn = new Set(itemsRef.current.map(idOf))
+    const fresh = given.filter((item) => !drawn.has(idOf(item)))
+    const apply = (): void => {
+      itemsRef.current = given
+      setItems(given)
+      take.current(given)
+    }
+    if (!fresh.length || fresh.length > READIED) return apply()
+    let live = true
+    void Promise.all(fresh.map(async (item) => {
+      const image = new Image()
+      image.crossOrigin = 'anonymous'
+      const src = typeof item.src === 'string' ? item.src : await item.src()
+      if (!src) return
+      image.src = src
+      await image.decode()
+      readied.current.set(idOf(item), image)
+    })).catch(() => undefined).then(() => live && apply())
+    return () => void (live = false)
+  }, [given])
 
   const current = items[active] ?? items[0]
   const place = counter === 'slash' ? `${num(active + 1).padStart(2, '0')} / ${num(items.length).padStart(2, '0')}` : `${num(active + 1)} of ${num(items.length)}`

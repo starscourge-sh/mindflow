@@ -50,8 +50,13 @@ export function PictureRow({ items, onOpen, menuFor, direct = false, counter = '
     const active = Number(box.current?.querySelector<HTMLElement>('[data-flex-carousel]')?.dataset.active ?? 0)
     return menuFor(under.current >= 0 ? under.current : active)
   })
+  // Grown past fitting, the still row stays up until the moving row has its pictures, so the place is never empty.
+  const wasStill = useRef(false)
+  const [drawn, setDrawn] = useState(false)
+  if (still) wasStill.current = true
+  const bridging = !still && wasStill.current && !drawn
   const carousel = (
-    <FlexCarousel key={items.length} items={items} cardHeight={cardHeight} onOpen={onOpen} onUnder={(at) => (under.current = at)} direct={direct} counter={counter} label={label} />
+    <FlexCarousel onReady={() => setDrawn(true)} items={items} cardHeight={cardHeight} onOpen={onOpen} onUnder={(at) => (under.current = at)} direct={direct} counter={counter} label={label} />
   )
   return (
     // Its own clicks and drags stay its own. (The moving row fades out at its sides itself, inside its turn buttons.)
@@ -61,7 +66,8 @@ export function PictureRow({ items, onOpen, menuFor, direct = false, counter = '
         <StillRow items={items} onOpen={onOpen} menuFor={menuFor} counter={counter} label={label} height={height} whole={fits} />
       ) : (
         seen && (
-          <Suspense fallback={null}>
+          <Suspense fallback={<StillRow items={items} onOpen={onOpen} menuFor={menuFor} counter={counter} label={label} height={height} whole={false} />}>
+            {bridging && <div className="absolute inset-0 z-10"><StillRow items={items} onOpen={onOpen} menuFor={menuFor} counter={counter} label={label} height={height} whole={false} /></div>}
             {menu ? <RowMenu items={menu}><div className="size-full">{carousel}</div></RowMenu> : carousel}
           </Suspense>
         )

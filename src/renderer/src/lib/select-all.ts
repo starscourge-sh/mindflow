@@ -98,6 +98,8 @@ export function useSelectAll(
       if (document.querySelector('[role="menu"], [role="listbox"]')) return
       // A sidebar row in focus takes its own ⌫ (off the sidebar, or unpin): the page's row is not binned behind it.
       if ((document.activeElement as HTMLElement | null)?.closest?.('[data-side-row]')) return
+      // The pointer resting on a sidebar row: nothing picked, so nothing here is meant, not even the row with the ring.
+      if (!chosen.length && pointing && document.querySelector('[data-side-row]:hover')) return
       const ids = chosen.length ? chosen : [pointedRow(shown()) ?? current?.()].filter((id): id is string => !!id)
       if (!ids.length) return
       event.preventDefault()

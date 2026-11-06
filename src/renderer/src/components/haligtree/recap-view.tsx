@@ -130,7 +130,7 @@ const openPicture = (picture: Picture): void => (chime('open'), window.api.openI
  */
 export function PictureStrip({ pictures, className = '' }: { pictures: Picture[] | null; className?: string }): React.JSX.Element | null {
   if (!pictures || pictures.length < FEW_PICTURES) return null
-  return <PictureRow key={pictures.map((picture) => picture.id).join()} items={pictures} height={400} onOpen={(at) => openPicture(pictures[at])} className={className} />
+  return <PictureRow items={pictures} height={400} onOpen={(at) => openPicture(pictures[at])} className={className} />
 }
 
 /**
