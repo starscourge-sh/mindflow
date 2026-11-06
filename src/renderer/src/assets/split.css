@@ -12,6 +12,24 @@
 :root:not([data-light]) [data-pane][data-pane-front] {
   --mf-tab: color-mix(in srgb, var(--mf-under) 94%, white);
 }
+/* A tab's name fades out at the end its words run to. On the open tab, whose ✕ is always there, it stops short of the ✕
+   with clear air; on another, pointed at, it fades before the ✕ that comes up over it, so nothing moves. */
+[data-tab-name] {
+  mask-image: linear-gradient(to left, transparent, #000 14px);
+}
+[data-tab-name][dir='rtl'] {
+  mask-image: linear-gradient(to right, transparent, #000 14px);
+}
+[data-tab-on] [data-tab-name] {
+  margin-right: 28px;
+}
+[data-tab]:not([data-tab-on]):hover [data-tab-name] {
+  mask-image: linear-gradient(to left, transparent 28px, #000 44px);
+}
+[data-tab]:not([data-tab-on]):hover [data-tab-name][dir='rtl'] {
+  mask-image: linear-gradient(to right, transparent, #000 14px, #000 calc(100% - 44px), transparent calc(100% - 28px));
+}
+
 /* A row of tabs past its least widths fades at an edge only while there is more that way, as the lists do. */
 .mf-tabs-fade {
   mask-image: linear-gradient(to right, transparent 0, #000 var(--mf-less), #000 calc(100% - var(--mf-more)), transparent 100%);

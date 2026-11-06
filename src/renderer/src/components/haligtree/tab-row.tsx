@@ -59,6 +59,8 @@ function OneTab({ tab, group, actions, faint }: { tab: TabShown; group: TabGroup
   const Icon = tab.icon
   // Its name in a tip only while the tab has cut it short: a tip never repeats what is there to read.
   const [cut, setCut] = useState(false)
+  // Which way its words run, read from its first letter: the fade goes on the end they run out at.
+  const rtl = /^[^\p{L}]*[\p{Script=Arabic}\p{Script=Hebrew}]/u.test(tab.label)
   return (
     <RowMenu items={() => actions.menu(group.pane, tab.key)}>
       <div data-tab={tab.key} data-tab-on={on ? '' : undefined} data-drag-title={tab.label} data-tab-open={tab.open}
@@ -76,16 +78,15 @@ function OneTab({ tab, group, actions, faint }: { tab: TabShown; group: TabGroup
             className={`relative flex min-w-0 flex-1 cursor-pointer items-center gap-1.5 rounded-full pl-2 text-control transition-[color,background-color,scale] duration-[120ms] outline-none focus-visible:ring-[1.5px] focus-visible:ring-ring/70 active:scale-[0.97] ${
               on ? (strong ? 'font-medium text-foreground' : 'text-foreground/70') : 'bg-foreground/[0.035] text-muted-foreground hover:bg-foreground/[0.07] hover:text-foreground'}`}>
             <Icon className="size-3.5 shrink-0" style={{ color: tab.tint }} />
-            {/* Its end fades under the ✕, so nothing moves when the ✕ shows. */}
-            <span dir="auto" data-private={tab.private ? '' : undefined}
-              className={`private-text min-w-0 flex-1 overflow-hidden text-left whitespace-nowrap [mask-image:linear-gradient(to_left,transparent,#000_16px)] ${on ? '[mask-image:linear-gradient(to_left,transparent_16px,#000_30px)]' : 'group-hover/tab:[mask-image:linear-gradient(to_left,transparent_16px,#000_30px)]'}`}>
+            {/* Its end fades out before the ✕, with clear air; nothing moves when the ✕ shows (split.css). */}
+            <span data-tab-name dir={rtl ? 'rtl' : 'ltr'} data-private={tab.private ? '' : undefined} className="private-text min-w-0 flex-1 overflow-hidden text-left whitespace-nowrap">
               {tab.label}
             </span>
           </button>
         </Tip>
         <Tip label={<span className="flex items-center gap-1.5">Close tab <Pressed keys="⌃W" /></span>}>
           <button type="button" data-tab-close data-no-split aria-label={`Close ${tab.label}`} onClick={() => actions.close(group.pane, tab.key)}
-            className={`absolute top-1/2 right-0.5 flex size-5 -translate-y-1/2 cursor-pointer items-center justify-center rounded-[5px] text-muted-foreground transition-[opacity,scale,color,background-color] duration-[120ms] hover:bg-foreground/[0.07] hover:text-foreground focus-visible:opacity-100 active:scale-[0.97] ${on ? '' : 'opacity-0 group-hover/tab:opacity-100'}`}>
+            className={`absolute top-1/2 right-0.5 flex size-5 -translate-y-1/2 cursor-pointer items-center justify-center rounded-[5px] text-muted-foreground transition-[opacity,scale,color,background-color] duration-[120ms] hover:bg-foreground/[0.07] hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-ring/70 active:scale-[0.97] ${on ? '' : 'opacity-0 group-hover/tab:opacity-100'}`}>
             <AliveIcon icon={XIcon} size={12} />
           </button>
         </Tip>
@@ -112,6 +113,19 @@ function Tabs({ group, actions }: { group: TabGroup; actions: TabActions }): Rea
   if (gap) parts.splice(gap.at, 0, <span key="gap" data-tab-gap aria-hidden className="mx-0.5 my-1 shrink-0 rounded-full bg-foreground/[0.09]" style={{ flexBasis: gap.width, maxWidth: gap.width, flexGrow: 0 }} />)
   return (
     <div ref={box} role="tablist" aria-label="Tabs" data-tab-row={group.pane} style={{ flex: `${Math.max(1, group.tabs.length)} 1 0` }}
+      // A tab with the keys: ← → to its neighbours, ⌫ closes it, as a list's row does.
+      onKeyDown={(event) => {
+        const key = (event.target as Element).closest<HTMLElement>('[data-tab]')?.dataset.tab
+        const at = group.tabs.findIndex((one) => one.key === key)
+        if (at < 0 || (event.target as Element).getAttribute('role') !== 'tab' || event.metaKey || event.ctrlKey || event.altKey) return
+        if (event.key === 'Backspace' || event.key === 'Delete') (event.preventDefault(), event.stopPropagation(), actions.close(group.pane, group.tabs[at].key))
+        const by = event.key === 'ArrowLeft' ? -1 : event.key === 'ArrowRight' ? 1 : 0
+        if (!by) return
+        event.preventDefault()
+        event.stopPropagation()
+        const next = group.tabs[(at + by + group.tabs.length) % group.tabs.length]
+        box.current?.querySelector<HTMLElement>(`[data-tab="${next.key}"] [role="tab"]`)?.focus()
+      }}
       className="mf-tabs-fade relative flex h-full min-w-0 overflow-x-auto overflow-y-hidden px-3 [scrollbar-width:none] data-[queue-hot]:bg-transparent">
       {parts}
     </div>
