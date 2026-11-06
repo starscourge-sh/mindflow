@@ -1,22 +1,26 @@
 import { Children, type ReactNode } from 'react'
+import { MENU_LINE } from '@/lib/float'
 import { menuIcon } from './menu-icon-rules'
 export { menuIcon }
 
 /**
  * A menu line's children, its icon set in front: only when the line begins
  * with its words. A line that brings its own drawing (a theme's swatch, a
- * group's dot, an icon passed in) keeps it, and gets no second one.
+ * group's dot, an icon passed in) keeps it, and gets no second one. Its words
+ * are cut where they run long, so a long title never widens the whole menu.
  */
 export function withMenuIcon(children: ReactNode): ReactNode {
   const parts = Children.toArray(children)
   let words = ''
+  let count = 0
   for (const part of parts) {
     if (typeof part !== 'string' && typeof part !== 'number') break
     words += String(part)
+    count++
   }
   if (!words.trim()) return children
   const Icon = menuIcon(words)
-  return [<Icon key="menu-icon" aria-hidden data-menu-icon="" className="size-3.5 shrink-0 text-muted-foreground" />, ...parts]
+  return [<Icon key="menu-icon" aria-hidden data-menu-icon="" className="size-3.5 shrink-0 text-muted-foreground" />, <span key="menu-words" className={MENU_LINE}>{words}</span>, ...parts.slice(count)]
 }
 
 /** A menu line's drawing on its own, by its words, for a menu whose lines bring their own markup (the block menu). */

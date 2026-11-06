@@ -23,6 +23,8 @@ try {
     const long = [...document.querySelectorAll('[role="menu"] [role="menuitem"]')].find((one) => one.textContent.includes('this order makes'))
     return { width: Math.round(box.width), most: Math.round(26 * rem), text: long?.textContent ?? '', cut: long ? [...long.querySelectorAll('span')].some((one) => one.scrollWidth > one.clientWidth) : false, tags: long?.textContent.includes('#') }
   })
+  const bare = await h.evaluate(() => [...document.querySelectorAll('[role="menu"] [role="menuitem"]')].filter((one) => !one.querySelector('svg')).map((one) => one.textContent.trim()))
+  check('every line keeps its icon', bare.length === 0, bare.join(' | '))
   check('the menu names the note', menu.text.length > 0, menu.text.slice(0, 60))
   check('a long title never widens the menu', menu.width <= menu.most, JSON.stringify(menu))
   check('its line is cut short', menu.cut)
