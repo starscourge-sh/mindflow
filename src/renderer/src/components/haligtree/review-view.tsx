@@ -53,6 +53,8 @@ import { backIn } from '@/lib/back-in'
 import { hoverNote } from './note-preview'
 import { CoveredPicture } from './picture-cards'
 import { occlusionOf, type Occlusion } from '../../../../main/occlusion'
+import { Orb } from './orb'
+import { VERDICT_SAID, cutWords, hint as askHint, hintedGrade, judge, meaningGrade, useStudyAi, wordsOf, type Judged } from '@/lib/study-ai'
 
 /** The four grades, as the plan defines them: how the retrieval felt, not whether it was right. */
 export const GRADES = [
@@ -321,7 +323,7 @@ export function ReviewView({ compact = false, tag, actions, lead, onLeave }: { c
     setMissed(null)
     // What you typed before turning it over is kept, as a dated thought on the card.
     if (said.trim()) void keepGloss(card.id, said)
-    void haligtree.grade(card.id, value, Date.now() - started.current)
+    void haligtree.grade(card.id, value, Date.now() - started.current, hintsTaken)
     typer.current = !!said.trim()
     // Easy the first time it is seen: maybe it was never worth a card. Asked, never decided for you.
     if (value === 4 && !card.reviewed && !round) {
@@ -423,12 +425,35 @@ export function ReviewView({ compact = false, tag, actions, lead, onLeave }: { c
     chime(on ? 'pin' : 'unpin')
     void haligtree.star(card.id, on)
   }
+  // Apple Intelligence, where this Mac has it: the typed answer judged by what it means, and a hint before the answer.
+  const ai = useStudyAi(useLive(haligtree.settings, null as Settings | null))
+  const answerWords = card ? wordsOf(answer ?? textOf(card.body)) : ''
+  // Hints asked for this card: each a step stronger, the second the last; each schedules the card a step sooner.
+  const [hinting, setHinting] = useState<{ id: string; said: string[]; busy: boolean; error?: string } | null>(null)
+  const hints = card && hinting?.id === card.id ? hinting : null
+  const hintsTaken = hints?.said.length ?? 0
+  const canHint = ai && !!card && !!answerWords && !shown && hintsTaken < 2
+  const giveHint = (): void => {
+    if (!card || !canHint || hints?.busy) return
+    const id = card.id
+    const said = hints?.said ?? []
+    chime('tap')
+    setHinting({ id, said, busy: true })
+    void askHint(asked, answerWords, said.length ? 2 : 1).then((got) => setHinting((was) => {
+      if (!was || was.id !== id || !was.busy) return was
+      if ('error' in got) return { id, said, busy: false, error: got.error }
+      chime('noted')
+      return { id, said: [...said, got.text], busy: false }
+    }))
+  }
+  const stopHint = (): void => setHinting((was) => (was?.busy ? { ...was, busy: false } : was))
   // The card's own menu, as every card has one: right-click, or the quiet ⋯ by its star.
   const drop = (id: string): void => setQueue((cards) => cards && cards.filter((one) => one.id !== id))
   const cardMenu: RowItem[] = card ? [
     { label: 'Open', run: () => (chime('open'), window.api.openInHome('nugget', card.id)) },
     copyLinkItem(`nugget:${card.id}`, card.prompt || card.title || 'Card'),
     { label: 'Ask another way', hint: 'A new card keeping its context, source and tags', keys: 'A', run: () => (chime('open'), setAsking(card.id)) },
+    ...(canHint ? [{ label: hintsTaken ? 'A stronger hint' : 'Give me a hint', hint: 'A nudge from the answer, never the answer: it comes back a step sooner', keys: 'H', run: giveHint }] : []),
     { label: 'Pause', hint: 'Out of Review until you bring it back', keys: '@', run: () => setAside(card, true, () => drop(card.id)) },
     // A study card kept as a gem as well, or a gem tested here made study only: it stays in Review either way.
     ...(() => {
@@ -445,7 +470,25 @@ export function ReviewView({ compact = false, tag, actions, lead, onLeave }: { c
   const typedScore = checked?.score ?? null
   const { grades, two, name: gradeName } = useGrades()
   // With two grades, Hard and Easy are both Got it: the suggestion is one of the buttons there.
-  const suggested = typedScore === null ? null : two ? (checked!.grade === 1 ? 1 : 3) : checked!.grade
+  const judgeKey = ai && shown && card && answerWords && said.trim() && checked && checked.score < 0.95 ? `${card.id}\n${said}` : null
+  const [meaning, setMeaning] = useState<{ key: string; got: Judged | null } | null>(null)
+  useEffect(() => {
+    if (!judgeKey) return
+    let live = true
+    setMeaning({ key: judgeKey, got: null })
+    void judge(asked, answerWords, said).then((got) => live && setMeaning((was) => (was?.key === judgeKey && !was.got ? { key: judgeKey, got } : was)))
+    return () => {
+      live = false
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [judgeKey])
+  const judged = judgeKey && meaning?.key === judgeKey ? meaning.got : null
+  const judging = !!judgeKey && meaning?.key === judgeKey && !meaning.got
+  const verdict = judged && 'verdict' in judged ? judged : null
+  // The grade it suggests: by meaning where that was judged, never lower than the letters say.
+  const leaning = typedScore === null ? null : verdict ? Math.max(checked!.grade, meaningGrade(verdict.verdict)) as 1 | 2 | 3 | 4 : checked!.grade
+  const suggested = leaning === null ? null : two ? (leaning === 1 ? 1 : 3) : leaning
+  const stopJudge = (): void => setMeaning((was) => (was && !was.got ? { key: was.key, got: { error: 'stopped' } } : was))
   // Split, only the pane in front answers keys.
   const here = useHere()
   // Its keys are a tool's (lib/tool-keys.ts): asked before the app's own, so G then R goes to Review and C, on a card, is never also a capture.
@@ -482,6 +525,17 @@ export function ReviewView({ compact = false, tag, actions, lead, onLeave }: { c
       }
       // Never while typing: in the prompt the editor sits beside the review.
       if (typing()) return
+      // Esc stops Apple Intelligence thinking first: a hint or a check by meaning.
+      if (event.key === 'Escape' && (hints?.busy || judging)) {
+        event.preventDefault()
+        event.stopPropagation()
+        chime('fold')
+        return hints?.busy ? stopHint() : stopJudge()
+      }
+      if (event.key === 'h' && canHint) {
+        event.preventDefault()
+        return giveHint()
+      }
       // Esc leaves a deck's study for the decks it was picked from.
       if (event.key === 'Escape' && tag && onLeave) {
         event.preventDefault()
@@ -792,8 +846,20 @@ export function ReviewView({ compact = false, tag, actions, lead, onLeave }: { c
           <>
             {said.trim() && suggested && (
               <div data-typed className="-mb-2 flex flex-col gap-1 text-sm">
-                <p className="whitespace-pre-line text-muted-foreground">You wrote: {said}</p>
-                <p><strong className="font-semibold" style={{ color: GRADES[suggested - 1].tone }}>About {Math.round((typedScore ?? 0) * 100)}% the same: that suggests {gradeName(suggested)}.</strong> <span className="text-muted-foreground">Kept as a thought on the card when you grade it.</span></p>
+                {!verdict && <p className="whitespace-pre-line text-muted-foreground">You wrote: {said}</p>}
+                {judging ? (
+                  // In the room the verdict will take, so nothing under it moves when it comes.
+                  <p data-meaning-wait className="flex min-h-6 items-center"><Orb label="Checking what it means, on this Mac…" stop={stopJudge} /></p>
+                ) : verdict ? (
+                  <p data-meaning={verdict.verdict} className="min-h-6 text-body">
+                    <strong className="font-semibold" style={{ color: GRADES[suggested - 1].tone }}>{VERDICT_SAID[verdict.verdict]}: you said “{cutWords(said, 48)}”, the card says “{cutWords(answerWords, 48)}”.</strong>{' '}
+                    {verdict.missing && <span className="text-foreground">{verdict.missing.replace(/\.?$/, '.')} </span>}
+                    <span className="text-foreground">That suggests {gradeName(suggested)}; the grade is yours.</span>
+                  </p>
+                ) : (
+                  <p><strong className="font-semibold" style={{ color: GRADES[suggested - 1].tone }}>About {Math.round((typedScore ?? 0) * 100)}% the same: that suggests {gradeName(suggested)}.</strong> <span className="text-muted-foreground">Kept as a thought on the card when you grade it.</span></p>
+                )}
+                {verdict && <p className="text-xs text-muted-foreground">Checked by meaning with Apple Intelligence, on this Mac. What you wrote is kept as a thought on the card when you grade it.</p>}
                 {checked?.said && (
                   <p data-typed-said className="flex flex-wrap items-center gap-2 text-body font-medium text-foreground">
                     {checked.said}
@@ -831,10 +897,15 @@ export function ReviewView({ compact = false, tag, actions, lead, onLeave }: { c
             {/* A thought on it now: out of sight until ; opens it or there is one,
                 so the Behind the answer field above is the only field under the answer. */}
             <GlossLine id={card.id} latest={!!behindOf(card)} quiet className="-mt-3" />
+            {hintsTaken > 0 && (
+              <p data-hints-taken={hintsTaken} className="-mb-1 text-body font-medium text-foreground">
+                {hintsTaken === 1 ? 'You took a hint' : 'You took two hints'}, so each grade brings it back {hintsTaken === 1 ? 'a step' : 'two steps'} sooner (never sooner than Hard).
+              </p>
+            )}
             {/* The key shows where there is room for it; in a narrow panel the time comes first. */}
             <div data-grades={grades.length} className={`@container grid gap-2 ${two ? 'grid-cols-2' : 'grid-cols-4'}`}>
               {grades.map(({ grade: value, label, hint, tone }) => (
-                <Tip key={value} label={`${hint}: back ${backIn(card.intervals[value])}`}>
+                <Tip key={value} label={`${hint}: back ${backIn(card.intervals[hintedGrade(value, hintsTaken)])}`}>
                 <button
                   type="button"
                   onClick={() => grade(value)}
@@ -849,13 +920,13 @@ export function ReviewView({ compact = false, tag, actions, lead, onLeave }: { c
                   {two ? (
                     // With two, when it comes back is the big line: that is what the choice decides.
                     <>
-                      <span className="max-w-full truncate text-body font-semibold tabular-nums text-foreground">{backIn(card.intervals[value])}</span>
+                      <span className="max-w-full truncate text-body font-semibold tabular-nums text-foreground">{backIn(card.intervals[hintedGrade(value, hintsTaken)])}</span>
                       <span className="text-xs font-medium" style={{ color: tone }}>{label} <Kbd>{value}</Kbd></span>
                     </>
                   ) : (
                     <>
                       <span className="font-semibold" style={{ color: tone }}>{label}</span>
-                      <span className="max-w-full truncate text-xs text-muted-foreground tabular-nums">{backIn(card.intervals[value])}</span>
+                      <span className="max-w-full truncate text-xs text-muted-foreground tabular-nums">{backIn(card.intervals[hintedGrade(value, hintsTaken)])}</span>
                     </>
                   )}
                 </button>
@@ -888,7 +959,23 @@ export function ReviewView({ compact = false, tag, actions, lead, onLeave }: { c
               {sides ? `Show the ${sides[1]}` : 'Show the answer'}
             </Button>
             {limit && <CardTimer key={`${card.id}-${at}`} seconds={limit} paused={editing} onEnd={reveal} />}
+            {/* A nudge from the answer, never the answer, on this Mac: a second press, a stronger one, and that is all. */}
+            {ai && answerWords && (hintsTaken < 2 || hints?.busy) && (
+              hints?.busy ? <span className="flex h-10 items-center"><Orb label={hintsTaken ? 'Thinking of a stronger hint…' : 'Thinking of a hint…'} stop={stopHint} /></span> : (
+                <Button variant="ghost" size="lg" data-hint-ask onClick={giveHint} className="cursor-pointer text-muted-foreground">
+                  {hintsTaken ? 'A stronger hint' : 'Give me a hint'} <Kbd>H</Kbd>
+                </Button>
+              )
+            )}
           </span>
+          {(hintsTaken > 0 || hints?.error) && (
+            <div data-hints className="flex flex-col gap-1">
+              {hints!.said.map((text, n) => (
+                <p key={n} data-hint={n + 1} className="text-heading leading-snug text-foreground"><span className="font-semibold">{n ? 'Stronger hint' : 'Hint'}:</span> {text}</p>
+              ))}
+              {hints?.error && <p data-hint-error className="text-body text-[var(--tt-color-text-orange)]">{hints.error}</p>}
+            </div>
+          )}
           </>
         )}
         {!shown && (
