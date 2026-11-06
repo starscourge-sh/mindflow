@@ -165,7 +165,8 @@ try {
   const long = await v('article:new')
   await v('item:save', long, { title: 'A long lecture', body: { type: 'doc', content: Array.from({ length: 60 }, (_, i) => ({ type: 'paragraph', content: [{ type: 'text', text: `Line ${i + 1} of what was said in the lecture about the cycle.` }] })) } })
   await c.send('article', long); await wait(1600)
-  await h.click(`${EDITOR} p:last-child`); await h.keyboard.press('Meta+ArrowDown'); await h.keyboard.press('Enter')
+  // The note's last paragraph, not its last child: the editor ends with a block of its own after the words.
+  await h.click(`${EDITOR} > p:last-of-type`); await h.keyboard.press('Meta+ArrowDown'); await h.keyboard.press('Enter')
   await h.keyboard.type('/record', { delay: 30 }); await wait(500)
   await h.keyboard.press('Enter')
   await h.waitForSelector('[data-voice-recorder]', { timeout: 6000 }).catch(() => {})
@@ -204,7 +205,7 @@ try {
   const raw = await h.evaluate(() => document.body.innerText.includes('haligtree://assets'))
   check('a card\'s sound plays in the same player in Review, never as raw text', !!card && card.parts.length === 5 && card.step === note.step && !raw, JSON.stringify(card && { parts: card.parts, raw }))
 } catch (error) {
-  check('the run finished', false, error.message.split('\n')[0])
+  check('the run finished', false, error.message.split('\n').slice(0, 12).join(' | '))
 } finally {
   await c.close()
 }
