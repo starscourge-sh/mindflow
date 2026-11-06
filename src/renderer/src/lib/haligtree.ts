@@ -412,7 +412,7 @@ export const haligtree = {
   unnoteTasks: (kept: unknown[]) => call('task:to-note:undo', kept),
   /** Reviews falling on each of the next `days` days, today with what is late. */
   reviewLoad: (days: number) => call<number[]>('review:load', days),
-  tags: () => call<{ tag: string; count: number; later: number; color: string | null; action: boolean; examAt: string | null; priority?: 'maintaining' | 'paused' | null; lands?: string | null }[]>('tags'),
+  tags: () => call<{ tag: string; count: number; later: number; /** When it was last written into anything. */ last: string | null; /** How many carrying it are from the last 30 days. */ recent: number; color: string | null; action: boolean; examAt: string | null; priority?: 'maintaining' | 'paused' | null; lands?: string | null }[]>('tags'),
   tagMeta: () => call<{ tag: string; color: string | null; action: number; backdrop: 'colour' | 'picture' | 'sketch' | null; homeHidden: number }[]>('tag:meta'),
   setTag: (tag: string, patch: { deck?: boolean; homeHidden?: boolean; backdrop?: 'colour' | 'picture' | 'sketch' | null; color?: string | null; action?: boolean; aliasOf?: string | null; examAt?: string | null; priority?: 'maintaining' | 'paused' | null; lands?: string | null; speak?: string | null; typed?: 'exact' | 'meaning' | null; newPerDay?: number | null; retention?: number | null; sides?: [string, string] | null; timer?: number | null }) => call('tag:set', tag, patch),
   /** Each tag whose answers are read aloud, and its language. */

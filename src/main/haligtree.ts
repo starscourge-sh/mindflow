@@ -4164,12 +4164,12 @@ export function registerHaligtree(): void {
   const TAG_CAPTURES = `status != 'discarded' and archived_at is null and not (status = 'resolved' and ${madeInto("= 'dropped'")} and not ${madeInto("!= 'dropped'")})`
   const CAPTURE_LATER = `select status = 'resolved' and (kind = 'todo' or ${madeInto("!= 'dropped'")})`
   let tagsOf = new Map<string, { title: string; body: string; tags: string[] }>()
-  const tagged = (): { tag: string; id: string; type: string; title: string; private: boolean; later: boolean; fromNote?: string }[] => {
+  const tagged = (): { tag: string; id: string; type: string; title: string; private: boolean; later: boolean; at: string; fromNote?: string }[] => {
     const rows = [
-      ...(db.prepare(`select id, 'capture' as type, ${LABEL} as title, body, private, (${CAPTURE_LATER}) as later from captures where ${TAG_CAPTURES}`).all() as Record<string, string>[]),
-      ...(db.prepare("select id, tier as type, title, body, private, 0 as later, capture_id as fromNote from nuggets where archived_at is null and superseded_by is null and tier not in ('card', 'deck')").all() as Record<string, string>[]),
+      ...(db.prepare(`select id, 'capture' as type, ${LABEL} as title, body, private, (${CAPTURE_LATER}) as later, captured_at as at from captures where ${TAG_CAPTURES}`).all() as Record<string, string>[]),
+      ...(db.prepare("select id, tier as type, title, body, private, 0 as later, created_at as at, capture_id as fromNote from nuggets where archived_at is null and superseded_by is null and tier not in ('card', 'deck')").all() as Record<string, string>[]),
       // A task in the Bin is out of every tag, as a capture there is.
-      ...(db.prepare("select id, 'task' as type, title, notes as body, 0 as private, status = 'done' as later from tasks where status != 'dropped'").all() as Record<string, string>[])
+      ...(db.prepare("select id, 'task' as type, title, notes as body, 0 as private, status = 'done' as later, created_at as at from tasks where status != 'dropped'").all() as Record<string, string>[])
     ]
     // An alias counts as the tag it stands for, without the words changing.
     const alias = new Map((db.prepare('select tag, alias_of from tag_meta where alias_of is not null').all() as { tag: string; alias_of: string }[]).map((row) => [row.tag, row.alias_of]))
@@ -4188,19 +4188,23 @@ export function registerHaligtree(): void {
       if (kept?.title !== row.title || kept.body !== row.body)
         kept = { title: row.title, body: row.body, tags: tagsIn(`${row.title} ${plain(JSON.parse(row.body ?? 'null'))}`) }
       tagsOf.set(key, kept)
-      return [...new Set(kept.tags.map((tag) => alias.get(tag) ?? tag))].map((tag) => ({ tag, id: row.id, type: row.type, title: row.title, private: !!Number(row.private), later: !!Number(row.later), fromNote: row.fromNote || undefined }))
+      return [...new Set(kept.tags.map((tag) => alias.get(tag) ?? tag))].map((tag) => ({ tag, id: row.id, type: row.type, title: row.title, private: !!Number(row.private), later: !!Number(row.later), at: row.at, fromNote: row.fromNote || undefined }))
     }))
   }
   // `count` is what the tag's page shows at first; `later`, the done ones it keeps under a click.
   handle('tags', () => {
-    const counts = new Map<string, { count: number; later: number }>()
-    for (const { tag, later } of tagged()) {
-      const one = counts.get(tag) ?? { count: 0, later: 0 }
+    // `last`: when it was last written into anything; `recent`: how many carrying it are from the last 30 days, so Tags can say which are growing.
+    const counts = new Map<string, { count: number; later: number; last: string; recent: number }>()
+    const month = new Date(Date.now() - 30 * 86_400_000).toISOString()
+    for (const { tag, later, at } of tagged()) {
+      const one = counts.get(tag) ?? { count: 0, later: 0, last: '', recent: 0 }
       one[later ? 'later' : 'count'] += 1
+      if (at && at > one.last) one.last = at
+      if (!later && at >= month) one.recent += 1
       counts.set(tag, one)
     }
     const meta = new Map((db.prepare('select tag, color, action, exam_at, priority, lands from tag_meta').all() as { tag: string; color: string | null; action: number; exam_at: string | null; priority: string | null; lands: string | null }[]).map((row) => [row.tag, row]))
-    return [...counts].map(([tag, { count, later }]) => ({ tag, count, later, color: meta.get(tag)?.color ?? null, action: !!meta.get(tag)?.action, examAt: meta.get(tag)?.exam_at ?? null, priority: meta.get(tag)?.priority ?? null, lands: meta.get(tag)?.lands ?? null })).sort((a, b) => b.count - a.count || b.later - a.later)
+    return [...counts].map(([tag, { count, later, last, recent }]) => ({ tag, count, later, last: last || null, recent, color: meta.get(tag)?.color ?? null, action: !!meta.get(tag)?.action, examAt: meta.get(tag)?.exam_at ?? null, priority: meta.get(tag)?.priority ?? null, lands: meta.get(tag)?.lands ?? null })).sort((a, b) => b.count - a.count || b.later - a.later)
   })
   // Each tag whose answers are read aloud, and in what language.
   handle('tag:speak', () => Object.fromEntries((db.prepare('select tag, speak from tag_meta where speak is not null').all() as { tag: string; speak: string }[]).map((row) => [row.tag, row.speak])))

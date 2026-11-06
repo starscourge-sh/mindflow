@@ -2,7 +2,7 @@ import { chime, step } from '@/lib/sound'
 import { SCRUB, ScrubField } from '../pdf/scrub-field'
 import { TagColourPick } from './tag-colour-pick'
 import { ReadsIn } from '@/lib/reads-in'
-import { useMemo, useState } from 'react'
+import { useLayoutEffect, useMemo, useState } from 'react'
 import { Count, toast, VirtualList, quietly } from './ui'
 import { RowMenu, copy } from './row-menu'
 import { Switch } from '@/components/ui/switch'
@@ -35,8 +35,7 @@ import { openApart } from '@/lib/apart'
 import { TagStream, prefetchTag, renameTag, useLiveFor } from './tag-read'
 import { tagTint } from './tag-icon'
 import { BookOpen, EyeOff, SquareCheck } from 'lucide-react'
-import { motion } from 'motion/react'
-import { dayMonth } from '../../../../main/dates'
+import { ago, dayMonth, num } from '../../../../main/dates'
 import { TAG_DOES } from '../capture-kinds/kind-fields'
 import { Blurt } from './study'
 import { PractiseTag } from './learn-mode'
@@ -49,6 +48,16 @@ import { Example } from './example'
 import { ArrowLeft, FileText, Gem, Inbox, ListTodo } from '@/components/ui/icons'
 
 const ICON = { capture: Inbox, nugget: Gem, article: FileText, task: ListTodo }
+
+/** The orders Tags offers: what someone comes to the page to see. */
+const ORDERS = [
+  { id: 'count', label: 'Most used', tip: 'The tags you write most, first' },
+  { id: 'recent', label: 'Lately', tip: 'The tags you wrote into most recently, first' },
+  { id: 'name', label: 'A to Z' }
+] as const
+type Order = (typeof ORDERS)[number]['id']
+/** How wide the list must be to take two tags side by side, each keeping its name, its mark and its counts. */
+const TWO_UP = 560
 
 /** What a tag does, if anything: an icon and a word for its row, and a line for its tooltip. */
 const does = (tag: string, action: boolean): { icon: typeof EyeOff; short: string; long: string } | null =>
@@ -104,9 +113,24 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
   const several = usePickMixed(managing ? items.map((item) => ({ type: item.type, id: item.id, title: item.title, private: item.private, status: item.type === 'task' ? allTasks.find((task) => task.id === item.id)?.status : undefined })) : [], { here: useHere(), keys: managing })
   // A long list can be narrowed by typing: inside words and across hyphens.
   const [query, setQuery] = useState('')
-  const topics = query ? tags.filter((one) => tagFound(one.tag, query)) : tags
-  const [cursor, setCursor] = useListKeys(example ? 0 : topics.length, { onOpen: (index) => setChosen(topics[index].tag) })
-  const top = topics[0]?.count ?? 1
+  // In the order you come for: the biggest, the ones written into lately, or by name. Kept for next time.
+  const [order, setOrder] = useState<Order>(() => (ORDERS.some((one) => one.id === localStorage.getItem('tags:order')) ? localStorage.getItem('tags:order') as Order : 'count'))
+  const found = query ? tags.filter((one) => tagFound(one.tag, query)) : tags
+  const topics = order === 'count' ? found : [...found].sort(order === 'name' ? (a, b) => a.tag.localeCompare(b.tag) : (a, b) => (b.last ?? '').localeCompare(a.last ?? '') || b.count - a.count)
+  // Two side by side where the page is wide enough, as Sources lays its short rows; one under another beside an open tag or on a phone.
+  const [wide, setWide] = useState(0)
+  const [box, setBox] = useState<HTMLDivElement | null>(null)
+  useLayoutEffect(() => {
+    if (!box) return
+    const fit = (): void => setWide(box.clientWidth)
+    fit()
+    const watch = new ResizeObserver(fit)
+    watch.observe(box)
+    return () => watch.disconnect()
+  }, [box])
+  const across = !chosen && wide >= TWO_UP ? 2 : 1
+  const lines = useMemo(() => Array.from({ length: Math.ceil(topics.length / across) }, (_, at) => topics.slice(at * across, at * across + across)), [topics, across])
+  const [cursor, setCursor] = useListKeys(example ? 0 : topics.length, { onOpen: (index) => setChosen(topics[index].tag), across })
   const speaking = useLive(haligtree.tagSpeak, {} as Record<string, string>, [], ['item'])
   const study = useLive(haligtree.tagStudy, { sides: {}, timer: {}, place: {}, typed: {}, newPerDay: {}, retention: {} } as Awaited<ReturnType<typeof haligtree.tagStudy>>, [], ['item'])
   const current = tags.find((one) => one.tag === chosen)
@@ -134,19 +158,30 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
             <strong className="text-foreground">Some tags do something.</strong> #bit keeps a note private; #book adds a reading status and a rating; one marked <SquareCheck aria-label="with a tick" className="inline size-3.5 -translate-y-px" /> makes a task.
           </p>
         )}
-        {tags.length > 12 && !example && (
-          <div data-tags-find className="mx-5 mt-4">
-            <ListSearch value={query} placeholder="Find a tag" className="w-full"
-              onChange={(to) => (setQuery(to), setCursor(to ? 0 : -1))}
-              onStep={(by) => setCursor(Math.max(0, Math.min(topics.length - 1, cursor + by)))}
-              onDone={() => topics[Math.max(0, cursor)] && setChosen(topics[Math.max(0, cursor)].tag)} />
+        {/* What you come to Tags for, on one line: find one, and see them by size, by what is growing, or by name. */}
+        {!example && tags.length > 1 && (
+          <div data-tags-bar className="mx-5 mt-4 flex flex-wrap items-center gap-x-3 gap-y-2">
+            {tags.length > 12 && (
+              <div data-tags-find className="min-w-0 flex-1 basis-56">
+                <ListSearch value={query} placeholder="Find a tag" className="w-full"
+                  onChange={(to) => (setQuery(to), setCursor(to ? 0 : -1))}
+                  onStep={(by) => setCursor(Math.max(0, Math.min(topics.length - 1, cursor + by * across)))}
+                  onDone={() => topics[Math.max(0, cursor)] && setChosen(topics[Math.max(0, cursor)].tag)} />
+              </div>
+            )}
+            <Chips className="ml-auto shrink-0" options={ORDERS} on={(id) => id === order} pick={(id) => (setOrder(id as Order), localStorage.setItem('tags:order', id))} />
           </div>
         )}
         {topics.length ? (
           <Example on={example} tryIt={<><strong>write a #word anywhere in a note, a gem or a task.</strong> It shows up here, counted, with a page of its own.</>}>
-          <VirtualList items={topics} keyOf={(one) => one.tag} cursor={cursor} estimate={36} className="mx-3 my-2">
-            {({ tag, count, color, examAt, action }, index) => (
-              <RowMenu items={[
+          <div ref={setBox} data-tags-list={across} className="mx-3 my-2">
+          <VirtualList items={lines} keyOf={(line) => line.map((one) => one.tag).join(' ')} holds={(line, id) => line.some((one) => one.tag === id)} cursor={cursor < 0 ? -1 : Math.floor(cursor / across)} estimate={36}>
+            {(line, row) => (
+              <div className={across > 1 ? 'grid grid-cols-2 gap-x-6' : undefined}>
+              {line.map(({ tag, count, color, examAt, action, recent, last }, at) => {
+                const index = row * across + at
+                return (
+              <RowMenu key={tag} items={[
                 { label: 'Open', keys: '↵', run: () => setChosen(tag) },
                 // The date itself is picked in the open tag's bar.
                 examAt ? { label: 'Clear the exam date', run: () => examOn(tag, null, examAt) } : { label: 'Set an exam date…', run: () => setChosen(tag) },
@@ -156,28 +191,31 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
               <button
                 type="button"
                 data-row
+                data-tag-row={tag}
                 data-cursor={index === cursor || undefined}
                 onClick={() => setChosen(tag)}
                 onPointerEnter={() => prefetchTag(tag)}
-                className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-accent/50 ${chosen === tag ? 'bg-accent' : index === cursor ? 'bg-accent/50' : ''}`}
+                className={`flex w-full min-w-0 cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-accent/50 ${chosen === tag ? 'bg-accent' : index === cursor ? 'bg-accent/50' : ''}`}
               >
                 <TagColourPick tag={tag} color={color} />
-                {/* A tag that does something wears its mark beside its name, in its own colour, its words in the tip:
-                    every bar starts in one place, and no pill shoves it along. */}
-                <span className={`flex min-w-0 items-center gap-1.5 ${chosen ? 'flex-1' : 'w-40 shrink-0'}`}>
+                {/* A tag that does something wears its mark beside its name, in its own colour, its words in the tip. */}
+                <span className="flex min-w-0 flex-1 items-center gap-1.5">
                   <span className="min-w-0 truncate">{tag}</span>
                   <DoesChip tag={tag} color={color} action={!!action} />
                 </span>
-                {!chosen && (
-                  <span className="h-1.5 flex-1 overflow-hidden rounded-[2px] bg-border/50">
-                    <span className="block h-full rounded-[2px] bg-muted-foreground/75" style={{ width: `${(count / top) * 100}%` }} />
-                  </span>
-                )}
-                <span className="min-w-12 shrink-0 text-right text-sm font-semibold text-foreground"><Count n={count} /></span>
+                {/* Growing: how many of it came in the last 30 days, when that is not all of it (a tag all new says nothing
+                    by it); else, in "Lately", when it was last written. */}
+                {!chosen && (recent > 0 && recent < count ? <span data-tag-recent className="shrink-0 text-xs text-muted-foreground tabular-nums">+{num(recent)} this month</span>
+                  : order === 'recent' && last ? <span className="shrink-0 text-xs text-muted-foreground">{ago(last)}</span> : null)}
+                <span data-tag-count className="min-w-8 shrink-0 text-right text-sm font-semibold text-foreground tabular-nums"><Count n={count} /></span>
               </button>
               </RowMenu>
+                )
+              })}
+              </div>
             )}
           </VirtualList>
+          </div>
           </Example>
         ) : unloaded(tags) ? null : query ? (
           <p className="mx-5 my-4 text-control text-muted-foreground">No tag has “{query}” in it.</p>
@@ -190,39 +228,23 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
       </div>
       {chosen && (
         // Reading, the band under it names the tag and counts; the bar keeps only the way back and the tabs.
-        <Page title={tab === 'read' ? 'Tag' : `#${chosen}`} count={tab === 'read' ? undefined : current?.count ?? items.length} unit={['note', 'notes']} actions={
-          // Reading the tag, or looking after it: two jobs, a tab each.
-          <span className="flex items-center gap-1">
-          <Tip label="All tags">
-            <Button variant="ghost" size="icon-sm" aria-label="All tags" className="@[56rem]/page:hidden" onClick={() => (chime('tap'), setChosen(null))}><ArrowLeft className="size-3.5" /></Button>
-          </Tip>
-          <Tip label="Write everything you remember about it, then see what you left out">
-            <Button variant="outline" size="sm" className="h-8 cursor-pointer px-3" data-blurt-open onClick={() => (chime('open'), setPractising(null), setBlurting(chosen))}>Blurt</Button>
-          </Tip>
-          <Tip label="Its cards in Review, with the tags under it, the ones due first: each grade counts">
-            <Button variant="outline" size="sm" className="h-8 cursor-pointer px-3" data-study-tag onClick={() => (chime('open'), onOpen('study', chosen))}>Study</Button>
-          </Tip>
-          <Tip label="Go through its cards, nothing counted or scheduled">
-            <Button variant="outline" size="sm" className="h-8 cursor-pointer px-3" data-practise-open onClick={() => (chime('open'), setBlurting(null), setPractising(chosen))}>Practise</Button>
-          </Tip>
-          <span role="tablist" className="flex h-8 items-center rounded-lg border border-foreground/10 bg-accent/40 p-0.5 text-control">
-            {(['read', 'manage'] as const).map((one) => (
-              <button key={one} type="button" role="tab" aria-selected={tab === one}
-                onClick={() => void (tab !== one && (chime('tap'), setTab(one)))}
-                className={`relative h-7 rounded-md px-3 transition-colors ${tab === one ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'}`}>
-                {tab === one && <motion.span layoutId="tag-tab" className="absolute inset-0 -z-10 rounded-md border border-foreground/15 bg-background shadow-sm" transition={{ type: 'spring', stiffness: 500, damping: 38 }} />}
-                {one === 'read' ? 'Read' : 'Manage'}
-              </button>
-            ))}
-          </span>
-          </span>
+        // The bar: the way back on a narrow window, and the tag's two tabs on the left, where they stay put. Everything
+        // done to the tag lives in the band under it (Read through, Study, ⋯), so each action has one home.
+        <Page title={tab === 'read' ? 'Tag' : `#${chosen}`} count={tab === 'read' ? undefined : current?.count ?? items.length} unit={['note', 'notes']} lead={
+          <div data-list-tabs className="flex shrink-0 items-center gap-1" style={{ marginLeft: 'calc(var(--list-edge) - var(--list-ink))' }}>
+            <Tip label="All tags">
+              <Button variant="ghost" size="icon-sm" aria-label="All tags" className="cursor-pointer @[56rem]/page:hidden" onClick={() => (chime('tap'), setChosen(null))}><ArrowLeft className="size-3.5" /></Button>
+            </Tip>
+            <Chips className="shrink-0" options={[{ id: 'read', label: 'Read', tip: 'Its notes, to read' }, { id: 'manage', label: 'Manage', tip: 'Its colour, alias, exam date and how Review treats its cards; its notes as rows to tidy' }]}
+              on={(id) => id === tab && !blurting && !practising} pick={(id) => (setBlurting(null), setPractising(null), setTab(id as 'read' | 'manage'))} />
+          </div>
         }>
           {practising === chosen ? <PractiseTag key={chosen} tag={chosen} onClose={() => (chime('fold'), setPractising(null))} /> : blurting === chosen ? <Blurt key={chosen} tag={chosen} onClose={() => (chime('fold'), setBlurting(null))} /> : tab === 'read' && chosen === 'meeting' && loaded && !loaded.length ? (
             // Meetings are every note tagged #meeting: before the first, what they are for and the way to make one.
             <Empty title="No meetings yet" action={<Button size="sm" data-meeting-first onClick={() => void recordMeeting()}>Record a meeting</Button>}>
               Record a call, in an app or the browser, or a lecture: your microphone and the sound from this Mac, the words as they are said, who said what, and what to take from it after. It stays on this Mac. <Kbd>⌃⌥⌘M</Kbd> from anywhere.
             </Empty>
-          ) : tab === 'read' ? <TagStream key={chosen} tag={chosen} color={current?.color} onOpen={onOpen} onTag={setChosen} onManage={() => (chime('tap'), setTab('manage'))} /> : (<>
+          ) : tab === 'read' ? <TagStream key={chosen} tag={chosen} color={current?.color} onOpen={onOpen} onTag={setChosen} onStudy={(how) => how === 'review' ? onOpen('study', chosen) : how === 'blurt' ? (setPractising(null), setBlurting(chosen)) : (setBlurting(null), setPractising(chosen))} /> : (<>
             <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b px-5 py-3">
             {/* A colour, and whether writing this tag makes a task, the way
                 #bug does. Labels, not kinds: a colour and one behaviour. */}

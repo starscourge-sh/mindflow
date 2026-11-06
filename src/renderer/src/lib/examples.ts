@@ -165,14 +165,14 @@ export const exampleGoals = (): Item[] => [
 
 // --- tags, stats, the map
 
-export const exampleTags = (): { tag: string; count: number; color: string | null; action: boolean; examAt: string | null }[] => [
-  { tag: 'book', count: 14, color: 'brown', action: false, examAt: null },
-  { tag: 'writing', count: 9, color: 'blue', action: false, examAt: null },
-  { tag: 'hamlet', count: 6, color: 'purple', action: false, examAt: null },
-  { tag: 'bit', count: 4, color: null, action: false, examAt: null },
-  { tag: 'history', count: 5, color: 'green', action: false, examAt: null },
-  { tag: 'dune', count: 3, color: 'orange', action: false, examAt: null },
-  { tag: 'fix', count: 2, color: 'red', action: true, examAt: null }
+export const exampleTags = (): { tag: string; count: number; later: number; last: string | null; recent: number; color: string | null; action: boolean; examAt: string | null }[] => [
+  { tag: 'book', count: 14, later: 0, last: null, recent: 3, color: 'brown', action: false, examAt: null },
+  { tag: 'writing', count: 9, later: 0, last: null, recent: 2, color: 'blue', action: false, examAt: null },
+  { tag: 'hamlet', count: 6, later: 0, last: null, recent: 0, color: 'purple', action: false, examAt: null },
+  { tag: 'bit', count: 4, later: 0, last: null, recent: 0, color: null, action: false, examAt: null },
+  { tag: 'history', count: 5, later: 0, last: null, recent: 1, color: 'green', action: false, examAt: null },
+  { tag: 'dune', count: 3, later: 0, last: null, recent: 0, color: 'orange', action: false, examAt: null },
+  { tag: 'fix', count: 2, later: 0, last: null, recent: 0, color: 'red', action: true, examAt: null }
 ]
 
 export const exampleStats = (): Stats => ({
