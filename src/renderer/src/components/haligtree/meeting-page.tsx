@@ -289,7 +289,8 @@ export function MeetingView({ node, editor, updateAttributes }: NodeViewProps): 
           <TakeAway take={take} found={a.found} seek={seek} nameOf={nameOf} />
         </div>
 
-        <div className="flex items-center gap-1.5 pt-1 text-meta text-muted-foreground select-none"><Mic className="size-3" />What was said, by who: click a line to play from there, double-click to fix a word.</div>
+        {!lines.length && <div data-meeting-nothing className="text-control text-muted-foreground select-none">Nothing was said to take anything from.</div>}
+        {lines.length > 0 && <div className="flex items-center gap-1.5 pt-1 text-meta text-muted-foreground select-none"><Mic className="size-3" />What was said, by who: click a line to play from there, double-click to fix a word.</div>}
         <div ref={said} data-meeting-transcript onContextMenu={(event) => pointAtLine((event.target as Element).closest<HTMLElement>('[data-meeting-line]')?.dataset.meetingLineId ?? null)}>
           {lines.map((line, index) => (
             <Line key={line.id} line={line} index={index} name={nameOf(line.who)} same={index > 0 && lines[index - 1].who === line.who} lit={index === lit}
