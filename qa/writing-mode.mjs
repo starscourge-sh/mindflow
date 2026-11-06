@@ -59,8 +59,13 @@ try {
   check('a jiggle of the pointer keeps the rest gone', await writing())
   await wait(1500)
   const shift = await slid()
-  // The whole pane slides, so the words sit in the window's very middle.
-  check(`the words slide to the window's middle (${shift}px), within ${await centre()}px of it`, shift < -40 && Math.abs(await centre()) <= 2)
+  // The whole pane slides, so the words sit in the window's very middle, as far as the pane can go: it stops 8px from
+  // the window's edge (day-writing.tsx, shiftOf). How far depends on where the page put them: at 1280px the words
+  // already sit within a few px of the middle (their column keeps room at their right), and the pane's right edge is
+  // at its 8px stop, so the check is where they land, not that they moved a set amount.
+  const stop = await h.evaluate(() => { const r = document.querySelector('[data-day-write]').closest('[data-pane]').getBoundingClientRect(); return { left: Math.round(r.left), right: Math.round(innerWidth - r.right) } })
+  const off = await centre()
+  check(`the words slide to the window's middle (${shift}px), within ${off}px of it, or as near as the pane's 8px stop allows`, Math.abs(off) <= 2 || (off < 0 && stop.right <= 9 && off >= -8) || (off > 0 && stop.left <= 9 && off <= 8), JSON.stringify(stop))
   if (shots) {
     await h.screenshot({ path: `${shots}/writing-centred-light.png` })
     const was = await h.evaluate(() => { const r = document.documentElement; const w = r.className; r.className = 'dark'; return w })

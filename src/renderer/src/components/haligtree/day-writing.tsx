@@ -42,12 +42,12 @@ const timeOf = (day: string): number => { try { return Number(localStorage.getIt
 const keepTime = (day: string, ms: number): void => { try { localStorage.setItem(timeKey(day), String(Math.round(ms))) } catch { /* only a nicety */ } }
 
 /** How far the words slide to sit in the window's middle while the rest is gone; never past the room the page has. */
-const shiftOf = (box: HTMLElement): number => {
+const shiftOf = (words: HTMLElement): number => {
   // The whole pane slides (main.css): its card clips, so the words alone could not go past its edge.
-  const pane = box.closest<HTMLElement>('[data-pane]')
+  const pane = words.closest<HTMLElement>('[data-pane]')
   if (!pane) return 0
   const slid = parseFloat(getComputedStyle(pane).translate) || 0
-  const rect = box.getBoundingClientRect()
+  const rect = words.getBoundingClientRect()
   const room = pane.getBoundingClientRect()
   const want = window.innerWidth / 2 - (rect.left - slid + rect.width / 2)
   return Math.max(Math.min(want, window.innerWidth - 8 - (room.right - slid)), 8 - (room.left - slid))
@@ -118,8 +118,9 @@ export function useWritingQuiet(editor: Editor | null, day: string): number {
       if (root.hasAttribute('data-day-writing')) return
       // Marked again: the page around the words may have been drawn anew since it opened.
       markDayPaths()
-      const box = dom.closest<HTMLElement>('[data-caret-room]')
-      root.style.setProperty('--mf-day-shift', `${box ? Math.round(shiftOf(box)) : 0}px`)
+      // The words themselves are put in the middle, not the column round them: that column is wider than the words
+      // (room kept at their right), so centring it left the words 130px short of the middle at 1280px.
+      root.style.setProperty('--mf-day-shift', `${Math.round(shiftOf(dom))}px`)
       root.setAttribute('data-day-writing', '')
       for (let up = dom.parentElement; up; up = up.parentElement) {
         if (/(auto|scroll)/.test(getComputedStyle(up).overflowY) && up.scrollHeight > up.clientHeight) { scroller = up; break }
