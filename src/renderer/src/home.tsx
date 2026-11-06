@@ -1523,7 +1523,7 @@ export function Home(): React.JSX.Element {
           <BinView onOpen={go} focus={view.focus} />
         ) : view.id === 'lookups' || (view.id === 'questions' && view.folder === 'looked') ? (
           // Lookups are questions answered at once: Questions' Looked up list. An old link to Lookups lands here too.
-          <CapturesView title="Questions" keep={keep.lookups} focus={view.focus} onOpen={go}
+          <CapturesView title="Questions" lookups keep={keep.lookups} focus={view.focus} onOpen={go}
             lead={<div data-list-tabs className="flex shrink-0" style={{ marginLeft: 'calc(var(--list-edge) - var(--list-ink))' }}><QuestionTabs on="looked" pick={(one) => setView({ id: 'questions', folder: one }, key)} /></div>} said={<QuestionsSaid on="looked" />} />
         ) : view.id === 'inbox' || view.id === 'archived' ? (
           <CapturesView title={SECTIONS.find((section) => section.id === view.id)!.label} keep={keep[view.id]} focus={view.focus} onOpen={go} archived={view.id === 'archived'} inbox={view.id === 'inbox'} />

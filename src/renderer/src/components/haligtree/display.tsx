@@ -1,3 +1,4 @@
+import { byLetter } from '@/lib/headword'
 import { byKind } from '@/components/capture-kinds/capture-kind-picker'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { AlignJustify, Grid3x3, X } from 'lucide-react'
@@ -126,6 +127,8 @@ export function arrange<T>(
   // Kinds in the one order, Note first (kindRank); dates newest first, whatever the sort inside each.
   if (view.group === 'kind') return [...out].sort(([a], [b]) => byKind(a, b))
   if (view.group === 'date') return [...out].sort(([a], [b]) => ageRank(a) - ageRank(b))
+  // Letters A to Z whatever the sort inside each, # last.
+  if (view.group === 'letter') return [...out].sort(([a], [b]) => byLetter(a, b))
   return [...out]
 }
 

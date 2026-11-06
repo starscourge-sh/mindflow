@@ -77,6 +77,7 @@ import { PutAwayLine } from './put-away'
 import { Example } from './example'
 import { LIFECYCLE } from './page-hint'
 import { exampleArchived, exampleDiscarded, exampleInbox, exampleLookups } from '@/lib/examples'
+import { headword, letterOf } from '@/lib/headword'
 import { flat as flatMenu, type MenuItem, type RowItem } from './row-menu'
 import { PinnedQuestions, clueInto } from './pinned-questions'
 import { Board, useBoard } from './board-view'
@@ -102,8 +103,10 @@ export const keepInbox = (capture: CaptureMeta): boolean => capture.status === '
 /** With "Show sorted too": every note kept and every task, the Bin aside. */
 const keepEverything = (capture: CaptureMeta): boolean => capture.status !== 'discarded'
 
-export function CapturesView({ title, keep: given, focus, onOpen, archived = false, inbox: inboxPage = false, lead: given_lead, said }: {
+export function CapturesView({ title, keep: given, focus, onOpen, archived = false, inbox: inboxPage = false, lookups: lookupsPage = false, lead: given_lead, said }: {
   title: string
+  /** Questions › Looked up: the words and quick questions you looked up, kept under their own name and filed A to Z. */
+  lookups?: boolean
   /** A line on top of the list saying where you are: Questions' own, on its Looked up list. */
   said?: React.ReactNode
   /** Shown at the line's left, as the Inbox's switch is: Questions' filters on the Looked up list. */
@@ -179,10 +182,10 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
   const kept: Row[] = [...all.filter(keep).filter(inView).filter((one) => (todoShows(one) || (madeShown && sources.became.has(one.id))) && !binnedWith(one)), ...(everything ? tasks.filter(showsTask(taskState)).map(taskRow) : [])]
   // Nothing of yours here yet: the page as it will look, with a few made-up notes.
   // Lookups and Archived: whenever the list is empty, whatever has been asked or archived before (words in the Bin say nothing here).
-  const lookups = title === 'Lookups'
+  const lookups = lookupsPage
   const examples = unloaded(all) || kept.length || (all.length && !archived && !lookups) || (everything && (unloaded(tasks) || tasks.length)) ? [] : archived ? exampleArchived() : lookups ? exampleLookups() : [...exampleInbox(), ...exampleDiscarded()].filter(keep)
   // Its own Display is kept under the name it had as All captures, so how you set it stays.
-  const { groups: every, display, chips, density, view, setView, move, moveBy, island } = useCaptureDisplay(everything ? 'captures:All captures' : `captures:${title}`, kept, undefined, archived,
+  const { groups: every, display, chips, density, view, setView, move, moveBy, island } = useCaptureDisplay(everything ? 'captures:All captures' : lookups ? LOOKED_UP : `captures:${title}`, kept, undefined, archived,
     // Open, Done or Both, on the Task chip itself: a choice about tasks, worn by them.
     everything ? <TaskStateMenu state={taskState} onState={(next) => (setTaskState(next), setChosen([]))} /> : undefined)
   // A note made into a task lives on as the task: hidden for it, unless asked
@@ -672,7 +675,7 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
               <Empty title={all.length ? 'Nothing waiting' : 'Your Inbox'}>
                 {all.length ? <><strong>Written down, a thought can leave your head.</strong> Every capture has been dealt with. ⌘. catches the next one, from anywhere.</> : 'Press ⌘. in any app, write the thought, and send it with ⌘↵. It waits here until you come back to it.'}
               </Empty>
-            ) : title === 'Lookups' ? (
+            ) : lookups ? (
               <Empty title="No word waiting for a meaning">
                 {'A word or term saved as a Word waits here, asked, until you write what it means. Press ⌘. and type it, or ask “What is …?”. A question to carry for weeks belongs in Questions.'}
               </Empty>
@@ -1122,7 +1125,8 @@ export function useCaptureDisplay(name: string, all: CaptureMeta[], filter?: Vie
   // Archived opens in its folders: each "Put away everything before" run is one, by its day.
   // The Inbox by kind to start (notes, then tasks, quotes, words), newest first: what each capture is, at a glance.
   // Every other list by date, the way Pages lists: Today, This week, This month, This year. Either is a choice in Display.
-  const [view, setView] = useView(name, { sort: 'newest', group: archived ? 'folder' : name === 'captures:Inbox' ? 'kind' : 'date', filter })
+  // Looked up is a word list: A to Z under their letters, as a dictionary is, so 159 of them can be scanned by eye.
+  const [view, setView] = useView(name, name === LOOKED_UP ? { sort: 'name', group: 'letter', filter } : { sort: 'newest', group: archived ? 'folder' : name === 'captures:Inbox' ? 'kind' : 'date', filter })
   // Archived ones only in the Archived view, or when Display asks for them.
   const showArchived = archived || !!view.filter.flags?.includes('archived')
   const kept = all.filter((one) => !!one.archivedAt === showArchived)
@@ -1180,6 +1184,9 @@ export function useCaptureDisplay(name: string, all: CaptureMeta[], filter?: Vie
     { key: 'flags', label: 'Marked', options: [{ id: 'pinned', label: 'Pinned' }, { id: 'private', label: 'Private' }, ...(archived ? [] : [{ id: 'archived', label: 'Archived' }])], test: (one, flag) => (flag === 'pinned' ? !!one.pinnedAt : flag === 'archived' ? !!one.archivedAt : !!one.private) }
   ]
   const kindsHere = new Set(kept.map((one) => one.kind)).size
+  // Words read by their headword (a "Word: meaning" title files under its word).
+  const word = (one: CaptureMeta): string => (one.kind === 'word' ? headword(splitTags(one.label).text).word : one.label)
+  const books = new Set(kept.map((one) => one.kind === 'word' && one.medium).filter(Boolean)).size
   const rated = kept.some((one) => fieldOf(one.fields, 'rating'))
   const sources = new Set(kept.map((one) => !!one.source)).size
   // A page of Words reads best as tiles: short names, each on its own sketch.
@@ -1191,7 +1198,7 @@ export function useCaptureDisplay(name: string, all: CaptureMeta[], filter?: Vie
     newest: (a, b) => b.capturedAt.localeCompare(a.capturedAt),
     changed: (a, b) => (b.editedAt ?? b.capturedAt).localeCompare(a.editedAt ?? a.capturedAt),
     untouched: (a, b) => touched(a).localeCompare(touched(b)),
-    name: (a, b) => a.label.localeCompare(b.label),
+    name: (a, b) => word(a).localeCompare(word(b), undefined, { sensitivity: 'base' }),
     kind: (a, b) => byKind(a.kind, b.kind) || b.capturedAt.localeCompare(a.capturedAt),
     rating: (a, b) => Number(fieldOf(b.fields, 'rating') ?? 0) - Number(fieldOf(a.fields, 'rating') ?? 0) || b.capturedAt.localeCompare(a.capturedAt),
     manual: (a, b) => own.compare(a.id, b.id) || b.capturedAt.localeCompare(a.capturedAt)
@@ -1199,11 +1206,13 @@ export function useCaptureDisplay(name: string, all: CaptureMeta[], filter?: Vie
     kind: (one) => (isTask(one) || one.kind === 'todo' ? 'Tasks' : CAPTURE_TYPES.find((type) => type.id === one.kind)?.label ?? 'Note'),
     date: (one) => period(one.capturedAt),
     source: (one) => (isTask(one) ? 'Tasks' : one.source ? whereFrom(one.source) || 'Vault' : 'Typed here'),
-    folder: (one) => one.folder ?? 'Archived'
+    folder: (one) => one.folder ?? 'Archived',
+    letter: (one) => letterOf(word(one)),
+    book: (one) => (one.kind === 'word' && one.medium) || 'Not from a book'
   })
   // Spread over the page, the list keeps a size of its own: a grid, unless you chose another.
   const wide = view.pane === 'wide'
-  const density = (wide ? view.wideDensity ?? 'grid' : view.density) ?? (wordsOnly ? 'small' : 'list')
+  const density = (wide ? view.wideDensity ?? 'grid' : view.density) ?? (wordsOnly || name === LOOKED_UP ? 'small' : 'list')
   const display = (
     <Display
       view={view}
@@ -1212,7 +1221,7 @@ export function useCaptureDisplay(name: string, all: CaptureMeta[], filter?: Vie
       items={kept}
       defaults={filter ?? {}}
       sorts={[{ id: 'newest', label: 'Newest' }, { id: 'changed', label: 'Recently changed' }, { id: 'untouched', label: 'Longest unchanged' }, { id: 'name', label: 'A to Z' }, ...(kindsHere > 1 ? [{ id: 'kind', label: 'Kind' }] : []), ...(rated ? [{ id: 'rating', label: 'Rating' }] : []), ...byProp.choices, { id: 'manual', label: 'Custom order' }]}
-      groups={[...(kindsHere > 1 ? [{ id: 'kind', label: 'Kind' }] : []), { id: 'none', label: 'None' }, { id: 'date', label: 'Date' }, ...(sources > 1 ? [{ id: 'source', label: 'Where from' }] : []), ...(showArchived ? [{ id: 'folder', label: 'Folder' }] : [])]}
+      groups={[...(kindsHere > 1 ? [{ id: 'kind', label: 'Kind' }] : []), { id: 'none', label: 'None' }, { id: 'date', label: 'Date' }, ...(wordsOnly ? [{ id: 'letter', label: 'First letter' }] : []), ...(books ? [{ id: 'book', label: 'Where looked up' }] : []), ...(sources > 1 ? [{ id: 'source', label: 'Where from' }] : []), ...(showArchived ? [{ id: 'folder', label: 'Folder' }] : [])]}
       density={density}
       onDensity={(next) => setView({ ...view, [wide ? 'wideDensity' : 'density']: next })}
     />
@@ -1227,6 +1236,9 @@ export function useCaptureDisplay(name: string, all: CaptureMeta[], filter?: Vie
   const island = useIslands(name, islandsOn(view) && (density === 'list' || density === 'compact'))
   return { groups, display, chips, density, view, setView, move, moveBy, island }
 }
+
+/** Questions › Looked up's Display, kept apart from the other lists'. */
+const LOOKED_UP = 'captures:Looked up'
 
 /** A quiet lead-in naming what a detail is, before the detail itself. */
 const Lead = ({ children }: { children: React.ReactNode }): React.JSX.Element => <span className="mr-1.5 text-muted-foreground/80">{children}</span>
