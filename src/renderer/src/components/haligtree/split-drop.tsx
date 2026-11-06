@@ -266,14 +266,15 @@ export function SplitDrop({ onDrop, onRow }: { onDrop: (carried: Carried, at: nu
         if (queued) (delete queued.dataset.queueHot, delete queued.dataset.folderNo)
         // A folder of the other list takes no note: it stays unlit, and says why on letting go.
         if (queue && wrongFolder(queue, down?.source.node)) queue.dataset.folderNo = ''
-        else if (queue) (queue.dataset.queueHot = ''), click('tick')
+        // A tab carried says nothing until it lands: moving one is one act, one sound.
+        else if (queue) (queue.dataset.queueHot = ''), down?.source.carried.tab || click('tick')
         queued = queue
       }
       shrink.set(target || queue ? 0.86 : 1)
       if (target !== over) {
         over = target
         setHot((target as Zone | null)?.key ?? null)
-        if (target) click('tick')
+        if (target && !down?.source.carried.tab) click('tick')
       }
     }
     const begin = (px: number, py: number): void => {
@@ -300,7 +301,7 @@ export function SplitDrop({ onDrop, onRow }: { onDrop: (carried: Carried, at: nu
       if (down.source.carried.open && !down.source.carried.open.startsWith('task:')) document.documentElement.dataset.splitPin = ''
       document.getSelection()?.removeAllRanges()
       // A list row in your own order already sounded its lift; anything else lifts now.
-      if (!down.source.column || down.source.edgeOnly) chime('lift')
+      if ((!down.source.column || down.source.edgeOnly) && !tabbed) chime('lift')
       // The card starts where the pointer is, not flying in from the corner.
       card.x.jump(px)
       card.y.jump(py)
