@@ -96,13 +96,15 @@ async function surface(name, w, root, open, { click = true, rows: only, emptied,
     requestAnimationFrame(step)
   }, [root, first])
   await w.keyboard.press('Backspace')
-  // Many at once take a moment to leave: given up to five seconds.
+  // Many at once take a moment to leave: given up to five seconds. The Day page keeps what happened that day: a row
+  // moved to the Bin stays, struck through, saying so, and that is its sign it went (waited for the full five seconds
+  // instead, the notice had all but run out its six by the time it was read, and under load it had gone).
+  const binned = () => kept && w.evaluate(([root, first]) => /In the Bin/.test(document.querySelector(`${root} [data-pick="${first}"], ${root} [data-drag-open="${first}"]`)?.textContent ?? ''), [root, first])
   const t0 = Date.now()
-  do { await w.waitForTimeout(300); s = await read(w, root) } while (s.rows.includes(first) && Date.now() - t0 < 5000)
+  let gone = false
+  do { await w.waitForTimeout(300); s = await read(w, root); gone = !s.rows.includes(first) || (await binned()) } while (!gone && Date.now() - t0 < 5000)
   const frame = await w.evaluate(() => window.__binWatch)
   if (frame.left) check(`${name}: the notice is up in the same frame the rows leave`, frame.said, JSON.stringify(frame))
-  // The Day page keeps what happened that day: a row moved to the Bin stays, struck through, saying so.
-  const gone = !s.rows.includes(first) || (kept && await w.evaluate(([root, first]) => /In the Bin/.test(document.querySelector(`${root} [data-pick="${first}"], ${root} [data-drag-open="${first}"]`)?.textContent ?? ''), [root, first]))
   if (!gone) console.log(`  ${name}: still shown after ⌫: ${first}`)
   row.push(`⌫:${gone ? 'gone' : 'stayed'}${s.toast ? ` “${s.toast.slice(0, 60)}”` : ''}`)
   check(`${name}: ⌫ moves them to the Bin with a notice that says so`, gone && /to the Bin/.test(s.toast) && /Undo/.test(s.toast), s.toast)
@@ -115,9 +117,11 @@ async function surface(name, w, root, open, { click = true, rows: only, emptied,
   // ⌘Z brings them back.
   await w.keyboard.press('Meta+z')
   const z0 = Date.now()
-  do { await w.waitForTimeout(300); s = await read(w, root) } while (!s.rows.includes(first) && Date.now() - z0 < 5000)
-  row.push(`⌘Z:${s.rows.includes(first) ? `back in ${Date.now() - z0}ms` : 'not back'}`)
-  check(`${name}: ⌘Z brings them back`, s.rows.includes(first))
+  // Back is back in the list, and on the Day page no longer saying it is in the Bin.
+  let back = false
+  do { await w.waitForTimeout(300); s = await read(w, root); back = s.rows.includes(first) && !(await binned()) } while (!back && Date.now() - z0 < 5000)
+  row.push(`⌘Z:${back ? `back in ${Date.now() - z0}ms` : 'not back'}`)
+  check(`${name}: ⌘Z brings them back`, back)
   // Esc clears (a celebration that came up over the page takes the first one).
   if (await w.evaluate(() => !!document.querySelector('[data-celebration] > *'))) { await w.keyboard.press('Escape'); await w.waitForTimeout(500) }
   await w.keyboard.press('Meta+a'); await w.waitForTimeout(350)
