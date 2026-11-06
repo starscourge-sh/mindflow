@@ -35,12 +35,14 @@ try {
     const out = []
     for (let i = 0; i < 12; i++) {
       await wait(500)
-      const armed = h.evaluate(() => new Promise((done) => {
-        const on = () => { const at = performance.now(); removeEventListener('keydown', on, true); requestAnimationFrame(() => requestAnimationFrame(() => done(Math.round(performance.now() - at)))) }
+      await h.evaluate(() => void (window.__painted = new Promise((done) => {
+        const was = document.querySelector('[data-pane] .note-pane[data-open], [data-pane] [data-open] .note-pane')?.closest('[data-open]')?.getAttribute('data-open') ?? ''
+        // Until the next note is really on show, and painted, not only until the first frame after the key.
+        const on = () => { const at = performance.now(); removeEventListener('keydown', on, true); const look = () => { const now = document.querySelector('[data-pane] .note-pane[data-open], [data-pane] [data-open] .note-pane')?.closest('[data-open]')?.getAttribute('data-open') ?? ''; if (now && now !== was) requestAnimationFrame(() => requestAnimationFrame(() => done(Math.round(performance.now() - at)))); else if (performance.now() - at > 3000) done(-1); else requestAnimationFrame(look) }; look() }
         addEventListener('keydown', on, true)
-      }))
+      })))
       await h.keyboard.press(keys[i % keys.length])
-      out.push(await armed)
+      out.push(await h.evaluate(() => window.__painted))
     }
     out.sort((a, b) => a - b)
     return `median ${out[6]}ms, worst ${out[11]}ms`
