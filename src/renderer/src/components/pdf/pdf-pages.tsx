@@ -26,6 +26,9 @@ export function loadPdf(src: string): Promise<PDFDocumentProxy> {
   return doc
 }
 
+/** A book opened afresh next time: its pages were read and it is served with its words now (pdf-scan.tsx). */
+export const forgetPdf = (src: string): void => void open.delete(src)
+
 /** The title it carries, else the file name without `.pdf`. */
 export async function pdfTitle(doc: PDFDocumentProxy, name: string): Promise<string> {
   const meta = await doc.getMetadata().catch(() => null)

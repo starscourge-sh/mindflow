@@ -470,6 +470,46 @@
   .pdf-mark.is-flash { animation: none; background: color-mix(in srgb, var(--tt-brand-color-500, #c08a2e) 50%, transparent); }
 }
 
+/* A scanned book (pdf-scan.tsx): one line under the bar, the page's own surface, saying what to do. */
+.pdf-scan-line {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0.5rem 1rem 0;
+  /* One height whatever it says (the button, or the orb while reading): the pages under it never move. */
+  padding: 0 0.5rem 0 0.875rem;
+  height: 3rem;
+  border-radius: 0.625rem;
+  border: 1px solid var(--border);
+  background: var(--background);
+  font-size: var(--text-control, 0.8125rem);
+  color: var(--muted-foreground);
+}
+.pdf-scan-button {
+  flex: none;
+  cursor: pointer;
+  border-radius: 0.5rem;
+  padding: 0.375rem 0.75rem;
+  font-weight: 500;
+  color: var(--foreground);
+  background: color-mix(in oklab, var(--foreground) 7%, transparent);
+  transition: background-color 150ms ease, transform 100ms ease;
+}
+.pdf-scan-button:hover { background: color-mix(in oklab, var(--foreground) 11%, transparent); }
+.pdf-scan-button:active, .pdf-scan-close:active { transform: scale(0.97); }
+.pdf-scan-close {
+  flex: none;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.5rem;
+  color: var(--muted-foreground);
+}
+.pdf-scan-close:hover { background: color-mix(in oklab, var(--foreground) 7%, transparent); color: var(--foreground); }
+
 /* Find in a PDF: the note's own find bar, under the reader's bar. */
 .pdf-find-bar {
   flex: none;

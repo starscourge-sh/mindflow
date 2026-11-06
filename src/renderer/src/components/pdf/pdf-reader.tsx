@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { useToolKeys } from "@/lib/tool-keys"
 import type { PDFDocumentProxy } from "pdfjs-dist"
 import { Sparkles } from "lucide-react"
@@ -22,7 +22,8 @@ import { ReadDetails } from "./pdf-details"
 import { LookUpCard, type LookedUpIn } from "./look-up"
 import { usePdfCover } from "./pdf-cover"
 import { showDetails, useDetailsShown } from "@/lib/reading"
-import { PdfPages, offsetsIn, pdfAuthor, pdfTitle, wordsIn, type PdfMark } from "./pdf-pages"
+import { ScanDetail, ScanLine } from "./pdf-scan"
+import { PdfPages, forgetPdf, loadPdf, offsetsIn, pdfAuthor, pdfTitle, wordsIn, type PdfMark } from "./pdf-pages"
 import { FitActions } from "@/components/haligtree/ui"
 import { LAYOUTS, LOOKS, useDarkPages, usePageLayout, usePageLook, usePaperPages, type PageLayout, type PageLook } from "./paper"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
@@ -138,6 +139,13 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
   /** The pages last moved by a hand (two fingers, a wheel, the scroll bar, a key), not by opening, a restore, a jump or a zoom. */
   const byHandScroll = useRef(false)
   const [doc, setDoc] = useState<PDFDocumentProxy | null>(null)
+  // Its pages read (pdf-scan.tsx): opened again, now with its words, at the page it was on.
+  const [opened, setOpened] = useState(0)
+  // The new copy is loaded before the pages are swapped, so they never stand empty while it comes.
+  const readAgain = useCallback(() => {
+    forgetPdf(src)
+    void loadPdf(src).catch(() => null).then(() => setOpened((n) => n + 1))
+  }, [src])
   const [title, setTitle] = useState(() => pdfName(src, name))
   const [zoom, setZoom] = useState(1)
   const [page, setPage] = useState(start ?? 1)
@@ -953,6 +961,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
           </div>
         </div>
       )}
+      <ScanLine src={src} doc={doc} onRead={readAgain} />
       <div ref={chip} className="pdf-zoom-chip" aria-hidden />
       <div ref={body} className="pdf-reader-body" data-rail-squeeze={squeeze}>
       {railShown && doc && (
@@ -980,6 +989,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
             }}
           >
             <PdfPages
+              key={opened}
               src={src}
               zoom={zoom}
               scroller={scroller}
@@ -1079,7 +1089,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
           {!hit && !picked && ai && doc && <ContextMenuItem data-chapter-cards-menu onSelect={() => !chaptering && chapterCards()}>{outline.length ? "Five cards from this chapter" : "Five cards from these pages"}</ContextMenuItem>}
         </ContextMenuContent>
       </ContextMenu>
-      {chaptering && doc ? <ChapterCards doc={doc} title={title} outline={outline} page={page} marks={marks.filter((one) => !one.id.startsWith("find:"))} onGo={go} onClose={() => setChaptering(false)} onKeep={(question, answer, at) => cardOf(question, answer, at, true)} /> : detailsOut && <ReadDetails src={src} name={name} onPage={go} chapters={outline} cover={cover} title={title} author={author} pages={doc?.numPages} page={page} marks={marks} lit={lit} onMark={goToMark} onGather={() => void gather()} onJoin={(group) => void joinStacked(group)} />}
+      {chaptering && doc ? <ChapterCards doc={doc} title={title} outline={outline} page={page} marks={marks.filter((one) => !one.id.startsWith("find:"))} onGo={go} onClose={() => setChaptering(false)} onKeep={(question, answer, at) => cardOf(question, answer, at, true)} /> : detailsOut && <ReadDetails src={src} name={name} onPage={go} chapters={outline} cover={cover} title={title} author={author} pages={doc?.numPages} page={page} marks={marks} lit={lit} onMark={goToMark} onGather={() => void gather()} onJoin={(group) => void joinStacked(group)} scan={<ScanDetail src={src} doc={doc} onRead={readAgain} />} />}
       </div>
     </div>
   )

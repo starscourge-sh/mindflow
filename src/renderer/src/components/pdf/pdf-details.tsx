@@ -18,7 +18,7 @@ const LONG = 30
  * are many, each a way back to its place), and every note and gem that holds
  * it or links into it. Long lists draw only the rows in view.
  */
-export function ReadDetails({ src, name, cover, title, author, pages, page, chapters = [], marks, lit, onMark, onGather, onPage, onJoin }: {
+export function ReadDetails({ src, name, cover, title, author, pages, page, chapters = [], marks, lit, onMark, onGather, onPage, onJoin, scan }: {
   src: string
   /** The name it arrived under, for a page bar's tick to open it by. */
   name: string
@@ -38,6 +38,8 @@ export function ReadDetails({ src, name, cover, title, author, pages, page, chap
   onPage: (page: number) => void
   /** Highlights stacked over the same words, made one. */
   onJoin?: (group: PdfMark[]) => void
+  /** A scanned book's line: read its pages, or forget what was read (pdf-scan.tsx). */
+  scan?: React.ReactNode
 }): React.JSX.Element {
   const cited = useCited(src, marks.length)
   const [words, setWords] = useState("")
@@ -72,6 +74,7 @@ export function ReadDetails({ src, name, cover, title, author, pages, page, chap
       <div className="book-panel-head">
         <BookHead cover={cover} title={title} author={author} pages={pages} bytes={book?.bytes} />
         {pages ? <PageBar src={src} name={name} pages={pages} page={page} cited={cited} marks={marks} onPage={onPage} /> : null}
+        {scan}
       </div>
       <div ref={setBox} className="book-panel-body" data-panel-scroll>
 

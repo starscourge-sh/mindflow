@@ -1,6 +1,6 @@
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react'
 import { AnimatePresence, LayoutGroup, motion } from 'motion/react'
-import { Bell, BellOff, Check, ChevronRight, Eye, FileText, FlagTriangleRight, Folder, Lock, Pause, Repeat, Star, Unlock } from 'lucide-react'
+import { Bell, BellOff, Check, ChevronRight, Eye, FileText, FlagTriangleRight, Folder, Lock, Pause, Repeat, ScanText, Star, Unlock } from 'lucide-react'
 import { EASE, spring } from '@/lib/motion'
 import { timerFrom } from '@/lib/timer'
 import { clock } from './focus-pill'
@@ -1908,7 +1908,23 @@ const DatesDemo: Demo = ({ live }) => {
   )
 }
 
+/** A scanned page: its words picked out, then found. */
+const ScanDemo: Demo = ({ live }) => {
+  const at = useSteps([1300, 1300, 2600], live, 2)
+  return (
+    <Col>
+      <div className="rounded-lg border bg-background px-3 py-2 font-[Times_New_Roman,serif] text-control text-foreground">
+        The soul becomes <span className={`rounded-[3px] transition-colors duration-300 ${at === 2 ? 'bg-[var(--tt-color-highlight-yellow)]' : ''}`}>dyed</span> with the colour of its thoughts.
+      </div>
+      <div className="flex h-7 items-center gap-2 px-1 text-meta text-muted-foreground">
+        {at === 0 ? <><ScanText className="size-3.5" /> These pages are pictures of words.</> : at === 1 ? 'Reading page 41 of 120…' : <><Kbd>⌘F</Kbd> dyed · 1 of 1</>}
+      </div>
+    </Col>
+  )
+}
+
 export const DEMOS: Record<string, Demo> = {
+  scan: ScanDemo,
   dates: DatesDemo,
   pace: PaceDemo, spotlight: SpotlightDemo, services: ServicesDemo, readaloud: ReadAloudDemo, picturewords: PictureWordsDemo, translate: TranslateDemo,
   box: BoxDemo, timer: TimerDemo, letter: LetterDemo, clue: ClueDemo, tagtask: TagTaskDemo, remind: RemindDemo, comingback: ComingBackDemo, onetask: OneTaskDemo, merge: MergeDemo,
