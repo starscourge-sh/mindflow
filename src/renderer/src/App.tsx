@@ -1121,8 +1121,13 @@ export default function App(): React.JSX.Element {
     const doc = column.current?.querySelector<HTMLElement>('.ProseMirror')
     const first = doc?.firstElementChild as HTMLElement | null | undefined
     if (!doc || !first) return null
+    if (doc.childElementCount > 1) return true
+    // An empty draft never wraps: its hint ("Write a thought…") is held inside the line and wraps with the width
+    // (paragraph-node.scss), so measured at a narrow moment it read as a second line and grew the pill into a box that
+    // then kept itself narrow, the hint wrapping on (qa/hint-room.mjs, the pill).
+    if (first.classList.contains('is-editor-empty')) return false
     const line = parseFloat(getComputedStyle(first).lineHeight) || 26
-    return doc.childElementCount > 1 || first.offsetHeight > line * 1.5
+    return first.offsetHeight > line * 1.5
   }
   React.useLayoutEffect(() => {
     const next = measureWraps.current()
