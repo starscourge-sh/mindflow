@@ -73,7 +73,7 @@ function SourceMap({ onOpen, modes }: { onOpen: (type: string, id: string) => vo
         </div>
       </header>
       {graph && graph.nodes.length ? (
-        <GraphCanvas map={graph} fit={fit} className="flex-1" onOpen={(type, id) => {
+        <GraphCanvas map={graph} fit={fit} calm className="flex-1" onOpen={(type, id) => {
           const node = graph.nodes.find((one) => one.id === id)
           if (type === 'source' && node) return openSource(id.startsWith('who:') ? 'attribution' : 'medium', node.title)
           onOpen(type, id)
@@ -196,7 +196,7 @@ function LinkMap({ onOpen, modes }: { onOpen: (type: string, id: string) => void
       </header> : null}
       {count ? (
         <Example on={example} flush className="min-h-0 flex-1" tryIt={<>type <TypedMark>@</TypedMark> in any note and pick another one. The two show up here as dots, joined by a line.</>}>
-        {dots ? <GraphCanvas map={map!} onOpen={open} fit={fit} fly={fly} replay={replay} look={example ? undefined : canvasLook} paint={example ? undefined : paint} className="flex-1">
+        {dots ? <GraphCanvas map={map!} onOpen={open} fit={fit} fly={fly} replay={replay} calm look={example ? undefined : canvasLook} paint={example ? undefined : paint} className="flex-1">
           {replaying && !example && <Replay nodes={map!.nodes} show={replay} onClose={() => (chime('off'), setReplaying(false))} />}
           {/* The map's foot: two quiet chips of one height, as Obsidian keeps its graph bare. The key on the left
               (what the colours and icons mean, opened on a click), the notes left off on the right. */}

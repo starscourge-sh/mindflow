@@ -26,7 +26,7 @@ type Line = SimulationLinkDatum<Dot> & { source: Dot; target: Dot; weight: numbe
 export type CanvasLook = Pick<MapLook, 'names' | 'dotSize' | 'lineSize' | 'arrows' | 'centre' | 'push' | 'linkPull' | 'linkLength'>
 type View = { x: number; y: number; k: number }
 /** A name at rest on the Map, kept from frame to frame (see `sayings`). `side`: which of its four plain spots, -1 for none. */
-type Saying = { v: number; want: boolean; rel: number[]; goal: number[]; box: number[]; leader: boolean; pill: boolean; side: number; words: string }
+type Saying = { v: number; want: boolean; misses: number; rel: number[]; goal: number[]; box: number[]; leader: boolean; pill: boolean; side: number; words: string }
 /** A dot on the map, with whether its title is kept out of sight. */
 export type GraphNode = MapNode & { private?: boolean }
 export type Graph = Omit<NoteMap, 'nodes'> & { nodes: GraphNode[] }
@@ -170,7 +170,7 @@ const takeFocus = (): string | null => ((id) => ((asked = null), id))(asked)
  * scroll left to the page around it. `focus` lights a note up and brings it
  * close once drawn.
  */
-export function GraphCanvas({ map, onOpen, centre, you, about, fit: fitRef, fly, replay, look, paint, className, children }: {
+export function GraphCanvas({ map, onOpen, centre, you, about, fit: fitRef, fly, replay, look, paint, calm = false, className, children }: {
   map: Graph
   /** `aside`: ⌥ was held, to open it beside. */
   onOpen: (type: string, id: string, aside?: boolean) => void
@@ -189,6 +189,9 @@ export function GraphCanvas({ map, onOpen, centre, you, about, fit: fitRef, fly,
   look?: CanvasLook
   /** A dot's colour from the Map's colour groups, else its tag's. */
   paint?: (node: MapNode) => string | undefined
+  /** The Map's own calm motion: names that fade, keep their place and never flicker, and a map that settles out of
+   * sight before it fades in. (A note's own map and the Inbox's tag map keep their quicker ways.) */
+  calm?: boolean
   className?: string
   children?: React.ReactNode
 }): React.JSX.Element {
@@ -513,10 +516,11 @@ export function GraphCanvas({ map, onOpen, centre, you, about, fit: fitRef, fly,
     // --- fading in: each new dot from a moment set by how far out it sits,
     // so the map grows from its middle (about 600ms in all)
     const arrive = new Map<Dot, number>()
+    const arrival = calm ? ARRIVE : 240
     let arriving = 0, began = 0
     const seen = (dot: Dot, now: number): number => {
       const at = arrive.get(dot)
-      return at === undefined ? 1 : now <= at ? 0 : now >= at + ARRIVE ? 1 : ease((now - at) / ARRIVE)
+      return at === undefined ? 1 : now <= at ? 0 : now >= at + arrival ? 1 : ease((now - at) / arrival)
     }
     // On a note's own map the far ones are faded, so the near ones read first.
     let reach = 1
@@ -537,7 +541,7 @@ export function GraphCanvas({ map, onOpen, centre, you, about, fit: fitRef, fly,
     // only while the map is in sight and motion is on
     let breathing = false
     // --- the replay's springs: each new dot drawn away from its place by an offset that springs to nothing (from its
-    // first link's dot), and at a size that springs from nothing to whole. Stepped every 4ms of the frame's time.
+    // first link's dot), and at a size that springs from about a third to whole (from nothing it read as a pop). Stepped every 4ms of the frame's time.
     type Spring = { ox: number; oy: number; vx: number; vy: number; s: number; vs: number }
     const springs = new Map<Dot, Spring>()
     let sprungAt = 0
@@ -720,9 +724,9 @@ export function GraphCanvas({ map, onOpen, centre, you, about, fit: fitRef, fly,
         context.globalAlpha = (on(dot) ? lit : faded) * alpha(dot)
         if (!context.globalAlpha) continue
         // Arriving, a dot grows from most of its size as it fades in, so it lands rather than blinks on; in the replay
-      // it springs up from nothing as it springs out from its first link.
+      // it grows from a third of its size as it springs out from its first link.
         const sprung = springs.get(dot)
-        const grow = (growing ? (still() ? 1 : 0.85 + 0.15 * seen(dot, now)) : 1) * (sprung ? Math.max(0, sprung.s) : 1)
+        const grow = (growing ? (still() ? 1 : calm ? 0.85 + 0.15 * seen(dot, now) : 0.7 + 0.3 * seen(dot, now)) : 1) * (sprung ? Math.max(0, sprung.s) : 1)
         const chip = chipOf(dot, scale), half = chip.half * grow
         // The page under the dot first, as solid as the dot is there: a faded or tinted dot reads paler, never
         // see-through, so the lines that run to it never show across its face.
@@ -760,7 +764,7 @@ export function GraphCanvas({ map, onOpen, centre, you, about, fit: fitRef, fly,
           if (list.length >= 80) break
           // A name already shown keeps it until its dot is 15% under the size that brought it: resting near the
           // threshold, it never comes and goes.
-          const big = dot.r * view.k >= tuned.current.names * (sayings.get(dot)?.want ? 0.85 : 1)
+          const big = dot.r * view.k >= tuned.current.names * (calm && sayings.get(dot)?.want ? 0.85 : 1)
           if (inFrame(dot, sayings.get(dot)?.want ? 30 / view.k : 0) && (dot.rings || dot.type === 'tag' || big) && got(dot) > 0) list.push(dot)
         }
         // The tags first, each its cluster's name: they claim their room before any other name and its line does
@@ -776,7 +780,7 @@ export function GraphCanvas({ map, onOpen, centre, you, about, fit: fitRef, fly,
       const nameAll = (shown: Dot | null, strength: number): { dot: Dot; box: number[] }[] => {
         if (!shown) refusedAtRest.current = []
         // The names placed at rest this frame, drawn after at their own strength.
-        const placedNow = new Map<Dot, Omit<Saying, 'v' | 'want' | 'rel' | 'goal'>>()
+        const placedNow = new Map<Dot, Omit<Saying, 'v' | 'want' | 'misses' | 'rel' | 'goal'>>()
         const say = shown ? [...near.get(shown.id)!].map((id) => byId.get(id)!).sort((a, b) => b.links - a.links) : middle ? named : sayFrom()
         const most = Math.min(24, Math.round(10 * Math.sqrt(Math.max(1, view.k / fitK))))
         // Only the dots in sight can be in a name's way.
@@ -848,14 +852,17 @@ export function GraphCanvas({ map, onOpen, centre, you, about, fit: fitRef, fly,
           // with every named dot's own circle, and a line from a dot in a crowded cluster ran into a neighbour's circle
           // whichever way it went, so #health at 50 captures was refused all 180 places it tried and had no name.
           const clearLine = (box: number[]): boolean => !taken.slice(firstName).some((one) => one.dot !== dot && one.dot !== shown && crosses(lineTo(box), one.box))
+          // Where a name remembers its last place (the Map at rest; never a tag's, a cluster's name placed afresh each
+          // time so its lines out are never hemmed in: #health at 50 tags had none).
+          const remembered = !shown && calm && dot.type !== 'tag'
           // A name already shown is let off its first 3 pixels of overlap, so one at the edge of fitting never comes and goes
           // as the zoom rests there; a new name must fit clear.
-          const slack = !shown && sayings.get(dot)?.want ? 3 / view.k : 0
+          const slack = remembered && sayings.get(dot)?.want ? 3 / view.k : 0
           const free = (blocks: (other: Dot) => boolean) => (full: number[]): boolean => {
             const box = slack ? [full[0] + slack, full[1] + slack, full[2] - slack, full[3] - slack] : full
             return !taken.some((one) => one.dot !== dot && (!lead || one.dot === shown) && overlaps(box, one.box)) &&
             // A name on its way out still holds its place until it has gone: one coming in waits, never overlaps it.
-            (!!shown || must(dot) || !leaving.some((one) => one.dot !== dot && overlaps(box, one.box))) &&
+            (!!shown || lead || dot.type === 'tag' || !leaving.some((one) => one.dot !== dot && overlaps(box, one.box))) &&
             !lines.some((one) => one.dot !== dot && crosses(one.line, box)) &&
             // A name cut off by the frame's edge is left out on a small map.
             !(small && (box[0] < frame[0] || box[2] > frame[2] || box[1] < frame[1] || box[3] > frame[3])) &&
@@ -870,12 +877,12 @@ export function GraphCanvas({ map, onOpen, centre, you, about, fit: fitRef, fly,
             return [x + dx * further, y - half + dy * further, x + wide + dx * further, y + half + dy * further]
           })
           // The side it had before first, so a name holds still rather than hopping from one side to the other.
-          const plain = boxesAt(0), before = shown ? undefined : sayings.get(dot)?.side
+          const plain = boxesAt(0), before = remembered ? sayings.get(dot)?.side : undefined
           // A name already shown keeps its spot while no other name, name's line or big dot comes onto it: small dots
           // crowding in as the map zooms out never push it off and back (a hub's name came and went three times in
           // one slow zoom).
           const kept = (box: number[]): boolean => !touches(box, dot) && !nearby.some((other) => other !== dot && (other.rings > 0 || other.r >= 7) && touches(box, other)) && !taken.some((one) => one.dot !== dot && overlaps(box, one.box)) && !lines.some((one) => one.dot !== dot && crosses(one.line, box))
-          const had = shown ? undefined : sayings.get(dot)
+          const had = remembered ? sayings.get(dot) : undefined
           const old = had?.want ? had.goal.map((value, i) => (i % 2 ? dot.y! : dot.x!) + value / view.k) : undefined
           // Its very spot last frame, then the side it had, then the first free side.
           let spot = old && kept(old) ? old : before !== undefined && before >= 0 && kept(plain[before]) ? plain[before] : plain.find(free(() => true))
@@ -930,14 +937,15 @@ export function GraphCanvas({ map, onOpen, centre, you, about, fit: fitRef, fly,
           said++
           if (leader) lines.push({ dot, line: lineTo(spot) })
           taken.push({ dot: shown ?? dot, box: pill ? [spot[0] - pad, spot[1] - pad / 2, spot[2] + pad, spot[3] + pad / 2] : spot })
-          // At rest, a name is kept and drawn below at its own strength, fading in and gliding to its place.
-          if (!shown) {
+          // At rest on the Map, a name is kept and drawn below at its own strength, fading in and gliding to its place.
+          // A note's own map and the Inbox's tag map name a fixed few, drawn as placed.
+          if (!shown && calm) {
             placedNow.set(dot, { box: spot, leader, pill, side: leader || pill ? -1 : spot === old ? had!.side : plain.indexOf(spot), words })
             continue
           }
-          paintName(dot, spot, words, leader, pill, strength * (growing ? seen(dot, now) : 1) * got(dot), true)
+          paintName(dot, spot, words, leader, pill, strength * (growing ? seen(dot, now) : 1) * got(dot), !!shown)
         }
-        if (!shown) {
+        if (!shown && calm) {
           // Each name at rest eases toward shown or gone: 180ms in, 140ms out, on the app's curve; with Motion off at once.
           const dt = Math.min(50, Math.max(0, now - saidAt))
           saidAt = now
@@ -945,13 +953,15 @@ export function GraphCanvas({ map, onOpen, centre, you, about, fit: fitRef, fly,
           for (const [dot, at] of placedNow) {
             const was = sayings.get(dot)
             const rel = at.box.map((value, i) => (value - (i % 2 ? dot.y! : dot.x!)) * view.k)
-            if (!was || was.v <= 0) sayings.set(dot, { v: 0, want: true, rel, goal: rel, ...at })
-            else Object.assign(was, { want: true, goal: rel, ...at })
+            if (!was || was.v <= 0) sayings.set(dot, { v: 0, want: true, misses: 0, rel, goal: rel, ...at })
+            else Object.assign(was, { want: true, misses: 0, goal: rel, ...at })
           }
           for (const [dot, one] of sayings) {
-            if (!placedNow.has(dot)) one.want = false
+            // A name goes only once it has been left out three drawings running: placed one drawing and refused the
+            // next (two names each other's way, back and forth) it holds still where it is, rather than shimmering.
+            if (!placedNow.has(dot) && ++one.misses >= 3) one.want = false
             const target = one.want ? 1 : 0
-            one.v = instant ? target : target > one.v ? Math.min(1, one.v + dt / 180) : Math.max(0, one.v - dt / 140)
+            one.v = instant || one.v === target ? target : target > one.v ? Math.min(1, one.v + dt / 180) : Math.max(0, one.v - dt / 140)
             // A name that moves to another spot glides there (about 60ms to cover most of the way), never jumps.
             const follow = instant || still() ? 1 : 1 - Math.exp(-dt / 60)
             one.rel = one.rel.map((value, i) => value + (one.goal[i] - value) * follow)
@@ -964,7 +974,7 @@ export function GraphCanvas({ map, onOpen, centre, you, about, fit: fitRef, fly,
             const box = one.rel.map((value, i) => (i % 2 ? dot.y! : dot.x!) + (value + (i % 2 ? drift : 0)) / view.k)
             paintName(dot, box, one.words, one.leader, one.pill, strength * shade * (growing ? seen(dot, now) : 1) * got(dot), false)
           }
-          leaving = [...sayings].filter(([, one]) => !one.want).map(([dot, one]) => ({ dot, box: one.rel.map((value, i) => (i % 2 ? dot.y! : dot.x!) + value / view.k) }))
+          leaving = [...sayings].filter(([, one]) => !one.want || one.misses > 0).map(([dot, one]) => ({ dot, box: one.rel.map((value, i) => (i % 2 ? dot.y! : dot.x!) + value / view.k) }))
           shownNames.current = Object.fromEntries([...sayings].map(([dot, one]) => [dot.id, Math.round((1 - (1 - one.v) ** 2) * 1000) / 1000]))
         }
         if (!shown) crossedAtRest.current = lines.flatMap((one) => taken.slice(firstName).filter((other) => other.dot !== one.dot && crosses(one.line, other.box)).map((other) => `${titleOf(one.dot)} > ${titleOf(other.dot)}`))
@@ -1114,8 +1124,9 @@ export function GraphCanvas({ map, onOpen, centre, you, about, fit: fitRef, fly,
       // waited a second and more before it showed.
       // Settled almost all the way out of sight: seen settling, a few hundred dots spread out from a tight knot over
       // a second and a half, names hopping as they went (the user: "a little too abrupt").
-      const most = Math.min(300, 60 + dots.length)
-      const until = performance.now() + 160
+      // (The Map only: a note's own map and the Inbox's tag map settle as they did.)
+      const most = calm ? Math.min(300, 60 + dots.length) : Math.min(120, 40 + dots.length / 5)
+      const until = performance.now() + (calm ? 160 : 120)
       for (let done = 0; done < most && performance.now() < until; done++) sim.tick()
       // And a big map settles in fewer steps, so it is still and quiet sooner.
       if (dots.length > 1000) sim.alphaDecay(0.05)
@@ -1125,10 +1136,10 @@ export function GraphCanvas({ map, onOpen, centre, you, about, fit: fitRef, fly,
     // 850ms, or a few joining an old map over less.
     if (fresh.length && !still()) {
       const start = performance.now() + 30
-      const span = fresh.length === dots.length ? ARRIVE_SPAN : 160
+      const span = fresh.length === dots.length ? (calm ? ARRIVE_SPAN : 360) : calm ? 160 : 120
       const out = Math.max(...fresh.map((dot) => Math.hypot(dot.x!, dot.y!)), 1)
       for (const dot of fresh) arrive.set(dot, start + span * Math.sqrt(Math.hypot(dot.x!, dot.y!) / out))
-      arriving = start + span + ARRIVE
+      arriving = start + span + arrival
       began = start
     }
 
@@ -1222,7 +1233,7 @@ export function GraphCanvas({ map, onOpen, centre, you, about, fit: fitRef, fly,
         dot.x = (by?.x ?? 0) + Math.cos(turn) * gap
         dot.y = (by?.y ?? 0) + Math.sin(turn) * gap
         dot.vx = dot.vy = 0
-        springs.set(dot, { ox: by ? by.x! - dot.x : 0, oy: by ? by.y! - dot.y : 0, vx: 0, vy: 0, s: 0, vs: 0 })
+        springs.set(dot, { ox: by ? by.x! - dot.x : 0, oy: by ? by.y! - dot.y : 0, vx: 0, vy: 0, s: 0.35, vs: 0 })
       }
       for (let at = n; at < count; at++) springs.delete(order[at])
       count = n

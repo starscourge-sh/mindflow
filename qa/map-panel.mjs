@@ -151,11 +151,11 @@ try {
   const shift = moved(early.slice(0, 5), later)
   check('the first dots move as later ones arrive (they push)', later.length > early.length && shift > 3, `${early.length} then ${later.length} dots, first ones moved ${Math.round(shift)}px`)
   if (SHOT) await h.screenshot({ path: `${SHOT}/map-replay-light.png` })
-  const track = await h.locator('[data-map-replay-bar] [data-slot="slider"]').boundingBox()
+  const track = await h.locator('[data-map-replay-track]').boundingBox()
   await h.mouse.click(track.x + 2, track.y + track.height / 2)
   await h.waitForTimeout(300)
   const back = (await dots()).filter((dot) => dot.held).length
-  check('dragging the bar back takes dots out of the layout', back < later.length, `${later.length} then ${back}`)
+  check('a click near the timeline\'s start takes dots out of the layout', back < later.length, `${later.length} then ${back}`)
   await h.keyboard.press('Escape')
   await h.waitForTimeout(300)
   check('closed, every dot is in the layout again', (await dots()).every((dot) => dot.held))

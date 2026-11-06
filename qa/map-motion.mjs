@@ -185,7 +185,7 @@ try {
     const step = (t) => { if (!qa.on) return; qa.frames.push({ t, names: read() }); requestAnimationFrame(step) }
     requestAnimationFrame(step)
   })
-  for (const delta of [30, 30, 30, 30, -30, -30, -30, -30]) { await zoom(delta); await h.waitForTimeout(260) }
+  for (const delta of [30, 30, 30, 30, 30, 30, -30, -30, -30, -30, -30, -30]) { await zoom(delta); await h.waitForTimeout(260) }
   await h.waitForTimeout(300)
   const calm = study(await take())
   await h.evaluate(() => (window.__names.on = false))
