@@ -254,6 +254,8 @@ export const POWERS: Power[] = [
     show: { view: 'settings', settings: 'Import and backups', find: 'Obsidian', at: '[data-setting]', text: 'Pick the folder, then choose which of its folders to bring in. Each becomes a group in Writing, and nothing in it is changed.' } },
   { id: 'files', group: 'Bringing notes in', name: 'Highlights and cards', tryIt: 'In Settings, “Import and backups”, choose “Files…”.', line: 'Readwise and Kindle highlights, Markdown files, bookmarks and Anki cards.',
     show: { view: 'settings', settings: 'Import and backups', find: 'Files…', at: '[data-setting]', text: '“Files…” takes any of these.' } },
+  { id: 'scan', group: 'Bringing notes in', name: 'A scanned book you can search', needs: 'every', tryIt: 'Open a scanned PDF and choose “Read the text on these pages”.', line: 'A PDF whose pages are only pictures of words is read by your Mac, page by page, and kept with the book, so you can find, highlight, make cards from and listen to it like any other.',
+    show: { view: 'nuggets', text: 'Open a scanned PDF: the line under its bar offers to read it.' } },
   { id: 'embeds', group: 'Bringing notes in', name: 'Pasted embeds fill themselves in', line: `Paste a note from Obsidian with ![[picture.png]] in it, and ${APP_NAME} brings in the pictures and files it points to.`,
     show: { view: 'day', at: '.tiptap.ProseMirror', text: 'Paste a note with ![[a picture]] into any page.' } }
 ]

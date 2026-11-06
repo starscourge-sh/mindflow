@@ -80,6 +80,7 @@ import { registerCollect } from './collect'
 import { registerTranscribe } from './transcribe'
 import { Stopped, begin, end as endJob, registerJobs } from './jobs'
 import { registerLabels } from './labels'
+import { readCopy, registerPdfText } from './pdf-text'
 import { registerStudyAi, registerUnderstand } from './understand'
 import { registerServices } from './services'
 import { registerSpotlight, SPOTLIGHT_ITEM } from './spotlight'
@@ -4200,6 +4201,7 @@ app.whenReady().then(() => {
   registerTranscribe()
   registerJobs()
   registerLabels()
+  registerPdfText()
   registerUnderstand()
   registerStudyAi(aiStudyOn)
   registerServices()
@@ -4305,7 +4307,9 @@ app.whenReady().then(() => {
         const other = assetElsewhere(name)
         if (other) await mkdir(assetsDir(), { recursive: true }).then(() => copyFile(other, file))
       }
-      return await servedFile(file, request)
+      // A scanned book whose pages were read (pdf-text.ts): its copy with the words on it, wherever it opens.
+      const read = readCopy(name)
+      return await servedFile(read && existsSync(read) ? read : file, request)
     } catch {
       return new Response('not found', { status: 404 })
     }

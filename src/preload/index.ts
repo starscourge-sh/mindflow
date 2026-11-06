@@ -492,6 +492,13 @@ const api = {
     return () => ipcRenderer.off('celebrate', relay)
   },
 
+  /** A scanned book's pages being read (main/pdf-text.ts): each page as it is read, then done or why not. */
+  onPdfReading: (listen: (said: { src: string; page?: number; of?: number; done?: boolean; lines?: number; pages?: number; error?: string }) => void): (() => void) => {
+    const relay = (_event: unknown, said: Parameters<typeof listen>[0]): void => listen(said)
+    ipcRenderer.on('pdf:reading', relay)
+    return () => ipcRenderer.off('pdf:reading', relay)
+  },
+
   /** Everything past the capture, by channel. Only `haligtree:` channels pass. `T` is what the channel answers with. */
   haligtree: <T = unknown>(channel: string, ...args: unknown[]): Promise<T> =>
     ipcRenderer.invoke(`haligtree:${channel}`, ...args),
