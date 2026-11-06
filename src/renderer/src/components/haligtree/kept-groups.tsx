@@ -53,8 +53,18 @@ const onShow = (part: Part): number => ('entry' in part ? 1 : !part.group.open ?
 /** A line of the list: one note at the top level, or a group and its notes (every one, its subgroups' too), with `parts` in the order they show.
  * `head`: a loose note that starts a section of a list grouped by kind or date, the section's name and how many loose notes it holds. */
 export type Bundle = { group?: GroupView; entries: Entry[]; parts?: Part[]; head?: [string, number] }
+/**
+ * A list's own way to head a section, where a name alone says too little
+ * (Gems grouped by source: the source's face, its person, its count, a way to
+ * its page). Given the section's name, its head, or nothing for the plain one.
+ */
+export const SectionHeads = createContext<((name: string, count: number, first: boolean) => ReactNode) | null>(null)
+
 /** A section's name over its rows, in a list grouped by kind or date. */
-export const SectionHead = ({ head, first, day = false }: { head: [string, number]; first: boolean; /** As Tasks' Upcoming heads its days. */ day?: boolean }): React.JSX.Element => (
+export const SectionHead = ({ head, first, day = false }: { head: [string, number]; first: boolean; /** As Tasks' Upcoming heads its days. */ day?: boolean }): React.JSX.Element => {
+  const own = useContext(SectionHeads)?.(head[0], head[1], first)
+  if (own) return <>{own}</>
+  return (
   // A list filed A to Z: its letter as a dictionary prints it, large in the heading face, the count quiet beside it.
   [...head[0]].length === 1 ? (
     <div data-group-head={head[0]} data-group-count={head[1]} data-letter-head="" className={`flex items-baseline gap-2 px-2 pb-1.5 ${first ? 'pt-1' : 'pt-5'}`}>
@@ -65,7 +75,8 @@ export const SectionHead = ({ head, first, day = false }: { head: [string, numbe
   <div data-group-head={head[0]} data-group-count={head[1]} className={day ? `mx-2 mb-1 border-b pb-1.5 text-meta font-medium text-foreground ${first ? 'mt-1' : 'mt-6'}` : `px-2 pb-1 text-xs text-muted-foreground ${first ? 'pt-1' : 'pt-4'}`}>
     {head[0]} <span className={`tabular-nums ${day ? 'font-normal text-muted-foreground' : ''}`}><Rolling text={head[1]} /></span>
   </div>
-)
+  )
+}
 
 /** The rows a group shows while open: its notes, and a subgroup's while that is open too. */
 const shownIn = (one: { entries: Entry[]; parts?: Part[] }): number => (one.parts ? one.parts.reduce((n, part) => n + ('entry' in part ? 1 : part.group.open ? part.entries.length : 0), 0) : one.entries.length)

@@ -12,7 +12,9 @@ import { openRead } from './read-through'
 import { propertySorts } from '@/lib/property-sorts'
 import { ReadsIn } from '@/lib/reads-in'
 import { quoted } from '../../../../main/clip'
-import { openSource, voiceOf } from '@/lib/sources'
+import { UNATTRIBUTED, openSource, voiceOf, type SourceField } from '@/lib/sources'
+import { Avatar } from './avatar'
+import { personKey } from '../../../../main/names'
 import { openPdf } from '@/components/pdf/pdf-reader'
 import { SameBook } from '@/components/pdf/same-book'
 import { bookOf, pdfIn } from '@/lib/pdf-in'
@@ -21,7 +23,7 @@ import { SimilarNotes } from './similar-notes'
 import { chime, pageTurn } from '@/lib/sound'
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import type { Editor, JSONContent } from '@tiptap/core'
-import { Archive, ArrowLeft, Calendar, ChevronRight, Plus, SquareDashed } from 'lucide-react'
+import { Archive, ArrowLeft, ArrowUpRight, Calendar, ChevronRight, Library, Plus, SquareDashed } from 'lucide-react'
 
 import { Unfold } from './glide'
 
@@ -90,7 +92,7 @@ import { groups as noteGroupsApi, isFolder, tintOf, useGroups, type NoteGroup } 
 import { useReveal } from './islands'
 import { DEPTH, dropMany, flatten, gather, groupId, groupOf, isGroup, KEY, layoutOf, moveMany, reorderAs, sameLayout, shownKeys, step as stepLayout, tidy, type Layout } from '@/lib/group-layout'
 import type { Cue } from '@/lib/sound'
-import { GroupIcon, type Bundle, type Folds, type GroupView, type Part as KeptPart } from './kept-groups'
+import { GroupIcon, SectionHeads, type Bundle, type Folds, type GroupView, type Part as KeptPart } from './kept-groups'
 import { asideItem, useHere } from '@/lib/split'
 import { queueMenu } from '@/lib/reading-queue'
 import { Apart } from '@/lib/apart'
@@ -306,7 +308,7 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
     const held = new Set(shelf.filter((one) => under.has(one.id)).flatMap((one) => one.members))
     return all.filter((one) => held.has(one.id))
   }, [all, shelf, opened, gatherer, gathered])
-  const { groups: arranged, display, chips, density, view, setView, move, moveBy, ownOrder, order, mine } = useItemDisplay(questionsOnly ? (onAsk && ask === 'words' ? WORDS : 'question') : tier, listed, !questionsOnly)
+  const { groups: arranged, display, chips, density, view, setView, move, moveBy, ownOrder, order, mine, heads: sourceHeads, sourceSaid } = useItemDisplay(questionsOnly ? (onAsk && ask === 'words' ? WORDS : 'question') : tier, listed, !questionsOnly)
   // The list's width: beside the note, over the whole page, or a rail of pictures.
   const pane = view.pane ?? 'list'
   const [query, setQuery] = useState('')
@@ -669,7 +671,11 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
     const home = homes.get(one.id)
     return home ? { ...entry, sub: <><FolderCue home={home} />{entry.sub ? <> · {entry.sub}</> : null}</> } : entry
   }
-  const entryOf = (one: Item): Entry => placed(one.tier === 'question' ? questionEntry(one, inView.has(one.id), menuFor(one) as MenuItem[], backOn) : inFolder(itemEntry(one, () => menuFor(one)), one), one)
+  const sourced = (entry: Entry, one: Item): Entry => {
+    const from = sourceSaid(one)
+    return from ? { ...entry, sub: <span className="flex min-w-0 items-center gap-1.5"><span data-row-source className="min-w-0 max-w-[50%] shrink truncate">{from}</span>{entry.sub ? <><span aria-hidden>·</span><span className="min-w-0 truncate">{entry.sub}</span></> : null}</span> } : entry
+  }
+  const entryOf = (one: Item): Entry => placed(one.tier === 'question' ? questionEntry(one, inView.has(one.id), menuFor(one) as MenuItem[], backOn) : sourced(inFolder(itemEntry(one, () => menuFor(one)), one), one), one)
   const entries: [string, Entry[]][] = !listShown && !(open && (pane === 'rail' || boarded)) ? [] : tiles || folder
     ? items.reduce<[string, Entry[]][]>((sections, one) => {
         const card = folders.get(one.id)
@@ -865,12 +871,14 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
             </Empty>
         ) : items.length || (folding.rows && noteGroups.some((one) => one.members.some((id) => all.some((item) => item.id === id && !item.archivedAt)))) ? (
           <RowMenu list items={listMenu}>
+          <SectionHeads.Provider value={sourceHeads}>
           <div data-list-space="" className="min-h-full pb-24">
           <NoteList groups={entries} density={density} table="nuggets" selected={spread ? peek ?? undefined : coming ?? open?.id} cursor={cursor} onCursor={setCursor} chosen={chosen}
             onPick={spread ? (id) => (isGroup(id) ? pick(id) : (setPeek(id), setCursor(items.findIndex((one) => one.id === id)))) : pickRow} onOpen={spread ? pickRow : undefined}
             picking={picking} onMove={view.sort === 'manual' ? onMove : undefined} after={glossAfter} className={spread ? 'list-edge my-3' : 'list-edge my-2'}
             folds={folding.rows ? { ...folding.folds(menuFor, entryOf), onNewNote: pick, onSort: setSorting, onSorted: markSorted, onOpenFolder: onFolder ?? undefined } : undefined} />
           </div>
+          </SectionHeads.Provider>
           </RowMenu>
         ) : questionsOnly && !unloaded(all) && !all.length ? (
           // No questions yet: the page as it will look, as every other list shows itself.
@@ -1605,6 +1613,10 @@ export function useItemDisplay(name: string, every: Item[], withGroups = false):
   order: string[]
   /** Switch to your own order, as moving a row does: the way back, when it did switch. */
   mine: () => (() => void) | undefined
+  /** Grouped by source: each section's own head (its face, its person, its count, the way to its page). */
+  heads: ((name: string, count: number, first: boolean) => React.ReactNode) | null
+  /** Grouped by source, a row in "One gem each" names its book or site quietly. */
+  sourceSaid: (one: Item) => string | undefined
 } {
   // Grouped by kind to start: a few short lists read calmer than one long one.
   // Words, as Looked up: A to Z under their letters (a list of its own, so Open and Answered keep theirs).
@@ -1649,7 +1661,28 @@ export function useItemDisplay(name: string, every: Item[], withGroups = false):
   const word = (one: Item): string => (one.kind === 'word' ? headword(splitTags(one.title).text).word : one.title)
   // Any property in use is a way to sort (lib/property-sorts.ts).
   const byProp = propertySorts(all, (a, b) => b.createdAt.localeCompare(a.createdAt))
-  const groups = arrange(all, view, facets, {
+  // Gems by where they came from: its book or site, else its person. Sources with one gem gather in one section,
+  // so dozens of one-off websites never bury the books; gems with no source come last.
+  const sourced = name === 'nugget' && all.some((one) => !!sourceOf(one))
+  // Each source once, however it is spelt (its first spelling names it), as Sources counts it; by the name shown, too.
+  const tally = new Map<string, { field: SourceField; name: string; count: number; people: Map<string, number> }>()
+  if (sourced && view.group === 'source')
+    for (const one of all) {
+      const from = sourceOf(one)
+      if (!from) continue
+      const had = tally.get(from.key) ?? { field: from.field, name: from.name, count: 0, people: new Map<string, number>() }
+      had.count++
+      const who = one.attribution?.trim()
+      if (from.field === 'medium' && who && who !== UNATTRIBUTED) had.people.set(who, (had.people.get(who) ?? 0) + 1)
+      tally.set(from.key, had)
+    }
+  const named = new Map([...tally.values()].map((one) => [one.name, one]))
+  const sectionOf = (one: Item): string => {
+    const from = sourceOf(one)
+    const source = from && tally.get(from.key)
+    return !source ? NO_SOURCE : source.count > 1 ? source.name : ONE_EACH
+  }
+  const arranged = arrange(all, view, facets, {
     ...byProp.compare,
     newest: (a, b) => b.createdAt.localeCompare(a.createdAt),
     changed: (a, b) => (b.updatedAt ?? b.createdAt).localeCompare(a.updatedAt ?? a.createdAt),
@@ -1662,8 +1695,43 @@ export function useItemDisplay(name: string, every: Item[], withGroups = false):
   }, {
     kind: (one) => CAPTURE_TYPES.find((type) => type.id === one.kind)?.label ?? 'Note',
     date: (one) => period(one.createdAt),
-    letter: (one) => letterOf(word(one))
+    letter: (one) => letterOf(word(one)),
+    ...(sourced ? { source: sectionOf } : {})
   })
+  // Sources by their newest gem (the sort's own order inside each); "One gem each", then "No source", last.
+  const newest = (list: Item[]): string => list.reduce((most, one) => (one.createdAt > most ? one.createdAt : most), '')
+  const rank = (key: string): number => (key === ONE_EACH ? 1 : key === NO_SOURCE ? 2 : 0)
+  const bySource = view.group === 'source' && sourced
+  const groups: [string, Item[]][] = !bySource ? arranged
+    : arranged.length === 1 && arranged[0][0] === NO_SOURCE ? [['', arranged[0][1]]]
+      : [...arranged].sort(([a, one], [b, two]) => rank(a) - rank(b) || newest(two).localeCompare(newest(one)))
+  const heads = !bySource ? null : (key: string, count: number, first: boolean): React.ReactNode => {
+    const source = named.get(key)
+    const room = first ? 'mt-1' : 'mt-5'
+    const gems = <span className="shrink-0 font-normal text-muted-foreground tabular-nums">· {plural(count, 'gem')}</span>
+    if (!source || rank(key))
+      return <div data-group-head={key} data-group-count={count} className={`flex min-h-8 items-center gap-2 px-2 pb-1 text-control font-semibold text-foreground ${room}`}>{key}{gems}</div>
+    // The person most of a book's gems name, said after it, quietly.
+    const person = [...source.people].sort((a, b) => b[1] - a[1])[0]?.[0]
+    return (
+      <Tip label={`Open ${key}’s page in Sources`}>
+        <button type="button" data-group-head={key} data-group-count={count} data-source-head={source.field} onClick={() => (chime('page'), openSource(source.field, key))}
+          className={`group/head mb-1 flex min-h-8 w-full min-w-0 cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-left text-control transition-colors hover:bg-accent/50 focus-visible:bg-accent/60 focus-visible:outline-none ${room}`}>
+          {source.field === 'attribution' ? <Avatar name={key} size={20} /> : <span className="flex size-5 shrink-0 items-center justify-center"><Library aria-hidden className="size-4 text-muted-foreground" /></span>}
+          <span className="min-w-0 truncate font-semibold text-foreground">{key}</span>
+          {person && <span className="min-w-0 shrink truncate text-muted-foreground">{person}</span>}
+          {gems}
+          <ArrowUpRight aria-hidden className="ml-auto size-3.5 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover/head:opacity-100 group-focus-visible/head:opacity-100" />
+        </button>
+      </Tip>
+    )
+  }
+  const sourceSaid = (one: Item): string | undefined => {
+    if (!bySource || sectionOf(one) !== ONE_EACH) return undefined
+    const from = sourceOf(one)
+    // A person is already said on the row; a book or site is not.
+    return from?.field === 'medium' ? from.name : undefined
+  }
   // Spread over the page, the list keeps a size of its own: a grid, unless you chose another.
   const wide = view.pane === 'wide'
   // Questions open on their cards (the user, 1 Nov); every other list on rows. A choice made in Display is kept.
@@ -1681,14 +1749,24 @@ export function useItemDisplay(name: string, every: Item[], withGroups = false):
       // What the chosen order does with groups, said under the choices.
       sortNote={withGroups ? groupsSaid(view.sort) : undefined}
       // Grouping cuts the loose notes into sections (by kind or date) under the folders: a group is never a folder (qa/list-grouping.mjs).
-      groups={[...(kinds ? [{ id: 'kind', label: 'Kind' }] : []), { id: 'none', label: 'None' }, { id: 'date', label: 'Date' }, ...(all.length && all.every((one) => one.kind === 'word') ? [{ id: 'letter', label: 'First letter' }] : [])]}
+      groups={[...(kinds ? [{ id: 'kind', label: 'Kind' }] : []), { id: 'none', label: 'None' }, { id: 'date', label: 'Date' }, ...(sourced ? [{ id: 'source', label: 'Source' }] : []), ...(all.length && all.every((one) => one.kind === 'word') ? [{ id: 'letter', label: 'First letter' }] : [])]}
       density={density}
       onDensity={(next) => setView({ ...view, [wide ? 'wideDensity' : 'density']: next })}
     />
   )
   const chips = <FilterChips view={view} onChange={setView} facets={facets} />
-  return { groups, display, chips, density, view, setView, move, moveBy, ownOrder, order: own.order, mine }
+  return { groups, display, chips, density, view, setView, move, moveBy, ownOrder, order: own.order, mine, heads, sourceSaid }
 }
+
+/** Where a gem came from, as Sources files it (main/sources.ts): its book or site, else its person; `key` as Sources keys a page, whatever the case. */
+const sourceOf = (one: Item): { field: SourceField; name: string; key: string } | null => {
+  const where = one.medium?.trim()
+  if (where) return { field: 'medium', name: where, key: `medium:${personKey(where)}` }
+  const who = one.attribution?.trim()
+  return who && who !== UNATTRIBUTED ? { field: 'attribution', name: who, key: `attribution:${personKey(who)}` } : null
+}
+const ONE_EACH = 'One gem each'
+const NO_SOURCE = 'No source'
 
 /** Each layout's reading order, kept while that layout is the one drawn. */
 const ORDER = new WeakMap<Layout, Map<string, number>>()
