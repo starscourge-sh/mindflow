@@ -243,6 +243,14 @@ export function placed(task: Pick<Task, 'dueAt' | 'deadline'> & Later): number |
   return days.length ? Math.min(...days) : null
 }
 
+/** Set for today, whatever deadline has passed: moved to today, it is on today's list. */
+export const dueToday = (task: Pick<Task, 'dueAt'>): boolean => {
+  const at = task.dueAt ? new Date(task.dueAt).getTime() : NaN
+  return at >= startOfDay() && at < startOfDay(1)
+}
+/** Left behind on an earlier day: not set for today, and on a day or past a deadline before it. */
+export const fromBefore = (task: Pick<Task, 'dueAt' | 'deadline'> & Later): boolean => !dueToday(task) && (placed(task) ?? Infinity) < startOfDay()
+
 /** What hiding a task and getting ready for it add to where it shows. */
 type Later = Partial<Pick<Task, 'snoozedUntil' | 'getReady'>>
 

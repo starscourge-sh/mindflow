@@ -167,7 +167,7 @@ async function picturesOn(proxy: PDFPageProxy): Promise<number[][]> {
  * print takes the dark page's ground and ink, coloured parts kept (an orange
  * drawing stays orange), its photos kept true. Any other picture is put back whole.
  */
-async function truePictures(proxy: PDFPageProxy, viewport: ReturnType<PDFPageProxy["getViewport"]>, canvas: HTMLCanvasElement, density: number): Promise<void> {
+export async function truePictures(proxy: PDFPageProxy, viewport: ReturnType<PDFPageProxy["getViewport"]>, canvas: HTMLCanvasElement, density: number): Promise<void> {
   const boxes = await picturesOn(proxy)
   if (!boxes.length) return
   const plain = document.createElement("canvas")

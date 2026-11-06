@@ -5,7 +5,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Button } from '@/components/ui/button'
 import { chime, tear } from '@/lib/sound'
 import { focusToolsShown, useLive, unloaded, haligtree, when, type Finished, type Task } from '@/lib/haligtree'
-import { bucket, placed, renameTask, taskName } from '@/lib/tasks'
+import { bucket, dueToday, fromBefore, placed, renameTask, taskName } from '@/lib/tasks'
 import { byKeys, useByKeys } from '@/lib/motion'
 import { readLines, tasksOf } from '../../../../main/day-lines'
 import { dayKey, num, startOfDay } from '../../../../main/dates'
@@ -116,7 +116,7 @@ const order = (a: Task, b: Task): number => (a.sortOrder ?? 1e6 + a.number) - (b
 /** Whether a task is on today's Now: open and for today, or ticked today. */
 const inNow = (task: Task): boolean => {
   const day = placed(task)
-  if (task.status === 'open') return !task.waitingOn && day !== null && day >= startOfDay() && day < startOfDay(1)
+  if (task.status === 'open') return !task.waitingOn && (dueToday(task) || (day !== null && day >= startOfDay() && day < startOfDay(1)))
   return task.status === 'done' && !!task.completedAt && dayKey(task.completedAt) === dayKey() && (day ?? 0) < startOfDay(1)
 }
 
@@ -195,7 +195,6 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
   // The note each line was last linked to with @ here, so a pick is put on its task once.
   const sourced = useRef(new Map<string, string>())
 
-  const start = startOfDay()
   const ids = new Set(tasks.map((task) => task.id))
   const written = [...tasks.filter(inNow), ...Object.values(ticked).filter((one) => one.day === today).map((one) => one.task).filter((task) => !ids.has(task.id) || !inNow(tasks.find((one) => one.id === task.id)!))]
     .filter((task, at, all) => all.findIndex((one) => one.id === task.id) === at && !cleared.includes(task.id))
@@ -204,7 +203,7 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
   const kept = readKept(today)
   const three = kept ?? written.slice(0, 3).map((task) => task.id)
   const now = [...three.flatMap((id) => written.filter((task) => task.id === id)), ...written.filter((task) => !three.includes(task.id))]
-  const before = tasks.filter((task) => task.status === 'open' && !task.waitingOn && (placed(task) ?? Infinity) < start)
+  const before = tasks.filter((task) => task.status === 'open' && !task.waitingOn && fromBefore(task))
   const next = tasks.filter((task) => task.status === 'open' && !task.waitingOn && !task.dueAt && !task.deadline && !task.planFor && !task.recurrence).sort(order)
   const later = tasks.filter((task) => task.status === 'open' && !task.waitingOn && !task.dueAt && !!bucket(task)).sort(order)
   const lists: Record<Section, Task[]> = { now, next, later }

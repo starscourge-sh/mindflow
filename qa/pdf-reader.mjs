@@ -61,7 +61,8 @@ process.env.HALIGTREE_QA_DICT = `http://127.0.0.1:${lookups.address().port}/dict
 process.env.HALIGTREE_QA_WIKI = `http://127.0.0.1:${lookups.address().port}/wiki/`
 
 const { check, done } = checks()
-const c = await sandbox({ width: 1400, height: 900 })
+// Under the width where a PDF on its own starts with both sides open (checked at the end).
+const c = await sandbox({ width: 1390, height: 900 })
 const { h, v } = c
 const wait = (ms) => h.waitForTimeout(ms)
 /** A reader tool by its name, as a person reaches it: on the bar, or behind "More" when a narrow pane folds the tools away. */
@@ -240,6 +241,20 @@ try {
   check('the sidebar sits beside the pages, which keep their full height', rail.height === fullHeight && rail.pagesLeft >= rail.railLeft - 1, JSON.stringify({ fullHeight, ...rail }))
   check('it opens on the pages, each drawn small, the one on show ringed', JSON.stringify(rail.tabs) === JSON.stringify(['Pages', 'Outline']) && rail.thumbs === 3 && rail.drawn >= 1 && rail.here === 'Page 1', JSON.stringify(rail))
   await h.screenshot({ path: `${process.env.QA_SHOTS ?? '/tmp'}/pdf-rail-pages.png` })
+  // Dark pages reach the strip too: a thumbnail's corner goes dark with its page, and back.
+  const corner = () => h.evaluate(() => {
+    const canvas = document.querySelector('.pdf-thumb-sheet canvas')
+    if (!canvas?.width) return null
+    const [r, g, b] = canvas.getContext('2d').getImageData(1, 1, 1, 1).data
+    return Math.round((r + g + b) / 3)
+  })
+  const thumbLight = await corner()
+  await h.evaluate(() => (localStorage.setItem('pdf-dark', '1'), window.dispatchEvent(new StorageEvent('storage', { key: 'pdf-dark' }))))
+  await wait(1500)
+  const thumbDark = await corner()
+  await h.evaluate(() => (localStorage.setItem('pdf-dark', '0'), window.dispatchEvent(new StorageEvent('storage', { key: 'pdf-dark' }))))
+  await wait(1500)
+  check('dark pages: the thumbnails go dark, and back', thumbLight > 200 && thumbDark < 60 && (await corner()) > 200, `${thumbLight} ${thumbDark}`)
   await h.click('.pdf-thumb[aria-label="Page 3"]'); await wait(800)
   check('a page in the sidebar goes to it', await h.evaluate(() => document.querySelector('.pdf-reader-page-field').value) === '3', '')
   // Its edge dragged makes it wider, kept for the next PDF.
@@ -858,6 +873,12 @@ try {
     check('moving along the PDF\'s name turns its pages (1 / 3 at the left, 3 / 3 at the right), and a click on the name opens its own page, not the turned one', start === '1 / 3' && end === '3 / 3' && opened !== null && opened !== 3, JSON.stringify({ start, end, opened }))
     await h.mouse.move(0, 0)
   }
+  // On its own in a wide window, both sides start open, even with the rail last left shut.
+  await h.evaluate(() => localStorage.setItem('pdf-rail', ''))
+  await c.size(1600, 900)
+  await h.reload(); await wait(2500)
+  const sides = await h.evaluate(() => ({ reader: !!document.querySelector('.pdf-reader'), rail: !!document.querySelector('.pdf-reader .pdf-rail'), details: !!document.querySelector('.pdf-reader .read-details') }))
+  check('a PDF on its own opens with both sides', sides.rail && sides.details, JSON.stringify(sides))
 } catch (error) {
   check('ran without throwing', false, String(error?.stack ?? error))
 } finally {

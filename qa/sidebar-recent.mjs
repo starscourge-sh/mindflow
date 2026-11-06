@@ -1,4 +1,4 @@
-// "Recent" in the sidebar, under Pinned: the last notes you opened, five at most, not the one open now nor one
+// "Recent" in the sidebar, under Pinned: the last notes you opened, four at most, not the one open now nor one
 // already pinned; it folds as Pinned does, and a click opens one.
 //   QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 [SHOTS=<dir>] node qa/sidebar-recent.mjs
 import { checks } from './harness.mjs'
@@ -19,7 +19,7 @@ try {
   const open = await h.evaluate(() => document.querySelector('[data-open]')?.getAttribute('data-open'))
   const shown = await rows()
   check('"Recent" sits in the sidebar with the last notes opened', shown.length >= 3, JSON.stringify(shown))
-  check('five at most', shown.length <= 5, String(shown.length))
+  check('four at most', shown.length <= 4, String(shown.length))
   check('not the one open now', !shown.includes(open), JSON.stringify({ open, shown }))
   if (process.env.SHOTS) await h.screenshot({ path: `${process.env.SHOTS}/sidebar-recent.png`, clip: { x: 0, y: 0, width: 420, height: 1000 } })
   await h.locator('[data-side-recent-row]').first().click(); await wait(800)

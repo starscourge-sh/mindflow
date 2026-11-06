@@ -853,7 +853,7 @@ export function Home(): React.JSX.Element {
   const [tagsKept, keepTags] = useRemembered('sidebar:tags')
   // Pinned folds, Notion's way, and starts open.
   const [pinsOpen, setPinsOpen] = useRemembered('sidebar:pinned', true)
-  // Recent: the last few notes you opened, under Pinned, a short list (five at most), kept folded or open as you left it.
+  // Recent: the last few notes you opened, under Pinned, a short list (four at most: ⌘K has the rest), kept folded or open as you left it.
   const [recentOpen, setRecentOpen] = useRemembered('sidebar:recent', true)
   const [recents, setRecents] = useState<Opened[]>([])
   // Writing's and Gems' folders, open to start (side-folders.tsx).
@@ -2219,7 +2219,7 @@ export function Home(): React.JSX.Element {
               </div>)}
               {(() => {
                 // Not the note open now, nor one already pinned above it: five at most.
-                const rows = recents.filter((one) => one.id !== view.focus && !pins.some((pin) => pin.id === one.id)).slice(0, 5)
+                const rows = recents.filter((one) => one.id !== view.focus && !pins.some((pin) => pin.id === one.id)).slice(0, 4)
                 if (!recentOn || quiet || narrow || !rows.length) return null
                 return (
                   <div data-side-recent>

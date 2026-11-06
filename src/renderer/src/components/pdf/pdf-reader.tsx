@@ -13,7 +13,7 @@ import { Roll } from "@/lib/roll"
 import { call, haligtree, useLive, type Settings } from "@/lib/haligtree"
 import { touch } from "@/lib/open-today"
 import { host, said } from "@/lib/host"
-import { canSplit, keysHere, usePane } from "@/lib/split"
+import { canSplit, isSplit, keysHere, usePane } from "@/lib/split"
 import { chime } from "@/lib/sound"
 import { cue } from "@/lib/cues"
 import { MarkMenu, PickedMenu, WhyAfter, blankOf, cited, lastColor, readKey, rememberColor, type MarkColor, type Picked, type ReadActions } from "./read-bar"
@@ -21,7 +21,7 @@ import { NARROW, PdfSide, chapterAt, railWidth, usePdfOutline, type RailTab } fr
 import { ReadDetails } from "./pdf-details"
 import { LookUpCard, type LookedUpIn } from "./look-up"
 import { usePdfCover } from "./pdf-cover"
-import { showDetails, useDetailsShown } from "@/lib/reading"
+import { detailsOutHere, showDetails, useDetailsShown } from "@/lib/reading"
 import { ScanDetail, ScanLine } from "./pdf-scan"
 import { PdfPages, forgetPdf, loadPdf, offsetsIn, pdfAuthor, pdfTitle, wordsIn, type PdfMark } from "./pdf-pages"
 import { FitActions } from "@/components/haligtree/ui"
@@ -34,6 +34,8 @@ import { plural, num } from '../../../../main/dates'
 /** A page column this wide reads comfortably; below it the rail squeezes, below `TIGHT` it folds away. */
 const COMFY = 520
 const TIGHT = 420
+/** How wide a window has to be for a PDF on its own to start with both sides open. */
+const BOTH_SIDES = 1400
 /** A rail narrower than this cuts the outline's titles to a word: it opens on the pages instead. */
 const OUTLINE_ROOM = 180
 /** The pages' padding either side (pdf.css, .pdf-reader-scroll). */
@@ -268,13 +270,20 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
   // Every highlight in the book, in page order, beside the pages: a click goes to it and lights it.
   // Details at the right, shown and hidden with a note's (the same button, and ⇧⌘B).
   const detailsOut = useDetailsShown()
+  const ownPane = usePane()
+  // Opened on its own in a window with room, both sides start open: the pages at the left, Details at the right.
+  const roomy = (): boolean => !isSplit() && innerWidth >= BOTH_SIDES
+  useLayoutEffect(() => (ownPane && roomy() ? detailsOutHere(ownPane) : undefined), []) // eslint-disable-line react-hooks/exhaustive-deps
   const cover = usePdfCover(src, name)
   const [author, setAuthor] = useState("")
   useEffect(() => {
     if (doc) void pdfAuthor(doc).then(setAuthor)
   }, [doc])
-  // The left rail, open or shut and on which tab, as you last left it for every PDF.
-  const [rail, setRail] = useState<RailTab | null>(() => (["pages", "outline"].includes(localStorage.getItem("pdf-rail") ?? "") ? (localStorage.getItem("pdf-rail") as RailTab) : null))
+  // The left rail, on the tab you last left it on for every PDF; shut as you left it only in a split or a small window.
+  const [rail, setRail] = useState<RailTab | null>(() => {
+    const kept = localStorage.getItem("pdf-rail") ?? ""
+    return ["pages", "outline"].includes(kept) ? (kept as RailTab) : roomy() ? "pages" : null
+  })
   const showRail = (tab: RailTab | null): void => {
     localStorage.setItem("pdf-rail", tab ?? "")
     setRail(tab)

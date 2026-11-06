@@ -17,7 +17,7 @@ import { moveToBin, useCameBack } from '@/lib/to-bin'
 import { ShowInListContext, useShowInList, useShowLine } from '@/lib/show-in-list'
 import { readAhead, readFresh, readNow, useAfterFirstPaint } from '@/lib/early-read'
 import { NoteComing } from './note-coming'
-import { BUCKETS, READY_LEADS, bucket, closeTask, gettingReady, makeTask, renameTask, onToday, placed, readySaid, setReady, snooze, snoozeDays, snoozeItems, snoozed, taskName, taskToNote, toNoteItem } from '@/lib/tasks'
+import { fromBefore, BUCKETS, READY_LEADS, bucket, closeTask, gettingReady, makeTask, renameTask, onToday, placed, readySaid, setReady, snooze, snoozeDays, snoozeItems, snoozed, taskName, taskToNote, toNoteItem } from '@/lib/tasks'
 import { dateIn, PRIORITY_NAMES } from '../../../../main/task-words'
 import { PriorityIcon, PriorityMark, TaskInput, markRoom, planFor, setPriority } from './task-input'
 import { useArrivals } from './note-list'
@@ -846,7 +846,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
   const listShown = listFirst || listLater
   const leftToday = mode === 'today' ? real.filter(onToday).length : 0
   // Of those, the ones from earlier days: named in the count, so "to go" is not a riddle.
-  const lateToday = mode === 'today' ? real.filter((task) => onToday(task) && (placed(task) ?? Infinity) < startOfDay()).length : 0
+  const lateToday = mode === 'today' ? real.filter((task) => onToday(task) && fromBefore(task)).length : 0
   const daySaid = `${num(dayDone)} done today, ${num(leftToday)} to go${lateToday ? ` (${num(lateToday)} from before)` : ''}`
   // "2 of 5 done", the day's hours and the short-day note: only when asked for in Settings.
   const hints = settings?.dayHints === true

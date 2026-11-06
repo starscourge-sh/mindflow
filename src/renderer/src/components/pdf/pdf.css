@@ -31,7 +31,7 @@
 }
 
 /* Dark pages: the sheet in the dark theme's ground while its picture is drawn, and drawn in it. */
-:is(.pdf-reader, .tiptap-attachment.is-pdf).is-dark .pdf-page {
+:is(.pdf-reader, .tiptap-attachment.is-pdf).is-dark :is(.pdf-page, .pdf-thumb-sheet) {
   background: #1c1a17;
 }
 

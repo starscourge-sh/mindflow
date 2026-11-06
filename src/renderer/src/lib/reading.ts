@@ -53,6 +53,16 @@ export const detailsShown = (pane?: string | null): boolean => {
   }
 }
 
+/** Details out in this pane for as long as what asked is open (a PDF on its own), leaving every note's as they were. */
+export function detailsOutHere(pane: string): () => void {
+  inPane.set(pane, true)
+  window.dispatchEvent(new Event(CHANGED))
+  return () => {
+    inPane.delete(pane)
+    window.dispatchEvent(new Event(CHANGED))
+  }
+}
+
 /** Out or away: for one pane when `pane` is given and the page is split, else everywhere. */
 export function showDetails(on: boolean, pane?: string | null): void {
   chime(on ? 'slide' : 'fold')

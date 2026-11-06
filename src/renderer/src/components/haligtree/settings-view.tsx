@@ -456,7 +456,7 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
     page.current = element
     setColumn(element)
   }).current
-  // One section at a time, the last one you looked at, as Raycast keeps it.
+  // One section at a time. Its section outlives a reload, but Settings left and opened again starts on "Your book".
   const [section, setSectionState] = useState(() => {
     try {
       const kept = localStorage.getItem('settings:section')
@@ -465,6 +465,13 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
       return SECTIONS[0].title
     }
   })
+  useEffect(() => () => {
+    try {
+      localStorage.removeItem('settings:section')
+    } catch {
+      // Nothing was remembered.
+    }
+  }, [])
   // Back and Forward bring a section with their own sound; a click or key plays its note too.
   const showSection = (title: string): void => {
     setSectionState(title)

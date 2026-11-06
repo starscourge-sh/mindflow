@@ -1068,8 +1068,9 @@ function RoadCard({ item, from, target, today: now, picked, onPick }: { item: It
           const under = monthsUnder(here)
           return (
             <div key={band} data-road-band={band} className={`relative ${band ? 'mt-2.5' : ''}`} style={ghost ? { marginLeft: ghostWidth } : undefined}>
+              {/* 5 down: the road's own drawing keeps 5 above its dots, for the ticks. */}
               {ghost > 0 && (
-                <svg aria-hidden data-road-ghost width={ghostWidth} height={mapHeight} className="pointer-events-none absolute top-0" style={{ left: -ghostWidth }}>
+                <svg aria-hidden data-road-ghost width={ghostWidth} height={mapHeight} className="pointer-events-none absolute" style={{ left: -ghostWidth, top: 5 }}>
                   {Array.from({ length: ghost }, (_, col) => Array.from({ length: rows }, (_, row) => (
                     // A road of weeks has four weeks to most months: its last row is sparse, as the road's own is.
                     weeks && row === rows - 1 && col % 3 !== 1 ? null : <circle key={`${col}-${row}`} cx={col * step + dot / 2} cy={row * step + dot / 2} r={dot / 2} fill="var(--foreground)" opacity={0.05} />

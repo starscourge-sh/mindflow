@@ -1,5 +1,6 @@
 import { Columns2, RectangleVertical, Rows3 } from "lucide-react"
-import { LAYOUTS, type PageLayout } from "./paper"
+import { DARK_PAGE, LAYOUTS, useDarkPages, type PageLayout } from "./paper"
+import { truePictures } from "./pdf-pages"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { ChevronRight } from "lucide-react"
 import { Tree, treeOf, type TreeNode } from "@/components/haligtree/branches"
@@ -73,6 +74,9 @@ export function PdfThumb({ doc, page, here, onGo }: { doc: PDFDocumentProxy; pag
   const [seen, setSeen] = useState(false)
   // The width it was last drawn at, in pixels: drawn again only when the rail grows past it.
   const drawnAt = useRef(0)
+  // Dark pages reach the strip too: a thumbnail is the page it stands for.
+  const [dark] = useDarkPages()
+  const drawnDark = useRef(false)
   useEffect(() => {
     const el = box.current
     if (!el) return
@@ -84,7 +88,7 @@ export function PdfThumb({ doc, page, here, onGo }: { doc: PDFDocumentProxy; pag
     if (!seen) return
     // At the rail's own width times the screen's density: sharp, and no more pixels than are shown.
     const wide = Math.round((canvas.current?.parentElement?.clientWidth || NARROW) * (window.devicePixelRatio || 1))
-    if (drawnAt.current >= wide) return
+    if (drawnAt.current >= wide && drawnDark.current === dark) return
     let live = true
     let stop = (): void => {}
     // After every page in view: the thumbnails wait their turn behind them.
@@ -98,22 +102,24 @@ export function PdfThumb({ doc, page, here, onGo }: { doc: PDFDocumentProxy; pag
       const off = document.createElement("canvas")
       off.width = Math.round(viewport.width)
       off.height = Math.round(viewport.height)
-      const render = one.render({ canvas: off, viewport })
+      const render = one.render({ canvas: off, viewport, ...(dark ? { pageColors: DARK_PAGE } : {}) })
       stop = () => render.cancel()
       await render.promise
+      if (dark) await truePictures(one, viewport, off, 1)
       const shown = canvas.current
       if (!live || !shown) return
       shown.width = off.width
       shown.height = off.height
       shown.getContext("2d")?.drawImage(off, 0, 0)
       drawnAt.current = wide
+      drawnDark.current = dark
     })
     return () => {
       live = false
       drop()
       stop()
     }
-  }, [seen, doc, page])
+  }, [seen, doc, page, dark])
   useEffect(() => {
     if (here) box.current?.scrollIntoView({ block: "nearest" })
   }, [here])

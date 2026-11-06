@@ -4,8 +4,8 @@ import { FLOAT } from "@/lib/float"
 import { cn } from "@/lib/cn"
 import { hideForMenus, menuShowing } from "@/lib/menu-showing"
 import { pdfCover } from "./pdf-cover"
-import { usePaperPages } from "./paper"
-import { loadPdf } from "./pdf-pages"
+import { DARK_PAGE, useDarkPages, usePaperPages } from "./paper"
+import { loadPdf, truePictures } from "./pdf-pages"
 import { openPdf } from "./pdf-reader"
 
 /** How wide the card draws a page: small, as the card is, and sharp on a Retina screen. */
@@ -18,6 +18,9 @@ const ladder: { src: string; page: number }[] = []
 const waiting = new Map<string, ((image: string | null) => void)[]>()
 let drawing = false
 
+const darkNow = (): boolean => localStorage.getItem("pdf-dark") === "1"
+let drawnDark = darkNow()
+
 /** One page drawn small. Only ever one at a time: pdf.js would otherwise queue every page the pointer passed. */
 async function draw(src: string, page: number): Promise<string | null> {
   const doc = await loadPdf(src)
@@ -29,9 +32,13 @@ async function draw(src: string, page: number): Promise<string | null> {
   canvas.height = Math.round(viewport.height)
   const ink = canvas.getContext("2d")
   if (!ink) return null
-  ink.fillStyle = "#fff"
-  ink.fillRect(0, 0, canvas.width, canvas.height)
-  await one.render({ canvasContext: ink, viewport, canvas }).promise
+  const dark = darkNow()
+  if (!dark) {
+    ink.fillStyle = "#fff"
+    ink.fillRect(0, 0, canvas.width, canvas.height)
+  }
+  await one.render({ canvasContext: ink, viewport, canvas, ...(dark ? { pageColors: DARK_PAGE } : {}) }).promise
+  if (dark) await truePictures(one, viewport, canvas, 1)
   return canvas.toDataURL("image/jpeg", 0.8)
 }
 
@@ -57,6 +64,8 @@ async function pump(): Promise<void> {
 
 /** One page of a PDF as a small picture: at once if drawn, else when the lane reaches it (it goes to the front). */
 function pageImage(src: string, page: number): Promise<string | null> {
+  // Dark pages turned on or off: the pictures drawn the other way are no use.
+  if (drawnDark !== darkNow()) (drawn.clear(), (drawnDark = darkNow()))
   const key = `${src}#${page}`
   if (drawn.has(key)) return Promise.resolve(drawn.get(key)!)
   wantedNow = { src, page }
@@ -139,7 +148,9 @@ type Peek = { src: string; name: string; x: number; top: number; bottom: number;
 export function PdfPeek(): React.JSX.Element | null {
   const [peek, setPeek] = React.useState<Peek | null>(null)
   // "Paper pages" tints the preview as it does the pages, so a page reads one way everywhere.
-  const [paper] = usePaperPages()
+  const [paperKept] = usePaperPages()
+  const [dark] = useDarkPages()
+  const paper = paperKept && !dark
   const card = React.useRef<HTMLDivElement>(null)
   const on = React.useRef<Element | null>(null)
   const wanted = React.useRef(0)

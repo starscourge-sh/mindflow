@@ -261,6 +261,9 @@ export function shredFrom(from: HTMLElement | null): (() => void) | undefined {
   if (!shot) return undefined
   const { box, picture, x, y } = shot
   return () => {
+    // The real row is gone as its picture goes: the list reads the change a moment later and it showed again under the
+    // strips till then. Held out of sight by an animation, which lets go by itself if the row turns out to stay.
+    from?.animate({ visibility: ['hidden', 'hidden'] }, { duration: SHRED_MS * 3 })
     for (const [n, strip] of strips(box, picture, x, y).entries()) {
       const turn = (Math.random() * 2 - 1) * 14
       const fall = box.height * 1.6 + 40 + Math.random() * 60
