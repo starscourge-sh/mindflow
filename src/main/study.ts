@@ -319,7 +319,7 @@ export function termLines(text: string): { term: string; meaning: string }[] {
  * against it. `days` are the local days reviewed ("2026-10-08"); `today` the
  * same. Nothing here is ever a loss: a run that ends simply starts again.
  */
-export function daysInARow(days: string[], today: string): { run: number; banked: number } {
+export function daysInARow(days: string[], today: string, away: Set<string> = new Set()): { run: number; banked: number } {
   const seen = new Set(days)
   if (!seen.size) return { run: 0, banked: 0 }
   const step = (day: string, n: number): string => {
@@ -336,7 +336,8 @@ export function daysInARow(days: string[], today: string): { run: number; banked
       run++
       streak++
       if (streak % 7 === 0) banked = Math.min(3, banked + 1)
-    } else if (day !== today) {
+    } else if (day !== today && !away.has(day)) {
+      // A day the Mac was away for (away.ts) neither counts nor costs a banked day.
       if (banked > 0) banked--
       else {
         run = 0

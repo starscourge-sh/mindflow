@@ -265,3 +265,9 @@ test('siblings: an Anki note\'s cards and a both-ways pair share a note; one of 
   const cards = [{ id: 'a', o: 'anki:n:0' }, { id: 'b', o: null }, { id: 'c', o: 'anki:n:1' }, { id: 'd', o: 'pair:p:0' }, { id: 'e', o: 'pair:q:1' }]
   assert.deepEqual(burySiblings(cards, (one) => siblingsOf(one.o), new Set(['pair:q'])).map((one) => one.id), ['a', 'b', 'd'])
 })
+
+test('days in a row: a day away neither counts nor costs a banked day', async () => {
+  const { daysInARow } = await import('../src/main/study.ts')
+  assert.deepEqual(daysInARow(['2026-10-01', '2026-10-02', '2026-10-04'], '2026-10-04', new Set(['2026-10-03'])), { run: 3, banked: 0 })
+  assert.deepEqual(daysInARow(['2026-10-01', '2026-10-02', '2026-10-04'], '2026-10-04'), { run: 1, banked: 0 })
+})

@@ -1,4 +1,6 @@
 import { parseDate } from 'chrono-node'
+import { awayDays } from './away'
+import { streaks } from './focus-numbers'
 import { Notification, app, dialog, ipcMain, net, session, shell } from 'electron'
 import { createHash, randomUUID } from 'crypto'
 import { cp, mkdir, readFile, readdir, rm, writeFile } from 'fs/promises'
@@ -611,6 +613,8 @@ const DEFAULTS = {
   aiStudy: true,
   // Dates and times lit in notes as they are written, each saying the day it means (extensions/date-words.ts).
   datesLit: true,
+  // Back after four hours or more locked or asleep: one line saying what came due (away.ts, back-line.ts).
+  backLine: true,
   // Where your sun is reckoned for: a time zone city from zone.tab ('Europe/Lisbon'), or '' for this Mac's own (sun.ts).
   sunPlace: '',
   // One quiet offer under a note from your own book: a link, a note it repeats, its folder, a person (offers.ts).
@@ -2959,7 +2963,7 @@ export function registerHaligtree(): void {
   // --- days in a row with something reviewed, rest days banked (study.ts)
   handle('review:days', () => {
     const days = (db.prepare("select distinct date(reviewed_at, 'localtime') as day from review_log").all() as { day: string }[]).map((one) => one.day)
-    return daysInARow(days, dayKey())
+    return daysInARow(days, dayKey(), awayDays())
   })
 
   // --- fit the scheduler to you: after a thousand reviews, how long a new
@@ -3095,18 +3099,8 @@ export function registerHaligtree(): void {
     }))
     // Streaks over every day ever reviewed (not only the year shown): the run ending today (or yesterday, still unbroken), and the longest.
     const everDays = (db.prepare('select reviewed_at as at from review_log').all() as { at: string }[]).reduce((all, row) => all.add(local(row.at)), new Set<string>())
-    const sorted = [...everDays].sort()
-    let longest = 0
-    let run = 0
-    let last = 0
-    for (const key of sorted) {
-      const at = Date.parse(`${key}T12:00:00`)
-      run = last && Math.round((at - last) / 86400000) === 1 ? run + 1 : 1
-      longest = Math.max(longest, run)
-      last = at
-    }
-    let current = 0
-    for (let back = everDays.has(local(day(0))) ? 0 : -1; everDays.has(local(day(back))); back -= 1) current += 1
+    // A day the Mac was locked or asleep for neither counts nor breaks a streak (away.ts).
+    const { now: current, best: longest } = streaks(everDays, local(day(0)), awayDays())
     // Reviews on an average day studied, as Anki's heatmap counts it (days off are in the share of days studied).
     const average = reviewedDays ? Math.round([...perDay].filter(([key]) => key >= local(day(1 - span))).reduce((sum, [, n]) => sum + n, 0) / reviewedDays) : 0
     return { streak: { current, longest }, average, month, year: Object.fromEntries(perDay), checked: kept.n, recalled: kept.recalled, due, known, cards, seconds: pace ? Math.round(pace / 1000) : null, days: { reviewed: reviewedDays, of: span }, minutes, stages, sources, growth, kept: keptIn }

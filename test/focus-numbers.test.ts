@@ -72,3 +72,13 @@ test('nothing yet is nothing, not an error', () => {
   assert.equal(stats.average, 0)
   assert.equal(stats.top.length, 0)
 })
+
+test('a day the Mac was away for (locked or asleep) neither counts nor breaks a streak', () => {
+  const days = new Set(['2026-10-08', '2026-10-09', '2026-10-12'])
+  // The 10th and 11th away: the run goes on through them, three days worked.
+  assert.deepEqual(streaks(days, '2026-10-12', new Set(['2026-10-10', '2026-10-11'])), { now: 3, best: 3 })
+  // Not away: the run is broken.
+  assert.deepEqual(streaks(days, '2026-10-12'), { now: 1, best: 2 })
+  // Away today and yesterday: the run up to the day before still stands.
+  assert.deepEqual(streaks(new Set(['2026-10-08', '2026-10-09']), '2026-10-11', new Set(['2026-10-10', '2026-10-11'])), { now: 2, best: 2 })
+})

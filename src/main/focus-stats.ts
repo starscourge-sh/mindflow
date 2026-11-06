@@ -1,5 +1,6 @@
 import { ipcMain } from 'electron'
 
+import { awayDays } from './away'
 import { database } from './captures'
 import { plain } from './haligtree'
 import { focusStats, streaks, taskFocus, type BreakRow, type FocusRow } from './focus-numbers'
@@ -45,7 +46,7 @@ export function registerFocusStats(): void {
     const done = db.prepare("select d.task_id as id, d.done_at as at from task_done d join tasks t on t.id = d.task_id where coalesce(t.recurrence, '') != ''").all() as { id: string; at: string }[]
     let best: { title: string; run: number } | null = null
     for (const one of routines) {
-      const run = streaks(new Set(done.filter((row) => row.id === one.id).map((row) => local(row.at))), local(new Date().toISOString())).now
+      const run = streaks(new Set(done.filter((row) => row.id === one.id).map((row) => local(row.at))), local(new Date().toISOString()), awayDays()).now
       if (run > 1 && run > (best?.run ?? 0)) best = { title: one.title, run }
     }
     const week = since(7)
@@ -74,5 +75,5 @@ export function registerFocusStats(): void {
       readAll: read('0')
     }
   })
-  ipcMain.handle('haligtree:focus:stats', () => focusStats(rows("and (t.id is not null or s.kind = 'focus')"), db.prepare('select at, ms from focus_breaks').all() as BreakRow[]))
+  ipcMain.handle('haligtree:focus:stats', () => focusStats(rows("and (t.id is not null or s.kind = 'focus')"), db.prepare('select at, ms from focus_breaks').all() as BreakRow[], new Date(), awayDays()))
 }

@@ -99,21 +99,25 @@ export function taskFocus(rows: FocusRow[]): TaskFocus {
 }
 
 /** Days in a row from a set of day keys: the longest run, and the one reaching today or yesterday. */
-export function streaks(days: Set<string>, today = dayKey(new Date())): { now: number; best: number } {
+export function streaks(days: Set<string>, today = dayKey(new Date()), away: Set<string> = new Set()): { now: number; best: number } {
+  // A day the Mac was away for (locked or asleep, away.ts) is passed over: it neither counts nor breaks a run.
+  const step = (day: string, by: 1 | -1): string => {
+    let at = dayjs(day).add(by, 'day')
+    for (let n = 0; n < 60 && !days.has(dayKey(at)) && away.has(dayKey(at)); n++) at = at.add(by, 'day')
+    return dayKey(at)
+  }
   let best = 0
   for (const day of days) {
-    if (days.has(dayKey(dayjs(day).subtract(1, 'day')))) continue
+    if (days.has(step(day, -1))) continue
     let run = 1
-    while (days.has(dayKey(dayjs(day).add(run, 'day')))) run++
+    for (let at = step(day, 1); days.has(at); at = step(at, 1)) run++
     best = Math.max(best, run)
   }
   // Today not yet worked does not break it: the run up to yesterday still stands.
-  let from = days.has(today) ? dayjs(today) : dayjs(today).subtract(1, 'day')
+  let from = days.has(today) || away.has(today) ? today : dayKey(dayjs(today).subtract(1, 'day'))
+  if (!days.has(from) && away.has(from)) from = step(from, -1)
   let now = 0
-  while (days.has(dayKey(from))) {
-    now++
-    from = from.subtract(1, 'day')
-  }
+  for (; days.has(from); from = step(from, -1)) now++
   return { now, best }
 }
 
@@ -139,7 +143,7 @@ function taskTimes(kept: FocusRow[]): FocusStats['taskTimes'] {
   }
 }
 
-export function focusStats(rows: FocusRow[], breaks: BreakRow[] = [], at: Date = new Date()): FocusStats {
+export function focusStats(rows: FocusRow[], breaks: BreakRow[] = [], at: Date = new Date(), away: Set<string> = new Set()): FocusStats {
   const today = dayKey(at)
   const kept = rows.filter((row) => !row.abandonedAt)
   const since = dayjs(today).subtract(WINDOW - 1, 'day').valueOf()
@@ -193,7 +197,7 @@ export function focusStats(rows: FocusRow[], breaks: BreakRow[] = [], at: Date =
     today: days[days.length - 1].minutes,
     week: days.slice(21).reduce((sum, one) => sum + one.minutes, 0),
     weekBefore: days.slice(14, 21).reduce((sum, one) => sum + one.minutes, 0),
-    streak: streaks(new Set(byDay.keys()), today),
+    streak: streaks(new Set(byDay.keys()), today, away),
     sessions: recentKept.length,
     average: lengths.length ? minutes(lengths.reduce((sum, ms) => sum + ms, 0) / lengths.length) : 0,
     longest: lengths.length ? minutes(Math.max(...lengths)) : 0,
