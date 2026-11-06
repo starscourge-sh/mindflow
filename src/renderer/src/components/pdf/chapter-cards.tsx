@@ -1,0 +1,152 @@
+import { useEffect, useRef, useState } from "react"
+import type { PDFDocumentProxy } from "pdfjs-dist"
+import { Check, X } from "lucide-react"
+import { FLOAT } from "@/lib/float"
+import { cn } from "@/lib/cn"
+import { chime } from "@/lib/sound"
+import { Orb } from "@/components/haligtree/orb"
+import { Button } from "@/components/ui/button"
+import { chapterRange, chapterText, cardsFrom, type MadeCard } from "@/lib/study-ai"
+import type { OutlineRow } from "./pdf-rail"
+import { num, plural } from "../../../../main/dates"
+
+type Card = MadeCard & { state: "open" | "kept" | "dropped" }
+
+/**
+ * Five cards from the chapter you are in, by Apple Intelligence on this Mac:
+ * read from your own highlights and the chapter's headings first, then the
+ * pages across. Each is shown to keep, change or drop; none is made until you
+ * keep it, and each keeps its page, so Review's "From" line opens it there.
+ */
+export function ChapterCards({ doc, title, outline, page, marks, onKeep, onGo, onClose }: {
+  doc: PDFDocumentProxy
+  title: string
+  outline: OutlineRow[]
+  page: number
+  /** Your highlights and passages marked for a card, with their pages. */
+  marks: { page: number; quote: string }[]
+  onKeep: (question: string, answer: string, page: number) => Promise<void>
+  onGo: (page: number) => void
+  onClose: () => void
+}): React.JSX.Element {
+  const pages = doc.numPages
+  const [range] = useState(() => chapterRange(outline, page, pages, [page, Math.min(pages, page + 1)]))
+  const named = range.title ? `“${range.title}”` : range.from === range.to ? `page ${range.from}` : `pages ${range.from} and ${range.to}`
+  const [cards, setCards] = useState<Card[] | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [tries, setTries] = useState(0)
+  const asked = useRef(0)
+
+  useEffect(() => {
+    const ask = ++asked.current
+    setCards(null)
+    setError(null)
+    void (async () => {
+      // The chapter's own words, a page at a time; past 120 pages, every few, across it.
+      const step = Math.max(1, Math.ceil((range.to - range.from + 1) / 120))
+      const texts: { page: number; text: string }[] = []
+      for (let n = range.from; n <= range.to; n += step) {
+        const content = await (await doc.getPage(n)).getTextContent()
+        texts.push({ page: n, text: content.items.map((item) => ("str" in item ? item.str : "")).join(" ") })
+        if (asked.current !== ask) return
+      }
+      const highlights = marks.filter((one) => one.page >= range.from && one.page <= range.to && one.quote.trim()).map((one) => ({ page: one.page, text: one.quote }))
+      const text = chapterText({ pages: texts, highlights, headings: range.headings })
+      if (!text.trim()) return setError("These pages have no words to read: a scanned book needs its text read first, in Details.")
+      const got = await cardsFrom(range.title ? `${title}: ${range.title}` : title, text, 5)
+      if (asked.current !== ask) return
+      if ("error" in got) return setError(got.error)
+      if (!got.cards.length) return setError("No cards came from these pages.")
+      chime("open")
+      setCards(got.cards.map((one) => ({ ...one, page: one.page >= range.from && one.page <= range.to ? one.page : range.from, state: "open" })))
+    })()
+  }, [tries])
+
+  const stop = (): void => {
+    asked.current++
+    chime("fold")
+    onClose()
+  }
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent): void => {
+      if (event.key !== "Escape") return
+      event.preventDefault()
+      event.stopPropagation()
+      stop()
+    }
+    window.addEventListener("keydown", onKey, true)
+    return () => window.removeEventListener("keydown", onKey, true)
+  })
+
+  const set = (n: number, patch: Partial<Card>): void => setCards((all) => all && all.map((one, at) => (at === n ? { ...one, ...patch } : one)))
+  const keep = async (n: number): Promise<void> => {
+    const one = cards?.[n]
+    if (!one || one.state !== "open" || !one.question.trim() || !one.answer.trim()) return
+    set(n, { state: "kept" })
+    await onKeep(one.question.trim(), one.answer.trim(), one.page)
+  }
+  const open = cards?.filter((one) => one.state === "open") ?? []
+  const kept = cards?.filter((one) => one.state === "kept").length ?? 0
+
+  return (
+    <div className={cn("look-up chapter-cards", FLOAT)} role="dialog" aria-label={`Cards from ${named}`} data-chapter-cards={cards ? cards.length : "reading"}>
+      <div className="chapter-cards-head">
+        <h3 className="chapter-cards-title">{cards ? `${cards.length === 5 ? "Five cards" : plural(cards.length, "card")} from ${named}` : `Cards from ${named}`}</h3>
+        <button type="button" aria-label="Close" className="chapter-cards-close" onClick={stop}><X className="size-4" /></button>
+      </div>
+      <p className="chapter-cards-note">
+        {range.from === range.to ? `Page ${range.from}` : `Pages ${range.from} to ${range.to}`}, read on this Mac by Apple Intelligence, your highlights and the headings first. <strong>Nothing is made until you keep it.</strong>
+      </p>
+      {!cards && !error && (
+        <p className="chapter-cards-wait"><Orb label={`Reading ${named}…`} stop={stop} /></p>
+      )}
+      {error && (
+        <div className="chapter-cards-error" data-chapter-cards-error>
+          <p>{error}</p>
+          <Button variant="outline" size="sm" onClick={() => (chime("tap"), setTries((n) => n + 1))}>Try again</Button>
+        </div>
+      )}
+      {cards && (
+        <ol className="chapter-cards-list">
+          {cards.map((one, n) => (
+            <li key={n} data-chapter-card={one.state} className="chapter-card">
+              {one.state === "dropped" ? (
+                <p className="chapter-card-gone">Dropped. <button type="button" className="chapter-card-link" onClick={() => (chime("undo"), set(n, { state: "open" }))}>Bring it back</button></p>
+              ) : (
+                <>
+                  <textarea aria-label="Question" rows={1} className="chapter-card-question" value={one.question} readOnly={one.state === "kept"}
+                    onChange={(event) => set(n, { question: event.target.value })}
+                    onKeyDown={(event) => event.key === "Enter" && (event.preventDefault(), void keep(n))} />
+                  <textarea aria-label="Answer" rows={1} className="chapter-card-answer" value={one.answer} readOnly={one.state === "kept"}
+                    onChange={(event) => set(n, { answer: event.target.value })}
+                    onKeyDown={(event) => event.key === "Enter" && (event.preventDefault(), void keep(n))} />
+                  <div className="chapter-card-foot">
+                    <button type="button" className="chapter-card-link" data-chapter-card-page={one.page} onClick={() => (chime("tap"), onGo(one.page))}>p. {one.page}</button>
+                    {one.state === "kept" ? (
+                      <span className="chapter-card-kept"><Check className="size-3.5" /> Made, in Review</span>
+                    ) : (
+                      <span className="chapter-card-actions">
+                        <Button variant="ghost" size="sm" data-chapter-card-drop onClick={() => (chime("fold"), set(n, { state: "dropped" }))}>Drop</Button>
+                        <Button variant="outline" size="sm" data-chapter-card-keep disabled={!one.question.trim() || !one.answer.trim()} onClick={() => void keep(n)}>Keep</Button>
+                      </span>
+                    )}
+                  </div>
+                </>
+              )}
+            </li>
+          ))}
+        </ol>
+      )}
+      {cards && (
+        <div className="chapter-cards-foot">
+          <span className="chapter-cards-count">{kept ? `${plural(kept, "card")} made` : "None made yet"}</span>
+          {open.length > 1 ? (
+            <Button size="sm" data-chapter-cards-all onClick={() => void (async () => { for (let n = 0; n < cards.length; n++) await keep(n) })()}>{`Keep the ${num(open.length)} left`}</Button>
+          ) : (
+            <Button size="sm" variant="outline" onClick={stop}>Done</Button>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}

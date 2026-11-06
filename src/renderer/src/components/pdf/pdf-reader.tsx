@@ -1,13 +1,16 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { useToolKeys } from "@/lib/tool-keys"
 import type { PDFDocumentProxy } from "pdfjs-dist"
+import { Sparkles } from "lucide-react"
 import { BookOpen, ChevronDown, ChevronUp, Gem, Minus, PanelLeft, PanelRight, Plus, Scissors, ScrollText, Search, SquareStack, X } from "lucide-react"
 import { Button } from "@/components/tiptap-ui-primitive/button"
 import { Toolbar, ToolbarGroup } from "@/components/tiptap-ui-primitive/toolbar"
 import { saveAttachment } from "@/extensions/image-drop"
-import { ContextMenu, ContextMenuContent, ContextMenuSeparator, ContextMenuTrigger } from "@/components/ui/context-menu"
+import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuTrigger } from "@/components/ui/context-menu"
+import { ChapterCards } from "./chapter-cards"
+import { useStudyAi } from "@/lib/study-ai"
 import { Roll } from "@/lib/roll"
-import { call } from "@/lib/haligtree"
+import { call, haligtree, useLive, type Settings } from "@/lib/haligtree"
 import { touch } from "@/lib/open-today"
 import { host, said } from "@/lib/host"
 import { canSplit, keysHere, usePane } from "@/lib/split"
@@ -454,6 +457,10 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
     chime("saved")
     if (!quiet) said(count > 15 ? `Card made: ${num(count)} from this source. Most people keep 10 to 15 from an hour; the best ones are enough` : `Card made: ${num(count)} from this source`, true, { type: "nugget", id, title: prompt })
   }
+  // Five cards from the chapter you are in, by Apple Intelligence, each kept or dropped by you (chapter-cards.tsx).
+  const ai = useStudyAi(useLive(haligtree.settings, null as Settings | null))
+  const [chaptering, setChaptering] = useState(false)
+  const chapterCards = (): void => (chime(chaptering ? "fold" : "open"), setChaptering(!chaptering))
   // Snip: a rectangle dragged over a page (a figure, a typeset equation, a
   // table) cut out as a picture, then made a card's answer or kept as a gem.
   const [snipping, setSnipping] = useState(false)
@@ -852,6 +859,11 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
               <span className="tiptap-button-text" data-card-later-count>{marks.filter((one) => one.color === "later").length}</span>
             </Button>
           )}
+          {ai && (
+            <Button data-style="ghost" aria-label="Five cards from this chapter" title={outline.length ? "Five cards from this chapter, to keep or drop: by Apple Intelligence, on this Mac" : "Five cards from the pages on screen, to keep or drop: by Apple Intelligence, on this Mac"} data-chapter-cards-ask data-mac-needs="ai" data-active-state={chaptering ? "on" : "off"} onClick={chapterCards}>
+              <Sparkles className="tiptap-button-icon" />
+            </Button>
+          )}
           <Button data-style="ghost" aria-label="Snip" title="Snip a figure or an equation onto a card: drag over it" data-active-state={snipping ? "on" : "off"} onClick={() => (setSnipping(!snipping), setSnip(null), setSnipped(null))}>
             <Scissors className="tiptap-button-icon" />
           </Button>
@@ -955,7 +967,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
             onPointerDown={() => void (byHandScroll.current = true)}
             onKeyDown={() => void (byHandScroll.current = true)}
             onDoubleClick={toggleZoom}
-            // A mark has its menu, picked words theirs: anywhere else a right click does nothing here.
+            // A mark has its menu, picked words theirs; elsewhere on a page, where this Mac has Apple Intelligence, cards from the chapter. Otherwise nothing.
             onContextMenu={(event) => {
               const band = [...(scroller.current?.querySelectorAll<HTMLElement>(".pdf-mark") ?? [])].find((one) => {
                 const r = one.getBoundingClientRect()
@@ -963,7 +975,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
               })
               const mark = band ? marks.find((one) => one.id === band.dataset.mark) ?? null : null
               setHit(mark)
-              if (!mark && !picked) event.preventDefault()
+              if (!mark && !picked && !(ai && doc)) event.preventDefault()
             }}
           >
             <PdfPages
@@ -1063,8 +1075,10 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
           {/* Words picked over a highlight: its own rows first, then what can be done with the words picked. */}
           {hit && picked && <ContextMenuSeparator />}
           {picked && <PickedMenu actions={actions} about={() => pickedAbout(picked)} />}
+          {!hit && !picked && ai && doc && <ContextMenuItem data-chapter-cards-menu onSelect={() => !chaptering && chapterCards()}>{outline.length ? "Five cards from this chapter" : "Five cards from these pages"}</ContextMenuItem>}
         </ContextMenuContent>
       </ContextMenu>
+      {chaptering && doc && <ChapterCards doc={doc} title={title} outline={outline} page={page} marks={marks.filter((one) => !one.id.startsWith("find:"))} onGo={go} onClose={() => setChaptering(false)} onKeep={(question, answer, at) => cardOf(question, answer, at, true)} />}
       {detailsOut && <ReadDetails src={src} name={name} onPage={go} chapters={outline} cover={cover} title={title} author={author} pages={doc?.numPages} page={page} marks={marks} lit={lit} onMark={goToMark} onGather={() => void gather()} onJoin={(group) => void joinStacked(group)} />}
       </div>
     </div>
