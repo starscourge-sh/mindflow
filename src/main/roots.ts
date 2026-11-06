@@ -23,7 +23,7 @@ type Vector = Map<string, number>
 const BARE = new Set('why how what where when which who whom whose should would could might must shall will can does do be have make made get go come say take let keep thing way want need use try seem look give find tell feel think know mean put set turn ask work show leave many much more most less very really just still even also yet about'.split(' '))
 
 /** The roots of some words, in order, as Apple's lemmas give them (left as written where it gives none). */
-export const rootsOf = (text: string, lemmas: Lemmas = {}): string[] => tokens(text).map((word) => lemmas[word] ?? word).filter((root) => !BARE.has(root))
+export const rootsOf = (text: string, lemmas: Lemmas = {}): string[] => tokens(text).map((word) => (Object.hasOwn(lemmas, word) ? lemmas[word] : word)).filter((root) => !BARE.has(root))
 
 /**
  * A name's or a field's root, past what Apple's lemmas leave: a capitalised

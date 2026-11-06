@@ -4678,7 +4678,7 @@ export function registerHaligtree(): void {
       // Private notes' tags are not counted: a tag can say as much as a title.
       tagsWeek: (db.prepare('select title, body from captures where captured_at >= ? and private = 0').all(ago(7)) as { title: string; body: string }[])
         .flatMap((row) => tagsIn(`${row.title} ${plain(JSON.parse(row.body ?? 'null'))}`))
-        .reduce<Record<string, number>>((counts, tag) => ({ ...counts, [tag]: (counts[tag] ?? 0) + 1 }), {}),
+        .reduce<Record<string, number>>((counts, tag) => ({ ...counts, [tag]: (Object.hasOwn(counts, tag) ? counts[tag] : 0) + 1 }), {}),
       retention: settings().retention,
       estimates: one<{ estimated: number | null; spent: number | null }>(
         `select sum(t.estimate) estimated, sum((select sum((julianday(s.ended_at) - julianday(s.started_at)) * 1440 - s.paused_ms / 60000.0) from sessions s where s.task_id = t.id and s.ended_at is not null and s.abandoned_at is null)) spent
