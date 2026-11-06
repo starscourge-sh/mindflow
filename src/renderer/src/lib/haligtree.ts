@@ -888,7 +888,7 @@ export function useAppearance(): void {
     document.documentElement.dataset.iconColour = settings.iconColour === false ? 'off' : 'on'
     document.documentElement.dataset.barWords = settings.barWords ? 'on' : 'off'
     document.documentElement.dataset.marks = settings.marks === false ? 'off' : 'on'
-    document.documentElement.dataset.bars = settings.progressBars ?? 'plain'
+    document.documentElement.dataset.bars = settings.progressBars ?? 'line'
     document.documentElement.toggleAttribute('data-noblur', settings.blur === false)
     // Quick capture (the window with no view of its own) keeps its full strength when you leave it, if you say so.
     document.documentElement.toggleAttribute('data-box-nodim', settings.boxDim === false && !new URLSearchParams(window.location.search).get('view'))

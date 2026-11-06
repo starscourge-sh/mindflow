@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { ProgressBar } from './progress-bar'
 import { AnimatePresence, motion } from 'motion/react'
 import { ChevronRight, ImageOff } from 'lucide-react'
 
@@ -71,9 +72,7 @@ export function ImportProgress(): React.JSX.Element {
           {/* Every import can be stopped while it reads (not while a deck's cards are written, a second or two):
               notes already in stay whole, a deck stopped part way keeps nothing. */}
           {at.stop && <StopButton data={{ 'data-import-stop': '' }} stop={() => (chime('off'), void window.api.haligtree('notes-import:stop'))} />}
-          <span aria-hidden className="absolute inset-x-0 bottom-0 h-0.5 bg-border">
-            <span className="block h-full origin-left bg-[var(--tt-brand-color-400)] transition-transform duration-200 ease-out" style={{ transform: `scaleX(${share})` }} />
-          </span>
+          <ProgressBar edge square value={share} label={`${num(at.done)} of ${num(at.total)}`} thick={2} duration={200} silent fill="var(--tt-brand-color-400)" className="absolute! inset-x-0 bottom-0" />
         </motion.span>
       )}
     </AnimatePresence>

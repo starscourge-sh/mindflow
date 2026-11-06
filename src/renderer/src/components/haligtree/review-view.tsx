@@ -1071,9 +1071,7 @@ function Through({ at, total, minutes, fresh }: { at: number; total: number; /**
           ))}
         </span>
       ) : (
-        <span aria-hidden className="h-0.5 w-24 overflow-hidden rounded-[2px] bg-border">
-          <span className="block h-full w-full origin-left bg-[var(--tt-brand-color-400)] transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]" style={{ transform: `scaleX(${at / total})` }} />
-        </span>
+        <ProgressBar value={at / total} label={`${num(at)} of ${num(total)} reviewed`} thick={2} duration={300} silent fill="var(--tt-brand-color-400)" className="w-24" />
       )}
       <Rolling text={`${num(at + 1)} of ${num(total)}`} by="word" />
       {/* What today brings that you have not met: its new cards, out of the daily limit (Settings and each deck's own). */}

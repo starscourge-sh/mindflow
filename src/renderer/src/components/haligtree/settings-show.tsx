@@ -206,7 +206,7 @@ export const saveStarterTheme = (): void =>
 /**
  * A bar in one style filling on a loop, calmly: from empty to full in about
  * five seconds, its 100% moment (the saber's flare, the dinosaur's hop by its
- * flag, the plain bar's glow), a rest, and again. Silent. Still, it is full.
+ * flag, the plain line's and bar's glow), a rest, and again. Silent. Still, it is full.
  */
 export function LoopBar({ style }: { style: BarStyle }): React.JSX.Element {
   const moving = useAlive()
@@ -233,7 +233,8 @@ export function LoopBar({ style }: { style: BarStyle }): React.JSX.Element {
 }
 
 export const barChoices = [
-  { id: 'plain', label: 'Plain' },
+  { id: 'line', label: 'Plain line' },
+  { id: 'plain', label: 'Plain bar' },
   { id: 'saber', label: 'Lightsaber' },
   { id: 'dino', label: 'Dino run' }
 ].map((one) => ({ ...one, show: <span className="absolute inset-0 flex items-center px-3"><LoopBar style={one.id as BarStyle} /></span> }))
@@ -566,7 +567,7 @@ export const HomeMonthSample = ({ on }: { on: boolean }): React.JSX.Element => (
 /** Today's lines over its list, small: "2 of 5 done" with its bar, and the day's hours. Faded while they are off. */
 export const DayHintsSample = ({ on }: { on: boolean }): React.JSX.Element => (
   <span data-preview="day-hints" className={`flex h-9 flex-col justify-center gap-[3px] rounded-md border bg-background px-2.5 text-[10px] leading-none font-medium tabular-nums text-foreground transition-opacity duration-200 ${on ? '' : 'opacity-40'}`}>
-    <span className="flex items-center gap-1.5">2 of 5 done<span className="relative block h-[3px] w-[28px] overflow-hidden rounded-full bg-foreground/15"><span className="absolute inset-y-0 left-0 w-2/5 rounded-full bg-foreground" /></span></span>
+    <span className="flex items-center gap-1.5">2 of 5 done<span className="w-[28px]"><ProgressBar edge silent value={0.4} label="2 of 5 done" thick={3} duration={0} /></span></span>
     <span style={{ color: 'var(--tt-color-text-orange)' }}>2 h planned, 4 h left</span>
   </span>
 )
@@ -576,7 +577,7 @@ export const TimeGoneSample = ({ on }: { on: boolean }): React.JSX.Element => (
   <span data-preview="home-time-gone" className={`flex h-9 items-center gap-2 rounded-md border bg-background px-2.5 text-[11px] text-muted-foreground transition-opacity duration-200 ${on ? '' : 'opacity-40'}`}>
     {([['D', 60], ['W', 40], ['M', 70], ['Y', 80]] as const).map(([name, share]) => (
       <span key={name} className="flex flex-col items-center gap-[3px] leading-none">
-        <span className="relative block h-[4px] w-[22px] overflow-hidden rounded-[2px] bg-foreground/15"><span className="absolute inset-y-0 left-0 rounded-[2px] bg-foreground" style={{ width: `${share}%` }} /></span>
+        <span className="flex h-[4px] w-[22px] items-center"><ProgressBar edge silent value={share / 100} label={`${share}% gone`} thick={4} duration={0} className="w-full" /></span>
         {name}
       </span>
     ))}

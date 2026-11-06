@@ -540,9 +540,9 @@ const DEFAULTS = {
   goalBetween: 'peek' as 'peek' | 'tuck',
   goalInFocus: 'tuck' as 'tuck' | 'peek' | 'stay',
   goalPeekOut: true,
-  // Every bar that fills: plain, a lightsaber, or a dinosaur running along
-  // it. The developer's own Haligtree wears the saber.
-  progressBars: (ownData() ? 'saber' : 'plain') as 'plain' | 'saber' | 'dino',
+  // Every bar that fills: the plain line (the Goals page's, to start), a
+  // plain bar, a lightsaber, or a dinosaur running along it.
+  progressBars: 'line' as 'line' | 'plain' | 'saber' | 'dino',
   // The focus pill: its ring alone, or the progress bars' dinosaur beside it,
   // running in place or along a line that fills with the session.
   focusBubble: 'circle' as 'circle' | 'runner' | 'progress',

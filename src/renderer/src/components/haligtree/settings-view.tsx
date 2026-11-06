@@ -693,8 +693,8 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
             <MarksSample on={settings.marks !== false} />
             <Switch checked={settings.marks !== false} onCheckedChange={(marks) => set({ marks })} />
           </Setting>
-          <Setting title="Progress bars" note="How every bar that fills is drawn, from goals to Getting started." keywords="progress bar lightsaber saber dino dinosaur run fun playful style"
-            below={<Choices label="Progress bars" options={barChoices} on={(id) => id === (settings.progressBars ?? 'plain')} pick={(progressBars) => set({ progressBars: progressBars as Settings['progressBars'] })} />} />
+          <Setting title="Progress bars" note="How every bar that fills is drawn, from goals to Getting started." keywords="progress bar line plain lightsaber saber dino dinosaur run fun playful style"
+            below={<Choices label="Progress bars" options={barChoices} on={(id) => id === (settings.progressBars ?? 'line')} pick={(progressBars) => set({ progressBars: progressBars as Settings['progressBars'] })} />} />
           {focus && <>
           <Setting off={settings.focusShows === 'note' && <BubbleOff set={set} />} title="Session bubble" note="The bubble that floats while you focus, its circle filling as time goes." more="The dinosaur can run beside it, or along a line that ends with the time." keywords="focus session pill bubble timer circle ring dino dinosaur runner run progress fun playful"
             below={<Choices label="Session bubble" min="10rem" options={bubbleChoices} on={(id) => id === (settings.focusBubble ?? 'circle')} pick={(focusBubble) => set({ focusBubble: focusBubble as Settings['focusBubble'] })} />} />

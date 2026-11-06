@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { ProgressBar } from '@/components/haligtree/progress-bar'
 import { domOf, useEditorDom } from '@/lib/editor-dom'
 import type { Editor } from '@tiptap/react'
 import dayjs from 'dayjs'
@@ -133,11 +134,8 @@ export function WordAim({ editor, id }: { editor: Editor | null; id: string }): 
     <div ref={bar} data-word-aim={done ? 'done' : charging ? 'charging' : 'on'} className="mf-aim pointer-events-none absolute inset-x-0 top-0 z-20 h-16 bg-background"
       style={column ? undefined : { visibility: 'hidden' }}>
       <div className="absolute top-3" style={column ? { left: column.left, width: column.width } : undefined}>
-        <div className="relative h-[3px] overflow-hidden rounded-full bg-foreground/10">
-          {/* The whole width, scaled from the left: each word grows it on the compositor. */}
-          <div className={`mf-aim-fill absolute inset-0 origin-left rounded-full transition-[transform,background-color] duration-500 ${done || charging ? 'bg-primary' : 'bg-foreground/45'}`}
-            style={{ transform: `scaleX(${share})`, transitionTimingFunction: 'var(--mf-ease)' }} />
-        </div>
+        {/* The one bar every place draws, in the style Settings picks; each word grows it on the compositor. */}
+        <ProgressBar value={share} label={`${words} of ${aim.words} words`} thick={3} duration={500} silent fill={done || charging ? 'var(--primary)' : 'color-mix(in oklab, var(--foreground) 45%, transparent)'} />
         {/* The aim's words change it; the x beside them lets it go, as a tag chip's does. */}
         <span className="pointer-events-auto absolute top-3.5 right-0 flex items-center gap-0.5">
           <button type="button" onClick={() => void setOrChange()}

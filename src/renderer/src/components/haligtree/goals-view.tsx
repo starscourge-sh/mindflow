@@ -33,7 +33,7 @@ import { Term } from './term'
 import { CollectionHeader, MenuButton, useTint } from './collection-header'
 import { DatePicker } from './date-picker'
 import { ago, dayKey, dayMonth, dayName, noon, num, plural } from '../../../../main/dates'
-import { ProgressBar, type BarStyle } from './progress-bar'
+import { LINE_INK, ProgressBar } from './progress-bar'
 import { inkOf, useMilestones, type Milestone } from '@/lib/milestones'
 import { stickOnDesktop } from './sticky-note'
 import { usePickNotes } from './pick-notes'
@@ -323,7 +323,7 @@ const goalEntry = (item: Item, today: string, menu?: MenuItem[]): Entry => {
       : <span data-goal-mark="dated"><span {...loud(leftLoud(left), 'font-semibold')} style={{ color: left > 30 ? 'var(--foreground)' : undefined }}>{left < 0 ? `${leftSaid(left)}: did you make it?` : left === 0 ? 'Today' : plural(left, 'day')}</span> · {loggedSaid(item)}</span>,
     marks: item.private ? <EyeOff className="size-3 shrink-0 text-muted-foreground" aria-label="Private" /> : null,
     // A thin line of the time gone, plain whatever Settings draws bars as, warming as the day comes.
-    bar: item.closedAt ? undefined : <GoalBar left={left} way={wayThrough(item.goalFrom ?? today, item.goalAt ?? today)} as="plain" />,
+    bar: item.closedAt ? undefined : <GoalBar left={left} way={wayThrough(item.goalFrom ?? today, item.goalAt ?? today)} />,
     dim: !!item.closedAt,
     private: !!item.private,
     bare: true,
@@ -1320,14 +1320,11 @@ function Logs({ item, picked, onClear }: { item: ItemFull; picked: Dot | null; o
 /** How many logs show before "Show more". */
 const LOG_FEW = 50
 
-/** A goal's road as a bar, one look on Home and the Goals page: its warmth in the last month, plain before. */
-export function GoalBar({ left, way, className = '', as }: { left: number; way: number; className?: string; /** One look whatever Settings says: the list's plain line. */ as?: BarStyle }): React.JSX.Element {
+/** A goal's road as a bar, one look on Home and the Goals page, in the style Settings picks: its warmth in the last month, plain before. */
+export function GoalBar({ left, way, className = '' }: { left: number; way: number; className?: string }): React.JSX.Element {
   const warm = left <= 30 ? warmth(Math.max(left, 0)) : null
-  return (
-    <ProgressBar value={way} label={`${percent(way)} of the time gone`} as={as} className={className} thick={1} track="color-mix(in oklab, var(--foreground) 8%, transparent)"
-      fill={`color-mix(in oklab, ${warm ?? 'var(--foreground)'} ${warm ? 55 : 35}%, transparent)`}
-      blade={warm ?? 'var(--tt-color-text-blue)'} />
-  )
+  const ink = warm ? `color-mix(in oklab, ${warm} 55%, transparent)` : LINE_INK
+  return <ProgressBar value={way} label={`${percent(way)} of the time gone`} className={className} thick={3} ink={ink} fill={ink} blade={warm ?? 'var(--tt-color-text-blue)'} />
 }
 
 /**

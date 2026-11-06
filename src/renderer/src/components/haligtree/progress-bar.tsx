@@ -5,12 +5,18 @@ import { chime, chimedWithin, saberCharged, saberTouch } from '@/lib/sound'
 
 /**
  * Every bar that fills in Haligtree, in the style picked under Settings ›
- * Appearance: plain, a lightsaber, or a small dinosaur running along it.
+ * Appearance: a plain line (the Goals page's hairline, the default), a plain
+ * bar, a lightsaber, or a small dinosaur running along it.
  * Each place keeps its own size; the playful ones are a little taller where
  * they must be to read. The style is a flag on the root (`data-bars`, set
  * by useAppearance), so one switch redraws every bar in every window.
  */
-export type BarStyle = 'plain' | 'saber' | 'dino'
+export type BarStyle = 'line' | 'plain' | 'saber' | 'dino'
+const STYLES: BarStyle[] = ['line', 'plain', 'saber', 'dino']
+
+/** The plain line: the Goals page's, one pixel of the page's ink at 35% over a track at 8%. */
+export const LINE_INK = 'color-mix(in oklab, var(--foreground) 35%, transparent)'
+export const LINE_TRACK = 'color-mix(in oklab, var(--foreground) 8%, transparent)'
 
 const root = document.documentElement
 const watch = (done: () => void): (() => void) => {
@@ -18,7 +24,7 @@ const watch = (done: () => void): (() => void) => {
   seen.observe(root, { attributes: true, attributeFilter: ['data-bars'] })
   return () => seen.disconnect()
 }
-const style = (): BarStyle => (root.dataset.bars === 'saber' || root.dataset.bars === 'dino' ? root.dataset.bars : 'plain')
+const style = (): BarStyle => (STYLES.includes(root.dataset.bars as BarStyle) ? (root.dataset.bars as BarStyle) : 'line')
 
 // Awake: the window is shown and looked at (focused, or the pointer over it,
 // as a beacon is read without being clicked). Only then does a blade hum or
@@ -109,7 +115,7 @@ const IGNITE = `transform 220ms ${SABER_OUT}`
 export function ProgressBar({
   value, label, className = '', thick = 4, fill = 'color-mix(in oklab, var(--foreground) 45%, transparent)',
   track = 'color-mix(in oklab, var(--foreground) 9%, transparent)', blade = 'var(--tt-color-text-blue)',
-  duration = 700, square = false, ignite = false, as, silent = false
+  duration = 700, square = false, ignite = false, as, silent = false, ink = LINE_INK, edge = false
 }: {
   /** How far, 0 to 1. */
   value: number
@@ -133,6 +139,10 @@ export function ProgressBar({
   as?: BarStyle
   /** No sound at 100%: a sample in Settings that fills again and again. */
   silent?: boolean
+  /** The plain line's ink, where it means something (a goal warming near its day); the Goals page's ink otherwise. */
+  ink?: string
+  /** Along an edge with no room above it (a chip's foot, a cover's foot, a page's top): the saber is its blade alone, the dinosaur its ground. */
+  edge?: boolean
 }): React.JSX.Element {
   const chosen = useSyncExternalStore(watch, style)
   const kind = as ?? chosen
@@ -186,14 +196,14 @@ export function ProgressBar({
     const hilt = core * 2 + 3
     return (
       <span {...bar} ref={self} data-charged={at >= CHARGE_FROM ? '' : undefined} className={`pb-saber relative flex items-center ${className}`}
-        style={{ height: hilt, '--blade': blade, '--charge': charge(at) } as CSSProperties}
+        style={{ height: edge ? core : hilt, '--blade': blade, '--charge': charge(at) } as CSSProperties}
         onPointerEnter={(event) => {
           const held = event.currentTarget
           clearTimeout(resting.current)
           resting.current = setTimeout(() => touched(held, !as), HOLD_MS)
         }}
         onPointerLeave={() => clearTimeout(resting.current)}>
-        <Hilt height={hilt} />
+        {!edge && <Hilt height={hilt} />}
         <span aria-hidden className="relative h-full flex-1">
           {/* Unlit, the rest of the way: a faint line to say where it ends. */}
           <span className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 rounded-full bg-foreground/[0.12]" />
@@ -207,6 +217,16 @@ export function ProgressBar({
             </span>
           </span>
         </span>
+      </span>
+    )
+  }
+
+  if (kind === 'dino' && edge) {
+    // No room to run: its dotted ground, the way so far drawn over it in ink.
+    return (
+      <span {...bar} ref={self} className={`pb-dino relative block h-[1.5px] overflow-hidden text-foreground ${className}`}>
+        <span aria-hidden className="pb-ground absolute inset-0" />
+        <span aria-hidden className="absolute inset-0 origin-left bg-current opacity-55" style={{ ...move, transform: `scaleX(${shown})` }} />
       </span>
     )
   }
@@ -237,13 +257,17 @@ export function ProgressBar({
     )
   }
 
+  // The plain line is the Goals page's line wherever it is drawn: its weight, its ink, its track.
+  const line = kind === 'line'
+  const height = line ? 1 : thick
+  const paint = line ? ink : fill
   return (
-    <span {...bar} ref={self} data-charged={at >= CHARGE_FROM ? '' : undefined} className={`pb-plain relative block ${square ? '' : 'rounded-full'} ${className}`} style={{ height: thick, background: track, '--pb-glow': fill } as CSSProperties}>
+    <span {...bar} ref={self} data-charged={at >= CHARGE_FROM ? '' : undefined} className={`pb-plain relative block ${square ? '' : 'rounded-full'} ${className}`} style={{ height, background: line ? LINE_TRACK : track, '--pb-glow': paint } as CSSProperties}>
       {/* Cut here rather than on the bar, so the full glow (::after) can spill past its edge. */}
       <span className={`absolute inset-0 block overflow-hidden ${square ? '' : 'rounded-full'}`}>
-        <span className={`absolute inset-0 ${square ? '' : 'rounded-full'}`} style={{ ...move, background: fill, transform: `translateX(${(shown - 1) * 100}%)` }}>
+        <span className={`absolute inset-0 ${square ? '' : 'rounded-full'}`} style={{ ...move, background: paint, transform: `translateX(${(shown - 1) * 100}%)` }}>
           {/* Nearly there, the leading end brightens: nothing below 90%, its brightest at full. */}
-          <span aria-hidden className={`pb-cap absolute inset-y-0 right-0 w-1.5 bg-foreground transition-opacity duration-500 ${square ? '' : 'rounded-full'}`} style={{ opacity: 0.55 * charge(at) }} />
+          {!line && <span aria-hidden className={`pb-cap absolute inset-y-0 right-0 w-1.5 bg-foreground transition-opacity duration-500 ${square ? '' : 'rounded-full'}`} style={{ opacity: 0.55 * charge(at) }} />}
         </span>
       </span>
     </span>

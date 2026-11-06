@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { ProgressBar } from './progress-bar'
 import { call, useLive } from '@/lib/haligtree'
 import { chime } from '@/lib/sound'
 import { articlesOnTheGo } from '@/lib/note-place'
@@ -83,7 +84,7 @@ function Card({ cover, title, where, onOpen, data, share }: { cover: React.React
         <span className="continue-book-where">{where}</span>
         {/* The track's room kept when there is none, so every title in the row sits on one line. */}
         <span className="continue-book-track" style={share === undefined ? { visibility: 'hidden' } : undefined}>
-          <span style={{ width: `${Math.round((share ?? 0) * 100)}%` }} />
+          <ProgressBar edge value={share ?? 0} label={`${Math.round((share ?? 0) * 100)}% read`} thick={3} silent fill="var(--tt-brand-color-500)" className="w-full" />
         </span>
       </span>
     </button>

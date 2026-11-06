@@ -1692,18 +1692,11 @@ html:is([data-width='page'], [data-width='wide']) .pdf-library-column,
 
 /* How far you have read: a thin bar along the foot of the cover. */
 .pdf-book-progress {
-  position: absolute;
+  /* The one progress bar (progress-bar.tsx), in the style Settings picks, along the cover's foot. */
+  position: absolute !important;
   right: 0;
   bottom: 0;
   left: 0;
-  height: 3px;
-  background-color: rgb(0 0 0 / 0.12);
-}
-
-.pdf-book-progress > span {
-  display: block;
-  height: 100%;
-  background-color: var(--tt-brand-color-500, #c08a2e);
 }
 
 .pdf-book-title {
@@ -2006,18 +1999,10 @@ html:is([data-width='page'], [data-width='wide']) .pdf-library-column,
 }
 
 .continue-book-track {
-  display: block;
+  /* Room for the one progress bar (progress-bar.tsx) in any style, so the row never moves when the style changes. */
+  display: flex;
   height: 3px;
-  overflow: hidden;
-  border-radius: 999px;
-  background-color: var(--mf-surface);
-}
-
-.continue-book-track > span {
-  display: block;
-  height: 100%;
-  border-radius: 999px;
-  background-color: var(--tt-brand-color-500, #c08a2e);
+  align-items: center;
 }
 
 /* The zoom said while it changes (a pinch, ⌘-scroll, the keys), under the bar in the middle; it goes once the zoom rests. */

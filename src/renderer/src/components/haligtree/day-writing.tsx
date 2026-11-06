@@ -1,4 +1,5 @@
 import { dayPart } from '../../../../main/journal-words'
+import { ProgressBar } from './progress-bar'
 import { useEffect, useRef, useState } from 'react'
 import { ChevronDown } from 'lucide-react'
 import { WritingSound } from './writing-sound'
@@ -394,10 +395,7 @@ export function WriterLine({ editor, day, spent, today }: { editor: Editor | nul
             <span><Rolling text={num(words)} /> {words === 1 ? 'word' : 'words'}{aim ? ` of ${num(aim.words)}` : ''}</span>
             {/* The aim as a short meter beside its count, never a rule across the page. */}
             {aim && (
-              <span data-writer-aim aria-hidden className="relative h-1 w-10 overflow-hidden rounded-full bg-foreground/10">
-                <span className={`absolute inset-0 origin-left rounded-full transition-transform duration-700 ${share >= 0.9 ? 'bg-primary' : 'bg-foreground/40'}`}
-                  style={{ transform: `scaleX(${share})`, transitionTimingFunction: 'var(--mf-ease)' }} />
-              </span>
+              <span data-writer-aim className="w-10"><ProgressBar edge value={share} label={`${num(words)} of ${num(aim.words)} words`} thick={4} silent fill={share >= 0.9 ? 'var(--primary)' : 'color-mix(in oklab, var(--foreground) 40%, transparent)'} /></span>
             )}
           </span>,
           minutes > 0 && <span key="minutes"><Rolling text={num(minutes)} /> {minutes === 1 ? 'minute' : 'minutes'}</span>,

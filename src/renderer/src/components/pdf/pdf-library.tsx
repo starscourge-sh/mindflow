@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
+import { ProgressBar } from "@/components/haligtree/progress-bar"
 import { BookOpen } from "lucide-react"
 import { call, useLive } from "@/lib/haligtree"
 import { chime } from "@/lib/sound"
@@ -105,9 +106,7 @@ function BookCard({ one, picked, onPick, onOpen }: { one: Book; picked: boolean;
       <span className="pdf-book-cover" data-pdf-peek={one.src} data-pdf-peek-name={one.name} data-pdf-peek-scrub="">
         {cover?.image ? <img src={cover.image} alt="" draggable={false} /> : <span className="pdf-book-blank"><BookOpen className="size-6" /></span>}
         {read !== null && (
-          <span className="pdf-book-progress" aria-label={`Read ${read}%`}>
-            <span style={{ width: `${read}%` }} />
-          </span>
+          <ProgressBar edge square value={read / 100} label={`Read ${read}%`} thick={3} silent fill="var(--tt-brand-color-500)" className="pdf-book-progress" />
         )}
       </span>
       <span className="pdf-book-title">{titleOf(one)}</span>

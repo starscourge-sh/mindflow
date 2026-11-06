@@ -749,7 +749,7 @@ const GoalsDemo: Demo = ({ live }) => {
       <Box text={at === 0 ? text : LOG} caret={at === 0} className={`transition-opacity duration-300 ${at === 0 ? '' : 'opacity-40'}`} />
       <div className="rounded-lg border bg-background px-3 py-2">
         <div className="flex items-baseline gap-2 text-control text-foreground">Finish Dune before film night<span className="ml-auto text-meta" style={{ color: 'var(--tt-color-text-blue)' }}>12 days left</span></div>
-        <ProgressBar value={0.6} label="Goal" className="mt-2" thick={3} duration={700} as="plain" fill="var(--tt-color-text-blue)" />
+        <ProgressBar value={0.6} label="Goal" className="mt-2" thick={3} duration={700} fill="var(--tt-color-text-blue)" />
         <div className="mt-1.5 text-meta text-muted-foreground tabular-nums"><Rolling text={at === 1 ? '9' : '8'} /> steps logged</div>
       </div>
     </Col>
@@ -810,7 +810,7 @@ const FocusDemo: Demo = ({ live }) => {
         <span className="min-w-0 flex-1 truncate text-control text-foreground">Draft the repair plan</span>
         <span className="text-control font-medium tabular-nums text-foreground">{clock(25 * 60000 - gone)}</span>
       </div>
-      <ProgressBar value={gone / (25 * 60000) + 0.02} label="Focus" className={`w-56 transition-opacity ${at === 1 ? 'opacity-100' : 'opacity-0'}`} thick={2} duration={900} as="plain" fill="var(--primary)" />
+      <ProgressBar value={gone / (25 * 60000) + 0.02} label="Focus" className={`w-56 transition-opacity ${at === 1 ? 'opacity-100' : 'opacity-0'}`} thick={2} duration={900} fill="var(--primary)" />
     </Col>
   )
 }

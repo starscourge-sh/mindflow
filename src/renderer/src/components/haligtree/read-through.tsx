@@ -1,4 +1,5 @@
 import { behindOf, picturesIn, wordsOf } from '@/lib/answer-picture'
+import { ProgressBar } from './progress-bar'
 import { fieldOf } from '../capture-list'
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
@@ -706,8 +707,8 @@ export function ReadThrough({ items: given, start = 0, onClose, queue: started, 
       <div data-drag-strip="" aria-hidden className="absolute inset-x-0 top-0 h-10 [-webkit-app-region:drag]" />
       {/* How far down the page you are: a hairline, only on a page long enough to scroll. */}
       {progress !== null && (
-        <div aria-hidden data-read-progress className="pointer-events-none absolute inset-x-0 top-0 z-10 h-0.5">
-          <div className="h-full origin-left bg-foreground/20" style={{ transform: `scaleX(${progress})` }} />
+        <div data-read-progress className="pointer-events-none absolute inset-x-0 top-0 z-10">
+          <ProgressBar edge square value={progress} label="How far down the page" thick={2} duration={0} silent fill="color-mix(in oklab, var(--foreground) 20%, transparent)" track="transparent" />
         </div>
       )}
       {/* The way out: unseen while you read, there as soon as the pointer
