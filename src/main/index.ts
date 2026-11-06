@@ -1,4 +1,5 @@
 import { ANCHOR } from './tagline'
+import { registerAway } from './away'
 import { registerMacCalendar } from './mac-calendar'
 import { fileURLToPath, pathToFileURL } from 'url'
 import { app, shell, BrowserWindow, clipboard, ClipboardItem, dialog, globalShortcut, ipcMain, Menu, nativeImage, nativeTheme, net, powerMonitor, protocol, screen, session, systemPreferences, Tray } from 'electron'
@@ -4174,6 +4175,7 @@ app.whenReady().then(() => {
   registerSiteBlock({ notify: (notice) => void showNudge(notice) })
   registerSimilar()
   registerOffers()
+  registerAway()
   // Your sun (sun.ts): today's sunrise and sunset for the city picked, or this Mac's time zone's.
   ipcMain.handle('haligtree:sun', () => sunToday(sunPlace()))
   ipcMain.handle('haligtree:sun:places', () => allPlaces().map(({ zone, city }) => ({ zone, city })))

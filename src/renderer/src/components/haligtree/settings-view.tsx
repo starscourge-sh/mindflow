@@ -1028,6 +1028,9 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
             <Switch checked={settings.tomorrowBox !== false} onCheckedChange={(tomorrowBox) => set({ tomorrowBox })} />
           </Setting>
           <SunSetting settings={settings} set={set} />
+          <Setting title="Welcome back" note="Back at your Mac after four hours or more locked or asleep, one line says what came due while you were away." more="Nothing is said when nothing came due. And a day your Mac was locked or asleep for (20 hours or more) never breaks a streak in Review or Focus: it neither counts nor ends one, while this app was running." keywords="away lock locked sleep asleep back return catch up streak pause holiday welcome">
+            <Switch checked={settings.backLine !== false} onCheckedChange={(backLine) => set({ backLine })} />
+          </Setting>
           <MacCalendarSetting on={!!settings.macCalendar} set={(macCalendar) => set({ macCalendar })} />
           <Setting title="Offers from your notes" note="One quiet line under a note: a note it names, one it nearly repeats, the folder it reads like, a person it names." more="Also notes that may answer a question, and the notes for your next event on Today. Found by the words they share, on this Mac. Nothing changes until you choose; × puts one away for good." keywords="suggest suggestions related link folder duplicate repeat people clue question event calendar offers" data-mac-needs="every">
             <OffersSample on={settings.noteOffers !== false} />

@@ -492,6 +492,13 @@ const api = {
     return () => ipcRenderer.off('celebrate', relay)
   },
 
+  /** Back at the Mac after four hours or more locked or asleep (main/away.ts): how long, for the catch-up line. */
+  onBack: (listen: (ms: number) => void): (() => void) => {
+    const relay = (_event: unknown, ms: number): void => listen(ms)
+    ipcRenderer.on('haligtree:back', relay)
+    return () => ipcRenderer.off('haligtree:back', relay)
+  },
+
   /** A scanned book's pages being read (main/pdf-text.ts): each page as it is read, then done or why not. */
   onPdfReading: (listen: (said: { src: string; page?: number; of?: number; done?: boolean; lines?: number; pages?: number; error?: string }) => void): (() => void) => {
     const relay = (_event: unknown, said: Parameters<typeof listen>[0]): void => listen(said)

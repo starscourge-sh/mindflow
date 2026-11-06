@@ -1,4 +1,5 @@
 import { detailsShown, showDetails } from '@/lib/reading'
+import { useBackLine } from '@/lib/back-line'
 import { toolTakes } from '@/lib/tool-keys'
 import { useToday } from '@/lib/use-today'
 import { showInList } from '@/lib/show-in-list'
@@ -346,6 +347,8 @@ async function startList(icon: string, name: string): Promise<string> {
 export function Home(): React.JSX.Element {
   // Escape in a note lets go of the note, and never goes back: ⌘[ does.
   useEscapeLeavesEditor()
+  // Back after hours away: what came due, said once (lib/back-line.ts).
+  useBackLine()
   // Where you have been, for back and forward: a list and a place in it, for
   // each pane of the page. Usually one; split, up to four side by side, the
   // one in front taking the keys, the header's Back and Forward and its title.
