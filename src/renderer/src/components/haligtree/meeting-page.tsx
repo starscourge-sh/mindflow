@@ -66,8 +66,11 @@ export function MeetingView({ node, editor, updateAttributes }: NodeViewProps): 
       const hit = lines.find((one) => one.querySelector('.mf-meeting-words')?.textContent?.includes(aim)) ?? lines.find((one) => aim.includes(one.querySelector('.mf-meeting-words')?.textContent?.trim() || '\u0000'))
       // Not drawn yet (the view it lives in is still coming in): looked for again next frame, while the ask is fresh.
       if (!hit || !hit.getClientRects().length) return void (frame = requestAnimationFrame(land))
-      aimTaken()
       hit.scrollIntoView({ block: 'center', behavior: 'instant' })
+      // Only the copy truly on screen takes it: a page kept behind another view (still laid out) leaves it for the one shown.
+      const r = hit.getBoundingClientRect()
+      if (!hit.contains(document.elementFromPoint(r.left + r.width / 2, r.top + Math.min(r.height / 2, 10)))) return void (frame = requestAnimationFrame(land))
+      aimTaken()
       hit.setAttribute('data-found', '')
       const audio = box.current?.querySelector('audio')
       if (audio) (audio.pause(), (audio.currentTime = Number(hit.dataset.at ?? 0)))

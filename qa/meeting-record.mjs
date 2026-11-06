@@ -205,6 +205,18 @@ try {
   await wait(1800)
   check('the light goes after a moment', await h.evaluate(() => !document.querySelector('[data-meeting-line][data-found]')))
 
+  // The same with the mouse, as most people pick: the hit clicked in the list.
+  await c.go('today'); await wait(600)
+  await h.keyboard.press('Meta+k'); await wait(500)
+  await h.waitForSelector('input[placeholder], [cmdk-input], input[type="search"]', { timeout: 5000 }).catch(() => {})
+  await h.evaluate(() => document.activeElement?.select?.())
+  await h.keyboard.type('ship the beta next week', { delay: 25 }); await wait(1200)
+  await h.locator('[data-found-line]', { hasText: 'ship the beta next week' }).first().click({ timeout: 5000 })
+  await h.waitForSelector('[data-meeting-line][data-found]', { timeout: 8000 }).catch(() => {})
+  const clicked = await h.evaluate(() => { const one = document.querySelector('[data-meeting-line][data-found]'); const a = document.querySelector('[data-meeting-page] audio'); const r = one?.getBoundingClientRect(); return { found: !!one, words: one?.textContent, at: one ? Number(one.dataset.at) : null, time: a?.currentTime, paused: a?.paused, seen: !!r && r.top > 0 && r.bottom < innerHeight } })
+  if (FRAMES) await h.screenshot({ path: join(FRAMES, `search-click-${AI ? 'ai' : 'every'}.png`) })
+  check('clicked with the mouse, the hit opens the page on its line: in sight, lit, the player paused at its time', clicked.found && /ship the beta next week/.test(clicked.words) && clicked.seen && clicked.paused && Math.abs(clicked.time - clicked.at) < 0.3, JSON.stringify(clicked))
+
   // At phone width: nothing runs off the side, every line's name and time still beside its words.
   await c.size(390, 844)
   await h.evaluate(() => document.querySelector('[data-meeting-line]')?.scrollIntoView())
