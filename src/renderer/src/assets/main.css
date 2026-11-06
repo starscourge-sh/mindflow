@@ -3334,5 +3334,15 @@ html[data-overhang][data-glass] [data-hint-room] [data-hint-surface] {
 .mf-meeting-line[data-marked] .mf-meeting-time { color: var(--tt-brand-color-500); font-weight: 600; }
 .mf-meeting-words { min-width: 0; }
 /* Opened on from search: the line lit a moment, then back to the page. */
-.mf-meeting-line { border-radius: 6px; transition: background-color 600ms var(--mf-ease); }
+.mf-meeting-line { border-radius: 6px; transition: background-color 600ms var(--mf-ease); cursor: pointer; margin-inline: -0.5rem; padding: 0.125rem 0.5rem; }
+.mf-meeting-line:hover:not([data-lit]):not([data-found]) { background: color-mix(in oklab, var(--foreground) 4%, transparent); transition-duration: 120ms; }
 .mf-meeting-line[data-found] { background: color-mix(in oklab, var(--tt-brand-color-500) 16%, transparent); transition-duration: 0ms; }
+/* The line being said, softly lit while the meeting plays, its speaker with it. */
+.mf-meeting-line[data-lit] { background: color-mix(in oklab, var(--tt-brand-color-500) 10%, transparent); transition-duration: 200ms; }
+.mf-meeting-line[data-lit] .mf-meeting-name, .mf-meeting-line[data-lit] .mf-meeting-time { color: var(--tt-brand-color-500); }
+.mf-meeting-line[data-lit][data-same] .mf-meeting-name { visibility: visible; }
+/* The transcript reads as text: picked and copied as text, never typed into. */
+[data-meeting-transcript] .mf-meeting-words { user-select: text; cursor: inherit; }
+/* "Fix this line": the words open in place, the line's time and voice where they were. */
+.mf-meeting-fix { font: inherit; line-height: inherit; color: inherit; cursor: text; border-radius: 4px; box-shadow: 0 0 0 1.5px color-mix(in oklab, var(--tt-brand-color-500) 55%, transparent); padding: 0 0.25rem; margin: 0 -0.25rem; }
+@media (prefers-reduced-motion: reduce) { .mf-meeting-line { transition: none; } }

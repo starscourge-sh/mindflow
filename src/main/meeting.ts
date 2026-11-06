@@ -9,6 +9,8 @@ import { database, keepMeeting, setting } from './captures'
 import { assetsDir } from './pictures'
 import { caps } from './understand'
 import { meets } from './needs'
+import { foundActions, writtenActions, type MeetingLine } from './meeting-doc'
+import { readTake } from './meeting-take'
 
 /**
  * Record a whole meeting on this Mac: your microphone and the Mac's own sound (the others, in Teams or a browser) as
@@ -34,7 +36,13 @@ export type Live = {
   message?: string
   /** The meeting kept: its note. */
   id?: string
+  /** Where the sound comes from: one app's (its bundle id and name) or all of this Mac's (null), and the microphone. */
+  from: { bundle: string | null; name: string | null; mic: boolean }
+  /** What the meeting program itself says it records now (a probe checks it is what was chosen). */
+  recording?: { bundle: string | null; mic: boolean }
 }
+/** An app open now that can make sound, as "Sound from" lists it. */
+export type SoundApp = { bundle: string; name: string }
 
 type Shown = { send: (live: Live, level?: { you: number; others: number }) => void; open: () => void; close: () => void; openNote: (id: string) => void }
 
@@ -47,13 +55,53 @@ let clock = { began: 0, pausedFor: 0, pausedAt: 0 }
 /** The last of the words: the card shows a few; the rest are on disk as they settle, never one giant string. */
 const SHOWN_LINES = 40
 let settled: Line[] = []
-let saved: { seconds: number; peaks: number[]; you: boolean; others: boolean } | null = null
+let saved: { seconds: number; peaks: number[]; you: boolean; others: boolean; heard?: number } | null = null
 let found: Record<string, unknown> | null = null
 let take: Record<string, unknown> | null = null
 let finished: (() => void) | null = null
 
 function blank(): Live {
-  return { state: 'ready', first: !setting('meetingTold', false), words: null, event: null, seconds: 0, lines: [], moments: [] }
+  // The last choice, remembered: the same app and microphone next time.
+  const from = setting<{ bundle: string | null; name: string | null } | null>('meetingFrom', null)
+  return { state: 'ready', first: !setting('meetingTold', false), words: null, event: null, seconds: 0, lines: [], moments: [], from: { bundle: from?.bundle ?? null, name: from?.name ?? null, mic: setting('meetingMic', true) } }
+}
+
+const remember = (key: string, value: unknown): void => void database().prepare('insert or replace into settings (key, value) values (?, ?)').run(key, JSON.stringify(value))
+
+/** The apps open now that can make sound: none asked of a Mac that has not allowed it (listing them would ask). */
+export async function soundApps(): Promise<SoundApp[]> {
+  // A probe's stand-in apps: the real Mac's are never listed in a test.
+  if (process.env.HALIGTREE_QA_MEETING) return JSON.parse(process.env.HALIGTREE_QA_MEETING_APPS ?? '[]') as SoundApp[]
+  if (!screenAllowed()) return []
+  const out = await new Promise<string>((done) => {
+    const asking = spawn(helper, ['--apps'])
+    let said = ''
+    asking.stdout.on('data', (chunk) => (said += chunk))
+    asking.on('close', () => done(said))
+    asking.on('error', () => done(''))
+  })
+  try {
+    // Names as the Mac gives them can carry invisible direction marks: taken off.
+    return ((JSON.parse(out).apps ?? []) as SoundApp[]).map((one) => ({ ...one, name: one.name.replace(/[\u200e\u200f\u202a-\u202e]/g, '').trim() }))
+  } catch {
+    return []
+  }
+}
+
+/** "Sound from": one app, or all of this Mac (null); kept for next time, and changed at once while it records. */
+export function soundFrom(app: SoundApp | null): void {
+  live = { ...live, from: { ...live.from, bundle: app?.bundle ?? null, name: app?.name ?? null } }
+  remember('meetingFrom', app ? { bundle: app.bundle, name: app.name } : null)
+  if (child) child.stdin.write(`from ${app?.bundle ?? 'all'}\n`)
+  tell()
+}
+
+/** "My microphone", on or off; kept for next time, and changed at once while it records. */
+export function microphone(on: boolean): void {
+  live = { ...live, from: { ...live.from, mic: on } }
+  remember('meetingMic', on)
+  if (child) child.stdin.write(`mic ${on ? 'on' : 'off'}\n`)
+  tell()
 }
 
 const seconds = (): number => {
@@ -119,7 +167,8 @@ export async function begin(): Promise<void> {
   startedAt = new Date().toISOString()
   const ai = meets(await caps(), 'ai')
   const qa = process.env.HALIGTREE_QA_MEETING?.split('|')
-  const args = ['record', folder, (app.getPreferredSystemLanguages()[0] ?? 'en-US').replace('-', '_'), ...(qa ? ['--test', ...qa] : []), ...(qa && ai ? ['--ai-stand-in'] : [])]
+  const args = ['record', folder, (app.getPreferredSystemLanguages()[0] ?? 'en-US').replace('-', '_'), ...(live.from.bundle ? ['--from', live.from.bundle] : []), ...(live.from.mic ? [] : ['--no-mic']),
+    ...(qa ? ['--test', ...qa] : []), ...(qa && ai ? ['--ai-stand-in'] : []), ...(qa && process.env.HALIGTREE_QA_MEETING_SPEED ? ['--speed', process.env.HALIGTREE_QA_MEETING_SPEED] : [])]
   const run = spawn(helper, args)
   child = run
   let rest = ''
@@ -146,6 +195,12 @@ function heard(line: Record<string, unknown>): void {
     return tell()
   }
   if (line.level) return tell(line.level as { you: number; others: number })
+  // What the program says it records now: the app (or all of this Mac) and the microphone.
+  if (line.from) {
+    const said = line.from as { bundle: string | null; mic: boolean }
+    live = { ...live, from: { bundle: said.bundle, name: said.bundle === live.from.bundle ? live.from.name : null, mic: said.mic }, recording: { bundle: said.bundle, mic: said.mic } }
+    return tell()
+  }
   if (line.words) {
     const said = line.words as Line
     const one: Line = { ...said, start: Math.round(said.start * 10) / 10, end: Math.round(said.end * 10) / 10 }
@@ -265,18 +320,29 @@ async function keep(): Promise<string> {
     const line = lines.find((said) => said.id === one.line)
     return line ? { at: line.start, text: line.text, speaker: line.speaker } : { at: one.at, text: '' }
   })
+  const noted = new Set(live.moments.map((one) => one.line))
+  // Every line said, kept as the meeting's own data: who, from when to when, the words.
+  const said: MeetingLine[] = lines.map((one) => ({ id: one.id, who: one.speaker, at: one.start, end: one.end, text: one.text, ...(noted.has(one.id) ? { marked: true } : {}) }))
+  // The action items: Apple Intelligence's, written properly, where this Mac has it; every other Mac's, the lines that commit or ask.
+  const dated: Record<string, string> = {}
+  for (const one of ((found?.dates ?? []) as { at: number; date?: string }[])) {
+    const line = said.find((line) => Math.abs(line.at - one.at) < 0.05)
+    if (line && one.date) dated[line.id] = String(one.date).slice(0, 10)
+  }
+  const read = readTake(take)
+  // A probe's stand-in for the model writes the same items a person would (made from the lines, written down plainly).
+  const actions = read?.standIn ? foundActions(said, dated).map((one) => ({ ...one, by: 'ai' as const })) : read ? writtenActions(read.actions, said) : foundActions(said, dated)
   const meeting = {
     type: 'meeting',
     attrs: {
       audio, you: tracks.you, others: tracks.others, seconds: saved!.seconds, startedAt, event: live.event, people: live.event?.people ?? [],
-      speakers, names: {}, moments, found, take, words: live.words, tag: '#meeting'
+      speakers, names: {}, moments, found, take, words: live.words, tag: '#meeting', lines: said, actions, heard: saved!.heard ?? null
     }
   }
   const text = (words: string): unknown[] => (words ? [{ type: 'text', text: words }] : [])
-  const noted = new Set(live.moments.map((one) => one.line))
-  const said = lines.map((one) => ({ type: 'meetingLine', attrs: { who: one.speaker, at: one.start, end: one.end, marked: noted.has(one.id) }, content: text(one.text) }))
   // The meeting block carries the #meeting tag itself (haligtree.ts, plain): every meeting under the one tag, shown once.
-  const body = { type: 'doc', content: [{ type: 'heading', attrs: { level: 1 }, content: text(title) }, meeting, ...said, { type: 'paragraph' }] }
+  // The paragraph after it is the person's own notes about the meeting.
+  const body = { type: 'doc', content: [{ type: 'heading', attrs: { level: 1 }, content: text(title) }, meeting, { type: 'paragraph' }] }
   return keepMeeting(title, body)
 }
 
@@ -288,5 +354,8 @@ export function registerMeeting(show: Shown): void {
   ipcMain.handle('haligtree:meeting:mark', () => noteMoment())
   ipcMain.handle('haligtree:meeting:pause', (_event, pause: unknown) => pauseMeeting(!!pause))
   ipcMain.handle('haligtree:meeting:stop', () => stopMeeting())
+  ipcMain.handle('haligtree:meeting:apps', () => soundApps())
+  ipcMain.handle('haligtree:meeting:from', (_event, one: unknown) => soundFrom(one && typeof one === 'object' && typeof (one as SoundApp).bundle === 'string' ? { bundle: (one as SoundApp).bundle, name: String((one as SoundApp).name ?? '') } : null))
+  ipcMain.handle('haligtree:meeting:mic', (_event, on: unknown) => microphone(!!on))
   ipcMain.handle('haligtree:meeting:privacy', () => void shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture'))
 }

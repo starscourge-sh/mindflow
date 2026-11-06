@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Editor } from '@tiptap/react'
 import type { JSONContent } from '@tiptap/core'
+import { MeetingItems } from './meeting-items'
 
 import { HaligtreeEditor, TAGS } from '../haligtree'
 import { CAPTURE_TYPES } from '../capture-kinds/capture-kind-picker'
@@ -253,6 +254,8 @@ export function DayView({ onOpen, start, onScale, onView }: {
         </div>
       } />}
       {day === today && <GoalStrip onOpen={onOpen} className="mt-4 -mx-2" />}
+      {/* The last two weeks' meetings: what was promised or asked and is still open. */}
+      {day === today && <MeetingItems since={new Date(Date.now() - 14 * 86400000).toISOString()} onOpen={(type, id) => onOpen?.(type, id)} className="mt-6" />}
       {day === today && <div className="mt-4"><DayMoments onOpen={onOpen} onView={onView} /></div>}
       <div className={`${day === today ? '' : 'page-narrow mx-auto w-full px-5'} pt-6 pb-16 [--mf-padding:0.5rem_0]`}>
         {day !== today && <DayBanner day={day} />}

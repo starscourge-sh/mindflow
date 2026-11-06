@@ -4,6 +4,7 @@ import { chime } from '@/lib/sound'
 import { dayjs, dayKey } from '../../../../main/dates'
 import { RepeatMark, TaskWhen, completeTask } from './tasks-view'
 import { Tags } from './ui'
+import { MeetingItems } from './meeting-items'
 
 /** The day a task is meant for, or due by: the one it shows under. */
 const dayFor = (task: Task): string | null => (task.dueAt ? dayKey(task.dueAt) : task.deadline ? dayKey(task.deadline) : null)
@@ -44,6 +45,8 @@ export function WeekTasks({ monday, onOpen }: { monday: string; onOpen?: (type: 
           </ul>
         </div>
       ))}
+      {/* The week's meetings' action items still open. */}
+      <MeetingItems since={dayjs(monday).startOf('day').toISOString()} onOpen={(type, id) => onOpen?.(type, id)} className="mt-6" />
     </section>
   )
 }

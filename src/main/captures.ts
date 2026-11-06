@@ -1,3 +1,4 @@
+import { foldMeeting, transcriptLines, type MeetingLine } from './meeting-doc'
 import { forgives, wordsOf } from './near'
 import { QUESTIONS, type Question } from './journal-words'
 import { app, BrowserWindow, ipcMain } from 'electron'
@@ -360,7 +361,10 @@ export function registerCaptures(): void {
   const read = new Map<string, { body: string; words: string }>()
   const SAID = ['href', 'url', 'title', 'description', 'label', 'latex', 'alt', 'caption', 'language']
   type Part = { type?: string; text?: string; attrs?: Record<string, unknown>; marks?: Part[]; content?: Part[] }
-  const wordsIn = (node: Part): string => [
+  const wordsIn = (node: Part): string => node.type === 'meeting'
+    // A meeting's lines are its own data: found by what was said, a line each, never its stored JSON.
+    ? transcriptLines((node.attrs?.lines ?? []) as MeetingLine[], (node.attrs?.names ?? {}) as Record<string, string>).join('\n')
+    : [
     node.text,
     // A picture's own words, read by the Mac (picture-words.ts): a screenshot or a notebook page is found by what it says.
     node.type === 'image' ? wordsOfPicture(node.attrs?.src) : '',
@@ -514,7 +518,7 @@ export function registerCaptures(): void {
          select tier, id, null, case when tier = 'goal' then (case when goal_at is null then 'someday' when closed_how = 'on ice' then 'iced' else 'dated' end) else kind end, 'open', '', attribution, coalesce(nullif(title, ''), label('', body)), created_at,
            (coalesce(title, '') || ' ' || ${SHOWN_WORDS} || char(31) || coalesce(attribution, '') || ' ' || coalesce(fields, '') || ' ' || coalesce(aliases, '')) from nuggets where tier not in ('card', 'deck') and binned_at is null
          union all
-         select 'task', id, number, 'todo', status, '', null, title, created_at, (title || ' ' || coalesce(notes, '')) from tasks where status != 'dropped'
+         select 'task', id, number, 'todo', status, '', null, title, created_at, (title || ' ' || coalesce(words('task:' || id, notes), '')) from tasks where status != 'dropped'
          union all
          select 'event', id, null, 'event', 'open', '', null, title, created_at, ${EVENT_WORDS} from events where binned_at is null and series_id is null
          union all
@@ -649,6 +653,7 @@ export function registerCaptures(): void {
 
   ipcMain.handle('captures:create', (event, raw: unknown) => {
     const patch = Patch.parse(raw)
+    if (patch.body !== undefined) patch.body = foldMeeting(patch.body)
     // `Author:: Le Guin` on a line of its own: kept as a property, out of the words.
     const taken = patch.body !== undefined && patch.markdown === undefined ? takeBodyProperties(patch.body) : { body: patch.body, found: [] }
     if (taken.found.length) patch.body = taken.body
@@ -701,6 +706,8 @@ export function registerCaptures(): void {
   /** One capture saved; `tell` says the windows now, or leaves it to a batch's one telling. */
   function saveOne(sender: Electron.WebContents, id: unknown, raw: unknown, tell: boolean): SaveResult {
     const patch = Patch.parse(raw)
+    // A meeting in the shape it had before 6 Nov (an old version put back, a copy): kept the new way, every word in it.
+    if (patch.body !== undefined) patch.body = foldMeeting(patch.body)
     // Two editors on one note, or an editor and a merge: words written since
     // this editor last looked are never written over. It is told what is
     // there now, and folds its own words in.

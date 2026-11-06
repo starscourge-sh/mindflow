@@ -49,6 +49,8 @@ const RULES: [RegExp, LucideIcon][] = [
   // A meeting: both sides of a call, who said what.
   [/^(record (a|this) meeting|meetings$|note this moment|stop and keep the meeting)/i, Users],
   [/^delete the recording/i, Trash2],
+  // A misheard word in a meeting line, fixed in place.
+  [/^fix this line$/i, SpellCheck],
   [/^keep asking/i, Repeat],
   [/^missed$/i, CircleX],
   // A goal's own lines: a someday goal wears the telescope wherever it shows; given a day, the calendar with a plus; settled, opened again.

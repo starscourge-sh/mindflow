@@ -28,6 +28,7 @@ import { Kbd } from "@/components/haligtree/ui"
 import { useShowLine } from "@/lib/show-in-list"
 import { BLOCK_TYPES, nameBlock } from "@/extensions/block-ids"
 import { haligtree } from "@/lib/haligtree"
+import { lineUnderMenu } from "@/extensions/meeting"
 import { isWebPage, openArticle } from "@/components/pdf/web-reader"
 import { ClickedRows, type Clicked } from "./clicked"
 
@@ -205,6 +206,11 @@ export function BlockMenu({
     : /\.pdf$/i.test(fileName) ? "PDF"
     : "File"
   const fileSrc: string | undefined = thing?.type.name === "attachment" ? thing.attrs.src : undefined
+  const isMeeting = thing?.type.name === "meeting"
+  /** "Fix this line" chosen: the line to open once the menu is gone. */
+  const fixAfter = useRef<string | null>(null)
+  /** The meeting line right-clicked, when the menu is a meeting's. */
+  const meetingLine = isMeeting ? lineUnderMenu() : null
   /** The recording's own player, back to its start and playing. */
   const playFromStart = (): void => {
     const found = resolve()
@@ -406,6 +412,11 @@ export function BlockMenu({
         // goes when it loses focus). The action that ran keeps its focus.
         onCloseAutoFocus={(event) => {
           event.preventDefault()
+          if (fixAfter.current) {
+            window.dispatchEvent(new CustomEvent("haligtree:meeting-fix", { detail: { id: fixAfter.current, editor } }))
+            fixAfter.current = null
+            return
+          }
           // Closed without an action (Escape, a click away): back to the note.
           if (!document.activeElement || document.activeElement === document.body) editor.commands.focus()
         }}
@@ -505,6 +516,16 @@ export function BlockMenu({
           </DropdownMenuItem>
         ) : null}
         {/* A meeting's recording let go, its words kept (meeting-page.tsx does it, with Undo). */}
+        {/* The meeting line right-clicked, its words opened to fix a misheard word (meeting-page.tsx); its time and voice stay. */}
+        {meetingLine && editor.isEditable && matches("Fix this line") ? (
+          <DropdownMenuItem asChild>
+            {/* Opened once the menu has closed and let go of the focus, so the line's words keep it. */}
+            <button type="button" data-meeting-fix-line onClick={() => void (fixAfter.current = meetingLine)}>
+              <MenuGlyph label="Fix this line" />
+              <span className="tiptap-slash-menu-title">Fix this line</span>
+            </button>
+          </DropdownMenuItem>
+        ) : null}
         {thing?.type.name === "meeting" && thing.attrs.audio && editor.isEditable && matches("Delete the recording, keep the words") ? (
           <DropdownMenuItem asChild>
             <button type="button" data-meeting-drop-audio onClick={() => at(() => window.dispatchEvent(new CustomEvent("haligtree:meeting-drop-audio", { detail: editor })))}>
@@ -642,7 +663,8 @@ export function BlockMenu({
           </DropdownMenuItem>
         ) : null}
 
-        {matches("Duplicate") ? (
+        {/* A meeting is one of a kind: never two of it in a note, never taken out by a key (extensions/meeting.ts). */}
+        {!isMeeting && matches("Duplicate") ? (
           <DropdownMenuItem asChild>
             <button type="button" onClick={duplicate}>
               <MenuGlyph label="Duplicate" />
@@ -703,7 +725,7 @@ export function BlockMenu({
         </DropdownMenuSub>
         ) : null}
 
-        {matches("Delete") ? (
+        {!isMeeting && matches("Delete") ? (
           <DropdownMenuItem asChild>
             <button
               type="button"

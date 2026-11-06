@@ -1,3 +1,4 @@
+import { foldMeeting, transcriptLines, voiceName, type MeetingLine } from './meeting-doc'
 import { awayDays } from './away'
 import { streaks } from './focus-numbers'
 import { Notification, app, dialog, ipcMain, net, session, shell } from 'electron'
@@ -131,7 +132,8 @@ export function plain(value: unknown, links = false): string {
   }
   const walk = (node: { type?: string; text?: string; marks?: { type?: string }[]; attrs?: { id?: string; label?: string }; content?: unknown[] }, code = false): string =>
     // A meeting (meeting-page.tsx) carries its #meeting itself: the tag in Properties, never a second chip in the words.
-    node.type === 'meeting' ? '#meeting' :
+    // Its lines are its own data now: found by search and read on cards as words, with their times.
+    node.type === 'meeting' ? ['#meeting', ...transcriptLines(((node.attrs as { lines?: MeetingLine[] })?.lines ?? []), ((node.attrs as { names?: Record<string, string> })?.names ?? {}))].join('\n') :
     node.type === 'noteLink' ? (links && node.attrs?.id && node.attrs.label ? `[[@${node.attrs.id}|${node.attrs.label}]]` : node.attrs?.label ?? '') :
     node.text !== undefined ? (code || node.marks?.some((mark) => mark.type === 'code') ? uncoded(node.text) : node.text) :
     (node.content ?? []).map((child) => walk(child as typeof node, code || node.type === 'codeBlock')).join('\n')
@@ -211,6 +213,7 @@ export function markdown(value: unknown, nameOf: (id: string) => string | undefi
       case 'bookmark': return ['```cardlink', ...Object.entries({ url: node.attrs?.href, title: node.attrs?.title, description: node.attrs?.description, host: node.attrs?.site, favicon: node.attrs?.icon, image: node.attrs?.image })
         .filter(([, value]) => value).map(([key, value]) => `${key}: ${JSON.stringify(value)}`), '```'].join('\n')
       // A callout as Obsidian writes one: its type, whether it folds, its title, then its lines.
+      case 'meeting': return transcriptLines(((node.attrs?.lines ?? []) as MeetingLine[]), (node.attrs?.names ?? {}) as Record<string, string>).map((line) => `> ${line}`).join('\n>\n')
       case 'callout': {
         const head = node.attrs?.type ? `[!${node.attrs.type}]${node.attrs.fold ?? ''}${node.attrs.title ? ` ${node.attrs.title}` : ''}` : `[!note] ${node.attrs?.icon ?? ''}`.trimEnd()
         return [head, ...kids.map((child) => block(child)).join('\n\n').split('\n')].map((line) => `> ${line}`.trimEnd()).join('\n')
@@ -1339,6 +1342,15 @@ export function registerHaligtree(): void {
   // An Anki import asks, card by card, whether the card is here already (by its Anki id): without this, each ask read every gem, and a 1,448-card deck into a big book took minutes.
   db.exec('create index if not exists nuggets_by_source on nuggets(source); create index if not exists nuggets_by_deck on nuggets(deck)')
   foldKept(db)
+  // A meeting kept before it was its own kind (its lines open to the keyboard in the note): its lines folded into the
+  // meeting's own data, every word kept. Reads only rows of the old shape, so every start is safe.
+  for (const row of db.prepare(`select id, body from captures where body like '%"meetingLine"%'`).all() as { id: string; body: string }[]) {
+    try {
+      const body = JSON.parse(row.body)
+      const folded = foldMeeting(body)
+      if (folded !== body) (db.prepare('update captures set body = ? where id = ?').run(JSON.stringify(folded), row.id), checkMarkdown(row.id))
+    } catch { /* Not JSON: not a meeting. */ }
+  }
   toCheckBack(db)
   goalsOut(db, (capture) => {
     const named = dateIn(capture.title ?? '')
@@ -4042,6 +4054,22 @@ export function registerHaligtree(): void {
     db.prepare('update tasks set due_at = ?, deadline_at = ?, notified_at = null where id = ?').run(next.toISOString(), deadline, id)
     return write(was)
   }
+  // A meeting's action items still open (not ticked, not yet a task: a task shows as one already), for Today and the
+  // week: the newest meetings first, since the day asked.
+  handle('meeting:open-items', (since: string) => {
+    const rows = db.prepare(`select id, title, captured_at as at, body from captures where status != 'discarded' and captured_at >= ? and body like '%"type":"meeting"%' order by captured_at desc limit 40`).all(String(since)) as { id: string; title: string; at: string; body: string }[]
+    return rows.flatMap((row) => {
+      try {
+        const meeting = (JSON.parse(row.body).content ?? []).find((one: { type?: string }) => one?.type === 'meeting')
+        const names = (meeting?.attrs?.names ?? {}) as Record<string, string>
+        return ((meeting?.attrs?.actions ?? []) as { id: string; text: string; owner: string; date: string | null; at: number; done: boolean; task: string | null }[])
+          .filter((one) => !one.done && !one.task)
+          .map((one) => ({ note: row.id, meeting: row.title, held: row.at, id: one.id, text: one.text, owner: voiceName(one.owner, names), date: one.date, at: one.at }))
+      } catch {
+        return []
+      }
+    })
+  })
   handle('task:done', (id: string) => finish(id))
   handle('task:skip', (id: string) => finish(id, null, true))
   // Done by mistake: open again, on the date it had, and that time it was
