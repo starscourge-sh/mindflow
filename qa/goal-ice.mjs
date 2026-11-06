@@ -19,6 +19,11 @@ try {
   const open = (await v('items', 'goal')).filter((one) => !one.closedAt && !one.archivedAt && one.goalAt).sort((a, b) => a.goalAt.localeCompare(b.goalAt))
   const g = open[0]
   await v('goal:beacon:set', g.id, 'always').catch(() => {})
+  // Chosen for Home (the sandbox chooses the Odyssey, and then only chosen goals show there), so the strip has it.
+  await v('review:star', g.id, true)
+  await go('home')
+  await h.waitForTimeout(600)
+  check('on Home\'s strip to start with', (await strip()).includes(g.id), JSON.stringify(await strip()))
   await send('goal', g.id)
   await h.waitForTimeout(1200)
   const prop = h.locator('button', { hasText: /^Put on ice$/ })
