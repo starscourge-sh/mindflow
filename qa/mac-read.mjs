@@ -34,13 +34,16 @@ async function run(level) {
       await wait(500)
       await h.keyboard.type('Read it to me', { delay: 20 })
       await wait(700)
+      // Every word as the app lights it, kept in the page: sampled from here every 130 ms it raced the app's own
+      // 120 ms step (and the time a round trip takes under load), so a word lit between two looks was missed.
+      await h.evaluate(() => {
+        window.__lit = []
+        const set = CSS.highlights.set.bind(CSS.highlights)
+        CSS.highlights.set = (name, one) => (name === 'read-aloud' && window.__lit.push([...one][0]?.toString()), set(name, one))
+      })
       await h.keyboard.press('Enter')
-      let lit = []
-      for (let i = 0; i < 12; i++) {
-        await wait(130)
-        const word = await h.evaluate(() => { const one = CSS.highlights.get('read-aloud'); return one ? [...one][0]?.toString() : null })
-        if (word && !lit.includes(word)) lit.push(word)
-      }
+      await h.waitForFunction(() => window.__lit.length >= 4, null, { timeout: 8000 }).catch(() => {})
+      const lit = await h.evaluate(() => window.__lit.filter((one, i, all) => all.indexOf(one) === i))
       const said = await h.evaluate(() => window.__readAloud.at(-1))
       check('⌘K “Read it to me” reads the note in English', said?.language === 'en' && /judgements are up to us/.test(said?.text ?? ''), JSON.stringify(said))
       check('each word is lit as it is said, in order', lit.length >= 4 && lit[0] === 'Only' && lit[1] === 'our', lit.join(' '))
@@ -60,21 +63,26 @@ async function run(level) {
         await h.keyboard.press('Enter')
         await wait(400)
       }
-      // To the end of the words: the notice goes with the voice (its own clock would keep it 6 s).
+      // To the end of the words: the notice goes with the voice (its own clock would keep it 6 s). Read by the app's
+      // own start and end of reading, not by a guess at how long eleven words take: under load the guess ran short.
+      await h.evaluate(() => { window.__reading = []; window.addEventListener('haligtree:reading', (event) => window.__reading.push(event.detail)) })
       await readFromK()
+      await h.waitForFunction(() => window.__reading[0] === true && /Reading it aloud/.test(document.body.innerText), null, { timeout: 5000 }).catch(() => {})
       const during = await noticeNow()
       if (process.env.SHOT) await c.both(`${process.env.SHOT}/read-notice-during`)
-      await wait(2200)
+      await h.waitForFunction(() => window.__reading.at(-1) === false, null, { timeout: 5000 }).catch(() => {})
+      await wait(300)
       if (process.env.SHOT) await c.both(`${process.env.SHOT}/read-notice-after`)
-      check('read to the end, the notice closes with the voice, no “Stop” left over', during && !(await noticeNow()), `during ${during}`)
+      const ended = await h.evaluate(() => window.__reading.join(','))
+      check('read to the end, the notice closes with the voice, no “Stop” left over', during && ended === 'true,false' && !(await noticeNow()), `during ${during}, ${ended}`)
       // A new reading over one still going: the first ends, one notice shows.
-      await h.evaluate(() => { window.__reading = []; window.addEventListener('haligtree:reading', (event) => window.__reading.push(event.detail)) })
+      await h.evaluate(() => { window.__reading = [] })
       await readFromK()
       // (⌘K then says “Stop reading”; the note's “…” menu starts a reading anew.)
       await h.getByRole('button', { name: 'More' }).first().click()
       await wait(400)
       await h.getByRole('menuitem', { name: /Read it to me/ }).click()
-      await wait(400)
+      await h.waitForFunction(() => window.__reading.length >= 3, null, { timeout: 5000 }).catch(() => {})
       const turns = await h.evaluate(() => window.__reading.join(','))
       check('a new reading ends the one going first, and one notice shows', turns === 'true,false,true' && (await noticeNow()), turns)
       // Leaving the page: the voice and its notice stop.
@@ -91,8 +99,10 @@ async function run(level) {
       await wait(1600)
       await h.getByRole('button', { name: 'More' }).first().click()
       await wait(400)
+      const before = await h.evaluate(() => window.__readAloud.length)
       await h.getByRole('menuitem', { name: /Read it to me/ }).click()
-      await wait(500)
+      // The language is asked of the Mac first: wait for the reading itself, not a fixed half second.
+      await h.waitForFunction((n) => window.__readAloud.length > n, before, { timeout: 5000 }).catch(() => {})
       const spanish = await h.evaluate(() => window.__readAloud.at(-1))
       check('“Read it to me” in a note’s “…” menu reads a Spanish note in Spanish', spanish?.language === 'es', JSON.stringify(spanish))
       await h.keyboard.press('Escape')
@@ -137,8 +147,9 @@ async function run(level) {
       check(`${level}: picked words offer “Read aloud”`, rows.includes('Read aloud'), rows.join(' / '))
       check(`${level}: “Translate” is offered ${level === 'macos26' ? 'here' : 'nowhere (it needs macOS 26)'}`, rows.includes('Translate') === (level === 'macos26'))
       if (process.env.SHOT && level === 'macos26') await c.both(`${process.env.SHOT}/read-book-menu`)
+      const before = await h.evaluate(() => window.__readAloud.length)
       await h.getByRole('menuitem', { name: 'Read aloud' }).click()
-      await wait(500)
+      await h.waitForFunction((n) => window.__readAloud.length > n, before, { timeout: 5000 }).catch(() => {})
       const said = await h.evaluate(() => window.__readAloud.at(-1))
       check(`${level}: “Read aloud” reads the picked words in Spanish`, said?.language === 'es' && /lee mucho/.test(said.text), JSON.stringify(said))
       await h.keyboard.press('Escape')

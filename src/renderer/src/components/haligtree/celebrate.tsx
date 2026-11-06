@@ -13,6 +13,7 @@ import type { Moment as MainMoment } from '../../../../main/celebrate'
 import { Tip, toast } from './ui'
 import { working } from './beam'
 import { TooltipProvider } from '@/components/ui/tooltip'
+import { readingNow } from '@/lib/read-aloud'
 
 /**
  * Celebrations: a small card on the rare milestones (src/main/celebrate.ts
@@ -351,7 +352,9 @@ function usePutAway(onDone: () => void): { done: React.RefObject<(hand?: boolean
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
       if (event.key !== 'Escape' || leaving.current) return
-      if (layerOpen()) return
+      // A voice reading aloud is stopped first: its notice says “Esc stops it”, and it is what is heard. The next
+      // Esc puts this away.
+      if (layerOpen() || readingNow()) return
       event.preventDefault()
       event.stopImmediatePropagation()
       done.current(true)
