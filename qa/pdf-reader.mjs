@@ -546,7 +546,7 @@ try {
   check('a PDF link says its page after its words, outside the link', await h.evaluate(() => { const link = [...document.querySelectorAll('[data-open] .tiptap a')].find((one) => one.textContent === 'back to the book'); return link?.nextElementSibling?.classList.contains('mf-pdf-link-page') && link.nextElementSibling.textContent === ' · p. 3' && link.textContent === 'back to the book' }), '')
   check('a PDF link pointed at previews the book at its page (3 / 3), not its address', hover.corner === '3 / 3' && hover.page && !hover.address, JSON.stringify(hover))
   await h.screenshot({ path: `${process.env.QA_SHOTS ?? '/tmp'}/pdf-link-hover.png` })
-  await h.keyboard.down('Meta'); await h.mouse.click(linkBox.x, linkBox.y); await h.keyboard.up('Meta')
+  await h.mouse.click(linkBox.x, linkBox.y)
   await h.waitForSelector('.pdf-reader .pdf-mark', { timeout: 10000 }).catch(() => {})
   await wait(300)
   const back = await h.evaluate(() => {

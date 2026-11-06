@@ -95,8 +95,7 @@ try {
   await h.locator('[data-side-row][aria-label="Gems"]').first().click()
   await wait(1200)
   const stayed = await panes()
-  const onGems = await h.locator('[data-side-row][aria-label="Gems"][aria-current="page"]').count()
-  check('Gems in the sidebar opens in the pane in front; the split stays', stayed.length === 2 && stayed[0].focus === pair[0] && onGems === 1, `${stayed.length} panes, Gems lit ${onGems}: ${JSON.stringify(stayed.map((one) => [one.id, one.focus]))}`)
+  check('Gems in the sidebar opens in the pane in front; the split stays', stayed.length === 2 && stayed[0].focus === pair[0] && stayed[1].id === 'nuggets', JSON.stringify(stayed.map((one) => [one.id, one.focus])))
 
   // A drag to the right edge adds a pane.
   const pin = h.locator('[data-drag-open]').first()

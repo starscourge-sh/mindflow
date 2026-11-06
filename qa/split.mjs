@@ -156,7 +156,8 @@ if (!process.env.REPORTS_ONLY) try {
   const text1 = await editor.textContent()
   await press('Control+l')
   list = await panes(h)
-  check('Vim on: ⌃L in normal mode moves the keys, the note untouched', list[1].front && (await editor.textContent()) === text1, `${vimMode} ${show(list)}`)
+  const text1b = await editor.textContent()
+  check('Vim on: ⌃L in normal mode moves the keys, the note untouched', list[1].front && text1b === text1, `${vimMode} ${text1.length} ${text1b.length} ${text1 === text1b ? '' : `${text1.slice(0, 60)} | ${text1b.slice(0, 60)}`} ${show(list)}`)
   await press('Control+h')
   list = await panes(h)
   const back = await h.evaluate(() => !!document.activeElement?.closest('[data-pane]:nth-of-type(1) .ProseMirror'))
@@ -201,6 +202,9 @@ if (!process.env.REPORTS_ONLY) try {
   // Where each pane's cursor is: a list with a note open keeps its cursor on that note's row, so
   // a cursor in another pane is no fault; one that moves is.
   const cursorsAt = () => h.evaluate(() => [...document.querySelectorAll('[data-pane]')].map((el) => { const at = el.querySelector('[data-cursor]'); return at ? (at.closest('[data-id]')?.getAttribute('data-id') ?? at.textContent.slice(0, 40)) : null }))
+  // The list on its own: a note open beside it in a narrow pane leaves no room for it.
+  await send('view', 'questions'); await wait()
+  await blur()
   const was = await cursorsAt()
   await press('j', 'j')
   const now = await cursorsAt()
@@ -270,10 +274,11 @@ if (!process.env.REPORTS_ONLY) try {
   // --- ⌃W closes the front pane; the one beside takes the keys --------------------------------------
   await h.evaluate(() => { localStorage.setItem('theme', 'light'); window.dispatchEvent(new StorageEvent('storage', { key: 'theme', newValue: 'light' })) })
   await blur()
-  await press('Control+w')
+  for (let n = 0; n < 8 && (await panes(h)).length > 2; n++) await press('Control+w')
   list = await panes(h)
-  check('⌃W closes the pane in front, the one to its left comes to the front', list.length === 2 && list[0].front, show(list))
+  check('⌃W closes tabs in front; the last takes its pane, the one to its left comes to the front', list.length === 2 && list[0].front, show(list))
   // Row menu: Open to the side.
+  await send('view', 'questions'); await wait()
   const keysBefore = (await panes(h)).map((one) => one.key)
   await h.locator('[data-pane] [data-row][data-id]:visible').first().click({ button: 'right' }); await wait(400)
   // Open to the side sits under Open in… beside Open in a new window.
@@ -283,7 +288,7 @@ if (!process.env.REPORTS_ONLY) try {
   if (offered) await h.locator('[role="menuitem"]', { hasText: 'Open to the side' }).first().click()
   await wait(1000)
   list = await panes(h)
-  check("a row's menu offers Open to the side, and it opens a pane in front", offered > 0 && list.length === 3 && !keysBefore.includes(list.find((one) => one.front)?.key), `${offered} ${show(list)}`)
+  check("a row's menu offers Open to the side, and it is a new tab in the pane beside, in front", offered > 0 && list.length === 2 && list[1].front && keysBefore.length === 2, `${offered} ${show(list)}`)
   await h.screenshot({ path: `${shots}/menu-opened-light.png` })
   for (let n = 0; n < 8 && (await panes(h)).length > 1; n++) await press('Control+w')
   list = await panes(h)
@@ -381,7 +386,7 @@ try {
   // --- report 4b: Open to the side again never folds the split away ----------------------------
   // Back to one pane, on the Ideas list with nothing open, in a window with room
   // for two panes side by side but not three.
-  const closeAt = async (n) => { const x = h.locator(`${await paneSel(n)} [data-tab-on] [data-tab-close]`); if (await x.count()) await x.click(); else { await h.locator(await paneSel(n)).click({ position: { x: 30, y: 30 } }); await blur(); await press('Control+w') } await wait(900) }
+  const closeAt = async (n) => { const gone = (await panes(h))[n - 1]?.key; const x = h.locator(`[data-pane="${gone}"] [data-tab-on] [data-tab-close]`); if (await x.count()) { for (let i = 0; i < 12 && (await panes(h)).some((one) => one.key === gone); i++) { await x.click(); await wait(300) } } else { await h.locator(await paneSel(n)).click({ position: { x: 30, y: 30 } }); await blur(); await press('Control+w') } await wait(900) }
   await closeAt(2)
   await c.size(1100, 800); await wait(700)
   await send('view', 'questions'); await wait()
@@ -402,7 +407,9 @@ try {
   await press('Meta+Backslash')
   list = await panes(h)
   check('report 4b: from the rightmost pane, ⌥⌘\\ adds a third pane', list.length === 3 && list.every((one) => one.shown), show(list))
-  // The copy shows the list: one of its notes opened there, so each pane is named for what it shows.
+  // Its list, and one of its notes opened there, so each pane is named for what it shows.
+  await send('view', 'nuggets'); await wait()
+  await h.evaluate(() => window.dispatchEvent(new Event('haligtree:close-front', { cancelable: true }))); await wait()
   await (await rowIn(3, 2)).click(); await wait()
   const third = (await trails(h)).panes[2]
   const lastId = await (await rowIn(1, 6)).getAttribute('data-id')

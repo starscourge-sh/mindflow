@@ -138,8 +138,8 @@ try {
     return hidden.y >= 40
   })())
   const pagesNow = async () => (await state()).map((one) => one.page)
-  const was = await pagesNow()
-  check('the split has what to go back to', was[0] === 'sources' && was[1] === 'today', JSON.stringify(was))
+  const pagesWas = await pagesNow()
+  check('the split has what to go back to', pagesWas[0] === 'sources' && pagesWas[1] === 'today', JSON.stringify(pagesWas))
   const backOf = (at) => h.locator('[data-pane]').nth(at).getByRole('button', { name: 'Back', exact: true })
   await backOf(1).click(); await wait(800)
   let nowPages = await pagesNow()
