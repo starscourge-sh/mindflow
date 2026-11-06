@@ -84,7 +84,9 @@ try {
     await h.keyboard.press('Escape'); await wait(700)
   } else check('Practise is offered on a tag', false)
   await c.send('tag', tag); await wait(1200)
-  const blurt = h.getByRole('button', { name: 'Blurt' }).first()
+  // Blurt lives in the tag's Study menu too.
+  await h.locator('[data-study-menu]').click(); await wait(250)
+  const blurt = h.locator('[data-blurt-open]').first()
   if (await blurt.count()) {
     await blurt.click(); await wait(1200)
     check('Blurt: the caret is in its box from the start', await h.evaluate(() => document.activeElement?.tagName === 'TEXTAREA'))

@@ -121,7 +121,7 @@ try {
   await h.evaluate(() => window.api.captures.create({ kind: 'note', body: 'A lone thought #solotag' }))
   await c.send('tag', 'solotag'); await wait(1400)
   check('a tag with one note: no sort and no search over it', (await h.locator('[data-display]').count()) === 0 && (await h.locator('input[placeholder="Filter #solotag"]').count()) === 0)
-  await h.evaluate(() => [...document.querySelectorAll('[role="tab"]')].find((one) => one.textContent?.includes('Manage'))?.click()); await wait(700)
+  await h.locator('[data-list-tabs] button[aria-label="Manage"]').click(); await wait(700)
   const sw = h.locator('[data-tag-becomes] [role=switch]').first()
   if ((await sw.getAttribute('aria-checked')) !== 'true') { await sw.click(); await wait(700) }
   const tag = await h.evaluate(() => ({ lands: !!document.querySelector('[data-tag-becomes] [data-tag-lands]'), review: document.querySelector('[data-tag-priority]')?.innerText.split('\n')[0] ?? '' }))

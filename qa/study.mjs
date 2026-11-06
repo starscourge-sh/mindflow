@@ -409,7 +409,7 @@ try {
   const inQueue = async () => (await v('review:queue')).map((one) => one.prompt)
   await send('tag', 'moons')
   await wait(1500)
-  await h.evaluate(() => [...document.querySelectorAll('[role="tab"]')].find((one) => one.textContent?.includes('Manage'))?.click())
+  await h.locator('[data-list-tabs] button[aria-label="Manage"]').click()
   await wait(800)
   // The chips' words roll in, so they are found by place: Learning, Maintaining, Paused.
   await h.evaluate(() => document.querySelectorAll('[data-tag-priority] button')[2]?.click())

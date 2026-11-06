@@ -82,7 +82,7 @@ try {
     const read = () => {
       const header = document.querySelector('header[class*="@container/band"]')
       if (!header) return { t: performance.now(), title: null }
-      const title = header.querySelector('.font-heading')?.textContent?.trim().replace(/^#/, '') ?? null
+      const title = header.querySelector('h1')?.textContent?.trim().replace(/^#/, '') ?? null
       const meta = header.querySelector('p')?.textContent ?? ''
       const count = Number(/([\d,]+) notes?/.exec(meta)?.[1]?.replace(/,/g, '') ?? NaN)
       const img = header.querySelector('img')?.getAttribute('src') ?? null

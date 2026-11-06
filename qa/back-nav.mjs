@@ -183,7 +183,7 @@ try {
   // --- Tags ------------------------------------------------------------------------------------
   await run('Tags: a tag picked from the list', async () => { await go('tags') }, () => click('[class*="@container/page"] button', 'renaissance'))
   await run('Tag page: an entry opened', async () => { await send('tag', 'renaissance'); await wait() }, () => click('[class*="@container/page"] article [role="link"]'))
-  await run('Tag page: Manage, then a section', async () => { await send('tag', 'renaissance'); await wait(); await click('[role="tab"]', 'anage') }, () => side('Inbox'))
+  await run('Tag page: Manage, then a section', async () => { await send('tag', 'renaissance'); await wait(); await h.locator('[data-list-tabs] button[aria-label="Manage"]').click() }, () => side('Inbox'))
 
   // --- Beside the page -------------------------------------------------------------------------
   await run('Recent: an entry opened, beside Inbox', async () => { await side('Inbox'); await row(0); await keys('Meta+Shift+y') }, () => click('aside[aria-label="Recent"] button', 'Kessel'))

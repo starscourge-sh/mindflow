@@ -475,7 +475,7 @@ try {
     const queue = async () => (await v('review:queue')).map((one) => one.prompt)
     await send('tag', 'moons')
     await wait(1500)
-    await click('[role="tab"]', 'Manage')
+    await h.locator('[data-list-tabs] button[aria-label="Manage"]').click()
     await wait(800)
     const labels = await h.evaluate(() => [...document.querySelectorAll('[data-tag-priority] button')].map((one) => one.textContent?.trim().replace(/(.)\1/g, '$1').replace(/\s+/g, ' ')))
     await h.evaluate(() => document.querySelectorAll('[data-tag-priority] button')[2]?.click())
