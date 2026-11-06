@@ -753,6 +753,9 @@ function useTagColors(): Record<string, string> {
 const focus = (): 'box' | 'editor' | null => {
   const active = document.activeElement as HTMLElement | null
   if (active?.isContentEditable) return 'editor'
+  // A control inside a note (a meeting's time or speaker, a player's button, any block's own piece): still the note's,
+  // so ⌫ there is never the list's "to the Bin" for the note around it.
+  if (active?.closest('.ProseMirror')) return 'editor'
   return active && ['INPUT', 'TEXTAREA', 'SELECT'].includes(active.tagName) ? 'box' : null
 }
 /**
