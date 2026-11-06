@@ -220,7 +220,7 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
           {practising === chosen ? <PractiseTag key={chosen} tag={chosen} onClose={() => (chime('fold'), setPractising(null))} /> : blurting === chosen ? <Blurt key={chosen} tag={chosen} onClose={() => (chime('fold'), setBlurting(null))} /> : tab === 'read' && chosen === 'meeting' && loaded && !loaded.length ? (
             // Meetings are every note tagged #meeting: before the first, what they are for and the way to make one.
             <Empty title="No meetings yet" action={<Button size="sm" data-meeting-first onClick={() => void recordMeeting()}>Record a meeting</Button>}>
-              Record a call in Teams, Zoom or the browser, or a lecture: your microphone and the sound from this Mac, the words as they are said, who said what, and what to take from it after. It stays on this Mac. <Kbd>⌃⌥⌘M</Kbd> from anywhere.
+              Record a call, in an app or the browser, or a lecture: your microphone and the sound from this Mac, the words as they are said, who said what, and what to take from it after. It stays on this Mac. <Kbd>⌃⌥⌘M</Kbd> from anywhere.
             </Empty>
           ) : tab === 'read' ? <TagStream key={chosen} tag={chosen} color={current?.color} onOpen={onOpen} onTag={setChosen} onManage={() => (chime('tap'), setTab('manage'))} /> : (<>
             <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b px-5 py-3">

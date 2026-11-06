@@ -11,6 +11,6 @@
   <key>NSMicrophoneUsageDescription</key>
   <string>Haligtree records your side of a meeting you choose to record.</string>
   <key>NSAudioCaptureUsageDescription</key>
-  <string>Haligtree records the other side of a meeting you choose to record (Teams, the browser), on this Mac.</string>
+  <string>Haligtree records the other side of a meeting you choose to record (the call, in its app or the browser), on this Mac.</string>
 </dict>
 </plist>

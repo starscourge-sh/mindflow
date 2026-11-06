@@ -159,7 +159,7 @@ function Recording({ live, level, onTuck }: { live: Live; level: { you: number; 
       {/* The words, newest at the foot and brightest; the room is fixed, so nothing below it moves as they come. */}
       <div data-meeting-lines className="flex min-h-0 flex-1 flex-col justify-end gap-1 overflow-hidden px-4 [mask-image:linear-gradient(180deg,transparent,#000_28%)]">
         {shown.length ? shown.map((line, at) => <LiveLine key={line.id} line={line} fade={FADE[shown.length - 1 - at] ?? 0.15} named={at === 0 || shown[at - 1].speaker !== line.speaker} marked={live.moments.some((one) => one.line === line.id)} />)
-          : <p className="text-control text-muted-foreground">{live.words === 'none' ? 'Recording. Words are not written out live on this Mac.' : 'Recording your microphone and the sound from this Mac (Teams, the browser).'}</p>}
+          : <p className="text-control text-muted-foreground">{live.words === 'none' ? 'Recording. Words are not written out live on this Mac.' : 'Recording your microphone and the sound from this Mac.'}</p>}
       </div>
       <div className="flex h-12 shrink-0 items-center gap-2 px-3">
         <span className="min-w-0 flex-1 truncate pl-1 text-meta text-muted-foreground">{languageOf(navigator.language)}</span>
@@ -208,7 +208,7 @@ function Before({ live }: { live: Live }): React.JSX.Element {
   if (live.state === 'failed' || live.state === 'too-old' || live.state === 'saved')
     return body(live.state === 'saved' ? 'Meeting kept' : 'The meeting was not recorded', <p>{live.message}</p>, live.state === 'saved' ? undefined : close)
   return body(live.event?.title ? `Record “${live.event.title}”` : 'Record a meeting', <>
-    <p><b className="font-semibold text-foreground">Your microphone and the sound from this Mac</b> (Teams, the browser), kept in your book. Nothing leaves this Mac.</p>
+    <p><b className="font-semibold text-foreground">Your microphone and the sound from this Mac</b> (the call, in its app or the browser), kept in your book. Nothing leaves this Mac.</p>
     {live.first && <p data-meeting-consent className="text-foreground">Let people know you are recording. In many places you must.</p>}
   </>, <>
     {close}

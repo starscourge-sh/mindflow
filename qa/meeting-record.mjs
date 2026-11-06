@@ -53,7 +53,7 @@ try {
   check('the live card opens in a window of its own', !!m)
   await m.waitForSelector('[data-meeting-card="ready"]', { timeout: 8000 })
   const first = await m.evaluate(() => ({ text: document.querySelector('[data-meeting-card]').textContent, consent: document.querySelector('[data-meeting-consent]')?.textContent }))
-  check('it says plainly what is recorded', /Your microphone and the sound from this Mac \(Teams, the browser\)/.test(first.text), first.text)
+  check('it says plainly what is recorded', /Your microphone and the sound from this Mac \(the call, in its app or the browser\)/.test(first.text), first.text)
   check('the first time, it asks that people be told', first.consent === 'Let people know you are recording. In many places you must.', first.consent)
   const top = await electron.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find((one) => one.webContents.getURL().includes('view=meeting')).isAlwaysOnTop())
   check('the card floats over every app', top)
