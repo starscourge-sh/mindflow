@@ -111,7 +111,7 @@ export function PdfLibrary({ query, top, files, onPut }: { query: string; /** Wh
               </section>
             )}
             {books.length ? (
-              <div className={`pdf-library-shelf${books.length <= 3 ? " is-few" : ""}`} role="listbox" aria-label="Your PDFs">
+              <div className={`pdf-library-shelf${books.length <= 3 ? " is-few" : ""}`} role="group" aria-label="Your PDFs">
                 {books.map((one) => (
                   <BookCard key={one.src} one={one} lit={one.src === chosen} picked={picked.includes(one.src)} menu={menuOf(one)} onPick={(event) => (setChosen(one.src), picking.click(event, one.src) || chime("tap"))} onOpen={() => open(one)} />
                 ))}
@@ -144,7 +144,7 @@ function BookCard({ one, lit, picked, menu, onPick, onOpen }: { one: Book; lit: 
   const read = percent(one)
   return (
     <RowMenu items={menu}>
-    <button type="button" role="option" aria-selected={lit} data-book={one.src} data-id={one.src} data-picked={picked || undefined} className={`pdf-book${lit ? " is-picked" : ""}${picked ? " is-chosen" : ""}`} onClick={onPick} onDoubleClick={onOpen} onKeyDown={(event) => event.key === "Enter" && onOpen()}>
+    <button type="button" aria-pressed={lit} data-book={one.src} data-id={one.src} data-picked={picked || undefined} className={`pdf-book${lit ? " is-picked" : ""}${picked ? " is-chosen" : ""}`} onClick={onPick} onDoubleClick={onOpen} onKeyDown={(event) => event.key === "Enter" && onOpen()}>
       <span className="pdf-book-cover" data-pdf-peek={one.src} data-pdf-peek-name={one.name} data-pdf-peek-scrub="">
         {cover?.image ? <img src={cover.image} alt="" draggable={false} /> : <span className="pdf-book-blank"><BookOpen className="size-6" /></span>}
         {read !== null && (

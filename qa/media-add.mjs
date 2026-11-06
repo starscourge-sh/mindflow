@@ -340,12 +340,14 @@ if (part('book')) {
     await go('home'); await wait(300); await go('media'); await wait(900)
     const goneRow = await v('media:list').then((list) => list.find((t) => t.src === gone.src))
     check('a file gone from the disk is known to be gone', goneRow.gone === true, JSON.stringify(goneRow).slice(0, 100))
+    // Far down a long page, where nothing is drawn: found by its name, as a person would.
+    await h.locator('[data-page=media] input[placeholder^="Find"]').fill('only one'); await wait(500)
     const goneLine = await h.evaluate((src) => document.querySelector(`[data-media][data-src="${src}"]`)?.parentElement?.querySelector('[data-media-where]')?.textContent ?? '', gone.src)
     check('and its tile says so', /gone/.test(goneLine), goneLine)
-    await h.locator(`[data-media][data-src="${gone.src}"]`).scrollIntoViewIfNeeded(); await wait(300)
     await shot(h, 'state-gone')
     await h.locator(`[data-media][data-src="${gone.src}"]`).click(); await wait(400)
     check('pressed, it says what to do', /Add it again to bring it back/.test(await h.evaluate(() => document.body.innerText)))
+    await h.locator('[data-page=media] input[placeholder^="Find"]').fill(''); await wait(300)
     await pickNext(electron, [one]); await h.locator('[data-media-add]').click(); await wait(900)
     check('added again, it is back', (await v('media:list')).find((t) => t.src === gone.src)?.gone === false)
     // A 500 MB PDF: in by path a piece at a time, onto the shelf, into the reader.
