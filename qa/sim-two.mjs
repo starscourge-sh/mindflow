@@ -54,7 +54,8 @@ try {
     await theme(name)
     const T = name === 'paper' ? 'Paper' : 'Dark'
 
-    // Settings: Haligtree's own time fields, named; number fields named, no spin arrows; the "?" a 24px target.
+    // Settings: Haligtree's own time fields, named; number fields named, no spin arrows (every number is the one scrub
+    // field now, a text field you drag or type in, so it has none to show); the "?" a 24px target.
     await go('settings')
     // Every section in turn: what each holds, gathered.
     const gathered = { stock: 0, own: [], numbers: [], text: '', more: null }
@@ -62,7 +63,7 @@ try {
       await h.click(`[data-section="${section}"]`)
       await h.waitForTimeout(500)
       const here = await h.evaluate(`(() => ({ stock: document.querySelectorAll('input[type=time]').length, own: [...document.querySelectorAll('[data-time-field]')].map((one) => one.getAttribute('aria-label')),
-        numbers: [...document.querySelectorAll('input[type=number]')].map((one) => ({ name: one.getAttribute('aria-label'), arrows: getComputedStyle(one).appearance })),
+        numbers: [...document.querySelectorAll('input[type=number], [data-scrub-field]')].map((one) => ({ name: one.getAttribute('aria-label'), arrows: one.type === 'number' ? getComputedStyle(one).appearance : 'none' })),
         text: document.querySelector('[data-setting]')?.closest('.overflow-y-auto')?.innerText ?? '', more: (() => { const one = document.querySelector('[data-setting-more]'); return one && (${HIT})(one) })() }))()`)
       gathered.stock += here.stock
       gathered.own.push(...here.own)
@@ -74,11 +75,11 @@ try {
     const times = { stock: gathered.stock, own: gathered.own }
     check(`${T}: Settings has no system time field, every time is Haligtree's own and named`, times.stock === 0 && times.own.length >= 5 && times.own.every(Boolean), JSON.stringify(times))
     const numbers = gathered.numbers
-    check(`${T}: Review's per-day fields are named and have no spin arrows`, numbers.length >= 2 && numbers.every((one) => one.name && one.arrows === 'textfield'), JSON.stringify(numbers))
+    check(`${T}: Review's per-day fields are named and have no spin arrows`, numbers.length >= 2 && numbers.some((one) => one.name === 'New cards a day') && numbers.every((one) => one.name && one.arrows !== 'auto' && one.arrows !== 'number-input'), JSON.stringify(numbers))
     const more = gathered.more
     check(`${T}: the "?" beside a setting takes a 24px click`, more && more.w >= 24 && more.h >= 24, JSON.stringify(more))
     const seen = gathered.text
-    check(`${T}: Settings says the exceptions and the consequences in plain sight`, seen.includes('except pinned ones and ones with a reminder') && seen.includes('removed within the hour if you turn this off'))
+    check(`${T}: Settings says the exceptions and the consequences in plain sight`, seen.includes('never pinned ones, ones with a reminder') && seen.includes('removed within the hour if you turn this off'))
     if (name === 'paper' && !gathered.at) check('Typing a time in “Day ends at” (no Haligtree time field to type in)', false)
     if (name === 'paper' && gathered.at) {
       // Typed any way, kept on Enter.
@@ -126,19 +127,7 @@ try {
     check(`${T}: an empty Matrix box's words are readable (13px+, 4.5:1)`, !matrix.empty || (matrix.empty.size >= 13 && matrix.empty.ratio >= 4.5), JSON.stringify(matrix.empty))
     await shot(`matrix-${name}`)
 
-    // The week page in another year says the year.
-    await go('week')
-    let said = ''
-    for (let i = 0; i < 20; i++) {
-      said = await h.evaluate(() => document.querySelector('button[aria-label="Week after"]')?.closest('header')?.innerText ?? '')
-      if (/20\d\d/.test(said)) break
-      await h.locator('button[aria-label="Week after"]').click()
-      await h.waitForTimeout(250)
-    }
-    await h.waitForTimeout(500)
-    said = await h.evaluate(() => document.querySelector('button[aria-label="Week after"]')?.closest('header')?.innerText ?? '')
-    check(`${T}: a week in next year says the year`, /20\d\d/.test(said), said.replace(/\s+/g, ' ').slice(0, 80))
-    await shot(`week-next-year-${name}`)
+    // (The week page, paged a week at a time, went on 23 Oct: “Week” opens Upcoming, which has no week to page.)
 
     // Faint words across the pages they were found on.
     const faint = []
@@ -148,21 +137,26 @@ try {
     }
     check(`${T}: no see-through words under 4.5:1 on Home, Inbox, Goals, Questions, Settings, Matrix, Gems`, faint.length === 0, `${faint.length}: ${faint.slice(0, 6).join(' | ')}`)
 
-    // The page previews: groups headed in plain words, sentence case, 11px+.
+    // The page previews: headed in plain words, sentence case, never spaced capitals. (Upcoming had its own preview,
+    // groups headed "Tomorrow" at 11px; it went with the sidebar's Upcoming row on 23 Oct. Tasks' preview is the one
+    // now, a miniature whose words are drawn small on purpose, so only the casing is checked.)
     await go('home')
-    const row = h.locator('aside button[data-side-row][aria-label="Upcoming"]').first()
+    const row = h.locator('aside button[data-side-row][aria-label="Tasks"]').first()
     let label = null
     if (await row.isVisible().catch(() => false)) {
+      // Tasks sits low in a full sidebar: brought into view first, as a person would scroll to it.
+      await row.scrollIntoViewIfNeeded()
+      await h.waitForTimeout(300)
       const r = await row.boundingBox()
       await h.mouse.move(r.x + r.width / 2, r.y + r.height / 2, { steps: 4 })
       for (let i = 0; i < 60 && !label; i++) {
-        label = await h.evaluate(() => { const one = [...document.querySelectorAll('[data-peek-card] div')].find((el) => el.childNodes.length === 1 && el.textContent === 'Tomorrow'); if (!one) return null; const s = getComputedStyle(one); return { size: parseFloat(s.fontSize), caps: s.textTransform, spacing: s.letterSpacing } })
+        label = await h.evaluate(() => { const card = document.querySelector('[data-peek-card]'); if (!card) return null; const all = [...card.querySelectorAll('*')].filter((el) => el.childNodes.length === 1 && el.firstChild.nodeType === 3 && el.textContent.trim()); return { words: all.length, capitals: all.filter((el) => { const s = getComputedStyle(el); return s.textTransform === 'uppercase' || parseFloat(s.letterSpacing) > 0.5 }).map((el) => el.textContent) } })
         if (!label) await h.waitForTimeout(50)
       }
       await shot(`peek-${name}`)
       await h.mouse.move(600, 400)
     }
-    check(`${T}: the Upcoming preview heads its groups in plain 11px+ words, not spaced capitals`, label && label.size >= 11 && label.caps === 'none' && (label.spacing === 'normal' || parseFloat(label.spacing) === 0), JSON.stringify(label))
+    check(`${T}: the Tasks preview says its words in sentence case, not spaced capitals`, !!label && label.words > 0 && label.capitals.length === 0, JSON.stringify(label))
   }
 
   // Safe mode's notice: body size, the lead in bold.
