@@ -65,6 +65,7 @@ import { LineCards } from "@/extensions/line-cards"
 import { PropertyLines } from "@/extensions/property-lines"
 import { LinkedTasks } from "@/extensions/linked-tasks"
 import { DateWords } from "@/extensions/date-words"
+import { OfferSlot } from "@/extensions/offer-slot"
 import { TaskMarks } from "@/extensions/task-marks"
 import { Kept } from "@/extensions/kept"
 import { TaskLinkMenu } from "@/components/haligtree/task-link-menu"
@@ -482,6 +483,8 @@ export interface HaligtreeEditorProps {
   onToggleSource?: () => void
   /** Shown after the document, scrolling with it: backlinks, as Obsidian keeps them. */
   after?: ReactNode
+  /** One quiet offer from your own notes, just under the words, before `after` (note-offers.tsx). */
+  offers?: (editor: Editor | null) => ReactNode
   /** A line under the words already offers the word's fix (a Word being defined): no spelling pill as well. */
   quietSpelling?: boolean
   /** The note's properties, drawn in the page under its first line (property-strip.tsx). */
@@ -621,6 +624,7 @@ function Surface({
   showSource = false,
   onToggleSource,
   after,
+  offers,
   quietSpelling = false,
   belowTitle,
   stripFirst = false,
@@ -756,6 +760,8 @@ function Surface({
   // before the frame is painted, so what sits under the words comes with them, not a frame after.
   const [contentBox, setContentBox] = useState<HTMLDivElement | null>(null)
   const [afterBox, setAfterBox] = useState<HTMLDivElement | null>(null)
+  // The offer's place, just under the last line, in the column (OfferSlot).
+  const [offerBox] = useState(() => Object.assign(document.createElement("div"), { className: "mf-offer-slot", contentEditable: "false" }))
   // The property strip's place in the page, made once: the editor's plugin puts it under the first line.
   const [stripBox] = useState(() => Object.assign(document.createElement("div"), { className: "mf-property-strip", contentEditable: "false" }))
   const hasStrip = useLatest(!!belowTitle)
@@ -1311,6 +1317,8 @@ function Surface({
       // A to-do that is a task too, kept ticked as one; a pasted list offered as tasks.
       LinkedTasks.configure({ origin: () => (/^(?:capture|item)-(.+)$/.exec(String(documentId ?? ""))?.[1] ?? null), box: () => new URLSearchParams(location.search).get("view") === null && !documentId }),
       TaskMarks,
+      // One quiet offer from your own notes under the last line (note-offers.tsx).
+      ...(offers ? [OfferSlot.configure({ box: () => offerBox })] : []),
       // Dates and times lit as they are written, each saying the day it means; never in a one-line field.
       ...(shape === "line" ? [] : [DateWords.configure({
         writtenOn: () => {
@@ -2064,6 +2072,7 @@ function Surface({
         {/* After the words, inside the same scroll: added beside ProseMirror's
             own element, never inside it. */}
         {after && afterBox && createPortal(after, afterBox)}
+        {offers && createPortal(offers(editor), offerBox)}
         {belowTitle && createPortal(belowTitle, stripBox)}
 
         <LinkPreview editor={editor} />

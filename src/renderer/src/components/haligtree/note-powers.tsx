@@ -5,6 +5,7 @@ import { MarginCard } from './source-page'
 import { CopyAsImage, selectionActions } from './selection-actions'
 import type { Origin } from './reword'
 import { findCaptures, findHeadings, follow } from '@/lib/capture-links'
+import { NoteOffers } from './note-offers'
 
 type NoteTable = 'captures' | 'nuggets'
 
@@ -47,6 +48,8 @@ export function notePowers({ table, id, kind, fields, text, origin, onOpen, read
     readOnly: reading,
     documentId: `${table === 'captures' ? 'capture' : 'item'}-${id}`,
     writtenOn: created,
+    // One quiet offer from your own notes under the words: never on a note locked for reading.
+    offers: reading ? undefined : (editor) => <NoteOffers table={table} id={id} editor={editor} onOpen={onOpen} />,
     // Locked, the page is words only; the block comes with the keys.
     // Its source's card goes with it, locked or not.
     belowTitle: reading ? card ?? undefined : <>{card}<PropertyStrip table={table} id={id} kind={kind} fields={fields} text={text} created={created} updated={updated} sourced={!!card} cited={!!cites?.where?.trim()} /></>,
