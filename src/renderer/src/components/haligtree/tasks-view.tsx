@@ -4,7 +4,6 @@ import { useToday } from '@/lib/use-today'
 import { PractiseIt } from './practise-it'
 import { ReadsIn, useReading } from '@/lib/reads-in'
 import { Highlight, useFluidHover } from './glide'
-import * as chrono from 'chrono-node'
 import type { JSONContent } from '@tiptap/core'
 import { CalendarDays, CircleX, Inbox as InboxIcon, ListTree, Plus, RotateCw, Square, Ban, Tag } from 'lucide-react'
 import { tagTint } from './tag-icon'
@@ -19,7 +18,7 @@ import { ShowInListContext, useShowInList, useShowLine } from '@/lib/show-in-lis
 import { readAhead, readFresh, readNow, useAfterFirstPaint } from '@/lib/early-read'
 import { NoteComing } from './note-coming'
 import { BUCKETS, READY_LEADS, bucket, closeTask, gettingReady, makeTask, renameTask, onToday, placed, readySaid, setReady, snooze, snoozeDays, snoozeItems, snoozed, taskName, taskToNote, toNoteItem } from '@/lib/tasks'
-import { PRIORITY_NAMES } from '../../../../main/task-words'
+import { dateIn, PRIORITY_NAMES } from '../../../../main/task-words'
 import { PriorityIcon, PriorityMark, TaskInput, markRoom, planFor, setPriority } from './task-input'
 import { useArrivals } from './note-list'
 import { TagRow } from './pass'
@@ -1431,7 +1430,7 @@ export function duration(text: string): number | null | undefined {
   const said = text.trim().toLowerCase()
   if (!said || /^no ?limit$/.test(said)) return null
   if (said.startsWith('until')) {
-    const at = chrono.en.GB.parseDate(said.replace(/^until\s*/, '').replace('noon', '12pm'), new Date(), { forwardDate: true })
+    const at = dateIn(said.replace(/^until\s*/, '').replace('noon', '12pm'))
     return at ? Math.max(0, at.getTime() - Date.now()) : undefined
   }
   const clock = said.match(/^(\d+):(\d{2})$/)

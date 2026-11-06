@@ -1,4 +1,3 @@
-import { parseDate } from 'chrono-node'
 import { awayDays } from './away'
 import { streaks } from './focus-numbers'
 import { Notification, app, dialog, ipcMain, net, session, shell } from 'electron'
@@ -15,7 +14,7 @@ import { createEmptyCard, default_w, forgetting_curve, fsrs, generatorParameters
 import { rollOver } from './held'
 import { KEPT_IN, LABEL, LIST, atomically, changed, database, like, movedOn, type Change } from './captures'
 import { docList, tasksSaid } from './day-lines'
-import { advance, leadingTag, readTask } from './task-words'
+import { advance, dateIn, leadingTag, readTask } from './task-words'
 import { clock, dayKey, dayMonth, dayjs, daysFromToday, monthName, noon, num, startOfDay, plural } from './dates'
 import { backUpWatched, backupDir, backupStatus, checkMarkdown, chooseFolder } from './backup'
 import { SANDBOX, handedOff } from './sandbox'
@@ -1340,7 +1339,7 @@ export function registerHaligtree(): void {
   foldKept(db)
   toCheckBack(db)
   goalsOut(db, (capture) => {
-    const named = parseDate(capture.title ?? '', new Date(), { forwardDate: true })
+    const named = dateIn(capture.title ?? '')
     const target = dayKey(named && named.getTime() > Date.now() ? named : new Date(Date.now() + 30 * 86400000))
     db.prepare("insert into nuggets (id, capture_id, tier, kind, title, body, goal_at, goal_from, goal_color, private, created_at, updated_at) values (?, ?, 'goal', 'note', ?, ?, ?, ?, ?, ?, ?, ?)")
       .run(randomUUID(), capture.id, cut(String(capture.title ?? '').trim(), 300) || 'Untitled', capture.body ?? 'null', target, dayKey(), freeGoalColor(), capture.private, now(), now())
@@ -1571,7 +1570,7 @@ export function registerHaligtree(): void {
     if (capture.kind === 'quote' && !line?.trim() && !bare) return 'needs-words'
     // A goal kept is a goal: on the Goals page, aiming for the day its words name, or a month on.
     if (capture.kind === 'goal') {
-      const named = parseDate(capture.title ?? '', new Date(), { forwardDate: true })
+      const named = dateIn(capture.title ?? '')
       const target = dayKey(named && named.getTime() > Date.now() ? named : new Date(Date.now() + 30 * 86400000))
       const goal = randomUUID()
       db.prepare("insert into nuggets (id, capture_id, tier, kind, title, body, why, goal_at, goal_from, goal_color, private, created_at, updated_at) values (?, ?, 'goal', 'note', ?, ?, ?, ?, ?, ?, ?, ?, ?)")

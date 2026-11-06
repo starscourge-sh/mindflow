@@ -1,4 +1,4 @@
-import { parseDate } from 'chrono-node'
+import { dateIn } from './task-words.ts'
 
 /**
  * Properties: a name and a value on any note or page, kept in its `fields`
@@ -44,7 +44,7 @@ export function readValue(raw: string, type?: PropType | null, now = new Date())
   const asNumber = /^-?\d+(?:[.,]\d+)?$/.test(text) ? Number(text.replace(',', '.')) : null
   const link = /^\[\[(.+)\]\]$/.exec(text)?.[1] ?? null
   const asDate = (): string | null => {
-    const day = /^\d{4}-\d\d-\d\d$/.test(text) ? new Date(`${text}T12:00:00`) : parseDate(text, now, { forwardDate: true })
+    const day = /^\d{4}-\d\d-\d\d$/.test(text) ? new Date(`${text}T12:00:00`) : dateIn(text, now)
     if (!day || Number.isNaN(day.getTime())) return null
     day.setHours(12, 0, 0, 0)
     return day.toISOString()

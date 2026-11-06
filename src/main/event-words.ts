@@ -1,7 +1,6 @@
-import * as chrono from 'chrono-node'
 import dayjs from 'dayjs'
 import type { Repeat } from './event-repeat'
-import { stampSpans } from './task-words.ts'
+import { dateReader, stampSpans } from './task-words.ts'
 
 /**
  * An event read out of one line of words, the way Google Calendar's quick
@@ -73,7 +72,7 @@ export function readEvent(words: string, now = new Date(), known: string[] = [])
   // "now" alone is how people talk, never when an event is (task-words.ts reads it the same way).
   // A place in a recording ("[0:03]") is no time of day either.
   const stamps = stampSpans(text)
-  const found = chrono.en.GB.parse(text, now, { forwardDate: true }).find((one) => !/^(?:right )?now$/i.test(one.text.trim())
+  const found = dateReader().parse(text, now, { forwardDate: true }).find((one) => !/^(?:right )?now$/i.test(one.text.trim())
     && !stamps.some((stamp) => one.index < stamp.to && one.index + one.text.length > stamp.from))
   if (found) {
     start = found.start.date()

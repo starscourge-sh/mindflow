@@ -49,6 +49,42 @@ const SLIPS: [RegExp, string][] = [
 /** A day word, then an hour with nothing after it: "tmrw 3", "fri 10.30". Read as "at 3". */
 const DAY_THEN_HOUR = /\b(?:today|tomorrow|tmrw?|tonight|(?:mon|tue|wed|thu|fri|sat|sun)[a-z]*)(\s+)(?:(?:1[0-2]|0?[1-9])|(?:[01]?\d|2[0-3])[.:][0-5]\d)(?=\s*$|\s*[,;!?]|\s*\.(?:\s|$))/gi
 
+/**
+ * A stretch of time said on its own: "5m", "the h", "a sec", "1960s", "2 hours and 10 minutes".
+ * It is a when only once it says from when: "in 5m", "within 2 days", "2h ago", "3 days later".
+ */
+const UNIT_WORD = String.raw`s|secs?|seconds?|m|mins?|minutes?|h|hrs?|hours?|d|days?|w|wks?|weeks?|mo|mos|months?|y|yrs?|years?|qtrs?|quarters?|moments?`
+const HOW_MANY = String.raw`\d+(?:\.\d+)?|an?|the|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|(?:a\s+)?few|several|(?:a\s+)?couple(?:\s+of)?|half\s+an?`
+const LENGTH = new RegExp(String.raw`^(?:(?:${HOW_MANY})\s*(?:${UNIT_WORD})\b[\s,]*(?:and\s+)?)+$`, 'i')
+const FROM_WHEN = /^(?:in|within|after)\s+|\s+(?:later|ago|from now|hence)$/gi
+/** "in a sec", "in a minute", "in a moment": soon, the way people talk, never a time to set. */
+const SOON = /^(?:an?|the|one)\s*(?:s|secs?|seconds?|m|mins?|minutes?|moments?|h|hrs?|d|w|wks?|mo|y|yrs?)$/i
+/**
+ * Whether chrono's reading of `said` is a real when. A stretch of time with no
+ * "in" or "ago" ("the m" while "the mall" is half typed, "the 1960s", "wait
+ * 30s") is no when, nor is "in a sec"; "in 5m", "in an hour", "2h ago" are.
+ */
+export function saysWhen(said: string): boolean {
+  const words = said.trim().replace(/^(?:about|around|roughly|nearly|almost|just|some|at|by|for)\s+/i, '')
+  const core = words.replace(FROM_WHEN, '')
+  if (!LENGTH.test(core)) return true
+  if (core === words) return false
+  return !SOON.test(core) && !/^the\b/i.test(core)
+}
+let reader: chrono.Chrono | undefined
+/**
+ * The one date reader every part of Haligtree reads typed words with: chrono's
+ * British one (1/11 is the 1st of November), less what `saysWhen` says is no when.
+ */
+export const dateReader = (): chrono.Chrono => {
+  if (reader) return reader
+  reader = chrono.en.GB.clone()
+  reader.refiners.push({ refine: (_context, results) => results.filter((one) => saysWhen(one.text) && !/^(?:right )?now$/i.test(one.text.trim())) })
+  return reader
+}
+/** The first when in the words, read by `dateReader`, or null. */
+export const dateIn = (text: string, at: Date = new Date(), forwardDate = true): Date | null => dateReader().parseDate(text, at, { forwardDate })
+
 type Edit = { from: number; to: number; with: string; slip: boolean }
 /** The words as chrono should read them, and where each of its letters came from in the words as typed. */
 function mend(text: string): { fixed: string; starts: number[]; ends: number[]; edits: Edit[] } {
@@ -98,7 +134,7 @@ export const isTranscriptLine = (text: string): boolean => /^\s*\[\d{1,2}(?::\d{
 export function datesIn(text: string, at = new Date()): DateFound[] {
   const { fixed, starts, ends, edits } = mend(text)
   const tags = [...tagSpans(text), ...stampSpans(text)]
-  return chrono.en.GB.parse(fixed, at, { forwardDate: true }).filter((found) => {
+  return dateReader().parse(fixed, at, { forwardDate: true }).filter((found) => {
     const [from, to] = [starts[found.index], ends[found.index + found.text.length - 1]]
     // "you now have" is no time: "now" alone is how people talk, never when a task is for.
     return !/^(?:right )?now$/i.test(found.text.trim()) && !tags.some((tag) => from < tag.to && to > tag.from)
@@ -110,7 +146,7 @@ export function datesIn(text: string, at = new Date()): DateFound[] {
     if (/^this (?:morning|afternoon)$/i.test(found.text) && !dayjs(date).isSame(at, 'day')) date = dayjs(at).hour(dayjs(date).hour()).minute(0).toDate()
     // "oct 30" is the 30th of October, never October 2030.
     const monthDay = /^([a-z]+)\.?\s+(\d{2})$/i.exec(found.text)
-    if (monthDay && found.start.isCertain('year')) date = chrono.en.GB.parseDate(`${monthDay[2]} ${monthDay[1]}`, at, { forwardDate: true }) ?? date
+    if (monthDay && found.start.isCertain('year')) date = dateReader().parseDate(`${monthDay[2]} ${monthDay[1]}`, at, { forwardDate: true }) ?? date
     const slip = edits.find((one) => one.slip && one.from < to && one.to > from)
     const said = text.slice(from, to)
     let guess: string | undefined
@@ -300,7 +336,10 @@ function notADate(said: string, before: string, after: string): boolean {
   // "a day" is how often, not when: "read 2 chapters a day".
   if (/^(?:a|one)\s+(?:day|week|month|year)$/i.test(word)) return true
   // "sun", "sat" and "wed" before a word that is not when are words: "sun cream", "sat nav".
-  if (/^(?:sun|sat|wed)$/i.test(word) && !/\bon\s+$/i.test(before) && !DAY_GOES_ON.test(after)) return true
+  // "mon ami" too; and "put on sun cream": after "on" it still has to read as a day.
+  // "wed to the idea": "to" goes on to a day, or it is a word.
+  // Alone on the line it is still being typed ("sun" on its way to "sunscreen").
+  if (/^(?:on\s+)?(?:sun|sat|wed|mon)$/i.test(word) && ((!before.trim() && !after.trim()) || !DAY_GOES_ON.test(after) || /^\s*(?:to|and|or)\s+(?!(?:mon|tue|wed|thu|fri|sat|sun))/i.test(after))) return true
   // A month's name alone, with no day, is a date only once it says when: "in march", "by august".
   if (/^(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*(?:\s+of)?$/i.test(word) && !/\b(?:in|by|until|till|before|for|during|next|this|early|late|mid|end of|start of)\s+$/i.test(before)) return true
   return false
