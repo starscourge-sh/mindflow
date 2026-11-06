@@ -3,7 +3,10 @@
 // Built by native/build-meeting.sh.
 //   meeting --status            {"status":"granted"|"denied"}: Screen & System Audio Recording, without asking
 //   meeting --ask               asks macOS once for it, says the answer
-//   meeting record <folder> <locale> [--test <you.wav> <others.wav> <script.jsonl>] [--ai-stand-in] [--no-live]
+//   meeting --apps              {"apps":[{"bundle":"…","name":"…"}]}: the apps open now that can make sound
+//   meeting record <folder> <locale> [--from <bundle id>] [--no-mic] [--test <you.wav> <others.wav> <script.jsonl>] [--ai-stand-in] [--no-live]
+//       --from records one app's sound instead of all of this Mac's; --no-mic leaves the microphone off. While it
+//       records, "from <bundle id>" (or "from all") and "mic on" / "mic off" on stdin change them.
 //       records until a line "stop" on stdin ("pause", "resume" and "mark" too). In the folder it leaves
 //       you.m4a, others.m4a (the two tracks, AAC, 16 kHz mono) and meeting.m4a (both, for listening).
 //       --test feeds two made-up recordings instead of the microphone and the Mac's sound, at their own pace,
@@ -13,9 +16,11 @@
 //   {"ready":{"live":"analyzer"|"recognizer"|"none","locale":"en_ZA","test":false}}
 //   {"level":{"you":0.2,"others":0.05,"at":12.3}}           about ten times a second
 //   {"words":{"id":"o12","track":"others","text":"...","start":1.2,"end":3.4,"final":false,"speaker":"s1"}}
-//   {"saved":{"seconds":3605.2,"peaks":[...],"you":true,"others":true}}
+//   {"saved":{"seconds":3605.2,"peaks":[...],"you":true,"others":true,"heard":3590.1}}   heard: until when anything was heard
+//   {"from":{"bundle":"com.example.app"|null,"mic":true}}    what is being recorded, at the start and on each change
 //   {"found":{...}} and {"take":{...}}                       what to take from it, once stopped
 //   {"error":{"code":"...","message":"..."}}
+import AppKit
 import AVFoundation
 import CoreGraphics
 import CoreMedia
@@ -364,6 +369,22 @@ final class Track {
     return min(1, now * 2)
   }
 
+  /** Quiet to the meeting's end: both tracks as long as the meeting, so its length, its sound and its waveform agree. */
+  func pad(to seconds: Double) {
+    lock.lock()
+    defer { lock.unlock() }
+    let due = Int64(seconds * RATE)
+    var left = due - written
+    while left > 0, let gap = AVAudioPCMBuffer(pcmFormat: plain, frameCapacity: AVAudioFrameCount(min(left, Int64(RATE) * 10))) {
+      gap.frameLength = gap.frameCapacity
+      memset(gap.floatChannelData![0], 0, Int(gap.frameLength) * 4)
+      try? file?.write(from: gap)
+      written += Int64(gap.frameLength)
+      left -= Int64(gap.frameLength)
+      for _ in 0..<Int(gap.frameLength) { tenthFill += 1; if tenthFill >= Int(RATE / 10) { tenths.append(tenthPeak); tenthPeak = 0; tenthFill = 0 } }
+    }
+  }
+
   /** Done: the file let go of, which is what finishes writing it, so it can be read back whole. */
   func close() {
     lock.lock()
@@ -428,10 +449,16 @@ final class MacSound: NSObject, SCStreamOutput, SCStreamDelegate {
   let track: Track
   init(track: Track) { self.track = track }
 
+  /** One app's sound (its bundle id), or all of this Mac's (nil). */
+  var bundle: String?
   func start() async throws {
     let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: false)
     guard let display = content.displays.first else { throw NSError(domain: "meeting", code: 1, userInfo: [NSLocalizedDescriptionKey: "No screen to listen through"]) }
-    let filter = SCContentFilter(display: display, excludingApplications: [], exceptingWindows: [])
+    let apps = content.applications.filter { $0.bundleIdentifier == bundle }
+    // The app gone or never found: all of this Mac, rather than nothing.
+    let filter = bundle != nil && !apps.isEmpty
+      ? SCContentFilter(display: display, including: apps, exceptingWindows: [])
+      : SCContentFilter(display: display, excludingApplications: [], exceptingWindows: [])
     let config = SCStreamConfiguration()
     config.capturesAudio = true
     config.excludesCurrentProcessAudio = true
@@ -445,6 +472,14 @@ final class MacSound: NSObject, SCStreamOutput, SCStreamDelegate {
     try stream.addStreamOutput(self, type: .audio, sampleHandlerQueue: DispatchQueue(label: "meeting.mac"))
     try await stream.startCapture()
     self.stream = stream
+  }
+
+  /** Another app's sound, or all of this Mac's, without stopping the meeting: the gap is kept as quiet. */
+  func change(to next: String?) async {
+    try? await stream?.stopCapture()
+    stream = nil
+    bundle = next
+    do { try await start() } catch { say(["error": ["code": "mac-sound", "message": "The sound could not be recorded from there: \(error.localizedDescription)"]]) }
   }
 
   func stream(_ stream: SCStream, didOutputSampleBuffer sample: CMSampleBuffer, of type: SCStreamOutputType) {
@@ -469,11 +504,13 @@ func pcm(_ sample: CMSampleBuffer) -> AVAudioPCMBuffer? {
 }
 
 let engine = AVAudioEngine()
+/** The microphone on or off ("My microphone" on the card): off, your side is kept as quiet. */
+var micOn = !CommandLine.arguments.contains("--no-mic")
 func startMicrophone(_ track: Track) throws {
   let input = engine.inputNode
   let format = input.outputFormat(forBus: 0)
   input.installTap(onBus: 0, bufferSize: 4096, format: format) { buffer, _ in
-    if paused { return }
+    if paused || !micOn { return }
     track.take(buffer, at: max(0, now() - Double(buffer.frameLength) / format.sampleRate))
   }
   try engine.start()
@@ -490,7 +527,8 @@ func feedFile(_ path: String, into track: Track) {
       // Never ahead of the meeting's clock: a tenth of a second at a time, as a microphone gives it.
       while now() < at { Thread.sleep(forTimeInterval: 0.01) }
       guard let buffer = AVAudioPCMBuffer(pcmFormat: file.processingFormat, frameCapacity: step), (try? file.read(into: buffer)) != nil, buffer.frameLength > 0 else { break }
-      track.take(buffer, at: at)
+      // The microphone off: your side is not taken (the gap is kept as quiet).
+      if !(track.name == "you" && !micOn) { track.take(buffer, at: at) }
       at += Double(buffer.frameLength) / file.processingFormat.sampleRate
     }
   }
@@ -626,12 +664,29 @@ if args.first == "--ask" {
   say(["status": CGRequestScreenCaptureAccess() ? "granted" : "denied"])
   exit(0)
 }
+if args.first == "--apps" {
+  // The apps open now with a window or a Dock icon: the ones that make sound. This program itself never.
+  Task {
+    let content = try? await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: false)
+    let regular = Set(NSWorkspace.shared.runningApplications.filter { $0.activationPolicy == .regular }.compactMap { $0.bundleIdentifier })
+    var seen = Set<String>()
+    let apps = (content?.applications ?? []).filter { regular.contains($0.bundleIdentifier) && !$0.bundleIdentifier.hasPrefix("com.starskourge.haligtree") && seen.insert($0.bundleIdentifier).inserted }
+      .map { ["bundle": $0.bundleIdentifier, "name": $0.applicationName] }
+      .sorted { ($0["name"] ?? "").localizedCaseInsensitiveCompare($1["name"] ?? "") == .orderedAscending }
+    say(["apps": apps])
+    exit(0)
+  }
+  dispatchMain()
+}
 guard args.first == "record", args.count >= 3 else { fail("usage", "meeting record <folder> <locale>") }
 let folder = URL(fileURLWithPath: args[1])
 let locale = Locale(identifier: args[2])
 let testAt = args.firstIndex(of: "--test")
 let test = testAt.map { Array(args[($0 + 1)...].prefix(3)) }
 let standIn = args.contains("--ai-stand-in")
+let fromAt = args.firstIndex(of: "--from")
+let from: String? = fromAt.flatMap { $0 + 1 < args.count ? args[$0 + 1] : nil }
+var currentFrom = from
 try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
 
 let you: Track, others: Track
@@ -654,6 +709,7 @@ func begin() {
     do { try startMicrophone(you) } catch { fail("microphone", "The microphone could not be recorded: \(error.localizedDescription)") }
     if #available(macOS 13, *) {
       let sound = MacSound(track: others)
+      sound.bundle = from
       macSound = sound
       let ready = DispatchSemaphore(value: 0)
       var failed: Error?
@@ -667,6 +723,7 @@ func begin() {
     } else { fail("too-old", "Recording a meeting needs macOS 13") }
   }
   say(["ready": ["live": live, "locale": locale.identifier, "test": test != nil]])
+  say(["from": ["bundle": (from as Any?) ?? NSNull(), "mic": micOn]])
   // The level of each side, ten times a second.
   Thread.detachNewThread {
     while true {
@@ -688,12 +745,19 @@ func finish() {
   }
   you.words?.finish()
   others.words?.finish()
+  // The meeting's own length: a side that went quiet (a call app that stopped playing sends nothing) is kept as quiet
+  // to the end, so the page's length, the player's and the waveform's are one.
+  let over = now()
+  you.pad(to: over)
+  others.pad(to: over)
   you.close()
   others.close()
   let wave = peaks(you.tenths, others.tenths)
   let heardYou = (you.tenths.max() ?? 0) > 0.01, heardOthers = (others.tenths.max() ?? 0) > 0.01
+  // Until when anything was heard on either side, so the page can say the quiet after it rather than look cut short.
+  let last = max(you.tenths.lastIndex { $0 > 0.02 } ?? -1, others.tenths.lastIndex { $0 > 0.02 } ?? -1)
   let seconds = mix(folder)
-  say(["saved": ["seconds": (seconds * 100).rounded() / 100, "peaks": wave, "you": heardYou, "others": heardOthers]])
+  say(["saved": ["seconds": (seconds * 100).rounded() / 100, "peaks": wave, "you": heardYou, "others": heardOthers, "heard": Double(last + 1) / 10]])
   linesLock.lock()
   let all = lines.sorted { ($0["start"] as? Double ?? 0) < ($1["start"] as? Double ?? 0) }
   linesLock.unlock()
@@ -715,6 +779,18 @@ Thread.detachNewThread {
       clockLock.lock(); if pausedAt == nil { pausedAt = Date() }; clockLock.unlock()
     case "resume":
       clockLock.lock(); if let at = pausedAt { pausedFor += Date().timeIntervalSince(at); pausedAt = nil }; clockLock.unlock()
+    case "mic on", "mic off":
+      micOn = line.hasSuffix("on")
+      say(["from": ["bundle": (currentFrom as Any?) ?? NSNull(), "mic": micOn]])
+    case let said where said.hasPrefix("from "):
+      let next = String(said.dropFirst(5))
+      currentFrom = next == "all" ? nil : next
+      if test == nil, #available(macOS 13, *), let sound = macSound as? MacSound {
+        let changed = DispatchSemaphore(value: 0)
+        Task { await sound.change(to: currentFrom); changed.signal() }
+        changed.wait()
+      }
+      say(["from": ["bundle": (currentFrom as Any?) ?? NSNull(), "mic": micOn]])
     case "stop":
       clockLock.lock(); if let at = pausedAt { pausedFor += Date().timeIntervalSince(at); pausedAt = nil }; clockLock.unlock()
       finish()
