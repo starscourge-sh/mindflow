@@ -10,6 +10,9 @@ import { sandbox } from './sandbox-lib.mjs'
 process.env.QA_ARGS ??= '--sandbox'
 const { check, done } = checks()
 const shots = process.env.QA_SHOTS
+/** "Hard in 5 days" to minutes. */
+const minutes = (text) => { const [, n, unit] = /in ([\d,.]+) (min|minute|hour|day|week|month|year)/.exec(text) ?? []; return Number(String(n).replace(/,/g, '')) * ({ min: 1, minute: 1, hour: 60, day: 1440, week: 10080, month: 43800, year: 525600 }[unit] ?? NaN) }
+const inOrder = (times) => times.length === 4 && new Set(times.map((t) => t.replace(/^\D+?(?=in )/, ''))).size === 4 && times.map(minutes).every((m, n, all) => !Number.isNaN(m) && (n === 0 || m > all[n - 1]))
 const flat = (text) => (text ?? '').toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '').replace(/[^\p{L}\p{N}]+/gu, ' ').trim()
 
 for (const level of ['every', 'ai']) {
@@ -70,13 +73,35 @@ for (const level of ['every', 'ai']) {
       const answer = flat(await h.evaluate(() => document.querySelector('[data-answer-side] .tiptap')?.textContent ?? ''))
       check('ai: neither hint holds the answer', answer.length > 0 && !two.some((one) => flat(one.replace(/^(Stronger )?hint:/i, '')).includes(answer)), JSON.stringify({ two, answer }))
       const after = await h.evaluate(() => ({ line: document.querySelector('[data-hints-taken]')?.textContent ?? '', times: [...document.querySelectorAll('[data-grades] button')].map((one) => one.textContent) }))
-      check('ai: “You took two hints, so each grade brings it back two steps sooner”', /You took two hints/.test(after.line), after.line)
-      check('ai: Hard, Good and Easy now come back as Hard would', after.times.length === 4 && new Set(after.times.slice(1).map((t) => t.replace(/^(Hard|Good|Easy)/, ''))).size === 1, JSON.stringify(after.times))
+      check('ai: “You took two hints, so it comes back sooner still.”', /You took two hints, so it comes back sooner still/.test(after.line), after.line)
+      check('ai: after two hints the four grades still come back at four different times, in order', inOrder(after.times), JSON.stringify(after.times))
       if (shots) for (const look of ['light', 'dark']) { await c.look(look); await h.waitForTimeout(300); await h.screenshot({ path: join(shots, `hints-answer-${look}.png`) }) }
       await c.look('light')
       await h.keyboard.press('4')
       await waitFor(async () => (await v('review:history', card.id)).reviews.length > 0)
       check('ai: the grade pressed (Easy) is the one logged', (await v('review:history', card.id)).reviews.at(-1)?.grade === 4)
+      // One and two hints, on a card not seen before and on one seen before: the four times stay four, in order.
+      const done = new Set()
+      for (let i = 0; i < 40 && done.size < 4; i++) {
+        await waitFor(() => h.evaluate(() => !!document.querySelector('[data-typed-lines]')))
+        await h.evaluate(() => document.activeElement?.blur())
+        const front = (await v('review:queue')).find((one) => one.prompt && h) // the queue's order is Review's
+        const prompt = await h.evaluate(() => document.querySelector('h2')?.textContent ?? '')
+        const here = (await v('review:queue')).find((one) => prompt.includes((one.prompt ?? '').slice(0, 20))) ?? front
+        const kind = here?.first ? 'new' : 'seen before'
+        const want = [1, 2].find((n) => !done.has(`${kind} ${n}`))
+        if (!want) { await h.keyboard.press('b'); await h.waitForTimeout(400); continue }
+        for (let n = 0; n < want; n++) { await h.keyboard.press('h'); await waitFor(async () => (await hints()).length === n + 1) }
+        await h.keyboard.press('Space')
+        await waitFor(() => h.evaluate(() => !!document.querySelector('[data-grades]')))
+        const times = await h.evaluate(() => [...document.querySelectorAll('[data-grades] button')].map((one) => one.textContent))
+        check(`ai: a card ${kind}, ${want === 1 ? 'one hint' : 'two hints'}: four different times, in order`, inOrder(times), JSON.stringify(times))
+        done.add(`${kind} ${want}`)
+        // Again puts a card back at the end of the sitting: the one card seen before comes round for its second case.
+        await h.keyboard.press(done.size < 4 ? '1' : '3')
+        await h.waitForTimeout(600)
+      }
+      check('ai: every case was met (new and seen before, one and two hints)', done.size === 4, JSON.stringify([...done]))
     }
   } catch (error) {
     check(`${level}: ran without throwing`, false, String(error?.stack ?? error))

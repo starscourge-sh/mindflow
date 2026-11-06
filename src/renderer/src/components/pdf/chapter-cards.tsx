@@ -1,8 +1,6 @@
 import { useEffect, useRef, useState } from "react"
 import type { PDFDocumentProxy } from "pdfjs-dist"
 import { Check, X } from "lucide-react"
-import { FLOAT } from "@/lib/float"
-import { cn } from "@/lib/cn"
 import { chime } from "@/lib/sound"
 import { Orb } from "@/components/haligtree/orb"
 import { Button } from "@/components/ui/button"
@@ -47,7 +45,8 @@ export function ChapterCards({ doc, title, outline, page, marks, onKeep, onGo, o
       const texts: { page: number; text: string }[] = []
       for (let n = range.from; n <= range.to; n += step) {
         const content = await (await doc.getPage(n)).getTextContent()
-        texts.push({ page: n, text: content.items.map((item) => ("str" in item ? item.str : "")).join(" ") })
+        // Each line of the page on its own line, as pdf.js marks them, so a heading stays apart from its first sentence.
+        texts.push({ page: n, text: content.items.map((item) => ("str" in item ? item.str + (item.hasEOL ? "\n" : " ") : "")).join("") })
         if (asked.current !== ask) return
       }
       const highlights = marks.filter((one) => one.page >= range.from && one.page <= range.to && one.quote.trim()).map((one) => ({ page: one.page, text: one.quote }))
@@ -89,7 +88,10 @@ export function ChapterCards({ doc, title, outline, page, marks, onKeep, onGo, o
   const kept = cards?.filter((one) => one.state === "kept").length ?? 0
 
   return (
-    <div className={cn("look-up chapter-cards", FLOAT)} role="dialog" aria-label={`Cards from ${named}`} data-chapter-cards={cards ? cards.length : "reading"}>
+    // Docked where Details opens, pushing the page aside, so the page a card comes from stays in sight beside it.
+    <div className="read-details-frame">
+    <aside className="book-panel chapter-cards" aria-label={`Cards from ${named}`} data-chapter-cards={cards ? cards.length : "reading"}>
+      <div className="book-panel-head chapter-cards-top">
       <div className="chapter-cards-head">
         <h3 className="chapter-cards-title">{cards ? `${cards.length === 5 ? "Five cards" : plural(cards.length, "card")} from ${named}` : `Cards from ${named}`}</h3>
         <button type="button" aria-label="Close" className="chapter-cards-close" onClick={stop}><X className="size-4" /></button>
@@ -97,6 +99,8 @@ export function ChapterCards({ doc, title, outline, page, marks, onKeep, onGo, o
       <p className="chapter-cards-note">
         {range.from === range.to ? `Page ${range.from}` : `Pages ${range.from} to ${range.to}`}, read on this Mac by Apple Intelligence, your highlights and the headings first. <strong>Nothing is made until you keep it.</strong>
       </p>
+      </div>
+      <div className="book-panel-body chapter-cards-body" data-panel-scroll>
       {!cards && !error && (
         <p className="chapter-cards-wait"><Orb label={`Reading ${named}…`} stop={stop} /></p>
       )}
@@ -137,6 +141,7 @@ export function ChapterCards({ doc, title, outline, page, marks, onKeep, onGo, o
           ))}
         </ol>
       )}
+      </div>
       {cards && (
         <div className="chapter-cards-foot">
           <span className="chapter-cards-count">{kept ? `${plural(kept, "card")} made` : "None made yet"}</span>
@@ -147,6 +152,7 @@ export function ChapterCards({ doc, title, outline, page, marks, onKeep, onGo, o
           )}
         </div>
       )}
+    </aside>
     </div>
   )
 }

@@ -1,7 +1,7 @@
 import type { Settings } from '@/lib/haligtree'
 import { useHas } from '@/lib/needs'
 import type { Verdict } from '../../../main/study-ai'
-export { VERDICT_SAID, cutWords, hintedGrade, meaningGrade, chapterRange, chapterText, type Verdict } from '../../../main/study-ai'
+export { VERDICT_SAID, cutWords, hintedTimes, meaningGrade, chapterRange, chapterText, type Verdict } from '../../../main/study-ai'
 
 /**
  * Apple Intelligence in Review and the reader (main/understand.ts): offered

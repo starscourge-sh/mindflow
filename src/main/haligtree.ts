@@ -23,7 +23,7 @@ import { celebrateAfter, goalPassed, watches, type MomentKind } from './celebrat
 import type { MomentSource } from './moment-source'
 import { keepPins, warmGiphy } from './giphy'
 import { YEAR, daysBetween, daysLeft, leftSaid } from './goal-days'
-import { hintedGrade } from './study-ai'
+import { hintedTimes } from './study-ai'
 import { LEECH_AT, balancedDay, bucketOf, thingsIn, withinTagLimits, daysInARow, fitFirstDays, minutesFor, shuffleNew, struggling, siblingsOf, burySiblings, type Bucket } from './study'
 import { syncLineCards } from './line-cards'
 import { busy } from './busy'
@@ -2855,11 +2855,13 @@ export function registerHaligtree(): void {
     return { done: done.n, left: done.n ? reviewQueue().length : 0, last: done.last }
   })
   // Only a graded review moves a schedule: not opening, not searching.
-  // Hints taken before the answer (Review's "Give me a hint") schedule it a step lower each, never below Hard; the log keeps your own grade and the hints.
+  // Hints taken before the answer (Review's "Give me a hint") bring it back sooner (study-ai.ts hintedTimes); the log keeps your own grade and the hints.
   handle('review:grade', (id: string, grade: Grade, ms: number, hints = 0) => {
     const row = db.prepare(`select ${ITEM}, body, state from nuggets where id = ?`).get(id) as Record<string, unknown> & { state: string | null }
     const before = db.prepare('select state, due_at, edited_since_review from nuggets where id = ?').get(id) as { state: string | null; due_at: string | null; edited_since_review: number }
-    const { card } = scheduler(retentionOf()(row)).next(cardOf(row.state), new Date(), hintedGrade(grade, hints) as Grade)
+    const { card } = scheduler(retentionOf()(row)).next(cardOf(row.state), new Date(), grade)
+    // The same four times Review showed under the grades, shortened by the hints taken.
+    if (hints) card.due = new Date(hintedTimes(preview(row.state as string | null, (when) => capped(when, examOf()(row)), retentionOf()(row)), Date.now(), hints)[grade])
     // Heavy days spread out: a card coming back in 3 days or more lands on
     // the lightest day near its own, and off a lighter weekday if one is set.
     const days = Math.round((card.due.getTime() - startOfDay()) / 86400000)

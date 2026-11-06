@@ -1,3 +1,5 @@
+import { interval } from './dates.ts'
+
 /**
  * Review and reading with Apple Intelligence (native/understand.swift "judge",
  * "hint" and "cards"): the plain rules around what the model says, kept here
@@ -28,13 +30,36 @@ export function cutWords(text: string, most = 60): string {
   return `${cut.slice(0, Math.max(cut.lastIndexOf(' '), most / 2)).replace(/[,;:.]$/, '')}…`
 }
 
+/** How long a time reads, in minutes, as Review says it ("24h" and "1d" read the same). */
+const MINUTES: Record<string, number> = { m: 1, h: 60, d: 1440, w: 10080, mo: 43800, y: 525600 }
+function shown(iso: string, now: number): number {
+  const [, n, unit] = /^(\d+)(\D+)$/.exec(interval(iso, now)) ?? []
+  return Number(n) * (MINUTES[unit] ?? 1)
+}
+
+/** How much of its time away a card keeps for each hint taken: two hints, about a third. */
+export const HINT_KEEPS = 0.6
+
 /**
- * The grade a card is scheduled at after hints: each hint a step down, never
- * below Hard, and Again stays Again. What you pressed is what the log keeps.
+ * When each grade brings a card back after hints, from when it would have
+ * (Review's four times): Again as it is, the others sooner by the same share.
+ * Where shortening would make a grade read the same as the one before it
+ * ("in 1 day" twice), it is moved on a unit at a time, never past its own
+ * time, so the four stay four and in order. What you pressed is what the log keeps.
  */
-export function hintedGrade(grade: 1 | 2 | 3 | 4, hints: number): 1 | 2 | 3 | 4 {
-  if (grade === 1 || hints <= 0) return grade
-  return Math.max(2, grade - Math.min(hints, 2)) as 2 | 3 | 4
+export function hintedTimes(times: Record<number, string>, now: number, hints: number): Record<number, string> {
+  if (hints <= 0) return times
+  const out: Record<number, string> = { 1: times[1] }
+  for (const grade of [2, 3, 4]) {
+    const due = Date.parse(times[grade])
+    const before = Date.parse(out[grade - 1])
+    let at = now + (due - now) * HINT_KEEPS ** Math.min(hints, 2)
+    // Reading the same as the grade before: one of its units later (a day, an hour, a minute), never past its own time.
+    const step = before - now >= 864e5 ? 864e5 : before - now >= 36e5 ? 36e5 : 60e3
+    while ((at <= before || shown(new Date(at).toISOString(), now) <= shown(out[grade - 1], now)) && at < due) at = Math.min(due, at + step)
+    out[grade] = new Date(at).toISOString()
+  }
+  return out
 }
 
 export type OutlineRow = { title: string; depth: number; page: number }
@@ -60,6 +85,17 @@ export function chapterRange(outline: OutlineRow[], page: number, pages: number,
  * page's opening lines, an even share a page, so an 80-page chapter is read
  * across, not only its first pages. Each line carries its page, "[p. 12]".
  */
+/**
+ * A page's lines as sentences: a short line with no stop of its own, before a
+ * line that starts afresh (a heading, "Page 7", a running head), ends with a full stop, so it is never read into the
+ * sentence after it; the lines of a paragraph join with a space.
+ */
+export function pageWords(text: string): string {
+  const lines = text.split(/\n+/).map((line) => line.replace(/\s+/g, ' ').trim()).filter(Boolean)
+  // A heading: short, no stop of its own, and the next line starts afresh (a capital or a number), not mid-sentence.
+  return lines.map((line, n) => (line.length < 60 && !/[.!?:;,]$/.test(line) && /^[\p{Lu}\p{N}"“]/u.test(lines[n + 1] ?? 'A') ? `${line}.` : line)).join(' ')
+}
+
 export function chapterText(parts: { pages: { page: number; text: string }[]; highlights: { page: number; text: string }[]; headings: { page: number; title: string }[] }, budget = 9000): string {
   const lines: string[] = []
   let left = budget
@@ -78,7 +114,7 @@ export function chapterText(parts: { pages: { page: number; text: string }[]; hi
   const taken = pages.filter((_, n) => n % step === 0)
   const room = Math.floor(left / taken.length) - 10
   for (const one of taken) {
-    const words = one.text.replace(/\s+/g, ' ').trim()
+    const words = pageWords(one.text)
     const cut = words.length > room ? `${words.slice(0, words.lastIndexOf(' ', room) > 0 ? words.lastIndexOf(' ', room) : room)}` : words
     if (!put(`[p. ${one.page}] ${cut}`)) break
   }

@@ -460,7 +460,8 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
   // Five cards from the chapter you are in, by Apple Intelligence, each kept or dropped by you (chapter-cards.tsx).
   const ai = useStudyAi(useLive(haligtree.settings, null as Settings | null))
   const [chaptering, setChaptering] = useState(false)
-  const chapterCards = (): void => (chime(chaptering ? "fold" : "open"), setChaptering(!chaptering))
+  // One side panel at a time: it opens where Details does, in its place while it is open; Details' button brings Details back.
+  const chapterCards = (): void => (chime(chaptering ? "fold" : "slide"), setChaptering(!chaptering))
   // Snip: a rectangle dragged over a page (a figure, a typeset equation, a
   // table) cut out as a picture, then made a card's answer or kept as a gem.
   const [snipping, setSnipping] = useState(false)
@@ -850,7 +851,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
           <Button data-style="ghost" aria-label="Sidebar" title="Pages and outline" data-active-state={railShown ? "on" : "off"} onClick={toggleRail}>
             <PanelLeft className="tiptap-button-icon" />
           </Button>
-          <Button data-style="ghost" aria-label="Details" title={detailsOut ? "Hide details" : "Details"} data-active-state={detailsOut ? "on" : "off"} onClick={() => (chime(detailsOut ? "fold" : "slide"), showDetails(!detailsOut, pane))}>
+          <Button data-style="ghost" aria-label="Details" title={detailsOut ? "Hide details" : "Details"} data-active-state={detailsOut && !chaptering ? "on" : "off"} onClick={() => (chaptering && detailsOut ? (chime("slide"), setChaptering(false)) : (chime(detailsOut ? "fold" : "slide"), setChaptering(false), showDetails(!detailsOut, pane)))}>
             <PanelRight className="tiptap-button-icon" />
           </Button>
           {marks.some((one) => one.color === "later") && (
@@ -1078,8 +1079,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
           {!hit && !picked && ai && doc && <ContextMenuItem data-chapter-cards-menu onSelect={() => !chaptering && chapterCards()}>{outline.length ? "Five cards from this chapter" : "Five cards from these pages"}</ContextMenuItem>}
         </ContextMenuContent>
       </ContextMenu>
-      {chaptering && doc && <ChapterCards doc={doc} title={title} outline={outline} page={page} marks={marks.filter((one) => !one.id.startsWith("find:"))} onGo={go} onClose={() => setChaptering(false)} onKeep={(question, answer, at) => cardOf(question, answer, at, true)} />}
-      {detailsOut && <ReadDetails src={src} name={name} onPage={go} chapters={outline} cover={cover} title={title} author={author} pages={doc?.numPages} page={page} marks={marks} lit={lit} onMark={goToMark} onGather={() => void gather()} onJoin={(group) => void joinStacked(group)} />}
+      {chaptering && doc ? <ChapterCards doc={doc} title={title} outline={outline} page={page} marks={marks.filter((one) => !one.id.startsWith("find:"))} onGo={go} onClose={() => setChaptering(false)} onKeep={(question, answer, at) => cardOf(question, answer, at, true)} /> : detailsOut && <ReadDetails src={src} name={name} onPage={go} chapters={outline} cover={cover} title={title} author={author} pages={doc?.numPages} page={page} marks={marks} lit={lit} onMark={goToMark} onGather={() => void gather()} onJoin={(group) => void joinStacked(group)} />}
       </div>
     </div>
   )

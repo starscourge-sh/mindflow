@@ -36,7 +36,7 @@ for (const level of ['every', 'ai']) {
     await waitFor(() => h.evaluate(() => !!document.querySelector('[data-meaning]')), level === 'ai' ? 6000 : 1200)
     const seen = await h.evaluate(() => ({
       meaning: document.querySelector('[data-meaning]')?.getAttribute('data-meaning') ?? null,
-      text: document.querySelector('[data-meaning]')?.textContent ?? '',
+      text: `${document.querySelector('[data-meaning-slot]')?.textContent ?? ''} ${document.querySelector('[data-meaning]')?.textContent ?? ''}`,
       waiting: !!document.querySelector('[data-meaning-wait]'),
       typed: document.querySelector('[data-typed]')?.textContent ?? '',
       suggested: document.querySelector('[data-grades] [data-suggested]')?.textContent ?? ''
@@ -44,8 +44,8 @@ for (const level of ['every', 'ai']) {
     if (level === 'every') {
       check('every: no check by meaning is drawn or waited for; the letters check says how close as before', !seen.meaning && !seen.waiting && /% the same/.test(seen.typed), JSON.stringify(seen))
     } else {
-      check('ai: a paraphrase is judged by meaning: “Close enough: you said “…”, the card says “…””', seen.meaning === 'close' && /^Close enough: you said “something in my own words”, the card says “/.test(seen.text), JSON.stringify(seen))
-      check('ai: it suggests Good, and says the grade is yours', /Good/.test(seen.suggested) && /the grade is yours/.test(seen.text), JSON.stringify(seen))
+      check('ai: a paraphrase is judged by meaning: “Close enough: you said “…”, the card says “…””', seen.meaning === 'close' && /^Close enough: that suggests Good\. You said “something in my own words”, the card says “/.test(seen.text), JSON.stringify(seen))
+      check('ai: it suggests Good, and says the grade is yours', /Good/.test(seen.suggested) && /The grade is yours/.test(seen.text), JSON.stringify(seen))
       check('ai: nothing is graded until a grade is pressed', (await v('review:history', first.id)).reviews.length === before)
       if (shots) for (const look of ['light', 'dark']) for (const finish of ['satin', 'paper']) {
         await c.look(look)
@@ -68,7 +68,7 @@ for (const level of ['every', 'ai']) {
     await h.keyboard.press('Meta+Enter')
     await waitFor(() => h.evaluate(() => !!document.querySelector('[data-grades]')))
     await waitFor(() => h.evaluate(() => !!document.querySelector('[data-meaning]')), level === 'ai' ? 6000 : 1000)
-    const off = await h.evaluate(() => ({ meaning: document.querySelector('[data-meaning]')?.getAttribute('data-meaning') ?? null, text: document.querySelector('[data-meaning]')?.textContent ?? '', suggested: document.querySelector('[data-grades] [data-suggested]')?.textContent ?? '' }))
+    const off = await h.evaluate(() => ({ meaning: document.querySelector('[data-meaning]')?.getAttribute('data-meaning') ?? null, text: `${document.querySelector('[data-meaning-slot]')?.textContent ?? ''} ${document.querySelector('[data-meaning]')?.textContent ?? ''}`, suggested: document.querySelector('[data-grades] [data-suggested]')?.textContent ?? '' }))
     if (level === 'ai') {
       check('ai: “no idea” is not the same in meaning, says what is missing, and suggests Again', off.meaning === 'off' && /^Not the same in meaning/.test(off.text) && /does not answer/.test(off.text) && /Again/.test(off.suggested), JSON.stringify(off))
       if (shots) for (const look of ['light', 'dark']) { await c.look(look); await h.waitForTimeout(300); await h.screenshot({ path: join(shots, `meaning-off-${look}.png`) }) }

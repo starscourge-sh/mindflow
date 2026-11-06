@@ -79,15 +79,36 @@ for (const level of ['every', 'ai']) {
     const panel = await h.evaluate(() => {
       const one = document.querySelector('[data-chapter-cards]')
       const r = one?.getBoundingClientRect()
-      const bar = document.querySelector('.pdf-reader-bar')?.getBoundingClientRect()
-      const reader = document.querySelector('.pdf-reader')?.getBoundingClientRect()
-      return { title: one?.querySelector('h3')?.textContent ?? '', note: one?.querySelector('.chapter-cards-note')?.textContent ?? '', cards: [...(one?.querySelectorAll('[data-chapter-card]') ?? [])].map((card) => ({ q: card.querySelector('.chapter-card-question')?.value, page: card.querySelector('[data-chapter-card-page]')?.getAttribute('data-chapter-card-page') })), gapTop: r && bar ? Math.round(r.top - bar.bottom) : null, gapRight: r && reader ? Math.round(reader.right - r.right) : null }
+      const pages = document.querySelector('.pdf-reader-scroll')?.getBoundingClientRect()
+      return { title: one?.querySelector('h3')?.textContent ?? '', note: one?.querySelector('.chapter-cards-note')?.textContent ?? '', cards: [...(one?.querySelectorAll('[data-chapter-card]') ?? [])].map((card) => ({ q: card.querySelector('.chapter-card-question')?.value, a: card.querySelector('.chapter-card-answer')?.value, page: card.querySelector('[data-chapter-card-page]')?.getAttribute('data-chapter-card-page') })), docked: one?.classList.contains('book-panel'), pagesRight: Math.round(pages?.right ?? 0), panelLeft: Math.round(r?.left ?? 0) }
     })
     console.log(JSON.stringify(panel))
     check('ai: the panel names the chapter from the outline and its pages', /“Chapter 2: Energy”/.test(panel.title) && /Pages 7 to 12/.test(panel.note), JSON.stringify(panel))
     check('ai: it says nothing is made until kept, and nothing was', /Nothing is made until you keep it/.test(panel.note) && (await v('cards:all')).length === made)
     check('ai: each card carries a page inside the chapter', panel.cards.length >= 2 && panel.cards.every((one) => Number(one.page) >= 7 && Number(one.page) <= 12), JSON.stringify(panel.cards))
-    check('ai: the panel sits under the bar, clear of its edges (8px or more)', panel.gapTop >= 4 && panel.gapRight >= 8, JSON.stringify(panel))
+    check('ai: the panel is docked where Details opens, the page pushed aside, never covered', panel.docked && panel.pagesRight <= panel.panelLeft + 1, JSON.stringify(panel))
+    check('ai: no answer runs a page’s heading into its first line (“Page 8 The idea”)', panel.cards.every((one) => !/^Page \d+ [A-Z]/.test(one.a ?? '')), JSON.stringify(panel.cards.map((one) => one.a)))
+    // "p. N" turns the page; the panel stays.
+    await h.locator('[data-chapter-card-page="10"]').first().click()
+    await wait(900)
+    const turned = await h.evaluate(() => ({ page: document.querySelector('.pdf-reader-page input')?.value ?? document.querySelector('.pdf-reader-page')?.textContent, panel: !!document.querySelector('[data-chapter-cards]') }))
+    check('ai: “p. 10” turns the book to page 10 and the panel stays open', /10/.test(String(turned.page)) && turned.panel, JSON.stringify(turned))
+    if (shots) {
+      await h.screenshot({ path: join(shots, 'chapter-panel-docked.png') })
+      await h.click('.pdf-reader-bar button[aria-label="Details"]')
+      await wait(500)
+      await h.screenshot({ path: join(shots, 'chapter-sibling-details.png') })
+      await h.click(ask)
+      await waitFor(() => h.evaluate(() => /\d/.test(document.querySelector('[data-chapter-cards]')?.getAttribute('data-chapter-cards') ?? '')))
+      await c.size(390, 844)
+      await wait(800)
+      const narrow = await h.evaluate(() => ({ inner: innerWidth, wide: document.documentElement.scrollWidth, panel: document.querySelector('[data-chapter-cards]')?.getBoundingClientRect().toJSON() }))
+      check('at the narrowest window (asked for 390; the main window stops at 560): the panel fits, nothing scrolls sideways', narrow.wide <= narrow.inner && (narrow.panel?.right ?? 999) <= narrow.inner, JSON.stringify(narrow))
+      for (const look of ['light', 'dark']) { await c.look(look); await h.screenshot({ path: join(shots, `chapter-390-${look}.png`) }) }
+      await c.look('light')
+      await c.size(1300, 900)
+      await wait(600)
+    }
     check('ai: it showed the orb with words while it read, then the cards', frames.includes('reading') || frames[0] !== null, JSON.stringify(frames))
     if (shots) for (const look of ['light', 'dark']) { await c.look(look); await wait(350); await h.screenshot({ path: join(shots, `chapter-cards-${look}.png`) }) }
     await c.look('light')

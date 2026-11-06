@@ -1,15 +1,22 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { chapterRange, chapterText, cutWords, hintedGrade, meaningGrade } from '../src/main/study-ai.ts'
+import { chapterRange, chapterText, pageWords, cutWords, hintedTimes, meaningGrade } from '../src/main/study-ai.ts'
 
-test('a hint schedules a card a step lower, never below Hard, Again stays Again', () => {
-  assert.equal(hintedGrade(3, 0), 3)
-  assert.equal(hintedGrade(3, 1), 2)
-  assert.equal(hintedGrade(4, 1), 3)
-  assert.equal(hintedGrade(4, 2), 2)
-  assert.equal(hintedGrade(2, 2), 2)
-  assert.equal(hintedGrade(1, 2), 1)
+test('a hint brings each grade back sooner, Again as it is, the four kept four and in order', () => {
+  const now = Date.parse('2026-11-06T10:00:00Z')
+  const iso = (ms: number): string => new Date(now + ms).toISOString()
+  const fresh = { 1: iso(60e3), 2: iso(6 * 60e3), 3: iso(10 * 60e3), 4: iso(2 * 864e5) }
+  const seen24 = { 1: iso(864e5), 2: iso(1.6 * 864e5), 3: iso(2.6 * 864e5), 4: iso(4 * 864e5) }
+  const seen = { 1: iso(864e5), 2: iso(1.7 * 864e5), 3: iso(3.2 * 864e5), 4: iso(5 * 864e5) }
+  for (const times of [fresh, seen, seen24]) for (const hints of [1, 2]) {
+    const out = hintedTimes(times, now, hints)
+    assert.equal(out[1], times[1])
+    const ms = [1, 2, 3, 4].map((g) => Date.parse(out[g]))
+    assert.ok(ms[0] < ms[1] && ms[1] < ms[2] && ms[2] < ms[3], `${hints}: ${Object.values(out)}`)
+    assert.ok(Date.parse(out[4]) <= Date.parse(times[4]))
+    if (times !== seen24) assert.ok(Date.parse(out[4]) < Date.parse(times[4]), "spaced enough, Easy comes back sooner")
+  }
 })
 
 test('a verdict by meaning suggests a grade', () => {
@@ -60,4 +67,8 @@ test('native: judge, hint and cards answer in their shapes, and a hint never giv
   const off = spawnSync('resources/understand', [], { input: JSON.stringify(ask[2]) + '\n', env: { ...process.env, HALIGTREE_QA_CAPS: '' }, encoding: 'utf8' })
   const said = JSON.parse(off.stdout.trim())
   assert.ok(said.error || said.text, off.stdout)
+})
+
+test('a page’s heading ends with a full stop, never run into its first sentence', () => {
+  assert.equal(pageWords('Page 7\nThe idea on page 7 is that cells turn food into\nusable energy, which the cell keeps as ATP for later.\n'), 'Page 7. The idea on page 7 is that cells turn food into usable energy, which the cell keeps as ATP for later.')
 })

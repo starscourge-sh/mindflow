@@ -194,10 +194,14 @@ func standInAnswer(_ op: String, _ request: [String: Any]) -> [String: Any] {
       if let match = part.range(of: #"^\[p\. (\d+)\]"#, options: .regularExpression) {
         page = Int(part[match].filter(\.isNumber)) ?? page
       }
-      let sentence = part.replacingOccurrences(of: #"^\[p\. \d+\]\s*"#, with: "", options: .regularExpression).trimmingCharacters(in: .whitespaces)
-      guard sentence.count > 30, cards.count < count else { continue }
-      let lead = sentence.split(separator: " ").prefix(4).joined(separator: " ")
-      cards.append(["question": "What does page \(page) say about “\(lead)”? (A stand-in's question.)", "answer": String(sentence.prefix(140)), "page": page])
+      let line = part.replacingOccurrences(of: #"^\[p\. \d+\]\s*"#, with: "", options: .regularExpression)
+      // Sentence by sentence, so a heading ended with its full stop is never part of an answer.
+      for sentence in line.components(separatedBy: ". ").map({ $0.trimmingCharacters(in: .whitespaces) }) {
+        guard sentence.count > 30, cards.count < count else { continue }
+        let lead = sentence.split(separator: " ").prefix(4).joined(separator: " ")
+        cards.append(["question": "What does page \(page) say about “\(lead)”? (A stand-in's question.)", "answer": String(sentence.prefix(140)), "page": page])
+        break
+      }
     }
     return ["cards": cards]
   }
@@ -319,7 +323,13 @@ while let text = readLine(strippingNewline: true) {
   case "judge", "hint", "cards":
     let op = request["op"] as! String
     if standIn {
-      answer(id, standInAnswer(op, request))
+      // A probe may ask the stand-in to take its time, as a real model does (HALIGTREE_QA_AI_DELAY, in ms).
+      let delay = Double(ProcessInfo.processInfo.environment["HALIGTREE_QA_AI_DELAY"] ?? "") ?? 0
+      group.enter()
+      DispatchQueue.global().asyncAfter(deadline: .now() + delay / 1000) {
+        answer(id, standInAnswer(op, request))
+        group.leave()
+      }
       continue
     }
     #if canImport(FoundationModels)

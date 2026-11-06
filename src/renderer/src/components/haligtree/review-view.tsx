@@ -54,7 +54,7 @@ import { hoverNote } from './note-preview'
 import { CoveredPicture } from './picture-cards'
 import { occlusionOf, type Occlusion } from '../../../../main/occlusion'
 import { Orb } from './orb'
-import { VERDICT_SAID, cutWords, hint as askHint, hintedGrade, judge, meaningGrade, useStudyAi, wordsOf, type Judged } from '@/lib/study-ai'
+import { VERDICT_SAID, cutWords, hint as askHint, hintedTimes, judge, meaningGrade, useStudyAi, wordsOf, type Judged } from '@/lib/study-ai'
 
 /** The four grades, as the plan defines them: how the retrieval felt, not whether it was right. */
 export const GRADES = [
@@ -846,20 +846,15 @@ export function ReviewView({ compact = false, tag, actions, lead, onLeave }: { c
           <>
             {said.trim() && suggested && (
               <div data-typed className="-mb-2 flex flex-col gap-1 text-sm">
-                {!verdict && <p className="whitespace-pre-line text-muted-foreground">You wrote: {said}</p>}
-                {judging ? (
-                  // In about the room the verdict and its note line take, so the grades under it barely move when it comes.
-                  <p data-meaning-wait className="flex min-h-[4.5rem] items-start pt-0.5"><Orb label="Checking what it means, on this Mac…" stop={stopJudge} /></p>
-                ) : verdict ? (
-                  <p data-meaning={verdict.verdict} className="min-h-6 text-body">
-                    <strong className="font-semibold" style={{ color: GRADES[suggested - 1].tone }}>{VERDICT_SAID[verdict.verdict]}: you said “{cutWords(said, 48)}”, the card says “{cutWords(answerWords, 48)}”.</strong>{' '}
-                    {verdict.missing && <span className="text-foreground">{verdict.missing.replace(/\.?$/, '.')} </span>}
-                    <span className="text-foreground">That suggests {gradeName(suggested)}; the grade is yours.</span>
+                {!verdict && !judging && <p className="whitespace-pre-line text-muted-foreground">You wrote: {said}</p>}
+                {judging || verdict ? (
+                  // One line, the same height waiting and answered, so the grades under it never move; the why is under the grades.
+                  <p data-meaning-slot={verdict ? verdict.verdict : 'wait'} className="flex h-6 items-center whitespace-nowrap">
+                    {verdict ? <strong className="font-semibold" style={{ color: GRADES[suggested - 1].tone }}>{VERDICT_SAID[verdict.verdict]}: that suggests {gradeName(suggested)}.</strong> : <Orb label="Checking what it means, on this Mac…" stop={stopJudge} />}
                   </p>
                 ) : (
                   <p><strong className="font-semibold" style={{ color: GRADES[suggested - 1].tone }}>About {Math.round((typedScore ?? 0) * 100)}% the same: that suggests {gradeName(suggested)}.</strong> <span className="text-muted-foreground">Kept as a thought on the card when you grade it.</span></p>
                 )}
-                {verdict && <p className="text-xs text-muted-foreground">Checked by meaning with Apple Intelligence, on this Mac. What you wrote is kept as a thought on the card when you grade it.</p>}
                 {checked?.said && (
                   <p data-typed-said className="flex flex-wrap items-center gap-2 text-body font-medium text-foreground">
                     {checked.said}
@@ -899,13 +894,13 @@ export function ReviewView({ compact = false, tag, actions, lead, onLeave }: { c
             <GlossLine id={card.id} latest={!!behindOf(card)} quiet className="-mt-3" />
             {hintsTaken > 0 && (
               <p data-hints-taken={hintsTaken} className="-mb-1 text-body font-medium text-foreground">
-                {hintsTaken === 1 ? 'You took a hint' : 'You took two hints'}, so each grade brings it back {hintsTaken === 1 ? 'a step' : 'two steps'} sooner (never sooner than Hard).
+                {hintsTaken === 1 ? 'You took a hint, so it comes back sooner.' : 'You took two hints, so it comes back sooner still.'} The times under the grades already count it.
               </p>
             )}
             {/* The key shows where there is room for it; in a narrow panel the time comes first. */}
             <div data-grades={grades.length} className={`@container grid gap-2 ${two ? 'grid-cols-2' : 'grid-cols-4'}`}>
               {grades.map(({ grade: value, label, hint, tone }) => (
-                <Tip key={value} label={`${hint}: back ${backIn(card.intervals[hintedGrade(value, hintsTaken)])}`}>
+                <Tip key={value} label={`${hint}: back ${backIn(hintedTimes(card.intervals, Date.now(), hintsTaken)[value])}`}>
                 <button
                   type="button"
                   onClick={() => grade(value)}
@@ -920,20 +915,27 @@ export function ReviewView({ compact = false, tag, actions, lead, onLeave }: { c
                   {two ? (
                     // With two, when it comes back is the big line: that is what the choice decides.
                     <>
-                      <span className="max-w-full truncate text-body font-semibold tabular-nums text-foreground">{backIn(card.intervals[hintedGrade(value, hintsTaken)])}</span>
+                      <span className="max-w-full truncate text-body font-semibold tabular-nums text-foreground">{backIn(hintedTimes(card.intervals, Date.now(), hintsTaken)[value])}</span>
                       <span className="text-xs font-medium" style={{ color: tone }}>{label} <Kbd>{value}</Kbd></span>
                     </>
                   ) : (
                     <>
                       <span className="font-semibold" style={{ color: tone }}>{label}</span>
-                      <span className="max-w-full truncate text-xs text-muted-foreground tabular-nums">{backIn(card.intervals[hintedGrade(value, hintsTaken)])}</span>
+                      <span className="max-w-full truncate text-xs text-muted-foreground tabular-nums">{backIn(hintedTimes(card.intervals, Date.now(), hintsTaken)[value])}</span>
                     </>
                   )}
                 </button>
                 </Tip>
               ))}
             </div>
-            <HowItDecides id={card.id} back={{ again: backIn(card.intervals[1]), hard: backIn(card.intervals[2]), good: backIn(card.intervals[3]), easy: backIn(card.intervals[4]) }} />
+            {(() => { const back = hintedTimes(card.intervals, Date.now(), hintsTaken); return <HowItDecides id={card.id} back={{ again: backIn(back[1]), hard: backIn(back[2]), good: backIn(back[3]), easy: backIn(back[4]) }} /> })()}
+            {verdict && (
+              // Why, under everything, so its length moves nothing above it.
+              <p data-meaning={verdict.verdict} className="-mt-2 text-body text-foreground">
+                You said “{cutWords(said, 48)}”, the card says “{cutWords(answerWords, 48)}”.{verdict.missing ? ` ${verdict.missing.replace(/\.?$/, '.')}` : ''} The grade is yours.
+                <span className="mt-0.5 block text-xs text-muted-foreground">Checked by meaning with Apple Intelligence, on this Mac. What you wrote is kept as a thought on the card when you grade it.</span>
+              </p>
+            )}
           </>
         ) : (
           <>

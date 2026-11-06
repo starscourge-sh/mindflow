@@ -2091,15 +2091,10 @@ html[data-motion="off"] :is(.pdf-zoom-chip, .pdf-reader-body > .pdf-rail) {
   box-shadow: 0 1px 3px rgb(0 0 0 / 0.18);
 }
 
-/* Five cards from a chapter (chapter-cards.tsx): the look-up card's material, under the bar at the right, where its button is. */
-.chapter-cards {
-  top: 4.25rem;
-  right: 0.75rem;
-  width: min(27rem, calc(100% - 1.5rem));
-  max-height: calc(100% - 5.25rem);
-  gap: 0.625rem;
-  padding: 0.875rem 1rem 0.75rem;
-}
+/* Five cards from a chapter (chapter-cards.tsx): a book panel, docked where Details opens. */
+.chapter-cards { width: 20rem; }
+.chapter-cards-top { gap: 0.5rem; }
+.chapter-cards-body { padding: 0 1rem 0.75rem; }
 .chapter-cards-head {
   display: flex;
   align-items: flex-start;
@@ -2122,11 +2117,12 @@ html[data-motion="off"] :is(.pdf-zoom-chip, .pdf-reader-body > .pdf-rail) {
   border-radius: 0.5rem;
   color: var(--mf-muted);
   cursor: pointer;
+  transition: background-color 120ms ease-out, color 120ms ease-out, transform 120ms ease-out;
 }
 .chapter-cards-close:hover { background: color-mix(in oklab, var(--foreground) 6%, transparent); color: var(--foreground); }
 .chapter-cards-note { color: color-mix(in oklab, var(--foreground) 80%, transparent); text-wrap: pretty; }
 .chapter-cards-note strong { color: var(--foreground); font-weight: 600; }
-.chapter-cards-wait { display: flex; min-height: 2.5rem; align-items: center; }
+.chapter-cards-wait { display: flex; min-height: 2.5rem; align-items: center; padding-inline: 0.125rem; }
 .chapter-cards-error { display: flex; flex-direction: column; align-items: flex-start; gap: 0.5rem; color: var(--tt-color-text-orange); }
 .chapter-cards-list { display: flex; flex-direction: column; gap: 0.5rem; }
 .chapter-card {
@@ -2140,6 +2136,7 @@ html[data-motion="off"] :is(.pdf-zoom-chip, .pdf-reader-body > .pdf-rail) {
 .chapter-card[data-chapter-card="kept"] { background: color-mix(in oklab, var(--tt-color-text-green) 8%, transparent); }
 .chapter-card-question, .chapter-card-answer {
   field-sizing: content;
+  caret-color: var(--primary);
   width: 100%;
   resize: none;
   border: 0;
@@ -2153,9 +2150,10 @@ html[data-motion="off"] :is(.pdf-zoom-chip, .pdf-reader-body > .pdf-rail) {
 .chapter-card-question:focus-visible, .chapter-card-answer:focus-visible { box-shadow: 0 0 0 1px color-mix(in oklab, var(--foreground) 22%, transparent); }
 .chapter-card-foot { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; min-height: 2rem; }
 .chapter-card-actions { display: flex; gap: 0.25rem; }
-.chapter-card-link { color: var(--mf-muted); font-size: 0.75rem; cursor: pointer; text-underline-offset: 2px; }
+.chapter-card-link { color: color-mix(in oklab, var(--foreground) 72%, transparent); font-size: 0.8125rem; font-weight: 500; font-variant-numeric: tabular-nums; cursor: pointer; text-underline-offset: 2px; transition: color 120ms ease-out, transform 120ms ease-out; }
+.chapter-card-link:active, .chapter-cards-close:active { transform: scale(0.97); }
 .chapter-card-link:hover { color: var(--foreground); text-decoration: underline; }
 .chapter-card-kept { display: inline-flex; align-items: center; gap: 0.25rem; font-size: 0.75rem; color: var(--tt-color-text-green); }
 .chapter-card-gone { color: var(--mf-muted); font-size: 0.8125rem; }
-.chapter-cards-foot { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; padding-top: 0.25rem; }
+.chapter-cards-foot { display: flex; flex: none; align-items: center; justify-content: space-between; gap: 0.75rem; padding: 0.625rem 1rem 0.75rem; border-top: 1px solid var(--tt-border-color); }
 .chapter-cards-count { color: var(--mf-muted); font-size: 0.75rem; }
