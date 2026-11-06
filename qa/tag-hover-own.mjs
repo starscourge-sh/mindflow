@@ -13,7 +13,10 @@ const shot = process.env.SHOT ?? '/tmp/tag-hover-own'
 const look = (sel) => h.evaluate((sel) => {
   const el = document.querySelector(sel)
   const style = getComputedStyle(el)
-  return { bg: style.backgroundColor, line: style.textDecorationLine }
+  // Every hover underline is there at rest in no colour, and only its colour fades in (main.css,
+  // qa/soft-underline.mjs): an underline shows when its line is on and its colour can be seen.
+  const clear = /rgba\(0, 0, 0, 0\)|transparent|\/ 0\)$/.test(style.textDecorationColor)
+  return { bg: style.backgroundColor, line: style.textDecorationLine.includes('underline') && !clear ? 'underline' : 'none', lineColor: style.textDecorationColor }
 }, sel)
 try {
   await h.waitForTimeout(1500)
