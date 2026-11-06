@@ -22,8 +22,10 @@ export const BACK = 160
  * microphone (`from`, its middle in the bar's own pixels) over that row and, kept, goes back into it; anywhere else it
  * floats at the bottom, centred on what it writes into (`over`), a thing of its own.
  */
-export function RecorderBar({ label, level, start, end, seconds, waiting, docked, from, over, closing, data }: {
+export function RecorderBar({ label, role = 'dialog', level, start, end, seconds, waiting, docked, from, over, closing, data }: {
   label: string
+  /** A voice note's bar holds the keys (a dialog); talk to type's is a group, the writing keeping the caret and the keys. */
+  role?: 'dialog' | 'group'
   /** The level now, from 0 (quiet) to 1, read once a frame. */
   level: () => number
   start: React.ReactNode
@@ -129,7 +131,7 @@ export function RecorderBar({ label, level, start, end, seconds, waiting, docked
   }, [])
 
   return (
-    <div ref={bar} role="dialog" aria-label={label} data-recorder-bar={docked ? 'docked' : 'floating'} {...data}
+    <div ref={bar} role={role} aria-label={label} data-recorder-bar={docked ? 'docked' : 'floating'} {...data}
       className={cn('mf-voice-pill z-[1000] flex items-center gap-2 px-0.5',
         docked ? 'absolute inset-0' : 'fixed bottom-28 left-1/2 w-[340px] max-w-[calc(100vw-24px)] -translate-x-1/2 animate-in fade-in-0 slide-in-from-bottom-2 duration-200')}
       style={docked || middle === null ? undefined : { left: middle }}>

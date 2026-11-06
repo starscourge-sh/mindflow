@@ -2505,7 +2505,7 @@ export default function App(): React.JSX.Element {
               )}
               <span className="flex-1" />
               {/* In the sandbox, said here too: a practice box, not your own. */}
-              <span data-under-toast data-while-recording={listening ? 'dim' : undefined} className="inline-flex"><SandboxChip /></span>
+              <span data-under-toast data-while-recording={listening ? 'dim' : undefined} inert={listening} className="inline-flex"><SandboxChip /></span>
               {/* Beside Create, as in Linear: on, a save keeps the box open for the next one. */}
               {!editing && (
                 <Tip label="Keep quick capture open after each save  ⌥C">

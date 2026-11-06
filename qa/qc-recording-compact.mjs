@@ -1,6 +1,6 @@
-// Recording in quick capture with its side panel open: the box becomes the compact recorder card (the panel glides
-// away), and the panel comes back once the recording is kept. The level is quiet: thin bars, in the faded ink, no
-// wider than 18rem. Pictures light and dark into QA_SHOTS. Chromium's stand-in microphone.
+// Recording in quick capture with its side panel open: the panel stays where it is (nothing glides away), the
+// recorder bar takes the footer's row of the writing side, and the level fits inside the bar, in the faded ink.
+// Pictures light and dark into QA_SHOTS. Chromium's stand-in microphone.
 //   QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/qc-recording-compact.mjs
 import { checks } from './harness.mjs'
 import { sandbox } from './sandbox-lib.mjs'
@@ -24,9 +24,9 @@ try {
   await page.waitForSelector('[data-voice-recorder]', { timeout: 6000 })
   await wait(1500)
   const recording = await boxWidth()
-  check('recording with the side panel open: the box is the compact card, the panel away', recording < open - 200, `${open} -> ${recording}`)
-  const level = await page.$eval('[data-voice-level]', (one) => ({ width: one.getBoundingClientRect().width, height: one.getBoundingClientRect().height, rem: parseFloat(getComputedStyle(document.documentElement).fontSize), color: getComputedStyle(one).color }))
-  check('the level is quiet: at most 18rem wide and 2rem tall', level.width <= 18 * level.rem + 1 && level.height <= 2 * level.rem + 1, JSON.stringify(level))
+  check('recording with the side panel open: the panel stays, the box keeps its size', Math.abs(recording - open) < 4, `${open} -> ${recording}`)
+  const level = await page.$eval('[data-voice-level]', (one) => { const r = one.getBoundingClientRect(); const bar = one.closest('[data-voice-recorder]').getBoundingClientRect(); const row = document.querySelector('main[data-chrome]').getBoundingClientRect(); return { inBar: r.left >= bar.left && r.right <= bar.right && r.top >= bar.top && r.bottom <= bar.bottom, inRow: bar.left >= row.left && bar.right <= row.right, height: r.height, color: getComputedStyle(one).color } })
+  check('the level sits inside the bar, the bar inside the writing side\'s footer row', level.inBar && level.inRow && level.height <= 32, JSON.stringify(level))
   // The red "on air" light round the edge goes round the card, not the clear room round it (a frame far out on the screen).
   const edge = await page.evaluate(() => {
     const beam = document.querySelector('[data-beam="recording"]')?.getBoundingClientRect()

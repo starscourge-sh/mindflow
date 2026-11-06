@@ -21,7 +21,11 @@ const pill = () => h.evaluate((sel) => {
   if (!el) return null
   const r = el.getBoundingClientRect()
   const note = document.querySelector(sel).getBoundingClientRect()
-  const bars = [...el.querySelectorAll('[data-talk-level] > span')].map((b) => Math.round(b.getBoundingClientRect().height))
+  // The level is drawn (recorder-bar.tsx): each column's inked height, in CSS pixels.
+  const canvas = el.querySelector('[data-voice-level]')
+  const data = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data
+  const bars = []
+  for (let x = 0; x < canvas.width; x += 1) { let tall = 0; for (let y = 0; y < canvas.height; y += 1) if (data[(y * canvas.width + x) * 4 + 3] > 40) tall += 1; bars.push(Math.round(tall / devicePixelRatio)) }
   return { h: Math.round(r.height), middle: Math.round(r.left + r.width / 2), note: Math.round(note.left + note.width / 2), tallest: Math.max(...bars), flat: bars.every((b) => b <= 2), cancel: !!el.querySelector('[aria-label="Cancel"]'), keep: !!el.querySelector('[aria-label="Keep the words"]') }
 }, EDITOR)
 const words = () => h.evaluate((sel) => document.querySelector(sel).editor.getText(), EDITOR)

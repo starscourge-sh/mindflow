@@ -48,7 +48,7 @@ try {
   const again = await state()
   check('⌘K "Record a voice note" while one records starts nothing', again.recorders === 1 && again.open <= 1, JSON.stringify(again))
 
-  await page.click('[data-create]')
+  await page.click('[data-voice-recorder] [aria-label="Stop and keep"]')
   await page.waitForSelector(`${EDITOR} .tiptap-attachment.is-audio`, { timeout: 8000 }).catch(() => {})
   await wait(800)
   const kept = await state()

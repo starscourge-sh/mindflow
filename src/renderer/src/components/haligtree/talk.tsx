@@ -322,8 +322,9 @@ function TalkPill(): React.JSX.Element | null {
   })
   if (!session) return null
   const bar = (
-    <div data-talk-pill onMouseDown={(event) => event.preventDefault()}>
-      <RecorderBar label="Talking to type" docked={!!slot} from={from} over={over}
+    // Its own box is the bar's (display: contents): the pill is the bar itself, for anything that measures it.
+    <div className="contents" onMouseDown={(event) => event.preventDefault()}>
+      <RecorderBar label="Talking to type" role="group" data={{ 'data-talk-pill': true }} docked={!!slot} from={from} over={over}
         // Louder is taller, eased so a quiet voice still shows.
         level={() => Math.min(1, Math.sqrt(session?.levels.at(-1) ?? 0) * 3)}
         waiting={!session.ready && <span data-talk-getting-ready role="status" className="mf-shimmer" data-text="Getting ready…">Getting ready…</span>}

@@ -1,7 +1,7 @@
-// Quick capture while a voice note records: the recorder takes the writing
-// line's place (not floating over it), its level moves as sound comes in,
-// Create reads "Stop and keep" and keeps the recording in the box, the other
-// buttons in the row dim, ⌘↵ keeps it too, and Esc throws it away.
+// Quick capture while a voice note records: the recorder bar takes the footer's
+// row (not floating over the words, which stay in sight), its level moves as
+// sound comes in, its Stop keeps the recording in the box, the rest of the row
+// dims under it, ⌘↵ keeps it too, and Esc throws it away.
 // Chromium's stand-in microphone, for this probe only.
 //   QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/qc-recording.mjs
 import { checks } from './harness.mjs'
@@ -83,8 +83,8 @@ try {
       chipBelow: chip ? chip.top >= r.bottom - 1 : null
     }
   }, EDITOR)
-  check('the recorder sits in the writing area, not over it', layout.inSlot && !layout.floating && !layout.overEditor && !layout.overChip, JSON.stringify(layout))
-  check('…and the "Still to keep" chip sits under it, on the text column', layout.chipBelow === true, JSON.stringify(layout))
+  check('the recorder sits in the footer\'s row, not over the words', layout.inSlot && !layout.floating && !layout.overEditor && !layout.overChip, JSON.stringify(layout))
+  check('…and the "Still to keep" chip stays above it, with the words', layout.chipBelow === false, JSON.stringify(layout))
   // The box fits the recording: no empty room between the chip and the footer.
   await wait(900)
   const fit = await page.evaluate(() => {
@@ -103,8 +103,11 @@ try {
       return { o: Math.round(o * 100) / 100, inert: !!el.closest('[inert]') }
     })
   }))
-  check('Create reads "Stop and keep ⌘↵"', (row.create ?? '').replace(/\s+/g, '').startsWith('SSttooppaannddkkeeeepp') || /^Stop and keep ⌘↵$/.test(row.create ?? ''), String(row.create))
+  const stopTip = await page.evaluate(() => document.querySelector('[data-voice-recorder] [aria-label="Stop and keep"]')?.title)
+  check('the bar\'s red Stop sits where Create is and says "Stop and keep it ⌘↵"; Create waits under it', stopTip === 'Stop and keep it  ⌘↵' && await page.evaluate(() => !!document.querySelector('[data-create]').closest('[inert]')), String(stopTip))
   check('the kind, camera, mic and Create more are dimmed and out of reach', row.dimmed.length === 4 && row.dimmed.every((one) => one.o < 0.5 && one.inert), JSON.stringify(row.dimmed))
+  // The long leftover (before Tab walks on into the words and starts the writing) stays one line in the row, cut with an ellipsis, inside the window.
+  const chip = await page.evaluate(() => { const r = document.querySelector('[data-leftover]').getBoundingClientRect(); return { right: Math.round(r.right), width: innerWidth, h: Math.round(r.height), text: document.querySelector('[data-leftover]').innerText } })
   // Tab walks past them: from Cancel, never onto a dimmed one.
   await page.focus('[data-voice-recorder] button[aria-label="Cancel"]')
   const tabbed = []
@@ -114,12 +117,11 @@ try {
   }
   check('Tab skips the dimmed buttons', tabbed.every((on) => !on), JSON.stringify(tabbed))
   for (const name of ['light', 'dark']) { await look(name); await focusBox(); await wait(400); await page.screenshot({ path: `${shots}/qc-recording-live-${name}.png` }) }
-  // The shrink glides one way: every frame as tall as the last or shorter, never a bounce.
   const heights = await page.evaluate(() => window.__heights)
   const bounces = heights.filter((h, i) => i && h > heights[i - 1]).length
-  check('starting to record never grows the box, and it never bounces', heights.every((h) => h <= heights[0]) && bounces === 0, `${heights[0]} -> ${Math.max(...heights)} max -> ${heights.at(-1)} over ${heights.length} frames, ${bounces} steps up`)
-  // The long leftover stays one line in the row, cut with an ellipsis, inside the window.
-  const chip = await page.evaluate(() => { const r = document.querySelector('[data-leftover]').getBoundingClientRect(); return { right: Math.round(r.right), width: innerWidth, h: Math.round(r.height), text: document.querySelector('[data-leftover]').innerText } })
+  // From the one-line pill the box grows once, into the box whose footer holds the bar, and never comes back down.
+  const downs = heights.filter((h, i) => i && h < heights[i - 1]).length
+  check('starting to record grows the pill into the box once, never bouncing', downs === 0, `${heights[0]} -> ${Math.max(...heights)} max -> ${heights.at(-1)} over ${heights.length} frames, ${bounces} steps up`)
   check('a long leftover stays one line, inside the window', chip.right <= chip.width - 12 && chip.h < 30, JSON.stringify(chip))
   // Two hours in: the time reads 2:00:0x, not "120:0x".
   await page.evaluate(() => { const real = performance.now.bind(performance); performance.now = () => real() + 7_200_000 })
@@ -135,7 +137,7 @@ try {
   check('Esc cancels: the recorder goes, nothing kept, the box stays open', !afterEsc.recorder && afterEsc.audio === 0 && afterEsc.open === 'visible', JSON.stringify(afterEsc))
 
   await record(); await wait(1500)
-  await page.click('[data-create]')
+  await page.click('[data-voice-recorder] [aria-label="Stop and keep"]')
   await page.waitForSelector(`${EDITOR} .tiptap-attachment.is-audio`, { timeout: 8000 }).catch(() => {})
   await wait(600)
   const kept = { recorder: !!(await page.$('[data-voice-recorder]')), audio: await audios(), create: await page.evaluate(() => document.querySelector('[data-create]')?.textContent.replace(/\s+/g, ' ').trim()) }
@@ -159,7 +161,7 @@ try {
   check('a lone word is being looked up ("Looking up" on screen)', asked)
   await page.keyboard.press('Enter')
   await record(); await wait(1200)
-  await page.click('[data-create]')
+  await page.click('[data-voice-recorder] [aria-label="Stop and keep"]')
   await page.waitForSelector(`${EDITOR} .tiptap-attachment.is-audio`, { timeout: 8000 }).catch(() => {})
   await wait(900)
   const cover = await page.evaluate((sel) => {

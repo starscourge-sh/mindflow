@@ -1,4 +1,4 @@
-// A voice note: /Record in a note shows the recorder (a live level, the time,
+// A voice note: /Record in a note shows the recorder bar (a live waveform from the right, the time,
 // Stop), Esc throws it away, Stop keeps it as an audio block in the note.
 // Chromium's stand-in microphone, for this probe only.
 //   QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-small/main/index.js HALIGTREE_QA_AWAY=1 node qa/audio-record.mjs
@@ -42,26 +42,23 @@ try {
   })
   check('the level is drawn as it records', live.inked > 50, JSON.stringify(live))
   check('the time counts up', /^0:0[1-9]$/.test(live.time), live.time)
-  // The level follows the voice up and lets go slowly: over two seconds of the
-  // stand-in microphone's beeps and the silence between, the newest bar never
-  // drops more than a fifth of the pill's height in one frame, and rests flat in silence.
-  const fall = await h.evaluate(async () => {
+  // The level is a waveform moving in from the right, as Voice Memos draws it: over two seconds of the stand-in
+  // microphone's beeps, its bars (ink taller than the faint line through quiet) reach further left as they pass,
+  // and the newest stand at the right edge.
+  const flow = await h.evaluate(async () => {
     const canvas = document.querySelector('[data-voice-level]')
-    const middle = () => {
+    const bars = () => {
       const { width, height } = canvas
-      const x = Math.floor(width / 2)
-      const data = canvas.getContext('2d').getImageData(x - 1, 0, 3, height).data
-      let n = 0
-      for (let y = 0; y < height; y += 1) if (data[(y * 3 + 1) * 4 + 3] > 0) n++
-      return n
+      const data = canvas.getContext('2d').getImageData(0, 0, width, height).data
+      const xs = []
+      for (let x = 0; x < width; x += 1) { let tall = 0; for (let y = 0; y < height; y += 1) if (data[(y * width + x) * 4 + 3] > 40) tall += 1; if (tall > 3 * devicePixelRatio) xs.push(x) }
+      return { left: xs[0] ?? width, right: xs.at(-1) ?? -1, width }
     }
-    const seen = []
-    const end = performance.now() + 2000
-    await new Promise((done) => { const step = () => { seen.push(middle()); performance.now() < end ? requestAnimationFrame(step) : done() }; requestAnimationFrame(step) })
-    const drops = seen.slice(1).map((n, i) => seen[i] - n)
-    return { frames: seen.length, height: canvas.height, worstDrop: Math.max(...drops), tallest: Math.max(...seen), lowest: Math.min(...seen) }
+    const first = bars()
+    await new Promise((done) => setTimeout(done, 2000))
+    return { first, later: bars() }
   })
-  check('the level falls back smoothly, never snapping down', fall.tallest > fall.height * 0.3 && fall.worstDrop <= fall.height * 0.2, JSON.stringify(fall))
+  check('the level grows in from the right and moves left', flow.later.left < flow.first.left && flow.later.right > flow.later.width * 0.85, JSON.stringify(flow))
   // One family with quick capture's round controls: their 32px height, the page's paper and a hairline.
   const pill = await h.evaluate(() => {
     const el = document.querySelector('[data-voice-recorder]')
