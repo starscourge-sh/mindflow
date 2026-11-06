@@ -30,8 +30,8 @@ const languageOf = (locale: string): string => {
   }
 }
 
-const BUTTON = 'flex h-7 shrink-0 cursor-pointer items-center gap-1.5 rounded-full px-3 text-control font-medium transition-[background-color,color,scale] duration-150 active:scale-[0.97] [-webkit-app-region:no-drag]'
-const ROUND = 'flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-full transition-[background-color,color,scale] duration-150 active:scale-[0.97] [-webkit-app-region:no-drag]'
+const BUTTON = 'flex h-7 shrink-0 cursor-pointer items-center gap-1.5 rounded-full px-3 text-control font-medium transition-[background-color,color,scale] duration-150 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color-mix(in_oklab,var(--tt-brand-color-500)_30%,transparent)] [-webkit-app-region:no-drag]'
+const ROUND = 'flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-full transition-[background-color,color,scale] duration-150 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color-mix(in_oklab,var(--tt-brand-color-500)_30%,transparent)] [-webkit-app-region:no-drag]'
 
 /**
  * The live card of a meeting being recorded, in a small window of its own over every app (index.ts, meetingWindow):
@@ -148,7 +148,8 @@ function Recording({ live, level, onTuck }: { live: Live; level: { you: number; 
         <span data-meeting-speaking className="flex shrink-0 items-center gap-1.5 text-meta text-muted-foreground">
           {speaking(live)}
           <span aria-hidden className="flex h-3 items-center gap-[2px]">
-            {[0.5, 1, 0.7].map((share, at) => <span key={at} className="w-[2px] rounded-full bg-current transition-[height] duration-100" style={{ height: `${Math.max(2, Math.round(loud * share * 12))}px` }} />)}
+            {/* Grown by scale, never by height: the level moves ten times a second and must not lay the card out again. */}
+            {[0.5, 1, 0.7].map((share, at) => <span key={at} className="h-3 w-[2px] origin-center rounded-full bg-current transition-transform duration-100 ease-out" style={{ transform: `scaleY(${Math.max(0.17, loud * share)})` }} />)}
           </span>
         </span>
         <button type="button" aria-label="Tuck it away" title="Tuck it away  Esc" onClick={onTuck} className={cn(ROUND, '-mr-1.5 text-muted-foreground hover:bg-accent hover:text-foreground')}>
@@ -162,7 +163,7 @@ function Recording({ live, level, onTuck }: { live: Live; level: { you: number; 
       </div>
       <div className="flex h-12 shrink-0 items-center gap-2 px-3">
         <span className="min-w-0 flex-1 truncate pl-1 text-meta text-muted-foreground">{languageOf(navigator.language)}</span>
-        <button type="button" data-meeting-mark onClick={() => void call('meeting:mark')} disabled={live.state !== 'live'}
+        <button type="button" data-meeting-mark onClick={() => void call('meeting:mark')} disabled={live.state !== 'live'} title={live.state === 'paused' ? 'Paused: go on recording to note a moment' : undefined}
           className={cn(BUTTON, 'pr-1.5 text-foreground hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50')}>
           <Bookmark className="size-3.5" />Note this moment<Kbd>M</Kbd>
         </button>
