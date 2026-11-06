@@ -27,6 +27,7 @@ import { GrainFill, onPaper, PAPER_INK, useNoteCover } from './grain'
 import { Tilt } from './tilt'
 import { useHere, usePaneMark } from '@/lib/split'
 import { knowRow } from './row-card'
+import type { Headword } from '@/lib/headword'
 import { loud, type Loud } from '@/lib/loud'
 import { Highlight, useFluidHover } from './glide'
 import type { Picking } from '@/lib/pick-range'
@@ -88,6 +89,12 @@ export type Entry = {
   lead?: ReactNode
   /** A group drawn as a tile: a folder in its colour, its first notes small inside it. */
   folder?: { icon: string | null; color: string | null; count: number; members: Entry[] }
+  /**
+   * A word and its meaning (a Lookup, a Word, a question and its answer), drawn as a dictionary prints one: the word
+   * large and first in the heading face, its meaning a quiet line under it. `asked`: still waiting for its meaning.
+   * `where`: the book or place it was met in.
+   */
+  head?: Headword & { asked?: boolean; where?: string }
 }
 
 /** A note's first picture, made small (or tile-sized) once. Undefined: it has none; null: on its way; '': too big to show. */
@@ -128,8 +135,10 @@ export function Cover({
   const paper = !!grain?.paper
   if (picture)
     return (
-      <Tilt caption={entry.title || undefined} className={`private-text overflow-hidden bg-accent ${className}`}>
+      // No caption carried beside the pointer: the tile names its picture itself (its foot, or its name when pointed at), and two names at once read as neither.
+      <Tilt className={`private-text overflow-hidden bg-accent ${className}`}>
         <img
+          data-tile-picture=""
           src={picture}
           alt=""
           loading="lazy"
@@ -153,11 +162,12 @@ export function Cover({
       {picture !== null && (
         <span
           style={paper ? { color: PAPER_INK } : undefined}
-          className={`private-text relative whitespace-pre-line ${paper ? '' : grain ? 'text-white/90 [text-shadow:0_1px_2px_rgb(0_0_0/0.4)]' : 'text-muted-foreground'} ${large ? 'line-clamp-5 text-xs leading-snug' : 'line-clamp-4 text-[10px] leading-tight'}`}
+          className={`private-text relative whitespace-pre-line ${paper ? '' : grain ? 'text-white/90 [text-shadow:0_1px_2px_rgb(0_0_0/0.4)]' : 'text-muted-foreground'} ${large ? 'line-clamp-5 text-xs leading-snug' : 'line-clamp-4 text-[11px] leading-snug'}`}
         >
-          {/* A question's card says the question itself, never the first words of what it holds (its first line was
+          {/* A large tile's foot names it: with no more words than its name, the cover says nothing rather than the name twice.
+              A question's card says the question itself, never the first words of what it holds (its first line was
               once where its note came from: "From HTOP, under "Dream Weaver"."). */}
-          {(() => { const shown = entry.type === 'question' ? '' : large ? rest(words, entry.title) : words; return shown && unlinked(shown).trim() ? <LinkedWords text={shown} /> : entry.title || entry.line || 'Untitled' })()}
+          {(() => { const shown = entry.type === 'question' ? '' : large ? rest(words, entry.title) : words; return shown && unlinked(shown).trim() ? <LinkedWords text={shown} /> : large ? null : entry.title || entry.line || 'Untitled' })()}
         </span>
       )}
     </span>
@@ -222,6 +232,8 @@ export function Lead({
 type Line = { key: string; head?: [string, number]; start: number; entries: Entry[] }
 
 const TILE = { small: 92, grid: 184 }
+/** A word card is read, not glanced at: wide enough for a long word at 15 px and two lines of its meaning. */
+const WORD_TILE = { small: 156, grid: 216 }
 
 /**
  * Which rows just turned up: a few ids new since the list first drew, joining
@@ -336,8 +348,11 @@ export function NoteList({
     return () => watch.disconnect()
   }, [])
   const gap = density === 'grid' ? 12 : 8
+  // Words only (Lookups, Words, Questions): their cards, wider than a picture's.
+  const worded = groups.every(([, list]) => list.every((one) => one.head))
+  const tile = (worded ? WORD_TILE : TILE)[density as 'small' | 'grid']
   const across = grid
-    ? Math.max(1, Math.floor((width + gap) / (TILE[density as 'small' | 'grid'] + gap)))
+    ? Math.max(1, Math.floor((width + gap) / (tile + gap)))
     : 1
   // A tile's first words, asked for only while tiles are drawn.
   const glance = useLive(
@@ -408,9 +423,11 @@ export function NoteList({
               ? 30
               : density === 'list'
                 ? 50
-                : density === 'small'
-                  ? TILE.small + gap
-                  : 260
+                : worded
+                  ? (density === 'small' ? 118 : 178) + gap
+                  : density === 'small'
+                    ? TILE.small + gap
+                    : 260
           }
           className={className}
         >
@@ -488,6 +505,8 @@ export function NoteList({
           <ListRow entry={entry} lit={at || open} />
         ) : entry.folder ? (
           <FolderTile entry={entry} large={density === 'grid'} />
+        ) : entry.head ? (
+          <WordCard entry={entry} head={entry.head} large={density === 'grid'} />
         ) : density === 'small' ? (
           <SmallTile entry={entry} words={words} />
         ) : (
@@ -543,7 +562,7 @@ const rowClass = (
 const PRESS = 'active:bg-accent'
 // The ring is drawn over the tile, not under it, so a picture never hides it.
 export const tileClass = (at: boolean, open: boolean, picked: boolean, dim = false): string =>
-  `group/row relative flex w-full flex-col overflow-hidden rounded-lg text-left after:pointer-events-none after:absolute after:inset-0 after:rounded-lg after:ring-inset after:transition-[box-shadow] ${dim ? 'opacity-50' : ''} ${picked ? `${PICKED} after:ring-2 after:ring-[var(--tt-brand-color-400)]` : at ? 'after:ring-2 after:ring-ring' : open ? 'after:ring-2 after:ring-foreground/40' : 'after:ring-1 after:ring-border hover:after:ring-foreground/25 active:after:ring-2 active:after:ring-foreground/40'}`
+  `group/row relative flex h-full w-full flex-col overflow-hidden rounded-lg text-left after:pointer-events-none after:absolute after:inset-0 after:rounded-lg after:ring-inset after:transition-[box-shadow] ${dim ? 'opacity-50' : ''} ${picked ? `${PICKED} after:ring-2 after:ring-[var(--tt-brand-color-400)]` : at ? 'after:ring-2 after:ring-ring' : open ? 'after:ring-2 after:ring-foreground/40' : 'after:ring-1 after:ring-border hover:after:ring-foreground/25 active:after:ring-2 active:after:ring-foreground/40'}`
 
 /**
  * Split, a row whose note is open in a pane says which: a small L, M or R
@@ -596,7 +615,22 @@ const Dot = (): React.JSX.Element => (
   </span>
 )
 
+// A question keeps its own row, its words over two lines (`wrap`): the word's row is for a word and its meaning.
+const wordRow = (entry: Entry): entry is Entry & { head: NonNullable<Entry['head']> } => !!entry.head && !entry.wrap
+
 function CompactRow({ entry, lit }: { entry: Entry; lit: boolean }): React.JSX.Element {
+  if (wordRow(entry))
+    return (
+      <>
+        <PaneMark id={entry.id} />
+        <span className="private-text flex min-w-0 flex-auto items-baseline gap-2 truncate">
+          <span data-head-word className="shrink-0 font-heading text-heading font-semibold">{entry.head.word}</span>
+          <Meaning head={entry.head} className="min-w-0 truncate" />
+        </span>
+        <Tail entry={entry} lit={lit} />
+        <span className="flex items-center gap-1.5 text-xs text-muted-foreground"><Age entry={entry} /></span>
+      </>
+    )
   return (
     <>
       {entry.lead ? <span aria-hidden className="size-4 shrink-0" /> : <entry.icon className="size-4 shrink-0" style={{ color: entry.tint }} />}
@@ -613,6 +647,18 @@ function CompactRow({ entry, lit }: { entry: Entry; lit: boolean }): React.JSX.E
 }
 
 function ListRow({ entry, lit }: { entry: Entry; lit: boolean }): React.JSX.Element {
+  if (wordRow(entry))
+    return (
+      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <span className="flex items-center gap-2">
+          <PaneMark id={entry.id} />
+          <span data-head-word className={`private-text min-w-0 flex-1 truncate font-heading text-heading font-semibold ${entry.done ? DONE_WORDS : ''}`}>{entry.head.word}</span>
+          <Tail entry={entry} lit={lit} />
+        </span>
+        <Meaning head={entry.head} className="truncate" />
+        <Under entry={entry} />
+      </span>
+    )
   return (
     <>
       {entry.bare ? null : entry.lead ? <span aria-hidden className="size-9 shrink-0" /> : <Lead entry={entry} />}
@@ -630,6 +676,47 @@ function ListRow({ entry, lit }: { entry: Entry; lit: boolean }): React.JSX.Elem
         {entry.answer}
         <Under entry={entry} />
         {entry.bar && <span className="mt-1 block pr-2">{entry.bar}</span>}
+      </span>
+    </>
+  )
+}
+
+/** A word's meaning, a quiet line in reading size; still asked, that is said in its place. */
+const Meaning = ({ head, className = '' }: { head: NonNullable<Entry['head']>; className?: string }): React.JSX.Element | null =>
+  head.meaning ? (
+    <span data-head-meaning className={`private-text text-control text-pretty text-muted-foreground ${className}`}>{head.meaning}</span>
+  ) : head.asked ? (
+    <span data-head-meaning="asked" className={`text-control text-muted-foreground italic ${className}`}>{head.word.trim().endsWith('?') ? 'No answer yet' : 'No meaning yet'}</span>
+  ) : null
+
+/**
+ * A word as a card, the way a dictionary sets one: its drawing as a band across the top, set apart from the words
+ * so it never sits behind them; the word large and first in the heading face; its meaning a quiet line under it.
+ * A long word or a question steps down to the reading size. In the larger grid, where it was met and when, at the foot.
+ * Pointed at, the drawing comes up a little and the ring darkens: nothing is said twice.
+ */
+function WordCard({ entry, head, large }: { entry: Entry; head: NonNullable<Entry['head']>; large: boolean }): React.JSX.Element {
+  const cover = useNoteCover(entry.id)
+  const long = !large || head.word.length > 14
+  return (
+    <>
+      <span data-word-band aria-hidden className={`relative block w-full shrink-0 overflow-hidden ${large ? 'h-12' : 'h-8'}`}
+        style={cover ? undefined : tileTint(entry.tint)}>
+        {cover && <GrainFill cover={cover} tint={entry.tint} shade="none" className="opacity-75 transition-opacity duration-150 group-hover/row:opacity-100" />}
+      </span>
+      <span className={`flex min-h-0 flex-1 flex-col ${large ? 'gap-1 px-3 pt-2.5 pb-3' : 'gap-0.5 px-2.5 pt-2 pb-2.5'}`}>
+        <span className="flex items-start gap-1.5">
+          <span data-head-word className={`private-text min-w-0 flex-1 font-heading font-semibold text-balance hyphens-auto [overflow-wrap:break-word] ${long ? 'line-clamp-3 text-heading' : 'line-clamp-2 text-lead'}`}>{head.word}</span>
+          {entry.marks && <span className="flex shrink-0 items-center gap-1 pt-1">{entry.marks}</span>}
+        </span>
+        <Meaning head={head} className={large ? 'line-clamp-3' : 'line-clamp-2'} />
+        {large && (head.where || entry.age) && (
+          <span className="mt-auto flex min-w-0 items-center gap-1.5 pt-1.5 text-meta text-muted-foreground">
+            {head.where && <span className="min-w-0 truncate">{head.where}</span>}
+            {head.where && entry.age && <Dot />}
+            <Age entry={entry} />
+          </span>
+        )}
       </span>
     </>
   )
@@ -689,10 +776,11 @@ function SmallTile({ entry, words }: { entry: Entry; words?: string }): React.JS
   return (
     <>
       <Cover entry={entry} words={words} large={false} className="aspect-square w-full" />
-      {/* The name, pointed at or under the keyboard, over the foot of the tile: whole, on up to three lines, never cut at the tile's edge. */}
+      {/* A picture's name, pointed at or under the keyboard, over the foot of the tile: whole, on up to three lines, never cut at the tile's edge.
+          Only over a picture: a tile of words already says them, and a second copy over the first read as neither. */}
       <span
         data-tile-name
-        className={`private-text pointer-events-none absolute inset-x-0 bottom-0 line-clamp-3 bg-linear-to-t from-black/75 via-black/55 to-transparent px-2 pt-5 pb-1.5 text-[11px] leading-snug font-medium hyphens-auto [overflow-wrap:break-word] text-white opacity-0 transition-opacity duration-150 group-hover/row:opacity-100 group-data-[cursor]/row:opacity-100`}
+        className={`private-text pointer-events-none absolute inset-x-0 bottom-0 line-clamp-3 hidden bg-linear-to-t from-black/75 via-black/55 to-transparent px-2 pt-5 pb-1.5 text-[11px] leading-snug font-medium hyphens-auto [overflow-wrap:break-word] text-white opacity-0 transition-opacity duration-150 group-has-[[data-tile-picture]]/row:block group-hover/row:opacity-100 group-data-[cursor]/row:opacity-100`}
       >
         <Named entry={entry} />
         {/* An answered question's answer, under its name, in the same caption. */}

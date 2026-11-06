@@ -33,6 +33,7 @@ import { ReadThrough } from './read-through'
 import { enqueue } from '@/lib/reading-queue'
 import { CAPTURE_TYPES, CaptureKindPicker, kindOf, asksFor, byKind, type CaptureType } from '../capture-kinds/capture-kind-picker'
 import { age, fieldOf } from '../capture-list'
+import { headword, letterOf } from '@/lib/headword'
 import { follow, noteLinkText, recallOffered } from '@/lib/capture-links'
 import { splitTags, unloaded, unread, useLastAsked, useLive, haligtree, whenInLine, type Item, type ItemFull, type Settings } from '@/lib/haligtree'
 import { exampleIdeas, exampleQuestions, exampleWriting } from '@/lib/examples'
@@ -167,9 +168,10 @@ const rowOf = (item: Item): Entry => {
       </>
     ),
     dim: !!item.suspended,
-    voice: voiceOf({ type: item.tier, kind: item.kind, attribution: item.attribution, medium: item.medium, label: item.title }),
+    voice: item.kind === 'word' ? undefined : voiceOf({ type: item.tier, kind: item.kind, attribution: item.attribution, medium: item.medium, label: item.title }),
     private: !!item.private,
-    wrap: item.tier === 'nugget'
+    // A word kept: the word, then its meaning, as Lookups sets it (lib/headword.ts). Its row is a word's, on one line.
+    ...(item.kind === 'word' ? { head: { ...headword(text, fieldOf(item.fields, 'definition')), where: item.medium || undefined }, wrap: false } : { wrap: item.tier === 'nugget' })
   }
 }
 
@@ -286,7 +288,7 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
     const held = new Set(shelf.filter((one) => under.has(one.id)).flatMap((one) => one.members))
     return all.filter((one) => held.has(one.id))
   }, [all, shelf, opened, gatherer, gathered])
-  const { groups: arranged, display, chips, density, view, setView, move, moveBy, ownOrder, order, mine } = useItemDisplay(questionsOnly ? 'question' : tier, listed, !questionsOnly)
+  const { groups: arranged, display, chips, density, view, setView, move, moveBy, ownOrder, order, mine } = useItemDisplay(questionsOnly ? (onAsk && ask === 'words' ? WORDS : 'question') : tier, listed, !questionsOnly)
   // The list's width: beside the note, over the whole page, or a rail of pictures.
   const pane = view.pane ?? 'list'
   const [query, setQuery] = useState('')
@@ -1545,6 +1547,9 @@ const groupsSaid = (sort: string): string =>
   sort === 'manual' ? 'Folders on top, in your order; then the loose pages, where you put them.'
     : 'Folders on top, in your order; the pages in them and after them sorted.'
 
+/** Questions › Words' Display, kept apart from Open's and Answered's. */
+const WORDS = 'question:words'
+
 export function useItemDisplay(name: string, every: Item[], withGroups = false): {
   groups: [string, Item[]][]
   display: React.JSX.Element
@@ -1565,7 +1570,8 @@ export function useItemDisplay(name: string, every: Item[], withGroups = false):
   mine: () => (() => void) | undefined
 } {
   // Grouped by kind to start: a few short lists read calmer than one long one.
-  const [view, setView] = useView(name, { sort: 'newest', group: 'kind' })
+  // Words, as Looked up: A to Z under their letters (a list of its own, so Open and Answered keep theirs).
+  const [view, setView] = useView(name, name === WORDS ? { sort: 'name', group: 'letter' } : { sort: 'newest', group: 'kind' })
   // Archived ones are out of sight until Display's Marked asks for them.
   const all = every.filter((one) => !!one.archivedAt === !!view.filter.flags?.includes('archived'))
   const own = useOwnOrder(name)
@@ -1602,6 +1608,8 @@ export function useItemDisplay(name: string, every: Item[], withGroups = false):
   if (rated) facets.push({ key: 'rating', label: 'Rating', options: [5, 4, 3, 2, 1].map((n) => ({ id: String(n), label: '★'.repeat(n) })), test: (one, n) => propOf(one).rating === Number(n) })
   const ownOrder = (a: Item, b: Item): number => own.compare(a.id, b.id) || b.createdAt.localeCompare(a.createdAt)
   const kinds = facets[0].options.length > 1
+  // A word files under its headword ("Petrichor: the smell of rain" under P); anything else under its title.
+  const word = (one: Item): string => (one.kind === 'word' ? headword(splitTags(one.title).text).word : one.title)
   // Any property in use is a way to sort (lib/property-sorts.ts).
   const byProp = propertySorts(all, (a, b) => b.createdAt.localeCompare(a.createdAt))
   const groups = arrange(all, view, facets, {
@@ -1609,19 +1617,20 @@ export function useItemDisplay(name: string, every: Item[], withGroups = false):
     newest: (a, b) => b.createdAt.localeCompare(a.createdAt),
     changed: (a, b) => (b.updatedAt ?? b.createdAt).localeCompare(a.updatedAt ?? a.createdAt),
     untouched: (a, b) => (a.updatedAt ?? a.createdAt).localeCompare(b.updatedAt ?? b.createdAt),
-    name: (a, b) => a.title.localeCompare(b.title),
+    name: (a, b) => word(a).localeCompare(word(b), undefined, { sensitivity: 'base' }),
     kind: (a, b) => byKind(a.kind, b.kind) || b.createdAt.localeCompare(a.createdAt),
     due: (a, b) => (a.dueAt ?? '9').localeCompare(b.dueAt ?? '9'),
     rating: (a, b) => (propOf(b).rating ?? 0) - (propOf(a).rating ?? 0) || b.createdAt.localeCompare(a.createdAt),
     manual: ownOrder
   }, {
     kind: (one) => CAPTURE_TYPES.find((type) => type.id === one.kind)?.label ?? 'Note',
-    date: (one) => period(one.createdAt)
+    date: (one) => period(one.createdAt),
+    letter: (one) => letterOf(word(one))
   })
   // Spread over the page, the list keeps a size of its own: a grid, unless you chose another.
   const wide = view.pane === 'wide'
   // Questions open on their cards (the user, 1 Nov); every other list on rows. A choice made in Display is kept.
-  const density = (wide ? view.wideDensity ?? 'grid' : view.density) ?? (name === 'question' ? 'small' : 'list')
+  const density = (wide ? view.wideDensity ?? 'grid' : view.density) ?? (name === 'question' || name === WORDS ? 'small' : 'list')
   const display = (
     <Display
       view={view}
@@ -1635,7 +1644,7 @@ export function useItemDisplay(name: string, every: Item[], withGroups = false):
       // What the chosen order does with groups, said under the choices.
       sortNote={withGroups ? groupsSaid(view.sort) : undefined}
       // Grouping cuts the loose notes into sections (by kind or date) under the folders: a group is never a folder (qa/list-grouping.mjs).
-      groups={[...(kinds ? [{ id: 'kind', label: 'Kind' }] : []), { id: 'none', label: 'None' }, { id: 'date', label: 'Date' }]}
+      groups={[...(kinds ? [{ id: 'kind', label: 'Kind' }] : []), { id: 'none', label: 'None' }, { id: 'date', label: 'Date' }, ...(all.length && all.every((one) => one.kind === 'word') ? [{ id: 'letter', label: 'First letter' }] : [])]}
       density={density}
       onDensity={(next) => setView({ ...view, [wide ? 'wideDensity' : 'density']: next })}
     />

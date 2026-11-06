@@ -334,6 +334,8 @@ export const questionEntry = (item: Item, inView = false, menu?: MenuItem[], bac
   ),
   dim: !!item.closedAt,
   private: !!item.private,
+  // As a card: the question large and first, its answer under it (note-list's WordCard). Its row keeps its own two lines (`wrap`).
+  head: { word: splitTags(item.title).text || item.title, ...(item.answer ? { meaning: item.answer } : item.closedHow === 'let go' ? { meaning: 'Stopped asking, with no answer' } : {}) },
   wrap: true,
   menu
 })

@@ -26,6 +26,7 @@ import { EyeOff, Bookmark as Pin } from '@/components/ui/icons'
 import type { IslandState } from './haligtree/islands'
 import { pictureItems } from '@/lib/note-picture'
 import { cardItem } from '@/lib/share-card'
+import { headword } from '@/lib/headword'
 
 /** One property out of a capture's fields, or null. */
 export const fieldOf = (fields: string | null | undefined, key: string): string | null => {
@@ -194,11 +195,12 @@ export const captureEntry = (capture: CaptureMeta, onPick?: (id: string) => void
     tint: kind.tint,
     age: age(capture.capturedAt),
     // Only one still waiting goes stale: one that took its exit is done.
-    ageTint: capture.status === 'open' ? ageTint(capture.capturedAt, capture.importedAt) : undefined,
+    // A word with its meaning is not waiting on anything: only one still asked warms with age.
+    ageTint: capture.status === 'open' && capture.lookup !== 'answered' ? ageTint(capture.capturedAt, capture.importedAt) : undefined,
     // A dimmed one says why: which exit it took. One hidden until a day, or back from it today, says so.
-    // A Word still waiting for its meaning says so first: that is what the Words page is for.
-    sub: [capture.lookup === 'asked' && 'No meaning yet', capture.snoozedUntil && capture.status !== 'discarded' && (capture.snoozedUntil > dayKey() ? `Hidden until ${whenInLine(capture.snoozedUntil)}` : capture.snoozedUntil === dayKey() && backSaid(capture)),
-      capture.status !== 'open' && statusSaid(capture.status, capture.keptIn), capture.attribution, whereFrom(capture.source, capture.label)].filter(Boolean).join(' · ') || undefined,
+    // A Word still waiting for its meaning says so on its meaning's own line (`head`), never twice.
+    sub: [capture.snoozedUntil && capture.status !== 'discarded' && (capture.snoozedUntil > dayKey() ? `Hidden until ${whenInLine(capture.snoozedUntil)}` : capture.snoozedUntil === dayKey() && backSaid(capture)),
+      capture.status !== 'open' && statusSaid(capture.status, capture.keptIn), capture.attribution, capture.kind === 'word' && capture.medium, whereFrom(capture.source, capture.label)].filter(Boolean).join(' · ') || undefined,
     marks: (
       <>
         {capture.pinnedAt && (
@@ -216,8 +218,11 @@ export const captureEntry = (capture: CaptureMeta, onPick?: (id: string) => void
     // No V-number on the row: it means nothing to a reader; Details keeps it for merging.
     // One that has taken an exit is dimmed, the way Linear dims what is read.
     dim: capture.status !== 'open',
-    voice: capture.kind === 'task' || capture.kind === 'todo' ? undefined : voiceOf({ type: 'capture', kind: capture.kind, attribution: capture.attribution, medium: capture.medium, label: capture.label, location: fieldOf(capture.fields, 'location') }),
+    // A word's voice is the same on every Lookup: a dot that tells nothing, left off.
+    voice: capture.kind === 'task' || capture.kind === 'todo' || capture.kind === 'word' ? undefined : voiceOf({ type: 'capture', kind: capture.kind, attribution: capture.attribution, medium: capture.medium, label: capture.label, location: fieldOf(capture.fields, 'location') }),
     private: !!capture.private,
+    // A Lookup, as a dictionary sets it: the word, then its meaning (lib/headword.ts; the title itself is never changed).
+    head: capture.kind === 'word' ? { ...headword(text, fieldOf(capture.fields, 'definition')), asked: capture.lookup === 'asked', where: capture.medium || undefined } : undefined,
     menu: captureMenu(capture, onPick)
   }
 }
