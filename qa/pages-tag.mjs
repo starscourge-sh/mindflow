@@ -86,7 +86,9 @@ try {
   if (shots) await both(`${shots}/tag-1280`)
 
   // Every action reachable from exactly one control: Study's three ways, and the ⋯ menu's lines.
+  // Frames every 50ms as the Study menu opens, to read by eye.
   await h.locator('[data-study-menu]').click()
+  for (let at = 0; shots && at < 6; at++) (await h.screenshot({ path: `${shots}/frame-study-${at}.png` }), await wait(50))
   await wait(300)
   const study = await h.evaluate(() => [...document.querySelectorAll('[role="menuitem"]')].map((one) => one.textContent.trim()))
   check('Study holds Review, Practise and Blurt, each saying what it does', study.length === 3 && /Review/.test(study[0]) && /Practise/.test(study[1]) && /Blurt/.test(study[2]), JSON.stringify(study))
@@ -111,6 +113,7 @@ try {
   const blurting = await h.evaluate(() => !document.querySelector('[data-tag-stream]'))
   if (shots) await h.screenshot({ path: `${shots}/tag-blurt.png` })
   await h.locator('[data-list-tabs] button[aria-label="Read"]').click({ timeout: 5000 })
+  for (let at = 0; shots && at < 6; at++) (await h.screenshot({ path: `${shots}/frame-back-to-read-${at}.png` }), await wait(50))
   await wait(900)
   const back = await h.evaluate(() => !!document.querySelector('[data-tag-stream]'))
   check('Study › Blurt takes the page, and Read brings the stream back', blurting && back, `${blurting} ${back}`)
