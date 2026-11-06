@@ -1,9 +1,14 @@
-import { app, ipcMain, shell, systemPreferences } from 'electron'
-import { LABEL, database } from './captures'
+import { app, BrowserWindow, dialog, ipcMain, nativeImage, shell, systemPreferences } from 'electron'
+import { LABEL, changed, database } from './captures'
 import { dayName } from './dates'
-import { readFile, rename, writeFile } from 'node:fs/promises'
-import { join } from 'node:path'
-import { assetsDir } from './pictures'
+import { copyFile, mkdir, open, readFile, rename, rm, stat, writeFile } from 'node:fs/promises'
+import { createReadStream, existsSync } from 'node:fs'
+import { createHash, randomUUID } from 'node:crypto'
+import { basename, join } from 'node:path'
+import type { DatabaseSync } from 'node:sqlite'
+import { assetsDir, lookAhead } from './pictures'
+import { IN_PICTURE, wordsOfPicture } from './picture-words'
+import { AUDIO_ENDS, PICTURE_ENDS, TURNED, sniff, whyNot, type AddResult, type MediaKind, type Taken } from './media-words'
 
 /**
  * Media: every picture, GIF, PDF and recording kept in the book's notes, found
@@ -11,9 +16,16 @@ import { assetsDir } from './pictures'
  * the note each lives in and the words around it, so a search can find it.
  * Only files in the book's own store count: a picture linked from the web is
  * not kept here, and could not be shown in Finder or copied.
+ *
+ * A file can also be added here with no note at all: it goes in the same store
+ * as any note's, named by its bytes, and `media_added` remembers that it was
+ * added, under what name and when. A note that later holds it is a use of the
+ * one file; nothing is copied. Each file is one tile, however many notes hold it.
  */
 
-export type MediaKind = 'picture' | 'gif' | 'pdf' | 'audio'
+export type { MediaKind } from './media-words'
+/** A note that holds a file. */
+export type MediaUse = { type: string; id: string; title: string; private: boolean }
 export type Media = {
   /** The stored file, as the note points at it. */
   src: string
@@ -22,7 +34,7 @@ export type Media = {
   name: string
   /** A file's size in bytes, as its card says it; 0 for a picture. */
   size: number
-  /** The note it lives in. */
+  /** The newest note it lives in; '' when no note holds it. */
   type: string
   id: string
   title: string
@@ -34,6 +46,43 @@ export type Media = {
   at: string
   /** It belongs to a shared deck: shown under Media's "Deck pictures" chip, not in the grid. */
   deck?: boolean
+  /** Every note that holds it, newest first; none when it was added to Media and is used nowhere yet. */
+  uses: MediaUse[]
+  /** It was added to Media, so it stays here whatever happens to the notes. */
+  added: boolean
+  /** Its file is no longer in the book's store. */
+  gone: boolean
+}
+
+/** What Media was given with no note: the file is in the store; this says it belongs to the book. */
+const ADDED = 'create table if not exists media_added (src text primary key, name text not null, size integer not null, added_at text not null, binned_at text)'
+type AddedRow = { src: string; name: string; size: number; at: string }
+const addedRows = (db: DatabaseSync): AddedRow[] => {
+  db.exec(ADDED)
+  return db.prepare('select src, name, size, added_at as at from media_added where binned_at is null').all() as AddedRow[]
+}
+
+const END_OF = /\.([a-z0-9]+)$/
+/** What a stored file is by its ending alone, as an added file is known. */
+const kindByEnd = (src: string): MediaKind | null => {
+  const end = END_OF.exec(src)?.[1] ?? ''
+  return end === 'gif' ? 'gif' : end === 'pdf' ? 'pdf' : AUDIO_ENDS.includes(end) ? 'audio' : PICTURE_ENDS.includes(end) ? 'picture' : null
+}
+
+/** The PDFs added with no note, as search and the shelf take them. */
+export const addedPdfs = (db: DatabaseSync): AddedRow[] => addedRows(db).filter((one) => kindByEnd(one.src) === 'pdf')
+
+/**
+ * Pictures and recordings added with no note, as search lists them: found by
+ * name and, for a picture, by the words the Mac read in it, as any note's are.
+ * (An added PDF is found as every PDF is: pdf-highlights.ts.)
+ */
+export function mediaToFind(db: DatabaseSync): { type: 'media'; id: string; number: null; kind: string; status: string; source: string; attribution: string | null; label: string; capturedAt: string; text: string; raw: string }[] {
+  return addedRows(db).filter((one) => kindByEnd(one.src) !== 'pdf').map((one) => {
+    const label = one.name.replace(/\.[^.]+$/, '') || one.name
+    const raw = `${label}${wordsOfPicture(one.src)}`
+    return { type: 'media', id: `${one.src}|${one.name}`, number: null, kind: kindByEnd(one.src) ?? 'picture', status: 'open', source: '', attribution: null, label, capturedAt: one.at, text: `${raw} ${one.name}`.toLowerCase(), raw }
+  })
 }
 
 type Doc = { type?: string; text?: string; attrs?: Record<string, unknown>; content?: Doc[] }
@@ -57,7 +106,7 @@ const wordsOf = (node: Doc): string =>
 const cut = (text: string, room: number): string => (text.length > room ? text.slice(0, room) : text)
 
 /** The media in one stored body, each with the words around it. */
-function mediaIn(body: string | null): Omit<Media, 'type' | 'id' | 'title' | 'private' | 'at'>[] {
+function mediaIn(body: string | null): Found[] {
   if (!body) return []
   let doc: unknown
   try {
@@ -94,7 +143,7 @@ function mediaIn(body: string | null): Omit<Media, 'type' | 'id' | 'title' | 'pr
     }
     walk(doc as Doc)
   }
-  const found: Omit<Media, 'type' | 'id' | 'title' | 'private' | 'at'>[] = []
+  const found: Found[] = []
   const seen = new Set<string>()
   parts.forEach((part, at) => {
     if ('words' in part) return
@@ -108,8 +157,10 @@ function mediaIn(body: string | null): Omit<Media, 'type' | 'id' | 'title' | 'pr
   return found
 }
 
+type Found = Pick<Media, 'src' | 'kind' | 'name' | 'size' | 'near'>
+
 /** Each note's media, worked out again only when its body changes: a big book is read once, then only what moved. */
-const read = new Map<string, { body: string; found: Omit<Media, 'type' | 'id' | 'title' | 'private' | 'at'>[] }>()
+const read = new Map<string, { body: string; found: Found[] }>()
 
 export function registerMedia(): void {
   // Before a voice note: macOS asks once, with the sentence in electron-builder.yml, and remembers.
@@ -144,27 +195,223 @@ export function registerMedia(): void {
   })
   // The Mac's own page for it, from any "No microphone" message (ui.tsx, refuseMic).
   ipcMain.handle('haligtree:mic:privacy', () => void shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone'))
-  ipcMain.handle('haligtree:media:list', () => {
-    const db = database()
-    // Only bodies that point into the store are read at all.
-    const HOLDS = "body like '%://assets/%'"
-    const rows = [
-      ...db.prepare(`select 'capture' as type, id, ${LABEL} as title, body, private, captured_at as at from captures where status != 'discarded' and ${HOLDS}`).all(),
-      ...db.prepare(`select tier as type, id, coalesce(nullif(title, ''), label('', body)) as title, body, private, created_at as at from nuggets where binned_at is null and superseded_by is null and tier not in ('card', 'deck') and ${HOLDS}`).all(),
-      // A shared deck's pictures sit on its questions: read from the question and the answer together, and marked as the deck's.
-      ...db.prepare(`select 'nugget' as type, id, coalesce(nullif(title, ''), label('', body)) as title, json_quote(coalesce(prompt, '') || char(10) || coalesce(json_extract(body, '$'), '')) as body, private, created_at as at, 1 as deck from nuggets where binned_at is null and tier = 'deck' and (prompt like '%://assets/%' or ${HOLDS})`).all(),
-      ...db.prepare(`select 'day' as type, day as id, day as title, body, 0 as private, day as at from day_pages where ${HOLDS}`).all()
-    ] as { type: string; id: string; title: string; body: string; private: number; at: string; deck?: number }[]
-    const all: Media[] = []
-    const live = new Set<string>()
-    for (const row of rows) {
-      const key = `${row.type}:${row.id}`
-      live.add(key)
-      let kept = read.get(key)
-      if (kept?.body !== row.body) read.set(key, (kept = { body: row.body, found: mediaIn(row.body) }))
-      for (const one of kept.found) all.push({ ...one, type: row.type, id: row.id, title: row.type === 'day' ? dayName(row.id) : row.title, private: !!row.private, at: row.at, ...(row.deck ? { deck: true } : {}) })
+  ipcMain.handle('haligtree:media:list', () => allMedia())
+  ipcMain.handle('haligtree:media:pick', async (event) => {
+    const owner = BrowserWindow.fromWebContents(event.sender)
+    const options: Electron.OpenDialogOptions = {
+      title: 'Add to Media',
+      properties: ['openFile', 'multiSelections'],
+      filters: [{ name: 'Pictures, GIFs, PDFs and audio', extensions: [...PICTURE_ENDS, 'pdf', ...AUDIO_ENDS] }]
     }
-    for (const key of read.keys()) if (!live.has(key)) read.delete(key)
-    return all.sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0))
+    const { filePaths } = await (owner ? dialog.showOpenDialog(owner, options) : dialog.showOpenDialog(options))
+    return Promise.all(filePaths.map(async (path) => ({ path, size: (await stat(path).catch(() => null))?.size ?? 0 })))
   })
+  ipcMain.handle('haligtree:media:add', (_event, items: unknown) => addMedia(Array.isArray(items) ? items : []))
+  // "Undo" on a batch: what was new is let go (the file stays in the store until Settings clears unused ones), what came out of the Bin goes back.
+  ipcMain.handle('haligtree:media:add:undo', (_event, kept: { added?: string[]; revived?: string[] }) => {
+    const db = database()
+    for (const src of kept?.added ?? []) db.prepare('delete from media_added where src = ?').run(String(src))
+    for (const src of kept?.revived ?? []) db.prepare('update media_added set binned_at = ? where src = ?').run(new Date().toISOString(), String(src))
+    changed()
+    return true
+  })
+  // To the Bin, only what no note holds: a note keeps its picture, so a file a note uses stays where it is, and is said back.
+  ipcMain.handle('haligtree:media:bin', (_event, srcs: unknown) => {
+    const db = database()
+    const tiles = new Map(allMedia().filter((one) => !one.deck).map((one) => [one.src, one]))
+    const binned: string[] = [], stayed: { src: string; name: string; notes: number }[] = []
+    const now = new Date().toISOString()
+    for (const src of Array.isArray(srcs) ? srcs.map(String) : []) {
+      const one = tiles.get(src)
+      if (!one) continue
+      if (one.uses.length) stayed.push({ src, name: one.name || one.title, notes: one.uses.length })
+      else (db.prepare('update media_added set binned_at = ? where src = ?').run(now, src), binned.push(src))
+    }
+    if (binned.length) changed()
+    return { binned, stayed }
+  })
+  ipcMain.handle('haligtree:media:unbin', (_event, srcs: unknown) => {
+    for (const src of Array.isArray(srcs) ? srcs.map(String) : []) mediaFromBin(src)
+    changed()
+    return true
+  })
+}
+
+export const mediaFromBin = (src: string): void => void database().prepare('update media_added set binned_at = null where src = ?').run(src)
+/** Let go for good: the file itself is cleared with the rest of the unused ones (unused.ts), as a deleted note's are. */
+export const mediaForget = (src?: string): number => {
+  const db = database()
+  db.exec(ADDED)
+  return Number((src ? db.prepare('delete from media_added where src = ? and binned_at is not null').run(src) : db.prepare('delete from media_added where binned_at is not null').run()).changes)
+}
+/**
+ * What the Bin lists of Media. A file binned and then dropped into a note is
+ * in use again: it comes out by itself, rather than being in both places.
+ */
+export function mediaInBin(): { type: string; id: string; title: string; kind: string; at: string; line: null }[] {
+  const db = database()
+  db.exec(ADDED)
+  const rows = db.prepare('select src, name, binned_at as at from media_added where binned_at is not null').all() as { src: string; name: string; at: string }[]
+  if (!rows.length) return []
+  const used = new Set(allMedia().filter((one) => one.uses.length).map((one) => one.src))
+  return rows.filter((one) => {
+    if (used.has(one.src)) mediaFromBin(one.src)
+    return !used.has(one.src)
+  }).map((one) => ({ type: 'media', id: one.src, title: one.name, kind: kindByEnd(one.src) ?? 'file', at: one.at, line: null }))
+}
+/** One in the Bin as its preview shows it: the block it would be in a note. */
+export function mediaPeek(src: string): { type: string; id: string; title: string; kind: string; body: unknown; private: boolean; madeAt: string; binnedAt: string | null; attribution: null; tags: string[] } | null {
+  const db = database()
+  db.exec(ADDED)
+  const one = db.prepare('select name, size, added_at as at, binned_at as binned from media_added where src = ?').get(src) as { name: string; size: number; at: string; binned: string | null } | undefined
+  if (!one) return null
+  const kind = kindByEnd(src)
+  const block = kind === 'picture' || kind === 'gif' ? { type: 'image', attrs: { src, alt: one.name } } : { type: 'attachment', attrs: { src, name: one.name, size: one.size } }
+  return { type: 'media', id: src, title: one.name, kind: kind ?? 'file', body: { type: 'doc', content: [block] }, private: false, madeAt: one.at, binnedAt: one.binned, attribution: null, tags: [] }
+}
+
+/** Every file in the book, one tile each: what notes hold, then what was added with no note, newest first. */
+function allMedia(): Media[] {
+  const db = database()
+  // Only bodies that point into the store are read at all.
+  const HOLDS = "body like '%://assets/%'"
+  const rows = [
+    ...db.prepare(`select 'capture' as type, id, ${LABEL} as title, body, private, captured_at as at from captures where status != 'discarded' and ${HOLDS}`).all(),
+    ...db.prepare(`select tier as type, id, coalesce(nullif(title, ''), label('', body)) as title, body, private, created_at as at from nuggets where binned_at is null and superseded_by is null and tier not in ('card', 'deck') and ${HOLDS}`).all(),
+    // A shared deck's pictures sit on its questions: read from the question and the answer together, and marked as the deck's.
+    ...db.prepare(`select 'nugget' as type, id, coalesce(nullif(title, ''), label('', body)) as title, json_quote(coalesce(prompt, '') || char(10) || coalesce(json_extract(body, '$'), '')) as body, private, created_at as at, 1 as deck from nuggets where binned_at is null and tier = 'deck' and (prompt like '%://assets/%' or ${HOLDS})`).all(),
+    ...db.prepare(`select 'day' as type, day as id, day as title, body, 0 as private, day as at from day_pages where ${HOLDS}`).all()
+  ] as { type: string; id: string; title: string; body: string; private: number; at: string; deck?: number }[]
+  const tiles = new Map<string, Media>()
+  const live = new Set<string>()
+  // Newest note first, so a file's tile speaks for the newest note holding it.
+  for (const row of rows.sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0))) {
+    const key = `${row.type}:${row.id}`
+    live.add(key)
+    let kept = read.get(key)
+    if (kept?.body !== row.body) read.set(key, (kept = { body: row.body, found: mediaIn(row.body) }))
+    const title = row.type === 'day' ? dayName(row.id) : row.title
+    for (const one of kept.found) {
+      const tile = `${row.deck ? 'deck:' : ''}${one.src}`
+      const use = { type: row.type, id: row.id, title, private: !!row.private }
+      const was = tiles.get(tile)
+      if (was) {
+        was.uses.push(use)
+        was.private ||= use.private
+        was.name ||= one.name
+        was.size ||= one.size
+        if (one.near) was.near = `${was.near} · ${one.near}`
+      } else tiles.set(tile, { ...one, type: row.type, id: row.id, title, private: !!row.private, at: row.at, ...(row.deck ? { deck: true } : {}), uses: [use], added: false, gone: false })
+    }
+  }
+  for (const key of read.keys()) if (!live.has(key)) read.delete(key)
+  for (const row of addedRows(db)) {
+    const was = tiles.get(row.src)
+    const kind = kindByEnd(row.src)
+    if (was) {
+      was.added = true
+      was.name = row.name
+      was.size = row.size
+      if (row.at > was.at) was.at = row.at
+    } else if (kind) {
+      // A picture's own words, read by the Mac as any kept picture's are, so Media's search finds it by them.
+      const words = wordsOfPicture(row.src).split(IN_PICTURE).join('').trim()
+      tiles.set(row.src, { src: row.src, kind, name: row.name, size: row.size, type: '', id: '', title: '', private: false, near: words, at: row.at, uses: [], added: true, gone: false })
+    }
+  }
+  const store = assetsDir()
+  const all = [...tiles.values()]
+  for (const one of all) one.gone = !existsSync(join(store, one.src.slice(one.src.lastIndexOf('/') + 1)))
+  return all.sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0))
+}
+
+const HASHED = /assets\/([a-f0-9]{64})\./
+const hashOf = (src: string): string => HASHED.exec(src)?.[1] ?? ''
+
+/** A file's bytes as their hash, read a piece at a time: a 500 MB book never sits in memory. */
+const hashFile = (path: string): Promise<string> => new Promise((done, fail) => {
+  const hash = createHash('sha256')
+  createReadStream(path).on('data', (piece) => hash.update(piece)).on('error', fail).on('end', () => done(hash.digest('hex')))
+})
+
+/** The start of a file, enough to tell what it is. */
+async function headOf(path: string): Promise<Uint8Array> {
+  const file = await open(path, 'r')
+  try {
+    const head = Buffer.alloc(1024)
+    const { bytesRead } = await file.read(head, 0, 1024, 0)
+    return head.subarray(0, bytesRead)
+  } finally {
+    await file.close()
+  }
+}
+
+export type MediaItem = { path?: unknown; name?: unknown; bytes?: unknown; why?: unknown }
+
+/**
+ * Files into Media, as they are: no note, nothing asked. By a path where there
+ * is one (a drop from Finder, the picker, Finder's right-click) and by its
+ * bytes where a file has none (a drag from another app). The same bytes already
+ * here are met, not doubled, under whatever name and ending they came.
+ */
+export async function addMedia(items: MediaItem[]): Promise<AddResult> {
+  const db = database()
+  db.exec(ADDED)
+  const out: AddResult = { added: [], revived: [], met: [], refused: [] }
+  // Whatever is in Media by now, by hash: every note's and every added file's.
+  const here = new Set(allMedia().filter((one) => !one.deck).map((one) => hashOf(one.src)))
+  const binned = new Map((db.prepare('select src, name from media_added where binned_at is not null').all() as { src: string; name: string }[]).map((one) => [hashOf(one.src), one]))
+  const store = assetsDir()
+  await mkdir(store, { recursive: true })
+  for (const item of items) {
+    const path = typeof item?.path === 'string' && item.path ? item.path : ''
+    const name = path ? basename(path) : typeof item?.name === 'string' && item.name ? item.name : 'That file'
+    const refuse = (why: string): void => void out.refused.push({ name, why })
+    try {
+      if (typeof item?.why === 'string') { refuse(item.why); continue }
+      const size0 = path ? await stat(path) : null
+      if (size0?.isDirectory()) { refuse('a folder, so pick the files in it'); continue }
+      let bytes = !path && item?.bytes instanceof Uint8Array ? item.bytes : null
+      if (!path && !bytes) { refuse('it could not be read. Drag it in from Finder instead'); continue }
+      // HEIC and TIFF come from the Mac's own apps and no window can draw them: the Mac turns them into a PNG once.
+      if (TURNED.test(name)) {
+        const picture = path ? nativeImage.createFromPath(path) : nativeImage.createFromBuffer(Buffer.from(bytes!))
+        if (picture.isEmpty()) { refuse(whyNot(name)); continue }
+        bytes = picture.toPNG()
+      }
+      if ((bytes ? bytes.byteLength : size0!.size) === 0) { refuse('empty'); continue }
+      const looked = sniff(bytes ? bytes.subarray(0, 1024) : await headOf(path), TURNED.test(name) ? 'turned.png' : name)
+      if (!looked) { refuse(whyNot(name)); continue }
+      const hash = bytes ? createHash('sha256').update(bytes).digest('hex') : await hashFile(path)
+      const file = `${hash}.${looked.end}`
+      const src = `haligtree://assets/${file}`
+      const destination = join(store, file)
+      // Beside it and renamed in, so a half-written file is never read. Already whole in the store: left alone.
+      if (!existsSync(destination)) {
+        const temporary = `${destination}.${randomUUID()}.tmp`
+        await (bytes ? writeFile(temporary, bytes) : copyFile(path, temporary)).catch(async (error) => {
+          await rm(temporary, { force: true })
+          throw error
+        })
+        await rename(temporary, destination)
+      }
+      if (looked.kind === 'picture' || looked.kind === 'gif') lookAhead(file)
+      const size = bytes ? bytes.byteLength : size0!.size
+      const taken: Taken = { src, name, size, kind: looked.kind }
+      const was = binned.get(hash)
+      if (here.has(hash)) out.met.push(taken)
+      else if (was) {
+        mediaFromBin(was.src)
+        out.revived.push({ ...taken, src: was.src, name: was.name })
+      } else {
+        db.prepare('insert or replace into media_added (src, name, size, added_at, binned_at) values (?, ?, ?, ?, null)').run(src, name, size, new Date().toISOString())
+        out.added.push(taken)
+      }
+      here.add(hash)
+    } catch (error) {
+      refuse(error instanceof Error && 'code' in error && error.code === 'ENOENT' ? 'gone from where it was' : 'it could not be read')
+    }
+  }
+  if (out.added.length || out.revived.length) changed()
+  return out
 }

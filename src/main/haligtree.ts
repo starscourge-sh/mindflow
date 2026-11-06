@@ -1,3 +1,4 @@
+import { mediaForget, mediaFromBin, mediaInBin, mediaPeek } from './media'
 import { foldMeeting, transcriptLines, voiceName, type MeetingLine } from './meeting-doc'
 import { awayDays } from './away'
 import { streaks } from './focus-numbers'
@@ -2128,11 +2129,12 @@ export function registerHaligtree(): void {
       select 'task', id, title, 'todo', coalesce(completed_at, created_at), case when trim(title) in ('', 'Untitled') then label('', notes) end from tasks where status = 'dropped'
       union all
       select tier, id, coalesce(nullif(title, ''), label('', body)), kind, binned_at, case when trim(title) = 'Untitled' then label('', body) end from nuggets where binned_at is not null
-    ) order by at desc limit 1000`).all().concat(eventsInBin(), practicesInBin()).sort((a, b) => String((b as { at: string }).at).localeCompare(String((a as { at: string }).at))))
+    ) order by at desc limit 1000`).all().concat(eventsInBin(), practicesInBin(), mediaInBin()).sort((a, b) => String((b as { at: string }).at).localeCompare(String((a as { at: string }).at))))
   // One thing in the Bin, to look inside before it is restored or deleted:
   // its words whole, its tags, its kind, and when it was made and binned.
   // Read only: nothing here counts as opening it.
   handle('bin:peek', (type: string, id: string) => {
+    if (type === 'media') return mediaPeek(id)
     // An event, a calendar or a practice: what it was set for, said a line each, its notes as its words.
     const facts: string[] = []
     if (type === 'event') {
@@ -2212,6 +2214,7 @@ export function registerHaligtree(): void {
     else if (type === 'task') db.prepare("update tasks set status = 'open', completed_at = null where id = ? and status = 'dropped'").run(id)
     else if (type === 'event' || type === 'calendar') eventFromBin(id)
     else if (type === 'practice') practiceFromBin(id)
+    else if (type === 'media') mediaFromBin(id)
     else db.prepare("update nuggets set binned_at = null, archived_at = json_extract(binned_was, '$.archived_at'), pinned_at = coalesce(pinned_at, json_extract(binned_was, '$.pinned_at')), binned_was = null where id = ?").run(id)
   }
   handle('bin:put', (id: string) => {
@@ -2221,7 +2224,7 @@ export function registerHaligtree(): void {
   })
   handle('bin:restore', (type: string, id: string) => {
     outOfBin(type, id)
-    if (type !== 'capture' && type !== 'task') goalsTold()
+    if (type !== 'capture' && type !== 'task' && type !== 'media') goalsTold()
     return write(true)
   })
   // Many at once, picked rows of a list and their Undo: one write and one telling for the lot.
@@ -2241,6 +2244,7 @@ export function registerHaligtree(): void {
   handle('bin:forget', (type: string, id: string) => {
     if (type === 'event' || type === 'calendar') return write(forgetEvents(id) > 0)
     if (type === 'practice') return write(forgetPractices(id) > 0)
+    if (type === 'media') return write(mediaForget(id) > 0)
     const gone = atomically(() => {
       const there = type === 'capture' ? db.prepare("select 1 from captures where id = ? and status = 'discarded'").get(id)
         : type === 'task' ? db.prepare("select 1 from tasks where id = ? and status = 'dropped'").get(id)
@@ -2271,7 +2275,7 @@ export function registerHaligtree(): void {
       for (const id of items) db.prepare('delete from nuggets where id = ?').run(id)
       for (const id of tasks) for (const table of ['task_links', 'task_done']) db.prepare(`delete from ${table} where task_id = ?`).run(id)
       for (const id of tasks) db.prepare('delete from tasks where id = ?').run(id)
-      return captures.length + tasks.length + items.length + forgetEvents() + forgetPractices()
+      return captures.length + tasks.length + items.length + forgetEvents() + forgetPractices() + mediaForget()
     })
     return write(gone)
   })

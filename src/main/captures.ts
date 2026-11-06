@@ -25,6 +25,7 @@ import { cut, fittedTitle } from './clip'
 import { registerRenames, resolveWaiting, watchName } from './renames'
 import { NOTE_KEY } from './name'
 import { pdfsToFind } from './pdf-highlights'
+import { mediaToFind } from './media'
 import { articlesToFind } from './web-articles'
 import { mdWords } from './md-words'
 
@@ -526,8 +527,8 @@ export function registerCaptures(): void {
        ) order by capturedAt desc`
     ).all() as unknown as Searchable[]
     for (const one of rows) one.text = (one.raw = String(one.text ?? '')).toLowerCase()
-    // The PDFs kept in notes, by their titles, among the rest by when their note was made.
-    const pdfs = [...pdfsToFind(db), ...articlesToFind(db)]
+    // The PDFs kept in notes, by their titles, and files added to Media, among the rest by when their note was made.
+    const pdfs = [...pdfsToFind(db), ...articlesToFind(db), ...mediaToFind(db)]
     if (pdfs.length) rows.push(...pdfs), rows.sort((a, b) => (a.capturedAt < b.capturedAt ? 1 : a.capturedAt > b.capturedAt ? -1 : 0))
     everything = { at: writes(), rows }
     return rows
@@ -888,15 +889,6 @@ export function rescueDrawing(scene: unknown): void {
   const body = { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Drawing, rescued' }] }, { type: 'excalidraw', attrs: { scene, height: 300 } }] }
   insert({ title: '', kind: 'note', body }, new Date().toISOString())
   changed()
-}
-
-/** A note holding one block, a PDF opened from Finder: named, dated now, remembering the file it came from. Its id. */
-export function captureFile(title: string, block: unknown, source: string): string {
-  const { id, number } = insert({ title, kind: 'note', body: { type: 'doc', content: [block] } as never, source }, new Date().toISOString())
-  db.prepare('update captures set named = 1 where id = ?').run(id)
-  void writeMarkdown(number, markdown({ type: 'doc', content: [block] } as never))
-  changed()
-  return id
 }
 
 /** A meeting just recorded (meeting.ts), kept as a note named for it, in the Inbox and on its day in the Journal. */
