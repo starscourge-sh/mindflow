@@ -199,11 +199,13 @@ const homeRowKinds = () => h.evaluate(() => {
   return [...kinds].map(([sig, one], at) => (one.setAttribute('data-qa-kind', String(at)), sig))
 })
 /** Words picked on Home itself (a card's or a row's words, never the sidebar's), and the point to right-click them. */
+// Only words a person can pick: the app's labels, rows and dates do not select (main.css, body), so a range set on
+// them by script is gone at the press, and nothing could open on it.
 const pickHomeWords = () => h.evaluate(() => {
   const walk = document.createTreeWalker(document.querySelector('main') ?? document.body, NodeFilter.SHOW_TEXT)
   for (let text = walk.nextNode(); text; text = walk.nextNode()) {
     const el = text.parentElement
-    if (!el || el.closest('aside, button, [role=button], input, textarea') || text.textContent.trim().length < 12) continue
+    if (!el || el.closest('aside, button, [role=button], input, textarea') || getComputedStyle(el).userSelect === 'none' || text.textContent.trim().length < 12) continue
     const r = el.getBoundingClientRect()
     if (r.top < 60 || r.bottom > innerHeight - 40 || r.width < 40) continue
     const start = text.textContent.search(/\S/)
