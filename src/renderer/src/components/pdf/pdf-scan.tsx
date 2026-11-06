@@ -93,8 +93,8 @@ export function ScanLine({ src, doc, onRead }: { src: string; doc: PDFDocumentPr
       ) : (
         <>
           <ScanText className="size-4 shrink-0 text-muted-foreground" aria-hidden />
-          <span data-pdf-scan-words className="pdf-scan-words"><b className="font-medium text-foreground">These pages are pictures of words.</b><span className="pdf-scan-more"> Read their text to find, highlight and hear it.</span></span>
-          <button type="button" data-pdf-scan-read className="pdf-scan-button" onClick={() => (setAsked(true), void readPages(src).then((ok) => ok || setAsked(false)))}>Read the text on these pages</button>
+          <span data-pdf-scan-words className="pdf-scan-words"><b className="font-medium text-foreground"><span className="pdf-scan-long">These pages are pictures of words.</span><span className="pdf-scan-short">Pictures of words.</span></b><span className="pdf-scan-more"> Read their text to find, highlight and hear it.</span></span>
+          <button type="button" data-pdf-scan-read className="pdf-scan-button" onClick={() => (setAsked(true), void readPages(src).then((ok) => ok || setAsked(false)))} aria-label="Read the text on these pages"><span className="pdf-scan-long">Read the text on these pages</span><span className="pdf-scan-short">Read the text</span></button>
           <button type="button" aria-label="Not now" title="Not now: it stays in Details" className="pdf-scan-close" onClick={() => (chime("fold"), localStorage.setItem(hiddenKey(src), "1"), setHidden(true))}>
             <Minus className="size-3.5" />
           </button>

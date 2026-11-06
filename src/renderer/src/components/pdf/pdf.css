@@ -490,6 +490,9 @@
 /* One line whatever the width: the words give way (the second sentence first, then an ellipsis), the button never. */
 .pdf-scan-words { min-width: 0; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 @container (max-width: 44rem) { .pdf-scan-more { display: none; } }
+/* Narrower still, the short words: "Pictures of words." and "Read the text", never a cut-off "These pages ar…". */
+.pdf-scan-short { display: none; }
+@container (max-width: 34rem) { .pdf-scan-long { display: none; } .pdf-scan-short { display: inline; } }
 .pdf-scan-button {
   flex: none;
   white-space: nowrap;
