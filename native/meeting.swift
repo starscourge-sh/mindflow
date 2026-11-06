@@ -182,8 +182,20 @@ final class RecognizerWords: Words {
       if let result {
         let segments = result.bestTranscription.segments
         let text = result.bestTranscription.formattedString.trimmingCharacters(in: .whitespaces)
-        if !text.isEmpty, let first = segments.first, let last = segments.last {
-          self.heard(Said(text: text, start: offset + first.timestamp, end: offset + last.timestamp + last.duration, final: result.isFinal))
+        if result.isFinal {
+          // Settled: a sentence or so a line (at a full stop or a pause), never the whole part as one.
+          var words: [String] = [], start = 0.0, end = 0.0
+          let line = { if !words.isEmpty { self.heard(Said(text: words.joined(separator: " "), start: offset + start, end: offset + end, final: true)); words = [] } }
+          for segment in segments {
+            if !words.isEmpty && segment.timestamp - end > 1.2 { line() }
+            if words.isEmpty { start = segment.timestamp }
+            words.append(segment.substring)
+            end = segment.timestamp + segment.duration
+            if let last = segment.substring.last, ".?!".contains(last) { line() }
+          }
+          line()
+        } else if !text.isEmpty, let first = segments.first, let last = segments.last {
+          self.heard(Said(text: text, start: offset + first.timestamp, end: offset + last.timestamp + last.duration, final: false))
         }
       }
       if result?.isFinal == true || error != nil { self.lock.lock(); self.open -= 1; self.lock.unlock() }
