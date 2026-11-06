@@ -714,12 +714,20 @@ try {
   // Home's "Continue reading": a book part way through, its cover and how far you are; a click opens it at that page.
   await v('pdf:read', pdfSrc, 2, 3)
   await c.go('home'); await wait(1500)
-  // Its covers row (Flex Carousel, flex-carousel.tsx): the book's cover, its title and page under it.
+  // Its covers row (picture-row.tsx): the book's cover, its title and page under it. One book fits whole, so it is the
+  // still row (as Home's other shelves), not the flowing Flex Carousel, which only comes when more covers than fit.
   await h.evaluate(() => document.querySelector('[data-continue-reading] [data-picture-row]')?.scrollIntoView({ block: 'center' })); await wait(2500)
-  const going = await h.evaluate(() => { const row = document.querySelector('[data-continue-reading] [data-flex-carousel]'); return row && { words: [...row.querySelectorAll('[aria-hidden=true] span')].map((one) => one.textContent), cover: Number(row.dataset.fetched ?? 0) > 0 && !!row.querySelector('canvas') } })
+  const going = await h.evaluate(() => {
+    const row = document.querySelector('[data-continue-reading] [data-picture-row]')
+    if (!row) return null
+    const flowing = row.querySelector('[data-flex-carousel]')
+    if (flowing) return { kind: 'moving', words: [...flowing.querySelectorAll('[aria-hidden=true] span')].map((one) => one.textContent), cover: Number(flowing.dataset.fetched ?? 0) > 0 && !!flowing.querySelector('canvas') }
+    const card = row.querySelector('[data-still-picture]')
+    return card && { kind: 'still', words: [...card.querySelectorAll(':scope > span')].map((one) => one.textContent), cover: (card.querySelector('img')?.naturalWidth ?? 0) > 0 }
+  })
   check('Home shows "Continue reading" with the book\'s cover, its title and its page', going?.words.includes('The Probe Book') && going.words.includes('p. 2 of 3') && going.cover, JSON.stringify(going))
   await h.screenshot({ path: `${process.env.QA_SHOTS ?? '/tmp'}/home-continue-reading.png` })
-  const cover = await h.evaluate(() => { const r = document.querySelector('[data-continue-reading] [data-flex-carousel]').getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 } })
+  const cover = await h.evaluate(() => { const r = document.querySelector('[data-continue-reading] :is([data-flex-carousel], [data-still-picture])').getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 } })
   await h.mouse.click(cover.x, cover.y); await wait(1500)
   check('a click opens the book at that page', await h.evaluate(() => document.querySelector('.pdf-reader-page-field')?.value) === '2', await h.evaluate(() => document.querySelector('.pdf-reader-page-field')?.value))
   // Cards straight from the page: C asks the question where the words were; ⇧C blanks them in their sentence.
