@@ -132,7 +132,7 @@ export function TabRow({ groups, actions, pane }: { groups: TabGroup[]; actions:
   const count = groups.reduce((sum, group) => sum + group.tabs.length, 0)
   return (
     <div data-tabs={pane} className="relative z-[1] -mb-px flex h-[34px] shrink-0 items-end gap-0.5">
-      <span className="mf-segs mb-[3px] ml-1 flex h-6 shrink-0 items-center overflow-hidden rounded-full border">
+      <span data-tab-arrows className="mf-segs mb-[3px] ml-1 flex h-6 shrink-0 items-center overflow-hidden rounded-full border">
         {([[-1, 'Back', '⌘[', ArrowNarrowLeftIcon], [1, 'Forward', '⌘]', ArrowNarrowRightIcon]] as const).map(([by, label, keys, icon]) => (
           <Tip key={label} label={<span className="flex items-center gap-1.5">{label} <Pressed keys={keys} /></span>}>
             <button type="button" aria-label={label} disabled={!actions.canStep(pane, by)} onClick={() => actions.step(pane, by)}

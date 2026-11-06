@@ -233,6 +233,7 @@ export function SwipeBack({ front, trailOf, nameOf, go }: Props): React.JSX.Elem
   // From hidden past the edge to sitting just inside it at the tap; past it, a little further, slower.
   const slid = shown ? (shown.pull < LINE ? -SIZE + (shown.pull / LINE) * (SIZE + 8) : 8 + Math.sqrt(shown.pull - LINE) * 1.6) : 8
   const Arrow = at?.way === 1 ? ChevronRight : ChevronLeft
+  const arrows = list ? document.querySelector(`[data-pane="${list.key}"] [data-tab-arrows]`)?.getBoundingClientRect() ?? list.rect : new DOMRect()
   const side = (rect: DOMRect, way: -1 | 1, inset: number): CSSProperties => (way === -1 ? { left: rect.left + inset } : { left: rect.right - inset - SIZE })
   return (
     <>
@@ -257,11 +258,11 @@ export function SwipeBack({ front, trailOf, nameOf, go }: Props): React.JSX.Elem
             exit={{ opacity: 0, transition: { duration: 0.12 } }}
             transition={calm ? { duration: 0.15 } : { type: 'spring', duration: 0.32, bounce: 0.18 }}
             className="fixed z-50 flex w-64 flex-col gap-0.5 rounded-xl border bg-popover p-1.5 text-popover-foreground shadow-(--mf-panel-shadow)"
-            // Always inside the window: Forward's opens leftwards from the right edge, and a long list rises to fit.
+            // Hung from the arrows of the pane it belongs to, always inside the window; a long list rises to fit.
             style={{
-              top: Math.max(8, Math.min(mid - 24, window.innerHeight - 8 - 14 - list.rows.length * 38)),
-              left: Math.max(8, Math.min(window.innerWidth - 8 - 256, list.way === -1 ? list.rect.left + 8 : Math.min(list.rect.right, window.innerWidth) - 8 - 256)),
-              transformOrigin: list.way === -1 ? 'left center' : 'right center'
+              top: Math.max(8, Math.min(arrows.bottom + 6, window.innerHeight - 8 - 14 - list.rows.length * 38)),
+              left: Math.max(8, Math.min(window.innerWidth - 8 - 256, arrows.left)),
+              transformOrigin: 'left top'
             }}>
             {list.rows.map((row, n) => {
               const Icon = row.name.icon

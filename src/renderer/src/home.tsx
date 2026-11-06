@@ -2394,8 +2394,8 @@ export function Home(): React.JSX.Element {
           const named = labelOf(view)
           // The page's name rolls to the next one, the way the page itself travels; by a key it is simply there.
           const way = pageTravel('title', view.id, ordered.map((section) => section.id)) || 1
-          // A place's own tab already says its name, just under here: said to VoiceOver only. With a note open, the tab says the note and this says where it is.
-          const title = <h1 data-pane-title className={noteIn(view) ? '-my-1 ml-2 max-w-[55%] min-w-12 truncate py-1 font-medium' : 'sr-only'} style={{ textWrap: 'nowrap' } as CSSProperties}>
+          // The open tab says what is on show, over its own pane, and in a split one name up here could not say which: VoiceOver's alone.
+          const title = <h1 data-pane-title className="sr-only" style={{ textWrap: 'nowrap' } as CSSProperties}>
             <motion.span key={named} className="-my-1 block truncate py-1" initial={byKeys() ? false : { opacity: 0, transform: shift(`translateY(${way * 5}px)`) }} animate={{ opacity: 1, transform: shift('translateY(0px)') }} transition={{ duration: 0.18, ease: EASE }}><Term>{named}</Term></motion.span>
           </h1>
           return title
@@ -2446,7 +2446,7 @@ export function Home(): React.JSX.Element {
           }
         })}
       />
-      <SwipeBack front={() => frontRef.current} nameOf={swipeName} go={(key, to) => { const pane = splitRef.current.panes.find((one) => one.key === key); step(to - (pane ? activeTab(pane).trail.at : to), key) }}
+      <SwipeBack front={() => frontRef.current} nameOf={swipeName} go={(key, to) => { const pane = splitRef.current.panes.find((one) => one.key === key); step(to - (pane ? activeTab(pane).trail.at : to), key); toFront(key) }}
         trailOf={(key) => { const pane = splitRef.current.panes.find((one) => one.key === key); return pane ? activeTab(pane).trail : null }} />
       {/* Beside the page, not over it, while there is room; over its right edge in a narrow window. */}
       <AnimatePresence>
