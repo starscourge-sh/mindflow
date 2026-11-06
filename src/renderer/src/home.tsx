@@ -1550,7 +1550,8 @@ export function Home(): React.JSX.Element {
       // faint ones. Clicked to, it only settles in: down the sidebar it comes
       // up from below, up it from above. A transform string, so it stays
       // smooth while the view mounts. Each page keeps its own step.
-      <PageSwap id={`${tab}:${view.id}`}>
+      // Two tabs on one kind of page share it, as Back and Forward do: only the note changes, so a switch never builds the list again.
+      <PageSwap id={view.id}>
       <NavContext.Provider value={navFor(key, tab, view)}>
       <motion.div
         key={view.id}
