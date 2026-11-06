@@ -1,6 +1,7 @@
 import { Notification } from 'electron'
 import servicesFile from '../../resources/services.node?asset&asarUnpack'
 import { captureSent, setting } from './captures'
+import { plural } from './dates'
 
 /**
  * "Send to Haligtree" in every app's Services menu (native/services.mm; the menu
@@ -24,7 +25,8 @@ export function registerServices(): void {
       if (sent.files) {
         void takeFiles(sent.files.split('\n').filter(Boolean)).then((n) => {
           if (!n || process.env.HALIGTREE_QA_AWAY) return
-          new Notification({ title: 'In your Inbox', body: n === 1 ? 'A file from Finder' : `${n} files from Finder`, silent: !setting('sounds', true) }).show()
+          const sounds = setting('sounds', true)
+          new Notification({ title: 'In your Inbox', body: n === 1 ? 'A file from Finder' : `${plural(n, 'file')} from Finder`, silent: !sounds }).show()
         })
         return
       }
