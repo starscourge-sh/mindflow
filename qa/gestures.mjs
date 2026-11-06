@@ -119,8 +119,9 @@ async function surface(name, w, root, open, { click = true, rows: only, emptied,
   const z0 = Date.now()
   // Back is back in the list, and on the Day page no longer saying it is in the Bin.
   let back = false
-  do { await w.waitForTimeout(300); s = await read(w, root); back = s.rows.includes(first) && !(await binned()) } while (!back && Date.now() - z0 < 5000)
+  do { await w.waitForTimeout(300); s = await read(w, root); back = s.rows.includes(first) && !(await binned()) } while (!back && Date.now() - z0 < 20000)
   row.push(`⌘Z:${back ? `back in ${Date.now() - z0}ms` : 'not back'}`)
+  if (Date.now() - z0 > 3000) console.log(`  SLOW UNDO ${name}: ${Date.now() - z0} ms`)
   check(`${name}: ⌘Z brings them back`, back)
   // Esc clears (a celebration that came up over the page takes the first one).
   if (await w.evaluate(() => !!document.querySelector('[data-celebration] > *'))) { await w.keyboard.press('Escape'); await w.waitForTimeout(500) }

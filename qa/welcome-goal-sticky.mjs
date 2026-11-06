@@ -95,6 +95,8 @@ try {
     await tabbed?.screenshot({ path: `${SHOTS}/${THEME}-goal-tucked.png` })
   }
   // Back on the summary it comes out again, then tucks as it is left.
+  // The welcome takes one press in 400ms (a double press never skips a page): back comes at a person's pace.
+  await h.waitForTimeout(500)
   await h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:welcome-step', { detail: -1 })))
   await h.waitForSelector('[data-payoff]', { timeout: 4000 }).catch(() => undefined)
   wins = await waitFor(electron, h, (list) => out(list).length === 1)
@@ -116,11 +118,13 @@ try {
   check('...the setting says so ("stickiesTucked" off)', (await h.evaluate(() => window.api.haligtree('settings'))).stickiesTucked === 'off')
   // Settings shows the tuck and changes it: "By name" tucks the card to a tab, "Out" brings it back.
   await c.go('settings')
-  await h.click('[data-section="What comes back to you"]').catch(() => undefined)
-  await h.waitForTimeout(700)
+  // Pressed by script: the welcome's tour can still lie over the page here, and would take a real click.
+  await h.waitForSelector('[data-section="What comes back to you"]', { state: 'attached', timeout: 8000 }).catch(() => undefined)
+  await h.evaluate(() => document.querySelector('[data-section="What comes back to you"]')?.click())
   const row = h.locator('text=Tucked at the edge').first()
-  await row.scrollIntoViewIfNeeded().catch(() => undefined)
-  check('Settings has "Tucked at the edge"', await row.isVisible().catch(() => false))
+  await row.waitFor({ state: 'attached', timeout: 8000 }).catch(() => undefined)
+  await row.scrollIntoViewIfNeeded({ timeout: 3000 }).catch(() => undefined)
+  check('Settings has "Tucked at the edge"', (await row.count()) > 0)
   // Its chips are driven in qa/small-leftovers.mjs (a sandbox, with no tour over the page).
 } catch (error) {
   check('ran', false, error.stack)
