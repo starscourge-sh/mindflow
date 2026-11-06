@@ -558,10 +558,19 @@ export function registerCaptures(): void {
       const words = raw.split('\u001f')[0]
       const body = words.startsWith(name) ? words.slice(name.length) : words
       const lower = body.toLowerCase()
-      const hits = terms.map((term) => lower.indexOf(term)).filter((at) => at >= 0)
-      if (!hits.length) return undefined
-      const at = Math.min(...hits)
-      const start = lower.lastIndexOf('\n', at) + 1
+      if (!terms.some((term) => lower.includes(term))) return undefined
+      // The line holding the most of the words looked for (the earliest of those), not just the first "the":
+      // a meeting's line or a long note's sentence is found where it is really said.
+      let start = 0, best = -1
+      for (let from = 0; from <= lower.length;) {
+        const end = lower.indexOf('\n', from)
+        const one = lower.slice(from, end < 0 ? lower.length : end)
+        const score = terms.filter((term) => one.includes(term)).length
+        if (score > best) (best = score, (start = from))
+        if (end < 0) break
+        from = end + 1
+      }
+      const at = Math.min(...terms.map((term) => lower.indexOf(term, start)).filter((spot) => spot >= 0))
       const stop = lower.indexOf('\n', at)
       const said = body.slice(start, stop < 0 ? body.length : stop)
       // Read as words, as every line that shows a note's text is: no "- [ ]", no link's address, no "**".
