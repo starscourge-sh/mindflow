@@ -9,8 +9,11 @@ import { captureSent, setting } from './captures'
  * copied, and a notification says so (heard only with Sounds on). Every Mac; listed by macOS once the
  * app is in /Applications.
  */
-type Sent = { text: string; app?: string; url?: string; title?: string }
+type Sent = { text?: string; app?: string; url?: string; title?: string; files?: string }
 let send: ((text: string, url?: string) => void) | null = null
+/** What files picked in Finder become (index.ts: a picture a note, a PDF to the library, Markdown a note): how many came in. */
+let takeFiles: (paths: string[]) => Promise<number> = async () => 0
+export const whenFilesSent = (take: typeof takeFiles): void => void (takeFiles = take)
 
 export function registerServices(): void {
   if (process.platform !== 'darwin') return
@@ -18,15 +21,22 @@ export function registerServices(): void {
     const module = { exports: {} as { listen?: (told: (sent: Sent) => void) => void; send?: typeof send } }
     process.dlopen(module, servicesFile)
     module.exports.listen?.((sent) => {
+      if (sent.files) {
+        void takeFiles(sent.files.split('\n').filter(Boolean)).then((n) => {
+          if (!n || process.env.HALIGTREE_QA_AWAY) return
+          new Notification({ title: 'In your Inbox', body: n === 1 ? 'A file from Finder' : `${n} files from Finder`, silent: !setting('sounds', true) }).show()
+        })
+        return
+      }
       // Under test nothing shows on the screen.
-      if (!captureSent(sent.text, sent) || process.env.HALIGTREE_QA_AWAY) return
+      if (!sent.text || !captureSent(sent.text, sent) || process.env.HALIGTREE_QA_AWAY) return
       const words = sent.text.replace(/\s+/g, ' ').trim()
       const sounds = setting('sounds', true)
       new Notification({ title: 'In your Inbox', body: `${words.length > 90 ? `${words.slice(0, 89)}…` : words}${sent.app ? `\nFrom ${sent.app}` : ''}`, silent: !sounds }).show()
     })
     send = module.exports.send ?? null
     // A probe sends words through the same path, as macOS would.
-    if (process.env.HALIGTREE_QA_AWAY) (globalThis as { servicesSend?: typeof send }).servicesSend = send
+    if (process.env.HALIGTREE_QA_AWAY) Object.assign(globalThis, { servicesSend: send, servicesSendFiles: (module.exports as { sendFiles?: (paths: string) => void }).sendFiles })
   } catch {
     // No Services line: the rest of the app is unchanged.
   }
