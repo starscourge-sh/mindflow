@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { eveningAt } from '@/lib/sun'
 import { chime } from '@/lib/sound'
 import { byKeys, useByKeys } from '@/lib/motion'
 import { unloaded, useLive, haligtree, type Settings, type Task } from '@/lib/haligtree'
@@ -41,7 +42,7 @@ const minutesOf = (at?: string): number => {
 /** Whether the box is offered now: on, and past the evening hour or in the small hours. */
 function eveningNow(settings: Pick<Settings, 'closeDayAt' | 'tomorrowBox'> | null, now = new Date()): boolean {
   if (!settings || settings.tomorrowBox === false) return false
-  return now.getHours() < NIGHT_ENDS || now.getHours() * 60 + now.getMinutes() >= minutesOf(settings.closeDayAt)
+  return now.getHours() < NIGHT_ENDS || now.getHours() * 60 + now.getMinutes() >= minutesOf(eveningAt(settings))
 }
 
 /** One line of a night's list: its task, and whether this list made it (or found it already on your list). */

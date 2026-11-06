@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useState, type ReactNode } from 'react'
+import { sunMoods } from '@/lib/sun'
 import { useReading } from '@/lib/reads-in'
 import { decoded, warm, WAIT } from '@/lib/decoded'
 import { contrast } from '@/lib/on-accent'
@@ -25,6 +26,9 @@ const SWITCH: Record<Place, keyof Settings> = { rest: 'sceneryRest', recap: 'sce
 
 /** The hour's moods: golden by day, dusk in the evening, night (or candlelight) after. */
 function moodsNow(hour = new Date().getHours()): Mood[] {
+  // By your sun where it is known (lib/sun.ts), else by the clock.
+  const sun = sunMoods()
+  if (sun) return sun
   if (hour >= 5 && hour < 17) return ['day']
   if (hour >= 17 && hour < 21) return ['dusk']
   return ['night', 'interior']

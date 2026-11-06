@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { eveningAt } from '@/lib/sun'
 import { useReading } from '@/lib/reads-in'
 import { X } from 'lucide-react'
 import { chime } from '@/lib/sound'
@@ -68,7 +69,7 @@ export function WeeklyDigest({ onView, force = false }: { onView: (id: string) =
         <Button size="sm" variant="ghost" className="h-7 px-2 text-control" data-digest-wrap onClick={() => openWrap(`week:${dayKey(dayjs().startOf('week'))}`)}>Your week, wrapped</Button>
         <Button size="sm" variant="ghost" className="h-7 px-2 text-control" onClick={() => (chime('season'), onView('weekpage'))}>The week's page</Button>
         {/* Sunday evening: the week's own ending, as the evening has Close the day. */}
-        {weekDue(settings.closeDayAt) && <Button size="sm" className="h-7 px-2.5 text-control" onClick={openCloseWeek}>Close the week</Button>}
+        {weekDue(eveningAt(settings)) && <Button size="sm" className="h-7 px-2.5 text-control" onClick={openCloseWeek}>Close the week</Button>}
         <button type="button" aria-label="Put this away" onClick={hide} className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-foreground/[0.05] hover:text-foreground">
           <X className="size-3.5" />
         </button>

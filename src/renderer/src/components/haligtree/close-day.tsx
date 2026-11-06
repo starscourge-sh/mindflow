@@ -1,4 +1,5 @@
 import { JournalQuestions } from './journal'
+import { eveningAt } from '@/lib/sun'
 import { useReading } from '@/lib/reads-in'
 import { HabitTicks } from './habits'
 import { useEffect, useMemo, useState } from 'react'
@@ -54,7 +55,7 @@ export const openCloseDay = (): void => void window.dispatchEvent(new CustomEven
 /** Whether the evening offer is due: on, past its hour, and not closed or put away today. */
 export function offerDue(settings: Pick<Settings, 'closeDay' | 'closeDayAt'> | null, now = new Date()): boolean {
   if (!settings || settings.closeDay === false) return false
-  const [h, m] = (settings.closeDayAt ?? '18:00').split(':').map(Number)
+  const [h, m] = eveningAt(settings).split(':').map(Number)
   if (now.getHours() * 60 + now.getMinutes() < h * 60 + (m || 0)) return false
   const today = dayKey(now)
   return read(DONE_KEY) !== today && read(AWAY_KEY) !== today
