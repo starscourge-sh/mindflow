@@ -55,7 +55,10 @@ try {
   for (const width of [1280, 1600]) {
     await c.size(width, 860)
     await go('home'); await go('media'); await wait(800)
-    await h.locator('[data-page=media] [data-media-kinds] button', { hasText: 'Pictures' }).first().click(); await wait(3500)
+    // Only one kind in the book: no tabs to press (Media shows a tab only for a kind it holds, and needs two), and it is on Pictures already.
+    const pictures = h.locator('[data-page=media] [data-media-kinds] button', { hasText: 'Pictures' }).first()
+    if (await pictures.count()) await pictures.click()
+    await wait(3500)
     const seen = await overlap()
     console.log(width, JSON.stringify(seen))
     check(`${width} wide: the title sits clear of every picture`, seen.box && seen.vivid === 0, `${seen.vivid} picture pixels under "${seen.box?.text?.slice(0, 40)}"`)
