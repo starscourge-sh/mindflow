@@ -74,6 +74,7 @@ import { Button } from '@/components/ui/button'
 import { allRecorded, recordAll } from './lib/recordings'
 import { Tip, showTopTitle, useTopTitle, Pressed, useEscapeLeavesEditor } from '@/components/haligtree/ui'
 import { recordAsCapture } from '@/components/haligtree/voice-note'
+import { MEETING_WORDS, recordMeeting } from '@/lib/meeting'
 import { recordingsWithoutWords, transcribePage } from '@/lib/transcribe'
 import { Celebrations, tryCelebration } from '@/components/haligtree/celebrate'
 import MagnifierIcon from '@/components/ui/magnifier-icon'
@@ -1643,6 +1644,8 @@ export function Home(): React.JSX.Element {
             ...(quiet ? [{ label: 'Show everything', hint: 'Every page in the sidebar again', cue: null, run: () => void call('return:show-all').then(() => chime('unshelve')) }] : []),
             { label: 'New capture', keys: 'C', run: () => window.api.showPrompt() },
             { label: 'Record a voice note', hint: 'Kept as a new capture', words: 'dictate dictation transcribe speech to text voice memo talk speak microphone', cue: null, run: () => void recordAsCapture((id) => open('capture', id)) },
+            { label: 'Record a meeting', hint: 'Your microphone and this Mac’s sound, who said what', keys: '⌃⌥⌘M', words: MEETING_WORDS, cue: null, run: () => void recordMeeting() },
+            { label: 'Meetings', hint: 'Every meeting you recorded', words: 'meeting recordings calls transcripts', cue: null, run: () => setView({ id: 'tags', focus: 'meeting' }) },
             ...(recordingsWithoutWords() ? [{ label: 'Transcribe the voice notes', hint: 'Their words under each, on this Mac', words: 'dictation speech to text', cue: null, run: transcribePage }] : []),
             { label: 'New question', cue: null, run: () => void startQuestion(open) },
             { label: 'New goal', cue: null, run: () => void startGoal(open) },

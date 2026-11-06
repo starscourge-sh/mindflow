@@ -25,7 +25,8 @@ import { sideMenu, useFullMenu } from './side-menu'
 import { useTaskNow } from './tasks-view'
 import { useKept, useOpened } from '@/lib/nav'
 import { typeSaid } from '@/lib/capture-links'
-import { Empty, Page, Tags, useListKeys } from './ui'
+import { Empty, Kbd, Page, Tags, useListKeys } from './ui'
+import { recordMeeting } from '@/lib/meeting'
 import { Tip } from '@/components/haligtree/ui'
 import { DatePicker } from './date-picker'
 import { INPUT_FRAME, TagEntry } from './hash-field'
@@ -92,7 +93,8 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
   useOpened(chosen ?? undefined, focus, setChosen, () => setChosen(null))
   useKept('tab', tab, setTab, 'read')
   // The open tag's notes, for Manage; never the tag before's while the next is read.
-  const items = useLiveFor(chosen ?? '', () => (chosen ? haligtree.tag(chosen) : Promise.resolve([]))) ?? []
+  const loaded = useLiveFor(chosen ?? '', () => (chosen ? haligtree.tag(chosen) : Promise.resolve([])))
+  const items = loaded ?? []
   // Manage's rows answer as every list does: the row's own menu, ⇧-click, x, ⌘A, ⌫ to the Bin, Esc.
   const allTasks = useLive(haligtree.tasks, [] as Task[])
   const pins = useLive(haligtree.pins, [] as Pin[])
@@ -215,7 +217,12 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
           </span>
           </span>
         }>
-          {practising === chosen ? <PractiseTag key={chosen} tag={chosen} onClose={() => (chime('fold'), setPractising(null))} /> : blurting === chosen ? <Blurt key={chosen} tag={chosen} onClose={() => (chime('fold'), setBlurting(null))} /> : tab === 'read' ? <TagStream key={chosen} tag={chosen} color={current?.color} onOpen={onOpen} onTag={setChosen} onManage={() => (chime('tap'), setTab('manage'))} /> : (<>
+          {practising === chosen ? <PractiseTag key={chosen} tag={chosen} onClose={() => (chime('fold'), setPractising(null))} /> : blurting === chosen ? <Blurt key={chosen} tag={chosen} onClose={() => (chime('fold'), setBlurting(null))} /> : tab === 'read' && chosen === 'meeting' && loaded && !loaded.length ? (
+            // Meetings are every note tagged #meeting: before the first, what they are for and the way to make one.
+            <Empty title="No meetings yet" action={<Button size="sm" data-meeting-first onClick={() => void recordMeeting()}>Record a meeting</Button>}>
+              Record a call in Teams, Zoom or the browser, or a lecture: your microphone and the sound from this Mac, the words as they are said, who said what, and what to take from it after. It stays on this Mac. <Kbd>⌃⌥⌘M</Kbd> from anywhere.
+            </Empty>
+          ) : tab === 'read' ? <TagStream key={chosen} tag={chosen} color={current?.color} onOpen={onOpen} onTag={setChosen} onManage={() => (chime('tap'), setTab('manage'))} /> : (<>
             <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b px-5 py-3">
             {/* A colour, and whether writing this tag makes a task, the way
                 #bug does. Labels, not kinds: a colour and one behaviour. */}

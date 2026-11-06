@@ -78,6 +78,7 @@ import { Callout } from "@/extensions/callout"
 import { Caption, captioned } from "@/extensions/caption"
 import { Column, Columns, draggedOf, dropBeside, moveOutOfColumn } from "@/extensions/columns"
 import { Attachment } from "@/extensions/attachment"
+import { Meeting, MeetingLine } from "@/extensions/meeting"
 import { ExcalidrawDiagram } from "@/extensions/excalidraw"
 import { ContentsBlock } from "@/extensions/contents-block"
 import { Calc } from "@/extensions/calc"
@@ -1386,6 +1387,8 @@ function Surface({
       Columns,
       Column,
       Attachment,
+      Meeting,
+      MeetingLine,
       ExcalidrawDiagram,
       ContentsBlock,
       // Gives the editor `storage.markdown.getMarkdown()`, used by Export.

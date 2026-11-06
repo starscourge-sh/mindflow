@@ -81,6 +81,7 @@ import { registerUnused } from './unused'
 import { registerMedia } from './media'
 import { registerCollect } from './collect'
 import { registerTranscribe } from './transcribe'
+import { meetingNow, meetingState, registerMeeting, startMeeting, stopMeeting, type Live } from './meeting'
 import { Stopped, begin, end as endJob, registerJobs } from './jobs'
 import { registerLabels } from './labels'
 import { readCopy, registerPdfText } from './pdf-text'
@@ -1148,6 +1149,40 @@ function showNudge(nudge: Nudge): boolean {
   win.showInactive()
   return true
 }
+/**
+ * A meeting being recorded (meeting.ts): its live card in a small window of its own, over every app and every Space,
+ * at the bottom middle of the screen you are on, where a call's own controls are not; moved anywhere by its body,
+ * tucked to a pill. Seen in a screen share or not as Settings says for Haligtree's windows, like every other one.
+ */
+let meetingWin: BrowserWindow | null = null
+const MEETING_ROOM = 16
+let meetingSize = { width: 420, height: 228 }
+let meetingShape = ''
+function meetingWindow(): BrowserWindow {
+  if (meetingWin && !meetingWin.isDestroyed()) return meetingWin
+  const win = new BrowserWindow({
+    type: 'panel', width: meetingSize.width, height: meetingSize.height, frame: false, transparent: true, backgroundColor: '#00000000', roundedCorners: false,
+    resizable: false, minimizable: false, maximizable: false, fullscreenable: false, skipTaskbar: true, hasShadow: false, show: false,
+    webPreferences: { preload: join(__dirname, '../preload/index.js'), sandbox: false }
+  })
+  win.setAlwaysOnTop(true, 'floating')
+  win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true, skipTransformProcessType: true })
+  passThrough(win, true)
+  const { workArea } = screen.getDisplayNearestPoint(screen.getCursorScreenPoint())
+  win.setBounds({ x: Math.round(workArea.x + (workArea.width - meetingSize.width) / 2), y: workArea.y + workArea.height - meetingSize.height - 24 + MEETING_ROOM, ...meetingSize })
+  load(win, '?view=meeting')
+  win.on('closed', () => (meetingWin = null))
+  meetingWin = win
+  return win
+}
+const sendMeeting = (live: Live, level?: { you: number; others: number }): void => {
+  const win = meetingWin
+  if (win && !win.isDestroyed() && !win.webContents.isLoading()) win.webContents.send('meeting:live', live, level ?? null)
+  // The menu bar's lines follow what the meeting is doing, not its every word.
+  const shape = `${live.state}`
+  if (shape !== meetingShape) (meetingShape = shape, updateTray())
+}
+
 /** The card window a page belongs to, if it is one. */
 const nudgeHeld = (sender: Electron.WebContents): { win: BrowserWindow; waiting: Nudge[] } | undefined =>
   [...nudgeWins.values()].find((one) => !one.win.isDestroyed() && one.win.webContents === sender)
@@ -3813,6 +3848,12 @@ let quitting = false
 // system at log out, Ctrl+C in a terminal), every window may close first:
 // stickies and the box have no close button, and a window that can't close
 // keeps the app, and itself, on screen.
+// Quitting mid-meeting: what was recorded is kept first, then the app goes.
+app.on('before-quit', (event) => {
+  if (!meetingNow()) return
+  event.preventDefault()
+  void stopMeeting().then(() => app.quit())
+})
 app.on('before-quit', () => {
   quitting = true
   for (const win of BrowserWindow.getAllWindows()) if (!win.isDestroyed()) win.closable = true
@@ -4057,6 +4098,12 @@ function updateTray(): void {
       // In the sandbox the way out comes first; from your notes, the way in.
       // A reset cannot be undone, so it is asked in the main window, where Start over is held.
       ...(SANDBOX ? [{ label: 'Back to my notes', click: leaveSandbox }, { label: 'Reset the sandbox…', click: () => (openHome(), makeHome().webContents.send('sandbox:ask-reset')) }, { type: 'separator' } as const] : []),
+      // A meeting: started here, and while it records, its moment and its end.
+      ...(meetingNow() ? [
+        { label: meetingState().state === 'saving' ? 'Keeping the meeting…' : 'Recording a meeting', enabled: false },
+        { label: 'Note this moment', accelerator: chordFor('⌃⌥⌘M'), enabled: meetingState().state === 'live', click: () => void startMeeting() },
+        { label: 'Stop and keep the meeting', enabled: meetingState().state !== 'saving', click: () => void stopMeeting() }
+      ] : [{ label: 'Record a meeting', accelerator: chordFor('⌃⌥⌘M'), click: () => void startMeeting() }]),
       { label: `Open ${APP_NAME}`, accelerator: chordFor('⌘.'), click: () => toggleWindow() },
       { label: 'Close the day…', click: () => inHome('haligtree:close-day') },
       // How far through the day, week, month and year: a look away, not in the way.
@@ -4211,6 +4258,24 @@ app.whenReady().then(() => {
   registerMedia()
   registerCollect()
   registerTranscribe()
+  registerMeeting({
+    send: sendMeeting,
+    open: () => {
+      const win = meetingWindow()
+      if (win.webContents.isLoading()) win.webContents.once('did-finish-load', () => (sendMeeting(meetingState()), win.showInactive()))
+      else win.showInactive()
+    },
+    close: () => meetingWin?.close(),
+    openNote: (id) => sendHome('capture', id, undefined, 'window')
+  })
+  // The card tucked to a pill and back: its window the card's size, its bottom middle where it was.
+  ipcMain.handle('haligtree:meeting:size', (_event, width: unknown, height: unknown) => {
+    const win = meetingWin
+    if (!win || win.isDestroyed()) return
+    const was = win.getBounds()
+    meetingSize = { width: Math.round(Number(width)), height: Math.round(Number(height)) }
+    win.setBounds({ x: Math.round(was.x + was.width / 2 - meetingSize.width / 2), y: was.y + was.height - meetingSize.height, ...meetingSize })
+  })
   registerJobs()
   registerLabels()
   registerPdfText()
@@ -4602,7 +4667,8 @@ app.whenReady().then(() => {
   // says which once it wakes. A nap under a minute (the lid closed by
   // mistake) changes nothing.
   let sleptAt: number | null = null
-  powerMonitor.on('suspend', () => void (sleptAt = Date.now()))
+  // The lid closed or the Mac asleep mid-meeting: stopped cleanly, what was recorded kept.
+  powerMonitor.on('suspend', () => void ((sleptAt = Date.now()), stopMeeting()))
   // Woken, or a screen added, taken away or changed: the pill is put back
   // where it sits (beside the notch, never under it) and told so, so it
   // measures the notch again and lays itself out afresh. After a sleep the
@@ -5852,6 +5918,8 @@ app.whenReady().then(() => {
     take('⌃⌥⌘=', () => void extendRunning(10 * 60_000))
     // A bare focus session from anywhere, no task first: quick capture opens on “Start focus”'s lengths.
     take('⌃⌥⌘S', askFocus)
+    // Record a meeting from anywhere; while one records, the same key notes the moment.
+    take('⌃⌥⌘M', () => void startMeeting())
   }
   anywhere(whenKeys(anywhere))
 

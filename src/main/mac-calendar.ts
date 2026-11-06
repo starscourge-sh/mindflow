@@ -8,7 +8,7 @@ import { ipcMain, shell } from 'electron'
  * and Haligtree only ever reads. Off until turned on in Settings; asked for only
  * then. HALIGTREE_QA_CALENDAR stands a list of events in, for tests.
  */
-export type MacEvent = { title: string; start: string; end: string; allDay: boolean; calendar: string; color: string | null }
+export type MacEvent = { title: string; start: string; end: string; allDay: boolean; calendar: string; color: string | null; people?: string[] }
 export type MacCalendar = { status: 'on' | 'denied' | 'unasked' | 'none'; events: MacEvent[] }
 
 // JavaScript for Automation over EventKit: asked (if `ask`) and then read.
@@ -35,7 +35,7 @@ function run(argv) {
   for (let i = 0; i < Number(found.count) && i < 300; i++) {
     const one = found.objectAtIndex(i)
     const hex = (() => { try { const c = one.calendar.color; return '#' + [c.redComponent, c.greenComponent, c.blueComponent].map((v) => Math.round(Number(v) * 255).toString(16).padStart(2, '0')).join('') } catch (e) { return null } })()
-    events.push({ title: ObjC.unwrap(one.title) || 'Busy', start: new Date(Number(one.startDate.timeIntervalSince1970) * 1000).toISOString(), end: new Date(Number(one.endDate.timeIntervalSince1970) * 1000).toISOString(), allDay: !!one.allDay, calendar: ObjC.unwrap(one.calendar.title) || '', color: hex })
+    events.push({ title: ObjC.unwrap(one.title) || 'Busy', start: new Date(Number(one.startDate.timeIntervalSince1970) * 1000).toISOString(), end: new Date(Number(one.endDate.timeIntervalSince1970) * 1000).toISOString(), allDay: !!one.allDay, calendar: ObjC.unwrap(one.calendar.title) || '', color: hex, people: (() => { try { const list = one.attendees; const out = []; for (let j = 0; list && j < Number(list.count) && j < 30; j++) { const said = ObjC.unwrap(list.objectAtIndex(j).name); if (said) out.push(said) } return out } catch (e) { return [] } })() })
   }
   return JSON.stringify({ status: 'on', events })
 }

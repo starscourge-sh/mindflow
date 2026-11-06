@@ -3,6 +3,8 @@ import { ChevronDown, ChevronUp } from 'lucide-react'
 import { chime } from '@/lib/sound'
 import type { Task } from '@/lib/haligtree'
 import type { MacEvent } from '@/lib/mac-calendar'
+import { recordMeeting } from '@/lib/meeting'
+import { Users } from 'lucide-react'
 import { Tags, Tip } from './ui'
 import { Struck, Tick } from './marks'
 import { taskName } from '@/lib/tasks'
@@ -136,6 +138,13 @@ function EventRow({ event, past }: { event: MacEvent; past: boolean }): React.JS
             {[event.allDay ? 'All day' : `${clock(event.start)} to ${clock(event.end)}`, event.calendar || 'Calendar'].join(' · ')}
           </span>
         </span>
+        {/* On now (or about to start): recorded in one move, its name and people coming with it. */}
+        {!event.allDay && Date.parse(event.start) - 10 * 60_000 <= Date.now() && Date.now() < Date.parse(event.end) && (
+          <button type="button" data-record-event onClick={() => void recordMeeting({ title: event.title, start: event.start, end: event.end, people: event.people ?? [] })}
+            className="flex h-7 shrink-0 cursor-pointer items-center gap-1.5 self-center rounded-full border px-2.5 text-control text-foreground transition-[background-color,scale] hover:bg-accent active:scale-[0.97]">
+            <Users className="size-3.5" />Record this meeting
+          </button>
+        )}
       </li>
     </Tip>
   )

@@ -4,6 +4,7 @@ const VIEWS = new Map([
   ['focus', 'pill.html'],
   ['glow', 'pill.html'],
   ['nudge', 'nudge.html'],
+  ['meeting', 'meeting.html'],
   ['look', 'look.html'],
   ['sticky', 'sticky.html']
 ])

@@ -252,6 +252,13 @@ const api = {
     void (ipcRenderer.invoke('glow:waiting') as Promise<{ tone: 'done' | 'cancel'; rounded: boolean } | null>).then((was) => was && listen(was.tone, null, was.rounded))
     return () => ipcRenderer.off('glow', relay)
   },
+  /** In the meeting card's own window (and any window that cares): the meeting as it goes, and how loud each side is. */
+  onMeeting: (listen: (live: unknown, level: { you: number; others: number } | null) => void): (() => void) => {
+    const relay = (_event: unknown, live: unknown, level: { you: number; others: number } | null): void => listen(live, level)
+    ipcRenderer.on('meeting:live', relay)
+    void (ipcRenderer.invoke('haligtree:meeting:state') as Promise<unknown>).then((live) => listen(live, null))
+    return () => ipcRenderer.off('meeting:live', relay)
+  },
   /** In the nudge card's own window: each nudge, including those told while it loaded. */
   onNudge: (listen: (nudge: unknown) => void): (() => void) => {
     const relay = (_event: unknown, nudge: unknown): void => listen(nudge)

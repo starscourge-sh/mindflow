@@ -6,7 +6,7 @@ import {
   Library, Lightbulb, Link, List, ListChecks, ListStart, Lock, LockOpen, LogOut, Map as MapIcon, Maximize2, MessageCircleQuestion, MessageSquare, Minimize2, Monitor,
   MonitorUp, MoveRight, NotebookText, Palette, Languages, Scissors, Pause, Play, Scale, ScanText, PanelLeft, PanelRight, Pencil, Pin, PinOff, Plus, Quote, Repeat, RotateCcw, Search, Settings, Shapes, Shield,
   ShieldCheck, Smile, Snowflake, Sparkles, SquareCheck, SquareKanban, SquarePen, Star, StickyNote, Sun, Tag, Target, Timer, Trash2, Type, Undo2, Ungroup, Upload,
-  Speech, ThumbsDown, ThumbsUp, Unlink, User, Video, Volume2, VolumeX, WandSparkles, Wrench, X, Zap, PenLine, SpellCheck, Mic, ArrowLeftRight, ClipboardPaste, SlidersHorizontal, Minus, Highlighter, Layers, Heart, ArrowUpToLine, ArrowDownToLine, ToggleLeft, ToggleRight, FlipVertical2, GalleryVertical, File as FileIcon, Moon, ScrollText, Magnet, Mountain, PaintBucket, Telescope, type LucideIcon
+  Speech, ThumbsDown, ThumbsUp, Unlink, User, Video, Volume2, VolumeX, WandSparkles, Wrench, X, Zap, PenLine, SpellCheck, Mic, ArrowLeftRight, ClipboardPaste, SlidersHorizontal, Minus, Highlighter, Layers, Heart, ArrowUpToLine, ArrowDownToLine, ToggleLeft, ToggleRight, FlipVertical2, GalleryVertical, File as FileIcon, Moon, ScrollText, Users, Magnet, Mountain, PaintBucket, Telescope, type LucideIcon
 } from 'lucide-react'
 
 /**
@@ -45,6 +45,9 @@ const RULES: [RegExp, LucideIcon][] = [
   [/^put it first/i, ArrowUpToLine],
   [/^stop putting it first/i, ArrowDownToLine],
   [/^record a voice note/i, Mic],
+  // A meeting: both sides of a call, who said what.
+  [/^(record (a|this) meeting|meetings$|note this moment|stop and keep the meeting)/i, Users],
+  [/^delete the recording/i, Trash2],
   [/^keep asking/i, Repeat],
   [/^missed$/i, CircleX],
   // A goal's own lines: a someday goal wears the telescope wherever it shows; given a day, the calendar with a plus; settled, opened again.

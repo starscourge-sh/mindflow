@@ -101,6 +101,7 @@ import {
 } from "@/components/ui/resizable"
 import { Tip, Pressed, untoast } from '@/components/haligtree/ui'
 import { MicIcon, recordAsCapture, recordInto } from '@/components/haligtree/voice-note'
+import { MEETING_WORDS, recordMeeting } from '@/lib/meeting'
 import { recordingNow, useRecording } from '@/lib/recording'
 import { recordingsWithoutWords, transcribePage } from '@/lib/transcribe'
 import { Celebrations } from '@/components/haligtree/celebrate'
@@ -113,12 +114,13 @@ import PenIcon from '@/components/ui/pen-icon'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import { RoundPair, ShotButton, type RoundChoice } from '@/components/haligtree/shot-button'
 import { talkInto, useTalking } from '@/components/haligtree/talk'
-import { AudioLines, TextCursorInput } from 'lucide-react'
+import { AudioLines, TextCursorInput, Users } from 'lucide-react'
 
 /** The microphone's two ways, as the camera's two: a voice note kept as sound, or the words typed as you talk. */
 const VOICE_CHOICES: RoundChoice[] = [
   { id: 'record', label: 'Record: a voice note, kept in the note', Icon: AudioLines },
-  { id: 'dictate', label: 'Dictate: talk, and the words are typed', Icon: TextCursorInput }
+  { id: 'dictate', label: 'Dictate: talk, and the words are typed', Icon: TextCursorInput },
+  { id: 'meeting', label: 'Record a meeting: both sides, and who said what', Icon: Users }
 ]
 import { useStoredFlag } from '@/lib/use-stored-flag'
 import { ShortcutSheet } from '@/components/haligtree/shortcut-sheet'
@@ -1997,6 +1999,7 @@ export default function App(): React.JSX.Element {
           actions={searching === 'notes' ? [] : [
             { label: 'New capture', keys: '⌘N', run: () => startOver() },
             { label: 'Record a voice note', hint: 'Kept as a new capture', cue: null, run: () => void recordAsCapture((id) => openAny('capture', id)) },
+            { label: 'Record a meeting', hint: 'Your microphone and this Mac’s sound, who said what', keys: '⌃⌥⌘M', words: MEETING_WORDS, cue: null, run: () => void recordMeeting() },
             ...(recordingsWithoutWords() ? [{ label: 'Transcribe the voice notes', hint: 'Their words under each, on this Mac', cue: null, run: transcribePage }] : []),
             { label: 'New question', cue: null, run: () => void startQuestion(openAny) },
             // Not offered in "One line to start", which has no side panel to show.
@@ -2500,7 +2503,7 @@ export default function App(): React.JSX.Element {
               {!locked && (
                 <span data-lesson="hide" data-under-toast data-while-recording={listening ? 'dim' : undefined} inert={listening} className="inline-flex">
                   <RoundPair label="Record or dictate" icon={<MicIcon className="size-[15px]" />} button={{ 'data-record-button': true }} choices={VOICE_CHOICES}
-                    onPick={(id) => editorRef.current && void (id === 'record' ? recordInto(editorRef.current, recordSlot.current) : talkInto('tap', editorRef.current))} />
+                    onPick={(id) => (id === 'meeting' ? void recordMeeting() : editorRef.current && void (id === 'record' ? recordInto(editorRef.current, recordSlot.current) : talkInto('tap', editorRef.current)))} />
                 </span>
               )}
               <span className="flex-1" />

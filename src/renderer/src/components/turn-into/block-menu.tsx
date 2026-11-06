@@ -198,6 +198,7 @@ export function BlockMenu({
   /** A file block's own name for itself, the heading its own actions sit under, as Notion's menu does. */
   const fileName = String(thing?.attrs.name || thing?.attrs.src || "")
   const kindName: string | null = recording ? "Voice note"
+    : thing?.type.name === "meeting" ? "Meeting"
     : thing?.type.name === "image" ? "Picture"
     : thing?.type.name !== "attachment" ? null
     : /\.(mp4|m4v|mov|webm)$/i.test(fileName) ? "Video"
@@ -500,6 +501,15 @@ export function BlockMenu({
               <MenuGlyph label="Look" />
               <span className="tiptap-slash-menu-title">Look</span>
               <span className="tiptap-slash-menu-hint">Space</span>
+            </button>
+          </DropdownMenuItem>
+        ) : null}
+        {/* A meeting's recording let go, its words kept (meeting-page.tsx does it, with Undo). */}
+        {thing?.type.name === "meeting" && thing.attrs.audio && editor.isEditable && matches("Delete the recording, keep the words") ? (
+          <DropdownMenuItem asChild>
+            <button type="button" data-meeting-drop-audio onClick={() => at(() => window.dispatchEvent(new CustomEvent("haligtree:meeting-drop-audio", { detail: editor })))}>
+              <MenuGlyph label="Delete the recording, keep the words" />
+              <span className="tiptap-slash-menu-title">Delete the recording, keep the words</span>
             </button>
           </DropdownMenuItem>
         ) : null}

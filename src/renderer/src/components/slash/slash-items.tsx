@@ -1,4 +1,4 @@
-import { Columns2, Columns3, FileStack as EmbedIcon, Link2 as LinkIcon, TableOfContents as ContentsIcon, Minus as DividerIcon, Sigma as SigmaIcon, Table as TableIcon, Paperclip, SquarePlay as VideoIcon } from 'lucide-react'
+import { Columns2, Columns3, FileStack as EmbedIcon, Link2 as LinkIcon, TableOfContents as ContentsIcon, Minus as DividerIcon, Sigma as SigmaIcon, Table as TableIcon, Paperclip, SquarePlay as VideoIcon, Users } from 'lucide-react'
 
 import type { Editor } from '@tiptap/core'
 import { isInTable } from '@tiptap/pm/tables'
@@ -6,6 +6,7 @@ import { isValidYoutubeUrl } from '@tiptap/extension-youtube'
 
 import { saveAttachment } from '@/extensions/image-drop'
 import { MicIcon, recordInto } from '@/components/haligtree/voice-note'
+import { recordMeeting } from '@/lib/meeting'
 import { talkInto } from '@/components/haligtree/talk'
 import { FileText } from '@/components/ui/icons'
 import { EXPORTS, exportDocument } from '@/lib/export'
@@ -274,6 +275,14 @@ export const slashItems: SlashItem[] = [
     hint: 'a voice note',
     icon: <MicIcon />,
     run: (editor) => void recordInto(editor)
+  },
+  {
+    title: 'Meeting',
+    group: 'Media',
+    keywords: ['record a meeting', 'call', 'teams', 'zoom', 'meet', 'standup', 'lecture', 'seminar', 'interview', 'minutes', 'transcript', 'who said what'],
+    hint: 'record both sides',
+    icon: <Users />,
+    run: () => void recordMeeting()
   },
   {
     title: 'Dictate',

@@ -883,6 +883,15 @@ export function captureFile(title: string, block: unknown, source: string): stri
   return id
 }
 
+/** A meeting just recorded (meeting.ts), kept as a note named for it, in the Inbox and on its day in the Journal. */
+export function keepMeeting(title: string, body: unknown): string {
+  const { id, number } = insert({ title, kind: 'note', body: body as never, source: 'Meeting' }, new Date().toISOString())
+  db.prepare('update captures set named = 1 where id = ?').run(id)
+  void writeMarkdown(number, markdown(body as never))
+  changed()
+  return id
+}
+
 /**
  * Words sent from another app's Services menu ("Send to Haligtree"): a quote in the
  * Inbox, saying where it came from (the page's address as a link, else the app),
