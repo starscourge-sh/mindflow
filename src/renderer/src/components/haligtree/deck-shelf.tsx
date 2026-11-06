@@ -499,8 +499,8 @@ function BookCoverage(): React.JSX.Element | null {
   const books = [...Map.groupBy(all.filter((card) => card.made === 'pdf' && card.source), (card) => card.source)].filter(([, cards]) => coverageOf(cards)).sort((a, b) => b[1].length - a[1].length)
   if (!books.length) return null
   return (
-    <section data-book-coverage className="grid gap-1 rounded-[5px] mf-metal px-3 py-2">
-      <span className="text-control text-foreground/70">How much of each book has cards</span>
+    <section data-book-coverage className="grid gap-2 rounded-[5px] mf-metal p-3">
+      <span className="mf-chart-title">How much of each book has cards</span>
       {(every ? books : books.slice(0, 3)).map(([book, cards]) => (
         <div key={book} data-book-covered={book} className="grid grid-cols-[minmax(0,12rem)_minmax(0,1fr)] items-center gap-x-3 max-sm:grid-cols-1">
           <Tip label={book}><span className="truncate pt-1 text-control text-foreground">{book}</span></Tip>

@@ -110,9 +110,9 @@ export function MonoCard({ name, title, value, unit, chips, side, point, trend, 
   const swap = hovered ? (/^([\d,.]+%?)\s+(.*)$/.exec(hovered) ?? (/^No /.test(hovered) ? [hovered, '0', hovered.replace(/^No /, '')] : [hovered, typeof value === 'number' ? value.toLocaleString() : value, hovered])) : null
   const Arrow = trend === 'up' ? TrendingUp : TrendingDown
   return (
-    <motion.section data-mono-card={name} aria-label={title} className="flex min-w-0 flex-col gap-2 rounded-[6px] border border-border bg-card p-3"
+    <motion.section data-mono-card={name} aria-label={title} className="mf-chart flex min-w-0 flex-col gap-2"
       initial={still ? false : { opacity: 0, scale: 0.98, y: 6 }} animate={arrived ? { opacity: 1, scale: 1, y: 0 } : { opacity: 0, scale: 0.98, y: 6 }} transition={{ duration: 0.25, ease: EASE }}>
-      <p className="text-xs font-medium text-muted-foreground">{title}</p>
+      <p className="mf-chart-title">{title}</p>
       {/* One line, at rest and while a mark is pointed at: the readout takes the number's place here and nowhere else, so nothing grows. */}
       <div data-mono-head className="flex flex-nowrap items-center justify-between gap-2">
         <div className="flex min-w-0 flex-1 flex-nowrap items-baseline gap-2 overflow-hidden">

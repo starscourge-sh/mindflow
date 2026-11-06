@@ -31,6 +31,21 @@
    grows (the text sits on it as it wraps), one line under a one-line field. Faint at rest but a step darker than the
    card's own hairlines, a step darker again under the pointer, and again while you type. One style, every such field. */
 @property --mf-rule-ink { syntax: '<percentage>'; inherits: false; initial-value: 20%; }
+/* A chart's card, everywhere outside Review's own finish: the Goals road's quiet surface, one corner, one padding. */
+@utility mf-chart {
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: color-mix(in oklab, var(--foreground) 3%, var(--background));
+  padding: 0.75rem;
+}
+/* A chart's title: the one look in Stats, Review, the Feed and everywhere a chart is named. */
+@utility mf-chart-title {
+  font-size: 0.75rem;
+  line-height: 1rem;
+  font-weight: 500;
+  color: var(--muted-foreground);
+}
+
 @utility mf-ruled {
   /* A place to write, in "Make a card"'s own way (card-form.tsx): one dashed line under what you write, with room
      above it, and the example in italics, never a stack of solid lines (the user, 6 Nov: one "feels more natural",

@@ -228,10 +228,10 @@ function WeekStrip({ weeks, onWeek }: { weeks: LikedSide['weeks']; onWeek: (star
   const top = weeks.reduce((best, one) => (one.n > best.n ? one : best), weeks[0])
   const point = !year ? 'No likes in the last year' : `${likesSaid(year)} in the last year, the most in the week of ${written(top.start)} (${num(top.n)})`
   return (
-    <section data-liked-strip aria-label="Likes each week, the last year" data-chart="liked-weeks" className="mb-2 rounded-[6px] border bg-card px-3 pt-3 pb-2">
-      <p className="flex flex-wrap items-baseline justify-between gap-x-3 text-control">
-        <span className="font-semibold text-foreground">Likes each week, the last year</span>
-        <span data-liked-point className="text-foreground/80">{point}</span>
+    <section data-liked-strip aria-label="Likes each week, the last year" data-chart="liked-weeks" className="mf-chart mb-2">
+      <p className="flex flex-wrap items-baseline justify-between gap-x-3">
+        <span className="mf-chart-title">Likes each week, the last year</span>
+        <span data-liked-point className="text-control text-foreground">{point}</span>
       </p>
       <div className="mt-3 flex h-12 items-end gap-[2px]">
         {weeks.map((one) => (

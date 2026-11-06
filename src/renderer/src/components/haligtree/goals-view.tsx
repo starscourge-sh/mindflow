@@ -978,6 +978,10 @@ function RoadCard({ item, from, target, today: now, picked, onPick }: { item: It
   })
   const mapWidth = per * step - (step - dot)
   const mapHeight = rows * step - (step - dot)
+  // The time before the goal was set, very faint and silent, so the road's field reaches across the card: only room filled,
+  // never a date to read. As the desktop card's field does. A road of days, or one that wraps into bands, stands as it is on a line.
+  const ghost = line || bands > 1 ? 0 : Math.max(0, Math.floor((room - mapWidth) / step))
+  const ghostWidth = ghost * step
   const left = daysLeft(target, today)
   const ink = iced ? ICE : 'var(--foreground)'
   const lit = goalInk(item)
@@ -1063,7 +1067,15 @@ function RoadCard({ item, from, target, today: now, picked, onPick }: { item: It
           if (!here.length) return null
           const under = monthsUnder(here)
           return (
-            <div key={band} data-road-band={band} className={`relative ${band ? 'mt-2.5' : ''}`}>
+            <div key={band} data-road-band={band} className={`relative ${band ? 'mt-2.5' : ''}`} style={ghost ? { marginLeft: ghostWidth } : undefined}>
+              {ghost > 0 && (
+                <svg aria-hidden data-road-ghost width={ghostWidth} height={mapHeight} className="pointer-events-none absolute top-0" style={{ left: -ghostWidth }}>
+                  {Array.from({ length: ghost }, (_, col) => Array.from({ length: rows }, (_, row) => (
+                    // A road of weeks has four weeks to most months: its last row is sparse, as the road's own is.
+                    weeks && row === rows - 1 && col % 3 !== 1 ? null : <circle key={`${col}-${row}`} cx={col * step + dot / 2} cy={row * step + dot / 2} r={dot / 2} fill="var(--foreground)" opacity={0.05} />
+                  )))}
+                </svg>
+              )}
               <svg role="img" aria-label={`${dayMonth(`${here[0].dot.day}T12:00`)} to ${dayMonth(`${here.at(-1)!.dot.last}T12:00`)}, a dot a ${road.by}: ${num(here.filter((one) => one.dot.past).length)} of ${num(here.length)} ${unit} gone`}
                 width={mapWidth} height={mapHeight + 5} viewBox={`0 -5 ${mapWidth} ${mapHeight + 5}`} className="block overflow-visible">
                 {here.map(({ dot: one, x, y }) => {

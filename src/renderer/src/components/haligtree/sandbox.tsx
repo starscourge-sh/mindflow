@@ -244,16 +244,6 @@ function Going(): React.JSX.Element | null {
  * from the menu bar, and the offer to bring home anything caught there. In the
  * sandbox: on its first start, your look worn and the examples set out.
  */
-/** Marks the sandbox's lightsaber bars as set; true the first time, so they are set only once. */
-function sabersWorn(): boolean {
-  try {
-    if (localStorage.getItem('sandbox-sabers')) return false
-    localStorage.setItem('sandbox-sabers', 'set')
-    return true
-  } catch {
-    return false
-  }
-}
 
 export function SandboxHost(): React.JSX.Element | null {
   const [seeding, setSeeding] = useState(false)
@@ -312,8 +302,6 @@ export function SandboxHost(): React.JSX.Element | null {
     // toast: a toast sat over Home's own rows while it was read.
     void sandboxState().then(async (state) => {
       if (state.seeded) {
-        // A sandbox set out before its bars were lightsabers gets them, once; changed there after, they stay changed.
-        if (sabersWorn()) await window.api.haligtree('settings:set', { progressBars: 'saber' })
         // Your celebrations as they are at home now, when they changed since last worn here.
         const carry = await window.api.haligtree<Carry>('sandbox:carry').catch(() => null)
         const worn = Object.fromEntries(CARRY_CELEBRATIONS.filter((key) => carry?.settings && key in carry.settings).map((key) => [key, carry!.settings[key]]))
@@ -361,12 +349,11 @@ export function SandboxHost(): React.JSX.Element | null {
       // Its own pictures, whatever yours are: four public-domain landscapes for
       // Scenery and Haligtree's own grain for covers; your celebrations come along.
       // Its bars are lightsabers whatever yours are: the book is someone else's, and they love Star Wars.
-      const settings = { ...(carry?.settings ?? {}), progressBars: 'saber', scenery: true, sceneryFolders: [await builtInScenery()], coversFolder: '', boxAutoHide: true,
+      const settings = { ...(carry?.settings ?? {}), scenery: true, sceneryFolders: [await builtInScenery()], coversFolder: '', boxAutoHide: true,
         // Its sidebar, laid out by its owner: the Feed with the writing, and the places they use most switched on.
         sidebarShown: ['inbox', 'home', 'day', 'articles', 'questions', 'nuggets', 'feed', 'review', 'today', 'calendar', 'tags', 'goals', 'queue', 'sources', 'stats', 'map', 'media', 'discarded', 'powers'],
         sidebarOrder: ['inbox', 'home', 'day', 'articles', 'questions', 'nuggets', 'feed', 'review', 'today', 'calendar', 'weekpage', 'monthpage', 'lookups', 'goals', 'queue', 'tags', 'sources', 'stats', 'map', 'media', 'discarded', 'archived', 'powers'],
         sidebarGroups: { feed: 'Write' } }
-      sabersWorn()
       // An editor on the page reads Markdown for the seed; wait for one, five seconds at most.
       for (let waited = 0; !readMarkdown('x') && waited < 5000; waited += 100) await new Promise((wait) => setTimeout(wait, 100))
       try {
