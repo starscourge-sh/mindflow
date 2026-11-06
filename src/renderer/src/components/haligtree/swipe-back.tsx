@@ -44,7 +44,7 @@ function placesFrom(trail: Trail, way: -1 | 1, nameOf: Props['nameOf']): List['r
 
 const LINE = 110 // px of fingers to the tap
 const SIZE = 56
-const HOLD = 900 // ms resting past the tap before the list opens
+const HOLD = 450 // ms resting past the tap before the list opens
 type G = { key: string; way: -1 | 1; pull: number; armed: boolean; steps: number[]; rect: DOMRect }
 type List = { key: string; way: -1 | 1; rect: DOMRect; rows: { index: number; name: SwipeName }[]; pick: number; moved: boolean }
 
