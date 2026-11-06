@@ -126,6 +126,13 @@ export const exampleIdeas = (): Item[] => [
   item(5, { tier: 'nugget', kind: 'quote', title: 'All we have to decide is what to do with the time that is given us.', attribution: 'Gandalf, The Fellowship of the Ring', mode: 'pushed' })
 ]
 
+/** Words: words you are learning, each a gem with its meaning that comes back in Review. */
+export const exampleWords = (): Item[] => [
+  item(1, { tier: 'nugget', kind: 'word', title: 'Hiraeth: a longing for a home you cannot return to, or that never was.', prompt: 'What is hiraeth?', dueAt: at(1) }),
+  item(2, { tier: 'nugget', kind: 'word', title: 'Petrichor: the smell of rain on dry earth.', prompt: 'What is petrichor?', dueAt: at(3) }),
+  item(3, { tier: 'nugget', kind: 'word', title: 'Soliloquy: a speech made alone, so we hear what a character really thinks.', prompt: 'What is a soliloquy?', dueAt: at(0) })
+]
+
 /** Writing: your own pages, built from ideas. */
 export const exampleWriting = (): Item[] => [
   item(1, { tier: 'article', title: 'What Frankenstein gets right about ambition', attribution: 'From 3 gems' }),

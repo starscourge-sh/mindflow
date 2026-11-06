@@ -62,8 +62,10 @@ async function looked() {
 }
 async function wordsTab() {
   await looked()
-  await h.evaluate(() => [...document.querySelectorAll('[data-list-tabs] button, [data-list-tabs] [role=tab]')].find((one) => one.textContent.trim().startsWith('Words'))?.click())
+  const tab = await h.evaluateHandle(() => [...document.querySelectorAll('[data-question-filter] button')].find((one) => one.textContent.startsWith('WWoorrddss')))
+  await tab.asElement().click()
   await h.waitForTimeout(1200)
+  check('8. the Words tab is the one on show', await h.evaluate(() => /Words you are learning/.test(document.body.innerText)))
 }
 const tiles = (n = 12) => h.evaluate((n) => [...document.querySelectorAll('[data-row]')].filter((one) => { const r = one.getBoundingClientRect(); return r.width > 0 && r.top >= 0 && r.bottom <= innerHeight }).slice(0, n).map((one) => one.dataset.id), n)
 
@@ -230,7 +232,8 @@ try {
   await c.size(1200, 860)
 
   // Words: the same care.
-  for (const one of made.filter((one) => one.shape === 'word').slice(0, 12)) await call('promote', one.id)
+  // A word is kept as a gem with its meaning on its first line ("Word: meaning"), as the app asks.
+  for (const one of made.filter((one) => one.shape === 'colon').slice(0, 12)) await call('promote', one.id)
   for (const size of ['small', 'list']) {
     await density(size)
     await wordsTab()

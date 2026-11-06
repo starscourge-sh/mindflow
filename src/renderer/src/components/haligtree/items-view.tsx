@@ -36,7 +36,7 @@ import { age, fieldOf } from '../capture-list'
 import { headword, letterOf } from '@/lib/headword'
 import { follow, noteLinkText, recallOffered } from '@/lib/capture-links'
 import { splitTags, unloaded, unread, useLastAsked, useLive, haligtree, whenInLine, type Item, type ItemFull, type Settings } from '@/lib/haligtree'
-import { exampleIdeas, exampleQuestions, exampleWriting } from '@/lib/examples'
+import { exampleIdeas, exampleWords, exampleQuestions, exampleWriting } from '@/lib/examples'
 import { Example } from './example'
 import { LIFECYCLE } from './page-hint'
 import { makeTask, makeTasks } from '@/lib/tasks'
@@ -838,8 +838,9 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
           </RowMenu>
         ) : questionsOnly && !unloaded(all) && !all.length ? (
           // No questions yet: the page as it will look, as every other list shows itself.
-          <Example tryIt="press H on a note in your Inbox, or “New question” above. It is held here, gathering dated clues until you know.">
-            <NoteList groups={[['', exampleQuestions().filter((one) => (ask === 'answered' ? !!one.closedAt : !one.closedAt)).map((one) => questionEntry(one))]]} density={density} table="nuggets" cursor={-1} onPick={() => undefined} className="list-edge my-2" />
+          // Words has its own: a word with its meaning, kept from Looked up, not a question.
+          <Example tryIt={ask === 'words' ? 'open “Looked up”, right-click a word with its meaning and choose “Turn it into”, then “Save as a gem”. It is kept here and comes back in Review.' : 'press H on a note in your Inbox, or “New question” above. It is held here, gathering dated clues until you know.'}>
+            <NoteList groups={[['', ask === 'words' ? exampleWords().map((one) => itemEntry(one)) : exampleQuestions().filter((one) => (ask === 'answered' ? !!one.closedAt : !one.closedAt)).map((one) => questionEntry(one))]]} density={density} table="nuggets" cursor={-1} onPick={() => undefined} className="list-edge my-2" />
           </Example>
         ) : all.length && query.trim() ? (
           <Empty title="Nothing matches">No title here has those words. Escape clears the search.</Empty>
