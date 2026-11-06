@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { remindersItem } from '@/lib/reminders'
 import { useToday } from '@/lib/use-today'
 import { PractiseIt } from './practise-it'
 import { ReadsIn, useReading } from '@/lib/reads-in'
@@ -614,6 +615,7 @@ export function taskMenu(task: Task, { open, complete = () => void completeTask(
     'separator',
     copyLinkItem(`task:${task.id}`, splitTags(task.title).text || task.title),
     { label: 'Copy the task', run: () => copy(splitTags(task.title).text || task.title, 'Task copied') },
+    remindersItem(task),
     'separator',
     // Said as every list says it, so a task picked with ⌘A reads the same as a note: ⌫ does it.
     open_ && toNoteItem([task.id]),
