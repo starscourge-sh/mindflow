@@ -85,10 +85,10 @@ try {
   check('Progress bars offers Plain line, Plain bar, Lightsaber and Dino run, each with its sample', ['line', 'plain', 'saber', 'dino'].every((one) => choices.samples.includes(one)) && /Plain line/.test(choices.words) && /Plain bar/.test(choices.words), JSON.stringify(choices))
   // Picked by a click in place: the setting is saved and the window's bars follow.
   await h.evaluate(() => document.querySelector('[data-loop-bar="plain"]')?.scrollIntoView({ block: 'center' }))
-  await h.locator('[data-loop-bar="plain"]').click()
-  await waitFor(async () => (await v('settings')).progressBars === 'plain', 3000)
+  await h.locator('button:has([data-loop-bar="plain"])').click()
+  await waitFor(async () => (await v('settings')).progressBars === 'plain' && (await h.evaluate(() => document.documentElement.dataset.bars)) === 'plain', 3000)
   check('clicking "Plain bar" picks it, and the window follows', (await v('settings')).progressBars === 'plain' && (await h.evaluate(() => document.documentElement.dataset.bars)) === 'plain')
-  await h.locator('[data-loop-bar="line"]').click()
+  await h.locator('button:has([data-loop-bar="line"])').click()
   await waitFor(async () => (await v('settings')).progressBars === 'line', 3000)
   check('clicking "Plain line" puts it back', (await v('settings')).progressBars === 'line')
   if (shots) {
