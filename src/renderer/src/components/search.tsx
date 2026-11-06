@@ -46,7 +46,7 @@ import { PICKED_MARK, usePickMixed } from './haligtree/pick-mixed'
 import { clip } from '../../../main/clip'
 import { APP_NAME } from '../../../main/name'
 import { hoverNote } from './haligtree/note-preview'
-import { forgives } from '@/lib/slash-rank'
+import { forgives, rank } from '@/lib/slash-rank'
 import { ICE, KIND_ICON, type GoalKind } from '@/lib/goal-kind'
 
 type Capture = Awaited<ReturnType<typeof window.api.captures.find>>[number]
@@ -144,12 +144,15 @@ export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'tas
   // word under the list rolled twice a letter.
   const settled = searched ?? ''
   const settledWords = settled.toLowerCase().split(/\s+/).filter((word) => word && !word.startsWith('kind:'))
+  const named = (one: Action): number => rank({ title: one.label, group: '', hint: one.hint, keywords: one.words?.split(' ') }, settledWords.join(' ')) ?? 8
   const acting = [
     ...(asked ? [{ label: `What ${APP_NAME} means by ${asked.forms[0]}`, cue: null, run: () => openWord(asked.id) }] : []),
     ...heard,
     ...[...actions, { label: `${APP_NAME}’s words`, hint: 'What its own names mean', typed: true, cue: null, run: () => openWord(ALL_WORDS) }]
       .filter((one) => !(heard.length && one.heard) && (!one.typed || settled.trim()) && forgives(settledWords.join(' '), `${one.label} ${one.hint ?? ''} ${one.words ?? ''}`))
-      .sort((a, b) => (settled.trim() ? Number(!!b.own) - Number(!!a.own) : 0)).slice(0, settled.trim() ? 4 : 12)
+      // Then the best answer first, as the / menu ranks (lib/slash-rank.ts): the words as its name before the words only
+      // in another's hint ("Add many cards at once" before "New deck", whose hint says "add many at once").
+      .sort((a, b) => (settled.trim() ? Number(!!b.own) - Number(!!a.own) || named(a) - named(b) : 0)).slice(0, settled.trim() ? 4 : 12)
   ]
   // An action the words name ("What's new") is what Enter does; keeping the words as a note comes after it.
   const keepFirst = !acting.length
