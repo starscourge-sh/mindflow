@@ -63,6 +63,25 @@ import { hoverNote } from './note-preview'
 import { quoted } from '../../../../main/clip'
 import { ArrowDown, ArrowUp } from '@/components/ui/icons'
 import { APP_NAME } from '../../../../main/name'
+import { formatBarShown } from '@/components/selection/selection-menu'
+
+/**
+ * True from a press in the words that picks some of them until the pick is let
+ * go: the pointer that just picked words, coming to rest on a control (quick
+ * capture's kind button sits at the end of its one line), opens no tip over them.
+ */
+let pickingWords = false
+let pressInWords = false
+if (typeof document !== 'undefined') {
+  document.addEventListener('pointerdown', (event) => {
+    pressInWords = event.target instanceof Element && !!event.target.closest('[contenteditable=true]')
+    if (!pressInWords) pickingWords = false
+  }, true)
+  document.addEventListener('selectionchange', () => {
+    const picked = !!document.getSelection() && !document.getSelection()!.isCollapsed
+    pickingWords = pressInWords && picked
+  })
+}
 
 /** How long after an Undo's sound the undone thing stays quiet as it puts itself back: one action, one sound. */
 const UNDO_HUSH = 900
@@ -2060,7 +2079,8 @@ function Tipped({ label, offset, side, children }: { label: ReactNode; offset?: 
   // Kept as it closes, so the tip fades out with its words still in it.
   const [shown, setShown] = useState<ReactNode>(label)
   const onOpenChange = (next: boolean): void => {
-    if (next && !label) return
+    // No tip while a format bar is up, or while a drag is picking words: one floating thing at a time.
+    if (next && (!label || formatBarShown() || pickingWords)) return
     place.onShow?.(next)
     if (!next || typeof label !== 'string') return (setShown(next ? label : shown), setOpen(next))
     const seen = (trigger.current?.innerText ?? '').replace(/\s+/g, ' ').trim().toLowerCase()

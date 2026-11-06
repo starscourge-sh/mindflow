@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
 import { BubbleMenu, type BubbleMenuProps } from '@tiptap/react/menus'
 import { AllSelection, TextSelection, type EditorState } from '@tiptap/pm/state'
 import { posToDOMRect } from '@tiptap/core'
@@ -24,6 +24,10 @@ function scrollers(dom: HTMLElement, into: HTMLElement[]): HTMLElement[] {
     const more = el.scrollHeight > el.clientHeight + 1 || el.scrollWidth > el.clientWidth + 1
     if (more && /(auto|scroll)/.test(style.overflowY + style.overflowX)) into.push(el)
   }
+  // Quick capture's drawn frame is all of it there is to see: the window is
+  // cut to it (one line tall as the pill), whatever size the page thinks it is.
+  const frame = dom.closest<HTMLElement>('.app-container')
+  if (frame) into.push(frame)
   return into
 }
 
@@ -49,6 +53,37 @@ function inSight(clips: HTMLElement[]): { top: number; bottom: number; left: num
   }
   return view
 }
+
+/**
+ * Whether a format bar is up anywhere in this window: while it is, nothing
+ * else floats (the count of words picked, a tip), so there is one floating
+ * thing at a time and none of it over the words.
+ */
+const barUp = { count: 0, listeners: new Set<() => void>() }
+const tellBar = (by: number): void => {
+  barUp.count = Math.max(0, barUp.count + by)
+  for (const listener of barUp.listeners) listener()
+}
+export const formatBarShown = (): boolean => barUp.count > 0
+export const useFormatBarShown = (): boolean =>
+  useSyncExternalStore((listener) => (barUp.listeners.add(listener), () => void barUp.listeners.delete(listener)), formatBarShown)
+
+/**
+ * Whether the bar fits clear of the picked words, above or below them, inside
+ * what is in sight. Where it does not (quick capture's one-line pill, a pick
+ * that fills the whole box) it does not show: it would sit on the words being
+ * picked. ⌘B, ⌘I and the right-click menu still format them.
+ */
+function roomFor(editor: Editor, held: { clips: HTMLElement[] }, tall: number): boolean {
+  const { view, state } = editor
+  const seen = inSight(scrollers(view.dom, held.clips))
+  const words = posToDOMRect(view, state.selection.from, state.selection.to)
+  seen.top = Math.max(seen.top, stripFoot(words.left, words.right))
+  const need = tall + GAP + EDGE
+  return words.top - seen.top >= need || seen.bottom - words.bottom >= need
+}
+/** The floating bar's height, before it has ever been drawn. */
+const BAR_TALL = 40
 
 /** True while the whole note is picked, as ⌘A picks it. */
 const wholeNote = (state: EditorState): boolean =>
@@ -89,7 +124,7 @@ function useFloat(editor: Editor | null, reading = false, code = false) {
     const pad = { top: EDGE, bottom: EDGE, left: EDGE, right: EDGE }
     const lastKey = { at: 0 }
     const later = { timer: 0 }
-    return { clips, layer, scrolled, lastKey, later, pad }
+    return { clips, layer, scrolled, lastKey, later, pad, up: false }
   })
   const options = useMemo(() => {
     return {
@@ -104,6 +139,8 @@ function useFloat(editor: Editor | null, reading = false, code = false) {
       shift: { boundary: held.clips, padding: held.pad, crossAxis: true },
       hide: { strategy: 'referenceHidden' as const, boundary: held.clips },
       scrollTarget: held.scrolled as unknown as HTMLElement,
+      onShow: () => held.up || ((held.up = true), tellBar(1)),
+      onHide: () => held.up && ((held.up = false), tellBar(-1)),
     }
   }, [held])
   const reference = useMemo(() => () => {
@@ -126,7 +163,10 @@ function useFloat(editor: Editor | null, reading = false, code = false) {
     if (held.layer.parentElement !== host) host.appendChild(held.layer)
     return held.layer
   }, [editor, held])
-  useEffect(() => () => void held.layer.remove(), [held])
+  useEffect(() => () => {
+    held.layer.remove()
+    if (held.up) (held.up = false, tellBar(-1))
+  }, [held])
   // Any scroll that moves the words moves the bar with them.
   useEffect(() => {
     const dom = page
@@ -148,13 +188,14 @@ function useFloat(editor: Editor | null, reading = false, code = false) {
   // since; ⌘A then ⌫ is gone before then, so the bar never flashes up.
   const shouldShow = useMemo<BubbleMenuProps['shouldShow']>(() => (props) => {
     if (!showFor(props, readingNow.current, codeNow.current)) return false
+    if (!roomFor(props.editor, held, bar.current?.offsetHeight || BAR_TALL)) return false
     const { editor: instance, state } = props
     if (!wholeNote(state)) return true
     const since = performance.now() - held.lastKey.at
     if (since >= SETTLE) return true
     clearTimeout(held.later.timer)
     held.later.timer = window.setTimeout(() => {
-      if (instance.isDestroyed || !showFor({ ...props, state: instance.state }, readingNow.current, codeNow.current)) return
+      if (instance.isDestroyed || !showFor({ ...props, state: instance.state }, readingNow.current, codeNow.current) || !roomFor(instance, held, bar.current?.offsetHeight || BAR_TALL)) return
       if (performance.now() - held.lastKey.at < SETTLE) return
       instance.view.dispatch(instance.state.tr.setMeta('selectionMenu', 'show'))
       instance.view.dispatch(instance.state.tr.setMeta('selectionMenu', 'updatePosition'))

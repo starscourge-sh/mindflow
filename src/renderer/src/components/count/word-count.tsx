@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { useEditorDom } from '@/lib/editor-dom'
 import type { Editor } from "@tiptap/react"
 import type { Node as PMNode } from "@tiptap/pm/model"
 import { num } from '../../../../main/dates'
+import { useFormatBarShown } from '@/components/selection/selection-menu'
 
 /**
  * Words and characters for the whole document, counted on edits only, so a
@@ -89,6 +90,7 @@ export function WordCount({ editor }: { editor: Editor | null }) {
   // Words picked: their own count, in the count's place, shown while they are picked (the tracker: "shows how many
   // words/characters under a selection"). Over words, on its pill, so it reads.
   const picked = useSelectionCounts(editor)
+  const barShown = useFormatBarShown()
 
   // Shown only where nothing is under it: past the last line, which is the
   // end of a long note scrolled down, or anywhere in a short one. Over words
@@ -132,7 +134,8 @@ export function WordCount({ editor }: { editor: Editor | null }) {
   }, [dom, counts])
 
   if (!editor || !counts) return null
-  if (picked && dom) return <PickedCount dom={dom} words={picked.words} characters={picked.characters} />
+  // While the format bar is up it is the one floating thing: the count waits.
+  if (picked && dom) return barShown ? null : <PickedCount dom={dom} words={picked.words} characters={picked.characters} />
   const { words, characters } = counts
   // Nothing to count says nothing: an empty box stays empty. In the box, a
   // few lines say nothing either: the count turns up once it is long.
@@ -158,6 +161,14 @@ export function WordCount({ editor }: { editor: Editor | null }) {
  */
 function PickedCount({ dom, words, characters }: { dom: HTMLElement; words: number; characters: number }) {
   const [at, setAt] = useState<{ x: number; y: number } | null>(null)
+  // Never on the words being picked (quick capture's one-line pill has its foot on its one line): there it stays away.
+  const chip = useRef<HTMLSpanElement>(null)
+  const [onWords, setOnWords] = useState(false)
+  useLayoutEffect(() => {
+    const box = chip.current?.getBoundingClientRect()
+    const picked = window.getSelection()?.rangeCount ? [...window.getSelection()!.getRangeAt(0).getClientRects()] : []
+    setOnWords(!!box && picked.some((one) => one.width > 0 && one.left < box.right && one.right > box.left && one.top < box.bottom && one.bottom > box.top))
+  })
   useEffect(() => {
     const place = (): void => {
       let scroller: HTMLElement | null = dom.parentElement
@@ -178,8 +189,10 @@ function PickedCount({ dom, words, characters }: { dom: HTMLElement; words: numb
   if (!at) return null
   return createPortal(
     <span
+      ref={chip}
       data-picked-count
-      style={{ left: at.x, top: at.y }}
+      data-on-words={onWords || undefined}
+      style={{ left: at.x, top: at.y, visibility: onWords ? 'hidden' : undefined }}
       className="mf-frost pointer-events-none fixed z-50 -translate-x-1/2 -translate-y-full rounded-full border border-border bg-popover px-2.5 py-0.5 text-xs whitespace-nowrap text-popover-foreground tabular-nums shadow-[0_2px_8px_rgb(0_0_0/0.18)]">
       {num(words)} {words === 1 ? "word" : "words"} · {num(characters)} {characters === 1 ? "character" : "characters"} selected
     </span>,
