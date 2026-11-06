@@ -113,11 +113,13 @@ try {
   }
   await h.mouse.move(box.x + 4, box.y + 4)
   await h.waitForTimeout(2500); await take()
-  for (const delta of [30, 30, 30, 30, 30, 30, -30, -30, -30, -30, -30, -30]) { await zoom(delta); await h.waitForTimeout(260) }
+  // In close (more dots grow big enough to be named, the edges' names leave the frame), then back out past the whole
+  // map (names give way as it shrinks): names must come and go either way.
+  for (const delta of [-30, -30, -30, -30, -30, 30, 30, 30, 30, 30, 30, 30, 30, -30, -30, -30]) { await zoom(delta); await h.waitForTimeout(260) }
   await h.waitForTimeout(400)
   const faded = study(await take())
   console.log('zoom in and out', JSON.stringify(faded))
-  check('names change as the map zooms', faded.changed >= 2, `${faded.changed} names came or went`)
+  check('names change as the map zooms', faded.changed >= 3, `${faded.changed} names came or went`)
   check('a name fades as it shows or hides, never 0 to 1 in one frame', faded.changed > 0 && !faded.snapped.length && faded.eased === faded.changed, `${faded.eased} of ${faded.changed} eased; ${faded.snapped.length} snapped in one frame over ${faded.frames} frames`)
   // Resting near a threshold: from far out, the zoom nudged in by 8% and back by 4%, over and over, as it creeps back
   // to the whole map, so every name's threshold is passed with the zoom resting either side of it.
