@@ -55,7 +55,7 @@ try {
   await h.reload(); await wait(2200)
   await go('all'); await wait(1500)
   const kindHeads = await heads()
-  check('3. grouped by kind, the sections go Note, Tasks, then the rest', kindHeads[0] === 'Note' && kindHeads.includes('Tasks') && inOrder(kindHeads, rank), kindHeads.join(', '))
+  check('3. grouped by kind, the sections go Notes, Tasks, then the rest', kindHeads[0] === 'Notes' && kindHeads.includes('Tasks') && inOrder(kindHeads, rank), kindHeads.join(', '))
   await h.evaluate(() => localStorage.removeItem('view:captures:All captures'))
 
   // 4. Pages says "page": its button, its hints, its empty words.
