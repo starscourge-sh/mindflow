@@ -79,7 +79,7 @@ import { Lead, plain } from './lead'
 import { backedUpAgo, chooseBackupFolder } from '@/lib/backups'
 import { ThemeDial } from './theme-dial'
 import { TimeField } from './time-field'
-import { BarWordsSample, BlurSample, CentredSample, DayHintsSample, FoldSample, TypePauseSample, SpellSample, HomeMonthSample, TimeGoneSample, TitleTopSample, TypewriterSample, Choices, CountSample, ListPictureSample, MarksSample, MiniBubble, MotionSample, PictureSample, POSTCARD_BORDERS, StirSample, TempusSample, ThemeFileGuide, TuckSample, ThemeTiles, barChoices, boxPlaceChoices, boxScreenChoices, bubbleChoices, highlightChoices, paperChoices, pictureSizeChoices, tagLookChoices, IconColourSample, menuIconChoices, linkChoices, meaningChoices, pillSitsChoices, postcardChoices, saveStarterTheme, stickyChoices, timerShowsChoices, widthChoices, TranscribeSample, TalkSample, TidySample } from './settings-show'
+import { BarWordsSample, BlurSample, DatesSample, CentredSample, DayHintsSample, FoldSample, TypePauseSample, SpellSample, HomeMonthSample, TimeGoneSample, TitleTopSample, TypewriterSample, Choices, CountSample, ListPictureSample, MarksSample, MiniBubble, MotionSample, PictureSample, POSTCARD_BORDERS, StirSample, TempusSample, ThemeFileGuide, TuckSample, ThemeTiles, barChoices, boxPlaceChoices, boxScreenChoices, bubbleChoices, highlightChoices, paperChoices, pictureSizeChoices, tagLookChoices, IconColourSample, menuIconChoices, linkChoices, meaningChoices, pillSitsChoices, postcardChoices, saveStarterTheme, stickyChoices, timerShowsChoices, widthChoices, TranscribeSample, TalkSample, TidySample } from './settings-show'
 import { BookOpen as BookHeart, Brain, HardDrive, CircleHelp as LifeBuoy, ListTodo as ListChecks, Camera as Mountain, Brush as Palette, Pencil as PenLine, Search as SearchIcon, Sparkles, Volume2, X } from '@/components/ui/icons'
 import { APP_NAME } from '../../../../main/name'
 import { forgives } from '@/lib/slash-rank'
@@ -856,6 +856,10 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
           <Setting title="Title at the top" note="A note's first line shows faintly at the top once it scrolls away." keywords="title in the top bar">
             <TitleTopSample on={!!settings.topTitle} />
             <Switch checked={settings.topTitle} onCheckedChange={(topTitle) => set({ topTitle })} />
+          </Setting>
+          <Setting title="Dates and times lit" note="A date or time in a note is lit as you write it; rest on one to see the day it means." more="Read as on the day the note was written, so “tomorrow” in an old note says which day it was." keywords="date time day highlight lit tomorrow friday calendar when detect" data-mac-needs="every">
+            <DatesSample on={settings.datesLit !== false} />
+            <Switch checked={settings.datesLit !== false} onCheckedChange={(datesLit) => set({ datesLit })} />
           </Setting>
           <Setting title="Spellcheck" note="Underline misspelt words; right-click one for what it might be." more={isMac() ? 'The Mac picks the language from what you type.' : 'The gear picks the languages.'} keywords="spelling spell check dictionary language typo">
             {/* On a Mac the system checks in whatever language you type, and ignores a list. */}

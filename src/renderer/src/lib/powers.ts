@@ -94,6 +94,8 @@ export const POWERS: Power[] = [
   // Writing
   { id: 'properties', group: 'Writing', name: 'Properties, and tags that bring them', tryIt: 'In any note, type Author:: Ursula Le Guin on a line of its own and press ↵.', line: 'Any note or page can carry properties: a name and a value (words, a number, a date, yes or no, a choice, a link), in a quiet strip under its title. Give one to a tag and every note with that tag gets it, as #book brings Status and Rating. Search author:le guin to find them.', keys: ['⌥⌘P'],
     show: { view: 'inbox', at: ROW, text: 'Open a note: its properties sit under the title. Press ⌥⌘P or type Name:: value to add one.' } },
+  { id: 'dates', group: 'Writing', name: 'Dates and times lit as you write', needs: 'every', tryIt: 'In any note, write “Essay due Friday 3pm” and rest the pointer on the date.', line: 'A date or a time in a note, a Journal day or a gem is lit as you type it, and resting on it says the day it means, read as on the day the note was written. One switch in Settings, Writing.',
+    show: { view: 'settings', settings: 'Writing', find: 'Dates and times lit', at: '[data-setting]', text: 'On, unless you turn it off here.' } },
   { id: 'board', group: 'Writing', name: 'Lists become a board', line: 'Any note, page or gem of headings with lists under them, or of bullets with bullets under them, flips into columns of cards, and back again.', keys: ['⌥⌘B'],
     show: { view: 'inbox', at: ROW, text: 'Open a note of headings with lists under them, or of bullets with bullets under them, then press ⌥⌘B.' }, used: (s) => s.board },
   { id: 'versions', group: 'Writing', name: 'Every version, a slider away', line: 'Drag back through everything a note has been, so nothing you write is ever lost.',
