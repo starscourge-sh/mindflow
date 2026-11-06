@@ -60,7 +60,7 @@ function CommandList({
         // the search box above, which is part of that room and not this list.
         "max-h-[calc(var(--radix-popover-content-available-height,100vh)-3.5rem)]",
         // mf-more: the same edge fade as every menu while rows are hidden past it (context-menu.tsx).
-        "mf-more relative isolate scroll-py-8 overflow-x-hidden overflow-y-auto overscroll-contain p-1",
+        "mf-more relative isolate overflow-x-hidden overflow-y-auto overscroll-contain p-1",
         className
       )}
       {...props}

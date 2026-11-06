@@ -1175,8 +1175,8 @@
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: 0.25rem;
-  // Clear of the edge fade (mf-more) when the arrows bring a row into view.
-  scroll-padding-block: 2rem;
+  // Clear of the edge fade when the arrows bring a row into view.
+  scroll-padding-block: 1.5rem 2.5rem;
   // Over the shared light, as in every menu (context-menu.tsx MenuScroll).
   position: relative;
   isolation: isolate;

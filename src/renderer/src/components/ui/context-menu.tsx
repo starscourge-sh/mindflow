@@ -136,7 +136,7 @@ export function MenuScroll({ children }: { children: React.ReactNode }): React.J
     }
   }, [])
   return (
-    <div ref={box} data-menu-scroll className="mf-more relative isolate min-h-0 scroll-py-8 overflow-x-hidden overflow-y-auto overscroll-contain p-1">
+    <div ref={box} data-menu-scroll className="mf-more relative isolate min-h-0 overflow-x-hidden overflow-y-auto overscroll-contain p-1">
       <Highlight spot={lit?.spot ?? null} session={lit?.session} snap={lit?.snap} className={lit?.danger ? "bg-destructive/10 dark:bg-destructive/20" : "bg-accent"} />
       {children}
     </div>
