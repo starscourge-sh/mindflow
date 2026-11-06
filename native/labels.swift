@@ -12,6 +12,9 @@
 //                             again with its words laid invisibly over the picture, where they stand, so a PDF
 //                             reader finds, picks and highlights them. A line a page as it goes, then the whole:
 //                             {"page":3,"of":120,"lines":31}   {"done":{"pages":120,"lines":3800}}
+//   labels --focus <picture>  where a crop should centre: the largest face, else what the eye goes to first
+//                             (Vision's saliency), as a share of the picture from the top left:
+//                             {"focus":{"x":0.48,"y":0.31,"face":true}}
 import CoreText
 import Foundation
 import ImageIO
@@ -31,6 +34,36 @@ func fail(_ code: String, _ message: String) -> Never {
 
 var args = CommandLine.arguments
 if args.count > 3 && args[1] == "--pdf" { readPDF(args[2], args[3]) }
+if args.count > 2 && args[1] == "--focus" { focus(args[2]) }
+
+/** Where a round photo or a cover cut from this picture should centre. */
+func focus(_ path: String) -> Never {
+  guard let source = CGImageSourceCreateWithURL(URL(fileURLWithPath: path) as CFURL, nil), let image = CGImageSourceCreateImageAtIndex(source, 0, nil) else { fail("unreadable", "The picture could not be read") }
+  let handler = VNImageRequestHandler(cgImage: image, orientation: orientationOf(source), options: [:])
+  let faces = VNDetectFaceRectanglesRequest()
+  let salient = VNGenerateAttentionBasedSaliencyImageRequest()
+  try? handler.perform([faces, salient])
+  // Vision measures from the bottom left; a crop is placed from the top left.
+  if let face = (faces.results ?? []).max(by: { $0.boundingBox.width * $0.boundingBox.height < $1.boundingBox.width * $1.boundingBox.height }) {
+    let box = face.boundingBox
+    say(["focus": ["x": Double(box.midX), "y": Double(1 - box.midY), "face": true]])
+    exit(0)
+  }
+  let boxes = ((salient.results?.first as? VNSaliencyImageObservation)?.salientObjects ?? []).map { $0.boundingBox }
+  if let first = boxes.first {
+    let all = boxes.dropFirst().reduce(first) { $0.union($1) }
+    say(["focus": ["x": Double(all.midX), "y": Double(1 - all.midY), "face": false]])
+  } else {
+    say(["focus": ["x": 0.5, "y": 0.5, "face": false]])
+  }
+  exit(0)
+}
+
+/** A photo's own turn (a phone's portrait shot), so a face is found the way up it is seen. */
+func orientationOf(_ source: CGImageSource) -> CGImagePropertyOrientation {
+  let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any]
+  return CGImagePropertyOrientation(rawValue: (properties?[kCGImagePropertyOrientation] as? UInt32) ?? 1) ?? .up
+}
 
 /** Every page of a scanned PDF read, and written again with its words invisible over the picture. */
 func readPDF(_ input: String, _ output: String) -> Never {

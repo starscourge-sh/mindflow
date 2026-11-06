@@ -1,8 +1,9 @@
-import { spawn } from 'node:child_process'
+import { execFile, spawn } from 'node:child_process'
 import { basename, join } from 'node:path'
 import { ipcMain } from 'electron'
 import helper from '../../resources/labels?asset&asarUnpack'
 import { assetsDir } from './pictures'
+import { database } from './captures'
 
 /**
  * The labels on a picture (a diagram's names for its parts), found on this Mac
@@ -46,6 +47,35 @@ export function findLabels(src: string): Promise<Labels> {
   })
 }
 
+/**
+ * Where a picture cut to a shape should centre: its largest face, else what
+ * the eye goes to first (native/labels.swift --focus), kept per picture.
+ */
+const focused = new Map<string, { x: number; y: number } | null>()
+function pictureFocus(src: string): Promise<{ x: number; y: number } | null> {
+  const stored = STORED.exec(src)
+  if (!stored || process.platform !== 'darwin') return Promise.resolve(null)
+  if (focused.has(stored[1])) return Promise.resolve(focused.get(stored[1])!)
+  const db = database()
+  db.exec('create table if not exists picture_focus (name text primary key, x real, y real)')
+  const kept = db.prepare('select x, y from picture_focus where name = ?').get(stored[1]) as { x: number | null; y: number | null } | undefined
+  if (kept) return Promise.resolve(kept.x === null || kept.y === null ? null : { x: kept.x, y: kept.y })
+  return new Promise((resolve) => {
+    execFile(helper, ['--focus', join(assetsDir(), basename(stored[1]))], { timeout: 30_000 }, (error, out) => {
+      let at: { x: number; y: number } | null = null
+      try {
+        if (!error) at = (JSON.parse(String(out).trim()) as { focus: { x: number; y: number } }).focus
+      } catch {
+        // Not read: the cut stays in the middle.
+      }
+      focused.set(stored[1], at)
+      db.prepare('insert or replace into picture_focus (name, x, y) values (?, ?, ?)').run(stored[1], at?.x ?? null, at?.y ?? null)
+      resolve(at)
+    })
+  })
+}
+
 export function registerLabels(): void {
+  ipcMain.handle('haligtree:picture:focus', (_event, src: unknown) => pictureFocus(String(src ?? '')))
   ipcMain.handle('haligtree:labels', (_event, src: unknown) => findLabels(String(src ?? '')))
 }
