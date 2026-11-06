@@ -1,23 +1,37 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useStepped } from '@/lib/nav'
-import { AudioLines, Image as ImageIcon, ImagePlay, Layers } from 'lucide-react'
+import { AudioLines, BookOpen, ChevronDown, Image as ImageIcon, ImagePlay, Layers, Plus, Unlink } from 'lucide-react'
 import { FileText } from '@/components/ui/icons'
-import { call, unloaded, useLive } from '@/lib/haligtree'
+import { call, haligtree, unloaded, useLive } from '@/lib/haligtree'
 import { smallPicture } from '@/lib/notes'
 import { headingIn } from '@/lib/capture-links'
 import { usePdfCover } from '@/components/pdf/pdf-cover'
 import { PdfLibrary } from '@/components/pdf/pdf-library'
+import { openPdf } from '@/components/pdf/pdf-reader'
+import { openLook } from '@/components/image/image-look'
+import { Button } from '@/components/ui/button'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { MenuGlyph } from '@/components/ui/menu-icon'
+import { Search } from '@/components/search'
+import { addDropped, addFromPicker, binFiles, putInNote, takeMediaFile } from '@/lib/media-files'
+import { useSelectAll } from '@/lib/select-all'
+import { usePicking } from '@/lib/pick-range'
+import { useHere } from '@/lib/split'
+import { menuOpen } from '@/lib/menu-keys'
+import { startNewSource } from './source-page'
 import { PictureRow } from './picture-row'
 import { GRACE } from '@/components/pdf/pdf-peek'
 import { canSplit, openAside } from '@/lib/split'
 import { chime } from '@/lib/sound'
 import { pictureLines } from '@/lib/picture-actions'
-import { Empty, Page, refuse, toast, VirtualList } from './ui'
+import { Empty, Page, refuse, toast, typing, useListKeys, VirtualList } from './ui'
 import { Chip } from './display'
 import { ListSearch, tileClass } from './note-list'
 import { SoundPlayer, soundTitle } from './sound-player'
 import { RowMenu, type RowItem } from './row-menu'
-import type { Media, MediaKind } from '../../../../main/media'
+import { dayName, num } from '../../../../main/dates'
+import type { Media, MediaKind, MediaUse } from '../../../../main/media'
 
 /** The kinds, as the chips over the grid name them. */
 const KINDS: { id: MediaKind; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
@@ -40,10 +54,38 @@ export function showMediaKind(kind: MediaKind): void {
   window.dispatchEvent(new CustomEvent('haligtree:media-kind', { detail: kind }))
 }
 
+/** Past this many files, those in no note are hard to pick out by eye and get a chip of their own. */
+const LOOSE_CHIP = 24
+
+const keyOf = (one: Media): string => `${one.deck ? 'deck:' : ''}${one.src}`
+const looseChip = <Unlink className="size-3.5" />
+
+/** A file's name without its ending, as a person says it. */
+const bare = (name: string): string => name.replace(/\.[^.]+$/, '') || name
+
+/** "Add": the picker at once; beside it, the one thing it is not, a book you have no file for, which Sources already holds. */
+function AddControl({ onMet }: { onMet: (src: string) => void }): React.JSX.Element {
+  return (
+    <span className="flex items-center gap-1">
+      <Button variant="outline" size="sm" className="h-8 cursor-pointer px-3" data-media-add onClick={() => void addFromPicker(onMet)}><Plus className="size-3.5" />Add</Button>
+      <DropdownMenu modal={false}>
+        <DropdownMenuTrigger asChild>
+          <Button variant="outline" size="sm" className="h-8 w-8 cursor-pointer px-0" data-media-add-more aria-label="More ways to add"><ChevronDown className="size-3.5" /></Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem data-media-no-file onSelect={startNewSource}><BookOpen className="size-3.5" />A book with no file yet…</DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </span>
+  )
+}
+
 /**
- * Every picture, screenshot, GIF, PDF and recording kept in the book's notes,
- * as a grid, newest note first. Pointed at, a tile says the note it is in;
- * clicked, that note opens on it (⌥-click: to the side).
+ * Every picture, screenshot, GIF, PDF and recording in the book, one tile a
+ * file, newest first: what its notes hold, and what was added here with no
+ * note. A tile says where it is used, each a way to that note; clicked, the
+ * newest note opens on it (⌥-click: to the side), or, used nowhere, the file
+ * itself opens. It picks and goes to the Bin as every list's rows do.
  */
 export function MediaView({ onOpen }: { onOpen: (type: string, id: string) => void }): React.JSX.Element {
   const all = useLive(readMedia, [] as Media[])
@@ -56,14 +98,15 @@ export function MediaView({ onOpen }: { onOpen: (type: string, id: string) => vo
     return () => window.removeEventListener('haligtree:media-kind', on)
   }, [])
   useStepped(kind, setKind)
+  const [looseOnly, setLooseOnly] = useState(false)
   // A shared deck's pictures (hundreds of paintings) wait under their own chip, so the book's own stay in view.
   const [decks, setDecks] = useState(false)
   const anyDeck = all.some((one) => one.deck)
   const shown = useMemo(() => {
     const words = query.trim().toLowerCase().split(/\s+/).filter(Boolean)
-    return all.filter((one) => !!one.deck === decks && (kind === 'all' || one.kind === kind) &&
+    return all.filter((one) => !!one.deck === decks && (kind === 'all' || one.kind === kind) && (!looseOnly || !one.uses.length) &&
       words.every((word) => `${one.title} ${one.name} ${one.near}`.toLowerCase().includes(word)))
-  }, [all, query, kind, decks])
+  }, [all, query, kind, decks, looseOnly])
 
   // How many tiles fit across, worked out from the grid's own width.
   const box = useRef<HTMLDivElement>(null)
@@ -79,19 +122,102 @@ export function MediaView({ onOpen }: { onOpen: (type: string, id: string) => vo
   const across = Math.max(1, Math.floor((width + GAP) / (TILE + GAP)))
   const lines = useMemo(() => {
     const out: { key: string; tiles: Media[] }[] = []
-    for (let at = 0; at < shown.length; at += across) out.push({ key: `${shown[at].type}:${shown[at].id}:${shown[at].src}`, tiles: shown.slice(at, at + across) })
+    for (let at = 0; at < shown.length; at += across) out.push({ key: keyOf(shown[at]), tiles: shown.slice(at, at + across) })
     return out
   }, [shown, across])
 
   const open = (one: Media): void => {
-    onOpen(one.type, one.id)
-    headingIn(one.type, one.id, one.src)
+    if (one.uses.length) {
+      onOpen(one.type, one.id)
+      headingIn(one.type, one.id, one.src)
+    } else openFile(one)
   }
+
+  // Picking, as every list has it: click, ⌘-click, ⇧-click, ⌘A, ⌫, Esc, and the keys across the grid.
+  const here = useHere()
+  const library = all.length > 0 && kind === 'pdf'
+  const order = useMemo(() => shown.map(keyOf), [shown])
+  const [chosenAll, setChosen] = useState<string[]>([])
+  const chosen = useMemo(() => chosenAll.filter((key) => order.includes(key)), [chosenAll, order])
+  const srcOf = (key: string): string => key.replace(/^deck:/, '')
+  const toBin = (keys: string[]): void => void binFiles(keys.map(srcOf), () => setChosen([]))
+  const picking = usePicking(order, chosen, setChosen)
+  const [cursor, setCursor] = useListKeys(shown.length, { across, enabled: !library, onOpen: (at) => shown[at] && open(shown[at]), onExtend: (from, to) => shown[to] && picking.extend(shown[from] && keyOf(shown[from]), keyOf(shown[to])) })
+  useSelectAll(() => order, chosen, setChosen, { enabled: !library, here, onDelete: toBin, current: () => (shown[cursor] ? keyOf(shown[cursor]) : null), titleOf: (key) => { const one = all.find((each) => keyOf(each) === key); return one ? bare(one.name || one.title) : undefined } })
+  const clear = (): void => setChosen([])
+  // Esc lets the picked ones go, before it does anything else.
+  const pickedNow = useRef(0)
+  pickedNow.current = chosen.length
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent): void => {
+      if (event.key !== 'Escape' || !pickedNow.current || !here() || typing() || menuOpen() || event.defaultPrevented) return
+      event.preventDefault()
+      event.stopPropagation()
+      chime('off')
+      setChosen([])
+    }
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
+  }, [here])
+
+  // A file asked for by name (⌘K), or already here when added again: the keys on that tile, in view, whatever was narrowing the page.
+  const [showing, setShowing] = useState<string | null>(takeMediaFile)
+  useEffect(() => {
+    const on = (event: Event): void => setShowing((event as CustomEvent<string>).detail)
+    window.addEventListener('haligtree:media-file', on)
+    return () => window.removeEventListener('haligtree:media-file', on)
+  }, [])
+  useEffect(() => {
+    if (!showing || !all.some((one) => one.src === showing)) return
+    const one = all.find((each) => each.src === showing)!
+    if (!shown.includes(one)) {
+      setQuery('')
+      setLooseOnly(false)
+      setDecks(!!one.deck)
+      setKind('all')
+      return
+    }
+    setShowing(null)
+    takeMediaFile()
+    setCursor(shown.indexOf(one))
+  }, [showing, all, shown, setCursor])
+
+  // "Put in a note…": the picker over the page, for one file or everything picked.
+  const [putting, setPutting] = useState<Media[] | null>(null)
+  const pickedFiles = shown.filter((one) => chosen.includes(keyOf(one)))
+  /** The right-click on a tile: for what is picked when it is among them, else for it alone. */
+  const menuFor = (one: Media): RowItem[] => {
+    const several = chosen.includes(keyOf(one)) && chosen.length > 1
+    if (!several) return mediaMenu(one, () => open(one), () => setPutting([one]), () => toBin([keyOf(one)]))
+    const free = pickedFiles.filter((each) => !each.uses.length).length
+    return [
+      { label: `Put ${num(chosen.length)} in a note…`, run: () => setPutting(pickedFiles) },
+      'separator',
+      free > 0 && { label: `Move ${num(free)} to the Bin`, keys: '⌫', danger: true, run: () => toBin(chosen) },
+      'separator',
+      { label: 'Clear the selection', about: 'list', keys: 'esc', run: clear }
+    ]
+  }
+  // Clicked as Finder has it: ⌘ and ⇧ pick; plain opens.
+  const clickTile = (one: Media, event: React.MouseEvent): void => {
+    setCursor(shown.indexOf(one))
+    if (picking.click(event, keyOf(one))) return
+    if (event.altKey && !one.uses.length) return openFile(one, true)
+    open(one)
+  }
+
+  // Files carried over the page: the whole page takes them.
+  const [carrying, setCarrying] = useState(false)
+  const carriesFiles = (event: React.DragEvent): boolean => event.dataTransfer.types.includes('Files')
+  const onMet = (src: string): void => setShowing(src)
 
   // The kinds, as Gems' are: one on at a time, pressed again to show every kind.
   // Only what the book holds: a tab for something you have none of leads to nothing. One asked for by name still shows, to say so.
   const held = KINDS.filter((one) => one.id === kind || all.some((item) => item.kind === one.id && !item.deck))
-  const kinds = held.length + (anyDeck ? 1 : 0) < 2 ? <div className="pt-4" /> : (
+  // In no note: its own chip only once the page is too long to pick them out by eye, and there are others to tell them from.
+  const looseCount = all.filter((one) => !one.uses.length && !one.deck).length
+  const showLoose = looseOnly || (all.length > LOOSE_CHIP && looseCount > 0 && looseCount < all.length)
+  const kinds = held.length + (anyDeck ? 1 : 0) + (showLoose ? 1 : 0) < 2 ? <div className="pt-4" /> : (
     <div data-media-kinds className="flex flex-wrap gap-1 pt-4 pb-3 text-xs">
       {held.map((one) => (
         <Chip key={one.id} on={kind === one.id} onClick={() => (chime(kind === one.id ? 'off' : 'on'), setKind(kind === one.id ? 'all' : one.id))} mark={<one.icon className="size-3.5" />}>{one.label}</Chip>
@@ -99,84 +225,174 @@ export function MediaView({ onOpen }: { onOpen: (type: string, id: string) => vo
       {anyDeck && (
         <span data-media-decks="" className="contents"><Chip on={decks} onClick={() => (chime(decks ? 'off' : 'on'), setDecks(!decks))} mark={<Layers className="size-3.5" />}>Deck pictures</Chip></span>
       )}
+      {showLoose && <span data-media-loose="" className="contents"><Chip on={looseOnly} onClick={() => (chime(looseOnly ? 'off' : 'on'), setLooseOnly(!looseOnly))} mark={looseChip}>In no note</Chip></span>}
     </div>
   )
-  const library = all.length > 0 && kind === 'pdf'
   // The newest pictures as a flowing row over the grid, for looking; the grid below is for finding.
   const recent = useMemo(() => (query.trim() || decks || (kind !== 'all' && kind !== 'picture') ? [] : shown.filter((one) => one.kind === 'picture')), [shown, query, decks, kind])
-  const recentItems = useMemo(() => recent.map((one) => ({ src: () => smallPicture(one.src, true), title: one.title || 'Untitled', aspect: 4 / 3 })), [recent])
+  const recentItems = useMemo(() => recent.map((one) => ({ src: () => smallPicture(one.src, true), title: (one.name ? bare(one.name) : one.title) || 'Untitled', aspect: 4 / 3 })), [recent])
   return (
-    <Page title="Media" dock={library} waiting={unloaded(all)} count={unloaded(all) || !all.length ? undefined : shown.length} unit={['file', 'files']}
-      search={all.length > 0 && <ListSearch value={query} placeholder="Find by note, name or words" onChange={setQuery} onDone={() => shown[0] && open(shown[0])} />}>
+    // The page as a whole takes a drop: `contents`, so nothing about how it is laid out changes.
+    <div className="contents" data-media-page
+      onDragEnter={(event) => carriesFiles(event) && (event.preventDefault(), setCarrying(true))}
+      onDragOver={(event) => carriesFiles(event) && (event.preventDefault(), (event.dataTransfer.dropEffect = 'copy'))}
+      onDragLeave={(event) => !event.currentTarget.contains(event.relatedTarget as Node | null) && setCarrying(false)}
+      onDrop={(event) => {
+        if (!carriesFiles(event)) return
+        event.preventDefault()
+        event.stopPropagation()
+        setCarrying(false)
+        void addDropped([...event.dataTransfer.files], onMet)
+      }}>
+    <Page title="Media" dock={library} waiting={unloaded(all)} count={unloaded(all) || !all.length ? undefined : chosen.length || shown.length} unit={chosen.length ? ['selected', 'selected'] : ['file', 'files']}
+      search={all.length > 0 && <ListSearch value={query} placeholder="Find by note, name or words" onChange={setQuery} onDone={() => shown[0] && open(shown[0])} />}
+      beside={() => carrying && (
+        <div data-media-drop className="pointer-events-none absolute inset-2 z-20 flex items-center justify-center rounded-xl border border-[color-mix(in_srgb,var(--tt-brand-color-500)_55%,transparent)] bg-[color-mix(in_srgb,var(--tt-brand-color-500)_8%,transparent)]">
+          <span className="rounded-lg bg-popover px-3 py-2 text-heading font-semibold text-foreground shadow-(--mf-panel-shadow) ring-1 ring-foreground/10">Drop to add to Media</span>
+        </div>
+      )}
+      // Only "Add" on the line, picked or not, so nothing on it moves: what acts on the picked is in their right-click and keys.
+      actions={<AddControl onMet={onMet} />}>
       {library ? (
         // PDFs as a library: a shelf of covers, each book once, the picked one's panel docked at the page's edge.
-        <PdfLibrary query={query} top={kinds} />
+        <PdfLibrary query={query} top={kinds} files={all} onPut={(srcs) => setPutting(all.filter((one) => srcs.includes(one.src)))} />
       ) : all.length ? (
         <div ref={box} data-media-grid className="mx-5 mb-4">
           {kinds}
           {recent.length > 0 && (
             <section data-recent-pictures className="mb-4 flex flex-col gap-2">
               <h3 className="text-body font-medium text-foreground">Recent pictures</h3>
-              <PictureRow key={recent.map((one) => `${one.id}:${one.src}`).join()} items={recentItems} height={250} cardHeight={0.72} direct counter="slash" label="Recent pictures" onOpen={(at) => recent[at] && open(recent[at])} menuFor={(at) => mediaMenu(recent[at], () => open(recent[at]))} />
+              <PictureRow key={recent.map((one) => one.src).join()} items={recentItems} height={250} cardHeight={0.72} direct counter="slash" label="Recent pictures" onOpen={(at) => recent[at] && open(recent[at])} menuFor={(at) => menuFor(recent[at])} />
             </section>
           )}
           {shown.length ? (
-            <VirtualList items={lines} keyOf={(line) => line.key} holds={(line, key) => line.tiles.some((one) => `${one.type}:${one.id}:${one.src}` === key)} estimate={TILE * 0.75 + 52 + GAP} rowClass="">
-              {(line) => (
+            <VirtualList items={lines} keyOf={(line) => line.key} holds={(line, key) => line.tiles.some((one) => keyOf(one) === key)} cursor={cursor >= 0 ? Math.floor(cursor / across) : undefined} estimate={TILE * 0.75 + 52 + GAP} rowClass="">
+              {(line, row) => (
                 <div className="grid" style={{ gridTemplateColumns: `repeat(${across}, minmax(0, 1fr))`, gap: GAP, paddingBottom: GAP }}>
-                  {line.tiles.map((one) => <Tile key={`${one.type}:${one.id}:${one.src}`} one={one} onOpen={() => open(one)} />)}
+                  {line.tiles.map((one, at) => <Tile key={keyOf(one)} one={one} at={row * across + at === cursor} picked={chosen.includes(keyOf(one))} menu={menuFor(one)} onClick={(event) => clickTile(one, event)} onUse={(use) => openUse(use, one.src, onOpen)} />)}
                 </div>
               )}
             </VirtualList>
           ) : (
             <p className="my-4 text-control text-muted-foreground">
-              {query.trim() ? <>Nothing here has “{query.trim()}” in its note, its name or the words around it.</> : <>No {KINDS.find((one) => one.id === kind)?.label.toLowerCase()} in your notes yet.</>}
+              {query.trim() ? <>Nothing here has “{query.trim()}” in its note, its name or the words around it.</> : looseOnly ? <>Every file here is in a note.</> : <>No {KINDS.find((one) => one.id === kind)?.label.toLowerCase()} here yet.</>}
             </p>
           )}
         </div>
       ) : unloaded(all) ? null : (
-        <Empty title="No pictures or files yet">
-          Paste or drop a picture, a screenshot, a GIF, a PDF or a recording into any note, gem, page or Journal day. Each one shows up here, with the note it lives in.
+        <Empty title="No pictures or files yet" action={<Button size="sm" className="h-8 cursor-pointer px-3" data-media-add-empty onClick={() => void addFromPicker(onMet)}><Plus className="size-3.5" />Add</Button>}>
+          Press “Add”, or drop pictures, GIFs, PDFs and audio anywhere on this page. Paste or drop one into a note and it shows up here too.
         </Empty>
       )}
     </Page>
+    {putting && createPortal(
+      <Search menus={false} placeholder={putting.length === 1 ? `Put “${bare(putting[0].name || putting[0].title)}” in which note?` : `Put ${num(putting.length)} files in which note?`}
+        onClose={() => setPutting(null)}
+        onOpen={(type, id) => {
+          const files = putting
+          setPutting(null)
+          setChosen([])
+          void noteTitle(type, id).then((title) => putInNote(files, type, id, title))
+        }} />,
+      document.body
+    )}
+    </div>
   )
+}
+
+/** Its name, to say where a file went. */
+async function noteTitle(type: string, id: string): Promise<string> {
+  if (type === 'day') return dayName(id)
+  if (type === 'capture') return (await window.api.captures.get(id))?.label ?? ''
+  return (await haligtree.item(id))?.title ?? ''
+}
+
+/** A file used by no note, opened as itself: a picture in the app's viewer, a PDF in the reader, a recording played where it sits. */
+function openFile(one: Media, aside = false): void {
+  if (one.gone) return refuse(`${one.name || 'That file'} is gone from the book's files. Add it again to bring it back`)
+  chime('open')
+  if (one.kind === 'pdf') return void openPdf(one.src, one.name, undefined, undefined, aside)
+  const tile = document.querySelector(`[data-media][data-src="${CSS.escape(one.src)}"]`)
+  if (one.kind === 'audio') return void tile?.querySelector<HTMLElement>('[data-sound-play]')?.click()
+  void openLook(one.src, tile?.querySelector('img') ?? tile, bare(one.name))
+}
+
+/** One way to a note that holds a file: opened on it. */
+function openUse(use: MediaUse, src: string, onOpen: (type: string, id: string) => void): void {
+  chime('open')
+  onOpen(use.type, use.id)
+  headingIn(use.type, use.id, src)
 }
 
 /** What a file's tile says it is, in place of a picture. */
 const WORD: Record<MediaKind, string> = { picture: 'Picture', gif: 'GIF', pdf: 'PDF', audio: 'Recording' }
 
 /** A picture's or a file's right-click menu, on its tile and in the "Recent pictures" row. */
-export function mediaMenu(one: Media, onOpen: () => void): RowItem[] {
+export function mediaMenu(one: Media, onOpen: () => void, onPut: () => void, onBin: () => void): RowItem[] {
   const picture = one.kind === 'picture' || one.kind === 'gif'
+  const used = one.uses.length > 0
   return [
-    { label: 'Open note', keys: '↵', run: onOpen },
-    canSplit() && { label: 'Open to the side', keys: '⌥-click', run: () => (openAside(one.type, one.id), headingIn(one.type, one.id, one.src)) },
+    used
+      ? { label: 'Open note', keys: '↵', run: onOpen }
+      : { label: picture ? 'Look at it' : one.kind === 'pdf' ? 'Open in the reader' : 'Play it', keys: '↵', run: onOpen },
+    used && canSplit() && { label: 'Open to the side', keys: '⌥-click', run: () => (openAside(one.type, one.id), headingIn(one.type, one.id, one.src)) },
+    !used && one.kind === 'pdf' && canSplit() && { label: 'Open to the side', keys: '⌥-click', run: () => openFile(one, true) },
+    one.uses.length > 1 && { label: 'Used in', items: one.uses.map((use) => ({ label: use.title || 'Untitled', icon: <FileText className="size-3.5" />, run: () => (window.api.openInHome(use.type, use.id), headingIn(use.type, use.id, one.src)) })) },
+    { label: 'Put in a note…', run: onPut },
     'separator',
     { label: 'Copy link', hint: 'Paste it into any note to show it there too', run: () => void copyMedia(one) },
     picture && { label: 'Copy image', run: () => void window.api.copyImage(one.src).then((done) => (done ? (chime('copy'), toast('Copied the picture')) : refuse('Could not copy it', 'error'))) },
     // Its words' lines under one, as on a picture in a note.
     picture && pictureLines(one.src).length > 0 && { label: 'Text in it', items: pictureLines(one.src) },
-    { label: 'Show in Finder', run: () => void window.api.showFile(one.src) }
+    { label: 'Show in Finder', run: () => void window.api.showFile(one.src) },
+    // What a note holds stays with that note: only a file used nowhere goes.
+    !used && { label: 'Move to the Bin', keys: '⌫', danger: true, run: onBin }
   ]
 }
 
-function Tile({ one, onOpen }: { one: Media; onOpen: () => void }): React.JSX.Element {
+function Tile({ one, at, picked, menu, onClick, onUse }: { one: Media; at: boolean; picked: boolean; menu: RowItem[]; onClick: (event: React.MouseEvent) => void; onUse: (use: MediaUse) => void }): React.JSX.Element {
   // A PDF is named by the title it carries, as the reader names it, and shows its first page.
-  const cover = usePdfCover(one.kind === 'pdf' ? one.src : null, one.name)
+  const cover = usePdfCover(one.kind === 'pdf' && !one.gone ? one.src : null, one.name)
   // A recording by its name without ".wav", as its player names it.
-  const label = cover?.title || (one.kind === 'audio' && one.name ? soundTitle(one.name, null) : one.name) || one.title || 'Untitled'
-  const items = mediaMenu(one, onOpen)
+  const label = cover?.title || (one.kind === 'audio' && one.name ? soundTitle(one.name, null) : one.name ? bare(one.name) : one.title) || 'Untitled'
   return (
-    <RowMenu items={items}>
-      <button type="button" data-media={one.kind} data-src={one.src} data-note={`${one.type}:${one.id}`} data-pdf-peek={one.kind === 'pdf' ? one.src : undefined} data-pdf-peek-name={one.kind === 'pdf' ? one.name : undefined} onClick={onOpen} className={tileClass(false, false, false)}>
-        <Face one={one} cover={one.kind === 'pdf' ? (cover === undefined ? undefined : cover?.image ?? '') : undefined} />
-        <span className="flex min-w-0 flex-col gap-0.5 px-2.5 pt-2 pb-2.5">
-          <span className={`truncate text-sm font-medium ${one.private ? 'private-text' : ''}`}>{label}</span>
-          <span className="truncate text-xs text-muted-foreground">{one.name || cover?.title ? `${WORD[one.kind]} in ${one.title || 'Untitled'}` : WORD[one.kind]}</span>
-        </span>
-      </button>
+    <RowMenu items={menu}>
+      <div data-cursor={at || undefined} data-picked={picked || undefined} data-id={one.src} className={tileClass(at, false, picked)}>
+        <button type="button" data-media={one.kind} data-src={one.src} data-note={one.uses.length ? `${one.type}:${one.id}` : undefined} data-pdf-peek={one.kind === 'pdf' && !one.gone ? one.src : undefined} data-pdf-peek-name={one.kind === 'pdf' ? one.name : undefined} onClick={onClick} className="flex min-w-0 cursor-pointer flex-col text-left">
+          <Face one={one} cover={one.kind === 'pdf' ? (cover === undefined ? undefined : cover?.image ?? '') : undefined} />
+          <span className={`truncate px-2.5 pt-2 text-sm font-medium ${one.private ? 'private-text' : ''}`}>{label}</span>
+        </button>
+        <Where one={one} label={label} onUse={onUse} />
+      </div>
     </RowMenu>
+  )
+}
+
+/**
+ * Where a file is used, under its name: each note a way there. Used nowhere, it
+ * says so. A tile named after its one note (a picture with no name of its own)
+ * already says where, so it does not say it twice.
+ */
+function Where({ one, label, onUse }: { one: Media; label: string; onUse: (use: MediaUse) => void }): React.JSX.Element {
+  const line = 'flex min-w-0 items-baseline gap-1 px-2.5 pt-0.5 pb-2.5 text-xs text-muted-foreground'
+  if (one.gone) return <span data-media-where="gone" className={`${line} text-foreground`}>File gone from the book</span>
+  if (!one.uses.length) return <span data-media-where="none" className={line}>In no note yet</span>
+  const others = label === one.uses[0].title ? one.uses.slice(1) : one.uses
+  if (!others.length) return <span data-media-where="own" className={line}>{WORD[one.kind]}</span>
+  const way = 'cursor-pointer underline decoration-foreground/25 underline-offset-2 hover:text-foreground hover:decoration-foreground'
+  return (
+    <span data-media-where="used" className={line}>
+      <span className="shrink-0">{others.length < one.uses.length ? 'Also in' : 'In'}</span>
+      <button type="button" data-media-use className={`min-w-0 truncate ${way} ${others[0].private ? 'private-text' : ''}`} onClick={() => onUse(others[0])}>{others[0].title || 'Untitled'}</button>
+      {others.length > 1 && (
+        <DropdownMenu modal={false}>
+          <DropdownMenuTrigger asChild><button type="button" data-media-more-uses className={`shrink-0 tabular-nums ${way}`}>+{num(others.length - 1)}</button></DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="max-h-72 overflow-y-auto">
+            {others.slice(1).map((use) => <DropdownMenuItem key={`${use.type}:${use.id}`} onSelect={() => onUse(use)}><MenuGlyph label="Open note" small /><span className={`truncate ${use.private ? 'private-text' : ''}`}>{use.title || 'Untitled'}</span></DropdownMenuItem>)}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
+    </span>
   )
 }
 
@@ -190,12 +406,13 @@ function Face({ one, cover }: { one: Media; cover?: string }): React.JSX.Element
   useEffect(() => () => clearTimeout(rest.current), [])
   // Asked for only once the tile is drawn: a row of the grid out of sight never asks.
   useEffect(() => {
-    if (one.kind === 'audio' || one.kind === 'pdf') return
+    if (one.kind === 'audio' || one.kind === 'pdf' || one.gone) return
     let live = true
     void smallPicture(one.src, true).then((made) => live && setSmall(made || ''))
     return () => void (live = false)
-  }, [one.src, one.kind])
+  }, [one.src, one.kind, one.gone])
   const frame = `relative aspect-[4/3] w-full overflow-hidden bg-accent ${one.private ? 'private-text' : ''}`
+  if (one.gone) return <span className={`${frame} flex flex-col items-center justify-center gap-1.5 px-3 text-muted-foreground`}><FileText className="size-7" /><span className="text-xs font-medium text-foreground">{WORD[one.kind]}</span></span>
   if (one.kind === 'audio') return <span className={frame}><AudioFace one={one} /></span>
   if (small)
     return (

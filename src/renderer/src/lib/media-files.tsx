@@ -1,0 +1,150 @@
+import type { JSONContent } from '@tiptap/core'
+import { AudioLines } from 'lucide-react'
+import { FileText } from '@/components/ui/icons'
+import { readBytes } from '@/extensions/image-drop'
+import { refuse, toast, waiting } from '@/components/haligtree/ui'
+import { call, haligtree } from './haligtree'
+import { notes, smallPicture } from './notes'
+import { chime, tear } from './sound'
+import { seeTheBin } from './to-bin'
+import { num, plural } from '../../../main/dates'
+import { quoted } from '../../../main/clip'
+import { addSaid, type AddResult, type MediaKind } from '../../../main/media-words'
+import type { Media } from '../../../main/media'
+
+/**
+ * Files added to Media, whichever way they come: one notice for a batch, one
+ * Undo, the same words everywhere (main/media-words.ts). And the ways out:
+ * to the Bin, into a note, and "/" and @ finding one no note uses yet.
+ */
+
+/** A file carried over a page, as the main process takes it: its path, or its bytes where it has none. */
+type Item = { path: string } | { name: string; bytes: Uint8Array } | { name: string; why: string }
+
+/** Big enough that the wait should be said in words. */
+const LONG = 25 * 1024 * 1024
+
+/** Tell of a batch, with Undo for what it changed. `met` is told so the page can show the tile. */
+export function tellAdded(told: AddResult, onMet?: (src: string) => void): void {
+  const { added, revived, met, refused } = told
+  const said = addSaid(told)
+  if (!added.length && !revived.length) {
+    if (refused.length) refuse(said)
+    else (chime('look'), toast(said, undefined, 'info'))
+    if (met[0]) onMet?.(met[0].src)
+    return
+  }
+  chime('noted')
+  toast(said, () => void call('media:add:undo', { added: added.map((one) => one.src), revived: revived.map((one) => one.src) }).then(() => chime('undo')), refused.length ? 'warning' : 'success')
+}
+
+async function add(items: Item[], bytes: number, onMet?: (src: string) => void): Promise<void> {
+  if (!items.length) return
+  const work = call<AddResult>('media:add', items)
+  const count = items.length
+  tellAdded(await (bytes > LONG ? waiting(count === 1 ? 'Adding the file…' : `Adding ${num(count)} files…`, 'working', work) : work), onMet)
+}
+
+/** "Add": the Mac's own picker, then in they go. */
+export async function addFromPicker(onMet?: (src: string) => void): Promise<void> {
+  const picked = await call<{ path: string; size: number }[]>('media:pick')
+  await add(picked.map(({ path }) => ({ path })), picked.reduce((sum, one) => sum + one.size, 0), onMet)
+}
+
+/** Files dropped on the page: by path where the Mac gives one, by bytes where another app handed over only the file. */
+export async function addDropped(files: File[], onMet?: (src: string) => void): Promise<void> {
+  const items = await Promise.all(files.map(async (file): Promise<Item> => {
+    const path = window.api.pathOf(file)
+    if (path) return { path }
+    try {
+      return { name: file.name, bytes: await readBytes(file) }
+    } catch {
+      return { name: file.name, why: 'it could not be read. Drag it in from Finder instead' }
+    }
+  }))
+  await add(items, files.reduce((sum, one) => sum + one.size, 0), onMet)
+}
+
+// Sent from Finder's right-click: said here too, with Undo, if the main window is up.
+if (typeof window !== 'undefined') window.addEventListener('haligtree:media-told', (event) => tellAdded((event as CustomEvent<AddResult>).detail))
+
+/** ⌫ and "Move to the Bin": what no note holds goes, with Undo. What a note holds stays, and is said to. */
+export async function binFiles(srcs: string[], onDone?: () => void): Promise<void> {
+  const { binned, stayed } = await call<{ binned: string[]; stayed: { src: string; name: string; notes: number }[] }>('media:bin', srcs)
+  const stay = stayed.length === 1
+    ? `${quoted(stayed[0].name || 'It', 41)} stays: ${plural(stayed[0].notes, 'note')} ${stayed[0].notes === 1 ? 'holds' : 'hold'} it. Take it out of ${stayed[0].notes === 1 ? 'that note' : 'them'} first.`
+    : stayed.length ? `${num(stayed.length)} stay: notes hold them.` : ''
+  if (!binned.length) return void (stay && refuse(stay))
+  tear()
+  onDone?.()
+  toast(`${binned.length === 1 ? 'Moved to the Bin' : `Moved ${num(binned.length)} to the Bin`}${stay ? `. ${stay}` : ''}`, () => void call('media:unbin', binned).then(() => chime('undo')), 'success', seeTheBin)
+}
+
+/** The block a file already has in a note: a picture, or a PDF's or a recording's own. */
+export const blockOf = (one: { src: string; kind: MediaKind; name: string; size: number }): JSONContent =>
+  one.kind === 'picture' || one.kind === 'gif'
+    ? { type: 'image', attrs: { src: one.src, alt: one.name } }
+    : { type: 'attachment', attrs: { src: one.src, name: one.name, size: one.size } }
+const markdownOf = (one: Parameters<typeof blockOf>[0]): string => (one.kind === 'picture' || one.kind === 'gif' ? `![${one.name}](${one.src})` : `[${one.name}](${one.src})`)
+
+/** The note kinds a file can go in. */
+const HOLDS_FILES = (type: string): boolean => !['task', 'event', 'pdf', 'web', 'media', 'view', 'person', 'tag'].includes(type)
+
+const bodyOf = async (type: string, id: string): Promise<unknown> =>
+  type === 'capture' ? (await window.api.captures.get(id))?.body : type === 'day' ? (await notes.day(id)).body : (await haligtree.item(id))?.body
+const writeBody = (type: string, id: string, body: unknown, base: unknown): Promise<unknown> =>
+  type === 'capture' ? window.api.captures.save(id, { body, base } as never) : type === 'day' ? notes.saveDay(id, { body }) : haligtree.saveItem(id, { body, base } as never)
+
+const withFiles = (body: unknown, files: Parameters<typeof blockOf>[0][]): unknown => {
+  // Words kept as Markdown, as an import never opened holds them.
+  if (typeof body === 'string') return [body, ...files.map(markdownOf)].join('\n\n')
+  const content = (body as JSONContent | null)?.content ?? []
+  // A note with only its first empty line takes the file there.
+  const kept = content.length === 1 && content[0].type === 'paragraph' && !content[0].content?.length ? [] : content
+  return { type: 'doc', content: [...kept, ...files.map(blockOf)] }
+}
+
+/** "Put in a note…": the files at the end of the note picked, with Undo and a way there. */
+export async function putInNote(files: Parameters<typeof blockOf>[0][], type: string, id: string, title: string): Promise<void> {
+  if (!HOLDS_FILES(type)) return refuse('A file goes in a note, a gem, a page or a Journal day. Pick one of those')
+  const before = await bodyOf(type, id)
+  const after = withFiles(before, files)
+  try {
+    await writeBody(type, id, after, before)
+  } catch {
+    return refuse('Could not put it there', 'error')
+  }
+  chime('noted')
+  toast(`Put ${files.length === 1 ? quoted(files[0].name.replace(/\.[^.]+$/, ''), 41) : plural(files.length, 'file')} in ${quoted(title || 'Untitled', 41)}`,
+    () => void writeBody(type, id, before, after).then(() => chime('undo')), 'success',
+    { label: 'Open', key: 'O', run: () => window.api.openInHome(type, id) })
+}
+
+export type Loose = { src: string; kind: MediaKind; name: string; size: number; icon: React.ReactNode }
+
+const FACE = 'size-4 shrink-0'
+const iconOf = async (one: Media): Promise<React.ReactNode> => {
+  if (one.kind === 'audio') return <AudioLines className={FACE} style={{ color: 'var(--tt-color-text-purple)' }} />
+  if (one.kind === 'pdf') return <FileText className={FACE} style={{ color: 'var(--tt-color-text-red)' }} />
+  const small = await smallPicture(one.src).catch(() => '')
+  return small ? <img src={small} alt="" className={`${FACE} rounded-[4px] object-cover`} /> : <FileText className={FACE} />
+}
+
+/**
+ * The files no note uses yet whose names answer `query`, newest first, each
+ * with a small face to tell it by: what "/" and @ offer. Asked afresh each time,
+ * so one just added or just used is right.
+ */
+export async function looseFiles(query: string, most: number): Promise<Loose[]> {
+  const words = query.trim().toLowerCase().split(/\s+/).filter(Boolean)
+  const all = await call<Media[]>('media:list').catch(() => [] as Media[])
+  const found = all.filter((one) => !one.uses.length && !one.gone && !one.deck && words.every((word) => `${one.name} ${one.near}`.toLowerCase().includes(word))).slice(0, most)
+  return Promise.all(found.map(async (one) => ({ src: one.src, kind: one.kind, name: one.name, size: one.size, icon: await iconOf(one) })))
+}
+
+let wanted: string | null = null
+/** The tile asked for by ⌘K, taken once by the page. */
+export const takeMediaFile = (): string | null => ((src) => ((wanted = null), src))(wanted)
+if (typeof window !== 'undefined') window.addEventListener('haligtree:media-file', (event) => void (wanted = (event as CustomEvent<string>).detail), { capture: true })
+/** Media, on one file: from ⌘K in any window. */
+export const showMediaFile = (id: string): void => void call('media:show', id.split('|')[0])

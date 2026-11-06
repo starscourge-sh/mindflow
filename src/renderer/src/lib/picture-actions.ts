@@ -41,15 +41,15 @@ async function wordsOf(src: string): Promise<string | null> {
 
 /** A note of its own: the picture, then its words, typed out, to edit and keep. */
 async function makeNote(src: string): Promise<void> {
-  const text = await wordsOf(src)
-  if (!text) return
-  const lines = text.split('\n')
+  // A picture with no words still makes a note: the picture alone.
+  const text = (await read(src)) ?? ''
+  const lines = text.trim() ? text.split('\n') : []
   const id = await window.api.captures.create({
     kind: 'note',
     body: { type: 'doc', content: [{ type: 'image', attrs: { src } }, ...lines.map((line) => ({ type: 'paragraph', content: line.trim() ? [{ type: 'text', text: line }] : [] }))] }
   })
   chime('noted')
-  said(`Made a note of its ${lines.length === 1 ? 'line' : `${lines.length} lines`}`, true, { type: 'capture', id, title: lines[0] })
+  said(lines.length ? `Made a note of its ${lines.length === 1 ? 'line' : `${lines.length} lines`}` : 'Made a note of it', true, { type: 'capture', id, title: lines[0] ?? 'Picture' })
 }
 
 /** Every note that says what the picture says: the picture's longest line, searched for. */

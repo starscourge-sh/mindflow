@@ -5,7 +5,7 @@ import { ArchiveRestore, Trash2, X } from 'lucide-react'
 import { AnimatePresence, PresenceContext, motion } from 'motion/react'
 import { EASE, byKeys, shift, spring, still } from '@/lib/motion'
 import { chime } from '@/lib/sound'
-import { unloaded, useLive, haligtree, whenInLine, type BinPeek } from '@/lib/haligtree'
+import { call, unloaded, useLive, haligtree, whenInLine, type BinPeek } from '@/lib/haligtree'
 import { HaligtreeEditor } from '@/components/haligtree'
 import { hoverNote } from './note-preview'
 import { Button } from '@/components/ui/button'
@@ -44,7 +44,7 @@ type Binned = { type: string; id: string; title: string; kind: string; at: strin
 /** A binned thing's type as @ links name its kind, for its icon: a gem is an idea there. */
 const LINK_KIND: Record<string, string> = { nugget: 'idea' }
 
-const KIND_SAID: Record<string, string> = { capture: 'Capture', task: 'Task', nugget: 'Gem', article: 'Page', question: 'Question', goal: 'Goal', card: 'Card', event: 'Event', calendar: 'Calendar', practice: 'Practice' }
+const KIND_SAID: Record<string, string> = { media: 'File', capture: 'Capture', task: 'Task', nugget: 'Gem', article: 'Page', question: 'Question', goal: 'Goal', card: 'Card', event: 'Event', calendar: 'Calendar', practice: 'Practice' }
 
 export function BinView({ onOpen, focus }: { onOpen?: (type: string, id: string) => void; /** Ids just binned (a toast's click), picked and shown once they are here. */ focus?: string }): React.JSX.Element {
   const binned = useLive(haligtree.bin, [] as Binned[])
@@ -159,7 +159,7 @@ export function BinView({ onOpen, focus }: { onOpen?: (type: string, id: string)
   const restore = (one: Binned): void => {
     void haligtree.restore(one.type, one.id).then(() => {
       chime('undo')
-      toast(`${KIND_SAID[one.type] ?? 'It'} restored: back where it was`, () => void unbin(one), 'success', onOpen && one.type !== 'task' && one.type !== 'calendar' ? { label: 'Open', key: 'O', run: () => onOpen(one.type, one.id) } : undefined)
+      toast(`${KIND_SAID[one.type] ?? 'It'} restored: back where it was`, () => void unbin(one), 'success', onOpen && one.type !== 'task' && one.type !== 'calendar' && one.type !== 'media' ? { label: 'Open', key: 'O', run: () => onOpen(one.type, one.id) } : undefined)
     })
   }
   // Several back where they were, in one go, and back in the Bin with one undo.
@@ -388,14 +388,17 @@ const keyOf = (one: Pick<Binned, 'type' | 'id'>): string => `${one.type}:${one.i
 /** Back in the Bin, the way each kind went there: a restore taken back. */
 const unbin = (one: Binned): Promise<unknown> =>
   one.type === 'capture' ? window.api.captures.save(one.id, { status: 'discarded', bin: true })
+    : one.type === 'media' ? call('media:bin', [one.id])
     : one.type === 'task' ? haligtree.saveTask(one.id, { status: 'dropped' })
       : haligtree.toBin(one.id)
 
 /** Several back into the Bin, each kind in one write with one change told (tasks one by one, as their status says). */
 const unbinMany = (list: Binned[]): Promise<unknown> => {
   const captures = list.filter((one) => one.type === 'capture')
-  const others = list.filter((one) => one.type !== 'capture' && one.type !== 'task')
+  const others = list.filter((one) => one.type !== 'capture' && one.type !== 'task' && one.type !== 'media')
+  const files = list.filter((one) => one.type === 'media')
   return Promise.all([
+    files.length ? call('media:bin', files.map((one) => one.id)) : null,
     captures.length ? window.api.captures.saveMany(captures.map((one) => ({ id: one.id, patch: { status: 'discarded', bin: true } }))) : null,
     others.length ? haligtree.toBinMany(others.map((one) => one.id)) : null,
     ...list.filter((one) => one.type === 'task').map(unbin)
@@ -462,7 +465,7 @@ function Rows({ list, onRestore, onForget, cursor = -1, chosen = [], looked = nu
               With no name of its own, its first line, in muted ink. Pointed at, the card an @ link
               shows (note-preview.tsx), except on the one already open beside the list. */}
           <span data-table-name className={TABLE_NAME}>
-            <span {...(onClick && key !== looked ? hoverNote(one.type, one.id, { kind: one.type === 'capture' ? one.kind : one.type === 'nugget' ? 'idea' : one.type, binned: true }) : {})}
+            <span {...(onClick && key !== looked && one.type !== 'media' ? hoverNote(one.type, one.id, { kind: one.type === 'capture' ? one.kind : one.type === 'nugget' ? 'idea' : one.type, binned: true }) : {})}
               data-untitled={nameOf(one).line || undefined}
               className={`private-text text-body ${nameOf(one).line ? 'text-muted-foreground' : 'text-foreground'}`}>{nameOf(one).text}</span>
           </span>

@@ -1652,6 +1652,12 @@ html:is([data-width='page'], [data-width='wide']) .pdf-library-column,
   background-color: color-mix(in srgb, var(--tt-brand-color-500, #c08a2e) 14%, transparent);
 }
 
+/* Picked with ⌘ or ⇧ to act on together: a ring as well, so it reads apart from the one in the panel. */
+.pdf-book.is-chosen {
+  background-color: color-mix(in srgb, var(--tt-brand-color-500, #c08a2e) 14%, transparent);
+  box-shadow: inset 0 0 0 2px var(--tt-brand-color-400);
+}
+
 .pdf-book-cover {
   position: relative;
   display: block;

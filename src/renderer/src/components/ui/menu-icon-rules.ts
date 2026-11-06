@@ -17,6 +17,13 @@ import {
  */
 const RULES: [RegExp, LucideIcon][] = [
   // Lines found falling back to the dot (test/menu-icons.test.ts lists any new ones).
+  // Media: a file into a note, where it is used, and how to look at one.
+  [/^put .*in a note/i, FilePlus],
+  [/^used in$/i, Link],
+  [/^show in media$/i, Image],
+  [/^look at it$/i, Eye],
+  [/^play it$/i, Play],
+  [/^a book with no file yet/i, BookOpen],
   // The PDF reader's Pages menu: how pages are laid out, and how they look.
   // Review's hint from Apple Intelligence: a nudge, then a stronger one.
   [/^(give me a hint|a stronger hint)$/i, Lightbulb],

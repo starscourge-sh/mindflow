@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { ProgressBar } from "@/components/haligtree/progress-bar"
 import { BookOpen } from "lucide-react"
 import { call, useLive } from "@/lib/haligtree"
@@ -10,7 +10,14 @@ import { BookMap, InYourNotes, PageBar, inNotes, useCited } from "./book-links"
 import { BookHead, BookInfo, readLibrary, type Book } from "./book-head"
 import { BackToTop } from "@/components/haligtree/ui"
 import { RowMenu, type RowItem } from "@/components/haligtree/row-menu"
-import { canSplit } from "@/lib/split"
+import { canSplit, useHere } from "@/lib/split"
+import { binFiles } from "@/lib/media-files"
+import { useSelectAll } from "@/lib/select-all"
+import { usePicking } from "@/lib/pick-range"
+import { menuOpen } from "@/lib/menu-keys"
+import { typing } from "@/components/haligtree/ui"
+import type { Media } from "../../../../main/media"
+import { num } from "../../../../main/dates"
 export type { Book } from "./book-head"
 
 /**
@@ -36,7 +43,7 @@ const percent = (one: Book): number | null => (one.page && one.pages ? Math.roun
  * holds. One click picks it and the inspector at the right says all about it;
  * a double click, or "Continue", opens it where you left off.
  */
-export function PdfLibrary({ query, top }: { query: string; /** What sits over the shelf (the kinds), scrolling with it. */ top: React.ReactNode }): React.JSX.Element {
+export function PdfLibrary({ query, top, files, onPut }: { query: string; /** What sits over the shelf (the kinds), scrolling with it. */ top: React.ReactNode; /** Media's own record of each file, for what notes hold it. */ files: Media[]; /** "Put in a note…", for these books. */ onPut: (srcs: string[]) => void }): React.JSX.Element {
   const all = useLive(readLibrary, [] as Book[])
   const books = useMemo(() => {
     const words = query.trim().toLowerCase().split(/\s+/).filter(Boolean)
@@ -50,6 +57,41 @@ export function PdfLibrary({ query, top }: { query: string; /** What sits over t
     if (!chosen && books[0]) setChosen(books[0].src)
   }, [books, chosen])
   const book = books.find((one) => one.src === chosen) ?? null
+  // Picking on the shelf, as on every list: ⌘-click and ⇧-click add, ⌘A takes them all, ⌫ bins (the book in the panel, with nothing picked), Esc lets go.
+  const here = useHere()
+  const order = useMemo(() => books.map((one) => one.src), [books])
+  const [pickedAll, setPicked] = useState<string[]>([])
+  const picked = useMemo(() => pickedAll.filter((src) => order.includes(src)), [pickedAll, order])
+  const toBin = (srcs: string[]): void => void binFiles(srcs, () => setPicked([]))
+  const picking = usePicking(order, picked, setPicked)
+  useSelectAll(() => order, picked, setPicked, { here, onDelete: toBin, current: () => chosen, titleOf: (src) => books.find((one) => one.src === src)?.title })
+  const now = useRef(picked.length)
+  now.current = picked.length
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent): void => {
+      if (event.key !== "Escape" || !now.current || !here() || typing() || menuOpen() || event.defaultPrevented) return
+      event.preventDefault()
+      event.stopPropagation()
+      chime("off")
+      setPicked([])
+    }
+    window.addEventListener("keydown", onKey, true)
+    return () => window.removeEventListener("keydown", onKey, true)
+  }, [here])
+  const free = (src: string): boolean => !files.find((one) => one.src === src)?.uses.length
+  const menuOf = (one: Book): RowItem[] => {
+    if (picked.includes(one.src) && picked.length > 1) {
+      const going = picked.filter(free).length
+      return [
+        { label: `Put ${num(picked.length)} in a note…`, run: () => onPut(picked) },
+        "separator",
+        going > 0 && { label: `Move ${num(going)} to the Bin`, keys: "⌫", danger: true, run: () => toBin(picked) },
+        "separator",
+        { label: "Clear the selection", about: "list", keys: "esc", run: () => setPicked([]) }
+      ]
+    }
+    return [...bookMenu(one), { label: "Put in a note…", run: () => onPut([one.src]) }, "separator", free(one.src) && { label: "Move to the Bin", keys: "⌫", danger: true, run: () => toBin([one.src]) }]
+  }
   const open = (one: Book): void => {
     chime("open")
     openPdf(one.src, one.name, one.page ?? undefined)
@@ -71,12 +113,12 @@ export function PdfLibrary({ query, top }: { query: string; /** What sits over t
             {books.length ? (
               <div className={`pdf-library-shelf${books.length <= 3 ? " is-few" : ""}`} role="listbox" aria-label="Your PDFs">
                 {books.map((one) => (
-                  <BookCard key={one.src} one={one} picked={one.src === chosen} onPick={() => (chime("tap"), setChosen(one.src))} onOpen={() => open(one)} />
+                  <BookCard key={one.src} one={one} lit={one.src === chosen} picked={picked.includes(one.src)} menu={menuOf(one)} onPick={(event) => (setChosen(one.src), picking.click(event, one.src) || chime("tap"))} onOpen={() => open(one)} />
                 ))}
-                {books.length <= 3 && !query.trim() && <p className="pdf-library-hint">Every PDF you keep in a note sits on this shelf. Drop one into any note to add it.</p>}
+                {books.length <= 3 && !query.trim() && <p className="pdf-library-hint">Every PDF you keep sits on this shelf. Drop one on this page, or press “Add”.</p>}
               </div>
             ) : (
-              <p className="my-4 text-control text-muted-foreground">{query.trim() ? <>No book has “{query.trim()}” in its title or author.</> : <>No PDFs in your notes yet.</>}</p>
+              <p className="my-4 text-control text-muted-foreground">{query.trim() ? <>No book has “{query.trim()}” in its title or author.</> : <>No PDFs here yet.</>}</p>
             )}
           </div>
         </div>
@@ -97,12 +139,12 @@ export function bookMenu(one: Book): RowItem[] {
   ]
 }
 
-function BookCard({ one, picked, onPick, onOpen }: { one: Book; picked: boolean; onPick: () => void; onOpen: () => void }): React.JSX.Element {
+function BookCard({ one, lit, picked, menu, onPick, onOpen }: { one: Book; lit: boolean; picked: boolean; menu: RowItem[]; onPick: (event: React.MouseEvent) => void; onOpen: () => void }): React.JSX.Element {
   const cover = usePdfCover(one.src, one.name)
   const read = percent(one)
   return (
-    <RowMenu items={bookMenu(one)}>
-    <button type="button" role="option" aria-selected={picked} data-book={one.src} className={`pdf-book${picked ? " is-picked" : ""}`} onClick={onPick} onDoubleClick={onOpen} onKeyDown={(event) => event.key === "Enter" && onOpen()}>
+    <RowMenu items={menu}>
+    <button type="button" role="option" aria-selected={lit} data-book={one.src} data-id={one.src} data-picked={picked || undefined} className={`pdf-book${lit ? " is-picked" : ""}${picked ? " is-chosen" : ""}`} onClick={onPick} onDoubleClick={onOpen} onKeyDown={(event) => event.key === "Enter" && onOpen()}>
       <span className="pdf-book-cover" data-pdf-peek={one.src} data-pdf-peek-name={one.name} data-pdf-peek-scrub="">
         {cover?.image ? <img src={cover.image} alt="" draggable={false} /> : <span className="pdf-book-blank"><BookOpen className="size-6" /></span>}
         {read !== null && (
