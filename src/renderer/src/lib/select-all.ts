@@ -4,6 +4,22 @@ import { refuse, toast, typing } from '@/components/haligtree/ui'
 import { num } from '../../../main/dates'
 import { listInFront } from './list-front'
 
+// What was last used to reach a row. A pointer resting on one row while the arrow keys walk another must not lose the row in front of the keys.
+let pointing = false
+if (typeof window !== 'undefined') {
+  window.addEventListener('pointermove', (event) => void ((event.movementX || event.movementY) && (pointing = true)), { capture: true, passive: true })
+  window.addEventListener('keydown', (event) => void (/^(ArrowUp|ArrowDown|j|k|g|G|Home|End|PageUp|PageDown)$/.test(event.key) && (pointing = false)), true)
+}
+
+/** The row of this list the pointer is on, by its key in `keys`: never a pinned or recent row in the sidebar that names the same note. */
+function pointedRow(keys: string[]): string | undefined {
+  if (!pointing) return undefined
+  const rows = [...document.querySelectorAll<HTMLElement>('[data-id]:hover')].filter((row) => !row.closest('[data-side-row], [role="menu"]'))
+  // A queue's row is keyed by its place in the queue, and names the note it holds as data-id.
+  const id = rows.at(-1)?.dataset.queueRow ?? rows.at(-1)?.dataset.id
+  return id ? keys.find((key) => key === id || key.endsWith(`:${id}`)) : undefined
+}
+
 /**
  * ⌘A in a list you can pick from: every row on show is picked, the way
  * Finder and Mail do it. Not while writing in a field or a note, where ⌘A
@@ -30,7 +46,7 @@ export function useSelectAll(
     scoped?: boolean
     /**
      * ⌫, Delete or ⌘⌫ on what is picked (or, with nothing picked, the row
-     * under the cursor): in a list that is a move to the Bin, at once, with
+     * the pointer is on, else the row under the cursor): in a list that is a move to the Bin, at once, with
      * an Undo. Lists you only pick from leave it out, and the keys do nothing.
      */
     onDelete?: (ids: string[]) => void
@@ -76,13 +92,13 @@ export function useSelectAll(
     }
     // ⌫, Delete or ⌘⌫, as Finder and Mail take them: what is picked goes to the Bin.
     const onDeleteKey = (event: KeyboardEvent): void => {
-      const { onDelete, chosen, current, here } = now.current
+      const { onDelete, chosen, current, here, shown } = now.current
       if (!onDelete || (event.key !== 'Backspace' && event.key !== 'Delete')) return
       if (event.ctrlKey || event.altKey || event.shiftKey || event.defaultPrevented || typing() || !here()) return
       if (document.querySelector('[role="menu"], [role="listbox"]')) return
       // A sidebar row in focus takes its own ⌫ (off the sidebar, or unpin): the page's row is not binned behind it.
       if ((document.activeElement as HTMLElement | null)?.closest?.('[data-side-row]')) return
-      const ids = chosen.length ? chosen : [current?.()].filter((id): id is string => !!id)
+      const ids = chosen.length ? chosen : [pointedRow(shown()) ?? current?.()].filter((id): id is string => !!id)
       if (!ids.length) return
       event.preventDefault()
       event.stopPropagation()

@@ -17,17 +17,37 @@ try {
       const before = await rows.count()
       if (!before) { check(`${page}: has rows to try`, false, 'no rows'); continue }
       const row = rows.nth(Math.min(1, before - 1))
+      const id = await row.getAttribute('data-id')
       const words = (await row.innerText()).slice(0, 30).replace(/\n/g, ' ')
-      await row.hover()
+      // Two moves, as a real pointer makes: a first move from nowhere reports no distance.
+      await row.hover({ position: { x: 20, y: 8 } })
+      await row.hover({ position: { x: 40, y: 10 } })
       await wait(350)
       await h.keyboard.press('Backspace')
       await wait(1100)
       const after = await rows.count()
-      const gone = after < before || !(await h.locator(`[data-pane-card] :is(${selector})`, { hasText: words.split(' ').slice(0, 3).join(' ') }).count())
-      check(`${page}: ⌫ on a row only pointed at takes it away`, gone, `${before} to ${after}, "${words}"`)
+      const gone = !!id && !(await h.locator(`[data-pane-card] [data-id="${id}"]`).count())
+      check(`${page}: ⌫ on a row only pointed at takes it away`, gone, `${before} to ${after}, ${id}, "${words}"`)
       if (gone) (await h.keyboard.press('Meta+z'), await wait(900))
     } catch (error) { check(`${page}: runs`, false, String(error).slice(0, 160)) }
   }
+  // The keys win over a pointer resting elsewhere: J walks to a row, and ⌫ takes that one, not the one under the pointer.
+  await go('nuggets'); await wait(1200)
+  const list = h.locator('[data-pane-card] [data-id]')
+  const rested = await list.nth(4).getAttribute('data-id')
+  await list.nth(4).hover(); await wait(300)
+  await h.keyboard.press('j'); await wait(250)
+  await h.keyboard.press('Backspace'); await wait(1000)
+  check('after J, ⌫ leaves the row under the pointer alone', (await h.locator(`[data-pane-card] [data-id="${rested}"]`).count()) > 0, rested)
+  await h.keyboard.press('Meta+z'); await wait(900)
+  // Pointing at a sidebar row takes nothing from the list.
+  await go('articles'); await wait(1200)
+  const count = await h.locator('[data-pane-card] [data-id]').count()
+  await h.locator('[data-side-recent-row]').first().hover({ timeout: 3000 }).catch(() => undefined); await wait(300)
+  await h.keyboard.press('Backspace'); await wait(900)
+  const left = await h.locator('[data-pane-card] [data-id]').count()
+  check('pointing at the sidebar, ⌫ does not take the sidebar row\'s note', left >= count - 1, `${count} to ${left}`)
+  if (left < count) (await h.keyboard.press('Meta+z'), await wait(900))
   // Add a step, on a line with none.
   await go('today'); await wait(1200)
   const write = h.locator('button', { hasText: 'Write out my day' }).first()

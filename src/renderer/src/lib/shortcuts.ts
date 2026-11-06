@@ -189,7 +189,7 @@ export const SHORTCUTS: Shortcut[] = [
   { group: 'Lists', keys: '⇧', does: '⇧-click a row: pick it, and every row up to it', where: 'Lists' },
   { group: 'Lists', keys: 'Esc', does: 'Clear the selection', where: 'Lists' },
   { group: 'Lists', keys: '⌘A', does: 'Select every row on show, and say how many', where: 'Lists' },
-  { group: 'Lists', keys: '⌫', does: 'Move the picked rows, or the highlighted one, to the Bin at once (Delete and ⌘⌫ too); ⌘Z brings them back. In the Bin it asks, then deletes for good', where: 'Lists' },
+  { group: 'Lists', keys: '⌫', does: 'Move the picked rows, or the one you are pointing at or have highlighted, to the Bin at once (Delete and ⌘⌫ too); ⌘Z brings them back. In the Bin it asks, then deletes for good', where: 'Lists' },
   { group: 'Lists', keys: '⌘G', does: 'Group the picked notes where they are, as in Figma: a panel in this list or folder', where: 'Lists' },
   { group: 'Lists', keys: '⇧⌘G', does: 'Ungroup: the group the picked notes (or the one under the cursor) are in comes apart, its notes staying put', where: 'Lists' },
   { group: 'Lists', keys: '⌃⌘N', does: 'Put the picked notes, or the one under the cursor, in a new folder', where: 'Lists' },
