@@ -1,4 +1,5 @@
 import { revealRow } from '@/lib/menu-keys'
+import { aimAt } from '@/lib/meeting'
 import { useSeen } from '@/lib/reads-in'
 import { Fragment, memo, useEffect, useRef, useState, useSyncExternalStore, type ComponentProps, type ReactNode } from 'react'
 import { TASK_KIND } from './haligtree/everything'
@@ -371,7 +372,7 @@ export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'tas
               else if (event.key === 'Enter' && event.shiftKey && results[0]) onOpen(results[0].type, results[0].id)
               else if (event.key === 'Enter' && at < doing.length) run(doing[at])
               else if (event.key === 'Enter' && current && event.altKey && onAside) onAside(current.type, current.id)
-              else if (event.key === 'Enter' && current) onOpen(current.type, current.id)
+              else if (event.key === 'Enter' && current) (aimAt(current.id, current.line), onOpen(current.type, current.id))
               else if (event.key === 'Tab' && current?.type === 'capture') setAsking(true)
               // Tab anywhere else stays in the box, so the arrows, Enter and Esc keep working.
               else if (event.key === 'Tab') { /* kept here */ }
@@ -498,7 +499,7 @@ export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'tas
                     data-drag-open={`${capture.type}:${capture.id}`}
                     data-picked={several.picked(capture) || undefined}
                     // ⌘-click one in or out, ⇧-click a run, as in every list; a plain click opens it.
-                    onClick={(event) => (live.current.several.click(event, capture) ? box.current?.focus() : live.current.onOpen(capture.type, capture.id))}
+                    onClick={(event) => (live.current.several.click(event, capture) ? box.current?.focus() : (aimAt(capture.id, capture.line), live.current.onOpen(capture.type, capture.id)))}
                   >
                     <kind.icon className="size-4 shrink-0" style={{ color: kind.tint }} />
                     <span {...(shown || capture.type === 'pdf' || capture.type === 'web' ? {} : hoverNote(capture.type, capture.id, { kind: capture.kind }))} {...(capture.type === 'pdf' ? { 'data-pdf-peek': capture.id.split('|')[0], 'data-pdf-peek-name': capture.id.split('|').slice(1).join('|') } : {})} className="min-w-0 truncate">{/* A task's or an Inbox note's #tags as tags, never in its name: so it reads as it does on its own list. */}{(capture.type === 'day' ? dayName(capture.id) : taskName(capture.label ?? '').text) || 'Untitled'}</span>

@@ -117,6 +117,27 @@ try {
   check('the noted moment is kept with its line', page.lines.filter((one) => one.marked).length === 1)
   check(AI ? 'with Apple Intelligence (a stand-in): the summary and its headings' : 'without Apple Intelligence: the lines found, said to be found', AI ? page.take === 'stand-in' && !!page.summary : page.take === 'found' && !page.summary, `${page.take} ${page.summary}`)
 
+  // A moment is the line being said when it was noted: that line's own start and voice, in both places.
+  const moment = await h.evaluate(() => {
+    const row = document.querySelector('[data-meeting-page] [data-meeting-row]')
+    const line = document.querySelector('[data-meeting-line][data-marked]')
+    return { row: row.textContent, time: line.querySelector('.mf-meeting-time').textContent, name: line.querySelector('[data-speaker]').textContent, words: line.querySelector('.mf-meeting-words').textContent }
+  })
+  check('a noted moment shows its line\'s own start, voice and words, as the transcript does', moment.row.startsWith(moment.time) && moment.row.includes(moment.name) && moment.row.endsWith(moment.words), JSON.stringify(moment))
+  // One tag: #meeting in Properties, never a second chip in the words.
+  const tagged = await h.evaluate(() => ({ property: !!document.querySelector('[data-tag-chip="meeting"]'), words: [...document.querySelectorAll('[data-open] .tiptap')].some((one) => one.textContent.includes('#meeting')) }))
+  check('#meeting shows once, as the property tag', tagged.property && !tagged.words, JSON.stringify(tagged))
+
+  // Pointing at every transcript row moves nothing.
+  // Measured from the page itself, so scrolling to each row (as the pointer reaches it) is not counted as moving.
+  const boxes = () => h.evaluate(() => { const top = document.querySelector('[data-meeting-page]').getBoundingClientRect(); return [...document.querySelectorAll('[data-meeting-line], [data-meeting-line] *, [data-meeting-page] *')].filter((el) => el.getBoundingClientRect().width > 0).map((el) => { const r = el.getBoundingClientRect(); return `${Math.round(r.x - top.x)},${Math.round(r.y - top.y)},${Math.round(r.width)},${Math.round(r.height)}` }).join('|') })
+  const still0 = await boxes()
+  for (const one of await h.locator('[data-meeting-line]').all()) { await one.hover(); await wait(60) }
+  await h.locator('[data-meeting-page] [data-meeting-row]').first().hover(); await wait(200)
+  const still1 = await boxes()
+  const moved = still0.split('|').map((one, at) => [one, still1.split('|')[at], at]).filter(([a, b]) => a !== b)
+  check('stillness: pointing at transcript and moment rows moves nothing', !moved.length, JSON.stringify(moved.slice(0, 4)))
+
   // 7. Naming a voice renames every line of it.
   const thandi = voiceOf('thandi')[0]
   await h.click(`[data-meeting-line][data-who="${thandi}"] [data-speaker]`)
@@ -129,6 +150,14 @@ try {
   check('naming a speaker renames every line of that voice', named.length === 3 && named.every((one) => one === 'Thandi'), named.join(','))
   check('and the voice in who was there', await h.evaluate((who) => document.querySelector(`[data-meeting-voice="${who}"]`).textContent === 'Thandi', thandi))
 
+  // The naming popover beside the app's other small popover ("Add property").
+  if (FRAMES) {
+    await h.click('[data-meeting-line][data-who="' + voiceOf('marco')[0] + '"] [data-speaker]'); await h.waitForSelector('[data-meeting-naming]'); await wait(250)
+    const pop = await h.evaluate(() => { const r = document.querySelector('[data-meeting-naming]').getBoundingClientRect(); return { x: r.x - 12, y: r.y - 12, width: r.width + 24, height: r.height + 24 } })
+    await h.screenshot({ path: join(FRAMES, 'naming-popover.png'), clip: pop }); await h.keyboard.press('Escape'); await wait(200)
+    const add = h.getByText('Add property', { exact: true }).first()
+    if (await add.isVisible().catch(() => false)) { await add.click({ timeout: 3000 }); await wait(400); await h.screenshot({ path: join(FRAMES, 'sibling-add-property.png') }); await h.keyboard.press('Escape'); await wait(200) }
+  }
   // 8. A time plays the recording from that moment.
   await h.locator('[data-meeting-line] .mf-meeting-time').nth(3).click()
   await wait(500)
@@ -157,6 +186,25 @@ try {
   await h.keyboard.press('Meta+z')
   await wait(500)
   check('⌘Z brings the recording back', await h.evaluate(() => !!document.querySelector('[data-meeting-page] [data-wave]')))
+  // ⌘K to a moment: a search hit on a line opens the meeting there, the line lit, the player waiting at its time.
+  await c.go('today'); await wait(600)
+  await h.keyboard.press('Meta+k'); await wait(500)
+  // Typed into the palette's own field, all of it (keys sent while it was still opening were lost).
+  await h.waitForSelector('input[placeholder], [cmdk-input], input[type="search"]', { timeout: 5000 }).catch(() => {})
+  await h.evaluate(() => document.activeElement?.select?.())
+  await h.keyboard.type('share the research notes', { delay: 25 }); await wait(1200)
+  const hit = await h.evaluate(() => [...document.querySelectorAll('[data-found-line]')].map((one) => one.textContent))
+  // The meeting's row, as a person picks it from the list.
+  // Picked from the list with Return, as from the keyboard: the meeting is the first row.
+  await h.keyboard.press('Enter')
+  await h.waitForSelector('[data-meeting-line][data-found]', { timeout: 8000 }).catch(() => {})
+  const landed = await h.evaluate(() => { const one = document.querySelector('[data-meeting-line][data-found]'); const a = document.querySelector('[data-meeting-page] audio'); const r = one?.getBoundingClientRect(); return one && { words: one.textContent, at: Number(one.dataset.at), time: a.currentTime, paused: a.paused, seen: r.top > 0 && r.bottom < innerHeight } })
+  if (FRAMES) await h.screenshot({ path: join(FRAMES, 'search-jump.png') })
+  check('⌘K finds a line said in a meeting', hit.some((one) => /share the research notes/.test(one)), hit.join(' | '))
+  check('and opens the page on it: in sight, lit, the player paused at its time', !!landed && /share the research notes/.test(landed.words) && landed.seen && landed.paused && Math.abs(landed.time - landed.at) < 0.3, JSON.stringify(landed))
+  await wait(1800)
+  check('the light goes after a moment', await h.evaluate(() => !document.querySelector('[data-meeting-line][data-found]')))
+
   // At phone width: nothing runs off the side, every line's name and time still beside its words.
   await c.size(390, 844)
   await h.evaluate(() => document.querySelector('[data-meeting-line]')?.scrollIntoView())
@@ -168,7 +216,7 @@ try {
   check('the card closes once the meeting is kept', !electron.windows().some((w) => w.url().includes('view=meeting')))
   check('no errors on the page', !c.errors.length, c.errors.join(' | '))
 } catch (error) {
-  check('the run finished', false, error.stack)
+  check('the run finished', false, error.stack.split('\n').filter((one) => /meeting-record|Timeout|waiting for/.test(one)).join(' / '))
 } finally {
   await c.close()
   done()

@@ -120,7 +120,8 @@ export const MeetingLine = Node.create({
           return true
         },
         stopEvent: (event) => gutter.contains(event.target as Element),
-        ignoreMutation: (mutation) => gutter.contains(mutation.target as Element)
+        // The gutter, and the line's own light (data-found, from search), are the view's, never the document's.
+        ignoreMutation: (mutation) => gutter.contains(mutation.target as Element) || (mutation.type === 'attributes' && mutation.target === dom)
       }
     }
   }

@@ -3294,3 +3294,6 @@ html[data-overhang][data-glass] [data-hint-room] [data-hint-surface] {
 .mf-meeting-time:hover { color: var(--foreground); }
 .mf-meeting-line[data-marked] .mf-meeting-time { color: var(--tt-brand-color-500); font-weight: 600; }
 .mf-meeting-words { min-width: 0; }
+/* Opened on from search: the line lit a moment, then back to the page. */
+.mf-meeting-line { border-radius: 6px; transition: background-color 600ms var(--mf-ease); }
+.mf-meeting-line[data-found] { background: color-mix(in oklab, var(--tt-brand-color-500) 16%, transparent); transition-duration: 0ms; }

@@ -10,6 +10,7 @@ import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
 import { SoundPlayer, clock } from './sound-player'
 import { toast } from './ui'
 import { readTake, type Take } from '@/lib/meeting-take'
+import { aimNow, aimTaken } from '@/lib/meeting'
 
 type Found = { dates: Said[]; actions: Said[]; questions: Said[]; names: { name: string; times: number }[] }
 type Said = { text: string; at: number; speaker?: string; date?: string | null }
@@ -51,6 +52,33 @@ export function MeetingView({ node, editor, updateAttributes }: NodeViewProps): 
     window.addEventListener('haligtree:meeting-seek', onSeek)
     window.addEventListener('haligtree:meeting-name', onName)
     return () => (window.removeEventListener('haligtree:meeting-seek', onSeek), window.removeEventListener('haligtree:meeting-name', onName))
+  }, [editor]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Opened from a search hit on one of its lines (⌘K): scrolled to that line, lit a moment, the player waiting there.
+  useEffect(() => {
+    let off = 0
+    let frame = 0
+    const land = (): void => {
+      const aim = aimNow()
+      if (!aim || !editor.view.dom.isConnected) return
+      // Only the page that holds the line: another meeting open elsewhere leaves it be.
+      if (![...editor.view.dom.querySelectorAll('.mf-meeting-words')].some((one) => one.textContent?.includes(aim) || aim.includes(one.textContent?.trim() || '\u0000'))) return
+      const lines = [...editor.view.dom.querySelectorAll<HTMLElement>('[data-meeting-line]')]
+      const hit = lines.find((one) => one.querySelector('.mf-meeting-words')?.textContent?.includes(aim)) ?? lines.find((one) => aim.includes(one.querySelector('.mf-meeting-words')?.textContent?.trim() || '\u0000'))
+      // Not drawn yet (the view it lives in is still coming in): looked for again next frame, while the ask is fresh.
+      if (!hit || !hit.getClientRects().length) return void (frame = requestAnimationFrame(land))
+      aimTaken()
+      hit.scrollIntoView({ block: 'center', behavior: 'instant' })
+      hit.setAttribute('data-found', '')
+      const audio = box.current?.querySelector('audio')
+      if (audio) (audio.pause(), (audio.currentTime = Number(hit.dataset.at ?? 0)))
+      clearTimeout(off)
+      off = window.setTimeout(() => hit.removeAttribute('data-found'), 1600)
+    }
+    // On opening, and when a page already open is asked again: a frame on, once the page shows its lines.
+    const soon = (): void => (cancelAnimationFrame(frame), void (frame = requestAnimationFrame(() => (frame = requestAnimationFrame(land)))))
+    soon()
+    window.addEventListener('haligtree:meeting-aim', soon)
+    return () => (cancelAnimationFrame(frame), clearTimeout(off), window.removeEventListener('haligtree:meeting-aim', soon))
   }, [editor]) // eslint-disable-line react-hooks/exhaustive-deps
   // A voice named: every line of it says so at once.
   useEffect(() => renameLines(editor), [a.names, editor])
@@ -114,7 +142,7 @@ export function MeetingView({ node, editor, updateAttributes }: NodeViewProps): 
 
             {a.moments.length > 0 && (
               <Section icon={<Bookmark className="size-3.5" />} title="Moments you noted" count={a.moments.length}>
-                {a.moments.map((one, at) => <Row key={at} line={one} onSeek={seek} lead={one.text ? undefined : 'A moment'} />)}
+                {a.moments.map((one, at) => <Row key={at} line={one} onSeek={seek} who={one.speaker ? nameOf(one.speaker) : undefined} lead={one.text ? undefined : 'A moment'} />)}
               </Section>
             )}
 
@@ -193,7 +221,7 @@ function NameVoice({ who, el, was, people, onName, onClose }: { who: string; el:
   return (
     <Popover open onOpenChange={(open) => !open && onClose()}>
       <PopoverAnchor virtualRef={anchor} />
-      <PopoverContent data-meeting-naming align="start" className="w-64 space-y-2 p-3">
+      <PopoverContent data-meeting-naming align="start" className="w-64 gap-2 p-3">
         <div className="text-control font-semibold">Who is {was || `Speaker ${who.replace(/^s/, '')}`}?</div>
         <input autoFocus value={text} onChange={(event) => setText(event.target.value)} placeholder="Their name"
           onKeyDown={(event) => event.key === 'Enter' && (event.preventDefault(), onName(text))}
