@@ -92,14 +92,33 @@ function textOf(within: HTMLElement): { text: string; at: { node: Text; from: nu
 /** The notice that says it is reading, closed (only it) when the reading ends, however it ends. */
 let notice = ''
 
-export async function readToMe(words: string | HTMLElement, place?: Element | null): Promise<boolean> {
+export async function readToMe(asked: string | HTMLElement | Promise<string | null>, place?: Element | null): Promise<boolean> {
   stopReading()
-  const page = typeof words === 'string' ? null : textOf(words)
+  // Until it starts (a picture's words still being read, then the language found, in main), Esc or reading something
+  // else already stops it: no word is said.
+  let called = false
+  const callOff = (): void => {
+    called = true
+    if (stopping === callOff) stopping = null
+    document.removeEventListener('keydown', escOff, true)
+  }
+  const escOff = (event: KeyboardEvent): void => {
+    if (event.key !== 'Escape') return
+    event.preventDefault()
+    event.stopPropagation()
+    callOff()
+  }
+  stopping = callOff
+  document.addEventListener('keydown', escOff, true)
+  const words = await asked
+  const page = !words || typeof words === 'string' ? null : textOf(words)
   // Where the words are read from: once it is gone (another page opened, the reader closed), so is the voice.
-  const from = typeof words === 'string' ? (place ?? null) : words
-  const text = page ? page.text : String(words)
-  if (!text.trim()) return false
-  const language = await window.api.haligtree<string>('language', text.slice(0, 2000)).catch(() => 'en')
+  const from = !words || typeof words === 'string' ? (place ?? null) : words
+  const text: string = page ? page.text : typeof words === 'string' ? words : ''
+  const language = called || !text.trim() ? '' : await window.api.haligtree<string>('language', text.slice(0, 2000)).catch(() => 'en')
+  const go = !called && !!text.trim()
+  callOff()
+  if (!go) return false
   const light = (index: number, length: number): void => {
     if (!page || typeof CSS === 'undefined' || !CSS.highlights) return
     const part = [...page.at].reverse().find((one) => one.from <= index)

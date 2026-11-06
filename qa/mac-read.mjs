@@ -55,6 +55,25 @@ async function run(level) {
       check('Esc stops it: nothing lit, and nothing else closes', !after[0], JSON.stringify(after))
       const noticeNow = () => h.evaluate(() => /Reading it aloud/.test(document.body.innerText))
       check('Esc closes the “Reading it aloud” notice too', !(await noticeNow()))
+      // Esc in the moment before it starts, while main finds the words' language: the Enter and the Esc sent in one
+      // go from the page, so the answer cannot come between them. Nothing is said, nothing lit, no notice.
+      await h.keyboard.press('Meta+k')
+      await wait(500)
+      await h.keyboard.type('Read it to me', { delay: 20 })
+      await wait(700)
+      const early = await h.evaluate(async () => {
+        const before = window.__readAloud.length
+        const turns = []
+        addEventListener('haligtree:reading', (event) => turns.push(event.detail))
+        document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }))
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
+        await new Promise((r) => setTimeout(r, 1500))
+        return { said: window.__readAloud.length - before, lit: !!CSS.highlights.get('read-aloud'), turns: turns.join() }
+      })
+      check('Esc pressed before it starts (while the language is found) stops it: nothing said, nothing lit', early.said === 0 && !early.lit && early.turns === '', JSON.stringify(early))
+      check('...and no “Reading it aloud” notice', !(await noticeNow()))
+      await h.keyboard.press('Escape')
+      await wait(300)
       const readFromK = async () => {
         await h.keyboard.press('Meta+k')
         await wait(500)
