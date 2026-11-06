@@ -187,6 +187,8 @@ function useFloat(editor: Editor | null, reading = false, code = false) {
   // A selection is offered the bar once it has lasted a moment with no key
   // since; ⌘A then ⌫ is gone before then, so the bar never flashes up.
   const shouldShow = useMemo<BubbleMenuProps['shouldShow']>(() => (props) => {
+    // Its timers can outlive the editor (a note closed or redrawn while the bar was waiting to show).
+    if (props.editor.isDestroyed) return false
     if (!showFor(props, readingNow.current, codeNow.current)) return false
     if (!roomFor(props.editor, held, bar.current?.offsetHeight || BAR_TALL)) return false
     const { editor: instance, state } = props

@@ -1,4 +1,4 @@
-import { Columns2, Columns3, FileStack as EmbedIcon, Link2 as LinkIcon, TableOfContents as ContentsIcon, Minus as DividerIcon, Sigma as SigmaIcon, Table as TableIcon, Paperclip, SquarePlay as VideoIcon, Users } from 'lucide-react'
+import { Columns2, Columns3, FileStack as EmbedIcon, Link2 as LinkIcon, TableOfContents as ContentsIcon, Minus as DividerIcon, Sigma as SigmaIcon, Table as TableIcon, Paperclip, Speech, SquarePlay as VideoIcon, Users } from 'lucide-react'
 
 import type { Editor } from '@tiptap/core'
 import { isInTable } from '@tiptap/pm/tables'
@@ -269,18 +269,18 @@ export const slashItems: SlashItem[] = [
     run: (editor) => attachFile(editor)
   },
   {
-    title: 'Record',
+    title: 'Voice note',
     group: 'Media',
-    keywords: ['voice', 'audio', 'microphone', 'mic', 'sound', 'voice note', 'voice memo', 'transcribe', 'transcript'],
-    hint: 'a voice note',
+    keywords: ['record', 'voice', 'audio', 'microphone', 'mic', 'sound', 'voice note', 'voice memo', 'transcribe', 'transcript'],
+    hint: 'just you',
     icon: <MicIcon />,
     run: (editor) => void recordInto(editor)
   },
   {
-    title: 'Meeting',
+    title: 'Call or lecture',
     group: 'Media',
-    keywords: ['record a meeting', 'call', 'teams', 'zoom', 'meet', 'standup', 'lecture', 'seminar', 'interview', 'minutes', 'transcript', 'who said what'],
-    hint: 'record both sides',
+    keywords: ['meeting', 'record a meeting', 'class', 'youtube', 'webinar', 'podcast', 'call', 'teams', 'zoom', 'meet', 'standup', 'lecture', 'seminar', 'interview', 'minutes', 'transcript', 'who said what'],
+    hint: 'you and this Mac’s sound',
     icon: <Users />,
     run: () => void recordMeeting()
   },
@@ -289,7 +289,7 @@ export const slashItems: SlashItem[] = [
     group: 'Media',
     keywords: ['talk', 'type', 'speak', 'speech', 'voice', 'dictation', 'microphone', 'mic', 'transcribe', 'speech to text', 'voice to text', 'voice typing'],
     hint: 'type by talking',
-    icon: <MicIcon />,
+    icon: <Speech />,
     run: (editor) => void talkInto('tap', editor)
   },
   {

@@ -229,7 +229,7 @@ function Before({ live, onChoose }: { live: Live; onChoose: () => void }): React
     </>)
   if (live.state === 'failed' || live.state === 'too-old' || live.state === 'saved')
     return body(live.state === 'saved' ? 'Meeting kept' : 'The meeting was not recorded', <p>{live.message}</p>, live.state === 'saved' ? undefined : close)
-  return body(live.event?.title ? `Record “${live.event.title}”` : 'Record a meeting', <>
+  return body(live.event?.title ? `Record “${live.event.title}”` : 'Record a call or lecture', <>
     <p><b className="font-semibold text-foreground">{live.from.mic ? 'Your microphone and the sound from ' : 'The sound from '}{live.from.bundle ? live.from.name || 'one app' : 'this Mac'}</b>{live.from.bundle ? '' : ' (the call, in its app or the browser)'}, kept in your book. Nothing leaves this Mac.</p>
     <div className="space-y-1 [-webkit-app-region:no-drag]">
       <div className="flex h-7 items-center justify-between gap-3">

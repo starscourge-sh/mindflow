@@ -83,7 +83,7 @@ export function MeetingView({ node, editor, updateAttributes }: NodeViewProps): 
     const scroller = scrollerOf(box.current)
     if (!scroller) return
     const own = (): void => void (following.current = false)
-    const keys = (event: KeyboardEvent): void => void (/^(PageUp|PageDown|ArrowUp|ArrowDown|Home|End| )$/.test(event.key) && !editor.view.dom.contains(document.activeElement) && own())
+    const keys = (event: KeyboardEvent): void => void (/^(PageUp|PageDown|ArrowUp|ArrowDown|Home|End| )$/.test(event.key) && !editor.isDestroyed && !editor.view.dom.contains(document.activeElement) && own())
     scroller.addEventListener('wheel', own, { passive: true })
     scroller.addEventListener('touchmove', own, { passive: true })
     window.addEventListener('keydown', keys)
@@ -217,7 +217,7 @@ export function MeetingView({ node, editor, updateAttributes }: NodeViewProps): 
     const line = lines.find((one) => one.id === id)
     const text = words.replace(/\s+/g, ' ').trim()
     // Back to the note, so ⌘Z reaches the fix.
-    editor.view.focus()
+    if (!editor.isDestroyed) editor.view.focus()
     if (!line || !text || text === line.text) return
     updateAttributes({ lines: lines.map((one) => (one.id === id ? { ...one, text } : one)) })
     chime('saved')
@@ -283,7 +283,7 @@ export function MeetingView({ node, editor, updateAttributes }: NodeViewProps): 
           )}
 
           <ActionItems items={a.actions ?? []} nameOf={nameOf} onSeek={seek} editable={editable} by={take ? (take.standIn ? 'stand-in' : 'ai') : 'found'}
-            noteId={() => editor.view.dom.closest<HTMLElement>('[data-open]')?.dataset.open}
+            noteId={() => (editor.isDestroyed ? undefined : editor.view.dom.closest<HTMLElement>('[data-open]')?.dataset.open)}
             onChange={(actions) => updateAttributes({ actions })} />
 
           <TakeAway take={take} found={a.found} seek={seek} nameOf={nameOf} />
@@ -294,7 +294,7 @@ export function MeetingView({ node, editor, updateAttributes }: NodeViewProps): 
         <div ref={said} data-meeting-transcript onContextMenu={(event) => pointAtLine((event.target as Element).closest<HTMLElement>('[data-meeting-line]')?.dataset.meetingLineId ?? null)}>
           {lines.map((line, index) => (
             <Line key={line.id} line={line} index={index} name={nameOf(line.who)} same={index > 0 && lines[index - 1].who === line.who} lit={index === lit}
-              fixing={fixing === line.id} onPlay={play} onPress={onLine} onFix={fix} onCancel={() => (setFixing(null), editor.view.focus())}
+              fixing={fixing === line.id} onPlay={play} onPress={onLine} onFix={fix} onCancel={() => (setFixing(null), !editor.isDestroyed && editor.view.focus())}
               onName={(el) => line.who !== 'you' && setNaming({ who: line.who, el })} />
           ))}
         </div>

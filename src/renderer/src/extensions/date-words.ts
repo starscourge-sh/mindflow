@@ -33,7 +33,8 @@ function paint(doc: PMNode, at: Date, from = 0, to = doc.content.size): Decorati
   const found: Decoration[] = []
   doc.nodesBetween(from, to, (node, pos) => {
     if (!node.isTextblock) return true
-    if (node.type.spec.code) return false
+    // A heading is a name, not prose: a meeting's "Meeting, 6 Nov at 14:10" was lit whole across its title.
+    if (node.type.spec.code || node.type.name === "heading") return false
     const text = node.textBetween(0, node.content.size, undefined, "￼")
     for (const one of dateWords(text, at, clock)) {
       const [start, end] = [pos + 1 + one.from, pos + 1 + one.to]

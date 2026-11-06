@@ -2003,7 +2003,7 @@ export default function App(): React.JSX.Element {
           actions={searching === 'notes' ? [] : [
             { label: 'New capture', keys: '⌘N', run: () => startOver() },
             { label: 'Record a voice note', hint: 'Kept as a new capture', cue: null, run: () => void recordAsCapture((id) => openAny('capture', id)) },
-            { label: 'Record a meeting', hint: 'Your microphone and this Mac’s sound, who said what', keys: '⌃⌥⌘M', words: MEETING_WORDS, cue: null, run: () => void recordMeeting() },
+            { label: 'Record a call or lecture', hint: 'Your microphone and this Mac’s sound, who said what', keys: '⌃⌥⌘M', words: MEETING_WORDS, cue: null, run: () => void recordMeeting() },
             ...(recordingsWithoutWords() ? [{ label: 'Transcribe the voice notes', hint: 'Their words under each, on this Mac', cue: null, run: transcribePage }] : []),
             { label: 'New question', cue: null, run: () => void startQuestion(openAny) },
             // Not offered in "One line to start", which has no side panel to show.

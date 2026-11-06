@@ -240,8 +240,8 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
           </div>
         }>
           {practising === chosen ? <PractiseTag key={chosen} tag={chosen} onClose={() => (chime('fold'), setPractising(null))} /> : blurting === chosen ? <Blurt key={chosen} tag={chosen} onClose={() => (chime('fold'), setBlurting(null))} /> : tab === 'read' && chosen === 'meeting' && loaded && !loaded.length ? (
-            // Meetings are every note tagged #meeting: before the first, what they are for and the way to make one.
-            <Empty title="No meetings yet" action={<Button size="sm" data-meeting-first onClick={() => void recordMeeting()}>Record a meeting</Button>}>
+            // Calls and lectures are every note tagged #recording: before the first, what they are for and the way to make one.
+            <Empty title="No calls or lectures yet" action={<Button size="sm" data-meeting-first onClick={() => void recordMeeting()}>Record a call or lecture</Button>}>
               Record a call, in an app or the browser, or a lecture: your microphone and the sound from this Mac, the words as they are said, who said what, and what to take from it after. It stays on this Mac. <Kbd>⌃⌥⌘M</Kbd> from anywhere.
             </Empty>
           ) : tab === 'read' ? <TagStream key={chosen} tag={chosen} color={current?.color} onOpen={onOpen} onTag={setChosen} onStudy={(how) => how === 'review' ? onOpen('study', chosen) : how === 'blurt' ? (setPractising(null), setBlurting(chosen)) : (setBlurting(null), setPractising(chosen))} /> : (<>

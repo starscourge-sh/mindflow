@@ -131,9 +131,9 @@ export function plain(value: unknown, links = false): string {
     return links ? words : words.replace(/\[\[@[^|\]]+\|([^\]]+)\]\]/g, '$1')
   }
   const walk = (node: { type?: string; text?: string; marks?: { type?: string }[]; attrs?: { id?: string; label?: string }; content?: unknown[] }, code = false): string =>
-    // A meeting (meeting-page.tsx) carries its #meeting itself: the tag in Properties, never a second chip in the words.
+    // A meeting (meeting-page.tsx) carries its #recording itself: the tag in Properties, never a second chip in the words.
     // Its lines are its own data now: found by search and read on cards as words, with their times.
-    node.type === 'meeting' ? ['#meeting', ...transcriptLines(((node.attrs as { lines?: MeetingLine[] })?.lines ?? []), ((node.attrs as { names?: Record<string, string> })?.names ?? {}))].join('\n') :
+    node.type === 'meeting' ? ['#recording', ...transcriptLines(((node.attrs as { lines?: MeetingLine[] })?.lines ?? []), ((node.attrs as { names?: Record<string, string> })?.names ?? {}))].join('\n') :
     node.type === 'noteLink' ? (links && node.attrs?.id && node.attrs.label ? `[[@${node.attrs.id}|${node.attrs.label}]]` : node.attrs?.label ?? '') :
     node.text !== undefined ? (code || node.marks?.some((mark) => mark.type === 'code') ? uncoded(node.text) : node.text) :
     (node.content ?? []).map((child) => walk(child as typeof node, code || node.type === 'codeBlock')).join('\n')

@@ -35,7 +35,7 @@ export const Meeting = Node.create({
     return {
       audio: { default: '' }, you: { default: '' }, others: { default: '' }, seconds: { default: 0 }, startedAt: { default: '' },
       event: { default: null }, people: { default: [] }, speakers: { default: [] }, names: { default: {} }, moments: { default: [] },
-      found: { default: null }, take: { default: null }, words: { default: null }, tag: { default: '#meeting' },
+      found: { default: null }, take: { default: null }, words: { default: null }, tag: { default: '#recording' },
       /** Every line said: { id, who, at, end, text, marked }. */
       lines: { default: [] },
       /** The action items: { id, text, owner, date, at, done, task, by }. */

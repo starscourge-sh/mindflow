@@ -313,7 +313,7 @@ async function keep(): Promise<string> {
   await writeFile(join(assetsDir(), `${peaks}.peaks`), JSON.stringify({ peaks: saved!.peaks, seconds: saved!.seconds }))
   const lines = settled.sort((a, b) => a.start - b.start)
   const at = new Date(startedAt)
-  const title = live.event?.title || `Meeting, ${at.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} at ${at.getHours()}:${String(at.getMinutes()).padStart(2, '0')}`
+  const title = live.event?.title || `Recording, ${at.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} at ${at.getHours()}:${String(at.getMinutes()).padStart(2, '0')}`
   const speakers = [...new Set(lines.filter((one) => one.speaker !== 'you').map((one) => one.speaker))]
   // A moment is the line being said when it was noted: that line's own start and voice, so it plays from where the line begins.
   const moments = live.moments.map((one) => {
@@ -336,11 +336,11 @@ async function keep(): Promise<string> {
     type: 'meeting',
     attrs: {
       audio, you: tracks.you, others: tracks.others, seconds: saved!.seconds, startedAt, event: live.event, people: live.event?.people ?? [],
-      speakers, names: {}, moments, found, take, words: live.words, tag: '#meeting', lines: said, actions, heard: saved!.heard ?? null
+      speakers, names: {}, moments, found, take, words: live.words, tag: '#recording', lines: said, actions, heard: saved!.heard ?? null
     }
   }
   const text = (words: string): unknown[] => (words ? [{ type: 'text', text: words }] : [])
-  // The meeting block carries the #meeting tag itself (haligtree.ts, plain): every meeting under the one tag, shown once.
+  // The meeting block carries the #recording tag itself (haligtree.ts, plain): every meeting under the one tag, shown once.
   // The paragraph after it is the person's own notes about the meeting.
   const body = { type: 'doc', content: [{ type: 'heading', attrs: { level: 1 }, content: text(title) }, meeting, { type: 'paragraph' }] }
   return keepMeeting(title, body)

@@ -61,7 +61,7 @@ try {
   await way('"/meeting" in the box', async () => {
     await page.click('.ProseMirror'); await page.keyboard.press('End'); await page.keyboard.press('Enter'); await page.keyboard.type('/meeting', { delay: 20 }); await wait(500); await page.keyboard.press('Enter')
   })
-  await way('the menu bar', () => electron.evaluate(() => globalThis.trayBuilt.items.find((one) => one.label === 'Record a meeting').click()))
+  await way('the menu bar', () => electron.evaluate(() => globalThis.trayBuilt.items.find((one) => one.label === 'Record a call or lecture').click()))
   await way('⌃⌥⌘M from anywhere', () => electron.evaluate(() => globalThis.haligtreeChords.get('⌃⌥⌘M')()))
   await way('⌘K in the main window', () => palette(h))
   await go('day'); await wait(1500)
@@ -87,11 +87,11 @@ try {
     await wait(300)
     check('⌃⌥⌘M while recording notes this moment', await one.m.evaluate(() => document.querySelectorAll('[aria-label="Moment noted"]').length) === 1)
     const menu = await electron.evaluate(() => globalThis.trayMenu.map((one) => one.label))
-    check('the menu bar offers the moment and the stop while recording', menu.includes('Note this moment') && menu.includes('Stop and keep the meeting') && !menu.includes('Record a meeting'), menu.slice(0, 8).join(' | '))
+    check('the menu bar offers the moment and the stop while recording', menu.includes('Note this moment') && menu.includes('Stop and keep the meeting') && !menu.includes('Record a call or lecture'), menu.slice(0, 8).join(' | '))
     await electron.evaluate(() => globalThis.trayBuilt.items.find((one) => one.label === 'Stop and keep the meeting').click())
     await h.waitForSelector('[data-meeting-page]', { timeout: 30000 })
     check('stopped from the menu bar, the meeting is kept', true)
-    // Meetings in ⌘K: the list under #meeting.
+    // Meetings in ⌘K: the list under #recording.
     await palette(h).catch(() => {})
   }
   check('no errors on the page', !c.errors.length, c.errors.join(' | '))

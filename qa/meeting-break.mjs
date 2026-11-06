@@ -19,7 +19,7 @@ const meeting = (title, lines, speakers, extra = {}) => ({
   type: 'doc',
   content: [
     { type: 'heading', attrs: { level: 1 }, content: text(title) },
-    { type: 'meeting', attrs: { audio: '', seconds: lines.at(-1)?.end ?? 0, startedAt: new Date().toISOString(), speakers, names: {}, moments: [], found: lines.length ? { dates: [], actions: lines.filter((one) => /will/.test(one.text)).slice(0, 40).map((one) => ({ text: one.text, at: one.at, speaker: one.who })), questions: [], names: [] } : null, take: null, tag: '#meeting', ...extra } },
+    { type: 'meeting', attrs: { audio: '', seconds: lines.at(-1)?.end ?? 0, startedAt: new Date().toISOString(), speakers, names: {}, moments: [], found: lines.length ? { dates: [], actions: lines.filter((one) => /will/.test(one.text)).slice(0, 40).map((one) => ({ text: one.text, at: one.at, speaker: one.who })), questions: [], names: [] } : null, take: null, tag: '#recording', ...extra } },
     ...lines.map((one) => ({ type: 'meetingLine', attrs: { who: one.who, at: one.at, end: one.end }, content: text(one.text) })),
     { type: 'paragraph' }
   ]

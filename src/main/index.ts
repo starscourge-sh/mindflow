@@ -4109,7 +4109,7 @@ function updateTray(): void {
         { label: meetingState().state === 'saving' ? 'Keeping the meeting…' : 'Recording a meeting', enabled: false },
         { label: 'Note this moment', accelerator: chordFor('⌃⌥⌘M'), enabled: meetingState().state === 'live', click: () => void startMeeting() },
         { label: 'Stop and keep the meeting', enabled: meetingState().state !== 'saving', click: () => void stopMeeting() }
-      ] : [{ label: 'Record a meeting', accelerator: chordFor('⌃⌥⌘M'), click: () => void startMeeting() }]),
+      ] : [{ label: 'Record a call or lecture', accelerator: chordFor('⌃⌥⌘M'), click: () => void startMeeting() }]),
       { label: `Open ${APP_NAME}`, accelerator: chordFor('⌘.'), click: () => toggleWindow() },
       { label: 'Close the day…', click: () => inHome('haligtree:close-day') },
       // How far through the day, week, month and year: a look away, not in the way.

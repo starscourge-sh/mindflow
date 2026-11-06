@@ -1,4 +1,4 @@
-// Record a meeting, start to page: the card says what is recorded and asks people be told (first time only); the two
+// Record a call or lecture, start to page: the card says what is recorded and asks people be told (first time only); the two
 // tracks become You and the others, the others split into two voices by sound alone; live lines come in, the newest
 // bright and the ones before faded; "Note this moment" keeps the moment with its line; pause stops the clock; stop
 // makes the meeting's page (player, the words by speaker, the moments, what to take from it); naming a voice renames
@@ -124,9 +124,9 @@ try {
     return { row: row.textContent, time: line.querySelector('.mf-meeting-time').textContent, name: line.querySelector('[data-speaker]').textContent, words: line.querySelector('.mf-meeting-words').textContent }
   })
   check('a noted moment shows its line\'s own start, voice and words, as the transcript does', moment.row.startsWith(moment.time) && moment.row.includes(moment.name) && moment.row.endsWith(moment.words), JSON.stringify(moment))
-  // One tag: #meeting in Properties, never a second chip in the words.
-  const tagged = await h.evaluate(() => ({ property: !!document.querySelector('[data-tag-chip="meeting"]'), words: [...document.querySelectorAll('[data-open] .tiptap')].some((one) => one.textContent.includes('#meeting')) }))
-  check('#meeting shows once, as the property tag', tagged.property && !tagged.words, JSON.stringify(tagged))
+  // One tag: #recording in Properties, never a second chip in the words.
+  const tagged = await h.evaluate(() => ({ property: !!document.querySelector('[data-tag-chip="recording"]'), words: [...document.querySelectorAll('[data-open] .tiptap')].some((one) => one.textContent.includes('#recording')) }))
+  check('#recording shows once, as the property tag', tagged.property && !tagged.words, JSON.stringify(tagged))
 
   // Pointing at every transcript row moves nothing.
   // Measured from the page itself, so scrolling to each row (as the pointer reaches it) is not counted as moving.

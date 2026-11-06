@@ -199,7 +199,7 @@ export function BlockMenu({
   /** A file block's own name for itself, the heading its own actions sit under, as Notion's menu does. */
   const fileName = String(thing?.attrs.name || thing?.attrs.src || "")
   const kindName: string | null = recording ? "Voice note"
-    : thing?.type.name === "meeting" ? "Meeting"
+    : thing?.type.name === "meeting" ? "Recording"
     : thing?.type.name === "image" ? "Picture"
     : thing?.type.name !== "attachment" ? null
     : /\.(mp4|m4v|mov|webm)$/i.test(fileName) ? "Video"
