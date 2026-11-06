@@ -30,6 +30,10 @@ const panes = () => h.evaluate(() => document.querySelectorAll('[data-pane]').le
 /** Back to one pane, as ⌃W closes the one in front. */
 const single = async () => { for (let i = 0; i < 4 && (await panes()) > 1; i++) { await h.keyboard.press('Control+w'); await h.waitForTimeout(500) } }
 const shown = (words) => h.evaluate((words) => document.body.innerText.includes(words), words)
+/** The item's own page is open in a pane: `[data-open]` carries its id. A study card's question lives in its Details
+ * (the side panel, folded by default), not on the page, and all three cards here answer with the same words, so the
+ * page is told apart by the card's id, not by words on it. */
+const opened = (item) => h.evaluate((id) => !!id && !!document.querySelector(`[data-open="${id}"]`), item?.id)
 
 try {
   await v('settings:set', { sounds: false, hintRate: 0 })
@@ -83,31 +87,41 @@ try {
   check('its words show the hand', said.cursor === 'pointer', said.cursor)
   // At rest, one picture before the pointer holds it (a toast with no Undo is up 3.2 seconds); dark at rest with the next card.
   await h.screenshot({ path: `${SHOTS}/toast-rest-light.png` })
+  // Every hover underline is there at rest in no colour, and only its colour fades in (main.css, qa/soft-underline.mjs):
+  // an underline shows when its line is on and its colour can be seen, as qa/tag-hover-own.mjs reads it.
+  const underline = (sel) => h.evaluate((sel) => {
+    const style = getComputedStyle(document.querySelector(sel))
+    const clear = /rgba\(0, 0, 0, 0\)|transparent|\/ 0\)$/.test(style.textDecorationColor)
+    return { shows: style.textDecorationLine.includes('underline') && !clear, color: style.textDecorationColor }
+  }, sel)
+  const rest = await underline(TOAST)
+  check('at rest, its words carry no visible underline', !rest.shows, JSON.stringify(rest))
   await h.hover(TOAST); await wait(250)
-  check('pointed at, its words are underlined', await h.evaluate((sel) => getComputedStyle(document.querySelector(sel)).textDecorationLine.includes('underline'), TOAST), '')
+  const over = await underline(TOAST)
+  check('pointed at, its words are underlined', over.shows, JSON.stringify(over))
   await h.screenshot({ path: `${SHOTS}/toast-hover-light.png` })
   // Hovering holds it past the 3.2 seconds it would have.
   await wait(4500)
   check('hovering keeps the toast up', !!(await h.$(TOAST)), '')
   await h.click(TOAST); await wait(1500)
-  check('a click opens the card in the page', !(await h.$('.pdf-reader')) && (await shown('What is worth keeping, one?')) && !(await h.$(TOAST)), '')
+  check('a click opens the card in the page', !(await h.$('.pdf-reader')) && (await opened(one)) && !(await h.$(TOAST)), '')
 
   // 2. ⌥-click opens it to the side.
   const before = await panes()
   await c.look('dark')
-  await card('What is worth keeping, two?')
+  const two = await card('What is worth keeping, two?')
   await h.screenshot({ path: `${SHOTS}/toast-rest-dark.png` })
   await h.hover(TOAST)
   await wait(250)
   await h.screenshot({ path: `${SHOTS}/toast-hover-dark.png` })
   await c.look('light')
   await h.click(TOAST, { modifiers: ['Alt'] }); await wait(1500)
-  check('⌥-click opens the card to the side', (await panes()) === before + 1 && (await shown('What is worth keeping, two?')) && !!(await h.$('.pdf-reader')), `${before} → ${await panes()}`)
+  check('⌥-click opens the card to the side', (await panes()) === before + 1 && (await opened(two)) && !!(await h.$('.pdf-reader')), `${before} → ${await panes()}`)
 
   // 3. Right-click: the row's menu; "Open to the side" from it.
   await single()
   const wide = await panes()
-  await card('What is worth keeping, three?')
+  const three = await card('What is worth keeping, three?')
   await h.click(TOAST, { button: 'right' }); await wait(500)
   // Folded as every row's menu folds them: the other ways to open under "Open in…".
   await h.hover('[role="menuitem"]:has-text("Open in")'); await wait(400)
@@ -117,7 +131,7 @@ try {
   await wait(3500)
   check('the toast stays while its menu is open', !!(await h.$(TOAST)), '')
   await h.click('[role="menuitem"]:has-text("Open to the side")'); await wait(1500)
-  check('"Open to the side" from the menu opens it beside', (await panes()) === wide + 1 && (await shown('What is worth keeping, three?')) && !(await h.$(TOAST)), `${wide} → ${await panes()}`)
+  check('"Open to the side" from the menu opens it beside', (await panes()) === wide + 1 && (await opened(three)) && !(await h.$(TOAST)), `${wide} → ${await panes()}`)
 
   // 4. Kept as a gem in the reader: the toast opens the gem.
   await single()
