@@ -125,17 +125,12 @@ type Home = { group: NoteGroup; section: 'Writing' | 'Gems'; path: string[] }
 
 /**
  * A quiet "in Gems › Obsidian" in a question's line on Questions: Questions is a view by kind, so the folder is never
- * a row there; this says where the question lives and opens that folder in its own section at a click. Inside the
- * row's own button, so every press stops here and never opens the question as well (everything.tsx's MadeCue).
+ * a row there; this only says where the question is filed. A label, not a link: Gems' folders list only gems, so the
+ * folder opened from here looked empty. A click on it is a click on the row.
  */
-function FolderCue({ home, onOpen }: { home: Home; onOpen: () => void }): React.JSX.Element {
-  const stop = (event: React.SyntheticEvent): void => event.stopPropagation()
+function FolderCue({ home }: { home: Home }): React.JSX.Element {
   return (
-    <span role="button" tabIndex={0} data-row-folder={home.group.id}
-      onPointerDown={stop} onMouseDown={stop} onDoubleClick={stop}
-      onClick={(event) => (stop(event), onOpen())}
-      onKeyDown={(event) => (event.key === 'Enter' || event.key === ' ') && (stop(event), event.preventDefault(), onOpen())}
-      className="-my-1 inline-flex cursor-pointer items-center gap-1 rounded-sm py-1 whitespace-nowrap text-muted-foreground decoration-muted-foreground/50 underline-offset-2 transition-colors hover:text-foreground hover:underline">
+    <span data-row-folder={home.group.id} className="inline-flex items-center gap-1 whitespace-nowrap text-muted-foreground">
       <GroupIcon icon={home.group.icon} color={home.group.color} className="size-3" />{`in ${[home.section, ...home.path].join(' › ')}`}
     </span>
   )
@@ -656,7 +651,7 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
     const home = folderOf.get(one.id)
     return home ? { ...entry, sub: <span className="flex min-w-0 items-center gap-1.5"><span data-row-folder={home.id} className="flex shrink-0 items-center gap-1"><GroupIcon icon={home.icon} color={home.color} className="size-3" />{home.name}</span>{entry.sub ? <><span aria-hidden>·</span><span className="min-w-0 truncate">{entry.sub}</span></> : null}</span> } : entry
   }
-  // On Questions (and its Words), one that lives in a folder (Writing's or Gems', an import's) says where, a click away.
+  // On Questions (and its Words), one that lives in a folder (Writing's or Gems', an import's) says where, quietly.
   const homes = useMemo(() => {
     if (!questionsOnly || unloaded(filed) || unloaded(gemFolders)) return new Map<string, Home>()
     const shelfOf = (list: NoteGroup[], section: Home['section']): [string, Home][] => {
@@ -672,7 +667,7 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
   }, [questionsOnly, filed, gemFolders])
   const placed = (entry: Entry, one: Item): Entry => {
     const home = homes.get(one.id)
-    return home ? { ...entry, sub: <><FolderCue home={home} onOpen={() => onOpen?.('folder', `${home.section === 'Gems' ? 'nugget' : 'article'}:${home.group.id}`)} />{entry.sub ? <> · {entry.sub}</> : null}</> } : entry
+    return home ? { ...entry, sub: <><FolderCue home={home} />{entry.sub ? <> · {entry.sub}</> : null}</> } : entry
   }
   const entryOf = (one: Item): Entry => placed(one.tier === 'question' ? questionEntry(one, inView.has(one.id), menuFor(one) as MenuItem[], backOn) : inFolder(itemEntry(one, () => menuFor(one)), one), one)
   const entries: [string, Entry[]][] = !listShown && !(open && (pane === 'rail' || boarded)) ? [] : tiles || folder

@@ -1,6 +1,6 @@
 // Questions lists every question flat: a folder from Gems or Writing is never a folder row there. A question that
-// lives in a folder says so quietly on its row ("in Gems › Obsidian"), and a click on that line opens the folder in
-// its own section. The user's book had 17 imported questions in the Gems folder "Obsidian".
+// lives in a folder says so quietly on its row ("in Gems › Obsidian"), a plain label: a click on it opens the question,
+// and ⌘[ comes back to Questions. The user's book had 17 imported questions in the Gems folder "Obsidian".
 //   QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-q/main/index.js HALIGTREE_QA_AWAY=1 QA_ARGS=--sandbox [SHOTS=<dir>] node qa/questions-no-folders.mjs
 process.env.QA_ARGS ??= '--sandbox'
 const { sandbox } = await import('./sandbox-lib.mjs')
@@ -55,30 +55,26 @@ try {
   if (shots) await h.screenshot({ path: `${shots}/answered-light.png` })
   check('Answered: no folder row either, the answered one plain with its line', answered.folders.length === 0 && answered.rows.some((one) => one.id === inside[0] && /in Gems › Obsidian/.test(one.text)), JSON.stringify(answered))
   await h.locator('[data-question-filter] button').nth(0).click(); await wait(900)
-  // The folder line is a link: its hand cursor, and a click opens the folder in Gems.
+  // The folder line is a plain, quiet label (lead's call, 6 Nov): Gems' folders list only gems, so a link to one opened
+  // a folder that looked empty. No hand of its own, not a stop for Tab, and a click on it is a click on the row.
   const mark = h.locator(`[role="main"] [data-row][data-id="${inside[1]}"] [data-row-folder]`)
-  const cursor = await mark.evaluate((one) => getComputedStyle(one).cursor).catch(() => '')
-  check('the folder line shows the hand', cursor === 'pointer', cursor)
+  const label = await mark.evaluate((one) => ({ role: one.getAttribute('role'), tab: one.tabIndex, cursor: getComputedStyle(one).cursor, rowCursor: getComputedStyle(one.closest('[data-row]')).cursor, underline: getComputedStyle(one).textDecorationLine }))
+  check('the folder line is a label: no button role, not a Tab stop, never underlined', !label.role && label.tab < 0 && label.underline === 'none', JSON.stringify(label))
+  check('it takes the row\'s own hand, as every other word on the row', label.cursor === label.rowCursor, JSON.stringify(label))
   await mark.hover(); await wait(300)
   if (shots) await h.screenshot({ path: `${shots}/questions-hover-light.png` })
+  const before = await path()
   await mark.click(); await wait(1200)
-  if (shots) await h.screenshot({ path: `${shots}/opened-gems-folder-light.png` })
+  if (shots) await h.screenshot({ path: `${shots}/clicked-folder-line-light.png` })
   const there = await path()
-  check('a click opens the folder in Gems', /Gems/.test(there) && there.endsWith('Obsidian'), there)
-  const inGems = await look()
-  check('and it holds the three questions', inside.every((id) => inGems.rows.some((one) => one.id === id)), JSON.stringify(inGems.rows.map((one) => one.id)))
-  // From the keys: Tab reaches the line, Enter opens it; Back comes home to Questions.
+  const opened = await h.evaluate(() => document.querySelectorAll('.ProseMirror').length)
+  check('a click on the line opens the question, never the folder', !/Obsidian/.test(there) && (there !== before || opened > 0), `${before} -> ${there}, editors ${opened}`)
+  // ⌘[ (Back) from the question comes home to Questions.
   await h.keyboard.press('Meta+BracketLeft'); await wait(1200)
-  check('Back returns to Questions', /Questions/.test(await path()), await path())
-  await h.locator(`[role="main"] [data-row][data-id="${inside[2]}"] [data-row-folder]`).focus()
-  await h.keyboard.press('Enter')
-  for (let at = 0; shots && at < 8; at++) (await h.screenshot({ path: `${shots}/enter-frame-${at}.png` }), await wait(50))
-  await wait(1000)
-  check('Enter on the focused line opens the folder too', (await path()).endsWith('Obsidian'), await path())
-  // Writing's folder line opens Writing's folder.
-  await go('questions'); await wait(900)
-  await h.locator(`[role="main"] [data-row][data-id="${written}"] [data-row-folder]`).click(); await wait(1200)
-  check('the Writing line opens the folder in Writing', /Writing/.test(await path()) && (await path()).endsWith('Drafts'), await path())
+  if (shots) await h.screenshot({ path: `${shots}/after-back-light.png` })
+  // The list has no path line (data-path-part is the open note's): Questions is back when its rows are, the question lit.
+  const home = await h.evaluate((id) => ({ rows: document.querySelectorAll('[role="main"] [data-row]').length, editors: document.querySelectorAll('.ProseMirror').length, title: document.querySelector('[data-window-title], header h1')?.textContent ?? document.title }), inside[1])
+  check('⌘[ returns to the Questions list', home.rows >= 5 && home.editors === 0, JSON.stringify(home))
   // Gems still shows the folder as a folder row: it owns it.
   await go('nuggets'); await wait(900)
   const gems = await look()
