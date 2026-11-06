@@ -57,7 +57,7 @@ const PLACES: { id: Place; label: string; said: string; key?: string }[] = [
   { id: 'tomorrow', label: 'Tomorrow', said: 'Drop to do it tomorrow', key: 'M' },
   { id: 'week', label: 'Next week', said: 'Drop to do it next week', key: 'W' },
   { id: 'next', label: 'Next, no day yet', said: 'Drop to take its day off, into Next', key: 'N' },
-  { id: 'month', label: 'Later, this month', said: 'Drop to put it in This month' },
+  { id: 'month', label: 'Later, this month', said: 'Drop to put it in This month', key: 'H' },
   { id: 'someday', label: 'Later, someday', said: 'Drop to put it in Later, Someday', key: 'L' }
 ]
 /** A drop place's name as a place a line goes: Upcoming's tab is tomorrow, Later's is someday. */
@@ -670,7 +670,7 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
   }
 
   // The line's keys, ahead of the page's own (the Journal's T for today), as a row on the other Tasks tabs has them:
-  // on the line picked (Esc, or ↑ ↓ and J K from nothing picked), or else on the line the pointer rests on. T M W N L
+  // on the line picked (Esc, or ↑ ↓ and J K from nothing picked), or else on the line the pointer rests on. T M W N H L
   // send it, E ticks it, ↵ writes in it again, ↑ ↓ J K pick the one beside it. Before, only a line picked with Esc
   // answered, so a key pressed over a line did nothing at all (note ac5c2fa3).
   useEffect(() => {
@@ -818,7 +818,7 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
           {/* Where it can go first, each with its key once the line is picked (Esc). */}
           <RowMenu writes items={(() => {
             const open = (): void => (chime('open'), onOpenTask ? onOpenTask(task.id) : window.api.openInHome('task', task.id))
-            return [...(task.status === 'open' ? [{ label: 'Add a step', hint: 'Something to do as part of it', run: () => (setDraft({ section, after: task.id, parent: { id: task.id, at: task.subtasks?.length ?? 0 }, text: '' }), go('draft')) }, 'separator' as const] : []), ...sendItems(task, section, open), ...taskMenu(task, { open, complete: () => tick(task), now: taskNow, binKey: false })]
+            return taskMenu(task, { open, complete: () => tick(task), now: taskNow, page: [...(task.status === 'open' ? [{ label: 'Add a step', hint: 'Something to do as part of it', run: () => (setDraft({ section, after: task.id, parent: { id: task.id, at: task.subtasks?.length ?? 0 }, text: '' }), go('draft')) }, 'separator' as const] : []), ...sendItems(task, section, open)] })
           })()}>
           <div className="flex items-start gap-2.5 py-1 pr-1">
             {/* A new line straight under this one, as the "+" beside a note's handle makes a block: what Enter at its end does. */}

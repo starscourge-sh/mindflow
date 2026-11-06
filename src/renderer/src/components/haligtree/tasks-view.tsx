@@ -556,7 +556,7 @@ export const giveLength = (task: Task, minutes: number | null): void => {
   })
 }
 
-export function taskMenu(task: Task, { open, complete = () => void completeTask(task), move = moveTo, frog, now, thought, binKey = true }: {
+export function taskMenu(task: Task, { open, complete = () => void completeTask(task), move = moveTo, frog, now, thought, page }: {
   open: () => void
   /** Opens the list's own line for a thought on it, where the list has one (the button that shows on pointing, or ;). */
   thought?: () => void
@@ -566,64 +566,70 @@ export function taskMenu(task: Task, { open, complete = () => void completeTask(
   frog?: string | null
   /** The running session and the frog, from `useTaskNow`. */
   now?: TaskNow
-  /** Whether ⌫ moves the row to the Bin where this menu is shown: never promised where it does not (a page you write in). */
-  binKey?: boolean
+  /** Today's written page: its own lines for moving the task. The menu leads with what is done most, and promises no ⌫, which goes to the words there. */
+  page?: RowItem[]
 }): RowItem[] {
   const first = frog !== undefined ? frog : now?.frog
   const running = now?.focus && now.focus.taskId === task.id ? now.focus : null
   const open_ = task.status === 'open'
   const paused = !!running?.pausedAt
-  return [
-    // A session already on it: the pill's own lines, never a second start.
-    // Pause in reach; showing, adding time and ending one line deeper, so the menu keeps its length.
-    ...(running
-      ? [
-          { label: paused ? 'Resume the session' : 'Pause the session', run: () => void (paused ? haligtree.resumeSession(running.id) : haligtree.pauseSession(running.id)).then(() => chime(paused ? 'on' : 'off')) },
-          { label: 'The session', items: [
-            { label: 'Show the session', run: () => (chime('open'), window.api.showFocus(true)) },
-            ...sessionLines(running).map(({ label, keys, run }) => ({ label, keys, run }))
-          ] },
-          'separator' as const
-        ]
-      : !focusToolsShown() ? [] : [open_ && { label: `Start a focus session${task.estimate ? `, ${hoursSaid(task.estimate)}` : ', 25 min'}`, run: () => startOn(task) }, open_ && { label: `Try it for ${TRY_MINUTES} minutes`, run: () => tryFive(task) }]),
+  // A session already on it: the pill's own lines, never a second start.
+  // Pause in reach; showing, adding time and ending one line deeper, so the menu keeps its length.
+  const session: RowItem[] = running
+    ? [
+        { label: paused ? 'Resume the session' : 'Pause the session', run: () => void (paused ? haligtree.resumeSession(running.id) : haligtree.pauseSession(running.id)).then(() => chime(paused ? 'on' : 'off')) },
+        { label: 'The session', items: [
+          { label: 'Show the session', run: () => (chime('open'), window.api.showFocus(true)) },
+          ...sessionLines(running).map(({ label, keys, run }) => ({ label, keys, run }))
+        ] },
+        'separator'
+      ]
+    : !focusToolsShown() ? [] : [open_ && { label: `Start a focus session${task.estimate ? `, ${hoursSaid(task.estimate)}` : ', 25 min'}`, run: () => startOn(task) }, open_ && { label: `Try it for ${TRY_MINUTES} minutes`, run: () => tryFive(task) }]
+  const finish: RowItem[] = [
     open_ ? { label: 'Mark it done', keys: 'E', run: complete } : task.status === 'done' && !task.recurrence && { label: 'Not done', run: () => notDone(task) },
-    open_ && !!task.recurrence && { label: 'Skip this time', hint: 'On to the next date, not counted as done', run: () => skipTask(task) },
-    'separator',
-    // Every way of giving it a day in one line, as its date chip has them: the menu stays short, and T, M and W still work with it open.
-    open_ && { label: task.dueAt ? `Date: ${when(task.dueAt, !!task.allDay)}` : 'Date', items: [
-      first !== undefined && { label: first === task.id ? 'No longer first today' : 'Do this first today', run: () => void (first === task.id ? markFrog(null, task.id) : ((placed(task) ?? Infinity) >= startOfDay(1) && move(task, 0), markFrog(task.id, first ?? null))) },
-      { label: 'Do it today', keys: 'T', run: () => move(task, 0) },
-      { label: 'Do it tomorrow', keys: 'M', run: () => move(task, 1) },
-      { label: 'Do it next week', keys: 'W', run: () => move(task, 7) },
-      { label: 'Pick a date…', run: () => pickDate(task.id, open) },
-      'separator' as const,
-      { heading: 'No day yet, for' },
-      ...(Object.keys(BUCKETS) as (keyof typeof BUCKETS)[]).map((which) => ({ label: BUCKETS[which], run: () => planFor(task, which) })),
-      'separator' as const,
-      snoozeItems('task', task, open)
-    ] },
+    open_ && !!task.recurrence && { label: 'Skip this time', hint: 'On to the next date, not counted as done', run: () => skipTask(task) }
+  ]
+  // Every way of giving it a day in one line, as its date chip has them: the menu stays short, and T, M and W still work with it open.
+  const date: RowItem[] = [open_ && { label: task.dueAt ? `Date: ${when(task.dueAt, !!task.allDay)}` : 'Date', items: [
+    first !== undefined && { label: first === task.id ? 'No longer first today' : 'Do this first today', run: () => void (first === task.id ? markFrog(null, task.id) : ((placed(task) ?? Infinity) >= startOfDay(1) && move(task, 0), markFrog(task.id, first ?? null))) },
+    { label: 'Do it today', keys: 'T', run: () => move(task, 0) },
+    { label: 'Do it tomorrow', keys: 'M', run: () => move(task, 1) },
+    { label: 'Do it next week', keys: 'W', run: () => move(task, 7) },
+    { label: 'Pick a date…', run: () => pickDate(task.id, open) },
+    'separator' as const,
+    { heading: 'No day yet, for' },
+    ...(Object.keys(BUCKETS) as (keyof typeof BUCKETS)[]).map((which) => ({ label: BUCKETS[which], run: () => planFor(task, which) })),
+    'separator' as const,
+    snoozeItems('task', task, open)
+  ] }]
+  const about: RowItem[] = [
     open_ && !!task.deadline && { label: task.getReady ? `Get ready ${readySaid(task.getReady)}` : 'Get ready…', items: [...READY_LEADS.map((days) => ({ label: readySaid(days), run: () => setReady(task, days) })), ...(task.getReady ? ['separator' as const, { label: 'No get-ready day', run: () => setReady(task, null) }] : [])] },
     open_ && { label: task.recurrence ? `Repeats: ${sayRepeat(task.recurrence).toLowerCase()}` : 'Repeat', items: repeatChoices(task) },
     open_ && { label: 'Priority', items: [1, 2, 3, 4, 0].map((level) => ({ label: PRIORITY_NAMES[level], keys: String(level), run: () => setPriority(task, level) })) },
     // The length the day page offers on pointing, here too, so it is found without hovering.
-    open_ && { label: task.estimate ? `How long it takes: ~${hoursSaid(task.estimate)}` : 'How long it takes', items: [...MENU_LENGTHS.map((minutes) => ({ label: hoursSaid(minutes), run: () => giveLength(task, minutes) })), ...(task.estimate ? ['separator' as const, { label: 'No length', run: () => giveLength(task, null) }] : [])] },
-    'separator',
+    open_ && { label: task.estimate ? `How long it takes: ~${hoursSaid(task.estimate)}` : 'How long it takes', items: [...MENU_LENGTHS.map((minutes) => ({ label: hoursSaid(minutes), run: () => giveLength(task, minutes) })), ...(task.estimate ? ['separator' as const, { label: 'No length', run: () => giveLength(task, null) }] : [])] }
+  ]
+  const opening: RowItem[] = [
     { label: 'Open', keys: '↵', run: open },
     asideItem('task', task.id),
     // The note under its name, to read or change (the tracker: "so how do i edit that attached file here?").
     !!task.fromId && { label: `Open “${task.fromTitle || 'Untitled'}”`, hint: 'The note it came from', run: () => (chime('open'), window.dispatchEvent(new CustomEvent('haligtree:open', { detail: { type: 'capture', id: task.fromId } }))) },
-    thought && { label: 'Add a thought…', keys: ';', run: thought },
-    'separator',
+    thought && { label: 'Add a thought…', keys: ';', run: thought }
+  ]
+  const leaving: RowItem[] = [
     copyLinkItem(`task:${task.id}`, splitTags(task.title).text || task.title),
     { label: 'Copy the task', run: () => copy(splitTags(task.title).text || task.title, 'Task copied') },
     remindersItem(task),
     'separator',
     // Said as every list says it, so a task picked with ⌘A reads the same as a note: ⌫ does it.
     open_ && toNoteItem([task.id]),
-    open_ && { label: 'Move to the Bin', hint: 'Closed without doing; it can come back', keys: binKey ? '⌫' : undefined, danger: true, run: () => closeTask(task.id) },
+    open_ && { label: 'Move to the Bin', hint: 'Closed without doing; it can come back', keys: page ? undefined : '⌫', danger: true, run: () => closeTask(task.id) },
     // A done one too: off the list and out of what counts as done, coming back done at its own time with Undo.
-    task.status === 'done' && { label: 'Move to the Bin', hint: 'No longer counted as done; it can come back', keys: binKey ? '⌫' : undefined, danger: true, run: () => void moveToBin([{ type: 'task', id: task.id, status: 'done' }]) }
+    task.status === 'done' && { label: 'Move to the Bin', hint: 'No longer counted as done; it can come back', keys: page ? undefined : '⌫', danger: true, run: () => void moveToBin([{ type: 'task', id: task.id, status: 'done' }]) }
   ]
+  // On Today's written page: what you do most first, then its own ways of moving it, which stand in for the Date line.
+  if (page) return [...finish, ...opening, 'separator', ...page, ...session, 'separator', ...about, open_ && snoozeItems('task', task, open), 'separator', ...leaving]
+  return [...session, ...finish, 'separator', ...date, ...about, 'separator', ...opening, 'separator', ...leaving]
 }
 
 /** Small counts said in words: "All five done". */
