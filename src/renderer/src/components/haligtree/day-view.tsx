@@ -38,6 +38,7 @@ import { DayMoments } from './day-moments'
 import { useSeen } from '@/lib/reads-in'
 import { Versions } from './note-extras'
 import { PeriodSteps, type Scale } from './periods-view'
+import { MORE_STEP, ShowMore } from './show-more'
 import { dayKey, dayName, noon } from '../../../../main/dates'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import CheckedIcon from '@/components/ui/checked-icon'
@@ -149,6 +150,10 @@ export function DayView({ onOpen, start, onScale, onView }: {
     ? [['Captured', Inbox, held.captured], ['Resolved', CheckCircle2, held.resolved], ['Studied', Brain, held.studied],
       ['Done', ListTodo, day === today ? held.done.filter((entry) => !(entry.type === 'task' && listed.includes(entry.id))) : held.done]]
     : []
+  // A day's long lists open at their first 50 rows, "Show more" bringing the next lot: a day of 5,000 notes drew every
+  // row (each with its menu worked out) before the page showed, and its tasks took 40 seconds to appear (qa/day-scale.mjs).
+  const [shownOf, setShownOf] = useState<Record<string, number>>({})
+  useEffect(() => setShownOf({}), [day])
   // Every row on the page picks as every list does: ⇧- or ⌘-click, x, ⌘A, ⌫ to the Bin with Undo, Esc.
   const several = usePickMixed(example || ahead ? [] : sections.flatMap(([, , list]) => list).map((entry) => ({ type: entry.type, id: entry.id, title: entry.title, private: entry.private, status: entry.status })), { here })
 
@@ -271,7 +276,7 @@ export function DayView({ onOpen, start, onScale, onView }: {
               <Icon className="size-4 text-muted-foreground" /> {title} <span className="font-normal text-muted-foreground tabular-nums"><Rolling text={list.length} /></span>
             </span>
           }>
-            {list.length ? list.map((entry) => {
+            {list.length ? list.slice(0, shownOf[title] ?? DAY_FEW).map((entry) => {
               const kind = CAPTURE_TYPES.find((type) => type.id === entry.kind)
               const Mark = entry.type === 'task' ? ListTodo : entry.type === 'capture' ? kind?.icon ?? Inbox : Gem
               // A task takes no gloss: what you wrote does, captures and kept things alike.
@@ -302,6 +307,9 @@ export function DayView({ onOpen, start, onScale, onView }: {
                 </div>
               )
             }) : <p className="px-4 py-2 text-sm text-muted-foreground">{day === today ? 'Nothing here yet today.' : 'Nothing that day.'}</p>}
+            <ShowMore total={list.length} shown={Math.min(list.length, shownOf[title] ?? DAY_FEW)} few={DAY_FEW} className="mx-2 mb-1"
+              onMore={() => (chime('open'), setShownOf((was) => ({ ...was, [title]: (was[title] ?? DAY_FEW) + MORE_STEP })))}
+              onFewer={() => (chime('fold'), setShownOf((was) => ({ ...was, [title]: DAY_FEW })))} />
           </Island>
         ))}
         {/* The focus sessions that ended this day, each with the timeline of what was logged in it. */}
@@ -312,6 +320,9 @@ export function DayView({ onOpen, start, onScale, onView }: {
     </Page>
   )
 }
+
+/** How many rows each of a day's lists shows before "Show more". */
+const DAY_FEW = 50
 
 /**
  * The caret in the day's writing once its page is on show, so you can just

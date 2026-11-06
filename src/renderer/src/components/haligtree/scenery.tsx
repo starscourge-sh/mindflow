@@ -147,23 +147,28 @@ const rgb = (color: string): [number, number, number] => {
  * words, plain and muted, to read at 4.5 to 1 over it whatever the picture
  * is: worked out against a pure white and a pure black picture, the worst
  * either could be, aiming a little higher for the buttons that tint it too.
- * Worked out again when the theme changes.
+ * Worked out again when the theme changes, never as it draws: reading the page's colours forces the browser to work
+ * out every style on the page first, and a Journal day of 5,000 notes spent 7 seconds there on each draw (qa/day-scale.mjs).
+ * `light`: whether the page colour is a light one.
  */
-function useReadable(target = 4.8): number {
-  const work = (): number => {
+function useReadable(target = 4.8): { floor: number; light: boolean } {
+  const work = (): { floor: number; light: boolean } => {
     const style = getComputedStyle(document.documentElement)
     const page = rgb(style.getPropertyValue('--background'))
+    const light = (page[0] * 299 + page[1] * 587 + page[2] * 114) / 1000 > 140
     const inks = [rgb(style.getPropertyValue('--foreground')), rgb(style.getPropertyValue('--muted-foreground'))]
     for (let dim = 0.5; dim < 1; dim += 0.01) {
       const worst = [0, 255].map((v) => page.map((c) => dim * c + (1 - dim) * v))
-      if (worst.every((under) => inks.every((ink) => contrast(ink, under) >= target))) return Math.round(dim * 100) / 100
+      if (worst.every((under) => inks.every((ink) => contrast(ink, under) >= target))) return { floor: Math.round(dim * 100) / 100, light }
     }
-    return 1
+    return { floor: 1, light }
   }
   const [floor, setFloor] = useState(work)
-  useEffect(() => setFloor(work()), [target]) // eslint-disable-line react-hooks/exhaustive-deps
+  // The same answer keeps the same object, so nothing draws again for it.
+  const again = (): void => setFloor((was) => { const now = work(); return now.floor === was.floor && now.light === was.light ? was : now })
+  useEffect(again, [target]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
-    const watch = new MutationObserver(() => setFloor(work()))
+    const watch = new MutationObserver(again)
     watch.observe(document.documentElement, { attributes: true, attributeFilter: ['class', 'style', 'data-solid'] })
     return () => watch.disconnect()
   }, [])
@@ -204,11 +209,7 @@ export function Scenery({ place, seed, mood, text = 'none', fade = false, wide =
   // still fights them at an average contrast that passes: aim higher there,
   // and soften the picture so no sharp bright edge sits behind a letter.
   const covered = text === 'all' || text === 'middle' || text === 'left'
-  const floor = useReadable(covered ? 7 : 4.8)
-  const lightPage = (() => {
-    const [r, g, b] = rgb(getComputedStyle(document.documentElement).getPropertyValue('--background'))
-    return (r * 299 + g * 587 + b * 114) / 1000 > 140
-  })()
+  const { floor, light: lightPage } = useReadable(covered ? 7 : 4.8)
   const on = !!settings?.scenery && settings[SWITCH[place]] !== false
   const moods = mood ?? (settings?.sceneryTime ? moodsNow() : null)
   const scene = on ? choose(scenes, `${seed}:${settings?.sceneryShuffle ?? 0}`, moods, wide) : null
