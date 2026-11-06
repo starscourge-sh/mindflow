@@ -1045,7 +1045,7 @@ export default function FlexCarousel({
     start()
 
     // A new list of pictures, with no rebuild: those already drawn keep their pictures, only new ones are fetched,
-    // and the picture in the middle stays in the middle wherever it now sits in the list. Gone, its neighbour takes its place.
+    // and a picture you turned to stays in the middle wherever it now sits in the list. Gone, its neighbour takes its place.
     take.current = (items) => {
       if (items.length === slots.length && items.every((item, at) => idOf(item) === slots[at].id)) return
       const was = layout ?? metrics()
@@ -1066,13 +1066,16 @@ export default function FlexCarousel({
       if (slots.length) {
         const m = metrics()
         const found = slots.findIndex((slot) => slot.id === held)
-        const to = found >= 0 ? found : Math.min(at, slots.length - 1)
-        pos = m.centers[to] + (found >= 0 ? offset : 0)
-        goal = m.centers[to] + (found >= 0 ? aim : 0)
+        // A row you turned stays on its picture. One still at the front stays at the front, the newest first: the picture there glides aside for it.
+        const front = at === 0 && !fits(was)
+        const to = front ? 0 : found >= 0 ? found : Math.min(at, slots.length - 1)
+        const from = front && found >= 1 && found <= 2 ? found : to
+        pos = m.centers[from] + (found >= 0 ? offset : 0)
+        goal = m.centers[to] + (found >= 0 && !front ? aim : 0)
         chosen = to
         layout = m
-        activeIndex = to
-        setActive(to)
+        activeIndex = from
+        setActive(from)
       }
       dirty = true
       start()

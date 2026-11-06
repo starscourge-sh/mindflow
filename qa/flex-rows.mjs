@@ -247,14 +247,19 @@ try {
   await h.keyboard.press('Escape'); await wait(600)
   await v('settings:set', { motion: true })
 
-  // --- 5,000 pictures: one note each, the same twelve files.
+  // --- 5,000 pictures: one note each, each its own file (Media is one tile a file, however many notes hold it).
   const srcs = await h.evaluate(() => [...document.querySelectorAll('img')].length) // warm
   void srcs
   const files = []
   for (let n = 1; n <= 12; n++) files.push(await picture(n))
   await h.evaluate(async (files) => {
+    // One small PNG, each copy made its own file by a few bytes after its end.
+    const canvas = document.createElement('canvas'); canvas.width = 40; canvas.height = 30
+    const pen = canvas.getContext('2d'); pen.fillStyle = '#7a8b5c'; pen.fillRect(0, 0, 40, 30)
+    const base = new Uint8Array(await (await new Promise((ok) => canvas.toBlob(ok, 'image/png'))).arrayBuffer())
+    const own = (n) => { const bytes = new Uint8Array(base.length + 4); bytes.set(base); new DataView(bytes.buffer).setUint32(base.length, n); return window.api.saveImage('image/png', bytes) }
     for (let at = 0; at < 4988; at += 100) {
-      await Promise.all(Array.from({ length: Math.min(100, 4988 - at) }, (_, k) => window.api.captures.create({ kind: 'note', body: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: `Many ${at + k + 1}` }] }, { type: 'image', attrs: { src: files[(at + k) % 12] } }] } })))
+      await Promise.all(Array.from({ length: Math.min(100, 4988 - at) }, async (_, k) => window.api.captures.create({ kind: 'note', body: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: `Many ${at + k + 1}` }] }, { type: 'image', attrs: { src: await own(at + k + 1) } }] } })))
     }
   }, files)
   await go('home'); await go('media'); await wait(2000)

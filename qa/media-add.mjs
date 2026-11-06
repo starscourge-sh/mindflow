@@ -304,6 +304,8 @@ if (part('sounds')) {
   try {
     await v('settings:set', { sounds: true, hintRate: 0 })
     await go('media'); await wait(1000)
+    // What another page said on its way here (the Journal's <div> in a <p>, on main too) is not this page's.
+    n.errors.length = 0
     const a = write('Sound one.png', await pngFrom(h, 41)), b = write('Sound two.png', await pngFrom(h, 42))
     await pickNext(electron, [a])
     const added = await heard(() => h.locator('[data-media-add]').click())
@@ -361,6 +363,13 @@ if (part('row')) {
     const file = write('New for the row.png', await pngFrom(h, 31))
     await go('media'); await wait(1500)
     await h.evaluate((sel) => { document.querySelector(sel).dataset.mark = 'same' }, row)
+    // Still at the front: the newest takes the front, the row not rebuilt, never empty.
+    const firstFile = write('Front of the row.png', await pngFrom(h, 33))
+    await pickNext(electron, [firstFile])
+    await h.locator('[data-media-add]').click()
+    const frontFrames = await burst('row-front')
+    await wait(900)
+    check('at the front, an add comes to the front, no frame empty, not rebuilt', await title() === 'Front of the row' && emptyFrames(frontFrames) === 0 && await same(), `${await title()} ${frontFrames.map((one) => one.toFixed(2)).join(' ')}`)
     await h.click('[data-recent-pictures] [data-flex-carousel-turn=next]'); await wait(800)
     const middle = await title()
     await pickNext(electron, [file])
@@ -369,7 +378,7 @@ if (part('row')) {
     await wait(800)
     check('an add: no frame of the row is empty', emptyFrames(addFrames) === 0, addFrames.map((one) => one.toFixed(2)).join(' '))
     check('an add: the row was not rebuilt', await same())
-    check('an add: the same picture stays in the middle', await title() === middle, `${middle} → ${await title()}`)
+    check('turned, an add leaves the same picture in the middle', await title() === middle, `${middle} → ${await title()}`)
     const caption = await h.evaluate(() => document.querySelector('[data-recent-pictures] [data-flex-carousel-caption]')?.textContent ?? '')
     check('an add: the row counts the new one', /03 \/ /.test(caption) || /02 \/ /.test(caption), caption)
     await h.click('[data-recent-pictures] [data-flex-carousel-turn=previous]'); await wait(800)
