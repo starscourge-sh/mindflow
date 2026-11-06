@@ -84,7 +84,7 @@ import { Stopped, begin, end as endJob, registerJobs } from './jobs'
 import { registerLabels } from './labels'
 import { readCopy, registerPdfText } from './pdf-text'
 import { registerStudyAi, registerUnderstand } from './understand'
-import { registerServices } from './services'
+import { registerServices, whenFilesSent } from './services'
 import { registerSpotlight, SPOTLIGHT_ITEM } from './spotlight'
 import { registerDictation } from './dictation'
 import { glassShapes, registerGlass, watchScroll } from './glass'
@@ -5240,6 +5240,26 @@ app.whenReady().then(() => {
     }
   }
   for (const path of finderFiles.splice(0)) void openFinderFile(path)
+  // Files sent from Finder's right-click ("Send to Haligtree", services.ts): a picture becomes a note in the
+  // Inbox holding it; a PDF, Markdown or text file comes in as one opened with Haligtree does.
+  whenFilesSent(async (paths) => {
+    let n = 0
+    for (const path of paths) {
+      try {
+        const name = basename(path)
+        if (/\.(png|jpe?g|gif|webp|heic|tiff?)$/i.test(name)) {
+          const src = await storeFile(name, new Uint8Array(await readFile(path)))
+          if (src) (captureFile(name.replace(/\.[^.]+$/, ''), { type: 'image', attrs: { src, alt: name } }, 'Finder'), n++)
+        } else if (/\.(pdf|md|markdown|txt)$/i.test(name)) {
+          await openFinderFile!(path)
+          n++
+        }
+      } catch {
+        // One that cannot be read is passed over; the rest still come in.
+      }
+    }
+    return n
+  })
 
   // A link to a PDF on the web, opened in the reader: fetched once into the
   // book's own files, as a card's picture is, and kept by its address, so
