@@ -50,7 +50,7 @@ import iconGold from '../../resources/icon-gold.png?asset'
 import { registerUsage, type Via } from './usage'
 import { resolveWaiting, resolveWithin } from './renames'
 import { importApkg, HOLD_OVER, type ApkgAsk, type ApkgChoice } from './anki-apkg'
-import { alreadyImported, captureFile, captureText, changed, rescueDrawing, database, shutDatabase, importAnki, importBookmarks, importHighlights, importMarkdown, importNote, linkImported, recordOpen, registerCaptures, registerImportConversion, whenChanged, dropDuplicateTags, setImporting, type Imported } from './captures'
+import { alreadyImported, captureText, changed, rescueDrawing, database, shutDatabase, importAnki, importBookmarks, importHighlights, importMarkdown, importNote, linkImported, recordOpen, registerCaptures, registerImportConversion, whenChanged, dropDuplicateTags, setImporting, type Imported } from './captures'
 import { isPrivateFile, looksPrivate } from './import'
 import { warmChrono } from './lazy/chrono'
 import { warmEmoji } from './lazy/emoji'
@@ -111,6 +111,8 @@ import { registerOffers } from './offers'
 import { allPlaces, sunToday } from './sun'
 import { registerJournal } from './journal'
 import { pdfsToFind, registerPdfHighlights } from './pdf-highlights'
+import { addMedia } from './media'
+import { addSaid } from './media-words'
 import { registerWebArticles } from './web-articles'
 import { registerWordLog } from './word-log'
 import { frostWindow, registerFrost, retellFrost } from './frost'
@@ -1853,6 +1855,11 @@ function inHome(event: string, detail: unknown = null): void {
   // Once the page has drawn itself, not just painted: its listeners are on by then, so nothing said
   // at the start (a restore, an import's end) is lost while the window is still coming up.
   whenHomeDrawn(go)
+}
+
+/** Told to the main window if it is drawn, without bringing it forward: a file sent from Finder says so where you are not looking. */
+function inHomeQuietly(event: string, detail: unknown): void {
+  if (home && !home.isDestroyed()) whenHomeDrawn(() => void home!.webContents.executeJavaScript(`window.dispatchEvent(new CustomEvent(${JSON.stringify(event)}, { detail: ${JSON.stringify(detail)} }))`).catch(() => undefined))
 }
 
 function openHome(): void {
@@ -5291,13 +5298,11 @@ app.whenReady().then(() => {
     const name = basename(path)
     try {
       if (/\.pdf$/i.test(name)) {
-        const bytes = new Uint8Array(await readFile(path))
-        if (Buffer.from(bytes.subarray(0, 5)).toString('latin1') !== '%PDF-') return inHome('haligtree:toast', { text: `${name} is not a PDF Haligtree can read.`, tone: 'warning' })
-        // Stored by its bytes, so the same book opened again, under any name, is the one already kept.
-        const src = await storeFile(name, bytes)
-        const kept = pdfsToFind(database()).find((one) => one.id.startsWith(`${src}|`))
-        if (!kept) captureFile(name.replace(/\.pdf$/i, ''), { type: 'attachment', attrs: { src, name, size: bytes.byteLength } }, path)
-        return sendHome('pdf', kept?.id ?? `${src}|${name}`)
+        // Into Media with no note, as every file sent from Finder goes, then open. Stored by its bytes, so the same book opened again, under any name, is the one already kept.
+        const told = await addMedia([{ path }])
+        const book = [...told.added, ...told.revived, ...told.met][0]
+        if (!book) return inHome('haligtree:toast', { text: addSaid(told), tone: 'warning' })
+        return sendHome('pdf', pdfsToFind(database()).find((one) => one.id.startsWith(`${book.src}|`))?.id ?? `${book.src}|${name}`)
       }
       const before = alreadyImported(path)
       const made = before ?? importNote(path, await readFile(path, 'utf8'), (await stat(path)).mtime, false, true)
@@ -5314,25 +5319,23 @@ app.whenReady().then(() => {
     }
   }
   for (const path of finderFiles.splice(0)) void openFinderFile(path)
-  // Files sent from Finder's right-click ("Send to Haligtree", services.ts): a picture becomes a note in the
-  // Inbox holding it; a PDF, Markdown or text file comes in as one opened with Haligtree does.
+  // Files sent from Finder's right-click ("Send to Haligtree", services.ts): pictures, PDFs and audio go into Media
+  // as Media's own "Add" takes them, no note made, saying the same words; Markdown or text comes in as one opened with Haligtree does.
   whenFilesSent(async (paths) => {
-    let n = 0
-    for (const path of paths) {
-      try {
-        const name = basename(path)
-        if (/\.(png|jpe?g|gif|webp|heic|tiff?)$/i.test(name)) {
-          const src = await storeFile(name, new Uint8Array(await readFile(path)))
-          if (src) (captureFile(name.replace(/\.[^.]+$/, ''), { type: 'image', attrs: { src, alt: name } }, 'Finder'), n++)
-        } else if (/\.(pdf|md|markdown|txt)$/i.test(name)) {
-          await openFinderFile!(path)
-          n++
-        }
-      } catch {
-        // One that cannot be read is passed over; the rest still come in.
-      }
+    const words = paths.filter((path) => /\.(md|markdown|txt)$/i.test(path))
+    for (const path of words) await openFinderFile!(path).catch(() => undefined)
+    const files = paths.filter((path) => !words.includes(path))
+    const told = files.length ? await addMedia(files.map((path) => ({ path }))) : null
+    if (told) {
+      // Said in the main window, with Undo, as any add is.
+      inHomeQuietly('haligtree:media-told', told)
     }
-    return n
+    return { words: words.length, said: told ? addSaid(told) : '' }
+  })
+  // ⌘K on a file with no note, from any window: Media, on that tile.
+  ipcMain.handle('haligtree:media:show', (_event, src: unknown) => {
+    sendHome('view', 'media')
+    inHome('haligtree:media-file', String(src))
   })
 
   // A link to a PDF on the web, opened in the reader: fetched once into the

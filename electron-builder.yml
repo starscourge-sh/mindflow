@@ -65,6 +65,7 @@ mac:
         NSSendFileTypes:
           - public.image
           - com.adobe.pdf
+          - public.audio
           - net.daringfireball.markdown
           - public.plain-text
         NSRequiredContext: {}

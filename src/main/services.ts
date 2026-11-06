@@ -12,8 +12,8 @@ import { plural } from './dates'
  */
 type Sent = { text?: string; app?: string; url?: string; title?: string; files?: string }
 let send: ((text: string, url?: string) => void) | null = null
-/** What files picked in Finder become (index.ts: a picture a note, a PDF to the library, Markdown a note): how many came in. */
-let takeFiles: (paths: string[]) => Promise<number> = async () => 0
+/** What files picked in Finder become (index.ts: pictures, PDFs and audio into Media, Markdown a note): what it says of them. */
+let takeFiles: (paths: string[]) => Promise<{ words: number; said: string }> = async () => ({ words: 0, said: '' })
 export const whenFilesSent = (take: typeof takeFiles): void => void (takeFiles = take)
 
 export function registerServices(): void {
@@ -23,10 +23,10 @@ export function registerServices(): void {
     process.dlopen(module, servicesFile)
     module.exports.listen?.((sent) => {
       if (sent.files) {
-        void takeFiles(sent.files.split('\n').filter(Boolean)).then((n) => {
-          if (!n || process.env.HALIGTREE_QA_AWAY) return
+        void takeFiles(sent.files.split('\n').filter(Boolean)).then(({ words, said }) => {
+          if ((!words && !said) || process.env.HALIGTREE_QA_AWAY) return
           const sounds = setting('sounds', true)
-          new Notification({ title: 'In your Inbox', body: n === 1 ? 'A file from Finder' : `${plural(n, 'file')} from Finder`, silent: !sounds }).show()
+          new Notification({ title: said ? 'From Finder' : 'In your Inbox', body: said || (words === 1 ? 'A file from Finder' : `${plural(words, 'file')} from Finder`), silent: !sounds }).show()
         })
         return
       }

@@ -242,7 +242,7 @@ const PAGE_LINES: Record<string, string> = {
   sources: 'The people and works your notes come from.',
   stats: `How you have been using ${APP_NAME}.`,
   map: 'Your linked notes as dots and lines.',
-  media: 'Every picture, GIF, PDF and recording in your notes, in one grid.',
+  media: 'Every picture, GIF, PDF and recording in your book, in one grid. Add more with “Add”, no note needed.',
   discarded: 'What you moved to the Bin, still there to bring back.',
   archived: 'Kept, out of sight. Find it again here.'
 }
