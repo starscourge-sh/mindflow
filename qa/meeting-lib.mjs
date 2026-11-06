@@ -49,12 +49,13 @@ function wav(seconds, lines, rate = 16000) {
 
 /**
  * The meeting's files in `folder`: you.wav, others.wav and script.jsonl, and the paths as HALIGTREE_QA_MEETING
- * wants them. `repeat` plays the meeting that many times over (an hour is `repeat: 172`).
+ * wants them (`long` runs it on in quiet to that many seconds). `repeat` plays the meeting that many times over (an hour is `repeat: 172`).
  */
-export function makeMeeting(folder, { lines = MEETING, repeat = 1 } = {}) {
+export function makeMeeting(folder, { lines = MEETING, repeat = 1, long: whole } = {}) {
   const long = Math.max(...lines.map((one) => one.end)) + 0.6
   const all = Array.from({ length: repeat }, (_, round) => lines.map((one) => ({ ...one, start: one.start + round * long, end: one.end + round * long }))).flat()
-  const seconds = long * repeat
+  // `long`: the meeting runs on in quiet after the last line, to that many seconds.
+  const seconds = Math.max(long * repeat, whole ?? 0)
   writeFileSync(join(folder, 'you.wav'), wav(seconds, all.filter((one) => one.who === 'you')))
   writeFileSync(join(folder, 'others.wav'), wav(seconds, all.filter((one) => one.who !== 'you')))
   writeFileSync(join(folder, 'script.jsonl'), all.map((one) => JSON.stringify({ track: one.who === 'you' ? 'you' : 'others', text: one.text, start: one.start, end: one.end })).join('\n'))

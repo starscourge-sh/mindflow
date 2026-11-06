@@ -166,7 +166,9 @@ try {
 
   // 9. An action becomes a task, with its owner and the day said.
   const before = (await v('tasks')).length
-  const row = await h.evaluate(() => [...document.querySelectorAll('[data-meeting-task]')].findIndex((b) => /Friday/.test(b.parentElement.textContent)))
+  // The item is the line written down ("send them by Friday"), its row holding the button.
+  const row = await h.evaluate(() => [...document.querySelectorAll('[data-meeting-task]')].findIndex((b) => /Friday/.test(b.closest('[data-meeting-item]').textContent)))
+  await h.locator('[data-meeting-item]').nth(Math.max(0, row)).hover()
   await h.locator('[data-meeting-task]').nth(row).click()
   await wait(800)
   const tasks = await v('tasks')
@@ -211,6 +213,7 @@ try {
   await h.waitForSelector('input[placeholder], [cmdk-input], input[type="search"]', { timeout: 5000 }).catch(() => {})
   await h.evaluate(() => document.activeElement?.select?.())
   await h.keyboard.type('ship the beta next week', { delay: 25 }); await wait(1200)
+  console.log('hits:', await h.evaluate(() => [...document.querySelectorAll('[data-found-line]')].map((one) => one.parentElement.textContent.slice(0, 80) + ' :: ' + one.textContent.slice(0, 60)).join(' | ')))
   await h.locator('[data-found-line]', { hasText: 'ship the beta next week' }).first().click({ timeout: 5000 })
   await h.waitForSelector('[data-meeting-line][data-found]', { timeout: 8000 }).catch(() => {})
   const clicked = await h.evaluate(() => { const one = document.querySelector('[data-meeting-line][data-found]'); const a = document.querySelector('[data-meeting-page] audio'); const r = one?.getBoundingClientRect(); return { found: !!one, words: one?.textContent, at: one ? Number(one.dataset.at) : null, time: a?.currentTime, paused: a?.paused, seen: !!r && r.top > 0 && r.bottom < innerHeight } })
