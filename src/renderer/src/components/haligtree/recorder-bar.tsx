@@ -80,10 +80,14 @@ export function RecorderBar({ label, role = 'dialog', level, start, end, seconds
     let scroller = over.parentElement
     while (scroller && !/(auto|scroll)/.test(getComputedStyle(scroller).overflowY)) scroller = scroller.parentElement
     if (!scroller) return
-    const before = over.style.marginBottom
-    over.style.marginBottom = `${need}px`
+    // The room goes under what holds the writing, never on the editor itself: a style written on the editor is a
+    // change it reads as its own, and it put the caret back at the start.
+    const holder = over.parentElement
+    if (!holder) return
+    const before = holder.style.paddingBottom
+    holder.style.paddingBottom = `${need}px`
     scroller.scrollBy({ top: need, behavior: 'instant' })
-    return () => void (over.style.marginBottom = before)
+    return () => void (holder.style.paddingBottom = before)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // The level as a waveform moving in from the right, as Voice Memos draws it: a bar every EVERY ms, the loudest
