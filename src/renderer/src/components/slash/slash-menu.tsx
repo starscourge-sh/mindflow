@@ -126,7 +126,7 @@ const SlashList = forwardRef(function SlashList(
           lastGroup = item.group
 
           return (
-            <Fragment key={item.title}>
+            <Fragment key={item.key ?? item.title}>
               {header ? (
                 <div className="tiptap-slash-menu-group">{header}</div>
               ) : null}

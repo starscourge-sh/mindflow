@@ -1,6 +1,6 @@
 import { forgives } from "@/lib/slash-rank"
 import { IN_WINDOW } from "@/components/suggestion/suggestion-renderer"
-import { InputRule, Node, mergeAttributes } from "@tiptap/core"
+import { InputRule, Node, mergeAttributes, type JSONContent } from "@tiptap/core"
 import { DOMSerializer, type DOMOutputSpec, type Node as PMNode } from "@tiptap/pm/model"
 import { Plugin, PluginKey, TextSelection } from "@tiptap/pm/state"
 import type { EditorView } from "@tiptap/pm/view"
@@ -40,6 +40,8 @@ export interface NoteSuggestion {
   blockText?: string
   /** No note by this name: the row offers to make one, said as such, never done silently. */
   make?: boolean
+  /** A file no note uses yet: picking it puts in the block it has, not a link. */
+  fileBlock?: JSONContent
 }
 
 /** One kind of thing a link can point at: how it is named and drawn. */
@@ -64,6 +66,8 @@ let linkKinds: {
   lines?: (id: string) => Promise<{ index: number; text: string; id: string | null; heading: boolean }[]>
   /** Give the line at `index` of a note its lasting name, and say it. */
   anchor?: (id: string, index: number, text: string) => Promise<string | null>
+  /** Files added to Media that no note uses yet, as rows of the menu. */
+  loose?: (query: string) => Promise<NoteSuggestion[]>
 } = { kinds: () => ({}) }
 
 export function setLinkKinds(given: typeof linkKinds): void {
@@ -611,7 +615,13 @@ export const NoteLink = Node.create<NoteLinkOptions>({
         .map((line) => ({ ...note, heading: undefined, block: line.id ?? undefined, blockIndex: line.index, blockText: line.text.slice(0, 80), group: note.label ? `Lines in ${note.label}` : "Lines in this note" }))
       return part.startsWith("^") ? rows : [...found, ...rows]
     }
-    const noteItems = async ({ query }: { query: string }) => (query.includes("#") ? headingItems(query) : notItself(editor, await findNotes(query)))
+    const noteItems = async ({ query }: { query: string }) => {
+      if (query.includes("#")) return headingItems(query)
+      const [found, files] = await Promise.all([findNotes(query), editor.schema.nodes.image && editor.schema.nodes.attachment ? (linkKinds.loose?.(query) ?? []) : []])
+      // A PDF no note uses is offered once, as the block it goes in as, not also as a link to it.
+      const loose = new Set(files.map((one) => one.id.replace(/^media:/, "pdf:")))
+      return [...notItself(editor, found).filter((one) => !loose.has(one.id)), ...files]
+    }
     // A space follows what a menu wrote, so the next word can start; the
     // space you then type out of habit is taken as that one, not a second.
     let spaced: number | null = null
@@ -619,6 +629,7 @@ export const NoteLink = Node.create<NoteLinkOptions>({
       spaced = editor.state.selection.from
     }
     const insertLink: SuggestionOptions<NoteSuggestion>["command"] = ({ editor, range, props }) => {
+      if (props.fileBlock) return void editor.chain().focus().deleteRange(range).insertContent(props.fileBlock).run()
       // A link to nothing yet: pointed at a page by that name if one turns up; none is made until it is opened.
       if (!props.id && props.label && !props.heading && props.blockIndex === undefined) setTimeout(() => void pointOrMake(editor, props.label, findNotes))
       const attrs = { id: props.id, label: props.label, key: props.key ?? "", heading: props.heading ?? "", kind: props.kind ?? "", block: props.block ?? "", blockText: props.blockText ?? "" }

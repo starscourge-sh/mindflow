@@ -1,4 +1,6 @@
 import { seeTheBin } from './to-bin'
+import { Images } from 'lucide-react'
+import { blockOf, looseFiles } from './media-files'
 import { via } from './usage'
 import { BookOpen, CalendarDays, CircleArrowUp, CircleCheck, CircleDashed, CircleX, FileText, Flag, Gem, Hash, ListChecks, Orbit, UserRound, Sun } from 'lucide-react'
 
@@ -189,6 +191,8 @@ export const linkKinds = (): Record<string, LinkKind & { group: string }> => (ki
   day: { label: 'Day', group: 'Journal', icon: Sun, color: 'orange' },
   // Read in the reader, never edited: a link opens it there, on the page you left.
   pdf: { label: 'PDF', group: 'PDFs', icon: FileText, color: 'red' },
+  // Added to Media with no note yet: its row in the Bin.
+  media: { label: 'File', group: 'From Media, in no note yet', icon: Images, color: 'purple' },
   web: { label: 'Web article', group: 'Web articles', icon: BookOpen, color: 'blue' },
   person: { label: 'Person', group: 'People', icon: UserRound, color: 'blue' },
   tag: { label: 'Tag', group: 'Tags', icon: Hash, color: 'gray' }
@@ -224,7 +228,9 @@ setLinkKinds({
   },
   // The lines of a note a link can land on, and one given its lasting name (block-ids.ts).
   lines: async (link) => linesIn(await bodyOf(link)),
-  anchor: (link, index, text) => window.api.haligtree<string | null>('notes:anchor', link, index, text)
+  anchor: (link, index, text) => window.api.haligtree<string | null>('notes:anchor', link, index, text),
+  // A few with nothing typed, more once a name is being looked for, after the notes.
+  loose: async (query) => (await looseFiles(query, query.trim() ? 6 : 3)).map((one) => ({ id: `media:${one.src}`, label: one.name.replace(/\.[^.]+$/, '') || one.name, group: 'From Media, in no note yet', icon: one.icon, fileBlock: blockOf(one) }))
 })
 
 /** What a link points at, as stored: a capture's body, or a gem's, an article's or a question's. */

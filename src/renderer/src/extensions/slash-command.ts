@@ -15,6 +15,8 @@ import { typedOnly } from "@/lib/typed-suggestion"
  */
 export interface SlashItem {
   title: string
+  /** Set where two can share a title (two files of one name). */
+  key?: string
   /** Section header this item sits under. */
   group: string
   /** The markdown shortcut that does the same thing, shown on the right. */
@@ -35,6 +37,8 @@ export interface SlashItem {
 
 interface SlashCommandOptions {
   items: SlashItem[]
+  /** Rows that come and go with the book (a file no note uses yet), asked for as you type. */
+  more?: (editor: Editor, query: string) => Promise<SlashItem[]>
   /** Supplied by the app, which owns the popup rendering. */
   render: NonNullable<SuggestionOptions<SlashItem>["render"]>
 }
@@ -50,7 +54,9 @@ export const SlashCommand = Extension.create<SlashCommandOptions>({
   },
 
   addProseMirrorPlugins() {
-    const { items, render } = this.options
+    const { items, render, more } = this.options
+    // What the book answered last, for the sync question of whether the menu stays open.
+    let extra: SlashItem[] = []
     const offered = (editor: Editor): SlashItem[] => items.filter((item) => item.when?.(editor) ?? true)
 
     return [
@@ -68,8 +74,11 @@ export const SlashCommand = Extension.create<SlashCommandOptions>({
         allowSpaces: true,
         shouldShow: typedOnly(({ editor, query }) =>
           !query.includes(" ") ||
-          (!/^\s|\s\s/.test(query) && findItems(offered(editor), query).length > 0)),
-        items: ({ editor, query }) => findItems(offered(editor), query),
+          (!/^\s|\s\s/.test(query) && findItems([...offered(editor), ...extra], query).length > 0)),
+        items: async ({ editor, query }) => {
+          extra = (await more?.(editor, query)) ?? []
+          return [...findItems(offered(editor), query), ...extra]
+        },
         command: ({ editor, range, props }) => {
           // The item runs against a document that no longer holds the `/query`.
           editor.chain().focus().deleteRange(range).run()

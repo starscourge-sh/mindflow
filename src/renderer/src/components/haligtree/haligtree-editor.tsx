@@ -258,7 +258,7 @@ import { ImageLook } from "@/components/image/image-look"
 import { holdPlace } from "@/lib/pictures"
 import { CodeBlockView } from "@/components/code/code-block-view"
 import { slashRenderer } from "@/components/slash/slash-menu"
-import { slashItems } from "@/components/slash/slash-items"
+import { slashItems, slashMedia } from "@/components/slash/slash-items"
 import { EmojiSuggestion } from "@/components/emoji/emoji-suggestion"
 
 // --- Styles ---
@@ -1479,7 +1479,7 @@ function Surface({
       // where it could not be changed from code or translated.
       Placeholder.configure({ placeholder }),
       // Pasting a YouTube link embeds it; `/` is the deliberate way in.
-      ...(slash ? [SlashCommand.configure({ render: slashRenderer, items: slashItems })] : []),
+      ...(slash ? [SlashCommand.configure({ render: slashRenderer, items: slashItems, more: slashMedia })] : []),
       EmojiSuggestion,
       // Formulas that copy as their text, and money that stays money.
       InlineFormula,

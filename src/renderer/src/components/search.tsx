@@ -1,4 +1,6 @@
 import { revealRow } from '@/lib/menu-keys'
+import { Image as ImageIcon } from 'lucide-react'
+import { showMediaFile } from '@/lib/media-files'
 import { aimAt } from '@/lib/meeting'
 import { useSeen } from '@/lib/reads-in'
 import { Fragment, memo, useEffect, useRef, useState, useSyncExternalStore, type ComponentProps, type ReactNode } from 'react'
@@ -85,7 +87,11 @@ const groupOf = (at: string): string => {
  * they were captured, with the one under the cursor previewed on the right.
  * Arrows move, Enter opens, Escape closes.
  */
-export function Search({ onOpen, onAside, onTab, onClose, onKeep, keeps = ['note', 'task', 'question'], initial = '', actions: everyAction = [], placeholder, menus = true, scope, choose: chooseFirst, inPane, inCard = false }: { /** Drawn over quick capture's card and no further, at the card's own size and corners: the window never grows for it and the chips round the card stay in sight. */ inCard?: boolean;/** Drawn inside a pane of the split (⌘\\) as its page, not over the window: no scrim, not a dialog, and Esc (onClose) closes the pane. What it opens takes the pane's place. */ inPane?: { title: string; lead: ReactNode }; /** Opened straight on one action's choices, by its label (“Start focus…” from its key anywhere). */ choose?: string; /** Opened about one thing (a task picked on the Calendar): its name before the words, and only its actions until ⌫ leaves it. */ scope?: { label: string; actions: Action[] }; onOpen: (type: string, id: string) => void; /** ⌥↵: open it beside the page, in a pane of its own (the main window's split view). */ onAside?: (type: string, id: string) => void; onTab?: (type: string, id: string) => void; onClose: () => void; /** Words that match nothing, kept as something new (Arc's "search or make"). */ onKeep?: (as: Keep, text: string) => void; keeps?: Keep[]; initial?: string; actions?: Action[]; placeholder?: string; /** A right click on a result offers what its list's would; off where a pick is all a result is for. */ menus?: boolean }): React.JSX.Element {
+export function Search({ onOpen: told, onAside: toldAside, onTab: toldTab, onClose, onKeep, keeps = ['note', 'task', 'question'], initial = '', actions: everyAction = [], placeholder, menus = true, scope, choose: chooseFirst, inPane, inCard = false }: { /** Drawn over quick capture's card and no further, at the card's own size and corners: the window never grows for it and the chips round the card stay in sight. */ inCard?: boolean;/** Drawn inside a pane of the split (⌘\\) as its page, not over the window: no scrim, not a dialog, and Esc (onClose) closes the pane. What it opens takes the pane's place. */ inPane?: { title: string; lead: ReactNode }; /** Opened straight on one action's choices, by its label (“Start focus…” from its key anywhere). */ choose?: string; /** Opened about one thing (a task picked on the Calendar): its name before the words, and only its actions until ⌫ leaves it. */ scope?: { label: string; actions: Action[] }; onOpen: (type: string, id: string) => void; /** ⌥↵: open it beside the page, in a pane of its own (the main window's split view). */ onAside?: (type: string, id: string) => void; onTab?: (type: string, id: string) => void; onClose: () => void; /** Words that match nothing, kept as something new (Arc's "search or make"). */ onKeep?: (as: Keep, text: string) => void; keeps?: Keep[]; initial?: string; actions?: Action[]; placeholder?: string; /** A right click on a result offers what its list's would; off where a pick is all a result is for. */ menus?: boolean }): React.JSX.Element {
+  // A file added to Media with no note has no page of its own: it opens on its tile in Media, from any window. Where a pick is all a result is for, the picker decides.
+  const onOpen = (type: string, id: string): void => (type === 'media' && menus ? (showMediaFile(id), onClose()) : told(type, id))
+  const onAside = toldAside && ((type: string, id: string): void => (type === 'media' && menus ? (showMediaFile(id), onClose()) : toldAside(type, id)))
+  const onTab = toldTab && ((type: string, id: string): void => (type === 'media' && menus ? (showMediaFile(id), onClose()) : toldTab(type, id)))
   const [query, setQuery] = useState(initial)
   const [scoped, setScoped] = useState(!!scope)
   const actions = scoped && scope ? scope.actions : everyAction
@@ -174,6 +180,7 @@ export function Search({ onOpen, onAside, onTab, onClose, onKeep, keeps = ['note
     if (one.type === 'day') return [{ label: 'Open in the Journal', run: () => onOpen('day', one.id) }]
     // A PDF found: it opens in the reader.
     if (one.type === 'pdf' || one.type === 'web') return [{ label: 'Open in the reader', run: () => onOpen(one.type, one.id) }]
+    if (one.type === 'media') return [{ label: 'Show in Media', run: () => onOpen(one.type, one.id) }]
     const own = task
       ? taskMenu(task, { open: () => onOpen('task', one.id), now: taskNow })
       : fullMenu(one.type, one.id, () => onOpen(one.type, one.id)) ?? sideMenu(one.type, one.id, one.label, { onOpen, pinned: pins.some((pin) => pin.id === one.id), kind: one.kind, status: one.status })
@@ -483,7 +490,7 @@ export function Search({ onOpen, onAside, onTab, onClose, onKeep, keeps = ['note
             )}
             {results.map((capture, index) => {
               // A task wears the task mark it has everywhere else, not the to-do kind's.
-              const kind = capture.type === 'goal' ? goalLook(capture.kind) : capture.type === 'task' ? TASK_KIND : capture.type === 'event' ? EVENT_KIND : capture.type === 'day' ? DAY_KIND : capture.type === 'pdf' ? PDF_KIND : capture.type === 'web' ? WEB_KIND : CAPTURE_TYPES.find((type) => type.id === capture.kind) ?? CAPTURE_TYPES[0]
+              const kind = capture.type === 'goal' ? goalLook(capture.kind) : capture.type === 'task' ? TASK_KIND : capture.type === 'event' ? EVENT_KIND : capture.type === 'day' ? DAY_KIND : capture.type === 'pdf' ? PDF_KIND : capture.type === 'web' ? WEB_KIND : capture.type === 'media' ? MEDIA_KIND : CAPTURE_TYPES.find((type) => type.id === capture.kind) ?? CAPTURE_TYPES[0]
               const group = groupFor(index)
               const on = index + doing.length === at
               return (
@@ -506,7 +513,7 @@ export function Search({ onOpen, onAside, onTab, onClose, onKeep, keeps = ['note
                     onClick={(event) => (live.current.several.click(event, capture) ? box.current?.focus() : (aimAt(capture.id, capture.line), live.current.onOpen(capture.type, capture.id)))}
                   >
                     <kind.icon className="size-4 shrink-0" style={{ color: kind.tint }} />
-                    <span {...(shown || capture.type === 'pdf' || capture.type === 'web' ? {} : hoverNote(capture.type, capture.id, { kind: capture.kind }))} {...(capture.type === 'pdf' ? { 'data-pdf-peek': capture.id.split('|')[0], 'data-pdf-peek-name': capture.id.split('|').slice(1).join('|') } : {})} className="min-w-0 truncate">{/* A task's or an Inbox note's #tags as tags, never in its name: so it reads as it does on its own list. */}{(capture.type === 'day' ? dayName(capture.id) : taskName(capture.label ?? '').text) || 'Untitled'}</span>
+                    <span {...(shown || capture.type === 'pdf' || capture.type === 'web' || capture.type === 'media' ? {} : hoverNote(capture.type, capture.id, { kind: capture.kind }))} {...(capture.type === 'pdf' ? { 'data-pdf-peek': capture.id.split('|')[0], 'data-pdf-peek-name': capture.id.split('|').slice(1).join('|') } : {})} className="min-w-0 truncate">{/* A task's or an Inbox note's #tags as tags, never in its name: so it reads as it does on its own list. */}{(capture.type === 'day' ? dayName(capture.id) : taskName(capture.label ?? '').text) || 'Untitled'}</span>
                     {capture.type !== 'day' && <Tags tags={taskName(capture.label ?? '').tags} go={false} />}
                     {/* After the words, so a task's title starts where a note's does. */}
                     {capture.type === 'task' && !!tasks.find((one) => one.id === capture.id)?.priority && <PriorityMark level={tasks.find((one) => one.id === capture.id)!.priority} />}
@@ -568,7 +575,7 @@ export function Search({ onOpen, onAside, onTab, onClose, onKeep, keeps = ['note
                     </div>
                   )
                   : current
-                  ? current.type === 'task' ? <TaskPreview id={current.id} /> : current.type === 'pdf' ? <PdfPeek label={current.label} id={current.id} /> : current.type === 'web' ? <WebPeek label={current.label} site={current.source} /> : current.type === 'event' ? <EventPeek id={current.id} /> : <NotePreview type={current.type} id={current.id} />
+                  ? current.type === 'task' ? <TaskPreview id={current.id} /> : current.type === 'pdf' ? <PdfPeek label={current.label} id={current.id} /> : current.type === 'web' ? <WebPeek label={current.label} site={current.source} /> : current.type === 'media' ? <MediaPeek label={current.label} id={current.id} kind={current.kind} /> : current.type === 'event' ? <EventPeek id={current.id} /> : <NotePreview type={current.type} id={current.id} />
                   : action?.keep
                     // Nothing found: the half says so, and what Enter does with the words.
                     ? <div key={action.label} className="flex flex-col gap-2 p-4">
@@ -594,6 +601,8 @@ export function Search({ onOpen, onAside, onTab, onClose, onKeep, keeps = ['note
                   <span><Kbd>↵</Kbd> open it in the Journal</span>
                 ) : current?.type === 'pdf' || current?.type === 'web' ? (
                   <span><Kbd>↵</Kbd> open it in the reader</span>
+                ) : current?.type === 'media' ? (
+                  <span><Kbd>↵</Kbd> show it in Media</span>
                 ) : current ? (
                   <>
                     <div className="min-w-0 flex-1"><GlossLine key={current.id} id={current.id} open={glossing} onDone={backToBox} keys="⌘;" /></div>
@@ -644,6 +653,7 @@ const PDF_KIND = { icon: FileText, tint: 'var(--tt-color-text-red)' }
 const goalLook = (kind: string): { icon: (typeof KIND_ICON)[GoalKind]; tint: string } =>
   ({ icon: KIND_ICON[(kind in KIND_ICON ? kind : 'dated') as GoalKind], tint: kind === 'iced' ? ICE : 'var(--tt-color-text-orange)' })
 /** A web page kept as an article. */
+const MEDIA_KIND = { icon: ImageIcon, tint: 'var(--tt-color-text-purple)' }
 const WEB_KIND = { icon: BookOpen, tint: 'var(--tt-color-text-blue)' }
 
 /** Search's preview of a kept article: its title and the site it came from. */
@@ -657,6 +667,17 @@ function WebPeek({ label, site }: { label: string; site: string }): React.JSX.El
 }
 
 /** Search's preview of a PDF: its title and the file it came as. */
+/** A file in Media with no note: itself, and where it is. */
+function MediaPeek({ label, id, kind }: { label: string; id: string; kind: string }): React.JSX.Element {
+  const src = id.slice(0, id.indexOf('|'))
+  return (
+    <div className="flex flex-col gap-2 p-4">
+      <p className="text-base font-medium text-pretty text-foreground">{label}</p>
+      <p className="text-body text-muted-foreground">In Media, in no note yet</p>
+      {kind !== 'audio' && <img src={src} alt="" className="max-h-64 w-full rounded-lg object-contain" />}
+    </div>
+  )
+}
 function PdfPeek({ label, id }: { label: string; id: string }): React.JSX.Element {
   const name = id.slice(id.indexOf('|') + 1)
   return (

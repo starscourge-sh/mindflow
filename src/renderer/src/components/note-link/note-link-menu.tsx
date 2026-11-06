@@ -73,7 +73,7 @@ export const NoteList = forwardRef<SuggestionListHandle, Pick<SuggestionProps<No
               >
                 {/* A heading row is the heading: its note is the group above. */}
                 {item.make ? <FilePlus /> : item.heading || item.blockText ? null : item.icon ?? (item.group === 'Tags' ? <TagIcon tag={item.id} tint={item.tint} className="size-4" /> : null)}
-                <span {...(item.id && !item.heading && item.group !== "Tags" ? hoverNote(item.id.includes(":") ? item.id.slice(0, item.id.indexOf(":")) : "capture", item.id.includes(":") ? item.id.slice(item.id.indexOf(":") + 1) : item.id) : {})} className="tiptap-slash-menu-title tiptap-note-link-title" style={item.tint ? { color: item.tint } : undefined}>
+                <span {...(item.id && !item.heading && !item.fileBlock && item.group !== "Tags" ? hoverNote(item.id.includes(":") ? item.id.slice(0, item.id.indexOf(":")) : "capture", item.id.includes(":") ? item.id.slice(item.id.indexOf(":") + 1) : item.id) : {})} className="tiptap-slash-menu-title tiptap-note-link-title" style={item.tint ? { color: item.tint } : undefined}>
                   {item.make ? `Make a new note \u201c${item.label}\u201d` : item.heading ? `# ${item.heading}` : item.blockText ? `¶ ${item.blockText}` : item.label || "Untitled"}
                 </span>
                 {/* Quietly at the end: a tag's use count, a note's last edit, or its code when a code is typed. */}

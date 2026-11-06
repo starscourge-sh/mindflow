@@ -18,6 +18,7 @@ import { retypeList } from '@/lib/retype-list'
 import { linkCard } from '@/lib/link-card'
 import { emptyColumns } from '@/extensions/columns'
 import { embedNote } from '@/extensions/note-link'
+import { blockOf, looseFiles } from '@/lib/media-files'
 
 // --- Icons ---
 import { HeadingOneIcon } from '@/components/tiptap-icons/heading-one-icon'
@@ -62,6 +63,20 @@ function attachFile(editor: Editor, accept?: string): void {
     }
   }
   input.click()
+}
+
+/** Group the book's own files sit under in `/`. */
+const FROM_MEDIA = 'From Media, in no note yet'
+/**
+ * What `/` offers of the book: files added to Media that no note uses yet,
+ * found by name or the words in them, each going in as the block its kind has.
+ * A few with nothing typed; "/media" asks for them by name.
+ */
+export const slashMedia = async (editor: Editor, query: string): Promise<SlashItem[]> => {
+  if (!editor.schema.nodes.image || !editor.schema.nodes.attachment) return []
+  const asked = /^(media|from media)\b/i.test(query.trim())
+  const files = await looseFiles(asked ? '' : query, query.trim() ? 8 : 4)
+  return files.map((one) => ({ key: one.src, title: one.name.replace(/\.[^.]+$/, '') || one.name, group: FROM_MEDIA, icon: one.icon, run: (at) => void at.chain().focus().insertContent(blockOf(one)).run() }))
 }
 
 /**
