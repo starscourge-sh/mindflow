@@ -203,19 +203,6 @@ export const SHORTCUTS: Shortcut[] = [
   { group: 'Lists', keys: '!alert', does: 'Typed in a task: a notification at its time, whatever Settings says', where: 'Both windows' },
   { group: 'Lists', keys: '!quiet', does: 'Typed in a task: counted in the menu bar at its time', where: 'Both windows' },
   { group: 'Lists', keys: '!pull', does: 'Typed in a task: only rises to the top of Today at its time', where: 'Both windows' },
-  { group: "This week's tasks", keys: 'H', does: 'Day before (L for the day after)', where: 'Main window' },
-  { group: "This week's tasks", keys: 'J', does: 'Next task in the day (K for the one before)', where: 'Main window' },
-  { group: "This week's tasks", keys: '⇧H', does: 'Move the task a day earlier', where: 'Main window' },
-  { group: "This week's tasks", keys: '⇧L', does: 'Move the task a day later', where: 'Main window' },
-  { group: "This week's tasks", keys: '[', does: 'Week before', where: 'Main window' },
-  { group: "This week's tasks", keys: ']', does: 'Week after', where: 'Main window' },
-  { group: "This week's tasks", keys: '↵', does: 'Open the task', where: 'Main window' },
-  { group: "This week's tasks", keys: 'E', does: 'Complete the task', where: 'Main window' },
-  { group: "This week's tasks", keys: 'T', does: 'Move the task to today', where: 'Main window' },
-  { group: "This week's tasks", keys: 'M', does: 'Move the task to tomorrow', where: 'Main window' },
-  { group: "This week's tasks", keys: 'W', does: 'Move the task to a week from today', where: 'Main window' },
-  { group: "This week's tasks", keys: '1', does: 'Task priority: Urgent, High, Medium, Low (1 to 4; 0 for none)', where: 'Main window' },
-  { group: "This week's tasks", keys: '⌥↑', does: 'Move the task up in its day (⌥↓ down)', where: 'Main window' },
 
   { group: 'Matrix', keys: 'H', does: 'The box to the left (L to the right; ← → too)', where: 'Main window' },
   { group: 'Matrix', keys: 'J', does: 'Next task (K the one before; ↓ ↑ too, and on into the box below or above)', where: 'Main window' },
@@ -342,7 +329,7 @@ export const SHORTCUTS: Shortcut[] = [
 ]
 
 /** Groups that only exist in the main window: their rows need not say so. */
-const MAIN_ONLY = ["This week's tasks", 'Matrix', 'Board', 'Settings']
+const MAIN_ONLY = ['Matrix', 'Board', 'Settings']
 /** Where a key works, said only when it is limited, in plain words: '' when it works wherever you would press it. */
 export function whereSaid(one: Shortcut): string {
   if (one.where === 'Both windows' || one.where === 'Anywhere' || one.where === one.group) return ''
