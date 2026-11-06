@@ -56,16 +56,21 @@ try {
   await h.waitForTimeout(1000)
   check('a data refresh mid-replay keeps its place, never shows the whole map', gem && Number(await replayed()) === paused && !!(await date()), `${paused} then ${await replayed()}`)
 
-  const speed = await h.textContent('[data-map-replay-speed]')
+  const speed = await h.textContent('[data-map-replay-speed] > span:first-child')
   await h.click('[data-map-replay-speed]')
-  check('the speed button steps 1× to 2×', speed === '1×' && (await h.textContent('[data-map-replay-speed]')) === '2×', await h.textContent('[data-map-replay-speed]'))
+  check('the speed button steps 1× to 2×', speed === '1×' && (await h.textContent('[data-map-replay-speed] > span:first-child')) === '2×', await h.textContent('[data-map-replay-speed] > span:first-child'))
 
-  // Dragging the bar: to its start shows almost nothing; to its end, all of it.
-  const track = await h.locator('[data-map-replay-bar] [data-slot="slider"]').boundingBox()
+  // The timeline: to its start shows almost nothing; to its end, all of it.
+  // A click near its start shows only the first day's notes; Home, the very start.
+  const track = await h.locator('[data-map-replay-track]').boundingBox()
   await h.mouse.click(track.x + 1, track.y + track.height / 2)
   await h.waitForTimeout(150)
+  const firstDay = Number(await replayed())
+  await h.keyboard.press('Home')
+  await h.waitForTimeout(150)
   const atStart = Number(await replayed())
-  // The thumb has the keys after a click: End takes it to the last note.
+  check('a click near the timeline\'s start shows only the first few', firstDay < total / 10, `${firstDay} of ${total}`)
+  // The timeline has the keys after a click: End takes it to the last note.
   await h.keyboard.press('End')
   await h.waitForTimeout(150)
   const atEnd = Number(await replayed())

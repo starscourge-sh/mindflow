@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { CAPTURE_TYPES } from '@/components/capture-kinds/capture-kind-picker'
 import { notes, type MapNode, type NoteMap } from '@/lib/notes'
@@ -14,13 +14,12 @@ import { chime } from '@/lib/sound'
 import { FLOAT } from '@/lib/float'
 import { Empty, Rolling, Tip, TypedMark } from './ui'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { History, Palette, Pause, Play, Search as SearchIcon, Unlink, X } from 'lucide-react'
+import { History, Palette, Pause, Play, RotateCcw, Search as SearchIcon, Unlink, X } from 'lucide-react'
 import GearIcon from '@/components/ui/gear-icon'
 import { AliveIcon } from '@/components/ui/alive-icon'
-import { Slider } from '@/components/ui/slider'
-import { still } from '@/lib/motion'
 import { Fit } from '@/components/ui/icons'
 import { Chips } from './display'
+import './sound-player.css'
 import { openSource, sources, type SourceGraph } from '@/lib/sources'
 import { dayMonth, num } from '../../../../main/dates'
 
@@ -236,19 +235,28 @@ function LinkMap({ onOpen, modes }: { onOpen: (type: string, id: string) => void
 
 const SPEEDS = [1, 2, 4]
 
+/** A bar and the gap after it on the replay's timeline, in pixels, as the voice player's waveform is drawn. */
+const MARK = 2, MARK_STEP = 4, MARK_HIGH = 28, MARK_TALLEST = 22
+
 /**
  * The Map grown again from the first note caught to the last: dots arrive in
  * the order they were caught, a link draws once both its ends are there, and
- * the date runs above. Play and pause, drag to any moment, pick a speed; Esc
- * or the close button shows the whole map again. With Motion off it opens on
- * the whole map, to be dragged through by hand.
+ * the date runs above. Built from the voice player's pieces (sound-player.tsx):
+ * its round play button, and a timeline drawn as its waveform is, one mark per
+ * few days, as tall as the notes caught then, ink for what has grown and faint
+ * for what is to come, with its accent playhead to drag. The date large and
+ * first, the count under it, the speed quiet at the end. Esc or the close
+ * button shows the whole map again. With Motion off it opens on the whole map,
+ * to be dragged through by hand; with Reduce motion it plays, each dot fading
+ * in where it sits.
  */
 function Replay({ nodes, show, onClose }: { nodes: NoteMap['nodes']; show: React.RefObject<(at: number | null) => void>; onClose: () => void }): React.JSX.Element {
   const order = useMemo(() => replayOrder(nodes), [nodes])
+  const motionOff = (): boolean => document.documentElement.dataset.motion === 'off'
   // The end: the last dot fully in.
   const end = order.length - 1 + REPLAY_FADE
-  const [at, setAt] = useState(() => (still() ? end : 0))
-  const [playing, setPlaying] = useState(() => !still())
+  const [at, setAt] = useState(() => (motionOff() ? end : 0))
+  const [playing, setPlaying] = useState(() => !motionOff())
   const [speed, setSpeed] = useState(1)
   const now = useRef(at)
   now.current = at
@@ -283,40 +291,133 @@ function Replay({ nodes, show, onClose }: { nodes: NoteMap['nodes']; show: React
     window.addEventListener('keydown', key, true)
     return () => window.removeEventListener('keydown', key, true)
   }, [onClose])
-  const reached = order[Math.max(0, Math.min(order.length - 1, Math.floor(at)))]
+
+  // The timeline: each note's day as a time, the undated at the start, and the span from the first to the last.
+  const times = useMemo(() => {
+    const dated = order.map((node) => (node.at ? Date.parse(node.at) : NaN))
+    const first = Math.min(...dated.filter(Number.isFinite))
+    return dated.map((time) => (Number.isFinite(time) ? time : first))
+  }, [order])
+  const [from, to] = [times[0] ?? 0, times.at(-1) ?? 0]
+  const span = Math.max(1, to - from)
+  const track = useRef<HTMLDivElement>(null)
+  const [width, setWidth] = useState(0)
+  useLayoutEffect(() => {
+    const el = track.current
+    if (!el) return
+    const watch = new ResizeObserver(() => setWidth(el.clientWidth))
+    watch.observe(el)
+    setWidth(el.clientWidth)
+    return () => watch.disconnect()
+  }, [])
+  // One mark every few pixels, as tall as the notes caught in its days (by their square root, so one busy day does not
+  // flatten the rest); a stretch with none is the bare line.
+  const marks = useMemo(() => {
+    const bins = Math.max(1, Math.floor((width + MARK_STEP - MARK) / MARK_STEP))
+    const counts = new Array<number>(bins).fill(0)
+    for (const time of times) counts[Math.min(bins - 1, Math.floor(((time - from) / span) * bins))]++
+    const most = Math.max(1, ...counts)
+    return counts.map((count) => (count ? Math.max(MARK, Math.sqrt(count / most) * MARK_TALLEST) : 0))
+  }, [times, from, span, width])
+  const drawn = (
+    <svg aria-hidden width={width} height={MARK_HIGH} className="mf-sound-bars" data-map-replay-marks>
+      {marks.map((tall, i) => tall ? <rect key={i} x={i * MARK_STEP} y={(MARK_HIGH - tall) / 2} width={MARK} height={tall} rx={MARK / 2} /> : null)}
+    </svg>
+  )
+  // Where the replay has reached on the timeline: between the day of the note last in and the next one's, so the
+  // playhead glides across a quiet month rather than jumping it.
+  const last = order.length - 1
+  const whole = Math.max(0, Math.min(last, Math.floor(at)))
+  const day = whole >= last ? times[last] : times[whole] + (times[whole + 1] - times[whole]) * Math.min(1, at - whole)
+  const share = at >= end ? 1 : Math.max(0, Math.min(1, (day - from) / span))
+  // A place on the timeline, back to the replay's own count: every note caught by that day fully in.
+  const atShare = (to: number): number => {
+    if (to <= 0) return 0
+    if (to >= 1) return end
+    const when = from + to * span
+    let count = 0
+    while (count < times.length && times[count] <= when) count++
+    return Math.max(0, Math.min(end, count - 1 + REPLAY_FADE))
+  }
+  const [hover, setHover] = useState<number | null>(null)
+  const shareAt = (event: { clientX: number }): number => {
+    const box = track.current!.getBoundingClientRect()
+    return box.width ? Math.max(0, Math.min(1, (event.clientX - box.left) / box.width)) : 0
+  }
+  const seek = (to: number): void => (setPlaying(false), setAt(to))
+
+  const reached = order[whole]
   const shown = Math.min(order.length, Math.floor(at) + 1)
+  const state = playing ? 'playing' : at >= end ? 'ended' : 'paused'
   const toggle = (): void => {
     chime('tap')
     if (playing) return setPlaying(false)
     // At the end, play starts again from the first note; with Motion off there is nothing to play, so it shows the end.
-    if (still()) return setAt(end)
+    if (motionOff()) return setAt(end)
     if (at >= end) setAt(0)
     setPlaying(true)
   }
+  const press = (run: () => void) => (event: React.KeyboardEvent): void => void ((event.key === 'Enter' || event.key === ' ') && (event.preventDefault(), event.stopPropagation(), run()))
+  const across = width * share
   return (
-    <div data-map-replay-bar className="pointer-events-auto absolute top-3 left-1/2 flex w-[min(34rem,calc(100%-2rem))] -translate-x-1/2 items-center gap-3 rounded-lg border bg-background py-1.5 pr-1.5 pl-2 text-control shadow-[0_8px_24px_-12px_color-mix(in_oklab,var(--mf-shadow-ink)_30%,transparent)]">
-      <Tip label={playing ? 'Pause' : 'Play'}>
-        <Button data-map-replay-play variant="ghost" size="icon-sm" onClick={toggle} aria-label={playing ? 'Pause' : 'Play'}>
-          {playing ? <Pause className="size-3.5" /> : <Play className="size-3.5" />}
-        </Button>
+    <div data-map-replay-bar className={`pointer-events-auto absolute top-3 left-1/2 grid w-[min(36rem,calc(100%-2rem))] -translate-x-1/2 grid-cols-[32px_auto_minmax(0,1fr)_auto] grid-rows-[32px_auto] items-center gap-x-3 gap-y-0.5 rounded-xl py-2 pr-2 pl-2.5 ${FLOAT}`}
+      style={{ '--mf-sound-faint': 'color-mix(in oklab, var(--foreground) 22%, transparent)' } as React.CSSProperties}>
+      <Tip label={state === 'playing' ? 'Pause' : state === 'ended' ? 'Play again' : 'Play'}>
+        <span role="button" tabIndex={0} data-map-replay-play className="mf-sound-play" data-state={state} aria-label={state === 'playing' ? 'Pause' : state === 'ended' ? 'Play again' : 'Play'}
+          onClick={toggle} onKeyDown={press(toggle)}>
+          <Play data-icon="paused" />
+          <Pause data-icon="playing" />
+          <RotateCcw data-icon="ended" />
+        </span>
       </Tip>
-      {/* The date it has reached, the one thing to read, large and first; the count after it. */}
-      <div className="flex w-36 shrink-0 flex-col leading-tight">
-        <span data-map-replay-date className="font-semibold text-foreground tabular-nums">{reached?.at ? dayMonth(reached.at, 'always') : 'Undated'}</span>
-        <span className="text-meta text-muted-foreground tabular-nums">{num(shown)} of {num(order.length)} notes</span>
+      {/* The date it has reached, the one thing to read, large and first; as wide as the widest date, so nothing moves. */}
+      <span data-map-replay-date className="min-w-[7.5rem] text-heading leading-tight font-semibold text-foreground tabular-nums">{reached?.at ? dayMonth(reached.at, 'always') : 'Undated'}</span>
+      <div ref={track} data-map-replay-track role="slider" tabIndex={0} aria-label="When" aria-valuemin={0} aria-valuemax={order.length} aria-valuenow={shown}
+        aria-valuetext={`${reached?.at ? dayMonth(reached.at, 'always') : 'Undated'}, ${num(shown)} of ${num(order.length)} notes`}
+        className="mf-sound-wave"
+        onPointerDown={(event) => {
+          if (event.button !== 0) return
+          event.currentTarget.setPointerCapture(event.pointerId)
+          seek(atShare(shareAt(event)))
+        }}
+        onPointerMove={(event) => {
+          if (event.currentTarget.hasPointerCapture(event.pointerId)) seek(atShare(shareAt(event)))
+          setHover(shareAt(event))
+        }}
+        onPointerLeave={() => setHover(null)}
+        onKeyDown={(event) => {
+          // ← and → by five notes, Home and End, Space or Return to play, as the voice player's waveform.
+          const next = { ArrowLeft: Math.max(0, Math.floor(at) - 5), ArrowRight: Math.min(end, Math.floor(at) + 5), Home: 0, End: end }[event.key]
+          if (next === undefined && event.key !== ' ' && event.key !== 'Enter') return
+          event.preventDefault()
+          event.stopPropagation()
+          if (next === undefined) toggle()
+          else seek(next)
+        }}>
+        {drawn}
+        <div className="mf-sound-played" aria-hidden style={{ clipPath: `inset(0 ${Math.max(0, width - across)}px 0 0)` }}>{drawn}</div>
+        {hover !== null && <span className="mf-sound-ghost" aria-hidden style={{ left: `${hover * 100}%` }} />}
+        <span data-playhead className="mf-sound-head" aria-hidden style={{ transform: `translateX(${across}px)` }} />
       </div>
-      <Slider aria-label="When" min={0} max={end} step={0.01} value={[at]} className="min-w-0 flex-1 cursor-pointer"
-        onValueChange={([value]) => (setPlaying(false), setAt(value))} />
-      <Tip label="Speed">
-        <Button data-map-replay-speed variant="ghost" size="sm" className="w-10 shrink-0 tabular-nums"
-          onClick={() => (chime('tap'), setSpeed(SPEEDS[(SPEEDS.indexOf(speed) + 1) % SPEEDS.length]))}>{speed}×</Button>
-      </Tip>
       <Tip label="Stop the replay  Esc">
         <Button data-map-replay-close variant="ghost" size="icon-sm" onClick={onClose} aria-label="Stop the replay"><X className="size-3.5" /></Button>
       </Tip>
+      {/* Under it, quietly: how many are in, the timeline's two ends, and the speed. */}
+      <span className="col-start-2 text-meta text-muted-foreground tabular-nums">{num(shown)} of {num(order.length)} notes</span>
+      <span aria-hidden className="flex justify-between text-meta text-muted-foreground tabular-nums">
+        <span>{monthYear(from)}</span><span>{monthYear(to)}</span>
+      </span>
+      <span role="button" tabIndex={0} data-map-replay-speed className="mf-sound-speed inline-grid cursor-pointer justify-items-end justify-self-center rounded text-meta text-muted-foreground tabular-nums"
+        aria-label={`Speed ${speed} times`} onClick={() => (chime('tap'), setSpeed(SPEEDS[(SPEEDS.indexOf(speed) + 1) % SPEEDS.length]))}
+        onKeyDown={press(() => (chime('tap'), setSpeed(SPEEDS[(SPEEDS.indexOf(speed) + 1) % SPEEDS.length])))}>
+        <span>{speed}×</span><span aria-hidden className="mf-sound-reserve">4×</span>
+      </span>
     </div>
   )
 }
+
+/** "Nov 2024": a timeline's end. */
+const monthYear = (time: number): string => new Date(time).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })
 
 /**
  * Find a note on the map by its name: the best few matches as you type, and
