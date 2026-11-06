@@ -15,6 +15,7 @@ import { useSelectAll } from '@/lib/select-all'
 import { usePicking } from '@/lib/pick-range'
 import { useHere } from '@/lib/split'
 import { PICKED_ROW } from './task-pick'
+import { TABLE_CURSOR, TABLE_LEAD, TABLE_NAME, TABLE_ROW, TABLE_ROWS, TABLE_WHEN } from './table-look'
 import { Example } from './example'
 import { exampleDiscarded } from '@/lib/examples'
 import { HoldButton } from './hold-button'
@@ -448,7 +449,7 @@ function Rows({ list, onRestore, onForget, cursor = -1, chosen = [], looked = nu
         <motion.li key={key} data-row data-id={one.id} data-bin-row={one.type} data-picked={picked || undefined} data-cursor={index === cursor || undefined}
           onClick={onClick ? (event) => !(event.target as Element).closest('button') && onClick(one, event) : undefined}
           data-looked={key === looked || undefined}
-          className={`flex items-center gap-3 overflow-hidden rounded-md px-2 py-2 ${long ? 'border-b border-border/60' : ''} ${picked ? PICKED_ROW : index === cursor ? 'bg-accent/40' : ''}`}
+          className={`${TABLE_ROW} overflow-hidden ${long ? 'border-b border-border/60' : ''} ${picked ? PICKED_ROW : index === cursor ? TABLE_CURSOR : ''}`}
           layout={long ? false : 'position'}
           // Restored by ↵ it simply goes; by a click it lifts away. The rows below close the gap on `layout`.
           variants={{ gone: () => (byKeys() ? { opacity: 0, transition: { duration: 0 } } : { opacity: 0, transform: shift('translateY(-8px)'), transition: { duration: 0.16, ease: EASE } }) }}
@@ -456,17 +457,17 @@ function Rows({ list, onRestore, onForget, cursor = -1, chosen = [], looked = nu
           // The rows below close the gap on their own spring, or at once after a key.
           transition={byKeys() ? { duration: 0 } : spring.moderate}>
           {/* A capture says its own kind (Note, Quote, Link), as it did before it went to the Bin. */}
-          <span className="w-16 shrink-0 text-xs text-muted-foreground">{kindSaid(one)}</span>
+          <span data-table-lead className={TABLE_LEAD}>{kindSaid(one)}</span>
           {/* The name without its #tags, the tags as chips after it, as every main list shows them.
               With no name of its own, its first line, in muted ink. Pointed at, the card an @ link
               shows (note-preview.tsx), except on the one already open beside the list. */}
-          <span className="min-w-0 flex-1 truncate">
+          <span data-table-name className={TABLE_NAME}>
             <span {...(onClick && key !== looked ? hoverNote(one.type, one.id, { kind: one.type === 'capture' ? one.kind : one.type === 'nugget' ? 'idea' : one.type, binned: true }) : {})}
               data-untitled={nameOf(one).line || undefined}
               className={`private-text text-body ${nameOf(one).line ? 'text-muted-foreground' : 'text-foreground'}`}>{nameOf(one).text}</span>
           </span>
           <Tags tags={taskName(one.title).tags} />
-          <span className="shrink-0 text-xs text-muted-foreground">{whenInLine(one.at)}</span>
+          <span data-table-when className={TABLE_WHEN}>{whenInLine(one.at)}</span>
           {asking === key && onForget ? (
             <span data-bin-ask className="flex shrink-0 items-center gap-1">
               <span className="text-control font-medium text-foreground">Delete for good? It cannot come back.</span>
@@ -492,7 +493,7 @@ function Rows({ list, onRestore, onForget, cursor = -1, chosen = [], looked = nu
       </PresenceContext.Provider>
     )
   return (
-    <ul className="divide-y divide-border/60">
+    <ul className={TABLE_ROWS}>
       {/* Restored, a row lifts up out of the list as it fades, and the rows below close the gap. */}
       <AnimatePresence initial={false}>
       {list.map(row)}

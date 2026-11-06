@@ -1,4 +1,6 @@
 import { TabControls, useToolbarCompact } from './review-toolbar'
+import { TABLE_LEAD, TABLE_NAME, TABLE_QUIET, TABLE_ROW, TABLE_WHEN, TableHead } from './table-look'
+import { PICKED_ROW } from './task-pick'
 import { TriangleAlert } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { chime } from '@/lib/sound'
@@ -131,6 +133,9 @@ const GROUPING: Record<string, { of: (card: BrowsedCard) => string; rank: (name:
   made: { of: (card) => month(card.createdAt), rank: (_, list) => -Date.parse(list[0].createdAt) },
   needs: { of: (card) => NEED_NAME(needs(card)[0] ?? ''), rank: (name) => { const at = NEEDS.findIndex((one) => one.label === name); return at < 0 ? 99 : at } }
 }
+
+/** All cards' columns after the stage, the same in List and Table (and Table's heads over them). */
+const COLUMNS = { name: 'basis-0', answer: 'flex-1 basis-0', decks: 'w-32 text-right', when: 'w-[5.5rem]' }
 
 /** When it is next asked, in words: "due now", "in 3 days", "new". */
 function dueSaid(card: BrowsedCard): string {
@@ -552,39 +557,20 @@ export function CardBrowser({ onOpen, aim, only, newest, onAll, onShow, onAimDon
       'data-pick': `nugget:${card.id}`, role: 'button', tabIndex: 0, 'aria-selected': on,
       onClick: (event: React.MouseEvent) => several.click(event, pick(card)) || (chime('tap'), setEditing(editing === card.id ? null : card.id))
     }
-    // The Anki Browser's table: one line a card, its columns lined up down the page.
-    if (density === 'compact')
-      return (
-        <div {...common} className={`grid cursor-pointer grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_6.5rem_5rem_8rem] items-center gap-x-3 border-b border-border/50 px-3 py-1 text-xs outline-none transition-colors hover:bg-accent/50 focus-visible:bg-accent/60 ${on ? 'bg-accent' : ''} ${card.paused ? 'opacity-60' : ''}`}>
-          {question(card, 'truncate text-control font-medium')}
-          <span className="flex min-w-0 items-center gap-1.5 text-muted-foreground">{mark(card)}<span className="truncate">{answerShown(card) || 'No answer yet'}</span></span>
-          <span className={`text-right tabular-nums ${dueSaid(card) === 'due now' ? 'text-foreground' : 'text-muted-foreground'}`}>{dueSaid(card) === 'new' ? '' : dueSaid(card)}</span>
-          <span data-card-stage-cell className="flex min-w-0 items-center gap-1.5 whitespace-nowrap text-muted-foreground"><span aria-hidden className="size-1.5 shrink-0 rounded-full" style={{ background: tintOf(card) }} />{STAGES.find((one) => one.id === stageOf(card))!.word}</span>
-          <span className="truncate text-right text-muted-foreground">{card.tags.slice(0, 2).map((one) => deckTitle(one, tags)).join(', ')}</span>
-        </div>
-      )
-    // The list: the question over its answer on the left; when, stage and tags in one column on the right.
+    // The Bin's table (table-look.tsx), one line a card: its stage first, quiet, as the Bin says a kind; the question
+    // in ink; in Table its answer too; its decks; when it is next asked, flush right. Fixes, where asked for, on a line under.
+    const when = dueSaid(card) === 'new' ? '' : dueSaid(card)
+    const fixing = fixes(card)
     return (
-      <div {...common} className={`grid cursor-pointer grid-cols-[1fr_10rem] items-center gap-x-4 rounded-md px-3 py-2 outline-none transition-colors hover:bg-accent/50 focus-visible:bg-accent/60 ${on ? 'bg-accent' : ''} ${card.paused ? 'opacity-60' : ''}`}>
-        <span className="flex min-w-0 flex-col gap-0.5">
-          {question(card, 'truncate text-sm font-medium')}
-          <span className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
-            {mark(card)}
-            <span className="min-w-0 truncate">{answerShown(card) || 'No answer yet'}</span>
-          </span>
-          {fixes(card)}
-        </span>
-        <span className="flex min-w-0 flex-col items-end gap-0.5 text-xs text-muted-foreground">
-          <span className="flex items-center gap-1.5 whitespace-nowrap">
-            {/* "new" is said once, by the stage. */}
-            {dueSaid(card) !== 'new' && <>
-              <span className={`tabular-nums ${dueSaid(card) === 'due now' ? 'text-foreground' : ''}`}>{dueSaid(card)}</span>
-              <span aria-hidden className="text-foreground/25">·</span>
-            </>}
-            <span data-card-stage className="flex items-center gap-1"><span aria-hidden className="size-1.5 rounded-full" style={{ background: tintOf(card) }} />{STAGES.find((one) => one.id === stageOf(card))!.word.toLowerCase()}</span>
-          </span>
-          {card.tags.length > 0 && <span className="max-w-full truncate">{card.tags.slice(0, 2).map((one) => deckTitle(one, tags)).join(', ')}</span>}
-        </span>
+      <div {...common} data-picked={on || undefined} data-table-row
+        className={`${TABLE_ROW} border-b border-border/60 ${fixing ? 'flex-wrap' : ''} ${on ? PICKED_ROW : ''} ${card.paused ? 'opacity-60' : ''}`}>
+        <span data-table-lead data-card-stage className={`${TABLE_LEAD} flex items-center gap-1.5`}><span aria-hidden className="size-1.5 shrink-0 rounded-full" style={{ background: tintOf(card) }} />{STAGES.find((one) => one.id === stageOf(card))!.word}</span>
+        {question(card, `${TABLE_NAME} ${COLUMNS.name}`)}
+        {mark(card)}
+        {density === 'compact' && <span data-card-answer className={`${TABLE_QUIET} ${COLUMNS.answer}`}>{answerShown(card) || 'No answer yet'}</span>}
+        <span data-card-decks className={`${TABLE_QUIET} ${COLUMNS.decks}`}>{card.tags.slice(0, 2).map((one) => deckTitle(one, tags)).join(', ')}</span>
+        <span data-table-when className={`${TABLE_WHEN} ${COLUMNS.when} ${when === 'due now' ? 'text-foreground' : ''}`}>{when}</span>
+        {fixing && <span className="basis-full pl-[6.75rem]">{fixing}</span>}
       </div>
     )
   }
@@ -610,11 +596,11 @@ export function CardBrowser({ onOpen, aim, only, newest, onAll, onShow, onAimDon
   // The grid of cards is drawn where you are looking (and a screen either side), however many thousand it holds.
   const body = (list: BrowsedCard[]): React.JSX.Element => density === 'grid'
     ? <div data-card-grid><Windowed items={list} render={cell} className="grid grid-cols-[repeat(auto-fill,minmax(min(12.5rem,calc(50%-0.75rem)),1fr))] items-start gap-5 p-1 max-sm:gap-3" /></div>
-    : <><div className={`flex flex-col ${density === 'compact' ? 'text-xs' : ''}`}>{list.slice(0, limit).map(cell)}</div>{more(list)}</>
+    : <><div className="flex flex-col">{list.slice(0, limit).map(cell)}</div>{more(list)}</>
+  // Table names its columns, in the rows' own boxes.
   const head = density === 'compact' && (
-    <div aria-hidden className="grid grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_6.5rem_5rem_8rem] gap-x-3 border-b px-3 pb-1 text-xs font-medium text-muted-foreground">
-      <span>Question</span><span>Answer</span><span className="text-right">Due</span><span>Stage</span><span className="text-right">Decks</span>
-    </div>
+    <TableHead columns={[{ label: 'Stage', className: TABLE_LEAD }, { label: 'Question', className: `${TABLE_NAME} ${COLUMNS.name}` }, { label: 'Answer', className: `${TABLE_QUIET} ${COLUMNS.answer}` },
+      { label: 'Decks', className: `${TABLE_QUIET} ${COLUMNS.decks}` }, { label: 'Next', className: `${TABLE_WHEN} ${COLUMNS.when}` }]} />
   )
   const allOver = shown.length > 0 && shown.every((card) => over.has(card.id))
 
