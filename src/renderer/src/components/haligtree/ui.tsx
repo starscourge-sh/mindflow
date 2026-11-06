@@ -886,6 +886,10 @@ export function useListKeys(count: number, { onOpen, onEscape, enabled = true, o
       const move = (to: number): void => {
         event.preventDefault()
         setAt(Math.max(0, Math.min(count - 1, to)))
+        // The arrows took the keys, so the list has them now: a button clicked a moment before (a sort chip) lets go,
+        // or the next Enter would press it again instead of opening the row the cursor is on. A field keeps its caret.
+        const held = document.activeElement
+        if (!inBox && held instanceof HTMLButtonElement && !held.closest('[data-row], [data-cursor]')) held.blur()
       }
       if (event.metaKey || event.altKey) return
       const by = event.key === 'ArrowDown' ? 1 : event.key === 'ArrowUp' ? -1 : 0

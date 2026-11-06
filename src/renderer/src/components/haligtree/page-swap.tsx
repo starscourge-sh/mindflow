@@ -37,13 +37,17 @@ export function PageSwap({ id, children }: { id: string; children: ReactNode }):
   return <div className="relative flex min-w-0 flex-1">{pages}</div>
 }
 
-/** One page, unseen until every read on it is in; once seen, says so. `gone`: on its way out, unseen. */
+/**
+ * One page, unseen until every read on it is in; once seen, says so. `gone`: on its way out, unseen. `over`: the page
+ * left, held on show while the next one reads: only a picture of where you were, so it takes no keys and no focus (a
+ * slow Tags kept Home up for a moment, and Home's arrows focused one of its cards there, which the next Enter opened).
+ */
 function Held({ over = false, gone = false, onSeen, children }: { over?: boolean; gone?: boolean; onSeen?: () => void; children: ReactNode }): React.JSX.Element {
   const { provide, style } = useReadsIn()
   const on = style === undefined
   useLayoutEffect(() => void (on && onSeen?.()), [on]) // eslint-disable-line react-hooks/exhaustive-deps
   return (
-    <div className={over ? 'pointer-events-none absolute inset-0 flex min-w-0' : 'flex min-w-0 flex-1'} style={gone ? { display: 'none' } : style} inert={gone || undefined}>
+    <div className={over ? 'pointer-events-none absolute inset-0 flex min-w-0' : 'flex min-w-0 flex-1'} style={gone ? { display: 'none' } : style} inert={over || gone || undefined}>
       {provide(children)}
     </div>
   )

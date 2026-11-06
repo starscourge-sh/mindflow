@@ -57,15 +57,19 @@ try {
   await wait(500)
   const az = (await rows()).map((one) => one.tag)
   check('A to Z: in order, read across the two columns', az.join() === [...az].sort().join(), az.slice(0, 4).join())
-  // The keys: ↓ starts on the first, → the one beside, ↓ the one under, ← and ↑ back.
-  await h.mouse.click(5, 300)
+  // The keys straight after clicking "A to Z", as a person would, the chip still holding the focus: ↓ starts on the
+  // first row, → the one beside, ↓ the one under, ← and ↑ back, and Enter opens the row the keys are on.
   const seen = []
-  for (const key of ['ArrowDown', 'ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowUp']) { await h.keyboard.press(key); await wait(80); seen.push(await cursorTag()) }
+  const where = () => h.evaluate(() => { const one = document.activeElement; const tiles = [...document.querySelectorAll('[data-nav]')]; return `${one?.tagName}${one?.dataset?.nav !== undefined ? '(home tile)' : ''} | home tiles ${tiles.length}, visible ${tiles.filter((t) => t.checkVisibility()).length}, in inert ${tiles.filter((t) => t.closest('[inert]')).length}, hidden by display ${tiles.filter((t) => !t.offsetParent).length}` })
+  if (process.env.QA_TRACE) console.log('before keys:', await where())
+  for (const key of ['ArrowDown', 'ArrowRight', 'ArrowDown', 'ArrowLeft', 'ArrowUp']) { await h.keyboard.press(key); await wait(80); seen.push(await cursorTag()); if (process.env.QA_TRACE) console.log(key, await where()) }
   check('keys: ↓ first row, → beside, ↓ under, ← back, ↑ up', seen.join() === [az[0], az[1], az[3], az[2], az[0]].join(), seen.join())
+  const held = await h.evaluate(() => { const one = document.activeElement; return `${one?.tagName} ${one?.getAttribute('aria-label') ?? ''} ${one?.dataset?.tagRow ?? ''} ${one?.className?.toString().slice(0, 50) ?? ''}` })
   await h.keyboard.press('Enter')
   await wait(1200)
+  console.log('focus before Enter:', held, '| cursor on', await cursorTag())
   const opened = await h.evaluate(() => document.querySelector('h1 [data-tag-title]')?.textContent)
-  check('Enter opens the tag under the cursor', opened === `#${az[0]}`, opened)
+  check('Enter opens the tag under the cursor', opened === `#${az[0]}`, `${opened} (cursor was ${az[0]})`)
   if (shots) await both(`${shots}/tags-open-1280`)
   await h.keyboard.press('Meta+BracketLeft')
   await wait(900)
