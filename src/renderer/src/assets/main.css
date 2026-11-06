@@ -1519,6 +1519,10 @@ body {
   animation-range: 0 1.5rem, calc(100% - 2.5rem) 100%;
 }
 @keyframes mf-less { from { --mf-less: 0px; } to { --mf-less: 1.5rem; } }
+/* A row brought into view by the keys stops clear of the fades, never under them (the user, 6 Nov: the slash menu's
+   last row sat in the shadow). Every list with these fades keeps this much room at each edge when it scrolls a row in. */
+.mf-more { scroll-padding-block: 1.5rem 2.5rem; }
+.mf-fade-end { scroll-padding-bottom: 2rem; }
 /* All of it in view (lib/fade-fits.ts marks it): no fade at either edge, whatever the scroll last left behind. */
 :is(.mf-more, .mf-fade-end, .page-dock-side, .page-dock-scroll, [data-reading-pane] .note-pane, [data-reading-pane] .note-pane .haligtree-editor-content, .mf-faded .haligtree-editor-content)[data-all-shown] { animation: none; }
 @keyframes mf-more { from { --mf-more: 2.5rem; } to { --mf-more: 0px; } }

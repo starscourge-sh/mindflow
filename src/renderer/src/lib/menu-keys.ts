@@ -78,6 +78,10 @@ export function revealRow(row: Element | null | undefined): void {
   const before = row.previousElementSibling
   const top = before && before.tagName !== row.tagName ? before : row
   const [area, from, to] = [box.getBoundingClientRect(), top.getBoundingClientRect(), row.getBoundingClientRect()]
-  if (from.top < area.top) box.scrollTop -= area.top - from.top
-  else if (to.bottom > area.bottom) box.scrollTop += to.bottom - area.bottom
+  // Clear of the list's edge fades (its scroll-padding, main.css .mf-more): stopped flush with the edge, the row sat
+  // in the fade's shadow (the slash menu, 6 Nov).
+  const style = getComputedStyle(box)
+  const [above, below] = [parseFloat(style.scrollPaddingTop) || 0, parseFloat(style.scrollPaddingBottom) || 0]
+  if (from.top < area.top + above) box.scrollTop -= area.top + above - from.top
+  else if (to.bottom > area.bottom - below) box.scrollTop += to.bottom - (area.bottom - below)
 }
