@@ -817,17 +817,17 @@ export function SourcesView({ onOpen }: { onOpen: (type: string, id: string) => 
             // Nothing from anyone yet: the page as it will look, with a few made-up people and sources.
             <Example tryIt="give a note a who or a where (the person who said it, the book or show). It gets a page here, with everything from them.">
               <NoteList groups={[['People', EXAMPLE_PEOPLE.map((one) => exampleEntry('attribution', ...one))], ['Sources', EXAMPLE_PLACES.map((one) => exampleEntry('medium', ...one))]]}
-                density="list" table="nuggets" cursor={-1} onPick={() => undefined} className="mx-3 my-2" />
+                density="list" table="nuggets" cursor={-1} onPick={() => undefined} twoUp className="mx-3 my-2" />
             </Example>
           )
         ) : asGrid ? (
           <>
             {people.length > 0 && <FaceGrid people={sorted.filter((one) => one.field === 'attribution' && one.name !== UNATTRIBUTED)} />}
-            {places.length > 0 && <NoteList groups={[['Sources', places]]} density="list" table="nuggets" cursor={-1} chosen={live} picking={picking} onPick={(id) => (chime('page'), openSource('medium', id.slice(id.indexOf(':') + 1)))} className="mx-3 my-2" />}
+            {places.length > 0 && <NoteList groups={[['Sources', places]]} density="list" table="nuggets" cursor={-1} chosen={live} picking={picking} twoUp onPick={(id) => (chime('page'), openSource('medium', id.slice(id.indexOf(':') + 1)))} className="mx-3 my-2" />}
           </>
         ) : (
           <NoteList groups={[...(people.length ? [['People', people] as [string, Entry[]]] : []), ...(places.length ? [['Sources', places] as [string, Entry[]]] : [])]}
-            density="list" table="nuggets" cursor={-1} chosen={live} picking={picking} onPick={(id) => { const at = id.indexOf(':'); chime('page'); openSource(id.slice(0, at) as SourceField, id.slice(at + 1)) }} className="mx-3 my-2" />
+            density="list" table="nuggets" cursor={-1} chosen={live} picking={picking} twoUp onPick={(id) => { const at = id.indexOf(':'); chime('page'); openSource(id.slice(0, at) as SourceField, id.slice(at + 1)) }} className="mx-3 my-2" />
         )}
       </div>
     </Page>

@@ -287,7 +287,8 @@ export function NoteList({
   folds,
   islands,
   className = '',
-  dayHeads = false
+  dayHeads = false,
+  twoUp = false
 }: {
   groups: [string, Entry[]][]
   density: Density
@@ -315,6 +316,9 @@ export function NoteList({
   islands?: Record<string, IslandState>
   /** Headings drawn as Tasks' Upcoming draws its days: the name in ink over a hairline, its count quieter beside it. */
   dayHeads?: boolean
+  /** Rows two side by side where the list is wide enough (a page of short links, as Notion lays them out), one under
+   *  another on a phone. Read across: Tab, and ← → ↑ ↓ on a row, go A, B on the first line, then C, D. Rows only. */
+  twoUp?: boolean
   className?: string
 }): React.JSX.Element {
   const grid = density === 'small' || density === 'grid'
@@ -332,7 +336,7 @@ export function NoteList({
   })
   // One light over the rows, gliding to the nearest, so the gap between two never goes dark (glide.tsx). Tiles keep their ring.
   // About half the open row's light, so the one open never looks like a second row pointed at.
-  const hover = useFluidHover(box, { items: '[data-row]' })
+  const hover = useFluidHover(box, { items: '[data-row]', axis: twoUp ? 'xy' : 'y' })
   const glide = grid ? {} : { ...hover.handlers, className: 'relative isolate' }
   const light = grid ? null : <Highlight spot={hover.spot} session={hover.session} snap={hover.snap} className="bg-accent/25" />
   const [width, setWidth] = useState(0)
@@ -342,7 +346,7 @@ export function NoteList({
     const fit = (): void => setWidth(element.clientWidth)
     // Only tiles need the width before the first frame (how many across); a
     // list has the observer's first report, without laying the page out now.
-    if (grid) fit()
+    if (grid || twoUp) fit()
     const watch = new ResizeObserver(fit)
     watch.observe(element)
     return () => watch.disconnect()
@@ -353,7 +357,9 @@ export function NoteList({
   const tile = (worded ? WORD_TILE : TILE)[density as 'small' | 'grid']
   const across = grid
     ? Math.max(1, Math.floor((width + gap) / (tile + gap)))
-    : 1
+    : twoUp && !folds && !islands && width >= TWO_UP
+      ? 2
+      : 1
   // A tile's first words, asked for only while tiles are drawn.
   const glance = useLive(
     () => (grid ? notes.glance(table) : Promise.resolve({} as Record<string, string>)),
@@ -446,14 +452,16 @@ export function NoteList({
                   ))}
                 </div>
               ) : (
-                one.entries.map((entry) => (
-                  <SortableRow key={entry.id} id={entry.id}>
-                    <div className={`group/item relative ${arrived(entry.id) ? 'mf-arrive' : ''}`}>
-                      {face(entry, one.start)}
-                      {after?.(entry)}
-                    </div>
-                  </SortableRow>
-                ))
+                <div data-row-line className={across > 1 ? 'grid grid-cols-2 gap-x-2' : undefined}>
+                  {one.entries.map((entry, at) => (
+                    <SortableRow key={entry.id} id={entry.id}>
+                      <div className={`group/item relative min-w-0 ${arrived(entry.id) ? 'mf-arrive' : ''}`}>
+                        {face(entry, one.start + at)}
+                        {after?.(entry)}
+                      </div>
+                    </SortableRow>
+                  ))}
+                </div>
               )}
             </>
           )}
@@ -530,8 +538,18 @@ export function NoteList({
         <GroupedList {...folds} face={face} after={after} arrived={arrived} cursor={cursor} estimate={density === 'compact' ? 30 : 50} className={className} />
       </div>
     )
+  // Two side by side: the arrows move the focus through the rows as they read, across then down.
+  const step = twoUp && !grid ? (event: React.KeyboardEvent): void => {
+    const move = { ArrowRight: 1, ArrowLeft: -1, ArrowDown: across, ArrowUp: -across }[event.key]
+    const from = (event.target as HTMLElement).closest('[data-row]')
+    if (!move || !from || event.metaKey || event.ctrlKey || event.altKey) return
+    const rows = [...box.current!.querySelectorAll<HTMLElement>('[data-row]')]
+    const to = rows[rows.indexOf(from as HTMLElement) + move]
+    event.preventDefault()
+    to?.focus()
+  } : undefined
   return (
-    <div ref={box} {...glide}>
+    <div ref={box} {...glide} onKeyDown={step}>
       {light}
       {/* Tiles never drag: your own order is set in the lists. */}
       <SortableList items={flat} keyOf={(one) => one.id} onMove={grid ? undefined : onMove}>
@@ -547,6 +565,8 @@ export function NoteList({
 // A picked row keeps its tint while its menu is open, so every picked row reads the same.
 // A tint alone was too faint on Paper's cream: a ring in the accent goes with it, so a picked row reads in every theme.
 const PICKED = 'bg-[color-mix(in_srgb,var(--tt-brand-color-400)_18%,transparent)] shadow-[inset_0_0_0_1.5px_color-mix(in_srgb,var(--tt-brand-color-400)_65%,transparent)] data-[state=open]:bg-[color-mix(in_srgb,var(--tt-brand-color-400)_24%,transparent)]!'
+/** How wide a list must be to take two rows side by side (`twoUp`): each row keeps room for its icon, a name and its count. */
+const TWO_UP = 560
 const rowClass = (
   at: boolean,
   open: boolean,
