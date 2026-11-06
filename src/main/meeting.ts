@@ -97,7 +97,8 @@ export async function begin(): Promise<void> {
     live = { ...live, state: 'asking', first: false }
     tell()
     database().prepare("insert or replace into settings (key, value) values ('meetingAsked', 'true')").run()
-    const said = await new Promise<string>((done) => {
+    // A probe never asks the real Mac: its stand-in answer is the one it set.
+    const said = process.env.HALIGTREE_QA_MEETING_SCREEN ? '' : await new Promise<string>((done) => {
       const asking = spawn(helper, ['--ask'])
       let out = ''
       asking.stdout.on('data', (chunk) => (out += chunk))

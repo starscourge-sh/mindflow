@@ -157,6 +157,13 @@ try {
   await h.keyboard.press('Meta+z')
   await wait(500)
   check('⌘Z brings the recording back', await h.evaluate(() => !!document.querySelector('[data-meeting-page] [data-wave]')))
+  // At phone width: nothing runs off the side, every line's name and time still beside its words.
+  await c.size(390, 844)
+  await h.evaluate(() => document.querySelector('[data-meeting-line]')?.scrollIntoView())
+  await wait(500)
+  if (FRAMES) await h.screenshot({ path: join(FRAMES, `phone-${AI ? 'ai' : 'every'}.png`) })
+  const narrow = await h.evaluate(() => { const page = document.querySelector('[data-meeting-page]').getBoundingClientRect(); const over = [...document.querySelectorAll('[data-meeting-page] *, [data-meeting-line] *')].filter((el) => el.getBoundingClientRect().right > innerWidth + 1).length; return { over, scroll: document.scrollingElement.scrollWidth > innerWidth, width: Math.round(page.width) } })
+  check('at phone width nothing runs off the side', !narrow.over && !narrow.scroll, JSON.stringify(narrow))
   // The card is gone once the meeting is kept.
   check('the card closes once the meeting is kept', !electron.windows().some((w) => w.url().includes('view=meeting')))
   check('no errors on the page', !c.errors.length, c.errors.join(' | '))

@@ -366,10 +366,12 @@ var began = Date()
 var pausedFor = 0.0
 var pausedAt: Date?
 let clockLock = NSLock()
+/** A probe's hour in a minute (--speed 60, test mode only): the meeting's clock runs that many times faster. */
+let speed = CommandLine.arguments.firstIndex(of: "--speed").flatMap { Double(CommandLine.arguments[$0 + 1]) } ?? 1
 func now() -> Double {
   clockLock.lock()
   defer { clockLock.unlock() }
-  return (pausedAt ?? Date()).timeIntervalSince(began) - pausedFor
+  return ((pausedAt ?? Date()).timeIntervalSince(began) - pausedFor) * speed
 }
 var paused: Bool { clockLock.lock(); defer { clockLock.unlock() }; return pausedAt != nil }
 
