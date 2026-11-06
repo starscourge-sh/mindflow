@@ -1,3 +1,4 @@
+import { toast } from '@/components/haligtree/ui'
 import { host, said } from '@/lib/host'
 import { chime } from '@/lib/sound'
 
@@ -9,7 +10,7 @@ export async function copyImageText(src: string): Promise<void> {
   const read = host().imageText ?? window.api?.imageText
   const text = read ? await read(src).catch(() => null) : null
   if (text === null) return void said('Could not read the picture', false)
-  if (!text.trim()) return void said('No words in this picture', false)
+  if (!text.trim()) return void toast('No words in this picture', undefined, 'info')
   await navigator.clipboard.writeText(text).then(
     () => {
       const lines = text.split('\n').length

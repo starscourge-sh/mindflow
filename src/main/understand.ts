@@ -1,5 +1,5 @@
 import { execFile, spawn, type ChildProcessWithoutNullStreams } from 'node:child_process'
-import { app, ipcMain } from 'electron'
+import { app, ipcMain, shell } from 'electron'
 import helper from '../../resources/understand?asset&asarUnpack'
 import { meets, standIn, type Caps } from './needs'
 
@@ -93,7 +93,7 @@ export const ownLanguage = (): string => (app.getPreferredSystemLanguages()[0] ?
  * Words put into your own language, on this Mac (Apple's Translation, macOS 26):
  * the language they are in found first. Says why not, plainly, when it cannot.
  */
-export async function translate(text: string, to = ownLanguage()): Promise<{ text: string; from: string; to: string } | { error: string }> {
+export async function translate(text: string, to = ownLanguage()): Promise<{ text: string; from: string; to: string } | { error: string } | { needs: string; to: string }> {
   const have = await caps()
   if (have.major < 26) return { error: 'Translation needs macOS 26' }
   const words = text.trim().slice(0, 20_000)
@@ -103,12 +103,52 @@ export async function translate(text: string, to = ownLanguage()): Promise<{ tex
   if (from === 'und') return { error: 'The language of these words could not be told' }
   if (from === to) return { error: `These words are already in ${languageName(to)}` }
   const done = await understand('translate', { text: words, from, to })
+  // Supported but not on this Mac yet: not a failure, a language to fetch once (Apple's own prompt, prepare()).
+  if (process.env.HALIGTREE_QA_TRANSLATE_PREPARE) return standReady ? { text: `(a stand-in's translation of: ${words})`, from, to } : { needs: from, to }
+  if (done.error?.code === 'download') return { needs: from, to }
   return done.error ? { error: done.error.message } : { text: String(done.text ?? ''), from, to }
 }
 
 export const languageName = (code: string): string => new Intl.DisplayNames(['en'], { type: 'language' }).of(code) ?? code
 
+/**
+ * Whether picked words are worth translating: the Mac is sure (0.8 or more) of their language, two words or
+ * more, and it is not yours. A name or a single romanised word ("xiao", "Jing") inside an English book is
+ * not: "Look up" is the tool there.
+ */
+export async function translatable(text: string): Promise<{ offer: boolean; from: string }> {
+  const words = text.trim()
+  if (words.split(/\s+/).length < 2) return { offer: false, from: 'und' }
+  const said = await understand('language', { text: words.slice(0, 2000) })
+  const from = String(said.lang ?? 'und')
+  return { offer: Number(said.confidence ?? 0) >= 0.8 && from !== 'und' && from !== ownLanguage(), from }
+}
+
+let standReady = false
+/**
+ * Apple's own download prompt for a language, in a small window of the helper's own (understand --prepare);
+ * the language comes down once. Under HALIGTREE_QA_TRANSLATE_PREPARE a stand-in answers ("ok" or "cancel"),
+ * so a test never downloads anything.
+ */
+function prepare(from: string, to = ownLanguage()): Promise<{ prepared: boolean; why?: string }> {
+  const stand = process.env.HALIGTREE_QA_TRANSLATE_PREPARE
+  if (stand) return Promise.resolve(stand === 'ok' ? ((standReady = true), { prepared: true }) : { prepared: false, why: 'closed' })
+  return new Promise((done) => {
+    execFile(helper, ['--prepare', from, to], { timeout: 15 * 60_000 }, (_error, out) => {
+      try {
+        done(JSON.parse(String(out).trim().split('\n').at(-1) ?? '') as { prepared: boolean; why?: string })
+      } catch {
+        done({ prepared: false, why: 'failed' })
+      }
+    })
+  })
+}
+
 export function registerUnderstand(): void {
+  ipcMain.handle('haligtree:translatable', (_event, text: unknown) => translatable(String(text ?? '')))
+  ipcMain.handle('haligtree:translate:prepare', (_event, from: unknown) => prepare(String(from ?? '')))
+  // When Apple's prompt cannot open: the pane where languages are kept, one click away (never a written path).
+  ipcMain.handle('haligtree:translate:settings', () => void shell.openExternal('x-apple.systempreferences:com.apple.Localization-Settings.extension'))
   ipcMain.handle('haligtree:caps', () => caps())
   // The language some words are in, as two letters; English when it cannot be told.
   ipcMain.handle('haligtree:language', async (_event, text: unknown) => {

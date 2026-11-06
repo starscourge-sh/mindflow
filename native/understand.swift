@@ -77,6 +77,13 @@ func language(_ text: String) -> NLLanguage? {
 }
 
 let args = Array(CommandLine.arguments.dropFirst())
+#if canImport(Translation)
+if args.first == "--prepare", args.count >= 3 {
+  if #available(macOS 26, *) { prepare(from: args[1], to: args[2]) }
+  line(["prepared": false, "why": "Translation needs macOS 26"])
+  exit(1)
+}
+#endif
 if args.first == "--status" {
   var translation = false
   #if canImport(Translation)
@@ -290,6 +297,12 @@ while let text = readLine(strippingNewline: true) {
     answer(id, embed(request["texts"] as? [String] ?? []))
   case "read":
     answer(id, read(request["text"] as? String ?? ""))
+  case "language":
+    // How sure the Mac is of the words' language: Translate is offered only when it is sure they are not yours.
+    let recognizer = NLLanguageRecognizer()
+    recognizer.processString(request["text"] as? String ?? "")
+    let best = recognizer.languageHypotheses(withMaximum: 1).first
+    answer(id, ["lang": best?.key.rawValue ?? "und", "confidence": best?.value ?? 0])
   case "roots":
     answer(id, ["roots": (request["texts"] as? [String] ?? []).map { roots(String($0.prefix(4000))) }])
   case "write":
@@ -374,3 +387,50 @@ Thread.detachNewThread {
   group.notify(queue: .main) { exit(0) }
 }
 dispatchMain()
+
+#if canImport(Translation)
+import AppKit
+import SwiftUI
+
+/**
+ * Apple's own download prompt for a language pair (Translation's prepareTranslation), in a small window of
+ * this helper's own: the person sees Apple's sheet, says yes, and the language comes down once. Prints
+ * {"prepared":true} when the pair is ready, {"prepared":false,"why":"..."} when not.
+ */
+@available(macOS 26, *)
+func prepare(from: String, to: String) -> Never {
+  let app = NSApplication.shared
+  app.setActivationPolicy(.accessory)
+  let config = TranslationSession.Configuration(source: Locale.Language(identifier: from), target: Locale.Language(identifier: to))
+  let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 420, height: 140), styleMask: [.titled, .closable], backing: .buffered, defer: false)
+  window.title = "Translation"
+  window.center()
+  window.contentView = NSHostingView(rootView: PrepareView(config: config))
+  window.makeKeyAndOrderFront(nil)
+  app.activate(ignoringOtherApps: true)
+  NotificationCenter.default.addObserver(forName: NSWindow.willCloseNotification, object: window, queue: .main) { _ in
+    line(["prepared": false, "why": "closed"])
+    exit(1)
+  }
+  app.run()
+  exit(0)
+}
+
+@available(macOS 26, *)
+struct PrepareView: View {
+  let config: TranslationSession.Configuration
+  var body: some View {
+    Text("Getting the language ready…").padding(24).frame(width: 420, height: 140)
+      .translationTask(config) { session in
+        do {
+          try await session.prepareTranslation()
+          line(["prepared": true])
+          exit(0)
+        } catch {
+          line(["prepared": false, "why": error.localizedDescription])
+          exit(1)
+        }
+      }
+  }
+}
+#endif

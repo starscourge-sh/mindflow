@@ -129,6 +129,8 @@ async function run(level) {
     })
     check(`${level}: the book's words can be picked`, !!at)
     if (at) {
+      // A person's pause between picking and right-clicking: the Mac is asked the words' language as the pick rests.
+      await wait(400)
       await h.mouse.click(at.x, at.y, { button: 'right' })
       await wait(500)
       const rows = await h.evaluate(() => [...document.querySelectorAll('[role="menu"] [role="menuitem"]')].map((one) => one.textContent.trim()))

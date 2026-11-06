@@ -1,8 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import { BookOpenText, Copy, Gem, Highlighter, Languages, Quote, SquareDashed, SquareStack, Trash2, Volume2 } from "lucide-react"
 import { readToMe } from "@/lib/read-aloud"
-import { translateWords } from "@/lib/translate"
-import { capsNow, meets } from "@/lib/needs"
+import { translatable, translateWords } from "@/lib/translate"
 import { Toolbar } from "@/components/tiptap-ui-primitive/toolbar"
 import { ContextMenuItem, ContextMenuSeparator, ContextMenuShortcut } from "@/components/ui/context-menu"
 import { MenuPeek, type MenuPeekEntry } from "@/components/haligtree/menu-peeks"
@@ -261,7 +260,7 @@ export function PickedMenu({ actions, about }: { actions: ReadActions; about: ()
         <Volume2 />
         Read aloud
       </ContextMenuItem>
-      {meets(capsNow(), "macos26") && (
+      {translatable(about().words) && (
         <ContextMenuItem data-translate data-mac-needs="macos26" onSelect={() => void translateWords(about().words)}>
           <Languages />
           Translate

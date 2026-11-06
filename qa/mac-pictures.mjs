@@ -73,7 +73,9 @@ async function run(level) {
     // Not squeezed into the strip above the picture: every line, or as many as every block menu's cap allows (24rem).
     check(`${level}: on a tall picture the menu opens at the pointer at its full height, inside the window`, room && (!room.scrolls || room.height >= 380) && room.top >= 8 && room.bottom <= room.win - 8, JSON.stringify({ ...room, rows: undefined }))
     check(`${level}: a picture in a note offers ${LINES.join(', ')}`, LINES.every(has), rows.map((one) => one.text).join(' / '))
-    check(`${level}: “Translate the text” is offered ${translate ? 'on this Mac' : 'nowhere (it needs macOS 26)'}`, has('Translate the text') === translate)
+    // The page is in English, the reader's own language: Translate cannot help, so it is offered on no Mac
+    // (it shows only for words the Mac is sure are in another language; qa/mac-translate.mjs drives that).
+    check(`${level}: “Translate the text” is not offered on a page already in your language${translate ? '' : ' (nor anywhere before macOS 26)'}`, !has('Translate the text'))
     check(`${level}: each line has an icon and the hand`, rows.filter((one) => [...LINES, 'Translate the text'].some((label) => one.text.startsWith(label))).every((one) => one.icon && one.hand === 'pointer'))
     if (process.env.SHOT && level === 'macos26') await both(`${process.env.SHOT}/pictures-menu`)
 
@@ -119,7 +121,7 @@ async function run(level) {
       await h.getByRole('menuitem', { name: /^Text in it/ }).hover().catch(() => {})
       await wait(500)
       const media = await h.evaluate(() => [...document.querySelectorAll('[role="menuitem"]')].map((row) => row.textContent.trim()))
-      check('Media offers the same lines on the picture', [...LINES, 'Translate the text'].every((label) => media.some((one) => one.startsWith(label))), media.join(' / '))
+      check('Media offers the same lines on the picture', LINES.every((label) => media.some((one) => one.startsWith(label))), media.join(' / '))
       await h.keyboard.press('Escape')
     }
     check(`${level}: no page errors`, !c.errors.length, c.errors.slice(0, 3).join(' | '))
