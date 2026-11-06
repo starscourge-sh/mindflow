@@ -5,7 +5,7 @@ import { NodeSelection } from '@tiptap/pm/state'
 import { Check, Mic, Square, X } from 'lucide-react'
 
 import { saveAttachment } from '@/extensions/image-drop'
-import { refuse, refuseMic } from '@/components/haligtree/ui'
+import { refuse, refuseMic, toast } from '@/components/haligtree/ui'
 import { chime } from '@/lib/sound'
 import { wantsWords } from '@/lib/transcribe'
 import { dictation, recordingNow, setRecording } from '@/lib/recording'
@@ -86,6 +86,8 @@ export async function recordInto(editor: Editor, slot?: HTMLElement | null): Pro
   // Floating, the pill is centred on the note it writes into, not on the window (a list or a panel may sit beside it).
   const kept = await recordVoice(slot, editor.view.dom as HTMLElement)
   if (!kept) return
+  // Its tab was left while it ran, so that note's editor is gone: the words are never lost, they are a capture of their own, said so.
+  if (editor.isDestroyed) return keepAsCapture(kept, (id) => toast('Its note was closed, so the recording is a new capture', undefined, 'success', undefined, { type: 'capture', id, title: 'Voice note' }))
   try {
     // A block picked (the last recording, just kept) is stepped past, not replaced: two in a row keep both.
     const { selection } = editor.state
@@ -101,7 +103,10 @@ export async function recordInto(editor: Editor, slot?: HTMLElement | null): Pro
 /** Record, then keep it as a new capture of its own, which opens. */
 export async function recordAsCapture(open: (id: string) => void): Promise<void> {
   const kept = await recordVoice()
-  if (!kept) return
+  if (kept) await keepAsCapture(kept, open)
+}
+
+async function keepAsCapture(kept: Recording, open: (id: string) => void): Promise<void> {
   try {
     const attrs = { ...(await saveAttachment(kept.file)), duration: kept.seconds, transcribe: await wantsWords() }
     const id = await window.api.captures.create({ kind: 'note', body: { type: 'doc', content: [{ type: 'attachment', attrs }, { type: 'paragraph' }] } })

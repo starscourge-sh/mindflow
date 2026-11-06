@@ -1,3 +1,25 @@
+/* A pane's open tab is one surface with its page (tab-row.tsx): the same fill and the same hairline, whichever the theme. */
+[data-pane] {
+  --mf-tab: var(--background);
+  --mf-tab-line: var(--border);
+}
+[data-pane][data-pane-front] {
+  --mf-tab-line: color-mix(in oklab, var(--foreground) 12%, transparent);
+}
+[data-pane][data-pane-back] {
+  --mf-tab-line: color-mix(in oklab, var(--foreground) 6%, transparent);
+}
+:root:not([data-light]) [data-pane][data-pane-front] {
+  --mf-tab: color-mix(in srgb, var(--mf-under) 94%, white);
+}
+/* A row of tabs past its least widths fades at an edge only while there is more that way, as the lists do. */
+.mf-tabs-fade {
+  mask-image: linear-gradient(to right, transparent 0, #000 var(--mf-less), #000 calc(100% - var(--mf-more)), transparent 100%);
+  animation: mf-less linear both, mf-more linear both;
+  animation-timeline: scroll(self inline), scroll(self inline);
+  animation-range: 0 1.5rem, calc(100% - 2.5rem) 100%;
+}
+
 /* Split view: a pane can keep its own page width (Narrow, Wide or Full) over
    the one in Settings. The same columns as main.css draws for the whole
    window, read from the pane instead; Read still sets its own column. */
@@ -68,4 +90,14 @@ html[data-split-drag],
 html[data-split-drag] * {
   cursor: grabbing !important;
   user-select: none !important;
+}
+
+/* With Motion off or Reduce motion, a tab is pressed without moving. */
+:root[data-motion='off'] [data-tabs] *:active {
+  scale: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-tabs] *:active {
+    scale: 1;
+  }
 }

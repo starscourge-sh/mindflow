@@ -5,7 +5,7 @@ import { gemMenu } from './items-view'
 import { taskMenu, type TaskNow } from './tasks-view'
 import { copyLinkItem, type RowItem } from './row-menu'
 import { ask, pin, quietly } from './ui'
-import { asideItem } from '@/lib/split'
+import { openItems } from '@/lib/split'
 import { openApart } from '@/lib/apart'
 import { exit } from '@/lib/capture-links'
 import { makeTask } from '@/lib/tasks'
@@ -52,7 +52,7 @@ export function sideMenu(type: string, id: string, title: string, { onOpen, pinn
     return taskMenu(task, { open: () => onOpen(type, id), now })
   return [
     { label: 'Open', run: () => onOpen(type, id) },
-    asideItem(type, id),
+    ...openItems(type, id),
     { label: 'Open in a new window', run: () => openApart(type, id) },
     'separator',
     waiting && kind === 'todo' && { label: 'Mark it done', run: () => void exit(id, 'resolved') },

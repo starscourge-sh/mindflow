@@ -814,7 +814,7 @@ export const NoteLink = Node.create<NoteLinkOptions>({
             const { id, label, block } = node.attrs
             // A line is landed on as a heading is, by its lasting name.
             const heading = block ? `^${block}` : node.attrs.heading
-            // ⌘-click: in a window of its own, beside this one, where it can have one.
+            // ⌘-click: a new tab in the main window (lib/split.ts reads the click); in a window of its own elsewhere, where it can have one.
             if (id && event.metaKey && linkKinds.aside?.(id)) return true
             if (!id) {
               // A link to this note's own heading or line: here. A link to a

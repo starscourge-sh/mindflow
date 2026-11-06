@@ -5,15 +5,12 @@ import '@/assets/split.css'
 import { byKeys, EASE, still } from '@/lib/motion'
 import { chime } from '@/lib/sound'
 import { PANE_GAP, PANE_MIN, PaneContext, PaneWidthContext, panesFit, type PaneWidth } from '@/lib/split'
-import XIcon from '@/components/ui/x-icon'
-import { AliveIcon } from '@/components/ui/alive-icon'
-import { Tip } from './ui'
-import { RowMenu, type RowItem } from './row-menu'
+import { TabRow, type TabActions, type TabGroup, type TabShown } from './tab-row'
 
-/** What the main window needs of a pane to keep Back exact: how its page is scrolled, and where to put it back. */
-export type PaneApi = { scrolled: () => [string, number][]; restore: (scroll: [string, number][] | null) => void }
-/** A pane as drawn: `label` is what it shows, its open note's name, or its page's when no note is open. */
-type PaneShown = { key: string; label: string; private?: boolean; at: number; width?: PaneWidth; node: ReactNode }
+/** What the main window needs of a pane to keep Back exact: how its page is scrolled. */
+export type PaneApi = { scrolled: () => [string, number][] }
+/** A pane as drawn: its tabs, the one open, and that tab's page. `at` names the step on show: when it changes, the page's scroll is put back. */
+type PaneShown = { key: string; tabs: TabShown[]; active: string; at: string; scroll?: [string, number][]; width?: PaneWidth; node: ReactNode }
 
 // Whether the last thing pressed was Tab: only then does focus arriving in a
 // pane bring it to the front. A menu closing hands the focus back to the row
@@ -35,24 +32,22 @@ const atPath = (root: Element, path: string): Element | null =>
   path.split('.').reduce<Element | null>((at, index) => at?.children[Number(index)] ?? null, root)
 
 /**
- * The main window's page, split into up to four panes side by side. Each is
- * a card like the page always was, with its own Back and Forward; the one in
- * front has a calm line along its top and the others dim a touch. Dividers
- * between them drag to resize, and a double-click shares the room equally
- * again. In a window too narrow for them all, they take turns in one place,
- * with a small switcher over them: every pane kept as it was, one shown.
+ * The main window's page, split into panes side by side. Each is a card like
+ * the page always was, under its own row of tabs; the one in front is raised
+ * and the others dim a touch. Dividers between them drag to resize, and a
+ * double-click shares the room equally again. In a window too narrow for two,
+ * only the pane in front is on show, with every pane's tabs in its row: choosing
+ * a tab of another brings that pane forward, nothing closed, nothing lost.
  */
-export function SplitPanes({ panes, front, sizes, onSizes, onFront, onClose, onWidth, apis, menuFor }: {
+export function SplitPanes({ panes, front, sizes, onSizes, onFront, onWidth, apis, actions }: {
   panes: PaneShown[]
   front: string
   sizes: number[]
   onSizes: (sizes: number[]) => void
   onFront: (key: string) => void
-  onClose: (key: string) => void
   onWidth: (key: string, width: PaneWidth) => void
   apis: RefObject<Map<string, PaneApi>>
-  /** The split's own menu, for a right click on a pane's tab. */
-  menuFor?: (key: string) => RowItem[]
+  actions: TabActions
 }): React.JSX.Element {
   const box = useRef<HTMLDivElement>(null)
   const [room, setRoom] = useState(0)
@@ -65,7 +60,7 @@ export function SplitPanes({ panes, front, sizes, onSizes, onFront, onClose, onW
     return () => watch.disconnect()
   }, [])
   const split = panes.length > 1
-  // Too narrow for even two: they take turns in one place. Room for two but
+  // Too narrow for even two: one on show, carrying every pane's tabs. Room for two but
   // not for all: each keeps its least width and the row scrolls sideways, so
   // no pane is ever dropped for want of room (an ultrawide holds them all).
   const turns = split && !panesFit(2, room)
@@ -105,35 +100,14 @@ export function SplitPanes({ panes, front, sizes, onSizes, onFront, onClose, onW
     chime('tap')
     onSizes(panes.map(() => 1 / panes.length))
   }
+  const groupOf = (pane: PaneShown): TabGroup => ({ pane: pane.key, tabs: pane.tabs, active: pane.active, front: pane.key === front })
   return (
-    <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2">
-      {turns && (
-        // Taking turns: which pane is shown, and a way to the others, in one quiet row.
-        <div role="tablist" aria-label="Panes" className="flex shrink-0 items-center gap-1 overflow-x-auto [scrollbar-width:none]">
-          {panes.map((pane, index) => (
-            <RowMenu key={pane.key} items={menuFor?.(pane.key) ?? []}>
-            <span data-pane-tab={pane.key} className={`flex h-7 max-w-56 min-w-0 shrink items-center rounded-full border text-control transition-colors ${pane.key === front ? 'bg-accent text-foreground' : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground'}`}>
-              <Tip label={index ? `Pane ${index + 1}  ⌃L` : 'Pane 1  ⌃H'}>
-                <button type="button" role="tab" aria-selected={pane.key === front} onClick={() => (pane.key !== front && chime('tap'), onFront(pane.key))}
-                  data-private={pane.private ? '' : undefined} className="private-text min-w-0 truncate py-0.5 pr-1 pl-3 text-left">
-                  {pane.label}
-                </button>
-              </Tip>
-              <Tip label="Close this pane  ⌃W">
-                <button type="button" onClick={() => onClose(pane.key)} className="relative after:absolute after:-inset-0.5 after:rounded-full mr-1 flex size-5 shrink-0 items-center justify-center rounded-full hover:bg-accent [&_svg]:size-3">
-                  <AliveIcon icon={XIcon} size={12} />
-                </button>
-              </Tip>
-            </span>
-            </RowMenu>
-          ))}
-        </div>
-      )}
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       <div ref={box} data-split-area data-split-scrolls={scrolls ? '' : undefined} className={`relative flex min-h-0 min-w-0 flex-1 ${scrolls ? 'overflow-x-auto overscroll-x-contain' : ''}`}>
         <AnimatePresence initial={false}>
           {panes.map((pane, index) => (
             <PaneFrame key={pane.key} pane={pane} apis={apis} split={split} front={pane.key === front} hidden={turns && pane.key !== front}
-              head={split && !turns} least={scrolls} menu={menuFor?.(pane.key) ?? []} onClose={onClose} edge={turns ? 0 : index === 0 ? -1 : index === panes.length - 1 ? 1 : 0}
+              least={scrolls} groups={turns && pane.key === front ? panes.map(groupOf) : [groupOf(pane)]} actions={actions} edge={turns ? 0 : index === 0 ? -1 : index === panes.length - 1 ? 1 : 0}
               share={turns ? 1 : shares[index]} held={!!dragged || turns} onFront={onFront} onWidth={onWidth} divider={!turns && index > 0 ? (
                 <div role="separator" data-pane-divider aria-orientation="vertical" aria-label="Drag to resize, double-click to share equally"
                   onPointerDown={drag(index - 1)} onDoubleClick={even}
@@ -152,20 +126,19 @@ export function SplitPanes({ panes, front, sizes, onSizes, onFront, onClose, onW
  * One pane: the page card, which keeps how its page was scrolled for Back,
  * and comes to the front when pointed at, or tabbed into.
  */
-function PaneFrame({ pane, apis, split, front, hidden, head, least, menu, onClose, share, edge, divider, onFront, onWidth }: {
+function PaneFrame({ pane, apis, split, front, hidden, least, groups, actions, share, edge, divider, onFront, onWidth }: {
   pane: PaneShown
   apis: RefObject<Map<string, PaneApi>>
   split: boolean
   front: boolean
   hidden: boolean
-  /** Side by side: a line over the pane with its name and an × that closes it. */
-  head: boolean
   /** The row scrolls sideways: this pane keeps its least width rather than being squeezed. */
   least?: boolean
-  menu: RowItem[]
-  onClose: (key: string) => void
+  /** The tabs its row carries: its own, or every pane's while only one is on show. */
+  groups: TabGroup[]
+  actions: TabActions
   share: number
-  /** A divider is in the hand (or the panes take turns). Every share now follows at once, so this no longer changes anything. */
+  /** A divider is in the hand, or only one pane is on show. Every share now follows at once, so this no longer changes anything. */
   held: boolean
   /** Which edge the pane sits at, -1 left, 1 right, 0 between, for it to leave toward. */
   edge: -1 | 0 | 1
@@ -192,7 +165,6 @@ function PaneFrame({ pane, apis, split, front, hidden, head, least, menu, onClos
     root?.addEventListener('scroll', onScroll, true)
     return () => root?.removeEventListener('scroll', onScroll, true)
   }, [])
-  const restore = useRef<[string, number][] | null>(null)
   const landing = useRef<[string, number][] | null>(null)
   const api: PaneApi = {
     scrolled: () => {
@@ -213,8 +185,7 @@ function PaneFrame({ pane, apis, split, front, hidden, head, least, menu, onClos
       // Left while still being put back (a long note loading): where it is going, not where it has got to.
       const going = new Map(landing.current ?? [])
       return [...tops.filter(([path]) => !going.has(path)), ...going]
-    },
-    restore: (scroll) => void (restore.current = scroll)
+    }
   }
   apis.current.set(pane.key, api)
   // Set again whenever it starts, not only while drawing: React's development
@@ -226,8 +197,7 @@ function PaneFrame({ pane, apis, split, front, hidden, head, least, menu, onClos
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
   // Put back where the page was scrolled, frame by frame while it loads.
   useEffect(() => {
-    const want = restore.current
-    restore.current = null
+    const want = pane.scroll
     const root = pageRef.current
     if (!want?.length || !root) return
     let frame = 0
@@ -301,10 +271,11 @@ function PaneFrame({ pane, apis, split, front, hidden, head, least, menu, onClos
         transition={{ default: { duration: 0.16, ease: EASE }, flexGrow: { duration: 0 } }}
         data-pane={pane.key}
         data-pane-front={split && front ? '' : undefined}
+        data-pane-back={split && !front ? '' : undefined}
         data-width={split && pane.width ? (pane.width === 'narrow' ? 'page' : pane.width) : undefined}
         onPointerDownCapture={() => !front && onFront(pane.key)}
         onFocusCapture={() => tabbed && !front && onFront(pane.key)}
-        className={`relative min-h-0 min-w-0 flex-col gap-1 ${hidden ? 'hidden' : 'flex'} ${present ? '' : `pointer-events-none overflow-hidden ${edge > 0 ? 'items-end' : edge < 0 ? 'items-start' : 'items-center'}`}`}
+        className={`relative min-h-0 min-w-0 flex-col ${hidden ? 'hidden' : 'flex'} ${present ? '' : `pointer-events-none overflow-hidden ${edge > 0 ? 'items-end' : edge < 0 ? 'items-start' : 'items-center'}`}`}
         // The page's own background, for the pane in front to be raised from.
         style={{ flexBasis: 0, minWidth: least ? MIN : undefined, '--mf-under': 'var(--background)' } as React.CSSProperties}
       >
@@ -313,24 +284,7 @@ function PaneFrame({ pane, apis, split, front, hidden, head, least, menu, onClos
             strength. The others step back: a fainter hairline, no shadow, their
             header lines muted and the page a touch dimmer. Nothing coloured.
             On its own, the page is the card it always was. */}
-        {/* Side by side, each pane says what it shows and closes from its own ×,
-            for anyone who never learns ⌃W. A right click has the split's menu. */}
-        {head && (
-          <RowMenu items={menu}>
-            <div data-pane-head style={kept} className="flex h-7 shrink-0 items-center gap-1 pr-0.5 pl-3 text-control">
-              <span data-private={pane.private ? '' : undefined}
-                className={`private-text min-w-0 flex-1 truncate transition-colors duration-150 ${front ? 'font-medium text-foreground' : 'text-muted-foreground'}`}>
-                {pane.label}
-              </span>
-              <Tip label="Close this pane  ⌃W">
-                <button type="button" data-pane-close aria-label="Close this pane" onClick={() => onClose(pane.key)}
-                  className="flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
-                  <AliveIcon icon={XIcon} size={14} />
-                </button>
-              </Tip>
-            </div>
-          </RowMenu>
-        )}
+        <TabRow pane={pane.key} groups={groups} actions={actions} />
         <div ref={pageRef} data-pane-card
           style={kept}
           className={`@container/page relative flex min-h-0 min-w-0 flex-1 overflow-hidden rounded-xl border transition-[opacity,border-color,box-shadow] duration-150 ${

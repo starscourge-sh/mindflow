@@ -1,4 +1,4 @@
-import { asideItem } from '@/lib/split'
+import { openItems } from '@/lib/split'
 import { useEffect, useState } from 'react'
 import { NameInPlace } from './name-in-place'
 import { Branches } from './branches'
@@ -56,7 +56,7 @@ export async function offerTag(list: 'article' | 'nugget' | null, id: string, na
  * dropped by another's top or bottom edge, it moves to just before or after
  * it, in the list's own order, as in Finder's sidebar.
  */
-export function SideFolders({ list, counted, open, shown, here, onOpen, onUnfold }: {
+export function SideFolders({ list, counted, open, shown, here, noteRow, onOpen, onUnfold }: {
   list: 'article' | 'nugget'
   /** Each folder's count shown, as the sidebar's own counts are (Customize sidebar). */
   counted: boolean
@@ -66,6 +66,8 @@ export function SideFolders({ list, counted, open, shown, here, onOpen, onUnfold
   shown: Set<string>
   /** The group open now, if one is. */
   here?: string
+  /** The note open now, its row hung under that group, on the same lines. */
+  noteRow?: React.ReactNode
   onOpen: (id: string) => void
   onUnfold: () => void
 }): React.JSX.Element | null {
@@ -156,20 +158,22 @@ export function SideFolders({ list, counted, open, shown, here, onOpen, onUnfold
     // Groups that gather by a rule hang after the folders, off the same trunk: folders first, as a beginner meets them.
     const many = smart.length > GROUPS_SHOWN && !everyGroup
     const gathered = parent === null ? (many ? smart.filter((one, at) => at < GROUPS_SHOWN || here === GROUP_KEY + one.id) : smart) : []
-    if (!these.length && !gathered.length) return null
+    const noted = !!noteRow && parent === here && parent !== null
+    if (!these.length && !gathered.length && !noted) return null
     const lit = these.findIndex((one) => holds(one.id))
     const litGroup = gathered.findIndex((one) => here === GROUP_KEY + one.id)
     const before = these.length
     return (
-      <Branches current={lit >= 0 ? lit : litGroup >= 0 ? before + litGroup : -1} className="ml-5 flex flex-col gap-px">
+      <Branches current={noted ? before : lit >= 0 ? lit : litGroup >= 0 ? before + litGroup : -1} className="ml-5 flex flex-col gap-px">
         {these.flatMap((group) => {
           const inner = rows(group.id, depth + 1)
           return [
-            <Folder key={group.id} list={list} group={group} depth={depth} n={counted ? count(group) : null} here={here === group.id} naming={naming === group.id} onNamed={() => setNaming(null)} onRename={() => setNaming(group.id)} onOpen={onOpen} onNest={nest} drag={drag} />,
+            <Folder key={group.id} list={list} group={group} depth={depth} n={counted ? count(group) : null} here={here === group.id && !noteRow} naming={naming === group.id} onNamed={() => setNaming(null)} onRename={() => setNaming(group.id)} onOpen={onOpen} onNest={nest} drag={drag} />,
             inner && <div key={`${group.id}:in`} data-no-twig="">{inner}</div>
           ]
         })}
         {gathered.map((group) => <SmartRow key={group.id} group={group} shown={shown} counted={counted} here={here === GROUP_KEY + group.id} onOpen={() => onOpen(GROUP_KEY + group.id)} />)}
+        {noted && noteRow}
         {parent === null && smart.length > GROUPS_SHOWN && (
           <button type="button" data-side-row data-groups-more={smart.length} onClick={() => (chime(everyGroup ? 'fold' : 'slide'), setEveryGroup(!everyGroup))}
             className="flex w-full min-w-0 items-center gap-2 rounded-md py-1 pr-2 pl-2 text-muted-foreground hover:text-foreground">
@@ -250,7 +254,7 @@ function Folder({ list, group, depth, n, here, naming, onNamed, onRename, onOpen
   const menu: RowItem[] = [
     { label: 'Open', run: () => onOpen(group.id) },
     // Beside the page in front, as a page's row offers it (⌥-click on the row does it too).
-    asideItem('folder', `${list}:${group.id}`),
+    ...openItems('folder', `${list}:${group.id}`),
     { label: 'Rename…', run: onRename },
     { label: 'Change icon…', run: () => setPicking(true) },
     depth < DEPTH - 1 && { label: 'New folder inside', run: () => newFolder(list, group.id) },

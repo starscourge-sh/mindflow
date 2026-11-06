@@ -58,7 +58,7 @@ import { Example } from './example'
 import { exampleTasks } from '@/lib/examples'
 import { GHOST, GhostText } from './ghost'
 import { cn } from '@/lib/cn'
-import { asideItem, useHere } from '@/lib/split'
+import { openItems, useHere } from '@/lib/split'
 import { budgetSaid, frogOn, markFrog, hoursSaid, minutesLeft, plannedMinutes } from '@/lib/day-plan'
 import { useMeetingsLeft } from './week-fit'
 import { dayClosed, openCloseDay } from './close-day'
@@ -611,7 +611,7 @@ export function taskMenu(task: Task, { open, complete = () => void completeTask(
   ]
   const opening: RowItem[] = [
     { label: 'Open', keys: '↵', run: open },
-    asideItem('task', task.id),
+    ...openItems('task', task.id),
     // The note under its name, to read or change (the tracker: "so how do i edit that attached file here?").
     !!task.fromId && { label: `Open “${splitTags(task.fromTitle ?? '').text || 'Untitled'}”`, hint: 'The note it came from', run: () => (chime('open'), window.dispatchEvent(new CustomEvent('haligtree:open', { detail: { type: 'capture', id: task.fromId } }))) },
     thought && { label: 'Add a thought…', keys: ';', run: thought }

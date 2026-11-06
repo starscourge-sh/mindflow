@@ -53,7 +53,7 @@ import { CloseDayOffer } from './close-day'
 import { MorningSortOffer } from './sort-out'
 import { WeeklyDigest } from './weekly-digest'
 import { Tilt } from './tilt'
-import { asideItem, useHere } from '@/lib/split'
+import { openItems, useHere } from '@/lib/split'
 import { queueItems } from '@/lib/reading-queue'
 import { usePickMixed, type Pickable } from './pick-mixed'
 import { ArrowRight, BookOpen, Check, ChevronLeft, ChevronRight, Orbit, Bookmark as Pin, Repeat as Repeat2 } from '@/components/ui/icons'
@@ -195,7 +195,7 @@ const menuFor = (card: Card, { open, read, menu, task, note }: Actions, list: Ca
   const own: MenuItem[] = [
     { label: 'Open', run: () => open(card) },
     card.type !== 'task' && { label: 'Open in a new window', run: () => openApart(card.type, card.id) },
-    asideItem(card.type, card.id),
+    ...openItems(card.type, card.id),
     ...(card.type === 'task' ? [] : queueItems(card.id)),
     readable(card) && { label: 'Read it, full screen', run: () => read(list, at) },
     'separator',

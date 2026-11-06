@@ -1,0 +1,167 @@
+import { Fragment, useLayoutEffect, useRef, useState, useSyncExternalStore, type ComponentType, type CSSProperties } from 'react'
+import { ChevronDown, Plus } from 'lucide-react'
+
+import ArrowNarrowLeftIcon from '@/components/ui/arrow-narrow-left-icon'
+import ArrowNarrowRightIcon from '@/components/ui/arrow-narrow-right-icon'
+import XIcon from '@/components/ui/x-icon'
+import { AliveIcon } from '@/components/ui/alive-icon'
+import { Pressed, Tip } from './ui'
+import { RowMenu, openFromGrip, type RowItem } from './row-menu'
+import { plural } from '../../../../main/dates'
+
+/** A tab as its row draws it. `open`: `type:id` for a tab on a note, so carrying it can pin it. */
+export type TabShown = { key: string; label: string; private?: boolean; icon: ComponentType<{ className?: string; style?: CSSProperties }>; tint?: string; open?: string }
+export type TabGroup = { pane: string; tabs: TabShown[]; active: string; front: boolean }
+export type TabActions = {
+  select: (pane: string, tab: string) => void
+  close: (pane: string, tab: string) => void
+  add: (pane: string) => void
+  menu: (pane: string, tab: string) => RowItem[]
+  step: (pane: string, by: -1 | 1) => void
+  canStep: (pane: string, by: -1 | 1) => boolean
+}
+
+// What a carried tab or row is over, said by split-drop.tsx and drawn here:
+// the tab being carried, and the gap it would land in.
+type Carry = { from: string | null; gap: { pane: string; at: number; width: number } | null }
+let carry: Carry = { from: null, gap: null }
+const told = new Set<() => void>()
+const follow = (tell: () => void): (() => void) => (told.add(tell), () => void told.delete(tell))
+export function setCarry(next: Carry): void {
+  if (next.from === carry.from && next.gap?.pane === carry.gap?.pane && next.gap?.at === carry.gap?.at) return
+  carry = next
+  told.forEach((tell) => tell())
+}
+/** Which gap of a row the pointer is nearest, counted without the tab in the hand. */
+export const gapIn = (row: Element, x: number, from: string | null): number =>
+  [...row.querySelectorAll<HTMLElement>('[data-tab]')].filter((one) => one.dataset.tab !== from).filter((one) => {
+    const box = one.getBoundingClientRect()
+    return box.left + box.width / 2 < x
+  }).length
+
+const ROUND = 'flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-[color,background-color,scale] duration-[120ms] hover:bg-accent/60 hover:text-foreground active:scale-[0.97] disabled:pointer-events-none disabled:opacity-40 [&_svg]:size-3.5'
+
+/**
+ * A long curve from the tab's top to the page's edge, so the tab rises out of
+ * the page as one surface. Coloured by the pane (panes.tsx), so every theme
+ * and both kinds of focus draw it from their own tokens.
+ */
+const Foot = ({ side }: { side: 'left' | 'right' }): React.JSX.Element => (
+  <svg aria-hidden viewBox="0 0 12 30" preserveAspectRatio="none" className={`pointer-events-none absolute top-0 h-full w-3 ${side === 'left' ? 'right-full' : 'left-full -scale-x-100'}`}>
+    <path d="M12 .5C6.5 .5 6 29.5 0 29.5V30H12Z" fill="var(--mf-tab)" />
+    <path d="M12 .5C6.5 .5 6 29.5 0 29.5" fill="none" stroke="var(--mf-tab-line)" vectorEffect="non-scaling-stroke" />
+  </svg>
+)
+
+function OneTab({ tab, group, actions, faint }: { tab: TabShown; group: TabGroup; actions: TabActions; faint: boolean }): React.JSX.Element {
+  const on = tab.key === group.active
+  const strong = on && group.front
+  const Icon = tab.icon
+  // Its name in a tip only while the tab has cut it short: a tip never repeats what is there to read.
+  const [cut, setCut] = useState(false)
+  return (
+    <RowMenu items={() => actions.menu(group.pane, tab.key)}>
+      <div data-tab={tab.key} data-tab-on={on ? '' : undefined} data-drag-title={tab.label} data-tab-open={tab.open}
+        onAuxClick={(event) => event.button === 1 && (event.preventDefault(), actions.close(group.pane, tab.key))}
+        onMouseDown={(event) => event.button === 1 && event.preventDefault()}
+        className={`group/tab relative mx-0.5 flex h-full max-w-52 min-w-11 flex-[1_1_0] items-stretch py-[3px] ${on ? 'z-10' : ''} ${faint ? 'opacity-40' : ''}`}>
+        {on && (
+          <span aria-hidden className="pointer-events-none absolute inset-x-1 inset-y-0 border-t border-(--mf-tab-line) bg-(--mf-tab)">
+            <Foot side="left" /><Foot side="right" />
+          </span>
+        )}
+        <Tip label={cut ? tab.label : ''}>
+          <button type="button" role="tab" aria-selected={on} onClick={() => actions.select(group.pane, tab.key)}
+            onPointerEnter={(event) => { const name = event.currentTarget.querySelector('span'); setCut(!!name && name.scrollWidth > name.clientWidth) }}
+            className={`relative flex min-w-0 flex-1 cursor-pointer items-center gap-1.5 rounded-full pl-2 text-control transition-[color,background-color,scale] duration-[120ms] outline-none focus-visible:ring-[1.5px] focus-visible:ring-ring/70 active:scale-[0.97] ${
+              on ? (strong ? 'font-medium text-foreground' : 'text-foreground/70') : 'bg-foreground/[0.035] text-muted-foreground hover:bg-foreground/[0.07] hover:text-foreground'}`}>
+            <Icon className="size-3.5 shrink-0" style={{ color: tab.tint }} />
+            {/* Its end fades under the ✕, so nothing moves when the ✕ shows. */}
+            <span dir="auto" data-private={tab.private ? '' : undefined}
+              className={`private-text min-w-0 flex-1 overflow-hidden text-left whitespace-nowrap [mask-image:linear-gradient(to_left,transparent,#000_16px)] ${on ? '[mask-image:linear-gradient(to_left,transparent_16px,#000_30px)]' : 'group-hover/tab:[mask-image:linear-gradient(to_left,transparent_16px,#000_30px)]'}`}>
+              {tab.label}
+            </span>
+          </button>
+        </Tip>
+        <Tip label={<span className="flex items-center gap-1.5">Close tab <Pressed keys="⌃W" /></span>}>
+          <button type="button" data-tab-close data-no-split aria-label={`Close ${tab.label}`} onClick={() => actions.close(group.pane, tab.key)}
+            className={`absolute top-1/2 right-0.5 flex size-5 -translate-y-1/2 cursor-pointer items-center justify-center rounded-[5px] text-muted-foreground transition-[opacity,scale,color,background-color] duration-[120ms] hover:bg-foreground/[0.07] hover:text-foreground focus-visible:opacity-100 active:scale-[0.97] ${on ? '' : 'opacity-0 group-hover/tab:opacity-100'}`}>
+            <AliveIcon icon={XIcon} size={12} />
+          </button>
+        </Tip>
+      </div>
+    </RowMenu>
+  )
+}
+
+/** One pane's tabs: they share the room evenly down to a least width, then the row scrolls, the open one kept in view. */
+function Tabs({ group, actions }: { group: TabGroup; actions: TabActions }): React.JSX.Element {
+  const now = useSyncExternalStore(follow, () => carry)
+  const box = useRef<HTMLDivElement>(null)
+  useLayoutEffect(() => {
+    const row = box.current
+    const on = row?.querySelector<HTMLElement>('[data-tab-on]')
+    if (!row || !on || row.scrollWidth <= row.clientWidth) return
+    const [left, right] = [on.offsetLeft - 16, on.offsetLeft + on.offsetWidth + 16]
+    if (left < row.scrollLeft) row.scrollLeft = left
+    else if (right > row.scrollLeft + row.clientWidth) row.scrollLeft = right - row.clientWidth
+  }, [group.active, group.tabs.length])
+  const gap = now.gap?.pane === group.pane ? now.gap : null
+  const shown = now.gap ? group.tabs.filter((one) => one.key !== now.from) : group.tabs
+  const parts = shown.map((tab) => <OneTab key={tab.key} tab={tab} group={group} actions={actions} faint={tab.key === now.from} />)
+  if (gap) parts.splice(gap.at, 0, <span key="gap" data-tab-gap aria-hidden className="mx-0.5 my-1 shrink-0 rounded-full bg-foreground/[0.09]" style={{ flexBasis: gap.width, maxWidth: gap.width, flexGrow: 0 }} />)
+  return (
+    <div ref={box} role="tablist" aria-label="Tabs" data-tab-row={group.pane} style={{ flex: `${Math.max(1, group.tabs.length)} 1 0` }}
+      className="mf-tabs-fade relative flex h-full min-w-0 overflow-x-auto overflow-y-hidden px-3 [scrollbar-width:none] data-[queue-hot]:bg-transparent">
+      {parts}
+    </div>
+  )
+}
+
+/**
+ * The row over a pane: its Back and Forward, its tabs, a + and a list of all
+ * of them. Always there, one tab or fifty, so nothing jumps when a second opens.
+ * In a window too narrow for two panes, the one on show carries every pane's
+ * tabs, a thin line between each pane's.
+ */
+export function TabRow({ groups, actions, pane }: { groups: TabGroup[]; actions: TabActions; pane: string }): React.JSX.Element {
+  const all: RowItem[] = groups.flatMap((group, at) => [
+    at > 0 && ('separator' as const),
+    ...group.tabs.map((tab): RowItem => ({ label: tab.label, icon: <tab.icon className="size-3.5 shrink-0" style={{ color: tab.tint }} />, hint: tab.key === group.active ? 'Open now' : undefined, run: () => actions.select(group.pane, tab.key) }))
+  ])
+  const count = groups.reduce((sum, group) => sum + group.tabs.length, 0)
+  return (
+    <div data-tabs={pane} className="relative z-[1] -mb-px flex h-[34px] shrink-0 items-end gap-0.5">
+      <span className="mf-segs mb-[3px] ml-1 flex h-6 shrink-0 items-center overflow-hidden rounded-full border">
+        {([[-1, 'Back', '⌘[', ArrowNarrowLeftIcon], [1, 'Forward', '⌘]', ArrowNarrowRightIcon]] as const).map(([by, label, keys, icon]) => (
+          <Tip key={label} label={<span className="flex items-center gap-1.5">{label} <Pressed keys={keys} /></span>}>
+            <button type="button" aria-label={label} disabled={!actions.canStep(pane, by)} onClick={() => actions.step(pane, by)}
+              className="relative flex size-[22px] cursor-pointer items-center justify-center rounded-full text-muted-foreground transition-colors after:absolute after:-inset-0.5 after:rounded-full hover:bg-accent/60 hover:text-foreground disabled:pointer-events-none disabled:opacity-40">
+              <AliveIcon icon={icon} size={14} />
+            </button>
+          </Tip>
+        ))}
+      </span>
+      <div className="flex h-[30px] min-w-0 flex-1">
+        {groups.map((group, at) => (
+          <Fragment key={group.pane}>
+            {at > 0 && <span aria-hidden className="my-1.5 w-px shrink-0 bg-foreground/15" />}
+            <Tabs group={group} actions={actions} />
+          </Fragment>
+        ))}
+      </div>
+      <span className="mb-[3px] mr-1 flex shrink-0 items-center gap-0.5">
+        <Tip label={<span className="flex items-center gap-1.5">New tab <Pressed keys="⌘T" /></span>}>
+          <button type="button" data-tab-add aria-label="New tab" onClick={() => actions.add(pane)} className={ROUND}><Plus /></button>
+        </Tip>
+        <RowMenu items={[{ heading: plural(count, 'tab', 'tabs') }, ...all]}>
+          <span className="flex">
+            <Tip label="Every tab">
+              <button type="button" data-tab-all aria-label="Every tab" onClick={openFromGrip} className={ROUND}><ChevronDown /></button>
+            </Tip>
+          </span>
+        </RowMenu>
+      </span>
+    </div>
+  )
+}

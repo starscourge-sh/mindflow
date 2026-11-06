@@ -463,7 +463,8 @@ export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo
       if (tall && Math.abs(tall - spanRef.current) > 0.5) setSpan(tall)
     }
     const pointer = activatorEvent instanceof PointerEvent ? { x: activatorEvent.clientX + delta.x, y: activatorEvent.clientY + delta.y } : null
-    if (!pointer) return point(null)
+    // With the split places up, letting go opens it there: nothing in the list lights too, whatever row it is level with.
+    if (!pointer || 'splitDrag' in document.documentElement.dataset) return point(null)
     // The row whose place the pointer is over, as the list lies before anything slid aside (as a sortable list reads it:
     // the room then opens just where the pointer is, and what it shows never feeds back into what is aimed at). In the
     // air between two rows, the nearer one.

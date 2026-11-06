@@ -9,7 +9,7 @@ import { tagHue } from '@/extensions/tokens'
 import { chime } from '@/lib/sound'
 import { useThumb } from '@/lib/notes'
 import { openApart } from '@/lib/apart'
-import { asideItem } from '@/lib/split'
+import { canSplit, openItems } from '@/lib/split'
 import { RowMenu, copyLinkItem, openFromGrip, type RowItem } from './row-menu'
 import { unloaded, unread, haligtree } from '@/lib/haligtree'
 import { Thumb } from './note-extras'
@@ -89,7 +89,7 @@ export function Mentions({ id, onOpen, compact = false }: {
     // Right-click, as on every row: open it where you like, link it, copy a link to it.
     const items: RowItem[] = [
       { label: 'Open', run: () => onOpen?.(one.type, one.id) },
-      asideItem(one.type, one.id),
+      ...openItems(one.type, one.id),
       { label: 'Open in a new window', run: () => openApart(one.type, one.id) },
       'separator',
       !!link && { label: 'Link this mention', run: linkIt },
@@ -256,7 +256,7 @@ function RelatedCard({ card, onOpen }: { card: Related[number]; onOpen?: (type: 
   // One menu, from its ⋯ and from a right click, as every row's: where to open it, the queue, a link to it.
   const items: RowItem[] = [
     { label: 'Open', run: () => onOpen?.(card.type, card.id) },
-    asideItem(card.type, card.id),
+    ...openItems(card.type, card.id),
     { label: 'Open in a new window', run: () => openApart(card.type, card.id) },
     'separator',
     { label: 'Add to queue', run: () => void enqueue([card.id]) },
@@ -270,7 +270,7 @@ function RelatedCard({ card, onOpen }: { card: Related[number]; onOpen?: (type: 
       <button
         type="button"
         data-row
-        onClick={(event) => (event.metaKey ? openApart(card.type, card.id) : onOpen?.(card.type, card.id))}
+        onClick={(event) => (event.metaKey && !canSplit() ? openApart(card.type, card.id) : onOpen?.(card.type, card.id))}
         className="block w-full rounded-lg text-left outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.98] transition-transform duration-150 ease-out"
       >
         <Frame className="block h-24 overflow-hidden rounded-lg border bg-muted/50 transition-colors group-hover/card:border-foreground/20">

@@ -93,7 +93,7 @@ import { useReveal } from './islands'
 import { DEPTH, dropMany, flatten, gather, groupId, groupOf, isGroup, KEY, layoutOf, moveMany, reorderAs, sameLayout, shownKeys, step as stepLayout, tidy, type Layout } from '@/lib/group-layout'
 import type { Cue } from '@/lib/sound'
 import { GroupIcon, SectionHeads, type Bundle, type Folds, type GroupView, type Part as KeptPart } from './kept-groups'
-import { asideItem, useHere } from '@/lib/split'
+import { openItems, useHere } from '@/lib/split'
 import { queueMenu } from '@/lib/reading-queue'
 import { Apart } from '@/lib/apart'
 import { loud } from '@/lib/loud'
@@ -925,7 +925,7 @@ const itemMenu = (item: Item): (MenuItem | { label: string; items: RowItem[] })[
   { label: 'Open in a new window', keys: '⌥⌘-click', run: () => openApart(item.tier, item.id) },
   // A Word kept as a gem is one word and its meaning, as in the Inbox: nothing to read through or queue up.
   item.kind !== 'word' && { label: 'Read', hint: 'Read it through, the notes it links to open in place', run: () => openRead(`${item.tier}:${item.id}`) },
-  asideItem(item.tier, item.id),
+  ...openItems(item.tier, item.id),
   item.kind !== 'word' && queueMenu(item.id),
   'separator',
   item.tier === 'nugget' && { label: 'Change kind…', run: () => void changeKind('nuggets', item.id, item.kind) },

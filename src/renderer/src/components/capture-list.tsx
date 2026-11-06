@@ -16,7 +16,7 @@ import { NoteList, type Entry } from './haligtree/note-list'
 import type { Density } from './haligtree/display'
 import { archive, changeKind, saveAttachments } from '@/lib/notes'
 import { openApart } from '@/lib/apart'
-import { asideItem } from '@/lib/split'
+import { openItems } from '@/lib/split'
 import { binItem } from '@/lib/to-bin'
 import { queueMenu } from '@/lib/reading-queue'
 import { copyToBookItem } from '@/lib/books'
@@ -162,7 +162,7 @@ export const captureMenu = (capture: CaptureMeta, onPick?: (id: string) => void)
   { label: 'Open in a new window', keys: '⌥⌘-click', run: () => openApart('capture', capture.id) },
   // A Word is one word and its meaning: nothing to read through or queue up.
   capture.kind !== 'word' && { label: 'Read', hint: 'Read it through, the notes it links to open in place', run: () => openRead(capture.id) },
-  asideItem('capture', capture.id),
+  ...openItems('capture', capture.id),
   capture.kind !== 'word' && queueMenu(capture.id),
   'separator',
   capture.status !== 'open' && { label: 'Change kind…', run: () => void changeKind('captures', capture.id, capture.kind) },

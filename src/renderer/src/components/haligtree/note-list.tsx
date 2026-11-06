@@ -25,7 +25,7 @@ import { Button } from '@/components/ui/button'
 import type { Density, Pane } from './display'
 import { GrainFill, onPaper, PAPER_INK, useNoteCover } from './grain'
 import { Tilt } from './tilt'
-import { useHere, usePaneMark } from '@/lib/split'
+import { canSplit, openNewTab, useHere, usePaneMark } from '@/lib/split'
 import { knowRow } from './row-card'
 import type { Headword } from '@/lib/headword'
 import { loud, type Loud } from '@/lib/loud'
@@ -489,11 +489,12 @@ export function NoteList({
         data-voice={entry.voice}
         // As in Finder: ⌘-click picks one more (or one less), ⇧-click a run;
         // ⌥⌘-click opens a window of its own. A list you cannot pick from
-        // keeps ⌘-click for the window. A plain click also puts the keyboard's
+        // keeps ⌘-click for a new tab. A plain click also puts the keyboard's
         // cursor on the row, so ⌫, ↓, ↵ and the menu's other keys start from
         // the one just clicked, as they do in Finder and Mail.
         onClick={(event) => {
-          if (event.metaKey && (event.altKey || !picking)) return openApart(entry.type, entry.id)
+          if (event.metaKey && event.altKey) return openApart(entry.type, entry.id)
+          if (event.metaKey && !picking) return canSplit() ? openNewTab(entry.type, entry.id) : openApart(entry.type, entry.id)
           if (picking?.click(event, entry.id)) return
           onCursor?.(index)
           onPick(entry.id)
@@ -924,7 +925,7 @@ export function NoteRail({
                 data-private={entry.private ? '' : undefined}
                 data-open={entry.id === selected ? '' : undefined}
                 onClick={(event) =>
-                  event.metaKey ? openApart(entry.type, entry.id) : onPick(entry.id)
+                  event.metaKey ? (canSplit() ? openNewTab(entry.type, entry.id) : openApart(entry.type, entry.id)) : onPick(entry.id)
                 }
                 className={`flex w-full items-center justify-center rounded-lg p-1 ring-inset transition-[box-shadow,background-color] hover:bg-accent/60 ${PRESS} ${entry.dim ? 'opacity-50' : ''} ${index === cursor ? 'ring-2 ring-ring' : entry.id === selected ? 'bg-accent' : ''}`}
               >

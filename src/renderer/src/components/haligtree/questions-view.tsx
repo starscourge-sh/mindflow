@@ -15,7 +15,7 @@ import { useLive, haligtree, when, shownName, splitTags, withTagsOf, type Item, 
 import { flying, follow, noteLinkText } from '@/lib/capture-links'
 import { archive, saveAttachments, useOpenNote } from '@/lib/notes'
 import { openApart } from '@/lib/apart'
-import { asideItem } from '@/lib/split'
+import { openItems } from '@/lib/split'
 import { queueItems } from '@/lib/reading-queue'
 import { Command, CommandEmpty, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
 import { Button } from '@/components/ui/button'
@@ -347,7 +347,7 @@ const QUICK_TIP = 'Shows this question in quick capture, so you can add a clue t
 /** What a question offers besides opening it: its row menu and its note's dots share it. */
 export const questionMenu = (item: Item, shown: boolean): MenuItem[] => [
   { label: 'Open in a new window', keys: '⌥⌘-click', run: () => openApart('question', item.id) },
-  asideItem('question', item.id),
+  ...openItems('question', item.id),
   ...queueItems(item.id),
   'separator',
   ...(item.closedAt ? [] : [{ label: shown ? 'Hide from quick capture' : 'Show in quick capture', run: () => void pinQuestion(item.id, item.title, !shown) }]),

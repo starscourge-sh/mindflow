@@ -79,7 +79,7 @@ export function setAppMenu(acts: MenuActs): void {
         },
         { label: 'Export everything…', click: () => acts.inHome('haligtree:export-all') },
         { type: 'separator' },
-        // ⌘W closes what is open in front first (a note or task beside its list, a pane of a split, a panel), the
+        // ⌘W closes what is open in front first (a note or task beside its list, a tab, a panel), the
         // window only when nothing is (preload, menu:close; home.tsx says what it closed).
         { label: 'Close', accelerator: 'CommandOrControl+W', click: (_item, win) => (win instanceof BrowserWindow ? win : BrowserWindow.getFocusedWindow())?.webContents.send('menu:close') }
       ]

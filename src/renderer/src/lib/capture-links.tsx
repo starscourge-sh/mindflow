@@ -9,7 +9,7 @@ import { lift, shred, type Home } from '@/lib/fly-home'
 import { readTags, setLinkKinds, showHeading, type LinkKind, type NoteSuggestion } from '@/extensions/note-link'
 import { CAPTURE_TYPES } from '@/components/capture-kinds/capture-kind-picker'
 import { openApart } from '@/lib/apart'
-import { asideClick, canSplit, openAside, spendAsideClick } from '@/lib/split'
+import { canSplit, openAside, openNewTab, takeClick } from '@/lib/split'
 import { headingsIn } from '@/components/toc/headings'
 import { linesIn } from '../../../main/blocks'
 import type { JSONContent } from '@tiptap/core'
@@ -214,8 +214,9 @@ setLinkKinds({
   kinds: linkKinds,
   // Links made before links kept their kind: a bare id is a capture, all of a note's asked about at once.
   find: (ids) => window.api.haligtree<Record<string, string>>('notes:kinds', ids.filter((id) => !id.includes(':'))),
-  // A new window of its own, for the notes that can have one.
+  // ⌘-click: outside the main window, a new window of its own, for the notes that can have one. In it, a new tab.
   aside: (link) => {
+    if (canSplit()) return false
     const [type, id] = link.includes(':') ? [link.slice(0, link.indexOf(':')), link.slice(link.indexOf(':') + 1)] : ['capture', link]
     if (['task', 'person', 'tag', 'event', 'day', 'pdf', 'web'].includes(type)) return false
     openApart(type, id)
@@ -307,10 +308,10 @@ export const follow = (link: string, open: (type: string, id: string) => void, h
   // Found by a link, for the usage counts.
   via('link')
   const [type, id] = link.includes(':') ? [link.slice(0, link.indexOf(':')), link.slice(link.indexOf(':') + 1)] : ['capture', link]
-  // ⌥-clicked: to the side, as everywhere. Read now, from the click, before a capture's lookup waits.
-  const side = asideClick() && canSplit() && type !== 'person'
-  if (side) spendAsideClick()
-  const go = side ? openAside : open
+  // ⌥-clicked: to the side. ⌘-clicked: a new tab, as everywhere. Read now, from the click, before a capture's lookup waits.
+  const how = canSplit() && type !== 'person' ? takeClick() : null
+  const side = how === 'aside'
+  const go = side ? openAside : how === 'tab' ? openNewTab : open
   // A person or a tag is a place in the main window, not a note: its tag page, or a search for their name.
   // A PDF or a kept article opens in the reader there, wherever the link is.
   if (type === 'person' || type === 'tag' || type === 'pdf' || type === 'web') return side ? openAside(type, id) : window.api.openInHome(type, id)

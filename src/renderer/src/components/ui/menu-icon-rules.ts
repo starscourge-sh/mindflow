@@ -122,8 +122,8 @@ const RULES: [RegExp, LucideIcon][] = [
   // Pins and splits first: "Unpin" must not read as "Pin", nor "Open to the side" as "Open".
   [/^unpin|^pin off|^stop showing in quick capture/i, PinOff],
   [/in quick capture/i, Pin],
-  [/^pin\b|^keep .*on screen|^pin the layout/i, Pin],
-  [/to the side|as split|^split|beside it|^add (left|right) split|pane to the (left|right)/i, Columns2],
+  [/^pin\b|^keep .*on screen/i, Pin],
+  [/to the side|in a new tab|as split|^split|beside it|^add (left|right) split|pane to the (left|right)|^move to (the split|a new split)|^end the split|^open this split/i, Columns2],
   [/^separate|^ungroup/i, Ungroup],
   // Figma's ⌘G: notes gathered into a group in place, drawn as the stack a group starts with.
   [/^group (the picked|[0-9,]+ notes)/i, Layers],
@@ -135,9 +135,9 @@ const RULES: [RegExp, LucideIcon][] = [
   [/^read it to me|^read aloud/i, Volume2],
   [/^stop reading/i, VolumeX],
   [/^proofread/i, SpellCheck],
-  [/close (the )?other panes/i, CircleX],
-  [/^close (this )?pane|^close without/i, X],
-  // Any other close (a pair in the sidebar, a window): the same plain ✕ as a pane's.
+  [/^close others|^close to the right/i, CircleX],
+  [/^close without/i, X],
+  // Any other close (a tab, a window): the same plain ✕.
   [/^close\b(?! the (day|week))/i, X],
   [/^even out/i, Columns2],
   [/^back$/i, ArrowLeft],

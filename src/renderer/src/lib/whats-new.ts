@@ -77,7 +77,7 @@ export const NEWS: News[] = [
     show: { view: 'queue', at: ROW, text: 'Drag a note onto Queue in the sidebar to add it.' } },
   { id: 'marked-days', release: 'map-and-gems', day: '2026-10-10', lead: 'Marked days.', text: 'Give any day a purpose, like Exam or Launch, and count down to it from Today and the menu bar.',
     show: { view: 'yearpage', at: '[data-year-marks]', text: 'Right-click any day to mark it, or type !milestone Exam on 3 Dec in quick capture.' } },
-  { id: 'split', release: 'map-and-gems', day: '2026-10-10', lead: 'Split view.', text: 'Open a page again beside itself, or a note beside another, each pane named by what it shows.', keys: ['⌘\\'],
+  { id: 'split', release: 'map-and-gems', day: '2026-10-10', lead: 'Split view.', text: 'Open a page again beside itself, or a note beside another, each side with its own tabs.', keys: ['⌘\\'],
     show: { view: 'inbox', at: ROW, text: 'Press ⌥⌘\\ to open this page again beside it.' } },
   { id: 'thought-box', release: 'groups-and-books', day: '2026-10-09', lead: 'Thoughts on a note.', text: 'Under an open note, a line to add a dated thought without touching the note itself; ; puts the caret there.', keys: [';'],
     show: { view: 'inbox', at: ROW, text: 'Open a note, then press ; to add a thought under it.' } },

@@ -28,7 +28,7 @@ import { ListSearch } from './note-list'
 import { motion } from 'motion/react'
 import { DRAWINGS, GrainFill, PAPER_INK, spreadPick, useNoteCover } from './grain'
 import { ago, dayKey, dayMonth, dayName, dayjs, noon, num, plural } from '../../../../main/dates'
-import { asideItem, useHere } from '@/lib/split'
+import { canSplit, openItems, useHere } from '@/lib/split'
 import { queueItems } from '@/lib/reading-queue'
 import { PICKED_MARK, usePickMixed } from './pick-mixed'
 import { itemName } from '@/lib/tasks'
@@ -315,7 +315,7 @@ export function TagStream({ tag, color, onOpen, onTag, onStudy }: {
   const last = items.reduce((at, item) => (item.at > at ? item.at : at), items[0].at)
   const pinnedNote = (item: TagRead): boolean => pins.some((one) => one.id === item.id)
   const table = (item: TagRead): 'captures' | 'nuggets' => (item.type === 'capture' ? 'captures' : 'nuggets')
-  const open = (item: TagRead, event?: React.MouseEvent | React.KeyboardEvent): void => (event?.metaKey ? openApart(item.type, item.id) : onOpen(item.type, item.id))
+  const open = (item: TagRead, event?: React.MouseEvent | React.KeyboardEvent): void => (event?.metaKey && !canSplit() ? openApart(item.type, item.id) : onOpen(item.type, item.id))
   // A note's right-click menu is the full one it has on its own page, and this page's "Read from here" after it.
   const rowMenu = (item: TagRead, index: number): RowItem[] => {
     const task = item.type === 'task' ? tasks.find((one) => one.id === item.id) : null
@@ -327,7 +327,7 @@ export function TagStream({ tag, color, onOpen, onTag, onStudy }: {
   const noteMenu = (item: TagRead, index: number): MenuItem[] => [
     { label: 'Open', keys: '↵', run: () => open(item) },
     { label: 'Open in a new window', keys: '⌘-click', run: () => openApart(item.type, item.id) },
-    asideItem(item.type, item.id),
+    ...openItems(item.type, item.id),
     ...queueItems(item.id),
     { label: 'Read from here', run: () => read(shown, index) },
     'separator',

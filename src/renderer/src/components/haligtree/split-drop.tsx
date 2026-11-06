@@ -10,13 +10,14 @@ import { CAPTURE_TYPES } from '../capture-kinds/capture-kind-picker'
 import { cut } from '../../../../main/clip'
 import { still } from '@/lib/motion'
 import { refuse } from './ui'
+import { gapIn, setCarry } from './tab-row'
 
 /**
  * Drag to split, Dia's way with tabs: carry a row, a Home tile, a pinned
  * note, a search result or an @ link over the page, and two tall dashed
  * places come up at its left and right edges. Let go over one and what you
- * carried opens in a new pane on that side (with four open already, it
- * takes that side's pane instead).
+ * carried opens in a new pane on that side. Carried over a pane's row of
+ * tabs, a gap opens where it would land, and letting go makes it a tab there.
  *
  * The places and the carried card pull toward each other as they near, the
  * way React Bits' Magnet pulls a thing toward the pointer: within about
@@ -32,9 +33,9 @@ import { refuse } from './ui'
  * or a day it could be dropped in, and go again when it comes back in.
  */
 
-export type Side = 'left' | 'right'
-/** What was carried: `type:id` to open, or a list row in a pane (its id, and which pane). */
-export type Carried = { open?: string; row?: { pane: string; id: string }; title: string; kind?: string }
+export type Side = 'left' | 'right' | 'between'
+/** What was carried: `type:id` to open, a list row in a pane (its id, and which pane), or a tab (which, and whose). */
+export type Carried = { open?: string; row?: { pane: string; id: string }; tab?: { pane: string; key: string }; title: string; kind?: string }
 
 /** How near, in px, the pull begins. */
 const REACH = 120
@@ -51,6 +52,9 @@ const START = 8
 function sourceOf(target: EventTarget | null): { node: HTMLElement; carried: Carried; column: boolean; edgeOnly?: boolean } | null {
   if (!(target instanceof Element)) return null
   if (target.closest('input, textarea, select, [data-no-split], [role="menu"], [role="separator"]')) return null
+  const tab = target.closest<HTMLElement>('[data-tab]')
+  const row = tab?.closest<HTMLElement>('[data-tab-row]')
+  if (tab && row) return { node: tab, carried: { tab: { pane: row.dataset.tabRow!, key: tab.dataset.tab! }, open: tab.dataset.tabOpen, title: tab.dataset.dragTitle ?? 'Untitled' }, column: false }
   const chip = target.closest<HTMLElement>('a.tiptap-note-link[data-note]')
   if (chip) {
     const raw = chip.getAttribute('data-note') ?? ''
@@ -62,16 +66,16 @@ function sourceOf(target: EventTarget | null): { node: HTMLElement; carried: Car
   const own = target.closest<HTMLElement>('[data-drag-open]')
   // One in a list of your own order (a pin in the sidebar) moves there first, as a list row does.
   if (own) return { node: own, carried: { open: own.dataset.dragOpen, title: titleOf(own), kind: own.dataset.dragKind }, column: !!own.closest('[data-sortable-id]') }
-  const row = target.closest<HTMLElement>('[data-pane] [data-row][data-id]')
-  const pane = row?.closest('[data-pane]')?.getAttribute('data-pane')
-  if (!row || !pane || row.closest('[data-group-row]')) return null
+  const listed = target.closest<HTMLElement>('[data-pane] [data-row][data-id]')
+  const pane = listed?.closest('[data-pane]')?.getAttribute('data-pane')
+  if (!listed || !pane || listed.closest('[data-group-row]')) return null
   // A row that drags into your own order waits until it leaves its column.
   // Any other list row (a task in Today, Upcoming, Later) waits too, until the
   // pointer is at the page's very edge: a row nudged up or down in its list,
   // or carried over the task open beside it, never brings the places up, nor
   // lets go into one by surprise.
-  const sorts = !!row.closest('[data-sortable-id]')
-  return { node: row, carried: { row: { pane, id: row.dataset.id! }, title: titleOf(row), kind: row.dataset.dragKind }, column: true, edgeOnly: !sorts }
+  const sorts = !!listed.closest('[data-sortable-id]')
+  return { node: listed, carried: { row: { pane, id: listed.dataset.id! }, title: titleOf(listed), kind: listed.dataset.dragKind }, column: true, edgeOnly: !sorts }
 }
 
 /** Whether a sidebar place takes what is carried: Pinned takes a note (never a task or a list's row), the Queue anything but a task. */
@@ -93,23 +97,26 @@ const titleOf = (node: HTMLElement): string =>
   'Untitled'
 
 /** `reach`: the card and everything between it and its side of the page, top to bottom: the pointer at the very edge is in it too. */
-type Zone = { side: Side; left: number; top: number; width: number; height: number; reach: { left: number; right: number; top: number; bottom: number } }
+type Zone = { key: string; side: Side; at: number; left: number; top: number; width: number; height: number; reach: { left: number; right: number; top: number; bottom: number } }
 /**
  * Dia's two places: a tall card a little in from each side, centred top to
  * bottom, the same size on both sides and there whole from the start, never
  * a thin strip that grows. Beside a list's own drag, only as wide as the room
  * either side of its column allows, so it never covers what it could drop in.
  */
-const zonesIn = (area: DOMRect, column?: DOMRect, edge = false): Zone[] => {
+const zonesIn = (area: DOMRect, gaps: number[], column?: DOMRect, edge = false): Zone[] => {
   const INSET = 24
   const full = Math.max(180, Math.min(320, area.width * 0.24))
   // Brought up only at the page's edge (a task row): a strip there, never over the list or the task open beside it.
   const width = edge ? NARROW : column ? Math.max(NARROW, Math.min(full, column.left - area.left - INSET - OUTSIDE - 8, area.right - column.right - INSET - OUTSIDE - 8)) : full
   const height = Math.max(220, Math.min(640, area.height * 0.72))
   const top = area.top + (area.height - height) / 2
+  // A place on each divider too, a pane's edge in the middle of the page, for what is not a list's own drag.
+  const middle = Math.min(width, ...[area.left, ...gaps, area.right].slice(1).map((x, at) => (x - [area.left, ...gaps][at]) * 0.34))
   return [
-    { side: 'left', left: area.left + INSET, top, width, height, reach: { left: area.left - 40, right: area.left + INSET + width, top: area.top, bottom: area.bottom } },
-    { side: 'right', left: area.right - INSET - width, top, width, height, reach: { left: area.right - INSET - width, right: area.right + 40, top: area.top, bottom: area.bottom } }
+    { key: 'left', side: 'left', at: 0, left: area.left + INSET, top, width, height, reach: { left: area.left - 40, right: area.left + INSET + width, top: area.top, bottom: area.bottom } },
+    ...(column || edge ? [] : gaps.map((x, at): Zone => ({ key: `gap${at}`, side: 'between', at: at + 1, left: x - middle / 2, top, width: middle, height, reach: { left: x - middle / 2, right: x + middle / 2, top: area.top, bottom: area.bottom } }))),
+    { key: 'right', side: 'right', at: gaps.length + 1, left: area.right - INSET - width, top, width, height, reach: { left: area.right - INSET - width, right: area.right + 40, top: area.top, bottom: area.bottom } }
   ]
 }
 /** How far the pointer is from a place: 0 inside it. */
@@ -122,14 +129,14 @@ const distance = (zone: Zone, x: number, y: number): number => {
 /** Cancel a list's own drag (dnd-kit), as leaving the window would. */
 const dropListDrag = (): void => void window.dispatchEvent(new Event('visibilitychange'))
 
-export function SplitDrop({ onDrop }: { onDrop: (carried: Carried, side: Side) => void }): React.JSX.Element | null {
+export function SplitDrop({ onDrop, onRow }: { onDrop: (carried: Carried, at: number) => void; onRow: (carried: Carried, pane: string, at: number) => void }): React.JSX.Element | null {
   const [carried, setCarried] = useState<Carried | null>(null)
   // Carried by a list's own drag, which draws its own lifted picture: no second one here.
   const [bare, setBare] = useState(false)
   const [zones, setZones] = useState<Zone[]>([])
-  const [hot, setHot] = useState<Side | null>(null)
-  const dropRef = useRef(onDrop)
-  dropRef.current = onDrop
+  const [hot, setHot] = useState<string | null>(null)
+  const dropRef = useRef({ onDrop, onRow })
+  dropRef.current = { onDrop, onRow }
   // The pointer, and where the card is drawn toward.
   const x = useMotionValue(0)
   const y = useMotionValue(0)
@@ -149,19 +156,35 @@ export function SplitDrop({ onDrop }: { onDrop: (carried: Carried, side: Side) =
     let down: { x: number; y: number; source: NonNullable<ReturnType<typeof sourceOf>>; column: DOMRect } | null = null
     let active = false
     let shown: Zone[] = []
-    let over: Side | null = null
+    let over: Zone | null = null
+    // Every place a carried tab could make a new pane, and where its row is at.
+    let places: Zone[] = []
+    let gapped: { pane: string; at: number } | null = null
     // The Queue's row in the sidebar, while the carried thing is over it: let go there, it joins the queue.
     // Pinned in the sidebar takes a note the same way (side-menu.tsx).
     let queued: HTMLElement | null = null
     // Read under the carried picture too: over the list's path bar it sits right under the pointer.
     const queueAt = (px: number, py: number): HTMLElement | null => {
       for (const one of document.elementsFromPoint(px, py)) {
-        const place = one.closest<HTMLElement>('[data-queue-drop], [data-side-drop], [data-folder-drop]')
+        const place = one.closest<HTMLElement>('[data-queue-drop], [data-side-drop], [data-folder-drop], [data-tab-row]')
         if (place) return place
       }
       return null
     }
-    const area = (): DOMRect | null => document.querySelector('[data-split-area]')?.getBoundingClientRect() ?? null
+    // The panes' pages: the rows of tabs over them are places of their own.
+    const area = (): DOMRect | null => {
+      const box = document.querySelector('[data-split-area]')?.getBoundingClientRect()
+      if (!box) return null
+      const under = Math.max(box.top, ...[...document.querySelectorAll('[data-tabs]')].map((one) => one.getBoundingClientRect().bottom))
+      return new DOMRect(box.left, under, box.width, box.bottom - under)
+    }
+    const dividers = (): number[] => [...document.querySelectorAll('[data-pane-divider]')].map((one) => { const box = one.getBoundingClientRect(); return box.left + box.width / 2 })
+    /** The gap in a row of tabs shown no more. */
+    const letGap = (): void => {
+      gapped = null
+      setCarry({ from: down?.source.carried.tab?.key ?? null, gap: null })
+    }
+
     let quiet = still()
     // The places put away while the drag goes on.
     const hide = (): void => {
@@ -170,6 +193,8 @@ export function SplitDrop({ onDrop }: { onDrop: (carried: Carried, side: Side) =
       over = null
       if (queued) (delete queued.dataset.queueHot, delete queued.dataset.folderNo)
       queued = null
+      gapped = null
+      setCarry({ from: null, gap: null })
       delete document.documentElement.dataset.splitDrag
       delete document.documentElement.dataset.splitRoom
       delete document.documentElement.dataset.splitPin
@@ -183,6 +208,8 @@ export function SplitDrop({ onDrop }: { onDrop: (carried: Carried, side: Side) =
       over = null
       if (queued) (delete queued.dataset.queueHot, delete queued.dataset.folderNo)
       queued = null
+      gapped = null
+      setCarry({ from: null, gap: null })
       delete document.documentElement.dataset.splitDrag
       delete document.documentElement.dataset.splitRoom
       delete document.documentElement.dataset.splitPin
@@ -192,7 +219,7 @@ export function SplitDrop({ onDrop }: { onDrop: (carried: Carried, side: Side) =
     const follow = (px: number, py: number): void => {
       x.set(px)
       y.set(py)
-      let target: Side | null = null
+      let target: Zone | null = null
       let toX = px
       let toY = py
       for (const zone of shown) {
@@ -200,10 +227,12 @@ export function SplitDrop({ onDrop }: { onDrop: (carried: Carried, side: Side) =
         const pull = Math.max(0, 1 - far / REACH)
         const middle = { x: zone.left + zone.width / 2, y: Math.max(zone.top + 40, Math.min(zone.top + zone.height - 40, py)) }
         const within = px >= zone.reach.left && px <= zone.reach.right && py >= zone.reach.top && py <= zone.reach.bottom
-        if (far === 0 || within) target = zone.side
+        if (far === 0 || within) target = zone
         // The place leans out toward the pointer and grows a touch; the card is drawn in.
-        lean[zone.side].set(quiet ? 0 : Math.max(-14, Math.min(14, (px - middle.x) * 0.1 * pull)))
-        grow[zone.side].set(quiet ? 1 : 1 + 0.035 * pull)
+        if (zone.side !== 'between') {
+          lean[zone.side].set(quiet ? 0 : Math.max(-14, Math.min(14, (px - middle.x) * 0.1 * pull)))
+          grow[zone.side].set(quiet ? 1 : 1 + 0.035 * pull)
+        }
         // In the place: the card rests just under its words, never over them.
         if (far === 0 || within) (toX = zone.left + zone.width / 2), (toY = zone.top + zone.height / 2 + 64)
         else if (pull > 0 && !quiet) (toX = px + (middle.x - px) * 0.32 * pull), (toY = py + (middle.y - py) * 0.32 * pull)
@@ -218,6 +247,21 @@ export function SplitDrop({ onDrop }: { onDrop: (carried: Carried, side: Side) =
       const found = target ? null : queueAt(px, py)
       // A place that would not take it stays unlit: lit, it promises what letting go there would not do.
       const queue = found && down && !takes(found, down.source.carried, down.source.node) ? null : found
+      // Over a row of tabs: the gap it would land in opens there, and the row scrolls on when pressed against its end.
+      const row = queue?.dataset.tabRow ? queue : null
+      if (row && down) {
+        const from = down.source.carried.tab?.key ?? null
+        const at = gapIn(row, px, from)
+        const box = row.getBoundingClientRect()
+        row.scrollLeft += px < box.left + 24 ? -12 : px > box.right - 24 ? 12 : 0
+        gapped = { pane: row.dataset.tabRow!, at }
+        setCarry({ from, gap: { ...gapped, width: Math.min(120, Math.max(44, box.width / (row.querySelectorAll('[data-tab]').length + 1))) } })
+      } else if (gapped) letGap()
+      // A tab's places come up once it is off the rows, down over the page; a lone tab of a lone pane has none to go to.
+      if (down?.source.carried.tab) {
+        const want = py > (area()?.top ?? 0) + 8 ? places : []
+        if (want.length !== shown.length) (shown = want), setZones(want)
+      }
       if (queue !== queued) {
         if (queued) (delete queued.dataset.queueHot, delete queued.dataset.folderNo)
         // A folder of the other list takes no note: it stays unlit, and says why on letting go.
@@ -228,7 +272,7 @@ export function SplitDrop({ onDrop }: { onDrop: (carried: Carried, side: Side) =
       shrink.set(target || queue ? 0.86 : 1)
       if (target !== over) {
         over = target
-        setHot(target)
+        setHot((target as Zone | null)?.key ?? null)
         if (target) click('tick')
       }
     }
@@ -237,7 +281,15 @@ export function SplitDrop({ onDrop }: { onDrop: (carried: Carried, side: Side) =
       if (!box || !down) return
       active = true
       quiet = still()
-      shown = zonesIn(box, down.source.column ? down.column : undefined, !!down.source.edgeOnly)
+      shown = zonesIn(box, dividers(), down.source.column ? down.column : undefined, !!down.source.edgeOnly)
+      const tabbed = down.source.carried.tab
+      if (tabbed) {
+        // Its own pane's edges would change nothing for a lone tab there.
+        const lone = document.querySelectorAll('[data-pane]').length === 1 && document.querySelectorAll('[data-tab]').length === 1
+        places = lone ? [] : shown
+        shown = []
+        setCarry({ from: tabbed.key, gap: null })
+      }
       // Up only at an edge, only that edge's place: the other side's would sit over the list for nothing.
       if (down.source.edgeOnly) shown = shown.filter((zone) => zone.side === (px < box.left + box.width / 2 ? 'left' : 'right'))
       document.documentElement.dataset.splitDrag = ''
@@ -298,10 +350,15 @@ export function SplitDrop({ onDrop }: { onDrop: (carried: Carried, side: Side) =
       // A task row carried and let go short of the edge was a drag, not a click: it does not open.
       if (!active && down?.source.edgeOnly && Math.hypot(event.clientX - down.x, event.clientY - down.y) >= START) swallowClick()
       if (!active || !down) return void (down = null)
-      const side = over
+      const side = over as Zone | null
       const what = down.source.carried
       const id = what.open ? what.open.slice(what.open.indexOf(':') + 1) : what.row?.id
-      if (!side && queued?.dataset.sideDrop && what.open) {
+      if (!side && gapped) {
+        dropListDrag()
+        event.preventDefault()
+        swallowClick()
+        dropRef.current.onRow(what, gapped.pane, gapped.at)
+      } else if (!side && queued?.dataset.sideDrop && what.open) {
         dropListDrag()
         event.preventDefault()
         window.dispatchEvent(new CustomEvent('haligtree:side-drop', { detail: { to: queued.dataset.sideDrop, open: what.open } }))
@@ -323,7 +380,7 @@ export function SplitDrop({ onDrop }: { onDrop: (carried: Carried, side: Side) =
         dropListDrag()
         event.preventDefault()
         swallowClick()
-        dropRef.current(what, side)
+        dropRef.current.onDrop(what, side.at)
       }
       reset()
     }
@@ -372,7 +429,7 @@ export function SplitDrop({ onDrop }: { onDrop: (carried: Carried, side: Side) =
           transition={{ duration: 0.12 }}
         >
           {zones.map((zone) => (
-            <ZoneBox key={zone.side} zone={zone} hot={hot === zone.side} lean={leanS[zone.side]} grow={growS[zone.side]} />
+            <ZoneBox key={zone.key} zone={zone} hot={hot === zone.key} lean={zone.side === 'between' ? undefined : leanS[zone.side]} grow={zone.side === 'between' ? undefined : growS[zone.side]} />
           ))}
           {!bare && <motion.div
             data-split-card=""
@@ -389,9 +446,9 @@ export function SplitDrop({ onDrop }: { onDrop: (carried: Carried, side: Side) =
   )
 }
 
-function ZoneBox({ zone, hot, lean, grow }: { zone: Zone; hot: boolean; lean: MotionValue<number>; grow: MotionValue<number> }): React.JSX.Element {
+function ZoneBox({ zone, hot, lean, grow }: { zone: Zone; hot: boolean; lean?: MotionValue<number>; grow?: MotionValue<number> }): React.JSX.Element {
   // No limit on panes: a drop always adds one where it lands.
-  const label = `Open on the ${zone.side}`
+  const label = zone.side === 'between' ? 'Open between' : `Open on the ${zone.side}`
   // A narrow card beside a list's own drag: its words wrap, smaller.
   const narrow = zone.width <= NARROW
   return (
@@ -401,7 +458,7 @@ function ZoneBox({ zone, hot, lean, grow }: { zone: Zone; hot: boolean; lean: Mo
       aria-label={label}
       // Dia's card: dark and solid on the page, a dashed edge just inside it; the edge takes the accent while it is the place.
       className="absolute flex flex-col items-center justify-center gap-2.5 rounded-[22px] border bg-popover text-foreground shadow-[0_24px_60px_-24px_color-mix(in_oklab,var(--mf-shadow-ink)_50%,transparent)]"
-      style={{ left: zone.left, top: zone.top, width: zone.width, height: zone.height, x: lean, scale: grow, transformOrigin: zone.side === 'left' ? 'left center' : 'right center' }}
+      style={{ left: zone.left, top: zone.top, width: zone.width, height: zone.height, x: lean, scale: grow, transformOrigin: zone.side === 'left' ? 'left center' : zone.side === 'right' ? 'right center' : 'center' }}
       initial={{ opacity: 0, scale: 0.96 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ type: 'spring', duration: 0.24, bounce: 0 }}
@@ -415,6 +472,14 @@ function ZoneBox({ zone, hot, lean, grow }: { zone: Zone; hot: boolean; lean: Mo
 
 /** Two panes side by side, the half that would be new filled in. */
 function SplitMark({ side }: { side: Side }): React.JSX.Element {
+  if (side === 'between') {
+    return (
+      <svg viewBox="0 0 16 16" className="size-4" fill="none" stroke="currentColor" strokeWidth={1.4} aria-hidden>
+        <rect x="1.5" y="2.5" width="13" height="11" rx="2" />
+        <rect x="5.6" y="3.6" width="4.8" height="8.8" rx="1" fill="currentColor" stroke="none" opacity="0.55" />
+      </svg>
+    )
+  }
   return (
     <svg viewBox="0 0 16 16" className="size-4" fill="none" stroke="currentColor" strokeWidth={1.4} aria-hidden>
       <rect x="1.5" y="2.5" width="13" height="11" rx="2" />

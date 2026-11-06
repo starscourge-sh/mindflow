@@ -85,7 +85,7 @@ const groupOf = (at: string): string => {
  * they were captured, with the one under the cursor previewed on the right.
  * Arrows move, Enter opens, Escape closes.
  */
-export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'task', 'question'], initial = '', actions: everyAction = [], placeholder, menus = true, scope, choose: chooseFirst, inPane, inCard = false }: { /** Drawn over quick capture's card and no further, at the card's own size and corners: the window never grows for it and the chips round the card stay in sight. */ inCard?: boolean;/** Drawn inside a pane of the split (⌘\\) as its page, not over the window: no scrim, not a dialog, and Esc (onClose) closes the pane. What it opens takes the pane's place. */ inPane?: { title: string; lead: ReactNode }; /** Opened straight on one action's choices, by its label (“Start focus…” from its key anywhere). */ choose?: string; /** Opened about one thing (a task picked on the Calendar): its name before the words, and only its actions until ⌫ leaves it. */ scope?: { label: string; actions: Action[] }; onOpen: (type: string, id: string) => void; /** ⌥↵: open it beside the page, in a pane of its own (the main window's split view). */ onAside?: (type: string, id: string) => void; onClose: () => void; /** Words that match nothing, kept as something new (Arc's "search or make"). */ onKeep?: (as: Keep, text: string) => void; keeps?: Keep[]; initial?: string; actions?: Action[]; placeholder?: string; /** A right click on a result offers what its list's would; off where a pick is all a result is for. */ menus?: boolean }): React.JSX.Element {
+export function Search({ onOpen, onAside, onTab, onClose, onKeep, keeps = ['note', 'task', 'question'], initial = '', actions: everyAction = [], placeholder, menus = true, scope, choose: chooseFirst, inPane, inCard = false }: { /** Drawn over quick capture's card and no further, at the card's own size and corners: the window never grows for it and the chips round the card stay in sight. */ inCard?: boolean;/** Drawn inside a pane of the split (⌘\\) as its page, not over the window: no scrim, not a dialog, and Esc (onClose) closes the pane. What it opens takes the pane's place. */ inPane?: { title: string; lead: ReactNode }; /** Opened straight on one action's choices, by its label (“Start focus…” from its key anywhere). */ choose?: string; /** Opened about one thing (a task picked on the Calendar): its name before the words, and only its actions until ⌫ leaves it. */ scope?: { label: string; actions: Action[] }; onOpen: (type: string, id: string) => void; /** ⌥↵: open it beside the page, in a pane of its own (the main window's split view). */ onAside?: (type: string, id: string) => void; onTab?: (type: string, id: string) => void; onClose: () => void; /** Words that match nothing, kept as something new (Arc's "search or make"). */ onKeep?: (as: Keep, text: string) => void; keeps?: Keep[]; initial?: string; actions?: Action[]; placeholder?: string; /** A right click on a result offers what its list's would; off where a pick is all a result is for. */ menus?: boolean }): React.JSX.Element {
   const [query, setQuery] = useState(initial)
   const [scoped, setScoped] = useState(!!scope)
   const actions = scoped && scope ? scope.actions : everyAction
@@ -375,6 +375,7 @@ export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'tas
               else if (event.key === 'Enter' && event.shiftKey && results[0]) onOpen(results[0].type, results[0].id)
               else if (event.key === 'Enter' && at < doing.length) run(doing[at])
               else if (event.key === 'Enter' && current && event.altKey && onAside) onAside(current.type, current.id)
+              else if (event.key === 'Enter' && current && event.metaKey && onTab) onTab(current.type, current.id)
               else if (event.key === 'Enter' && current) (aimAt(current.id, current.line), onOpen(current.type, current.id))
               else if (event.key === 'Tab' && current?.type === 'capture') setAsking(true)
               // Tab anywhere else stays in the box, so the arrows, Enter and Esc keep working.
@@ -619,8 +620,9 @@ export function Search({ onOpen, onAside, onClose, onKeep, keeps = ['note', 'tas
           <span className="flex items-center gap-1.5"><Kbd>↵</Kbd> <Rolling text={picking || action?.keep ? 'keep' : choosing ? 'pick' : action ? 'use' : 'open'} /></span>
           {!picking && !choosing && results.length > 0 && current !== results[0] && <span className="flex items-center gap-1.5 [@media(max-height:520px)]:hidden"><Kbd>⇧↵</Kbd> open the top result</span>}
           {onAside && !picking && !choosing && !action && current && <span className="flex items-center gap-1.5 [@media(max-height:520px)]:hidden"><Kbd>⌥↵</Kbd> to the side</span>}
+          {onTab && !picking && !choosing && !action && current && <span className="flex items-center gap-1.5 [@media(max-height:520px)]:hidden"><Kbd>⌘↵</Kbd> new tab</span>}
           {!picking && !choosing && results.length > 1 && <span className="flex items-center gap-1.5 [@media(max-height:520px)]:hidden"><Kbd>⌘</Kbd>-click selects</span>}
-          <span className="flex items-center gap-1.5"><Kbd>esc</Kbd> <Rolling text={picking || choosing ? 'back' : inPane ? 'close the pane' : 'close'} /></span>
+          <span className="flex items-center gap-1.5"><Kbd>esc</Kbd> <Rolling text={picking || choosing ? 'back' : inPane ? 'close the tab' : 'close'} /></span>
         </div>
         )}
       </motion.div>

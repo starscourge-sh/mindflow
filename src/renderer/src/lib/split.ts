@@ -1,9 +1,9 @@
 import { createContext, useContext, useSyncExternalStore } from 'react'
 
 /**
- * Split view: the main window's page as panes side by side, each
- * with its own Back and Forward. One of them has the keys at a time (⌃H and
- * ⌃L move between them); the rest wait, and nothing typed reaches them.
+ * Split view: the main window's page as panes side by side, each with its own
+ * row of tabs (lib/tabs.ts). One of them has the keys at a time (⌃H and ⌃L
+ * move between them); the rest wait, and nothing typed reaches them.
  *
  * A page learns which pane it is in from `PaneContext`. Outside the main
  * window's panes (the box, a note's own window) there is no pane, and every
@@ -51,11 +51,11 @@ export function keepTitle(pane: string | null, title: string | null): boolean {
 
 // --- how many panes fit side by side
 
-/** Narrower than this, a pane would only show a sliver of its page: they take turns instead. */
+/** Narrower than this, a pane would only show a sliver of its page: one shows at a time, its row carrying every pane's tabs. */
 export const PANE_MIN = 360
 /** The gap between panes, which is also where a divider is held. */
 export const PANE_GAP = 8
-/** Whether `many` panes fit side by side in `room` pixels, or else take turns. */
+/** Whether `many` panes fit side by side in `room` pixels. */
 export const panesFit = (many: number, room: number): boolean => many < 2 || room <= 0 || room - PANE_GAP * (many - 1) >= PANE_MIN * many
 
 // --- opening to the side
@@ -67,32 +67,49 @@ export const canSplit = (): boolean => typeof location !== 'undefined' && new UR
 export const asideItem = (type: string, id: string): false | { label: string; keys: string; run: () => void } =>
   canSplit() && { label: 'Open to the side', keys: '⌥-click', run: () => openAside(type, id) }
 
+/** "Open in a new tab" and "Open to the side", as a row's menu offers them, in the main window only. */
+export const openItems = (type: string, id: string): (false | { label: string; keys?: string; run: () => void })[] => canSplit()
+  ? [{ label: 'Open in a new tab', run: () => openNewTab(type, id) }, asideItem(type, id)]
+  : []
+
+/** Open something in a new tab of the pane in front. */
+export const openNewTab = (type: string, id: string): void =>
+  void window.dispatchEvent(new CustomEvent('haligtree:new-tab', { detail: { type, id } }))
+
 /** Open something in a pane beside the one in front (or beside `from`). */
 export const openAside = (type: string, id: string, from?: string | null): void =>
   void window.dispatchEvent(new CustomEvent('haligtree:aside', { detail: { type, id, from } }))
 
 /**
- * ⌥-click, as Finder and VS Code use it: whatever the click opens goes to the
- * side. Held from the press until just after the click, so a link the editor
- * follows on mouse-up counts too.
+ * How the click that opens something asked for it, held from the press until
+ * just after the click, so a link the editor follows on mouse-up counts too.
+ * ⌥-click, as Finder and VS Code use it: to the side. ⌘-click, as a browser's
+ * links: a new tab.
  */
-let armed = false
+let armed: 'aside' | 'tab' | null = null
 let disarm: ReturnType<typeof setTimeout> | undefined
 if (typeof window !== 'undefined') {
   window.addEventListener('pointerdown', (event) => {
-    armed = event.button === 0 && event.altKey && !event.metaKey && !event.ctrlKey && !event.shiftKey
+    const plain = event.button === 0 && !event.ctrlKey && !event.shiftKey
+    armed = plain && event.altKey && !event.metaKey ? 'aside' : plain && event.metaKey && !event.altKey && canSplit() ? 'tab' : null
     clearTimeout(disarm)
-    if (armed) disarm = setTimeout(() => void (armed = false), 1500)
+    if (armed) disarm = setTimeout(() => void (armed = null), 1500)
   }, true)
   window.addEventListener('click', () => {
     if (!armed) return
     clearTimeout(disarm)
-    disarm = setTimeout(() => void (armed = false), 0)
+    disarm = setTimeout(() => void (armed = null), 0)
   }, true)
 }
-export const asideClick = (): boolean => armed
-/** Taken: the click that armed it has been used, so nothing else opens to the side too. */
-export const spendAsideClick = (): void => void (armed = false)
+export const asideClick = (): boolean => armed === 'aside'
+/** Taken: the click that armed it has been used, so nothing else opens that way too. */
+export const spendAsideClick = (): void => void (armed = null)
+/** How the click now being answered asked to open, used up in the asking. */
+export const takeClick = (): 'aside' | 'tab' | null => {
+  const how = armed
+  armed = null
+  return how
+}
 
 // --- a pane's own page width
 

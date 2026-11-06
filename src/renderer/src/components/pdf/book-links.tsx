@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { ChevronRight } from "lucide-react"
 import { chime } from "@/lib/sound"
 import { openApart } from "@/lib/apart"
-import { asideItem } from "@/lib/split"
+import { openItems } from "@/lib/split"
 import { RowMenu, copyLinkItem, type RowItem } from "@/components/haligtree/row-menu"
 import { Tip, VirtualList } from "@/components/haligtree/ui"
 import { hoverNote } from "@/components/haligtree/note-preview"
@@ -138,7 +138,7 @@ export function InYourNotes({ cited, empty, parts = [], here }: { cited: Cited[]
   const row = (one: Cited, first: boolean, part?: string): React.JSX.Element => {
     const items: RowItem[] = [
       { label: "Open", run: () => open(one, false) },
-      asideItem(one.type, one.id),
+      ...openItems(one.type, one.id),
       { label: "Open in a new window", run: () => openApart(one.type, one.id) },
       "separator",
       copyLinkItem(one.type === "capture" ? one.id : `${one.type}:${one.id}`, one.title),

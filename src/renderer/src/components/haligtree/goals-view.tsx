@@ -37,7 +37,7 @@ import { LINE_INK, ProgressBar } from './progress-bar'
 import { inkOf, useMilestones, type Milestone } from '@/lib/milestones'
 import { stickOnDesktop } from './sticky-note'
 import { usePickNotes } from './pick-notes'
-import { asideItem, useHere } from '@/lib/split'
+import { openItems, useHere } from '@/lib/split'
 import { daysBetween, daysLeft, farOff, journey, leftSaid, percent, wayThrough, type Dot } from '../../../../main/goal-days'
 import { leftLoud, loud } from '@/lib/loud'
 import { clip, quoted } from '../../../../main/clip'
@@ -380,7 +380,7 @@ const endings = (item: Item): MenuItem[] => onIce(item) ? [{ label: ACT.thaw, hi
 
 /** A goal's full right-click menu in a list: how it ends, where it shows, then the goal as a thing (a link, the Bin). */
 const goalMenu = (item: Item): MenuItem[] => [
-  asideItem('goal', item.id),
+  ...openItems('goal', item.id),
   'separator',
   ...endings(item),
   'separator',
@@ -393,7 +393,7 @@ const goalMenu = (item: Item): MenuItem[] => [
   binItem([{ type: 'goal', id: item.id }])
 ]
 /** A goal page's "…": only what its panel does not already hold (the panel has how it ends, its day, Home and privacy). */
-const pageMenu = (item: Item): MenuItem[] => [asideItem('goal', item.id), 'separator', copyLinkItem(`goal:${item.id}`, item.title), binItem([{ type: 'goal', id: item.id }])]
+const pageMenu = (item: Item): MenuItem[] => [...openItems('goal', item.id), 'separator', copyLinkItem(`goal:${item.id}`, item.title), binItem([{ type: 'goal', id: item.id }])]
 
 /**
  * Goals, in the main window: the open ones nearest first, the settled ones
