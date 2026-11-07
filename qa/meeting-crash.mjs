@@ -390,6 +390,7 @@ try {
   plant(inBook, uuid(3), new Date(Date.now() - 3600000).toISOString())
   plant(inMine, uuid(2), new Date(Date.now() - 86400000).toISOString())
   plant(inMine, uuid(1), new Date(Date.now() - 2 * 86400000).toISOString())
+  plant(inMine, uuid(4), new Date(Date.now() - 3 * 86400000).toISOString())
   const args = process.env.QA_ARGS
   process.env.QA_ARGS = ''
   const past = async () => {
@@ -399,7 +400,12 @@ try {
     await c.h.waitForTimeout(1200)
   }
   await past()
-  check('11: two left in this book: the older first', await offerShows(15000))
+  check('11: three left in this book: the oldest first', await offerShows(15000) && (await offers().first().getAttribute('data-recording-left')) === uuid(4))
+  // A double click answers one recording, never the next too.
+  await c.h.dblclick('[data-recording-left-discard]')
+  await c.h.waitForFunction((id) => document.querySelector(`[data-recording-left="${id}"]`), uuid(1), { timeout: 5000 })
+  await c.h.waitForTimeout(400)
+  check('11: a double click on "Discard" answers one', folders.length !== undefined && existsSync(join(inMine, uuid(1))) && !existsSync(join(inMine, uuid(4))), readdirSync(inMine))
   check('11: one at a time, saying how many more', (await offers().count()) === 1 && (await offers().first().getAttribute('data-recording-left')) === uuid(1) && /\(1 more after this\)/.test(await offerText()), await offerText())
   const box11 = () => c.h.evaluate(() => { const r = document.querySelector('[data-recording-left-discard]').getBoundingClientRect(); return `${Math.round(r.x)},${Math.round(r.y)}` })
   const at11 = await box11()
