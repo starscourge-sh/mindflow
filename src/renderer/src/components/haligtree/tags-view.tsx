@@ -35,7 +35,7 @@ import { Readiness } from './review-view'
 import { openApart } from '@/lib/apart'
 import { TagStream, prefetchTag, renameTag, useLiveFor } from './tag-read'
 import { tagTint } from './tag-icon'
-import { BookOpen, EyeOff, Heart, SquareCheck } from 'lucide-react'
+import { BookOpen, EyeOff, Star, SquareCheck } from 'lucide-react'
 import { ago, dayMonth, num } from '../../../../main/dates'
 import { TAG_DOES } from '../capture-kinds/kind-fields'
 import { Blurt } from './study'
@@ -210,7 +210,7 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
                     by it); else, in "Lately", when it was last written. */}
                 {!chosen && (recent > 0 && recent < count ? <span data-tag-recent className="shrink-0 text-xs text-muted-foreground tabular-nums">+{num(recent)} this month</span>
                   : order === 'recent' && last ? <span className="shrink-0 text-xs text-muted-foreground">{ago(last)}</span> : null)}
-                {/* Todoist's heart: on pointing, to make it a favourite (kept in the sidebar); a favourite keeps it filled. */}
+                {/* A star, on pointing, to make it a favourite (kept in the sidebar); a favourite keeps it filled. */}
                 {!example && (() => {
                   const fav = (sideSaved ?? []).includes(tag)
                   return (
@@ -218,7 +218,7 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
                       <span role="button" aria-label={fav ? `Remove #${tag} from favourites` : `Add #${tag} to favourites`} aria-pressed={fav} data-tag-fav={tag}
                         onClick={(event) => (event.stopPropagation(), void toggleSideTag(tag, real.map((one) => one.tag)))}
                         className={`flex size-6 shrink-0 cursor-pointer items-center justify-center rounded text-muted-foreground transition-[opacity,color,scale] duration-80 hover:text-foreground active:scale-[0.9] ${fav ? '' : 'opacity-0 group-hover/tagrow:opacity-100'}`}>
-                        <Heart className={`size-3.5 ${fav ? 'fill-current' : ''}`} />
+                        <Star className={`size-3.5 ${fav ? 'fill-current' : ''}`} />
                       </span>
                     </Tip>
                   )
