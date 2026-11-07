@@ -1647,7 +1647,7 @@ export function Home(): React.JSX.Element {
 
   return (
     <TooltipProvider delayDuration={600} skipDelayDuration={400}>
-    <div data-frame={settings?.darkFrame === false ? undefined : 'dark'} className="isolate flex h-screen flex-col bg-background text-foreground">
+    <div data-frame={settings?.darkFrame === false ? undefined : 'dark'} style={{ '--mf-frame-depth': settings?.frameDepth ?? 75 } as CSSProperties} className="isolate flex h-screen flex-col bg-background text-foreground">
       {/* Centred over the page, not the sidebar beside it. */}
       <div className={`contents ${sidebar ? (right ? (narrow ? '[--toast-right:4rem]' : '[--toast-right:15rem]') : (narrow ? '[--toast-left:4rem]' : '[--toast-left:15rem]')) : ''}`}><Toaster /></div>
       <PickDays />

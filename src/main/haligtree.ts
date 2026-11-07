@@ -630,6 +630,8 @@ const DEFAULTS = {
   themePreview: false,
   // The strip round the sidebar and the page is dark (near black in a dark theme), so the page stands out on it (main.css).
   darkFrame: true,
+  // How dark that frame is, 0 to 100: a deep shade of the theme to all but black.
+  frameDepth: 75,
   // The month calendar on Home: off until turned on in Settings.
   homeCalendar: false,
   // How much of the day, week, month and year has gone, on Home: off until turned on in Settings.

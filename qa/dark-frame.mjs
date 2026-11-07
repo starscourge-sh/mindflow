@@ -17,7 +17,7 @@ try {
     await h.evaluate((one) => localStorage.setItem('style', one), style)
     await theme(t)
     await go('articles'); await wait(900)
-    await h.locator('[data-pane] [data-row]:visible').first().click({ timeout: 8000 }); await wait(900)
+    { const row = h.locator('[data-pane] [data-row]:visible'); if (await row.count()) await row.first().click({ timeout: 8000 }) }; await wait(900)
     if (!(await h.locator('[data-tab]:not([data-tab-on])').count())) { await h.keyboard.press('Meta+t'); await wait(700); await h.locator('[data-pane] [data-tab]').first().locator('[role=tab]').click({ timeout: 5000 }); await wait(700) }
     await shot(`${t}-${style}-note`)
     if (shots) await h.screenshot({ path: `${shots}/${t}-${style}-tabs.png`, clip: { x: 260, y: 40, width: 520, height: 70 } })
@@ -34,6 +34,13 @@ try {
       check(`${t}: the page and the sidebar are light cards on it`, look.card > 200 && look.side > 200, JSON.stringify(look))
       check(`${t}: the open tab keeps the page's dark ink, "New" is light`, look.tabInk < 90 && look.newInk > 180, JSON.stringify(look))
     } else check('a dark theme: the frame is near black, darker than the page and the sidebar', look.frame < 12 && look.card > look.frame + 6 && look.side > look.frame + 6, JSON.stringify(look))
+    if (t !== 'github' || style === 'soft') for (const depth of [0, 100]) {
+      await v('settings:set', { frameDepth: depth }); await wait(500)
+      const at = await h.evaluate(() => { const k = document.createElement('canvas').getContext('2d'); k.fillStyle = getComputedStyle(document.querySelector('[data-frame]')).backgroundColor; k.fillRect(0, 0, 1, 1); const [r, g, b] = k.getImageData(0, 0, 1, 1).data; return { r, g, b, lum: Math.round(0.2126 * r + 0.7152 * g + 0.0722 * b) } })
+      check(`${t} ${style}, "How dark" at ${depth}: ${depth ? 'all but black, still a hint of the theme' : 'dark enough for light words, tinted'}`, (depth ? at.lum < 20 : t === 'github' ? at.lum < 17 : at.lum < 95 && at.lum > 25) && Math.max(at.r, at.g, at.b) - Math.min(at.r, at.g, at.b) >= (depth ? 2 : 6), JSON.stringify(at))
+      await shot(`${t}-${style}-depth-${depth}`)
+    }
+    await v('settings:set', { frameDepth: 75 }); await wait(400)
     if (t === 'paper' && style === 'soft') {
       await go('settings'); await wait(900)
       await h.locator('input[type=search], [placeholder*="Search"]').first().fill('dark frame').catch(() => {}); await wait(600)

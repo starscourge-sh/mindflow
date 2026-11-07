@@ -737,7 +737,6 @@ body {
   --mf-page-yellow: var(--tt-color-text-yellow);
   --mf-page-card: var(--card);
   --mf-page-line: var(--mf-line, var(--border));
-  background-color: color-mix(in oklab, var(--foreground) 82%, var(--background));
 }
 :root[data-light] [data-frame='dark'] :is([data-on-frame], [data-tabs]) {
   --foreground: color-mix(in oklab, var(--background) 94%, transparent);
@@ -778,8 +777,18 @@ body {
 
 /* In a dark theme the frame goes near black, and the page and the sidebar are
    the theme's own colour on it. Their ink is the theme's already. */
+/* The frame's colour, in any theme: the theme's own colour, tinted with its
+   accent, taken dark (a dark theme's, darker than its own page). How dark is the "How dark" slider in Settings
+   (--mf-frame-depth, 0 to 100), from a deep shade to all but black; never so
+   light that the light ink on it stops reading. */
+[data-frame='dark'] {
+  --mf-frame-tint: color-mix(in oklab, var(--primary) 35%, var(--background));
+  /* Only the lightness goes down; the hue and its strength stay, so the
+     darkest end is still the theme's, not black. */
+  background-color: oklch(from var(--mf-frame-tint) calc(0.4 - var(--mf-frame-depth, 75) * 0.0026) calc(c * 0.8) h);
+}
 :root:not([data-light]) [data-frame='dark'] {
-  background-color: color-mix(in oklab, black 62%, var(--background));
+  background-color: oklch(from var(--mf-frame-tint) calc(l * (0.45 - var(--mf-frame-depth, 75) * 0.0032)) calc(c * 0.8) h);
 }
 :root:not([data-light]) [data-frame='dark'] [data-pane-card] {
   background-color: var(--background);

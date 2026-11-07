@@ -629,8 +629,12 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
             <Switch aria-label="Preview on hover" checked={settings.themePreview === true} onCheckedChange={(themePreview) => set({ themePreview })} />
           </Setting>
           <Setting under title="Turn the dial" note="The same themes on a dial: drag it round, or use ← and →." more="The one at the top is kept when you stop." below={<ThemeDialRow />} keywords={allThemes().map(themeName).join(' ') + ' theme dial turn wheel'} />
-          <Setting title="Dark frame" note="The strip round the sidebar and the page goes dark, near black in a dark theme, so the page stands out." keywords="frame backdrop border window dark edge">
+          <Setting title="Dark frame" note="The strip round the sidebar and the page goes dark, in your theme’s own colour, so the page stands out." keywords="frame backdrop border window dark edge">
             <Switch aria-label="Dark frame" checked={settings.darkFrame !== false} onCheckedChange={(darkFrame) => set({ darkFrame })} />
+          </Setting>
+          <Setting under off={settings.darkFrame === false && 'Shows once “Dark frame” is on.'} title="How dark" note="From a deep shade of your theme to all but black." keywords="frame backdrop dark darkness depth black">
+            <SettingSlider min={0} max={100} step={5} rest={75} value={settings.frameDepth ?? 75} onSave={(frameDepth) => set({ frameDepth })}
+              onLive={(depth) => document.querySelector<HTMLElement>('[data-frame]')?.style.setProperty('--mf-frame-depth', String(depth))} />
           </Setting>
           <Setting title="Style" note="How things are drawn in any theme: shape, lines, shadows and type." more="“Soft” is rounded and lifted on soft shadows. “Brutal” is square, outlined in the theme's ink, and stands on hard shadows. “Paper” is square, ruled with fine lines, with no shadows and serif headings." keywords="style brutal soft paper neobrutalism editorial grid serif square corners outline hard shadow">
             <StylePicker className="-mr-1" />
