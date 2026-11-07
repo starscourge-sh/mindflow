@@ -1,5 +1,5 @@
 import { chime, step } from '@/lib/sound'
-import { sideTagLine } from '@/lib/side-tags'
+import { sideTagLine, toggleSideTag } from '@/lib/side-tags'
 import { SCRUB, ScrubField } from '../pdf/scrub-field'
 import { TagColourPick } from './tag-colour-pick'
 import { ReadsIn } from '@/lib/reads-in'
@@ -35,7 +35,7 @@ import { Readiness } from './review-view'
 import { openApart } from '@/lib/apart'
 import { TagStream, prefetchTag, renameTag, useLiveFor } from './tag-read'
 import { tagTint } from './tag-icon'
-import { BookOpen, EyeOff, SquareCheck } from 'lucide-react'
+import { BookOpen, EyeOff, Heart, SquareCheck } from 'lucide-react'
 import { ago, dayMonth, num } from '../../../../main/dates'
 import { TAG_DOES } from '../capture-kinds/kind-fields'
 import { Blurt } from './study'
@@ -198,7 +198,7 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
                 data-cursor={index === cursor || undefined}
                 onClick={() => setChosen(tag)}
                 onPointerEnter={() => prefetchTag(tag)}
-                className={`flex w-full min-w-0 cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-accent/50 ${chosen === tag ? 'bg-accent' : index === cursor ? 'bg-accent/50' : ''}`}
+                className={`group/tagrow flex w-full min-w-0 cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-accent/50 ${chosen === tag ? 'bg-accent' : index === cursor ? 'bg-accent/50' : ''}`}
               >
                 <TagColourPick tag={tag} color={color} />
                 {/* A tag that does something wears its mark beside its name, in its own colour, its words in the tip. */}
@@ -210,6 +210,19 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
                     by it); else, in "Lately", when it was last written. */}
                 {!chosen && (recent > 0 && recent < count ? <span data-tag-recent className="shrink-0 text-xs text-muted-foreground tabular-nums">+{num(recent)} this month</span>
                   : order === 'recent' && last ? <span className="shrink-0 text-xs text-muted-foreground">{ago(last)}</span> : null)}
+                {/* Todoist's heart: on pointing, to make it a favourite (kept in the sidebar); a favourite keeps it filled. */}
+                {!example && (() => {
+                  const fav = (sideSaved ?? []).includes(tag)
+                  return (
+                    <Tip label={fav ? 'Remove from favourites' : 'Add to favourites'}>
+                      <span role="button" aria-label={fav ? `Remove #${tag} from favourites` : `Add #${tag} to favourites`} aria-pressed={fav} data-tag-fav={tag}
+                        onClick={(event) => (event.stopPropagation(), void toggleSideTag(tag, real.map((one) => one.tag)))}
+                        className={`flex size-6 shrink-0 cursor-pointer items-center justify-center rounded text-muted-foreground transition-[opacity,color,scale] duration-80 hover:text-foreground active:scale-[0.9] ${fav ? '' : 'opacity-0 group-hover/tagrow:opacity-100'}`}>
+                        <Heart className={`size-3.5 ${fav ? 'fill-current' : ''}`} />
+                      </span>
+                    </Tip>
+                  )
+                })()}
                 <span data-tag-count className="min-w-8 shrink-0 text-right text-sm font-semibold text-foreground tabular-nums"><Count n={count} /></span>
               </button>
               </RowMenu>

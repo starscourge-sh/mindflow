@@ -25,7 +25,7 @@ import { dequeue, finish, openLink, readingQueue, type QueueRow } from '@/lib/re
 import { QueuePanel } from './queue-panel'
 import { TAG, tagsIn } from '../../../../main/tag-words'
 import { ArrowDown, ArrowUp, X as ReadDone } from '@/components/ui/icons'
-import { ChevronDown, Link2, ListMusic, Lock, LockOpen, Plus, Repeat2 } from 'lucide-react'
+import { ChevronDown, Link2, ListVideo, Lock, LockOpen, Plus, Repeat2 } from 'lucide-react'
 import { EmbeddedNote } from '@/components/note-link/note-embed-view'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { useGroups, type NoteGroup as Group } from '@/lib/groups'
@@ -727,7 +727,8 @@ export function ReadThrough({ items: given, start = 0, onClose, queue: started, 
               onClick={togglePanel}
               className={cn('flex size-7 items-center justify-center rounded-full border bg-background text-muted-foreground transition-colors hover:bg-accent hover:text-foreground', panel && 'bg-accent text-foreground')}
             >
-              <ListMusic className="size-4" />
+              {/* The Queue's own drawing, as in the sidebar. */}
+              <ListVideo className="size-4" />
             </button>
           </Tip>
         )}

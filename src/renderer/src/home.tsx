@@ -915,6 +915,13 @@ export function Home(): React.JSX.Element {
   const tagsInOrder = useInOrder(tags, 'tagOrder', (one) => one.tag)
   // Only the ones you chose for it (lib/side-tags.ts), in your order.
   const sideTags = (() => { const chosen = sideTagsOf(settings?.sideTags, tagsInOrder.map((one) => one.tag)); return tagsInOrder.filter((one) => chosen.includes(one.tag)) })()
+  // The first favourite unfolds the section, so it is seen arriving where the toast says it went.
+  const hadFavourite = useRef<boolean | null>(null)
+  useEffect(() => {
+    if (!settings) return
+    if (sideTags.length && hadFavourite.current === false && !tagsOpen) setTagsOpen(true)
+    hadFavourite.current = sideTags.length > 0
+  }, [sideTags.length, !settings]) // eslint-disable-line react-hooks/exhaustive-deps
   // The Tags heading is marked on the Tags page, and on a tag's page whose own row is folded away or not among these.
   const captures = useCaptures()
   const sourceList = useLive(sources.list, [] as SourceSummary[])
@@ -2085,7 +2092,7 @@ export function Home(): React.JSX.Element {
               </SortableRow>
             )}
             const tagsBlock = (<>
-        {/* Your most used tags, with counts, the way Todoist keeps favourite labels. */}
+        {/* Your favourite tags, with counts, the way Todoist keeps favourite labels; none until you mark one. */}
         {/* The heading folds the list, as Pinned's does (Notion's way): anywhere on it, not only its chevron.
             The Tags page is the arrow at its end, on pointing, and G # or ⌘K. */}
         {(
@@ -2095,15 +2102,16 @@ export function Home(): React.JSX.Element {
               data-side-row
               data-side-section-handle="tags"
               data-tags-fold
-              aria-label={tagsOpen ? 'Fold the tags away' : 'Show your tags'}
+              aria-label={!sideTags.length ? 'Open the Tags page' : tagsOpen ? 'Fold your favourite tags away' : 'Show your favourite tags'}
               // On a tag's page whose own row is folded away or not listed, the heading is the place marked.
               aria-current={light === 'tags' ? 'page' : undefined}
-              aria-expanded={tagsOpen}
-              onClick={() => (chime(tagsOpen ? 'fold' : 'slide'), setTagsOpen(!tagsOpen))}
+              aria-expanded={sideTags.length ? tagsOpen : undefined}
+              // With no favourite yet there is nothing to fold: the heading is the way to every tag.
+              onClick={() => !sideTags.length ? (chime('tap'), setView({ id: 'tags' })) : (chime(tagsOpen ? 'fold' : 'slide'), setTagsOpen(!tagsOpen))}
               className={`absolute inset-0 flex items-center gap-1 rounded-md px-2 text-left transition-colors duration-80 group-hover/head:text-foreground data-[fluid-hover-active]:text-foreground ${light === 'tags' ? 'text-foreground' : 'text-muted-foreground'}`}
             >
               Tags
-              <ChevronRight className={`size-3 transition-transform duration-80 ${tagsOpen ? 'rotate-90' : ''}`} />
+              {sideTags.length > 0 && <ChevronRight className={`size-3 transition-transform duration-80 ${tagsOpen ? 'rotate-90' : ''}`} />}
             </button>
             <span aria-hidden className="invisible">Tags</span>
             <SidePeek id="tags" keys="G #">
@@ -2114,7 +2122,7 @@ export function Home(): React.JSX.Element {
             </SidePeek>
           </div>
         )}
-        <Unfold open={tagsOpen && tags.length > 0}>
+        <Unfold open={tagsOpen && sideTags.length > 0}>
           {/* A tag's card comes beside the list, not over the tags under it. */}
           <div data-note-side>
           {/* Stepped in under the heading, the trunk where Writing's folders hang theirs. */}

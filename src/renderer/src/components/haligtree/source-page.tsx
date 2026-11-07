@@ -443,7 +443,7 @@ function Quotes({ field, name, page, items, onOpen }: { field: SourceField; name
           <li key={item.id}>
             <RowMenu items={[{ label: 'Open', run: () => onOpen(item) }, { label: `Take off “${name}”`, run: () => void setSource(item, field, null).then(() => toast(`No longer from ${name}`, () => void setSource(item, field, name))) }]}>
               <button type="button" data-quote={item.id} onClick={() => onOpen(item)}
-                className="block w-full rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-accent/60 focus-visible:ring-2 focus-visible:ring-ring">
+                className="block w-full rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-accent/60 focus-visible:bg-accent/60 focus-visible:outline-none">
                 <blockquote className="pl-[0.45em] -indent-[0.45em] text-heading leading-relaxed text-foreground text-pretty">
                   <span aria-hidden>“</span>{bare(item.label)}<span aria-hidden>”</span>
                 </blockquote>

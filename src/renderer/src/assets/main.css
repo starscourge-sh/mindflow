@@ -1138,6 +1138,16 @@ body > :not(#root),
      overflow cut the ring off wherever a control met the panel's edge. */
   outline-offset: -1.5px;
 }
+/* A row reached by keys, or holding the focus after a key (Esc, ⇧⌘U), wears the row's own fill, never a box drawn
+   round it: rows fill, cards ring. The same for what sits inside a row. */
+:is([data-row], [data-side-row], [data-tag-row], [role='treeitem']):focus-visible,
+[data-row]:has(:focus-visible) {
+  outline: none;
+  background-color: color-mix(in srgb, var(--accent) 50%, transparent);
+}
+/* Menu and list lines already fill where the keys are. */
+:is([data-row], [role='option'], [role='menuitem'], [role='menuitemradio'], [role='menuitemcheckbox']) :focus-visible,
+:is([role='option'], [role='menuitem'], [role='menuitemradio'], [role='menuitemcheckbox']):focus-visible { outline: none; }
 
 /* Notion's page: the writing in a centred column, the margins either side
    left empty, unless Full width is on in Settings. Only a document's own
