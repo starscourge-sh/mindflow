@@ -142,10 +142,11 @@ export function SwipeBack({ front, trailOf, nameOf, go }: Props): React.JSX.Elem
       last = now
       const open = listRef.current
       if (open) {
+        // The list has the fingers while it is up: the page under it never scrolls.
+        event.preventDefault()
         // Two fingers up and down move the pick, a light tap a row.
         if (spent && !fresh) return
         spent = false
-        event.preventDefault()
         // Fingers down, the pick goes down.
         dy += fingersY(event)
         // A row for about every 24px the fingers travel.
@@ -193,10 +194,14 @@ export function SwipeBack({ front, trailOf, nameOf, go }: Props): React.JSX.Elem
     // A probe sends the same words the Mac would (qa/swipe-back.mjs).
     const onProbe = (event: Event): void => onPhase(String((event as CustomEvent).detail))
     window.addEventListener('wheel', onWheel, { passive: false })
+    // While the list is up it hears the fingers before anything on the page (the page's smooth scroll included).
+    const onListWheel = (event: WheelEvent): void => void (listRef.current && (event.stopPropagation(), onWheel(event)))
+    window.addEventListener('wheel', onListWheel, { passive: false, capture: true })
     window.addEventListener('haligtree:swipe-phase', onProbe)
     const off = window.api.onSwipePhase?.(onPhase)
     return () => {
       window.removeEventListener('wheel', onWheel)
+      window.removeEventListener('wheel', onListWheel, { capture: true })
       window.removeEventListener('haligtree:swipe-phase', onProbe)
       off?.()
       clearTimeout(hold)

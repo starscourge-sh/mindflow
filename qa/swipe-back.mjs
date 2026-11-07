@@ -185,6 +185,15 @@ await swipe(14, -12 * R, left.x); await pause(1300)
 const hung = await h.evaluate(() => { const list = document.querySelector('[data-swipe-list]')?.getBoundingClientRect(); const pane = document.querySelector('[data-pane]').getBoundingClientRect(); return list && { way: document.querySelector('[data-swipe-list]').getAttribute('aria-label'), list: [list.left, list.right, list.top, list.bottom], pane: [pane.left, pane.right, pane.top + pane.height / 2], front: document.querySelector('[data-pane]').hasAttribute('data-pane-front') } })
 // Back hangs from the pane's left edge, Forward from its right: the side the arrow came in from.
 check('split: the list opens at its own pane\'s edge on the swipe\'s side, by the middle', hung && (hung.way === 'Back to' ? Math.abs(hung.list[0] - hung.pane[0] - 8) < 3 : Math.abs(hung.pane[1] - 8 - hung.list[1]) < 3) && hung.list[2] <= hung.pane[2] && hung.list[3] >= hung.pane[2] - 30 && hung.front, JSON.stringify(hung))
+// Fingers up and down while it is up move its pick, and the page under it stays where it was.
+{
+  const scrollOf = () => h.evaluate(() => [...document.querySelectorAll('[data-pane] *')].filter((one) => one.scrollHeight > one.clientHeight + 20 && /(auto|scroll)/.test(getComputedStyle(one).overflowY)).map((one) => Math.round(one.scrollTop)).join(','))
+  await h.evaluate(() => { for (const one of document.querySelectorAll('[data-pane] *')) if (one.scrollHeight > one.clientHeight + 200 && /(auto|scroll)/.test(getComputedStyle(one).overflowY)) one.scrollTop = 120 }); await pause(200)
+  const before = await scrollOf()
+  const list = await h.locator('[data-swipe-list]').boundingBox()
+  if (list) { const pane = await h.locator('[data-pane]').first().boundingBox(); await h.mouse.move(pane.x + pane.width * 0.6, pane.y + pane.height * 0.4); for (let i = 0; i < 6; i++) { await h.mouse.wheel(0, 30); await pause(60) } for (let i = 0; i < 6; i++) { await h.screenshot(); await pause(40) } }
+  check('scrolling through the open list leaves the page under it still', /[1-9]/.test(before) && (await scrollOf()) === before && (await h.locator('[data-swipe-list]').count()) === 1, `${before} then ${await scrollOf()}`)
+}
 await h.keyboard.press('Escape'); await pause(300)
 
 console.log(`\n${results.filter(Boolean).length}/${results.length} passed`)
