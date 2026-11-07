@@ -156,6 +156,8 @@ export function SplitDrop({ onDrop, onRow }: { onDrop: (carried: Carried, at: nu
     // Every place a carried tab could make a new pane, and where its row is at.
     let places: Zone[] = []
     let gapped: { pane: string; at: number } | null = null
+    // Where on the thing it was taken hold of: the card keeps that side under the pointer (scaled to the card, which is smaller), never jumping to its middle.
+    let grab = { x: 0, y: 0 }
     // The Queue's row in the sidebar, while the carried thing is over it: let go there, it joins the queue.
     // Pinned in the sidebar takes a note the same way (side-menu.tsx).
     let queued: HTMLElement | null = null
@@ -230,8 +232,8 @@ export function SplitDrop({ onDrop, onRow }: { onDrop: (carried: Carried, at: nu
       x.set(px)
       y.set(py)
       let target: Zone | null = null
-      let toX = px
-      let toY = py
+      let toX = px - grab.x
+      let toY = py - grab.y
       for (const zone of shown) {
         const far = distance(zone, px, py)
         const pull = Math.max(0, 1 - far / REACH)
@@ -247,7 +249,7 @@ export function SplitDrop({ onDrop, onRow }: { onDrop: (carried: Carried, at: nu
         }
         // In the place: the card rests just under its words, never over them.
         if (far === 0 || within) (toX = zone.left + zone.width / 2 + leant), (toY = zone.top + zone.height / 2 + 64)
-        else if (pull > 0 && !quiet) (toX = px + (middle.x - px) * 0.32 * pull), (toY = py + (middle.y - py) * 0.32 * pull)
+        else if (pull > 0 && !quiet) (toX = px - grab.x + (middle.x - px) * 0.32 * pull), (toY = py - grab.y + (middle.y - py) * 0.32 * pull)
       }
       if (quiet) {
         card.x.jump(toX)
@@ -327,9 +329,11 @@ export function SplitDrop({ onDrop, onRow }: { onDrop: (carried: Carried, at: nu
       document.getSelection()?.removeAllRanges()
       // A list row in your own order already sounded its lift; anything else lifts now.
       if ((!down.source.column || down.source.edgeOnly) && !tabbed) chime('lift')
-      // The card starts where the pointer is, not flying in from the corner.
-      card.x.jump(px)
-      card.y.jump(py)
+      // The card starts where the thing was, held by the spot taken hold of, not flying in from the corner.
+      const from = down.source.node.getBoundingClientRect()
+      grab = { x: Math.max(-34, Math.min(34, (down.x - (from.left + from.width / 2)) * 0.5)), y: Math.max(-14, Math.min(14, down.y - (from.top + from.height / 2))) }
+      card.x.jump(px - grab.x)
+      card.y.jump(py - grab.y)
       cardScale.jump(1)
       for (const side of ['left', 'right'] as const) (leanS[side].jump(0), growS[side].jump(1))
       setZones(shown)
