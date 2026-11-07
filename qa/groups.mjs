@@ -756,7 +756,7 @@ try {
     await c.h.mouse.move(900, 700)
     await c.h.waitForTimeout(300)
     // A loose row in view, near the bottom, to carry up and then down across every group.
-    const loose = await c.h.evaluate(() => [...document.querySelectorAll('[data-row]:not([data-lifted] *)')].filter((one) => !one.closest('[data-group-block]')).map((one) => one.getBoundingClientRect()).filter((box) => box.bottom < innerHeight - 10).pop())
+    const loose = await c.h.evaluate(() => [...document.querySelectorAll('[data-row]:not([data-lifted] *)')].filter((one) => !one.closest('[data-group-block]')).map((one) => one.getBoundingClientRect()).filter((box) => box.bottom < innerHeight - 10 && document.elementFromPoint(box.x + 60, box.y + box.height / 2)?.closest('[data-row]')).pop())
     const from = { x: loose.x, y: loose.y, height: loose.height }
     const top = await c.h.locator('[data-group-block]').first().boundingBox()
     await c.h.mouse.move(from.x + 60, from.y + from.height / 2)

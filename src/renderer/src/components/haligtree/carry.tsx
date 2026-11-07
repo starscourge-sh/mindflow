@@ -1,4 +1,4 @@
-import { Fragment, createContext, useCallback, useContext, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from 'react'
+import { Fragment, createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from 'react'
 import { useDndContext } from '@dnd-kit/core'
 import { useSortable } from '@dnd-kit/sortable'
 import { AnimatePresence, animate, cubicBezier, motion, motionValue, useMotionValue, useSpring, useTransform, type MotionValue } from 'motion/react'
@@ -126,30 +126,27 @@ slide.on('change', paint)
 giving.on('change', paint)
 let sliding: { stop: () => void } | null = null
 let gave: { stop: () => void } | null = null
-let due = false
+let dueSlide = false
 let dueGive = false
-/** Start every glider again from where it is, once for all the places a commit changed. */
-const retarget = (): void => {
-  if (due) return
-  due = true
+/** Once for all the places a commit changed: every glider starts again from where it is, then any give begins. */
+const settle = (): void => {
   queueMicrotask(() => {
-    due = false
-    sliding?.stop()
-    for (const one of gliders) one.from = one.at
-    slide.jump(0)
-    sliding = animate(slide, 1, { duration: SLIDE.duration, ease: 'linear' })
+    if (dueSlide) {
+      sliding?.stop()
+      for (const one of gliders) one.from = one.at
+      slide.jump(0)
+      sliding = animate(slide, 1, { duration: SLIDE.duration, ease: 'linear' })
+    }
+    if (dueGive) {
+      gave?.stop()
+      giving.jump(0)
+      gave = animate(giving, 1, { duration: GIVE_RUN, ease: 'linear' })
+    }
+    dueSlide = dueGive = false
   })
 }
-const kickGive = (): void => {
-  if (dueGive) return
-  dueGive = true
-  queueMicrotask(() => {
-    dueGive = false
-    gave?.stop()
-    giving.jump(0)
-    gave = animate(giving, 1, { duration: GIVE_RUN, ease: 'linear' })
-  })
-}
+const retarget = (): void => void (dueSlide || dueGive || settle(), (dueSlide = true))
+const kickGive = (): void => void (dueSlide || dueGive || settle(), (dueGive = true))
 
 /**
  * An element's slide on the one clock above; or at once, written in the same
@@ -502,6 +499,21 @@ export function useAim(): { aim: Aim | null; aimed: RefObject<Aim | null>; start
 let pointerX = 0
 if (typeof window !== 'undefined') window.addEventListener('pointermove', (event) => void (pointerX = event.clientX), true)
 export const pointerNow = (): number => pointerX
+/** Going left alone moves nothing a list's own drag reads, so crossing OUTDENT reads the aim afresh itself. */
+export function useCarriedLeft(from: number | null, on: boolean, again: () => void): void {
+  const read = useRef(again)
+  read.current = again
+  useEffect(() => {
+    if (!on || from === null) return
+    let was = false
+    const look = (): void => {
+      const left = from - pointerX > OUTDENT
+      if (left !== was) (was = left, read.current())
+    }
+    window.addEventListener('pointermove', look)
+    return () => window.removeEventListener('pointermove', look)
+  }, [from, on])
+}
 
 /** The carried card's own look, for what is drawn behind it too. */
 export const CARD = 'rounded-lg bg-popover px-3 py-2 text-control text-foreground shadow-(--mf-shadow-lift) ring-1 ring-foreground/10'

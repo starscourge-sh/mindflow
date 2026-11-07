@@ -22,7 +22,7 @@ import { GROUP_COLORS, groups, tintOf } from '@/lib/groups'
 import { KEY, groupOf, groupsAround, isGroup, type How, type Layout } from '@/lib/group-layout'
 import { cn } from '@/lib/cn'
 import { Overlay, SETTLE, upDown } from './sortable'
-import { CARD, CarriedCard, CarryRow, Carrying, Hand, INDENT, OUT, OUTDENT, PanelParts, REST, Shaped, pointerNow, rowAt, sideOf, useAim, useRest, useTall, type Aim } from './carry'
+import { CARD, CarriedCard, CarryRow, Carrying, Hand, INDENT, OUT, OUTDENT, PanelParts, REST, Shaped, pointerNow, rowAt, sideOf, useAim, useCarriedLeft, useRest, useTall, type Aim } from './carry'
 import { copy } from './row-menu'
 import { Rolling, Tip, VirtualList, refuse, toast, quietly } from './ui'
 import type { Entry } from './note-list'
@@ -353,6 +353,7 @@ export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo
     }
     point(null)
   }
+  useCarriedLeft(from, !!carried, () => lastMove.current && onDragMove(lastMove.current))
   // Rows changed under a still pointer (a folded group sprung open): aimed afresh once they have settled.
   const lastMove = useRef<DragMoveEvent | null>(null)
   // The side last chosen, and beside what: kept through the dead band round the middle.

@@ -125,7 +125,8 @@ const watch = () => h.evaluate(() => {
       // The place the carried row left, as wide as it was at rest (its row and the air either side, which a row
       // just past a subgroup's end takes with it), closes as the rows slide: that is them making way, not a hole.
       const left = out.slots?.[lifted?.dataset.sortableId] ?? 0
-      if (out.air !== null && gap > Math.max(out.air + allow, left + 1.5) && !lines.some((one) => one.top >= a.bottom - 2 && one.bottom <= b.top + 2)) say(out.hole, `${Math.round(gap)}px between ${a.name} and ${b.name}, over ${Math.round(out.air + allow)}`)
+      // A panel's give (carry.tsx) widens a gap by up to 4px while it settles.
+      if (out.air !== null && gap > Math.max(out.air + allow, left + 1.5) + 6 && !lines.some((one) => one.top >= a.bottom - 2 && one.bottom <= b.top + 2)) say(out.hole, `${Math.round(gap)}px between ${a.name} and ${b.name}, over ${Math.round(out.air + allow)}`)
     }
     // The air between rows at rest, from the first frame, before anything is lifted.
     if (out.air === null) out.air = Math.max(0, ...rows.slice(1).map((one, at) => one.top - rows[at].bottom))

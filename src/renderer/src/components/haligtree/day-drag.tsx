@@ -5,7 +5,7 @@ import { SortableContext, type SortingStrategy } from '@dnd-kit/sortable'
 import { pastEdge } from '@/lib/drag-edge'
 import { still } from '@/lib/motion'
 import { chime } from '@/lib/sound'
-import { CarriedCard, Carrying, Hand, OUTDENT, PanelParts, REST, Shaped, pointerNow, rowAt, sideOf, useAim, useRest, useTall, type Aim } from './carry'
+import { CarriedCard, Carrying, Hand, OUTDENT, PanelParts, REST, Shaped, pointerNow, rowAt, sideOf, useAim, useCarriedLeft, useRest, useTall, type Aim } from './carry'
 import { Overlay, PlaceSaid, SETTLE, upDown, usePlaces } from './sortable'
 import { refuse } from './ui'
 
@@ -177,6 +177,7 @@ export function DayDrag({ lines, heading, onDrop, onPlace, places, children }: {
     setSnap(true)
     onDrop(id, now.act as DayDrop)
   }
+  useCarriedLeft(from, !!hand, () => lastMove.current && onDragMove(lastMove.current))
   // Rows changed under a still pointer: aimed afresh when they have.
   const shape = rows.join('\n')
   useEffect(() => {
