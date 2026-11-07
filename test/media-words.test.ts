@@ -1,5 +1,5 @@
 // Run with: node --test test/media-words.test.ts
-// What Media takes is read from a file's first bytes, and every way in says one sentence about a batch.
+// What Files takes is read from a file's first bytes, and every way in says one sentence about a batch.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { addSaid, sniff, whyNot } from '../src/main/media-words.ts'
@@ -23,15 +23,15 @@ test('what it cannot take is refused, and says why in words', () => {
   assert.equal(sniff(bytes('....ftypisom'), 'film.mp4'), null)
   assert.equal(whyNot('fake.png'), 'not a picture Haligtree can read')
   assert.equal(whyNot('fake.pdf'), 'not a PDF Haligtree can read')
-  assert.equal(whyNot('notes.docx'), 'Media takes pictures, GIFs, PDFs and audio')
+  assert.equal(whyNot('notes.docx'), 'only pictures, GIFs, PDFs and audio go in Files')
 })
 
 test('one sentence for a batch: numbers say what they count, names are named', () => {
-  assert.equal(addSaid({ ...none, added: [file('Lease.pdf')] }), 'Added “Lease” to Media.')
-  assert.equal(addSaid({ ...none, added: [file('a.pdf'), file('b.pdf')], revived: [file('c.pdf')] }), 'Added 3 files to Media.')
-  assert.equal(addSaid({ ...none, met: [file('Lease.pdf')] }), '“Lease” is already in Media.')
-  assert.equal(addSaid({ ...none, met: [file('a.pdf'), file('b.pdf')] }), 'All 2 are already in Media.')
-  assert.equal(addSaid({ ...none, added: [file('a.pdf'), file('b.pdf')], met: [file('c.pdf'), file('d.pdf')] }), 'Added 2 files to Media. 2 were already there.')
-  assert.equal(addSaid({ ...none, refused: [{ name: 'x.docx', why: 'Media takes pictures, GIFs, PDFs and audio' }] }), 'x.docx: Media takes pictures, GIFs, PDFs and audio.')
+  assert.equal(addSaid({ ...none, added: [file('Lease.pdf')] }), 'Added “Lease” to Files.')
+  assert.equal(addSaid({ ...none, added: [file('a.pdf'), file('b.pdf')], revived: [file('c.pdf')] }), 'Added 3 files.')
+  assert.equal(addSaid({ ...none, met: [file('Lease.pdf')] }), '“Lease” is already in Files.')
+  assert.equal(addSaid({ ...none, met: [file('a.pdf'), file('b.pdf')] }), 'All 2 are already in Files.')
+  assert.equal(addSaid({ ...none, added: [file('a.pdf'), file('b.pdf')], met: [file('c.pdf'), file('d.pdf')] }), 'Added 2 files. 2 were already there.')
+  assert.equal(addSaid({ ...none, refused: [{ name: 'x.docx', why: 'only pictures, GIFs, PDFs and audio go in Files' }] }), 'x.docx: only pictures, GIFs, PDFs and audio go in Files.')
   assert.match(addSaid({ ...none, refused: Array.from({ length: 5 }, (_, n) => ({ name: `${n}.doc`, why: 'no' })) }), /And 2 more not added\.$/)
 })
