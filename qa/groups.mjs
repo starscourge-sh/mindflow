@@ -363,7 +363,11 @@ if (c) try {
   await frames(c, 'j-fold', 6, 35)
   await c.h.waitForTimeout(300)
   check('← folds the group', (await head(c, 'Memory').getAttribute('aria-expanded')) === 'false')
-  check('and its count shows after its name, as the old group\'s did', /^· 3$/.test((await head(c, 'Memory').locator('[data-count]').textContent()) ?? ''), await head(c, 'Memory').locator('[data-count]').textContent())
+  {
+    const hd = head(c, 'Memory'), said = (await hd.locator('[data-count]').textContent()) ?? ''
+    const [row, count] = await Promise.all([hd.boundingBox(), hd.locator('[data-count]').boundingBox()])
+    check('and its count shows on the right, in a folder\'s words', /^3 (pages|notes|gems)$/.test(said) && row.x + row.width - (count.x + count.width) < 48, `${said}, ${Math.round(row.x + row.width - (count.x + count.width))}px from the right`)
+  }
   await c.h.keyboard.press('ArrowRight')
   await c.h.waitForTimeout(450)
   check('→ unfolds it', (await head(c, 'Memory').getAttribute('aria-expanded')) === 'true')

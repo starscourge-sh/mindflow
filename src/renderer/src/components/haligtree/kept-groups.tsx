@@ -824,12 +824,12 @@ function GroupBlock({ group, entries, parts, start, cursor, estimate, row, carri
                       // A slim title bar: its box and focus ring are a page row's (row-shape.ts), its icon and chevron sit in a page's tile column,
                       // so its name starts on the page titles' line; only its right side keeps room for its buttons.
                       className={cn(ROW_SHAPE, HEAD, 'cursor-pointer data-[state=open]:bg-transparent!')}
-                      style={{ paddingRight: group.unsorted?.length && onSort ? '12.5rem' : '2.25rem' }}
+                      style={{ paddingRight: group.unsorted?.length && onSort ? '12.5rem' : '0.5rem' }}
                     >
                       <PopoverAnchor asChild><PanelTile group={group} onIcon={() => setPicking(true)} /></PopoverAnchor>
                       <span className="min-w-0 truncate text-xs font-semibold">{name}</span>
-                      {/* How many it holds, open or folded, quiet after the name. */}
-                      <span data-count={count} className="-ml-1 shrink-0 text-xs text-muted-foreground tabular-nums">· {num(count)}</span>
+                      {/* How many it holds, open or folded, on the right as a folder's row says it: one place whatever the name's length. */}
+                      <span data-count={count} className={cn('ml-auto shrink-0 pl-3 text-xs text-muted-foreground tabular-nums transition-opacity duration-150', (over || shown) && 'opacity-0')}>{plural(count, noun)}</span>
                       {/* Open, a hairline under it, inside the group's box. */}
                       {group.open && <span aria-hidden data-head-line="" className="pointer-events-none absolute inset-x-2 bottom-0 h-px" style={{ background: `color-mix(in srgb, var(--group-tint) ${tint ? 18 : 10}%, transparent)` }} />}
                     </button>
