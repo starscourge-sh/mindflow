@@ -1,5 +1,6 @@
 import * as React from "react"
 import { createPortal } from "react-dom"
+import { stepTap } from "@/lib/haptics"
 import { FLOAT } from "@/lib/float"
 import { cn } from "@/lib/cn"
 import { hideForMenus, menuShowing } from "@/lib/menu-showing"
@@ -250,6 +251,8 @@ export function PdfPeek(): React.JSX.Element | null {
         const r = turning.box.getBoundingClientRect()
         const page = Math.min(turning.count, Math.max(1, Math.floor(((event.clientX - r.left) / r.width) * turning.count) + 1))
         if (turning.moved && page === turning.page) return
+        // Each page the pointer crosses on a cover is felt, as a scrubbed number is; not the first reading of where it came in.
+        if (turning.moved || page !== turning.page) stepTap(page, 1, turning.count)
         const image = drawn.get(`${turning.src}#${page}`) ?? nearestDrawn(turning.src, page, turning.count) ?? turning.image
         const next = { ...turning, page, image, moved: true }
         scrubbing.current = next
@@ -263,7 +266,7 @@ export function PdfPeek(): React.JSX.Element | null {
       if (!target || !now || !target.contains(event.target as Node)) return
       const r = target.getBoundingClientRect()
       const page = Math.min(now.count, Math.max(now.first, now.first + Math.floor(((event.clientX - r.left) / r.width) * (now.count - now.first + 1))))
-      if (page !== now.page) void turn(now.src, page)
+      if (page !== now.page) (stepTap(page, now.first, now.count), void turn(now.src, page))
     }
     // A click on the link itself opens at its own page (or where you left the book), never the page the
     // pointer happened to turn to on the way: that page opens from a click on the card, which names it.
@@ -331,7 +334,7 @@ export function PdfPeek(): React.JSX.Element | null {
         onPointerMove={(event) => {
           const r = event.currentTarget.getBoundingClientRect()
           const page = Math.min(peek.count, Math.max(1, Math.floor(((event.clientX - r.left) / r.width) * peek.count) + 1))
-          if (page !== peek.page) void turn(peek.src, page)
+          if (page !== peek.page) (stepTap(page, peek.first, peek.count), void turn(peek.src, page))
         }}
         onClick={() => (openPdf(peek.src, peek.name, peek.page), (on.current = null), setPeek(null))}
       >
