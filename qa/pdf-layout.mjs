@@ -36,7 +36,7 @@ const c = await sandbox({ width: 1300, height: 860 })
 const { h, v } = c
 const wait = (ms) => h.waitForTimeout(ms)
 const pick = async (label) => {
-  await h.click('.pdf-reader button[aria-label="Page layout"]'); await wait(300)
+  await h.click('.pdf-reader button[aria-label="Pages"]'); await wait(300)
   await h.locator('[data-page-layout-menu] [role^="menuitem"]', { hasText: label }).first().click(); await wait(1500)
 }
 const sheets = () => h.evaluate(() => {
@@ -97,7 +97,7 @@ try {
   await pick('Continuous scroll')
 
   // Dark pages: the ground dark, the red square still red.
-  await h.click('.pdf-reader button[aria-label="Page layout"]'); await wait(300)
+  await h.click('.pdf-reader button[aria-label="Pages"]'); await wait(300)
   const looks = await h.evaluate(() => [...document.querySelectorAll('[data-page-layout-menu] [data-look-choice]')].map((one) => one.textContent))
   check('the page look is one choice of three: Paper, White, Dark', looks.join() === 'Paper pages,White pages,Dark pages', JSON.stringify(looks))
   await h.locator('[data-page-layout-menu] [data-dark-pages]').click(); await wait(2500)
@@ -111,8 +111,8 @@ try {
   check('"Dark pages": the page is dark', look.dark && look.ground.every((one) => one < 60), JSON.stringify(look))
   check('"Dark pages": the picture keeps its own colours (the red square stays red)', look.square[0] > 180 && look.square[1] < 80, JSON.stringify(look))
   await c.both(`${SHOT}-dark`)
-  check('with dark pages the "Paper pages" switch is off and offers paper', await h.evaluate(() => document.querySelector('.pdf-reader button[aria-label="Paper pages"]')?.dataset.activeState === 'off'), '')
-  await h.click('.pdf-reader button[aria-label="Page layout"]'); await wait(300)
+  check('page colour has one home, the Pages menu: no second switch on the bar', await h.evaluate(() => !document.querySelector('.pdf-reader button[aria-label="Paper pages"], .pdf-reader button[aria-label="White pages"]')), '')
+  await h.click('.pdf-reader button[aria-label="Pages"]'); await wait(300)
   await h.locator('[data-page-layout-menu] [data-dark-pages]').click(); await wait(500)
 } catch (error) {
   check('ran without throwing', false, String(error?.stack ?? error))

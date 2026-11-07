@@ -129,7 +129,7 @@ try {
     await c.both(`${SHOT}-page${kind.n}`)
   }
   // Every line of the Pages menu has its icon.
-  await h.click('.pdf-reader button[aria-label="Page layout"]'); await wait(400)
+  await h.click('.pdf-reader button[aria-label="Pages"]'); await wait(400)
   const lines = await h.evaluate(() => [...document.querySelectorAll('[data-page-layout-menu] [role^="menuitem"]')].map((one) => ({ words: one.textContent, icon: !!one.querySelector('svg[data-menu-icon]:not(.lucide-dot)') })))
   check('every line of the Pages menu has its icon', lines.length === 6 && lines.every((one) => one.icon), JSON.stringify(lines))
   await c.both(`${SHOT}-menu`)

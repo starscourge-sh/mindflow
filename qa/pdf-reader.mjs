@@ -523,12 +523,12 @@ try {
     }, [shot.toString('base64'), sheet.w])
   }
   const light = await pixels()
-  await h.click('.pdf-reader button[aria-label="Paper pages"]'); await wait(600)
+  await h.click('.pdf-reader button[aria-label="Pages"]'); await wait(300); await h.locator('[data-page-layout-menu] [data-look-choice="paper"]').click(); await wait(600)
   const warm = await pixels()
   check('paper pages: the white turns to warm paper', warm.paper[0] > warm.paper[2] + 12 && light.paper.every((one) => one > 245), JSON.stringify({ light, warm }))
   check('and the picture keeps its colour', warm.picture.every((one, i) => Math.abs(one - light.picture[i]) < 24) && warm.picture[0] > warm.picture[1] + 80, JSON.stringify({ light, warm }))
   await h.screenshot({ path: `${process.env.QA_SHOTS ?? '/tmp'}/pdf-pane-paper.png` })
-  await h.click('.pdf-reader button[aria-label="White pages"]')
+  await h.click('.pdf-reader button[aria-label="Pages"]'); await wait(300); await h.locator('[data-page-layout-menu] [data-look-choice="white"]').click(); await wait(300)
   await h.keyboard.press('Meta+BracketLeft'); await wait(1200)
   check('Back returns to the note', await h.evaluate(() => !document.querySelector('.pdf-reader') && !!document.querySelector('.is-pdf')), '')
 
@@ -843,10 +843,10 @@ try {
     if (theme === 'dark') {
       // One page look in both places: "Paper pages" turned on in the reader turns the PDF in the note to paper too, and back.
       await h.mouse.move(0, 0); await wait(200)
-      await tool('Paper pages'); await wait(500)
+      await tool('Pages'); await wait(300); await h.locator('[data-page-layout-menu] [data-look-choice="paper"]').click(); await wait(500)
       const looks = await h.evaluate(() => ({ reader: getComputedStyle(document.querySelector('.pdf-reader .pdf-page')).backgroundColor, note: getComputedStyle(document.querySelector('.tiptap-attachment.is-pdf .pdf-page')).backgroundColor }))
       await h.screenshot({ path: `${process.env.QA_SHOTS ?? '/tmp'}/pdf-paper-both-dark.png` })
-      await tool('White pages'); await wait(400)
+      await tool('Pages'); await wait(300); await h.locator('[data-page-layout-menu] [data-look-choice="white"]').click(); await wait(400)
       const white = await h.evaluate(() => getComputedStyle(document.querySelector('.tiptap-attachment.is-pdf .pdf-page')).backgroundColor)
       check('"Paper pages" in the reader turns the PDF in the note to the same paper, and back to white', looks.reader === 'rgb(244, 236, 219)' && looks.note === looks.reader && white === 'rgb(255, 255, 255)', JSON.stringify({ ...looks, white }))
       break

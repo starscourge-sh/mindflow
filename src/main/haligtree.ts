@@ -677,6 +677,8 @@ const DEFAULTS = {
   sidebarOrder: [] as string[],
   // A sidebar page dragged into another block (Write, Do, or the rest: "rest"), by its id; one not here is in its own.
   sidebarGroups: {} as Record<string, string>,
+  // Gems, Sources and Files went into Library once, out of whatever run they had been dragged to before it existed.
+  libraryOnce: false,
   // Groups that gather by a rule (a tag), beside the folders a note lives in (lib/smart-groups.tsx).
   smartGroups: [] as { id: string; list: 'article' | 'nugget'; name: string; tags: string[] }[],
   // Writing's and Gems' groups as folders under their rows in the sidebar.

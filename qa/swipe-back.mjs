@@ -180,10 +180,11 @@ await pause(300)
 await swipe(14, 12 * R, left.x); await lift(); await pause(800)
 const after = await titles()
 check('split: the left pane goes back in itself, the right stays', after.length === 2 && after[0] !== before[0] && after[1] === before[1], `${before.join(' / ')} -> ${after.join(' / ')}`)
-// The list a resting swipe opens hangs from the arrows of the pane it belongs to, and that pane takes the keys.
+// The list a resting swipe opens comes out of the edge of the pane it belongs to, where the hand is, and that pane takes the keys.
 await swipe(14, -12 * R, left.x); await pause(1300)
-const hung = await h.evaluate(() => { const list = document.querySelector('[data-swipe-list]')?.getBoundingClientRect(); const arrows = document.querySelector('[data-pane] [data-tab-arrows]').getBoundingClientRect(); return list && { list: [list.left, list.top], arrows: [arrows.left, arrows.bottom], front: document.querySelector('[data-pane]').hasAttribute('data-pane-front') } })
-check('split: the back list hangs from its own pane\'s arrows', hung && Math.abs(hung.list[0] - hung.arrows[0]) < 2 && hung.list[1] >= hung.arrows[1], JSON.stringify(hung))
+const hung = await h.evaluate(() => { const list = document.querySelector('[data-swipe-list]')?.getBoundingClientRect(); const pane = document.querySelector('[data-pane]').getBoundingClientRect(); return list && { way: document.querySelector('[data-swipe-list]').getAttribute('aria-label'), list: [list.left, list.right, list.top, list.bottom], pane: [pane.left, pane.right, pane.top + pane.height / 2], front: document.querySelector('[data-pane]').hasAttribute('data-pane-front') } })
+// Back hangs from the pane's left edge, Forward from its right: the side the arrow came in from.
+check('split: the list opens at its own pane\'s edge on the swipe\'s side, by the middle', hung && (hung.way === 'Back to' ? Math.abs(hung.list[0] - hung.pane[0] - 8) < 3 : Math.abs(hung.pane[1] - 8 - hung.list[1]) < 3) && hung.list[2] <= hung.pane[2] && hung.list[3] >= hung.pane[2] - 30 && hung.front, JSON.stringify(hung))
 await h.keyboard.press('Escape'); await pause(300)
 
 console.log(`\n${results.filter(Boolean).length}/${results.length} passed`)

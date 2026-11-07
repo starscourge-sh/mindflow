@@ -2,7 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { useToolKeys } from "@/lib/tool-keys"
 import type { PDFDocumentProxy } from "pdfjs-dist"
 import { Sparkles } from "lucide-react"
-import { BookOpen, ChevronDown, ChevronUp, Gem, Minus, PanelLeft, PanelRight, Plus, Scissors, ScrollText, Search, SquareStack, X } from "lucide-react"
+import { BookOpen, ChevronDown, ChevronUp, Gem, Minus, PanelLeft, PanelRight, Plus, Scissors, Search, SquareStack, X } from "lucide-react"
 import { Button } from "@/components/tiptap-ui-primitive/button"
 import { Toolbar, ToolbarGroup } from "@/components/tiptap-ui-primitive/toolbar"
 import { saveAttachment } from "@/extensions/image-drop"
@@ -151,8 +151,8 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
   const [title, setTitle] = useState(() => pdfName(src, name))
   const [zoom, setZoom] = useState(1)
   const [page, setPage] = useState(start ?? 1)
-  const [paper, setPaper] = usePaperPages()
-  const [dark, setDark] = useDarkPages()
+  const [paper] = usePaperPages()
+  const [dark] = useDarkPages()
   const [look, setLook] = usePageLook()
   const [layout, setLayout] = usePageLayout(src)
   // The View menu's "Continuous Scroll", "Single Page" and "Two Pages" (app-menu.ts).
@@ -897,28 +897,15 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
           <Button data-style="ghost" aria-label="Larger" title="Larger  ⌘+" onClick={() => step(1)}>
             <Plus className="tiptap-button-icon" />
           </Button>
-          <Button
-            data-style="ghost"
-            aria-label={paper && !dark ? "White pages" : "Paper pages"}
-            title={paper && !dark ? "White pages" : "Paper pages: easier on the eyes, pictures kept true"}
-            data-active-state={paper && !dark ? "on" : "off"}
-            onClick={() => {
-              // With dark pages on it says "Paper pages" and gives paper; otherwise it switches paper and white.
-              setPaper(dark ? true : !paper)
-              setDark(false)
-            }}
-          >
-            <ScrollText className="tiptap-button-icon" />
-          </Button>
           {/* How the pages lie and how they look, as Preview's View menu has it: kept per book, and "Dark pages" for every book. */}
           <DropdownMenu modal={false}>
             <DropdownMenuTrigger asChild>
-              <Button data-style="ghost" aria-label="Page layout" title="Page layout and dark pages">
+              <Button data-style="ghost" aria-label="Pages" title="How the pages lie, and their colour">
                 <BookOpen className="tiptap-button-icon" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56" data-page-layout-menu>
-              <DropdownMenuLabel>Pages</DropdownMenuLabel>
+              <DropdownMenuLabel>Layout</DropdownMenuLabel>
               <DropdownMenuRadioGroup value={layout} onValueChange={(to) => (chime("tap"), setLayout(to as PageLayout))}>
                 {LAYOUTS.map((one) => (
                   <DropdownMenuRadioItem key={one.id} value={one.id} data-layout-choice={one.id}>
@@ -927,6 +914,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
                 ))}
               </DropdownMenuRadioGroup>
               <DropdownMenuSeparator />
+              <DropdownMenuLabel>Page colour</DropdownMenuLabel>
               <DropdownMenuRadioGroup value={look} onValueChange={(to) => (chime("tap"), setLook(to as PageLook))}>
                 {LOOKS.map((one) => (
                   <DropdownMenuRadioItem key={one.id} value={one.id} data-look-choice={one.id} data-dark-pages={one.id === "dark" ? "" : undefined}>

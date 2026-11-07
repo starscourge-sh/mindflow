@@ -132,7 +132,8 @@ export function SwipeBack({ front, trailOf, nameOf, go }: Props): React.JSX.Elem
       // Fingers to the right: Back.
       const way: -1 | 1 = fingersX(event) > 0 ? -1 : 1
       if (!trail || !placesFrom(trail, way, props.current.nameOf).length) return null
-      const rect = (paneEl ?? document.querySelector('[data-pane]') ?? document.body).getBoundingClientRect()
+      // The page's card, not the pane around it (which takes in the gap beside it): the arrow and the list sit inside the page.
+      const rect = (paneEl?.querySelector('[data-pane-card]') ?? paneEl ?? document.querySelector('[data-pane]') ?? document.body).getBoundingClientRect()
       return { key, way, pull: 0, armed: false, steps: [], rect }
     }
     const onWheel = (event: WheelEvent): void => {
@@ -233,7 +234,6 @@ export function SwipeBack({ front, trailOf, nameOf, go }: Props): React.JSX.Elem
   // From hidden past the edge to sitting just inside it at the tap; past it, a little further, slower.
   const slid = shown ? (shown.pull < LINE ? -SIZE + (shown.pull / LINE) * (SIZE + 8) : 8 + Math.sqrt(shown.pull - LINE) * 1.6) : 8
   const Arrow = at?.way === 1 ? ChevronRight : ChevronLeft
-  const arrows = list ? document.querySelector(`[data-pane="${list.key}"] [data-tab-arrows]`)?.getBoundingClientRect() ?? list.rect : new DOMRect()
   const side = (rect: DOMRect, way: -1 | 1, inset: number): CSSProperties => (way === -1 ? { left: rect.left + inset } : { left: rect.right - inset - SIZE })
   return (
     <>
@@ -258,11 +258,14 @@ export function SwipeBack({ front, trailOf, nameOf, go }: Props): React.JSX.Elem
             exit={{ opacity: 0, transition: { duration: 0.12 } }}
             transition={calm ? { duration: 0.15 } : { type: 'spring', duration: 0.32, bounce: 0.18 }}
             className="fixed z-50 flex w-64 flex-col gap-0.5 rounded-xl border bg-popover p-1.5 text-popover-foreground shadow-(--mf-panel-shadow)"
-            // Hung from the arrows of the pane it belongs to, always inside the window; a long list rises to fit.
+            // Where the swipe was: grown out of the round arrow at the pane's edge, on the side it came from, at the
+            // pane's middle, always inside the window; a long list rises to fit. Not from the arrows up in the tab
+            // row: the hand is at the edge, and the list belongs under it.
             style={{
-              top: Math.max(8, Math.min(arrows.bottom + 6, window.innerHeight - 8 - 14 - list.rows.length * 38)),
-              left: Math.max(8, Math.min(window.innerWidth - 8 - 256, arrows.left)),
-              transformOrigin: 'left top'
+              top: Math.max(8, Math.min(mid - 24, window.innerHeight - 8 - 14 - list.rows.length * 38)),
+              // Forward is held by its right side, so a list wider than its 16rem (a long name) still ends at the edge.
+              ...(list.way === -1 ? { left: Math.max(8, list.rect.left + 8) } : { right: Math.max(8, window.innerWidth - Math.min(list.rect.right, window.innerWidth) + 8) }),
+              transformOrigin: list.way === -1 ? 'left center' : 'right center'
             }}>
             {list.rows.map((row, n) => {
               const Icon = row.name.icon

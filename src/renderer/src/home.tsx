@@ -857,6 +857,13 @@ export function Home(): React.JSX.Element {
   const sideHover = useFluidHover(sideList, { items: '[data-side-row]:not([inert] *)' })
   // A calm sidebar: what serves capturing and coming back. One switched off is not there at all, a G or ⌘K away.
   const settings = useLive(haligtree.settings, null as Settings | null)
+  // Library came after people had dragged its rows into other runs: they go into it once, then stay wherever they are dragged.
+  useEffect(() => {
+    if (!settings || settings.libraryOnce) return
+    const groups = { ...(settings.sidebarGroups ?? {}) }
+    for (const id of ['nuggets', 'sources', 'media']) delete groups[id]
+    void haligtree.setSettings({ sidebarGroups: groups, libraryOnce: true })
+  }, [settings?.libraryOnce]) // eslint-disable-line react-hooks/exhaustive-deps
   // Review's finish, satin or paper, worn from the start and whenever it changes (review-toolbar.tsx).
   useEffect(() => { if (settings) wearFinish(settings.reviewFinish ?? 'satin') }, [settings?.reviewFinish]) // eslint-disable-line react-hooks/exhaustive-deps
   // With "Open folders on their page", Writing's and Gems' folders and the tags unfold as their page (or one of its
