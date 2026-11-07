@@ -50,11 +50,15 @@ export function ReviewArea({ focus, onOpen, onFocus }: { focus?: string; onOpen:
   const [tab, setTab] = useState<ReviewTab>(newest || focus === ':cards' || focus === ':paste' || focus?.startsWith(':new:') ? 'cards' : focus === ':stats' ? 'stats' : focus === ':today' || (focus && !focus.startsWith(':')) ? 'today' : 'decks')
   // What is open on the Decks tab: a deck's sub-decks, a shared deck's pictures or its links.
   const [place, setPlace] = useState<DeckPlace>(NO_PLACE)
+  // The card open for editing in All cards: each one opened is a step too.
+  const [card, setCard] = useState<string | null>(null)
   // Each tab, studying one deck, and each thing opened on the Decks tab is a step of the pane's trail:
   // Back and Forward go between them, and land on exactly what was on show.
-  useStepped(studying !== null ? `study:${studying}` : tab === 'decks' ? placeWords(place) : tab, (to) => {
+  useStepped(studying !== null ? `study:${studying}` : tab === 'decks' ? placeWords(place) : tab === 'cards' && card ? `cards:${card}` : tab, (to) => {
     if (to.startsWith('study:')) return void (setStudying(to.slice(6)), setTab('today'))
     setStudying(null)
+    if (to.startsWith('cards:')) return void (setPlace(NO_PLACE), setCard(to.slice(6)), setTab('cards'))
+    setCard(null)
     setPlace(to.startsWith('decks') ? placeOf(to) : NO_PLACE)
     setTab((to.startsWith('decks') ? 'decks' : to) as ReviewTab)
   })
@@ -72,7 +76,7 @@ export function ReviewArea({ focus, onOpen, onFocus }: { focus?: string; onOpen:
     if (focus === ':decks' || focus === ':cards' || focus === ':stats' || focus === ':today') return void (setStudying(null), setAim(null), setOnly(null), setNewest(null), setTab(focus.slice(1) as ReviewTab))
     if (!focus.startsWith(':')) return void (setStudying(focus), setTab('today'))
   }, [focus]) // eslint-disable-line react-hooks/exhaustive-deps
-  const go = (to: ReviewTab): void => void ((tab !== to || picture || studying) && (chime(to === 'today' ? 'riffle' : 'tap'), setStudying(null), setAim(null), setOnly(null), setNewest(null), setPicture(null), setPlace(NO_PLACE), setTab(to)))
+  const go = (to: ReviewTab): void => void ((tab !== to || picture || studying) && (chime(to === 'today' ? 'riffle' : 'tap'), setStudying(null), setAim(null), setOnly(null), setNewest(null), setPicture(null), setPlace(NO_PLACE), setCard(null), setTab(to)))
   // The tabs on the left of the page's line, where they stay put; "Study now", the page's one filled button, on the right.
   const tabs = (
     <span role="tablist" data-review-tabs className="flex h-8 items-center rounded-lg border border-foreground/10 bg-accent/40 p-0.5 text-control">
@@ -112,7 +116,7 @@ export function ReviewArea({ focus, onOpen, onFocus }: { focus?: string; onOpen:
             <p data-review-hint={tab} className="px-5 pt-3 text-body text-foreground">{HINTS[tab as 'decks' | 'cards' | 'stats']}</p>
             {picture && <div className="px-5 pt-4"><PictureCards deck={picture.deck} onClose={() => (chime('fold'), setPicture(null))} onShow={show} /></div>}
             {/* One form at a time: "From a picture" opening shuts Make a card and Add many, even one opened from inside the list. */}
-            {tab === 'cards' && <CardBrowser key={(aim ? `${aim.deck}:${aim.one}` : only ? `only:${only.length}` : '') + (picture ? ':picture' : '')} onOpen={onOpen} aim={aim} only={only} newest={only ? null : newest} onAll={() => (chime('undo'), setOnly(null), setNewest(null))} onShow={show} onAimDone={() => setAim(null)} />}
+            {tab === 'cards' && <CardBrowser open={card} onOpenCard={setCard} key={(aim ? `${aim.deck}:${aim.one}` : only ? `only:${only.length}` : '') + (picture ? ':picture' : '')} onOpen={onOpen} aim={aim} only={only} newest={only ? null : newest} onAll={() => (chime('undo'), setOnly(null), setNewest(null))} onShow={show} onAimDone={() => setAim(null)} />}
             {tab === 'decks' && <DeckShelf place={place} onPlace={setPlace} onOpen={onOpen} onStudy={(tag) => (setStudying(tag), setTab('today'))} onPaste={(deck, one = false) => (setPicture(null), setAim({ deck, one }), setTab('cards'))} onPicture={(deck) => (chime('open'), setAim(null), setPicture({ deck }))} onShow={show} />}
             {tab === 'stats' && <div data-review-stats className="px-5 pt-4 pb-20"><StudySection example={false} /></div>}
           </div>

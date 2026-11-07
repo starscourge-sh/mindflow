@@ -230,14 +230,14 @@ export function Coverage({ cards }: { cards: BrowsedCard[] }): React.JSX.Element
  * is the app's editor (formatting, formulas, pictures, #tags); the source is
  * a line under it. Enter keeps (⇧Enter a new line in the answer), Esc drops.
  */
-function EditCard({ card, tint, onDone }: { card: BrowsedCard; tint: string; onDone: () => void }): React.JSX.Element {
+function EditCard({ card, tint, onDone }: { card: BrowsedCard; tint: string; /** `next`: another card clicked while this one was open, to open now. */ onDone: (next?: string) => void }): React.JSX.Element {
   const [body, setBody] = useState<unknown>(undefined)
   const [prompt, setPrompt] = useState(card.prompt)
   const [source, setSource] = useState(card.made === 'deck' ? '' : card.source)
   const editor = useRef<Editor | null>(null)
   const box = useRef<HTMLDivElement>(null)
   useEffect(() => void haligtree.item(card.id).then((full) => setBody(full?.body ?? '')), [card.id])
-  const keep = (): void => {
+  const keep = (other?: string): void => {
     const next = editor.current?.getJSON()
     const asked = prompt.trim() || card.prompt
     const was = { prompt: card.prompt, body, medium: card.made === 'deck' ? undefined : card.source || null }
@@ -245,7 +245,7 @@ function EditCard({ card, tint, onDone }: { card: BrowsedCard; tint: string; onD
       chime('noted')
       toast('Card kept', () => void haligtree.saveItem(card.id, { prompt: was.prompt, body: was.body, ...(was.medium !== undefined ? { medium: was.medium } : {}) }).then(() => chime('undo')))
     })
-    onDone()
+    onDone(other)
   }
   const drop = (): void => (chime('fold'), onDone())
   // Clicked away, it is kept, as a row edited in Things is. A click, not a blur:
@@ -258,7 +258,10 @@ function EditCard({ card, tint, onDone }: { card: BrowsedCard; tint: string; onD
       const target = event.target as Element | null
       // Its own parts, and what it opens (the editor's menus and tips, in portals), are not away.
       if (!target || box.current?.contains(target) || target.closest?.('[data-radix-popper-content-wrapper], [role="menu"], [role="dialog"], .tippy-box')) return
-      keepNow.current()
+      // Another card pressed: it opens as this one is kept, in the same moment. Left to its click, the list had
+      // already closed up under the pointer and the click landed on nothing.
+      const other = target.closest?.('[data-card-row]')?.getAttribute('data-card-row') ?? undefined
+      keepNow.current(other !== card.id ? other : undefined)
     }
     document.addEventListener('pointerdown', away, true)
     return () => document.removeEventListener('pointerdown', away, true)
@@ -298,7 +301,7 @@ function EditCard({ card, tint, onDone }: { card: BrowsedCard; tint: string; onD
  * have cards; a card that needs work offers its fix in place. Picked cards
  * (⇧-click, x, ⌘A) are paused, tagged or untagged together, or sent to the Bin.
  */
-export function CardBrowser({ onOpen, aim, only, newest, onAll, onShow, onAimDone }: { /** Its form closed: the toolbar's button is no longer pressed. */ onAimDone?: () => void; onOpen: (type: string, id: string) => void; /** Open with "Add many at once" out (⌘K), aimed at a deck, or for one card in it. */ aim?: { deck: string | null; one: boolean } | null
+export function CardBrowser({ onOpen, aim, only, newest, onAll, onShow, onAimDone, open, onOpenCard }: { /** The card open for editing, when Review keeps it as a step of Back and Forward. */ open?: string | null; onOpenCard?: (id: string | null) => void; /** Its form closed: the toolbar's button is no longer pressed. */ onAimDone?: () => void; onOpen: (type: string, id: string) => void; /** Open with "Add many at once" out (⌘K), aimed at a deck, or for one card in it. */ aim?: { deck: string | null; one: boolean } | null
   /** Just these cards (the ones an import or "Add many at once" made), with a way back to all. */ only?: string[] | null; /** Just the newest this many cards (an import's), with the same way back. */ newest?: number | null; onAll?: () => void; /** Show just the cards just made. */ onShow?: (ids: string[]) => void }): React.JSX.Element {
   const [pasting, setPasting] = useState(!!aim)
   const [aimed, setAimed] = useState(aim ?? null)
@@ -318,7 +321,12 @@ export function CardBrowser({ onOpen, aim, only, newest, onAll, onShow, onAimDon
   const [flowAt, setFlowAt] = useState(0)
   // A few hundred drawn at a time: a book of 5,000 cards opens at once, and shows more as asked.
   const [limit, setLimit] = useState(200)
-  const [editing, setEditing] = useState<string | null>(null)
+  const [ownEditing, setOwnEditing] = useState<string | null>(null)
+  // When a card was opened by pressing it while another was open: the click that follows is that same press, not a second one.
+  const handedAt = useRef(0)
+  // Held by Review when it is given (each card opened is a step), else here.
+  const editing = open !== undefined ? open : ownEditing
+  const setEditing = (id: string | null): void => (onOpenCard ? onOpenCard(id) : setOwnEditing(id))
   const [fixing, setFixing] = useState<{ id: string; how: 'split' | 'another'; card?: Due } | null>(null)
   const [tagging, setTagging] = useState('')
   // Turned over in the grid: by hand, by Space, or all at once.
@@ -555,7 +563,7 @@ export function CardBrowser({ onOpen, aim, only, newest, onAll, onShow, onAimDon
     const on = several.picked(pick(card))
     const common = {
       'data-pick': `nugget:${card.id}`, role: 'button', tabIndex: 0, 'aria-selected': on,
-      onClick: (event: React.MouseEvent) => several.click(event, pick(card)) || (chime('tap'), setEditing(editing === card.id ? null : card.id))
+      onClick: (event: React.MouseEvent) => several.click(event, pick(card)) || Date.now() - handedAt.current < 600 || (chime('tap'), setEditing(editing === card.id ? null : card.id))
     }
     // The Bin's table (table-look.tsx), one line a card: its stage first, quiet, as the Bin says a kind; the question
     // in ink; in Table its answer too; its decks; when it is next asked, flush right. Fixes, where asked for, on a line under.
@@ -583,7 +591,7 @@ export function CardBrowser({ onOpen, aim, only, newest, onAll, onShow, onAimDon
   const cell = (card: BrowsedCard): React.JSX.Element => (
     <div key={card.id} data-card-row={card.id} className="contents">
       {editing === card.id
-        ? <div className={density === 'grid' ? 'col-span-full' : ''}><EditCard card={card} tint={tintOf(card)} onDone={() => { setEditing(null); requestAnimationFrame(() => list.current?.querySelector<HTMLElement>(`[data-pick="nugget:${card.id}"]`)?.focus()) }} /></div>
+        ? <div className={density === 'grid' ? 'col-span-full' : ''}><EditCard card={card} tint={tintOf(card)} onDone={(next) => { if (next) return void ((handedAt.current = Date.now()), chime('tap'), setEditing(next)); setEditing(null); requestAnimationFrame(() => list.current?.querySelector<HTMLElement>(`[data-pick="nugget:${card.id}"]`)?.focus()) }} /></div>
         : <RowMenu items={() => menu(card)}>{density === 'grid' ? <div className="relative min-w-0">{poster(card)}{/* A card too big, slow or often forgotten is marked on its poster too, as in a list. */}{mark(card) && <span className="flex pt-1.5">{mark(card)}</span>}</div> : row(card)}</RowMenu>}
       {fixer(card)}
     </div>
