@@ -21,7 +21,7 @@ import { bookOf, pdfIn } from '@/lib/pdf-in'
 import { SourceFoot } from './source-page'
 import { SimilarNotes } from './similar-notes'
 import { chime, pageTurn } from '@/lib/sound'
-import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { Editor, JSONContent } from '@tiptap/core'
 import { Archive, ArrowLeft, ArrowUpRight, Calendar, ChevronRight, Library, Plus, SquareDashed } from 'lucide-react'
 
@@ -1017,6 +1017,11 @@ function NuggetDetail({ item, onOpen, top, back, board: place }: { item: ItemFul
   useOpenNote({ table: 'nuggets', type: item.tier, id: item.id, kind: item.kind, archived: !!item.archivedAt })
   // Its words seen as a board, in their place, as an Inbox note can be (board-view.tsx).
   const [ready, setReady] = useState<Editor | null>(null)
+  // A note opens at its top, not at the last note's scroll: the scroller outlives the note in it. Its own kept place, or Back's, is put back after this.
+  useLayoutEffect(() => {
+    const box = ready?.view.dom.parentElement
+    if (box) box.scrollTop = 0
+  }, [item.id]) // eslint-disable-line react-hooks/exhaustive-deps
   const board = useBoard('nuggets', item.id, ready)
   // A piece of Writing can be written in the writing room: only its title and words, over the whole window.
   const room = useWritingRoom(item.tier === 'article' ? ready : null)
@@ -1162,6 +1167,7 @@ function NuggetDetail({ item, onOpen, top, back, board: place }: { item: ItemFul
         <div className={boardShown ? 'hidden' : 'contents'} spellCheck={item.tier === 'article' && settings?.spellWriting === false ? false : undefined}>
         <HaligtreeEditor
           key={restored?.rev ?? 0}
+          backToTop
           // A tag opens its page: everything carrying it.
           {...notePowers({ table: 'nuggets', id: item.id, kind: item.kind, fields: item.fields, text: item.title, titled: item.tier === 'article', created: item.createdAt, updated: item.updatedAt, origin: { captureId: item.captureId ?? undefined, attribution: item.attribution, from: item.id }, cites: leadIsWho ? undefined : { who: item.attribution, where: item.medium }, onOpen: (type, id) => onOpen?.(type, id) })}
           onTitleOut={(title) => !onBoard.current && showTopTitle(title)}
@@ -1922,6 +1928,8 @@ export function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: I
     void window.api.haligtree<string | null>('ai:group-name', titles).then((said) => {
       const name = cleanName(said, titles, new Set(list.map((one) => one.name.toLowerCase())))
       if (name) setSuggested({ id: group.id, name })
+    }, () => {
+      // Only ever an offer: no answer of any kind says nothing.
     })
   }
   const naming = (ids: string[], folder = false): string => {

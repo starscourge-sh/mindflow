@@ -268,6 +268,7 @@ import "@/assets/styles/_variables.scss"
 import "@/assets/styles/_keyframe-animations.scss"
 import "@/components/haligtree/haligtree-editor.scss"
 import { GripVertical } from '@/components/ui/icons'
+import { BackToTop } from '@/components/haligtree/ui'
 import { domOf, useEditorDom } from '@/lib/editor-dom'
 
 /** The page's document editors, any of which can read Markdown for `readMarkdown`. */
@@ -399,6 +400,8 @@ export interface HaligtreeEditorProps {
    * @default false
    */
   autofocus?: boolean | "start" | "end"
+  /** Where the words scroll in the editor itself (a note's page): a long note's way back to its top, as a long list has. */
+  backToTop?: boolean
   /**
    * May hold the line being typed at a steady height, the page scrolling under
    * it, when Settings > Writing > Typewriter scrolling is on. For a full page
@@ -642,6 +645,7 @@ function Surface({
   vim,
   vimStart = "normal",
   autofocus = false,
+  backToTop = false,
   typewriter = false,
   smoothScroll = true,
   marks,
@@ -2134,6 +2138,7 @@ function Surface({
           </div>,
           document.body,
         )}
+        {backToTop && editor && <BackToTop target={editor.view.dom.parentElement} />}
       </EditorContext.Provider>
     </div>
   )

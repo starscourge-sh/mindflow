@@ -5,7 +5,8 @@ import type { Editor } from '@tiptap/core'
  * Where you were in each note: how far down it was scrolled and where the
  * caret sat, kept as you leave it and put back when it opens again (later
  * the same day, or after a restart), so a long note reopens where you were
- * reading or writing instead of at the top. The last 300 notes are kept.
+ * reading or writing instead of at the top; one read to its end starts over.
+ * The last 300 notes are kept.
  */
 type Place = { top: number; from: number; at: number }
 const KEY = 'note-places'
@@ -75,7 +76,8 @@ export function useNotePlace(editor: Editor | null, id: string | null, on: boole
     }
     const grows = new ResizeObserver(put)
     grows.observe(dom)
-    const onScroll = (): void => void (scroller && (top = scroller.scrollTop))
+    // Read to its last screen, a note is finished with: it opens at its top next time, not at the bottom with nothing left to read.
+    const onScroll = (): void => void (scroller && (top = scroller.scrollHeight - scroller.clientHeight - scroller.scrollTop < scroller.clientHeight ? 0 : scroller.scrollTop))
     const onSelect = (): void => void (from = editor.state.selection.from)
     scroller?.addEventListener('scroll', onScroll, { passive: true })
     scroller?.addEventListener('wheel', stop, { passive: true })

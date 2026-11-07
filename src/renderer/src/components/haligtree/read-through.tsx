@@ -16,7 +16,7 @@ import { useLive, haligtree, when } from '@/lib/haligtree'
 import { cn } from '@/lib/cn'
 import { CAPTURE_TYPES } from '@/components/capture-kinds/capture-kind-picker'
 import { makeTask } from '@/lib/tasks'
-import { Kbd, Rolling, Tip, listEnd } from './ui'
+import { BackToTop, Kbd, Rolling, Tip, listEnd } from './ui'
 import { exit } from '@/lib/capture-links'
 import { GlossComposer, openGloss } from './gloss-line'
 import { ThoughtBar } from './thought-bar'
@@ -316,7 +316,8 @@ export function ReadThrough({ items: given, start = 0, onClose, queue: started, 
   // controls do, and the soft line at the top says how far down you are.
   const [near, setNear] = useState(false)
   const [progress, setProgress] = useState<number | null>(null)
-  const scroller = useRef<HTMLDivElement>(null)
+  const scroller = useRef<HTMLDivElement | null>(null)
+  const [scrollBox, setScrollBox] = useState<HTMLDivElement | null>(null)
   const measure = (): void => {
     const box = scroller.current
     if (!box) return
@@ -775,7 +776,7 @@ export function ReadThrough({ items: given, start = 0, onClose, queue: started, 
       </div>
       {longform && !writing && <LineRestack host={wordsBox} onLine={longform.onLine} />}
       {ended ? <QueueDone ended={ended} onBack={leave} onPutBack={putBack} /> : <>
-      <div ref={scroller} onScroll={measure} className={cn('min-h-0 flex-1 overflow-y-auto', queue && panel && 'xl:pr-80')}>
+      <div ref={(el) => void ((scroller.current = el), setScrollBox(el))} onScroll={measure} className={cn('min-h-0 flex-1 overflow-y-auto', queue && panel && 'xl:pr-80')}>
         {/* j and k turn the page hundreds of times: by key the next one is
             simply there; by the arrows it rises in. */}
         <AnimatePresence mode="wait" initial={false} custom={byKeys()}>
@@ -840,7 +841,8 @@ export function ReadThrough({ items: given, start = 0, onClose, queue: started, 
                       : { host: window.api, readOnly: true, tokens: TAGS, onTokenClick: (token: { name: string; value: string }) => token.name === 'tag' && openTag(token.value) })}
                     // Where the click was, or the end when E asked.
                     // Kept in state, not read from the click's ref at each render: an editor made again (StrictMode) is made with the same spot.
-                    autofocus={writing && openAt === null ? 'end' : false}
+                    // Sorting writes as it reads, so it starts at the top of each note; E asks for the end.
+                    autofocus={writing && openAt === null ? (sorting ? 'start' : 'end') : false}
                     onReady={(editor) => {
                       reader.current = editor
                       // Locked or unlocked, the page stays where it was scrolled to.
@@ -879,6 +881,7 @@ export function ReadThrough({ items: given, start = 0, onClose, queue: started, 
           </motion.article>
         </AnimatePresence>
       </div>
+      <BackToTop target={scrollBox} />
       {/* A thought (or a clue) the moment it comes, without leaving the page. */}
       {/* Sorting writes in the note itself, so it has no thought bar under it. */}
       {composerFor && !sorting && <div className="shrink-0 px-6 pt-1 pb-2 sm:px-16"><ThoughtBar key={composerFor} id={composerFor} clue={clueMode} /></div>}

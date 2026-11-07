@@ -2839,6 +2839,7 @@ const CapturePrompt = ({
           does and what it is when you leave it out. */}
       <HaligtreeEditor
         shape="document"
+        backToTop={!pill}
         placeholder="Write a thought, a quote, a link… or type / for more"
         defaultContent={initial}
         tokens={tokens}

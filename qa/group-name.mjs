@@ -6,7 +6,7 @@ import { sandbox } from './sandbox-lib.mjs'
 
 const { check, done } = checks()
 const s = await sandbox({ width: 1400, height: 880 })
-const { h, v, go, close } = s
+const { h, v, go, close, electron } = s
 const CASE = process.env.QA_CASE
 const shots = process.env.QA_SHOTS
 const wait = (ms) => h.waitForTimeout(ms)
@@ -16,6 +16,8 @@ const value = () => h.evaluate((sel) => document.querySelector(sel)?.value ?? nu
 const names = async () => (await v('groups', 'article')).map((one) => one.name)
 const titles = process.env.QA_TITLES === 'shared' ? ['NumPy Deep Dive', 'Pandas Deep Dive'] : ['Apples and pears', 'Quarterly invoices']
 try {
+  // The window newer than the app behind it, as after an update before a restart: the request has nothing to answer it.
+  if (CASE === 'no-handler') await electron.evaluate(({ ipcMain }) => ipcMain.removeHandler('haligtree:ai:group-name'))
   await v('settings:set', { hintRate: 0, ...(CASE === 'setting-off' ? { aiStudy: false } : {}) })
   await h.evaluate(() => localStorage.setItem('view:article', JSON.stringify({ sort: 'manual', group: 'none', filter: {}, density: 'list' })))
   const groups = await v('groups', 'article')
@@ -64,6 +66,10 @@ try {
     await h.keyboard.press('Enter'); await wait(1000)
     check('left before the answer: it is thrown away', (await names()).includes(first) && !(await names()).includes(process.env.HALIGTREE_QA_GROUP_NAME), (await names()).join())
     check('and no field comes back', (await value()) === null)
+  }
+  if (CASE === 'no-handler') {
+    await wait(900)
+    check('no answer of any kind says nothing on screen', !(await h.evaluate(() => /Not saved|No handler/.test(document.body.innerText))))
   }
   if (CASE === 'nothing' || CASE === 'setting-off') {
     await wait(Number(process.env.QA_WAIT ?? 900))
