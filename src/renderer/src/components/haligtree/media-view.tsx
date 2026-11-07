@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useStepped } from '@/lib/nav'
-import { AudioLines, BookOpen, ChevronDown, Image as ImageIcon, ImagePlay, Layers, Plus, Unlink } from 'lucide-react'
+import { AudioLines, Image as ImageIcon, ImagePlay, Layers, Plus, Unlink } from 'lucide-react'
 import { FileText } from '@/components/ui/icons'
 import { call, haligtree, unloaded, useLive } from '@/lib/haligtree'
 import { smallPicture } from '@/lib/notes'
@@ -19,13 +19,12 @@ import { useSelectAll } from '@/lib/select-all'
 import { usePicking } from '@/lib/pick-range'
 import { useHere } from '@/lib/split'
 import { menuOpen } from '@/lib/menu-keys'
-import { startNewSource } from './source-page'
 import { PictureRow } from './picture-row'
 import { GRACE } from '@/components/pdf/pdf-peek'
 import { canSplit, openAside } from '@/lib/split'
 import { chime } from '@/lib/sound'
 import { pictureLines } from '@/lib/picture-actions'
-import { Empty, Page, refuse, toast, typing, useListKeys, VirtualList } from './ui'
+import { Empty, Kbd, Page, refuse, toast, typing, useListKeys, VirtualList } from './ui'
 import { Chip } from './display'
 import { ListSearch, tileClass } from './note-list'
 import { SoundPlayer, soundTitle } from './sound-player'
@@ -63,20 +62,35 @@ const looseChip = <Unlink className="size-3.5" />
 /** A file's name without its ending, as a person says it. */
 const bare = (name: string): string => name.replace(/\.[^.]+$/, '') || name
 
-/** "Add": the picker at once; beside it, the one thing it is not, a book you have no file for, which Sources already holds. */
-function AddControl({ onShow }: { onShow: (src: string) => void }): React.JSX.Element {
+/**
+ * "Add": a box in the page, as "Cards from a picture" has one: the Mac's picker for one file or many, or drop them on
+ * it, or paste with ⌘V. Whatever comes in is shown at once, and the box closes; Esc or "Add" again closes it.
+ */
+function AddBox({ onShow, onClose }: { onShow: (src: string) => void; onClose: () => void }): React.JSX.Element {
+  const done = (src: string): void => (onShow(src), onClose())
+  useEffect(() => {
+    const paste = (event: ClipboardEvent): void => {
+      const files = [...(event.clipboardData?.files ?? [])]
+      if (!files.length) return
+      event.preventDefault()
+      void addDropped(files, done)
+    }
+    const key = (event: KeyboardEvent): void => void (event.key === 'Escape' && (event.preventDefault(), event.stopPropagation(), chime('fold'), onClose()))
+    window.addEventListener('paste', paste)
+    window.addEventListener('keydown', key, true)
+    return () => (window.removeEventListener('paste', paste), window.removeEventListener('keydown', key, true))
+  }) // eslint-disable-line react-hooks/exhaustive-deps
   return (
-    <span className="flex items-center gap-1">
-      <Button variant="outline" size="sm" className="h-8 cursor-pointer px-3" data-media-add onClick={() => void addFromPicker(onShow)}><Plus className="size-3.5" />Add</Button>
-      <DropdownMenu modal={false}>
-        <DropdownMenuTrigger asChild>
-          <Button variant="outline" size="sm" className="h-8 w-8 cursor-pointer px-0" data-media-add-more aria-label="More ways to add"><ChevronDown className="size-3.5" /></Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem data-media-no-file onSelect={startNewSource}><BookOpen className="size-3.5" />A book with no file yet…</DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </span>
+    <div data-media-add-box
+      onDragOver={(event) => event.dataTransfer.types.includes('Files') && event.preventDefault()}
+      onDrop={(event) => { if (!event.dataTransfer.files.length) return; event.preventDefault(); event.stopPropagation(); void addDropped([...event.dataTransfer.files], done) }}
+      className="mx-5 mb-4 grid gap-1.5 rounded-[4px] border border-dashed border-foreground/20 px-4 py-4">
+      <span className="flex flex-wrap items-center gap-3 text-control text-foreground/80">
+        <Button size="sm" className="h-8 cursor-pointer gap-1.5 px-3" data-media-choose onClick={() => void addFromPicker(done)}><Plus className="size-4" />Choose files…</Button>
+        <span>or drop them on this box, or paste with <Kbd>⌘V</Kbd></span>
+      </span>
+      <span className="text-xs text-muted-foreground">Pictures, GIFs, PDFs and audio. Pick as many as you like.</span>
+    </div>
   )
 }
 
@@ -210,6 +224,8 @@ export function MediaView({ onOpen }: { onOpen: (type: string, id: string) => vo
   const [carrying, setCarrying] = useState(false)
   const carriesFiles = (event: React.DragEvent): boolean => event.dataTransfer.types.includes('Files')
   const onShow = (src: string): void => setShowing(src)
+  // The "Add" box, open in the page.
+  const [adding, setAdding] = useState(false)
 
   // The kinds, as Gems' are: one on at a time, pressed again to show every kind.
   // Only what the book holds: a tab for something you have none of leads to nothing. One asked for by name still shows, to say so.
@@ -252,7 +268,8 @@ export function MediaView({ onOpen }: { onOpen: (type: string, id: string) => vo
         </div>
       )}
       // Only "Add" on the line, picked or not, so nothing on it moves: what acts on the picked is in their right-click and keys.
-      actions={<AddControl onShow={onShow} />}>
+      actions={<Button variant="outline" size="sm" className="h-8 cursor-pointer px-3" data-media-add aria-pressed={adding} onClick={() => (chime(adding ? 'fold' : 'open'), setAdding(!adding))}><Plus className="size-3.5" />Add</Button>}>
+      {adding && <AddBox onShow={onShow} onClose={() => setAdding(false)} />}
       {library ? (
         // PDFs as a library: a shelf of covers, each book once, the picked one's panel docked at the page's edge.
         <PdfLibrary query={query} top={kinds} files={all} keys={!putting} onPut={(srcs) => setPutting(all.filter((one) => srcs.includes(one.src)))} />
@@ -280,7 +297,7 @@ export function MediaView({ onOpen }: { onOpen: (type: string, id: string) => vo
           )}
         </div>
       ) : unloaded(all) ? null : (
-        <Empty title="No pictures or files yet" action={<Button size="sm" className="h-8 cursor-pointer px-3" data-media-add-empty onClick={() => void addFromPicker(onShow)}><Plus className="size-3.5" />Add</Button>}>
+        <Empty title="No pictures or files yet" action={<Button size="sm" className="h-8 cursor-pointer px-3" data-media-add-empty onClick={() => (chime('open'), setAdding(true))}><Plus className="size-3.5" />Add</Button>}>
           Press “Add”, or drop pictures, GIFs, PDFs and audio anywhere on this page. Paste or drop one into a note and it shows up here too.
         </Empty>
       )}

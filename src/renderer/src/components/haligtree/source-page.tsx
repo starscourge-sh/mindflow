@@ -41,13 +41,6 @@ import { openPdf } from '@/components/pdf/pdf-reader'
 
 type PdfIn = ReturnType<typeof pdfIn>
 
-let askedNewSource = false
-/** The Sources page, opened on naming a new source: a book you mean to read, with no file yet. */
-export const startNewSource = (): void => {
-  askedNewSource = true
-  window.dispatchEvent(new CustomEvent('haligtree:open', { detail: { type: 'view', id: 'sources' } }))
-}
-
 const FIELD_SAID: Record<SourceField, { one: string; icon: typeof User }> = { attribution: { one: 'Person', icon: User }, medium: { one: 'Source', icon: BookOpen } }
 
 /** Give a note a who, wherever it lives: a capture's field, or a gem's. */
@@ -697,12 +690,6 @@ function FaceGrid({ people }: { people: SourceSummary[] }): React.JSX.Element {
 export function SourcesView({ onOpen }: { onOpen: (type: string, id: string) => void }): React.JSX.Element {
   const list = useLive(sources.list, [] as SourceSummary[])
   const missing = useLive(sources.missing, [] as Awaited<ReturnType<typeof sources.missing>>)
-  // Sent from Media's "Add" for a book with no file yet: straight to naming it, as “New source” does.
-  useEffect(() => {
-    if (!askedNewSource) return
-    askedNewSource = false
-    void make('medium')
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
   const make = async (field: SourceField): Promise<void> => {
     const name = (await ask(field === 'attribution' ? 'Name the person' : 'Name the source', field === 'attribution' ? 'e.g. Marcus Aurelius' : 'e.g. Meditations, or a podcast', { field, action: field === 'attribution' ? 'Add the person' : 'Add the source' }))?.trim()
     if (!name) return

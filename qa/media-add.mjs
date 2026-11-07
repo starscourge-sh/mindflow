@@ -10,6 +10,12 @@ import { join } from 'node:path'
 import { checks } from './harness.mjs'
 import { sandbox } from './sandbox-lib.mjs'
 
+/** "Add" opens its box in the page; "Choose files…" in it opens the Mac's picker (answered by pickNext). */
+const addFiles = async (h) => {
+  if (!(await h.locator('[data-media-choose]').count())) await h.locator('[data-media-add]').click()
+  await h.locator('[data-media-choose]').click()
+}
+
 const { check, done } = checks()
 const SHOTS = process.env.SHOTS
 const shot = (h, name) => SHOTS && h.screenshot({ path: `${SHOTS}/${name}.png` })
@@ -85,7 +91,7 @@ async function journey(c, label) {
   await pickNext(electron, [png, gif, pdf, audio])
   const add = h.locator('[data-page=media] [data-media-add]')
   check(`${label}: the page has a plain "Add"`, await add.count() === 1 && /Add/.test(await add.textContent()))
-  await add.click(); await wait(900)
+  await addFiles(h); await wait(900)
   let all = await listed(v)
   check(`${label}: four files added with nothing asked`, all.length === before + 4, `${before} → ${all.length}`)
   check(`${label}: no note was made`, await notesCount(h) === seenNotes, `${seenNotes} → ${await notesCount(h)}`)
@@ -100,16 +106,16 @@ async function journey(c, label) {
   // --- Undo the whole batch, then again
   await h.keyboard.press('Meta+z'); await wait(700)
   check(`${label}: ⌘Z takes the whole batch back`, (await listed(v)).length === before, `${(await listed(v)).length}`)
-  await add.click(); await wait(900)
+  await addFiles(h); await wait(900)
   check(`${label}: and adding again brings them`, (await listed(v)).length === before + 4)
 
   // --- Met, not doubled; refused by name; many at once
   await pickNext(electron, [pdf])
-  await add.click(); await wait(800)
+  await addFiles(h); await wait(800)
   check(`${label}: the same bytes are met, not doubled`, (await listed(v)).length === before + 4 && /already in Files/.test(await h.evaluate(() => document.body.innerText)))
   const copy = write('Another name for it.pdf', pdfBytes('Lease'))
   await pickNext(electron, [copy, bad, fake])
-  await add.click(); await wait(800)
+  await addFiles(h); await wait(800)
   const said = await h.evaluate(() => document.body.innerText)
   check(`${label}: the same bytes under another name are met too`, (await listed(v)).length === before + 4)
   check(`${label}: a file it cannot take says why, by name`, /notes\.docx: only pictures, GIFs, PDFs and audio go in Files/.test(said) && /fake\.png: not a picture Haligtree can read/.test(said), said.slice(-200))
@@ -308,8 +314,15 @@ if (part('sounds')) {
     n.errors.length = 0
     const a = write('Sound one.png', await pngFrom(h, 41)), b = write('Sound two.png', await pngFrom(h, 42))
     await pickNext(electron, [a])
-    const added = await heard(() => h.locator('[data-media-add]').click())
+    await h.locator('[data-media-add]').click(); await wait(300)
+    const added = await heard(() => addFiles(h))
     check('"Add": one sound for the add', one(added), JSON.stringify(added))
+    check('"Add": its box closes once the files are in', (await h.locator('[data-media-add-box]').count()) === 0)
+    await h.locator('[data-media-add]').click(); await wait(300)
+    check('"Add" opens a box in the page: Choose files…, drop, paste', (await h.locator('[data-media-add-box] [data-media-choose]').count()) === 1 && /drop them on this box, or paste/.test(await h.locator('[data-media-add-box]').textContent()))
+    await h.keyboard.press('Escape'); await wait(300)
+    check('Esc closes the box', (await h.locator('[data-media-add-box]').count()) === 0)
+    check('no arrow beside "Add", and no "A book with no file yet"', (await h.locator('[data-media-add-more], [data-media-no-file]').count()) === 0)
     const box = await h.locator('[data-page=media]').boundingBox()
     const dropped = await heard(() => drop(h, [b], box.x + box.width / 2, box.y + box.height / 2))
     check('a drop: one sound', one(dropped), JSON.stringify(dropped))
@@ -366,14 +379,14 @@ if (part('row')) {
     // Still at the front: the newest takes the front, the row not rebuilt, never empty.
     const firstFile = write('Front of the row.png', await pngFrom(h, 33))
     await pickNext(electron, [firstFile])
-    await h.locator('[data-media-add]').click()
+    await addFiles(h)
     const frontFrames = await burst('row-front')
     await wait(900)
     check('at the front, an add comes to the front, no frame empty, not rebuilt', await title() === 'Front of the row' && emptyFrames(frontFrames) === 0 && await same(), `${await title()} ${frontFrames.map((one) => one.toFixed(2)).join(' ')}`)
     await h.click('[data-recent-pictures] [data-flex-carousel-turn=next]'); await wait(800)
     const middle = await title()
     await pickNext(electron, [file])
-    await h.locator('[data-media-add]').click()
+    await addFiles(h)
     const addFrames = await burst('row-add')
     await wait(800)
     check('an add: no frame of the row is empty', emptyFrames(addFrames) === 0, addFrames.map((one) => one.toFixed(2)).join(' '))
@@ -441,7 +454,7 @@ if (part('row')) {
     // An RTL name goes in, is found, and reads in its tile.
     await h.locator('[data-page=media] [data-media-kinds] button', { hasText: 'PDFs' }).first().click(); await wait(500)
     const rtl = write('مذكرات الرحلة إلى قرطبة.png', await pngFrom(h, 32))
-    await pickNext(electron, [rtl]); await h.locator('[data-media-add]').click(); await wait(1000)
+    await pickNext(electron, [rtl]); await addFiles(h); await wait(1000)
     const said = await h.evaluate(() => document.body.innerText)
     check('an RTL file name goes in and is said right', /مذكرات الرحلة إلى قرطبة/.test(said), said.slice(-120))
     const rtlBox = await h.evaluate(() => { const el = [...document.querySelectorAll('[data-media] .text-sm.font-medium')].find((one) => /مذكرات/.test(one.textContent)); if (!el) return null; const b = el.getBoundingClientRect(), t = el.closest('[data-id]').getBoundingClientRect(); return { inside: b.left >= t.left && b.right <= t.right, dir: getComputedStyle(el).direction, alignRight: getComputedStyle(el).textAlign } })
@@ -473,7 +486,7 @@ if (part('book')) {
     await shot(h, 'state-0')
     const one = write('Only one.png', await pngFrom(h, 11))
     await pickNext(electron, [one])
-    await h.locator('[data-media-add-empty]').click(); await wait(1000)
+    await h.locator('[data-media-add-empty]').click(); await wait(300); await h.locator('[data-media-choose]').click(); await wait(1000)
     check('own book, 1 file: the empty line gives way to its tile', (await tiles(h)).length === 1)
     check('own book: its one kind has no row of tabs', !(await h.evaluate(() => !!document.querySelector('[data-media-kinds]'))))
     await shot(h, 'state-1')
@@ -481,7 +494,7 @@ if (part('book')) {
     // An odd file name: long, with emoji, quotes, a bar and accents.
     const odd = write(`A “very” odd|name été 🌿 ${'long '.repeat(18)}.pdf`, pdfBytes('Odd'))
     await pickNext(electron, [odd])
-    await h.locator('[data-media-add]').click(); await wait(1200)
+    await addFiles(h); await wait(1200)
     const oddT = (await tiles(h)).find((t) => t.kind === 'pdf')
     check('an odd file name goes in and reads whole in its record', !!oddT && (await v('media:list')).some((t) => t.name.includes('🌿')), JSON.stringify(oddT)?.slice(0, 120))
     const fit = await h.evaluate(() => { const el = document.querySelector('[data-media="pdf"]')?.closest('[data-id]'); return el ? el.getBoundingClientRect().width : 0 })
@@ -493,7 +506,7 @@ if (part('book')) {
     const fifty = []
     for (let n = 0; n < 50; n++) fifty.push(write(`Fifty ${n}.png`, await pngFrom(h, 100 + n)))
     await pickNext(electron, fifty)
-    await h.locator('[data-media-add]').click(); await wait(2000)
+    await addFiles(h); await wait(2000)
     check('50 files at once: one notice with the count', /Added 50 files\./.test(await h.evaluate(() => document.body.innerText)))
     check('50 files: all there', (await v('media:list')).length === 52, String((await v('media:list')).length))
     await shot(h, 'state-50')
@@ -512,7 +525,7 @@ if (part('book')) {
     await h.locator(`[data-media][data-src="${gone.src}"]`).click(); await wait(400)
     check('pressed, it says what to do', /Add it again to bring it back/.test(await h.evaluate(() => document.body.innerText)))
     await h.locator('[data-page=media] input[placeholder^="Find"]').fill(''); await wait(300)
-    await pickNext(electron, [one]); await h.locator('[data-media-add]').click(); await wait(900)
+    await pickNext(electron, [one]); await addFiles(h); await wait(900)
     check('added again, it is back', (await v('media:list')).find((t) => t.src === gone.src)?.gone === false)
     // A 500 MB PDF: in by path a piece at a time, onto the shelf, into the reader.
     const big = join(here, 'A very large book.pdf')
@@ -521,7 +534,7 @@ if (part('book')) {
     const fd = openSync(big, 'w'); writeSync(fd, head); const padding = Buffer.alloc(piece, 37); for (let n = 0; n < 32; n++) writeSync(fd, padding); writeSync(fd, '\n'); writeSync(fd, pdfBytes('Large', before)); closeSync(fd)
     await pickNext(electron, [big])
     const started = Date.now()
-    await h.locator('[data-media-add]').click()
+    await addFiles(h)
     for (let n = 0; n < 200 && !(await v('media:list')).some((t) => t.name === 'A very large book.pdf'); n++) await wait(250)
     const took = Date.now() - started
     const huge = (await v('media:list')).find((t) => t.name === 'A very large book.pdf')
