@@ -4275,6 +4275,9 @@ app.whenReady().then(() => {
   registerMeeting({
     send: sendMeeting,
     open: () => {
+      // One of Haligtree's floating windows at a time: quick capture goes as the recording's card comes (its draft
+      // kept), and opens again on its key as ever.
+      if (prompt && !prompt.isDestroyed() && prompt.isVisible()) hideWindow(prompt)
       const win = meetingWindow()
       if (win.webContents.isLoading()) win.webContents.once('did-finish-load', () => (sendMeeting(meetingState()), win.showInactive()))
       else win.showInactive()
