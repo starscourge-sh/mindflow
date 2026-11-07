@@ -669,6 +669,8 @@ const DEFAULTS = {
   sidebarCountsOff: [] as string[],
   // Pinned and Recent switched off (places.tsx, SIDE_GROUPS): none to start, so every book shows both.
   sidebarGroupsOff: [] as string[],
+  // The sidebar's sections under the places, top to bottom, as dragged by their headings.
+  sideSections: ['pinned', 'recent', 'library', 'tags'] as string[],
   // Pointing at a sidebar row, or a row of the Haligtree menu, shows a card of what that page is.
   pagePreviews: true,
   // The box's tabs; Recent is a ⇧⌘Y or ⌘K away until shown.

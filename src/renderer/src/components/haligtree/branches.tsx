@@ -13,7 +13,7 @@ const QUIET = 'color-mix(in oklab, var(--muted-foreground) 45%, transparent)'
 /** An open group's rows hung off a thin trunk from its heading, a curved branch
  *  to each; the way down to the page you are on is lit, and moves with you.
  *  Bare, as on the icon rail, just the rows. */
-export function Branches({ current, bare, className, children }: { current: number; bare?: boolean; className?: string; children: ReactNode }): React.JSX.Element {
+export function Branches({ current, bare, rows: deep, className, children }: { current: number; bare?: boolean; /** Where the rows are, when they sit deeper than its own children (a list that drags); each twig meets the row's first line. */ rows?: string; className?: string; children: ReactNode }): React.JSX.Element {
   const box = useRef<HTMLDivElement>(null)
   // Where each row's middle sits, read off the rows themselves, since their heights differ.
   const [mids, setMids] = useState<number[]>([])
@@ -24,7 +24,14 @@ export function Branches({ current, bare, className, children }: { current: numb
     const measure = (): void => {
       // Rows only: nothing hidden or lifted out of the flow gets a twig of its own, nor a row's own
       // branches under it (data-no-twig: a folder's subfolders, hung off a trunk of their own).
-      const next = [...rows.children].filter((row): row is HTMLElement => row instanceof HTMLElement && row.offsetHeight > 1 && !row.hasAttribute('data-no-twig') && !/^(fixed|absolute)$/.test(getComputedStyle(row).position)).map((row) => row.offsetTop + (row.dataset.twigTop ? Number(row.dataset.twigTop) : row.offsetHeight / 2))
+      const top = rows.getBoundingClientRect().top
+      const next = deep
+        ? [...rows.querySelectorAll<HTMLElement>(deep)].filter((row) => row.offsetHeight > 1).map((row) => {
+          const first = row.querySelector<HTMLElement>('[data-side-row]') ?? row
+          const r = first.getBoundingClientRect()
+          return Math.round(r.top - top + r.height / 2)
+        })
+        : [...rows.children].filter((row): row is HTMLElement => row instanceof HTMLElement && row.offsetHeight > 1 && !row.hasAttribute('data-no-twig') && !/^(fixed|absolute)$/.test(getComputedStyle(row).position)).map((row) => row.offsetTop + (row.dataset.twigTop ? Number(row.dataset.twigTop) : row.offsetHeight / 2))
       setMids((before) => (before.join() === next.join() ? before : next))
     }
     measure()

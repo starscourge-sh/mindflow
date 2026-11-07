@@ -104,6 +104,7 @@ import { noteActions } from '@/lib/notes'
 import { headingIn } from '@/lib/capture-links'
 import { openApart } from '@/lib/apart'
 import { MediaView } from '@/components/haligtree/media-view'
+import { sideOrder, sectionMoves, useSectionDrag } from '@/lib/side-sections'
 import { G_ALIASES, JOURNAL_SCALES, LIBRARY, OFF_SIDEBAR, startPageOf, PlaceIcon, SECTIONS, SIDE_GROUPS, ShowList, showGroup, type Place, placeDrawing, TASK_PAGES, dropInBlock, dropOrder, orderItems, risen, litRow, showWords, sidebarParts, useInOrder, useOrder, useSections, useShown } from '@/components/haligtree/places'
 import { BlockList, SortableList, SortableRow } from '@/components/haligtree/sortable'
 import { pageTravel } from '@/lib/page-travel'
@@ -840,6 +841,8 @@ export function Home(): React.JSX.Element {
   // Pinned folds, Notion's way, and starts open.
   const [pinsOpen, setPinsOpen] = useRemembered('sidebar:pinned', true)
   const [libraryOpen, setLibraryOpen] = useRemembered('sidebar:library', true)
+  // A section's heading dragged moves the whole section (lib/side-sections.ts).
+  const sectionDrag = useSectionDrag()
   // Recent: the last few notes you opened, under Pinned, a short list (four at most: ⌘K has the rest), kept folded or open as you left it.
   const [recentOpen, setRecentOpen] = useRemembered('sidebar:recent', true)
   const [recents, setRecents] = useState<Opened[]>([])
@@ -2086,6 +2089,7 @@ export function Home(): React.JSX.Element {
             <button
               type="button"
               data-side-row
+              data-side-section-handle="tags"
               data-tags-fold
               aria-label={tagsOpen ? 'Fold the tags away' : 'Show your tags'}
               // On a tag's page whose own row is folded away or not listed, the heading is the place marked.
@@ -2153,6 +2157,7 @@ export function Home(): React.JSX.Element {
               narrow ? <div key={group.id} className="mt-3" /> : (
                 <RowMenu key={group.id} items={[
                   // Library is not one to switch off: its rows are, each, in Customize.
+                  ...sectionMoves(group.id, sideOrder(settings?.sideSections)),
                   ...(group.id === LIBRARY.id ? [] : [{ label: showWords(group, true).label, run: () => void hideGroup(group) }]),
                   { label: 'Customize the sidebar…', run: () => void setTimeout(() => setCustomizing(true), 120) }
                 ]}>
@@ -2161,6 +2166,7 @@ export function Home(): React.JSX.Element {
                     type="button"
                     aria-expanded={open}
                     data-side-row
+                    data-side-section-handle={group.id}
                     data-home-near={near}
                     onClick={() => (chime(open ? 'fold' : 'slide'), fold(!open))}
                     className={`flex min-h-6 flex-1 items-center gap-1 rounded-md py-0.5 pl-2 pr-2 text-left text-meta text-muted-foreground transition-colors duration-80 hover:text-foreground data-[fluid-hover-active]:text-foreground`}
@@ -2179,15 +2185,19 @@ export function Home(): React.JSX.Element {
             // Not drawn, even unseen, until settings say which rows show: a row
             // the settings then take away held its room for a frame once the sidebar showed.
             const parts = settings && !unloaded(away) ? sidebarParts(sections, ordered, shown, settings.sidebarGroups) : []
+            // Pinned, Recent, Library and Tags in your order (dragged by their headings, or moved from their menus):
+            // each drawn as one block, its place set by CSS order, so nothing in it is drawn twice or moved apart.
+            const sectionOrder = sideOrder(settings?.sideSections)
+            const sectionAt = (id: string): React.CSSProperties => ({ order: 1 + sectionOrder.indexOf(id), opacity: sectionDrag.carrying === id ? 0.45 : undefined, transition: 'opacity 120ms' })
             const pinned = (<>
               {/* Pinned, Notion's Favourites: only there while something is, or while a note is carried to it. */}
               {pinsDrawn && pins.length === 0 && layouts.length === 0 && !narrow && (
-                <div data-side-drop="pinned" className="hidden rounded-md data-[queue-hot]:bg-[color-mix(in_oklab,var(--primary)_12%,transparent)] data-[queue-hot]:ring-1 data-[queue-hot]:ring-[color-mix(in_oklab,var(--primary)_40%,transparent)] [html[data-split-pin]_&]:block">
+                <div data-side-drop="pinned" data-side-section="pinned" style={sectionAt('pinned')} className="hidden rounded-md data-[queue-hot]:bg-[color-mix(in_oklab,var(--primary)_12%,transparent)] data-[queue-hot]:ring-1 data-[queue-hot]:ring-[color-mix(in_oklab,var(--primary)_40%,transparent)] [html[data-split-pin]_&]:block">
                   <div className="mt-3 mb-0.5 px-2 py-0.5 text-meta text-muted-foreground">Pinned</div>
                   <p className="px-2 pb-1.5 text-control text-muted-foreground">Drop here to pin</p>
                 </div>
               )}
-              {pinsDrawn && !quiet && (pins.length > 0 || layouts.length > 0) && (<div data-side-drop="pinned" className="rounded-md data-[queue-hot]:bg-[color-mix(in_oklab,var(--primary)_12%,transparent)] data-[queue-hot]:ring-1 data-[queue-hot]:ring-[color-mix(in_oklab,var(--primary)_40%,transparent)]">
+              {pinsDrawn && !quiet && (pins.length > 0 || layouts.length > 0) && (<div data-side-drop="pinned" data-side-section="pinned" style={sectionAt('pinned')} className="rounded-md data-[queue-hot]:bg-[color-mix(in_oklab,var(--primary)_12%,transparent)] data-[queue-hot]:ring-1 data-[queue-hot]:ring-[color-mix(in_oklab,var(--primary)_40%,transparent)]">
                 {heading(pinsGroup, pinsOpen, setPinsOpen)}
                 <Unfold open={pinsOpen || narrow}><Branches current={(() => { const at = pins.findIndex((pin) => light === `pin:${pin.id}`); return at < 0 ? -1 : layouts.length + at })()} bare={narrow} className={`flex flex-col gap-px ${narrow ? '' : 'ml-5'}`}>{[
                   ...layouts.map((one) => (
@@ -2237,7 +2247,7 @@ export function Home(): React.JSX.Element {
                 recentShown.current = rows
                 if (!recentDrawn || quiet || narrow || !rows.length) return null
                 return (
-                  <div data-side-recent>
+                  <div data-side-recent data-side-section="recent" style={sectionAt('recent')}>
                     {heading(recentGroup, recentOpen, setRecentOpen)}
                     <Unfold open={recentOpen}><Branches current={rows.findIndex((one) => light === `recent:${one.id}`)} className="ml-5 flex flex-col gap-px">{rows.map((one) => {
                       return (
@@ -2263,7 +2273,7 @@ export function Home(): React.JSX.Element {
             // Your most used tags, under their own row: shown with the Tags page on, between Pinned and the Bin.
             const tagRows = !narrow && !quiet && shown.includes('tags') && tags.length > 0
             // Tags drawn as their own part, which takes no page dropped on it, as Pinned does not.
-            const tagsPart = <div data-side-drop="tags" className="flex flex-col gap-px">{tagsBlock}</div>
+            const tagsPart = <div data-side-drop="tags" data-side-section="tags" style={sectionAt('tags')} className="flex flex-col gap-px">{tagsBlock}</div>
             // Every page row drags as one list, into any block: the line shows where it lands.
             return (<>
               <BlockList
@@ -2277,13 +2287,14 @@ export function Home(): React.JSX.Element {
                   {block === 'rest' && tagRows && tagsPart}
                   {/* Each run after the first gets a gap the height of a heading, with no heading: what you write, then what you do, then the rest. */}
                   {/* Library, what you keep (Gems, Sources, Files), under a heading of its own that folds as Pinned's does. */}
-                  {block === 'Library' && items.length > 0 ? (<>
+                  {block === 'Library' && items.length > 0 ? (<div data-side-section="library" style={sectionAt('library')} className="flex flex-col">
                     {heading(LIBRARY, libraryOpen || narrow, setLibraryOpen)}
-                    <Unfold open={libraryOpen || narrow}>{box}</Unfold>
-                  </>) : (<>
+                    {/* Hung off a trunk under its heading, as Pinned's and Recent's are: they are its children. */}
+                    <Unfold open={libraryOpen || narrow}><Branches bare={narrow} rows=":scope > [data-drop-list] > *" current={items.findIndex((one) => light === `place:${one.id}`)} className={narrow ? '' : 'ml-5'}>{box}</Branches></Unfold>
+                  </div>) : (<div className="flex flex-col" style={block === 'rest' ? { order: 9 } : undefined}>
                     {at > 0 && items.length > 0 && <div data-side-gap aria-hidden className={narrow ? 'mt-3' : 'mt-2.5 mb-0.5 min-h-1'} />}
                     {box}
-                  </>)}
+                  </div>)}
                   {/* Pinned, and the split open now, sit under the places. */}
                   {block === 'Write' && pinned}
                 </>)}
@@ -2292,6 +2303,8 @@ export function Home(): React.JSX.Element {
             </>)
           })()}
         </nav>
+        {/* Where a section carried by its heading would land. */}
+        {sectionDrag.line && <div aria-hidden data-side-section-line className="pointer-events-none fixed z-50 h-0.5 rounded-full bg-primary" style={{ top: sectionDrag.line.top - 1, left: sectionDrag.line.left, width: sectionDrag.line.width }} />}
 
         </TooltipProvider>
 
