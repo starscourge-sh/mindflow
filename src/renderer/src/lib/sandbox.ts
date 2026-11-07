@@ -1,4 +1,4 @@
-import { hum, paper, saberLength } from './sound'
+import { chime, hum, saberLength } from './sound'
 import { haligtree } from './haligtree'
 import { EASING, still } from '@/lib/motion'
 import type { BarStyle } from '@/components/haligtree/progress-bar'
@@ -79,7 +79,8 @@ async function moment(up: boolean, text: string, going: Promise<BarStyle | null>
   const seen: Swung = { up, text, soundMs: ms, bladeMs: null, blade: !!fill, bars }
   swung.push(seen)
   if (saber) hum(up)
-  else paper('slide')
+  // A place unlocked, going and coming back alike (the paper's slide read as a page torn out).
+  else chime('arrive')
   if (fill) {
     const begun = performance.now()
     const away = saber ? 'translateX(calc(-100% - 16px))' : bars === 'dino' ? 'translateX(0)' : 'translateX(-100%)'

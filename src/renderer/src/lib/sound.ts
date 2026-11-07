@@ -178,6 +178,9 @@ const CUES = {
   wrapped: [[523, 0, 0.12], [659, 0.08, 0.12], [784, 0.16, 0.12], [1046, 0.24, 0.4]],
   // A task put off to a later list: a note drifting down and away, unhurried.
   later: [[587, 0, 0.18, 0.04, 494, 0.02], [392, 0.1, 0.3, 0.035]],
+  // Arriving in another book (the sandbox, or back to your own): a place unlocked, four notes climbing a major
+  // chord to the octave, unhurried, the last one held. Never a rip: nothing was torn or lost.
+  arrive: [[523, 0, 0.22, 0.04], [659, 0.09, 0.22, 0.04], [784, 0.18, 0.26, 0.04], [1047, 0.29, 0.6, 0.045]],
   // Another scene: two soft open fifths, slow to arrive, like a view clearing.
   scene: [[392, 0, 0.6, 0.03, undefined, 0.12], [587, 0.12, 0.7, 0.025, undefined, 0.14]],
   // The day's review queue finished: the last grade answered by a soft
