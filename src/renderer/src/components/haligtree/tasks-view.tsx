@@ -1143,7 +1143,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
                     {/* The words on the same edge as every heading; the fold's chevron after the count. */}
                     <button type="button" data-on-hold aria-expanded={heldShown} onClick={() => (chime(heldShown ? 'off' : 'tap'), heldShown || unfold(held), setHeldOpen(!heldShown))} className="flex w-full cursor-pointer items-center gap-1 text-left">
                       {row.heading} <span className="font-normal"><Rolling text={row.count} /></span>
-                      <ChevronRight className={`size-3.5 transition-transform duration-200 ${heldShown ? 'rotate-90' : ''}`} style={{ transitionTimingFunction: EASING }} />
+                      <ChevronRight className={`size-3.5 transition-transform duration-200 motion-reduce:transition-none ${heldShown ? 'rotate-90' : ''}`} style={{ transitionTimingFunction: EASING }} />
                       <span className="ml-auto font-normal text-foreground/80">From a fresh start · open one to bring it back</span>
                     </button>
                   </h2>
@@ -1152,7 +1152,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
                   <h2 {...loud('late', 'list-ink mt-6 mb-1 border-b pb-1.5 text-meta font-medium')}>
                     <button type="button" data-late-fold aria-expanded={lateShown} onClick={() => (chime(lateShown ? 'off' : 'tap'), lateShown || unfold(lateHere), setLateOpen(!lateShown))} className="flex w-full cursor-pointer items-center gap-1 text-left">
                       {row.heading} <span className="font-normal text-muted-foreground"><Rolling text={row.count} /></span>
-                      <ChevronRight className={`size-3.5 transition-transform duration-200 ${lateShown ? 'rotate-90' : ''}`} style={{ transitionTimingFunction: EASING }} />
+                      <ChevronRight className={`size-3.5 transition-transform duration-200 motion-reduce:transition-none ${lateShown ? 'rotate-90' : ''}`} style={{ transitionTimingFunction: EASING }} />
                     </button>
                   </h2>
                 ) : row.heading ? (
