@@ -102,6 +102,8 @@ export type Folds = {
   onOpenFolder?: (id: string) => void
   /** The group whose name is being written, as one just made is. */
   renaming: string | null
+  /** A first name offered for the group being named. */
+  suggested?: { id: string; name: string } | null
   onRenaming: (id: string | null) => void
   /** A group just made, which arrives rather than appears. */
   born: string | null
@@ -130,7 +132,7 @@ const collide: CollisionDetection = (args) => {
  * every list does; `index` counts rows on show, which is what the keyboard's
  * cursor counts.
  */
-export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo, onFold, onNewNote, onOpenFolder, renaming, onRenaming, born, noun, days, onSort, onSorted, face, after, arrived, cursor, estimate, className }: Folds & {
+export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo, onFold, onNewNote, onOpenFolder, renaming, suggested, onRenaming, born, noun, days, onSort, onSorted, face, after, arrived, cursor, estimate, className }: Folds & {
   face: (entry: Entry, index: number) => React.JSX.Element
   after?: (entry: Entry) => ReactNode
   arrived: (id: string) => boolean
@@ -414,7 +416,7 @@ export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo
   )
   // A group's block, and inside it each subgroup's, drawn the same way one level in.
   const block = (group: GroupView, entries: Entry[], parts: Part[] | undefined, start: number, inner = false): React.JSX.Element => (
-    <GroupBlock key={group.id} group={group} entries={entries} parts={parts} start={start} cursor={cursor} estimate={estimate} row={row} inner={inner} carried={carried === KEY + group.id} renaming={renaming === group.id}
+    <GroupBlock key={group.id} group={group} entries={entries} parts={parts} start={start} cursor={cursor} estimate={estimate} row={row} inner={inner} carried={carried === KEY + group.id} renaming={renaming === group.id} suggested={suggested?.id === group.id ? suggested.name : null}
       born={born === group.id} onRenaming={(on) => onRenaming(on ? group.id : null)} onFold={(open) => onFold(group, open)} onNewNote={onNewNote} onOpenFolder={onOpenFolder} onSort={onSort} onSorted={onSorted} noun={noun}
       sub={(child, at) => block(child.group, child.entries, child.parts, at, true)} />
   )
@@ -638,7 +640,7 @@ export const change = (group: GroupView, patch: Parameters<typeof groups.set>[1]
   })
 }
 
-function GroupBlock({ group, entries, parts, start, cursor, estimate, row, carried, renaming, born, onRenaming, onFold, onNewNote, onOpenFolder, onSort, onSorted, sub, noun = 'note', inner = false }: {
+function GroupBlock({ group, entries, parts, start, cursor, estimate, row, carried, renaming, suggested, born, onRenaming, onFold, onNewNote, onOpenFolder, onSort, onSorted, sub, noun = 'note', inner = false }: {
   onOpenFolder?: (id: string) => void
   /** What this list holds, for its count: "17 pages", "17 gems", "17 questions". */
   noun?: string
@@ -658,6 +660,7 @@ function GroupBlock({ group, entries, parts, start, cursor, estimate, row, carri
   carried: boolean
   renaming: boolean
   born: boolean
+  suggested?: string | null
   onRenaming: (on: boolean) => void
   onFold: (open: boolean) => void
   onNewNote: (id: string) => void
@@ -777,6 +780,7 @@ function GroupBlock({ group, entries, parts, start, cursor, estimate, row, carri
                       <PopoverAnchor asChild>{place ? <GroupTile group={group} empty={count === 0} /> : <PanelTile group={group} onIcon={() => setPicking(true)} />}</PopoverAnchor>
                       <NameInPlace
                         initial={group.name}
+                        suggested={suggested}
                         label={place ? 'Folder name' : 'Group name'}
                         onDone={(words) => (words === null ? onRenaming(false) : rename(words))}
                         className={cn('min-w-0 flex-1 rounded-sm bg-transparent outline-none placeholder:text-muted-foreground', place ? 'text-control font-medium' : 'text-xs font-semibold')}

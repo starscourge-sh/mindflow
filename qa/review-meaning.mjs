@@ -83,7 +83,7 @@ for (const level of ['every', 'ai']) {
       const one = document.querySelector('[data-mac-needs="ai"] [data-setting]')
       return { found: !!one, lacking: one?.parentElement?.hasAttribute('data-mac-lacking'), switch: !!one?.querySelector('[role="switch"]'), text: one?.textContent ?? '' }
     })
-    check(`${level}: Settings, Review: “Apple Intelligence in Review” ${level === 'ai' ? 'has its switch' : 'says it needs Apple Intelligence, with no switch'}`, setting.found && (level === 'ai' ? setting.switch && !setting.lacking : !setting.switch && setting.lacking && /Needs Apple Intelligence/.test(setting.text)), JSON.stringify(setting))
+    check(`${level}: Settings, Review: “Apple Intelligence” ${level === 'ai' ? 'has its switch' : 'says it needs Apple Intelligence, with no switch'}`, setting.found && (level === 'ai' ? setting.switch && !setting.lacking : !setting.switch && setting.lacking && /Needs Apple Intelligence/.test(setting.text)), JSON.stringify(setting))
     if (shots) await h.evaluate(() => document.querySelector('[data-mac-needs="ai"]')?.scrollIntoView({ block: 'center' })), await h.screenshot({ path: join(shots, `setting-${level}.png`) })
     if (level === 'ai') {
       await v('settings:set', { aiStudy: false })

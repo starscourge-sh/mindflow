@@ -2392,11 +2392,11 @@ function StudyAiSetting({ on, set }: { on: boolean; set: (on: boolean) => void }
   const has = meets(caps, 'ai')
   return (
     <div data-mac-needs="ai" data-mac-lacking={has ? undefined : ''}>
-      <Setting title="Apple Intelligence in Review" note="Typed answers checked by what they mean, a hint when you are stuck (H), and five cards from a chapter in the reader."
-        more={has ? 'On this Mac, with nothing sent anywhere. It only ever suggests: the grade is yours, a hint is never the answer, and no card is made until you keep it.' : undefined}
-        keywords="apple intelligence ai meaning hint cards chapter typed answer check foundation model"
+      <Setting title="Apple Intelligence" note="Typed answers checked by what they mean, a hint when you are stuck (H), five cards from a chapter in the reader, and a first name for a new group."
+        more={has ? 'On this Mac, with nothing sent anywhere. It only ever suggests: the grade is yours, a hint is never the answer, no card is made until you keep it, and a group’s name is yours to type over.' : undefined}
+        keywords="apple intelligence ai meaning hint cards chapter typed answer check group name foundation model"
         off={has ? undefined : lacks(caps, 'ai')}>
-        {has && <Switch aria-label="Apple Intelligence in Review" checked={on} onCheckedChange={set} />}
+        {has && <Switch aria-label="Apple Intelligence" checked={on} onCheckedChange={set} />}
       </Setting>
     </div>
   )

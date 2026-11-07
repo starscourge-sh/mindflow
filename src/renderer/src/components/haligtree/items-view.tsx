@@ -90,6 +90,7 @@ import { moment } from '@/lib/clock'
 import { Signed } from './signature'
 import { groups as noteGroupsApi, isFolder, tintOf, useGroups, type NoteGroup } from '@/lib/groups'
 import { useReveal } from './islands'
+import { cleanName, sharedWords } from '@/lib/group-name'
 import { DEPTH, dropMany, flatten, gather, groupId, groupOf, isGroup, KEY, layoutOf, moveMany, reorderAs, sameLayout, shownKeys, step as stepLayout, tidy, type Layout } from '@/lib/group-layout'
 import type { Cue } from '@/lib/sound'
 import { GroupIcon, SectionHeads, type Bundle, type Folds, type GroupView, type Part as KeptPart } from './kept-groups'
@@ -1813,6 +1814,7 @@ export function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: I
   const [opened, setOpened] = useState<Record<string, boolean>>({})
   const [renaming, setRenaming] = useState<string | null>(null)
   const [born, setBorn] = useState<string | null>(null)
+  const [suggested, setSuggested] = useState<{ id: string; name: string } | null>(null)
   // The groups' keys go in too, where they were put: an empty one stands there, as in the sidebar.
   // Sorted once for the notes, their order and the groups, never on every draw: 2,500 notes took 14 ms a draw.
   const saved = useMemo(() => {
@@ -1911,6 +1913,17 @@ export function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: I
   // A group left unnamed is named for what its notes share: a tag on all of
   // them, or their kind, or else the next free "Group 2", so no two read the same.
   const byId = new Map(every.map((one) => [one.id, one]))
+  const titleOf = (one: Item): string => splitTags(one.title).text
+  // A name that only counts (Group 3): the Mac's Apple Intelligence, if it has it, may offer a better one, into the open field.
+  const offerName = (group: { id: string; name: string }, members: string[]): void => {
+    if (!/^(Group|Folder) \d+$/.test(group.name)) return
+    const titles = members.flatMap((id) => (byId.has(id) ? [titleOf(byId.get(id)!)] : [])).filter((one) => one.trim() && one !== 'Untitled')
+    if (titles.length < 2) return
+    void window.api.haligtree<string | null>('ai:group-name', titles).then((said) => {
+      const name = cleanName(said, titles, new Set(list.map((one) => one.name.toLowerCase())))
+      if (name) setSuggested({ id: group.id, name })
+    })
+  }
   const naming = (ids: string[], folder = false): string => {
     const notes = ids.flatMap((id) => (byId.has(id) ? [byId.get(id)!] : []))
     const taken = new Set(list.map((one) => one.name.toLowerCase()))
@@ -1919,6 +1932,8 @@ export function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: I
     const kind = notes.length && notes.every((one) => one.kind === notes[0].kind) && notes[0].kind !== 'note' ? CAPTURE_TYPES.find((one) => one.id === notes[0].kind)?.label : undefined
     const said = tag ? tag[0].toUpperCase() + tag.slice(1) : kind ? `${kind}s` : null
     if (said && !taken.has(said.toLowerCase())) return said
+    const shared = sharedWords(notes.map(titleOf))
+    if (shared && !taken.has(shared.toLowerCase())) return shared
     const word = folder ? 'Folder' : 'Group'
     let n = list.filter((one) => isFolder(one) === folder).length + 1
     while (taken.has(`${word.toLowerCase()} ${n}`)) n++
@@ -1936,7 +1951,7 @@ export function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: I
       setParting(dissolved)
       setTimeout(() => (setHeld(next), setParting([])), 240)
     } else setHeld(next)
-    if (next.make) (setRenaming(next.make.id), setBorn(next.make.id))
+    if (next.make) (setRenaming(next.make.id), setBorn(next.make.id), setSuggested(null), offerName(next.make, next.groups[next.make.id] ?? []))
     done()
     const gone = Object.keys(was.groups).filter((id) => !next.groups[id])
     const revive = gone.flatMap((id) => (known.current.has(id) ? [(({ name, icon, color, folded, folder }) => ({ id, name, icon, color, folded, folder }))(known.current.get(id)!)] : []))
@@ -2146,6 +2161,7 @@ export function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: I
       void noteGroupsApi.set(group.id, { folded: !open })
     },
     renaming,
+    suggested,
     onRenaming: setRenaming,
     born,
     noun: kind ? kind.noun[0] : tier === 'nugget' ? 'gem' : 'page',

@@ -1,4 +1,4 @@
-// Apple Intelligence in Review and the reader, at the edges: a slow model (the stand-in told to take 1.5 s)
+// Apple Intelligence and the reader, at the edges: a slow model (the stand-in told to take 1.5 s)
 // never moves the grades while it thinks; a session of 5 cards and of 500; the window at 390 wide.
 //   QA_ARGS=--sandbox QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/review-ai-scale.mjs
 import { join } from 'node:path'

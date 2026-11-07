@@ -170,7 +170,7 @@ export function registerUnderstand(): void {
 export function registerStudyAi(on: () => boolean): void {
   const ask = async (op: string, body: Record<string, unknown>): Promise<Answer | { error: string }> => {
     if (!meets(await caps(), 'ai')) return { error: 'Needs Apple Intelligence' }
-    if (!on()) return { error: 'Apple Intelligence in Review and reading is turned off in Settings' }
+    if (!on()) return { error: 'Apple Intelligence is turned off in Settings' }
     const said = await understand(op, body)
     return said.error ? { error: said.error.message } : said
   }
@@ -180,4 +180,17 @@ export function registerStudyAi(on: () => boolean): void {
     ask('hint', { question: String(question ?? ''), answer: String(answer ?? ''), level: Number(level) >= 2 ? 2 : 1 }))
   ipcMain.handle('haligtree:ai:cards', (_event, title: unknown, text: unknown, count: unknown) =>
     ask('cards', { title: String(title ?? ''), text: String(text ?? ''), count: Math.min(10, Math.max(1, Number(count) || 5)) }))
+  // A new group's first name, offered in its name field. Never an error: no answer simply leaves the name it has.
+  ipcMain.handle('haligtree:ai:group-name', async (_event, titles: unknown): Promise<string | null> => {
+    const have = await caps()
+    if (have.major < 26 || !on() || !Array.isArray(titles)) return null
+    const stand = process.env.HALIGTREE_QA_GROUP_NAME
+    const prompt = titles.slice(0, 12).map((one) => `- ${String(one).slice(0, 80)}`).join('\n')
+    const said = stand
+      ? (have.ai === 'available' ? new Promise<Answer>((done) => setTimeout(() => done(stand === 'fail' ? { error: { code: 'failed', message: 'no' } } : { text: stand }), Number(process.env.HALIGTREE_QA_GROUP_NAME_MS ?? 300))) : Promise.resolve<Answer>({ error: { code: 'unavailable', message: 'no' } }))
+      // The helper checks the Mac afresh, so Apple Intelligence turned on or its model downloaded counts without a restart.
+      : understand('write', { instructions: 'You name a group of notes from their titles. Answer with only the name: at most three words, in the language of the titles, with no quotes and no full stop. Say what the notes have in common.', prompt })
+    const answer = await Promise.race([said, new Promise<null>((done) => setTimeout(() => done(null), 5000))])
+    return answer && !answer.error && typeof answer.text === 'string' ? answer.text : null
+  })
 }
