@@ -1647,7 +1647,7 @@ export function Home(): React.JSX.Element {
 
   return (
     <TooltipProvider delayDuration={600} skipDelayDuration={400}>
-    <div className="isolate flex h-screen flex-col bg-background text-foreground">
+    <div data-frame={settings?.darkFrame === false ? undefined : 'dark'} className="isolate flex h-screen flex-col bg-background text-foreground">
       {/* Centred over the page, not the sidebar beside it. */}
       <div className={`contents ${sidebar ? (right ? (narrow ? '[--toast-right:4rem]' : '[--toast-right:15rem]') : (narrow ? '[--toast-left:4rem]' : '[--toast-left:15rem]')) : ''}`}><Toaster /></div>
       <PickDays />
@@ -2373,7 +2373,7 @@ export function Home(): React.JSX.Element {
 
       <div className="flex min-w-0 flex-1 flex-col gap-2">
       {/* Clear of the traffic lights whatever sits to the left: nothing, or the folded rail. */}
-      <header data-drag-strip="" className={`@container/bar flex h-8 shrink-0 items-center gap-1 ${!sidebar || right ? 'pl-[84px] [:root[data-fullscreen]_&]:pl-3' : narrow ? 'pl-3' : ''}`} style={{ WebkitAppRegion: 'drag' } as CSSProperties}>
+      <header data-drag-strip="" data-on-frame className={`@container/bar flex h-8 shrink-0 items-center gap-1 ${!sidebar || right ? 'pl-[84px] [:root[data-fullscreen]_&]:pl-3' : narrow ? 'pl-3' : ''}`} style={{ WebkitAppRegion: 'drag' } as CSSProperties}>
         {[
           { icon: LayoutSidebarRightIcon, flip: !right, label: sidebar ? 'Hide the sidebar' : 'Show the sidebar', keys: '⌘B', run: () => (chime(sidebar ? 'fold' : 'slide'), setSidebar(!sidebar)) },
           // With the sidebar away, its search field comes up here as a button.

@@ -628,6 +628,8 @@ const DEFAULTS = {
   closeDay: true,
   // Settings' theme tiles: pointing at one wears it for a moment. Off, so a pointer resting there as Settings opens changes nothing.
   themePreview: false,
+  // In a light theme, the strip round the sidebar and the page is dark, so the page stands out on it (main.css).
+  darkFrame: true,
   // The month calendar on Home: off until turned on in Settings.
   homeCalendar: false,
   // How much of the day, week, month and year has gone, on Home: off until turned on in Settings.

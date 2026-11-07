@@ -723,6 +723,47 @@ body {
      picture (below), and one changed by keys is simply there. */
 }
 
+/* The dark frame (Settings, "Dark frame"): in a light theme the window round the
+   sidebar and the page is dark, like a device's bezel, and the page and the
+   sidebar are light cards on it. What sits on the frame (the top bar, the tab
+   strip) is written in light ink; the open tab keeps the page's ink, being a
+   part of the page. Dark themes already sit on a dark window. */
+:root[data-light] [data-frame='dark'] {
+  --mf-page-ink: var(--foreground);
+  --mf-page-muted: var(--muted-foreground);
+  --mf-page-accent: var(--accent);
+  --mf-page-border: var(--border);
+  --mf-page-muted-fill: var(--muted);
+  --mf-page-yellow: var(--tt-color-text-yellow);
+  background-color: color-mix(in oklab, var(--foreground) 82%, var(--background));
+}
+:root[data-light] [data-frame='dark'] :is([data-on-frame], [data-tabs]) {
+  --foreground: color-mix(in oklab, var(--background) 94%, transparent);
+  --muted-foreground: color-mix(in oklab, var(--background) 66%, transparent);
+  --accent: color-mix(in oklab, var(--background) 14%, transparent);
+  --muted: color-mix(in oklab, var(--background) 12%, transparent);
+  --border: color-mix(in oklab, var(--background) 16%, transparent);
+  /* The sandbox's amber, lifted to read on the dark. */
+  --tt-color-text-yellow: color-mix(in oklab, var(--mf-page-yellow) 55%, var(--background));
+}
+:root[data-light] [data-frame='dark'] [data-tabs] [data-tab-on] {
+  --foreground: var(--mf-page-ink);
+  --muted-foreground: var(--mf-page-muted);
+  --accent: var(--mf-page-accent);
+  --muted: var(--mf-page-muted-fill);
+  --border: var(--mf-page-border);
+}
+:root[data-light] [data-frame='dark'] [data-pane-card] {
+  background-color: var(--background);
+}
+/* A page's one-line hint, under the page, is a light card on the frame too. */
+:root[data-light] [data-frame='dark'] [data-hint-line] {
+  background-color: color-mix(in oklab, var(--foreground) 3%, var(--background));
+}
+:root[data-light] [data-frame='dark'] aside[data-book-tint] {
+  background-color: color-mix(in oklab, var(--accent) 20%, var(--background));
+}
+
 /* A theme turning over: the old window and the new one crossfade as whole
    pictures, quick, with a slight blur at the crossing so the two read as one
    change rather than two pages stacked. */
