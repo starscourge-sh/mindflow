@@ -918,9 +918,10 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
       if (written) return
       const task = example ? undefined : shown[cursor]
       if (!task) return
-      if (event.altKey && (event.code === 'KeyJ' || event.code === 'KeyK')) {
+      // ⌥J ⌥K, or ⌥↓ ⌥↑ as on the written-out day: the same keys move a task whichever way Today is shown.
+      if (event.altKey && !event.metaKey && ['KeyJ', 'KeyK', 'ArrowDown', 'ArrowUp'].includes(event.code)) {
         event.preventDefault()
-        const to = cursor + (event.code === 'KeyJ' ? 1 : -1)
+        const to = cursor + (event.code === 'KeyJ' || event.code === 'ArrowDown' ? 1 : -1)
         // Your order is yours alone, as on the written-out day: priority never holds a task in place.
         if (to < 0 || to >= shown.length) return
         // Renumber the list as shown, with the two swapped.
@@ -1126,9 +1127,10 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
                 return row.key === 'held' ? (
                   // A fresh start's tasks, folded and quiet at the foot of their own tab: one click (or opening one) brings them out.
                   <h2 className="list-ink mt-6 mb-1 border-b pb-1.5 text-meta font-medium text-muted-foreground">
-                    <button type="button" data-on-hold aria-expanded={heldOpen} onClick={() => (chime(heldOpen ? 'off' : 'tap'), setHeldOpen(!heldOpen))} className="flex w-full cursor-pointer items-center gap-1.5 text-left">
-                      <ChevronRight className={`size-3.5 transition-transform duration-200 ${heldOpen ? 'rotate-90' : ''}`} style={{ transitionTimingFunction: EASING }} />
+                    {/* The words on the same edge as every heading; the fold's chevron after the count. */}
+                    <button type="button" data-on-hold aria-expanded={heldOpen} onClick={() => (chime(heldOpen ? 'off' : 'tap'), setHeldOpen(!heldOpen))} className="flex w-full cursor-pointer items-center gap-1 text-left">
                       {row.heading} <span className="font-normal"><Rolling text={row.count} /></span>
+                      <ChevronRight className={`size-3.5 transition-transform duration-200 ${heldOpen ? 'rotate-90' : ''}`} style={{ transitionTimingFunction: EASING }} />
                       <span className="ml-auto font-normal">From a fresh start · open one to bring it back</span>
                     </button>
                   </h2>

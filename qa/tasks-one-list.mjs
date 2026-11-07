@@ -51,6 +51,9 @@ try {
   await h.keyboard.press('Alt+KeyJ'); await wait(1000)
   const moved = (await rows()).filter((id) => [a, b, cc].includes(id))
   check('⌥J moves a task past one of another priority', moved[1] === a, moved.map((id) => ({ [a]: 'aa', [b]: 'bb', [cc]: 'cc' })[id]).join(' '))
+  await h.keyboard.press('Alt+ArrowUp'); await wait(1000)
+  const back = (await rows()).filter((id) => [a, b, cc].includes(id))
+  check('⌥↑ moves it back, as on the written-out day', back[0] === a, back.map((id) => ({ [a]: 'aa', [b]: 'bb', [cc]: 'cc' })[id]).join(' '))
 
   // 4 and 5. Late leads every tab; Upcoming has only days to come; undated is in Later.
   const late = await add('pay the late fine')
