@@ -31,7 +31,7 @@ const reduced = (): boolean => matchMedia('(prefers-reduced-motion: reduce)').ma
  * the fix as it undoes anything in the note.
  */
 export function MeetingView({ node, editor, updateAttributes }: NodeViewProps): React.JSX.Element {
-  const a = node.attrs as { audio: string; seconds: number; startedAt: string; event: { title: string } | null; people: string[]; speakers: string[]; names: Record<string, string>; moments: Said[]; found: Found | null; take: Record<string, unknown> | null; words: string | null; lines: MeetingLine[]; actions: ActionItem[]; heard: number | null }
+  const a = node.attrs as { audio: string; seconds: number; startedAt: string; event: { title: string } | null; people: string[]; speakers: string[]; names: Record<string, string>; moments: Said[]; found: Found | null; take: Record<string, unknown> | null; words: string | null; lines: MeetingLine[]; actions: ActionItem[]; heard: number | null; stopped: string | null }
   const lines = useMemo(() => a.lines ?? [], [a.lines])
   const box = useRef<HTMLDivElement>(null)
   const said = useRef<HTMLDivElement>(null)
@@ -263,6 +263,7 @@ export function MeetingView({ node, editor, updateAttributes }: NodeViewProps): 
             Recorded{when && ` ${when.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })} at ${when.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}`} · {clock(a.seconds)} long
             {quietAfter != null && <span data-meeting-quiet> · nothing heard after {clock(quietAfter)}</span>}
           </div>
+          {a.stopped && <div data-meeting-stopped className="text-body text-pretty"><b className="font-semibold">This recording stopped early{a.stopped === 'disk' ? ' because the disk was full' : ''}.</b> Everything up to that moment was saved.</div>}
           <div data-meeting-voices className="flex flex-wrap items-center gap-1.5">
             {voices.map((who) => (
               <button key={who} type="button" data-meeting-voice={who} disabled={who === 'you'} onClick={(event) => setNaming({ who, el: event.currentTarget })}

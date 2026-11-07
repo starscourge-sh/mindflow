@@ -4279,7 +4279,9 @@ app.whenReady().then(() => {
       else win.showInactive()
     },
     close: () => { if (meetingWin && !meetingWin.isDestroyed()) (meetingWin.setClosable(true), meetingWin.close()) },
-    openNote: (id) => sendHome('capture', id, undefined, 'window')
+    openNote: (id) => sendHome('capture', id, undefined, 'window'),
+    // Told, not brought forward: the notice waits in the main window for whenever it is next looked at.
+    leftChanged: () => void (home && !home.isDestroyed() && home.webContents.send('meeting:left'))
   })
   // The card tucked to a pill and back: its window the card's size, its bottom middle where it was.
   ipcMain.handle('haligtree:meeting:size', (_event, width: unknown, height: unknown) => {

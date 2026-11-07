@@ -1,8 +1,8 @@
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process'
 import { createHash, randomUUID } from 'node:crypto'
-import { createReadStream } from 'node:fs'
-import { appendFile, copyFile, mkdir, rename, rm, writeFile } from 'node:fs/promises'
-import { join } from 'node:path'
+import { appendFileSync, createReadStream, writeFileSync } from 'node:fs'
+import { copyFile, mkdir, readdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises'
+import { basename, join } from 'node:path'
 import { app, ipcMain, shell, systemPreferences } from 'electron'
 import helper from '../../resources/meeting?asset&asarUnpack'
 import { database, keepMeeting, setting } from './captures'
@@ -11,6 +11,7 @@ import { caps } from './understand'
 import { meets } from './needs'
 import { foundActions, writtenActions, type MeetingLine } from './meeting-doc'
 import { readTake } from './meeting-take'
+import { FEW_SECONDS, PCM_BYTES_A_SECOND, heardTwice, keptFor, linesFrom, offerWords, type Line } from './meeting-left'
 
 /**
  * Record a whole meeting on this Mac: your microphone and the Mac's own sound (the others, in Teams or a browser) as
@@ -20,9 +21,16 @@ import { readTake } from './meeting-take'
  *
  * HALIGTREE_QA_MEETING (a probe's): `you.wav|others.wav|script.jsonl`, fed to the program's test mode in place of the
  * microphone and the Mac's sound. HALIGTREE_QA_MEETING_SCREEN=denied stands in a Mac that has not allowed it.
+ * HALIGTREE_QA_MEETING_PROGRAM runs another program in its place (one that will not start), and
+ * HALIGTREE_QA_MEETING_ROOM stands in how many bytes the disk has left.
+ *
+ * A crash loses seconds, not the recording: the program writes the sound and the words to the meeting's folder as they
+ * come, and this writes down what only it knows (when it began, the event, the moments). A folder still here when the
+ * app opens, or when the program dies under it, is offered in the main window (recording-left.tsx). The folders live in
+ * the book's own data, so each is offered in the book it was recorded in.
  */
 export type MeetingEvent = { title: string; start?: string; end?: string; people?: string[] }
-export type Line = { id: string; track: 'you' | 'others'; text: string; start: number; end: number; final: boolean; speaker: string }
+export type { Line }
 export type Live = {
   state: 'ready' | 'asking' | 'denied' | 'starting' | 'live' | 'paused' | 'saving' | 'saved' | 'failed' | 'too-old'
   /** Before the first recording: the line about letting people know. */
@@ -38,13 +46,26 @@ export type Live = {
   id?: string
   /** Where the sound comes from: one app's (its bundle id and name) or all of this Mac's (null), and the microphone. */
   from: { bundle: string | null; name: string | null; mic: boolean }
+  /** The recording ended by itself and what it holds is safe: the card says so, not "nothing was recorded". */
+  stopped?: boolean
   /** What the meeting program itself says it records now (a probe checks it is what was chosen). */
   recording?: { bundle: string | null; mic: boolean }
 }
 /** An app open now that can make sound, as "Sound from" lists it. */
 export type SoundApp = { bundle: string; name: string }
 
-type Shown = { send: (live: Live, level?: { you: number; others: number }) => void; open: () => void; close: () => void; openNote: (id: string) => void }
+type Shown = { send: (live: Live, level?: { you: number; others: number }) => void; open: () => void; close: () => void; openNote: (id: string) => void; leftChanged: () => void }
+type Saved = { seconds: number; peaks: number[]; you: boolean; others: boolean; heard?: number; stopped?: string }
+/** What only this side knows about a recording, written in its folder as it goes. */
+type Noted = { startedAt: string; event: MeetingEvent | null; words: Live['words'] }
+type Moment = Live['moments'][number]
+/** A recording left behind, as its offer shows it. */
+export type Left = { id: string; said: string }
+
+const program = (): string => process.env.HALIGTREE_QA_MEETING_PROGRAM ?? helper
+const meetingsDir = (): string => join(app.getPath('userData'), 'meetings')
+/** Discarded, and still there for its Undo: gone when the app next opens. */
+const discardedDir = (): string => join(meetingsDir(), '.discarded')
 
 let child: ChildProcessWithoutNullStreams | null = null
 let folder = ''
@@ -55,7 +76,7 @@ let clock = { began: 0, pausedFor: 0, pausedAt: 0 }
 /** The last of the words: the card shows a few; the rest are on disk as they settle, never one giant string. */
 const SHOWN_LINES = 40
 let settled: Line[] = []
-let saved: { seconds: number; peaks: number[]; you: boolean; others: boolean; heard?: number } | null = null
+let saved: Saved | null = null
 let found: Record<string, unknown> | null = null
 let take: Record<string, unknown> | null = null
 let finished: (() => void) | null = null
@@ -160,17 +181,28 @@ export async function begin(): Promise<void> {
   }
   live = { ...live, state: 'starting', first: false, lines: [], moments: [] }
   tell()
-  folder = join(app.getPath('userData'), 'meetings', randomUUID())
-  await mkdir(folder, { recursive: true })
+  shown?.leftChanged()
+  folder = join(meetingsDir(), randomUUID())
   settled = []
   saved = found = take = null
   startedAt = new Date().toISOString()
+  try {
+    await mkdir(folder, { recursive: true })
+    note(null)
+  } catch (error) {
+    live = { ...live, state: 'failed', message: `There is nowhere to keep a recording: ${(error as Error).message}` }
+    return tell()
+  }
   const ai = meets(await caps(), 'ai')
   const qa = process.env.HALIGTREE_QA_MEETING?.split('|')
   const args = ['record', folder, (app.getPreferredSystemLanguages()[0] ?? 'en-US').replace('-', '_'), ...(live.from.bundle ? ['--from', live.from.bundle] : []), ...(live.from.mic ? [] : ['--no-mic']),
-    ...(qa ? ['--test', ...qa] : []), ...(qa && ai ? ['--ai-stand-in'] : []), ...(qa && process.env.HALIGTREE_QA_MEETING_SPEED ? ['--speed', process.env.HALIGTREE_QA_MEETING_SPEED] : [])]
-  const run = spawn(helper, args)
+    ...(qa ? ['--test', ...qa] : []), ...(qa && ai ? ['--ai-stand-in'] : []), ...(qa && process.env.HALIGTREE_QA_MEETING_SPEED ? ['--speed', process.env.HALIGTREE_QA_MEETING_SPEED] : []),
+    ...(qa && process.env.HALIGTREE_QA_MEETING_ROOM ? ['--room', process.env.HALIGTREE_QA_MEETING_ROOM] : [])]
+  const run = spawn(program(), args)
   child = run
+  // A program that will not start, or has gone when told something: said on the card, never an error that takes the app down.
+  run.on('error', (error) => void (live = { ...live, message: `The recording could not start: ${error.message}` }))
+  run.stdin.on('error', () => undefined)
   let rest = ''
   run.stdout.setEncoding('utf8')
   run.stdout.on('data', (chunk: string) => {
@@ -188,10 +220,20 @@ export async function begin(): Promise<void> {
   run.on('close', () => void ended())
 }
 
+/** What only this side knows, in the folder, so a crash keeps it too. */
+function note(words: Live['words']): void {
+  writeFileSync(join(folder, 'recording.json'), JSON.stringify({ startedAt, event: live.event, words } satisfies Noted))
+}
+
 function heard(line: Record<string, unknown>): void {
   if (line.ready) {
     clock = { began: Date.now(), pausedFor: 0, pausedAt: 0 }
     live = { ...live, state: 'live', words: (line.ready as { live: Live['words'] }).live }
+    try {
+      note(live.words)
+    } catch {
+      // Only which way the words came: the disk's trouble is the program's to say.
+    }
     return tell()
   }
   if (line.level) return tell(line.level as { you: number; others: number })
@@ -204,15 +246,11 @@ function heard(line: Record<string, unknown>): void {
   if (line.words) {
     const said = line.words as Line
     const one: Line = { ...said, start: Math.round(said.start * 10) / 10, end: Math.round(said.end * 10) / 10 }
-    // Heard twice: a voice from the speakers came back in through the microphone. The others' line is the one kept.
-    if (one.track === 'you' && one.final && settled.some((other) => other.track === 'others' && Math.abs(other.start - one.start) < 3 && alike(other.text, one.text))) return
+    if (one.final && heardTwice(one, settled)) return
     const at = live.lines.findIndex((other) => other.id === one.id)
     const lines = at >= 0 ? live.lines.map((other, index) => (index === at ? one : other)) : [...live.lines, one].sort((a, b) => a.start - b.start)
     live = { ...live, lines: lines.slice(-SHOWN_LINES) }
-    if (one.final) {
-      settled.push(one)
-      void appendFile(join(folder, 'lines.jsonl'), `${JSON.stringify(one)}\n`).catch(() => undefined)
-    }
+    if (one.final) settled.push(one)
     return tell()
   }
   if (line.saved) saved = line.saved as typeof saved
@@ -221,22 +259,23 @@ function heard(line: Record<string, unknown>): void {
   if (line.error) {
     const error = line.error as { code: string; message: string }
     if (live.state === 'starting') live = { ...live, state: error.code === 'denied' ? 'denied' : 'failed', message: error.message }
+    // The disk full: the program is ending the recording itself and keeping what it has.
+    else if (error.code === 'disk' && ['live', 'paused'].includes(live.state)) live = { ...live, state: 'saving', message: error.message }
     tell()
   }
-}
-
-/** Two lines with mostly the same words. */
-function alike(a: string, b: string): boolean {
-  const words = (text: string): string[] => text.toLowerCase().match(/[\p{L}\p{N}']+/gu) ?? []
-  const one = new Set(words(a)), two = words(b)
-  return two.length > 2 && two.filter((word) => one.has(word)).length / two.length > 0.6
 }
 
 export function noteMoment(): void {
   if (!child || live.state !== 'live') return
   const at = Math.round(seconds() * 10) / 10
   const line = [...live.lines].reverse().find((one) => one.start <= at + 0.5)
-  live = { ...live, moments: [...live.moments, { at, line: line?.id ?? null }] }
+  const moment = { at, line: line?.id ?? null }
+  live = { ...live, moments: [...live.moments, moment] }
+  try {
+    appendFileSync(join(folder, 'moments.jsonl'), `${JSON.stringify(moment)}\n`)
+  } catch {
+    // Kept in the card's own list all the same; only a crash now would lose it.
+  }
   tell()
 }
 
@@ -274,20 +313,28 @@ async function ended(): Promise<void> {
   finished = null
   try {
     if (!saved) {
-      if (!['denied', 'failed'].includes(live.state)) live = { ...live, state: 'failed', message: live.message ?? 'The recording stopped before anything was kept' }
+      // The program died under it, or never started. Whatever reached the disk is offered; nothing that did not is claimed.
+      const seconds = await soundIn(folder)
+      if (seconds >= FEW_SECONDS) live = { ...live, state: 'failed', stopped: true, message: `${keptFor(seconds)} is safe. Keep it or discard it in the main window.` }
+      else {
+        await rm(folder, { recursive: true, force: true })
+        if (!['denied', 'failed'].includes(live.state)) live = { ...live, state: 'failed', message: live.message ?? 'The recording stopped before anything was kept' }
+      }
       tell()
       return
     }
-    const id = await keep()
+    const id = await keep(folder, { startedAt, event: live.event, words: live.words }, saved, found, take, live.moments)
     live = { ...live, state: 'saved', id }
     tell()
     shown?.openNote(id)
     shown?.close()
   } catch (error) {
-    live = { ...live, state: 'failed', message: `The recording could not be kept: ${(error as Error).message}` }
+    // The disk or the database in the way: the folder stays, and is offered.
+    live = { ...live, state: 'failed', stopped: true, message: `It could not be kept yet: ${(error as Error).message}. It is safe, and will be offered again in the main window.` }
     tell()
   } finally {
     if (live.state === 'saved') await rm(folder, { recursive: true, force: true }).catch(() => undefined)
+    shown?.leftChanged()
     done?.()
   }
 }
@@ -305,24 +352,25 @@ async function store(file: string): Promise<string> {
 }
 
 /** The meeting, kept as a note of its own (meeting-page.tsx draws it): the recording, who said what, and what to take from it. */
-async function keep(): Promise<string> {
-  const audio = await store(join(folder, 'meeting.m4a'))
-  const tracks = { you: saved!.you ? await store(join(folder, 'you.m4a')) : '', others: saved!.others ? await store(join(folder, 'others.m4a')) : '' }
+async function keep(from: string, noted: Noted, saved: Saved, found: Record<string, unknown> | null, take: Record<string, unknown> | null, marks: Moment[], stopped?: string): Promise<string> {
+  const audio = await store(join(from, 'meeting.m4a'))
+  const tracks = { you: saved.you ? await store(join(from, 'you.m4a')) : '', others: saved.others ? await store(join(from, 'others.m4a')) : '' }
   // The waveform worked out while it recorded: an hour is never read whole again to draw it.
   const peaks = /assets\/(.+)$/.exec(audio)![1]
-  await writeFile(join(assetsDir(), `${peaks}.peaks`), JSON.stringify({ peaks: saved!.peaks, seconds: saved!.seconds }))
-  const lines = settled.sort((a, b) => a.start - b.start)
-  const at = new Date(startedAt)
-  const title = live.event?.title || `Recording, ${at.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} at ${at.getHours()}:${String(at.getMinutes()).padStart(2, '0')}`
+  await writeFile(join(assetsDir(), `${peaks}.peaks`), JSON.stringify({ peaks: saved.peaks, seconds: saved.seconds }))
+  // What was written as it was said: one record of the words, whether it stopped or crashed.
+  const lines = linesFrom(await readFile(join(from, 'words.jsonl'), 'utf8').catch(() => ''))
+  const at = new Date(noted.startedAt)
+  const title = noted.event?.title || `Recording, ${at.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} at ${at.getHours()}:${String(at.getMinutes()).padStart(2, '0')}`
   const speakers = [...new Set(lines.filter((one) => one.speaker !== 'you').map((one) => one.speaker))]
   // A moment is the line being said when it was noted: that line's own start and voice, so it plays from where the line begins.
-  const moments = live.moments.map((one) => {
+  const moments = marks.map((one) => {
     const line = lines.find((said) => said.id === one.line)
     return line ? { at: line.start, text: line.text, speaker: line.speaker } : { at: one.at, text: '' }
   })
-  const noted = new Set(live.moments.map((one) => one.line))
+  const marked = new Set(marks.map((one) => one.line))
   // Every line said, kept as the meeting's own data: who, from when to when, the words.
-  const said: MeetingLine[] = lines.map((one) => ({ id: one.id, who: one.speaker, at: one.start, end: one.end, text: one.text, ...(noted.has(one.id) ? { marked: true } : {}) }))
+  const said: MeetingLine[] = lines.map((one) => ({ id: one.id, who: one.speaker, at: one.start, end: one.end, text: one.text, ...(marked.has(one.id) ? { marked: true } : {}) }))
   // The action items: Apple Intelligence's, written properly, where this Mac has it; every other Mac's, the lines that commit or ask.
   const dated: Record<string, string> = {}
   for (const one of ((found?.dates ?? []) as { at: number; date?: string }[])) {
@@ -335,8 +383,10 @@ async function keep(): Promise<string> {
   const meeting = {
     type: 'meeting',
     attrs: {
-      audio, you: tracks.you, others: tracks.others, seconds: saved!.seconds, startedAt, event: live.event, people: live.event?.people ?? [],
-      speakers, names: {}, moments, found, take, words: live.words, tag: '#recording', lines: said, actions, heard: saved!.heard ?? null
+      audio, you: tracks.you, others: tracks.others, seconds: saved.seconds, startedAt: noted.startedAt, event: noted.event, people: noted.event?.people ?? [],
+      speakers, names: {}, moments, found, take, words: noted.words, tag: '#recording', lines: said, actions, heard: saved.heard ?? null,
+      // The folder it came from, so a crash between keeping it and clearing the folder never keeps it twice; and why it ended early, if it did.
+      recording: basename(from), stopped: stopped ?? saved.stopped ?? null
     }
   }
   const text = (words: string): unknown[] => (words ? [{ type: 'text', text: words }] : [])
@@ -346,8 +396,118 @@ async function keep(): Promise<string> {
   return keepMeeting(title, body)
 }
 
+/** How many seconds of sound a folder holds, the longer side: 0 for none. */
+async function soundIn(from: string): Promise<number> {
+  const sizes = await Promise.all(['you', 'others'].map((side) => stat(join(from, `${side}.pcm`)).then((one) => one.size, () => 0)))
+  return Math.max(...sizes) / PCM_BYTES_A_SECOND
+}
+
+/** A recording under way, from before its folder exists until it is in the book: its folder is not one left behind. */
+const recordingNow = (): boolean => !!child || ['starting', 'live', 'paused', 'saving'].includes(live.state)
+/** Being kept right now: not offered again while it is. */
+const keeping = new Set<string>()
+let swept = false
+
+/**
+ * The recordings left behind, oldest first. None while one records. A folder a crash left after it was kept is cleared;
+ * so is one with too little sound to ask about. A folder from before sound was written this way (no .pcm, its files
+ * unreadable after a crash) is never touched.
+ */
+export async function recordingsLeft(): Promise<Left[]> {
+  if (!swept) {
+    swept = true
+    await rm(discardedDir(), { recursive: true, force: true }).catch(() => undefined)
+  }
+  if (recordingNow()) return []
+  const names = await readdir(meetingsDir(), { withFileTypes: true }).catch(() => [])
+  const left: (Left & { at: string })[] = []
+  for (const one of names) {
+    if (!one.isDirectory() || one.name.startsWith('.') || keeping.has(one.name)) continue
+    const from = join(meetingsDir(), one.name)
+    const files = await readdir(from).catch(() => [] as string[])
+    if (!files.some((file) => file.endsWith('.pcm')) && files.some((file) => file.endsWith('.m4a'))) continue
+    const seconds = await soundIn(from)
+    const kept = database().prepare("select 1 from captures where source = 'Meeting' and body like ? limit 1").get(`%"recording":"${one.name}"%`)
+    if (recordingNow()) return []
+    if (kept || seconds < FEW_SECONDS) {
+      await rm(from, { recursive: true, force: true }).catch(() => undefined)
+      continue
+    }
+    const noted = await notedIn(from)
+    left.push({ id: one.name, said: offerWords(noted.startedAt, seconds), at: noted.startedAt })
+  }
+  return left.sort((a, b) => a.at.localeCompare(b.at)).map(({ id, said }) => ({ id, said }))
+}
+
+/** What was written down when it began; a crash at that very moment leaves the folder's own date. */
+async function notedIn(from: string): Promise<Noted> {
+  try {
+    return JSON.parse(await readFile(join(from, 'recording.json'), 'utf8')) as Noted
+  } catch {
+    const made = await stat(from)
+    return { startedAt: made.birthtime.toISOString(), event: null, words: null }
+  }
+}
+
+const isFolderId = (id: unknown): id is string => typeof id === 'string' && /^[0-9a-f-]{36}$/i.test(id)
+
+/**
+ * "Keep": a normal meeting page from what was saved, saying it stopped early. The folder goes only once the note is in
+ * the book, so a second crash anywhere in here leaves it to be offered again.
+ */
+export async function keepLeft(id: string): Promise<{ id?: string; error?: string }> {
+  const from = join(meetingsDir(), id)
+  if (keeping.has(id)) return {}
+  keeping.add(id)
+  try {
+    const qa = process.env.HALIGTREE_QA_MEETING && meets(await caps(), 'ai')
+    type Said = { saved?: Saved; found?: Record<string, unknown>; take?: Record<string, unknown>; error?: { message: string } }
+    const said = await new Promise<Said>((done) => {
+      const run = spawn(program(), ['recover', from, ...(qa ? ['--ai-stand-in'] : [])])
+      const out: Said = {}
+      let rest = ''
+      run.stdout.setEncoding('utf8')
+      run.stdout.on('data', (chunk: string) => {
+        const parts = (rest + chunk).split('\n')
+        rest = parts.pop() ?? ''
+        for (const part of parts) {
+          try {
+            if (part.trim()) Object.assign(out, JSON.parse(part))
+          } catch {
+            // Not one of the program's own lines: left out.
+          }
+        }
+      })
+      run.stderr.resume()
+      run.on('error', (error) => (out.error = { message: error.message }))
+      run.on('close', () => done(out))
+    })
+    if (!said.saved) return { error: said.error?.message ?? 'The recording could not be finished. It is still safe.' }
+    const moments = (await readFile(join(from, 'moments.jsonl'), 'utf8').catch(() => '')).split('\n').filter(Boolean).map((one) => JSON.parse(one) as Moment)
+    const note = await keep(from, await notedIn(from), said.saved, said.found ?? null, said.take ?? null, moments, 'crash')
+    await rm(from, { recursive: true, force: true })
+    shown?.openNote(note)
+    return { id: note }
+  } catch (error) {
+    return { error: `It could not be kept yet: ${(error as Error).message}. It is still safe.` }
+  } finally {
+    keeping.delete(id)
+  }
+}
+
+/** "Discard": out of the way at once, and back on "Undo"; really gone when the app next opens. */
+async function discardLeft(id: string): Promise<void> {
+  await mkdir(discardedDir(), { recursive: true })
+  await rename(join(meetingsDir(), id), join(discardedDir(), id))
+}
+const undoDiscard = (id: string): Promise<void> => rename(join(discardedDir(), id), join(meetingsDir(), id))
+
 export function registerMeeting(show: Shown): void {
   shown = show
+  ipcMain.handle('haligtree:meeting:left', () => recordingsLeft())
+  ipcMain.handle('haligtree:meeting:left-keep', (_event, id: unknown) => (isFolderId(id) ? keepLeft(id) : {}))
+  ipcMain.handle('haligtree:meeting:left-discard', (_event, id: unknown) => (isFolderId(id) ? discardLeft(id) : undefined))
+  ipcMain.handle('haligtree:meeting:left-undo', (_event, id: unknown) => (isFolderId(id) ? undoDiscard(id) : undefined))
   ipcMain.handle('haligtree:meeting:state', () => meetingState())
   ipcMain.handle('haligtree:meeting:start', (_event, event: unknown) => startMeeting((event as MeetingEvent | null) ?? null))
   ipcMain.handle('haligtree:meeting:begin', () => begin())

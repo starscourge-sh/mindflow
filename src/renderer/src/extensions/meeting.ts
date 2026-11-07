@@ -41,7 +41,11 @@ export const Meeting = Node.create({
       /** The action items: { id, text, owner, date, at, done, task, by }. */
       actions: { default: [] },
       /** Until when anything was heard, in seconds: the quiet after it is said, not hidden. */
-      heard: { default: null }
+      heard: { default: null },
+      /** The folder it was recorded in (main/meeting.ts): it is never kept twice. */
+      recording: { default: null },
+      /** Why it ended by itself: 'crash' or 'disk'. Its page says so. */
+      stopped: { default: null }
     }
   },
   // Never read back from HTML: a meeting pasted or dropped from elsewhere arrives as its quoted lines (renderHTML's),

@@ -4,11 +4,16 @@
 //   meeting --status            {"status":"granted"|"denied"}: Screen & System Audio Recording, without asking
 //   meeting --ask               asks macOS once for it, says the answer
 //   meeting --apps              {"apps":[{"bundle":"…","name":"…"}]}: the apps open now that can make sound
+//   meeting recover <folder> [--ai-stand-in]   a recording left behind by a crash: its files made, then the same lines as "stop" says
 //   meeting record <folder> <locale> [--from <bundle id>] [--no-mic] [--test <you.wav> <others.wav> <script.jsonl>] [--ai-stand-in] [--no-live]
 //       --from records one app's sound instead of all of this Mac's; --no-mic leaves the microphone off. While it
 //       records, "from <bundle id>" (or "from all") and "mic on" / "mic off" on stdin change them.
-//       records until a line "stop" on stdin ("pause", "resume" and "mark" too). In the folder it leaves
-//       you.m4a, others.m4a (the two tracks, AAC, 16 kHz mono) and meeting.m4a (both, for listening).
+//       records until a line "stop" on stdin ("pause", "resume" and "mark" too).
+//       While it records the sound goes straight to you.pcm and others.pcm (16 kHz mono, 16-bit, no header, so there is
+//       nothing to close: a sudden kill loses only what had not reached the file) and the words to words.jsonl, as they
+//       come. On "stop" those become you.m4a, others.m4a (the two tracks, AAC) and meeting.m4a (both, for listening);
+//       the same step, "recover", does it for a recording that never got to stop.
+//       stdin closing (the app gone) stops the recording and leaves the folder for "recover".
 //       --test feeds two made-up recordings instead of the microphone and the Mac's sound, at their own pace,
 //       and stands in the words from the script (one {"track","text","start","end"} a line): what a probe uses,
 //       never the real microphone or the Mac's sound. Who is speaking is still worked out from the sound itself.
@@ -16,7 +21,7 @@
 //   {"ready":{"live":"analyzer"|"recognizer"|"none","locale":"en_ZA","test":false}}
 //   {"level":{"you":0.2,"others":0.05,"at":12.3}}           about ten times a second
 //   {"words":{"id":"o12","track":"others","text":"...","start":1.2,"end":3.4,"final":false,"speaker":"s1"}}
-//   {"saved":{"seconds":3605.2,"peaks":[...],"you":true,"others":true,"heard":3590.1}}   heard: until when anything was heard
+//   {"saved":{"seconds":3605.2,"peaks":[...],"you":true,"others":true,"heard":3590.1,"stopped":"disk"}}   heard: until when anything was heard; stopped: only when the disk ended it
 //   {"from":{"bundle":"com.example.app"|null,"mic":true}}    what is being recorded, at the start and on each change
 //   {"found":{...}} and {"take":{...}}                       what to take from it, once stopped
 //   {"error":{"code":"...","message":"..."}}
@@ -31,6 +36,9 @@ import Speech
 #if canImport(FoundationModels)
 import FoundationModels
 #endif
+
+// The app gone: saying something to nobody must not end the program before it has let go of the files.
+signal(SIGPIPE, SIG_IGN)
 
 let sayQueue = DispatchQueue(label: "meeting.say")
 func say(_ object: [String: Any]) {
@@ -292,17 +300,12 @@ final class Speakers {
   }
 }
 
-/** One side of the meeting: kept to its own file, its level said, its words made out live. */
+/** One side of the meeting: kept to its own file as it comes, its level said, its words made out live. */
 final class Track {
   let name: String
-  var file: AVAudioFile?
-  let url: URL
+  let file: Int32
   var written: Int64 = 0
   var loudest: Float = 0
-  /** The loudest moment in each tenth of a second, for the waveform: an hour is 36,000 numbers. */
-  var tenths: [Float] = []
-  var tenthPeak: Float = 0
-  var tenthFill = 0
   /** The last two minutes of sound, to hear who is speaking in a line just said. */
   var recent: [Float] = []
   var words: Words?
@@ -311,9 +314,8 @@ final class Track {
 
   init(name: String, folder: URL) throws {
     self.name = name
-    url = folder.appendingPathComponent("\(name).m4a")
-    let settings: [String: Any] = [AVFormatIDKey: kAudioFormatMPEG4AAC, AVSampleRateKey: RATE, AVNumberOfChannelsKey: 1, AVEncoderBitRateKey: 24000]
-    file = try AVAudioFile(forWriting: url, settings: settings, commonFormat: .pcmFormatFloat32, interleaved: false)
+    file = open(folder.appendingPathComponent("\(name).pcm").path, O_WRONLY | O_CREAT | O_APPEND, 0o644)
+    if file < 0 { throw NSError(domain: NSPOSIXErrorDomain, code: Int(errno), userInfo: [NSLocalizedDescriptionKey: String(cString: strerror(errno))]) }
   }
 
   /** Sound in, placed on the meeting's own clock: a gap (the Mac's sound goes quiet) is kept as quiet. */
@@ -331,19 +333,17 @@ final class Track {
   }
 
   private func put(_ buffer: AVAudioPCMBuffer) {
-    try? file?.write(from: buffer)
-    words?.feed(buffer)
-    written += Int64(buffer.frameLength)
     let data = buffer.floatChannelData![0]
     let n = Int(buffer.frameLength)
     var peak: Float = 0
-    for i in 0..<n {
-      let v = abs(data[i])
-      peak = max(peak, v)
-      tenthPeak = max(tenthPeak, v)
-      tenthFill += 1
-      if tenthFill >= Int(RATE / 10) { tenths.append(tenthPeak); tenthPeak = 0; tenthFill = 0 }
+    let samples = (0..<n).map { i -> Int16 in
+      peak = max(peak, abs(data[i]))
+      return Int16(max(-1, min(1, data[i])) * 32767)
     }
+    let whole = samples.withUnsafeBytes { write(file, $0.baseAddress, $0.count) == $0.count }
+    if !whole { outOfRoom() }
+    words?.feed(buffer)
+    written += Int64(n)
     loudest = max(loudest, peak)
     if name == "others" {
       recent.append(contentsOf: UnsafeBufferPointer(start: data, count: n))
@@ -368,30 +368,6 @@ final class Track {
     loudest = 0
     return min(1, now * 2)
   }
-
-  /** Quiet to the meeting's end: both tracks as long as the meeting, so its length, its sound and its waveform agree. */
-  func pad(to seconds: Double) {
-    lock.lock()
-    defer { lock.unlock() }
-    let due = Int64(seconds * RATE)
-    var left = due - written
-    while left > 0, let gap = AVAudioPCMBuffer(pcmFormat: plain, frameCapacity: AVAudioFrameCount(min(left, Int64(RATE) * 10))) {
-      gap.frameLength = gap.frameCapacity
-      memset(gap.floatChannelData![0], 0, Int(gap.frameLength) * 4)
-      try? file?.write(from: gap)
-      written += Int64(gap.frameLength)
-      left -= Int64(gap.frameLength)
-      for _ in 0..<Int(gap.frameLength) { tenthFill += 1; if tenthFill >= Int(RATE / 10) { tenths.append(tenthPeak); tenthPeak = 0; tenthFill = 0 } }
-    }
-  }
-
-  /** Done: the file let go of, which is what finishes writing it, so it can be read back whole. */
-  func close() {
-    lock.lock()
-    if tenthFill > 0 { tenths.append(tenthPeak) }
-    file = nil
-    lock.unlock()
-  }
 }
 
 // ---- The meeting's clock: paused time is left out, so the tracks, the words and the marks all agree.
@@ -408,9 +384,9 @@ func now() -> Double {
 }
 var paused: Bool { clockLock.lock(); defer { clockLock.unlock() }; return pausedAt != nil }
 
-// ---- What was said, kept as it settles, for what to take from it at the end.
-var lines: [[String: Any]] = []
+// ---- What was said: every line to words.jsonl as it comes, its id the same until it settles, so a crash keeps it.
 let linesLock = NSLock()
+var wordsFile: Int32 = -1
 var lineCount = ["you": 0, "others": 0]
 let speakers = Speakers()
 
@@ -425,7 +401,7 @@ func wordsFrom(_ track: Track) -> (Said) -> Void {
     if track.name == "you" { line["speaker"] = "you" }
     else if said.final { line["speaker"] = speakers.who(track.slice(said.start, said.end)) }
     else { line["speaker"] = speakers.who(track.slice(said.start, said.end), learn: false) }
-    if said.final { linesLock.lock(); lines.append(line); linesLock.unlock() }
+    if let data = try? JSONSerialization.data(withJSONObject: line) { (data + [10]).withUnsafeBytes { _ = write(wordsFile, $0.baseAddress, $0.count) } }
     say(["words": line])
   }
 }
@@ -553,31 +529,91 @@ func standInWords(_ script: String, _ tracks: [String: Track]) {
   }
 }
 
-// ---- After: both tracks into one file to listen to, and the waveform.
-func mix(_ folder: URL) -> Double {
-  let you = try? AVAudioFile(forReading: folder.appendingPathComponent("you.m4a"))
-  let others = try? AVAudioFile(forReading: folder.appendingPathComponent("others.m4a"))
-  let settings: [String: Any] = [AVFormatIDKey: kAudioFormatMPEG4AAC, AVSampleRateKey: RATE, AVNumberOfChannelsKey: 1, AVEncoderBitRateKey: 32000]
-  guard let out = try? AVAudioFile(forWriting: folder.appendingPathComponent("meeting.m4a"), settings: settings, commonFormat: .pcmFormatFloat32, interleaved: false) else { return 0 }
-  let step: AVAudioFrameCount = 16000 * 4
-  var frames: Int64 = 0
-  while true {
-    let a = AVAudioPCMBuffer(pcmFormat: plain, frameCapacity: step)!, b = AVAudioPCMBuffer(pcmFormat: plain, frameCapacity: step)!
-    if let you { try? you.read(into: a, frameCount: step) } else { a.frameLength = 0 }
-    if let others { try? others.read(into: b, frameCount: step) } else { b.frameLength = 0 }
-    let n = max(a.frameLength, b.frameLength)
-    if n == 0 { break }
-    let both = AVAudioPCMBuffer(pcmFormat: plain, frameCapacity: n)!
-    both.frameLength = n
-    let o = both.floatChannelData![0], x = a.floatChannelData![0], y = b.floatChannelData![0]
-    for i in 0..<Int(n) {
-      let v = (i < Int(a.frameLength) ? x[i] : 0) + (i < Int(b.frameLength) ? y[i] : 0)
-      o[i] = max(-1, min(1, v))
-    }
-    try? out.write(from: both)
-    frames += Int64(n)
+/** The lines in a folder's words.jsonl: the last said of each id, in order of when they were said. A line cut off by a crash is left out. */
+func linesIn(_ folder: URL) -> [[String: Any]] {
+  guard let text = try? String(contentsOf: folder.appendingPathComponent("words.jsonl"), encoding: .utf8) else { return [] }
+  var byId: [String: [String: Any]] = [:]
+  for part in text.split(separator: "\n") {
+    if let line = (try? JSONSerialization.jsonObject(with: Data(part.utf8))) as? [String: Any], let id = line["id"] as? String { byId[id] = line }
   }
-  return Double(frames) / RATE
+  return byId.values.sorted { ($0["start"] as? Double ?? 0) < ($1["start"] as? Double ?? 0) }
+}
+
+// ---- After: both tracks and the two together as the files to keep, and the waveform.
+/** What the three files take at their bitrates, in bytes a second: 3 KB, 3 KB and 4 KB. */
+let KEPT_RATE = 10_000.0
+/** Room the disk must keep for them while it records. */
+func roomNeeded(seconds: Double) -> Int64 { Int64(seconds * KEPT_RATE) + 16 << 20 }
+func roomOn(_ folder: URL) -> Int64 {
+  var disk = statfs()
+  return statfs(folder.path, &disk) == 0 ? Int64(disk.f_bavail) * Int64(disk.f_bsize) : Int64.max
+}
+
+/**
+ * The sound on disk into the three files to keep, each encoded once: written beside their places and moved in only when
+ * all three read back whole, so a kill or a full disk here leaves the folder as it was, ready for another go. A side
+ * that ran short is kept as quiet to `until` or the other side's end: both tracks as long as the meeting, so its length,
+ * its sound and its waveform agree, and the two stay in step because each began at the meeting's first moment.
+ */
+func finalise(_ folder: URL, until: Double = 0) throws -> [String: Any] {
+  let noRoom = NSError(domain: "meeting", code: 28, userInfo: [NSLocalizedDescriptionKey: "no room"])
+  let sizes = ["you", "others"].map { name -> Int64 in
+    var info = stat()
+    return stat(folder.appendingPathComponent("\(name).pcm").path, &info) == 0 ? Int64(info.st_size) / 2 : 0
+  }
+  let frames = max(sizes[0], sizes[1], Int64(until * RATE))
+  if roomOn(folder) < Int64(Double(frames) / RATE * KEPT_RATE) + 1 << 20 { throw noRoom }
+  let names = ["you", "others", "meeting"]
+  let part = names.map { folder.appendingPathComponent("\($0).part.m4a") }
+  func writer(_ url: URL, _ rate: Int) throws -> AVAudioFile {
+    try AVAudioFile(forWriting: url, settings: [AVFormatIDKey: kAudioFormatMPEG4AAC, AVSampleRateKey: RATE, AVNumberOfChannelsKey: 1, AVEncoderBitRateKey: rate], commonFormat: .pcmFormatFloat32, interleaved: false)
+  }
+  var tenths: [[Float]] = [[], []]
+  do {
+    let out = [try writer(part[0], 24000), try writer(part[1], 24000), try writer(part[2], 28000)]
+    let from = ["you", "others"].map { FileHandle(forReadingAtPath: folder.appendingPathComponent("\($0).pcm").path) }
+    let step = Int(RATE) * 4, tenth = Int(RATE / 10)
+    var tenthPeak: [Float] = [0, 0], tenthFill: [Int] = [0, 0]
+    var left = frames
+    // Each pass's buffers let go at once: an hour stays small.
+    while left > 0 { try autoreleasepool {
+      let n = Int(min(left, Int64(step)))
+      let both = AVAudioPCMBuffer(pcmFormat: plain, frameCapacity: AVAudioFrameCount(n))!
+      both.frameLength = AVAudioFrameCount(n)
+      let o = both.floatChannelData![0]
+      for i in 0..<n { o[i] = 0 }
+      for side in 0..<2 {
+        let buffer = AVAudioPCMBuffer(pcmFormat: plain, frameCapacity: AVAudioFrameCount(n))!
+        buffer.frameLength = AVAudioFrameCount(n)
+        let x = buffer.floatChannelData![0]
+        let data = (try? from[side]?.read(upToCount: n * 2)) ?? Data()
+        let got = data.count / 2
+        data.withUnsafeBytes { raw in
+          let samples = raw.bindMemory(to: Int16.self)
+          for i in 0..<n { x[i] = i < got ? Float(samples[i]) / 32767 : 0 }
+        }
+        for i in 0..<n {
+          o[i] += x[i]
+          tenthPeak[side] = max(tenthPeak[side], abs(x[i]))
+          tenthFill[side] += 1
+          if tenthFill[side] >= tenth { tenths[side].append(tenthPeak[side]); tenthPeak[side] = 0; tenthFill[side] = 0 }
+        }
+        try out[side].write(from: buffer)
+      }
+      for i in 0..<n { o[i] = max(-1, min(1, o[i])) }
+      try out[2].write(from: both)
+      left -= Int64(n)
+    } }
+    for side in 0..<2 where tenthFill[side] > 0 { tenths[side].append(tenthPeak[side]) }
+  }
+  // Letting go of a file is what finishes it, and a full disk may only show there: each read back before it counts.
+  for url in part {
+    guard let back = try? AVAudioFile(forReading: url), abs(back.length - frames) < Int64(RATE) else { throw noRoom }
+  }
+  for (name, url) in zip(names, part) { if rename(url.path, folder.appendingPathComponent("\(name).m4a").path) != 0 { throw noRoom } }
+  // Until when anything was heard on either side, so the page can say the quiet after it rather than look cut short.
+  let last = max(tenths[0].lastIndex { $0 > 0.02 } ?? -1, tenths[1].lastIndex { $0 > 0.02 } ?? -1)
+  return ["seconds": (Double(frames) / RATE * 100).rounded() / 100, "peaks": peaks(tenths[0], tenths[1]), "you": (tenths[0].max() ?? 0) > 0.01, "others": (tenths[1].max() ?? 0) > 0.01, "heard": Double(last + 1) / 10]
 }
 
 /** 512 bars, each the loudest moment in its slice against the loudest of all, lifted by a square root (lib/waveform.ts). */
@@ -678,6 +714,38 @@ if args.first == "--apps" {
   }
   dispatchMain()
 }
+/** Held for as long as a recording runs, by the kernel, so a kill lets go of it; "recover" waits for it, so it never reads a folder still being written. */
+func hold(_ folder: URL, waiting: Bool) -> Bool {
+  let lock = open(folder.appendingPathComponent("recording.lock").path, O_RDWR | O_CREAT, 0o644)
+  return lock >= 0 && flock(lock, LOCK_EX | (waiting ? 0 : LOCK_NB)) == 0
+}
+
+/** The files, then what to take from the words: the end of a recording, stopped or left behind. */
+func keepAll(_ folder: URL, until: Double = 0, stopped: String? = nil, standIn: Bool) -> Never {
+  do {
+    var saved = try finalise(folder, until: until)
+    if let stopped { saved["stopped"] = stopped }
+    say(["saved": saved])
+  } catch {
+    fail("disk", "There is no room on this Mac's disk to finish the recording. Nothing is lost: free up some space and it can be finished.")
+  }
+  let all = linesIn(folder)
+  say(["found": found(all)])
+  let end = DispatchSemaphore(value: 0)
+  take(all, standIn: standIn) { answer in
+    if let answer { say(["take": answer]) }
+    end.signal()
+  }
+  _ = end.wait(timeout: .now() + 120)
+  exit(0)
+}
+
+if args.first == "recover", args.count >= 2 {
+  let folder = URL(fileURLWithPath: args[1])
+  guard hold(folder, waiting: true) else { fail("disk", "The recording's folder could not be opened") }
+  Thread.detachNewThread { keepAll(folder, standIn: args.contains("--ai-stand-in")) }
+  dispatchMain()
+}
 guard args.first == "record", args.count >= 3 else { fail("usage", "meeting record <folder> <locale>") }
 let folder = URL(fileURLWithPath: args[1])
 let locale = Locale(identifier: args[2])
@@ -689,11 +757,27 @@ let from: String? = fromAt.flatMap { $0 + 1 < args.count ? args[$0 + 1] : nil }
 var currentFrom = from
 try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
 
+guard hold(folder, waiting: false) else { fail("disk", "The meeting could not be kept on this Mac: its folder is in use") }
+wordsFile = open(folder.appendingPathComponent("words.jsonl").path, O_WRONLY | O_CREAT | O_APPEND, 0o644)
 let you: Track, others: Track
 do {
   you = try Track(name: "you", folder: folder)
   others = try Track(name: "others", folder: folder)
 } catch { fail("disk", "The meeting could not be kept on this Mac: \(error.localizedDescription)") }
+/** A probe's full disk: the room left on it, in bytes at the start (the real disk's room is what a Mac has). */
+let pretendRoom = args.firstIndex(of: "--room").flatMap { Int64(args[$0 + 1]) }
+func roomLeft() -> Int64 { pretendRoom.map { $0 - (you.written + others.written) * 2 } ?? roomOn(folder) }
+
+/** The disk full, or nearly: the recording ends here while there is still room to make its files. */
+func outOfRoom() {
+  finishing.lock()
+  let first = !diskSaid
+  diskSaid = true
+  finishing.unlock()
+  if !first { return }
+  say(["error": ["code": "disk", "message": "The disk is full, so the recording stopped. What was recorded is kept."]])
+  Thread.detachNewThread { finish(keep: true, stopped: "disk") }
+}
 let live = test != nil ? "test" : args.contains("--no-live") ? "none" : liveWay(locale)
 var macSound: AnyObject?
 
@@ -724,16 +808,37 @@ func begin() {
   }
   say(["ready": ["live": live, "locale": locale.identifier, "test": test != nil]])
   say(["from": ["bundle": (from as Any?) ?? NSNull(), "mic": micOn]])
-  // The level of each side, ten times a second.
+  // The level of each side, ten times a second; and once a second, whether the disk still has room to make the files.
   Thread.detachNewThread {
+    var tick = 0
     while true {
       Thread.sleep(forTimeInterval: 0.1)
       if !paused { say(["level": ["you": you.level(), "others": others.level(), "at": now()]]) }
+      tick += 1
+      if tick % 10 == 0 && roomLeft() < roomNeeded(seconds: Double(max(you.written, others.written)) / RATE) { outOfRoom() }
+    }
+  }
+  // Written is safe from a kill at once; from the power going, once the disk itself has it: every two seconds.
+  Thread.detachNewThread {
+    while true {
+      Thread.sleep(forTimeInterval: 2)
+      for file in [you.file, others.file, wordsFile] { _ = fcntl(file, F_FULLFSYNC) }
     }
   }
 }
 
-func finish() {
+let finishing = NSLock()
+var diskSaid = false
+var finishStarted = false
+func finish(keep: Bool, stopped: String? = nil) {
+  finishing.lock()
+  if finishStarted {
+    // One end only: the first to ask carries it through and exits.
+    finishing.unlock()
+    while true { Thread.sleep(forTimeInterval: 60) }
+  }
+  finishStarted = true
+  finishing.unlock()
   if test == nil {
     engine.inputNode.removeTap(onBus: 0)
     engine.stop()
@@ -745,30 +850,9 @@ func finish() {
   }
   you.words?.finish()
   others.words?.finish()
-  // The meeting's own length: a side that went quiet (a call app that stopped playing sends nothing) is kept as quiet
-  // to the end, so the page's length, the player's and the waveform's are one.
-  let over = now()
-  you.pad(to: over)
-  others.pad(to: over)
-  you.close()
-  others.close()
-  let wave = peaks(you.tenths, others.tenths)
-  let heardYou = (you.tenths.max() ?? 0) > 0.01, heardOthers = (others.tenths.max() ?? 0) > 0.01
-  // Until when anything was heard on either side, so the page can say the quiet after it rather than look cut short.
-  let last = max(you.tenths.lastIndex { $0 > 0.02 } ?? -1, others.tenths.lastIndex { $0 > 0.02 } ?? -1)
-  let seconds = mix(folder)
-  say(["saved": ["seconds": (seconds * 100).rounded() / 100, "peaks": wave, "you": heardYou, "others": heardOthers, "heard": Double(last + 1) / 10]])
-  linesLock.lock()
-  let all = lines.sorted { ($0["start"] as? Double ?? 0) < ($1["start"] as? Double ?? 0) }
-  linesLock.unlock()
-  say(["found": found(all)])
-  let end = DispatchSemaphore(value: 0)
-  take(all, standIn: standIn) { answer in
-    if let answer { say(["take": answer]) }
-    end.signal()
-  }
-  _ = end.wait(timeout: .now() + 120)
-  exit(0)
+  // Nobody listening: the folder is left as it is, to be offered when the app next opens.
+  if !keep { exit(0) }
+  keepAll(folder, until: now(), stopped: stopped, standIn: standIn)
 }
 
 begin()
@@ -793,11 +877,11 @@ Thread.detachNewThread {
       say(["from": ["bundle": (currentFrom as Any?) ?? NSNull(), "mic": micOn]])
     case "stop":
       clockLock.lock(); if let at = pausedAt { pausedFor += Date().timeIntervalSince(at); pausedAt = nil }; clockLock.unlock()
-      finish()
+      finish(keep: true)
     default: break
     }
   }
-  // The app gone without a word: keep what was recorded.
-  finish()
+  // The app gone without a word: what was recorded is on disk; the app offers it when it next opens.
+  finish(keep: false)
 }
 dispatchMain()

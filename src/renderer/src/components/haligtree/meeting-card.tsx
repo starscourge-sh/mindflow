@@ -211,7 +211,7 @@ function LiveLine({ line, fade, named, marked }: { line: Line; fade: number; nam
 
 /** Before it records, and after: what will be recorded, the line about telling people, the Mac's permission, saving. */
 function Before({ live, onChoose }: { live: Live; onChoose: () => void }): React.JSX.Element {
-  const close = <button type="button" onClick={() => void call('meeting:stop')} className={cn(BUTTON, 'text-muted-foreground hover:bg-accent hover:text-foreground')}>Not now</button>
+  const close = <button type="button" onClick={() => void call('meeting:stop')} className={cn(BUTTON, 'text-muted-foreground hover:bg-accent hover:text-foreground')}>{live.state === 'failed' || live.state === 'too-old' ? 'Close' : 'Not now'}</button>
   const body = (title: string, lines: React.ReactNode, actions?: React.ReactNode): React.JSX.Element => (
     <div className="flex h-full flex-col px-4 pt-3.5 pb-3">
       <p className="text-heading font-semibold">{title}</p>
@@ -228,7 +228,7 @@ function Before({ live, onChoose }: { live: Live; onChoose: () => void }): React
       <button type="button" data-meeting-start onClick={() => void call('meeting:begin')} className={cn(BUTTON, 'bg-[var(--tt-brand-color-500)] mf-on-accent hover:brightness-110')}>Try again</button>
     </>)
   if (live.state === 'failed' || live.state === 'too-old' || live.state === 'saved')
-    return body(live.state === 'saved' ? 'Recording kept' : 'Nothing was recorded', <p>{live.message}</p>, live.state === 'saved' ? undefined : close)
+    return body(live.state === 'saved' ? 'Recording kept' : live.stopped ? 'The recording stopped' : 'Nothing was recorded', <p>{live.message}</p>, live.state === 'saved' ? undefined : close)
   return body(live.event?.title ? `Record “${live.event.title}”` : 'Record a call or lecture', <>
     <p><b className="font-semibold text-foreground">{live.from.mic ? 'Your microphone and the sound from ' : 'The sound from '}{live.from.bundle ? live.from.name || 'one app' : 'this Mac'}</b>{live.from.bundle ? '' : ' (the call, in its app or the browser)'}, kept in your book. Nothing leaves this Mac.</p>
     <div className="space-y-1 [-webkit-app-region:no-drag]">

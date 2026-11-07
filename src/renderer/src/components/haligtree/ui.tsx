@@ -42,6 +42,7 @@ import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from '@/compon
 import type { OrbState } from 'thinking-orbs'
 import { Orb } from './orb'
 import { SaveTroubleLine } from './save-trouble'
+import { RecordingLeftLine, useRecordingsLeft } from './recording-left'
 import { ImportDoneCard, ImportProgress } from './import-done'
 import { ApkgAskSheet } from './apkg-ask'
 import { chooseBackupFolder } from '@/lib/backups'
@@ -1560,7 +1561,8 @@ export function Toaster(): React.JSX.Element | null {
   }, [])
   const lane = useRef<HTMLDivElement>(null)
   const trouble = useSaveTrouble()
-  const spot = useClearSpot(!!shown || !!wait || !!trouble, lane)
+  const left = useRecordingsLeft()
+  const spot = useClearSpot(!!shown || !!wait || !!trouble || !!left.one, lane)
   // Asker always in the same place, so a toast coming or going never
   // remounts it and loses a question being answered.
   return (
@@ -1661,6 +1663,8 @@ export function Toaster(): React.JSX.Element | null {
       )}
     </motion.div>}
     </AnimatePresence>
+    {/* Last, at the lane's foot: a toast comes above it, so “Keep” and “Discard” never move under the hand. */}
+    <RecordingLeftLine left={left} />
     </div>
     </>
   )

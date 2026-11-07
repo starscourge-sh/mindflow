@@ -259,6 +259,12 @@ const api = {
     void (ipcRenderer.invoke('haligtree:meeting:state') as Promise<unknown>).then((live) => listen(live, null))
     return () => ipcRenderer.off('meeting:live', relay)
   },
+  /** The recordings left behind by a crash have changed: a recording ended, or another began. */
+  onMeetingLeft: (listen: () => void): (() => void) => {
+    const relay = (): void => listen()
+    ipcRenderer.on('meeting:left', relay)
+    return () => ipcRenderer.off('meeting:left', relay)
+  },
   /** In the nudge card's own window: each nudge, including those told while it loaded. */
   onNudge: (listen: (nudge: unknown) => void): (() => void) => {
     const relay = (_event: unknown, nudge: unknown): void => listen(nudge)
