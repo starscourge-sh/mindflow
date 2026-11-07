@@ -429,3 +429,6 @@ export const toNoteItem = (ids: string[], then?: () => void): { label: string; h
   hint: 'Out of your tasks, back in your Inbox',
   run: () => void taskToNote(ids, then)
 })
+
+/** Your order, the one the list and the written-out day share: where you put it, then the order it was made in. */
+export const yourOrder = (a: Pick<Task, 'sortOrder' | 'number'>, b: Pick<Task, 'sortOrder' | 'number'>): number => (a.sortOrder ?? 1e6 + a.number) - (b.sortOrder ?? 1e6 + b.number)

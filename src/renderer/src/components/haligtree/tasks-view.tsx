@@ -17,7 +17,7 @@ import { moveToBin, useCameBack } from '@/lib/to-bin'
 import { ShowInListContext, useShowInList, useShowLine } from '@/lib/show-in-list'
 import { readAhead, readFresh, readNow, useAfterFirstPaint } from '@/lib/early-read'
 import { NoteComing } from './note-coming'
-import { fromBefore, BUCKETS, READY_LEADS, bucket, closeTask, gettingReady, makeTask, renameTask, onToday, placed, readySaid, setReady, snooze, snoozeDays, snoozeItems, snoozed, taskName, taskToNote, toNoteItem } from '@/lib/tasks'
+import { fromBefore, BUCKETS, READY_LEADS, bucket, closeTask, gettingReady, makeTask, renameTask, onToday, placed, readySaid, setReady, snooze, snoozeDays, snoozeItems, snoozed, taskName, taskToNote, toNoteItem, yourOrder } from '@/lib/tasks'
 import { dateIn, PRIORITY_NAMES } from '../../../../main/task-words'
 import { PriorityIcon, PriorityMark, TaskInput, markRoom, planFor, setPriority } from './task-input'
 import { useArrivals } from './note-list'
@@ -681,9 +681,6 @@ const byNote = (list: Task[]): [string, Task[], string][] =>
 const TASK_TABS = [{ id: 'today', label: 'Today' }, { id: 'upcoming', label: 'Upcoming' }, { id: 'later', label: 'Later' }, { id: 'routines', label: 'Routines' }, { id: 'alltasks', label: 'All' }] as const
 
 /** Every open task in one list, by when: overdue, today, tomorrow, this week, later, no date. */
-/** Your order, the one the written-out day keeps (day-list.tsx): where you put it, then the order it was made in. */
-export const yourOrder = (a: Task, b: Task): number => (a.sortOrder ?? 1e6 + a.number) - (b.sortOrder ?? 1e6 + b.number)
-
 /**
  * The one tab an open task lives in, so each says what it holds: a routine in
  * Routines; with a day today or before (late ones too) in Today; with a day to
@@ -1034,7 +1031,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
  title={mode} lead={several.bar ? undefined : lead} count={example ? undefined : several.chosen.length || shown.length + (heldOpen ? 0 : held.length)} unit={several.chosen.length ? ['selected', 'selected'] : ['open', 'open']} actions={several.bar ?? actions}>
 
         {/* Nothing on today yet, in either layout: the page to write it on. */}
-        {written || (mode === 'today' && !example && !reading && !shown.length && dayDone === 0) ? (
+        {written || (mode === 'today' && !example && !reading && !rows.length && dayDone === 0) ? (
           <div className="list-edge mt-5 mb-10"><DayList onWrite={writeIt} onOpenTask={pick} openId={open?.id} /></div>
         ) : (<>
         <form
@@ -1114,7 +1111,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
           )
         })()}
 
-        {!listShown ? null : shown.length ? (
+        {!listShown ? null : rows.length ? (
           <Example on={example} tryIt={TRY_TASKS[mode]}>
           <div ref={rowsBox} {...rowsHover.handlers} className="relative isolate">
           <Highlight spot={rowsHover.spot} session={rowsHover.session} snap={rowsHover.snap} className="bg-accent/25" />
