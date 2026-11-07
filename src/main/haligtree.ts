@@ -124,6 +124,8 @@ function notesAsMarkdown(db: DatabaseSync, assets: string, live = false): Map<st
   return files
 }
 
+/** The editor's nodes that hold a line of words and inline pieces, not blocks. */
+const INLINE_HOLDERS = new Set(['paragraph', 'heading', 'codeBlock'])
 /** A body as words; `links` keeps each @ link as `[[@nugget:id|Label]]`, for a card that shows them as links. */
 export function plain(value: unknown, links = false): string {
   if (typeof value === 'string') {
@@ -137,7 +139,10 @@ export function plain(value: unknown, links = false): string {
     node.type === 'meeting' ? ['#recording', ...transcriptLines(((node.attrs as { lines?: MeetingLine[] })?.lines ?? []), ((node.attrs as { names?: Record<string, string> })?.names ?? {}))].join('\n') :
     node.type === 'noteLink' ? (links && node.attrs?.id && node.attrs.label ? `[[@${node.attrs.id}|${node.attrs.label}]]` : node.attrs?.label ?? '') :
     node.text !== undefined ? (code || node.marks?.some((mark) => mark.type === 'code') ? uncoded(node.text) : node.text) :
-    (node.content ?? []).map((child) => walk(child as typeof node, code || node.type === 'codeBlock')).join('\n')
+    node.type === 'hardBreak' ? '\n' :
+    // A line's pieces (words, a bold word, a link to a note) run on in the line: "Connected to: A, B" stays one line.
+    // Blocks (paragraphs, list items, quotes) each start a line of their own.
+    (node.content ?? []).map((child) => walk(child as typeof node, code || node.type === 'codeBlock')).join(INLINE_HOLDERS.has(node.type ?? '') ? '' : '\n')
   return value ? walk(value as { content?: unknown[] }) : ''
 }
 
