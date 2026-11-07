@@ -328,7 +328,7 @@ export function WriterLine({ editor, day, spent, today }: { editor: Editor | nul
   const counts = useCounts(editor)
   const live = counts?.words ?? 0
   const [typing, setTyping] = useState(false)
-  const [column, setColumn] = useState<{ left: number; width: number } | null>(null)
+  const [column, setColumn] = useState<{ left: number; width: number; foot: number } | null>(null)
   const held = useRef(live)
   if (!typing) held.current = live
   useEffect(() => {
@@ -358,19 +358,29 @@ export function WriterLine({ editor, day, spent, today }: { editor: Editor | nul
     check()
     return () => void (watch.disconnect(), editor.off('focus', check), editor.off('blur', check))
   }, [editor])
-  // Lined up with the words' column, wherever the page puts it.
+  // Lined up with the words' column and sitting on the page's foot, wherever the page puts them: a hint under the page lifts its foot.
   const dom = useEditorDom(editor)
   useEffect(() => {
     if (!dom) return
+    const page = dom.closest('[data-pane-card]')
+    const root = document.documentElement
     const measure = (): void => {
       const box = dom.getBoundingClientRect()
-      setColumn((was) => (was && Math.abs(was.left - box.left) < 1 && Math.abs(was.width - box.width) < 1 ? was : { left: box.left, width: box.width }))
+      const foot = page ? Math.max(0, window.innerHeight - page.getBoundingClientRect().bottom) : 0
+      // Notices keep clear of the line, in plain pixels: the toast lane reads this as a number.
+      root.style.setProperty('--mf-writer-toast', `${foot + 60}px`)
+      setColumn((was) => (was && Math.abs(was.left - box.left) < 1 && Math.abs(was.width - box.width) < 1 && Math.abs(was.foot - foot) < 1 ? was : { left: box.left, width: box.width, foot }))
     }
     measure()
     const watch = new ResizeObserver(measure)
     watch.observe(dom)
+    if (page) watch.observe(page)
     window.addEventListener('resize', measure)
-    return () => (watch.disconnect(), window.removeEventListener('resize', measure))
+    return () => {
+      watch.disconnect()
+      window.removeEventListener('resize', measure)
+      root.style.removeProperty('--mf-writer-toast')
+    }
   }, [dom])
   const [, tick] = useState(0)
   // The time moves on once a minute, never per frame.
@@ -387,8 +397,8 @@ export function WriterLine({ editor, day, spent, today }: { editor: Editor | nul
   const share = aim ? Math.min(1, words / aim.words) : 0
   const minutes = Math.round(spent / 60_000)
   return createPortal(
-    <div data-writer-line data-in-use={inUse || undefined} inert={!inUse} className="pointer-events-none fixed bottom-0 z-40 flex flex-col items-center pb-[1.125rem] text-sm text-muted-foreground tabular-nums transition-opacity duration-300 motion-reduce:transition-none"
-      style={{ left: column.left, width: column.width, opacity: inUse ? 1 : 0 }}>
+    <div data-writer-line data-in-use={inUse || undefined} inert={!inUse} className="pointer-events-none fixed z-40 flex flex-col items-center pb-[1.125rem] text-sm text-muted-foreground tabular-nums transition-opacity duration-300 motion-reduce:transition-none"
+      style={{ left: column.left, width: column.width, bottom: column.foot, opacity: inUse ? 1 : 0 }}>
       <span className="flex items-center justify-center gap-3">
         {[
           words > 0 && <span key="words" data-writer-words className="inline-flex items-center gap-2">

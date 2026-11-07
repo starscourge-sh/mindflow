@@ -2807,7 +2807,7 @@ html[data-book-hue] [data-book-tint] {
 }
 :root:not([data-in-room]):has([data-writer-line]) [data-pane-card] .overflow-y-auto:has([data-day-write]) > div { padding-bottom: 8rem; }
 /* Toasts rise over it; and the day's aim is its hairline, not a second bar over the words. */
-:root:not([data-in-room]):has([data-writer-line]) { --toast-bottom: 3.75rem; }
+:root:not([data-in-room]):has([data-writer-line]) { --toast-bottom: var(--mf-writer-toast, 3.75rem); }
 :root:not([data-in-room]):has([data-writer-line]) [data-day-write] [data-word-aim] { display: none; }
 /* With the aim's bar gone, so is the room kept over the words for it: the caption sits the same small gap over the first line, aim or not. */
 :root:not([data-in-room]):has([data-writer-line]) [data-day-write] .haligtree-editor-wrapper:has(> .mf-aim) > .haligtree-editor-content { padding-top: 0; }
