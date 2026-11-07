@@ -143,7 +143,11 @@ export function DayDrag({ lines, heading, tail, onDrop, onPlace, places, childre
     if (past) return point(aimLine(past.id, past.how === 'after'))
     if (leftward && owner.id === homeOf(id)) return point(aimLine(owner.id, true))
 
-    const side = sideOf(sided.current, over.id, at)
+    // What it comes over makes way, as a list's rows do (kept-groups.tsx): the room opens where the pointer is. A line's
+    // last step keeps a band for going just after it from below. A line with steps moves by whole blocks, by which half.
+    const [mine, overAt] = [keys.indexOf(id), keys.indexOf(over.id)]
+    const lastStep = !onHead && owner.steps.length > 0 && over.id === stepKey(owner.id, owner.steps.length - 1)
+    const side = stepsCome ? sideOf(sided.current, over.id, at) : mine < overAt || (lastStep && at > 0.72) ? 'after' : 'before'
     sided.current = { key: over.id, how: side }
     // A line with steps of its own goes only beside another's whole block, read against that block.
     if (stepsCome || owner.struck) {

@@ -87,7 +87,8 @@ export type Folds = {
   /** In your own order: false while sorted some other way, when only joining or leaving a group means anything. */
   ordered: boolean
   /** What a drop would leave, worked out as the drop itself is: the layout before and after, and the rows on show after, in order. Null when nothing would change. */
-  preview: (ids: string[], target: string, how: How) => { before: Layout; after: Layout; shown: string[] } | null
+  /** `root`: the folder open as the page, if any: being in it is being loose in this list. */
+  preview: (ids: string[], target: string, how: How) => { before: Layout; after: Layout; shown: string[]; root: string | null } | null
   /** A drop, for the list to work out and save: `ids` is everything carried, in the order it is read. */
   onDrop: (ids: string[], target: string, how: How) => void
   /** The rows picked (⌘-click, ⇧-click, x): carrying one of them carries them all. */
@@ -298,7 +299,17 @@ export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo
         side = (pointer.y - box.top) / box.height
       }
     }
-    const how = sideOf(sided.current, beside, side)
+    // A row makes way for what comes over it, as Dia's do: the room opens where the pointer is, so what was under it moves
+    // off, up if what is carried came from above, down if from below. Only the ends of a group keep a band for going
+    // just inside them, first or last, where the row stays and the panel grows round the room.
+    const way = (): 'before' | 'after' => {
+      const [mine, overAt] = [keys.indexOf(mover), keys.indexOf(target)]
+      const holder = home.get(target)
+      if (mine < overAt) return holder && home.get(keys[overAt - 1]) !== holder && at < 0.28 ? 'before' : 'after'
+      return holder && home.get(keys[overAt + 1]) !== holder && at > 0.72 ? 'after' : 'before'
+    }
+    // A group's own row is its edge: which half says in or out.
+    const how = isGroup(id) || isGroup(target) ? sideOf(sided.current, beside, side) : way()
     sided.current = { key: beside, how }
     // What to try, in turn: over a row's middle, gathering with it (or going into its group); else, or where that does nothing, beside it.
     const tries: [string, How][] = []
@@ -318,9 +329,11 @@ export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo
       const land = preview(ids, where, how)
       if (!land) continue
       const lead = ids[0]
-      const own = groupOf(land.before, lead) ?? null
-      const into = groupOf(land.after, lead) ?? null
-      const around = groupsAround(land.after, lead)
+      const here = (group: string | undefined): string | null => (group && group !== land.root ? group : null)
+      const own = here(groupOf(land.before, lead))
+      const into = here(groupOf(land.after, lead))
+      const held = groupsAround(land.after, lead)
+      const around = land.root && held.includes(land.root) ? held.slice(0, held.indexOf(land.root)) : held
       const make = !!land.after.make
       // A new folder only once the pointer has rested on the row: until then it is a move beside it.
       if (make && how === 'join' && !rested(where)) continue

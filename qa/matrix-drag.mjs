@@ -20,7 +20,7 @@ const { h, go, v } = c
 const seen = () => h.evaluate(() => {
   const shown = (one) => { const box = one.getBoundingClientRect(); return box.width > 0 && box.height > 0 && getComputedStyle(one).opacity !== '0' }
   return {
-    pictures: [...document.querySelectorAll('.mf-drag-picture')].filter((one) => one.children.length && shown(one)).length + [...document.querySelectorAll('[data-split-card]')].filter(shown).length,
+    pictures: [...document.querySelectorAll('.mf-drag-picture [data-carried-card]')].filter(shown).length + [...document.querySelectorAll('[data-split-card]')].filter(shown).length,
     zones: [...document.querySelectorAll('[data-split-zone]')].map((one) => Math.round(one.getBoundingClientRect().width)),
     // How far a place reaches over a Matrix box (Do now, Plan...), in pixels: it should never.
     cover: Math.max(0, ...[...document.querySelectorAll('[data-split-zone]')].flatMap((zone) => { const z = zone.getBoundingClientRect(); return [...document.querySelectorAll('[data-quadrant]')].map((q) => { const b = q.getBoundingClientRect(); return Math.round(Math.max(0, Math.min(z.right, b.right) - Math.max(z.left, b.left)) * (Math.min(z.bottom, b.bottom) > Math.max(z.top, b.top) ? 1 : 0)) }) }))
@@ -55,7 +55,7 @@ async function carry(name, from, to, { land } = {}) {
   await glide({ x: box.left + 20, y: over.y })
   s = await seen()
   if (SHOTS) await h.screenshot({ path: `${SHOTS}/${name.replace(/\W+/g, '-').toLowerCase()}-edge.png` })
-  check(`${name}: at the edge the places come up, narrow`, s.zones.length === 2 && s.zones.every((width) => width <= 80), `zones ${s.zones.join(', ')}`)
+  check(`${name}: at the edge the places come up, narrow`, s.zones.length === 2 && s.zones.every((width) => width <= 112), `zones ${s.zones.join(', ')}`)
   check(`${name}: at the edge the places cover no Matrix box`, s.cover === 0, `covers ${s.cover}px`)
   check(`${name}: at the edge, still one picture`, s.pictures === 1, `${s.pictures} pictures`)
   // Back in: they go.

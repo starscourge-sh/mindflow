@@ -2118,7 +2118,7 @@ export function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: I
       const next = dropMany(base, ids, target, how, shut, () => ({ id: 'new', name: '' }))
       // Another kind keeps its own sort: a drop there only joins, leaves or makes a group.
       if (kind && next && !next.make && ids.every((id) => groupOf(base, id) === groupOf(next, id))) return null
-      return next && !sameLayout(next, base) && ids.every((id) => inside(next, id)) && !folderInGroup(next) ? { before: base, after: next, shown: shownKeys(next, shut) } : null
+      return next && !sameLayout(next, base) && ids.every((id) => inside(next, id)) && !folderInGroup(next) ? { before: base, after: next, shown: shownKeys(next, shut, within), root: within ?? null } : null
     },
     onDrop: (ids, target, how) => {
       const seen = dropMany(base, ids, target, how, shut, make([target, ...ids]))

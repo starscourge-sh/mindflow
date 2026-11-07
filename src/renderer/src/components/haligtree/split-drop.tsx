@@ -41,8 +41,10 @@ export type Carried = { open?: string; row?: { pane: string; id: string }; tab?:
 const REACH = 120
 /** How near the page's left or right edge a list's own drag goes before the places come up. */
 const EDGE = 48
-/** A place's width beside a list's own drag: a strip at the edge, never over what it could drop in. */
-const NARROW = 72
+/** A place's width beside a list's own drag: a strip at the edge, never over what it could drop in. The page makes room for it (main.css). */
+const NARROW = 104
+/** How far a place sits in from the page's side. */
+const INSET = 24
 /** How far past a list's column, to either side, a list's own drag goes before the places come up. */
 const OUTSIDE = 24
 /** How far the pointer moves before anything is carried. */
@@ -99,7 +101,6 @@ type Zone = { key: string; side: Side; at: number; left: number; top: number; wi
  * either side of its column allows, so it never covers what it could drop in.
  */
 const zonesIn = (area: DOMRect, gaps: number[], column?: DOMRect, edge = false): Zone[] => {
-  const INSET = 24
   const full = Math.max(180, Math.min(320, area.width * 0.24))
   // Brought up only at the page's edge (a task row): a strip there, never over the list or the task open beside it.
   const width = edge ? NARROW : column ? Math.max(NARROW, Math.min(full, column.left - area.left - INSET - OUTSIDE - 8, area.right - column.right - INSET - OUTSIDE - 8)) : full
@@ -126,7 +127,6 @@ const dropListDrag = (): void => void window.dispatchEvent(new Event('visibility
 export function SplitDrop({ onDrop, onRow }: { onDrop: (carried: Carried, at: number) => void; onRow: (carried: Carried, pane: string, at: number) => void }): React.JSX.Element | null {
   const [carried, setCarried] = useState<Carried | null>(null)
   // Carried by a list's own drag, which draws its own lifted picture: no second one here.
-  const [bare, setBare] = useState(false)
   const [zones, setZones] = useState<Zone[]>([])
   const [hot, setHot] = useState<string | null>(null)
   const dropRef = useRef({ onDrop, onRow })
@@ -220,15 +220,17 @@ export function SplitDrop({ onDrop, onRow }: { onDrop: (carried: Carried, at: nu
         const far = distance(zone, px, py)
         const pull = Math.max(0, 1 - far / REACH)
         const middle = { x: zone.left + zone.width / 2, y: Math.max(zone.top + 40, Math.min(zone.top + zone.height - 40, py)) }
+        let leant = 0
         const within = px >= zone.reach.left && px <= zone.reach.right && py >= zone.reach.top && py <= zone.reach.bottom
         if (far === 0 || within) target = zone
         // The place leans out toward the pointer and grows a touch; the card is drawn in.
         if (zone.side !== 'between') {
-          lean[zone.side].set(quiet ? 0 : Math.max(-14, Math.min(14, (px - middle.x) * 0.1 * pull)))
+          leant = quiet ? 0 : Math.max(-14, Math.min(14, (px - middle.x) * 0.1 * pull))
+          lean[zone.side].set(leant)
           grow[zone.side].set(quiet ? 1 : 1 + 0.035 * pull)
         }
         // In the place: the card rests just under its words, never over them.
-        if (far === 0 || within) (toX = zone.left + zone.width / 2), (toY = zone.top + zone.height / 2 + 64)
+        if (far === 0 || within) (toX = zone.left + zone.width / 2 + leant), (toY = zone.top + zone.height / 2 + 64)
         else if (pull > 0 && !quiet) (toX = px + (middle.x - px) * 0.32 * pull), (toY = py + (middle.y - py) * 0.32 * pull)
       }
       if (quiet) {
@@ -288,9 +290,11 @@ export function SplitDrop({ onDrop, onRow }: { onDrop: (carried: Carried, at: nu
       // Up only at an edge, only that edge's place: the other side's would sit over the list for nothing.
       if (down.source.edgeOnly) shown = shown.filter((zone) => zone.side === (px < box.left + box.width / 2 ? 'left' : 'right'))
       document.documentElement.dataset.splitDrag = ''
-      // Narrow strips at the edge: the page eases in from that side to make room for them (main.css), so a strip never
-      // sits over what is at the page's edge (the Matrix's "Do now" lost 70 pixels under "Open on the left").
-      if (shown.every((zone) => zone.width <= NARROW)) document.documentElement.dataset.splitRoom = shown.map((zone) => zone.side).join(' ')
+      // Narrow strips at the edge: the page eases in, only from a side where the strip would lie over a place to drop
+      // (main.css). Squeezed from both, a list and its open note lose the room to stay side by side.
+      const drops = [...document.querySelectorAll('[data-pane] :is([data-row][data-id], [data-quadrant])')].map((one) => one.getBoundingClientRect())
+      const crowded = (zone: Zone): boolean => !!down?.source.edgeOnly || drops.some((one) => one.width && one.left < zone.left + zone.width && one.right > zone.left)
+      if (shown.every((zone) => zone.width <= NARROW)) document.documentElement.dataset.splitRoom = shown.filter(crowded).map((zone) => zone.side).join(' ')
       // Pinned's "Drop here to pin" comes up only for what it takes (home.tsx).
       if (down.source.carried.open && !down.source.carried.open.startsWith('task:')) document.documentElement.dataset.splitPin = ''
       document.getSelection()?.removeAllRanges()
@@ -302,10 +306,10 @@ export function SplitDrop({ onDrop, onRow }: { onDrop: (carried: Carried, at: nu
       cardScale.jump(1)
       for (const side of ['left', 'right'] as const) (leanS[side].jump(0), growS[side].jump(1))
       setZones(shown)
-      // Only when the list's own lifted picture is really there: otherwise this one is the picture.
-      setBare(down.source.column && !!document.querySelector('.mf-drag-picture > *'))
       setCarried(down.source.carried)
       follow(px, py)
+      // Up with the pointer already in a place (a list against the page's edge): the card is simply at rest there.
+      if (over) (card.x.jump(cardX.get()), card.y.jump(cardY.get()), cardScale.jump(shrink.get()))
     }
     const onDown = (event: PointerEvent): void => {
       if (event.button !== 0 || event.altKey || event.metaKey || event.ctrlKey || event.shiftKey) return
@@ -328,7 +332,7 @@ export function SplitDrop({ onDrop, onRow }: { onDrop: (carried: Carried, at: nu
         const out = !down.source.edgeOnly && (px < down.column.left - OUTSIDE || px > down.column.right + OUTSIDE)
         const edge = elsewhere || atEdge || out
         // Back in over its column, away from the edge: they go, and the list's drag carries on.
-        const back = !elsewhere && !out && (!box || (px > box.left + 10 + NARROW + 12 && px < box.right - 10 - NARROW - 12) || px < box.left || px > box.right)
+        const back = !elsewhere && !out && (!box || (px > box.left + INSET + NARROW && px < box.right - INSET - NARROW) || px < box.left || px > box.right)
         if (active && back) return hide()
         if (!active && !edge) return
       }
@@ -407,6 +411,8 @@ export function SplitDrop({ onDrop, onRow }: { onDrop: (carried: Carried, at: nu
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Resting in a strip, the card stays inside it.
+  const strip = zones.find((zone) => zone.key === hot && zone.width <= NARROW)
   const kind = carried?.kind ? CAPTURE_TYPES.find((one) => one.id === carried.kind) : undefined
   return createPortal(
     <AnimatePresence>
@@ -423,9 +429,9 @@ export function SplitDrop({ onDrop, onRow }: { onDrop: (carried: Carried, at: nu
           {zones.map((zone) => (
             <ZoneBox key={zone.key} zone={zone} hot={hot === zone.key} lean={zone.side === 'between' ? undefined : leanS[zone.side]} grow={zone.side === 'between' ? undefined : growS[zone.side]} />
           ))}
-          {!bare && <motion.div className="absolute top-0 left-0 max-w-56" style={{ x: card.x, y: card.y, scale: cardScale, translateX: '-50%', translateY: '-50%' }}>
-            <CarriedCard attrs={{ 'data-split-card': '' }} title={carried.title} icon={kind ? <kind.icon className="size-3.5 shrink-0" style={{ color: kind.tint }} /> : <Columns2 className="size-3.5 shrink-0 opacity-70" />} />
-          </motion.div>}
+          <motion.div className="absolute top-0 left-0" style={{ x: card.x, y: card.y, scale: cardScale, translateX: '-50%', translateY: '-50%', maxWidth: strip ? strip.width - 16 : '14rem' }}>
+            <CarriedCard attrs={{ 'data-split-card': '' }} className={strip ? 'w-full max-w-full' : undefined} title={carried.title} icon={kind ? <kind.icon className="size-3.5 shrink-0" style={{ color: kind.tint }} /> : <Columns2 className="size-3.5 shrink-0 opacity-70" />} />
+          </motion.div>
         </motion.div>
       )}
     </AnimatePresence>,
@@ -436,7 +442,7 @@ export function SplitDrop({ onDrop, onRow }: { onDrop: (carried: Carried, at: nu
 function ZoneBox({ zone, hot, lean, grow }: { zone: Zone; hot: boolean; lean?: MotionValue<number>; grow?: MotionValue<number> }): React.JSX.Element {
   // No limit on panes: a drop always adds one where it lands.
   const label = zone.side === 'between' ? 'Open between' : `Open on the ${zone.side}`
-  // A narrow card beside a list's own drag: its words wrap, smaller.
+  // A narrow card beside a list's own drag: its words break evenly, clear of the dashed edge.
   const narrow = zone.width <= NARROW
   return (
     <motion.div
@@ -452,7 +458,7 @@ function ZoneBox({ zone, hot, lean, grow }: { zone: Zone; hot: boolean; lean?: M
     >
       <span aria-hidden className={`pointer-events-none absolute inset-2 rounded-[15px] border-2 border-dashed transition-colors duration-150 ${hot ? 'border-[var(--tt-brand-color-400)]' : 'border-foreground/20'}`} />
       <span className={`relative flex items-center justify-center transition-colors duration-150 [&_svg]:size-5 ${hot ? 'text-[var(--tt-brand-color-400)]' : 'text-muted-foreground'}`}><SplitMark side={zone.side} /></span>
-      <span className={`relative px-2 text-center font-medium transition-colors duration-150 ${narrow ? 'text-xs leading-tight' : 'text-control'} ${hot ? 'text-foreground' : 'text-muted-foreground'}`}>{label}</span>
+      <span className={`relative text-center font-medium text-control transition-colors duration-150 ${narrow ? 'max-w-16 leading-tight text-balance' : 'px-2'} ${hot ? 'text-foreground' : 'text-muted-foreground'}`}>{label}</span>
     </motion.div>
   )
 }

@@ -2951,8 +2951,8 @@ html[data-tuck-open] :is(.mf-card, [data-goal-card]) { scale: 1 !important; }
 /* "Open on the left / right" as narrow strips at the page's edge (split-drop.tsx): the page eases in from that side
    by the strip's width and its inset, so the strip sits beside what is there, never over it. */
 [data-split-area] { transition: padding 220ms var(--mf-ease); }
-:root[data-split-room~='left'] [data-split-area] { padding-left: 104px; }
-:root[data-split-room~='right'] [data-split-area] { padding-right: 104px; }
+:root[data-split-room~='left'] [data-split-area] { padding-left: 136px; }
+:root[data-split-room~='right'] [data-split-area] { padding-right: 136px; }
 @media (prefers-reduced-motion: reduce) { [data-split-area] { transition: none; } }
 
 /* "Tag look: Dot" (Settings, Appearance): every #tag chip, in a list, a note's

@@ -355,9 +355,10 @@ export function reorderAs(layout: Layout, seen: string[]): Layout {
 }
 
 /** The rows on show, in order: every key, a folded group's row but none of what it holds. */
-export const shownKeys = (layout: Layout, folded: Set<string>): string[] => {
+export const shownKeys = (layout: Layout, folded: Set<string>, root?: string | null): string[] => {
   const open = (key: string, depth: number): string[] => (isGroup(key) && depth < 3 ? [key, ...(folded.has(groupId(key)) ? [] : (layout.groups[groupId(key)] ?? []).flatMap((one) => open(one, depth + 1)))] : [key])
-  return layout.top.flatMap((key) => open(key, 0))
+  // A folder open as the page: the list starts from what it holds.
+  return (root ? layout.groups[root] ?? [] : layout.top).flatMap((key) => open(key, 0))
 }
 
 /** Whether two layouts are the same shape: the same order, and each group holding the same, in the same order. */

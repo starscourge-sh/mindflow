@@ -20,8 +20,8 @@ import { cut } from '../../../../main/clip'
 export const REST: Shape = { top: 0, bottom: 0 }
 const CAP = 12
 /** How far a panel swells past its place as it accepts, and draws in as it lets go. */
-const GIVE = 4
-const GIVE_BACK = 2
+const GIVE = 12
+const GIVE_BACK = 5
 /** How long the pointer rests on a row's middle before letting go there would gather them. */
 export const DWELL = 550
 /** How far left of where it was taken up a row is carried before it means "out of what holds it", as dragging left outdents in Notion. */
@@ -111,7 +111,7 @@ const slide = motionValue(1)
 /** The give runs on a clock of its own: a row moving on just after a panel accepts must not cut its give short. */
 const giving = motionValue(1)
 /** The give's whole run: up to its most about as the rows arrive, and back to nothing by the end. */
-const GIVE_RUN = 0.3
+const GIVE_RUN = 0.42
 const eased = cubicBezier(...SLIDE.ease)
 const paint = (): void => {
   const m = eased(slide.get())

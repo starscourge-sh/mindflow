@@ -31,7 +31,9 @@ const kinds = () => electron.evaluate(() => globalThis.haligtreeTapKinds())
 const tapsSince = async (before) => { await wait(180); const now = await kinds(); const fresh = now.slice(before.length); return { level: fresh.filter((k) => k === 'level').length, align: fresh.filter((k) => k === 'align').length } }
 const CARD = '[data-carried-card], [data-ghost], [data-lifted], [data-folder-ghost], [data-split-card]'
 const card = () => h.evaluate((sel) => {
-  const all = [...document.querySelectorAll(sel)].filter((one) => one.getClientRects().length)
+  // Seen, not merely in the page: a card at opacity 0, itself or above, is no card.
+  const seen = (one) => { for (let at = one; at; at = at.parentElement) if (+getComputedStyle(at).opacity < 0.05) return false; return true }
+  const all = [...document.querySelectorAll(sel)].filter((one) => one.getClientRects().length && seen(one))
   const el = all[0]
   if (!el) return null
   const s = getComputedStyle(el)
@@ -216,7 +218,7 @@ const peak = async (setup) => {
 const both2 = async (name) => shot(name)
 const counts = []
 const moving = await peak()
-check('the panel overshoots a little as it accepts, and settles', moving.over >= 2 && moving.over <= 6, `${moving.over.toFixed(1)}px over ${moving.frames} frames`)
+check('the panel overshoots a little as it accepts, and settles', moving.over >= 6 && moving.over <= 16, `${moving.over.toFixed(1)}px over ${moving.frames} frames`)
 check('no frame with a row outside its box', moving.outside === 0, `${moving.outside} frames`)
 check('after the glide, one card on screen', counts[0] === 1, String(counts[0]))
 await h.emulateMedia({ reducedMotion: 'reduce' })
