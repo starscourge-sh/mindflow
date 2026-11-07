@@ -25,3 +25,6 @@ dev-picks.json
 
 # Local secrets, such as the Giphy key built into a local build (src/main/giphy.ts).
 .env.local
+
+# The Quick Look renderer on the command line, for checks (native/build-quicklook.sh).
+build/quicklook/haligtree-md2html

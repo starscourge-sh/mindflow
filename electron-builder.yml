@@ -83,6 +83,25 @@ mac:
     NSRemindersUsageDescription: Haligtree puts a task in your Reminders when you ask it to, and ticks it done here when you tick it there. It reads no other reminders.
     NSRemindersFullAccessUsageDescription: Haligtree puts a task in your Reminders when you ask it to, and ticks it done here when you tick it there. It reads no other reminders.
     NSAppleEventsUsageDescription: Haligtree reads your notes from Notes when you import them, and during a focus session the address of the page open in your browser, to send blocked websites away. It never changes them and sends nothing anywhere.
+    # Names .md files as Markdown for a Mac that does not know them, so the
+    # Quick Look preview below is picked for them.
+    UTImportedTypeDeclarations:
+      - UTTypeIdentifier: net.daringfireball.markdown
+        UTTypeDescription: Markdown document
+        UTTypeConformsTo:
+          - public.plain-text
+        UTTypeTagSpecification:
+          public.filename-extension:
+            - md
+            - markdown
+          public.mime-type:
+            - text/markdown
+  # Finder's Space on a .md file shows it in Haligtree's look. Built and signed
+  # (with its own sandbox) by native/build-quicklook.sh; electron-builder never
+  # re-signs what is in Contents/PlugIns, so that signature stays.
+  extraFiles:
+    - from: build/quicklook/HaligtreeQuickLook.appex
+      to: PlugIns/HaligtreeQuickLook.appex
   notarize: false
 dmg:
   artifactName: Haligtree-${version}.${ext}
