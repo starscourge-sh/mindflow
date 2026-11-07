@@ -84,6 +84,7 @@ import { registerTranscribe } from './transcribe'
 import { meetingNow, meetingState, registerMeeting, startMeeting, stopMeeting, type Live } from './meeting'
 import { Stopped, begin, end as endJob, registerJobs } from './jobs'
 import { registerLabels } from './labels'
+import { registerDefaultApp } from './default-app'
 import { readCopy, registerPdfText } from './pdf-text'
 import { registerStudyAi, registerUnderstand } from './understand'
 import { registerServices, whenFilesSent } from './services'
@@ -4293,6 +4294,7 @@ app.whenReady().then(() => {
   })
   registerJobs()
   registerLabels()
+  registerDefaultApp()
   registerPdfText()
   registerUnderstand()
   registerStudyAi(aiStudyOn)

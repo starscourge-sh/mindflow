@@ -1332,6 +1332,7 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
             <ImportButton what="files">Files…</ImportButton>
             {!SANDBOX && <Button variant="outline" size="sm" onClick={() => askBook('import')}>Into another book…</Button>}
           </Setting>
+          <MarkdownDefault />
           <MarkdownCopy />
           <Setting title="Export everything" note="All of it as JSON and Markdown, in a folder you choose." more="Yours to read without this app.">
             <ExportButton />
@@ -2406,5 +2407,21 @@ function StudyAiSetting({ on, set }: { on: boolean; set: (on: boolean) => void }
         {has && <Switch aria-label="Apple Intelligence" checked={on} onCheckedChange={set} />}
       </Setting>
     </div>
+  )
+}
+
+/**
+ * Haligtree as what a Markdown file opens in on a double-click in Finder. One press asks the Mac; after that it
+ * says so, and how to give it back to another app (Finder's Get Info), since the Mac keeps one default per kind.
+ */
+function MarkdownDefault(): React.JSX.Element {
+  const [mine, setMine] = useState<boolean | null>(null)
+  useEffect(() => void call<boolean>('markdown-default').then(setMine), [])
+  const make = (): void => void call<boolean>('markdown-default:set').then((ok) => (setMine(ok), ok ? chime('noted') : refuse('The Mac would not change it. In Finder, pick a .md file, Get Info, then “Open with” and “Change All…”.')))
+  return (
+    <Setting title="Open Markdown files here" note="A .md file double-clicked in Finder opens in Haligtree, as a note you can keep." more="To give them back to another app: pick a .md file in Finder, Get Info, “Open with”, then “Change All…”." keywords="markdown md default app open with finder double click">
+      {mine ? <span data-markdown-default="on" className="text-control text-muted-foreground">Haligtree opens them</span>
+        : <Button size="sm" variant="outline" className="h-8 cursor-pointer px-3" data-markdown-default="off" disabled={mine === null} onClick={make}>Make Haligtree the default</Button>}
+    </Setting>
   )
 }
