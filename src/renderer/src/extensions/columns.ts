@@ -2,6 +2,7 @@ import { Node, type JSONContent } from "@tiptap/core"
 import type { Fragment } from "@tiptap/pm/model"
 import { NodeSelection, Plugin, PluginKey, type Transaction } from "@tiptap/pm/state"
 import type { EditorView } from "@tiptap/pm/view"
+import { click } from "@/lib/sound"
 
 /**
  * One column: any blocks at all. `isolating` so Backspace at its start does
@@ -12,12 +13,23 @@ export const Column = Node.create({
   content: "block+",
   isolating: true,
 
+  addAttributes() {
+    return {
+      // Its share of the row against its neighbours (1 each, equal, when unset), set by dragging the gap between two.
+      width: {
+        default: null,
+        parseHTML: (element) => Number(element.getAttribute("data-width")) || null,
+        renderHTML: (attributes) => (attributes.width ? { "data-width": attributes.width, style: `flex-grow: ${attributes.width}` } : {}),
+      },
+    }
+  },
+
   parseHTML() {
     return [{ tag: "div[data-column]" }]
   },
 
-  renderHTML() {
-    return ["div", { "data-column": "", class: "mf-column" }, 0]
+  renderHTML({ HTMLAttributes }) {
+    return ["div", { ...HTMLAttributes, "data-column": "", class: "mf-column" }, 0]
   },
 
   renderMarkdown(node, { renderChildren }) {
@@ -73,7 +85,7 @@ export const Columns = Node.create({
     ),
 
   addProseMirrorPlugins() {
-    return [columnDrop()]
+    return [columnDrop(), columnResize()]
   },
 
   renderMarkdown(node, { renderChildren }) {
@@ -91,7 +103,7 @@ export const emptyColumns = (count: number): JSONContent => ({
 /* Dropping a block beside another ----------------------------------------- */
 
 /** Most columns a row holds; past that each is too narrow to write in. */
-const MOST = 3
+const MOST = 4
 /** How near a block's side the pointer must be. Left is narrow: a drag down the gutter passes close to it. */
 const NEAR_LEFT = 24
 const NEAR_RIGHT = 56
@@ -248,16 +260,17 @@ class BesideLine {
     if (beside && parent) this.marked = parent
     const dom = beside && this.view.nodeDOM(beside.pos)
     if (!beside || !(dom instanceof HTMLElement) || !parent) return this.remove()
-    if (!this.line) {
-      this.line = parent.appendChild(document.createElement("div"))
-      this.line.className = "mf-column-drop"
-    }
     const box = dom.getBoundingClientRect()
     const frame = parent.getBoundingClientRect()
     // Half the gap a row leaves between columns, so it sits where the seam will be.
     const x = beside.side === "left" ? box.left - 10 : box.right + 8
     // One transform (main.scss .mf-column-drop is a 100px line at the corner), so moving it lays nothing out.
-    this.line.style.transform = `translate(${x - frame.left + parent.scrollLeft}px, ${box.top - frame.top + parent.scrollTop}px) scaleY(${box.height / 100})`
+    const transform = `translate(${x - frame.left + parent.scrollLeft}px, ${box.top - frame.top + parent.scrollTop}px) scaleY(${box.height / 100})`
+    // Placed before it is put in the page: put in first, it glided in from the page's top left corner.
+    const fresh = !this.line
+    this.line ??= Object.assign(document.createElement("div"), { className: "mf-column-drop" })
+    this.line.style.transform = transform
+    if (fresh) parent.appendChild(this.line)
   }
 
   // Every editor's plugin views are taken down and made again as it opens:
@@ -303,6 +316,116 @@ const columnDrop = (): Plugin<Beside | null> =>
         dragend: (view) => {
           if (besideKey.getState(view.state)) view.dispatch(view.state.tr.setMeta(besideKey, null))
           return false
+        },
+      },
+    },
+  })
+
+/* Dragging the gap between two columns ------------------------------------ */
+
+/** The narrowest a column is dragged down to, in pixels. */
+const NARROWEST = 96
+/** Shares a gap is drawn into as it passes: halves, thirds, quarters. */
+const RESTS = [1 / 4, 1 / 3, 1 / 2, 2 / 3, 3 / 4]
+/** How near a rest the gap must come, as a share of the two columns. */
+const PULL = 0.025
+
+type Seam = { row: HTMLElement; left: HTMLElement; right: HTMLElement }
+
+/** The gap between two columns side by side under the pointer, if any: rows stacked on a narrow page have none. */
+function seamAt(view: EditorView, event: MouseEvent): Seam | null {
+  const row = (event.target as HTMLElement | null)?.closest?.<HTMLElement>(".mf-columns-row")
+  if (!row || !view.dom.contains(row) || getComputedStyle(row).flexDirection === "column") return null
+  const columns = [...row.children] as HTMLElement[]
+  for (let i = 0; i + 1 < columns.length; i++) {
+    const a = columns[i].getBoundingClientRect()
+    const b = columns[i + 1].getBoundingClientRect()
+    if (event.clientX >= a.right - 2 && event.clientX <= b.left + 2 && event.clientY >= Math.min(a.top, b.top) && event.clientY <= Math.max(a.bottom, b.bottom)) {
+      return { row, left: columns[i], right: columns[i + 1] }
+    }
+  }
+  return null
+}
+
+/** Where a column's own node starts, from its element. */
+const columnPos = (view: EditorView, dom: HTMLElement): number => view.posAtDOM(dom, 0) - 1
+
+/** Writes on a column's element without the editor reading it as an edit. */
+function quietly(view: EditorView, change: () => void): void {
+  const observer = (view as unknown as { domObserver?: { stop(): void; start(): void } }).domObserver
+  observer?.stop()
+  change()
+  observer?.start()
+}
+
+/**
+ * The gap between two columns is a handle: the pointer over it shows the
+ * resize arrows and a line in the gap, and a drag moves the share between the
+ * two, drawn into halves, thirds and quarters as it passes them. Letting go
+ * keeps it, in one step ⌘Z takes back.
+ */
+export const columnResize = (): Plugin =>
+  new Plugin({
+    props: {
+      handleDOMEvents: {
+        mousemove: (view, event) => {
+          if (event.buttons) return false
+          const seam = seamAt(view, event)
+          quietly(view, () => view.dom.classList.toggle("mf-on-seam", !!seam))
+          return false
+        },
+        mouseleave: (view) => {
+          quietly(view, () => view.dom.classList.remove("mf-on-seam"))
+          return false
+        },
+        mousedown: (view, event) => {
+          if (event.button !== 0 || !view.editable) return false
+          const seam = seamAt(view, event)
+          if (!seam) return false
+          event.preventDefault()
+          const leftPos = columnPos(view, seam.left)
+          const rightPos = columnPos(view, seam.right)
+          const leftNode = view.state.doc.nodeAt(leftPos)
+          const rightNode = view.state.doc.nodeAt(rightPos)
+          if (leftNode?.type.name !== "column" || rightNode?.type.name !== "column") return false
+          const a = seam.left.getBoundingClientRect().width
+          const b = seam.right.getBoundingClientRect().width
+          const share = (Number(leftNode.attrs.width) || 1) + (Number(rightNode.attrs.width) || 1)
+          const startX = event.clientX
+          let ratio = a / (a + b)
+          let rest: number | null = null
+          quietly(view, () => view.dom.classList.add("mf-resizing"))
+          const move = (next: MouseEvent): void => {
+            const raw = Math.min(Math.max(a + next.clientX - startX, NARROWEST), a + b - NARROWEST) / (a + b)
+            const near = RESTS.find((one) => Math.abs(raw - one) < PULL) ?? null
+            if (near !== null && near !== rest) {
+              click("tick")
+              ;(window as { api?: { tap?: () => void } }).api?.tap?.()
+            }
+            rest = near
+            ratio = near ?? raw
+            quietly(view, () => {
+              seam.left.style.flexGrow = String(share * ratio)
+              seam.right.style.flexGrow = String(share * (1 - ratio))
+            })
+          }
+          const up = (): void => {
+            window.removeEventListener("mousemove", move)
+            window.removeEventListener("mouseup", up)
+            quietly(view, () => view.dom.classList.remove("mf-resizing"))
+            const round = (n: number): number => Math.round(n * 1000) / 1000
+            const left = view.state.doc.nodeAt(leftPos)
+            const right = view.state.doc.nodeAt(rightPos)
+            if (left?.type.name !== "column" || right?.type.name !== "column") return
+            view.dispatch(
+              view.state.tr
+                .setNodeMarkup(leftPos, undefined, { ...left.attrs, width: round(share * ratio) })
+                .setNodeMarkup(rightPos, undefined, { ...right.attrs, width: round(share * (1 - ratio)) }),
+            )
+          }
+          window.addEventListener("mousemove", move)
+          window.addEventListener("mouseup", up)
+          return true
         },
       },
     },
