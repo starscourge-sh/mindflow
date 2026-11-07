@@ -1189,6 +1189,8 @@ export function registerHaligtree(): void {
   column('tasks', 'skips integer not null default 0')
   // Put on hold by a fresh start: out of every list until its day comes, or it is opened.
   column('tasks', 'held_at text')
+  // The line a task was made a step of: its words live there now, so the Bin never offers a second copy back.
+  column('tasks', 'step_of text')
   db.exec('update tasks set priority = 2 where important = 1 and priority = 0')
   // Tasks made before a front "#tag," lost its comma: the same words without it. Safe to run every start.
   for (const task of db.prepare("select id, title from tasks where title like '#%'").all() as { id: string; title: string }[]) {
@@ -2126,7 +2128,7 @@ export function registerHaligtree(): void {
   handle('bin:list', () => db.prepare(`select * from (
       select 'capture' as type, id, ${LABEL} as title, kind, coalesce(exited_at, captured_at) as at, null as line from captures where status = 'discarded'
       union all
-      select 'task', id, title, 'todo', coalesce(completed_at, created_at), case when trim(title) in ('', 'Untitled') then label('', notes) end from tasks where status = 'dropped'
+      select 'task', id, title, 'todo', coalesce(completed_at, created_at), case when trim(title) in ('', 'Untitled') then label('', notes) end from tasks where status = 'dropped' and step_of is null
       union all
       select tier, id, coalesce(nullif(title, ''), label('', body)), kind, binned_at, case when trim(title) = 'Untitled' then label('', body) end from nuggets where binned_at is not null
     ) order by at desc limit 1000`).all().concat(eventsInBin(), practicesInBin(), mediaInBin()).sort((a, b) => String((b as { at: string }).at).localeCompare(String((a as { at: string }).at))))
@@ -3946,8 +3948,8 @@ export function registerHaligtree(): void {
     db.prepare('insert or ignore into task_links (task_id, item_id) values (?, ?)').run(task.id, itemId)
     return write(task)
   })
-  const TASK_COLUMNS = { title: 'title', allDay: 'all_day', recurrence: 'recurrence', waitingOn: 'waiting_on', estimate: 'estimate', sortOrder: 'sort_order', important: 'important', deadline: 'deadline_at', deadlineTimed: 'deadline_timed', blocker: 'blocker', blockedBy: 'blocked_by', reschedules: 'reschedules', notify: 'notify', priority: 'priority', plan: 'plan_for', until: 'repeat_until', snoozedUntil: 'snoozed_until', getReady: 'get_ready', rollovers: 'rollovers', skips: 'skips' } as const
-  const saveTaskOne = (id: string, patch: { allDay?: number; title?: string; until?: string | null; notes?: unknown; due?: string | null; recurrence?: string | null; status?: string; waitingOn?: string | null; subtasks?: unknown; estimate?: number | null; sortOrder?: number | null; important?: number; deadline?: string | null; deadlineTimed?: number; blocker?: string | null; blockedBy?: string | null; reschedules?: number; notify?: string | null; priority?: number; plan?: string | null; notifiedAt?: string | null; completedAt?: string | null; snoozedUntil?: string | null; getReady?: number | null; rollovers?: number; skips?: number }) => {
+  const TASK_COLUMNS = { stepOf: 'step_of', title: 'title', allDay: 'all_day', recurrence: 'recurrence', waitingOn: 'waiting_on', estimate: 'estimate', sortOrder: 'sort_order', important: 'important', deadline: 'deadline_at', deadlineTimed: 'deadline_timed', blocker: 'blocker', blockedBy: 'blocked_by', reschedules: 'reschedules', notify: 'notify', priority: 'priority', plan: 'plan_for', until: 'repeat_until', snoozedUntil: 'snoozed_until', getReady: 'get_ready', rollovers: 'rollovers', skips: 'skips' } as const
+  const saveTaskOne = (id: string, patch: { stepOf?: string | null; allDay?: number; title?: string; until?: string | null; notes?: unknown; due?: string | null; recurrence?: string | null; status?: string; waitingOn?: string | null; subtasks?: unknown; estimate?: number | null; sortOrder?: number | null; important?: number; deadline?: string | null; deadlineTimed?: number; blocker?: string | null; blockedBy?: string | null; reschedules?: number; notify?: string | null; priority?: number; plan?: string | null; notifiedAt?: string | null; completedAt?: string | null; snoozedUntil?: string | null; getReady?: number | null; rollovers?: number; skips?: number }) => {
     // What a move changes on its own (the reschedule count, whether it was told
     // about), given back so its undo can put both back exactly.
     const before = db.prepare('select reschedules, notified_at as notifiedAt from tasks where id = ?').get(id) as { reschedules: number; notifiedAt: string | null } | undefined

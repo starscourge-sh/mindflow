@@ -244,7 +244,7 @@ export type Stats = {
 }
 
 /** What a task's save may change. */
-export type TaskPatch = Partial<{ allDay: number; title: string; until: string | null; notes: unknown; due: string | null; recurrence: string | null; status: string; waitingOn: string | null; subtasks: Subtask[]; estimate: number | null; sortOrder: number | null; important: number; deadline: string | null; deadlineTimed: number; blocker: string | null; blockedBy: string | null; reschedules: number; notify: string | null; priority: number; plan: string | null; notifiedAt: string | null; completedAt: string | null; snoozedUntil: string | null; getReady: number | null; rollovers: number; skips: number }>
+export type TaskPatch = Partial<{ /** The line it was made a step of: it lives there now, so the Bin never offers it back. */ stepOf: string | null; allDay: number; title: string; until: string | null; notes: unknown; due: string | null; recurrence: string | null; status: string; waitingOn: string | null; subtasks: Subtask[]; estimate: number | null; sortOrder: number | null; important: number; deadline: string | null; deadlineTimed: number; blocker: string | null; blockedBy: string | null; reschedules: number; notify: string | null; priority: number; plan: string | null; notifiedAt: string | null; completedAt: string | null; snoozedUntil: string | null; getReady: number | null; rollovers: number; skips: number }>
 
 export const haligtree = {
   /** Other names a note goes by; `setAliases` gives back the list it had, for an undo. */
