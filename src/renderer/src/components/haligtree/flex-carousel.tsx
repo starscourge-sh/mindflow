@@ -501,19 +501,6 @@ export default function FlexCarousel({
     }
 
     const fits = (m: Metrics): boolean => !m.ring && m.loop - m.gap <= width * 0.92
-    // Where a row that neither loops nor fits is drawn from: never further than its first picture at the row's left
-    // edge, or its last at the right. Centred, the first book sat in the middle with half the row empty beside it.
-    const ends = (m: Metrics): [number, number] | null => {
-      if (m.ring || fits(m) || !m.centers.length) return null
-      const n = m.centers.length
-      const lo = m.centers[0] - m.widths[0] / 2 + width / 2 - FIT_INSET
-      const hi = m.centers[n - 1] + m.widths[n - 1] / 2 - width / 2 + FIT_INSET
-      return lo < hi ? [lo, hi] : null
-    }
-    const drawnAt = (m: Metrics, at: number): number => { const e = ends(m); return e ? Math.min(e[1], Math.max(e[0], at)) : at }
-    // How much of the bend a row that stops at its ends keeps: none at an end, where its first or last picture sits at
-    // the row's edge (bent, it read as torn); all of it half a row in.
-    const bendAt = (m: Metrics, at: number): number => { const e = ends(m); return e ? Math.min(1, Math.max(0, Math.min(at - e[0], e[1] - at) / (width * 0.5))) : 1 }
 
     const nearest = (m: Metrics, at: number): number => {
       let best = 0
@@ -764,7 +751,7 @@ export default function FlexCarousel({
         const draws: Draw[] = []
         for (let i = 0; i < n; i++) {
           const w = m.widths[i]
-          const baseRel = around(m, m.centers[i] - drawnAt(m, pos))
+          const baseRel = around(m, m.centers[i] - pos)
           for (let k = m.ring ? -3 : 0; k <= (m.ring ? 3 : 0); k++) {
             const rel = baseRel + k * m.loop
             if (Math.abs(rel) - w / 2 > width + 40) continue
@@ -825,18 +812,14 @@ export default function FlexCarousel({
         lensUniforms.uDispersion.value = GLASS.dispersion * 0.12
         // Brought close, a picture is shown straight, without the bend.
         // A row that fits whole lies flat: no bend at its edges to cut into the titles under it.
-        lensUniforms.uStrength.value = fits(m) ? 0 : effects.strength * (1 - focusEase) * bendAt(m, drawnAt(m, pos))
+        lensUniforms.uStrength.value = fits(m) ? 0 : effects.strength * (1 - focusEase)
         lensUniforms.uSceneAlpha.value = effects.sceneAlpha
         renderer.render({ scene: lensMesh })
       }
 
       // The title sits under the picked one: the middle one, or in a row that fits, wherever it is.
       const under = instances.find((inst) => inst.index === activeIndex)
-      // At an end, that side has nothing past it: no fade there.
-      const e = ends(m), atStart = !!e && pos <= e[0] + 1, atEnd = !!e && pos >= e[1] - 1
-      if (container.hasAttribute('data-at-start') !== atStart) container.toggleAttribute('data-at-start', atStart)
-      if (container.hasAttribute('data-at-end') !== atEnd) container.toggleAttribute('data-at-end', atEnd)
-      const nextX = under && (fits(m) || drawnAt(m, pos) !== pos) ? (under.x0 + under.x1) / 2 - width / 2 : 0
+      const nextX = under && fits(m) ? (under.x0 + under.x1) / 2 - width / 2 : 0
       if (Math.abs(nextX - titleX) > 0.5) {
         titleX = nextX
         frameRef.current?.style.setProperty('--flex-carousel-x', `${titleX.toFixed(1)}px`)
@@ -1169,7 +1152,7 @@ export default function FlexCarousel({
         <div
           ref={containerRef}
           data-swipe-own
-          className={`group/row pointer-events-none relative min-w-0 flex-1 cursor-grab touch-pan-y outline-none select-none overflow-hidden overscroll-contain [-webkit-tap-highlight-color:transparent] [mask-image:linear-gradient(to_right,transparent,#000_7%,#000_93%,transparent)] data-[fits]:[mask-image:none] data-[at-start]:[mask-image:linear-gradient(to_right,#000,#000_93%,transparent)] data-[at-end]:[mask-image:linear-gradient(to_right,transparent,#000_7%,#000)] data-[hover=focus]:cursor-zoom-in data-[hover=close]:cursor-zoom-out data-[hover=open]:cursor-pointer data-[dragging]:cursor-grabbing`}
+          className={`group/row pointer-events-none relative min-w-0 flex-1 cursor-grab touch-pan-y outline-none select-none overflow-hidden overscroll-contain [-webkit-tap-highlight-color:transparent] [mask-image:linear-gradient(to_right,transparent,#000_7%,#000_93%,transparent)] data-[fits]:[mask-image:none] data-[hover=focus]:cursor-zoom-in data-[hover=close]:cursor-zoom-out data-[hover=open]:cursor-pointer data-[dragging]:cursor-grabbing`}
           // Taller than the row by the glass's bleed; only the row itself (the box inside) takes the pointer, so the bleed never covers what is above or below.
           style={{ height: `calc(100% + ${BLEED * 2}px)`, marginBlock: -BLEED }}
           role="region"
