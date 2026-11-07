@@ -83,6 +83,8 @@ interface Draw {
 // The glass: how wide and tall it is (as parts of the width), its tilt in
 // degrees, how far the bend reaches in from its edge, and how much the
 // colours split there. The liquid preset's numbers, as React Bits ships them.
+/** The widest a card may be, as width over height: a wide screenshot is cropped to it (the shader covers the card) rather than filling the row. */
+const WIDEST = 1.5
 const GLASS = { width: 0.74, height: 1.18, tilt: 62, bend: 0.34, reach: 0.38, dispersion: 0.45 }
 const TAPS = 12
 // At most this many pixels drawn, however large the window.
@@ -485,7 +487,7 @@ export default function FlexCarousel({
       // As tall a part of the whole row (pictures and the caption row under them) as asked, never past the pictures' box.
       const room = height - BLEED * 2
       const cardH = Math.max(24, Math.min(room - TOP * 2, s.cardHeight * (room + CAPTION)))
-      const widths = slots.map((slot) => slot.aspect * cardH)
+      const widths = slots.map((slot) => Math.min(slot.aspect, WIDEST) * cardH)
       const centers: number[] = []
       let cursor = 0
       let widest = 0
