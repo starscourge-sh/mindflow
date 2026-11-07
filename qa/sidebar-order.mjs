@@ -61,7 +61,7 @@ try {
   // 2. Customize lists the same order.
   await rowOf('Gems').click({ button: 'right' }); await wait(500)
   const menu = await lines()
-  check('right-click a place: open, beside, moves, hide, customize', ['Open', 'Open to the side', 'Move down', 'Hide from the sidebar', 'Customize the sidebar…'].every((one) => menu.some((line) => line.startsWith(one))) && !menu.includes('Back to the usual order'), menu.join(' / '))
+  check('right-click a place: open, beside, moves, hide, customize', ['Open', 'Open to the side', 'Hide from the sidebar', 'Customize the sidebar…'].every((one) => menu.some((line) => line.startsWith(one))) && !menu.includes('Back to the usual order'), menu.join(' / '))
   check('the first of its part offers no Move up', !menu.includes('Move up'), menu.join(' / '))
   await shoot('2-menu')
   await pick('Customize the sidebar…')

@@ -1,4 +1,5 @@
 import { TabControls, useToolbarCompact } from './review-toolbar'
+import { swallowRelease } from './carry'
 import { TABLE_LEAD, TABLE_NAME, TABLE_QUIET, TABLE_ROW, TABLE_WHEN, TableHead } from './table-look'
 import { PICKED_ROW } from './task-pick'
 import { TriangleAlert } from 'lucide-react'
@@ -322,8 +323,6 @@ export function CardBrowser({ onOpen, aim, only, newest, onAll, onShow, onAimDon
   // A few hundred drawn at a time: a book of 5,000 cards opens at once, and shows more as asked.
   const [limit, setLimit] = useState(200)
   const [ownEditing, setOwnEditing] = useState<string | null>(null)
-  // When a card was opened by pressing it while another was open: the click that follows is that same press, not a second one.
-  const handedAt = useRef(0)
   // Held by Review when it is given (each card opened is a step), else here.
   const editing = open !== undefined ? open : ownEditing
   const setEditing = (id: string | null): void => (onOpenCard ? onOpenCard(id) : setOwnEditing(id))
@@ -563,7 +562,7 @@ export function CardBrowser({ onOpen, aim, only, newest, onAll, onShow, onAimDon
     const on = several.picked(pick(card))
     const common = {
       'data-pick': `nugget:${card.id}`, role: 'button', tabIndex: 0, 'aria-selected': on,
-      onClick: (event: React.MouseEvent) => several.click(event, pick(card)) || Date.now() - handedAt.current < 600 || (chime('tap'), setEditing(editing === card.id ? null : card.id))
+      onClick: (event: React.MouseEvent) => several.click(event, pick(card)) || (chime('tap'), setEditing(editing === card.id ? null : card.id))
     }
     // The Bin's table (table-look.tsx), one line a card: its stage first, quiet, as the Bin says a kind; the question
     // in ink; in Table its answer too; its decks; when it is next asked, flush right. Fixes, where asked for, on a line under.
@@ -591,7 +590,7 @@ export function CardBrowser({ onOpen, aim, only, newest, onAll, onShow, onAimDon
   const cell = (card: BrowsedCard): React.JSX.Element => (
     <div key={card.id} data-card-row={card.id} className="contents">
       {editing === card.id
-        ? <div className={density === 'grid' ? 'col-span-full' : ''}><EditCard card={card} tint={tintOf(card)} onDone={(next) => { if (next) return void ((handedAt.current = Date.now()), chime('tap'), setEditing(next)); setEditing(null); requestAnimationFrame(() => list.current?.querySelector<HTMLElement>(`[data-pick="nugget:${card.id}"]`)?.focus()) }} /></div>
+        ? <div className={density === 'grid' ? 'col-span-full' : ''}><EditCard card={card} tint={tintOf(card)} onDone={(next) => { if (next) return void (swallowRelease(), chime('tap'), setEditing(next)); setEditing(null); requestAnimationFrame(() => list.current?.querySelector<HTMLElement>(`[data-pick="nugget:${card.id}"]`)?.focus()) }} /></div>
         : <RowMenu items={() => menu(card)}>{density === 'grid' ? <div className="relative min-w-0">{poster(card)}{/* A card too big, slow or often forgotten is marked on its poster too, as in a list. */}{mark(card) && <span className="flex pt-1.5">{mark(card)}</span>}</div> : row(card)}</RowMenu>}
       {fixer(card)}
     </div>
