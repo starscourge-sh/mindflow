@@ -1,5 +1,5 @@
 import { openItems } from '@/lib/split'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { NameInPlace } from './name-in-place'
 import { Branches } from './branches'
 import { createPortal } from 'react-dom'
@@ -13,6 +13,9 @@ import { num } from '../../../../main/dates'
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
 import { Unfold, Weighted } from './glide'
 import { GroupIcon, IconChoice } from './kept-groups'
+import { CarriedCard, swallowClick, swallowRelease } from './carry'
+import { pastEdge } from '@/lib/drag-edge'
+import { slotTicker } from '@/lib/proximity'
 import { RowMenu, openFromGrip, type RowItem } from './row-menu'
 import { FolderPen, FolderHeart } from 'lucide-react'
 import { Count, Tip, quietly, refuse, toast } from './ui'
@@ -95,15 +98,9 @@ export function SideFolders({ list, counted, open, shown, here, noteRow, onOpen,
     const at = parent ? layout.groups[parent] ?? [] : layout.top
     return all.filter((one) => (one.parent && all.some((other) => other.id === one.parent) ? one.parent : null) === parent).sort((a, b) => at.indexOf(KEY + a.id) - at.indexOf(KEY + b.id))
   }
-  // A folder being carried, and where it would land: inside one, or by one's top or bottom edge.
+  // A folder being carried, and where it would land: inside one, or just before or after one.
   const [carried, setCarried] = useState<{ id: string; x: number; y: number } | null>(null)
   const [aim, setAim] = useState<Aim | null>(null)
-  useEffect(() => {
-    if (!carried) return
-    const follow = (event: DragEvent): void => setCarried((was) => was && { ...was, x: event.clientX, y: event.clientY })
-    document.addEventListener('dragover', follow)
-    return () => document.removeEventListener('dragover', follow)
-  }, [!!carried]) // eslint-disable-line react-hooks/exhaustive-deps
   const count = (group: NoteGroup): number => group.members.filter((id) => shown.has(id)).length + kids(group.id).reduce((sum, one) => sum + count(one), 0)
   const levelOf = (id: string | null): number => (id ? 1 + levelOf(all.find((one) => one.id === id)?.parent ?? null) : 0)
   const heightOf = (id: string): number => 1 + Math.max(0, ...kids(id).map((one) => heightOf(one.id)))
@@ -128,26 +125,112 @@ export function SideFolders({ list, counted, open, shown, here, noteRow, onOpen,
     if (levelOf(parent) + heightOf(id) > DEPTH) return refuse(`Folders go ${DEPTH} levels deep`)
     const beside = (parent ? layout.groups[parent] ?? [] : layout.top).filter((key) => key !== KEY + id)
     const after = how === 'after' ? KEY + target : beside[beside.indexOf(KEY + target) - 1] ?? null
+    if (beside.indexOf(after ?? '') + 1 === (parent ? layout.groups[parent] ?? [] : layout.top).indexOf(KEY + id) && group.parent === parent) return chime('stay')
     const next = moveTo(layout, KEY + id, { group: parent, after })
     const was = layout
     chime('gather')
     void groups.arrange(list, next).then(() => toast(`Moved ${group.name} ${how} ${by.name}`, () => void groups.arrange(list, was)))
   }
-  const drag: Drag = {
-    carried: carried?.id ?? null,
-    aim,
-    lift: (id, x, y) => setCarried({ id, x, y }),
-    over: setAim,
-    drop: (target, how) => {
-      const id = carried?.id
+  // Carried as a list's row is: the same hand, the same card, Esc puts it back, and its folder's real edge says in or out.
+  const ticks = useRef(slotTicker()).current
+  const within = useRef(new Set<string>())
+  const aimRef = useRef<Aim | null>(null)
+  const rowBox = (id: string): DOMRect | undefined => document.querySelector(`[data-side-folders="${list}"] [data-side-folder="${CSS.escape(id)}"]`)?.closest('[data-folder-line]')?.getBoundingClientRect()
+  const treeOf = (id: string): string[] => [id, ...kids(id).filter(isFolder).flatMap((one) => treeOf(one.id))]
+  const parentIn = (id: string | null | undefined): string | null => (id && all.find((one) => one.id === id)?.parent) || null
+  const read = (id: string, x: number, y: number): Aim | null => {
+    const tree = document.querySelector(`[data-side-folders="${list}"]`)?.getBoundingClientRect()
+    // Off the sidebar's side, nothing here takes it; the same for far under the last folder.
+    if (!tree || x < tree.left - 24 || x > tree.right + 24 || y > tree.bottom + 56) return null
+    const mine = treeOf(id)
+    let over: { id: string; top: number; height: number } | null = null
+    let far = Infinity
+    for (const one of all.filter(isFolder)) {
+      const box = mine.includes(one.id) ? undefined : rowBox(one.id)
+      if (!box) continue
+      const off = y < box.top ? box.top - y : y > box.bottom ? y - box.bottom : 0
+      if (off < far) (far = off), (over = { id: one.id, top: box.top, height: box.height })
+    }
+    if (!over) return null
+    const chain = (at: string): string[] => [...(parentIn(at) ? chain(parentIn(at)!) : []), at]
+    const boxes = chain(over.id).flatMap((at) => {
+      const shown = treeOf(at).map(rowBox).filter((one): one is DOMRect => !!one)
+      return shown.length ? [{ id: at, top: Math.min(...shown.map((one) => one.top)), bottom: Math.max(...shown.map((one) => one.bottom)) }] : []
+    })
+    const line = (at: string, how: 'before' | 'after'): Aim => {
+      const shown = treeOf(at).map(rowBox).filter((one): one is DOMRect => !!one)
+      const row = rowBox(at)!
+      return { target: at, how, y: how === 'before' ? row.top - 1 : Math.max(...shown.map((one) => one.bottom)) + 1, left: row.left + 16, right: tree.right - 4 }
+    }
+    const past = pastEdge(boxes, y, within.current)
+    if (past) return line(past.id, past.how)
+    const at = (y - over.top) / over.height
+    return at < 0.3 ? line(over.id, 'before') : at > 0.7 ? line(over.id, 'after') : { target: over.id, how: 'into', y: 0, left: 0, right: 0 }
+  }
+  const carry = (event: React.PointerEvent, id: string): void => {
+    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return
+    const [x0, y0] = [event.clientX, event.clientY]
+    let lifted = false
+    let ring = parentIn(id)
+    const point = (next: Aim | null): void => {
+      if (JSON.stringify(aimRef.current) === JSON.stringify(next)) return
+      aimRef.current = next
+      setAim(next)
+      if (!next) return
+      // What would hold it: crossing a folder's edge either way is the firm tap, a new place among the same folder's the light one.
+      const holds = next.how === 'into' ? next.target : parentIn(next.target)
+      ticks(`${next.how}:${next.target}`, holds !== ring)
+      ring = holds
+    }
+    const move = (e: PointerEvent): void => {
+      if (!lifted) {
+        if (Math.hypot(e.clientX - x0, e.clientY - y0) < 5) return
+        lifted = true
+        within.current.clear()
+        ticks.start(id)
+        chime('lift')
+        document.documentElement.dataset.dragging = ''
+        document.getSelection()?.removeAllRanges()
+      }
+      setCarried({ id, x: e.clientX, y: e.clientY })
+      point(read(id, e.clientX, e.clientY))
+    }
+    const finish = (): void => {
+      window.removeEventListener('pointermove', move, true)
+      window.removeEventListener('pointerup', up, true)
+      window.removeEventListener('pointercancel', cancel, true)
+      window.removeEventListener('keydown', key, true)
+      delete document.documentElement.dataset.dragging
+      aimRef.current = null
       setAim(null)
       setCarried(null)
-      if (!id || id === target) return
-      if (how === 'into') nest(id, target)
-      else reorder(id, target, how)
-    },
-    end: () => (setAim(null), setCarried(null))
+    }
+    const cancel = (): void => {
+      finish()
+      if (lifted) chime('stay')
+    }
+    const up = (): void => {
+      const now = aimRef.current
+      finish()
+      if (!lifted) return
+      swallowClick()
+      if (!now) return chime('stay')
+      if (now.how === 'into') nest(id, now.target)
+      else reorder(id, now.target, now.how)
+    }
+    const key = (e: KeyboardEvent): void => {
+      if (e.key !== 'Escape' || !lifted) return
+      e.preventDefault()
+      e.stopPropagation()
+      swallowRelease()
+      cancel()
+    }
+    window.addEventListener('pointermove', move, true)
+    window.addEventListener('pointerup', up, true)
+    window.addEventListener('pointercancel', cancel, true)
+    window.addEventListener('keydown', key, true)
   }
+  const drag: Drag = { carried: carried?.id ?? null, aim, carry }
   const lifted = carried && all.find((one) => one.id === carried.id)
   // Each level hung off a thin trunk from the row above it, a curved branch to each folder, as Pinned and
   // Tags are; the way down to the folder you are in lit. Each level steps in under its parent's icon.
@@ -190,11 +273,16 @@ export function SideFolders({ list, counted, open, shown, here, noteRow, onOpen,
     <Unfold open={open}>
       <div data-side-folders={list}>{top}</div>
       {/* The folder carried, as a row is carried in the list: lifted under the pointer, in the app's own look. */}
-      {lifted && carried.x > 0 && createPortal(
-        <div aria-hidden data-folder-ghost={lifted.id} className="pointer-events-none fixed z-[80] flex items-center gap-2 rounded-md bg-background px-2.5 py-1 text-control shadow-[0_8px_24px_-6px_color-mix(in_oklab,var(--mf-shadow-ink)_35%,transparent)] ring-1 ring-foreground/10" style={{ left: carried.x + 10, top: carried.y - 14 }}>
-          <GroupIcon icon={lifted.icon} color={lifted.color} className="size-3.5" />
-          <span className="max-w-48 truncate">{lifted.name}</span>
+      {lifted && createPortal(
+        <div aria-hidden className="pointer-events-none fixed z-[80]" style={{ left: carried.x + 18, top: carried.y, translate: '0 -50%' }}>
+          <CarriedCard attrs={{ 'data-folder-ghost': lifted.id }} icon={<GroupIcon icon={lifted.icon} color={lifted.color} className="size-3.5" />} title={lifted.name} />
         </div>,
+        document.body
+      )}
+      {/* Where it lands, as the list draws it: a line with a ring at its start, at the edge it was read against. */}
+      {aim && aim.how !== 'into' && createPortal(
+        <span aria-hidden data-drop-line={aim.how} className="pointer-events-none fixed z-[70] h-0.5 -translate-y-1/2 rounded-full bg-(--tt-brand-color-400) before:absolute before:-top-[3px] before:-left-2 before:size-2 before:rounded-full before:border-2 before:border-(--tt-brand-color-400) before:bg-background"
+          style={{ top: aim.y, left: aim.left, width: aim.right - aim.left }} />,
         document.body
       )}
     </Unfold>
@@ -204,10 +292,8 @@ export function SideFolders({ list, counted, open, shown, here, noteRow, onOpen,
 /** Groups listed before the rest fold behind "Show all". */
 const GROUPS_SHOWN = 6
 
-type Aim = { target: string; how: 'into' | 'before' | 'after' }
-type Drag = { carried: string | null; aim: Aim | null; lift: (id: string, x: number, y: number) => void; over: (aim: Aim | null) => void; drop: (target: string, how: Aim['how']) => void; end: () => void }
-/** Handed to the browser as a carried folder's picture: nothing, so only the app's own lifted row shows. */
-const BLANK = typeof Image === 'undefined' ? null : Object.assign(new Image(), { src: 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7' })
+type Aim = { target: string; how: 'into' | 'before' | 'after'; /** Its line, where one is drawn. */ y: number; left: number; right: number }
+type Drag = { carried: string | null; aim: Aim | null; carry: (event: React.PointerEvent, id: string) => void }
 
 const HOT = 'bg-[color-mix(in_oklab,var(--tt-color-text-blue)_16%,transparent)] text-foreground ring-1 ring-[color-mix(in_oklab,var(--tt-color-text-blue)_45%,transparent)]'
 
@@ -226,17 +312,7 @@ function Folder({ list, group, depth, n, here, naming, onNamed, onRename, onOpen
   drag: Drag
 }): React.JSX.Element {
   const [picking, setPicking] = useState(false)
-  const aimed = drag.aim?.target === group.id && drag.carried !== group.id ? drag.aim.how : null
-  const over = aimed === 'into'
-  // Its top or bottom third: before or after it; the middle: inside.
-  const aimAt = (event: React.DragEvent<HTMLElement>): void => {
-    if (!event.dataTransfer.types.includes('haligtree/folder')) return
-    event.preventDefault()
-    const box = event.currentTarget.getBoundingClientRect()
-    const at = (event.clientY - box.top) / box.height
-    const how = at < 0.3 ? 'before' : at > 0.7 ? 'after' : 'into'
-    if (drag.aim?.target !== group.id || drag.aim.how !== how) drag.over({ target: group.id, how })
-  }
+  const over = drag.aim?.target === group.id && drag.aim.how === 'into'
   const pick = (icon: string | null): void => {
     const was = group.icon
     chime('tap')
@@ -273,32 +349,10 @@ function Folder({ list, group, depth, n, here, naming, onNamed, onRename, onOpen
   return (
     <Popover open={picking} onOpenChange={setPicking}>
       <PopoverAnchor asChild>
-        <div className="relative flex items-center"
+        <div className="relative flex items-center data-[carried-folder]:invisible" data-folder-line=""
           // Carried by its row onto another folder, it goes inside that one; by its top or bottom edge, before or after it.
-          draggable={!naming}
           data-carried-folder={drag.carried === group.id ? '' : undefined}
-          onDragStart={(event) => {
-            event.dataTransfer.setData('haligtree/folder', group.id)
-            event.dataTransfer.effectAllowed = 'move'
-            if (BLANK) event.dataTransfer.setDragImage(BLANK, 0, 0)
-            drag.lift(group.id, event.clientX, event.clientY)
-          }}
-          onDragEnd={drag.end}
-          onDragEnter={aimAt}
-          onDragOver={aimAt}
-          // Only once the pointer is off the row: passing between its own parts is no leaving.
-          onDragLeave={(event) => {
-            const box = event.currentTarget.getBoundingClientRect()
-            const off = event.clientY < box.top || event.clientY >= box.bottom || event.clientX < box.left || event.clientX >= box.right
-            if (off && drag.aim?.target === group.id) drag.over(null)
-          }}
-          onDrop={(event) => (event.preventDefault(), drag.carried ? drag.drop(group.id, aimed ?? 'into') : onNest(event.dataTransfer.getData('haligtree/folder'), group.id))}>
-          {(aimed === 'before' || aimed === 'after') && (
-            // Where it lands, as the list draws it: a line with a ring at its start, at the folder's own indent.
-            <span aria-hidden data-drop-line={aimed}
-              className="pointer-events-none absolute right-1 z-10 h-0.5 -translate-y-1/2 rounded-full bg-(--tt-brand-color-400) before:absolute before:-top-[3px] before:-left-2 before:size-2 before:rounded-full before:border-2 before:border-(--tt-brand-color-400) before:bg-background"
-              style={{ left: `calc(${left} + 0.5rem)`, top: aimed === 'before' ? -1 : 'calc(100% + 1px)' }} />
-          )}
+          onPointerDown={(event) => !naming && !(event.target as Element).closest('[data-folder-icon]') && drag.carry(event, group.id)}>
           {naming ? (
             <NameInPlace initial={group.name} data-folder-name={group.id} label="Folder name" placeholder="Name the folder"
               onDone={(words) => (words === null ? onNamed() : name(words))}
@@ -319,7 +373,7 @@ function Folder({ list, group, depth, n, here, naming, onNamed, onRename, onOpen
                 style={{ paddingLeft: left }}
                 // A long name ("Words worth knowing" at the sidebar's narrowest) goes on to a second line rather than
                 // being cut; the count stays on its first line, on the same baseline as every other row's.
-                className={`flex w-full min-w-0 items-baseline gap-2 rounded-md py-1 pr-2 ${here ? 'text-foreground' : 'text-foreground/80'} ${over ? HOT : ''} ${drag.carried === group.id ? 'opacity-40' : ''} data-[queue-hot]:bg-[color-mix(in_oklab,var(--tt-color-text-blue)_16%,transparent)] data-[queue-hot]:text-foreground data-[queue-hot]:ring-1 data-[queue-hot]:ring-[color-mix(in_oklab,var(--tt-color-text-blue)_45%,transparent)] data-[folder-no]:cursor-not-allowed data-[folder-no]:opacity-50`}
+                className={`flex w-full min-w-0 items-baseline gap-2 rounded-md py-1 pr-2 ${here ? 'text-foreground' : 'text-foreground/80'} ${over ? HOT : ''} data-[queue-hot]:bg-[color-mix(in_oklab,var(--tt-color-text-blue)_16%,transparent)] data-[queue-hot]:text-foreground data-[queue-hot]:ring-1 data-[queue-hot]:ring-[color-mix(in_oklab,var(--tt-color-text-blue)_45%,transparent)] data-[folder-no]:cursor-not-allowed data-[folder-no]:opacity-50`}
               >
                 {/* Room for the icon, which is its own button over this one. */}
                 <span className="size-4 shrink-0" />
