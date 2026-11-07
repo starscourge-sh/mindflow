@@ -8,10 +8,15 @@
  * worker.
  */
 
-/** Lower goes first: the page in view, then the pages either side of it, then the rail's thumbnails. */
+/**
+ * Lower goes first: the page in view, then the rail's thumbnails in its view, then the pages
+ * either side. A thumbnail costs a fraction of a sharp page, and one in view is seen now, where a
+ * page ahead is only wanted later: behind them, a rail of empty boxes waited a second or two after
+ * every opening while pages out of sight were drawn.
+ */
 export const IN_VIEW = 0
-export const AHEAD = 1
-export const THUMB = 2
+export const THUMB = 1
+export const AHEAD = 2
 
 type Job = { rank: number; run: () => Promise<unknown>; order: number }
 const waiting: Job[] = []

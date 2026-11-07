@@ -7,6 +7,7 @@ import { Tree, treeOf, type TreeNode } from "@/components/haligtree/branches"
 import { Highlight, useChosen, useFluidHover, Weighted } from "@/components/haligtree/glide"
 import { spring } from "@/lib/motion"
 import { BackToTop } from "@/components/haligtree/ui"
+import { glideIntoView } from "@/lib/glide-into-view"
 import type { PDFDocumentProxy } from "pdfjs-dist"
 import { THUMB, drawInTurn } from "./pdf-draw"
 
@@ -120,8 +121,11 @@ export function PdfThumb({ doc, page, here, onGo }: { doc: PDFDocumentProxy; pag
       stop()
     }
   }, [seen, doc, page, dark])
+  // The rail follows the page you are on with a calm glide; opened on a page, it is simply there.
+  const shownOnce = useRef(false)
   useEffect(() => {
-    if (here) box.current?.scrollIntoView({ block: "nearest" })
+    if (here) glideIntoView(box.current, { jump: !shownOnce.current })
+    shownOnce.current = true
   }, [here])
   return (
     <button ref={box} type="button" className={`pdf-thumb${here ? " is-here" : ""}`} aria-label={`Page ${page}`} aria-current={here ? "page" : undefined} onClick={onGo}>
@@ -189,8 +193,10 @@ export function PdfSide({ doc, page, outline, tab, onTab, onGo, narrow, onDrag, 
   const shown = tab === "outline" && !outline.length ? "pages" : tab
   // The chapter lit comes into view in the rail, as Preview's does.
   const list = useRef<HTMLElement>(null)
+  const shownWas = useRef<RailTab | null>(null)
   useEffect(() => {
-    list.current?.querySelector<HTMLElement>("[data-outline-row][aria-current]")?.scrollIntoView({ block: "nearest" })
+    glideIntoView(list.current?.querySelector<HTMLElement>("[data-outline-row][aria-current]"), { jump: shownWas.current !== shown })
+    shownWas.current = shown
   }, [hereAt, shown])
   return (
     <PdfRail tab={shown} tabs={[{ id: "pages", label: "Pages" }, ...(outline.length ? [{ id: "outline" as const, label: "Outline" }] : [])]} onTab={onTab} narrow={narrow} onDrag={onDrag}>
@@ -254,20 +260,21 @@ function PdfOutline({ outline, hereAt, list, onGo }: { outline: OutlineRow[]; he
     const open = !folded.has(at)
     const here = at === hereAt
     return (
-      <button key={at} type="button" data-outline-row data-outline-title={item.title} data-twig-top={rem} aria-current={here ? "location" : undefined}
+      <button key={at} type="button" data-outline-row data-outline-title={item.title} data-twig-top={rem * 0.875} aria-current={here ? "location" : undefined}
         // The whole title as a tip only when the row cuts it short (a squeezed rail): never words already on show.
         onPointerEnter={(event) => { const row = event.currentTarget; row.title = [row, ...row.querySelectorAll("*")].some((one) => one.scrollWidth > one.clientWidth + 1 || one.scrollHeight > one.clientHeight + 2) ? item.title : "" }}
         onClick={() => onGo(item.page)}
-        className={`flex min-w-0 items-start gap-2.5 rounded-md px-2 py-1.5 text-left ${here ? "text-foreground" : "text-foreground/80"}`}>
+        // A step under the tabs over it (13px, 500): the outline in meta size, the page you are in only in ink and weight.
+        className={`flex min-w-0 items-start gap-2.5 rounded-md px-2 py-1.5 text-left text-xs leading-4 ${here ? "text-foreground" : "text-foreground/75"}`}>
         <Weighted on={here} className="min-w-0 *:line-clamp-2 *:whitespace-normal *:break-words">{item.title}</Weighted>
         {kids.length > 0 && (
           <span data-outline-fold role="button" aria-label={open ? "Fold" : "Unfold"} aria-expanded={open}
-            className="-mx-0.5 grid h-5 shrink-0 cursor-pointer place-items-center rounded-md p-0.5 text-muted-foreground transition-colors hover:bg-foreground/10 hover:text-foreground"
+            className="-mx-0.5 grid h-4 shrink-0 cursor-pointer place-items-center rounded-md p-0.5 text-muted-foreground transition-colors hover:bg-foreground/10 hover:text-foreground"
             onClick={(event) => (event.stopPropagation(), fold(at, open))}>
             <ChevronRight aria-hidden className={`size-3 transition-[rotate] duration-80 ${open ? "rotate-90" : ""}`} />
           </span>
         )}
-        <span className="ml-auto shrink-0 pl-1 text-xs leading-5 tabular-nums text-muted-foreground">{item.page}</span>
+        <span className="ml-auto shrink-0 pl-1 text-[0.6875rem] leading-4 tabular-nums text-muted-foreground/80">{item.page}</span>
       </button>
     )
   }
