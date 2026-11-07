@@ -2,7 +2,7 @@
 // end of the page's words, as Preview and PDF.js's viewer do; it never stops short where the pointer left the words.
 //   QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 QA_ARGS=--sandbox node qa/pdf-select-overshoot.mjs
 import { PDFDocument, StandardFonts } from 'pdf-lib'
-import { writeFileSync, mkdtempSync } from 'fs'
+import { writeFileSync, mkdtempSync, rmSync } from 'fs'
 import { join } from 'path'
 import { tmpdir } from 'os'
 import { checks } from './harness.mjs'
@@ -39,4 +39,5 @@ try {
   check('let go, the page is no longer selecting', await h.evaluate(() => !document.querySelector('.textLayer.selecting')))
 } catch (e) { check('ran', false, e.message.split('\n')[0]) }
 await close()
+rmSync(dir, { recursive: true, force: true })
 done()

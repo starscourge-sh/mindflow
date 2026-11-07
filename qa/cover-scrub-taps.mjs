@@ -2,7 +2,7 @@
 // light trackpad tap (the last firm), as a scrubbed number is. Main only logs taps here (HALIGTREE_QA_AWAY).
 //   QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 QA_ARGS=--sandbox node qa/cover-scrub-taps.mjs
 import { PDFDocument, StandardFonts } from 'pdf-lib'
-import { writeFileSync, mkdtempSync } from 'fs'
+import { writeFileSync, mkdtempSync, rmSync } from 'fs'
 import { join } from 'path'
 import { tmpdir } from 'os'
 import { checks } from './harness.mjs'
@@ -34,4 +34,5 @@ try {
   check('the last page is the firm one', taps.at(-1) === 'level', JSON.stringify(taps))
 } catch (e) { check('ran', false, e.message.split('\n')[0]) }
 await close()
+rmSync(dir, { recursive: true, force: true })
 done()
