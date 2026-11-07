@@ -374,7 +374,9 @@ export function SplitDrop({ onDrop, onRow }: { onDrop: (carried: Carried, at: nu
       reset()
     }
     const onKey = (event: KeyboardEvent): void => {
-      if (!active || event.key !== 'Escape') return
+      if (event.key !== 'Escape') return
+      // A list's own drag put back with Esc: the press is over, so moving on while still held starts nothing here.
+      if (!active) return void (down = null)
       event.preventDefault()
       event.stopPropagation()
       swallowRelease()

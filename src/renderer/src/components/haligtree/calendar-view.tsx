@@ -1,5 +1,5 @@
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { CARD } from './carry'
+import { CARD, swallowRelease } from './carry'
 import { useReading, useReadsIn } from '@/lib/reads-in'
 import { createPortal } from 'react-dom'
 import { motion } from 'motion/react'
@@ -352,6 +352,7 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
       if (e.key !== 'Escape' || !now) return
       e.preventDefault()
       e.stopPropagation()
+      swallowRelease()
       drop()
     }
     window.addEventListener('pointermove', moveTo)
