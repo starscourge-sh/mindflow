@@ -31,8 +31,8 @@ const PLACES = [
   },
   {
     name: 'Feed', view: 'feed', a: 'reading', b: 'liked',
-    pick: (one) => `[data-tabs="feed"] [data-tab="${one}"]`,
-    read: () => c.h.evaluate(() => document.querySelector('[data-tabs="feed"] [aria-selected="true"]')?.getAttribute('data-tab') ?? '')
+    pick: (one) => `[data-chips="feed"] [data-chip="${one}"]`,
+    read: () => c.h.evaluate(() => document.querySelector('[data-chips="feed"] [aria-selected="true"]')?.getAttribute('data-chip') ?? '')
   },
   {
     name: 'Media', view: 'media', a: 'PDFs', b: 'Audio',
@@ -89,9 +89,9 @@ if (!process.env.ONLY || process.env.ONLY.includes('relaunch')) {
   try {
     await c.send('view', 'feed')
     await wait(1000)
-    await c.h.locator('[data-tabs="feed"] [data-tab="notes"]').first().click()
+    await c.h.locator('[data-chips="feed"] [data-chip="notes"]').first().click()
     await wait()
-    await c.h.locator('[data-tabs="feed"] [data-tab="reading"]').first().click()
+    await c.h.locator('[data-chips="feed"] [data-chip="reading"]').first().click()
     await wait()
     // The tab the Feed remembers on its own (localStorage) is put elsewhere, so only the step can bring Reading back.
     await c.h.evaluate(() => localStorage.setItem('feedTab', 'notes'))
@@ -99,9 +99,9 @@ if (!process.env.ONLY || process.env.ONLY.includes('relaunch')) {
     await c.close()
     c = await sandbox({ width: 1200, height: 800 })
     await wait(1500)
-    const tab = await c.h.evaluate(() => document.querySelector('[data-tabs="feed"] [aria-selected="true"]')?.getAttribute('data-tab') ?? '')
+    const tab = await c.h.evaluate(() => document.querySelector('[data-chips="feed"] [aria-selected="true"]')?.getAttribute('data-chip') ?? '')
     await key('Meta+BracketLeft')
-    const back = await c.h.evaluate(() => document.querySelector('[data-tabs="feed"] [aria-selected="true"]')?.getAttribute('data-tab') ?? '')
+    const back = await c.h.evaluate(() => document.querySelector('[data-chips="feed"] [aria-selected="true"]')?.getAttribute('data-chip') ?? '')
     const ok = tab === 'reading' && back === 'notes'
     results.push({ name: 'relaunch', ok })
     console.log(`${ok ? 'PASS' : 'FAIL'}  relaunch: opens on Feed ${tab || '(not on Feed)'}, ⌘[ ${back}`)

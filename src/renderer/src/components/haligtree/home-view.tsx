@@ -838,7 +838,7 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
   const nothing = !loading && !feature && !nextUp.length && !jump.length && !back.length && !questions.length && !tidy.length && !again.length && !tagRows.length && !week.length
 
   return provide(
-    <div ref={root} style={readsStyle} className={`relative flex min-w-0 flex-1 flex-col overflow-y-auto ${PICKED_CARD} ${fresh ? 'mf-opened' : ''}`}>
+    <div ref={root} style={readsStyle} className={`mf-more relative flex min-w-0 flex-1 flex-col overflow-y-auto ${PICKED_CARD} ${fresh ? 'mf-opened' : ''}`}>
       {/* What is picked, and what can be done with it all: held at the top while you scroll. Opaque, never over the cards see-through. */}
       {several.bar && (
         <div data-pick-bar className="sticky top-0 z-30 w-full border-b bg-background">

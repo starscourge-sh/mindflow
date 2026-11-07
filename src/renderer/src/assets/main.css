@@ -800,6 +800,9 @@ body {
   background-color: color-mix(in oklab, var(--foreground) 3%, var(--background));
 }
 
+/* A day grid's lightest step in a dark theme: the accent lifted toward the ink, so it keeps 3:1 on a dark card. */
+:root:not([data-light]) { --mf-heat-lift: 32%; }
+
 /* A theme turning over: the old window and the new one crossfade as whole
    pictures, quick, with a slight blur at the crossing so the two read as one
    change rather than two pages stacked. */

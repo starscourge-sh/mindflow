@@ -18,7 +18,7 @@ const { check, done } = checks()
 const s = await sandbox({ width: 1400, height: 900 })
 const { h, v, go, errors, electron, both, close } = s
 const sql = (q, ...args) => electron.evaluate((_, [q, args]) => globalThis.qaFeedSql(q, ...args), [q, args])
-const tab = async (name) => { await h.locator(`[data-tabs="feed"] [data-tab="${name}"]`).click(); await h.waitForTimeout(900) }
+const tab = async (name) => { await h.locator(`[data-chips="feed"] [data-chip="${name}"]`).click(); await h.waitForTimeout(900) }
 const fresh = async () => { await h.reload(); await h.waitForTimeout(2200); await go('feed'); await h.waitForTimeout(1200) }
 const words = (n) => Array.from({ length: n }, (_, i) => ['slow', 'river', 'light', 'stone', 'paper', 'garden', 'letter', 'window'][i % 8]).join(' ')
 try {
@@ -154,9 +154,9 @@ try {
     }
     await tab('liked')
     check(`${items} likes: Liked draws a page at a time`, (await h.locator('[data-liked-row]').count()) <= 31 && (await h.locator('[data-liked-row]').count()) > 0, String(await h.locator('[data-liked-row]').count()))
-    const tabsAt = await h.locator('[data-tabs="feed"]').boundingBox()
+    const tabsAt = await h.locator('[data-chips="feed"]').boundingBox()
     await tab('notes')
-    const notesAt = await h.locator('[data-tabs="feed"]').boundingBox()
+    const notesAt = await h.locator('[data-chips="feed"]').boundingBox()
     check(`${items}: the tabs sit in one place on Notes and Liked`, Math.abs(tabsAt.y - notesAt.y) < 1, `${tabsAt.y} vs ${notesAt.y}`)
     await tab('liked')
     await both(`${SHOTS}/liked-${items}`)

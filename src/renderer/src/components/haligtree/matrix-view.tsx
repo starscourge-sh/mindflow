@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { dragWords } from '@/lib/drag-words'
 import { moveToBin } from '@/lib/to-bin'
 import { motion } from 'motion/react'
 import { byKeys } from '@/lib/motion'
@@ -249,7 +250,7 @@ export function MatrixView({ focus, onOpen, today }: { focus?: string; onOpen?: 
           Urgent: late, or within two days · {vim ? <><Pressed keys="H" /> <Pressed keys="J" /> <Pressed keys="K" /> <Pressed keys="L" /></> : <><Pressed keys="←" /> <Pressed keys="↓" /> <Pressed keys="↑" /> <Pressed keys="→" /></>} move · <Pressed keys="⌥↑" /> <Pressed keys="⌥↓" /> order · <Pressed keys="1" /> to <Pressed keys="4" /> send to a box
         </span>
       }>
-        <DndContext
+        <DndContext accessibility={dragWords}
           sensors={sensors}
           collisionDetection={cardsFirst}
           onDragStart={({ active }) => {

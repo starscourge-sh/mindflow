@@ -219,7 +219,7 @@ export function StudyYear({ compact = false }: { /** Above the decks: the same y
   // Five steps of ink, as GitHub's and Anki's heatmaps have: none, then four by share of the busiest day.
   const INK = INK_STEPS
   const level = (n: number): number => (n ? Math.min(4, 1 + Math.floor((n / most) * 3.999)) : 0)
-  const shade = (step: number): string => `color-mix(in oklab, var(--foreground) ${INK[step]}%, transparent)`
+  const shade = inkShade
   // A month's name over the first week that starts in it; the year's first column only when its month has room before the next.
   const months = Array.from({ length: weeks }, (_, week) => {
     const first = start.add(week, 'week')

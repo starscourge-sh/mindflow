@@ -58,7 +58,7 @@ if (process.env.QA_ARGS) {
     check('chosen survives a reload', (await h.locator(`li[data-feed-id="${id}"] [data-read-later]`).first().getAttribute('data-read-later')) === 'in')
 
     // Reading: on a row's hover, and in the reader's foot.
-    await h.click('[data-tabs="feed"] [data-tab="reading"]')
+    await h.click('[data-chips="feed"] [data-chip="reading"]')
     await h.waitForTimeout(900)
     const row = h.locator('[data-reading-row]').first()
     await row.hover()
@@ -70,7 +70,7 @@ if (process.env.QA_ARGS) {
     check("the reader's foot has Read later", await h.locator('[data-reading-actions] [data-read-later]').isVisible())
     await h.keyboard.press('Escape')
     await h.waitForTimeout(600)
-    await h.click('[data-tabs="feed"] [data-tab="notes"]')
+    await h.click('[data-chips="feed"] [data-chip="notes"]')
     await h.waitForTimeout(900)
 
     // The ⋯ menu, then Save as image in light and dark.

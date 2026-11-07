@@ -617,7 +617,7 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
       </label>
       <div className={`relative col-start-2 row-start-2 flex min-h-0 min-w-0 flex-col @[44rem]/page:row-span-2 @[44rem]/page:row-start-1`}>
       <PageContents page={column} scroller={scroller} label="Settings on this page" />
-      <div ref={setScroller} className="min-h-0 flex-1 overflow-y-auto">
+      <div ref={setScroller} className="mf-more min-h-0 flex-1 overflow-y-auto">
       <Query.Provider value={{ query, all: false }}>
       <Shown.Provider value={section}>
       <div ref={holdColumn} className="w-full max-w-2xl px-6 pt-4 pb-16 [&:has([data-setting])>[data-none]]:hidden">

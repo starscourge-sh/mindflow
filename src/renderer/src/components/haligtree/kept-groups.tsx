@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { dragWords } from '@/lib/drag-words'
 import { NameInPlace } from './name-in-place'
 import { DndContext, MeasuringStrategy, PointerSensor, closestCenter, pointerWithin, useSensor, useSensors, type CollisionDetection, type DragEndEvent, type DragMoveEvent, type DragStartEvent } from '@dnd-kit/core'
 import { SortableContext, type SortingStrategy } from '@dnd-kit/sortable'
@@ -423,7 +424,7 @@ export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo
   )
   return (
     // The list scrolls by itself only in the last tenth by its top and bottom edges: a row near an edge can still be aimed at.
-    <DndContext sensors={sensors} collisionDetection={collide} modifiers={[upDown]} autoScroll={{ threshold: { x: 0, y: 0.1 } }} measuring={{ droppable: { strategy: MeasuringStrategy.WhileDragging } }}
+    <DndContext accessibility={dragWords} sensors={sensors} collisionDetection={collide} modifiers={[upDown]} autoScroll={{ threshold: { x: 0, y: 0.1 } }} measuring={{ droppable: { strategy: MeasuringStrategy.WhileDragging } }}
       onDragStart={onDragStart} onDragMove={onDragMove} onDragEnd={onDragEnd} onDragCancel={() => (end(), chime('stay'))}>
       <SortableContext items={keys} strategy={unmoved}>
         <Shaped aim={aim} keys={keys} hand={carried} home={homeOf(carried)} many={many} span={span} inset={inset} row={rowH} snap={snap} blocks={blockRows}>

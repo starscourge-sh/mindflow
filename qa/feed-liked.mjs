@@ -14,7 +14,7 @@ const { h, v, go, errors, electron, both, size, close } = s
 const sql = (q, ...args) => electron.evaluate((_, [q, args]) => globalThis.qaFeedSql(q, ...args), [q, args])
 const ago = (days) => { const d = new Date(); d.setDate(d.getDate() - days); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` }
 const rows = () => h.locator('[data-liked-row]').evaluateAll((all) => all.map((one) => ({ key: one.dataset.likedKey, day: one.dataset.likedDay })))
-const openLiked = async () => { await go('feed'); await h.locator('[data-tab="liked"]').click(); await h.waitForTimeout(900) }
+const openLiked = async () => { await go('feed'); await h.locator('[data-chip="liked"]').click(); await h.waitForTimeout(900) }
 try {
   // The user's size: 30 likes on 29 gems and quotes over about a year and a half, and one Journal day.
   const gems = await sql("select id from nuggets where tier = 'nugget' and private = 0 and binned_at is null and superseded_by is null order by created_at limit 29")
@@ -29,7 +29,7 @@ try {
   // The switch: a tab in the Feed's own tab chips.
   await openLiked()
   check('the Liked tab opens Liked', await h.locator('[data-feed-liked]').count() === 1)
-  check('Liked sits in the Feed tab chips', (await h.locator('[data-tabs="feed"] [role="tab"]').allInnerTexts()).join(' · ') === 'Notes · Reading · Liked')
+  check('Liked sits in the Feed tab chips', (await h.locator('[data-chips="feed"] [role="tab"]').allInnerTexts()).join(' · ') === 'Notes · Reading · Liked')
   // ⌘K "Liked", from elsewhere.
   await go('home')
   await h.keyboard.press('Meta+k')
@@ -40,7 +40,7 @@ try {
   await h.waitForTimeout(1200)
   check('⌘K "Liked" opens Liked', await h.locator('[data-feed-liked]').count() === 1)
   // The heart's own menu, from the For you feed.
-  await h.locator('[data-tab="notes"]').click()
+  await h.locator('[data-chip="notes"]').click()
   await h.waitForTimeout(900)
   await h.locator('[data-feed-post] [data-feed-reaction="like"]').first().click({ button: 'right' })
   await h.waitForTimeout(300)
@@ -75,10 +75,10 @@ try {
   check('side: "What you keep liking" with tags or sources', await keep.count() === 1 && (await keep.locator('[data-liked-tag], [data-liked-source]').count()) > 0, await keep.innerText().catch(() => ''))
   check('side: what you liked a year ago', await h.locator('[data-feed-side-card="year-ago"] [data-liked-year-ago]').count() >= 1)
   await both(`${SHOTS}/liked-30`)
-  await h.locator('[data-tab="notes"]').click()
+  await h.locator('[data-chip="notes"]').click()
   await h.waitForTimeout(900)
   await both(`${SHOTS}/for-you-30`)
-  await h.locator('[data-tab="liked"]').click()
+  await h.locator('[data-chip="liked"]').click()
   await h.waitForTimeout(900)
 
   // A week in the strip: the list goes to it.
@@ -158,7 +158,7 @@ try {
   check('a year back in the strip: read from that week, one page, not all between', after <= 40 && !!at && at >= old, `${after} rows, at ${at}`)
   check('…with a way back to the newest', await h.locator('[data-liked-newest]').count() === 1)
   await both(`${SHOTS}/liked-3000-jump`)
-  await h.locator('[data-tab="notes"]').click().catch(() => {})
+  await h.locator('[data-chip="notes"]').click().catch(() => {})
   await h.waitForTimeout(900)
   await both(`${SHOTS}/for-you-3000`)
   check('no errors', errors.length === 0, errors.slice(0, 3).join(' | '))

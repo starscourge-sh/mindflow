@@ -1,4 +1,5 @@
 import { useContext, useEffect, useRef, useState, type ReactNode } from 'react'
+import { dragWords } from '@/lib/drag-words'
 import { DndContext, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent, type DragMoveEvent, type DragStartEvent } from '@dnd-kit/core'
 import { SortableContext, type SortingStrategy } from '@dnd-kit/sortable'
 
@@ -199,7 +200,7 @@ export function DayDrag({ lines, heading, tail, onDrop, onPlace, places, childre
   const steps = hand?.startsWith('t:') ? lines.find((line) => lineKey(line.id) === hand)?.steps.length ?? 0 : 0
   const words = aim?.label ?? (steps ? `With its ${steps === 1 ? 'step' : `${steps} steps`}` : null)
   return (
-    <DndContext accessibility={{ container: document.body }} sensors={sensors} collisionDetection={closestCenter} modifiers={[upDown]}
+    <DndContext accessibility={dragWords} sensors={sensors} collisionDetection={closestCenter} modifiers={[upDown]}
       onDragStart={onDragStart} onDragMove={onDragMove} onDragEnd={onDragEnd} onDragCancel={() => (end(), chime('stay'))}>
       <SortableContext items={rows} strategy={unmoved}>
         <Shaped aim={aim} keys={keys} hand={hand} home={homeOf(hand)} many={hand ? [hand] : []} span={span} inset={0} row={rowH} snap={snap} blocks={blocks} footRoom={false}>

@@ -1,4 +1,5 @@
 import { TOOL } from './note-extras'
+import { dragWords } from '@/lib/drag-words'
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import type { Editor, JSONContent } from '@tiptap/core'
@@ -663,7 +664,7 @@ export function Board({ editor, id, tools }: { editor: Editor; id: string; /** W
         </>,
         tools
       )}
-      <DndContext sensors={sensors} collisionDetection={closestCorners} measuring={{ droppable: { strategy: MeasuringStrategy.Always } }}
+      <DndContext accessibility={dragWords} sensors={sensors} collisionDetection={closestCorners} measuring={{ droppable: { strategy: MeasuringStrategy.Always } }}
         autoScroll={{ threshold: { x: 0.08, y: 0.12 }, acceleration: 6 }}
         onDragStart={({ active }) => (chime('lift'), ticks.start(String(active.id)), setLifted(snapshot(String(active.id))))}
         onDragOver={onDragOver} onDragEnd={onDragEnd} onDragCancel={() => (setDraft(null), setLifted(null))}>

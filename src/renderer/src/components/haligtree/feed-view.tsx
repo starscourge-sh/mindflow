@@ -198,9 +198,9 @@ const keptTab = (): FeedTab => {
 /** The app's tab chips, fixed on the left of the column: the one chosen slides under its word. */
 export function TabChips<T extends string>({ name, tabs, value, onChange, className }: { name: string; tabs: { value: T; label: string }[]; value: T; onChange: (value: T) => void; className?: string }): React.JSX.Element {
   return (
-    <span role="tablist" data-tabs={name} className={cn('flex h-8 w-fit items-center rounded-lg border border-foreground/10 bg-accent/40 p-0.5 text-control', className)}>
+    <span role="tablist" data-chips={name} className={cn('flex h-8 w-fit items-center rounded-lg border border-foreground/10 bg-accent/40 p-0.5 text-control', className)}>
       {tabs.map((one) => (
-        <button key={one.value} type="button" role="tab" data-tab={one.value} aria-selected={value === one.value}
+        <button key={one.value} type="button" role="tab" data-chip={one.value} aria-selected={value === one.value}
           onClick={() => void (value !== one.value && (chime('tap'), onChange(one.value)))}
           className={cn('relative h-7 rounded-md px-3 transition-colors', value === one.value ? 'text-foreground' : 'text-muted-foreground hover:text-foreground')}>
           {value === one.value && <motion.span layoutId={`${name}-tab`} className="absolute inset-0 -z-10 rounded-md border border-foreground/15 bg-background shadow-sm" transition={{ type: 'spring', stiffness: 500, damping: 38 }} />}

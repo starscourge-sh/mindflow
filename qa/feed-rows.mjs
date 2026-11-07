@@ -16,7 +16,7 @@ const paint = (name) => h.evaluate((n) => { localStorage.setItem('theme', n); wi
 const toReading = async () => {
   await go('feed')
   await h.waitForTimeout(900)
-  await h.click('[data-tabs="feed"] [data-tab="reading"]')
+  await h.click('[data-chips="feed"] [data-chip="reading"]')
   await h.waitForTimeout(1200)
 }
 try {
@@ -43,7 +43,7 @@ try {
   await node.locator('[data-feed-reaction="like"]').click()
   await h.waitForTimeout(800)
 
-  await h.click('[data-tabs="feed"] [data-tab="reading"]')
+  await h.click('[data-chips="feed"] [data-chip="reading"]')
   await h.waitForTimeout(1200)
   const shelves = await h.locator('[data-reading-shelf]').evaluateAll((all) => all.map((one) => ({ kind: one.getAttribute('data-reading-shelf'), name: one.getAttribute('data-shelf-name'), cards: [...one.querySelectorAll('[data-shelf-card]')].map((card) => card.getAttribute('data-shelf-card')), face: !!one.querySelector('[data-shelf-face] [data-avatar]') })))
   const source = shelves.find((one) => one.kind === 'source')

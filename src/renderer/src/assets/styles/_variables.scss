@@ -338,7 +338,9 @@ $mf-themes: (
   "github": (
     "bg": #0d1117, "ink": #c9d1d9, "accent": #58a6ff,
     "gray": #8b949e, "brown": #c2954a, "orange": #ffa657, "yellow": #e3b341,
-    "green": #3fb950, "blue": #58a6ff, "purple": #bc8cff, "pink": #f778ba, "red": #f85149
+    "green": #3fb950, "blue": #58a6ff, "purple": #bc8cff, "pink": #f778ba, "red": #f85149,
+    /* Its contribution graph's green: the one thing everyone knows GitHub by. */
+    "heat": #2ea043
   ),
   /* Nord, accented with aurora orange - which is the one thing Obsidian Nord
      changes about it, and the version worth keeping: plain Nord accents on
@@ -419,6 +421,13 @@ $mf-themes: (
 @each $mf-name, $mf-theme in $mf-themes {
   :root.#{$mf-name} {
     @include mf-palette($mf-theme);
+  }
+  /* A theme with a heatmap colour of its own (day grids, mono-card.tsx): bright enough on its page as it is. */
+  @if map.has-key($mf-theme, "heat") {
+    :root.#{$mf-name}[class] {
+      --mf-heat: #{map.get($mf-theme, "heat")};
+      --mf-heat-lift: 0%;
+    }
   }
 
   /* The accent, the heading and the quote - the three the prose actually

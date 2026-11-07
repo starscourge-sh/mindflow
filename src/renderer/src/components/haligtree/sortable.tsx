@@ -1,4 +1,5 @@
 import { Fragment, createContext, useContext, useEffect, useId, useRef, useState, type ComponentProps, type ReactNode } from 'react'
+import { dragWords } from '@/lib/drag-words'
 import { createPortal } from 'react-dom'
 import { DndContext, DragOverlay, useDndMonitor, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent, type DragMoveEvent, type DragStartEvent, type DropAnimation, type Modifier } from '@dnd-kit/core'
 import { SortableContext, arrayMove, horizontalListSortingStrategy, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
@@ -207,7 +208,7 @@ export function SortableList<T>({ items, keyOf, onMove, axis = 'y', places, chil
   }
   return (
     // Its screen-reader lines go to the page's foot, never among the rows (a tree of rows counts its children).
-    <DndContext accessibility={{ container: document.body }} sensors={sensors}
+    <DndContext accessibility={dragWords} sensors={sensors}
       // Over a place, the rows stay where they are: it goes there, not among them.
       collisionDetection={(args) => (aimed.current ? [] : closestCenter(args))}
       modifiers={[axis === 'x' ? sideways : upDown]} onDragStart={onDragStart} onDragOver={({ over }) => ticks(over?.id)} onDragEnd={onDragEnd} onDragCancel={() => (setShot(null), following(false), aimAt(null), done())}>
@@ -374,7 +375,7 @@ export function BlockList<T>({ blocks, keyOf, onMove, refuse, row, around }: {
     onMove(id, { block: drop.block, before: drop.before })
   }
   return (
-    <DndContext accessibility={{ container: document.body }} sensors={sensors} collisionDetection={closestCenter} modifiers={[upDown]} onDragStart={onDragStart} onDragMove={onDragMove} onDragEnd={onDragEnd} onDragCancel={() => (mark(null, false), setShot(null), done())}>
+    <DndContext accessibility={dragWords} sensors={sensors} collisionDetection={closestCenter} modifiers={[upDown]} onDragStart={onDragStart} onDragMove={onDragMove} onDragEnd={onDragEnd} onDragCancel={() => (mark(null, false), setShot(null), done())}>
       <SortableContext items={shown.flatMap((one) => one.items.map(keyOf))} strategy={stayPut}>
         <Axis.Provider value="y"><Sorting.Provider value={sorting}><On.Provider value><Order.Provider value={shown.map((one) => one.key + ':' + one.items.map(keyOf).join(',')).join('\n')}>{shown.map(draw)}</Order.Provider></On.Provider></Sorting.Provider></Axis.Provider>
       </SortableContext>

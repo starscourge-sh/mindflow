@@ -112,7 +112,7 @@ try {
   check('a card suspended since the morning is not asked', !later.posts.some((one) => one.type === 'quiz' && one.id === other.id))
 
   // Reading's list, for a look.
-  await h.click('[data-tabs="feed"] [data-tab="reading"]')
+  await h.click('[data-chips="feed"] [data-chip="reading"]')
   await h.waitForTimeout(900)
   for (const theme of ['light', 'dark']) {
     await paint(theme)

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { AnimatePresence, motion, useMotionValue, useSpring, type MotionValue } from 'motion/react'
-import { Columns2 } from 'lucide-react'
+import { AppWindow, Columns2 } from 'lucide-react'
 
 import { chime, click } from '@/lib/sound'
 import { canSplit } from '@/lib/split'
@@ -129,6 +129,8 @@ export function SplitDrop({ onDrop, onRow }: { onDrop: (carried: Carried, at: nu
   // Carried by a list's own drag, which draws its own lifted picture: no second one here.
   const [zones, setZones] = useState<Zone[]>([])
   const [hot, setHot] = useState<string | null>(null)
+  // The other pane's page it would open in, drawn as a place like the edges'.
+  const [takeBox, setTakeBox] = useState<DOMRect | null>(null)
   const dropRef = useRef({ onDrop, onRow })
   dropRef.current = { onDrop, onRow }
   // The pointer, and where the card is drawn toward.
@@ -157,6 +159,18 @@ export function SplitDrop({ onDrop, onRow }: { onDrop: (carried: Carried, at: nu
     // The Queue's row in the sidebar, while the carried thing is over it: let go there, it joins the queue.
     // Pinned in the sidebar takes a note the same way (side-menu.tsx).
     let queued: HTMLElement | null = null
+    // Another pane's page, while the carried thing is over it: let go there, it opens there as a new tab.
+    let taking: HTMLElement | null = null
+    const takeAt = (px: number, py: number): HTMLElement | null => {
+      if (!down || document.querySelectorAll('[data-pane]').length < 2) return null
+      const from = down.source.carried.tab?.pane ?? down.source.node.closest('[data-pane]')?.getAttribute('data-pane')
+      for (const one of document.elementsFromPoint(px, py)) {
+        const card = one.closest<HTMLElement>('[data-pane-card]')
+        if (card) return card.closest('[data-pane]')?.getAttribute('data-pane') === from ? null : card
+      }
+      return null
+    }
+    const letTake = (): void => void (taking && (delete taking.dataset.paneTake, setTakeBox(null)), (taking = null))
     // Read under the carried picture too: over the list's path bar it sits right under the pointer.
     const queueAt = (px: number, py: number): HTMLElement | null => {
       for (const one of document.elementsFromPoint(px, py)) {
@@ -182,6 +196,7 @@ export function SplitDrop({ onDrop, onRow }: { onDrop: (carried: Carried, at: nu
     let quiet = still()
     // The places put away while the drag goes on.
     const hide = (): void => {
+      letTake()
       active = false
       shown = []
       over = null
@@ -196,6 +211,7 @@ export function SplitDrop({ onDrop, onRow }: { onDrop: (carried: Carried, at: nu
       setHot(null)
     }
     const reset = (): void => {
+      letTake()
       down = null
       active = false
       shown = []
@@ -266,7 +282,13 @@ export function SplitDrop({ onDrop, onRow }: { onDrop: (carried: Carried, at: nu
         else if (queue) (queue.dataset.queueHot = ''), down?.source.carried.tab || click('tick')
         queued = queue
       }
-      shrink.set(target || queue ? 0.86 : 1)
+      const take = target || queue ? null : takeAt(px, py)
+      if (take !== taking) {
+        letTake()
+        if (take) (take.dataset.paneTake = ''), setTakeBox(take.getBoundingClientRect()), down?.source.carried.tab || click('tick')
+        taking = take
+      }
+      shrink.set(target || queue || take ? 0.86 : 1)
       if (target !== over) {
         over = target
         setHot((target as Zone | null)?.key ?? null)
@@ -351,6 +373,13 @@ export function SplitDrop({ onDrop, onRow }: { onDrop: (carried: Carried, at: nu
         event.preventDefault()
         swallowClick()
         dropRef.current.onRow(what, gapped.pane, gapped.at)
+      } else if (!side && taking) {
+        // Into another pane's page: a new tab there, at the end of its row.
+        const pane = taking.closest('[data-pane]')?.getAttribute('data-pane')
+        dropListDrag()
+        event.preventDefault()
+        swallowClick()
+        if (pane) dropRef.current.onRow(what, pane, document.querySelectorAll(`[data-tab-row="${CSS.escape(pane)}"] [data-tab]`).length)
       } else if (!side && queued?.dataset.sideDrop && what.open) {
         dropListDrag()
         event.preventDefault()
@@ -426,6 +455,19 @@ export function SplitDrop({ onDrop, onRow }: { onDrop: (carried: Carried, at: nu
           exit={{ opacity: 0, transition: { duration: 0.1 } }}
           transition={{ duration: 0.12 }}
         >
+          <AnimatePresence>
+            {takeBox && (
+              <motion.div key="take" data-pane-take-box="" aria-label="Open here" className="absolute flex items-center justify-center"
+                style={{ left: takeBox.left, top: takeBox.top, width: takeBox.width, height: takeBox.height }}
+                initial={{ opacity: 0, scale: 0.985 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, transition: { duration: 0.08 } }}
+                transition={{ type: 'spring', duration: 0.22, bounce: 0 }}>
+                <span aria-hidden className="absolute inset-2 rounded-[15px] border-2 border-dashed border-[var(--tt-brand-color-400)] bg-[color-mix(in_oklab,var(--tt-brand-color-400)_6%,transparent)]" />
+                <span className="relative flex items-center gap-2 rounded-full border bg-popover px-3.5 py-2 font-medium text-control text-foreground shadow-(--mf-panel-shadow)">
+                  <AppWindow className="size-4 text-[var(--tt-brand-color-400)]" />Open here
+                </span>
+              </motion.div>
+            )}
+          </AnimatePresence>
           {zones.map((zone) => (
             <ZoneBox key={zone.key} zone={zone} hot={hot === zone.key} lean={zone.side === 'between' ? undefined : leanS[zone.side]} grow={zone.side === 'between' ? undefined : growS[zone.side]} />
           ))}

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { dragWords } from '@/lib/drag-words'
 import { useReading } from '@/lib/reads-in'
 import { AnimatePresence, motion } from 'motion/react'
 import { DndContext, MeasuringStrategy, PointerSensor, pointerWithin, useDraggable, useDroppable, useSensor, useSensors } from '@dnd-kit/core'
@@ -220,7 +221,7 @@ export function MonthPlan({ tasks, onDay, onSide, onOpen, onWeek, onMonth, onSho
         <span className="flex-1" />
         <MonthShowMenu />
       </div>}
-      <DndContext sensors={sensors} collisionDetection={pointerWithin} autoScroll={false} measuring={{ droppable: { strategy: MeasuringStrategy.Always, frequency: 120 } }}
+      <DndContext accessibility={dragWords} sensors={sensors} collisionDetection={pointerWithin} autoScroll={false} measuring={{ droppable: { strategy: MeasuringStrategy.Always, frequency: 120 } }}
         onDragStart={({ active }) => { chime('lift'); fromDay.current = true; holding.current = active.data.current as { line?: Line; mark?: Milestone }; setCarried(holding.current.mark ? { kind: 'mark', one: holding.current.mark } : holding.current.line!) }}
         onDragOver={({ over }) => (fromDay.current ? ticks.start(over?.id) : ticks(over?.id), (fromDay.current = false))}
         onDragCancel={() => setCarried(null)}

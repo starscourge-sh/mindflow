@@ -479,11 +479,11 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
         <ViewPick mode={mode} onPick={setMode} />
         <Tip label="Search the calendar (⌘K)"><Button variant="outline" size="icon-sm" data-cal-search aria-label="Search the calendar" className="size-8" onClick={search}><Search /></Button></Tip>
         <Tip label={mode === 'month' ? 'Upcoming shows beside a day or a week' : upcoming ? 'Hide Upcoming, the right panel' : 'Show Upcoming, the right panel'}>
-          <Button variant="outline" size="sm" data-cal-side-toggle disabled={mode === 'month'} aria-label={upcoming ? 'Hide Upcoming' : 'Show Upcoming'} aria-pressed={upcoming} className="aria-pressed:bg-accent" onClick={plan}>
+          <Button variant="outline" size="sm" data-cal-side-toggle disabled={mode === 'month'} aria-label={upcoming ? 'Hide Upcoming' : 'Show Upcoming'} aria-pressed={upcoming} className="h-8 aria-pressed:bg-accent" onClick={plan}>
             <span className="hidden @[40rem]/head:inline">Plan</span><PanelRight />
           </Button>
         </Tip>
-        <Tip label="A new event"><Button size="sm" data-cal-new-event aria-label="New event" onClick={newEvent}><Plus /><span className="hidden @[46rem]/head:inline">New event</span></Button></Tip>
+        <Tip label="A new event"><Button size="sm" data-cal-new-event aria-label="New event" className="h-8" onClick={newEvent}><Plus /><span className="hidden @[46rem]/head:inline">New event</span></Button></Tip>
       </header>
       <div className="flex min-h-0 flex-1 border-t">
         {left && (

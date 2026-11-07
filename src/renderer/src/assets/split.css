@@ -118,3 +118,8 @@ html[data-split-drag] * {
     scale: 1;
   }
 }
+/* On the dark frame the tab's own edge is the frame: its hairline only drew a line along the top whose ends showed
+   where the curves begin. */
+[data-frame='dark'] [data-pane]:is([data-pane], [data-pane-front], [data-pane-back]) {
+  --mf-tab-line: transparent;
+}

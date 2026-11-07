@@ -77,7 +77,10 @@ export const INK_FLOOR = 0.62
  * day, the lightest still 3:1 against its card on every theme and finish. Every day grid in the app shades from these.
  */
 export const INK_STEPS = [9, 62, 75, 88, 100]
-export const inkShade = (step: number): string => `color-mix(in oklab, var(--foreground) ${INK_STEPS[step]}%, transparent)`
+/** A day grid's square: none is a faint ink, a day with something in it the theme's own accent, by the same four steps. */
+// The theme's heat colour (its accent, unless it names one: GitHub's green) for the lightest, then drawn toward the ink
+// for busier days. In a dark theme the lightest is lifted a little toward the ink, to keep 3:1 on the card (main.css).
+export const inkShade = (step: number): string => (step ? `color-mix(in oklab, var(--mf-heat, var(--primary)), var(--foreground) calc(var(--mf-heat-lift, 0%) + ${(step - 1) * 15}%))` : `color-mix(in oklab, var(--foreground) ${INK_STEPS[0]}%, transparent)`)
 
 /** A small round chip beside the big number: "5 of 7 days", "12 weeks". */
 export function Chip({ children }: { children: ReactNode }): React.JSX.Element {
