@@ -9,12 +9,12 @@ import { chime } from '@/lib/sound'
 import { cn } from '@/lib/cn'
 import { dayjs, num } from '../../../../main/dates'
 import type { Reading, ReadingPage } from '../../../../main/feed'
-import { Docked, Page, Tip } from './ui'
+import { Page, Tip } from './ui'
 import { openGloss } from './gloss-line'
 import { GroupIcon } from './kept-groups'
 import { TagIcon } from './tag-icon'
 import { ReadThrough } from './read-through'
-import { AGAIN_TIP, FeedHeading, FeedSaid, Restack, SideColumn, THOUGHT_TIP, TabChips } from './feed-view'
+import { AGAIN_TIP, FeedColumns, FeedHeading, FeedSaid, Restack, SideColumn, THOUGHT_TIP, TabChips } from './feed-view'
 import { ReadLaterButton, ReadLaterLabelled, useReadLater } from './read-later'
 
 /**
@@ -101,9 +101,9 @@ export function FeedReading({ tabs, onOpen }: { tabs: React.ReactNode; onOpen: (
   }
   const close = (): void => (setOpen(null), setLine(null))
   return (
-    <Page title="Feed" dock waiting={unloaded(read0)} lead={tabs} search={reading.pages.length ? <FeedSaid data-reading-count>{num(reading.pages.length)} {reading.pages.length === 1 ? 'page' : 'pages'} to read</FeedSaid> : undefined}>
-      {/* The pages scroll by themselves; the side column is docked at the page's right edge, full height, as on Notes and Liked. */}
-      <Docked side={!reading.safe && reading.pages.length > 0 ? <SideColumn onOpen={onOpen} /> : null}>
+    <Page title="Feed" waiting={unloaded(read0)} lead={tabs} search={reading.pages.length ? <FeedSaid data-reading-count>{num(reading.pages.length)} {reading.pages.length === 1 ? 'page' : 'pages'} to read</FeedSaid> : undefined}>
+      {/* A narrow column of pages with the side column beside it, as a social feed. */}
+      <FeedColumns side={!reading.safe && reading.pages.length > 0 ? <SideColumn onOpen={onOpen} /> : null}>
       <div data-feed data-feed-reading className="flex min-w-0 flex-col px-5 pt-4 pb-16">
         {reading.safe ? (
           <p data-feed-safe className="py-10 text-body text-foreground"><strong className="font-semibold">Safe mode is on</strong>, so Reading rests until you turn it off.</p>
@@ -141,7 +141,7 @@ export function FeedReading({ tabs, onOpen }: { tabs: React.ReactNode; onOpen: (
           </div>
         )}
       </div>
-      </Docked>
+      </FeedColumns>
       {reader && (
         <ReadThrough key={reader.id} items={[{ type: 'article', id: reader.id }]} onClose={close}
           longform={{

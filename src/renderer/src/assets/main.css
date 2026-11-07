@@ -1433,6 +1433,26 @@ html:is([data-width='page'], [data-width='wide']) .page-dock-column,
   overscroll-behavior: contain;
   border-left: 1px solid var(--tt-border-color);
 }
+/* The Feed: a narrow column of posts with its side column right beside it, as X and Substack keep theirs. */
+.feed-columns {
+  display: flex;
+  align-items: flex-start;
+  gap: 2rem;
+  container-type: inline-size;
+}
+.feed-posts { flex: 1; min-width: 0; }
+.feed-columns .page-dock-side {
+  position: sticky;
+  top: 1rem;
+  height: auto;
+  margin-top: 1rem;
+  padding: 0;
+  overflow: visible;
+  border-left: 0;
+}
+@container (min-width: 48rem) {
+  .feed-columns .page-dock-side { display: flex; }
+}
 /* Only once there is room for it beside the page's column, as before. */
 @container (min-width: 56rem) {
   .page-dock-side { display: flex; }

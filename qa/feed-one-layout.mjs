@@ -45,11 +45,13 @@ try {
     })
   }
   const [notes, reading, liked] = [seen.notes[0], seen.reading[0], seen.liked[0]]
+  if (process.env.QA_SHOTS) for (const name of ['notes', 'reading', 'liked']) { await tab(name); await h.screenshot({ path: `${process.env.QA_SHOTS}/feed-${name}.png` }) }
   console.log(JSON.stringify({ notes, reading, liked }, null, 1))
   check('the column starts on one left edge on all three tabs', notes.column.l === reading.column.l && reading.column.l === liked.column.l, `${notes.column.l} ${reading.column.l} ${liked.column.l}`)
   check('the column is one width on all three tabs', notes.column.w === reading.column.w && reading.column.w === liked.column.w, `${notes.column.w} ${reading.column.w} ${liked.column.w}`)
   check('the side column sits in one place on all three tabs', notes.side && reading.side && liked.side && notes.side.l === reading.side.l && reading.side.l === liked.side.l && notes.side.w === reading.side.w, `${notes.side?.l} ${reading.side?.l} ${liked.side?.l}`)
   const tabsOf = (one) => Object.fromEntries(Object.entries(one.controls).filter(([k]) => ['Notes', 'Reading', 'Liked'].includes(k)))
+  check('a social feed\'s narrow column on every tab (640px or less), the side column right beside it', [notes, reading, liked].every((one) => one.column.w <= 640 && one.side && one.side.l - (one.column.l + one.column.w) < 80), [notes, reading, liked].map((one) => `${one.column.w} gap ${one.side ? one.side.l - one.column.l - one.column.w : '-'}`).join(' / '))
   check('the tabs hold still through every switch', JSON.stringify(tabsOf(notes)) === JSON.stringify(tabsOf(reading)) && JSON.stringify(tabsOf(reading)) === JSON.stringify(tabsOf(liked)) && JSON.stringify(tabsOf(seen.notes[1])) === JSON.stringify(tabsOf(notes)), JSON.stringify([tabsOf(notes), tabsOf(reading), tabsOf(liked)]))
   check('the tabs sit on the page\'s top line, as Review\'s do', notes.inHeader && reading.inHeader && liked.inHeader)
 
@@ -63,7 +65,7 @@ try {
     await tab('liked')
     await h.locator(`[data-feed-id="${linked}"]`).first().scrollIntoViewIfNeeded().catch(() => {})
     const onLiked = await inline()
-    check('Liked: "Connected to: A, B" reads on one line', onLiked.n === 2 && onLiked.tops[0] === onLiked.tops[1], JSON.stringify(onLiked))
+    check('Liked: "Connected to: A, B" runs as one sentence (wrapping at most once in the narrow column, never a line per link)', onLiked.n === 2 && onLiked.tops[1] - onLiked.tops[0] <= 32, JSON.stringify(onLiked))
     const lone = await h.evaluate((id) => [...document.querySelectorAll(`[data-feed-id="${id}"]`)].find((n) => n.offsetWidth)?.innerText.split('\n').some((line) => line.trim() === ','), linked)
     check('...with no "," on a line of its own', lone === false)
     await h.locator(`[data-feed-id="${linked}"]`).first().screenshot({ path: `${SHOTS}/connected-liked.png` }).catch(() => {})

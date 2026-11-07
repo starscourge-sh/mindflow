@@ -50,8 +50,8 @@ try {
   check("Today's read shows over the list when there is one", !reading.today || !!todayTitle)
   check("Today's read never says 1 min read", !(await h.locator('[data-reading-today] [data-reading-minutes]').count()) || !/^1 min/.test(await h.locator('[data-reading-today] [data-reading-minutes]').textContent()))
   check('Reading has no shelves of cards', !(await h.locator('[data-reading-shelves], [data-shelf-card]').count()))
-  // The same column as Notes: the side column docked at the page's right edge, as on Notes and Liked.
-  check('Reading has the side column', (await h.locator('[data-page-dock]:has([data-feed-reading]) [data-feed-side]').count()) === 1)
+  // The same narrow column as Notes and Liked, the side column right beside it.
+  check('Reading has the side column, beside its posts', (await h.locator('.feed-columns:has([data-feed-reading]) > [data-feed-side]').count()) === 1)
   for (const name of ['light', 'dark']) {
     await paint(name)
     await h.waitForTimeout(500)

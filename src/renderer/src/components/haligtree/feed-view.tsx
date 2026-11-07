@@ -14,7 +14,7 @@ import { useGrades } from './review-view'
 import { backIn } from '@/lib/back-in'
 import { openSource, sources, type SourceSummary } from '@/lib/sources'
 import { distinctInitials } from '@/lib/people'
-import { Docked, Kbd, Page, Tip, jumpTo, openTag, quietly, toast, typing } from './ui'
+import { Kbd, Page, Tip, jumpTo, openTag, quietly, toast, typing } from './ui'
 import { Switch } from '@/components/ui/switch'
 import { Avatar } from './avatar'
 import { GlossLine, cutWords, openGloss } from './gloss-line'
@@ -428,9 +428,9 @@ function FeedNotes({ onOpen, tabs, extra, pages }: { onOpen: (type: string, id: 
     return () => window.removeEventListener('keydown', onKey, true)
   })
   return (
-    <Page title="Feed" dock waiting={unloaded(feed) || real === null} lead={tabs} search={holds ? <FeedSaid data-feed-holds>{holds}</FeedSaid> : undefined} actions={extra}>
-      {/* The posts scroll by themselves; the side column is docked at the page's right edge, full height. */}
-      <Docked side={!feed.safe && !preview && feed.posts.length > 0 ? <SideColumn onOpen={onOpen} /> : null}>
+    <Page title="Feed" waiting={unloaded(feed) || real === null} lead={tabs} search={holds ? <FeedSaid data-feed-holds>{holds}</FeedSaid> : undefined} actions={extra}>
+      {/* A narrow column of posts with the side column beside it, as a social feed. */}
+      <FeedColumns side={!feed.safe && !preview && feed.posts.length > 0 ? <SideColumn onOpen={onOpen} /> : null}>
       <div ref={root} data-feed className="flex min-w-0 flex-col px-5 pt-4 pb-16">
         {shown ? (
           <Thread post={shown} onBack={back} onOpen={() => open(shown.type, shown.id)} onOpenOther={open} />
@@ -464,7 +464,7 @@ function FeedNotes({ onOpen, tabs, extra, pages }: { onOpen: (type: string, id: 
           </>
         )}
       </div>
-      </Docked>
+      </FeedColumns>
     </Page>
   )
 }
@@ -1136,7 +1136,7 @@ export function SideColumn({ onOpen }: { onOpen: (type: string, id: string) => v
   const go = (run: () => void): void => (chime('page'), run())
   const row = 'flex w-full min-w-0 items-center gap-2 rounded-md px-2 py-1.5 text-left text-control text-foreground transition-colors hover:bg-accent/60'
   return (
-    // Docked at the page's right edge, the window's height: it scrolls on its own only when it holds more.
+    // Beside the posts, staying in sight as they scroll (FeedColumns).
     <aside data-feed-side aria-label="Beside the Feed" className="page-dock-side">
       {faces.length > 0 && (
         <SideCard name="sources" title="Your sources">
@@ -1200,5 +1200,18 @@ export function SideCard({ name, title, children }: { name: string; title: strin
       <h2 className="px-2 pt-1.5 pb-1 text-control font-semibold text-foreground">{title}</h2>
       <div className="flex flex-col">{children}</div>
     </section>
+  )
+}
+
+/**
+ * The Feed reads as a social feed does (X, Substack): one narrow column of posts with its side column right beside
+ * it, the pair centred in the page; never a page-wide column. The side column stays in sight as the posts scroll.
+ */
+export function FeedColumns({ side, children }: { side: React.ReactNode; children: React.ReactNode }): React.JSX.Element {
+  return (
+    <div className="feed-columns">
+      <div className="feed-posts">{children}</div>
+      {side}
+    </div>
   )
 }

@@ -8,13 +8,13 @@ import { cn } from '@/lib/cn'
 import { useHere } from '@/lib/split'
 import { dayjs, num, plural } from '../../../../main/dates'
 import type { LikedPost, LikedSide } from '../../../../main/feed'
-import { Docked, Page, Tip, openTag, toast, typing } from './ui'
+import { Page, Tip, openTag, toast, typing } from './ui'
 import { RowMenu, copyLinkItem, type MenuItem } from './row-menu'
 import { Avatar } from './avatar'
 import { openSource } from '@/lib/sources'
 import { distinctInitials } from '@/lib/people'
 import { dayLinkName } from './day-view'
-import { FeedHeading, FeedSaid, Post, SideCard, kindWord, written } from './feed-view'
+import { FeedColumns, FeedHeading, FeedSaid, Post, SideCard, kindWord, written } from './feed-view'
 
 /**
  * Liked: every post you hearted in the Feed, newest like first, in the Feed's
@@ -148,9 +148,9 @@ export function FeedLiked({ tabs, onOpen }: { tabs: React.ReactNode; onOpen: (ty
   // On the top line's right, as Notes' and Reading's words are.
   const said = <FeedSaid data-liked-holds>{side.total ? `${likesSaid(side.total)} on ${plural(side.notes, 'post')}` : 'No likes yet'}</FeedSaid>
   return (
-    <Page title="Feed" dock waiting={waiting} lead={tabs} search={said}>
-      {/* The likes scroll by themselves; the side column is docked at the page's right edge, full height. */}
-      <Docked side={side.total > 0 ? <LikedSideColumn side={side} onOpen={open} /> : null}>
+    <Page title="Feed" waiting={waiting} lead={tabs} search={said}>
+      {/* A narrow column of likes with the side column beside it, as a social feed. */}
+      <FeedColumns side={side.total > 0 ? <LikedSideColumn side={side} onOpen={open} /> : null}>
       <div ref={root} data-feed-liked className="flex min-w-0 flex-col px-5 pt-4 pb-16">
           {!posts?.length && !side.total ? (
             <p data-liked-empty className="py-10 text-body text-foreground">Nothing liked yet. Tap the heart on a post in Notes and it is kept here, the newest first.</p>
@@ -192,7 +192,7 @@ export function FeedLiked({ tabs, onOpen }: { tabs: React.ReactNode; onOpen: (ty
             </>
           )}
       </div>
-      </Docked>
+      </FeedColumns>
     </Page>
   )
 }
