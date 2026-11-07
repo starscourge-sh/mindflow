@@ -503,7 +503,9 @@ export function Search({ onOpen: told, onAside: toldAside, onTab: toldTab, onClo
                   <RowMenu items={menus ? live.current.menuOf(capture) : []}>
                   <button
                     type="button"
-                    className={`flex w-full flex-wrap items-center gap-x-2 rounded-md px-2 py-1.5 text-left ${PICKED_MARK}`}
+                    // One line that never wraps (what it is, its name, a few tags, its kind at the right),
+                    // and under it, only when there is one, the line it was found on: rows read as results, not loose text.
+                    className={`flex w-full flex-col gap-0.5 rounded-md px-2 py-1.5 text-left ${PICKED_MARK}`}
                     data-search-at={on || undefined}
                     onMouseMove={(event) => realMove(event) && setAt(live.current.doing + index)}
                     data-row
@@ -512,21 +514,27 @@ export function Search({ onOpen: told, onAside: toldAside, onTab: toldTab, onClo
                     // ⌘-click one in or out, ⇧-click a run, as in every list; a plain click opens it.
                     onClick={(event) => (live.current.several.click(event, capture) ? box.current?.focus() : (aimAt(capture.id, capture.line), live.current.onOpen(capture.type, capture.id)))}
                   >
-                    <kind.icon className="size-4 shrink-0" style={{ color: kind.tint }} />
-                    <span {...(shown || capture.type === 'pdf' || capture.type === 'web' || capture.type === 'media' ? {} : hoverNote(capture.type, capture.id, { kind: capture.kind }))} {...(capture.type === 'pdf' ? { 'data-pdf-peek': capture.id.split('|')[0], 'data-pdf-peek-name': capture.id.split('|').slice(1).join('|') } : {})} className="min-w-0 max-w-[72%] truncate">{/* A task's or an Inbox note's #tags as tags, never in its name: so it reads as it does on its own list. */}{(capture.type === 'day' ? dayName(capture.id) : taskName(capture.label ?? '').text) || 'Untitled'}</span>
-                    {capture.type !== 'day' && <Tags tags={taskName(capture.label ?? '').tags} go={false} />}
-                    {/* After the words, so a task's title starts where a note's does. */}
-                    {capture.type === 'task' && !!tasks.find((one) => one.id === capture.id)?.priority && <PriorityMark level={tasks.find((one) => one.id === capture.id)!.priority} />}
-                    {capture.type !== 'capture' && <span className="shrink-0 rounded bg-accent px-1.5 text-xs text-muted-foreground">{typeSaid(capture.type)}</span>}
-                    {/* A task's day, ahead or gone by, so a future one is told from a past one at a glance. */}
-                    {capture.type === 'task' && <TaskDay task={tasks.find((one) => one.id === capture.id)} />}
-                    {whereFrom(capture.source, capture.label) && <span className="min-w-0 max-w-[40%] truncate text-xs text-muted-foreground">· {whereFrom(capture.source, capture.label)}</span>}
-                    {on && !asking && !preview && capture.type === 'capture' && <span className="ml-auto shrink-0 text-xs text-muted-foreground">{capture.attribution ?? 'Tab: who said it'}</span>}
-                    {/* Why it came up: the line the words are on, the words marked, under the name. */}
+                    <span data-row-line className="flex h-5 w-full min-w-0 items-center gap-2">
+                      <kind.icon className="size-4 shrink-0" style={{ color: kind.tint }} />
+                      <span {...(shown || capture.type === 'pdf' || capture.type === 'web' || capture.type === 'media' ? {} : hoverNote(capture.type, capture.id, { kind: capture.kind }))} {...(capture.type === 'pdf' ? { 'data-pdf-peek': capture.id.split('|')[0], 'data-pdf-peek-name': capture.id.split('|').slice(1).join('|') } : {})} data-row-title className="min-w-0 truncate leading-5">{/* A task's or an Inbox note's #tags as tags, never in its name: so it reads as it does on its own list. */}{(capture.type === 'day' ? dayName(capture.id) : taskName(capture.label ?? '').text) || 'Untitled'}</span>
+                      {/* After the words, so a task's title starts where a note's does. */}
+                      {capture.type === 'task' && !!tasks.find((one) => one.id === capture.id)?.priority && <PriorityMark level={tasks.find((one) => one.id === capture.id)!.priority} />}
+                      {/* A task's day, ahead or gone by, so a future one is told from a past one at a glance. */}
+                      {capture.type === 'task' && <TaskDay task={tasks.find((one) => one.id === capture.id)} />}
+                      {whereFrom(capture.source, capture.label) && <span className="min-w-0 max-w-[30%] shrink-[10] truncate text-xs text-muted-foreground">· {whereFrom(capture.source, capture.label)}</span>}
+                      {/* The tags take only the room the title leaves (at least a few letters), so a short title is never cut for them. */}
+                      {capture.type !== 'day' && taskName(capture.label ?? '').tags.length > 0 && <span className="flex min-w-12 flex-1 basis-0 overflow-hidden"><Tags tags={taskName(capture.label ?? '').tags} max={2} alone go={false} /></span>}
+                      {/* What it is, in quiet words on one right edge for every row. */}
+                      <span className="ml-auto flex shrink-0 items-center gap-2 pl-2 text-xs text-muted-foreground">
+                        {on && !asking && !preview && capture.type === 'capture' && <span>{capture.attribution ?? 'Tab: who said it'}</span>}
+                        <span data-row-kind>{capture.type === 'capture' ? (CAPTURE_TYPES.find((type) => type.id === capture.kind) ?? CAPTURE_TYPES[0]).label : typeSaid(capture.type)}</span>
+                      </span>
+                    </span>
+                    {/* Why it came up: the line the words are on, the words marked, under the name and starting where it starts. */}
                     {capture.line && (
-                      <span data-found-line data-found-picture={capture.picture ? '' : undefined} className="flex basis-full items-center gap-2 truncate pl-6 text-sm text-muted-foreground">
+                      <span data-found-line data-found-picture={capture.picture ? '' : undefined} className="flex h-5 min-w-0 items-center gap-2 pl-6 text-sm leading-5 text-muted-foreground">
                         {/* Words read in a picture: the picture itself, small, beside them. */}
-                        {capture.picture && <img src={capture.picture} alt="" className="size-7 shrink-0 rounded-[4px] border border-border/60 object-cover" />}
+                        {capture.picture && <img src={capture.picture} alt="" className="size-5 shrink-0 rounded-[4px] border border-border/60 object-cover" />}
                         <span className="min-w-0 truncate">{capture.picture && <span className="text-foreground/70">In a picture: </span>}<Marked text={capture.line} query={words.join(' ')} /></span>
                       </span>
                     )}
