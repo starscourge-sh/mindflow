@@ -8,7 +8,7 @@ import { sandbox } from './sandbox-lib.mjs'
 process.env.QA_ARGS ??= '--sandbox'
 
 const { check, done } = checks()
-const NATURAL = { inbox: 'Write', home: 'Write', day: 'Write', articles: 'Write', nuggets: 'Write', review: 'Write', today: 'Write', calendar: 'Write' }
+const NATURAL = { inbox: 'Write', home: 'Write', day: 'Write', articles: 'Write', nuggets: 'Library', sources: 'Library', media: 'Library', review: 'Write', today: 'Write', calendar: 'Write' }
 const ID = { Inbox: 'inbox', Home: 'home', Journal: 'day', Pages: 'articles', Gems: 'nuggets', Review: 'review', Tasks: 'today', Calendar: 'calendar', Bin: 'discarded', Lookups: 'lookups', Tags: 'tags' }
 
 /** Each block as drawn: its key and the rows' names, top to bottom. */
@@ -59,8 +59,9 @@ async function lands(c, name, id, y) {
   const s = await c.v('settings')
   const savedBlock = s.sidebarGroups?.[id] ?? NATURAL[id] ?? 'rest'
   const order = s.sidebarOrder ?? []
-  const savedOrder = after.flatMap((one) => one.rows).filter((one) => order.includes(one))
-  check(`${name}: saved in that block and that order`, savedBlock === block && JSON.stringify(savedOrder) === JSON.stringify(order.filter((one) => savedOrder.includes(one))), `${savedBlock}; ${order.join(' ')}`)
+  // Within each block the rows keep the saved order (blocks group them, so the whole list is not in it).
+  const inOrder = after.every((one) => { const rows = one.rows.filter((row) => order.includes(row)); return JSON.stringify(rows) === JSON.stringify(order.filter((row) => rows.includes(row))) })
+  check(`${name}: saved in that block and that order`, savedBlock === block && (order.length === 0 || inOrder), `${savedBlock}; ${order.join(' ')}`)
 }
 
 let c = await sandbox({ width: 1100, height: 900 })

@@ -27,7 +27,8 @@ import { SIDEBAR_SHAPE } from '../../../../main/sidebar-shape'
 import { num } from '../../../../main/dates'
 
 /** A run of the sidebar's places with a gap before it and no heading: what you write and keep, then what you do. */
-export type Group = 'Write'
+/** The sidebar's runs: what you write and do, then Library (what you keep), then the rest. */
+export type Group = 'Write' | 'Library'
 /** A place the main window's sidebar or the box's tabs can show. */
 export type Place = {
   id: string; label: string; icon: LucideIcon; tint: string; key?: string; group?: Group
@@ -59,7 +60,7 @@ export const SECTIONS: (Place & { key: string })[] = [
   // What you keep wondering about, each collecting clues: a row of its own under Writing, never one of Writing's folders,
   // so it is not mistaken for a folder of the same name. Its Looked up tab lights it too (litRow).
   { id: 'questions', emoji: '🪐', label: 'Questions', icon: Orbit, key: 'h', tint: 'blue', group: 'Write' },
-  { id: 'nuggets', emoji: '💎', label: 'Gems', icon: Gem, key: 'n', tint: 'pink', group: 'Write' },
+  { id: 'nuggets', emoji: '💎', label: 'Gems', icon: Gem, key: 'n', tint: 'pink', group: 'Library' },
   { id: 'review', emoji: '🧠', label: 'Review', icon: Brain, key: 'r', tint: 'purple', group: 'Write' },
   // One row for every task list: Today, Upcoming, Later and Routines are its tabs (tasks-view.tsx).
   { id: 'today', emoji: '✅', label: 'Tasks', icon: ListChecks, key: 't', tint: 'green', group: 'Write' },
@@ -77,18 +78,21 @@ export const SECTIONS: (Place & { key: string })[] = [
   { id: 'queue', emoji: '🎞️', label: 'Queue', icon: ListVideo, key: 'b', tint: 'blue' },
   { id: 'tags', emoji: '🏷️', label: 'Tags', icon: Tag, alive: HashtagIcon, key: '#', tint: 'red' },
   // Every person and source your notes are from, a page each (source-page.tsx).
-  { id: 'sources', emoji: '👤', label: 'Sources', icon: BookUser, key: 'j', tint: 'blue' },
+  { id: 'sources', emoji: '👤', label: 'Sources', icon: BookUser, key: 'j', tint: 'blue', group: 'Library' },
   { id: 'stats', emoji: '📊', label: 'Stats', icon: BarChart3, alive: ChartBarIcon, key: 's', tint: 'blue' },
   // Every note you have linked, as a map of dots and lines.
   { id: 'map', emoji: '🗺️', label: 'Map', icon: Links, alive: LinkIcon, key: 'x', tint: 'purple' },
   // Every picture, GIF, PDF and recording your notes keep, as a grid (media-view.tsx). G and the comma: every letter is taken.
-  { id: 'media', emoji: '🖼️', label: 'Files', icon: Images, key: ',', tint: 'purple' },
+  { id: 'media', emoji: '🖼️', label: 'Files', icon: Images, key: ',', tint: 'purple', group: 'Library' },
   { id: 'discarded', emoji: '🗑️', label: 'Bin', icon: Trash2, alive: TrashIcon, key: 'd', tint: 'gray' },
   // Out of sight, not let go: apart from the exits.
   { id: 'archived', emoji: '🗄️', label: 'Archived', icon: Archive, key: 'v', tint: 'gray' },
   // Every power Haligtree keeps out of sight, a card each (powers-view.tsx).
   { id: 'powers', emoji: '🧭', label: `What ${APP_NAME} can do`, icon: Compass, key: 'f', tint: 'green' }
 ]
+
+/** Library's heading in the sidebar: Gems, Sources and Files, what you keep, under one fold. Not a page. */
+export const LIBRARY: Place = { id: 'library', emoji: '📚', label: 'Library', icon: Gem, tint: 'pink' }
 
 /** Journal's Week, Month and Year, hung under its row in the sidebar as Writing's folders are (home.tsx). */
 export const JOURNAL_SCALES: Place[] = [
@@ -457,7 +461,9 @@ export function ShowList({ places: every, setting, counts }: { places: Place[]; 
             row={(place, among) => row(place, among)}
             around={(block, at, box, items) => (
               <div key={block} data-show-part={block} className="flex flex-col">
-                {at > 0 && items.length > 0 && <div data-side-gap aria-hidden className="mt-2.5 mb-0.5 min-h-1" />}
+                {block === 'Library' && items.length > 0
+                  ? <div data-show-heading="library" className="mt-2.5 mb-0.5 px-2 py-0.5 text-meta text-muted-foreground">{LIBRARY.label}</div>
+                  : at > 0 && items.length > 0 && <div data-side-gap aria-hidden className="mt-2.5 mb-0.5 min-h-1" />}
                 {box}
                 {/* Pinned and Recent, under the first run, as the sidebar has them. */}
                 {block === 'Write' && <div data-show-groups className="mt-2.5 flex flex-col gap-px">{SIDE_GROUPS.map((group) => row(group, [], true))}</div>}

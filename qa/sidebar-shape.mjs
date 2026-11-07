@@ -16,7 +16,8 @@ import { sandbox } from './sandbox-lib.mjs'
 
 const { check, done } = checks()
 const DATA = process.env.QA_DATA
-const SHAPE = ['Inbox', 'Home', 'Journal', 'Writing', 'Questions', 'Gems', 'Review', 'Tasks', 'Calendar']
+// What you write and do, then Library (Gems, and Sources and Files where shown) under its heading.
+const SHAPE = ['Inbox', 'Home', 'Journal', 'Writing', 'Questions', 'Review', 'Tasks', 'Calendar', 'Gems']
 
 /** The sidebar as it is drawn: each row's name in order, a gap as "|", and any heading's words. */
 const read = (h) => h.evaluate(() => {
@@ -69,7 +70,7 @@ try {
   }
   // 3. The sandbox: another book, the same shape.
   process.env.QA_ARGS = '--sandbox'
-  await look('the sandbox', () => sandbox({ width: 1200, height: 860 }), ['Inbox', 'Home', 'Journal', 'Writing', 'Questions', 'Gems', 'Feed', 'Review', 'Tasks', 'Calendar'])
+  await look('the sandbox', () => sandbox({ width: 1200, height: 860 }), ['Inbox', 'Home', 'Journal', 'Writing', 'Questions', 'Feed', 'Review', 'Tasks', 'Calendar', 'Gems', 'Sources', 'Files'])
 } catch (error) {
   check('ran', false, error.stack)
 }

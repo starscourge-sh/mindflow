@@ -104,7 +104,7 @@ import { noteActions } from '@/lib/notes'
 import { headingIn } from '@/lib/capture-links'
 import { openApart } from '@/lib/apart'
 import { MediaView } from '@/components/haligtree/media-view'
-import { G_ALIASES, JOURNAL_SCALES, OFF_SIDEBAR, startPageOf, PlaceIcon, SECTIONS, SIDE_GROUPS, ShowList, showGroup, type Place, placeDrawing, TASK_PAGES, dropInBlock, dropOrder, orderItems, risen, litRow, showWords, sidebarParts, useInOrder, useOrder, useSections, useShown } from '@/components/haligtree/places'
+import { G_ALIASES, JOURNAL_SCALES, LIBRARY, OFF_SIDEBAR, startPageOf, PlaceIcon, SECTIONS, SIDE_GROUPS, ShowList, showGroup, type Place, placeDrawing, TASK_PAGES, dropInBlock, dropOrder, orderItems, risen, litRow, showWords, sidebarParts, useInOrder, useOrder, useSections, useShown } from '@/components/haligtree/places'
 import { BlockList, SortableList, SortableRow } from '@/components/haligtree/sortable'
 import { pageTravel } from '@/lib/page-travel'
 import { Branches } from '@/components/haligtree/branches'
@@ -839,6 +839,7 @@ export function Home(): React.JSX.Element {
   const [tagsKept, keepTags] = useRemembered('sidebar:tags')
   // Pinned folds, Notion's way, and starts open.
   const [pinsOpen, setPinsOpen] = useRemembered('sidebar:pinned', true)
+  const [libraryOpen, setLibraryOpen] = useRemembered('sidebar:library', true)
   // Recent: the last few notes you opened, under Pinned, a short list (four at most: ⌘K has the rest), kept folded or open as you left it.
   const [recentOpen, setRecentOpen] = useRemembered('sidebar:recent', true)
   const [recents, setRecents] = useState<Opened[]>([])
@@ -2144,7 +2145,8 @@ export function Home(): React.JSX.Element {
             const heading = (group: Place, open: boolean, fold: (open: boolean) => void, near?: string): React.JSX.Element =>
               narrow ? <div key={group.id} className="mt-3" /> : (
                 <RowMenu key={group.id} items={[
-                  { label: showWords(group, true).label, run: () => void hideGroup(group) },
+                  // Library is not one to switch off: its rows are, each, in Customize.
+                  ...(group.id === LIBRARY.id ? [] : [{ label: showWords(group, true).label, run: () => void hideGroup(group) }]),
                   { label: 'Customize the sidebar…', run: () => void setTimeout(() => setCustomizing(true), 120) }
                 ]}>
                 <div data-side-heading={group.id} className="group/head relative mt-2.5 mb-0.5 flex min-h-6 items-center">
@@ -2267,8 +2269,14 @@ export function Home(): React.JSX.Element {
                 around={(block, at, box, items) => (<>
                   {block === 'rest' && tagRows && tagsPart}
                   {/* Each run after the first gets a gap the height of a heading, with no heading: what you write, then what you do, then the rest. */}
-                  {at > 0 && items.length > 0 && <div data-side-gap aria-hidden className={narrow ? 'mt-3' : 'mt-2.5 mb-0.5 min-h-1'} />}
-                  {box}
+                  {/* Library, what you keep (Gems, Sources, Files), under a heading of its own that folds as Pinned's does. */}
+                  {block === 'Library' && items.length > 0 ? (<>
+                    {heading(LIBRARY, libraryOpen || narrow, setLibraryOpen)}
+                    <Unfold open={libraryOpen || narrow}>{box}</Unfold>
+                  </>) : (<>
+                    {at > 0 && items.length > 0 && <div data-side-gap aria-hidden className={narrow ? 'mt-3' : 'mt-2.5 mb-0.5 min-h-1'} />}
+                    {box}
+                  </>)}
                   {/* Pinned, and the split open now, sit under the places. */}
                   {block === 'Write' && pinned}
                 </>)}
