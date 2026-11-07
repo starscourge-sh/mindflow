@@ -6,6 +6,40 @@ import "./pdf.css"
 import { markCss } from "./read-bar"
 import { AHEAD as NEXT_TO, IN_VIEW, drawInTurn, keepPage, keptPage } from "./pdf-draw"
 
+// A drag begun on a page's words selects across every page of that book: each page's end stretches to take the
+// pointer wherever it goes, until the press ends (pdf.css .textLayer.selecting .endOfContent).
+if (typeof document !== "undefined" && !(window as { __pdfSelecting?: boolean }).__pdfSelecting) {
+  ;(window as { __pdfSelecting?: boolean }).__pdfSelecting = true
+  let held: Element[] = []
+  const letGo = (): void => void (held.forEach((one) => one.classList.remove("selecting")), (held = []))
+  document.addEventListener("pointerdown", (event) => {
+    const layer = (event.target as Element | null)?.closest?.(".textLayer")
+    if (!layer || event.button !== 0) return
+    const book = layer.closest(".pdf-reader, .tiptap-attachment, [data-pdf-pages]") ?? layer.parentElement
+    held = [...(book?.querySelectorAll(".textLayer") ?? [layer])]
+    held.forEach((one) => one.classList.add("selecting"))
+  }, true)
+  // Past the words altogether (below a page's last line, or off the page): the browser would stop at the letter
+  // nearest the pointer, part way along the last line. Below the last line of the page the drag is on, the
+  // selection goes to the end of that page's words, as Preview's does.
+  document.addEventListener("pointermove", (event) => {
+    if (!held.length || !(event.buttons & 1)) return
+    const selection = window.getSelection()
+    const focus = selection?.focusNode
+    const layer = (focus instanceof Element ? focus : focus?.parentElement)?.closest(".textLayer")
+    if (!selection || !layer) return
+    const spans = [...layer.querySelectorAll("span")].filter((one) => one.textContent && !one.closest(".endOfContent"))
+    const lastSpan = spans.at(-1)
+    const text = lastSpan && [...lastSpan.childNodes].reverse().find((one) => one.nodeType === Node.TEXT_NODE)
+    if (!lastSpan || !text) return
+    const bottom = Math.max(...spans.slice(-3).map((one) => one.getBoundingClientRect().bottom))
+    if (event.clientY > bottom + 4 && !(selection.focusNode === text && selection.focusOffset === text.textContent!.length)) selection.extend(text, text.textContent!.length)
+  }, true)
+  document.addEventListener("pointerup", letGo, true)
+  document.addEventListener("pointercancel", letGo, true)
+  window.addEventListener("blur", letGo)
+}
+
 // The worker ships beside the page as a file of the app's own, so the page's
 // policy (script-src 'self') lets it run.
 GlobalWorkerOptions.workerSrc = workerUrl
@@ -576,6 +610,11 @@ function PdfPage({ doc, page, scale, guess, rank, marks, flash, onWords, dark = 
       stop = () => text.cancel()
       return text.render().then(() => {
         if (!live) return
+        // What a drag past the last line lands on: stretched over the page while selecting, so overshooting the
+        // words, down or off at an angle, still takes them to the end (PDF.js's own viewer does the same).
+        const end = document.createElement("div")
+        end.className = "endOfContent"
+        layer.append(end)
         el.querySelector(".textLayer")?.remove()
         el.append(layer)
         setWorded((count) => count + 1)
