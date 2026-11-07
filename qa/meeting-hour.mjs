@@ -26,7 +26,8 @@ check('memory stays under 200 MB for an hour', peak > 0 && peak < 200, `${Math.r
 const said = lines.filter((one) => one.words?.final)
 check('every line of the hour comes out', said.length === made.lines.length, `${said.length} of ${made.lines.length}`)
 const saved = lines.find((one) => one.saved)?.saved
-check('the hour is kept whole', saved && Math.abs(saved.seconds - made.seconds) < 30, `${saved?.seconds} of ${Math.round(made.seconds)}`)
+// Stopped 4 seconds after the talk at 60 times: the quiet up to the stop is kept too, so 240 seconds more, give or take.
+check('the hour is kept whole', saved && saved.seconds >= made.seconds && saved.seconds - made.seconds < 300, `${saved?.seconds} of ${Math.round(made.seconds)}`)
 check('its waveform is 512 bars, worked out while recording', saved?.peaks?.length === 512)
 const size = (name) => statSync(join(folder, 'out', name)).size / 1024 / 1024
 check('each track is compressed (under 20 MB an hour)', size('you.m4a') < 20 && size('others.m4a') < 20, `you ${size('you.m4a').toFixed(1)} MB, others ${size('others.m4a').toFixed(1)} MB, both ${size('meeting.m4a').toFixed(1)} MB`)
