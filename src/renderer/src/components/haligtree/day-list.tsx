@@ -15,7 +15,7 @@ import { DROP_LIT } from './sortable'
 import { CarryRow, Slid } from './carry'
 import { DayDrag, LineBlock, REFUSED, readStep, type DayDrop } from './day-drag'
 import { Struck, Tick } from './marks'
-import { completeTask, dayCleared, landed, moveTo, onToday, pickDate, shiftTo, startOn, taskMenu, useTaskNow } from './tasks-view'
+import { completeTask, yourOrder, dayCleared, landed, moveTo, onToday, pickDate, shiftTo, startOn, taskMenu, useTaskNow } from './tasks-view'
 import { RowMenu, openFromGrip, type RowItem } from './row-menu'
 import { binItem } from '@/lib/to-bin'
 import { PriorityMark, planFor } from './task-input'
@@ -112,8 +112,8 @@ const writeCleared = (day: string, ids: string[]): void => {
   }
 }
 
-/** Your order first, then the order they were made in. */
-const order = (a: Task, b: Task): number => (a.sortOrder ?? 1e6 + a.number) - (b.sortOrder ?? 1e6 + b.number)
+/** Your order first, then the order they were made in: the same as the list's "Your order". */
+const order = yourOrder
 
 /** Whether a task is on today's Now: open and for today, or ticked today. */
 const inNow = (task: Task): boolean => {

@@ -5,7 +5,7 @@ import { PractiseIt } from './practise-it'
 import { ReadsIn, useReading } from '@/lib/reads-in'
 import { Highlight, useFluidHover } from './glide'
 import type { JSONContent } from '@tiptap/core'
-import { CalendarDays, CircleX, Inbox as InboxIcon, ListTree, Plus, RotateCw, Square, Ban, Tag } from 'lucide-react'
+import { CalendarDays, ChevronRight, CircleX, Inbox as InboxIcon, ListTree, Plus, RotateCw, Square, Ban, Tag } from 'lucide-react'
 import { tagTint } from './tag-icon'
 
 import { HaligtreeEditor } from '../haligtree'
@@ -50,7 +50,7 @@ import { RoutineNumbers, TaskFocusNumbers } from './focus-stats'
 import { GlossButton, GlossLine } from './gloss-line'
 import { dated, dayjs, dayKey, num, startOfDay } from '../../../../main/dates'
 import { motion } from 'motion/react'
-import { EASE, shift, still } from '@/lib/motion'
+import { EASE, EASING, shift, still } from '@/lib/motion'
 import { notes, type Day } from '@/lib/notes'
 import { ProgressBar } from './progress-bar'
 import { SessionFooter } from './session-footer'
@@ -525,7 +525,7 @@ function freshStart(): void {
   void call<{ at: string; held: number }>('tasks:fresh-start').then(({ at, held }) => {
     if (!held) return void (chime('nope'), toast('Nothing open to put on hold'))
     chime('away')
-    toast(held === 1 ? 'A fresh start: 1 task on hold, in Later' : `A fresh start: ${num(held)} tasks on hold, in Later`, () => void call('tasks:fresh-undo', at).then(() => chime('unshelve')))
+    toast(held === 1 ? 'A fresh start: 1 task on hold, folded in its tab' : `A fresh start: ${num(held)} tasks on hold, folded in their tabs`, () => void call('tasks:fresh-undo', at).then(() => chime('unshelve')))
   })
 }
 
@@ -681,6 +681,20 @@ const byNote = (list: Task[]): [string, Task[], string][] =>
 const TASK_TABS = [{ id: 'today', label: 'Today' }, { id: 'upcoming', label: 'Upcoming' }, { id: 'later', label: 'Later' }, { id: 'routines', label: 'Routines' }, { id: 'alltasks', label: 'All' }] as const
 
 /** Every open task in one list, by when: overdue, today, tomorrow, this week, later, no date. */
+/** Your order, the one the written-out day keeps (day-list.tsx): where you put it, then the order it was made in. */
+export const yourOrder = (a: Task, b: Task): number => (a.sortOrder ?? 1e6 + a.number) - (b.sortOrder ?? 1e6 + b.number)
+
+/**
+ * The one tab an open task lives in, so each says what it holds: a routine in
+ * Routines; with a day today or before (late ones too) in Today; with a day to
+ * come in Upcoming; with no day at all (someday, a month, or none named) in Later.
+ */
+export const homeOf = (task: Task): 'today' | 'upcoming' | 'later' | 'routines' =>
+  task.recurrence ? 'routines' : dayOf(task) < startOfDay(1) ? 'today' : dayOf(task) < Infinity ? 'upcoming' : 'later'
+
+/** The fold a fresh start's tasks wait in, at the foot of the tab each belongs to. */
+const ON_HOLD = 'On hold'
+
 const byWhen = (list: Task[]): [string, Task[]][] => {
   const weekEnd = dayjs().startOf('week').add(1, 'week').valueOf()
   const after = list.filter((task) => dayOf(task) >= weekEnd)
@@ -696,14 +710,18 @@ const byWhen = (list: Task[]): [string, Task[]][] => {
 }
 
 export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' | 'upcoming' | 'routines' | 'later' | 'alltasks'; focus?: string; onOpen?: (type: string, id: string) => void }): React.JSX.Element {
+  // Tomorrow is the top of Upcoming: its tasks live there.
+  const home = mode === 'tomorrow' ? 'upcoming' : mode
   const real = useLive(haligtree.tasks, [] as Task[])
   // Drawn again at midnight: Overdue, Today and Tomorrow are the new day's when the page is left open.
   useToday()
-  // What a fresh start holds: its own list at the foot of Later, each one back the moment it is opened.
+  // What a fresh start holds stays in its own tab, folded and dimmed under "On hold" at the foot: never moved out of sight.
   // Kept by name, as the lists are: Back to this page draws it at once from what was read last, and reads afresh.
-  const held = useLive(() => (mode === 'later' ? call<Task[]>('tasks:held') : Promise.resolve([] as Task[])), [] as Task[], [mode], undefined, 'tasks-held')
+  const allHeld = useLive(() => call<Task[]>('tasks:held'), [] as Task[], [], undefined, 'tasks-held')
+  const held = allHeld.filter((task) => mode === 'alltasks' || homeOf(task) === home)
+  const [heldOpen, setHeldOpen] = useState(false)
   // Nothing of this list's yet: a few made-up tasks show what it holds, dimmed and out of reach.
-  const example = !unloaded(real) && !unloaded(held) && !real.some((task) => task.status === 'open' && (mode === 'routines' ? !!task.recurrence : mode === 'later' ? !!bucket(task) : mode === 'upcoming' ? !task.recurrence : true)) && !held.length
+  const example = !unloaded(real) && !unloaded(held) && !real.some((task) => task.status === 'open' && (mode === 'alltasks' || homeOf(task) === home)) && !held.length
   const examples = useMemo(exampleTasks, [])
   const tasks = example ? examples : real
   // Opened from elsewhere with its words already read: on them from the first frame.
@@ -732,14 +750,22 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
     priority: (a, b) => (a.priority || 5) - (b.priority || 5),
     due: (a, b) => (a.dueAt ?? '9').localeCompare(b.dueAt ?? '9'),
     deadline: (a, b) => (a.deadline ?? '9').localeCompare(b.deadline ?? '9'),
+    // The most pressing first, and among the same priority, the soonest day; no day last.
+    prioritydue: (a, b) => (a.priority || 5) - (b.priority || 5) || dayOf(a) - dayOf(b) || yourOrder(a, b),
+    // Your order alone, the one the written-out day keeps: priority never reorders it behind your back.
+    manual: yourOrder,
     added: (a, b) => b.createdAt.localeCompare(a.createdAt)
   })
   // Routines live in a view of their own, or they flood Today; what was put
   // off to a later list waits there, out of the lists with days, except on the
   // day it comes back from hiding: then it is on Today too, saying "Back today",
   // as the sidebar's count (onToday) has it.
-  const live = mode === 'alltasks' ? chosenTasks.filter((task) => task.status === 'open') : chosenTasks.filter((task) => task.status === 'open' && !task.waitingOn && (mode === 'later' ? !!bucket(task) : !bucket(task) || !!task.deadline || (mode === 'today' && task.snoozedUntil === dayKey())) && (mode === 'routines' ? task.recurrence : !task.recurrence || mode === 'today'))
-  const waiting = mode === 'upcoming' ? chosenTasks.filter((task) => task.status === 'open' && task.waitingOn) : []
+  // Each open task has one home tab (homeOf); All has every one. Waiting ones sit in their own group of that tab.
+  const open_ = chosenTasks.filter((task) => task.status === 'open')
+  const live = mode === 'alltasks' ? open_ : open_.filter((task) => !task.waitingOn && (homeOf(task) === home || (mode === 'today' && !!task.recurrence && dayOf(task) < startOfDay(1))))
+  const waiting = mode === 'alltasks' ? [] : open_.filter((task) => task.waitingOn && homeOf(task) === home)
+  // Late is never buried: on every tab but Today (where it leads already), what is late sits on top in its own group.
+  const lateHere = mode === 'upcoming' || mode === 'later' || mode === 'routines' ? open_.filter((task) => dayOf(task) < startOfDay() && homeOf(task) !== home) : []
   const base = mode === 'today' ? live.filter((task) => dayOf(task) < startOfDay(1)) : mode === 'tomorrow' ? live.filter((task) => dayOf(task) >= startOfDay(1) && dayOf(task) < startOfDay(2)) : live
   // Pull, the gentlest of the three: a task whose time has come rises to the
   // top of Today instead of making a noise. Looked at again each minute.
@@ -760,8 +786,9 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
     (task.notify ?? notify) === 'pull' &&
     ((!!task.dueAt && !task.allDay && Date.parse(task.dueAt) <= Date.now()) || (!!task.deadline && !!task.deadlineTimed && Date.parse(task.deadline) <= Date.now()))
   const today = base.filter((task) => dayOf(task) >= startOfDay())
-  const heldGroup: [string, Task[], string?][] = mode === 'later' && !example && held.length ? [['Fresh start: on hold', held, 'held']] : []
-  const groups: [string, Task[], string?][] = [...(
+  const heldGroup: [string, Task[], string?][] = !example && held.length ? [[ON_HOLD, heldOpen ? held : [], 'held']] : []
+  const lateGroup: [string, Task[], string?][] = view.group === 'when' && lateHere.length ? [['Overdue', lateHere]] : []
+  const groups: [string, Task[], string?][] = [...lateGroup, ...(
     view.group === 'none'
       ? [['', [...base, ...waiting]]]
       : view.group === 'note'
@@ -771,11 +798,16 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
       : mode === 'tomorrow'
       ? [['Tomorrow', base]]
       : mode === 'routines'
-      ? [['Every so often', live]]
+      ? [['Every so often', live], ['Waiting on someone', waiting]]
       : mode === 'alltasks'
       ? byWhen(live)
       : mode === 'later'
-      ? (Object.keys(BUCKETS) as (keyof typeof BUCKETS)[]).map((which) => [BUCKETS[which], live.filter((task) => bucket(task) === which)])
+      ? [
+          ...(Object.keys(BUCKETS) as (keyof typeof BUCKETS)[]).map((which) => [BUCKETS[which], live.filter((task) => bucket(task) === which)]),
+          // Put off with no list named: no day, no month, no someday.
+          ['No date', live.filter((task) => !bucket(task))],
+          ['Waiting on someone', waiting]
+        ]
       : mode === 'today' && view.group === '135'
       ? (() => {
           // 1-3-5: one big thing, three medium, five small, in the order shown; the rest if there is time.
@@ -788,14 +820,14 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
           // The frog, picked last night, above everything, late or not.
           ['One big thing', base.filter((task) => task.id === frog)],
           ['Overdue', base.filter((task) => dayOf(task) < startOfDay() && task.id !== frog)],
-          ['Today', [...today.filter(come), ...today.filter((task) => !come(task))].filter((task) => task.id !== frog)]
+          ['Today', [...today.filter(come), ...today.filter((task) => !come(task))].filter((task) => task.id !== frog)],
+          ['Waiting on someone', waiting]
         ]
       : [
           // By day, in the order of the days, whatever the order inside each.
           ...Object.entries(Object.groupBy(live.filter((task) => dayOf(task) >= startOfDay(1) && dayOf(task) < Infinity), (task) => startOfDay(0, dayOf(task))) as Record<string, Task[]>)
             .sort(([a], [b]) => Number(a) - Number(b))
             .map(([day, list]): [string, Task[]] => [when(new Date(Number(day)).toISOString()), list]),
-          ['No date', live.filter((task) => dayOf(task) === Infinity)],
           // Chasing is not doing: what you are waiting on gets its own place.
           ['Waiting on someone', waiting]
         ]) as [string, Task[], string?][], ...heldGroup]
@@ -814,7 +846,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
   // A task just added (or put back by Undo) eases into its row.
   const arrived = useArrivals(shown.map((task) => task.id), mode)
   // One list for the virtual scroller: each group's heading, then its tasks.
-  const rows: (Task | { heading: string; count: number; key: string })[] = groups.flatMap(([heading, list, key]) => (list.length ? [{ heading, count: list.length, key: key ?? heading }, ...list] : []))
+  const rows: (Task | { heading: string; count: number; key: string })[] = groups.flatMap(([heading, list, key]) => (key === 'held' ? [{ heading, count: held.length, key }, ...list] : list.length ? [{ heading, count: list.length, key: key ?? heading }, ...list] : []))
   // Only the last pick lands: a late answer for the task before is dropped.
   const asked = useLastAsked()
   // The one asked for while it is read: its pane and name at once, never the task before (note-coming.tsx).
@@ -892,8 +924,8 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
       if (event.altKey && (event.code === 'KeyJ' || event.code === 'KeyK')) {
         event.preventDefault()
         const to = cursor + (event.code === 'KeyJ' ? 1 : -1)
-        // A higher priority sorts first, so a task moves only among its own level.
-        if (to < 0 || to >= shown.length || shown[to].priority !== task.priority) return
+        // Your order is yours alone, as on the written-out day: priority never holds a task in place.
+        if (to < 0 || to >= shown.length) return
         // Renumber the list as shown, with the two swapped.
         const order = [...shown]
         ;[order[cursor], order[to]] = [order[to], order[cursor]]
@@ -968,7 +1000,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
               facets={facets}
               items={tasks}
               // Only what applies on this tab: a later list has no day to sort by, a routine no due-by.
-              sorts={matrixed ? [{ id: view.sort, label: '' }] : [{ id: 'manual', label: 'Your order' }, { id: 'priority', label: 'Priority' }, { id: 'name', label: 'Name' }, ...(mode === 'later' ? [] : [{ id: 'due', label: 'Scheduled' }]), ...(mode === 'routines' ? [] : [{ id: 'deadline', label: 'Due by' }]), { id: 'added', label: 'Date added' }]}
+              sorts={matrixed ? [{ id: view.sort, label: '' }] : [{ id: 'manual', label: 'Your order' }, { id: 'prioritydue', label: 'Priority, then due date' }, { id: 'priority', label: 'Priority' }, { id: 'name', label: 'Name' }, ...(mode === 'later' ? [] : [{ id: 'due', label: 'Scheduled' }]), ...(mode === 'routines' ? [] : [{ id: 'deadline', label: 'Due by' }]), { id: 'added', label: 'Date added' }]}
               groups={matrixed ? [] : [{ id: 'when', label: mode === 'later' ? 'By list' : mode === 'routines' ? 'Together' : 'By date' }, ...(mode === 'today' ? [{ id: '135', label: '1-3-5' }] : []), { id: 'tag', label: 'By how it’s done' }, { id: 'note', label: 'By note' }, { id: 'none', label: 'None' }]}
             />
           )}
@@ -999,7 +1031,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
       {/* Sent here for one task: the page waits for it too, so it opens on the task beside the list, not on the list alone first;
           the task never waits for the list, which comes in whole beside it once drawn. */}
       <Page aside={!!open || !!coming} waiting={(reading && !example) || (!!focus && !matrixed && (coming ?? open?.id) !== focus) || !listShown} apart={sent}
- title={mode} lead={several.bar ? undefined : lead} count={example ? undefined : several.chosen.length || shown.length} unit={several.chosen.length ? ['selected', 'selected'] : ['open', 'open']} actions={several.bar ?? actions}>
+ title={mode} lead={several.bar ? undefined : lead} count={example ? undefined : several.chosen.length || shown.length + (heldOpen ? 0 : held.length)} unit={several.chosen.length ? ['selected', 'selected'] : ['open', 'open']} actions={several.bar ?? actions}>
 
         {/* Nothing on today yet, in either layout: the page to write it on. */}
         {written || (mode === 'today' && !example && !reading && !shown.length && dayDone === 0) ? (
@@ -1094,7 +1126,16 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
           >
             {(row) => {
               if (!('id' in row))
-                return row.heading ? (
+                return row.key === 'held' ? (
+                  // A fresh start's tasks, folded and quiet at the foot of their own tab: one click (or opening one) brings them out.
+                  <h2 className="list-ink mt-6 mb-1 border-b pb-1.5 text-meta font-medium text-muted-foreground">
+                    <button type="button" data-on-hold aria-expanded={heldOpen} onClick={() => (chime(heldOpen ? 'off' : 'tap'), setHeldOpen(!heldOpen))} className="flex w-full cursor-pointer items-center gap-1.5 text-left">
+                      <ChevronRight className={`size-3.5 transition-transform duration-200 ${heldOpen ? 'rotate-90' : ''}`} style={{ transitionTimingFunction: EASING }} />
+                      {row.heading} <span className="font-normal"><Rolling text={row.count} /></span>
+                      <span className="ml-auto font-normal">From a fresh start · open one to bring it back</span>
+                    </button>
+                  </h2>
+                ) : row.heading ? (
                   <h2 {...loud(row.heading === 'Overdue' ? 'late' : undefined, 'list-ink mt-6 mb-1 truncate border-b pb-1.5 text-meta font-medium')}>
                     {row.heading} <span className="font-normal text-muted-foreground"><Rolling text={row.count} /></span>
                     {/* Every late one moved at once, with one Undo. */}
@@ -1115,7 +1156,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
                         data-task-row
                         data-open={task.id === (coming ?? open?.id) || undefined}
                         data-cursor={index === cursor || undefined}
-                        className={`group group/item relative flex items-start gap-3 rounded-md list-ink py-2 transition-colors ${several.chosen.includes(task.id) ? PICKED_ROW : task.id === (coming ?? open?.id) ? 'bg-accent' : index === cursor ? 'bg-accent/40' : ''} ${arrived(task.id) ? 'mf-arrive' : ''}`}
+                        className={`group group/item relative flex items-start gap-3 rounded-md list-ink py-2 transition-colors ${several.chosen.includes(task.id) ? PICKED_ROW : task.id === (coming ?? open?.id) ? 'bg-accent' : index === cursor ? 'bg-accent/40' : ''} ${arrived(task.id) ? 'mf-arrive' : ''} ${task.heldAt ? 'opacity-55' : ''}`}
                       >
                         <Tip label="Complete">
                         <button
