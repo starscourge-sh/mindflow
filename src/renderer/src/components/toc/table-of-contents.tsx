@@ -4,6 +4,7 @@ import type { Editor } from "@tiptap/react"
 
 import { OPEN, headingsOf, land, type Heading } from "@/components/toc/headings"
 import { cue } from "@/lib/cues"
+import { glideIntoView } from "@/lib/glide-into-view"
 import { Tree, treeOf } from "@/components/haligtree/branches"
 
 type Outline = { headings: { level: number; text: string }[]; active: number }
@@ -95,7 +96,8 @@ export function TableOfContents({ editor, shown = true }: { editor: Editor | nul
   // to it. Keyed on `lit` alone: scrolling on hover would move the rows out
   // from under the pointer.
   useEffect(() => {
-    activeRef.current?.scrollIntoView({ block: "nearest" })
+    // Following your reading it glides, as the PDF rail does; moved by the keys it is there at once.
+    glideIntoView(activeRef.current, { jump: keyed !== null })
   }, [lit])
 
   // Room for it: wherever the note's words would run under the strip (a

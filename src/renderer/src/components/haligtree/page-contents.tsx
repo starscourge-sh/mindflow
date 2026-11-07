@@ -4,6 +4,7 @@ import { flushSync } from 'react-dom'
 import '@/components/haligtree/haligtree-editor.scss'
 import './page-contents.css'
 import { cue } from '@/lib/cues'
+import { glideIntoView } from '@/lib/glide-into-view'
 import { glideTo, listEnd } from './ui'
 import { Tree, treeOf } from './branches'
 
@@ -140,7 +141,8 @@ export function PageContents({ page, scroller, label }: { page: HTMLElement | nu
 
   const lit = keyed ?? active
   useEffect(() => {
-    activeRef.current?.scrollIntoView({ block: 'nearest' })
+    // Following your reading it glides, as the PDF rail does; moved by the keys it is there at once.
+    glideIntoView(activeRef.current, { jump: keyed !== null })
   }, [lit])
 
   // ⇧⌘O on the page, as in a note: the outline takes the keys.
