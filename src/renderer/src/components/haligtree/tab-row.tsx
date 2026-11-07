@@ -43,11 +43,12 @@ const ROUND = 'flex size-6 shrink-0 cursor-pointer items-center justify-center r
 
 /**
  * A long curve from the tab's top to the page's edge, so the tab rises out of
- * the page as one surface. Coloured by the pane (panes.tsx), so every theme
+ * the page as one surface. It overlaps the tab by a pixel: butted edge to edge,
+ * the seam let a hairline of the frame through. Coloured by the pane (panes.tsx), so every theme
  * and both kinds of focus draw it from their own tokens.
  */
 const Foot = ({ side }: { side: 'left' | 'right' }): React.JSX.Element => (
-  <svg aria-hidden viewBox="0 0 12 30" preserveAspectRatio="none" className={`pointer-events-none absolute top-0 h-full w-3 ${side === 'left' ? 'right-full' : 'left-full -scale-x-100'}`}>
+  <svg aria-hidden viewBox="0 0 12 30" preserveAspectRatio="none" className={`pointer-events-none absolute top-0 h-full w-3 ${side === 'left' ? 'right-[calc(100%-1px)]' : 'left-[calc(100%-1px)] -scale-x-100'}`}>
     <path d="M12 .5C6.5 .5 6 29.5 0 29.5V30H12Z" fill="var(--mf-tab)" />
     <path d="M12 .5C6.5 .5 6 29.5 0 29.5" fill="none" stroke="var(--mf-tab-line)" vectorEffect="non-scaling-stroke" />
   </svg>

@@ -13,11 +13,16 @@ const shot = async (name) => { await pump(); if (shots) await h.screenshot({ pat
 const theme = async (name) => { await h.evaluate((t) => localStorage.setItem('theme', t), name); await h.reload(); await wait(1500) }
 try {
   await v('settings:set', { hintRate: 0 })
-  for (const t of (process.env.QA_THEMES ?? 'paper,light,github').split(',')) {
+  for (const [t, style] of (process.env.QA_THEMES ?? 'paper,light,github,paper:brutal,paper:paper').split(',').map((one) => [one.split(':')[0], one.split(':')[1] ?? 'soft'])) {
+    await h.evaluate((one) => localStorage.setItem('style', one), style)
     await theme(t)
     await go('articles'); await wait(900)
-    await h.locator('[data-pane] [data-row]').first().click(); await wait(900)
-    await shot(`${t}-note`)
+    await h.locator('[data-pane] [data-row]:visible').first().click({ timeout: 8000 }); await wait(900)
+    if (!(await h.locator('[data-tab]:not([data-tab-on])').count())) { await h.keyboard.press('Meta+t'); await wait(700); await h.locator('[data-pane] [data-tab]').first().locator('[role=tab]').click({ timeout: 5000 }); await wait(700) }
+    await shot(`${t}-${style}-note`)
+    if (shots) await h.screenshot({ path: `${shots}/${t}-${style}-tabs.png`, clip: { x: 260, y: 40, width: 520, height: 70 } })
+    const unread = await h.evaluate(() => [...document.querySelectorAll('[data-tab]:not([data-tab-on]) [role=tab]')].map((b) => { const k = document.createElement('canvas').getContext('2d'); const lum = (c) => { k.clearRect(0, 0, 1, 1); k.fillStyle = c; k.fillRect(0, 0, 1, 1); const [r, g, bl] = k.getImageData(0, 0, 1, 1).data; return 0.2126 * r + 0.7152 * g + 0.0722 * bl }; return Math.round(lum(getComputedStyle(b).color)) }))
+    if (t !== 'github') check(`${t} ${style}: a tab not open is written in light ink`, unread.length > 0 && unread.every((one) => one > 150), JSON.stringify(unread))
     const look = await h.evaluate(() => {
       const lum = (el) => { if (!el) return -1; const c = getComputedStyle(el).backgroundColor; const ink = document.createElement('canvas').getContext('2d'); ink.fillStyle = c; ink.fillRect(0, 0, 1, 1); const [r, g, b, a] = ink.getImageData(0, 0, 1, 1).data; return a ? Math.round((0.2126 * r + 0.7152 * g + 0.0722 * b)) : -1 }
       const ink = (el) => { const c = getComputedStyle(el).color; const k = document.createElement('canvas').getContext('2d'); k.fillStyle = c; k.fillRect(0, 0, 1, 1); const [r, g, b] = k.getImageData(0, 0, 1, 1).data; return Math.round(0.2126 * r + 0.7152 * g + 0.0722 * b) }
@@ -28,8 +33,8 @@ try {
       check(`${t}: the frame is dark`, look.frame >= 0 && look.frame < 120, JSON.stringify(look))
       check(`${t}: the page and the sidebar are light cards on it`, look.card > 200 && look.side > 200, JSON.stringify(look))
       check(`${t}: the open tab keeps the page's dark ink, "New" is light`, look.tabInk < 90 && look.newInk > 180, JSON.stringify(look))
-    } else check('a dark theme keeps its window as it was', look.card === -1, JSON.stringify(look))
-    if (t === 'paper') {
+    } else check('a dark theme: the frame is near black, darker than the page and the sidebar', look.frame < 12 && look.card > look.frame + 6 && look.side > look.frame + 6, JSON.stringify(look))
+    if (t === 'paper' && style === 'soft') {
       await go('settings'); await wait(900)
       await h.locator('input[type=search], [placeholder*="Search"]').first().fill('dark frame').catch(() => {}); await wait(600)
       await shot(`${t}-settings`)
@@ -46,6 +51,6 @@ try {
       await h.keyboard.press('Meta+b'); await wait(600)
     }
   }
-} catch (e) { check('ran', false, e.message) }
+} catch (e) { check('ran', false, e.message.split('\n').slice(0, 6).join(' | ')); if (shots) await h.screenshot({ path: `${shots}/failed.png` }) }
 await close()
 done()

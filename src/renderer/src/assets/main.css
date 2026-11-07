@@ -727,7 +727,7 @@ body {
    sidebar and the page is dark, like a device's bezel, and the page and the
    sidebar are light cards on it. What sits on the frame (the top bar, the tab
    strip) is written in light ink; the open tab keeps the page's ink, being a
-   part of the page. Dark themes already sit on a dark window. */
+   part of the page. A dark theme's frame is below. */
 :root[data-light] [data-frame='dark'] {
   --mf-page-ink: var(--foreground);
   --mf-page-muted: var(--muted-foreground);
@@ -735,6 +735,8 @@ body {
   --mf-page-border: var(--border);
   --mf-page-muted-fill: var(--muted);
   --mf-page-yellow: var(--tt-color-text-yellow);
+  --mf-page-card: var(--card);
+  --mf-page-line: var(--mf-line, var(--border));
   background-color: color-mix(in oklab, var(--foreground) 82%, var(--background));
 }
 :root[data-light] [data-frame='dark'] :is([data-on-frame], [data-tabs]) {
@@ -745,6 +747,14 @@ body {
   --border: color-mix(in oklab, var(--background) 16%, transparent);
   /* The sandbox's amber, lifted to read on the dark. */
   --tt-color-text-yellow: color-mix(in oklab, var(--mf-page-yellow) 55%, var(--background));
+  /* A style's boxes (Brutal, Paper) on the frame: a faint light fill, outlined in the light ink. */
+  --card: color-mix(in oklab, var(--background) 8%, transparent);
+}
+:root[data-light][data-style='brutal'] [data-frame='dark'] :is([data-on-frame], [data-tabs]) {
+  --mf-line: var(--foreground);
+}
+:root[data-light][data-style='paper'] [data-frame='dark'] :is([data-on-frame], [data-tabs]) {
+  --mf-line: color-mix(in oklab, var(--foreground) 26%, transparent);
 }
 :root[data-light] [data-frame='dark'] [data-tabs] [data-tab-on] {
   --foreground: var(--mf-page-ink);
@@ -752,6 +762,8 @@ body {
   --accent: var(--mf-page-accent);
   --muted: var(--mf-page-muted-fill);
   --border: var(--mf-page-border);
+  --card: var(--mf-page-card);
+  --mf-line: var(--mf-page-line);
 }
 :root[data-light] [data-frame='dark'] [data-pane-card] {
   background-color: var(--background);
@@ -762,6 +774,21 @@ body {
 }
 :root[data-light] [data-frame='dark'] aside[data-book-tint] {
   background-color: color-mix(in oklab, var(--accent) 20%, var(--background));
+}
+
+/* In a dark theme the frame goes near black, and the page and the sidebar are
+   the theme's own colour on it. Their ink is the theme's already. */
+:root:not([data-light]) [data-frame='dark'] {
+  background-color: color-mix(in oklab, black 62%, var(--background));
+}
+:root:not([data-light]) [data-frame='dark'] [data-pane-card] {
+  background-color: var(--background);
+}
+:root:not([data-light]) [data-frame='dark'] aside[data-book-tint] {
+  background-color: color-mix(in oklab, var(--accent) 20%, var(--background));
+}
+:root:not([data-light]) [data-frame='dark'] [data-hint-line] {
+  background-color: color-mix(in oklab, var(--foreground) 3%, var(--background));
 }
 
 /* A theme turning over: the old window and the new one crossfade as whole
