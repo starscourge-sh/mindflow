@@ -89,9 +89,9 @@ try {
   check('and an uncoloured tag\'s chip matches the note\'s colour for it', (await chip('probeplain')) === plainCss, `${await chip('probeplain')} vs ${plainCss} (${plainHue})`)
   await h.screenshot({ path: `${dir}/34-task-chips.png`, clip: { x: 220, y: 40, width: 1100, height: 300 } })
   const shown = (await v('settings')).sidebarShown
-  await v('settings:set', { sidebarShown: [...new Set([...shown, 'tags'])] })
+  await v('settings:set', { sidebarShown: [...new Set([...shown, 'tags'])], sideTags: ['probehue', 'probeplain'] })
   await wait(1000)
-  const open = h.getByRole('button', { name: 'Show your tags' })
+  const open = h.getByRole('button', { name: 'Show your favourite tags' })
   if (await open.count()) { await open.first().click(); await wait(600) }
   const side = await h.evaluate(() => { const icon = document.querySelector('[data-side-tag="probehue"] svg'); return icon ? getComputedStyle(icon).color : null })
   check('the sidebar\'s #probehue wears it', side === purple, String(side))

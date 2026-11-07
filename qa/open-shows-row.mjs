@@ -113,10 +113,10 @@ try {
   await foldNotes()
   await send('tag', tag); await wait(1200)
   const marked = () => h.evaluate(() => document.querySelector('[data-side-row][aria-current="page"]')?.textContent?.trim())
-  const tagsShown = await h.evaluate(() => document.querySelector('[aria-label="Fold the tags away"]') !== null)
+  const tagsShown = await h.evaluate(() => document.querySelector('[aria-label="Fold your favourite tags away"]') !== null)
   if (!tagsShown) {
     check('with your tags folded in the sidebar, "Tags" is marked', (await marked()) === 'Tags', await marked())
-    await h.locator('[aria-label="Show your tags"]').first().click(); await wait(500)
+    await h.locator('[aria-label="Show your favourite tags"]').first().click(); await wait(500)
   }
   check('with your tags showing, the tag is marked as the page you are on', (await marked())?.includes(tag), await marked())
   await shows('a tag page link', 'inbox', tagged.id, async () => {

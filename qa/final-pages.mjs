@@ -300,7 +300,7 @@ const PAGES = {
   },
   'sidebar-tag-menu': async () => {
     await go('home')
-    const unfold = h.locator('button[aria-label="Show your tags"]')
+    const unfold = h.locator('button[aria-label="Show your favourite tags"]')
     if (await unfold.count()) { await unfold.first().click(); await wait(600) }
     const row = h.locator('[data-side-tag]').first()
     if (!(await row.count())) return false

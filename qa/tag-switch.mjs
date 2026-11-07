@@ -67,7 +67,7 @@ try {
   const shownIn = (await v('settings')).sidebarShown
   await v('settings:set', { sidebarShown: [...new Set([...shownIn, 'tags'])] })
   await h.waitForTimeout(800)
-  const unfold = h.getByRole('button', { name: 'Show your tags' }).first()
+  const unfold = h.getByRole('button', { name: 'Show your favourite tags' }).first()
   if (await unfold.isVisible().catch(() => false)) await unfold.click()
   await h.waitForTimeout(600)
   const sideRow = (tag) => h.evaluate((tag) => {

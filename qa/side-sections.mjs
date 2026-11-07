@@ -36,7 +36,9 @@ try {
   if (process.env.QA_SHOTS) await h.screenshot({ path: `${process.env.QA_SHOTS}/side-after.png`, clip: { x: 0, y: 0, width: 260, height: 1300 } })
   // Favourite tags: none to start; the heading opens the Tags page; a heart on a Tags row (or its menu) makes one.
   const sideTags = () => h.evaluate(() => [...document.querySelectorAll('aside [data-side-tag]')].map((one) => one.getAttribute('data-side-tag')))
-  check('no favourite tags to start: none in the sidebar', !(await sideTags()).length, (await sideTags()).join())
+  check('the example book keeps a few favourites', (await v('settings')).sideTags?.length === 4, JSON.stringify((await v('settings')).sideTags))
+  await v('settings:set', { sideTags: [] }); await wait(800)
+  check('with none: none in the sidebar', !(await sideTags()).length, (await sideTags()).join())
   check('no favourites: the Tags heading has no fold chevron', (await h.locator('[data-tags-fold]').getAttribute('aria-expanded')) === null)
   await h.locator('[data-tags-fold]').click(); await wait(1200)
   const tagOne = await h.locator('[data-tag-row]').first().getAttribute('data-tag-row')

@@ -51,7 +51,7 @@ try {
   const shownIn = (await v('settings')).sidebarShown
   await v('settings:set', { sidebarShown: [...new Set([...shownIn, 'tags'])] })
   await h.reload(); await wait(2500)
-  const unfold = h.getByRole('button', { name: 'Show your tags' }).first()
+  const unfold = h.getByRole('button', { name: 'Show your favourite tags' }).first()
   if (await unfold.isVisible().catch(() => false)) (await unfold.click(), await wait(700))
   const side = await h.evaluate(() => [...(document.querySelector('[data-side-tag="countz"]')?.querySelectorAll('.tabular-nums') ?? [])].pop()?.textContent.trim())
   // The rolling digits keep a copy of each for the roll: one number, however many copies.

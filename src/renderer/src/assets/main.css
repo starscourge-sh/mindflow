@@ -1141,7 +1141,7 @@ body > :not(#root),
 /* A row reached by keys, or holding the focus after a key (Esc, ⇧⌘U), wears the row's own fill, never a box drawn
    round it: rows fill, cards ring. The same for what sits inside a row. */
 :is([data-row], [data-side-row], [data-tag-row], [role='treeitem']):focus-visible,
-[data-row]:has(:focus-visible) {
+[data-row]:has(:focus-visible:not(input, textarea, select, [contenteditable])) {
   outline: none;
   background-color: color-mix(in srgb, var(--accent) 50%, transparent);
 }

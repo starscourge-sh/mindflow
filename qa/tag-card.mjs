@@ -40,16 +40,17 @@ try {
     await wait(30)
   }
   const shownIn = (await v('settings')).sidebarShown
-  await v('settings:set', { sidebarShown: [...new Set([...shownIn, 'tags'])] })
+  await v('settings:set', { sidebarShown: [...new Set([...shownIn, 'tags'])], sideTags: ['cardz'] })
   await h.evaluate(() => (localStorage.setItem('tags:pinned', JSON.stringify(['cardz'])), window.dispatchEvent(new Event('haligtree:tag-pins'))))
   await h.reload(); await wait(2500)
 
   // The sidebar.
-  const unfold = h.getByRole('button', { name: 'Show your tags' }).first()
+  const unfold = h.getByRole('button', { name: 'Show your favourite tags' }).first()
   if (await unfold.isVisible().catch(() => false)) (await unfold.click(), await wait(700))
   // The sidebar keeps the eight most used, so #cardz (four notes) need not be there: its first tag's card instead.
   const side = h.locator('[data-side-tag]').first()
   if (await side.count()) {
+    await side.scrollIntoViewIfNeeded(); await wait(300)
     await rest(side)
     const one = await read()
     check('sidebar: its tag\'s card says how many notes', /^\d[\d,]* notes?\b/.test(one.count ?? ''), one.count)

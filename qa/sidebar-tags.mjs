@@ -19,7 +19,7 @@ try {
   await h.hover('[data-tags-fold]'); await h.click('[data-tags-page]'); await h.waitForTimeout(800)
   check('the arrow on the heading opens the Tags page', await h.evaluate(() => document.querySelector('[aria-current=page]')?.textContent.trim() === 'Tags'))
   const before = await h.evaluate(() => document.querySelectorAll('[data-side-row]').length)
-  const fold = h.getByRole('button', { name: /Fold the tags away|Show your tags/ }).first()
+  const fold = h.getByRole('button', { name: /Fold your favourite tags away|Show your favourite tags/ }).first()
   await fold.click(); await h.waitForTimeout(700)
   const after = await h.evaluate(() => document.querySelectorAll('[data-side-row]').length)
   check('the chevron folds the list of tags', after !== before, `${before} → ${after}`)

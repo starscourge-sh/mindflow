@@ -94,13 +94,13 @@ async function headings(theme) {
     check(`${theme}: hovering ${name}, the light spans the row as the rows' does`, lit && row && Math.abs(lit.left - row.left) <= 1 && Math.abs(lit.right - row.right) <= 1 && lit.radius === row.radius, `${JSON.stringify(lit)} vs row ${JSON.stringify(row)}`)
   }
   // The Tags chevron: its own small fill, no ring, under the pointer; the row still lit.
-  const chevron = h.getByRole('button', { name: /Fold the tags away|Show your tags/ }).first()
+  const chevron = h.getByRole('button', { name: /Fold your favourite tags away|Show your favourite tags/ }).first()
   await chevron.scrollIntoViewIfNeeded(); await h.waitForTimeout(300)
   const cb = await chevron.boundingBox()
   await h.mouse.move(cb.x + cb.width / 2, cb.y + cb.height / 2)
   await h.waitForTimeout(400)
   const hover = await h.evaluate(() => {
-    const el = [...document.querySelectorAll('button')].find((b) => /Fold the tags away|Show your tags/.test(b.getAttribute('aria-label') ?? ''))
+    const el = [...document.querySelectorAll('button')].find((b) => /Fold your favourite tags away|Show your favourite tags/.test(b.getAttribute('aria-label') ?? ''))
     const s = getComputedStyle(el)
     return { outline: s.outlineStyle === 'none' || s.outlineWidth === '0px' ? 'none' : `${s.outlineStyle} ${s.outlineWidth}`, ring: s.boxShadow, fill: s.backgroundColor, lit: document.querySelector('[data-side-row][data-fluid-hover-active]')?.textContent.trim() }
   })

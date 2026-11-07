@@ -20,7 +20,7 @@ try {
   const shownIn = (await v('settings')).sidebarShown
   await v('settings:set', { sidebarShown: [...new Set([...shownIn, 'tags'])] })
   await h.reload(); await wait(2500)
-  const unfold = h.getByRole('button', { name: 'Show your tags' }).first()
+  const unfold = h.getByRole('button', { name: 'Show your favourite tags' }).first()
   if (await unfold.isVisible().catch(() => false)) (await unfold.click(), await wait(700))
   // Finding a tag is the Tags page's: the sidebar keeps its first eight, with no field of its own.
   check('the sidebar has no find field of its own', (await h.locator('[data-side-tag-find]').count()) === 0)

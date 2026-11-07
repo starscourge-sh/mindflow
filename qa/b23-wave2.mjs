@@ -138,7 +138,7 @@ try {
 
   // 7. A tag in the sidebar drags into a new order, saved.
   const tagIds = () => h.evaluate(() => [...document.querySelectorAll('aside nav [data-side-tag]')].map((one) => one.getAttribute('data-side-tag')))
-  const unfold = h.locator('aside nav [aria-label="Show your tags"]')
+  const unfold = h.locator('aside nav [aria-label="Show your favourite tags"]')
   if (await unfold.count()) (await unfold.click(), await wait(600))
   const before = await tagIds()
   if (before.length >= 3) {
