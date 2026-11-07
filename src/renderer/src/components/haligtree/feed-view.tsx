@@ -1186,7 +1186,8 @@ export function SideColumn({ onOpen }: { onOpen: (type: string, id: string) => v
 /** A section's heading in every Feed tab: Liked's months, Reading's "Today's read", one role, size and spacing. */
 /** The Feed's words on its top line ("20 likes on 20 posts"), in the look of a count beside tabs: set apart by a hairline, small. */
 export function FeedSaid({ children, ...rest }: { children: React.ReactNode } & React.HTMLAttributes<HTMLSpanElement>): React.JSX.Element {
-  return <span {...rest} className="mr-2 min-w-0 truncate border-l border-foreground/15 pl-3 text-xs whitespace-nowrap tabular-nums text-muted-foreground">{children}</span>
+  // On a narrow page it gives its room to the tabs and the page's own controls, never cut off mid-word at the edge.
+  return <span {...rest} className="mr-2 hidden min-w-0 truncate border-l border-foreground/15 pl-3 text-xs whitespace-nowrap tabular-nums text-muted-foreground @[44rem]/page:inline">{children}</span>
 }
 
 export function FeedHeading({ children, ...rest }: { children: React.ReactNode } & React.HTMLAttributes<HTMLHeadingElement>): React.JSX.Element {
