@@ -31,6 +31,8 @@ type Carry = {
   dx: number
   dy: number
   home: DOMRect
+  origin: { x: number; y: number }
+  twin: HTMLElement
   x: number
   y: number
   landed: boolean
@@ -64,7 +66,21 @@ function blocksOf(view: EditorView): HTMLElement[] {
 
 /** The drop line, as the editor last drew it: its place is the slot a tick is heard for. */
 function lineOf(view: EditorView): HTMLElement | null {
-  return (view.dom.offsetParent ?? document.body).querySelector<HTMLElement>('.prosemirror-dropcursor-block, .prosemirror-dropcursor-inline')
+  const home = view.dom.offsetParent ?? document.body
+  // Beside a block (a column) when that one shows, else between blocks.
+  return home.querySelector<HTMLElement>('.mf-column-drop') ?? home.querySelector<HTMLElement>('.prosemirror-dropcursor-block, .prosemirror-dropcursor-inline')
+}
+
+/** The drop line drawn again over the card, the same size, place and colour. */
+function twinOf(line: HTMLElement | null, box: DOMRect | undefined): void {
+  if (!carry) return
+  const twin = carry.twin
+  if (!line || !box?.width || !box.height) return void (twin.style.display = 'none')
+  twin.style.display = ''
+  twin.style.translate = `${box.left - carry.origin.x}px ${box.top - carry.origin.y}px`
+  twin.style.width = `${box.width}px`
+  twin.style.height = `${box.height}px`
+  twin.style.background = getComputedStyle(line).backgroundColor
 }
 
 /**
@@ -81,7 +97,7 @@ function quietly(view: EditorView, change: () => void): void {
 /** Set as each position arrives, not on the next frame: a window out of sight draws no frames. */
 function place(): void {
   if (!carry) return
-  carry.card.style.translate = `${carry.x - carry.dx}px ${carry.y - carry.dy}px`
+  carry.card.style.translate = `${carry.x - carry.dx - carry.origin.x}px ${carry.y - carry.dy - carry.origin.y}px`
 }
 
 function lift(event: DragEvent): void {
@@ -114,13 +130,23 @@ function lift(event: DragEvent): void {
   }
   card.append(page)
   card.style.width = `${width + 16}px`
+  // A wide block's card is cut at 26rem (its stylesheet), the grab still on it.
+  // In the page's body, so no scroller's edge fades or cuts it; the drop line
+  // is drawn again over it (`twin`), since the editor's own sits under it.
   document.body.append(card)
+  // Where `fixed` counts from (an ancestor eased in would move it), so the card's place is the window's.
+  const zero = card.getBoundingClientRect()
+  const origin = { x: zero.left, y: zero.top }
+  const twin = document.createElement('div')
+  twin.className = 'mf-block-carried-line'
+  twin.style.display = 'none'
+  document.body.append(twin)
   card.classList.toggle('is-long', card.scrollHeight > card.clientHeight)
 
   // The grab stays where it was on the block: the card opens 8px out round it.
   const dx = event.clientX - home.left + 8
   const dy = event.clientY - home.top + 6
-  carry = { view, card, sources, dx, dy, home, x: event.clientX, y: event.clientY, landed: false, ticks: slotTicker(), line: null }
+  carry = { view, card, sources, dx, dy, home, origin, twin, x: event.clientX, y: event.clientY, landed: false, ticks: slotTicker(), line: null }
   place()
   quietly(view, () => {
     for (const one of sources) one.dataset.carried = ''
@@ -142,6 +168,7 @@ function follow(event: DragEvent): void {
   const line = lineOf(carry.view)
   const box = line?.getBoundingClientRect()
   if (box && box.width) carry.line = box
+  twinOf(line, box)
   carry.ticks(box && box.width ? `${Math.round(box.left)}:${Math.round(box.top)}` : null)
 }
 
@@ -152,8 +179,9 @@ function dropped(event: DragEvent): void {
 /** Lets go: onto the line it was shown (a move), or back where it came from (Esc, or nowhere to land). */
 function end(sound = true): void {
   if (!carry) return
-  const { card, sources, view, landed, line, home } = carry
+  const { card, sources, view, landed, line, home, origin, twin } = carry
   carry = null
+  twin.remove()
   quietly(view, () => {
     for (const one of sources) delete one.dataset.carried
     delete view.dom.dataset.carrying
@@ -166,7 +194,7 @@ function end(sound = true): void {
   if (!sound || still()) return card.remove()
   // Home again, or down onto the line it was dropped on, then gone: the block itself is already there.
   const [x, y] = card.style.translate.split(' ').map((n) => parseFloat(n))
-  const to = landed ? { x, y: line ? line.top - 6 : y } : { x: home.left - 8, y: home.top - 6 }
+  const to = landed ? { x, y: line ? line.top - 6 - origin.y : y } : { x: home.left - 8 - origin.x, y: home.top - 6 - origin.y }
   const settle = card.animate(
     [{ translate: `${x}px ${y}px`, opacity: 1 }, { translate: `${to.x}px ${to.y}px`, opacity: 0 }],
     { duration: landed ? 140 : 220, easing: 'cubic-bezier(0.2, 0, 0, 1)', fill: 'forwards' }

@@ -23,7 +23,12 @@ const state = () => page.evaluate(() => {
   const card = cards[0]?.getBoundingClientRect()
   const carried = [...document.querySelectorAll('[data-carried]')].map((one) => getComputedStyle(one).opacity)
   const line = document.querySelector('.prosemirror-dropcursor-block')
-  return { cards: cards.length, card: card && { x: card.left, y: card.top, w: card.width }, carried, line: !!line && line.getBoundingClientRect().width > 0 }
+  const at = line?.getBoundingClientRect()
+  // The line drawn again over the card, on the editor's own line.
+  const twin = document.querySelector('.mf-block-carried-line')
+  const t = twin && getComputedStyle(twin).display !== 'none' ? twin.getBoundingClientRect() : null
+  const over = line && at.width && cards[0] ? !!t && Math.abs(t.top - at.top) < 1.5 && Math.abs(t.left - at.left) < 1.5 && Number(getComputedStyle(twin).zIndex) > Number(getComputedStyle(cards[0]).zIndex) : null
+  return { cards: cards.length, card: card && { x: card.left, y: card.top, w: card.width }, carried, line: !!line && at.width > 0, over }
 })
 
 async function seed() {
@@ -78,6 +83,7 @@ for (const theme of ['light', 'dark']) {
   check(`${theme}: the card keeps the grab offset (moves with the pointer within 3px)`, spread <= 3, JSON.stringify(offsets))
   check(`${theme}: the place it left is dimmed`, live.every((one) => one.carried.length === 1 && Number(one.carried[0]) < 0.5), live.map((one) => one.carried.join('/')).join(','))
   check(`${theme}: a drop line shows where it lands`, live.slice(-3).every((one) => one.line))
+  check(`${theme}: the drop line is drawn over the card, never hidden by it`, live.every((one) => one.over !== false), live.map((one) => one.over).join(','))
   const after = await texts()
   check(`${theme}: the heading moved below the third line`, after.at(-1).endsWith('What mattered most') && after.length === before.length, after.join(' | '))
   const gone = seen.filter((one) => !one.point).at(-1)
