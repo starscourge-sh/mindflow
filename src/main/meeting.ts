@@ -425,15 +425,17 @@ export async function recordingsLeft(): Promise<Left[]> {
   if (recordingNow()) return []
   const names = await readdir(meetingsDir(), { withFileTypes: true }).catch(() => [])
   const left: (Left & { at: string })[] = []
+  // Which folders are already in the book, read once: asked per folder, 50 folders over 100 long meetings held the app for 1.7 seconds.
+  let kept: Set<string> | null = null
+  const inBook = (id: string): boolean => (kept ??= new Set((database().prepare("select substr(body, instr(body, '\"recording\":\"') + 13, 36) as id from captures where source = 'Meeting' and instr(body, '\"recording\":\"') > 0").all() as { id: string }[]).map((row) => row.id))).has(id)
   for (const one of names) {
     if (!one.isDirectory() || one.name.startsWith('.') || keeping.has(one.name)) continue
     const from = join(meetingsDir(), one.name)
     const files = await readdir(from).catch(() => [] as string[])
     if (!files.some((file) => file.endsWith('.pcm')) && files.some((file) => file.endsWith('.m4a'))) continue
     const seconds = await soundIn(from)
-    const kept = database().prepare("select 1 from captures where source = 'Meeting' and body like ? limit 1").get(`%"recording":"${one.name}"%`)
     if (recordingNow()) return []
-    if (kept || seconds < FEW_SECONDS) {
+    if (seconds < FEW_SECONDS || inBook(one.name)) {
       await rm(from, { recursive: true, force: true }).catch(() => undefined)
       continue
     }

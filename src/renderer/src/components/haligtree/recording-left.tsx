@@ -52,6 +52,8 @@ export function useRecordingsLeft(): Asked {
 /**
  * In the toast lane, in the manner of the line about words not saved: quiet, no sound as it comes, and it holds still.
  * One width whatever it says, so with several to answer the next never moves “Keep” and “Discard” from under the hand.
+ * The next takes this one's place in the same sheet, so two never show over each other, and the second click of a
+ * double click is let go, so it never answers for the next.
  */
 export function RecordingLeftLine({ left }: { left: Asked }): React.JSX.Element {
   const { one, more, keeping, trouble, keep, discard } = left
@@ -59,7 +61,7 @@ export function RecordingLeftLine({ left }: { left: Asked }): React.JSX.Element 
     <AnimatePresence initial={false} mode="popLayout">
       {one && (
         <motion.div
-          key={one.id}
+          key="recording-left"
           layout="position"
           role="status"
           aria-live="polite"
@@ -75,8 +77,8 @@ export function RecordingLeftLine({ left }: { left: Asked }): React.JSX.Element 
               {one.said}{more > 0 && <span data-recording-left-more>{` (${more.toLocaleString()} more after this)`}</span>}
               {trouble && <span data-recording-left-trouble className="mt-0.5 block font-medium text-[var(--tt-color-text-orange)]">{trouble}</span>}
             </span>
-            <button type="button" data-recording-left-keep onClick={keep} className="min-h-8 shrink-0 self-end cursor-pointer font-medium whitespace-nowrap text-[var(--tt-brand-color-400)] hover:underline">Keep</button>
-            <button type="button" data-recording-left-discard onClick={discard} className="group/act min-h-8 shrink-0 self-end cursor-pointer font-medium whitespace-nowrap text-foreground">
+            <button type="button" data-recording-left-keep onClick={(event) => event.detail < 2 && keep()} className="min-h-8 shrink-0 self-end cursor-pointer font-medium whitespace-nowrap text-[var(--tt-brand-color-400)] hover:underline">Keep</button>
+            <button type="button" data-recording-left-discard onClick={(event) => event.detail < 2 && discard()} className="group/act min-h-8 shrink-0 self-end cursor-pointer font-medium whitespace-nowrap text-foreground">
               <span className="underline decoration-muted-foreground/50 underline-offset-2 group-hover/act:decoration-foreground">Discard</span>
             </button>
           </>}
