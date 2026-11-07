@@ -484,6 +484,18 @@ export function Viewer({ pictures, start, onClose, awayRef }: {
     ])
     onClose()
   }, [fit, img, onClose, picture.rect])
+  // The box floats over every app: left for another, a picture open in it goes, not left standing over what you went to.
+  useEffect(() => {
+    if (/[?&](view|note|drawing)=/.test(location.search)) return
+    const away = (): void => {
+      if (leaving.current) return
+      leaving.current = true
+      onClose()
+    }
+    window.addEventListener("blur", away)
+    return () => window.removeEventListener("blur", away)
+  }, [onClose])
+
   useEffect(() => {
     if (!awayRef) return
     awayRef.current = () => void close(true)
