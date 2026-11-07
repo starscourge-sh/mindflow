@@ -15,7 +15,7 @@ import { moveToBin } from '@/lib/to-bin'
 import { useHere } from '@/lib/split'
 import { clock, useMinute } from '@/lib/clock'
 import { placeTask } from '@/lib/calendar'
-import { unloaded, useLive, haligtree, whenInLine, type Task } from '@/lib/haligtree'
+import { call, unloaded, useLive, haligtree, whenInLine, type Task } from '@/lib/haligtree'
 import { lengthSaid } from '../../../../main/day-load'
 import { dayjs, dayKey, num, type Dayjs } from '../../../../main/dates'
 import { Count, Rolling, Tip, typing } from './ui'
@@ -109,7 +109,10 @@ type Draft = { day: string; minute: number | null; length: number; drag?: boolea
  * step. Every move and stretch has an Undo, and ⌘Z.
  */
 export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type: string, id: string) => void }): React.JSX.Element {
-  const tasks = useLive(haligtree.tasks, [] as Task[])
+  const unheld = useLive(haligtree.tasks, [] as Task[])
+  // A fresh start's tasks keep their days here, as they keep their places in Tasks: on hold is never out of sight.
+  const held = useLive(() => call<Task[]>('tasks:held'), [] as Task[], [], undefined, 'tasks-held')
+  const tasks = useMemo(() => (held.length && !unloaded(unheld) ? [...unheld, ...held] : unheld), [unheld, held])
   const taskNow = useTaskNow()
   const [mode, setModeRaw] = useState<Mode>(() => stored('vigil.calendar.mode', 'week', ['day', 'week', 'month'] as const))
   const [side, setSideRaw] = useState(() => stored('vigil.calendar.side', 'on', ['on', 'off'] as const) === 'on')
@@ -209,7 +212,7 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
   const shownTasks = layers.tasks ? tasks : []
   // Drawn once every read it is made of has answered: drawn before, the calendars' list comes in above the
   // unscheduled tasks and pushes them down, and the late count and the blocks fill in a beat apart.
-  const ready = !unloaded(tasks) && !unloaded(captures) && !unloaded(own) && layers.ready
+  const ready = !unloaded(tasks) && !unloaded(held) && !unloaded(captures) && !unloaded(own) && layers.ready
   const { provide, style: readsStyle } = useReadsIn(!ready)
   // Sent to one event (a note's "From the event"): its day, and it open in the panel.
   useEffect(() => {
