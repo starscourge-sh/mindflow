@@ -37,6 +37,7 @@ try {
     for (const tab of TABS) {
       await go(tab); await wait(count >= 500 ? 1500 : 900)
       if (shots) await both(`${shots}/${tab}-${count}`)
+      if (count >= 50 && (tab === 'upcoming' || tab === 'later')) check(`${tab} at ${count}: the many late ones fold to their red heading on top`, (await h.locator('[data-late-fold][aria-expanded="false"]').count()) === 1)
       const wide = await h.evaluate(() => document.scrollingElement.scrollWidth <= innerWidth + 1)
       if (!wide) check(`${tab} at ${count}: no sideways scroll`, false)
     }
@@ -49,6 +50,7 @@ try {
   for (const tab of [...TABS, 'today']) { await go(tab); await wait(700); const now = JSON.stringify(await bar()); if (now !== first) moved.push(`${tab}: ${now}`) }
   check('the bar stays put on every tab switch', !moved.length, moved.join(' / ') || first)
   // A fresh start: each tab keeps a folded "On hold".
+  await v('task:add', 'water the plants every day', undefined, false)
   await v('tasks:fresh-start'); await wait(800)
   for (const tab of TABS) {
     await go(tab); await wait(1200)

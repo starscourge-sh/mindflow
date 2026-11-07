@@ -689,6 +689,9 @@ const TASK_TABS = [{ id: 'today', label: 'Today' }, { id: 'upcoming', label: 'Up
 export const homeOf = (task: Task): 'today' | 'upcoming' | 'later' | 'routines' =>
   task.recurrence ? 'routines' : dayOf(task) < startOfDay(1) ? 'today' : dayOf(task) < Infinity ? 'upcoming' : 'later'
 
+/** Late ones on another tab show open up to this many; past it, folded to their heading. */
+const LATE_OPEN = 5
+
 /** The fold a fresh start's tasks wait in, at the foot of the tab each belongs to. */
 const ON_HOLD = 'On hold'
 
@@ -717,6 +720,8 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
   const allHeld = useLive(() => call<Task[]>('tasks:held'), [] as Task[], [], undefined, 'tasks-held')
   const held = allHeld.filter((task) => mode === 'alltasks' || homeOf(task) === home)
   const [heldOpen, setHeldOpen] = useState(false)
+  // Late ones on a tab not their own: open when a few, folded to their red heading when many, so they never bury the tab.
+  const [lateOpen, setLateOpen] = useState<boolean | null>(null)
   // Nothing of this list's yet: a few made-up tasks show what it holds, dimmed and out of reach.
   const example = !unloaded(real) && !unloaded(held) && !real.some((task) => task.status === 'open' && (mode === 'alltasks' || homeOf(task) === home)) && !held.length
   const examples = useMemo(exampleTasks, [])
@@ -784,7 +789,8 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
     ((!!task.dueAt && !task.allDay && Date.parse(task.dueAt) <= Date.now()) || (!!task.deadline && !!task.deadlineTimed && Date.parse(task.deadline) <= Date.now()))
   const today = base.filter((task) => dayOf(task) >= startOfDay())
   const heldGroup: [string, Task[], string?][] = !example && held.length ? [[ON_HOLD, heldOpen ? held : [], 'held']] : []
-  const lateGroup: [string, Task[], string?][] = view.group === 'when' && lateHere.length ? [['Overdue', lateHere]] : []
+  const lateShown = lateOpen ?? lateHere.length <= LATE_OPEN
+  const lateGroup: [string, Task[], string?][] = view.group === 'when' && lateHere.length ? [['Overdue', lateShown ? lateHere : [], 'late']] : []
   const groups: [string, Task[], string?][] = [...lateGroup, ...(
     view.group === 'none'
       ? [['', [...base, ...waiting]]]
@@ -843,7 +849,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
   // A task just added (or put back by Undo) eases into its row.
   const arrived = useArrivals(shown.map((task) => task.id), mode)
   // One list for the virtual scroller: each group's heading, then its tasks.
-  const rows: (Task | { heading: string; count: number; key: string })[] = groups.flatMap(([heading, list, key]) => (key === 'held' ? [{ heading, count: held.length, key }, ...list] : list.length ? [{ heading, count: list.length, key: key ?? heading }, ...list] : []))
+  const rows: (Task | { heading: string; count: number; key: string })[] = groups.flatMap(([heading, list, key]) => (key === 'held' || key === 'late' ? [{ heading, count: key === 'held' ? held.length : lateHere.length, key }, ...list] : list.length ? [{ heading, count: list.length, key: key ?? heading }, ...list] : []))
   // Only the last pick lands: a late answer for the task before is dropped.
   const asked = useLastAsked()
   // The one asked for while it is read: its pane and name at once, never the task before (note-coming.tsx).
@@ -1029,7 +1035,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
       {/* Sent here for one task: the page waits for it too, so it opens on the task beside the list, not on the list alone first;
           the task never waits for the list, which comes in whole beside it once drawn. */}
       <Page aside={!!open || !!coming} waiting={(reading && !example) || (!!focus && !matrixed && (coming ?? open?.id) !== focus) || !listShown} apart={sent}
- title={mode} lead={several.bar ? undefined : lead} count={example ? undefined : several.chosen.length || shown.length + (heldOpen ? 0 : held.length)} unit={several.chosen.length ? ['selected', 'selected'] : ['open', 'open']} actions={several.bar ?? actions}>
+ title={mode} lead={several.bar ? undefined : lead} count={example ? undefined : several.chosen.length || shown.length + (heldOpen ? 0 : held.length) + (lateShown || !lateGroup.length ? 0 : lateHere.length)} unit={several.chosen.length ? ['selected', 'selected'] : ['open', 'open']} actions={several.bar ?? actions}>
 
         {/* Nothing on today yet, in either layout: the page to write it on. */}
         {written || (mode === 'today' && !example && !reading && !rows.length && dayDone === 0) ? (
@@ -1132,6 +1138,14 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
                       {row.heading} <span className="font-normal"><Rolling text={row.count} /></span>
                       <ChevronRight className={`size-3.5 transition-transform duration-200 ${heldOpen ? 'rotate-90' : ''}`} style={{ transitionTimingFunction: EASING }} />
                       <span className="ml-auto font-normal">From a fresh start · open one to bring it back</span>
+                    </button>
+                  </h2>
+                ) : row.key === 'late' ? (
+                  // Late ones from other tabs: on top, in red, folded when there are many; one click shows them.
+                  <h2 {...loud('late', 'list-ink mt-6 mb-1 border-b pb-1.5 text-meta font-medium')}>
+                    <button type="button" data-late-fold aria-expanded={lateShown} onClick={() => (chime(lateShown ? 'off' : 'tap'), setLateOpen(!lateShown))} className="flex w-full cursor-pointer items-center gap-1 text-left">
+                      {row.heading} <span className="font-normal text-muted-foreground"><Rolling text={row.count} /></span>
+                      <ChevronRight className={`size-3.5 transition-transform duration-200 ${lateShown ? 'rotate-90' : ''}`} style={{ transitionTimingFunction: EASING }} />
                     </button>
                   </h2>
                 ) : row.heading ? (
