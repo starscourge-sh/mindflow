@@ -12,6 +12,7 @@ import { listDirection, step, revealRow } from "@/lib/menu-keys"
 import { realMove } from "@/lib/real-move"
 import { TagIcon } from "@/components/haligtree/tag-icon"
 import { hoverNote } from "@/components/haligtree/note-preview"
+import { Kbd } from "@/components/haligtree/ui"
 
 /** A code like `H-85` typed: the rows say theirs, so it can be told which matched. */
 const typingCode = (query = ""): boolean => /^[a-z]{1,3}-\d/i.test(query.trim())
@@ -23,8 +24,8 @@ const typingCode = (query = ""): boolean => /^[a-z]{1,3}-\d/i.test(query.trim())
  * in). Codes stay out of sight unless one is typed, at the row's end, so every
  * title starts at the same left edge.
  */
-export const NoteList = forwardRef<SuggestionListHandle, Pick<SuggestionProps<NoteSuggestion>, "items" | "command"> & { query?: string; ask?: string }>(
-  function NoteList({ items, command, query, ask }, ref) {
+export const NoteList = forwardRef<SuggestionListHandle, Pick<SuggestionProps<NoteSuggestion>, "items" | "command"> & { query?: string; ask?: string; stepIn?: (item: NoteSuggestion) => void }>(
+  function NoteList({ items, command, query, ask, stepIn }, ref) {
     const [selected, setSelected] = useState(0)
     // Moving past the fold brings the row with it, as in the / menu.
     const selectedRef = useRef<HTMLButtonElement>(null)
@@ -38,6 +39,12 @@ export const NoteList = forwardRef<SuggestionListHandle, Pick<SuggestionProps<No
         const direction = listDirection(event)
         if (direction) {
           setSelected((was) => step(was, direction, items.length))
+          return true
+        }
+        // Into a note, to show one of its parts rather than all of it ("Embed a note").
+        const into = items[selected]
+        if (stepIn && (event.key === "Tab" || event.key === "ArrowRight") && !event.shiftKey && into?.id && !into.make && into.blockIndex === undefined) {
+          stepIn(into)
           return true
         }
         // ⌘↵ sends what is written, menu open or not: only a plain Return picks.
@@ -57,7 +64,7 @@ export const NoteList = forwardRef<SuggestionListHandle, Pick<SuggestionProps<No
           {ask ? (
             <div className="tiptap-slash-menu-ask flex items-baseline gap-3">
               {ask}
-              <span className="ml-auto text-xs font-normal text-muted-foreground">Type to search</span>
+              <span className="ml-auto text-xs font-normal text-muted-foreground">{stepIn ? <>Type to search · <Kbd>⇥</Kbd> one part</> : "Type to search"}</span>
             </div>
           ) : null}
           {items.map((item, index) => (
@@ -74,7 +81,7 @@ export const NoteList = forwardRef<SuggestionListHandle, Pick<SuggestionProps<No
                 {/* A heading row is the heading: its note is the group above. */}
                 {item.make ? <FilePlus /> : item.heading || item.blockText ? null : item.icon ?? (item.group === 'Tags' ? <TagIcon tag={item.id} tint={item.tint} className="size-4" /> : null)}
                 <span {...(item.id && !item.heading && !item.fileBlock && item.group !== "Tags" ? hoverNote(item.id.includes(":") ? item.id.slice(0, item.id.indexOf(":")) : "capture", item.id.includes(":") ? item.id.slice(item.id.indexOf(":") + 1) : item.id) : {})} className="tiptap-slash-menu-title tiptap-note-link-title" style={item.tint ? { color: item.tint } : undefined}>
-                  {item.make ? `Make a new note \u201c${item.label}\u201d` : item.heading ? `# ${item.heading}` : item.blockText ? `¶ ${item.blockText}` : item.label || "Untitled"}
+                  {item.make ? `Make a new note \u201c${item.label}\u201d` : item.heading ? `# ${item.heading}` : item.blockText ? `${item.headingLine ? "#" : "¶"} ${item.blockText}` : item.label || "Untitled"}
                 </span>
                 {/* Quietly at the end: a tag's use count, a note's last edit, or its code when a code is typed. */}
                 {(typingCode(query) && item.key && !item.heading && !item.blockText) || item.hint ? (
@@ -89,11 +96,13 @@ export const NoteList = forwardRef<SuggestionListHandle, Pick<SuggestionProps<No
   }
 )
 
-type ListProps = Pick<SuggestionProps<NoteSuggestion>, "items" | "command" | "query">
+type ListProps = Pick<SuggestionProps<NoteSuggestion>, "items" | "command" | "query" | "editor" | "range">
 /** A note list that says over its rows what picking does. */
 const Asking = (ask: string) =>
   forwardRef<SuggestionListHandle, ListProps>(function AskingList(props, ref) {
-    return <NoteList ref={ref} items={props.items} command={props.command} query={props.query} ask={ask} />
+    // "Embed a note": ⇥ (or →) on a note lists its headings and paragraphs, to show one alone.
+    const stepIn = ask === EMBED_ASK ? (item: NoteSuggestion) => void props.editor.chain().focus().insertContentAt(props.range, `[[${item.label}#`).run() : undefined
+    return <NoteList ref={ref} items={props.items} command={props.command} query={props.query} ask={ask} stepIn={stepIn} />
   })
 
 export const noteLinkRenderer = createSuggestionRenderer(Asking(LINK_ASK), noteLinkPluginKey)

@@ -38,6 +38,8 @@ export interface NoteSuggestion {
   blockIndex?: number
   /** That line's words, as the link shows them. */
   blockText?: string
+  /** That line is a heading: its row reads "# words", not "¶ words". */
+  headingLine?: boolean
   /** No note by this name: the row offers to make one, said as such, never done silently. */
   make?: boolean
   /** A file no note uses yet: picking it puts in the block it has, not a link. */
@@ -615,6 +617,23 @@ export const NoteLink = Node.create<NoteLinkOptions>({
         .map((line) => ({ ...note, heading: undefined, block: line.id ?? undefined, blockIndex: line.index, blockText: line.text.slice(0, 80), group: note.label ? `Lines in ${note.label}` : "Lines in this note" }))
       return part.startsWith("^") ? rows : [...found, ...rows]
     }
+    /**
+     * "Embed a note", stepped into a note (`Note#words`): its headings and
+     * paragraphs in reading order, each a row that shows its own words, so
+     * one of them can be shown here alone. The note itself stays first, to
+     * show it whole.
+     */
+    const partsOf = async (query: string): Promise<NoteSuggestion[]> => {
+      const [name, part] = [query.slice(0, query.indexOf("#")).trim(), query.slice(query.indexOf("#") + 1).trim().toLowerCase()]
+      const note = notItself(editor, (await findNotes(name)).filter((one) => one.id && !one.id.includes(":")))[0]
+      if (!note) return []
+      const lines = (await linkKinds.lines?.(note.id).catch(() => [])) ?? []
+      const rows = lines
+        .filter((line) => line.text.trim() && line.text.toLowerCase().includes(part))
+        .slice(0, 40)
+        .map((line) => ({ ...note, hint: undefined, heading: undefined, block: line.id ?? undefined, blockIndex: line.index, blockText: line.text.slice(0, 120), headingLine: line.heading, group: `Parts of ${note.label}` }))
+      return part ? rows : [{ ...note, group: "The whole note" }, ...rows]
+    }
     const noteItems = async ({ query }: { query: string }) => {
       if (query.includes("#")) return headingItems(query)
       const [found, files] = await Promise.all([findNotes(query), editor.schema.nodes.image && editor.schema.nodes.attachment ? (linkKinds.loose?.(query) ?? []) : []])
@@ -717,6 +736,8 @@ export const NoteLink = Node.create<NoteLinkOptions>({
               allowedPrefixes: null,
               allow: ({ state, range }) => embedding.has(editor) && !state.doc.textBetween(range.from, range.to, "", "").includes("]]"),
               items: async ({ query }) => {
+                // `Note#words`: inside that note, each heading and paragraph a row, to show just that one.
+                if (query.includes("#")) return partsOf(query)
                 const name = query.trim()
                 // Notes only: a person, a tag or a task has no page to show.
                 const found = notItself(editor, (await findNotes(name)).filter((one) => one.id && !one.id.includes(":"))).slice(0, 12)
@@ -725,11 +746,22 @@ export const NoteLink = Node.create<NoteLinkOptions>({
                 return rows
               },
               command: ({ editor, range, props }) => {
-                const embed = { type: "noteEmbed", attrs: { id: props.id, label: props.label } }
+                const embed = { type: "noteEmbed", attrs: { id: props.id, label: props.label, block: props.block ?? "" } }
                 // On a line of its own, the line becomes the embed; mid-line, it goes after the words.
                 const $from = editor.state.doc.resolve(range.from)
                 const whole = $from.parent.isTextblock && $from.parentOffset === 0 && range.to >= $from.end()
                 editor.chain().focus().insertContentAt(whole ? { from: $from.before(), to: $from.after() } : range, embed).run()
+                // One part with no lasting name yet: named where it lives, and the embed learns it.
+                if (props.blockIndex !== undefined && !props.block && props.id) {
+                  void (linkKinds.anchor?.(props.id, props.blockIndex, props.blockText ?? "") ?? Promise.resolve(null)).then((block) => {
+                    if (!block || editor.isDestroyed) return
+                    const tr = editor.state.tr
+                    editor.state.doc.descendants((one, pos) => {
+                      if (one.type.name === "noteEmbed" && one.attrs.id === props.id && !one.attrs.block) tr.setNodeMarkup(pos, undefined, { ...one.attrs, block })
+                    })
+                    if (tr.docChanged) editor.view.dispatch(tr.setMeta("addToHistory", false))
+                  })
+                }
                 if (!props.make) return
                 void noteNamed(props.label, findNotes).then((note) => {
                   if (!note || editor.isDestroyed) return
