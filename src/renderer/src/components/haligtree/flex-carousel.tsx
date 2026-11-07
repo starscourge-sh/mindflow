@@ -12,7 +12,8 @@
  */
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
-import { chime } from '@/lib/sound'
+import { click } from '@/lib/sound'
+import { detent } from '@/lib/haptics'
 import { Tip } from './ui'
 import { useByKeys } from '@/lib/motion'
 import { num } from '../../../../main/dates'
@@ -691,6 +692,8 @@ export default function FlexCarousel({
 
       const current = fits(m) ? chosen : nearest(m, pos)
       if (current !== activeIndex) {
+        // Each picture coming to the middle is heard and felt, as a dial's notches are: once the row is up, never on its way in.
+        if (activeIndex >= 0 && rise.done) (click('tick'), detent())
         activeIndex = current
         setActive(current)
       }
@@ -1146,7 +1149,7 @@ export default function FlexCarousel({
   }, [active, keyedTurn])
   const n = items.length
   const turnBy = (way: 1 | -1) => (): void => {
-    chime('tap')
+    // Heard as the picture lands in the middle (its tick), not twice.
     turn.current(way)
     containerRef.current?.focus({ preventScroll: true })
   }
