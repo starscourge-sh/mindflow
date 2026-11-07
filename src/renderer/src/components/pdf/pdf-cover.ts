@@ -60,6 +60,42 @@ export function pdfCover(src: string, name = ""): Promise<PdfCover | null> {
   return made
 }
 
+/** The pages' paper, as pdf.css lays it under every page and cover. */
+const PAPER = "#f4ecdb"
+const papered = new Map<string, Promise<string>>()
+
+/**
+ * A cover on the pages' paper, baked into the picture, for a surface that draws it itself (the
+ * Continue reading carousel draws in WebGL, where pdf.css cannot reach): the same multiply as
+ * every other cover, so a book never shows white in one place and paper in the next. With "Paper
+ * pages" off, the picture as it is.
+ */
+export function coverOnPaper(image: string): Promise<string> {
+  if (!document.documentElement.classList.contains("paper-pages")) return Promise.resolve(image)
+  let made = papered.get(image)
+  if (!made) {
+    made = new Promise<string>((done) => {
+      const one = new Image()
+      one.onload = () => {
+        const canvas = document.createElement("canvas")
+        canvas.width = one.naturalWidth
+        canvas.height = one.naturalHeight
+        const ink = canvas.getContext("2d")
+        if (!ink) return done(image)
+        ink.fillStyle = PAPER
+        ink.fillRect(0, 0, canvas.width, canvas.height)
+        ink.globalCompositeOperation = "multiply"
+        ink.drawImage(one, 0, 0)
+        done(canvas.toDataURL("image/jpeg", 0.86))
+      }
+      one.onerror = () => done(image)
+      one.src = image
+    })
+    papered.set(image, made)
+  }
+  return made
+}
+
 const fallback = (name: string): string => name.replace(/\.pdf$/i, "") || "PDF"
 
 /** A PDF's cover for a card: null until it is ready, then the picture and the title. One already drawn is there in the first frame, a new book's too. */

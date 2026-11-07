@@ -438,8 +438,9 @@ function Face({ one, cover }: { one: Media; cover?: string }): React.JSX.Element
     return (
       // A GIF stands still until rested on (the same grace as a book's cover), then moves: a page of them never runs at once, and a sweep across sets none off.
       // A PDF's cover turns into its pages in place when rested on and slid across (pdf-peek.tsx).
-      <span className={frame} data-pdf-peek-scrub={one.kind === 'pdf' ? '' : undefined} onPointerEnter={() => one.kind === 'gif' && (clearTimeout(rest.current), (rest.current = window.setTimeout(() => setMoving(true), GRACE)))} onPointerLeave={() => (clearTimeout(rest.current), setMoving(false))}>
-        <img src={moving ? one.src : small} alt="" draggable={false} decoding="async" className={`size-full ${one.kind === 'pdf' ? 'object-contain bg-white' : 'object-cover'} animate-in fade-in-0 duration-200`} />
+      // A PDF's cover is a page: drawn on the same paper as the pages scrubbed over it (pdf.css), so the two never read as two looks.
+      <span className={one.kind === 'pdf' ? `${frame.replace(' bg-accent', '')} pdf-face-cover` : frame} data-pdf-peek-scrub={one.kind === 'pdf' ? '' : undefined} onPointerEnter={() => one.kind === 'gif' && (clearTimeout(rest.current), (rest.current = window.setTimeout(() => setMoving(true), GRACE)))} onPointerLeave={() => (clearTimeout(rest.current), setMoving(false))}>
+        <img src={moving ? one.src : small} alt="" draggable={false} decoding="async" className={`size-full ${one.kind === 'pdf' ? 'object-contain' : 'object-cover'} animate-in fade-in-0 duration-200`} />
         {one.kind !== 'picture' && <span className="absolute bottom-1.5 left-1.5 rounded bg-background px-1.5 py-px text-xs font-medium">{WORD[one.kind]}</span>}
       </span>
     )

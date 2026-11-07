@@ -365,13 +365,18 @@
   mix-blend-mode: multiply;
 }
 
-/* Covers are pages too: wherever one is drawn, it takes the same paper. */
-.paper-pages :is(.tiptap-pdf-cover, .book-head-cover, .pdf-book-cover, .continue-book-cover) {
+/* Covers are pages too: wherever one is drawn, it takes the same paper. A cover in a box of its
+   own shape (a Files tile, a Recent icon) is white like a page, and paper with "Paper pages" on,
+   so the pages scrubbed over it (.pdf-scrub) are the same sheet turning, never a new colour. */
+.pdf-face-cover {
+  background-color: #fff;
+}
+.paper-pages :is(.tiptap-pdf-cover, .book-head-cover, .pdf-book-cover, .continue-book-cover, .pdf-face-cover) {
   background-color: #f4ecdb;
   background-blend-mode: multiply;
   isolation: isolate;
 }
-.paper-pages :is(.tiptap-pdf-cover, .book-head-cover, .pdf-book-cover, .continue-book-cover) img {
+.paper-pages :is(.tiptap-pdf-cover, .book-head-cover, .pdf-book-cover, .continue-book-cover, .pdf-face-cover) img {
   mix-blend-mode: multiply;
 }
 
@@ -888,7 +893,8 @@
 
 .pdf-thumb.is-here .pdf-thumb-number {
   color: var(--foreground);
-  font-weight: 600;
+  /* No heavier than the tabs over it: the ring already says which page. */
+  font-weight: 500;
 }
 
 /* A PDF's or an article's Details, at the right of the pages, as a note's sit beside it. */
@@ -2114,6 +2120,11 @@ html[data-motion="off"] :is(.pdf-zoom-chip, .pdf-reader-body > .pdf-rail) {
 
 .pdf-scrub.is-paper img {
   mix-blend-mode: multiply;
+}
+
+/* Over a cover that sits in the middle of its box (a Files tile), the pages sit where it sat. */
+.pdf-face-cover > .pdf-scrub img {
+  object-position: center;
 }
 
 .pdf-scrub-page {

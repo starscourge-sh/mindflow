@@ -21,7 +21,10 @@ function PdfCoverIcon({ one, className }: { one: Opened; className?: string }): 
   // A page stands upright: three wide to four tall, in the icon's square.
   return (
     <span className={`${className ?? ''} flex items-center justify-center`}>
-      <img src={cover.image} alt="" draggable={false} className="h-full w-3/4 rounded-[2px] object-cover object-top shadow-[0_0_0_1px_var(--tt-border-color)]" />
+      {/* On the pages' own paper, as every cover is (pdf.css). */}
+      <span className="pdf-face-cover h-full w-3/4 overflow-hidden rounded-[2px] shadow-[0_0_0_1px_var(--tt-border-color)]">
+        <img src={cover.image} alt="" draggable={false} className="block size-full object-cover object-top" />
+      </span>
     </span>
   )
 }
