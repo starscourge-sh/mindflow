@@ -82,7 +82,7 @@ export const SECTIONS: (Place & { key: string })[] = [
   // Every note you have linked, as a map of dots and lines.
   { id: 'map', emoji: '🗺️', label: 'Map', icon: Links, alive: LinkIcon, key: 'x', tint: 'purple' },
   // Every picture, GIF, PDF and recording your notes keep, as a grid (media-view.tsx). G and the comma: every letter is taken.
-  { id: 'media', emoji: '🖼️', label: 'Media', icon: Images, key: ',', tint: 'purple' },
+  { id: 'media', emoji: '🖼️', label: 'Files', icon: Images, key: ',', tint: 'purple' },
   { id: 'discarded', emoji: '🗑️', label: 'Bin', icon: Trash2, alive: TrashIcon, key: 'd', tint: 'gray' },
   // Out of sight, not let go: apart from the exits.
   { id: 'archived', emoji: '🗄️', label: 'Archived', icon: Archive, key: 'v', tint: 'gray' },

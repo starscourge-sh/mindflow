@@ -122,7 +122,7 @@ export function UnusedFiles(): React.JSX.Element | null {
         <div className="mf-more min-h-0 flex-1 overflow-y-auto p-4">
           {!found && <div className="flex justify-center py-6"><Orb state="searching" label="Looking through your notes…" stop={() => (close(), toast('Stopped: nothing was moved', undefined, 'info'))} /></div>}
           {found && !Array.isArray(found) && <p className="py-4 text-center text-control text-muted-foreground">{found.error} Nothing was moved.</p>}
-          {Array.isArray(found) && !found.length && <p className="py-4 text-center text-control text-muted-foreground"><Typed text="Nothing unused: every picture and file is in a note or in Media." delay={200} /></p>}
+          {Array.isArray(found) && !found.length && <p className="py-4 text-center text-control text-muted-foreground"><Typed text="Nothing unused: every picture and file is in a note or in Files." delay={200} /></p>}
           {list.length > 0 && (
             <div className="grid grid-cols-[repeat(auto-fill,minmax(7.5rem,1fr))] gap-3">
               {list.map((one) => {

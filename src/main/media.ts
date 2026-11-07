@@ -199,7 +199,7 @@ export function registerMedia(): void {
   ipcMain.handle('haligtree:media:pick', async (event) => {
     const owner = BrowserWindow.fromWebContents(event.sender)
     const options: Electron.OpenDialogOptions = {
-      title: 'Add to Media',
+      title: 'Add to Files',
       properties: ['openFile', 'multiSelections'],
       filters: [{ name: 'Pictures, GIFs, PDFs and audio', extensions: [...PICTURE_ENDS, 'pdf', ...AUDIO_ENDS] }]
     }

@@ -74,7 +74,7 @@ export const SHORTCUTS: Shortcut[] = [
   { group: 'Getting around', keys: 'G O', does: 'Go to Tasks, Routines', where: 'Main window' },
   { group: 'Getting around', keys: 'G Q', does: 'Go to Urgent and important: every task in four boxes', where: 'Main window' },
   { group: 'Getting around', keys: 'G W', does: 'Go to Feed: the day\'s own things, a short list that ends', where: 'Main window' },
-  { group: 'Getting around', keys: 'G ,', does: 'Go to Media: every picture, PDF and recording your notes keep', where: 'Main window' },
+  { group: 'Getting around', keys: 'G ,', does: 'Go to Files: every picture, PDF and recording your notes keep', where: 'Main window' },
   { group: 'Getting around', keys: 'G +', does: 'Go to Tasks, Upcoming: tomorrow is at the top', where: 'Main window' },
   { group: 'Getting around', keys: 'G H', does: 'Go to Questions, under Writing in the sidebar', where: 'Main window' },
   { group: 'Getting around', keys: 'G L', does: 'Go to the Inbox with “Show sorted too” on: every note and task', where: 'Main window' },

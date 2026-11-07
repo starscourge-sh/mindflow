@@ -1336,7 +1336,7 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
           <Setting title="Export everything" note="All of it as JSON and Markdown, in a folder you choose." more="Yours to read without this app.">
             <ExportButton />
           </Setting>
-          <Setting title="Unused pictures and files" note="Pictures and files no note points at any more and not added to Media, to move to the Bin." more="Nor any old version or page. You see them first and keep any you like; the rest go to the Bin, never deleted outright." keywords="clear clean space disk images attachments trash bin">
+          <Setting title="Unused pictures and files" note="Pictures and files no note points at any more and not added to Files, to move to the Bin." more="Nor any old version or page. You see them first and keep any you like; the rest go to the Bin, never deleted outright." keywords="clear clean space disk images attachments trash bin">
             <Button variant="outline" size="sm" onClick={() => window.dispatchEvent(new CustomEvent('haligtree:unused'))}>Find them</Button>
           </Setting>
         </Group>

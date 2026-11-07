@@ -1917,7 +1917,7 @@ const ScanDemo: Demo = ({ live }) => {
         The soul becomes <span className={`rounded-[3px] transition-colors duration-300 ${at === 2 ? 'bg-[var(--tt-color-highlight-yellow)]' : ''}`}>dyed</span> with the colour of its thoughts.
       </div>
       <div className="flex h-7 items-center gap-2 px-1 text-meta text-muted-foreground">
-        {at === 0 ? <><ScanText className="size-3.5" /> These pages are pictures of words.</> : at === 1 ? 'Reading page 41 of 120…' : <><Kbd>⌘F</Kbd> dyed · 1 of 1</>}
+        {at === 0 ? <><ScanText className="size-3.5" /> This book is a scan: its pages are photos.</> : at === 1 ? 'Reading page 41 of 120…' : <><Kbd>⌘F</Kbd> dyed · 1 of 1</>}
       </div>
     </Col>
   )

@@ -89,7 +89,7 @@ async function journey(c, label) {
   let all = await listed(v)
   check(`${label}: four files added with nothing asked`, all.length === before + 4, `${before} → ${all.length}`)
   check(`${label}: no note was made`, await notesCount(h) === seenNotes, `${seenNotes} → ${await notesCount(h)}`)
-  check(`${label}: one notice for the four`, /Added 4 files to Media/.test(await h.evaluate(() => document.body.innerText)), (await lastToast(h)).slice(0, 80))
+  check(`${label}: one notice for the four`, /Added 4 files\./.test(await h.evaluate(() => document.body.innerText)), (await lastToast(h)).slice(0, 80))
   await shot(h, `added-${label}`)
   const by = (end) => all.find((one) => one.name.endsWith(end))
   const [P, G, D, A] = ['.png', '.gif', '.pdf', '.wav'].map(by)
@@ -106,13 +106,13 @@ async function journey(c, label) {
   // --- Met, not doubled; refused by name; many at once
   await pickNext(electron, [pdf])
   await add.click(); await wait(800)
-  check(`${label}: the same bytes are met, not doubled`, (await listed(v)).length === before + 4 && /already in Media/.test(await h.evaluate(() => document.body.innerText)))
+  check(`${label}: the same bytes are met, not doubled`, (await listed(v)).length === before + 4 && /already in Files/.test(await h.evaluate(() => document.body.innerText)))
   const copy = write('Another name for it.pdf', pdfBytes('Lease'))
   await pickNext(electron, [copy, bad, fake])
   await add.click(); await wait(800)
   const said = await h.evaluate(() => document.body.innerText)
   check(`${label}: the same bytes under another name are met too`, (await listed(v)).length === before + 4)
-  check(`${label}: a file it cannot take says why, by name`, /notes\.docx: Media takes pictures, GIFs, PDFs and audio/.test(said) && /fake\.png: not a picture Haligtree can read/.test(said), said.slice(-200))
+  check(`${label}: a file it cannot take says why, by name`, /notes\.docx: only pictures, GIFs, PDFs and audio go in Files/.test(said) && /fake\.png: not a picture Haligtree can read/.test(said), said.slice(-200))
 
   // --- A real drop on the page
   const drops = [write('Dropped one.png', await pngFrom(h, 2)), write('Dropped two.png', await pngFrom(h, 3))]
@@ -494,7 +494,7 @@ if (part('book')) {
     for (let n = 0; n < 50; n++) fifty.push(write(`Fifty ${n}.png`, await pngFrom(h, 100 + n)))
     await pickNext(electron, fifty)
     await h.locator('[data-media-add]').click(); await wait(2000)
-    check('50 files at once: one notice with the count', /Added 50 files to Media/.test(await h.evaluate(() => document.body.innerText)))
+    check('50 files at once: one notice with the count', /Added 50 files\./.test(await h.evaluate(() => document.body.innerText)))
     check('50 files: all there', (await v('media:list')).length === 52, String((await v('media:list')).length))
     await shot(h, 'state-50')
     // A file gone from the disk: says so, and "Add" brings it back.

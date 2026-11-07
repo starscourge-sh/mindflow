@@ -51,7 +51,7 @@ try {
   // A scanned one.
   await drop(Array.from(readFileSync(new URL('./fixtures/scanned-book.pdf', import.meta.url))), 'scanned-book.pdf')
   const said = await line()
-  check('a scanned book says so once, under the bar, with “Read the text on these pages”', /pictures of words/.test(said ?? '') && /Read the text on these pages/.test(said ?? ''), said)
+  check('a scanned book says so once, under the bar, with “Read the words on the pages”', /a scan: its pages are photos/.test(said ?? '') && /Read the words on the pages/.test(said ?? ''), said)
   const empty = await h.evaluate(() => document.querySelectorAll('.pdf-reader .textLayer span').length)
   check('before, its pages have no words to pick', empty === 0, `${empty} spans`)
   if (SHOT) await c.both(`${SHOT}/scan-line`)

@@ -35,7 +35,7 @@ const PLACES = [
     read: () => c.h.evaluate(() => document.querySelector('[data-chips="feed"] [aria-selected="true"]')?.getAttribute('data-chip') ?? '')
   },
   {
-    name: 'Media', view: 'media', a: 'PDFs', b: 'Audio',
+    name: 'Files', view: 'media', a: 'PDFs', b: 'Audio',
     pick: (one) => `[data-media-kinds] button:has-text("${one}")`,
     read: () => c.h.evaluate(() => [...document.querySelectorAll('[data-media-kinds] button[aria-pressed="true"]')].map((one) => one.textContent.trim()).join('|'))
   },

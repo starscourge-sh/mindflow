@@ -42,7 +42,7 @@ export function whyNot(name: string): string {
   if (PICTURE_ENDS.includes(end)) return 'not a picture Haligtree can read'
   if (end === 'pdf') return 'not a PDF Haligtree can read'
   if (AUDIO_ENDS.includes(end)) return 'not a recording Haligtree can play'
-  return 'Media takes pictures, GIFs, PDFs and audio'
+  return 'only pictures, GIFs, PDFs and audio go in Files'
 }
 
 export type Taken = { src: string; name: string; size: number; kind: MediaKind }
@@ -62,10 +62,10 @@ const num = (n: number): string => n.toLocaleString('en-GB')
 /** The one notice for a batch: what came in, what was here already, and each refused file by name. */
 export function addSaid({ added, revived, met, refused }: AddResult): string {
   const taken = [...added, ...revived]
-  const first = taken.length === 1 ? `Added “${bare(taken[0].name)}” to Media.` : taken.length ? `Added ${num(taken.length)} files to Media.` : ''
+  const first = taken.length === 1 ? `Added “${bare(taken[0].name)}” to Files.` : taken.length ? `Added ${num(taken.length)} files.` : ''
   const here = !met.length ? ''
-    : met.length === 1 ? `“${bare(met[0].name)}” is already in Media.`
-      : taken.length ? `${num(met.length)} were already there.` : `All ${num(met.length)} are already in Media.`
+    : met.length === 1 ? `“${bare(met[0].name)}” is already in Files.`
+      : taken.length ? `${num(met.length)} were already there.` : `All ${num(met.length)} are already in Files.`
   const names = refused.slice(0, 3).map((one) => `${one.name}: ${one.why}.`).join(' ')
   const rest = refused.length > 3 ? ` And ${num(refused.length - 3)} more not added.` : ''
   return [first, here, names + rest].filter(Boolean).join(' ')

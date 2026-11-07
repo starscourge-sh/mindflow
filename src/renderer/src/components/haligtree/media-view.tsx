@@ -244,11 +244,11 @@ export function MediaView({ onOpen }: { onOpen: (type: string, id: string) => vo
         setCarrying(false)
         void addDropped([...event.dataTransfer.files], onShow)
       }}>
-    <Page title="Media" dock={library} waiting={unloaded(all)} count={unloaded(all) || !all.length ? undefined : chosen.length || shown.length} unit={chosen.length ? ['selected', 'selected'] : ['file', 'files']}
+    <Page title="Files" dock={library} waiting={unloaded(all)} count={unloaded(all) || !all.length ? undefined : chosen.length || shown.length} unit={chosen.length ? ['selected', 'selected'] : ['file', 'files']}
       search={all.length > 0 && <ListSearch value={query} placeholder="Find by note, name or words" onChange={setQuery} onDone={() => shown[0] && open(shown[0])} />}
       beside={() => carrying && (
         <div data-media-drop className="pointer-events-none absolute inset-2 z-20 flex items-center justify-center rounded-xl border border-[color-mix(in_srgb,var(--tt-brand-color-500)_55%,transparent)] bg-[color-mix(in_srgb,var(--tt-brand-color-500)_8%,transparent)]">
-          <span className="rounded-lg bg-popover px-3 py-2 text-heading font-semibold text-foreground shadow-(--mf-panel-shadow) ring-1 ring-foreground/10">Drop to add to Media</span>
+          <span className="rounded-lg bg-popover px-3 py-2 text-heading font-semibold text-foreground shadow-(--mf-panel-shadow) ring-1 ring-foreground/10">Drop to add to Files</span>
         </div>
       )}
       // Only "Add" on the line, picked or not, so nothing on it moves: what acts on the picked is in their right-click and keys.

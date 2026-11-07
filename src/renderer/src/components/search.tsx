@@ -180,7 +180,7 @@ export function Search({ onOpen: told, onAside: toldAside, onTab: toldTab, onClo
     if (one.type === 'day') return [{ label: 'Open in the Journal', run: () => onOpen('day', one.id) }]
     // A PDF found: it opens in the reader.
     if (one.type === 'pdf' || one.type === 'web') return [{ label: 'Open in the reader', run: () => onOpen(one.type, one.id) }]
-    if (one.type === 'media') return [{ label: 'Show in Media', run: () => onOpen(one.type, one.id) }]
+    if (one.type === 'media') return [{ label: 'Show in Files', run: () => onOpen(one.type, one.id) }]
     const own = task
       ? taskMenu(task, { open: () => onOpen('task', one.id), now: taskNow })
       : fullMenu(one.type, one.id, () => onOpen(one.type, one.id)) ?? sideMenu(one.type, one.id, one.label, { onOpen, pinned: pins.some((pin) => pin.id === one.id), kind: one.kind, status: one.status })
@@ -602,7 +602,7 @@ export function Search({ onOpen: told, onAside: toldAside, onTab: toldTab, onClo
                 ) : current?.type === 'pdf' || current?.type === 'web' ? (
                   <span><Kbd>↵</Kbd> open it in the reader</span>
                 ) : current?.type === 'media' ? (
-                  <span><Kbd>↵</Kbd> show it in Media</span>
+                  <span><Kbd>↵</Kbd> show it in Files</span>
                 ) : current ? (
                   <>
                     <div className="min-w-0 flex-1"><GlossLine key={current.id} id={current.id} open={glossing} onDone={backToBox} keys="⌘;" /></div>
@@ -673,7 +673,7 @@ function MediaPeek({ label, id, kind }: { label: string; id: string; kind: strin
   return (
     <div className="flex flex-col gap-2 p-4">
       <p className="text-base font-medium text-pretty text-foreground">{label}</p>
-      <p className="text-body text-muted-foreground">In Media, in no note yet</p>
+      <p className="text-body text-muted-foreground">In Files, in no note yet</p>
       {kind !== 'audio' && <img src={src} alt="" className="max-h-64 w-full rounded-lg object-contain" />}
     </div>
   )
