@@ -472,6 +472,7 @@ export function NoteList({
   // A function, not a component: one made inside here would be new each
   // render, and every row would be drawn again from nothing, pictures and all.
   const face = (entry: Entry, index: number, words?: string): React.JSX.Element => {
+    if (!worded) entry = plainTerm(entry)
     const at = index === cursor
     const open = entry.id === selected
     const picked = chosen.includes(entry.id)
@@ -636,6 +637,8 @@ const Dot = (): React.JSX.Element => (
 
 // A question keeps its own row, its words over two lines (`wrap`): the word's row is for a word and its meaning.
 const wordRow = (entry: Entry): entry is Entry & { head: NonNullable<Entry['head']> } => !!entry.head && !entry.wrap
+/** A list that holds anything but terms draws its terms as the rows they stand among: the dictionary's look is for a dictionary. */
+const plainTerm = (entry: Entry): Entry => (entry.head ? { ...entry, head: undefined } : entry)
 
 function CompactRow({ entry, lit }: { entry: Entry; lit: boolean }): React.JSX.Element {
   if (wordRow(entry))
