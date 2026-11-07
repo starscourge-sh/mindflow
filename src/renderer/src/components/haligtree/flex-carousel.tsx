@@ -501,7 +501,9 @@ export default function FlexCarousel({
         widest = Math.max(widest, widths[i])
       }
       // Endless only when a copy of the row could never show twice at once.
-      return { ring: cursor > width + widest * 2, cardH, widths, centers, gap: s.gap, loop: Math.max(cursor, 1) }
+      // Loops as soon as one whole set is wider than the view, so what is in view never repeats a picture,
+      // and no gap left of the first picture when the window is wide.
+      return { ring: cursor > width, cardH, widths, centers, gap: s.gap, loop: Math.max(cursor, 1) }
     }
 
     const fits = (m: Metrics): boolean => !m.ring && m.loop - m.gap <= width * 0.92
