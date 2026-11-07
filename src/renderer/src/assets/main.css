@@ -2065,6 +2065,10 @@ input[type='number']::-webkit-outer-spin-button {
 .mf-welcome {
   --mf-wl-body: color-mix(in oklab, var(--foreground) 88%, var(--background));
   --mf-wl-quiet: color-mix(in oklab, var(--foreground) 78%, var(--background));
+  /* Its cards, choices and fields are the page's own paper, a step up, in every theme: the stock popover is plain
+     white on a light page, so on gruvbox or sepia they stood out as white buttons from another app. */
+  --popover: color-mix(in oklab, var(--foreground) 5%, var(--background));
+  --popover-foreground: var(--foreground);
 }
 /* The welcome is an old book whatever the theme: its accent is the logo's gold (gruvbox's yellow, #fabd2f), not the
    book's colour. On a dark page the gold itself, with dark ink on it; on a light page a deep gruvbox yellow, dark
