@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { Orb } from './orb'
 import { ArrowUpRight, Heart } from 'lucide-react'
 
 import { call, splitTags, unloaded, unread, useLive } from '@/lib/haligtree'
@@ -187,7 +188,7 @@ export function FeedLiked({ tabs, onOpen }: { tabs: React.ReactNode; onOpen: (ty
                 })}
               </ol>
               <div ref={foot} data-liked-foot={more ? 'more' : 'end'} className="flex justify-center py-10 text-body text-muted-foreground">
-                {more ? 'Loading more…' : posts?.length ? `That is every post you liked, back to ${written(posts.at(-1)!.likedOn, true)}.` : null}
+                {more ? <Orb label="Loading more…" /> : posts?.length ? `That is every post you liked, back to ${written(posts.at(-1)!.likedOn, true)}.` : null}
               </div>
             </>
           )}

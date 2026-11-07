@@ -2207,18 +2207,6 @@ button.mf-signed:hover .mf-signature { text-decoration: underline; text-decorati
 :root[data-welcoming] .mf-welcome ~ * { content-visibility: hidden; }
 :root[data-welcoming]::view-transition-old(mf-theme-dial) { display: none; }
 :root[data-welcoming]::view-transition-new(mf-theme-dial), :root[data-welcoming]::view-transition-group(mf-theme-dial) { animation: none; }
-/* A call to action in the welcome: the accent sweeping across the letters,
-   slowly, until it is done; still, plain accent. */
-.mf-shimmer {
-  background-image: linear-gradient(100deg, var(--primary) 20%, color-mix(in oklab, var(--primary) 35%, white) 40%, color-mix(in oklab, var(--primary) 60%, var(--tt-color-text-purple)) 50%, var(--primary) 70%);
-  background-size: 250% 100%;
-  -webkit-background-clip: text; background-clip: text; color: transparent;
-  animation: mf-shimmer 2.5s linear infinite;
-}
-.mf-shimmer[data-done] { animation: none; background-image: none; color: var(--primary); }
-@keyframes mf-shimmer { from { background-position: 100% 0; } to { background-position: -150% 0; } }
-:root[data-motion='off'] .mf-shimmer { animation: none; background-image: none; color: var(--primary); }
-@media (prefers-reduced-motion: reduce) { .mf-shimmer { animation: none; background-image: none; color: var(--primary); } }
 /* The words that carry the point, in the welcome: the accent with a lighter
    band in it, so they catch the eye like foil. Now and then the light glides
    across them once (about every 7s), three times in all and then it rests, and

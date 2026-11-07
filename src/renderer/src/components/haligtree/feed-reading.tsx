@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { Orb } from './orb'
 import { ArrowUpRight, MessageCircle, Repeat2 } from 'lucide-react'
 
 import { call, unloaded, unread, useLive } from '@/lib/haligtree'
@@ -131,7 +132,7 @@ export function FeedReading({ tabs, onOpen }: { tabs: React.ReactNode; onOpen: (
                   {rows.slice(0, drawn).map((page) => <li key={page.id} className="border-b last:border-b-0"><Row page={page} onRead={() => read(page)} /></li>)}
                 </ol>
                 <div ref={foot} data-reading-foot={more ? 'more' : 'end'} className="flex justify-center py-10 text-body text-muted-foreground">
-                  {more ? 'Loading more…' : rows.length > PAGE ? `That is all ${num(rows.length)}.` : null}
+                  {more ? <Orb label="Loading more…" /> : rows.length > PAGE ? `That is all ${num(rows.length)}.` : null}
                 </div>
               </>
             ) : (
