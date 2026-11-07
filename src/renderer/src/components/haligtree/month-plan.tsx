@@ -275,7 +275,7 @@ export function MonthPlan({ tasks, onDay, onSide, onOpen, onWeek, onMonth, onSho
         </div>
       </div>
       <Overlay dropAnimation={SETTLE}>
-        {carried && carried.kind !== 'back' && <span className={`block ${CARD}`}>{carried.kind === 'mark' ? `${carried.one.icon ? `${carried.one.icon} ` : ''}${carried.one.title}` : taskName(carried.task.title).text}</span>}
+        {carried && carried.kind !== 'back' && <span data-carried-card="" className={`block ${CARD}`}>{carried.kind === 'mark' ? `${carried.one.icon ? `${carried.one.icon} ` : ''}${carried.one.title}` : taskName(carried.task.title).text}</span>}
       </Overlay>
       </DndContext>
       <DotsKey opened={marking} captures={counting} />
@@ -353,7 +353,7 @@ function Cell({ day, lines, today, outside, count, caught, flags, adding, onAdd,
 function MarkLine({ one, outside, onItem, onDay }: { one: Milestone; outside: boolean; onItem: (type: string, id: string) => void; onDay: (day: string) => void }): React.JSX.Element {
   const { setNodeRef, listeners, attributes, isDragging } = useDraggable({ id: `mark:${one.id}`, data: { mark: one } })
   return <MarkChip ref={setNodeRef} one={one} open={onItem} onOpenDay={(day) => (chime('open'), onDay(day))} {...attributes} {...listeners}
-    className={`touch-none ${isDragging ? 'opacity-40' : outside ? 'opacity-60' : ''}`} />
+    className={`touch-none ${isDragging ? 'mf-carried-place' : outside ? 'opacity-60' : ''}`} />
 }
 
 /** A task's or a note's line in a day: dragged to move it, clicked to open it. */
@@ -369,7 +369,7 @@ function LineChip({ line, late, onOpen, drag = true }: { line: Line; late: boole
     <Tip label={isDragging ? '' : `${said}${title}`}>
     <button ref={setNodeRef} type="button" data-plan-task data-plan-kind={line.kind} {...(movable ? attributes : {})} {...(movable ? listeners : {})}
       onClick={() => onOpen(line)}
-      {...loud(tone, `mf-hit relative flex h-5 min-w-0 shrink-0 items-center gap-1 rounded-sm px-1 text-left text-control leading-snug transition-colors hover:bg-accent ${tone ? '' : line.kind === 'planned' ? 'text-foreground' : 'text-foreground/85'} ${isDragging ? 'opacity-40' : ''} ${movable ? 'touch-none' : ''}`)}>
+      {...loud(tone, `mf-hit relative flex h-5 min-w-0 shrink-0 items-center gap-1 rounded-sm px-1 text-left text-control leading-snug transition-colors hover:bg-accent ${tone ? '' : line.kind === 'planned' ? 'text-foreground' : 'text-foreground/85'} ${isDragging ? 'mf-carried-place' : ''} ${movable ? 'touch-none' : ''}`)}>
       {Icon ? <Icon className="size-3 shrink-0" /> : <span aria-hidden className="size-1.5 shrink-0 rounded-full bg-current opacity-70" />}
       <span className="truncate">{title}</span>
     </button>

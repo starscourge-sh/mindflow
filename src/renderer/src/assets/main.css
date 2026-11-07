@@ -2440,6 +2440,10 @@ aside[data-chrome] button:not(:disabled), aside[data-chrome] button:not(:disable
 [data-sortable-id] [data-grip]:active { cursor: grabbing; }
 /* Out of sight, keeping its room: taken out of the line, every line's tick moved left under a drag. */
 html[data-dragging] [data-grip] { visibility: hidden; }
+/* A row's wrapper is only a grip, focused by a press: never the browser's ring on it, which came on once a key (Esc) had been used. */
+[data-sortable-id]:focus-visible { outline: none; }
+/* A carried line's own place looks the same whatever was picked or open on it before. */
+[data-carried-line] [data-day-line] { background: transparent !important; }
 /* A line's tools and its + stand down while anything is carried, whichever line held the focus. */
 html[data-dragging] :is([data-line-tools], [data-add-below]) { visibility: hidden; }
 /* A row's own place while it is carried: a quiet room, never a faded copy of it. */
