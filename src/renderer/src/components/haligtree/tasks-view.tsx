@@ -976,7 +976,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
             { items: [
               // Today's tasks in four boxes; from another tab, every task's.
               { label: 'Urgent and important', hint: 'Your tasks in four boxes: urgent by date, important by the flag', on: matrixed, set: (on) => (mode === 'today' ? setView({ ...view, group: on ? 'matrix' : 'when' }) : onOpen?.('view', 'matrix')) },
-              { label: 'Your order', hint: 'In the order you dragged them, not by date', on: view.sort === 'manual', set: (on) => setView({ ...view, sort: on ? 'manual' : 'due' }) },
+              { label: 'Your order', hint: 'In the order you set with ⌥J and ⌥K, not by date', on: view.sort === 'manual', set: (on) => setView({ ...view, sort: on ? 'manual' : 'due' }) },
               { label: 'Sort, group and filter…', keys: 'F', run: () => (written ? setView({ ...view, group: 'when' }) : undefined, setTimeout(openDisplay, 0)) }
             ] },
             // Things to do, apart from the ways to see the list above: never one more tick among them.
