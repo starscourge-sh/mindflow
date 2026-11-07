@@ -526,7 +526,7 @@ export const CARD = 'rounded-lg bg-popover px-3 py-2 text-control text-foregroun
  */
 export function CarriedCard({ icon, title, strong = false, words, tint, refused = false, attrs, className }: { icon?: ReactNode; title: string; strong?: boolean; words?: string | null; tint?: string; refused?: boolean; attrs?: Record<string, string>; className?: string }): React.JSX.Element {
   return (
-    <motion.div {...attrs} data-carried-card="" className={cn('relative flex max-w-80 cursor-grabbing items-center gap-2', refused && 'flex-wrap', words !== undefined ? 'w-80' : 'w-fit', CARD, className)}
+    <motion.div {...attrs} data-carried-card="" className={cn('relative flex max-w-[min(20rem,calc(100vw-9rem))] cursor-grabbing items-center gap-2', refused && 'flex-wrap', words !== undefined ? 'w-[min(20rem,calc(100vw-9rem))]' : 'w-fit', CARD, className)}
       initial={{ opacity: 0, scale: 0.94 }} animate={{ opacity: 1, scale: 1 }} transition={still() ? { duration: 0 } : springs.moderate}>
       {icon}
       <span className={cn('private-text min-w-0 flex-1 truncate', strong && 'font-semibold')}>{title}</span>
