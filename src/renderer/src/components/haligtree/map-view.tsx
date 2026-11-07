@@ -263,14 +263,22 @@ function Replay({ nodes, show, onClose }: { nodes: NoteMap['nodes']; show: React
   // Each change of place drawn on the map, and again when the map's data reloads under it.
   useEffect(() => show.current(at), [show, at, nodes])
   useEffect(() => () => show.current(null), [show])
-  // Played at an even pace of dots, not of days, so a quiet month does not stall it: a whole map over 4 to 20s.
+  // Paced by your own history, so it breathes: notes caught the same day come in a quick run, and a quiet stretch
+  // of days is a beat's pause before the next, never a stall (at most half again a note's time). About 0.16s a note
+  // on average, a whole map over 9 to 40s.
+  const beats = useMemo(() => order.map((one, n) => {
+    if (!n || !one.at || !order[n - 1].at) return 1
+    const days = (Date.parse(one.at) - Date.parse(order[n - 1].at!)) / 86_400_000
+    return 0.55 + 0.95 * Math.min(1, Math.max(0, days) / 14)
+  }), [order])
   useEffect(() => {
     if (!playing) return
-    const perDot = Math.min(20000, Math.max(4000, order.length * 60)) / end / speed
+    const perDot = Math.min(40000, Math.max(9000, order.length * 160)) / end / speed
     let last = -1, frame = requestAnimationFrame(function step(time) {
       if (last < 0) last = time
       // A frame held up (the window away, the machine busy) carries on from where it was, never leaps ahead.
-      const next = Math.min(end, now.current + Math.min(100, time - last) / perDot)
+      const beat = beats[Math.min(beats.length - 1, Math.floor(now.current))] ?? 1
+      const next = Math.min(end, now.current + Math.min(100, time - last) / (perDot * beat))
       last = time
       now.current = next
       setAt(next)
@@ -278,7 +286,7 @@ function Replay({ nodes, show, onClose }: { nodes: NoteMap['nodes']; show: React
       else frame = requestAnimationFrame(step)
     })
     return () => cancelAnimationFrame(frame)
-  }, [playing, speed, end, order.length])
+  }, [playing, speed, end, order.length, beats])
   // Esc stops it, before anything else on the page hears the key.
   useEffect(() => {
     const key = (event: KeyboardEvent): void => {

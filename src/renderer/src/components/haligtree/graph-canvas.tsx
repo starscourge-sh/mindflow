@@ -78,11 +78,11 @@ const HOME_GLIDE = 600
 const ARRIVE = 320
 const ARRIVE_SPAN = 520
 /**
- * The replay's spring, as Apple gives one: it answers in 0.55s, damped to 0.72 of the way to no bounce at all, so a
- * new dot springs out from its first link and overshoots its place by about 4% once, then rests: a soft landing,
+ * The replay's spring, as Apple gives one: it answers in 0.6s, damped to 0.64 of the way to no bounce at all, so a
+ * new dot springs out from its first link and overshoots its place by about 7% once, then rests: a soft landing,
  * never a shake. As a stiffness and a damping for a mass of one.
  */
-const RESPONSE = 0.55, DAMPING = 0.72
+const RESPONSE = 0.6, DAMPING = 0.64
 const STIFF = (2 * Math.PI / RESPONSE) ** 2, DAMP = (4 * Math.PI * DAMPING) / RESPONSE
 /** How long the camera takes to catch up with a growing map during the replay: most of the way in about half a second. */
 const FOLLOW = 450
