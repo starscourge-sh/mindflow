@@ -1750,7 +1750,7 @@ function PictureFace({ occlusion, shown, answer, onReveal }: { occlusion: Occlus
       <p data-picture-question-shown className={occlusion.question ? 'text-body font-medium text-foreground' : 'text-sm text-muted-foreground'}>{occlusion.question || (occlusion.hide === 'all' ? 'What is under the glowing cover?' : 'What is hidden?')}</p>
       <CoveredPicture occlusion={occlusion} shown={shown} all={all} />
       <div className="flex min-h-8 flex-wrap items-center gap-3">
-        <p data-picture-answer className={`min-w-0 flex-1 font-heading text-heading font-semibold text-foreground ${shown ? '' : 'invisible'}`}>{said || 'Shown on the picture, under the cover'}</p>
+        <p data-picture-answer className={`min-w-0 flex-1 text-heading font-semibold text-foreground ${shown ? '' : 'invisible'}`}>{said || 'Shown on the picture, under the cover'}</p>
         {occlusion.covers.some((one) => one.group !== occlusion.ask) && (
           <Button variant="ghost" size="sm" data-picture-all className={`h-8 cursor-pointer px-3 text-muted-foreground ${shown ? '' : 'invisible'}`} onClick={(event) => (event.stopPropagation(), chime(all ? 'fold' : 'open'), setAll(!all))}>
             {all ? 'Cover the rest again' : 'Show the whole picture'}

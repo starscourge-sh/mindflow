@@ -14,7 +14,7 @@ import { Avatar } from './avatar'
 import { openSource } from '@/lib/sources'
 import { distinctInitials } from '@/lib/people'
 import { dayLinkName } from './day-view'
-import { FeedHeading, Post, SideCard, kindWord, written } from './feed-view'
+import { FeedHeading, FeedSaid, Post, SideCard, kindWord, written } from './feed-view'
 
 /**
  * Liked: every post you hearted in the Feed, newest like first, in the Feed's
@@ -145,14 +145,13 @@ export function FeedLiked({ tabs, onOpen }: { tabs: React.ReactNode; onOpen: (ty
   ]
 
   const waiting = posts === null || unloaded(side)
-  // Always a line, so the tabs under it sit where Notes' and Reading's do.
-  const lead = <span data-liked-holds className="truncate text-control text-muted-foreground">{side.total ? `${likesSaid(side.total)} on ${plural(side.notes, 'post')}` : 'No likes yet'}</span>
+  // On the top line's right, as Notes' and Reading's words are.
+  const said = <FeedSaid data-liked-holds>{side.total ? `${likesSaid(side.total)} on ${plural(side.notes, 'post')}` : 'No likes yet'}</FeedSaid>
   return (
-    <Page title="Feed" dock waiting={waiting} lead={lead}>
+    <Page title="Feed" dock waiting={waiting} lead={tabs} search={said}>
       {/* The likes scroll by themselves; the side column is docked at the page's right edge, full height. */}
       <Docked side={side.total > 0 ? <LikedSideColumn side={side} onOpen={open} /> : null}>
-      <div ref={root} data-feed-liked className="flex min-w-0 flex-col px-5 pt-[33px] pb-16">
-          {tabs}
+      <div ref={root} data-feed-liked className="flex min-w-0 flex-col px-5 pt-4 pb-16">
           {!posts?.length && !side.total ? (
             <p data-liked-empty className="py-10 text-body text-foreground">Nothing liked yet. Tap the heart on a post in Notes and it is kept here, the newest first.</p>
           ) : (

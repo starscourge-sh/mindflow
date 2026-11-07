@@ -9,12 +9,12 @@ import { chime } from '@/lib/sound'
 import { cn } from '@/lib/cn'
 import { dayjs, num } from '../../../../main/dates'
 import type { Reading, ReadingPage } from '../../../../main/feed'
-import { Page, Tip } from './ui'
+import { Docked, Page, Tip } from './ui'
 import { openGloss } from './gloss-line'
 import { GroupIcon } from './kept-groups'
 import { TagIcon } from './tag-icon'
 import { ReadThrough } from './read-through'
-import { AGAIN_TIP, FeedHeading, Restack, SideColumn, THOUGHT_TIP, TabChips } from './feed-view'
+import { AGAIN_TIP, FeedHeading, FeedSaid, Restack, SideColumn, THOUGHT_TIP, TabChips } from './feed-view'
 import { ReadLaterButton, ReadLaterLabelled, useReadLater } from './read-later'
 
 /**
@@ -101,10 +101,10 @@ export function FeedReading({ tabs, onOpen }: { tabs: React.ReactNode; onOpen: (
   }
   const close = (): void => (setOpen(null), setLine(null))
   return (
-    <Page title="Feed" waiting={unloaded(read0)} count={reading.pages.length || undefined} unit={['page to read', 'pages to read']}>
-      <div data-feed data-feed-reading className="flex items-start gap-8 px-5 pt-[33px] pb-16">
-      <div className="flex min-w-0 flex-1 flex-col">
-        {tabs}
+    <Page title="Feed" dock waiting={unloaded(read0)} lead={tabs} search={reading.pages.length ? <FeedSaid data-reading-count>{num(reading.pages.length)} {reading.pages.length === 1 ? 'page' : 'pages'} to read</FeedSaid> : undefined}>
+      {/* The pages scroll by themselves; the side column is docked at the page's right edge, full height, as on Notes and Liked. */}
+      <Docked side={!reading.safe && reading.pages.length > 0 ? <SideColumn onOpen={onOpen} /> : null}>
+      <div data-feed data-feed-reading className="flex min-w-0 flex-col px-5 pt-4 pb-16">
         {reading.safe ? (
           <p data-feed-safe className="py-10 text-body text-foreground"><strong className="font-semibold">Safe mode is on</strong>, so Reading rests until you turn it off.</p>
         ) : !reading.pages.length ? (
@@ -141,8 +141,7 @@ export function FeedReading({ tabs, onOpen }: { tabs: React.ReactNode; onOpen: (
           </div>
         )}
       </div>
-      {!reading.safe && reading.pages.length > 0 && <SideColumn onOpen={onOpen} />}
-      </div>
+      </Docked>
       {reader && (
         <ReadThrough key={reader.id} items={[{ type: 'article', id: reader.id }]} onClose={close}
           longform={{
@@ -209,7 +208,7 @@ function Row({ page, big = false, onRead }: { page: ReadingPage; big?: boolean; 
             <span className="truncate font-medium text-foreground/80">{page.from.kind === 'tag' ? `#${page.from.name}` : page.from.name}</span>
           </span>
         )}
-        <span data-reading-title className={cn('font-heading font-semibold tracking-[-0.01em] text-balance text-foreground group-hover:underline group-hover:decoration-foreground/30 group-hover:underline-offset-4', big ? 'text-title' : 'text-reading')}>{page.title}</span>
+        <span data-reading-title className={cn('font-semibold tracking-[-0.01em] text-balance text-foreground group-hover:underline group-hover:decoration-foreground/30 group-hover:underline-offset-4', big ? 'font-heading text-title' : 'text-reading')}>{page.title}</span>
         {page.dek && <span data-reading-dek className={cn('font-serif text-muted-foreground', big ? 'line-clamp-3 text-reading' : 'line-clamp-2 text-body leading-relaxed')}>{page.dek}</span>}
         <span className="mt-0.5 flex items-center gap-1.5 text-control text-muted-foreground tabular-nums">
           <span data-reading-minutes>{num(page.minutes)} min read</span>

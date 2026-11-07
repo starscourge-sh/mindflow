@@ -249,7 +249,7 @@ export function TodaysFeedCard({ onView }: { onView: (id: string) => void }): Re
   return (
     <section data-todays-feed aria-label="Today's feed" className="flex items-center gap-3 rounded-xl border bg-background px-4 py-3">
       <span className="flex min-w-0 flex-1 flex-col">
-        <span className="font-heading text-heading font-semibold text-foreground">Today's feed</span>
+        <span className="text-heading font-semibold text-foreground">Today's feed</span>
         <span data-todays-feed-count className="text-body text-foreground/85">
           {num(feed.posts.length)} {feed.posts.length === 1 ? 'post' : 'posts'} today{archives ? `, ${num(archives)} from the archives` : ''}
         </span>
@@ -285,22 +285,20 @@ export function FeedView({ onOpen, focus }: { onOpen: (type: string, id: string)
   // Pages beside gems and notes, asked for here or in Settings; on the right, in the Notes tab only.
   const settings = useLive(haligtree.settings, null)
   const pages = settings?.feedPages === true
-  const tabs = (
-    <div className="mb-5 flex items-center gap-3">
-      <TabChips name="feed" tabs={FEED_TABS} value={tab} onChange={choose} />
-      {tab === 'notes' && settings && (
-        // Set as the Inbox's "Show sorted too" is: the switch, then its words, on a row that lights on hover.
-        <label data-feed-pages className="-mr-2 ml-auto flex h-7 cursor-pointer items-center gap-2 rounded-md px-2 text-control whitespace-nowrap text-foreground/85 hover:bg-accent/60">
-          <Switch checked={pages} onCheckedChange={(feedPages) => (chime(feedPages ? 'tick' : 'tap'), void haligtree.setSettings({ feedPages }))} />
-          Pages too
-        </label>
-      )}
-    </div>
-  )
-  return <QueuedProvider>{tab === 'reading' ? <FeedReading tabs={tabs} onOpen={onOpen} /> : tab === 'liked' ? <FeedLiked tabs={tabs} onOpen={onOpen} /> : <FeedNotes tabs={tabs} onOpen={onOpen} pages={pages} />}</QueuedProvider>
+  // The tabs on the left of the page's top line, where Review, Stats and Goals keep theirs; the line's words
+  // ("84 pages to read") and the tab's own switch on its right.
+  const tabs = <TabChips name="feed" tabs={FEED_TABS} value={tab} onChange={choose} />
+  const extra = tab === 'notes' && settings ? (
+    // Set as the Inbox's "Show sorted too" is: the switch, then its words, on a row that lights on hover.
+    <label data-feed-pages className="flex h-7 cursor-pointer items-center gap-2 rounded-md px-2 text-control whitespace-nowrap text-foreground/85 hover:bg-accent/60">
+      <Switch checked={pages} onCheckedChange={(feedPages) => (chime(feedPages ? 'tick' : 'tap'), void haligtree.setSettings({ feedPages }))} />
+      Pages too
+    </label>
+  ) : undefined
+  return <QueuedProvider>{tab === 'reading' ? <FeedReading tabs={tabs} onOpen={onOpen} /> : tab === 'liked' ? <FeedLiked tabs={tabs} onOpen={onOpen} /> : <FeedNotes tabs={tabs} extra={extra} onOpen={onOpen} pages={pages} />}</QueuedProvider>
 }
 
-function FeedNotes({ onOpen, tabs, pages }: { onOpen: (type: string, id: string) => void; tabs: React.ReactNode; pages: boolean }): React.JSX.Element {
+function FeedNotes({ onOpen, tabs, extra, pages }: { onOpen: (type: string, id: string) => void; tabs: React.ReactNode; extra?: React.ReactNode; pages: boolean }): React.JSX.Element {
   // Read again when pages are let in or kept out.
   const feed = useLive(readFeed, NO_FEED, [pages], ['capture', 'item'], 'feed')
   // Until the book has enough in it, the goal and a faded made-up Feed; met once, the real one for good.
@@ -430,11 +428,10 @@ function FeedNotes({ onOpen, tabs, pages }: { onOpen: (type: string, id: string)
     return () => window.removeEventListener('keydown', onKey, true)
   })
   return (
-    <Page title="Feed" dock waiting={unloaded(feed) || real === null} lead={holds ? <span data-feed-holds className="truncate text-control text-muted-foreground">{holds}</span> : undefined}>
+    <Page title="Feed" dock waiting={unloaded(feed) || real === null} lead={tabs} search={holds ? <FeedSaid data-feed-holds>{holds}</FeedSaid> : undefined} actions={extra}>
       {/* The posts scroll by themselves; the side column is docked at the page's right edge, full height. */}
       <Docked side={!feed.safe && !preview && feed.posts.length > 0 ? <SideColumn onOpen={onOpen} /> : null}>
-      <div ref={root} data-feed className="flex min-w-0 flex-col px-5 pt-[33px] pb-16">
-        {!shown && tabs}
+      <div ref={root} data-feed className="flex min-w-0 flex-col px-5 pt-4 pb-16">
         {shown ? (
           <Thread post={shown} onBack={back} onOpen={() => open(shown.type, shown.id)} onOpenOther={open} />
         ) : feed.safe ? (
@@ -460,7 +457,7 @@ function FeedNotes({ onOpen, tabs, pages }: { onOpen: (type: string, id: string)
               })}
             </ol>
             <footer ref={endRef} data-feed-end className="flex flex-col items-center gap-1.5 py-12 text-center">
-              <p className="font-heading text-lead font-semibold tracking-[-0.01em] text-foreground">You're all caught up</p>
+              <p className="text-lead font-semibold tracking-[-0.01em] text-foreground">You're all caught up</p>
               <p data-feed-summary className="max-w-[44ch] text-body text-foreground/85">{listed} came up today.</p>
               <p data-feed-next className="text-body text-muted-foreground">A new set in {until}.</p>
             </footer>
@@ -494,7 +491,7 @@ function Thread({ post, onBack, onOpen, onOpenOther }: { post: FeedPost; onBack:
             <ArrowLeft className="size-[18px]" />
           </button>
         </Tip>
-        <p className="font-heading text-reading font-semibold text-foreground">Post</p>
+        <p className="text-reading font-semibold text-foreground">Post</p>
       </div>
       <ol className="flex flex-col">
         <Post post={post} onOpen={onOpen} onOpenOther={onOpenOther} alone joined={thread.length > 0} />
@@ -1187,8 +1184,13 @@ export function SideColumn({ onOpen }: { onOpen: (type: string, id: string) => v
 }
 
 /** A section's heading in every Feed tab: Liked's months, Reading's "Today's read", one role, size and spacing. */
+/** The Feed's words on its top line ("20 likes on 20 posts"), in the look of a count beside tabs: set apart by a hairline, small. */
+export function FeedSaid({ children, ...rest }: { children: React.ReactNode } & React.HTMLAttributes<HTMLSpanElement>): React.JSX.Element {
+  return <span {...rest} className="mr-2 min-w-0 truncate border-l border-foreground/15 pl-3 text-xs whitespace-nowrap tabular-nums text-muted-foreground">{children}</span>
+}
+
 export function FeedHeading({ children, ...rest }: { children: React.ReactNode } & React.HTMLAttributes<HTMLHeadingElement>): React.JSX.Element {
-  return <h2 {...rest} className="mt-6 mb-1 border-b pb-2 font-heading text-reading font-semibold tracking-[-0.01em] text-foreground first:mt-2">{children}</h2>
+  return <h2 {...rest} className="mt-6 mb-1 border-b pb-2 text-reading font-semibold tracking-[-0.01em] text-foreground first:mt-2">{children}</h2>
 }
 
 export function SideCard({ name, title, children }: { name: string; title: string; children: React.ReactNode }): React.JSX.Element {
