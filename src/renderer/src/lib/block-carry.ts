@@ -2,6 +2,7 @@ import type { EditorView } from '@tiptap/pm/view'
 import { chime } from './sound'
 import { slotTicker } from './proximity'
 import { still } from './motion'
+import { detent } from './haptics'
 
 /**
  * A block carried by its grip, the way rows are carried in the sidebar
@@ -129,8 +130,8 @@ function lift(event: DragEvent): void {
     page.append(copy)
   }
   card.append(page)
-  card.style.width = `${width + 16}px`
-  // A wide block's card is cut at 26rem (its stylesheet), the grab still on it.
+  card.style.width = `${width + 24}px`
+  // A wide block's card is cut at 20rem (its stylesheet), as every carried card is.
   // In the page's body, so no scroller's edge fades or cuts it; the drop line
   // is drawn again over it (`twin`), since the editor's own sits under it.
   document.body.append(card)
@@ -143,9 +144,9 @@ function lift(event: DragEvent): void {
   document.body.append(twin)
   card.classList.toggle('is-long', card.scrollHeight > card.clientHeight)
 
-  // The grab stays where it was on the block: the card opens 8px out round it.
-  const dx = event.clientX - home.left + 8
-  const dy = event.clientY - home.top + 6
+  // The grab stays where it was on the block: the card opens 12px and 8px out round it.
+  const dx = event.clientX - home.left + 12
+  const dy = event.clientY - home.top + 8
   carry = { view, card, sources, dx, dy, home, origin, twin, x: event.clientX, y: event.clientY, landed: false, ticks: slotTicker(), line: null }
   place()
   quietly(view, () => {
@@ -153,9 +154,10 @@ function lift(event: DragEvent): void {
     view.dom.dataset.carrying = ''
   })
   document.documentElement.dataset.dragging = ''
-  if (!still()) card.animate([{ scale: 1, boxShadow: 'none' }, { scale: 1.02 }], { duration: 160, easing: 'cubic-bezier(0.2, 0, 0, 1)', fill: 'backwards' })
+  // Lifts in the way every carried card in the app does (carry.tsx CarriedCard): from a touch smaller, fading in.
+  if (!still()) card.animate([{ opacity: 0, scale: 0.94 }, { opacity: 1, scale: 1 }], { duration: 180, easing: 'cubic-bezier(0.2, 0, 0, 1)', fill: 'backwards' })
   chime('lift')
-  ;(window as { api?: { tap?: () => void } }).api?.tap?.()
+  detent()
 }
 
 function follow(event: DragEvent): void {
@@ -194,7 +196,7 @@ function end(sound = true): void {
   if (!sound || still()) return card.remove()
   // Home again, or down onto the line it was dropped on, then gone: the block itself is already there.
   const [x, y] = card.style.translate.split(' ').map((n) => parseFloat(n))
-  const to = landed ? { x, y: line ? line.top - 6 - origin.y : y } : { x: home.left - 8 - origin.x, y: home.top - 6 - origin.y }
+  const to = landed ? { x, y: line ? line.top - 8 - origin.y : y } : { x: home.left - 12 - origin.x, y: home.top - 8 - origin.y }
   const settle = card.animate(
     [{ translate: `${x}px ${y}px`, opacity: 1 }, { translate: `${to.x}px ${to.y}px`, opacity: 0 }],
     { duration: landed ? 140 : 220, easing: 'cubic-bezier(0.2, 0, 0, 1)', fill: 'forwards' }

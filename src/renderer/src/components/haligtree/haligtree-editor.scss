@@ -4290,6 +4290,9 @@ $run-next: '.react-renderer:has(> .tiptap-attachment.is-audio) + .react-renderer
     border-top: 0;
     border-top-left-radius: 0;
     border-top-right-radius: 0;
+  }
+}
+
 // A block carried by its grip (lib/block-carry.ts): the card that follows the
 // pointer, and the place it left, dimmed the way a carried sidebar row's gap is.
 // The grip's own selection tint is not drawn while carrying: one mark, the dim.
@@ -4299,16 +4302,17 @@ $run-next: '.react-renderer:has(> .tiptap-attachment.is-audio) + .react-renderer
   left: 0;
   z-index: 60;
   pointer-events: none;
-  max-width: 26rem;
+  // The float material every carried card has (carry.tsx CARD).
+  max-width: 20rem;
   max-height: 14rem;
   overflow: hidden;
-  padding: 6px 8px;
-  border-radius: 8px;
-  background: var(--background);
-  color: var(--foreground);
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: var(--popover);
+  color: var(--popover-foreground, var(--foreground));
   box-shadow: var(--mf-shadow-lift), 0 0 0 1px color-mix(in oklab, var(--foreground) 10%, transparent);
-  scale: 1.02;
   transform-origin: top left;
+  cursor: grabbing;
 
   // A long block fades out at the card's foot rather than being cut by it.
   &.is-long {
