@@ -119,6 +119,15 @@ export function registerGroups(): void {
     changed()
     return { group, ids, subs }
   })
+  // A group with everything in it: its notes and subgroups' notes, and the groups themselves, innermost first.
+  handle('groups:holds', (id: string) => {
+    const gather = (at: string): { notes: { type: string; id: string }[]; groups: string[] } => {
+      const subs = (db.prepare('select id from note_groups where parent_id = ?').all(at) as { id: string }[]).map((one) => gather(one.id))
+      const notes = db.prepare('select tier as type, id from nuggets where group_id = ? and binned_at is null order by group_order').all(at) as { type: string; id: string }[]
+      return { notes: [...notes, ...subs.flatMap((one) => one.notes)], groups: [...subs.flatMap((one) => one.groups), at] }
+    }
+    return gather(id)
+  })
   handle('groups:restore', (was: { group: Record<string, string | number | null>; ids: string[]; subs?: string[] }) => {
     const { id, list, name, icon, color, folded, createdAt, parent, folder } = was.group
     atomically(() => {

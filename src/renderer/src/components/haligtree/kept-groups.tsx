@@ -16,6 +16,7 @@ import { offerTag } from './side-folders'
 import { CAPTURE_TYPES } from '../capture-kinds/capture-kind-picker'
 import { chime, click } from '@/lib/sound'
 import { pastEdge } from '@/lib/drag-edge'
+import { moveToBin } from '@/lib/to-bin'
 import { archive } from '@/lib/notes'
 import { byKeys, spring as springs, still } from '@/lib/motion'
 import { GROUP_COLORS, groups, tintOf } from '@/lib/groups'
@@ -937,6 +938,23 @@ function Fold({ open, children }: { open: boolean; children: ReactNode }): React
 }
 
 /** A right click on a group's row: Haligtree's own menu, with its colours as a row of dots. */
+/** A group and everything in it to the Bin, with one notice and one Undo; from the Bin later, its notes come back loose. */
+async function binGroup(id: string): Promise<void> {
+  const { notes, groups: inner } = await groups.holds(id)
+  let parted: Promise<Awaited<ReturnType<typeof groups.separate>>[]> = Promise.resolve([])
+  // Back outermost first: each then takes its own notes back from the one that held them.
+  const undo = (): void => void parted.then(async (was) => {
+    for (const one of [...was].reverse()) if (one) await groups.restore(one)
+  })
+  const going = moveToBin(notes, undo)
+  parted = going.then(async (n) => {
+    if (!n) return []
+    const was = []
+    for (const one of inner) was.push(await groups.separate(one))
+    return was
+  })
+}
+
 export function GroupMenu({ group, members, onOpenFolder, onSeparate, onRename, onIcon, onNewNote, onSort, onSorted, noun = 'note' }: {
   group: GroupView
   /** What a new one in it is: a note, a goal. */
@@ -1007,6 +1025,7 @@ export function GroupMenu({ group, members, onOpenFolder, onSeparate, onRename, 
       <ContextMenuItem onSelect={later(onIcon)}>Change icon…</ContextMenuItem>
       <ContextMenuSeparator />
       <ContextMenuItem onSelect={() => void archive('nuggets', members, true)}>Archive {word}</ContextMenuItem>
+      {!group.folder && members.length > 0 && <ContextMenuItem data-group-bin variant="destructive" onSelect={() => void binGroup(group.id)}>Move group and {noun}s to the Bin</ContextMenuItem>}
       {group.folder && <ContextMenuItem data-folder-delete variant="destructive" onSelect={onSeparate}>Delete folder, keep its notes</ContextMenuItem>}
     </ContextMenuContent>
   )
