@@ -1,6 +1,6 @@
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react'
 import { AnimatePresence, LayoutGroup, motion } from 'motion/react'
-import { Bell, BellOff, Check, ChevronRight, Eye, FileText, FlagTriangleRight, Folder, Lock, Pause, Repeat, ScanText, Star, Unlock } from 'lucide-react'
+import { Bell, BellOff, Check, ChevronRight, Eye, FileText, FlagTriangleRight, Folder, Lock, Pause, Repeat, ScanText, Sparkles, Star, Unlock } from 'lucide-react'
 import { EASE, spring } from '@/lib/motion'
 import { timerFrom } from '@/lib/timer'
 import { clock } from './focus-pill'
@@ -1939,7 +1939,342 @@ const OffersDemo: Demo = ({ live }) => {
   )
 }
 
+// ---------------------------------------------------------------- The powers that had no picture
+
+const POP = 'shadow-[0_6px_16px_-6px_color-mix(in_oklab,var(--mf-shadow-ink)_25%,transparent)]'
+/** A switch, drawn as Settings draws one. */
+const Toggle = ({ on }: { on: boolean }): React.JSX.Element => (
+  <span className={`relative inline-flex h-4 w-7 shrink-0 rounded-full transition-colors duration-200 ${on ? 'bg-primary' : 'bg-foreground/15'}`}>
+    <span className="absolute top-0.5 left-0.5 size-3 rounded-full bg-background shadow-sm transition-transform duration-200" style={{ transform: on ? 'translateX(12px)' : 'none' }} />
+  </span>
+)
+/** A button in an offer or a sheet: the app's quiet one, or its filled one. */
+const Btn = ({ children, on = false, className = '' }: { children: ReactNode; on?: boolean; className?: string }): React.JSX.Element => (
+  <span className={`rounded-md px-2 py-0.5 text-meta font-medium whitespace-nowrap transition-colors duration-200 ${on ? 'bg-primary text-primary-foreground' : 'bg-foreground/[0.07] text-foreground'} ${className}`}>{children}</span>
+)
+
+/** A call kept as it happens: each voice its own, a moment noted. */
+const SAID = [{ who: 'You', words: 'Shall we start with chapter two?' }, { who: 'Speaker 1', words: 'Yes, the part on memory.' }]
+const CallsDemo: Demo = ({ live }) => {
+  const at = useSteps([900, 1300, 1300, 2600], live, 3)
+  return (
+    <Col>
+      <div className="flex items-center gap-2 px-1 text-meta text-muted-foreground">
+        <span className={`size-2 rounded-full bg-[var(--tt-color-text-red)] ${live ? 'animate-pulse' : ''}`} />
+        <span className="text-foreground">Recording</span><span className="tabular-nums"><Rolling text={['0:02', '0:14', '0:31', '0:41'][at]} /></span>
+        <span className="ml-auto">On this Mac</span>
+      </div>
+      <div className="flex flex-col gap-1.5 rounded-lg border bg-background px-3 py-2">
+        {SAID.map((one, i) => (
+          <div key={one.who} className={`flex flex-col transition-opacity duration-300 ${at > i ? 'opacity-100' : 'opacity-0'}`}>
+            <span className="text-meta font-medium" style={{ color: i ? 'var(--tt-color-text-blue)' : 'var(--tt-color-text-purple)' }}>{one.who}</span>
+            <span className="text-control text-foreground">{one.words}</span>
+          </div>
+        ))}
+        <span className={`flex items-center gap-1 text-meta text-muted-foreground transition-opacity duration-300 ${at === 3 ? 'opacity-100' : 'opacity-0'}`}><FlagTriangleRight className="size-3" style={{ color: 'var(--tt-color-text-orange)' }} />Noted at 0:41</span>
+      </div>
+    </Col>
+  )
+}
+
+/** A note offered for a question, and the line on why it may help. */
+const ClueWhyDemo: Demo = ({ live }) => {
+  const at = useSteps([1300, 2800], live, 1)
+  return (
+    <Col>
+      <div className="rounded-xl border bg-background px-3 py-2.5">
+        <div className="font-heading text-control font-semibold text-foreground">Who is the real monster?</div>
+        <div className="mt-1.5 text-meta text-muted-foreground">May help answer it</div>
+        <div className="mt-0.5 flex items-center gap-1.5 text-control text-foreground"><FileText className="size-3.5 shrink-0 text-muted-foreground" />Notes on Frankenstein, chapter 15</div>
+        <motion.div initial={false} animate={{ height: at === 1 ? 'auto' : 0, opacity: at === 1 ? 1 : 0 }} transition={{ duration: 0.35, ease: EASE }} className="overflow-hidden">
+          <p className="pt-1 text-meta text-muted-foreground"><Sparkles aria-hidden className="mr-1 inline size-3 align-[-1px]" />The creature is kind until he is turned away. Written on this Mac.</p>
+        </motion.div>
+      </div>
+    </Col>
+  )
+}
+
+/** A note that starts with a picture, offered a name from its words. */
+const UntitledDemo: Demo = ({ live }) => {
+  const at = useSteps([1200, 1700, 2600], live, 2)
+  return (
+    <Col>
+      <div className="rounded-lg border bg-background px-3 py-2">
+        <motion.div initial={false} animate={{ height: at === 2 ? 'auto' : 0, opacity: at === 2 ? 1 : 0 }} transition={{ duration: 0.35, ease: EASE }} className="overflow-hidden font-heading text-body font-semibold text-foreground">Walk to the lighthouse</motion.div>
+        <div className="mt-1 flex items-end gap-2.5">
+          <span aria-hidden className="relative h-10 w-14 shrink-0 overflow-hidden rounded-[4px] border bg-[color-mix(in_oklab,var(--tt-color-text-blue)_14%,var(--background))]">
+            <span className="absolute inset-x-0 bottom-0 h-3 bg-[color-mix(in_oklab,var(--tt-color-text-green)_35%,var(--background))]" />
+            <span className="absolute bottom-3 left-8 h-5 w-1.5 rounded-t-sm bg-foreground/45" />
+          </span>
+          <div className="flex flex-1 flex-col gap-1.5 pb-1"><Line w="92%" /><Line w="70%" /></div>
+        </div>
+      </div>
+      <div className={`flex flex-col gap-1 rounded-lg border bg-background px-2.5 py-1.5 text-meta text-muted-foreground transition-opacity duration-300 ${at === 1 ? '' : 'opacity-0'}`}>
+        <span className="flex items-center gap-1.5"><Sparkles className="size-3.5 shrink-0" /><b className="font-medium text-foreground">Name it “Walk to the lighthouse”?</b></span>
+        <span className="flex items-center gap-2"><Btn>Use this name</Btn><span>⌘Z takes it back</span></span>
+      </div>
+    </Col>
+  )
+}
+
+/** A picture cut round: first through its middle, then centred on the face. */
+const FacesDemo: Demo = ({ live }) => {
+  const at = useSteps([1500, 2600], live, 1)
+  // The picture is 112 by 72 with the face near its right; the round cut is 56 across.
+  const shift = at === 1 ? { x: -54, y: -2 } : { x: -28, y: -8 }
+  const picture = (
+    <>
+      <span className="absolute inset-0 bg-[color-mix(in_oklab,var(--tt-color-text-yellow)_16%,var(--background))]" />
+      <span className="absolute inset-x-0 bottom-0 h-5 bg-[color-mix(in_oklab,var(--tt-color-text-green)_30%,var(--background))]" />
+      <span className="absolute bottom-0 left-[70px] h-6 w-6 rounded-t-full bg-[color-mix(in_oklab,var(--tt-color-text-blue)_55%,var(--background))]" />
+      <span className="absolute bottom-[22px] left-[75px] size-3.5 rounded-full bg-[color-mix(in_oklab,var(--tt-color-text-orange)_45%,var(--background))]" />
+    </>
+  )
+  return (
+    <div className="flex w-full max-w-[17rem] items-center justify-center gap-5">
+      <div className="relative h-[72px] w-28 overflow-hidden rounded-[4px] border">
+        {picture}
+        <motion.span className="absolute top-0 left-0 size-14 rounded-full border-2 border-dashed border-foreground/60" initial={false} animate={{ x: -shift.x, y: -shift.y }} transition={spring.slow} />
+      </div>
+      <div className="flex flex-col items-center gap-1.5">
+        <div className="relative size-14 overflow-hidden rounded-full border">
+          <motion.div className="absolute top-0 left-0 h-[72px] w-28" initial={false} animate={shift} transition={spring.slow}>{picture}</motion.div>
+        </div>
+        <span className="text-meta text-foreground">Sam</span>
+        <span className={`text-meta text-muted-foreground transition-opacity duration-300 ${at === 1 ? '' : 'opacity-0'}`}>Centred on the face</span>
+      </div>
+    </div>
+  )
+}
+
+/** A task put in Reminders, and its tick there coming back here. */
+const RemindersDemo: Demo = ({ live }) => {
+  const at = useSteps([900, 1300, 1400, 2600], live, 3)
+  const done = at === 3
+  return (
+    <div className="relative w-full max-w-[17rem]">
+      <div className="rounded-lg border bg-background py-1">
+        <Row className={at === 1 ? 'bg-foreground/[0.06]' : ''}><Dot on={done} /><span className={`flex-1 ${done ? 'text-muted-foreground line-through decoration-foreground/40' : ''}`}>Return the library books</span><Chip>Fri 10:00</Chip></Row>
+      </div>
+      <AnimatePresence>
+        {at === 1 && (
+          <motion.div key="menu" initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, transition: { duration: 0.06 } }} transition={{ duration: 0.15, ease: EASE }}
+            className={`absolute top-8 left-16 z-10 rounded-[10px] border bg-popover p-1 text-control ${POP}`}>
+            <div className="flex h-6 items-center rounded-md px-2 text-muted-foreground">Copy the task</div>
+            <div className="flex h-6 items-center rounded-md bg-accent px-2 text-foreground">Add to Reminders</div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      <div className={`mt-2 rounded-lg border bg-background px-2.5 py-1.5 transition-opacity duration-300 ${at >= 2 ? '' : 'opacity-0'}`}>
+        <div className="text-meta text-muted-foreground">Reminders, on your phone</div>
+        <div className="mt-0.5 flex items-center gap-2 text-control text-foreground"><Dot on={at === 3} tint="var(--tt-color-text-orange)" /><span>Return the library books</span></div>
+      </div>
+      <div className={`mt-1.5 px-1 text-meta text-muted-foreground transition-opacity duration-300 ${at === 3 ? '' : 'opacity-0'}`}>Ticked there, it is done here.</div>
+      {live && <Pointer x={at === 0 ? 120 : 130} y={at === 0 ? 70 : 42} press={at === 1} />}
+    </div>
+  )
+}
+
+/** Back after hours away: one line on what came due, and a streak unbroken. */
+const AwayDemo: Demo = ({ live }) => {
+  const at = useSteps([1500, 3000], live, 1)
+  return (
+    <div className="relative h-[8.5rem] w-full max-w-[17rem]">
+      <div className={`absolute inset-0 flex flex-col items-center justify-center gap-1 rounded-lg border bg-foreground/[0.05] text-meta text-muted-foreground transition-opacity duration-500 ${at === 0 ? 'opacity-100' : 'opacity-0'}`}>
+        <Lock className="size-4" />Your Mac, locked for 5 hours
+      </div>
+      <AnimatePresence>
+        {at === 1 && (
+          <motion.div key="back" className="absolute inset-0 flex flex-col justify-center gap-2" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3, ease: EASE }}>
+            <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} transition={spring.slow} className={`rounded-lg border bg-popover px-3 py-2 text-control text-foreground ${POP}`}>
+              Welcome back after 5 hours: 2 tasks are due and 24 cards are ready to review.
+            </motion.div>
+            <div className="flex items-center gap-2 px-1 text-meta text-muted-foreground"><Chip tint="green">12 days in a row</Chip>still unbroken</div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  )
+}
+
+/** An answer in your own words, judged by what it means. */
+const MEANT = 'a feeling of unease'
+const MeaningDemo: Demo = ({ live }) => {
+  const at = useSteps([typeMs(MEANT, 60), 3000], live, 1)
+  const typed = useTyped(MEANT, live && at === 0, 60)
+  return (
+    <Col>
+      <div className="rounded-xl border bg-background px-3 py-2">
+        <div className="text-control text-foreground">What does the narrator feel at night?</div>
+        <div className="mt-1 flex items-center border-b border-foreground/15 pb-0.5 font-heading text-control text-foreground">{at === 0 ? typed : MEANT}{at === 0 && live && <Caret />}<Kbd className="ml-auto">⌘↵</Kbd></div>
+      </div>
+      <div className={`px-1 text-meta text-foreground transition-opacity duration-300 ${at === 1 ? '' : 'opacity-0'}`}>
+        <b className="font-semibold" style={{ color: 'var(--tt-color-text-green)' }}>Close enough.</b> You said “{MEANT}”, the card says “disquiet”. The grade is yours.
+      </div>
+      <div className="grid grid-cols-2 gap-1">
+        {GRADES.map((grade) => <span key={grade} className={`rounded-md border py-0.5 text-center text-meta transition-colors duration-200 ${at === 1 && grade === 'Got it' ? 'border-primary text-foreground' : 'text-muted-foreground'}`}>{grade}</span>)}
+      </div>
+    </Col>
+  )
+}
+
+/** H for a nudge, H again for a stronger one; the card comes back sooner. */
+const HintDemo: Demo = ({ live }) => {
+  const at = useSteps([1200, 1700, 1700, 2400], live, 3)
+  const hints = Math.min(at, 2)
+  return (
+    <Col>
+      <div className="rounded-xl border bg-background px-3 py-2">
+        <div className="text-control text-foreground">Who painted The Night Watch?</div>
+        {/* Room kept for both hints, so the card never grows under the reader. */}
+        <div className="mt-1 flex min-h-[3.25rem] flex-col gap-0.5 text-meta text-foreground">
+          {hints >= 1 && <motion.p key="h1" {...rise}><b className="font-semibold">Hint:</b> A Dutch painter of the 1600s.</motion.p>}
+          {hints >= 2 && <motion.p key="h2" {...rise}><b className="font-semibold">Stronger hint:</b> He painted himself again and again.</motion.p>}
+        </div>
+      </div>
+      <div className="flex h-6 items-center gap-2 px-1 text-meta text-muted-foreground">
+        {hints < 2 ? <span className={`flex items-center gap-1.5 rounded-md px-1.5 py-0.5 transition-colors ${at === 0 ? '' : 'bg-foreground/[0.06]'}`}>{hints ? 'A stronger hint' : 'Give me a hint'} <Kbd>H</Kbd></span> : <span />}
+        <span className="ml-auto tabular-nums">Got it, back in <Rolling text={['4 days', '3 days', '2 days', '2 days'][at]} by="word" /></span>
+      </div>
+    </Col>
+  )
+}
+
+/** Cards read from a chapter, each kept or dropped; none made until kept. */
+const FROM_CHAPTER = [{ q: 'What limits each species?', page: 63 }, { q: 'Why do most young die?', page: 61 }, { q: 'What did Malthus show?', page: 63 }]
+const ChapterCardsDemo: Demo = ({ live }) => {
+  const at = useSteps([1300, 1300, 2600], live, 2)
+  return (
+    <Col className="gap-1.5">
+      <span className="px-1 font-heading text-control font-semibold text-foreground">Five cards from “Struggle for Existence”</span>
+      {FROM_CHAPTER.map((one, i) => {
+        const kept = i === 0 && at >= 1
+        const dropped = i === 1 && at >= 2
+        return (
+          <div key={one.q} className="flex h-7 items-center gap-2 rounded-md border bg-background px-2 text-meta">
+            {dropped ? <span className="text-muted-foreground">Dropped.</span> : <span className="min-w-0 flex-1 text-foreground">{one.q}</span>}
+            {!dropped && <span className="text-muted-foreground tabular-nums">p. {one.page}</span>}
+            {kept ? <span className="flex items-center gap-0.5" style={{ color: 'var(--tt-color-text-green)' }}><Check className="size-3" strokeWidth={3} />Made</span> : !dropped && <Btn>Keep</Btn>}
+          </div>
+        )
+      })}
+      <span className="px-1 text-meta text-muted-foreground tabular-nums">{at >= 1 ? '1 card made' : 'None made yet'}</span>
+    </Col>
+  )
+}
+
+/** A, and a new card under the one in front, keeping its context, source and tags. */
+const ANOTHER = 'Which three scripts does it carry?'
+const AnotherWayDemo: Demo = ({ live }) => {
+  const at = useSteps([1100, 900, typeMs(ANOTHER, 40), 2200], live, 3)
+  const typed = useTyped(ANOTHER, live && at === 2, 40)
+  return (
+    <Col className="gap-1.5">
+      <div className="flex items-center gap-2 rounded-xl border bg-background px-3 py-2 text-control text-foreground">
+        <span className="flex-1">What made hieroglyphs readable?</span>
+        <Kbd className={`transition-opacity ${at === 0 ? '' : 'opacity-0'}`}>A</Kbd>
+      </div>
+      <motion.div initial={false} animate={{ opacity: at >= 1 ? 1 : 0, y: at >= 1 ? 0 : -6 }} transition={{ duration: 0.3, ease: EASE }} className="rounded-lg border bg-accent/30 px-3 py-2">
+        <p className="text-meta text-muted-foreground"><b className="font-semibold text-foreground">Ask another way.</b> It keeps its context, source and tags.</p>
+        <p className="mt-1 min-h-5 font-heading text-control font-semibold text-foreground">{at < 2 ? <span className="font-normal text-muted-foreground italic">The new question</span> : at === 2 ? <>{typed}<Caret /></> : ANOTHER}</p>
+        <div className="mt-1 flex gap-1"><Chip tint="orange">#egypt</Chip><Chip>The Rosetta Stone, p. 12</Chip></div>
+      </motion.div>
+    </Col>
+  )
+}
+
+/** The week written in a few sentences, kept only if you say. */
+const WeekParagraphDemo: Demo = ({ live }) => {
+  const at = useSteps([1300, 3200], live, 1)
+  return (
+    <div className="relative w-full max-w-[17rem]">
+      <span className={`flex items-center gap-2 rounded-lg px-2 py-1.5 text-control font-medium text-foreground/85 transition-colors ${at === 0 ? '' : 'bg-accent'}`}><Sparkles className="size-4 text-muted-foreground" />Your week, in a paragraph</span>
+      <div className={`mt-1.5 rounded-xl border bg-[color-mix(in_oklab,var(--foreground)_2.5%,transparent)] px-3 py-2 transition-opacity duration-300 ${at === 1 ? '' : 'opacity-0'}`}>
+        <p className="text-meta text-foreground">You finished Meditations, kept four quotes on judgement and planted the raised beds on Saturday.</p>
+        <p className="mt-1 text-meta text-muted-foreground">Written on this Mac.</p>
+        <div className="mt-1.5 flex gap-1.5"><Btn>Keep it as the summary</Btn><Btn className="text-muted-foreground">Not now</Btn></div>
+      </div>
+      {live && <Pointer x={at === 0 ? 150 : 120} y={at === 0 ? 30 : 16} press={at === 1} />}
+    </div>
+  )
+}
+
+/** The evening starting at sunset where you are, not at 18:00. */
+const SunDemo: Demo = ({ live }) => {
+  const at = useSteps([1500, 2600], live, 1)
+  const on = at === 1
+  return (
+    <Col>
+      <div className="relative h-14 overflow-hidden rounded-lg border bg-background">
+        <span className="absolute inset-x-0 bottom-3 border-t border-foreground/20" />
+        <motion.span className="absolute top-0 left-0 size-4 rounded-full" style={{ background: 'var(--tt-color-text-orange)' }} initial={false}
+          animate={{ x: on ? 196 : 140, y: on ? 32 : 8 }} transition={{ duration: 1.2, ease: EASE }} />
+        <span className="absolute bottom-0 left-2 text-[0.625rem] leading-3 text-muted-foreground">London</span>
+      </div>
+      <div className="flex items-center gap-2 rounded-lg border bg-background px-3 py-1.5 text-control text-foreground">
+        <span className="flex-1">Evening at sunset</span><Toggle on={on} />
+      </div>
+      <div className="px-1 text-meta text-muted-foreground tabular-nums">Close the day at <span className="font-medium text-foreground"><Rolling text={on ? '16:42' : '18:00'} /></span>{on ? ', sunset in London' : ''}</div>
+    </Col>
+  )
+}
+
+/** ⌘\ splits the page, ⌘O opens something there, ⌘-click adds a tab. */
+const SPLIT_SAYS = [<><Kbd>⌘\</Kbd> splits the page</>, <><Kbd>⌘\</Kbd> splits the page</>, <><Kbd>⌘O</Kbd> opens the Week there</>, <><Kbd>⌘</Kbd> click opens a new tab</>]
+const SplitDemo: Demo = ({ live }) => {
+  const at = useSteps([1100, 1200, 1300, 2400], live, 3)
+  const pane = (tabs: string[], lit: number, lines: string[]): React.JSX.Element => (
+    <div className="flex min-w-0 flex-1 flex-col gap-1 p-1.5">
+      <div className="flex h-5 items-center gap-0.5">{tabs.map((one, i) => <span key={one} className={`rounded px-1.5 py-0.5 text-[0.625rem] whitespace-nowrap ${i === lit ? 'bg-foreground/[0.08] text-foreground' : 'text-muted-foreground'}`}>{one}</span>)}</div>
+      <div className="flex flex-col gap-1.5 px-1 pt-1">{lines.map((w, i) => <Line key={i} w={w} />)}</div>
+    </div>
+  )
+  return (
+    <Col className="gap-1.5">
+      <div className="flex h-24 overflow-hidden rounded-lg border bg-background">
+        {pane(['Inbox'], 0, ['80%', '64%', '72%', '50%'])}
+        <AnimatePresence initial={false}>
+          {at >= 1 && (
+            <motion.div key="right" className="flex min-w-0 overflow-hidden border-l" initial={{ width: 0, opacity: 0 }} animate={{ width: '50%', opacity: 1 }} exit={{ width: 0, opacity: 0 }} transition={{ duration: 0.35, ease: EASE }}>
+              {at === 1 ? <div className="grid flex-1 place-items-center text-meta whitespace-nowrap text-muted-foreground">Open anything</div> : pane(at === 3 ? ['Week', 'Raised beds'] : ['Week'], at === 3 ? 1 : 0, at === 3 ? ['70%', '86%', '40%'] : ['60%', '60%', '90%', '30%'])}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+      <div className="flex h-5 items-center gap-1.5 px-1 text-meta text-muted-foreground">{SPLIT_SAYS[at]}</div>
+    </Col>
+  )
+}
+
+/** A file picked in Finder, sent by its right-click into Files. */
+const FinderDemo: Demo = ({ live }) => {
+  const at = useSteps([1000, 1300, 2600], live, 2)
+  return (
+    <div className="relative h-[8.5rem] w-full max-w-[17rem]">
+      <div className="flex w-24 flex-col items-center gap-1 pt-2">
+        <span className={`grid h-11 w-9 place-items-center rounded-[4px] border bg-background transition-colors ${at === 1 ? 'border-primary' : ''}`}><span className="text-[0.5rem] font-semibold" style={{ color: 'var(--tt-color-text-red)' }}>PDF</span></span>
+        <span className={`rounded px-1 text-meta whitespace-nowrap ${at === 1 ? 'bg-primary text-primary-foreground' : 'text-foreground'}`}>Lecture 4.pdf</span>
+      </div>
+      <AnimatePresence>
+        {at === 1 && (
+          <motion.div key="menu" initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, transition: { duration: 0.06 } }} transition={{ duration: 0.15, ease: EASE }}
+            className={`absolute top-4 left-24 z-10 rounded-[10px] border bg-popover p-1 text-control ${POP}`}>
+            <div className="flex h-6 items-center gap-3 rounded-md px-2 text-muted-foreground">Quick Actions<ChevronRight className="ml-auto size-3" /></div>
+            <div className="flex h-6 items-center rounded-md bg-accent px-2 whitespace-nowrap text-foreground">Send to {APP_NAME}</div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      <div className={`absolute inset-x-0 bottom-0 rounded-lg border bg-background px-2.5 py-1.5 transition-opacity duration-300 ${at === 2 ? '' : 'opacity-0'}`}>
+        <div className="text-meta text-muted-foreground">Files · no note made</div>
+        <div className="flex items-center gap-1.5 text-control text-foreground"><FileText className="size-3.5 text-muted-foreground" />Lecture 4.pdf</div>
+      </div>
+    </div>
+  )
+}
+
 export const DEMOS: Record<string, Demo> = {
+  calls: CallsDemo, cluewhy: ClueWhyDemo, untitled: UntitledDemo, faces: FacesDemo, reminders: RemindersDemo, away: AwayDemo, meaning: MeaningDemo,
+  hint: HintDemo, chaptercards: ChapterCardsDemo, anotherway: AnotherWayDemo, weekparagraph: WeekParagraphDemo, sun: SunDemo, split: SplitDemo, finder: FinderDemo,
   offers: OffersDemo,
   scan: ScanDemo,
   dates: DatesDemo,
