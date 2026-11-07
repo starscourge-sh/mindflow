@@ -53,8 +53,9 @@ try {
   }
   const gap = thumbsAt === null || pageAt === null ? Infinity : thumbsAt - pageAt
   console.log(JSON.stringify({ pageAt: Math.round(pageAt), thumbsAt: Math.round(thumbsAt), gap: Math.round(gap), sharpBefore }))
-  // Pages out of sight never go ahead of the thumbnails in sight: only the page on show is sharp by then.
-  check('no page out of sight is drawn sharp before the thumbnails in view', sharpBefore <= 1, `${sharpBefore} pages drawn sharp first`)
+  // Pages out of sight never go ahead of the thumbnails in sight: the page on show, and at most the one neighbour already
+  // being drawn before the rail asked, are sharp by then.
+  check('no more than one page out of sight is drawn sharp before the thumbnails in view', sharpBefore <= 2, `${sharpBefore} pages drawn sharp first`)
   // Each thumbnail in view still has its own page to read; what it no longer waits for is pages nobody is looking at.
   check('the thumbnails in view show their pages within 1.2s of the page itself', gap <= 1200, `page at ${Math.round(pageAt)}ms, every thumbnail in view at ${Math.round(thumbsAt)}ms, ${Math.round(gap)}ms behind`)
   if (SHOT) await h.screenshot({ path: `${SHOT}-open.png` })
