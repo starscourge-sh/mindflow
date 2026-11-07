@@ -42,15 +42,16 @@ export const gapIn = (row: Element, x: number, from: string | null): number =>
 const ROUND = 'flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-[color,background-color,scale] duration-[120ms] hover:bg-accent/60 hover:text-foreground active:scale-[0.97] disabled:pointer-events-none disabled:opacity-40 [&_svg]:size-3.5'
 
 /**
- * A long curve from the tab's top to the page's edge, so the tab rises out of
- * the page as one surface. It overlaps the tab by a pixel: butted edge to edge,
- * the seam let a hairline of the frame through. Coloured by the pane (panes.tsx), so every theme
+ * The tab's foot, either side: it rises out of the page as one surface. It overlaps the tab by a pixel (butted
+ * edge to edge, the seam let a hairline of the frame through). Coloured by the pane (panes.tsx), so every theme
  * and both kinds of focus draw it from their own tokens.
  */
 const Foot = ({ side }: { side: 'left' | 'right' }): React.JSX.Element => (
-  <svg aria-hidden viewBox="0 0 12 30" preserveAspectRatio="none" className={`pointer-events-none absolute top-0 h-full w-3 ${side === 'left' ? 'right-[calc(100%-1px)]' : 'left-[calc(100%-1px)] -scale-x-100'}`}>
-    <path d="M12 .5C6.5 .5 6 29.5 0 29.5V30H12Z" fill="var(--mf-tab)" />
-    <path d="M12 .5C6.5 .5 6 29.5 0 29.5" fill="none" stroke="var(--mf-tab-line)" vectorEffect="non-scaling-stroke" />
+  // A small inward curve where the tab meets the page, as a browser's tab has: the tab's top corners are round
+  // of themselves, so its sides stand straight and it never reads as a flat-topped ridge.
+  <svg aria-hidden viewBox="0 0 8 8" className={`pointer-events-none absolute bottom-0 size-2 ${side === 'left' ? 'right-[calc(100%-1px)]' : 'left-[calc(100%-1px)] -scale-x-100'}`}>
+    <path d="M8 0 V8 H0 A8 8 0 0 0 8 0 Z" fill="var(--mf-tab)" />
+    <path d="M0 7.5 A7.5 7.5 0 0 0 7.5 0" fill="none" stroke="var(--mf-tab-line)" vectorEffect="non-scaling-stroke" />
   </svg>
 )
 
@@ -69,7 +70,7 @@ function OneTab({ tab, group, actions, faint }: { tab: TabShown; group: TabGroup
         onMouseDown={(event) => event.button === 1 && event.preventDefault()}
         className={`group/tab relative mx-0.5 flex h-full max-w-52 min-w-11 flex-[1_1_0] items-stretch py-[3px] ${on ? 'z-10' : ''} ${faint ? 'opacity-40' : ''}`}>
         {on && (
-          <span aria-hidden className="pointer-events-none absolute inset-x-1 inset-y-0 border-t border-(--mf-tab-line) bg-(--mf-tab)">
+          <span aria-hidden className="pointer-events-none absolute inset-x-1 inset-y-0 rounded-t-[9px] border-x border-t border-(--mf-tab-line) bg-(--mf-tab)">
             <Foot side="left" /><Foot side="right" />
           </span>
         )}

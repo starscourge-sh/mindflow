@@ -95,6 +95,10 @@ const TOP = 6
 /** What the glass draws past the row, above and below: bent toward an edge, a picture's corners swing out of its height, and a canvas no taller than the row cut them off flat. */
 const BLEED = 40
 /** The row under the pictures for the picked one's title (two lines at most) and its place: the pictures never share it. */
+/** Whether the keys came here by Tab (or ⇧Tab) just now. */
+let tabAt = 0
+if (typeof window !== 'undefined') window.addEventListener('keydown', (event) => void (event.key === 'Tab' && (tabAt = performance.now())), true)
+const tabbedIn = (): boolean => performance.now() - tabAt < 400
 export const CAPTION = 60
 
 const wrap = (value: number, size: number): number => ((((value + size / 2) % size) + size) % size) - size / 2
@@ -1161,8 +1165,12 @@ export default function FlexCarousel({
           tabIndex={0}
           data-flex-carousel
           data-active={active}
+          // Outlined only when Tab brought the keys here: focus handed back by a closing menu, or a shortcut pressed
+          // while it held the keys, drew a box round the whole row for nothing.
+          onFocus={(event) => event.currentTarget.toggleAttribute('data-tabbed', tabbedIn())}
+          onBlur={(event) => event.currentTarget.removeAttribute('data-tabbed')}
         >
-          <div aria-hidden data-flex-carousel-row className="pointer-events-auto absolute inset-x-0 rounded-lg group-focus-visible/row:ring-2 group-focus-visible/row:ring-inset group-focus-visible/row:ring-ring" style={{ inset: `${BLEED}px 0` }} />
+          <div aria-hidden data-flex-carousel-row className="pointer-events-auto absolute inset-x-0 rounded-lg group-data-[tabbed]/row:ring-2 group-data-[tabbed]/row:ring-inset group-data-[tabbed]/row:ring-ring" style={{ inset: `${BLEED}px 0` }} />
         </div>
         <TurnButton way={1} disabled={!ring && active >= n - 1} onClick={turnBy(1)} top={direct ? `${TOP}px + ${cardHeight} * (100% + ${CAPTION}px) / 2` : '50%'} />
       </div>

@@ -628,7 +628,8 @@ const Age = ({ entry }: { entry: Entry }): React.JSX.Element | null => {
 }
 /** Whose words it is (the row's voice), as a small dot of its colour at the start of the line under the title. */
 const Voice = ({ entry }: { entry: Entry }): React.JSX.Element | null =>
-  entry.voice ? <span aria-hidden data-voice-dot className="size-1.5 shrink-0 rounded-full bg-[var(--voice)]" /> : null
+  // Drawn as a circle, not a rounded box: a 6px box on a half pixel was smeared into an oval.
+  entry.voice ? <svg aria-hidden data-voice-dot viewBox="0 0 6 6" className="size-1.5 shrink-0"><circle cx="3" cy="3" r="3" fill="var(--voice)" /></svg> : null
 const Dot = (): React.JSX.Element => (
   <span aria-hidden className="text-muted-foreground/60">
     ·

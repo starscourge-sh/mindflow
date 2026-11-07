@@ -1,4 +1,6 @@
 import { detailsShown, showDetails } from '@/lib/reading'
+import { createPortal } from 'react-dom'
+import { CarriedCard } from '@/components/haligtree/carry'
 import { useRemindersInStep } from '@/lib/reminders'
 import { useBackLine } from '@/lib/back-line'
 import { toolTakes } from '@/lib/tool-keys'
@@ -105,6 +107,7 @@ import { headingIn } from '@/lib/capture-links'
 import { openApart } from '@/lib/apart'
 import { MediaView } from '@/components/haligtree/media-view'
 import { sideOrder, sectionMoves, useSectionDrag } from '@/lib/side-sections'
+import { sideTagLine, sideTagsOf } from '@/lib/side-tags'
 import { G_ALIASES, JOURNAL_SCALES, LIBRARY, OFF_SIDEBAR, startPageOf, PlaceIcon, SECTIONS, SIDE_GROUPS, ShowList, showGroup, type Place, placeDrawing, TASK_PAGES, dropInBlock, dropOrder, orderItems, risen, litRow, showWords, sidebarParts, useInOrder, useOrder, useSections, useShown } from '@/components/haligtree/places'
 import { BlockList, SortableList, SortableRow } from '@/components/haligtree/sortable'
 import { pageTravel } from '@/lib/page-travel'
@@ -910,7 +913,8 @@ export function Home(): React.JSX.Element {
   const tagSaved = useOrder('tagOrder')
   // The sidebar keeps your first eight; finding among all of them is the Tags page's (its own "Find a tag").
   const tagsInOrder = useInOrder(tags, 'tagOrder', (one) => one.tag)
-  const sideTags = tagsInOrder.slice(0, 8)
+  // Only the ones you chose for it (lib/side-tags.ts), in your order.
+  const sideTags = (() => { const chosen = sideTagsOf(settings?.sideTags, tagsInOrder.map((one) => one.tag)); return tagsInOrder.filter((one) => chosen.includes(one.tag)) })()
   // The Tags heading is marked on the Tags page, and on a tag's page whose own row is folded away or not among these.
   const captures = useCaptures()
   const sourceList = useLive(sources.list, [] as SourceSummary[])
@@ -2121,6 +2125,7 @@ export function Home(): React.JSX.Element {
             <RowMenu items={[
               { label: 'Open', run: () => setView({ id: 'tags', focus: tag }) },
               { label: 'Rename or merge…', run: () => void renameTag(tag, (now) => view.id === 'tags' && view.focus === tag && setView({ id: 'tags', focus: now })) },
+              sideTagLine(tag, settings?.sideTags, tags.map((one) => one.tag)),
               'separator',
               ...orderItems({ setting: 'tagOrder', usual: tags.map((one) => one.tag), id: tag, among: items.map((one) => one.tag), what: 'Your tags', name: `#${tag}` }, tagSaved.length > 0)
             ]}>
@@ -2305,6 +2310,11 @@ export function Home(): React.JSX.Element {
         </nav>
         {/* Where a section carried by its heading would land. */}
         {sectionDrag.line && <div aria-hidden data-side-section-line className="pointer-events-none fixed z-50 h-0.5 rounded-full bg-primary" style={{ top: sectionDrag.line.top - 1, left: sectionDrag.line.left, width: sectionDrag.line.width }} />}
+        {/* The section carried, as a lifted card under the pointer, named as its heading is. */}
+        {sectionDrag.carrying && sectionDrag.at && createPortal(
+          <div className="pointer-events-none fixed z-[90] -translate-x-1/2 -translate-y-1/2" style={{ left: sectionDrag.at.x + 40, top: sectionDrag.at.y }}>
+            <CarriedCard attrs={{ 'data-section-card': '' }} strong title={({ pinned: 'Pinned', recent: 'Recent', library: 'Library', tags: 'Tags' } as Record<string, string>)[sectionDrag.carrying] ?? ''} />
+          </div>, document.body)}
 
         </TooltipProvider>
 

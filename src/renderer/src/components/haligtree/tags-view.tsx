@@ -1,4 +1,5 @@
 import { chime, step } from '@/lib/sound'
+import { sideTagLine } from '@/lib/side-tags'
 import { SCRUB, ScrubField } from '../pdf/scrub-field'
 import { TagColourPick } from './tag-colour-pick'
 import { ReadsIn } from '@/lib/reads-in'
@@ -87,6 +88,7 @@ function DoesChip({ tag, color, action }: { tag: string; color?: string | null; 
  */
 export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string) => void; focus?: string }): React.JSX.Element {
   const real = useLive(haligtree.tags, [] as Awaited<ReturnType<typeof haligtree.tags>>)
+  const sideSaved = useLive(haligtree.settings, null)?.sideTags
   // No tags yet: a few made-up ones show what the list holds, dimmed and out of reach.
   const example = !unloaded(real) && !real.length
   const examples = useMemo(exampleTags, [])
@@ -186,6 +188,7 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
                 // The date itself is picked in the open tag's bar.
                 examAt ? { label: 'Clear the exam date', run: () => examOn(tag, null, examAt) } : { label: 'Set an exam date…', run: () => setChosen(tag) },
                 { label: 'Rename or merge…', run: () => void renameTag(tag, (now) => chosen === tag && setChosen(now)) },
+                sideTagLine(tag, sideSaved, real.map((one) => one.tag)),
                 { label: `Copy #${tag}`, run: () => copy(`#${tag}`, `Copied #${tag}`) }
               ]}>
               <button

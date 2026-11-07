@@ -21,6 +21,8 @@ try {
   await h.mouse.move(lib.x + 30, lib.y + lib.height / 2); await h.mouse.down()
   for (let i = 1; i <= 14; i++) { await h.mouse.move(lib.x + 30, lib.y + lib.height / 2 + ((pin.y - 4 - lib.y - lib.height / 2) * i) / 14); await wait(30) }
   check('carried, a line shows where it lands', (await h.locator('[data-side-section-line]').count()) === 1)
+  check('carried, a lifted card named Library follows the pointer', /Library/.test((await h.locator('[data-section-card]').textContent().catch(() => '')) ?? ''))
+  check('carried, the hover light stands still (the drag flag is up)', await h.evaluate(() => document.documentElement.hasAttribute('data-dragging')))
   if (process.env.QA_SHOTS) await h.screenshot({ path: `${process.env.QA_SHOTS}/side-drag.png`, clip: { x: 0, y: 0, width: 260, height: 1300 } })
   await h.mouse.up(); await wait(900)
   const moved = await order()
@@ -32,6 +34,20 @@ try {
   await h.locator('[role="menuitem"]', { hasText: 'Move section down' }).click(); await wait(900)
   check('"Move section down" from its menu puts it after Pinned', (await order()).indexOf('library') > (await order()).indexOf('pinned'), (await order()).join())
   if (process.env.QA_SHOTS) await h.screenshot({ path: `${process.env.QA_SHOTS}/side-after.png`, clip: { x: 0, y: 0, width: 260, height: 1300 } })
+  // Favourite tags: the sidebar holds only the tags chosen for it.
+  const sideTags = () => h.evaluate(() => [...document.querySelectorAll('aside [data-side-tag]')].map((one) => one.getAttribute('data-side-tag')))
+  await h.locator('[data-tags-fold]').click().catch(() => {}); await wait(400)
+  if (!(await sideTags()).length) { await h.locator('[data-tags-fold]').click(); await wait(400) }
+  const before = await sideTags()
+  check('Tags shows tags to start (the eight it showed before)', before.length > 0 && before.length <= 8, before.join())
+  await h.locator(`aside [data-side-tag="${before[0]}"]`).click({ button: 'right' }); await wait(400)
+  await h.locator('[role="menuitem"]', { hasText: 'Remove from the sidebar' }).click(); await wait(800)
+  const after = await sideTags()
+  check('"Remove from the sidebar": that tag goes, the rest stay', !after.includes(before[0]) && after.length === before.length - 1, after.join())
+  await go('tags'); await wait(1200)
+  const row = h.locator(`[data-tag-row="${before[0]}"]`).first()
+  if (await row.count()) { await row.click({ button: 'right' }); await wait(400); await h.locator('[role="menuitem"]', { hasText: 'Add to the sidebar' }).click(); await wait(800) }
+  check('from the Tags page, "Add to the sidebar" brings it back', (await sideTags()).includes(before[0]), (await sideTags()).join())
 } catch (e) { check('ran', false, e.message.split('\n')[0]) }
 await close()
 done()

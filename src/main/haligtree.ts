@@ -691,6 +691,8 @@ const DEFAULTS = {
   pinOrder: [] as string[],
   // The sidebar's tags in your own order, by name; the rest follow by how often they are used.
   tagOrder: [] as string[],
+  // The tags the sidebar shows, as chosen (lib/side-tags.ts); null until first chosen.
+  sideTags: null as string[] | null,
   // Sticky notes on the desktop: shown or all put away (⌃⌥⌘N).
   stickiesShown: true,
   // Every sticky tucked into a tab at the screen's edge ('tabs'), or only a small pill there ('flat'); 'off', out as usual.

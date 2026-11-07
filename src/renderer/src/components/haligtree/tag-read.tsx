@@ -1,4 +1,5 @@
 import { Orb } from './orb'
+import { sideTagLine } from '@/lib/side-tags'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useReading } from '@/lib/reads-in'
 import { TagIcon, tagTint } from './tag-icon'
@@ -625,6 +626,8 @@ function TagMenu({ tag, color, onTag, onShuffle, backdrop, hasPicture, onPreview
   onBackdrop: (to: Backdrop) => void
   homeHidden: boolean
 }): React.JSX.Element {
+  const all = useLive(haligtree.tags, [] as Awaited<ReturnType<typeof haligtree.tags>>).map((one) => one.tag)
+  const side = sideTagLine(tag, useLive(haligtree.settings, null)?.sideTags, all)
   const decks = useLive(haligtree.madeDecks, [] as string[])
   const colourTo = (one: string): void => {
     const next = color === one ? null : one
@@ -642,6 +645,7 @@ function TagMenu({ tag, color, onTag, onShuffle, backdrop, hasPicture, onPreview
       <DropdownMenuContent align="start" className="w-60">
         {onShuffle && <DropdownMenuItem onSelect={onShuffle}>Read in a random order</DropdownMenuItem>}
         <DropdownMenuItem onSelect={() => void renameTag(tag, onTag)}>Rename or merge…</DropdownMenuItem>
+        <DropdownMenuItem data-tag-side onSelect={side.run}>{side.label}</DropdownMenuItem>
         <DropdownMenuSub>
           <DropdownMenuSubTrigger data-tag-colour-menu>Colour</DropdownMenuSubTrigger>
           <DropdownMenuSubContent className="w-44">

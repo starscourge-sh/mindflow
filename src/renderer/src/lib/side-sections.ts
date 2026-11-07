@@ -40,9 +40,11 @@ export const sectionMoves = (id: string, order: string[]): { label: string; run:
  * A section's heading dragged up or down moves the whole section: past 6px it is carried, a line shows where it
  * would land between the sections, and letting go puts it there (the click that ends it folds nothing). Esc puts it back.
  */
-export function useSectionDrag(): { line: { top: number; left: number; width: number } | null; carrying: string | null } {
+export function useSectionDrag(): { line: { top: number; left: number; width: number } | null; carrying: string | null; at: { x: number; y: number } | null } {
   const [line, setLine] = useState<{ top: number; left: number; width: number } | null>(null)
   const [carrying, setCarrying] = useState<string | null>(null)
+  // Where the pointer is, for the lifted card that follows it.
+  const [at, setAt] = useState<{ x: number; y: number } | null>(null)
   useEffect(() => {
     let down: { id: string; y: number } | null = null
     let to = -1
@@ -52,7 +54,7 @@ export function useSectionDrag(): { line: { top: number; left: number; width: nu
         .map((one) => ({ id: one.dataset.sideSection!, r: one.getBoundingClientRect() }))
         .filter((one, n, all) => all.findIndex((other) => other.id === one.id) === n)
         .sort((a, b) => a.r.top - b.r.top)
-    const end = (): void => void ((down = null), (to = -1), (lifted = false), setLine(null), setCarrying(null))
+    const end = (): void => void ((down = null), (to = -1), (lifted = false), delete document.documentElement.dataset.dragging, setLine(null), setCarrying(null), setAt(null))
     const onDown = (event: PointerEvent): void => {
       if (event.button !== 0) return
       const head = (event.target as Element | null)?.closest?.<HTMLElement>('[data-side-section-handle]')
@@ -62,7 +64,9 @@ export function useSectionDrag(): { line: { top: number; left: number; width: nu
       if (!down) return
       if (!(event.buttons & 1)) return end()
       if (!lifted && Math.abs(event.clientY - down.y) < 6) return
-      if (!lifted) (lifted = true), setCarrying(down.id)
+      // Lifted as every drag in the app is: the hover light stops following, nothing keeps a focus ring, a card follows.
+      if (!lifted) (lifted = true), setCarrying(down.id), (document.documentElement.dataset.dragging = ''), (document.activeElement as HTMLElement | null)?.blur?.(), chime('lift')
+      setAt({ x: event.clientX, y: event.clientY })
       const all = boxes()
       if (!all.length) return
       // The gap nearest the pointer: before the first, between two, or after the last.
@@ -96,5 +100,5 @@ export function useSectionDrag(): { line: { top: number; left: number; width: nu
       window.removeEventListener('keydown', onKey, true)
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
-  return { line, carrying }
+  return { line, carrying, at }
 }

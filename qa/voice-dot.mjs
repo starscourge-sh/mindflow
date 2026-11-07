@@ -31,7 +31,7 @@ try {
       const m = mark.getBoundingClientRect()
       // The dot's colour, read as sRGB through a canvas, so oklab and color-mix come out as numbers.
       const pen = document.createElement('canvas').getContext('2d')
-      pen.fillStyle = s.backgroundColor; pen.fillRect(0, 0, 1, 1)
+      pen.fillStyle = getComputedStyle(mark.querySelector('circle') ?? mark).fill; pen.fillRect(0, 0, 1, 1)
       const [r, g, b] = pen.getImageData(0, 0, 1, 1).data
       const age = mark.nextElementSibling?.getBoundingClientRect()
       return { w: m.width, h: m.height, left: m.left - r0.left, spread: Math.max(r, g, b) - Math.min(r, g, b), byAge: age ? Math.round(age.left - m.right) : null, bar, top: r0.top, x: r0.left }
