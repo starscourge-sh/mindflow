@@ -152,7 +152,7 @@ export function TabRow({ groups, actions, pane }: { groups: TabGroup[]; actions:
         {([[-1, 'Back', '⌘[', ArrowNarrowLeftIcon], [1, 'Forward', '⌘]', ArrowNarrowRightIcon]] as const).map(([by, label, keys, icon]) => (
           <Tip key={label} label={<span className="flex items-center gap-1.5">{label} <Pressed keys={keys} /></span>}>
             <button type="button" aria-label={label} disabled={!actions.canStep(pane, by)} onClick={() => actions.step(pane, by)}
-              className="relative flex size-[22px] cursor-pointer items-center justify-center rounded-full text-muted-foreground transition-colors after:absolute after:-inset-0.5 after:rounded-full hover:bg-accent/60 hover:text-foreground disabled:pointer-events-none disabled:opacity-40">
+              className="relative flex size-[22px] cursor-pointer items-center justify-center rounded-full text-muted-foreground transition-[color,background-color,scale] duration-[120ms] active:scale-[0.97] after:absolute after:-inset-0.5 after:rounded-full hover:bg-accent/60 hover:text-foreground disabled:pointer-events-none disabled:opacity-40">
               <AliveIcon icon={icon} size={14} />
             </button>
           </Tip>
