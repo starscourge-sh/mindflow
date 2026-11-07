@@ -54,7 +54,7 @@ try {
   await v('tasks:fresh-start'); await wait(800)
   for (const tab of TABS) {
     await go(tab); await wait(1200)
-    check(`${tab} shows "On hold" folded`, (await h.locator('[data-on-hold][aria-expanded="false"]').count()) === 1)
+    check(`${tab} shows "On hold", open as nothing else is there`, (await h.locator('[data-on-hold][aria-expanded="true"]').count()) === 1)
     if (shots && (tab === 'today' || tab === 'alltasks')) await both(`${shots}/${tab}-held`)
   }
   // Phone width: the window at its smallest.

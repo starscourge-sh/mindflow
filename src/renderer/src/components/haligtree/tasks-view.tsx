@@ -722,6 +722,9 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
   const [heldOpen, setHeldOpen] = useState(false)
   // Late ones on a tab not their own: open when a few, folded to their red heading when many, so they never bury the tab.
   const [lateOpen, setLateOpen] = useState<boolean | null>(null)
+  // A fold just opened: its rows ease in one after another, as a few (useArrivals) already do, so a long one never pops in at once.
+  const [unfolded, setUnfolded] = useState<{ ids: string[]; at: number } | null>(null)
+  const unfold = (list: Task[]): void => setUnfolded({ ids: list.map((task) => task.id), at: performance.now() })
   // Nothing of this list's yet: a few made-up tasks show what it holds, dimmed and out of reach.
   const example = !unloaded(real) && !unloaded(held) && !real.some((task) => task.status === 'open' && (mode === 'alltasks' || homeOf(task) === home)) && !held.length
   const examples = useMemo(exampleTasks, [])
@@ -788,7 +791,9 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
     (task.notify ?? notify) === 'pull' &&
     ((!!task.dueAt && !task.allDay && Date.parse(task.dueAt) <= Date.now()) || (!!task.deadline && !!task.deadlineTimed && Date.parse(task.deadline) <= Date.now()))
   const today = base.filter((task) => dayOf(task) >= startOfDay())
-  const heldGroup: [string, Task[], string?][] = !example && held.length ? [[ON_HOLD, heldOpen ? held : [], 'held']] : []
+  // With nothing else on the tab, the fold stands open: a fresh start never leaves a tab looking empty.
+  const heldShown = heldOpen || !open_.some((task) => !task.heldAt && (mode === 'alltasks' || homeOf(task) === home))
+  const heldGroup: [string, Task[], string?][] = !example && held.length ? [[ON_HOLD, heldShown ? held : [], 'held']] : []
   const lateShown = lateOpen ?? lateHere.length <= LATE_OPEN
   const lateGroup: [string, Task[], string?][] = view.group === 'when' && lateHere.length ? [['Overdue', lateShown ? lateHere : [], 'late']] : []
   const groups: [string, Task[], string?][] = [...lateGroup, ...(
@@ -844,6 +849,8 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
     }
   }
   const shown = groups.flatMap(([, list]) => list)
+  /** Where a row stands in a fold opened this moment, for its turn to ease in; -1 for any other. */
+  const fresh = (id: string): number => (unfolded && performance.now() - unfolded.at < 600 ? unfolded.ids.indexOf(id) : -1)
   // The priority mark's room, kept only when some task here has a mark.
   const room = markRoom(shown)
   // A task just added (or put back by Undo) eases into its row.
@@ -1035,7 +1042,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
       {/* Sent here for one task: the page waits for it too, so it opens on the task beside the list, not on the list alone first;
           the task never waits for the list, which comes in whole beside it once drawn. */}
       <Page aside={!!open || !!coming} waiting={(reading && !example) || (!!focus && !matrixed && (coming ?? open?.id) !== focus) || !listShown} apart={sent}
- title={mode} lead={several.bar ? undefined : lead} count={example ? undefined : several.chosen.length || shown.length + (heldOpen ? 0 : held.length) + (lateShown || !lateGroup.length ? 0 : lateHere.length)} unit={several.chosen.length ? ['selected', 'selected'] : ['open', 'open']} actions={several.bar ?? actions}>
+ title={mode} lead={several.bar ? undefined : lead} count={example ? undefined : several.chosen.length || shown.length + (heldShown ? 0 : held.length) + (lateShown || !lateGroup.length ? 0 : lateHere.length)} unit={several.chosen.length ? ['selected', 'selected'] : ['open', 'open']} actions={several.bar ?? actions}>
 
         {/* Nothing on today yet, in either layout: the page to write it on. */}
         {written || (mode === 'today' && !example && !reading && !rows.length && dayDone === 0) ? (
@@ -1134,16 +1141,16 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
                   // A fresh start's tasks, folded and quiet at the foot of their own tab: one click (or opening one) brings them out.
                   <h2 className="list-ink mt-6 mb-1 border-b pb-1.5 text-meta font-medium text-muted-foreground">
                     {/* The words on the same edge as every heading; the fold's chevron after the count. */}
-                    <button type="button" data-on-hold aria-expanded={heldOpen} onClick={() => (chime(heldOpen ? 'off' : 'tap'), setHeldOpen(!heldOpen))} className="flex w-full cursor-pointer items-center gap-1 text-left">
+                    <button type="button" data-on-hold aria-expanded={heldShown} onClick={() => (chime(heldShown ? 'off' : 'tap'), heldShown || unfold(held), setHeldOpen(!heldShown))} className="flex w-full cursor-pointer items-center gap-1 text-left">
                       {row.heading} <span className="font-normal"><Rolling text={row.count} /></span>
-                      <ChevronRight className={`size-3.5 transition-transform duration-200 ${heldOpen ? 'rotate-90' : ''}`} style={{ transitionTimingFunction: EASING }} />
-                      <span className="ml-auto font-normal">From a fresh start · open one to bring it back</span>
+                      <ChevronRight className={`size-3.5 transition-transform duration-200 ${heldShown ? 'rotate-90' : ''}`} style={{ transitionTimingFunction: EASING }} />
+                      <span className="ml-auto font-normal text-foreground/80">From a fresh start · open one to bring it back</span>
                     </button>
                   </h2>
                 ) : row.key === 'late' ? (
                   // Late ones from other tabs: on top, in red, folded when there are many; one click shows them.
                   <h2 {...loud('late', 'list-ink mt-6 mb-1 border-b pb-1.5 text-meta font-medium')}>
-                    <button type="button" data-late-fold aria-expanded={lateShown} onClick={() => (chime(lateShown ? 'off' : 'tap'), setLateOpen(!lateShown))} className="flex w-full cursor-pointer items-center gap-1 text-left">
+                    <button type="button" data-late-fold aria-expanded={lateShown} onClick={() => (chime(lateShown ? 'off' : 'tap'), lateShown || unfold(lateHere), setLateOpen(!lateShown))} className="flex w-full cursor-pointer items-center gap-1 text-left">
                       {row.heading} <span className="font-normal text-muted-foreground"><Rolling text={row.count} /></span>
                       <ChevronRight className={`size-3.5 transition-transform duration-200 ${lateShown ? 'rotate-90' : ''}`} style={{ transitionTimingFunction: EASING }} />
                     </button>
@@ -1169,7 +1176,8 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
                         data-task-row
                         data-open={task.id === (coming ?? open?.id) || undefined}
                         data-cursor={index === cursor || undefined}
-                        className={`group group/item relative flex items-start gap-3 rounded-md list-ink py-2 transition-colors ${several.chosen.includes(task.id) ? PICKED_ROW : task.id === (coming ?? open?.id) ? 'bg-accent' : index === cursor ? 'bg-accent/40' : ''} ${arrived(task.id) ? 'mf-arrive' : ''} ${task.heldAt ? 'opacity-55' : ''}`}
+                        className={`group group/item relative flex items-start gap-3 rounded-md list-ink py-2 transition-colors ${several.chosen.includes(task.id) ? PICKED_ROW : task.id === (coming ?? open?.id) ? 'bg-accent' : index === cursor ? 'bg-accent/40' : ''} ${arrived(task.id) || fresh(task.id) >= 0 ? 'mf-arrive' : ''} ${task.heldAt ? 'opacity-55' : ''}`}
+                        style={fresh(task.id) > 0 ? { animationDelay: `${Math.min(fresh(task.id), 8) * 30}ms` } : undefined}
                       >
                         <Tip label="Complete">
                         <button
