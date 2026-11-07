@@ -607,7 +607,14 @@ export function useCardPlace(aim: Aim | null, takes: (aim: Aim) => boolean): { r
 export function Slid({ id, children }: { id: string; children: ReactNode }): React.JSX.Element {
   const { ys, snap } = useContext(Carrying)
   const glide = useGlide(Math.round(ys.get(id) ?? 0), 1, snap)
-  return <motion.div ref={glide.ref} data-sortable-id={id} style={glide.style}>{children}</motion.div>
+  const pushed = Math.max(0, Math.round(ys.get(id) ?? 0))
+  return (
+    <>
+      <motion.div ref={glide.ref} data-sortable-id={id} style={glide.style}>{children}</motion.div>
+      {/* What comes after the list makes way too, so what slid down never runs into it. */}
+      <div aria-hidden className="transition-[height] duration-200 motion-reduce:transition-none" style={{ height: pushed, transitionTimingFunction: OUT }} />
+    </>
+  )
 }
 
 /** A thing's name, as it reads on its row: its title, never the age or counts beside it. */

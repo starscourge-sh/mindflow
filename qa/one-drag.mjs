@@ -314,8 +314,8 @@ const rests = await h.evaluate((id) => {
 }, lineIds.post)
 const middle = (one) => (one.top + one.bottom) / 2
 check('rested, the card sits on the dashed place, not on the task it joins', rests.card && rests.place && Math.abs(middle(rests.card) - middle(rests.place)) < 4 && rests.card.top >= rests.name.bottom - 4, JSON.stringify(rests))
-const another = await h.evaluate(() => { const a = document.querySelector('[data-new="now"]')?.getBoundingClientRect(); const b = document.querySelector('[data-preview]')?.getBoundingClientRect(); return a && b ? { line: a.top, panel: b.bottom } : null })
-check('the line being written makes way for the panel', another && another.line >= another.panel - 2, JSON.stringify(another))
+const another = await h.evaluate(() => { const a = document.querySelector('[data-new="now"]')?.getBoundingClientRect(); const b = document.querySelector('[data-preview]')?.getBoundingClientRect(); const c = document.querySelector('[data-tomorrow-box]')?.getBoundingClientRect(); return a && b ? { line: a.top, bottom: a.bottom, panel: b.bottom, next: c?.top } : null })
+check('the line being written makes way for the panel, and what is under it for that line', another && another.line >= another.panel - 2 && (another.next === undefined || another.next >= another.bottom), JSON.stringify(another))
 await film('task-rested-frames', 4)
 check('rested on a task\'s middle it says it becomes a step', /step/i.test((await card())?.text ?? ''), (await card())?.text)
 t = await tapsSince(before2)
