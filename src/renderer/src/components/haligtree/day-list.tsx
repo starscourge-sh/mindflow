@@ -11,7 +11,9 @@ import { readLines, tasksOf } from '../../../../main/day-lines'
 import { dayKey, num, startOfDay } from '../../../../main/dates'
 import { useToday } from '@/lib/use-today'
 import { Count, Book, Kbd, Rolling, Tags, Tip, Typed, listEnd, refuse, toast, quietly } from './ui'
-import { DROP_LIT, SortableList, SortableRow } from './sortable'
+import { DROP_LIT } from './sortable'
+import { CarryRow, Slid } from './carry'
+import { DayDrag, LineBlock, REFUSED, readStep, type DayDrop } from './day-drag'
 import { Struck, Tick } from './marks'
 import { completeTask, dayCleared, landed, moveTo, onToday, pickDate, shiftTo, startOn, taskMenu, useTaskNow } from './tasks-view'
 import { RowMenu, openFromGrip, type RowItem } from './row-menu'
@@ -170,7 +172,20 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
   /** With nothing written yet, the caret waits on the first line. */
   focusEmpty?: boolean
 }): React.JSX.Element | null {
-  const tasks = useLive(haligtree.tasks, [] as Task[])
+  const live = useLive(haligtree.tasks, [] as Task[])
+  // A drop shown at once, ahead of its saves coming back, so the list never shows the old order between the two.
+  const [ahead, setAhead] = useState<Task[] | null>(null)
+  const writing = useRef(0)
+  useEffect(() => void (writing.current || setAhead(null)), [live])
+  const tasks = ahead ?? live
+  const hold = async (next: (all: Task[]) => Task[], write: () => Promise<unknown>): Promise<void> => {
+    writing.current++
+    setAhead(next(tasks))
+    await write()
+    writing.current--
+    // Whatever is true now, until the list next changes.
+    if (!writing.current) setAhead(await haligtree.tasks())
+  }
   const taskNow = useTaskNow()
   // Kept current: left open past midnight, the list is drawn again for the new day.
   const today = useToday()
@@ -406,10 +421,18 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
   /** What a place does with a line, said under the line while it is carried there and on its button. */
   const placeSaid = (drop: string): string => PLACES.find((one) => one.id === placeOf(drop))?.said ?? ''
   /** A line dropped on a place (a tab, the box for tomorrow, Next's heading, one at the list's foot). */
-  const dropOn = (section: Section) => (id: string, place: string): void => {
-    const task = lists[section].find((one) => one.id === id)
+  const dropOn = (section: Section) => (carried: string, place: string): void => {
     const to = placeOf(place)
-    if (task && to) void sendTo(task, section, to)
+    if (!to) return
+    const send = (id: string | null): void => {
+      const task = id ? lists[section].find((one) => one.id === id) : undefined
+      if (task) void sendTo(task, section, to)
+      else if (id) void haligtree.task(id).then((made) => made && sendTo(made, section, to))
+    }
+    if (carried.startsWith('t:')) return send(carried.slice(2))
+    // A step sent somewhere is a task first.
+    const { id, at } = readStep(carried)
+    void stepOut(id, at, section, id).then(send)
   }
 
   /** Tab: the line becomes a step of the one above it. */
@@ -417,7 +440,7 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
     const list = lists[section]
     const above = list[list.findIndex((one) => one.id === task.id) - 1]
     if (!above) return chime('nope')
-    if (task.subtasks?.length) return refuse('A line with steps of its own stays a line')
+    if (task.subtasks?.length) return refuse(REFUSED)
     const steps = above.subtasks ?? []
     await haligtree.saveTask(above.id, { subtasks: [...steps, { text: task.title, done: done(task) }] })
     if (fresh.current.has(task.id)) await haligtree.unmakeTask(task.id, false, [], [])
@@ -425,6 +448,64 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
     chime('tuck')
     quietly(() => void Promise.all([haligtree.saveTask(above.id, { subtasks: steps }), fresh.current.has(task.id) ? add(section, task.title, above.id) : haligtree.saveTask(task.id, { status: task.status })]))
     go(`s:${above.id}:${steps.length}`)
+  }
+  /** A carried line or step let go: each kind of drop saved at once as one write, shown ahead of it, and undoable. */
+  const dropped = (section: Section) => (carried: string, drop: DayDrop): void => {
+    const list = lists[section]
+    const task = (id: string): Task | undefined => tasks.find((one) => one.id === id)
+    const stepsOf = (id: string): NonNullable<Task['subtasks']> => task(id)?.subtasks ?? []
+    if (carried.startsWith('t:')) {
+      const id = carried.slice(2)
+      if (drop.to === 'line') {
+        const was = list.map((one) => one.id)
+        const order = was.filter((one) => one !== id)
+        order.splice(order.indexOf(drop.target) + (drop.after ? 1 : 0), 0, id)
+        chime('shift')
+        void hold((all) => all.map((one) => (order.includes(one.id) ? { ...one, sortOrder: order.indexOf(one.id) } : one)), () => renumber(order)).then(() => quietly(() => void renumber(was)))
+        return
+      }
+      // A line made a step of another, as Tab makes one.
+      const line = task(id)!
+      const steps = stepsOf(drop.parent)
+      const next = [...steps.slice(0, drop.at), { text: line.title, done: done(line) }, ...steps.slice(drop.at)]
+      chime('tuck')
+      void hold((all) => all.flatMap((one) => (one.id === id ? [] : one.id === drop.parent ? [{ ...one, subtasks: next }] : [one])),
+        () => haligtree.saveTasks([{ id: drop.parent, patch: { subtasks: next } }, { id, patch: { status: 'dropped' } }]))
+        .then(() => toast(`Now a step of ${task(drop.parent)?.title}`, () => void haligtree.saveTasks([{ id: drop.parent, patch: { subtasks: steps } }, { id, patch: { status: line.status } }])))
+      return
+    }
+    const { id: parent, at } = readStep(carried)
+    const steps = stepsOf(parent)
+    const step = steps[at]
+    const left = steps.filter((_, n) => n !== at)
+    if (drop.to === 'step') {
+      const theirs = drop.parent === parent ? left : stepsOf(drop.parent)
+      const next = [...theirs.slice(0, drop.at), step, ...theirs.slice(drop.at)]
+      const saves = drop.parent === parent ? [{ id: parent, patch: { subtasks: next } }] : [{ id: parent, patch: { subtasks: left } }, { id: drop.parent, patch: { subtasks: next } }]
+      const back = drop.parent === parent ? [{ id: parent, patch: { subtasks: steps } }] : [{ id: parent, patch: { subtasks: steps } }, { id: drop.parent, patch: { subtasks: theirs } }]
+      chime('shift')
+      void hold((all) => all.map((one) => (one.id === drop.parent ? { ...one, subtasks: next } : one.id === parent ? { ...one, subtasks: left } : one)), () => haligtree.saveTasks(saves))
+        .then(() => (drop.parent === parent ? quietly(() => void haligtree.saveTasks(back)) : toast(`Moved to ${task(drop.parent)?.title}`, () => void haligtree.saveTasks(back))))
+      return
+    }
+    void stepOut(parent, at, section, drop.after ? drop.target : list[list.findIndex((one) => one.id === drop.target) - 1]?.id ?? null)
+  }
+  /** A step dropped past its line's edge: a task of its own, there. Gives back its id. */
+  const stepOut = async (parent: string, at: number, section: Section, after: string | null): Promise<string | null> => {
+    const owner = tasks.find((one) => one.id === parent)!
+    const steps = owner.subtasks ?? []
+    const step = steps[at]
+    const order = lists[section].map((one) => one.id)
+    order.splice(after ? order.indexOf(after) + 1 : 0, 0, 'new-step')
+    chime('untuck')
+    let made: string | null = null
+    await hold((all) => [...all.map((one) => (one.id === parent ? { ...one, subtasks: steps.filter((_, n) => n !== at) } : order.includes(one.id) ? { ...one, sortOrder: order.indexOf(one.id) } : one)), { ...owner, id: 'new-step', title: step.text, subtasks: [], status: 'open' as const, sortOrder: order.indexOf('new-step') }], async () => {
+      await haligtree.saveTask(parent, { subtasks: steps.filter((_, n) => n !== at) })
+      made = await add(section, step.text, after)
+      if (made && step.done) await haligtree.saveTask(made, { status: 'done' })
+    })
+    if (made) toast('Now a task of its own', () => void Promise.all([haligtree.saveTask(parent, { subtasks: steps }), haligtree.unmakeTask(made!, false, [], [])]))
+    return made
   }
   /** Shift-Tab on a step: a line of its own again, just under the one it was in. */
   const outdent = async (parent: Task, at: number, section: Section): Promise<void> => {
@@ -808,12 +889,13 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
     const rank = section === 'now' ? three.indexOf(task.id) + 1 : 0
     const draftHere = draft && draft.section === section && draft.after === task.id
     return (
-      <SortableRow key={task.id} id={task.id}>
+      <LineBlock key={task.id} id={task.id}>
         <div data-day-line={task.id} data-section={section} data-done={struck || undefined} data-top={first || undefined} data-rank={rank || undefined}
           data-picked={picked?.id === task.id || undefined}
           // Pointing at another line moves the keys to it, as the light under the rows follows the pointer on every list.
           onPointerEnter={() => void (picked && picked.id !== task.id && setPicked(null))}
           className={`group/line relative rounded-md ${task.id === openId || picked?.id === task.id ? 'bg-accent/50' : ''} ${arrived(task.id) ? 'mf-arrive' : ''}`}>
+          <CarryRow id={`t:${task.id}`} grip={false}><div data-day-head={task.id}>
           {/* Right-clicked, the menu a task has on every list, with the words' own Cut, Copy and Paste after it. */}
           {/* Where it can go first, each with its key once the line is picked (Esc). */}
           <RowMenu writes items={(() => {
@@ -826,7 +908,7 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
             {/* The handle, shown on pointing; the whole row drags, the words never. */}
             {/* Shown on the line being written too: it says the line can move, and ⌥↑ ⌥↓ (said under the list) moves it from the keys. */}
             {/* One of the day's three: its number in the same place, giving way to the handle on pointing. */}
-            <span title="Click for its menu. Drag to reorder it, or onto “Next”, “Later” or tomorrow. ⌥↑ ⌥↓ reorder; Esc, then M, W, N or L, moves it." data-grip onClick={openFromGrip} className="relative mt-[0.3rem] w-3.5 shrink-0 cursor-pointer active:cursor-grabbing">
+            <span title="Click for its menu. Drag to reorder it, rest it on another line to make it a step, or drop it onto “Next”, “Later” or tomorrow. ⌥↑ ⌥↓ reorder; Esc, then M, W, N or L, moves it." data-grip onClick={openFromGrip} className="relative mt-[0.3rem] w-3.5 shrink-0 cursor-pointer active:cursor-grabbing">
               {rank > 0 && <ThreeMark n={rank} done={struck} className="absolute inset-x-0 -top-[0.15rem] text-center leading-[1.3rem] transition-opacity group-hover/line:opacity-0 group-focus-within/line:opacity-0" />}
               <GripVertical aria-hidden className="size-3.5 text-muted-foreground opacity-0 transition-opacity group-hover/line:opacity-60 group-focus-within/line:opacity-60" />
             </span>
@@ -905,10 +987,12 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
             {!struck && task.estimate ? <span className="mt-[0.1rem] shrink-0 text-control font-medium text-muted-foreground tabular-nums group-hover/line:hidden group-focus-within/line:hidden">~{lengthSaid(task.estimate)}</span> : null}
           </div>
           </RowMenu>
-          {/* Its steps, the lines written under it. */}
+          </div></CarryRow>
+          {/* Its steps, the lines written under it. Each lifts alone. */}
           {steps.map((one, n) => (
             // A step: ticked, made a line of its own, or taken out, and the words' own Cut, Copy and Paste.
-            <RowMenu key={n} writes items={struck ? [] : [
+            <CarryRow key={n} id={`s:${task.id}:${n}`} grip={false}>
+            <RowMenu writes items={struck ? [] : [
               { label: one.done ? 'Not done' : 'Mark it done', run: () => tickStep(task, n) },
               { label: 'Make it a task', hint: 'A task of its own', keys: '⇧⇥', run: () => void outdent(task, n, section) },
               'separator',
@@ -917,7 +1001,7 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
             <div data-day-step={`${task.id}:${n}`} className={`group/step relative flex items-start gap-2 py-0.5 pl-12 transition-opacity ${struck ? 'opacity-55' : ''}`}>
               {/* Its menu from a grip, as the line's: a right click in the words would put the caret there first. */}
               {!struck && <AddBelow label="Add a step below" className="top-[0.15rem] left-[0.25rem] group-hover/step:opacity-60" onAdd={() => (setDraft({ section, after: task.id, parent: { id: task.id, at: n + 1 }, text: '' }), go('draft'))} />}
-              {!struck && <span data-grip title="Click for its menu" onClick={openFromGrip} className="absolute top-[0.3rem] left-[1.75rem] cursor-pointer"><GripVertical aria-hidden className="size-3 text-muted-foreground opacity-0 transition-opacity group-hover/step:opacity-60" /></span>}
+              {!struck && <span data-grip title="Click for its menu. Drag it among any line’s steps, or past its line’s edge to make it a task." onClick={openFromGrip} className="absolute top-[0.3rem] left-[1.75rem] cursor-pointer"><GripVertical aria-hidden className="size-3 text-muted-foreground opacity-0 transition-opacity group-hover/step:opacity-60" /></span>}
               <button type="button" role="checkbox" aria-checked={one.done} aria-label={one.text} onClick={() => tickStep(task, n)}
                 className="relative after:absolute after:-inset-[5px] after:rounded-full mt-[0.36rem] grid size-3.5 shrink-0 place-items-center rounded-full border-[1.5px] transition-colors"
                 style={{ borderColor: one.done ? 'var(--tt-color-text-green)' : 'color-mix(in oklab, var(--muted-foreground) 65%, transparent)', background: one.done ? 'var(--tt-color-text-green)' : undefined }}>
@@ -929,19 +1013,20 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
                 className={`flex-1 text-control leading-snug ${one.done ? 'text-muted-foreground line-through decoration-foreground/40' : 'text-foreground'}`} />
             </div>
             </RowMenu>
+            {/* Every step ticked, the line itself is offered: never ticked for you. */}
+            {allSteps && !struck && n === steps.length - 1 && (
+              <div className="pl-12 pt-0.5 pb-1">
+                <button type="button" data-steps-done onClick={() => tick(task)} className="rounded-md bg-foreground/[0.05] px-2 py-0.5 text-control font-medium text-foreground hover:bg-accent">
+                  Every step done. Tick it off?
+                </button>
+              </div>
+            )}
+            </CarryRow>
           )).flatMap((line, n) => (draftHere && draft.parent?.at === n ? [<div key={`d${n}`}>{draftLine(section, 1)}</div>, line] : [line]))}
           {draftHere && draft.parent && draft.parent.at >= steps.length && draftLine(section, 1)}
-          {/* Every step ticked, the line itself is offered: never ticked for you. */}
-          {allSteps && !struck && (
-            <div className="pl-12 pt-0.5 pb-1">
-              <button type="button" data-steps-done onClick={() => tick(task)} className="rounded-md bg-foreground/[0.05] px-2 py-0.5 text-control font-medium text-foreground hover:bg-accent">
-                Every step done. Tick it off?
-              </button>
-            </div>
-          )}
           {draftHere && !draft.parent && draftLine(section, 0)}
         </div>
-      </SortableRow>
+      </LineBlock>
     )
   }
 
@@ -968,11 +1053,6 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
     )
   }
 
-  const move = (section: Section) => (id: string, target: string, after: boolean): void => {
-    const list = lists[section].map((one) => one.id).filter((one) => one !== id)
-    list.splice(list.indexOf(target) + (after ? 1 : 0), 0, id)
-    void renumber(list)
-  }
   const section = (id: Section): React.JSX.Element => {
     const list = lists[id]
     const { label, said } = SECTIONS.find((one) => one.id === id)!
@@ -1009,18 +1089,28 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
         )}
         {(id === 'now' || open[id]) && (
           <>
-            <SortableList items={longer ? shown.slice(0, 8) : shown} keyOf={(task) => task.id} onMove={move(id)} places={{ drop: dropOn(id), said: placeSaid, foot: foot(id) }}>
-              {/* The top three, then the rest of today: a small heading inside Now, under the third, only when there is a rest.
-                  No rule and no section's room above it: it is still today, so it never reads as a list of its own ahead of
-                  Next (note 94925dc0: "why would 'the rest' be in front of 'next'"). Its own line between the rows, never part
-                  of one, so a row dragged leaves it where it is. */}
-              {(items) => items.flatMap((task) => id === 'now' && task.id === openNow[2]?.id && openNow.length > 3 ? [row(task, id), (
-                <div key="top-three" data-top-three className="mt-4 mb-1 ml-6 flex items-baseline gap-2">
-                  <span className="text-sm font-semibold text-foreground">Also today</span>
-                  <span className="text-sm text-muted-foreground">· after the first three</span>
-                </div>
-              )] : [row(task, id)])}
-            </SortableList>
+            {(() => {
+              const drawn = longer ? shown.slice(0, 8) : shown
+              const heading = id === 'now' && openNow.length > 3 && drawn.some((task) => task.id === openNow[2].id)
+              return (
+                <DayDrag lines={drawn.map((task) => ({ id: task.id, title: task.title, steps: (task.subtasks ?? []).map((one) => one.text), struck: done(task) }))}
+                  heading={heading ? { after: openNow[2].id, id: 'top-three' } : undefined}
+                  onDrop={dropped(id)} onPlace={dropOn(id)} places={{ said: placeSaid, foot: foot(id) }}>
+                  {/* The top three, then the rest of today: a small heading inside Now, under the third, only when there is a rest.
+                      No rule and no section's room above it: it is still today, so it never reads as a list of its own ahead of
+                      Next (note 94925dc0: "why would 'the rest' be in front of 'next'"). Its own line between the rows, never part
+                      of one, so a row dragged leaves it where it is. */}
+                  {drawn.flatMap((task) => heading && task.id === openNow[2].id ? [row(task, id), (
+                    <Slid key="top-three" id="top-three">
+                      <div data-top-three className="mt-4 mb-1 ml-6 flex items-baseline gap-2">
+                        <span className="text-sm font-semibold text-foreground">Also today</span>
+                        <span className="text-sm text-muted-foreground">· after the first three</span>
+                      </div>
+                    </Slid>
+                  )] : [row(task, id)])}
+                </DayDrag>
+              )
+            })()}
             {draft && draft.section === id && draft.after === null && !draft.parent && draftLine(id, 0)}
             {newLine(id, id === 'now' ? (list.length ? 'Another line' : 'The first thing, the one that matters most') : id === 'next' ? 'Something for after today' : 'Something for someday')}
           </>
@@ -1133,7 +1223,7 @@ function InUse({ className, children }: { className: string; children: () => Rea
     look()
     return () => { for (const one of events) row.removeEventListener(one, look) }
   }, [])
-  return <span ref={ref} className={className}>{inUse ? children() : null}</span>
+  return <span ref={ref} data-line-tools="" className={className}>{inUse ? children() : null}</span>
 }
 
 /** A line's words as written, each #tag on its tinted ground, as the line had it before it was ticked. */
