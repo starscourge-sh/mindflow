@@ -198,13 +198,18 @@ async function beginTalk(how: 'hold' | 'tap', editor?: Editor): Promise<void> {
       // The helper heard no microphone at all (native/listen.swift, code "mic"): said the one way, with the way to settings.
       if ((line.error as { code?: string }).code === 'mic') refuseMic(false)
       else refuse(String((line.error as { message: string }).message))
-      end('cancelled')
+      // What was already heard stays: only Esc takes words away.
+      end(now.heard ? 'kept' : 'cancelled')
     } else if (line.partial || line.final) {
       now.heard = spoken(String(((line.partial ?? line.final) as { text: string }).text), lead)
       if (line.final) end('kept')
       else show(now.field, now.heard)
       tell()
-    } else if (line.ended) end(now.stopping ? 'kept' : 'cancelled')
+    } else if (line.ended) {
+      // Ended with no one asking (the helper killed or gone): what was heard is kept, and that is said.
+      if (!now.stopping && now.heard) refuse('Talk to type stopped. What you said so far is kept.')
+      end(now.stopping || now.heard ? 'kept' : 'cancelled')
+    }
   })
   if (field.kind === 'editor') field.editor.registerPlugin(faint(field.at, ''))
   else field.input.dataset.talking = ''

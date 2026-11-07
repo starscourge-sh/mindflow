@@ -7,7 +7,7 @@ import { Orb } from './orb'
 import { toast } from './ui'
 
 type Left = { id: string; said: string }
-type Asked = { one: Left | null; keeping: boolean; trouble: string | null; keep: () => void; discard: () => void }
+type Asked = { one: Left | null; more: number; keeping: boolean; trouble: string | null; keep: () => void; discard: () => void }
 
 const inMainWindow = /home\.html$/.test(location.pathname) || /[?&]view=home/.test(location.search)
 
@@ -46,12 +46,15 @@ export function useRecordingsLeft(): Asked {
     setAll((was) => was.filter((other) => other.id !== id))
     void window.api.haligtree('meeting:left-discard', id).then(() => toast('Recording discarded', () => void window.api.haligtree('meeting:left-undo', id).then(read)))
   }
-  return { one, keeping, trouble, keep, discard }
+  return { one, more: Math.max(0, all.length - 1), keeping, trouble, keep, discard }
 }
 
-/** In the toast lane, in the manner of the line about words not saved: quiet, no sound as it comes, and it holds still. */
+/**
+ * In the toast lane, in the manner of the line about words not saved: quiet, no sound as it comes, and it holds still.
+ * One width whatever it says, so with several to answer the next never moves “Keep” and “Discard” from under the hand.
+ */
 export function RecordingLeftLine({ left }: { left: Asked }): React.JSX.Element {
-  const { one, keeping, trouble, keep, discard } = left
+  const { one, more, keeping, trouble, keep, discard } = left
   return (
     <AnimatePresence initial={false} mode="popLayout">
       {one && (
@@ -65,15 +68,15 @@ export function RecordingLeftLine({ left }: { left: Asked }): React.JSX.Element 
           animate={{ opacity: 1, transform: shift('translateY(0px)') }}
           exit={{ opacity: 0, transform: shift('translateY(8px)'), transition: { duration: 0.16, ease: EASE } }}
           transition={spring.slow}
-          className="pointer-events-auto mx-4 flex max-w-[min(36rem,calc(100%-2rem))] min-w-0 flex-wrap items-center gap-x-3 gap-y-1 rounded-md border border-border bg-popover py-1.5 pr-3.5 pl-3.5 text-sm font-medium shadow-(--mf-panel-shadow)"
+          className="pointer-events-auto mx-4 flex w-[min(36rem,calc(100%-2rem))] min-w-0 flex-wrap items-center justify-center gap-x-3 gap-y-1 rounded-md border border-border bg-popover py-1.5 pr-3.5 pl-3.5 text-sm font-medium shadow-(--mf-panel-shadow)"
         >
           {keeping ? <Orb label="Keeping the recording…" /> : <>
             <span className="min-w-[min(13rem,100%)] flex-1 text-pretty">
-              {one.said}
+              {one.said}{more > 0 && <span data-recording-left-more>{` (${more.toLocaleString()} more after this)`}</span>}
               {trouble && <span data-recording-left-trouble className="mt-0.5 block font-medium text-[var(--tt-color-text-orange)]">{trouble}</span>}
             </span>
-            <button type="button" data-recording-left-keep onClick={keep} className="min-h-8 shrink-0 cursor-pointer font-medium whitespace-nowrap text-[var(--tt-brand-color-400)] hover:underline">Keep</button>
-            <button type="button" data-recording-left-discard onClick={discard} className="group/act min-h-8 shrink-0 cursor-pointer font-medium whitespace-nowrap text-foreground">
+            <button type="button" data-recording-left-keep onClick={keep} className="min-h-8 shrink-0 self-end cursor-pointer font-medium whitespace-nowrap text-[var(--tt-brand-color-400)] hover:underline">Keep</button>
+            <button type="button" data-recording-left-discard onClick={discard} className="group/act min-h-8 shrink-0 self-end cursor-pointer font-medium whitespace-nowrap text-foreground">
               <span className="underline decoration-muted-foreground/50 underline-offset-2 group-hover/act:decoration-foreground">Discard</span>
             </button>
           </>}

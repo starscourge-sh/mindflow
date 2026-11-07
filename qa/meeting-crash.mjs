@@ -30,6 +30,24 @@ const plant = (root, id, startedAt, seconds = 8) => {
   for (const side of ['you', 'others']) writeFileSync(join(from, `${side}.pcm`), readFileSync(join(fixture, `${side}.wav`)).subarray(44, 44 + seconds * 32000))
   writeFileSync(join(from, 'recording.json'), JSON.stringify({ startedAt, event: null, words: 'test' }))
 }
+/** A recorder on a full disk: it records 8 seconds and cannot finish them, whether stopped or asked to recover. */
+const noRoomProgram = () => {
+  const file = join(DATA, 'no-room.sh')
+  writeFileSync(file, `#!/bin/sh
+if [ "$1" = record ]; then
+  head -c 256000 /dev/zero > "$2/you.pcm"
+  head -c 256000 /dev/zero > "$2/others.pcm"
+  echo '{"ready":{"live":"test","locale":"en_ZA","test":true}}'
+  read line
+fi
+cat <<'JSON'
+{"error":{"code":"disk","message":"There is no room on this Mac's disk to finish the recording. Nothing is lost: free up some space and it can be finished."}}
+JSON
+exit 1
+`)
+  chmodSync(file, 0o755)
+  return file
+}
 const uuid = (n) => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`
 const sleep = (ms) => new Promise((go) => setTimeout(go, ms))
 
@@ -134,7 +152,8 @@ try {
   await card.waitForSelector('text="The recording stopped"', { timeout: 8000 }).catch(() => {})
   const said = await card.locator('body').textContent()
   check('1: the card says the recording stopped and what is safe, not that nothing was recorded', /The recording stopped/.test(said) && /is safe/.test(said) && !/Nothing was recorded/.test(said), said.trim())
-  if (FRAMES) await card.screenshot({ path: join(FRAMES, 'card-stopped.png') })
+  if (FRAMES) for (const name of ['light', 'dark']) { await c.look(name); await card.waitForTimeout(400); await card.screenshot({ path: join(FRAMES, `card-stopped-${name}.png`) }) }
+  if (FRAMES) await c.look('light')
   check('1: offered at once in the main window, without bringing it forward', await offerShows())
   await crash()
   await launch()
@@ -171,8 +190,21 @@ try {
     await c.h.waitForTimeout(1500)
     await c.both(join(FRAMES, 'kept-page'))
     await crash()
+    // The disk too full to finish: on the card, then on the offer.
+    process.env.HALIGTREE_QA_MEETING_PROGRAM = noRoomProgram()
     await launch()
-    await c.v('meeting:start', null)
+    const stoppedCard = await start()
+    await c.v('meeting:stop')
+    await stoppedCard.waitForSelector('text="The recording stopped"', { timeout: 8000 })
+    for (const name of ['light', 'dark']) { await c.look(name); await stoppedCard.waitForTimeout(400); await stoppedCard.screenshot({ path: join(FRAMES, `card-no-room-${name}.png`) }) }
+    await c.look('light')
+    await c.v('meeting:stop')
+    await offers().first().waitFor({ timeout: 8000 })
+    await c.h.click('[data-recording-left-keep]')
+    await c.h.waitForSelector('[data-recording-left-trouble]', { timeout: 8000 })
+    await c.both(join(FRAMES, 'offer-no-room'))
+    delete process.env.HALIGTREE_QA_MEETING_PROGRAM
+    await crash()
     throw FRAMES_ONLY
   }
   const cursor = await c.h.evaluate(() => ['keep', 'discard'].map((one) => getComputedStyle(document.querySelector(`[data-recording-left-${one}]`)).cursor)).catch(() => [])
@@ -305,9 +337,7 @@ try {
   await sleep(8000)
   const recorded9 = (await c.v('meeting:state')).seconds
   await crash()
-  const fake = join(DATA, 'no-room.sh')
-  writeFileSync(fake, '#!/bin/sh\necho \'{"error":{"code":"disk","message":"There is no room on this Mac\'"\'"\'s disk to finish the recording. Nothing is lost: free up some space and it can be finished."}}\'\nexit 1\n')
-  chmodSync(fake, 0o755)
+  const fake = noRoomProgram()
   await until(() => helpers().length === 0)
   process.env.HALIGTREE_QA_MEETING_PROGRAM = fake
   await launch()
@@ -322,6 +352,18 @@ try {
   await launch()
   check('9: room again: offered again', await offerShows())
   await keepAndCheck('9', recorded9)
+  await crash()
+  // Stopped by hand with no room to finish: the card says so, and it is offered.
+  process.env.HALIGTREE_QA_MEETING_PROGRAM = fake
+  await launch()
+  card = await start()
+  await c.v('meeting:stop')
+  await card.waitForSelector('text="The recording stopped"', { timeout: 8000 }).catch(() => {})
+  check('9: stopped with no room: the card says why, and that it is safe', /8 sec is safe, but the disk is too full/.test(await card.locator('body').textContent()), (await card.locator('body').textContent()).trim())
+  check('9: and it is offered', await offerShows())
+  await c.h.click('[data-recording-left-discard]')
+  await c.h.waitForSelector('text=Recording discarded', { timeout: 5000 })
+  delete process.env.HALIGTREE_QA_MEETING_PROGRAM
   await crash()
 
   // ---- 10. The program refusing to start: the app says so and stays up, leaving nothing behind.
@@ -358,10 +400,13 @@ try {
   }
   await past()
   check('11: two left in this book: the older first', await offerShows(15000))
-  check('11: one at a time', (await offers().count()) === 1 && (await offers().first().getAttribute('data-recording-left')) === uuid(1), await offerText())
+  check('11: one at a time, saying how many more', (await offers().count()) === 1 && (await offers().first().getAttribute('data-recording-left')) === uuid(1) && /\(1 more after this\)/.test(await offerText()), await offerText())
+  const box11 = () => c.h.evaluate(() => { const r = document.querySelector('[data-recording-left-discard]').getBoundingClientRect(); return `${Math.round(r.x)},${Math.round(r.y)}` })
+  const at11 = await box11()
   await c.h.click('[data-recording-left-discard]')
   await c.h.waitForFunction((id) => document.querySelector(`[data-recording-left="${id}"]`), uuid(2), { timeout: 5000 })
-  check('11: then the next', true)
+  await c.h.waitForTimeout(500)
+  check('11: then the next, with "Discard" where it was', (await box11()) === at11, `${at11} then ${await box11()}`)
   await c.h.click('[data-recording-left-keep]')
   await c.h.waitForSelector('[data-meeting-page]', { timeout: 30000 })
   check('11: the other book\'s is not offered here, and is untouched', (await offers().count()) === 0 && existsSync(join(inBook, uuid(3), 'you.pcm')))

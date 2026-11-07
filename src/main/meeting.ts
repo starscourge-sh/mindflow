@@ -77,6 +77,8 @@ let clock = { began: 0, pausedFor: 0, pausedAt: 0 }
 const SHOWN_LINES = 40
 let settled: Line[] = []
 let saved: Saved | null = null
+/** The program said the disk has no room: the card says that is why it could not finish. */
+let diskFull = false
 let found: Record<string, unknown> | null = null
 let take: Record<string, unknown> | null = null
 let finished: (() => void) | null = null
@@ -185,6 +187,7 @@ export async function begin(): Promise<void> {
   folder = join(meetingsDir(), randomUUID())
   settled = []
   saved = found = take = null
+  diskFull = false
   startedAt = new Date().toISOString()
   try {
     await mkdir(folder, { recursive: true })
@@ -261,6 +264,7 @@ function heard(line: Record<string, unknown>): void {
     if (live.state === 'starting') live = { ...live, state: error.code === 'denied' ? 'denied' : 'failed', message: error.message }
     // The disk full: the program is ending the recording itself and keeping what it has.
     else if (error.code === 'disk' && ['live', 'paused'].includes(live.state)) live = { ...live, state: 'saving', message: error.message }
+    if (error.code === 'disk') diskFull = true
     tell()
   }
 }
@@ -315,7 +319,7 @@ async function ended(): Promise<void> {
     if (!saved) {
       // The program died under it, or never started. Whatever reached the disk is offered; nothing that did not is claimed.
       const seconds = await soundIn(folder)
-      if (seconds >= FEW_SECONDS) live = { ...live, state: 'failed', stopped: true, message: `${keptFor(seconds)} is safe. Keep it or discard it in the main window.` }
+      if (seconds >= FEW_SECONDS) live = { ...live, state: 'failed', stopped: true, message: diskFull ? `${keptFor(seconds)} is safe, but the disk is too full to finish it. Free up some space, then keep it or discard it in the main window.` : `${keptFor(seconds)} is safe. Keep it or discard it in the main window.` }
       else {
         await rm(folder, { recursive: true, force: true })
         if (!['denied', 'failed'].includes(live.state)) live = { ...live, state: 'failed', message: live.message ?? 'The recording stopped before anything was kept' }
