@@ -5,7 +5,7 @@ import { SortableContext, type SortingStrategy } from '@dnd-kit/sortable'
 import { pastEdge } from '@/lib/drag-edge'
 import { still } from '@/lib/motion'
 import { chime } from '@/lib/sound'
-import { CarriedCard, Carrying, Hand, OUTDENT, PanelParts, REST, Shaped, pointerNow, rowAt, sideOf, useAim, useCarriedLeft, useRest, useTall, type Aim } from './carry'
+import { CarriedCard, Carrying, Hand, useCardPlace, OUTDENT, PanelParts, REST, Shaped, pointerNow, rowAt, sideOf, useAim, useCarriedLeft, useRest, useTall, type Aim } from './carry'
 import { Overlay, PlaceSaid, SETTLE, upDown, usePlaces } from './sortable'
 import { refuse } from './ui'
 
@@ -26,6 +26,7 @@ const stepKey = (id: string, at: number): string => `s:${id}:${at}`
 const unmoved: SortingStrategy = () => null
 /** A step's words start this far in. */
 const STEP_IN = 36
+const STEP_WORDS = 'Make it a step'
 export const REFUSED = 'A line with steps of its own stays a line'
 
 /** A step's key read back: the line it is in, and its place there. */
@@ -48,10 +49,12 @@ export function LineBlock({ id, children }: { id: string; children: ReactNode })
   )
 }
 
-export function DayDrag({ lines, heading, onDrop, onPlace, places, children }: {
+export function DayDrag({ lines, heading, tail, onDrop, onPlace, places, children }: {
   lines: DayLineDrag[]
   /** The small heading under this line's block, if one is drawn there: it slides with the rows. */
   heading?: { after: string; id: string }
+  /** What is drawn under the last row (the line being written): it makes way as the rows do. */
+  tail?: string
   onDrop: (carried: string, drop: DayDrop) => void
   /** Dropped on a place on the page (a heading, a tab). */
   onPlace: (carried: string, place: string) => void
@@ -67,6 +70,7 @@ export function DayDrag({ lines, heading, onDrop, onPlace, places, children }: {
   const [snap, setSnap] = useState(false)
   const { aim, aimed, start, point } = useAim()
   const { place, aimed: placed, aimAt, following } = usePlaces(true)
+  const card = useCardPlace(aim, (now) => !!now.make || now.label === STEP_WORDS)
   const inside = useRef(new Set<string>())
   const sided = useRef<{ key: string; how: 'before' | 'after' } | null>(null)
   const lastMove = useRef<DragMoveEvent | null>(null)
@@ -74,7 +78,7 @@ export function DayDrag({ lines, heading, onDrop, onPlace, places, children }: {
 
   const blockKeys = (line: DayLineDrag): string[] => (hand === lineKey(line.id) ? [lineKey(line.id)] : [lineKey(line.id), ...line.steps.map((_, at) => stepKey(line.id, at))])
   const rows = lines.flatMap(blockKeys)
-  const keys = lines.flatMap((line) => [...blockKeys(line), ...(heading?.after === line.id ? [heading.id] : [])])
+  const keys = [...lines.flatMap((line) => [...blockKeys(line), ...(heading?.after === line.id ? [heading.id] : [])]), ...(tail ? [tail] : [])]
   const blocks = lines.map((line) => ({ id: line.id, rows: blockKeys(line) }))
   const homeOf = (key: string | null): string | null => (key?.startsWith('s:') ? readStep(key).id : null)
 
@@ -83,6 +87,7 @@ export function DayDrag({ lines, heading, onDrop, onPlace, places, children }: {
     setSnap(false)
     chime('lift')
     start(id, homeOf(id))
+    card.lift()
     inside.current.clear()
     following(true)
     setHand(id)
@@ -99,6 +104,8 @@ export function DayDrag({ lines, heading, onDrop, onPlace, places, children }: {
   const onDragMove = (event: DragMoveEvent): void => {
     lastMove.current = event
     const { active, activatorEvent, delta } = event
+    const held = active.rect.current.initial
+    if (held) card.follow(held.top + held.height / 2 + delta.y)
     const id = String(active.id)
     const y = activatorEvent instanceof PointerEvent ? activatorEvent.clientY + delta.y : null
     if (y === null || placed.current) return point(null)
@@ -130,7 +137,7 @@ export function DayDrag({ lines, heading, onDrop, onPlace, places, children }: {
       const own = parent.steps.map((_, n) => stepKey(parent.id, n)).filter((key) => key !== id)
       if (id.startsWith('s:') && readStep(id).id === parent.id && readStep(id).at === place) return null
       const prev = place === 0 ? lineKey(parent.id) : own[place - 1]
-      return { target: stepKey(parent.id, place), how: 'join', into: parent.id, label: id.startsWith('s:') && readStep(id).id === parent.id ? 'Move here' : 'Make it a step', gap: keys.indexOf(prev), around: [parent.id], snug: true, indent: STEP_IN, act: { to: 'step', parent: parent.id, at: place } satisfies DayDrop }
+      return { target: stepKey(parent.id, place), how: 'join', into: parent.id, label: id.startsWith('s:') && readStep(id).id === parent.id ? 'Move here' : STEP_WORDS, gap: keys.indexOf(prev), around: [parent.id], snug: true, indent: STEP_IN, act: { to: 'step', parent: parent.id, at: place } satisfies DayDrop }
     }
     // Past its edge, or carried well to the left of where a step sits: a line of its own, beside that line.
     if (past) return point(aimLine(past.id, past.how === 'after'))
@@ -147,7 +154,7 @@ export function DayDrag({ lines, heading, onDrop, onPlace, places, children }: {
     if (onHead) {
       if (middle && rested(over.id)) {
         if (owner.steps.length) return point(aimStep(owner, owner.steps.filter((_, n) => stepKey(owner.id, n) !== id).length))
-        return point({ target: over.id, how: 'join', into: null, make: true, label: 'Make it a step', gap: null, around: [], act: { to: 'step', parent: owner.id, at: 0 } satisfies DayDrop })
+        return point({ target: over.id, how: 'join', into: null, make: true, label: STEP_WORDS, gap: null, around: [], act: { to: 'step', parent: owner.id, at: 0 } satisfies DayDrop })
       }
       if (side === 'before') return point(aimLine(owner.id, false))
       return point(owner.steps.length && owner !== carriedLine ? aimStep(owner, 0) : aimLine(owner.id, true))
@@ -201,7 +208,7 @@ export function DayDrag({ lines, heading, onDrop, onPlace, places, children }: {
         {hand && (
           <div className="flex h-full flex-col items-start gap-1">
             <div className={`h-full w-full ${place ? 'opacity-0' : ''}`}>
-              <Hand grab={grab} from={from}>
+              <Hand grab={grab} from={from} rest={card.rest}>
                 <CarriedCard title={carried || 'Untitled'} words={words} refused={!!aim?.refused} />
               </Hand>
             </div>

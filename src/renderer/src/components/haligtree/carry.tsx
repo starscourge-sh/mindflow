@@ -553,7 +553,7 @@ export function CarriedCard({ icon, title, strong = false, words, tint, refused 
  * late and leans into the way it is moving, as a card held loosely does (the
  * list itself reads only up and down). Null: a list that already moves it sideways.
  */
-export function Hand({ grab, from, children }: { grab: number; from: number | null; children: ReactNode }): React.JSX.Element {
+export function Hand({ grab, from, rest, children }: { grab: number; from: number | null; /** How far up or down of the pointer it rests just now (useCardPlace). */ rest?: MotionValue<number>; children: ReactNode }): React.JSX.Element {
   const dragX = useMotionValue(0)
   useLayoutEffect(() => {
     if (from === null) return
@@ -568,10 +568,39 @@ export function Hand({ grab, from, children }: { grab: number; from: number | nu
   return (
     <div className="relative h-full w-full">
       <div className="absolute top-1/2" style={{ left: `min(${grab + 18}px, 40%)`, translate: '0 -50%' }}>
-        <motion.div className="relative w-fit" style={{ x, rotate: lean }}>{children}</motion.div>
+        <motion.div className="relative w-fit" style={{ x, y: rest, rotate: lean }}>{children}</motion.div>
       </div>
     </div>
   )
+}
+
+/**
+ * Where something would be taken in (a step, a new group), the card rests on the
+ * very place it will land, as a split's card rests under its words, so the name of
+ * what takes it stays readable. A spring there and back; with Reduce motion or
+ * Motion off it is simply there. `follow`: where the card would be by the pointer alone.
+ */
+export function useCardPlace(aim: Aim | null, takes: (aim: Aim) => boolean): { rest: MotionValue<number>; follow: (by: number) => void; lift: () => void } {
+  const y = useMotionValue(0)
+  const rest = useSpring(y, { stiffness: 520, damping: 38, mass: 0.6 })
+  const by = useRef(0)
+  const place = useRef<number | null>(null)
+  const go = (): void => {
+    const to = place.current === null ? 0 : place.current - by.current
+    if (still()) (y.jump(to), rest.jump(to))
+    else y.set(to)
+  }
+  useLayoutEffect(() => {
+    // The row a new group forms on may still be gliding home: its dashed place is read from where that row rests.
+    const dashed = aim && takes(aim) ? document.querySelector<HTMLElement>('[data-preview] > span') : null
+    const row = dashed?.closest<HTMLElement>('[data-sortable-id]')
+    const room = aim && takes(aim) ? document.querySelector('[data-drop-room]')?.getBoundingClientRect() : null
+    place.current = dashed && row
+      ? row.getBoundingClientRect().bottom - new DOMMatrixReadOnly(getComputedStyle(row).transform).m42 + dashed.offsetHeight / 2 + 5
+      : room ? room.top + room.height / 2 : null
+    go()
+  }, [aim]) // eslint-disable-line react-hooks/exhaustive-deps
+  return { rest, follow: (at) => ((by.current = at), go()), lift: () => ((place.current = null), y.jump(0), rest.jump(0)) }
 }
 
 /** A thing between a list's rows that is not one of them (a small heading): it slides with them, so none passes over it. */

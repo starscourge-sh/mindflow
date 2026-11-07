@@ -22,7 +22,7 @@ import { GROUP_COLORS, groups, tintOf } from '@/lib/groups'
 import { KEY, groupOf, groupsAround, isGroup, type How, type Layout } from '@/lib/group-layout'
 import { cn } from '@/lib/cn'
 import { Overlay, SETTLE, upDown } from './sortable'
-import { CARD, CarriedCard, CarryRow, Carrying, Hand, INDENT, OUT, OUTDENT, PanelParts, REST, Shaped, pointerNow, rowAt, sideOf, useAim, useCarriedLeft, useRest, useTall, type Aim } from './carry'
+import { CARD, CarriedCard, CarryRow, Carrying, Hand, useCardPlace, INDENT, OUT, OUTDENT, PanelParts, REST, Shaped, pointerNow, rowAt, sideOf, useAim, useCarriedLeft, useRest, useTall, type Aim } from './carry'
 import { copy } from './row-menu'
 import { Rolling, Tip, VirtualList, refuse, toast, quietly } from './ui'
 import type { Entry } from './note-list'
@@ -183,6 +183,7 @@ export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo
   insetRef.current = inset
   // Each new place ticks and taps once, and crossing a group's edge the firmer way.
   const { aim, aimed, start: startAim, point } = useAim()
+  const card = useCardPlace(aim, (now) => !!now.make)
   // The groups the pointer last read as inside, for their edges' dead band.
   const inside = useRef(new Set<string>())
   // Where what is carried was lifted from.
@@ -195,6 +196,7 @@ export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo
     setSnap(false)
     chime('lift')
     startAim(id, homeOf(id))
+    card.lift()
     setCarried(id)
     const all = bundles.flatMap((one) => one.entries.map((entry) => entry.id))
     if (!isGroup(id) && picked.includes(id) && picked.length > 1) setMany(all.filter((one) => picked.includes(one)))
@@ -235,6 +237,8 @@ export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo
     lastMove.current = event
     const { active, activatorEvent, delta } = event
     dragY.set(delta.y)
+    const held = active.rect.current.initial
+    if (held) card.follow(held.top + held.height / 2 + delta.y)
     const id = String(active.id)
     // A group's room is its block folded, measured once it has folded.
     if (isGroup(id)) {
@@ -432,7 +436,7 @@ export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo
         </Shaped>
       </SortableContext>
       <Overlay dropAnimation={still() ? null : SETTLE}>
-        {carried && <Ghost carried={carried} bundles={bundles} many={many} aim={aim} grab={grab} from={from} dragY={dragY} />}
+        {carried && <Ghost carried={carried} bundles={bundles} many={many} aim={aim} grab={grab} from={from} rest={card.rest} dragY={dragY} />}
       </Overlay>
     </DndContext>
   )
@@ -446,14 +450,14 @@ export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo
  * letting go would do nothing, it says why. Several carried show as a stack with a count; a group, by its
  * icon and name.
  */
-function Ghost({ carried, bundles, many, aim, grab, from, dragY }: { carried: string; bundles: Bundle[]; many: string[]; aim: Aim | null; grab: number; from: number | null; dragY: MotionValue<number> }): React.JSX.Element {
+function Ghost({ carried, bundles, many, aim, grab, from, rest, dragY }: { carried: string; bundles: Bundle[]; many: string[]; aim: Aim | null; grab: number; from: number | null; rest: MotionValue<number>; dragY: MotionValue<number> }): React.JSX.Element {
   const group = isGroup(carried) ? bundles.flatMap((one) => (one.group ? [one.group, ...(one.parts ?? []).flatMap((part) => ('group' in part ? [part.group] : []))] : [])).find((one) => KEY + one.id === carried) : undefined
   const entries = bundles.flatMap((one) => one.entries)
   const entry = group ? undefined : entries.find((one) => one.id === carried)
   // The rest carried, fanned up and to the left behind the one in hand: two at most show.
   const behind = many.filter((one) => one !== carried).slice(0, 2).map((id) => entries.find((one) => one.id === id)).filter((one): one is Entry => !!one)
   return (
-    <Hand grab={grab} from={from}>
+    <Hand grab={grab} from={from} rest={rest}>
       {behind.map((one, at) => <Fanned key={one.id} entry={one} depth={at + 1} dragY={dragY} />).reverse()}
       <CarriedCard attrs={{ 'data-ghost': '' }} icon={group ? <GroupIcon icon={group.icon} color={group.color} /> : entry ? <entry.icon className="size-4 shrink-0" style={{ color: entry.tint }} /> : null}
         title={group?.name ?? (entry?.title || 'Untitled')} strong={!!group} words={aim?.label ?? (aim ? 'Move here' : null)} tint={aim?.tint} />

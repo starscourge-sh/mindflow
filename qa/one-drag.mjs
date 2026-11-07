@@ -22,7 +22,7 @@ for (const list of ['article', 'nugget']) for (const group of await v('groups', 
 const wait = (ms) => h.waitForTimeout(ms)
 h.setDefaultTimeout(4000)
 /** A part of the probe: a part that cannot even run on old code is a fail, and the rest still runs. */
-const part = async (name, run) => { try { await run() } catch (error) { check(`${name} could be driven`, false, String(error.message).split('\n')[0]); await shot(`broke-${name.replace(/\W+/g, '-')}`); await h.keyboard.press('Escape').catch(() => {}); await h.mouse.up().catch(() => {}); await wait(300) } }
+const part = async (name, run) => { if (process.env.PART && !name.includes(process.env.PART)) return; try { await run() } catch (error) { check(`${name} could be driven`, false, String(error.message).split('\n')[0]); await shot(`broke-${name.replace(/\W+/g, '-')}`); await h.keyboard.press('Escape').catch(() => {}); await h.mouse.up().catch(() => {}); await wait(300) } }
 const shot = (name) => (SHOTS ? h.screenshot({ path: `${SHOTS}/${name}.png` }) : null)
 const film = async (name, n = 6) => { if (SHOTS) for (let i = 0; i < n; i++) { await h.screenshot({ path: `${SHOTS}/${name}-${i}.png` }); await wait(50) } }
 const both = async (name) => { if (!SHOTS) return; for (const look of ['light', 'dark']) { await c.look(look); await wait(120); await h.screenshot({ path: `${SHOTS}/${name}-${look}.png` }) } await c.look('light'); await wait(120) }
@@ -73,6 +73,7 @@ const lift = async (locator) => {
 const glideTo = async (x, y) => { await h.mouse.move(x, y, { steps: 10 }); await wait(160) }
 
 
+const addLine = async (title, steps) => { const made = await v('task:add', `${title} today`); if (steps) await v('task:save', made.id, { subtasks: steps.map((text) => ({ text, done: false })) }); return made.id }
 let lineIds = {}
 const task = async (id) => (await v('tasks')).find((one) => one.id === id)
 const line = (id) => h.locator(`[data-day-line="${id}"]`)
@@ -204,14 +205,20 @@ const peak = async (setup) => {
   const was = frames[0].bottom
   const outside = frames.filter((one) => one.last > one.bottom + 0.5).length
   await both2('panel-accept')
+  const cards = (await card())?.count
   await h.keyboard.press('Escape')
-  await wait(400)
+  await wait(200)
+  await h.mouse.up()
+  await wait(300)
+  counts.push(cards)
   return { over: most - Math.max(was, rest), outside, frames: frames.length }
 }
 const both2 = async (name) => shot(name)
+const counts = []
 const moving = await peak()
 check('the panel overshoots a little as it accepts, and settles', moving.over >= 2 && moving.over <= 6, `${moving.over.toFixed(1)}px over ${moving.frames} frames`)
 check('no frame with a row outside its box', moving.outside === 0, `${moving.outside} frames`)
+check('after the glide, one card on screen', counts[0] === 1, String(counts[0]))
 await h.emulateMedia({ reducedMotion: 'reduce' })
 const reduced = await peak()
 check('Reduce motion: no overshoot', reduced.over < 1.5, `${reduced.over.toFixed(1)}px`)
@@ -244,6 +251,7 @@ pads.folder = await card()
 await both('folder-carried')
 await glideTo(sr.x + 50, two.y + two.height + 12)
 await shot('folder-past-edge')
+check('sidebar: past its edge, one card and no split places', (await card())?.count === 1 && !(await h.locator('[data-split-zone]').count()) && !(await h.evaluate(() => 'splitDrag' in document.documentElement.dataset)), JSON.stringify(await card()))
 t = await tapsSince(before)
 check('sidebar: past its folder\'s edge, one firm tap', t.level === 1, JSON.stringify(t))
 await h.mouse.up(); await wait(600)
@@ -280,7 +288,6 @@ await h.keyboard.press('Escape'); await wait(200); await h.mouse.up(); await wai
 // --- 5. Tasks and steps on the written page ---
 await part('Tasks and steps on the written page', async () => {
 for (const task of await v('tasks')) if (task.status === 'open' && (task.dueAt || task.deadline)) await v('task:save', task.id, { status: 'dropped' })
-const addLine = async (title, steps) => { const made = await v('task:add', `${title} today`); if (steps) await v('task:save', made.id, { subtasks: steps.map((text) => ({ text, done: false })) }); return made.id }
 lineIds = { paint: await addLine('Paint the fence', ['Buy paint', 'Sand it', 'First coat']), call: await addLine('Call the bank'), read: await addLine('Read the lease', ['Page one']), post: await addLine('Post the letter') }
 await h.evaluate(() => localStorage.setItem('view:tasks:today', JSON.stringify({ sort: 'manual', group: 'page' })))
 await h.reload(); await wait(1500)
@@ -300,6 +307,15 @@ const postBox = await headOf(lineIds.post).boundingBox()
 await h.mouse.move(from.x, postBox.y + postBox.height / 2, { steps: 8 })
 await wait(800)
 await shot('task-rested-on-task')
+const rests = await h.evaluate((id) => {
+  const box = (el) => { const r = el?.getBoundingClientRect(); return r ? { top: r.top, bottom: r.bottom, left: r.left, right: r.right } : null }
+  const name = box([...document.querySelectorAll(`[data-day-head="${id}"] .tiptap, [data-day-head="${id}"] [contenteditable], [data-day-head="${id}"] [data-line-key]`)][0] ?? document.querySelector(`[data-day-head="${id}"]`))
+  return { card: box(document.querySelector('[data-carried-card]')), place: box(document.querySelector('[data-preview] > span')), name }
+}, lineIds.post)
+const middle = (one) => (one.top + one.bottom) / 2
+check('rested, the card sits on the dashed place, not on the task it joins', rests.card && rests.place && Math.abs(middle(rests.card) - middle(rests.place)) < 4 && rests.card.top >= rests.name.bottom - 4, JSON.stringify(rests))
+const another = await h.evaluate(() => { const a = document.querySelector('[data-new="now"]')?.getBoundingClientRect(); const b = document.querySelector('[data-preview]')?.getBoundingClientRect(); return a && b ? { line: a.top, panel: b.bottom } : null })
+check('the line being written makes way for the panel', another && another.line >= another.panel - 2, JSON.stringify(another))
 await film('task-rested-frames', 4)
 check('rested on a task\'s middle it says it becomes a step', /step/i.test((await card())?.text ?? ''), (await card())?.text)
 t = await tapsSince(before2)
@@ -339,6 +355,8 @@ from = await liftAt(stepRow(lineIds.paint, 1))
 const page1 = await stepRow(lineIds.read, 0).boundingBox()
 await h.mouse.move(from.x, page1.y + page1.height - 3, { steps: 8 }); await wait(300)
 await shot('step-to-other-task')
+const roomy2 = await h.evaluate(() => { const c = document.querySelector('[data-carried-card]')?.getBoundingClientRect(); const r = document.querySelector('[data-drop-room]')?.getBoundingClientRect(); return c && r ? { card: (c.top + c.bottom) / 2, room: (r.top + r.bottom) / 2, height: r.height } : null })
+check('among another line\'s steps, the card sits in the room it opens', roomy2 && Math.abs(roomy2.card - roomy2.room) < 4, JSON.stringify(roomy2))
 await h.mouse.up(); await wait(500)
 check('a step moves to another task', (await task(lineIds.read)).subtasks.map((one) => one.text).join() === 'Page one,Sand it' && (await task(lineIds.paint)).subtasks.length === 2, (await task(lineIds.read)).subtasks.map((one) => one.text).join())
 await h.keyboard.press('Meta+z'); await wait(500)
@@ -369,6 +387,125 @@ await h.keyboard.press('Escape'); await wait(300); await h.mouse.up(); await wai
 check('Esc puts a step back', (await task(lineIds.paint)).subtasks.map((one) => one.text).join() === 'Buy paint,Sand it,First coat')
 
 })
+// --- 5b. The Bin, a carried line's place, and Esc ending the whole press ---
+await part('After Esc', async () => {
+  // A nested task is no second copy in the Bin (Tab's way too).
+  const binned = async (title) => (await v('bin:list')).filter((one) => one.title?.startsWith(title)).length
+  const nestOne = await addLine('Nest me by drag')
+  const nestTab = await addLine('Nest me by Tab')
+  await h.reload(); await wait(1500); await c.go('today'); await wait(900)
+  const binBefore = (await v('bin:list')).length
+  let carried = await liftAt(headOf(nestOne))
+  const target = await headOf(lineIds.call).boundingBox()
+  await h.mouse.move(carried.x, target.y + target.height / 2, { steps: 8 }); await wait(800)
+  await h.mouse.up(); await wait(700)
+  check('a task made a step by drag is not in the Bin', (await binned('Nest me by drag')) === 0, `${await binned('Nest me by drag')}`)
+  check('the Bin\'s list did not grow', (await v('bin:list')).length === binBefore, `${binBefore} then ${(await v('bin:list')).length}`)
+  await h.keyboard.press('Meta+z'); await wait(600)
+  check('⌘Z: back as a line, still not in the Bin', (await line(nestOne).count()) === 1 && (await binned('Nest me by drag')) === 0)
+  // Old enough not to be new: a task added above, after a reload, is the kind that goes to status dropped.
+  const tabLine = h.locator(`[data-line-key="t:${nestTab}"]`)
+  await tabLine.scrollIntoViewIfNeeded()
+  const tabBox = await tabLine.boundingBox()
+  await h.mouse.click(tabBox.x + 20, tabBox.y + tabBox.height / 2); await wait(300)
+  await h.keyboard.press('Tab'); await wait(600)
+  check('a task made a step by Tab is not in the Bin', (await binned('Nest me by Tab')) === 0 && !(await task(nestTab) ?? { status: 'dropped' }).status?.startsWith('open'), `${await binned('Nest me by Tab')}`)
+  await h.keyboard.press('Meta+z'); await wait(600)
+
+})
+await part('A carried line\'s own place', async () => {
+  let carried
+  // The carried line's own place: the same whatever was picked or pressed before.
+  const look = () => h.evaluate(() => {
+    const own = document.querySelector('[data-carried-line] [data-sortable-id]')
+    const line = document.querySelector('[data-carried-line] [data-day-line]')
+    return { outline: own && getComputedStyle(own).outlineStyle, fill: line && getComputedStyle(line).backgroundColor }
+  })
+  carried = await liftAt(headOf(lineIds.call))
+  const plain = await look()
+  await h.keyboard.press('Escape'); await wait(200); await h.mouse.up(); await wait(200)
+  carried = await liftAt(headOf(lineIds.call))
+  const afterEsc = await look()
+  await shot('own-place-after-esc')
+  await h.keyboard.press('Escape'); await wait(200); await h.mouse.up(); await wait(200)
+  check('after an Esc, no ring on the carried line\'s own place', afterEsc.outline === 'none' && afterEsc.fill === plain.fill, JSON.stringify({ plain, afterEsc }))
+  // A line picked with the keys, then carried.
+  const pickBox = await headOf(lineIds.call).boundingBox()
+  await h.mouse.move(pickBox.x + 300, pickBox.y + 10); await wait(150)
+  await h.mouse.move(900, 860); await wait(100)
+  await h.evaluate(() => document.activeElement?.blur?.())
+  await h.keyboard.press('j'); await wait(120)
+  for (let n = 0; n < 8 && (await h.evaluate((id) => document.querySelector('[data-picked]')?.dataset.dayLine !== id, lineIds.call)); n++) { await h.keyboard.press('j'); await wait(100) }
+  const wasPicked = await h.evaluate((id) => document.querySelector('[data-picked]')?.dataset.dayLine === id, lineIds.call)
+  carried = await liftAt(headOf(lineIds.call))
+  const picked = await look()
+  await shot('own-place-picked')
+  await h.keyboard.press('Escape'); await wait(200); await h.mouse.up(); await wait(200)
+  await h.keyboard.press('Escape'); await wait(100)
+  check('a picked line carried: the same quiet place', wasPicked && picked.outline === 'none' && picked.fill === plain.fill, JSON.stringify({ wasPicked, picked, plain }))
+
+})
+await part('Esc ends the whole press', async () => {
+  if (!lineIds.call) {
+    for (const old of await v('tasks')) if (old.status === 'open' && (old.dueAt || old.deadline)) await v('task:save', old.id, { status: 'dropped' })
+    lineIds = { paint: await addLine('Paint the fence', ['Buy paint', 'Sand it', 'First coat']), call: await addLine('Call the bank') }
+  }
+  await h.evaluate(() => localStorage.setItem('view:tasks:today', JSON.stringify({ sort: 'manual', group: 'page' })))
+  await h.reload(); await wait(1500); await c.go('today'); await wait(900)
+  // Esc while held, moving on: one Esc ends the whole press, for every drag that has Esc.
+  const clean = () => h.evaluate(() => ({ cards: [...document.querySelectorAll('[data-carried-card], [data-ghost], [data-lifted], [data-folder-ghost], [data-split-card], [data-cal-carried]')].filter((one) => one.getClientRects().length).length, strips: document.querySelectorAll('[data-split-zone]').length, split: 'splitDrag' in document.documentElement.dataset, dragging: 'dragging' in document.documentElement.dataset }))
+  const pageEdges = () => h.evaluate(() => { const r = document.querySelector('[data-split-area]').getBoundingClientRect(); return { left: r.left + 16, right: r.right - 16, mid: r.top + r.height / 2 } })
+  const esc = async (name, spot, { lifts = true, far = 14 } = {}) => {
+    const at = await spot()
+    if (!at) return console.log(`SKIP  Esc: ${name} (not on this page)`)
+    await h.mouse.move(at.x, at.y); await h.mouse.down()
+    await h.mouse.move(at.x + 4, at.y + far, { steps: 4 }); await wait(160)
+    const held = await clean()
+    await h.keyboard.press('Escape'); await wait(450)
+    const first = await clean()
+    const edges = await pageEdges()
+    // Read at every stop: back over its own column, a second drag's places go away again.
+    const moved = { cards: 0, strips: 0, split: false, dragging: false }
+    for (const [x, y] of [[at.x + 40, at.y + 70], [edges.left, edges.mid], [edges.right, edges.mid], [at.x + 20, at.y + 30]]) {
+      await h.mouse.move(x, y, { steps: 6 }); await wait(140)
+      const now = await clean()
+      for (const key of Object.keys(moved)) moved[key] = moved[key] || now[key]
+    }
+    if (SHOTS) await h.screenshot({ path: `${SHOTS}/esc-${name.replace(/\W+/g, '-')}.png` })
+    await h.mouse.up(); await wait(250)
+    if (lifts) check(`Esc: ${name}: while it was held, one card`, held.cards === 1, JSON.stringify(held))
+    check(`Esc: ${name}: nothing carried, and moving on while held starts nothing`, !first.cards && !first.dragging && !moved.cards && !moved.strips && !moved.split && !moved.dragging, JSON.stringify({ first, moved }))
+  }
+  const centreOf = (loc, dx = 200) => async () => { const r = (await loc.count()) ? await loc.first().boundingBox() : null; return r && { x: r.x + Math.min(dx, r.width / 2), y: r.y + r.height / 2 } }
+  await esc('a line', centreOf(headOf(lineIds.call), 6))
+  await esc('a step', centreOf(stepRow(lineIds.paint, 1), 6))
+  await c.go('articles'); await wait(700)
+  await scene()
+  await esc('a row in a group', centreOf(row('Cedar')))
+  await esc('a group', centreOf(h.locator('[data-group-row="last"]')))
+  await v('groups:arrange', 'article', { top: ['f-side', ids.Ash], groups: { 'f-side': [ids.Birch] }, revive: [{ id: 'f-side', name: 'Side', icon: null, color: null, folded: 0, folder: 1 }] })
+  await c.go('articles'); await wait(700)
+  await esc('a sidebar folder', centreOf(h.locator('[data-side-folder="f-side"]'), 50))
+  await esc('a tab', centreOf(h.locator('[data-tab] [role=tab]'), 30))
+  await c.go('queue'); await wait(700)
+  await esc('a queue row', centreOf(h.locator('[data-pane] [data-sortable-id]')))
+  await c.go('articles'); await wait(500)
+  await esc('a pin in the sidebar', centreOf(h.locator('[data-sortable-id]', { hasText: 'Start here' }), 40))
+  await h.evaluate(() => localStorage.setItem('view:tasks:today', JSON.stringify({ sort: 'manual', group: 'matrix' })))
+  await h.reload(); await wait(1500); await c.go('today'); await wait(900)
+  await esc('a task in the Matrix', centreOf(h.locator('[data-pane] [data-sortable-id]')))
+  await h.evaluate(() => localStorage.setItem('view:tasks:today', JSON.stringify({ sort: 'manual', group: 'when' })))
+  await h.reload(); await wait(1500); await c.go('today'); await wait(900)
+  // It carries nothing until the page's edge: Esc before that, and the edge then brings up nothing.
+  await esc('a task row on Tasks', centreOf(h.locator('[data-pane] [data-task-row] [data-row]')), { lifts: false })
+  await c.go('calendar'); await wait(900)
+  await esc('a task on the Calendar', centreOf(h.locator('[data-cal-loose]'), 40), { far: 40, lifts: false })
+  await c.go('monthpage'); await wait(900)
+  await esc('a line in the Month plan', centreOf(h.locator('[data-plan-task]'), 20))
+  await h.evaluate(() => localStorage.setItem('view:tasks:today', JSON.stringify({ sort: 'manual', group: 'page' })))
+  await h.reload(); await wait(1500); await c.go('today'); await wait(900)
+})
+
 // --- 6. One card ---
 await part('One card', async () => {
 const names = Object.keys(pads)
@@ -420,6 +557,23 @@ if (SHOTS) await part('Frames', async () => {
     await c.go('sources'); await wait(700); await h.screenshot({ path: `${SHOTS}/sibling-sources-${look}.png` })
   }
   await c.look('light')
+  // The Paper and Brutal shape styles.
+  for (const style of ['paper', 'brutal']) {
+    await h.evaluate((one) => { localStorage.setItem('style', one); window.dispatchEvent(new StorageEvent('storage', { key: 'style' })) }, style)
+    await wait(300)
+    await scene()
+    a = await lift(row('Ash'))
+    const elm = await row('Elm').boundingBox()
+    await h.mouse.move(a.x + 200, elm.y + 8, { steps: 6 }); await wait(350)
+    await h.screenshot({ path: `${SHOTS}/style-${style}-row.png` })
+    await h.keyboard.press('Escape'); await wait(200); await h.mouse.up(); await wait(200)
+    await c.go('today'); await wait(700)
+    const f = await liftAt(stepRow(lineIds.paint, 1))
+    await h.mouse.move(f.x, f.y + 40, { steps: 5 }); await wait(300)
+    await h.screenshot({ path: `${SHOTS}/style-${style}-step.png` })
+    await h.keyboard.press('Escape'); await wait(200); await h.mouse.up(); await wait(200)
+  }
+  await h.evaluate(() => { localStorage.setItem('style', 'soft'); window.dispatchEvent(new StorageEvent('storage', { key: 'style' })) })
   // A phone's width: the written page, a step carried; nothing cut off, no sideways scroll.
   await c.go('today'); await wait(700)
   await c.size(390, 844); await wait(500)
@@ -434,15 +588,41 @@ if (SHOTS) await part('Frames', async () => {
   check('a phone\'s width: the card fits the window and nothing scrolls sideways', narrow.card && narrow.card.right <= narrow.width && narrow.card.left >= 0 && !narrow.sideways, JSON.stringify(narrow))
   await h.keyboard.press('Escape'); await wait(200); await h.mouse.up(); await wait(200)
   await c.size(1200, 900)
-  // Long: 500 pages in the last group; reading the edge keeps up, and the last row still leaves.
+  // Long: 500, then 5,000 pages in the last group; reading the edge keeps up, and the last row still leaves.
   const many = []
-  for (let i = 0; i < 500; i++) many.push(await v('article:new'))
-  await scene({ groups: { last: many } })
-  await h.evaluate(() => { const list = document.querySelector('[data-group-block="last"]')?.closest('[data-pane]')?.querySelector('[data-scroll], .overflow-y-auto'); if (list) list.scrollTop = list.scrollHeight })
-  await wait(500)
-  const seen = await h.evaluate(() => document.querySelectorAll('[data-group-block="last"] [data-sortable-id]').length)
-  check('500 in a group: only those near the screen are drawn', seen < 120, `${seen} rows drawn`)
-  await h.screenshot({ path: `${SHOTS}/group-500.png` })
+  for (const size of [500, 5000]) {
+    while (many.length < size) many.push(await v('article:new'))
+    await scene({ groups: { last: many } })
+    await wait(size > 1000 ? 2500 : 600)
+    const seen = await h.evaluate(() => document.querySelectorAll('[data-group-block="last"] [data-sortable-id]').length)
+    check(`${size} in a group: only those near the screen are drawn`, seen < 120, `${seen} rows drawn`)
+    const r = await h.locator('[data-group-block="last"] button[data-row]').first().boundingBox()
+    await h.mouse.move(r.x + 200, r.y + 20); await h.mouse.down()
+    const t0 = Date.now()
+    await h.mouse.move(r.x + 200, r.y + 30, { steps: 3 })
+    await wait(50)
+    const lifted = Date.now() - t0
+    const t1 = Date.now()
+    await h.mouse.move(r.x + 200, r.y + 150, { steps: 10 })
+    await h.evaluate(() => new Promise((go) => requestAnimationFrame(() => requestAnimationFrame(go))))
+    const moved = Date.now() - t1
+    await h.screenshot({ path: `${SHOTS}/group-${size}.png` })
+    await h.keyboard.press('Escape'); await wait(300); await h.mouse.up(); await wait(300)
+    check(`${size} in a group: a lift and a carry keep up`, lifted < 1500 && moved < 1500, `lift ${lifted}ms, carry over 10 moves ${moved}ms`)
+  }
+  // 50 task lines on the written page.
+  for (let i = 0; i < 50; i++) await v('task:add', `Long day line ${i + 1} today`)
+  await h.reload(); await wait(1800); await c.go('today'); await wait(1200)
+  const count50 = await h.locator('[data-day-line]').count()
+  const fifty = await h.locator('[data-day-head]').nth(30).boundingBox()
+  await h.mouse.move(fifty.x + 6, fifty.y + 12); await h.mouse.down(); await h.mouse.move(fifty.x + 6, fifty.y + 22, { steps: 3 }); await wait(120)
+  const t2 = Date.now()
+  await h.mouse.move(fifty.x + 6, fifty.y - 200, { steps: 10 })
+  await h.evaluate(() => new Promise((go) => requestAnimationFrame(() => requestAnimationFrame(go))))
+  const moved50 = Date.now() - t2
+  await h.screenshot({ path: `${SHOTS}/lines-50.png` })
+  await h.keyboard.press('Escape'); await wait(300); await h.mouse.up(); await wait(300)
+  check('50 task lines: a carry keeps up', count50 >= 50 && moved50 < 1500, `${count50} lines, carry over 10 moves ${moved50}ms`)
 })
 await c.close()
 done()

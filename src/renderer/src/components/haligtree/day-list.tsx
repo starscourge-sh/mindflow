@@ -444,9 +444,9 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
     const steps = above.subtasks ?? []
     await haligtree.saveTask(above.id, { subtasks: [...steps, { text: task.title, done: done(task) }] })
     if (fresh.current.has(task.id)) await haligtree.unmakeTask(task.id, false, [], [])
-    else await haligtree.saveTask(task.id, { status: 'dropped' })
+    else await haligtree.saveTask(task.id, { status: 'dropped', stepOf: above.id })
     chime('tuck')
-    quietly(() => void Promise.all([haligtree.saveTask(above.id, { subtasks: steps }), fresh.current.has(task.id) ? add(section, task.title, above.id) : haligtree.saveTask(task.id, { status: task.status })]))
+    quietly(() => void Promise.all([haligtree.saveTask(above.id, { subtasks: steps }), fresh.current.has(task.id) ? add(section, task.title, above.id) : haligtree.saveTask(task.id, { status: task.status, stepOf: null })]))
     go(`s:${above.id}:${steps.length}`)
   }
   /** A carried line or step let go: each kind of drop saved at once as one write, shown ahead of it, and undoable. */
@@ -470,8 +470,8 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
       const next = [...steps.slice(0, drop.at), { text: line.title, done: done(line) }, ...steps.slice(drop.at)]
       chime('tuck')
       void hold((all) => all.flatMap((one) => (one.id === id ? [] : one.id === drop.parent ? [{ ...one, subtasks: next }] : [one])),
-        () => haligtree.saveTasks([{ id: drop.parent, patch: { subtasks: next } }, { id, patch: { status: 'dropped' } }]))
-        .then(() => toast(`Now a step of ${task(drop.parent)?.title}`, () => void haligtree.saveTasks([{ id: drop.parent, patch: { subtasks: steps } }, { id, patch: { status: line.status } }])))
+        () => haligtree.saveTasks([{ id: drop.parent, patch: { subtasks: next } }, { id, patch: { status: 'dropped', stepOf: drop.parent } }]))
+        .then(() => toast(`Now a step of ${task(drop.parent)?.title}`, () => void haligtree.saveTasks([{ id: drop.parent, patch: { subtasks: steps } }, { id, patch: { status: line.status, stepOf: null } }])))
       return
     }
     const { id: parent, at } = readStep(carried)
@@ -1094,7 +1094,7 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
               const heading = id === 'now' && openNow.length > 3 && drawn.some((task) => task.id === openNow[2].id)
               return (
                 <DayDrag lines={drawn.map((task) => ({ id: task.id, title: task.title, steps: (task.subtasks ?? []).map((one) => one.text), struck: done(task) }))}
-                  heading={heading ? { after: openNow[2].id, id: 'top-three' } : undefined}
+                  heading={heading ? { after: openNow[2].id, id: 'top-three' } : undefined} tail={`new:${id}`}
                   onDrop={dropped(id)} onPlace={dropOn(id)} places={{ said: placeSaid, foot: foot(id) }}>
                   {/* The top three, then the rest of today: a small heading inside Now, under the third, only when there is a rest.
                       No rule and no section's room above it: it is still today, so it never reads as a list of its own ahead of
@@ -1108,11 +1108,13 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
                       </div>
                     </Slid>
                   )] : [row(task, id)])}
+                  <Slid id={`new:${id}`}>
+                    {draft && draft.section === id && draft.after === null && !draft.parent && draftLine(id, 0)}
+                    {newLine(id, id === 'now' ? (list.length ? 'Another line' : 'The first thing, the one that matters most') : id === 'next' ? 'Something for after today' : 'Something for someday')}
+                  </Slid>
                 </DayDrag>
               )
             })()}
-            {draft && draft.section === id && draft.after === null && !draft.parent && draftLine(id, 0)}
-            {newLine(id, id === 'now' ? (list.length ? 'Another line' : 'The first thing, the one that matters most') : id === 'next' ? 'Something for after today' : 'Something for someday')}
           </>
         )}
       </section>
