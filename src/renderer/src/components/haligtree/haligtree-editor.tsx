@@ -270,6 +270,10 @@ import "@/components/haligtree/haligtree-editor.scss"
 import { GripVertical } from '@/components/ui/icons'
 import { BackToTop } from '@/components/haligtree/ui'
 import { domOf, useEditorDom } from '@/lib/editor-dom'
+import { installBlockCarry } from '@/lib/block-carry'
+
+// A block dragged by its grip lifts into a card that follows the pointer (lib/block-carry.ts).
+installBlockCarry()
 
 /** The page's document editors, any of which can read Markdown for `readMarkdown`. */
 /** Editors whose Markdown is already laid in: a view mounted again keeps what was typed since. */
