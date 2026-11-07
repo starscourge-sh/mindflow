@@ -42,7 +42,7 @@ try {
   const id = await v('article:new')
   await v('item:save', id, { title: 'Talked', body: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Before ' }] }] } })
   await c.send('article', id); await wait(1400)
-  await h.click(EDITOR); await h.keyboard.press('Meta+ArrowDown')
+  await h.click(EDITOR); await h.keyboard.press('Meta+ArrowDown'); await wait(300)
 
   // An older helper: words, no levels.
   await h.keyboard.press('Alt+Space'); await wait(400)
