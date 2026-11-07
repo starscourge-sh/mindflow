@@ -285,8 +285,13 @@ export function SplitDrop({ onDrop, onRow }: { onDrop: (carried: Carried, at: nu
       const take = target || queue ? null : takeAt(px, py)
       if (take !== taking) {
         letTake()
-        if (take) (take.dataset.paneTake = ''), setTakeBox(take.getBoundingClientRect()), down?.source.carried.tab || click('tick')
+        if (take) (take.dataset.paneTake = ''), down?.source.carried.tab || click('tick')
         taking = take
+      }
+      // Measured as it goes: the pages ease aside for the edges' places while the drag begins.
+      if (take) {
+        const box = take.getBoundingClientRect()
+        setTakeBox((was) => (was && Math.abs(was.left - box.left) < 1 && Math.abs(was.width - box.width) < 1 && Math.abs(was.top - box.top) < 1 ? was : box))
       }
       shrink.set(target || queue || take ? 0.86 : 1)
       if (target !== over) {
@@ -457,7 +462,7 @@ export function SplitDrop({ onDrop, onRow }: { onDrop: (carried: Carried, at: nu
         >
           <AnimatePresence>
             {takeBox && (
-              <motion.div key="take" data-pane-take-box="" aria-label="Open here" className="absolute flex items-center justify-center"
+              <motion.div key="take" data-pane-take-box="" aria-label="Open here" className="absolute flex items-start justify-center pt-10"
                 style={{ left: takeBox.left, top: takeBox.top, width: takeBox.width, height: takeBox.height }}
                 initial={{ opacity: 0, scale: 0.985 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, transition: { duration: 0.08 } }}
                 transition={{ type: 'spring', duration: 0.22, bounce: 0 }}>
