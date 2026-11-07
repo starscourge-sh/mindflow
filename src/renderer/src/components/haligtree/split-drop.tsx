@@ -7,9 +7,9 @@ import { chime, click } from '@/lib/sound'
 import { canSplit } from '@/lib/split'
 import { enqueue } from '@/lib/reading-queue'
 import { CAPTURE_TYPES } from '../capture-kinds/capture-kind-picker'
-import { cut } from '../../../../main/clip'
 import { still } from '@/lib/motion'
 import { refuse } from './ui'
+import { CarriedCard, swallowClick, swallowRelease, titleOf } from './carry'
 import { gapIn, setCarry } from './tab-row'
 
 /**
@@ -89,12 +89,6 @@ const takes = (place: HTMLElement, carried: Carried, node: HTMLElement | undefin
 /** A sidebar folder of one list, and a row of the other carried over it. */
 const wrongFolder = (place: HTMLElement, node: HTMLElement | undefined): boolean =>
   !!place.dataset.folderList && !!node?.dataset.type && node.dataset.type !== place.dataset.folderList
-
-/** A carried thing's name, as it reads: its title, never the age or counts beside it. */
-const titleOf = (node: HTMLElement): string =>
-  node.dataset.dragTitle ||
-  (node.querySelector<HTMLElement>('.private-text, [data-title]')?.innerText ?? node.innerText).split('\n').map((line) => line.trim()).map((line) => cut(line, 80)).find(Boolean) ||
-  'Untitled'
 
 /** `reach`: the card and everything between it and its side of the page, top to bottom: the pointer at the very edge is in it too. */
 type Zone = { key: string; side: Side; at: number; left: number; top: number; width: number; height: number; reach: { left: number; right: number; top: number; bottom: number } }
@@ -341,12 +335,6 @@ export function SplitDrop({ onDrop, onRow }: { onDrop: (carried: Carried, at: nu
       if (active) return follow(event.clientX, event.clientY)
       begin(event.clientX, event.clientY)
     }
-    // The click a release makes lands on nothing.
-    const swallowClick = (): void => {
-      const swallow = (late: MouseEvent): void => (late.stopPropagation(), late.preventDefault())
-      window.addEventListener('click', swallow, { capture: true, once: true })
-      setTimeout(() => window.removeEventListener('click', swallow, { capture: true }), 80)
-    }
     const onUp = (event: PointerEvent): void => {
       // A task row carried and let go short of the edge was a drag, not a click: it does not open.
       if (!active && down?.source.edgeOnly && Math.hypot(event.clientX - down.x, event.clientY - down.y) >= START) swallowClick()
@@ -389,6 +377,7 @@ export function SplitDrop({ onDrop, onRow }: { onDrop: (carried: Carried, at: nu
       if (!active || event.key !== 'Escape') return
       event.preventDefault()
       event.stopPropagation()
+      swallowRelease()
       dropListDrag()
       chime('stay')
       reset()
@@ -432,13 +421,8 @@ export function SplitDrop({ onDrop, onRow }: { onDrop: (carried: Carried, at: nu
           {zones.map((zone) => (
             <ZoneBox key={zone.key} zone={zone} hot={hot === zone.key} lean={zone.side === 'between' ? undefined : leanS[zone.side]} grow={zone.side === 'between' ? undefined : growS[zone.side]} />
           ))}
-          {!bare && <motion.div
-            data-split-card=""
-            className="absolute top-0 left-0 flex max-w-56 items-center gap-2 rounded-lg bg-foreground px-2.5 py-1.5 text-control text-background shadow-[0_10px_28px_-8px_color-mix(in_oklab,var(--mf-shadow-ink)_45%,transparent)]"
-            style={{ x: card.x, y: card.y, scale: cardScale, translateX: '-50%', translateY: '-50%' }}
-          >
-            {kind ? <kind.icon className="size-3.5 shrink-0" style={{ color: kind.tint }} /> : <Columns2 className="size-3.5 shrink-0 opacity-70" />}
-            <span className="private-text min-w-0 truncate">{carried.title}</span>
+          {!bare && <motion.div className="absolute top-0 left-0 max-w-56" style={{ x: card.x, y: card.y, scale: cardScale, translateX: '-50%', translateY: '-50%' }}>
+            <CarriedCard attrs={{ 'data-split-card': '' }} title={carried.title} icon={kind ? <kind.icon className="size-3.5 shrink-0" style={{ color: kind.tint }} /> : <Columns2 className="size-3.5 shrink-0 opacity-70" />} />
           </motion.div>}
         </motion.div>
       )}

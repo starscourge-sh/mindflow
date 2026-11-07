@@ -4,6 +4,7 @@ import { DndContext, DragOverlay, useDndMonitor, PointerSensor, closestCenter, u
 import { SortableContext, arrayMove, horizontalListSortingStrategy, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { motion } from 'motion/react'
 import { EASING, spring, still } from '@/lib/motion'
+import { CarriedCard, Hand, swallowRelease, titleOf } from './carry'
 import { chime } from '@/lib/sound'
 import { slotTicker } from '@/lib/proximity'
 
@@ -15,7 +16,7 @@ import { slotTicker } from '@/lib/proximity'
  */
 
 /** Up and down only: a list has no sideways. */
-const upDown: Modifier = ({ transform }) => ({ ...transform, x: 0 })
+export const upDown: Modifier = ({ transform }) => ({ ...transform, x: 0 })
 /** Side to side only, for a row of tabs. */
 const sideways: Modifier = ({ transform }) => ({ ...transform, y: 0 })
 
@@ -31,6 +32,7 @@ const putBack = (event: KeyboardEvent): void => {
   if (event.key !== 'Escape') return
   event.preventDefault()
   event.stopPropagation()
+  swallowRelease()
   window.dispatchEvent(new Event('resize'))
 }
 
@@ -80,11 +82,7 @@ const Sorting = createContext(false)
 /** The list's order, as one string: a row glides only when this changes, never when a row above it grows or folds. */
 const Order = createContext<string | undefined>(undefined)
 
-/**
- * The lifted row, as it looked when picked up. A picture of it rather than the
- * row itself, so it stays under the pointer even when the list, which only
- * draws the rows in view, scrolls the real one away.
- */
+/** A card on the Board, as it looked when picked up: a card lifted is the same card. */
 export const snapshot = (id: string): Shot | null => {
   const node = document.querySelector<HTMLElement>(`[data-sortable-id="${CSS.escape(id)}"]`)
   if (!node) return null
@@ -93,14 +91,58 @@ export const snapshot = (id: string): Shot | null => {
 }
 type Shot = { id: string; html: string; width: number; height: number }
 
-export function Lifted({ shot }: { shot: Shot | null }): React.JSX.Element | null {
-  if (!shot) return null
-  // A card that has a border of its own (the week's) keeps just that one: the
-  // ring is for rows, which have none, and both together drew a double edge.
-  // One surface: the row's own light (pointed at, under the keys, picked) and a
-  // group's panel came along in the picture and read as a card inside the card.
-  return <div data-lifted="" style={{ width: shot.width }} className="cursor-grabbing rounded-md bg-background shadow-(--mf-shadow-lift) ring-1 ring-foreground/10 has-[>.border]:ring-0 [&_[data-panel]]:hidden [&_[data-row]]:bg-transparent!" dangerouslySetInnerHTML={{ __html: shot.html }} />
+/** What a lifted row's card says, read as it is picked up: the row itself may scroll away under the pointer. */
+const carriedOf = (id: string, event: Event): Lift | null => {
+  const node = document.querySelector<HTMLElement>(`[data-sortable-id="${CSS.escape(id)}"]`)
+  if (!node) return null
+  const x = event instanceof PointerEvent ? event.clientX : 0
+  const icon = [...node.querySelectorAll('svg')].find((one) => !one.closest('[data-grip]'))
+  return { title: titleOf(node), icon: icon?.outerHTML, grab: x - node.getBoundingClientRect().left, from: x }
 }
+type Lift = { title: string; icon?: string; grab: number; from: number }
+
+function Lifted({ shot, axis = 'y' }: { shot: Lift | null; axis?: 'x' | 'y' }): React.JSX.Element | null {
+  if (!shot) return null
+  return (
+    <Hand grab={shot.grab} from={axis === 'x' ? null : shot.from}>
+      <CarriedCard attrs={{ 'data-lifted': '' }} title={shot.title} icon={shot.icon ? <span aria-hidden className="shrink-0 [&_svg]:block [&_svg]:size-4" dangerouslySetInnerHTML={{ __html: shot.icon }} /> : undefined} />
+    </Hand>
+  )
+}
+
+/**
+ * Places on the page a row can be dropped on, as well as among its rows (a tab,
+ * a folded section's heading, a card): any element marked `data-row-drop` with
+ * what it is. The one under the pointer is lit and its name said.
+ */
+export function usePlaces(on: boolean): { place: string | null; aimed: { current: HTMLElement | null }; aimAt: (next: HTMLElement | null) => void; following: (on: boolean) => void } {
+  const [place, setPlace] = useState<string | null>(null)
+  const aimed = useRef<HTMLElement | null>(null)
+  const aimAt = (next: HTMLElement | null): void => {
+    if (aimed.current === next) return
+    if (aimed.current) delete aimed.current.dataset.dropHot
+    if (next) next.dataset.dropHot = ''
+    aimed.current = next
+    setPlace(next?.dataset.rowDrop ?? null)
+    if (next) chime('tick')
+  }
+  // The place under the pointer itself, wherever it goes: the lifted row goes up and down only, and a drag's own move is the row's.
+  const follow = useRef((event: PointerEvent): void => {
+    const under = document.elementsFromPoint(event.clientX, event.clientY)
+    aimAt(under.map((one) => one.closest<HTMLElement>('[data-row-drop]')).find((one) => !!one) ?? null)
+  })
+  const following = (going: boolean): void => {
+    if (going && on) window.addEventListener('pointermove', follow.current)
+    else window.removeEventListener('pointermove', follow.current)
+  }
+  useEffect(() => () => following(false), []) // eslint-disable-line react-hooks/exhaustive-deps
+  return { place, aimed, aimAt, following }
+}
+
+/** What letting go on a place does, in the words the refused note uses for where it cannot go. */
+export const PlaceSaid = ({ place, said }: { place: string; said: string }): React.JSX.Element => (
+  <div data-drop-said={place} className="rounded-md bg-popover px-2 py-1 text-control text-foreground shadow-(--mf-shadow-lift) ring-1 ring-foreground/10">{said}</div>
+)
 
 /**
  * A list whose rows can be dragged into a new order. It holds the new order
@@ -126,19 +168,10 @@ export function SortableList<T>({ items, keyOf, onMove, axis = 'y', places, chil
 }): React.JSX.Element {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
   const [held, setHeld] = useState<string[] | null>(null)
-  const [shot, setShot] = useState<Shot | null>(null)
+  const [shot, setShot] = useState<Lift | null>(null)
   const [sorting, setSorting] = useState(false)
   // The place the row is over, if any: its element lit, its name said.
-  const [aim, setAim] = useState<string | null>(null)
-  const aimed = useRef<HTMLElement | null>(null)
-  const aimAt = (next: HTMLElement | null): void => {
-    if (aimed.current === next) return
-    if (aimed.current) delete aimed.current.dataset.dropHot
-    if (next) next.dataset.dropHot = ''
-    aimed.current = next
-    setAim(next?.dataset.rowDrop ?? null)
-    if (next) chime('tick')
-  }
+  const { place: aim, aimed, aimAt, following } = usePlaces(!!places)
   const settle = useRef<ReturnType<typeof setTimeout>>(undefined)
   const done = (): void => (clearTimeout(settle.current), void (settle.current = setTimeout(() => setSorting(false), 320)))
   // A soft tick as the lifted row comes over each new place in the list.
@@ -147,25 +180,15 @@ export function SortableList<T>({ items, keyOf, onMove, axis = 'y', places, chil
   const incoming = ids.join('\n')
   // The saved order (or anything else) has arrived: it is the truth again.
   useEffect(() => setHeld(null), [incoming])
-  // The place under the pointer itself, wherever it goes: the lifted row goes up and down only, and a drag's own move is the row's.
-  const follow = useRef((event: PointerEvent): void => {
-    const under = document.elementsFromPoint(event.clientX, event.clientY)
-    aimAt(under.map((one) => one.closest<HTMLElement>('[data-row-drop]')).find((one) => !!one) ?? null)
-  })
-  const following = (on: boolean): void => {
-    if (on && places) window.addEventListener('pointermove', follow.current)
-    else window.removeEventListener('pointermove', follow.current)
-  }
-  useEffect(() => () => following(false), []) // eslint-disable-line react-hooks/exhaustive-deps
   if (!onMove) return <>{children(items)}</>
   const byId = new Map(items.map((item) => [keyOf(item), item]))
   const shown = held ? held.map((id) => byId.get(id)).filter((one): one is T => !!one) : items
-  const onDragStart = ({ active }: DragStartEvent): void => {
+  const onDragStart = ({ active, activatorEvent }: DragStartEvent): void => {
     chime('lift')
     clearTimeout(settle.current)
     setSorting(true)
     ticks.start(String(active.id))
-    setShot(snapshot(String(active.id)))
+    setShot(carriedOf(String(active.id), activatorEvent))
     following(true)
   }
   const onDragEnd = ({ active, over }: DragEndEvent): void => {
@@ -195,11 +218,10 @@ export function SortableList<T>({ items, keyOf, onMove, axis = 'y', places, chil
       {shot && places?.foot && <div data-drop-foot-over className="relative z-10 h-0"><div className="absolute inset-x-0 top-0 bg-background pb-2">{places.foot}</div></div>}
       <Overlay dropAnimation={still() || aim ? null : SETTLE}>
         {shot && (
-          <div className="flex flex-col items-start gap-1">
-            {/* Over a place, the row's picture steps aside so the lit place under it shows. */}
-            <div className={aim ? 'opacity-0' : undefined}><Lifted shot={shot} /></div>
-            {/* What letting go here does, in the words the refused note uses for where it cannot go. */}
-            {aim && places && <div data-drop-said={aim} className="rounded-md bg-popover px-2 py-1 text-control text-foreground shadow-(--mf-shadow-lift) ring-1 ring-foreground/10">{places.said(aim)}</div>}
+          <div className="flex h-full flex-col items-start gap-1">
+            {/* Over a place, the row's card steps aside so the lit place under it shows, and what letting go does is said. */}
+            <div className={`h-full w-full ${aim ? 'opacity-0' : ''}`}><Lifted shot={shot} axis={axis} /></div>
+            {aim && places && <PlaceSaid place={aim} said={places.said(aim)} />}
           </div>
         )}
       </Overlay>
@@ -238,8 +260,8 @@ function Row({ id, className, children }: { id: string; className?: string; chil
       // The row's own button keeps the focus and the keys; this is only the grip.
       tabIndex={-1}
       role={undefined}
-      className={className}
-      style={{ transform: transform ? (axis === 'x' ? `translate3d(${Math.round(transform.x)}px, 0, 0)` : `translate3d(0, ${Math.round(transform.y)}px, 0)`) : undefined, transition, opacity: isDragging ? 0.3 : undefined }}
+      className={`${className ?? ''} ${isDragging ? 'mf-carried-place' : ''}`}
+      style={{ transform: transform ? (axis === 'x' ? `translate3d(${Math.round(transform.x)}px, 0, 0)` : `translate3d(0, ${Math.round(transform.y)}px, 0)`) : undefined, transition }}
     >
       {children}
     </div>
@@ -274,7 +296,7 @@ export function BlockList<T>({ blocks, keyOf, onMove, refuse, row, around }: {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
   const list = useId()
   const [held, setHeld] = useState<{ key: string; ids: string[] }[] | null>(null)
-  const [shot, setShot] = useState<Shot | null>(null)
+  const [shot, setShot] = useState<Lift | null>(null)
   const [slot, setSlot] = useState<Slot | null>(null)
   const [refused, setRefused] = useState(false)
   const [sorting, setSorting] = useState(false)
@@ -324,13 +346,13 @@ export function BlockList<T>({ blocks, keyOf, onMove, refuse, row, around }: {
     const at = ids.indexOf(id)
     return at >= 0 && (drop.before === id || drop.before === (ids[at + 1] ?? null))
   }
-  const onDragStart = ({ active }: DragStartEvent): void => {
+  const onDragStart = ({ active, activatorEvent }: DragStartEvent): void => {
     chime('lift')
     clearTimeout(settle.current)
     setSorting(true)
     lifted.current = String(active.id)
     ticks.start('stay')
-    setShot(snapshot(String(active.id)))
+    setShot(carriedOf(String(active.id), activatorEvent))
   }
   const onDragMove = ({ activatorEvent, delta }: DragMoveEvent): void => {
     const found = where((activatorEvent as PointerEvent).clientY + delta.y)
@@ -360,8 +382,8 @@ export function BlockList<T>({ blocks, keyOf, onMove, refuse, row, around }: {
       {slot && createPortal(<div data-drop-line={`${slot.block}:${slot.before ?? ''}`} aria-hidden className="pointer-events-none fixed z-[70] h-0.5 rounded-full bg-primary" style={{ top: Math.round(slot.y) - 1, left: slot.left + 4, width: slot.width - 8 }} />, document.body)}
       <Overlay dropAnimation={still() || refused ? null : SETTLE}>
         {shot && (
-          <div className="flex flex-col items-start gap-1">
-            <div className={refused ? 'opacity-50' : undefined}><Lifted shot={shot} /></div>
+          <div className="flex h-full flex-col items-start gap-1">
+            <div className={`h-full w-full ${refused ? 'opacity-50' : ''}`}><Lifted shot={shot} /></div>
             {refused && refuse && <div data-drop-refused className="rounded-md bg-popover px-2 py-1 text-control text-foreground shadow-(--mf-shadow-lift) ring-1 ring-foreground/10">{refuse.said}</div>}
           </div>
         )}

@@ -2438,7 +2438,14 @@ aside[data-chrome] button:not(:disabled), aside[data-chrome] button:not(:disable
 [data-sortable-id] [role='switch']:not([data-disabled]), [data-sortable-id] [aria-haspopup]:not(:disabled) { cursor: pointer; }
 [data-sortable-id] [data-grip] { cursor: grab; }
 [data-sortable-id] [data-grip]:active { cursor: grabbing; }
-html[data-dragging] [data-grip] { display: none; }
+/* Out of sight, keeping its room: taken out of the line, every line's tick moved left under a drag. */
+html[data-dragging] [data-grip] { visibility: hidden; }
+/* A line's tools and its + stand down while anything is carried, whichever line held the focus. */
+html[data-dragging] :is([data-line-tools], [data-add-below]) { visibility: hidden; }
+/* A row's own place while it is carried: a quiet room, never a faded copy of it. */
+.mf-carried-place { position: relative; }
+.mf-carried-place > * { opacity: 0; }
+.mf-carried-place::before { content: ''; position: absolute; inset: 0 0.25rem; border-radius: 0.5rem; background: color-mix(in srgb, var(--tt-brand-color-400) 6%, transparent); }
 /* A list's hover light is out while a row is carried: left on, it stayed where a row was before the rows slid aside. */
 html[data-dragging] [data-glide] { display: none; }
 html[data-dragging], html[data-dragging] * { cursor: grabbing !important; }

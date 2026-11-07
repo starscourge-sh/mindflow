@@ -434,6 +434,8 @@ const CLICKS = {
   // Kept below the press's tick, like every hover sound: passing over
   // something must never sound as if it had been clicked.
   knock: { duration: 0.012, frequency: 1100, q: 2, volume: 0.1, decay: 45 },
+  // Something carried crossing a group's or folder's edge: lower and fuller than the tick between rows.
+  edge: { duration: 0.014, frequency: 1250, q: 2.2, volume: 0.17, decay: 38 },
   // Opening a note: its "confirm", a little brighter than the hover.
   tick: { duration: 0.008, frequency: 2800, q: 3, volume: 0.14, decay: 24 },
   // Brutal chosen in Settings: a low, heavy block dropped. Pressed only:

@@ -37,7 +37,7 @@ async function scene() {
     // Ours first, the sandbox's own pages after them.
     top: ['g:mu', ids['Loose one'], ids['Loose two'], ...(await v('items', 'article')).map((one) => one.id).filter((id) => !Object.values(ids).includes(id))],
     groups: { mu: [ids['Alpha study'], ids['Beta study'], ids['Gamma study']] },
-    revive: [{ id: 'mu', name: 'Music Studies', icon: null, color: null, folded: 0 }]
+    revive: [{ id: 'mu', name: 'Music Studies', icon: null, color: null, folded: 0, folder: 0 }]
   })
   await c.go('articles')
   await wait(900)

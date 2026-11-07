@@ -200,7 +200,6 @@ test('a subgroup let go on another subgroup goes inside it, a third level; besid
 
 test('carried left out of its folder, a note lands just under it, and nowhere else', () => {
   assert.deepEqual(drop(base(), 'b', 'g:G', 'out', new Set(), make), { top: ['a', 'g:G', 'b', 'd', 'e'], groups: { G: ['c'] } })
-  assert.equal(drop(base(), 'a', 'g:G', 'out', new Set(), make), null)
   assert.equal(drop(base(), 'b', 'c', 'out', new Set(), make), null)
 })
 
@@ -208,4 +207,12 @@ test('gathering at the top level keeps an empty folder standing where it was', (
   const made = gather({ top: ['g:E', 'a', 'b'], groups: { E: [] } }, 'a', ['b'], { id: 'n', name: 'Group 1' })
   assert.deepEqual(made.top, ['g:E', 'g:n'])
   assert.deepEqual(made.groups.E, [])
+})
+
+test('past a group\'s edge: out of it, wherever it was carried from', () => {
+  const layout = base()
+  assert.deepEqual(drop(layout, 'c', 'g:G', 'out', none, make)?.top, ['a', 'g:G', 'c', 'd', 'e'])
+  assert.deepEqual(drop(layout, 'a', 'g:G', 'out', none, make)?.top, ['g:G', 'a', 'd', 'e'])
+  assert.equal(drop(layout, 'a', 'd', 'out', none, make), null)
+  assert.equal(landsIn(layout, 'g:G', 'out', none), null)
 })

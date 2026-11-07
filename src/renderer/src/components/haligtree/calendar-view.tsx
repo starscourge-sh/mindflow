@@ -1,4 +1,5 @@
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { CARD } from './carry'
 import { useReading, useReadsIn } from '@/lib/reads-in'
 import { createPortal } from 'react-dom'
 import { motion } from 'motion/react'
@@ -552,7 +553,7 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
       </div>
       {carry?.kind === 'move' && (!carry.to || carry.to.minute === null) && createPortal(
         <div data-cal-carried style={{ left: carry.x + 8, top: carry.y + 8 }}
-          className="pointer-events-none fixed z-50 flex max-w-56 items-center gap-2 rounded-md border bg-background px-2 py-1 text-control text-foreground shadow-(--mf-shadow-lift)">
+          className={`pointer-events-none fixed z-50 flex max-w-56 items-center gap-2 ${CARD}`}>
           <span aria-hidden className="h-4 w-[3px] shrink-0 rounded-full" style={{ background: ACCENT }} />
           <span className="truncate">{taskName(carry.task.title).text}</span>
         </div>, document.body)}

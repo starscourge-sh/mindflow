@@ -11,6 +11,7 @@ import DotsHorizontalIcon from '@/components/ui/dots-horizontal-icon'
 import { Timer as CalendarClock, Bookmark as Telescope } from '@/components/ui/icons'
 import { Tip } from '@/components/haligtree/ui'
 import { slotTicker } from '@/lib/proximity'
+import { CARD } from './carry'
 import { Overlay, SETTLE } from './sortable'
 import { MarkChip } from './milestones'
 import { chime, quietFor } from '@/lib/sound'
@@ -274,7 +275,7 @@ export function MonthPlan({ tasks, onDay, onSide, onOpen, onWeek, onMonth, onSho
         </div>
       </div>
       <Overlay dropAnimation={SETTLE}>
-        {carried && carried.kind !== 'back' && <span className="block rounded-sm bg-popover px-1.5 py-0.5 text-control text-foreground shadow-(--mf-panel-shadow) ring-1 ring-foreground/10">{carried.kind === 'mark' ? `${carried.one.icon ? `${carried.one.icon} ` : ''}${carried.one.title}` : taskName(carried.task.title).text}</span>}
+        {carried && carried.kind !== 'back' && <span className={`block ${CARD}`}>{carried.kind === 'mark' ? `${carried.one.icon ? `${carried.one.icon} ` : ''}${carried.one.title}` : taskName(carried.task.title).text}</span>}
       </Overlay>
       </DndContext>
       <DotsKey opened={marking} captures={counting} />

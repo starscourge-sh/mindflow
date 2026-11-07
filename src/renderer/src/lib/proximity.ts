@@ -1,5 +1,5 @@
 import { click } from './sound'
-import { detent as feel } from './haptics'
+import { detent as feel, edge } from './haptics'
 
 /**
  * Guiding the hand to where it means to land, the way the theme dial does:
@@ -26,16 +26,18 @@ export function detent(value: number, at: number, reach: number): number {
  * between rows), heard once as it arrives rather than while it stays. Nowhere
  * (null) is silent and remembers, so a slip across the gutter between two
  * places and back is not heard twice. `start` names where the drag began,
- * which is not an arrival.
+ * which is not an arrival. `firm`: this place crosses into or out of what holds
+ * it (a group's or folder's edge), heard with its own tick and the firmer tap.
  */
-type SlotTicker = ((slot: string | number | null | undefined) => void) & { start: (slot: string | number | null | undefined) => void }
+type SlotTicker = ((slot: string | number | null | undefined, firm?: boolean) => void) & { start: (slot: string | number | null | undefined) => void }
 export function slotTicker(): SlotTicker {
   let last: string | number | null = null
-  const tick = (slot: string | number | null | undefined): void => {
+  const tick = (slot: string | number | null | undefined, firm = false): void => {
     if (slot === null || slot === undefined || slot === last) return
     last = slot
-    click('tick')
-    feel()
+    click(firm ? 'edge' : 'tick')
+    if (firm) edge()
+    else feel()
   }
   return Object.assign(tick, { start: (slot: string | number | null | undefined) => void (last = slot ?? null) })
 }

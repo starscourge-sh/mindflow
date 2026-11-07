@@ -36,7 +36,7 @@ async function scene({ folded = [], top, groups } = {}) {
   const layout = {
     top: top ?? ['g:an', 'g:ot', ids['Loose one'], ids['Loose two']],
     groups: groups ?? { an: ['g:g2', 'g:g3', ids['Remove account check']], g2: [ids['THE AGREEMENT'], ids.Notes, ids.Accounts], g3: [ids.Buy, ids.Bed, ids.Todos], ot: [ids.Xenon, ids.Yttrium] },
-    revive: Object.entries(NAMES).filter(([id]) => !groups || id in groups).map(([id, name]) => ({ id, name, icon: null, color: null, folded: folded.includes(id) ? 1 : 0 }))
+    revive: Object.entries(NAMES).filter(([id]) => !groups || id in groups).map(([id, name]) => ({ id, name, icon: null, color: null, folded: folded.includes(id) ? 1 : 0, folder: 0 }))
   }
   await v('groups:arrange', 'article', layout)
   for (const [id] of Object.entries(NAMES)) await v('groups:set', id, { folded: folded.includes(id) })

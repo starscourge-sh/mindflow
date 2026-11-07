@@ -32,10 +32,9 @@ export function tap(kind: 'align' | 'level' = 'align'): void {
   if (tapKinds.push(kind) > 500) tapKinds.shift()
   // Tests count the taps and never play one (HALIGTREE_QA_AWAY).
   if (process.env.HALIGTREE_QA_AWAY) return
-  // Always the firmer of the Mac's taps (its level change): the alignment tap was too light to feel (the user asked
-  // for stronger). macOS gives no control of strength beyond which pattern plays. `kind` is kept for the callers.
-  void kind
-  tapper?.(1)
+  // macOS gives no control of strength beyond which pattern plays. The firm tap is its level change; the light one its
+  // generic tap, since the alignment pattern was too light to feel (the user asked for stronger).
+  tapper?.(kind === 'level' ? 1 : 2)
 }
 
 /**
