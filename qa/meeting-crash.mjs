@@ -227,11 +227,18 @@ try {
   process.kill(helpers()[0], 'SIGKILL')
   await until(() => helpers().length === 0)
   await crash()
+  // A recorder still busy finishing it, so the crash lands during "Keep" every time (a short recording finishes too fast to catch).
+  const busy = join(DATA, 'busy.sh')
+  writeFileSync(busy, '#!/bin/sh\nexec sleep 20\n')
+  chmodSync(busy, 0o755)
+  process.env.HALIGTREE_QA_MEETING_PROGRAM = busy
   await launch()
   check('3: paused and killed: offered', await offerShows())
   // ---- 4. A crash during recovery: nothing lost, offered again.
   await c.h.click('[data-recording-left-keep]')
+  await c.h.waitForTimeout(500)
   await crash()
+  delete process.env.HALIGTREE_QA_MEETING_PROGRAM
   await launch()
   check('4: crashed during "Keep": offered again, once', await offerShows())
   await stillOne('4')
@@ -406,6 +413,18 @@ try {
     rmSync(brim, { force: true })
     const c2 = await run(['recover', killedFolder])
     check('12: room again: "recover" finishes it', (await c2.ended) === 0 && /"saved"/.test(c2.out()), c2.out().slice(0, 80))
+    // ---- 13. The real program killed while it makes the files: the sound is untouched and the next go finishes it.
+    const long = join(DATA, 'long')
+    mkdirSync(long)
+    const sound = Buffer.alloc(32000 * 1800, 1)
+    for (const side of ['you', 'others']) writeFileSync(join(long, `${side}.pcm`), sound)
+    const d1 = await run(['recover', long])
+    await sleep(400)
+    d1.one.kill('SIGKILL')
+    await d1.ended
+    check('13: killed while making the files: none is passed off as finished, the sound is untouched', !existsSync(join(long, 'meeting.m4a')) && statSync(join(long, 'others.pcm')).size === sound.length, readdirSync(long))
+    const d2 = await run(['recover', long])
+    check('13: the next go finishes it', (await d2.ended) === 0 && /"seconds":1800/.test(d2.out()), d2.out().slice(0, 60))
   } finally {
     execFileSync('hdiutil', ['detach', volume, '-force'], { stdio: 'ignore' })
   }
