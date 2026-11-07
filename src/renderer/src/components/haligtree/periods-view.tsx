@@ -182,12 +182,19 @@ function Masthead({ parts, headline, named }: { parts: React.ReactNode[]; headli
  * for a week the month's own aims: so a review starts from what you said
  * you would do, not from a blank page.
  */
-function CarriedOver({ lines }: { lines: [string, string][] }): React.JSX.Element | null {
+function CarriedOver({ lines }: { lines: ([string, string] | [string, string, { period: string; field: string }])[] }): React.JSX.Element | null {
   const shown = lines.filter(([, text]) => text.trim())
   if (!shown.length) return null
   return (
     <Island className="mt-5">
-      {shown.map(([label, text]) => (
+      {shown.map(([label, text, home]) => home ? (
+        // Still the month's own words, written here or there: the same field, kept where it lives.
+        <label key={label} data-carried={label} className="flex cursor-text flex-col gap-0.5 px-4 py-2.5 focus-within:bg-accent/40">
+          <span className="text-control font-medium text-foreground/80">{label}</span>
+          <textarea key={text} defaultValue={text} aria-label={label} onBlur={(event) => event.target.value !== text && saveField(home.period, home.field, event.target.value)}
+            className="resize-none bg-transparent text-body text-foreground outline-none [field-sizing:content]" />
+        </label>
+      ) : (
         <p key={label} data-carried={label} className="flex flex-col gap-0.5 px-4 py-2.5">
           <span className="text-control font-medium text-foreground/80">{label}</span>
           <span className="text-body whitespace-pre-line text-foreground">{text}</span>
@@ -274,7 +281,7 @@ export function WeekPage({ start, onOpen, onScale, onRecent, recentOpen, onDay }
         <div data-week-carried>
           <CarriedOver lines={[
             ['Last week you meant to', before?.fields.intentions ?? ''],
-            [`${monthName(inMonth, false)}'s focus`, monthPage?.fields.focus ?? ''],
+            [`${monthName(inMonth, false)}'s focus`, monthPage?.fields.focus ?? '', { period: `month:${inMonth}`, field: 'focus' }],
             [`Goals due in ${monthName(inMonth, false)}`, goals.map((goal) => `${goal.title}, by ${dayjs(goal.goalAt!).format('D MMMM')}`).join('\n')]
           ]} />
         </div>
