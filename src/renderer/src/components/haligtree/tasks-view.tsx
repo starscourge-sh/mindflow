@@ -726,7 +726,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
   const [unfolded, setUnfolded] = useState<{ ids: string[]; at: number } | null>(null)
   const unfold = (list: Task[]): void => setUnfolded({ ids: list.map((task) => task.id), at: performance.now() })
   // Nothing of this list's yet: a few made-up tasks show what it holds, dimmed and out of reach.
-  const example = !unloaded(real) && !unloaded(held) && !real.some((task) => task.status === 'open' && (mode === 'alltasks' || homeOf(task) === home)) && !held.length
+  const example = !unloaded(real) && !unloaded(held) && !real.some((task) => task.status === 'open' && (mode === 'routines' ? !!task.recurrence : mode === 'later' ? homeOf(task) === 'later' : mode === 'upcoming' ? !task.recurrence : true)) && !held.length
   const examples = useMemo(exampleTasks, [])
   const tasks = example ? examples : real
   // Opened from elsewhere with its words already read: on them from the first frame.
