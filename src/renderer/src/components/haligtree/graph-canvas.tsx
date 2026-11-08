@@ -716,8 +716,10 @@ export function GraphCanvas({ map, onOpen, centre, you, about, fit: fitRef, fly,
       }
       // Each dot stamped from its chip, made at about this zoom.
       const scale = 2 ** (Math.round(Math.log2(view.k * dpr) * 4) / 4)
-      // Faded dots first, so the lit ones sit over them; the note itself last of all.
-      const order = shown ? [...dots.filter((one) => !on(one)), ...dots.filter(on)] : dots
+      // Faded dots first, so the lit ones sit over them; the note itself last of all. In the replay a dot still
+      // springing out is drawn under the rest, so it slides out from behind its first link, never over it.
+      const settled = springs.size ? [...dots.filter((one) => springs.has(one)), ...dots.filter((one) => !springs.has(one))] : dots
+      const order = shown ? [...settled.filter((one) => !on(one)), ...settled.filter(on)] : settled
       for (const dot of middle ? [...order.filter((one) => one !== middle), middle] : order) {
         // A neighbour lights as its link arrives; the dot pointed at at once.
         const lit = !shown || dot === shown ? 1 : faded + (1 - faded) * Math.max(0, Math.min(1, (reach - 0.55) / 0.45))
