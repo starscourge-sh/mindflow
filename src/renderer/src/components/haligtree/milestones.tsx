@@ -1,6 +1,8 @@
-import { useEffect, useLayoutEffect, useRef, useState, type ReactElement } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactElement } from 'react'
 import { TIP } from '@/lib/float'
-import { GAP, STEP, STROKE_INK, StrokeAxis, StrokeRule, Strokes, placeNames, strokeAt, textWidth } from './time-strokes'
+import { GAP, LOW, STEP, STROKE_INK, StrokeAxis, StrokeRule, Strokes, TALL, placeNames, strokeAt, textWidth } from './time-strokes'
+import { SWELL, shown, useSwell, useYearZoom } from './year-zoom'
+import { useStill } from '@/lib/motion'
 import { useReading } from '@/lib/reads-in'
 import { FlagTriangleRight } from 'lucide-react'
 
@@ -356,6 +358,8 @@ function CalendarKey(): React.JSX.Element {
 const markName = (one: Milestone): string => `${one.icon ? `${one.icon} ` : ''}${one.title}`
 /** The height of one line of names over the strokes. */
 const NAME_LINE = 16
+/** The strokes' own height: room for the swell to stand up under the names without touching them. */
+const ROOM = LOW + SWELL + 2
 
 /**
  * The year as strokes (time-strokes.tsx): a hairline a day, January at the
@@ -387,7 +391,12 @@ export function YearMarks({ year, onOpenDay }: { year: string; onOpenDay?: (day:
   const days = start.endOf('year').diff(start.startOf('day'), 'day') + 1
   const today = dayKey()
   const at = today.startsWith(year) ? daysBetween(`${year}-01-01`, today) : today < year ? -1 : days
-  const dayAt = (d: number): string => dayKey(start.add(d, 'day'))
+  // Each day's words worked out once a year, not on every frame of a pinch.
+  const said = useMemo(() => Array.from({ length: 366 }, (_, d) => {
+    const one = dayjs(`${year}-01-01`).hour(12).add(d, 'day')
+    return { key: dayKey(one), monday: one.day() === 1, date: one.format('D'), name: one.format('ddd D MMM') }
+  }), [year])
+  const dayAt = (d: number): string => said[d]?.key ?? dayKey(start.add(d, 'day'))
   const indexOf = (day: string): number => daysBetween(`${year}-01-01`, day)
   const monthStart = (m: number): number => (m >= 12 ? days : indexOf(dayKey(start.add(m, 'month').startOf('month'))))
   // The whole year in one band when it fits, else two, three or four bands of whole months.
@@ -407,9 +416,26 @@ export function YearMarks({ year, onOpenDay }: { year: string; onOpenDay?: (day:
     return placeNames(marks, Math.max(width, w), 3)
   })
   const named = new Set(placed.flat().filter((one) => one.row !== null).map((one) => one.one.id))
-  const fromPointer = (clientX: number, svg: SVGSVGElement | null, band: { from: number; to: number }): number | null => {
+  // Pinched, the year spreads wider inside its card (year-zoom.ts); each band keeps the room it has at the whole year.
+  const clipOf = (band: { from: number; to: number }): number => Math.max((band.to - band.from) * stepOf(band) - GAP, w)
+  const { view, whole } = useYearZoom(box, bands.map((band) => ({ base: stepOf(band), count: band.to - band.from, clip: clipOf(band) })))
+  const zoomed = view.z > 1.001
+  const calm = useStill()
+  useSwell(box, () => stepOf(bands[0] ?? { from: 0, to: days }))
+  useEffect(() => {
+    if (!zoomed) return
+    const key = (event: KeyboardEvent): void => {
+      if (event.key !== 'Escape' || event.defaultPrevented || (event.target as Element | null)?.closest?.('input, textarea, [contenteditable="true"]')) return
+      event.preventDefault()
+      event.stopPropagation()
+      whole()
+    }
+    window.addEventListener('keydown', key, true)
+    return () => window.removeEventListener('keydown', key, true)
+  })
+  const fromPointer = (clientX: number, svg: SVGSVGElement | null, band: { from: number; to: number }, pan = 0): number | null => {
     if (!svg) return null
-    const d = strokeAt(clientX, svg.getBoundingClientRect().left, band.to - band.from, stepOf(band))
+    const d = strokeAt(clientX + pan, svg.getBoundingClientRect().left, band.to - band.from, stepOf(band) * view.z)
     return d === null ? null : band.from + d
   }
   // The marked day the pointer is on, or within two days of: a stroke is a pixel or two wide, too thin to land on.
@@ -429,38 +455,61 @@ export function YearMarks({ year, onOpenDay }: { year: string; onOpenDay?: (day:
       <figure data-year-marks aria-label={`${year}, with ${num(all.length)} marked ${all.length === 1 ? 'day' : 'days'}`} className="mf-chart relative grid min-w-0 grid-cols-[minmax(0,1fr)] gap-2"
         onContextMenuCapture={() => setAimed(dayAt(hover ?? Math.max(0, Math.min(days - 1, at))))}>
         <p data-year-marks-said className="text-control font-medium text-foreground tabular-nums">
-          {at < 0 ? `${year} is ahead` : at >= days ? `${year} is gone` : `Day ${num(at + 1)} of ${num(days)}`}{all.length ? `, ${plural(all.length, 'day', 'days')} marked` : ''}
+          {at < 0 ? `${year} is ahead` : at >= days ? `${year} is gone` : `Day ${num(at + 1)} of ${num(days)}`}{all.length ? `, ${plural(all.length, 'day', 'days')} marked` : ''}{zoomed && <span data-year-zoom-hint className="font-normal text-muted-foreground"> · Esc or a double-click for the whole year</span>}
         </p>
-        <StrokeRule>Each stroke is a day, the solid ones gone; a taller coloured stroke is a day you marked</StrokeRule>
-        <div ref={box} className="grid w-full min-w-0 gap-3">
+        <StrokeRule>Each stroke is a day, the solid ones gone; a taller coloured stroke is a day you marked; pinch to look closer</StrokeRule>
+        <div ref={box} data-year-zoom={Math.round(view.z * 100) / 100} className="grid w-full min-w-0 gap-3" onDoubleClick={whole}>
           {bands.map((band, b) => {
             const count = band.to - band.from
-            const step = stepOf(band)
+            const base = stepOf(band)
+            const step = base * view.z
             const width = count * step - GAP
-            const names = placed[b]
-            const lines = Math.max(0, ...names.map((one) => (one.row ?? -1) + 1))
+            const clip = clipOf(band)
+            const pan = view.pans[b] ?? 0
+            // The lines of names are kept from the whole year, so a pinch never moves the page under it.
+            const lines = Math.max(0, ...placed[b].map((one) => (one.row ?? -1) + 1))
+            const names = zoomed
+              ? placeNames(placed[b].map(({ one, d, w: wide }) => ({ one, d, x: (d - band.from) * step, w: wide })), Math.max(width, clip), Math.max(1, lines))
+              : placed[b]
             const rowOf = new Map(names.map((one) => [one.d, one.row]))
-            const ticks = Array.from({ length: band.months }, (_, m) => ({ x: (monthStart(band.firstMonth + m) - band.from) * step, text: start.add(band.firstMonth + m, 'month').format('MMM') }))
+            // Detail by level, as there is room: the months, then each week's Monday, then every day by name.
+            const weeks = shown(step, 6, 9)
+            const daily = shown(step, 60, 76)
+            const ticks = [
+              ...Array.from({ length: band.months }, (_, m) => ({ x: (monthStart(band.firstMonth + m) - band.from) * step, text: start.add(band.firstMonth + m, 'month').format('MMM'), rank: 0 })),
+              ...(weeks > 0 ? said.slice(band.from, band.to).flatMap((day, i) => (day.monday ? [{ x: i * step, text: day.date, rank: 1, fade: weeks }] : [])) : [])
+            ]
+            const sight = { from: pan - 90, to: pan + clip + 10 }
+            const dayTicks = daily > 0 ? said.slice(band.from, band.to).flatMap((day, i) => (i * step >= sight.from && i * step <= sight.to ? [{ x: i * step, text: day.name }] : [])) : []
+            const rest = 0.45 + 0.55 * weeks
             return (
-              <div key={band.from} data-year-band className="relative" style={{ width }}>
-                {lines > 0 && (
-                  <div data-year-names className="relative" style={{ height: lines * NAME_LINE }}>
-                    {names.filter((one) => one.row !== null).map(({ one, row, left }) => (
-                      // Quiet until its stroke is pointed at: the year reads first, the names when you look for one.
-                      <span key={one.id} data-mark-label data-mark-lit={near?.id === one.id || undefined} className={`absolute text-[11px] leading-4 font-medium whitespace-nowrap transition-opacity duration-150 ${near?.id === one.id ? 'opacity-100' : 'opacity-45'}`}
-                        style={{ left, top: (lines - 1 - (row ?? 0)) * NAME_LINE, color: inkOf(one) }}>{markName(one)}</span>
-                    ))}
+              <div key={band.from} data-year-band={b} className="relative" style={{ width: clip }}>
+                <div data-year-clip className="overflow-hidden pb-0.5 [contain:layout_paint]" style={{ width: clip }}>
+                  <div data-year-track data-year-pan={pan} style={{ width: clip }}>
+                    {lines > 0 && (
+                      <div data-year-names className="relative" style={{ height: lines * NAME_LINE, width, transform: pan ? `translateX(${-pan}px)` : undefined }}>
+                        {names.filter((one) => one.row !== null).map(({ one, row, left }) => (
+                          // Quiet until its stroke is pointed at, or the year is spread wide enough to read them: the year reads first.
+                          <span key={one.id} data-mark-label data-mark-lit={near?.id === one.id || undefined} className="absolute text-[11px] leading-4 font-medium whitespace-nowrap transition-opacity duration-150"
+                            style={{ left, top: (lines - 1 - (row ?? 0)) * NAME_LINE, color: inkOf(one), opacity: near?.id === one.id ? 1 : rest }}>{markName(one)}</span>
+                        ))}
+                      </div>
+                    )}
+                    <Strokes count={count} step={step} shift={pan} view={clip} height={ROOM} role="img" aria-label={b === 0 ? `${num(gone)} of ${num(days)} days gone` : undefined} className="cursor-pointer"
+                      ink={(i) => { const d = band.from + i; const one = markOn.get(d); return one ? inkOf(one) : d === at ? STROKE_INK.here : d < at ? STROKE_INK.gone : STROKE_INK.ahead }}
+                      // A marked stroke reaches up past the swell's room to its name; with no swell, the pointed-at stroke stands up.
+                      tall={(i) => { const d = band.from + i; const row = rowOf.get(d); return row !== undefined ? (row === null ? true : row * NAME_LINE + NAME_LINE / 2 + ROOM - TALL) : d === at || (calm && hover === d) }}
+                      attrs={(i) => { const one = markOn.get(band.from + i); return { 'data-year-day': dayAt(band.from + i), 'data-year-marked': one?.title } }}
+                      onPointerMove={(event) => setHover(fromPointer(event.clientX, event.currentTarget, band, pan))} onPointerLeave={() => setHover(null)} onClick={open} />
+                    <div data-year-months className="relative" style={{ width, transform: pan ? `translateX(${-pan}px)` : undefined }}>
+                      <StrokeAxis ticks={daily < 1 ? ticks : []} width={width} from={sight.from} to={sight.to} style={daily ? { opacity: 1 - daily } : undefined} />
+                      {daily > 0 && <StrokeAxis ticks={dayTicks} width={width} className="!absolute inset-x-0 top-0" style={{ opacity: daily }} />}
+                    </div>
                   </div>
-                )}
-                <Strokes count={count} step={step} role="img" aria-label={b === 0 ? `${num(gone)} of ${num(days)} days gone` : undefined} className="cursor-pointer"
-                  ink={(i) => { const d = band.from + i; const one = markOn.get(d); return one ? inkOf(one) : d === at ? STROKE_INK.here : d < at ? STROKE_INK.gone : STROKE_INK.ahead }}
-                  tall={(i) => { const d = band.from + i; const row = rowOf.get(d); return row !== undefined ? (row === null ? true : row * NAME_LINE + NAME_LINE / 2) : d === at || hover === d }}
-                  attrs={(i) => { const one = markOn.get(band.from + i); return { 'data-year-day': dayAt(band.from + i), 'data-year-marked': one?.title } }}
-                  onPointerMove={(event) => setHover(fromPointer(event.clientX, event.currentTarget, band))} onPointerLeave={() => setHover(null)} onClick={open} />
-                <div data-year-months><StrokeAxis ticks={ticks} width={width} /></div>
+                </div>
                 {hover !== null && hover >= band.from && hover < band.to && (
                   <span className={`pointer-events-none absolute z-10 -translate-x-1/2 whitespace-nowrap ${TIP}`}
-                    style={{ left: Math.max(70, Math.min(Math.max(width, 140) - 70, (hover - band.from) * step)), top: '100%', marginTop: 4 }}>
+                    style={{ left: Math.max(70, Math.min(Math.max(clip, 140) - 70, (hover - band.from) * step - pan)), top: '100%', marginTop: 4 }}>
                     <span className="font-medium">{dayMonth(`${dayAt(hover)}T12:00`)}</span>
                     <span className="text-muted-foreground"> · {near ? markName(near) : onOpenDay ? 'click for its page' : 'click to mark it'}</span>
                   </span>
