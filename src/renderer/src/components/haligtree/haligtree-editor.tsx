@@ -26,6 +26,7 @@ import { Subscript } from "@tiptap/extension-subscript"
 import { Superscript } from "@tiptap/extension-superscript"
 import { Selection, CharacterCount, Placeholder } from "@tiptap/extensions"
 import { BlockFormula, InlineFormula } from "@/extensions/math"
+import { tidyPastedHtml } from "@/lib/paste-tidy"
 import { FindAndReplace } from "@tiptap/extension-find-and-replace"
 
 // TableKit bundles Table, TableRow, TableHeader and TableCell.
@@ -1142,6 +1143,8 @@ function Surface({
       // On the paste rather than on every change: a line you can delete is the
       // whole difference between help and a fight. And only where there is not
       // one already, so pasting the same text twice does not stack them up.
+      // Word's lists made lists again, a web page's menus and buttons left behind (lib/paste-tidy.ts).
+      transformPastedHTML: tidyPastedHtml,
       transformPasted: (slice, view, plain) => {
         const blocks: ProseMirrorNode[] = []
 
