@@ -166,10 +166,15 @@ export function ImageMenu({ editor }: { editor: Editor | null }): React.JSX.Elem
                   const node = editor.state.doc.nodeAt(at)
                   // Asked afresh while the paper falls, so the notice says how this picture came.
                   const known = refreshKept()
-                  const away = crumpleAway(editor.view.nodeDOM(at) as HTMLElement | null, 1500)
+                  const dom = editor.view.nodeDOM(at) as HTMLElement | null
+                  // Gone as far as the hand is concerned while its paper crumples: no right-click, click or drag on it
+                  // (a fast right-click opened its menu on a picture already on its way out).
+                  dom?.setAttribute("inert", "")
+                  const away = crumpleAway(dom, 1500)
                   // Out of the note only once the paper has landed: crumpled, tossed, and then the words close up
                   // over the room it left, never the two at once.
                   const remove = (): void => {
+                    dom?.removeAttribute("inert")
                     if (editor.isDestroyed || editor.state.doc.nodeAt(at) !== node) return
                     editor.chain().focus().command(({ tr }) => (tr.delete(at, at + node!.nodeSize), true)).run()
                     // Said true for how it came: an attachment waits under Files' Unlinked, a library file stays in Files.
