@@ -1,5 +1,5 @@
 // A link in a note opens on a plain click, as in Obsidian and Notion; ⌥-click
-// opens it to the side, ⌘-click in a window of its own where it can have one.
+// opens it to the side, ⌘-click in a new tab (in the main window) or a window of its own (quick capture).
 // Each kind is clicked for real: a note link, a web link (the browser is a
 // stand-in), a PDF link, a time "[0:42]", a page "(p. 2)" and a tag. Editing
 // stays easy: a drag across a link picks it and opens nothing, a click beside
@@ -95,8 +95,10 @@ try {
   await home(); await press(h, NOTE, ['Alt'])
   s = await shows()
   check('note link, ⌥-click: it opens to the side', beside(s) && s.text.includes('Working memory holds'), JSON.stringify(s))
-  await home(); const windows = await apart(); await press(h, NOTE, ['Meta'])
-  check('note link, ⌘-click: it opens in a window of its own', (await apart()) === windows + 1 && (await shows()).text.includes(LEAD))
+  // In the main window ⌘-click is a new tab, as its hover card says (note-preview.tsx); quick capture's, below, is a window of its own.
+  const tabs = () => h.evaluate(() => (JSON.parse(localStorage.getItem('split') ?? 'null')?.panes ?? []).reduce((n, one) => n + one.tabs.length, 0))
+  await home(); const windows = await apart(); const tabsWere = await tabs(); await press(h, NOTE, ['Meta'])
+  check('note link, ⌘-click: it opens in a new tab, no window of its own', (await apart()) === windows && (await tabs()) === tabsWere + 1, `${tabsWere} -> ${await tabs()}`)
   await closeApart()
 
   // A web link.
