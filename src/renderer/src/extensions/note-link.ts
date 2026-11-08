@@ -629,7 +629,8 @@ export const NoteLink = Node.create<NoteLinkOptions>({
       if (!note) return []
       const lines = (await linkKinds.lines?.(note.id).catch(() => [])) ?? []
       const rows = lines
-        .filter((line) => line.text.trim() && line.text.toLowerCase().includes(part))
+        // The title line is the note itself, already the first row.
+        .filter((line) => line.text.trim() && !(line.heading && line.text.trim() === note.label.trim()) && line.text.toLowerCase().includes(part))
         .slice(0, 40)
         .map((line) => ({ ...note, hint: undefined, heading: undefined, block: line.id ?? undefined, blockIndex: line.index, blockText: line.text.slice(0, 120), headingLine: line.heading, group: `Parts of ${note.label}` }))
       return part ? rows : [{ ...note, group: "The whole note" }, ...rows]
