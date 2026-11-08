@@ -24,7 +24,7 @@ import { useHere } from '@/lib/split'
 import { PICKED_MARK, usePickMixed } from './pick-mixed'
 import { sideMenu, useFullMenu } from './side-menu'
 import { useTaskNow } from './tasks-view'
-import { useKept, useOpened } from '@/lib/nav'
+import { useOpened, useStepped } from '@/lib/nav'
 import { typeSaid } from '@/lib/capture-links'
 import { Empty, Kbd, Page, Tags, useListKeys } from './ui'
 import { recordMeeting } from '@/lib/meeting'
@@ -100,9 +100,9 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
   const [blurting, setBlurting] = useState<string | null>(null)
   // Its cards gone through without counting, in place of its notes.
   const [practising, setPractising] = useState<string | null>(null)
-  // A tag picked is a step Back returns from; Read or Manage is kept in it.
+  // A tag picked is a step Back returns from, and so is Read or Manage: ⌘[ from Manage comes back to Read.
   useOpened(chosen ?? undefined, focus, setChosen, () => setChosen(null))
-  useKept('tab', tab, setTab, 'read')
+  useStepped(tab, setTab)
   // The open tag's notes, for Manage; never the tag before's while the next is read.
   const loaded = useLiveFor(chosen ?? '', () => (chosen ? haligtree.tag(chosen) : Promise.resolve([])))
   const items = loaded ?? []
@@ -132,7 +132,8 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
   }, [box])
   const across = !chosen && wide >= TWO_UP ? 2 : 1
   const lines = useMemo(() => Array.from({ length: Math.ceil(topics.length / across) }, (_, at) => topics.slice(at * across, at * across + across)), [topics, across])
-  const [cursor, setCursor] = useListKeys(example ? 0 : topics.length, { onOpen: (index) => setChosen(topics[index].tag), across })
+  // A tag open to read has the keys for its own notes (↑ ↓ ↵, tag-read.tsx); the list of tags is clicked meanwhile.
+  const [cursor, setCursor] = useListKeys(example ? 0 : topics.length, { onOpen: (index) => setChosen(topics[index].tag), across, enabled: !(chosen && tab === 'read') })
   const speaking = useLive(haligtree.tagSpeak, {} as Record<string, string>, [], ['item'])
   const study = useLive(haligtree.tagStudy, { sides: {}, timer: {}, place: {}, typed: {}, newPerDay: {}, retention: {} } as Awaited<ReturnType<typeof haligtree.tagStudy>>, [], ['item'])
   const current = tags.find((one) => one.tag === chosen)

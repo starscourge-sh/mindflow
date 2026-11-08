@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useReading } from '@/lib/reads-in'
 import { TagIcon, tagTint } from './tag-icon'
 import type { JSONContent } from '@tiptap/core'
-import { AlignJustify, ChevronDown, Plus } from 'lucide-react'
+import { AlignJustify, ChevronDown } from 'lucide-react'
 
 import { CAPTURE_TYPES } from '../capture-kinds/capture-kind-picker'
 import { useLive, haligtree, type Pin as Pinned, type TagRead, type Task } from '@/lib/haligtree'
@@ -12,29 +12,30 @@ import { openApart } from '@/lib/apart'
 import { statusSaid } from '@/lib/capture-links'
 import { rowBody } from '@/lib/row-body'
 import { chime } from '@/lib/sound'
-import { Empty, ask, pin, refuse, toast, typing, useReadKey } from './ui'
+import { Empty, ask, pin, refuse, toast, typing, useListKeys, useReadKey } from './ui'
 import { RowMenu, copy, type MenuItem, type RowItem } from './row-menu'
 import { taskMenu, useTaskNow } from './tasks-view'
 import { ReadThrough, type Readable } from './read-through'
 import { addToQuestion } from './questions-view'
-import { CollectionHeader, coverFit, type Backdrop, coverWords, Cover, PlayButton, TrackList, ViewSwitch, pictureIn, useTint, wordsIn, type Track } from './collection-header'
+import { PlayButton, ViewSwitch, pictureIn } from './collection-header'
+import { NoteList, type Entry as NoteEntry } from './note-list'
+import { age } from '../capture-list'
+import type { Picking } from '@/lib/pick-range'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import DotsHorizontalIcon from '@/components/ui/dots-horizontal-icon'
 import { glance } from './note-preview'
 import { madeDeck } from './decks'
 import { Tip } from './ui'
-import { Display, FilterChips, arrange, islandsOn, useView, type Facet } from './display'
+import { Display, FilterChips, arrange, useView, type Facet } from './display'
 import { ListSearch } from './note-list'
 import { motion } from 'motion/react'
-import { DRAWINGS, GrainFill, PAPER_INK, spreadPick, useNoteCover } from './grain'
 import { ago, dayKey, dayMonth, dayName, dayjs, noon, num, plural } from '../../../../main/dates'
 import { canSplit, openItems, useHere } from '@/lib/split'
 import { queueItems } from '@/lib/reading-queue'
 import { PICKED_MARK, usePickMixed } from './pick-mixed'
 import { itemName } from '@/lib/tasks'
-import { FileText, Gem, Inbox, List, ListTodo, Orbit, Bookmark as Pin, Bookmark as PinOff } from '@/components/ui/icons'
-import { IslandBox, useIslands } from './islands'
+import { FileText, Gem, Inbox, List, ListTodo, Orbit } from '@/components/ui/icons'
 import { useFullMenu } from './side-menu'
 
 const ICON = { nugget: Gem, article: FileText, question: Orbit, task: ListTodo }
@@ -50,11 +51,13 @@ const heldSaid = (list: { type: string }[]): [string, string] => {
 export const tagColour = (tag: string, color: string | null | undefined): string => tagTint(tag, color)
 
 type View = 'stream' | 'list'
+/** List or Stream, the same for every tag; a list unless Stream was picked. */
+const VIEW_KEY = 'tag:look'
 const readView = (): View => {
   try {
-    return localStorage.getItem('tag:view') === 'list' ? 'list' : 'stream'
+    return localStorage.getItem(VIEW_KEY) === 'stream' ? 'stream' : 'list'
   } catch {
-    return 'stream'
+    return 'list'
   }
 }
 
@@ -154,17 +157,6 @@ const textIn = (body: unknown): string => {
   return out.join(' ')
 }
 
-/** An Often with tile's cover: the same art as that tag's own page (paper drawings, your covers folder or gradients), its name over it. */
-function OftenCover({ tag, shade }: { tag: string; shade: string }): React.JSX.Element {
-  const grain = useNoteCover(`tag:${tag}`)
-  return (
-    <span className="relative aspect-square w-full overflow-hidden rounded-md shadow-(--mf-shadow-lift) [container-type:inline-size]" style={grain ? undefined : { background: `linear-gradient(140deg, color-mix(in oklab, ${shade} 78%, white), color-mix(in oklab, ${shade} 72%, black))` }}>
-      {grain && <GrainFill cover={grain} tint={shade} />}
-      <span data-cover-name className={`absolute inset-0 flex items-end p-[9cqi] font-heading leading-none font-bold tracking-[-0.03em] break-words ${grain?.paper ? '' : 'text-white drop-shadow-[0_1px_2px_rgb(0_0_0/0.25)]'}`} style={{ ...(grain?.paper ? { color: PAPER_INK } : {}), ...coverFit(`#${tag}`, 15) }}>{coverWords(`#${tag}`)}</span>
-    </span>
-  )
-}
-
 /**
  * A tag read as a page: the whole of everything carrying it, captures and
  * kept things together, newest first under the day each was written. It puts
@@ -226,29 +218,15 @@ export function TagStream({ tag, color, onOpen, onTag, onStudy }: {
     watch.observe(mark)
     return () => watch.disconnect()
   }, [loaded, view, filled, display, query])
-  // The cover is the newest picture among them; the words counted once per load.
+  // The tags most often written beside this one, counted once per load.
   const facts = useMemo(() => {
-    const list = (items ?? []).filter((item) => !item.later)
-    const cover = (items ?? []).filter((item) => !item.private).map((item) => pictureIn(item.body)).find(Boolean) ?? null
-    const together = new Map<string, TagRead[]>()
-    for (const item of list) for (const other of item.tags) together.set(other, [...(together.get(other) ?? []), item])
-    return {
-      cover,
-      words: new Map(list.map((item) => [item.id, wordsIn(item.body)])),
-      often: [...together].sort((a, b) => b[1].length - a[1].length).slice(0, 6)
-    }
+    const together = new Map<string, number>()
+    for (const item of items ?? []) if (!item.later) for (const other of item.tags) together.set(other, (together.get(other) ?? 0) + 1)
+    return { often: [...together].sort((a, b) => b[1] - a[1]).slice(0, 8) }
   }, [items])
   // The words of each, for the filter, only once something is looked for.
   const texts = useMemo(() => (query.trim() && items ? new Map(items.map((item) => [item.id, `${item.title} ${item.label} ${textIn(item.body)}`.toLowerCase()])) : null), [items, query.trim() !== ''])
-  const colour = tagColour(tag, color)
-  const tint = useTint(items ? facts.cover : null, colour)
-  // Behind the header: the pick kept for this tag, else a picture from its notes when there is one, else a landscape sketch.
   const tagMeta = useLive(haligtree.tagMeta, [] as Awaited<ReturnType<typeof haligtree.tagMeta>>)
-  const keptBackdrop = tagMeta.find((one) => one.tag === tag)?.backdrop ?? null
-  const [trying, setTrying] = useState<Backdrop | null>(null)
-  const chosen: Backdrop = trying ?? keptBackdrop ?? (facts.cover ? 'picture' : 'sketch')
-  const sketch = DRAWINGS.length ? DRAWINGS[spreadPick('paper', `tag:${tag}`, DRAWINGS.length)].url : null
-  const backdrop = chosen === 'colour' ? null : chosen === 'picture' && facts.cover ? facts.cover : sketch
   // By kind, as every list is filtered, and by what it is: a capture, an idea, an article.
   const counted = (items ?? []).filter((item) => !item.later)
   const later = (items?.length ?? 0) - counted.length
@@ -295,20 +273,35 @@ export function TagStream({ tag, color, onOpen, onTag, onStudy }: {
   }, [readable.length, shown, reading]) // eslint-disable-line react-hooks/exhaustive-deps
   // ⇧-click, x and ⌘A pick several of what is shown, to make tasks of or queue together.
   const several = usePickMixed(shown, { here })
-  // Grouped by kind in Display: each kind its own island, a few notes each (islands.tsx).
-  const island = useIslands(`tag:${tag}`, islandsOn(display))
   const kindName = (item: TagRead): string => item.type === 'task' || (item.type === 'capture' && item.kind === 'todo') ? 'Tasks'
     : item.type === 'capture' ? CAPTURE_TYPES.find((one) => one.id === item.kind)?.label ?? 'Note' : NAME[item.type] ?? 'Gem'
-  // Only where there is more than one kind: one kind alone reads as the plain stream, by day.
-  const byKind = (): [string, TagRead[]][] => {
+  // The list by kind (Display's "Group"), only where kinds are mixed: one kind alone is one run, in the order picked.
+  const oneKind = new Set(shown.map(kindName)).size <= 1
+  const grouped: [string, TagRead[]][] = (() => {
+    if (display.group !== 'kind' || oneKind) return [['', shown]]
     const groups = new Map<string, TagRead[]>()
     for (const item of shown) groups.set(kindName(item), [...(groups.get(kindName(item)) ?? []), item])
     return [...groups]
+  })()
+  // The rows in the order the list draws them, for the keys: ↑ ↓ (and j k) move, ↵ opens, ⇧↑ ⇧↓ pick a run.
+  const ordered = view === 'list' ? grouped.flatMap(([, list]) => list) : []
+  const byId = (id: string): TagRead | undefined => ordered.find((one) => one.id === id)
+  const [cursor, setCursor] = useListKeys(ordered.length, {
+    enabled: !reading,
+    onOpen: (index) => ordered[index] && onOpen(ordered[index].type, ordered[index].id),
+    onExtend: (from, to) => ordered[to] && several.extend(ordered[from], ordered[to])
+  })
+  // NoteList picks by id: each row stands for itself in the page's one picking (⌘ and ⇧-click, as Finder).
+  const picking: Picking = {
+    click: (event, id) => { const one = byId(id); return !!one && several.click(event, one) },
+    extend: (from, to) => { const a = from ? byId(from) : undefined; const b = byId(to); if (b) several.extend(a, b) },
+    toggle: (id) => { const one = byId(id); if (one) several.toggle(one) }
   }
+  const chosenIds = ordered.filter((one) => several.picked(one)).map((one) => one.id)
 
   // Its page waits for its notes (lib/reads-in.tsx), and the list of tags beside it with it: one step, not the list and then the tag.
   useReading(!items)
-  if (!items) return <Waiting tag={tag} colour={colour} />
+  if (!items) return <Waiting tag={tag} color={color ?? null} />
   if (!items.length)
     return <Empty title={`Nothing carries #${tag} now`}>Whatever had it was moved to the Bin or archived, or the tag was taken off. Write it into anything and it reads here.</Empty>
   // The first and the last carried, whatever the order shown.
@@ -337,36 +330,32 @@ export function TagStream({ tag, color, onOpen, onTag, onStudy }: {
     'separator',
     { label: 'Copy its title', run: () => copy(item.title || item.label) }
   ]
-  const tracks: Track[] = shown.map((item, index) => {
-    const kind = CAPTURE_TYPES.find((one) => one.id === item.kind)
-    const Icon = item.type === 'capture' ? kind?.icon ?? Inbox : ICON[item.type as keyof typeof ICON] ?? Gem
-    const words = facts.words.get(item.id) ?? 0
-    const asks = item.type === 'capture' && item.status === 'open'
-    // A task reads as in every list: its words without #tags, and its day, not the day it was made.
-    const task = item.type === 'task' ? tasks.find((one) => one.id === item.id) : undefined
-    const day = item.type === 'task' ? (task?.dueAt ? dayMonth(task.dueAt) : 'No day') : dayMonth(item.at)
-    return {
-      key: `${item.type}-${item.id}`,
-      title: itemName(item.type, item.title || item.label).text,
-      icon: <Icon className="size-4 shrink-0 text-muted-foreground" style={kind && item.type === 'capture' ? { color: kind.tint } : undefined} />,
-      cells: [day, `${plural(words, 'word')}`],
-      private: item.private,
-      onOpen: (event) => (event.metaKey && event.altKey ? open(item, event) : several.click(event, item) || open(item, event)),
-      pick: `${item.type}:${item.id}`,
-      picked: several.picked(item),
-      onPlay: () => read(shown, index),
-      // A capture still open can go into a question; a kept note can be pinned.
-      // A task is not pinned: its menu has what it can do.
-      add: item.type === 'task' ? undefined : asks
-        ? { label: 'Add as a clue to a question', icon: <Plus />, run: () => void addToQuestion(item.id) }
-        : { label: pinnedNote(item) ? 'Unpin' : 'Pin', icon: pinnedNote(item) ? <PinOff /> : <Pin />, on: pinnedNote(item), run: () => pin(table(item), item.id, !pinnedNote(item)) },
-      menu: several.menu(item) ?? [...rowMenu(item, index), ...several.rowItems(item)]
-    }
-  })
   // What every row shown shares says nothing on any of them: a tag they all carry, and the kind when there is only one.
   const shared = shown.length > 1 ? shown.slice(1).reduce((both, item) => both.filter((one) => item.tags.includes(one)), shown[0].tags) : []
-  const oneKind = new Set(shown.map(kindName)).size <= 1
   const differs = { tags: shared, kind: !oneKind }
+  // A row of the list, as Gems and the Inbox draw theirs: its kind's mark, its words, then when, its kind where kinds
+  // are mixed and grouped by none, its state, and the tags the others do not all carry. Its menu is built when opened.
+  const entryOf = (item: TagRead, index: number): NoteEntry => {
+    const kind = CAPTURE_TYPES.find((one) => one.id === item.kind)
+    const task = item.type === 'task' ? tasks.find((one) => one.id === item.id) : undefined
+    const status = item.type === 'capture' && item.status !== 'open' ? statusSaid(item.status, item.keptIn) : item.type === 'task' && item.status === 'done' ? 'Done' : ''
+    const sub = [differs.kind && display.group !== 'kind' ? kindName(item).replace(/s$/, '') : '', status].filter(Boolean).join(' · ')
+    const entry: NoteEntry = {
+      id: item.id,
+      type: item.type,
+      title: itemName(item.type, item.title || item.label).text,
+      tags: item.tags.filter((one) => !shared.includes(one)),
+      icon: item.type === 'capture' ? kind?.icon ?? Inbox : ICON[item.type as keyof typeof ICON] ?? Gem,
+      tint: item.type === 'capture' ? kind?.tint : undefined,
+      // A task says the day it is for, as on Today; everything else when it was written.
+      age: item.type === 'task' ? (task?.dueAt ? dayMonth(task.dueAt) : undefined) : age(item.at),
+      sub: sub || undefined,
+      private: item.private,
+      done: item.later
+    }
+    let made: RowItem[] | undefined
+    return Object.defineProperty(entry, 'menu', { get: () => (made ??= several.menu(item) ?? [...rowMenu(item, index), ...several.rowItems(item)]), enumerable: true })
+  }
   // Under the day each was written, or changed; in A to Z, one run without days.
   const days: [string, TagRead[]][] = []
   for (const item of shown.slice(0, count)) {
@@ -375,85 +364,71 @@ export function TagStream({ tag, color, onOpen, onTag, onStudy }: {
     if (last?.[0] === day) last[1].push(item)
     else days.push([day, [item]])
   }
+  // The list, as Gems and Writing draw theirs: one row each, by kind when kinds are mixed, drawn only as they scroll in.
+  const groupsShown: [string, NoteEntry[]][] = grouped.map(([name, list]) => [name, list.map((item) => entryOf(item, shown.indexOf(item)))])
   return (
-    <div className="flex w-full flex-col pb-16">
+    <div data-tag-page className="flex w-full flex-col pb-16">
       {reading && <ReadThrough items={reading.list} start={reading.start} onClose={() => setReading(null)} />}
-      <CollectionHeader
-        tint={tint}
-        backdrop={items ? backdrop : null}
-        // The cover is the picture, or the tag's mark: its name is said once, in the title beside it.
-        cover={<Cover src={facts.cover} colour={colour} seed={`tag:${tag}`}>#</Cover>}
-        label={<><TagIcon tag={tag} color={color} className="size-3.5" />Tag</>}
-        title={<TagTitle tag={tag} />}
-        meta={[`${plural(counted.length, unit[0], unit[1])}`, ...(later ? [
-          <button key="later" type="button" data-later onClick={() => (chime(laterShown ? 'fold' : 'open'), setLaterShown(!laterShown))} className="cursor-pointer font-medium text-foreground underline decoration-foreground/25 underline-offset-4 transition-colors hover:decoration-foreground/60">
-            {laterShown ? `hide the ${num(later)} resolved or done` : `${num(later)} more resolved or done`}
-          </button>
-        ] : []), `last added ${ago(last)}`, `since ${dayjs(first).format('MMM YYYY')}`]}
-        // Every action on the tag, named, in one row: read it, study it, and the rest in ⋯.
+      <TagHead tag={tag} color={color ?? null}
+        meta={<>
+          <span data-tag-held className="font-semibold text-foreground">{`${plural(counted.length, unit[0], unit[1])} with #${tag}`}</span>
+          {later > 0 && <><Dot /><button type="button" data-later onClick={() => (chime(laterShown ? 'fold' : 'open'), setLaterShown(!laterShown))} className="cursor-pointer whitespace-nowrap text-foreground underline decoration-foreground/25 underline-offset-4 transition-colors hover:decoration-foreground/60">
+            {laterShown ? `hide the ${num(later)} resolved or done` : `and ${num(later)} resolved or done`}
+          </button></>}
+          <Dot /><span className="whitespace-nowrap">last added {ago(last)}</span>
+          <Dot /><span className="whitespace-nowrap">first in {dayjs(first).format('MMMM YYYY')}</span>
+        </>}
         actions={<>
           <PlayButton label="Read through  R" onClick={() => read(readable)} />
           <StudyMenu onStudy={onStudy} />
           <TagMenu tag={tag} color={color ?? null} onTag={onTag} onShuffle={readable.length > 1 ? shuffled : undefined}
-            backdrop={chosen === 'picture' && !facts.cover ? 'sketch' : chosen} hasPicture={!!facts.cover} onPreview={setTrying}
-            onBackdrop={(to) => (setTrying(null), void haligtree.setTag(tag, { backdrop: to }))}
             homeHidden={!!tagMeta.find((one) => one.tag === tag)?.homeHidden} />
         </>}
       />
-      {/* One toolbar: the kinds as chips on the left; the words, the order and Stream or List on the right, on the rows' own right edge. */}
-      <div data-tag-toolbar className="page-column flex flex-wrap items-center gap-2 px-5 pb-1 @container/band @[44rem]/page:px-8">
+      {/* One toolbar on the rows' own edges: the kinds as chips on the left; the words, the order and List or Stream on the right. */}
+      <div data-tag-toolbar className="list-words @container/band flex flex-wrap items-center gap-2 pt-2 pb-1">
         <FilterChips view={display} onChange={setDisplay} facets={facets} className="flex-1" />
-        {/* On a narrow window the field gives way first, so the order and Stream or List stay on the line. */}
+        {/* On a narrow window the field gives way first, so the order and List or Stream stay on the line. */}
         <span className="ml-auto flex min-w-0 items-center gap-1 [&>label]:w-44 [&>label]:min-w-24 [&>label]:shrink">
           {items.length > 1 && <ListSearch value={query} onChange={setQuery} onDone={() => undefined} placeholder={[...tag].length > FILTER_ROOM ? 'Filter this tag' : `Filter #${tag}`} />}
-          <Display view={display} onChange={setDisplay} facets={facets} count={items.length} groups={[{ id: 'kind', label: 'Kind' }, { id: 'none', label: 'None' }]}
+          <Display view={display} onChange={setDisplay} facets={facets} count={items.length} groups={view === 'list' ? [{ id: 'kind', label: 'Kind' }, { id: 'none', label: 'None' }] : []}
             sorts={[{ id: 'newest', label: 'Newest' }, { id: 'oldest', label: 'Oldest' }, { id: 'changed', label: 'Recently changed' }, { id: 'name', label: 'A to Z' }]} />
           <ViewSwitch<View> value={view} onChange={(to) => {
             setView(to)
             try {
-              localStorage.setItem('tag:view', to)
+              localStorage.setItem(VIEW_KEY, to)
             } catch {
               // Applied, not kept.
             }
-          }} options={[{ id: 'stream', label: 'Stream', icon: <AlignJustify /> }, { id: 'list', label: 'List', icon: <List /> }]} />
+          }} options={[{ id: 'list', label: 'List', icon: <List /> }, { id: 'stream', label: 'Stream', icon: <AlignJustify /> }]} />
         </span>
       </div>
-      {narrowed && (
-        <p className="page-column px-5 pt-1 text-xs text-muted-foreground @[44rem]/page:px-8">{shown.length ? `${num(shown.length)} of ${num(items.length)} shown` : null}</p>
-      )}
+      {narrowed && shown.length > 0 && <p data-tag-narrowed className="list-words pt-1 text-control text-muted-foreground">{`${num(shown.length)} of ${num(all.length)} shown`}</p>}
       {/* What is picked, and what can be done with it all: held at the top while you scroll, opaque. */}
       {several.bar && (
         <div data-pick-bar className="sticky top-0 z-20 mt-1 w-full border-y bg-background">
-          <div className="page-column flex min-h-11 items-center px-5 py-1.5 @[44rem]/page:px-8">{several.bar}</div>
+          <div className="list-words flex min-h-11 items-center py-1.5">{several.bar}</div>
         </div>
       )}
       {!all.length ? (
-        <Empty title={`Everything with #${tag} is resolved or done`} action={<button type="button" data-later onClick={() => (chime('open'), setLaterShown(true))} className="text-control font-medium text-foreground underline decoration-foreground/25 underline-offset-4 hover:decoration-foreground/60">Show {later === 1 ? 'it' : `the ${num(later)}`}</button>}>
+        <Empty title={`Everything with #${tag} is resolved or done`} action={<button type="button" data-later onClick={() => (chime('open'), setLaterShown(true))} className="cursor-pointer text-control font-medium text-foreground underline decoration-foreground/25 underline-offset-4 hover:decoration-foreground/60">Show {later === 1 ? 'it' : `the ${num(later)}`}</button>}>
           Nothing with it is waiting on you.
         </Empty>
       ) : !shown.length ? (
-        <Empty title="Nothing matches" action={<button type="button" onClick={() => (chime('undo'), setQuery(''), setDisplay({ ...display, filter: {} }))} className="text-control font-medium text-foreground underline decoration-foreground/25 underline-offset-4 hover:decoration-foreground/60">Clear the filter</button>}>
+        <Empty title="Nothing matches" action={<button type="button" onClick={() => (chime('undo'), setQuery(''), setDisplay({ ...display, filter: {} }))} className="cursor-pointer text-control font-medium text-foreground underline decoration-foreground/25 underline-offset-4 hover:decoration-foreground/60">Clear the filter</button>}>
           {`No note with #${tag} is of that kind${words.length ? ' or has those words' : ''}.`}
         </Empty>
-      ) : view === 'list' ? <TrackList columns={[{ label: 'Date', size: '6.5rem', wide: true }, { label: 'Words', size: '5.5rem' }]} tracks={tracks} /> : display.group === 'kind' && new Set(shown.map(kindName)).size > 1 ? (() => {
-        const { groups, islands } = island(byKind())
-        return (
-          <div data-tag-islands className="page-column w-full px-5 [--mf-padding:0] @[44rem]/page:px-8">
-            {groups.map(([name, list]) => {
-              const Icon = list[0] && list[0].type !== 'capture' ? ICON[list[0].type as keyof typeof ICON] : null
-              const rows = list.map((item) => <Entry key={`${item.type}-${item.id}`} item={item} onOpen={onOpen} picked={several.picked(item)} onPick={(event) => several.click(event, item)}
-                menu={several.menu(item) ?? [...rowMenu(item, shown.indexOf(item)), ...several.rowItems(item)]} differs={{ ...differs, kind: false }} />)
-              return islands?.[name] ? <IslandBox key={name} name={name} island={islands[name]} shown={list.length} icon={Icon ? <Icon aria-hidden className="size-4 shrink-0 text-muted-foreground" /> : undefined}>{rows}</IslandBox>
-                : <section key={name}><h2 className="pt-4 pb-1.5 text-meta font-semibold text-muted-foreground">{name}</h2>{rows}</section>
-            })}
-          </div>
-        )
-      })() : (
-        <div data-tag-stream className="page-column w-full px-5 [--mf-padding:0] @[44rem]/page:px-8">
+      ) : view === 'list' ? (
+        <div data-tag-list>
+          <NoteList groups={groupsShown} density="list" table="nuggets" cursor={cursor} onCursor={setCursor} chosen={chosenIds}
+            picking={picking} onPick={(id) => byId(id) && open(byId(id)!)} className="list-edge my-2" />
+        </div>
+      ) : (
+        <div data-tag-stream className="list-words">
           {days.map(([day, list]) => (
             <section key={day || 'all'}>
               {/* The day stays in view while its notes scroll under it. */}
-              {day && <h2 className="sticky top-0 z-10 -mx-1 bg-background px-1 pt-4 pb-1.5 text-meta font-semibold text-muted-foreground">{named(day)}</h2>}
+              {day && <h2 className="sticky top-0 z-10 bg-background pt-4 pb-1.5 text-control font-semibold text-foreground">{named(day)}</h2>}
               {/* The same menu, picking and picked look as the List view: what ⌘A picks is seen picked here too. */}
               {list.map((item) => <Entry key={`${item.type}-${item.id}`} item={item} onOpen={onOpen} picked={several.picked(item)} onPick={(event) => several.click(event, item)}
                 menu={several.menu(item) ?? [...rowMenu(item, shown.indexOf(item)), ...several.rowItems(item)]} differs={differs} />)}
@@ -462,35 +437,25 @@ export function TagStream({ tag, color, onOpen, onTag, onStudy }: {
           <div ref={end} className="h-px" />
         </div>
       )}
-      {(view === 'list' || count >= shown.length) && (
-        <footer className="page-column mt-6 px-5 text-xs text-muted-foreground @[44rem]/page:px-8">
-          <p>First carried {dayName(first)}</p>
-          {dayKey(first) !== dayKey(last) && <p>Last added {dayName(last)}</p>}
-        </footer>
-      )}
-      {facts.often.length > 0 && (
-        <section className="page-column mt-10 px-5 @[44rem]/page:px-8">
-          <h2 className="mb-3 font-heading text-lg font-bold tracking-[-0.01em]">Often with #{tag}</h2>
-          <div className="grid grid-cols-3 gap-2 @[40rem]/page:grid-cols-4 @[56rem]/page:grid-cols-6">
-            {facts.often.map(([other, both]) => {
-              const n = both.length
-              const [one, many] = heldSaid(both)
-              const shade = tagColour(other, tags.find((one) => one.tag === other)?.color)
-              return (
-                <button
-                  key={other}
-                  type="button"
-                  onClick={() => (chime('open'), onTag(other))}
-                  className="group/card flex min-w-0 flex-col gap-2 rounded-lg p-2 text-left transition-[background-color,scale] duration-150 ease-out hover:bg-foreground/[0.05] active:scale-[0.98]"
-                >
-                  <OftenCover tag={other} shade={shade} />
-                  <span className="min-w-0">
-                    <span className="block truncate text-control font-medium">#{other}</span>
-                    <span className="block truncate text-xs text-muted-foreground">{num(n)} {n === 1 ? `${one} has` : `${many} have`} both</span>
-                  </span>
-                </button>
-              )
-            })}
+      {facts.often.length > 0 && (view === 'list' || count >= shown.length) && (
+        <section data-often className="list-words mt-10">
+          <h2 className="font-heading text-lead font-semibold text-foreground">Often with #{tag}</h2>
+          <p className="mt-0.5 mb-3 text-control text-muted-foreground">Other tags on these notes, and how many notes carry both.</p>
+          <div className="flex flex-wrap gap-2">
+            {facts.often.map(([other, both]) => (
+              <button
+                key={other}
+                type="button"
+                data-often-tag={other}
+                onClick={() => (chime('open'), onTag(other))}
+                onPointerEnter={() => prefetchTag(other)}
+                className="flex h-8 max-w-full min-w-0 cursor-pointer items-center gap-1.5 rounded-full border border-foreground/15 px-3 text-control text-foreground transition-[background-color,scale] duration-150 ease-out hover:bg-foreground/[0.06] active:scale-[0.97]"
+              >
+                <TagIcon tag={other} color={tags.find((one) => one.tag === other)?.color} className="size-3.5" />
+                <span className="min-w-0 truncate font-medium">{other}</span>
+                <span className="shrink-0 text-muted-foreground tabular-nums">{num(both)}</span>
+              </button>
+            ))}
           </div>
         </section>
       )}
@@ -498,16 +463,36 @@ export function TagStream({ tag, color, onOpen, onTag, onStudy }: {
   )
 }
 
+/** The dot between two parts of a line. */
+const Dot = (): React.JSX.Element => <span aria-hidden className="mx-1.5 text-muted-foreground">·</span>
+
 /**
- * A tag not read yet: its name and its colour at once, and where its notes
- * will be, faint. Only after a moment, so a quick read never flickers.
+ * The tag's own head, as Gems and Sources start theirs: no picture (a tag has
+ * no cover), its mark in its colour and its name, a line that counts what it
+ * holds, then what can be done with it, all on the rows' one left edge.
  */
-function Waiting({ tag, colour }: { tag: string; colour: string }): React.JSX.Element {
+function TagHead({ tag, color, meta, actions }: { tag: string; color: string | null; meta: React.ReactNode; actions?: React.ReactNode }): React.JSX.Element {
+  return (
+    <header data-tag-head className="list-words @container/band flex min-w-0 flex-col gap-1.5 pt-6 pb-3">
+      <h1 data-tag-title className="flex min-w-0 items-center gap-2 font-heading text-[clamp(1.5rem,3.2vw,2.25rem)] leading-tight font-bold tracking-[-0.02em] text-foreground" title={`#${tag}`}>
+        <TagIcon tag={tag} color={color} className="size-[0.75em]" />
+        <span className="min-w-0 truncate">{tag}</span>
+      </h1>
+      <p data-tag-meta className="flex flex-wrap items-center gap-y-0.5 text-body text-muted-foreground">{meta}</p>
+      {actions && <div className="mt-2 flex flex-wrap items-center gap-2">{actions}</div>}
+    </header>
+  )
+}
+
+/**
+ * A tag not read yet: its name at once, and the orb where its notes will be.
+ * Only after a moment, so a quick read never flickers.
+ */
+function Waiting({ tag, color }: { tag: string; color: string | null }): React.JSX.Element {
   return (
     <motion.div aria-busy className="flex w-full flex-col pb-16" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.12, duration: 0.25 }}>
-      <CollectionHeader tint={null} cover={<Cover colour={colour} seed={`tag:${tag}`}>#</Cover>} label={<><TagIcon tag={tag} className="size-3.5" />Tag</>} title={<TagTitle tag={tag} />} meta={['\u00a0']}
-        actions={<span className="h-8" />} />
-      <div className="page-column w-full px-5 @[44rem]/page:px-8">
+      <TagHead tag={tag} color={color}meta={' '} actions={<span className="h-8" />} />
+      <div className="list-words">
         {/* The app's one way to say "a real wait": the orb and its shimmering words, never grey bars. */}
         <div className="py-4"><Orb label={`Gathering #${tag}…`} /></div>
       </div>
@@ -541,12 +526,12 @@ function Entry({ item, onOpen, picked, onPick, menu, differs }: { item: TagRead;
   // A gem whose words are its title alone reads as those words, not as a bold heading over nothing.
   const title = item.type !== 'capture' && item.title && words ? itemName(item.type, item.title).text : ''
   const lead = words || (item.type !== 'capture' ? itemName(item.type, item.title || item.label).text : item.label)
-  const others = item.tags.filter((one) => !differs.tags.includes(one) && one !== 'bit')
+  const others = item.tags.filter((one) => !differs.tags.includes(one))
   const status = item.type === 'capture' && item.status !== 'open' ? statusSaid(item.status, item.keptIn).replace(/^./, (c) => c.toLowerCase()) : item.type === 'task' && item.status === 'done' ? 'done' : ''
   const aside = differs.kind || others.length > 0 || !!status
   return (
     <RowMenu items={menu}>
-    <article data-entry data-private={item.private ? '' : undefined} data-picked={picked || undefined} className={`group/entry -mx-2 flex flex-col gap-1.5 border-b border-border/50 px-2 py-3.5 last:border-b-0 @[44rem]/page:flex-row @[44rem]/page:gap-6 ${PICKED_MARK}`}>
+    <article data-entry data-private={item.private ? '' : undefined} data-picked={picked || undefined} className={`group/entry -mx-2 flex min-w-0 flex-col gap-1.5 border-b border-border/50 px-2 py-3.5 last:border-b-0 @[44rem]/page:flex-row @[44rem]/page:gap-6 ${PICKED_MARK}`}>
       <div
         data-pick={`${item.type}:${item.id}`}
         role="link"
@@ -562,28 +547,18 @@ function Entry({ item, onOpen, picked, onPick, menu, differs }: { item: TagRead;
       </div>
       {/* Only what sets it apart: its kind where kinds are mixed, a state, tags the others do not carry. Quiet, out of the words' way. */}
       {aside && (
-        <aside data-entry-aside className="flex shrink-0 flex-row flex-wrap items-center gap-x-3 gap-y-1 text-xs whitespace-nowrap text-muted-foreground @[44rem]/page:max-w-[30%] @[44rem]/page:flex-col @[44rem]/page:items-end @[44rem]/page:pt-1">
+        <aside data-entry-aside className="flex max-w-full min-w-0 flex-row flex-wrap items-center gap-x-3 gap-y-1 text-control whitespace-nowrap text-muted-foreground @[44rem]/page:max-w-[30%] @[44rem]/page:shrink-0 @[44rem]/page:flex-col @[44rem]/page:items-end @[44rem]/page:pt-1">
           {(differs.kind || status) && (
             <span className="flex items-center gap-1">
               {differs.kind && <><Icon className="size-3.5" style={kind && item.type === 'capture' ? { color: kind.tint } : undefined} />{item.type === 'capture' ? kind?.label ?? NAME.capture : NAME[item.type] ?? item.type}</>}
               {status && <span>{differs.kind ? '· ' : ''}{status}</span>}
             </span>
           )}
-          {others.length > 0 && <span data-entry-tags className="truncate">{others.map((one) => `#${one}`).join(' ')}</span>}
+          {others.length > 0 && <span data-entry-tags className="block max-w-full min-w-0 truncate">{others.map((one) => `#${one}`).join(' ')}</span>}
         </aside>
       )}
     </article>
     </RowMenu>
-  )
-}
-
-/** The tag's name, once, on one line: set smaller as it grows so a long tag fits whole, and never broken at a hyphen. */
-function TagTitle({ tag }: { tag: string }): React.JSX.Element {
-  const k = Math.max(3, [...tag].length + 1) * 0.6
-  return (
-    <span data-tag-title className="block! w-full [container-type:inline-size]" title={`#${tag}`}>
-      <span className="block truncate whitespace-nowrap" style={{ fontSize: `clamp(1.25rem, min(24cqi, ${(100 / k).toFixed(2)}cqi), 4.25rem)` }}>#{tag}</span>
-    </span>
   )
 }
 
@@ -608,22 +583,17 @@ function StudyMenu({ onStudy }: { onStudy: (how: StudyWay) => void }): React.JSX
 }
 
 const COLOURS = ['gray', 'brown', 'orange', 'yellow', 'green', 'blue', 'purple', 'pink', 'red'] as const
-const BACKDROPS: { id: Backdrop; label: string }[] = [{ id: 'picture', label: "A note's picture" }, { id: 'sketch', label: 'A landscape sketch' }, { id: 'colour', label: 'Its colour' }]
 
 /**
  * Everything else the tag can do, in one menu, every line named: read it in
- * a random order, rename or merge, its colour and backdrop (each previewed as
- * the pointer rests on it), a deck of its cards, its row on Home, a copy.
+ * a random order, rename or merge, its colour, a deck of its cards, its row
+ * on Home, a copy.
  */
-function TagMenu({ tag, color, onTag, onShuffle, backdrop, hasPicture, onPreview, onBackdrop, homeHidden }: {
+function TagMenu({ tag, color, onTag, onShuffle, homeHidden }: {
   tag: string
   color: string | null
   onTag: (tag: string) => void
   onShuffle?: () => void
-  backdrop: Backdrop
-  hasPicture: boolean
-  onPreview: (to: Backdrop | null) => void
-  onBackdrop: (to: Backdrop) => void
   homeHidden: boolean
 }): React.JSX.Element {
   const all = useLive(haligtree.tags, [] as Awaited<ReturnType<typeof haligtree.tags>>).map((one) => one.tag)
@@ -634,7 +604,7 @@ function TagMenu({ tag, color, onTag, onShuffle, backdrop, hasPicture, onPreview
     void haligtree.setTag(tag, { color: next }).then(() => (chime('settled'), toast(next ? `#${tag} is ${next} now` : `#${tag} has no colour now`, () => void haligtree.setTag(tag, { color }).then(() => chime('undo')))))
   }
   return (
-    <DropdownMenu modal={false} onOpenChange={(open) => !open && onPreview(null)}>
+    <DropdownMenu modal={false}>
       <Tip label="More for this tag">
         <DropdownMenuTrigger asChild>
           <button type="button" aria-label="More for this tag" data-tag-more className="flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-full text-muted-foreground transition-[color,background-color,scale] duration-150 hover:bg-foreground/[0.06] hover:text-foreground active:scale-[0.94] data-[state=open]:text-foreground">
@@ -655,16 +625,6 @@ function TagMenu({ tag, color, onTag, onShuffle, backdrop, hasPicture, onPreview
                   <span aria-hidden className="size-3 shrink-0 rounded-full" style={{ background: `var(--tt-color-text-${one})` }} />
                   <span className="capitalize">{one}</span>
                 </DropdownMenuRadioItem>
-              ))}
-            </DropdownMenuRadioGroup>
-          </DropdownMenuSubContent>
-        </DropdownMenuSub>
-        <DropdownMenuSub>
-          <DropdownMenuSubTrigger data-backdrop-menu>Backdrop</DropdownMenuSubTrigger>
-          <DropdownMenuSubContent className="w-56" onPointerLeave={() => onPreview(null)}>
-            <DropdownMenuRadioGroup value={backdrop} onValueChange={(to) => (chime('tap'), onBackdrop(to as Backdrop))}>
-              {BACKDROPS.filter((one) => one.id !== 'picture' || hasPicture).map((one) => (
-                <DropdownMenuRadioItem key={one.id} value={one.id} data-backdrop-choice={one.id} onPointerEnter={() => onPreview(one.id)} onFocus={() => onPreview(one.id)}>{one.label}</DropdownMenuRadioItem>
               ))}
             </DropdownMenuRadioGroup>
           </DropdownMenuSubContent>

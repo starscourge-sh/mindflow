@@ -35,6 +35,8 @@ export function usePickMixed(shown: Pickable[], { here = () => true, keys = true
   toggle: (one: Pick<Pickable, 'type' | 'id'>) => void
   /** A row clicked: ⌘ and ⇧ pick as Finder does and say true; a plain click lets the picked ones go and says false, so it opens. */
   click: (event: { metaKey: boolean; shiftKey: boolean; altKey: boolean }, one: Pick<Pickable, 'type' | 'id'>) => boolean
+  /** ⇧↑ or ⇧↓ in a list with a keyboard cursor: the run from the row it left to the one it reached. */
+  extend: (from: Pick<Pickable, 'type' | 'id'> | undefined, to: Pick<Pickable, 'type' | 'id'>) => void
   count: number
   selectAll: () => void
   clear: () => void
@@ -131,7 +133,7 @@ export function usePickMixed(shown: Pickable[], { here = () => true, keys = true
     { label: 'Clear the selection', keys: 'esc', run: clear }
   ] : null
   const rowItems = (one: Pick<Pickable, 'type' | 'id'>): MenuItem[] => ['separator', { label: live.includes(keyOf(one)) ? 'Unselect' : 'Select', about: 'list', keys: '⌘-click', run: () => toggle(one) }, !allPicked && { label: 'Select all', about: 'list', keys: keys ? '⌘A' : undefined, run: selectAll }]
-  return { picked: (one) => live.includes(keyOf(one)), toggle, click: (event, one) => picking.click(event, keyOf(one)), count: live.length, selectAll, clear, bar, barWith, menu, rowItems }
+  return { picked: (one) => live.includes(keyOf(one)), toggle, click: (event, one) => picking.click(event, keyOf(one)), extend: (from, to) => picking.extend(from && keyOf(from), keyOf(to)), count: live.length, selectAll, clear, bar, barWith, menu, rowItems }
 }
 
 /** How a picked card or row looks anywhere: the accent's tint and a ring in it, plain in every theme. */

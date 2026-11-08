@@ -1,6 +1,6 @@
 // Places inside a page are steps of the pane's trail: Feed's Notes, Reading
 // and Liked; Media's kinds; Stats' parts; Settings' sections; the journal's
-// Week, Month and Year. For each: open the page, pick place A, then place B,
+// Week, Month and Year; a tag's Read and Manage. For each: open the page, pick place A, then place B,
 // go Back (⌘[) and land on A, Forward (⌘]) and land on B, Back with the
 // mouse's side button and land on A again. Then a relaunch of the app on
 // the same data opens on the place last shown.
@@ -78,6 +78,13 @@ const PLACES = [
     read: () => c.h.evaluate(() => document.querySelector('[data-section][aria-current="page"]')?.getAttribute('data-section') ?? '')
   },
   {
+    // A tag's page: Read and Manage are steps, as Back finds them.
+    name: 'Tag', view: 'tags', a: 'Manage', b: 'Read',
+    enter: async () => { await c.h.locator('[data-tag-row]').first().click(); await wait(1200) },
+    pick: (one) => `[data-list-tabs] button[aria-label="${one}"]`,
+    read: () => c.h.evaluate(() => [...document.querySelectorAll('[data-list-tabs] button')].find((one) => one.getAttribute('aria-selected') === 'true' || one.getAttribute('aria-pressed') === 'true')?.getAttribute('aria-label') ?? '')
+  },
+  {
     name: 'Journal scales', view: 'day', a: 'weekpage', b: 'monthpage',
     pick: null,
     read: () => c.h.evaluate(() => document.querySelector('header h1')?.textContent ?? '')
@@ -89,6 +96,7 @@ for (const place of PLACES) {
   try {
     await c.send('view', place.view)
     await wait(1200)
+    if (place.enter) await place.enter()
     const choose = async (one) => {
       if (place.act) await place.act(one)
       else if (place.pick) await c.h.locator(place.pick(one)).first().click()
