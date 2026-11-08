@@ -7,7 +7,7 @@ import { BookOpen, CalendarDays, CircleArrowUp, CircleCheck, CircleDashed, Circl
 import { Avatar } from '@/components/haligtree/avatar'
 import { ask, askQuestion, refuse, toast } from '@/components/haligtree/ui'
 import { chime, tear } from '@/lib/sound'
-import { lift, shred, type Home } from '@/lib/fly-home'
+import { binFlight, lift, type Home } from '@/lib/fly-home'
 import { readTags, setLinkKinds, showHeading, type LinkKind, type NoteSuggestion } from '@/extensions/note-link'
 import { CAPTURE_TYPES } from '@/components/capture-kinds/capture-kind-picker'
 import { openApart } from '@/lib/apart'
@@ -128,8 +128,8 @@ export const unpromote = (id: string, nugget: string): Promise<boolean> => {
  * once the work is done. A cancelled step flies nowhere.
  */
 export async function flying<T>(id: string, home: Home | 'away', work: () => Promise<T>): Promise<T> {
-  // Discarded: no home to fly to, it goes through the shredder.
-  const land = home === 'away' ? shred(id) : lift(id, home)
+  // Discarded: it crumples and flies to the Bin.
+  const land = home === 'away' ? binFlight(id) : lift(id, home)
   const result = await work()
   if (result !== 'cancelled' && result !== 'needs-source' && result !== 'not-open' && result !== null && !(result as SaveResult)?.refused && !(result as { mixed?: string })?.mixed) land?.()
   return result

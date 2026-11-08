@@ -1950,7 +1950,7 @@ export function Home(): React.JSX.Element {
         <nav className="flex flex-col gap-px">
           {(() => {
             // Where a promoted capture or a new task flies to (lib/fly-home.ts).
-            const homeOf = (id: string): string | undefined => (id === 'nuggets' ? 'nugget' : id === 'today' ? 'task' : id === 'articles' ? 'question' : undefined)
+            const homeOf = (id: string): string | undefined => (id === 'nuggets' ? 'nugget' : id === 'today' ? 'task' : id === 'articles' ? 'question' : id === 'discarded' ? 'bin' : undefined)
             // Shown or hidden from a row's right click, said with a way back.
             const showIt = async (section: (typeof SECTIONS)[number], on: boolean): Promise<void> => {
               const was = (await haligtree.settings()).sidebarShown ?? shown
@@ -2424,7 +2424,7 @@ export function Home(): React.JSX.Element {
             const on = light === `place:${id}`
             return (
               <Tip key={id} label={place.key ? `${place.label}  G ${place.key.toUpperCase()}` : place.label}>
-                <button type="button" data-side-foot={id} aria-label={place.label} aria-current={on ? 'page' : undefined} onClick={() => (chime('page'), setView({ id }))}
+                <button type="button" data-side-foot={id} data-home={id === 'discarded' ? 'bin' : undefined} aria-label={place.label} aria-current={on ? 'page' : undefined} onClick={() => (chime('page'), setView({ id }))}
                   className={`flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-md transition-[color,background-color,scale] duration-100 hover:bg-accent/60 hover:text-foreground active:scale-[0.94] ${on ? 'bg-accent text-foreground' : 'text-muted-foreground'}`}>
                   <PlaceIcon place={place} />
                 </button>

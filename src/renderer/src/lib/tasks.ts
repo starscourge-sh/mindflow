@@ -1,7 +1,7 @@
 import { chime, tear } from './sound'
 import { unquoted } from '../../../main/clip'
 import { binned, seeTheBin } from './to-bin'
-import { shred } from './fly-home'
+import { binFlight } from './fly-home'
 import { splitTags, taskSaid, haligtree, type Made, type Task } from './haligtree'
 import { flying } from './capture-links'
 import { ask, refuse, toast } from '@/components/haligtree/ui'
@@ -388,11 +388,11 @@ export async function renameTask(task: Pick<Task, 'id' | 'title' | 'priority' | 
 }
 
 /**
- * Closed without doing: it is in the Bin, so its row goes through the
- * shredder as everything moved there does, and it can be taken back. One way for every list and page, so it always reads the same.
+ * Closed without doing: it is in the Bin, so its row crumples and flies
+ * to the Bin as everything moved there does, and it can be taken back. One way for every list and page, so it always reads the same.
  */
 export function closeTask(id: string, then?: () => void): void {
-  const land = shred(id)
+  const land = binFlight(id)
   void haligtree.saveTask(id, { status: 'dropped' }).then(() => {
     land?.()
     // A page that had it open moves on to the next itself; otherwise, as asked.

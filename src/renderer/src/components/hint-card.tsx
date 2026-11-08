@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { seeTheBin } from '@/lib/to-bin'
-import { shredFrom } from '@/lib/fly-home'
+import { binFlightFrom } from '@/lib/fly-home'
 import { RowMenu } from './haligtree/row-menu'
 import { AnimatePresence, motion } from 'motion/react'
 import { EASE, shift } from '@/lib/motion'
@@ -199,8 +199,8 @@ export function HintCard({ onOpen }: { onOpen: (type: string, id: string) => voi
                 { icon: hint.id === hint.captureId ? Trash2 : EyeOff, tip: hint.id === hint.captureId ? 'Move to the Bin' : 'Stop showing it', run: () => {
                   const id = hint.id
                   const capture = id === hint.captureId
-                  // A capture going to the Bin goes through the shredder, as it does from every list; by a key it simply goes.
-                  const land = capture ? shredFrom(document.querySelector<HTMLElement>('[data-hint-card]')) : undefined
+                  // A capture going to the Bin crumples and flies to the Bin, as it does from every list; by a key it simply goes.
+                  const land = capture ? binFlightFrom(document.querySelector<HTMLElement>('[data-hint-card]')) : undefined
                   capture ? tear() : chime('away')
                   setHint(null)
                   land?.()

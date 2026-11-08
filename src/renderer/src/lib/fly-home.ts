@@ -8,7 +8,7 @@
  * Call `lift` before the change, while the source is still on screen; it
  * returns a `land` to call once the change is made, or nothing to call.
  */
-export type Home = 'nugget' | 'task' | 'capture' | 'question'
+export type Home = 'nugget' | 'task' | 'capture' | 'question' | 'bin'
 
 import { byKeys, still } from './motion'
 import { EASING } from '@/lib/motion'
@@ -17,7 +17,7 @@ import { EASING } from '@/lib/motion'
 const OUT = 'cubic-bezier(0.16, 1, 0.3, 1)'
 const IN_OUT = 'cubic-bezier(0.77, 0, 0.175, 1)'
 
-type Box = { left: number; top: number; width: number; height: number }
+export type Box = { left: number; top: number; width: number; height: number }
 
 /** Whether a box scrolls or cuts what is inside it. */
 const cuts = (el: Element): boolean => {
@@ -69,12 +69,12 @@ function snapshot(from: HTMLElement | null): { box: Box; picture: HTMLElement; x
  */
 const colourOf = (home: Home): string => {
   const root = getComputedStyle(document.documentElement)
-  const hue = { nugget: '--tt-color-text-purple', task: '--tt-color-text-green', capture: '--tt-color-text-blue', question: '--tt-brand-color-400' }[home]
+  const hue = { bin: '--tt-color-text-red', nugget: '--tt-color-text-purple', task: '--tt-color-text-green', capture: '--tt-color-text-blue', question: '--tt-brand-color-400' }[home]
   return root.getPropertyValue(hue).trim() || root.getPropertyValue('--tt-brand-color-400').trim() || 'var(--primary)'
 }
 
 /** Where a flight lands, and how that place answers. */
-type Landing = { end: Box; nod: () => void }
+export type Landing = { end: Box; nod: () => void }
 
 const pulse = (el: HTMLElement): (() => void) => () =>
   void el.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.06)' }, { transform: 'scale(1)' }], { duration: 220, easing: OUT })
@@ -86,7 +86,7 @@ const pulse = (el: HTMLElement): (() => void) => () =>
  * the fold it is shut in, or with the sidebar away, the button that brings
  * the sidebar back. Nothing when none of these shows.
  */
-function landing(home: Home): Landing | null {
+export function landing(home: Home): Landing | null {
   const all = (attribute: string): HTMLElement[] =>
     [...document.querySelectorAll<HTMLElement>(`[${attribute}~="${home}"]`)].filter((el) => el.offsetParent !== null)
   const rows = all('data-home')
@@ -209,78 +209,43 @@ export function liftFrom(from: HTMLElement | null, home: Home): (() => void) | u
   }
 }
 
+/**
+ * Moved to the Bin, shown: the row's picture crumples into a ball of paper
+ * where it was (React Bits' PaperCrumple, components/paper-crumple.tsx) and
+ * flies to the sidebar's Bin, which nods as it lands; with no Bin in sight it
+ * crumples and fades where it was. The same for every list, every kind and
+ * every way there but a key (`moveToBin`, `closeTask`, a capture let go).
+ * Like `lift`, call it before the change; it returns a `land` for once the
+ * change is made. Three.js loads with the first one, not with the app.
+ */
+export const binFlight = (id: string): (() => void) | undefined =>
+  // The one on screen: the same id can also be on a row out of sight (a fold shut, a list behind).
+  binFlightFrom([...document.querySelectorAll<HTMLElement>(`[data-id="${CSS.escape(id)}"]`)].find((one) => seen(one)) ?? null)
+
 /** Quick capture's window: no view of its own in the address. */
 const inBox = (): boolean => !/[?&](view|note|drawing)=/.test(location.search)
 
-/** How long a strip takes to fall: about one and a half times the first cut, which went by too fast to see. */
-const SHRED_MS = 420
+/** How long the paper crumples before it flies, and the flight: under 600ms in all. */
+const CRUMPLE_MS = 260
+const FLIGHT_MS = 300
 
-/**
- * The row cut into strips where it was, narrow as a shredder cuts whatever
- * the width (16 to 24 of them), each strip the row's own picture behind it.
- */
-function strips(box: Box, picture: HTMLElement, x: number, y: number): HTMLElement[] {
-  const count = Math.max(16, Math.min(24, Math.round(box.width / 7)))
-  const width = box.width / count
-  return Array.from({ length: count }, (_, n) => {
-    const strip = document.createElement('div')
-    Object.assign(strip.style, {
-      position: 'fixed', left: `${box.left + n * width}px`, top: `${box.top}px`, width: `${width - 0.5}px`, height: `${box.height}px`,
-      zIndex: '60', pointerEvents: 'none', overflow: 'hidden', borderRadius: '1px',
-      // Paper: the card's own colour, a hairline shadow so each strip reads as a thing.
-      backgroundImage: 'linear-gradient(var(--popover), var(--popover))', backgroundColor: 'Canvas',
-      boxShadow: '0 1px 2px rgb(0 0 0 / 0.18)'
-    })
-    strip.setAttribute('data-shred', '')
-    const piece = picture.cloneNode(true) as HTMLElement
-    piece.style.transform = `translate(${x - n * width}px, ${y}px)`
-    strip.append(piece)
-    document.body.append(strip)
-    return strip
-  })
-}
-
-/**
- * Moved to the Bin, shown: a copy of the row feeds down through a slit and
- * comes out the other side as strips, each curling its own way as it drops
- * and fades, as paper does from a shredder (after reactbits' Shredder). The
- * same for every list, every kind and every way there but a key
- * (`moveToBin`, `closeTask`, a capture let go). Like `lift`, call it before
- * the change; it returns a `land` for once the change is made.
- */
-export const shred = (id: string): (() => void) | undefined =>
-  // The one on screen: the same id can also be on a row out of sight (a fold shut, a list behind).
-  shredFrom([...document.querySelectorAll<HTMLElement>(`[data-id="${CSS.escape(id)}"]`)].find((one) => seen(one)) ?? null)
-
-/** `shred` for a card found another way: a practice's row, the hint card. */
-export function shredFrom(from: HTMLElement | null): (() => void) | undefined {
-  // By a key, it simply goes: discarding is done many times a day.
-  if (byKeys()) return undefined
-  // Only what is on screen of it is shredded, so no strip falls from behind the list's edge.
-  const shot = snapshot(from)
-  if (!shot) return undefined
-  const { box, picture, x, y } = shot
+/** `binFlight` for a card found another way: a practice's row, the hint card. */
+export function binFlightFrom(from: HTMLElement | null): (() => void) | undefined {
+  // By a key, it simply goes: binning is done many times a day. Motion off or Reduce motion, nothing travels.
+  if (!from || byKeys() || still()) return undefined
+  // Only what is on screen of it, so nothing crumples from behind the list's edge.
+  const box = seen(from)
+  if (!box || !onTop(from, box)) return undefined
+  // Its picture now, while it is still there; the paper and three.js on their way meanwhile.
+  // Two frames on, so the menu it was binned from has closed and is not in the picture; the list is still waiting on the save.
+  const picture = new Promise((painted) => requestAnimationFrame(() => requestAnimationFrame(painted)))
+    .then(() => window.api.pictureOfRect({ x: box.left, y: box.top, width: box.width, height: box.height }))
+  const paper = import('@/components/paper-crumple-flight')
   return () => {
     // The real row is gone as its picture goes: the list reads the change a moment later and it showed again under the
-    // strips till then. Held out of sight by an animation, which lets go by itself if the row turns out to stay.
-    from?.animate({ visibility: ['hidden', 'hidden'] }, { duration: SHRED_MS * 3 })
-    for (const [n, strip] of strips(box, picture, x, y).entries()) {
-      const turn = (Math.random() * 2 - 1) * 14
-      const fall = box.height * 1.6 + 40 + Math.random() * 60
-      // Fed in together, a short drop as the blades take it; then each strip
-      // comes apart, curling its own way and falling faster as it goes.
-      void strip.animate(
-        [
-          { transform: 'translateY(0) rotate(0deg)', opacity: 1, easing: EASING },
-          { transform: `translateY(${Math.min(10, box.height * 0.15)}px) rotate(0deg)`, opacity: 1, offset: 0.2, easing: IN_OUT },
-          { transform: `translateY(${fall * 0.45}px) rotate(${turn * 0.6}deg) skewY(${turn * 0.3}deg)`, opacity: 1, offset: 0.65, easing: 'linear' },
-          { transform: `translateY(${fall}px) rotate(${turn}deg) skewY(${turn * 0.5}deg)`, opacity: 0 }
-        ],
-        // Each stage its own timing (above): a whole-run ease made them drop and vanish at once.
-        // Slow enough to see the strips part; slower still in quick capture, whose short rows feed through in no time.
-        { duration: SHRED_MS * (inBox() ? 1.25 : 1), delay: (n % 2) * 14 + Math.random() * 28, easing: 'linear', fill: 'forwards' }
-      ).finished.then(() => strip.remove(), () => strip.remove())
-    }
+    // paper till then. Held out of sight by an animation, which lets go by itself if the row turns out to stay.
+    from.animate({ visibility: ['hidden', 'hidden'] }, { duration: CRUMPLE_MS + FLIGHT_MS + 400 })
+    void Promise.all([picture, paper]).then(([png, { crumpleOver }]) => png && crumpleOver(box, png, landing('bin'), CRUMPLE_MS, FLIGHT_MS), () => undefined)
   }
 }
 

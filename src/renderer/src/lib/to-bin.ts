@@ -4,7 +4,7 @@ import { chime, tear } from './sound'
 import { haligtree } from './haligtree'
 import { refuse, toast, whyFailed } from '@/components/haligtree/ui'
 import { num, plural } from '../../../main/dates'
-import { shred } from './fly-home'
+import { binFlight } from './fly-home'
 
 /**
  * One way to the Bin for every kind of thing, from every list: picked rows
@@ -47,9 +47,9 @@ export async function moveToBin(refs: BinRef[], onUndo?: () => void): Promise<nu
     refuse(refs.length === 1 ? 'It is in the Bin already' : 'They are in the Bin already')
     return 0
   }
-  // Each row still on screen goes through the shredder once it is in the Bin, wherever it was binned from
+  // Each row still on screen (the first four) crumples and flies to the Bin once it is there, wherever it was binned from
   // (a list, a menu, the box's tabs): its picture is taken now, while it is still there. By a key it simply goes.
-  const shreds = going.slice(0, 8).map((one) => shred(one.id))
+  const flights = going.slice(0, 4).map((one) => binFlight(one.id))
   // Captures, and gems, pages and the rest, each kind in one write with one change told, and back the same way:
   // one call a row made 95 rows take two seconds of every list reloading, going and coming back.
   const captures = going.filter((one) => one.type === 'capture')
@@ -100,10 +100,10 @@ export async function moveToBin(refs: BinRef[], onUndo?: () => void): Promise<nu
     if (!moved) return 0
     count = moved
   }
-  for (const land of shreds) land?.()
+  for (const land of flights) land?.()
   // Heard by each page with one open beside its list (lib/nav.ts useOpened): off it, onto the next.
   binned(going.map((one) => one.id))
-  // Paper through the shredder, from every list and every kind.
+  // The Bin's one sound, from every list and every kind.
   tear()
   return count
 }
