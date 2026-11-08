@@ -58,21 +58,21 @@ try {
   const saved = await v('notes:day', key(new Date()))
   check('2. typing saves the day', JSON.stringify(saved?.body ?? '').includes(words), JSON.stringify(saved?.body ?? '').slice(0, 200))
 
-  // 3. An empty day: a box with room and a prompt line.
+  // 3. An empty day: open paper with room and a prompt line.
   const later = new Date(); later.setDate(later.getDate() + 9)
   await send('day', key(later))
   await wait(1500)
   const empty = await box('[data-day-write]')
-  check('3. an empty day\'s box has an edge and room to write', !!empty && empty.border >= 1 && empty.height >= 100, JSON.stringify(empty))
+  check('3. an empty day writes on open paper with room, no box', !!empty && empty.border === 0 && empty.height >= 100, JSON.stringify(empty))
   check('3. it says what to write, inside the box', !!empty?.prompt, String(empty?.prompt))
   check('3. it is editable', !!empty?.editable)
   check('3. the caret goes in it on this day too', !!empty?.caret, JSON.stringify(empty))
 
-  // 4. The Week page: its writing a box too, then the week's tasks.
+  // 4. The Week page writes the way the Day page does, then the week's tasks.
   await go('weekpage')
   await wait(1500)
   const week = await box('[data-week-write]')
-  check('4. the Week page\'s writing is a box with an edge', !!week && week.border >= 1 && week.height >= 80, JSON.stringify(week))
+  check('4. the Week page\'s writing is open paper too, as the Day page\'s', !!week && week.border === 0 && week.height >= 80, JSON.stringify(week))
   const weekTasks = await h.evaluate(() => document.querySelector('[data-page] [data-week-tasks]')?.getBoundingClientRect().top ?? null)
   check('4. the week\'s tasks come under it', weekTasks !== null && week && weekTasks > week.top, `${week?.top} vs ${weekTasks}`)
   check('no page errors', !c.errors.some((one) => one.includes('PAGEERROR')), c.errors.join(' | '))

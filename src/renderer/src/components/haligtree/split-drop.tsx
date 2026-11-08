@@ -34,6 +34,18 @@ import { gapIn, setCarry } from './tab-row'
  */
 
 export type Side = 'left' | 'right' | 'between'
+
+/**
+ * Where the carried card was let go, for the pane it opens to glide out of
+ * (panes.tsx), so you see where it went. Kept a moment only: a pane opened
+ * any other way never takes it.
+ */
+let landing: { rect: DOMRect; at: number } | null = null
+export const takeLanding = (): DOMRect | null => {
+  const was = landing
+  landing = null
+  return was && performance.now() - was.at < 600 ? was.rect : null
+}
 /** What was carried: `type:id` to open, a list row in a pane (its id, and which pane), or a tab (which, and whose). */
 export type Carried = { open?: string; row?: { pane: string; id: string }; tab?: { pane: string; key: string }; title: string; kind?: string }
 
@@ -411,6 +423,8 @@ export function SplitDrop({ onDrop, onRow }: { onDrop: (carried: Carried, at: nu
         dropListDrag()
         event.preventDefault()
         swallowClick()
+        const card = document.querySelector('[data-split-card]')?.getBoundingClientRect()
+        landing = card ? { rect: card, at: performance.now() } : null
         dropRef.current.onDrop(what, side.at)
       }
       reset()

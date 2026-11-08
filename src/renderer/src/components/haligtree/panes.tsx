@@ -2,7 +2,8 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode, 
 import { AnimatePresence, motion, useIsPresent } from 'motion/react'
 
 import '@/assets/split.css'
-import { byKeys, EASE, still } from '@/lib/motion'
+import { byKeys, EASE, growFrom, still } from '@/lib/motion'
+import { takeLanding } from './split-drop'
 import { chime } from '@/lib/sound'
 import { PANE_GAP, PANE_MIN, PaneContext, PaneWidthContext, panesFit, type PaneWidth } from '@/lib/split'
 import { TabRow, type TabActions, type TabGroup, type TabShown } from './tab-row'
@@ -78,6 +79,12 @@ export function SplitPanes({ panes, front, sizes, onSizes, onFront, onWidth, api
     const width = (box.current?.clientWidth ?? 1) - GAP * (panes.length - 1)
     const least = Math.min(MIN / width, 0.45)
     let now = start
+    // Each page keeps its width while the divider moves and is laid out once,
+    // when it is let go (as Trellis does): before, a long note or a PDF
+    // rewrapped every line on every frame of the drag. The card clips or
+    // shows its own paper meanwhile.
+    const held = [...(box.current?.querySelectorAll<HTMLElement>('[data-pane-card] > *') ?? [])].filter((one) => !/^(absolute|fixed)$/.test(getComputedStyle(one).position))
+    held.forEach((one) => Object.assign(one.style, { width: `${one.offsetWidth}px`, flex: 'none' }))
     const move = (moved: PointerEvent): void => {
       const by = (moved.clientX - startX) / width
       const pair = start[index] + start[index + 1]
@@ -90,6 +97,7 @@ export function SplitPanes({ panes, front, sizes, onSizes, onFront, onWidth, api
       handle.removeEventListener('pointerup', up)
       handle.removeEventListener('pointercancel', up)
       setDragged(null)
+      held.forEach((one) => Object.assign(one.style, { width: '', flex: '' }))
       if (now !== start) onSizes(now)
     }
     handle.addEventListener('pointermove', move)
@@ -253,6 +261,21 @@ function PaneFrame({ pane, apis, split, front, hidden, least, groups, actions, s
     cardWidth.current = el.offsetWidth
     return () => watch.disconnect()
   }, [present])
+  // A pane opened by dropping a note beside the page grows out of the card
+  // that was carried, from where it was let go: you see where it went.
+  // A frame on: the pane opens at no width and takes its share after its first frame (unseen, at no opacity).
+  useLayoutEffect(() => {
+    const from = takeLanding()
+    const page = pageRef.current
+    if (!from || !page) return
+    // Unseen until it starts from the card, or its first frame showed it whole, then small.
+    page.style.opacity = '0'
+    const id = requestAnimationFrame(() => {
+      page.style.opacity = ''
+      growFrom(page, from)
+    })
+    return () => (cancelAnimationFrame(id), (page.style.opacity = ''))
+  }, [])
   const kept = present || !cardWidth.current ? undefined : { width: cardWidth.current, minWidth: cardWidth.current }
   return (
     <>

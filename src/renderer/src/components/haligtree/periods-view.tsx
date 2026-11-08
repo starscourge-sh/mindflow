@@ -291,8 +291,8 @@ export function WeekPage({ start, onOpen, onScale, onRecent, recentOpen, onDay }
               This week in notes
               <span className="text-xs font-normal text-muted-foreground">{"write freely about the week as a whole"}</span>
             </h2>
-            {/* A box that reads as a place to type, as the Day page's does. */}
-            <div data-week-write className="min-h-28 cursor-text rounded-xl border border-border bg-background px-5 py-4 shadow-xs transition-colors focus-within:border-ring hover:border-foreground/25 [--mf-padding:0.25rem_0]">
+            {/* Open paper on the page's own dots, as the Day page writes: no box around it. */}
+            <div data-week-write className="min-h-28 cursor-text [--mf-padding:0.25rem_0]">
             <HaligtreeEditor
               key={`week-${monday}`}
               host={window.api}
