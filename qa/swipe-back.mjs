@@ -29,7 +29,9 @@ const R = natural ? -1 : 1 // deltaX for each px the fingers move right
 const DOWN = natural ? -1 : 1 // deltaY for each px the fingers move down
 console.log('natural scrolling', natural)
 const ends = () => h.evaluate(() => (window.__swipeLog ?? []).filter((one) => one.end).map((one) => one.end))
+// Each swipe starts with the fingers touching, as the Mac says (the glide after a lift never starts one).
 const swipe = async (steps, dx = 12 * R, x = X, frames) => {
+  await phase('began')
   for (let n = 0; n < steps; n++) {
     await wheel(x, Y, dx)
     await h.waitForTimeout(16)
@@ -91,12 +93,12 @@ check('never two identical rows', rows3.length && new Set(rows3).size === rows3.
 await h.keyboard.press('Escape'); await pause(400)
 
 // Real trackpad rates (a step every 8ms). Fingers slowing short of the tap is not a let go: the arrow stays.
-const at8 = async (list) => { for (const d of list) (await wheel(X, Y, d * R), await pause(8)) }
+const at8 = async (list, touch = true) => { if (touch) await phase('began'); for (const d of list) (await wheel(X, Y, d * R), await pause(8)) }
 const here = await title()
 await pause(300)
 await at8([3, 4, 6, 20, 16, 12, 9, 7])
 check('fingers slowing short of the tap: the arrow stays', (await arrow()) === 'pulling', JSON.stringify((await ends()).slice(-1)))
-await at8([10, 10, 10, 10, 10]); await pause(16)
+await at8([10, 10, 10, 10, 10], false); await pause(16)
 check('...and carries on past it', (await arrow()) === 'armed')
 await lift(); await pause(600)
 check('...then goes back on let go', (await title()) !== here, `${here} -> ${await title()}`)
@@ -125,9 +127,39 @@ check('a far jerky swipe still goes back', (await title()) !== here, `${here} ->
 // Diagonal: the fingers drift down as they go right.
 await h.keyboard.press('Meta+BracketRight'); await pause(700)
 await pause(300)
+await phase('began')
 for (let n = 0; n < 14; n++) (await h.evaluate(([x, y, dx, dy]) => document.elementFromPoint(x, y).dispatchEvent(new WheelEvent('wheel', { deltaX: dx, deltaY: dy, bubbles: true, cancelable: true })), [X, Y, 12 * R, 5 * DOWN]), await pause(8))
 await lift(); await pause(700)
 check('a diagonal swipe goes back', (await title()) !== here, JSON.stringify(await h.evaluate(() => window.__swipeLog.slice(-6))))
+await h.keyboard.press('Meta+BracketRight'); await pause(700)
+
+// A real flick, as the Mac sends it (the user, 8 Nov: "gets stuck and opens history even though I have let go"):
+// the fingers' burst, their lift, then the trackpad's glide, steps shorter and shorter, then nothing.
+const glide = async (from, n = 40) => { for (let k = 0; k < n; k++) (await wheel(X, Y, Math.max(1, Math.round(from * 0.9 ** k)) * R), await pause(8)) }
+{
+  const was = await title()
+  await pause(300)
+  await at8([6, 12, 18, 22, 24, 22, 18])
+  await lift(); await glide(16); await pause(1000)
+  check('a flick past the tap: back once, the arrow gone and no list 1s after the glide', (await title()) !== was && !(await arrow()) && !(await listRows()).length, `${was} -> ${await title()}, list ${(await listRows()).length}`)
+  await h.keyboard.press('Meta+BracketRight'); await pause(700)
+  // Lifted before the swipe got going (its first steps mostly up and down), the glide carries sideways past the tap.
+  const here2 = await title()
+  await pause(300)
+  await phase('began'); await wheel(X, Y, 1 * R, 6 * DOWN); await pause(8); await wheel(X, Y, 2 * R, 3 * DOWN); await pause(8)
+  await lift(); await glide(20, 50); await pause(1000)
+  check('a glide after the fingers lifted never starts a swipe nor opens the list', (await title()) === here2 && !(await arrow()) && !(await listRows()).length, `${here2} -> ${await title()}, list ${(await listRows()).length}, ${JSON.stringify((await ends()).slice(-2))}`)
+  // A flick short of the tap whose glide carries it on: put away, going nowhere, no list.
+  await pause(300)
+  await at8([4, 8, 10, 8])
+  await lift(); await glide(14, 40); await pause(1000)
+  check('a flick short of the tap with a long glide: the arrow springs away, no list', (await title()) === here2 && !(await arrow()) && !(await listRows()).length, `${await title()}, list ${(await listRows()).length}`)
+  // Held on purpose past the tap, the fingers resting: the list still opens.
+  await pause(300)
+  await swipe(14); await pause(1000)
+  check('resting past the tap with the fingers down still opens the list', (await listRows()).length >= 1)
+  await h.keyboard.press('Escape'); await pause(400)
+}
 const reasons = await ends()
 check('every ending has a stated reason', reasons.every(Boolean), [...new Set(reasons)].join(' | '))
 await h.keyboard.press('Meta+BracketRight'); await pause(700)

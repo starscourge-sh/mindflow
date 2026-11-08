@@ -76,6 +76,9 @@ export function SwipeBack({ front, trailOf, nameOf, go }: Props): React.JSX.Elem
     // The Mac says when the fingers touch and lift (main, from native/glass.mm). Once it has spoken, that is all that
     // ends a swipe: resting still never does. Without it (another system), the trackpad's glide and a quiet stand in.
     let phases = false
+    // Whether the fingers are on the trackpad, once the Mac has said. The glide after they lift still sends the
+    // wheel: it never starts a swipe nor opens the list, which is only for fingers resting past the tap.
+    let touching = false
     const draw = (): void => setShown(g ? { way: g.way, rect: g.rect, pull: g.pull, armed: g.armed } : null)
     const end = (why: string): void => {
       note({ end: why, pull: g ? Math.round(g.pull) : null, armed: g?.armed ?? null })
@@ -89,7 +92,7 @@ export function SwipeBack({ front, trailOf, nameOf, go }: Props): React.JSX.Elem
       props.current.go(key, to)
     }
     const openList = (): void => {
-      if (!g) return
+      if (!g || (phases && !touching)) return
       const trail = props.current.trailOf(g.key)
       if (!trail) return end('list: no trail')
       const rows = placesFrom(trail, g.way, props.current.nameOf)
@@ -109,7 +112,8 @@ export function SwipeBack({ front, trailOf, nameOf, go }: Props): React.JSX.Elem
         spent = true
         return
       }
-      if (!g) return
+      // Lifted before any swipe began: the glide that follows is the same sequence, and is swallowed with it.
+      if (!g) return void (spent = true)
       const { key, way, armed } = g
       const trail = props.current.trailOf(key)
       end(armed ? `go: ${why}` : `cancel: ${why} short of the tap`)
@@ -164,6 +168,7 @@ export function SwipeBack({ front, trailOf, nameOf, go }: Props): React.JSX.Elem
         // and a sideways swipe nearly always has a little. What turns sideways itself says so with data-swipe-own.
         const why = event.ctrlKey || event.metaKey ? 'a key held' : !event.deltaX || Math.abs(event.deltaX) < Math.abs(event.deltaY) * 1.5 ? 'not sideways' : null
         if (why) return void ((ignored = !fresh || Math.abs(event.deltaY) > 2), note({ skip: why, dx: event.deltaX, dy: event.deltaY }))
+        if (phases && !touching) return void ((ignored = true), note({ skip: 'the glide after the fingers lifted', dx: event.deltaX }))
         g = startable(event)
         if (!g) return void ((ignored = true), note({ skip: 'a scroller, the Map or nowhere to go', dx: event.deltaX }))
       }
@@ -183,13 +188,15 @@ export function SwipeBack({ front, trailOf, nameOf, go }: Props): React.JSX.Elem
       clearTimeout(hold)
       clearTimeout(rest)
       // Resting past the tap: the list. Resting short of it stays (only lifting ends it), unless no word of lifting comes.
-      if (g.armed) hold = window.setTimeout(openList, HOLD)
+      if (g.armed && (!phases || touching)) hold = window.setTimeout(openList, HOLD)
       else if (!phases) rest = window.setTimeout(() => g && !g.armed && end('cancel: quiet short of the tap'), 700)
     }
     const onPhase = (kind: string): void => {
       phases = true
       note({ phase: kind })
-      if (kind === 'ended') lifted('lift')
+      // Fresh fingers: a new sequence, whatever the last one left behind.
+      if (kind === 'began') (touching = true, (spent = false), (ignored = false), readNatural())
+      if (kind === 'ended') (touching = false, lifted('lift'))
     }
     // A probe sends the same words the Mac would (qa/swipe-back.mjs).
     const onProbe = (event: Event): void => onPhase(String((event as CustomEvent).detail))
