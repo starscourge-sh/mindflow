@@ -8,7 +8,9 @@ const TRUNK = -4.5
 const BEND = 4.5
 const TIP = 5
 // The border colour reads as nothing this thin, so a softened muted ink instead.
-const QUIET = 'color-mix(in oklab, var(--muted-foreground) 45%, transparent)'
+// The text's own colour, faded: so the lines show on the page, on the dark frame and on any theme alike (a fixed
+// grey from the page went missing on the dark frame).
+const QUIET = 'color-mix(in oklab, currentColor 30%, transparent)'
 
 /** An open group's rows hung off a thin trunk from its heading, a curved branch
  *  to each; the way down to the page you are on is lit, and moves with you.
