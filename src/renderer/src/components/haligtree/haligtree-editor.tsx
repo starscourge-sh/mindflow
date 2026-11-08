@@ -86,6 +86,7 @@ import { Calc } from "@/extensions/calc"
 import { Collect, CollectPill } from "@/extensions/collect"
 import { TypePause } from "@/extensions/type-pause"
 import { markdownToDocument } from "@/lib/markdown-doc"
+import { FootnoteKit } from "@/extensions/footnotes"
 import { LongDocument } from "@/extensions/long-document"
 import { Typewriter } from "@/extensions/typewriter"
 import { useStoredFlag } from "@/lib/use-stored-flag"
@@ -184,7 +185,7 @@ const HANDLE_NESTING = {
 }
 
 /** Text that says it is Markdown: a heading, a list, a quote, a fence, a table, a rule, maths, a link, bold. */
-const MARKDOWN_SIGNS = /^(#{1,6} |\s*[-*+] |\s*\d+[.)] |> ?|```|~~~|\|.*\|\s*$|(---|\*\*\*|___)\s*$|\$\$|:::\w|<!-- columns -->)|\[\[|\*\*\S|\]\(|!\[/m
+const MARKDOWN_SIGNS = /^(#{1,6} |\s*[-*+] |\s*\d+[.)] |> ?|```|~~~|\|.*\|\s*$|(---|\*\*\*|___)\s*$|\$\$|:::\w|<!-- columns -->)|\[\[|\*\*\S|\]\(|!\[|\[\^[^\]\s]+\]|\^\[/m
 
 const HANDLE_POSITION = { middleware: [offset({ mainAxis: 24, crossAxis: 2 })] }
 
@@ -1247,6 +1248,9 @@ function Surface({
         // Replaced below so a list item can hold a toggle as its first child.
         listItem: false,
         horizontalRule: false,
+        // The footnotes are always last (extensions/footnotes.ts): no empty line
+        // is added under them, which they would move above themselves for ever.
+        trailingNode: { notAfter: ["paragraph", "footnotes"] },
         // Only h1-h4 are styled; an h5 would render as a paragraph.
         heading: { levels: [1, 2, 3, 4] },
         // Replaced by the highlighting version below.
@@ -1402,6 +1406,8 @@ function Surface({
       MeetingLine,
       ExcalidrawDiagram,
       ContentsBlock,
+      // Footnotes as Obsidian writes them: a raised number, the notes at the foot.
+      ...(shape === "line" ? [] : [FootnoteKit]),
       // Gives the editor `storage.markdown.getMarkdown()`, used by Export.
       // A Markdown reader of its own: on the shared one, each editor added its
       // rules for good, and they kept every editor ever opened in memory.

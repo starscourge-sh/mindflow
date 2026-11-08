@@ -104,6 +104,7 @@ const RULES: [RegExp, LucideIcon][] = [
   [/favourites/i, Star],
   // A link taken off its words: the words stay, so never the Bin's can.
   [/^remove link/i, Unlink],
+  [/^go to the footnote/i, ArrowDownToLine],
   // A file shown where it sits: the folder, never the eye of "Show".
   [/in finder$/i, Folder],
   [/^turn it into/i, WandSparkles],

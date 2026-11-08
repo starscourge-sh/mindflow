@@ -13,6 +13,7 @@ import { host, said } from "@/lib/host"
 import { pictureLines } from "@/lib/picture-actions"
 import { lookUp } from "@/components/pdf/look-up"
 import { playAt } from "@/extensions/line-cards"
+import { toNote } from "@/extensions/footnotes"
 
 /** Picked words looked up in the one Look Up card, under them, with the line they sit in kept beside the Lookup. */
 export function lookUpIn(editor: Editor, from: number, to: number, words: string, origin?: string | null): void {
@@ -52,6 +53,7 @@ export type Clicked =
   | { kind: "words"; from: number; to: number; words: string }
   | { kind: "tag"; tag: string }
   | { kind: "formula"; pos: number; latex: string }
+  | { kind: "footnote"; pos: number; id: string; n: number }
   | { kind: "time"; seconds: number; text: string; audio?: string }
   | { kind: "picture"; src: string }
   | { kind: "video"; src: string }
@@ -114,6 +116,7 @@ export function clickedAt(editor: Editor, event: MouseEvent): Clicked | null {
   const atom = view.posAtCoords({ left: event.clientX, top: event.clientY })?.inside ?? -1
   const node = atom >= 0 ? editor.state.doc.nodeAt(atom) : null
   if (node && /^(inline|block)Math$/.test(node.type.name)) return { kind: "formula", pos: atom, latex: String(node.attrs.latex ?? "") }
+  if (node?.type.name === "footnoteReference") return { kind: "footnote", pos: atom, id: String(node.attrs.id), n: Number(node.attrs.n) || 1 }
   if (node?.type.name === "image" && node.attrs.src && target?.closest("img")) return { kind: "picture", src: String(node.attrs.src) }
   if (node?.type.name === "youtube" && node.attrs.src) return { kind: "video", src: String(node.attrs.src) }
   // Words picked, and the click on them: what you do with words comes first.
@@ -135,6 +138,7 @@ export function clickedName(clicked: Clicked): string {
   if (clicked.kind === "pdf") return `PDF, page ${clicked.page}`
   if (clicked.kind === "tag") return `#${clicked.tag}`
   if (clicked.kind === "formula") return "Formula"
+  if (clicked.kind === "footnote") return `Footnote ${clicked.n}`
   if (clicked.kind === "time") return `Time ${clicked.text}`
   if (clicked.kind === "picture") return "Picture"
   if (clicked.kind === "video") return "Video"
@@ -312,6 +316,14 @@ export function clickedLines(editor: Editor, clicked: Clicked): Line[] {
         }),
       },
       { label: "Copy as LaTeX", data: "copy-latex", run: () => copyText(`$${latex}$`, "Formula copied as LaTeX") },
+    ].filter((one) => !one.edits || editor.isEditable)
+  }
+  // A footnote's mark: to its note, or away with both (⌘Z brings them back).
+  if (clicked.kind === "footnote") {
+    const { pos, id } = clicked
+    return [
+      { label: "Go to the footnote", data: "to-footnote", run: () => void toNote(editor, id) },
+      { label: "Remove footnote", edits: true, hint: "Its note goes too", data: "remove-footnote", run: () => void editor.chain().focus().deleteRange({ from: pos, to: pos + 1 }).run() },
     ].filter((one) => !one.edits || editor.isEditable)
   }
   if (clicked.kind === "time") {

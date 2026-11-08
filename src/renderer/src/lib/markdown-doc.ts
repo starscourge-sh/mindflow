@@ -2,6 +2,7 @@ import type { Editor, JSONContent } from "@tiptap/core"
 
 import { readCardLink } from "@/extensions/card-link"
 import { absorbCaptions } from "@/extensions/caption"
+import { placeFootnotes, pullFootnotes } from "@/extensions/footnotes"
 
 /**
  * Long Markdown, cut where a new block has to start anyway: at a heading, or
@@ -215,6 +216,10 @@ function untab(markdown: string): string {
 /** Markdown as the editor's document, read in pieces and tidied. */
 export function markdownToDocument(editor: Editor, markdown: string): JSONContent {
   const manager = editor.markdown
-  const content = manager ? markdownPieces(untab(markdown)).flatMap((piece) => manager.parse(piece).content ?? []) : []
-  return tidyDocument({ type: "doc", content: content.length ? content : [{ type: "paragraph" }] })
+  // Footnotes' `[^1]: words` lines first: a piece read alone would part a mark from its note.
+  const footed = !!editor.schema.nodes.footnoteReference
+  const { rest, notes } = footed ? pullFootnotes(untab(markdown)) : { rest: untab(markdown), notes: new Map<string, string>() }
+  const content = manager ? markdownPieces(rest).flatMap((piece) => manager.parse(piece).content ?? []) : []
+  const doc = tidyDocument({ type: "doc", content: content.length ? content : [{ type: "paragraph" }] })
+  return manager && footed ? placeFootnotes(doc, notes, (words) => manager.parse(words).content ?? []) : doc
 }

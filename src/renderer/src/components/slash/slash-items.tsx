@@ -1,4 +1,4 @@
-import { Columns2, Columns3, Workflow as DiagramIcon, FileStack as EmbedIcon, Link2 as LinkIcon, TableOfContents as ContentsIcon, Minus as DividerIcon, Sigma as SigmaIcon, Table as TableIcon, Paperclip, Speech, SquarePlay as VideoIcon, Users } from 'lucide-react'
+import { Columns2, Columns3, Workflow as DiagramIcon, FileStack as EmbedIcon, Link2 as LinkIcon, TableOfContents as ContentsIcon, Minus as DividerIcon, Sigma as SigmaIcon, Superscript as FootnoteIcon, Table as TableIcon, Paperclip, Speech, SquarePlay as VideoIcon, Users } from 'lucide-react'
 
 import type { Editor } from '@tiptap/core'
 import { isInTable } from '@tiptap/pm/tables'
@@ -210,6 +210,22 @@ export const slashItems: SlashItem[] = [
     keywords: ['math', 'equation', 'formula', 'latex', 'tex'],
     icon: <SigmaIcon />,
     run: (editor) => editor.chain().focus().toggleInlineMath().run()
+  },
+  // A raised number here, its note at the foot of the page, the caret in the note; Esc comes back.
+  {
+    title: 'Footnote',
+    group: 'Basic blocks',
+    keywords: ['footnote', 'reference', 'citation', 'endnote', 'source'],
+    hint: '[^1]',
+    icon: <FootnoteIcon />,
+    when: (editor) => !!editor.schema.nodes.footnoteReference,
+    // The "/" wants a space before it; the mark hugs the word it follows, as in print.
+    run: (editor) => {
+      const { from, empty } = editor.state.selection
+      const before = editor.state.doc.textBetween(Math.max(0, from - 2), from, '\n', '\n')
+      const hug = empty && /\S $/.test(before)
+      editor.chain().focus().command(({ tr }) => (hug && tr.delete(from - 1, from), true)).insertFootnote().run()
+    }
   },
   {
     title: 'Divider',

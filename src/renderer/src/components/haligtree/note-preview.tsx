@@ -5,7 +5,7 @@ import { onScrollAway } from '@/lib/scroll-away'
 
 import { haligtree, when } from '@/lib/haligtree'
 import { backIn } from '@/lib/back-in'
-import { Gem, UserRound } from 'lucide-react'
+import { Gem, Superscript as FootnoteIcon, UserRound } from 'lucide-react'
 import { CARD } from '@/lib/float'
 import { Quote as MessageSquareText } from '@/components/ui/icons'
 import { canSplit } from '@/lib/split'
@@ -93,9 +93,15 @@ export const hoverThought = (itemId: string, glossId: string, on: string): Recor
   'data-thought-on': on
 })
 
+/** A footnote mark's card: "Footnote 2", and its note's words as the foot of the page has them now. */
+const footnoteCard = (mark: Element, id: string): { title: string; body: string; private: boolean; picture: null; thought: Thought } => {
+  const words = mark.closest('.ProseMirror')?.querySelector(`li[data-footnote="${CSS.escape(id)}"] .mf-footnote-words`)?.textContent?.trim()
+  return { title: '', body: words || 'No words in this footnote yet.', private: false, picture: null, thought: { when: '', on: '', kind: `Footnote ${mark.textContent ?? ''}` } }
+}
+
 /** How a gem comes back, for its preview: the question Review asks it by, and when. */
 /** A thought's card: when it was written, and the title of the note it is on. */
-type Thought = { when: string; on: string }
+type Thought = { when: string; on: string; kind?: string }
 type Gemmed = { asks: string | null; tested: boolean; when: string }
 const plainly = (text: string): string => text.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim()
 const gemmed = (item: { title: string; prompt: string | null; dueAt: string | null; suspended: number }): Gemmed => ({
@@ -116,6 +122,8 @@ export function NotePreview(): React.JSX.Element | null {
     let timer: ReturnType<typeof setTimeout> | undefined
     let leaving: ReturnType<typeof setTimeout> | undefined
     let over: Element | null = null
+    // A footnote mark just clicked: no card from it until the pointer has left it.
+    let pressed: Element | null = null
     // A card showing, or put away less than a moment ago: the next link's comes at once, as Wikipedia's do, with no new wait.
     let warmTill = 0
     const onOver = (event: MouseEvent): void => {
@@ -124,7 +132,9 @@ export function NotePreview(): React.JSX.Element | null {
       // Never over a menu: one open is what is being read (lib/menu-showing.ts).
       if (menuShowing()) return void (clearTimeout(timer), (over = null))
       // An @ link in a note, or a row's title that offers the same card (the Bin's: data-note-hover).
-      const link = (event.target as Element | null)?.closest?.('a.tiptap-note-link[data-note], [data-note-hover][data-note]') ?? null
+      const found = (event.target as Element | null)?.closest?.('a.tiptap-note-link[data-note], [data-note-hover][data-note]') ?? null
+      if (found !== pressed) pressed = null
+      const link = found === pressed ? null : found
       // Still on the same link: the card stays. Still off every link: its leaving keeps running (a move here once put
       // it off, so a card left open while the pointer kept moving elsewhere).
       if (link === over) return void (link && clearTimeout(leaving))
@@ -154,8 +164,10 @@ export function NotePreview(): React.JSX.Element | null {
         const row = link.hasAttribute('data-note-hover')
         // A person or a tag is a place to go, not a note with words to show.
         const load: Promise<{ title: string; lead?: string; body: unknown; private: boolean; gem?: Gemmed; picture?: string | null; tally?: string; latest?: string[]; thought?: Thought } | null> =
+          // A footnote's mark: its note's words, read off the page it is on.
+          type === 'footnote' ? Promise.resolve(footnoteCard(link, id))
           // A thought: its words whole, dated, and the note it is on.
-          type === 'thought' ? haligtree.glosses(id).then((all) => {
+          : type === 'thought' ? haligtree.glosses(id).then((all) => {
             const one = all.find((gloss) => gloss.id === link.getAttribute('data-thought'))
             return one ? { title: '', body: one.body, private: false, picture: null, thought: { when: `${one.author === 'ai' ? 'Written by AI, ' : ''}${when(one.createdAt)}`, on: link.getAttribute('data-thought-on') ?? '' } } : null
           })
@@ -224,10 +236,10 @@ export function NotePreview(): React.JSX.Element | null {
             lost: !!block && !line,
             text: found.thought ? cut(found.body as string, 900) : cut(text, 420),
             kind,
-            aside: !binned && !['task', 'person', 'tag', 'pdf', 'web', 'thought'].includes(type),
+            aside: !binned && !['task', 'person', 'tag', 'pdf', 'web', 'thought', 'footnote'].includes(type),
             type,
             id,
-            queue: !binned && !['task', 'person', 'tag', 'goal', 'pdf', 'web', 'thought'].includes(type),
+            queue: !binned && !['task', 'person', 'tag', 'goal', 'pdf', 'web', 'thought', 'footnote'].includes(type),
             gem: found.gem,
             binned,
             row,
@@ -244,6 +256,15 @@ export function NotePreview(): React.JSX.Element | null {
       }, Date.now() < warmTill ? 0 : 500)
     }
     document.addEventListener('mousemove', onOver)
+    // A footnote's mark clicked goes to its note, its words now under the caret: no card, nor one on its way.
+    const onPress = (event: PointerEvent): void => {
+      if (!(event.target as Element | null)?.closest?.('[data-note^="footnote:"]')) return
+      clearTimeout(timer)
+      pressed = (event.target as Element).closest('[data-note^="footnote:"]')
+      over = null
+      setShown(null)
+    }
+    document.addEventListener('pointerdown', onPress, true)
     // Not on a key: the card has keys of its own (Esc puts it away).
     const stop = hideForMenus(() => (clearTimeout(timer), (over = null), setShown(null)), { keys: false })
     return () => {
@@ -251,6 +272,7 @@ export function NotePreview(): React.JSX.Element | null {
       clearTimeout(timer)
       clearTimeout(leaving)
       document.removeEventListener('mousemove', onOver)
+      document.removeEventListener('pointerdown', onPress, true)
     }
   }, [])
   // The link it hangs from gone from the page (another page opened, the row
@@ -322,10 +344,10 @@ export function NotePreview(): React.JSX.Element | null {
     >
       {shown.thought ? (
         <p data-preview-kind className="mb-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
-          <MessageSquareText className="size-3.5 shrink-0" />
-          <span>Thought</span>
-          <span aria-hidden>·</span>
-          <span className="tabular-nums">{shown.thought.when}</span>
+          {shown.thought.kind ? <FootnoteIcon className="size-3.5 shrink-0" /> : <MessageSquareText className="size-3.5 shrink-0" />}
+          <span>{shown.thought.kind ?? 'Thought'}</span>
+          {shown.thought.when && <><span aria-hidden>·</span>
+          <span className="tabular-nums">{shown.thought.when}</span></>}
         </p>
       ) : shown.gem ? (
         <p className="mb-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">

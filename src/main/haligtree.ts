@@ -183,6 +183,7 @@ export function markdown(value: unknown, nameOf: (id: string) => string | undefi
       // A width goes after a bar, the way Obsidian writes one.
       if (node.type === 'image') return `![${node.attrs?.alt ?? ''}${node.attrs?.width ? `|${parseInt(String(node.attrs.width))}` : ''}](${node.attrs?.src ?? ''})`
       if (node.type === 'inlineMath') return `$${node.attrs?.latex ?? ''}$`
+      if (node.type === 'footnoteReference') return `[^${node.attrs?.n || 1}]`
       if (node.type === 'emoji') return `:${node.attrs?.name ?? ''}:`
       let text = node.text ?? inline(node.content)
       for (const mark of node.marks ?? []) {
@@ -212,6 +213,8 @@ export function markdown(value: unknown, nameOf: (id: string) => string | undefi
       // A picture from Obsidian not found here: pointed at again, the way Obsidian wrote it.
       case 'imagePlaceholder': return node.attrs?.embed ? `![[${node.attrs.embed}]]` : ''
       case 'blockMath': return `$$\n${node.attrs?.latex ?? ''}\n$$`
+      // Footnotes as Obsidian writes them: `[^1]: words`, a second paragraph indented under the first.
+      case 'footnotes': return kids.map((note, n) => `[^${n + 1}]: ${(note.content ?? []).map((child) => block(child)).join('\n\n').split('\n').map((line, at) => (at && line ? `    ${line}` : line)).join('\n')}`).join('\n')
       case 'youtube': return captioned(`![](${node.attrs?.src ?? ''})`, node)
       case 'attachment': return captioned(`[${node.attrs?.name || 'Attachment'}](${node.attrs?.src ?? ''})`, node)
       // Markdown has no columns: each one's blocks in turn, between marks Haligtree reads back.
