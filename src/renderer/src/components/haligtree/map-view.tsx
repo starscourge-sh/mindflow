@@ -370,9 +370,10 @@ function Replay({ nodes, show, onClose }: { nodes: NoteMap['nodes']; show: React
   const press = (run: () => void) => (event: React.KeyboardEvent): void => void ((event.key === 'Enter' || event.key === ' ') && (event.preventDefault(), event.stopPropagation(), run()))
   const across = width * share
   return (
-    // Quiet, at the map's foot between the key and the notes left off: the map stays the thing to look at.
-    <div data-map-replay-bar className={`pointer-events-auto grid w-full grid-cols-[28px_auto_minmax(0,1fr)_auto] grid-rows-[28px_auto] items-center gap-x-2.5 gap-y-0 rounded-lg py-1.5 pr-1.5 pl-2 ${FLOAT}`} data-frost-always
-      style={{ '--mf-sound-faint': 'color-mix(in oklab, var(--foreground) 22%, transparent)', '--mf-frost-fill': '66%' } as React.CSSProperties}>
+    // Bare on the map's blurred foot, between the key and the notes left off: no card, border or fill, so the map
+    // stays the thing to look at.
+    <div data-map-replay-bar className={`pointer-events-auto grid w-full grid-cols-[28px_auto_minmax(0,1fr)_auto] grid-rows-[28px_auto] items-center gap-x-2.5 gap-y-0 py-1.5 pr-1.5 pl-2`}
+      style={{ '--mf-sound-faint': 'color-mix(in oklab, var(--foreground) 22%, transparent)' } as React.CSSProperties}>
       <Tip label={state === 'playing' ? 'Pause' : state === 'ended' ? 'Play again' : 'Play'}>
         <span role="button" tabIndex={0} data-map-replay-play className="mf-sound-play" style={{ width: 28, height: 28 }} data-state={state} aria-label={state === 'playing' ? 'Pause' : state === 'ended' ? 'Play again' : 'Play'}
           onClick={toggle} onKeyDown={press(toggle)}>
