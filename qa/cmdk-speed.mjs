@@ -99,8 +99,10 @@ try {
       const typed = q.slice(0, i)
       if (typed.endsWith(' ')) { await h.keyboard.type(' '); continue }
       const want = (await h.evaluate((t) => window.api.captures.find(t), typed)).map((one) => `${one.type}:${one.id}`)
-      const src = `() => document.querySelector('${box}').value === ${JSON.stringify(typed)} && ((s) => s.length === ${want.length} && s[0] === ${JSON.stringify(want[0] ?? null)} || (${want.length} === 0 && s.length === 0 && /Nothing (matches|called that)/.test(document.querySelector('[role="dialog"][aria-label="Search"]').textContent)))(window.__shown())`
-      const ms = await timed(src, () => h.keyboard.type(q[i - 1]))
+      // The results drawn as islands, a few a kind: the list says which words it answers, and every row showing is one of theirs.
+      const src = `() => document.querySelector('${box}').value === ${JSON.stringify(typed)} && ((s) => (document.querySelector('[data-answers]') ? document.querySelector('[data-answers]').dataset.answers === ${JSON.stringify(typed)} && ${want.length} > 0 && s.length > 0 && s.every((one) => window.__want.has(one)) : s.length === ${want.length} && s[0] === ${JSON.stringify(want[0] ?? null)}) || (${want.length} === 0 && s.length === 0 && /Nothing (matches|called that)/.test(document.querySelector('[role="dialog"][aria-label="Search"]').textContent)))(window.__shown())`
+      await h.evaluate((w) => void (window.__want = new Set(w)), want)
+      const ms = await timed(src,() => h.keyboard.type(q[i - 1]))
       keys.push(ms)
       if (i === 1) firstKey.push(ms)
     }
@@ -150,24 +152,30 @@ try {
   if (cdp) await profiler.start()
   await h.keyboard.type(fast, { delay: 25 })
   const want = (await h.evaluate((t) => window.api.captures.find(t), fast)).map((one) => `${one.type}:${one.id}`)
-  await h.waitForFunction((w) => window.__shown()[0] === w, want[0], { timeout: 5000 })
+  // Islands show a few of each kind: the list answers the last words, every row one of theirs.
+  const answered = () => h.evaluate(({ f, w }) => document.querySelector('[data-answers]')?.dataset.answers === f && (w.length ? window.__shown().length > 0 : !window.__shown().length) && window.__shown().every((one) => w.includes(one)), { f: fast, w: want })
+  await h.waitForFunction((f) => document.querySelector('[data-answers]')?.dataset.answers === f, fast, { timeout: 5000 })
   await h.waitForTimeout(800)
   if (cdp) await profiler.stop('fast typing')
-  const fastState = await h.evaluate((b) => ({ value: document.querySelector(b).value, lag: window.__lag, lt: window.__lt, last: window.__shown()[0] }), box)
+  const fastState = await h.evaluate((b) => ({ value: document.querySelector(b).value, lag: window.__lag, lt: window.__lt }), box)
+  fastState.last = await answered()
+  if (!fastState.last) console.log('fast typing, last state:', await h.evaluate((w) => [document.querySelector('[data-answers]')?.dataset.answers, window.__shown().filter((one) => !w.includes(one)), window.__shown().length], want))
   console.log(`fast typing: caret frame p95 ${pct(fastState.lag, 0.95)} ms, max ${pct(fastState.lag, 1)} ms; long tasks ${JSON.stringify(fastState.lt)}`)
   check('fast typing keeps every key', fastState.value === fast, JSON.stringify(fastState.value))
-  check('the last words\' results stay, nothing older lands over them', fastState.last === want[0])
+  check('the last words\' results stay, nothing older lands over them', fastState.last === true)
 
   // Arrows: ↓ to the highlight on the next row, over a long list of results.
   await h.keyboard.press('Meta+a')
   await h.keyboard.type('garden')
-  await h.waitForFunction(() => window.__shown().length > 30, null, { timeout: 5000 })
+  await h.waitForFunction(() => window.__shown().length >= 12, null, { timeout: 5000 }).catch(async (error) => { console.log('shown after garden:', await h.evaluate(() => [window.__shown().length, document.querySelector('[data-answers]')?.dataset.answers, [...document.querySelectorAll('[data-island-head]')].map((one) => one.textContent)])); throw error })
   // The search alone, in main, for the record.
   const ipc = await h.evaluate(async () => { const out = []; for (const q of ['g', 'garden', 'rivr', 'meeting budget', 'zqx']) { const t = performance.now(); await window.api.captures.find(q); out.push(`${q} ${Math.round(performance.now() - t)}`) } return out.join(', ') })
   console.log(`search in main (ms): ${ipc}`)
   const arrows = []
   if (cdp) await profiler.start()
-  for (let i = 0; i < 20; i++) {
+  // As many as there are rows below the first (islands show a few of each kind), at most 20.
+  const steps = Math.min(20, (await h.evaluate(() => window.__shown().length)) - 1)
+  for (let i = 0; i < steps; i++) {
     const before = await h.evaluate(() => [...document.querySelectorAll('[role="dialog"][aria-label="Search"] [data-search-at]')].map((one) => one.textContent).join())
     arrows.push(await timed(`() => [...document.querySelectorAll('[role="dialog"][aria-label="Search"] [data-search-at]')].map((one) => one.textContent).join() !== ${JSON.stringify(before)}`, () => h.keyboard.press('ArrowDown')))
   }

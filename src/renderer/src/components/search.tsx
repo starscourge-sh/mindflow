@@ -21,8 +21,8 @@ import { Marked } from './haligtree/shortcut-sheet'
 import { useWorking } from './haligtree/beam'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import { MenuGlyph } from '@/components/ui/menu-icon'
-import { IslandBox, useFold } from './haligtree/islands'
-import { Pin as PinIcon, SquareCheck } from 'lucide-react'
+import { IslandBox, useFold, useIslands } from './haligtree/islands'
+import { CalendarDays, Command, Pin as PinIcon, Plus, SquareCheck } from 'lucide-react'
 import { Orb } from './haligtree/orb'
 import MagnifierIcon from '@/components/ui/magnifier-icon'
 import LayoutSidebarRightIcon from '@/components/ui/layout-sidebar-right-icon'
@@ -38,7 +38,7 @@ import { PriorityMark } from './haligtree/task-input'
 import { BUCKETS, bucket, taskName } from '@/lib/tasks'
 import { PRIORITY_NAMES } from '../../../main/task-words'
 import { GlossLine, openGloss } from './haligtree/gloss-line'
-import { dayjs, daysSince, num } from '../../../main/dates'
+import { age, dayjs, num } from '../../../main/dates'
 import { keyFor } from '@/lib/keys'
 import { wordFor } from '@/lib/words'
 import { ALL_WORDS, openWord } from './haligtree/term'
@@ -46,7 +46,7 @@ import { realMove } from '@/lib/real-move'
 import { typeSaid } from '@/lib/capture-links'
 import { EVENT_KIND, EventPeek } from './haligtree/calendar-events'
 import { Sun } from 'lucide-react'
-import { BookOpen, FileText } from '@/components/ui/icons'
+import { BookOpen, FileText, Gem, History } from '@/components/ui/icons'
 import { PICKED_MARK, usePickMixed } from './haligtree/pick-mixed'
 import { clip } from '../../../main/clip'
 import { APP_NAME } from '../../../main/name'
@@ -81,9 +81,31 @@ const followRoomy = (change: () => void): (() => void) => {
 /** How many of the notes opened last ⌘K lists under Recent before anything is typed. */
 const RECENT_COUNT = 5
 
-/** Which of Notion's three groups a date falls in. */
-const groupOf = (at: string): string => {
-  return dayjs(at).isSame(dayjs(), 'day') ? 'Today' : daysSince(at) <= 30 ? 'Past 30 days' : 'Older'
+/** The islands searched results fall into, in the Inbox's order (writing first): its kinds by their names, a gem among the writing, then the rest. */
+const ISLAND_ORDER = ['Notes', 'Gems', ...CAPTURE_TYPES.slice(1).map((type) => type.many), 'Events', 'Journal', 'PDFs', 'Web pages', 'Files']
+/** Which island a result goes in: a capture by its kind (a to-do among the tasks), anything else by what it is. */
+const islandOf = (one: Capture): string =>
+  one.type === 'capture' ? (CAPTURE_TYPES.find((type) => type.id === one.kind) ?? CAPTURE_TYPES[0]).many
+    : ({ task: 'Tasks', nugget: 'Gems', article: 'Gems', question: 'Gems', goal: 'Gems', event: 'Events', day: 'Journal', pdf: 'PDFs', web: 'Web pages', media: 'Files' } as Record<string, string>)[one.type] ?? 'Notes'
+const byKind = (list: Capture[]): [string, Capture[]][] => {
+  const by = new Map<string, Capture[]>()
+  for (const one of list) {
+    const name = islandOf(one)
+    const kept = by.get(name)
+    if (kept) kept.push(one)
+    else by.set(name, [one])
+  }
+  return [...by.entries()].sort(([a], [b]) => ISLAND_ORDER.indexOf(a) - ISLAND_ORDER.indexOf(b))
+}
+/** An island's own mark where it is not one of the Inbox's kinds. */
+const ISLAND_ICON: Record<string, React.JSX.Element> = {
+  Recent: <History aria-hidden className="size-4 shrink-0 text-muted-foreground" />,
+  Gems: <Gem aria-hidden className="size-4 shrink-0" style={{ color: 'var(--tt-color-text-purple)' }} />,
+  Events: <CalendarDays aria-hidden className="size-4 shrink-0" style={{ color: 'var(--tt-color-text-blue)' }} />,
+  Journal: <Sun aria-hidden className="size-4 shrink-0" style={{ color: 'var(--tt-color-text-orange)' }} />,
+  PDFs: <FileText aria-hidden className="size-4 shrink-0" style={{ color: 'var(--tt-color-text-red)' }} />,
+  'Web pages': <BookOpen aria-hidden className="size-4 shrink-0" style={{ color: 'var(--tt-color-text-blue)' }} />,
+  Files: <ImageIcon aria-hidden className="size-4 shrink-0" style={{ color: 'var(--tt-color-text-purple)' }} />
 }
 
 /**
@@ -131,13 +153,12 @@ export function Search({ onOpen: told, onAside: toldAside, onTab: toldTab, onClo
   const [opened] = useState(() => recentlyOpened(RECENT_COUNT))
   const recent = query.trim() ? [] : opened.map((key) => matching.find((one) => `${one.type}:${one.id}` === key)).filter((one): one is Capture => !!one)
   const results = recent.length ? [...recent, ...matching.filter((one) => !recent.includes(one))] : matching
-  // Searching, results come by where the words are (main/captures.ts ranks them so), each kind newest first.
-  const MATCHED = { name: 'In the name', words: 'In the text', picture: 'In a picture' } as const
-  const groupFor = (index: number): string => {
-    if (index < recent.length) return 'Recent'
-    const match = (results[index] as { match?: keyof typeof MATCHED }).match
-    return match ? MATCHED[match] : groupOf(results[index].capturedAt)
-  }
+  // The Inbox's islands: before typing, one of what was opened and kept last; searched, one a kind, in the Inbox's
+  // order, each its best matches first (main/captures.ts ranks them), a few showing and "Show N more" under them.
+  const toIslands = useIslands('cmdk', true)
+  const { groups: islandGroups, islands } = toIslands(query.trim() ? byKind(results) : [['Recent', results]])
+  // The rows the islands show, in order: what the arrows, Enter and ⇧↵ walk.
+  const rowsShown = islandGroups.flatMap(([, list]) => list)
   // Raycast's ⌘K: what you can do comes first, matched by the same words,
   // then what you have written. One list, one cursor.
   // Typed, the open note's own actions come before places to go: "Archive"
@@ -175,7 +196,12 @@ export function Search({ onOpen: told, onAside: toldAside, onTab: toldTab, onClo
   ]
   // An action the words name ("What's new") is what Enter does; keeping the words as a note comes after it.
   const keepFirst = !acting.length
-  const doing = keepFirst ? [...keeping, ...acting] : [...acting, ...keeping]
+  // Each its own island, folded or open as last left: a folded one's rows are out of the arrows' way.
+  const actionsIsland = useFold('cmdk.actions', { total: acting.length })
+  const keepIsland = useFold('cmdk.keep', { total: keeping.length })
+  const actingShown = actionsIsland.folded ? [] : acting
+  const keepingShown = keepIsland.folded ? [] : keeping
+  const doing = keepFirst ? [...keepingShown, ...actingShown] : [...actingShown, ...keepingShown]
   const [at, setAt] = useState(0)
   // Several results picked (⇧-click, or ⌘A once the words are all selected), to make tasks of or queue together.
   // The box keeps ⌘A for its words: the first press selects them, the next picks every result.
@@ -234,8 +260,8 @@ export function Search({ onOpen: told, onAside: toldAside, onTab: toldTab, onClo
   // The highlighted result stays in view as the arrows move it.
   useEffect(() => {
     revealRow(document.querySelector('[data-search-at]'))
-  }, [at, results.length])
-  const current = at >= doing.length ? results[at - doing.length] : undefined
+  }, [at, rowsShown.length])
+  const current = at >= doing.length ? rowsShown[at - doing.length] : undefined
   const action = at < doing.length ? doing[at] : undefined
   // An action's own short list, opened in place: typed to narrow, Enter picks.
   const [choosing, setChoosing] = useState<{ action: Action; list: Choice[] } | null>(() => {
@@ -244,7 +270,7 @@ export function Search({ onOpen: told, onAside: toldAside, onTab: toldTab, onClo
   })
   const [choiceQuery, setChoiceQuery] = useState('')
   const [choiceAt, setChoiceAt] = useState(0)
-  const total = doing.length + results.length
+  const total = doing.length + rowsShown.length
   // One size and one shape from the moment it opens: the filters are always
   // there, and the preview half stays put whatever is highlighted, so
   // nothing grows or jumps as the arrows move or a letter is typed.
@@ -337,6 +363,89 @@ export function Search({ onOpen: told, onAside: toldAside, onTab: toldTab, onClo
     action.run()
   }
 
+  // One action's row, at `index` among the rows the arrows walk.
+  const actionRow = (one: Action, index: number): React.JSX.Element => (
+              <button
+                key={one.label}
+                type="button"
+                className="relative flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left"
+                data-search-at={index === at || undefined}
+                onMouseMove={(event) => realMove(event) && setAt(index)}
+                onClick={() => run(one)}
+              >
+                {/* Its icon, as in the menus, and its name alone: what it does is said beside the list, or on this row alone while it is in focus where there is no room for that. */}
+                {one.icon ? <AliveIcon key={one.label} icon={one.icon} size={14} className="shrink-0 text-muted-foreground" /> : <MenuGlyph label={one.label} small />}
+                <span data-action-label className="min-w-0 truncate">{one.label}</span>
+                <span data-action-hint className="min-w-0 flex-1 truncate text-muted-foreground">{!shown && index === at ? one.hint : null}</span>
+                {one.keys && <span className="flex shrink-0 gap-0.5"><Pressed keys={one.keys} each /></span>}
+              </button>
+  )
+  // One result's row: `index` among the results showing, `island` the one it is drawn in.
+  const resultRow = (capture: Capture, index: number, island: string): React.JSX.Element => {
+              // A task wears the task mark it has everywhere else, not the to-do kind's.
+              const kind = capture.type === 'goal' ? goalLook(capture.kind) : capture.type === 'task' ? TASK_KIND : capture.type === 'event' ? EVENT_KIND : capture.type === 'day' ? DAY_KIND : capture.type === 'pdf' ? PDF_KIND : capture.type === 'web' ? WEB_KIND : capture.type === 'media' ? MEDIA_KIND : CAPTURE_TYPES.find((type) => type.id === capture.kind) ?? CAPTURE_TYPES[0]
+              const on = index + doing.length === at
+              return (
+                <Fragment key={capture.id}>
+                  {/* Drawn again only when what it shows changes: an arrow press redraws two rows, not sixty menus. */}
+                  <Kept deps={[capture, index, on, several.picked(capture), several.count, rowsShown.length, island, tasks, pins, shown, menus, on && !asking && !preview]} draw={() => (
+                  <RowMenu items={menus ? live.current.menuOf(capture) : []}>
+                  <button
+                    type="button"
+                    // One line that never wraps (what it is, its name, a few tags, its kind at the right),
+                    // and under it, only when there is one, the line it was found on: rows read as results, not loose text.
+                    className={`relative flex w-full flex-col gap-0.5 rounded-md px-2 py-1.5 text-left ${PICKED_MARK}`}
+                    data-search-at={on || undefined}
+                    onMouseMove={(event) => realMove(event) && setAt(live.current.doing + index)}
+                    data-row
+                    data-drag-open={`${capture.type}:${capture.id}`}
+                    data-picked={several.picked(capture) || undefined}
+                    // ⌘-click one in or out, ⇧-click a run, as in every list; a plain click opens it.
+                    onClick={(event) => (live.current.several.click(event, capture) ? box.current?.focus() : (aimAt(capture.id, capture.line), live.current.onOpen(capture.type, capture.id)))}
+                  >
+                    <span data-row-line className="flex h-5 w-full min-w-0 items-center gap-2">
+                      <kind.icon className="size-4 shrink-0" style={{ color: kind.tint }} />
+                      <span {...(shown || capture.type === 'pdf' || capture.type === 'web' || capture.type === 'media' ? {} : hoverNote(capture.type, capture.id, { kind: capture.kind }))} {...(capture.type === 'pdf' ? { 'data-pdf-peek': capture.id.split('|')[0], 'data-pdf-peek-name': capture.id.split('|').slice(1).join('|') } : {})} data-row-title className="min-w-0 truncate leading-5">{/* A task's or an Inbox note's #tags as tags, never in its name: so it reads as it does on its own list. */}{(capture.type === 'day' ? dayName(capture.id) : taskName(capture.label ?? '').text) || 'Untitled'}</span>
+                      {/* After the words, so a task's title starts where a note's does. */}
+                      {capture.type === 'task' && !!tasks.find((one) => one.id === capture.id)?.priority && <PriorityMark level={tasks.find((one) => one.id === capture.id)!.priority} />}
+                      {/* A task's day, ahead or gone by, so a future one is told from a past one at a glance. */}
+                      {capture.type === 'task' && <TaskDay task={tasks.find((one) => one.id === capture.id)} />}
+                      {whereFrom(capture.source, capture.label) && <span className="min-w-0 max-w-[30%] shrink-[10] truncate text-xs text-muted-foreground">· {whereFrom(capture.source, capture.label)}</span>}
+                      {/* The tags take only the room the title leaves (at least a few letters), so a short title is never cut for them. */}
+                      {capture.type !== 'day' && taskName(capture.label ?? '').tags.length > 0 && <span className="flex min-w-12 flex-1 basis-0 overflow-hidden"><Tags tags={taskName(capture.label ?? '').tags} max={2} alone go={false} /></span>}
+                      {/* In quiet words on one right edge for every row: what it is where an island holds many kinds, how old it is, as the Inbox says it, where its island already says what. */}
+                      <span className="ml-auto flex shrink-0 items-center gap-2 pl-2 text-xs text-muted-foreground">
+                        {on && !asking && !preview && capture.type === 'capture' && <span>{capture.attribution ?? 'Tab: who said it'}</span>}
+                        <span data-row-kind>{island === 'Recent' || island === 'Gems' ? (capture.type === 'capture' ? (CAPTURE_TYPES.find((type) => type.id === capture.kind) ?? CAPTURE_TYPES[0]).label : typeSaid(capture.type)) : capture.type === 'task' || capture.type === 'event' ? null : age(capture.capturedAt)}</span>
+                      </span>
+                    </span>
+                    {/* Why it came up: the line the words are on, the words marked, under the name and starting where it starts. */}
+                    {capture.line && (
+                      <span data-found-line data-found-picture={capture.picture ? '' : undefined} className="flex h-5 min-w-0 items-center gap-2 pl-6 text-sm leading-5 text-muted-foreground">
+                        {/* Words read in a picture: the picture itself, small, beside them. */}
+                        {capture.picture && <img src={capture.picture} alt="" className="size-5 shrink-0 rounded-[4px] border border-border/60 object-cover" />}
+                        <span className="min-w-0 truncate">{capture.picture && <span className="text-foreground/70">In a picture: </span>}<Marked text={capture.line} query={words.join(' ')} /></span>
+                      </span>
+                    )}
+                  </button>
+                  </RowMenu>
+                  )} />
+                  {index + doing.length === at && glossing && !preview && glossable && (
+                    <div className="px-8 pb-1"><GlossLine id={capture.id} open onDone={backToBox} /></div>
+                  )}
+                  {index + doing.length === at && asking && (
+                    <div className="px-8 pb-1">
+                      <AskWho id={capture.id} onDone={() => {
+                        setAsking(false)
+                        box.current?.focus()
+                        void window.api.captures.find(query).then(setFound)
+                      }} />
+                    </div>
+                  )}
+                </Fragment>
+              )
+  }
+
   return (
     // A dialog, said so: what is under it (the box's keys, a celebration's Escape) knows to leave the keys alone.
     // Arc's command bar, by click: the scrim fades in over 120ms and the panel
@@ -392,7 +501,7 @@ export function Search({ onOpen: told, onAside: toldAside, onTab: toldTab, onClo
               // ⌘A: the words first, as any box; pressed again with them all selected (or none typed), every result.
               else if (event.metaKey && !event.shiftKey && !event.altKey && event.code === 'KeyA' && results.length && event.currentTarget.selectionStart === 0 && event.currentTarget.selectionEnd === event.currentTarget.value.length) several.selectAll()
               // ⇧↵, Arc's instant link: the top result opens, wherever the highlight is.
-              else if (event.key === 'Enter' && event.shiftKey && results[0]) onOpen(results[0].type, results[0].id)
+              else if (event.key === 'Enter' && event.shiftKey && rowsShown[0]) onOpen(rowsShown[0].type, rowsShown[0].id)
               else if (event.key === 'Enter' && at < doing.length) run(doing[at])
               else if (event.key === 'Enter' && current && event.altKey && onAside) onAside(current.type, current.id)
               else if (event.key === 'Enter' && current && event.metaKey && onTab) onTab(current.type, current.id)
@@ -432,8 +541,10 @@ export function Search({ onOpen: told, onAside: toldAside, onTab: toldTab, onClo
         <div className="flex min-h-0 flex-1">
           {/* mf-more: faded at an edge while there is more past it; the scroll
               padding keeps a row the arrows reach clear of that fade. */}
-          <div ref={rows} className={`mf-more relative isolate min-h-0 min-w-0 flex-1 scroll-pt-8 scroll-pb-12 overflow-y-auto p-2 ${shown ? 'w-1/2 flex-none' : ''}`}>
-            <Highlight spot={lit.spot} snap={lit.snap} className="rounded-md bg-accent" />
+          {/* An island's fold or "Show more" clicked hands the keys straight back to the box, as a chip does. */}
+          <div ref={rows} data-answers={searched ?? undefined} onClick={(event) => (event.target as HTMLElement).closest('[data-island-head], [data-island-more]') && box.current?.focus()} className={`mf-more relative isolate min-h-0 min-w-0 flex-1 scroll-pt-8 scroll-pb-12 overflow-y-auto p-2 ${shown ? 'w-1/2 flex-none' : ''}`}>
+            {/* Over the islands' surfaces and under the rows (each row `relative`, drawn after it): at -z-10 an island's surface hid it. */}
+            <Highlight spot={lit.spot} snap={lit.snap} className="z-0 rounded-md bg-accent" />
             {choosing ? <>
               <div className="px-2 pt-1 pb-1 text-xs text-muted-foreground">{choosing.action.label.replace(/…$/, '')}</div>
               {choices.map((one, index) => (
@@ -469,107 +580,46 @@ export function Search({ onOpen: told, onAside: toldAside, onTab: toldTab, onClo
               ))}
               {!themes.length && <p className="px-2 py-3 text-sm text-muted-foreground"><Typed text="No theme by that name." /></p>}
             </> : <>
-            {doing.map((one, index) => (
-              <Fragment key={one.label}>
-              {keeping.length > 0 && index === (keepFirst ? 0 : acting.length) && <div className={`px-2 pb-1 text-xs text-muted-foreground ${index ? 'pt-3' : 'pt-1'}`}>Nothing called that yet</div>}
-              {acting.length > 0 && index === (keepFirst ? keeping.length : 0) && <div className={`px-2 pb-1 text-xs text-muted-foreground ${index ? 'pt-3' : 'pt-1'}`}>Actions</div>}
-              <button
-                type="button"
-                className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left"
-                data-search-at={index === at || undefined}
-                onMouseMove={(event) => realMove(event) && setAt(index)}
-                onClick={() => run(one)}
-              >
-                {/* Its icon, as in the menus, and its name alone: what it does is said beside the list, or on this row alone while it is in focus where there is no room for that. */}
-                {one.icon ? <AliveIcon key={one.label} icon={one.icon} size={14} className="shrink-0 text-muted-foreground" /> : <MenuGlyph label={one.label} small />}
-                <span data-action-label className="min-w-0 truncate">{one.label}</span>
-                <span data-action-hint className="min-w-0 flex-1 truncate text-muted-foreground">{!shown && index === at ? one.hint : null}</span>
-                {one.keys && <span className="flex shrink-0 gap-0.5"><Pressed keys={one.keys} each /></span>}
-              </button>
-              </Fragment>
-            ))}
-            {!query.trim() && !doing.length && (
+            {/* What can be done, an island of its own, as the Inbox draws a kind; words that match nothing, one of what they can become. */}
+            {(keepFirst ? (['keep', 'act'] as const) : (['act', 'keep'] as const)).map((which) => {
+              const act = which === 'act'
+              const list = act ? acting : keeping
+              if (!list.length) return null
+              const drawn = act ? actingShown : keepingShown
+              const from = act ? (keepFirst ? keepingShown.length : 0) : (keepFirst ? 0 : actingShown.length)
+              return (
+                // Every row showing, so no "Show more" under it (whole: false with all shown).
+                <IslandBox key={which} name={act ? 'Actions' : 'Nothing called that yet'} island={{ ...(act ? actionsIsland : keepIsland), whole: false }} shown={list.length} uncounted={!act}
+                  icon={act ? <Command aria-hidden className="size-4 shrink-0 text-muted-foreground" /> : <Plus aria-hidden className="size-4 shrink-0 text-muted-foreground" />}>
+                  {drawn.map((one, step) => actionRow(one, from + step))}
+                </IslandBox>
+              )
+            })}
+            {!query.trim() && !doing.length && !acting.length && (
               <p className="px-2 py-3 text-body text-muted-foreground"><Typed text="Type to search notes, gems, writing and tasks. kind:quote narrows to one kind." /></p>
             )}
             {slow && query.trim() && (
               // The orb only if it is a real wait: a search back at once never shows it.
               <p className="flex px-2 py-2"><Orb label="Searching…" className="animate-in fade-in-0 duration-200" /></p>
             )}
-            {query.trim() && searched === query && !results.length && !doing.length && (
+            {query.trim() && searched === query && !results.length && !acting.length && !keeping.length && (
               <p className="px-2 py-3 text-sm text-muted-foreground">
                 <Typed text={types.length || kinds.length || titleOnly
                   ? 'Nothing matches with those filters. Turn a chip off to widen it.'
                   : 'Nothing matches. Try fewer words: every word has to appear somewhere.'} />
               </p>
             )}
-            {results.map((capture, index) => {
-              // A task wears the task mark it has everywhere else, not the to-do kind's.
-              const kind = capture.type === 'goal' ? goalLook(capture.kind) : capture.type === 'task' ? TASK_KIND : capture.type === 'event' ? EVENT_KIND : capture.type === 'day' ? DAY_KIND : capture.type === 'pdf' ? PDF_KIND : capture.type === 'web' ? WEB_KIND : capture.type === 'media' ? MEDIA_KIND : CAPTURE_TYPES.find((type) => type.id === capture.kind) ?? CAPTURE_TYPES[0]
-              const group = groupFor(index)
-              const on = index + doing.length === at
-              return (
-                <Fragment key={capture.id}>
-                  {group !== (index ? groupFor(index - 1) : '') && (
-                    <div data-search-group className="px-2 pt-3 pb-1 text-xs text-muted-foreground">{group}</div>
-                  )}
-                  {/* Drawn again only when what it shows changes: an arrow press redraws two rows, not sixty menus. */}
-                  <Kept deps={[capture, index, on, several.picked(capture), several.count, results.length, tasks, pins, shown, menus, on && !asking && !preview]} draw={() => (
-                  <RowMenu items={menus ? live.current.menuOf(capture) : []}>
-                  <button
-                    type="button"
-                    // One line that never wraps (what it is, its name, a few tags, its kind at the right),
-                    // and under it, only when there is one, the line it was found on: rows read as results, not loose text.
-                    className={`flex w-full flex-col gap-0.5 rounded-md px-2 py-1.5 text-left ${PICKED_MARK}`}
-                    data-search-at={on || undefined}
-                    onMouseMove={(event) => realMove(event) && setAt(live.current.doing + index)}
-                    data-row
-                    data-drag-open={`${capture.type}:${capture.id}`}
-                    data-picked={several.picked(capture) || undefined}
-                    // ⌘-click one in or out, ⇧-click a run, as in every list; a plain click opens it.
-                    onClick={(event) => (live.current.several.click(event, capture) ? box.current?.focus() : (aimAt(capture.id, capture.line), live.current.onOpen(capture.type, capture.id)))}
-                  >
-                    <span data-row-line className="flex h-5 w-full min-w-0 items-center gap-2">
-                      <kind.icon className="size-4 shrink-0" style={{ color: kind.tint }} />
-                      <span {...(shown || capture.type === 'pdf' || capture.type === 'web' || capture.type === 'media' ? {} : hoverNote(capture.type, capture.id, { kind: capture.kind }))} {...(capture.type === 'pdf' ? { 'data-pdf-peek': capture.id.split('|')[0], 'data-pdf-peek-name': capture.id.split('|').slice(1).join('|') } : {})} data-row-title className="min-w-0 truncate leading-5">{/* A task's or an Inbox note's #tags as tags, never in its name: so it reads as it does on its own list. */}{(capture.type === 'day' ? dayName(capture.id) : taskName(capture.label ?? '').text) || 'Untitled'}</span>
-                      {/* After the words, so a task's title starts where a note's does. */}
-                      {capture.type === 'task' && !!tasks.find((one) => one.id === capture.id)?.priority && <PriorityMark level={tasks.find((one) => one.id === capture.id)!.priority} />}
-                      {/* A task's day, ahead or gone by, so a future one is told from a past one at a glance. */}
-                      {capture.type === 'task' && <TaskDay task={tasks.find((one) => one.id === capture.id)} />}
-                      {whereFrom(capture.source, capture.label) && <span className="min-w-0 max-w-[30%] shrink-[10] truncate text-xs text-muted-foreground">· {whereFrom(capture.source, capture.label)}</span>}
-                      {/* The tags take only the room the title leaves (at least a few letters), so a short title is never cut for them. */}
-                      {capture.type !== 'day' && taskName(capture.label ?? '').tags.length > 0 && <span className="flex min-w-12 flex-1 basis-0 overflow-hidden"><Tags tags={taskName(capture.label ?? '').tags} max={2} alone go={false} /></span>}
-                      {/* What it is, in quiet words on one right edge for every row. */}
-                      <span className="ml-auto flex shrink-0 items-center gap-2 pl-2 text-xs text-muted-foreground">
-                        {on && !asking && !preview && capture.type === 'capture' && <span>{capture.attribution ?? 'Tab: who said it'}</span>}
-                        <span data-row-kind>{capture.type === 'capture' ? (CAPTURE_TYPES.find((type) => type.id === capture.kind) ?? CAPTURE_TYPES[0]).label : typeSaid(capture.type)}</span>
-                      </span>
-                    </span>
-                    {/* Why it came up: the line the words are on, the words marked, under the name and starting where it starts. */}
-                    {capture.line && (
-                      <span data-found-line data-found-picture={capture.picture ? '' : undefined} className="flex h-5 min-w-0 items-center gap-2 pl-6 text-sm leading-5 text-muted-foreground">
-                        {/* Words read in a picture: the picture itself, small, beside them. */}
-                        {capture.picture && <img src={capture.picture} alt="" className="size-5 shrink-0 rounded-[4px] border border-border/60 object-cover" />}
-                        <span className="min-w-0 truncate">{capture.picture && <span className="text-foreground/70">In a picture: </span>}<Marked text={capture.line} query={words.join(' ')} /></span>
-                      </span>
-                    )}
-                  </button>
-                  </RowMenu>
-                  )} />
-                  {index + doing.length === at && glossing && !preview && glossable && (
-                    <div className="px-8 pb-1"><GlossLine id={capture.id} open onDone={backToBox} /></div>
-                  )}
-                  {index + doing.length === at && asking && (
-                    <div className="px-8 pb-1">
-                      <AskWho id={capture.id} onDone={() => {
-                        setAsking(false)
-                        box.current?.focus()
-                        void window.api.captures.find(query).then(setFound)
-                      }} />
-                    </div>
-                  )}
-                </Fragment>
-              )
-            })}
+            {/* What was found, an island a kind; before typing, what was opened and kept last. */}
+            {(() => {
+              let from = 0
+              return islandGroups.map(([name, list]) => {
+                const start = from
+                from += list.length
+                const rows = list.map((capture, step) => resultRow(capture, start + step, name))
+                const isle = islands?.[name]
+                return isle ? <IslandBox key={name} name={name} island={isle} shown={list.length} icon={ISLAND_ICON[name]}>{rows}</IslandBox> : <Fragment key={name}>{rows}</Fragment>
+              })
+            })()}
             </>}
           </div>
           {/* The capture as it reads, not its raw text: the same editor, read
@@ -654,7 +704,7 @@ export function Search({ onOpen: told, onAside: toldAside, onTab: toldTab, onClo
         <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1 border-t px-4 py-1.5 text-xs whitespace-nowrap text-muted-foreground">
           <span className="flex items-center gap-1.5"><span className="flex gap-0.5"><Kbd>↑</Kbd><Kbd>↓</Kbd></span> navigate</span>
           <span className="flex items-center gap-1.5"><Kbd>↵</Kbd> <Rolling text={picking || action?.keep ? 'keep' : choosing ? 'pick' : action ? 'use' : 'open'} /></span>
-          {!picking && !choosing && results.length > 0 && current !== results[0] && <span className="flex items-center gap-1.5 [@media(max-height:520px)]:hidden"><Kbd>⇧↵</Kbd> open the top result</span>}
+          {!picking && !choosing && rowsShown.length > 0 && current !== rowsShown[0] && <span className="flex items-center gap-1.5 [@media(max-height:520px)]:hidden"><Kbd>⇧↵</Kbd> open the top result</span>}
           {onAside && !picking && !choosing && !action && current && <span className="flex items-center gap-1.5 [@media(max-height:520px)]:hidden"><Kbd>⌥↵</Kbd> to the side</span>}
           {onTab && !picking && !choosing && !action && current && <span className="flex items-center gap-1.5 [@media(max-height:520px)]:hidden"><Kbd>⌘↵</Kbd> new tab</span>}
           {!picking && !choosing && results.length > 1 && <span className="flex items-center gap-1.5 [@media(max-height:520px)]:hidden"><Kbd>⌘</Kbd>-click selects</span>}
