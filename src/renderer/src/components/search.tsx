@@ -20,6 +20,7 @@ import { AskWho, Kbd, Rolling, Tags, Typed, Pressed } from './haligtree/ui'
 import { Marked } from './haligtree/shortcut-sheet'
 import { useWorking } from './haligtree/beam'
 import { AliveIcon } from '@/components/ui/alive-icon'
+import { MenuGlyph } from '@/components/ui/menu-icon'
 import { Orb } from './haligtree/orb'
 import MagnifierIcon from '@/components/ui/magnifier-icon'
 import LayoutSidebarRightIcon from '@/components/ui/layout-sidebar-right-icon'
@@ -60,7 +61,7 @@ type Capture = Awaited<ReturnType<typeof window.api.captures.find>>[number]
 /** `choices`: one action that opens a short list in place, "Goal on screen…" and then which goal and how. */
 /** `heard`: words typed that ask for it outright ("20 min"): the action they make goes first, in its place. */
 /** `typedChoice`: in its list of choices, words typed that make one of their own (“40” for 40 minutes), offered first. */
-export type Action = { label: string; /** What it does, quietly after its name, and found by search: the label stays a short name. */ hint?: string; /** Other words a person might search for it by, never shown: "dictate" for recording. */ words?: string; keys?: string; run: () => void; cue?: Cue | null; own?: boolean; typed?: boolean; themes?: (theme: Theme, was?: Theme) => void; choices?: () => Choice[]; typedChoice?: (typed: string) => Choice | null; heard?: (typed: string) => Action | null; icon?: ComponentProps<typeof AliveIcon>['icon']; /** One of the rows a search with no match offers: what the words become. */ keep?: Keep }
+export type Action = { label: string; /** What it does, said in the preview beside the list (or on the row in focus where there is none), and found by search: the label stays a short name. */ hint?: string; /** One of the few offered before anything is typed; the rest are found by typing. */ first?: boolean; /** Other words a person might search for it by, never shown: "dictate" for recording. */ words?: string; keys?: string; run: () => void; cue?: Cue | null; own?: boolean; typed?: boolean; themes?: (theme: Theme, was?: Theme) => void; choices?: () => Choice[]; typedChoice?: (typed: string) => Choice | null; heard?: (typed: string) => Action | null; icon?: ComponentProps<typeof AliveIcon>['icon']; /** One of the rows a search with no match offers: what the words become. */ keep?: Keep }
 /** What words that match nothing can be kept as, from ⌘K. `box`: written into quick capture. */
 export type Keep = 'note' | 'task' | 'question' | 'box'
 const KEPT_AS: Record<Keep, string> = { note: 'as a note', task: 'as a task', question: 'as a question', box: 'in quick capture' }
@@ -165,7 +166,10 @@ export function Search({ onOpen: told, onAside: toldAside, onTab: toldTab, onClo
       .filter((one) => !(heard.length && one.heard) && (!one.typed || settled.trim()) && forgives(settledWords.join(' '), `${one.label} ${one.hint ?? ''} ${one.words ?? ''}`))
       // Then the best answer first, as the / menu ranks (lib/slash-rank.ts): the words as its name before the words only
       // in another's hint ("Add many cards at once" before "New deck", whose hint says "add many at once").
-      .sort((a, b) => (settled.trim() ? Number(!!b.own) - Number(!!a.own) || named(a) - named(b) : 0)).slice(0, settled.trim() ? 4 : 12)
+      .sort((a, b) => (settled.trim() ? Number(!!b.own) - Number(!!a.own) || named(a) - named(b) : 0))
+      // Before typing, only the few most used (the page's own first), as Raycast opens: the rest are a word away.
+      .filter((one, _, all) => settled.trim() || scoped || !all.some((each) => each.own || each.first) || one.own || one.first)
+      .slice(0, settled.trim() ? 4 : scoped ? 12 : 6)
   ]
   // An action the words name ("What's new") is what Enter does; keeping the words as a note comes after it.
   const keepFirst = !acting.length
@@ -474,9 +478,10 @@ export function Search({ onOpen: told, onAside: toldAside, onTab: toldTab, onClo
                 onMouseMove={(event) => realMove(event) && setAt(index)}
                 onClick={() => run(one)}
               >
+                {/* Its icon, as in the menus, and its name alone: what it does is said beside the list, or on this row alone while it is in focus where there is no room for that. */}
+                {one.icon ? <AliveIcon key={one.label} icon={one.icon} size={14} className="shrink-0 text-muted-foreground" /> : <MenuGlyph label={one.label} small />}
                 <span data-action-label className="min-w-0 truncate">{one.label}</span>
-                <span data-action-hint className="min-w-0 flex-1 truncate text-muted-foreground">{one.hint}</span>
-                {one.icon && <AliveIcon key={one.label} icon={one.icon} size={14} className="text-muted-foreground" />}
+                <span data-action-hint className="min-w-0 flex-1 truncate text-muted-foreground">{!shown && index === at ? one.hint : null}</span>
                 {one.keys && <span className="flex shrink-0 gap-0.5"><Pressed keys={one.keys} each /></span>}
               </button>
               </Fragment>
@@ -572,7 +577,10 @@ export function Search({ onOpen: told, onAside: toldAside, onTab: toldTab, onClo
             // A plain action has nothing to preview: one line saying it, and its keys, not an empty frame.
             <div className="m-3 ml-0 w-1/2 min-w-0">
               <div key={plain.label} data-action-line className="flex items-center gap-3 rounded-lg border px-4 py-2.5">
-                <span className="min-w-0 flex-1 text-body text-pretty text-foreground">{plain.label}</span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-body text-pretty text-foreground">{plain.label}</p>
+                  {plain.hint && <p data-action-said className="text-body text-pretty text-muted-foreground">{plain.hint}</p>}
+                </div>
                 {plain.keys && keyFor(plain.keys) && <span className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground"><span className="flex gap-0.5"><Pressed keys={plain.keys} each /></span> any time</span>}
               </div>
             </div>

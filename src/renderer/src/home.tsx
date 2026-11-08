@@ -1764,14 +1764,14 @@ export function Home(): React.JSX.Element {
             // A day typed alone ("fri", "3 nov") goes there on the Calendar; with it in front, its own commands too.
             ...(palette?.actions ?? []),
             // Back after a while, the sidebar shows only capture and Today: the way to the rest, from here too (the sidebar's own button is not there when it is narrow or hidden).
-            ...(quiet ? [{ label: 'Show everything', hint: 'Every page in the sidebar again', cue: null, run: () => void call('return:show-all').then(() => chime('unshelve')) }] : []),
-            { label: 'New capture', keys: 'C', run: () => window.api.showPrompt() },
-            { label: 'Record a voice note', hint: 'Kept as a new capture', words: 'dictate dictation transcribe speech to text voice memo talk speak microphone', cue: null, run: () => void recordAsCapture((id) => open('capture', id)) },
+            ...(quiet ? [{ label: 'Show everything', hint: 'Every page in the sidebar again', first: true, cue: null, run: () => void call('return:show-all').then(() => chime('unshelve')) }] : []),
+            { label: 'New capture', keys: 'C', first: true, run: () => window.api.showPrompt() },
+            { label: 'Record a voice note', hint: 'Kept as a new capture', first: true, words: 'dictate dictation transcribe speech to text voice memo talk speak microphone', cue: null, run: () => void recordAsCapture((id) => open('capture', id)) },
             { label: 'Record a call or lecture', hint: 'Your microphone and this Mac’s sound, who said what', keys: '⌃⌥⌘M', words: MEETING_WORDS, cue: null, run: () => void recordMeeting() },
             { label: 'Recordings', hint: 'Every call and lecture you recorded', words: 'meetings recordings calls lectures transcripts', cue: null, run: () => setView({ id: 'tags', focus: 'recording' }) },
             ...(recordingsWithoutWords() ? [{ label: 'Transcribe the voice notes', hint: 'Their words under each, on this Mac', words: 'dictation speech to text', cue: null, run: transcribePage }] : []),
-            { label: 'New question', cue: null, run: () => void startQuestion(open) },
-            { label: 'New goal', cue: null, run: () => void startGoal(open) },
+            { label: 'New question', first: true, cue: null, run: () => void startQuestion(open) },
+            { label: 'New goal', first: true, cue: null, run: () => void startGoal(open) },
             // One action for every open goal's beacon, then a short list: each goal, and the two settings it is not on.
             ...(goals.some((one) => !one.archivedAt && !one.closedAt) ? [{
               label: 'Goal on screen…', cue: null, run: () => {},
@@ -1787,12 +1787,12 @@ export function Home(): React.JSX.Element {
                 }))
               })
             }] : []),
-            ...(picked.ids.length > 1 ? [{ label: 'Make one task', hint: `From the ${num(picked.ids.length)} selected captures`, cue: null, run: () => window.dispatchEvent(new CustomEvent('haligtree:one-task')) }] : []),
-            { label: 'Stick Today on the desktop', hint: "Today's tasks on the desktop", cue: null, run: () => stickOnDesktop('today', 'today') },
+            ...(picked.ids.length > 1 ? [{ label: 'Make one task', hint: `From the ${num(picked.ids.length)} selected captures`, first: true, cue: null, run: () => window.dispatchEvent(new CustomEvent('haligtree:one-task')) }] : []),
+            { label: 'Stick Today on the desktop', cue: null, run: () => stickOnDesktop('today', 'today') },
             { label: 'Stick all goals on the desktop', hint: 'Each goal in its own colour, with a legend', cue: null, run: () => stickOnDesktop('goals', 'all') },
-            { label: 'Write out my day', hint: 'Today as a list you write', cue: null, run: () => (setView({ id: 'today' }), writeOutDay()) },
-            { label: 'Tidy captures', hint: 'Tidy: a few minutes tagging your latest captures', run: () => openPass('tidy') },
-            { label: 'Decide what to keep', hint: 'Decide: once a week, look over what waited', run: () => openPass('decide') },
+            { label: 'Write out my day', hint: 'Today as a list you write', first: true, cue: null, run: () => (setView({ id: 'today' }), writeOutDay()) },
+            { label: 'Tidy captures', hint: 'A few minutes tagging your latest captures', run: () => openPass('tidy') },
+            { label: 'Decide what to keep', hint: 'Once a week, look over what waited', run: () => openPass('decide') },
             { label: 'Import Obsidian or Notion…', hint: 'A vault or a Notion export', words: 'markdown vault bring in', cue: null, run: () => void window.api.importFrom('vault') },
             { label: 'Import from Apple Notes…', hint: 'Folder by folder, into Writing, to sort', cue: null, run: () => void window.api.importFrom('apple-notes') },
             { label: 'Import highlights and files…', hint: 'Readwise, Kindle, Markdown, bookmarks, Anki decks (.apkg, .colpkg) or CSV', words: 'import anki flashcards cards apkg kindle', cue: null, run: () => void window.api.importFrom('files') },
@@ -1811,7 +1811,7 @@ export function Home(): React.JSX.Element {
             ]),
             { label: `What can ${APP_NAME} do?`, hint: 'Every power, with a way to try it', cue: null, run: () => setView({ id: 'powers' }) },
             { label: "What's new", hint: `The latest in ${APP_NAME}, with a way to try each`, cue: null, run: openWhatsNew },
-            { label: 'Close the day', hint: "What got done, and tomorrow's first task", cue: null, run: openCloseDay },
+            { label: 'Close the day', first: true, hint: "What got done, and tomorrow's first task", cue: null, run: openCloseDay },
             { label: 'Sort out the Inbox', hint: 'About ten minutes: where each capture goes', cue: null, run: openInboxSort },
             { label: 'Close the week', hint: 'What went well, what moves on, and the one thing for next week', cue: null, run: openCloseWeek },
             // A spare few minutes: what fits them, in the Matrix's order. "i have 20" or "20 min" asks straight away.
@@ -1828,8 +1828,8 @@ export function Home(): React.JSX.Element {
             { label: sidebar ? 'Hide the sidebar' : 'Show the sidebar', keys: '⌘B', cue: sidebar ? 'fold' : 'slide', run: () => (setSidebar(!sidebar), (sidebar ? toast('Sidebar hidden. ⌘B brings it back', () => setSidebar(sidebar)) : quietly(() => setSidebar(sidebar)))) },
             { label: sidebar || detailsShown() ? 'Hide every sidebar' : 'Show every sidebar', keys: '⇧⌘B', cue: null, run: () => { const open = sidebar || detailsShown(); chime(open ? 'fold' : 'slide'); showDetails(!open); setSidebar(!open); (open ? toast('Every sidebar hidden. ⇧⌘B brings them back', () => (showDetails(open), setSidebar(open))) : quietly(() => (showDetails(open), setSidebar(open)))) } },
             { label: fill ? 'Back to compact' : 'Fill the screen', keys: '⌃⇧F', cue: null, run: () => (setFill(!fill), (fill ? quietly(() => setFill(fill)) : toast('Filling the screen. ⌃⇧F goes back', () => setFill(fill)))) },
-            { label: 'Split the page', hint: 'Split: this page again, beside it; ⌘O there opens something else', keys: '⌘\\', cue: null, run: () => splitRight() },
-            { label: 'Open in a split to the right', hint: 'Split: a new side, searching for what to open', keys: '⌥⌘\\', cue: null, run: () => splitRight(true) },
+            { label: 'Split the page', hint: 'This page again beside it; ⌘O there opens something else', keys: '⌘\\', cue: null, run: () => splitRight() },
+            { label: 'Open in a split to the right', hint: 'A new side, searching for what to open', keys: '⌥⌘\\', cue: null, run: () => splitRight(true) },
             { label: 'Open something here', hint: 'Search for a page or note to open in this tab', keys: '⌘O', cue: null, run: () => setView({ id: 'pick' }) },
             { label: 'New tab', hint: 'On the Journal, in this split', keys: '⌘T', cue: null, run: () => openTab(LANDING, frontRef.current, true) },
             { label: 'Close this tab', keys: '⌃W', cue: null, run: () => closeTabIn() },
@@ -1902,7 +1902,7 @@ export function Home(): React.JSX.Element {
             { label: 'Customize the sidebar…', cue: null, run: () => void setTimeout(() => setCustomizing(true), 120) },
             { label: recent && !recent.opened ? 'Hide Recent' : 'Show Recent', hint: recent && !recent.opened ? undefined : 'Recent: everything made lately, beside the page', keys: '⇧⌘Y', cue: null, run: toggleRecent },
             { label: recent?.opened ? 'Hide all history' : 'Show all history', hint: recent?.opened ? undefined : 'Every note, book and page opened lately, in any tab', keys: '⌥⌘Y', cue: null, run: toggleHistory },
-            { label: "Open the year's page", hint: 'Year: your seasons of life, month by month', cue: 'season', run: () => setView({ id: 'yearpage' }) },
+            { label: "Open the year's page", hint: 'Your seasons of life, month by month', cue: 'season', run: () => setView({ id: 'yearpage' }) },
             ...noteActions({ day: false }),
             // The recap, Wrapped's way, over Stats.
             { label: 'Your month in notes, wrapped', hint: 'What you captured most, your busiest day, focus hours, gems kept, what went well', cue: null, run: () => openWrap(monthToWrap()) },

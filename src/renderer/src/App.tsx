@@ -2003,25 +2003,25 @@ export default function App(): React.JSX.Element {
           }}
           // Everything the box can do, by name and key, as Raycast's ⌘K lists it.
           actions={searching === 'notes' ? [] : [
-            { label: 'New capture', keys: '⌘N', run: () => startOver() },
-            { label: 'Record a voice note', hint: 'Kept as a new capture', cue: null, run: () => void recordAsCapture((id) => openAny('capture', id)) },
+            { label: 'New capture', keys: '⌘N', first: true, run: () => startOver() },
+            { label: 'Record a voice note', hint: 'Kept as a new capture', first: true, cue: null, run: () => void recordAsCapture((id) => openAny('capture', id)) },
             { label: 'Record a call or lecture', hint: 'Your microphone and this Mac’s sound, who said what', keys: '⌃⌥⌘M', words: MEETING_WORDS, cue: null, run: () => void recordMeeting() },
             ...(recordingsWithoutWords() ? [{ label: 'Transcribe the voice notes', hint: 'Their words under each, on this Mac', cue: null, run: transcribePage }] : []),
-            { label: 'New question', cue: null, run: () => void startQuestion(openAny) },
+            { label: 'New question', first: true, cue: null, run: () => void startQuestion(openAny) },
             // Not offered in "One line to start", which has no side panel to show.
             { label: panel ? 'Hide the side panel' : 'Show the side panel', keys: '⌘\\', cue: null, run: () => (setPanel(!panel), quietly(() => setPanel(panel))) },
             ...TABS.map((one, index) => ({ label: `Go to ${({ inbox: 'Inbox', today: 'Tasks', review: 'Review', kept: 'Saved', recent: 'Recent' } as Record<string, string>)[one] ?? one}`, keys: `⌃${index + 1}`, run: () => {
               setTab(one)
               if (!panel) setPanel(true)
             } })),
-            ...(picked.ids.length > 1 ? [{ label: 'Make one task', hint: `From the ${num(picked.ids.length)} selected captures`, cue: null, run: () => window.dispatchEvent(new CustomEvent('haligtree:one-task')) }] : []),
-            { label: 'Stick Today on the desktop', hint: "Today's tasks on the desktop", cue: null, run: () => stickOnDesktop('today', 'today') },
+            ...(picked.ids.length > 1 ? [{ label: 'Make one task', hint: `From the ${num(picked.ids.length)} selected captures`, first: true, cue: null, run: () => window.dispatchEvent(new CustomEvent('haligtree:one-task')) }] : []),
+            { label: 'Stick Today on the desktop', cue: null, run: () => stickOnDesktop('today', 'today') },
             { label: 'Stick all goals on the desktop', hint: 'Each goal in its own colour, with a legend', cue: null, run: () => stickOnDesktop('goals', 'all') },
-            { label: 'Tidy captures', hint: 'Tidy: a few minutes tagging your latest captures', run: () => openPass('tidy') },
-            { label: 'Decide what to keep', hint: 'Decide: once a week, look over what waited', run: () => openPass('decide') },
+            { label: 'Tidy captures', hint: 'A few minutes tagging your latest captures', run: () => openPass('tidy') },
+            { label: 'Decide what to keep', hint: 'Once a week, look over what waited', run: () => openPass('decide') },
             { label: 'Read the Inbox', hint: 'From the top, one at a time', run: () => setReadList({ items: captures.filter((one) => one.status === 'open' && !one.archivedAt).map((one) => ({ type: 'capture', id: one.id })), start: 0 }) },
-            { label: 'Copy as Markdown', hint: 'This note', keys: '⇧⌘C', run: copyMarkdown },
-            ...(reading ? [] : [{ label: 'Attach a screenshot', hint: `The screen behind quick capture, without ${APP_NAME}`, keys: '⇧⌘2', cue: null, run: () => setTimeout(() => void attachScreenshot(), 200) }]),
+            { label: 'Copy as Markdown', hint: 'This note', first: true, keys: '⇧⌘C', run: copyMarkdown },
+            ...(reading ? [] : [{ label: 'Attach a screenshot', hint: `The screen behind quick capture, without ${APP_NAME}`, first: true, keys: '⇧⌘2', cue: null, run: () => setTimeout(() => void attachScreenshot(), 200) }]),
             ...(editing ? [{ label: 'Stick on the desktop', hint: 'This note', cue: null, run: () => stickOnDesktop('capture', editing.id) }] : []),
             { label: locked ? 'Unlock this note' : 'Lock this note', hint: locked ? undefined : 'Read only until you unlock it', cue: locked ? 'off' : 'on', run: () => (setLocked(!locked), toast(locked ? 'Note unlocked' : 'Note locked: read only', () => setLocked(locked))) },
             { label: secret ? 'Make it not private' : 'Make it private', hint: 'This note', cue: secret ? 'off' : 'on', run: () => {
@@ -2060,10 +2060,10 @@ export default function App(): React.JSX.Element {
             { label: 'Bring sticky notes here', cue: null, run: () => window.api.gatherStickies() },
             ...(stickiesOut > 0 && !appSettings?.safeMode ? [{ label: 'Tidy stickies', keys: '⌃⌥⌘T', cue: null, run: () => window.api.tidyStickies() }] : []),
             { label: reveal ? 'Blur private titles again' : 'Show private titles', hint: reveal ? undefined : 'For now', cue: reveal ? 'off' : 'on', run: () => (setReveal(!reveal), quietly(() => setReveal(reveal))) },
-            { label: editing || reading || hasContent(body) ? 'Open in main window' : 'Open the main window', keys: '⌘O', run: () => void promote() },
+            { label: editing || reading || hasContent(body) ? 'Open in main window' : 'Open the main window', keys: '⌘O', first: true, run: () => void promote() },
             { label: "Open the week's page", cue: 'season', run: () => window.api.openInHome('view', 'weekpage') },
             { label: "Open the month's page", cue: 'season', run: () => window.api.openInHome('view', 'monthpage') },
-            { label: "Open the year's page", hint: 'Year: your seasons of life, month by month', cue: 'season', run: () => window.api.openInHome('view', 'yearpage') },
+            { label: "Open the year's page", hint: 'Your seasons of life, month by month', cue: 'season', run: () => window.api.openInHome('view', 'yearpage') },
             ...noteActions(),
             ...abandonAction,
             ...practiceActions,
