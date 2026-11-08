@@ -682,8 +682,8 @@ export function NewEvent({ ask, onMade }: { ask: { day: string; minute: number |
       <div className="page-narrow mx-auto flex w-full flex-col gap-3 px-4 min-[900px]:px-12">
         <div className="flex min-h-10 items-center gap-2 rounded-lg border pr-1 pl-3 text-body focus-within:ring-1 focus-within:ring-ring">
           <input ref={field} data-new-event-words value={text} onChange={(event) => setText(event.target.value)} aria-label={`A new event for ${dayjs(ask.day).format('dddd D MMMM')}`}
-            placeholder="Add an event: “lunch with Sam fri 1-2pm @Cafe”" className="min-w-0 flex-1 bg-transparent text-body text-foreground outline-none placeholder:text-foreground/70" />
-          <Button type="submit" size="sm" data-new-event-add>Add <Kbd>↵</Kbd></Button>
+            placeholder="Lunch with Sam fri 1pm" className="min-w-0 flex-1 bg-transparent text-body text-foreground outline-none placeholder:text-foreground/70" />
+          <Button type="submit" size="sm" data-new-event-add aria-label="Add"><span className="hidden min-[900px]:inline">Add</span> <Kbd>↵</Kbd></Button>
         </div>
         {/* What it will be, plain to read, before it is made. */}
         <div data-new-event-said className="flex flex-col gap-1 text-body text-foreground">
