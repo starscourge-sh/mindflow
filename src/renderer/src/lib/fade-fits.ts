@@ -23,14 +23,16 @@ const sized = new ResizeObserver(() => soon())
 
 function mark(): void {
   frame = 0
-  for (const one of document.querySelectorAll<HTMLElement>(FADED)) {
-    if (!watched.has(one)) {
-      watched.add(one)
-      sized.observe(one)
-      if (one.firstElementChild) sized.observe(one.firstElementChild)
-    }
-    one.toggleAttribute('data-all-shown', one.scrollHeight <= one.clientHeight + 1)
+  const all = [...document.querySelectorAll<HTMLElement>(FADED)]
+  for (const one of all) {
+    if (watched.has(one)) continue
+    watched.add(one)
+    sized.observe(one)
+    if (one.firstElementChild) sized.observe(one.firstElementChild)
   }
+  // Every size read first, then every mark: a mark between reads made the page lay itself out again for each scroller.
+  const fits = all.map((one) => one.scrollHeight <= one.clientHeight + 1)
+  all.forEach((one, i) => one.hasAttribute('data-all-shown') !== fits[i] && one.toggleAttribute('data-all-shown', fits[i]))
 }
 
 function soon(): void {
