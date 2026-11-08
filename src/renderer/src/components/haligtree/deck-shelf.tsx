@@ -618,11 +618,13 @@ function DeckList({ own, shelves, onStudy, place = {}, menu, fresh = null, renam
   const row = (key: string, name: string, _title: string, due: number, fresh: number, all: number, kids: number, study: (() => void) | null, target: Target | null = null): React.JSX.Element => {
     const at = (): HTMLElement | null => document.querySelector<HTMLElement>(`[data-deck-row="${CSS.escape(key)}"]`)
     const line = (
-    <div key={key} data-deck-row={key} className={`${cols} min-h-8 text-control`}>
+    // The whole row lights under the pointer and studies on a click, as the rows of Sources' islands do: never a pill behind the name alone.
+    <div key={key} data-deck-row={key} onClick={study ? (event) => void ((event.target as HTMLElement).closest('button, input') || (chime('riffle'), study())) : undefined}
+      className={`${cols} min-h-8 rounded-md px-1.5 text-control hover:bg-accent/60 focus-within:bg-accent/60 ${study ? 'cursor-pointer' : ''}`}>
       <span className="flex min-w-0 items-center gap-1">
         <Fold id={key} kids={kids} open={!shut.has(key)} name={name} flip={() => flip(key)} />
         {renaming === key && onNamed ? <NameInPlace initial={name} placeholder="Name the deck" label="Deck name" onDone={onNamed} className={`${ROW_NAME} flex-1`} />
-          : study ? <button type="button" data-deck-row-study={key} onClick={() => (chime('riffle'), study())} className="line-clamp-2 min-w-0 cursor-pointer rounded-[4px] px-1 text-left text-foreground hyphens-auto [overflow-wrap:break-word] hover:bg-accent">{name}</button>
+          : study ? <button type="button" data-deck-row-study={key} onClick={() => (chime('riffle'), study())} className="line-clamp-2 min-w-0 cursor-pointer rounded-[4px] px-1 text-left text-foreground outline-none hyphens-auto [overflow-wrap:break-word]">{name}</button>
           : <span className="line-clamp-2 min-w-0 px-1 text-muted-foreground hyphens-auto [overflow-wrap:break-word]">{name}</span>}
       </span>
       <span className={`flex items-center justify-end gap-1.5 tabular-nums ${due > 0 ? 'font-semibold text-foreground' : 'text-muted-foreground/60'}`}>{due > 0 && <span aria-hidden className="size-1.5 rounded-full bg-primary" />}{due < 0 ? '–' : num(due)}</span>
@@ -637,7 +639,7 @@ function DeckList({ own, shelves, onStudy, place = {}, menu, fresh = null, renam
   const tops = ownOrder(own.filter((deck) => deck.depth === 0), place)
   return (
     <div data-deck-list role="table" aria-label="Decks" className="grid rounded-[6px] mf-metal px-3 py-2">
-      <div className={`${cols} border-b border-foreground/10 pb-1.5 text-sm text-muted-foreground`}>
+      <div className={`${cols} border-b border-foreground/10 px-1.5 pb-1.5 text-sm text-muted-foreground`}>
         <span className="pl-6">Deck</span><span className="text-right">Due</span><span className="text-right">Not studied</span><span className="text-right">Cards</span><span />
       </div>
       {fresh && onNamed && (
