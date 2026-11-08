@@ -717,18 +717,18 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
           chosen.length ? (
             <span className="flex items-center gap-2 text-muted-foreground">
               <Tip label="A study task for each, linked to its note">
-                <Button variant="ghost" size="sm" onClick={makeEach}>{chosen.length === 1 ? 'Make it a task' : `Make ${num(chosen.length)} tasks`}</Button>
+                <Button variant="ghost" size="default" onClick={makeEach}>{chosen.length === 1 ? 'Make it a task' : `Make ${num(chosen.length)} tasks`}</Button>
               </Tip>
               <Tip label="At the end of your reading queue; ⌥-click to read them next">
-                <Button variant="ghost" size="sm" onClick={(event) => void enqueue(chosen, event.altKey)}>Add to queue</Button>
+                <Button variant="ghost" size="default" onClick={(event) => void enqueue(chosen, event.altKey)}>Add to queue</Button>
               </Tip>
               <Tip label="Group them here  ⌘G">
-                <Button variant="ghost" size="sm" onClick={() => folding.groupNew(chosen)}>Group</Button>
+                <Button variant="ghost" size="default" onClick={() => folding.groupNew(chosen)}>Group</Button>
               </Tip>
               <Tip label="Put them in a new folder  ⌃⌘N">
-                <Button variant="ghost" size="sm" onClick={() => folding.gatherNew(chosen)}>New folder</Button>
+                <Button variant="ghost" size="default" onClick={() => folding.gatherNew(chosen)}>New folder</Button>
               </Tip>
-              {tier === 'nugget' && <Button variant="secondary" size="sm"
+              {tier === 'nugget' && <Button variant="secondary" size="default"
  
  onClick={() => void haligtree.article(chosen).then((id) => {
  // The same words and the same landing as the prompt's: the article opens.
@@ -742,15 +742,15 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
                 Start a page
               </Button>}
               <Tip label={`Into the Bin, where ${chosen.length === 1 ? 'it' : 'they'} can come back  ⌫`}>
-                <Button variant="ghost" size="sm" onClick={() => toBin(chosen)}>Move to the Bin</Button>
+                <Button variant="ghost" size="default" onClick={() => toBin(chosen)}>Move to the Bin</Button>
               </Tip>
               {!allPicked && (
                 <Tip label="Every note on show  ⌘A">
-                  <Button variant="ghost" size="sm" onClick={selectAll}>Select all</Button>
+                  <Button variant="ghost" size="default" onClick={selectAll}>Select all</Button>
                 </Tip>
               )}
               <Tip label="Clear the selection  Esc">
-              <Button variant="ghost" size="icon-sm" aria-label="Clear the selection" onClick={() => (chime('off'), setChosen([]))}>
+              <Button variant="ghost" size="icon" aria-label="Clear the selection" onClick={() => (chime('off'), setChosen([]))}>
                 <X className="size-3.5" />
               </Button>
               </Tip>
@@ -760,7 +760,7 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
               {tier === 'nugget' && items.length > 1 && !spread && !open && (
                 <>
                   <span className="hidden whitespace-nowrap @[48rem]/page:inline"><Pressed keys="X" /> to select</span>
-                  <Button variant="ghost" size="sm" onClick={() => void haligtree.random().then(setPair)}>
+                  <Button variant="ghost" size="default" onClick={() => void haligtree.random().then(setPair)}>
                     Two at random
                   </Button>
                 </>
@@ -768,14 +768,14 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
               {/* Imported notes left to sort, every group's: the pass through all of them. */}
               {tier === 'article' && unsorted.length > 0 && !open && (
                 <Tip label="Go through every imported note not yet sorted: keep, tag, move or bin each">
-                  <Button variant="outline" size="sm" data-sort-all={unsorted.length} onClick={() => setSorting(unsorted)}>
+                  <Button variant="outline" size="default" data-sort-all={unsorted.length} onClick={() => setSorting(unsorted)}>
                     <span aria-hidden className="size-1.5 rounded-full bg-[var(--tt-color-text-orange)]" /><span><Rolling text={unsorted.length} /> to sort</span>
                   </Button>
                 </Tip>
               )}
               {/* One button, as wide for either word, so nothing beside it moves when the chip changes. */}
               {writing && (
-                <Button variant="ghost" size="sm" data-new-writing={questionsOnly ? 'question' : 'article'}
+                <Button variant="ghost" size="default" data-new-writing={questionsOnly ? 'question' : 'article'}
                   onClick={() => (questionsOnly ? void startQuestion((type, id) => (type === 'question' ? pick(id) : onOpen?.(type, id))) : void haligtree.newArticle().then((id) => (chime('promote'), pick(id))))}>
                   <Plus className="size-3.5" />
                   <span className="grid [&>*]:col-start-1 [&>*]:row-start-1">
@@ -785,7 +785,7 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
                 </Button>
               )}
               <Tip label="One note at a time, full screen, from the highlighted one  ⇧⌘R">
-                <Button variant="ghost" size={open ? 'icon-sm' : 'sm'} aria-label="Read through" onClick={() => setReadFrom(startAt(items, open?.id, cursor))} disabled={!items.length}><AliveIcon icon={BookIcon} size={14} />{!open && ' Read through'}</Button>
+                <Button variant="ghost" size={open ? 'icon' : 'default'} aria-label="Read through" onClick={() => setReadFrom(startAt(items, open?.id, cursor))} disabled={!items.length}><AliveIcon icon={BookIcon} size={14} />{!open && ' Read through'}</Button>
               </Tip>
               {display}
               <PaneButtons pane={spread ? 'wide' : 'list'} onPane={setPane} fold={!!open} />

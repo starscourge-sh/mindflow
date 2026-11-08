@@ -1117,13 +1117,13 @@ export function PaneButtons({
     <>
       {fold && (
         <Tip label="Fold the list to pictures">
-          <Button variant="ghost" size="icon-sm" onClick={() => to('rail', 'fold')}>
+          <Button variant="ghost" size="icon" onClick={() => to('rail', 'fold')}>
             <PanelLeftClose className="size-3.5" />
           </Button>
         </Tip>
       )}
       <Tip label="Spread the list over the page">
-        <Button variant="ghost" size="icon-sm" onClick={() => to('wide', 'slide')}>
+        <Button variant="ghost" size="icon" onClick={() => to('wide', 'slide')}>
           <Maximize2 className="size-3.5" />
         </Button>
       </Tip>

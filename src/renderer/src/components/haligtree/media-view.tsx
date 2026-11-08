@@ -230,7 +230,7 @@ export function MediaView({ onOpen }: { onOpen: (type: string, id: string) => vo
 
   // "Only files in no note", beside the search: a filter on whatever kind is open, not a kind of its own.
   const looseSwitch = (where: string): React.JSX.Element => (
-    <label data-media-loose className={`${where} shrink-0 cursor-pointer items-center gap-2 text-xs whitespace-nowrap text-muted-foreground hover:text-foreground`}>
+    <label data-media-loose className={`${where} h-7 shrink-0 cursor-pointer items-center gap-2 text-xs whitespace-nowrap text-muted-foreground hover:text-foreground`}>
       <Switch size="sm" checked={looseOnly} onCheckedChange={setLooseOnly} className="cursor-pointer" aria-label="Only files in no note" />
       <span className="files-loose-words">Only files in no note</span>
     </label>
@@ -287,7 +287,7 @@ export function MediaView({ onOpen }: { onOpen: (type: string, id: string) => vo
         </div>
       )}
       // Only "Add" on the line, picked or not, so nothing on it moves: what acts on the picked is in their right-click and keys.
-      actions={<Button variant="outline" size="sm" className="h-8 cursor-pointer px-3" data-media-add aria-pressed={adding} onClick={() => (chime(adding ? 'fold' : 'open'), setAdding(!adding))}><Plus className="size-3.5" />Add</Button>}>
+      actions={<Button variant="outline" size="sm" className="h-7 cursor-pointer px-3" data-media-add aria-pressed={adding} onClick={() => (chime(adding ? 'fold' : 'open'), setAdding(!adding))}><Plus className="size-3.5" />Add</Button>}>
       {adding && <AddBox onShow={onShow} onClose={() => setAdding(false)} />}
       {library ? (
         // PDFs as a library: a shelf of covers, each book once, the picked one's panel docked at the page's edge.

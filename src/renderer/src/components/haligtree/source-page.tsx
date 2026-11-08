@@ -770,8 +770,8 @@ export function SourcesView({ onOpen }: { onOpen: (type: string, id: string) => 
     <Page title="Sources" waiting={unloaded(list) || unloaded(missing)} count={live.length || list.length} unit={live.length ? ['selected', 'selected'] : ['page', 'pages']} actions={<>
       <Display view={view} onChange={setView} facets={[]} count={list.length} density={asGrid ? 'grid' : 'list'} onDensity={(density) => setView({ ...view, density })} densities={['list', 'grid']}
         sorts={[{ id: 'recents', label: 'Recents' }, { id: 'added', label: 'Recently added' }, { id: 'name', label: 'A to Z' }, { id: 'most', label: 'Most notes' }]} />
-      <Button variant="outline" size="sm" className="h-8 cursor-pointer px-3" data-new-source="attribution" onClick={() => void make('attribution')}><Plus className="size-3.5" />New person</Button>
-      <Button variant="outline" size="sm" className="h-8 cursor-pointer px-3" data-new-source="medium" onClick={() => void make('medium')}><Plus className="size-3.5" />New source</Button>
+      <Button variant="outline" size="sm" className="h-7 cursor-pointer px-3" data-new-source="attribution" onClick={() => void make('attribution')}><Plus className="size-3.5" />New person</Button>
+      <Button variant="outline" size="sm" className="h-7 cursor-pointer px-3" data-new-source="medium" onClick={() => void make('medium')}><Plus className="size-3.5" />New source</Button>
     </>}>
       <div className="page-column pb-16">
         {/* A quote with no source is the one thing here to put right: said first, in full size. */}

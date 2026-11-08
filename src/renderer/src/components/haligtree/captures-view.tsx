@@ -542,23 +542,23 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
               {/* Tasks picked: done together, with one Undo. */}
               {picks.some((one) => one.status === 'open') && (
                 <Tip label="Every picked task, done  E">
-                  <Button variant="secondary" size="sm" onClick={doneEach}>{picks.length === 1 ? 'Mark it done' : `Mark ${num(picks.filter((one) => one.status === 'open').length)} done`}</Button>
+                  <Button variant="secondary" size="default" onClick={doneEach}>{picks.length === 1 ? 'Mark it done' : `Mark ${num(picks.filter((one) => one.status === 'open').length)} done`}</Button>
                 </Tip>
               )}
               {notes.length > 0 && (
                 <Tip label="A task for each, linked to its note">
-                  <Button variant={picks.length ? 'ghost' : 'secondary'} size="sm" onClick={makeEach}>{notes.length === 1 ? 'Make it a task' : `Make ${num(notes.length)} tasks`}</Button>
+                  <Button variant={picks.length ? 'ghost' : 'secondary'} size="default" onClick={makeEach}>{notes.length === 1 ? 'Make it a task' : `Make ${num(notes.length)} tasks`}</Button>
                 </Tip>
               )}
-              {notes.length > 0 && <Button variant="ghost" size="sm" onClick={() => bulk('resolved')}>Resolve</Button>}
+              {notes.length > 0 && <Button variant="ghost" size="default" onClick={() => bulk('resolved')}>Resolve</Button>}
               <Tip label={`Into the Bin, where ${chosen.length === 1 ? 'it' : 'they'} can come back  ⌫`}>
-                <Button variant="ghost" size="sm" onClick={() => toBin(chosen)}><Trash2 className="size-3.5" /> Move to the Bin</Button>
+                <Button variant="ghost" size="default" onClick={() => toBin(chosen)}><Trash2 className="size-3.5" /> Move to the Bin</Button>
               </Tip>
               {/* A note's actions take the notes picked; the tasks among them are left as they are. */}
               {notes.length > 0 && (
               <DropdownMenu modal={false}>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm">More…</Button>
+                  <Button variant="ghost" size="default">More…</Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-60">
                   {notes.length > 1 && <DropdownMenuItem onSelect={makeOne}>Make one task</DropdownMenuItem>}
@@ -573,11 +573,11 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
               {notes.length > 0 && <DatePicker value={null} placeholder="Date…" className="text-xs" onChange={(at) => at && void bulkUndoable(notes, { capturedAt: at }, `Dated ${num(notes.length)}`, 'noted')} />}
               {!allPicked && (
                 <Tip label={everything ? 'Everything on show  ⌘A' : 'Every note on show  ⌘A'}>
-                  <Button variant="ghost" size="sm" onClick={selectAll}>Select all</Button>
+                  <Button variant="ghost" size="default" onClick={selectAll}>Select all</Button>
                 </Tip>
               )}
               <Tip label="Clear the selection  Esc">
-              <Button variant="ghost" size="icon-sm" aria-label="Clear the selection" onClick={() => (chime('off'), setChosen([]))}><X className="size-3.5" /></Button>
+              <Button variant="ghost" size="icon" aria-label="Clear the selection" onClick={() => (chime('off'), setChosen([]))}><X className="size-3.5" /></Button>
               </Tip>
             </span>
           ) : (
@@ -587,7 +587,7 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
                 <GoThrough compact={!!open} canRead={shown.length > 0} onRead={() => setReadFrom(readStart())} />
               ) : (
                 <Tip label="One note at a time, full screen, from the highlighted one  ⇧⌘R">
-                  <Button variant="ghost" size={open || task ? 'icon-sm' : 'sm'} aria-label="Read through" onClick={() => setReadFrom(readStart())} disabled={!readable.length}><AliveIcon icon={BookIcon} size={14} />{!open && !task && ' Read through'}</Button>
+                  <Button variant="ghost" size={open || task ? 'icon' : 'default'} aria-label="Read through" onClick={() => setReadFrom(readStart())} disabled={!readable.length}><AliveIcon icon={BookIcon} size={14} />{!open && !task && ' Read through'}</Button>
                 </Tip>
               )}
               {display}
@@ -898,7 +898,7 @@ export function GoThrough({ compact, canRead, onRead, className = '' }: { compac
     <DropdownMenu modal={false}>
       <Tip label={today && waiting.decide ? 'Today is deciding day' : 'Go through them: tag them so they are easy to find (Tidy), choose what to keep (Decide), or read them one at a time'}>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size={compact ? 'icon-sm' : 'sm'} aria-label="Go through…" className={`${today && waiting.decide ? 'text-[var(--tt-color-text-purple)]' : ''} ${className}`}>
+          <Button variant="ghost" size={compact ? 'icon' : 'default'} aria-label="Go through…" className={`${today && waiting.decide ? 'text-[var(--tt-color-text-purple)]' : ''} ${className}`}>
             <AliveIcon icon={BookIcon} size={14} />{!compact && ' Go through…'}
           </Button>
         </DropdownMenuTrigger>

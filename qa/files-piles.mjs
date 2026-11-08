@@ -65,7 +65,7 @@ const real = await c.v('media:list')
 const note = real.find((one) => one.uses.length)?.uses[0] ?? null
 
 /** A book of `count` files: 2% books, 5% recordings, the rest pictures, spread over the last months, some in a note. */
-async function book(count) {
+async function book(count, going = 3) {
   const kinds = []
   for (let i = 0; i < count; i++) kinds.push(i % 50 === 3 ? 'pdf' : i % 20 === 7 ? 'audio' : 'picture')
   if (count <= 5) kinds.splice(0, 5, 'picture', 'pdf', 'audio', 'picture', 'picture')
@@ -85,7 +85,7 @@ async function book(count) {
   }
   await electron.evaluate(({ ipcMain }, list) => { ipcMain.removeHandler('haligtree:media:list'); ipcMain.handle('haligtree:media:list', () => list) }, files)
   // The shelf reads its own list: the same books, three of them part way through (Continue reading).
-  const books = files.filter((f) => f.kind === 'pdf').map((f, i) => ({ src: f.src, name: f.name, title: f.name.replace(/\.pdf$/, ''), author: '', pages: 40, page: i < 3 ? 12 + i : null, readAt: i < 3 ? new Date(Date.now() - i * 3600_000).toISOString() : null, addedAt: f.at, highlights: 0, gems: 0, bytes: 1000 }))
+  const books = files.filter((f) => f.kind === 'pdf').map((f, i) => ({ src: f.src, name: f.name, title: f.name.replace(/\.pdf$/, ''), author: '', pages: 40, page: i < going ? 12 + i : null, readAt: i < going ? new Date(Date.now() - i * 3600_000).toISOString() : null, addedAt: f.at, highlights: 0, gems: 0, bytes: 1000 }))
   await electron.evaluate(({ ipcMain }, list) => { ipcMain.removeHandler('haligtree:pdf:library'); ipcMain.handle('haligtree:pdf:library', () => list) }, books)
   await go('home')
   await go('media')
@@ -98,7 +98,7 @@ const tab = async (label) => { await h.locator('[data-media-kinds] button', { ha
 const scroller = () => h.evaluate(() => { let el = document.querySelector('[data-media-grid]'); while (el && !/auto|scroll/.test(getComputedStyle(el).overflowY)) el = el.parentElement; return !!el })
 
 try {
-  for (const count of [5, 50, 500, 5000]) {
+  for (const count of (process.env.COUNTS ?? "5,50,500,5000").split(",").filter(Boolean).map(Number)) {
     const files = await book(count)
     const want = { pdf: files.filter((f) => f.kind === 'pdf').length, picture: files.filter((f) => f.kind === 'picture').length, audio: files.filter((f) => f.kind === 'audio').length }
     // 1. All: a pile per kind, then Recent.
@@ -222,6 +222,166 @@ try {
     check(`${count}: Books is the library shelf, every book on it, "Continue reading" kept at its top`, shelf.library && shelf.books === want.pdf && shelf.going, JSON.stringify(shelf))
     await shot(`books-${count}-1440`)
     await tab('All')
+  }
+  // 7. A book of 500 with eight books part way through, so "Continue reading" is the moving row, wider than the shelf.
+  if (!process.env.SKIP_MORE) {
+    await book(500, 8)
+    const FRAMES = process.env.FRAMES
+    // The page's scroller (the shelf's own on Books) and anything in the page that scrolls sideways, rows made to scroll so excepted.
+    const sideways = () => h.evaluate(() => {
+      const card = document.querySelector('[data-pane-card]') ?? document.body
+      let page = document.querySelector('[data-shelf-scroll]') ?? document.querySelector('[data-media-grid]')
+      while (page && !page.matches('[data-shelf-scroll]') && !/auto|scroll/.test(getComputedStyle(page).overflowY)) page = page.parentElement
+      const own = '.files-recent-row, [data-picture-row] [role="list"], [data-flex-carousel]'
+      const wide = [card, ...card.querySelectorAll('*')].filter((one) => one.scrollWidth > one.clientWidth + 1 && /auto|scroll/.test(getComputedStyle(one).overflowX) && !one.matches(own))
+      const right = page?.getBoundingClientRect().right ?? 0
+      const past = page ? [...page.querySelectorAll('*')].filter((one) => !one.closest(own) && one.getBoundingClientRect().right > right + 1 && one.getBoundingClientRect().width > 0).slice(0, 3).map((one) => `${one.tagName.toLowerCase()}.${String(one.className).slice(0, 50)} ${Math.round(one.getBoundingClientRect().right - right)}px`) : []
+      return { page: page ? page.scrollWidth - page.clientWidth : -1, wide: wide.map((one) => `${one.tagName.toLowerCase()}.${String(one.className).slice(0, 40)}`), past }
+    })
+    for (const w of [1280, 1440, 1920]) {
+      await size(w, 900)
+      for (const label of ['All', 'Books', 'Pictures', 'Audio']) {
+        await tab(label)
+        await h.waitForTimeout(label === 'Books' ? 900 : 300)
+        const panel = label === 'Books' ? await h.evaluate(() => !!document.querySelector('[data-library] .book-panel')) : false
+        const out = await sideways()
+        check(`${w} wide, ${label}${label === 'Books' ? (panel ? ' with its panel open' : ' (no panel)') : ''}: nothing scrolls sideways`, out.page === 0 && !out.wide.length && (label !== 'Books' || panel), JSON.stringify(out))
+      }
+      await tab('All')
+    }
+    await size(1440, 900)
+
+    // 8. Continue reading arrives once: frames every 50ms from the tab switch. The first frame it shows in already has the
+    // moving row with its final book in the middle; no still row before it, no recentre after, its fade only rising.
+    const film = async (name, act, ms = 2200) => {
+      const frames = []
+      await act()
+      const t0 = Date.now()
+      for (let f = 0; Date.now() - t0 < ms; f++) {
+        const at = Date.now()
+        frames.push(await h.evaluate(() => {
+          const row = document.querySelector('[data-shelf-continue] [data-picture-row]')
+          const shown = row?.querySelector('[data-picture-row-shown], .transition-opacity')
+          return {
+            mode: row?.getAttribute('data-picture-row') ?? 'none',
+            still: row ? row.querySelectorAll('[data-still-picture]').length : 0,
+            opacity: shown ? Number(getComputedStyle(shown).opacity) : row && row.querySelector('[data-still-picture], canvas') ? 1 : 0,
+            active: row?.querySelector('[data-flex-carousel]')?.getAttribute('data-active') ?? '',
+            caption: row?.querySelector('[data-flex-carousel-caption]')?.textContent?.trim().slice(0, 40) ?? ''
+          }
+        }))
+        if (FRAMES) await h.screenshot({ path: join(FRAMES, `${name}-${String(f).padStart(2, '0')}.png`) })
+        await h.waitForTimeout(Math.max(0, 50 - (Date.now() - at)))
+      }
+      const seen = frames.filter((one) => one.opacity > 0 && (one.still || one.active !== ''))
+      const last = frames[frames.length - 1]
+      const steady = seen.every((one) => one.mode === 'moving' && !one.still && one.active === last.active && (!one.caption || one.caption === last.caption))
+      let rising = true
+      for (let i = 1; i < frames.length; i++) if (frames[i].opacity + 0.01 < frames[i - 1].opacity) rising = false
+      return { ok: seen.length > 0 && steady && rising && last.opacity === 1, frames: frames.map((one) => `${one.mode}/${one.still}/${one.opacity.toFixed(2)}/${one.active}`).join(' ') }
+    }
+    await tab('All')
+    const toBooks = await film('to-books', () => h.locator('[data-media-kinds] button', { hasText: /^Books$/ }).first().click())
+    check('switching to Books: "Continue reading" shows once, its final book in the middle from its first frame, faded in', toBooks.ok, toBooks.frames)
+    await tab('Pictures')
+    const back = await film('back-to-books', () => h.locator('[data-media-kinds] button', { hasText: /^Books$/ }).first().click())
+    check('back to Books from Pictures: the same, once', back.ok, back.frames)
+    // Files opened afresh on Books: another page, then Back.
+    await go('home')
+    const fresh = await film('open-on-books', () => h.keyboard.press('Meta+BracketLeft'))
+    check('Files opened afresh on Books: the same, once', fresh.ok, fresh.frames)
+
+    // 9. Pictures: the month's heading stays at the top while its month scrolls under it, opaque, pushed up by the next.
+    await tab('Pictures')
+    await h.waitForTimeout(500)
+    const scrollBy = (y) => h.evaluate((y) => { let el = document.querySelector('[data-media-grid]'); while (el && !/auto|scroll/.test(getComputedStyle(el).overflowY)) el = el.parentElement; el.scrollTop += y; return el.scrollTop }, y)
+    const held = () => h.evaluate(() => {
+      const stuck = document.querySelector('[data-files-held]')
+      let el = document.querySelector('[data-media-grid]'); while (el && !/auto|scroll/.test(getComputedStyle(el).overflowY)) el = el.parentElement
+      const top = el.getBoundingClientRect().top
+      // The month of the first picture showing under the heading.
+      const under = [...document.querySelectorAll('[data-media-grid] [data-index]')].find((row) => row.getBoundingClientRect().bottom > top + 60 && row.querySelector('[data-media]'))
+      let at = under
+      while (at && !at.querySelector('[data-files-group]')) at = at.previousElementSibling
+      return { text: stuck?.textContent.replace(/\s+/g, ' ').trim() ?? '', month: at?.querySelector('[data-files-group]')?.textContent.replace(/\s+/g, ' ').trim() ?? '', at: stuck ? Math.round(stuck.getBoundingClientRect().top - top) : null, bg: stuck ? getComputedStyle(stuck.parentElement).backgroundColor : '' }
+    })
+    check('Pictures at the top: no heading held (the first one is in its place)', !(await held()).text)
+    await scrollBy(300)
+    await h.waitForTimeout(200)
+    const mid = await held()
+    check('scrolled into a month: its heading is held at the top, opaque, naming the month under it', mid.text && mid.text === mid.month && mid.at !== null && mid.at <= 0 && !/rgba\(.*,\s*0?\.\d+\)$/.test(mid.bg), JSON.stringify(mid))
+    if (FRAMES) await h.screenshot({ path: join(FRAMES, 'pictures-held.png') })
+    // Scrolled till the next heading meets it: it is pushed up, never drawn over the next.
+    const next = await h.evaluate(() => { let el = document.querySelector('[data-media-grid]'); while (el && !/auto|scroll/.test(getComputedStyle(el).overflowY)) el = el.parentElement; const top = el.getBoundingClientRect().top; const head = [...document.querySelectorAll('[data-files-group]')].find((one) => one.getBoundingClientRect().top > top + 10); return head ? head.getBoundingClientRect().top - top : null })
+    if (next !== null) {
+      await scrollBy(next - 20)
+      await h.waitForTimeout(200)
+      const pushed = await held()
+      if (FRAMES) await h.screenshot({ path: join(FRAMES, 'pictures-pushed.png') })
+      check('the next month\'s heading pushes the held one up', pushed.at !== null && pushed.at < -5, JSON.stringify(pushed))
+    }
+    await h.evaluate(() => { let el = document.querySelector('[data-media-grid]'); while (el && !/auto|scroll/.test(getComputedStyle(el).overflowY)) el = el.parentElement; el.scrollTop = 0 })
+    await h.waitForTimeout(300)
+
+    // 10. ↓ and ↑ go line to line over a month's heading, in the same column, onto a short line's last picture.
+    await h.evaluate(() => document.activeElement?.blur())
+    const where = () => h.evaluate(() => {
+      const one = document.querySelector('[data-media-grid] [data-cursor]')
+      if (!one) return null
+      const r = one.getBoundingClientRect()
+      const line = [...one.closest('.grid').children]
+      return { top: Math.round(r.top + (one.closest('[data-index]').closest('[data-vlist]') ? 0 : 0)), row: Number(one.closest('[data-index]').dataset.index), col: line.indexOf(one.closest('.grid > *')), len: line.length }
+    })
+    // From the last column, so a month's short last line is met (the column then comes in to its last picture).
+    await h.keyboard.press('ArrowRight')
+    const first = await where()
+    for (let i = 1; i < (first?.len ?? 1); i++) await h.keyboard.press('ArrowRight')
+    await h.waitForTimeout(150)
+    let now = await where()
+    let crossed = 0
+    let short = 0
+    let ok = !!now
+    const path = [now && `${now.row}:${now.col}`]
+    for (let i = 0; i < 60 && ok && !(crossed >= 3 && short); i++) {
+      await h.keyboard.press('ArrowDown')
+      await h.waitForTimeout(100)
+      const was = now
+      now = await where()
+      // The next line down: the row after, or after a heading's row; the same column, or a short line's last.
+      const step = now.row - was.row
+      if (step === 2) crossed++
+      if (now.col < was.col) short++
+      ok = !!now && (step === 1 || step === 2) && now.col === Math.min(was.col, now.len - 1)
+      path.push(`${now.row}:${now.col}`)
+    }
+    check('↓ goes line by line, over each month\'s heading, keeping its column (a short line: its last)', ok && crossed > 0, `${crossed} headings crossed, ${short} short lines; ${path.join(' ')}`)
+    const up = []
+    let upOk = true
+    for (let i = 0; i < 3; i++) {
+      const was = await where()
+      await h.keyboard.press('ArrowUp')
+      await h.waitForTimeout(120)
+      const is = await where()
+      up.push(`${is.row}:${is.col}`)
+      upOk &&= (was.row - is.row === 1 || was.row - is.row === 2)
+    }
+    check('↑ comes back the same way', upOk, up.join(' '))
+
+    // 11. The header's controls: one height, one middle, here and on the pages beside it.
+    for (const view of ['media', 'inbox', 'articles', 'nuggets', 'sources', 'goals', 'discarded']) {
+      await go(view)
+      await h.waitForTimeout(600)
+      const boxes = await h.evaluate(() => {
+        const head = [...document.querySelectorAll('section > header')].find((one) => one.offsetParent && one.querySelector('input, button'))
+        if (!head) return []
+        const items = [...head.querySelectorAll('label:has(input), [data-media-loose], button')].filter((one) => one.offsetParent && !one.closest('[role="switch"]') && one.getAttribute('role') !== 'switch' && one.getAttribute('role') !== 'tab' && !one.closest('[role="tablist"], [role="radiogroup"], [data-chips], [data-list-tabs]') && getComputedStyle(one).display !== 'contents' && one.getBoundingClientRect().height > 12)
+        return items.map((one) => ({ what: (one.getAttribute('aria-label') || one.textContent || one.tagName).trim().slice(0, 24), h: Math.round(one.getBoundingClientRect().height), mid: Math.round(one.getBoundingClientRect().top + one.getBoundingClientRect().height / 2) }))
+      })
+      const tall = boxes.filter((one) => one.h >= 24)
+      const one = tall.length > 0 && tall.every((b) => b.h === tall[0].h && Math.abs(b.mid - tall[0].mid) <= 1)
+      check(`${view}: the header's search, switches and buttons are one height (the 28px of a field) on one middle`, one || !tall.length, JSON.stringify(boxes))
+    }
+    await go('media')
   }
   // 6. The Add box sits 16px under the header line.
   await h.locator('[data-media-add]').click()
