@@ -846,8 +846,10 @@ export function listEnd(event: KeyboardEvent | React.KeyboardEvent): 'first' | '
   return said
 }
 
-export function useListKeys(count: number, { onOpen, onEscape, enabled = true, opened = -1, onExtend, across = 1 }: {
+export function useListKeys(count: number, { onOpen, onEscape, enabled = true, opened = -1, onExtend, across = 1, upDown }: {
   onOpen?: (index: number) => void
+  /** Where ↑ and ↓ go from a row, where lines are not all `across` long (a grid cut into months): by `across` otherwise. */
+  upDown?: (at: number, by: 1 | -1) => number
   /** Rows side by side on a line (a two-column page): ↑ ↓ go to the one above or under, ← → to the one beside. */
   across?: number
   /** ⇧↑ or ⇧↓: the cursor moved from one row to the next, for picking a run (lib/pick-range.ts). */
@@ -864,8 +866,8 @@ export function useListKeys(count: number, { onOpen, onEscape, enabled = true, o
   // -1 until a key is pressed: the ring belongs to the keyboard, so a list you
   // only ever click never shows one.
   const [at, setAt] = useState(-1)
-  const latest = useRef({ count, onOpen, onEscape, onExtend, at, across })
-  latest.current = { count, onOpen, onEscape, onExtend, at, across }
+  const latest = useRef({ count, onOpen, onEscape, onExtend, at, across, upDown })
+  latest.current = { count, onOpen, onEscape, onExtend, at, across, upDown }
   useEffect(() => setAt((index) => Math.min(index, Math.max(0, count - 1))), [count])
   useEffect(() => void (opened >= 0 && setAt(opened)), [opened])
   // Split, each pane's list has its own cursor, and only the front one's moves.
@@ -880,7 +882,7 @@ export function useListKeys(count: number, { onOpen, onEscape, enabled = true, o
   useEffect(() => {
     if (!enabled) return
     const onKey = (event: KeyboardEvent): void => {
-      const { count, onOpen, onEscape, onExtend, at, across } = latest.current
+      const { count, onOpen, onEscape, onExtend, at, across, upDown } = latest.current
       // A key something in front already took, like search over this list.
       if (event.defaultPrevented || !here()) return
       // The editor has its own vim, and its menus their own Ctrl-J and K.
@@ -902,8 +904,8 @@ export function useListKeys(count: number, { onOpen, onEscape, enabled = true, o
         move(to)
         return onExtend(at < 0 ? to : at, to)
       }
-      if ((chord && event.key === 'j') || (!inBox && !chord && (event.key === 'j' || event.key === 'ArrowDown'))) return move(at < 0 ? 0 : at + across)
-      if ((chord && event.key === 'k') || (!inBox && !chord && (event.key === 'k' || event.key === 'ArrowUp'))) return move(at - across)
+      if ((chord && event.key === 'j') || (!inBox && !chord && (event.key === 'j' || event.key === 'ArrowDown'))) return move(at < 0 ? 0 : upDown ? upDown(at, 1) : at + across)
+      if ((chord && event.key === 'k') || (!inBox && !chord && (event.key === 'k' || event.key === 'ArrowUp'))) return move(upDown && at >= 0 ? upDown(at, -1) : at - across)
       if (inBox) return
       if (across > 1 && !chord && (event.key === 'ArrowRight' || event.key === 'ArrowLeft')) return move(at < 0 ? 0 : at + (event.key === 'ArrowRight' ? 1 : -1))
       const end = listEnd(event)

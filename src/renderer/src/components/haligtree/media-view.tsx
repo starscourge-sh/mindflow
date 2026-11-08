@@ -26,7 +26,7 @@ import { pictureLines } from '@/lib/picture-actions'
 import { Empty, Kbd, Page, refuse, toast, typing, useListKeys, VirtualList } from './ui'
 import { Switch } from '@/components/ui/switch'
 import { readLibrary, type Book } from '@/components/pdf/book-head'
-import { AudioDays, PICTURE, PICTURE_GAP, Pile, PictureMonths, RecentRow, SHELVES, shelfOf, type Shelf } from './files-shelves'
+import { AudioDays, PICTURE, PICTURE_GAP, Pile, PictureMonths, pictureSpans, RecentRow, SHELVES, shelfOf, stepLine, type Shelf } from './files-shelves'
 import { Chip } from './display'
 import { ListSearch, tileClass } from './note-list'
 import { SoundPlayer, soundTitle } from './sound-player'
@@ -156,7 +156,9 @@ export function MediaView({ onOpen }: { onOpen: (type: string, id: string) => vo
   const srcOf = (key: string): string => key.replace(/^deck:/, '')
   const toBin = (keys: string[]): void => void binFiles(keys.map(srcOf), () => setChosen([]))
   const picking = usePicking(order, chosen, setChosen)
-  const [cursor, setCursor] = useListKeys(shown.length, { across, enabled: !library && !piles && !putting, onOpen: (at) => shown[at] && open(shown[at]), onExtend: (from, to) => shown[to] && picking.extend(shown[from] && keyOf(shown[from]), keyOf(shown[to])) })
+  // Pictures go by month, and a month's last line is often short: ↑ and ↓ go line to line, over the month's heading.
+  const spans = useMemo(() => (kind === 'picture' ? pictureSpans(shown, across) : null), [kind, shown, across])
+  const [cursor, setCursor] = useListKeys(shown.length, { across, upDown: spans ? (at, by) => stepLine(spans, at, by) : undefined, enabled: !library && !piles && !putting, onOpen: (at) => shown[at] && open(shown[at]), onExtend: (from, to) => shown[to] && picking.extend(shown[from] && keyOf(shown[from]), keyOf(shown[to])) })
   useSelectAll(() => order, chosen, setChosen, { enabled: !library && !piles && !putting, here, onDelete: toBin, current: () => (shown[cursor] ? keyOf(shown[cursor]) : null), titleOf: (key) => { const one = all.find((each) => keyOf(each) === key); return one ? bare(one.name || one.title) : undefined } })
   const clear = (): void => setChosen([])
   // Esc lets the picked ones go, before it does anything else.

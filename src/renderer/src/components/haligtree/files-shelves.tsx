@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import './files.css'
 import { smallPicture } from '@/lib/notes'
 import { usePdfCover } from '@/components/pdf/pdf-cover'
@@ -156,12 +156,73 @@ function grouped(files: Media[], headOf: (iso: string) => string, across: number
 }
 
 /** A heading over a group: its name, and how many under it. */
-const Head = ({ line }: { line: { head: string; count: number } }): React.JSX.Element => (
-  <h3 data-files-group className="flex items-baseline gap-1.5 pt-5 pb-2 text-body">
+const Head = ({ line, held = false }: { line: { head: string; count: number }; /** The copy held at the top. */ held?: boolean }): React.JSX.Element => (
+  <h3 data-files-group={held ? undefined : ''} data-files-held={held ? '' : undefined} aria-hidden={held || undefined} className="flex items-baseline gap-1.5 pt-5 pb-2 text-body">
     <span className="font-medium text-foreground">{line.head}</span>{' '}
     <span className="text-muted-foreground tabular-nums">· {num(line.count)}</span>
   </h3>
 )
+
+/** Where each line of Pictures' grid starts and ends among the files, month by month: a month's last line is often short. */
+export const pictureSpans = (files: Media[], across: number): [number, number][] =>
+  grouped(files, monthOf, across).flatMap((line) => ('files' in line ? [[line.from, line.from + line.files.length] as [number, number]] : []))
+
+/**
+ * Up or down in a grid cut into months: to the line above or under, in the same column, over a month's heading as
+ * Photos goes; onto a shorter line, its last picture. At the first or the last line it stays.
+ */
+export function stepLine(spans: [number, number][], at: number, by: 1 | -1): number {
+  const line = spans.findIndex(([from, end]) => at >= from && at < end)
+  const to = spans[line + by]
+  if (line < 0 || !to) return at
+  return Math.min(to[0] + (at - spans[line][0]), to[1] - 1)
+}
+
+/** A heading's height in the list, as `sizeOf` has it. */
+const HEAD = 52
+
+/**
+ * The heading of the group at the top of the list, held there while its group scrolls under it, as Photos holds the
+ * month: drawn over the list (no room of its own), opaque, and pushed up by the next heading as it arrives. Read from
+ * the rows drawn, so it costs nothing however long the list is.
+ */
+function StuckHead({ lines }: { lines: Line[] }): React.JSX.Element {
+  const at = useRef<HTMLDivElement>(null)
+  const [held, setHeld] = useState<{ head: string; count: number; push: number } | null>(null)
+  useLayoutEffect(() => {
+    const mark = at.current
+    let scroller = mark?.parentElement ?? null
+    while (scroller && !/auto|scroll/.test(getComputedStyle(scroller).overflowY)) scroller = scroller.parentElement
+    const list = mark?.nextElementSibling
+    if (!mark || !scroller || !list) return
+    const read = (): void => {
+      const top = mark.getBoundingClientRect().top
+      const rows = [...list.querySelectorAll<HTMLElement>(':scope > div > [data-index]')]
+      const first = rows.find((row) => row.getBoundingClientRect().bottom > top + 0.5)
+      if (!first) return setHeld(null)
+      let index = Number(first.dataset.index)
+      while (index > 0 && !('head' in lines[index])) index--
+      const line = lines[index]
+      const own = rows.find((row) => Number(row.dataset.index) === index)
+      // Its own heading still in sight at the top: that one is the heading, nothing is held over it.
+      if (!line || !('head' in line) || (own && own.getBoundingClientRect().top >= top - 0.5)) return setHeld(null)
+      const next = rows.find((row) => Number(row.dataset.index) > index && 'head' in lines[Number(row.dataset.index)])
+      const tall = (mark.firstElementChild as HTMLElement | null)?.offsetHeight || HEAD
+      const push = next ? Math.min(0, Math.round(next.getBoundingClientRect().top - top - tall)) : 0
+      setHeld((was) => (was && was.head === line.head && was.count === line.count && was.push === push ? was : { head: line.head, count: line.count, push }))
+    }
+    read()
+    scroller.addEventListener('scroll', read, { passive: true })
+    const sized = new ResizeObserver(read)
+    sized.observe(list)
+    return () => (scroller.removeEventListener('scroll', read), sized.disconnect())
+  }, [lines])
+  return (
+    <div ref={at} data-files-stuck className="pointer-events-none sticky top-0 z-10 h-0">
+      {held && <div className="bg-background" style={{ transform: held.push ? `translateY(${held.push}px)` : undefined }}><Head line={held} held /></div>}
+    </div>
+  )
+}
 
 /** Its note, said in a word: where a file is, or that it is in none. */
 export const whereOf = (one: Media): string => (one.gone ? 'File gone from the book' : one.uses.length ? `In ${one.uses[0].title || 'Untitled'}${one.uses.length > 1 ? ` and ${num(one.uses.length - 1)} more` : ''}` : 'In no note')
@@ -182,8 +243,10 @@ export function PictureMonths({ files, across, cursor, chosen, keyOf, menuFor, o
   const lines = useMemo(() => grouped(files, monthOf, across), [files, across])
   const cursorKey = files[cursor] ? keyOf(files[cursor]) : null
   return (
+    <>
+    <StuckHead lines={lines} />
     <VirtualList items={lines} keyOf={(line) => line.key} rowClass="" estimate={PICTURE + PICTURE_GAP}
-      sizeOf={(line) => ('head' in line ? 52 : PICTURE + PICTURE_GAP)}
+      sizeOf={(line) => ('head' in line ? HEAD : PICTURE + PICTURE_GAP)}
       holds={(line, key) => 'files' in line && line.files.some((one) => keyOf(one) === key)}
       cursor={cursorKey ? lines.findIndex((line) => 'files' in line && line.files.some((one) => keyOf(one) === cursorKey)) : undefined}>
       {(line) => 'head' in line ? <Head line={line} /> : (
@@ -211,6 +274,7 @@ export function PictureMonths({ files, across, cursor, chosen, keyOf, menuFor, o
         </div>
       )}
     </VirtualList>
+    </>
   )
 }
 
@@ -226,8 +290,10 @@ export function AudioDays({ files, cursor, chosen, keyOf, menuFor, onClick, onUs
   const lines = useMemo(() => grouped(files, dayOf, 1), [files])
   const cursorKey = files[cursor] ? keyOf(files[cursor]) : null
   return (
+    <>
+    <StuckHead lines={lines} />
     <VirtualList items={lines} keyOf={(line) => line.key} rowClass="" estimate={64}
-      sizeOf={(line) => ('head' in line ? 52 : 64)}
+      sizeOf={(line) => ('head' in line ? HEAD : 64)}
       holds={(line, key) => 'files' in line && keyOf(line.files[0]) === key}
       cursor={cursorKey ? lines.findIndex((line) => 'files' in line && keyOf(line.files[0]) === cursorKey) : undefined}>
       {(line) => {
@@ -255,5 +321,6 @@ export function AudioDays({ files, cursor, chosen, keyOf, menuFor, onClick, onUs
         )
       }}
     </VirtualList>
+    </>
   )
 }
