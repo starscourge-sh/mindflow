@@ -12,7 +12,7 @@ import { chime } from '@/lib/sound'
 import { num } from '../../../../main/dates'
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
 import { Unfold, Weighted } from './glide'
-import { GroupIcon, IconChoice } from './kept-groups'
+import { GroupIcon, IconChoice, binGroup } from './kept-groups'
 import { CarriedCard, swallowClick, swallowRelease } from './carry'
 import { pastEdge } from '@/lib/drag-edge'
 import { slotTicker } from '@/lib/proximity'
@@ -336,7 +336,9 @@ function Folder({ list, group, depth, n, here, naming, onNamed, onRename, onOpen
     depth < DEPTH - 1 && { label: 'New folder inside', run: () => newFolder(list, group.id) },
     group.parent ? { label: 'Move to the top', run: () => onNest(group.id, null) } : null,
     'separator',
-    { label: 'Delete folder', hint: 'Its notes stay, where they are', run: () => {
+    // Its notes go to the Bin with it, as a deleted folder's do in Finder; keeping them is the second choice.
+    group.members.length > 0 && { label: 'Delete folder', hint: 'Its notes go to the Bin too', danger: true, run: () => void binGroup(group.id) },
+    { label: group.members.length ? 'Delete folder, keep its notes' : 'Delete folder', hint: group.members.length ? 'They move up a level' : undefined, danger: !group.members.length, run: () => {
       const { id, name: was, icon, color, parent, members } = group
       chime('separate')
       void groups.remove(id).then(() => toast(`Deleted ${was}: its notes stay`, () => void (async () => {

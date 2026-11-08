@@ -25,7 +25,7 @@ import { KEY, groupOf, groupsAround, isGroup, type How, type Layout } from '@/li
 import { cn } from '@/lib/cn'
 import { Overlay, SETTLE, upDown } from './sortable'
 import { CARD, CarriedCard, CarryRow, Carrying, Hand, useCardPlace, INDENT, OUT, OUTDENT, PanelParts, REST, Shaped, pointerNow, rowAt, sideOf, useAim, useCarriedLeft, useRest, useTall, type Aim } from './carry'
-import { copy } from './row-menu'
+import { Hinted, copy } from './row-menu'
 import { Rolling, Tip, VirtualList, refuse, toast, quietly } from './ui'
 import type { Entry } from './note-list'
 import { ROW_PAD, ROW_SHAPE, ROW_TILE } from './row-shape'
@@ -940,7 +940,7 @@ function Fold({ open, children }: { open: boolean; children: ReactNode }): React
 
 /** A right click on a group's row: Haligtree's own menu, with its colours as a row of dots. */
 /** A group and everything in it to the Bin, with one notice and one Undo; from the Bin later, its notes come back loose. */
-async function binGroup(id: string): Promise<void> {
+export async function binGroup(id: string): Promise<void> {
   const { notes, groups: inner } = await groups.holds(id)
   let parted: Promise<Awaited<ReturnType<typeof groups.separate>>[]> = Promise.resolve([])
   // Back outermost first: each then takes its own notes back from the one that held them.
@@ -984,7 +984,6 @@ export function GroupMenu({ group, members, onOpenFolder, onSeparate, onRename, 
       {left.length > 0 && onSorted && <ContextMenuItem onSelect={() => onSorted(left, true)}>Mark all as sorted</ContextMenuItem>}
       {left.length > 0 && <ContextMenuSeparator />}
       <ContextMenuItem onSelect={() => void groups.note(group.id).then((id) => id && (chime('promote'), onNewNote(id)))}>New {noun} in {word}</ContextMenuItem>
-      {!group.folder && <ContextMenuItem data-group-separate-item onSelect={onSeparate}>Separate</ContextMenuItem>}
       <ContextMenuItem
         onSelect={() =>
           void groups.duplicate(group.id).then((made) => made && (chime('copy'), toast('Duplicated, with a copy of each note', () => void groups.unclone(made.ids))))
@@ -1026,8 +1025,11 @@ export function GroupMenu({ group, members, onOpenFolder, onSeparate, onRename, 
       <ContextMenuItem onSelect={later(onIcon)}>Change icon…</ContextMenuItem>
       <ContextMenuSeparator />
       <ContextMenuItem onSelect={() => void archive('nuggets', members, true)}>Archive {word}</ContextMenuItem>
-      {!group.folder && members.length > 0 && <ContextMenuItem data-group-bin variant="destructive" onSelect={() => void binGroup(group.id)}>Move group and {noun}s to the Bin</ContextMenuItem>}
-      {group.folder && <ContextMenuItem data-folder-delete variant="destructive" onSelect={onSeparate}>Delete folder, keep its notes</ContextMenuItem>}
+      {/* Deleting a folder or group takes what is in it to the Bin, as Finder
+          and Notion do; keeping the notes is the other choice. Drawn as the
+          sidebar's folder menu draws them: a hint under each, the delete last, in red. */}
+      {members.length > 0 && <ContextMenuItem data-folder-delete data-group-separate-item onSelect={onSeparate}>{group.folder ? <Hinted label={`Delete folder, keep its ${noun}s`} hint="They move up a level" /> : <Hinted label="Separate" hint={`Its ${noun}s stay in the list`} />}</ContextMenuItem>}
+      <ContextMenuItem data-group-bin variant="destructive" onSelect={() => (members.length ? void binGroup(group.id) : onSeparate())}>{members.length ? <Hinted label={group.folder ? 'Delete folder' : 'Delete group'} hint={`Its ${noun}s go to the Bin too`} /> : group.folder ? 'Delete folder' : 'Delete group'}</ContextMenuItem>
     </ContextMenuContent>
   )
 }

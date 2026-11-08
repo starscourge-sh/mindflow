@@ -15,6 +15,13 @@ export type MenuItem = { label: string; /** What it means, on a quiet line under
   /** Whether it can run here, read as the menu opens: false leaves it out, so a menu never offers what then refuses. */
   can?: () => boolean } | 'separator' | false | null | undefined
 /** A row menu's line can also open a few more beside it (Group with…). */
+/** A menu line with what it means on a quiet line under its name, the one way every menu draws one (a menu built by hand too). */
+export const Hinted = ({ label, hint, icon }: { label: string; hint: string; icon?: ReactNode }): React.JSX.Element => (
+  <>
+    {icon ?? <MenuGlyph label={label} small />}
+    <span className="flex min-w-0 flex-col"><span className={MENU_LINE}>{label}</span><span data-menu-hint className="max-w-64 text-xs leading-snug whitespace-normal text-muted-foreground">{hint}</span></span>
+  </>
+)
 export type RowItem = MenuItem | { label: string; items: RowItem[]; icon?: ReactNode } | { heading: string }
   /** A row of colour swatches, the one in use ticked (an event's colour). */
   | { swatches: { color: string; label: string; on: boolean; run: () => void }[] }
@@ -101,8 +108,7 @@ const lines = (items: Shown[]): React.ReactNode =>
       // Its hint on a quiet second line under its name, never a tip: a menu row shows no floating surface.
       <ContextMenuItem key={item.label} variant={item.danger ? 'destructive' : 'default'} onSelect={item.run}>
         {/* A line with a hint under its name begins with markup, not words, so it is given its drawing here: every line has one. */}
-        {item.icon ?? (item.hint && <MenuGlyph label={item.label} small />)}
-        {item.hint ? <span className="flex min-w-0 flex-col"><span className={MENU_LINE}>{item.label}</span><span data-menu-hint className="max-w-64 text-xs leading-snug whitespace-normal text-muted-foreground">{item.hint}</span></span> : item.icon ? <span className={MENU_LINE}>{item.label}</span> : item.label}
+        {item.hint ? <Hinted label={item.label} hint={item.hint} icon={item.icon} /> : <>{item.icon}{item.icon ? <span className={MENU_LINE}>{item.label}</span> : item.label}</>}
         {item.trail}
         {item.keys && keyFor(item.keys) && <ContextMenuShortcut>{keyFor(item.keys)}</ContextMenuShortcut>}
       </ContextMenuItem>

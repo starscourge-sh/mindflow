@@ -93,7 +93,7 @@ try {
   await h.locator('[data-path-part]').filter({ hasText: 'History' }).click(); await wait(800)
   const kept = (await named('Renaissance')).members
   await h.locator(`[data-group-row="${renaissance.id}"]`).click({ button: 'right' }); await wait(400)
-  check('the menu says "Delete folder, keep its notes"', (await h.locator('[data-folder-delete]').innerText()).trim() === 'Delete folder, keep its notes')
+  check('the menu says "Delete folder, keep its notes"', (await h.locator('[data-folder-delete]').innerText()).trim().startsWith('Delete folder, keep its notes'))
   check('and no "Read as one page"', (await h.locator('[data-group-open-page]').count()) === 0)
   await h.locator('[data-folder-delete]').click(); await wait(1200)
   const after = await named('History')

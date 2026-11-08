@@ -2170,7 +2170,15 @@ export function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: I
     },
     renaming,
     suggested,
-    onRenaming: setRenaming,
+    // "Rename…" or F2 on a group still called "Group 3" asks for a better name
+    // as a new group does, so one made before, or named while Apple
+    // Intelligence was slow, can still get one.
+    onRenaming: (id) => {
+      setRenaming(id)
+      setSuggested(null)
+      const group = id ? info.get(id) : undefined
+      if (id && group) offerName({ id, name: group.name }, layout.groups[id] ?? [])
+    },
     born,
     noun: kind ? kind.noun[0] : tier === 'nugget' ? 'gem' : 'page',
     list: tier,
