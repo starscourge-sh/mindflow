@@ -284,7 +284,8 @@ export function StudyYear({ compact = false }: { /** Above the decks: the same y
       </DotRule>
       {/* The latest weeks always show: on a narrow window the oldest are cut on the left. The months under the dots, as on the road. */}
       <div className="-mx-1 -mt-2 -mb-1 flex justify-end overflow-hidden p-1">
-        <div className="grid shrink-0 grid-cols-[auto_auto] gap-x-1.5 gap-y-1 text-[11px] leading-none text-muted-foreground">
+        {/* mr-auto: with room it sits on the card's left edge, as every other chart; without, justify-end keeps the latest weeks. */}
+        <div className="mr-auto grid shrink-0 grid-cols-[auto_auto] gap-x-1.5 gap-y-1 text-[11px] leading-none text-muted-foreground">
           <div aria-hidden className="grid" style={{ gridTemplateRows: `repeat(7, ${cell}px)`, rowGap: GAP }}>{['Mon', '', 'Wed', '', 'Fri', '', ''].map((name, at) => <span key={at} className={`${at === pointRow ? 'text-foreground transition-none' : 'transition-colors duration-[120ms]'} flex items-center text-[10px]`}>{name}</span>)}</div>
           <div data-year-grid className="grid" style={{ ...grid, gridTemplateRows: `repeat(7, ${cell}px)`, rowGap: GAP, gridAutoFlow: 'column' }} onPointerLeave={() => (setOn(null), setPoint(null))}>{cells}</div>
           <span />
