@@ -363,9 +363,10 @@ export function stageSheet(image: ImageBitmap, width: number, height: number, cx
   const lap = (name: string, from: number): number => (performance.measure(`paper:  ${name}`, { start: from }), performance.now());
   let at = lap('stage + shape', started);
   const texture = new THREE.Texture(image);
-  // No mipmaps: the paper is drawn at its own size or smaller for a moment, and they cost a long upload.
-  texture.generateMipmaps = false;
-  texture.minFilter = THREE.LinearFilter;
+  // Mipmaps: balled up, a big picture is drawn at a fraction of its size, and without them its colours shimmer
+  // ("twitching even after the crumple") as the folds turn.
+  texture.generateMipmaps = true;
+  texture.minFilter = THREE.LinearMipmapLinearFilter;
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.flipY = false;
   texture.anisotropy = Math.min(8, s.renderer.capabilities.getMaxAnisotropy());

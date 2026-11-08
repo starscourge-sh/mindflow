@@ -25,8 +25,10 @@ try {
       if (how === 'menu') { await row.click({ button: 'right' }); await wait(500); await h.getByRole('menuitem', { name: /^Move to the Bin/ }).first().click() }
       else await h.keyboard.press('Meta+Backspace')
     })
-    const after = heard.slice(heard.indexOf('tear'))
-    check(`${page}, ${how}: one tear, and nothing after it`, heard.filter((one) => one === 'tear').length === 1 && after.length === 1, heard.join(', '))
+    // By a key it tears; by a click the paper crumples on screen, and that crackle is its one sound instead.
+    const bin = (one) => one === 'tear' || one === 'crumple'
+    const after = heard.slice(heard.findIndex(bin))
+    check(`${page}, ${how}: one tear or crumple, and nothing after it`, heard.filter(bin).length === 1 && after.length === 1, heard.join(', '))
   }
   check('no page errors', !c.errors.length, c.errors.slice(0, 3).join(' | '))
 } finally { await c.close() }

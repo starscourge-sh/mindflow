@@ -4,7 +4,9 @@ import { EditorContext, useEditorState, type Editor } from "@tiptap/react"
 import { AlignCenter, AlignLeft, AlignRight, Captions } from "lucide-react"
 import { AliveIcon } from "@/components/ui/alive-icon"
 import TrashIcon from "@/components/ui/trash-icon"
-import { crumpleFrom } from "@/lib/fly-home"
+import { crumpleAway } from "@/lib/fly-home"
+import { chime } from "@/lib/sound"
+import { toast } from "@/components/haligtree/ui"
 import DownloadIcon from "@/components/ui/download-icon"
 import { startCaption } from "@/extensions/caption"
 import { host } from "@/lib/host"
@@ -151,12 +153,20 @@ export function ImageMenu({ editor }: { editor: Editor | null }): React.JSX.Elem
             <Button
               data-style="ghost"
               aria-label="Delete image"
-              // Thrown away, shown: the picture crumples and is tossed off (⌘Z brings it back); by a key it simply goes.
-              onClick={() => {
-                // 1.5s for now, so the crumple can be seen and judged.
-                const land = crumpleFrom(editor.view.nodeDOM(editor.state.selection.from) as HTMLElement | null, 1500)
-                editor.chain().focus().deleteSelection().run()
-                land?.()
+              // Thrown away, shown: React Bits' paper crumples where the picture was, then fades (1.5s for now, to
+              // be judged), with its crackle and a notice to put it back; by a key it simply goes.
+              onClick={(event) => {
+                // This toolbar lies over the picture: hidden, and a frame drawn without it, before the picture's
+                // likeness is taken, or the paper crumples with the toolbar printed on it.
+                const bar = (event.currentTarget as HTMLElement).closest<HTMLElement>("[data-image-menu], .tiptap-toolbar")?.parentElement
+                if (bar) bar.style.visibility = "hidden"
+                requestAnimationFrame(() => requestAnimationFrame(() => {
+                  const away = crumpleAway(editor.view.nodeDOM(editor.state.selection.from) as HTMLElement | null, 1500)
+                  editor.chain().focus().deleteSelection().run()
+                  away?.()
+                  if (bar) bar.style.visibility = ""
+                  toast("Picture removed", () => (editor.chain().focus().undo().run(), chime("undo")), "success")
+                }))
               }}
             >
               <AliveIcon icon={TrashIcon} size={16} className="tiptap-button-icon" />

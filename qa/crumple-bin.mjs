@@ -89,7 +89,8 @@ try {
   // The menu blinks its choice first (menu-blink.ts, about 150ms, as macOS does); the move starts as it runs.
   check('click: a copy of the row stands in its place in the frame the move starts (no empty slot)', s.came, `${Math.round(s.at - s.click)}ms click to move (the menu's blink)`)
   check('click: 3D paper drawn under 100ms after the move starts', s.ready < 100, `${Math.round(s.ready)}ms move to paper`)
-  check('click: landed on the Bin under 700ms after the move starts', s.gone - s.at < 700, `${Math.round(s.gone - s.at)}ms move to landed, ${Math.round(s.gone - s.click)}ms click to landed`)
+  // Slowed on the user's word ("runs too quickly"): 650ms crumpling, 450ms flying.
+  check('click: landed on the Bin within 1.3s of the move starting', s.gone - s.at < 1300, `${Math.round(s.gone - s.at)}ms move to landed, ${Math.round(s.gone - s.click)}ms click to landed`)
   check('click: no long task over 50ms during the move', s.longest <= 50, `longest task ${s.longest}ms`)
   const near = s.last && bin && Math.abs(s.last.x + s.last.width / 2 - (bin.x + bin.width / 2)) < 60 && Math.abs(s.last.y + s.last.height / 2 - (bin.y + bin.height / 2)) < 40
   check('click: it ends on the sidebar Bin', !!near, JSON.stringify({ last: s.last, bin }))

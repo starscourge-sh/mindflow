@@ -1980,7 +1980,7 @@ export function Home(): React.JSX.Element {
         <nav className="flex flex-col gap-px">
           {(() => {
             // Where a promoted capture or a new task flies to (lib/fly-home.ts).
-            const homeOf = (id: string): string | undefined => (id === 'nuggets' ? 'nugget' : id === 'today' ? 'task' : id === 'articles' ? 'question' : id === 'discarded' ? 'bin' : undefined)
+            const homeOf = (id: string): string | undefined => (id === 'nuggets' ? 'nugget' : id === 'today' ? 'task' : id === 'articles' ? 'question' : id === 'discarded' ? 'bin' : id === 'media' ? 'files' : undefined)
             // Shown or hidden from a row's right click, said with a way back.
             const showIt = async (section: (typeof SECTIONS)[number], on: boolean): Promise<void> => {
               const was = (await haligtree.settings()).sidebarShown ?? shown

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { crumplingNow } from '@/lib/sound'
 import { byKeys } from '@/lib/motion'
 import { useRecording } from '@/lib/recording'
 
@@ -27,7 +28,8 @@ type BeamState = BeamFlash | null
  * no sweep: the sound and the toast say it. Careful and not done still show.
  */
 export const beam = (state: BeamState): void => {
-  if (!state || (byKeys() && (state === 'success' || state === 'info'))) return
+  // Not by a key, nor while paper crumples on screen (the crumple says it): a beam then read as a glitch. A failure still beams.
+  if (!state || ((byKeys() || crumplingNow()) && (state === 'success' || state === 'info'))) return
   window.dispatchEvent(new CustomEvent('haligtree:beam', { detail: state }))
 }
 

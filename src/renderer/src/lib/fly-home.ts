@@ -8,8 +8,9 @@
  * Call `lift` before the change, while the source is still on screen; it
  * returns a `land` to call once the change is made, or nothing to call.
  */
-export type Home = 'nugget' | 'task' | 'capture' | 'question' | 'bin'
+export type Home = 'nugget' | 'task' | 'capture' | 'question' | 'bin' | 'files'
 
+import { crumple } from '@/lib/sound'
 import { byKeys, still } from './motion'
 import { EASING } from '@/lib/motion'
 
@@ -69,7 +70,7 @@ function snapshot(from: HTMLElement | null): { box: Box; picture: HTMLElement; x
  */
 const colourOf = (home: Home): string => {
   const root = getComputedStyle(document.documentElement)
-  const hue = { bin: '--tt-color-text-red', nugget: '--tt-color-text-purple', task: '--tt-color-text-green', capture: '--tt-color-text-blue', question: '--tt-brand-color-400' }[home]
+  const hue = { bin: '--tt-color-text-red', nugget: '--tt-color-text-purple', task: '--tt-color-text-green', capture: '--tt-color-text-blue', question: '--tt-brand-color-400', files: '--tt-color-text-purple' }[home]
   return root.getPropertyValue(hue).trim() || root.getPropertyValue('--tt-brand-color-400').trim() || 'var(--primary)'
 }
 
@@ -225,12 +226,12 @@ export const binFlight = (id: string): (() => void) | undefined =>
 /** Quick capture's window: no view of its own in the address. */
 const inBox = (): boolean => !/[?&](view|note|drawing)=/.test(location.search)
 
-/** How long the paper crumples before it flies, and the flight: under 600ms in all. */
-const CRUMPLE_MS = 260
-const FLIGHT_MS = 300
+/** How long the paper crumples before it flies, and the flight: slow enough to see a sheet balled up and tossed. */
+const CRUMPLE_MS = 650
+const FLIGHT_MS = 450
 
 /** `binFlight` for a card found another way: a practice's row, the hint card. */
-export function binFlightFrom(from: HTMLElement | null): Flight | undefined {
+export function binFlightFrom(from: HTMLElement | null, to: () => Landing | null = () => landing('bin'), crumpleMs = CRUMPLE_MS): Flight | undefined {
   // By a key, it simply goes: binning is done many times a day. Motion off or Reduce motion, nothing travels.
   if (!from || byKeys() || still()) return undefined
   // The menu it was binned from goes at once, so the row is seen whole and its picture is the row alone.
@@ -252,11 +253,19 @@ export function binFlightFrom(from: HTMLElement | null): Flight | undefined {
     void (fade ? cover.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 200, easing: 'ease-out', fill: 'forwards' }).finished.then(() => cover.remove(), () => cover.remove()) : cover.remove())
   // Its picture: taken as its menu opened, or now; three.js and the fold paths were made ready while the app was idle (`warmBin`).
   const early = picked && picked.row === from && JSON.stringify(picked.box) === JSON.stringify(box) ? picked.png : null
+  // The sound of it: paper crumpling, as long as the hands work at it (the Bin's tear stays quiet).
+  crumple(crumpleMs / 1000)
   const sheet = Promise.all([early ?? window.api.pictureOfRect({ x: box.left, y: box.top, width: box.width, height: box.height }), import('@/components/paper-crumple-flight')])
-    .then(([png, { sheetOver }]) => (png ? sheetOver(box, png, lay, CRUMPLE_MS, FLIGHT_MS) : (lay(), hidden.cancel(), null)), () => (lay(), hidden.cancel(), null))
-  const land = (): void => void sheet.then((one) => one?.go(() => landing('bin')))
+    .then(([png, { sheetOver }]) => (png ? sheetOver(box, png, lay, crumpleMs, FLIGHT_MS) : (lay(), hidden.cancel(), null)), () => (lay(), hidden.cancel(), null))
+  const land = (): void => void sheet.then((one) => one?.go(to))
   return Object.assign(land, { drop: (): void => void sheet.then((one) => (one?.drop(), lay(), hidden.cancel())) })
 }
+
+/**
+ * A picture taken out of a note: React Bits' paper crumples and is tossed to Files in the sidebar, where the picture
+ * still is (it is not binned); with Files out of sight, it fades where it was.
+ */
+export const crumpleAway = (from: HTMLElement | null, crumpleMs = CRUMPLE_MS): Flight | undefined => binFlightFrom(from, () => landing('files'), crumpleMs)
 
 /**
  * The picture of the row a menu was just opened on, taken as it opened: the

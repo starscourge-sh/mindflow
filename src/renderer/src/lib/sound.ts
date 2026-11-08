@@ -736,7 +736,54 @@ function recording(url: string, level: number, name: string, options: { loop?: b
 // The one sound of anything going to the Bin. The page that opens next in its place (the next note) turns no page on top: one action, one sound.
 /** The welcome's easter egg: the name, said aloud, when the word "Haligtree" on the title card is clicked. */
 export const sayName = (): void => void recording(saidUrl, 0.9, 'said')
-export const tear = (): void => void ((spokeAt = performance.now() + 700), recording(tearUrl, 0.55, 'tear'))
+/** Until when a crumple is the sound of the move to the Bin, and the tear stays quiet. */
+let paperUntil = 0
+/** Paper crumpling on screen just now: what it did is shown, so the window's edge needs no beam as well. */
+export const crumplingNow = (): boolean => performance.now() < paperUntil + 600
+export const tear = (): void => void (performance.now() < paperUntil || ((spokeAt = performance.now() + 700), recording(tearUrl, 0.55, 'tear')))
+/**
+ * A sheet crumpled into a ball, drawn rather than recorded: a run of dry paper crackles, thick at first and thinning
+ * as the ball tightens, over a soft rustle. `seconds`: how long the hands work at it, to match the paper on screen.
+ */
+export function crumple(seconds = 0.6): void {
+  // Heard instead of the tear: the paper on screen crumples, so it never sounds ripped as well.
+  paperUntil = performance.now() + 400
+  if (!enabled || !volume) return
+  const context = audio()
+  if (!context) return
+  const rate = context.sampleRate
+  const length = Math.floor(rate * (seconds + 0.08))
+  const buffer = context.createBuffer(1, length, rate)
+  const data = buffer.getChannelData(0)
+  // The rustle under it: quiet noise, swelling in and fading out.
+  for (let i = 0; i < length; i++) {
+    const at = i / length
+    data[i] = (Math.random() * 2 - 1) * 0.05 * Math.sin(Math.PI * Math.min(1, at * 1.3))
+  }
+  // The crackles: each a few milliseconds of noise, sharp at its start; many early, fewer and quieter as it ends.
+  let t = 0
+  while (t < seconds) {
+    const left = 1 - t / seconds
+    const burst = Math.floor(rate * (0.002 + Math.random() * 0.01))
+    const start = Math.floor(t * rate)
+    const loud = (0.25 + Math.random() * 0.75) * (0.35 + 0.65 * left)
+    for (let i = 0; i < burst && start + i < length; i++) data[start + i] += (Math.random() * 2 - 1) * loud * Math.exp(-i / (burst * 0.3))
+    t += 0.006 + Math.random() * 0.035 / Math.max(0.25, left)
+  }
+  const source = context.createBufferSource()
+  source.buffer = buffer
+  const low = context.createBiquadFilter()
+  low.type = 'highpass'
+  low.frequency.value = 900
+  const high = context.createBiquadFilter()
+  high.type = 'lowpass'
+  high.frequency.value = 9000
+  const gain = context.createGain()
+  gain.gain.value = 0.22 * volume
+  source.connect(low).connect(high).connect(gain).connect(context.destination)
+  source.start(context.currentTime)
+  hear('crumple')
+}
 /** A review card turned over. */
 export const fold = (): void => void recording(foldUrl, 0.5, 'fold')
 
