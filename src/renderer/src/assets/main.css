@@ -3080,11 +3080,12 @@ html[data-tuck-open] :is(.mf-card, [data-goal-card]) { scale: 1 !important; }
 /* The welcome's easter egg (welcome.tsx, useNameEgg): the word "Haligtree" lit gold for a moment as it is said. */
 ::highlight(mf-name-said) { background-color: color-mix(in oklab, #fabd2f 45%, transparent); color: inherit; }
 
-/* "Open on the left / right" as narrow strips at the page's edge (split-drop.tsx): the page eases in from that side
-   by the strip's width and its inset, so the strip sits beside what is there, never over it. */
-[data-split-area] { transition: padding 220ms var(--mf-ease); }
-:root[data-split-room~='left'] [data-split-area] { padding-left: 136px; }
-:root[data-split-room~='right'] [data-split-area] { padding-right: 136px; }
+/* "Open on the left / right" as narrow strips at the page's edge (split-drop.tsx): the pages step back from that side
+   by a scale, so the strip sits beside what is there, never over it. A scale and not padding: the pages keep their
+   width, so nothing in them lays itself out again during a drag.
+   The side it steps back from stays set after the drag, so the page eases back from the same side. */
+[data-split-area] { transition: transform 220ms var(--mf-ease); transform-origin: var(--mf-split-from, center); }
+:root[data-split-room] [data-split-area] { transform: scale(var(--mf-split-room, 1)); }
 @media (prefers-reduced-motion: reduce) { [data-split-area] { transition: none; } }
 
 /* "Tag look: Dot" (Settings, Appearance): every #tag chip, in a list, a note's

@@ -108,7 +108,7 @@ const lines = (items: Shown[]): React.ReactNode =>
       // Its hint on a quiet second line under its name, never a tip: a menu row shows no floating surface.
       <ContextMenuItem key={item.label} variant={item.danger ? 'destructive' : 'default'} onSelect={item.run}>
         {/* A line with a hint under its name begins with markup, not words, so it is given its drawing here: every line has one. */}
-        {item.hint ? <Hinted label={item.label} hint={item.hint} icon={item.icon} /> : <>{item.icon}{item.icon ? <span className={MENU_LINE}>{item.label}</span> : item.label}</>}
+        {item.hint ? <Hinted label={item.label} hint={item.hint} icon={item.icon} /> : item.icon ? <>{item.icon}<span className={MENU_LINE}>{item.label}</span></> : item.label /* Its words bare, never in a fragment: the menu draws their icon only for a line that starts with words. */}
         {item.trail}
         {item.keys && keyFor(item.keys) && <ContextMenuShortcut>{keyFor(item.keys)}</ContextMenuShortcut>}
       </ContextMenuItem>

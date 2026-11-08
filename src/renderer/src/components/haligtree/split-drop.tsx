@@ -57,6 +57,8 @@ const EDGE = 48
 const NARROW = 104
 /** How far a place sits in from the page's side. */
 const INSET = 24
+/** What a strip at an edge takes from the page beside it: the strip and its inset, and a little air. */
+const ROOM = 136
 /** How far past a list's column, to either side, a list's own drag goes before the places come up. */
 const OUTSIDE = 24
 /** How far the pointer moves before anything is carried. */
@@ -194,8 +196,10 @@ export function SplitDrop({ onDrop, onRow }: { onDrop: (carried: Carried, at: nu
       return null
     }
     // The panes' pages: the rows of tabs over them are places of their own.
+    // Read from its holder, which never moves: the pages themselves step back by a scale while the strips are up (below),
+    // and the edges, the strips and "back in from the edge" are the window's, not the scaled page's.
     const area = (): DOMRect | null => {
-      const box = document.querySelector('[data-split-area]')?.getBoundingClientRect()
+      const box = document.querySelector('[data-split-area]')?.parentElement?.getBoundingClientRect()
       if (!box) return null
       const under = Math.max(box.top, ...[...document.querySelectorAll('[data-tabs]')].map((one) => one.getBoundingClientRect().bottom))
       return new DOMRect(box.left, under, box.width, box.bottom - under)
@@ -331,11 +335,17 @@ export function SplitDrop({ onDrop, onRow }: { onDrop: (carried: Carried, at: nu
       // Up only at an edge, only that edge's place: the other side's would sit over the list for nothing.
       if (down.source.edgeOnly) shown = shown.filter((zone) => zone.side === (px < box.left + box.width / 2 ? 'left' : 'right'))
       document.documentElement.dataset.splitDrag = ''
-      // Narrow strips at the edge: the page eases in, only from a side where the strip would lie over a place to drop
-      // (main.css). Squeezed from both, a list and its open note lose the room to stay side by side.
+      // Narrow strips at the edge: the pages step back from a side where a strip would lie over a place to drop, by a
+      // scale (main.css), so the strip sits beside what is there. A scale, not narrower pages: their layout holds still
+      // (a narrower page laid itself out again, and the Calendar's header jumped between two shapes).
       const drops = [...document.querySelectorAll('[data-pane] :is([data-row][data-id], [data-quadrant])')].map((one) => one.getBoundingClientRect())
       const crowded = (zone: Zone): boolean => !!down?.source.edgeOnly || drops.some((one) => one.width && one.left < zone.left + zone.width && one.right > zone.left)
-      if (shown.every((zone) => zone.width <= NARROW)) document.documentElement.dataset.splitRoom = shown.filter(crowded).map((zone) => zone.side).join(' ')
+      const room = shown.every((zone) => zone.width <= NARROW) ? shown.filter(crowded).map((zone) => zone.side) : []
+      if (room.length) {
+        document.documentElement.style.setProperty('--mf-split-room', String(Math.max(0.5, (box.width - ROOM * room.length) / box.width)))
+        document.documentElement.style.setProperty('--mf-split-from', room.length > 1 ? 'center' : room[0] === 'left' ? 'right center' : 'left center')
+        document.documentElement.dataset.splitRoom = room.join(' ')
+      }
       // Pinned's "Drop here to pin" comes up only for what it takes (home.tsx).
       if (down.source.carried.open && !down.source.carried.open.startsWith('task:')) document.documentElement.dataset.splitPin = ''
       document.getSelection()?.removeAllRanges()
