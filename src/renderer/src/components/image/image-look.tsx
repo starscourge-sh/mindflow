@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { blurFor, lookOf } from "@/lib/pictures"
 import { createRoot } from "react-dom/client"
@@ -13,7 +13,7 @@ import { Toolbar, ToolbarGroup, ToolbarSeparator } from "@/components/tiptap-ui-
 import { Button } from "@/components/tiptap-ui-primitive/button"
 import { host } from "@/lib/host"
 import { chime } from "@/lib/sound"
-import { EASE, byKeys, still } from "@/lib/motion"
+import { EASE, EASING, byKeys, still } from "@/lib/motion"
 import { useLive, haligtree, type Settings } from "@/lib/haligtree"
 import { ChevronLeft, ChevronRight, Copy, X } from "@/components/ui/icons"
 import { useEditorDom } from '@/lib/editor-dom'
@@ -591,6 +591,17 @@ export function Viewer({ pictures, start, onClose, awayRef }: {
       // the system's Quick Look pages; by the buttons it comes in from its side.
       : Math.abs(went.current) === KEYED ? false : { transform: `translate(${went.current * 16}px, 0px) scale(1)`, opacity: 0 }
 
+  // The first frame grows out of the picture's place in the note, played by the browser on the frame:
+  // left to Motion's `initial` it showed the picture whole at once, with no lift, opened by Space or a click.
+  const lifted = useRef(false)
+  useLayoutEffect(() => {
+    if (lifted.current || !lifting || !frame.current || still()) return
+    lifted.current = true
+    const start = initial && typeof initial === "object" && "transform" in initial ? String(initial.transform) : null
+    if (!start) return
+    frame.current.animate([{ transform: start, opacity: place ? 1 : 0 }, { transform: "translate(0px, 0px) scale(1)", opacity: 1 }], { duration: keyed ? 240 : 300, easing: EASING })
+  }, [])
+
   useEffect(() => void chime("look"), [])
 
   // At rest the picture leans away from the pointer, the way a print tilts
@@ -626,7 +637,8 @@ export function Viewer({ pictures, start, onClose, awayRef }: {
         ref={frame}
         className="mf-look-frame"
         style={{ left: fit.left, top: fit.top, width: fit.width, height: fit.height }}
-        initial={initial}
+        // The lift out of the note is played below, on the frame itself; Motion carries only the steps.
+        initial={lifting ? false : initial}
         animate={{ transform: "translate(0px, 0px) scale(1)", opacity: 1 }}
         // The lift on the app's strong ease-out (a spring cannot carry a transform written as words: it
         // jumped to the end), quicker by a key; a step is the plain quick slide.
