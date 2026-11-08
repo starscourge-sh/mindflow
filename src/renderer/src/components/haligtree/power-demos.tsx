@@ -877,7 +877,7 @@ const YearDemo: Demo = ({ live }) => {
   )
 }
 
-const MARKED = [{ name: 'Exam', d: 0.18, tint: 'red' }, { name: 'Launch', d: 0.52, tint: 'blue' }, { name: "Mum's birthday", d: 0.8, tint: 'pink' }]
+const MARKED = [{ name: 'Exam', d: 0.18, tint: 'red' }, { name: 'Launch', d: 0.46, tint: 'blue' }, { name: "Mum's birthday", d: 0.92, tint: 'pink' }]
 const MilestonesDemo: Demo = ({ live }) => {
   const at = useSteps([800, 800, 800, 2400], live, 3)
   return (
