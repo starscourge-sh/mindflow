@@ -340,10 +340,34 @@ export function warmStage(width = 1000, height = 1000 / 18): void {
   deform(s, shape, 0.5);
   s.renderer.compile(s.scene, s.camera);
   s.renderer.render(s.scene, s.camera);
+  // A new window size (or app size) laid out while idle too: a new drawing buffer cost the move 15ms.
+  if (!relaid) {
+    relaid = true;
+    addEventListener('resize', () => requestIdleCallback(() => !busy && layout(s, shape, 64, innerWidth / 2, innerHeight / 2)));
+  }
   performance.measure('paper:warm stage (idle)', { start: started });
 }
+let relaid = false;
 /** Builds a shape ahead (its geometry), once its fold path is in. */
 export const warmShape = (width: number, height: number): void => void shapeFor(width, height);
+
+/** A CSS cubic-bezier as a function of time (0 to 1), for a flight drawn in the scene. */
+export function bezier(x1: number, y1: number, x2: number, y2: number): (t: number) => number {
+  const at = (a: number, b: number, t: number): number => 3 * a * t * (1 - t) ** 2 + 3 * b * t * t * (1 - t) + t ** 3;
+  return (t: number) => {
+    if (t <= 0 || t >= 1) return clamp(t, 0, 1);
+    let [lo, hi, u] = [0, 1, t];
+    for (let i = 0; i < 24; i++) {
+      u = (lo + hi) / 2;
+      if (at(x1, x2, u) < t) lo = u;
+      else hi = u;
+    }
+    return at(y1, y2, u);
+  };
+}
+
+/** A flight across the window, in the scene: moved `dx`,`dy` px along an arc lifted `lift` px, shrunk to `scale`, faded to `opacity`. */
+export type Flight = { dx: number; dy: number; lift: number; scale: number; opacity: number; ms: number; ease: (t: number) => number; done: () => void };
 
 /** Whether a sheet is on the stage now: only one at a time; any other simply fades. */
 let busy = false;
@@ -388,12 +412,21 @@ export function stageSheet(image: ImageBitmap, width: number, height: number, cx
   at = lap('texture + materials', at);
   layout(s, shape, width, cx, cy);
   at = lap('layout', at);
-  Object.assign(s.canvas.style, { transform: 'none', transformOrigin: `${cx}px ${cy}px`, opacity: '1' });
+  Object.assign(s.canvas.style, { transform: 'none', opacity: '1' });
   const amount = spring();
   let [frame, last, gone] = [0, 0, false];
+  // The flight is drawn in the scene, the canvas itself still: moving the canvas with a CSS transform had the
+  // compositor resample the drawn ball every frame, and its folds shimmered ("shaking, glitching") as it flew.
+  let flight: (Flight & { started: number }) | null = null;
+  let [size, x, y] = [width, cx, cy];
+  const place = () => {
+    s.sheet.scale.setScalar(size);
+    s.sheet.position.set(x - laid.width / 2, laid.height / 2 - y, 0);
+    s.canvas.dataset.at = `${Math.round(x)},${Math.round(y)}`;
+  };
   const draw = () => {
     deform(s, shape, clamp(amount.value, 0, 1));
-    placeFloor(s, shape, width);
+    placeFloor(s, shape, size);
     s.renderer.render(s.scene, s.camera);
   };
   deform(s, shape, 0);
@@ -405,12 +438,35 @@ export function stageSheet(image: ImageBitmap, width: number, height: number, cx
   // On screen from the next frame the browser paints.
   s.canvas.style.visibility = 'visible';
   requestAnimationFrame(drawn);
+  place();
   const tick = (time: number) => {
     frame = 0;
     if (gone) return;
     const dt = last ? Math.min(0.04, (time - last) / 1000) : 1 / 60;
     last = time;
-    const moving = advance(amount, dt, PAPER.crumpleDuration, false);
+    let moving = advance(amount, dt, PAPER.crumpleDuration, false);
+    if (flight) {
+      // As the old keyframes ran: the curve over the whole flight, straight lines between start, the arc's top and the end.
+      const p = flight.ease(clamp((time - flight.started) / flight.ms, 0, 1));
+      const [a, b] = p < 0.5 ? [p * 2, 0] : [(p - 0.5) * 2, 1];
+      const lerp = (from: number, to: number) => from + (to - from) * a;
+      const path = [
+        { dx: 0, dy: 0, scale: 1, opacity: 1 },
+        { dx: flight.dx * 0.5, dy: flight.dy * 0.5 - flight.lift, scale: (1 + flight.scale) / 2 + 0.075, opacity: 1 },
+        { dx: flight.dx, dy: flight.dy, scale: flight.scale, opacity: flight.opacity }
+      ];
+      const [from, to] = [path[b], path[b + 1]];
+      [x, y, size] = [cx + lerp(from.dx, to.dx), cy + lerp(from.dy, to.dy), width * lerp(from.scale, to.scale)];
+      s.canvas.style.opacity = `${lerp(from.opacity, to.opacity)}`;
+      place();
+      if (time - flight.started >= flight.ms) {
+        const end = flight.done;
+        flight = null;
+        draw();
+        return end();
+      }
+      moving = true;
+    }
     draw();
     if (moving) frame = requestAnimationFrame(tick);
   };
@@ -420,11 +476,18 @@ export function stageSheet(image: ImageBitmap, width: number, height: number, cx
       amount.target = clamp(PAPER.crumpleAmount, 0, 1);
       if (!frame) frame = requestAnimationFrame(tick);
     },
+    /** Flies the sheet, still crumpling, along an arc; `done` once it is there. */
+    fly: (to: Flight) => {
+      flight = { ...to, started: performance.now() };
+      if (!frame) frame = requestAnimationFrame(tick);
+    },
     clear: () => {
       if (gone) return;
       gone = true;
       cancelAnimationFrame(frame);
+      flight = null;
       s.canvas.getAnimations().forEach((one) => one.cancel());
+      s.canvas.style.opacity = '1';
       s.canvas.style.visibility = 'hidden';
       s.frontMaterial.map = s.backMaterial.map = s.depthMaterial.map = s.blank;
       texture.dispose();

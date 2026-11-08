@@ -30,11 +30,10 @@ const watch = () => h.evaluate(() => {
     const paper = document.querySelector('[data-crumple]') ?? (stage?.style.visibility === 'visible' ? stage : null)
     if (paper) {
       if (!seen.came) (seen.came = true, (seen.at = performance.now()))
-      // The stage is the whole window: where the paper is, is its middle (the transform's origin) moved by its flight.
+      // The stage is the whole window, still: where the paper is, the scene says (its middle, in the window).
       if (paper === stage) {
-        const m = new DOMMatrix(getComputedStyle(stage).transform)
-        const [ox, oy] = stage.style.transformOrigin.split(' ').map(parseFloat)
-        seen.last = { x: ox + m.e - 1, y: oy + m.f - 1, width: 2, height: 2 }
+        const [x, y] = (stage.dataset.at ?? '0,0').split(',').map(Number)
+        seen.last = { x: x - 1, y: y - 1, width: 2, height: 2 }
       } else seen.last = paper.getBoundingClientRect().toJSON()
       if (!seen.ready && stage?.style.visibility === 'visible') seen.ready = performance.now() - seen.at
     } else if (seen.came && !seen.gone) seen.gone = performance.now()
@@ -63,23 +62,105 @@ try {
   let row = h.locator('[data-id]').first()
   let id = await titleOf(row)
   await watch()
+  // QA_SHAKE: the window as it was before the menu, so the ball can be told from what is behind it.
+  const box0 = await row.evaluate((el) => el.getBoundingClientRect().toJSON())
   await row.click({ button: 'right' }); await wait(500)
+  const menuBox = await h.getByRole('menu').first().evaluate((el) => el.getBoundingClientRect().toJSON()).catch(() => null)
+  // QA_PROFILE: where the page's thread spends the move (the CDP sampling profiler), by function.
+  const cdp = process.env.QA_PROFILE ? await h.context().newCDPSession(h) : null
+  if (cdp) { await cdp.send('Profiler.enable'); await cdp.send('Profiler.setSamplingInterval', { interval: 200 }); await cdp.send('Profiler.start') }
   const t0 = Date.now()
   const clicked = h.getByRole('menuitem', { name: /^Move to the Bin/ }).first().click()
   // Filmed from inside the page (the window's own capturePage), a frame every 50ms: page.screenshot is too slow for it.
-  const film = frames ? h.evaluate(async () => {
+  const every = Number(process.env.QA_EVERY ?? 50)
+  const film = frames || process.env.QA_SHAKE ? h.evaluate(async ({ every, keep, flightAt }) => {
+    window.qaFlightAt = flightAt
     const shots = []
     const t0 = performance.now()
-    while (performance.now() - t0 < 1000) {
+    while (performance.now() - t0 < 1500) {
       const at = performance.now() - t0
       const png = await window.api.pictureOfRect({ x: 0, y: 0, width: innerWidth, height: innerHeight })
-      if (png) shots.push({ at: Math.round(at), png: btoa(Array.from(png, (b) => String.fromCharCode(b)).join('')) })
-      await new Promise((go) => setTimeout(go, Math.max(0, 50 * (shots.length) - (performance.now() - t0))))
+      if (png) shots.push({ at: Math.round(at), png: keep ? btoa(Array.from(png, (b) => String.fromCharCode(b)).join('')) : png })
+      await new Promise((go) => setTimeout(go, Math.max(0, every * (shots.length) - (performance.now() - t0))))
     }
-    return shots
-  }) : null
-  for (const [n, shot] of ((await film) ?? []).entries()) writeFileSync(`${frames}/f${String(n).padStart(2, '0')}-${shot.at}ms.png`, Buffer.from(shot.png, 'base64'))
+    if (keep) return shots
+    // QA_SHAKE: the ball told from the window as it was (outside the row and the menu): its middle, its size,
+    // and how much its own picture changes from one frame to the next once scaled to one size.
+    const pixels = async (png) => {
+      const bmp = await createImageBitmap(new Blob([png], { type: 'image/png' }))
+      const pen = new OffscreenCanvas(bmp.width, bmp.height).getContext('2d', { willReadFrequently: true })
+      pen.drawImage(bmp, 0, 0)
+      return pen.getImageData(0, 0, bmp.width, bmp.height)
+    }
+    // What is behind the flight: the last frame before it (the ball still on its row, which is left out).
+    const still = shots.filter((one) => one.at <= Number(window.qaFlightAt)).at(-1)
+    const back = await pixels(still.png)
+    const k = back.width / innerWidth
+    const out = []
+    for (const shot of shots.filter((one) => one.at > still.at)) {
+      const img = await pixels(shot.png)
+      if (img.width !== back.width) { out.skipped = `${img.width} vs ${back.width}`; continue }
+      const xs = [], ys = []
+      for (let y = 0; y < img.height; y++) for (let x = 0; x < img.width; x++) {
+        const [px, py] = [x / k, y / k]
+        if (px >= qaSkip.row.x - 4 && px <= qaSkip.row.x + qaSkip.row.width + 4 && py >= qaSkip.row.y - 70 && py <= qaSkip.row.y + qaSkip.row.height + 70) continue
+        if (qaSkip.menu && px >= qaSkip.menu.x - 4 && px <= qaSkip.menu.x + qaSkip.menu.width + 4 && py >= qaSkip.menu.y - 4 && py <= qaSkip.menu.y + qaSkip.menu.height + 4) continue
+        const i = (y * img.width + x) * 4
+        if (Math.abs(img.data[i] - back.data[i]) + Math.abs(img.data[i + 1] - back.data[i + 1]) + Math.abs(img.data[i + 2] - back.data[i + 2]) < 60) continue
+        xs.push(x); ys.push(y)
+      }
+      if (xs.length < 40) continue
+      // The ball: the changed pixels near the middle of them all (a toast or a hover far off left out).
+      const mid = (list) => [...list].sort((a, b) => a - b)[list.length >> 1]
+      const [mx, my] = [mid(xs), mid(ys)]
+      let [n, sx, sy, x0, y0, x1, y1] = [0, 0, 0, 1e9, 1e9, -1, -1]
+      xs.forEach((x, j) => {
+        const y = ys[j]
+        if (Math.abs(x - mx) > 90 * k || Math.abs(y - my) > 90 * k) return
+        n++; sx += x; sy += y; x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y)
+      })
+      if (n < 40) continue
+      // Its picture at 24 x 24, read from the frame.
+      const S = 24, crop = new Float32Array(S * S)
+      for (let j = 0; j < S; j++) for (let i2 = 0; i2 < S; i2++) {
+        const x = Math.round(x0 + ((i2 + 0.5) * (x1 - x0 + 1)) / S), y = Math.round(y0 + ((j + 0.5) * (y1 - y0 + 1)) / S)
+        const i = (Math.min(y, img.height - 1) * img.width + Math.min(x, img.width - 1)) * 4
+        crop[j * S + i2] = (img.data[i] + img.data[i + 1] + img.data[i + 2]) / 3
+      }
+      out.push({ at: shot.at, cx: sx / n / k, cy: sy / n / k, w: (x1 - x0 + 1) / k, h: (y1 - y0 + 1) / k, n, crop })
+    }
+    // Change in its own picture between frames (0 to 255), and how far its size and middle stray from a smooth line.
+    // In flight only (the Bin's own nod after it lands is left out), and the shimmer read where the ball barely
+    // changes size (the slow end of the flight): there any change in its picture is the ball itself flickering.
+    const flying = out.filter((one) => one.n > 300)
+    const calm = flying.slice(1).map((one, i) => [one, flying[i]]).filter(([a, b]) => Math.abs(a.w - b.w) <= 2 && Math.abs(a.h - b.h) <= 2)
+      .map(([a, b]) => a.crop.reduce((sum, v, j) => sum + Math.abs(v - b.crop[j]), 0) / a.crop.length)
+    const steps = out.slice(1).map((one, i) => one.crop.reduce((sum, v, j) => sum + Math.abs(v - out[i].crop[j]), 0) / one.crop.length)
+    const wobble = (key) => out.slice(1, -1).map((one, i) => Math.abs(one[key] - (out[i][key] + out[i + 2][key]) / 2))
+    const avg = (list) => (list.length ? list.reduce((a, b) => a + b, 0) / list.length : 0)
+    return { shots: shots.length, skipped: out.skipped, small: out.small, calmSteps: calm.map((one) => one.toFixed(1)), frames: out.length, gaps: out.slice(1).map((one, i) => one.at - out[i].at), picture: avg(steps).toFixed(1), pictureMax: Math.max(0, ...steps).toFixed(1), size: avg([...wobble('w'), ...wobble('h')]).toFixed(2), middle: avg([...wobble('cx'), ...wobble('cy')]).toFixed(2), rows: out.map((one) => `${one.at}ms ${one.cx.toFixed(1)},${one.cy.toFixed(1)} ${one.w.toFixed(1)}x${one.h.toFixed(1)} n${one.n}`) }
+  }, { every, keep: !!frames, flightAt: Number(process.env.QA_FLIGHT_AT ?? 900) }) : null
+  if (process.env.QA_SHAKE) await h.evaluate((skip) => (window.qaSkip = skip), { row: box0, menu: menuBox })
+  const filmed = await film
+  if (process.env.QA_SHAKE) console.log('shake', JSON.stringify(filmed, null, 1))
+  else for (const [n, shot] of (filmed ?? []).entries()) writeFileSync(`${frames}/f${String(n).padStart(2, '0')}-${shot.at}ms.png`, Buffer.from(shot.png, 'base64'))
   await clicked; await wait(1200)
+  if (cdp) {
+    const { profile } = await cdp.send('Profiler.stop')
+    const byId = new Map(profile.nodes.map((n) => [n.id, n]))
+    const parent = new Map()
+    for (const n of profile.nodes) for (const c of n.children ?? []) parent.set(c, n.id)
+    const [self, whole] = [new Map(), new Map()]
+    const key = (n) => `${n.callFrame.functionName || '(anon)'} ${n.callFrame.url.split('/').pop()}:${n.callFrame.lineNumber}:${n.callFrame.columnNumber}`
+    profile.samples.forEach((sid, i) => {
+      const us = profile.timeDeltas[i] ?? 0
+      self.set(key(byId.get(sid)), (self.get(key(byId.get(sid))) ?? 0) + us)
+      const once = new Set()
+      for (let cur = sid; cur; cur = parent.get(cur)) { const k = key(byId.get(cur)); if (!once.has(k)) (once.add(k), whole.set(k, (whole.get(k) ?? 0) + us)) }
+    })
+    console.log('-- self ms'); [...self].sort((a, b) => b[1] - a[1]).slice(0, 25).forEach(([k, v]) => console.log(Math.round(v / 1000), k))
+    console.log('-- inclusive ms'); [...whole].sort((a, b) => b[1] - a[1]).slice(0, Number(process.env.QA_PROFILE)).forEach(([k, v]) => console.log(Math.round(v / 1000), k))
+  }
   let s = await seen()
   // Where the time goes: the paper's own marks (paper-crumple.tsx), the warm-up's and this move's.
   const parts = await h.evaluate(() => performance.getEntriesByType('measure').filter((one) => one.name.startsWith('paper:')).map((one) => `${one.name.slice(6)} ${Math.round(one.startTime)} ${one.duration.toFixed(1)}ms`))

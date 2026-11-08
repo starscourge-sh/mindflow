@@ -1,9 +1,9 @@
-import { stageBusy, stageSheet, warmShape, warmStage, PAPER } from './paper-crumple'
+import { bezier, stageBusy, stageSheet, warmShape, warmStage, PAPER } from './paper-crumple'
 import { keepPath, pathKey, type PaperPath } from './paper-path'
 import type { Box, Landing } from '@/lib/fly-home'
 
 /** The app's curve for what travels on screen (STANDARDS), as in lib/fly-home.ts. */
-const IN_OUT = 'cubic-bezier(0.77, 0, 0.175, 1)'
+const IN_OUT = bezier(0.77, 0, 0.175, 1)
 /**
  * The paper shapes worked out ahead, as height over width: rows from very long
  * to short, then cards. A sheet takes the nearest, so its folds are ready.
@@ -86,22 +86,13 @@ export async function sheetOver(box: Box, png: Uint8Array, lay: (fade?: boolean)
     if (asked) crumple(asked)
   })
   const fly = (to: Landing | null): void => {
+    if (!to) {
+      void sheet.canvas.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 200, easing: 'ease-out', fill: 'forwards' }).finished.then(() => (sheet.clear(), then?.()), () => (sheet.clear(), then?.()))
+      return
+    }
     const [cx, cy] = [box.left + box.width / 2, box.top + box.height / 2]
-    const flight = to
-      ? (() => {
-          const [dx, dy] = [to.end.left + to.end.width / 2 - cx, to.end.top + to.end.height / 2 - cy]
-          // A slight arc: lifted on its way, as a ball of paper is tossed.
-          return sheet.canvas.animate(
-            [
-              { transform: 'translate(0, 0) scale(1)', opacity: 1 },
-              { transform: `translate(${dx * 0.5}px, ${dy * 0.5 - 24}px) scale(0.8)`, opacity: 1, offset: 0.5 },
-              { transform: `translate(${dx}px, ${dy}px) scale(0.45)`, opacity: 0.5 }
-            ],
-            { duration: flightMs, easing: IN_OUT, fill: 'forwards' }
-          )
-        })()
-      : sheet.canvas.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 200, easing: 'ease-out', fill: 'forwards' })
-    void flight.finished.then(() => (sheet.clear(), to?.nod(), then?.()), () => (sheet.clear(), then?.()))
+    // A slight arc: lifted on its way, as a ball of paper is tossed. Drawn in the scene, so the ball is never resampled.
+    sheet.fly({ dx: to.end.left + to.end.width / 2 - cx, dy: to.end.top + to.end.height / 2 - cy, lift: 24, scale: 0.45, opacity: 0.5, ms: flightMs, ease: IN_OUT, done: () => (sheet.clear(), to.nod(), then?.()) })
   }
   return {
     go: (to, after) => ((then = after), drawn ? crumple(to) : void (asked = to)),
