@@ -1,7 +1,7 @@
 import { haligtree, useLive } from '@/lib/haligtree'
 import { useReading } from '@/lib/reads-in'
 import { chime } from '@/lib/sound'
-import { useState } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 import { INK_STEPS, inkShade, Ends, Funnel, MonoCard, PillBars, Spline, Switch, ToneBar, Chip, useHover } from './mono-card'
 import { N, Section } from './stats-view'
 import { DOT, DotRule, GAP } from './time-dots'
@@ -225,8 +225,21 @@ export function StudyYear({ compact = false }: { /** Above the decks: the same y
   const studied = useLive(() => window.api.haligtree('study:stats') as Promise<Studied>, null as Studied | null, [], ['item'])
   const [on, setOn] = useState<string | null>(null)
   const [point, setPoint] = useState<number | null>(null)
-  const weeks = 53
   const cell = DOT
+  // As many whole weeks as its card has room for, up to a year: on a narrow window the oldest weeks are left out,
+  // not cut through at the card's edge with their month names ("Jan" in half).
+  const box = useRef<HTMLDivElement>(null)
+  const [room, setRoom] = useState(0)
+  useLayoutEffect(() => {
+    const el = box.current
+    if (!el) return
+    const watch = new ResizeObserver(() => setRoom(el.clientWidth))
+    watch.observe(el)
+    setRoom(el.clientWidth)
+    return () => watch.disconnect()
+  }, [])
+  // The weekday names' column (about 28px and its gap) comes off the room first.
+  const weeks = room ? Math.max(8, Math.min(53, Math.floor((room - 8 - 34 + GAP) / (cell + GAP)))) : 53
   // Whole weeks, Monday at the top, ending on this week: today sits in the last column.
   const start = dayjs().startOf('day').subtract((dayjs().day() + 6) % 7, 'day').subtract(weeks - 1, 'week')
   const todayKey = dayjs().format('YYYY-MM-DD')
@@ -283,9 +296,8 @@ export function StudyYear({ compact = false }: { /** Above the decks: the same y
         <span aria-hidden data-year-key className="inline-flex items-center gap-[3px]">{INK.map((_, step) => <span key={step} className="rounded-full" style={{ width: cell, height: cell, background: shade(step) }} />)}</span>
       </DotRule>
       {/* The latest weeks always show: on a narrow window the oldest are cut on the left. The months under the dots, as on the road. */}
-      <div className="-mx-1 -mt-2 -mb-1 flex justify-end overflow-hidden p-1">
-        {/* mr-auto: with room it sits on the card's left edge, as every other chart; without, justify-end keeps the latest weeks. */}
-        <div className="mr-auto grid shrink-0 grid-cols-[auto_auto] gap-x-1.5 gap-y-1 text-[11px] leading-none text-muted-foreground">
+      <div ref={box} className="-mx-1 -mt-2 -mb-1 flex overflow-hidden p-1">
+        <div className="grid shrink-0 grid-cols-[auto_auto] gap-x-1.5 gap-y-1 text-[11px] leading-none text-muted-foreground">
           <div aria-hidden className="grid" style={{ gridTemplateRows: `repeat(7, ${cell}px)`, rowGap: GAP }}>{['Mon', '', 'Wed', '', 'Fri', '', ''].map((name, at) => <span key={at} className={`${at === pointRow ? 'text-foreground transition-none' : 'transition-colors duration-[120ms]'} flex items-center text-[10px]`}>{name}</span>)}</div>
           <div data-year-grid className="grid" style={{ ...grid, gridTemplateRows: `repeat(7, ${cell}px)`, rowGap: GAP, gridAutoFlow: 'column' }} onPointerLeave={() => (setOn(null), setPoint(null))}>{cells}</div>
           <span />
