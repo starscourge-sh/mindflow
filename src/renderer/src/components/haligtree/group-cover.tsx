@@ -114,7 +114,7 @@ function Shape({ outline, fill, style }: { outline: Outline; fill: [string, stri
  * (a theme variable); `label` the corner its name sits in, or null for none
  * (where the name is already said beside it).
  */
-export function GroupCover({ name, tint, label = 'bl', className = '', style }: { name: string; tint: string; label?: Corner | null; className?: string; style?: CSSProperties }): React.JSX.Element {
+export function GroupCover({ name, tint, label = 'bl', lone = false, className = '', style }: { name: string; tint: string; label?: Corner | null; /** One shape only, for small covers in a grid of many, where two each read as busy. */ lone?: boolean; className?: string; style?: CSSProperties }): React.JSX.Element {
   const cover = coverOf(name, label)
   // On the page's own paper or charcoal: the big shape in the colour, deepening toward the page; the small one paler.
   const deep = `color-mix(in oklab, ${tint} 88%, var(--foreground))`
@@ -124,7 +124,7 @@ export function GroupCover({ name, tint, label = 'bl', className = '', style }: 
       // Placed by its caller when it says so (absolute inset-0 over a card): its own "relative" won over
       // that, it had no height, and its shapes, sized by its height, were drawn at nothing.
       className={`${/\b(absolute|fixed)\b/.test(className) ? '' : 'relative '}overflow-hidden [container-type:size] ${className}`} style={{ background: `color-mix(in oklab, ${tint} 12%, var(--background))`, ...style }}>
-      <Shape outline={cover.small} fill={[soft, `color-mix(in oklab, ${tint} 70%, var(--background))`]} style={placed(cover.other, cover.size[1], cover.turn[1], 0.22)} />
+      {!lone && <Shape outline={cover.small} fill={[soft, `color-mix(in oklab, ${tint} 70%, var(--background))`]} style={placed(cover.other, cover.size[1], cover.turn[1], 0.22)} />}
       <Shape outline={cover.big} fill={[tint, deep]} style={placed(cover.at, cover.size[0], cover.turn[0], 0.3)} />
       {label && (
         <span data-cover-label className={`absolute max-w-[80%] truncate font-heading text-[clamp(9px,9cqmin,15px)] leading-tight font-semibold ${label[0] === 't' ? 'top-[7cqmin]' : 'bottom-[7cqmin]'} ${label[1] === 'l' ? 'left-[8cqmin]' : 'right-[8cqmin]'}`}

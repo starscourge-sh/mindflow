@@ -115,7 +115,7 @@ export function Poster({ card, over, onTurn, picked, onPick, question, answer, s
   const face = (side: 'front' | 'back', children: React.ReactNode): React.JSX.Element => (
     <div data-card-face={side} className={`mf-poster relative flex aspect-[4/5] w-full min-w-0 flex-col overflow-hidden rounded-lg ${size === 'lg' ? 'p-6' : 'p-4'} ${picked ? 'ring-2 ring-[var(--tt-brand-color-400)]' : ''}`} style={{ '--tint': tint } as React.CSSProperties}>
       {children}
-      <div className="mt-auto flex items-end justify-between gap-2 pt-2 text-[11px] leading-tight text-foreground/70">
+      <div className={`${side === 'front' ? 'mt-3' : 'mt-auto pt-2'} flex items-end justify-between gap-2 text-[11px] leading-tight text-foreground/70`}>
         <span className="min-w-0 truncate">{where || (card.tags[0] ? deckTitle(card.tags[0]) : '')}</span>
         <span className="flex shrink-0 items-center gap-1">
           {dueShort(card) !== 'new' && <span>{dueShort(card)}</span>}
@@ -134,12 +134,13 @@ export function Poster({ card, over, onTurn, picked, onPick, question, answer, s
       <Flip over={over} onTurn={(to) => (chime('tap'), onTurn(to))}
         front={face('front', <>
           <div className={`font-heading font-semibold leading-[1.15] text-pretty text-foreground ${size === 'lg' ? 'text-2xl line-clamp-5' : size === 'sm' ? 'text-sm line-clamp-4' : 'text-[1.05rem] line-clamp-4'}`}>{question}</div>
-          {/* Laid in, not sized by: a picture or figure never widens the card. */}
-          <div className="relative my-3 min-h-0 flex-1">
+          {/* Laid in, not sized by: a picture or figure never widens the card. One size on every card and
+              always at the foot, above the deck's name, however long the question is. */}
+          <div className="relative mt-auto h-[40%] shrink-0">
             {card.occlusion ? <div className="absolute inset-0 grid place-items-center overflow-hidden rounded"><CoveredPicture occlusion={card.occlusion} shown={false} all={card.occlusion.hide === 'all'} fit="max-h-full" /></div>
               : card.picture ? <img src={small(card.picture, 640)} alt="" onError={(event) => (event.currentTarget.hidden = true)} className="absolute inset-0 h-full w-full rounded object-cover" />
               // No picture: a Coolshape in the card's colour, as groups and decks wear, never a line drawing.
-              : <GroupCover name={card.id} tint={tint} label={null} className="absolute inset-0 rounded" />}
+              : <GroupCover name={card.id} tint={tint} label={null} lone className="absolute inset-0 rounded" />}
           </div>
         </>)}
         back={face('back', <>
