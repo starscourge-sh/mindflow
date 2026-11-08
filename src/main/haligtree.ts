@@ -643,6 +643,8 @@ const DEFAULTS = {
   darkFrame: true,
   // How dark that frame is, 0 to 100: a deep shade of the theme to all but black.
   frameDepth: 75,
+  /** A fine grain on the dark frame, as a notebook's cover: on by default. */
+  frameGrain: true,
   // The month calendar on Home: off until turned on in Settings.
   homeCalendar: false,
   // How much of the day, week, month and year has gone, on Home: off until turned on in Settings.

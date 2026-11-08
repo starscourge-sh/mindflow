@@ -585,6 +585,9 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
             <SettingSlider min={0} max={100} step={5} rest={75} value={settings.frameDepth ?? 75} onSave={(frameDepth) => set({ frameDepth })}
               onLive={(depth) => document.querySelector<HTMLElement>('[data-frame]')?.style.setProperty('--mf-frame-depth', String(depth))} />
           </Setting>
+          <Setting under off={settings.darkFrame === false && 'Shows once “Dark frame” is on.'} title="Grain" note="A fine grain on the dark frame, like a notebook’s cover. The pages stay clean." keywords="frame grain texture noise paper notebook cover film">
+            <Switch aria-label="Grain" checked={settings.frameGrain !== false} onCheckedChange={(frameGrain) => set({ frameGrain })} />
+          </Setting>
           <Setting title="Style" note="How things are drawn in any theme: shape, lines, shadows and type." more="“Soft” is rounded and lifted on soft shadows. “Brutal” is square, outlined in the theme's ink, and stands on hard shadows. “Paper” is square, ruled with fine lines, with no shadows and serif headings." keywords="style brutal soft paper neobrutalism editorial grid serif square corners outline hard shadow">
             <StylePicker className="-mr-1" />
           </Setting>
