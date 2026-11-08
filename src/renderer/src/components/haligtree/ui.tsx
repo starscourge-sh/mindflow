@@ -1010,7 +1010,8 @@ const madeMenu = (made: Made, done: () => void): RowItem[] => {
   return [
     { label: 'Open', run: () => (done(), openMade(made)) },
     aside && { ...aside, run: () => (done(), aside.run()) },
-    !page && { label: 'Open in a new window', run: () => (done(), openApart(made.type, made.id)) },
+    // A person, a tag or a task is a page in the main window, with no window of its own.
+    !page && !['task', 'person', 'tag', 'event', 'day', 'pdf', 'web'].includes(made.type) && { label: 'Open in a new window', run: () => (done(), openApart(made.type, made.id)) },
     link && link !== 'separator' && { ...link, run: () => (done(), link.run()) }
   ]
 }

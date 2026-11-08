@@ -245,6 +245,8 @@ const stepOf = (type: string, id: string): View =>
   // One tag's cards studied in Review.
   type === 'study' ? { id: 'review', focus: id }
   : type === 'folder' ? { id: id.startsWith('article:') ? 'articles' : 'nuggets', folder: id.slice(id.indexOf(':') + 1) }
+  // A person's link: their own page in People, the one the People list opens.
+  : type === 'person' ? { id: 'source', focus: `attribution:${id}` }
   : type === 'view' ? { id } : type === 'pdf' || type === 'web' ? { id: type, focus: id } : type === 'day' ? { id: 'day', focus: id } : type === 'event' ? { id: 'calendar', focus: `event:${id}` } : { id: type === 'capture' ? 'all' : type === 'task' ? 'upcoming' : `${type}s`, focus: id }
 /** Pages that show one day, week, month or year: with no focus, or a focus in the present one, they are on now. */
 const DATED = ['day', 'weekpage', 'monthpage', 'yearpage']
@@ -1351,7 +1353,6 @@ export function Home(): React.JSX.Element {
     // Read for one note, its links in place, asked for in another window.
     else if (type === 'read') window.dispatchEvent(new CustomEvent('haligtree:read', { detail: id }))
     else if (type === 'write') (setView({ id: 'today' }), writeOutDay())
-    else if (type === 'person') (setSearchFor(id), setSearching('all'))
     // A PDF at a page, from a link followed in the box or a note's window: the reader, at that page.
     else if (type === 'pdf' && heading) window.dispatchEvent(new CustomEvent('haligtree:pdf', { detail: { ...fromPdfFocus(id), page: Number(heading) || undefined } }))
     // A capture's version history, asked for in the box: opened, then once

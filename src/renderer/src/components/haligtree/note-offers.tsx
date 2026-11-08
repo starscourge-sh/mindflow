@@ -217,7 +217,9 @@ export function NoteOffers({ table, id, editor, onOpen }: { table: 'captures' | 
       if (!offer.known) await sources.set('attribution', offer.name)
       linkWords(editor, offer.name, `person:${offer.name}`, offer.name)
       chime('noted')
-      toast(offer.known ? `Linked ${offer.name}` : `${offer.name} added to People`, () => editor.commands.undo())
+      // Their page a click away: "Open" (or O), or the toast's own ⌥-click and right-click, as any toast that made something.
+      toast(offer.known ? `Linked ${offer.name}` : `${offer.name} added to People`, () => editor.commands.undo(), 'success',
+        { label: 'Open', key: 'O', run: () => window.api.openInHome('person', offer.name) }, { type: 'person', id: offer.name, title: offer.name })
       done()
     } }]
   }

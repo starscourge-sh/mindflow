@@ -16,7 +16,7 @@ import { headingsIn } from '@/components/toc/headings'
 import { linesIn } from '../../../main/blocks'
 import type { JSONContent } from '@tiptap/core'
 import { haligtree, shownName } from '@/lib/haligtree'
-import { UNATTRIBUTED } from '@/lib/sources'
+import { UNATTRIBUTED, sources } from '@/lib/sources'
 import { TagIcon } from '@/components/haligtree/tag-icon'
 import type { SaveResult } from '../../../main/captures'
 import { clip, cut, quoted } from '../../../main/clip'
@@ -319,13 +319,15 @@ export const follow = (link: string, open: (type: string, id: string) => void, h
   via('link')
   const [type, id] = link.includes(':') ? [link.slice(0, link.indexOf(':')), link.slice(link.indexOf(':') + 1)] : ['capture', link]
   // ⌥-clicked: to the side. ⌘-clicked: a new tab, as everywhere. Read now, from the click, before a capture's lookup waits.
-  const how = canSplit() && type !== 'person' ? (beside ? (takeClick(), 'aside') : takeClick()) : null
+  const how = canSplit() ? (beside ? (takeClick(), 'aside') : takeClick()) : null
   const side = how === 'aside'
   const aside = (kind: string, at: string): void => openAside(kind, at, beside?.from)
   const go = side ? aside : how === 'tab' ? openNewTab : open
-  // A person or a tag is a place in the main window, not a note: its tag page, or a search for their name.
+  // A person has a page of their own in People: made now if the link came before it, so it never opens empty.
+  if (type === 'person') void sources.page('attribution', id).then((page) => void (page || sources.set('attribution', id)))
+  // A person or a tag is a place in the main window, not a note: their page in People, or the tag's page.
   // A PDF or a kept article opens in the reader there, wherever the link is.
-  if (type === 'person' || type === 'tag' || type === 'pdf' || type === 'web') return side ? aside(type, id) : window.api.openInHome(type, id)
+  if (type === 'person' || type === 'tag' || type === 'pdf' || type === 'web') return side ? aside(type, id) : how === 'tab' ? openNewTab(type, id) : window.api.openInHome(type, id)
   if (type === 'capture') return void keptAs(id).then((to) => {
     go(to.type, to.id)
     if (heading) headingIn(to.type, to.id, heading)
