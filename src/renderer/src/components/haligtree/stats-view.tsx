@@ -8,7 +8,7 @@ import { exampleStats } from '@/lib/examples'
 import { GoalPreview, ReadyMoment, useReady } from './goal-preview'
 import { DaysHeatmap } from './days-heatmap'
 import { TONES } from './mono-card'
-import { StudySection } from './study-stats'
+import { KeptCard, StudySection } from './study-stats'
 import { WritingSection } from './writing-stats'
 import { Count, Island, Page, Rolling } from './ui'
 import { Tip } from '@/components/haligtree/ui'
@@ -19,7 +19,7 @@ import { MonthReflect } from './reflect-view'
 import { YourMonth } from './your-month'
 import { PracticeStats } from './practices-view'
 import { PageContents } from './page-contents'
-import { Chips } from './display'
+import { TabChips } from './tab-chips'
 import { ReadsIn } from '@/lib/reads-in'
 import { useStepped } from '@/lib/nav'
 import { UsageSections } from './usage-stats'
@@ -53,7 +53,7 @@ export function Section({ title, big, children }: { title: string; big?: { value
         <div key={index} className="space-y-3 px-4 py-3 leading-relaxed text-muted-foreground">
           {index === 0 && big && (
             <p className="flex items-baseline gap-2 pt-1">
-              <span className="font-serif text-[2.25rem] leading-none font-semibold text-foreground tabular-nums"><Rolling text={big.value} /></span>
+              <span className="mf-big-number text-[2.25rem] leading-none text-foreground"><Rolling text={big.value} /></span>
               <span className="text-sm">{big.label}</span>
             </p>
           )}
@@ -124,7 +124,7 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
     <Page title="Stats" beside={(box) => <PageContents key={part} page={column} scroller={box} label="Sections on this page" />} lead={
       // Four or five parts at a glance; the rest a chip away, by the month and by the year. On the
       // bar's left, where every page keeps its tabs, in one place whichever is picked.
-      <Chips className="shrink-0" options={[{ id: 'now', label: 'At a glance' }, { id: 'month', label: 'Your month' }, { id: 'year', label: 'Your year' }]} on={(id) => id === part} pick={(id) => setPart(id as Part)} />
+      <TabChips name="stats" tabs={[{ value: 'now', label: 'At a glance' }, { value: 'month', label: 'Your month' }, { value: 'year', label: 'Your year' }] as { value: Part; label: string }[]} value={part} onChange={setPart} />
     }>
       <div ref={setColumn} className="max-w-[calc(62ch+2.5rem)] px-5 pb-20">
         {moment && <ReadyMoment className="mt-6" said="Your Stats are ready" more="A week of writing is in. From here this page tells you how each week went, in sentences." />}
@@ -135,7 +135,8 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
         <ReadsIn key={part} className="contents">
         {part === 'now' ? <>
         <WritingSection example={example} />
-        <StudySection example={example} />
+        <KeptCard example={example} />
+        <StudySection example={example} brief />
 
         <Section title="This week" big={{ value: stats.week, label: stats.week === 1 ? 'thing noted down' : 'things noted down' }}>
           <p>
