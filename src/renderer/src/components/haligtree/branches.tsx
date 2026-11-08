@@ -39,7 +39,12 @@ export function Branches({ current, bare, rows: deep, className, children }: { c
     measure()
     const watch = new ResizeObserver(measure)
     watch.observe(rows)
-    return () => watch.disconnect()
+    // A row dragged out and back in can leave the list the same height, which
+    // a size watch never hears: the twigs stayed where the rows had been.
+    // Rows coming, going or being lifted out and set down are heard here.
+    const moved = new MutationObserver(measure)
+    moved.observe(rows, { childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'class'] })
+    return () => (watch.disconnect(), moved.disconnect())
   }, [])
   const twig = (y: number): string => `A ${BEND} ${BEND} 0 0 0 ${TRUNK + BEND} ${y} H ${TIP}`
   const line = { fill: 'none', strokeWidth: 1 } as const
