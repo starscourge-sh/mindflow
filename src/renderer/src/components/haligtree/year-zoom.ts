@@ -32,6 +32,13 @@ const step = (at: number, speed: number, to: number, dt: number, stiff = 170): [
 /** How much of a level of detail is in sight at a day's spacing: 0 below `from`, 1 past `full`. */
 export const shown = (px: number, from: number, full: number): number => Math.max(0, Math.min(1, (px - from) / (full - from)))
 
+/** A plain frame loop (`tick` returns false to stop until `again()`): the zoom moves only under the fingers or a key, so it never waits on the window being looked at. */
+const frameLoop = (tick: (now: number) => boolean): { again: () => void; stop: () => void } => {
+  let frame = 0
+  const run = (now: number): void => { frame = 0; if (tick(now)) frame = requestAnimationFrame(run) }
+  return { again: () => void (frame || (frame = requestAnimationFrame(run))), stop: () => (cancelAnimationFrame(frame), (frame = 0), undefined) }
+}
+
 export type Band = { base: number; count: number; clip: number }
 export type YearView = { z: number; pans: number[] }
 
@@ -76,7 +83,7 @@ export function useYearZoom(box: RefObject<HTMLElement | null>, bands: Band[]): 
       return { lz, pans: geometry.current.map((band, b) => { const [lo, hi] = room(band, Math.exp(lz)); return Math.max(lo, Math.min(hi, raw.pans[b] ?? 0)) }) }
     }
     let then = 0
-    const frames = awakeFrames((now) => {
+    const frames = frameLoop((now) => {
       const dt = Math.min(1 / 30, then ? (now - then) / 1000 : 1 / 60)
       then = now
       // The fingers are still on it: what they ask is already drawn.
