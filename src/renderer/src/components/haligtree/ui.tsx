@@ -1,6 +1,6 @@
 import { Children, cloneElement, createContext, isValidElement, useCallback, useContext, useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { useToolKeys } from '@/lib/tool-keys'
-import { layerOpen } from '@/lib/menu-keys'
+import { caretTakesEscape, layerOpen } from '@/lib/menu-keys'
 import { tagHue } from '@/extensions/tokens'
 import { createPortal, flushSync } from 'react-dom'
 import { useVirtualizer } from '@tanstack/react-virtual'
@@ -940,7 +940,7 @@ export function useEscapeLeavesEditor(): void {
       const editor = (event.target as Element | null)?.closest?.('.ProseMirror')
       const mode = editor?.getAttribute('data-vim-mode')
       free = !!editor && (!mode || mode === 'normal') && (window.getSelection()?.isCollapsed ?? true) &&
-        !layerOpen('.tiptap-find-bar:not([inert])')
+        !layerOpen('.tiptap-find-bar:not([inert])') && !caretTakesEscape()
     }
     const after = (event: KeyboardEvent): void => {
       if (event.key !== 'Escape' || !free) return

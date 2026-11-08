@@ -2099,6 +2099,80 @@ html[data-motion="off"] .tiptap.ProseMirror.haligtree-editor .mf-caption {
   }
 }
 
+// A Mermaid diagram (code-block-view.tsx): the drawing, with its words above
+// it only while the caret is in them. Pele reads its colours and type from
+// these variables, so every theme draws it in its own paper and ink.
+.tiptap.ProseMirror.haligtree-editor .mf-diagram-block {
+  &:not([data-editing]) > pre {
+    display: none;
+  }
+
+  &[data-editing] > pre {
+    margin-bottom: 0.5rem;
+  }
+}
+
+.mf-diagram {
+  --pele-bg: var(--background);
+  --pele-fg: var(--foreground);
+  --pele-muted: var(--mf-muted);
+  --pele-line: color-mix(in oklab, var(--foreground) 55%, transparent);
+  --pele-surface: var(--mf-surface);
+  --pele-surface-alt: color-mix(in oklab, var(--foreground) 9%, var(--background));
+  --pele-border: color-mix(in oklab, var(--foreground) 22%, transparent);
+  --pele-accent: var(--tt-brand-color-400, var(--primary));
+  --pele-font: var(--mf-font, var(--font-sans));
+  --pele-radius: var(--radius-md, 0.5rem);
+  --pele-series-1: var(--tt-color-text-blue);
+  --pele-series-2: var(--tt-color-text-orange);
+  --pele-series-3: var(--tt-color-text-green);
+  --pele-series-4: var(--tt-color-text-purple);
+  --pele-series-5: var(--tt-color-text-pink);
+  --pele-series-6: var(--tt-color-text-yellow);
+  --pele-series-7: var(--tt-color-text-brown);
+  --pele-series-8: var(--tt-color-text-gray);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  border-radius: var(--radius-xl, 0.875rem);
+  cursor: pointer;
+  // A wide diagram scrolls in its own box, never the page.
+  overflow-x: auto;
+  transition: background-color 120ms var(--mf-ease);
+
+  &:hover {
+    background-color: color-mix(in oklab, var(--foreground) 4%, transparent);
+  }
+
+  .haligtree-editor:not([contenteditable="true"]) & {
+    cursor: default;
+
+    &:hover {
+      background-color: transparent;
+    }
+  }
+}
+
+.mf-diagram-drawing {
+  max-width: 100%;
+
+  svg {
+    display: block;
+    max-width: 100%;
+    height: auto;
+  }
+}
+
+// Why a diagram is not drawn: Brown Ink, its own line, a bold lead-in.
+.mf-diagram-note {
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.125rem;
+  color: var(--foreground);
+}
+
 .tiptap-code-controls {
   position: absolute;
   top: 0.5rem;

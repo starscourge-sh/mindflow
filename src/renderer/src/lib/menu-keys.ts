@@ -60,6 +60,17 @@ export function layerOpen(also = ''): boolean {
 }
 
 /**
+ * Whether the caret is in a block that spends Escape itself (`data-takes-escape`,
+ * such as a diagram's words, where Escape steps out below it): that Escape is
+ * the block's, never the note's or the window's.
+ */
+export function caretTakesEscape(): boolean {
+  const at = window.getSelection()?.anchorNode
+  const element = at instanceof Element ? at : at?.parentElement
+  return !!element?.closest('[data-takes-escape]')
+}
+
+/**
  * Bring a menu's chosen row into view as the keys move it, its group's heading with it: moved onto the first row
  * of a group (wrapping from the bottom back to the top, above all), the heading above it shows too, and the very
  * first or last row takes the list right to its top or foot. `scrollIntoView({ block: "nearest" })` alone left the

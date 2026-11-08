@@ -1,4 +1,4 @@
-import { Columns2, Columns3, FileStack as EmbedIcon, Link2 as LinkIcon, TableOfContents as ContentsIcon, Minus as DividerIcon, Sigma as SigmaIcon, Table as TableIcon, Paperclip, Speech, SquarePlay as VideoIcon, Users } from 'lucide-react'
+import { Columns2, Columns3, Workflow as DiagramIcon, FileStack as EmbedIcon, Link2 as LinkIcon, TableOfContents as ContentsIcon, Minus as DividerIcon, Sigma as SigmaIcon, Table as TableIcon, Paperclip, Speech, SquarePlay as VideoIcon, Users } from 'lucide-react'
 
 import type { Editor } from '@tiptap/core'
 import { isInTable } from '@tiptap/pm/tables'
@@ -265,6 +265,25 @@ export const slashItems: SlashItem[] = [
     when: (editor) => !isInTable(editor.state),
     run: (editor) =>
       editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()
+  },
+  // A Mermaid diagram, kept as a ```mermaid block as Obsidian keeps it, drawn
+  // under its words. The caret waits at the end of the words to change them.
+  {
+    title: 'Diagram',
+    group: 'Media',
+    keywords: ['mermaid', 'flowchart', 'chart', 'graph', 'sequence', 'mindmap', 'timeline'],
+    icon: <DiagramIcon />,
+    when: (editor) => !isInTable(editor.state),
+    run: (editor) => {
+      const start = editor.state.selection.from
+      editor.chain().focus().insertContent({ type: 'codeBlock', attrs: { language: 'mermaid' }, content: [{ type: 'text', text: 'flowchart LR\n  Question --> Reading\n  Reading --> Answer' }] }).run()
+      let end: number | null = null
+      editor.state.doc.nodesBetween(Math.max(0, start - 2), Math.min(editor.state.doc.content.size, start + 80), (node, pos) => {
+        if (end == null && node.type.name === 'codeBlock' && node.attrs.language === 'mermaid') end = pos + 1 + node.content.size
+        return end == null
+      })
+      if (end != null) editor.commands.setTextSelection(end)
+    }
   },
   {
     title: 'Image',

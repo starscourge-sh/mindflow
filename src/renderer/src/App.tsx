@@ -133,7 +133,7 @@ import { notes } from './lib/notes'
 import { sources } from './lib/sources'
 import { DatePicker } from './components/haligtree/date-picker'
 import { useFitBox } from './lib/fit-box'
-import { menuShowing, layerOpen, menuOpen } from '@/lib/menu-keys'
+import { caretTakesEscape, menuShowing, layerOpen, menuOpen } from '@/lib/menu-keys'
 import { clip, quoted } from '../../main/clip'
 import { soundTitle } from './components/haligtree/sound-player'
 import { ArrowLeft, ArrowUpRight, ChevronLeft, ChevronRight, EyeOff, Tag as Hashtag, X } from '@/components/ui/icons'
@@ -2638,7 +2638,7 @@ function useEscapeToHide(fold: { current: () => boolean }): void {
       const editor = (event.target as Element | null)?.closest?.('.ProseMirror')
       if (!editor) return void (free = false)
       const mode = editor.getAttribute('data-vim-mode')
-      free = (!mode || mode === 'normal') && (window.getSelection()?.isCollapsed ?? true) && !layerOpen()
+      free = (!mode || mode === 'normal') && (window.getSelection()?.isCollapsed ?? true) && !layerOpen() && !caretTakesEscape()
     }
     const onKey = (event: KeyboardEvent): void => {
       if (event.key !== 'Escape') return

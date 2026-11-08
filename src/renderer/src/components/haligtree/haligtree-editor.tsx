@@ -1433,6 +1433,21 @@ function Surface({
           const editor = this.editor
           editor.on("destroy", whenGrammars(() => editor.isDestroyed || editor.view.dispatch(editor.state.tr.setMeta(GRAMMARS, true).setMeta("addToHistory", false))))
         },
+        // Esc in a diagram's words steps out below it, so the drawing shows
+        // again (a new empty line when it is the last block of the note).
+        addKeyboardShortcuts() {
+          return {
+            ...this.parent?.(),
+            Escape: ({ editor }) => {
+              const { $head } = editor.state.selection
+              if ($head.parent.type.name !== this.name || $head.parent.attrs.language !== "mermaid") return false
+              const after = $head.after()
+              const next = editor.state.doc.nodeAt(after)
+              if (next?.isTextblock) return editor.chain().setTextSelection(after + 1).run()
+              return editor.chain().insertContentAt(after, { type: "paragraph" }).setTextSelection(after + 1).run()
+            },
+          }
+        },
         // Named here or the extended copy adds its highlighter on top of the
         // parent's: every code block was coloured twice on every key.
         // The highlighter also walked the whole note twice on every change,

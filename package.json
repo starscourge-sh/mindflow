@@ -32,6 +32,7 @@
     "linkedom": "0.18.13",
     "papaparse": "^5.7.0",
     "pdfjs-dist": "6.4.299",
+    "pele": "1.10.0",
     "thumbhash": "^0.1.1",
     "ts-fsrs": "^5.4.2",
     "zod": "^4.6.5"
