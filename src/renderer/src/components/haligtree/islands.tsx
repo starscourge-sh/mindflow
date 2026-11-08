@@ -184,13 +184,15 @@ export function useFold(key: string, more: Partial<Pick<IslandState, 'whole' | '
       // Applied, not kept.
     }
   }
+  // Shown whole or a few, here unless the caller keeps it: left to a fixed "whole", its "Show fewer" did nothing.
+  const [whole, setWhole] = useState(false)
   return {
     total: more.total,
     folded,
-    whole: more.whole ?? true,
+    whole: more.whole ?? whole,
     onFold: (quiet) => (quiet === true || chime(folded ? 'open' : 'fold'), keep(!folded)),
-    onWhole: more.onWhole ?? (() => {}),
-    onFewer: more.onFewer ?? (() => {}),
+    onWhole: more.onWhole ?? (() => (chime('open'), setWhole(true))),
+    onFewer: more.onFewer ?? (() => (chime('fold'), setWhole(false))),
     onShow: () => folded && keep(false)
   }
 }
