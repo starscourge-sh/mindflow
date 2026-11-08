@@ -1836,9 +1836,13 @@ html:is([data-width='page'], [data-width='wide']) .pdf-library-column,
   font-weight: 500;
 }
 
+/* The book as the Journal's year is drawn (time-strokes.tsx): a hairline every few pixels, solid where read, faint
+   ahead, the page you are on a taller stroke in the accent, and taller strokes where highlights or notes gather. */
 .book-bar-strip {
+  --stroke-gone: color-mix(in oklab, var(--foreground) 78%, transparent);
+  --stroke-ahead: color-mix(in oklab, var(--foreground) 18%, transparent);
   position: relative;
-  height: 1.25rem;
+  height: 1.75rem;
   margin: 0 0.25rem;
 }
 
@@ -1847,9 +1851,8 @@ html:is([data-width='page'], [data-width='wide']) .pdf-library-column,
   right: 0;
   bottom: 0;
   left: 0;
-  height: 4px;
-  border-radius: 2px;
-  background-color: color-mix(in oklab, var(--foreground) 10%, transparent);
+  height: 14px;
+  background: repeating-linear-gradient(90deg, var(--stroke-ahead) 0 1px, transparent 1px 3px);
   content: "";
 }
 
@@ -1857,30 +1860,27 @@ html:is([data-width='page'], [data-width='wide']) .pdf-library-column,
   position: absolute;
   bottom: 0;
   left: 0;
-  height: 4px;
-  border-radius: 2px;
-  background-color: color-mix(in oklab, var(--tt-brand-color-500, #c08a2e) 55%, transparent);
+  height: 14px;
+  background: repeating-linear-gradient(90deg, var(--stroke-gone) 0 1px, transparent 1px 3px);
 }
 
-/* You are here: over every tick and a little above them, in ink with a ring of the page around it, so it stands out of any crowd. */
+/* You are here: one taller stroke in the accent, as today is on the year. */
 .book-bar-here {
   position: absolute;
   z-index: 1;
-  top: -4px;
-  bottom: -2px;
-  width: 3px;
-  margin-left: -1.5px;
-  border-radius: 2px;
-  background-color: var(--foreground);
-  box-shadow: 0 0 0 2px var(--background);
+  bottom: 0;
+  width: 2px;
+  height: 22px;
+  margin-left: -1px;
+  background-color: var(--tt-brand-color-400);
   pointer-events: none;
 }
 
-/* A stretch of pages: a tick up from the strip, taller where more gathers. */
+/* A stretch of pages: a stroke up from the baseline, taller where more gathers. */
 .book-bar-tick {
   position: absolute;
   top: 0;
-  bottom: 6px;
+  bottom: 0;
   display: flex;
   align-items: flex-end;
   justify-content: center;
@@ -1888,10 +1888,9 @@ html:is([data-width='page'], [data-width='wide']) .pdf-library-column,
 }
 
 .book-bar-heat {
-  width: max(2px, 60%);
-  height: calc(20% + 80% * var(--fill, 1));
-  border-radius: 1px;
-  background-color: color-mix(in oklab, var(--tt-brand-color-500, #c08a2e) 75%, transparent);
+  width: 2px;
+  height: calc(16px + (100% - 16px) * var(--fill, 1));
+  background-color: var(--foreground);
   transition: background-color 120ms ease-out;
 }
 
@@ -1901,7 +1900,7 @@ html:is([data-width='page'], [data-width='wide']) .pdf-library-column,
 
 .book-bar-tick:hover .book-bar-heat,
 .book-bar-tick:focus-visible .book-bar-heat {
-  background-color: var(--foreground);
+  background-color: var(--tt-brand-color-400);
 }
 
 .book-bar-ends {

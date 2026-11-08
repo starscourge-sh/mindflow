@@ -44,7 +44,8 @@ export function Strokes({ count, ink, tall, attrs, height = TALL, step = STEP, c
       {Array.from({ length: count }, (_, at) => {
         const up = tall?.(at) ?? false
         const h = up === false ? LOW : up === true ? TALL : TALL + up
-        return <rect key={at} data-stroke x={Math.round(at * step * 2) / 2} y={height - h} width={STROKE} height={h} fill={ink(at)} {...attrs?.(at)} />
+        // On whole pixels: at half pixels a 1px stroke was drawn as two faint ones, and a year of them beat into bands.
+        return <rect key={at} data-stroke x={Math.round(at * step)} y={height - h} width={STROKE} height={h} fill={ink(at)} shapeRendering="crispEdges" {...attrs?.(at)} />
       })}
     </svg>
   )

@@ -202,7 +202,7 @@ export function PageBar({ src, name, pages, page, cited, marks, onPage }: { src:
     <div className="book-bar" data-page-bar>
       {/* The point first, in full ink; then what the strip shows; then the strip, the first and last page under it. */}
       <p className="book-bar-you">{page ? <>You are on p. {page.toLocaleString()} of {pages.toLocaleString()}</> : "Not started"}</p>
-      <StrokeRule>The coloured part is read, the stroke is where you are; a taller stroke holds highlights or notes</StrokeRule>
+      <StrokeRule>Each stroke is a few pages, the solid ones read; the coloured one is where you are, a taller one holds highlights or notes</StrokeRule>
       <div className="book-bar-strip">
         {page ? <span className="book-bar-read" style={{ width: left(page) }} /> : null}
         {stretches.map((one, at) => {
