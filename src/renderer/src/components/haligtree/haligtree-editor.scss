@@ -3022,6 +3022,13 @@ $media-brand: var(--tt-brand-color-500, currentColor);
     margin-right: 0.25em;
     vertical-align: -0.1em;
   }
+  // A person's face in place of the icon: a touch larger, round, sat on the line as the menu shows it.
+  .tiptap-note-link-face {
+    width: 1.05em;
+    height: 1.05em;
+    vertical-align: -0.18em;
+    .mf-avatar { --mf-avatar-size: 1.05em !important; }
+  }
 
   // A [[name]] no note answers to yet: still a link, plainly not a live one.
   &.is-unresolved {

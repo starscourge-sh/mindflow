@@ -1,3 +1,6 @@
+import { createElement } from "react"
+import { createRoot, type Root } from "react-dom/client"
+import { Avatar } from "@/components/haligtree/avatar"
 import { forgives } from "@/lib/slash-rank"
 import { IN_WINDOW } from "@/components/suggestion/suggestion-renderer"
 import { InputRule, Node, mergeAttributes, type JSONContent } from "@tiptap/core"
@@ -570,11 +573,26 @@ export const NoteLink = Node.create<NoteLinkOptions>({
       const dom = draw(node)
       const { id } = node.attrs
       let stop = (): void => undefined
+      // A person wears their own face, as the "@" menu shows them, not the kind's outline of a person.
+      let face: Root | null = null
+      const person = typeof id === "string" && id.startsWith("person:") ? id.slice(7) : ""
+      const wearFace = (): void => {
+        const icon = dom.querySelector("svg.tiptap-note-link-icon")
+        if (!person || !icon) return
+        const holder = document.createElement("span")
+        holder.className = "tiptap-note-link-icon tiptap-note-link-face"
+        icon.replaceWith(holder)
+        face?.unmount()
+        face = createRoot(holder)
+        face.render(createElement(Avatar, { name: person, size: 16 }))
+      }
+      wearFace()
       if (id && !kindOfLink(id, node.attrs.kind) && !knownKinds.has(id)) {
         const redraw = (): void => {
           const next = draw(node)
           for (const name of next.getAttributeNames()) dom.setAttribute(name, next.getAttribute(name)!)
           dom.replaceChildren(...next.childNodes)
+          wearFace()
         }
         if (!waiting.has(id)) waiting.set(id, new Set())
         waiting.get(id)!.add(redraw)
@@ -585,7 +603,8 @@ export const NoteLink = Node.create<NoteLinkOptions>({
         // Any change to the link itself draws it anew.
         update: (next: PMNode) => next === node,
         ignoreMutation: () => true,
-        destroy: stop,
+        // Unmounted after ProseMirror lets go, never during its own update.
+        destroy: () => { stop(); const was = face; face = null; if (was) queueMicrotask(() => was.unmount()) },
       }
     }
   },
