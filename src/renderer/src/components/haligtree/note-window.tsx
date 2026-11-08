@@ -1,3 +1,4 @@
+import { warmBin } from '@/lib/fly-home'
 import { useEffect, useState, type CSSProperties } from 'react'
 import { ReadsIn } from '@/lib/reads-in'
 import type { Editor, JSONContent } from '@tiptap/core'
@@ -59,6 +60,8 @@ function OpenHere(): React.JSX.Element {
 export function NoteWindow({ link }: { link: string }): React.JSX.Element {
   useAppearance()
   useEscapeLeavesEditor()
+  // The Bin's paper made ready while the app is idle (lib/fly-home.ts).
+  useEffect(warmBin, [])
   const [type, id] = link.split(':')
   // The caret and the place it came with, and ⌘O back into the main window.
   useCarriedHere(link)

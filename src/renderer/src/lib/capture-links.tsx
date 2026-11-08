@@ -7,7 +7,7 @@ import { BookOpen, CalendarDays, CircleArrowUp, CircleCheck, CircleDashed, Circl
 import { Avatar } from '@/components/haligtree/avatar'
 import { ask, askQuestion, refuse, toast } from '@/components/haligtree/ui'
 import { chime, tear } from '@/lib/sound'
-import { binFlight, lift, type Home } from '@/lib/fly-home'
+import { binFlight, lift, type Flight, type Home } from '@/lib/fly-home'
 import { readTags, setLinkKinds, showHeading, type LinkKind, type NoteSuggestion } from '@/extensions/note-link'
 import { CAPTURE_TYPES } from '@/components/capture-kinds/capture-kind-picker'
 import { openApart } from '@/lib/apart'
@@ -131,7 +131,10 @@ export async function flying<T>(id: string, home: Home | 'away', work: () => Pro
   // Discarded: it crumples and flies to the Bin.
   const land = home === 'away' ? binFlight(id) : lift(id, home)
   const result = await work()
-  if (result !== 'cancelled' && result !== 'needs-source' && result !== 'not-open' && result !== null && !(result as SaveResult)?.refused && !(result as { mixed?: string })?.mixed) land?.()
+  const made = result !== 'cancelled' && result !== 'needs-source' && result !== 'not-open' && result !== null && !(result as SaveResult)?.refused && !(result as { mixed?: string })?.mixed
+  if (made) land?.()
+  // Not moved: the paper laid over the row goes, and the row is as it was.
+  else if (home === 'away') (land as Flight | undefined)?.drop()
   return result
 }
 

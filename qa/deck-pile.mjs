@@ -1,7 +1,7 @@
 // A deck is a square pile: no edges for 1 card, 1 for 2, 2 for 4, up to 5; one card proud above it
 // when some are due; pointed at, the top card lifts 2px and the tile's own box does not move. The same
-// on Review › Decks and in All cards' pockets. Then "Move to the Bin" from a right-click shreds the
-// row into strips (never a ball of paper); Restore on the Bin page draws nothing over the list as it closes up.
+// on Review › Decks and in All cards' pockets. Then "Move to the Bin" from a right-click crumples the
+// row like paper (qa/crumple-bin.mjs); Restore on the Bin page draws nothing over the list as it closes up.
 //   QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 QA_ARGS=--sandbox QA_SHOTS=dir node qa/deck-pile.mjs
 import { join } from 'path'
 import { checks } from './harness.mjs'
@@ -78,7 +78,7 @@ try {
   await h.waitForTimeout(400)
   check('All cards: no pile anywhere, a heading a deck, single card faces', await h.evaluate(() => !document.querySelector('[data-card-browser] :is(.mf-pile, [data-pile-edge], [data-pocket])') && document.querySelectorAll('[data-card-list] [data-island-head]').length >= 5 && document.querySelectorAll('[data-card-list] [data-card-face="front"]').length > 0))
   if (shots) await h.screenshot({ path: join(shots, 'pile-cards-light.png') })
-  // Move to the Bin from a right-click: the row goes through the shredder, never crumpled into a ball.
+  // Move to the Bin from a right-click: the row crumples like paper and flies to the Bin (qa/crumple-bin.mjs checks it in full).
   await c.go('articles')
   await h.waitForTimeout(1500)
   const rowEl = h.locator('[data-id]').first()
@@ -86,26 +86,25 @@ try {
   const rowBox = await rowEl.boundingBox()
   await rowEl.click({ button: 'right' })
   await h.waitForTimeout(500)
-  await record('[data-shred], [data-crumple]')
-  const count = () => h.evaluate(() => { window.__most = 0; window.__balls = 0; const end = performance.now() + 2500; const tick = () => { window.__most = Math.max(window.__most, document.querySelectorAll('[data-shred]').length); window.__balls += document.querySelectorAll('[data-crumple]').length; if (performance.now() < end) requestAnimationFrame(tick) }; requestAnimationFrame(tick) })
+  await record('[data-crumple]')
+  const count = () => h.evaluate(() => { window.__most = 0; window.__balls = 0; const end = performance.now() + 2500; const tick = () => { window.__balls += document.querySelectorAll('[data-crumple]').length; if (performance.now() < end) requestAnimationFrame(tick) }; requestAnimationFrame(tick) })
   await count()
   await h.getByRole('menuitem', { name: /^Move to the Bin/ }).first().click()
   for (let n = 0; n < 12; n++) { if (shots) await h.screenshot({ path: join(shots, `shred-${String(n).padStart(2, '0')}.png`) }); await h.waitForTimeout(50) }
   await h.waitForTimeout(2600)
   const [most, balls] = await h.evaluate(() => [window.__most, window.__balls])
-  check('Move to the Bin: the row is cut into 16 to 24 strips', most >= 16 && most <= 24, `${most} strips`)
-  check('...never crumpled into a ball', balls === 0, `${balls} ball frames`)
+  check('Move to the Bin: the row crumples', balls > 0, `${balls} paper frames`)
   const all = await recorded()
   const fell = all.filter(Boolean).map((one) => Number(one.split(',')[1]))
-  check('...the strips fall from where the row was', fell.length >= 4 && Math.abs(fell[0] - rowBox.y) < 20 && fell.at(-1) > fell[0], fell.join(' '))
-  check('Nothing is left on the page once they have fallen', await h.evaluate(() => !document.querySelector('[data-shred], [data-crumple]')))
+  check('...the paper starts where the row was', fell.length >= 1 && Math.abs(fell[0] - rowBox.y) < 20, fell.join(' '))
+  check('Nothing is left on the page once they have fallen', await h.evaluate(() => !document.querySelector('[data-crumple]')))
   // Restore on the Bin page: the shredder run backwards, its strips rising into the row where it was.
   await c.go('discarded')
   await waitFor(() => has(`[data-bin-row][data-id="${id}"]`))
   await h.waitForTimeout(600)
   await h.locator(`[data-bin-row][data-id="${id}"]`).click({ button: 'right' })
   await h.waitForTimeout(500)
-  await h.evaluate(() => { window.__drawn = 0; const end = performance.now() + 2000; const tick = () => { window.__drawn += document.querySelectorAll('[data-shred], [data-crumple]').length; if (performance.now() < end) requestAnimationFrame(tick) }; requestAnimationFrame(tick) })
+  await h.evaluate(() => { window.__drawn = 0; const end = performance.now() + 2000; const tick = () => { window.__drawn += document.querySelectorAll('[data-crumple]').length; if (performance.now() < end) requestAnimationFrame(tick) }; requestAnimationFrame(tick) })
   await h.getByRole('menuitem', { name: /^Restore/ }).first().click()
   await h.waitForTimeout(2300)
   // No strips over the list as it closes up (they sat on the row below as it moved into the gap): the row simply goes back.

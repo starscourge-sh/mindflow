@@ -2,7 +2,7 @@
 // every pin in the sidebar (quiet hours too) and the top three in the box (50,
 // 32); a kind picked by hand beats a task tag (35); the kind picker opens over
 // the box at its size, a line a kind (62); Tidy's bar keeps Tag, Come back,
-// Next and Done, J and K only with vim keys on (27); the shred is slower (23);
+// Next and Done, J and K only with vim keys on (27); the shred (23) is now the crumple (qa/crumple-bin.mjs);
 // the Inbox grouped by kind as islands in the box, on Everything and on a tag
 // page (30); the Graph beside the kinds (24); captures as marks on the
 // Calendar's Day (45b); ⇧⌘.'s area pick lands in the box under a picture (18);
@@ -299,32 +299,7 @@ try {
     await shot('area-into-box')
   })
 
-  // --- 23: the shred, by the row menu's "Move to the Bin" (a click, so it plays).
-  await step('shred', async () => {
-    await showBox()
-    await page.keyboard.press('Meta+n')
-    await page.keyboard.press('Control+1')
-    await wait(800)
-    const id = await make('Shred me slowly')
-    await wait(900)
-    const row = page.locator(`[data-row][data-id="${id}"]`).first()
-    await row.scrollIntoViewIfNeeded()
-    await row.click({ button: 'right' })
-    await wait(400)
-    // Each strip as it is added: how long it is told to fall.
-    await page.evaluate(() => {
-      window.__shred = 0
-      new MutationObserver((changes) => {
-        for (const one of changes) for (const node of one.addedNodes)
-          if (node instanceof HTMLElement && node.style.zIndex === '60')
-            for (const run of node.getAnimations()) window.__shred = Math.max(window.__shred, Number(run.effect.getTiming().duration) || 0)
-      }).observe(document.body, { childList: true })
-    })
-    await page.locator('[role="menuitem"]', { hasText: 'Move to the Bin' }).first().click()
-    await wait(1500)
-    const longest = await page.evaluate(() => window.__shred)
-    check('the shred is slower: about 1.5 times, more in the box', longest >= 500, `${Math.round(longest)}ms a strip (was 270)`)
-  })
+  // --- 23 (the shred's speed) is gone: a move to the Bin by a click crumples now, checked by qa/crumple-bin.mjs.
 
   // --- 40: thrown to an edge, and back there next time.
   await step('throw', async () => {

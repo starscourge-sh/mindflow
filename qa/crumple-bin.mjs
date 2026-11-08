@@ -9,7 +9,8 @@ import { checks } from './harness.mjs'
 process.env.QA_ARGS ??= '--sandbox'
 
 const { check, done } = checks()
-const c = await sandbox({ width: 1400, height: 900 })
+const c = await sandbox({ width: Number(process.env.QA_W ?? 1400), height: Number(process.env.QA_H ?? 900) })
+if (process.env.QA_DARK) await c.theme?.('dark')
 const { h, go } = c
 const wait = (ms) => h.waitForTimeout(ms)
 const frames = process.env.QA_FRAMES
@@ -17,7 +18,10 @@ if (frames) mkdirSync(frames, { recursive: true })
 
 // Watches for the paper: whether it came, how long it stayed, and where it last was.
 const watch = () => h.evaluate(() => {
-  const seen = (window.qaCrumple = { came: false, at: 0, gone: 0, last: null, ready: false })
+  const seen = (window.qaCrumple = { came: false, at: 0, gone: 0, last: null, ready: false, click: 0, longest: 0 })
+  addEventListener('click', () => void (seen.click ||= performance.now()), { capture: true, once: true })
+  // The longest task on the page's thread from the click till the paper is gone.
+  new PerformanceObserver((list) => { for (const one of list.getEntries()) if (seen.click && !seen.gone) seen.longest = Math.max(seen.longest, Math.round(one.duration)) }).observe({ type: 'longtask' })
   const tick = () => {
     const paper = document.querySelector('[data-crumple]')
     if (paper) {
@@ -41,6 +45,8 @@ const byMenu = async (row) => {
 
 try {
   await go('articles'); await wait(1500)
+  // The app idle a while first, as it is before anyone deletes: three.js loads and the paper's folds are worked out.
+  await wait(5000)
   const bin = await binRow()
   check('the sidebar Bin row is a landing place', !!bin, JSON.stringify(bin))
 
@@ -67,7 +73,11 @@ try {
   await clicked; await wait(1200)
   let s = await seen()
   check('click: the paper crumpled (PaperCrumple drew it)', s.came && s.ready, JSON.stringify(s))
-  check('click: crumple and flight under 600ms once drawn', s.gone - s.at - s.ready < 650, `${Math.round(s.ready)}ms to draw, then ${Math.round(s.gone - s.at - s.ready)}ms to crumple and fly`)
+  // The menu blinks its choice first (menu-blink.ts, about 150ms, as macOS does); the move starts as it runs.
+  check('click: a copy of the row stands in its place in the frame the move starts (no empty slot)', s.came, `${Math.round(s.at - s.click)}ms click to move (the menu's blink)`)
+  check('click: 3D paper drawn under 100ms after the move starts', s.ready < 100, `${Math.round(s.ready)}ms move to paper`)
+  check('click: landed on the Bin under 700ms after the move starts', s.gone - s.at < 700, `${Math.round(s.gone - s.at)}ms move to landed, ${Math.round(s.gone - s.click)}ms click to landed`)
+  check('click: no long task over 50ms during the move', s.longest <= 50, `longest task ${s.longest}ms`)
   const near = s.last && bin && Math.abs(s.last.x + s.last.width / 2 - (bin.x + bin.width / 2)) < 60 && Math.abs(s.last.y + s.last.height / 2 - (bin.y + bin.height / 2)) < 40
   check('click: it ends on the sidebar Bin', !!near, JSON.stringify({ last: s.last, bin }))
   check('click: the row left the list', !(await inList(id)))

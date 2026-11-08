@@ -230,23 +230,51 @@ const CRUMPLE_MS = 260
 const FLIGHT_MS = 300
 
 /** `binFlight` for a card found another way: a practice's row, the hint card. */
-export function binFlightFrom(from: HTMLElement | null): (() => void) | undefined {
+export function binFlightFrom(from: HTMLElement | null): Flight | undefined {
   // By a key, it simply goes: binning is done many times a day. Motion off or Reduce motion, nothing travels.
   if (!from || byKeys() || still()) return undefined
+  // The menu it was binned from goes at once, so the row is seen whole and its picture is the row alone.
+  for (const menu of document.querySelectorAll<HTMLElement>('[role="menu"]')) menu.style.visibility = 'hidden'
   // Only what is on screen of it, so nothing crumples from behind the list's edge.
-  const box = seen(from)
-  if (!box || !onTop(from, box)) return undefined
-  // Its picture now, while it is still there; the paper and three.js on their way meanwhile.
-  // Two frames on, so the menu it was binned from has closed and is not in the picture; the list is still waiting on the save.
-  const picture = new Promise((painted) => requestAnimationFrame(() => requestAnimationFrame(painted)))
-    .then(() => window.api.pictureOfRect({ x: box.left, y: box.top, width: box.width, height: box.height }))
-  const paper = import('@/components/paper-crumple-flight')
-  return () => {
-    // The real row is gone as its picture goes: the list reads the change a moment later and it showed again under the
-    // paper till then. Held out of sight by an animation, which lets go by itself if the row turns out to stay.
-    from.animate({ visibility: ['hidden', 'hidden'] }, { duration: CRUMPLE_MS + FLIGHT_MS + 400 })
-    void Promise.all([picture, paper]).then(([png, { crumpleOver }]) => png && crumpleOver(box, png, landing('bin'), CRUMPLE_MS, FLIGHT_MS), () => undefined)
-  }
+  const shot = snapshot(from)
+  if (!shot || !onTop(from, shot.box)) return undefined
+  const { box } = shot
+  // In this frame: a copy of the row laid where it was, the row itself held out of sight under it, so the
+  // place never shows empty; the paper takes the copy's place once drawn.
+  const cover = document.createElement('div')
+  cover.setAttribute('data-crumple', '')
+  Object.assign(cover.style, { position: 'fixed', left: `${box.left}px`, top: `${box.top}px`, width: `${box.width}px`, height: `${box.height}px`, zIndex: '60', pointerEvents: 'none', overflow: 'hidden' })
+  cover.append(shot.picture)
+  document.body.append(cover)
+  const hidden = from.animate({ visibility: ['hidden', 'hidden'] }, { duration: 2500 })
+  const lay = (): void => cover.remove()
+  // Its picture: taken as its menu opened, or now; three.js and the fold paths were made ready while the app was idle (`warmBin`).
+  const early = picked && picked.row === from && JSON.stringify(picked.box) === JSON.stringify(box) ? picked.png : null
+  const sheet = Promise.all([early ?? window.api.pictureOfRect({ x: box.left, y: box.top, width: box.width, height: box.height }), import('@/components/paper-crumple-flight')])
+    .then(([png, { sheetOver }]) => (png ? sheetOver(box, png, lay, CRUMPLE_MS, FLIGHT_MS) : (lay(), hidden.cancel(), null)), () => (lay(), hidden.cancel(), null))
+  const land = (): void => void sheet.then((one) => one?.go(() => landing('bin')))
+  return Object.assign(land, { drop: (): void => void sheet.then((one) => (one?.drop(), lay(), hidden.cancel())) })
+}
+
+/**
+ * The picture of the row a menu was just opened on, taken as it opened: the
+ * menu then never shows in it, and a move to the Bin from the menu has it waiting.
+ */
+let picked: { row: HTMLElement; box: Box; png: Promise<Uint8Array | null> } | null = null
+if (typeof document !== 'undefined')
+  document.addEventListener('contextmenu', (event) => {
+    const row = (event.target as Element | null)?.closest?.<HTMLElement>('[data-id]')
+    const box = row && !still() ? seen(row) : null
+    picked = row && box ? { row, box, png: window.api.pictureOfRect({ x: box.left, y: box.top, width: box.width, height: box.height }) } : null
+  }, true)
+
+/** A move to the Bin, shown: call it once the move is made, or `drop` it when the move did not happen. */
+export type Flight = (() => void) & { drop: () => void }
+
+/** Once the app is idle: three.js loaded and the paper's folds worked out, so the first move to the Bin is as quick as the rest. */
+export function warmBin(): void {
+  if (still()) return
+  requestIdleCallback(() => void import('@/components/paper-crumple-flight').then((paper) => paper.warmPaper(), () => undefined), { timeout: 8000 })
 }
 
 /** Ten points round the edge, pulled in by different amounts: the outline of a ball of paper. */

@@ -9,6 +9,7 @@ import { showInList } from '@/lib/show-in-list'
 import { TagColourPick } from './components/haligtree/tag-colour-pick'
 import { themeActions } from '@/lib/theme'
 import { useAbandonAction } from '@/lib/abandon'
+import { warmBin } from '@/lib/fly-home'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties } from 'react'
 import { wearFinish } from './components/haligtree/review-toolbar'
 import { BookOpen, ChevronsDownUp, ChevronsUpDown, Compass, FileText, PanelsTopLeft, Plus, Settings as SettingsLine } from 'lucide-react'
@@ -326,6 +327,8 @@ async function startList(icon: string, name: string): Promise<string> {
 export function Home(): React.JSX.Element {
   // Escape in a note lets go of the note, and never goes back: ⌘[ does.
   useEscapeLeavesEditor()
+  // The Bin's paper made ready while the app is idle (lib/fly-home.ts).
+  useEffect(warmBin, [])
   // Back after hours away: what came due, said once (lib/back-line.ts).
   useBackLine()
   // A task in your Mac's Reminders kept ticked in step (lib/reminders.ts).
