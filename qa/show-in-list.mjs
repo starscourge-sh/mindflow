@@ -1,8 +1,8 @@
 // “Show in list” on the open note, as Finder's “Show in Enclosing Folder”:
 // its row, scrolled far out of a long list (not even drawn), comes into the
 // middle of view and is lit once (mf-arrive). In the Inbox, Writing, Gems and
-// Tasks, from the note's ⋯ menu (Tasks: its “Show in list” line), by ⌥⌘L, and
-// from the note's right-click menu. Then: a filter that hides the open note is
+// Tasks, from the note's ⋯ menu (Tasks: its “Show in list” line) and by ⌥⌘L;
+// never from a line's right-click menu, which is about the line. Then: a filter that hides the open note is
 // cleared with a notice and Undo; and a note open in its own window goes back
 // to its own list in the main window, on its row.
 //   QA_DATA=$(mktemp -d) QA_ENTRY=out-b/main/index.js HALIGTREE_QA_AWAY=1 node qa/show-in-list.mjs
@@ -74,10 +74,11 @@ try {
         // A new page has no words yet, and an empty line has no menu: a few typed first.
         if (name === 'Writing') { await words.click(); await h.keyboard.type('A page of wrenfield words'); await wait(400) }
         await h.locator(`${P} .note-pane .tiptap[contenteditable=true] :is(p, h1, h2, h3)`).filter({ hasText: /\w/ }).first().click({ button: 'right', position: { x: 12, y: 8 } }); await wait(600)
-        const line = h.locator('[data-show-in-list]').first()
-        check(`${name}: the note's right-click menu has “Show in list”`, (await line.count()) > 0, await h.evaluate(() => [...document.querySelectorAll('[role=menu]')].map((one) => one.textContent.slice(0, 80)).join(' | ')))
-        if (!(await line.count())) { await h.keyboard.press('Escape'); continue }
-        await line.click()
+        // A line's menu is about the line: the note's own "Show in list" lives in its ⋯ menu and ⌥⌘L, never here.
+        const lines = await h.evaluate(() => [...document.querySelectorAll('[role=menu] [role=menuitem], [role=menu] button')].map((one) => one.textContent.trim()))
+        check(`${name}: a line's right-click menu has no “Show in list”`, lines.length > 0 && !lines.some((one) => /^Show in list/.test(one)), JSON.stringify(lines))
+        await h.keyboard.press('Escape'); await wait(300)
+        continue
       }
       await wait(1100)
       const s = await look(P, id)

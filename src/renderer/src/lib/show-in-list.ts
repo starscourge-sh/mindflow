@@ -4,7 +4,7 @@ import { useHere } from './split'
 import { refuse } from '@/components/haligtree/ui'
 
 type ShowLine = { label: string; keys?: string; run: () => void }
-/** The open note's “Show in list”, from the page whose list holds it: its header's ⋯ menu and its right-click menu read it. */
+/** The open note's “Show in list”, from the page whose list holds it: its header's ⋯ menu reads it (never a line's right-click menu, which is about the line). */
 export const ShowInListContext = createContext<ShowLine | null>(null)
 export const useShowLine = (): ShowLine | null => useContext(ShowInListContext)
 
