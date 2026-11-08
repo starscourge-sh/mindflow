@@ -872,8 +872,8 @@ export const NoteLink = Node.create<NoteLinkOptions>({
             return true
           },
           handleClickOn: (_view, _pos, node, _at, event) => {
-            // A right click is for its menu: it never follows the link.
-            if (node.type.name !== "noteLink" || event.button !== 0) return false
+            // A right click is for its menu: it never follows the link. Nor does ⌃-click, the Mac's right click.
+            if (node.type.name !== "noteLink" || event.button !== 0 || event.ctrlKey) return false
             const { id, label, block } = node.attrs
             // A line is landed on as a heading is, by its lasting name.
             const heading = block ? `^${block}` : node.attrs.heading

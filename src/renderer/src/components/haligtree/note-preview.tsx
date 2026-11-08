@@ -116,6 +116,14 @@ const gemmed = (item: { title: string; prompt: string | null; dueAt: string | nu
  * page preview does: its name and its first lines, without leaving where you
  * are. Once per window, for every editor in it.
  */
+/**
+ * What each click on a link does, said as it is: in the main window ⌥ opens it to the side and ⌘ in a new
+ * tab, for every kind; elsewhere ⌘ gives a note a window of its own (`apart`), and a person, a tag or a task
+ * has none, so nothing is said of ⌘.
+ */
+const clicks = (apart: boolean): string =>
+  canSplit() ? 'Click to open, ⌥-click to the side, ⌘-click in a new tab' : `Click to open${apart ? ', ⌘-click for its own window' : ''}`
+
 export function NotePreview(): React.JSX.Element | null {
   const [shown, setShown] = useState<{ x: number; y: number; above: boolean; private: boolean; title: string; text: string; line?: boolean; lost?: boolean; el?: Element; kind: string; aside: boolean; type: string; id: string; queue: boolean; gem?: Gemmed; binned?: boolean; row?: boolean; anchor: Element; picture?: string | null; lead?: string; tally?: string; latest?: string[]; foot?: string; thought?: Thought } | null>(null)
   useEffect(() => {
@@ -247,7 +255,7 @@ export function NotePreview(): React.JSX.Element | null {
             picture: found.picture !== undefined ? found.picture : binned ? null : pictureIn(found.body),
             lead: found.lead,
             // A tag, in a note's words or anywhere else, opens as a link does.
-            foot: type === 'tag' ? `Click to open${canSplit() ? ', ⌥-click to the side' : ''}` : undefined,
+            foot: type === 'tag' ? `${clicks(false)}.` : undefined,
             tally: found.tally,
             latest: found.latest
           })
@@ -421,7 +429,7 @@ export function NotePreview(): React.JSX.Element | null {
       {/* A preview only: what can be done with it is in its right-click menu (Open to the side, Add to queue, Read next, Show the line here). */}
       {!shown.thought && (shown.binned || !shown.row || shown.foot) && (
       <p data-preview-foot className="mt-2 border-t pt-2 text-xs text-muted-foreground">
-        {shown.binned ? 'In the Bin. Click the row to look inside, or Space to see it large.' : shown.foot ? shown.foot : `Click to open${canSplit() ? ', ⌥-click to the side' : ''}${shown.aside ? ', ⌘-click for its own window' : ''}. Right-click for more.`}
+        {shown.binned ? 'In the Bin. Click the row to look inside, or Space to see it large.' : shown.foot ? shown.foot : `${clicks(shown.aside)}. Right-click for more.`}
       </p>
       )}
     </div>

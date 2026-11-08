@@ -330,7 +330,8 @@ export const Tokens = Extension.create<{
            */
           handleDOMEvents: {
             mousedown: (view, event) => {
-              if (!onClick || event.button !== 0 || event.shiftKey) return false
+              // ⌃-click is the Mac's right click: the menu, never the tag's page.
+              if (!onClick || event.button !== 0 || event.shiftKey || event.ctrlKey) return false
               const chip = (event.target as Element | null)?.closest?.('.tiptap-token[data-token="tag"]')
               if (!chip || !view.dom.contains(chip)) return false
               const at = view.posAtDOM(chip, 0)
@@ -344,7 +345,7 @@ export const Tokens = Extension.create<{
               // the line puts it), is only next to it.
               const block = view.dom.getAttribute("data-vim-mode") === "normal" ? 1 : 0
               const inside = view.hasFocus() && from > hit.from && to < hit.to - block
-              if (view.editable && inside && !(event.metaKey || event.ctrlKey)) return false
+              if (view.editable && inside && !event.metaKey) return false
 
               event.preventDefault()
               // Opens on release over the same tag: pressed and dragged off, nothing happens.

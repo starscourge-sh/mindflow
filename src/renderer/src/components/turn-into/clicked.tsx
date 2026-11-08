@@ -36,7 +36,7 @@ export function lookUpIn(editor: Editor, from: number, to: number, words: string
   }
   lookUp({ range,  words: words.replace(/\s+/g, " ").trim(), x: (start.left + end.right) / 2, y: end.bottom, from: { where: "", link: "", sentence: sentence && sentence !== words ? sentence : undefined, origin } })
 }
-import { canSplit, openAside } from "@/lib/split"
+import { canSplit, openAside, openNewTab } from "@/lib/split"
 import { openApart } from "@/lib/apart"
 import { chime } from "@/lib/sound"
 import { enqueue } from "@/lib/reading-queue"
@@ -134,7 +134,8 @@ export function clickedAt(editor: Editor, event: MouseEvent): Clicked | null {
 
 /** The heading over the clicked thing's lines: what it is, in a few words. */
 export function clickedName(clicked: Clicked): string {
-  if (clicked.kind === "note") return "Link to a note"
+  // Named for what it leads to: a person's link is not a note's.
+  if (clicked.kind === "note") return `Link to ${({ person: "a person", task: "a task", nugget: "a gem", goal: "a goal", question: "a question", pdf: "a PDF", web: "a web page" } as Record<string, string>)[split(clicked.id)[0]] ?? "a note"}`
   if (clicked.kind === "web") return "Link"
   if (clicked.kind === "pdf") return `PDF, page ${clicked.page}`
   if (clicked.kind === "tag") return `#${clicked.tag}`
@@ -207,6 +208,7 @@ export function clickedLines(editor: Editor, clicked: Clicked): Line[] {
       !!id && !!open && { label: "Open", data: "open", run: () => open(id, heading || undefined) },
       // Beside the pane the note is in, not the one in front: that may be the pane last opened beside it.
       !!id && canSplit() && { label: "Open to the side", data: "aside", run: () => openAside(type, key, editor.view.dom.closest("[data-pane]")?.getAttribute("data-pane")) },
+      !!id && canSplit() && { label: "Open in a new tab", data: "tab", run: () => openNewTab(type, key) },
       !!id && own && { label: "Open in a new window", data: "apart", run: () => openApart(type, key) },
       // A link to one line: that line shown here instead, live (what its preview card once offered).
       !!id && !!editor.state.doc.nodeAt(pos)?.attrs.block && { label: "Show the line here", edits: true, data: "line-here", run: () => showLineHere(editor, pos) },
