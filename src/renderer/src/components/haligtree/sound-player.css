@@ -59,11 +59,13 @@
 .mf-sound-wave[data-ready] .mf-sound-bars { animation: mf-sound-in 180ms var(--mf-ease); }
 .mf-sound-played { position: absolute; inset: 0; clip-path: inset(0 100% 0 0); pointer-events: none; }
 .mf-sound-played .mf-sound-bars { fill: var(--foreground); }
-/* The playhead: a tall thin handle in the accent, a little over the bars, with a round head to take hold of. */
+/* The playhead: a tall thin handle in the accent, with a round head to take hold of. Stick, head and its ring stay
+   inside the waveform's own box, grown on hover too, so they never reach the edge of whatever holds the player (a
+   row's highlight, a note's card): its room is that place's own padding. */
 .mf-sound-head {
   position: absolute;
-  top: -2px;
-  bottom: -2px;
+  top: 6px;
+  bottom: 2px;
   left: 0;
   width: 2px;
   margin-left: -1px;
