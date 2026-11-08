@@ -147,3 +147,16 @@ test('no rounded element with a one-sided border in component classes', () => {
   }
   assert.deepEqual(found, [], `Rounded with a border on one side only:\n${found.join('\n')}`)
 })
+
+// Inline styles too: the Calendar's events once wore `borderLeft: 3px solid` on a
+// rounded block, which neither check above could see. No component sets a border
+// on one side in a style object; a ring all round (an inset box-shadow) does it.
+test('no one-sided border in inline styles', () => {
+  const found: string[] = []
+  for (const file of sources(renderer, /\.tsx?$/)) {
+    readFileSync(file, 'utf8').split('\n').forEach((line, i) => {
+      if (/\bborder(?:Left|Right|Top|Bottom|InlineStart|InlineEnd)(?:Width|Color|Style)?\s*:/.test(line)) found.push(`${relative(root, file)}:${i + 1}`)
+    })
+  }
+  assert.deepEqual(found, [], `A border on one side in an inline style:\n${found.join('\n')}`)
+})

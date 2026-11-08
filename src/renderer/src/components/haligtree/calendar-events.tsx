@@ -44,7 +44,7 @@ export const tint = (color: string, struck = false): React.CSSProperties => stru
   : {
       background: `color-mix(in oklab, ${color} var(--cal-fill), var(--background))`,
       color: `color-mix(in oklab, ${color} var(--cal-ink), var(--foreground))`,
-      borderLeft: `3px solid ${color}`
+      boxShadow: `inset 0 0 0 1px color-mix(in oklab, ${color} var(--cal-edge), transparent)`
     }
 /** An event's colour: its own, picked from a right-click's swatches, or its calendar's. */
 export const colorFor = (one: Pick<Occurrence, 'ink'>, calendar: string): string => (one.ink ? inkOf(one.ink) : calendar)

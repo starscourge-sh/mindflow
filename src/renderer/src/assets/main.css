@@ -1916,9 +1916,10 @@ input[type='number']::-webkit-outer-spin-button {
 
 /* The Calendar's events, a soft fill from each calendar's colour: a light
    tint with darker words on a light page, a muted tint with lighter words in
-   the dark (calendar-events.tsx, tint()). */
-:root { --cal-fill: 16%; --cal-ink: 64%; }
-:root:not(.light, .paper, [data-light]) { --cal-fill: 26%; --cal-ink: 40%; }
+   the dark (calendar-events.tsx, tint()).
+   Its edge is a quiet ring all round (--cal-edge), never a bar on one side. */
+:root { --cal-fill: 22%; --cal-ink: 64%; --cal-edge: 38%; }
+:root:not(.light, .paper, [data-light]) { --cal-fill: 26%; --cal-ink: 40%; --cal-edge: 22%; }
 :root:root[data-postcard-border='white'] { --mf-postcard: #fff; }
 :root:root[data-postcard-border='cream'] { --mf-postcard: #f3ead6; }
 :root:root[data-postcard-border='black'] { --mf-postcard: #18181a; }
