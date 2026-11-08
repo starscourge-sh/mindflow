@@ -453,7 +453,7 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
           <Button variant="outline" size="icon-sm" data-cal-left-toggle disabled={roomless} aria-label={left ? 'Hide the left panel' : 'Show the left panel'} aria-pressed={left} className="size-8 shrink-0 aria-pressed:bg-accent" onClick={leftPanel}><PanelLeft /></Button>
         </Tip>
         {/* Grows into the room the controls leave, rather than pushing them onto a line of their own. */}
-        <div className="mr-auto flex min-w-[9rem] flex-1 basis-0 flex-col">
+        <div className="@container/title mr-auto flex min-w-[9rem] flex-1 basis-0 flex-col">
           <div className="flex min-w-0 items-center gap-2">
           {/* The month, as a picker: a click (or .) opens the small month, to go to any date. */}
           <Popover open={jump} onOpenChange={(open) => (open && chime('open'), setJump(open))}>

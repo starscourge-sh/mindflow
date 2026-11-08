@@ -88,8 +88,8 @@ export function LateMenu({ tasks, className = '', pill = false }: { tasks: Task[
               : 'gap-1.5 font-semibold text-[var(--tt-color-text-orange)] hover:text-[var(--tt-color-text-orange)]'}>
             {pill && <AlarmClock aria-hidden className="size-4" />}
             <span className="tabular-nums">{num(late.length)} late</span>
-            <span aria-hidden className={`font-normal ${pill ? 'hidden text-[var(--tt-color-text-orange)]/60 @[36rem]/head:inline' : 'text-foreground/60'}`}>·</span>
-            <span className={`font-medium text-foreground ${pill ? 'hidden @[36rem]/head:inline' : ''}`}>Reschedule all…</span>
+            <span aria-hidden className={`font-normal ${pill ? 'hidden text-[var(--tt-color-text-orange)]/60 @[22rem]/title:inline' : 'text-foreground/60'}`}>·</span>
+            <span className={`font-medium text-foreground ${pill ? 'hidden @[22rem]/title:inline' : ''}`}>Reschedule all…</span>
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="text-control">
