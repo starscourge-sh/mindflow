@@ -186,7 +186,7 @@ function CarriedOver({ lines }: { lines: ([string, string] | [string, string, { 
   const shown = lines.filter(([, text]) => text.trim())
   if (!shown.length) return null
   return (
-    <Island className="mt-5">
+    <Island className="mt-0">
       {shown.map(([label, text, home]) => home ? (
         // Still the month's own words, written here or there: the same field, kept where it lives.
         <label key={label} data-carried={label} className="flex cursor-text flex-col gap-0.5 px-4 py-2.5 focus-within:bg-accent/40">
@@ -278,7 +278,7 @@ export function WeekPage({ start, onOpen, onScale, onRecent, recentOpen, onDay }
           {page && <Typed key={key} text={`${page.exists ? 'The big picture: what you would still say about this week in a month.' : 'Nothing written for this week yet. Type in any box below and the page is kept.'}`} step={28} />}
         </p>
         {/* The week's seven days, each wearing its mark: right-click one to mark it. */}
-        <div data-week-carried>
+        <div data-week-carried className="mt-5 empty:hidden">
           <CarriedOver lines={[
             ['Last week you meant to', before?.fields.intentions ?? ''],
             [`${monthName(inMonth, false)}'s focus`, monthPage?.fields.focus ?? '', { period: `month:${inMonth}`, field: 'focus' }],
@@ -408,7 +408,7 @@ export function MonthPage({ onScale, start, onDay }: { onScale?: (scale: Scale) 
             </Island>
           </Example>
         )}
-        <div data-month-carried><CarriedOver lines={[[`Last month you meant to`, before?.fields.intentions ?? '']]} /></div>
+        <div data-month-carried className="mt-5 empty:hidden"><CarriedOver lines={[[`Last month you meant to`, before?.fields.intentions ?? '']]} /></div>
         {/* The month's days, each wearing its mark: right-click one to mark it. */}
         <div className="mt-5"><DayGrid key={month} calendar label={`${monthName(month)}, day by day`} days={Array.from({ length: dayjs(`${month}-01`).daysInMonth() }, (_, at) => `${month}-${String(at + 1).padStart(2, '0')}`)} onOpenDay={onDay} /></div>
         {page && (
