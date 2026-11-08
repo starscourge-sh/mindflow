@@ -27,8 +27,9 @@ import { SIDEBAR_SHAPE } from '../../../../main/sidebar-shape'
 import { num } from '../../../../main/dates'
 
 /** A run of the sidebar's places with a gap before it and no heading: what you write and keep, then what you do. */
-/** The sidebar's runs: what you write and do, then Library (what you keep), then the rest. */
-export type Group = 'Write' | 'Library'
+/** The sidebar's runs: what you use every day, then Library (what you keep and come back to), then Look back (how
+ * it is going), each folded under its heading; the Bin, Archived and the powers sit in the sidebar's foot. */
+export type Group = 'Write' | 'Library' | 'Look'
 /** A place the main window's sidebar or the box's tabs can show. */
 export type Place = {
   id: string; label: string; icon: LucideIcon; tint: string; key?: string; group?: Group
@@ -59,7 +60,7 @@ export const SECTIONS: (Place & { key: string })[] = [
   { id: 'articles', emoji: '📝', label: 'Writing', icon: FileText, alive: FileDescriptionIcon, key: 'a', tint: 'brown', group: 'Write' },
   // What you keep wondering about, each collecting clues: a row of its own under Writing, never one of Writing's folders,
   // so it is not mistaken for a folder of the same name. Its Looked up tab lights it too (litRow).
-  { id: 'questions', emoji: '🪐', label: 'Questions', icon: Orbit, key: 'h', tint: 'blue', group: 'Write' },
+  { id: 'questions', emoji: '🪐', label: 'Questions', icon: Orbit, key: 'h', tint: 'blue', group: 'Library' },
   { id: 'nuggets', emoji: '💎', label: 'Gems', icon: Gem, key: 'n', tint: 'pink', group: 'Library' },
   { id: 'review', emoji: '🧠', label: 'Review', icon: Brain, key: 'r', tint: 'purple', group: 'Write' },
   // One row for every task list: Today, Upcoming, Later and Routines are its tabs (tasks-view.tsx).
@@ -71,17 +72,17 @@ export const SECTIONS: (Place & { key: string })[] = [
   { id: 'monthpage', emoji: '🌱', label: "Month's page", icon: Sprout, key: 'm', tint: 'yellow' },
   // The day's twenty or so of your own things, as a timeline that ends (feed-view.tsx).
   // W, not G: G G is a list's first row, as in Vim.
-  { id: 'feed', emoji: '📰', label: 'Feed', icon: Newspaper, key: 'w', tint: 'pink' },
+  { id: 'feed', emoji: '📰', label: 'Feed', icon: Newspaper, key: 'w', tint: 'pink', group: 'Library' },
   // Goals: a day you are working toward, and the road there.
-  { id: 'goals', emoji: '🚩', label: 'Goals', icon: Flag, key: 'e', tint: 'orange' },
+  { id: 'goals', emoji: '🚩', label: 'Goals', icon: Flag, key: 'e', tint: 'orange', group: 'Look' },
   // What you mean to read next, in order, Spotify's way.
-  { id: 'queue', emoji: '🎞️', label: 'Queue', icon: ListVideo, key: 'b', tint: 'blue' },
+  { id: 'queue', emoji: '🎞️', label: 'Queue', icon: ListVideo, key: 'b', tint: 'blue', group: 'Library' },
   { id: 'tags', emoji: '🏷️', label: 'Tags', icon: Tag, alive: HashtagIcon, key: '#', tint: 'red' },
   // Every person and source your notes are from, a page each (source-page.tsx).
   { id: 'sources', emoji: '👤', label: 'Sources', icon: BookUser, key: 'j', tint: 'blue', group: 'Library' },
-  { id: 'stats', emoji: '📊', label: 'Stats', icon: BarChart3, alive: ChartBarIcon, key: 's', tint: 'blue' },
+  { id: 'stats', emoji: '📊', label: 'Stats', icon: BarChart3, alive: ChartBarIcon, key: 's', tint: 'blue', group: 'Look' },
   // Every note you have linked, as a map of dots and lines.
-  { id: 'map', emoji: '🗺️', label: 'Map', icon: Links, alive: LinkIcon, key: 'x', tint: 'purple' },
+  { id: 'map', emoji: '🗺️', label: 'Map', icon: Links, alive: LinkIcon, key: 'x', tint: 'purple', group: 'Look' },
   // Every picture, GIF, PDF and recording your notes keep, as a grid (media-view.tsx). G and the comma: every letter is taken.
   { id: 'media', emoji: '🖼️', label: 'Files', icon: Images, key: ',', tint: 'purple', group: 'Library' },
   { id: 'discarded', emoji: '🗑️', label: 'Bin', icon: Trash2, alive: TrashIcon, key: 'd', tint: 'gray' },
@@ -91,8 +92,12 @@ export const SECTIONS: (Place & { key: string })[] = [
   { id: 'powers', emoji: '🧭', label: `What ${APP_NAME} can do`, icon: Compass, key: 'f', tint: 'green' }
 ]
 
-/** Library's heading in the sidebar: Gems, Sources and Files, what you keep, under one fold. Not a page. */
+/** Library's heading in the sidebar: what you keep and come back to, under one fold. Not a page. */
 export const LIBRARY: Place = { id: 'library', emoji: '📚', label: 'Library', icon: Gem, tint: 'pink' }
+/** Look back's heading: Goals, Stats and the Map, how it is going, under one fold. Not a page. */
+export const LOOK_BACK: Place = { id: 'look', emoji: '🔭', label: 'Look back', icon: BarChart3, tint: 'blue' }
+/** Kept in the sidebar's foot as small icons beside the book's menu, out of the list: places you go to now and then. */
+export const FOOT = ['discarded', 'archived', 'powers'] as const
 
 /** Journal's Week, Month and Year, hung under its row in the sidebar as Writing's folders are (home.tsx). */
 export const JOURNAL_SCALES: Place[] = [
@@ -269,7 +274,7 @@ export function sidebarParts(usual: typeof SECTIONS, ordered: typeof SECTIONS, s
   return runs.map((run) => ({
     key: run.key,
     group: run.group,
-    list: ordered.filter((one) => blockOf(one, groups) === run.key && shown.includes(one.id))
+    list: ordered.filter((one) => blockOf(one, groups) === run.key && shown.includes(one.id) && !(FOOT as readonly string[]).includes(one.id))
   }))
 }
 

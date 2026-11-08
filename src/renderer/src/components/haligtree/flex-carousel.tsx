@@ -404,6 +404,8 @@ export default function FlexCarousel({
     let alive = true
     let dirty = true
     let activeIndex = -1
+    // Set while a new list settles into place, until it comes to rest.
+    let settling = false
     let layout: Metrics | null = null
     let resnap = false
     let hover = ''
@@ -680,6 +682,7 @@ export default function FlexCarousel({
         if (Math.abs(goal - pos) < 0.05 && Math.abs(vel) < 0.5) {
           pos = goal
           vel = 0
+          settling = false
         } else animating = true
       } else animating = true
 
@@ -693,7 +696,8 @@ export default function FlexCarousel({
       const current = fits(m) ? chosen : nearest(m, pos)
       if (current !== activeIndex) {
         // Each picture coming to the middle is heard and felt, as a dial's notches are: once the row is up, never on its way in.
-        if (activeIndex >= 0 && rise.done) (click('tick'), detent())
+        // A row whose pictures changed (one added, a tab switched) settles in silence: nobody turned it.
+        if (activeIndex >= 0 && rise.done && !settling) (click('tick'), detent())
         activeIndex = current
         setActive(current)
       }
@@ -878,6 +882,7 @@ export default function FlexCarousel({
     }
 
     const onPointerDown = (e: PointerEvent): void => {
+      settling = false
       if (e.button > 0) return
       skipIntro()
       const [x, y] = localPoint(e)
@@ -995,6 +1000,7 @@ export default function FlexCarousel({
 
     // Only a sideways wheel turns it: an up and down one still scrolls the page.
     const onWheel = (e: WheelEvent): void => {
+      settling = false
       if (e.ctrlKey) return
       const dx = e.shiftKey && Math.abs(e.deltaX) < Math.abs(e.deltaY) ? e.deltaY : e.deltaX
       const dy = e.shiftKey ? 0 : e.deltaY
@@ -1011,6 +1017,7 @@ export default function FlexCarousel({
 
     // Its own keys: ← and → turn it (as its buttons do); where a click opens, ↵ or Space opens the one in the middle.
     turn.current = (way) => {
+      settling = false
       skipIntro()
       step(metrics(), way)
     }
@@ -1065,6 +1072,7 @@ export default function FlexCarousel({
       const offset = slots.length ? around(was, pos - was.centers[at]) : 0
       const aim = slots.length ? around(was, goal - was.centers[at]) : 0
       const kept = new Map(slots.map((slot) => [slot.id, slot]))
+      const before = new Set(kept.keys())
       slots = items.map((item) => {
         const slot = kept.get(idOf(item))
         kept.delete(idOf(item))
@@ -1079,7 +1087,9 @@ export default function FlexCarousel({
         const found = slots.findIndex((slot) => slot.id === held)
         // A row you turned stays on its picture. One still at the front stays at the front, the newest first: the picture there glides aside for it.
         const front = at === 0 && !fits(was)
-        const to = front ? 0 : found >= 0 ? found : Math.min(at, slots.length - 1)
+        // A list with none of the last one's pictures (Pictures to PDFs) is a new row: its first, never the last row's place.
+        const shared = slots.some((slot) => before.has(slot.id))
+        const to = front || (!shared && before.size) ? 0 : found >= 0 ? found : Math.min(at, slots.length - 1)
         const from = front && found >= 1 && found <= 2 ? found : to
         pos = m.centers[from] + (found >= 0 ? offset : 0)
         goal = m.centers[to] + (found >= 0 && !front ? aim : 0)
@@ -1087,6 +1097,7 @@ export default function FlexCarousel({
         layout = m
         activeIndex = from
         setActive(from)
+        settling = true
       }
       dirty = true
       start()

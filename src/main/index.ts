@@ -4404,6 +4404,21 @@ app.whenReady().then(() => {
         const other = assetElsewhere(name)
         if (other) await mkdir(assetsDir(), { recursive: true }).then(() => copyFile(other, file))
       }
+      // A small copy asked for (`?w=256`): made once by macOS from the picture and kept beside the store, so a grid of
+      // 120px squares never decodes 3,000px screenshots (a picker of them took a second or two to fill).
+      const width = Number(new URL(request.url).searchParams.get('w'))
+      if (width && /\.(png|jpe?g|webp|heic|tiff?)$/i.test(name)) {
+        const size = width <= 256 ? 256 : 640
+        const small = join(assetsDir(), '..', 'thumbs', `${name.replace(/\.[a-z0-9]+$/, '')}-${size}.${/\.png$/i.test(name) ? 'png' : 'jpg'}`)
+        if (!existsSync(small)) {
+          const made = await nativeImage.createThumbnailFromPath(file, { width: size, height: size }).catch(() => null)
+          if (made && !made.isEmpty()) {
+            await mkdir(join(assetsDir(), '..', 'thumbs'), { recursive: true })
+            await writeFile(small, small.endsWith('.png') ? made.toPNG() : made.toJPEG(85))
+          }
+        }
+        if (existsSync(small)) return await servedFile(small, request)
+      }
       // A scanned book whose pages were read (pdf-text.ts): its copy with the words on it, wherever it opens.
       const read = readCopy(name)
       return await servedFile(read && existsSync(read) ? read : file, request)

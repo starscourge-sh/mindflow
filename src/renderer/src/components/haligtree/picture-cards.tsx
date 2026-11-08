@@ -1,3 +1,4 @@
+import { small } from '@/lib/small-picture'
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { Button } from '@/components/ui/button'
@@ -254,8 +255,9 @@ export function PictureCards({ deck: aimed, onClose, onShow }: { deck?: string |
   })
 
   const groups = groupsOf(covers)
-  // Cards numbered 1, 2, 3 in reading order (by rows, then left to right): as the covers show it and as the cards are made.
-  const order = groups.map((one) => ({ one, at: covers.filter((cover) => cover.group === one).reduce((top, cover) => Math.min(top, Math.round(cover.y * 20) * 10 + cover.x), Infinity) })).sort((a, b) => a.at - b.at)
+  // Cards numbered 1, 2, 3 in the order they were drawn, so a number never changes under you as you draw the next one
+  // (by rows, a cover drawn higher up took 1 from the one you drew first).
+  const order = [...groups].sort((a, b) => a - b).map((one) => ({ one }))
   const renumber = new Map(order.map(({ one }, at) => [one, at + 1]))
   const cards = order.map(({ one }) => one)
   const nextGroup = (): number => (groups.length ? Math.max(...groups) + 1 : 1)
@@ -346,6 +348,8 @@ export function PictureCards({ deck: aimed, onClose, onShow }: { deck?: string |
     const node = stage.current
     if (!node) return
     const wheel = (event: WheelEvent): void => {
+      // Zoomed in, two fingers move round the picture and only the picture: the page under it keeps still, at its
+      // edges too (data-lenis-prevent and overscroll-contain on the stage keep the page's smooth scroll out of it).
       if (!event.ctrlKey) return
       event.preventDefault()
       zoomTo(zoom * Math.exp(-event.deltaY * 0.01), { x: event.clientX, y: event.clientY })
@@ -667,7 +671,7 @@ export function PictureCards({ deck: aimed, onClose, onShow }: { deck?: string |
                 {sources.map((one) => (
                   <button key={one.src} type="button" data-picture-source onClick={() => choose(one.src, one.id ? { id: one.id } : null, one.title)}
                     className="grid cursor-pointer content-start gap-1 rounded-[4px] border border-foreground/10 p-1.5 text-left transition-colors hover:bg-accent/60">
-                    <img src={one.src} alt="" loading="lazy" className="aspect-square w-full rounded-[3px] bg-accent/40 object-cover" />
+                    <img src={small(one.src)} alt="" loading="lazy" decoding="async" className="aspect-square w-full rounded-[3px] bg-accent/40 object-cover" />
                     <span className="truncate text-xs text-foreground/80">{one.title}</span>
                   </button>
                 ))}
@@ -718,7 +722,7 @@ export function PictureCards({ deck: aimed, onClose, onShow }: { deck?: string |
             placeholder="A question on every card, if you like: “Name the figure”" aria-label="A question on every card"
             className={`${CARD_FIELD} text-body font-medium`} />
           <div ref={room} className="w-full">
-            <div ref={stage} data-picture-stage className={`relative mx-auto rounded-[4px] ${zoom > 1 ? 'overflow-auto' : 'overflow-hidden'}`} style={{ width: view.w || undefined, height: view.h || undefined }}>
+            <div ref={stage} data-picture-stage data-lenis-prevent={zoom > 1 || undefined} className={`relative mx-auto rounded-[4px] ${zoom > 1 ? 'overflow-auto overscroll-contain' : 'overflow-hidden'}`} style={{ width: view.w || undefined, height: view.h || undefined }}>
               <div ref={board} data-picture-board className={`relative touch-none select-none ${tool === 'select' ? 'cursor-default' : 'cursor-crosshair'}`} style={{ width: across || undefined, height: down_ || undefined }}
                 onPointerDown={press} onPointerMove={drag} onPointerUp={lift}
                 // The pointer let go somewhere the board never heard of (the window lost it): finished as a letting go, never stuck mid-drag.

@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react'
 import type { ReactNode } from 'react'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
@@ -20,8 +21,25 @@ export function CardForm({ head, line, keys, children, foot, ...rest }: {
   children: ReactNode
   foot: ReactNode
 } & Omit<React.ComponentProps<'section'>, 'onKeyDown'>): React.JSX.Element {
+  // Esc puts the form away wherever the focus is on the page (the pointer resting in the list under it, nothing
+  // focused): only typing in another field, or a menu or sheet open over it, keeps Esc for themselves.
+  const box = useRef<HTMLElement>(null)
+  const keysNow = useRef(keys)
+  keysNow.current = keys
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent): void => {
+      if (event.key !== 'Escape' || event.defaultPrevented || !box.current) return
+      const at = document.activeElement
+      if (at && box.current.contains(at)) return
+      if (at instanceof HTMLElement && (at.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(at.tagName))) return
+      if (document.querySelector('[role="menu"], [role="dialog"], [role="listbox"], [data-radix-popper-content-wrapper]')) return
+      keysNow.current(event as unknown as React.KeyboardEvent)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
   return (
-    <section data-finish-face data-card-form onKeyDown={keys} tabIndex={-1} className="flex flex-col gap-3 rounded-[6px] border px-5 pt-4 pb-3 outline-none" {...rest}>
+    <section ref={box} data-finish-face data-card-form onKeyDown={keys} tabIndex={-1} className="flex flex-col gap-3 rounded-[6px] border px-5 pt-4 pb-3 outline-none" {...rest}>
       <p data-card-form-head className="text-control text-pretty text-foreground/80"><b className="font-semibold text-foreground">{head}.</b> {line}</p>
       {children}
       {foot}

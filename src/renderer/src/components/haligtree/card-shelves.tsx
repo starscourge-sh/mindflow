@@ -1,3 +1,6 @@
+import { CoveredPicture } from './picture-cards'
+import { GroupCover } from './group-cover'
+import { small } from '@/lib/small-picture'
 import { deckTitle } from './decks'
 import { useEffect, useRef, useState } from 'react'
 import { chime } from '@/lib/sound'
@@ -133,11 +136,15 @@ export function Poster({ card, over, onTurn, picked, onPick, question, answer, s
           <div className={`font-heading font-semibold leading-[1.15] text-pretty text-foreground ${size === 'lg' ? 'text-2xl line-clamp-5' : size === 'sm' ? 'text-sm line-clamp-4' : 'text-[1.05rem] line-clamp-4'}`}>{question}</div>
           {/* Laid in, not sized by: a picture or figure never widens the card. */}
           <div className="relative my-3 min-h-0 flex-1">
-            {card.picture ? <img src={card.picture} alt="" onError={(event) => (event.currentTarget.hidden = true)} className="absolute inset-0 h-full w-full rounded object-cover" /> : <div className="absolute inset-0"><Figure id={card.id} tint={tint} /></div>}
+            {card.occlusion ? <div className="absolute inset-0 grid place-items-center overflow-hidden rounded"><CoveredPicture occlusion={card.occlusion} shown={false} all={card.occlusion.hide === 'all'} fit="max-h-full" /></div>
+              : card.picture ? <img src={small(card.picture, 640)} alt="" onError={(event) => (event.currentTarget.hidden = true)} className="absolute inset-0 h-full w-full rounded object-cover" />
+              // No picture: a Coolshape in the card's colour, as groups and decks wear, never a line drawing.
+              : <GroupCover name={card.id} tint={tint} label={null} className="absolute inset-0 rounded" />}
           </div>
         </>)}
         back={face('back', <>
-          {card.picture && <img src={card.picture} alt="" onError={(event) => (event.currentTarget.hidden = true)} className="-mx-4 -mt-4 mb-3 max-h-[55%] w-[calc(100%+2rem)] max-w-none object-cover" />}
+          {card.occlusion ? <div className="mb-3 grid max-h-[55%] place-items-center overflow-hidden rounded"><CoveredPicture occlusion={card.occlusion} shown all={card.occlusion.hide === 'all'} fit="max-h-full" /></div>
+            : card.picture && <img src={small(card.picture, 640)} alt="" onError={(event) => (event.currentTarget.hidden = true)} className="-mx-4 -mt-4 mb-3 max-h-[55%] w-[calc(100%+2rem)] max-w-none object-cover" />}
           <p className={`text-foreground/90 ${size === 'lg' ? 'text-lg leading-relaxed line-clamp-[10]' : 'text-sm leading-relaxed line-clamp-[8]'}`}>{answer || 'No answer yet'}</p>
         </>)} />
     </div>

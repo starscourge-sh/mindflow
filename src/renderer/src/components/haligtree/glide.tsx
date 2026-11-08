@@ -371,6 +371,8 @@ export function Highlight({ spot, session = 0, snap, travel = spring.fast, class
  * and the two cross-fade (opacity only, so the text is never redrawn at the
  * weights between, as a font-weight transition did each frame).
  */
+const HIDDEN = 'invisible opacity-0 max-h-[1lh] overflow-hidden'
+
 export function Weighted({ on, children, className }: { on: boolean; children: ReactNode; className?: string }): React.JSX.Element {
   return (
     // The one not shown is hidden, so the label's words are read out, and
@@ -378,8 +380,10 @@ export function Weighted({ on, children, className }: { on: boolean; children: R
     // both copies are half there, and a page opening behind it (Journal, the
     // Inbox) held the frame there, the label dim for as long as it took.
     <span className={cn('inline-grid min-w-0 *:col-start-1 *:row-start-1 *:truncate', className)}>
-      <span className={on ? 'invisible opacity-0' : ''} style={{ fontWeight: WEIGHT.normal }}>{children}</span>
-      <span className={on ? '' : 'invisible opacity-0'} style={{ fontWeight: WEIGHT.chosen }}>{children}</span>
+      {/* The hidden copy keeps the width but never the height: in a name that wraps, bold could take a second line
+          the shown words do not, and the row stood a line taller with nothing in it ("Lines from books"). */}
+      <span className={on ? HIDDEN : ''} style={{ fontWeight: WEIGHT.normal }}>{children}</span>
+      <span className={on ? '' : HIDDEN} style={{ fontWeight: WEIGHT.chosen }}>{children}</span>
     </span>
   )
 }

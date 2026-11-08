@@ -108,7 +108,7 @@ import { openApart } from '@/lib/apart'
 import { MediaView } from '@/components/haligtree/media-view'
 import { sideOrder, sectionMoves, useSectionDrag } from '@/lib/side-sections'
 import { sideTagLine, sideTagsOf } from '@/lib/side-tags'
-import { G_ALIASES, JOURNAL_SCALES, LIBRARY, OFF_SIDEBAR, startPageOf, PlaceIcon, SECTIONS, SIDE_GROUPS, ShowList, showGroup, type Place, placeDrawing, TASK_PAGES, dropInBlock, dropOrder, orderItems, risen, litRow, showWords, sidebarParts, useInOrder, useOrder, useSections, useShown } from '@/components/haligtree/places'
+import { FOOT, G_ALIASES, JOURNAL_SCALES, LIBRARY, LOOK_BACK, SECTIONS as PLACES, OFF_SIDEBAR, startPageOf, PlaceIcon, SECTIONS, SIDE_GROUPS, ShowList, showGroup, type Place, placeDrawing, TASK_PAGES, dropInBlock, dropOrder, orderItems, risen, litRow, showWords, sidebarParts, useInOrder, useOrder, useSections, useShown } from '@/components/haligtree/places'
 import { BlockList, SortableList, SortableRow } from '@/components/haligtree/sortable'
 import { pageTravel } from '@/lib/page-travel'
 import { Branches } from '@/components/haligtree/branches'
@@ -843,7 +843,9 @@ export function Home(): React.JSX.Element {
   const [tagsKept, keepTags] = useRemembered('sidebar:tags')
   // Pinned folds, Notion's way, and starts open.
   const [pinsOpen, setPinsOpen] = useRemembered('sidebar:pinned', true)
-  const [libraryOpen, setLibraryOpen] = useRemembered('sidebar:library', true)
+  // Library and Look back fold under their headings, folded to start; each stays as you leave it.
+  const [libraryOpen, setLibraryOpen] = useRemembered('sidebar:library', false)
+  const [lookOpen, setLookOpen] = useRemembered('sidebar:look', false)
   // A section's heading dragged moves the whole section (lib/side-sections.ts).
   const sectionDrag = useSectionDrag()
   // Recent: the last few notes you opened, under Pinned, a short list (four at most: ⌘K has the rest), kept folded or open as you left it.
@@ -864,12 +866,12 @@ export function Home(): React.JSX.Element {
   // A calm sidebar: what serves capturing and coming back. One switched off is not there at all, a G or ⌘K away.
   const settings = useLive(haligtree.settings, null as Settings | null)
   // Library came after people had dragged its rows into other runs: they go into it once, then stay wherever they are dragged.
+  // The sidebar by how often a place is used (8 Nov): every row goes to its new home once (the seven of every day on top,
+  // Library and Look back folded, Bin, Archived and the powers in the foot), then stays wherever it is dragged.
   useEffect(() => {
-    if (!settings || settings.libraryOnce) return
-    const groups = { ...(settings.sidebarGroups ?? {}) }
-    for (const id of ['nuggets', 'sources', 'media']) delete groups[id]
-    void haligtree.setSettings({ sidebarGroups: groups, libraryOnce: true })
-  }, [settings?.libraryOnce]) // eslint-disable-line react-hooks/exhaustive-deps
+    if (!settings || settings.sidebarByUseOnce) return
+    void haligtree.setSettings({ sidebarGroups: {}, sideSections: ['library', 'look', 'pinned', 'recent', 'tags'], libraryOnce: true, sidebarByUseOnce: true })
+  }, [settings?.sidebarByUseOnce]) // eslint-disable-line react-hooks/exhaustive-deps
   // Review's finish, satin or paper, worn from the start and whenever it changes (review-toolbar.tsx).
   useEffect(() => { if (settings) wearFinish(settings.reviewFinish ?? 'satin') }, [settings?.reviewFinish]) // eslint-disable-line react-hooks/exhaustive-deps
   // With "Open folders on their page", Writing's and Gems' folders and the tags unfold as their page (or one of its
@@ -2300,11 +2302,16 @@ export function Home(): React.JSX.Element {
                   {block === 'rest' && tagRows && tagsPart}
                   {/* Each run after the first gets a gap the height of a heading, with no heading: what you write, then what you do, then the rest. */}
                   {/* Library, what you keep (Gems, Sources, Files), under a heading of its own that folds as Pinned's does. */}
-                  {block === 'Library' && items.length > 0 ? (<div data-side-section="library" style={sectionAt('library')} className="flex flex-col">
-                    {heading(LIBRARY, libraryOpen || narrow, setLibraryOpen)}
-                    {/* Hung off a trunk under its heading, as Pinned's and Recent's are: they are its children. */}
-                    <Unfold open={libraryOpen || narrow}><Branches bare={narrow} rows=":scope > [data-drop-list] > *" current={items.findIndex((one) => light === `place:${one.id}`)} className={narrow ? '' : 'ml-5'}>{box}</Branches></Unfold>
-                  </div>) : (<div className="flex flex-col" style={block === 'rest' ? { order: 9 } : undefined}>
+                  {(block === 'Library' || block === 'Look') && items.length > 0 ? (() => {
+                    const [head, open, setOpen, id] = block === 'Library' ? [LIBRARY, libraryOpen, setLibraryOpen, 'library'] as const : [LOOK_BACK, lookOpen, setLookOpen, 'look'] as const
+                    // The page you are on stays in sight: its fold opens when you go there from elsewhere.
+                    const here = items.some((one) => light === `place:${one.id}`)
+                    return (<div data-side-section={id} style={sectionAt(id)} className="flex flex-col">
+                      {heading(head, open || here || narrow, setOpen)}
+                      {/* Hung off a trunk under its heading, as Pinned's and Recent's are: they are its children. */}
+                      <Unfold open={open || here || narrow}><Branches bare={narrow} rows=":scope > [data-drop-list] > *" current={items.findIndex((one) => light === `place:${one.id}`)} className={narrow ? '' : 'ml-5'}>{box}</Branches></Unfold>
+                    </div>)
+                  })() : (<div className="flex flex-col" style={block === 'rest' ? { order: 9 } : undefined}>
                     {at > 0 && items.length > 0 && <div data-side-gap aria-hidden className={narrow ? 'mt-3' : 'mt-2.5 mb-0.5 min-h-1'} />}
                     {box}
                   </div>)}
@@ -2321,7 +2328,7 @@ export function Home(): React.JSX.Element {
         {/* The section carried, as a lifted card under the pointer, named as its heading is. */}
         {sectionDrag.carrying && sectionDrag.at && createPortal(
           <div className="pointer-events-none fixed z-[90] -translate-x-1/2 -translate-y-1/2" style={{ left: sectionDrag.at.x + 40, top: sectionDrag.at.y }}>
-            <CarriedCard attrs={{ 'data-section-card': '' }} strong title={({ pinned: 'Pinned', recent: 'Recent', library: 'Library', tags: 'Tags' } as Record<string, string>)[sectionDrag.carrying] ?? ''} />
+            <CarriedCard attrs={{ 'data-section-card': '' }} strong title={({ pinned: 'Pinned', recent: 'Recent', library: 'Library', look: 'Look back', tags: 'Tags' } as Record<string, string>)[sectionDrag.carrying] ?? ''} />
           </div>, document.body)}
 
         </TooltipProvider>
@@ -2390,12 +2397,21 @@ export function Home(): React.JSX.Element {
               </button>
             </Tip>
           )}
-          <Tip label="Keyboard shortcuts  ?">
-            <button type="button" aria-label="Keyboard shortcuts" onClick={() => window.dispatchEvent(new CustomEvent('haligtree:shortcuts'))}
-              className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground">
-              <CircleHelp className="size-4" strokeWidth={2} />
-            </button>
-          </Tip>
+          {/* Bin, Archived and the powers: places gone to now and then, small icons beside the book's menu, lit while open. */}
+          {!narrow && FOOT.map((id) => {
+            const place = PLACES.find((one) => one.id === id)
+            if (!place) return null
+            const on = light === `place:${id}`
+            return (
+              <Tip key={id} label={place.key ? `${place.label}  G ${place.key.toUpperCase()}` : place.label}>
+                <button type="button" data-side-foot={id} aria-label={place.label} aria-current={on ? 'page' : undefined} onClick={() => (chime('page'), setView({ id }))}
+                  className={`flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-md transition-[color,background-color,scale] duration-100 hover:bg-accent/60 hover:text-foreground active:scale-[0.94] ${on ? 'bg-accent text-foreground' : 'text-muted-foreground'}`}>
+                  <PlaceIcon place={place} />
+                </button>
+              </Tip>
+            )
+          })}
+          {/* Keyboard shortcuts: in the book's menu and on ?, so the foot keeps its room for the book's name. */}
         </div>
       </aside>
       </PopoverAnchor>

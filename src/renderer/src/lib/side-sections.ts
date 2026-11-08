@@ -5,8 +5,8 @@ import { toast } from '@/components/haligtree/ui'
 import { swallowClick } from '@/components/haligtree/carry'
 
 /** The sidebar's sections under its places, in their usual order. */
-export const SECTIONS_USUAL = ['pinned', 'recent', 'library', 'tags'] as const
-const NAMES: Record<string, string> = { pinned: 'Pinned', recent: 'Recent', library: 'Library', tags: 'Tags' }
+export const SECTIONS_USUAL = ['library', 'look', 'pinned', 'recent', 'tags'] as const
+const NAMES: Record<string, string> = { pinned: 'Pinned', recent: 'Recent', library: 'Library', look: 'Look back', tags: 'Tags' }
 
 /** The saved order, every section once: one missing (newer than the saved order) goes where it usually sits. */
 export function sideOrder(saved: readonly string[] | undefined): string[] {

@@ -1,3 +1,4 @@
+import { occlusionOf } from './occlusion'
 import { mediaForget, mediaFromBin, mediaInBin, mediaPeek } from './media'
 import { foldMeeting, transcriptLines, voiceName, type MeetingLine } from './meeting-doc'
 import { awayDays } from './away'
@@ -675,7 +676,7 @@ const DEFAULTS = {
   // Pinned and Recent switched off (places.tsx, SIDE_GROUPS): none to start, so every book shows both.
   sidebarGroupsOff: [] as string[],
   // The sidebar's sections under the places, top to bottom, as dragged by their headings.
-  sideSections: ['pinned', 'recent', 'library', 'tags'] as string[],
+  sideSections: ['library', 'look', 'pinned', 'recent', 'tags'] as string[],
   // Pointing at a sidebar row, or a row of the Haligtree menu, shows a card of what that page is.
   pagePreviews: true,
   // The box's tabs; Recent is a ⇧⌘Y or ⌘K away until shown.
@@ -686,6 +687,7 @@ const DEFAULTS = {
   sidebarGroups: {} as Record<string, string>,
   // Gems, Sources and Files went into Library once, out of whatever run they had been dragged to before it existed.
   libraryOnce: false,
+  sidebarByUseOnce: false,
   // Groups that gather by a rule (a tag), beside the folders a note lives in (lib/smart-groups.tsx).
   smartGroups: [] as { id: string; list: 'article' | 'nugget'; name: string; tags: string[] }[],
   // Writing's and Gems' groups as folders under their rows in the sidebar.
@@ -3135,7 +3137,7 @@ export function registerHaligtree(): void {
     const pace = new Map((db.prepare('select item_id as id, avg(min(ms, 60000)) ms, count(ms) n from review_log where ms is not null group by item_id').all() as { id: string; ms: number; n: number }[]).filter((row) => row.n >= 2).map((row) => [row.id, Math.round(row.ms / 1000)]))
     // Forgotten after being learnt: each Again on a card seen before.
     const lapses = new Map((db.prepare('select item_id as id, count(*) n from review_log where grade = 1 and first = 0 group by item_id').all() as { id: string; n: number }[]).map((row) => [row.id, row.n]))
-    return (db.prepare(`select id, prompt, title, body, state, due_at as dueAt, created_at as createdAt, suspended, medium, passage, deck, line_of as lineOf from nuggets
+    return (db.prepare(`select id, prompt, title, body, state, due_at as dueAt, created_at as createdAt, suspended, medium, passage, deck, line_of as lineOf, fields from nuggets
       where coalesce(prompt, '') != '' and archived_at is null and binned_at is null and superseded_by is null`).all() as { id: string; prompt: string; title: string | null; body: string | null; state: string | null; dueAt: string | null; createdAt: string; suspended: number; medium: string | null; passage: string | null; deck: string | null; lineOf: string | null }[])
       .map((row) => {
         // The first picture on the card, for its face in the grid.
@@ -3156,7 +3158,9 @@ export function registerHaligtree(): void {
           known: known.has(row.id), things: thingsIn(answer), seconds: pace.get(row.id) ?? null,
           lapses: lapses.get(row.id) ?? 0, leech: (lapses.get(row.id) ?? 0) >= LEECH_AT,
           // The book or video it came from, and where in it ("p. 3", "12:40").
-          source: row.deck || row.medium || '', at: row.deck ? '' : row.passage ?? '', made, picture: picture ? picture[1] ?? picture[2] : null
+          source: row.deck || row.medium || '', at: row.deck ? '' : row.passage ?? '', made, picture: picture ? picture[1] ?? picture[2] : null,
+          // A card made by covering a picture: its picture and covers, so the list and the grid show it as Study does.
+          occlusion: occlusionOf((row as { fields?: string | null }).fields ?? null)
         }
       })
   })

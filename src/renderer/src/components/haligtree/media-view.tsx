@@ -84,7 +84,7 @@ function AddBox({ onShow, onClose }: { onShow: (src: string) => void; onClose: (
     <div data-media-add-box
       onDragOver={(event) => event.dataTransfer.types.includes('Files') && event.preventDefault()}
       onDrop={(event) => { if (!event.dataTransfer.files.length) return; event.preventDefault(); event.stopPropagation(); void addDropped([...event.dataTransfer.files], done) }}
-      className="mx-5 mb-4 grid gap-1.5 rounded-[4px] border border-dashed border-foreground/20 px-4 py-4">
+      className="mx-5 mt-4 mb-2 grid gap-1.5 rounded-[6px] border border-dashed border-foreground/20 px-4 py-4">
       <span className="flex flex-wrap items-center gap-3 text-control text-foreground/80">
         <Button size="sm" className="h-8 cursor-pointer gap-1.5 px-3" data-media-choose onClick={() => void addFromPicker(done)}><Plus className="size-4" />Choose files…</Button>
         <span>or drop them on this box, or paste with <Kbd>⌘V</Kbd></span>

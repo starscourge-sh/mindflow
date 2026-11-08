@@ -1,3 +1,4 @@
+import type { Occlusion } from '../../../../main/occlusion'
 import { TabControls, useToolbarCompact } from './review-toolbar'
 import { swallowRelease } from './carry'
 import { TABLE_LEAD, TABLE_NAME, TABLE_QUIET, TABLE_ROW, TABLE_WHEN, TableHead } from './table-look'
@@ -31,7 +32,9 @@ import { Button } from '@/components/ui/button'
 export type BrowsedCard = { id: string; prompt: string; title: string; answer: string; tags: string[]; dueAt: string | null; createdAt: string; paused: boolean; difficulty: number | null; reviews: number; stage: 'new' | 'learning' | 'learnt'; /** Remembered across a gap of 15 days or more. */ known: boolean; /** Things the answer asks for; past 4 it is too big. */ things: number; /** Seconds it takes you, from 2 or more timed reviews. */ seconds: number | null
   /** Times forgotten after being learnt; a leech at 4. */ lapses: number; leech: boolean
   /** The book, video or shared deck it came from, and where in it ("p. 3", "12:40"). */ source: string; at: string
-  made: 'pdf' | 'line' | 'deck' | 'typed'; picture: string | null }
+  made: 'pdf' | 'line' | 'deck' | 'typed'; picture: string | null
+  /** Made by covering a picture: drawn as Study draws it, never as its words alone. */
+  occlusion?: Occlusion | null }
 
 const DAY = 86400000
 const today = (): number => new Date().setHours(0, 0, 0, 0)

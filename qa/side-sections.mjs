@@ -12,27 +12,30 @@ try {
   await v('settings:set', { hintRate: 0 })
   await go('home'); await wait(1500)
   const first = await order()
-  check('sections in their usual order', first.join() === 'pinned,library,tags' || first.join() === 'pinned,recent,library,tags', first.join())
+  check('sections in their usual order: Library and Look back, then Pinned, Recent and Tags', /^library,look,pinned(,recent)?,tags$/.test(first.join()), first.join())
+  check('Bin, Archived and the powers sit in the foot as icons, not in the list', (await h.locator('aside [data-side-foot]').count()) === 3 && !(await h.locator('aside nav [data-place="discarded"], aside nav [aria-label="Bin"]').count()))
+  if (process.env.QA_SHOTS) await h.screenshot({ path: `${process.env.QA_SHOTS}/side-new.png`, clip: { x: 0, y: 0, width: 260, height: 1300 } })
+  await h.locator('[data-side-section-handle="library"]').click(); await wait(500)
   const twigs = await h.evaluate(() => document.querySelectorAll('aside nav [data-side-section="library"] svg path').length)
   check('Library hangs on a trunk, a twig per row', twigs >= 4, String(twigs))
-  // Drag Library's heading up above Pinned.
+  // Drag Library's heading down past Pinned.
   const lib = await h.locator('[data-side-section-handle="library"]').boundingBox()
   const pin = await h.locator('[data-side-section="pinned"]').first().boundingBox()
   await h.mouse.move(lib.x + 30, lib.y + lib.height / 2); await h.mouse.down()
-  for (let i = 1; i <= 14; i++) { await h.mouse.move(lib.x + 30, lib.y + lib.height / 2 + ((pin.y - 4 - lib.y - lib.height / 2) * i) / 14); await wait(30) }
+  for (let i = 1; i <= 14; i++) { await h.mouse.move(lib.x + 30, lib.y + lib.height / 2 + ((pin.y + pin.height + 4 - lib.y - lib.height / 2) * i) / 14); await wait(30) }
   check('carried, a line shows where it lands', (await h.locator('[data-side-section-line]').count()) === 1)
   check('carried, a lifted card named Library follows the pointer', /Library/.test((await h.locator('[data-section-card]').textContent().catch(() => '')) ?? ''))
   check('carried, the hover light stands still (the drag flag is up)', await h.evaluate(() => document.documentElement.hasAttribute('data-dragging')))
   if (process.env.QA_SHOTS) await h.screenshot({ path: `${process.env.QA_SHOTS}/side-drag.png`, clip: { x: 0, y: 0, width: 260, height: 1300 } })
   await h.mouse.up(); await wait(900)
   const moved = await order()
-  check('let go above Pinned: Library comes first', moved[0] === 'library', moved.join())
-  check('and is saved', (await v('settings')).sideSections?.[0] === 'library', JSON.stringify((await v('settings')).sideSections))
+  check('let go past Pinned: Library comes after it', moved.indexOf('library') > moved.indexOf('pinned'), moved.join())
+  check('and is saved', (await v('settings')).sideSections?.indexOf('library') > (await v('settings')).sideSections?.indexOf('pinned'), JSON.stringify((await v('settings')).sideSections))
   check('the heading was not folded by the drag', (await h.locator('[data-side-section-handle="library"]').getAttribute('aria-expanded')) === 'true')
   // Its menu moves it back down.
   await h.locator('[data-side-section-handle="library"]').click({ button: 'right' }); await wait(400)
-  await h.locator('[role="menuitem"]', { hasText: 'Move section down' }).click(); await wait(900)
-  check('"Move section down" from its menu puts it after Pinned', (await order()).indexOf('library') > (await order()).indexOf('pinned'), (await order()).join())
+  await h.locator('[role="menuitem"]', { hasText: 'Move section up' }).click(); await wait(900)
+  check('"Move section up" from its menu puts it back above Pinned', (await order()).indexOf('library') < (await order()).indexOf('pinned'), (await order()).join())
   if (process.env.QA_SHOTS) await h.screenshot({ path: `${process.env.QA_SHOTS}/side-after.png`, clip: { x: 0, y: 0, width: 260, height: 1300 } })
   // Favourite tags: none to start; the heading opens the Tags page; a heart on a Tags row (or its menu) makes one.
   const sideTags = () => h.evaluate(() => [...document.querySelectorAll('aside [data-side-tag]')].map((one) => one.getAttribute('data-side-tag')))

@@ -356,8 +356,7 @@ export function SandboxHost(): React.JSX.Element | null {
       const settings = { ...(carry?.settings ?? {}), scenery: true, sceneryFolders: [await builtInScenery()], coversFolder: '', boxAutoHide: true,
         // Its sidebar, laid out by its owner: the Feed with the writing, and the places they use most switched on.
         sidebarShown: ['inbox', 'home', 'day', 'articles', 'questions', 'nuggets', 'feed', 'review', 'today', 'calendar', 'tags', 'goals', 'queue', 'sources', 'stats', 'map', 'media', 'discarded', 'powers'],
-        sidebarOrder: ['inbox', 'home', 'day', 'articles', 'questions', 'nuggets', 'feed', 'review', 'today', 'calendar', 'weekpage', 'monthpage', 'lookups', 'goals', 'queue', 'tags', 'sources', 'stats', 'map', 'media', 'discarded', 'archived', 'powers'],
-        sidebarGroups: { feed: 'Write' } }
+        sidebarOrder: ['inbox', 'home', 'day', 'articles', 'questions', 'nuggets', 'feed', 'review', 'today', 'calendar', 'weekpage', 'monthpage', 'lookups', 'goals', 'queue', 'tags', 'sources', 'stats', 'map', 'media', 'discarded', 'archived', 'powers'] }
       // An editor on the page reads Markdown for the seed; wait for one, five seconds at most.
       for (let waited = 0; !readMarkdown('x') && waited < 5000; waited += 100) await new Promise((wait) => setTimeout(wait, 100))
       try {
