@@ -17,6 +17,13 @@ import {
  */
 const RULES: [RegExp, LucideIcon][] = [
   // Lines found falling back to the dot (test/menu-icons.test.ts lists any new ones).
+  // A table's row and column menus (table-menu.tsx): where the new one goes.
+  [/^insert row above$/i, ArrowUpToLine],
+  [/^insert row below$/i, ArrowDownToLine],
+  [/^insert column left$/i, ArrowLeft],
+  [/^insert column right$/i, ArrowRight],
+  [/^merge or split cells$/i, LayoutGrid],
+  [/^clear (row|column) contents$/i, Eraser],
   // Media: a file into a note, where it is used, and how to look at one.
   [/^put .*in a note/i, FilePlus],
   [/^used in$/i, Link],

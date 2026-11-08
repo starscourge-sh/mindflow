@@ -12,6 +12,7 @@ import {
   isPlain,
   sortByColumn
 } from '@/lib/table'
+import { MenuGlyph } from '@/components/ui/menu-icon'
 
 /**
  * Held still at module scope. Rebuilt each render it re-registers the menu's
@@ -165,7 +166,8 @@ export function TableMenu({ editor }: { editor: Editor | null }): React.JSX.Elem
     >
       {entries(editor).map((entry, index) =>
         entry ? (
-          <button key={entry[0]} type="button" onClick={entry[1]}>
+          <button key={entry[0]} type="button" onClick={entry[1]} data-danger={/^delete/i.test(entry[0]) || undefined}>
+            <MenuGlyph label={entry[0]} small />
             {entry[0]}
           </button>
         ) : (

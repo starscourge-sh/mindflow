@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { CellSelection, TableMap } from '@tiptap/pm/tables'
+import { TextSelection } from '@tiptap/pm/state'
 import { useEditorState, type Editor } from '@tiptap/react'
 
 import { grow, moveColumn, moveRow } from '@/lib/table'
@@ -16,58 +17,75 @@ interface Geometry {
   columns: { left: number; width: number; col: number }[]
 }
 
+/** The table the caret is in, as drawn. */
+function caretTable(editor: Editor): HTMLTableElement | null {
+  const { state, view } = editor
+  const { $from } = state.selection
+  for (let depth = $from.depth; depth > 0; depth--) {
+    if ($from.node(depth).type.name !== 'table') continue
+    return (view.nodeDOM($from.before(depth)) as HTMLElement | null)?.querySelector('table') ?? null
+  }
+  return null
+}
+
 /**
- * Measure the table the cursor is in.
+ * Put the caret in a cell of the table being pointed at, so the commands that
+ * act on "the table the selection is in" act on this one. A cell is named by
+ * its row and column; -1 means the last.
+ */
+function enter(editor: Editor, table: HTMLTableElement, row: number, column: number): void {
+  if (caretTable(editor) === table) return
+  const tr = table.rows[row < 0 ? table.rows.length - 1 : row]
+  const cell = tr?.cells[column < 0 ? tr.cells.length - 1 : column]
+  if (!cell) return
+  const { view } = editor
+  const at = view.state.doc.resolve(view.posAtDOM(cell, 0))
+  view.dispatch(view.state.tr.setSelection(TextSelection.near(at)))
+}
+
+/**
+ * Measure the table being pointed at, or else the one the caret is in.
  *
  * The grips are an overlay rather than markup inside the table: a `<tr>` may
  * only contain cells, so there is nowhere in the table itself to hang them.
  */
-function measure(editor: Editor): Geometry | null {
-  const { state, view } = editor
-  const { $from } = state.selection
+function measure(editor: Editor, pointed: HTMLTableElement | null): Geometry | null {
+  const { view } = editor
+  const table = pointed?.isConnected ? pointed : caretTable(editor)
+  // The overlay is positioned against the editor's own container.
+  // Everything below is in the scroller's own coordinates, not the window's.
+  // The overlay is positioned inside that scroller and scrolls with it, so a
+  // measurement taken against the window drifts by exactly how far down the
+  // document is: the grips ended up near the top of the note, far from the
+  // table they belong to.
+  const host = view.dom.parentElement
+  const origin = host?.getBoundingClientRect()
+  if (!table || !host || !origin) return null
+  const [downBy, acrossBy] = [host.scrollTop, host.scrollLeft]
 
-  for (let depth = $from.depth; depth > 0; depth--) {
-    if ($from.node(depth).type.name !== 'table') continue
+  const box = table.getBoundingClientRect()
+  const rows = [...table.rows].map((row) => {
+    const rect = row.getBoundingClientRect()
+    return { top: rect.top - origin.top + downBy, height: rect.height }
+  })
+  // A colspan fills several map columns with the same cell, so the map index
+  // has to be carried rather than inferred from the DOM position.
+  let col = 0
+  const columns = [...(table.rows[0]?.cells ?? [])].map((cell) => {
+    const rect = cell.getBoundingClientRect()
+    const entry = { left: rect.left - origin.left + acrossBy, width: rect.width, col }
+    col += cell.colSpan
+    return entry
+  })
 
-    const dom = view.nodeDOM($from.before(depth))
-    const table = (dom as HTMLElement | null)?.querySelector('table')
-    // The overlay is positioned against the editor's own container.
-    // Everything below is in the scroller's own coordinates, not the window's.
-    // The overlay is positioned inside that scroller and scrolls with it, so a
-    // measurement taken against the window drifts by exactly how far down the
-    // document is: the grips ended up near the top of the note, far from the
-    // table they belong to.
-    const host = view.dom.parentElement
-    const origin = host?.getBoundingClientRect()
-    if (!table || !host || !origin) return null
-    const [downBy, acrossBy] = [host.scrollTop, host.scrollLeft]
-
-    const box = table.getBoundingClientRect()
-    const rows = [...table.rows].map((row) => {
-      const rect = row.getBoundingClientRect()
-      return { top: rect.top - origin.top + downBy, height: rect.height }
-    })
-    // A colspan fills several map columns with the same cell, so the map index
-    // has to be carried rather than inferred from the DOM position.
-    let col = 0
-    const columns = [...(table.rows[0]?.cells ?? [])].map((cell) => {
-      const rect = cell.getBoundingClientRect()
-      const entry = { left: rect.left - origin.left + acrossBy, width: rect.width, col }
-      col += cell.colSpan
-      return entry
-    })
-
-    return {
-      top: box.top - origin.top + downBy,
-      left: box.left - origin.left + acrossBy,
-      width: box.width,
-      height: box.height,
-      rows,
-      columns
-    }
+  return {
+    top: box.top - origin.top + downBy,
+    left: box.left - origin.left + acrossBy,
+    width: box.width,
+    height: box.height,
+    rows,
+    columns
   }
-
-  return null
 }
 
 /** Which row and column the pointer is over, or null when it has left. */
@@ -86,6 +104,13 @@ const MARGIN = 24
  */
 export function TableControls({ editor }: { editor: Editor | null }): React.JSX.Element | null {
   const [geometry, setGeometry] = useState<Geometry | null>(null)
+  // The table under the pointer, so its edges answer before anyone clicks in
+  // it: the "+" bars and grips show on hover, as Notion's do, with the caret
+  // anywhere in the note. Null leaves them to the table the caret is in.
+  const [pointed, setPointed] = useState<HTMLTableElement | null>(null)
+  // Where the pointer last was, so a table measured after the pointer arrived
+  // shows its grips at once rather than at the next move.
+  const pointer = useRef<{ clientX: number; clientY: number } | null>(null)
 
   // Re-measure on any transaction while in a table: typing in a cell resizes
   // it. Elsewhere once, on the way out: redrawing on every key typed outside
@@ -103,9 +128,9 @@ export function TableControls({ editor }: { editor: Editor | null }): React.JSX.
   useLayoutEffect(() => {
     if (!editor) return
     // The DOM has not been laid out yet on the transaction that changed it.
-    const id = requestAnimationFrame(() => setGeometry(measure(editor)))
+    const id = requestAnimationFrame(() => setGeometry(measure(editor, pointed)))
     return () => cancelAnimationFrame(id)
-  }, [editor, version])
+  }, [editor, version, pointed])
 
   // A wide table scrolls inside its own wrapper, which fires no transaction -
   // without this the grips stay put while the columns slide under them. Every
@@ -117,10 +142,10 @@ export function TableControls({ editor }: { editor: Editor | null }): React.JSX.
     if (!editor) return
     const dom = page
     if (!dom) return
-    const onScroll = (): void => setGeometry(measure(editor))
+    const onScroll = (): void => setGeometry(measure(editor, pointed))
     dom.addEventListener('scroll', onScroll, { capture: true, passive: true })
     return () => dom.removeEventListener('scroll', onScroll, { capture: true })
-  }, [page, editor])
+  }, [page, editor, pointed])
 
   /** Select a whole row or column by its index. */
   const select = useCallback(
@@ -157,10 +182,33 @@ export function TableControls({ editor }: { editor: Editor | null }): React.JSX.
   const [hover, setHover] = useState<Hover>(null)
   const host = page?.parentElement ?? null
 
+  // Which table the pointer is over. Kept while the pointer goes out to the
+  // grips and bars, which sit outside the table; let go once it is clear of
+  // them (below). A table in a note shown inside this one belongs to that
+  // note's own editor, so only this page's tables count.
+  useEffect(() => {
+    if (!host || !page) return
+    const onMove = (event: MouseEvent): void => {
+      pointer.current = { clientX: event.clientX, clientY: event.clientY }
+      const table = (event.target as Element | null)?.closest?.('.tableWrapper')?.querySelector('table') ?? null
+      if (table && table.closest('.ProseMirror') === page) setPointed((was) => (was === table ? was : table))
+    }
+    const onLeave = (): void => {
+      pointer.current = null
+      setPointed(null)
+    }
+    host.addEventListener('mousemove', onMove)
+    host.addEventListener('mouseleave', onLeave)
+    return () => {
+      host.removeEventListener('mousemove', onMove)
+      host.removeEventListener('mouseleave', onLeave)
+    }
+  }, [host, page])
+
   useEffect(() => {
     if (!host || !geometry) return
 
-    const onMove = (event: MouseEvent): void => {
+    const onMove = (event: { clientX: number; clientY: number }): void => {
       const origin = host.getBoundingClientRect()
       const x = event.clientX - origin.left + host.scrollLeft
       const y = event.clientY - origin.top + host.scrollTop
@@ -169,7 +217,10 @@ export function TableControls({ editor }: { editor: Editor | null }): React.JSX.
         x <= geometry.left + geometry.width + MARGIN &&
         y >= geometry.top - MARGIN &&
         y <= geometry.top + geometry.height + MARGIN
-      if (!near) return setHover(null)
+      if (!near) {
+        setPointed(null)
+        return setHover(null)
+      }
 
       // Past the last edge means the margin outside the table, which is where
       // the grips themselves sit, so that counts as the last row or column.
@@ -190,6 +241,7 @@ export function TableControls({ editor }: { editor: Editor | null }): React.JSX.
     }
     const onLeave = (): void => setHover(null)
 
+    if (pointer.current) onMove(pointer.current)
     host.addEventListener('mousemove', onMove)
     host.addEventListener('mouseleave', onLeave)
     return () => {
@@ -251,10 +303,12 @@ export function TableControls({ editor }: { editor: Editor | null }): React.JSX.
       type="button"
       className={`tiptap-table-grip is-${axis}`}
       tabIndex={-1}
-      title={`Select or move this ${axis}`}
+      aria-label={`Select or move this ${axis}`}
       style={style}
       onPointerDown={(event) => {
         event.currentTarget.setPointerCapture(event.pointerId)
+        const table = pointed ?? caretTable(editor)
+        if (table) enter(editor, table, axis === 'row' ? hover.row : 0, axis === 'row' ? 0 : hover.column)
         setDrag({ axis, from: index, to: index })
       }}
       onPointerMove={(event) => {
@@ -289,13 +343,15 @@ export function TableControls({ editor }: { editor: Editor | null }): React.JSX.
       type="button"
       className={`tiptap-table-add is-${axis}`}
       tabIndex={-1}
-      title={`Click to add a ${axis}. Drag to add or remove ${axis}s.`}
+      aria-label={`Add a ${axis}. Drag to add or remove ${axis}s.`}
       style={style}
       onPointerDown={(event) => {
         // Keeps the caret in the table: without focus there is no table to
         // measure, and the bars would vanish under the pointer.
         event.preventDefault()
         event.currentTarget.setPointerCapture(event.pointerId)
+        const table = pointed ?? caretTable(editor)
+        if (table) enter(editor, table, -1, -1)
         from.current = axis === 'row' ? event.clientY : event.clientX
         added.current = 0
       }}
