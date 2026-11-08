@@ -351,7 +351,7 @@ export function RoutineNumbers({ done, recurrence }: { done: { at: string }[]; r
           <div data-chart="kept-up" className="grid w-fit grid-flow-col grid-rows-1 gap-[3px]" role="img" aria-label="The last four weeks">
             {grid.map((day) => (
               <Tip key={day} label={`${dated(day, 'ddd D MMM')} · ${days.has(day) ? 'done' : 'not done'}`}>
-                <div {...(days.has(day) ? { 'data-mark': '' } : {})} className="size-2 rounded-full" style={{ background: days.has(day) ? INK : INK_NONE }} />
+                <div {...(days.has(day) ? { 'data-mark': '' } : {})} className="size-2.5 rounded-[2px]" style={{ background: days.has(day) ? INK : INK_NONE }} />
               </Tip>
             ))}
           </div>

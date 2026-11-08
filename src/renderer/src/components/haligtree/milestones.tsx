@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactElement } from 'react'
 import { TIP } from '@/lib/float'
-import { DOT, DOT_INK, DotRule, GAP, STEP } from './time-dots'
+import { GAP, STEP, STROKE_INK, StrokeAxis, StrokeRule, Strokes, placeNames, strokeAt, textWidth } from './time-strokes'
 import { useReading } from '@/lib/reads-in'
 import { FlagTriangleRight } from 'lucide-react'
 
@@ -350,18 +350,22 @@ function CalendarKey(): React.JSX.Element {
   )
 }
 
-// --- the year as dots
+// --- the year as strokes
 
-/** Rough width of a label, to keep two from running into each other. */
-const labelWidth = (one: Milestone): number => Math.min(150, one.title.length * 6.2 + (one.icon ? 16 : 6) + 6)
+/** A mark's name as it is drawn over its stroke: its icon, then its title. */
+const markName = (one: Milestone): string => `${one.icon ? `${one.icon} ` : ''}${one.title}`
+/** The height of one line of names over the strokes. */
+const NAME_LINE = 16
 
 /**
- * The year as dots, the Goals road's own look (time-dots.tsx): a dot a day,
- * a column a week with Monday at the top, January at the left. The days gone
- * solid, the days ahead faint, today in the accent, and each marked day in
- * its own colour with a ring, named under its week. The months are named
- * under the dots. Pointed at, a day says which it is; clicked, it opens or is
- * marked; right-clicked, it can be marked.
+ * The year as strokes (time-strokes.tsx): a hairline a day, January at the
+ * left. The days gone in solid ink, the days ahead faint, today a taller
+ * stroke in the accent, and each marked day a taller stroke in its own colour
+ * reaching up to its name, which never sits on another name or runs past the
+ * chart; a name with no room is said under the year. The months are named
+ * under the strokes. A window too narrow for the whole year draws it in two,
+ * three or four bands of months, never squeezing a day. Pointed at, a day
+ * says which it is; clicked, it opens or is marked; right-clicked, it can be marked.
  */
 export function YearMarks({ year, onOpenDay }: { year: string; onOpenDay?: (day: string) => void }): React.JSX.Element {
   const all = useMilestones(`${year}-01-01`, `${year}-12-31`)
@@ -381,113 +385,95 @@ export function YearMarks({ year, onOpenDay }: { year: string; onOpenDay?: (day:
   }, [])
   const start = dayjs(`${year}-01-01`).hour(12)
   const days = start.endOf('year').diff(start.startOf('day'), 'day') + 1
-  // Monday at the top: the first of January sits in its weekday's row.
-  const lead = (start.day() + 6) % 7
-  const weeks = Math.ceil((lead + days) / 7)
-  // Packed at the road's own size; a window too narrow for a year of weeks packs them tighter, never past the card.
-  const step = w ? Math.min(STEP, (w + GAP) / weeks) : STEP
-  const dot = step >= STEP ? DOT : Math.max(4, step - 2.5)
-  const width = weeks * step - (step - dot)
-  const height = 7 * step - (step - dot)
   const today = dayKey()
   const at = today.startsWith(year) ? daysBetween(`${year}-01-01`, today) : today < year ? -1 : days
   const dayAt = (d: number): string => dayKey(start.add(d, 'day'))
   const indexOf = (day: string): number => daysBetween(`${year}-01-01`, day)
-  const colOf = (d: number): number => Math.floor((lead + d) / 7)
-  const rowOf = (d: number): number => (lead + d) % 7
+  const monthStart = (m: number): number => (m >= 12 ? days : indexOf(dayKey(start.add(m, 'month').startOf('month'))))
+  // The whole year in one band when it fits, else two, three or four bands of whole months.
+  const parts = [1, 2, 3, 4].find((n) => !w || Array.from({ length: n }, (_, b) => (monthStart(((b + 1) * 12) / n) - monthStart((b * 12) / n)) * STEP - GAP).every((one) => one <= w)) ?? 4
+  const bands = Array.from({ length: parts }, (_, b) => ({ from: monthStart((b * 12) / parts), to: monthStart(((b + 1) * 12) / parts), firstMonth: (b * 12) / parts, months: 12 / parts }))
+  const sorted = [...all].sort((a, b) => a.day.localeCompare(b.day))
   const markOn = new Map<number, Milestone>()
-  for (const one of [...all].sort((a, b) => a.day.localeCompare(b.day))) if (!markOn.has(indexOf(one.day))) markOn.set(indexOf(one.day), one)
-  // Each mark named under its week, on the first of two lines with room for its whole name, right of its dot or else
-  // ending at it; one with no room on either is said when its dot is pointed at.
-  type Spot = { one: Milestone; line: number; from: number; to: number; flip: boolean }
-  const taken: Spot[][] = [[], []]
-  for (const one of [...all].sort((a, b) => a.day.localeCompare(b.day))) {
-    const x = colOf(indexOf(one.day)) * step
-    const want = labelWidth(one)
-    const tries: [number, boolean][] = [[0, false], [1, false], [0, true], [1, true]]
-    for (const [line, flip] of tries) {
-      const from = flip ? x + dot - want : x
-      const to = from + want
-      if (from < 0 || to > Math.max(width, w)) continue
-      if (taken[line].some((was) => from < was.to + 6 && to > was.from - 6)) continue
-      taken[line].push({ one, line, from, to, flip })
-      break
-    }
-  }
-  const named = taken.flat()
-  const months = Array.from({ length: 12 }, (_, m) => ({ name: start.add(m, 'month').format('MMM'), x: colOf(indexOf(dayKey(start.add(m, 'month').startOf('month')))) * step }))
-  const fromPointer = (clientX: number, clientY: number): number | null => {
-    const rect = box.current?.querySelector('svg')?.getBoundingClientRect()
-    if (!rect) return null
-    const col = Math.floor((clientX - rect.left + GAP / 2) / step)
-    const row = Math.floor((clientY - rect.top + GAP / 2) / step)
-    if (col < 0 || row < 0 || row > 6) return null
-    const d = col * 7 + row - lead
-    return d >= 0 && d < days ? d : null
+  for (const one of sorted) if (!markOn.has(indexOf(one.day))) markOn.set(indexOf(one.day), one)
+  // Each band's names over its marked strokes, on up to three lines; the rest are said under the year.
+  // Each band's hairlines spread across the card, as the year always was: never closer than the one step.
+  const stepOf = (band: { from: number; to: number }): number => (w ? Math.max(STEP, (w + GAP) / (band.to - band.from)) : STEP)
+  const placed = bands.map((band) => {
+    const step = stepOf(band)
+    const width = (band.to - band.from) * step - GAP
+    const marks = [...markOn.entries()].filter(([d]) => d >= band.from && d < band.to).map(([d, one]) => ({ one, d, x: (d - band.from) * step, w: textWidth(markName(one), 11, 500) + 2 }))
+    // Names may run on past the band's last day, up to the chart's own edge.
+    return placeNames(marks, Math.max(width, w), 3)
+  })
+  const named = new Set(placed.flat().filter((one) => one.row !== null).map((one) => one.one.id))
+  const fromPointer = (clientX: number, svg: SVGSVGElement | null, band: { from: number; to: number }): number | null => {
+    if (!svg) return null
+    const d = strokeAt(clientX, svg.getBoundingClientRect().left, band.to - band.from, stepOf(band))
+    return d === null ? null : band.from + d
   }
   const near = hover === null ? null : markOn.get(hover) ?? null
   const gone = Math.max(0, Math.min(days, at))
+  const open = (): void => {
+    if (hover === null) return
+    const day = dayAt(hover)
+    const one = markOn.get(hover) ?? onDay(all, day)[0]
+    chime('tap')
+    if (one) void markDay(one.day, one)
+    else if (onOpenDay) onOpenDay(day)
+    else void markDay(day)
+  }
   return (
     <DayMarkMenu day={aimed} all={all} onOpenDay={onOpenDay}>
       <figure data-year-marks aria-label={`${year}, with ${num(all.length)} marked ${all.length === 1 ? 'day' : 'days'}`} className="mf-chart relative grid min-w-0 grid-cols-[minmax(0,1fr)] gap-2"
-        onContextMenuCapture={(event) => setAimed(dayAt(fromPointer(event.clientX, event.clientY) ?? Math.max(0, Math.min(days - 1, at))))}>
+        onContextMenuCapture={() => setAimed(dayAt(hover ?? Math.max(0, Math.min(days - 1, at))))}>
         <p data-year-marks-said className="text-control font-medium text-foreground tabular-nums">
           {at < 0 ? `${year} is ahead` : at >= days ? `${year} is gone` : `Day ${num(at + 1)} of ${num(days)}`}{all.length ? `, ${plural(all.length, 'day', 'days')} marked` : ''}
         </p>
-        <DotRule>Each dot is a day, the solid ones gone; a coloured dot is a day you marked</DotRule>
-        <div ref={box} className="relative w-full min-w-0">
-          <svg role="img" aria-label={`${num(gone)} of ${num(days)} days gone`} width={width} height={height} className="block max-w-full cursor-pointer overflow-visible"
-            onPointerMove={(event) => setHover(fromPointer(event.clientX, event.clientY))} onPointerLeave={() => setHover(null)}
-            onClick={() => {
-              if (hover === null) return
-              const day = dayAt(hover)
-              const one = markOn.get(hover) ?? onDay(all, day)[0]
-              chime('tap')
-              if (one) void markDay(one.day, one)
-              else if (onOpenDay) onOpenDay(day)
-              else void markDay(day)
-            }}>
-            {Array.from({ length: days }, (_, d) => {
-              const one = markOn.get(d)
-              const cx = colOf(d) * step + dot / 2
-              const cy = rowOf(d) * step + dot / 2
-              return (
-                <g key={d} data-year-day={dayAt(d)} {...(one ? { 'data-year-marked': one.title } : {})}>
-                  {(one || hover === d) && <circle cx={cx} cy={cy} r={dot / 2 + 1.5} fill="none" stroke={one ? inkOf(one) : 'var(--foreground)'} strokeWidth={1} />}
-                  <circle data-dot cx={cx} cy={cy} r={dot / 2} fill={one ? inkOf(one) : d === at ? DOT_INK.here : d < at ? DOT_INK.gone : DOT_INK.ahead} />
-                </g>
-              )
-            })}
-          </svg>
-          <div aria-hidden data-year-months className="relative mt-1 h-3.5 text-[11px] leading-none text-muted-foreground" style={{ width }}>
-            {months.map((month) => <span key={month.name} className="absolute top-0 whitespace-nowrap" style={month.x + month.name.length * 6.5 + 2 > width ? { right: 0 } : { left: month.x }}>{month.name}</span>)}
-          </div>
-          {named.length > 0 && (
-            <div data-year-names className="relative mt-1" style={{ width, height: (Math.max(...named.map((one) => one.line)) + 1) * 16 }}>
-              {named.map(({ one, line, from, to }) => (
-                <span key={one.id} data-mark-label title={one.title} className="absolute flex items-center gap-1 text-[0.6875rem] leading-[1rem] font-medium whitespace-nowrap"
-                  style={{ left: from, maxWidth: to - from, top: line * 16, color: inkOf(one) }}>
-                  {one.icon && <span className="leading-none">{one.icon}</span>}
-                  <span className="truncate">{one.title}</span>
-                </span>
-              ))}
-            </div>
-          )}
-          {/* The marks with no room under their week, named here, in date order: none is left to a hover alone. */}
-          {all.length > named.length && (
-            <p data-year-also className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[0.6875rem] leading-[1rem] text-muted-foreground">
+        <StrokeRule>Each stroke is a day, the solid ones gone; a taller coloured stroke is a day you marked</StrokeRule>
+        <div ref={box} className="grid w-full min-w-0 gap-3">
+          {bands.map((band, b) => {
+            const count = band.to - band.from
+            const step = stepOf(band)
+            const width = count * step - GAP
+            const names = placed[b]
+            const lines = Math.max(0, ...names.map((one) => (one.row ?? -1) + 1))
+            const rowOf = new Map(names.map((one) => [one.d, one.row]))
+            const ticks = Array.from({ length: band.months }, (_, m) => ({ x: (monthStart(band.firstMonth + m) - band.from) * step, text: start.add(band.firstMonth + m, 'month').format('MMM') }))
+            return (
+              <div key={band.from} data-year-band className="relative" style={{ width }}>
+                {lines > 0 && (
+                  <div data-year-names className="relative" style={{ height: lines * NAME_LINE }}>
+                    {names.filter((one) => one.row !== null).map(({ one, row, left }) => (
+                      <span key={one.id} data-mark-label className="absolute text-[11px] leading-4 font-medium whitespace-nowrap"
+                        style={{ left, top: (lines - 1 - (row ?? 0)) * NAME_LINE, color: inkOf(one) }}>{markName(one)}</span>
+                    ))}
+                  </div>
+                )}
+                <Strokes count={count} step={step} role="img" aria-label={b === 0 ? `${num(gone)} of ${num(days)} days gone` : undefined} className="cursor-pointer"
+                  ink={(i) => { const d = band.from + i; const one = markOn.get(d); return one ? inkOf(one) : d === at ? STROKE_INK.here : d < at ? STROKE_INK.gone : STROKE_INK.ahead }}
+                  tall={(i) => { const d = band.from + i; const row = rowOf.get(d); return row !== undefined ? (row === null ? true : row * NAME_LINE + NAME_LINE / 2) : d === at || hover === d }}
+                  attrs={(i) => { const one = markOn.get(band.from + i); return { 'data-year-day': dayAt(band.from + i), 'data-year-marked': one?.title } }}
+                  onPointerMove={(event) => setHover(fromPointer(event.clientX, event.currentTarget, band))} onPointerLeave={() => setHover(null)} onClick={open} />
+                <div data-year-months><StrokeAxis ticks={ticks} width={width} /></div>
+                {hover !== null && hover >= band.from && hover < band.to && (
+                  <span className={`pointer-events-none absolute z-10 -translate-x-1/2 whitespace-nowrap ${TIP}`}
+                    style={{ left: Math.max(70, Math.min(Math.max(width, 140) - 70, (hover - band.from) * step)), top: '100%', marginTop: 4 }}>
+                    <span className="font-medium">{dayMonth(`${dayAt(hover)}T12:00`)}</span>
+                    <span className="text-muted-foreground"> · {near ? markName(near) : onOpenDay ? 'click for its page' : 'click to mark it'}</span>
+                  </span>
+                )}
+              </div>
+            )
+          })}
+          {/* The marks with no room over their strokes, named here, in date order: none is left to a hover alone. */}
+          {all.length > named.size && (
+            <p data-year-also className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] leading-4 text-muted-foreground">
               <span>Also marked:</span>
-              {[...all].sort((a, b) => a.day.localeCompare(b.day)).filter((one) => !named.some((was) => was.one.id === one.id)).map((one) => (
-                <span key={one.id} data-mark-label className="font-medium whitespace-nowrap" style={{ color: inkOf(one) }}>{one.icon ? `${one.icon} ` : ''}{one.title} <span className="font-normal text-muted-foreground">{dayMonth(`${one.day}T12:00`)}</span></span>
+              {sorted.filter((one) => !named.has(one.id)).map((one) => (
+                <span key={one.id} data-mark-label className="font-medium whitespace-nowrap" style={{ color: inkOf(one) }}>{markName(one)} <span className="font-normal text-muted-foreground">{dayMonth(`${one.day}T12:00`)}</span></span>
               ))}
             </p>
-          )}
-          {hover !== null && (
-            <span className={`pointer-events-none absolute z-10 -translate-x-1/2 whitespace-nowrap ${TIP}`}
-              style={{ left: Math.max(70, Math.min(Math.max(width, 140) - 70, colOf(hover) * step + dot / 2)), top: height + 6 }}>
-              <span className="font-medium">{dayMonth(`${dayAt(hover)}T12:00`)}</span>
-              <span className="text-muted-foreground"> · {near ? `${near.icon ? `${near.icon} ` : ''}${near.title}` : onOpenDay ? 'click for its page' : 'click to mark it'}</span>
-            </span>
           )}
         </div>
       </figure>

@@ -1,5 +1,5 @@
 import type { Occlusion } from '../../../../main/occlusion'
-import { DOT, DOT_INK, DotEnds, DotRule, GAP, STEP, pagesPerDot } from './time-dots'
+import { DOT_INK, DotEnds, DotRule, SQUARE, SQUARE_GAP, SQUARE_STEP, pagesPerDot } from './time-dots'
 import { TabControls, useToolbarCompact } from './review-toolbar'
 import { swallowRelease } from './carry'
 import { TABLE_LEAD, TABLE_NAME, TABLE_QUIET, TABLE_ROW, TABLE_WHEN, TableHead } from './table-look'
@@ -209,10 +209,10 @@ function DueAhead({ cards }: { cards: BrowsedCard[] }): React.JSX.Element | null
 export const coverageOf = (cards: BrowsedCard[]): boolean => new Set(cards.map(pageOf).filter((one) => one !== null)).size >= 2
 
 /**
- * A book's pages as a row of dots (time-dots.tsx), from page 1 to the last
+ * A book's pages as a row of squares (time-dots.tsx), from page 1 to the last
  * page with a card: solid where a stretch of pages has cards, faint where it
  * has none, so the parts of a book you never made cards from show at a glance.
- * The point first, then what a dot is; the dots wrap, never stretch.
+ * The point first, then what a square is; the squares wrap, never stretch.
  */
 export function Coverage({ cards }: { cards: BrowsedCard[] }): React.JSX.Element | null {
   const pages = [...new Set(cards.map(pageOf).filter((one): one is number => one !== null))]
@@ -223,10 +223,10 @@ export function Coverage({ cards }: { cards: BrowsedCard[] }): React.JSX.Element
   const lit = new Set(pages.map((page) => Math.floor((page - 1) / per)))
   return (
     <div data-coverage className="grid min-w-0 gap-1.5 px-2 pt-1 pb-2">
-      <DotRule><span data-coverage-said className="font-medium text-foreground tabular-nums">{num(pages.length)} of {num(last)} pages have cards.</span> Each dot is {per === 1 ? 'a page' : `${num(per)} pages`}, solid where there are cards.</DotRule>
-      <div className="max-w-full" style={{ width: Math.min(dots, 30) * STEP - GAP }}>
-        <div aria-hidden data-coverage-dots className="grid" style={{ gridTemplateColumns: `repeat(auto-fill, ${DOT}px)`, gap: GAP }}>
-          {Array.from({ length: dots }, (_, at) => <span key={at} data-dot={lit.has(at) ? 'lit' : 'none'} className="size-2 rounded-full" style={{ background: lit.has(at) ? DOT_INK.gone : DOT_INK.ahead }} />)}
+      <DotRule><span data-coverage-said className="font-medium text-foreground tabular-nums">{num(pages.length)} of {num(last)} pages have cards.</span> Each square is {per === 1 ? 'a page' : `${num(per)} pages`}, solid where there are cards.</DotRule>
+      <div className="max-w-full" style={{ width: Math.min(dots, 30) * SQUARE_STEP - SQUARE_GAP }}>
+        <div aria-hidden data-coverage-dots className="grid" style={{ gridTemplateColumns: `repeat(auto-fill, ${SQUARE}px)`, gap: SQUARE_GAP }}>
+          {Array.from({ length: dots }, (_, at) => <span key={at} data-dot={lit.has(at) ? 'lit' : 'none'} className="size-2.5 rounded-[2px]" style={{ background: lit.has(at) ? DOT_INK.gone : DOT_INK.ahead }} />)}
         </div>
         <DotEnds left="p. 1" right={`p. ${num(last)}`} />
       </div>

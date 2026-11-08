@@ -1824,7 +1824,7 @@ html:is([data-width='page'], [data-width='wide']) .pdf-library-column,
   line-height: 1.4;
 }
 
-/* The book's length as dots, the Goals road's own look (time-dots.tsx): the point over them, the first and last page under. */
+/* The book's length as a thin track and strokes (time-strokes.tsx): the point over it, the first and last page under. */
 .book-bar {
   display: flex;
   flex-direction: column;
@@ -1837,45 +1837,71 @@ html:is([data-width='page'], [data-width='wide']) .pdf-library-column,
 }
 
 .book-bar-strip {
-  max-width: 100%;
-  /* Room for the rings round marked dots, so nothing at the edge is clipped. */
-  padding: 3px;
-  margin: -3px;
-  box-sizing: content-box;
+  position: relative;
+  height: 1.25rem;
+  margin: 0 0.25rem;
 }
 
-.book-bar-dots {
-  display: grid;
+.book-bar-strip::before {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 4px;
+  border-radius: 2px;
+  background-color: color-mix(in oklab, var(--foreground) 10%, transparent);
+  content: "";
 }
 
-.book-bar-dot {
-  display: block;
-  width: 8px;
-  height: 8px;
-  border-radius: 9999px;
-  transition: transform 120ms ease-out;
+.book-bar-read {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 4px;
+  border-radius: 2px;
+  background-color: color-mix(in oklab, var(--tt-brand-color-500, #c08a2e) 55%, transparent);
 }
 
-/* A marked stretch: the whole dot its target, the hand over it. */
+/* You are here: over every tick and a little above them, in ink with a ring of the page around it, so it stands out of any crowd. */
+.book-bar-here {
+  position: absolute;
+  z-index: 1;
+  top: -4px;
+  bottom: -2px;
+  width: 3px;
+  margin-left: -1.5px;
+  border-radius: 2px;
+  background-color: var(--foreground);
+  box-shadow: 0 0 0 2px var(--background);
+  pointer-events: none;
+}
+
+/* A stretch of pages: a tick up from the strip, taller where more gathers. */
 .book-bar-tick {
-  display: block;
-  padding: 0;
-  border: 0;
-  background: none;
+  position: absolute;
+  top: 0;
+  bottom: 6px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
   cursor: pointer;
 }
 
-/* Pointed at with a mouse, or reached with Tab, a marked dot grows a little: never on touch, never with reduced motion. */
-@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
-  .book-bar-tick:hover .book-bar-dot {
-    transform: scale(1.3);
-  }
+.book-bar-heat {
+  width: max(2px, 60%);
+  height: calc(20% + 80% * var(--fill, 1));
+  border-radius: 1px;
+  background-color: color-mix(in oklab, var(--tt-brand-color-500, #c08a2e) 75%, transparent);
+  transition: background-color 120ms ease-out;
 }
 
-.book-bar-tick:focus-visible {
-  outline: 2px solid color-mix(in oklab, var(--ring) 70%, transparent);
-  outline-offset: 2px;
-  border-radius: 9999px;
+.book-bar-heat.is-note {
+  background-color: color-mix(in oklab, var(--foreground) 55%, transparent);
+}
+
+.book-bar-tick:hover .book-bar-heat,
+.book-bar-tick:focus-visible .book-bar-heat {
+  background-color: var(--foreground);
 }
 
 .book-bar-ends {

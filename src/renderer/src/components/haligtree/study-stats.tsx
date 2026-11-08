@@ -4,7 +4,7 @@ import { chime } from '@/lib/sound'
 import { useLayoutEffect, useRef, useState } from 'react'
 import { INK_STEPS, inkShade, Ends, Funnel, MonoCard, PillBars, Spline, Switch, ToneBar, Chip, useHover } from './mono-card'
 import { N, Section } from './stats-view'
-import { DOT, DotRule, GAP } from './time-dots'
+import { DotRule, SQUARE, SQUARE_GAP as GAP } from './time-dots'
 import { dayMonth, dayjs, num, plural } from '../../../../main/dates'
 
 /** What `study:stats` hands back (haligtree.ts). */
@@ -97,7 +97,7 @@ function DayCells({ days, say, onHover, rows, cell, left, right }: { days: { day
       <div className="grid shrink-0 gap-1">
         <div data-day-cells className="grid" style={{ ...flow, gap: 3 }} onPointerLeave={() => (setOn(null), onHover(null))}>
           {days.map((one) => <span key={one.day} data-day={one.day} data-n={one.n} {...(on === one.day ? { 'data-day-on': '' } : {})} onPointerEnter={() => (setOn(one.day), onHover(say(one)))}
-            className={`${single ? '' : 'aspect-square'} rounded-full ${on === one.day ? 'transition-none' : 'transition-[box-shadow] duration-[120ms]'}`} style={{ background: shadeOf(stepOf(one.n, most)), boxShadow: ringOf(one.day === today, on === one.day) }} />)}
+            className={`${single ? '' : 'aspect-square'} rounded-[2px] ${on === one.day ? 'transition-none' : 'transition-[box-shadow] duration-[120ms]'}`} style={{ background: shadeOf(stepOf(one.n, most)), boxShadow: ringOf(one.day === today, on === one.day) }} />)}
         </div>
         {single && <div aria-hidden data-day-mondays className="grid h-1" style={{ gridTemplateColumns: `repeat(${days.length}, ${cell}px)`, gap: 3 }}>{days.map((day) => <span key={day.day} className={`mx-auto h-1 w-px ${dayjs(day.day).day() === 1 ? 'bg-foreground/35' : ''}`} />)}</div>}
         <Ends left={left} right={right} />
@@ -142,9 +142,9 @@ function StudyCards({ studied }: { studied: Studied }): React.JSX.Element {
       <div data-study-month className="sm:col-span-2" {...(span === 'year' ? { 'data-study-year': '' } : {})}>
         <MonoCard name="reviews" title={span === 'month' ? 'Cards reviewed each day' : 'Days you reviewed'} value={span === 'month' ? reviews : yearTotal} unit={`${(span === 'month' ? reviews : yearTotal) === 1 ? 'review' : 'reviews'} in ${span === 'month' ? '30 days' : 'a year'}`}
           side={<Switch options={[{ id: 'month', label: '30 days' }, { id: 'year', label: 'Year' }]} value={span} pick={setSpan} />}
-          hovered={onReviews} point="A dot a day: the darker, the more cards." enough={reviewDays >= DRAW_DAYS}
+          hovered={onReviews} point="A square a day: the darker, the more cards." enough={reviewDays >= DRAW_DAYS}
           sparse={reviewDays ? `Reviewed on ${plural(reviewDays, 'day', 'days')} so far. Review on ${DRAW_DAYS} days to see each day here.` : `No reviews ${span === 'month' ? 'in 30 days' : 'this year'} yet: a review in Review shows here.`}>
-          <DayCells key={span} days={days} say={reviewsSaid} onHover={sayReviews} rows={span === 'month' ? 1 : 7} cell={DOT} left={span === 'month' ? '30 days ago' : 'a year ago'} right="today" />
+          <DayCells key={span} days={days} say={reviewsSaid} onHover={sayReviews} rows={span === 'month' ? 1 : 7} cell={SQUARE} left={span === 'month' ? '30 days ago' : 'a year ago'} right="today" />
         </MonoCard>
       </div>
       <MonoCard name="minutes" title="Minutes reviewing each day" value={Math.round(shownMinutes.reduce((sum, one) => sum + one.n, 0))} unit={`${Math.round(shownMinutes.reduce((sum, one) => sum + one.n, 0)) === 1 ? 'minute' : 'minutes'} in ${range === 'week' ? '7' : '30'} days`} chips={studiedDays ? <Chip>{plural(studiedDays, 'day', 'days')}</Chip> : undefined}
@@ -225,7 +225,7 @@ export function StudyYear({ compact = false }: { /** Above the decks: the same y
   const studied = useLive(() => window.api.haligtree('study:stats') as Promise<Studied>, null as Studied | null, [], ['item'])
   const [on, setOn] = useState<string | null>(null)
   const [point, setPoint] = useState<number | null>(null)
-  const cell = DOT
+  const cell = SQUARE
   // As many whole weeks as its card has room for, up to a year: on a narrow window the oldest weeks are left out,
   // not cut through at the card's edge with their month names ("Jan" in half).
   const box = useRef<HTMLDivElement>(null)
@@ -270,7 +270,7 @@ export function StudyYear({ compact = false }: { /** Above the decks: the same y
     return (
       <span key={one.day} data-day={one.day} data-n={n} {...(one.day === todayKey ? { 'data-today': '' } : {})} {...(pointed ? { 'data-day-on': '' } : {})}
         onPointerEnter={() => one.later ? (setPoint(null), setOn(null)) : (setPoint(at), setOn(`${plural(n, 'review', 'reviews')}, ${dayWords(one.day)}${one.day === todayKey ? ' (today)' : ''}`))}
-        className={`rounded-full ${pointed ? 'transition-none' : 'transition-[box-shadow] duration-[120ms]'}`}
+        className={`rounded-[2px] ${pointed ? 'transition-none' : 'transition-[box-shadow] duration-[120ms]'}`}
         style={{ width: cell, height: cell, background: one.later ? 'transparent' : shade(level(n)), boxShadow: ringOf(one.day === todayKey, pointed) }} />
     )
   })
@@ -291,11 +291,11 @@ export function StudyYear({ compact = false }: { /** Above the decks: the same y
           </p>
         ))}
       </div></div>
-      {/* What a dot is, in the Goals road's own line, its key drawn as the dots themselves. */}
-      <DotRule className="flex flex-wrap items-center gap-x-1.5">Each dot is a day, the darker the more cards you reviewed
-        <span aria-hidden data-year-key className="inline-flex items-center gap-[3px]">{INK.map((_, step) => <span key={step} className="rounded-full" style={{ width: cell, height: cell, background: shade(step) }} />)}</span>
+      {/* What a square is, in one line, its key drawn as the squares themselves. */}
+      <DotRule className="flex flex-wrap items-center gap-x-1.5">Each square is a day, the darker the more cards you reviewed
+        <span aria-hidden data-year-key className="inline-flex items-center gap-[3px]">{INK.map((_, step) => <span key={step} className="rounded-[2px]" style={{ width: cell, height: cell, background: shade(step) }} />)}</span>
       </DotRule>
-      {/* The latest weeks always show: on a narrow window the oldest are cut on the left. The months under the dots, as on the road. */}
+      {/* The latest weeks always show: on a narrow window the oldest are cut on the left. The months under the squares. */}
       <div ref={box} className="-mx-1 -mt-2 -mb-1 flex overflow-hidden p-1">
         <div className="grid shrink-0 grid-cols-[auto_auto] gap-x-1.5 gap-y-1 text-[11px] leading-none text-muted-foreground">
           <div aria-hidden className="grid" style={{ gridTemplateRows: `repeat(7, ${cell}px)`, rowGap: GAP }}>{['Mon', '', 'Wed', '', 'Fri', '', ''].map((name, at) => <span key={at} className={`${at === pointRow ? 'text-foreground transition-none' : 'transition-colors duration-[120ms]'} flex items-center text-[10px]`}>{name}</span>)}</div>

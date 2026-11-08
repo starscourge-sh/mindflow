@@ -140,8 +140,8 @@ export function useHover(): [string | null, (said: string | null) => void] {
 }
 
 /**
- * Dot-matrix days: one round dot per day in columns, the darker the more.
- * The dots fill in, oldest first; the one pointed at grows to 1.35.
+ * Day squares: one small square per day in columns, the darker the more.
+ * The squares fill in, oldest first; the one pointed at grows to 1.35.
  */
 export function DotMatrix({ days, say, onHover, columns = 7, dot = 14 }: { days: { day: string; n: number }[]; say: (day: { day: string; n: number }) => string; onHover: (said: string | null) => void; /** Rows: 7 for a year of weeks, fewer for a month in one wide band. */ columns?: number; /** The widest a dot may grow, in px. */ dot?: number }): React.JSX.Element {
   const still = useStillness()
@@ -157,7 +157,7 @@ export function DotMatrix({ days, say, onHover, columns = 7, dot = 14 }: { days:
           onPointerEnter={() => onHover(say(one))}
           initial={still ? false : { opacity: 0, scale: 0.4 }} animate={arrived ? { opacity: tone(one.n), scale: 1 } : { opacity: 0, scale: 0.4 }} whileHover={still ? undefined : { scale: 1.35, zIndex: 10 }}
           transition={{ duration: 0.25, ease: EASE, delay: still ? 0 : Math.min(0.6, at * 0.008) }}
-          className="aspect-square w-full rounded-full" style={{ background: INK }} />
+          className="aspect-square w-full rounded-[2px]" style={{ background: INK }} />
       ))}
     </div>
   )

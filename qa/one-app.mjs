@@ -2,7 +2,8 @@
 // the Journal's year and a book's panel in Media:
 //  - the tab switch on each page: the same track (height, corner, fill) and the same raised pill, at the page line's left;
 //  - the charts' cards: one material (corner, border, fill) on each page;
-//  - the time charts: round dots 7 to 9px, 2 to 3px apart, each with its one line saying what a dot is;
+//  - the heat maps and day grids: small squares 10px, 3px apart, soft corners; the Journal's year and a book's pages: thin
+//    strokes; the Goals road: round dots; each with its one line saying what a square, stroke or dot is;
 //  - one type rule: the big numbers in the heading face, the same face as the page's title;
 //  - one home per chart: Review's "Stats" draws the card charts, the Stats page says the number and links to them.
 // Frames (light and dark) of each tab row and each chart go to QA_SHOTS.
@@ -55,9 +56,15 @@ const dots = (scope, dot) => h.evaluate(([s, d]) => {
   const row = all.filter((r) => Math.abs(r.top - all[0].top) < 1).sort((a, b) => a.left - b.left)
   const gap = row.length > 1 ? Math.round((row[1].left - row[0].right) * 10) / 10 : null
   const round = [...root.querySelectorAll(d)].slice(0, 5).every((el) => el.tagName === 'circle' || parseFloat(getComputedStyle(el).borderTopLeftRadius) >= el.getBoundingClientRect().width / 2 - 0.5)
-  const rule = root.querySelector('[data-dot-rule], [data-road-rule]')?.textContent ?? ''
-  return { n: all.length, sizes, gap, round, rule }
+  const corner = Math.max(...[...root.querySelectorAll(d)].slice(0, 5).map((el) => parseFloat(getComputedStyle(el).borderTopLeftRadius) || 0))
+  const heights = all.map((r) => r.height)
+  const rule = root.querySelector('[data-dot-rule], [data-road-rule], [data-stroke-rule]')?.textContent ?? ''
+  return { n: all.length, sizes, gap, round, corner, low: Math.min(...heights), tall: Math.max(...heights), rule }
 }, [scope, dot])
+// Squares: 10px, 3px apart, soft corners (not round), with their line.
+const okSquares = (seen) => !!seen && seen.n > 0 && seen.sizes.every((one) => one >= 9.5 && one <= 10.5) && seen.gap !== null && seen.gap >= 2.5 && seen.gap <= 3.5 && !seen.round && seen.corner >= 1.5 && seen.corner <= 3 && /Each square is/.test(seen.rule)
+// Strokes: hairlines 1 to 2px wide, far taller than wide, with their line.
+const okStrokes = (seen) => !!seen && seen.n > 0 && seen.sizes.every((one) => one >= 1 && one <= 2) && seen.low >= 8 && /Each stroke is/.test(seen.rule)
 const okDots = (seen) => !!seen && seen.n > 0 && seen.sizes.every((one) => one >= 6.5 && one <= 9) && seen.gap !== null && seen.gap >= 2 && seen.gap <= 3.5 && seen.round && /Each dot is/.test(seen.rule)
 // The face page titles wear (the heading face, --font-heading).
 const headFace = () => h.evaluate(() => { const el = document.createElement('h1'); el.className = 'text-title font-heading'; document.body.append(el); const face = getComputedStyle(el).fontFamily; el.remove(); return face })
@@ -105,14 +112,14 @@ try {
   await waitFor(() => has('[data-study-year-map]'))
   const year = await dots('[data-study-year-map] [data-year-grid]', 'span')
   year.rule = await h.evaluate(() => document.querySelector('[data-study-year-map] [data-dot-rule]')?.textContent ?? '')
-  check('Review, Decks: the year of study is round dots, 7 to 9px, 2 to 3px apart, with its line', okDots(year), JSON.stringify(year))
+  check('Review, Decks: the year of study is small squares, 10px, 3px apart, soft corners, with its line', okSquares(year), JSON.stringify(year))
   check('...no "Less / More" squares', !(await h.evaluate(() => /Less.*More/.test(document.querySelector('[data-study-year-map]')?.textContent ?? ''))))
   const reviewCards = await material('[data-study-year-map], [data-book-coverage], [data-deck-list]')
   await frame('chart-review-year', '[data-study-year-map]', async () => { await go('review'); await waitFor(() => has('[data-review-tab="decks"]')); await h.evaluate(() => document.querySelector('[data-review-tab="decks"]').click()); await waitFor(() => has('[data-study-year-map]')) })
   if (await has('[data-book-coverage]')) {
     const cover = await dots('[data-book-coverage]', '[data-coverage-dots] > span')
     cover.rule = await h.evaluate(() => document.querySelector('[data-book-coverage] [data-dot-rule]')?.textContent ?? '')
-    check('Review, Decks: how much of each book has cards is round dots with its line', okDots(cover), JSON.stringify(cover))
+    check('Review, Decks: how much of each book has cards is small squares with its line', okSquares(cover), JSON.stringify(cover))
     await frame('chart-review-coverage', '[data-book-coverage]', async () => { await go('review'); await waitFor(() => has('[data-review-tab="decks"]')); await h.evaluate(() => document.querySelector('[data-review-tab="decks"]').click()); await waitFor(() => has('[data-book-coverage]')) })
   } else console.log('(no book with cards on two pages in this sandbox: coverage not drawn)')
   await h.evaluate(() => document.querySelector('[data-review-tab="stats"]').click())
@@ -122,8 +129,8 @@ try {
   reviewCards.push(...await material('[data-review-stats] [data-mono-card]'))
   check('Review: one card material for its charts and decks', new Set(reviewCards).size === 1, [...new Set(reviewCards)].join(' | '))
   const day30 = await dots('[data-study-month] [data-day-cells]', 'span')
-  day30.rule = 'Each dot is'
-  check('Review, Stats: the 30 days are the same round dots', okDots(day30), JSON.stringify(day30))
+  day30.rule = 'Each square is'
+  check('Review, Stats: the 30 days are the same small squares', okSquares(day30), JSON.stringify(day30))
   const reviewFaces = await bigFaces('[data-review-stats] [data-mono-value]')
   const title = await headFace()
 
@@ -156,29 +163,30 @@ try {
 
   // --- the Journal's year
   await go('yearpage'); await waitFor(() => has('[data-year-marks] svg'))
-  const marks = await dots('[data-year-marks]', 'svg [data-dot]')
-  check('the Journal\'s year is round dots, 7 to 9px, 2 to 3px apart, with its line', okDots(marks), JSON.stringify(marks))
+  const marks = await dots('[data-year-marks]', 'svg [data-stroke]')
+  check('the Journal\'s year is a hairline a day, with its line', okStrokes(marks), JSON.stringify(marks))
+  check('...today and the marked days taller strokes', marks.tall > marks.low, JSON.stringify(marks))
   check('...no ruler of ticks', !(await has('[data-year-marks] path')))
   check('...the months named under it', (await h.evaluate(() => document.querySelector('[data-year-marks] [data-year-months]')?.textContent ?? '')).includes('Jan'))
   check('...one line says where the year is', /Day [0-9,]+ of 36[56]/.test(await h.evaluate(() => document.querySelector('[data-year-marks-said]')?.textContent ?? '')))
-  // Pointed at, a dot says its day; the tip goes when the pointer leaves.
+  // Pointed at, a stroke says its day; the tip goes when the pointer leaves.
   const svg = await h.locator('[data-year-marks] svg').boundingBox()
   await h.mouse.move(svg.x + 30, svg.y + 20); await wait(200)
   const tip = await h.evaluate(() => document.querySelector('[data-year-marks] [class*="pointer-events-none"]')?.textContent ?? '')
-  check('...a dot pointed at says its day', /[0-9]/.test(tip), tip)
+  check('...a stroke pointed at says its day', /[0-9]/.test(tip), tip)
   await frame('chart-journal-year', '[data-year-marks]', async () => { await go('yearpage'); await waitFor(() => has('[data-year-marks] svg')) })
 
-  // --- a book's dots, in Media's panel (the same strip as the reader's side panel)
+  // --- a book's strip, in Media's panel (the same strip as the reader's side panel)
   await go('media'); await wait(800)
   await h.locator('[data-media-kinds] button', { hasText: 'Books' }).first().click().catch(() => {}); await wait(2500)
   if (await has('[data-inspector] [data-page-bar]')) {
-    const bar = await dots('[data-inspector] [data-page-bar]', '.book-bar-dot')
-    check('a book\'s pages are round dots, 7 to 9px, 2 to 3px apart, with its line', okDots(bar), JSON.stringify(bar))
+    const bar = await h.evaluate(() => { const root = document.querySelector('[data-inspector] [data-page-bar]'); const track = root?.querySelector('.book-bar-strip')?.getBoundingClientRect(); const read = root?.querySelector('.book-bar-read')?.getBoundingClientRect(); const here = root?.querySelector('[data-here]')?.getBoundingClientRect(); return { track: track && Math.round(track.width), read: read && Math.round(read.width), here: here && { w: here.width, h: here.height }, rule: root?.querySelector('[data-stroke-rule]')?.textContent ?? '' } })
+    check('a book\'s pages are a thin track, the read part in colour, a stroke where you are, with its line', bar.track > 0 && bar.read > 0 && bar.read < bar.track && bar.here && bar.here.w <= 4 && bar.here.h > bar.here.w * 3 && /stroke/.test(bar.rule), JSON.stringify(bar))
     check('...the point said first: "You are on p. 34 of 120"', /You are on p\. 34 of 120/.test(await h.evaluate(() => document.querySelector('[data-inspector] .book-bar-you')?.textContent ?? '')))
-    check('...the dot you are on in the accent', await has('[data-inspector] [data-page-bar] [data-here="34"]'))
+    check('...the stroke where you are says p. 34', await has('[data-inspector] [data-page-bar] [data-here="34"]'))
     await frame('chart-pdf-pages', '[data-inspector] [data-page-bar]', async () => { await go('media'); await wait(800); await h.locator('[data-media-kinds] button', { hasText: 'Books' }).first().click().catch(() => {}); await wait(2000) })
   } else check('a book\'s panel shows its pages', false, 'no page bar in Media')
-  // --- the smallest window, 560 x 400: the year's dots and the tabs still fit, nothing scrolls sideways
+  // --- the smallest window, 560 x 400: the year's strokes and squares and the tabs still fit, nothing scrolls sideways
   await c.size(560, 400); await wait(600)
   for (const [name, open, sel] of [
     ['journal-year', async () => { await go('yearpage'); await waitFor(() => has('[data-year-marks] svg')) }, '[data-year-marks] svg'],
@@ -186,7 +194,7 @@ try {
     ['review-year', async () => { await go('review'); await waitFor(() => has('[data-review-tab="decks"]')); await h.evaluate(() => document.querySelector('[data-review-tab="decks"]').click()); await waitFor(() => has('[data-study-year-map]')) }, '[data-study-year-map]']
   ]) {
     await open(); await wait(500)
-    // Inside the window, and inside its own card (the year's dots never run past their card).
+    // Inside the window, and inside its own card (the year never run past their card).
     const over = await h.evaluate((s) => { const el = document.querySelector(s); if (!el) return 'none'; const r = el.getBoundingClientRect(); const card = el.closest('figure, section')?.getBoundingClientRect(); const edge = Math.min(innerWidth, card ? card.right : innerWidth); return r.right > edge + 0.5 ? `${Math.round(r.right)} > ${Math.round(edge)}` : '' }, sel)
     check(`560 wide: ${name} stays inside the window`, over === '', over)
     if (shots) await h.screenshot({ path: join(shots, `narrow-${name}.png`) })
@@ -203,7 +211,7 @@ try {
     ['Journal year', async () => { await go('yearpage'); await waitFor(() => has('[data-year-marks] svg')) }, '[data-year-marks]', '[data-year-months] span, [data-year-names] span, [data-year-also] span'],
     ['Review year', async () => { await go('review'); await waitFor(() => has('[data-review-tab="decks"]')); await h.evaluate(() => document.querySelector('[data-review-tab="decks"]').click()); await waitFor(() => has('[data-study-year-map]')) }, '[data-study-year-map]', '[data-year-months] span'],
     ['Goals road', async () => { await send('goal', goalId); await wait(1300); await waitFor(() => has('[data-road-card]'), 5000) }, '[data-road-card]', '[data-road-band] span.absolute'],
-    ['Book pages', async () => { await go('media'); await wait(800); await h.locator('[data-media-kinds] button', { hasText: 'Books' }).first().click().catch(() => {}); await wait(1500) }, '[data-inspector] [data-page-bar]', '.book-bar-ends span, .book-bar-you']
+    ['Book pages', async () => { await go('media'); await wait(800); await h.locator('[data-media-kinds] button', { hasText: 'Books' }).first().click().catch(() => {}); await wait(1500) }, '[data-inspector] [data-page-bar]', '.book-bar-ends span, .book-bar-you, [data-stroke-rule]']
   ]
   for (const [w, hh] of [[1440, 900], [560, 400]]) {
     await c.size(w, hh); await wait(500)
@@ -212,6 +220,7 @@ try {
       for (const [name, open, card, labels] of AXES) {
         await open(); await wait(400)
         const out = await labelsIn(card, labels)
+        if (shots && out !== 'no chart') await h.locator(card).first().screenshot({ path: join(shots, `axes-${name.replace(/ /g, '-').toLowerCase()}-${w}-${theme}.png`) }).catch(() => {})
         check(`${w} ${theme}: ${name}'s labels end inside its chart`, out === '' || (out === 'no chart' && name === 'Book pages' && w === 560), out)
       }
     }

@@ -24,7 +24,7 @@ export function DaysHeatmap({ opened = [], amount, unit = ['word', 'words'], wee
         const label = amount ? `${dayjs(day).format('ddd D MMM')}: ${n ? `${num(n)} ${n === 1 ? unit[0] : unit[1]}` : 'none'}` : `${dayjs(day).format('ddd D MMM')}${on ? ': opened' : ''}`
         return (
           <Tip key={day} label={label}>
-            <div data-on={on || undefined} data-day={day} data-amount={amount ? n : undefined} {...(on ? { 'data-mark': '' } : {})} className="size-2 rounded-full"
+            <div data-on={on || undefined} data-day={day} data-amount={amount ? n : undefined} {...(on ? { 'data-mark': '' } : {})} className="size-2.5 rounded-[2px]"
               style={{ background: inkShade(on ? (amount ? step(n) : 4) : 0) }} />
           </Tip>
         )
