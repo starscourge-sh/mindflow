@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { chime } from './sound'
-import { refuse, toast, typing } from '@/components/haligtree/ui'
+import { ownKeys, refuse, toast, typing } from '@/components/haligtree/ui'
 import { num } from '../../../main/dates'
 import { listInFront } from './list-front'
 
@@ -77,7 +77,7 @@ export function useSelectAll(
     if (!enabled) return
     const onKey = (event: KeyboardEvent): void => {
       if (!event.metaKey || event.ctrlKey || event.altKey || event.shiftKey || event.code !== 'KeyA') return
-      if (event.defaultPrevented || typing() || !now.current.here()) return
+      if (event.defaultPrevented || typing() || !now.current.here() || ownKeys()) return
       // An open menu or picker keeps its own keys.
       if (document.querySelector('[role="menu"], [role="listbox"]')) return
       event.preventDefault()
@@ -96,6 +96,8 @@ export function useSelectAll(
       if (!onDelete || (event.key !== 'Backspace' && event.key !== 'Delete')) return
       if (event.ctrlKey || event.altKey || event.shiftKey || event.defaultPrevented || typing() || !here()) return
       if (document.querySelector('[role="menu"], [role="listbox"]')) return
+      // A page with its own ⌫ (a note seen as a board deletes its card) keeps it: the open note was binned behind it.
+      if (ownKeys()) return
       // A sidebar row in focus takes its own ⌫ (off the sidebar, or unpin): the page's row is not binned behind it.
       if ((document.activeElement as HTMLElement | null)?.closest?.('[data-side-row]')) return
       // The pointer resting on a sidebar row: nothing picked, so nothing here is meant, not even the row with the ring.

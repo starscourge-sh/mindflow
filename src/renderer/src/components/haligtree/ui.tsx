@@ -567,6 +567,9 @@ export function CloseBeside({ onClose, className = '' }: { onClose: () => void; 
  * before, the way Linear's issue view has it: "3 / 426 ↓ ↑". ↓ and ↑ step
  * through the list whenever you are not typing.
  */
+/** Whether the focus is in a page that takes its own list keys (↑ ↓ ⌫ ⌘A), as a note seen as a board does: the list round it stands down. */
+export const ownKeys = (): boolean => !!(document.activeElement as HTMLElement | null)?.closest?.('[data-own-keys]')
+
 export function Stepper({ at, total, onStep, turns = false }: { at: number; total: number; onStep: (to: number) => void; /** What it steps to turns a page as it opens: that is the step's one sound. */ turns?: boolean }): React.JSX.Element | null {
   const latest = useRef({ at, total, onStep, turns })
   latest.current = { at, total, onStep, turns }
@@ -576,6 +579,8 @@ export function Stepper({ at, total, onStep, turns = false }: { at: number; tota
     const onKey = (event: KeyboardEvent): void => {
       // ⇧↑ and ⇧↓ are the list's, picking a run.
       if (event.metaKey || event.ctrlKey || event.altKey || event.shiftKey || typing() || event.defaultPrevented || !here()) return
+      // A page that takes its own list keys (a note seen as a board, its cards) keeps them while it has the focus.
+      if (ownKeys()) return
       if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return
       const { at, total, onStep, turns } = latest.current
       const to = at + (event.key === 'ArrowDown' ? 1 : -1)
