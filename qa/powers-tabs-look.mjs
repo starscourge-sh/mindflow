@@ -37,7 +37,11 @@ try {
   await h.locator('[data-sections] [data-section="Writing"]').click(); await wait(800)
   const before = await h.locator('[data-sections] [data-section]').evaluateAll((all) => all.map((one) => JSON.stringify(one.getBoundingClientRect())))
   await h.locator('[data-sections] [data-section="Remembering"]').click()
-  for (let i = 0; i < 12; i++) { await h.screenshot({ path: `${out}/switch-${String(i).padStart(2, '0')}.png` }); await wait(50) }
+  for (let i = 0; i < 12; i++) { await h.screenshot({ path: `${out}/switch-dark-${String(i).padStart(2, '0')}.png` }); await wait(50) }
+  await c.look('light'); await wait(300)
+  await h.locator('[data-sections] [data-section="Days and seasons"]').click()
+  for (let i = 0; i < 12; i++) { await h.screenshot({ path: `${out}/switch-light-${String(i).padStart(2, '0')}.png` }); await wait(50) }
+  await h.locator('[data-sections] [data-section="Remembering"]').click(); await wait(800)
   const after = await h.locator('[data-sections] [data-section]').evaluateAll((all) => all.map((one) => JSON.stringify(one.getBoundingClientRect())))
   check('the tab list stays still through a switch', JSON.stringify(before) === JSON.stringify(after))
   // Smallest window.

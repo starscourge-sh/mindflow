@@ -12,13 +12,20 @@ const c = await sandbox({ width: 1400, height: 880 })
 const { h, v, go } = c
 const wait = (ms) => h.waitForTimeout(ms)
 try {
-  await v('settings:set', { sounds: false, hintRate: 0 }); await wait(800)
+  await v('settings:set', { sounds: false, hintRate: 0, ...(process.env.QA_STILL ? { motion: false } : {}) }); await wait(800)
   await h.evaluate(() => { window.__long = []; new PerformanceObserver((list) => list.getEntries().forEach((one) => window.__long.push(Math.round(one.duration)))).observe({ type: 'longtask', buffered: false }) })
   // For scale: Settings, a page of the same shape, on this machine now.
   const s0 = Date.now()
   await go('settings')
   await h.waitForSelector('[data-sections] [data-section]', { timeout: 10000 })
   console.log('SETTINGS OPEN', Date.now() - s0, 'ms')
+  // And Settings' longest section scrolled the same way, for the same scale.
+  await h.locator('[data-sections] [data-section="Appearance"]').click(); await wait(900)
+  await h.mouse.move(900, 500)
+  await h.evaluate(() => { window.__frames = []; let last = performance.now(); const tick = (now) => { window.__frames.push(Math.round(now - last)); last = now; if (window.__frames.length < 200) requestAnimationFrame(tick) }; requestAnimationFrame(tick) })
+  for (let i = 0; i < 20; i++) { await h.mouse.wheel(0, 300); await wait(60) }
+  await wait(400)
+  console.log('SETTINGS Appearance worst frame', Math.max(...(await h.evaluate(() => window.__frames)).slice(1)), 'ms')
   await go('home'); await wait(1200)
   await h.evaluate(() => window.__long.splice(0))
   const t0 = Date.now()

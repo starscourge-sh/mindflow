@@ -1,5 +1,5 @@
 // Places inside a page are steps of the pane's trail: Feed's Notes, Reading
-// and Liked; Media's kinds; Stats' parts; Settings' sections; the journal's
+// and Liked; Media's kinds; Stats' parts; Settings' sections; What Haligtree can do's tabs; the journal's
 // Week, Month and Year; a tag's Read and Manage. For each: open the page, pick place A, then place B,
 // go Back (⌘[) and land on A, Forward (⌘]) and land on B, Back with the
 // mouse's side button and land on A again. Then a relaunch of the app on
@@ -77,6 +77,11 @@ const PLACES = [
     name: 'Settings', view: 'settings', a: 'Sound', b: 'Keys',
     pick: (one) => `[data-section="${one}"]`,
     read: () => c.h.evaluate(() => document.querySelector('[data-section][aria-current="page"]')?.getAttribute('data-section') ?? '')
+  },
+  {
+    name: 'What Haligtree can do', view: 'powers', a: 'Remembering', b: 'Days and seasons',
+    pick: (one) => `[data-section="${one}"]`,
+    read: () => c.h.evaluate(() => document.querySelector('[data-powers-tab]')?.getAttribute('data-powers-tab') ?? '')
   },
   {
     // A tag's page: Read and Manage are steps, as Back finds them.
