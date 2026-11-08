@@ -153,7 +153,8 @@ export function ImageMenu({ editor }: { editor: Editor | null }): React.JSX.Elem
               aria-label="Delete image"
               // Thrown away, shown: the picture crumples and is tossed off (⌘Z brings it back); by a key it simply goes.
               onClick={() => {
-                const land = crumpleFrom(editor.view.nodeDOM(editor.state.selection.from) as HTMLElement | null)
+                // 1.5s for now, so the crumple can be seen and judged.
+                const land = crumpleFrom(editor.view.nodeDOM(editor.state.selection.from) as HTMLElement | null, 1500)
                 editor.chain().focus().deleteSelection().run()
                 land?.()
               }}

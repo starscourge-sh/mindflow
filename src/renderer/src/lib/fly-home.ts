@@ -294,7 +294,7 @@ const ballOutline = (): string => {
  * not shredded into the Bin: everything that goes to the Bin is shredded.
  * Like `lift`, before the change; returns a `land`.
  */
-export function crumpleFrom(from: HTMLElement | null): (() => void) | undefined {
+export function crumpleFrom(from: HTMLElement | null, ms = 300): (() => void) | undefined {
   if (byKeys()) return undefined
   const shot = snapshot(from)
   if (!shot) return undefined
@@ -318,14 +318,14 @@ export function crumpleFrom(from: HTMLElement | null): (() => void) | undefined 
     const turn = (Math.random() < 0.5 ? -1 : 1) * (18 + Math.random() * 14)
     const shade = `inset 0 0 ${size * 0.5}px rgb(0 0 0 / 0.32)`
     // Scrunched where it was, quickly; then tossed down and aside, falling faster as it goes.
-    picture.animate([{ filter: 'blur(0px)', opacity: 1 }, { filter: 'blur(1.5px)', opacity: 0.55 }], { duration: 120, easing: OUT, fill: 'forwards' })
+    picture.animate([{ filter: 'blur(0px)', opacity: 1 }, { filter: 'blur(1.5px)', opacity: 0.55 }], { duration: ms * 0.4, easing: OUT, fill: 'forwards' })
     void sheet.animate(
       [
         { clipPath: `polygon(${FLAT})`, transform: 'rotate(0deg) scale(1, 1)', boxShadow: 'inset 0 0 0 rgb(0 0 0 / 0)', opacity: 1, easing: EASING },
         { clipPath: `polygon(${ball})`, transform: `rotate(${turn}deg) scale(${across}, ${down})`, boxShadow: shade, opacity: 1, offset: 0.4, easing: IN_OUT },
         { clipPath: `polygon(${ball})`, transform: `translate(${turn > 0 ? 70 : -70}px, ${Math.min(size, 48) * 0.6 + 120}px) rotate(${turn * 6}deg) scale(${across * 0.9}, ${down * 0.9})`, boxShadow: shade, opacity: 0 }
       ],
-      { duration: 300 * (inBox() ? 1.15 : 1), easing: 'linear', fill: 'forwards' }
+      { duration: ms * (inBox() ? 1.15 : 1), easing: 'linear', fill: 'forwards' }
     ).finished.then(() => sheet.remove(), () => sheet.remove())
   }
 }
