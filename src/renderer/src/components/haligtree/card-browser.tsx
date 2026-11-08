@@ -247,7 +247,8 @@ function EditCard({ card, tint, onDone }: { card: BrowsedCard; tint: string; /**
   const editor = useRef<Editor | null>(null)
   const box = useRef<HTMLDivElement>(null)
   useEffect(() => void haligtree.item(card.id).then((full) => setBody(full?.body ?? '')), [card.id])
-  const keep = (other?: string): void => {
+  // `close` false: kept, and left open for a Back or Forward press to move off, as its step says.
+  const keep = (other?: string, close = true): void => {
     const next = editor.current?.getJSON()
     const asked = prompt.trim() || card.prompt
     const was = { prompt: card.prompt, body, medium: card.made === 'deck' ? undefined : card.source || null }
@@ -255,7 +256,7 @@ function EditCard({ card, tint, onDone }: { card: BrowsedCard; tint: string; /**
       chime('noted')
       toast('Card kept', () => void haligtree.saveItem(card.id, { prompt: was.prompt, body: was.body, ...(was.medium !== undefined ? { medium: was.medium } : {}) }).then(() => chime('undo')))
     })
-    onDone(other)
+    if (close) onDone(other)
   }
   const drop = (): void => (chime('fold'), onDone())
   // Clicked away, it is kept, as a row edited in Things is. A click, not a blur:
@@ -271,7 +272,10 @@ function EditCard({ card, tint, onDone }: { card: BrowsedCard; tint: string; /**
       // Another card pressed: it opens as this one is kept, in the same moment. Left to its click, the list had
       // already closed up under the pointer and the click landed on nothing.
       const other = target.closest?.('[data-card-row]')?.getAttribute('data-card-row') ?? undefined
-      keepNow.current(other !== card.id ? other : undefined)
+      // Back or Forward pressed (the tab's arrows, or the mouse's side buttons): kept, but not closed here. Closed as a
+      // step of its own, the press then stepped back onto this same card, so Back seemed to do nothing.
+      const stepping = event.button === 3 || event.button === 4 || !!target.closest?.('[data-tab-step]')
+      keepNow.current(other !== card.id ? other : undefined, !stepping)
     }
     document.addEventListener('pointerdown', away, true)
     return () => document.removeEventListener('pointerdown', away, true)
@@ -302,6 +306,13 @@ function EditCard({ card, tint, onDone }: { card: BrowsedCard; tint: string; /**
   )
 }
 
+/** What each card says on its front, by its id, so the step a card was opened in is named by it in Back's menu. */
+const fronts = new Map<string, string>()
+export const cardFront = (id: string): string | undefined => fronts.get(id)
+const nameCards = (cards: readonly BrowsedCard[]): void => {
+  for (const one of cards) fronts.set(one.id, one.prompt.replace(/\s+/g, ' ').trim().slice(0, 60))
+}
+
 /**
  * Every card, the way an Anki Browser shows them and further: grouped (deck,
  * source in page order, stage, when due, how hard, month made, needs work),
@@ -319,6 +330,8 @@ export function CardBrowser({ onOpen, aim, only, newest, onAll, onShow, onAimDon
   // The decks made by hand, empty ones too: where "Move to deck…" can send a card.
   const made = useMadeDecks()
   const cards = useLive(() => (performance.mark('cards:asked'), call<BrowsedCard[]>('cards:all').then((all) => (performance.mark('cards:came'), all))), null as BrowsedCard[] | null, [], ['item'])
+  // Each card's front, for naming the step a card opened is in Back's menu.
+  useEffect(() => void (cards && nameCards(cards)), [cards])
   const compact = useToolbarCompact()
   const [query, setQuery] = useState('')
   const [tag, setTag] = useState<string | null>(null)

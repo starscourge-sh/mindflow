@@ -1,4 +1,4 @@
-// Review keeps its place in Back and Forward: each card opened in All cards is a step, as a tab or a deck is.
+// Review keeps its place in Back and Forward: each card opened in All cards is a step, as a tab, a deck or a "Show its cards" list is; the ← button and its menu (each step named by its place) agree.
 //   QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 QA_ARGS=--sandbox node qa/review-steps.mjs
 import { checks } from './harness.mjs'
 import { sandbox } from './sandbox-lib.mjs'
@@ -29,6 +29,53 @@ try {
   check('Back again: the Decks tab it came from', (await h.locator('[data-review-tab="decks"][aria-selected="true"]').count()) === 1)
   await forward(); await forward()
   check('Forward twice: that first card open again', await open() === rows[0], await open())
+
+  // Back's menu (right-click, as held) names each of Review's steps by its place, never "Review" over and over.
+  const menu = () => h.evaluate(() => [...document.querySelectorAll('[role="menu"] [role="menuitem"]')].map((one) => one.textContent.replace(/\s+/g, ' ').trim()))
+  const esc = async () => { await h.keyboard.press('Escape'); await wait(400) }
+  const backButton = h.locator('[data-pane] [data-tab-step="back"]').last()
+  await backButton.click({ button: 'right' }); await wait(600)
+  const atFirst = await menu()
+  check('Right-click on ← leaves the card open', await open() === rows[0], await open())
+  check('Back menu on a card: All cards, then Decks', atFirst[0] === 'Review › All cards' && atFirst[1] === 'Review › Decks', atFirst.join(' | '))
+  await esc()
+  await h.locator(`[data-card-row="${rows[1]}"] > *`).first().click({ position: { x: 30, y: 20 } }); await wait(800)
+  await backButton.click({ button: 'right' }); await wait(600)
+  const lines = await menu()
+  await esc()
+  const first = await h.evaluate((one) => document.querySelector(`[data-card-row="${one}"]`)?.textContent?.replace(/\s+/g, ' ') ?? '', rows[0])
+  const named = lines[0]?.replace('Review › ', '') ?? ''
+  check('Back menu names the card before by its front', lines[0]?.startsWith('Review › ') && named.length > 3 && first.includes(named.slice(0, 20)), `${lines[0]} (row: ${first.slice(0, 60)})`)
+  check('Back menu then names All cards and Decks', lines[1] === 'Review › All cards' && lines[2] === 'Review › Decks', lines.join(' | '))
+  // The ← button: one step back, onto the card before.
+  await backButton.click(); await wait(800)
+  check('The ← button: the card before is open again', await open() === rows[0], await open())
+
+  // "Show its cards" on a deck: just its cards, as a step; Back is the Decks tab, Forward the same few cards.
+  await h.locator('[data-review-tab="decks"]').click(); await wait(1200)
+  const count = () => h.evaluate(() => document.querySelectorAll('[data-card-row]').length)
+  const deck = h.locator('[data-own-deck]').first()
+  await deck.click({ button: 'right' }); await wait(600)
+  await h.locator('[role="menu"] [role="menuitem"]:has-text("Show its cards")').first().click(); await wait(1500)
+  const just = await count()
+  const shown = (await h.locator('[data-cards-all]').count()) === 1
+  check('"Show its cards" shows just its cards', shown && just > 0, `${just} cards, "Show every card" ${shown}`)
+  await back()
+  check('Back from them: the Decks tab', (await h.locator('[data-review-tab="decks"][aria-selected="true"]').count()) === 1)
+  await forward(); await wait(600)
+  check('Forward: just those cards again', (await count()) === just && (await h.locator('[data-cards-all]').count()) === 1, `${await count()} of ${just}`)
+  await h.locator('[data-cards-all]').click(); await wait(1200)
+  const every = await count()
+  check('"Show every card" is a step: Back returns to just those', every > just && (await back(), (await count()) === just), `${every} then ${await count()}`)
+  await backButton.click({ button: 'right' }); await wait(600)
+  const names = await menu()
+  await esc()
+  check('Back menu from just those: the Decks tab, by name', names[0] === 'Review › Decks', names.join(' | '))
+  await forward()
+  await backButton.click({ button: 'right' }); await wait(600)
+  const after = await menu()
+  await esc()
+  check(`Back menu from every card: just those, by how many ("${just} cards")`, after[0] === `Review › ${just} cards`, after.join(' | '))
 } catch (e) { check('ran', false, e.message.split('\n')[0]) }
 await close()
 done()

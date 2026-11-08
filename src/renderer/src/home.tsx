@@ -43,7 +43,8 @@ import { QuestionTabs, QuestionsSaid, startQuestion, type Asked } from './compon
 import { GoalsView, startGoal } from './components/haligtree/goals-view'
 import { QueueReader, QueueView } from './components/haligtree/queue-view'
 import { useQueue } from './lib/reading-queue'
-import { ReviewArea } from './components/haligtree/review-area'
+import { ReviewArea, reviewPlaceName } from './components/haligtree/review-area'
+import { SHELVES } from './components/haligtree/files-shelves'
 import { SettingsView, exportEverything } from './components/haligtree/settings-view'
 import { StatsView } from './components/haligtree/stats-view'
 import { PracticesView } from './components/haligtree/practices-view'
@@ -182,6 +183,18 @@ const PILL = 'flex h-7 items-center overflow-hidden rounded-full border'
 const keyed = (label: string, keys: string): React.JSX.Element => <span className="flex items-center gap-1.5">{label} <Pressed keys={keys} /></span>
 
 /** Whether the window is under 760px wide, followed as it is resized. */
+/** The place inside a page a step is on (each page's useStepped), in the words its tabs show; null for a page without places. */
+const placeName = (view: View): string | null => {
+  const tab = view.tab
+  if (!tab) return null
+  if (view.id === 'review') return reviewPlaceName(tab)
+  if (view.id === 'feed') return ({ notes: 'Notes', reading: 'Reading', liked: 'Liked' } as Record<string, string>)[tab] ?? null
+  if (view.id === 'stats') return ({ now: 'At a glance', month: 'Your month', year: 'Your year' } as Record<string, string>)[tab] ?? null
+  if (view.id === 'media') return tab === 'all' ? 'All' : SHELVES.find((one) => one.id === tab)?.label ?? null
+  // Settings' sections and What Haligtree can do's tabs are kept by the words they show.
+  if (view.id === 'tags') return tab === 'manage' ? 'Manage' : 'Read'
+  return view.id === 'settings' || view.id === 'powers' ? tab : null
+}
 const NARROW = '(max-width: 759px)'
 const followNarrow = (change: () => void): (() => void) => {
   const query = matchMedia(NARROW)
@@ -1436,7 +1449,9 @@ export function Home(): React.JSX.Element {
   const swipeName = (view: View): PaneName => {
     const name = paneName(view)
     const folder = view.folder && !noteIn(view) ? [...writingFolders, ...gemFolders].find((one) => one.id === view.folder)?.name : undefined
-    return folder ? { ...name, title: `${name.title} › ${folder}` } : name
+    // A place inside a page (useStepped) is named by it too, so Back's menu never lists "Review" three times over.
+    const inside = folder ?? (noteIn(view) ? null : placeName(view))
+    return inside ? { ...name, title: `${name.title} › ${inside}` } : name
   }
   // --- the sidebar follows the open tab of the pane in front: one light, wherever that thing lives
   const noteNow = noteIn(view)

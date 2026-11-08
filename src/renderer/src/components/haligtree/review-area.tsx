@@ -4,11 +4,35 @@ import { TabChips } from './tab-chips'
 import { chime } from '@/lib/sound'
 import { useStepped } from '@/lib/nav'
 import { ReviewView } from './review-view'
-import { CardBrowser } from './card-browser'
+import { CardBrowser, cardFront } from './card-browser'
 import { StudySection } from './study-stats'
 import { DeckShelf, NO_PLACE, placeOf, placeWords, type DeckPlace } from './deck-shelf'
 import { PictureCards } from './picture-cards'
 import { Page } from './ui'
+import { deckTitle } from './decks'
+import { plural } from '../../../../main/dates'
+
+/** The cards a "Show" picked (an import's, a picture's), by the word their step keeps: Back and Forward bring the same ones. */
+const shownLists = new Map<string, string[]>()
+const shownKey = new WeakMap<string[], string>()
+/** Review's place in a step, in words for Back's and Forward's menus and swipe back: "All cards", "Studying Biology". */
+export function reviewPlaceName(tab: string | undefined): string | null {
+  if (!tab) return null
+  if (tab.startsWith('study:')) return tab.length > 6 ? `Studying ${deckTitle(tab.slice(6))}` : 'Study now'
+  const said = new URLSearchParams(tab.split('?')[1] ?? '')
+  if (tab.startsWith('cards')) {
+    const card = said.get('card')
+    if (card) return cardFront(card) || 'A card'
+    const just = shownLists.get(said.get('just') ?? '')?.length
+    const newest = Number(said.get('newest'))
+    return just ? plural(just, 'card') : newest ? plural(newest, 'newest card') : 'All cards'
+  }
+  if (tab.startsWith('decks')) {
+    const { inside, pictures, links } = placeOf(tab)
+    return pictures ? `${pictures}: pictures` : links ? `${links}: links` : inside.length ? `Decks › ${((one) => (/[A-Z ]/.test(one) ? one : deckTitle(one)))(inside[inside.length - 1])}` : 'Decks'
+  }
+  return tab === 'stats' ? 'Stats' : tab === 'today' ? 'Study now' : null
+}
 
 /** Review's own pages: the decks (first, as Anki opens), every card, and how remembering goes; 'today' is studying, from "Study now". */
 export type ReviewTab = 'today' | 'cards' | 'decks' | 'stats'
@@ -54,11 +78,26 @@ export function ReviewArea({ focus, onOpen, onFocus }: { focus?: string; onOpen:
   const [card, setCard] = useState<string | null>(null)
   // Each tab, studying one deck, and each thing opened on the Decks tab is a step of the pane's trail:
   // Back and Forward go between them, and land on exactly what was on show.
-  useStepped(studying !== null ? `study:${studying}` : tab === 'decks' ? placeWords(place) : tab === 'cards' && card ? `cards:${card}` : tab, (to) => {
+  // All cards, and what is on show there: just the cards a "Show" picked (or an import's newest), the card open.
+  const cardWords = (): string => {
+    const words = new URLSearchParams()
+    const just = only && shownKey.get(only)
+    if (just) words.set('just', just)
+    else if (newest) words.set('newest', String(newest))
+    if (card) words.set('card', card)
+    return words.size ? `cards?${words}` : 'cards'
+  }
+  useStepped(studying !== null ? `study:${studying}` : tab === 'decks' ? placeWords(place) : tab === 'cards' ? cardWords() : tab, (to) => {
     if (to.startsWith('study:')) return void (setStudying(to.slice(6)), setTab('today'))
     setStudying(null)
-    if (to.startsWith('cards:')) return void (setPlace(NO_PLACE), setCard(to.slice(6)), setTab('cards'))
+    if (to.startsWith('cards')) {
+      const said = new URLSearchParams(to.split('?')[1] ?? '')
+      // A "Show" from before a relaunch is not kept: all the cards, as its "Show all" would.
+      return void (setPlace(NO_PLACE), setCard(said.get('card')), setOnly(shownLists.get(said.get('just') ?? '') ?? null), setNewest(Number(said.get('newest')) || null), setTab('cards'))
+    }
     setCard(null)
+    setOnly(null)
+    setNewest(null)
     setPlace(to.startsWith('decks') ? placeOf(to) : NO_PLACE)
     setTab((to.startsWith('decks') ? 'decks' : to) as ReviewTab)
   })
@@ -89,7 +128,13 @@ export function ReviewArea({ focus, onOpen, onFocus }: { focus?: string; onOpen:
     <button type="button" data-review-tab="today" data-study-now aria-pressed={tab === 'today'} onClick={() => go('today')}
       className={`h-8 cursor-pointer rounded-md border px-3 text-control font-medium transition-colors ${tab === 'today' ? 'border-foreground/15 bg-background text-foreground shadow-sm' : 'border-transparent bg-primary text-primary-foreground hover:bg-primary/90'}`}>Study now</button>
   )
-  const show = (ids: string[]): void => (chime('open'), setStudying(null), setAim(null), setPicture(null), setOnly(ids), setTab('cards'))
+  // Just these cards in All cards, as a step of its own: Back returns to where "Show" was pressed.
+  const show = (ids: string[]): void => {
+    const key = Date.now().toString(36)
+    shownLists.set(key, ids)
+    shownKey.set(ids, key)
+    chime('open'), setStudying(null), setAim(null), setPicture(null), setCard(null), setOnly(ids), setTab('cards')
+  }
   const formOpen: 'make' | 'many' | 'picture' | null = picture ? 'picture' : tab === 'cards' && aim ? (aim.one ? 'make' : 'many') : null
   // A form opened from the toolbar: Make a card and Add many open in All cards, under the toolbar; pressed again, they close.
   const openForm = (one: boolean): void => {
