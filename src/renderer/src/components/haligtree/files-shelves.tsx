@@ -443,11 +443,10 @@ export function UnlinkedDays({ files, across, books, cursor, chosen, keyOf, menu
         }
         // A day's recordings end their island with the room a line of squares leaves under it.
         if (line.shelf === 'audio') return <div style={{ paddingBottom: line.island === 'end' || line.island === 'one' ? PICTURE_GAP : 0 }}>{tile(line.files[0], 0)}</div>
-        // A book's hover patch reaches 6px past its cover (the shelf's own padding): its line is pulled out by as much, so covers start on the heading's edge.
         return (
           <div className="grid" style={line.shelf === 'picture'
             ? { gridTemplateColumns: `repeat(${across}, minmax(0, 1fr))`, gap: PICTURE_GAP, paddingBottom: PICTURE_GAP }
-            : { gridTemplateColumns: `repeat(${books}, minmax(0, 1fr))`, gap: BOOK_GAP, paddingBottom: BOOK_GAP, marginInline: -6 }}>
+            : { gridTemplateColumns: `repeat(${books}, minmax(0, 1fr))`, gap: BOOK_GAP, paddingBottom: BOOK_GAP }}>
             {line.files.map(tile)}
           </div>
         )

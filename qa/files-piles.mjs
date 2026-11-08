@@ -132,7 +132,7 @@ try {
         return {
           heads: [...grid.querySelectorAll('[data-files-group]')].map((one) => one.textContent.replace(/\s+/g, ' ').trim()),
           squares: grid.querySelectorAll('.files-square').length, rows: grid.querySelectorAll('[data-audio-island] [data-media="audio"]').length, books: grid.querySelectorAll('.pdf-book').length,
-          cards: grid.querySelectorAll('[data-media-where]').length, square: box && Math.round(box.width) === Math.round(box.height),
+          cards: [...grid.querySelectorAll('[data-media]')].filter((one) => !one.matches('.files-square, .pdf-book, [data-audio-island] [data-media]')).length, square: box && Math.round(box.width) === Math.round(box.height),
           radius: square && getComputedStyle(square).borderTopLeftRadius, sideways: document.documentElement.scrollWidth > window.innerWidth
         }
       })
