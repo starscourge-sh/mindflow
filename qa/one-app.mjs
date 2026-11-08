@@ -196,7 +196,7 @@ try {
     const box = document.querySelector(card)
     if (!box) return 'no chart'
     const edge = box.getBoundingClientRect()
-    const out = [...box.querySelectorAll(labels)].filter((el) => el.textContent.trim()).filter((el) => { const r = el.getBoundingClientRect(); return r.width && (r.right > edge.right - 1 + 0.5 || r.left < edge.left - 0.5) }).map((el) => `${el.textContent.trim()} ${Math.round(el.getBoundingClientRect().right)} > ${Math.round(edge.right)}`)
+    const out = [...box.querySelectorAll(labels)].filter((el) => el.textContent.trim()).filter((el) => { const r = el.getBoundingClientRect(); return r.width && (r.right > edge.right + 0.5 || r.left < edge.left - 0.5) }).map((el) => `${el.textContent.trim()} ${Math.round(el.getBoundingClientRect().right)} > ${Math.round(edge.right)}`)
     return out.join(' | ')
   }, [card, labels])
   const AXES = [
