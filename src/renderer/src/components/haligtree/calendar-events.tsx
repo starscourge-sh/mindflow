@@ -693,7 +693,8 @@ export function NewEvent({ ask, onMade }: { ask: { day: string; minute: number |
             </button>
           ))}
         </div>
-        <p className="text-body text-foreground/85">Then the place, people, video link, reminder, repeat and notes are on the event as it opens here. A day or time in the words wins.</p>
+        {/* One quiet line: the rest is set on the event itself once it opens here. */}
+        <p data-new-event-hint className="text-control text-muted-foreground">Place, people, reminder and repeat come next, on the event.</p>
       </div>
     </form>
   )
