@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { createRoot } from 'react-dom/client'
 import { AnimatePresence, motion } from 'motion/react'
-import { AlignLeft, Ban, Bell, CalendarDays, Check, Clock, Copy, CopyPlus, FileText, Globe, Link2, MapPin, Pencil, Plus, Repeat as RepeatIcon, Scissors, Trash2, Users, Video, X } from 'lucide-react'
+import { AlignLeft, Ban, Bell, CalendarDays, Check, Clock, Copy, CopyPlus, FileText, Globe, Laptop, Link2, MapPin, Pencil, Plus, Repeat as RepeatIcon, Scissors, Trash2, Users, Video, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
@@ -24,6 +24,7 @@ import { TimeField } from './time-field'
 import { RowMenu, copyLink, copyLinkItem, type RowItem } from './row-menu'
 import { Island, Kbd, Prop, PropInput, Props, Tip, toast } from './ui'
 import { quoted } from '../../../../main/clip'
+import { IslandBox, useFold } from './islands'
 
 /** As the grid draws hours: one hour's height, and the steps a time snaps to. */
 export const HOUR = 56
@@ -558,7 +559,8 @@ export function CalendarLayers({ layers }: { layers: ReturnType<typeof useLayers
     chime('away')
     toast(`${one.name} deleted${moved.length ? `. Its ${moved.length === 1 ? 'event moved' : `${num(moved.length)} events moved`} to ${to.name}` : ''}`, () => void events.setCalendar({ id: one.id, binned: false }).then(() => void (moved.length && events.moveEvents(to.id, one.id, moved))))
   }
-  // Each calendar a box ticked in its own colour, as Calendar on the Mac has them: ticked, its events show.
+  const island = useFold('calendar.calendars', { total: layers.calendars.length + 1 })
+  const macIsland = useFold('calendar.mac', { total: layers.mac.length })
   // Each calendar a box ticked in its own colour, as Calendar on the Mac has them: ticked, its events show.
   // Its other choices (rename, colour, delete) are on the row's own right-click menu, as anywhere else.
   const row = (id: string, name: string, color: string, menu?: RowItem[]): React.JSX.Element => {
@@ -579,12 +581,9 @@ export function CalendarLayers({ layers }: { layers: ReturnType<typeof useLayers
     return menu ? <RowMenu key={id} items={menu}>{li}</RowMenu> : li
   }
   return (
-    <div data-cal-layers className="flex flex-col gap-0.5">
-      <div className="flex h-7 items-center pl-2">
-        <h2 className="flex-1 text-control font-medium text-foreground/80">My calendars</h2>
-        <Tip label="Add a calendar"><Button variant="ghost" size="icon-sm" data-cal-layer-add aria-label="Add a calendar" onClick={() => void add()}><Plus /></Button></Tip>
-      </div>
-      <p data-cal-layers-about className="px-2 pb-1 text-control text-foreground/75">Tick one to show its events. Right-click to rename, recolour or delete it.</p>
+    <div data-cal-layers className="flex flex-col">
+      {/* The Inbox's island: ticked, a calendar's events show; its own menu (right-click) renames, recolours or deletes it. */}
+      <IslandBox name="My calendars" island={island} shown={layers.calendars.length + 1} icon={<CalendarDays aria-hidden className="size-4 shrink-0 text-muted-foreground" />}>
       <ul className="flex flex-col">
         {layers.calendars.map((one) => editing === one.id
           ? <CalendarEdit key={one.id} one={one} onDone={() => setEditing(null)} />
@@ -600,12 +599,18 @@ export function CalendarLayers({ layers }: { layers: ReturnType<typeof useLayers
               })()
             ]))}
         {row('tasks', 'Tasks', 'var(--tt-brand-color-400)')}
+        <li>
+          <button type="button" data-cal-layer-add onClick={() => void add()}
+            className="flex h-8 w-full items-center gap-2.5 rounded-md px-2 text-left text-body text-foreground/80 outline-none transition-[background-color,scale] duration-150 hover:bg-accent/60 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.97] motion-reduce:transition-none">
+            <Plus aria-hidden className="size-4 shrink-0" />New calendar
+          </button>
+        </li>
       </ul>
+      </IslandBox>
       {layers.mac.length > 0 && (
-        <>
-          <h3 className="mt-3 flex h-7 items-center px-2 text-control font-medium text-foreground/80">Mac calendars <span className="ml-1 font-normal">(read only)</span></h3>
+        <IslandBox name="Mac calendars" island={macIsland} shown={layers.mac.length} icon={<Laptop aria-hidden className="size-4 shrink-0 text-muted-foreground" />}>
           <ul className="flex flex-col">{layers.mac.map((one) => row(one.id, one.name, inkOf(one.color ?? 'gray')))}</ul>
-        </>
+        </IslandBox>
       )}
     </div>
   )

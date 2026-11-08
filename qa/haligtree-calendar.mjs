@@ -74,10 +74,10 @@ try {
 
   // 52. Unscheduled, capped.
   const loose = await h.locator('[data-cal-loose]').count()
-  const more = (await h.locator('[data-cal-loose-more]').innerText().catch(() => '')).trim()
+  const more = (await h.locator('[data-island="Unscheduled"] [data-island-more]').innerText().catch(() => '')).trim()
   const all = (await v('tasks')).filter((t) => t.status === 'open' && !t.dueAt && !t.deadline).length
   check('52. Unscheduled shows eight, and says how many more', loose === 8 && more === `Show ${all - 8} more`, `${loose} shown, "${more}", ${all} in all`)
-  await h.locator('[data-cal-loose-more]').click(); await wait(300)
+  await h.locator('[data-island="Unscheduled"] [data-island-more]').click(); await wait(300)
   check('52. "Show N more" shows them all', await h.locator('[data-cal-loose]').count() === all)
   await shot('cal-loose-more')
 

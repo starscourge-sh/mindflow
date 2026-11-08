@@ -3,7 +3,7 @@ import { CARD, swallowRelease } from './carry'
 import { useReading, useReadsIn } from '@/lib/reads-in'
 import { createPortal } from 'react-dom'
 import { motion } from 'motion/react'
-import { Check, ChevronDown, PanelLeft, PanelRight, Plus, Repeat as RepeatIcon, Search } from 'lucide-react'
+import { CalendarClock, CalendarX2, Check, ChevronDown, PanelLeft, PanelRight, Plus, Repeat as RepeatIcon, Search } from 'lucide-react'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Button } from '@/components/ui/button'
 import { ChevronLeft, ChevronRight } from '@/components/ui/icons'
@@ -18,8 +18,9 @@ import { placeTask } from '@/lib/calendar'
 import { call, unloaded, useLive, haligtree, whenInLine, type Task } from '@/lib/haligtree'
 import { lengthSaid } from '../../../../main/day-load'
 import { dayjs, dayKey, num, type Dayjs } from '../../../../main/dates'
-import { Count, Rolling, Tip, typing } from './ui'
+import { Rolling, Tip, typing } from './ui'
 import { MORE_STEP } from './show-more'
+import { IslandBox, useFold } from './islands'
 import { RowMenu } from './row-menu'
 import { MonthPlan, MonthShowMenu } from './month-plan'
 import { taskMenu, useTaskNow } from './tasks-view'
@@ -31,7 +32,6 @@ import { calendarHere } from '@/lib/calendar-scope'
 import { useLayers, useEvents, events as eventsApi, zoneShort } from '@/lib/events'
 import { CalendarLayers, EventBlock, EventCardLayer, EventChip, HOUR, ZoneHeads, ZoneHours, allDayOn, colorFor, copyEvent, cutEvent, duplicateEvent, eventSpans, gutterOf, holding, hm, macShown, pasteEvent, span as timeSpan, useSecondZone, type Peek, type Shown } from './calendar-events'
 import { completeTask } from './tasks-view'
-import { Kbd } from './ui'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import DotsHorizontalIcon from '@/components/ui/dots-horizontal-icon'
 import { useCaptures, type CaptureMeta } from '../capture-list'
@@ -57,7 +57,7 @@ const LEFT = { key: 'vigil.calendar.left', home: 14, least: 12, most: 22 }
 const RIGHT = { key: 'vigil.calendar.right', home: 16, least: 13, most: 26 }
 const EDITOR = { key: 'vigil.calendar.editor', home: 24, least: 20, most: 34 }
 const ACCENT = 'var(--tt-brand-color-400)'
-/** How many Unscheduled tasks show before "Show N more". */
+/** How many Unscheduled tasks show before "Show N more": a working list to drag from, so a few more than an Inbox island. */
 const LOOSE_FEW = 8
 const MUTED_DAY = 'bg-[color-mix(in_oklab,var(--background)_97%,var(--foreground))]'
 /** The week's number, Monday to Sunday, the way a Mac's Calendar counts it (ISO 8601). */
@@ -404,8 +404,10 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
   // Eight, then a hundred more a press: a backlog of 1,500 never draws at once.
   const [looseCount, setLooseCount] = useState(LOOSE_FEW)
   const looseShown = unscheduled.slice(0, looseCount)
-  const allLoose = looseShown.length >= unscheduled.length
-  const looseNext = Math.min(unscheduled.length - looseShown.length, MORE_STEP)
+  const looseIsland = useFold('calendar.unscheduled', {
+    total: unscheduled.length, whole: looseCount > LOOSE_FEW && looseShown.length >= unscheduled.length,
+    onWhole: () => (chime('open'), setLooseCount(looseCount + MORE_STEP)), onFewer: () => (chime('fold'), setLooseCount(LOOSE_FEW))
+  })
   const blockProps = { carry, start, onPick: pick, taskNow, draft, setDraft, events: shownEvents, onEvent: pickEvent, onPeek, onOpen, landed }
   const calendarName = (one: Shown): string => one.readOnly ? one.calendarId.replace(/^mac:/, '') : layers.calendars.find((cal) => cal.id === one.calendarId)?.name ?? 'Calendar'
   // The card follows its event as it changes; the time it was opened for stays its anchor.
@@ -500,10 +502,9 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
             <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-3 py-4">
             <MiniMonth anchor={anchor} days={mode === 'month' ? [] : days} onPick={(day) => (chime('tap'), setPeek(null), setAnchor(day))} />
             <CalendarLayers layers={layers} />
-            <div className="flex min-h-0 flex-col gap-0.5">
-              <h2 className="flex h-7 items-center px-2 text-control font-medium text-foreground/80">Unscheduled {unscheduled.length > 0 && <Count n={unscheduled.length} className="ml-1.5 font-normal" />}</h2>
-              <p className="px-2 pb-1 text-body text-foreground/85">The same tasks as in Tasks and your Journal, here without a day yet.</p>
-              {!unscheduled.length && <p className="px-2 text-body text-foreground/85">Every open task has a day.</p>}
+            {/* The Inbox's island: what it holds, how many, and a fold. Drag one onto a day or an hour to give it a time. */}
+            <IslandBox name="Unscheduled" island={looseIsland} shown={looseShown.length} icon={<CalendarX2 aria-hidden className="size-4 shrink-0 text-muted-foreground" />}>
+              {!unscheduled.length && <p className="px-2 py-1.5 text-body text-foreground/85">Every open task has a day.</p>}
               <ul ref={looseBox} {...looseHover.handlers} data-cal-unscheduled className="relative isolate flex flex-col">
                 <Highlight spot={looseHover.spot} session={looseHover.session} snap={looseHover.snap} className="bg-accent/25" />
                 {looseShown.map((task) => (
@@ -523,15 +524,7 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
                   </li>
                 ))}
               </ul>
-              {unscheduled.length > LOOSE_FEW && (
-                <button type="button" data-cal-loose-more aria-expanded={allLoose} onClick={() => (chime(allLoose ? 'fold' : 'open'), setLooseCount(allLoose ? LOOSE_FEW : looseCount + MORE_STEP))}
-                  className="flex h-8 items-center gap-1.5 rounded-md px-2 text-left text-body font-medium text-foreground/85 outline-none transition-colors duration-150 hover:bg-accent/60 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none">
-                  <ChevronDown aria-hidden className={`size-4 shrink-0 transition-transform duration-150 motion-reduce:transition-none ${allLoose ? 'rotate-180' : ''}`} />
-                  {allLoose ? 'Show fewer' : `Show ${num(looseNext)} more`}
-                  {!allLoose && unscheduled.length - looseShown.length > looseNext && <span className="font-normal text-foreground/70">of {num(unscheduled.length - looseShown.length)}</span>}
-                </button>
-              )}
-            </div>
+            </IslandBox>
             </div>
           </aside>
         )}
@@ -554,7 +547,6 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
             {panel ? <div className="flex min-h-0 flex-1 flex-col overflow-hidden"><DaySide inline ask={panel} onClose={() => setPanel(null)} onOpen={onOpen} /></div> : (
               <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-4 py-4">
                 <Upcoming tasks={shownTasks} name={calendarName} onPeek={(one, at) => (goTo(dayjs(one.start)), onPeek(one, at))} onTask={(task) => (goTo(dayjs(task.dueAt!)), setChosen(task.id), pick(task.id))} />
-                <Shortcuts onSearch={search} onJump={() => (chime('open'), setJump(true))} />
               </div>
             )}
           </aside>
@@ -738,10 +730,14 @@ function Upcoming({ tasks, name, onPeek, onTask }: { tasks: Task[]; name: (one: 
   const until = next ? dayjs(next.start).diff(now, 'minute') : 0
   // Its own reads (the week ahead's events, your calendars): its page waits for them, never a day at a time.
   useReading(!layers.ready || unloaded(own))
+  const count = daysAhead.reduce((sum, day) => sum + day.rows.length, 0)
+  const island = useFold('calendar.upcoming', { total: count })
   return (
     <>
+    {/* What is on now or next, when there is one; nothing to say when there is not: Upcoming says it. */}
+    {next && (
     <section data-cal-next-up className="flex flex-col gap-1.5">
-      {!next ? <p className="px-1 text-body font-semibold text-foreground">No upcoming meeting</p> : (
+      {(
         <button type="button" data-cal-next-row={next.key} onClick={(event) => (chime('open'), onPeek(next, event.currentTarget.getBoundingClientRect()))}
           className="flex items-start gap-2.5 rounded-lg border bg-background px-3 py-2.5 text-left outline-none transition-colors duration-150 hover:bg-accent/40 focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none">
           <span aria-hidden className="mt-1 h-8 w-[3px] shrink-0 rounded-full" style={{ background: next.color }} />
@@ -753,19 +749,19 @@ function Upcoming({ tasks, name, onPeek, onTask }: { tasks: Task[]; name: (one: 
         </button>
       )}
     </section>
-    <section data-cal-upcoming className="flex flex-col gap-4">
-      <div className="flex items-baseline gap-2 px-1">
-        <h2 className="flex-1 text-body font-semibold text-foreground">Upcoming</h2>
-        <span className="text-control text-foreground/75">Next 7 days</span>
-      </div>
+    )}
+    {/* The next seven days, as an Inbox island: icon, name, how many, fold. */}
+    <section data-cal-upcoming>
+    <IslandBox name="Upcoming" island={island} shown={count} icon={<CalendarClock aria-hidden className="size-4 shrink-0 text-muted-foreground" />}>
+      <div className="flex flex-col gap-2 py-1">
       {daysAhead.map((day) => (
-        <div key={day.key} data-cal-upcoming-day={day.key} className="flex flex-col gap-1">
-          <h3 className="px-1 text-control font-medium text-foreground/75">{day.label}</h3>
-          {!day.rows.length && <p className="px-1 text-body text-foreground/85">No more events today</p>}
+        <div key={day.key} data-cal-upcoming-day={day.key} className="flex flex-col">
+          <h3 className="px-2 py-0.5 text-control font-medium text-foreground/75">{day.label}</h3>
+          {!day.rows.length && <p className="px-2 py-1 text-body text-foreground/85">Nothing more today</p>}
           {day.rows.map((row) => (
             <button key={row.key} type="button" data-cal-upcoming-row={row.key} title={row.title}
               onClick={(event) => row.one ? (chime('open'), onPeek(row.one, event.currentTarget.getBoundingClientRect())) : row.task && onTask(row.task)}
-              className="flex items-start gap-2.5 rounded-md px-1 py-1 text-left outline-none transition-colors duration-150 hover:bg-accent/60 focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none">
+              className="flex items-start gap-2.5 rounded-md px-2 py-1 text-left outline-none transition-[background-color,scale] duration-150 hover:bg-accent/60 focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.97] motion-reduce:transition-none">
               <span aria-hidden className={`mt-1.5 size-2 shrink-0 ${row.task ? 'rounded-full border-[1.5px]' : 'rounded-[2px]'}`} style={row.task ? { borderColor: row.color } : { background: row.color }} />
               <span className="flex min-w-0 flex-1 flex-col">
                 <span className="truncate text-body font-semibold text-foreground">{row.title}</span>
@@ -775,28 +771,10 @@ function Upcoming({ tasks, name, onPeek, onTask }: { tasks: Task[]; name: (one: 
           ))}
         </div>
       ))}
+      </div>
+    </IslandBox>
     </section>
     </>
-  )
-}
-
-/** The keys worth knowing here, each a button too, as Notion Calendar keeps them under the day. */
-function Shortcuts({ onSearch, onJump }: { onSearch: () => void; onJump: () => void }): React.JSX.Element {
-  const rows: [string, string[], () => void][] = [
-    ['Command menu', ['⌘', 'K'], onSearch],
-    ['Go to date', ['.'], onJump],
-    ['All keyboard shortcuts', ['?'], () => void window.dispatchEvent(new Event('haligtree:shortcuts'))]
-  ]
-  return (
-    <section data-cal-shortcuts className="flex flex-col gap-1">
-      <h2 className="px-1 pb-1 text-body font-semibold text-foreground">Useful shortcuts</h2>
-      {rows.map(([label, keys, run]) => (
-        <button key={label} type="button" onClick={run} className="flex h-8 items-center gap-2 rounded-md px-1 text-left text-body text-foreground/85 outline-none hover:bg-accent/60 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring">
-          <span className="min-w-0 flex-1 truncate">{label}</span>
-          <span className="flex gap-1">{keys.map((key) => <Kbd key={key}>{key}</Kbd>)}</span>
-        </button>
-      ))}
-    </section>
   )
 }
 

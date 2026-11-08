@@ -161,3 +161,36 @@ export function IslandBox({ name, island, shown, icon, extra, unit, uncounted, c
     </section>
   )
 }
+
+/**
+ * One list drawn as an island outside a grouped list (the Calendar's side
+ * panels): folded or open, kept between visits under `key`; `more` is its own
+ * "Show more" where the list has one.
+ */
+export function useFold(key: string, more: Partial<Pick<IslandState, 'whole' | 'onWhole' | 'onFewer'>> & { total: number }): IslandState {
+  const store = `fold:${key}`
+  const [folded, setFolded] = useState(() => {
+    try {
+      return localStorage.getItem(store) === 'yes'
+    } catch {
+      return false
+    }
+  })
+  const keep = (on: boolean): void => {
+    setFolded(on)
+    try {
+      localStorage.setItem(store, on ? 'yes' : 'no')
+    } catch {
+      // Applied, not kept.
+    }
+  }
+  return {
+    total: more.total,
+    folded,
+    whole: more.whole ?? true,
+    onFold: (quiet) => (quiet === true || chime(folded ? 'open' : 'fold'), keep(!folded)),
+    onWhole: more.onWhole ?? (() => {}),
+    onFewer: more.onFewer ?? (() => {}),
+    onShow: () => folded && keep(false)
+  }
+}

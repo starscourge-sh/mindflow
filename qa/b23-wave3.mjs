@@ -53,7 +53,7 @@ try {
   await h.keyboard.press('Escape'); await wait(300)
   const after = await v('calendars')
   check('4: a double click on + makes one calendar', after.length === before + 1, `${before} → ${after.length}`)
-  check('4: a line says what a calendar is for', (await h.locator('[data-cal-layers-about]').innerText()).includes('Right-click'))
+  check('4: My calendars is an island, no paragraph of instructions', (await h.locator('[data-island="My calendars"]').count()) === 1 && (await h.locator('[data-cal-layers-about]').count()) === 0)
   const made = after.find((one) => one.name === 'New calendar')
   const start = new Date(); start.setHours(15, 0, 0, 0)
   const ev = await v('event:add', { title: 'Wave3 moved event', start: start.toISOString(), end: new Date(start.getTime() + 3600e3).toISOString(), calendarId: made.id })

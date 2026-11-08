@@ -78,7 +78,7 @@ try {
   // 1. The header.
   const sub = await h.locator('[data-cal-subtitle]').innerText()
   check('the title says the month, the week\'s number and days under it', /^Week \d+ · \w+ \d+ – (\w+ )?\d+/.test(sub.trim()) && /\w+ \d{4}/.test(await h.locator('[data-cal-title]').innerText()), sub)
-  check('‹ | Today | › as one control, Day | Week | Month, search, Plan and "+ New event" are there', await h.locator('[data-cal-step] [data-cal-today]').count() === 1 && await h.locator('[data-cal-step] [data-cal-prev]').count() === 1 && (await h.locator('[data-cal-side-toggle]').innerText()).includes('Plan') && await h.locator('[data-cal-views] [role="radio"]').count() === 3 && await h.locator('[data-cal-search]').count() === 1 && (await h.locator('[data-cal-new-event]').innerText()).includes('New event'))
+  check('‹ | Today | › as one control, Day | Week | Month, search, the right panel toggle and "+ New event" are there', await h.locator('[data-cal-step] [data-cal-today]').count() === 1 && await h.locator('[data-cal-step] [data-cal-prev]').count() === 1 && /Upcoming/.test(await h.locator('[data-cal-side-toggle]').getAttribute('aria-label')) && await h.locator('[data-cal-views] [role="radio"]').count() === 3 && await h.locator('[data-cal-search]').count() === 1 && (await h.locator('[data-cal-new-event]').innerText()).includes('New event'))
   await h.locator('[data-cal-view="day"]').click(); await h.waitForTimeout(400)
   check('Day in the switch shows a day', (await h.locator('[data-cal-mode]').getAttribute('data-cal-mode')) === 'day' && (await h.locator('[data-cal-view="day"]').getAttribute('aria-checked')) === 'true')
   await h.locator('[data-cal-view="week"]').click(); await h.waitForTimeout(400)
@@ -134,8 +134,8 @@ try {
   check('Esc puts it away', await h.locator(P).count() === 0)
   await h.keyboard.press('t'); await h.waitForTimeout(600)
 
-  check('the next event and its countdown, or "No upcoming meeting"', /^In \d|On now|No upcoming meeting/.test((await h.locator('[data-cal-next-up]').innerText()).trim()), await h.locator('[data-cal-next-up]').innerText())
-  check('"Useful shortcuts": Command menu ⌘K, Go to date ., All keyboard shortcuts ?', /Command menu[\s\S]*K[\s\S]*Go to date[\s\S]*\.[\s\S]*All keyboard shortcuts[\s\S]*\?/.test(await h.locator('[data-cal-shortcuts]').innerText()))
+  check('the next event and its countdown, or nothing when there is none', (await h.locator('[data-cal-next-up]').count()) === 0 || /^In \d|On now/.test((await h.locator('[data-cal-next-up]').innerText()).trim()))
+  check('no "Useful shortcuts" in the rail: each key is in its own button\'s tip and in ?', (await h.locator('[data-cal-shortcuts]').count()) === 0)
 
   // 6. The card.
   await plain.click(); await h.waitForTimeout(600)
