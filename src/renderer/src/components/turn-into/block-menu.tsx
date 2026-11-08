@@ -25,7 +25,6 @@ import { listDirection } from "@/lib/menu-keys"
 import { fitToWidth } from "@/lib/table"
 import { SpellingRows, type Misspelling } from "./spelling"
 import { Kbd } from "@/components/haligtree/ui"
-import { useShowLine } from "@/lib/show-in-list"
 import { BLOCK_TYPES, nameBlock } from "@/extensions/block-ids"
 import { haligtree } from "@/lib/haligtree"
 import { lineUnderMenu } from "@/extensions/meeting"
@@ -104,7 +103,6 @@ export function BlockMenu({
 
   const term = query.trim().toLowerCase()
   const matches = (label: string) => label.toLowerCase().includes(term)
-  const show = useShowLine()
   const conversions = CONVERSIONS.filter(
     (item) => matches(item.title) || (item.hint ? matches(item.hint) : false)
   )
@@ -778,16 +776,6 @@ export function BlockMenu({
           </DropdownMenuItem>
         ) : null}
 
-        {/* Where the note sits in the list beside it (lib/show-in-list.ts). */}
-        {show && matches(show.label) ? (
-          <DropdownMenuItem asChild>
-            <button type="button" data-show-in-list onClick={() => (onOpenChange(false), show.run())}>
-              <MenuGlyph label={show.label} />
-              <span className="tiptap-slash-menu-title">{show.label}</span>
-              {show.keys && <Kbd>{show.keys}</Kbd>}
-            </button>
-          </DropdownMenuItem>
-        ) : null}
         </>)}
         </div>
 
