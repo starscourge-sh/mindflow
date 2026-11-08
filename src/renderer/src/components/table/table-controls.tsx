@@ -118,11 +118,23 @@ function carry(table: HTMLTableElement, axis: 'row' | 'column', index: number): 
   copy.style.font = look.font
   copy.style.color = look.color
   const body = document.createElement('tbody')
-  const cols = table.querySelector('colgroup')
   if (axis === 'row') {
-    if (cols) copy.append(cols.cloneNode(true))
     const row = table.rows[index]
-    if (row) body.append(row.cloneNode(true))
+    // Each column as wide as it is drawn: the table's own column list has no widths until one is
+    // dragged, and without them the copy spaced its columns its own way, off the table's.
+    if (row) {
+      const cols = document.createElement('colgroup')
+      for (const cell of row.cells) {
+        for (let at = 0; at < cell.colSpan; at++) {
+          const col = document.createElement('col')
+          col.style.width = `${cell.getBoundingClientRect().width / cell.colSpan}px`
+          cols.append(col)
+        }
+      }
+      copy.append(cols)
+      copy.style.width = `${row.getBoundingClientRect().width}px`
+      body.append(row.cloneNode(true))
+    }
   } else {
     for (const row of table.rows) {
       const line = document.createElement('tr')

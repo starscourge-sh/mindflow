@@ -163,6 +163,16 @@ try {
       await frame(`row-drag-${i}`)
     }
     await shot('row-drag')
+    // Its cells line up with the table's own columns (they used to space themselves their own way).
+    const lined = await h.evaluate(() => {
+      const copy = document.querySelector('.tiptap-table-carried tr')
+      const table = [...document.querySelectorAll('.tiptap.ProseMirror table')].find((one) => !one.closest('.tiptap-table-carried'))
+      if (!copy || !table) return null
+      const mine = [...copy.cells].map((one) => Math.round(one.getBoundingClientRect().width))
+      const theirs = [...table.rows[0].cells].map((one) => Math.round(one.getBoundingClientRect().width))
+      return { mine, theirs }
+    })
+    check('the carried row\'s columns are the table\'s widths (within 2px)', !!lined && lined.mine.length === lined.theirs.length && lined.mine.every((w, i) => Math.abs(w - lined.theirs[i]) <= 2), JSON.stringify(lined))
     const copyText = await h.evaluate(() => document.querySelector('.tiptap-table-carried')?.textContent ?? '')
     check('mid-drag the row itself is carried: a lifted copy of it under the pointer', /Essays.*Montaigne.*1580/.test(copyText), copyText)
     check('and it tracks the pointer 1:1, keeping where it was taken (within 2px)', followed.every((one) => one !== null && Math.abs(one) <= 2), JSON.stringify(followed))
