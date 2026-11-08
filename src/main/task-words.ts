@@ -648,7 +648,7 @@ export function readTask(text: string, at = new Date(), plain: { from: number; t
   // A sentence's own full stop, left alone where the date before it was taken: "Draft the intro on Saturday." is "Draft the intro."
   if (dates.length) title = title.replace(/(?:\s+(?:by|on|at|due|before|for|from))?[\s,;:]+([.!?]+)$/i, '$1').trim()
   // Punctuation that only joined a taken word to the rest: "Someday: learn
-  // Welsh", "call Sam, tomorrow".
+  // Spanish", "call Sam, tomorrow".
   title = title.replace(/^(?:[:;,]|[-–—](?=\s))\s*/, '').replace(/\s*[:;,]$/, '').trim()
   title = leadingTag(title)
   // A date word taken from the front leaves the next word starting the

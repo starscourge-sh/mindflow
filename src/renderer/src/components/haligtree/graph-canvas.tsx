@@ -753,7 +753,8 @@ export function GraphCanvas({ map, onOpen, centre, you, about, fit: fitRef, fly,
       // otherwise the busiest are named all the time.
       // Worked out even before the light fades in, so the card knows where the names will be.
       // Placed by where each dot sits, not where it breathes to, so a name never hops.
-      const pad = 4 / view.k, half = 7 / view.k
+      // padX: a name's pill reaches further either side than above and below, so its words never sit at its rounded ends.
+      const pad = 4 / view.k, padX = 8 / view.k, half = 7 / view.k
       namesMoving = false
       // On the Map: the hubs in sight, then any dot big enough on the screen to
       // be worth a name; more of them the closer you are, each kept clear of
@@ -830,7 +831,7 @@ export function GraphCanvas({ map, onOpen, centre, you, about, fit: fitRef, fly,
           const away = from ? dot.x! < from.x! || (dot === from && dot.x! > 0) : false
           const out = reachOf(dot)
           // [left edge, middle line, how it lines up]
-          const right = [dot.x! + out + pad, dot.y!], left = [dot.x! - out - pad - wide, dot.y!]
+          const right = [dot.x! + out + padX, dot.y!], left = [dot.x! - out - padX - wide, dot.y!]
           const above = [dot.x! - wide / 2, dot.y! - out - pad - half], below = [dot.x! - wide / 2, dot.y! + out + pad + half]
           // The note in the middle of its own map is named first, over or under
           // itself, whatever dots are there: the others keep off its name.
@@ -908,7 +909,7 @@ export function GraphCanvas({ map, onOpen, centre, you, about, fit: fitRef, fly,
             const big = (other: Dot): boolean => other.rings > 0 || other.r >= 7
             // A pill is drawn wider than its words by its padding: checked at that size, or it was placed over the
             // dot beside it (#money's over #health's at 50 captures, so every line out from #health ran through it).
-            const padded = (box: number[]): number[] => [box[0] - pad, box[1] - pad / 2, box[2] + pad, box[3] + pad / 2]
+            const padded = (box: number[]): number[] => [box[0] - padX, box[1] - pad / 2, box[2] + padX, box[3] + pad / 2]
             for (const further of [0, 14, 28, 44]) if (!spot && (spot = boxesAt(further / view.k).find((box) => free(big)(padded(box)) && (!further || clearLine(box))))) ((pill = true), (leader = further > 0))
             // Still none: on its pill further out with its line, clear of every other name, over small dots if it must.
             // Its line may cross no name, so it may have to go further out than before, and at a slant as well as
@@ -936,7 +937,7 @@ export function GraphCanvas({ map, onOpen, centre, you, about, fit: fitRef, fly,
           }
           said++
           if (leader) lines.push({ dot, line: lineTo(spot) })
-          taken.push({ dot: shown ?? dot, box: pill ? [spot[0] - pad, spot[1] - pad / 2, spot[2] + pad, spot[3] + pad / 2] : spot })
+          taken.push({ dot: shown ?? dot, box: pill ? [spot[0] - padX, spot[1] - pad / 2, spot[2] + padX, spot[3] + pad / 2] : spot })
           // At rest on the Map, a name is kept and drawn below at its own strength, fading in and gliding to its place.
           // A note's own map and the Inbox's tag map name a fixed few, drawn as placed.
           if (!shown && calm) {
@@ -1003,7 +1004,7 @@ export function GraphCanvas({ map, onOpen, centre, you, about, fit: fitRef, fly,
           if (pill) {
             context.save()
             context.beginPath()
-            context.roundRect(spot[0] - pad + sx, spot[1] - pad / 2 + sy, spot[2] - spot[0] + pad * 2, spot[3] - spot[1] + pad, style !== 'soft' ? 0 : half + pad / 2)
+            context.roundRect(spot[0] - padX + sx, spot[1] - pad / 2 + sy, spot[2] - spot[0] + padX * 2, spot[3] - spot[1] + pad, style !== 'soft' ? 0 : half + pad / 2)
             context.fillStyle = ring
             context.fill()
             context.strokeStyle = brutal ? text : style === 'paper' ? quiet : edge

@@ -1085,7 +1085,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
             inputRef={addRef}
             value={draft}
             onChange={setDraft}
-            placeholder={mode === 'later' ? 'Add a task: “learn Welsh someday”, “book the holiday this year”' : 'Add a task: “call the accountant tomorrow 10am”, “file taxes by friday !!”'}
+            placeholder={mode === 'later' ? 'Add a task: “learn Spanish someday”, “book the holiday this year”' : 'Add a task: “call the accountant tomorrow 10am”, “file taxes by friday !!”'}
           />
           <Kbd>↵</Kbd>
         </form>

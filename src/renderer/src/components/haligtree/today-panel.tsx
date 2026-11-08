@@ -45,7 +45,7 @@ const EMPTY: Record<Scope, { title: string; text: string }> = {
   month: { title: 'Nothing this month', text: 'Say “this month” in the words for something with no day yet that should still happen soon.' },
   year: { title: 'Nothing this year', text: '“this year” or “next month” keeps a task here, without a day, until you give it one.' },
   next: { title: 'Nothing next year', text: '“next year” keeps a task here, without a day, until the year comes round.' },
-  someday: { title: 'Nothing for someday', text: '“learn Welsh someday”: the things you might do, kept where they do not nag.' },
+  someday: { title: 'Nothing for someday', text: '“learn Spanish someday”: the things you might do, kept where they do not nag.' },
   backlog: { title: 'Nothing without a date', text: 'A task with no date goes here, out of the way until you give it one.' },
   waiting: { title: 'Waiting on no one', text: 'Fill in “Waiting on…” on a task’s page and it comes here, with a day to chase them.' },
   new: { title: 'Nothing new', text: 'A task taken in the last two days waits here, newest first, whatever day it is for: open it to add to it or put it right.' }

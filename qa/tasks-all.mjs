@@ -33,7 +33,7 @@ const sorts = async () => {
 }
 try {
   await v('settings:set', { sounds: false, hintRate: 0 })
-  for (const words of ['Pay the gas bill yesterday', 'Call the bank today', 'Water the plants tomorrow', 'Learn Welsh someday', 'Sort the loft'])
+  for (const words of ['Pay the gas bill yesterday', 'Call the bank today', 'Water the plants tomorrow', 'Learn Spanish someday', 'Sort the loft'])
     await v('task:add', words)
   await go('today'); await wait(600)
   const tabs = await h.evaluate(() => [...document.querySelectorAll('[data-list-tabs] button')].map((one) => one.innerText.replace(/\s+/g, '')))
@@ -44,7 +44,7 @@ try {
   const order = ['Overdue', 'Today', 'Tomorrow', 'This week', 'Later', 'No date'].filter((one) => all.includes(one))
   check('in the order of when', order.join() === all.filter((one) => order.includes(one)).join(), all.join(' / '))
   const { text } = await gather()
-  check('every open task is on it', ['Pay the gas bill', 'Call the bank', 'Water the plants', 'Learn Welsh', 'Sort the loft'].every((one) => text.includes(one)))
+  check('every open task is on it', ['Pay the gas bill', 'Call the bank', 'Water the plants', 'Learn Spanish', 'Sort the loft'].every((one) => text.includes(one)))
   await h.screenshot({ path: `${process.env.QA_DATA}/all-light.png` })
   await go('inbox'); await wait(400)
   await h.evaluate(() => document.activeElement?.blur())
