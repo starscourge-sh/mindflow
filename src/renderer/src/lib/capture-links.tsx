@@ -310,17 +310,19 @@ export async function findHeadings(link: string): Promise<string[]> {
  * Follow an @ link: a capture's id alone, or `nugget:` / `article:` and an id.
  * A link to a heading lands on it, in the note already open if it is.
  */
-export const follow = (link: string, open: (type: string, id: string) => void, heading?: string, beside = false): void => {
+/** `beside`: open it in a pane beside the one named (the pane the click came from), whatever the click was. */
+export const follow = (link: string, open: (type: string, id: string) => void, heading?: string, beside?: { from: string | null }): void => {
   // Found by a link, for the usage counts.
   via('link')
   const [type, id] = link.includes(':') ? [link.slice(0, link.indexOf(':')), link.slice(link.indexOf(':') + 1)] : ['capture', link]
   // ⌥-clicked: to the side. ⌘-clicked: a new tab, as everywhere. Read now, from the click, before a capture's lookup waits.
   const how = canSplit() && type !== 'person' ? (beside ? (takeClick(), 'aside') : takeClick()) : null
   const side = how === 'aside'
-  const go = side ? openAside : how === 'tab' ? openNewTab : open
+  const aside = (kind: string, at: string): void => openAside(kind, at, beside?.from)
+  const go = side ? aside : how === 'tab' ? openNewTab : open
   // A person or a tag is a place in the main window, not a note: its tag page, or a search for their name.
   // A PDF or a kept article opens in the reader there, wherever the link is.
-  if (type === 'person' || type === 'tag' || type === 'pdf' || type === 'web') return side ? openAside(type, id) : window.api.openInHome(type, id)
+  if (type === 'person' || type === 'tag' || type === 'pdf' || type === 'web') return side ? aside(type, id) : window.api.openInHome(type, id)
   if (type === 'capture') return void keptAs(id).then((to) => {
     go(to.type, to.id)
     if (heading) headingIn(to.type, to.id, heading)
