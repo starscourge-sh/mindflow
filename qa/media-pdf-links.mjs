@@ -32,7 +32,7 @@ const NAME = '18 - The Law Book (z-lib.org).pdf'
 const c = await sandbox({ width: 1400, height: 900 })
 const { h, v, go } = c
 const wait = (ms) => h.waitForTimeout(ms)
-const pdfs = async () => { await go('media'); await wait(1200); await h.locator('[data-page=media] [data-media-kinds] button', { hasText: 'PDFs' }).first().click({ timeout: 5000 }); await wait(1800) }
+const pdfs = async () => { await go('media'); await wait(1200); await h.locator('[data-page=media] [data-media-kinds] button', { hasText: 'Books' }).first().click({ timeout: 5000 }); await wait(1800) }
 try {
   await v('settings:set', { sounds: false, hintRate: 0 })
   await v('onboarding:set', { welcomed: new Date().toISOString(), newsSeen: true, welcoming: false, pageHints: false })

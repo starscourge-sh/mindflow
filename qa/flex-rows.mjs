@@ -152,26 +152,8 @@ try {
   check('Media\'s PDF shelf opens on the same covers row', shelf && (shelf.canvas || shelf.still > 0) && shelf.words.some((w) => /^p\. /.test(w)), JSON.stringify(shelf))
   await shot('media-pdf-shelf')
 
-  // --- Recent pictures: 12.
+  // (Media's "Recent pictures" row is gone: Files keeps pictures by month, checked in qa/files-piles.mjs.)
   for (let n = 1; n <= 12; n++) await make([para(`Picture note ${n}`), { type: 'image', attrs: { src: await picture(n) } }])
-  await go('home'); await go('media'); await wait(800)
-  await h.locator('[data-page=media] [data-media-kinds] button', { hasText: 'Pictures' }).first().click(); await wait(2500)
-  const recent = await row('[data-recent-pictures]')
-  check('Media > Pictures: "Recent pictures" row over the grid', recent?.canvas && (await h.evaluate(() => !!document.querySelector('[data-recent-pictures] + * [data-media], [data-recent-pictures] ~ * [data-media]'))), JSON.stringify(recent))
-  check('its counter reads "01 / 12" (or the newest\'s place)', recent?.words.some((w) => /^\d\d \/ \d\d+$/.test(w)), JSON.stringify(recent?.words))
-  await shot('media-recent-12')
-  const pic = await h.evaluate(() => { const r = document.querySelector('[data-recent-pictures] [data-flex-carousel]').getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 } })
-  const title = (await row('[data-recent-pictures]')).words[0]
-  await h.mouse.move(pic.x, pic.y); await wait(300)
-  await h.mouse.click(pic.x, pic.y, { button: 'right' })
-  const picMenu = await menuLines()
-  await h.locator('[data-page=media] [data-media]').first().click({ button: 'right' })
-  const tileMenu = await menuLines()
-  check('right-click on a recent picture: the same menu as its grid tile', picMenu.length > 2 && JSON.stringify(picMenu) === JSON.stringify(tileMenu), `${JSON.stringify(picMenu)} vs ${JSON.stringify(tileMenu)}`)
-  await h.mouse.click(pic.x, pic.y); await wait(1200)
-  const left = await h.evaluate(() => !document.querySelector('[data-recent-pictures]'))
-  const where = await h.evaluate(() => document.querySelector('.ProseMirror')?.textContent?.slice(0, 40) ?? '')
-  check('a click opens the picture\'s note, as a tile does', left && where.includes(title.replace(/^Picture note /, 'Picture note ')), `${title} → ${where}`)
 
   // --- The Wrapped story: the month's pictures and gems as one flowing row.
   await go('home'); await wait(800)

@@ -36,7 +36,7 @@ try {
   await h.evaluate((b) => window.api.captures.create({ kind: 'note', body: b }), { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Shelf' }] }, ...content] })
   await h.reload(); await wait(1500)
   await go('media'); await wait(1000)
-  await h.locator('[data-page=media] [data-media-kinds] button', { hasText: 'PDFs' }).first().click(); await wait(2500)
+  await h.locator('[data-page=media] [data-media-kinds] button', { hasText: 'Books' }).first().click(); await wait(2500)
   const covers = await h.evaluate(() => [...document.querySelectorAll('.pdf-book-cover')].map((one) => { const r = one.getBoundingClientRect(); return { x: r.left, y: r.top, w: r.width, h: r.height } }))
   check('three covers on the shelf', covers.length === 3, String(covers.length))
   const [a, , last] = covers
@@ -78,7 +78,7 @@ try {
   await c.look('light')
 
   // A Media tile: the same, under All.
-  await h.locator('[data-page=media] [data-media-kinds] button', { hasText: 'PDFs' }).first().click(); await wait(1500)
+  await h.locator('[data-page=media] [data-media-kinds] button', { hasText: 'Books' }).first().click(); await wait(1500)
   const tile = await h.evaluate(() => { const r = document.querySelector('[data-media=pdf] [data-pdf-peek-scrub]')?.getBoundingClientRect(); return r && { x: r.left, y: r.top, w: r.width, h: r.height } })
   check('a Media tile of a PDF can turn its pages too', !!tile, '')
   if (tile) {

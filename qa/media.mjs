@@ -117,7 +117,7 @@ try {
   check('pressed again, "Audio" shows every kind', (await tiles()).length === all.length)
 
   // "PDFs" is a library: each book once as its cover, its name made readable, and an inspector for the one picked.
-  await chip('PDFs'); await wait(1500)
+  await chip('Books'); await wait(1500)
   const shelf = await h.evaluate(() => ({ books: [...document.querySelectorAll('[data-library] .pdf-book')].map((one) => one.querySelector('.pdf-book-title')?.textContent), covers: document.querySelectorAll('[data-library] .pdf-book-cover img').length, inspector: document.querySelector('.pdf-inspector .book-head-title')?.textContent, open: document.querySelector('.pdf-inspector-open')?.textContent }))
   check('"PDFs" shows a shelf of covers, one per book', shelf.books.length === 2 && shelf.covers === 2, JSON.stringify(shelf))
   check('a file name like "18 - The Law Book (z-lib.org).pdf" reads "The Law Book"', shelf.books.includes('The Law Book'), JSON.stringify(shelf.books))

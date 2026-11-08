@@ -133,15 +133,15 @@ async function journey(c, label) {
 
   // --- The shelf: a PDF added here is a book, and opens in the reader
   const chip = (name) => h.locator('[data-page=media] [data-media-kinds] button', { hasText: name }).first().click({ timeout: 5000 })
-  await chip('PDFs'); await wait(1200)
+  await chip('Books'); await wait(1200)
   const books = await v('pdf:library')
   check(`${label}: a PDF added here is a book on the shelf`, books.some((one) => one.src === D.src) && await h.locator(`[data-library] [data-book="${D.src}"]`).count() === 1)
   await shot(h, `shelf-${label}`)
   await h.locator(`[data-library] [data-book="${D.src}"]`).dblclick(); await wait(1400)
   check(`${label}: and opens in the reader`, await h.evaluate(() => !!document.querySelector('.pdf-reader')))
   await go('media'); await wait(800)
-  await chip('PDFs'); await wait(400)
-  await chip('PDFs'); await wait(500)
+  await chip('Books'); await wait(400)
+  await chip('Books'); await wait(500)
   await h.locator(`[data-media][data-src="${D.src}"]`).click(); await wait(1400)
   check(`${label}: a click on its tile opens the reader at once`, await h.evaluate(() => !!document.querySelector('.pdf-reader')))
   await go('media'); await wait(800)
@@ -442,7 +442,7 @@ if (part('row')) {
     const told = await h.evaluate((list) => window.api.haligtree('media:add', list.map((path) => ({ path }))), [pdfFree, pdfHeld])
     const [free, held] = told.added
     await h.evaluate((b) => window.api.captures.create({ kind: 'note', body: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Holds a book' }] }, { type: 'attachment', attrs: { src: b.src, name: b.name, size: b.size } }] } }), held); await wait(700)
-    await h.locator('[data-page=media] [data-media-kinds] button', { hasText: 'PDFs' }).first().click(); await wait(1200)
+    await h.locator('[data-page=media] [data-media-kinds] button', { hasText: 'Books' }).first().click(); await wait(1200)
     await point(`[data-library] [data-book="${free.src}"]`)
     await h.keyboard.press('Backspace'); await wait(700)
     check('⌫ on a pointed shelf book: a free one goes', !(await v('pdf:library')).some((one) => one.src === free.src) && /Moved to the Bin/.test(await h.evaluate(() => document.body.innerText)))
@@ -452,7 +452,7 @@ if (part('row')) {
     await h.keyboard.press('Backspace'); await wait(600)
     check('⌫ on a pointed shelf book a note holds: it stays, and says why', (await v('pdf:library')).some((one) => one.src === held.src) && /stays: 1 note holds it/.test(await h.evaluate(() => document.body.innerText)))
     // An RTL name goes in, is found, and reads in its tile.
-    await h.locator('[data-page=media] [data-media-kinds] button', { hasText: 'PDFs' }).first().click(); await wait(500)
+    await h.locator('[data-page=media] [data-media-kinds] button', { hasText: 'Books' }).first().click(); await wait(500)
     const rtl = write('مذكرات الرحلة إلى قرطبة.png', await pngFrom(h, 32))
     await pickNext(electron, [rtl]); await addFiles(h); await wait(1000)
     const said = await h.evaluate(() => document.body.innerText)
@@ -635,7 +635,7 @@ if (part('ways')) {
     await h.locator('[role=menu] [role=menuitem]', { hasText: 'Make it a note' }).last().click(); await wait(1500)
     check('"Make it a note" makes a note holding the picture, words or none', await notesCount(h) === count0 + 1 && (await v('media:list')).find((one) => one.src === loosePic.src).uses.length === 1, `${count0} → ${await notesCount(h)}`)
     // The shelf's keys: ⌘A, right-click, ⌫, ⌘Z.
-    await h.locator('[data-page=media] [data-media-kinds] button', { hasText: 'PDFs' }).first().click(); await wait(1200)
+    await h.locator('[data-page=media] [data-media-kinds] button', { hasText: 'Books' }).first().click(); await wait(1200)
     const finderBook = (await v('media:list')).find((one) => one.name === 'From Finder.pdf')
     const card = h.locator(`[data-library] [data-book="${finderBook.src}"]`)
     await card.click({ modifiers: ['Meta'] }); await wait(250)
