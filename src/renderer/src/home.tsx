@@ -11,7 +11,7 @@ import { themeActions } from '@/lib/theme'
 import { useAbandonAction } from '@/lib/abandon'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties } from 'react'
 import { wearFinish } from './components/haligtree/review-toolbar'
-import { BookOpen, ChevronsDownUp, ChevronsUpDown, FileText, PanelsTopLeft, Plus, Settings as SettingsLine } from 'lucide-react'
+import { BookOpen, ChevronsDownUp, ChevronsUpDown, Compass, FileText, PanelsTopLeft, Plus, Settings as SettingsLine } from 'lucide-react'
 import CameraIcon from '@/components/ui/camera-icon'
 import CameraOffIcon from '@/components/ui/camera-off-icon'
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuShortcut, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
@@ -2197,6 +2197,7 @@ export function Home(): React.JSX.Element {
             const [pinsGroup, recentGroup] = SIDE_GROUPS
             const groupsOff = settings?.sidebarGroupsOff ?? []
             const pinsDrawn = !groupsOff.includes(pinsGroup.id)
+            const powersPin = settings?.powersPinned !== false
             const recentDrawn = !groupsOff.includes(recentGroup.id)
             // Not drawn, even unseen, until settings say which rows show: a row
             // the settings then take away held its room for a frame once the sidebar showed.
@@ -2213,9 +2214,27 @@ export function Home(): React.JSX.Element {
                   <p className="px-2 pb-1.5 text-control text-muted-foreground">Drop here to pin</p>
                 </div>
               )}
-              {pinsDrawn && !quiet && (pins.length > 0 || layouts.length > 0) && (<div data-side-drop="pinned" data-side-section="pinned" style={sectionAt('pinned')} className="rounded-md data-[queue-hot]:bg-[color-mix(in_oklab,var(--primary)_12%,transparent)] data-[queue-hot]:ring-1 data-[queue-hot]:ring-[color-mix(in_oklab,var(--primary)_40%,transparent)]">
+              {pinsDrawn && !quiet && (pins.length > 0 || layouts.length > 0 || powersPin) && (<div data-side-drop="pinned" data-side-section="pinned" style={sectionAt('pinned')} className="rounded-md data-[queue-hot]:bg-[color-mix(in_oklab,var(--primary)_12%,transparent)] data-[queue-hot]:ring-1 data-[queue-hot]:ring-[color-mix(in_oklab,var(--primary)_40%,transparent)]">
                 {heading(pinsGroup, pinsOpen, setPinsOpen)}
-                <Unfold open={pinsOpen || narrow}><Branches current={(() => { const at = pins.findIndex((pin) => light === `pin:${pin.id}`); return at < 0 ? -1 : layouts.length + at })()} bare={narrow} className={`flex flex-col gap-px ${narrow ? '' : 'ml-5'}`}>{[
+                <Unfold open={pinsOpen || narrow}><Branches current={(() => { if (powersPin && light === 'place:powers') return 0; const at = pins.findIndex((pin) => light === `pin:${pin.id}`); return at < 0 ? -1 : (powersPin ? 1 : 0) + layouts.length + at })()} bare={narrow} className={`flex flex-col gap-px ${narrow ? '' : 'ml-5'}`}>{[
+                  // "What Haligtree can do", pinned for a newcomer until they unpin it (Settings' powersPinned).
+                  ...(powersPin ? [(
+                    <RowMenu key="powers-pin" items={[
+                      { label: 'Open', run: () => (chime('page'), setView({ id: 'powers' })) },
+                      'separator',
+                      { label: 'Unpin', hint: 'It stays in the sidebar\'s foot', run: () => void haligtree.setSettings({ powersPinned: false }).then(() => toast(`Unpinned ${quoted(`What ${APP_NAME} can do`, 80)}`, () => void haligtree.setSettings({ powersPinned: true }))) }
+                    ]}>
+                      <span className="flex min-w-0">
+                        <Tip label={narrow ? `What ${APP_NAME} can do` : ''}>
+                          <button type="button" data-side-row data-powers-pin aria-current={light === 'place:powers' ? 'page' : undefined} onClick={() => (chime('page'), setView({ id: 'powers' }))}
+                            className={`flex min-w-0 flex-1 items-center gap-2.5 rounded-md py-1.5 ${light === 'place:powers' ? 'text-foreground' : 'text-foreground/80'} ${narrow ? 'justify-center px-0' : 'px-2'}`}>
+                            <Compass className="size-4 shrink-0" style={{ color: 'var(--tt-color-text-green)' }} />
+                            {!narrow && <Weighted on={light === 'place:powers'} className="min-w-0 flex-1 truncate text-left">What {APP_NAME} can do</Weighted>}
+                          </button>
+                        </Tip>
+                      </span>
+                    </RowMenu>
+                  )] : []),
                   ...layouts.map((one) => (
                     <PinnedSplit key={one.id} narrow={narrow} names={one.views.map(paneName)} onOpen={(index) => openLayout(one.views, one.sizes, index)}
                       onUnpin={() => dropLayout(one.id, `Unpinned the split, ${one.views.map((view) => `${quoted(short(shownName(paneName(view).title)), 80)}`).join(' and ')}`)} />

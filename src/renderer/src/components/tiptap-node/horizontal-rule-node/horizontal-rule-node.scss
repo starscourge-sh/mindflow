@@ -83,10 +83,11 @@ $mf-ribbon-noise: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w
   margin: 1.5em 0;
   padding-block: 0.5rem;
 
-  /* Picked, its mark is as square as the strip: no rounded box around a cut ribbon. */
-  &.ProseMirror-selectednode,
-  &.ProseMirror-selectednode::before,
-  &.ProseMirror-selectednode::after {
-    border-radius: 0;
-  }
+}
+
+/* A divider picked, plain line or ribbon: its mark is as square as the line it marks. */
+.tiptap.ProseMirror [data-type="horizontalRule"].ProseMirror-selectednode,
+.tiptap.ProseMirror [data-type="horizontalRule"].ProseMirror-selectednode::before,
+.tiptap.ProseMirror [data-type="horizontalRule"].ProseMirror-selectednode::after {
+  border-radius: 0 !important;
 }

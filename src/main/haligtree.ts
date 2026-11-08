@@ -440,6 +440,8 @@ const DEFAULTS = {
   // A picture in a note tips toward the pointer. Off by default: a lot for a
   // page of notes. Focus and full screen tilt anyway.
   tiltPictures: false,
+  // "What Haligtree can do" kept at the top of Pinned for a newcomer, until they unpin it.
+  powersPinned: true,
   // A picture's caption rides beside the pointer while it is on the picture.
   captionFollows: true,
   // Margin marks: a few things drawn as if by hand (a strike when a to-do is

@@ -125,12 +125,16 @@ export function ExcalidrawView(props: NodeViewProps): React.JSX.Element {
     if (!full) return
     const onKey = (event: KeyboardEvent): void => {
       if (event.key !== 'Escape') return
-      // Say so, or the window takes it as well and goes away underneath.
+      // Typing words into the drawing, Esc ends the words first, as Excalidraw does.
+      if ((event.target as Element | null)?.closest?.('textarea, input')) return
+      // Heard before the canvas, which has the keys while full and would swallow Esc for itself.
+      // Said so, or the window takes it as well and goes away underneath.
       event.preventDefault()
+      event.stopPropagation()
       toggleFull()
     }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
   }, [full])
 
   // Through a ref: the save below is deliberately stable, so it can also run

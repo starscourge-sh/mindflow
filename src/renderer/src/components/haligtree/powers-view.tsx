@@ -5,7 +5,7 @@ import { CalendarRange, Check, X } from 'lucide-react'
 import ArrowNarrowRightIcon from '@/components/ui/arrow-narrow-right-icon'
 import { chime } from '@/lib/sound'
 import { FOCUS_POWERS, GROUPS, POWERS, SEEN_KEY, useUsed, type Power } from '@/lib/powers'
-import { useFocusTools } from '@/lib/haligtree'
+import { haligtree, useFocusTools, useLive } from '@/lib/haligtree'
 import { lacks, meets, useCaps, WHICH, type Caps } from '@/lib/needs'
 import { SANDBOX, enterSandbox } from '@/lib/sandbox'
 import { useOnboarding } from '@/lib/onboarding'
@@ -33,6 +33,7 @@ export function PowersView({ onView }: { onView: (id: string, focus?: string) =>
   const used = useUsed()
   // The focus timer turned off: its powers are not here, only the line saying where it is turned on.
   const focusTools = useFocusTools()
+  const pinned = useLive(haligtree.settings, null)?.powersPinned
   const powers = focusTools ? POWERS : POWERS.filter((power) => !FOCUS_POWERS.has(power.id))
   useEffect(() => {
     try {
@@ -70,6 +71,13 @@ export function PowersView({ onView }: { onView: (id: string, focus?: string) =>
           <ThisMac caps={caps} missing={powers.length - here.length} />
           {/* The same, as cards: about twenty questions on what is here, asked in Review a few a day. */}
           <LearnOffer className="-ml-2 mt-3" />
+          {/* Unpinned from the sidebar's Pinned: one way to put it back, where it is missed. */}
+          {pinned === false && (
+            <button type="button" data-powers-repin className="mt-2 flex items-center gap-1.5 text-control font-medium text-foreground/80 underline decoration-foreground/30 underline-offset-2 hover:decoration-foreground"
+              onClick={() => (chime('tap'), void haligtree.setSettings({ powersPinned: true }))}>
+              Pin this page to the sidebar
+            </button>
+          )}
           {!focusTools && (
             <p data-powers-focus-off className="mt-4 text-body text-muted-foreground">
               The focus timer and website blocking are turned off.{' '}

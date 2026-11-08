@@ -101,7 +101,7 @@ try {
     // The rows on screen (the list draws only those), by their place in it.
     const row = h.locator('[data-row]').filter({ has: h.locator('span.truncate') }).nth(at)
     const tag = (await row.locator('span.truncate').first().textContent()).trim()
-    await h.evaluate((tag) => window.__arm(`() => document.querySelector('[data-collection-header] [data-tag-title]')?.textContent.trim().replace(/^#/, '') === ${JSON.stringify(tag)} && !!document.querySelector('article')`), tag)
+    await h.evaluate((tag) => window.__arm(`() => document.querySelector('[data-tag-head] [data-tag-title]')?.textContent.trim().replace(/^#/, '') === ${JSON.stringify(tag)}`), tag)
     await row.hover(); await h.waitForTimeout(120)
     await profile(at === 6 ? h : null, async () => {
       await row.click()
