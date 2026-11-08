@@ -60,7 +60,7 @@ try {
   const cardsUp = electron.windows().filter((one) => one.url().includes('view=sticky') && one.url().includes('type=goal&')).length
   check('one card per goal set to “Always”, no shared stack', cardsUp === carded.length && !electron.windows().some((one) => one.url().includes('id=stack')), String(cardsUp))
 
-  // --- where it is offered: ⌘K, the Goals page, a goal's menu
+  // --- where it is offered: ⌘K and the Goals page, not a goal's menu
   await h.keyboard.press('Meta+k'); await wait(500)
   await h.keyboard.type('all goals on the desktop', { delay: 10 }); await wait(500)
   const offered = await h.evaluate(() => document.body.innerText.includes('Stick all goals on the desktop'))
@@ -70,7 +70,8 @@ try {
   await h.locator('text=Get to Mars before the dust storm').first().click({ button: 'right' }).catch(() => {})
   await wait(500)
   const inMenu = await h.evaluate(() => [...document.querySelectorAll('[role="menuitem"]')].some((one) => one.textContent.includes('Stick all goals on the desktop')))
-  check("the list's right-click menu offers “Stick all goals on the desktop”, at its foot", inMenu)
+  // About every goal, so never in one goal's menu: the page's button and ⌘K have it.
+  check("a goal's right-click menu does not offer “Stick all goals on the desktop”", !inMenu)
   await h.keyboard.press('Escape'); await wait(300)
   const button = h.locator('[data-all-goals-sticky]')
   check('the Goals page offers “All on one sticky”', (await button.count()) === 1)
