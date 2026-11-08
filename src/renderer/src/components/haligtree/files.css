@@ -155,8 +155,12 @@
 
 /* A picture's name, pointed at: a soft shade rises from its foot with the words, as Photos and Finder's gallery show
    one; never a flat band across the picture. */
+/* The frost under a picture's name: the shared edge blur, the whole foot tall, with a light dark wash for the white words. */
+.files-square-blur {
+  height: 100%;
+  background: linear-gradient(to top, rgb(0 0 0 / 0.32), rgb(0 0 0 / 0.12) 60%, transparent);
+}
 .files-square-foot {
-  background: linear-gradient(to top, rgb(0 0 0 / 0.55), rgb(0 0 0 / 0.28) 55%, transparent);
   text-shadow: 0 1px 2px rgb(0 0 0 / 0.35);
   opacity: 0;
   transform: translateY(4px);

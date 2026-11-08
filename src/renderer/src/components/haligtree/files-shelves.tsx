@@ -265,11 +265,12 @@ export function PictureMonths({ files, across, cursor, chosen, keyOf, menuFor, o
                   className={`files-square group/sq relative block aspect-square w-full cursor-pointer overflow-hidden rounded-[6px] bg-accent text-left outline-none after:pointer-events-none after:absolute after:inset-0 after:rounded-[6px] after:ring-inset ${picked ? 'after:bg-[color-mix(in_srgb,var(--tt-brand-color-400)_22%,transparent)] after:ring-2 after:ring-[var(--tt-brand-color-400)]' : here ? 'after:ring-2 after:ring-ring' : 'after:ring-1 after:ring-foreground/10'}`}>
                   <Cover one={one} className="size-full" />
                   {one.kind === 'gif' && <span className="absolute top-1.5 left-1.5 rounded-[3px] bg-background px-1 text-[11px] font-medium">GIF</span>}
-                  {/* Pointed at, its name rises out of a soft shade at its foot: no band, nothing on it until then. */}
-                  <span data-square-foot className="files-square-foot pointer-events-none absolute inset-x-0 bottom-0 flex flex-col justify-end px-2 pt-6 pb-1.5 text-white">
+                  {/* Pointed at, its name rises out of a frosted foot, the blur thinning as it rises (the Map's own): no band. */}
+                  <span data-square-foot className="files-square-foot pointer-events-none absolute inset-x-0 bottom-0 flex flex-col justify-end px-2 pt-8 pb-1.5 text-white">
+                    <span aria-hidden className="mf-blur-edge files-square-blur"><span /><span /><span /><span /></span>
                     {/* A picture with no name of its own is called after its note: then the note is said once. */}
-                    {nameOf(one) !== one.uses[0]?.title && <span dir="auto" className={`truncate text-xs font-medium ${one.private ? 'private-text' : ''}`}>{nameOf(one)}</span>}
-                    <span className={`truncate ${nameOf(one) !== one.uses[0]?.title ? 'text-[11px] text-white/75' : 'text-xs font-medium'}`}>{whereOf(one)}</span>
+                    {nameOf(one) !== one.uses[0]?.title && <span dir="auto" className={`relative truncate text-xs font-medium ${one.private ? 'private-text' : ''}`}>{nameOf(one)}</span>}
+                    <span className={`relative truncate ${nameOf(one) !== one.uses[0]?.title ? 'text-[11px] text-white/75' : 'text-xs font-medium'}`}>{whereOf(one)}</span>
                   </span>
                 </button>
               </RowMenu>
