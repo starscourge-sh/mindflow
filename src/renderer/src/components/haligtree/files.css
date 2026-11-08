@@ -100,7 +100,8 @@
 
 /* Audio: name, then the player, then the time, every column one width down the day so they line up; on a narrow
    page the player takes a line of its own under the name. */
-.files-audio-list {
+.files-audio-list,
+.files-unlinked {
   container-type: inline-size;
 }
 .files-audio-row {

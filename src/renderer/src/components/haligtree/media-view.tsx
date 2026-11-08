@@ -25,7 +25,7 @@ import { chime } from '@/lib/sound'
 import { pictureLines } from '@/lib/picture-actions'
 import { Empty, Kbd, Page, refuse, toast, typing, useListKeys, VirtualList } from './ui'
 import { readLibrary, type Book } from '@/components/pdf/book-head'
-import { AudioDays, letGoWhen, PICTURE, PICTURE_GAP, Pile, PictureMonths, pictureSpans, RecentRow, SHELVES, shelfOf, stepLine, type Shelf } from './files-shelves'
+import { AudioDays, BOOK, BOOK_GAP, letGoWhen, PICTURE, PICTURE_GAP, Pile, PictureMonths, pictureSpans, RecentRow, SHELVES, shelfOf, stepLine, UnlinkedDays, unlinkedOrder, unlinkedSpans, type Shelf } from './files-shelves'
 import { Chip } from './display'
 import { ListSearch, tileClass } from './note-list'
 import { SoundPlayer, soundTitle } from './sound-player'
@@ -119,14 +119,18 @@ export function MediaView({ onOpen }: { onOpen: (type: string, id: string) => vo
   const anyDeck = all.some((one) => one.deck)
   const shown = useMemo(() => {
     const words = query.trim().toLowerCase().split(/\s+/).filter(Boolean)
-    return all.filter((one) => !!one.deck === decks && (kind === 'all' || shelfOf(one) === kind) && (!unlinkedOnly || isUnlinked(one)) &&
+    const found = all.filter((one) => !!one.deck === decks && (kind === 'all' || shelfOf(one) === kind) && (!unlinkedOnly || isUnlinked(one)) &&
       words.every((word) => `${one.title} ${one.name} ${one.near}`.toLowerCase().includes(word)))
-      // Newest first, so a month's or a day's files sit together under its heading; on Unlinked, newest let go first.
-      .sort((a, b) => (unlinkedOnly ? (b.letGoAt ?? '').localeCompare(a.letGoAt ?? '') : 0) || (b.at ?? '').localeCompare(a.at ?? ''))
+    // On Unlinked, by the day each was let go, newest first, and in a day pictures, recordings, books, as they are drawn.
+    if (unlinkedOnly) return unlinkedOrder(found)
+    // Newest first, so a month's or a day's files sit together under its heading.
+    return found.sort((a, b) => (b.at ?? '').localeCompare(a.at ?? ''))
   }, [all, query, kind, decks, unlinkedOnly])
   const unlinkedCount = useMemo(() => all.filter(isUnlinked).length, [all])
-  // "All" shows a pile per kind and the Recent row; a search there, or Unlinked, lists what it found, any kind, as tiles.
+  // "All" shows a pile per kind and the Recent row; a search there lists what it found, any kind, as tiles.
   const piles = kind === 'all' && !query.trim() && !unlinkedOnly
+  // Unlinked draws each kind as that kind's own view does, by the day it was let go (Books keeps its own shelf).
+  const mixed = unlinkedOnly && kind !== 'pdf'
 
   // How many tiles fit across, worked out from the grid's own width.
   const box = useRef<HTMLDivElement>(null)
@@ -139,7 +143,8 @@ export function MediaView({ onOpen }: { onOpen: (type: string, id: string) => vo
     watch.observe(element)
     return () => watch.disconnect()
   }, [all.length > 0, kind])
-  const across = kind === 'picture' ? Math.max(3, Math.floor((width + PICTURE_GAP) / (PICTURE + PICTURE_GAP))) : kind === 'audio' ? 1 : Math.max(1, Math.floor((width + GAP) / (TILE + GAP)))
+  const booksAcross = Math.max(1, Math.floor((width + BOOK_GAP) / (BOOK + BOOK_GAP)))
+  const across = kind === 'picture' || mixed ? Math.max(3, Math.floor((width + PICTURE_GAP) / (PICTURE + PICTURE_GAP))) : kind === 'audio' ? 1 : Math.max(1, Math.floor((width + GAP) / (TILE + GAP)))
   const lines = useMemo(() => {
     const out: { key: string; tiles: Media[] }[] = []
     for (let at = 0; at < shown.length; at += across) out.push({ key: keyOf(shown[at]), tiles: shown.slice(at, at + across) })
@@ -164,7 +169,7 @@ export function MediaView({ onOpen }: { onOpen: (type: string, id: string) => vo
   const toBin = (keys: string[]): void => void binFiles(keys.map(srcOf), () => setChosen([]))
   const picking = usePicking(order, chosen, setChosen)
   // Pictures go by month, and a month's last line is often short: ↑ and ↓ go line to line, over the month's heading.
-  const spans = useMemo(() => (kind === 'picture' ? pictureSpans(shown, across) : null), [kind, shown, across])
+  const spans = useMemo(() => (mixed ? unlinkedSpans(shown, across, booksAcross) : kind === 'picture' ? pictureSpans(shown, across) : null), [mixed, kind, shown, across, booksAcross])
   const [cursor, setCursor] = useListKeys(shown.length, { across, upDown: spans ? (at, by) => stepLine(spans, at, by) : undefined, enabled: !library && !piles && !putting, onOpen: (at) => shown[at] && open(shown[at]), onExtend: (from, to) => shown[to] && picking.extend(shown[from] && keyOf(shown[from]), keyOf(shown[to])) })
   useSelectAll(() => order, chosen, setChosen, { enabled: !library && !piles && !putting, here, onDelete: toBin, current: () => (shown[cursor] ? keyOf(shown[cursor]) : null), titleOf: (key) => { const one = all.find((each) => keyOf(each) === key); return one ? bare(one.name || one.title) : undefined } })
   const clear = (): void => setChosen([])
@@ -299,7 +304,7 @@ export function MediaView({ onOpen }: { onOpen: (type: string, id: string) => vo
         // PDFs as a library: a shelf of covers, each book once, the picked one's panel docked at the page's edge.
         <PdfLibrary query={query} top={kinds} files={all} only={unlinkedOnly ? shown.map((one) => one.src) : undefined} keys={!putting} onPut={(srcs) => setPutting(all.filter((one) => srcs.includes(one.src)))} />
       ) : all.length ? (
-        <div ref={box} data-media-grid data-media-shelf={piles ? 'all' : kind} className={`mx-5 mb-4 ${kind === 'audio' ? 'files-audio-list' : ''}`}>
+        <div ref={box} data-media-grid data-media-shelf={piles ? 'all' : kind} className={`mx-5 mb-4 ${mixed ? 'files-unlinked' : kind === 'audio' ? 'files-audio-list' : ''}`}>
           {kinds}
           {!shown.length ? (
             <p data-media-nothing className="my-4 text-control text-muted-foreground">{nothing}</p>
@@ -310,6 +315,8 @@ export function MediaView({ onOpen }: { onOpen: (type: string, id: string) => vo
               </div>
               <RecentRow files={recent} onOpen={open} menuFor={menuFor} />
             </div>
+          ) : mixed ? (
+            <UnlinkedDays files={shown} across={across} books={booksAcross} cursor={cursor} chosen={chosen} keyOf={keyOf} menuFor={menuFor} onClick={clickTile} onUse={(use, src) => openUse(use, src, onOpen)} />
           ) : kind === 'picture' ? (
             <PictureMonths files={shown} across={across} cursor={cursor} chosen={chosen} keyOf={keyOf} menuFor={menuFor} onClick={clickTile} />
           ) : kind === 'audio' ? (
@@ -414,7 +421,7 @@ function Tile({ one, at, picked, menu, onClick, onUse }: { one: Media; at: boole
         {/* A recording's face holds its player's own buttons, and a button cannot hold a button. */}
         <Press data-media={one.kind} data-src={one.src} data-note={one.uses.length ? `${one.type}:${one.id}` : undefined} data-pdf-peek={one.kind === 'pdf' && !one.gone ? one.src : undefined} data-pdf-peek-name={one.kind === 'pdf' ? one.name : undefined} onClick={onClick} {...(audio ? { role: 'button', tabIndex: 0, onKeyDown: (event: React.KeyboardEvent) => event.key === 'Enter' && event.target === event.currentTarget && onClick(event as unknown as React.MouseEvent) } : { type: 'button' })} className="flex min-w-0 cursor-pointer flex-col text-left">
           <Face one={one} cover={one.kind === 'pdf' ? (cover === undefined ? undefined : cover?.image ?? '') : undefined} />
-          <span dir="auto" className={`truncate px-2.5 pt-2 text-sm font-medium ${one.private ? 'private-text' : ''}`}>{label}</span>
+          <span dir="auto" data-media-name className={`truncate px-2.5 pt-2 text-sm font-medium ${one.private ? 'private-text' : ''}`}>{label}</span>
         </Press>
         <Where one={one} label={label} onUse={onUse} />
       </div>

@@ -121,6 +121,40 @@ try {
     check(`${count}: no "In no note" tab among the kinds`, !(await chips()).some((t) => /no note/i.test(t)))
     const unlinkedWant = files.filter((f) => f.how === 'attachment' && !f.uses.length).length
     check(`${count}: "Unlinked" is a chip after the kinds, with its count`, (await h.locator('[data-media-unlinked] button:visible').count()) === 1 && (await h.locator('[data-media-unlinked] button').innerText()).replace(/\s+/g, ' ').trim() === `Unlinked ${unlinkedWant.toLocaleString('en-US')}`, await h.locator('[data-media-unlinked] button').innerText().catch(() => 'none'))
+    // Unlinked from All: each kind drawn as its own view draws it, by the day it was let go, never the big cards.
+    if (unlinkedWant) {
+      await h.locator('[data-media-unlinked] button').first().click()
+      await h.waitForTimeout(800)
+      const look = await h.evaluate(() => {
+        const grid = document.querySelector('[data-media-grid]')
+        const square = grid.querySelector('.files-square')
+        const box = square?.getBoundingClientRect()
+        return {
+          heads: [...grid.querySelectorAll('[data-files-group]')].map((one) => one.textContent.replace(/\s+/g, ' ').trim()),
+          squares: grid.querySelectorAll('.files-square').length, rows: grid.querySelectorAll('[data-audio-island] [data-media="audio"]').length, books: grid.querySelectorAll('.pdf-book').length,
+          cards: grid.querySelectorAll('[data-media-where]').length, square: box && Math.round(box.width) === Math.round(box.height),
+          radius: square && getComputedStyle(square).borderTopLeftRadius, sideways: document.documentElement.scrollWidth > window.innerWidth
+        }
+      })
+      const kinds = new Set(files.filter((f) => f.how === 'attachment' && !f.uses.length).map((f) => (f.kind === 'pdf' ? 'books' : f.kind === 'audio' ? 'rows' : 'squares')))
+      check(`${count}: Unlinked from All: headed by the day each was let go ("Let go today · 3")`, look.heads.length > 0 && look.heads.every((t) => /^Let go (today|yesterday|on .+) · [\d,]+$/.test(t)), look.heads.slice(0, 3).join(' | '))
+      check(`${count}: Unlinked from All: pictures as the Pictures squares (6px corners), recordings as Audio rows, books as Books covers, no big cards`, look.cards === 0 && look.square && look.radius === '6px' && [...kinds].some((k) => look[k] > 0), JSON.stringify(look))
+      if (look.squares) {
+        const sq = h.locator('[data-media-grid] .files-square').first()
+        await sq.hover()
+        await h.waitForTimeout(400)
+        const foot = await sq.evaluate((el) => el.querySelector('[data-square-foot]').textContent)
+        check(`${count}: Unlinked: a picture pointed at says "Unlinked today" (or since a day) in its frosted foot`, /Unlinked (today|yesterday|since )/.test(foot), foot)
+      }
+      await shot(`unlinked-all-${count}-1440`)
+      await size(560, 700)
+      await h.waitForTimeout(500)
+      check(`${count}: Unlinked at 560 wide: nothing runs off sideways`, !(await h.evaluate(() => document.querySelector('[data-media-grid]').scrollWidth > document.querySelector('[data-media-grid]').clientWidth + 1)))
+      await shot(`unlinked-all-${count}-560`)
+      await size(1440, 900)
+      await h.locator('[data-media-unlinked] button').first().click()
+      await h.waitForTimeout(500)
+    }
     // Hover a pile: it lifts, with its own sound, once.
     await h.evaluate(() => (window.haligtreeCued.length = 0))
     const pile = h.locator('[data-pile="picture"]')
