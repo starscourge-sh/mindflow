@@ -352,74 +352,29 @@ if (part('sounds')) {
   }
 }
 
-// --- "Recent pictures" across an add, a removal and an Undo: never rebuilt, never empty, the same picture in the middle.
-// And ⌫ on what the pointer rests on: a tile, a shelf book, never through the note picker or a sidebar row.
+// --- ⌫ on what the pointer rests on: a tile, a shelf book, never through the note picker or a sidebar row.
+// (The "Recent pictures" carousel this run also tested left Files in cb719814.)
 if (part('row')) {
   const r = await sandbox({ width: 1300, height: 860 })
   const { h, v, go, electron } = r
   const wait = (ms) => h.waitForTimeout(ms)
-  const row = '[data-recent-pictures] [data-flex-carousel]'
-  const title = () => h.evaluate(() => document.querySelector('[data-recent-pictures] [data-flex-carousel-title]')?.textContent ?? '')
-  const same = () => h.evaluate((sel) => document.querySelector(sel)?.dataset.mark === 'same', row)
-  // How much of the row is picture, from a screenshot of it: an empty row is one flat colour.
-  const painted = async (name) => {
-    const box = await h.locator(row).boundingBox()
-    const png = await h.screenshot(SHOTS ? { path: `${SHOTS}/${name}.png`, clip: box } : { clip: box })
-    return h.evaluate(async (data) => {
-      const image = new Image(); image.src = `data:image/png;base64,${data}`; await image.decode()
-      const canvas = document.createElement('canvas'); canvas.width = image.width; canvas.height = image.height
-      const pen = canvas.getContext('2d'); pen.drawImage(image, 0, 0)
-      const px = pen.getImageData(0, 0, canvas.width, canvas.height).data
-      const [r0, g0, b0] = [px[0], px[1], px[2]]
-      let count = 0
-      for (let i = 0; i < px.length; i += 4) if (Math.abs(px[i] - r0) + Math.abs(px[i + 1] - g0) + Math.abs(px[i + 2] - b0) > 40) count++
-      return count / (px.length / 4)
-    }, png.toString('base64'))
-  }
-  const burst = async (name) => { const out = []; for (let n = 0; n < 8; n++) out.push(await painted(`${name}-${n}`)); return out }
-  const emptyFrames = (list) => list.filter((one) => one < 0.05).length
   const point = async (selector) => { const b = await h.locator(selector).first().boundingBox(); await h.mouse.move(b.x + 20, b.y + 20); await h.mouse.move(b.x + b.width / 2, b.y + b.height / 2); await wait(150) }
   try {
     await v('settings:set', { sounds: false, hintRate: 0, motion: true })
     const file = write('New for the row.png', await pngFrom(h, 31))
     await go('media'); await wait(1500)
-    await h.evaluate((sel) => { document.querySelector(sel).dataset.mark = 'same' }, row)
-    // Still at the front: the newest takes the front, the row not rebuilt, never empty.
-    const firstFile = write('Front of the row.png', await pngFrom(h, 33))
-    await pickNext(electron, [firstFile])
-    await addFiles(h)
-    const frontFrames = await burst('row-front')
-    await wait(900)
-    check('at the front, an add comes to the front, no frame empty, not rebuilt', await title() === 'Front of the row' && emptyFrames(frontFrames) === 0 && await same(), `${await title()} ${frontFrames.map((one) => one.toFixed(2)).join(' ')}`)
-    await h.click('[data-recent-pictures] [data-flex-carousel-turn=next]'); await wait(800)
-    const middle = await title()
     await pickNext(electron, [file])
-    await addFiles(h)
-    const addFrames = await burst('row-add')
-    await wait(800)
-    check('an add: no frame of the row is empty', emptyFrames(addFrames) === 0, addFrames.map((one) => one.toFixed(2)).join(' '))
-    check('an add: the row was not rebuilt', await same())
-    check('turned, an add leaves the same picture in the middle', await title() === middle, `${middle} → ${await title()}`)
-    const caption = await h.evaluate(() => document.querySelector('[data-recent-pictures] [data-flex-carousel-caption]')?.textContent ?? '')
-    check('an add: the row counts the new one', /03 \/ /.test(caption) || /02 \/ /.test(caption), caption)
-    await h.click('[data-recent-pictures] [data-flex-carousel-turn=previous]'); await wait(800)
-    await h.click('[data-recent-pictures] [data-flex-carousel-turn=previous]'); await wait(800)
-    check('turning back reaches the new one', await title() === 'New for the row', await title())
-    // The picture in the middle goes to the Bin, and comes back.
+    await addFiles(h); await wait(800)
+    // All draws a pile per kind: the tiles are on Pictures.
+    await kindChip(h, 'Pictures')
+    // A free picture, pointed at, goes to the Bin, and comes back.
     const fresh = (await v('media:list')).find((one) => one.name === 'New for the row.png')
     await h.evaluate((src) => document.querySelector(`[data-media][data-src="${src}"]`)?.scrollIntoView({ block: 'center' }), fresh.src); await wait(300)
     await point(`[data-id="${fresh.src}"]`)
-    await h.keyboard.press('Backspace')
-    await wait(60)
-    await h.evaluate(() => document.querySelector('[data-recent-pictures]')?.scrollIntoView({ block: 'center' }))
-    const binFrames = await burst('row-bin')
-    await wait(600)
+    await h.keyboard.press('Backspace'); await wait(700)
     check('⌫ on a pointed tile: a free file goes, with a notice', !(await v('media:list')).some((one) => one.src === fresh.src) && /Moved to the Bin/.test(await h.evaluate(() => document.body.innerText)))
-    check('removed: no frame of the row is empty, not rebuilt, a neighbour in the middle', emptyFrames(binFrames) === 0 && await same() && await title() !== 'New for the row', binFrames.map((one) => one.toFixed(2)).join(' '))
-    await h.keyboard.press('Meta+z')
-    const undoFrames = await burst('row-undo')
-    await wait(600)
-    check('⌘Z: back, no frame of the row empty, not rebuilt', (await v('media:list')).some((one) => one.src === fresh.src) && emptyFrames(undoFrames) === 0 && await same(), undoFrames.map((one) => one.toFixed(2)).join(' '))
+    await h.keyboard.press('Meta+z'); await wait(800)
+    check('⌘Z: it is back, its tile too', (await v('media:list')).some((one) => one.src === fresh.src) && await h.locator(`[data-media][data-src="${fresh.src}"]`).count() === 1)
     // A file a note holds, pointed at: stays, and says so.
     const noteHeld = (await v('media:list')).find((one) => one.uses.length && !one.deck && one.kind === 'picture')
     await h.evaluate((src) => document.querySelector(`[data-media][data-src="${src}"]`)?.scrollIntoView({ block: 'center' }), noteHeld.src); await wait(300)
@@ -465,7 +420,7 @@ if (part('row')) {
     await pickNext(electron, [rtl]); await addFiles(h); await wait(1000)
     const said = await h.evaluate(() => document.body.innerText)
     check('an RTL file name goes in and is said right', /مذكرات الرحلة إلى قرطبة/.test(said), said.slice(-120))
-    const rtlBox = await h.evaluate(() => { const el = [...document.querySelectorAll('[data-media] .text-sm.font-medium')].find((one) => /مذكرات/.test(one.textContent)); if (!el) return null; const b = el.getBoundingClientRect(), t = el.closest('[data-id]').getBoundingClientRect(); return { inside: b.left >= t.left && b.right <= t.right, dir: getComputedStyle(el).direction, alignRight: getComputedStyle(el).textAlign } })
+    const rtlBox = await h.evaluate(() => { const el = [...document.querySelectorAll('[data-page=media] [data-media-name]')].find((one) => /مذكرات/.test(one.textContent)); if (!el) return null; const b = el.getBoundingClientRect(), t = (el.closest('[data-id]') ?? el.parentElement).getBoundingClientRect(); return { inside: b.left >= t.left && b.right <= t.right, dir: getComputedStyle(el).direction, alignRight: getComputedStyle(el).textAlign } })
     check('and sits inside its tile', rtlBox?.inside === true, JSON.stringify(rtlBox))
     await h.evaluate(() => document.querySelector('[data-id] [data-media]')?.scrollIntoView({ block: 'center' })); await wait(200)
     await shot(h, 'state-rtl')
@@ -564,6 +519,8 @@ if (part('book')) {
     check('2,000 files go in at once', many === 2000, String(many))
     const open0 = Date.now()
     await go('home'); await wait(200); await go('media')
+    // All draws a pile per kind: the 2,000 GIFs are tiles on Pictures.
+    await kindChip(h, 'Pictures')
     await h.waitForSelector('[data-page=media] [data-media]', { timeout: 15000 })
     const drawn = await h.evaluate(() => document.querySelectorAll('[data-page=media] [data-media]').length)
     check('2,000 files: the page draws only what is in sight', drawn > 0 && drawn < 200, `${drawn} tiles, ${Date.now() - open0}ms`)
@@ -625,18 +582,24 @@ if (part('ways')) {
     for (const title of ['First holder', 'Second holder', 'Third holder']) await h.evaluate(([src, title]) => window.api.captures.create({ kind: 'note', body: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: title }] }, { type: 'image', attrs: { src } }] } }), [sharedFile.src, title])
     await wait(600)
     await go('media'); await wait(1000)
+    // All draws a pile per kind: a picture's tile, its line and its notes are on Pictures.
+    await kindChip(h, 'Pictures')
     const sharedT = (await v('media:list')).filter((one) => one.src === sharedFile.src)
     check('one file in three notes is one tile, knowing all three', sharedT.length === 1 && sharedT[0].uses.length === 3, JSON.stringify(sharedT[0]?.uses?.map((one) => one.title)))
-    const line = h.locator(`[data-media][data-src="${sharedFile.src}"]`).locator('xpath=..')
-    check('its line says one and how many more', /\+2/.test(await line.locator('[data-media-where]').textContent()), await line.locator('[data-media-where]').textContent())
-    await line.locator('[data-media-more-uses]').click(); await wait(350)
+    // A picture is a square, its note said in its frosted foot; the notes it is in are its right-click's "Used in".
+    const square = h.locator(`[data-media][data-src="${sharedFile.src}"]`)
+    const where = await square.locator('[data-media-where]').textContent()
+    check('its foot says one note and how many more', /and 2 more/.test(where), where)
+    await square.click({ button: 'right' }); await wait(350)
+    await h.getByRole('menuitem', { name: 'Used in' }).hover(); await wait(500)
     await shot(h, 'used-many')
     const others = await h.evaluate(() => [...document.querySelectorAll('[role=menu]')].at(-1)?.innerText ?? '')
-    check('"+2" lists the others', (others.match(/holder/g) ?? []).length === 2, others)
-    await h.locator('[role=menu] [role=menuitem]').first().click(); await wait(1500)
+    check('"Used in" lists all three', (others.match(/holder/g) ?? []).length === 3, others)
+    await h.locator('[role=menu]').last().locator('[role=menuitem]').first().click(); await wait(1500)
     check('and each is a way to that note', await h.evaluate(() => [...document.querySelectorAll('[data-pane] .ProseMirror')].some((one) => /holder/.test(one.textContent))))
     await go('media'); await wait(800)
     // "Make it a note", where it was already: a picture's own, also with no words in it.
+    await kindChip(h, 'Pictures')
     const count0 = await notesCount(h)
     const loosePic = (await v('media:list')).find((one) => !one.uses.length && one.kind === 'picture')
     await h.locator(`[data-media][data-src="${loosePic.src}"]`).click({ button: 'right' }); await wait(350)
