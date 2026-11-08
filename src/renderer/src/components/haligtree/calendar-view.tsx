@@ -450,7 +450,9 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
         <Tip label={roomless ? 'No room for the left panel beside a month here' : left ? 'Hide the left panel' : 'Show the left panel: the small month, your calendars, unscheduled tasks'}>
           <Button variant="outline" size="icon-sm" data-cal-left-toggle disabled={roomless} aria-label={left ? 'Hide the left panel' : 'Show the left panel'} aria-pressed={left} className="size-8 shrink-0 aria-pressed:bg-accent" onClick={leftPanel}><PanelLeft /></Button>
         </Tip>
-        <div className="mr-auto flex min-w-[9rem] flex-col">
+        {/* Grows into the room the controls leave, rather than pushing them onto a line of their own. */}
+        <div className="mr-auto flex min-w-[9rem] flex-1 basis-0 flex-col">
+          <div className="flex min-w-0 items-center gap-2">
           {/* The month, as a picker: a click (or .) opens the small month, to go to any date. */}
           <Popover open={jump} onOpenChange={(open) => (open && chime('open'), setJump(open))}>
             <PopoverTrigger asChild>
@@ -463,15 +465,15 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
               <MiniMonth anchor={anchor} days={mode === 'month' ? [] : days} onPick={(day) => (chime('tap'), setPeek(null), setAnchor(day), setJump(false))} />
             </PopoverContent>
           </Popover>
-          {/* The week's number and days; then, quietly, how the planning went and what is late. */}
+          {/* What is late is the one thing here to act on: its own pill beside the title, never small grey words. */}
+          <LateMenu tasks={tasks} pill className="shrink-0" />
+          </div>
+          {/* The week's number and days; then, quietly, how the planning went. */}
           <p data-cal-subtitle className="flex min-w-0 items-center gap-1 overflow-hidden text-control whitespace-nowrap text-foreground/75 tabular-nums [&_[data-late-all]]:h-6 [&_[data-late-all]]:px-1.5 [&_[data-late-all]]:text-control [&_[data-plan-total]]:px-0 [&_[data-plan-total]]:text-control [&_[data-plan-total]]:text-foreground/75">
             <span className="min-w-0 truncate"><span className="@[48rem]/head:hidden">{said(true)}</span><span className="hidden @[48rem]/head:inline">{subtitle}</span></span>
             {!narrow && mode !== 'month' && <span className="hidden min-w-0 items-center gap-1 @[66rem]/head:inline-flex"><span aria-hidden>·</span><PlannedTotal tasks={tasks} from={dayKey(first)} to={dayKey(last)} span={mode === 'day' ? (first.isSame(dayjs(), 'day') ? 'today' : 'this day') : current(first) ? 'this week' : 'that week'} /></span>}
-            {/* Out of a narrow header rather than over its buttons: Today and the Calendar's late days say it too. */}
-            <span className="hidden min-w-0 @[44rem]/head:contents"><LateMenu tasks={tasks} /></span>
           </p>
         </div>
-        {mode === 'month' ? <MonthShowMenu /> : <DayShowMenu on={marked} onChange={setMarked} />}
         {/* ‹ | Today | ›, one control, as Todoist has it. */}
         <div data-cal-step className="flex h-8 shrink-0 items-center rounded-md border bg-background">
           <Tip label={`The ${mode} before (←)`}><Button variant="ghost" size="icon-sm" data-cal-prev aria-label={`The ${mode} before`} className="h-full rounded-r-none" onClick={() => step(-1)}><ChevronLeft /></Button></Tip>
@@ -481,13 +483,15 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
           <Tip label={`The ${mode} after (→)`}><Button variant="ghost" size="icon-sm" data-cal-next aria-label={`The ${mode} after`} className="h-full rounded-l-none" onClick={() => step(1)}><ChevronRight /></Button></Tip>
         </div>
         <ViewPick mode={mode} onPick={setMode} />
-        <Tip label="Search the calendar (⌘K)"><Button variant="outline" size="icon-sm" data-cal-search aria-label="Search the calendar" className="size-8" onClick={search}><Search /></Button></Tip>
-        <Tip label={mode === 'month' ? 'Upcoming shows beside a day or a week' : upcoming ? 'Hide Upcoming, the right panel' : 'Show Upcoming, the right panel'}>
-          <Button variant="outline" size="sm" data-cal-side-toggle disabled={mode === 'month'} aria-label={upcoming ? 'Hide Upcoming' : 'Show Upcoming'} aria-pressed={upcoming} className="h-8 aria-pressed:bg-accent" onClick={plan}>
-            <span className="hidden @[40rem]/head:inline">Plan</span><PanelRight />
-          </Button>
-        </Tip>
-        <Tip label="A new event"><Button size="sm" data-cal-new-event aria-label="New event" className="h-8" onClick={newEvent}><Plus /><span className="hidden @[46rem]/head:inline">New event</span></Button></Tip>
+        {/* This view's own: search it, what it shows, a new event; then the right panel's toggle, at the far end as the left one is at the start. */}
+        <div className="flex shrink-0 items-center gap-2">
+          <Tip label="Search the calendar (⌘K)"><Button variant="outline" size="icon-sm" data-cal-search aria-label="Search the calendar" className="size-8" onClick={search}><Search /></Button></Tip>
+          {mode === 'month' ? <MonthShowMenu /> : <DayShowMenu on={marked} onChange={setMarked} />}
+          <Tip label="A new event"><Button size="sm" data-cal-new-event aria-label="New event" className="h-8" onClick={newEvent}><Plus /><span className="hidden @[46rem]/head:inline">New event</span></Button></Tip>
+          <Tip label={mode === 'month' ? 'Upcoming shows beside a day or a week' : upcoming ? 'Hide Upcoming, the right panel' : 'Show Upcoming, the right panel'}>
+            <Button variant="outline" size="icon-sm" data-cal-side-toggle disabled={mode === 'month'} aria-label={upcoming ? 'Hide Upcoming' : 'Show Upcoming'} aria-pressed={upcoming} className="size-8 aria-pressed:bg-accent" onClick={plan}><PanelRight /></Button>
+          </Tip>
+        </div>
       </header>
       <div className="flex min-h-0 flex-1 border-t">
         {left && (

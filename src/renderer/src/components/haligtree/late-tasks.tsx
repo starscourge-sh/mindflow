@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { AlarmClock } from 'lucide-react'
 import { chime } from '@/lib/sound'
 import { haligtree, type Task, type TaskWas } from '@/lib/haligtree'
 import { Button } from '@/components/ui/button'
@@ -66,7 +67,7 @@ export function lateItems(list: Task[]): RowItem[] {
  * "N late · Reschedule all…": said in orange where late tasks are, at a size
  * that is read, with the moves one click away. Nothing when none are late.
  */
-export function LateMenu({ tasks, className = '' }: { tasks: Task[]; className?: string }): React.JSX.Element | null {
+export function LateMenu({ tasks, className = '', pill = false }: { tasks: Task[]; className?: string; /** Its own tinted pill, beside a page's title (the Calendar): the one thing to act on there. */ pill?: boolean }): React.JSX.Element | null {
   const late = lateOnes(tasks)
   // The calendar for "Pick a date…", opened afresh each time it is asked for; and which ones it moves.
   const [picking, setPicking] = useState<{ n: number; ids: string[] | null } | null>(null)
@@ -81,10 +82,14 @@ export function LateMenu({ tasks, className = '' }: { tasks: Task[]; className?:
     <span data-late className={`relative inline-flex items-center ${className}`}>
       <DropdownMenu modal={false} onOpenChange={(open) => open && chime('open')}>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="sm" data-late-all aria-label={`${num(late.length)} late: reschedule all`} className="gap-1.5 font-semibold text-[var(--tt-color-text-orange)] hover:text-[var(--tt-color-text-orange)]">
+          <Button variant="ghost" size="sm" data-late-all data-late-pill={pill || undefined} aria-label={`${num(late.length)} late: reschedule all`}
+            className={pill
+              ? 'h-7 gap-1.5 rounded-md bg-[color-mix(in_oklab,var(--tt-color-text-orange)_14%,var(--background))] px-2.5 text-body font-semibold text-[var(--tt-color-text-orange)] hover:bg-[color-mix(in_oklab,var(--tt-color-text-orange)_22%,var(--background))] hover:text-[var(--tt-color-text-orange)] data-[state=open]:bg-[color-mix(in_oklab,var(--tt-color-text-orange)_22%,var(--background))]'
+              : 'gap-1.5 font-semibold text-[var(--tt-color-text-orange)] hover:text-[var(--tt-color-text-orange)]'}>
+            {pill && <AlarmClock aria-hidden className="size-4" />}
             <span className="tabular-nums">{num(late.length)} late</span>
-            <span aria-hidden className="font-normal text-foreground/60">·</span>
-            <span className="font-medium text-foreground">Reschedule all…</span>
+            <span aria-hidden className={`font-normal ${pill ? 'hidden text-[var(--tt-color-text-orange)]/60 @[36rem]/head:inline' : 'text-foreground/60'}`}>·</span>
+            <span className={`font-medium text-foreground ${pill ? 'hidden @[36rem]/head:inline' : ''}`}>Reschedule all…</span>
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="text-control">
