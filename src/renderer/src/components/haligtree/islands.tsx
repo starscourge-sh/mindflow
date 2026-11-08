@@ -116,7 +116,7 @@ export function useReveal(id: string | null | undefined, shows: boolean, reveal:
 }
 
 /** The top of an island: the kind's icon, its name and how many, and the fold. */
-function IslandHead({ name, island, icon, extra, unit }: { name: string; island: IslandState; /** Where the group is not a capture's kind (a Gem, an Article). */ icon?: ReactNode; extra?: ReactNode; /** What it counts, said after the number ("39 cards"). */ unit?: [string, string] }): React.JSX.Element {
+function IslandHead({ name, island, icon, extra, unit, uncounted }: { name: string; island: IslandState; /** Where the group is not a capture's kind (a Gem, an Article). */ icon?: ReactNode; extra?: ReactNode; /** What it counts, said after the number ("39 cards"). */ unit?: [string, string]; /** One thing, not a list (your thoughts, a day): no number beside its name. */ uncounted?: boolean }): React.JSX.Element {
   const kind = kindOfGroup(name)
   const Icon = icon ? null : kind?.icon
   return (
@@ -125,7 +125,7 @@ function IslandHead({ name, island, icon, extra, unit }: { name: string; island:
       {icon}
       {Icon && <Icon aria-hidden className="size-4 shrink-0" style={{ color: kind?.tint }} />}
       <span className="min-w-0 truncate">{name}</span>
-      <span className="shrink-0 font-normal text-muted-foreground tabular-nums">{unit && <span aria-hidden>· </span>}<Rolling text={island.total} />{unit && ` ${island.total === 1 ? unit[0] : unit[1]}`}</span>
+      {!uncounted && <span className="shrink-0 font-normal text-muted-foreground tabular-nums">{unit && <span aria-hidden>· </span>}<Rolling text={island.total} />{unit && ` ${island.total === 1 ? unit[0] : unit[1]}`}</span>}
       {extra && <span className="ml-auto flex shrink-0 items-center">{extra}</span>}
       <ChevronRight aria-hidden className={`${extra ? '' : 'ml-auto '} size-3.5 shrink-0 text-muted-foreground transition-transform duration-150 ease-(--mf-ease) group-hover/head:text-foreground ${island.folded ? '' : 'rotate-90'}`} />
     </button>
@@ -148,10 +148,10 @@ function IslandMore({ island, shown }: { island: IslandState; shown: number }): 
 }
 
 /** One island whole: its head, then its rows in a rounded panel, as the details sidebar draws its groups. */
-export function IslandBox({ name, island, shown, icon, extra, unit, children }: { name: string; island: IslandState; shown: number; icon?: ReactNode; /** Drawn at the head's end, before the fold: All cards' due-ahead strip. */ extra?: ReactNode; /** What it counts, one and many ("card", "cards"). */ unit?: [string, string]; children: ReactNode }): React.JSX.Element {
+export function IslandBox({ name, island, shown, icon, extra, unit, uncounted, children }: { name: string; island: IslandState; shown: number; icon?: ReactNode; /** Drawn at the head's end, before the fold: All cards' due-ahead strip. */ extra?: ReactNode; /** What it counts, one and many ("card", "cards"). */ unit?: [string, string]; /** One thing, not a list: no number in its head. */ uncounted?: boolean; children: ReactNode }): React.JSX.Element {
   return (
     <section data-island={name} className="mt-2 first:mt-0">
-      <IslandHead name={name} island={island} icon={icon} extra={extra} unit={unit} />
+      <IslandHead name={name} island={island} icon={icon} extra={extra} unit={unit} uncounted={uncounted} />
       {!island.folded && (
         <div className="mf-island rounded-lg border bg-accent/25 p-1">
           {children}

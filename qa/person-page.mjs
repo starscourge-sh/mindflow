@@ -46,10 +46,10 @@ try {
 
   check('1. the bio is filled from Wikipedia: its first two sentences', (await h.locator('[data-bio-text]').inputValue()) === 'Ada Example (born 1972) is an English writer of test stories. She is known for her made-up lines.', await h.locator('[data-bio-text]').inputValue().catch(() => 'none'))
   check('2. it is credited "From Wikipedia" with its link', (await h.locator('[data-bio-credit]').getAttribute('href')) === 'https://en.wikipedia.org/wiki/Ada_Example')
-  check('3. no empty prompt first: no thoughts box until asked', await h.locator('[data-thoughts]').count() === 0 && await h.locator('[data-thoughts-add]').isVisible())
+  check('3. no empty field first: your thoughts starts as one quiet row in its island', await h.locator('[data-thoughts]').count() === 0 && await h.locator('[data-thoughts-add]').isVisible())
   const page = await v('source', 'attribution', 'Ada Example')
   check('4. the bio is kept on this machine', page.bio.startsWith('Ada Example (born 1972)') && page.bioUrl.includes('Ada_Example'))
-  check('5. their words are quotes in quotation marks, with source and year under', await h.locator('[data-portrait="words"] [data-quote]').count() === 2 && (await h.locator('[data-quote-from]').first().textContent()) === 'Made-up Book · 2001')
+  check('5. their words are quotes in quotation marks, with source and year under', await h.locator('[data-portrait="words"] [data-row]').count() === 2 && (await h.locator('[data-quote-from]').first().textContent()) === 'Made-up Book (2001)')
   check('6. a quote keeps no doubled marks', !(await h.locator('[data-portrait="words"]').textContent()).includes('““'))
   const text = await h.locator('[data-source-page]').textContent()
   check('7. one count, said once: no "of their words" line and no count by a heading', !/of their words/.test(text) && await h.locator('[data-portrait] h3 [data-count], [data-person-counts]').count() === 0)
@@ -92,7 +92,7 @@ try {
   // A source: the article for its title, when it matches; otherwise nothing.
   await openPage('medium', 'Made-up Book')
   check('19. a source with no matching article shows no bio, only the quiet line', await h.locator('[data-bio-text]').count() === 0 && await h.locator('[data-bio-add]').isVisible())
-  check('20. a source lists its quotes as quotes too', await h.locator('[data-portrait="words"] [data-quote]').count() === 2)
+  check('20. a source lists its quotes as quotes too', await h.locator('[data-portrait="words"] [data-row]').count() === 2)
   await shot('source-page-light')
 
   // Beside the note page, for the look.

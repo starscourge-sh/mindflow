@@ -1,7 +1,7 @@
 import { Orb } from './orb'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { hoverNote } from './note-preview'
-import { ArrowUpRight, BookOpen, FileText, Library, Plus, Quote, User } from 'lucide-react'
+import { ArrowUpRight, BookOpen, CalendarDays, FileText, Library, Link2, PenLine, Plus, Quote, User } from 'lucide-react'
 import { Camera, Fit } from '@/components/ui/icons'
 import { openLook } from '@/components/image/image-look'
 
@@ -15,7 +15,8 @@ import { NoteList, type Entry } from './note-list'
 import { Example } from './example'
 import { Display, useView } from './display'
 import { Count, Empty, Page, Tip, ask, askSure, openTag, quietly, toast, typing } from './ui'
-import { RowMenu } from './row-menu'
+import { RowMenu, type RowItem } from './row-menu'
+import { IslandBox, useIslands } from './islands'
 import { withoutTags } from '../../../../main/tag-words'
 import { useReading } from '@/lib/reads-in'
 import { firstSentences, pageFor, useWiki } from '@/lib/wiki'
@@ -23,7 +24,7 @@ import { cn } from '@/lib/cn'
 import { personKey } from '../../../../main/names'
 import { useSelectAll } from '@/lib/select-all'
 import { usePicking } from '@/lib/pick-range'
-import { ago, num, plural } from '../../../../main/dates'
+import { age, ago, num, plural } from '../../../../main/dates'
 
 /** What a person's notes are, each counted once: "1 quote", "2 quotes · 1 other note". The quotes are among the notes, so "1 note · 1 quote" read as two. */
 const tally = (one: { count: number; quotes: number }): string => {
@@ -333,16 +334,6 @@ function PersonHead({ page, name }: { page: SourcePage | null; name: string }): 
   )
 }
 
-/** A section of the portrait page: its heading in the app's own style, no stripe, no count. */
-function Section({ name, title, children }: { name: string; title: string; children: React.ReactNode }): React.JSX.Element {
-  return (
-    <section data-portrait={name} className="mt-8 px-5">
-      <h3 className="mb-2 text-heading font-semibold">{title}</h3>
-      {children}
-    </section>
-  )
-}
-
 /**
  * A line or two about them, under the name. The first time the page opens it
  * is filled from Wikipedia's summary (its first two sentences, said "From
@@ -427,72 +418,69 @@ const bare = (text: string): string => withoutTags(text).replace(/\s+/g, ' ').tr
 const NOT_A_PLACE = /^((un|mis)?attributed( to)?|unknown|apocryphal|disputed)$/i
 
 /**
- * Their words as quotes: each in quotation marks, with where and when it is
- * from under it; click opens it, right-click offers the rest.
+ * One of their words as a row of its island, as the Inbox draws a quote: the
+ * words in quotation marks over up to three lines, and where they are from
+ * as the quiet line under them, "Frankenstein, chapter 10 (1831)".
  */
-function Quotes({ field, name, page, items, onOpen }: { field: SourceField; name: string; page: SourcePage; items: SourceItem[]; onOpen: (item: SourceItem) => void }): React.JSX.Element {
-  return (
-    <ul data-quotes className="-mx-3 flex flex-col gap-1">
-      {items.map((item) => {
-        // "attributed" or "unknown" says how sure the credit is, not where the words are from: never a place under a quote.
-        const said = field === 'attribution' ? item.medium?.trim() : item.attribution?.trim()
-        const from = said && !NOT_A_PLACE.test(said) ? said : ''
-        const year = field === 'attribution' ? (item.medium ? page.years[personKey(item.medium)] : '') : page.born
-        const ref = item.location ? (isPage(item.location) ? `p. ${item.location}` : item.location) : ''
-        const under = [from, ref, year].filter(Boolean).join(' · ')
-        return (
-          <li key={item.id}>
-            <RowMenu items={[{ label: 'Open', run: () => onOpen(item) }, { label: `Take off ${quoted(name, 80)}`, run: () => void setSource(item, field, null).then(() => toast(`No longer from ${name}`, () => void setSource(item, field, name))) }]}>
-              <button type="button" data-quote={item.id} onClick={() => onOpen(item)}
-                className="block w-full rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-accent/60 focus-visible:bg-accent/60 focus-visible:outline-none">
-                <blockquote className="pl-[0.45em] -indent-[0.45em] text-heading leading-relaxed text-foreground text-pretty">
-                  <span aria-hidden>“</span>{bare(item.label)}<span aria-hidden>”</span>
-                </blockquote>
-                {under && <p data-quote-from className="mt-1 pl-[0.45em] text-control text-muted-foreground">{under}</p>}
-              </button>
-            </RowMenu>
-          </li>
-        )
-      })}
-    </ul>
-  )
+const quoteEntry = (field: SourceField, page: SourcePage, item: SourceItem): Entry => {
+  // "attributed" or "unknown" says how sure the credit is, not where the words are from: never a place under a quote.
+  const said = field === 'attribution' ? item.medium?.trim() : item.attribution?.trim()
+  const from = said && !NOT_A_PLACE.test(said) ? said : ''
+  const year = field === 'attribution' ? (item.medium ? page.years[personKey(item.medium)] : '') : page.born
+  const ref = item.location ? (isPage(item.location) ? `p. ${item.location}` : item.location) : ''
+  const place = [from, ref].filter(Boolean).join(', ')
+  const under = place && year ? `${place} (${year})` : place || year || ''
+  return {
+    id: item.id,
+    type: item.type,
+    title: `“${bare(item.label)}”`,
+    tags: [],
+    icon: kindOf('quote').icon,
+    tint: kindOf('quote').tint,
+    voice: item.voice,
+    wrap: 3,
+    sub: under ? <span data-quote-from>{under}</span> : undefined
+  }
 }
 
-/** What you make of them: shown once written; until then a quiet line to start. */
+/** What you make of them, inside its island: a field once started; until then one quiet row that starts it. */
 function Thoughts({ field, name, page }: { field: SourceField; name: string; page: SourcePage }): React.JSX.Element {
   const [text, setText] = useState(page.thoughts)
   const [writing, setWriting] = useState(false)
   useEffect(() => setText(page.thoughts), [page.thoughts])
+  const asked = `What you make of ${field === 'attribution' ? 'them' : 'it'}, in your own words`
   if (!page.thoughts.trim() && !writing) return (
     <button type="button" data-thoughts-add onClick={() => (chime('tap'), setWriting(true))}
-      className="mt-8 ml-4 rounded-md px-1 py-0.5 text-body text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">Add your thoughts</button>
+      className="block w-full rounded-md px-2 py-1.5 text-left text-body leading-relaxed text-foreground/55 transition-colors hover:bg-accent/50 hover:text-foreground">
+      {asked}
+    </button>
   )
   return (
-    <Section name="thoughts" title="Your thoughts">
-      <textarea data-thoughts value={text} rows={2} autoFocus={writing} placeholder={`What you make of ${field === 'attribution' ? 'them' : 'it'}, in your own words`}
-        onChange={(event) => setText(event.target.value)}
-        onBlur={() => (setWriting(false), text !== page.thoughts && void sources.set(field, name, text).then(() => chime('noted')))}
-        onKeyDown={(event) => event.key === 'Escape' && (event.preventDefault(), event.stopPropagation(), setText(page.thoughts), event.currentTarget.blur())}
-        className="-mx-2 block w-[calc(100%+1rem)] resize-none rounded-md bg-transparent px-2 py-1 text-body leading-relaxed outline-none [field-sizing:content] placeholder:text-foreground/55 hover:bg-accent/50 focus:bg-accent/50" />
-    </Section>
+    <textarea data-thoughts value={text} rows={2} autoFocus={writing} placeholder={asked}
+      onChange={(event) => setText(event.target.value)}
+      onBlur={() => (setWriting(false), text !== page.thoughts && void sources.set(field, name, text).then(() => chime('noted')))}
+      onKeyDown={(event) => event.key === 'Escape' && (event.preventDefault(), event.stopPropagation(), setText(page.thoughts), event.currentTarget.blur())}
+      className="block w-full resize-none rounded-md bg-transparent px-2 py-1.5 text-body leading-relaxed outline-none [field-sizing:content] placeholder:text-foreground/55 hover:bg-accent/50 focus:bg-accent/50" />
   )
 }
 
-/** What connects to them: the tags their notes carry, the other side's pages, and people quoted alongside them. */
-function Connections({ field, name, page }: { field: SourceField; name: string; page: SourcePage }): React.JSX.Element | null {
-  const near = useLive(() => (field === 'attribution' ? sources.near(name) : Promise.resolve([])), [] as Awaited<ReturnType<typeof sources.near>>, [name, field, page.items.length])
-  if (!page.tags.length && !page.links.length && !near.length) return null
-  const row = 'grid grid-cols-[8rem_1fr] items-baseline gap-3 py-1'
+type Near = Awaited<ReturnType<typeof sources.near>>
+
+/** What connects to them, inside its island: the tags their notes carry, the other side's pages, and people quoted alongside them, each a line with its label on the left. */
+function Connections({ field, page, near }: { field: SourceField; page: SourcePage; near: Near }): React.JSX.Element {
+  // The labels one column on the island's left; narrow, that column gives up room before the chips do.
+  const row = 'grid grid-cols-[minmax(5.5rem,8rem)_minmax(0,1fr)] items-baseline gap-3 px-2 py-1'
   const label = 'text-control text-muted-foreground'
+  const chips = '-ml-1 flex min-w-0 flex-wrap gap-x-1 gap-y-0.5'
   return (
-    <Section name="connects" title={field === 'attribution' ? 'What connects to them' : 'What connects to it'}>
+    <div className="flex flex-col py-0.5">
       {page.tags.length > 0 && (
         <div data-connect="tags" className={row}>
           <span className={label}>Tags</span>
-          <span className="-ml-1 flex flex-wrap gap-x-1 gap-y-0.5">
+          <span className={chips}>
             {page.tags.map((one) => (
               <button key={one.tag} type="button" data-connect-tag={one.tag} {...hoverNote('tag', one.tag)} onClick={(event) => (chime('page'), openTag(one.tag, event.altKey))}
-                className="rounded-md px-1 py-0.5 text-body text-foreground hover:bg-accent">#{one.tag}</button>
+                className="max-w-full truncate rounded-md px-1 py-0.5 text-body text-foreground hover:bg-accent">#{one.tag}</button>
             ))}
           </span>
         </div>
@@ -500,11 +488,11 @@ function Connections({ field, name, page }: { field: SourceField; name: string; 
       {page.links.length > 0 && (
         <div data-connect={field === 'attribution' ? 'sources' : 'people'} className={row}>
           <span className={label}>{field === 'attribution' ? 'Found in' : 'People in it'}</span>
-          <span className="-ml-1 flex flex-wrap gap-x-1 gap-y-0.5">
+          <span className={chips}>
             {page.links.map((one) => (
               <button key={one.name} type="button" data-connect-page={one.name} onClick={() => (chime('page'), openSource(one.field, one.name))}
-                className="flex items-center gap-1.5 rounded-md px-1 py-0.5 text-body text-foreground hover:bg-accent">
-                {one.field === 'attribution' ? <Avatar name={one.name} size={16} /> : <Library className="size-3.5 shrink-0 text-muted-foreground" />}{one.name}
+                className="flex max-w-full items-center gap-1.5 rounded-md px-1 py-0.5 text-body text-foreground hover:bg-accent">
+                {one.field === 'attribution' ? <Avatar name={one.name} size={16} /> : <Library className="size-3.5 shrink-0 text-muted-foreground" />}<span className="truncate">{one.name}</span>
               </button>
             ))}
           </span>
@@ -513,17 +501,17 @@ function Connections({ field, name, page }: { field: SourceField; name: string; 
       {near.length > 0 && (
         <div data-connect="alongside" className={row}>
           <span className={label}>Quoted alongside</span>
-          <span className="-ml-1 flex flex-wrap gap-x-1 gap-y-0.5">
+          <span className={chips}>
             {near.map((one) => (
               <button key={one.name} type="button" data-also-person={one.name} {...hoverNote('person', one.name)} onClick={() => (chime('page'), openSource('attribution', one.name))}
-                className="flex items-center gap-1.5 rounded-md px-1 py-0.5 text-body text-foreground hover:bg-accent">
-                <Avatar name={one.name} size={16} />{one.name}
+                className="flex max-w-full items-center gap-1.5 rounded-md px-1 py-0.5 text-body text-foreground hover:bg-accent">
+                <Avatar name={one.name} size={16} /><span className="truncate">{one.name}</span>
               </button>
             ))}
           </span>
         </div>
       )}
-    </Section>
+    </div>
   )
 }
 
@@ -539,6 +527,8 @@ const entryOf = (item: SourceItem): Entry => {
     icon: item.type === 'article' ? FileText : kind.icon,
     tint: kind.tint,
     voice: item.voice,
+    // How long ago, as the Inbox says it on every row.
+    age: age(item.at),
     wrap: true,
     sub: [ref && (ref.direct ? `p. ${ref.page}, word for word` : `p. ${ref.page}, in your words`), item.status, item.rating ? '★'.repeat(item.rating) : null].filter(Boolean).join(' · ') || undefined
   }
@@ -555,18 +545,48 @@ const dayFull = (at: string): string => new Date(at).toLocaleDateString('en-GB',
 export function SourcePageView({ focus, onOpen }: { focus?: string; onOpen: (type: string, id: string) => void }): React.JSX.Element {
   const which = readFocus(focus)
   const page = useLive(() => (which ? sources.page(which.field, which.name) : Promise.resolve(null)), null, [focus])
+  const near = useLive(() => (which?.field === 'attribution' ? sources.near(page?.name ?? which.name) : Promise.resolve([])), [] as Near, [focus, page?.name, page?.items.length])
   const voices = useMemo(() => {
     const by: Record<Voice, SourceItem[]> = { theirs: [], understood: [], mine: [] }
     for (const item of page?.items ?? []) by[item.voice].push(item)
     return by
   }, [page])
+  // Each section an island, as the Inbox draws its kinds: folded ones stay folded on every person's and source's page.
+  const island = useIslands('source-page', true)
   if (!which) return <Page title="Source"><div className="page-column"><Empty title="No such page">Pick a person or a source from the Sources page.</Empty></div></Page>
   const name = page?.name ?? which.name
   const field = which.field
   const Icon = FIELD_SAID[field].icon
+  const them = field === 'attribution' ? 'them' : 'it'
+  const QuoteKind = kindOf('quote')
+  const NoteKind = kindOf('note')
   const open = (item: SourceItem): void => (chime('open'), onOpen(item.type, item.id))
   const yours = [...voices.understood, ...voices.mine]
-  const first = page?.items.reduce<string | null>((oldest, one) => (!oldest || one.at < oldest ? one.at : oldest), null)
+  const first = page?.items.reduce<SourceItem | null>((oldest, one) => (!oldest || one.at < oldest.at ? one : oldest), null)
+  const linked = page ? [...page.tags, ...page.links, ...near] : []
+  const said = {
+    words: field === 'attribution' ? 'Their words' : 'Words from it',
+    yours: `Your notes on ${them}`,
+    thoughts: 'Your thoughts',
+    connects: `What connects to ${them}`,
+    found: 'Found through it',
+    met: `When you first met ${them}`
+  }
+  const { groups: showing, islands } = island<unknown>(page ? [
+    [said.words, voices.theirs], [said.yours, yours], [said.thoughts, [page.thoughts]], [said.connects, linked], [said.found, page.found], [said.met, first ? [first] : []]
+  ] : [])
+  /** What shows of a section: its first few, or all of it once opened past "Show more". */
+  const shown = <T,>(title: string): T[] => (showing.find(([one]) => one === title)?.[1] ?? []) as T[]
+  const takeOff = (item: SourceItem): void => void setSource(item, field, null).then(() => toast(`No longer from ${name}`, () => void setSource(item, field, name)))
+  const menu = (item: SourceItem): RowItem[] => [{ label: 'Open', run: () => open(item) }, { label: `Take off ${quoted(name, 80)}`, run: () => takeOff(item) }]
+  const pick = (list: SourceItem[]) => (id: string): void => open(list.find((one) => one.id === id)!)
+  const box = (portrait: string, title: string, icon: React.ReactNode, children: React.ReactNode, count: number, uncounted = false): React.ReactNode => islands?.[title] && (
+    <div data-portrait={portrait} className="mt-2 first:mt-0">
+      <IslandBox name={title} island={islands[title]} shown={count} icon={icon} uncounted={uncounted}>{children}</IslandBox>
+    </div>
+  )
+  const theirs = shown<SourceItem>(said.words)
+  const mine = shown<SourceItem>(said.yours)
   return (
     <Page title={name} count={page?.items.length ?? 0} unit={['note', 'notes']}>
       <div className="page-column pb-16" data-source-page={field}>
@@ -581,29 +601,26 @@ export function SourcePageView({ focus, onOpen }: { focus?: string; onOpen: (typ
         </div>
         )}
         <Bio key={`${field}:${name}`} field={field} name={name} page={page} />
+        {page && !page.items.length && <p className="mt-8 px-5 text-body text-muted-foreground">{field === 'attribution' ? `Nothing from ${name} yet. A note that says ${name} said it shows here.` : `Nothing from ${name} yet. A note that says it came from here shows here.`}</p>}
         {page && (
-          <>
-            {voices.theirs.length > 0 && (
-              <Section name="words" title={field === 'attribution' ? 'Their words' : 'Words from it'}>
-                <Quotes field={field} name={name} page={page} items={voices.theirs} onOpen={open} />
-              </Section>
-            )}
-            {yours.length > 0 && (
-              <Section name="yours" title={field === 'attribution' ? 'Your notes on them' : 'Your notes on it'}>
-                <NoteList groups={[['', yours.map((item) => ({ ...entryOf(item), menu: [{ label: 'Open', run: () => open(item) }, { label: `Take off ${quoted(name, 80)}`, run: () => void setSource(item, field, null).then(() => toast(`No longer from ${name}`, () => void setSource(item, field, name))) }] }))]]}
-                  density="list" table="nuggets" cursor={-1} onPick={(id) => open(yours.find((one) => one.id === id)!)} className="-mx-2" />
-              </Section>
-            )}
-            {!page.items.length && <p className="mt-8 px-5 text-body text-muted-foreground">{field === 'attribution' ? `Nothing from ${name} yet. A note that says ${name} said it shows here.` : `Nothing from ${name} yet. A note that says it came from here shows here.`}</p>}
-            <Thoughts key={`t:${field}:${name}`} field={field} name={name} page={page} />
-            <Connections field={field} name={name} page={page} />
-            <FoundThrough page={page} />
-            {first && (
-              <Section name="first-met" title={field === 'attribution' ? 'When you first met them' : 'When you first met it'}>
-                <p data-first-met className="text-body text-foreground">{dayFull(first)}, {ago(first)}</p>
-              </Section>
-            )}
-          </>
+          <div data-source-islands className="mx-3 mt-8">
+            {box('words', said.words, <QuoteKind.icon aria-hidden className="size-4 shrink-0" style={{ color: QuoteKind.tint }} />,
+              <NoteList groups={[['', theirs.map((item) => ({ ...quoteEntry(field, page, item), menu: menu(item) }))]]} density="list" table="nuggets" cursor={-1} onPick={pick(theirs)} />, theirs.length)}
+            {box('yours', said.yours, <NoteKind.icon aria-hidden className="size-4 shrink-0" style={{ color: NoteKind.tint }} />,
+              <NoteList groups={[['', mine.map((item) => ({ ...entryOf(item), menu: menu(item) }))]]} density="list" table="nuggets" cursor={-1} onPick={pick(mine)} />, mine.length)}
+            {box('thoughts', said.thoughts, <PenLine aria-hidden className="size-4 shrink-0 text-muted-foreground" />,
+              <Thoughts key={`t:${field}:${name}`} field={field} name={name} page={page} />, 1, true)}
+            {box('connects', said.connects, <Link2 aria-hidden className="size-4 shrink-0 text-muted-foreground" />,
+              <Connections field={field} page={page} near={near} />, linked.length)}
+            {box('found', said.found, <Library aria-hidden className="size-4 shrink-0 text-muted-foreground" />,
+              <FoundThrough page={page} />, page.found.length)}
+            {first && box('first-met', said.met, <CalendarDays aria-hidden className="size-4 shrink-0 text-muted-foreground" />,
+              // The day, and the note you met them in: a press opens it.
+              <div data-first-met>
+                <NoteList groups={[['', [{ id: first.id, type: first.type, title: dayFull(first.at), tags: [], icon: CalendarDays, sub: `${ago(first.at)}, in ${quoted(bare(first.label) || 'Untitled', 60)}`, menu: [{ label: 'Open', run: () => open(first) }] }]]]}
+                  density="list" table="nuggets" cursor={-1} onPick={() => open(first)} />
+              </div>, 1, true)}
+          </div>
         )}
       </div>
     </Page>
@@ -634,27 +651,23 @@ function SourceLine({ page, name }: { page: SourcePage | null; name: string }): 
   )
 }
 
-/** Every page whose "via" names this one: what you found through it. Nothing when there is none. */
-function FoundThrough({ page }: { page: SourcePage | null }): React.JSX.Element | null {
-  if (!page?.found.length) return null
+/** Every page whose "via" names this one: what you found through it, as rows inside its island. */
+function FoundThrough({ page }: { page: SourcePage }): React.JSX.Element {
   return (
-    <section data-found-through className="mt-8 px-5">
-      <h3 className="mb-2 text-heading font-semibold">Found through it</h3>
-      <ul className="-mx-1.5 flex flex-col">
-        {page.found.map((one) => {
-          const Icon = FIELD_SAID[one.field].icon
-          return (
-            <li key={`${one.field}:${one.name}`}>
-              <button type="button" onClick={() => (chime('page'), openSource(one.field, one.name))}
-                className="flex max-w-full items-center gap-2 rounded-md px-1.5 py-1 text-body text-foreground transition-colors hover:bg-accent">
-                {one.field === 'attribution' ? <Avatar name={one.name} size={16} /> : <Icon className="size-4 shrink-0 text-muted-foreground" />}
-                <span className="truncate">{one.name}</span>
-              </button>
-            </li>
-          )
-        })}
-      </ul>
-    </section>
+    <ul data-found-through className="flex flex-col">
+      {page.found.map((one) => {
+        const Icon = FIELD_SAID[one.field].icon
+        return (
+          <li key={`${one.field}:${one.name}`}>
+            <button type="button" onClick={() => (chime('page'), openSource(one.field, one.name))}
+              className="flex w-full min-w-0 items-center gap-2 rounded-md px-2 py-1.5 text-left text-body text-foreground transition-colors hover:bg-accent/50">
+              {one.field === 'attribution' ? <Avatar name={one.name} size={16} /> : <Icon className="size-4 shrink-0 text-muted-foreground" />}
+              <span className="truncate">{one.name}</span>
+            </button>
+          </li>
+        )
+      })}
+    </ul>
   )
 }
 

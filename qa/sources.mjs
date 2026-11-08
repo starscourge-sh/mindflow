@@ -35,7 +35,7 @@ try {
   await h.locator('[data-row]', { hasText: 'Ada Example' }).first().click()
   await h.waitForTimeout(900)
   check(await h.locator('[data-source-name]').textContent() === 'Ada Example', 'clicking a person opens their page')
-  check(await h.locator('[data-portrait="words"] [data-quote]').count() === 1, 'their words: the quote, as a quote')
+  check(await h.locator('[data-portrait="words"] [data-row]').count() === 1, 'their words: the quote, as a quote')
   check(await h.locator('[data-portrait="yours"] [data-row]').count() === 1, 'your notes on them: the sourced gem')
   // 4. My thoughts, kept apart: asked for, then written.
   await h.locator('[data-thoughts-add]').click()

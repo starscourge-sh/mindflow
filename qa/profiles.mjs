@@ -31,7 +31,7 @@ try {
   check(await h.locator('[data-person-photo="picture"] img').count() === 1, 'Jane Austen wears her portrait')
   const line = await h.locator('[data-person-line] input').evaluateAll((all) => all.map((one) => one.value))
   check(line.join('|') === 'Novelist|1775|1817', `her line reads Novelist · 1775 to 1817 (${line.join('|')})`)
-  const rows = await h.locator('[data-portrait="words"] [data-quote]').allTextContents()
+  const rows = await h.locator('[data-portrait="words"] [data-row]').allTextContents()
   check(rows.filter((one) => one.startsWith('“In vain have I struggled')).length === 1, '“In vain have I struggled” is listed once, as a quote')
   // Her thoughts, written, show whole under their own heading.
   check(await h.locator('[data-portrait="thoughts"] [data-thoughts]').count() === 1, 'your thoughts on her show, written')

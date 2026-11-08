@@ -82,8 +82,8 @@ export type Entry = {
   /** A task ticked off: its words struck through, as Recent and Today's list strike them. */
   done?: boolean
   private?: boolean
-  /** Its own words rather than a name (a nugget): two lines of them in a list, not one. */
-  wrap?: boolean
+  /** Its own words rather than a name (a nugget): two lines of them in a list, not one; 3 for three (a quote). */
+  wrap?: boolean | 3
   menu?: RowItem[]
   /** Drawn in the icon's place, outside the row's own button so it can be pressed: a task's tick. */
   lead?: ReactNode
@@ -689,7 +689,7 @@ function ListRow({ entry, lit }: { entry: Entry; lit: boolean }): React.JSX.Elem
         <span className="flex items-center gap-2">
           <PaneMark id={entry.id} />
           <span
-            className={`private-text min-w-0 flex-1 ${entry.wrap ? 'line-clamp-2 hyphens-auto [overflow-wrap:break-word]' : 'truncate'} ${entry.done ? DONE_WORDS : ''}`}
+            className={`private-text min-w-0 flex-1 ${entry.wrap ? `${entry.wrap === 3 ? 'line-clamp-3' : 'line-clamp-2'} hyphens-auto [overflow-wrap:break-word]` : 'truncate'} ${entry.done ? DONE_WORDS : ''}`}
             style={entry.ink ? { color: entry.ink } : undefined}
           >
             <Named entry={entry} />
