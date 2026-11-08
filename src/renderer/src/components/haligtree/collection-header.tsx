@@ -6,14 +6,9 @@ import { keyFor } from '@/lib/keys'
 import { smallPicture } from '@/lib/notes'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import DotsHorizontalIcon from '@/components/ui/dots-horizontal-icon'
-import PaintIcon from '@/components/ui/paint-icon'
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuShortcut, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
-import { LOOKABLE, openLook } from '@/components/image/image-look'
-import { RowMenu, dangerLast, fits, openFromGrip, type MenuItem, type RowItem } from './row-menu'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuShortcut, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { dangerLast, fits, type MenuItem } from './row-menu'
 import { Tip } from './ui'
-import { GrainFill, PAPER_INK, useNoteCover } from './grain'
-import { Tilt } from './tilt'
-import { PICKED_MARK } from './pick-mixed'
 import { BookOpen as Read } from '@/components/ui/icons'
 
 /**
@@ -120,43 +115,13 @@ export function useTint(src: string | null | undefined, colour: string | null | 
 }
 
 /**
- * The square on the left: a picture, or a tile with words or a mark on it,
- * over a grain cover tinted its colour (or the colour alone, with no Covers
- * folder). A picture opens large in Quick Look, lifting from where it sits.
- */
-export function Cover({ src, colour, seed, children, caption = '' }: { src?: string | null; colour: string; seed?: string; children?: ReactNode; caption?: string }): React.JSX.Element {
-  const [broken, setBroken] = useState(false)
-  const grain = useNoteCover(seed)
-  useEffect(() => setBroken(false), [src])
-  const box = 'relative aspect-square w-24 shrink-0 overflow-hidden rounded-lg shadow-[0_10px_30px_-8px_color-mix(in_oklab,var(--mf-shadow-ink)_45%,transparent),0_2px_8px_color-mix(in_oklab,var(--mf-shadow-ink)_18%,transparent)] [container-type:inline-size] @[30rem]/band:w-32 @[44rem]/band:w-44 @[60rem]/band:w-52'
-  if (src && !broken) {
-    const picture = <img src={src} alt="" draggable={false} onError={() => setBroken(true)} className="size-full object-cover" />
-    return (
-      <Tilt className="shrink-0 rounded-lg" caption={caption || undefined}>
-        <Tip label="Look at it">
-          <button type="button" onClick={(event) => (chime('look'), void openLook(src, event.currentTarget.querySelector('img'), caption))} className={`${box} ${LOOKABLE}`}>{picture}</button>
-        </Tip>
-      </Tilt>
-    )
-  }
-  return (
-    <div className={box} style={grain ? undefined : { background: `linear-gradient(140deg, color-mix(in oklab, ${colour} 78%, white), color-mix(in oklab, ${colour} 72%, black))` }}>
-      {grain && <GrainFill cover={grain} tint={colour} />}
-      <div data-cover-name className={`absolute inset-0 flex items-end p-[9cqi] font-heading text-[clamp(0.75rem,14cqi,2.5rem)] leading-none font-bold tracking-[-0.03em] break-words ${grain?.paper ? '' : 'text-white drop-shadow-[0_1px_2px_rgb(0_0_0/0.25)]'}`} style={{ ...(grain?.paper ? { color: PAPER_INK } : {}), ...coverFit(children) }}>{coverWords(children)}</div>
-    </div>
-  )
-}
-
-/**
  * The header itself. `title` is the name, or a field to change it in; `meta`
  * its counts, the first part in the ink colour; `actions` the row under it.
  * `length`, the title's characters: a long one is set smaller, as a music app
  * sets a long album name, so a sentence never towers over the page.
  */
-export function CollectionHeader({ tint, backdrop, cover, label, title, length = 0, big, meta, actions }: {
+export function CollectionHeader({ tint, cover, label, title, length = 0, big, meta, actions }: {
   tint: string | null
-  /** A picture behind the header instead of the colour: one from the collection's notes, or a sketch. Faded into the page so the words read. */
-  backdrop?: string | null
   cover: ReactNode
   /** What kind of page it is, small over the name: words, or words with the kind's own mark. */
   label: ReactNode
@@ -173,15 +138,8 @@ export function CollectionHeader({ tint, backdrop, cover, label, title, length =
       className="@container/band relative"
       // The colour runs down behind the actions and fades into the page, as the band does in a music app.
       // It rises out of the page too, so no hard edge sits under the page's header line like a stray band.
-      style={{ background: tint && !backdrop ? `linear-gradient(180deg, var(--background) 0%, ${tint} 30%, ${tint} 50%, var(--background) 100%)` : undefined }}
+      style={{ background: tint ? `linear-gradient(180deg, var(--background) 0%, ${tint} 30%, ${tint} 50%, var(--background) 100%)` : undefined }}
     >
-      {backdrop && (
-        <div aria-hidden data-backdrop className="pointer-events-none absolute inset-0 overflow-hidden [mask-image:linear-gradient(180deg,transparent_0%,black_18%,black_55%,transparent_100%)]">
-          <img src={backdrop} alt="" draggable={false} className="size-full scale-110 object-cover opacity-90" />
-          {/* The page's colour over it, so plain and grey words still read on any picture, light theme or dark. */}
-          <div className="absolute inset-0 bg-[color-mix(in_oklab,var(--background)_68%,transparent)]" />
-        </div>
-      )}
       <div className="page-column relative flex items-end gap-4 px-5 pt-6 pb-4 @[44rem]/band:gap-6 @[44rem]/band:px-8 @[44rem]/band:pt-10 @[44rem]/band:pb-5">
         {cover}
         <div className="flex min-w-0 flex-1 flex-col gap-1 @[44rem]/band:gap-2">
@@ -225,25 +183,6 @@ export function PlayButton({ label, onClick, icon: Icon = Read }: { label: strin
 
 const QUIET = 'flex size-9 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-[color,background-color,scale] duration-150 ease-out hover:bg-foreground/[0.06] hover:text-foreground active:scale-[0.94] data-[state=open]:text-foreground aria-pressed:text-primary aria-pressed:[&_svg]:fill-current [&_svg]:size-5'
 
-/** A cover's name sized to fit its longest word on one line (a bold heading letter is about 0.48em wide on average, 0.55 kept for wide letters, in ~80% of the tile), never larger than the tile's own size, so a long tag shrinks instead of breaking mid word. */
-export const coverFit = (name: ReactNode, most = 14): React.CSSProperties => {
-  const longest = typeof name === 'string' ? Math.max(...name.split(/[\s-]/).map((word, i) => word.length + (i ? 1 : 0)), 1) : 0
-  return longest ? { fontSize: `clamp(0.45rem, min(${most}cqi, ${(78 / (longest * 0.55)).toFixed(1)}cqi), 2.5rem)` } : {}
-}
-/** A name that may break only between words or after a hyphen: "#bug-" then "report", never "#bug-repor" then "t". One span, so the cover's flex lays it as one run of words that wraps. */
-export const coverWords = (name: ReactNode): ReactNode =>
-  typeof name === 'string' ? <span>{name.split(/(\s+)/).map((chunk, i) => (/^\s+$/.test(chunk) ? ' ' : chunk.split(/(?<=-)/).map((part, j) => <span key={`${i}-${j}`} className="whitespace-nowrap">{part}</span>)))}</span> : name
-
-/** One of the small round buttons after it. */
-export function QuietAction({ label, onClick, pressed, children }: { label: string; onClick: () => void; pressed?: boolean; children: ReactNode }): React.JSX.Element {
-  return (
-    // Below the row: above, the tip sat over the title's own count and dates.
-    <Tip label={label} side="bottom">
-      <button type="button" aria-pressed={pressed} onClick={onClick} className={QUIET}>{children}</button>
-    </Tip>
-  )
-}
-
 /** ··· as a button: the same lines a right click gives. */
 export function MenuButton({ items, label = 'More', small = false, name, icon, className }: { items: MenuItem[]; label?: string; small?: boolean; /** Its data-menu, for a probe. */ name?: string; /** In place of the three dots (a post's ×). */ icon?: React.ReactNode; className?: string }): React.JSX.Element {
   // The same rule as a right click: a page's own ⋯ is the list's menu, so only lines that cannot run here are left out.
@@ -275,33 +214,6 @@ export function MenuButton({ items, label = 'More', small = false, name, icon, c
   )
 }
 
-export type Backdrop = 'colour' | 'picture' | 'sketch'
-const BACKDROPS: { id: Backdrop; label: string }[] = [{ id: 'picture', label: "A note's picture" }, { id: 'sketch', label: 'A landscape sketch' }, { id: 'colour', label: 'Its colour' }]
-
-/**
- * What stands behind the header, picked from a small menu: each choice shows
- * behind the header as the pointer rests on it, and the pick is kept. A
- * picture is offered only when the notes have one.
- */
-export function BackdropMenu({ value, hasPicture, onPreview, onChange }: { value: Backdrop; hasPicture: boolean; onPreview: (to: Backdrop | null) => void; onChange: (to: Backdrop) => void }): React.JSX.Element {
-  return (
-    <DropdownMenu modal={false} onOpenChange={(open) => !open && onPreview(null)}>
-      <Tip label="Backdrop">
-        <DropdownMenuTrigger asChild>
-          <button type="button" aria-label="Backdrop" data-backdrop-menu className={QUIET}><AliveIcon icon={PaintIcon} size={20} /></button>
-        </DropdownMenuTrigger>
-      </Tip>
-      <DropdownMenuContent align="start" className="w-60">
-        <DropdownMenuRadioGroup value={value} onValueChange={(to) => (chime('tap'), onChange(to as Backdrop))}>
-          {BACKDROPS.filter((one) => one.id !== 'picture' || hasPicture).map((one) => (
-            <DropdownMenuRadioItem key={one.id} value={one.id} data-backdrop-choice={one.id} onPointerEnter={() => onPreview(one.id)} onFocus={() => onPreview(one.id)}>{one.label}</DropdownMenuRadioItem>
-          ))}
-        </DropdownMenuRadioGroup>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  )
-}
-
 /** The view switch on the right of the actions, in words, the way a music app says "List". */
 export function ViewSwitch<T extends string>({ value, options, onChange }: { value: T; options: { id: T; label: string; icon: ReactNode }[]; onChange: (to: T) => void }): React.JSX.Element {
   return (
@@ -320,105 +232,6 @@ export function ViewSwitch<T extends string>({ value, options, onChange }: { val
       ))}
     </span>
   )
-}
-
-/** A row of a numbered list: its title and icon, its other columns, and what it offers on hover. */
-export type Track = {
-  key: string
-  title: string
-  icon?: ReactNode
-  cells: ReactNode[]
-  private?: boolean
-  onOpen: (event: React.MouseEvent | React.KeyboardEvent) => void
-  /** Read from this one on. */
-  onPlay: () => void
-  playLabel?: string
-  add?: { label: string; icon: ReactNode; run: () => void; on?: boolean }
-  menu: RowItem[]
-  /** "type:id", for x to pick the row with the focus; `picked` draws it picked. */
-  pick?: string
-  picked?: boolean
-}
-
-/**
- * The numbered list: quiet column names, then a row each. Pointed at, a
- * row's number becomes a book (read from here) and its add and ···
- * show at the right, the rest of the time out of the way.
- */
-export function TrackList({ columns, tracks }: { columns: { label: string; size: string; wide?: boolean }[]; tracks: Track[] }): React.JSX.Element {
-  // One width per column for every row, so the dates and counts line up.
-  // A column marked wide (a date) goes when the page is narrow, so the title keeps its room.
-  const template = (list: typeof columns): string => `2.25rem minmax(0,1fr) ${list.map((one) => one.size).join(' ')} 4.25rem`
-  const grid = { '--wide': template(columns), '--narrow': template(columns.filter((one) => !one.wide)) } as React.CSSProperties
-  const shape = '[grid-template-columns:var(--narrow)] @[40rem]/page:[grid-template-columns:var(--wide)]'
-  const shown = (wide?: boolean): string => (wide ? 'hidden @[40rem]/page:block' : '')
-  return (
-    <div role="table" className="page-column px-3 @[44rem]/page:px-6">
-      <div role="row" className={`sticky top-0 z-10 grid items-center gap-x-3 border-b border-border/60 bg-background px-2 py-1.5 text-xs text-muted-foreground @[40rem]/page:gap-x-4 ${shape}`} style={grid}>
-        <span role="columnheader" className="text-right tabular-nums">#</span>
-        <span role="columnheader">Title</span>
-        {columns.map((one) => <span key={one.label} role="columnheader" className={`text-right ${shown(one.wide)}`}>{one.label}</span>)}
-        <span />
-      </div>
-      <div className="py-1.5">
-        {tracks.map((track, index) => (
-          <RowMenu key={track.key} items={track.menu}>
-            <div
-              role="row"
-              tabIndex={0}
-              data-private={track.private ? '' : undefined}
-              data-pick={track.pick}
-              data-picked={track.picked || undefined}
-              onClick={(event) => !(event.target as HTMLElement).closest('button') && track.onOpen(event)}
-              onKeyDown={(event) => event.key === 'Enter' && event.target === event.currentTarget && track.onOpen(event)}
-              className={`group/track grid h-10 cursor-pointer items-center gap-x-3 rounded-md px-2 text-control outline-none hover:bg-foreground/[0.055] focus-visible:bg-foreground/[0.055] focus-visible:ring-1 focus-visible:ring-ring/40 has-[[data-state=open]]:bg-foreground/[0.055] @[40rem]/page:gap-x-4 ${PICKED_MARK} ${shape}`}
-              style={grid}
-            >
-              <span className="relative flex h-full items-center justify-end">
-                <span className="text-muted-foreground tabular-nums group-focus-within/track:opacity-0 group-hover/track:opacity-0">{index + 1}</span>
-                <Tip label={track.playLabel ?? 'Read from here'}>
-                  <button type="button" onClick={track.onPlay} className="absolute inset-y-0 right-0 flex w-6 items-center justify-end text-foreground opacity-0 group-focus-within/track:opacity-100 group-hover/track:opacity-100">
-                    <Read className="size-3.5" />
-                  </button>
-                </Tip>
-              </span>
-              <span className="flex min-w-0 items-center gap-2.5">
-                {track.icon}
-                <span className="private-text truncate text-foreground">{track.title || 'Untitled'}</span>
-              </span>
-              {track.cells.map((cell, at) => <span key={at} className={`truncate text-right text-muted-foreground tabular-nums whitespace-nowrap ${shown(columns[at]?.wide)}`}>{cell}</span>)}
-              <span className="flex items-center justify-end gap-0.5 opacity-0 group-focus-within/track:opacity-100 group-hover/track:opacity-100 has-[[data-state=open]]:opacity-100">
-                {track.add && (
-                  <Tip label={track.add.label}>
-                    <button type="button" aria-pressed={track.add.on} onClick={track.add.run} className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-foreground/[0.08] hover:text-foreground aria-pressed:text-primary [&_svg]:size-4">{track.add.icon}</button>
-                  </Tip>
-                )}
-                {/* Its right-click menu, opened under it: the same lines, nested the same, never a second list. */}
-                <button type="button" aria-label="More" data-track-dots onClick={openFromGrip}
-                  className="flex size-7 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-foreground/[0.08] hover:text-foreground active:scale-[0.97] motion-reduce:active:scale-100">
-                  <AliveIcon icon={DotsHorizontalIcon} size={16} />
-                </button>
-              </span>
-            </div>
-          </RowMenu>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-/** Words in a note's body, counted from its document. */
-export function wordsIn(body: unknown): number {
-  let words = 0
-  const walk = (node: unknown): void => {
-    if (!node || typeof node !== 'object') return
-    const { text, content } = node as { text?: string; content?: unknown[] }
-    if (text) words += text.split(/\s+/).filter(Boolean).length
-    content?.forEach(walk)
-  }
-  if (typeof body === 'string') return body.split(/\s+/).filter(Boolean).length
-  walk(body)
-  return words
 }
 
 /** The first picture in a note's body, or nothing. */

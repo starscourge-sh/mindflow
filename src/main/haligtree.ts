@@ -1254,7 +1254,6 @@ export function registerHaligtree(): void {
   // many days from today ('0' today, '1' tomorrow, '7' a week on).
   column('tag_meta', 'lands text')
   // What stands behind a tag page's header: 'colour', 'picture' (one from its notes) or 'sketch'; null picks for itself.
-  column('tag_meta', 'backdrop text')
   // Kept off Home's "More from" rows: the person asked never to see this tag's row there.
   column('tag_meta', 'home_hidden integer not null default 0')
   // The language a tag's answers are read aloud in when they show ("es", "ja"), or null for silent.
@@ -4325,8 +4324,8 @@ export function registerHaligtree(): void {
   })
   handle('sets:remove', (name: string) => (db.prepare('delete from study_sets where name = ?').run(name), write(true)))
   handle('decks:made', () => (db.prepare('select tag from tag_meta where deck = 1 order by tag').all() as { tag: string }[]).map((row) => row.tag))
-  handle('tag:meta', () => db.prepare('select tag, color, action, backdrop, home_hidden as homeHidden from tag_meta').all())
-  handle('tag:set', (tag: string, patch: { deck?: boolean; homeHidden?: boolean; backdrop?: string | null; color?: string | null; action?: boolean; aliasOf?: string | null; examAt?: string | null; priority?: 'maintaining' | 'paused' | null; lands?: string | null; speak?: string | null; typed?: string | null; newPerDay?: number | null; retention?: number | null; sides?: [string, string] | null; timer?: number | null }) => {
+  handle('tag:meta', () => db.prepare('select tag, color, action, home_hidden as homeHidden from tag_meta').all())
+  handle('tag:set', (tag: string, patch: { deck?: boolean; homeHidden?: boolean; color?: string | null; action?: boolean; aliasOf?: string | null; examAt?: string | null; priority?: 'maintaining' | 'paused' | null; lands?: string | null; speak?: string | null; typed?: string | null; newPerDay?: number | null; retention?: number | null; sides?: [string, string] | null; timer?: number | null }) => {
     db.prepare('insert or ignore into tag_meta (tag) values (?)').run(tag)
     if (patch.sides !== undefined) db.prepare('update tag_meta set sides = ? where tag = ?').run(patch.sides && patch.sides[0].trim() && patch.sides[1].trim() ? `${patch.sides[0].trim().slice(0, 30)}|${patch.sides[1].trim().slice(0, 30)}` : null, tag)
     if (patch.timer !== undefined) db.prepare('update tag_meta set timer = ? where tag = ?').run(Number.isInteger(patch.timer) && patch.timer! >= 3 && patch.timer! <= 600 ? patch.timer : null, tag)
@@ -4338,7 +4337,6 @@ export function registerHaligtree(): void {
     if (patch.lands !== undefined) db.prepare('update tag_meta set lands = ? where tag = ?').run(/^\d{1,3}$/.test(patch.lands ?? '') ? patch.lands : null, tag)
     if (patch.priority !== undefined) db.prepare('update tag_meta set priority = ? where tag = ?').run(['maintaining', 'paused'].includes(patch.priority ?? '') ? patch.priority : null, tag)
     if (patch.examAt !== undefined) db.prepare('update tag_meta set exam_at = ? where tag = ?').run(patch.examAt, tag)
-    if (patch.backdrop !== undefined) db.prepare('update tag_meta set backdrop = ? where tag = ?').run(['colour', 'picture', 'sketch'].includes(patch.backdrop ?? '') ? patch.backdrop : null, tag)
     if (patch.color !== undefined) db.prepare('update tag_meta set color = ? where tag = ?').run(patch.color, tag)
     if (patch.homeHidden !== undefined) db.prepare('update tag_meta set home_hidden = ? where tag = ?').run(patch.homeHidden ? 1 : 0, tag)
     if (patch.action !== undefined) db.prepare('update tag_meta set action = ? where tag = ?').run(patch.action ? 1 : 0, tag)

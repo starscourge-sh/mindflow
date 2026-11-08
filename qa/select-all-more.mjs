@@ -108,7 +108,7 @@ try {
 
   // A tag, as a list: ⌘A, the tracks marked, ⇧-click.
   const tags = (await v('tags')).sort((a, b) => b.count - a.count)
-  await h.evaluate(() => localStorage.setItem('tag:view', 'list'))
+  await h.evaluate(() => localStorage.setItem('tag:look', 'list'))
   await c.theme('paper')
   await c.send('tag', tags[0].tag)
   await h.waitForTimeout(1800)

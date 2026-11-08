@@ -17,23 +17,25 @@ const wait = (ms) => h.waitForTimeout(ms)
 const para = (text) => ({ type: 'paragraph', content: [{ type: 'text', text }] })
 const doc = (...lines) => ({ type: 'doc', content: lines.map(para) })
 const make = (body, kind = 'note') => h.evaluate((p) => window.api.captures.create(p), { kind, body })
+// This probe reads the Stream (List is the default now, qa/tag-page.mjs has it).
+await h.evaluate(() => localStorage.setItem('tag:look', 'stream'))
 const open = async (tag) => { await send('tag', tag); await wait(1500) }
 
 // What the open tag's page shows, measured.
 const page = () => h.evaluate(() => {
   const box = (el) => { if (!el) return null; const r = el.getBoundingClientRect(); return { left: Math.round(r.left), right: Math.round(r.right), top: Math.round(r.top), height: Math.round(r.height), width: Math.round(r.width) } }
-  const header = [...document.querySelectorAll('header[data-collection-header]')].find((one) => one.offsetParent)
+  const header = [...document.querySelectorAll('header[data-tag-head]')].find((one) => one.offsetParent)
   const h1 = header?.querySelector('h1')
-  const title = h1?.querySelector('[data-tag-title] > span') ?? h1
+  const title = h1?.querySelector(':scope > span') ?? h1
   const bar = [...document.querySelectorAll('section > header')].find((one) => one.offsetParent && one.closest('section')?.contains(header))
   const toolbar = document.querySelector('[data-tag-toolbar]')
   const entries = [...document.querySelectorAll('[data-tag-stream] article, [data-tag-islands] article')]
   return {
-    coverText: header?.querySelector('[data-cover-name]')?.textContent ?? '',
+    pictures: header ? header.querySelectorAll('img, [data-cover-name], [data-backdrop]').length : -1,
     titleText: title?.textContent ?? '',
     titleLines: title ? Math.round(title.getBoundingClientRect().height / parseFloat(getComputedStyle(title).lineHeight || getComputedStyle(title).fontSize)) : 0,
     titleCut: title ? title.scrollWidth > title.clientWidth + 1 : true,
-    iconInTitle: !!h1?.querySelector('[data-tag-colour], svg'),
+    iconInTitle: !!h1?.querySelector('svg, .mf-emoji-icon'),
     // A chip draws its word letter by letter, twice over: its name is its aria-label.
     barButtons: bar ? [...bar.querySelectorAll('button')].filter((one) => one.offsetParent).map((one) => one.getAttribute('aria-label') || one.textContent.trim()) : [],
     actions: header ? [...header.querySelectorAll('button')].filter((one) => one.offsetParent && !one.closest('h1')).map((one) => ({ name: one.textContent.trim() || one.getAttribute('aria-label') || '', top: Math.round(one.getBoundingClientRect().top), primary: getComputedStyle(one).backgroundColor !== 'rgba(0, 0, 0, 0)' })) : [],
@@ -47,7 +49,7 @@ const page = () => h.evaluate(() => {
     pictures: [...document.querySelectorAll('[data-entry-picture]')].map((one) => box(one)),
     // The page's own column: at 390 the window's title bar runs past the edge (its own matter, named in the report).
     overflow: (() => { const page = header?.closest('section'); return page ? page.scrollWidth - page.clientWidth : 0 })(),
-    sideways: [...document.querySelectorAll('[data-collection-header], [data-tag-toolbar], [data-tag-stream]')].some((one) => one.scrollWidth > one.clientWidth + 1)
+    sideways: [...document.querySelectorAll('[data-tag-head], [data-tag-toolbar], [data-tag-stream]')].some((one) => one.scrollWidth > one.clientWidth + 1)
   }
 })
 
@@ -65,10 +67,10 @@ try {
   await h.waitForFunction(() => document.querySelectorAll('[data-tag-stream] article').length >= 10, null, { timeout: 5000 }).catch(() => {})
   const a = await page()
   console.log(JSON.stringify({ ...a, words: a.words.slice(0, 3), asides: a.asides.slice(0, 3) }))
-  check('the cover never says the tag\'s name again', !/programming/i.test(a.coverText), JSON.stringify(a.coverText))
-  check('the name is in the title once', a.titleText === '#programming-humour', a.titleText)
+  check('no cover and no picture behind the head: a tag has none', a.pictures === 0, String(a.pictures))
+  check('the name is in the title once, after the tag\'s mark', a.titleText === 'programming-humour', a.titleText)
   check('the long name sits on one line, whole (not cut, not broken at the hyphen)', a.titleLines === 1 && !a.titleCut, `${a.titleLines} lines, cut ${a.titleCut}`)
-  check('no colour icon floats beside the title', !a.iconInTitle)
+  check('the tag\'s mark sits in the title, in its colour, as the Tags list draws it', a.iconInTitle)
   check('the bar holds no separate Blurt, Study or Practise buttons', !a.barButtons.some((one) => /^(Blurt|Study|Practise)$/.test(one)), JSON.stringify(a.barButtons))
   check('the bar\'s modes are one control (Read, Manage)', a.barButtons.includes('Read') && a.barButtons.includes('Manage'), JSON.stringify(a.barButtons))
   check('every action in the band has a name a newcomer reads', a.actions.length >= 3 && a.actions.every((one) => one.name.length > 2), JSON.stringify(a.actions))
@@ -98,7 +100,7 @@ try {
   await h.locator('[data-tag-more]').click()
   await wait(300)
   const more = await h.evaluate(() => [...document.querySelectorAll('[role="menuitem"]')].map((one) => one.textContent.trim()))
-  check('⋯ holds rename, colour, backdrop, a deck, Home and copy, every line named', ['Rename', 'Colour', 'Backdrop', 'deck', 'Home', 'Copy'].every((word) => more.some((one) => one.includes(word))), JSON.stringify(more))
+  check('⋯ holds rename, colour, a deck, Home and copy, every line named, and no Backdrop', ['Rename', 'Colour', 'deck', 'Home', 'Copy'].every((word) => more.some((one) => one.includes(word))) && !more.some((one) => one.includes('Backdrop')), JSON.stringify(more))
   if (shots) await h.screenshot({ path: `${shots}/tag-more-menu.png` })
   // One home: no line of ⋯ is also a button of its own on the page.
   const named = (await page()).actions.map((one) => one.name)

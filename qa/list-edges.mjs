@@ -144,7 +144,7 @@ async function walk(label) {
   const tagName = tag?.tag ?? tag?.name
   if (tagName) {
     await c.send('tag', tagName); await h.waitForTimeout(1300)
-    const got = await measure(h, '[data-tag-stream]')
+    const got = await measure(h, '[data-tag-page]')
     report.push({ at: label, page: `#${tagName}`, got })
     judge(`${label} tag page`, got)
     if (SHOTS) await h.screenshot({ path: `${SHOTS}/${label}-tag.png` }).catch(() => {})

@@ -264,14 +264,14 @@ try {
     const caps = (await h.evaluate(() => window.api.captures.list())).filter((one) => one.status === 'open').slice(0, 4)
     for (const one of caps) await h.evaluate((id) => window.api.captures.save(id, { status: 'discarded', bin: true }), one.id)
     await keys('Bin', 'discarded', { bin: true }).catch((e) => check('Bin: ran', false, e.message.split('\n')[0]))
-    await keys(`Tag #${tag}`, 'tags', { root: '[data-tag-stream]', open: async () => { await c.send('tag', tag); await h.waitForTimeout(1200) } }).catch((e) => check('Tag page: ran', false, e.message.split('\n')[0]))
+    await keys(`Tag #${tag}`, 'tags', { root: '[data-tag-list]', open: async () => { await c.send('tag', tag); await h.waitForTimeout(1200) } }).catch((e) => check('Tag page: ran', false, e.message.split('\n')[0]))
     // One capture's right-click menu, the same in the Inbox, Everything and its tag page.
     const one = (await h.evaluate(() => window.api.captures.list())).find((cap) => cap.status === 'open' && /#[\w-]+/.test(cap.label))
     if (one) {
       const tagOf = /#([\w-]+)/.exec(one.label)[1]
       await go('inbox'); const inInbox = await menuOf(page('inbox'), one.id)
       await go('all'); const inAll = await menuOf(page('all'), one.id)
-      await c.send('tag', tagOf); await h.waitForTimeout(1200); const inTag = await menuOf('[data-tag-stream]', `capture:${one.id}`)
+      await c.send('tag', tagOf); await h.waitForTimeout(1200); const inTag = await menuOf('[data-tag-list]', one.id)
       const plain = (lines) => lines.filter((line) => !/^(Select|Unselect|Select all|Read from here)/.test(line)).join(' / ')
       console.log(`NOTE menu Inbox: ${plain(inInbox)}\nNOTE menu Everything: ${plain(inAll)}\nNOTE menu Tag: ${plain(inTag)}`)
       check('a capture\'s right-click menu is the same in the Inbox and Everything', plain(inInbox) === plain(inAll))

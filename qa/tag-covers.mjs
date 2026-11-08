@@ -1,6 +1,7 @@
-// A tag's name on its cover, big and in Often with's tiles: it breaks only
-// after a hyphen, never mid word, and a single long word shrinks to fit
-// rather than running off the edge. At 900 and 1600 wide, paper and dark.
+// A tag's name in its page's head and in Often with's chips (the tag page has
+// no cover now: a tag has none): a long name stays on one line inside the
+// page, cut short with its whole name in the title, and never broken mid word;
+// a short one shows whole. At 560, 900 and 1600 wide, paper and dark.
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 QA_SHOTS=dir node qa/tag-covers.mjs
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
@@ -13,24 +14,21 @@ const { h, v, size, theme } = c
 const wait = (ms) => h.waitForTimeout(ms)
 const results = []
 const check = (name, ok, detail = '') => (results.push(!!ok), console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? `  (${detail})` : ''}`))
-const NAMES = ['bug-report', 'reading-list', 'a-very-long-tag-name', 'supercalifragilistic', 'go']
+const NAMES = ['bug-report', 'reading-list', 'a-very-long-tag-name-for-the-whole-of-renaissance-florence', 'supercalifragilistic', 'go']
 const doc = (text) => ({ type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text }] }] })
 
-/** Each cover's name on screen: does any piece run past the edge, or break inside a word? */
-const measure = () => h.evaluate(() => [...document.querySelectorAll('[data-cover-name]')].map((box) => {
-  const edge = box.getBoundingClientRect()
-  const pad = parseFloat(getComputedStyle(box).paddingRight)
-  const parts = [...box.querySelectorAll('span.whitespace-nowrap')]
-  const lines = new Set(parts.map((one) => Math.round(one.getBoundingClientRect().top)))
+/** The head's name and every Often with chip: inside the page, on one line, its whole name said. */
+const measure = () => h.evaluate(() => {
+  const page = document.querySelector('[data-tag-page]')?.getBoundingClientRect()
+  const title = document.querySelector('[data-tag-title]')
+  const word = title?.querySelector('span')
+  const chips = [...document.querySelectorAll('[data-often-tag]')]
   return {
-    name: box.textContent,
-    size: parseFloat(getComputedStyle(box).fontSize),
-    over: Math.max(0, ...parts.map((one) => one.getBoundingClientRect().right - (edge.right - pad / 2))),
-    split: parts.some((one) => one.getClientRects().length > 1),
-    lines: lines.size,
-    tall: Math.max(0, ...parts.map((one) => edge.top + pad / 2 - one.getBoundingClientRect().top))
+    title: title ? { name: word.textContent, full: title.getAttribute('title'), right: title.getBoundingClientRect().right, lines: word.getClientRects().length, cut: word.scrollWidth > word.clientWidth } : null,
+    page: page?.right ?? 0,
+    chips: chips.map((one) => ({ name: one.dataset.oftenTag, right: one.getBoundingClientRect().right, tall: one.getBoundingClientRect().height, full: one.getAttribute('title') ?? '' }))
   }
-}))
+})
 try {
   await v('settings:set', { sounds: false, hintRate: 0 })
   await v('onboarding:set', { pageHints: false })
@@ -38,26 +36,20 @@ try {
   await h.reload(); await wait(2000)
   for (const look of ['paper', 'dark']) {
     await theme(look)
-    for (const width of [900, 1600]) {
+    for (const width of [560, 900, 1600]) {
       await size(width, 1000)
       for (const name of ['coverz', ...NAMES.slice(0, 4)]) {
         await c.send('tag', name); await wait(1300)
-        await h.evaluate(() => document.querySelector('[class*="@container/page"] *')?.scrollTo?.(0, 0))
-        const all = await measure()
-        for (const one of all) {
-          check(`${look} ${width}: ${one.name} stays inside`, one.over <= 1 && one.tall <= 1, `over ${one.over.toFixed(1)}px, ${one.size.toFixed(1)}px type`)
-          check(`${look} ${width}: ${one.name} breaks only after a hyphen`, !one.split, `${one.lines} lines`)
+        const m = await measure()
+        if (!m.title) { check(`${look} ${width}: #${name} shows its page`, false); continue }
+        check(`${look} ${width}: #${name} in the head stays inside the page, on one line`, m.title.right <= m.page + 1 && m.title.lines === 1, `right ${Math.round(m.title.right)} of ${Math.round(m.page)}`)
+        check(`${look} ${width}: #${name} keeps its whole name in the title`, m.title.full === `#${name}`)
+        if (name === 'go') check(`${look} ${width}: a short name is never cut`, !m.title.cut)
+        for (const one of m.chips) {
+          check(`${look} ${width}: Often with #${one.name} stays inside, one line`, one.right <= m.page + 1 && one.tall <= 36, `right ${Math.round(one.right)}, ${Math.round(one.tall)}px tall`)
+          check(`${look} ${width}: Often with #${one.name} says what its number counts`, new RegExp(`^#${one.name}: \\d+ notes? carr(y|ies) both$`).test(one.full), one.full)
         }
-        if (SHOTS) {
-          const band = h.locator('header.relative').first()
-          await band.screenshot({ path: `${SHOTS}/${look}-${width}-${name}-cover.png` }).catch(() => {})
-          if (name === 'coverz') {
-            const often = h.locator('section:has(> h2:text("Often with")) > div.grid').first()
-            await often.scrollIntoViewIfNeeded().catch(() => {})
-            await wait(400)
-            await often.screenshot({ path: `${SHOTS}/${look}-${width}-often-with.png` }).catch(() => {})
-          }
-        }
+        if (SHOTS && name === 'coverz') await h.screenshot({ path: `${SHOTS}/${look}-${width}-coverz.png` })
       }
     }
   }

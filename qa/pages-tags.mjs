@@ -68,7 +68,7 @@ try {
   await h.keyboard.press('Enter')
   await wait(1200)
   console.log('focus before Enter:', held, '| cursor on', await cursorTag())
-  const opened = await h.evaluate(() => document.querySelector('h1 [data-tag-title]')?.textContent)
+  const opened = await h.evaluate(() => document.querySelector('h1[data-tag-title]')?.getAttribute('title'))
   check('Enter opens the tag under the cursor', opened === `#${az[0]}`, `${opened} (cursor was ${az[0]})`)
   if (shots) await both(`${shots}/tags-open-1280`)
   await h.keyboard.press('Meta+BracketLeft')

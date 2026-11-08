@@ -66,15 +66,15 @@ try {
   // The page.
   await h.evaluate(() => [...document.querySelectorAll('[data-row]')].find((one) => one.textContent.trim().startsWith('countz'))?.click()); await wait(1500)
   const page = () => h.evaluate(() => ({
-    meta: document.querySelector('header p.line-clamp-2')?.textContent.trim() ?? '',
-    entries: document.querySelectorAll('article[data-private], article.group\\/entry').length,
-    often: [...document.querySelectorAll('section h2')].find((one) => one.textContent.startsWith('Often with'))?.parentElement?.textContent ?? ''
+    meta: document.querySelector('[data-tag-meta]')?.textContent.trim() ?? '',
+    entries: document.querySelectorAll('[data-tag-list] [data-row]').length,
+    often: [...document.querySelectorAll('[data-often-tag]')].map((one) => one.getAttribute('title')).join(' | ')
   }))
   let p = await page()
   check('the page says "5 items"', p.meta.startsWith(`${SHOWN} items`), p.meta)
-  check('and says what waits: "3 more resolved or done"', p.meta.includes(`${LATER} more resolved or done`), p.meta)
+  check('and says what waits: "and 3 resolved or done"', p.meta.includes(`and ${LATER} resolved or done`), p.meta)
   check('it shows those 5', p.entries === SHOWN, String(p.entries))
-  check('Often with counts the shown ones: 2 notes have both #pairz', /pairz2 notes have both/.test(p.often.replace(/\s+/g, '')) || p.often.includes('2 notes have both'), p.often)
+  check('Often with counts the shown ones: 2 notes carry both #pairz', p.often.includes('#pairz: 2 notes carry both'), p.often)
   await h.locator('header [data-later]').first().click(); await wait(900)
   p = await page()
   check('a click shows the 3 more', p.entries === SHOWN + LATER, String(p.entries))

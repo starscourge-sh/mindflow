@@ -447,6 +447,8 @@ export function TagStream({ tag, color, onOpen, onTag, onStudy }: {
                 key={other}
                 type="button"
                 data-often-tag={other}
+                // The whole name and what the number counts, for a name cut short and for a screen reader.
+                title={`#${other}: ${plural(both, 'note carries', 'notes carry')} both`}
                 onClick={() => (chime('open'), onTag(other))}
                 onPointerEnter={() => prefetchTag(other)}
                 className="flex h-8 max-w-full min-w-0 cursor-pointer items-center gap-1.5 rounded-full border border-foreground/15 px-3 text-control text-foreground transition-[background-color,scale] duration-150 ease-out hover:bg-foreground/[0.06] active:scale-[0.97]"
@@ -554,7 +556,7 @@ function Entry({ item, onOpen, picked, onPick, menu, differs }: { item: TagRead;
               {status && <span>{differs.kind ? '· ' : ''}{status}</span>}
             </span>
           )}
-          {others.length > 0 && <span data-entry-tags className="block max-w-full min-w-0 truncate">{others.map((one) => `#${one}`).join(' ')}</span>}
+          {others.length > 0 && <span data-entry-tags className="block max-w-full min-w-0 truncate" title={others.map((one) => `#${one}`).join(' ')}>{others.map((one) => `#${one}`).join(' ')}</span>}
         </aside>
       )}
     </article>
