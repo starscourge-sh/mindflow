@@ -783,8 +783,15 @@ export { when, whenInLine } from './clock'
 
 /** A title without its `#tags`, and the tags: so a row can show them as pills. */
 export function splitTags(text: string): { text: string; tags: string[] } {
-  return { text: nameWithoutTags(text), tags: tagWords(text) }
+  // Read once a title: Display asks every row's tags again for each tag it offers (400 tasks by 166 tags was 85 ms a draw).
+  let known = splitSeen.get(text)
+  if (!known) {
+    if (splitSeen.size > 5000) splitSeen.clear()
+    splitSeen.set(text, (known = { text: nameWithoutTags(text), tags: tagWords(text) }))
+  }
+  return { text: known.text, tags: [...known.tags] }
 }
+const splitSeen = new Map<string, { text: string; tags: string[] }>()
 
 /**
  * A name as it is shown anywhere, a page's title or a line naming it: without
