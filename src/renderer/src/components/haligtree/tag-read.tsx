@@ -1,6 +1,7 @@
 import { Orb } from './orb'
 import { sideTagLine } from '@/lib/side-tags'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { still } from '@/lib/motion'
 import { useReading } from '@/lib/reads-in'
 import { TagIcon, tagTint } from './tag-icon'
 import type { JSONContent } from '@tiptap/core'
@@ -222,7 +223,9 @@ export function TagStream({ tag, color, onOpen, onTag, onStudy }: {
   const facts = useMemo(() => {
     const together = new Map<string, number>()
     for (const item of items ?? []) if (!item.later) for (const other of item.tags) together.set(other, (together.get(other) ?? 0) + 1)
-    return { often: [...together].sort((a, b) => b[1] - a[1]).slice(0, 8) }
+    // Behind the head, the newest picture among them, faded into the page; none when no note has one.
+    const wash = (items ?? []).filter((item) => !item.private).map((item) => pictureIn(item.body)).find(Boolean) ?? null
+    return { often: [...together].sort((a, b) => b[1] - a[1]).slice(0, 8), wash }
   }, [items])
   // The words of each, for the filter, only once something is looked for.
   const texts = useMemo(() => (query.trim() && items ? new Map(items.map((item) => [item.id, `${item.title} ${item.label} ${textIn(item.body)}`.toLowerCase()])) : null), [items, query.trim() !== ''])
@@ -369,6 +372,7 @@ export function TagStream({ tag, color, onOpen, onTag, onStudy }: {
   return (
     <div data-tag-page className="flex w-full flex-col pb-16">
       {reading && <ReadThrough items={reading.list} start={reading.start} onClose={() => setReading(null)} />}
+      <TagBand wash={facts.wash}>
       <TagHead tag={tag} color={color ?? null}
         meta={<>
           <span data-tag-held className="font-semibold text-foreground">{`${plural(counted.length, unit[0], unit[1])} with #${tag}`}</span>
@@ -405,9 +409,10 @@ export function TagStream({ tag, color, onOpen, onTag, onStudy }: {
           }} options={[{ id: 'list', label: 'List', icon: <List /> }, { id: 'stream', label: 'Stream', icon: <AlignJustify /> }]} />
         </span>
       </div>
+      </TagBand>
       {/* What is picked, and what can be done with it all: held at the top while you scroll, opaque. */}
       {several.bar && (
-        <div data-pick-bar className="sticky top-0 z-20 mt-1 w-full border-y bg-background">
+        <div data-pick-bar className="sticky top-(--tag-band) z-10 mt-1 w-full border-y bg-background">
           <div className="list-words flex min-h-11 items-center py-1.5">{several.bar}</div>
         </div>
       )}
@@ -429,7 +434,7 @@ export function TagStream({ tag, color, onOpen, onTag, onStudy }: {
           {days.map(([day, list]) => (
             <section key={day || 'all'}>
               {/* The day stays in view while its notes scroll under it. */}
-              {day && <h2 className="sticky top-0 z-10 bg-background pt-4 pb-1.5 text-control font-semibold text-foreground">{named(day)}</h2>}
+              {day && <h2 className="sticky top-(--tag-band) z-10 bg-background pt-4 pb-1.5 text-control font-semibold text-foreground">{named(day)}</h2>}
               {/* The same menu, picking and picked look as the List view: what ⌘A picks is seen picked here too. */}
               {list.map((item) => <Entry key={`${item.type}-${item.id}`} item={item} onOpen={onOpen} picked={several.picked(item)} onPick={(event) => several.click(event, item)}
                 menu={several.menu(item) ?? [...rowMenu(item, shown.indexOf(item)), ...several.rowItems(item)]} differs={differs} />)}
@@ -477,13 +482,95 @@ const Dot = (): React.JSX.Element => <span aria-hidden className="mx-1.5 text-mu
 function TagHead({ tag, color, meta, actions }: { tag: string; color: string | null; meta: React.ReactNode; actions?: React.ReactNode }): React.JSX.Element {
   return (
     <header data-tag-head className="list-words @container/band flex min-w-0 flex-col gap-1.5 pt-6 pb-3">
-      <h1 data-tag-title className="flex min-w-0 items-center gap-2 font-heading text-[clamp(1.5rem,3.2vw,2.25rem)] leading-tight font-bold tracking-[-0.02em] text-foreground" title={`#${tag}`}>
-        <TagIcon tag={tag} color={color} className="size-[0.75em]" />
-        <span className="min-w-0 truncate pb-[0.2em] -mb-[0.2em]">{tag}</span>
-      </h1>
-      <p data-tag-meta className="flex flex-wrap items-center gap-y-0.5 text-body text-muted-foreground">{meta}</p>
+      {/* Its own box clips the name while it is drawn smaller (TagBand), so the name keeps the whole line to fit in. */}
+      <div className="min-w-0 overflow-x-clip">
+        <h1 data-tag-title className="flex min-w-0 origin-bottom-left items-center gap-2 font-heading text-[clamp(1.5rem,3.2vw,2.25rem)] leading-tight font-bold tracking-[-0.02em] text-foreground" title={`#${tag}`}>
+          <TagIcon tag={tag} color={color} className="size-[0.75em]" />
+          <span className="min-w-0 truncate pb-[0.2em] -mb-[0.2em]">{tag}</span>
+        </h1>
+      </div>
+      {/* Over a picture's wash the grey is ink, so the line reads at 4.5:1 on any picture. */}
+      <p data-tag-meta className="flex flex-wrap items-center gap-y-0.5 text-body text-muted-foreground group-data-washed/wash:text-foreground/80">{meta}</p>
       {actions && <div className="mt-2 flex flex-wrap items-center gap-2">{actions}</div>}
     </header>
+  )
+}
+
+/** The name's size once the head is held at the top: one line of a list's heading. */
+const STUCK_TITLE = 20
+
+/**
+ * The head and its toolbar, held at the top of the page while the rows scroll
+ * under it: one opaque band in the page's own colour, with the newest picture
+ * among the notes faded in behind it when there is one. As the page scrolls,
+ * the band rises by the room its big name takes over a one-line name and the
+ * name shrinks into that line with the scroll, so nothing in the page moves
+ * but the scroll itself; held, it wears a hairline and a soft edge. With
+ * Reduce motion or Motion off the name is set small at the first scroll.
+ * The band's held height is `--tag-band` on the page, for what sticks below it.
+ */
+function TagBand({ wash, children }: { wash: string | null; children: React.ReactNode }): React.JSX.Element {
+  const band = useRef<HTMLDivElement>(null)
+  const [broken, setBroken] = useState<string | null>(null)
+  useLayoutEffect(() => {
+    const box = band.current
+    const title = box?.querySelector<HTMLElement>('[data-tag-title]')
+    const scroller = box?.closest<HTMLElement>('.overflow-y-auto')
+    const page = box?.parentElement
+    if (!box || !title || !scroller || !page) return
+    let rise = 0
+    let small = 1
+    let frame = 0
+    // Drawn from where the page is scrolled: 0 at rest, 1 once held.
+    const draw = (): void => {
+      frame = 0
+      const top = scroller.scrollTop
+      const done = rise > 0 ? Math.min(1, Math.max(0, top / rise)) : top > 0 ? 1 : 0
+      const now = still() ? (top > 0 ? 1 : 0) : done
+      const scale = 1 - (1 - small) * now
+      title.style.transform = now ? `scale(${scale})` : ''
+      title.style.width = now ? `${100 / scale}%` : ''
+      box.toggleAttribute('data-stuck', top > 0 && top >= rise)
+    }
+    // What rises: from the band's top to the name's foot, less a one-line name and the small gap kept above it.
+    const measure = (): void => {
+      const size = parseFloat(getComputedStyle(title).fontSize) || STUCK_TITLE
+      small = Math.min(1, STUCK_TITLE / size)
+      // Its foot stays put as it shrinks (it shrinks toward its bottom left), so it can be read at any scroll.
+      const foot = title.getBoundingClientRect().bottom - box.getBoundingClientRect().top
+      const height = title.offsetHeight
+      rise = Math.max(0, Math.round(foot - height * small - 8))
+      box.style.top = `${-rise}px`
+      page.style.setProperty('--tag-band', `${box.offsetHeight - rise}px`)
+      // A row reached with the keys stops under the band, not behind it.
+      scroller.style.scrollPaddingTop = `${box.offsetHeight - rise}px`
+      draw()
+    }
+    const onScroll = (): void => void (frame ||= requestAnimationFrame(draw))
+    const watch = new ResizeObserver(measure)
+    watch.observe(box)
+    measure()
+    scroller.addEventListener('scroll', onScroll, { passive: true })
+    return () => {
+      watch.disconnect()
+      scroller.removeEventListener('scroll', onScroll)
+      cancelAnimationFrame(frame)
+      scroller.style.scrollPaddingTop = ''
+    }
+  }, [])
+  const shown = wash && broken !== wash ? wash : null
+  return (
+    <div ref={band} data-tag-band data-washed={shown ? '' : undefined}
+      className="group/wash sticky z-20 bg-background transition-shadow duration-200 ease-out data-stuck:shadow-[0_1px_0_var(--border),0_8px_16px_-12px_color-mix(in_oklab,var(--mf-shadow-ink)_40%,transparent)]">
+      {shown && (
+        <div aria-hidden data-backdrop className="pointer-events-none absolute inset-0 overflow-hidden [mask-image:linear-gradient(180deg,transparent_0%,black_18%,black_55%,transparent_100%)]">
+          <img src={shown} alt="" draggable={false} onError={() => setBroken(shown)} className="size-full scale-110 object-cover opacity-90 blur-md" />
+          {/* The page's colour over it, so plain and grey words still read on any picture, light theme or dark. */}
+          <div className="absolute inset-0 bg-[color-mix(in_oklab,var(--background)_78%,transparent)]" />
+        </div>
+      )}
+      <div className="relative">{children}</div>
+    </div>
   )
 }
 

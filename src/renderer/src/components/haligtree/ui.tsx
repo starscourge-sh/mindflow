@@ -813,7 +813,9 @@ function placeRow(row: Element): void {
   while (box && !/auto|scroll/.test(getComputedStyle(box).overflowY)) box = box.parentElement
   if (!box) return
   const at = row.getBoundingClientRect()
-  const place = rowPlace(at.top, at.bottom, box.getBoundingClientRect())
+  // Under a band held at the scroller's top (its scroll-padding, a tag's head), a row is not in view.
+  const view = box.getBoundingClientRect()
+  const place = rowPlace(at.top, at.bottom, { top: view.top + (parseFloat(getComputedStyle(box).scrollPaddingTop) || 0), bottom: view.bottom })
   if (place !== 'still') (row.scrollIntoView({ block: place === 'edge' ? 'nearest' : 'center' }), rowShown())
 }
 
@@ -2264,8 +2266,12 @@ export function VirtualList<T>({ items, keyOf, holds, cursor, estimate = 48, siz
       // since it was last read, and the row would be placed by the old start. Read again, then placed.
       const start = Math.round(box.current.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop)
       if (Math.abs(start - margin) > 1) return void (setMargin(start), setAgain((n) => n + 1))
-      const place = rowPlace(row.start, row.end, { top: scroller.scrollTop, bottom: scroller.scrollTop + scroller.clientHeight })
-      if (place !== 'still') (rows.scrollToIndex(cursor, { align: place === 'edge' ? 'auto' : 'center' }), rowShown())
+      // Under a band held at the scroller's top (its scroll-padding, a tag's head), a row is not in view: one stepped
+      // to above it stops just under the band.
+      const pad = parseFloat(getComputedStyle(scroller).scrollPaddingTop) || 0
+      const place = rowPlace(row.start, row.end, { top: scroller.scrollTop + pad, bottom: scroller.scrollTop + scroller.clientHeight })
+      if (place === 'edge' && pad && row.start < scroller.scrollTop + pad) (scroller.scrollTop = row.start - pad, rowShown())
+      else if (place !== 'still') (rows.scrollToIndex(cursor, { align: place === 'edge' ? 'auto' : 'center' }), rowShown())
     })
     return () => cancelAnimationFrame(frame)
   }, [cursor, scroller, again]) // eslint-disable-line react-hooks/exhaustive-deps
