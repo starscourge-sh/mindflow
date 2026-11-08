@@ -91,11 +91,11 @@ try {
   await chooseBoard()
   const columns = await lanes()
   check('a page of nested bullets shows as columns', JSON.stringify(columns) === JSON.stringify([{ title: 'Ideas', cards: ['one', 'two'] }, { title: 'Doing', cards: ['three'] }]), JSON.stringify(columns))
-  // A card's #tag shows as the page draws it, and a link in it is a link.
+  // A card's #tag shows as a tag (one at the end of its line as a chip at its foot, board-look.mjs), and a link in it is a link.
   await v('item:save', nested, { body: doc(list(item('Ideas', 'one', 'two #probetag'), item('Doing', { type: 'listItem', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'site', marks: [{ type: 'link', attrs: { href: 'https://example.com' } }] }] }] }))) })
   await open('article', await page('Nested 2', (await v('item', nested)).body))
   await chooseBoard()
-  const marks = await h.evaluate(() => ({ tag: !!document.querySelector('[data-board] [data-sortable-id^="card:"] .tiptap-token'), link: !!document.querySelector('[data-board] [data-sortable-id^="card:"] a[href="https://example.com"]') }))
+  const marks = await h.evaluate(() => ({ tag: !!document.querySelector('[data-board] [data-sortable-id^="card:"] :is(.tiptap-token, [data-tag-chip="probetag"])'), link: !!document.querySelector('[data-board] [data-sortable-id^="card:"] a[href="https://example.com"]') }))
   check('a #tag on a card shows as a tag', marks.tag, JSON.stringify(marks))
   check('a link on a card is a link', marks.link, JSON.stringify(marks))
   await h.keyboard.press('Alt+Meta+b')

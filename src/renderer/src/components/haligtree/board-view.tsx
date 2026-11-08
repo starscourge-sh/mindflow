@@ -7,7 +7,11 @@ import type { Node as PMNode } from '@tiptap/pm/model'
 import { redo, undo } from '@tiptap/pm/history'
 import { DndContext, MeasuringStrategy, PointerSensor, closestCorners, useDroppable, useSensor, useSensors, type DragOverEvent, type DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, arrayMove, horizontalListSortingStrategy, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
-import { Archive, Plus, GripVertical as Grip } from 'lucide-react'
+import { Archive, Plus, CalendarDays } from 'lucide-react'
+import { groupTint } from './card-shelves'
+import { TagChip } from './tag-icon'
+import { NameInPlace } from './name-in-place'
+import { useThumb } from '@/lib/notes'
 
 import { HaligtreeEditor, TAGS, readMarkdown } from '../haligtree'
 import { Calendar } from '@/components/ui/calendar'
@@ -632,7 +636,7 @@ export function Board({ editor, id, tools }: { editor: Editor; id: string; /** W
 
   const done = shape.lanes.reduce((sum, lane) => sum + (lane.title === 'Archive' ? 0 : lane.cards.filter((card) => card.node.attrs.checked).length), 0)
   return (
-    <div ref={root} tabIndex={-1} data-board className="flex min-h-[18rem] min-w-0 flex-1 flex-col outline-none" onPointerDown={(event) => {
+    <div ref={root} tabIndex={-1} data-board data-own-keys className="flex min-h-[18rem] min-w-0 flex-1 flex-col outline-none" onPointerDown={(event) => {
       // A click on the board keeps its keys; one into a field keeps the field, and a menu it opened (a ⋯, a right click) keeps the keys too.
       if (event.button === 0 && !(event.target as HTMLElement).closest('input, textarea, [contenteditable="true"]')) setTimeout(() => !root.current?.contains(document.activeElement) && !document.activeElement?.closest('[role="menu"]') && root.current?.focus({ preventScroll: true }))
     }}>
@@ -715,8 +719,9 @@ export function Board({ editor, id, tools }: { editor: Editor; id: string; /** W
                       edit(editor, (model) => (model.lanes[at].cards.push(newCard(text)), [at]))
                     }} onClose={() => (setAdding(null), root.current?.focus({ preventScroll: true }))} placeholder="A card, then ↵" />
                   ) : (
-                    <button type="button" onClick={() => (chime('tap'), setAdding(at))}
-                      className="flex h-8 w-full shrink-0 items-center gap-1.5 rounded-md px-2 text-control text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
+                    // Faint until the list is pointed at, so its room never looks empty; an empty list shows it fully, as it is the only thing to do there.
+                    <button type="button" data-add-card="" onClick={() => (chime('tap'), setAdding(at))}
+                      className={`flex h-8 w-full shrink-0 cursor-pointer items-center gap-1.5 rounded-[6px] px-2 text-control text-muted-foreground transition-[opacity,background-color,color,scale] duration-150 hover:bg-foreground/[0.06] hover:text-foreground focus-visible:opacity-100 active:scale-[0.97] ${lane.cards.length ? 'opacity-50 group-hover/lane:opacity-100' : ''}`}>
                       <Plus className="size-3.5" /> Add a card
                     </button>
                   )}
@@ -724,12 +729,20 @@ export function Board({ editor, id, tools }: { editor: Editor; id: string; /** W
               )
             })}
             {newList ? (
-              <div className="w-72 shrink-0 rounded-xl border bg-accent/25 p-1.5">
-                <AddCard placeholder="Name the list, then ↵" onAdd={(title) => (chime('noted'), addList(title), setNewList(false))} onClose={() => (setNewList(false), root.current?.focus({ preventScroll: true }))} />
-              </div>
+              // Named in place, as a new folder is in Finder: a list already there, its name picked to type over.
+              <section data-new-list="" className="flex w-64 shrink-0 flex-col rounded-[14px] pb-1.5" style={lanePanel(groupTint('New list'))}>
+                {/* Its dot and name where every list's sit, past the room of a chevron. */}
+                <header className="flex h-10 items-center gap-1.5 pr-1.5 pl-1.5">
+                  <span aria-hidden className="size-6 shrink-0" />
+                  <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ background: 'var(--lane-tint)' }} />
+                  <NameInPlace initial="New list" label="List name" placeholder="Name the list"
+                    onDone={(words) => (setNewList(false), words ? (chime('noted'), addList(words)) : chime('fold'), root.current?.focus({ preventScroll: true }))}
+                    className="min-w-0 flex-1 rounded-sm bg-transparent text-meta font-semibold outline-none placeholder:text-muted-foreground" />
+                </header>
+              </section>
             ) : (
-              <button type="button" onClick={() => (chime('tap'), setNewList(true))}
-                className="flex h-9 w-44 shrink-0 items-center gap-1.5 rounded-xl border border-dashed px-3 text-control text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground">
+              <button type="button" data-add-list="" onClick={() => (chime('tap'), setNewList(true))}
+                className="flex h-9 shrink-0 cursor-pointer items-center gap-1.5 rounded-[8px] px-3 text-control text-muted-foreground transition-[background-color,color,scale] duration-150 hover:bg-foreground/[0.06] hover:text-foreground active:scale-[0.97]">
                 <Plus className="size-3.5" /> Add a list
               </button>
             )}
@@ -739,7 +752,9 @@ export function Board({ editor, id, tools }: { editor: Editor; id: string; /** W
           {/* The card or list as it was, lifted off the board a little. */}
           {lifted && (
             <div style={{ width: lifted.width }} dangerouslySetInnerHTML={{ __html: lifted.html }}
-              className={`flex cursor-grabbing items-start gap-2 border bg-background shadow-[0_10px_24px_-8px_color-mix(in_oklab,var(--mf-shadow-ink,black)_45%,transparent),0_1px_2px_color-mix(in_oklab,var(--mf-shadow-ink,black)_18%,transparent)] ${lifted.id.startsWith('lane:') ? 'flex-col rounded-xl' : '-rotate-1 rounded-lg px-2.5 py-2 text-control'}`} />
+              data-board-lifted=""
+              // Picked up: off the page on the lift shadow, a card turned a little in the hand.
+              className={`mf-board-lift flex cursor-grabbing flex-col text-foreground shadow-(--mf-shadow-lift) ${lifted.id.startsWith('lane:') ? 'rounded-[14px] bg-background p-1' : `${CARD_FILL} overflow-hidden rounded-[6px] text-control ring-1 ring-foreground/10`}`} />
           )}
         </Overlay>
       </DndContext>
@@ -819,6 +834,51 @@ function Head({ editor, at }: { editor: Editor; at: number[] }): React.JSX.Eleme
   )
 }
 
+/** A list's panel, as a group's is (kept-groups.tsx): its colour faint behind it and a hairline of it round it, no box of its own. */
+const lanePanel = (tint: string): React.CSSProperties => ({
+  '--lane-tint': tint,
+  background: 'color-mix(in srgb, var(--lane-tint) 5%, transparent)',
+  boxShadow: 'inset 0 0 0 1px color-mix(in srgb, var(--lane-tint) 13%, transparent)'
+}) as React.CSSProperties
+
+/** A card's own fill: the page's paper, a step lighter on a dark page (main.css). */
+const CARD_FILL = 'bg-(--board-card)'
+
+/** Tags and a date at the end of a card's first line, read off it to sit at its foot: `#later`, `@{2026-11-12}`, `📅 2026-11-12`. */
+const ENDS = /(?:^|\s+)(#[\p{L}\p{N}_/-]+|@\{\d{4}-\d{2}-\d{2}\}|📅\s*\d{4}-\d{2}-\d{2})\s*$/u
+export function footOf(line: string): { tags: string[]; date: string | null; cut: number } {
+  const tags: string[] = []
+  let date: string | null = null
+  let rest = line.replace(/\s+$/, '')
+  for (let found = ENDS.exec(rest); found && found.index > 0; found = ENDS.exec(rest)) {
+    const one = found[1]
+    if (one.startsWith('#')) tags.unshift(one.slice(1))
+    else date ??= one.match(/\d{4}-\d{2}-\d{2}/)![0]
+    rest = rest.slice(0, found.index)
+  }
+  return { tags, date, cut: line.length - rest.length }
+}
+
+/** The last `cut` letters taken off the end of a drawn line, across the tags' own marks. */
+function cutEnd(line: Element, cut: number): void {
+  while (cut > 0) {
+    let last: Node | null = line.lastChild
+    while (last && last.nodeType !== Node.TEXT_NODE && last.lastChild) last = last.lastChild
+    if (!last || last === line) return
+    const text = last.textContent ?? ''
+    if (text.length <= cut) {
+      cut -= text.length
+      // A mark left empty goes with its words.
+      let gone: Node = last
+      while (gone.parentNode && gone.parentNode !== line && gone.parentNode.childNodes.length === 1) gone = gone.parentNode
+      gone.parentNode?.removeChild(gone)
+    } else {
+      last.textContent = text.slice(0, text.length - cut)
+      cut = 0
+    }
+  }
+}
+
 function LaneBox({ id, title, count, folded, here, onFold, menu, children }: {
   id: string
   title: string
@@ -833,41 +893,43 @@ function LaneBox({ id, title, count, folded, here, onFold, menu, children }: {
   const { setNodeRef, attributes, listeners, transform, transition, isDragging } = useSortable({ id, transition: still() ? null : { duration: 220, easing: EASING } })
   // An empty list still takes a card dropped on it.
   const { setNodeRef: dropRef } = useDroppable({ id: `${id}:drop`, data: { lane: id } })
-  const style = { transform: transform ? `translate3d(${Math.round(transform.x)}px, 0, 0)` : undefined, transition, opacity: isDragging ? 0.4 : undefined }
   const name = title || 'Untitled'
+  const style = { ...lanePanel(groupTint(name)), transform: transform ? `translate3d(${Math.round(transform.x)}px, 0, 0)` : undefined, transition, opacity: isDragging ? 0.35 : undefined }
+  const dot = <span aria-hidden data-lane-dot="" className="size-2 shrink-0 rounded-full" style={{ background: 'var(--lane-tint)' }} />
   if (folded)
     return (
-      <section ref={setNodeRef} data-sortable-id={id} style={style} data-board-cursor={here || undefined}
-        className={`mf-island flex h-full max-h-full w-10 shrink-0 flex-col items-center rounded-xl border bg-accent/25 py-1.5 ${here ? 'ring-1 ring-ring' : ''}`}>
+      <section ref={setNodeRef} data-sortable-id={id} data-lane="" style={style} data-board-cursor={here || undefined}
+        className={`flex h-full max-h-full w-10 shrink-0 flex-col items-center rounded-[14px] py-1.5 ${here ? 'ring-2 ring-ring/60' : ''}`}>
         <Tip label={`Unfold ${name}`}>
-          <button type="button" onClick={onFold} className={TOOL}><ChevronRight /></button>
+          <button type="button" onClick={onFold} className={`${TOOL} size-7 cursor-pointer`}><ChevronRight /></button>
         </Tip>
         <button type="button" onClick={onFold} {...attributes} {...listeners} tabIndex={-1}
-          className="mt-1 flex min-h-0 flex-1 cursor-pointer items-start gap-2 py-1 text-meta font-medium [writing-mode:vertical-rl]">
-          <Count n={count} className="text-muted-foreground" />
+          className="mt-1.5 flex min-h-0 flex-1 cursor-pointer items-start gap-2 py-1 text-meta font-semibold [writing-mode:vertical-rl]">
+          {dot}
           <span className="truncate">{name}</span>
+          <Count n={count} className="font-normal text-muted-foreground tabular-nums" />
         </button>
       </section>
     )
   return (
-    <section ref={setNodeRef} data-sortable-id={id} style={style}
-      className={`mf-island group/lane flex max-h-full w-72 shrink-0 flex-col rounded-xl border bg-accent/25 ${here ? 'ring-1 ring-ring' : ''}`} data-board-cursor={here || undefined}>
-      <header className="flex h-10 shrink-0 items-center gap-0.5 pr-1.5 pl-1"
+    <section ref={setNodeRef} data-sortable-id={id} data-lane="" style={style}
+      className={`group/lane flex max-h-full w-64 shrink-0 flex-col rounded-[14px] ${here ? 'ring-2 ring-ring/60' : ''}`} data-board-cursor={here || undefined}>
+      {/* The heading is the list's handle: drag it to move the list; its chevron and ⋯ answer a click. */}
+      <header {...attributes} {...listeners} tabIndex={-1} aria-label={`Drag ${name}`} role="group"
+        className="flex h-10 shrink-0 touch-none items-center gap-1.5 pr-1.5 pl-1.5 outline-none"
         // A right click on the heading opens the list's one menu, the same its ⋯ opens, by its ⋯.
         onContextMenu={(event) => (event.preventDefault(), event.stopPropagation(), setLaneMenu(true))}>
-        <button type="button" aria-label={`Drag ${name}`} {...attributes} {...listeners} tabIndex={-1}
-          className="flex h-7 w-4 shrink-0 cursor-grab touch-none items-center justify-center text-muted-foreground opacity-0 transition-opacity group-hover/lane:opacity-60 hover:opacity-100 active:cursor-grabbing">
-          <Grip className="size-3.5" />
-        </button>
         <Tip label={`Fold ${name}`}>
-          <button type="button" onClick={onFold} className={`${TOOL} size-6`}><ChevronDown /></button>
+          <button type="button" onClick={onFold} className={`${TOOL} size-6 cursor-pointer [&_svg]:size-3.5`}><ChevronDown /></button>
         </Tip>
-        <h3 className="ml-1 min-w-0 truncate text-meta font-semibold">{name}</h3>
-        <Count n={count} className="ml-1.5 text-xs text-muted-foreground" />
+        {dot}
+        <h3 className="min-w-0 truncate text-meta font-semibold">{name}</h3>
+        <Count n={count} className="text-meta text-muted-foreground tabular-nums" />
         <DropdownMenu modal={false} open={laneMenu} onOpenChange={setLaneMenu}>
           <Tip label="More">
             <DropdownMenuTrigger asChild>
-              <button type="button" aria-label={`${name} menu`} className={`${TOOL} ml-auto`}><AliveIcon icon={DotsHorizontalIcon} size={16} /></button>
+              <button type="button" aria-label={`${name} menu`}
+                className={`${TOOL} ml-auto size-6 cursor-pointer opacity-0 group-hover/lane:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100`}><AliveIcon icon={DotsHorizontalIcon} size={16} /></button>
             </DropdownMenuTrigger>
           </Tip>
           <DropdownMenuContent align="end" className="w-52">{menu}</DropdownMenuContent>
@@ -876,6 +938,20 @@ function LaneBox({ id, title, count, folded, here, onFold, menu, children }: {
       <div ref={dropRef} className="flex min-h-10 flex-col gap-1.5 overflow-y-auto px-1.5 pb-1.5">{children}</div>
     </section>
   )
+}
+
+/** What a card shows of what it is: the first picture in it, or the cover of a note it links to. */
+function useCover(node: PMNode): string | undefined {
+  let picture: string | undefined
+  let linked = ''
+  node.descendants((one) => {
+    if (picture || linked) return false
+    if (one.type.name === 'image' && one.attrs.src) picture = String(one.attrs.src)
+    if (one.type.name === 'noteLink' && one.attrs.id) linked = String(one.attrs.id)
+    return true
+  })
+  const thumb = useThumb(linked)
+  return picture ?? (linked ? thumb : undefined)
 }
 
 function CardBox({ id, editor, card, here, editing, disabled, onPick, onTick, onEdit, onEdited, menu }: {
@@ -896,36 +972,61 @@ function CardBox({ id, editor, card, here, editing, disabled, onPick, onTick, on
   const { setNodeRef, attributes, listeners, transform, transition, isDragging } = useSortable({ id, disabled, transition: still() ? null : { duration: 220, easing: EASING } })
   const task = card.node.type.name === 'taskItem'
   const checked = !!card.node.attrs.checked
-  // A task's words sit in its second part, after the box the board draws itself.
-  const body = useDrawn(editor, editing ? [] : [card.pos], (copy) => (task ? (copy.querySelector(':scope > div') ?? copy) : copy))
+  const cover = useCover(card.node)
+  const foot = footOf(card.node.firstChild?.textContent ?? '')
+  // A task's words sit in its second part, after the box the board draws itself; its picture shows at its head instead, and its end tags and date at its foot.
+  const body = useDrawn(editor, editing ? [] : [card.pos], (copy) => {
+    const words = task ? (copy.querySelector(':scope > div') ?? copy) : copy
+    if (cover) words.querySelectorAll('img').forEach((one) => (one.closest('[data-node-view-wrapper], .node-image, figure') ?? one).remove())
+    const line = words.querySelector(':scope > p')
+    if (line && foot.cut) cutEnd(line, foot.cut)
+    return words
+  })
   const clicks = useCardClicks(editor, card.pos)
   return (
-    <div ref={setNodeRef} data-sortable-id={id} data-board-cursor={here || undefined} {...attributes} {...listeners} tabIndex={-1} role={undefined}
-      style={{ transform: transform ? `translate3d(${Math.round(transform.x)}px, ${Math.round(transform.y)}px, 0)` : undefined, transition, opacity: isDragging ? 0.3 : undefined }}
+    <div ref={setNodeRef} data-sortable-id={id} data-board-cursor={here || undefined} data-board-card="" {...attributes} {...listeners} tabIndex={-1} role={undefined}
+      style={{ transform: transform ? `translate3d(${Math.round(transform.x)}px, ${Math.round(transform.y)}px, 0)` : undefined, transition }}
       onClick={(event) => !clicks(event) && onPick()}
       onDoubleClick={() => !editing && onEdit()}
       // A right click opens the card's one menu, the same its ⋯ opens, by its ⋯.
       onContextMenu={(event) => void (!editing && (event.preventDefault(), event.stopPropagation(), setMenuOpen(true)))}
-      className={`group/card relative flex shrink-0 touch-none items-start gap-2 rounded-lg border bg-background px-2.5 py-2 text-control transition-colors hover:border-foreground/15 ${here ? 'border-ring ring-1 ring-ring' : ''}`}>
-      {task && (
-        <button type="button" role="checkbox" aria-checked={checked} aria-label={checked ? 'Not done' : 'Done'} onClick={(event) => (event.stopPropagation(), onTick())}
-          onPointerDown={(event) => event.stopPropagation()}
-          className="group/tick relative after:absolute after:-inset-1 after:rounded-full mt-[3px] flex size-4 shrink-0 items-center justify-center rounded-full border-[1.5px] border-muted-foreground/50 transition-colors hover:border-[var(--tt-color-text-green)]"
-          style={checked ? { background: 'var(--tt-color-text-green)', borderColor: 'var(--tt-color-text-green)' } : undefined}>
-          <Check className={`size-2.5 transition-opacity ${checked ? 'text-background opacity-100' : 'opacity-0 group-hover/tick:opacity-60'}`} strokeWidth={3} />
-        </button>
-      )}
-      {editing ? (
-        <CardEditor content={card.node.toJSON().content ?? []} onDone={onEdited} />
-      ) : (
-        <div ref={body} style={{ fontSize: 'calc(0.875rem * var(--mf-text-scale, 1))' }}
-          className={`tiptap ProseMirror haligtree-editor max-h-64 min-w-0 flex-1 overflow-hidden pr-4 [--mf-padding:0] [mask-image:linear-gradient(to_bottom,black_13rem,transparent)] ${checked ? '[&>p:first-child]:text-muted-foreground [&>p:first-child]:line-through' : ''}`} />
+      className={`group/card relative flex shrink-0 cursor-pointer touch-none flex-col overflow-hidden rounded-[6px] text-control transition-[box-shadow,scale,background-color] duration-150 ease-(--mf-ease) active:scale-[0.97] ${
+        // Carried away: the place it left stays open as a faint slot in the list's colour, the size of the card.
+        isDragging ? 'bg-[color-mix(in_srgb,var(--lane-tint)_12%,transparent)] [&>*]:invisible' : `${CARD_FILL} shadow-[0_1px_2px_color-mix(in_oklab,var(--mf-shadow-ink)_14%,transparent)] ring-1 ring-foreground/[0.07] hover:ring-foreground/15`
+      } ${here ? 'ring-2! ring-ring/70!' : ''}`}>
+      {cover && !editing && <img src={cover} alt="" draggable={false} data-card-cover="" className="h-28 w-full shrink-0 object-cover" />}
+      <div className="flex min-w-0 items-start gap-2 px-2.5 py-2">
+        {task && (
+          <button type="button" role="checkbox" aria-checked={checked} aria-label={checked ? 'Not done' : 'Done'} onClick={(event) => (event.stopPropagation(), onTick())}
+            onPointerDown={(event) => event.stopPropagation()}
+            className="group/tick relative after:absolute after:-inset-1 after:rounded-full mt-[3px] flex size-4 shrink-0 cursor-pointer items-center justify-center rounded-full border-[1.5px] border-muted-foreground/50 transition-colors hover:border-[var(--tt-color-text-green)]"
+            style={checked ? { background: 'var(--tt-color-text-green)', borderColor: 'var(--tt-color-text-green)' } : undefined}>
+            <Check className={`size-2.5 transition-opacity ${checked ? 'text-background opacity-100' : 'opacity-0 group-hover/tick:opacity-60'}`} strokeWidth={3} />
+          </button>
+        )}
+        {editing ? (
+          <CardEditor content={card.node.toJSON().content ?? []} onDone={onEdited} />
+        ) : (
+          // Its first line, the title, to three lines; what it holds under that fades out past a few more.
+          <div ref={body} style={{ fontSize: 'calc(0.875rem * var(--mf-text-scale, 1))' }}
+            className={`tiptap ProseMirror haligtree-editor max-h-48 min-w-0 flex-1 overflow-hidden pr-4 [--mf-padding:0] [mask-image:linear-gradient(to_bottom,black_9rem,transparent)] [&>p:first-child]:line-clamp-3 ${checked ? '[&>p:first-child]:text-muted-foreground [&>p:first-child]:line-through' : ''}`} />
+        )}
+      </div>
+      {!editing && (foot.tags.length > 0 || foot.date) && (
+        <div data-card-foot="" className="-mt-1 flex flex-wrap items-center gap-1 px-2.5 pb-2 text-xs">
+          {foot.date && (
+            <span data-card-date={foot.date} className="flex items-center gap-1 rounded-full bg-foreground/[0.06] py-0.5 pr-2 pl-1.5 text-muted-foreground tabular-nums">
+              <CalendarDays className="size-3" /> {dayMonth(foot.date)}
+            </span>
+          )}
+          {foot.tags.map((tag) => <TagChip key={tag} tag={tag} className="pr-2" />)}
+        </div>
       )}
       {!editing && (
         <DropdownMenu modal={false} open={menuOpen} onOpenChange={setMenuOpen}>
           <DropdownMenuTrigger asChild>
             <button type="button" aria-label="Card menu" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => event.stopPropagation()}
-              className={`${TOOL} absolute top-1 right-1 size-6 bg-background opacity-0 group-hover/card:opacity-100 group-focus-within/card:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100`}>
+              className={`${TOOL} absolute top-1 right-1 size-6 cursor-pointer ${CARD_FILL} opacity-0 group-hover/card:opacity-100 group-focus-within/card:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100`}>
               <AliveIcon icon={DotsHorizontalIcon} size={14} />
             </button>
           </DropdownMenuTrigger>

@@ -3496,3 +3496,12 @@ html[data-overhang][data-glass] [data-hint-room] [data-hint-surface] {
 /* "Fix this line": the words open in place, the line's time and voice where they were. */
 .mf-meeting-fix { font: inherit; line-height: inherit; color: inherit; cursor: text; border-radius: 4px; box-shadow: 0 0 0 1.5px color-mix(in oklab, var(--tt-brand-color-500) 55%, transparent); padding: 0 0.25rem; margin: 0 -0.25rem; }
 @media (prefers-reduced-motion: reduce) { .mf-meeting-line { transition: none; } }
+
+/* A board (board-view.tsx): its cards are the page's paper on the light themes, a step lighter than the page on the
+   dark ones, so a card always sits forward of its list's faint panel. Picked up, a card turns a little in the hand. */
+:root { --board-card: var(--background); }
+.dark:not(.light, .paper, [data-light]) { --board-card: color-mix(in oklab, var(--foreground) 7%, var(--background)); }
+.mf-board-lift { rotate: 1.5deg; scale: 1.02; animation: mf-board-lift 180ms var(--mf-ease) both; }
+@keyframes mf-board-lift { from { rotate: 0deg; scale: 1; } }
+@media (prefers-reduced-motion: reduce) { .mf-board-lift { rotate: none; scale: none; animation: none; } }
+:root[data-motion='off'] .mf-board-lift { rotate: none; scale: none; animation: none; }
