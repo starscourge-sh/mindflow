@@ -229,14 +229,43 @@ function useLooked(range?: Spot): void {
     const picked = window.getSelection()
     const find = typeof range === "function" ? range : null
     const at = find ? find() : ((range as Range | null | undefined) ?? (picked && picked.rangeCount && !picked.isCollapsed ? picked.getRangeAt(0).cloneRange() : null))
-    if (!at || typeof Highlight === "undefined") return
-    const paint = (one: Range): void => void CSS.highlights.set("look-up", new Highlight(one))
+    if (!at) return
+    // A band per line of the words, drawn from their boxes a little wider each side: the browser's
+    // own highlight stops at each letter's box, and a letter that reaches past it (the hook of a
+    // serif "j", a italic's lean) was left half out of the mark.
+    const layer = document.createElement("div")
+    layer.className = "mf-look-up-marks"
+    document.body.append(layer)
+    let shown: Range = at
+    const draw = (): void => {
+      layer.replaceChildren(...[...shown.getClientRects()].filter((box) => box.width > 0.5).map((box) => {
+        const band = document.createElement("span")
+        Object.assign(band.style, { left: `${box.left - 2}px`, top: `${box.top}px`, width: `${box.width + 4}px`, height: `${box.height}px` })
+        return band
+      }))
+    }
+    // Kept in the page's highlight list too (no colour of its own), which says which words are marked.
+    const paint = (one: Range): void => {
+      shown = one
+      if (typeof Highlight !== "undefined") CSS.highlights.set("look-up", new Highlight(one))
+      draw()
+    }
     paint(at)
+    // The page scrolls or the window resizes under it: drawn again where the words now are.
+    const again = (): void => void requestAnimationFrame(draw)
+    window.addEventListener("scroll", again, true)
+    window.addEventListener("resize", again)
     // A note's editor may draw the line again (a menu closing, a save): the words are found again in what it drew.
     const root = find ? (at.commonAncestorContainer instanceof Element ? at.commonAncestorContainer : at.commonAncestorContainer.parentElement)?.closest(".ProseMirror") : null
     const redrawn = root ? new MutationObserver(() => { const now = find!(); if (now) paint(now) }) : null
     if (root) redrawn!.observe(root, { childList: true, subtree: true, characterData: true })
-    return () => (redrawn?.disconnect(), void CSS.highlights.delete("look-up"))
+    return () => {
+      redrawn?.disconnect()
+      window.removeEventListener("scroll", again, true)
+      window.removeEventListener("resize", again)
+      layer.remove()
+      if (typeof Highlight !== "undefined") CSS.highlights.delete("look-up")
+    }
     // Taken once, as the card opens.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])

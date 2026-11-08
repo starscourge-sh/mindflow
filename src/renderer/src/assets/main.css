@@ -3228,7 +3228,16 @@ html[data-overhang] body > [data-leftover-row] [data-leftover]:hover {
   background-color: color-mix(in srgb, var(--tt-brand-color-400, #c08a2e) 30%, transparent);
 }
 
-::highlight(look-up) {
+.mf-look-up-marks {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  pointer-events: none;
+}
+
+.mf-look-up-marks > span {
+  position: fixed;
+  border-radius: 3px;
   background-color: color-mix(in srgb, var(--tt-brand-color-400, #c08a2e) 30%, transparent);
 }
 
