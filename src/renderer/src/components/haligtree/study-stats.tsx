@@ -138,8 +138,8 @@ function StudyCards({ studied }: { studied: Studied }): React.JSX.Element {
   const dueDays = studied.due.filter(Boolean).length
   const grew = new Set(studied.growth.map((one) => one.made)).size >= 2 || studied.growth.some((one) => one.known)
   return (
-    <div className="grid gap-3 sm:grid-cols-2">
-      <div data-study-month className="sm:col-span-2" {...(span === 'year' ? { 'data-study-year': '' } : {})}>
+    <div className="grid gap-3 @[40rem]/page:grid-cols-2">
+      <div data-study-month className="@[40rem]/page:col-span-2" {...(span === 'year' ? { 'data-study-year': '' } : {})}>
         <MonoCard name="reviews" title={span === 'month' ? 'Cards reviewed each day' : 'Days you reviewed'} value={span === 'month' ? reviews : yearTotal} unit={`${(span === 'month' ? reviews : yearTotal) === 1 ? 'review' : 'reviews'} in ${span === 'month' ? '30 days' : 'a year'}`}
           side={<Switch options={[{ id: 'month', label: '30 days' }, { id: 'year', label: 'Year' }]} value={span} pick={setSpan} />}
           hovered={onReviews} point="A square a day: the darker, the more cards." enough={reviewDays >= DRAW_DAYS}
@@ -171,7 +171,7 @@ function StudyCards({ studied }: { studied: Studied }): React.JSX.Element {
         sparse={studied.sources[0] ? `All from ${studied.sources[0].name}.` : 'Cards made from a book or a note show here.'}>
         <Funnel rows={studied.sources} say={(one) => `${plural(one.n, 'card', 'cards')} from ${one.name}`} onHover={saySources} />
       </MonoCard>
-      <div data-study-due className="sm:col-span-2">
+      <div data-study-due className="@[40rem]/page:col-span-2">
         <MonoCard name="due" title="Cards coming due" value={coming} unit="in two weeks" chips={<Chip>{`${num(studied.due[0])} today`}</Chip>}
           hovered={onDue} point={`${plural(studied.due[0], 'card is', 'cards are')} due today.`} enough={dueDays >= DRAW_DAYS}
           sparse={!coming ? 'Nothing falls due in the next two weeks.' : dueDays === 1 && studied.due[0] ? `${coming === 1 ? 'It is' : 'All are'} due today.` : `Due on ${plural(dueDays, 'day', 'days')} in the next two weeks.`}>

@@ -835,15 +835,15 @@ export function PictureCards({ deck: aimed, onClose, onShow }: { deck?: string |
           </div>
           {/* One short line for what to do now, and the way to start again with another picture. */}
           <div className="flex min-h-6 items-center gap-2">
-            <p data-picture-hint className="h-6 min-w-0 flex-1 truncate text-sm leading-6 text-foreground/75 max-sm:text-xs">
+            <p data-picture-hint className="h-6 min-w-0 flex-1 truncate text-sm leading-6 text-foreground/75 @max-[40rem]/page:text-xs">
               {labels === 'finding' ? <Orb label="Looking for labels on the picture, on this Mac…" />
                 : labels && !Array.isArray(labels) ? labels.error : hint}
             </p>
             <Button variant="ghost" size="sm" className="-my-1 h-7 shrink-0 cursor-pointer gap-1.5 px-2 text-muted-foreground max-sm:h-8" data-picture-other onClick={another}><ImagePlus className="size-3.5" />Another picture</Button>
           </div>
           {/* The card as it will be asked: the covers as they will look, the asked one glowing; ← → go card by card. */}
-          <div data-picture-preview className="flex items-center gap-4 rounded-[6px] bg-foreground/[0.035] p-2.5 max-sm:flex-col max-sm:items-stretch">
-            <div className="grid h-24 w-36 shrink-0 place-items-center overflow-hidden rounded-[4px] max-sm:mx-auto">
+          <div data-picture-preview className="flex items-center gap-4 rounded-[6px] bg-foreground/[0.035] p-2.5 @max-[40rem]/page:flex-col @max-[40rem]/page:items-stretch">
+            <div className="grid h-24 w-36 shrink-0 place-items-center overflow-hidden rounded-[4px] @max-[40rem]/page:mx-auto">
               {asked !== undefined
                 ? <CoveredPicture occlusion={{ src: picture.src, covers, ask: asked, hide, question }} shown={false} fit="max-h-24" />
                 : <img src={picture.src} alt="" className="max-h-24 w-auto rounded-[4px] opacity-60" />}
@@ -860,10 +860,10 @@ export function PictureCards({ deck: aimed, onClose, onShow }: { deck?: string |
                   : <>{question.trim() || 'What is hidden?'} <span className="text-foreground/50">·</span> {answer ? <>Answer: <b className="font-semibold text-foreground">{answer}</b></> : 'Answer: shown on the picture, under the cover'}</>}
               </p>
               {/* How each card is asked, said as what you will see when studying. */}
-              <span role="radiogroup" aria-label="When studying" className="flex h-8 w-fit items-center rounded-lg border border-foreground/10 bg-accent/40 p-0.5 text-control max-sm:h-9 max-sm:w-full">
+              <span role="radiogroup" aria-label="When studying" className="flex h-8 w-fit items-center rounded-lg border border-foreground/10 bg-accent/40 p-0.5 text-control max-sm:h-9 @max-[40rem]/page:w-full">
                 {(['one', 'all'] as const).map((one) => (
                   <button key={one} type="button" role="radio" aria-checked={hide === one} data-picture-hide={one} onClick={() => (chime('tap'), setHide(one))}
-                    className={`h-7 cursor-pointer rounded-md border px-2.5 transition-colors active:scale-[0.97] max-sm:h-8 max-sm:flex-1 ${hide === one ? 'border-foreground/15 bg-background text-foreground shadow-sm' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>{one === 'one' ? 'Each card hides one' : 'Each card hides all'}</button>
+                    className={`h-7 cursor-pointer rounded-md border px-2.5 transition-colors active:scale-[0.97] max-sm:h-8 @max-[40rem]/page:flex-1 ${hide === one ? 'border-foreground/15 bg-background text-foreground shadow-sm' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>{one === 'one' ? 'Each card hides one' : 'Each card hides all'}</button>
                 ))}
               </span>
             </div>

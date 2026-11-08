@@ -678,12 +678,12 @@ export function NewEvent({ ask, onMade }: { ask: { day: string; minute: number |
   }
   return (
     <form data-new-event className="flex min-h-0 flex-1 flex-col overflow-y-auto pt-4 pb-4" onSubmit={(event) => (event.preventDefault(), void save())}>
-      <h2 className="page-narrow mx-auto mb-3 w-full px-4 min-[900px]:px-12 font-heading text-title font-semibold tracking-[-0.018em] text-foreground">New event</h2>
-      <div className="page-narrow mx-auto flex w-full flex-col gap-3 px-4 min-[900px]:px-12">
+      <h2 className="page-narrow mx-auto mb-3 w-full px-4 @[40rem]/page:px-12 font-heading text-title font-semibold tracking-[-0.018em] text-foreground">New event</h2>
+      <div className="page-narrow mx-auto flex w-full flex-col gap-3 px-4 @[40rem]/page:px-12">
         <div className="flex min-h-10 items-center gap-2 rounded-lg border pr-1 pl-3 text-body focus-within:ring-1 focus-within:ring-ring">
           <input ref={field} data-new-event-words value={text} onChange={(event) => setText(event.target.value)} aria-label={`A new event for ${dayjs(ask.day).format('dddd D MMMM')}`}
             placeholder="Lunch with Sam fri 1pm" className="min-w-0 flex-1 bg-transparent text-body text-foreground outline-none placeholder:text-foreground/70" />
-          <Button type="submit" size="sm" data-new-event-add aria-label="Add"><span className="hidden min-[900px]:inline">Add</span> <Kbd>↵</Kbd></Button>
+          <Button type="submit" size="sm" data-new-event-add aria-label="Add"><span className="hidden @[40rem]/page:inline">Add</span> <Kbd>↵</Kbd></Button>
         </div>
         {/* What it will be, plain to read, before it is made. */}
         <div data-new-event-said className="flex flex-col gap-1 text-body text-foreground">
@@ -728,7 +728,7 @@ export function EventDetail({ eventKey, onKey, onClose, onOpen }: { eventKey: st
   const calendars = useCalendars()
   const known = useKnownPeople()
   if (one === undefined) return null
-  if (!one) return <p className="px-4 min-[900px]:px-12 pt-6 text-body text-foreground/85">This event is no longer here.</p>
+  if (!one) return <p className="px-4 @[40rem]/page:px-12 pt-6 text-body text-foreground/85">This event is no longer here.</p>
   const save = async (patch: Parameters<typeof events.save>[1], said: string, offerOne = true): Promise<void> => {
     const key = await changeOne(one, patch, said, offerOne)
     if (key && key !== eventKey) onKey(key)
@@ -763,7 +763,7 @@ export function EventDetail({ eventKey, onKey, onClose, onOpen }: { eventKey: st
         }
       }}>
       <div className="flex min-w-0 shrink-0 flex-col pt-4 pb-3">
-        <div className="page-narrow mx-auto mb-1 flex w-full items-center gap-2 px-4 min-[900px]:px-12">
+        <div className="page-narrow mx-auto mb-1 flex w-full items-center gap-2 px-4 @[40rem]/page:px-12">
           <span aria-hidden className="size-3 shrink-0 rounded-[4px]" style={{ background: color }} />
           <span className="text-control font-medium text-foreground">Event</span>
           <Tip label="Paste it into any note to link to this event">
@@ -771,11 +771,11 @@ export function EventDetail({ eventKey, onKey, onClose, onOpen }: { eventKey: st
           </Tip>
         </div>
         <textarea key={one.title} rows={1} data-event-title aria-label="The event's name" defaultValue={one.title}
-          className="page-narrow mx-auto mb-1 block w-full shrink-0 resize-none overflow-hidden bg-transparent px-4 min-[900px]:px-12 font-heading text-title font-semibold tracking-[-0.018em] text-balance outline-none [field-sizing:content]"
+          className="page-narrow mx-auto mb-1 block w-full shrink-0 resize-none overflow-hidden bg-transparent px-4 @[40rem]/page:px-12 font-heading text-title font-semibold tracking-[-0.018em] text-balance outline-none [field-sizing:content]"
           onKeyDown={(event) => event.key === 'Enter' && (event.preventDefault(), event.currentTarget.blur())}
           onBlur={(event) => { const title = event.target.value.replace(/\s*\n\s*/g, ' ').trim(); if (title && title !== one.title) void rename(title, event.target) }} />
         {/* When, on its own line and plain to read. */}
-        <div data-event-when className="page-narrow mx-auto mb-3 flex w-full flex-col gap-1 px-4 min-[900px]:px-12 text-[0.9375rem] text-foreground">
+        <div data-event-when className="page-narrow mx-auto mb-3 flex w-full flex-col gap-1 px-4 @[40rem]/page:px-12 text-[0.9375rem] text-foreground">
           {one.allDay ? <p>{whenSaid(one.start, one.end, one.allDay, clock)}</p> : (
             <p className="flex items-center gap-2 tabular-nums">
               <Clock aria-hidden className="size-4 shrink-0 text-foreground/70" />
@@ -788,15 +788,15 @@ export function EventDetail({ eventKey, onKey, onClose, onOpen }: { eventKey: st
           {one.repeatSaid && <p className="flex items-center gap-2 text-body text-foreground/85"><RepeatIcon aria-hidden className="size-4 shrink-0 text-foreground/70" />{one.repeatSaid}</p>}
         </div>
         {one.video && (
-          <div className="page-narrow mx-auto mb-3 w-full px-4 min-[900px]:px-12">
+          <div className="page-narrow mx-auto mb-3 w-full px-4 @[40rem]/page:px-12">
             <Button data-event-join onClick={() => (chime('open'), void events.join(one.video!))}><Video /> Join the video call</Button>
           </div>
         )}
         <textarea key={`notes:${one.notes}`} data-event-notes aria-label="Notes about the event" defaultValue={one.notes} rows={4} placeholder="Add notes: the agenda, what to bring, what to ask"
           onBlur={(event) => event.target.value !== one.notes && void save({ notes: event.target.value }, 'Notes kept')}
-          className="page-narrow mx-auto block w-full resize-none bg-transparent px-4 min-[900px]:px-12 text-body leading-relaxed text-foreground outline-none placeholder:text-foreground/70 [field-sizing:content]" />
+          className="page-narrow mx-auto block w-full resize-none bg-transparent px-4 @[40rem]/page:px-12 text-body leading-relaxed text-foreground outline-none placeholder:text-foreground/70 [field-sizing:content]" />
         {/* Meeting notes: a note of its own for this time, linked both ways. */}
-        <div className="page-narrow mx-auto mt-4 flex w-full flex-col gap-1 px-4 min-[900px]:px-12">
+        <div className="page-narrow mx-auto mt-4 flex w-full flex-col gap-1 px-4 @[40rem]/page:px-12">
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" data-event-notes-for onClick={() => void notesFor(one, onOpen)}><FileText /> Notes for this</Button>
             {one.linked.length > 0 && <Button variant="ghost" size="sm" data-event-notes-another onClick={() => void notesFor(one, onOpen, true)}><Plus /> Another note</Button>}
@@ -1044,7 +1044,7 @@ export function EventSource({ id, onOpen }: { id: string; onOpen?: (type: string
   const one = useLive(() => events.ofNote(id), null as Awaited<ReturnType<typeof events.ofNote>>, [id])
   if (!one) return null
   return (
-    <div className="page-narrow mx-auto mb-2 w-full px-4 min-[900px]:px-12">
+    <div className="page-narrow mx-auto mb-2 w-full px-4 @[40rem]/page:px-12">
       <Tip label="Open the event in the Calendar">
         <button type="button" data-note-event={one.key} onClick={() => (chime('open'), onOpen ? onOpen('event', one.key) : window.api.openInHome('event', one.key))}
           className="-mx-2 flex max-w-full items-center gap-2 rounded-md px-2 py-1 text-left text-body text-foreground transition-colors hover:bg-accent motion-reduce:transition-none">

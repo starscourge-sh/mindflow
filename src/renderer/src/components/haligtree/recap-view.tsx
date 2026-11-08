@@ -179,7 +179,7 @@ export function Recap({ period, onClose }: { period: 'month' | 'year'; onClose: 
     </div>,
     // The shape of it: what kinds of thing, read back in a line.
     (data.kinds ?? []).length > 0 && (
-      <div key="shape" className="grid items-center gap-x-12 gap-y-4 sm:grid-cols-[minmax(0,1fr)_min(30rem,60vh)]">
+      <div key="shape" className="grid items-center gap-x-12 gap-y-4 @[40rem]/page:grid-cols-[minmax(0,1fr)_min(30rem,60vh)]">
         <p className="text-title"><Typed story text={readShape(data.kinds)} /></p>
         <RecapRadar kinds={data.kinds} before={data.before} />
       </div>

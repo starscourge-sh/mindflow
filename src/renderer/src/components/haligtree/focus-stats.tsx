@@ -219,7 +219,7 @@ export function FocusSections({ example }: { example: boolean }): React.JSX.Elem
             <span>{days ? 'Today' : 'This week'}</span>
           </div>
         </div>
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-2 @[40rem]/page:grid-cols-3">
           <Tile value={<Rolling text={focus.streak.now ? plural(focus.streak.now, 'day', 'days') : 'None'} />} label={focus.streak.now ? 'in a row, so far' : 'running right now'} note={focus.streak.best > 1 ? <>Longest run: <N>{plural(focus.streak.best, 'day', 'days')}</N></> : undefined} />
           <Tile value={<Rolling text={timeSaid(focus.average)} />} label="a session, on average" note={focus.longest > focus.average ? <>Longest: <N>{timeSaid(focus.longest)}</N></> : undefined} />
           <Tile value={focus.best && focus.sessions >= 3 ? PART[focus.best.part] : 'Not yet'} label={focus.best && focus.sessions >= 3 ? `you focus best, around ${focus.best.hour}:00` : 'your best time of day'} note={focus.best && focus.sessions >= 3 ? undefined : 'Shown after three sessions'} />
