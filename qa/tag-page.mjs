@@ -46,7 +46,7 @@ db.close()
 c = await sandbox({ width: 1280, height: 860 })
 const { h, send } = c
 const wait = (ms) => h.waitForTimeout(ms)
-const open = async (tag) => { await send('tag', tag); await wait(1500) }
+const open = async (tag) => { await send('tag', tag); await h.waitForSelector('[data-tag-page]', { timeout: 15000 }).catch(() => {}); await wait(800) }
 const blur = () => h.evaluate(() => document.activeElement instanceof HTMLElement && document.activeElement.blur())
 const key = async (one) => { await blur(); await h.keyboard.press(one); await wait(600) }
 const measure = () => h.evaluate(() => {

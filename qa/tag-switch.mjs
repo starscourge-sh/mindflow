@@ -80,14 +80,14 @@ try {
   await h.evaluate(() => {
     window.__samples = []
     const read = () => {
-      const header = document.querySelector('header[class*="@container/band"]')
+      const header = document.querySelector('header[data-tag-head]')
       if (!header) return { t: performance.now(), title: null }
       const title = header.querySelector('h1')?.textContent?.trim().replace(/^#/, '') ?? null
       const meta = header.querySelector('p')?.textContent ?? ''
       const count = Number(/([\d,]+) notes?/.exec(meta)?.[1]?.replace(/,/g, '') ?? NaN)
       const img = header.querySelector('img')?.getAttribute('src') ?? null
       const coverTag = img ? /pictures\.invalid\/([^/]+)\//.exec(img)?.[1] ?? 'other' : null
-      const first = document.querySelector('article')?.textContent ?? document.querySelector('[data-track] , [role="row"]')?.textContent ?? null
+      const first = document.querySelector('[data-tag-list] [data-row], article')?.textContent ?? null
       const firstTag = first ? /^\s*([a-z]+)-x?\d+:/.exec(first)?.[1] ?? 'other' : null
       const opacity = Number(getComputedStyle(header.parentElement).opacity)
       return { t: performance.now(), title, count: Number.isNaN(count) ? null : count, coverTag, firstTag, faded: opacity < 0.9 }

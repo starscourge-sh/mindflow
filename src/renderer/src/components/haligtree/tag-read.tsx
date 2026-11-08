@@ -388,6 +388,8 @@ export function TagStream({ tag, color, onOpen, onTag, onStudy }: {
       {/* One toolbar on the rows' own edges: the kinds as chips on the left; the words, the order and List or Stream on the right. */}
       <div data-tag-toolbar className="list-words @container/band flex flex-wrap items-center gap-2 pt-2 pb-1">
         <FilterChips view={display} onChange={setDisplay} facets={facets} className="flex-1" />
+        {/* How many a filter leaves, in the toolbar's own line: a line of its own pushed every row down as you typed. */}
+        {narrowed && shown.length > 0 && <span data-tag-narrowed className="text-control whitespace-nowrap text-muted-foreground tabular-nums">{`${num(shown.length)} of ${num(all.length)} shown`}</span>}
         {/* On a narrow window the field gives way first, so the order and List or Stream stay on the line. */}
         <span className="ml-auto flex min-w-0 items-center gap-1 [&>label]:w-44 [&>label]:min-w-24 [&>label]:shrink">
           {items.length > 1 && <ListSearch value={query} onChange={setQuery} onDone={() => undefined} placeholder={[...tag].length > FILTER_ROOM ? 'Filter this tag' : `Filter #${tag}`} />}
@@ -403,7 +405,6 @@ export function TagStream({ tag, color, onOpen, onTag, onStudy }: {
           }} options={[{ id: 'list', label: 'List', icon: <List /> }, { id: 'stream', label: 'Stream', icon: <AlignJustify /> }]} />
         </span>
       </div>
-      {narrowed && shown.length > 0 && <p data-tag-narrowed className="list-words pt-1 text-control text-muted-foreground">{`${num(shown.length)} of ${num(all.length)} shown`}</p>}
       {/* What is picked, and what can be done with it all: held at the top while you scroll, opaque. */}
       {several.bar && (
         <div data-pick-bar className="sticky top-0 z-20 mt-1 w-full border-y bg-background">
@@ -424,7 +425,7 @@ export function TagStream({ tag, color, onOpen, onTag, onStudy }: {
             picking={picking} onPick={(id) => byId(id) && open(byId(id)!)} className="list-edge my-2" />
         </div>
       ) : (
-        <div data-tag-stream className="list-words">
+        <div data-tag-stream className="list-edge list-ink">
           {days.map(([day, list]) => (
             <section key={day || 'all'}>
               {/* The day stays in view while its notes scroll under it. */}
@@ -478,7 +479,7 @@ function TagHead({ tag, color, meta, actions }: { tag: string; color: string | n
     <header data-tag-head className="list-words @container/band flex min-w-0 flex-col gap-1.5 pt-6 pb-3">
       <h1 data-tag-title className="flex min-w-0 items-center gap-2 font-heading text-[clamp(1.5rem,3.2vw,2.25rem)] leading-tight font-bold tracking-[-0.02em] text-foreground" title={`#${tag}`}>
         <TagIcon tag={tag} color={color} className="size-[0.75em]" />
-        <span className="min-w-0 truncate">{tag}</span>
+        <span className="min-w-0 truncate pb-[0.2em] -mb-[0.2em]">{tag}</span>
       </h1>
       <p data-tag-meta className="flex flex-wrap items-center gap-y-0.5 text-body text-muted-foreground">{meta}</p>
       {actions && <div className="mt-2 flex flex-wrap items-center gap-2">{actions}</div>}

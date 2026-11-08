@@ -31,7 +31,7 @@ const page = () => h.evaluate(() => {
   const toolbar = document.querySelector('[data-tag-toolbar]')
   const entries = [...document.querySelectorAll('[data-tag-stream] article, [data-tag-islands] article')]
   return {
-    pictures: header ? header.querySelectorAll('img, [data-cover-name], [data-backdrop]').length : -1,
+    headPictures: header ? header.querySelectorAll('img, [data-cover-name], [data-backdrop]').length : -1,
     titleText: title?.textContent ?? '',
     titleLines: title ? Math.round(title.getBoundingClientRect().height / parseFloat(getComputedStyle(title).lineHeight || getComputedStyle(title).fontSize)) : 0,
     titleCut: title ? title.scrollWidth > title.clientWidth + 1 : true,
@@ -67,7 +67,7 @@ try {
   await h.waitForFunction(() => document.querySelectorAll('[data-tag-stream] article').length >= 10, null, { timeout: 5000 }).catch(() => {})
   const a = await page()
   console.log(JSON.stringify({ ...a, words: a.words.slice(0, 3), asides: a.asides.slice(0, 3) }))
-  check('no cover and no picture behind the head: a tag has none', a.pictures === 0, String(a.pictures))
+  check('no cover and no picture behind the head: a tag has none', a.headPictures === 0, String(a.headPictures))
   check('the name is in the title once, after the tag\'s mark', a.titleText === 'programming-humour', a.titleText)
   check('the long name sits on one line, whole (not cut, not broken at the hyphen)', a.titleLines === 1 && !a.titleCut, `${a.titleLines} lines, cut ${a.titleCut}`)
   check('the tag\'s mark sits in the title, in its colour, as the Tags list draws it', a.iconInTitle)
