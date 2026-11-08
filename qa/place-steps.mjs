@@ -69,8 +69,9 @@ const PLACES = [
   })),
   {
     name: 'Stats', view: 'stats', a: 'Your month', b: 'Your year',
-    pick: (one) => `button[aria-label="${one}"]`,
-    read: () => c.h.evaluate(() => [...document.querySelectorAll('button[aria-pressed="true"][aria-label]')].map((one) => one.getAttribute('aria-label')).filter((one) => /glance|month|year/i.test(one)).join('|'))
+    // The app's one tab switch (tab-chips.tsx).
+    pick: (one) => `[data-chips="stats"] [role=tab][aria-label="${one}"]`,
+    read: () => c.h.evaluate(() => document.querySelector('[data-chips="stats"] [aria-selected="true"]')?.getAttribute('aria-label') ?? '')
   },
   {
     name: 'Settings', view: 'settings', a: 'Sound', b: 'Keys',
