@@ -2,6 +2,7 @@ import { useEffect, useState } from "react"
 import { call } from "@/lib/haligtree"
 import { loadPdf, pdfAuthor, pdfTitle } from "./pdf-pages"
 import { learnTitle } from "./pdf-reader"
+import { DARK_PAGE, useDarkPages } from "./paper"
 
 /** A PDF's cover and its own title, as every card of it shows them. */
 export type PdfCover = { image: string; title: string; /** Width over height, read once the picture is decoded: a box sized by it never changes shape as it draws. */ aspect: number }
@@ -28,11 +29,14 @@ const WIDE = 520
  * name it arrived under). Kept in the book's store the first time it is drawn,
  * so after that it is there at once, on every card and in every window.
  */
-export function pdfCover(src: string, name = ""): Promise<PdfCover | null> {
-  let made = covers.get(src)
+export function pdfCover(src: string, name = "", dark = localStorage.getItem("pdf-dark") === "1"): Promise<PdfCover | null> {
+  // With "Dark pages" on, the cover is drawn as the pages are: its text and lines in the dark page's
+  // colours, its pictures as they are. Kept apart from the stored white one, and never stored.
+  const key = dark ? `${src}#dark` : src
+  let made = covers.get(key)
   if (!made) {
     made = (async () => {
-      const kept = await call<{ image: string; title: string | null } | null>("pdf:cover", src).catch(() => null)
+      const kept = dark ? null : await call<{ image: string; title: string | null } | null>("pdf:cover", src).catch(() => null)
       if (kept) return { image: kept.image, title: kept.title ?? fallback(name), aspect: await shapeOf(kept.image) }
       const doc = await loadPdf(src)
       const page = await doc.getPage(1)
@@ -44,18 +48,18 @@ export function pdfCover(src: string, name = ""): Promise<PdfCover | null> {
       const ink = canvas.getContext("2d")
       if (!ink) return null
       // White under the page, as paper: a page with no background of its own is never drawn on black.
-      ink.fillStyle = "#fff"
+      ink.fillStyle = dark ? DARK_PAGE.background : "#fff"
       ink.fillRect(0, 0, canvas.width, canvas.height)
-      await page.render({ canvasContext: ink, viewport, canvas }).promise
+      await page.render({ canvasContext: ink, viewport, canvas, ...(dark ? { pageColors: DARK_PAGE } : {}) }).promise
       const image = canvas.toDataURL("image/jpeg", 0.82)
       const title = await pdfTitle(doc, name)
       learnTitle(src, title)
-      void call("pdf:cover:set", src, image, { author: await pdfAuthor(doc), pages: doc.numPages })
+      if (!dark) void call("pdf:cover:set", src, image, { author: await pdfAuthor(doc), pages: doc.numPages })
       return { image, title, aspect: canvas.width / canvas.height }
     })()
       .catch(() => null)
-      .then((made) => (ready.set(src, made), made))
-    covers.set(src, made)
+      .then((made) => (ready.set(key, made), made))
+    covers.set(key, made)
   }
   return made
 }
@@ -101,12 +105,14 @@ const fallback = (name: string): string => name.replace(/\.pdf$/i, "") || "PDF"
 /** A PDF's cover for a card: null until it is ready, then the picture and the title. One already drawn is there in the first frame, a new book's too. */
 export function usePdfCover(src: string | null | undefined, name = ""): PdfCover | null | undefined {
   const [got, setGot] = useState<{ src: string; cover: PdfCover | null } | null>(null)
+  const [dark] = useDarkPages()
+  const key = src && dark ? `${src}#dark` : src
   useEffect(() => {
-    if (!src) return
+    if (!src || !key) return
     let live = true
-    void pdfCover(src, name).then((made) => live && setGot({ src, cover: made }))
+    void pdfCover(src, name, dark).then((made) => live && setGot({ src: key, cover: made }))
     return () => void (live = false)
-  }, [src, name])
-  if (!src) return undefined
-  return got?.src === src ? got.cover : ready.has(src) ? ready.get(src) : undefined
+  }, [src, name, dark, key])
+  if (!src || !key) return undefined
+  return got?.src === key ? got.cover : ready.has(key) ? ready.get(key) : undefined
 }

@@ -2182,3 +2182,8 @@ html[data-motion="off"] :is(.pdf-zoom-chip, .pdf-reader-body > .pdf-rail) {
 .chapter-card-gone { color: var(--mf-muted); font-size: 0.8125rem; }
 .chapter-cards-foot { display: flex; flex: none; align-items: center; justify-content: space-between; gap: 0.75rem; padding: 0.625rem 1rem 0.75rem; border-top: 1px solid var(--tt-border-color); }
 .chapter-cards-count { color: var(--mf-muted); font-size: 0.75rem; }
+
+/* "Dark pages": a cover's backing is the dark page, as the pages are (paper.ts marks the page). */
+html.dark-pages {
+  --pdf-paper: #1c1a17;
+}

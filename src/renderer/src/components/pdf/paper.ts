@@ -9,6 +9,11 @@ const mark = (): void => void document.documentElement.classList.toggle("paper-p
 mark()
 window.addEventListener(CHANGED, mark)
 window.addEventListener("storage", mark)
+// "Dark pages" said on the page too: a cover's backing (--pdf-paper, pdf.css) is the dark page's, not white.
+const markDark = (): void => void document.documentElement.classList.toggle("dark-pages", localStorage.getItem("pdf-dark") === "1")
+markDark()
+window.addEventListener("haligtree:pdf-dark", markDark)
+window.addEventListener("storage", markDark)
 
 /**
  * "Paper pages", on unless turned off: PDF pages in the app's warm paper rather than white, one
