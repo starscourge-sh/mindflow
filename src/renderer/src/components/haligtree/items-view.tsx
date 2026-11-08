@@ -707,7 +707,7 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
         title={tier === 'nugget' ? 'Gems' : questionsOnly ? 'Questions' : 'Writing'}
         // Questions' lists at the line's left before the count, the pill on the list's box edge and its words on the ink edge as Tasks' tabs (qa/list-edges.mjs).
         // Kept while rows are picked, so picking never moves the line.
-        lead={questionsOnly && onAsk ? <div data-list-tabs className="flex shrink-0" style={{ marginLeft: 'calc(var(--list-edge) - var(--list-ink) + 3px)' }}><QuestionTabs on={ask ?? 'open'} pick={(one) => (onAsk(one), setCursor(-1))} /></div> : undefined}
+        lead={questionsOnly && onAsk ? <div data-list-tabs className="flex shrink-0" style={{ marginLeft: 'calc(var(--list-edge) - var(--list-ink) - 3px)' }}><QuestionTabs on={ask ?? 'open'} pick={(one) => (onAsk(one), setCursor(-1))} /></div> : undefined}
         // Every note on show, a folded group's too.
         count={chosen.length || groups.reduce((sum, [, list]) => sum + list.length, 0)}
         search={spread && !chosen.length && <ListSearch value={query} onChange={(words) => (setQuery(words), setCursor(-1))} onDone={() => setCursor(0)} placeholder={`Search in ${tier === 'nugget' ? 'Gems' : 'Writing'}`} />}

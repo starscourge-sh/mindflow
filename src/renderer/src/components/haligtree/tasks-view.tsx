@@ -984,7 +984,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
   // Nothing in it comes or goes after a click, so nothing moves under the pointer.
   // Their pill on the list's box edge and their words on its ink edge, as every row of tabs (qa/list-edges.mjs).
   const lead = (
-    <div data-list-tabs className="flex" style={{ marginLeft: 'calc(var(--list-edge) - var(--list-ink) + 3px)' }}>
+    <div data-list-tabs className="flex" style={{ marginLeft: 'calc(var(--list-edge) - var(--list-ink) - 3px)' }}>
       <TabChips name="tasks" tabs={TASK_TABS.map((one) => ({ value: one.id as string, label: one.label }))} value={mode} onChange={(id) => onOpen?.('view', id)}
         // Today's lines, dragged onto a tab, go there (day-list.tsx).
         drops={mode === 'today' ? { upcoming: 'upcoming', later: 'later' } : undefined} />

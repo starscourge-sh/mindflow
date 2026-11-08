@@ -45,6 +45,9 @@
   font-weight: 500;
   color: var(--muted-foreground);
 }
+/* The one tab switch (tab-chips.tsx) on a list page: its pill on the list's box edge and its words on the list's ink edge
+   (qa/list-edges.mjs), so its tabs sit a little tighter there. */
+[data-list-tabs] [data-chips] [role='tab'] { padding-inline: 0.5rem; }
 /* A chart's or a page's big number: the one other place the heading face shows besides a page's title (the one type rule:
    the display face for titles and big numbers, the text font for everything else). */
 @utility mf-big-number {
