@@ -14,7 +14,7 @@ try {
     await h.evaluate(() => new Promise((done) => requestAnimationFrame(() => done())))
     const took = Date.now() - at
     const { profile } = await cdp.send('Profiler.stop')
-    if (took < 3500) { console.log(`round ${round}: ${took} ms, quick`); continue }
+    if (took < Number(process.env.SLOW ?? 3500)) { console.log(`round ${round}: ${took} ms, quick`); continue }
     const self = new Map(); const dt = profile.timeDeltas; const byId = new Map(profile.nodes.map((n) => [n.id, n]))
     profile.samples.forEach((id, i) => { const n = byId.get(id); const f = n.callFrame; const key = `${f.functionName || '(anon)'} ${f.url.split('/').slice(-2).join('/')}:${f.lineNumber}`; self.set(key, (self.get(key) ?? 0) + (dt[i] ?? 0) / 1000) })
     console.log(`round ${round}: ${took} ms`)

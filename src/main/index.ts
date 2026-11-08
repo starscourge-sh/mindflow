@@ -221,6 +221,14 @@ const EXTENSIONS: Record<string, string> = {
   'image/x-icon': 'ico'
 }
 
+// A test run's app goes when the run does: if the probe that launched it is
+// killed outright (kill -9, a crashed runner), nothing is left to close it,
+// and it sat on as "Sandbox · 1 due" in the menu bar. Its parent gone, it quits.
+if (process.env.HALIGTREE_QA_AWAY) {
+  const parent = process.ppid
+  setInterval(() => process.ppid !== parent && app.exit(0), 2000).unref()
+}
+
 // invents custom 'scheme' (address type) like https:// but private to haligtree
 // allows app to point to assets without specififying absolute locations on disc
 // instead of file:///Users/{username}/Library/Application Support/haligtree/assets/abc.png this allows for

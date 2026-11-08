@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
 import { useReading } from '@/lib/reads-in'
-import { useInView } from 'motion/react'
 import { useStill } from '@/lib/motion'
 import { CalendarRange, Check, X } from 'lucide-react'
 import ArrowNarrowRightIcon from '@/components/ui/arrow-narrow-right-icon'
@@ -128,11 +127,42 @@ function ThisMac({ caps, missing }: { caps: Caps | null; missing: number }): Rea
   )
 }
 
+/** How much of each card's stage is in view; the one most in view is the one on stage. */
+const shown = new Map<Element, number>()
+const heard = new Set<() => void>()
+let onStage: Element | null = null
+const watcher = typeof IntersectionObserver === 'undefined' ? null : new IntersectionObserver((all) => {
+  for (const one of all) shown.set(one.target, one.isIntersecting ? one.intersectionRatio : 0)
+  let best: Element | null = null
+  for (const [el, ratio] of shown) if (ratio >= 0.6 && (!best || ratio > shown.get(best)!)) best = el
+  if (best !== onStage) (onStage = best), heard.forEach((tell) => tell())
+}, { threshold: [0, 0.6, 0.7, 0.8, 0.9, 1] })
+function useOnStage(ref: React.RefObject<HTMLElement | null>): boolean {
+  const [on, setOn] = useState(false)
+  useEffect(() => {
+    const el = ref.current
+    if (!el || !watcher) return
+    const tell = (): void => setOn(onStage === el)
+    heard.add(tell)
+    watcher.observe(el)
+    return () => {
+      heard.delete(tell)
+      watcher.unobserve(el)
+      shown.delete(el)
+      if (onStage === el) onStage = null
+    }
+  }, [ref])
+  return on
+}
+
 function Card({ power, used, caps, onView }: { power: Power; used: boolean; caps: Caps | null; onView: (id: string, focus?: string) => void }): React.JSX.Element {
   const has = meets(caps, power.needs)
   const stage = useRef<HTMLDivElement>(null)
-  // Plays only while most of it is on screen, and never with Motion off or Reduce motion.
-  const seen = useInView(stage, { amount: 0.6 })
+  // Plays only while it is the card most in view, and never with Motion off or
+  // Reduce motion. One at a time: with three or four playing together, each
+  // step of each one laid the whole page out again, and it opened and
+  // scrolled in jerks (qa/powers-speed.mjs).
+  const seen = useOnStage(stage)
   // Read live: Motion turned off with the page open stops the demos' steps at once.
   const calm = useStill()
   const Demo = DEMOS[power.id]

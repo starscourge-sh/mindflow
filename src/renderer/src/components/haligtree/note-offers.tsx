@@ -170,7 +170,8 @@ export function NoteOffers({ table, id, editor, onOpen }: { table: 'captures' | 
     lead = 'You already wrote this.'
     rest = <>“{offer.title}” says nearly the same.</>
     actions = [
-      { label: 'Open it', data: 'open', run: () => (chime('open'), follow(offer.key, onOpen)) },
+      // Beside this one, to compare the two before joining them (in place where there is no room for a split).
+      { label: 'Open it', data: 'open', run: () => (chime('open'), follow(offer.key, onOpen, undefined, true)) },
       { label: 'Join them', data: 'join', run: async () => {
         const [type, other] = offer.key.includes(':') ? [offer.key.slice(0, offer.key.indexOf(':')), offer.key.slice(offer.key.indexOf(':') + 1)] : ['capture', offer.key]
         const body = (type === 'capture' ? (await window.api.captures.get(other))?.body : (await haligtree.item(other))?.body) as JSONContent | string | null | undefined

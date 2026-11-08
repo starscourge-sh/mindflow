@@ -274,7 +274,10 @@ function PaneFrame({ pane, apis, split, front, hidden, least, groups, actions, s
       page.style.opacity = ''
       growFrom(page, from)
     })
-    return () => (cancelAnimationFrame(id), (page.style.opacity = ''))
+    return () => {
+      cancelAnimationFrame(id)
+      page.style.opacity = ''
+    }
   }, [])
   const kept = present || !cardWidth.current ? undefined : { width: cardWidth.current, minWidth: cardWidth.current }
   return (

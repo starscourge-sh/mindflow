@@ -310,12 +310,12 @@ export async function findHeadings(link: string): Promise<string[]> {
  * Follow an @ link: a capture's id alone, or `nugget:` / `article:` and an id.
  * A link to a heading lands on it, in the note already open if it is.
  */
-export const follow = (link: string, open: (type: string, id: string) => void, heading?: string): void => {
+export const follow = (link: string, open: (type: string, id: string) => void, heading?: string, beside = false): void => {
   // Found by a link, for the usage counts.
   via('link')
   const [type, id] = link.includes(':') ? [link.slice(0, link.indexOf(':')), link.slice(link.indexOf(':') + 1)] : ['capture', link]
   // ⌥-clicked: to the side. ⌘-clicked: a new tab, as everywhere. Read now, from the click, before a capture's lookup waits.
-  const how = canSplit() && type !== 'person' ? takeClick() : null
+  const how = canSplit() && type !== 'person' ? (beside ? (takeClick(), 'aside') : takeClick()) : null
   const side = how === 'aside'
   const go = side ? openAside : how === 'tab' ? openNewTab : open
   // A person or a tag is a place in the main window, not a note: its tag page, or a search for their name.

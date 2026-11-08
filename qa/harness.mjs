@@ -93,7 +93,8 @@ export async function open() {
   }
   const end = () => { try { child.kill('SIGKILL') } catch {} }
   process.on('exit', end)
-  for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, () => { end(); process.exit(1) })
+  // SIGALRM is what 'perl -e "alarm 280; exec"' sends when a run takes too long; SIGHUP a closed terminal.
+  for (const signal of ['SIGINT', 'SIGTERM', 'SIGALRM', 'SIGHUP']) process.on(signal, () => { end(); process.exit(1) })
   process.on('uncaughtException', (error) => { console.error(error); end(); process.exit(1) })
   process.on('unhandledRejection', (error) => { console.error(error); end(); process.exit(1) })
   // The box: the window with no view of its own. On a second run over the
