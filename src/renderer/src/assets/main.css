@@ -3459,7 +3459,8 @@ html[data-overhang][data-glass] [data-hint-room] [data-hint-surface] {
   --mf-frost-quiet: color-mix(in oklab, var(--muted-foreground) 42%, var(--popover-foreground));
 }
 @media (prefers-reduced-transparency: no-preference) {
-  :root[data-dim='veil']:not([data-solid]):not([data-style='brutal']) :is(.mf-frost, .tiptap-slash-menu, .tiptap-block-menu, .tiptap-emoji-list, .tiptap-table-menu, .tiptap-image-panel, .tiptap-icon-picker):not([data-frost-off]) {
+  /* `data-frost-always`: glass whatever the "veil" setting, for a bar laid over a picture-like surface (the Map's replay). */
+  :root[data-dim='veil']:not([data-solid]):not([data-style='brutal']) :is(.mf-frost, .tiptap-slash-menu, .tiptap-block-menu, .tiptap-emoji-list, .tiptap-table-menu, .tiptap-image-panel, .tiptap-icon-picker):not([data-frost-off]), :root:not([data-solid]):not([data-style='brutal']) .mf-frost[data-frost-always]:not([data-frost-off]) {
     background-color: color-mix(in oklab, var(--popover) var(--mf-frost-fill), transparent);
     -webkit-backdrop-filter: blur(24px) saturate(1.6);
     backdrop-filter: blur(24px) saturate(1.6);
