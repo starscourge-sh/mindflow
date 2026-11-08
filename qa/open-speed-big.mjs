@@ -4,7 +4,7 @@
 //   quick capture's Tasks tab, "No date": a task row opens the task on the left
 //   ("Back to your note", its title);
 //   the main window's Tags page: a tag in the list shows its page (its name
-//   over its first note).
+//   in the page's header, over its first note).
 // The pointer rests on the row a little over a tenth of a second before the
 // click, as a hand coming to it does (what a row reads ahead starts then).
 // Each must show within 100 ms (the median), and no single one over 200 ms.
@@ -101,7 +101,7 @@ try {
     // The rows on screen (the list draws only those), by their place in it.
     const row = h.locator('[data-row]').filter({ has: h.locator('span.truncate') }).nth(at)
     const tag = (await row.locator('span.truncate').first().textContent()).trim()
-    await h.evaluate((tag) => window.__arm(`() => document.querySelector('header[class*="@container/band"] .font-heading')?.textContent.trim().replace(/^#/, '') === ${JSON.stringify(tag)} && !!document.querySelector('article')`), tag)
+    await h.evaluate((tag) => window.__arm(`() => document.querySelector('[data-collection-header] [data-tag-title]')?.textContent.trim().replace(/^#/, '') === ${JSON.stringify(tag)} && !!document.querySelector('article')`), tag)
     await row.hover(); await h.waitForTimeout(120)
     await profile(at === 6 ? h : null, async () => {
       await row.click()
@@ -121,12 +121,19 @@ try {
   await page.waitForTimeout(500)
   await page.locator('[data-home="task"]').first().click(); await page.waitForTimeout(700)
   await page.getByRole('button', { name: /^No date/ }).first().click(); await page.waitForTimeout(900)
-  const rows = await page.locator('[data-row][data-id]').count()
-  check('the No date list holds the book\'s tasks', rows >= TASKS, `${rows} rows`)
+  // The list draws only the rows in sight (a long one), so its chip says how many it holds.
+  const drawn = await page.locator('[data-row][data-id]').count()
+  const last = await page.evaluate(async () => { const list = document.querySelector('[data-vlist]'); let box = list?.parentElement; while (box && !/auto|scroll/.test(getComputedStyle(box).overflowY)) box = box.parentElement; if (!box) return -1; box.scrollTop = box.scrollHeight; await new Promise((done) => setTimeout(done, 400)); const at = Math.max(...[...list.querySelectorAll('[data-index]')].map((one) => Number(one.dataset.index))); box.scrollTop = 0; await new Promise((done) => setTimeout(done, 300)); return at })
+  check('the No date list holds the book\'s tasks, and draws only those in sight', last >= TASKS - 1 && drawn < 60, `its last row is number ${last + 1}, ${drawn} rows drawn`)
   await timer(page)
   const taskTimes = [], taskLong = []
   for (const at of [2, 9, 25, 4, 60]) {
-    const row = page.locator('[data-row][data-id]').nth(at)
+    // The row at that place in the list, scrolled to (a long list draws it once it is near the screen).
+    const row = page.locator(`[data-index="${at}"] [data-row][data-id]`)
+    for (let tries = 0; tries < 20 && !(await row.count()); tries++) {
+      await page.evaluate((at) => { const list = document.querySelector('[data-vlist]'); let box = list?.parentElement; while (box && !/auto|scroll/.test(getComputedStyle(box).overflowY)) box = box.parentElement; if (box) box.scrollTop = at * 44 }, at)
+      await page.waitForTimeout(100)
+    }
     await row.scrollIntoViewIfNeeded()
     const title = (await row.locator('[data-task-title]').textContent()).trim()
     await page.evaluate((title) => window.__arm(`() => [...document.querySelectorAll('button')].some((one) => one.textContent.includes('Back to your note')) && [...document.querySelectorAll('.note-pane')].some((one) => one.textContent.includes(${JSON.stringify(title)}))`), title)

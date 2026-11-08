@@ -1,6 +1,6 @@
 import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import { Plus } from 'lucide-react'
-import { AnimatePresence, motion } from 'motion/react'
+import { AnimatePresence, PresenceContext, motion } from 'motion/react'
 import { EASE, byKeys, shift } from '@/lib/motion'
 
 import { chime } from '@/lib/sound'
@@ -9,7 +9,7 @@ import { exampleTasks } from '@/lib/examples'
 import { Example } from './example'
 import { BUCKETS, bucket, makeListTasks, makeTask, placed, taskName } from '@/lib/tasks'
 import { readLines, tasksOf } from '../../../../main/day-lines'
-import { Count, Empty, Tags, typing, useListKeys, Strip } from './ui'
+import { Count, Empty, Tags, typing, useListKeys, Strip, VirtualList } from './ui'
 import { Chips, Display, arrange, useView } from './display'
 import { TaskPriority, TaskWhen, landed, useTickOff, moveTo, taskFacets, taskMenu, useTaskNow } from './tasks-view'
 import { frogOn } from '@/lib/day-plan'
@@ -224,13 +224,24 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
         </div>
       )}
       <Example on={example && due.length > 0} compact tryIt="type a task in the line above with the day in the words, like ‘call Mum Friday 6pm’.">
-      <AnimatePresence initial={false}>
-        {due.map((task, index) => (
+      {(() => {
+        // A long list draws only the rows in sight, without the slide away: 400 tasks with no date, each drawn and
+        // watched for its place, took over a second to answer a click that opened one (qa/open-speed-big.mjs).
+        // Out of the page's own going, as the Bin's long list is: a row scrolled out mid-exit never says it has gone.
+        const long = due.length > DRAWN_WHOLE
+        const row = (task: Task, index: number): React.JSX.Element => (
           <TaskRow key={task.id} task={task} act={act} scope={scope} room={room} rank={ranked ? three.indexOf(task.id) + 1 : undefined}
             open={task.id === open} cursor={index === cursor} picked={several.chosen.includes(task.id)} picking={several.chosen.length}
-            ticking={ticking(task.id)} glossing={glossing === task.id} frog={frog} focus={now.focus} />
-        ))}
-      </AnimatePresence>
+            ticking={ticking(task.id)} glossing={glossing === task.id} frog={frog} focus={now.focus} long={long} />
+        )
+        return long ? (
+          <PresenceContext.Provider value={null}>
+            <VirtualList items={due} keyOf={(task) => task.id} cursor={cursor} estimate={44} rowClass="pb-1">{row}</VirtualList>
+          </PresenceContext.Provider>
+        ) : (
+          <AnimatePresence initial={false}>{due.map(row)}</AnimatePresence>
+        )
+      })()}
       </Example>
       {!due.length && !unloaded(tasks) && (
         <Rest compact seed="today" off={scope !== 'today'}><Empty compact title={EMPTY[scope].title}>{EMPTY[scope].text}</Empty></Rest>
@@ -238,6 +249,9 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
     </div>
   )
 }
+
+/** How many tasks the panel draws whole, each sliding away as it is done; past this it draws only those in sight. */
+const DRAWN_WHOLE = 80
 
 type RowActs = {
   onOpen: (id: string) => void
@@ -255,8 +269,10 @@ type RowActs = {
  * marks (open, cursor, picked, ticking), how many are picked (its menu), the
  * frog or a focus session (its menu too).
  */
-const TaskRow = memo(function TaskRow({ task, act, scope, room, rank, open, cursor, picked, picking, ticking, glossing }: {
+const TaskRow = memo(function TaskRow({ task, act, scope, room, rank, open, cursor, picked, picking, ticking, glossing, long }: {
   task: Task
+  /** In a long list drawn only where it shows: no gliding to a new place, which measured every row on each change. */
+  long?: boolean
   /** Its number among today's three (0 for none), with a column kept for it when the list has any. */
   rank?: number
   act: React.RefObject<RowActs>
@@ -277,8 +293,8 @@ const TaskRow = memo(function TaskRow({ task, act, scope, room, rank, open, curs
   const { several, move, frog, now, gloss } = act.current
   return (
     <motion.div
-      layout="position"
-      initial={{ opacity: 0 }}
+      layout={long ? false : 'position'}
+      initial={long ? false : { opacity: 0 }}
       animate={{ opacity: 1 }}
       // Done by a key, it simply goes; by a click it slides off the way a tick sends it.
       variants={{ gone: () => (byKeys() ? { opacity: 0, transition: { duration: 0 } } : { opacity: 0, transform: shift('translateX(16px)'), transition: { duration: 0.16, ease: EASE } }) }}
