@@ -152,3 +152,19 @@
 @media (prefers-reduced-motion: reduce) {
   .files-square-foot { transition: none; transform: none; }
 }
+
+/* A file carried over Files: the page behind the "Drop to add" frame softens out of focus, so the frame is the one
+   thing to aim at. A filter on the page itself, not a backdrop blur, which breaks inside the pane's faded edges. */
+[data-media-page] div:has(> [data-media-drop]) > div:not([data-media-drop]) {
+  filter: blur(3px);
+  opacity: 0.7;
+}
+
+[data-media-page] div:has(> [data-media-drop]) > div:not([data-media-drop]),
+[data-media-page] .overflow-y-auto {
+  transition: filter 160ms var(--mf-ease), opacity 160ms var(--mf-ease);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-media-page] .overflow-y-auto { transition: none; }
+}
