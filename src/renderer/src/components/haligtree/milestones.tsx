@@ -412,7 +412,8 @@ export function YearMarks({ year, onOpenDay }: { year: string; onOpenDay?: (day:
     const d = strokeAt(clientX, svg.getBoundingClientRect().left, band.to - band.from, stepOf(band))
     return d === null ? null : band.from + d
   }
-  const near = hover === null ? null : markOn.get(hover) ?? null
+  // The marked day the pointer is on, or within two days of: a stroke is a pixel or two wide, too thin to land on.
+  const near = hover === null ? null : [0, -1, 1, -2, 2].map((by) => markOn.get(hover + by)).find(Boolean) ?? null
   const gone = Math.max(0, Math.min(days, at))
   const open = (): void => {
     if (hover === null) return
@@ -445,7 +446,8 @@ export function YearMarks({ year, onOpenDay }: { year: string; onOpenDay?: (day:
                 {lines > 0 && (
                   <div data-year-names className="relative" style={{ height: lines * NAME_LINE }}>
                     {names.filter((one) => one.row !== null).map(({ one, row, left }) => (
-                      <span key={one.id} data-mark-label className="absolute text-[11px] leading-4 font-medium whitespace-nowrap"
+                      // Quiet until its stroke is pointed at: the year reads first, the names when you look for one.
+                      <span key={one.id} data-mark-label data-mark-lit={near?.id === one.id || undefined} className={`absolute text-[11px] leading-4 font-medium whitespace-nowrap transition-opacity duration-150 ${near?.id === one.id ? 'opacity-100' : 'opacity-45'}`}
                         style={{ left, top: (lines - 1 - (row ?? 0)) * NAME_LINE, color: inkOf(one) }}>{markName(one)}</span>
                     ))}
                   </div>
