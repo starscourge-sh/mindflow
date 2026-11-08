@@ -21,6 +21,8 @@ import { Marked } from './haligtree/shortcut-sheet'
 import { useWorking } from './haligtree/beam'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import { MenuGlyph } from '@/components/ui/menu-icon'
+import { IslandBox, useFold } from './haligtree/islands'
+import { Pin as PinIcon, SquareCheck } from 'lucide-react'
 import { Orb } from './haligtree/orb'
 import MagnifierIcon from '@/components/ui/magnifier-icon'
 import LayoutSidebarRightIcon from '@/components/ui/layout-sidebar-right-icon'
@@ -575,7 +577,8 @@ export function Search({ onOpen: told, onAside: toldAside, onTab: toldTab, onClo
               half never empties or closes as the arrows pass over it. */}
           {shown && plain ? (
             // A plain action has nothing to preview: one line saying it, and its keys, not an empty frame.
-            <div className="m-3 ml-0 w-1/2 min-w-0">
+            // Before typing, what is close to hand sits under it, an island a kind, as the Journal's day lays them out.
+            <div className="m-3 ml-0 flex w-1/2 min-w-0 flex-col gap-3 overflow-y-auto">
               <div key={plain.label} data-action-line className="flex items-center gap-3 rounded-lg border px-4 py-2.5">
                 <div className="min-w-0 flex-1">
                   <p className="text-body text-pretty text-foreground">{plain.label}</p>
@@ -583,6 +586,7 @@ export function Search({ onOpen: told, onAside: toldAside, onTab: toldTab, onClo
                 </div>
                 {plain.keys && keyFor(plain.keys) && <span className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground"><span className="flex gap-0.5"><Pressed keys={plain.keys} each /></span> any time</span>}
               </div>
+              {!query.trim() && !scoped && <CloseToHand tasks={tasks} pins={pins} onOpen={(type, id) => (chime('open'), onOpen(type, id))} />}
             </div>
           ) : shown && (
             <div className="m-3 ml-0 flex w-1/2 min-w-0 flex-col overflow-hidden rounded-lg border">
@@ -783,5 +787,41 @@ function TaskDay({ task }: { task: Task | undefined }): React.JSX.Element | null
     <span data-search-task-day className={`shrink-0 text-control font-medium tabular-nums ${late ? 'text-[var(--tt-color-text-red)]' : 'text-foreground'}`}>
       {task.dueAt ? '' : 'Due '}{whenInLine(at, task.dueAt ? !!task.allDay : !task.deadlineTimed)}
     </span>
+  )
+}
+
+/**
+ * ⌘K before typing, beside the few actions: what is close to hand, as the
+ * Journal's day shows it, an island a kind: tasks for today (and any
+ * overdue), then what is pinned. Read from what search already holds, so it
+ * is there the moment the box opens.
+ */
+function CloseToHand({ tasks, pins, onOpen }: { tasks: Task[]; pins: Pin[]; onOpen: (type: string, id: string) => void }): React.JSX.Element | null {
+  const end = new Date()
+  end.setHours(23, 59, 59, 999)
+  const today = tasks.filter((one) => one.status === 'open' && one.dueAt && new Date(one.dueAt) <= end)
+  const todayIsland = useFold('cmdk.today', { total: today.length })
+  const pinsIsland = useFold('cmdk.pinned', { total: pins.length })
+  const row = (key: string, label: string, open: () => void, mark: React.ReactNode): React.JSX.Element => (
+    <button key={key} type="button" data-close-to-hand={key} tabIndex={-1} onClick={open}
+      className="flex h-8 w-full cursor-pointer items-center gap-2.5 rounded-md px-2 text-left text-body text-foreground hover:bg-accent/60">
+      {mark}
+      <span className="min-w-0 flex-1 truncate">{label || 'Untitled'}</span>
+    </button>
+  )
+  if (!today.length && !pins.length) return null
+  return (
+    <div data-close-to-hand-pane className="flex flex-col gap-1">
+      {today.length > 0 && (
+        <IslandBox name="Today" island={todayIsland} shown={todayIsland.whole ? today.length : Math.min(5, today.length)} icon={<SquareCheck aria-hidden className="size-4 shrink-0 text-muted-foreground" />}>
+          {today.slice(0, todayIsland.whole ? undefined : 5).map((one) => row(one.id, taskName(one.title).text, () => onOpen('task', one.id), <span aria-hidden className="size-3 shrink-0 rounded-full border-[1.5px] border-muted-foreground/70" />))}
+        </IslandBox>
+      )}
+      {pins.length > 0 && (
+        <IslandBox name="Pinned" island={pinsIsland} shown={pinsIsland.whole ? pins.length : Math.min(5, pins.length)} icon={<PinIcon aria-hidden className="size-4 shrink-0 text-muted-foreground" />}>
+          {pins.slice(0, pinsIsland.whole ? undefined : 5).map((one) => row(one.id, one.title, () => onOpen(one.type, one.id), <FileText aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />))}
+        </IslandBox>
+      )}
+    </div>
   )
 }

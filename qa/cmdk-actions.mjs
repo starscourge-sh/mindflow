@@ -35,7 +35,18 @@ try {
   check('before typing: "Record a voice note" is offered', voice >= 0)
   for (let i = 0; i < voice; i++) { await h.keyboard.press('ArrowDown'); await wait(80) }
   check('the preview says what the action in focus does', (await said()) === 'Kept as a new capture', await said())
+  // Beside them, what is close to hand, an island a kind as the Journal's day draws them: read from memory, there at once.
+  const islands = await h.evaluate(() => [...document.querySelectorAll('[data-close-to-hand-pane] [data-island]')].map((one) => [one.getAttribute('data-island'), one.querySelectorAll('[data-close-to-hand]').length]))
+  console.log('  islands beside the actions:', JSON.stringify(islands))
+  check('before typing: the preview holds islands (Today, Pinned) under the action\'s line', islands.length > 0 && islands.every(([name, rows]) => ['Today', 'Pinned'].includes(name) && rows > 0), JSON.stringify(islands))
   if (shots) await c.both(`${shots}/cmdk-before`)
+  // A row in an island opens what it names, and the box closes.
+  const opens = await h.evaluate(() => document.querySelector('[data-island="Pinned"] [data-close-to-hand]')?.textContent ?? '')
+  if (opens) {
+    await h.locator('[data-island="Pinned"] [data-close-to-hand]').first().click(); await wait(900)
+    check(`a pinned row opens it ("${opens}") and the box closes`, !(await h.evaluate(() => !!document.querySelector('[role=dialog][aria-label=Search]'))) && (await h.evaluate(() => document.body.innerText)).includes(opens))
+    await h.keyboard.press('Meta+k'); await wait(700)
+  }
   // Every action still found by typing: one far down the list, and a shortened hint read in the preview.
   for (const [words, label, hint] of [['tidy', 'Tidy captures', 'A few minutes tagging your latest captures'], ['apple notes', 'Import from Apple Notes…', null], ['stick today', 'Stick Today on the desktop', null]]) {
     await h.locator('[role=dialog][aria-label=Search] input').first().fill(''); await h.keyboard.type(words, { delay: 20 }); await wait(900)
@@ -78,6 +89,8 @@ try {
     if (shots) await c.both(`${shots}/sources-island-hover`)
   }
 
+  // The Journal's day, whose islands the ⌘K pane follows.
+  if (shots) { await c.send('view', 'day'); await wait(1500); await c.both(`${shots}/journal-day`) }
   // The smallest window, 560 by 400: no room for the preview, so only the row in focus says what it does.
   await c.size(560, 400); await wait(800)
   await c.go('home'); await wait(600)
