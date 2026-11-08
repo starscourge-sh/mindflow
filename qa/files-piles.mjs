@@ -221,15 +221,13 @@ try {
     const shelf = await h.evaluate(() => ({ library: !!document.querySelector('[data-library]'), books: document.querySelectorAll('[data-library] [data-book]').length, going: !!document.querySelector('[data-shelf-continue]') }))
     check(`${count}: Books is the library shelf, every book on it, "Continue reading" kept at its top`, shelf.library && shelf.books === want.pdf && shelf.going, JSON.stringify(shelf))
     await shot(`books-${count}-1440`)
-    // "Dark pages" on: a text cover is drawn on the dark page, and its backing is dark, not white.
+    // "Dark pages" on: a cover keeps its own colours (drawn in the dark pages' two colours, it went black and white).
     if (count === 5) {
       const ink = () => h.evaluate(() => { const img = document.querySelector('[data-library] [data-book] img'); if (!img || !img.complete) return null; const c = document.createElement('canvas'); c.width = 8; c.height = 8; const x = c.getContext('2d'); x.drawImage(img, 0, 0, 8, 8); const d = x.getImageData(0, 0, 8, 8).data; let sum = 0; for (let i = 0; i < d.length; i += 4) sum += d[i] + d[i + 1] + d[i + 2]; return Math.round(sum / (d.length / 4) / 3) })
       const light = await ink()
       await h.evaluate(() => { localStorage.setItem('pdf-dark', '1'); window.dispatchEvent(new CustomEvent('haligtree:pdf-dark')) }); await h.waitForTimeout(2500)
       const dark = await ink()
-      const backing = await h.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--pdf-paper').trim())
-      check('with "Dark pages" on, a book\'s cover is drawn dark, as its pages are', light !== null && dark !== null && dark < light - 60, `cover brightness ${light} -> ${dark}`)
-      check('and its backing is the dark page, not white', backing === '#1c1a17', backing)
+      check('with "Dark pages" on, a book\'s cover keeps its own colours', light !== null && dark !== null && Math.abs(dark - light) < 20, `cover brightness ${light} -> ${dark}`)
       await shot(`books-dark-pages`)
       await h.evaluate(() => { localStorage.setItem('pdf-dark', '0'); window.dispatchEvent(new CustomEvent('haligtree:pdf-dark')) }); await h.waitForTimeout(600)
     }
