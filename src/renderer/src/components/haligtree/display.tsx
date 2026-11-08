@@ -135,6 +135,16 @@ export function arrange<T>(
 /** When a date falls, in the words the date filters and groups use. */
 export function period(iso: string | null): string {
   if (!iso) return 'No date'
+  // Worked out once a day for each date: a list of 800 captures grouped by date asked it of every row on every draw.
+  const today = new Date().toDateString()
+  if (periodDay !== today) (periodSeen.clear(), (periodDay = today))
+  let said = periodSeen.get(iso)
+  if (said === undefined) periodSeen.set(iso, (said = periodOf(iso)))
+  return said
+}
+const periodSeen = new Map<string, string>()
+let periodDay = ''
+function periodOf(iso: string): string {
   const days = daysSince(iso)
   if (dayjs(iso).isSame(dayjs(), 'day')) return 'Today'
   return days <= 7 ? 'This week' : days <= 30 ? 'This month' : days <= 365 ? 'This year' : 'Older'

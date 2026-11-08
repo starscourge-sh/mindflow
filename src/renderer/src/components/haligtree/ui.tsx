@@ -1,4 +1,5 @@
 import { Children, cloneElement, createContext, isValidElement, useCallback, useContext, useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { afterLayout } from '@/lib/after-layout'
 import { useToolKeys } from '@/lib/tool-keys'
 import { caretTakesEscape, layerOpen } from '@/lib/menu-keys'
 import { tagHue } from '@/extensions/tokens'
@@ -1862,7 +1863,8 @@ export function BackToTop({ target }: { target: HTMLElement | null }): React.JSX
     // Read once a frame, at its start, with the box's height kept from its
     // resizes: read on every scroll event, in the middle of a long list
     // drawing its next rows, it made the page lay itself out again each time.
-    let height = box.clientHeight
+    // Its height first read when the size watch tells of it, once laid out: read here, as the page mounted, it laid it all out there and then.
+    let height = Infinity
     let asked = 0
     const sized = new ResizeObserver(() => (height = box.clientHeight))
     sized.observe(box)
@@ -2185,16 +2187,18 @@ export function VirtualList<T>({ items, keyOf, holds, cursor, estimate = 48, siz
   // that mounts while its page is still settling (a list emptied into the Bin
   // and brought back with Undo) can find none at first, and with no scroller
   // it would draw no rows at all.
-  const findScroller = (): boolean => {
+  const findScroller = (now?: boolean): boolean => {
     let parent = box.current?.parentElement ?? null
     while (parent && !/auto|scroll/.test(getComputedStyle(parent).overflowY)) parent = parent.parentElement
-    if (parent) setScroller(parent)
+    if (parent) (now ? flushSync(() => setScroller(parent)) : setScroller(parent))
     return !!parent
   }
+  // Looked for once the list is laid out, before that frame is painted, its first rows drawn in the same frame:
+  // looked for as it mounted, every list in a pane opening worked out the half-built page's styles again (lib/after-layout.ts).
   useLayoutEffect(() => {
-    if (findScroller()) return
-    const again = setInterval(() => findScroller() && clearInterval(again), 100)
-    return () => clearInterval(again)
+    let again = 0
+    const off = box.current ? afterLayout(box.current, () => void (findScroller(true) || (again = window.setInterval(() => findScroller() && clearInterval(again), 100)))) : () => undefined
+    return () => (off(), clearInterval(again))
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
   // The list keeps its own place as rows above the screen change height (the
   // virtualizer moves the scroll by as much), so the browser's own anchoring

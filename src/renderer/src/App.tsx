@@ -662,12 +662,14 @@ export default function App(): React.JSX.Element {
       const all = [readPane.querySelector<HTMLElement>('.note-pane'), readPane.querySelector<HTMLElement>('.note-pane .haligtree-editor-content')]
       setReadScroller(all.find((one) => one && /auto|scroll/.test(getComputedStyle(one).overflowY)) ?? null)
     }
-    find()
+    // Found once laid out (the size watch tells of the pane at its first layout), and again at the next frame after
+    // its parts change: looked for at once, as a page opened, it worked out the half-built page's styles each time.
     const watch = new ResizeObserver(find)
     watch.observe(readPane)
-    const added = new MutationObserver(find)
+    let frame = 0
+    const added = new MutationObserver(() => void (frame ||= requestAnimationFrame(() => ((frame = 0), find()))))
     added.observe(readPane, { childList: true })
-    return () => (watch.disconnect(), added.disconnect())
+    return () => (watch.disconnect(), added.disconnect(), cancelAnimationFrame(frame))
   }, [readPane])
   /** The offer let go, by its ×: gone for good, with an Undo that brings the offer back. */
   const dropLeftover = (): void => {

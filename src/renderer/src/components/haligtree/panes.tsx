@@ -257,8 +257,8 @@ function PaneFrame({ pane, apis, split, front, hidden, least, groups, actions, s
     const el = pageRef.current
     if (!el) return
     const watch = new ResizeObserver(() => present && (cardWidth.current = el.offsetWidth))
+    // The watch tells of its first size once the pane is laid out: read at once, it laid out the pane still mounting.
     watch.observe(el)
-    cardWidth.current = el.offsetWidth
     return () => watch.disconnect()
   }, [present])
   // A pane opened by dropping a note beside the page grows out of the card

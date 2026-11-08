@@ -1,3 +1,4 @@
+import { afterLayout } from './after-layout'
 import { useEffect } from 'react'
 import type { Editor } from '@tiptap/core'
 
@@ -55,6 +56,10 @@ export function useNotePlace(editor: Editor | null, id: string | null, on: boole
   useEffect(() => {
     if (!on || !editor || !id) return
     const dom = editor.view.dom
+    // Set up once the note is laid out, where the page scrolls read then for nothing (lib/after-layout.ts).
+    let undo = (): void => undefined
+    const off = afterLayout(dom, () => (undo = follow()))
+    const follow = (): (() => void) => {
     const scroller = scrollerOf(dom)
     const kept = placeOf(id)
     let top = scroller?.scrollTop ?? 0
@@ -99,6 +104,8 @@ export function useNotePlace(editor: Editor | null, id: string | null, on: boole
       window.removeEventListener('pagehide', save)
       editor.off('selectionUpdate', onSelect)
     }
+    }
+    return () => (off(), undo())
   }, [editor, id, on])
 }
 

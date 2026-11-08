@@ -420,10 +420,12 @@ export function SplitDrop({ onDrop, onRow }: { onDrop: (carried: Carried, at: nu
         event.preventDefault()
         void enqueue([id])
       } else if (side) {
+        // Where the card was let go, read first, while the page is still as last drawn: read after the drag lets go
+        // of the page, it worked out every element's style again in the middle of the drop.
+        const card = document.querySelector('[data-split-card]')?.getBoundingClientRect()
         dropListDrag()
         event.preventDefault()
         swallowClick()
-        const card = document.querySelector('[data-split-card]')?.getBoundingClientRect()
         landing = card ? { rect: card, at: performance.now() } : null
         dropRef.current.onDrop(what, side.at)
       }

@@ -1,3 +1,4 @@
+import { afterLayout } from './after-layout'
 import { still } from './motion'
 
 /**
@@ -40,8 +41,13 @@ const wanted = (list: HTMLElement, row: HTMLElement, margin: number): number => 
   return Math.max(0, Math.min(list.scrollHeight - list.clientHeight, Math.round(list.scrollTop + move)))
 }
 
-export function glideIntoView(row: HTMLElement | null | undefined, { jump = false, margin = 8 }: { jump?: boolean; margin?: number } = {}): void {
-  if (!row) return
+export function glideIntoView(row: HTMLElement | null | undefined, options: { jump?: boolean; margin?: number } = {}): void {
+  // Where the row and its list are, read once the page is laid out, never while it is still being built (lib/after-layout.ts).
+  if (row) afterLayout(row, () => glideNow(row, options))
+}
+
+function glideNow(row: HTMLElement, { jump = false, margin = 8 }: { jump?: boolean; margin?: number }): void {
+  if (!row.isConnected) return
   const list = listOf(row)
   if (!list) return
   const glide = gliding.get(list)

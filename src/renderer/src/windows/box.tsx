@@ -144,10 +144,13 @@ if (window.api.room.left) {
     document.documentElement.toggleAttribute('data-card-gone', !drawn)
   }
   const sizes = new ResizeObserver(watchCard)
+  // Read once a frame for every change in it, at the frame's start: read at each change, as a list or a page mounted,
+  // it laid the half-built window out again and again (a task opened from a long list spent half a second here).
+  let frame = 0
   const watchNow = (): void => {
     const card = document.querySelector('.app-container')
     if (card) sizes.observe(card)
-    watchCard()
+    frame ||= requestAnimationFrame(() => ((frame = 0), watchCard()))
   }
   new MutationObserver(watchNow).observe(document.body, { childList: true, subtree: true })
   window.addEventListener('resize', watchCard)

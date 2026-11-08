@@ -36,15 +36,18 @@ export function Branches({ current, bare, rows: deep, className, children }: { c
         : [...rows.children].filter((row): row is HTMLElement => row instanceof HTMLElement && row.offsetHeight > 1 && !row.hasAttribute('data-no-twig') && !/^(fixed|absolute)$/.test(getComputedStyle(row).position)).map((row) => row.offsetTop + (row.dataset.twigTop ? Number(row.dataset.twigTop) : row.offsetHeight / 2))
       setMids((before) => (before.join() === next.join() ? before : next))
     }
-    measure()
+    // Read once laid out, never as the list mounts: the size watch tells of it at its first layout, before that
+    // frame is painted, when where the rows sit costs nothing to ask. Read at once, it laid the half-built page
+    // out there and then (a second pane opening spent a quarter of a second on it).
     const watch = new ResizeObserver(measure)
     watch.observe(rows)
     // A row dragged out and back in can leave the list the same height, which
     // a size watch never hears: the twigs stayed where the rows had been.
-    // Rows coming, going or being lifted out and set down are heard here.
-    const moved = new MutationObserver(measure)
+    // Rows coming, going or being lifted out and set down are heard here, and read once at the next frame for them all.
+    let frame = 0
+    const moved = new MutationObserver(() => void (frame ||= requestAnimationFrame(() => ((frame = 0), measure()))))
     moved.observe(rows, { childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'class'] })
-    return () => (watch.disconnect(), moved.disconnect())
+    return () => (watch.disconnect(), moved.disconnect(), cancelAnimationFrame(frame))
   }, [])
   const twig = (y: number): string => `A ${BEND} ${BEND} 0 0 0 ${TRUNK + BEND} ${y} H ${TIP}`
   const line = { fill: 'none', strokeWidth: 1 } as const

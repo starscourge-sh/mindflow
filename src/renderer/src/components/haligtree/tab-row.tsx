@@ -1,3 +1,4 @@
+import { afterLayout } from '@/lib/after-layout'
 import { Fragment, useLayoutEffect, useRef, useState, useSyncExternalStore, type ComponentType, type CSSProperties } from 'react'
 import { ChevronDown, Plus } from 'lucide-react'
 
@@ -101,13 +102,17 @@ function OneTab({ tab, group, actions, faint }: { tab: TabShown; group: TabGroup
 function Tabs({ group, actions }: { group: TabGroup; actions: TabActions }): React.JSX.Element {
   const now = useSyncExternalStore(follow, () => carry)
   const box = useRef<HTMLDivElement>(null)
+  // Read once the row is laid out, before it is painted, never in the middle of a pane mounting (lib/after-layout.ts).
   useLayoutEffect(() => {
     const row = box.current
-    const on = row?.querySelector<HTMLElement>('[data-tab-on]')
-    if (!row || !on || row.scrollWidth <= row.clientWidth) return
-    const [left, right] = [on.offsetLeft - 16, on.offsetLeft + on.offsetWidth + 16]
-    if (left < row.scrollLeft) row.scrollLeft = left
-    else if (right > row.scrollLeft + row.clientWidth) row.scrollLeft = right - row.clientWidth
+    if (!row) return
+    return afterLayout(row, () => {
+      const on = row.querySelector<HTMLElement>('[data-tab-on]')
+      if (!on || row.scrollWidth <= row.clientWidth) return
+      const [left, right] = [on.offsetLeft - 16, on.offsetLeft + on.offsetWidth + 16]
+      if (left < row.scrollLeft) row.scrollLeft = left
+      else if (right > row.scrollLeft + row.clientWidth) row.scrollLeft = right - row.clientWidth
+    })
   }, [group.active, group.tabs.length])
   const gap = now.gap?.pane === group.pane ? now.gap : null
   const shown = now.gap ? group.tabs.filter((one) => one.key !== now.from) : group.tabs
