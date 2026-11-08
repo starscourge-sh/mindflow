@@ -1,3 +1,4 @@
+import { TabChips } from './tab-chips'
 import { notePowers } from './note-powers'
 import { QuestionClues } from './offers-about'
 import { PropertyStrip } from './property-strip'
@@ -35,7 +36,6 @@ import { ThoughtDock } from './thought-bar'
 import { ago, dayMonth, dayName, heldFor, num, plural } from '../../../../main/dates'
 import { ReadThrough } from './read-through'
 import { MenuButton } from './collection-header'
-import { Chips } from './display'
 import { call } from '@/lib/haligtree'
 import { firstSentences, pageFor, useWiki } from '@/lib/wiki'
 import type { Answer } from '../../../../main/define'
@@ -99,7 +99,7 @@ export function QuestionsSaid({ on }: { on: Asked }): React.JSX.Element {
 
 /** The filters of Questions, at the line's left, in the same place on each. */
 export function QuestionTabs({ on, pick }: { on: Asked; pick: (one: Asked) => void }): React.JSX.Element {
-  return <div data-question-filter={on} className="flex shrink-0"><Chips className="shrink-0" options={ASKED} on={(id) => id === on} pick={(id) => (chime('tap'), pick(id as Asked))} /></div>
+  return <div data-question-filter={on} className="flex shrink-0"><TabChips name="questions" tabs={ASKED.map((one) => ({ value: one.id, label: one.label }))} value={on} onChange={pick} /></div>
 }
 
 /**

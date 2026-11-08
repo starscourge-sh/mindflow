@@ -1,3 +1,4 @@
+import { TabChips } from './tab-chips'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { remindersItem } from '@/lib/reminders'
 import { useToday } from '@/lib/use-today'
@@ -23,7 +24,7 @@ import { PriorityIcon, PriorityMark, TaskInput, markRoom, planFor, setPriority }
 import { useArrivals } from './note-list'
 import { TagRow } from './pass'
 import { Empty, Island, Kbd, Page, Prop, PropInput, Props, Rolling, Tags, toast, useListKeys, typing, VirtualList, Stepper, quietly, CloseBeside } from './ui'
-import { Chips, Display, arrange, openDisplay, useView, type Facet } from './display'
+import { Display, arrange, openDisplay, useView, type Facet } from './display'
 import { DayList, writeOutDay } from './day-list'
 import { MatrixView } from './matrix-view'
 import { readLines, tasksOf, tasksSaid } from '../../../../main/day-lines'
@@ -984,7 +985,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
   // Their pill on the list's box edge and their words on its ink edge, as every row of tabs (qa/list-edges.mjs).
   const lead = (
     <div data-list-tabs className="flex" style={{ marginLeft: 'calc(var(--list-edge) - var(--list-ink))' }}>
-      <Chips options={TASK_TABS} on={(id) => id === mode} pick={(id) => id !== mode && onOpen?.('view', id)} className="flex-nowrap"
+      <TabChips name="tasks" tabs={TASK_TABS.map((one) => ({ value: one.id as string, label: one.label }))} value={mode} onChange={(id) => onOpen?.('view', id)}
         // Today's lines, dragged onto a tab, go there (day-list.tsx).
         drops={mode === 'today' ? { upcoming: 'upcoming', later: 'later' } : undefined} />
     </div>

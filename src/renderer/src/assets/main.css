@@ -45,6 +45,13 @@
   font-weight: 500;
   color: var(--muted-foreground);
 }
+/* A chart's or a page's big number: the one other place the heading face shows besides a page's title (the one type rule:
+   the display face for titles and big numbers, the text font for everything else). */
+@utility mf-big-number {
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
 
 @utility mf-ruled {
   /* A place to write, in "Make a card"'s own way (card-form.tsx): one dashed line under what you write, with room
@@ -3372,7 +3379,7 @@ textarea[data-talking]::selection {
 }
 
 /* Review's Stats in the Decks tab's look: one surface (satin, 5px corners), so the three tabs read as one page. */
-[data-review-stats] [data-mono-card], [data-review-stats] .mf-island { border-radius: 5px; background: var(--mf-metal-bg); border: 1px solid color-mix(in oklab, var(--foreground) 11%, transparent); box-shadow: var(--mf-metal-shadow); }
+[data-review-stats] [data-mono-card], [data-review-stats] .mf-island { border-radius: 6px; background: var(--mf-metal-bg); border: 1px solid color-mix(in oklab, var(--foreground) 11%, transparent); box-shadow: var(--mf-metal-shadow); }
 [data-review-stats] > :first-child, [data-review-stats] > :first-child > :first-child { margin-top: 0; }
 /* Listening (talk.tsx, data-talking): an empty line's placeholder goes the moment dictation starts, so the words
    heard never come in over "Write a thought…". */

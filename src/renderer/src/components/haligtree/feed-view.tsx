@@ -8,6 +8,7 @@ import { thumbsRead, useThumb } from '@/lib/notes'
 import { useDecoded } from '@/lib/decoded'
 import { chime, type Cue } from '@/lib/sound'
 import { cn } from '@/lib/cn'
+import { TabChips } from './tab-chips'
 import { ago, dayjs, num, plural } from '../../../../main/dates'
 import type { Feed, FeedPost, FeedSide, PollAnswer, Reaction } from '../../../../main/feed'
 import { useGrades } from './review-view'
@@ -22,7 +23,6 @@ import { MenuButton } from './collection-header'
 import { copyLinkItem, type MenuItem } from './row-menu'
 import { dayLinkName } from './day-view'
 import { moveToBin } from '@/lib/to-bin'
-import { motion } from 'motion/react'
 import { GoalPreview, ReadyMoment, useReady } from './goal-preview'
 import { FeedReading } from './feed-reading'
 import { QueuedProvider, ReadLaterLabelled } from './read-later'
@@ -195,21 +195,8 @@ const keptTab = (): FeedTab => {
   }
 }
 
-/** The app's tab chips, fixed on the left of the column: the one chosen slides under its word. */
-export function TabChips<T extends string>({ name, tabs, value, onChange, className }: { name: string; tabs: { value: T; label: string }[]; value: T; onChange: (value: T) => void; className?: string }): React.JSX.Element {
-  return (
-    <span role="tablist" data-chips={name} className={cn('flex h-8 w-fit items-center rounded-lg border border-foreground/10 bg-accent/40 p-0.5 text-control', className)}>
-      {tabs.map((one) => (
-        <button key={one.value} type="button" role="tab" data-chip={one.value} aria-selected={value === one.value}
-          onClick={() => void (value !== one.value && (chime('tap'), onChange(one.value)))}
-          className={cn('relative h-7 rounded-md px-3 transition-colors', value === one.value ? 'text-foreground' : 'text-muted-foreground hover:text-foreground')}>
-          {value === one.value && <motion.span layoutId={`${name}-tab`} className="absolute inset-0 -z-10 rounded-md border border-foreground/15 bg-background shadow-sm" transition={{ type: 'spring', stiffness: 500, damping: 38 }} />}
-          {one.label}
-        </button>
-      ))}
-    </span>
-  )
-}
+/** The app's tab chips (tab-chips.tsx), kept here for those that import them from the Feed. */
+export { TabChips }
 
 const FINISHED = 'feedFinished'
 /** Set once the action row has been explained under a first post. */

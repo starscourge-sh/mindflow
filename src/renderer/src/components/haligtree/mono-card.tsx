@@ -119,7 +119,7 @@ export function MonoCard({ name, title, value, unit, chips, side, point, trend, 
       {/* One line, at rest and while a mark is pointed at: the readout takes the number's place here and nowhere else, so nothing grows. */}
       <div data-mono-head className="flex flex-nowrap items-center justify-between gap-2">
         <div className="flex min-w-0 flex-1 flex-nowrap items-baseline gap-2 overflow-hidden">
-          <span data-mono-value={value} data-mono-shown={swap ? swap[1] : value} className="text-2xl leading-none font-semibold text-foreground tabular-nums"><Rolling text={swap ? swap[1] : typeof value === 'number' ? value.toLocaleString() : value} /></span>
+          <span data-mono-value={value} data-mono-shown={swap ? swap[1] : value} className="mf-big-number text-2xl leading-none text-foreground"><Rolling text={swap ? swap[1] : typeof value === 'number' ? value.toLocaleString() : value} /></span>
           {(swap ? swap[2] : unit) && <span className="min-w-0 truncate text-sm text-muted-foreground">{swap ? swap[2] : unit}</span>}
           {chips && <span className={`flex shrink-0 gap-1 ${swap ? 'invisible' : ''}`}>{chips}</span>}
         </div>
@@ -157,7 +157,7 @@ export function DotMatrix({ days, say, onHover, columns = 7, dot = 14 }: { days:
           onPointerEnter={() => onHover(say(one))}
           initial={still ? false : { opacity: 0, scale: 0.4 }} animate={arrived ? { opacity: tone(one.n), scale: 1 } : { opacity: 0, scale: 0.4 }} whileHover={still ? undefined : { scale: 1.35, zIndex: 10 }}
           transition={{ duration: 0.25, ease: EASE, delay: still ? 0 : Math.min(0.6, at * 0.008) }}
-          className="aspect-square w-full rounded-[2px]" style={{ background: INK }} />
+          className="aspect-square w-full rounded-full" style={{ background: INK }} />
       ))}
     </div>
   )

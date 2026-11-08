@@ -1,6 +1,6 @@
 import { ReviewToolbar, ToolbarCompact, ToolbarSlot } from './review-toolbar'
 import { useEffect, useRef, useState } from 'react'
-import { motion } from 'motion/react'
+import { TabChips } from './tab-chips'
 import { chime } from '@/lib/sound'
 import { useStepped } from '@/lib/nav'
 import { ReviewView } from './review-view'
@@ -79,14 +79,9 @@ export function ReviewArea({ focus, onOpen, onFocus }: { focus?: string; onOpen:
   const go = (to: ReviewTab): void => void ((tab !== to || picture || studying) && (chime(to === 'today' ? 'riffle' : 'tap'), setStudying(null), setAim(null), setOnly(null), setNewest(null), setPicture(null), setPlace(NO_PLACE), setCard(null), setTab(to)))
   // The tabs on the left of the page's line, where they stay put; "Study now", the page's one filled button, on the right.
   const tabs = (
-    <span role="tablist" data-review-tabs className="flex h-8 items-center rounded-lg border border-foreground/10 bg-accent/40 p-0.5 text-control">
-      {TABS.map((one) => (
-        <button key={one.id} type="button" role="tab" aria-selected={tab === one.id} data-review-tab={one.id} onClick={() => go(one.id)}
-          className={`relative h-7 cursor-pointer rounded-md px-3 transition-colors ${tab === one.id ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'}`}>
-          {tab === one.id && <motion.span layoutId="review-tab" className="absolute inset-0 -z-10 rounded-md border border-foreground/15 bg-background shadow-sm" transition={{ type: 'spring', stiffness: 500, damping: 38 }} />}
-          {one.label}
-        </button>
-      ))}
+    // The one tab switch (tab-chips.tsx); go() hears every press, so a tab pressed again still shuts a form open over it.
+    <span data-review-tabs className="flex">
+      <TabChips name="review" data="review-tab" quiet tabs={TABS.map((one) => ({ value: one.id, label: one.label }))} value={tab} onChange={go} />
     </span>
   )
   // Today's cards, in place of the old Today tab: pressed while you study.
