@@ -1,5 +1,4 @@
 import { tagsIn } from '../../../main/tag-words'
-import { toast } from '@/components/haligtree/ui'
 
 /** The languages a tag's answers can be read in, by the Mac's own voices (free, offline, nothing to download). */
 export const LANGUAGES = [
@@ -89,8 +88,6 @@ function textOf(within: HTMLElement): { text: string; at: { node: Text; from: nu
   return { text, at }
 }
 
-/** The notice that says it is reading, closed (only it) when the reading ends, however it ends. */
-let notice = ''
 
 export async function readToMe(asked: string | HTMLElement | Promise<string | null>, place?: Element | null): Promise<boolean> {
   stopReading()
@@ -139,8 +136,6 @@ export async function readToMe(asked: string | HTMLElement | Promise<string | nu
     clearInterval(timer)
     clearInterval(watch)
     window.removeEventListener('pagehide', end)
-    if (notice) window.dispatchEvent(new CustomEvent('haligtree:untoast', { detail: { text: notice } }))
-    notice = ''
     document.removeEventListener('keydown', onKey, true)
     if (typeof CSS !== 'undefined' && CSS.highlights) CSS.highlights.delete('read-aloud')
     speechSynthesis.cancel()
@@ -156,9 +151,8 @@ export async function readToMe(asked: string | HTMLElement | Promise<string | nu
   stopping = end
   document.addEventListener('keydown', onKey, true)
   window.dispatchEvent(new CustomEvent('haligtree:reading', { detail: true }))
-  // Something is being said: the way to stop it is in sight, and Esc does it too.
-  notice = `Reading it aloud, in ${new Intl.DisplayNames(['en'], { type: 'language' }).of(language.split('-')[0]) ?? 'your language'}. Esc stops it.`
-  toast(notice, undefined, 'info', { label: 'Stop', key: 's', run: stopReading })
+  // No notice: the word being said is lit as it goes, which says it is reading; Esc stops it, and
+  // every menu that offered "Read it to me" offers "Stop reading" while it reads.
   window.addEventListener('pagehide', end)
   if (from) watch = setInterval(() => !from.isConnected && end(), 300)
   said.push({ text, language })

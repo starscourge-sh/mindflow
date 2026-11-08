@@ -38,10 +38,11 @@ $mf-ribbon-noise: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w
   --mf-ribbon-accent: var(--tt-brand-color-400, var(--primary));
   --mf-ribbon-hue: var(--tt-color-text-purple, var(--tt-color-text-blue));
   /* The ends: the accent and the hue together, taken deep toward indigo. The
-     middle: the hue, lifted toward lavender. Mixed, so never neon. */
-  --mf-ribbon-end: color-mix(in oklab, color-mix(in oklab, var(--mf-ribbon-accent) 45%, var(--mf-ribbon-hue)) 68%, #15163a);
-  --mf-ribbon-mid: color-mix(in oklab, var(--mf-ribbon-hue) 78%, var(--mf-ribbon-accent));
-  --mf-ribbon-light: color-mix(in oklab, var(--mf-ribbon-hue) 58%, #fff);
+     middle: the hue, only a little lifted. Darker on 8 Nov: it read pale and
+     candy-pink on a dark page. Mixed, so never neon. */
+  --mf-ribbon-end: color-mix(in oklab, color-mix(in oklab, var(--mf-ribbon-accent) 45%, var(--mf-ribbon-hue)) 38%, #15163a);
+  --mf-ribbon-mid: color-mix(in oklab, color-mix(in oklab, var(--mf-ribbon-hue) 78%, var(--mf-ribbon-accent)) 60%, #15163a);
+  --mf-ribbon-light: color-mix(in oklab, color-mix(in oklab, var(--mf-ribbon-hue) 90%, #fff) 82%, #15163a);
 
   position: relative;
   display: block;
@@ -54,7 +55,7 @@ $mf-ribbon-noise: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w
   background-color: var(--mf-ribbon-mid);
   /* Lit from above and shaded below, softly and all across: a strip with
      some thickness, not a flat bar. */
-  background-image: linear-gradient(180deg, rgb(255 255 255 / 0.24), transparent 50%, rgb(0 0 0 / 0.16)),
+  background-image: linear-gradient(180deg, rgb(255 255 255 / 0.14), transparent 50%, rgb(0 0 0 / 0.2)),
   linear-gradient(
     90deg,
     var(--mf-ribbon-end) 0%,
@@ -81,4 +82,11 @@ $mf-ribbon-noise: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w
 .tiptap.ProseMirror.haligtree-editor [data-type="horizontalRule"][data-variant="ribbon"] {
   margin: 1.5em 0;
   padding-block: 0.5rem;
+
+  /* Picked, its mark is as square as the strip: no rounded box around a cut ribbon. */
+  &.ProseMirror-selectednode,
+  &.ProseMirror-selectednode::before,
+  &.ProseMirror-selectednode::after {
+    border-radius: 0;
+  }
 }

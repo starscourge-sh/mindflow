@@ -1305,6 +1305,9 @@ function useClearSpot(on: boolean, lane: React.RefObject<HTMLDivElement | null>)
       const { innerWidth: width, innerHeight: height } = window
       const boxes: DOMRect[] = []
       for (const one of document.querySelectorAll<HTMLElement>(PANELS)) {
+        // A menu on its way out (a line in it was just picked, which is often what made the toast)
+        // is not stepped round: the toast went over it for a moment, then dropped to the bottom.
+        if (one.closest('[data-state="closed"]')) continue
         const at = one.getBoundingClientRect()
         if (!at.width || !at.height) continue
         // Read through, Tidy and Decide are the page itself while they are up: only their footer and Keys count,
@@ -1347,9 +1350,10 @@ function useClearSpot(on: boolean, lane: React.RefObject<HTMLDivElement | null>)
         : { ...clear, transform: `translateY(${Math.min(...meets.map((at) => at.top)) - 8 - low}px)`, transition: STEP_ASIDE }
       setSpot((was) => (JSON.stringify(was) === JSON.stringify(next) ? was : next))
     }
-    check()
+    // First looked a frame on: picking a menu's line shows the toast before that menu has begun to close.
+    const first = requestAnimationFrame(() => requestAnimationFrame(check))
     const timer = setInterval(check, 150)
-    return () => clearInterval(timer)
+    return () => (cancelAnimationFrame(first), clearInterval(timer))
   }, [on])
   return spot
 }
@@ -1587,7 +1591,7 @@ export function Toaster(): React.JSX.Element | null {
     </div>}
     {/* Centred along the bottom, where the eye drops after acting. It
         leaves the way it came, and a new one takes its place at once. */}
-    <div ref={lane} style={spot} className="pointer-events-none fixed top-[var(--toast-top,auto)] right-[var(--toast-right,0px)] bottom-[var(--toast-bottom,1.25rem)] left-[var(--toast-left,0px)] z-[60] flex flex-col items-center gap-2">
+    <div ref={lane} style={spot} className="pointer-events-none fixed top-[var(--toast-top,auto)] right-[var(--toast-right,0px)] bottom-[var(--toast-bottom,1.25rem)] left-[var(--toast-left,0px)] z-[60] flex flex-col items-center gap-2 transition-[bottom] duration-200 ease-[var(--mf-ease)] motion-reduce:transition-none">
     {/* Words not saved yet: one line above the toasts, up until they are in. */}
     <SaveTroubleLine />
     <ImportProgress />

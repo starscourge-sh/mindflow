@@ -47,14 +47,13 @@ async function run(level) {
       const said = await h.evaluate(() => window.__readAloud.at(-1))
       check('⌘K “Read it to me” reads the note in English', said?.language === 'en' && /judgements are up to us/.test(said?.text ?? ''), JSON.stringify(said))
       check('each word is lit as it is said, in order', lit.length >= 4 && lit[0] === 'Only' && lit[1] === 'our', lit.join(' '))
-      const notice = await h.evaluate(() => document.body.innerText.match(/Reading it aloud, in English\. Esc stops it\./)?.[0] ?? '')
-      check('a notice says it is reading, in which language, and how to stop', !!notice, notice)
+      // No toast while it reads (8 Nov): the lit words say it, and a menu offers "Stop reading".
+      check('no toast covers the page while it reads', !(await h.evaluate(() => /Reading it aloud/.test(document.body.innerText))))
       await h.keyboard.press('Escape')
       await wait(300)
       const after = await h.evaluate(() => [!!CSS.highlights.get('read-aloud'), !!document.querySelector('[role="dialog"][aria-label="Search"]')])
       check('Esc stops it: nothing lit, and nothing else closes', !after[0], JSON.stringify(after))
       const noticeNow = () => h.evaluate(() => /Reading it aloud/.test(document.body.innerText))
-      check('Esc closes the “Reading it aloud” notice too', !(await noticeNow()))
       // Esc in the moment before it starts, while main finds the words' language: the Enter and the Esc sent in one
       // go from the page, so the answer cannot come between them. Nothing is said, nothing lit, no notice.
       await h.keyboard.press('Meta+k')
@@ -93,7 +92,7 @@ async function run(level) {
       await wait(300)
       if (process.env.SHOT) await c.both(`${process.env.SHOT}/read-notice-after`)
       const ended = await h.evaluate(() => window.__reading.join(','))
-      check('read to the end, the notice closes with the voice, no “Stop” left over', during && ended === 'true,false' && !(await noticeNow()), `during ${during}, ${ended}`)
+      check('read to the end, it stops with the voice, nothing left over', !during && ended === 'true,false' && !(await noticeNow()), `during ${during}, ${ended}`)
       // A new reading over one still going: the first ends, one notice shows.
       await h.evaluate(() => { window.__reading = [] })
       await readFromK()
@@ -103,7 +102,7 @@ async function run(level) {
       await h.getByRole('menuitem', { name: /Read it to me/ }).click()
       await h.waitForFunction(() => window.__reading.length >= 3, null, { timeout: 5000 }).catch(() => {})
       const turns = await h.evaluate(() => window.__reading.join(','))
-      check('a new reading ends the one going first, and one notice shows', turns === 'true,false,true' && (await noticeNow()), turns)
+      check('a new reading ends the one going first', turns === 'true,false,true', turns)
       // Leaving the page: the voice and its notice stop.
       await c.go('inbox')
       await wait(900)

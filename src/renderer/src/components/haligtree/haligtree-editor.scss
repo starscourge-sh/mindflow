@@ -4574,7 +4574,9 @@ $run-next: '.react-renderer:has(> .tiptap-attachment.is-audio) + .react-renderer
   overflow: hidden;
   padding: 8px 12px;
   border-radius: 10px;
-  background: var(--popover);
+  // The popover colour over the page's own, so it is solid even where glass makes menus see-through:
+  // carried over words, the words showed through it.
+  background: linear-gradient(var(--popover), var(--popover)), var(--background);
   color: var(--popover-foreground, var(--foreground));
   box-shadow: var(--mf-shadow-lift), 0 0 0 1px color-mix(in oklab, var(--foreground) 10%, transparent);
   transform-origin: top left;
