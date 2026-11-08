@@ -66,9 +66,13 @@ export function PictureRow({ items, onOpen, menuFor, direct = false, counter = '
         <StillRow items={items} onOpen={onOpen} menuFor={menuFor} counter={counter} label={label} height={height} whole={fits} />
       ) : (
         seen && (
-          <Suspense fallback={<StillRow items={items} onOpen={onOpen} menuFor={menuFor} counter={counter} label={label} height={height} whole={false} />}>
+          // Coming in, it arrives once, as it will stay: its room kept empty while its code and pictures load, then the
+          // moving row faded in whole with the right picture in the middle. Never the still row first, then a swap.
+          <Suspense fallback={bridging ? <StillRow items={items} onOpen={onOpen} menuFor={menuFor} counter={counter} label={label} height={height} whole={false} /> : null}>
             {bridging && <div className="absolute inset-0 z-10"><StillRow items={items} onOpen={onOpen} menuFor={menuFor} counter={counter} label={label} height={height} whole={false} /></div>}
-            {menu ? <RowMenu items={menu}><div className="size-full">{carousel}</div></RowMenu> : carousel}
+            <div data-picture-row-shown={drawn || undefined} className={`size-full transition-opacity duration-200 ease-(--mf-ease) ${drawn || wasStill.current ? 'opacity-100' : 'opacity-0'}`}>
+              {menu ? <RowMenu items={menu}><div className="size-full">{carousel}</div></RowMenu> : carousel}
+            </div>
           </Suspense>
         )
       )}

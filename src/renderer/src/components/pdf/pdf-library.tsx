@@ -52,10 +52,10 @@ export function PdfLibrary({ query, top, files, onPut, keys, only }: { /** Off w
       .filter((one) => (!only || only.includes(one.src)) && words.every((word) => `${titleOf(one)} ${one.author} ${one.name}`.toLowerCase().includes(word)))
   }, [all, query, only?.join('\n')]) // eslint-disable-line react-hooks/exhaustive-deps
   const going = useGoing(all)
-  const [chosen, setChosen] = useState<string | null>(null)
-  useEffect(() => {
-    if (!chosen && books[0]) setChosen(books[0].src)
-  }, [books, chosen])
+  // The book in the panel: the one clicked, else the first. Worked out as the shelf is drawn, so the panel is there in
+  // the shelf's first frame: set a frame later, it narrowed the shelf under you and "Continue reading" re-centred.
+  const [clicked, setChosen] = useState<string | null>(null)
+  const chosen = clicked && books.some((one) => one.src === clicked) ? clicked : books[0]?.src ?? null
   const book = books.find((one) => one.src === chosen) ?? null
   // Picking on the shelf, as on every list: ⌘-click and ⇧-click add, ⌘A takes them all, ⌫ bins (the book in the panel, with nothing picked), Esc lets go.
   const here = useHere()

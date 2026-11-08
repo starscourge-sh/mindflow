@@ -35,6 +35,8 @@ export interface FlexCarouselItem {
   id?: string
 }
 
+/** How far a turn button may sit out beside the row, given the room: 3rem. */
+const TURN_ROOM = 48
 /** How many new pictures are made ready before they show. */
 const READIED = 12
 const idOf = (item: FlexCarouselItem): string => item.id ?? item.title ?? ''
@@ -324,6 +326,8 @@ export default function FlexCarousel({
     const gl = renderer.gl
     if (!renderer.isWebgl2) {
       gl.getExtension('WEBGL_lose_context')?.loseContext()
+      // Nothing to wait for: the row shows as it is.
+      readyRef.current?.()
       return undefined
     }
     gl.clearColor(0, 0, 0, 0)
@@ -652,6 +656,8 @@ export default function FlexCarousel({
         goal = snapPoint(m, goal)
         pos = goal
         rise.running = true
+        // Its pictures in view come up with the row, in its one fade (picture-row.tsx), not each again after it.
+        for (const slot of slots) if (slot.loaded) slot.ready = 1
         // Where a click opens (rows seen many times a day: Home, Media), no entrance: the row is simply there.
         rise.t = settingsRef.current.direct ? 1 : 0
       }
@@ -1091,12 +1097,15 @@ export default function FlexCarousel({
         const shared = slots.some((slot) => before.has(slot.id))
         const to = front || (!shared && before.size) ? 0 : found >= 0 ? found : Math.min(at, slots.length - 1)
         const from = front && found >= 1 && found <= 2 ? found : to
-        pos = m.centers[from] + (found >= 0 ? offset : 0)
-        goal = m.centers[to] + (found >= 0 && !front ? aim : 0)
+        // Not shown yet (its pictures still coming, a fresher read of the list arriving): it is simply there, on its
+        // first, when it shows. A glide now was seen as the row coming up on one book, then swinging to another.
+        const shown = rise.done || rise.running
+        pos = shown ? m.centers[from] + (found >= 0 ? offset : 0) : m.centers[to]
+        goal = m.centers[to] + (shown && found >= 0 && !front ? aim : 0)
         chosen = to
         layout = m
-        activeIndex = from
-        setActive(from)
+        activeIndex = shown ? from : to
+        setActive(activeIndex)
         settling = true
       }
       dirty = true
@@ -1158,6 +1167,29 @@ export default function FlexCarousel({
     setFrom(keyedTurn ? -1 : was.current)
     was.current = active
   }, [active, keyedTurn])
+  // The room beside the row, each side, to the edge of what scrolls it: the turn buttons sit out in it as far as it
+  // goes (up to 3rem), never past it. A page's margins are not always even (the Books shelf has its panel at the
+  // right, 1.25rem from the row), and a button out past the edge made the whole page scroll sideways.
+  useLayoutEffect(() => {
+    const frame = frameRef.current
+    if (!frame) return
+    let edge = frame.parentElement
+    while (edge && edge !== document.body && getComputedStyle(edge).overflowX === 'visible') edge = edge.parentElement
+    const room = (): void => {
+      const row = frame.getBoundingClientRect()
+      const box = edge?.getBoundingClientRect()
+      const left = box ? row.left - (box.left + edge!.clientLeft) : TURN_ROOM
+      const right = box ? box.left + edge!.clientLeft + edge!.clientWidth - row.right : TURN_ROOM
+      const out = (space: number): string => `${Math.round(Math.min(TURN_ROOM, space - 8))}px`
+      frame.style.setProperty('--turn-left', out(left))
+      frame.style.setProperty('--turn-right', out(right))
+    }
+    room()
+    const watch = new ResizeObserver(room)
+    watch.observe(frame)
+    if (edge) watch.observe(edge)
+    return () => watch.disconnect()
+  }, [])
   const n = items.length
   const turnBy = (way: 1 | -1) => (): void => {
     // Heard as the picture lands in the middle (its tick), not twice.
@@ -1220,8 +1252,9 @@ function TurnButton({ way, disabled, onClick, top }: { way: 1 | -1; disabled: bo
   return (
     // Outside the pictures' width, in the margin beside them (the user: "float outside of the designated width, so the
     // carousel is not squeezed any further"), level with the pictures' middle. It takes no room from the row. Short of
-    // margin, it comes in only as far as it must to stay on the page: past the page's edge it made the page scroll sideways.
-    <div className="absolute inset-y-0 w-9" style={{ [way === 1 ? 'right' : 'left']: 'max(-3rem, calc((100% - 100cqw) / 2 + 0.5rem))' }}>
+    // margin, it comes in only as far as it must to stay on the page (--turn-left, --turn-right, measured above): past
+    // the page's edge it made the page scroll sideways.
+    <div className="absolute inset-y-0 w-9" style={{ [way === 1 ? 'right' : 'left']: `calc(-1 * var(${way === 1 ? '--turn-right' : '--turn-left'}, 0px))` }}>
     <Tip label={way === 1 ? 'Next picture  →' : 'Previous picture  ←'}>
     <button type="button" data-flex-carousel-turn={way === 1 ? 'next' : 'previous'} aria-label={way === 1 ? 'Next picture' : 'Previous picture'}
       disabled={disabled} onClick={onClick} style={{ top: `calc(${top} - 18px)` }}
