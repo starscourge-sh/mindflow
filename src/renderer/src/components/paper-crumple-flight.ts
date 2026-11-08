@@ -39,11 +39,19 @@ export function warmPaper(): void {
   next()
 }
 
-/** A theme colour as the paper's back can take it: three.js reads rgb, not oklch. */
-const colourOf = (token: string): string => {
+/**
+ * The paper's back: a shade lighter than the page (the foreground mixed in), so
+ * in a dark theme a ball of it reads as paper, not a hole. As rgb: three.js reads no oklch.
+ */
+const paperBack = (): string => {
+  const probe = document.createElement('span')
+  probe.style.color = 'color-mix(in srgb, var(--foreground) 14%, var(--popover))'
+  document.body.append(probe)
+  const seen = getComputedStyle(probe).color
+  probe.remove()
   const pen = document.createElement('canvas').getContext('2d')
   if (!pen) return '#f4f0e8'
-  pen.fillStyle = getComputedStyle(document.documentElement).getPropertyValue(token).trim() || '#f4f0e8'
+  pen.fillStyle = seen || '#f4f0e8'
   return pen.fillStyle
 }
 
@@ -70,7 +78,7 @@ export async function sheetOver(box: Box, png: Uint8Array, lay: (fade?: boolean)
     // It crumples where it was for a moment, then flies, still crumpling, to its place.
     void sheet.canvas.animate([{ opacity: 1 }, { opacity: 1 }], { duration: crumpleMs }).finished.then(() => fly(to()), sheet.clear)
   }
-  const sheet = stageSheet(image, box.width, tall, box.left + box.width / 2, box.top + box.height / 2, colourOf('--popover'), () => {
+  const sheet = stageSheet(image, box.width, tall, box.left + box.width / 2, box.top + box.height / 2, paperBack(), () => {
     drawn = true
     // The copy of the row goes as its paper is on screen.
     lay()
