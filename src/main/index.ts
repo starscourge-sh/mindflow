@@ -1,3 +1,4 @@
+import { stopTimers } from './timers'
 import { ANCHOR } from './tagline'
 import { registerWrite } from './write'
 import { registerReminders } from './reminders'
@@ -5975,6 +5976,8 @@ app.whenReady().then(() => {
 // plain copy of the folder is whole, and the other-book backup sees no change.
 app.on('will-quit', () => {
   globalShortcut.unregisterAll()
+  // No timer is left to read the database once it is shut.
+  stopTimers()
   shutDatabase()
 })
 
