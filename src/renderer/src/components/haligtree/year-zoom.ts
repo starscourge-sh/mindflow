@@ -1,3 +1,4 @@
+import { detent, edge } from '@/lib/haptics'
 /**
  * The Journal's year, felt by hand (milestones.tsx, `YearMarks`): the strokes
  * near the pointer swell like the Dock, and a pinch spreads the year wider
@@ -280,11 +281,15 @@ export function useSwell(box: RefObject<HTMLElement | null>, reach: () => number
         // one stays put under the pointer and is the one a click opens.
         const px = event.clientX - svg.getBoundingClientRect().left + GAP / 2
         let x = 0
+        let on: SVGRectElement | null = null
         for (const rect of svg.querySelectorAll<SVGRectElement>('rect[data-stroke]')) {
           const rx = rect.x.baseVal.value
           if (rx > px) break
           x = rx
+          on = rect
         }
+        // Felt as the lens passes each day, as a dial's notches are: a light tick a day, a firmer one on a marked day.
+        if (one.x !== x && states.has(svg)) (on?.hasAttribute('data-year-marked') ? edge() : detent())
         one.x = x
         one.to = 1
         states.set(svg, one)
