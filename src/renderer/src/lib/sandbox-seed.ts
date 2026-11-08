@@ -252,7 +252,7 @@ A page is your own writing, made from things you kept. It links to them, and the
 
 **Try it:** press ⌘K and type *study* to find the task this page made, then tick it off.
 
-![A Greek marble head of a woman, 425 to 400 BC|320](${head})
+![A Greek marble head of a woman, 425 to 400 BC](${head})
 
 *A Greek marble head, 425 to 400 BC. The Met, open access.*
 
@@ -1545,7 +1545,7 @@ When the Pope kept asking when it would be done, Vasari has him answer: ${link(v
 
 ## Drawing first
 
-![Studies for the Libyan Sibyl, by Michelangelo|320](${sibylStudyPic})
+![Studies for the Libyan Sibyl, by Michelangelo](${sibylStudyPic})
 
 *Michelangelo, Studies for the Libyan Sibyl, red chalk, about 1510 to 1511. The Metropolitan Museum of Art, 24.197.2. Open Access, CC0.*
 
@@ -1562,7 +1562,7 @@ He drew the Sibyl from a young man, again and again: the twist of the back, the 
 
 The ignudi are ${link(contrapposto, 'contrapposto', 'nugget')} pushed as far as it goes: weight on one side, shoulders turned against the hips.
 
-![The Delphic Sibyl, by Michelangelo|320](${delphicPic})
+![The Delphic Sibyl, by Michelangelo](${delphicPic})
 
 *Michelangelo, The Delphic Sibyl, about 1509. Sistine Chapel ceiling, Vatican. Public domain, via Wikimedia Commons.*
 
