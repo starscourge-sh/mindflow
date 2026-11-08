@@ -429,13 +429,13 @@ export function YearMarks({ year, onOpenDay }: { year: string; onOpenDay?: (day:
   const gone = Math.max(0, Math.min(days, at))
   return (
     <DayMarkMenu day={aimed} all={all} onOpenDay={onOpenDay}>
-      <figure data-year-marks aria-label={`${year}, with ${num(all.length)} marked ${all.length === 1 ? 'day' : 'days'}`} className="mf-chart relative grid gap-2"
+      <figure data-year-marks aria-label={`${year}, with ${num(all.length)} marked ${all.length === 1 ? 'day' : 'days'}`} className="mf-chart relative grid min-w-0 grid-cols-[minmax(0,1fr)] gap-2"
         onContextMenuCapture={(event) => setAimed(dayAt(fromPointer(event.clientX, event.clientY) ?? Math.max(0, Math.min(days - 1, at))))}>
         <p data-year-marks-said className="text-control font-medium text-foreground tabular-nums">
           {at < 0 ? `${year} is ahead` : at >= days ? `${year} is gone` : `Day ${num(at + 1)} of ${num(days)}`}{all.length ? `, ${plural(all.length, 'day', 'days')} marked` : ''}
         </p>
         <DotRule>Each dot is a day, the solid ones gone; a coloured dot is a day you marked</DotRule>
-        <div ref={box} className="relative w-full">
+        <div ref={box} className="relative w-full min-w-0">
           <svg role="img" aria-label={`${num(gone)} of ${num(days)} days gone`} width={width} height={height} className="block max-w-full cursor-pointer overflow-visible"
             onPointerMove={(event) => setHover(fromPointer(event.clientX, event.clientY))} onPointerLeave={() => setHover(null)}
             onClick={() => {
