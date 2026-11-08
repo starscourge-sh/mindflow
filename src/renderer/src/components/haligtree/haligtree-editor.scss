@@ -3441,6 +3441,21 @@ $media-brand: var(--tt-brand-color-500, currentColor);
   }
 }
 
+// Full screen shows a finished drawing at its own size, as the canvas opens at
+// 100%, smaller only if it does not fit: stretched to the screen, three boxes
+// read as a poster.
+.tiptap-excalidraw-frame.is-full .tiptap-excalidraw-preview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  svg {
+    width: min(100%, var(--own-width, 100%));
+    height: auto;
+    max-height: 100%;
+  }
+}
+
 // Notion's pill, under the bottom edge. Invisible until the block is worth
 // resizing, which is when the pointer is on it.
 .tiptap-excalidraw-grip {
@@ -3508,17 +3523,14 @@ $media-brand: var(--tt-brand-color-500, currentColor);
 
 // The block's own tools: full screen, and the tick that finishes a drawing.
 //
-// One island in the shape Excalidraw gives its own floating tools, on the left
-// wall because theirs are on the right - two panels on the same edge would sit
-// on top of each other on a block only a few lines tall.
+// One island top right, where the toolbar keeps them while drawing and where
+// a diagram keeps its full screen, so they do not move between the two.
 .tiptap-excalidraw-tools {
   position: absolute;
   z-index: 5;
-  left: 0.75rem;
-  top: 50%;
-  transform: translateY(-50%);
+  right: 0.5rem;
+  top: 0.5rem;
   display: flex;
-  flex-direction: column;
   padding: 0.25rem;
   border-radius: 0.625rem;
   // The accent rather than a card: this floats over a drawing, and the page's

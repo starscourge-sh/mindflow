@@ -2124,10 +2124,6 @@ export function Home(): React.JSX.Element {
             </SidePeek>
           </div>
         )}
-        {/* No favourite yet: one quiet line says how one gets here, so the heading never stands alone. */}
-        {!sideTags.length && tags.length > 0 && !narrow && (
-          <p data-tags-none className="mb-1 ml-7 px-2 text-meta text-muted-foreground">Star a tag on the Tags page to keep it here.</p>
-        )}
         <Unfold open={tagsOpen && sideTags.length > 0}>
           {/* A tag's card comes beside the list, not over the tags under it. */}
           <div data-note-side>

@@ -1,6 +1,6 @@
 import { forwardRef, memo, useCallback, useEffect, useId, useImperativeHandle, useRef, useState, type ComponentType, type CSSProperties, type ReactNode, type RefAttributes } from 'react'
 import { motion, useAnimate, type DOMKeyframesDefinition } from 'motion/react'
-import { Circle, Eraser, Hand, ImagePlus, Minus, MousePointer2, MoveUpRight, Plus, Scan, Slash, Square, type LucideIcon } from 'lucide-react'
+import { Circle, Eraser, Focus, Hand, ImagePlus, Minus, MousePointer2, MoveUpRight, Plus, Slash, Square, type LucideIcon } from 'lucide-react'
 import { Excalidraw, getSceneVersion } from '@excalidraw/excalidraw'
 import type { AppState, ExcalidrawImperativeAPI } from '@excalidraw/excalidraw/types'
 import drawingStyles from '@excalidraw/excalidraw/index.css?url'
@@ -144,6 +144,18 @@ export default function ExcalidrawCanvas({ scene, onChange, start, end, header =
   const press = (selector: string): void => box.current?.querySelector<HTMLButtonElement>(selector)?.click()
 
   // The whole drawing in view, from the bar or from "More".
+  // Shrunk back from full screen into the note (excalidraw-view.tsx): the drawing into view.
+  useEffect(() => {
+    const frame = box.current?.closest('.tiptap-excalidraw-frame')
+    if (!frame || !api) return
+    // A frame on, once Excalidraw has taken in its new, smaller size.
+    const refit = (): void => void requestAnimationFrame(() => requestAnimationFrame(() => api.scrollToContent(undefined, { fitToContent: false, animate: false })))
+    frame.addEventListener('mf-refit', refit)
+    // Moving between full screen and the note puts the canvas somewhere new,
+    // so it starts again there: in view from its first frame, as it opens.
+    refit()
+    return () => frame.removeEventListener('mf-refit', refit)
+  }, [api])
   const fit = (): void => (chime('look'), api?.scrollToContent(undefined, { fitToContent: true, animate: true }))
   // Zoom about the middle of the view, in Excalidraw's own steps and limits.
   const zoomTo = (to: (now: number) => number): void => {
@@ -287,8 +299,10 @@ export default function ExcalidrawCanvas({ scene, onChange, start, end, header =
           </Tip>
         )}
 
-        {/* Undo and redo as one pill, as back and forward are in the main window. */}
-        <span className={`${PILL} mf-segs`} style={NO_DRAG}>
+        {/* Undo and redo as one pill, as back and forward are in the main window.
+            Put away in a narrow column (⌘Z still works), where the toolbar ran
+            off its right edge and hid "Done". */}
+        <span className={`${PILL} mf-segs @max-[32rem]:hidden`} style={NO_DRAG}>
           {[
             { label: 'Undo', keys: ['⌘Z'], off: !seen.undo, run: () => (chime('undo'), press('[data-testid="button-undo"]')), flip: false },
             { label: 'Redo', keys: ['⇧⌘Z'], off: !seen.redo, run: () => (chime('redo'), press('[data-testid="button-redo"]')), flip: true }
@@ -327,7 +341,7 @@ export default function ExcalidrawCanvas({ scene, onChange, start, end, header =
         <Tip label={keyed('Fit the drawing in view', ['⇧1'])}>
           <button type="button" aria-label="Fit the drawing in view" tabIndex={-1} style={NO_DRAG} onMouseDown={(event) => event.preventDefault()}
             onClick={fit} className={`${TOOL_BUTTON} @max-[36rem]:hidden`}>
-            <Scan className="size-4" />
+            <Focus className="size-4" />
           </button>
         </Tip>
 
@@ -343,7 +357,7 @@ export default function ExcalidrawCanvas({ scene, onChange, start, end, header =
           <DropdownMenuContent align="end" className="w-64 text-control" onCloseAutoFocus={(event) => event.preventDefault()}>
             {/* Here too, where a narrow bar has no room for its button (the menu is not in the bar's container). */}
             <DropdownMenuItem onSelect={fit}>
-              <Scan className="size-3.5 text-muted-foreground" />
+              <Focus className="size-3.5 text-muted-foreground" />
               Fit the drawing in view
               <DropdownMenuShortcut>⇧1</DropdownMenuShortcut>
             </DropdownMenuItem>

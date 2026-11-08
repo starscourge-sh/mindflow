@@ -78,9 +78,19 @@ export function ExcalidrawView(props: NodeViewProps): React.JSX.Element {
     // measures as the size it is being drawn at rather than the size it will
     // settle at - so it read the old width mid-flight and kept it, leaving the
     // grid stopping short of the frame. This asks once the transform is gone.
+    // The keys go to the canvas, not the note under it: "r" for a rectangle
+    // typed an "r" into the note behind the full-screen drawing. Once it has
+    // grown, when the canvas in its new place is there to take them.
+    const settle = (): void => {
+      window.dispatchEvent(new Event('resize'))
+      if (full) element.querySelector<HTMLElement>('.excalidraw')?.focus({ preventScroll: true })
+      // Back in the note's smaller box, the drawing is brought into view
+      // rather than left off to one side under Excalidraw's own button.
+      else element.dispatchEvent(new Event('mf-refit'))
+    }
     const played = growFrom(element, start)
-    if (!played) return void window.dispatchEvent(new Event('resize'))
-    void played.finished.then(() => window.dispatchEvent(new Event('resize')))
+    if (!played) return void requestAnimationFrame(settle)
+    void played.finished.then(settle)
   }, [full])
 
   /**
@@ -227,6 +237,8 @@ export function ExcalidrawView(props: NodeViewProps): React.JSX.Element {
       })
       // The export sizes itself in the drawing's own units. The block has a
       // height of its own, and the viewBox keeps the drawing's shape inside it.
+      // Its own size is kept for full screen, which shows it no larger.
+      svg.style.setProperty('--own-width', `${svg.getAttribute('width')}px`)
       svg.removeAttribute('width')
       svg.removeAttribute('height')
       if (live) setPreview(svg.outerHTML)
