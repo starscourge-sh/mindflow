@@ -212,7 +212,7 @@ const TYPED = 900
  * leaves the line under it to ride beside the pointer, as on the tilted cards
  * elsewhere (Tilt), the same springs and the same label. The line under it
  * only fades while the label carries its words, so nothing below moves and the
- * words are never shown twice (unless they run past the label's three lines,
+ * words are never shown twice (unless they run past the label's two lines,
  * when it stays so all of them can be read); it is back the moment the pointer leaves the
  * picture, which is the only way to reach it, so a click on it still writes.
  * Never on a picture that is selected (its toolbar is over it), held, dragged,
@@ -318,7 +318,7 @@ function PictureTilt({ editor }: { editor: Editor }): React.ReactNode {
       if (!line) return void (name.hide(), fade(null))
       const text = line.textContent!.trim()
       setCaption(text)
-      // Kept within the picture. A caption longer than the label's three
+      // Kept within the picture. A caption longer than the label's two
       // lines stays under the picture too, so all of it can still be read.
       const fits = name.measure(text).whole
       name.follow(event.clientX, event.clientY, area.current!)

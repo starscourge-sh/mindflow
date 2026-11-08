@@ -76,10 +76,12 @@ export function useTilt(by: number, lift = 1.03): {
 }
 
 const LABEL = `pointer-events-none fixed top-0 left-0 z-50 rounded-md px-2 py-1 ${FLOAT}`
-// One line cut short for a card's title; up to three whole lines for a caption.
+// One line cut short for a card's title; up to two lines for a caption, then "…".
 const LINE = 'max-w-60 truncate text-xs'
 // A picture's caption a size down (11px), so it stays a note beside the picture, not a second line of the page.
-const LINES = 'w-max max-w-[260px] line-clamp-3 break-words text-[0.6875rem] leading-[0.9375rem]'
+const LINES = 'w-max max-w-[260px] break-words text-[0.6875rem] leading-[0.9375rem]'
+// On the words inside, not the label: clamped with the label's padding round it, a third line showed cut in half under the second.
+const CLAMP = 'line-clamp-2'
 const GAP = { x: 14, y: 16 }
 
 /**
@@ -87,7 +89,7 @@ const GAP = { x: 14, y: 16 }
  * moves, then settles, as in reactbits' Tilted Card. `follow` moves it there
  * and shows it, kept inside `within` when given (to the pointer's left near
  * its right edge, above near its foot); `hide` lets it fade; `label` is what
- * to render, anywhere. `wrap` gives a caption up to three lines; `measure`
+ * to render, anywhere. `wrap` gives a caption up to two lines; `measure`
  * says whether its words fit in them.
  */
 export function useFollowLabel({ wrap = false, most = 12 }: { wrap?: boolean; /** The furthest it swings, in degrees. */ most?: number } = {}): {
@@ -111,10 +113,13 @@ export function useFollowLabel({ wrap = false, most = 12 }: { wrap?: boolean; /*
       const probe = document.createElement('span')
       probe.className = className
       probe.style.visibility = 'hidden'
-      probe.textContent = text
+      const words = probe.appendChild(document.createElement('span'))
+      if (wrap) words.className = CLAMP
+      words.textContent = text
       document.body.append(probe)
       const box = probe.getBoundingClientRect()
-      found = { width: box.width, height: box.height, whole: probe.scrollHeight <= probe.clientHeight + 1 && probe.scrollWidth <= probe.clientWidth + 1 }
+      const inner = wrap ? words : probe
+      found = { width: box.width, height: box.height, whole: inner.scrollHeight <= inner.clientHeight + 1 && inner.scrollWidth <= inner.clientWidth + 1 }
       probe.remove()
       sizes.current.set(text, found)
     }
@@ -160,7 +165,7 @@ export function useFollowLabel({ wrap = false, most = 12 }: { wrap?: boolean; /*
                 style={{ x: at.x, y: at.y, rotate: swing }}
                 initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, transition: { duration: 0.08 } }}
                 transition={{ duration: 0.16, ease: [0.23, 1, 0.32, 1] }}>
-                {text}
+                {wrap ? <span className={CLAMP}>{text}</span> : text}
               </motion.span>
             )}
           </AnimatePresence>,

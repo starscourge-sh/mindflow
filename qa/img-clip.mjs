@@ -160,7 +160,7 @@ try {
   }
   await h.evaluate(() => window.api.haligtree('settings:set', { postcards: false }))
   // Tilt and the following caption, two switches in Settings: tilt off by
-  // default (always on in Focus), the caption following on by default, and
+  // default (Focus too), the caption following on by default, and
   // each working without the other.
   await size(null)
   await h.evaluate((EDITOR) => {
@@ -181,7 +181,8 @@ try {
     ['tilt on, caption off', { tiltPictures: true, captionFollows: false }, false, true, false],
     ['tilt off, caption off', { tiltPictures: false, captionFollows: false }, false, false, false],
     ['tilt off, caption on', { tiltPictures: false, captionFollows: true }, false, false, true],
-    ['tilt off, in Focus', { tiltPictures: false, captionFollows: true }, true, true, true],
+    // Tilt follows its switch alone now, in Focus too (the user: tilt off by default).
+    ['tilt off, in Focus', { tiltPictures: false, captionFollows: true }, true, false, true],
   ]
   for (const [what, set, focus, tips, follows] of cases) {
     if (Object.keys(set).length) await h.evaluate((set) => window.api.haligtree('settings:set', set), set)
