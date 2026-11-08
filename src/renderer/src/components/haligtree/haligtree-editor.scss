@@ -1066,10 +1066,12 @@
   // The `+` bars along the bottom and right edges. Thin and quiet until the
   // pointer is on them: they run the whole length of the table, so anything
   // louder would read as part of it.
+  // The "+" drawn in ink, so the strip reads as a button, not a scroll track.
   .tiptap-table-add {
     display: grid;
     place-items: center;
-    color: var(--tt-card-bg-color);
+    color: var(--foreground);
+    cursor: pointer;
     font-size: 0.75rem;
     line-height: 0;
     opacity: 0.45;
@@ -2109,6 +2111,11 @@ html[data-motion="off"] .tiptap.ProseMirror.haligtree-editor .mf-caption {
 
   &[data-editing] > pre {
     margin-bottom: 0.5rem;
+  }
+
+  // Code colouring guesses a language for Mermaid; its italics read as emphasis.
+  pre * {
+    font-style: normal;
   }
 }
 

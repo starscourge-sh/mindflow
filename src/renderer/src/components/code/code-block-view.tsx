@@ -116,11 +116,17 @@ function DiagramView({ node, editor, getPos }: NodeViewProps) {
         {empty ? (
           <p className="mf-diagram-note"><b>An empty diagram.</b> Write Mermaid above it, such as “flowchart LR” and “A --&gt; B”.</p>
         ) : drawn.error ? (
-          <p className="mf-diagram-note"><b>Not drawn yet.</b> {drawn.error}</p>
+          <p className="mf-diagram-note"><b>Not drawn yet.</b> {plainError(drawn.error)}</p>
         ) : null}
       </div>
     </NodeViewWrapper>
   )
+}
+
+/** A parser's message in plain words: which line, never "Expecting NODE_STRING". */
+function plainError(message: string): string {
+  const line = /line (\d+)/i.exec(message)?.[1]
+  return line ? `Line ${line} is not finished, or has a mistake in it.` : "Mermaid cannot read it yet."
 }
 
 function CodeView({ node, updateAttributes }: NodeViewProps) {

@@ -86,7 +86,7 @@ try {
   // 5. A mistake says so.
   await h.keyboard.type(' -->', { delay: 20 }); await wait(700)
   s = await state()
-  check('a half-written line says it is not drawn yet, in words', /Not drawn yet/.test(s.note), JSON.stringify(s))
+  check('a half-written line says it is not drawn yet, in plain words', /Not drawn yet\. Line \d+ is not finished/.test(s.note), JSON.stringify(s))
   await shot('mistake')
   await h.keyboard.press('Backspace'); await h.keyboard.press('Backspace'); await h.keyboard.press('Backspace'); await h.keyboard.press('Backspace'); await wait(600)
   s = await state()
