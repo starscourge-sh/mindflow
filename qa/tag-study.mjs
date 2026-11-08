@@ -1,6 +1,7 @@
 // Study one tag: its cards and those of the tags under it (#astrophysics brings #astrophysics-holes, as an Anki
 // deck's levels come in), in Review, graded as any review is. From the tag's page ("Study") and from ⌘K
-// ("Study #astrophysics"). A tag under it studied alone brings only its own.
+// ("Study #astrophysics"). A tag under it studied alone brings only its own. Review names the round by its deck
+// title ("Studying Astrophysics."), not the bare tag.
 //   QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 QA_ARGS=--sandbox node qa/tag-study.mjs
 import { join } from 'path'
 import { checks } from './harness.mjs'
@@ -13,7 +14,7 @@ const shots = process.env.QA_SHOTS
 const waitFor = async (test, ms = 8000) => { for (const end = Date.now() + ms; Date.now() < end; await h.waitForTimeout(150)) if (await test()) return true; return false }
 const call = (...args) => h.evaluate((args) => window.api.haligtree(...args), args)
 const tagsOf = (card) => `${card.title ?? ''} ${card.prompt ?? ''} ${JSON.stringify(card.body ?? '')}`
-const roundLine = () => h.evaluate(() => [...document.querySelectorAll('p')].find((one) => /^Studying #/.test(one.textContent ?? ''))?.textContent ?? '')
+const roundLine = () => h.evaluate(() => [...document.querySelectorAll('p')].find((one) => /^Studying /.test(one.textContent ?? ''))?.textContent ?? '')
 try {
   // A card under #astrophysics, one level down.
   await call('cards:list', [{ term: 'What is an event horizon?', meaning: 'The edge past which nothing comes back #astrophysics-holes' }])
@@ -30,7 +31,7 @@ try {
   await h.locator('[data-study-menu]').click()
   await h.waitForTimeout(250)
   await h.locator('[data-study-tag]').click()
-  check('"Study" on the tag\'s page opens Review on that tag', await waitFor(async () => /^Studying #astrophysics\./.test(await roundLine())), await roundLine())
+  check('"Study" on the tag\'s page opens Review on that tag', await waitFor(async () => /^Studying Astrophysics\./i.test(await roundLine())), await roundLine())
   if (shots) await h.screenshot({ path: join(shots, 'tag-study.png') })
   const asked = await h.evaluate(() => document.querySelector('h2')?.textContent ?? '')
   check('the card in front is one of the tag\'s', whole.some((one) => asked.includes((one.prompt ?? '').slice(0, 20))), asked)
@@ -45,7 +46,7 @@ try {
   await h.keyboard.type('Study #astrophysics-holes', { delay: 15 })
   await h.waitForTimeout(600)
   await h.keyboard.press('Enter')
-  check('⌘K "Study #tag" opens Review on that tag', await waitFor(async () => /^Studying #astrophysics-holes\./.test(await roundLine())), await roundLine())
+  check('⌘K "Study #tag" opens Review on that tag', await waitFor(async () => /^Studying [^.]*holes\./i.test(await roundLine())), await roundLine())
 } catch (error) {
   check('the run finished', false, error.message.split('\n')[0])
 } finally {

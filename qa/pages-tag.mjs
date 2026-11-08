@@ -127,14 +127,14 @@ try {
   check('1600: the name on one line, whole', wide.titleLines === 1 && !wide.titleCut)
   if (shots) await both(`${shots}/tag-1600`)
 
-  // The window's own minimum is 560: the page fits it. A phone's 390 too, when the probe lets the window go that small.
-  await electron.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find((one) => one.webContents.getURL().includes('view=home'))?.setMinimumSize(1, 1))
-  for (const w of [560, 390]) {
+  // The window cannot go below 560 (setMinimumSize in src/main/index.ts), so 560 is the narrowest the page is ever
+  // drawn and the narrowest checked here; a phone's 390 was checked once, but no window reaches it.
+  for (const w of [560]) {
     await size(w, 844)
     await wait(900)
     const small = await page()
     check(`${w}: no sideways scroll, the name on one line`, small.overflow <= 0 && !small.sideways && small.titleLines === 1, `${small.overflow} ${small.titleLines} ${small.titleCut}`)
-    // At the window's own minimum the name is whole; on a phone's 390 a name this long ends in … and is whole in its tip.
+    // At the window's own minimum the name is whole.
     if (w === 560) check('560: the long name whole', !small.titleCut)
     check(`${w}: Read through, Study and ⋯ on one line`, new Set(small.actions.filter((one) => /Read through|Study|More/.test(one.name)).map((one) => one.top)).size === 1, JSON.stringify(small.actions.map((one) => one.top)))
     check(`${w}: Read through, Study and ⋯ all reachable`, small.actions.filter((one) => /Read through|Study|More/.test(one.name)).length >= 3, JSON.stringify(small.actions.map((one) => one.name)))

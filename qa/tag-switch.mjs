@@ -65,7 +65,8 @@ try {
   await h.waitForTimeout(800)
   // The sidebar's Tags list, unfolded.
   const shownIn = (await v('settings')).sidebarShown
-  await v('settings:set', { sidebarShown: [...new Set([...shownIn, 'tags'])] })
+  // The sidebar lists favourite tags only (settings' sideTags): these eight are made favourites, as "Add to favourites" does.
+  await v('settings:set', { sidebarShown: [...new Set([...shownIn, 'tags'])], sideTags: Object.keys(SIZES) })
   await h.waitForTimeout(800)
   const unfold = h.getByRole('button', { name: 'Show your favourite tags' }).first()
   if (await unfold.isVisible().catch(() => false)) await unfold.click()
