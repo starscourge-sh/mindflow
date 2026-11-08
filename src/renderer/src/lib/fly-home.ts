@@ -211,7 +211,7 @@ export function liftFrom(from: HTMLElement | null, home: Home): (() => void) | u
 
 /**
  * Moved to the Bin, shown: the row's picture crumples into a ball of paper
- * where it was (React Bits' PaperCrumple, components/paper-crumple.tsx) and
+ * where it was (React Bits' PaperCrumple, components/paper-crumple.ts) and
  * flies to the sidebar's Bin, which nods as it lands; with no Bin in sight it
  * crumples and fades where it was. The same for every list, every kind and
  * every way there but a key (`moveToBin`, `closeTask`, a capture let go).
@@ -247,7 +247,9 @@ export function binFlightFrom(from: HTMLElement | null): Flight | undefined {
   cover.append(shot.picture)
   document.body.append(cover)
   const hidden = from.animate({ visibility: ['hidden', 'hidden'] }, { duration: 2500 })
-  const lay = (): void => cover.remove()
+  // Gone at once once the paper is drawn; faded where it was when the paper is busy with another row.
+  const lay = (fade = false): void =>
+    void (fade ? cover.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 200, easing: 'ease-out', fill: 'forwards' }).finished.then(() => cover.remove(), () => cover.remove()) : cover.remove())
   // Its picture: taken as its menu opened, or now; three.js and the fold paths were made ready while the app was idle (`warmBin`).
   const early = picked && picked.row === from && JSON.stringify(picked.box) === JSON.stringify(box) ? picked.png : null
   const sheet = Promise.all([early ?? window.api.pictureOfRect({ x: box.left, y: box.top, width: box.width, height: box.height }), import('@/components/paper-crumple-flight')])

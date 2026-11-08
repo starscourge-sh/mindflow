@@ -20,14 +20,23 @@ if (frames) mkdirSync(frames, { recursive: true })
 const watch = () => h.evaluate(() => {
   const seen = (window.qaCrumple = { came: false, at: 0, gone: 0, last: null, ready: false, click: 0, longest: 0 })
   addEventListener('click', () => void (seen.click ||= performance.now()), { capture: true, once: true })
+  addEventListener('keydown', () => void (seen.click ||= performance.now()), { capture: true, once: true })
+  // With no paper (a key), the watch ends 1.2s after the key.
+  setTimeout(() => void (!seen.came && seen.click && (seen.gone = seen.click + 1200)), 3000)
   // The longest task on the page's thread from the click till the paper is gone.
   new PerformanceObserver((list) => { for (const one of list.getEntries()) if (seen.click && !seen.gone) seen.longest = Math.max(seen.longest, Math.round(one.duration)) }).observe({ type: 'longtask' })
   const tick = () => {
-    const paper = document.querySelector('[data-crumple]')
+    const stage = document.querySelector('[data-paper-stage]')
+    const paper = document.querySelector('[data-crumple]') ?? (stage?.style.visibility === 'visible' ? stage : null)
     if (paper) {
       if (!seen.came) (seen.came = true, (seen.at = performance.now()))
-      seen.last = paper.getBoundingClientRect().toJSON()
-      if (!seen.ready && paper.querySelector('[data-status="ready"]')) seen.ready = performance.now() - seen.at
+      // The stage is the whole window: where the paper is, is its middle (the transform's origin) moved by its flight.
+      if (paper === stage) {
+        const m = new DOMMatrix(getComputedStyle(stage).transform)
+        const [ox, oy] = stage.style.transformOrigin.split(' ').map(parseFloat)
+        seen.last = { x: ox + m.e - 1, y: oy + m.f - 1, width: 2, height: 2 }
+      } else seen.last = paper.getBoundingClientRect().toJSON()
+      if (!seen.ready && stage?.style.visibility === 'visible') seen.ready = performance.now() - seen.at
     } else if (seen.came && !seen.gone) seen.gone = performance.now()
     if (!seen.gone) requestAnimationFrame(tick)
   }
@@ -72,7 +81,11 @@ try {
   for (const [n, shot] of ((await film) ?? []).entries()) writeFileSync(`${frames}/f${String(n).padStart(2, '0')}-${shot.at}ms.png`, Buffer.from(shot.png, 'base64'))
   await clicked; await wait(1200)
   let s = await seen()
-  check('click: the paper crumpled (PaperCrumple drew it)', s.came && s.ready, JSON.stringify(s))
+  // Where the time goes: the paper's own marks (paper-crumple.tsx), the warm-up's and this move's.
+  const parts = await h.evaluate(() => performance.getEntriesByType('measure').filter((one) => one.name.startsWith('paper:')).map((one) => `${one.name.slice(6)} ${Math.round(one.startTime)} ${one.duration.toFixed(1)}ms`))
+  console.log(['click at ' + Math.round(s.click), ...parts.filter((one) => !/^(deform|render|frame) /.test(one) || Number(one.split(' ').at(-1).replace('ms', '')) > 4)].join('\n'))
+  console.log(`frames drawn ${parts.filter((one) => one.startsWith('frame')).length}, longest ${Math.max(0, ...parts.filter((one) => one.startsWith('frame')).map((one) => Number(one.split(' ').at(-1).replace('ms', ''))))}ms`)
+  check('click: the paper crumpled (React Bits paper drawn)', s.came && s.ready, JSON.stringify(s))
   // The menu blinks its choice first (menu-blink.ts, about 150ms, as macOS does); the move starts as it runs.
   check('click: a copy of the row stands in its place in the frame the move starts (no empty slot)', s.came, `${Math.round(s.at - s.click)}ms click to move (the menu's blink)`)
   check('click: 3D paper drawn under 100ms after the move starts', s.ready < 100, `${Math.round(s.ready)}ms move to paper`)
@@ -103,6 +116,7 @@ try {
   await h.keyboard.press('Meta+Backspace'); await wait(1400)
   s = await seen()
   check('⌘⌫: nothing crumples', !s.came)
+  console.log(`⌘⌫ (no paper, the app's own work): longest task ${s.longest}ms`)
   check('⌘⌫: still goes to the Bin', !(await inList(id)))
 
   // 4. Motion off: nothing crumples.
