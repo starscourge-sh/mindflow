@@ -370,7 +370,7 @@ function Replay({ nodes, show, onClose }: { nodes: NoteMap['nodes']; show: React
   const across = width * share
   return (
     // Quiet, at the map's foot between the key and the notes left off: the map stays the thing to look at.
-    <div data-map-replay-bar className={`pointer-events-auto grid w-full grid-cols-[28px_auto_minmax(0,1fr)_auto] grid-rows-[28px_auto] items-center gap-x-2.5 gap-y-0 rounded-lg py-1.5 pr-1.5 pl-2 ${FLOAT}`}
+    <div data-map-replay-bar className={`pointer-events-auto grid w-full grid-cols-[28px_auto_minmax(0,1fr)_auto] grid-rows-[28px_auto] items-center gap-x-2.5 gap-y-0 rounded-lg py-1.5 pr-1.5 pl-2 text-popover-foreground shadow-(--mf-panel-shadow) ring-1 ring-foreground/10 ${FROSTED}`}
       style={{ '--mf-sound-faint': 'color-mix(in oklab, var(--foreground) 22%, transparent)' } as React.CSSProperties}>
       <Tip label={state === 'playing' ? 'Pause' : state === 'ended' ? 'Play again' : 'Play'}>
         <span role="button" tabIndex={0} data-map-replay-play className="mf-sound-play" style={{ width: 28, height: 28 }} data-state={state} aria-label={state === 'playing' ? 'Pause' : state === 'ended' ? 'Play again' : 'Play'}
@@ -425,6 +425,9 @@ function Replay({ nodes, show, onClose }: { nodes: NoteMap['nodes']; show: React
     </div>
   )
 }
+
+/** Frosted over the map, whatever the "veil" setting: the dots pass under it softened, the bar reads as glass on the map. */
+const FROSTED = 'bg-[color-mix(in_oklab,var(--popover)_62%,transparent)] backdrop-blur-xl backdrop-saturate-150'
 
 /** "Nov 2024": a timeline's end. */
 const monthYear = (time: number): string => new Date(time).toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })
