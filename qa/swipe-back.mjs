@@ -69,7 +69,7 @@ const rows = await listRows()
 check('resting past the line opens the pages behind, nearest first', rows.length >= 2, rows.join(' | '))
 if (FRAMES) await c.both(`${FRAMES}/list`)
 await h.keyboard.press('ArrowDown'); await h.keyboard.press('Enter'); await pause(800)
-check('↓ Enter goes to that page', (await title()) === rows[1] && !(await listRows()).length, await title())
+check('↓ Enter goes to that page', (await title()) === rows[1].split(' › ')[0] && !(await listRows()).length, await title())
 
 await h.keyboard.press('Meta+BracketRight'); await pause(400); await h.keyboard.press('Meta+BracketRight'); await pause(700)
 await pause(300)
@@ -83,7 +83,7 @@ const rows2 = await listRows()
 await pause(300)
 await wheel(X, Y, 0, 24 * DOWN); await pause(50)
 await lift(); await pause(800)
-check('two fingers down then let go picks the next one', (await title()) === rows2[1], await title())
+check('two fingers down then let go picks the next one', (await title()) === rows2[1].split(' › ')[0], await title())
 
 // The list never shows a place twice: Gems, Writing, Gems, Writing behind you is Gems and Writing once each.
 await go('articles'); await go('nuggets'); await go('articles'); await go('nuggets'); await go('settings')
