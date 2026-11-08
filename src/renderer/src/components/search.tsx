@@ -486,7 +486,7 @@ export function Search({ onOpen: told, onAside: toldAside, onTab: toldTab, onClo
             )}
             {slow && query.trim() && (
               // The orb only if it is a real wait: a search back at once never shows it.
-              <p className="flex px-2 py-2"><Orb state="searching" label="Searching…" className="animate-in fade-in-0 duration-200" /></p>
+              <p className="flex px-2 py-2"><Orb label="Searching…" className="animate-in fade-in-0 duration-200" /></p>
             )}
             {query.trim() && searched === query && !results.length && !doing.length && (
               <p className="px-2 py-3 text-sm text-muted-foreground">

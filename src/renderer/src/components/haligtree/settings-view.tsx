@@ -1578,7 +1578,7 @@ function SceneryFolders({ folders, on, onSave }: { folders: string[]; on: boolea
     >
       {/* The first look through a folder makes its small copies: a real wait,
           said by the bare orb beside the button. */}
-      {on && found?.scanning && <Tip label="Making smaller copies of new pictures"><span role="status" aria-label="Making copies" className="flex size-7 items-center justify-center"><Orb state="searching" /></span></Tip>}
+      {on && found?.scanning && <Tip label="Making smaller copies of new pictures"><span role="status" aria-label="Making copies" className="flex size-7 items-center justify-center"><Orb /></span></Tip>}
       <Button variant="outline" size="sm" onClick={() => void haligtree.sceneryFolder().then((folder) => {
         if (!folder) return
         if (folders.includes(folder)) return refuse('That folder is already in the list')

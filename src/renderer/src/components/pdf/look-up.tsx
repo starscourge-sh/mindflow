@@ -148,7 +148,7 @@ export function LookUpCard({ words, at, from, range, onClose }: { words: string;
       )}
       {one &&
         (meaning === "looking" ? (
-          <p className="look-up-waiting"><Orb state="searching" label="Opening the dictionary…" /></p>
+          <p className="look-up-waiting"><Orb label="Opening the dictionary…" /></p>
         ) : found ? (
           <div className="look-up-dictionary" data-look="dictionary">
             {found.part && <p className="look-up-part">{found.part}</p>}
@@ -162,7 +162,7 @@ export function LookUpCard({ words, at, from, range, onClose }: { words: string;
         ))}
       <hr className="look-up-rule" />
       {wiki === "looking" ? (
-        <p className="look-up-waiting"><Orb state="searching" label="Asking Wikipedia…" /></p>
+        <p className="look-up-waiting"><Orb label="Asking Wikipedia…" /></p>
       ) : page ? (
         <div className="look-up-wiki" data-look="wikipedia">
           {/* Offline, a picture that cannot load is left out, never shown broken. */}

@@ -253,7 +253,7 @@ export function DefineGhost({ definition, onKeep, onHide, onFix, picked = false,
     return (
       // The app's one sign of something on its way, the orb, as a link card shows while it loads.
       <div ref={box} style={hold} data-define="looking" className={`${LINE} mf-define-arrive pt-1.5 text-control`}>
-        <Orb state="searching" label={`Looking up \u201c${definition.word}\u201d\u2026`} />
+        <Orb label={`Looking up \u201c${definition.word}\u201d\u2026`} />
       </div>
     )
   }
