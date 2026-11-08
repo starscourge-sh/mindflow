@@ -57,6 +57,8 @@ const film = async (name, work) => {
 const frameGaps = (ms) => h.evaluate((ms) => new Promise((res) => { const gaps = []; let then = performance.now(); const end = then + ms; const tick = (now) => { gaps.push(now - then); then = now; if (now < end) requestAnimationFrame(tick); else res(gaps.slice(1)) }; requestAnimationFrame(tick) }), ms)
 const stat = (gaps) => { const s = [...gaps].sort((a, b) => a - b); return { n: s.length, p95: Math.round(s[Math.floor(s.length * 0.95)] ?? 0), max: Math.round(s[s.length - 1] ?? 0) } }
 try {
+  // Somewhere first, so the year has a page behind it that a stray sideways swipe could go Back to.
+  await go('inbox')
   await go('yearpage')
   check('the year is drawn', await waitFor(() => h.evaluate(() => !!document.querySelector('[data-year-marks] svg [data-stroke]'))))
   await h.locator('[data-year-marks]').scrollIntoViewIfNeeded()
@@ -91,9 +93,56 @@ try {
     return Math.min(999, ...names.flatMap((n) => strokes.filter((s) => s.left >= n.left - 1 && s.left <= n.right + 1).map((s) => s.top - n.bottom)))
   })
   check('...a swollen stroke never touches a name above it', nameGap >= 1, String(nameGap))
+  // --- the Dock: wider, spread apart, the rest closing up, far ones untouched
+  const lay = (b = 0) => h.evaluate((b) => { const left = document.querySelectorAll('[data-year-band]')[b].querySelector('[data-year-clip]').getBoundingClientRect().left; return [...document.querySelectorAll('[data-year-band]')[b].querySelectorAll('svg [data-stroke]')].map((r) => { const g = r.getBoundingClientRect(); return { x: Math.round((g.left - left) * 100) / 100, w: Math.round(g.width * 100) / 100, day: r.getAttribute('data-year-day') } }) }, b)
+  await h.mouse.move(box.x + box.width / 2, box.y - 200); await wait(700)
+  const flat = await lay()
+  await h.mouse.move(xOf(at), box.y + box.height - 6); await wait(600)
+  const lens = await lay()
+  const moved = (i) => Math.round((lens[i].x + (lens[i].w - 1) / 2 - flat[i].x) * 10) / 10
+  console.log('fisheye widths at 0..4 off:', [0, 1, 2, 3, 4].map((d) => lens[at + d].w).join(','), '| moved by, -12..12:', [-12, -8, -4, -2, -1, 0, 1, 2, 4, 8, 12].map((d) => moved(at + d)).join(','), '| far', [100, 150, 200].filter((d) => lens[at + d]).map((d) => moved(at + d)).join(','), '| step', step.toFixed(2))
+  check('the stroke under the pointer is 3px wide, its neighbours 2px, then 1px', lens[at].w === 3 && lens[at + 1].w === 2 && lens[at - 1].w === 2 && lens[at + 4].w === 1 && lens[at - 4].w === 1, [-4, -1, 0, 1, 4].map((d) => lens[at + d].w).join(','))
+  check('...it stays where it was, under the pointer', Math.abs(moved(at)) <= 0.5, String(moved(at)))
+  check('...its neighbours are pushed out either side', moved(at + 2) >= 1.5 && moved(at - 2) <= -1.5 && moved(at + 4) > moved(at + 1), [-4, -2, 2, 4].map((d) => moved(at + d)).join(','))
+  check('...far strokes do not move', lens.every((one, i) => Math.abs(i - at) < 75 || (one.x === flat[i].x && one.w === 1)), String(lens.filter((one, i) => Math.abs(i - at) >= 75 && (one.x !== flat[i].x || one.w !== 1)).length))
+  check('...the row keeps its width', lens[0].x === flat[0].x && lens[lens.length - 1].x === flat[flat.length - 1].x, `${lens[0].x}..${lens[lens.length - 1].x} vs ${flat[0].x}..${flat[flat.length - 1].x}`)
+  const touching = lens.filter((one, i) => i && one.x < lens[i - 1].x + lens[i - 1].w + 1).length
+  check("...no two strokes touch, all on whole pixels", touching === 0 && lens.every((one) => Math.abs(one.x - Math.round(one.x)) < 0.02), lens.flatMap((one, i) => i && one.x < lens[i - 1].x + lens[i - 1].w + 1 ? [`${i - at}: ${lens[i - 1].x}+${lens[i - 1].w} ${one.x}+${one.w}`] : []).join(" | "))
+  // A marked stroke near the pointer moves, and its name with it.
+  const nameOf = () => h.evaluate(() => [...document.querySelectorAll('[data-year-band="0"] [data-mark-label][data-mark-day]')].map((el) => ({ day: el.dataset.markDay, x: el.getBoundingClientRect().left })))
+  const mark = flat.findIndex((one, i) => base[i]?.marked && i > 20 && i < flat.length - 20)
+  if (mark > 0 && (await nameOf()).some((one) => one.day === flat[mark].day)) {
+    await h.mouse.move(box.x + box.width / 2, box.y - 200); await wait(700)
+    const n0 = (await nameOf()).find((one) => one.day === flat[mark].day).x
+    await h.mouse.move(xOf(mark + 3), box.y + box.height - 6); await wait(600)
+    const l1 = await lay(); const n1 = (await nameOf()).find((one) => one.day === flat[mark].day).x
+    check('a marked stroke moves with the spread, its name with it', l1[mark].x !== flat[mark].x && Math.abs((n1 - n0) - (l1[mark].x + (l1[mark].w - 1) / 2 - flat[mark].x)) <= 0.5, `stroke ${flat[mark].x}->${l1[mark].x}, name ${n0}->${n1}`)
+    await h.mouse.move(xOf(at), box.y + box.height - 6); await wait(400)
+  } else console.log('no named mark to follow')
+
   await film('leave', async () => { await h.mouse.move(box.x + box.width / 2, box.y - 200) })
   const after = await heights()
   check('...gone after the pointer leaves', after.every((one, i) => one.h === base[i].h), JSON.stringify(after.filter((one, i) => one.h !== base[i].h).length))
+  const rest = await lay()
+  check('...every stroke back in its place, 1px wide', rest.every((one, i) => one.x === flat[i].x && one.w === 1), String(rest.filter((one, i) => one.x !== flat[i].x || one.w !== 1).length))
+
+  // --- a sideways swipe over the whole year never goes Back or Forward
+  const place = () => h.evaluate(() => ({ href: location.href, len: history.length, tab: document.querySelector('[data-tab-on]')?.getAttribute('data-drag-title') ?? '', year: !!document.querySelector('[data-year-marks]'), arrow: !!document.querySelector('[data-swipe-arrow]'), went: (window.__swipeLog ?? []).filter((one) => String(one.end ?? '').startsWith('go')).length }))
+  const fling = async (dx) => { await swipe(xOf(at), box.y + box.height - 6, dx, 24); await h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:swipe-phase', { detail: 'ended' }))); await wait(700) }
+  const before = await place()
+  await fling(-30); await fling(30)
+  const flatAfter = await place()
+  check('a sideways swipe over the whole year stays on the year (no Back, no arrow)', JSON.stringify(flatAfter) === JSON.stringify(before), `${JSON.stringify(before)} -> ${JSON.stringify(flatAfter)}`)
+  // The same swipe beside the chart, on the page, still goes Back: the year only keeps its own.
+  const said = await h.locator('[data-year-marks-said]').boundingBox()
+  await h.evaluate(([x, y]) => new Promise((res) => { let i = 0; const tick = () => { (document.elementFromPoint(x, y) ?? document.body).dispatchEvent(new WheelEvent('wheel', { deltaX: -30, deltaY: 0, clientX: x, clientY: y, bubbles: true, cancelable: true })); if (++i < 24) requestAnimationFrame(tick); else res() }; requestAnimationFrame(tick) }), [said.x + 4, said.y + said.height / 2])
+  await h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:swipe-phase', { detail: 'ended' }))); await wait(900)
+  const away = await place()
+  check('...the same swipe on the page beside it still goes Back', !away.year && away.went === before.went + 1, JSON.stringify(away))
+  await go('yearpage')
+  await h.locator('[data-year-marks]').scrollIntoViewIfNeeded()
+  await wait(500)
+  box = await h.locator('[data-year-band="0"] svg').boundingBox()
 
   // --- marked strokes clear of other names
   const crossing = await h.evaluate(() => {
@@ -139,6 +188,10 @@ try {
   await film('pastend', async () => { await swipe(x, y, -400, 60) }); await wait(700)
   const p2 = await pan()
   check('...past the start it springs back to the start', p2 === 0, String(p2))
+  const zoomedBefore = await place()
+  await fling(-30); await fling(30)
+  const zoomedAfter = await place()
+  check('...and never goes Back or Forward while zoomed', JSON.stringify(zoomedAfter) === JSON.stringify(zoomedBefore) && (await zoom()) > 3, `${JSON.stringify(zoomedBefore)} -> ${JSON.stringify(zoomedAfter)}`)
   // A plain scroll still scrolls the page.
   const scroller = () => h.evaluate(() => { let el = document.querySelector('[data-year-marks]'); while (el && !(el.scrollHeight > el.clientHeight + 4 && /auto|scroll/.test(getComputedStyle(el).overflowY))) el = el.parentElement; return el ? el.scrollTop : -1 })
   const s0 = await scroller()

@@ -162,11 +162,22 @@ export function useYearZoom(box: RefObject<HTMLElement | null>, bands: Band[]): 
   return { view, whole: () => whole.current() }
 }
 
+/** The normal curve's share left of `u` (Abramowitz and Stegun 7.1.26, close to a thousandth): the fisheye's sweep. */
+const below = (u: number): number => {
+  const x = Math.abs(u) / Math.SQRT2
+  const t = 1 / (1 + 0.3275911 * x)
+  const erf = 1 - t * (0.254829592 + t * (-0.284496736 + t * (1.421413758 + t * (-1.453152027 + t * 1.061405429)))) * Math.exp(-x * x)
+  return u < 0 ? (1 - erf) / 2 : (1 + erf) / 2
+}
+const bell = (u: number): number => Math.exp(-(u * u) / 2)
+
 /**
- * The strokes near the pointer stand taller and a touch darker, the one under it tallest, falling off over about
- * twelve days either side like the Dock; leaving, they ease back down. Written straight onto each stroke's style a
- * frame at a time (React draws the year once). Nothing swells with Motion off or Reduce motion; the pointed-at stroke
- * still stands up as before.
+ * The Dock, on the year: near the pointer the strokes stand taller, grow wider (one pixel to three under it) and
+ * brighten, and spread apart, the ones a little further off closing up to make the room, so the row keeps its width
+ * and strokes far off never move. Falls off over about ten strokes either side, like Line Sidebar. The stroke under the
+ * pointer stays where it is, widest and tallest: the one a click opens. Marked strokes keep their colour and height and
+ * move with the spread, their names with them. Written straight onto each stroke's style a frame at a time (React draws
+ * the year once). Nothing moves with Motion off or Reduce motion; the pointed-at stroke still stands up as before.
  */
 export function useSwell(box: RefObject<HTMLElement | null>, reach: () => number): void {
   const far = useRef(reach)
@@ -174,32 +185,75 @@ export function useSwell(box: RefObject<HTMLElement | null>, reach: () => number
   useEffect(() => {
     const el = box.current
     if (!el) return
-    type One = { a: number; speed: number; x: number; to: number; touched: Set<SVGRectElement> }
+    type One = { a: number; speed: number; x: number; to: number; touched: Set<SVGRectElement | HTMLElement> }
     const states = new Map<SVGSVGElement, One>()
-    const plain = (rect: SVGRectElement): void => {
-      rect.style.removeProperty('height')
-      rect.style.removeProperty('y')
-      rect.style.removeProperty('fill')
+    const plain = (node: SVGRectElement | HTMLElement): void => {
+      if (node instanceof HTMLElement) return void node.style.removeProperty('translate')
+      for (const one of ['height', 'y', 'x', 'width', 'fill']) node.style.removeProperty(one)
     }
     const draw = (svg: SVGSVGElement, one: One): void => {
+      const rects = [...svg.querySelectorAll<SVGRectElement>('rect[data-stroke]')]
+      if (rects.length < 2) return
       const tall = svg.height.baseVal.value
-      const span = Math.max(3, far.current() * REACH)
-      const width = span / 2.5
-      for (const rect of svg.querySelectorAll<SVGRectElement>('rect[data-stroke]')) {
-        const off = Math.abs(rect.x.baseVal.value - one.x)
-        const lift = off > span || one.a < 0.01 || rect.hasAttribute('data-year-marked') ? 0 : one.a * Math.exp(-((off / width) ** 2) / 2)
-        if (lift < 0.02) {
+      const wide = svg.width.baseVal.value
+      const xs = rects.map((rect) => rect.x.baseVal.value)
+      const step = (xs[xs.length - 1] - xs[0]) / (xs.length - 1)
+      const c = one.x
+      const a = one.a
+      // The spread: the strokes by the pointer at least 5px apart, paid for by the next few dozen closing up, never
+      // below 2px apart (a pixel of gap), so two strokes never merge. Zoomed in, there is room already: no spread.
+      const near = 3 * step
+      const ring = 8 * near
+      const gain = Math.min(Math.max(0, 5 / step - 1), (Math.max(0, step - 2) / step) * (ring / near - 1))
+      const amp = (gain * Math.sqrt(2 * Math.PI) * near * ring) / (ring - near)
+      const sweep = (x: number): number => amp * (below((x - c) / near) - below((x - c) / ring))
+      const slope = (x: number): number => (amp * (bell((x - c) / near) / near - bell((x - c) / ring) / ring)) / Math.sqrt(2 * Math.PI)
+      // Pointed near an end, what would pass the edge is taken back over a long run, so nothing leaves the card.
+      const edge = 3 * ring
+      const atLeft = sweep(0)
+      const atRight = sweep(wide)
+      const shift = (x: number): number => a * (sweep(x) - atLeft * Math.max(0, 1 - x / edge) - atRight * Math.max(0, 1 - (wide - x) / edge))
+      const roomAt = (x: number): number => step * (1 + a * (slope(x) + (x < edge ? atLeft / edge : 0) - (wide - x < edge ? atRight / edge : 0)))
+      const hill = Math.max(1, far.current() * REACH) / 2.5
+      const ws = xs.map((x) => Math.max(1, Math.min(Math.floor(1 + 2 * a * bell((x - c) / step / 1.5) + 0.25), Math.floor(roomAt(x)) - 1)))
+      const lefts = xs.map((x, i) => Math.round(x + shift(x)) - Math.floor((ws[i] - 1) / 2))
+      // Whole pixels round some neighbours a pixel too close where the row closes up: from the pointer outward, each
+      // keeps a pixel of gap from the one before it, the slack further out taking it back.
+      const mid = Math.max(0, xs.findIndex((x) => x >= c))
+      for (let i = mid + 1; i < xs.length; i++) lefts[i] = Math.max(lefts[i], lefts[i - 1] + ws[i - 1] + 1)
+      for (let i = mid - 1; i >= 0; i--) lefts[i] = Math.min(lefts[i], lefts[i + 1] - ws[i] - 1)
+      const moved = new Map<string, number>()
+      for (let i = 0; i < rects.length; i++) {
+        const rect = rects[i]
+        const x = xs[i]
+        const lift = a < 0.01 || Math.abs(x - c) > hill * 3 ? 0 : a * bell((x - c) / hill)
+        const w = ws[i]
+        const left = lefts[i]
+        const at = left + Math.floor((w - 1) / 2)
+        const marked = rect.hasAttribute('data-year-marked')
+        if (marked && at !== x) moved.set(rect.getAttribute('data-year-day') ?? '', at - x)
+        if (left === x && w === 1 && (marked || lift < 0.02)) {
           if (one.touched.delete(rect)) plain(rect)
           continue
         }
-        const base = rect.height.baseVal.value
-        const h = Math.max(base, Math.floor(LOW + SWELL * lift + 0.001))
-        rect.style.height = `${h}px`
-        rect.style.y = `${tall - h}px`
-        const ink = rect.getAttribute('fill') ?? ''
-        // Only the plain inks darken; today keeps its accent.
-        if (ink.startsWith('color-mix')) rect.style.fill = `color-mix(in oklab, ${ink} ${100 - Math.round(35 * lift)}%, var(--foreground))`
+        rect.style.x = `${left}px`
+        rect.style.width = `${w}px`
+        if (!marked) {
+          const h = Math.max(rect.height.baseVal.value, Math.floor(LOW + SWELL * lift + 0.001))
+          rect.style.height = `${h}px`
+          rect.style.y = `${tall - h}px`
+          const ink = rect.getAttribute('fill') ?? ''
+          // Only the plain inks brighten toward the text colour; today keeps its accent.
+          if (ink.startsWith('color-mix') && lift >= 0.02) rect.style.fill = `color-mix(in oklab, ${ink} ${100 - Math.round(60 * lift)}%, var(--foreground))`
+          else rect.style.removeProperty('fill')
+        }
         one.touched.add(rect)
+      }
+      // A marked stroke's name goes where its stroke went.
+      for (const name of svg.closest('[data-year-band]')?.querySelectorAll<HTMLElement>('[data-mark-label][data-mark-day]') ?? []) {
+        const by = moved.get(name.dataset.markDay ?? '')
+        if (by) (name.style.translate = `${by}px 0`, one.touched.add(name))
+        else if (one.touched.delete(name)) plain(name)
       }
     }
     let then = 0
@@ -222,7 +276,8 @@ export function useSwell(box: RefObject<HTMLElement | null>, reach: () => number
       for (const [other, one] of states) if (other !== svg) one.to = 0
       if (svg && !still()) {
         const one = states.get(svg) ?? { a: 0, speed: 0, x: 0, to: 1, touched: new Set() }
-        // Centred on the stroke pointed at (the day the tip names), so that one stands tallest.
+        // Centred on the stroke pointed at (the day the tip names, by where it stands with nothing spread), so that
+        // one stays put under the pointer and is the one a click opens.
         const px = event.clientX - svg.getBoundingClientRect().left + GAP / 2
         let x = 0
         for (const rect of svg.querySelectorAll<SVGRectElement>('rect[data-stroke]')) {

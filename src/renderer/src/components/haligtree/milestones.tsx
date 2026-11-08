@@ -458,7 +458,7 @@ export function YearMarks({ year, onOpenDay }: { year: string; onOpenDay?: (day:
           {at < 0 ? `${year} is ahead` : at >= days ? `${year} is gone` : `Day ${num(at + 1)} of ${num(days)}`}{all.length ? `, ${plural(all.length, 'day', 'days')} marked` : ''}{zoomed && <span data-year-zoom-hint className="font-normal text-muted-foreground"> · Esc or a double-click for the whole year</span>}
         </p>
         <StrokeRule>Each stroke is a day, the solid ones gone; a taller coloured stroke is a day you marked; pinch to look closer</StrokeRule>
-        <div ref={box} data-year-zoom={Math.round(view.z * 100) / 100} className="grid w-full min-w-0 gap-3" onDoubleClick={whole}>
+        <div ref={box} data-swipe-own data-year-zoom={Math.round(view.z * 100) / 100} className="grid w-full min-w-0 gap-3" onDoubleClick={whole}>
           {bands.map((band, b) => {
             const count = band.to - band.from
             const base = stepOf(band)
@@ -488,9 +488,9 @@ export function YearMarks({ year, onOpenDay }: { year: string; onOpenDay?: (day:
                   <div data-year-track data-year-pan={pan} style={{ width: clip }}>
                     {lines > 0 && (
                       <div data-year-names className="relative" style={{ height: lines * NAME_LINE, width, transform: pan ? `translateX(${-pan}px)` : undefined }}>
-                        {names.filter((one) => one.row !== null).map(({ one, row, left }) => (
+                        {names.filter((one) => one.row !== null).map(({ one, row, left, d }) => (
                           // Quiet until its stroke is pointed at, or the year is spread wide enough to read them: the year reads first.
-                          <span key={one.id} data-mark-label data-mark-lit={near?.id === one.id || undefined} className="absolute text-[11px] leading-4 font-medium whitespace-nowrap transition-opacity duration-150"
+                          <span key={one.id} data-mark-label data-mark-day={dayAt(d)} data-mark-lit={near?.id === one.id || undefined} className="absolute text-[11px] leading-4 font-medium whitespace-nowrap transition-opacity duration-150"
                             style={{ left, top: (lines - 1 - (row ?? 0)) * NAME_LINE, color: inkOf(one), opacity: near?.id === one.id ? 1 : rest }}>{markName(one)}</span>
                         ))}
                       </div>
