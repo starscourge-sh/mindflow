@@ -633,7 +633,8 @@
 // draw theirs: `separate` borders, because a collapsed table cannot round its
 // corners. Each cell draws only its right and bottom line; the table's own
 // border is the outer edge, so no line is ever doubled.
-.tiptap.ProseMirror.haligtree-editor table {
+.tiptap.ProseMirror.haligtree-editor table,
+.tiptap-table-carried table {
   min-width: 100%;
   border-collapse: separate;
   border-spacing: 0;
@@ -1060,6 +1061,45 @@
 
     &.is-row {
       height: 2px;
+    }
+  }
+
+  // The row or column in hand: a copy lifted off the page under the pointer,
+  // solid and casting the lift shadow, as every carried thing in the app does.
+  .tiptap-table-carried {
+    position: absolute;
+    z-index: 2;
+    pointer-events: none;
+    border-radius: var(--radius-md, 0.5rem);
+    background-color: var(--background);
+    box-shadow: var(--mf-shadow-lift);
+    will-change: transform;
+
+    table {
+      width: 100%;
+      min-width: 0;
+    }
+
+    // Let go, it glides to where it landed on the app's one curve.
+    &[data-gliding] {
+      transition: transform 180ms var(--mf-ease);
+    }
+  }
+
+  // The place it was taken from, faded to 45% while it is in the air.
+  .tiptap-table-vacated {
+    position: absolute;
+    pointer-events: none;
+    background-color: color-mix(in oklab, var(--background) 55%, transparent);
+  }
+
+  // Carrying shows the closed hand everywhere, not only over the grip.
+  &[data-carrying] {
+    pointer-events: auto;
+    cursor: grabbing;
+
+    button {
+      cursor: grabbing;
     }
   }
 

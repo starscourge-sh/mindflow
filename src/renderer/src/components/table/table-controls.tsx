@@ -6,6 +6,8 @@ import { useEditorState, type Editor } from '@tiptap/react'
 
 import { grow, moveColumn, moveRow } from '@/lib/table'
 import { useEditorDom } from '@/lib/editor-dom'
+import { still } from '@/lib/motion'
+import { chime } from '@/lib/sound'
 
 /** Where each row and column sits, relative to the editor's own box. */
 interface Geometry {
@@ -86,6 +88,87 @@ function measure(editor: Editor, pointed: HTMLTableElement | null): Geometry | n
     rows,
     columns
   }
+}
+
+/**
+ * A row or column held by its grip: drawn indices, where it began (`base`,
+ * `size`), where the pointer took it (`grab`, from its start edge), and where
+ * the pointer is now (`at`), all along the axis it moves on.
+ */
+interface Drag {
+  axis: 'row' | 'column'
+  from: number
+  to: number
+  base: number
+  size: number
+  grab: number
+  start: number
+  at: number
+  lifted: boolean
+}
+
+/**
+ * A copy of one row or column as its own small table, to carry under the
+ * pointer. Built from the drawn cells, so it looks exactly like what was
+ * picked up; styled by the same rules as the table (haligtree-editor.scss).
+ */
+function carry(table: HTMLTableElement, axis: 'row' | 'column', index: number): HTMLElement {
+  const copy = document.createElement('table')
+  const look = getComputedStyle(table)
+  copy.style.font = look.font
+  copy.style.color = look.color
+  const body = document.createElement('tbody')
+  const cols = table.querySelector('colgroup')
+  if (axis === 'row') {
+    if (cols) copy.append(cols.cloneNode(true))
+    const row = table.rows[index]
+    if (row) body.append(row.cloneNode(true))
+  } else {
+    for (const row of table.rows) {
+      const line = document.createElement('tr')
+      line.style.height = `${row.getBoundingClientRect().height}px`
+      const cell = row.cells[index]
+      if (cell) line.append(cell.cloneNode(true))
+      body.append(line)
+    }
+  }
+  copy.append(body)
+  // The picked wash and the resize line belong to the table, not the copy.
+  copy.querySelectorAll('.selectedCell').forEach((cell) => cell.classList.remove('selectedCell'))
+  copy.querySelectorAll('.column-resize-handle').forEach((handle) => handle.remove())
+  return copy
+}
+
+/**
+ * The lifted copy: follows the pointer one to one while held, then glides to
+ * where it landed and goes. Its own element, never one inside the editor.
+ */
+function Carried({
+  copy,
+  gliding,
+  style,
+  onLanded
+}: {
+  copy: HTMLElement | null
+  gliding: boolean
+  style: React.CSSProperties
+  onLanded: () => void
+}): React.JSX.Element {
+  const holder = useRef<HTMLDivElement>(null)
+  useLayoutEffect(() => {
+    const at = holder.current
+    if (!at || !copy) return
+    at.replaceChildren(copy)
+  }, [copy])
+  return (
+    <div
+      ref={holder}
+      className="tiptap-table-carried"
+      data-gliding={gliding || undefined}
+      style={style}
+      onTransitionEnd={(event) => event.propertyName === 'transform' && gliding && onLanded()}
+    />
+  )
 }
 
 /** Which row and column the pointer is over, or null when it has left. */
@@ -274,9 +357,45 @@ export function TableControls({ editor }: { editor: Editor | null }): React.JSX.
    * to attach to. Selecting on the way down opened the menu over the very table
    * being dragged.
    */
-  const [drag, setDrag] = useState<{ axis: 'row' | 'column'; from: number; to: number } | null>(
-    null
-  )
+  const [drag, setDrag] = useState<Drag | null>(null)
+  // The same, read and written at once by the handlers: two moves inside one
+  // frame both saw the state from before either, and lifted twice.
+  const held = useRef<Drag | null>(null)
+  const hold = (next: Drag | null): void => {
+    held.current = next
+    setDrag(next)
+  }
+  // The lifted copy of the row or column, built once as it is picked up: the
+  // table under it changes on the drop, and the copy settles in after that.
+  const lifted = useRef<HTMLElement | null>(null)
+  // Where the copy is gliding to once let go; cleared when it has arrived.
+  const [settle, setSettle] = useState<{ axis: 'row' | 'column'; base: number; size: number; to: number } | null>(null)
+
+  // Esc puts it back where it was, as every drag in the app does. Caught
+  // before the editor and the window: Esc there would close the note too.
+  useEffect(() => {
+    if (!drag) return
+    const onKey = (event: KeyboardEvent): void => {
+      if (event.key !== 'Escape') return
+      event.preventDefault()
+      event.stopPropagation()
+      const was = held.current
+      hold(null)
+      if (!was?.lifted) return
+      chime('stay')
+      land(was, was.base)
+    }
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
+    // `land` reads only its arguments and setters.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [drag])
+
+  /** The copy glides from where it was let go to `to`, then goes; with motion off it goes at once. */
+  function land(was: Drag, to: number): void {
+    if (still() || Math.abs(was.at - was.grab - to) < 0.5) return setSettle(null)
+    setSettle({ axis: was.axis, base: was.base, size: was.size, to })
+  }
 
   // How far the add bar has been dragged, and how many rows or columns that
   // has already put on the table. Refs, not state: the table itself is the
@@ -288,10 +407,17 @@ export function TableControls({ editor }: { editor: Editor | null }): React.JSX.
   // against, or it drifts as soon as the document scrolls. That box is the
   // editor's own container - positioned, and inside the scroller rather than
   // being it.
-  if (!editor || !geometry || !host || !hover) return null
+  // Kept while a row or column is carried or settling, wherever the pointer is.
+  if (!editor || !geometry || !host || (!hover && !drag && !settle)) return null
 
-  const column = geometry.columns[hover.column]
-  const row = geometry.rows[hover.row]
+  const column = hover ? geometry.columns[hover.column] : undefined
+  const row = hover ? geometry.rows[hover.row] : undefined
+
+  /** The pointer along the axis being dragged, in the overlay's own coordinates. */
+  const along = (axis: 'row' | 'column', event: { clientX: number; clientY: number }): number => {
+    const origin = host.getBoundingClientRect()
+    return axis === 'row' ? event.clientY - origin.top + host.scrollTop : event.clientX - origin.left + host.scrollLeft
+  }
 
   /** Both grips behave the same way; only the axis and the placing differ. */
   const grip = (
@@ -308,24 +434,46 @@ export function TableControls({ editor }: { editor: Editor | null }): React.JSX.
       onPointerDown={(event) => {
         event.currentTarget.setPointerCapture(event.pointerId)
         const table = pointed ?? caretTable(editor)
-        if (table) enter(editor, table, axis === 'row' ? hover.row : 0, axis === 'row' ? 0 : hover.column)
-        setDrag({ axis, from: index, to: index })
+        if (table && hover) enter(editor, table, axis === 'row' ? hover.row : 0, axis === 'row' ? 0 : hover.column)
+        // `index` is the map column for a column; the drag counts drawn ones.
+        const drawn = axis === 'row' ? index : (hover?.column ?? 0)
+        const slot = axis === 'row' ? geometry.rows[drawn] : geometry.columns[drawn]
+        if (!slot) return
+        const base = 'top' in slot ? slot.top : slot.left
+        const size = 'height' in slot ? slot.height : slot.width
+        const at = along(axis, event)
+        lifted.current = table ? carry(table, axis, drawn) : null
+        setSettle(null)
+        hold({ axis, from: drawn, to: drawn, base, size, grab: at - base, start: at, at, lifted: false })
       }}
       onPointerMove={(event) => {
         // Capture means every move lands here until the button is released,
         // so this is also how we know a drag is under way.
-        if (!event.currentTarget.hasPointerCapture(event.pointerId)) return
+        const was = held.current
+        if (!was || !event.currentTarget.hasPointerCapture(event.pointerId)) return
+        const at = along(axis, event)
+        // Past 6px it is a drag, not a click: the row or column lifts.
+        const lift = was.lifted || Math.abs(at - was.start) > 6
+        if (lift && !was.lifted) chime('lift')
         const to = indexAt(axis, event)
-        setDrag((held) => (held && to >= 0 ? { ...held, to } : held))
+        hold({ ...was, at, lifted: lift, to: to >= 0 ? to : was.to })
       }}
       onPointerUp={() => {
-        setDrag(null)
-        if (!drag || !editor) return
+        const was = held.current
+        hold(null)
+        if (!was || !editor) return
         const pick = (at: number): number =>
           axis === 'column' ? (geometry.columns[at]?.col ?? at) : at
-        if (drag.from === drag.to) select(axis, pick(drag.from))
-        else if (axis === 'column') moveColumn(editor, pick(drag.from), pick(drag.to))
-        else moveRow(editor, drag.from, drag.to)
+        if (!was.lifted) return select(axis, pick(was.from))
+        const slots = axis === 'row' ? geometry.rows.map((r) => [r.top, r.height]) : geometry.columns.map((c) => [c.left, c.width])
+        const moved =
+          was.from !== was.to &&
+          (axis === 'column' ? moveColumn(editor, pick(was.from), pick(was.to)) : moveRow(editor, was.from, was.to))
+        chime(moved ? 'shift' : 'stay')
+        // Where it comes to rest: the far side of the one it passed when going
+        // forwards, the near side going back, or home when it did not move.
+        const [start, length] = slots[was.to] ?? [was.base, was.size]
+        land(was, !moved ? was.base : was.to > was.from ? start + length - was.size : start)
       }}
     />
   )
@@ -366,7 +514,10 @@ export function TableControls({ editor }: { editor: Editor | null }): React.JSX.
         while (added.current > want && grow(editor, axis, false)) added.current -= 1
       }}
       onPointerUp={() => {
-        if (!added.current) grow(editor, axis, true)
+        // One cue for the whole gesture: added for a click or rows dragged on,
+        // away for rows dragged off.
+        if (!added.current) chime(grow(editor, axis, true) ? 'added' : 'nope')
+        else chime(added.current > 0 ? 'added' : 'away')
       }}
     >
       +
@@ -379,7 +530,7 @@ export function TableControls({ editor }: { editor: Editor | null }): React.JSX.
   // when it is travelling forwards: moving one column right puts it after the
   // one it passed, so a line on that column's near side pointed at the gap it
   // came from rather than the one it is going to.
-  const moving = drag && drag.from !== drag.to ? drag : null
+  const moving = drag?.lifted && drag.from !== drag.to ? drag : null
   const onward = moving ? moving.to > moving.from : false
   const mark = !moving
     ? null
@@ -395,16 +546,39 @@ export function TableControls({ editor }: { editor: Editor | null }): React.JSX.
           width: geometry.width
         }
 
+  // The copy in hand, or gliding home: one element throughout, so letting go
+  // is the same thing carrying on rather than a second one appearing.
+  const flight = drag?.lifted
+    ? { axis: drag.axis, base: drag.base, size: drag.size, offset: drag.at - drag.grab - drag.base, gliding: false }
+    : settle && { axis: settle.axis, base: settle.base, size: settle.size, offset: settle.to - settle.base, gliding: true }
+  const span = (axis: 'row' | 'column', base: number, size: number): React.CSSProperties =>
+    axis === 'row'
+      ? { top: base, height: size, left: geometry.left, width: geometry.width }
+      : { left: base, width: size, top: geometry.top, height: geometry.height }
+
   return createPortal(
-    <div className="tiptap-table-controls">
+    <div className="tiptap-table-controls" data-carrying={drag?.lifted || undefined}>
+      {/* The place it was taken from, faded while it is in the air. */}
+      {drag?.lifted && <div className="tiptap-table-vacated" style={span(drag.axis, drag.base, drag.size)} />}
       {moving && mark && <div className={`tiptap-table-landing is-${moving.axis}`} style={mark} />}
-      {row && grip('row', hover.row, { top: row.top, left: geometry.left, height: row.height })}
-      {bar('row', {
+      {flight && (
+        <Carried
+          copy={lifted.current}
+          gliding={flight.gliding}
+          style={{
+            ...span(flight.axis, flight.base, flight.size),
+            transform: flight.axis === 'row' ? `translateY(${flight.offset}px)` : `translateX(${flight.offset}px)`
+          }}
+          onLanded={() => setSettle(null)}
+        />
+      )}
+      {row && hover && grip('row', hover.row, { top: row.top, left: geometry.left, height: row.height })}
+      {hover && bar('row', {
         top: geometry.top + geometry.height + 4,
         left: geometry.left,
         width: geometry.width
       })}
-      {bar('column', {
+      {hover && bar('column', {
         left: geometry.left + geometry.width + 4,
         top: geometry.top,
         height: geometry.height

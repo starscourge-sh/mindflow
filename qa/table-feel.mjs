@@ -42,6 +42,14 @@ const where = () => h.evaluate((sel) => {
 const box = (q) => h.evaluate((q) => { const r = document.querySelector(q)?.getBoundingClientRect(); return r ? { x: r.x, y: r.y, w: r.width, h: r.height } : null }, q)
 const cellBox = (r, k) => box(`${sel} table tr:nth-child(${r + 1}) > :nth-child(${k + 1})`)
 const clickCell = async (r, k) => { const b = await cellBox(r, k); await h.mouse.click(b.x + b.w / 2, b.y + b.h / 2); await wait(150) }
+// Every cue asked for, sounds on or off (lib/sound.ts keeps them on window.haligtreeCued).
+const cued = () => h.evaluate(() => [...(window.haligtreeCued ?? [])])
+const unCue = () => h.evaluate(() => { if (window.haligtreeCued) window.haligtreeCued.length = 0 })
+// Frames through each change of state, every 50ms, for reading by eye.
+const frames = process.env.QA_FRAMES
+const frame = async (name) => frames && h.screenshot({ path: `${frames}/${name}.png` })
+const overlaps = (a, b) => a && b && a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h
+const viewport = () => h.evaluate(() => ({ w: innerWidth, h: innerHeight }))
 
 try {
   await v('settings:set', { sounds: false, hintRate: 0 })
@@ -92,8 +100,11 @@ try {
     await h.mouse.move(add.x + add.w / 2, add.y + add.h / 2, { steps: 4 }); await wait(150)
     const cursor = await h.$eval('.tiptap-table-add.is-row', (one) => getComputedStyle(one).cursor)
     check('the "+" bar shows the hand', cursor === 'pointer', cursor)
+    await unCue()
     await h.mouse.down(); await h.mouse.up(); await wait(300)
     check('a click on the bottom "+" adds a row', (await grid())?.length === 5, JSON.stringify(await grid()))
+    const plusCues = await cued()
+    check('and it answers with the "added" cue, once', plusCues.filter((one) => one === 'added').length === 1, JSON.stringify(plusCues))
     await h.keyboard.press('Meta+z'); await wait(200)
     check('⌘Z takes it back', (await grid())?.length === 4)
   } else check('the "+" bar can be reached', false)
@@ -139,14 +150,82 @@ try {
     const gx = rowGrip.x + rowGrip.w / 2, gy = rowGrip.y + rowGrip.h / 2
     await h.mouse.move(gx, gy); await wait(100)
     const r3 = await cellBox(3, 1)
+    const start = await cellBox(1, 0)
+    await unCue()
     await h.mouse.down()
-    for (let i = 1; i <= 6; i++) (await h.mouse.move(gx, gy + ((r3.y + r3.h / 2 - gy) * i) / 6), await wait(40))
+    // The lifted copy, measured at each step: it must keep the grab offset.
+    const followed = []
+    for (let i = 1; i <= 6; i++) {
+      const y = gy + ((r3.y + r3.h / 2 - gy) * i) / 6
+      await h.mouse.move(gx, y); await wait(50)
+      const copy = await box('.tiptap-table-carried')
+      followed.push(copy ? Math.round(copy.y - (y - gy) - start.y) : null)
+      await frame(`row-drag-${i}`)
+    }
     await shot('row-drag')
-    await h.mouse.up(); await wait(300)
+    const copyText = await h.evaluate(() => document.querySelector('.tiptap-table-carried')?.textContent ?? '')
+    check('mid-drag the row itself is carried: a lifted copy of it under the pointer', /Essays.*Montaigne.*1580/.test(copyText), copyText)
+    check('and it tracks the pointer 1:1, keeping where it was taken (within 2px)', followed.every((one) => one !== null && Math.abs(one) <= 2), JSON.stringify(followed))
+    check('the place it left is faded while it is in the air', !!(await box('.tiptap-table-vacated')))
+    check('a landing line says where it will go', !!(await box('.tiptap-table-landing.is-row')))
+    await h.mouse.up()
+    for (let i = 0; i < 5; i++) (await frame(`row-settle-${i}`), await wait(50))
+    await wait(150)
     const after = await grid()
     check('a row dragged by its grip moves', after?.[3]?.[0] === 'Essays', JSON.stringify(after?.map((row) => row[0])))
+    check('and the copy settles in and goes', !(await box('.tiptap-table-carried')))
+    const dragCues = await cued()
+    check('picking it up lifts (the "lift" cue) and dropping it moves (the "shift" cue), once each', dragCues.filter((one) => one === 'lift').length === 1 && dragCues.filter((one) => one === 'shift').length === 1, JSON.stringify(dragCues))
     await h.keyboard.press('Meta+z'); await wait(200)
+
+    // Esc mid-drag puts it back.
+    const before = JSON.stringify(await grid())
+    await h.mouse.move(r1.x + 10, r1.y + r1.h / 2, { steps: 3 }); await wait(200)
+    const g2 = await box('.tiptap-table-grip.is-row')
+    await h.mouse.move(g2.x + g2.w / 2, g2.y + g2.h / 2); await wait(80)
+    await unCue()
+    await h.mouse.down()
+    for (let i = 1; i <= 4; i++) (await h.mouse.move(g2.x + g2.w / 2, g2.y + g2.h / 2 + i * 20), await wait(40))
+    await h.keyboard.press('Escape'); await wait(60)
+    await frame('row-esc')
+    await h.mouse.up(); await wait(300)
+    check('Esc mid-drag puts the row back where it was', JSON.stringify(await grid()) === before, JSON.stringify(await grid()))
+    check('and answers with the soft "stay" cue, nothing moved', (await cued()).includes('stay') && !(await cued()).includes('shift'), JSON.stringify(await cued()))
+    check('Esc leaves the note open', !!(await h.$(sel)))
   } else check('a row grip shows on hover', false)
+
+  // 6b. A column dragged by its grip.
+  {
+    const k0 = await cellBox(1, 0)
+    await h.mouse.move(k0.x + 10, k0.y + 10, { steps: 3 }); await wait(200)
+    const colGrip = await box('.tiptap-table-grip.is-column')
+    if (colGrip) {
+      const gx = colGrip.x + colGrip.w / 2, gy = colGrip.y + colGrip.h / 2
+      const head = await cellBox(0, 0)
+      const k2 = await cellBox(1, 2)
+      await h.mouse.move(gx, gy); await wait(80)
+      await unCue()
+      await h.mouse.down()
+      const followed = []
+      for (let i = 1; i <= 6; i++) {
+        const x = gx + ((k2.x + k2.w / 2 - gx) * i) / 6
+        await h.mouse.move(x, gy); await wait(50)
+        const copy = await box('.tiptap-table-carried')
+        followed.push(copy ? Math.round(copy.x - (x - gx) - head.x) : null)
+        await frame(`column-drag-${i}`)
+      }
+      const copyText = await h.evaluate(() => document.querySelector('.tiptap-table-carried')?.textContent ?? '')
+      check('mid-drag the column itself is carried, header to last row', /Book.*Essays.*Walden.*Meditations/.test(copyText), copyText)
+      check('and it tracks the pointer 1:1 (within 2px)', followed.every((one) => one !== null && Math.abs(one) <= 2), JSON.stringify(followed))
+      await h.mouse.up()
+      for (let i = 0; i < 5; i++) (await frame(`column-settle-${i}`), await wait(50))
+      await wait(150)
+      const moved = (await grid())?.[0]
+      check('a column dragged by its grip moves', moved?.[2] === 'Book', JSON.stringify(moved))
+      check('with the "lift" and "shift" cues', (await cued()).includes('lift') && (await cued()).includes('shift'), JSON.stringify(await cued()))
+      await h.keyboard.press('Meta+z'); await wait(200)
+    } else check('a column grip shows on hover', false)
+  }
 
   // 7. The row and column menus.
   const openMenu = async (axis, r, k) => {
@@ -154,7 +233,10 @@ try {
     await h.mouse.move(at.x + 10, at.y + 10, { steps: 3 }); await wait(200)
     const g = await box(`.tiptap-table-grip.is-${axis}`)
     if (!g) return null
-    await h.mouse.click(g.x + g.w / 2, g.y + g.h / 2); await wait(350)
+    await unCue()
+    await h.mouse.click(g.x + g.w / 2, g.y + g.h / 2)
+    for (let i = 0; i < 6; i++) (await frame(`${axis}-menu-open-${i}`), await wait(50))
+    await wait(50)
     // 28px at the app's 100% size: 1.75rem, the right-click menu's own row (min-h-7).
     return h.evaluate(() => [...document.querySelectorAll('.tiptap-table-menu button')].map((one) => ({ text: one.textContent.trim(), icon: !!one.querySelector('svg'), height: Math.round(one.getBoundingClientRect().height / parseFloat(getComputedStyle(document.documentElement).fontSize) * 16), cursor: getComputedStyle(one).cursor })))
   }
@@ -163,17 +245,44 @@ try {
   console.log('ROW MENU', JSON.stringify(rowMenu))
   check('a row grip opens the row menu: above, below, delete', ['Insert row above', 'Insert row below', 'Delete row'].every((one) => rowMenu?.some((row) => row.text === one)), JSON.stringify(rowMenu?.map((row) => row.text)))
   check('every row-menu line has an icon, the hand and 28px height', rowMenu?.length && rowMenu.every((one) => one.icon && one.cursor === 'pointer' && one.height === 28), JSON.stringify(rowMenu))
+  // Where it opened: clear of the row it acts on and of the window's edges.
+  const clear = async (cells) => {
+    const menu = await box('.tiptap-table-menu')
+    const all = await Promise.all(cells.map(([r, k]) => cellBox(r, k)))
+    const vp = await viewport()
+    const room = menu && Math.min(menu.x, menu.y, vp.w - menu.x - menu.w, vp.h - menu.y - menu.h)
+    return { menu, hidden: all.filter((one) => overlaps(menu, one)).length, room }
+  }
+  const rowSpot = await clear([[2, 0], [2, 1], [2, 2]])
+  check('the row menu opens beside the row, not over it', rowSpot.menu && rowSpot.hidden === 0, JSON.stringify(rowSpot))
+  check('and 12px or more from every window edge', rowSpot.room >= 12, JSON.stringify(rowSpot))
+  check('opening the row menu plays the menu "open" cue, once', (await cued()).filter((one) => one === 'open').length === 1, JSON.stringify(await cued()))
   await h.keyboard.press('Escape'); await wait(150)
   const colMenu = await openMenu('column', 2, 0)
   await shot('column-menu')
   check('a column grip opens the column menu: left, right, sort, delete', ['Insert column left', 'Insert column right', 'Sort column A to Z', 'Delete column'].every((one) => colMenu?.some((row) => row.text === one)), JSON.stringify(colMenu?.map((row) => row.text)))
   check('every column-menu line has an icon, the hand and 28px height', colMenu?.length && colMenu.every((one) => one.icon && one.cursor === 'pointer' && one.height === 28), JSON.stringify(colMenu))
+  const colSpot = await clear([[0, 0], [1, 0], [2, 0], [3, 0]])
+  check('the column menu opens beside the column, not over it', colSpot.menu && colSpot.hidden === 0, JSON.stringify(colSpot))
+  check('and 12px or more from every window edge', colSpot.room >= 12, JSON.stringify(colSpot))
+  check('opening the column menu plays the menu "open" cue, once', (await cued()).filter((one) => one === 'open').length === 1, JSON.stringify(await cued()))
   const sortRow = await h.evaluate(() => [...document.querySelectorAll('.tiptap-table-menu button')].findIndex((one) => one.textContent.trim() === 'Sort column A to Z'))
   if (sortRow >= 0) {
-    await h.evaluate((i) => document.querySelectorAll('.tiptap-table-menu button')[i].click(), sortRow); await wait(300)
+    const sortBox = await h.evaluate((i) => { const r = document.querySelectorAll('.tiptap-table-menu button')[i].getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 } }, sortRow)
+    await unCue()
+    await h.mouse.move(sortBox.x, sortBox.y, { steps: 3 }); await wait(80)
+    await h.mouse.click(sortBox.x, sortBox.y); await wait(300)
     const sorted = (await grid()).map((row) => row[0])
     check('"Sort column A to Z" sorts the rows under the header', JSON.stringify(sorted) === JSON.stringify(['Book', 'Essays', 'Meditations', 'Walden']), JSON.stringify(sorted))
+    check('choosing it plays its cue ("shift"), once', (await cued()).filter((one) => one === 'shift').length === 1, JSON.stringify(await cued()))
   }
+  // A column near the window's top: still clear of it, and of the column.
+  await h.keyboard.press('Escape'); await wait(100)
+  await h.evaluate((sel) => document.querySelector(`${sel} table`).scrollIntoView({ block: 'start' }), sel); await wait(250)
+  const topMenu = await openMenu('column', 2, 1)
+  const topSpot = await clear([[0, 1], [1, 1], [2, 1], [3, 1]])
+  await frame('column-menu-near-top')
+  check('near the top of the window the column menu still leaves the column in view', topMenu?.length && topSpot.hidden === 0 && topSpot.room >= 12, JSON.stringify(topSpot))
   await h.keyboard.press('Escape')
 
   // 8. A range copied and pasted.
