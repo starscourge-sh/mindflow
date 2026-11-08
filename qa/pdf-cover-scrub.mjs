@@ -77,8 +77,9 @@ try {
   }
   await c.look('light')
 
-  // A Media tile: the same, under All.
-  await h.locator('[data-page=media] [data-media-kinds] button', { hasText: 'Books' }).first().click(); await wait(1500)
+  // A Media tile: the same, among what a search under All finds (All itself shows a pile per kind).
+  await h.locator('[data-page=media] [data-media-kinds] button', { hasText: 'All' }).first().click(); await wait(800)
+  await h.locator('[data-page=media] input').first().fill('Alpha'); await wait(1500)
   const tile = await h.evaluate(() => { const r = document.querySelector('[data-media=pdf] [data-pdf-peek-scrub]')?.getBoundingClientRect(); return r && { x: r.left, y: r.top, w: r.width, h: r.height } })
   check('a Media tile of a PDF can turn its pages too', !!tile, '')
   if (tile) {
