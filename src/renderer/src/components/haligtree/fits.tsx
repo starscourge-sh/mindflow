@@ -182,7 +182,7 @@ function Fits({ start, onClose }: { start: number; onClose: () => void }): React
             onClick={(event) => (event.shiftKey || event.metaKey ? toggle(task.id) : begin(task))}
             className={`group/fit flex cursor-pointer items-center gap-2.5 rounded-md px-2 py-1.5 ${live.includes(task.id) ? PICKED_ROW : here ? 'bg-accent' : ''}`}>
             <Tip label={`${quad.title}: ${quad.said.split('.')[0].toLowerCase()}`}>
-              <span role="img" aria-label={quad.title} data-quad={quad.id} className="h-4 w-[3px] shrink-0 rounded-full" style={{ background: `var(--tt-color-text-${quad.tint})` }} />
+              <span role="img" aria-label={quad.title} data-quad={quad.id} className="size-2 shrink-0 rounded-full" style={{ background: `var(--tt-color-text-${quad.tint})` }} />
             </Tip>
             <span className="line-clamp-2 min-w-0 flex-auto text-body text-foreground hyphens-auto [overflow-wrap:break-word]">{taskName(task.title).text || 'Untitled task'}</span>
             <Tags tags={taskName(task.title).tags} max={2} go={false} />

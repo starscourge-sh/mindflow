@@ -1667,7 +1667,7 @@ const MacCalendarDemo: Demo = ({ live }) => {
             <div className="text-meta text-muted-foreground">Today</div>
             {EVENTS.map((event, i) => (
               <motion.div key={event.name} initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.3, ease: EASE, delay: 0.15 + i * 0.12 }} className="mt-1 flex items-center gap-2 text-control text-foreground">
-                <span className="h-4 w-[3px] rounded-full" style={{ background: `var(--tt-color-text-${i ? 'purple' : 'blue'})` }} />
+                <span className="size-2 rounded-full" style={{ background: `var(--tt-color-text-${i ? 'purple' : 'blue'})` }} />
                 <span className="w-10 text-meta text-muted-foreground tabular-nums">{event.at}</span>{event.name}
               </motion.div>
             ))}

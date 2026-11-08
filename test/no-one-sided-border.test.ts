@@ -160,3 +160,19 @@ test('no one-sided border in inline styles', () => {
   }
   assert.deepEqual(found, [], `A border on one side in an inline style:\n${found.join('\n')}`)
 })
+
+// A thin rounded bar standing beside a row's words (h-8 w-[3px] rounded-full in a
+// colour) is the same tell drawn as its own element: the Calendar's next-meeting
+// card had one. A colour is a dot (size-2), never a bar down one side.
+test('no coloured side bar drawn as its own element', () => {
+  const found: string[] = []
+  for (const file of sources(renderer, /\.tsx?$/)) {
+    readFileSync(file, 'utf8').split('\n').forEach((line, i) => {
+      for (const [, cls] of line.matchAll(/className=\{?[`"']([^`"']*)/g)) {
+        const toks = cls.split(/\s+/)
+        if (toks.includes('rounded-full') && toks.includes('w-[3px]') && toks.some((t) => /^h-\d/.test(t)) && /background/.test(line)) found.push(`${relative(root, file)}:${i + 1}`)
+      }
+    })
+  }
+  assert.deepEqual(found, [], `A coloured bar beside words:\n${found.join('\n')}`)
+})

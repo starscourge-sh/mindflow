@@ -555,7 +555,7 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
       {carry?.kind === 'move' && (!carry.to || carry.to.minute === null) && createPortal(
         <div data-cal-carried style={{ left: carry.x + 8, top: carry.y + 8 }}
           className={`pointer-events-none fixed z-50 flex max-w-56 items-center gap-2 ${CARD}`}>
-          <span aria-hidden className="h-4 w-[3px] shrink-0 rounded-full" style={{ background: ACCENT }} />
+          <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ background: ACCENT }} />
           <span className="truncate">{taskName(carry.task.title).text}</span>
         </div>, document.body)}
       <EventCardLayer peek={peekNow} calendar={peekNow ? calendarName(peekNow.one) : ''} onEdit={pickEvent} onClose={() => setPeek(null)} onNote={onOpen} />
@@ -740,7 +740,7 @@ function Upcoming({ tasks, name, onPeek, onTask }: { tasks: Task[]; name: (one: 
       {(
         <button type="button" data-cal-next-row={next.key} onClick={(event) => (chime('open'), onPeek(next, event.currentTarget.getBoundingClientRect()))}
           className="flex items-start gap-2.5 rounded-lg border bg-background px-3 py-2.5 text-left outline-none transition-colors duration-150 hover:bg-accent/40 focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none">
-          <span aria-hidden className="mt-1 h-8 w-[3px] shrink-0 rounded-full" style={{ background: next.color }} />
+          <span aria-hidden className="mt-[7px] size-2 shrink-0 rounded-[2px]" style={{ background: next.color }} />
           <span className="flex min-w-0 flex-1 flex-col">
             <span className="text-control font-medium" style={{ color: 'var(--tt-color-text-red)' }}>{until <= 0 ? `On now, ${lengthSaid(Math.max(1, dayjs(next.end).diff(now, 'minute')))} left` : `In ${lengthSaid(until)}`}</span>
             <span className="truncate text-body font-semibold text-foreground">{next.title || 'New event'}</span>

@@ -350,7 +350,7 @@ export function MatrixView({ focus, onOpen, today }: { focus?: string; onOpen?: 
               <motion.div initial={{ rotate: 0, scale: 1 }} animate={{ rotate: -2.5, scale: 1.03 }} transition={{ type: 'spring', stiffness: 600, damping: 30 }}
                 style={{ width: Math.min(carried.width, 260) }}
                 data-carried-card="" className={cn('flex cursor-grabbing items-center gap-2', CARD)}>
-                <span aria-hidden className="h-4 w-[3px] shrink-0 rounded-full" style={{ background: `var(--tt-color-text-${QUADS.find((quad) => quad.id === quadrantOf(carried.task))!.tint})` }} />
+                <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ background: `var(--tt-color-text-${QUADS.find((quad) => quad.id === quadrantOf(carried.task))!.tint})` }} />
                 <span className="min-w-0 flex-1 truncate">{taskName(carried.task.title).text}</span>
               </motion.div>
             ) : null}
