@@ -14,7 +14,7 @@ import { lacks, meets, useCaps, WHICH, type Caps } from '@/lib/needs'
 import { SANDBOX, enterSandbox } from '@/lib/sandbox'
 import { useOnboarding } from '@/lib/onboarding'
 import { AliveIcon } from '@/components/ui/alive-icon'
-import { DEMOS } from './power-demos'
+import { DEMOS, DemoLive } from './power-demos'
 import { PlaceIcon, SECTIONS, type Place } from './places'
 import { BackToTop, Pressed, toast, useSmooth } from './ui'
 import { ProgressBar } from './progress-bar'
@@ -248,7 +248,7 @@ function Card({ power, used, caps, onView }: { power: Power; used: boolean; caps
             which a fold has to (a clip would leave the card's edge where it
             was), and contained, each frame of it lays out only this stage. */}
         <div ref={stage} aria-hidden className="pw-stage relative flex h-44 items-center justify-center overflow-hidden rounded-[9px] border border-border/50 bg-background px-5 [contain:strict]">
-          {Demo && <Demo live={seen && !calm} />}
+          {Demo && <DemoLive.Provider value={seen && !calm}><Demo live={seen && !calm} /></DemoLive.Provider>}
         </div>
         {used && <span className="absolute top-2.5 right-2.5" title="You have used this"><Tick /><span className="sr-only">You have used this</span></span>}
       </div>

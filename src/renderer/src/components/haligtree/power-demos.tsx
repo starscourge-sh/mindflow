@@ -1,4 +1,5 @@
-import { useEffect, useState, type CSSProperties, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useState, type CSSProperties, type ReactNode } from 'react'
+import { num } from '../../../../main/dates'
 import { AnimatePresence, LayoutGroup, motion } from 'motion/react'
 import { Bell, BellOff, Check, ChevronRight, Eye, FileText, FlagTriangleRight, Folder, Lock, Pause, Repeat, ScanText, Sparkles, Star, Unlock } from 'lucide-react'
 import { EASE, spring } from '@/lib/motion'
@@ -8,7 +9,7 @@ import { Flip } from './review-view'
 import { ProgressBar } from './progress-bar'
 import { Struck } from './marks'
 import { Tape } from './tape'
-import { Kbd, Rolling } from './ui'
+import { Kbd, Rolling as RollingText } from './ui'
 import dayjs from 'dayjs'
 import { LEARN_TAG } from '../../../../main/name'
 import isoWeek from 'dayjs/plugin/isoWeek.js'
@@ -30,6 +31,18 @@ dayjs.extend(isoWeek)
 type Demo = (props: { live: boolean }) => React.JSX.Element
 
 /** Which step of a loop of `ms` long steps is showing; `rest` while not live. */
+/** Whether the demo around it is the one playing: set by powers-view around each card. */
+export const DemoLive = createContext(false)
+
+/**
+ * A demo's rolling words: they roll only in the demo that is playing. In the
+ * others they are plain text, so a card leaving the stage, set back to its
+ * resting step, never makes slot-text measure the page while it scrolls.
+ */
+function Rolling(props: Parameters<typeof RollingText>[0]): React.JSX.Element {
+  return useContext(DemoLive) ? <RollingText {...props} /> : <span className={props.className}>{typeof props.text === 'number' ? num(props.text) : props.text}</span>
+}
+
 function useSteps(ms: number[], live: boolean, rest = ms.length - 1): number {
   const [at, setAt] = useState(rest)
   useEffect(() => {
