@@ -1,4 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
+import { useStepped } from '@/lib/nav'
+import { step } from '@/lib/sound'
+import { BookOpen, Brain, Inbox, Laptop, LayoutGrid, ListTodo, Pencil, Sun } from '@/components/ui/icons'
+import { SectionSearch, SectionTabs, type SectionTab } from './section-tabs'
 import { useReading } from '@/lib/reads-in'
 import { useStill } from '@/lib/motion'
 import { CalendarRange, Check, X } from 'lucide-react'
@@ -12,21 +16,38 @@ import { useOnboarding } from '@/lib/onboarding'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import { DEMOS } from './power-demos'
 import { PlaceIcon, SECTIONS, type Place } from './places'
-import { Pressed, SmoothScroll, toast } from './ui'
+import { BackToTop, Pressed, toast, useSmooth } from './ui'
 import { ProgressBar } from './progress-bar'
 import { LearnOffer } from './study'
-import { PageContents } from './page-contents'
 import './powers.css'
 import { APP_NAME } from '../../../../main/name'
 import { num, plural } from '../../../../main/dates'
 
+/** The page's tabs, as Settings' sections: one group of cards each, writing first, and every page last. */
+const EVERY_PAGE = 'Every page'
+const TAB_LOOKS: Record<string, Omit<SectionTab, 'title'>> = {
+  Writing: { icon: Pencil, tint: 'orange' },
+  Catching: { icon: Inbox, tint: 'blue' },
+  'Reading and questions': { icon: BookOpen, tint: 'brown' },
+  Remembering: { icon: Brain, tint: 'pink' },
+  'Tasks and time': { icon: ListTodo, tint: 'green' },
+  'Days and seasons': { icon: Sun, tint: 'yellow' },
+  'Windows and your Mac': { icon: Laptop, tint: 'purple' },
+  [EVERY_PAGE]: { icon: LayoutGrid, tint: 'gray' }
+}
+const TABS: SectionTab[] = [...GROUPS.map((group) => group.id), EVERY_PAGE].map((title) => ({ title, ...TAB_LOOKS[title] }))
+const TAB_KEY = 'powers:tab'
+
 /**
  * What Haligtree can do: every power the app keeps out of sight until you need
- * it, a card each, in seven groups, and every page after them. Each card
- * shows its power working, in miniature, says in a line what it gives you,
- * shows its keys, and has Show me: in the sandbox it opens the real place
- * and points at it (the tour's spotlight); in your own notes it opens the
- * place, and where there is nothing yet to point at, offers the sandbox.
+ * it, a card each, in tabs down the left as Settings has, and every page in
+ * the last. Only the open tab's cards are drawn: all hundred on one page took
+ * a second to open and stalled its scrolling (qa/powers-speed.mjs). The tab on
+ * show is remembered, and each change of tab is a step Back and Forward find.
+ * Each card shows its power working, in miniature, says in a line what it
+ * gives you, shows its keys, and has Show me: in the sandbox it opens the real
+ * place and points at it (the tour's spotlight); in your own notes it opens
+ * the place, and where there is nothing yet to point at, offers the sandbox.
  * A soft tick marks what your own notes say you have already used.
  */
 export function PowersView({ onView }: { onView: (id: string, focus?: string) => void }): React.JSX.Element {
@@ -43,72 +64,117 @@ export function PowersView({ onView }: { onView: (id: string, focus?: string) =>
     }
   }, [])
   const caps = useCaps()
-  // What this Mac lacks is still listed, marked, but not counted as there to try.
-  const here = powers.filter((power) => meets(caps, power.needs))
-  const tried = used ? here.filter((power) => used.has(power.id)).length : 0
-  // Said after each group's name in the contents: how many of its cards you have tried.
-  const note = (group: string): string => {
-    const all = powers.filter((power) => power.group === group)
-    return `${num(all.filter((power) => used?.has(power.id)).length)} of ${num(all.length)}`
+  const [tab, setTabState] = useState(() => {
+    try {
+      const kept = localStorage.getItem(TAB_KEY)
+      return TABS.some((one) => one.title === kept) ? kept! : TABS[0].title
+    } catch {
+      return TABS[0].title
+    }
+  })
+  const [scroller, setScroller] = useState<HTMLDivElement | null>(null)
+  useSmooth(scroller)
+  // Back and Forward bring a tab with their own sound; a click or key plays its note too.
+  const showTab = (title: string): void => {
+    setTabState(title)
+    if (scroller) scroller.scrollTop = 0
+    try {
+      localStorage.setItem(TAB_KEY, title)
+    } catch {
+      // Not remembered, but still shown.
+    }
   }
-  // The column, for the contents beside it to read.
-  const [column, setColumn] = useState<HTMLDivElement | null>(null)
+  useStepped(tab, showTab)
+  const [query, setQuery] = useState('')
+  const searching = !!query.trim()
+  const pick = (title: string): void => {
+    if (searching) (chime('fold'), setQuery(''))
+    if (title === tab) return
+    step(TABS.findIndex((one) => one.title === title))
+    showTab(title)
+  }
+  // Searching, the cards of every tab whose words hold it; else the open tab's.
+  const words = query.trim().toLowerCase()
+  const shown = searching
+    ? powers.filter((power) => [power.name, power.line, power.tryIt ?? '', power.group].some((said) => said.toLowerCase().includes(words)))
+    : powers.filter((power) => power.group === tab)
+  // What this Mac lacks is still listed, marked, but not counted as there to try.
+  const here = shown.filter((power) => meets(caps, power.needs))
+  const tried = used ? here.filter((power) => used.has(power.id)).length : 0
+  const group = GROUPS.find((one) => one.id === tab)
+  const working = powers.filter((power) => meets(caps, power.needs))
   return (
-    <SmoothScroll beside={(box) => <PageContents page={column} scroller={box} label="Sections on this page" />}>
-      <div ref={setColumn} className="w-full px-5 pt-10 pb-24 @[44rem]/page:px-10">
-        <header className="max-w-[40rem]">
-          <h1 className="font-heading text-[2rem] leading-[1.1] font-semibold tracking-[-0.02em] text-foreground">What {APP_NAME} can do</h1>
-          <p className="mf-prose mt-3 text-[1.1875rem] text-muted-foreground">
-            <strong>Most of {APP_NAME} stays out of sight until you need it.</strong> Press “Show me” on a card to see it {SANDBOX ? 'in a real example.' : 'where it lives.'}
-          </p>
-          {/* How far through, always: from 0, so there is something to fill. */}
-          <div data-powers-tried className="mt-4 flex max-w-[22rem] flex-col gap-1.5">
-            <p className="flex items-center gap-2 text-control text-muted-foreground">
-              <span className="font-semibold text-foreground tabular-nums">{num(tried)} of {num(here.length)}</span> tried
-            </p>
-            <ProgressBar value={tried / here.length} label={`${tried} of ${num(here.length)} tried`} thick={3} />
+    <section className="grid min-h-0 min-w-0 flex-1 grid-cols-[3.5rem_1fr] grid-rows-[auto_1fr] @[44rem]/page:grid-cols-[12.5rem_1fr] @[52rem]/page:grid-cols-[14rem_1fr]">
+      <SectionTabs
+        sections={TABS}
+        section={tab}
+        searching={searching}
+        pick={pick}
+        label={`What ${APP_NAME} can do`}
+        className="col-start-1 row-span-2 row-start-1 pt-4 pb-4 @[44rem]/page:row-span-1 @[44rem]/page:row-start-2 @[44rem]/page:pt-0"
+      />
+      <SectionSearch query={query} setQuery={setQuery} className="col-start-2 row-start-1 mx-5 mt-4 mb-2 @[44rem]/page:col-start-1 @[44rem]/page:mx-2" />
+      <div className="relative col-start-2 row-start-2 flex min-h-0 min-w-0 flex-col @[44rem]/page:row-span-2 @[44rem]/page:row-start-1">
+        <div ref={setScroller} className="mf-more min-h-0 flex-1 overflow-y-auto">
+          <div data-powers-tab={searching ? '' : tab} className="@container/powers w-full max-w-2xl px-6 pt-4 pb-16">
+            <header className="px-1">
+              {!searching && <h2 className="text-lg font-semibold text-foreground">{tab}</h2>}
+              {searching ? (
+                <p className="text-body text-muted-foreground">{shown.length ? `${plural(shown.length, 'card holds', 'cards hold')} “${query.trim()}”.` : `Nothing here matches “${query.trim()}”. Try fewer letters, or what it does.`}</p>
+              ) : (
+                <p className="mt-1 text-body text-muted-foreground">{group ? group.line : `Most of ${APP_NAME} stays out of sight until you need it. These are its pages: G and a letter goes to each one from anywhere in the window.`}</p>
+              )}
+              {/* How far through this tab, always: from 0, so there is something to fill. */}
+              {here.length > 0 && (
+                <div data-powers-tried className="mt-4 flex max-w-[22rem] flex-col gap-1.5">
+                  <p className="flex items-center gap-2 text-control text-muted-foreground">
+                    <span className="font-semibold text-foreground tabular-nums">{num(tried)} of {num(here.length)}</span> tried
+                  </p>
+                  <ProgressBar value={tried / here.length} label={`${tried} of ${num(here.length)} tried`} thick={3} />
+                </div>
+              )}
+              {tab === EVERY_PAGE && !searching && (
+                <>
+                  <ThisMac caps={caps} missing={powers.length - working.length} />
+                  {/* The same, as cards: about twenty questions on what is here, asked in Review a few a day. */}
+                  <LearnOffer className="-ml-2 mt-3" />
+                </>
+              )}
+              {/* Unpinned from the sidebar's Pinned: one way to put it back, where it is missed. */}
+              {pinned === false && (
+                <button type="button" data-powers-repin className="mt-3 flex items-center gap-1.5 text-control font-medium text-foreground/80 underline decoration-foreground/30 underline-offset-2 hover:decoration-foreground"
+                  onClick={() => (chime('tap'), void haligtree.setSettings({ powersPinned: true }))}>
+                  Pin this page to the sidebar
+                </button>
+              )}
+              {!focusTools && tab === 'Tasks and time' && !searching && (
+                <p data-powers-focus-off className="mt-4 text-body text-muted-foreground">
+                  The focus timer and website blocking are turned off.{' '}
+                  <button type="button" className="font-medium text-foreground underline decoration-foreground/30 underline-offset-2 hover:decoration-foreground"
+                    onClick={() => void showMe({ name: 'Focus timer and site blocking', show: { view: 'settings', settings: 'Tasks', find: 'Focus timer and site blocking', at: '[data-setting]', text: 'Turn it on here.' } }, onView)}>
+                    Turn them on in Settings, under Tasks
+                  </button>
+                </p>
+              )}
+            </header>
+            {tab === EVERY_PAGE && !searching ? <Pages onView={onView} /> : (
+              // One column: each card its picture beside its words, read down like a list.
+              <div className="mt-6 flex flex-col gap-3">
+                {shown.map((power) => (
+                  <Card key={power.id} power={power} used={!!used?.has(power.id)} caps={caps} onView={onView} />
+                ))}
+              </div>
+            )}
           </div>
-          <ThisMac caps={caps} missing={powers.length - here.length} />
-          {/* The same, as cards: about twenty questions on what is here, asked in Review a few a day. */}
-          <LearnOffer className="-ml-2 mt-3" />
-          {/* Unpinned from the sidebar's Pinned: one way to put it back, where it is missed. */}
-          {pinned === false && (
-            <button type="button" data-powers-repin className="mt-2 flex items-center gap-1.5 text-control font-medium text-foreground/80 underline decoration-foreground/30 underline-offset-2 hover:decoration-foreground"
-              onClick={() => (chime('tap'), void haligtree.setSettings({ powersPinned: true }))}>
-              Pin this page to the sidebar
-            </button>
-          )}
-          {!focusTools && (
-            <p data-powers-focus-off className="mt-4 text-body text-muted-foreground">
-              The focus timer and website blocking are turned off.{' '}
-              <button type="button" className="font-medium text-foreground underline decoration-foreground/30 underline-offset-2 hover:decoration-foreground"
-                onClick={() => void showMe({ name: 'Focus timer and site blocking', show: { view: 'settings', settings: 'Tasks', find: 'Focus timer and site blocking', at: '[data-setting]', text: 'Turn it on here.' } }, onView)}>
-                Turn them on in Settings, under Tasks
-              </button>
-            </p>
-          )}
-        </header>
-        {GROUPS.map((group) => (
-          <section key={group.id} id={`powers-${slug(group.id)}`} aria-label={group.id} data-group={group.id} data-group-note={note(group.id)} className="mt-14 scroll-mt-6">
-            <h2 className="font-heading text-heading font-semibold tracking-[-0.01em] text-foreground">{group.id}</h2>
-            <p className="mf-aside mt-1 text-body text-muted-foreground">{group.line}</p>
-            {/* One column a group: each card its picture beside its words, read down like a list. */}
-            <div className="mt-5 flex flex-col gap-3">
-              {powers.filter((power) => power.group === group.id).map((power) => (
-                <Card key={power.id} power={power} used={!!used?.has(power.id)} caps={caps} onView={onView} />
-              ))}
-            </div>
-          </section>
-        ))}
-        <Pages onView={onView} />
+        </div>
+        <BackToTop target={scroller} />
       </div>
-    </SmoothScroll>
+    </section>
   )
 }
 
 /** A sentence of its own after "Try it.": its first letter a capital. */
 const upper = (text: string): string => text[0].toUpperCase() + text.slice(1)
-const slug = (text: string): string => text.toLowerCase().replace(/\W+/g, '-')
 
 /** The soft tick: done, said quietly. */
 const Tick = (): React.JSX.Element => (
@@ -175,8 +241,8 @@ function Card({ power, used, caps, onView }: { power: Power; used: boolean; caps
   const calm = useStill()
   const Demo = DEMOS[power.id]
   return (
-    <article data-power={power.id} data-mac-needs={power.needs ?? 'every'} data-mac-lacking={has ? undefined : ''} className="flex flex-col rounded-2xl border bg-[color-mix(in_oklab,var(--foreground)_2.5%,transparent)] p-1.5 @[40rem]/page:flex-row">
-      <div className="relative @[40rem]/page:w-[20rem] @[40rem]/page:shrink-0">
+    <article data-power={power.id} data-mac-needs={power.needs ?? 'every'} data-mac-lacking={has ? undefined : ''} className="flex flex-col rounded-2xl border bg-[color-mix(in_oklab,var(--foreground)_2.5%,transparent)] p-1.5 @[34rem]/powers:flex-row">
+      <div className="relative @[34rem]/powers:w-[20rem] @[34rem]/powers:shrink-0">
         {/* 9px: the card's 16px corner less its 6px edge and 1px line, so the corners nest. */}
         {/* Held to itself (contain): a demo's fold grows its card by height,
             which a fold has to (a clip would leave the card's edge where it
@@ -186,7 +252,7 @@ function Card({ power, used, caps, onView }: { power: Power; used: boolean; caps
         </div>
         {used && <span className="absolute top-2.5 right-2.5" title="You have used this"><Tick /><span className="sr-only">You have used this</span></span>}
       </div>
-      <div className="flex min-w-0 flex-1 flex-col px-3 pt-3.5 pb-2 @[40rem]/page:px-4 @[40rem]/page:pt-3">
+      <div className="flex min-w-0 flex-1 flex-col px-3 pt-3.5 pb-2 @[34rem]/powers:px-4 @[34rem]/powers:pt-3">
         {/* Dia's way: the name, bold, is the sentence's start; the rest only for whoever wants it. */}
         <div className="mf-prose text-[0.9375rem] text-muted-foreground">
           <h3 className="inline font-semibold text-foreground">{power.name}.</h3> {power.line}
@@ -290,10 +356,8 @@ function Pages({ onView }: { onView: (id: string) => void }): React.JSX.Element 
   const list: (Place & { key?: string })[] = SECTIONS.filter((section) => PAGE_LINES[section.id])
   list.splice(list.findIndex((section) => section.id === 'monthpage') + 1, 0, { id: 'yearpage', label: 'Year', icon: CalendarRange, tint: 'yellow' })
   return (
-    <section id="powers-every-page" aria-label="Every page" data-group="Every page" className="mt-14 scroll-mt-6">
-      <h2 className="font-heading text-heading font-semibold tracking-[-0.01em] text-foreground">Every page</h2>
-      <p className="mt-1 text-control text-muted-foreground">G and a letter goes to each one from anywhere in the window.</p>
-      <div className="mt-5 grid grid-cols-[minmax(0,1fr)] gap-x-6 @[40rem]/page:grid-cols-2 @[66rem]/page:grid-cols-3">
+    <section id="powers-every-page" aria-label="Every page" data-group="Every page" className="mt-4">
+      <div className="mt-5 grid grid-cols-[minmax(0,1fr)] gap-x-6 @[34rem]/powers:grid-cols-2">
         {list.map((section) => (
           <button key={section.id} type="button" onClick={() => (chime('tap'), onView(section.id))}
             className="group -mx-2 flex items-start gap-3 rounded-lg px-2 py-2.5 text-left transition-colors duration-150 hover:bg-foreground/[0.05]">

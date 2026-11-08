@@ -9,7 +9,7 @@ import iconBronze from '@/assets/app-icon/bronze.png'
 import iconGold from '@/assets/app-icon/gold.png'
 import { WorkdaySample } from './week-fit'
 import { lengthSaid } from '../../../../main/day-load'
-import { createContext, useContext, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import { useStepped } from '@/lib/nav'
 import { PACKS, SCAPES, TICKS, scapeSample, type Scape, chime, click, setVolume, soundOn, step, tickSample, type PackName, type TickSound } from '@/lib/sound'
 import { NOTE_FONTS } from '@/lib/editor-setup'
@@ -49,6 +49,7 @@ import { LINGER } from './getting-started'
 import { tryCelebration } from './celebrate'
 import { drawingFor } from './grain'
 import { PageContents } from './page-contents'
+import { SectionSearch, SectionTabs } from './section-tabs'
 import { ReaderCard } from './reader-card'
 import { DeckFace } from './deck-shelf'
 import { CoverChoice, DimPreview, FolderStrips, InFinder, isBuiltInScenery } from './settings-looks'
@@ -82,7 +83,7 @@ import { backedUpAgo, chooseBackupFolder } from '@/lib/backups'
 import { ThemeDial } from './theme-dial'
 import { TimeField } from './time-field'
 import { BarWordsSample, BlurSample, DatesSample, OffersSample, CentredSample, DayHintsSample, FoldSample, TypePauseSample, SpellSample, HomeMonthSample, TimeGoneSample, TitleTopSample, TypewriterSample, Choices, CountSample, ListPictureSample, MarksSample, MiniBubble, MotionSample, PictureSample, POSTCARD_BORDERS, StirSample, TempusSample, ThemeFileGuide, TuckSample, ThemeTiles, barChoices, boxPlaceChoices, boxScreenChoices, bubbleChoices, highlightChoices, paperChoices, pictureSizeChoices, tagLookChoices, IconColourSample, menuIconChoices, linkChoices, meaningChoices, pillSitsChoices, postcardChoices, saveStarterTheme, stickyChoices, timerShowsChoices, widthChoices, TranscribeSample, TalkSample, TidySample } from './settings-show'
-import { BookOpen as BookHeart, Brain, HardDrive, CircleHelp as LifeBuoy, ListTodo as ListChecks, Camera as Mountain, Brush as Palette, Pencil as PenLine, Search as SearchIcon, Sparkles, Volume2, X } from '@/components/ui/icons'
+import { BookOpen as BookHeart, Brain, HardDrive, CircleHelp as LifeBuoy, ListTodo as ListChecks, Camera as Mountain, Brush as Palette, Pencil as PenLine, Sparkles, Volume2, X } from '@/components/ui/icons'
 import { APP_NAME } from '../../../../main/name'
 import { forgives } from '@/lib/slash-rank'
 import { quoted } from '../../../../main/clip'
@@ -525,11 +526,6 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
   // Vim keys live with the editors, not here, so the box's menu and this switch move together.
   const [vim, setVimOn] = useState(currentVim)
   useEffect(() => onVimChange(setVimOn), [])
-  // The section list's light glides to the row nearest the pointer, and the
-  // section on show is one fill that travels to the next.
-  const sectionList = useRef<HTMLElement>(null)
-  const sectionHover = useFluidHover(sectionList, { items: '[data-section]' })
-  const sectionChosen = useChosen(sectionList, '[data-section][aria-current="page"]', `${section}:${!!query.trim()}`)
   // The app icons: one light glides between them, along a line.
   const iconRow = useRef<HTMLDivElement>(null)
   const iconHover = useFluidHover(iconRow, { items: ':scope > button', axis: 'x' })
@@ -556,66 +552,18 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
   // so Full width changes nothing here.
   return (
     <section className={`grid min-h-0 min-w-0 flex-1 grid-cols-[3.5rem_1fr] grid-rows-[auto_1fr] @[44rem]/page:grid-cols-[12.5rem_1fr] @[52rem]/page:grid-cols-[14rem_1fr]`}>
-      <nav
-        ref={sectionList}
-        {...sectionHover.handlers}
-        data-sections
-        aria-label="Settings sections"
-        className={`relative isolate col-start-1 row-span-2 row-start-1 flex flex-col gap-px overflow-y-auto px-2 pt-4 pb-4 @[44rem]/page:row-span-1 @[44rem]/page:row-start-2 @[44rem]/page:pt-0`}
-        onKeyDown={(event) => {
-          const by = { ArrowDown: 1, j: 1, ArrowUp: -1, k: -1 }[event.key]
-          if (!by || event.metaKey || event.ctrlKey || event.altKey) return
-          event.preventDefault()
-          const at = SECTIONS.findIndex((one) => one.title === section)
-          const next = SECTIONS[Math.max(0, Math.min(SECTIONS.length - 1, at + by))]
-          setSection(next.title)
-          event.currentTarget.querySelector<HTMLElement>(`[data-section="${next.title}"]`)?.focus()
+      <SectionTabs
+        sections={SECTIONS}
+        section={section}
+        searching={searching}
+        label="Settings sections"
+        className="col-start-1 row-span-2 row-start-1 pt-4 pb-4 @[44rem]/page:row-span-1 @[44rem]/page:row-start-2 @[44rem]/page:pt-0"
+        pick={(title) => {
+          setSection(title)
+          if (searching) (chime('fold'), setQuery(''))
         }}
-      >
-        <Highlight spot={sectionChosen.spot} snap={sectionChosen.snap} travel={spring.moderate} className="bg-accent" />
-        <Highlight spot={sectionHover.spot} session={sectionHover.session} snap={sectionHover.snap} />
-        {SECTIONS.map((one) => (
-          <Tip key={one.title} label={one.title}>
-            <button
-              type="button"
-              data-section={one.title}
-              aria-current={!searching && section === one.title ? 'page' : undefined}
-              onClick={() => {
-                setSection(one.title)
-                if (searching) (chime('fold'), setQuery(''))
-              }}
-              className={`group flex items-center justify-center gap-2.5 rounded-md p-1.5 text-left text-body transition-colors duration-80 @[44rem]/page:justify-start @[44rem]/page:px-2 ${!searching && section === one.title ? 'text-foreground' : 'text-foreground/80'}`}
-            >
-              <one.icon
-                className={`size-4 shrink-0 transition-colors duration-80 ${!searching && section === one.title ? 'text-[var(--tint)]' : 'text-[color-mix(in_oklab,var(--tint)_55%,var(--muted-foreground))] group-hover:text-[var(--tint)] group-data-[fluid-hover-active]:text-[var(--tint)]'}`}
-                style={{ '--tint': `var(--tt-color-text-${one.tint})` } as CSSProperties}
-              />
-              <Weighted on={!searching && section === one.title} className="hidden @[44rem]/page:inline-grid">{one.title}</Weighted>
-            </button>
-          </Tip>
-        ))}
-      </nav>
-      <label className={`col-start-2 row-start-1 mx-5 mt-4 mb-2 flex items-center gap-2 rounded-lg border bg-accent/25 px-3 py-1.5 text-muted-foreground focus-within:border-ring @[44rem]/page:col-start-1 @[44rem]/page:mx-2`}>
-        <SearchIcon className="size-4 shrink-0" />
-        <input
-          value={query}
-          placeholder="Search…"
-          className="min-w-0 flex-1 bg-transparent text-body text-foreground outline-none"
-          onChange={(event) => {
-            // One ping as a search starts, then a soft tick for each letter.
-            if (!query && event.target.value) chime('search')
-            else click('soft')
-            setQuery(event.target.value)
-          }}
-          onKeyDown={(event) => {
-            if (event.key !== 'Escape' || !query) return
-            event.preventDefault()
-            chime('fold')
-            setQuery('')
-          }}
-        />
-        {query && <Kbd>Esc</Kbd>}
-      </label>
+      />
+      <SectionSearch query={query} setQuery={setQuery} className="col-start-2 row-start-1 mx-5 mt-4 mb-2 @[44rem]/page:col-start-1 @[44rem]/page:mx-2" />
       <div className={`relative col-start-2 row-start-2 flex min-h-0 min-w-0 flex-col @[44rem]/page:row-span-2 @[44rem]/page:row-start-1`}>
       <PageContents page={column} scroller={scroller} label="Settings on this page" />
       <div ref={setScroller} className="mf-more min-h-0 flex-1 overflow-y-auto">
