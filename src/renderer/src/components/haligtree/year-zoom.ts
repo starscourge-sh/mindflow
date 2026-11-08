@@ -299,7 +299,18 @@ export function useSwell(box: RefObject<HTMLElement | null>, reach: () => number
     }
     el.addEventListener('pointermove', move)
     el.addEventListener('pointerleave', leave)
+    // The strokes moved under a swell (a pinch, a pan, the strokes in view drawn afresh): the swell is laid again at
+    // once from their new places. Its styles win over their own positions, so left as they were, the strokes bunched
+    // where they had been and left gaps where they now are.
+    const redraw = new MutationObserver(() => {
+      for (const [svg, one] of states) {
+        if (!svg.isConnected) (one.touched.forEach(plain), states.delete(svg))
+        else draw(svg, one)
+      }
+    })
+    redraw.observe(el, { subtree: true, childList: true, attributeFilter: ['x', 'width'] })
     return () => {
+      redraw.disconnect()
       el.removeEventListener('pointermove', move)
       el.removeEventListener('pointerleave', leave)
       frames.stop()
