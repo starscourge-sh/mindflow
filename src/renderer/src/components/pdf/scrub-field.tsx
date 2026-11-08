@@ -91,6 +91,7 @@ export function ScrubField({ value, max, onChange, label = "Page", min = 1, clas
       // The sideways arrows say "drag me" until it is opened to type (the app's own rule for fields would show the text cursor).
       style={{ cursor: typed === null ? "ew-resize" : "text" }}
       data-scrub-field=""
+      data-swipe-own=""
       inputMode="decimal"
       value={typed ?? String(value)}
       onPointerDown={(event) => {

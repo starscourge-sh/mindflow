@@ -1492,7 +1492,7 @@ export function GraphCanvas({ map, onOpen, centre, you, about, fit: fitRef, fly,
 
   const kind = hover && kindOf(hover.dot.kind)
   return (
-    <div ref={box} className={cn('relative min-h-0 overflow-hidden select-none', className)}>
+    <div ref={box} data-swipe-own className={cn('relative min-h-0 overflow-hidden select-none', className)}>
       <canvas ref={canvas} className="absolute inset-0 touch-none" />
       {hover && (
         <div ref={card} data-map-tip data-private={hover.dot.private ? '' : undefined} className={cn(`pointer-events-none invisible absolute z-10 flex flex-col gap-0.5 ${TIP}`, small ? 'max-w-[13rem]' : 'max-w-xs')}>

@@ -400,7 +400,7 @@ export default function ExcalidrawCanvas({ scene, onChange, start, end, header =
         {end}
       </header>
 
-      <div ref={box} className="relative min-h-0 flex-1 [container-type:size]" onKeyDown={onKeyDown}>
+      <div ref={box} data-swipe-own className="relative min-h-0 flex-1 [container-type:size]" onKeyDown={onKeyDown}>
         {/* Paper, not graph paper: a faint dot where each grid line would cross. Its lines come back with Snap to the grid. */}
         <div ref={dots} aria-hidden className={`drawing-dots absolute inset-0 ${seen.grid ? 'hidden' : ''}`} />
         <Editor scene={scene} onChange={onChange} onApi={setApi} onState={onState} />

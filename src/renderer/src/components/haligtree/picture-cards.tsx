@@ -722,7 +722,7 @@ export function PictureCards({ deck: aimed, onClose, onShow }: { deck?: string |
             placeholder="A question on every card, if you like: “Name the figure”" aria-label="A question on every card"
             className={`${CARD_FIELD} text-body font-medium`} />
           <div ref={room} className="w-full">
-            <div ref={stage} data-picture-stage data-lenis-prevent={zoom > 1 || undefined} className={`relative mx-auto rounded-[4px] ${zoom > 1 ? 'overflow-auto overscroll-contain' : 'overflow-hidden'}`} style={{ width: view.w || undefined, height: view.h || undefined }}>
+            <div ref={stage} data-picture-stage data-swipe-own={zoom > 1 || undefined} data-lenis-prevent={zoom > 1 || undefined} className={`relative mx-auto rounded-[4px] ${zoom > 1 ? 'overflow-auto overscroll-contain' : 'overflow-hidden'}`} style={{ width: view.w || undefined, height: view.h || undefined }}>
               <div ref={board} data-picture-board className={`relative touch-none select-none ${tool === 'select' ? 'cursor-default' : 'cursor-crosshair'}`} style={{ width: across || undefined, height: down_ || undefined }}
                 onPointerDown={press} onPointerMove={drag} onPointerUp={lift}
                 // The pointer let go somewhere the board never heard of (the window lost it): finished as a letting go, never stuck mid-drag.
