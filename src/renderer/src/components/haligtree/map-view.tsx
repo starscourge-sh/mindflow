@@ -200,6 +200,7 @@ function LinkMap({ onOpen, modes }: { onOpen: (type: string, id: string) => void
         {dots ? <GraphCanvas map={map!} onOpen={open} fit={fit} fly={fly} replay={replay} calm look={example ? undefined : canvasLook} paint={example ? undefined : paint} className="flex-1">
           {/* The map's foot, as Obsidian keeps its graph bare: the key on the left (what the colours and icons mean,
               opened on a click), the replay's timeline in the middle while it plays, the notes left off on the right. */}
+          <div aria-hidden className="mf-blur-edge" data-map-foot-blur><span /><span /><span /><span /></div>
           <div data-map-foot className="@container/foot pointer-events-none absolute inset-x-4 bottom-3 grid grid-cols-[1fr_minmax(0,30rem)_1fr] items-end gap-3" style={panel && !example ? { right: 'calc(18rem + 1.5rem)' } : undefined}>
             <Popover onOpenChange={(open) => open && chime('open')}>
               <PopoverTrigger asChild>

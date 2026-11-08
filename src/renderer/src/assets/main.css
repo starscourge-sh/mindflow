@@ -3505,3 +3505,25 @@ html[data-overhang][data-glass] [data-hint-room] [data-hint-surface] {
 @keyframes mf-board-lift { from { rotate: 0deg; scale: 1; } }
 @media (prefers-reduced-motion: reduce) { .mf-board-lift { rotate: none; scale: none; animation: none; } }
 :root[data-motion='off'] .mf-board-lift { rotate: none; scale: none; animation: none; }
+
+/* A soft blur along an edge that fades away from it (the Map's foot): four layers, each blurring more and kept to
+   less of the band, so the blur thins out as it rises instead of stopping at a line. The page colour washes in
+   under it at the edge. Only over a surface with nothing round it that fades, masks or filters (the Map's canvas). */
+.mf-blur-edge {
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  height: 7rem;
+  pointer-events: none;
+  background: linear-gradient(to top, color-mix(in oklab, var(--background) 55%, transparent), transparent);
+}
+.mf-blur-edge > span {
+  position: absolute;
+  inset: 0;
+}
+@media (prefers-reduced-transparency: no-preference) {
+  .mf-blur-edge > span:nth-child(1) { backdrop-filter: blur(1px); mask-image: linear-gradient(to top, black 0%, black 40%, transparent 100%); }
+  .mf-blur-edge > span:nth-child(2) { backdrop-filter: blur(3px); mask-image: linear-gradient(to top, black 0%, black 25%, transparent 70%); }
+  .mf-blur-edge > span:nth-child(3) { backdrop-filter: blur(6px); mask-image: linear-gradient(to top, black 0%, black 12%, transparent 45%); }
+  .mf-blur-edge > span:nth-child(4) { backdrop-filter: blur(12px); mask-image: linear-gradient(to top, black 0%, transparent 25%); }
+}
