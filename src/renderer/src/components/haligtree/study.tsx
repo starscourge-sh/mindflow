@@ -192,7 +192,9 @@ export function Slipping({ card, splitting, onRewrite, onSplit, onAside, onKeep,
       </div>
       {splitting ? <SplitForm card={card} onDone={onSplitDone} onCancel={onKeep} /> : (
         <>
-          <div className="@container grid grid-cols-1 gap-2 @md:grid-cols-3">
+          {/* The wrapper is what @md measures: a container can't query its own width. */}
+          <div className="@container">
+          <div className="grid grid-cols-1 gap-2 @md:grid-cols-3">
             {ways.map((way) => (
               <button key={way.key} type="button" onClick={way.run}
                 className="relative flex min-h-16 flex-col items-start justify-start rounded-md border bg-background py-2.5 pr-9 pl-3 text-left transition-colors hover:bg-accent/50">
@@ -200,6 +202,7 @@ export function Slipping({ card, splitting, onRewrite, onSplit, onAside, onKeep,
                 <span className="text-xs text-muted-foreground">{way.line}</span>
               </button>
             ))}
+          </div>
           </div>
           <Button variant="ghost" size="sm" onClick={onKeep} className="self-start text-muted-foreground">Keep going</Button>
         </>

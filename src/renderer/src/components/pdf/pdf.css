@@ -1569,11 +1569,19 @@
 }
 
 /* The library: a shelf of covers at the left, the picked book's inspector at the right. */
+.pdf-library-room {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  container-type: inline-size;
+}
+
 .pdf-library {
   display: flex;
   flex: 1;
+  min-width: 0;
   min-height: 0;
-  container-type: inline-size;
 }
 
 /* The shelf's side: it scrolls by itself, the panel beside it holding still. */
@@ -1611,9 +1619,13 @@ html:is([data-width='page'], [data-width='wide']) .pdf-library-column,
     flex-direction: column;
     overflow-y: auto;
   }
-  .pdf-library-side,
-  .pdf-library-scroll {
+  /* The side is as tall as the shelf; the shelf inside it keeps the room's width (flex: none sized it to its own
+     widest line, 576px, and it ran past a narrow pane). */
+  .pdf-library-side {
     flex: none;
+  }
+  .pdf-library-scroll {
+    min-width: 0;
     overflow: visible;
   }
   .pdf-library-column {

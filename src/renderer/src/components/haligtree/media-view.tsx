@@ -249,7 +249,7 @@ export function MediaView({ onOpen }: { onOpen: (type: string, id: string) => vo
         <span data-media-decks="" className="contents"><Chip on={decks} onClick={() => (chime(decks ? 'off' : 'on'), setDecks(!decks))} mark={<Layers className="size-3.5" />}>Deck pictures</Chip></span>
       )}
       {/* On a narrow window the header has no room for it: it sits at the end of the tabs instead. */}
-      {looseSwitch('ml-auto flex min-[900px]:hidden')}
+      {looseSwitch('ml-auto flex @[40rem]/page:hidden')}
     </div>
   )
   // The last few added or opened, any kind: a book counts from when it was last read.
@@ -281,7 +281,7 @@ export function MediaView({ onOpen }: { onOpen: (type: string, id: string) => vo
         void addDropped([...event.dataTransfer.files], onShow)
       }}>
     <Page title="Files" dock={library} waiting={unloaded(all)} count={unloaded(all) || !all.length ? undefined : chosen.length || shown.length} unit={chosen.length ? ['selected', 'selected'] : ['file', 'files']}
-      search={all.length > 0 && <div className="flex min-w-0 items-center gap-3"><ListSearch value={query} placeholder="Find by note, name or words" onChange={setQuery} onDone={() => shown[0] && open(shown[0])} />{looseSwitch('hidden min-[900px]:flex')}</div>}
+      search={all.length > 0 && <div className="flex min-w-0 items-center gap-3"><ListSearch value={query} placeholder="Find by note, name or words" onChange={setQuery} onDone={() => shown[0] && open(shown[0])} />{looseSwitch('hidden @[40rem]/page:flex')}</div>}
       beside={() => carrying && (
         <div data-media-drop className="pointer-events-none absolute inset-2 z-20 flex items-center justify-center rounded-xl border border-[color-mix(in_srgb,var(--tt-brand-color-500)_55%,transparent)] bg-[color-mix(in_srgb,var(--tt-brand-color-500)_8%,transparent)]">
           <span className="rounded-lg bg-popover px-3 py-2 text-heading font-semibold text-foreground shadow-(--mf-panel-shadow) ring-1 ring-foreground/10">Drop to add to Files</span>

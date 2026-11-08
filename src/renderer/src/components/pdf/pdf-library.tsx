@@ -100,6 +100,9 @@ export function PdfLibrary({ query, top, files, onPut, keys, only }: { /** Off w
   const [scroller, setScroller] = useState<HTMLDivElement | null>(null)
   // The shelf scrolls on its own at the left; the picked book's panel is docked at the page's right edge, full height, as the reader's is.
   return (
+    // The room is what the narrow rule measures: a container can't query its own width, so the shelf and the
+    // panel stayed side by side at any width and the page scrolled sideways.
+    <div className="pdf-library-room">
     <div className="pdf-library" data-library>
       <div className="pdf-library-side">
         <div ref={setScroller} className="pdf-library-scroll" data-shelf-scroll>
@@ -126,6 +129,7 @@ export function PdfLibrary({ query, top, files, onPut, keys, only }: { /** Off w
         <BackToTop target={scroller} />
       </div>
       {book && <Inspector one={book} onOpen={() => open(book)} />}
+    </div>
     </div>
   )
 }
