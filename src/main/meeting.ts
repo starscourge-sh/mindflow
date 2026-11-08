@@ -55,7 +55,7 @@ export type Live = {
 export type SoundApp = { bundle: string; name: string }
 
 type Shown = { send: (live: Live, level?: { you: number; others: number }) => void; open: () => void; close: () => void; openNote: (id: string) => void; leftChanged: () => void }
-type Saved = { seconds: number; peaks: number[]; you: boolean; others: boolean; heard?: number; stopped?: string }
+type Saved = { seconds: number; peaks: number[]; you: boolean; others: boolean; heard?: number; stopped?: string; quietMic?: boolean; micName?: string }
 /** What only this side knows about a recording, written in its folder as it goes. */
 type Noted = { startedAt: string; event: MeetingEvent | null; words: Live['words'] }
 type Moment = Live['moments'][number]
@@ -390,7 +390,9 @@ async function keep(from: string, noted: Noted, saved: Saved, found: Record<stri
       audio, you: tracks.you, others: tracks.others, seconds: saved.seconds, startedAt: noted.startedAt, event: noted.event, people: noted.event?.people ?? [],
       speakers, names: {}, moments, found, take, words: noted.words, tag: '#recording', lines: said, actions, heard: saved.heard ?? null,
       // The folder it came from, so a crash between keeping it and clearing the folder never keeps it twice; and why it ended early, if it did.
-      recording: basename(from), stopped: stopped ?? saved.stopped ?? null
+      recording: basename(from), stopped: stopped ?? saved.stopped ?? null,
+      // Your microphone on but hearing almost nobody while the others talked: its name, so the page can say which one.
+      quietMic: saved.quietMic ? (saved.micName ?? '') : null
     }
   }
   const text = (words: string): unknown[] => (words ? [{ type: 'text', text: words }] : [])

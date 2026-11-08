@@ -25,8 +25,10 @@
 //   {"from":{"bundle":"com.example.app"|null,"mic":true}}    what is being recorded, at the start and on each change
 //   {"found":{...}} and {"take":{...}}                       what to take from it, once stopped
 //   {"error":{"code":"...","message":"..."}}
+import Accelerate
 import AppKit
 import AVFoundation
+import CoreAudio
 import CoreGraphics
 import CoreMedia
 import Foundation
@@ -241,63 +243,265 @@ func rms(_ buffer: AVAudioPCMBuffer) -> Float {
 }
 
 /**
- * What a voice sounds like over some seconds: how high it sits (its median pitch, by autocorrelation over 32 ms
- * frames) and how bright it is (zero crossings). Enough to tell most voices apart; two alike may be heard as one.
+ * A line's voice print: how high the voice sits (the median pitch of the frames with voice in them, by autocorrelation
+ * over 32 ms frames) and the shape of its sound (the average loudness in 16 bands from 100 Hz to 7 kHz, each frame's
+ * overall loudness taken out, so a louder or quieter sentence prints the same). A median and an average over the whole
+ * line, so one person's rising and falling pitch across sentences stays one print.
  */
-func voiceOf(_ samples: ArraySlice<Float>) -> (pitch: Double, bright: Double)? {
+struct Print { var pitch: Double?; var shape: [Double] }
+
+let BANDS = 16
+let fftLog = vDSP_Length(9)
+let fftSetup = vDSP_create_fftsetup(fftLog, FFTRadix(kFFTRadix2))!
+let hann = vDSP.window(ofType: Float.self, usingSequence: .hanningDenormalized, count: 512, isHalfWindow: false)
+/** Each band's first and last FFT bin (31.25 Hz each), spaced as the ear spaces them (mel). */
+let bandBins: [(Int, Int)] = {
+  func mel(_ f: Double) -> Double { 2595 * log10(1 + f / 700) }
+  func hz(_ m: Double) -> Double { 700 * (pow(10, m / 2595) - 1) }
+  let low = mel(100), high = mel(7000)
+  return (0..<BANDS).map { band in
+    let from = Int(hz(low + (high - low) * Double(band) / Double(BANDS)) / 31.25)
+    let to = Int(hz(low + (high - low) * Double(band + 1) / Double(BANDS)) / 31.25)
+    return (from, max(from + 1, to))
+  }
+}()
+
+func printOf(_ samples: ArraySlice<Float>) -> Print? {
   let frame = 512
-  var pitches: [Double] = []
-  var crossings: [Double] = []
+  var frames: [[Float]] = []
+  var energies: [Float] = []
   var at = samples.startIndex
   while at + frame <= samples.endIndex {
     let part = Array(samples[at..<at + frame])
-    at += frame
+    at += frame / 2
     var energy: Float = 0
-    for v in part { energy += v * v }
-    if energy / Float(frame) < 0.0004 { continue }
-    var zc = 0
-    for i in 1..<frame where (part[i] >= 0) != (part[i - 1] >= 0) { zc += 1 }
-    crossings.append(Double(zc) / Double(frame))
+    vDSP_svesq(part, 1, &energy, vDSP_Length(frame))
+    frames.append(part)
+    energies.append(energy / Float(frame))
+  }
+  guard frames.count >= 8 else { return nil }
+  // Frames with voice in them: well above the line's own quiet, so a loud or a soft line is read alike.
+  let loud = energies.sorted()[Int(Double(energies.count - 1) * 0.9)]
+  let floor = max(0.000002, loud * 0.08)
+  var pitches: [Double] = []
+  var shape = [Double](repeating: 0, count: BANDS)
+  var voiced = 0
+  var real = [Float](repeating: 0, count: frame / 2), imag = [Float](repeating: 0, count: frame / 2)
+  var power = [Float](repeating: 0, count: frame / 2)
+  for (part, energy) in zip(frames, energies) where energy >= floor {
     // Lags for 70 to 400 Hz at 16 kHz.
     var best = 0, bestScore: Float = 0
-    for lag in 40...228 {
-      var score: Float = 0
-      for i in 0..<(frame - lag) { score += part[i] * part[i + lag] }
-      if score > bestScore { bestScore = score; best = lag }
+    let whole = energy * Float(frame)
+    part.withUnsafeBufferPointer { p in
+      for lag in 40...228 {
+        var score: Float = 0
+        vDSP_dotpr(p.baseAddress!, 1, p.baseAddress! + lag, 1, &score, vDSP_Length(frame - lag))
+        if score > bestScore { bestScore = score; best = lag }
+      }
     }
-    if best > 0 && bestScore > energy * 0.3 { pitches.append(RATE / Double(best)) }
+    if best > 0 && bestScore > whole * 0.3 { pitches.append(log(RATE / Double(best))) }
+    // The frame's spectrum, in bands.
+    let windowed = vDSP.multiply(part, hann)
+    real.withUnsafeMutableBufferPointer { r in imag.withUnsafeMutableBufferPointer { i in
+      var split = DSPSplitComplex(realp: r.baseAddress!, imagp: i.baseAddress!)
+      windowed.withUnsafeBufferPointer { w in
+        w.baseAddress!.withMemoryRebound(to: DSPComplex.self, capacity: frame / 2) { vDSP_ctoz($0, 2, &split, 1, vDSP_Length(frame / 2)) }
+      }
+      vDSP_fft_zrip(fftSetup, &split, 1, fftLog, FFTDirection(FFT_FORWARD))
+      vDSP_zvmags(&split, 1, &power, 1, vDSP_Length(frame / 2))
+    } }
+    let bands = bandBins.map { (from, to) -> Double in 10 * log10(Double(power[from..<min(to, frame / 2)].reduce(0, +)) + 1e-9) }
+    let mean = bands.reduce(0, +) / Double(BANDS)
+    for b in 0..<BANDS { shape[b] += bands[b] - mean }
+    voiced += 1
   }
-  guard pitches.count >= 3 else { return nil }
+  guard voiced >= 8 else { return nil }
   pitches.sort()
-  crossings.sort()
-  return (pitches[pitches.count / 2], crossings[crossings.count / 2])
+  return Print(pitch: pitches.count >= 5 ? pitches[pitches.count / 2] : nil, shape: shape.map { $0 / Double(voiced) })
 }
 
-/** The others, split into speakers by voice as their lines come: each line joins the nearest voice, or starts one. */
+/** A print kept in words.jsonl: the pitch (-1 for none), then the shape. */
+func printFrom(_ any: Any?) -> Print? {
+  guard let all = any as? [Double], all.count == BANDS + 1 else { return nil }
+  return Print(pitch: all[0] < 0 ? nil : all[0], shape: Array(all.dropFirst()))
+}
+
+/**
+ * How far apart two prints are, in units of how much one person varies from line to line: pitch a fifth apart
+ * (about 20%) counts 1, and so does the sound's shape differing by 3 dB in every band. Under 1 is the same voice.
+ */
+func far(_ a: Print, _ b: Print) -> Double {
+  var shape = 0.0
+  for i in 0..<BANDS { let d = a.shape[i] - b.shape[i]; shape += d * d }
+  shape = shape / Double(BANDS) / (SHAPE_SPREAD * SHAPE_SPREAD)
+  guard let p = a.pitch, let q = b.pitch else { return shape.squareRoot() }
+  let pitch = (p - q) / PITCH_SPREAD
+  return ((pitch * pitch + shape) / 2).squareRoot()
+}
+let PITCH_SPREAD = 0.2
+let SHAPE_SPREAD = 3.0
+
+/** The middle of some prints: the average shape, the median pitch. */
+func middle(_ prints: [Print]) -> Print {
+  var shape = [Double](repeating: 0, count: BANDS)
+  for one in prints { for i in 0..<BANDS { shape[i] += one.shape[i] / Double(prints.count) } }
+  let pitches = prints.compactMap { $0.pitch }.sorted()
+  return Print(pitch: pitches.isEmpty ? nil : pitches[pitches.count / 2], shape: shape)
+}
+
+/**
+ * The others, split into speakers by voice as their lines come. A line joins the nearest voice; a new voice starts only
+ * when three of the last twelve lines are all clearly far from every voice known and close to each other, so one
+ * person's odd sentence never becomes a second speaker, while two people taking turns still become two. (Once the recording stops, `settle` goes over every line again.)
+ */
 final class Speakers {
-  var voices: [(pitch: Double, bright: Double, count: Double)] = []
-  var last = "s1"
-  /** `learn` false: a guess for words still coming, the voices left as they are. */
-  func who(_ samples: ArraySlice<Float>, learn: Bool = true) -> String {
-    guard let voice = voiceOf(samples) else { return last }
-    var best = -1
-    var bestFar = Double.infinity
-    for (i, one) in voices.enumerated() {
-      let far = abs(log(voice.pitch / one.pitch)) / 0.13 + abs(voice.bright - one.bright) / 0.06
-      if far < bestFar { bestFar = far; best = i }
+  static let same = 1.0
+  var voices: [(print: Print, members: [Print])] = []
+  /** The recent lines far from every voice known, with when they came (the count of lines heard). */
+  var strange: [(at: Int, print: Print)] = []
+  var heard = 0
+  var last = 0
+  let lock = NSLock()
+
+  /** The voice for a line, 0 based; `learn` false: a guess for words still coming, the voices left as they are. */
+  func add(_ print: Print?, learn: Bool = true) -> Int {
+    lock.lock()
+    defer { lock.unlock() }
+    guard let print else { return last }
+    if voices.isEmpty {
+      if learn { voices.append((print, [print])) }
+      return 0
     }
-    if !learn { return best >= 0 && bestFar <= 1 ? "s\(best + 1)" : best < 0 ? "s1" : "s\(voices.count + 1)" }
-    if best < 0 || (bestFar > 1 && voices.count < 8) {
-      voices.append((voice.pitch, voice.bright, 1))
-      best = voices.count - 1
-    } else {
-      let one = voices[best]
-      let n = min(one.count, 20)
-      voices[best] = ((one.pitch * n + voice.pitch) / (n + 1), (one.bright * n + voice.bright) / (n + 1), one.count + 1)
+    var best = 0, bestFar = Double.infinity
+    for (i, one) in voices.enumerated() { let d = far(print, one.print); if d < bestFar { bestFar = d; best = i } }
+    if !learn { return best }
+    heard += 1
+    strange.removeAll { $0.at < heard - 12 }
+    if bestFar > Speakers.same * 1.5 && voices.count < 8 { strange.append((heard, print)) }
+    if strange.count >= 3 {
+      let centre = middle(strange.map { $0.print })
+      if strange.allSatisfy({ far($0.print, centre) <= Speakers.same }) {
+        voices.append((centre, strange.map { $0.print }))
+        strange = []
+        last = voices.count - 1
+        return last
+      }
+      strange.removeFirst()
     }
-    last = "s\(best + 1)"
-    return last
+    voices[best].members.append(print)
+    if voices[best].members.count > 40 { voices[best].members.removeFirst() }
+    voices[best].print = middle(voices[best].members)
+    last = best
+    return best
   }
+
+  func who(_ samples: ArraySlice<Float>, learn: Bool = true) -> (String, Print?) {
+    let print = printOf(samples)
+    return ("s\(add(print, learn: learn) + 1)", print)
+  }
+}
+
+/**
+ * Once the recording stops: every line of the others heard again, all at once. The voices from going through them in
+ * order are refined (each line to its nearest voice, voices that sound the same made one), a voice with under 5% of the
+ * lines given to its nearest, and the speakers numbered 1, 2, 3 in the order they first spoke. Lines too short to
+ * print keep the voice of the line nearest them in time.
+ */
+func settle(_ prints: [Print?]) -> [Int] {
+  let order = Speakers()
+  var label: [Int?] = prints.map { $0.map { order.add($0) } }
+  let known = prints.indices.filter { prints[$0] != nil }
+  // Under 5% of the lines is too few to be a person of their own; in a short recording (under 20 lines) one line can be.
+  let fewest = known.count >= 20 ? max(2, Int((0.05 * Double(known.count)).rounded(.up))) : 1
+  var groups = Set(known.map { label[$0]! })
+  func size(_ g: Int) -> Int { known.filter { label[$0] == g }.count }
+  func centres() -> [Int: Print] {
+    Dictionary(uniqueKeysWithValues: groups.map { g in (g, middle(known.filter { label[$0] == g }.map { prints[$0]! })) })
+  }
+  func nearest(_ i: Int, _ c: [Int: Print]) -> Int { groups.min { far(prints[i]!, c[$0]!) < far(prints[i]!, c[$1]!) }! }
+  // Two people heard as one (they took turns too closely to tell apart as it came): a voice whose lines fall into two
+  // groups, each of more than a few lines and clearly apart, is split in two.
+  var splitting = true
+  while splitting && groups.count < 8 {
+    splitting = false
+    for g in groups {
+      let members = known.filter { label[$0] == g }
+      if members.count < fewest * 2 { continue }
+      // Two seeds: the line furthest from the middle, then the line furthest from that one.
+      let whole = middle(members.map { prints[$0]! })
+      let a0 = members.max { far(prints[$0]!, whole) < far(prints[$1]!, whole) }!
+      let b0 = members.max { far(prints[$0]!, prints[a0]!) < far(prints[$1]!, prints[a0]!) }!
+      var a = prints[a0]!, b = prints[b0]!
+      var side: [Bool] = []
+      for _ in 0..<10 {
+        side = members.map { far(prints[$0]!, a) <= far(prints[$0]!, b) }
+        let left = zip(members, side).filter { $0.1 }.map { prints[$0.0]! }, right = zip(members, side).filter { !$0.1 }.map { prints[$0.0]! }
+        if left.isEmpty || right.isEmpty { break }
+        a = middle(left); b = middle(right)
+      }
+      let leftCount = side.filter { $0 }.count
+      // A side of only a line or two must be very clearly apart.
+      let apart = min(leftCount, members.count - leftCount) < 3 ? 2.5 : 1.5
+      guard leftCount >= fewest, members.count - leftCount >= fewest, far(a, b) > Speakers.same * apart else { continue }
+      let fresh = (groups.max() ?? 0) + 1
+      for (i, left) in zip(members, side) where !left { label[i] = fresh }
+      groups.insert(fresh)
+      splitting = true
+      break
+    }
+  }
+  for _ in 0..<10 {
+    // Voices that sound the same, made one, the closest first.
+    while groups.count > 1 {
+      let c = centres()
+      var pair: (Int, Int)?, closest = Double.infinity
+      for a in groups { for b in groups where a < b { let d = far(c[a]!, c[b]!); if d < closest { closest = d; pair = (a, b) } } }
+      guard let (a, b) = pair, closest <= Speakers.same else { break }
+      for i in known where label[i] == b { label[i] = a }
+      groups.remove(b)
+    }
+    // A voice heard in only a few lines is one of the others misheard: its lines go to the nearest voice.
+    while groups.count > 1, let small = groups.min(by: { size($0) < size($1) }), size(small) < fewest {
+      groups.remove(small)
+      let c = centres()
+      for i in known where label[i] == small { label[i] = nearest(i, c) }
+    }
+    let c = centres()
+    var moved = false
+    for i in known {
+      let near = nearest(i, c)
+      if near != label[i] { label[i] = near; moved = true }
+    }
+    groups = Set(known.map { label[$0]! })
+    if !moved { break }
+  }
+  // Lines with no print: the voice of the nearest line that has one.
+  for i in prints.indices where label[i] == nil {
+    label[i] = known.min { abs($0 - i) < abs($1 - i) }.flatMap { label[$0] } ?? 0
+  }
+  var number: [Int: Int] = [:]
+  return label.map { g in
+    if number[g!] == nil { number[g!] = number.count }
+    return number[g!]!
+  }
+}
+
+/**
+ * The lines in words.jsonl gone over once it stops (or is recovered): the others' voices settled as above, and the file
+ * written again with one line each (beside it, then moved in, so a kill here leaves it as it was).
+ */
+func settleWords(_ folder: URL) {
+  let all = linesIn(folder)
+  let theirs = all.indices.filter { (all[$0]["track"] as? String) == "others" }
+  if theirs.isEmpty { return }
+  let numbers = settle(theirs.map { printFrom(all[$0]["print"]) })
+  var out = all
+  for (k, i) in theirs.enumerated() { out[i]["speaker"] = "s\(numbers[k] + 1)" }
+  var text = Data()
+  for line in out { if let data = try? JSONSerialization.data(withJSONObject: line) { text += data + [10] } }
+  let part = folder.appendingPathComponent("words.part.jsonl")
+  guard (try? text.write(to: part)) != nil else { return }
+  _ = rename(part.path, folder.appendingPathComponent("words.jsonl").path)
 }
 
 /** One side of the meeting: kept to its own file as it comes, its level said, its words made out live. */
@@ -386,6 +590,8 @@ var paused: Bool { clockLock.lock(); defer { clockLock.unlock() }; return paused
 
 // ---- What was said: every line to words.jsonl as it comes, its id the same until it settles, so a crash keeps it.
 let linesLock = NSLock()
+/** The microphone being recorded, by name, once it is. */
+var micName: String?
 var wordsFile: Int32 = -1
 var lineCount = ["you": 0, "others": 0]
 let speakers = Speakers()
@@ -399,8 +605,12 @@ func wordsFrom(_ track: Track) -> (Said) -> Void {
     linesLock.unlock()
     var line: [String: Any] = ["id": id, "track": track.name, "text": said.text, "start": said.start, "end": said.end, "final": said.final]
     if track.name == "you" { line["speaker"] = "you" }
-    else if said.final { line["speaker"] = speakers.who(track.slice(said.start, said.end)) }
-    else { line["speaker"] = speakers.who(track.slice(said.start, said.end), learn: false) }
+    else {
+      let (who, print) = speakers.who(track.slice(said.start, said.end), learn: said.final)
+      line["speaker"] = who
+      // The print kept with the line, so the voices can be gone over again when it stops, or after a crash.
+      if said.final, let print { line["print"] = [print.pitch ?? -1] + print.shape.map { ($0 * 100).rounded() / 100 } }
+    }
     if let data = try? JSONSerialization.data(withJSONObject: line) { (data + [10]).withUnsafeBytes { _ = write(wordsFile, $0.baseAddress, $0.count) } }
     say(["words": line])
   }
@@ -482,7 +692,21 @@ func pcm(_ sample: CMSampleBuffer) -> AVAudioPCMBuffer? {
 let engine = AVAudioEngine()
 /** The microphone on or off ("My microphone" on the card): off, your side is kept as quiet. */
 var micOn = !CommandLine.arguments.contains("--no-mic")
-func startMicrophone(_ track: Track) throws {
+
+/** The name of the Mac's chosen microphone (Sound settings, Input), the one recorded. */
+func inputName() -> String? {
+  var device = AudioObjectID(0)
+  var size = UInt32(MemoryLayout<AudioObjectID>.size)
+  var address = AudioObjectPropertyAddress(mSelector: kAudioHardwarePropertyDefaultInputDevice, mScope: kAudioObjectPropertyScopeGlobal, mElement: kAudioObjectPropertyElementMain)
+  guard AudioObjectGetPropertyData(AudioObjectID(kAudioObjectSystemObject), &address, 0, nil, &size, &device) == noErr else { return nil }
+  var name: Unmanaged<CFString>?
+  size = UInt32(MemoryLayout<Unmanaged<CFString>?>.size)
+  address.mSelector = kAudioObjectPropertyName
+  guard AudioObjectGetPropertyData(device, &address, 0, nil, &size, &name) == noErr, let name else { return nil }
+  return name.takeRetainedValue() as String
+}
+
+func listen(_ track: Track) throws {
   let input = engine.inputNode
   let format = input.outputFormat(forBus: 0)
   input.installTap(onBus: 0, bufferSize: 4096, format: format) { buffer, _ in
@@ -490,6 +714,22 @@ func startMicrophone(_ track: Track) throws {
     track.take(buffer, at: max(0, now() - Double(buffer.frameLength) / format.sampleRate))
   }
   try engine.start()
+  micName = inputName()
+}
+
+func startMicrophone(_ track: Track) throws {
+  try listen(track)
+  // A headset joining or leaving, another microphone chosen, or a call switching AirPods to their call mode all stop
+  // the engine (Apple's AVAudioEngineConfigurationChange): left alone, your side would be silent from then on. It
+  // listens again on whatever microphone the Mac now uses, in its new shape.
+  NotificationCenter.default.addObserver(forName: .AVAudioEngineConfigurationChange, object: engine, queue: nil) { _ in
+    engine.inputNode.removeTap(onBus: 0)
+    engine.stop()
+    do {
+      try listen(track)
+      say(["from": ["bundle": (currentFrom as Any?) ?? NSNull(), "mic": micOn, "micName": (micName as Any?) ?? NSNull()]])
+    } catch { say(["error": ["code": "microphone", "message": "The microphone stopped being recorded: \(error.localizedDescription)"]]) }
+  }
 }
 
 // ---- Test mode: two made-up recordings fed at their own pace, the words stood in from a script.
@@ -613,7 +853,11 @@ func finalise(_ folder: URL, until: Double = 0) throws -> [String: Any] {
   for (name, url) in zip(names, part) { if rename(url.path, folder.appendingPathComponent("\(name).m4a").path) != 0 { throw noRoom } }
   // Until when anything was heard on either side, so the page can say the quiet after it rather than look cut short.
   let last = max(tenths[0].lastIndex { $0 > 0.02 } ?? -1, tenths[1].lastIndex { $0 > 0.02 } ?? -1)
-  return ["seconds": (Double(frames) / RATE * 100).rounded() / 100, "peaks": peaks(tenths[0], tenths[1]), "you": (tenths[0].max() ?? 0) > 0.01, "others": (tenths[1].max() ?? 0) > 0.01, "heard": Double(last + 1) / 10]
+  // The microphone on (its track is not pure silence, as it is when it was off) but hearing almost nobody while the
+  // others talked for minutes: the call most likely used another microphone, such as a headset. Said, not guessed at.
+  let spoke = tenths.map { Double($0.filter { $0 > 0.02 }.count) / 10 }
+  let quietMic = (tenths[0].max() ?? 0) > 0 && spoke[1] >= 30 && spoke[0] < spoke[1] * 0.05
+  return ["quietMic": quietMic, "seconds": (Double(frames) / RATE * 100).rounded() / 100, "peaks": peaks(tenths[0], tenths[1]), "you": (tenths[0].max() ?? 0) > 0.01, "others": (tenths[1].max() ?? 0) > 0.01, "heard": Double(last + 1) / 10]
 }
 
 /** 512 bars, each the loudest moment in its slice against the loudest of all, lifted by a square root (lib/waveform.ts). */
@@ -725,10 +969,12 @@ func keepAll(_ folder: URL, until: Double = 0, stopped: String? = nil, standIn: 
   do {
     var saved = try finalise(folder, until: until)
     if let stopped { saved["stopped"] = stopped }
+    if let micName { saved["micName"] = micName }
     say(["saved": saved])
   } catch {
     fail("disk", "There is no room on this Mac's disk to finish the recording. Nothing is lost: free up some space and it can be finished.")
   }
+  settleWords(folder)
   let all = linesIn(folder)
   say(["found": found(all)])
   let end = DispatchSemaphore(value: 0)
@@ -807,7 +1053,7 @@ func begin() {
     } else { fail("too-old", "Recording a meeting needs macOS 13") }
   }
   say(["ready": ["live": live, "locale": locale.identifier, "test": test != nil]])
-  say(["from": ["bundle": (from as Any?) ?? NSNull(), "mic": micOn]])
+  say(["from": ["bundle": (from as Any?) ?? NSNull(), "mic": micOn, "micName": (micName as Any?) ?? NSNull()]])
   // The level of each side, ten times a second; and once a second, whether the disk still has room to make the files.
   Thread.detachNewThread {
     var tick = 0
