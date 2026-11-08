@@ -239,7 +239,8 @@ export function MediaView({ onOpen }: { onOpen: (type: string, id: string) => vo
   const held = SHELVES.filter((one) => one.id === kind || all.some((item) => shelfOf(item) === one.id && !item.deck))
   const kinds = held.length + (anyDeck ? 1 : 0) + (unlinkedCount || unlinkedOnly ? 1 : 0) < 2 ? <div className="pt-4" /> : (
     <div data-media-kinds className="flex flex-wrap gap-1 pt-4 pb-3 text-xs">
-      <Chip on={kind === 'all'} onClick={() => kind !== 'all' && (chime('tap'), setKind('all'))} mark={<LayoutGrid className="size-3.5" />}>All</Chip>
+      {/* "All" is lit only when nothing narrows the view: on Unlinked, "All" and "Unlinked" lit together read as two choices at once. */}
+      <Chip on={kind === 'all' && !unlinkedOnly} onClick={() => (kind !== 'all' || unlinkedOnly) && (chime('tap'), setKind('all'), setUnlinkedOnly(false))} mark={<LayoutGrid className="size-3.5" />}>All</Chip>
       {held.map((one) => {
         const Icon = ICONS[one.id]
         return <Chip key={one.id} on={kind === one.id} onClick={() => kind !== one.id && (chime('tap'), setKind(one.id))} mark={<Icon className="size-3.5" />}>{one.label}</Chip>
