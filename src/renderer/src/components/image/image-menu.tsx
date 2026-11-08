@@ -141,8 +141,8 @@ export function ImageMenu({ editor }: { editor: Editor | null }): React.JSX.Elem
             {attrs.src.startsWith("haligtree://assets/") && host().saveFileAs && (
               <Button
                 data-style="ghost"
-                tooltip="Download"
-                aria-label="Download"
+                tooltip="Save a copy"
+                aria-label="Save a copy"
                 onClick={() => void host().saveFileAs?.(attrs.src, attrs.alt ? `${attrs.alt}.${attrs.src.split(".").pop()}` : attrs.src.split("/").pop() ?? "Picture")}
               >
                 <AliveIcon icon={DownloadIcon} size={16} className="tiptap-button-icon" />

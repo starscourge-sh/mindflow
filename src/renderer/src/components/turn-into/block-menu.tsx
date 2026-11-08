@@ -561,11 +561,12 @@ export function BlockMenu({
             </button>
           </DropdownMenuItem>
         ) : null}
-        {imageSrc?.startsWith("haligtree://assets/") && host().saveFileAs && matches("Download") ? (
+        {imageSrc?.startsWith("haligtree://assets/") && host().saveFileAs && matches("Save a copy") ? (
           <DropdownMenuItem asChild>
-            <button type="button" onClick={() => void host().saveFileAs?.(imageSrc, thing?.attrs.alt ? `${thing.attrs.alt}.${imageSrc.split(".").pop()}` : imageSrc.split("/").pop() ?? "Picture")}>
+            {/* One name with a file's and the picture toolbar's: "Save a copy", never "Download" in one place and that in another. */}
+            <button type="button" data-save-copy onClick={() => void host().saveFileAs?.(imageSrc, thing?.attrs.alt ? `${thing.attrs.alt}.${imageSrc.split(".").pop()}` : imageSrc.split("/").pop() ?? "Picture")}>
               <MenuGlyph label="Download" />
-              <span className="tiptap-slash-menu-title">Download</span>
+              <span className="tiptap-slash-menu-title">Save a copy</span>
             </button>
           </DropdownMenuItem>
         ) : null}
@@ -598,11 +599,11 @@ export function BlockMenu({
             </button>
           </DropdownMenuItem>
         ) : null}
-        {fileSrc && host().openFile && matches("Open in default app") ? (
+        {fileSrc && host().openFile && matches("Open in the default app") ? (
           <DropdownMenuItem asChild>
             <button type="button" data-open-default onClick={() => void host().openFile?.(fileSrc)}>
-              <MenuGlyph label="Open" />
-              <span className="tiptap-slash-menu-title">Open in default app</span>
+              <MenuGlyph label="Open in the default app" />
+              <span className="tiptap-slash-menu-title">Open in the default app</span>
             </button>
           </DropdownMenuItem>
         ) : null}
@@ -619,11 +620,11 @@ export function BlockMenu({
             ))
           : null}
 
-        {href && matches("Open link") ? (
+        {href && matches("Open in the browser") ? (
           <DropdownMenuItem asChild>
             <button type="button" onClick={() => window.open(href)}>
-              <MenuGlyph label="Open link" />
-              <span className="tiptap-slash-menu-title">Open link</span>
+              <MenuGlyph label="Open in the browser" />
+              <span className="tiptap-slash-menu-title">Open in the browser</span>
             </button>
           </DropdownMenuItem>
         ) : null}
@@ -637,11 +638,11 @@ export function BlockMenu({
           </DropdownMenuItem>
         ) : null}
 
-        {href && matches("Copy link") ? (
+        {href && matches("Copy address") ? (
           <DropdownMenuItem asChild>
-            <button type="button" onClick={() => void navigator.clipboard.writeText(href).then(() => said("Link copied"), () => said("Could not copy the link", false))}>
-              <MenuGlyph label="Copy link" />
-              <span className="tiptap-slash-menu-title">Copy link</span>
+            <button type="button" onClick={() => void navigator.clipboard.writeText(href).then(() => said("Address copied"), () => said("Could not copy the address", false))}>
+              <MenuGlyph label="Copy address" />
+              <span className="tiptap-slash-menu-title">Copy address</span>
             </button>
           </DropdownMenuItem>
         ) : null}

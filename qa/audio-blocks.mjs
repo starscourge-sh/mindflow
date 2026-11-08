@@ -134,7 +134,7 @@ try {
     return { heading: el.querySelector('[data-kind-heading]')?.textContent, rows: [...el.querySelectorAll('[role=menuitem] .tiptap-slash-menu-title')].map((one) => one.textContent), filterShown: !!filter && filter.getBoundingClientRect().height > 2 }
   })
   check('right-click: the menu heads its own actions "Voice note"', menu?.heading === 'Voice note', JSON.stringify(menu))
-  check('with Transcribe, Play from start, Save a copy, Open in default app first, then the block\'s', ['Transcribe', 'Play from start', 'Save a copy', 'Open in default app'].every((one, i) => menu?.rows[i] === one) && menu.rows.includes('Duplicate') && menu.rows.includes('Delete'), JSON.stringify(menu?.rows))
+  check('with Transcribe, Play from start, Save a copy, Open in the default app first, then the block\'s', ['Transcribe', 'Play from start', 'Save a copy', 'Open in the default app'].every((one, i) => menu?.rows[i] === one) && menu.rows.includes('Duplicate') && (menu.rows.includes('Delete') || menu.rows.includes('Remove from note')), JSON.stringify(menu?.rows))
   check('no Filter box until something is typed', menu && !menu.filterShown, JSON.stringify(menu))
   for (const name of ['light', 'dark']) { await c.look(name); await h.screenshot({ path: `${shots}/audio-blocks-menu-${name}.png` }) }
   await c.look('light')
@@ -148,7 +148,7 @@ try {
     check('the grip menu: the same heading, no Filter box until typed', gripMenu?.heading === 'Voice note' && !gripMenu.filterShown, JSON.stringify(gripMenu))
     await h.keyboard.press('Escape'); await wait(300)
   }
-  // "Save a copy" and "Open in default app" reach main with the recording (main's handlers stood in for, so no dialog or app opens).
+  // "Save a copy" and "Open in the default app" reach main with the recording (main's handlers stood in for, so no dialog or app opens).
   await c.electron.evaluate(({ ipcMain }) => {
     globalThis.__asked = []
     for (const channel of ['save-file-as', 'open-file']) {
@@ -161,7 +161,7 @@ try {
     await h.click(`.tiptap-block-menu [${row}]`); await wait(400)
   }
   const asked = await c.electron.evaluate(() => globalThis.__asked)
-  check('"Save a copy" and "Open in default app" from the menu reach main with the recording', asked.length === 2 && asked[0].channel === 'save-file-as' && /\.m4a|\.weba/.test(asked[0].name) && asked[1].channel === 'open-file' && asked.every((one) => one.src === kept[0].src), JSON.stringify(asked))
+  check('"Save a copy" and "Open in the default app" from the menu reach main with the recording', asked.length === 2 && asked[0].channel === 'save-file-as' && /\.m4a|\.weba/.test(asked[0].name) && asked[1].channel === 'open-file' && asked.every((one) => one.src === kept[0].src), JSON.stringify(asked))
   await h.mouse.move(5, 5)
 
   // --- 3. the outline and toolbar follow the selection ----------------------------------

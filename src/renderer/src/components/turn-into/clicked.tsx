@@ -253,7 +253,7 @@ export function clickedLines(editor: Editor, clicked: Clicked): Line[] {
     const { href, from, to } = clicked
     const lines: Array<Line | false> = [
       { label: "Open in the browser", data: "browser", run: () => void window.open(href) },
-      isWebPage(href) && { label: "Read it here", hint: "In the reader", data: "read", run: () => openArticle(href) },
+      isWebPage(href) && { label: "Open in the reader", data: "read", run: () => openArticle(href) },
       { label: "Copy address", data: "copy-address", run: () => copyText(href, "Address copied") },
       {
         label: "Keep the link",

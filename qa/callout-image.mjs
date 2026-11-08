@@ -37,7 +37,7 @@ await electron.evaluate(({ BrowserWindow }) => {
   win?.showInactive()
 })
 const shot = (name) => page.screenshot({ path: `${SHOTS}/${name}.png`, timeout: 5000 }).catch((e) => console.log('  (no screenshot:', e.message.split('\n')[0], ')'))
-// Download asks where to save: answered "cancel" here, and counted.
+// Save a copy asks where to save: answered "cancel" here, and counted.
 await electron.evaluate(({ dialog }) => {
   globalThis.__saves = 0
   dialog.showSaveDialog = async () => ((globalThis.__saves += 1), { canceled: true })
@@ -217,7 +217,7 @@ async function pictures(win, label) {
     ...['S', 'M', 'L'].map((s) => ({ name: `${s} width`, want: { width: { S: '35%', M: '60%', L: '100%' }[s] } })),
     ...['left', 'center', 'right'].map((a) => ({ name: `Align ${a}`, want: { align: a } })),
     { name: 'Caption' },
-    { name: 'Download' },
+    { name: 'Save a copy' },
   ]
   const plan = BUTTONS.flatMap((b) => Array.from({ length: 30 }, () => b))
   for (let i = plan.length - 1; i > 0; i--) {
