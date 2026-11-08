@@ -14,7 +14,7 @@ import { Tip } from '@/components/haligtree/ui'
 import { working } from '@/components/haligtree/beam'
 import type { ExcalidrawElement, NonDeleted } from '@excalidraw/excalidraw/element/types'
 import { Check, Pencil as PencilRuler } from '@/components/ui/icons'
-import { EASING, still } from '@/lib/motion'
+import { growFrom } from '@/lib/motion'
 
 /** As the main window's toolbar draws its buttons. */
 const BUTTON = 'flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground'
@@ -74,26 +74,12 @@ export function ExcalidrawView(props: NodeViewProps): React.JSX.Element {
     from.current = null
     if (!element || !start) return
     // Motion off or Reduce motion: simply there, full or back in the note.
-    if (still()) return void window.dispatchEvent(new Event('resize'))
-
-    const end = element.getBoundingClientRect()
-    const played = element.animate(
-      [
-        {
-          transformOrigin: 'top left',
-          transform:
-            `translate(${start.left - end.left}px, ${start.top - end.top}px) ` +
-            `scale(${start.width / end.width}, ${start.height / end.height})`
-        },
-        { transformOrigin: 'top left', transform: 'none' }
-      ],
-      { duration: 220, easing: EASING }
-    )
-
     // Excalidraw sizes its canvas from the box it is in, and a scaled box
     // measures as the size it is being drawn at rather than the size it will
     // settle at - so it read the old width mid-flight and kept it, leaving the
     // grid stopping short of the frame. This asks once the transform is gone.
+    const played = growFrom(element, start)
+    if (!played) return void window.dispatchEvent(new Event('resize'))
     void played.finished.then(() => window.dispatchEvent(new Event('resize')))
   }, [full])
 

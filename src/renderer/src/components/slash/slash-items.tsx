@@ -289,6 +289,7 @@ export const slashItems: SlashItem[] = [
   {
     title: 'Diagram',
     group: 'Media',
+    hint: 'drawn from text',
     keywords: ['mermaid', 'flowchart', 'chart', 'graph', 'sequence', 'mindmap', 'timeline'],
     icon: <DiagramIcon />,
     when: (editor) => !isInTable(editor.state),
@@ -355,8 +356,9 @@ export const slashItems: SlashItem[] = [
   {
     title: 'Drawing',
     group: 'Media',
-    hint: 'excalidraw',
-    keywords: ['diagram', 'sketch', 'whiteboard'],
+    // Both come up for "diagram": the hint says which is drawn by hand.
+    hint: 'sketch by hand',
+    keywords: ['diagram', 'sketch', 'whiteboard', 'excalidraw'],
     icon: <DrawingIcon />,
     // The canvas lives in the note, not in a file beside it, so it opens ready
     // to draw in rather than asking where to put it first.

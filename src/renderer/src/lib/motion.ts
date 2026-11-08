@@ -283,3 +283,20 @@ export function sheetMotion(keyed: boolean, rise = 0.12): { scrim: MotionProps; 
     }
   }
 }
+
+/**
+ * Play an element in from where something else stood (a block growing to full
+ * screen, or shrinking back into the note): it starts at `start` and arrives
+ * where it is. Nothing to play with motion off.
+ */
+export function growFrom(element: HTMLElement, start: DOMRect): Animation | null {
+  if (still()) return null
+  const end = element.getBoundingClientRect()
+  return element.animate(
+    [
+      { transformOrigin: 'top left', transform: `translate(${start.left - end.left}px, ${start.top - end.top}px) scale(${start.width / end.width}, ${start.height / end.height})` },
+      { transformOrigin: 'top left', transform: 'none' }
+    ],
+    { duration: 220, easing: EASING }
+  )
+}

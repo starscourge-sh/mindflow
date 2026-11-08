@@ -113,6 +113,38 @@ try {
   check('a ```mermaid fence pasted from Obsidian is drawn the same way', s.blocks === 1 && s.svg && /Review/.test(s.text), JSON.stringify(s))
   await shot('pasted')
 
+  // 7b. Full screen, as a drawing has: grows out of the block, zooms, Esc back.
+  await h.evaluate((sel) => document.querySelector(sel).editor.commands.focus('start'), sel); await wait(300)
+  await h.hover(`${sel} .mf-diagram`); await wait(300)
+  const button = await h.evaluate((sel) => { const b = document.querySelector(`${sel} .mf-diagram-full-button`); return b && Number(getComputedStyle(b).opacity) }, sel)
+  check('pointing at a diagram shows its "Full screen" button', button === 1, String(button))
+  await shot('full-button')
+  await h.click(`${sel} .mf-diagram-full-button`); await wait(80)
+  await shot('full-growing')
+  await wait(400)
+  const full = () => h.evaluate(() => {
+    const box = document.querySelector('.mf-diagram-full')
+    const r = box?.getBoundingClientRect()
+    return { open: !!box, svg: !!box?.querySelector('svg'), w: r?.width ?? 0, h: r?.height ?? 0, win: [innerWidth, innerHeight], look: box && box.querySelector('.mf-diagram-stage')?.innerHTML.length, size: box && Math.round([...box.querySelectorAll('svg text')].find((t) => t.textContent.trim())?.getBoundingClientRect().height ?? 0) }
+  })
+  let f = await full()
+  check('it fills the window, drawn', f.open && f.svg && f.w > f.win[0] - 40 && f.h > f.win[1] - 40, JSON.stringify(f))
+  await shot('full')
+  const before = f.size
+  await h.mouse.move(640, 450)
+  await h.keyboard.down('Control'); await h.mouse.wheel(0, -400); await h.keyboard.up('Control'); await wait(400)
+  f = await full()
+  check('a pinch (ctrl and scroll) zooms it in', f.size > before * 1.2, `a word ${before} -> ${f.size}px tall`)
+  await shot('full-zoomed')
+  await h.mouse.click(640, 450); await wait(300)
+  s = await state()
+  check('a click in full screen does not open its words', !s.wordsShown && (await full()).open, JSON.stringify(s))
+  await h.keyboard.press('Escape'); await wait(500)
+  f = await full()
+  const still = await h.evaluate((sel) => !!document.querySelector(sel), sel)
+  check('Esc leaves full screen, back in the note', !f.open && still, JSON.stringify(f))
+  await shot('full-left')
+
   // 8. The theme's colours.
   const colours = []
   for (const name of ['paper', 'light', 'dark']) {
@@ -131,6 +163,22 @@ try {
   check('the words in the drawing are the theme\'s ink in every theme', colours.every((one) => one.text === one.ink), JSON.stringify(colours))
   check('and in the note\'s own typeface', colours.every((one) => one.font === one.noteFont), JSON.stringify(colours.map((one) => [one.font, one.noteFont])))
   check('light and dark draw it differently', colours[1].text !== colours[2].text)
+  // 9. "/diagram" shows both kinds, told apart; Drawing's own full screen still works.
+  await c.theme('paper'); await wait(600)
+  await h.evaluate((sel) => document.querySelector(sel).editor.chain().setContent({ type: 'doc', content: [{ type: 'paragraph' }] }).focus('end').run(), sel)
+  await h.keyboard.type('/diagram', { delay: 30 }); await wait(600)
+  const rows = await h.evaluate(() => document.querySelector('.tiptap-slash-menu')?.innerText ?? '')
+  check('"/diagram" lists "Drawing" as sketched by hand and "Diagram" as drawn from text', /Drawing[\s\S]*sketch by hand/.test(rows) && /Diagram[\s\S]*drawn from text/.test(rows), rows.replace(/\n/g, ' | ').slice(0, 300))
+  await shot('both-kinds')
+  await h.keyboard.press('Escape'); await wait(200)
+  await h.evaluate((sel) => document.querySelector(sel).editor.chain().focus().insertContent({ type: 'excalidraw' }).run(), sel); await wait(2500)
+  await h.click('[aria-label="Open in full screen"]'); await wait(600)
+  const drawFull = await h.evaluate(() => { const r = document.querySelector('.tiptap-excalidraw-frame.is-full')?.getBoundingClientRect(); return r ? [r.width, r.height, innerWidth, innerHeight] : null })
+  check('a drawing still fills the window from its own button', !!drawFull && drawFull[0] > drawFull[2] - 40, JSON.stringify(drawFull))
+  await shot('drawing-full')
+  await h.keyboard.press('Escape'); await wait(500)
+  check('and Esc brings it back into the note', await h.evaluate(() => !document.querySelector('.tiptap-excalidraw-frame.is-full') && !!document.querySelector('.tiptap-excalidraw-frame')))
+
   check('no page errors', !c.errors.some((one) => /PAGEERROR/.test(one)), c.errors.join(' / ').slice(0, 400))
 } finally {
   await c.close()

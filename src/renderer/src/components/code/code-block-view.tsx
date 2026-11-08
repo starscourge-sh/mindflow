@@ -1,4 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
+import { createPortal } from "react-dom"
+import { Minimize2 } from "lucide-react"
 import { NodeViewContent, NodeViewWrapper, useEditorState, type NodeViewProps } from "@tiptap/react"
 
 // --- Icons ---
@@ -18,6 +20,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/tiptap-ui-primitive/dropdown-menu"
 import { Copy as CopyIcon } from "@/components/ui/icons"
+import ExpandIcon from "@/components/ui/expand-icon"
+import { AliveIcon } from "@/components/ui/alive-icon"
+import { Tip } from "@/components/haligtree/ui"
+import { chime } from "@/lib/sound"
+import { growFrom } from "@/lib/motion"
 
 /**
  * Offered in the picker. The empty value is auto-detect, which is what the
@@ -106,20 +113,103 @@ function DiagramView({ node, editor, getPos }: NodeViewProps) {
   }
 
   const empty = !code.trim()
+  const drawing = drawn.svg && !empty ? <div className="mf-diagram-drawing" dangerouslySetInnerHTML={{ __html: drawn.svg }} /> : null
   return (
     <NodeViewWrapper className="tiptap-code-block mf-diagram-block" data-editing={editing || empty || undefined} data-takes-escape="">
       <pre spellCheck={false}>
         <NodeViewContent as={"code" as "div"} />
       </pre>
       <div ref={box} className="mf-diagram" contentEditable={false} onMouseDown={(event) => event.preventDefault()} onClick={edit}>
-        {drawn.svg && !empty ? <div className="mf-diagram-drawing" dangerouslySetInnerHTML={{ __html: drawn.svg }} /> : null}
+        {drawing}
         {empty ? (
           <p className="mf-diagram-note"><b>An empty diagram.</b> Write Mermaid above it, such as “flowchart LR” and “A --&gt; B”.</p>
         ) : drawn.error ? (
           <p className="mf-diagram-note"><b>Not drawn yet.</b> {plainError(drawn.error)}</p>
         ) : null}
+        {drawing && <FullScreen code={code} from={box} />}
       </div>
     </NodeViewWrapper>
+  )
+}
+
+/**
+ * A diagram filling the window, as a drawing's full screen does: it grows out
+ * of the block, pinch or scroll zooms and a drag moves it (Pele's own zoom),
+ * Esc or the button shrinks it back.
+ */
+function FullScreen({ code, from }: { code: string; from: React.RefObject<HTMLDivElement | null> }) {
+  const [full, setFull] = useState(false)
+  const frame = useRef<HTMLDivElement>(null)
+  const stage = useRef<HTMLDivElement>(null)
+  const toggle = (): void => {
+    chime(full ? "fold" : "slide")
+    setFull(!full)
+  }
+
+  useLayoutEffect(() => {
+    const start = from.current?.getBoundingClientRect()
+    if (full && frame.current && start) growFrom(frame.current, start)
+  }, [full])
+
+  useEffect(() => {
+    if (!full || !stage.current) return
+    // Drawn afresh by Pele's own mount at the size it has in the note, as a
+    // drawing opens at 100%, with Pele's zoom: pinch or ⌘-scroll, drag to move.
+    let mounted: { destroy: () => void } | null = null
+    let live = true
+    const element = stage.current
+    void import("pele/lazy").then(async ({ mountAsync }) => {
+      if (!live) return
+      const fontFamily = from.current ? getComputedStyle(from.current).fontFamily : undefined
+      const one = await mountAsync(element, code, { links: false, images: false, fontFamily, zoom: { always: true, controls: false, maxScale: 8 } })
+      if (!live) return one.destroy()
+      mounted = one
+    })
+    // Esc leaves full screen, never the note or the window under it.
+    const onKey = (event: KeyboardEvent): void => {
+      if (event.key !== "Escape") return
+      event.preventDefault()
+      event.stopPropagation()
+      toggle()
+    }
+    window.addEventListener("keydown", onKey, true)
+    return () => {
+      live = false
+      mounted?.destroy()
+      window.removeEventListener("keydown", onKey, true)
+    }
+  }, [full])
+
+  const button = (
+    <Tip label={full ? "Leave full screen  Esc" : "Full screen"}>
+      <button
+        type="button"
+        className="mf-diagram-full-button"
+        aria-label={full ? "Leave full screen" : "Open in full screen"}
+        onMouseDown={(event) => event.preventDefault()}
+        onClick={(event) => {
+          event.stopPropagation()
+          toggle()
+        }}
+      >
+        {full ? <Minimize2 className="size-4" /> : <AliveIcon icon={ExpandIcon} size={14} />}
+      </button>
+    </Tip>
+  )
+
+  return (
+    <>
+      {button}
+      {full &&
+        createPortal(
+          // A portal still bubbles React events to the block, whose click opens the words.
+          <div ref={frame} className="mf-diagram mf-diagram-full" role="dialog" aria-label="Diagram, full screen" onClick={(event) => event.stopPropagation()} onMouseDown={(event) => event.stopPropagation()}>
+            <div ref={stage} className="mf-diagram-stage" />
+            {button}
+          </div>,
+          document.body
+        )}
+    </>
   )
 }
 
