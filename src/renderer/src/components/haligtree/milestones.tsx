@@ -384,9 +384,9 @@ export function YearMarks({ year, onOpenDay }: { year: string; onOpenDay?: (day:
   // Monday at the top: the first of January sits in its weekday's row.
   const lead = (start.day() + 6) % 7
   const weeks = Math.ceil((lead + days) / 7)
-  // Packed at the road's own size; only a window too narrow for a year of weeks packs them a little tighter (7px dots).
-  const step = w ? Math.min(STEP, Math.max(9, (w + GAP) / weeks)) : STEP
-  const dot = step >= STEP ? DOT : Math.max(6.5, step - 2.5)
+  // Packed at the road's own size; a window too narrow for a year of weeks packs them tighter, never past the card.
+  const step = w ? Math.min(STEP, (w + GAP) / weeks) : STEP
+  const dot = step >= STEP ? DOT : Math.max(4, step - 2.5)
   const width = weeks * step - (step - dot)
   const height = 7 * step - (step - dot)
   const today = dayKey()

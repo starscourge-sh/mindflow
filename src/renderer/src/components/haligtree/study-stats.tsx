@@ -75,9 +75,9 @@ const DRAW_DAYS = 3
 
 /** Today: a ring drawn inside its own square, so no edge of the grid can clip it. */
 // Today in the theme's accent, so it never reads as the ink ring a pointed day wears.
-const TODAY_RING = 'inset 0 0 0 1.5px var(--primary), inset 0 0 0 2.5px var(--background)'
+const TODAY_RING = '0 0 0 1px var(--background), 0 0 0 2.5px var(--primary)'
 /** The square pointed at: one hairline of ink inside it. */
-const HOVER_RING = 'inset 0 0 0 1px color-mix(in oklab, var(--foreground) 85%, transparent)'
+const HOVER_RING = '0 0 0 1px var(--background), 0 0 0 2px color-mix(in oklab, var(--foreground) 85%, transparent)'
 const stepOf = (n: number, most: number): number => (n ? Math.min(4, 1 + Math.floor((n / Math.max(1, most)) * 3.999)) : 0)
 const shadeOf = inkShade
 
@@ -92,7 +92,7 @@ function DayCells({ days, say, onHover, rows, cell, left, right }: { days: { day
   const single = rows === 1
   const flow = single ? { gridTemplateColumns: `repeat(${days.length}, ${cell}px)`, gridTemplateRows: `${cell}px` } : { gridTemplateRows: `repeat(${rows}, ${cell}px)`, gridAutoColumns: `${cell}px`, gridAutoFlow: 'column' as const }
   return (
-    <div className={`flex ${single ? 'justify-start' : 'justify-center'} overflow-hidden`}>
+    <div className={`-m-1 flex ${single ? 'justify-start' : 'justify-center'} overflow-hidden p-1`}>
       {/* The labels share the cells' width, so "30 days ago" sits under the first cell and "today" under the last. */}
       <div className="grid shrink-0 gap-1">
         <div data-day-cells className="grid" style={{ ...flow, gap: 3 }} onPointerLeave={() => (setOn(null), onHover(null))}>
@@ -283,7 +283,7 @@ export function StudyYear({ compact = false }: { /** Above the decks: the same y
         <span aria-hidden data-year-key className="inline-flex items-center gap-[3px]">{INK.map((_, step) => <span key={step} className="rounded-full" style={{ width: cell, height: cell, background: shade(step) }} />)}</span>
       </DotRule>
       {/* The latest weeks always show: on a narrow window the oldest are cut on the left. The months under the dots, as on the road. */}
-      <div className="-mt-1 flex justify-end overflow-hidden">
+      <div className="-mx-1 -mt-2 -mb-1 flex justify-end overflow-hidden p-1">
         <div className="grid shrink-0 grid-cols-[auto_auto] gap-x-1.5 gap-y-1 text-[11px] leading-none text-muted-foreground">
           <div aria-hidden className="grid" style={{ gridTemplateRows: `repeat(7, ${cell}px)`, rowGap: GAP }}>{['Mon', '', 'Wed', '', 'Fri', '', ''].map((name, at) => <span key={at} className={`${at === pointRow ? 'text-foreground transition-none' : 'transition-colors duration-[120ms]'} flex items-center text-[10px]`}>{name}</span>)}</div>
           <div data-year-grid className="grid" style={{ ...grid, gridTemplateRows: `repeat(7, ${cell}px)`, rowGap: GAP, gridAutoFlow: 'column' }} onPointerLeave={() => (setOn(null), setPoint(null))}>{cells}</div>

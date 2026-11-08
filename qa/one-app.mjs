@@ -181,12 +181,13 @@ try {
   // --- the smallest window, 560 x 400: the year's dots and the tabs still fit, nothing scrolls sideways
   await c.size(560, 400); await wait(600)
   for (const [name, open, sel] of [
-    ['journal-year', async () => { await go('yearpage'); await waitFor(() => has('[data-year-marks] svg')) }, '[data-year-marks]'],
+    ['journal-year', async () => { await go('yearpage'); await waitFor(() => has('[data-year-marks] svg')) }, '[data-year-marks] svg'],
     ['goals-tabs', async () => { await go('goals'); await waitFor(() => has('[data-chips="goals"]')) }, '[data-chips="goals"]'],
     ['review-year', async () => { await go('review'); await waitFor(() => has('[data-review-tab="decks"]')); await h.evaluate(() => document.querySelector('[data-review-tab="decks"]').click()); await waitFor(() => has('[data-study-year-map]')) }, '[data-study-year-map]']
   ]) {
     await open(); await wait(500)
-    const over = await h.evaluate((s) => { const el = document.querySelector(s); if (!el) return 'none'; const r = el.getBoundingClientRect(); return r.right > innerWidth + 0.5 ? `${Math.round(r.right)} > ${innerWidth}` : '' }, sel)
+    // Inside the window, and inside its own card (the year's dots never run past their card).
+    const over = await h.evaluate((s) => { const el = document.querySelector(s); if (!el) return 'none'; const r = el.getBoundingClientRect(); const card = el.closest('figure, section')?.getBoundingClientRect(); const edge = Math.min(innerWidth, card ? card.right : innerWidth); return r.right > edge + 0.5 ? `${Math.round(r.right)} > ${Math.round(edge)}` : '' }, sel)
     check(`560 wide: ${name} stays inside the window`, over === '', over)
     if (shots) await h.screenshot({ path: join(shots, `narrow-${name}.png`) })
   }
