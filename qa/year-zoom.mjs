@@ -135,6 +135,8 @@ try {
   check('a sideways swipe over the whole year stays on the year (no Back, no arrow)', JSON.stringify(flatAfter) === JSON.stringify(before), `${JSON.stringify(before)} -> ${JSON.stringify(flatAfter)}`)
   // The same swipe beside the chart, on the page, still goes Back: the year only keeps its own.
   const said = await h.locator('[data-year-marks-said]').boundingBox()
+  // Fingers down first, as the Mac says (swipe-back.tsx only starts a swipe while they are).
+  await h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:swipe-phase', { detail: 'began' })))
   await h.evaluate(([x, y]) => new Promise((res) => { let i = 0; const tick = () => { (document.elementFromPoint(x, y) ?? document.body).dispatchEvent(new WheelEvent('wheel', { deltaX: -30, deltaY: 0, clientX: x, clientY: y, bubbles: true, cancelable: true })); if (++i < 24) requestAnimationFrame(tick); else res() }; requestAnimationFrame(tick) }), [said.x + 4, said.y + said.height / 2])
   await h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:swipe-phase', { detail: 'ended' }))); await wait(900)
   const away = await place()

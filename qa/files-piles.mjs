@@ -169,7 +169,8 @@ try {
       const heads = [...document.querySelectorAll('[data-files-group]')].map((one) => one.textContent.replace(/\s+/g, ' ').trim())
       const tiles = [...document.querySelectorAll('[data-media-grid] [data-media="picture"]')]
       const square = tiles.slice(0, 6).every((one) => { const r = one.getBoundingClientRect(); return Math.abs(r.width - r.height) < 1.5 })
-      const words = tiles.slice(0, 6).some((one) => [...one.querySelectorAll('[data-square-foot]')].some((foot) => getComputedStyle(foot).opacity !== '0'))
+      // The words in the foot (the frost under them rises by a clip, so the foot itself is always there).
+      const words = tiles.slice(0, 6).some((one) => [...one.querySelectorAll('[data-square-foot] > span:not(.files-square-blur)')].some((word) => getComputedStyle(word).opacity !== '0'))
       return { heads, drawn: tiles.length, square, words }
     })
     check(`${count}: Pictures are grouped by month with a count`, pics.heads.length > 0 && pics.heads.every((t) => /^[A-Z][a-z]+ \d{4} · [\d,]+$/.test(t)), pics.heads.slice(0, 3).join(' | '))
@@ -208,9 +209,11 @@ try {
     await shot(`audio-${count}-560`)
     await size(1440, 900)
     // "Unlinked", in Audio: says what is true for recordings.
-    await h.locator('[data-media-unlinked] button').click()
+    // On, not toggled: an earlier size can leave it on, and a second click turned it off.
+    if ((await h.locator('[data-media-unlinked] button').first().getAttribute('aria-pressed')) !== 'true') await h.locator('[data-media-unlinked] button').first().click()
     await h.waitForTimeout(500)
-    const loose = await h.evaluate(() => ({ rows: document.querySelectorAll('[data-media-grid] [data-media="audio"]').length, line: document.querySelector('[data-media-nothing]')?.textContent ?? '' }))
+    // Counted from the page's own count: a long list draws only the rows in view (83 held, 11 drawn at 5,000).
+    const loose = await h.evaluate(() => ({ rows: Number(document.querySelector('[data-list-count]')?.getAttribute('data-list-count') ?? 0), line: document.querySelector('[data-media-nothing]')?.textContent ?? '' }))
     const looseWant = files.filter((f) => f.kind === 'audio' && f.how === 'attachment' && !f.uses.length).length
     check(`${count}: "Unlinked" narrows Audio to recordings no note holds`, looseWant ? loose.rows === looseWant : /^Nothing unlinked among the recordings\./.test(loose.line), JSON.stringify(loose))
     await h.locator('[data-media-unlinked] button').click()
@@ -309,7 +312,8 @@ try {
       const all = [...document.querySelectorAll('[data-media-grid] .files-square')].slice(0, 2).map((one) => one.getBoundingClientRect())
       const one = document.querySelector('[data-media-grid] .files-square')
       const foot = one.querySelector('[data-square-foot]')
-      return { gap: Math.round(all[1].left - all[0].right), radius: getComputedStyle(one).borderRadius, size: Math.round(all[0].width), foot: Number(getComputedStyle(foot).opacity), band: getComputedStyle(foot).backgroundColor }
+      const words = [...foot.querySelectorAll(':scope > span:not(.files-square-blur)')]
+      return { gap: Math.round(all[1].left - all[0].right), radius: getComputedStyle(one).borderRadius, size: Math.round(all[0].width), foot: Math.max(0, ...words.map((w) => Number(getComputedStyle(w).opacity))), band: getComputedStyle(foot).backgroundColor }
     })
     check('Pictures: 8 to 12px between squares, a 4 to 8px corner, no words until pointed at', tile.gap >= 8 && tile.gap <= 12 && /^[4-8]px$/.test(tile.radius) && tile.foot === 0, JSON.stringify(tile))
     const sq = await h.locator('[data-media-grid] .files-square').nth(1).boundingBox()
