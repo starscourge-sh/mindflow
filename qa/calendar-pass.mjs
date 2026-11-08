@@ -27,9 +27,10 @@ try {
   // Events spread over the month, a few each day, some long names.
   const names = ['Team sync', 'Lunch with Sam', 'Dentist', 'Lecture: Organic Chemistry II, room 4.12', 'Run', 'Book club']
   for (let n = 0; n < count; n++) {
+    // One event per slot until the month is full (30 days x 10 hours), then a second in the same slots: 500 crowds on purpose.
     const by = (n % 30) - 12
-    const hour = 8 + ((n * 3) % 10)
-    const start = at(by, hour, n % 2 ? 30 : 0)
+    const hour = 8 + ((Math.floor(n / 30) * 3 + n) % 10)
+    const start = at(by, hour, Math.floor(n / 300) ? 30 : 0)
     await v('event:add', { title: names[n % names.length], start: start.toISOString(), end: new Date(start.getTime() + 3600000).toISOString(), calendarId: 'personal' })
   }
   await go('calendar'); await h.waitForTimeout(1500)
@@ -69,6 +70,12 @@ try {
   check('captures show their words, not a dot', caps.every((one) => one.text.length > 0 && one.width >= 24), JSON.stringify(caps.slice(0, 3)))
   if (!(await h.locator('[data-cal-right]').count())) { await h.locator('[data-cal-side-toggle]').click(); await h.waitForTimeout(600) }
   if (shots) for (const name of ['light', 'dark']) { await look(name); await h.waitForTimeout(250); await h.screenshot({ path: `${shots}/cal-${count}-1440-week-upcoming-${name}.png` }) }
+  // Each event once: Upcoming never lists the same name at the same time twice (the seed makes no twins).
+  const rows = await h.$$eval('[data-cal-upcoming-day]', (days) => days.flatMap((day) => [...day.querySelectorAll('[data-cal-upcoming-row]')].map((row) => `${day.getAttribute('data-cal-upcoming-day')} ${row.textContent}`)))
+  const twins = rows.filter((one, at) => rows.indexOf(one) !== at)
+  check('Upcoming lists each event once', twins.length === 0, `${rows.length} rows, twins: ${twins.slice(0, 2).join(' | ')}`)
+  // The next meeting's colour is a dot, never a bar down the card's side.
+  check('the next meeting card has no side bar', await h.locator('[data-cal-next-up] span[aria-hidden]').evaluateAll((els) => els.every((el) => el.getBoundingClientRect().height <= 10)))
   await look('light')
   // The side panels' lists are islands.
   const heads = await h.$$eval('[data-island-head]', (els) => els.map((el) => el.getAttribute('data-island-head')))

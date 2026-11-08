@@ -795,7 +795,8 @@ function crowd(placed: Map<string, { lane: number; of: number; cluster?: number 
   for (const span of spans) {
     const at = placed.get(span.id)!
     if (at.of <= most) shown.set(span.id, at)
-    else if (at.lane < most - 1 || span.id === carried) shown.set(span.id, { lane: Math.min(at.lane, most - 1), of: most })
+    // A column with room for one keeps the first whole, and its "+N" sits on that block's corner.
+    else if (at.lane < Math.max(1, most - 1) || span.id === carried) shown.set(span.id, { lane: Math.min(at.lane, Math.max(0, most - 1)), of: most })
     else {
       const was = more.get(at.cluster!) ?? { start: span.start, count: 0, lane: { lane: most - 1, of: most } }
       more.set(at.cluster!, { ...was, start: Math.min(was.start, span.start), count: was.count + 1 })
@@ -837,12 +838,12 @@ function Grid({ days, tasks, marks, onHead, onPoint, calendars, ...props }: { da
   const zone = useSecondZone()
   const now = useMinute()
   const scroller = useRef<HTMLDivElement>(null)
-  // How many blocks fit side by side in a day and still say their names: one for every 64px of its column, two to six.
+  // How many blocks fit side by side in a day and still say their names: one for every 64px of its column, one to six.
   const [most, setMost] = useState(3)
   useLayoutEffect(() => {
     const el = scroller.current
     if (!el) return
-    const measure = (): void => setMost(Math.max(2, Math.min(6, Math.floor((el.clientWidth - 64) / days.length / 64))))
+    const measure = (): void => setMost(Math.max(1, Math.min(6, Math.floor((el.clientWidth - 64) / days.length / 64))))
     measure()
     const watch = new ResizeObserver(measure)
     watch.observe(el)
@@ -997,7 +998,7 @@ function Grid({ days, tasks, marks, onHead, onPoint, calendars, ...props }: { da
                   <button key={`more:${more.start}`} type="button" data-cal-crowd-more={key} aria-label={`Open ${dayjs(key).format('dddd D MMMM')}: ${num(more.count)} more at ${hm(atMinute(key, more.start))}`}
                     onPointerDown={(event) => event.stopPropagation()} onClick={() => (chime('open'), onOpen?.('day', key))}
                     className="absolute z-[3] flex h-5 items-center justify-center rounded-[5px] bg-accent px-1 text-meta font-semibold whitespace-nowrap text-foreground tabular-nums outline-none transition-[scale,background-color] duration-150 hover:bg-accent/70 focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.97] motion-reduce:transition-none"
-                    style={{ top: (more.start / 60) * HOUR + 1, ...laneBox(more.lane) }}>
+                    style={{ top: (more.start / 60) * HOUR + 1, ...(more.lane.of === 1 ? { right: 3 } : laneBox(more.lane)) }}>
                     +{num(more.count)}
                   </button>
                 ))}
