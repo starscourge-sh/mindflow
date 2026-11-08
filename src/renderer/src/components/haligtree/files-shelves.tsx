@@ -32,8 +32,8 @@ function Bars({ seed }: { seed: string }): React.JSX.Element {
     return Array.from({ length: 14 }, () => ((h = (h * 1103515245 + 12345) >>> 0), 22 + (h % 70)))
   }, [seed])
   return (
-    <span className="flex size-full items-center justify-center gap-[3px] bg-accent px-3">
-      {heights.map((height, at) => <span key={at} className="w-[3px] rounded-full bg-foreground/45" style={{ height: `${height}%` }} />)}
+    <span className="flex size-full items-center justify-center gap-[3px] bg-[color-mix(in_oklab,var(--foreground)_80%,var(--card))] px-3">
+      {heights.map((height, at) => <span key={at} className="w-[3px] rounded-full bg-[color-mix(in_oklab,var(--card)_75%,transparent)]" style={{ height: `${height}%` }} />)}
     </span>
   )
 }
@@ -85,13 +85,13 @@ export function Pile({ shelf, files, onOpen }: { shelf: (typeof SHELVES)[number]
         {top.map((one, at) => {
           const fan = FANS[top.length][at]
           return (
-            <span key={one.src} className="files-pile-cover absolute bottom-[30%] left-1/2 block w-[34%] overflow-hidden rounded-[4px] shadow-[0_1px_2px_rgb(0_0_0/0.12),0_6px_16px_-6px_rgb(0_0_0/0.25)] ring-1 ring-foreground/10"
+            <span key={one.src} className="files-pile-cover absolute bottom-[24%] left-1/2 block w-[34%] overflow-hidden rounded-[4px] shadow-[0_1px_2px_rgb(0_0_0/0.12),0_6px_16px_-6px_rgb(0_0_0/0.25)] ring-1 ring-foreground/10"
               style={{ '--x': `${fan.x}%`, '--r': `${fan.r}deg`, '--y': `${fan.y}%` } as React.CSSProperties}>
               <Cover one={one} className={book ? 'aspect-[3/4]' : 'aspect-square'} />
             </span>
           )
         })}
-        <span className="files-pile-front absolute inset-x-0 bottom-0 block h-[50%] overflow-hidden rounded-[8px]">
+        <span className="files-pile-front absolute inset-x-0 bottom-0 block h-[40%] overflow-hidden rounded-[8px]">
           {/* The frost: the covers' own colours, blurred and washed out under the pocket's paint. */}
           <span aria-hidden className="files-pile-frost absolute inset-0 flex items-start justify-center gap-1">
             {top.map((one) => <Cover key={one.src} one={one} className="h-full w-[30%]" />)}

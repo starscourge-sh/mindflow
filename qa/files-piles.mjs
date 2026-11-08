@@ -84,6 +84,9 @@ async function book(count) {
     for (const [at, from] of base[kind].entries()) await copyAs(from, names[kind].filter((_, i) => i % base[kind].length === at))
   }
   await electron.evaluate(({ ipcMain }, list) => { ipcMain.removeHandler('haligtree:media:list'); ipcMain.handle('haligtree:media:list', () => list) }, files)
+  // The shelf reads its own list: the same books, three of them part way through (Continue reading).
+  const books = files.filter((f) => f.kind === 'pdf').map((f, i) => ({ src: f.src, name: f.name, title: f.name.replace(/\.pdf$/, ''), author: '', pages: 40, page: i < 3 ? 12 + i : null, readAt: i < 3 ? new Date(Date.now() - i * 3600_000).toISOString() : null, addedAt: f.at, highlights: 0, gems: 0, bytes: 1000 }))
+  await electron.evaluate(({ ipcMain }, list) => { ipcMain.removeHandler('haligtree:pdf:library'); ipcMain.handle('haligtree:pdf:library', () => list) }, books)
   await go('home')
   await go('media')
   await h.waitForTimeout(1500)
@@ -214,7 +217,9 @@ try {
 
     // 5. Books: the shelf as it was, the Continue reading row kept where the sandbox has one.
     await tab('Books')
-    check(`${count}: Books is the library shelf`, (await h.locator('[data-library]').count()) === 1)
+    await h.waitForTimeout(1200)
+    const shelf = await h.evaluate(() => ({ library: !!document.querySelector('[data-library]'), books: document.querySelectorAll('[data-library] [data-book]').length, going: !!document.querySelector('[data-shelf-continue]') }))
+    check(`${count}: Books is the library shelf, every book on it, "Continue reading" kept at its top`, shelf.library && shelf.books === want.pdf && shelf.going, JSON.stringify(shelf))
     await shot(`books-${count}-1440`)
     await tab('All')
   }
