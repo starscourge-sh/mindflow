@@ -38,6 +38,7 @@ import { useCaptures, type CaptureMeta } from '../capture-list'
 import { CAPTURE_TYPES } from '../capture-kinds/capture-kind-picker'
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuLabel, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { splitTags } from '@/lib/haligtree'
+import { quoted } from '../../../../main/clip'
 
 type Mode = 'day' | 'week' | 'month'
 /** The steps a time snaps to (one hour's height on the grid is HOUR, calendar-events.tsx). */
@@ -1129,7 +1130,7 @@ function Block({ task, day, at, length, lane, lifted, did, carry, start, onPick,
         }}>
         {/* A task is an outline with its round tick, tinted by priority, that marks it done; an event is a soft filled block (calendar-events.tsx). */}
         <Tip label={finished ? 'Done' : 'Mark it done (E)'}>
-          <button type="button" data-cal-tick aria-label={finished ? 'Done' : `Mark “${name}” done`} disabled={finished}
+          <button type="button" data-cal-tick aria-label={finished ? 'Done' : `Mark ${quoted(name, 80)} done`} disabled={finished}
             onPointerDown={(event) => event.stopPropagation()} onMouseDown={(event) => event.stopPropagation()}
             onClick={(event) => (event.stopPropagation(), void completeTask(task))}
             className={`group/tick mf-hit relative ml-1.5 flex size-3.5 shrink-0 items-center justify-center rounded-full border-[1.5px] outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none ${length < 30 ? 'self-center' : 'mt-[4px]'}`}

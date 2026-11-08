@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { haligtree, splitTags, type Task } from './haligtree'
 import { chime } from './sound'
 import { toast } from '@/components/haligtree/ui'
+import { quoted } from '../../../main/clip'
 
 /**
  * A task in your Mac's Reminders (main/reminders.ts): the menu line that puts
@@ -26,7 +27,7 @@ export async function addToReminders(task: Task): Promise<void> {
   if (said.status !== 'on') return (linked.delete(task.id), denied())
   await load()
   chime('noted')
-  toast(`In Reminders: “${title}”. Ticked there, it is done here`, () => void window.api.haligtree('reminders:remove', task.id).then(load))
+  toast(`In Reminders: ${quoted(title, 80)}. Ticked there, it is done here`, () => void window.api.haligtree('reminders:remove', task.id).then(load))
 }
 
 export async function outOfReminders(task: Task): Promise<void> {
@@ -66,7 +67,7 @@ export function useRemindersInStep(): void {
           if (one.completed && task.status === 'open') {
             await window.api.haligtree('task:done', task.id)
             chime('done')
-            toast(`Ticked in Reminders: “${splitTags(task.title).text || task.title}” is done`)
+            toast(`Ticked in Reminders: ${quoted(splitTags(task.title).text || task.title, 80)} is done`)
           } else if (!one.completed && task.status === 'done') await window.api.haligtree('reminders:tick', task.id, true)
         }
       } finally {

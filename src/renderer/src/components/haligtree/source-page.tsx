@@ -38,6 +38,7 @@ import { notes, type NoteTable } from '@/lib/notes'
 import { menuOpen } from '@/lib/menu-keys'
 import { bookOf, pdfIn } from '@/lib/pdf-in'
 import { openPdf } from '@/components/pdf/pdf-reader'
+import { quoted } from '../../../../main/clip'
 
 type PdfIn = ReturnType<typeof pdfIn>
 
@@ -441,7 +442,7 @@ function Quotes({ field, name, page, items, onOpen }: { field: SourceField; name
         const under = [from, ref, year].filter(Boolean).join(' · ')
         return (
           <li key={item.id}>
-            <RowMenu items={[{ label: 'Open', run: () => onOpen(item) }, { label: `Take off “${name}”`, run: () => void setSource(item, field, null).then(() => toast(`No longer from ${name}`, () => void setSource(item, field, name))) }]}>
+            <RowMenu items={[{ label: 'Open', run: () => onOpen(item) }, { label: `Take off ${quoted(name, 80)}`, run: () => void setSource(item, field, null).then(() => toast(`No longer from ${name}`, () => void setSource(item, field, name))) }]}>
               <button type="button" data-quote={item.id} onClick={() => onOpen(item)}
                 className="block w-full rounded-lg px-3 py-2.5 text-left transition-colors hover:bg-accent/60 focus-visible:bg-accent/60 focus-visible:outline-none">
                 <blockquote className="pl-[0.45em] -indent-[0.45em] text-heading leading-relaxed text-foreground text-pretty">
@@ -589,7 +590,7 @@ export function SourcePageView({ focus, onOpen }: { focus?: string; onOpen: (typ
             )}
             {yours.length > 0 && (
               <Section name="yours" title={field === 'attribution' ? 'Your notes on them' : 'Your notes on it'}>
-                <NoteList groups={[['', yours.map((item) => ({ ...entryOf(item), menu: [{ label: 'Open', run: () => open(item) }, { label: `Take off “${name}”`, run: () => void setSource(item, field, null).then(() => toast(`No longer from ${name}`, () => void setSource(item, field, name))) }] }))]]}
+                <NoteList groups={[['', yours.map((item) => ({ ...entryOf(item), menu: [{ label: 'Open', run: () => open(item) }, { label: `Take off ${quoted(name, 80)}`, run: () => void setSource(item, field, null).then(() => toast(`No longer from ${name}`, () => void setSource(item, field, name))) }] }))]]}
                   density="list" table="nuggets" cursor={-1} onPick={(id) => open(yours.find((one) => one.id === id)!)} className="-mx-2" />
               </Section>
             )}

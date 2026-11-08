@@ -15,6 +15,7 @@ import { openSource } from '@/lib/sources'
 import { distinctInitials } from '@/lib/people'
 import { dayLinkName } from './day-view'
 import { FeedColumns, FeedHeading, FeedSaid, Post, SideCard, kindWord, written } from './feed-view'
+import { quoted } from '../../../../main/clip'
 
 /**
  * Liked: every post you hearted in the Feed, newest like first, in the Feed's
@@ -283,7 +284,7 @@ function LikedSideColumn({ side, onOpen }: { side: LikedSide; onOpen: (post: Lik
         <SideCard name="year-ago" title={side.yearAgoExact ? 'You liked a year ago today' : 'You liked a year ago this week'}>
           {side.yearAgo.map((post) => (
             <button key={keyOf(post)} type="button" data-liked-year-ago={keyOf(post)} onClick={() => onOpen(post)} className={cn(row, 'flex-col items-start gap-0.5')}>
-              <span className="line-clamp-2 font-medium hyphens-auto [overflow-wrap:break-word]">{post.type === 'day' ? `The day: ${written(post.id, true)}` : post.kind === 'quote' ? `“${(post.text || post.title).slice(0, 90)}”` : splitTags(post.title).text || post.title}</span>
+              <span className="line-clamp-2 font-medium hyphens-auto [overflow-wrap:break-word]">{post.type === 'day' ? `The day: ${written(post.id, true)}` : post.kind === 'quote' ? `${quoted((post.text || post.title).slice(0, 90), 80)}` : splitTags(post.title).text || post.title}</span>
               <span className="text-muted-foreground">{kindWord(post)}{post.who ? ` · ${post.who}` : ''} · {written(post.likedOn, true)}</span>
             </button>
           ))}

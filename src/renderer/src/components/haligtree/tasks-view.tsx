@@ -70,6 +70,7 @@ import { Bell, Timer as CalendarClock, Check, FileText, Gem, History, Timer as H
 import { SpanPill, sessionEnd } from './session-span'
 import { useMinute } from '@/lib/clock'
 import { APP_NAME } from '../../../../main/name'
+import { quoted } from '../../../../main/clip'
 
 // Counted on the calendar, so a clock change never moves a day by an hour.
 /** The day a task shows on, as a number to compare: never, for one with no day. */
@@ -614,7 +615,7 @@ export function taskMenu(task: Task, { open, complete = () => void completeTask(
     { label: 'Open', keys: '↵', run: open },
     ...openItems('task', task.id),
     // The note under its name, to read or change (the tracker: "so how do i edit that attached file here?").
-    !!task.fromId && { label: `Open “${splitTags(task.fromTitle ?? '').text || 'Untitled'}”`, hint: 'The note it came from', run: () => (chime('open'), window.dispatchEvent(new CustomEvent('haligtree:open', { detail: { type: 'capture', id: task.fromId } }))) },
+    !!task.fromId && { label: `Open ${quoted(splitTags(task.fromTitle ?? '').text || 'Untitled', 80)}`, hint: 'The note it came from', run: () => (chime('open'), window.dispatchEvent(new CustomEvent('haligtree:open', { detail: { type: 'capture', id: task.fromId } }))) },
     thought && { label: 'Add a thought…', keys: ';', run: thought }
   ]
   const leaving: RowItem[] = [
@@ -1738,7 +1739,7 @@ function BlockedBy({ task, onOpen }: { task: TaskFull; onOpen?: (type: string, i
       <div data-blocked-by={linked.id} data-freed={done || undefined} className="flex items-center">
         <div className="min-w-0 flex-1">
           <Prop icon={done ? Check : Ban} tint={done ? 'green' : undefined} onClick={open} active tip="Open the task in the way">
-            {done ? <>Free now: “{linked.title}” is done</> : <>Blocked by “{linked.title}”</>}
+            {done ? <>Free now: {quoted(linked.title, 80)} is done</> : <>Blocked by {quoted(linked.title, 80)}</>}
           </Prop>
         </div>
         <Tip label="Not blocked by it">
@@ -1916,7 +1917,7 @@ function Checklist({ task, onOpen }: { task: TaskFull; onOpen?: (type: string, i
               }}
               className={`min-w-0 flex-1 bg-transparent text-ellipsis outline-none focus:text-clip ${item.done ? 'text-muted-foreground line-through' : ''}`} />
             <Tip label="Remove">
-            <button type="button" aria-label={`Remove “${item.text}”`} onClick={() => {
+            <button type="button" aria-label={`Remove ${quoted(item.text, 80)}`} onClick={() => {
               chime('away')
               save(items.filter((_, at) => at !== index))
               quietly(() => save(items))

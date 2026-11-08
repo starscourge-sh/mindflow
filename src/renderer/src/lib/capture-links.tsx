@@ -56,7 +56,7 @@ export const statusSaid = (status: string, keptIn?: string | null): string => {
     const at = keptIn.indexOf(':')
     const name = keptIn.slice(at + 1).trim()
     const short = clip(name, 40)
-    return keptIn.startsWith('question:') ? 'Made into a question' : short ? `A clue in “${short}”` : 'A clue in a question'
+    return keptIn.startsWith('question:') ? 'Made into a question' : short ? `A clue in ${quoted(short, 80)}` : 'A clue in a question'
   }
   return ({ open: 'Open', promoted: 'Saved as a gem', resolved: 'Resolved', discarded: 'In the Bin' } as Record<string, string>)[status] ?? status
 }

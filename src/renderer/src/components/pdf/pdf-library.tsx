@@ -18,6 +18,7 @@ import { menuOpen } from "@/lib/menu-keys"
 import { typing } from "@/components/haligtree/ui"
 import type { Media } from "../../../../main/media"
 import { num } from "../../../../main/dates"
+import { quoted } from '../../../../main/clip'
 export type { Book } from "./book-head"
 
 /**
@@ -118,7 +119,7 @@ export function PdfLibrary({ query, top, files, onPut, keys, only }: { /** Off w
                 {books.length <= 3 && !query.trim() && !only && <p className="pdf-library-hint">Every PDF you keep sits on this shelf. Drop one on this page, or press “Add”.</p>}
               </div>
             ) : (
-              <p className="my-4 text-control text-muted-foreground">{query.trim() ? <>No book has “{query.trim()}” in its title or author.</> : only ? <>{all.length === 1 ? "The one book here is in a note." : `All ${num(all.length)} books are in a note.`}</> : <>No books here yet.</>}</p>
+              <p className="my-4 text-control text-muted-foreground">{query.trim() ? <>No book has {quoted(query.trim(), 80)} in its title or author.</> : only ? <>{all.length === 1 ? "The one book here is in a note." : `All ${num(all.length)} books are in a note.`}</> : <>No books here yet.</>}</p>
             )}
           </div>
         </div>

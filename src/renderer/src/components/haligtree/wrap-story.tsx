@@ -18,6 +18,7 @@ import { PlanDid, plannedVsDid, shortSaid } from './planned-did'
 import { streaks } from '../../../../main/focus-numbers'
 import { dayjs, dayKey, dayName, noon, num, plural } from '../../../../main/dates'
 import { APP_NAME } from '../../../../main/name'
+import { quoted } from '../../../../main/clip'
 
 /**
  * A month or a week, wrapped: a story of a few cards, one thing each, the
@@ -172,13 +173,13 @@ function Story({ id, onClose }: { id: string; onClose: () => void }): React.JSX.
     else if (gems.length) middle.push([4, (
       <div key="gems" className="space-y-6">
         <Big n={gems.length}>{gems.length === 1 ? 'gem kept' : 'gems kept'}</Big>
-        <ul className="space-y-1.5 text-heading text-foreground">{gems.slice(0, 3).map((gem) => <li key={gem.id} className="truncate">“{gem.title || 'Untitled'}”</li>)}</ul>
+        <ul className="space-y-1.5 text-heading text-foreground">{gems.slice(0, 3).map((gem) => <li key={gem.id} className="truncate">{quoted(gem.title || 'Untitled', 80)}</li>)}</ul>
       </div>
     )])
     if (well.length) middle.push([5, (
       <div key="well" className="space-y-5">
         <p className="text-title"><Typed story text="What went well, in your words" /></p>
-        <ul className="space-y-2 text-heading text-foreground">{well.slice(0, 4).map((line) => <li key={line}>“{line}”</li>)}</ul>
+        <ul className="space-y-2 text-heading text-foreground">{well.slice(0, 4).map((line) => <li key={line}>{quoted(line, 80)}</li>)}</ul>
       </div>
     )])
     if (run >= 2) middle.push([6, (

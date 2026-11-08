@@ -6,6 +6,7 @@ import { Chips } from './display'
 import { GHOST, GhostText } from './ghost'
 import { refuse, toast } from './ui'
 import { num } from '../../../../main/dates'
+import { quoted } from '../../../../main/clip'
 
 /**
  * Anki's blanks typed by hand with two or more numbers ({{c1::...}} and
@@ -60,7 +61,7 @@ export function BlankPanel({ id, prompt, text, body, notes, onPrompt }: { id: st
         const answer = answers?.[n]
         // What this blank did (a unit kept as the cue, an item of a list), said under it once:
         // only for blanks the card still has, so one filled back in takes its note with it.
-        const said = answer ? notes.filter((note) => note.startsWith(`“${answer}”`)) : []
+        const said = answer ? notes.filter((note) => note.startsWith(`${quoted(answer, 80)}`)) : []
         return (
           <div key={n} className="flex flex-col gap-1 rounded-md px-1 py-1.5">
             <label className="flex items-baseline gap-2 text-sm">
@@ -74,7 +75,7 @@ export function BlankPanel({ id, prompt, text, body, notes, onPrompt }: { id: st
             {said.map((note) => (
               <p key={note} data-blank-note className="flex gap-2 text-sm leading-relaxed text-foreground/80">
                 <span aria-hidden className="mt-[0.55em] size-1 shrink-0 rounded-full bg-[var(--tt-color-text-orange)]" />
-                <span>{note.slice(`“${answer}”`.length).replace(/^[:,]?\s*/, '').replace(/^\p{Ll}/u, (first) => first.toUpperCase())}</span>
+                <span>{note.slice(`${quoted(answer, 80)}`.length).replace(/^[:,]?\s*/, '').replace(/^\p{Ll}/u, (first) => first.toUpperCase())}</span>
               </p>
             ))}
           </div>

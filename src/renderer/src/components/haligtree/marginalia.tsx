@@ -11,6 +11,7 @@ import { ChevronRight } from '@/components/ui/icons'
 import { Avatar } from './avatar'
 import { Island } from './ui'
 import { num } from '../../../../main/dates'
+import { quoted } from '../../../../main/clip'
 
 /** What a quote carried out of the margin says it is, so the page's own drop takes it. */
 const MIME = 'application/x-haligtree-quote'
@@ -74,7 +75,7 @@ const forApps = ({ quote, name }: Carried): { text: string; html: string } => {
   const words = wordsOf(quote.label)
   const sign = `- ${[name, quote.medium?.split(',')[0].trim()].filter(Boolean).join(', ')}`
   const safe = (text: string): string => text.replace(/[&<>"]/g, (one) => `&${({ '&': 'amp', '<': 'lt', '>': 'gt', '"': 'quot' })[one]};`)
-  return { text: `“${words}”\n${sign}`, html: `<blockquote><p>${safe(words)}</p><p>${safe(sign)}</p></blockquote>` }
+  return { text: `${quoted(words, 80)}\n${sign}`, html: `<blockquote><p>${safe(words)}</p><p>${safe(sign)}</p></blockquote>` }
 }
 
 /** Into the page after the block at `pos` (or in place of it, when it is an empty line). */

@@ -8,6 +8,7 @@ import { Pressed, Tip } from '@/components/haligtree/ui'
 import { EASE, shift, still } from '@/lib/motion'
 import { chime } from '@/lib/sound'
 import { keysHere, usePane } from '@/lib/split'
+import { quoted } from '../../../main/clip'
 
 /**
  * A note moving between the main window and a small window of its own, as
@@ -242,7 +243,7 @@ function Trace({ type, id, title, hidden }: { type: string; id: string; title: s
       </span>
       <div className="flex max-w-sm flex-col gap-1.5">
         <p className="text-[15px] leading-snug font-semibold text-foreground">
-          {title ? <><span data-private={hidden ? '' : undefined} className="private-text">“{title}”</span> is open in its own window</> : 'This note is open in its own window'}
+          {title ? <><span data-private={hidden ? '' : undefined} className="private-text">{quoted(title, 80)}</span> is open in its own window</> : 'This note is open in its own window'}
         </p>
         <p className="text-sm leading-relaxed text-foreground/75">Write there, or bring it back here with the caret where you left it.</p>
       </div>

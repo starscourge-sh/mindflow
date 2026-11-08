@@ -6,6 +6,7 @@ import { chime } from '@/lib/sound'
 import { WORDS, word, wordFor } from '@/lib/words'
 import { Lead } from './lead'
 import { APP_NAME } from '../../../../main/name'
+import { quoted } from '../../../../main/clip'
 
 /** The note listing every word, from ⌘K: not a word of its own. */
 export const ALL_WORDS = 'words'
@@ -69,7 +70,7 @@ export function TermInfo({ text }: { text: string }): React.JSX.Element | null {
         <button
           type="button"
           data-term-info={found.id}
-          aria-label={`What “${found.forms[0]}” means`}
+          aria-label={`What ${quoted(found.forms[0], 80)} means`}
           onClick={(event) => (event.stopPropagation(), openWord(found.id, event.currentTarget))}
           className="grid size-5 shrink-0 cursor-help place-items-center rounded-full text-muted-foreground/70 transition-colors hover:text-foreground focus-visible:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
         >

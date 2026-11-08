@@ -16,6 +16,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Chips } from './display'
 import { Rolling, Typed, refuse, toast } from './ui'
 import { APP_NAME, EXAMPLE_TAG, LEARN_TAG } from '../../../../main/name'
+import { quoted } from '../../../../main/clip'
 
 /**
  * Studying beyond the day's queue: the practice rounds above Review, the
@@ -49,7 +50,7 @@ export function FocusChips({ round, onPick, onLearn }: { round: Round | null; on
         on={(id) => id === round}
         pick={(id) => {
           const bucket = id as Bucket | 'starred'
-          if (!counts[bucket]) return refuse(bucket === 'starred' ? 'No starred cards yet: press S on a card in Review' : `Nothing in “${BUCKETS.find((one) => one.id === bucket)?.label}” right now`, 'info')
+          if (!counts[bucket]) return refuse(bucket === 'starred' ? 'No starred cards yet: press S on a card in Review' : `Nothing in ${quoted(BUCKETS.find((one) => one.id === bucket)?.label, 80)} right now`, 'info')
           onPick(bucket)
         }}
       />
@@ -184,7 +185,7 @@ export function Slipping({ card, splitting, onRewrite, onSplit, onAside, onKeep,
         <h2 className="font-heading text-title font-semibold tracking-[-0.018em] text-[var(--tt-color-text-orange)]">
           <Typed text="This one keeps slipping" step={28} delay={60} />
         </h2>
-        <p className="mt-2 text-base leading-relaxed">“{asked(card)}”</p>
+        <p className="mt-2 text-base leading-relaxed">{quoted(asked(card), 80)}</p>
         <p className="mt-1 text-sm text-muted-foreground">
           <strong className="font-semibold text-foreground">Missed {num(card.lapses)} times.</strong> A card missed again and again is usually asking too much at once, or the wrong thing.
         </p>

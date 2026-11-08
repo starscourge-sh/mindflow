@@ -23,6 +23,7 @@ import { DatePicker } from './date-picker'
 import { TimeField } from './time-field'
 import { RowMenu, copyLink, copyLinkItem, type RowItem } from './row-menu'
 import { Island, Kbd, Prop, PropInput, Props, Tip, toast } from './ui'
+import { quoted } from '../../../../main/clip'
 
 /** As the grid draws hours: one hour's height, and the steps a time snaps to. */
 export const HOUR = 56
@@ -169,7 +170,7 @@ export function copyEvent(one: Shown): void {
   if (one.readOnly) return chime('nope')
   held = { one, cut: false }
   chime('tap')
-  toast(`“${one.title || 'New event'}” copied: ⌘V puts a copy where you point`, undefined, 'info')
+  toast(`${quoted(one.title || 'New event', 80)} copied: ⌘V puts a copy where you point`, undefined, 'info')
 }
 export function cutEvent(one: Shown): void {
   if (one.readOnly) return chime('nope')
@@ -906,7 +907,7 @@ function RemindPicker({ value, onSave, allDay = false, start, task = false }: { 
       </div>
       <PropInput icon={Bell} type="number" value={custom ? String(value) : ''} placeholder="Custom" ghost="Custom: 45" does="Any number of minutes before" suffix="minutes before"
         onSave={(minutes) => minutes !== '' && Number(minutes) !== value && onSave(Math.max(0, Number(minutes)))} />
-      {value !== null && <p className="px-2 py-1.5 text-xs leading-relaxed">A Mac notification: “{remindSaid(value, start, allDay)}”. Held in quiet hours, and shown once they end.</p>}
+      {value !== null && <p className="px-2 py-1.5 text-xs leading-relaxed">A Mac notification: {quoted(remindSaid(value, start, allDay), 80)}. Held in quiet hours, and shown once they end.</p>}
     </Island>
   )
 }

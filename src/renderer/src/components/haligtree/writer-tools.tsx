@@ -9,6 +9,7 @@ import { WritingSound } from './writing-sound'
 import { SlidersHorizontal } from 'lucide-react'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { askProofread, checkingLive, grammarSentence, setCheckingLive } from '@/lib/grammar'
+import { quoted } from '../../../../main/clip'
 
 /**
  * Writer's tools, as iA Writer and Scrivener have them: a focus band that
@@ -112,7 +113,7 @@ export function useFocusBand(editor: Editor | null, on: boolean): void {
 
 const STOP = new Set('the and that this with from have were they them their there then than what when which while would could should about into your just like been some will said over also more only very much even well back after before because where being other those these here something nothing really still'.split(' '))
 const NOT_ADVERBS = new Set('only early likely family reply apply supply july italy holy ugly friendly lonely lovely silly belly jelly fly rely ally bully daily weekly monthly yearly holly lily emily sally'.split(' '))
-const quote = (word: string): string => `“${word}”`
+const quote = (word: string): string => `${quoted(word, 80)}`
 const list = (words: string[]): string => (words.length < 2 ? words.join('') : `${words.slice(0, -1).join(', ')} and ${words.at(-1)}`)
 
 /** A short report on the prose, in plain sentences: reading time, long sentences, words used a lot, adverbs. */

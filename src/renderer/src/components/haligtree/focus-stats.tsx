@@ -15,6 +15,7 @@ import { taskName } from '@/lib/tasks'
 import type { Task } from '@/lib/haligtree'
 import { N, Section } from './stats-view'
 import { TONES } from './mono-card'
+import { quoted } from '../../../../main/clip'
 
 /**
  * How focus sessions went, in two places: on a task's panel (how many, how
@@ -266,7 +267,7 @@ export function FocusSections({ example }: { example: boolean }): React.JSX.Elem
       )}
 
       {focus.top.length > 0 && (
-        <Section title="Where your focus went" big={{ value: timeSaid(focus.top[0].minutes), label: `on “${taskName(focus.top[0].title).text}”` }}>
+        <Section title="Where your focus went" big={{ value: timeSaid(focus.top[0].minutes), label: `on ${quoted(taskName(focus.top[0].title).text, 80)}` }}>
           <div data-focus-top className="space-y-2.5">
             {focus.top.map((one) => {
               const task = tasks.find((t) => t.id === one.taskId)
@@ -380,7 +381,7 @@ export function HabitSections({ example }: { example: boolean }): React.JSX.Elem
         {habits.routines ? (
           <>
             You keep <N>{plural(habits.routines, 'routine', 'routines')}</N>
-            {habits.best ? <>; “{taskName(habits.best.title).text}” is on a run of <N>{plural(habits.best.run, 'day', 'days')}</N>.</> : '.'}{' '}
+            {habits.best ? <>; {quoted(taskName(habits.best.title).text, 80)} is on a run of <N>{plural(habits.best.run, 'day', 'days')}</N>.</> : '.'}{' '}
           </>
         ) : ''}
         {reviewRun >= 2 ? <>You have reviewed <N>{plural(reviewRun, 'day', 'days')}</N> in a row. </> : ''}

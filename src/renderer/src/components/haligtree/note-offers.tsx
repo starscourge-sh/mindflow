@@ -11,6 +11,7 @@ import { toast } from './ui'
 import { nameFor } from './ai-offers'
 import { useHas } from '@/lib/needs'
 import type { NoteOffers as Offers } from '../../../../main/offers'
+import { quoted } from '../../../../main/clip'
 
 /**
  * One quiet offer under a note, from your own book (main/offers.ts, by shared
@@ -168,7 +169,7 @@ export function NoteOffers({ table, id, editor, onOpen }: { table: 'captures' | 
   if (offer.kind === 'same') {
     icon = <Copy className="size-4" />
     lead = 'You already wrote this.'
-    rest = <>“{offer.title}” says nearly the same.</>
+    rest = <>{quoted(offer.title, 80)} says nearly the same.</>
     actions = [
       // Beside this one, to compare the two before joining them (in place where there is no room for a split).
       { label: 'Open it', data: 'open', run: () => (chime('open'), follow(offer.key, onOpen, undefined, { from: editor?.view.dom.closest('[data-pane]')?.getAttribute('data-pane') ?? null })) },
@@ -183,29 +184,29 @@ export function NoteOffers({ table, id, editor, onOpen }: { table: 'captures' | 
     ]
   } else if (offer.kind === 'folder') {
     icon = <FolderInput className="size-4" />
-    lead = `Belongs in “${offer.name}”?`
+    lead = `Belongs in ${quoted(offer.name, 80)}?`
     rest = 'It reads like the notes there.'
     actions = [{ label: 'Move it', data: 'move', run: async () => {
       await call('offers:file', id, offer.id)
       chime('noted')
-      toast(`Moved to “${offer.name}”`, () => void call('offers:file', id, null))
+      toast(`Moved to ${quoted(offer.name, 80)}`, () => void call('offers:file', id, null))
       done()
     } }]
   } else if (offer.kind === 'link') {
-    lead = `Names “${offer.title}”.`
+    lead = `Names ${quoted(offer.title, 80)}.`
     rest = 'Link it, so each note shows the other.'
     actions = [{ label: 'Link it', data: 'link', run: () => {
-      if (linkWords(editor, offer.words, offer.key, offer.title)) (chime('noted'), toast(`Linked “${offer.title}”`, () => editor.commands.undo()))
+      if (linkWords(editor, offer.words, offer.key, offer.title)) (chime('noted'), toast(`Linked ${quoted(offer.title, 80)}`, () => editor.commands.undo()))
       done()
     } }]
   } else if (offer.kind === 'name') {
     icon = <Sparkles className="size-4" />
-    lead = `Name it “${offer.name}”?`
+    lead = `Name it ${quoted(offer.name, 80)}?`
     rest = 'Written on this Mac by Apple Intelligence, from its words.'
     actions = [{ label: 'Use this name', data: 'name', run: () => {
       editor.chain().focus().insertContentAt(0, { type: 'heading', attrs: { level: 1 }, content: [{ type: 'text', text: offer.name }] }).run()
       chime('noted')
-      toast(`Named “${offer.name}”`, () => editor.commands.undo())
+      toast(`Named ${quoted(offer.name, 80)}`, () => editor.commands.undo())
       done()
     } }]
   } else {

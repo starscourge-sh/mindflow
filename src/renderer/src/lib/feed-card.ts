@@ -1,4 +1,5 @@
 import { call } from './haligtree'
+import { quoted } from '../../../main/clip'
 
 /**
  * A Feed post as a picture: a clean card in the app's own type and the
@@ -190,7 +191,7 @@ export async function drawCard(card: CardPost, element: HTMLElement | null): Pro
 
 /** The words for X: a quote with its author, cut at a word to fit 280 with "…". */
 export function xText(card: CardPost): string {
-  const said = card.quote ? `“${(card.text || card.title).trim()}”${card.who ? ` ${card.who}` : ''}` : [card.title, card.text].filter(Boolean).join('\n\n').trim()
+  const said = card.quote ? `${quoted((card.text || card.title).trim(), 80)}${card.who ? ` ${card.who}` : ''}` : [card.title, card.text].filter(Boolean).join('\n\n').trim()
   if ([...said].length <= 280) return said
   if (card.quote && card.who) {
     const tail = `…” ${card.who}`

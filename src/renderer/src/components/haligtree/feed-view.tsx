@@ -34,6 +34,7 @@ import { ChangedLink } from './changed-line'
 import { RowMenu } from './row-menu'
 import { useHere } from '@/lib/split'
 import { followPdfLink } from '@/components/pdf/pdf-reader'
+import { quoted } from '../../../../main/clip'
 
 /**
  * The Feed: the day's twenty or so of your own things, as posts in a
@@ -967,8 +968,8 @@ function QuizPost({ post, onOpen, mark }: { post: FeedPost; onOpen: () => void; 
                 ))}
               </div>
               <p data-feed-quiz-said className="min-h-5 text-control text-muted-foreground">
-                {graded ? `Graded “${gradeName(graded.grade)}”, as Review would: back ${backIn(graded.due)}.` : 'How did it feel? It counts as a review.'}
-                {' '}{graded && <><button type="button" data-undo-grade onClick={undo} className="rounded-sm text-control text-foreground/80 underline-offset-2 hover:text-foreground hover:underline">Undo “{gradeName(graded.grade)}”</button>{' '}</>}
+                {graded ? `Graded ${quoted(gradeName(graded.grade), 80)}, as Review would: back ${backIn(graded.due)}.` : 'How did it feel? It counts as a review.'}
+                {' '}{graded && <><button type="button" data-undo-grade onClick={undo} className="rounded-sm text-control text-foreground/80 underline-offset-2 hover:text-foreground hover:underline">Undo {quoted(gradeName(graded.grade), 80)}</button>{' '}</>}
                 <OpenLink onOpen={onOpen}>Open the card</OpenLink>
               </p>
             </>

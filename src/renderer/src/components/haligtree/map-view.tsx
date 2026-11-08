@@ -22,6 +22,7 @@ import { Chips } from './display'
 import './sound-player.css'
 import { openSource, sources, type SourceGraph } from '@/lib/sources'
 import { dayMonth, num } from '../../../../main/dates'
+import { quoted } from '../../../../main/clip'
 
 /**
  * Every note that links to another, as a dot, and every link as a line: the
@@ -216,7 +217,7 @@ function LinkMap({ onOpen, modes }: { onOpen: (type: string, id: string) => void
         </GraphCanvas> : (
           // Narrowed to nothing by the settings: said so, with the panel still there to widen it.
           <div data-map-none className="relative flex flex-1 items-center justify-center text-muted-foreground">
-            <p className="text-body">No notes on the map match {now.search.trim() ? <>“{now.search.trim()}”</> : 'these settings'}.</p>
+            <p className="text-body">No notes on the map match {now.search.trim() ? <>{quoted(now.search.trim(), 80)}</> : 'these settings'}.</p>
             {panel && <MapPanel look={now} groups={groups} onChange={change} onClose={() => (chime('fold'), setPanel(false))} />}
           </div>
         )}

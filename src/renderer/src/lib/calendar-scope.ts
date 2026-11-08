@@ -13,6 +13,7 @@ import { RECURRENCE } from '../../../main/task-words'
 import { repeatOf } from '../../../main/event-words'
 import { changeEvent, events, type EventPatch, type Occurrence } from './events'
 import { changeOne, dropOne } from '@/components/haligtree/calendar-events'
+import { quoted } from '../../../main/clip'
 
 /**
  * ⌘K with the Calendar in front: what it knows (the task picked on it, the
@@ -120,7 +121,7 @@ async function applyEvent(one: Occurrence, said: Command, calendar: CalendarHere
 
 /** What a command will do, said before it is done. */
 function saidAs(task: Task, said: Command): string {
-  const it = `“${name(task)}”`
+  const it = `${quoted(name(task), 80)}`
   if (said.kind === 'open') return `Open ${it}`
   if (said.kind === 'bin') return `Move ${it} to the Bin`
   if (said.kind === 'length') return `Make ${it} take ${lengthSaid(said.minutes)}`

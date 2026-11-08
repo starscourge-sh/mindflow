@@ -8,6 +8,7 @@ import { MenuPeek, type MenuPeekEntry } from "@/components/haligtree/menu-peeks"
 import { MCard } from "@/components/haligtree/peek"
 import { Pressed } from "@/components/haligtree/ui"
 import { BLANK } from "@/lib/blanks"
+import { quoted } from '../../../../main/clip'
 
 /**
  * A highlight's colours, as readers keep them (Apple Books, Zotero,
@@ -38,7 +39,7 @@ export const lastColor = (): MarkColor => {
 export const rememberColor = (color: MarkColor): void => localStorage.setItem("pdf-mark-color", color ?? "")
 
 /** Words with where they came from, as a quote is cited: “words” (Author, Title, p. 3). */
-export const cited = (quote: string, where: string): string => `“${quote}” (${where})`
+export const cited = (quote: string, where: string): string => `${quoted(quote, 80)} (${where})`
 
 /** What picked words can become, every reader's: the bar's buttons, the right click's rows, and their keys. */
 export type ReadActions = {
@@ -200,11 +201,11 @@ function readPeeks(picked: Picked, keyed = true): Record<string, MenuPeekEntry> 
   const all: Record<string, MenuPeekEntry> = {
     ...colours,
     highlight: { text: "**The words get a colour that stays on the page.** H uses the last colour; 1 to 5 pick one.", whole: true, fit: true, art: () => (<><Before>{before}{words}{after}</Before><Arrow /><Words picked={picked} style={lit(markCss(lastColor()))} /></>) },
-    keep: { text: "**The words become a gem, with where they came from.** It comes back in Home and the Feed.", keys: "K", whole: true, fit: true, art: () => (<MCard><p className="font-serif text-[11px] leading-snug">“{words}”</p><p className="mt-1 text-[9.5px] text-muted-foreground">{picked.where}</p></MCard>) },
+    keep: { text: "**The words become a gem, with where they came from.** It comes back in Home and the Feed.", keys: "K", whole: true, fit: true, art: () => (<MCard><p className="font-serif text-[11px] leading-snug">{quoted(words, 80)}</p><p className="mt-1 text-[9.5px] text-muted-foreground">{picked.where}</p></MCard>) },
     card: { text: "**A question you write, with these words as its answer.** A study card: it comes up in Review only.", keys: "C", foot: <Also keys="⌥C" />, whole: true, fit: true, art: () => (<MCard><p className="text-[9px] text-muted-foreground">Question</p><p className="text-[10.5px] italic text-muted-foreground">The one you write next</p><div className="my-1 h-px bg-foreground/10" /><p className="text-[9px] text-muted-foreground">Answer</p><p className="font-serif text-[10.5px]">{words}</p></MCard>) },
     blank: { text: "**The words blanked out of their sentence: a card that asks you to fill them in.** In Review only.", keys: "⇧C", foot: <Also keys="⌥⇧C" />, whole: true, fit: true, art: () => (<MCard><p className="font-serif text-[11px] leading-snug">{ask.length > 60 ? `…${ask.slice(-60).replace(/^\S*\s+/, "")}` : ask}<Gap />{short(rest ?? "", 50)}</p><p className="mt-1 text-[9.5px] text-muted-foreground">Answer: {words}</p></MCard>) },
     later: { text: "**Mark words to turn into cards later, all at once.** “Make your marked cards” asks for each.", keys: "6", whole: true, fit: true, art: () => <Words picked={picked} className="border-b border-dashed" style={{ borderColor: "var(--tt-brand-color-500, #c08a2e)" }} /> },
-    cite: { text: "**Copied with where they came from,** ready to paste into an essay.", keys: "⇧⌘C", whole: true, fit: true, art: () => (<MCard><p className="font-serif text-[11px] leading-snug">“{words}” ({where})</p></MCard>) },
+    cite: { text: "**Copied with where they came from,** ready to paste into an essay.", keys: "⇧⌘C", whole: true, fit: true, art: () => (<MCard><p className="font-serif text-[11px] leading-snug">{quoted(words, 80)} ({where})</p></MCard>) },
     copy: { text: "**Just the words, copied as they are.**", keys: "⌘C", whole: true, fit: true, art: () => (<MCard><p className="font-serif text-[11px] leading-snug">{words}</p></MCard>) },
   }
   // A highlight's own menu has no keys (they act on picked words): its cards show none.

@@ -40,6 +40,7 @@ import { canSplit, openAside } from "@/lib/split"
 import { openApart } from "@/lib/apart"
 import { chime } from "@/lib/sound"
 import { enqueue } from "@/lib/reading-queue"
+import { quoted } from '../../../../main/clip'
 
 /**
  * What a right-click landed on, read once at the click: its own lines go at
@@ -353,7 +354,7 @@ export function clickedLines(editor: Editor, clicked: Clicked): Line[] {
   const lines: Array<Line | false> = [
     // The one Look Up card, under the words: the meaning and Wikipedia, kept with one press.
     { label: "Look up", hint: "Meaning and Wikipedia", data: "look-up", run: () => lookUpIn(editor, from, to, words) },
-    canSplit() && { label: `Search for “${cut(words, 24)}”`, data: "search", run: () => void window.dispatchEvent(new CustomEvent("haligtree:search", { detail: { words } })) },
+    canSplit() && { label: `Search for ${quoted(cut(words, 24), 80)}`, data: "search", run: () => void window.dispatchEvent(new CustomEvent("haligtree:search", { detail: { words } })) },
     {
       label: "Make a card from it", edits: true,
       hint: "A new line: these words, then ::",

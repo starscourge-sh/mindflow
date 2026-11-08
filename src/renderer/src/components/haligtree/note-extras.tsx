@@ -44,6 +44,7 @@ import { moment, when } from '@/lib/clock'
 import { DatePicker } from './date-picker'
 import { keyFor } from '@/lib/keys'
 import { Check, Link as Link2, ListTodo as ListChecks, Tag as Tags, Type, X } from '@/components/ui/icons'
+import { quoted } from '../../../../main/clip'
 
 // --- a note's first picture, small
 
@@ -275,7 +276,7 @@ export function TopicName({ id }: { id: string }): React.JSX.Element | null {
     if (!text || text === own) return
     await window.api.captures.save(id, { title: text })
     chime('noted')
-    toast(`Named “${text}”. The page's own title stays as its source`, () => void window.api.captures.save(id, { title: own }).then(() => chime('undo')))
+    toast(`Named ${quoted(text, 80)}. The page's own title stays as its source`, () => void window.api.captures.save(id, { title: own }).then(() => chime('undo')))
   }
   return (
     <button type="button" data-topic-name onClick={() => void name()} className="flex w-full items-start gap-2 px-2 py-1.5 text-left text-control text-foreground hover:bg-accent">
@@ -396,7 +397,7 @@ export function Aliases({ table, id }: { table: NoteTable; id: string }): React.
           <Tags className="size-4 shrink-0" />
           <span className="min-w-0 flex-1 truncate text-control text-foreground">{name}</span>
           <Tip label="Forget this name">
-            <button type="button" aria-label={`Forget the name ${name}`} onClick={() => set(list.filter((one) => one !== name), `No longer called “${name}”`, 'off')}
+            <button type="button" aria-label={`Forget the name ${name}`} onClick={() => set(list.filter((one) => one !== name), `No longer called ${quoted(name, 80)}`, 'off')}
               className="rounded p-0.5 text-muted-foreground opacity-0 transition-opacity group-hover/alias:opacity-100 focus-visible:opacity-100 hover:text-foreground">
               <X className="size-3.5" />
             </button>
@@ -415,8 +416,8 @@ export function Aliases({ table, id }: { table: NoteTable; id: string }): React.
             if (event.key !== 'Enter') return
             const name = event.currentTarget.value.trim()
             if (!name) return
-            if (list.some((one) => one.toLowerCase() === name.toLowerCase())) return refuse(`Already called “${name}”`)
-            set([...list, name], `Also called “${name}”: search finds it by that now`, 'alias')
+            if (list.some((one) => one.toLowerCase() === name.toLowerCase())) return refuse(`Already called ${quoted(name, 80)}`)
+            set([...list, name], `Also called ${quoted(name, 80)}: search finds it by that now`, 'alias')
           }}
           className={cn('min-w-0 flex-1 bg-transparent text-control text-ellipsis text-foreground outline-none placeholder:text-foreground/70', !list.length && GHOST)}
         />

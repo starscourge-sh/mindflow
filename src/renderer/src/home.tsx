@@ -149,6 +149,7 @@ import { WrapOffer, WrapSheet, monthToWrap, openWrap } from '@/components/haligt
 import { caretInLink } from './extensions/link-tidy'
 import { APP_NAME } from '../../main/name'
 import { countUse, takeWay, via, type Via } from '@/lib/usage'
+import { quoted } from '../../main/clip'
 
 // A nonce makes asking again a fresh visit: the recap reopens each time.
 type View = Step
@@ -314,11 +315,11 @@ const STARTER_LISTS: [string, string][] = [
 async function startList(icon: string, name: string): Promise<string> {
   // Started already: that one is opened, never a second of the same name.
   const had = (await groups.list('nugget')).find((one) => !one.parent && one.name.trim().toLowerCase() === name.toLowerCase())
-  if (had) return (toast(`“${name}” is already a list in Gems`), had.id)
+  if (had) return (toast(`${quoted(name, 80)} is already a list in Gems`), had.id)
   const made = await groups.make('nugget', name)
   await groups.set(made, { icon })
   chime('settled')
-  toast(`“${name}” is a list in Gems now`, () => void groups.remove(made))
+  toast(`${quoted(name, 80)} is a list in Gems now`, () => void groups.remove(made))
   return made
 }
 
@@ -575,7 +576,7 @@ export function Home(): React.JSX.Element {
     chime(sound)
     tabChosen.current = true
     setSplit(next)
-    if (next.panes.length < was.panes.length) toast(`Moved “${short(shownName(paneName(tabStep(moving)).title))}”, and its split closed`, () => setSplit(was))
+    if (next.panes.length < was.panes.length) toast(`Moved ${quoted(short(shownName(paneName(tabStep(moving)).title)), 80)}, and its split closed`, () => setSplit(was))
     toFront(next.front)
   }
   /** Carried to a gap between panes (split-drop.tsx): a new pane there. */
@@ -644,7 +645,7 @@ export function Home(): React.JSX.Element {
     if (next.panes.length < now.panes.length) {
       paper('fold')
       lastFocus.current.delete(key)
-      toast(`Closed “${short(shownName(paneName(tabStep(gone)).title))}”, and its split`, () => setSplit(now))
+      toast(`Closed ${quoted(short(shownName(paneName(tabStep(gone)).title)), 80)}, and its split`, () => setSplit(now))
     }
     toFront(next.front)
   }
@@ -1976,7 +1977,7 @@ export function Home(): React.JSX.Element {
                 'separator',
                 !stays && { label: showWords(section, on).label, run: () => void showIt(section, !on) },
                 // The pages switched off from the sidebar, each named with what choosing it does: put it back there.
-                hidden.length > 0 && { label: 'Hidden pages', items: hidden.map((one) => ({ label: `Show “${one.label}” in the sidebar`, icon: <PlaceIcon place={one} />, run: () => void showIt(one, true) })) },
+                hidden.length > 0 && { label: 'Hidden pages', items: hidden.map((one) => ({ label: `Show ${quoted(one.label, 80)} in the sidebar`, icon: <PlaceIcon place={one} />, run: () => void showIt(one, true) })) },
                 // Once the menu has shut and handed the focus back, or the panel would take that as a click away.
                 { label: 'Customize the sidebar…', run: () => void setTimeout(() => setCustomizing(true), 120) }
               ]
@@ -2217,7 +2218,7 @@ export function Home(): React.JSX.Element {
                 <Unfold open={pinsOpen || narrow}><Branches current={(() => { const at = pins.findIndex((pin) => light === `pin:${pin.id}`); return at < 0 ? -1 : layouts.length + at })()} bare={narrow} className={`flex flex-col gap-px ${narrow ? '' : 'ml-5'}`}>{[
                   ...layouts.map((one) => (
                     <PinnedSplit key={one.id} narrow={narrow} names={one.views.map(paneName)} onOpen={(index) => openLayout(one.views, one.sizes, index)}
-                      onUnpin={() => dropLayout(one.id, `Unpinned the split, ${one.views.map((view) => `“${short(shownName(paneName(view).title))}”`).join(' and ')}`)} />
+                      onUnpin={() => dropLayout(one.id, `Unpinned the split, ${one.views.map((view) => `${quoted(short(shownName(paneName(view).title)), 80)}`).join(' and ')}`)} />
                   )),
                   // Pins drag into your own order too; carried off the sidebar, one still opens to the side.
                   <SortableList key="pins" items={pins} keyOf={(pin) => `${pin.type}:${pin.id}`} onMove={narrow ? undefined : dropOrder('pinOrder', pinsUsual.map((pin) => `${pin.type}:${pin.id}`), (id) => pinsUsual.find((pin) => `${pin.type}:${pin.id}` === id)?.title || 'Untitled')}>{(items) => items.map((pin) => {

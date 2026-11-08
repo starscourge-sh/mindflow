@@ -18,6 +18,7 @@ import { YEAR, daysBetween, daysLeft, farOff, journey, leftSaid, percent, wayThr
 import { SandboxStamp } from '@/components/haligtree/sandbox'
 import { SANDBOX } from '@/lib/sandbox'
 import { Frost } from './frost'
+import { quoted } from '../../../../main/clip'
 
 const DRAG = { WebkitAppRegion: 'drag' } as CSSProperties
 const STILL = { WebkitAppRegion: 'no-drag' } as CSSProperties
@@ -391,7 +392,7 @@ export function GoalsSticky(): React.JSX.Element {
                 return (
                   // Named on its own lane, never by colour alone (two goals may share one):
                   // resting on it says it in full below, a click opens it.
-                  <button key={goal.id} type="button" data-goals-lane={goal.id} data-color={goal.goalColor ?? ''} title={`Open “${goal.title}”`}
+                  <button key={goal.id} type="button" data-goals-lane={goal.id} data-color={goal.goalColor ?? ''} title={`Open ${quoted(goal.title, 80)}`}
                     onPointerEnter={() => setFocus(goal.id)} onPointerLeave={() => setFocus((was) => (was === goal.id ? null : was))} onFocus={() => setFocus(goal.id)} onBlur={() => setFocus(null)}
                     onClick={() => (chime('open'), window.api.openInHome('goal', goal.id))}
                     className="-mx-1 block rounded-md px-1 pt-0.5 text-left transition-[opacity,background-color] duration-200 hover:bg-foreground/[0.04]" style={{ opacity: dim(goal) }}>

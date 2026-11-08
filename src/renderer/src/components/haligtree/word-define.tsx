@@ -308,7 +308,7 @@ export function DefineGhost({ definition, onKeep, onHide, onFix, picked = false,
           className={`min-w-0 cursor-pointer text-left text-body leading-snug text-pretty transition-colors duration-200 ${kept ? 'text-foreground' : 'text-foreground/65 hover:text-foreground/85'}`}>
           {found.definition}
         </button>
-        {found.example && <p className="text-control leading-snug text-muted-foreground italic">“{found.example}”</p>}
+        {found.example && <p className="text-control leading-snug text-muted-foreground italic">{quoted(found.example, 80)}</p>}
         {found.also && <p className="text-control leading-snug text-muted-foreground"><span className="font-medium">Also:</span> {found.also}</p>}
         {/* The word's Wikipedia line: its room (two lines) kept from the meaning's first frame, the line fading into it
             when Wikipedia answers, so the box grew once. With no article the room stays until the meaning goes. */}
@@ -340,3 +340,5 @@ export function DefineGhost({ definition, onKeep, onHide, onFix, picked = false,
     </div></>
   )
 }
+
+import { quoted } from '../../../../main/clip'

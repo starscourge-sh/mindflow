@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Tip, ask, refuse, toast, whyFailed } from './ui'
 import { APP_NAME } from '../../../../main/name'
+import { quoted } from '../../../../main/clip'
 
 type Asked = { mode: 'switch' | 'copy' | 'import'; refs?: BookRef[]; what?: 'vault' | 'files' }
 
@@ -182,9 +183,9 @@ export function BookAsker(): React.JSX.Element | null {
     close()
     if (asked.mode === 'switch' || !name) return void askNewBook()
     const id = await window.api.haligtree<string>('books:create', name).catch(() => null)
-    if (!id) return refuse(`Could not make “${name}”`, 'error')
+    if (!id) return refuse(`Could not make ${quoted(name, 80)}`, 'error')
     // Made, but what was to go into it did not: said, never dropped.
-    await pick(id).catch((cause: unknown) => refuse(`Made “${name}”, but ${asked.mode === 'import' ? 'the import' : 'the copy'} did not work: ${whyFailed(cause)}`, 'error'))
+    await pick(id).catch((cause: unknown) => refuse(`Made ${quoted(name, 80)}, but ${asked.mode === 'import' ? 'the import' : 'the copy'} did not work: ${whyFailed(cause)}`, 'error'))
   }
   const listed = now.books.filter((one) => asked.mode !== 'copy' || !one.current)
   return (
@@ -217,7 +218,7 @@ export function BookAsker(): React.JSX.Element | null {
             {!SANDBOX && (
               <CommandItem value={`new book ${typed}`} forceMount onSelect={() => void fresh()}>
                 <Plus className="text-muted-foreground" />
-                <span className="min-w-0 flex-1 truncate">{typed.trim() && asked.mode !== 'switch' ? `Into a new book: “${typed.trim()}”` : 'New book…'}</span>
+                <span className="min-w-0 flex-1 truncate">{typed.trim() && asked.mode !== 'switch' ? `Into a new book: ${quoted(typed.trim(), 80)}` : 'New book…'}</span>
               </CommandItem>
             )}
           </CommandList>

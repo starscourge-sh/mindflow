@@ -30,6 +30,7 @@ import { START_MIN, fillOf } from '../../../../main/practice-rules'
 import { wornStyle, type Style } from '@/lib/theme'
 import { APP_NAME } from '../../../../main/name'
 import { howLong } from '../../../../main/dates'
+import { quoted } from '../../../../main/clip'
 
 /** Where a set of rounds stands, work or a break; 'work' for anything that is not one. */
 const roundsPhase = (rounds: string | null | undefined): string => {
@@ -1096,7 +1097,7 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
           </button></Tip>
         )}
         {over && onBreak && lastKept && (
-          <Tip label={`Start “${lastKept.goal}” again${lastKept.plannedMs ? `, ${lengthSaid(lastKept.plannedMs)}` : ''}`}><button type="button" data-again onClick={again} className={PRIMARY}>
+          <Tip label={`Start ${quoted(lastKept.goal, 80)} again${lastKept.plannedMs ? `, ${lengthSaid(lastKept.plannedMs)}` : ''}`}><button type="button" data-again onClick={again} className={PRIMARY}>
             Go again
           </button></Tip>
         )}
@@ -1132,7 +1133,7 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
           </button></Tip>}
         {/* On a break: straight back to the session it came from, whenever you are ready. */}
         {!over && focus.kind === 'break' && lastKept && (
-          <Tip label={`Back to “${lastKept.goal}”${lastKept.plannedMs ? `, ${lengthSaid(lastKept.plannedMs)}` : ''}`}><button type="button" data-back-to-work onClick={again} className={PRIMARY}>
+          <Tip label={`Back to ${quoted(lastKept.goal, 80)}${lastKept.plannedMs ? `, ${lengthSaid(lastKept.plannedMs)}` : ''}`}><button type="button" data-back-to-work onClick={again} className={PRIMARY}>
             Back to work
           </button></Tip>
         )}
@@ -1402,7 +1403,7 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
             {!open && count === null && (over && held ? (
               <Tip label="Start the next round"><button type="button" data-rounds-on-chip onClick={roundOn} className={CHIP_PRIMARY}>Go again</button></Tip>
             ) : over && focus.kind === 'break' && lastKept ? (
-              <Tip label={`Start “${lastKept.goal}” again`}><button type="button" data-again-chip onClick={again} className={CHIP_PRIMARY}>Go again</button></Tip>
+              <Tip label={`Start ${quoted(lastKept.goal, 80)} again`}><button type="button" data-again-chip onClick={again} className={CHIP_PRIMARY}>Go again</button></Tip>
             ) : (last || over) && focus.plannedMs !== null ? (
               <Tip label="Ten more minutes  ⌃⌥⌘="><button type="button" data-more-chip onClick={extend} className={CHIP}>+10 min</button></Tip>
             ) : null)}
@@ -1635,7 +1636,7 @@ function GoAgain({ before, primary = false }: { before?: () => Promise<void>; pr
     return haligtree.againSession()
   }).then((started) => (started ? (chime('anew'), window.api.showFocus(true)) : (morphNext = false, chime('nope'))))
   return (
-    <Tip label={`Start “${last.goal}” again${last.plannedMs ? `, ${lengthSaid(last.plannedMs)}` : ''}`}><button type="button" data-again onClick={go} className={primary ? PRIMARY : `${WORD_BUTTON} text-foreground`}>
+    <Tip label={`Start ${quoted(last.goal, 80)} again${last.plannedMs ? `, ${lengthSaid(last.plannedMs)}` : ''}`}><button type="button" data-again onClick={go} className={primary ? PRIMARY : `${WORD_BUTTON} text-foreground`}>
       Go again
     </button></Tip>
   )

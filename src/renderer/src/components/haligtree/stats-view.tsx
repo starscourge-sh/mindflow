@@ -24,6 +24,7 @@ import { ReadsIn } from '@/lib/reads-in'
 import { useStepped } from '@/lib/nav'
 import { UsageSections } from './usage-stats'
 import { dayjs, monthName, num, plural } from '../../../../main/dates'
+import { quoted } from '../../../../main/clip'
 
 const readWords = (): Promise<{ daysWritten: number }> => window.api.haligtree('words:stats') as Promise<{ daysWritten: number }>
 /** Writing days (a day you wrote words on) before Stats has a week to tell: a week of them, not in a row. */
@@ -220,7 +221,7 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
             {stats.leeches.length ? (
               <>
                 {' '}<N>{plural(stats.leeches.length, 'card has', 'cards have')}</N> been forgotten four times or more, worth rewriting:{' '}
-                {stats.leeches.slice(0, 5).map((title, index) => <span key={title}>{index ? ', ' : ''}“{title}”</span>)}{stats.leeches.length > 5 ? ` and ${num(stats.leeches.length - 5)} more, under “Struggling” in Review` : ''}.
+                {stats.leeches.slice(0, 5).map((title, index) => <span key={title}>{index ? ', ' : ''}{quoted(title, 80)}</span>)}{stats.leeches.length > 5 ? ` and ${num(stats.leeches.length - 5)} more, under “Struggling” in Review` : ''}.
               </>
             ) : ''}
           </p>

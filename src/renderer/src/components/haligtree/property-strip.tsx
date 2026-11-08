@@ -20,6 +20,7 @@ import { hoverNote } from './note-preview'
 import { FLOAT } from '@/lib/float'
 import { useSuperTags } from './note-extras'
 import { tagTint } from './tag-icon'
+import { quoted } from '../../../../main/clip'
 
 type Value = string | number | boolean
 const SHUT = 'propertiesShut'
@@ -262,7 +263,7 @@ export function PropertyStrip({ table, id, kind, fields, text, created, updated,
                     </PopoverTrigger>
                     <PopoverContent align="start" className="w-72 p-3" onOpenAutoFocus={(event) => prop.type === 'date' && event.preventDefault()}>
                       <PropEditor prop={prop} tags={tags} onSave={(value) => void save(prop.key, value, prop.label).then(() => setOpen(null))}
-                        onRename={(to) => void notes.renameField(table, id, prop.key, to).then(() => (chime('retag'), setOpen(null), toast(`Renamed to “${to}”`, () => void notes.renameField(table, id, to, prop.key).then(() => chime('undo')))))}
+                        onRename={(to) => void notes.renameField(table, id, prop.key, to).then(() => (chime('retag'), setOpen(null), toast(`Renamed to ${quoted(to, 80)}`, () => void notes.renameField(table, id, to, prop.key).then(() => chime('undo')))))}
                         onType={(type) => setType(prop, type)}
                         onSuper={(tag) => void addToTag(tag, prop).then(() => setOpen(null))} />
                     </PopoverContent>
@@ -377,7 +378,7 @@ async function addToTag(tag: string, prop: Prop): Promise<void> {
     .filter((field, at, list) => list.findIndex((one) => one.key === field.key) === at)
   await notes.setTagFields(tag, fields)
   chime('promote')
-  toast(`Every note tagged #${tag} now has “${prop.label}”`, () => void notes.setTagFields(tag, was ?? []).then(() => chime('undo')))
+  toast(`Every note tagged #${tag} now has ${quoted(prop.label, 80)}`, () => void notes.setTagFields(tag, was ?? []).then(() => chime('undo')))
 }
 
 /**

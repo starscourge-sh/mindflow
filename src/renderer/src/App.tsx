@@ -784,7 +784,7 @@ export default function App(): React.JSX.Element {
   const signedBy = plan?.signature ? plan.tokens.find((one) => one.kind === 'signature')?.text : undefined
   const readWho = !!signedBy && !!attribution && attribution === plan?.signature?.who && attribution === autoWho.current
   const readWhere = !!signedBy && !!medium && medium === plan?.signature?.where && medium === autoWhere.current
-  const readTip = signedBy ? `Read from “${clip(signedBy.trim(), 48)}” in your words. Write “- who, where” after a quote, or “Tom said” before it, to fill these.` : ''
+  const readTip = signedBy ? `Read from ${quoted(clip(signedBy.trim(), 48), 80)} in your words. Write “- who, where” after a quote, or “Tom said” before it, to fill these.` : ''
   // A quote's "- Name" fills Who said it, unless you wrote one there; kept
   // as plain text, the name it filled goes again.
   useEffect(() => {
@@ -1644,7 +1644,7 @@ export default function App(): React.JSX.Element {
         void (task ? haligtree.startSession(task.id, undefined, timer.ms) : haligtree.startTimer(timer.goal, timer.ms)).then((id) => {
           window.api.showFocus(true)
           // Undone, the words come back into the box as they were typed.
-          toast(task ? `Session on “${taskName(task.title).text}”: ${lengthSaid(timer.ms)}` : `Timer set: ${lengthSaid(timer.ms)}${timer.goal === 'Timer' ? '' : ` for ${timer.goal}`}`, () => {
+          toast(task ? `Session on ${quoted(taskName(task.title).text, 80)}: ${lengthSaid(timer.ms)}` : `Timer set: ${lengthSaid(timer.ms)}${timer.goal === 'Timer' ? '' : ` for ${timer.goal}`}`, () => {
             void haligtree.cancelSession(id)
             bringBack(sent)
           })

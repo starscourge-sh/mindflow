@@ -1,5 +1,6 @@
 import { clock } from '@/lib/clock'
 import { taskName } from '@/lib/tasks'
+import { quoted } from '../../../main/clip'
 
 /**
  * What the Mac's sleep did to what was running, as Settings (“When the Mac
@@ -9,7 +10,7 @@ import { taskName } from '@/lib/tasks'
  */
 export const sleptSaid = (away: { endedAt: string; sleptAt?: string; choice?: 'abandon' | 'finish'; timer: boolean; kind: string | null; goal?: string }): [string, string] => {
   const at = clock(away.sleptAt ?? away.endedAt)
-  const name = away.goal ? `“${taskName(away.goal).text}”` : 'The session'
+  const name = away.goal ? `${quoted(taskName(away.goal).text, 80)}` : 'The session'
   if (away.kind === 'break') return [`Your break ended at ${at}`, 'when the Mac slept']
   if (away.timer) return [`Your timer stopped at ${at}`, 'when the Mac slept']
   if (away.choice === 'abandon') return [`${name} stopped at ${at}, not counted`, 'when the Mac slept']

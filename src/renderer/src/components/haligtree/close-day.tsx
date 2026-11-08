@@ -19,6 +19,7 @@ import { DayLog } from './day-log'
 import { dayjs, dayKey, num, startOfDay, plural } from '../../../../main/dates'
 import { TomorrowLines, TomorrowWhy, dayAfter, nightOf, readNight, takeBack, useNight } from './tomorrow-lines'
 import { APP_NAME } from '../../../../main/name'
+import { quoted } from '../../../../main/clip'
 
 /**
  * Closing the day, an evening pass in five short parts: what got done; each
@@ -361,7 +362,7 @@ function Pass({ onClose }: { onClose: () => void }): React.JSX.Element {
             <div className="min-w-0">
             <h3 className={heading}>One line for today's page</h3>
             {lineKept ? (
-              <p className="mt-1.5 text-body text-foreground">“{line.trim()}” <span className="text-muted-foreground">is on today's page.</span></p>
+              <p className="mt-1.5 text-body text-foreground">{quoted(line.trim(), 80)} <span className="text-muted-foreground">is on today's page.</span></p>
             ) : (
               <form className="mt-1.5 flex items-center gap-2 py-1" onSubmit={(event) => (event.preventDefault(), void keepLine())}>
                 <input value={line} onChange={(event) => setLine(event.target.value)} placeholder="What today was, in a line" aria-label="One line for today's page"

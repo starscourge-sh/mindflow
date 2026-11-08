@@ -938,7 +938,7 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
                     <ListRow key={card.id} card={card} actions={actions} lead={<Orbit className="mt-0.5 size-4 shrink-0 text-muted-foreground" />}>
                       <span className="private-text line-clamp-2 hyphens-auto [overflow-wrap:break-word] text-foreground">{nameOf(card)}</span>
                       {/* Never the question again: a first clue that only repeats its words is left out. */}
-                      {!(card.clue && flat(card.title) && flat(card.clue).startsWith(flat(card.title))) && <span className="line-clamp-1 text-xs text-muted-foreground">{card.clue ? `“${card.clue.replace(/\s+/g, ' ')}”` : 'No clues yet'}</span>}
+                      {!(card.clue && flat(card.title) && flat(card.clue).startsWith(flat(card.title))) && <span className="line-clamp-1 text-xs text-muted-foreground">{card.clue ? `${quoted(card.clue.replace(/\s+/g, ' '), 80)}` : 'No clues yet'}</span>}
                     </ListRow>
                   ))}
                 </List>

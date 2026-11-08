@@ -45,8 +45,8 @@ export const unquoted = (text: string): string => text.trim().replace(/^["“”
  * Words in curly quotes, cut to `n` characters: a quote's own marks are taken
  * off first, so a note that starts with “ never reads ““like this”.
  */
-export function quoted(text: string, n = 60, by: (text: string, n: number) => string = clip): string {
-  return `“${by(unquoted(text), n)}”`
+export function quoted(text: string | null | undefined, n = 60, by: (text: string, n: number) => string = clip): string {
+  return `“${by(unquoted(text ?? ''), n)}”`
 }
 
 /**

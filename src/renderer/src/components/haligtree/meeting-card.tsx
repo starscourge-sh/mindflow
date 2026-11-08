@@ -11,6 +11,7 @@ import { Orb } from './orb'
 import { Switch } from '@/components/ui/switch'
 import { clock } from './sound-player'
 import type { Line, Live, SoundApp } from '../../../../main/meeting'
+import { quoted } from '../../../../main/clip'
 
 /** Room round the card for its shadow: the window is this much bigger on every side (index.ts, MEETING_ROOM). */
 const ROOM = 16
@@ -229,7 +230,7 @@ function Before({ live, onChoose }: { live: Live; onChoose: () => void }): React
     </>)
   if (live.state === 'failed' || live.state === 'too-old' || live.state === 'saved')
     return body(live.state === 'saved' ? 'Recording kept' : live.stopped ? 'The recording stopped' : 'Nothing was recorded', <p>{live.message}</p>, live.state === 'saved' ? undefined : close)
-  return body(live.event?.title ? `Record “${live.event.title}”` : 'Record a call or lecture', <>
+  return body(live.event?.title ? `Record ${quoted(live.event.title, 80)}` : 'Record a call or lecture', <>
     <p><b className="font-semibold text-foreground">{live.from.mic ? 'Your microphone and the sound from ' : 'The sound from '}{live.from.bundle ? live.from.name || 'one app' : 'this Mac'}</b>{live.from.bundle ? '' : ' (the call, in its app or the browser)'}, kept in your book. Nothing leaves this Mac.</p>
     <div className="space-y-1 [-webkit-app-region:no-drag]">
       <div className="flex h-7 items-center justify-between gap-3">

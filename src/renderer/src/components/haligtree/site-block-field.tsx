@@ -9,6 +9,7 @@ import { ALWAYS_BLOCKED, COLLECTIONS, SUGGESTED, collectionOf, hostOf, sitesIn, 
 import { Tip, toast, untoast } from './ui'
 import { RowMenu, copy, type RowItem } from './row-menu'
 import { num } from '../../../../main/dates'
+import { quoted } from '../../../../main/clip'
 
 /**
  * The websites a focus session blocks, as chips in one field: each site with
@@ -105,7 +106,7 @@ export function SiteBlockField({ settings, compact = false }: { settings: Settin
     void save(next)
     setPicked([])
     if (opened && gone.includes(opened)) setOpened(null)
-    const nameOf = (entry: string): string => `“${collectionOf(entry) ? COLLECTIONS[collectionOf(entry)!].name : entry}”`
+    const nameOf = (entry: string): string => `${quoted(collectionOf(entry) ? COLLECTIONS[collectionOf(entry)!].name : entry, 80)}`
     toast(gone.length === 1 ? `${nameOf(gone[0])} is no longer blocked` : `${num(gone.length)} are no longer blocked`, () => {
       taken.current = taken.current.filter((one) => one !== before)
       void save(before)
@@ -122,8 +123,8 @@ export function SiteBlockField({ settings, compact = false }: { settings: Settin
   const menuFor = (entry: string): RowItem[] => {
     const name = collectionOf(entry)
     return name
-      ? [{ label: opened === entry ? 'Hide its sites' : 'Show its sites', run: () => setOpened(opened === entry ? null : entry) }, 'separator', stopLine(entry, `Stop blocking “${COLLECTIONS[name].name}”`)]
-      : [{ label: 'Copy site', run: () => copy(entry, `Copied “${entry}”`) }, 'separator', stopLine(entry, `Stop blocking “${entry}”`)]
+      ? [{ label: opened === entry ? 'Hide its sites' : 'Show its sites', run: () => setOpened(opened === entry ? null : entry) }, 'separator', stopLine(entry, `Stop blocking ${quoted(COLLECTIONS[name].name, 80)}`)]
+      : [{ label: 'Copy site', run: () => copy(entry, `Copied ${quoted(entry, 80)}`) }, 'separator', stopLine(entry, `Stop blocking ${quoted(entry, 80)}`)]
   }
   // Right-click on one of several picked: the line takes them all off.
   const stopLine = (entry: string, one: string): RowItem =>
@@ -243,7 +244,7 @@ export function SiteBlockField({ settings, compact = false }: { settings: Settin
                     <span className="min-w-0 truncate">{entry}</span>
                   </>
                 )}
-                <Tip label={`Stop blocking “${name ? COLLECTIONS[name].name : entry}”`}>
+                <Tip label={`Stop blocking ${quoted(name ? COLLECTIONS[name].name : entry, 80)}`}>
                   <button type="button" data-site-remove onClick={() => remove(entry)} className="grid size-6 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
                     <X className="size-3.5" />
                   </button>
@@ -302,7 +303,7 @@ export function SiteBlockField({ settings, compact = false }: { settings: Settin
               className="overflow-hidden"
             >
               <div className={`rounded-lg border bg-popover p-1 ${compact ? 'mx-1.5 mb-1.5' : 'mt-1'}`}>
-              {!host && typed && <p data-site-why className="px-2 py-1.5 text-control font-medium text-foreground">“{typed}” is not a website. Try one like youtube.com.</p>}
+              {!host && typed && <p data-site-why className="px-2 py-1.5 text-control font-medium text-foreground">{quoted(typed, 80)} is not a website. Try one like youtube.com.</p>}
               {offers.map((offer, index) => (
                 <button key={offer.id} type="button" role="option" aria-selected={index === lit && (!!typed || steered)} data-site-offer={offer.entry}
                   onMouseDown={(event) => event.preventDefault()}
@@ -334,7 +335,7 @@ export function SiteBlockField({ settings, compact = false }: { settings: Settin
                 {COLLECTIONS[opening].sites.map((site) => {
                   const out = list.includes(`-${site}`)
                   return (
-                    <Tip key={site} label={out ? `Block “${site}” again` : `Let “${site}” through`}>
+                    <Tip key={site} label={out ? `Block ${quoted(site, 80)} again` : `Let ${quoted(site, 80)} through`}>
                       {/* Let through: dimmed, and the word says so; never struck out, which reads as “off”. */}
                       <button type="button" data-site-member={site} data-allowed={out || undefined} aria-pressed={!out} onClick={() => flip(site)}
                         className="flex h-8 w-full min-w-0 items-center gap-2 rounded-md px-1.5 text-left text-control text-foreground transition-colors hover:bg-accent">

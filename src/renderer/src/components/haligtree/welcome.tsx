@@ -1713,8 +1713,8 @@ function NameChapter({ play, report, onNext, save }: { play: boolean; report: (n
           {/* Its room kept whichever line shows, so the page never moves as a name is drawn or taken back. */}
           <p data-name-keeps className="flex h-9 items-center text-[0.9375rem] leading-snug text-(--mf-wl-body)">
             {preview !== null && mine.trim()
-              ? <button type="button" data-name-own onClick={back} className={`${QUIET_BUTTON} -ml-3 max-w-full`}><Undo2 className="size-4 shrink-0" strokeWidth={1.8} /><span className="truncate">Back to “{mine.trim()}”</span><Kbd className="h-6 min-w-6 shrink-0">⌘Z</Kbd></button>
-              : value.trim() ? <span>Press <Kbd className="mx-0.5 h-6 min-w-6 align-[-0.2em]"><CornerDownLeft className="size-3" strokeWidth={2.4} /></Kbd> to go on.</span> : <span>Left empty, it is called “{drawn}”.</span>}
+              ? <button type="button" data-name-own onClick={back} className={`${QUIET_BUTTON} -ml-3 max-w-full`}><Undo2 className="size-4 shrink-0" strokeWidth={1.8} /><span className="truncate">Back to {quoted(mine.trim(), 80)}</span><Kbd className="h-6 min-w-6 shrink-0">⌘Z</Kbd></button>
+              : value.trim() ? <span>Press <Kbd className="mx-0.5 h-6 min-w-6 align-[-0.2em]"><CornerDownLeft className="size-3" strokeWidth={2.4} /></Kbd> to go on.</span> : <span>Left empty, it is called {quoted(drawn, 80)}.</span>}
           </p>
         </motion.div>
         {/* The book stands up into its pose once it can be seen, not while the page is still coming in. */}
@@ -2197,7 +2197,7 @@ function Start({ state, onState, name, kept, mine, skipped, importing, still, on
         {!state?.boxTaken && <p data-start-kept className={`${BODY} max-w-[30ch]`}>{kept ? <>{keptSaid(kept, mine)} <InlineKeys keys={keyFor('⌘.') || '⌘.'} /> adds the next, from any app.</> : <>Press <InlineKeys keys={keyFor('⌘.') || '⌘.'} /> from any app to save your first note.</>}</p>}
         {picking && <div data-start-key-picker className={`${BODY} max-w-[48ch]`}><KeyPicker taken={!!state?.boxTaken} onState={onState} /></div>}
         {setup.made?.goalId && setup.made.goalTitle && setup.made.goalBy && goalOpen && (
-          <p data-start-goal className={`${WHERE_SAID} max-w-[48ch]`}><span className="font-medium text-foreground">“{setup.made.goalTitle}”</span> is on your Goals page, {dayjs(setup.made.goalBy).diff(dayjs().startOf('day'), 'day')} days to go.</p>
+          <p data-start-goal className={`${WHERE_SAID} max-w-[48ch]`}><span className="font-medium text-foreground">{quoted(setup.made.goalTitle, 80)}</span> is on your Goals page, {dayjs(setup.made.goalBy).diff(dayjs().startOf('day'), 'day')} days to go.</p>
         )}
         <p data-start-where className={WHERE_SAID}>{WHERE_TRUE}</p>
         {skipped && <p role="status" className={`${QUIET} max-w-[48ch]`}>The welcome waits in the {APP_NAME} menu and ⌘K.</p>}

@@ -9,6 +9,7 @@ import { PRIORITY_NAMES, bucketOf, monthKey, readTask, readySaid } from '../../.
 import { ago, dated, dayjs, dayKey, daysSince, num, startOfDay, whenInLine, plural } from '../../../main/dates'
 import { tasksSaid, type ListTask } from '../../../main/day-lines'
 import { openSort } from './sort-out'
+import { quoted } from '../../../main/clip'
 
 /**
  * Everything that becomes a task: words typed, a capture, several captures,
@@ -160,7 +161,7 @@ export async function makeTasks(notes: TaskNote[]): Promise<number> {
   // A page of mixed lines is not made one task: it is left, and the notice offers to sort it.
   const mixed: { id: string; text: string }[] = []
   const made = (await Promise.all(todo.map(async (note, at) => {
-    const work = (): Promise<Made | null | 'not-open' | { mixed: string }> => (note.capture ? haligtree.toTask(note.id) : haligtree.study(note.id, `Study “${unquoted(note.title)}”`, { from: 7, to: 7 + unquoted(note.title).length }))
+    const work = (): Promise<Made | null | 'not-open' | { mixed: string }> => (note.capture ? haligtree.toTask(note.id) : haligtree.study(note.id, `Study ${quoted(unquoted(note.title), 80)}`, { from: 7, to: 7 + unquoted(note.title).length }))
     const got = note.capture && at < 6 ? await flying(note.id, 'task', work) : await work()
     if (got && got !== 'not-open' && 'mixed' in got) return void mixed.push({ id: note.id, text: got.mixed })
     return got && got !== 'not-open' ? { made: got, note: note.id } : null

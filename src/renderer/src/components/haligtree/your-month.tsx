@@ -10,6 +10,7 @@ import { Arc, DotMatrix } from './mono-card'
 import { GroupCover } from './group-cover'
 import { groupTint } from './card-shelves'
 import { dayjs, num, plural } from '../../../../main/dates'
+import { quoted } from '../../../../main/clip'
 
 const EASE = [0.16, 1, 0.3, 1] as const
 
@@ -63,7 +64,7 @@ export function YourMonth({ onClose }: { onClose: () => void }): React.JSX.Eleme
     ...(study.longest ? [{ id: 'longest', picture: big(study.longest.days, study.longest.days === 1 ? 'day away' : 'days away'), line: `You still knew “${study.longest.title.length > 80 ? `${study.longest.title.slice(0, 80).replace(/\s+\S*$/, '')}…` : study.longest.title}” after ${plural(study.longest.days, 'day', 'days')}.` }] : []),
     ...(data.mostReviewed ? [{ id: 'idea', picture: <div className="max-w-xl font-serif text-[clamp(2rem,6vw,3.5rem)] leading-tight text-foreground text-balance">{data.mostReviewed.title}</div>, line: `The idea that came back most, ${plural(data.mostReviewed.n, 'time', 'times')}.` }] : []),
     ...(data.sources[0] ? [{ id: 'source', picture: <div className="max-w-xl font-serif text-[clamp(2rem,6vw,3.5rem)] leading-tight text-foreground text-balance">{data.sources[0].name}</div>, line: `The source you quoted most, ${plural(data.sources[0].n, 'time', 'times')}.` }] : []),
-    ...(study.line ? [{ id: 'line', picture: <blockquote className="max-w-xl font-serif text-[clamp(1.6rem,4.5vw,2.6rem)] leading-snug text-foreground italic text-balance">“{study.line}”</blockquote>, line: `In your own words, in ${name}.` }] : []),
+    ...(study.line ? [{ id: 'line', picture: <blockquote className="max-w-xl font-serif text-[clamp(1.6rem,4.5vw,2.6rem)] leading-snug text-foreground italic text-balance">{quoted(study.line, 80)}</blockquote>, line: `In your own words, in ${name}.` }] : []),
     { id: 'end', picture: <div className="font-serif text-[clamp(2.5rem,8vw,4.5rem)] leading-tight font-semibold text-foreground">That was {name}.</div>, line: 'Keep it, share it, or simply carry on.' }
   ]
   const last = cards.length - 1

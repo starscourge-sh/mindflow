@@ -932,7 +932,7 @@ export function ReviewView({ compact = false, tag, actions, lead, onLeave }: { c
             {verdict && (
               // Why, under everything, so its length moves nothing above it.
               <p data-meaning={verdict.verdict} className="-mt-2 text-body text-foreground">
-                You said “{cutWords(said, 48)}”, the card says “{cutWords(answerWords, 48)}”.{verdict.missing ? ` ${verdict.missing.replace(/\.?$/, '.')}` : ''} The grade is yours.
+                You said {quoted(cutWords(said, 48), 80)}, the card says {quoted(cutWords(answerWords, 48), 80)}.{verdict.missing ? ` ${verdict.missing.replace(/\.?$/, '.')}` : ''} The grade is yours.
                 <span className="mt-0.5 block text-xs text-muted-foreground">Checked by meaning with Apple Intelligence, on this Mac. What you wrote is kept as a thought on the card when you grade it.</span>
               </p>
             )}
@@ -990,7 +990,7 @@ export function ReviewView({ compact = false, tag, actions, lead, onLeave }: { c
             </Button>
             {last && (
               <Button variant="ghost" size="sm" data-undo-grade onClick={undoLast} className="text-muted-foreground">
-                {last.grade ? `Undo “${gradeName(last.grade)}”` : 'Undo “Not today”'}
+                {last.grade ? `Undo ${quoted(gradeName(last.grade), 80)}` : 'Undo “Not today”'}
               </Button>
             )}
           </div>
@@ -1194,7 +1194,7 @@ function Finished({ count, total, later = 0, compact, onPick, onLearn, ids = [] 
               : <><strong className="font-semibold text-foreground">No card is due yet.</strong> Each one comes back as you start to forget it, so there is nothing to do here until then.</>}
           </p>
           {/* Two honest numbers from the sitting: the card that held longest, and the time a card took. */}
-          {(done || today > 0) && sitting?.kept && <p data-still-knew className="text-body text-foreground">You still knew <strong className="font-semibold">“{sitting.kept.prompt}”</strong> after {num(sitting.kept.days)} days.</p>}
+          {(done || today > 0) && sitting?.kept && <p data-still-knew className="text-body text-foreground">You still knew <strong className="font-semibold">{quoted(sitting.kept.prompt, 80)}</strong> after {num(sitting.kept.days)} days.</p>}
           {(done || today > 0) && !!sitting?.seconds && <p data-seconds-each className="text-control text-foreground tabular-nums">About {num(sitting.seconds)} {sitting.seconds === 1 ? 'second' : 'seconds'} a card today.</p>}
           {milestone ? <p data-milestone className="text-body font-semibold text-foreground">{milestone}</p>
             : null}
@@ -1268,13 +1268,13 @@ function Origin({ id, quote, attribution, where, year, said }: { id: string; quo
   const from = lineage?.from[0]?.title
   const source = fresh(from) && plain(from) !== plain(attribution ?? '') ? from : null
   if (!who && !source) return null
-  const whence = source && `from ${/^["“‘'«]/.test(source) ? source : `“${source}”`}`
+  const whence = source && `from ${/^["“‘'«]/.test(source) ? source : `${quoted(source, 80)}`}`
   // A quote is signed: the name in a pen's hand, then where it came from.
   if (quote && who) return <p className="-mt-2 flex min-w-0 items-baseline text-xs text-muted-foreground"><Signed who={who} where={where} year={year} className="private-text" />{whence && <span className="truncate">, {whence}</span>}</p>
   return (
     <p className="-mt-2 flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
       {who && <Avatar name={who} size={14} />}
-      <span className="min-w-0">{who && `Said by ${who}`}{who && source && ', '}{source && <>from <span {...(lineage?.from[0] ? hoverNote(lineage.from[0].type, lineage.from[0].id) : {})}>{/^["“‘'«]/.test(source) ? source : `“${source}”`}</span></>}</span>
+      <span className="min-w-0">{who && `Said by ${who}`}{who && source && ', '}{source && <>from <span {...(lineage?.from[0] ? hoverNote(lineage.from[0].type, lineage.from[0].id) : {})}>{/^["“‘'«]/.test(source) ? source : `${quoted(source, 80)}`}</span></>}</span>
     </p>
   )
 }

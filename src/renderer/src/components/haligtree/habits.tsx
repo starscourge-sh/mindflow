@@ -7,6 +7,7 @@ import { chime } from '@/lib/sound'
 import { dayjs, num, plural } from '../../../../main/dates'
 import { Kbd, Tip, toast } from './ui'
 import { N, Section } from './stats-view'
+import { quoted } from '../../../../main/clip'
 
 const call = <T,>(channel: string, ...args: unknown[]): Promise<T> => window.api.haligtree(channel, ...args) as Promise<T>
 
@@ -27,7 +28,7 @@ const dropHabit = async (name: string): Promise<void> => {
   const was = (await haligtree.settings()).habits ?? []
   await setHabits(was.filter((one) => one !== name))
   chime('off')
-  toast(`“${name}” is off this season's list; its days stay in Stats`, () => void setHabits(was))
+  toast(`${quoted(name, 80)} is off this season's list; its days stay in Stats`, () => void setHabits(was))
 }
 
 /** A field that adds a habit on ↵, the way a tag is added. */
@@ -52,7 +53,7 @@ export function HabitList(): React.JSX.Element {
       {habits.map((one) => (
         <span key={one} className="flex h-7 items-center gap-1 rounded-full bg-accent py-0.5 pr-1 pl-2.5 text-control text-foreground">
           {one}
-          <button type="button" aria-label={`Take “${one}” off this season`} onClick={() => void dropHabit(one)}
+          <button type="button" aria-label={`Take ${quoted(one, 80)} off this season`} onClick={() => void dropHabit(one)}
             className="mf-hit relative flex size-5 items-center justify-center rounded-full text-muted-foreground hover:bg-background hover:text-foreground">
             <X className="size-3" />
           </button>
@@ -169,7 +170,7 @@ function HabitDay({ day, done, future }: { day: string; done: boolean; future: b
   return (
     <Tip label={future ? '' : label}>
       <div data-habit-day={day} data-done={done || undefined}
-        onPointerEnter={() => !done && why === null && void call<{ well: string; learned: string; line: string } | null>('habits:why', day).then((said) => setWhy(said?.line || said?.well || said?.learned ? `“${said.line || said.well || said.learned}”` : 'Nothing written that day'))}
+        onPointerEnter={() => !done && why === null && void call<{ well: string; learned: string; line: string } | null>('habits:why', day).then((said) => setWhy(said?.line || said?.well || said?.learned ? `${quoted(said.line || said.well || said.learned, 80)}` : 'Nothing written that day'))}
         className={`size-2 rounded-full ${future ? 'opacity-0' : done ? 'bg-[var(--tt-color-text-green)]' : 'bg-border/70'}`} />
     </Tip>
   )

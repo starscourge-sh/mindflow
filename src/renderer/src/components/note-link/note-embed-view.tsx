@@ -12,6 +12,7 @@ import { noteNamed } from "@/extensions/note-link"
 import { ArrowUpRight, Link } from "@/components/ui/icons"
 import { blockIn } from "../../../../main/blocks"
 import { notePowers } from "@/components/haligtree/note-powers"
+import { quoted } from '../../../../main/clip'
 
 /**
  * The notes already open around this one, outermost first: a note shown in
@@ -245,11 +246,11 @@ export function NoteEmbedView({ node, updateAttributes, editor, getPos }: NodeVi
         : id ? <EmbeddedNote link={id} label={label} onUnembed={editor.isEditable ? unembed : undefined} />
         : missing ? (
           <div contentEditable={false} className="my-1 flex items-center gap-2 rounded-lg px-3 py-2 text-control ring-1 ring-border">
-            <span className="min-w-0 flex-1 text-foreground">“{label}” is not a page yet.</span>
+            <span className="min-w-0 flex-1 text-foreground">{quoted(label, 80)} is not a page yet.</span>
             {editor.isEditable && <button type="button" data-make-page className="shrink-0 rounded-md px-2 py-0.5 font-medium hover:bg-accent" onClick={make}>Make it</button>}
           </div>
         ) : (
-        <div className="my-1 rounded-lg px-3 py-2 text-control ring-1 ring-border">Finding “{label}”…</div>
+        <div className="my-1 rounded-lg px-3 py-2 text-control ring-1 ring-border">Finding {quoted(label, 80)}…</div>
       )}
     </NodeViewWrapper>
   )

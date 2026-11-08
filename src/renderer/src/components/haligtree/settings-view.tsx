@@ -85,6 +85,7 @@ import { BarWordsSample, BlurSample, DatesSample, OffersSample, CentredSample, D
 import { BookOpen as BookHeart, Brain, HardDrive, CircleHelp as LifeBuoy, ListTodo as ListChecks, Camera as Mountain, Brush as Palette, Pencil as PenLine, Search as SearchIcon, Sparkles, Volume2, X } from '@/components/ui/icons'
 import { APP_NAME } from '../../../../main/name'
 import { forgives } from '@/lib/slash-rank'
+import { quoted } from '../../../../main/clip'
 
 /**
  * What the search at the top asks for, and whether the island a row sits in
@@ -165,7 +166,7 @@ export function Setting({ title, aka, children, note, more, below, beside, keywo
           <div className="text-body font-medium text-foreground">{naming ?? <Marked text={title} query={shown} />}{aka && <span className="ml-1.5 font-normal text-muted-foreground">(<Term>{aka}</Term>)</span>}
             {more && (
               <Tip label={more}>
-                <button type="button" data-setting-more aria-label={`More about “${title}”`} className="relative after:absolute after:-inset-1 after:rounded-full ml-1.5 inline-grid size-4 translate-y-[-1px] place-items-center rounded-full border border-border align-middle text-[0.625rem] leading-none font-semibold text-muted-foreground transition-colors hover:border-foreground/40 hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring">?</button>
+                <button type="button" data-setting-more aria-label={`More about ${quoted(title, 80)}`} className="relative after:absolute after:-inset-1 after:rounded-full ml-1.5 inline-grid size-4 translate-y-[-1px] place-items-center rounded-full border border-border align-middle text-[0.625rem] leading-none font-semibold text-muted-foreground transition-colors hover:border-foreground/40 hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring">?</button>
               </Tip>
             )}
           </div>
@@ -622,7 +623,7 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
       <Shown.Provider value={section}>
       <div ref={holdColumn} className="w-full max-w-2xl px-6 pt-4 pb-16 [&:has([data-setting])>[data-none]]:hidden">
         {!searching && <h2 className="px-1 text-lg font-semibold text-foreground"><Term>{section}</Term></h2>}
-        <p data-none className="px-1 text-body text-muted-foreground">Nothing here matches “{query}”. Try fewer letters, or what it changes.</p>
+        <p data-none className="px-1 text-body text-muted-foreground">Nothing here matches {quoted(query, 80)}. Try fewer letters, or what it changes.</p>
         <Group section="Appearance" title="Colours">
           <Setting title="Theme" note={settings.themePreview ? 'Point at one to try it on, click to keep it.' : 'Click one to wear it.'} below={<ThemeTiles preview={settings.themePreview === true} />} keywords={`${allThemes().map(themeName).join(' ')} preview hover try`}>
             <span className="text-muted-foreground">Preview on hover</span>
@@ -1829,7 +1830,7 @@ function CelebrationPicks({ settings, on, set }: { settings: Settings; on: boole
                 : source === 'file'
                   ? media.length ? `${media.length === 1 ? media[0].name : `${num(media.length)} files, one at random`}${missing ? `, ${missing} not found` : ''}`
                     : folder.length ? 'Any from your Celebrations folder' : paths.length ? `Not found, so ${APP_NAME}’s drawing` : `No file yet, so ${APP_NAME}’s drawing`
-                  : pin ? `“${pin.title || 'A GIF'}”, pinned from Giphy` : `A random GIF for “${words}”`
+                  : pin ? `${quoted(pin.title || 'A GIF', 80)}, pinned from Giphy` : `A random GIF for ${quoted(words, 80)}`
             return (
               <div key={kind} data-moment={kind} data-source={source} className="rounded-md border text-control">
                 <div className="flex items-center gap-3 py-2 pr-2 pl-2">
@@ -1869,7 +1870,7 @@ function CelebrationPicks({ settings, on, set }: { settings: Settings; on: boole
                           return choose('file', 'your file')
                         }
                         setSearching((now) => (now === kind && source === 'giphy' ? null : kind))
-                        choose('giphy', pin ? `“${pin.title || 'the pinned GIF'}”` : 'a random GIF from Giphy')
+                        choose('giphy', pin ? `${quoted(pin.title || 'the pinned GIF', 80)}` : 'a random GIF from Giphy')
                       }} />
                     </div>
                   </div>
@@ -1915,7 +1916,7 @@ function CelebrationPicks({ settings, on, set }: { settings: Settings; on: boole
                     onPin={(next, title) => {
                       set({ giphyPins: { ...pins, [kind]: next }, celebrationSources: { ...sources, [kind]: 'giphy' } })
                       chime('settled')
-                      toast(`${label}: plays “${title}”`, () => set(was))
+                      toast(`${label}: plays ${quoted(title, 80)}`, () => set(was))
                     }} />
                 )}
               </div>
@@ -1974,7 +1975,7 @@ function GiphySearch({ label, kind, pin, words: random, onPin, onRandom, onClose
   useEffect(() => () => clearTimeout(typed.current), [])
   const why = list?.why === 'key' ? 'Giphy needs a key: add yours under “Giphy key” below.'
     : list?.why === 'offline' ? 'Giphy could not be reached. Try again when you are online.'
-      : list?.why === 'none' ? `Nothing found for “${words.trim()}”. Try other words.` : ''
+      : list?.why === 'none' ? `Nothing found for ${quoted(words.trim(), 80)}. Try other words.` : ''
   const get = (id: string): Promise<{ pin: GiphyPin; media: GiphyMedia } | null> => {
     setPicking(id)
     return haligtree.giphyPick(id).finally(() => setPicking(null))
@@ -1983,9 +1984,9 @@ function GiphySearch({ label, kind, pin, words: random, onPin, onRandom, onClose
     <div data-giphy-search className="border-t px-2.5 pt-2 pb-2.5">
       {/* What plays now, plainly, and the way back to a random one. */}
       <p className="mb-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-control text-muted-foreground">
-        {pin ? <><span><strong className="font-medium text-foreground">Pinned:</strong> “{pin.title || 'a GIF'}”, every time.</span>
+        {pin ? <><span><strong className="font-medium text-foreground">Pinned:</strong> {quoted(pin.title || 'a GIF', 80)}, every time.</span>
           <Button variant="outline" size="sm" className="h-6 px-2" onClick={onRandom}>Use a random one</Button></>
-          : <span><strong className="font-medium text-foreground">A random GIF for “{random}”</strong> each time. Pin one below to keep it.</span>}
+          : <span><strong className="font-medium text-foreground">A random GIF for {quoted(random, 80)}</strong> each time. Pin one below to keep it.</span>}
       </p>
       <div className="flex items-center gap-2">
         <Input autoFocus value={words} spellCheck={false} autoComplete="off" aria-label={`Search Giphy for ${label}`} placeholder="Search Giphy" className="h-7 min-w-0 flex-1"
@@ -2336,7 +2337,7 @@ function PutAwayBefore(): React.JSX.Element {
     void call<{ at: string; moved: number; folder: string }>('putaway:before', day).then(({ at, moved, folder }) => {
       if (!moved) return void (chime('nope'), toast(`Nothing open from before ${dayjs(day).format('D MMMM YYYY')}`))
       chime('away')
-      toast(`${moved === 1 ? '1 capture' : `${num(moved)} captures`} put away in “${folder}”, in Archived`, () => void call('putaway:undo', at).then(() => chime('unshelve')))
+      toast(`${moved === 1 ? '1 capture' : `${num(moved)} captures`} put away in ${quoted(folder, 80)}, in Archived`, () => void call('putaway:undo', at).then(() => chime('unshelve')))
     })
   return (
     <Setting title="Put away everything before" note="Every open capture from before this day goes into one dated folder in Archived, unsorted." more="Pinned ones and ones with a reminder stay. Search still finds them, nothing is deleted, and Undo brings them all back." keywords="archive old captures backlog bankruptcy folder dated put away before inbox">

@@ -278,7 +278,7 @@ export function QuestionAsker(): React.JSX.Element | null {
             {typed.trim() && (
               <CommandItem value={`new ${typed}`} forceMount onSelect={() => done({ title: typed.trim() })}>
                 <Plus className="text-muted-foreground" />
-                <span className="min-w-0 flex-1 truncate">Hold as a new question: “{typed.trim()}”</span>
+                <span className="min-w-0 flex-1 truncate">Hold as a new question: {quoted(typed.trim(), 80)}</span>
               </CommandItem>
             )}
           </CommandList>

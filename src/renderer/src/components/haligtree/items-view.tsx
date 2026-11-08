@@ -1066,11 +1066,11 @@ function NuggetDetail({ item, onOpen, top, back, board: place }: { item: ItemFul
     const list = listItemCount(body, words)
     // One line per blank, naming it, so a second blank's note never hides the first's.
     const said = [
-      made.unit ? `the number is blanked and “${made.unit}” stays showing as the cue` : '',
-      made.article ? `“${made.article}” went inside the blank, as it would give the answer away` : '',
+      made.unit ? `the number is blanked and ${quoted(made.unit, 80)} stays showing as the cue` : '',
+      made.article ? `${quoted(made.article, 80)} went inside the blank, as it would give the answer away` : '',
       list ? `it is one item of a list of ${list}: blanked one at a time, items teach their place in the list, not the idea, so ask for the whole list, or why each belongs` : ''
     ].filter(Boolean)
-    const note = said.length ? `“${made.blanked}”: ${said.join('; ')}.` : ''
+    const note = said.length ? `${quoted(made.blanked, 80)}: ${said.join('; ')}.` : ''
     const notesBefore = blankNotes
     setBlankNotes((was) => [...(had ? was : []), ...(note ? [note] : [])])
     setPrompt(made.prompt)

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { chapterRange, chapterText, cardsFrom, type MadeCard } from "@/lib/study-ai"
 import type { OutlineRow } from "./pdf-rail"
 import { num, plural } from "../../../../main/dates"
+import { quoted } from '../../../../main/clip'
 
 type Card = MadeCard & { state: "open" | "kept" | "dropped" }
 
@@ -29,7 +30,7 @@ export function ChapterCards({ doc, title, outline, page, marks, onKeep, onGo, o
 }): React.JSX.Element {
   const pages = doc.numPages
   const [range] = useState(() => chapterRange(outline, page, pages, [page, Math.min(pages, page + 1)]))
-  const named = range.title ? `“${range.title}”` : range.from === range.to ? `page ${range.from}` : `pages ${range.from} and ${range.to}`
+  const named = range.title ? `${quoted(range.title, 80)}` : range.from === range.to ? `page ${range.from}` : `pages ${range.from} and ${range.to}`
   const [cards, setCards] = useState<Card[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [tries, setTries] = useState(0)

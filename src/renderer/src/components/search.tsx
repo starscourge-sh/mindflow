@@ -50,6 +50,7 @@ import { APP_NAME } from '../../../main/name'
 import { hoverNote } from './haligtree/note-preview'
 import { forgives, rank } from '@/lib/slash-rank'
 import { ICE, KIND_ICON, type GoalKind } from '@/lib/goal-kind'
+import { quoted } from '../../../main/clip'
 
 type Capture = Awaited<ReturnType<typeof window.api.captures.find>>[number]
 
@@ -142,7 +143,7 @@ export function Search({ onOpen: told, onAside: toldAside, onTab: toldTab, onClo
   const said = clip(typed, 40)
   const keeping = !!onKeep && !scoped && !!typed && !typed.startsWith('kind:') && searched === query && !slow && !results.length
     ? (typed.endsWith('?') ? [...keeps.filter((one) => one === 'question'), ...keeps.filter((one) => one !== 'question')] : keeps)
-      .map((as): Action => ({ label: `Keep “${said}” ${KEPT_AS[as]}`, keep: as, cue: null, run: () => onKeep?.(as, typed) }))
+      .map((as): Action => ({ label: `Keep ${quoted(said, 80)} ${KEPT_AS[as]}`, keep: as, cue: null, run: () => onKeep?.(as, typed) }))
     : []
   const heard = typed ? actions.flatMap((one) => one.heard?.(typed) ?? []) : []
   // The actions answer the same words as the results under them, so the two change together, in one

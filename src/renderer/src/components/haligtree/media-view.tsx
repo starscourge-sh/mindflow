@@ -33,6 +33,7 @@ import { SoundPlayer, soundTitle } from './sound-player'
 import { RowMenu, type RowItem } from './row-menu'
 import { dayName, num } from '../../../../main/dates'
 import type { Media, MediaKind, MediaUse } from '../../../../main/media'
+import { quoted } from '../../../../main/clip'
 
 /** The tabs over the page: every kind at once, then each shelf (a GIF sits with the pictures). */
 const ICONS: Record<Shelf, React.ComponentType<{ className?: string }>> = { pdf: FileText, picture: ImageIcon, audio: AudioLines }
@@ -263,7 +264,7 @@ export function MediaView({ onOpen }: { onOpen: (type: string, id: string) => vo
   // What is true when nothing shows: said for the kind that is open.
   const shelf = SHELVES.find((one) => one.id === kind)
   const inKind = all.filter((one) => !!one.deck === decks && (kind === 'all' || shelfOf(one) === kind))
-  const nothing = query.trim() ? <>Nothing here has “{query.trim()}” in its note, its name or the words around it.</>
+  const nothing = query.trim() ? <>Nothing here has {quoted(query.trim(), 80)} in its note, its name or the words around it.</>
     : looseOnly ? <>{inKind.length === 1 ? `The one ${shelf?.one ?? 'file'} here is in a note.` : `All ${num(inKind.length)} ${shelf?.many ?? 'files'} are in a note.`}</>
     : <>No {shelf?.many ?? 'files'} here yet.</>
   return (
@@ -325,7 +326,7 @@ export function MediaView({ onOpen }: { onOpen: (type: string, id: string) => vo
       )}
     </Page>
     {putting && createPortal(
-      <Search menus={false} placeholder={putting.length === 1 ? `Put “${bare(putting[0].name || putting[0].title)}” in which note?` : `Put ${num(putting.length)} files in which note?`}
+      <Search menus={false} placeholder={putting.length === 1 ? `Put ${quoted(bare(putting[0].name || putting[0].title), 80)} in which note?` : `Put ${num(putting.length)} files in which note?`}
         onClose={() => setPutting(null)}
         onOpen={(type, id) => {
           const files = putting

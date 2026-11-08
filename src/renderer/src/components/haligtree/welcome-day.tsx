@@ -11,6 +11,7 @@ import { Tape } from './tape'
 import { CARD, PAPER } from './sticky-note'
 import { flowTask, flowWords, HUE } from './welcome-flow'
 import { LAND, PostcardResult, quoteNow, shortOf } from './welcome-reel'
+import { quoted } from '../../../../main/clip'
 
 /**
  * The welcome's Remember chapter: the three things kept so far (the task and
@@ -89,7 +90,7 @@ function EveningReview({ over }: { over: boolean }): React.JSX.Element {
       <div className="relative">
         <Flip over={over} onTurn={() => undefined}
           front={<div className={face}><p className="text-xs text-muted-foreground">Review · 3 due</p><h2 className="mt-1.5 font-heading text-[1.1875rem] leading-snug font-semibold text-foreground">{flowWords().question}</h2></div>}
-          back={<div className={face}><p className="text-xs text-muted-foreground">{flowWords().question}</p><p className="mt-1.5 font-heading text-[1.125rem] leading-snug text-foreground">{flowWords().gem}</p><p className="mt-2 text-xs text-muted-foreground">From “{flowWords().note}”</p></div>} />
+          back={<div className={face}><p className="text-xs text-muted-foreground">{flowWords().question}</p><p className="mt-1.5 font-heading text-[1.125rem] leading-snug text-foreground">{flowWords().gem}</p><p className="mt-2 text-xs text-muted-foreground">From {quoted(flowWords().note, 80)}</p></div>} />
       </div>
     </div>
   )

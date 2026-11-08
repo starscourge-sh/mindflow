@@ -10,6 +10,7 @@ import { taskName } from '@/lib/tasks'
 import { busyMinutes, lengthSaid, loadOf, loadSaid, onDay, planMoves, taskDay, unsizedSaid, type DayLoad, type Move } from '../../../../main/day-load'
 import { dated, dayjs, dayKey, num, plural } from '../../../../main/dates'
 import { APP_NAME } from '../../../../main/name'
+import { quoted } from '../../../../main/clip'
 
 /**
  * Whether a day fits: its meetings (your Mac's calendar) and its tasks'
@@ -101,7 +102,7 @@ const tasksByDay = (tasks: Task[]): Map<string, Task[]> => {
 }
 
 /** "“Read chapter 4” (1h) to Wednesday": one move, said. */
-const moveSaid = (move: Move, task: Task | undefined): string => `“${taskName(task?.title ?? '').text}” (${lengthSaid(move.minutes)}) to ${dayjs(move.to).format('dddd')}`
+const moveSaid = (move: Move, task: Task | undefined): string => `${quoted(taskName(task?.title ?? '').text, 80)} (${lengthSaid(move.minutes)}) to ${dayjs(move.to).format('dddd')}`
 const list = (parts: string[]): string => (parts.length < 2 ? parts.join('') : `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`)
 
 /**

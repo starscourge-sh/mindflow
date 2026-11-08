@@ -14,6 +14,7 @@ import { LEARN_TAG } from '../../../../main/name'
 import isoWeek from 'dayjs/plugin/isoWeek.js'
 import { TAG } from '../../../../main/tag-words'
 import { APP_NAME } from '../../../../main/name'
+import { quoted } from '../../../../main/clip'
 
 dayjs.extend(isoWeek)
 
@@ -1645,7 +1646,7 @@ const MacCalendarDemo: Demo = ({ live }) => {
       <AnimatePresence mode="popLayout" initial={false}>
         {at === 0 ? (
           <motion.div key="ask" {...rise} className="rounded-xl border bg-popover px-3 py-2.5 text-meta shadow-[0_6px_16px_-6px_color-mix(in_oklab,var(--mf-shadow-ink)_25%,transparent)]">
-            <div className="font-semibold text-foreground">“{APP_NAME}” would like to access your calendars.</div>
+            <div className="font-semibold text-foreground">{quoted(APP_NAME, 80)} would like to access your calendars.</div>
             <div className="mt-2 flex justify-end gap-1.5"><span className="rounded-md border px-2 py-0.5 text-muted-foreground">Don’t Allow</span><span className="rounded-md bg-primary px-2 py-0.5 text-primary-foreground">Allow</span></div>
           </motion.div>
         ) : (
@@ -2109,7 +2110,7 @@ const MeaningDemo: Demo = ({ live }) => {
         <div className="mt-1 flex items-center border-b border-foreground/15 pb-0.5 font-heading text-control text-foreground">{at === 0 ? typed : MEANT}{at === 0 && live && <Caret />}<Kbd className="ml-auto">⌘↵</Kbd></div>
       </div>
       <div className={`px-1 text-meta text-foreground transition-opacity duration-300 ${at === 1 ? '' : 'opacity-0'}`}>
-        <b className="font-semibold" style={{ color: 'var(--tt-color-text-green)' }}>Close enough.</b> You said “{MEANT}”, the card says “disquiet”. The grade is yours.
+        <b className="font-semibold" style={{ color: 'var(--tt-color-text-green)' }}>Close enough.</b> You said {quoted(MEANT, 80)}, the card says “disquiet”. The grade is yours.
       </div>
       <div className="grid grid-cols-2 gap-1">
         {GRADES.map((grade) => <span key={grade} className={`rounded-md border py-0.5 text-center text-meta transition-colors duration-200 ${at === 1 && grade === 'Got it' ? 'border-primary text-foreground' : 'text-muted-foreground'}`}>{grade}</span>)}

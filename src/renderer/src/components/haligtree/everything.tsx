@@ -332,7 +332,7 @@ const many = (id: string): string => (id === 'task' ? 'tasks' : (CAPTURE_TYPES.f
 export function emptyFor(kinds: string[], state: TaskState, filtered: boolean, made = 0): { title: string; body: string } {
   const onlyTasks = kinds.length === 1 && kinds[0] === 'task'
   // All that is left are notes made into tasks, hidden for their tasks: say so, and how to see them.
-  if (made && !onlyTasks) return { title: 'Nothing else here', body: `${plural(made, 'capture you made into a task is', 'captures you made into tasks are')} hidden, since the task shows instead. Tick “${MADE_SAID}” above to see ${made === 1 ? 'it' : 'them'}.` }
+  if (made && !onlyTasks) return { title: 'Nothing else here', body: `${plural(made, 'capture you made into a task is', 'captures you made into tasks are')} hidden, since the task shows instead. Tick ${quoted(MADE_SAID, 80)} above to see ${made === 1 ? 'it' : 'them'}.` }
   if (onlyTasks && state === 'done') return { title: 'Nothing done yet', body: 'Tick a task off, here or on Today, and it shows here with the day you did it.' }
   if (onlyTasks && state === 'open') return { title: 'Nothing to do', body: 'Every task is done. Choose “Done” on the “Task” chip above to see them, or add one in Today or Upcoming.' }
   if (onlyTasks) return { title: 'No tasks yet', body: 'Add one in Today or Upcoming, or press ⌘. anywhere and write it with a day: “call the dentist Friday”.' }

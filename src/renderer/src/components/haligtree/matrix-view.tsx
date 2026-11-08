@@ -28,6 +28,7 @@ import { Overlay, SETTLE, underPointer } from './sortable'
 import { Button } from '@/components/ui/button'
 import { useHere } from '@/lib/split'
 import { PICKED_ROW, useTaskPick } from './task-pick'
+import { quoted } from '../../../../main/clip'
 
 /** The four boxes, in reading order: top row important, left column urgent. */
 export const QUADS: { id: Quadrant; title: string; said: string; tint: string }[] = [
@@ -314,7 +315,7 @@ export function MatrixView({ focus, onOpen, today }: { focus?: string; onOpen?: 
                 </header>
                 {pushing?.to === quad.id && (
                   <div className="flex shrink-0 flex-wrap items-center gap-1 rounded-md border border-dashed border-ring/60 px-2 py-1.5 text-xs text-muted-foreground">
-                    <span className="mr-auto min-w-0 truncate">{today ? <>To leave Today, push “{taskName(pushing.task.title).text}” out:</> : <>Not urgent, so push “{taskName(pushing.task.title).text}” out:</>}</span>
+                    <span className="mr-auto min-w-0 truncate">{today ? <>To leave Today, push {quoted(taskName(pushing.task.title).text, 80)} out:</> : <>Not urgent, so push {quoted(taskName(pushing.task.title).text, 80)} out:</>}</span>
                     <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={() => push(7)}>A week <Pressed keys="↵" /></Button>
                     <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={() => push(14)}>Two weeks</Button>
                     <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={() => push(null)}>Cancel <Pressed keys="Esc" /></Button>

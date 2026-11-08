@@ -28,6 +28,7 @@ import { motion } from 'motion/react'
 import { EASE, still } from '@/lib/motion'
 import { PileEdges } from './deck-pile'
 import { OnceHint } from './page-hint'
+import { quoted } from '../../../../main/clip'
 
 type Topic = { deck: string; label: string; cards: number; held: number }
 export type Shelf = { name: string; cover: string | null; sample: string; pictures: number; cards: number; fresh: number; due: number; held: number; shown: boolean; topics: Topic[] }
@@ -455,7 +456,7 @@ async function saveSet(tag: string): Promise<void> {
   if (!name?.trim()) return
   await call('sets:save', name, tag)
   chime('noted')
-  toast(`“${name.trim()}” is a study set: it drills every card in ${deckTitle(tag)}, due or not`, () => void call('sets:remove', name.trim()).then(() => chime('undo')))
+  toast(`${quoted(name.trim(), 80)} is a study set: it drills every card in ${deckTitle(tag)}, due or not`, () => void call('sets:remove', name.trim()).then(() => chime('undo')))
 }
 
 /** Save one deck as an Anki package where you pick. */
@@ -479,7 +480,7 @@ function StudySets({ sets, onStudy }: { sets: { name: string; tag: string }[]; o
     <div data-study-sets className="flex flex-wrap items-center gap-2 text-control">
       <span className="text-foreground/70">Study sets, every card in each, due or not</span>
       {sets.map((set) => (
-        <RowMenu key={set.name} items={[{ label: 'Study', run: () => (chime('riffle'), onStudy(set.tag)) }, 'separator', { label: 'Remove the set', hint: 'The deck and its cards stay', danger: true, run: () => void call('sets:remove', set.name).then(() => (chime('fold'), toast(`“${set.name}” is no longer a study set`, () => void call('sets:save', set.name, set.tag).then(() => chime('undo'))))) }]}>
+        <RowMenu key={set.name} items={[{ label: 'Study', run: () => (chime('riffle'), onStudy(set.tag)) }, 'separator', { label: 'Remove the set', hint: 'The deck and its cards stay', danger: true, run: () => void call('sets:remove', set.name).then(() => (chime('fold'), toast(`${quoted(set.name, 80)} is no longer a study set`, () => void call('sets:save', set.name, set.tag).then(() => chime('undo'))))) }]}>
           <button type="button" data-study-set={set.name} onClick={() => (chime('riffle'), onStudy(set.tag))}
             className="h-8 max-w-64 cursor-pointer truncate rounded-[6px] mf-metal mf-metal-hover px-3 text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring max-sm:h-9">{set.name}</button>
         </RowMenu>

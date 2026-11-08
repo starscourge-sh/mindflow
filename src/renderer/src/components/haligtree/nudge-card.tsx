@@ -20,6 +20,7 @@ import { sleptSaid } from '@/lib/slept'
 import { still } from '@/lib/motion'
 import { PracticeOfferCard } from './practice-pill'
 import { APP_NAME } from '../../../../main/name'
+import { quoted } from '../../../../main/clip'
 
 /** How long a card waits unanswered before it slides away (the task or review is still asked once more later). */
 const LINGER = 2 * 60_000
@@ -110,7 +111,7 @@ function Card({ nudge, onDone }: { nudge: Nudge; onDone: () => void }): React.JS
   )
   const lead = nudge.kind === 'sticky' ? 'Sticky hidden' : nudge.kind === 'task' ? (nudge.again ? 'Still due' : 'Due now') : nudge.kind === 'review' ? (nudge.again ? 'Still time to review' : 'Time to review') : nudge.timer ? (nudge.breakOf ? 'Your break ended' : 'Your timer ended') : 'Your session ended'
   const icon = nudge.kind === 'sticky' ? EyeOffIcon : nudge.kind === 'task' ? AlarmClockPlusIcon : nudge.kind === 'review' ? BrainCircuitIcon : ClockIcon
-  const words = nudge.kind === 'sticky' ? `“${taskName(nudge.title).text}” is hidden. ⌃⌥⌘N shows your stickies again, this one too` : nudge.kind === 'task' ? taskName(nudge.title).text : nudge.kind === 'review' ? nudge.text : nudge.sleptAt ? sleptSaid({ ...nudge, kind: nudge.breakOf ? 'break' : null }).join(', ') : `At ${clock(nudge.endedAt)}, while you were away${nudge.timer ? '' : `: “${taskName(nudge.goal).text}”`}`
+  const words = nudge.kind === 'sticky' ? `${quoted(taskName(nudge.title).text, 80)} is hidden. ⌃⌥⌘N shows your stickies again, this one too` : nudge.kind === 'task' ? taskName(nudge.title).text : nudge.kind === 'review' ? nudge.text : nudge.sleptAt ? sleptSaid({ ...nudge, kind: nudge.breakOf ? 'break' : null }).join(', ') : `At ${clock(nudge.endedAt)}, while you were away${nudge.timer ? '' : `: ${quoted(taskName(nudge.goal).text, 80)}`}`
   const seen = (): void => act(() => (nudge.kind === 'sticky' ? Promise.resolve() : nudge.kind === 'task' ? haligtree.alertSeen(nudge.id) : nudge.kind === 'review' ? haligtree.reviewSeen() : Promise.resolve()), 'fold')
   return (
     <div {...wait} className="relative overflow-hidden rounded-[18px] border bg-popover px-3.5 pt-3 pb-3 shadow-[0_1px_2px_color-mix(in_oklab,var(--mf-shadow-ink)_14%,transparent),0_6px_18px_-4px_color-mix(in_oklab,var(--mf-shadow-ink)_18%,transparent)]">
@@ -172,7 +173,7 @@ function Blocked({ nudge, wait, act }: { nudge: Extract<Nudge, { kind: 'blocked'
     setMissed(said.missed)
     setTimeout(() => act(() => Promise.resolve(), 'fold'), said.missed ? 6000 : 2400)
   })
-  const words = allowed ? `“${nudge.site}” is allowed until ${clock(allowed)}, then blocked again` : `“${nudge.site}” is blocked until ${nudge.until ? clock(nudge.until) : 'this session ends'}`
+  const words = allowed ? `${quoted(nudge.site, 80)} is allowed until ${clock(allowed)}, then blocked again` : `${quoted(nudge.site, 80)} is blocked until ${nudge.until ? clock(nudge.until) : 'this session ends'}`
   return (
     <div {...wait} className="relative overflow-hidden rounded-[18px] border bg-popover px-3.5 pt-3 pb-3 shadow-[0_1px_2px_color-mix(in_oklab,var(--mf-shadow-ink)_14%,transparent),0_6px_18px_-4px_color-mix(in_oklab,var(--mf-shadow-ink)_18%,transparent)]">
       <div className="flex items-start gap-2.5">

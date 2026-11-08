@@ -5,6 +5,7 @@ import { Island, toast } from './ui'
 import { openOnes } from './goals-view'
 import { isDaily, overCap } from '../../../../main/cadence'
 import { num } from '../../../../main/dates'
+import { quoted } from '../../../../main/clip'
 
 /**
  * Keep or drop: in the periodic review, each habit (a routine) and each goal
@@ -41,11 +42,11 @@ export function KeepOrDrop({ scale, period, page }: { scale: 'week' | 'month'; p
     if (row.type === 'routine') {
       await haligtree.saveTask(row.id, { status: 'dropped' })
       tear()
-      toast(`“${row.name}” is in the Bin`, () => void haligtree.saveTask(row.id, { status: 'open' }))
+      toast(`${quoted(row.name, 80)} is in the Bin`, () => void haligtree.saveTask(row.id, { status: 'open' }))
     } else {
       await haligtree.closeGoal(row.id, 'let go')
       chime('away')
-      toast(`“${row.name}” let go`, () => void haligtree.reopenGoal(row.id))
+      toast(`${quoted(row.name, 80)} let go`, () => void haligtree.reopenGoal(row.id))
     }
   }
   return (

@@ -9,6 +9,7 @@ import { cn } from "@/lib/cn"
 import { Orb } from "@/components/haligtree/orb"
 import { canSplit, openAside } from "@/lib/split"
 import type { Answer } from "../../../../main/define"
+import { quoted } from '../../../../main/clip'
 
 /** The word already in your library: its Lookup (since when), else a gem by that name. */
 type Known = { type: "capture" | "nugget"; id: string; title: string; since: string } | null
@@ -84,7 +85,7 @@ export function LookUpCard({ words, at, from, range, onClose }: { words: string;
     await window.api.captures.save(id, { body: { ...body, content: [...(body.content ?? []), ...place] } })
     setKept({ id, asking: true })
     chime("saved")
-    said(`This place added to “${known!.title}”`, true, { type: "capture", id, title: known!.title })
+    said(`This place added to ${quoted(known!.title, 80)}`, true, { type: "capture", id, title: known!.title })
   }
 
   /** Kept as one Lookup: the word, its meaning and Wikipedia's summary together, where it was looked up (and the sentence round it). */
@@ -116,7 +117,7 @@ export function LookUpCard({ words, at, from, range, onClose }: { words: string;
     if (found?.example) await notes.setField("captures", id, "example", found.example)
     setKept({ id, asking: true })
     chime("saved")
-    said(`Kept in Lookups: “${word}”`, true, { type: "capture", id, title: word })
+    said(`Kept in Lookups: ${quoted(word, 80)}`, true, { type: "capture", id, title: word })
   }
   const done = (): void => setKept((now) => now && { ...now, asking: false })
 
@@ -126,7 +127,7 @@ export function LookUpCard({ words, at, from, range, onClose }: { words: string;
       ref={card}
       className={cn("look-up", FLOAT)}
       role="dialog"
-      aria-label={`Look up “${words}”`}
+      aria-label={`Look up ${quoted(words, 80)}`}
       style={{ left, top: at.y + 8 }}
       onMouseDown={(event) => event.target instanceof HTMLInputElement || event.preventDefault()}
     >
@@ -156,7 +157,7 @@ export function LookUpCard({ words, at, from, range, onClose }: { words: string;
           </div>
         ) : (
           <p className="look-up-quiet" data-look="dictionary">
-            {meaning && "offline" in meaning ? "Offline: the dictionary can't be asked now." : meaning && "miss" in meaning && meaning.fix ? `Not in the dictionary. Did you mean “${meaning.fix}”?` : "Not in the dictionary."}
+            {meaning && "offline" in meaning ? "Offline: the dictionary can't be asked now." : meaning && "miss" in meaning && meaning.fix ? `Not in the dictionary. Did you mean ${quoted(meaning.fix, 80)}?` : "Not in the dictionary."}
           </p>
         ))}
       <hr className="look-up-rule" />

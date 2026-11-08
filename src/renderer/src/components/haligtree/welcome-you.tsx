@@ -16,6 +16,7 @@ import { Float } from './memory-postcard'
 import { sourceFrom } from './welcome-import'
 import { seeded, typingWaits } from '@/lib/typing'
 import { APP_NAME } from '../../../../main/name'
+import { quoted } from '../../../../main/clip'
 
 /**
  * The welcome's first questions, before anything is shown: what Haligtree is for
@@ -150,7 +151,7 @@ export function rowsOf(setup: Setup): Row[] {
   if (setup.goal?.trim()) {
     const by = made.goalBy ?? goalDay(setup)
     const days = dayjs(by).diff(dayjs().startOf('day'), 'day')
-    rows.push({ id: 'goal', lead: `“${setup.goal.trim()}” is on your Goals page.`, line: off.has('goal') ? 'Taken off again.' : `${days} days to go, until ${dated(by, 'D MMMM')}.`, piece: 'goal', undone: off.has('goal'), goal: setup.goal.trim() })
+    rows.push({ id: 'goal', lead: `${quoted(setup.goal.trim(), 80)} is on your Goals page.`, line: off.has('goal') ? 'Taken off again.' : `${days} days to go, until ${dated(by, 'D MMMM')}.`, piece: 'goal', undone: off.has('goal'), goal: setup.goal.trim() })
   }
   return rows
 }
@@ -172,7 +173,7 @@ export function Payoff({ setup, onChange, onBack, still }: { setup: Setup; onCha
   const now = madeGoal && !unloaded(goals) ? goals.find((one) => one.id === madeGoal) : undefined
   const fate = !madeGoal || unloaded(goals) || (setup.undone ?? []).includes('goal') ? null
     : !now ? 'It is in the Bin now.' : now.archivedAt ? 'It is archived now.' : now.closedAt ? 'It has ended: kept under “Ended” in Goals.' : null
-  const rows = rowsOf(setup).map((row) => (row.id === 'goal' && fate ? { ...row, lead: `“${row.goal}” was a goal.`, line: fate, goal: undefined, piece: undefined } : row))
+  const rows = rowsOf(setup).map((row) => (row.id === 'goal' && fate ? { ...row, lead: `${quoted(row.goal, 80)} was a goal.`, line: fate, goal: undefined, piece: undefined } : row))
   const tips = tipsOf(setup)
   const flip = async (piece: Piece, undo: boolean): Promise<void> => {
     setBusy(piece)

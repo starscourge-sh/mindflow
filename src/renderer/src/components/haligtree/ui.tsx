@@ -1999,7 +1999,7 @@ export function Remembered({ field, value, onChange, placeholder, className: giv
 export const askClearWho = (name: string, clear: () => Promise<unknown>, putBack: () => void): void => {
   putBack()
   chime('nope')
-  toast(`A quote keeps who said it. Clear “${name}” anyway?`, undefined, 'warning', {
+  toast(`A quote keeps who said it. Clear ${quoted(name, 80)} anyway?`, undefined, 'warning', {
     label: 'Clear it', key: 'C',
     run: () => void clear().then(() => (chime('off'), toast(`Cleared ${name}`, undefined, 'success')))
   })

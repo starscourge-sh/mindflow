@@ -47,6 +47,7 @@ import { ListSearch } from './note-list'
 import { tagFound } from '../../../../main/tag-words'
 import { Example } from './example'
 import { ArrowLeft, FileText, Gem, Inbox, ListTodo } from '@/components/ui/icons'
+import { quoted } from '../../../../main/clip'
 
 const ICON = { capture: Inbox, nugget: Gem, article: FileText, task: ListTodo }
 
@@ -235,7 +236,7 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
           </div>
           </Example>
         ) : unloaded(tags) ? null : query ? (
-          <p className="mx-5 my-4 text-control text-muted-foreground">No tag has “{query}” in it.</p>
+          <p className="mx-5 my-4 text-control text-muted-foreground">No tag has {quoted(query, 80)} in it.</p>
         ) : (
           <Empty title="No tags yet">
             Write a <span className="text-foreground">#word</span> anywhere in a capture, a gem or a task and it shows up here, counted. The ones that keep coming up are the ones worth a home of their own.

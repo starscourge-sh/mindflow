@@ -18,6 +18,7 @@ import { TAG_DOES } from '@/components/capture-kinds/kind-fields'
 import type { CaptureType } from '@/components/capture-kinds/capture-kind-picker'
 import { TAG, tagsIn } from '../../../main/tag-words'
 import { clip, cut } from '../../../main/clip'
+import { quoted } from '../../../main/clip'
 
 /**
  * The box reads plain words as commands: "5m tea" is a timer, "+name:" a clue,
@@ -151,7 +152,7 @@ export function keptMessage(tokens: Pick<BoxToken, 'kind' | 'text'>[]): string {
   const words = tokens.map((one) => one.text).join(' ')
   const shown = clip(words, 24)
   const lost = [...new Set(tokens.map((one) => DROPPED[one.kind]))].join(', ')
-  return `“${shown}” stays as words, ${lost}`
+  return `${quoted(shown, 80)} stays as words, ${lost}`
 }
 
 /** "!milestone Exam on 3 Dec", "!mark Launch next friday": the name and the day, or null. */
@@ -323,11 +324,11 @@ function planBox(doc: ProseMirrorNode, ctx: BoxContext, kept: Kept[] = [], now =
           ...EMPTY,
           kind: ctx.kind,
           clue: { ...plus, question: plus.question },
-          tokens: [token('clue', from, to, `${goal ? 'Log it to' : 'Add a clue to'} “${trimTitle(plus.question.title)}”`)]
+          tokens: [token('clue', from, to, `${goal ? 'Log it to' : 'Add a clue to'} ${quoted(trimTitle(plus.question.title), 80)}`)]
         }
       }
       miss = { name: plus.name }
-      tokens.push(token('clue-miss', from, to, ctx.held.length ? `No question or goal matches “${trimTitle(plus.name)}”` : 'No questions or goals yet'))
+      tokens.push(token('clue-miss', from, to, ctx.held.length ? `No question or goal matches ${quoted(trimTitle(plus.name), 80)}` : 'No questions or goals yet'))
     }
   }
 

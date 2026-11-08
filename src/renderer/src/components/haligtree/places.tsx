@@ -25,6 +25,7 @@ import { BarChart3, Brain, FileText, Gem, History, House, Inbox, Link as Links, 
 import { APP_NAME } from '../../../../main/name'
 import { SIDEBAR_SHAPE } from '../../../../main/sidebar-shape'
 import { num } from '../../../../main/dates'
+import { quoted } from '../../../../main/clip'
 
 /** A run of the sidebar's places with a gap before it and no heading: what you write and keep, then what you do. */
 /** The sidebar's runs: what you use every day, then Library (what you keep and come back to), then Look back (how
@@ -223,7 +224,7 @@ export async function reorder(setting: Ordered, usual: string[], change: (order:
 }
 /** A row dropped on another: before it going up, after it going down. `nameOf` names it in what is said. */
 export const dropOrder = (setting: Ordered, usual: string[], nameOf?: (id: string) => string | undefined) => (id: string, target: string, after: boolean): void =>
-  void reorder(setting, usual, (order) => moved(order, id, target, after), `Moved${nameOf?.(id) ? ` “${nameOf(id)}”` : ''}`)
+  void reorder(setting, usual, (order) => moved(order, id, target, after), `Moved${nameOf?.(id) ? ` ${quoted(nameOf(id), 80)}` : ''}`)
 
 /** The usual order back, said, with Undo. */
 async function backToUsual(setting: Ordered, what: string): Promise<void> {
@@ -248,8 +249,8 @@ export function orderItems({ setting, usual, id, among, what, name, sideways = f
   const at = among.indexOf(id)
   const [back, on] = sideways ? ['left', 'right'] : ['up', 'down']
   return [
-    at > 0 && { label: `Move ${back}`, run: () => void reorder(setting, usual, (order) => stepped(order, id, -1, among), `Moved “${name}” ${back}`) },
-    at >= 0 && at < among.length - 1 && { label: `Move ${on}`, run: () => void reorder(setting, usual, (order) => stepped(order, id, 1, among), `Moved “${name}” ${on}`) },
+    at > 0 && { label: `Move ${back}`, run: () => void reorder(setting, usual, (order) => stepped(order, id, -1, among), `Moved ${quoted(name, 80)} ${back}`) },
+    at >= 0 && at < among.length - 1 && { label: `Move ${on}`, run: () => void reorder(setting, usual, (order) => stepped(order, id, 1, among), `Moved ${quoted(name, 80)} ${on}`) },
     custom && { label: 'Back to usual order', run: () => void backToUsual(setting, what) }
   ]
 }
@@ -312,8 +313,8 @@ export function showWords(place: Place, on: boolean): { label: string; said: str
   // Pinned and Recent are no page to open: Customize is the way back.
   const back = isGroup(place.id) ? '“Customize sidebar…” shows it again' : `${place.key ? `G ${place.key.toUpperCase()} or ` : ''}⌘K still opens it`
   return on
-    ? { label: 'Hide from the sidebar', said: `“${place.label}” hidden. ${back}` }
-    : { label: 'Show in the sidebar', said: `“${place.label}” shows ${where} now` }
+    ? { label: 'Hide from the sidebar', said: `${quoted(place.label, 80)} hidden. ${back}` }
+    : { label: 'Show in the sidebar', said: `${quoted(place.label, 80)} shows ${where} now` }
 }
 
 /** A place's icon in its theme colour, softened unless `full`. */
@@ -401,7 +402,7 @@ export function ShowList({ places: every, setting, counts }: { places: Place[]; 
     const was = { [setting]: shownWas, ...(hiddenGroups.length ? { sidebarGroupsOff: now.sidebarGroupsOff ?? [] } : {}) }
     chime('on')
     await haligtree.setSettings({ [setting]: [...new Set([...shownWas, ...hiddenPages.map((place) => place.id)])], ...(hiddenGroups.length ? { sidebarGroupsOff: [] } : {}) })
-    toast(`${hidden.length === 1 ? `“${hidden[0].label}” shows` : `${num(hidden.length)} more show`} ${setting === 'sidebarShown' ? 'in the sidebar' : 'as tabs'} now`, () => void haligtree.setSettings(was))
+    toast(`${hidden.length === 1 ? `${quoted(hidden[0].label, 80)} shows` : `${num(hidden.length)} more show`} ${setting === 'sidebarShown' ? 'in the sidebar' : 'as tabs'} now`, () => void haligtree.setSettings(was))
   }
   // `fixed`: Pinned and Recent, where the sidebar draws them, with no grip and no moves.
   const row = (place: Place, among: string[], fixed = false): React.JSX.Element => {
