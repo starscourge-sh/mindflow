@@ -75,9 +75,9 @@ const DRAW_DAYS = 3
 
 /** Today: a ring drawn inside its own square, so no edge of the grid can clip it. */
 // Today in the theme's accent, so it never reads as the ink ring a pointed day wears.
-const TODAY_RING = '0 0 0 1px var(--background), 0 0 0 2.5px var(--primary)'
+const TODAY_RING = 'inset 0 0 0 1.5px var(--primary), inset 0 0 0 2.5px var(--background)'
 /** The square pointed at: one hairline of ink inside it. */
-const HOVER_RING = '0 0 0 1px var(--background), 0 0 0 2px color-mix(in oklab, var(--foreground) 85%, transparent)'
+const HOVER_RING = 'inset 0 0 0 1px color-mix(in oklab, var(--foreground) 85%, transparent)'
 const stepOf = (n: number, most: number): number => (n ? Math.min(4, 1 + Math.floor((n / Math.max(1, most)) * 3.999)) : 0)
 const shadeOf = inkShade
 

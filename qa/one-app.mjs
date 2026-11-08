@@ -191,6 +191,32 @@ try {
     check(`560 wide: ${name} stays inside the window`, over === '', over)
     if (shots) await h.screenshot({ path: join(shots, `narrow-${name}.png`) })
   }
+  // --- every axis label ends inside its chart: month names, mark names and page ends, at 1440 and 560, light and dark
+  const labelsIn = (card, labels) => h.evaluate(([card, labels]) => {
+    const box = document.querySelector(card)
+    if (!box) return 'no chart'
+    const edge = box.getBoundingClientRect()
+    const out = [...box.querySelectorAll(labels)].filter((el) => el.textContent.trim()).filter((el) => { const r = el.getBoundingClientRect(); return r.width && (r.right > edge.right - 1 + 0.5 || r.left < edge.left - 0.5) }).map((el) => `${el.textContent.trim()} ${Math.round(el.getBoundingClientRect().right)} > ${Math.round(edge.right)}`)
+    return out.join(' | ')
+  }, [card, labels])
+  const AXES = [
+    ['Journal year', async () => { await go('yearpage'); await waitFor(() => has('[data-year-marks] svg')) }, '[data-year-marks]', '[data-year-months] span, [data-year-names] span, [data-year-also] span'],
+    ['Review year', async () => { await go('review'); await waitFor(() => has('[data-review-tab="decks"]')); await h.evaluate(() => document.querySelector('[data-review-tab="decks"]').click()); await waitFor(() => has('[data-study-year-map]')) }, '[data-study-year-map]', '[data-year-months] span'],
+    ['Goals road', async () => { await send('goal', goalId); await wait(1300); await waitFor(() => has('[data-road-card]'), 5000) }, '[data-road-card]', '[data-road-band] span.absolute'],
+    ['Book pages', async () => { await go('media'); await wait(800); await h.locator('[data-media-kinds] button', { hasText: 'Books' }).first().click().catch(() => {}); await wait(1500) }, '[data-inspector] [data-page-bar]', '.book-bar-ends span, .book-bar-you']
+  ]
+  for (const [w, hh] of [[1440, 900], [560, 400]]) {
+    await c.size(w, hh); await wait(500)
+    for (const theme of ['paper', 'dark']) {
+      await c.theme(theme)
+      for (const [name, open, card, labels] of AXES) {
+        await open(); await wait(400)
+        const out = await labelsIn(card, labels)
+        check(`${w} ${theme}: ${name}'s labels end inside its chart`, out === '' || (out === 'no chart' && name === 'Book pages' && w === 560), out)
+      }
+    }
+  }
+  await c.theme('paper')
 } catch (error) {
   check('the run finished', false, String(error?.stack ?? error).split('\n').slice(0, 3).join(' '))
 } finally {

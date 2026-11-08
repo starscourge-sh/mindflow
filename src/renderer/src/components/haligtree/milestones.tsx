@@ -460,7 +460,7 @@ export function YearMarks({ year, onOpenDay }: { year: string; onOpenDay?: (day:
             })}
           </svg>
           <div aria-hidden data-year-months className="relative mt-1 h-3.5 text-[11px] leading-none text-muted-foreground" style={{ width }}>
-            {months.map((month) => <span key={month.name} className="absolute top-0 whitespace-nowrap" style={{ left: month.x }}>{month.name}</span>)}
+            {months.map((month) => <span key={month.name} className="absolute top-0 whitespace-nowrap" style={month.x + month.name.length * 6.5 + 2 > width ? { right: 0 } : { left: month.x }}>{month.name}</span>)}
           </div>
           {named.length > 0 && (
             <div data-year-names className="relative mt-1" style={{ width, height: (Math.max(...named.map((one) => one.line)) + 1) * 16 }}>
