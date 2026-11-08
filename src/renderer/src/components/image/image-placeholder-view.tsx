@@ -86,6 +86,35 @@ export function ImagePlaceholderView({ editor, node, getPos }: NodeViewProps) {
             event.preventDefault()
             ;(event.currentTarget as HTMLElement | null)?.focus?.()
           }}
+          // Typing words straight after picking "Image" means writing after
+          // all: the empty picture goes and the words go into the note where
+          // it stood, as if the menu had not been used. Only on the "Add" tab;
+          // the "Link" tab's field takes its own typing.
+          onKeyDown={(event) => {
+            if (tab !== "add" || busy || event.key.length !== 1 || event.metaKey || event.ctrlKey || event.altKey) return
+            const pos = getPos()
+            if (pos == null) return
+            event.preventDefault()
+            setOpen(false)
+            editor
+              .chain()
+              .focus()
+              .insertContentAt({ from: pos, to: pos + node.nodeSize }, { type: "paragraph", content: [{ type: "text", text: event.key }] })
+              .setTextSelection(pos + 2)
+              .run()
+          }}
+          // A picture or its link pasted onto the panel is added, as dropped.
+          onPaste={(event) => {
+            const files = event.clipboardData.files
+            const text = event.clipboardData.getData("text/plain").trim()
+            if (files.length) {
+              event.preventDefault()
+              void pick(files)
+            } else if (tab === "add" && /^https?:\/\/\S+$/.test(text)) {
+              event.preventDefault()
+              void add(saveLinkedImage(text))
+            }
+          }}
         >
           <div className="tiptap-image-panel-tabs">
             {(["add", "link"] as const).map((name) => (
