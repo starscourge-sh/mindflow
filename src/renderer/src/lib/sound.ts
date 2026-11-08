@@ -1,5 +1,6 @@
 import { INTRO_DELAY, INTRO_SECONDS, introRise } from '@/components/ui/grainient'
 import tearUrl from '@/assets/sounds/paper-rip.m4a'
+import crumpleUrl from '@/assets/sounds/paper-crumple.m4a'
 import saidUrl from '@/assets/sounds/haligtree-said.mp3'
 import foldUrl from '@/assets/sounds/paper-fold.m4a'
 import pageUrl from '@/assets/sounds/page-turn.m4a'
@@ -712,7 +713,7 @@ const hear = (name: string): void => void (heard.push(name), heard.length > 50 &
  * every other sound. Resolves to what is playing, so a loop can be stopped,
  * or to null when nothing could be (sounds off, or the file would not load).
  */
-function recording(url: string, level: number, name: string, options: { loop?: boolean; at?: number; rate?: number } = {}): Promise<AudioBufferSourceNode | null> {
+function recording(url: string, level: number, name: string, options: { loop?: boolean; at?: number; rate?: number; /** Seconds in: from here it fades out over a quarter second, and stops. */ fadeAt?: number } = {}): Promise<AudioBufferSourceNode | null> {
   if (!enabled || !volume) return Promise.resolve(null)
   const context = audio()
   if (!context) return Promise.resolve(null)
@@ -729,6 +730,12 @@ function recording(url: string, level: number, name: string, options: { loop?: b
     gain.gain.value = level * volume
     source.connect(gain).connect(context.destination)
     source.start(context.currentTime + (options.at ?? 0))
+    if (options.fadeAt !== undefined) {
+      const from = context.currentTime + (options.at ?? 0) + options.fadeAt
+      gain.gain.setValueAtTime(level * volume, from)
+      gain.gain.linearRampToValueAtTime(0, from + 0.25)
+      source.stop(from + 0.3)
+    }
     hear(name)
     return source
   })
@@ -742,48 +749,15 @@ let paperUntil = 0
 export const crumplingNow = (): boolean => performance.now() < paperUntil
 export const tear = (): void => void (performance.now() < paperUntil || ((spokeAt = performance.now() + 700), recording(tearUrl, 0.55, 'tear')))
 /**
- * A sheet crumpled into a ball, drawn rather than recorded: a run of dry paper crackles, thick at first and thinning
- * as the ball tightens, over a soft rustle. `seconds`: how long the hands work at it, to match the paper on screen.
+ * A sheet crumpled into a ball: a recording of real paper (paper-crumple.m4a, 1.9s), a touch quicker for a quick
+ * crumple, faded out as the paper on screen is done with. `seconds`: how long the hands work at it.
  */
 export function crumple(seconds = 0.6): void {
   // Heard instead of the tear: the paper on screen crumples, so it never sounds ripped as well.
   // As long as the paper is on screen and a moment after, so the notice that follows it beams no more than the tear sounds.
   paperUntil = performance.now() + seconds * 1000 + 1200
-  if (!enabled || !volume) return
-  const context = audio()
-  if (!context) return
-  const rate = context.sampleRate
-  const length = Math.floor(rate * (seconds + 0.08))
-  const buffer = context.createBuffer(1, length, rate)
-  const data = buffer.getChannelData(0)
-  // The rustle under it: quiet noise, swelling in and fading out.
-  for (let i = 0; i < length; i++) {
-    const at = i / length
-    data[i] = (Math.random() * 2 - 1) * 0.05 * Math.sin(Math.PI * Math.min(1, at * 1.3))
-  }
-  // The crackles: each a few milliseconds of noise, sharp at its start; many early, fewer and quieter as it ends.
-  let t = 0
-  while (t < seconds) {
-    const left = 1 - t / seconds
-    const burst = Math.floor(rate * (0.002 + Math.random() * 0.01))
-    const start = Math.floor(t * rate)
-    const loud = (0.25 + Math.random() * 0.75) * (0.35 + 0.65 * left)
-    for (let i = 0; i < burst && start + i < length; i++) data[start + i] += (Math.random() * 2 - 1) * loud * Math.exp(-i / (burst * 0.3))
-    t += 0.006 + Math.random() * 0.035 / Math.max(0.25, left)
-  }
-  const source = context.createBufferSource()
-  source.buffer = buffer
-  const low = context.createBiquadFilter()
-  low.type = 'highpass'
-  low.frequency.value = 900
-  const high = context.createBiquadFilter()
-  high.type = 'lowpass'
-  high.frequency.value = 9000
-  const gain = context.createGain()
-  gain.gain.value = 0.22 * volume
-  source.connect(low).connect(high).connect(gain).connect(context.destination)
-  source.start(context.currentTime)
-  hear('crumple')
+  const rate = Math.min(1.3, Math.max(1, 1.9 / (seconds + 0.9)))
+  void recording(crumpleUrl, 0.6, 'crumple', { rate, fadeAt: Math.max(0.15, seconds - 0.25) })
 }
 /** A review card turned over. */
 export const fold = (): void => void recording(foldUrl, 0.5, 'fold')
