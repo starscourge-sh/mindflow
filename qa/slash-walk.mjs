@@ -66,7 +66,14 @@ try {
       return { kinds: [...new Set(kinds)].join(','), text: ed.state.doc.textContent.slice(0, 40), focused: ed.isFocused }
     }, sel)
     await h.keyboard.type('Plain words', { delay: 15 }); await wait(250)
-    const typed = await h.evaluate((sel) => document.querySelector(sel).editor.state.doc.textContent.includes('Plain words'), sel)
+    // "Math" asks for its formula at once: the words are the formula, kept on Enter.
+    if (await h.evaluate(() => !!document.querySelector('[data-ask]'))) (await h.keyboard.press('Enter'), await wait(300))
+    const typed = await h.evaluate((sel) => {
+      const ed = document.querySelector(sel).editor
+      let math = false
+      ed.state.doc.descendants((one) => void (/Math$/.test(one.type.name) && String(one.attrs.latex).includes('Plain words') && (math = true)))
+      return math || ed.state.doc.textContent.includes('Plain words')
+    }, sel)
     walked.push({ title: row.title, hint: row.hint, peek: peek ? `${peek.w}x${peek.h}${peek.inWindow ? '' : ' OUT OF WINDOW'}` : 'none', made: made.kinds, typed })
   }
   for (const one of walked) console.log(`ITEM  ${one.title.padEnd(22)} | hint ${String(one.hint).padEnd(14)} | peek ${one.peek.padEnd(10)} | made ${one.made.padEnd(40)} | typing ${one.typed ? 'ok' : 'NOT TAKEN'}`)

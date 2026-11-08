@@ -11,6 +11,7 @@ import { talkInto } from '@/components/haligtree/talk'
 import { FileText } from '@/components/ui/icons'
 import { EXPORTS, exportDocument } from '@/lib/export'
 import { host, said } from '@/lib/host'
+import { ask } from '@/components/haligtree/ui'
 import { fitToWidth } from '@/lib/table'
 
 import type { SlashItem } from '@/extensions/slash-command'
@@ -184,7 +185,24 @@ export const slashItems: SlashItem[] = [
     group: 'Basic blocks',
     keywords: ['equation', 'formula', 'latex', 'tex', 'math block'],
     icon: <SigmaIcon />,
-    run: (editor) => editor.chain().focus().insertMathBlock().run()
+    // An empty formula has nothing to show and nowhere to type, so the words
+    // went into the line under it: an empty one asks for its LaTeX at once,
+    // in the same field as its "Edit formula…", and is taken back if left blank.
+    run: (editor) => {
+      // Words picked become the formula; with none it is a stand-in "x" to replace.
+      const { empty, from } = editor.state.selection
+      editor.chain().focus().insertMathBlock().run()
+      let at = -1
+      editor.state.doc.nodesBetween(Math.max(0, from - 3), Math.min(editor.state.doc.content.size, from + 4), (node, pos) => void (at < 0 && node.type.name === 'blockMath' && (at = pos)))
+      if (!empty || at < 0) return
+      void ask('The formula, in LaTeX', 'For example: E = mc^2', { action: 'Add the formula' }).then((typed) => {
+        const now = editor.state.doc.nodeAt(at)
+        if (!now || now.type.name !== 'blockMath') return
+        const latex = typed?.trim()
+        if (latex) editor.chain().focus().command(({ tr }) => (tr.setNodeMarkup(at, undefined, { ...now.attrs, latex }), true)).setTextSelection(at + now.nodeSize).run()
+        else editor.chain().focus().deleteRange({ from: at, to: at + now.nodeSize }).run()
+      })
+    }
   },
   {
     title: 'Inline math',
