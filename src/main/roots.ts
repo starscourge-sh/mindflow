@@ -123,9 +123,13 @@ export class RootIndex {
   /** Every note scored against some words, best first, the note itself left out. */
   rank(vector: Vector, leave?: string): { key: string; score: number }[] {
     const out: { key: string; score: number }[] = []
+    // The note itself is left out by its id, whatever its key says it is ("nugget:" or
+    // "article:" before it): matched as a page against its own row it was offered as its
+    // own copy, and "Open it" opened the note you were on.
+    const own = leave?.slice(leave.indexOf(':') + 1)
     this.vectors.forEach((other, index) => {
       const key = this.notes[index].key
-      if (key === leave) return
+      if (leave && (key === leave || key.slice(key.indexOf(':') + 1) === own)) return
       out.push({ key, score: cosine(vector, other) })
     })
     return out.sort((a, b) => b.score - a.score)
