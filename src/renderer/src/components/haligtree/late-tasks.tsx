@@ -49,7 +49,7 @@ async function rescheduleAll(list: Task[], where: Where, noun: [string, string] 
 const PICK = 'haligtree:late-pick'
 
 /** The same moves as lines of a right-click menu, for a day that holds late ones. */
-export function lateItems(list: Task[], all: Task[]): RowItem[] {
+export function lateItems(list: Task[]): RowItem[] {
   if (!list.length) return []
   const moves = (of: Task[]): RowItem[] => [
     { label: 'Today', run: () => void rescheduleAll(of, 'today') },
@@ -58,10 +58,8 @@ export function lateItems(list: Task[], all: Task[]): RowItem[] {
     { label: 'Pick a date…', run: () => void window.dispatchEvent(new CustomEvent(PICK, { detail: of.map((task) => task.id) })) },
     { label: 'Spread over the next 3 days', run: () => void rescheduleAll(of, 'spread') }
   ]
-  return [
-    ...(list.length < all.length ? [{ label: `Reschedule this day's ${num(list.length)} late`, items: moves(list) }] : []),
-    { label: `Reschedule all late (${num(all.length)})`, items: moves(all) }
-  ]
+  // A day's menu moves that day's late ones only: every late task at once is the page's "N late · Reschedule all…".
+  return [{ label: `Reschedule this day's ${num(list.length)} late`, items: moves(list) }]
 }
 
 /**

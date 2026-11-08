@@ -113,7 +113,8 @@ try {
   await h.keyboard.press('ArrowLeft'); await h.waitForTimeout(500)
   await h.locator(`[data-cal-head="${key(at(-1))}"]`).click({ button: 'right' }); await h.waitForTimeout(500)
   const menu = await h.locator('[role="menu"]').innerText().catch(() => '')
-  check('a late day\'s right click offers Reschedule all late', menu.includes('Reschedule all late'), menu.replace(/\n/g, ' | '))
+  // The day's own late ones only: every late task at once is the page's "N late · Reschedule all…".
+  check('a late day\'s right click offers to reschedule that day\'s late ones, not every late one', /Reschedule this day's \d+ late/.test(menu) && !menu.includes('Reschedule all late'), menu.replace(/\n/g, ' | '))
   await shot('late-day-menu')
   await h.keyboard.press('Escape'); await h.waitForTimeout(300)
 

@@ -878,7 +878,7 @@ function Grid({ days, tasks, marks, onHead, onPoint, calendars, ...props }: { da
         {days.map((day) => {
           const key = dayKey(day)
           return (
-            <RowMenu key={key} items={lateItems(late.filter((task) => dayKey(task.dueAt!) === key), late)}>
+            <RowMenu key={key} items={lateItems(late.filter((task) => dayKey(task.dueAt!) === key))}>
             <button type="button" data-cal-head={key} data-cal-late={late.some((task) => dayKey(task.dueAt!) === key) || undefined} onClick={() => (chime('open'), onHead(day))} aria-label={`Open ${day.format('dddd D MMMM')}`}
               className={`@container/head-day flex h-11 min-w-0 items-center gap-1.5 overflow-hidden border-l border-border/60 px-1 text-body @[4.5rem]/head-day:px-2.5 transition-colors duration-150 hover:bg-accent/60 motion-reduce:transition-none ${days.length === 1 ? 'justify-center' : ''} ${weekend(day) ? MUTED_DAY : ''}`}>
               {/* A narrow column keeps the date whole and says the day in two letters; narrower still, the date alone. */}
