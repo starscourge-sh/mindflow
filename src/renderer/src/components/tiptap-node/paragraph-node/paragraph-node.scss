@@ -58,8 +58,9 @@
   }
 
   // Selected node styles
+  // Square, as every highlight is in the app.
   .ProseMirror-selectednode:not(img):not(pre):not(.react-renderer) {
-    border-radius: var(--tt-radius-md);
+    border-radius: 0;
     background-color: var(--tt-selection-color);
   }
 

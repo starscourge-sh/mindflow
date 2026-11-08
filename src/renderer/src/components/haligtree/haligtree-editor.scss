@@ -963,10 +963,8 @@
 .tiptap.ProseMirror.haligtree-editor mark {
   background-color: color-mix(in srgb, var(--tt-cursor-color) 22%, transparent);
   color: inherit;
-  // Notion's proportions. The card's own 0.75rem turns a band this short into
-  // a pill, which reads as a tag rather than as marked-up text - the radius
-  // has to scale with the box, not be one number everywhere.
-  border-radius: 0.25rem;
+  // Square, as a highlighter pen leaves it: a rounded one reads as a tag.
+  border-radius: 0;
   // Just enough that the highlight clears the glyphs rather than sitting on
   // them. More than this and the words stop looking like part of the line.
   padding: 0.05em 0.15em;
@@ -985,7 +983,7 @@
     --mf-line-highlight,
     color-mix(in srgb, var(--tt-cursor-color) 22%, transparent)
   );
-  border-radius: 0.25rem;
+  border-radius: 0;
   // Out past the text on both sides, without moving it: the band is the block's
   // width, not the sentence's.
   padding-inline: 0.35em;
@@ -1819,9 +1817,23 @@ html[data-motion="off"] :is(.prosemirror-dropcursor-block, .prosemirror-dropcurs
   pointer-events: none !important;
   transition: opacity 160ms var(--mf-ease);
 
+  // On the page's own colour, so beside a picture or a narrow column, where it sits over words, they never
+  // show through it; in the gutter it is the page and unseen. The icons, not the chip, rest dimmed.
+  border-radius: 0.375rem;
+  background-color: var(--background);
+
   &.is-shown {
-    opacity: 0.55;
+    opacity: 1;
     pointer-events: auto !important;
+  }
+
+  svg {
+    opacity: 0.55;
+    transition: opacity 120ms var(--mf-ease);
+  }
+
+  &.is-shown:hover svg {
+    opacity: 1;
   }
 
   // Only the grip drags; the other control inserts.
@@ -1831,10 +1843,6 @@ html[data-motion="off"] :is(.prosemirror-dropcursor-block, .prosemirror-dropcurs
     &:active {
       cursor: grabbing;
     }
-  }
-
-  &.is-shown:hover {
-    opacity: 1;
   }
 
   // Each control is its own target, so each gets its own pill - a background on

@@ -395,7 +395,7 @@
 
 .pdf-mark {
   position: absolute;
-  border-radius: 2px;
+  border-radius: 0;
   /* A mark's own colour, else the book's. */
   background: color-mix(in srgb, var(--mark, var(--tt-brand-color-500, #c08a2e)) 30%, transparent);
   mix-blend-mode: multiply;

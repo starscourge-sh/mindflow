@@ -3237,7 +3237,7 @@ html[data-overhang] body > [data-leftover-row] [data-leftover]:hover {
 
 .mf-look-up-marks > span {
   position: fixed;
-  border-radius: 3px;
+  border-radius: 0;
   background-color: color-mix(in srgb, var(--tt-brand-color-400, #c08a2e) 30%, transparent);
 }
 
