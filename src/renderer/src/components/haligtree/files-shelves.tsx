@@ -80,12 +80,13 @@ export function Pile({ shelf, files, onOpen }: { shelf: (typeof SHELVES)[number]
     <button type="button" data-pile={shelf.id} data-count={files.length} onClick={() => (chime('open'), onOpen())}
       onPointerMove={(event) => { if (!heard.current && realMove(event)) (heard.current = true), chime('fan') }}
       onPointerLeave={() => (heard.current = false)}
-      className="files-pile group/pile flex w-full max-w-[340px] min-w-0 cursor-pointer flex-col gap-2.5 text-left outline-none">
-      <span className="files-pile-box relative block aspect-[5/4] w-full">
+      className="files-pile group/pile flex w-[82%] max-w-[280px] min-w-0 cursor-pointer flex-col gap-2.5 text-left outline-none">
+      {/* 82% of its column's width but as tall as a 5:4 shelf the column's full width: narrower, never shorter. */}
+      <span className="files-pile-box relative block aspect-[41/40] w-full">
         {top.map((one, at) => {
           const fan = FANS[top.length][at]
           return (
-            <span key={one.src} className="files-pile-cover absolute bottom-[24%] left-1/2 block w-[34%] overflow-hidden rounded-[4px] shadow-[0_1px_2px_rgb(0_0_0/0.12),0_6px_16px_-6px_rgb(0_0_0/0.25)] ring-1 ring-foreground/10"
+            <span key={one.src} className="files-pile-cover absolute bottom-[24%] left-1/2 block w-[38%] overflow-hidden rounded-[4px] shadow-[0_1px_2px_rgb(0_0_0/0.12),0_6px_16px_-6px_rgb(0_0_0/0.25)] ring-1 ring-foreground/10"
               style={{ '--x': `${fan.x}%`, '--r': `${fan.r}deg`, '--y': `${fan.y}%` } as React.CSSProperties}>
               <Cover one={one} className={book ? 'aspect-[3/4]' : 'aspect-square'} />
             </span>
@@ -228,12 +229,12 @@ function StuckHead({ lines }: { lines: Line[] }): React.JSX.Element {
 export const whereOf = (one: Media): string => (one.gone ? 'File gone from the book' : one.uses.length ? `In ${one.uses[0].title || 'Untitled'}${one.uses.length > 1 ? ` and ${num(one.uses.length - 1)} more` : ''}` : 'In no note')
 
 export const PICTURE = 148
-export const PICTURE_GAP = 4
+export const PICTURE_GAP = 10
 
 /**
  * Pictures as Photos keeps them: by month, newest first, a heading and its
- * count over each, then a tight grid of squares with no words under them.
- * Pointed at, a picture shows its name and its note in its own foot. Only the
+ * count over each, then a grid of squares with small gaps and no words under them.
+ * Pointed at, a picture's name and note rise out of a soft shade at its foot. Only the
  * rows in sight are drawn, so five thousand scroll as five do.
  */
 export function PictureMonths({ files, across, cursor, chosen, keyOf, menuFor, onClick }: {
@@ -259,13 +260,14 @@ export function PictureMonths({ files, across, cursor, chosen, keyOf, menuFor, o
               <RowMenu key={key} items={menuFor(one)}>
                 <button type="button" data-media={one.kind} data-src={one.src} data-id={one.src} data-cursor={here || undefined} data-picked={picked || undefined}
                   onClick={(event) => onClick(one, event)}
-                  className={`files-square group/sq relative block aspect-square w-full cursor-pointer overflow-hidden rounded-[3px] text-left outline-none after:pointer-events-none after:absolute after:inset-0 after:rounded-[3px] after:ring-inset ${picked ? 'after:bg-[color-mix(in_srgb,var(--tt-brand-color-400)_22%,transparent)] after:ring-2 after:ring-[var(--tt-brand-color-400)]' : here ? 'after:ring-2 after:ring-ring' : ''}`}>
+                  className={`files-square group/sq relative block aspect-square w-full cursor-pointer overflow-hidden rounded-[6px] bg-accent text-left outline-none after:pointer-events-none after:absolute after:inset-0 after:rounded-[6px] after:ring-inset ${picked ? 'after:bg-[color-mix(in_srgb,var(--tt-brand-color-400)_22%,transparent)] after:ring-2 after:ring-[var(--tt-brand-color-400)]' : here ? 'after:ring-2 after:ring-ring' : 'after:ring-1 after:ring-foreground/10'}`}>
                   <Cover one={one} className="size-full" />
                   {one.kind === 'gif' && <span className="absolute top-1.5 left-1.5 rounded-[3px] bg-background px-1 text-[11px] font-medium">GIF</span>}
-                  <span data-square-foot className="pointer-events-none absolute inset-x-0 bottom-0 flex flex-col bg-popover px-2 py-1.5 opacity-0 transition-opacity duration-150 group-hover/sq:opacity-100">
+                  {/* Pointed at, its name rises out of a soft shade at its foot: no band, nothing on it until then. */}
+                  <span data-square-foot className="files-square-foot pointer-events-none absolute inset-x-0 bottom-0 flex flex-col justify-end px-2 pt-6 pb-1.5 text-white">
                     {/* A picture with no name of its own is called after its note: then the note is said once. */}
-                    {nameOf(one) !== one.uses[0]?.title && <span dir="auto" className={`truncate text-xs font-medium text-foreground ${one.private ? 'private-text' : ''}`}>{nameOf(one)}</span>}
-                    <span className={`truncate ${nameOf(one) !== one.uses[0]?.title ? 'text-[11px] text-muted-foreground' : 'text-xs font-medium text-foreground'}`}>{whereOf(one)}</span>
+                    {nameOf(one) !== one.uses[0]?.title && <span dir="auto" className={`truncate text-xs font-medium ${one.private ? 'private-text' : ''}`}>{nameOf(one)}</span>}
+                    <span className={`truncate ${nameOf(one) !== one.uses[0]?.title ? 'text-[11px] text-white/75' : 'text-xs font-medium'}`}>{whereOf(one)}</span>
                   </span>
                 </button>
               </RowMenu>

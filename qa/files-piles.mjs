@@ -248,7 +248,7 @@ try {
       const past = page ? [...page.querySelectorAll('*')].filter((one) => !one.closest(own) && one.getBoundingClientRect().right > right + 1 && one.getBoundingClientRect().width > 0).slice(0, 3).map((one) => `${one.tagName.toLowerCase()}.${String(one.className).slice(0, 50)} ${Math.round(one.getBoundingClientRect().right - right)}px`) : []
       return { page: page ? page.scrollWidth - page.clientWidth : -1, wide: wide.map((one) => `${one.tagName.toLowerCase()}.${String(one.className).slice(0, 40)}`), past }
     })
-    for (const w of [1280, 1440, 1920]) {
+    for (const w of process.env.NARROW_ONLY ? [] : [1280, 1440, 1920]) {
       await size(w, 900)
       for (const label of ['All', 'Books', 'Pictures', 'Audio']) {
         await tab(label)
@@ -261,6 +261,83 @@ try {
     }
     await size(1440, 900)
 
+    // 7b. Narrow: a 900 window, and Files in a split pane about 600 wide. With a book picked its panel goes under the
+    // shelf (the room is what the narrow rule measures; a container can't query itself), and nothing in the page is
+    // wider than its box, carousels excepted. Pictures too.
+    const over = () => h.evaluate(() => {
+      const card = [...document.querySelectorAll('[data-pane-card]')].find((one) => one.querySelector('[data-media-grid], [data-library]')) ?? document.body
+      const own = '.files-recent-row, [data-picture-row] [role="list"], [data-flex-carousel]'
+      const wide = [card, ...card.querySelectorAll('*')].filter((one) => one.scrollWidth > one.clientWidth + 1 && !one.closest(own) && getComputedStyle(one).overflowX !== 'visible' && !one.matches('.sr-only, [role="switch"]') && one.clientWidth > 0)
+        .map((one) => `${one.tagName.toLowerCase()}.${String(one.className).slice(0, 40)} ${one.scrollWidth}>${one.clientWidth}`)
+      const panel = card.querySelector('[data-library] .book-panel')?.getBoundingClientRect()
+      const shelf = card.querySelector('[data-library] .pdf-library-side')?.getBoundingClientRect()
+      const inner = card.querySelector('[data-shelf-scroll]') ?? card
+      const edge = inner.getBoundingClientRect().right
+      const past = [...card.querySelectorAll('*')].filter((one) => one.getBoundingClientRect().right > edge + 1 && one.getBoundingClientRect().width > 0 && ![...one.children].some((k) => k.getBoundingClientRect().right > edge + 1)).slice(0, 4).map((one) => `${one.closest('button, label, a, [data-media-kinds], header')?.outerHTML.slice(0, 90) ?? ''} ${one.tagName.toLowerCase()}[${[...one.attributes].map((a) => a.name).filter((n) => n.startsWith('data-')).join(',')}].${String(one.className).slice(0, 60)} w${Math.round(one.getBoundingClientRect().width)} +${Math.round(one.getBoundingClientRect().right - edge)}`)
+      const room = card.querySelector('.pdf-library-room'); const lib = card.querySelector('[data-library]'); const sc = card.querySelector('[data-shelf-scroll]')
+      const geo = room ? { room: Math.round(room.getBoundingClientRect().width), dir: getComputedStyle(lib).flexDirection, scroll: [Math.round(sc.getBoundingClientRect().width), sc.scrollWidth, sc.clientWidth], panel: Math.round(card.querySelector('.book-panel')?.getBoundingClientRect().width ?? 0), kids: [...sc.querySelectorAll('.pdf-library-column > *, [data-shelf-continue] *')].filter((k) => k.getBoundingClientRect().right > sc.getBoundingClientRect().right + 1).slice(0, 5).map((k) => `${k.tagName}.${String(k.className).slice(0, 50)} w${Math.round(k.getBoundingClientRect().width)}`) } : null
+      return { pane: Math.round(card.getBoundingClientRect().width), geo, past, wide, under: panel && shelf ? panel.top >= shelf.bottom - 1 && panel.right <= card.getBoundingClientRect().right + 0.5 : null }
+    })
+    const narrow = async (label) => {
+      for (const kind of ['Books', 'Pictures']) {
+        await tab(kind)
+        await h.waitForTimeout(900)
+        if (kind === 'Books' && !(await h.evaluate(() => !!document.querySelector('[data-library] .book-panel')))) await h.locator('[data-library] [data-book]').first().click().catch(() => {})
+        await h.waitForTimeout(500)
+        const out = await over()
+        check(`${label} (pane ${out.pane}px), ${kind}${kind === 'Books' ? ' with a book picked' : ''}: no element wider than its box${kind === 'Books' ? ', the panel under the shelf' : ''}`, !out.wide.length && (kind !== 'Books' || out.under === true), JSON.stringify(out))
+        await shot(`narrow-${label}-${kind.toLowerCase()}`)
+      }
+      await tab('All')
+    }
+    await size(900, 800)
+    await narrow('900 window')
+    await size(1280, 800)
+    await h.keyboard.press('Meta+Backslash')
+    await h.waitForTimeout(1500)
+    await narrow('split')
+    await h.keyboard.press('Control+w').catch(() => {})
+    await h.waitForTimeout(800)
+    await size(1440, 900)
+    if (!(await h.evaluate(() => !!document.querySelector('[data-media-grid], [data-library]')))) await go('media')
+
+    // 7c. Pictures: squares with small gaps and a small radius; the name rises out of a soft shade only when pointed at.
+    await tab('Pictures')
+    await h.waitForTimeout(700)
+    const tile = await h.evaluate(() => {
+      const all = [...document.querySelectorAll('[data-media-grid] .files-square')].slice(0, 2).map((one) => one.getBoundingClientRect())
+      const one = document.querySelector('[data-media-grid] .files-square')
+      const foot = one.querySelector('[data-square-foot]')
+      return { gap: Math.round(all[1].left - all[0].right), radius: getComputedStyle(one).borderRadius, size: Math.round(all[0].width), foot: Number(getComputedStyle(foot).opacity), band: getComputedStyle(foot).backgroundColor }
+    })
+    check('Pictures: 8 to 12px between squares, a 4 to 8px corner, no words until pointed at', tile.gap >= 8 && tile.gap <= 12 && /^[4-8]px$/.test(tile.radius) && tile.foot === 0, JSON.stringify(tile))
+    const sq = await h.locator('[data-media-grid] .files-square').nth(1).boundingBox()
+    await h.mouse.move(sq.x + sq.width / 2, sq.y + sq.height / 2, { steps: 4 })
+    await h.waitForTimeout(350)
+    for (let f = 0; f < 6 && SHOTS; f++) { await h.screenshot({ path: join(SHOTS, `square-hover-${f}.png`), clip: { x: sq.x - 160, y: sq.y - 20, width: sq.width + 320, height: sq.height + 40 } }); await h.waitForTimeout(50) }
+    const hovered = await h.evaluate(() => { const f = document.querySelectorAll('[data-media-grid] .files-square')[1].querySelector('[data-square-foot]'); return { opacity: Number(getComputedStyle(f).opacity), flat: getComputedStyle(f).backgroundColor, cursor: getComputedStyle(f.parentElement).cursor } })
+    check('pointed at: its name shows over a soft shade (no flat band), with the hand', hovered.opacity === 1 && /rgba\(0, 0, 0, 0\)|transparent/.test(hovered.flat) && hovered.cursor === 'pointer', JSON.stringify(hovered))
+    await shot('pictures-hover')
+    await h.locator('[data-media-grid] .files-square').nth(1).click({ button: 'right' })
+    await h.waitForTimeout(400)
+    check('right-click on a picture opens its menu', (await h.locator('[role="menu"]').count()) > 0)
+    await h.keyboard.press('Escape')
+    await h.mouse.move(5, 5)
+    await tab('All')
+    await h.waitForTimeout(500)
+
+    // 7d. The shelves: narrower than before, as tall; before is drawn by putting the old values back.
+    const measure = () => h.evaluate(() => { const r = document.querySelector('[data-pile="picture"] .files-pile-box').getBoundingClientRect(); const front = document.querySelector('[data-pile="picture"] .files-pile-front').getBoundingClientRect(); const covers = [...document.querySelectorAll('[data-pile="picture"] .files-pile-cover')].map((one) => one.getBoundingClientRect()); return { w: Math.round(r.width), h: Math.round(r.height), front: Math.round(front.height), fan: Math.round(Math.max(...covers.map((c) => c.right)) - Math.min(...covers.map((c) => c.left))), inside: covers.every((c) => c.left >= r.left - 6 && c.right <= r.right + 6), frost: getComputedStyle(document.querySelector('.files-pile-frost')).opacity } })
+    const after = await measure()
+    if (SHOTS) await h.screenshot({ path: join(SHOTS, 'shelves-after.png'), clip: { x: 0, y: 0, width: 1440, height: 600 } })
+    await h.evaluate(() => { const s = document.createElement('style'); s.id = 'qa-old-shelf'; s.textContent = '.files-pile{max-width:340px!important;width:100%!important}.files-pile-box{aspect-ratio:5/4!important}.files-pile-cover{width:34%!important}.files-pile-frost{opacity:.55!important}'; document.head.append(s) })
+    await h.waitForTimeout(400)
+    const before = await measure()
+    if (SHOTS) await h.screenshot({ path: join(SHOTS, 'shelves-before.png'), clip: { x: 0, y: 0, width: 1440, height: 600 } })
+    await h.evaluate(() => document.getElementById('qa-old-shelf').remove())
+    check('the shelves: 15 to 20% narrower, as tall (within 2px), the fan still on the shelf, the frost clearer', after.w <= before.w * 0.85 && after.w >= before.w * 0.8 && Math.abs(after.h - before.h) <= 2 && after.inside && Number(after.frost) > Number(before.frost), `before ${JSON.stringify(before)} after ${JSON.stringify(after)}`)
+
+    if (!process.env.NARROW_ONLY) {
     // 8. Continue reading arrives once: frames every 50ms from the tab switch. The first frame it shows in already has the
     // moving row with its final book in the middle; no still row before it, no recentre after, its fade only rising.
     const film = async (name, act, ms = 2200) => {
@@ -392,6 +469,7 @@ try {
       check(`${view}: the header's search, switches and buttons are one height (the 28px of a field) on one middle`, one || !tall.length, JSON.stringify(boxes))
     }
     await go('media')
+    }
   }
   // 6. The Add box sits 16px under the header line.
   await h.locator('[data-media-add]').click()
