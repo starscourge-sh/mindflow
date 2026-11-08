@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { AnimatePresence, animate, motion, useMotionValue, useTransform, type MotionValue, type Transition } from 'motion/react'
-import { Coffee, Pause, Paperclip, Square, GripVertical as Grip, X as XSmall } from 'lucide-react'
+import { Coffee, Pause, Paperclip, Square, X as XSmall } from 'lucide-react'
 
 // The theme's colours: this window has no editor, which is what usually brings them.
 import '@/assets/styles/_variables.scss'
@@ -1415,12 +1415,11 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
               {/* The time on a clock's dot grid, the one figure in the app that ticks. */}
               {count !== null ? <span data-count-in className="flex items-center gap-1.5"><span className="font-medium text-muted-foreground">Starting in</span><DotMatrix text={String(Math.max(1, count))} className="h-[13px]" /></span> : over ? (onBreak ? '' : "Time's up") : <>{paused && 'Paused ·'}<DotMatrix text={clock(leftShown ?? done)} className="h-[13px]" /></>}
             </span>
-            {/* The one place that moves the window, as Raycast's grip does: faint until you reach for it. */}
-            {(
-              <span aria-hidden className={`-ml-1 flex h-7 w-4 shrink-0 cursor-grab items-center justify-center text-muted-foreground transition-opacity duration-150 ${hover ? 'opacity-70' : 'opacity-25'}`} style={DRAG}>
-                <Grip className="size-3.5" />
-              </span>
-            )}
+            {/* The one place that moves the window: quick capture's grabber stood on end, a short bar of muted ink,
+                faint until you reach for it. */}
+            <span aria-hidden data-pill-grabber className={`-ml-1 flex h-7 w-4 shrink-0 cursor-grab items-center justify-center transition-opacity duration-150 active:cursor-grabbing ${hover ? 'opacity-100' : 'opacity-40'}`} style={DRAG}>
+              <span className="h-4 w-1 rounded-full bg-[color-mix(in_oklab,var(--foreground)_45%,transparent)]" />
+            </span>
           </div>}
 
           {panel}
