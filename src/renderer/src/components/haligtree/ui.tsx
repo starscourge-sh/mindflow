@@ -2238,6 +2238,11 @@ export function VirtualList<T>({ items, keyOf, holds, cursor, estimate = 48, siz
   const rows = useVirtualizer({
     count: items.length,
     getScrollElement: () => scroller,
+    // Taken up by its scroller where that scroller already is: the virtualizer otherwise scrolls it to where it
+    // thought it was (the top, read before it had a scroller). A list low in a note (its links) found its scroller
+    // after the note had gone to a picture, a heading or a search hit, and threw the note back to the top.
+    enabled: !!scroller,
+    initialOffset: () => scroller?.scrollTop ?? 0,
     estimateSize: (index) => (sizeOf ? sizeOf(items[index]) : estimate),
     overscan: items.length > LAZY ? 4 : 10,
     scrollMargin: margin,

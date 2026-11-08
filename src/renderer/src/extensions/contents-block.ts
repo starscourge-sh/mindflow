@@ -48,10 +48,42 @@ export function jumpTo(editor: Editor, pos: number): void {
       view.dispatch(view.state.tr.scrollIntoView())
       return
     }
-    const top = heading.getBoundingClientRect().top - box.getBoundingClientRect().top + box.scrollTop - 24
-    box.scrollTo({ top, behavior: still() ? "instant" : "smooth" })
+    const scroller = box as HTMLElement
+    const goal = (): number => heading.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop - 24
+    scroller.scrollTo({ top: goal(), behavior: still() ? "instant" : "smooth" })
+    holdOn(scroller, heading, goal)
   })
   setTimeout(() => !view.isDestroyed && view.dispatch(view.state.tr.setMeta(landed, null).setMeta("addToHistory", false)), 1400)
+}
+
+/**
+ * Kept on the place gone to while the note settles: pictures above it load
+ * and grow, a list low in the note (its links) takes up the scroller, and
+ * either moved the note off it or stopped its glide part way (a note opened
+ * on a picture from Files went back to the top a second later). Each frame
+ * it is put back if it has moved, until the note has stood still a while;
+ * any scroll, click or key of yours lets go at once.
+ */
+function holdOn(scroller: HTMLElement, target: HTMLElement, goal: () => number): void {
+  let yours = false
+  const letGo = (): void => void (yours = true)
+  const events = ["wheel", "pointerdown", "keydown", "touchstart"] as const
+  for (const name of events) window.addEventListener(name, letGo, { capture: true, passive: true })
+  let last = scroller.scrollTop
+  let calm = 0
+  let frames = 0
+  const step = (): void => {
+    // As far as the note goes: a place near its end stops where the note does.
+    const want = Math.max(0, Math.min(goal(), scroller.scrollHeight - scroller.clientHeight))
+    const at = scroller.scrollTop
+    const gliding = Math.abs(at - last) > 0.5 && Math.abs(want - at) < Math.abs(want - last)
+    if (!gliding && Math.abs(at - want) > 2) scroller.scrollTo({ top: want, behavior: "instant" })
+    calm = gliding || Math.abs(scroller.scrollTop - want) > 2 ? 0 : calm + 1
+    last = scroller.scrollTop
+    if (!yours && target.isConnected && calm < 30 && ++frames < 240) requestAnimationFrame(step)
+    else for (const name of events) window.removeEventListener(name, letGo, { capture: true })
+  }
+  requestAnimationFrame(step)
 }
 
 /**
