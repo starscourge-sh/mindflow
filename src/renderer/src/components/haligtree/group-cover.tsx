@@ -121,7 +121,9 @@ export function GroupCover({ name, tint, label = 'bl', className = '', style }: 
   const soft = `color-mix(in oklab, ${tint} 45%, var(--background))`
   return (
     <div aria-hidden data-group-cover={name} data-cover={`${cover.big.id}/${cover.small.id}/${cover.at}${cover.other}/${cover.turn.join('.')}`} data-cover-tint={tint}
-      className={`relative overflow-hidden [container-type:size] ${className}`} style={{ background: `color-mix(in oklab, ${tint} 12%, var(--background))`, ...style }}>
+      // Placed by its caller when it says so (absolute inset-0 over a card): its own "relative" won over
+      // that, it had no height, and its shapes, sized by its height, were drawn at nothing.
+      className={`${/\b(absolute|fixed)\b/.test(className) ? '' : 'relative '}overflow-hidden [container-type:size] ${className}`} style={{ background: `color-mix(in oklab, ${tint} 12%, var(--background))`, ...style }}>
       <Shape outline={cover.small} fill={[soft, `color-mix(in oklab, ${tint} 70%, var(--background))`]} style={placed(cover.other, cover.size[1], cover.turn[1], 0.22)} />
       <Shape outline={cover.big} fill={[tint, deep]} style={placed(cover.at, cover.size[0], cover.turn[0], 0.3)} />
       {label && (

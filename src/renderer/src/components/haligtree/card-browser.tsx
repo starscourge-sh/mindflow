@@ -611,7 +611,7 @@ export function CardBrowser({ onOpen, aim, only, newest, onAll, onShow, onAimDon
   )
   // The grid of cards is drawn where you are looking (and a screen either side), however many thousand it holds.
   const body = (list: BrowsedCard[]): React.JSX.Element => density === 'grid'
-    ? <div data-card-grid><Windowed items={list} render={cell} className="grid grid-cols-[repeat(auto-fill,minmax(min(12.5rem,calc(50%-0.75rem)),1fr))] items-start gap-5 p-1 max-sm:gap-3" /></div>
+    ? <div data-card-grid><Windowed items={list} render={cell} className="grid grid-cols-[repeat(auto-fill,minmax(min(10rem,calc(50%-0.5rem)),1fr))] items-start gap-4 p-1 max-sm:gap-3" /></div>
     : <><div className="flex flex-col">{list.slice(0, limit).map(cell)}</div>{more(list)}</>
   // Table names its columns, in the rows' own boxes.
   const head = density === 'compact' && (
