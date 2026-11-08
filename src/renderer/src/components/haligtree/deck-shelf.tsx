@@ -481,7 +481,7 @@ function StudySets({ sets, onStudy }: { sets: { name: string; tag: string }[]; o
       {sets.map((set) => (
         <RowMenu key={set.name} items={[{ label: 'Study', run: () => (chime('riffle'), onStudy(set.tag)) }, 'separator', { label: 'Remove the set', hint: 'The deck and its cards stay', danger: true, run: () => void call('sets:remove', set.name).then(() => (chime('fold'), toast(`“${set.name}” is no longer a study set`, () => void call('sets:save', set.name, set.tag).then(() => chime('undo'))))) }]}>
           <button type="button" data-study-set={set.name} onClick={() => (chime('riffle'), onStudy(set.tag))}
-            className="h-8 max-w-64 cursor-pointer truncate rounded-[5px] mf-metal mf-metal-hover px-3 text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring max-sm:h-9">{set.name}</button>
+            className="h-8 max-w-64 cursor-pointer truncate rounded-[6px] mf-metal mf-metal-hover px-3 text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring max-sm:h-9">{set.name}</button>
         </RowMenu>
       ))}
     </div>
@@ -499,7 +499,7 @@ function BookCoverage(): React.JSX.Element | null {
   const books = [...Map.groupBy(all.filter((card) => card.made === 'pdf' && card.source), (card) => card.source)].filter(([, cards]) => coverageOf(cards)).sort((a, b) => b[1].length - a[1].length)
   if (!books.length) return null
   return (
-    <section data-book-coverage className="grid gap-2 rounded-[5px] mf-metal p-3">
+    <section data-book-coverage className="grid gap-2 rounded-[6px] mf-metal p-3">
       <span className="mf-chart-title">How much of each book has cards</span>
       {(every ? books : books.slice(0, 3)).map(([book, cards]) => (
         <div key={book} data-book-covered={book} className="grid grid-cols-[minmax(0,12rem)_minmax(0,1fr)] items-center gap-x-3 max-sm:grid-cols-1">
@@ -595,7 +595,7 @@ export function DeckFace({ name, due, fresh, shapes, faded = false, small = fals
   const size = small ? 'size-14 [&_.text-3xl]:text-lg [&_.text-xs]:text-[10px]' : 'size-24'
   if (shapes) return <GroupCover name={name} tint={groupTint(name)} label={null} className={`${size} shrink-0 rounded-[5px] shadow-sm ${faded ? 'opacity-60' : ''}`} />
   return (
-    <div aria-hidden data-deck-face={name} className={`grid ${size} shrink-0 content-center justify-items-center gap-0.5 rounded-[5px] mf-metal ${faded ? 'opacity-60' : ''}`}>
+    <div aria-hidden data-deck-face={name} className={`grid ${size} shrink-0 content-center justify-items-center gap-0.5 rounded-[6px] mf-metal ${faded ? 'opacity-60' : ''}`}>
       <span className={`font-serif text-3xl leading-none tabular-nums ${due ? 'text-primary' : fresh ? 'text-foreground' : 'text-foreground/35'}`}>{num(due || fresh)}</span>
       <span className="px-1 text-center text-xs leading-tight text-balance text-muted-foreground">{fresh && !due ? 'not studied yet' : 'due'}</span>
     </div>
@@ -634,7 +634,7 @@ function DeckList({ own, shelves, onStudy, place = {}, menu, fresh = null, renam
   }
   const tops = ownOrder(own.filter((deck) => deck.depth === 0), place)
   return (
-    <div data-deck-list role="table" aria-label="Decks" className="grid rounded-[5px] mf-metal px-3 py-2">
+    <div data-deck-list role="table" aria-label="Decks" className="grid rounded-[6px] mf-metal px-3 py-2">
       <div className={`${cols} border-b border-foreground/10 pb-1.5 text-sm text-muted-foreground`}>
         <span className="pl-6">Deck</span><span className="text-right">Due</span><span className="text-right">Not studied</span><span className="text-right">Cards</span><span />
       </div>

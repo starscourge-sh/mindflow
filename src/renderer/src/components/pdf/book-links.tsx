@@ -11,6 +11,7 @@ export { useCited, type Cited } from "./same-book"
 import { GraphCanvas } from "@/components/haligtree/graph-canvas"
 import { openPdf } from "./pdf-reader"
 import { plural, num } from '../../../../main/dates'
+import { DOT, DOT_INK, DotRule, GAP, STEP, dotRing, pagesPerDot } from "@/components/haligtree/time-dots"
 
 /** Notes and gems: what "In your notes" lists. Cards show on the page bar alone. */
 export const inNotes = (cited: Cited[]): Cited[] => cited.filter((one) => one.type !== "card" && one.type !== "deck")
@@ -168,63 +169,69 @@ export function InYourNotes({ cited, empty, parts = [], here }: { cited: Cited[]
 
 type Mark = { page: number; color?: string | null }
 
-/** How many stretches the page bar adds its marks up in: few enough that each still reads at any count. */
-const BINS = 56
+/** The most dots a book's strip draws: two rows of 24 in the side panel, so each still reads at any count. */
+const BINS = 48
 
 /**
- * The book's length as a strip: where you are, how far you have read, and
- * where your highlights, notes and cards gather, added up into stretches of
- * pages so the strip reads at 5 marks or 5,000 (a taller tick, more there).
- * Pointed at, a stretch says what is in it; pressed, it opens there. Under it,
- * "You are on p. 83 of 336" between the book's first and last page.
+ * The book's length as dots (time-dots.tsx, the Goals road's own look): each
+ * dot a stretch of pages, solid where you have read, faint ahead, the one you
+ * are on in the accent. A ring round a dot says your highlights (gold) or notes
+ * and cards (ink) gather there, added up so the strip reads at 5 marks or 5,000.
+ * Pointed at, a ringed dot says what is in it; pressed, it opens there. Over
+ * it, the point ("You are on p. 83 of 336"); under it, the first and last page.
  */
 export function PageBar({ src, name, pages, page, cited, marks, onPage }: { src: string; name: string; pages: number; page?: number | null; cited: Cited[]; marks: Mark[]; /** In the reader: go to the page there. */ onPage?: (page: number) => void }): React.JSX.Element {
-  const bins = Math.min(BINS, pages)
+  const per = pagesPerDot(pages, BINS)
+  const bins = Math.ceil(pages / per)
   const stretches = useMemo(() => {
-    const all = Array.from({ length: bins }, (_, at) => ({ from: Math.floor((at * pages) / bins) + 1, to: Math.floor(((at + 1) * pages) / bins), marks: 0, notes: 0, cards: 0, first: 0 }))
+    const all = Array.from({ length: bins }, (_, at) => ({ from: at * per + 1, to: Math.min(pages, (at + 1) * per), marks: 0, notes: 0, cards: 0, first: 0 }))
     const add = (p: number, kind: "marks" | "notes" | "cards"): void => {
       if (p < 1 || p > pages) return
-      const one = all[Math.min(bins - 1, Math.floor(((p - 1) * bins) / pages))]
+      const one = all[Math.min(bins - 1, Math.floor((p - 1) / per))]
       one[kind]++
       one.first = one.first ? Math.min(one.first, p) : p
     }
     for (const one of cited) for (const p of one.pages) add(p, one.type === "card" ? "cards" : "notes")
     for (const mark of marks) add(mark.page, "marks")
     return all
-  }, [cited, marks, pages, bins])
-  const most = Math.max(1, ...stretches.map((one) => one.marks + one.notes + one.cards))
-  const left = (p: number): string => `${pages > 1 ? ((p - 1) / (pages - 1)) * 100 : 50}%`
+  }, [cited, marks, pages, bins, per])
   const counted = (n: number, one: string, many: string): string => (n ? `${n.toLocaleString()} ${n === 1 ? one : many}` : "")
+  const hereAt = page ? Math.min(bins - 1, Math.floor((page - 1) / per)) : -1
   return (
     <div className="book-bar" data-page-bar>
-      <div className="book-bar-strip">
-        {page ? <span className="book-bar-read" style={{ width: left(page) }} /> : null}
-        {stretches.map((one, at) => {
-          const all = one.marks + one.notes + one.cards
-          if (!all) return null
-          const says = [counted(one.marks, "highlight", "highlights"), counted(one.notes, "note", "notes"), counted(one.cards, "card", "cards")].filter(Boolean).join(", ")
-          return (
-            <Tip key={at} label={`${one.from === one.to ? `p. ${one.from}` : `pp. ${one.from} to ${one.to}`}: ${says}`}>
-              <button
-                type="button"
-                aria-label={`Open at p. ${one.first}`}
-                data-tick={one.notes ? "note" : one.marks ? "mark" : "card"}
-                data-tick-page={one.first}
-                className="book-bar-tick"
-                style={{ left: `${(at / bins) * 100}%`, width: `${100 / bins}%`, "--fill": Math.sqrt(all / most).toFixed(2) } as React.CSSProperties}
-                onClick={() => (chime("open"), onPage ? onPage(one.first) : openPdf(src, name, one.first))}
-              >
-                <span className={`book-bar-heat${one.marks ? "" : " is-note"}`} />
-              </button>
-            </Tip>
-          )
-        })}
-        {page ? <span className="book-bar-here" data-here={page} style={{ left: left(page) }} /> : null}
-      </div>
-      <div className="book-bar-ends">
-        <span>p. 1</span>
-        {page ? <span className="book-bar-you">You are on p. {page.toLocaleString()} of {pages.toLocaleString()}</span> : <span>Not started</span>}
-        <span>p. {pages.toLocaleString()}</span>
+      {/* The point first, in full ink; then what a dot is; then the dots, the first and last page under them. */}
+      <p className="book-bar-you">{page ? <>You are on p. {page.toLocaleString()} of {pages.toLocaleString()}</> : "Not started"}</p>
+      <DotRule>Each dot is {per === 1 ? "a page" : `${num(per)} pages`}, the solid ones read; a ring holds highlights or notes</DotRule>
+      <div className="book-bar-strip" style={{ width: Math.min(bins, 24) * STEP - GAP }}>
+        <div className="book-bar-dots" style={{ gridTemplateColumns: `repeat(auto-fill, ${DOT}px)`, gap: GAP }}>
+          {stretches.map((one, at) => {
+            const all = one.marks + one.notes + one.cards
+            const here = at === hereAt
+            const ink = here ? DOT_INK.here : at < hereAt ? DOT_INK.gone : DOT_INK.ahead
+            const dot = <span className="book-bar-dot" style={{ background: ink, boxShadow: all ? dotRing(one.marks ? "var(--tt-brand-color-500)" : "var(--foreground)") : undefined }} />
+            if (!all) return <span key={at} className={here ? "book-bar-here" : undefined} data-here={here ? page ?? undefined : undefined}>{dot}</span>
+            const says = [counted(one.marks, "highlight", "highlights"), counted(one.notes, "note", "notes"), counted(one.cards, "card", "cards")].filter(Boolean).join(", ")
+            return (
+              <Tip key={at} label={`${one.from === one.to ? `p. ${one.from}` : `pp. ${one.from} to ${one.to}`}: ${says}`}>
+                <button
+                  type="button"
+                  aria-label={`Open at p. ${one.first}`}
+                  data-tick={one.notes ? "note" : one.marks ? "mark" : "card"}
+                  data-tick-page={one.first}
+                  data-here={here ? page ?? undefined : undefined}
+                  className={`book-bar-tick${here ? " book-bar-here" : ""}`}
+                  onClick={() => (chime("open"), onPage ? onPage(one.first) : openPdf(src, name, one.first))}
+                >
+                  {dot}
+                </button>
+              </Tip>
+            )
+          })}
+        </div>
+        <div className="book-bar-ends">
+          <span>p. 1</span>
+          <span>p. {pages.toLocaleString()}</span>
+        </div>
       </div>
     </div>
   )

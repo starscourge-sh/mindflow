@@ -1,3 +1,5 @@
+import { TabChips } from './tab-chips'
+import { DOT as SHARED_DOT, GAP as SHARED_GAP } from './time-dots'
 import { dropLines, keepLines } from '@/lib/clue-lines'
 import { TIP } from '@/lib/float'
 import { ReadsIn, useReading } from '@/lib/reads-in'
@@ -501,7 +503,7 @@ export function GoalsView({ focus, onOpen }: { focus?: string; onOpen?: (type: s
           the goal never waits for the list, which comes in whole beside it once drawn. */}
       <Page aside={!!open || !!coming} waiting={unloaded(all) || (!!focus && (coming ?? open?.id) !== focus) || !listShown} apart={sent} title="Goals" count={several.chosen.length || undefined} unit={several.chosen.length ? ['selected', 'selected'] : ['goal', 'goals']}
         // Which goals show, at the line's left before the count, on the list's edges as Tasks' tabs (qa/list-edges.mjs): apart from the buttons that make or gather goals.
-        lead={several.bar ? undefined : <div data-list-tabs className="flex shrink-0" style={{ marginLeft: 'calc(var(--list-edge) - var(--list-ink))' }}><Chips className="shrink-0" options={TABS.map((one) => ({ ...one, count: unloaded(all) ? undefined : listOf(one.id).length }))} on={(id) => id === show} pick={(id) => switchTo(id as Tab)} /></div>}
+        lead={several.bar ? undefined : <div data-list-tabs className="flex shrink-0" style={{ marginLeft: 'calc(var(--list-edge) - var(--list-ink))' }}><TabChips name="goals" tabs={TABS.map((one) => ({ value: one.id, label: one.label, count: unloaded(all) ? undefined : listOf(one.id).length }))} value={show} onChange={switchTo} /></div>}
         actions={several.bar ??
           <span className="flex items-center gap-2">
             {openOnes(all).length > 1 && <Button variant="outline" size="sm" className="h-7 cursor-pointer px-3" data-all-goals-sticky onClick={showAllGoals} title="Every open goal on one sticky, each in its own colour"><StickyNote className="size-3.5" />All on one sticky</Button>}
@@ -916,8 +918,8 @@ function DotTip({ dot, today, days, milestoneIn, markIn }: { dot: Dot; today: st
 }
 
 /** A road's dot, its gap, and so its step: small and tight, as Mono's charts are (memory: compact-dots). */
-const DOT = 8
-const GAP = 2.5
+const DOT = SHARED_DOT
+const GAP = SHARED_GAP
 const STEP = DOT + GAP
 /** The tightest a road packs to fit a narrow card: 7px dots, a little over 2px apart. */
 const TIGHT = 9.3
@@ -965,7 +967,7 @@ function RoadCard({ item, from, target, today: now, picked, onPick }: { item: It
   // Longer than a line, the calendar shape journey lays out: a column a week (Monday on top), or a column a month of weeks.
   const across = line ? road.dots.length : road.cols
   const rows = line ? 1 : road.rows
-  const room = (width || 640) - 34
+  const room = (width || 640) - 26
   // One map while every column fits at 7px dots. Wider (a year of weeks beside the list), whole columns wrap into even
   // bands, two half-years for a year, each with its own months under it: never a gap in the middle of a row.
   const bands = Math.max(1, Math.ceil((across * TIGHT - (TIGHT - 7)) / room))
@@ -1045,10 +1047,10 @@ function RoadCard({ item, from, target, today: now, picked, onPick }: { item: It
   }
   return (
     <div ref={box} className="w-full">
-    <section data-road-card data-road-by={road.by} aria-label="The road" className="w-fit max-w-full rounded-md border bg-[color-mix(in_oklab,var(--foreground)_3%,var(--background))] px-4 pt-3 pb-3" style={{ minWidth: mapWidth + 34 }}>
+    <section data-road-card data-road-by={road.by} aria-label="The road" className="mf-chart w-fit max-w-full" style={{ minWidth: mapWidth + 26 }}>
       {/* The one number, large, and beside it what it means, small. */}
       <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-        <span data-goal-left className="text-[1.5rem] leading-none font-semibold tracking-[-0.02em]" style={{ color: iced ? ICE : !item.closedAt && left <= 30 ? warmth(Math.max(left, 0)) : 'var(--foreground)' }}>
+        <span data-goal-left className="mf-big-number text-[1.5rem] leading-none tracking-[-0.02em]" style={{ color: iced ? ICE : !item.closedAt && left <= 30 ? warmth(Math.max(left, 0)) : 'var(--foreground)' }}>
           {left === 0 ? 'Today' : left < 0 ? leftSaid(left) : plural(leftIn, each)}
         </span>
         <span className="text-meta text-muted-foreground">{iced ? 'left when it went on ice' : item.closedAt ? 'left when it ended' : left === 0 ? 'is the day' : left < 0 ? 'past the day' : `to ${dayMonth(`${target}T12:00`)}`}</span>

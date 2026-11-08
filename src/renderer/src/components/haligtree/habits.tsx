@@ -170,7 +170,7 @@ function HabitDay({ day, done, future }: { day: string; done: boolean; future: b
     <Tip label={future ? '' : label}>
       <div data-habit-day={day} data-done={done || undefined}
         onPointerEnter={() => !done && why === null && void call<{ well: string; learned: string; line: string } | null>('habits:why', day).then((said) => setWhy(said?.line || said?.well || said?.learned ? `“${said.line || said.well || said.learned}”` : 'Nothing written that day'))}
-        className={`size-2.5 rounded-[2px] ${future ? 'opacity-0' : done ? 'bg-[var(--tt-color-text-green)]' : 'bg-border/70'}`} />
+        className={`size-2 rounded-full ${future ? 'opacity-0' : done ? 'bg-[var(--tt-color-text-green)]' : 'bg-border/70'}`} />
     </Tip>
   )
 }
