@@ -2,7 +2,7 @@
 // page"): "All" opens on one pile per kind (Books, Pictures, Audio), each its newest covers fanned behind a painted,
 // opaque frost with a screw at each corner, then a Recent row; the tabs are All, Books, Pictures, Audio; Pictures go by
 // month in a tight square grid with no words under them, drawing only the rows in sight at 5,000; Audio is one line a
-// recording, by day; "Only files in no note" is a switch beside the search, not a tab, and says what is true per kind.
+// recording, by day; "Unlinked" (attachments no note holds any more) is a chip after the kinds, with its count, and says what is true per kind.
 // The Add box keeps 16px under the header line. Every frame light and dark, 1440 and 560 wide, 5 / 50 / 500 / 5,000.
 //   QA_ARGS=--sandbox QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/files-piles.mjs [shots]
 import { join } from 'node:path'
@@ -78,7 +78,7 @@ async function book(count, going = 3) {
     const at = new Date(Date.now() - i * (count > 500 ? 1.6 : 9) * 3600_000).toISOString()
     const used = note && i % 3 !== 0
     const title = kind === 'pdf' ? ['Meditations', 'Walden', 'Middlemarch', 'Leviathan', 'Emma', 'Ulysses'][i % 6] : kind === 'audio' ? `Voice note ${i}` : `Picture ${i}`
-    files.push({ src: `haligtree://assets/${name}`, kind, name: kind === 'picture' ? '' : `${title}.${end}`, size: 1000, type: used ? note.type : '', id: used ? note.id : '', title: used ? note.title : '', private: false, near: '', at, uses: used ? [note] : [], added: !used, gone: false })
+    files.push({ src: `haligtree://assets/${name}`, kind, name: kind === 'picture' ? '' : `${title}.${end}`, size: 1000, type: used ? note.type : '', id: used ? note.id : '', title: used ? note.title : '', private: false, near: '', at, uses: used ? [note] : [], added: !used && i % 6 !== 3, gone: false, how: !used && i % 6 === 3 ? 'attachment' : 'library', ...(!used && i % 6 === 3 ? { letGoAt: at } : {}) })
   }
   for (const kind of ['picture', 'pdf', 'audio']) {
     for (const [at, from] of base[kind].entries()) await copyAs(from, names[kind].filter((_, i) => i % base[kind].length === at))
@@ -119,7 +119,8 @@ try {
     const recent = await h.$$eval('[data-recent-file]', (all) => all.length)
     check(`${count}: Recent holds the last ${Math.min(10, count)}`, recent === Math.min(10, count), String(recent))
     check(`${count}: no "In no note" tab among the kinds`, !(await chips()).some((t) => /no note/i.test(t)))
-    check(`${count}: "Only files in no note" is a switch beside the search`, (await h.locator('[data-media-loose]:visible [role="switch"]').count()) === 1)
+    const unlinkedWant = files.filter((f) => f.how === 'attachment' && !f.uses.length).length
+    check(`${count}: "Unlinked" is a chip after the kinds, with its count`, (await h.locator('[data-media-unlinked] button:visible').count()) === 1 && (await h.locator('[data-media-unlinked] button').innerText()).replace(/\s+/g, ' ').trim() === `Unlinked ${unlinkedWant.toLocaleString('en-US')}`, await h.locator('[data-media-unlinked] button').innerText().catch(() => 'none'))
     // Hover a pile: it lifts, with its own sound, once.
     await h.evaluate(() => (window.haligtreeCued.length = 0))
     const pile = h.locator('[data-pile="picture"]')
@@ -145,11 +146,11 @@ try {
     const reach = await h.evaluate(() => {
       const card = document.querySelector('[data-pane-card]').getBoundingClientRect()
       const inside = (el) => { if (!el) return false; const r = el.getBoundingClientRect(); const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return r.width > 0 && r.left >= card.left && r.right <= card.right + 0.5 && !!hit && el.contains(hit) }
-      const sw = [...document.querySelectorAll('[data-media-loose]')].find((one) => one.offsetParent)
+      const sw = document.querySelector('[data-media-unlinked] button')
       const covers = [...document.querySelectorAll('.files-pile-cover')].every((one) => { const r = one.getBoundingClientRect(); return r.left >= card.left - 0.5 && r.right <= card.right + 0.5 })
-      return { add: inside(document.querySelector('[data-media-add]')), loose: inside(sw?.querySelector('[role="switch"]')), covers }
+      return { add: inside(document.querySelector('[data-media-add]')), loose: inside(sw), covers }
     })
-    check(`${count}: 560 wide, "Add" and the switch are whole and take a click; no cover runs off the page`, reach.add && reach.loose && reach.covers, JSON.stringify(reach))
+    check(`${count}: 560 wide, "Add" and "Unlinked" are whole and take a click; no cover runs off the page`, reach.add && reach.loose && reach.covers, JSON.stringify(reach))
     await shot(`all-${count}-560`)
     await size(1440, 900)
 
@@ -206,13 +207,13 @@ try {
     await size(560, 700)
     await shot(`audio-${count}-560`)
     await size(1440, 900)
-    // "Only files in no note", in Audio: says what is true for recordings.
-    await h.locator('[data-media-loose]:visible [role="switch"]').click()
+    // "Unlinked", in Audio: says what is true for recordings.
+    await h.locator('[data-media-unlinked] button').click()
     await h.waitForTimeout(500)
     const loose = await h.evaluate(() => ({ rows: document.querySelectorAll('[data-media-grid] [data-media="audio"]').length, line: document.querySelector('[data-media-nothing]')?.textContent ?? '' }))
-    const looseWant = files.filter((f) => f.kind === 'audio' && !f.uses.length).length
-    check(`${count}: the switch narrows Audio to recordings in no note`, looseWant ? loose.rows > 0 : /^(All [\d,]+ recordings are|The one recording here is) in a note\.$/.test(loose.line), JSON.stringify(loose))
-    await h.locator('[data-media-loose]:visible [role="switch"]').click()
+    const looseWant = files.filter((f) => f.kind === 'audio' && f.how === 'attachment' && !f.uses.length).length
+    check(`${count}: "Unlinked" narrows Audio to recordings no note holds`, looseWant ? loose.rows === looseWant : /^Nothing unlinked among the recordings\./.test(loose.line), JSON.stringify(loose))
+    await h.locator('[data-media-unlinked] button').click()
     await h.waitForTimeout(300)
 
     // 5. Books: the shelf as it was, the Continue reading row kept where the sandbox has one.
@@ -461,7 +462,7 @@ try {
       const boxes = await h.evaluate(() => {
         const head = [...document.querySelectorAll('section > header')].find((one) => one.offsetParent && one.querySelector('input, button'))
         if (!head) return []
-        const items = [...head.querySelectorAll('label:has(input), [data-media-loose], button')].filter((one) => one.offsetParent && !one.closest('[role="switch"]') && one.getAttribute('role') !== 'switch' && one.getAttribute('role') !== 'tab' && !one.closest('[role="tablist"], [role="radiogroup"], [data-chips], [data-list-tabs]') && getComputedStyle(one).display !== 'contents' && one.getBoundingClientRect().height > 12)
+        const items = [...head.querySelectorAll('label:has(input), button')].filter((one) => one.offsetParent && !one.closest('[role="switch"]') && one.getAttribute('role') !== 'switch' && one.getAttribute('role') !== 'tab' && !one.closest('[role="tablist"], [role="radiogroup"], [data-chips], [data-list-tabs]') && getComputedStyle(one).display !== 'contents' && one.getBoundingClientRect().height > 12)
         return items.map((one) => ({ what: (one.getAttribute('aria-label') || one.textContent || one.tagName).trim().slice(0, 24), h: Math.round(one.getBoundingClientRect().height), mid: Math.round(one.getBoundingClientRect().top + one.getBoundingClientRect().height / 2) }))
       })
       const tall = boxes.filter((one) => one.h >= 24)

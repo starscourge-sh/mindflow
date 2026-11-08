@@ -44,7 +44,7 @@ const percent = (one: Book): number | null => (one.page && one.pages ? Math.roun
  * holds. One click picks it and the inspector at the right says all about it;
  * a double click, or "Continue", opens it where you left off.
  */
-export function PdfLibrary({ query, top, files, onPut, keys, only }: { /** Off while something over the page has the keys. */ keys: boolean; query: string; /** Only these books ("Only files in no note"), when given. */ only?: string[]; /** What sits over the shelf (the kinds), scrolling with it. */ top: React.ReactNode; /** Media's own record of each file, for what notes hold it. */ files: Media[]; /** "Put in a note…", for these books. */ onPut: (srcs: string[]) => void }): React.JSX.Element {
+export function PdfLibrary({ query, top, files, onPut, keys, only }: { /** Off while something over the page has the keys. */ keys: boolean; query: string; /** Only these books ("Unlinked"), when given. */ only?: string[]; /** What sits over the shelf (the kinds), scrolling with it. */ top: React.ReactNode; /** Media's own record of each file, for what notes hold it. */ files: Media[]; /** "Put in a note…", for these books. */ onPut: (srcs: string[]) => void }): React.JSX.Element {
   const all = useLive(readLibrary, [] as Book[])
   const books = useMemo(() => {
     const words = query.trim().toLowerCase().split(/\s+/).filter(Boolean)

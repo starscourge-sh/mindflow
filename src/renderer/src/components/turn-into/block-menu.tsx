@@ -31,6 +31,7 @@ import { haligtree } from "@/lib/haligtree"
 import { lineUnderMenu } from "@/extensions/meeting"
 import { isWebPage, openArticle } from "@/components/pdf/web-reader"
 import { ClickedRows, type Clicked } from "./clicked"
+import { binLetGo, isKept, keepInFiles, letGoSaid } from "@/lib/media-files"
 
 /**
  * What belongs to the whole table rather than to a row or a column.
@@ -171,6 +172,17 @@ export function BlockMenu({
   }
 
   const thing = resolve()?.node
+  // A picture or a file kept in the book's own store: it can stay in Files without a note, or go to the Bin with it.
+  const stored = (thing?.type.name === "image" || thing?.type.name === "attachment") && /^(haligtree|mindflow):\/\/assets\//.test(String(thing.attrs.src ?? "")) ? String(thing.attrs.src) : null
+  const storedWhat = thing?.type.name === "image" ? "Picture" : "File"
+  const kept = stored ? isKept(stored) : false
+  /** Whether the note still holds this file somewhere else, after one copy of it is taken out. */
+  const stillHolds = (src: string): boolean => {
+    let found = false
+    editor.state.doc.descendants((node) => { if (node.attrs?.src === src) found = true; return !found })
+    return found
+  }
+  const undoRemove = () => void editor.chain().focus().undo().run()
 
   /**
    * Is there a line of text here to turn into something else?
@@ -725,7 +737,33 @@ export function BlockMenu({
         </DropdownMenuSub>
         ) : null}
 
-        {!isMeeting && matches("Delete") ? (
+        {stored && editor.isEditable && matches("Keep in Files") ? (
+          <DropdownMenuItem asChild>
+            <button type="button" data-keep-in-files aria-checked={kept} role="menuitemcheckbox" onClick={() => at(() => void keepInFiles(stored, !kept))}>
+              <MenuGlyph label="Keep in Files" />
+              <span className="tiptap-slash-menu-title">Keep in Files</span>
+              <span className="tiptap-slash-menu-hint">{kept ? "On" : "Off"}</span>
+            </button>
+          </DropdownMenuItem>
+        ) : null}
+        {stored && editor.isEditable && matches("Remove from note") ? (
+          <DropdownMenuItem asChild>
+            <button type="button" data-remove-from-note onClick={() => at(() => (remove(), letGoSaid(stored, storedWhat, undoRemove)))}>
+              <MenuGlyph label="Remove from note" />
+              <span className="tiptap-slash-menu-title">Remove from note</span>
+              <Kbd>⌫</Kbd>
+            </button>
+          </DropdownMenuItem>
+        ) : null}
+        {stored && editor.isEditable && matches("Remove and move to the Bin") ? (
+          <DropdownMenuItem asChild>
+            <button type="button" data-remove-to-bin onClick={() => at(() => (remove(), void binLetGo(stored, storedWhat, stillHolds(stored), undoRemove)))}>
+              <MenuGlyph label="Remove and move to the Bin" />
+              <span className="tiptap-slash-menu-title">Remove and move to the Bin</span>
+            </button>
+          </DropdownMenuItem>
+        ) : null}
+        {!isMeeting && !stored && matches("Delete") ? (
           <DropdownMenuItem asChild>
             <button
               type="button"

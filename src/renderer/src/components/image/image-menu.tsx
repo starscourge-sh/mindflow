@@ -7,6 +7,7 @@ import TrashIcon from "@/components/ui/trash-icon"
 import { crumpleAway } from "@/lib/fly-home"
 import { chime } from "@/lib/sound"
 import { toast } from "@/components/haligtree/ui"
+import { isKept, leftNoteSaid, refreshKept, seeUnlinked } from "@/lib/media-files"
 import DownloadIcon from "@/components/ui/download-icon"
 import { startCaption } from "@/extensions/caption"
 import { host } from "@/lib/host"
@@ -163,13 +164,18 @@ export function ImageMenu({ editor }: { editor: Editor | null }): React.JSX.Elem
                 requestAnimationFrame(() => requestAnimationFrame(() => {
                   const at = editor.state.selection.from
                   const node = editor.state.doc.nodeAt(at)
+                  // Asked afresh while the paper falls, so the notice says how this picture came.
+                  const known = refreshKept()
                   const away = crumpleAway(editor.view.nodeDOM(at) as HTMLElement | null, 1500)
                   // Out of the note only once the paper has landed: crumpled, tossed, and then the words close up
                   // over the room it left, never the two at once.
                   const remove = (): void => {
                     if (editor.isDestroyed || editor.state.doc.nodeAt(at) !== node) return
                     editor.chain().focus().command(({ tr }) => (tr.delete(at, at + node!.nodeSize), true)).run()
-                    toast("Picture removed", () => (editor.chain().focus().undo().run(), chime("undo")), "success")
+                    // Said true for how it came: an attachment waits under Files' Unlinked, a library file stays in Files.
+                    const src = String(node!.attrs.src ?? "")
+                    const stored = /^(haligtree|mindflow):\/\/assets\//.test(src)
+                    void known.then(() => toast(stored ? leftNoteSaid(src, "Picture") : "Picture removed", () => (editor.chain().focus().undo().run(), chime("undo")), "success", stored && !isKept(src) ? seeUnlinked : undefined))
                   }
                   if (bar) bar.style.visibility = ""
                   editor.commands.blur()

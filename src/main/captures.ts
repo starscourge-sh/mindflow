@@ -279,6 +279,9 @@ const untold = new WeakMap<BrowserWindow, Change[] | null>()
 /** Told after every change the windows are told of: the menu bar, which is no window, follows it so. */
 const afterChange: (() => void)[] = []
 export const whenChanged = (tell: () => void): void => void afterChange.push(tell)
+/** Told after every change, a note's words included (media.ts writes down the files a note let go of). */
+const afterAny: (() => void)[] = []
+export const whenAnyChanged = (tell: () => void): void => void afterAny.push(tell)
 
 export const changed = (what?: Change): void => {
   if (listed && what?.kind === 'capture') {
@@ -314,6 +317,7 @@ export const changed = (what?: Change): void => {
   }
   // A note's words change nothing the menu bar shows.
   if (what?.kind !== 'capture') for (const tell of afterChange) tell()
+  for (const tell of afterAny) tell()
 }
 
 export function registerCaptures(): void {

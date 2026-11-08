@@ -1,8 +1,8 @@
 import { app, BrowserWindow, dialog, ipcMain, nativeImage, shell, systemPreferences } from 'electron'
-import { LABEL, changed, database } from './captures'
+import { LABEL, changed, database, whenAnyChanged } from './captures'
 import { dayName } from './dates'
 import { copyFile, mkdir, open, readFile, rename, rm, stat, writeFile } from 'node:fs/promises'
-import { createReadStream, existsSync } from 'node:fs'
+import { createReadStream, existsSync, statSync } from 'node:fs'
 import { createHash, randomUUID } from 'node:crypto'
 import { basename, join } from 'node:path'
 import type { DatabaseSync } from 'node:sqlite'
@@ -52,6 +52,86 @@ export type Media = {
   added: boolean
   /** Its file is no longer in the book's store. */
   gone: boolean
+  /**
+   * How it came: 'library' when added on purpose (Files, Finder, "Keep in Files", and every file a book held before
+   * this was kept), 'attachment' when pasted or dropped straight into a note. A library file outlives its notes; an
+   * attachment no note holds any more waits under Files' "Unlinked" until it is moved to the Bin. Nothing is deleted by itself.
+   */
+  how: 'library' | 'attachment'
+  /** When the last note let it go; only for one no note holds. */
+  letGoAt?: string
+}
+
+/**
+ * How each file in a note came, and when the last note let it go. A file is written here the first time a note is
+ * seen holding it: as 'attachment' (pasted or dropped in), except the very first time this table is made, when every
+ * file the book already holds is written as 'library', so nothing a person already has is ever offered for clean-up.
+ */
+const HOW = "create table if not exists media_how (src text primary key, how text not null, name text not null default '', size integer not null default 0, kind text not null default '', seen_at text not null, let_go_at text)"
+type HowRow = { src: string; how: 'library' | 'attachment'; name: string; size: number; kind: string; let_go_at: string | null }
+
+/** Written down: files seen in notes for the first time, and the ones the last note just let go. */
+function settle(db: DatabaseSync, held: Map<string, Media>): Map<string, HowRow> {
+  const fresh = !db.prepare("select 1 from sqlite_master where type = 'table' and name = 'media_how'").get()
+  db.exec(HOW)
+  // When this record began: a file already in the store by then (held by a note in the Bin, say, and brought back
+  // later) came before it, and is a library file too, never an attachment to clean up.
+  db.exec('create table if not exists media_how_since (at real not null)')
+  if (fresh) db.prepare('insert into media_how_since (at) values (?)').run(Date.now())
+  const since = Number((db.prepare('select min(at) as at from media_how_since').get() as { at: number | null } | undefined)?.at ?? 0)
+  const store = assetsDir()
+  const before = (src: string): boolean => {
+    const at = statSync(join(store, src.slice(src.lastIndexOf('/') + 1)), { throwIfNoEntry: false })?.birthtimeMs
+    return !!since && at !== undefined && at < since
+  }
+  const rows = new Map((db.prepare('select src, how, name, size, kind, let_go_at from media_how').all() as HowRow[]).map((one) => [one.src, one]))
+  const now = new Date().toISOString()
+  const writes: (() => void)[] = []
+  for (const tile of held.values()) {
+    if (tile.deck) continue
+    const was = rows.get(tile.src)
+    if (!was) {
+      const row: HowRow = { src: tile.src, how: fresh || tile.kind === 'pdf' || before(tile.src) ? 'library' : 'attachment', name: tile.name, size: tile.size, kind: tile.kind, let_go_at: null }
+      rows.set(tile.src, row)
+      writes.push(() => void db.prepare('insert or ignore into media_how (src, how, name, size, kind, seen_at) values (?, ?, ?, ?, ?, ?)').run(row.src, row.how, row.name, row.size, row.kind, now))
+    } else if (was.let_go_at || (!was.name && tile.name)) {
+      was.let_go_at = null
+      was.name ||= tile.name
+      writes.push(() => void db.prepare("update media_how set let_go_at = null, name = case when name = '' then ? else name end, size = case when size = 0 then ? else size end where src = ?").run(tile.name, tile.size, tile.src))
+    }
+  }
+  for (const row of rows.values()) {
+    if (row.let_go_at || held.has(row.src)) continue
+    row.let_go_at = now
+    writes.push(() => void db.prepare('update media_how set let_go_at = ? where src = ? and let_go_at is null').run(now, row.src))
+  }
+  if (writes.length) {
+    db.exec('begin')
+    try {
+      writes.forEach((write) => write())
+      db.exec('commit')
+    } catch (error) {
+      db.exec('rollback')
+      throw error
+    }
+  }
+  return rows
+}
+
+/** A file made a library file ("Keep in Files", or added through Files), or back to an attachment. */
+export function keepInFiles(src: string, on: boolean): void {
+  const db = database()
+  db.exec(HOW)
+  db.exec(ADDED)
+  db.prepare("insert into media_how (src, how, seen_at) values (?, ?, ?) on conflict(src) do update set how = excluded.how").run(src, on ? 'library' : 'attachment', new Date().toISOString())
+  // Added through Files and now let go of: the name it came under is kept, and it is an attachment like any other.
+  if (!on) {
+    const added = db.prepare('select name, size from media_added where src = ? and binned_at is null').get(src) as { name: string; size: number } | undefined
+    if (added) {
+      db.prepare("update media_how set name = case when name = '' then ? else name end, size = case when size = 0 then ? else size end where src = ?").run(added.name, added.size, src)
+      db.prepare('delete from media_added where src = ? and binned_at is null').run(src)
+    }
+  }
 }
 
 /** What Media was given with no note: the file is in the store; this says it belongs to the book. */
@@ -163,6 +243,14 @@ type Found = Pick<Media, 'src' | 'kind' | 'name' | 'size' | 'near'>
 const read = new Map<string, { body: string; found: Found[] }>()
 
 export function registerMedia(): void {
+  // A note saved: once the saving settles, what it took in or let go of is written down, so a picture pasted and
+  // deleted before Files is next opened still waits under Unlinked, with the moment it went.
+  let settling: NodeJS.Timeout | null = null
+  whenAnyChanged(() => {
+    if (settling) clearTimeout(settling)
+    settling = setTimeout(() => { settling = null; try { allMedia() } catch { /* the book is closing */ } }, 1200)
+    settling.unref?.()
+  })
   // Before a voice note: macOS asks once, with the sentence in electron-builder.yml, and remembers.
   // True when the microphone may be used; elsewhere than a Mac, Chromium asks for itself.
   ipcMain.handle('haligtree:mic:ask', async () => {
@@ -225,10 +313,29 @@ export function registerMedia(): void {
       const one = tiles.get(src)
       if (!one) continue
       if (one.uses.length) stayed.push({ src, name: one.name || one.title, notes: one.uses.length })
-      else (db.prepare('update media_added set binned_at = ? where src = ?').run(now, src), binned.push(src))
+      else (toBin(db, one, now), binned.push(src))
     }
     if (binned.length) changed()
     return { binned, stayed }
+  })
+  // "Keep in Files", from a note's picture or file and from Files: on, it is a library file and outlives its notes.
+  ipcMain.handle('haligtree:media:keep', (_event, src: unknown, on: unknown) => (keepInFiles(String(src), !!on), changed(), true))
+  ipcMain.handle('haligtree:media:kept', () => allMedia().filter((one) => one.how === 'library').map((one) => one.src))
+  // "Move all to the Bin" on Unlinked: every attachment no note holds, and only those; Undo puts them back under Unlinked.
+  ipcMain.handle('haligtree:media:bin-unlinked', () => {
+    const db = database()
+    const now = new Date().toISOString()
+    const binned = allMedia().filter((one) => !one.deck && one.how === 'attachment' && !one.uses.length).map((one) => (toBin(db, one, now), one.src))
+    if (binned.length) changed()
+    return binned
+  })
+  // "Remove and move to the Bin" from a note, asked once the note's words are saved: to the Bin only when no note holds it now.
+  ipcMain.handle('haligtree:media:bin-let-go', (_event, src: unknown) => {
+    const one = allMedia().find((each) => !each.deck && each.src === String(src))
+    if (!one || one.uses.length) return { binned: false, others: one?.uses.length ?? 0 }
+    toBin(database(), one, new Date().toISOString())
+    changed()
+    return { binned: true, others: 0 }
   })
   ipcMain.handle('haligtree:media:unbin', (_event, srcs: unknown) => {
     for (const src of Array.isArray(srcs) ? srcs.map(String) : []) mediaFromBin(src)
@@ -237,11 +344,33 @@ export function registerMedia(): void {
   })
 }
 
-export const mediaFromBin = (src: string): void => void database().prepare('update media_added set binned_at = null where src = ?').run(src)
+/**
+ * To the Bin: an added file is marked so; one never added (an attachment, or a file a note let go of) is written in
+ * the Bin's list with the same moment as its "added", which says, when it comes back, to go back where it was.
+ */
+const toBin = (db: DatabaseSync, one: Media, now: string): void => {
+  const was = db.prepare('select 1 from media_added where src = ?').get(one.src)
+  // One pasted a moment ago and not yet written down is an attachment, so it comes back from the Bin as one.
+  if (!was) db.prepare('insert or ignore into media_how (src, how, name, size, kind, seen_at, let_go_at) values (?, ?, ?, ?, ?, ?, ?)').run(one.src, 'attachment', one.name, one.size, one.kind, now, now)
+  if (was)db.prepare('update media_added set binned_at = ? where src = ?').run(now, one.src)
+  else db.prepare('insert into media_added (src, name, size, added_at, binned_at) values (?, ?, ?, ?, ?)').run(one.src, one.name || basename(one.src), one.size, now, now)
+}
+/** Out of the Bin, back where it was: an added file to Files, a let-go one to Unlinked (or "In no note"). */
+export const mediaFromBin = (src: string): void => {
+  const db = database()
+  db.exec(HOW)
+  const row = db.prepare('select added_at as at, binned_at as binned from media_added where src = ?').get(src) as { at: string; binned: string | null } | undefined
+  if (row?.binned && row.at === row.binned && db.prepare('select 1 from media_how where src = ?').get(src)) db.prepare('delete from media_added where src = ?').run(src)
+  else db.prepare('update media_added set binned_at = null where src = ?').run(src)
+}
 /** Let go for good: the file itself is cleared with the rest of the unused ones (unused.ts), as a deleted note's are. */
 export const mediaForget = (src?: string): number => {
   const db = database()
   db.exec(ADDED)
+  db.exec(HOW)
+  // Gone for good from the Bin: what said how it came goes too, or it would come back under Unlinked.
+  if (src) db.prepare('delete from media_how where src = ? and src in (select src from media_added where binned_at is not null)').run(src)
+  else db.prepare('delete from media_how where src in (select src from media_added where binned_at is not null)').run()
   return Number((src ? db.prepare('delete from media_added where src = ? and binned_at is not null').run(src) : db.prepare('delete from media_added where binned_at is not null').run()).changes)
 }
 /**
@@ -301,10 +430,11 @@ function allMedia(): Media[] {
         was.name ||= one.name
         was.size ||= one.size
         if (one.near) was.near = `${was.near} · ${one.near}`
-      } else tiles.set(tile, { ...one, type: row.type, id: row.id, title, private: !!row.private, at: row.at, ...(row.deck ? { deck: true } : {}), uses: [use], added: false, gone: false })
+      } else tiles.set(tile, { ...one, type: row.type, id: row.id, title, private: !!row.private, at: row.at, ...(row.deck ? { deck: true } : {}), uses: [use], added: false, gone: false, how: 'attachment' })
     }
   }
   for (const key of read.keys()) if (!live.has(key)) read.delete(key)
+  const hows = settle(db, tiles)
   for (const row of addedRows(db)) {
     const was = tiles.get(row.src)
     const kind = kindByEnd(row.src)
@@ -316,8 +446,21 @@ function allMedia(): Media[] {
     } else if (kind) {
       // A picture's own words, read by the Mac as any kept picture's are, so Media's search finds it by them.
       const words = wordsOfPicture(row.src).split(IN_PICTURE).join('').trim()
-      tiles.set(row.src, { src: row.src, kind, name: row.name, size: row.size, type: '', id: '', title: '', private: false, near: words, at: row.at, uses: [], added: true, gone: false })
+      tiles.set(row.src, { src: row.src, kind, name: row.name, size: row.size, type: '', id: '', title: '', private: false, near: words, at: row.at, uses: [], added: true, gone: false, how: 'library' })
     }
+  }
+  // What notes let go of and nobody added or binned: an attachment under Unlinked, a library file under "In no note".
+  const anyAdded = new Set((db.prepare('select src from media_added').all() as { src: string }[]).map((one) => one.src))
+  for (const row of hows.values()) {
+    const kind = (row.kind || kindByEnd(row.src)) as MediaKind | null
+    if (tiles.has(row.src) || anyAdded.has(row.src) || !kind || !row.let_go_at) continue
+    const words = kind === 'picture' || kind === 'gif' ? wordsOfPicture(row.src).split(IN_PICTURE).join('').trim() : ''
+    tiles.set(row.src, { src: row.src, kind, name: row.name, size: row.size, type: '', id: '', title: '', private: false, near: words, at: row.let_go_at, uses: [], added: false, gone: false, how: row.how, letGoAt: row.let_go_at })
+  }
+  for (const one of tiles.values()) {
+    if (one.deck) continue
+    const how = hows.get(one.src)?.how
+    one.how = one.added || how === 'library' ? 'library' : 'attachment'
   }
   const store = assetsDir()
   const all = [...tiles.values()]
@@ -408,6 +551,9 @@ export async function addMedia(items: MediaItem[]): Promise<AddResult> {
         out.added.push(taken)
       }
       here.add(hash)
+      // Added on purpose: whichever way it came before, it is a library file now.
+      db.exec(HOW)
+      db.prepare("update media_how set how = 'library' where src like ?").run(`%/${hash}.%`)
     } catch (error) {
       refuse(error instanceof Error && 'code' in error && error.code === 'ENOENT' ? 'gone from where it was' : 'it could not be read')
     }

@@ -7,7 +7,7 @@ import { realMove } from '@/lib/real-move'
 import { VirtualList } from './ui'
 import { RowMenu, type RowItem } from './row-menu'
 import { SoundPlayer, soundTitle } from './sound-player'
-import { num, plural } from '../../../../main/dates'
+import { dayMonth, daysFromToday, num, plural } from '../../../../main/dates'
 import type { Media, MediaUse } from '../../../../main/media'
 
 /** The three shelves Files sorts everything onto: a GIF is a picture that moves. */
@@ -228,7 +228,9 @@ function StuckHead({ lines }: { lines: Line[] }): React.JSX.Element {
 }
 
 /** Its note, said in a word: where a file is, or that it is in none. */
-export const whereOf = (one: Media): string => (one.gone ? 'File gone from the book' : one.uses.length ? `In ${one.uses[0].title || 'Untitled'}${one.uses.length > 1 ? ` and ${num(one.uses.length - 1)} more` : ''}` : 'In no note')
+export const whereOf = (one: Media): string => (one.gone ? 'File gone from the book' : one.uses.length ? `In ${one.uses[0].title || 'Untitled'}${one.uses.length > 1 ? ` and ${num(one.uses.length - 1)} more` : ''}` : one.how === 'attachment' && one.letGoAt ? `Unlinked ${letGoWhen(one.letGoAt)}` : 'In no note')
+/** When the last note let a file go: today, yesterday, or since the day. */
+export const letGoWhen = (at: string): string => ((days) => (days === 0 ? 'today' : days === -1 ? 'yesterday' : `since ${dayMonth(at)}`))(daysFromToday(at))
 
 export const PICTURE = 148
 export const PICTURE_GAP = 10

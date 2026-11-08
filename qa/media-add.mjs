@@ -559,7 +559,7 @@ if (part('book')) {
     const drawn = await h.evaluate(() => document.querySelectorAll('[data-page=media] [data-media]').length)
     check('2,000 files: the page draws only what is in sight', drawn > 0 && drawn < 200, `${drawn} tiles, ${Date.now() - open0}ms`)
     await h.evaluate(() => window.api.captures.create({ kind: 'note', body: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Holds one' }] }, { type: 'image', attrs: { src: document.querySelector('[data-page=media] [data-media]').dataset.src } }] } })); await wait(1200)
-    check('2,000 files: "In no note" gets a chip of its own', await h.evaluate(() => !!document.querySelector('[data-media-loose]')))
+    check('2,000 files added on purpose: no "Unlinked" chip, as none is an attachment', await h.evaluate(() => !document.querySelector('[data-media-unlinked]')))
     await shot(h, 'state-2000')
     check('no page errors in the book of its own', !b.errors.length, b.errors.slice(0, 3).join(' | '))
   } catch (error) {

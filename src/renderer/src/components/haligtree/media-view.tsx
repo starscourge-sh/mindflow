@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useStepped } from '@/lib/nav'
-import { AudioLines, Image as ImageIcon, Layers, LayoutGrid, Plus } from 'lucide-react'
+import { AudioLines, Check, Image as ImageIcon, Layers, LayoutGrid, Plus, Unlink } from 'lucide-react'
 import { FileText } from '@/components/ui/icons'
 import { call, haligtree, unloaded, useLive } from '@/lib/haligtree'
 import { smallPicture } from '@/lib/notes'
@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { MenuGlyph } from '@/components/ui/menu-icon'
 import { Search } from '@/components/search'
-import { addDropped, addFromPicker, binFiles, putInNote, takeMediaFile } from '@/lib/media-files'
+import { addDropped, addFromPicker, binFiles, binUnlinked, keepInFiles, putInNote, takeMediaFile, takeUnlinked } from '@/lib/media-files'
 import { useSelectAll } from '@/lib/select-all'
 import { usePicking } from '@/lib/pick-range'
 import { useHere } from '@/lib/split'
@@ -24,9 +24,8 @@ import { canSplit, openAside } from '@/lib/split'
 import { chime } from '@/lib/sound'
 import { pictureLines } from '@/lib/picture-actions'
 import { Empty, Kbd, Page, refuse, toast, typing, useListKeys, VirtualList } from './ui'
-import { Switch } from '@/components/ui/switch'
 import { readLibrary, type Book } from '@/components/pdf/book-head'
-import { AudioDays, PICTURE, PICTURE_GAP, Pile, PictureMonths, pictureSpans, RecentRow, SHELVES, shelfOf, stepLine, type Shelf } from './files-shelves'
+import { AudioDays, letGoWhen, PICTURE, PICTURE_GAP, Pile, PictureMonths, pictureSpans, RecentRow, SHELVES, shelfOf, stepLine, type Shelf } from './files-shelves'
 import { Chip } from './display'
 import { ListSearch, tileClass } from './note-list'
 import { SoundPlayer, soundTitle } from './sound-player'
@@ -108,19 +107,26 @@ export function MediaView({ onOpen }: { onOpen: (type: string, id: string) => vo
     return () => window.removeEventListener('haligtree:media-kind', on)
   }, [])
   useStepped(kind, setKind)
-  const [looseOnly, setLooseOnly] = useState(false)
+  // "Unlinked": attachments the last note let go of, newest let go first; a filter on whatever kind is open.
+  const [unlinkedOnly, setUnlinkedOnly] = useState(takeUnlinked)
+  useEffect(() => {
+    const on = (): void => (takeUnlinked(), setUnlinkedOnly(true), setQuery(''))
+    window.addEventListener('haligtree:media-unlinked', on)
+    return () => window.removeEventListener('haligtree:media-unlinked', on)
+  }, [])
   // A shared deck's pictures (hundreds of paintings) wait under their own chip, so the book's own stay in view.
   const [decks, setDecks] = useState(false)
   const anyDeck = all.some((one) => one.deck)
   const shown = useMemo(() => {
     const words = query.trim().toLowerCase().split(/\s+/).filter(Boolean)
-    return all.filter((one) => !!one.deck === decks && (kind === 'all' || shelfOf(one) === kind) && (!looseOnly || !one.uses.length) &&
+    return all.filter((one) => !!one.deck === decks && (kind === 'all' || shelfOf(one) === kind) && (!unlinkedOnly || isUnlinked(one)) &&
       words.every((word) => `${one.title} ${one.name} ${one.near}`.toLowerCase().includes(word)))
-      // Newest first, so a month's or a day's files sit together under its heading.
-      .sort((a, b) => (b.at ?? '').localeCompare(a.at ?? ''))
-  }, [all, query, kind, decks, looseOnly])
-  // "All" shows a pile per kind and the Recent row; a search there lists what it found, any kind, as tiles.
-  const piles = kind === 'all' && !query.trim()
+      // Newest first, so a month's or a day's files sit together under its heading; on Unlinked, newest let go first.
+      .sort((a, b) => (unlinkedOnly ? (b.letGoAt ?? '').localeCompare(a.letGoAt ?? '') : 0) || (b.at ?? '').localeCompare(a.at ?? ''))
+  }, [all, query, kind, decks, unlinkedOnly])
+  const unlinkedCount = useMemo(() => all.filter(isUnlinked).length, [all])
+  // "All" shows a pile per kind and the Recent row; a search there, or Unlinked, lists what it found, any kind, as tiles.
+  const piles = kind === 'all' && !query.trim() && !unlinkedOnly
 
   // How many tiles fit across, worked out from the grid's own width.
   const box = useRef<HTMLDivElement>(null)
@@ -189,7 +195,7 @@ export function MediaView({ onOpen }: { onOpen: (type: string, id: string) => vo
     const one = all.find((each) => each.src === showing)!
     if (!shown.includes(one)) {
       setQuery('')
-      setLooseOnly(false)
+      setUnlinkedOnly(false)
       setDecks(!!one.deck)
       setKind('all')
       return
@@ -229,16 +235,9 @@ export function MediaView({ onOpen }: { onOpen: (type: string, id: string) => vo
   // The "Add" box, open in the page.
   const [adding, setAdding] = useState(false)
 
-  // "Only files in no note", beside the search: a filter on whatever kind is open, not a kind of its own.
-  const looseSwitch = (where: string): React.JSX.Element => (
-    <label data-media-loose className={`${where} h-7 shrink-0 cursor-pointer items-center gap-2 text-xs whitespace-nowrap text-muted-foreground hover:text-foreground`}>
-      <Switch size="sm" checked={looseOnly} onCheckedChange={setLooseOnly} className="cursor-pointer" aria-label="Only files in no note" />
-      <span className="files-loose-words">Only files in no note</span>
-    </label>
-  )
   // The tabs: All, then each shelf the book holds (a tab for something you have none of leads to nothing; one asked for by name still shows, to say so).
   const held = SHELVES.filter((one) => one.id === kind || all.some((item) => shelfOf(item) === one.id && !item.deck))
-  const kinds = held.length + (anyDeck ? 1 : 0) < 2 ? <div className="pt-4" /> : (
+  const kinds = held.length + (anyDeck ? 1 : 0) + (unlinkedCount || unlinkedOnly ? 1 : 0) < 2 ? <div className="pt-4" /> : (
     <div data-media-kinds className="flex flex-wrap gap-1 pt-4 pb-3 text-xs">
       <Chip on={kind === 'all'} onClick={() => kind !== 'all' && (chime('tap'), setKind('all'))} mark={<LayoutGrid className="size-3.5" />}>All</Chip>
       {held.map((one) => {
@@ -248,8 +247,14 @@ export function MediaView({ onOpen }: { onOpen: (type: string, id: string) => vo
       {anyDeck && (
         <span data-media-decks="" className="contents"><Chip on={decks} onClick={() => (chime(decks ? 'off' : 'on'), setDecks(!decks))} mark={<Layers className="size-3.5" />}>Deck pictures</Chip></span>
       )}
-      {/* On a narrow window the header has no room for it: it sits at the end of the tabs instead. */}
-      {looseSwitch('ml-auto flex @[40rem]/page:hidden')}
+      {/* Attachments no note holds any more, with how many: a filter beside the kinds, shown once there is one. */}
+      {(unlinkedCount > 0 || unlinkedOnly) && (
+        <span data-media-unlinked="" className="contents"><Chip on={unlinkedOnly} onClick={() => (chime(unlinkedOnly ? 'off' : 'on'), setUnlinkedOnly(!unlinkedOnly))} mark={<Unlink className="size-3.5" />}>Unlinked <span className="tabular-nums opacity-70">{num(unlinkedCount)}</span></Chip></span>
+      )}
+      {/* What acts on the view sits at the end of the row, on its own: only on Unlinked, and only with something to move. */}
+      {unlinkedOnly && unlinkedCount > 0 && (
+        <Button variant="ghost" size="sm" data-media-bin-unlinked className="ml-auto h-7 cursor-pointer px-2.5 text-xs text-muted-foreground hover:text-foreground" onClick={() => void binUnlinked()}>Move all to the Bin</Button>
+      )}
     </div>
   )
   // The last few added or opened, any kind: a book counts from when it was last read.
@@ -263,9 +268,8 @@ export function MediaView({ onOpen }: { onOpen: (type: string, id: string) => vo
   const pileList = useMemo(() => SHELVES.map((shelf) => ({ shelf, files: shown.filter((one) => shelfOf(one) === shelf.id) })).filter((one) => one.files.length), [shown])
   // What is true when nothing shows: said for the kind that is open.
   const shelf = SHELVES.find((one) => one.id === kind)
-  const inKind = all.filter((one) => !!one.deck === decks && (kind === 'all' || shelfOf(one) === kind))
   const nothing = query.trim() ? <>Nothing here has {quoted(query.trim(), 80)} in its note, its name or the words around it.</>
-    : looseOnly ? <>{inKind.length === 1 ? `The one ${shelf?.one ?? 'file'} here is in a note.` : `All ${num(inKind.length)} ${shelf?.many ?? 'files'} are in a note.`}</>
+    : unlinkedOnly ? <>Nothing unlinked{kind === 'all' ? '' : ` among the ${shelf?.many ?? 'files'}`}. A picture or file pasted into a note shows here once no note holds it, until you move it to the Bin.</>
     : <>No {shelf?.many ?? 'files'} here yet.</>
   return (
     // The page as a whole takes a drop: `contents`, so nothing about how it is laid out changes.
@@ -281,7 +285,7 @@ export function MediaView({ onOpen }: { onOpen: (type: string, id: string) => vo
         void addDropped([...event.dataTransfer.files], onShow)
       }}>
     <Page title="Files" dock={library} waiting={unloaded(all)} count={unloaded(all) || !all.length ? undefined : chosen.length || shown.length} unit={chosen.length ? ['selected', 'selected'] : ['file', 'files']}
-      search={all.length > 0 && <div className="flex min-w-0 items-center gap-3"><ListSearch value={query} placeholder="Find by note, name or words" onChange={setQuery} onDone={() => shown[0] && open(shown[0])} />{looseSwitch('hidden @[40rem]/page:flex')}</div>}
+      search={all.length > 0 && <div className="flex min-w-0 items-center gap-3"><ListSearch value={query} placeholder="Find by note, name or words" onChange={setQuery} onDone={() => shown[0] && open(shown[0])} /></div>}
       beside={() => carrying && (
         <div data-media-drop className="pointer-events-none absolute inset-2 z-20 flex items-center justify-center rounded-xl border border-[color-mix(in_srgb,var(--tt-brand-color-500)_55%,transparent)] bg-[color-mix(in_srgb,var(--tt-brand-color-500)_8%,transparent)]">
           <span className="rounded-lg bg-popover px-3 py-2 text-heading font-semibold text-foreground shadow-(--mf-panel-shadow) ring-1 ring-foreground/10">Drop to add to Files</span>
@@ -292,7 +296,7 @@ export function MediaView({ onOpen }: { onOpen: (type: string, id: string) => vo
       {adding && <AddBox onShow={onShow} onClose={() => setAdding(false)} />}
       {library ? (
         // PDFs as a library: a shelf of covers, each book once, the picked one's panel docked at the page's edge.
-        <PdfLibrary query={query} top={kinds} files={all} only={looseOnly ? shown.map((one) => one.src) : undefined} keys={!putting} onPut={(srcs) => setPutting(all.filter((one) => srcs.includes(one.src)))} />
+        <PdfLibrary query={query} top={kinds} files={all} only={unlinkedOnly ? shown.map((one) => one.src) : undefined} keys={!putting} onPut={(srcs) => setPutting(all.filter((one) => srcs.includes(one.src)))} />
       ) : all.length ? (
         <div ref={box} data-media-grid data-media-shelf={piles ? 'all' : kind} className={`mx-5 mb-4 ${kind === 'audio' ? 'files-audio-list' : ''}`}>
           {kinds}
@@ -364,6 +368,9 @@ function openUse(use: MediaUse, src: string, onOpen: (type: string, id: string) 
   headingIn(use.type, use.id, src)
 }
 
+/** An attachment no note holds any more: Unlinked, in Files' own words. */
+const isUnlinked = (one: Media): boolean => !one.deck && !one.uses.length && one.how === 'attachment'
+
 /** What a file's tile says it is, in place of a picture. */
 const WORD: Record<MediaKind, string> = { picture: 'Picture', gif: 'GIF', pdf: 'PDF', audio: 'Recording' }
 
@@ -385,6 +392,9 @@ export function mediaMenu(one: Media, onOpen: () => void, onPut: () => void, onB
     // Its words' lines under one, as on a picture in a note.
     picture && pictureLines(one.src).length > 0 && { label: 'Text in it', items: pictureLines(one.src) },
     { label: 'Show in Finder', run: () => void window.api.showFile(one.src) },
+    'separator',
+    // On, it stays in Files when no note holds it; off, the last note to let it go leaves it under Unlinked.
+    !one.gone && { label: 'Keep in Files', hint: one.how === 'library' ? 'On: stays here without a note' : 'Off: waits under Unlinked without a note', trail: one.how === 'library' ? <Check className="size-3.5" /> : undefined, run: () => void keepInFiles(one.src, one.how !== 'library') },
     // What a note holds stays with that note: only a file used nowhere goes.
     !used && { label: 'Move to the Bin', keys: '⌫', danger: true, run: onBin }
   ]
@@ -394,7 +404,7 @@ function Tile({ one, at, picked, menu, onClick, onUse }: { one: Media; at: boole
   // A PDF is named by the title it carries, as the reader names it, and shows its first page.
   const cover = usePdfCover(one.kind === 'pdf' && !one.gone ? one.src : null, one.name)
   // A recording by its name without ".wav", as its player names it.
-  const label = cover?.title || (one.kind === 'audio' && one.name ? soundTitle(one.name, null) : one.name ? bare(one.name) : one.title) || 'Untitled'
+  const label = cover?.title || (one.kind === 'audio' && one.name ? soundTitle(one.name, null) : one.name ? bare(one.name) : one.title) || (one.uses.length ? 'Untitled' : WORD[one.kind])
   const audio = one.kind === 'audio'
   const Press = (audio ? 'div' : 'button') as React.ElementType
   return (
@@ -419,7 +429,8 @@ function Tile({ one, at, picked, menu, onClick, onUse }: { one: Media; at: boole
 function Where({ one, label, onUse }: { one: Media; label: string; onUse: (use: MediaUse) => void }): React.JSX.Element {
   const line = 'flex min-w-0 items-baseline gap-1 px-2.5 pt-0.5 pb-2.5 text-xs text-muted-foreground'
   if (one.gone) return <span data-media-where="gone" className={`${line} text-foreground`}>File gone from the book</span>
-  if (!one.uses.length) return <span data-media-where="none" className={line}>In no note yet</span>
+  if (!one.uses.length && one.how === 'attachment' && one.letGoAt) return <span data-media-where="unlinked" className={line}>Unlinked {letGoWhen(one.letGoAt)}</span>
+  if (!one.uses.length) return <span data-media-where="none" className={line}>{one.added ? 'In no note yet' : 'In no note'}</span>
   const others = label === one.uses[0].title ? one.uses.slice(1) : one.uses
   if (!others.length) return <span data-media-where="own" className={line}>{WORD[one.kind]}</span>
   const way = 'cursor-pointer underline decoration-foreground/25 underline-offset-2 hover:text-foreground hover:decoration-foreground'

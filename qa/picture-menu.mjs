@@ -1,6 +1,6 @@
 // A picture in a note has one menu (tracker: "does this make sense? what is the reasoning for the differentiation"):
 // a right-click on it shows the picture's own lines (Look, a caption, Download, Copy image, Copy text from image,
-// Open in the default app, Show in Finder) and the block's (Copy, Duplicate, Delete) in one list, as its grip's
+// Open in the default app, Show in Finder) and the block's (Copy, Duplicate, Keep in Files, Remove from note, Remove and move to the Bin) in one list, as its grip's
 // menu does: never "Open in the default app" and "Show in Finder" on top with the rest folded under "Picture ›".
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/picture-menu.mjs
 import { sandbox } from './sandbox-lib.mjs'
@@ -50,7 +50,7 @@ try {
   const has = (title) => menu.titles.includes(title)
   check('one list, nothing folded under "Picture ›"', !menu.folded, JSON.stringify(menu.groups))
   check('the picture\'s own lines and where its file lives, together', ['Look', 'Add a caption', 'Download', 'Copy image', 'Open in the default app', 'Show in Finder'].every(has), JSON.stringify(menu.titles))
-  check('and the block\'s lines in the same list', ['Duplicate', 'Delete'].every(has), JSON.stringify(menu.titles))
+  check('and the block\'s lines in the same list, its file\'s two ways out and "Keep in Files"', ['Duplicate', 'Keep in Files', 'Remove from note', 'Remove and move to the Bin'].every(has) && !has('Delete'), JSON.stringify(menu.titles))
   check('no line twice', new Set(menu.titles).size === menu.titles.length, JSON.stringify(menu.titles))
   await h.screenshot({ path: `${shots}/picture-menu.png` })
 } finally { await c.close() }

@@ -150,3 +150,75 @@ export const takeMediaFile = (): string | null => ((src) => ((wanted = null), sr
 if (typeof window !== 'undefined') window.addEventListener('haligtree:media-file', (event) => void (wanted = (event as CustomEvent<string>).detail), { capture: true })
 /** Media, on one file: from ⌘K in any window. */
 export const showMediaFile = (id: string): void => void call('media:show', id.split('|')[0])
+
+/**
+ * The library files (added on purpose, or marked "Keep in Files"), known before a menu opens: a picture or a file in a
+ * note says whether "Keep in Files" is on without waiting. One pasted a moment ago is not among them, as it is not.
+ */
+let kept = new Set<string>()
+export const refreshKept = (): Promise<void> => call<string[]>('media:kept').then((srcs) => void (kept = new Set(srcs)), () => undefined)
+export const isKept = (src: string): boolean => kept.has(src)
+if (typeof window !== 'undefined' && window.api) {
+  void refreshKept()
+  // Read again as any menu is asked for, and when the window comes back, so a change made elsewhere is known.
+  window.addEventListener('contextmenu', () => void refreshKept(), true)
+  window.addEventListener('focus', () => void refreshKept())
+  // A change no note made (a file added, kept, binned): what is kept may have changed.
+  window.api.captures?.onChange?.(() => void refreshKept(), [])
+}
+
+/** "Keep in Files", on or off: on, the file stays in Files when no note holds it; off, it is an attachment again. */
+export async function keepInFiles(src: string, on: boolean): Promise<void> {
+  await call('media:keep', src, on)
+  if (on) kept.add(src)
+  else kept.delete(src)
+  chime(on ? 'on' : 'off')
+  toast(on ? 'Kept in Files. It stays there without a note' : 'Not kept. Once no note holds it, it waits in Files › Unlinked',
+    () => void call('media:keep', src, !on).then(() => (on ? kept.delete(src) : kept.add(src), chime('undo'))))
+}
+
+let nextUnlinked = false
+/** Whether Files opens on Unlinked (asked once, as the page mounts). */
+export const takeUnlinked = (): boolean => ((on) => ((nextUnlinked = false), on))(nextUnlinked)
+/** Files, opened (or already open) on Unlinked. */
+export function showUnlinked(): void {
+  nextUnlinked = true
+  window.api.openInHome('view', 'media')
+  window.dispatchEvent(new CustomEvent('haligtree:media-unlinked'))
+}
+export const seeUnlinked = { label: 'Open', key: 'O', run: showUnlinked }
+
+/** Said when a picture or a file leaves a note: where it is now, true for how it came. */
+export const leftNoteSaid = (src: string, what: 'Picture' | 'File'): string =>
+  isKept(src) ? `${what} removed from the note. It stays in Files` : `${what} removed. It's in Files › Unlinked`
+
+/** "Remove from note": out of the note, said where it is now, with Undo and, for an attachment, a way to Unlinked. */
+export function letGoSaid(src: string, what: 'Picture' | 'File', undoNote: () => void): void {
+  chime('off')
+  toast(leftNoteSaid(src, what), () => (undoNote(), chime('undo')), 'success', isKept(src) ? undefined : seeUnlinked)
+}
+
+/**
+ * "Remove and move to the Bin": out of the note, and to the Bin unless another note still holds it (then it is said).
+ * Undo puts it back in the note and takes it out of the Bin.
+ */
+export async function binLetGo(src: string, what: 'Picture' | 'File', stillHere: boolean, undoNote: () => void): Promise<void> {
+  // The note's words saved first (main takes them in order), so main sees whether any note still holds it.
+  window.dispatchEvent(new Event('haligtree:flush'))
+  const said = stillHere ? null : await call<{ binned: boolean; others: number }>('media:bin-let-go', src)
+  if (!said?.binned) {
+    chime('off')
+    const others = said?.others ?? 0
+    return toast(stillHere ? `${what} removed here. The note holds it again further on, so it stays` : `${what} removed from the note. It stays in Files: ${plural(others, 'other note')} ${others === 1 ? 'holds' : 'hold'} it`, () => (undoNote(), chime('undo')))
+  }
+  tear()
+  toast(`${what} removed and moved to the Bin`, () => void call('media:unbin', [src]).then(() => (undoNote(), chime('undo'))), 'success', seeTheBin)
+}
+
+/** "Move all to the Bin" on Unlinked: every attachment no note holds, one notice and one Undo for them all. */
+export async function binUnlinked(): Promise<void> {
+  const binned = await call<string[]>('media:bin-unlinked')
+  if (!binned.length) return
+  tear()
+  toast(binned.length === 1 ? 'Moved 1 unlinked file to the Bin' : `Moved ${num(binned.length)} unlinked files to the Bin`, () => void call('media:unbin', binned).then(() => chime('undo')), 'success', seeTheBin)
+}

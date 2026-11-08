@@ -2,7 +2,7 @@ import {
   AlarmClock, AppWindow, BellOff, Archive, ArchiveRestore, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, ArrowUpDown, Ban, Bell, Braces, BookCopy, BookOpen, Bookmark, Brain, Calendar,
   CalendarClock, CalendarDays, CalendarPlus, CalendarX, Camera, CameraOff, ChartBar, CheckCheck, ChevronsDownUp, ChevronsUpDown, CircleCheck, CircleOff,
   CircleX, Clipboard, Clock, Folder, Columns2, Copy, CopyPlus, Dice5, DoorOpen, Dot, Download, Eraser, ExternalLink, Eye, EyeOff, FilePlus, FileText, Files, Flag,
-  FolderInput, FolderMinus, FolderPlus, Footprints, Gift, GraduationCap, Hash, History, Hourglass, House, Image, Inbox, Keyboard, LayoutGrid,
+  FolderCheck, FolderInput, FolderMinus, FolderPlus, Footprints, Gift, GraduationCap, Hash, History, Hourglass, House, Image, Inbox, Keyboard, LayoutGrid,
   Library, Lightbulb, Link, List, ListChecks, ListStart, Lock, LockOpen, LogOut, Map as MapIcon, Maximize2, MessageCircleQuestion, MessageSquare, Minimize2, Monitor,
   MonitorUp, MoveRight, NotebookText, Palette, Languages, Scissors, Pause, Play, Scale, ScanText, PanelLeft, PanelRight, Pencil, Pin, PinOff, Plus, Quote, Repeat, RotateCcw, Search, Settings, Shapes, Shield,
   ShieldCheck, Smile, Snowflake, Sparkles, SquareCheck, SquareKanban, SquarePen, Star, StickyNote, Sun, Tag, Target, Timer, Trash2, Type, Undo2, Ungroup, Upload,
@@ -202,7 +202,9 @@ const RULES: [RegExp, LucideIcon][] = [
   [/^clear the selection/i, X],
   // Taken out of a folder, the queue or Read: out of that place only, nothing deleted.
   [/^remove from folder/i, FolderMinus],
-  [/^remove from queue|^take out of/i, CircleOff],
+  [/^remove from queue|^remove from note|^take out of/i, CircleOff],
+  // A file kept in Files whether or not a note holds it.
+  [/^keep in files/i, FolderCheck],
   [/^put (it|them) back|^bring it back|^changed my mind/i, Undo2],
   [/^remove/i, Trash2],
   [/^delete|^discard|^clear|^let (it )?go|^drop/i, Trash2],
