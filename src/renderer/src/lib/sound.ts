@@ -739,7 +739,7 @@ export const sayName = (): void => void recording(saidUrl, 0.9, 'said')
 /** Until when a crumple is the sound of the move to the Bin, and the tear stays quiet. */
 let paperUntil = 0
 /** Paper crumpling on screen just now: what it did is shown, so the window's edge needs no beam as well. */
-export const crumplingNow = (): boolean => performance.now() < paperUntil + 600
+export const crumplingNow = (): boolean => performance.now() < paperUntil
 export const tear = (): void => void (performance.now() < paperUntil || ((spokeAt = performance.now() + 700), recording(tearUrl, 0.55, 'tear')))
 /**
  * A sheet crumpled into a ball, drawn rather than recorded: a run of dry paper crackles, thick at first and thinning
@@ -747,7 +747,8 @@ export const tear = (): void => void (performance.now() < paperUntil || ((spokeA
  */
 export function crumple(seconds = 0.6): void {
   // Heard instead of the tear: the paper on screen crumples, so it never sounds ripped as well.
-  paperUntil = performance.now() + 400
+  // As long as the paper is on screen and a moment after, so the notice that follows it beams no more than the tear sounds.
+  paperUntil = performance.now() + seconds * 1000 + 1200
   if (!enabled || !volume) return
   const context = audio()
   if (!context) return

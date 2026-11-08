@@ -247,7 +247,8 @@ export function binFlightFrom(from: HTMLElement | null, to: () => Landing | null
   Object.assign(cover.style, { position: 'fixed', left: `${box.left}px`, top: `${box.top}px`, width: `${box.width}px`, height: `${box.height}px`, zIndex: '60', pointerEvents: 'none', overflow: 'hidden' })
   cover.append(shot.picture)
   document.body.append(cover)
-  const hidden = from.animate({ visibility: ['hidden', 'hidden'] }, { duration: 2500 })
+  // Held out of sight until the paper has landed (`land`'s end) or the move is dropped, however long the crumple runs.
+  const hidden = from.animate({ visibility: ['hidden', 'hidden'] }, { duration: 60000 })
   // Gone at once once the paper is drawn; faded where it was when the paper is busy with another row.
   const lay = (fade = false): void =>
     void (fade ? cover.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 200, easing: 'ease-out', fill: 'forwards' }).finished.then(() => cover.remove(), () => cover.remove()) : cover.remove())
@@ -257,15 +258,16 @@ export function binFlightFrom(from: HTMLElement | null, to: () => Landing | null
   crumple(crumpleMs / 1000)
   const sheet = Promise.all([early ?? window.api.pictureOfRect({ x: box.left, y: box.top, width: box.width, height: box.height }), import('@/components/paper-crumple-flight')])
     .then(([png, { sheetOver }]) => (png ? sheetOver(box, png, lay, crumpleMs, FLIGHT_MS) : (lay(), hidden.cancel(), null)), () => (lay(), hidden.cancel(), null))
-  const land = (): void => void sheet.then((one) => one?.go(to))
+  // `after`: once the paper has landed (or faded), for what should wait for it: the room it leaves closing up.
+  const land = (after?: () => void): void => {
+    const done = (): void => (after?.(), hidden.cancel())
+    void sheet.then((one) => (one ? one.go(to, done) : done()))
+  }
   return Object.assign(land, { drop: (): void => void sheet.then((one) => (one?.drop(), lay(), hidden.cancel())) })
 }
 
-/**
- * A picture taken out of a note: React Bits' paper crumples and is tossed to Files in the sidebar, where the picture
- * still is (it is not binned); with Files out of sight, it fades where it was.
- */
-export const crumpleAway = (from: HTMLElement | null, crumpleMs = CRUMPLE_MS): Flight | undefined => binFlightFrom(from, () => landing('files'), crumpleMs)
+/** A picture taken out of a note: React Bits' paper crumples where it was, then fades (it is not binned: it stays in Files). */
+export const crumpleAway = (from: HTMLElement | null, crumpleMs = CRUMPLE_MS): Flight | undefined => binFlightFrom(from, () => null, crumpleMs)
 
 /**
  * The picture of the row a menu was just opened on, taken as it opened: the
@@ -280,7 +282,7 @@ if (typeof document !== 'undefined')
   }, true)
 
 /** A move to the Bin, shown: call it once the move is made, or `drop` it when the move did not happen. */
-export type Flight = (() => void) & { drop: () => void }
+export type Flight = ((after?: () => void) => void) & { drop: () => void }
 
 /** Once the app is idle: three.js loaded and the paper's folds worked out, so the first move to the Bin is as quick as the rest. */
 export function warmBin(): void {

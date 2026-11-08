@@ -161,11 +161,20 @@ export function ImageMenu({ editor }: { editor: Editor | null }): React.JSX.Elem
                 const bar = (event.currentTarget as HTMLElement).closest<HTMLElement>("[data-image-menu], .tiptap-toolbar")?.parentElement
                 if (bar) bar.style.visibility = "hidden"
                 requestAnimationFrame(() => requestAnimationFrame(() => {
-                  const away = crumpleAway(editor.view.nodeDOM(editor.state.selection.from) as HTMLElement | null, 1500)
-                  editor.chain().focus().deleteSelection().run()
-                  away?.()
+                  const at = editor.state.selection.from
+                  const node = editor.state.doc.nodeAt(at)
+                  const away = crumpleAway(editor.view.nodeDOM(at) as HTMLElement | null, 1500)
+                  // Out of the note only once the paper has landed: crumpled, tossed, and then the words close up
+                  // over the room it left, never the two at once.
+                  const remove = (): void => {
+                    if (editor.isDestroyed || editor.state.doc.nodeAt(at) !== node) return
+                    editor.chain().focus().command(({ tr }) => (tr.delete(at, at + node!.nodeSize), true)).run()
+                    toast("Picture removed", () => (editor.chain().focus().undo().run(), chime("undo")), "success")
+                  }
                   if (bar) bar.style.visibility = ""
-                  toast("Picture removed", () => (editor.chain().focus().undo().run(), chime("undo")), "success")
+                  editor.commands.blur()
+                  if (away) away(remove)
+                  else remove()
                 }))
               }}
             >

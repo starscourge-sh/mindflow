@@ -162,22 +162,26 @@
 }
 .files-square-foot {
   text-shadow: 0 1px 2px rgb(0 0 0 / 0.35);
+}
+/* The frost rises from the foot by a clip, never by fading: a backdrop blur inside anything fading draws nothing
+   until the fade ends, so the dark wash showed first and the blur popped in after it. */
+.files-square-blur {
+  clip-path: inset(100% 0 0 0);
+  transition: clip-path 220ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+.files-square-foot > span:not(.files-square-blur) {
   opacity: 0;
   transform: translateY(4px);
   transition: opacity 180ms ease-out, transform 220ms cubic-bezier(0.23, 1, 0.32, 1);
 }
 @media (hover: hover) and (pointer: fine) {
-  .files-square:hover .files-square-foot {
-    opacity: 1;
-    transform: none;
-  }
+  .files-square:hover .files-square-blur { clip-path: inset(0); }
+  .files-square:hover .files-square-foot > span:not(.files-square-blur) { opacity: 1; transform: none; }
 }
-.files-square:focus-visible .files-square-foot {
-  opacity: 1;
-  transform: none;
-}
+.files-square:focus-visible .files-square-blur { clip-path: inset(0); }
+.files-square:focus-visible .files-square-foot > span:not(.files-square-blur) { opacity: 1; transform: none; }
 @media (prefers-reduced-motion: reduce) {
-  .files-square-foot { transition: none; transform: none; }
+  .files-square-blur, .files-square-foot > span { transition: none; transform: none; }
 }
 
 /* A file carried over Files: the page behind the "Drop to add" frame softens out of focus, so the frame is the one

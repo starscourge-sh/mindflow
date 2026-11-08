@@ -56,7 +56,7 @@ const paperBack = (): string => {
 }
 
 /** A sheet laid over a row: `go` crumples it and sends it to its place, `drop` takes it away untouched. */
-export type Sheet = { go: (to: () => Landing | null) => void; drop: () => void }
+export type Sheet = { go: (to: () => Landing | null, after?: () => void) => void; drop: () => void }
 
 /**
  * A row's picture laid over the row as paper, flat, on the one stage. Once
@@ -66,17 +66,18 @@ export type Sheet = { go: (to: () => Landing | null) => void; drop: () => void }
  * stage taken (several rows at once), the copy simply fades.
  */
 export async function sheetOver(box: Box, png: Uint8Array, lay: (fade?: boolean) => void, crumpleMs: number, flightMs: number): Promise<Sheet> {
-  if (stageBusy()) return { go: () => lay(true), drop: () => lay() }
+  if (stageBusy()) return { go: (_to, after) => (lay(true), after?.()), drop: () => lay() }
   // Decoded off the page's thread, upside down as WebGL reads it.
   const image = await createImageBitmap(new Blob([new Uint8Array(png)], { type: 'image/png' }), { imageOrientation: 'flipY' })
-  if (stageBusy()) return (image.close(), { go: () => lay(true), drop: () => lay() })
+  if (stageBusy()) return (image.close(), { go: (_to, after) => (lay(true), after?.()), drop: () => lay() })
   // The nearest shape worked out ahead: as wide as the row, as tall as that shape makes it.
   const tall = box.width * nearest(box.height / box.width)
   let [drawn, asked] = [false, null as null | (() => Landing | null)]
+  let then: (() => void) | undefined
   const crumple = (to: () => Landing | null): void => {
     sheet.crumple()
     // It crumples where it was for a moment, then flies, still crumpling, to its place.
-    void sheet.canvas.animate([{ opacity: 1 }, { opacity: 1 }], { duration: crumpleMs }).finished.then(() => fly(to()), sheet.clear)
+    void sheet.canvas.animate([{ opacity: 1 }, { opacity: 1 }], { duration: crumpleMs }).finished.then(() => fly(to()), () => (sheet.clear(), then?.()))
   }
   const sheet = stageSheet(image, box.width, tall, box.left + box.width / 2, box.top + box.height / 2, paperBack(), () => {
     drawn = true
@@ -100,10 +101,10 @@ export async function sheetOver(box: Box, png: Uint8Array, lay: (fade?: boolean)
           )
         })()
       : sheet.canvas.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 200, easing: 'ease-out', fill: 'forwards' })
-    void flight.finished.then(() => (sheet.clear(), to?.nod()), sheet.clear)
+    void flight.finished.then(() => (sheet.clear(), to?.nod(), then?.()), () => (sheet.clear(), then?.()))
   }
   return {
-    go: (to) => (drawn ? crumple(to) : void (asked = to)),
+    go: (to, after) => ((then = after), drawn ? crumple(to) : void (asked = to)),
     drop: () => (sheet.clear(), lay())
   }
 }
