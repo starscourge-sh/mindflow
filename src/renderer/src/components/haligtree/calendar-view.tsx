@@ -784,14 +784,35 @@ const laneBox = (lane: { lane: number; of: number }): React.CSSProperties => {
   return { left: `calc(${lane.lane * width}% + ${lane.lane ? 1 : 3}px)`, width: `calc(${width}% - ${lane.of === 1 ? 7 : lane.lane ? 3 : 4}px)` }
 }
 
-/** Timed tasks side by side where they overlap: each its lane and how many lanes its cluster has. */
-function lanes(list: { id: string; start: number; end: number }[]): Map<string, { lane: number; of: number }> {
-  const out = new Map<string, { lane: number; of: number }>()
+/**
+ * Lanes past the most a column can show readably: the first few keep theirs
+ * (a cluster narrowed to `most`), the rest leave the grid and one "+N" stands
+ * in the last lane at the first of them. The one being carried always shows.
+ */
+function crowd(placed: Map<string, { lane: number; of: number; cluster?: number }>, spans: { id: string; start: number }[], most: number, carried?: string): { get: (id: string) => { lane: number; of: number } | undefined; more: { start: number; count: number; lane: { lane: number; of: number } }[] } {
+  const shown = new Map<string, { lane: number; of: number }>()
+  const more = new Map<number, { start: number; count: number; lane: { lane: number; of: number } }>()
+  for (const span of spans) {
+    const at = placed.get(span.id)!
+    if (at.of <= most) shown.set(span.id, at)
+    else if (at.lane < most - 1 || span.id === carried) shown.set(span.id, { lane: Math.min(at.lane, most - 1), of: most })
+    else {
+      const was = more.get(at.cluster!) ?? { start: span.start, count: 0, lane: { lane: most - 1, of: most } }
+      more.set(at.cluster!, { ...was, start: Math.min(was.start, span.start), count: was.count + 1 })
+    }
+  }
+  return { get: (id) => shown.get(id), more: [...more.values()] }
+}
+
+/** Timed tasks side by side where they overlap: each its lane, how many lanes its cluster has, and which cluster. */
+function lanes(list: { id: string; start: number; end: number }[]): Map<string, { lane: number; of: number; cluster: number }> {
+  const out = new Map<string, { lane: number; of: number; cluster: number }>()
   const sorted = [...list].sort((a, b) => a.start - b.start || b.end - a.end)
   let cluster: { id: string; lane: number }[] = []
   let ends: number[] = []
   let reach = -1
-  const close = (): void => { for (const one of cluster) out.set(one.id, { lane: one.lane, of: ends.length }) }
+  let group = 0
+  const close = (): void => { for (const one of cluster) out.set(one.id, { lane: one.lane, of: ends.length, cluster: group }); group++ }
   for (const one of sorted) {
     if (one.start >= reach) (close(), (cluster = []), (ends = []))
     let lane = ends.findIndex((end) => end <= one.start)
@@ -816,6 +837,17 @@ function Grid({ days, tasks, marks, onHead, onPoint, calendars, ...props }: { da
   const zone = useSecondZone()
   const now = useMinute()
   const scroller = useRef<HTMLDivElement>(null)
+  // How many blocks fit side by side in a day and still say their names: one for every 64px of its column, two to six.
+  const [most, setMost] = useState(3)
+  useLayoutEffect(() => {
+    const el = scroller.current
+    if (!el) return
+    const measure = (): void => setMost(Math.max(2, Math.min(6, Math.floor((el.clientWidth - 64) / days.length / 64))))
+    measure()
+    const watch = new ResizeObserver(measure)
+    watch.observe(el)
+    return () => watch.disconnect()
+  }, [days.length])
   // Opened near the working day: an hour before now, or at eight.
   useLayoutEffect(() => {
     const el = scroller.current
@@ -937,15 +969,18 @@ function Grid({ days, tasks, marks, onHead, onPoint, calendars, ...props }: { da
           {days.map((day) => {
             const key = dayKey(day)
             const mine = tasks.filter((task) => onGrid(task) && dayKey(task.dueAt!) === key && !(carry && carry.kind !== 'new' && carry.task.id === task.id))
-            const spans: { id: string; task?: Task; one?: Shown; start: number; end: number }[] = [
+            // Captures, when shown, take a lane of their own like a short block, so a name never sits on another's edge.
+            const caught = (marks ?? []).filter((one) => one.status !== 'discarded' && dayKey(one.capturedAt) === key)
+            const spans: { id: string; task?: Task; one?: Shown; capture?: CaptureMeta; start: number; end: number }[] = [
               ...mine.map((task) => ({ id: task.id, task, start: minuteOf(task.dueAt!), end: minuteOf(task.dueAt!) + Math.max(SNAP, task.estimate ?? USUAL) })),
-              ...eventSpans(events, key)
+              ...eventSpans(events, key),
+              ...caught.map((one) => ({ id: `capture:${one.id}`, capture: one, start: minuteOf(one.capturedAt), end: minuteOf(one.capturedAt) + CAUGHT }))
             ]
             // The one being carried or stretched, drawn where it would land.
             const moving = carry?.kind === 'move' && carry.to?.minute != null && carry.to.day === key ? { task: carry.task, start: carry.to.minute, length: carry.length }
               : carry?.kind === 'resize' && carry.day === key ? { task: carry.task, start: carry.start, length: carry.length } : null
             if (moving) spans.push({ id: moving.task.id, task: moving.task, start: moving.start, end: moving.start + moving.length })
-            const placed = lanes(spans)
+            const placed = crowd(lanes(spans), spans, most, moving?.task.id)
             const drawing = carry?.kind === 'new' && carry.day === key ? { start: Math.min(carry.from, carry.to), length: Math.max(SNAP, Math.abs(carry.to - carry.from)) } : null
             return (
               <div key={key} data-cal-col={key} data-weekend={weekend(day) || undefined}
@@ -957,7 +992,18 @@ function Grid({ days, tasks, marks, onHead, onPoint, calendars, ...props }: { da
                 }}
                 className={`relative cursor-cell touch-none border-l border-border/60 ${weekend(day) ? MUTED_DAY : ''}`}
                 style={{ backgroundImage: `repeating-linear-gradient(to bottom, color-mix(in oklab, var(--border) 75%, transparent) 0 1px, transparent 1px ${HOUR}px)` }}>
-                {spans.map((span) => span.one ? (
+                {/* A crowded hour: as many side by side as stay readable, then "+N more", which opens the day's own page with its whole list. */}
+                {placed.more.map((more) => (
+                  <button key={`more:${more.start}`} type="button" data-cal-crowd-more={key} aria-label={`Open ${dayjs(key).format('dddd D MMMM')}: ${num(more.count)} more at ${hm(atMinute(key, more.start))}`}
+                    onPointerDown={(event) => event.stopPropagation()} onClick={() => (chime('open'), onOpen?.('day', key))}
+                    className="absolute z-[3] flex h-5 items-center justify-center rounded-[5px] bg-accent px-1 text-meta font-semibold whitespace-nowrap text-foreground tabular-nums outline-none transition-[scale,background-color] duration-150 hover:bg-accent/70 focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.97] motion-reduce:transition-none"
+                    style={{ top: (more.start / 60) * HOUR + 1, ...laneBox(more.lane) }}>
+                    +{num(more.count)}
+                  </button>
+                ))}
+                {spans.filter((span) => placed.get(span.id)).map((span) => span.capture ? (
+                  <CaptureMark key={span.id} one={span.capture} at={span.start} lane={placed.get(span.id)!} onOpen={props.onOpen} />
+                ) : span.one ? (
                   <EventBlock key={span.id} one={span.one} day={key} at={span.start} length={span.end - span.start} lane={placed.get(span.id)!} calendars={calendars} onOpen={onEvent} onPeek={onPeek} onNote={onOpen} />
                 ) : (
                   <Block key={span.id} task={span.task!} day={key} at={span.start} length={span.end - span.start} lane={placed.get(span.id)!}
@@ -972,7 +1018,6 @@ function Grid({ days, tasks, marks, onHead, onPoint, calendars, ...props }: { da
                     <span className="px-1 text-meta text-foreground/80 tabular-nums">{timeSpan(atMinute(key, draft.minute), atMinute(key, draft.minute + draft.length))}</span>
                   </div>
                 )}
-                {marks && <CaptureMarks day={key} captures={marks} onOpen={props.onOpen} />}
                 {key === todayKey && <SessionGhost focus={taskNow.focus} tasks={tasks} now={now} next={spans.filter((one) => one.id !== taskNow.focus?.taskId).map((one) => ({ start: one.start, name: one.task ? taskName(one.task.title).text : one.one?.title ?? '' }))} />}
                 {key === todayKey && (
                   <div data-cal-now aria-label={`Now, ${clock(now.toISOString())}`} className="pointer-events-none absolute inset-x-0 z-10" style={{ top: (nowMinute / 60) * HOUR }}>
@@ -989,36 +1034,39 @@ function Grid({ days, tasks, marks, onHead, onPoint, calendars, ...props }: { da
   )
 }
 
+/** How long a capture's pill counts for in its lane: as tall as the shortest block, so its words fit. */
+const CAUGHT = 22
+
 /**
- * The day's captures, each a small mark at the minute it was caught, down the
- * column's right edge so it never covers a block: its kind's colour, its
- * words when pointed at, opened when clicked. A capture in the Bin is left out.
+ * A capture at the minute it was caught: a small pill in its kind's colour
+ * with its words, in a lane of its own beside whatever else is at that time.
+ * Clicked, it opens. A private one says so, never its words.
  */
-function CaptureMarks({ day, captures, onOpen }: { day: string; captures: CaptureMeta[]; onOpen?: (type: string, id: string) => void }): React.JSX.Element | null {
-  const mine = captures.filter((one) => one.status !== 'discarded' && dayKey(one.capturedAt) === day)
-  if (!mine.length) return null
+function CaptureMark({ one, at, lane, onOpen }: { one: CaptureMeta; at: number; lane: { lane: number; of: number }; onOpen?: (type: string, id: string) => void }): React.JSX.Element {
+  const kind = CAPTURE_TYPES.find((type) => type.id === one.kind) ?? CAPTURE_TYPES[0]
+  const time = hm(dayjs(one.capturedAt).toDate())
+  const words = one.private ? 'A private capture' : splitTags(one.label).text || one.label || 'Untitled'
+  const Icon = kind.icon
   return (
-    <>
-      {mine.map((one) => {
-        const kind = CAPTURE_TYPES.find((type) => type.id === one.kind) ?? CAPTURE_TYPES[0]
-        const at = dayjs(one.capturedAt)
-        const words = splitTags(one.label).text || one.label || 'Untitled'
-        return (
-          <Tip key={one.id} label={`${hm(at.toDate())}  ${one.private ? 'A private capture' : words.slice(0, 80)}`}>
-            <button type="button" data-cal-capture={one.id} aria-label={`Captured at ${hm(at.toDate())}: ${one.private ? 'private' : words}`}
-              onPointerDown={(event) => event.stopPropagation()}
-              onClick={() => (chime('open'), onOpen?.('capture', one.id))}
-              className="group/mark mf-hit absolute right-1.5 z-[15] flex h-3 w-4 -translate-y-1/2 items-center justify-end"
-              style={{ top: ((at.hour() * 60 + at.minute()) / 60) * HOUR }}>
-              <span aria-hidden className="h-px w-2 opacity-70" style={{ background: kind.tint }} />
-              <span aria-hidden className="size-2 shrink-0 rounded-full ring-2 ring-background transition-transform duration-150 ease-(--mf-ease) group-hover/mark:scale-125" style={{ background: kind.tint }} />
-            </button>
-          </Tip>
-        )
-      })}
-    </>
+    <Tip label={`${time}  ${words.slice(0, 80)}`}>
+    <button type="button" data-cal-capture={one.id} aria-label={`Captured at ${time}: ${words}`}
+      onPointerDown={(event) => event.stopPropagation()}
+      onClick={() => (chime('open'), onOpen?.('capture', one.id))}
+      className="absolute z-[2] flex h-5 min-w-0 items-center gap-1 overflow-hidden rounded-[5px] px-1.5 text-left text-meta outline-none transition-[scale,filter] duration-150 ease-(--mf-ease) hover:brightness-[0.97] focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.97] motion-reduce:transition-none"
+      style={{ top: (at / 60) * HOUR + 1, ...laneBox(lane), ...captureTint(kind.tint) }}>
+      <Icon aria-hidden className="size-3 shrink-0" />
+      <span data-cal-capture-name className="min-w-0 truncate font-medium">{words}</span>
+    </button>
+    </Tip>
   )
 }
+
+/** A capture's pill: its kind's colour as a soft fill and its ink, the same recipe as an event's. */
+const captureTint = (color: string): React.CSSProperties => ({
+  background: `color-mix(in oklab, ${color} var(--cal-fill), var(--background))`,
+  color: `color-mix(in oklab, ${color} var(--cal-ink), var(--foreground))`,
+  boxShadow: `inset 0 0 0 1px color-mix(in oklab, ${color} var(--cal-edge), transparent)`
+})
 
 /** What Day and Week show besides tasks and events: captures, as marks at their minute. */
 function DayShowMenu({ on, onChange }: { on: boolean; onChange: (on: boolean) => void }): React.JSX.Element {
@@ -1115,14 +1163,14 @@ function Block({ task, day, at, length, lane, lifted, did, carry, start, onPick,
           <button type="button" data-cal-tick aria-label={finished ? 'Done' : `Mark ${quoted(name, 80)} done`} disabled={finished}
             onPointerDown={(event) => event.stopPropagation()} onMouseDown={(event) => event.stopPropagation()}
             onClick={(event) => (event.stopPropagation(), void completeTask(task))}
-            className={`group/tick mf-hit relative ml-1.5 flex size-3.5 shrink-0 items-center justify-center rounded-full border-[1.5px] outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none ${length < 30 ? 'self-center' : 'mt-[4px]'}`}
+            className={`group/tick mf-hit relative ml-1.5 hidden size-3.5 @[4.5rem]:flex shrink-0 items-center justify-center rounded-full border-[1.5px] outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none ${length < 30 ? 'self-center' : 'mt-[4px]'}`}
             style={{ borderColor: tickOf(task), background: finished ? tickOf(task) : `color-mix(in oklab, ${tickOf(task)} 10%, transparent)` }}>
             <Check aria-hidden strokeWidth={3.5} className={`size-2.5 ${finished ? 'text-background' : 'opacity-0 group-hover/tick:opacity-100'}`} style={finished ? undefined : { color: tickOf(task) }} />
           </button>
         </Tip>
         <span className={`flex min-w-0 flex-1 px-1.5 ${length < 30 ? 'items-center gap-1.5' : short ? 'items-start gap-1.5 pt-[3px]' : 'flex-col gap-px pt-[3px]'}`}>
           <span className={`flex min-w-0 items-center gap-1 ${short ? '' : 'shrink-0'}`}>
-            <span className={`truncate font-semibold ${finished ? 'line-through' : ''}`}>{name}</span>
+            <span data-cal-block-name className={`truncate font-semibold ${finished ? 'line-through' : ''}`}>{name}</span>
             {repeats && <RepeatIcon aria-label="Repeats" className="size-3 shrink-0 opacity-75" />}
           </span>
           {/* An hour's block has room for two lines under its name: its planned and done say more than the time it sits at. */}
@@ -1154,4 +1202,5 @@ function Untimed({ task, due, carry, start, onPick, taskNow, landed }: { task: T
     </RowMenu>
   )
 }
+
 
