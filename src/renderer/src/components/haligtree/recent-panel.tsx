@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useRef } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
 import { Flag, Minus, Plus } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import { DONE_WORDS } from './note-list'
@@ -7,7 +7,7 @@ import { EASE, shift } from '@/lib/motion'
 import { CAPTURE_TYPES } from '../capture-kinds/capture-kind-picker'
 import { openApart } from '@/lib/apart'
 import { chime } from '@/lib/sound'
-import { useLive, haligtree, type Pin, type Recent, type Settings, type Task } from '@/lib/haligtree'
+import { call, useLive, haligtree, type Pin, type Recent, type Settings, type Task } from '@/lib/haligtree'
 import { Count, Rolling, Tags, Tip, Typed, typing } from './ui'
 import { RowMenu } from './row-menu'
 import { sideMenu, useFullMenu } from './side-menu'
@@ -17,6 +17,7 @@ import { listInFront, useListScope } from '@/lib/list-front'
 import { moveToBin } from '@/lib/to-bin'
 import { itemName } from '@/lib/tasks'
 import { Highlight, useFluidHover } from './glide'
+import { OpenedIcon, type Opened } from './recent-island'
 import { dayKey as dayOf, dayName, daysFromToday } from '../../../../main/dates'
 import { clock } from '@/lib/clock'
 import { FileText, Gem, History, ListTodo, Orbit, X } from '@/components/ui/icons'
@@ -174,6 +175,71 @@ export function RecentPanel({ until, onOpen, onClose, className = '' }: {
             )
           })}
         </AnimatePresence>
+      </div>
+    </aside>
+  )
+}
+
+/**
+ * All history: every note, book and web page opened lately, in any tab or
+ * window, newest first, a day at a time. The tab row's Back and Forward hold
+ * only their own tab's steps, as a browser's do; this is the "Show all
+ * history" their menus end with (⇧⌘H). The same list the sidebar's Recent
+ * shows the top of (`note_opens`, one row a note, at its last opening).
+ */
+export function HistoryPanel({ fresh, onOpen, onClose, className = '' }: {
+  /** Read again when this changes (the note on show): opening one moves it to the top. */
+  fresh?: string
+  onOpen: (type: string, id: string) => void
+  onClose?: () => void
+  className?: string
+}): React.JSX.Element {
+  const [list, setList] = useState<Opened[] | null>(null)
+  useEffect(() => {
+    let gone = false
+    void call<Opened[]>('home:recent-opened', 40).then((found) => !gone && setList(found))
+    return () => void (gone = true)
+  }, [fresh])
+  const fullMenu = useFullMenu()
+  const rows = useRef<HTMLDivElement>(null)
+  const hover = useFluidHover(rows, { items: '[data-history-row]' })
+  return (
+    <aside data-chrome data-history-panel aria-label="All history" className={`flex min-h-0 min-w-0 flex-col ${className}`}>
+      <header className="flex h-10 shrink-0 items-center gap-1.5 border-b px-3 text-control text-muted-foreground">
+        <History className="size-4 shrink-0" />
+        <span className="min-w-0 flex-1 truncate">All history</span>
+        {list && <Count n={list.length} className="shrink-0" />}
+        {onClose && (
+          <Tip label="Close  ⇧⌘H">
+            <button type="button" aria-label="Close All history" onClick={() => (chime('fold'), onClose())} className="flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-md hover:bg-accent hover:text-foreground"><X className="size-3.5" /></button>
+          </Tip>
+        )}
+      </header>
+      <p className="shrink-0 px-3.5 pt-2.5 text-control text-muted-foreground">Notes, books and pages you opened, in any tab or window.</p>
+      <div ref={rows} {...hover.handlers} className="mf-more relative isolate min-h-0 flex-1 overflow-y-auto px-1.5 pb-3">
+        <Highlight spot={hover.spot} session={hover.session} snap={hover.snap} />
+        {list && !list.length && (
+          <p className="px-2 py-4 text-control text-muted-foreground">
+            <Typed text="Nothing opened yet. What you open, in any tab, shows here, newest first." step={28} />
+          </p>
+        )}
+        {list?.map((one, index) => {
+          const header = !!one.at && (index === 0 || !list[index - 1].at || dayKey(list[index - 1].at!) !== dayKey(one.at))
+          const open = (): void => (chime('tap'), onOpen(one.type, one.id))
+          return (
+            <Fragment key={`${one.type}-${one.id}`}>
+              {header && <h3 className="px-2 pt-3 pb-1 text-meta text-muted-foreground">{dayHeader(one.at!)}</h3>}
+              <RowMenu items={fullMenu(one.type, one.id, open) ?? [{ label: 'Open', run: open }]}>
+                <button type="button" data-history-row={`${one.type}:${one.id}`} data-private={one.private ? '' : undefined} onClick={open}
+                  className="flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left text-control">
+                  <OpenedIcon one={one} className="size-4 shrink-0 text-muted-foreground" />
+                  <span className="private-text min-w-0 flex-1 truncate text-foreground">{one.title || 'Untitled'}</span>
+                  {one.at && <span className="shrink-0 text-xs text-muted-foreground tabular-nums">{time(one.at)}</span>}
+                </button>
+              </RowMenu>
+            </Fragment>
+          )
+        })}
       </div>
     </aside>
   )

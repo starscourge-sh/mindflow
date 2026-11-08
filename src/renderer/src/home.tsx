@@ -100,7 +100,7 @@ import { PageHint } from '@/components/haligtree/page-hint'
 import { onboarding, playWelcome, tryWelcome } from '@/lib/onboarding'
 import { DayView } from '@/components/haligtree/day-view'
 import { MonthPage, SCALE_VIEW, WeekPage, YearPage, mondayOf, type Scale } from '@/components/haligtree/periods-view'
-import { RecentPanel } from '@/components/haligtree/recent-panel'
+import { HistoryPanel, RecentPanel } from '@/components/haligtree/recent-panel'
 import { OpenedIcon, pdfDrawing, type Opened } from '@/components/haligtree/recent-island'
 import { Passes, openPass } from '@/components/haligtree/pass'
 import { noteActions } from '@/lib/notes'
@@ -141,9 +141,9 @@ import { openCloseWeek } from '@/components/haligtree/close-week'
 import { FIT_CHOICES, FitsSheet, fitsHeard, openFits } from '@/components/haligtree/fits'
 import { openPlaybook } from '@/lib/playbook'
 import { menuShowing } from '@/lib/menu-keys'
-import { ArrowRight, ChevronRight } from '@/components/ui/icons'
+import { ArrowRight, ChevronRight, History } from '@/components/ui/icons'
 import { still } from '@/lib/motion'
-import { SwipeBack } from '@/components/haligtree/swipe-back'
+import { SwipeBack, placesFrom } from '@/components/haligtree/swipe-back'
 import { calendarAside, calendarPalette, revealOnCalendar } from '@/lib/calendar-scope'
 import { dated, dayjs, dayKey, daysFromToday, noon, num, plural } from '../../main/dates'
 import { WrapOffer, WrapSheet, monthToWrap, openWrap } from '@/components/haligtree/wrap-story'
@@ -837,11 +837,18 @@ export function Home(): React.JSX.Element {
   useEffect(() => void (searching && onboarding.mark('search')), [searching])
   // Recent beside the page: everything made lately, or in the week a week's
   // page shows. `until` null reaches back from now.
-  const [recent, setRecentState] = useState<{ until: string | null } | null>(null)
+  // Or, in the same place, All history: everything opened lately in any tab (`opened`), what Back's and Forward's menus end with.
+  const [recent, setRecentState] = useState<{ until: string | null; opened?: boolean } | null>(null)
   const setRecent = (until: string | null | 'close'): void => setRecentState(until === 'close' ? null : { until })
   const toggleRecent = (): void => {
-    chime(recent ? 'fold' : 'slide')
-    setRecentState(recent ? null : { until: null })
+    const off = !!recent && !recent.opened
+    chime(off ? 'fold' : 'slide')
+    setRecentState(off ? null : { until: null })
+  }
+  const toggleHistory = (): void => {
+    const off = !!recent?.opened
+    chime(off ? 'fold' : 'slide')
+    setRecentState(off ? null : { until: null, opened: true })
   }
   // Folded away unless you open them, and kept the way you left them.
   const [tagsKept, keepTags] = useRemembered('sidebar:tags')
@@ -1201,6 +1208,11 @@ export function Home(): React.JSX.Element {
         event.preventDefault()
         return toggleRecent()
       }
+      // ⌥⌘Y: All history beside the page, or away again (⇧⌘H is the editor's highlight, ⌘Y its redo).
+      if (event.metaKey && event.altKey && !event.shiftKey && event.code === 'KeyY') {
+        event.preventDefault()
+        return toggleHistory()
+      }
       // ⌥⌘[ is the editor's fold, not Back.
       if (event.metaKey && !event.altKey && event.key === '[') return step(-1)
       if (event.metaKey && !event.altKey && event.key === ']') return step(1)
@@ -1552,6 +1564,20 @@ export function Home(): React.JSX.Element {
     add: (key) => openTab(LANDING, key, true),
     menu: tabMenu,
     step: (key, by) => step(by, key),
+    // Held or right-clicked, Back and Forward list this tab's own steps, nearest first, as a browser's do,
+    // and end with All history: what was opened in every tab.
+    history: (key, by) => {
+      const pane = split.panes.find((one) => one.key === key)
+      if (!pane) return []
+      const trail = activeTab(pane).trail
+      return [
+        ...placesFrom(trail, by, swipeName).map(({ index, name }) => ({
+          label: name.title, icon: <name.icon className="size-3.5 shrink-0" style={{ color: name.tint }} />, run: () => (step(index - trail.at, key), toFront(key))
+        })),
+        'separator' as const,
+        { label: 'Show all history', keys: '⌥⌘Y', icon: <History className="size-3.5 shrink-0" />, run: () => setRecentState({ until: null, opened: true }) }
+      ]
+    },
     canStep: (key, by) => {
       const pane = split.panes.find((one) => one.key === key)
       const { at, views } = pane ? activeTab(pane).trail : { at: 0, views: [] }
@@ -1856,7 +1882,8 @@ export function Home(): React.JSX.Element {
             { label: 'Your reader card', hint: 'Your book on a card, in Settings', cue: null, run: () => setView({ id: 'settings', focus: 'reader-card', nonce: Date.now() }) },
             // The wrench on a sidebar heading shows only on pointing: found here too.
             { label: 'Customize the sidebar…', cue: null, run: () => void setTimeout(() => setCustomizing(true), 120) },
-            { label: recent ? 'Hide Recent' : 'Show Recent', hint: recent ? undefined : 'Recent: everything made lately, beside the page', keys: '⇧⌘Y', cue: null, run: toggleRecent },
+            { label: recent && !recent.opened ? 'Hide Recent' : 'Show Recent', hint: recent && !recent.opened ? undefined : 'Recent: everything made lately, beside the page', keys: '⇧⌘Y', cue: null, run: toggleRecent },
+            { label: recent?.opened ? 'Hide all history' : 'Show all history', hint: recent?.opened ? undefined : 'Every note, book and page opened lately, in any tab', keys: '⌥⌘Y', cue: null, run: toggleHistory },
             { label: "Open the year's page", hint: 'Year: your seasons of life, month by month', cue: 'season', run: () => setView({ id: 'yearpage' }) },
             ...noteActions({ day: false }),
             // The recap, Wrapped's way, over Stats.
@@ -2178,9 +2205,13 @@ export function Home(): React.JSX.Element {
                   // Library is not one to switch off: its rows are, each, in Customize.
                   ...sectionMoves(group.id, sideOrder(settings?.sideSections)),
                   ...(group.id === LIBRARY.id ? [] : [{ label: showWords(group, true).label, run: () => void hideGroup(group) }]),
+                  // Recent is the top of All history: the rest of it a line away.
+                  ...(group.id === SIDE_GROUPS[1].id ? [{ label: 'Show all history', keys: '⌥⌘Y', run: () => setRecentState({ until: null, opened: true }) }] : []),
                   { label: 'Customize the sidebar…', run: () => void setTimeout(() => setCustomizing(true), 120) }
                 ]}>
                 <div data-side-heading={group.id} className="group/head relative mt-2.5 mb-0.5 flex min-h-6 items-center">
+                  {(() => {
+                    const button = (
                   <button
                     type="button"
                     aria-expanded={open}
@@ -2193,6 +2224,10 @@ export function Home(): React.JSX.Element {
                     {group.label}
                     <ChevronRight className={`size-3 transition-[rotate,opacity] duration-80 ${open ? 'rotate-90 opacity-0 group-hover/head:opacity-100' : ''}`} />
                   </button>
+                    )
+                    // Recent says what it is: not this tab's Back, but what you opened anywhere.
+                    return group.id === SIDE_GROUPS[1].id ? <Tip label="Notes, books and pages you opened lately, in any tab">{button}</Tip> : button
+                  })()}
                 </div>
                 </RowMenu>
               )
@@ -2544,9 +2579,11 @@ export function Home(): React.JSX.Element {
               { opacity: 0, transform: shift('translateX(8px)'), transition: { duration: 0.14, ease: EASE } })}
             className={`flex min-h-0 overflow-hidden rounded-xl border bg-background ${cramped ? 'absolute inset-y-0 right-0 z-20 w-72 shadow-(--mf-panel-shadow)' : 'w-72 shrink-0'}`}
           >
-            <RecentPanel className="flex-1" until={recent.until ?? undefined} onClose={() => setRecentState(null)}
-              // Beside a week's page, a note opens in its own window so the page stays.
-              onOpen={(type, id) => (view.id === 'weekpage' && type !== 'task' ? openApart(type, id) : open(type, id))} />
+            {recent.opened
+              ? <HistoryPanel className="flex-1" fresh={view.focus} onClose={() => setRecentState(null)} onOpen={(type, id) => open(type, id)} />
+              : <RecentPanel className="flex-1" until={recent.until ?? undefined} onClose={() => setRecentState(null)}
+                // Beside a week's page, a note opens in its own window so the page stays.
+                onOpen={(type, id) => (view.id === 'weekpage' && type !== 'task' ? openApart(type, id) : open(type, id))} />}
           </motion.div>
         )}
       </AnimatePresence>

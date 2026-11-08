@@ -91,6 +91,7 @@ export const SHORTCUTS: Shortcut[] = [
   { group: 'Getting around', keys: 'G V', does: 'Go to Archived', where: 'Main window' },
   { group: 'Getting around', keys: 'G F', does: `Go to What ${APP_NAME} can do: every power, with a way to try it`, where: 'Main window' },
   { group: 'Getting around', keys: '⇧⌘Y', does: 'Recent: everything made lately, beside the page', where: 'Both windows' },
+  { group: 'Getting around', keys: '⌥⌘Y', does: 'All history: every note, book and page opened lately, in any tab, beside the page (the last line of Back’s and Forward’s menus)', where: 'Main window' },
   { group: 'Getting around', keys: 'C', does: 'New capture in quick capture', where: 'Main window' },
   { group: 'Getting around', keys: '⌃⌥←', does: 'Throw quick capture to the left edge (or hold ⌘ and flick two fingers; slowly, it follows them)', where: 'Quick capture' },
   { group: 'Getting around', keys: '⌃⌥→', does: 'Throw quick capture to the right edge', where: 'Quick capture' },

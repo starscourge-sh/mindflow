@@ -5124,10 +5124,10 @@ export function registerHome(): void {
   // The notes opened most lately, newest first, for the "Recent" island under a note's details: looked up one by
   // one (a few at most), never the whole shelf, and only those still there.
   ipcMain.handle('haligtree:home:recent-opened', (_event, limit: number) => {
-    const want = Math.max(1, Math.min(20, Number(limit) || 6))
+    const want = Math.max(1, Math.min(40, Number(limit) || 6))
     const capture = db.prepare(`select id, 'capture' as type, ${LABEL} as title, kind, private from captures where id = ? and status != 'discarded' and archived_at is null`)
     const nugget = db.prepare(`select id, tier as type, coalesce(nullif(title, ''), label('', body)) as title, kind, private from nuggets where id = ? and archived_at is null and superseded_by is null and tier not in ('card')`)
-    const found: { id: string; type: string; title: string; kind: string | null; private: number }[] = []
+    const found: { id: string; type: string; title: string; kind: string | null; private: number; at?: string }[] = []
     // A PDF opened in the reader, kept as its pane's `src|name`: named by the title it carries once read, else its file name.
     const pdf = (focus: string): (typeof found)[number] => {
       const at = focus.indexOf('|')
@@ -5142,9 +5142,9 @@ export function registerHome(): void {
       try { site = new URL(href).hostname.replace(/^www\./, '') } catch { /* not a link: "Article" */ }
       return { id: href, type: 'web', title: title || site, kind: null, private: 0 }
     }
-    for (const open of db.prepare('select id, type from note_opens order by at desc limit 40').all() as { id: string; type: string }[]) {
+    for (const open of db.prepare('select id, type, at from note_opens order by at desc limit 80').all() as { id: string; type: string; at: string }[]) {
       const row = open.type === 'pdf' ? pdf(open.id) : open.type === 'web' ? web(open.id) : ((open.type === 'capture' ? capture : nugget).get(open.id) as (typeof found)[number] | undefined)
-      if (row) found.push(row)
+      if (row) found.push({ ...row, at: open.at })
       if (found.length >= want) break
     }
     return found

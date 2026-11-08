@@ -20,7 +20,12 @@ export type TabActions = {
   menu: (pane: string, tab: string) => RowItem[]
   step: (pane: string, by: -1 | 1) => void
   canStep: (pane: string, by: -1 | 1) => boolean
+  /** Back's or Forward's menu: this tab's own steps that way, nearest first, then "Show all history". */
+  history: (pane: string, by: -1 | 1) => RowItem[]
 }
+
+/** How long Back or Forward is held before its menu opens, as a browser's does (and the swipe's list, swipe-back.tsx). */
+const HOLD = 450
 
 // What a carried tab or row is over, said by split-drop.tsx and drawn here:
 // the tab being carried, and the gap it would land in.
@@ -140,6 +145,43 @@ function Tabs({ group, actions }: { group: TabGroup; actions: TabActions }): Rea
 }
 
 /**
+ * Back or Forward: a click steps once; held, or right-clicked, its menu lists
+ * where that tab has been that way, as Dia's and Safari's do, and ends with
+ * "Show all history", every tab's.
+ */
+function StepButton({ by, label, keys, icon, pane, actions }: { by: -1 | 1; label: string; keys: string; icon: typeof ArrowNarrowLeftIcon; pane: string; actions: TabActions }): React.JSX.Element {
+  const hold = useRef(0)
+  // The press that opened the menu is not also a click.
+  const held = useRef(false)
+  const letGo = (): void => window.clearTimeout(hold.current)
+  return (
+    <RowMenu items={() => actions.history(pane, by)}>
+      {/* The menu's trigger, around the tip: a tip passes nothing on to its button. */}
+      <span className="flex">
+      <Tip label={<span className="flex items-center gap-1.5">{label} <Pressed keys={keys} /></span>}>
+        <button type="button" aria-label={label} data-tab-step={by < 0 ? 'back' : 'forward'} disabled={!actions.canStep(pane, by)}
+          onPointerDown={(event) => {
+            if (event.button !== 0) return
+            held.current = false
+            const button = event.currentTarget
+            hold.current = window.setTimeout(() => {
+              held.current = true
+              const box = button.getBoundingClientRect()
+              button.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: box.left, clientY: box.bottom + 4, button: 2 }))
+            }, HOLD)
+          }}
+          onPointerUp={letGo} onPointerLeave={letGo}
+          onClick={() => (held.current ? (held.current = false) : actions.step(pane, by))}
+          className="relative flex size-[22px] cursor-pointer items-center justify-center rounded-full text-muted-foreground transition-[color,background-color,scale] duration-[120ms] active:scale-[0.97] after:absolute after:-inset-0.5 after:rounded-full hover:bg-accent/60 hover:text-foreground disabled:pointer-events-none disabled:opacity-40">
+          <AliveIcon icon={icon} size={14} />
+        </button>
+      </Tip>
+      </span>
+    </RowMenu>
+  )
+}
+
+/**
  * The row over a pane: its Back and Forward, its tabs, a + and a list of all
  * of them. Always there, one tab or fifty, so nothing jumps when a second opens.
  * In a window too narrow for two panes, the one on show carries every pane's
@@ -155,12 +197,7 @@ export function TabRow({ groups, actions, pane }: { groups: TabGroup[]; actions:
     <div data-tabs={pane} className="relative z-[1] -mb-px flex h-[34px] shrink-0 items-end gap-0.5">
       <span data-tab-arrows className="mf-segs mb-[3px] ml-1 flex h-6 shrink-0 items-center overflow-hidden rounded-full border">
         {([[-1, 'Back', '⌘[', ArrowNarrowLeftIcon], [1, 'Forward', '⌘]', ArrowNarrowRightIcon]] as const).map(([by, label, keys, icon]) => (
-          <Tip key={label} label={<span className="flex items-center gap-1.5">{label} <Pressed keys={keys} /></span>}>
-            <button type="button" aria-label={label} disabled={!actions.canStep(pane, by)} onClick={() => actions.step(pane, by)}
-              className="relative flex size-[22px] cursor-pointer items-center justify-center rounded-full text-muted-foreground transition-[color,background-color,scale] duration-[120ms] active:scale-[0.97] after:absolute after:-inset-0.5 after:rounded-full hover:bg-accent/60 hover:text-foreground disabled:pointer-events-none disabled:opacity-40">
-              <AliveIcon icon={icon} size={14} />
-            </button>
-          </Tip>
+          <StepButton key={label} by={by} label={label} keys={keys} icon={icon} pane={pane} actions={actions} />
         ))}
       </span>
       <div className="flex h-[30px] min-w-0 flex-1">

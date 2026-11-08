@@ -30,7 +30,7 @@ type Props = {
 }
 
 /** The places along a trail from where you are, the nearest first: each once, named for what was on show there. */
-function placesFrom(trail: Trail, way: -1 | 1, nameOf: Props['nameOf']): List['rows'] {
+export function placesFrom(trail: Trail, way: -1 | 1, nameOf: Props['nameOf']): List['rows'] {
   const seen = new Set([nameOf(trail.views[trail.at] as never).title])
   const rows: List['rows'] = []
   for (let index = trail.at + way; index >= 0 && index < trail.views.length && rows.length < 9; index += way) {

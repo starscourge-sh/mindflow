@@ -7,7 +7,7 @@ import { FileText, Gem, Orbit } from '@/components/ui/icons'
 import { Island } from './ui'
 import { usePdfCover } from '@/components/pdf/pdf-cover'
 
-export type Opened = { id: string; type: string; title: string; kind: string | null; private: number }
+export type Opened = { id: string; type: string; title: string; kind: string | null; private: number; /** When it was last opened (the history panel). */ at?: string }
 const TIER = { nugget: Gem, article: FileText, question: Orbit, goal: Flag } as const
 /** A recently opened note's drawing: a capture's kind, or its tier's. */
 export const openedIcon = (one: Opened): React.ComponentType<{ className?: string; style?: React.CSSProperties }> =>
