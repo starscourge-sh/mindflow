@@ -427,7 +427,11 @@ export function SplitDrop({ onDrop, onRow }: { onDrop: (carried: Carried, at: nu
         event.preventDefault()
         swallowClick()
         landing = card ? { rect: card, at: performance.now() } : null
-        dropRef.current.onDrop(what, side.at)
+        // The new pane is made a frame after the drop, not inside the mouse-up: the drop's own
+        // clearing (the card, the zones, the drag's styles) is drawn first and the page is laid out
+        // once for the pane, where doing both in one go laid it out about eight times over.
+        const at = side.at
+        requestAnimationFrame(() => dropRef.current.onDrop(what, at))
       }
       reset()
     }
