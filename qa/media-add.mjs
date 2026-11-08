@@ -68,7 +68,10 @@ async function drop(page, paths, x, y) {
   await cdp.detach()
   return over
 }
-const tiles = (h) => h.evaluate(() => [...document.querySelectorAll('[data-page=media] [data-media]')].map((one) => ({ kind: one.dataset.media, src: one.dataset.src, note: one.dataset.note ?? null, name: one.querySelector('.text-sm.font-medium')?.textContent, where: one.parentElement?.querySelector('[data-media-where]')?.textContent ?? null })))
+// Read from each kind's own tile: a picture's square holds its name and note in its foot, a card or a recording's row beside it.
+const tiles = (h) => h.evaluate(() => [...document.querySelectorAll('[data-page=media] [data-media]')].map((one) => ({ kind: one.dataset.media, src: one.dataset.src, note: one.dataset.note ?? null, name: (one.querySelector('[data-media-name]') ?? one.parentElement?.querySelector('[data-media-name]'))?.textContent, where: (one.querySelector('[data-media-where]') ?? one.parentElement?.querySelector('[data-media-where]'))?.textContent ?? null })))
+/** A kind's chip on Files ("All", "Pictures", "Books", "Audio"): Files opens on piles for All, each kind's tiles under its own chip. */
+const kindChip = async (h, name) => { await h.locator('[data-page=media] [data-media-kinds] button', { hasText: new RegExp(`^${name}`) }).first().click({ timeout: 5000 }); await h.waitForTimeout(600) }
 const lastToast = (h) => h.evaluate(() => [...document.querySelectorAll('[data-toast], [data-sonner-toast], [role=status]')].map((one) => one.textContent).filter(Boolean).at(-1) ?? '')
 const listed = (v) => v('media:list')
 const notesCount = (h) => h.evaluate(async () => (await window.api.captures.list()).length)
@@ -101,6 +104,7 @@ async function journey(c, label) {
   const [P, G, D, A] = ['.png', '.gif', '.pdf', '.wav'].map(by)
   const kinds = [P?.kind, G?.kind, D?.kind, A?.kind].join()
   check(`${label}: each under its kind`, kinds === 'picture,gif,pdf,audio', kinds)
+  await kindChip(h, 'Pictures')
   const shownT = await tiles(h)
   check(`${label}: a new file says it is in no note`, shownT.some((one) => one.src === P.src && one.where === 'In no note yet'), JSON.stringify(shownT.find((one) => one.src === P.src)))
   // --- Undo the whole batch, then again
@@ -139,14 +143,15 @@ async function journey(c, label) {
   await shot(h, `shelf-${label}`)
   await h.locator(`[data-library] [data-book="${D.src}"]`).dblclick(); await wait(1400)
   check(`${label}: and opens in the reader`, await h.evaluate(() => !!document.querySelector('.pdf-reader')))
+  // On All, the book is in the Recent row; a click there opens the reader at once.
   await go('media'); await wait(800)
-  await chip('Books'); await wait(400)
-  await chip('Books'); await wait(500)
-  await h.locator(`[data-media][data-src="${D.src}"]`).click(); await wait(1400)
+  await kindChip(h, 'All')
+  await h.locator(`[data-recent-file][data-src="${D.src}"]`).click(); await wait(1400)
   check(`${label}: a click on its tile opens the reader at once`, await h.evaluate(() => !!document.querySelector('.pdf-reader')))
   await go('media'); await wait(800)
 
   // --- A picture used nowhere opens in the app's own viewer, and Esc comes back
+  await kindChip(h, 'Pictures')
   await h.locator(`[data-media][data-src="${P.src}"]`).click(); await wait(700)
   check(`${label}: a picture used nowhere opens in the app's own viewer`, await h.evaluate(() => !!document.querySelector('.mf-look')), '')
   await shot(h, `viewer-${label}`)
@@ -164,7 +169,7 @@ async function journey(c, label) {
   await h.keyboard.type('harbour'); await wait(900)
   await shot(h, `cmdk-${label}`)
   await h.keyboard.press('Enter'); await wait(1400)
-  const reveal = await h.evaluate((src) => ({ page: !!document.querySelector('[data-page=media]'), picked: !!document.querySelector(`[data-cursor] [data-media][data-src="${src}"]`) }), P.src)
+  const reveal = await h.evaluate((src) => ({ page: !!document.querySelector('[data-page=media]'), picked: !!document.querySelector(`[data-cursor][data-media][data-src="${src}"], [data-cursor] [data-media][data-src="${src}"]`), pages: [...document.querySelectorAll('[data-page]')].map((e) => e.dataset.page), dialog: document.querySelector('[role=dialog]')?.innerText.slice(0, 120) ?? null, look: !!document.querySelector('.mf-look') }), P.src)
   check(`${label}: ↵ on it opens Media with the keys on that tile`, reveal.page && reveal.picked, JSON.stringify(reveal))
   check(`${label}: and ⌘K has closed`, await h.evaluate(() => !document.querySelector('[role=dialog] input')))
 
@@ -233,6 +238,7 @@ async function journey(c, label) {
   check(`${label}: and it goes in as a PDF's block, not a link`, withBook.includes('"attachment"') && withBook.includes(D.src), withBook.slice(0, 280))
   await wait(1500)
   await go('media'); await wait(1000)
+  await kindChip(h, 'Pictures')
   all = await listed(v)
   const used = all.find((one) => one.src === P.src)
   check(`${label}: its record says where it is used`, used.uses.length === 1 && used.uses[0].id === noteId, JSON.stringify(used.uses))
@@ -240,10 +246,11 @@ async function journey(c, label) {
   check(`${label}: its tile says so`, /^In\s*Field notes/.test(usedTile.where ?? ''), JSON.stringify(usedTile))
   await shot(h, `used-${label}`)
   check(`${label}: still one tile for the file`, all.filter((one) => one.src === P.src).length === 1)
-  await h.locator(`[data-media][data-src="${P.src}"]`).locator('xpath=..').locator('[data-media-use]').click(); await wait(1500)
+  await h.locator(`[data-media][data-src="${P.src}"]`).click(); await wait(1500)
   const landed = await h.evaluate((id) => [...document.querySelectorAll('[data-pane]')].some((one) => /Field notes/.test(one.textContent)), noteId)
   check(`${label}: its "In …" is a way to that note`, landed)
   await go('media'); await wait(900)
+  await kindChip(h, 'Pictures')
   // What a file that notes use does on ⌫: it stays, and says so.
   await h.locator(`[data-media][data-src="${P.src}"]`).click({ modifiers: ['Meta'] }); await wait(150)
   await h.keyboard.press('Backspace'); await wait(500)
@@ -255,6 +262,7 @@ async function journey(c, label) {
   await h.keyboard.press('Escape'); await wait(200)
 
   // --- "Put in a note…" from Media, for the recording
+  await kindChip(h, 'Audio')
   await h.locator(`[data-media][data-src="${A.src}"]`).click({ button: 'right' }); await wait(350)
   const looseMenu = await h.evaluate(() => [...document.querySelectorAll('[role=menu]')].at(-1)?.innerText ?? '')
   check(`${label}: a loose file's menu offers the Bin and a note`, /Move to the Bin/.test(looseMenu) && /Put in a note/.test(looseMenu), looseMenu)
@@ -495,9 +503,10 @@ if (part('book')) {
     const odd = write(`A “very” odd|name été 🌿 ${'long '.repeat(18)}.pdf`, pdfBytes('Odd'))
     await pickNext(electron, [odd])
     await addFiles(h); await wait(1200)
-    const oddT = (await tiles(h)).find((t) => t.kind === 'pdf')
+    // A PDF added opens Books, where it stands on the shelf as a cover with its title under it.
+    const oddT = await h.evaluate(() => document.querySelector('[data-library] [data-book]')?.textContent ?? null)
     check('an odd file name goes in and reads whole in its record', !!oddT && (await v('media:list')).some((t) => t.name.includes('🌿')), JSON.stringify(oddT)?.slice(0, 120))
-    const fit = await h.evaluate(() => { const el = document.querySelector('[data-media="pdf"]')?.closest('[data-id]'); return el ? el.getBoundingClientRect().width : 0 })
+    const fit = await h.evaluate(() => { const el = document.querySelector('[data-library] [data-book]'); return el ? el.getBoundingClientRect().width : 0 })
     check('and is cut to its tile', fit > 100 && fit < 220, String(fit))
     await shot(h, 'state-odd')
     const box1 = await h.locator('[data-media-add]').boundingBox()
@@ -519,7 +528,7 @@ if (part('book')) {
     check('a file gone from the disk is known to be gone', goneRow.gone === true, JSON.stringify(goneRow).slice(0, 100))
     // Far down a long page, where nothing is drawn: found by its name, as a person would.
     await h.locator('[data-page=media] input[placeholder^="Find"]').fill('only one'); await wait(500)
-    const goneLine = await h.evaluate((src) => document.querySelector(`[data-media][data-src="${src}"]`)?.parentElement?.querySelector('[data-media-where]')?.textContent ?? '', gone.src)
+    const goneLine = await h.evaluate((src) => { const el = document.querySelector(`[data-media][data-src="${src}"]`); return (el?.querySelector('[data-media-where]') ?? el?.parentElement?.querySelector('[data-media-where]'))?.textContent ?? '' }, gone.src)
     check('and its tile says so', /gone/.test(goneLine), goneLine)
     await shot(h, 'state-gone')
     await h.locator(`[data-media][data-src="${gone.src}"]`).click(); await wait(400)
@@ -543,7 +552,7 @@ if (part('book')) {
     // The window stays alive with it on the page: its cover is drawn off to one side.
     const alive = await Promise.race([h.evaluate(() => new Promise((done) => requestAnimationFrame(() => done(true)))), new Promise((done) => setTimeout(() => done(false), 8000))])
     check('and the window keeps answering', alive === true)
-    await h.locator(`[data-media][data-src="${huge.src}"]`).click(); await wait(4000)
+    await h.locator(`[data-library] [data-book="${huge.src}"]`).dblclick(); await wait(4000)
     check('and opens in the reader', await h.evaluate(() => !!document.querySelector('.pdf-reader')))
     await go('media'); await wait(800)
     // 2,000 added: the page reads fast, draws only what is in sight, and has a chip for those in no note once a note uses some.
