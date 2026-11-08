@@ -198,20 +198,20 @@ function LinkMap({ onOpen, modes }: { onOpen: (type: string, id: string) => void
       {count ? (
         <Example on={example} flush className="min-h-0 flex-1" tryIt={<>type <TypedMark>@</TypedMark> in any note and pick another one. The two show up here as dots, joined by a line.</>}>
         {dots ? <GraphCanvas map={map!} onOpen={open} fit={fit} fly={fly} replay={replay} calm look={example ? undefined : canvasLook} paint={example ? undefined : paint} className="flex-1">
-          {replaying && !example && <Replay nodes={map!.nodes} show={replay} onClose={() => (chime('off'), setReplaying(false))} />}
-          {/* The map's foot: two quiet chips of one height, as Obsidian keeps its graph bare. The key on the left
-              (what the colours and icons mean, opened on a click), the notes left off on the right. */}
-          <div data-map-foot className="@container/foot pointer-events-none absolute inset-x-4 bottom-3 flex items-end justify-between gap-3" style={panel && !example ? { right: 'calc(18rem + 1.5rem)' } : undefined}>
+          {/* The map's foot, as Obsidian keeps its graph bare: the key on the left (what the colours and icons mean,
+              opened on a click), the replay's timeline in the middle while it plays, the notes left off on the right. */}
+          <div data-map-foot className="@container/foot pointer-events-none absolute inset-x-4 bottom-3 grid grid-cols-[1fr_minmax(0,30rem)_1fr] items-end gap-3" style={panel && !example ? { right: 'calc(18rem + 1.5rem)' } : undefined}>
             <Popover onOpenChange={(open) => open && chime('open')}>
               <PopoverTrigger asChild>
-                <Button data-map-key-button variant="outline" size="sm" className="pointer-events-auto gap-1.5 bg-background text-muted-foreground hover:text-foreground dark:bg-background">
+                <Button data-map-key-button variant="outline" size="sm" className="pointer-events-auto justify-self-start gap-1.5 bg-background text-muted-foreground hover:text-foreground dark:bg-background">
                   <Palette className="size-3.5" />Key
                 </Button>
               </PopoverTrigger>
               <PopoverContent align="start" side="top" className="flex w-72 flex-col gap-2.5 p-3 text-meta text-muted-foreground">{legend()}</PopoverContent>
             </Popover>
+            <div className="min-w-0">{replaying && !example && <Replay nodes={map!.nodes} show={replay} onClose={() => (chime('off'), setReplaying(false))} />}</div>
             {/* The notes left off, one click away: each opens, ready for an @ to put it on the map. */}
-            {map!.alone && !example ? <Lonely count={map!.alone} notes={map!.lonely ?? []} onOpen={onOpen} /> : null}
+            <div className="flex justify-end">{map!.alone && !example ? <Lonely count={map!.alone} notes={map!.lonely ?? []} onOpen={onOpen} /> : null}</div>
           </div>
           {panel && !example && <MapPanel look={now} groups={groups} onChange={change} onClose={() => (chime('fold'), setPanel(false))} />}
         </GraphCanvas> : (
@@ -369,10 +369,11 @@ function Replay({ nodes, show, onClose }: { nodes: NoteMap['nodes']; show: React
   const press = (run: () => void) => (event: React.KeyboardEvent): void => void ((event.key === 'Enter' || event.key === ' ') && (event.preventDefault(), event.stopPropagation(), run()))
   const across = width * share
   return (
-    <div data-map-replay-bar className={`pointer-events-auto absolute top-3 left-1/2 grid w-[min(36rem,calc(100%-2rem))] -translate-x-1/2 grid-cols-[32px_auto_minmax(0,1fr)_auto] grid-rows-[32px_auto] items-center gap-x-3 gap-y-0.5 rounded-xl py-2 pr-2 pl-2.5 ${FLOAT}`}
+    // Quiet, at the map's foot between the key and the notes left off: the map stays the thing to look at.
+    <div data-map-replay-bar className={`pointer-events-auto grid w-full grid-cols-[28px_auto_minmax(0,1fr)_auto] grid-rows-[28px_auto] items-center gap-x-2.5 gap-y-0 rounded-lg py-1.5 pr-1.5 pl-2 ${FLOAT}`}
       style={{ '--mf-sound-faint': 'color-mix(in oklab, var(--foreground) 22%, transparent)' } as React.CSSProperties}>
       <Tip label={state === 'playing' ? 'Pause' : state === 'ended' ? 'Play again' : 'Play'}>
-        <span role="button" tabIndex={0} data-map-replay-play className="mf-sound-play" data-state={state} aria-label={state === 'playing' ? 'Pause' : state === 'ended' ? 'Play again' : 'Play'}
+        <span role="button" tabIndex={0} data-map-replay-play className="mf-sound-play" style={{ width: 28, height: 28 }} data-state={state} aria-label={state === 'playing' ? 'Pause' : state === 'ended' ? 'Play again' : 'Play'}
           onClick={toggle} onKeyDown={press(toggle)}>
           <Play data-icon="paused" />
           <Pause data-icon="playing" />
@@ -380,7 +381,7 @@ function Replay({ nodes, show, onClose }: { nodes: NoteMap['nodes']; show: React
         </span>
       </Tip>
       {/* The date it has reached, the one thing to read, large and first; as wide as the widest date, so nothing moves. */}
-      <span data-map-replay-date className="min-w-[7.5rem] text-heading leading-tight font-semibold text-foreground tabular-nums">{reached?.at ? dayMonth(reached.at, 'always') : 'Undated'}</span>
+      <span data-map-replay-date className="min-w-[6.25rem] text-control leading-tight font-medium text-foreground tabular-nums">{reached?.at ? dayMonth(reached.at, 'always') : 'Undated'}</span>
       <div ref={track} data-map-replay-track role="slider" tabIndex={0} aria-label="When" aria-valuemin={0} aria-valuemax={order.length} aria-valuenow={shown}
         aria-valuetext={`${reached?.at ? dayMonth(reached.at, 'always') : 'Undated'}, ${num(shown)} of ${num(order.length)} notes`}
         className="mf-sound-wave"
