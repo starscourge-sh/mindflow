@@ -162,6 +162,8 @@ const CUES = {
   rewind: [[880, 0, 0.04, 0.04], [740, 0.03, 0.04, 0.04], [587, 0.06, 0.04, 0.04], [784, 0.11, 0.2, 0.05]],
   // Files saved to a folder: three quick drops.
   saved: [[1046, 0, 0.04, 0.04], [880, 0.05, 0.04, 0.04], [698, 0.1, 0.1, 0.04]],
+  // Pointing at a pile on Files: covers fanned by a thumb, two airy high notes brushed upward, barely there.
+  fan: [[1568, 0, 0.035, 0.012, 1760, 0.004], [2093, 0.025, 0.05, 0.009, 2349, 0.006]],
   // A day's page opened: a soft morning fifth.
   day: [[440, 0, 0.2, 0.04, 466, 0.02], [659, 0.06, 0.3, 0.035]],
   // A note opened in its own window: a quick rising pop.

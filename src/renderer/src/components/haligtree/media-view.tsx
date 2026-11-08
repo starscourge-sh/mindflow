@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useStepped } from '@/lib/nav'
-import { AudioLines, Image as ImageIcon, ImagePlay, Layers, Plus, Unlink } from 'lucide-react'
+import { AudioLines, Image as ImageIcon, Layers, LayoutGrid, Plus } from 'lucide-react'
 import { FileText } from '@/components/ui/icons'
 import { call, haligtree, unloaded, useLive } from '@/lib/haligtree'
 import { smallPicture } from '@/lib/notes'
@@ -19,12 +19,14 @@ import { useSelectAll } from '@/lib/select-all'
 import { usePicking } from '@/lib/pick-range'
 import { useHere } from '@/lib/split'
 import { menuOpen } from '@/lib/menu-keys'
-import { PictureRow } from './picture-row'
 import { GRACE } from '@/components/pdf/pdf-peek'
 import { canSplit, openAside } from '@/lib/split'
 import { chime } from '@/lib/sound'
 import { pictureLines } from '@/lib/picture-actions'
 import { Empty, Kbd, Page, refuse, toast, typing, useListKeys, VirtualList } from './ui'
+import { Switch } from '@/components/ui/switch'
+import { readLibrary, type Book } from '@/components/pdf/book-head'
+import { AudioDays, PICTURE, PICTURE_GAP, Pile, PictureMonths, RecentRow, SHELVES, shelfOf, type Shelf } from './files-shelves'
 import { Chip } from './display'
 import { ListSearch, tileClass } from './note-list'
 import { SoundPlayer, soundTitle } from './sound-player'
@@ -32,32 +34,25 @@ import { RowMenu, type RowItem } from './row-menu'
 import { dayName, num } from '../../../../main/dates'
 import type { Media, MediaKind, MediaUse } from '../../../../main/media'
 
-/** The kinds, as the chips over the grid name them. */
-const KINDS: { id: MediaKind; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
-  { id: 'picture', label: 'Pictures', icon: ImageIcon },
-  { id: 'gif', label: 'GIFs', icon: ImagePlay },
-  { id: 'pdf', label: 'PDFs', icon: FileText },
-  { id: 'audio', label: 'Audio', icon: AudioLines }
-]
+/** The tabs over the page: every kind at once, then each shelf (a GIF sits with the pictures). */
+const ICONS: Record<Shelf, React.ComponentType<{ className?: string }>> = { pdf: FileText, picture: ImageIcon, audio: AudioLines }
+/** How many the Recent row holds. */
+const RECENT = 10
 /** A tile as wide as a note's in Gems' grid, with the same room between. */
 const TILE = 184
 const GAP = 12
 
 const readMedia = (): Promise<Media[]> => call<Media[]>('media:list')
 
-let nextKind: MediaKind | null = null
-const takeKind = (): MediaKind | null => ((kind) => ((nextKind = null), kind))(nextKind)
+let nextKind: Shelf | null = null
+const takeKind = (): Shelf | null => ((kind) => ((nextKind = null), kind))(nextKind)
 /** Media, opened (or already open) on one kind. */
 export function showMediaKind(kind: MediaKind): void {
-  nextKind = kind
-  window.dispatchEvent(new CustomEvent('haligtree:media-kind', { detail: kind }))
+  nextKind = kind === 'gif' ? 'picture' : kind
+  window.dispatchEvent(new CustomEvent('haligtree:media-kind', { detail: nextKind }))
 }
 
-/** Past this many files, those in no note are hard to pick out by eye and get a chip of their own. */
-const LOOSE_CHIP = 24
-
 const keyOf = (one: Media): string => `${one.deck ? 'deck:' : ''}${one.src}`
-const looseChip = <Unlink className="size-3.5" />
 
 /** A file's name without its ending, as a person says it. */
 const bare = (name: string): string => name.replace(/\.[^.]+$/, '') || name
@@ -105,9 +100,9 @@ export function MediaView({ onOpen }: { onOpen: (type: string, id: string) => vo
   const all = useLive(readMedia, [] as Media[])
   const [query, setQuery] = useState('')
   // Opened on a kind ("Show all" under Continue reading opens it on the PDFs), else every kind.
-  const [kind, setKind] = useState<'all' | MediaKind>(() => takeKind() ?? 'all')
+  const [kind, setKind] = useState<'all' | Shelf>(() => takeKind() ?? 'all')
   useEffect(() => {
-    const on = (event: Event): void => setKind((event as CustomEvent<MediaKind>).detail)
+    const on = (event: Event): void => setKind((event as CustomEvent<Shelf>).detail)
     window.addEventListener('haligtree:media-kind', on)
     return () => window.removeEventListener('haligtree:media-kind', on)
   }, [])
@@ -118,9 +113,13 @@ export function MediaView({ onOpen }: { onOpen: (type: string, id: string) => vo
   const anyDeck = all.some((one) => one.deck)
   const shown = useMemo(() => {
     const words = query.trim().toLowerCase().split(/\s+/).filter(Boolean)
-    return all.filter((one) => !!one.deck === decks && (kind === 'all' || one.kind === kind) && (!looseOnly || !one.uses.length) &&
+    return all.filter((one) => !!one.deck === decks && (kind === 'all' || shelfOf(one) === kind) && (!looseOnly || !one.uses.length) &&
       words.every((word) => `${one.title} ${one.name} ${one.near}`.toLowerCase().includes(word)))
+      // Newest first, so a month's or a day's files sit together under its heading.
+      .sort((a, b) => (b.at ?? '').localeCompare(a.at ?? ''))
   }, [all, query, kind, decks, looseOnly])
+  // "All" shows a pile per kind and the Recent row; a search there lists what it found, any kind, as tiles.
+  const piles = kind === 'all' && !query.trim()
 
   // How many tiles fit across, worked out from the grid's own width.
   const box = useRef<HTMLDivElement>(null)
@@ -132,8 +131,8 @@ export function MediaView({ onOpen }: { onOpen: (type: string, id: string) => vo
     const watch = new ResizeObserver(() => setWidth(element.clientWidth))
     watch.observe(element)
     return () => watch.disconnect()
-  }, [all.length > 0, kind === 'pdf'])
-  const across = Math.max(1, Math.floor((width + GAP) / (TILE + GAP)))
+  }, [all.length > 0, kind])
+  const across = kind === 'picture' ? Math.max(3, Math.floor((width + PICTURE_GAP) / (PICTURE + PICTURE_GAP))) : kind === 'audio' ? 1 : Math.max(1, Math.floor((width + GAP) / (TILE + GAP)))
   const lines = useMemo(() => {
     const out: { key: string; tiles: Media[] }[] = []
     for (let at = 0; at < shown.length; at += across) out.push({ key: keyOf(shown[at]), tiles: shown.slice(at, at + across) })
@@ -157,8 +156,8 @@ export function MediaView({ onOpen }: { onOpen: (type: string, id: string) => vo
   const srcOf = (key: string): string => key.replace(/^deck:/, '')
   const toBin = (keys: string[]): void => void binFiles(keys.map(srcOf), () => setChosen([]))
   const picking = usePicking(order, chosen, setChosen)
-  const [cursor, setCursor] = useListKeys(shown.length, { across, enabled: !library && !putting, onOpen: (at) => shown[at] && open(shown[at]), onExtend: (from, to) => shown[to] && picking.extend(shown[from] && keyOf(shown[from]), keyOf(shown[to])) })
-  useSelectAll(() => order, chosen, setChosen, { enabled: !library && !putting, here, onDelete: toBin, current: () => (shown[cursor] ? keyOf(shown[cursor]) : null), titleOf: (key) => { const one = all.find((each) => keyOf(each) === key); return one ? bare(one.name || one.title) : undefined } })
+  const [cursor, setCursor] = useListKeys(shown.length, { across, enabled: !library && !piles && !putting, onOpen: (at) => shown[at] && open(shown[at]), onExtend: (from, to) => shown[to] && picking.extend(shown[from] && keyOf(shown[from]), keyOf(shown[to])) })
+  useSelectAll(() => order, chosen, setChosen, { enabled: !library && !piles && !putting, here, onDelete: toBin, current: () => (shown[cursor] ? keyOf(shown[cursor]) : null), titleOf: (key) => { const one = all.find((each) => keyOf(each) === key); return one ? bare(one.name || one.title) : undefined } })
   const clear = (): void => setChosen([])
   // Esc lets the picked ones go, before it does anything else.
   const pickedNow = useRef(0)
@@ -227,26 +226,44 @@ export function MediaView({ onOpen }: { onOpen: (type: string, id: string) => vo
   // The "Add" box, open in the page.
   const [adding, setAdding] = useState(false)
 
-  // The kinds, as Gems' are: one on at a time, pressed again to show every kind.
-  // Only what the book holds: a tab for something you have none of leads to nothing. One asked for by name still shows, to say so.
-  const held = KINDS.filter((one) => one.id === kind || all.some((item) => item.kind === one.id && !item.deck))
-  // In no note: its own chip only once the page is too long to pick them out by eye, and there are others to tell them from.
-  const looseCount = all.filter((one) => !one.uses.length && !one.deck).length
-  const showLoose = looseOnly || (all.length > LOOSE_CHIP && looseCount > 0 && looseCount < all.length)
-  const kinds = held.length + (anyDeck ? 1 : 0) + (showLoose ? 1 : 0) < 2 ? <div className="pt-4" /> : (
+  // "Only files in no note", beside the search: a filter on whatever kind is open, not a kind of its own.
+  const looseSwitch = (where: string): React.JSX.Element => (
+    <label data-media-loose className={`${where} shrink-0 cursor-pointer items-center gap-2 text-xs whitespace-nowrap text-muted-foreground hover:text-foreground`}>
+      <Switch size="sm" checked={looseOnly} onCheckedChange={setLooseOnly} className="cursor-pointer" aria-label="Only files in no note" />
+      <span className="files-loose-words">Only files in no note</span>
+    </label>
+  )
+  // The tabs: All, then each shelf the book holds (a tab for something you have none of leads to nothing; one asked for by name still shows, to say so).
+  const held = SHELVES.filter((one) => one.id === kind || all.some((item) => shelfOf(item) === one.id && !item.deck))
+  const kinds = held.length + (anyDeck ? 1 : 0) < 2 ? <div className="pt-4" /> : (
     <div data-media-kinds className="flex flex-wrap gap-1 pt-4 pb-3 text-xs">
-      {held.map((one) => (
-        <Chip key={one.id} on={kind === one.id} onClick={() => (chime(kind === one.id ? 'off' : 'on'), setKind(kind === one.id ? 'all' : one.id))} mark={<one.icon className="size-3.5" />}>{one.label}</Chip>
-      ))}
+      <Chip on={kind === 'all'} onClick={() => kind !== 'all' && (chime('tap'), setKind('all'))} mark={<LayoutGrid className="size-3.5" />}>All</Chip>
+      {held.map((one) => {
+        const Icon = ICONS[one.id]
+        return <Chip key={one.id} on={kind === one.id} onClick={() => kind !== one.id && (chime('tap'), setKind(one.id))} mark={<Icon className="size-3.5" />}>{one.label}</Chip>
+      })}
       {anyDeck && (
         <span data-media-decks="" className="contents"><Chip on={decks} onClick={() => (chime(decks ? 'off' : 'on'), setDecks(!decks))} mark={<Layers className="size-3.5" />}>Deck pictures</Chip></span>
       )}
-      {showLoose && <span data-media-loose="" className="contents"><Chip on={looseOnly} onClick={() => (chime(looseOnly ? 'off' : 'on'), setLooseOnly(!looseOnly))} mark={looseChip}>In no note</Chip></span>}
+      {/* On a narrow window the header has no room for it: it sits at the end of the tabs instead. */}
+      {looseSwitch('ml-auto flex min-[900px]:hidden')}
     </div>
   )
-  // The newest pictures as a flowing row over the grid, for looking; the grid below is for finding.
-  const recent = useMemo(() => (query.trim() || decks || (kind !== 'all' && kind !== 'picture') ? [] : shown.filter((one) => one.kind === 'picture')), [shown, query, decks, kind])
-  const recentItems = useMemo(() => recent.map((one) => ({ id: one.src, src: () => smallPicture(one.src, true), title: (one.name ? bare(one.name) : one.title) || 'Untitled', aspect: 4 / 3 })), [recent])
+  // The last few added or opened, any kind: a book counts from when it was last read.
+  const books = useLive(readLibrary, [] as Book[])
+  const recent = useMemo(() => {
+    if (!piles) return []
+    const readAt = new Map(books.map((one) => [one.src, one.readAt ?? '']))
+    const when = (one: Media): string => ((readAt.get(one.src) ?? '') > one.at ? readAt.get(one.src)! : one.at) ?? ''
+    return [...shown].sort((a, b) => when(b).localeCompare(when(a))).slice(0, RECENT)
+  }, [piles, shown, books])
+  const pileList = useMemo(() => SHELVES.map((shelf) => ({ shelf, files: shown.filter((one) => shelfOf(one) === shelf.id) })).filter((one) => one.files.length), [shown])
+  // What is true when nothing shows: said for the kind that is open.
+  const shelf = SHELVES.find((one) => one.id === kind)
+  const inKind = all.filter((one) => !!one.deck === decks && (kind === 'all' || shelfOf(one) === kind))
+  const nothing = query.trim() ? <>Nothing here has “{query.trim()}” in its note, its name or the words around it.</>
+    : looseOnly ? <>{inKind.length === 1 ? `The one ${shelf?.one ?? 'file'} here is in a note.` : `All ${num(inKind.length)} ${shelf?.many ?? 'files'} are in a note.`}</>
+    : <>No {shelf?.many ?? 'files'} here yet.</>
   return (
     // The page as a whole takes a drop: `contents`, so nothing about how it is laid out changes.
     <div className="contents" data-media-page
@@ -261,7 +278,7 @@ export function MediaView({ onOpen }: { onOpen: (type: string, id: string) => vo
         void addDropped([...event.dataTransfer.files], onShow)
       }}>
     <Page title="Files" dock={library} waiting={unloaded(all)} count={unloaded(all) || !all.length ? undefined : chosen.length || shown.length} unit={chosen.length ? ['selected', 'selected'] : ['file', 'files']}
-      search={all.length > 0 && <ListSearch value={query} placeholder="Find by note, name or words" onChange={setQuery} onDone={() => shown[0] && open(shown[0])} />}
+      search={all.length > 0 && <div className="flex min-w-0 items-center gap-3"><ListSearch value={query} placeholder="Find by note, name or words" onChange={setQuery} onDone={() => shown[0] && open(shown[0])} />{looseSwitch('hidden min-[900px]:flex')}</div>}
       beside={() => carrying && (
         <div data-media-drop className="pointer-events-none absolute inset-2 z-20 flex items-center justify-center rounded-xl border border-[color-mix(in_srgb,var(--tt-brand-color-500)_55%,transparent)] bg-[color-mix(in_srgb,var(--tt-brand-color-500)_8%,transparent)]">
           <span className="rounded-lg bg-popover px-3 py-2 text-heading font-semibold text-foreground shadow-(--mf-panel-shadow) ring-1 ring-foreground/10">Drop to add to Files</span>
@@ -272,17 +289,24 @@ export function MediaView({ onOpen }: { onOpen: (type: string, id: string) => vo
       {adding && <AddBox onShow={onShow} onClose={() => setAdding(false)} />}
       {library ? (
         // PDFs as a library: a shelf of covers, each book once, the picked one's panel docked at the page's edge.
-        <PdfLibrary query={query} top={kinds} files={all} keys={!putting} onPut={(srcs) => setPutting(all.filter((one) => srcs.includes(one.src)))} />
+        <PdfLibrary query={query} top={kinds} files={all} only={looseOnly ? shown.map((one) => one.src) : undefined} keys={!putting} onPut={(srcs) => setPutting(all.filter((one) => srcs.includes(one.src)))} />
       ) : all.length ? (
-        <div ref={box} data-media-grid className="mx-5 mb-4">
+        <div ref={box} data-media-grid data-media-shelf={piles ? 'all' : kind} className={`mx-5 mb-4 ${kind === 'audio' ? 'files-audio-list' : ''}`}>
           {kinds}
-          {recent.length > 0 && (
-            <section data-recent-pictures className="mb-4 flex flex-col gap-2">
-              <h3 className="text-body font-medium text-foreground">Recent pictures</h3>
-              <PictureRow items={recentItems} height={250} cardHeight={0.72} direct counter="slash" label="Recent pictures" onOpen={(at) => recent[at] && open(recent[at])} menuFor={(at) => menuFor(recent[at])} />
-            </section>
-          )}
-          {shown.length ? (
+          {!shown.length ? (
+            <p data-media-nothing className="my-4 text-control text-muted-foreground">{nothing}</p>
+          ) : piles ? (
+            <div className="flex flex-col gap-8 pt-2 pb-6">
+              <div data-files-piles className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,190px),1fr))] gap-x-6 gap-y-8">
+                {pileList.map((one) => <Pile key={one.shelf.id} shelf={one.shelf} files={one.files} onOpen={() => setKind(one.shelf.id)} />)}
+              </div>
+              <RecentRow files={recent} onOpen={open} menuFor={menuFor} />
+            </div>
+          ) : kind === 'picture' ? (
+            <PictureMonths files={shown} across={across} cursor={cursor} chosen={chosen} keyOf={keyOf} menuFor={menuFor} onClick={clickTile} />
+          ) : kind === 'audio' ? (
+            <AudioDays files={shown} cursor={cursor} chosen={chosen} keyOf={keyOf} menuFor={menuFor} onClick={clickTile} onUse={(use, src) => openUse(use, src, onOpen)} />
+          ) : (
             <VirtualList items={lines} keyOf={(line) => line.key} holds={(line, key) => line.tiles.some((one) => keyOf(one) === key)} cursor={cursor >= 0 ? Math.floor(cursor / across) : undefined} estimate={TILE * 0.75 + 52 + GAP} rowClass="">
               {(line, row) => (
                 <div className="grid" style={{ gridTemplateColumns: `repeat(${across}, minmax(0, 1fr))`, gap: GAP, paddingBottom: GAP }}>
@@ -290,10 +314,6 @@ export function MediaView({ onOpen }: { onOpen: (type: string, id: string) => vo
                 </div>
               )}
             </VirtualList>
-          ) : (
-            <p className="my-4 text-control text-muted-foreground">
-              {query.trim() ? <>Nothing here has “{query.trim()}” in its note, its name or the words around it.</> : looseOnly ? <>Every file here is in a note.</> : <>No {KINDS.find((one) => one.id === kind)?.label.toLowerCase()} here yet.</>}
-            </p>
           )}
         </div>
       ) : unloaded(all) ? null : (
