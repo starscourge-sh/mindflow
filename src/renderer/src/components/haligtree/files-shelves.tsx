@@ -181,6 +181,8 @@ export function stepLine(spans: [number, number][], at: number, by: 1 | -1): num
 
 /** A heading's height in the list, as `sizeOf` has it. */
 const HEAD = 52
+/** The island's surface, as ui.tsx's Island draws it (Queue's "Up next"), its sides on every piece. */
+const ISLAND_SURFACE = 'mf-island overflow-hidden border-x bg-accent/25'
 
 /**
  * The heading of the group at the top of the list, held there while its group scrolls under it, as Photos holds the
@@ -298,17 +300,22 @@ export function AudioDays({ files, cursor, chosen, keyOf, menuFor, onClick, onUs
       sizeOf={(line) => ('head' in line ? HEAD : 64)}
       holds={(line, key) => 'files' in line && keyOf(line.files[0]) === key}
       cursor={cursorKey ? lines.findIndex((line) => 'files' in line && keyOf(line.files[0]) === cursorKey) : undefined}>
-      {(line) => {
+      {(line, index) => {
         if ('head' in line) return <Head line={line} />
         const one = line.files[0]
         const key = keyOf(one)
         const here = line.from === cursor
         const picked = chosen.includes(key)
+        const first = 'head' in lines[index - 1]
+        const after = lines[index + 1]
+        const last = !after || 'head' in after
         return (
+          // A day's recordings in one island, as Queue's "Up next": each row a piece of it, the first with its top, the last with its foot.
+          <div data-audio-island={first && last ? 'one' : first ? 'top' : last ? 'end' : 'mid'} className={`files-audio-piece ${ISLAND_SURFACE} ${first ? 'rounded-t-xl border-t' : ''} ${last ? 'rounded-b-xl border-b' : ''}`}>
           <RowMenu items={menuFor(one)}>
             <div data-media="audio" data-src={one.src} data-id={one.src} data-cursor={here || undefined} data-picked={picked || undefined} role="button" tabIndex={-1}
               onClick={(event) => onClick(one, event)}
-              className={`files-audio-row grid min-h-[60px] cursor-pointer items-center gap-x-4 rounded-[6px] px-2 py-2 ${picked ? 'bg-[color-mix(in_srgb,var(--tt-brand-color-400)_14%,transparent)]' : here ? 'bg-accent' : 'hover:bg-accent/60'}`}>
+              className={`files-audio-row grid min-h-[60px] cursor-pointer items-center gap-x-4 rounded-md px-3 py-3 transition-[background-color] duration-150 ${picked ? 'bg-[color-mix(in_srgb,var(--tt-brand-color-400)_14%,transparent)]' : here ? 'bg-accent/50' : 'hover:bg-accent/50'}`}>
               <span className="flex min-w-0 flex-col">
                 <span dir="auto" className={`truncate text-body font-medium text-foreground ${one.private ? 'private-text' : ''}`}>{nameOf(one)}</span>
                 {one.uses.length ? (
@@ -316,10 +323,11 @@ export function AudioDays({ files, cursor, chosen, keyOf, menuFor, onClick, onUs
                 ) : <span className="text-xs text-muted-foreground">{whereOf(one)}</span>}
               </span>
               {/* Played where it sits: a press on the player is the player's, never the row's (which opens the note). */}
-              <span className="files-audio-player min-w-0" onClick={(event) => event.stopPropagation()}><SoundPlayer src={one.src} className="w-full" /></span>
+              <span className="files-audio-player min-w-0" onClick={(event) => event.stopPropagation()}><SoundPlayer src={one.src} className="w-full" inline /></span>
               <span className="files-audio-time text-right text-xs text-muted-foreground tabular-nums">{one.at ? TIME.format(new Date(one.at)) : ''}</span>
             </div>
           </RowMenu>
+          </div>
         )
       }}
     </VirtualList>

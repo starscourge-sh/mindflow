@@ -41,8 +41,10 @@ export function soundTitle(name: string | null | undefined, seconds: number | nu
  * to drag or anywhere on it to click, and the time on the right. Under it, quietly, its name, the speed and whatever
  * the place adds (`status`: a note's "No transcript · Transcribe"). No volume: the Mac's own keys do that.
  */
-export function SoundPlayer({ src, name, length, onLength, onPlaying, status, className }: {
+export function SoundPlayer({ src, name, length, onLength, onPlaying, status, className, inline }: {
   src: string
+  /** On one line, for a list of them (Files' Audio): the speed beside the time, the time one width in every row, no line under. */
+  inline?: boolean
   /** Its name on the quiet line ("Voice note"; its length is the time on the right); left out where the place already names it. */
   name?: string
   /** The length kept with it, so the player knows it before the sound is read. */
@@ -203,8 +205,15 @@ export function SoundPlayer({ src, name, length, onLength, onPlaying, status, cl
   // The time on the right: its length at rest, how far in once it has started, the time under the pointer while it rests there.
   const shown = hover !== null && end ? hover * end : started.current || at > 0 ? at : end
   const press = (run: () => void) => (event: React.KeyboardEvent): void => void ((event.key === 'Enter' || event.key === ' ') && (event.preventDefault(), event.stopPropagation(), run()))
+  // One width at every speed (the widest kept under it, right-aligned).
+  const speedButton = (
+    <span role="button" tabIndex={0} data-speed data-sound-control className="tiptap-media-speed mf-sound-speed" aria-label={`Speed ${rate} times`} title="Change the speed"
+      onClick={speed} onKeyDown={press(speed)}>
+      <span>{rate}×</span><span aria-hidden className="mf-sound-reserve">1.5×</span>
+    </span>
+  )
   return (
-    <div data-sound-player data-state={state} data-length={end || undefined} className={`mf-sound${className ? ` ${className}` : ''}`} contentEditable={false}
+    <div data-sound-player data-state={state} data-inline={inline || undefined} data-length={end || undefined} className={`mf-sound${className ? ` ${className}` : ''}`} contentEditable={false}
       // Its controls are its own: a press on one never moves the editor's selection, nor opens what holds it (a Media
       // tile opens its note). A press between them is the block's, which picks it, as any block is picked.
       onMouseDown={(event) => (event.target as Element).closest('[data-sound-control]') && event.stopPropagation()}
@@ -241,17 +250,14 @@ export function SoundPlayer({ src, name, length, onLength, onPlaying, status, cl
         <span ref={head} data-playhead className="mf-sound-head" aria-hidden />
       </div>
       {/* As wide as its longest time, so the waveform beside it never moves as the numbers change. */}
-      <span data-sound-time className="tiptap-media-time mf-sound-time" style={{ minWidth: `${clock(end).length}ch` }}>{clock(shown)}</span>
-      <div className="mf-sound-under">
+      <span data-sound-time className="tiptap-media-time mf-sound-time" style={{ minWidth: `${Math.max(inline ? 5 : 0, clock(end).length)}ch` }}>{clock(shown)}</span>
+      {inline ? speedButton : <div className="mf-sound-under">
         {name && <span className="tiptap-attachment-name mf-sound-name">{name}</span>}
         {name && status && <span aria-hidden>·</span>}
         {status && <span data-sound-control className="mf-sound-status">{status}</span>}
-        {/* At the line's end, under the time: one width at every speed (the widest kept under it, right-aligned). */}
-        <span role="button" tabIndex={0} data-speed data-sound-control className="tiptap-media-speed mf-sound-speed" aria-label={`Speed ${rate} times`} title="Change the speed"
-          onClick={speed} onKeyDown={press(speed)}>
-          <span>{rate}×</span><span aria-hidden className="mf-sound-reserve">1.5×</span>
-        </span>
-      </div>
+        {/* At the line's end, under the time. */}
+        {speedButton}
+      </div>}
     </div>
   )
 }

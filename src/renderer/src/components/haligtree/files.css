@@ -98,14 +98,37 @@
   object-position: top;
 }
 
-/* Audio: name, then the player, then the time; on a narrow page the player takes a line of its own under the name. */
+/* Audio: name, then the player, then the time, every column one width down the day so they line up; on a narrow
+   page the player takes a line of its own under the name. */
 .files-audio-list {
   container-type: inline-size;
 }
 .files-audio-row {
-  grid-template-columns: minmax(0, 1fr) minmax(180px, 320px) 72px;
+  grid-template-columns: minmax(0, 1fr) clamp(200px, 55%, 360px) 64px;
 }
-@container (max-width: 520px) {
+/* A day's island is drawn in pieces, one per row (the list draws only the rows in view): its hair of light along the
+   top on the first piece alone, and its lift under the last, so it reads as one tray. */
+.files-audio-piece:is([data-audio-island='mid'], [data-audio-island='end']) {
+  box-shadow: none;
+}
+:root:is(.light, .paper) .files-audio-piece[data-audio-island='top'] {
+  box-shadow: inset 0 1px 1px color-mix(in oklab, white 60%, transparent);
+}
+:root:is(.light, .paper) .files-audio-piece[data-audio-island='end'] {
+  box-shadow: 0 1px 2px color-mix(in oklab, var(--mf-shadow-ink) 5%, transparent);
+}
+/* A day's heading sits a hair inside its island's edge, as Queue's "Up next" does over its own. */
+.files-audio-list :is([data-files-group], [data-files-held]) {
+  padding-inline: 4px;
+}
+/* A narrow page gives the name what room it can: closer columns, a slimmer clock. */
+@container (max-width: 560px) {
+  .files-audio-row {
+    column-gap: 12px;
+    grid-template-columns: minmax(0, 1fr) clamp(200px, 55%, 360px) 52px;
+  }
+}
+@container (max-width: 400px) {
   .files-audio-row {
     grid-template-columns: minmax(0, 1fr) auto;
   }

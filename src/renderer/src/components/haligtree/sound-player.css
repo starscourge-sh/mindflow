@@ -109,6 +109,10 @@
 .mf-sound-speed > * { grid-area: 1 / 1; }
 .mf-sound-speed:hover { color: var(--foreground); }
 .mf-sound-reserve { visibility: hidden; }
+/* On one line (a list of recordings): play, waveform, time, speed, the speed in the time's size and colour. */
+.mf-sound[data-inline] { grid-template-columns: 32px minmax(0, 1fr) auto auto; grid-template-rows: 32px; }
+.mf-sound[data-inline] .mf-sound-speed { margin-left: 0; font-size: 0.8125rem; line-height: 1.125rem; color: var(--muted-foreground); }
+.mf-sound[data-inline] .mf-sound-speed:hover { color: var(--foreground); }
 .mf-sound-status { display: flex; align-items: center; gap: 6px; min-width: 0; overflow: hidden; }
 
 @keyframes mf-sound-in { from { opacity: 0; } }
