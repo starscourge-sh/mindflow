@@ -4,6 +4,7 @@ import { EditorContext, useEditorState, type Editor } from "@tiptap/react"
 import { AlignCenter, AlignLeft, AlignRight, Captions } from "lucide-react"
 import { AliveIcon } from "@/components/ui/alive-icon"
 import TrashIcon from "@/components/ui/trash-icon"
+import { crumpleFrom } from "@/lib/fly-home"
 import DownloadIcon from "@/components/ui/download-icon"
 import { startCaption } from "@/extensions/caption"
 import { host } from "@/lib/host"
@@ -150,7 +151,12 @@ export function ImageMenu({ editor }: { editor: Editor | null }): React.JSX.Elem
             <Button
               data-style="ghost"
               aria-label="Delete image"
-              onClick={() => editor.chain().focus().deleteSelection().run()}
+              // Thrown away, shown: the picture crumples and is tossed off (⌘Z brings it back); by a key it simply goes.
+              onClick={() => {
+                const land = crumpleFrom(editor.view.nodeDOM(editor.state.selection.from) as HTMLElement | null)
+                editor.chain().focus().deleteSelection().run()
+                land?.()
+              }}
             >
               <AliveIcon icon={TrashIcon} size={16} className="tiptap-button-icon" />
             </Button>
