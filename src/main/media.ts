@@ -144,7 +144,7 @@ const addedRows = (db: DatabaseSync): AddedRow[] => {
 
 const END_OF = /\.([a-z0-9]+)$/
 /** What a stored file is by its ending alone, as an added file is known. */
-const kindByEnd = (src: string): MediaKind | null => {
+export const kindByEnd = (src: string): MediaKind | null => {
   const end = END_OF.exec(src)?.[1] ?? ''
   return end === 'gif' ? 'gif' : end === 'pdf' ? 'pdf' : AUDIO_ENDS.includes(end) ? 'audio' : PICTURE_ENDS.includes(end) ? 'picture' : null
 }

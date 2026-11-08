@@ -154,6 +154,41 @@ if (!process.env.ONLY || process.env.ONLY.includes('relaunch')) {
   }
 }
 
+// ⌘K's "show it in Files" on a picture, with Files last left on each kind: it opens on Pictures with the keys on
+// that tile, never crashes (two writers of the kind once took turns for ever, React #185), and ⌘[ is where you were.
+if (!process.env.ONLY || process.env.ONLY.includes('show')) {
+  const pics = (await c.h.evaluate(() => window.api.haligtree('media:list'))).filter((one) => one.kind === 'picture' && !one.deck)
+  const pic = pics[0]
+  // One other picture in no note, "Keep in Files" off: an attachment no note holds, so the Unlinked chip shows.
+  const gif = [71, 73, 70, 56, 57, 97, 1, 0, 1, 0, 128, 0, 0, 255, 255, 255, 0, 0, 0, 33, 249, 4, 1, 0, 0, 0, 0, 44, 0, 0, 0, 0, 1, 0, 1, 0, 0, 2, 2, 68, 1, 0, 59, 7]
+  const [loose] = (await c.h.evaluate((bytes) => window.api.haligtree('media:add', [{ name: 'Let go.gif', bytes: new Uint8Array(bytes) }]), gif)).added
+  await c.h.evaluate((src) => window.api.haligtree('media:keep', src, false), loose.src)
+  const lit = () => c.h.evaluate((src) => !!document.querySelector(`[data-cursor][data-media][data-src="${src}"], [data-cursor] [data-media][data-src="${src}"]`), pic.src)
+  for (const left of ['All', 'Pictures', 'Audio', 'Books', 'Unlinked', 'already on Audio']) {
+    try {
+      c.errors.length = 0
+      await c.send('view', 'media')
+      await wait(900)
+      const chip = c.h.locator(`[data-media-kinds] button:has-text("${left.replace('already on ', '')}")`).first()
+      if (!(await chip.count())) { console.log(`SKIP  show in Files from ${left}: no such chip in this book`); continue }
+      await chip.click()
+      await wait()
+      if (!left.startsWith('already')) { await c.send('view', 'home'); await wait(900) }
+      await c.h.evaluate((src) => window.api.haligtree('media:show', src), pic.src)
+      await wait(1500)
+      const kind = await readKind(), on = await lit()
+      await key('Meta+BracketLeft')
+      const back = left.startsWith('already') ? await readKind() : await c.h.evaluate(() => document.querySelector('[data-page]')?.dataset.page)
+      const ok = kind === 'Pictures' && on && !c.errors.length && back === (left.startsWith('already') ? 'Audio' : 'home')
+      results.push({ name: `show in Files from ${left}`, ok })
+      console.log(`${ok ? 'PASS' : 'FAIL'}  show in Files from ${left}: on ${kind}, tile lit ${on}, ⌘[ ${back}${c.errors.length ? `, errors: ${c.errors.slice(0, 2).join(' | ')}` : ''}`)
+    } catch (error) {
+      results.push({ name: `show in Files from ${left}`, ok: false })
+      console.log(`FAIL  show in Files from ${left}  (${String(error.message ?? error).slice(0, 200)})`)
+    }
+  }
+}
+
 // Relaunched on Files: it opens on the kind its step kept (Audio, reached by a pile), and Back is All, then Pictures.
 if (!process.env.ONLY || process.env.ONLY.includes('relaunch')) {
   try {

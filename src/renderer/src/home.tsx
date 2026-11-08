@@ -1334,6 +1334,8 @@ export function Home(): React.JSX.Element {
     else if (type === 'view' && id === 'review' && heading?.startsWith(':')) setView({ id, focus: heading })
     // The Bin at what was just put there (a "Moved to the Bin" toast's click).
     else if (type === 'view' && id === 'discarded' && heading) setView({ id, focus: heading, nonce: Date.now() })
+    // Files on one kind (⌘K's "show it in Files"): the kind is the step's own, as Back and Forward keep it (lib/nav.ts).
+    else if (type === 'view' && id === 'media' && heading?.startsWith('kind:')) setView({ id, tab: heading.slice(5) })
     else if (type === 'view') (setView({ id }), heading && landOnGroup(heading))
     else if (type === 'recap') setView({ id: 'stats', focus: id, nonce: Date.now() })
     // A wrap, from the Sunday notification or quick capture's menu: the story over the page.

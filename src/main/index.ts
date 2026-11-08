@@ -113,7 +113,7 @@ import { registerOffers } from './offers'
 import { allPlaces, sunToday } from './sun'
 import { registerJournal } from './journal'
 import { pdfsToFind, registerPdfHighlights } from './pdf-highlights'
-import { addMedia } from './media'
+import { addMedia, kindByEnd } from './media'
 import { addSaid } from './media-words'
 import { registerWebArticles } from './web-articles'
 import { registerWordLog } from './word-log'
@@ -5365,7 +5365,9 @@ app.whenReady().then(() => {
   })
   // ⌘K on a file with no note, from any window: Media, on that tile.
   ipcMain.handle('haligtree:media:show', (_event, src: unknown) => {
-    sendHome('view', 'media')
+    // On the file's own kind, written into the step it opens, so its tile is drawn and Back finds it there.
+    const kind = kindByEnd(String(src))
+    sendHome('view', 'media', kind ? `kind:${kind === 'gif' ? 'picture' : kind}` : undefined)
     inHome('haligtree:media-file', String(src))
   })
 

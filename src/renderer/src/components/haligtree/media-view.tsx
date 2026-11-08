@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { useStepped } from '@/lib/nav'
+import { useNav, useStepped } from '@/lib/nav'
 import { AudioLines, Check, Image as ImageIcon, Layers, LayoutGrid, Plus, Unlink } from 'lucide-react'
 import { FileText } from '@/components/ui/icons'
 import { call, haligtree, unloaded, useLive } from '@/lib/haligtree'
@@ -99,8 +99,10 @@ function AddBox({ onShow, onClose }: { onShow: (src: string) => void; onClose: (
 export function MediaView({ onOpen }: { onOpen: (type: string, id: string) => void }): React.JSX.Element {
   const all = useLive(readMedia, [] as Media[])
   const [query, setQuery] = useState('')
-  // Opened on a kind ("Show all" under Continue reading opens it on the PDFs), else every kind.
-  const [kind, setKind] = useState<'all' | Shelf>(() => takeKind() ?? 'all')
+  // Opened on a kind ("Show all" under Continue reading opens it on the PDFs), or the one its step holds (Back, Forward, ⌘K on a file), else every kind.
+  const nav = useNav()
+  const stepKind = (): Shelf | undefined => (nav?.here.id === 'media' ? SHELVES.find((one) => one.id === nav.here.tab)?.id : undefined)
+  const [kind, setKind] = useState<'all' | Shelf>(() => takeKind() ?? stepKind() ?? 'all')
   useEffect(() => {
     const on = (event: Event): void => setKind((event as CustomEvent<Shelf>).detail)
     window.addEventListener('haligtree:media-kind', on)
@@ -198,17 +200,20 @@ export function MediaView({ onOpen }: { onOpen: (type: string, id: string) => vo
   useEffect(() => {
     if (!showing || !all.some((one) => one.src === showing)) return
     const one = all.find((each) => each.src === showing)!
-    if (!shown.includes(one)) {
+    // On its own kind, where it is drawn as a tile (All draws piles): Pictures, Audio or Books.
+    const want = shelfOf(one)
+    if (kind !== want || !shown.includes(one)) {
       setQuery('')
       setUnlinkedOnly(false)
       setDecks(!!one.deck)
-      setKind('all')
+      // The kind only through the step (useStepped follows it), never set here too: the two fought on a remount (React #185).
+      if (kind !== want && nav?.here.tab !== want) nav ? nav.step({ tab: want }) : setKind(want)
       return
     }
     setShowing(null)
     takeMediaFile()
     setCursor(shown.indexOf(one))
-  }, [showing, all, shown, setCursor])
+  }, [showing, all, shown, kind, setCursor]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // "Put in a note…": the picker over the page, for one file or everything picked. While it is up, the page's keys are its own.
   const pickedFiles = shown.filter((one) => chosen.includes(keyOf(one)))

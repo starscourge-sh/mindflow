@@ -129,11 +129,12 @@ export function useStepped<T extends string>(value: T, set: (value: T) => void):
   const page = useRef(nav?.here.id)
   const mine = nav?.here.id === page.current
   const held = mine ? (nav?.here.tab as T | undefined) : undefined
-  // Back, Forward or a relaunch brought another place: show it.
-  useEffect(() => {
-    if (held !== undefined && held !== value) set(held)
-  }, [held]) // eslint-disable-line react-hooks/exhaustive-deps
   const said = useRef<T | null>(null)
+  // Back, Forward or a relaunch brought another place: show it. What this page wrote itself is not one:
+  // followed while the page had moved on, the two took turns for ever (Files on a ⌘K'd file, React #185).
+  useEffect(() => {
+    if (held !== undefined && held !== value && held !== said.current) set(held)
+  }, [held]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!mine || !nav || said.current === value) return
     const first = said.current === null
