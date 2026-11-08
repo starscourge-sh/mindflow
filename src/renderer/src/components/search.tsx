@@ -128,7 +128,13 @@ export function Search({ onOpen: told, onAside: toldAside, onTab: toldTab, onClo
   const [opened] = useState(() => recentlyOpened(RECENT_COUNT))
   const recent = query.trim() ? [] : opened.map((key) => matching.find((one) => `${one.type}:${one.id}` === key)).filter((one): one is Capture => !!one)
   const results = recent.length ? [...recent, ...matching.filter((one) => !recent.includes(one))] : matching
-  const groupFor = (index: number): string => (index < recent.length ? 'Recent' : groupOf(results[index].capturedAt))
+  // Searching, results come by where the words are (main/captures.ts ranks them so), each kind newest first.
+  const MATCHED = { name: 'In the name', words: 'In the text', picture: 'In a picture' } as const
+  const groupFor = (index: number): string => {
+    if (index < recent.length) return 'Recent'
+    const match = (results[index] as { match?: keyof typeof MATCHED }).match
+    return match ? MATCHED[match] : groupOf(results[index].capturedAt)
+  }
   // Raycast's ⌘K: what you can do comes first, matched by the same words,
   // then what you have written. One list, one cursor.
   // Typed, the open note's own actions come before places to go: "Archive"
@@ -497,7 +503,7 @@ export function Search({ onOpen: told, onAside: toldAside, onTab: toldTab, onClo
               return (
                 <Fragment key={capture.id}>
                   {group !== (index ? groupFor(index - 1) : '') && (
-                    <div className="px-2 pt-3 pb-1 text-xs text-muted-foreground">{group}</div>
+                    <div data-search-group className="px-2 pt-3 pb-1 text-xs text-muted-foreground">{group}</div>
                   )}
                   {/* Drawn again only when what it shows changes: an arrow press redraws two rows, not sixty menus. */}
                   <Kept deps={[capture, index, on, several.picked(capture), several.count, results.length, tasks, pins, shown, menus, on && !asking && !preview]} draw={() => (

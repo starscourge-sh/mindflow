@@ -694,7 +694,7 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
           </Setting>
           <Setting under off={!settings.postcards && 'Shows once “Postcards” is on.'} title="Postcard border" note="The border's colour, where “Auto” follows your theme." keywords="postcard border frame colour color white cream black accent paper print"
             below={<Choices label="Postcard border" min="5.5rem" options={postcardChoices()} on={(id) => id === (settings.postcardBorder ?? 'auto')} pick={(postcardBorder) => set({ postcardBorder: postcardBorder as Settings['postcardBorder'] })} />} />
-          <Setting title="Tilt pictures in notes" note="A picture leans toward the pointer; point at this one to see." more="In Focus and full screen, pictures always tilt." keywords="tilt picture image photo hover move 3d motion">
+          <Setting title="Tilt pictures in notes" note="A picture leans toward the pointer; point at this one to see." keywords="tilt picture image photo hover move 3d motion">
             <PictureSample tilt={!!settings.tiltPictures} caption={null} />
             <Switch checked={!!settings.tiltPictures} onCheckedChange={(tiltPictures) => set({ tiltPictures })} />
           </Setting>

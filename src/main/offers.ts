@@ -64,10 +64,12 @@ async function meaningFor(book: RootIndex, all: Row[], text: string, lemmas: Lem
   return (key) => near(own, kept.get(key)?.meaning)
 }
 
+// A capture made into a gem or a page lives on as that: left out, or the gem was told it
+// "already wrote" its own first draft, and "Open it" opened the gem itself.
 function rows(): Row[] {
   return database().prepare(
     `select id as key, label(title, body, named) as title, words(id, body) as text, coalesce(edited_at, captured_at) as stamp, null as "group", null as list
-       from captures where status != 'discarded' and private = 0
+       from captures where status not in ('discarded', 'promoted') and private = 0
      union all
      select tier || ':' || id, coalesce(nullif(title, ''), label('', body)), words(id, body), coalesce(updated_at, created_at), group_id, tier
        from nuggets where tier in ('nugget', 'article', 'question') and private = 0 and binned_at is null and archived_at is null`

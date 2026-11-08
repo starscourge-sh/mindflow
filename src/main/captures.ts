@@ -514,7 +514,7 @@ export function registerCaptures(): void {
       `select * from (
          select 'capture' as type, id, number, kind, status, source, attribution, ${LABEL} as label, captured_at as capturedAt,
            (${LABEL} || ' ' || words(id, body) || char(31) || coalesce(medium, '') || ' ' || coalesce(attribution, '') || ' ' || coalesce(fields, '') || ' ' || coalesce(aliases, '')) as text
-           from captures where status != 'discarded'
+           from captures where status not in ('discarded', 'promoted')
          union all
          select tier, id, null, case when tier = 'goal' then (case when goal_at is null then 'someday' when closed_how = 'on ice' then 'iced' else 'dated' end) else kind end, 'open', '', attribution, coalesce(nullif(title, ''), label('', body)), created_at,
            (coalesce(title, '') || ' ' || ${SHOWN_WORDS} || char(31) || coalesce(attribution, '') || ' ' || coalesce(fields, '') || ' ' || coalesce(aliases, '')) from nuggets where tier not in ('card', 'deck') and binned_at is null
@@ -596,7 +596,18 @@ export function registerCaptures(): void {
       if (!line?.startsWith(IN_PICTURE)) return { ...one, line }
       return { ...one, line: line.slice(1), picture: pictureHolding(line.slice(1)) }
     }
-    const found = once(take((one) => terms.every((term) => one.text.includes(term)), 60).map(shown))
+    // Newest first within three tiers: the words in its name, then in its own words, then only in a
+    // picture's. A note titled with the words used to sit under newer notes that had them in a screenshot,
+    // and past the first 60 by date it was not shown at all.
+    const all = take((one) => terms.every((term) => one.text.includes(term)), 600)
+    const named = (one: Searchable): boolean => terms.every((term) => (one.label ?? '').toLowerCase().includes(term))
+    const titled = all.filter(named)
+    const rest = all.filter((one) => !named(one)).slice(0, 120).map(shown)
+    const found = once([
+      ...titled.slice(0, 60).map(shown).map((one) => ({ ...one, match: 'name' as const })),
+      ...rest.filter((one) => !one.picture).map((one) => ({ ...one, match: 'words' as const })),
+      ...rest.filter((one) => one.picture).map((one) => ({ ...one, match: 'picture' as const }))
+    ]).slice(0, 60)
     if (filters.length) return found.filter((one) => one.type !== 'task' && one.type !== 'event' && one.type !== 'day' && passes(fieldsOf(db, one.type, one.id), filters))
     // Few or none as typed: spelling forgiven (near.ts), the closest words standing in for a slip of the keys.
     // Read over the newest 3000 only, so a slip in a big book never stalls the typing; the Bin is left out as above.

@@ -218,8 +218,7 @@ const TYPED = 900
  * Never on a picture that is selected (its toolbar is over it), held, dragged,
  * while you type or write its caption, for a touch, or with Motion off: the
  * plain caption only.
- * Two switches in Settings: Tilt pictures in notes (off by default; in Focus
- * or full screen, where a picture has the page to itself, it always tilts),
+ * Two switches in Settings: Tilt pictures in notes (off by default),
  * and Caption follows the pointer (on by default), which works on a flat
  * picture too.
  */
@@ -255,9 +254,9 @@ function PictureTilt({ editor }: { editor: Editor }): React.ReactNode {
     const dom = page
     if (!dom) return
     let typed = 0
-    // Tilted with the switch on, or in Focus (⇧⌘F) or full screen.
-    const tips = (): boolean =>
-      tilting.current || document.documentElement.dataset.focus === "on" || !!document.fullscreenElement || (innerWidth >= screen.width && innerHeight >= screen.height)
+    // Tilted only with the switch on (off to start). It used to tilt in Focus or full screen whatever
+    // the switch said, and a window filling the screen counted as full screen, so it seemed always on.
+    const tips = (): boolean => tilting.current
     const resting = (): boolean => Math.abs(tilt.x.get()) < 0.01 && Math.abs(tilt.y.get()) < 0.01 && Math.abs(tilt.grow.get() - 1) < 0.0005
     // Written on the picture in the frame the springs moved in: one transform, nothing measured.
     const unsubscribe = transform.on("change", (value) => {
@@ -345,9 +344,11 @@ function PictureTilt({ editor }: { editor: Editor }): React.ReactNode {
       // What is typed can move the picture: measured again on the next move.
       area.current = null
     }
-    // A press may resize or move it: measured again on the next move.
+    // A press may resize or move it: measured again on the next move. It settles flat on its
+    // spring, as when the pointer leaves: snapped flat at once, a click looked like a jolt.
+    // A drag still starts from its real place (dragstart snaps).
     const onPress = (): void => {
-      if (on.current) snap()
+      if (on.current) tilt.flat()
       area.current = null
     }
     window.addEventListener("pointermove", onMove)
