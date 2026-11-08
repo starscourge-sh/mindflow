@@ -57,7 +57,7 @@ function CountUp({ n }: { n: number }): React.JSX.Element {
 export function Big({ n, children }: { n: number; children: ReactNode }): React.JSX.Element {
   return (
     <div>
-      <div className="text-[clamp(3rem,12vw,6rem)] leading-none font-semibold tabular-nums text-foreground"><CountUp n={n} /></div>
+      <div className="text-[clamp(3rem,12cqi,6rem)] leading-none font-semibold tabular-nums text-foreground"><CountUp n={n} /></div>
       <div className="mt-2 text-heading text-muted-foreground">{children}</div>
     </div>
   )
@@ -170,7 +170,7 @@ export function Recap({ period, onClose }: { period: 'month' | 'year'; onClose: 
   ] : [
     <div key="intro" className="space-y-3">
       <p className="text-heading text-muted-foreground">Your recap</p>
-      <h2 className="text-[clamp(2.5rem,9vw,4.5rem)] leading-none font-semibold text-foreground">{data.label}</h2>
+      <h2 className="text-[clamp(2.5rem,9cqi,4.5rem)] leading-none font-semibold text-foreground">{data.label}</h2>
       <p className="text-muted-foreground"><Typed story text="What you caught, kept and came back to. → to go on." /></p>
     </div>,
     <div key="captures" className="space-y-8">

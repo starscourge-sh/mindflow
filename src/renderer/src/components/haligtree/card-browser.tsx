@@ -653,7 +653,7 @@ export function CardBrowser({ onOpen, aim, only, newest, onAll, onShow, onAimDon
       <TabControls>
         <div className={compact ? 'w-28' : 'w-44'}><ListSearch value={query} onChange={setQuery} onDone={() => {}} placeholder={compact ? 'Search' : 'Search cards'} /></div>
         {!compact && gridActions}
-        <Display view={view} onChange={setView} facets={facets} items={cards} count={cards.length} sorts={SORTS} groups={GROUPS}
+        <Display view={view} onChange={setView} facets={facets} items={cards} count={cards.length} sorts={SORTS} groups={GROUPS} compact={compact}
           sortNote={view.group === 'source' ? 'Within each book or video, cards go in page or time order.' : undefined}
           density={density} onDensity={(next) => setView({ ...view, density: next })} densities={['list', 'grid', 'compact']} names={{ grid: 'Cards', compact: 'Table' }} />
       </TabControls>

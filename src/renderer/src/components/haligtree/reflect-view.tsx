@@ -232,7 +232,7 @@ export function MonthReflect({ start, onClose }: { start?: string; onClose: () =
           </div>
           {ready && (
             <motion.div key={month} initial={{ opacity: 0, transform: shift('translateY(6px)') }} animate={{ opacity: 1, transform: shift('translateY(0px)') }} transition={{ duration: 0.3, ease: EASE }}>
-              <h1 className={`mt-6 ${SERIF} text-[clamp(1.5rem,3.4vw,2.125rem)] leading-[1.15] font-medium tracking-[-0.015em] text-balance text-foreground`}>
+              <h1 className={`mt-6 ${SERIF} text-[clamp(1.5rem,3.4cqi,2.125rem)] leading-[1.15] font-medium tracking-[-0.015em] text-balance text-foreground`}>
                 <Typed text={headline(ready, name)} step={18} delay={80} />
               </h1>
               {ready.fields.season && <p className="mt-1.5 text-meta text-muted-foreground">Your words for it, from {name}&rsquo;s page.</p>}
@@ -246,7 +246,7 @@ export function MonthReflect({ start, onClose }: { start?: string; onClose: () =
                       [ready.kept, 'Saved']
                     ].map(([value, label]) => (
                       <div key={String(label)} className="min-w-0">
-                        <dd className={`truncate ${SERIF} text-[clamp(1.375rem,3vw,1.875rem)] leading-tight text-foreground tabular-nums`}><Rolling text={value} /></dd>
+                        <dd className={`truncate ${SERIF} text-[clamp(1.375rem,3cqi,1.875rem)] leading-tight text-foreground tabular-nums`}><Rolling text={value} /></dd>
                         <dt><Label>{label}</Label></dt>
                       </div>
                     ))}

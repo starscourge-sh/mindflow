@@ -295,9 +295,9 @@ export function DayBrief({ day, onOpen, onListed, between }: {
               textShadow: picture ? '0 1px 2px rgb(0 0 0 / 0.25), 0 4px 28px rgb(0 0 0 / 0.35)' : undefined
             }}>
             {/* The title is simply there: the greeting below is the line that speaks (lib/motion.ts). */}
-            <span className="font-semibold tracking-[-0.02em] text-[clamp(1.75rem,4.2vw,3rem)] text-balance">The {weekday} Report</span>
+            <span className="font-semibold tracking-[-0.02em] text-[clamp(1.5rem,6cqi,3rem)] text-balance">The {weekday} Report</span>
             {/* The date, the day of the year, the time (each new minute) and the weather: one calm line under the title. */}
-            <span data-today-line className="mt-2.5 font-sans text-[clamp(0.8125rem,1.2vw,0.9375rem)] leading-normal font-normal tracking-[0.01em] tabular-nums" style={{ opacity: picture ? 0.75 : 0.6 }}>
+            <span data-today-line className="mt-2.5 font-sans text-[clamp(0.8125rem,1.8cqi,0.9375rem)] leading-normal font-normal tracking-[0.01em] tabular-nums" style={{ opacity: picture ? 0.75 : 0.6 }}>
               {/* Four facts, each its own: a quiet dot between them with room either side, and the weather as "20°C clear", no comma to make a fifth stop. */}
               {[dayjs(now).format('D MMMM'), <Tip key="count" label={count.tip}><span data-report-count>{count.text}</span></Tip>, time, sky?.replace(/,\s*/, ' ')]
                 .filter(Boolean)

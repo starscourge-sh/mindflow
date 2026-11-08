@@ -33,7 +33,11 @@ const overflow = () => h.evaluate(() => {
   const on = (el) => { const s = getComputedStyle(el); return s.display !== 'none' && s.visibility !== 'hidden' }
   // Sideways on purpose: a strip that scrolls, a swipe, a carousel, the board, a canvas.
   const meant = (el) => el.closest('[data-swipe-own], [data-carousel], .mf-carousel, [data-board], canvas, svg, .excalidraw, .tiptap-excalidraw-canvas, [data-map], [data-graph], .react-flow, [data-pdf-page], [data-sonner-toaster]')
-  const sidewaysScroller = (el) => { const s = getComputedStyle(el); return /(auto|scroll)/.test(s.overflowX) }
+  // A strip made to scroll across. A page that scrolls down computes overflow-x auto too, but it is not one:
+  // something past its right edge there runs off the page.
+  const sidewaysScroller = (el) => { const s = getComputedStyle(el); return /(auto|scroll)/.test(s.overflowX) && !(/(auto|scroll)/.test(s.overflowY) && el.scrollHeight > el.clientHeight + 1) }
+  // Drawn for looks (a sheen, a cover's picture): nothing to read or press in it.
+  const decoration = (el) => !!el.closest('[aria-hidden="true"]') || (getComputedStyle(el).pointerEvents === 'none' && !(el.textContent ?? '').trim())
   const cardLike = (el) => {
     const s = getComputedStyle(el)
     const radius = parseFloat(s.borderTopRightRadius) > 0
@@ -43,7 +47,7 @@ const overflow = () => h.evaluate(() => {
   const found = []
   const flagged = new Set()
   for (const el of pane.querySelectorAll('*')) {
-    if (!on(el) || meant(el)) continue
+    if (!on(el) || meant(el) || decoration(el)) continue
     const box = el.getBoundingClientRect()
     if (box.width < 2 || box.height < 2) continue
     if ([...flagged].some((one) => one.contains(el))) continue
@@ -79,17 +83,18 @@ const overflow = () => h.evaluate(() => {
   // Too short a window: something cut at the foot of a box that clips it (not a scroller), and nothing past the pane's foot.
   for (const el of pane.querySelectorAll('*')) {
     // Pictures and marks placed absolutely inside a cover are cropped by design.
-    if (!on(el) || meant(el) || /(absolute|fixed)/.test(getComputedStyle(el).position) || [...flagged].some((one) => one.contains(el))) continue
+    if (!on(el) || meant(el) || decoration(el) || /(absolute|fixed)/.test(getComputedStyle(el).position) || [...flagged].some((one) => one.contains(el))) continue
     const box = el.getBoundingClientRect()
     if (box.width < 2 || box.height < 2) continue
     for (let up = el.parentElement; up && up !== pane.parentElement; up = up.parentElement) {
       const s = getComputedStyle(up)
-      if (/(auto|scroll)/.test(s.overflowY) || s.webkitLineClamp !== 'none' || (s.textOverflow === 'ellipsis')) break
+      // A scroller shut because only its foot padding is past it (useScrollOnlyWhenNeeded in ui.tsx) is still a scroller.
+      if (/(auto|scroll)/.test(s.overflowY) || up.style.overflowY === 'hidden' || s.webkitLineClamp !== 'none' || (s.textOverflow === 'ellipsis')) break
       if (up === pane || /(hidden|clip)/.test(s.overflowY)) {
         const ub = up.getBoundingClientRect()
-        if (box.bottom > ub.bottom + 1.5 && box.top < ub.bottom - 1) {
+        if (box.bottom > ub.bottom + 4.5 && box.top < ub.bottom - 1) {
           flagged.add(el)
-          found.push(`${el.tagName.toLowerCase()}.${String(el.className).split(' ').slice(0, 3).join('.')} "${(el.textContent ?? '').trim().slice(0, 30)}" cut ${Math.round(box.bottom - ub.bottom)}px at the foot of ${up === pane ? 'the pane' : up.tagName.toLowerCase() + '.' + String(up.className).split(' ').slice(0, 3).join('.')}`)
+          found.push(`${el.tagName.toLowerCase()}.${String(el.className).split(' ').slice(0, 3).join('.')} "${(el.textContent ?? '').trim().slice(0, 30)}" cut ${Math.round(box.bottom - ub.bottom)}px at the foot of ${up === pane ? 'the pane' : up.tagName.toLowerCase() + '.' + String(up.className).split(' ').slice(0, 3).join('.')} (overflow-y ${s.overflowY})`)
         }
         break
       }
@@ -150,12 +155,58 @@ const visit = async (where) => {
     for (const tab of views.length ? views : kinds.length ? [null, ...kinds] : [null]) {
       if (tab && kinds.length) { await go(id); await wait(400); await openPile(kinds.indexOf(tab)); await wait(900) } else if (tab) { await clickTab(tab); await wait(800) }
       const name = `${where}: ${label}${tab ? ` › ${tab}` : ''}`
-      const got = await overflow()
+      let got = await overflow()
+      // A page that is still opening holds its scroller shut for a moment: only what stays wrong counts.
+      if (got.found.length || got.sideways.length) { await wait(1500); got = await overflow() }
       all.push({ name, ...got })
       console.log(`${got.found.length || got.sideways.length ? 'OVER' : 'ok  '}  ${name} (pane ${got.width}x${got.height})${got.found.length ? '\n        ' + got.found.slice(0, 6).join('\n        ') : ''}${got.sideways.length ? '\n        sideways: ' + got.sideways.join('; ') : ''}`)
       if (got.found.length || got.sideways.length) await h.screenshot({ path: `${shots}/${name.replace(/[^a-z0-9]+/gi, '-')}.png` })
     }
   }
+}
+
+/** The Calendar's header in a pane of 740, 600 and 500px, then while a note is dragged across the window, read every 50ms. */
+const calendarHead = async () => {
+  const read = () => h.evaluate(() => {
+    const pane = document.querySelector('[data-pane][data-pane-front] [data-pane-card]')
+    const head = pane?.querySelector('header')
+    if (!head) return null
+    const parts = [...head.querySelectorAll('[data-late], [data-cal-step], [data-cal-jump], [data-cal-left-toggle], [data-cal-new-event]')].filter((el) => el.getBoundingClientRect().width > 0)
+    let over = 0
+    for (let i = 0; i < parts.length; i++) for (let j = i + 1; j < parts.length; j++) {
+      const x = parts[i].getBoundingClientRect(), y = parts[j].getBoundingClientRect()
+      if (parts[i].contains(parts[j]) || parts[j].contains(parts[i])) continue
+      if (Math.min(x.right, y.right) - Math.max(x.left, y.left) > 1 && Math.min(x.bottom, y.bottom) - Math.max(x.top, y.top) > 1) over++
+    }
+    const late = head.querySelector('[data-late]')
+    return { pane: Math.round(pane.getBoundingClientRect().width), over, late: late ? late.textContent.trim() : '-', shape: parts.map((el) => `${Math.round(el.getBoundingClientRect().left)},${Math.round(el.getBoundingClientRect().top)}`).join(' ') }
+  })
+  // A late task, so the pill is there.
+  await v('task:add', 'Return the library books yesterday').catch(() => {})
+  for (const [width, want] of [[1790, 740], [1510, 600], [1310, 500]]) {
+    await size(width, 860); await go('calendar'); await wait(1200)
+    const got = await read()
+    check(`Calendar header in a ${want}px pane: nothing over anything`, got && got.over === 0, JSON.stringify(got))
+    await h.screenshot({ path: `${shots}/calendar-head-${want}.png` })
+  }
+  // A note from the Inbox (left pane) dragged across the window, every 50ms.
+  const row = await h.evaluate(() => { const r = document.querySelector('[data-pane]:not([data-pane-front]) [data-row][data-id]')?.getBoundingClientRect(); return r && { x: r.left + 40, y: r.top + r.height / 2 } })
+  // The frame before the drag counts too: the header must not jump as the drag starts.
+  const frames = [await read()]
+  if (row) {
+    await h.mouse.move(row.x, row.y); await h.mouse.down()
+    for (let i = 0; i <= 30; i++) {
+      await h.mouse.move(row.x + i * 30, row.y + Math.sin(i / 4) * 60, { steps: 2 })
+      await h.waitForTimeout(50)
+      frames.push(await read())
+      if (i % 6 === 0) await h.screenshot({ path: `${shots}/calendar-drag-${String(i).padStart(2, '0')}.png` })
+    }
+    await h.mouse.move(row.x, row.y, { steps: 4 }); await h.mouse.up()
+  }
+  const shapes = new Set(frames.filter(Boolean).map((one) => one.shape))
+  check('dragging a note across: the header never overlaps', frames.length > 0 && frames.every((one) => one && one.over === 0), `${frames.length} frames`)
+  check('dragging a note across: the header holds one layout', shapes.size === 1, [...shapes].join(' | '))
+  await size(1280, 860); await wait(600)
 }
 
 try {
@@ -179,6 +230,7 @@ try {
   check('⌘\\ makes a split', panes === 2)
   // PASSES picks some: split (1280x860, two panes), short (1280x520, two panes), narrow (560x700), small (560x400).
   const passes = (process.env.PASSES ?? 'split,short,narrow,small').split(',')
+  if (passes.includes('cal')) await calendarHead()
   if (passes.includes('split')) await visit('split 1280x860')
   if (passes.includes('short')) { await size(1280, 520); await wait(800); await visit('split 1280x520') }
   await h.evaluate(() => document.querySelector('[data-pane][data-pane-front] [data-tab-on] [data-tab-close]')?.click()); await wait(800)
