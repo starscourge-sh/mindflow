@@ -458,10 +458,10 @@ export function Viewer({ pictures, start, onClose, awayRef }: {
     if (leaving.current) return
     leaving.current = true
     if (!quick) chime("unlook")
-    // Quick: the same way back in under 150ms.
-    const pace = quick ? 0.45 : 1
-    // Put away by a key (Esc, Space), it is simply gone, as it came.
-    if (still() || byKeys() || !frame.current) return onClose()
+    // Quick (or by a key): the same way back, quicker.
+    // Put away by a key (Esc, Space) it goes back the same way it came, only quicker.
+    if (still() || !frame.current) return onClose()
+    const pace = quick || byKeys() ? 0.6 : 1
     // Back to where it sits now: the note may have scrolled while it was out.
     // With nowhere to go back to, it settles away where it is.
     img?.scrollIntoView({ block: "nearest" })
@@ -580,8 +580,10 @@ export function Viewer({ pictures, start, onClose, awayRef }: {
   // after that slides in from the side it came from.
   const lifting = went.current === 0
   const place = img?.isConnected ? img.getBoundingClientRect() : picture.rect ?? null
-  // Opened by Space it is simply there; by a click it lifts out of the note.
-  const initial = still() || (lifting && byKeys())
+  // It lifts out of the note however it was opened, as Quick Look grows a file out of Finder on
+  // Space: simply there, the Space preview read as a cut. By a key it is quicker (keyed, below).
+  const keyed = byKeys()
+  const initial = still()
     ? false
     : lifting
       ? place ? { ...from(place, fit), opacity: 1 } : { transform: "translate(0px, 0px) scale(0.96)", opacity: 0 }
@@ -612,9 +614,9 @@ export function Viewer({ pictures, start, onClose, awayRef }: {
       <motion.div
         ref={backdrop}
         className="mf-look-backdrop"
-        initial={still() || byKeys() ? false : { opacity: 0 }}
+        initial={still() ? false : { opacity: 0 }}
         animate={{ opacity: 1 }}
-        transition={{ duration: 0.24, ease: EASE }}
+        transition={{ duration: keyed ? 0.16 : 0.24, ease: EASE }}
         onClick={() => void close()}
       />
       {/* Somewhere to hold the window by, where its title bar was: above the picture (TOP), never over it, and gone while zoomed in, when the picture may reach the top. */}
@@ -626,7 +628,9 @@ export function Viewer({ pictures, start, onClose, awayRef }: {
         style={{ left: fit.left, top: fit.top, width: fit.width, height: fit.height }}
         initial={initial}
         animate={{ transform: "translate(0px, 0px) scale(1)", opacity: 1 }}
-        transition={{ duration: lifting ? 0.28 : 0.18, ease: EASE }}
+        // The lift on the app's strong ease-out (a spring cannot carry a transform written as words: it
+        // jumped to the end), quicker by a key; a step is the plain quick slide.
+        transition={{ duration: lifting ? (keyed ? 0.24 : 0.3) : 0.18, ease: EASE }}
       >
         <motion.div className="mf-look-lean" style={{ rotateX: leanX, rotateY: leanY }} onPointerMove={lean} onPointerLeave={unlean}>
         <img
