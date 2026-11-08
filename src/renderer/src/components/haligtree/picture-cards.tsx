@@ -667,7 +667,7 @@ export function PictureCards({ deck: aimed, onClose, onShow }: { deck?: string |
           {!!sources?.length && (
             <span className="grid gap-2">
               <span className="text-xs text-muted-foreground">Or one you already have: snips from your books, then pictures in your notes</span>
-              <span data-picture-sources className="grid max-h-64 grid-cols-[repeat(auto-fill,minmax(7rem,1fr))] gap-2 overflow-y-auto">
+              <span data-picture-sources data-lenis-prevent className="grid max-h-64 grid-cols-[repeat(auto-fill,minmax(7rem,1fr))] gap-2 overflow-y-auto overscroll-contain">
                 {sources.map((one) => (
                   <button key={one.src} type="button" data-picture-source onClick={() => choose(one.src, one.id ? { id: one.id } : null, one.title)}
                     className="grid cursor-pointer content-start gap-1 rounded-[4px] border border-foreground/10 p-1.5 text-left transition-colors hover:bg-accent/60">
