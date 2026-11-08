@@ -53,6 +53,9 @@ export function FeedLiked({ tabs, onOpen }: { tabs: React.ReactNode; onOpen: (ty
   const read = useRef(0)
   const [more, setMore] = useState(false)
   const busy = useRef(false)
+  // Unliked here and not yet liked again: a page read while the unlike was still on its way to the
+  // database brought the post straight back (L on a row seemed to do nothing).
+  const gone = useRef(new Set<string>())
   const [cursor, setCursor] = useState(-1)
   const [target, setTarget] = useState<{ start: string; end: string } | null>(null)
   const root = useRef<HTMLDivElement>(null)
@@ -67,7 +70,8 @@ export function FeedLiked({ tabs, onOpen }: { tabs: React.ReactNode; onOpen: (ty
     const from = fresh ? at : read.current
     const page = await call<{ posts: LikedPost[]; more: boolean }>('feed:liked', from, count)
     read.current = from + count
-    setPosts((was) => (fresh || !was ? page.posts : [...was, ...page.posts.filter((one) => !was.some((it) => keyOf(it) === keyOf(one)))]))
+    const kept = page.posts.filter((one) => !gone.current.has(keyOf(one)))
+    setPosts((was) => (fresh || !was ? kept : [...was, ...kept.filter((one) => !was.some((it) => keyOf(it) === keyOf(one)))]))
     setMore(page.more)
     busy.current = false
   }, [])
@@ -88,11 +92,13 @@ export function FeedLiked({ tabs, onOpen }: { tabs: React.ReactNode; onOpen: (ty
     const list = posts ?? []
     const at = list.findIndex((one) => keyOf(one) === keyOf(post))
     chime('away')
+    gone.current.add(keyOf(post))
     setPosts(list.filter((one) => keyOf(one) !== keyOf(post)))
     const kept = await call<Kept>('feed:unlike', keyOf(post))
     const title = post.type === 'day' ? dayLinkName(post.id) : post.title
     toast('Unliked', () => {
       chime('undo')
+      gone.current.delete(keyOf(post))
       void call('feed:relike', keyOf(post), kept)
       setPosts((was) => { const next = [...(was ?? [])]; next.splice(Math.min(at, next.length), 0, post); return next })
     }, 'success', undefined, { type: openType(post), id: post.id, title })
@@ -245,19 +251,22 @@ function WeekStrip({ weeks, onWeek }: { weeks: LikedSide['weeks']; onWeek: (star
           </Tip>
         ))}
       </div>
-      <div aria-hidden className="mt-1 flex gap-[2px] text-meta text-muted-foreground">
+      <div aria-hidden className="relative mt-1 flex gap-[2px] text-meta text-muted-foreground">
         {weeks.map((one, at) => {
           const month = dayjs(one.start).add(3, 'day')
           const first = at > 0 && month.month() !== dayjs(weeks[at - 1].start).add(3, 'day').month()
-          return <span key={one.start} className="relative h-4 min-w-0 flex-1">{first && <span className="absolute left-0 whitespace-nowrap">{month.format('MMM')}</span>}</span>
+          // A name starting in the last few weeks would run past the card's edge: it ends at the strip's end instead.
+          const late = at >= weeks.length - 4
+          return <span key={one.start} className={`h-4 min-w-0 flex-1 ${late ? '' : 'relative'}`}>{first && <span className={`absolute whitespace-nowrap ${late ? 'right-0' : 'left-0'}`}>{month.format('MMM')}</span>}</span>
         })}
       </div>
       {/* The year on its own line, once where the strip starts and again under each January, so a month name never runs into it. */}
-      <div aria-hidden data-liked-years className="flex gap-[2px] text-meta font-medium text-foreground/70">
+      <div aria-hidden data-liked-years className="relative flex gap-[2px] text-meta font-medium text-foreground/70">
         {weeks.map((one, at) => {
           const month = dayjs(one.start).add(3, 'day')
           const year = at === 0 || month.year() !== dayjs(weeks[at - 1].start).add(3, 'day').year()
-          return <span key={one.start} className="relative h-4 min-w-0 flex-1">{year && <span className="absolute left-0 whitespace-nowrap">{month.format('YYYY')}</span>}</span>
+          const late = at >= weeks.length - 6
+          return <span key={one.start} className={`h-4 min-w-0 flex-1 ${late ? '' : 'relative'}`}>{year && <span className={`absolute whitespace-nowrap ${late ? 'right-0' : 'left-0'}`}>{month.format('YYYY')}</span>}</span>
         })}
       </div>
     </section>

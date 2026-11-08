@@ -70,6 +70,9 @@ try {
   check('the strip names its years, once each', years.length === 2 && years.every((y) => /^\d{4}$/.test(y)), years.join(', '))
   const boxes = await h.locator('[data-liked-strip] [aria-hidden] span span').evaluateAll((all) => all.map((one) => { const r = one.getBoundingClientRect(); return { l: r.left, r: r.right, t: Math.round(r.top) } }))
   check('no label under the strip runs into another', boxes.every((a, i) => boxes.every((b, j) => i === j || a.t !== b.t || a.r <= b.l || b.r <= a.l)))
+  // The last month's name ended past the card's edge ("Nov", 8 Nov): every label stays inside the chart.
+  const edge = await h.locator('[data-liked-strip]').evaluate((el) => el.getBoundingClientRect().right)
+  check('every month and year name ends inside the chart', boxes.every((one) => one.r <= edge + 0.5), `${Math.max(...boxes.map((one) => Math.round(one.r)))} vs ${Math.round(edge)}`)
   check('no "Less of this" or "From the archives" on a liked post', await h.locator('[data-feed-liked] [data-feed-reaction="less"], [data-feed-liked] [data-feed-context]').count() === 0)
   const keep = h.locator('[data-feed-side-card="keep-liking"]')
   check('side: "What you keep liking" with tags or sources', await keep.count() === 1 && (await keep.locator('[data-liked-tag], [data-liked-source]').count()) > 0, await keep.innerText().catch(() => ''))
@@ -115,8 +118,9 @@ try {
   check('K moves up', await h.locator('[data-liked-focus]').getAttribute('data-liked-row') === '1')
   const second = await h.locator('[data-liked-focus]').getAttribute('data-liked-key')
   await h.keyboard.press('l')
-  await h.waitForTimeout(500)
-  check('L unlikes', !(await rows()).some((one) => one.key === second))
+  // Up to 3 s for the row to go: on a loaded machine half a second was not always enough.
+  await h.waitForFunction((key) => ![...document.querySelectorAll('[data-liked-row]')].some((one) => one.dataset.likedKey === key), second, { timeout: 3000 }).catch(() => {})
+  check('L unlikes', !(await rows()).some((one) => one.key === second), `${second} · focus ${await h.evaluate(() => document.activeElement?.tagName + ' ' + (document.activeElement?.className ?? '').toString().slice(0, 60))} · toasts ${await h.locator('[data-toast-made]').allInnerTexts().catch(() => [])}`)
   await h.getByRole('button', { name: /^Undo/ }).first().click().catch(() => {})
   await h.waitForTimeout(500)
   await h.keyboard.press('Enter')
@@ -164,6 +168,8 @@ try {
   check('no errors', errors.length === 0, errors.slice(0, 3).join(' | '))
 } catch (error) {
   check('ran to the end', false, String(error).slice(0, 300))
+  // Last, as a theme switch moves the keys' focus: the strip in both looks.
+  if (process.env.QA_SHOTS) for (const t of ['light', 'dark']) { await s.look(t); await h.locator('[data-liked-strip]').scrollIntoViewIfNeeded(); await h.locator('[data-liked-strip]').screenshot({ path: `${process.env.QA_SHOTS}/liked-strip-${t}.png` }) }
 } finally {
   await close()
 }
