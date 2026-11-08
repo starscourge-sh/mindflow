@@ -168,7 +168,8 @@ const visit = async (where) => {
 /** The Calendar's header in a pane of 740, 600 and 500px, then while a note is dragged across the window, read every 50ms. */
 const calendarHead = async () => {
   const read = () => h.evaluate(() => {
-    const pane = document.querySelector('[data-pane][data-pane-front] [data-pane-card]')
+    // The Calendar's own pane, wherever the focus is: picking a row in the other pane moves the focus there.
+    const pane = document.querySelector('[data-cal-step]')?.closest('[data-pane-card]')
     const head = pane?.querySelector('header')
     if (!head) return null
     const parts = [...head.querySelectorAll('[data-late], [data-cal-step], [data-cal-jump], [data-cal-left-toggle], [data-cal-new-event]')].filter((el) => el.getBoundingClientRect().width > 0)
@@ -179,7 +180,8 @@ const calendarHead = async () => {
       if (Math.min(x.right, y.right) - Math.max(x.left, y.left) > 1 && Math.min(x.bottom, y.bottom) - Math.max(x.top, y.top) > 1) over++
     }
     const late = head.querySelector('[data-late]')
-    return { pane: Math.round(pane.getBoundingClientRect().width), over, late: late ? late.textContent.trim() : '-', shape: parts.map((el) => `${Math.round(el.getBoundingClientRect().left)},${Math.round(el.getBoundingClientRect().top)}`).join(' ') }
+    return { pane: Math.round(pane.getBoundingClientRect().width), over, late: late ? late.textContent.trim() : '-', // Laid out, measured inside the header (the page may step back by a scale during a drag: its look, not its layout).
+      shape: parts.map((el) => { const h = head.getBoundingClientRect(), r = el.getBoundingClientRect(), k = h.width / head.offsetWidth || 1; return `${Math.round((r.left - h.left) / k)},${Math.round((r.top - h.top) / k)}` }).join(' ') }
   })
   // A late task, so the pill is there.
   await v('task:add', 'Return the library books yesterday').catch(() => {})
