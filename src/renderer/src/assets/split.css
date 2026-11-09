@@ -12,6 +12,11 @@
 :root:not([data-light]) [data-pane][data-pane-front] {
   --mf-tab: color-mix(in srgb, var(--mf-under) 94%, white);
 }
+/* Every other tab's own edge: a hair of ink round its shape, low enough to read as an edge and not a box. Inside the tab row
+   the ink is the row's own, so on the dark frame it is the frame's light ink (main.css), on a plain page the page's. */
+[data-tabs] {
+  --mf-tab-edge: color-mix(in oklab, var(--foreground) 10%, transparent);
+}
 /* A tab's name fades out at the end its words run to. On the open tab, whose ✕ is always there, it stops short of the ✕
    with clear air; on another, pointed at, it fades before the ✕ that comes up over it, so nothing moves. */
 [data-tab-name] {
