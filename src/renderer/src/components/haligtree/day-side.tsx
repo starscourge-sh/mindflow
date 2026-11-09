@@ -190,7 +190,7 @@ export function DaySide({ ask, onClose, onOpen, inline = false, width, grip, res
             }
           }}
           // Inset from the row's edges as the map's and the queue's panels are; the days keep their whole width under it.
-          className={`${inline ? 'absolute top-3 right-3 bottom-3 z-30 max-w-[calc(100%-1.5rem)]' : 'fixed top-12 right-3 bottom-3 z-40 w-[30rem] max-w-[calc(100vw-1.5rem)]'} flex flex-col rounded-xl outline-none ${FLOAT}`}>
+          className={`${inline ? 'absolute top-3 right-3 bottom-3 z-30 max-w-[calc(100%-1.5rem)]' : 'fixed top-12 right-3 bottom-3 z-40 w-[30rem] max-w-[calc(100vw-1.5rem)]'} flex flex-col rounded-xl outline-none ${FLOAT} transition-[box-shadow] duration-150 has-[[data-cal-grip]:hover]:ring-foreground/25 has-[[data-cal-grip]:focus-visible]:ring-foreground/40 has-[[data-cal-grip]:active]:ring-foreground/40`}>
           {grip}
           {/* The words clipped to the corners; the grip, on the edge, is not. */}
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl">

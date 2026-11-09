@@ -641,7 +641,10 @@ function usePanelWidth(at: { key: string; home: number; least: number; most: num
         window.addEventListener('pointermove', move)
         window.addEventListener('pointerup', up)
       }}>
-      <span className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-transparent transition-[background-color,scale] duration-150 ease-(--mf-ease) group-hover/grip:bg-ring/60 group-focus-visible/grip:bg-ring group-active/grip:bg-ring group-data-home/grip:group-active/grip:scale-x-[3] motion-reduce:transition-none" />
+      {/* Quick capture's grabber stood on end: a short rounded bar in muted ink, centred on the edge, never a line
+          down a rounded panel's side. Faint at rest, stronger and larger when pointed at or held; the panel's own
+          edge lights with it (DaySide). */}
+      <span className="absolute top-1/2 left-1/2 h-8 w-1 -translate-x-1/2 -translate-y-1/2 rounded-full bg-foreground/25 opacity-0 transition-[opacity,background-color,scale] duration-150 ease-(--mf-ease) group-hover/grip:scale-y-150 group-hover/grip:bg-foreground/45 group-hover/grip:opacity-100 group-focus-visible/grip:bg-foreground/60 group-focus-visible/grip:opacity-100 group-active/grip:scale-y-150 group-active/grip:bg-foreground/60 group-active/grip:opacity-100 [[data-cal-right]:hover_&]:opacity-100 motion-reduce:transition-none motion-reduce:group-hover/grip:scale-y-100" />
     </div>
   )
   return [rem, grip]

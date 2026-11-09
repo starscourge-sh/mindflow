@@ -37,8 +37,7 @@ const NO_DRAG = { WebkitAppRegion: 'no-drag' } as CSSProperties
 const SAID = "You're in the sandbox: a peek into someone else's book. Try anything; your own notes are safe."
 
 /** Its buttons are the top bar's: the "New" pill's words, neutral fill under the pointer, pressed in on click. */
-const PART = 'flex h-full items-center gap-1.5 px-2.5 font-medium text-foreground/90 transition-[background-color,color,transform] duration-150 ease-out hover:bg-accent/60 hover:text-foreground active:scale-[0.97] focus-visible:outline-none focus-visible:bg-accent/60'
-const RULE = <span aria-hidden className="h-3.5 w-px shrink-0 bg-border" />
+const PART = 'flex h-full items-center gap-1.5 rounded-full px-2.5 font-medium text-foreground/90 transition-[background-color,color,transform] duration-150 ease-out hover:bg-accent/60 hover:text-foreground active:scale-[0.97] focus-visible:outline-none focus-visible:bg-accent/60'
 
 /**
  * In the main window's top bar, always, with nothing to dismiss: Sandbox,
@@ -89,9 +88,9 @@ export function SandboxPill(): React.JSX.Element | null {
   )
   return (
     <span data-sandbox-pill role="group" aria-label="Sandbox" style={NO_DRAG}
-      className="group/sb ml-2 flex h-7 shrink-0 items-center overflow-hidden rounded-full border text-control">
+      className="group/sb ml-2 flex h-7 shrink-0 items-center gap-0.5 overflow-hidden rounded-full border p-0.5 text-control">
       {/* The same hairline pill as "New" and Back and Forward; only the flask keeps the sandbox's colour, so it is told apart at a glance. */}
-      <span className="flex h-full cursor-default items-center px-2 font-semibold text-foreground/90">
+      <span className="flex h-full cursor-default items-center rounded-full px-2 font-semibold text-foreground/90">
         <FlaskConical className="size-3.5 shrink-0" strokeWidth={2.25} style={{ color: TAPE.color }} />
         {open(<span className="pl-1.5">Sandbox</span>)}
       </span>
@@ -104,7 +103,6 @@ export function SandboxPill(): React.JSX.Element | null {
             <HoldButton ref={sure} variant={null} hint="Every example back to how it began" done="Starting over…" disabled={busy} onHold={() => go(startSandboxOver)} className={`${PART} font-semibold`}>
               Hold to start over
             </HoldButton>
-            {RULE}
               <button type="button" onClick={() => (chime('fold'), setAsking(false))} className={`${PART} pr-3 text-foreground/70 hover:text-foreground`}>
                 Cancel
               </button>
@@ -115,7 +113,6 @@ export function SandboxPill(): React.JSX.Element | null {
                 <AliveIcon icon={ArrowBackUpIcon} size={14} />
                 Back to my notes
               </button>
-            {RULE}
               <button type="button" disabled={busy} onClick={() => (chime('tap'), setAsking(true))} className={`${PART} pr-3`}>
                 <AliveIcon icon={RefreshIcon} size={14} />
                 Reset
