@@ -446,7 +446,7 @@ const DISPLAY_ASKED = 'haligtree:display'
 /** Open the Display of the page in front, from a menu line where it has no button of its own. */
 export const openDisplay = (): void => void window.dispatchEvent(new CustomEvent(DISPLAY_ASKED))
 
-export function Display<T>({ view, onChange, facets, sorts: given, groups: offered = [], defaults = {}, compact = false, density, onDensity, densities = DENSITIES.map((one) => one.id), names = {}, count, hidden = false, sortNote, items, onOpen }: {
+export function Display<T>({ view, onChange, facets, sorts: given, groups: offered = [], defaults = {}, compact = false, density, onDensity, densities = DENSITIES.map((one) => one.id), names = {}, count, hidden = false, sortNote, items, onOpen, room }: {
   /** No button of its own: opened by F, or from a page's ⋯ (openDisplay), as a sheet from the right. */
   hidden?: boolean
   /** Told as it opens and shuts: the one-line pill grows into the box to hold the sheet. */
@@ -464,6 +464,12 @@ export function Display<T>({ view, onChange, facets, sorts: given, groups: offer
   items?: T[]
   /** The first of each is the list's own default. */
   sorts: Choice[]
+  /**
+   * Every order name the button may say on this page, its other tabs and views too: the button is as wide as the
+   * longest, so switching an order, a tab or a view never moves what sits beside it. Given, the order is named even
+   * when there is only one (the Matrix's boxes keep your own order).
+   */
+  room?: string[]
   /** What the chosen order does with the list's groups, on its own line under the choices. */
   sortNote?: string
   groups?: Choice[]
@@ -656,7 +662,13 @@ export function Display<T>({ view, onChange, facets, sorts: given, groups: offer
       <Tip label="Display  F">
       <PopoverTrigger asChild>
         <button ref={button} type="button" data-display className={`flex h-7 items-center gap-1.5 rounded-md px-2 text-control whitespace-nowrap hover:bg-accent hover:text-foreground ${open ? 'bg-accent text-foreground' : ''} ${active ? 'text-foreground' : ''}`}>
-          {!compact && sorts.length > 1 && <Rolling by="word" text={sortName} />}
+          {!compact && room ? (
+            // Every name stacked in one cell, only the chosen one seen, set against the icon: the widest sets the width.
+            <span className="grid justify-items-end">
+              {room.map((one) => <span key={one} aria-hidden className="invisible [grid-area:1/1]">{one}</span>)}
+              <span className="[grid-area:1/1]"><Rolling by="word" text={sortName} /></span>
+            </span>
+          ) : !compact && sorts.length > 1 && <Rolling by="word" text={sortName} />}
           {filtered > 0 && <Count n={filtered} className="rounded bg-accent px-1 text-xs text-muted-foreground" />}
           {Shown ? <Shown className="size-3.5" /> : <AliveIcon icon={SlidersHorizontalIcon} size={14} />}
         </button>

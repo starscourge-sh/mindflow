@@ -680,6 +680,8 @@ const byNote = (list: Task[]): [string, Task[], string][] =>
  * time it was done, and a way back to the capture it came from.
  */
 /** The one Tasks row's tabs: Tomorrow and This week are the top of Upcoming; routines due today are in Today too. */
+/** Every order a Tasks tab offers; a later list leaves out Scheduled, a routine Due by. */
+const TASK_SORTS = [{ id: 'manual', label: 'Your order' }, { id: 'prioritydue', label: 'Priority, then due date' }, { id: 'priority', label: 'Priority' }, { id: 'name', label: 'Name' }, { id: 'due', label: 'Scheduled' }, { id: 'deadline', label: 'Due by' }, { id: 'added', label: 'Date added' }]
 const TASK_TABS = [{ id: 'today', label: 'Today' }, { id: 'upcoming', label: 'Upcoming' }, { id: 'later', label: 'Later' }, { id: 'routines', label: 'Routines' }, { id: 'alltasks', label: 'All' }] as const
 
 /** Every open task in one list, by when: overdue, today, tomorrow, this week, later, no date. */
@@ -1185,7 +1187,9 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
               facets={facets}
               items={tasks}
               // Only what applies on this tab: a later list has no day to sort by, a routine no due-by.
-              sorts={matrixed ? [{ id: view.sort, label: '' }] : [{ id: 'manual', label: 'Your order' }, { id: 'prioritydue', label: 'Priority, then due date' }, { id: 'priority', label: 'Priority' }, { id: 'name', label: 'Name' }, ...(mode === 'later' ? [] : [{ id: 'due', label: 'Scheduled' }]), ...(mode === 'routines' ? [] : [{ id: 'deadline', label: 'Due by' }]), { id: 'added', label: 'Date added' }]}
+              // In the Matrix each box keeps your own order (matrix-view.tsx inBox), so that is the one it names.
+              sorts={matrixed ? [{ id: view.sort, label: 'Your order' }] : TASK_SORTS.filter((one) => !(mode === 'later' && one.id === 'due') && !(mode === 'routines' && one.id === 'deadline'))}
+              room={TASK_SORTS.map((one) => one.label)}
               groups={matrixed ? [] : [{ id: 'when', label: mode === 'later' ? 'By list' : mode === 'routines' ? 'Together' : 'By date' }, ...(mode === 'today' ? [{ id: '135', label: '1-3-5' }] : []), { id: 'tag', label: 'By how it’s done' }, { id: 'note', label: 'By note' }, { id: 'none', label: 'None' }]}
             />
           )}
