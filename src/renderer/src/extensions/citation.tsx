@@ -4,6 +4,9 @@ import type { Node as PMNode } from "@tiptap/pm/model"
 import { Plugin, PluginKey } from "@tiptap/pm/state"
 import { Decoration, DecorationSet } from "@tiptap/pm/view"
 
+import { useEffect, useState } from "react"
+
+import { NameInPlace } from "@/components/haligtree/name-in-place"
 import { Orb } from "@/components/haligtree/orb"
 import { toast } from "@/components/haligtree/ui"
 import { chipLabel, citeInto, citedLine, fillChip, looking, loneDoi, type CiteAttrs } from "@/lib/cite"
@@ -30,21 +33,59 @@ declare module "@tiptap/core" {
 
 const FIELDS = ["work", "authors", "year", "publisher", "doi", "isbn", "url", "what", "page", "pending", "failed"] as const
 
-function CitationView({ node, editor }: ReactNodeViewProps): React.JSX.Element {
+/** "Edit the page" on a citation's menu: the chip at `pos` opens its page field in place. */
+export const editPage = (pos: number): void => void window.dispatchEvent(new CustomEvent("mf:cite-page", { detail: pos }))
+
+/** "82", "p. 82", "pp. 82-84" all as the page alone. */
+const pageOf = (typed: string): string => typed.replace(/^(?:p|pp|page|pages)\.?\s*/i, "").replace(/\s*[-–]\s*/g, "–").trim()
+
+function CitationView({ node, editor, getPos }: ReactNodeViewProps): React.JSX.Element {
   const attrs = node.attrs as CiteAttrs
   const waiting = !!attrs.pending && !attrs.work && looking.has(attrs.pending)
   const missing = !!attrs.pending && !attrs.work && !waiting
+  const [editing, setEditing] = useState(false)
+  useEffect(() => {
+    const open = (event: Event): void => {
+      if ((event as CustomEvent<number>).detail !== getPos()) return
+      chime("tap")
+      setEditing(true)
+    }
+    window.addEventListener("mf:cite-page", open)
+    return () => window.removeEventListener("mf:cite-page", open)
+  }, [getPos])
+  /** Enter or a click away keeps the page (one step for ⌘Z); Esc leaves it as it was. The caret comes back after the chip. */
+  const done = (typed: string | null): void => {
+    setEditing(false)
+    const pos = getPos()
+    if (editor.isDestroyed || typeof pos !== "number") return
+    const page = typed === null ? attrs.page : pageOf(typed)
+    const chain = editor.chain().focus().setTextSelection(pos + 1)
+    if (page === attrs.page) return void chain.run()
+    chain.command(({ tr }) => (tr.setNodeMarkup(pos, undefined, { ...node.attrs, page }), true)).run()
+    chime("noted")
+  }
+  const width = (words: string): string => `${Math.max(3, words.length + 1)}ch`
   return (
-    <NodeViewWrapper as="span" className="mf-citation" data-citation={attrs.work || attrs.pending} data-citation-missing={missing ? "" : undefined}
+    <NodeViewWrapper as="span" className="mf-citation" data-citation={attrs.work || attrs.pending} data-citation-missing={missing ? "" : undefined} data-citation-editing={editing ? "" : undefined}
       title={waiting ? undefined : missing ? "Not found: click to fill it in by hand" : undefined}
-      onMouseDown={(event: React.MouseEvent) => event.button === 0 && event.preventDefault()}
+      onMouseDown={(event: React.MouseEvent) => event.button === 0 && !editing && event.preventDefault()}
       onClick={() => {
-        if (waiting) return
+        if (waiting || editing) return
         if (missing) return void fillChip(editor, attrs.pending)
         chime("page")
         openSource("medium", attrs.work)
       }}>
-      {waiting ? <Orb label="Looking up…" /> : chipLabel(attrs)}
+      {waiting ? <Orb label="Looking up…" /> : editing ? (
+        // The chip's own words, its page a field where the number stands, as Finder names a file in place.
+        <>
+          {`${chipLabel({ ...attrs, page: "" }).slice(0, -1)}, p. `}
+          <NameInPlace initial={attrs.page} label="Page" placeholder="82" onDone={done} data-cite-page=""
+            style={{ width: width(attrs.page || "82") }}
+            onInput={(event) => (event.currentTarget.style.width = width(event.currentTarget.value))}
+            className="rounded-md bg-accent/60 px-1 text-foreground outline-none ring-1 ring-ring/40" />
+          {")"}
+        </>
+      ) : chipLabel(attrs)}
     </NodeViewWrapper>
   )
 }

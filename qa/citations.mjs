@@ -131,6 +131,41 @@ try {
   check('Shelley is listed once though cited twice', once === 1, String(once))
   await wait(2500)
 
+  // 6b. A citation's page changed after it went in: right-click, "Edit the page", a field in the chip itself where the
+  // number stands; Enter keeps it, Esc leaves it, ⌘Z puts the old page back; one with no page offers "Add a page".
+  const chipEl = (re) => h.evaluateHandle((src) => [...document.querySelectorAll('.mf-citation')].find((one) => new RegExp(src).test(one.textContent)), re)
+  const pageOfChip = async (work) => (await chips()).find((one) => one.work.startsWith(work))?.page
+  const editVia = async (re, name) => {
+    const el = await chipEl(re)
+    // On its words, as a person clicks: a chip that wraps has only space at the middle of its whole box.
+    const box = await el.evaluate((one) => { const r = one.getClientRects()[0]; return { x: r.x, y: r.y, width: r.width, height: r.height } })
+    await h.mouse.click(box.x + box.width / 2, box.y + box.height / 2, { button: 'right' }); await wait(400)
+    const menu = await h.evaluate(() => ({ group: document.querySelector('[data-clicked-group="citation"]')?.textContent ?? '', lines: [...document.querySelectorAll('[data-clicked]')].map((one) => one.textContent.trim()) }))
+    await h.click('[data-clicked="edit-page"]', { timeout: 4000 })
+    if (shots && name) await film(name, 6)
+    await h.waitForSelector('[data-cite-page]', { timeout: 3000 })
+    return menu
+  }
+  const menu = await editVia('Shelley 1831, p. 82', 'page-edit')
+  check('right-click on a citation: its own lines, "Open the work" and "Edit the page"', menu.group === 'Citation, p. 82' && menu.lines.some((one) => /Open the work/.test(one)) && menu.lines.some((one) => /Edit the page/.test(one)), JSON.stringify(menu))
+  const field = await h.evaluate(() => { const input = document.querySelector('[data-cite-page]'); return { value: input?.value, focused: document.activeElement === input, picked: input && input.selectionStart === 0 && input.selectionEnd === input.value.length, chip: input?.closest('.mf-citation')?.textContent } })
+  check('"Edit the page" puts a field in the chip where the page stands, focused, its number picked', field.value === '82' && field.focused && field.picked && field.chip.startsWith('(Shelley 1831, p.'), JSON.stringify(field))
+  await type('90'); if (shots) await film('page-typed', 3)
+  await h.keyboard.press('Enter'); await wait(300); if (shots) await film('page-kept', 4)
+  check('Enter keeps it: "(Shelley 1831, p. 90)", the field gone', (await pageOfChip('Frankenstein')) === '90' && (await chipTexts()).includes('(Shelley 1831, p. 90)') && !(await h.locator('[data-cite-page]').count()), JSON.stringify(await chipTexts()))
+  const caret = await ed((editor) => editor.isFocused)
+  check('the writing has the keys again', caret)
+  await h.keyboard.press('Meta+z'); await wait(300)
+  check('⌘Z puts the old page back', (await pageOfChip('Frankenstein')) === '82', String(await pageOfChip('Frankenstein')))
+  await editVia('Shelley 1831, p. 82')
+  await type('100'); await h.keyboard.press('Escape'); await wait(300)
+  check('Esc leaves the page as it was', (await pageOfChip('Frankenstein')) === '82' && !(await h.locator('[data-cite-page]').count()), String(await pageOfChip('Frankenstein')))
+  const none = await editVia('Austen 2003\\)')
+  check('a citation with no page offers "Add a page"', none.lines.some((one) => /Add a page/.test(one)), JSON.stringify(none.lines))
+  await type('p. 12'); await h.keyboard.press('Enter'); await wait(300)
+  check('"p. 12" typed reads as page 12: "(Austen 2003, p. 12)"', (await chipTexts()).includes('(Austen 2003, p. 12)'), JSON.stringify(await chipTexts()))
+  for (const name of ['light', 'dark']) { await c.look(name); await editVia('Austen 2003, p. 12'); await shot(`page-field-${name}`); await h.keyboard.press('Escape'); await wait(200) }
+
   // 7. The chip opens its work's page: its details, and this note among those citing it.
   for (const name of ['light', 'dark']) { await c.look(name); await shot(`note-${name}`) }
   await c.look('light')

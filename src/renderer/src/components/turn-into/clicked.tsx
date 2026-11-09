@@ -14,6 +14,8 @@ import { pictureLines } from "@/lib/picture-actions"
 import { lookUp } from "@/components/pdf/look-up"
 import { playAt } from "@/extensions/line-cards"
 import { toNote } from "@/extensions/footnotes"
+import { editPage } from "@/extensions/citation"
+import { openSource } from "@/lib/sources"
 
 /** Picked words looked up in the one Look Up card, under them, with the line they sit in kept beside the Lookup. */
 export function lookUpIn(editor: Editor, from: number, to: number, words: string, origin?: string | null): void {
@@ -55,6 +57,7 @@ export type Clicked =
   | { kind: "tag"; tag: string }
   | { kind: "formula"; pos: number; latex: string }
   | { kind: "footnote"; pos: number; id: string; n: number }
+  | { kind: "citation"; pos: number; work: string; page: string }
   | { kind: "time"; seconds: number; text: string; audio?: string }
   | { kind: "picture"; src: string }
   | { kind: "video"; src: string }
@@ -113,6 +116,14 @@ export function clickedAt(editor: Editor, event: MouseEvent): Clicked | null {
   if (time && view.dom.contains(time)) return { kind: "time", seconds: Number(time.dataset.seconds) || 0, text: (time.textContent ?? "").replace(/[[\]]/g, ""), audio: time.dataset.audio }
   const chip = target?.closest<HTMLElement>('.tiptap-token[data-token="tag"]')
   if (chip && view.dom.contains(chip)) return { kind: "tag", tag: (chip.textContent ?? "").replace(/^#/, "").trim() }
+  // A citation, found from its chip: one that wraps onto a second line has no node under the pointer's coordinates.
+  const cited = target?.closest<HTMLElement>(".mf-citation-holder")
+  if (cited && view.dom.contains(cited)) {
+    let pos: number | null = null
+    editor.state.doc.descendants((one, at) => (pos === null && one.type.name === "citation" && !!view.nodeDOM(at)?.contains(cited) && (pos = at), pos === null))
+    const node = pos == null ? null : editor.state.doc.nodeAt(pos)
+    if (node?.attrs.work && pos != null) return { kind: "citation", pos, work: String(node.attrs.work), page: String(node.attrs.page ?? "") }
+  }
   // A formula, a picture or a video: the node under the pointer.
   const atom = view.posAtCoords({ left: event.clientX, top: event.clientY })?.inside ?? -1
   const node = atom >= 0 ? editor.state.doc.nodeAt(atom) : null
@@ -141,6 +152,7 @@ export function clickedName(clicked: Clicked): string {
   if (clicked.kind === "tag") return `#${clicked.tag}`
   if (clicked.kind === "formula") return "Formula"
   if (clicked.kind === "footnote") return `Footnote ${clicked.n}`
+  if (clicked.kind === "citation") return clicked.page ? `Citation, p. ${clicked.page}` : "Citation"
   if (clicked.kind === "time") return `Time ${clicked.text}`
   if (clicked.kind === "picture") return "Picture"
   if (clicked.kind === "video") return "Video"
@@ -319,6 +331,14 @@ export function clickedLines(editor: Editor, clicked: Clicked): Line[] {
         }),
       },
       { label: "Copy as LaTeX", data: "copy-latex", run: () => copyText(`$${latex}$`, "Formula copied as LaTeX") },
+    ].filter((one) => !one.edits || editor.isEditable)
+  }
+  // A citation: its work's page, or its page number changed in place on the chip (⌘Z puts the old one back).
+  if (clicked.kind === "citation") {
+    const { pos, work, page } = clicked
+    return [
+      { label: "Open the work", data: "open-work", run: () => (chime("page"), openSource("medium", work)) },
+      { label: page ? "Edit the page" : "Add a page", edits: true, hint: "The page the words are on, as p. 82", data: "edit-page", run: () => editPage(pos) },
     ].filter((one) => !one.edits || editor.isEditable)
   }
   // A footnote's mark: to its note, or away with both (⌘Z brings them back).
