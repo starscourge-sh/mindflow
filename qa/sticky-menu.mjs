@@ -80,6 +80,15 @@ try {
     for (let i = 0; i < 20 && (await state()).open; i++) await wait(100)
     return state()
   }
+  /** The pointer brought onto a line as a hand does, over a few moves: a menu's rows answer only a pointer that really moves (lib/real-move.ts). */
+  const reach = async (m, name) => {
+    for (let i = 0; i < 4; i++) {
+      const b = await m.getByRole('menuitem', { name }).boundingBox()
+      await m.mouse.move(b.x + 20, b.y + b.height / 2 - 30)
+      await m.mouse.move(b.x + 30 + i, b.y + b.height / 2, { steps: 5 })
+      if (await m.waitForSelector('[data-slot="context-menu-sub-content"]', { timeout: 1500 }).catch(() => null)) return
+    }
+  }
   const heard = (page) => page.evaluate(() => window.haligtreeHeard ?? [])
 
   // A note on the desktop.
@@ -121,7 +130,7 @@ try {
   // All stickies: a line beside, with the desk's lines and their keys; Tidy runs from it.
   {
     const { m } = await rightClick(note, '.mf-card')
-    await m.getByRole('menuitem', { name: 'All stickies' }).hover()
+    await reach(m, 'All stickies')
     await m.waitForSelector('[data-slot="context-menu-sub-content"]', { timeout: 3000 }).catch(() => null)
     await wait(300)
     const sub = await m.$$eval('[data-slot="context-menu-sub-content"] [role="menuitem"]', (rows) => rows.map((r) => r.textContent.trim()))
@@ -165,9 +174,12 @@ try {
   await h.evaluate(() => window.api.stick('today', 'today', true))
   await h.evaluate(() => window.api.stick('goals', 'goals', true))
   kinds.push(['goals', 'goals', 'All goals'])
-  const goal = Array.isArray(goals) ? goals.find((one) => one && one.id && one.goalAt && !one.closedHow) : null
-  if (goal) (await h.evaluate((id) => window.api.stick('goal', id, true), goal.id), kinds.push(['goal', goal.id, 'One goal']))
+  const goal = Array.isArray(goals) ? goals.find((one) => one && one.id && one.goalAt && !one.closedHow && !one.closedAt && !one.archivedAt) : null
+  check('the sandbox has an open goal to stick', !!goal)
+  // One goal's card is stuck when its turn comes, once the goals sticky is down: while that is up the goals share it.
+  if (goal) kinds.push(['goal', goal.id, 'One goal'])
   for (const [type, gid, name] of kinds) {
+    if (type === 'goal') await h.evaluate((id) => window.api.stick('goal', id, true), gid)
     const page = await pageOf((u) => u.includes(`type=${type}&`) && u.includes(`id=${encodeURIComponent(gid)}`))
     check(`${name}: its sticky came out`, !!page)
     if (!page) continue
@@ -196,12 +208,37 @@ try {
         }
       } else check('Today: the sandbox has a task on Today to right-click', false)
     }
+    // One goal: its All stickies opens beside, and Open in Haligtree brings the goal up in the main window.
+    if (type === 'goal') {
+      {
+        const { m } = await rightClick(page, target)
+        await reach(m, 'All stickies')
+        await m.waitForSelector('[data-slot="context-menu-sub-content"]', { timeout: 3000 }).catch(() => null)
+        const sub = await m.$$eval('[data-slot="context-menu-sub-content"] [role="menuitem"]', (rows) => rows.map((r) => r.textContent.trim()))
+        check('One goal: All stickies opens beside it with Tidy', sub.some((one) => one.startsWith('Tidy stickies down the right edge')), sub.join(' | '))
+        await esc(m)
+      }
+      {
+        const { m } = await rightClick(page, target)
+        await m.getByRole('menuitem', { name: 'Open in Haligtree' }).click()
+        let shown = null
+        for (let i = 0; i < 30 && !shown; i++) {
+          shown = await h.evaluate((title) => document.body.innerText.includes(title) && location.href, goal.title).catch(() => null)
+          if (!shown) await wait(200)
+        }
+        check('One goal: "Open in Haligtree" shows the goal in the main window', !!shown, String(shown))
+        check('One goal: …and the menu is gone', (await state()).open === false)
+      }
+    }
     // Take it down from the menu: the card goes at once.
     const again = await rightClick(page, target)
     await again.m.getByRole('menuitem', { name: 'Take it down' }).click()
     let gone = false
     for (let i = 0; i < 40 && !gone; i++) (gone = !(await stickyWins()).some((one) => one.url.includes(`type=${type}&`) && one.url.includes(`id=${encodeURIComponent(gid)}`))), gone || (await wait(150))
     check(`${name}: "Take it down" takes it down at once`, gone)
+    // …and it stays down: nothing puts it back by itself a moment later.
+    await wait(4000)
+    check(`${name}: still down 4 seconds later`, !(await stickyWins()).some((one) => one.url.includes(`type=${type}&`) && one.url.includes(`id=${encodeURIComponent(gid)}`)))
   }
   check('no page errors', c.errors.length === 0, c.errors.join('\n'))
 } finally {
