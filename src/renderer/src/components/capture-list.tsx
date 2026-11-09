@@ -2,7 +2,7 @@ import { voiceOf } from '@/lib/sources'
 import { startGoal } from '@/components/haligtree/goals-view'
 import type { Picking } from '@/lib/pick-range'
 import { openRead } from './haligtree/read-through'
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { chime } from '@/lib/sound'
 
 import { CAPTURE_TYPES } from './capture-kinds/capture-kind-picker'
@@ -62,10 +62,15 @@ const lastList: Record<'all' | 'kept', { json: string; list: CaptureMeta[] } | u
 export function useCaptures(archived = false): CaptureMeta[] {
   const which = archived ? 'all' : 'kept'
   const [captures, setCaptures] = useState<CaptureMeta[]>(() => lastList[which]?.list ?? unread([]))
+  // The list the state was started on: once `archived` changes, what is shown is the other list.
+  const startedOn = useRef(which)
   useEffect(() => {
     // The same list as last time (typing past a note's first line) keeps the
-    // old one, so the lists holding it do not redraw on every pause.
-    let last: string | undefined = lastList[which]?.json
+    // old one, so the lists holding it do not redraw on every pause. Compared
+    // only with the list shown: after `archived` changed, an answer equal to
+    // the new list's last was dropped, and the other list stayed.
+    let last: string | undefined = startedOn.current === which ? lastList[which]?.json : undefined
+    startedOn.current = which
     let held: CaptureMeta[] | undefined
     const take = (all: CaptureMeta[]): void => {
       // The very list held already: the main process said nothing changed.

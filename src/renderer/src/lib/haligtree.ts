@@ -713,14 +713,26 @@ export function useLive<T>(read: () => Promise<T>, initial: T, deps: unknown[] =
   // an arrow is kept under the name `keep` gives it.
   const key = keyOf(deps)
   const by = keep ?? read
-  const [value, setValue] = useState<T>(() => {
-    const kept = key === null ? undefined : said.get(by)?.get(key)
-    return kept ? (kept.value as T) : unread(initial)
+  const keptFor = (): { value: unknown; json: string } | undefined => (key === null ? undefined : said.get(by)?.get(key))
+  // What is shown, the deps it was read for and its answer as said. Deps changed
+  // (another week, another day) and something said for the new ones already,
+  // it starts on that; with nothing said yet, it keeps the old until the answer.
+  // An answer is dropped only as the same as what is shown for these deps: kept
+  // on the old deps' answer and compared with the new deps' last one, an equal
+  // answer was dropped and the old week's events stayed under the new week.
+  const [shown, setShown] = useState<{ key: string | null; value: T; json?: string }>(() => {
+    const kept = keptFor()
+    return { key, value: kept ? (kept.value as T) : unread(initial), json: kept?.json }
   })
+  if (shown.key !== key) {
+    const kept = keptFor()
+    if (kept) setShown({ key, value: kept.value as T, json: kept.json })
+  }
+  const value = shown.value
   useEffect(() => {
     // Every write anywhere reloads every list, a note being typed in included:
     // an answer the same as the last keeps the old value, so nothing redraws.
-    let last: string | undefined = key !== null ? said.get(by)?.get(key)?.json : undefined
+    let last: string | undefined = shown.key === key ? shown.json : undefined
     // An answer that comes back after the deps changed (another day, another
     // id) is dropped: arriving after the new one, it would stay on screen
     // under the new header until something next changed.
@@ -737,7 +749,7 @@ export function useLive<T>(read: () => Promise<T>, initial: T, deps: unknown[] =
         if (key !== null) (said.get(by) ?? said.set(by, new Map()).get(by)!).set(key, { value: next, json: now })
         if (gone || mine !== asked || now === last) return
         last = now
-        setValue(next)
+        setShown({ key, value: next, json: now })
       }
       // Read again for a change: with every other read that change started (`together`), unless this
       // read is a slow one (a folder of pictures looked through), which would hold the rest back.
