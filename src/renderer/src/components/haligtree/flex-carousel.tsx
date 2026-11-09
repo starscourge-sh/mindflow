@@ -271,7 +271,8 @@ export default function FlexCarousel({
   gap?: number
   radius?: number
   squeeze?: number
-  onOpen?: (index: number) => void
+  /** Opened: which card, and where it is on the screen when opened by a pointer. */
+  onOpen?: (index: number, at?: DOMRect) => void
   /** Told which card the pointer is on (-1 for none), for its right-click menu. */
   onUnder?: (index: number) => void
   /** A click opens the picture at once, rather than first bringing it close; ← → turn it and ↵ opens. */
@@ -888,6 +889,11 @@ export default function FlexCarousel({
       const rect = container.getBoundingClientRect()
       return [e.clientX - rect.left, e.clientY - rect.top]
     }
+    // A card's rect on the screen, for what it opens to grow out of (lib/hero.ts).
+    const onScreen = (hit: { x0: number; x1: number; y0: number; y1: number }): DOMRect => {
+      const rect = container.getBoundingClientRect()
+      return new DOMRect(rect.left + hit.x0, rect.top + hit.y0, hit.x1 - hit.x0, hit.y1 - hit.y0)
+    }
 
     const onPointerDown = (e: PointerEvent): void => {
       settling = false
@@ -976,12 +982,12 @@ export default function FlexCarousel({
       const [x, y] = localPoint(e)
       const hit = instances.find((inst) => x >= inst.x0 && x <= inst.x1 && y >= inst.y0 && y <= inst.y1)
       if (focus.target > 0) {
-        if (hit?.index === focus.index) openRef.current?.(focus.index)
+        if (hit?.index === focus.index) openRef.current?.(focus.index, onScreen(hit))
         else closeFocus()
         return
       }
       if (!hit) return
-      if (settingsRef.current.direct) return void openRef.current?.(hit.index)
+      if (settingsRef.current.direct) return void openRef.current?.(hit.index, onScreen(hit))
       if (hit.index === activeIndex && Math.abs(goal - pos) < 2) openFocus(hit.index)
       else {
         goal = snapPoint(m, pos + (hit.x0 + hit.x1) / 2 - width / 2)

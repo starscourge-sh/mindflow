@@ -57,6 +57,7 @@ import { LeavingPicture, useLeaving } from './picture-leaving'
 import { openItems, useHere } from '@/lib/split'
 import { queueItems } from '@/lib/reading-queue'
 import { usePickMixed, type Pickable } from './pick-mixed'
+import { heroOpen } from '@/lib/hero'
 import { ArrowRight, BookOpen, Check, ChevronLeft, ChevronRight, Orbit, Bookmark as Pin, Repeat as Repeat2 } from '@/components/ui/icons'
 
 /**
@@ -718,7 +719,8 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
   const actions: Actions = {
     // ⇧-click picks, as in every list; a plain click opens.
     // A note's page turn is its one sound; a task or an event opens with a chime.
-    open: (card, event) => (event && several.click(event, card)) || (turns(card.type) || chime('open'), onOpen(card.type, card.id)),
+    // A note's tile grows into the note (lib/hero.ts).
+    open: (card, event) => (event && several.click(event, card)) || (turns(card.type) ? heroOpen(event, () => onOpen(card.type, card.id)) : (chime('open'), onOpen(card.type, card.id))),
     picked: (card) => several.picked(card),
     menu: (card, own) => several.menu(card) ?? [...own, ...several.rowItems(card)],
     note: (card) => {

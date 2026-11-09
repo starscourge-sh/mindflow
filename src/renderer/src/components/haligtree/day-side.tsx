@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { heroBack } from '@/lib/hero'
 import { byKeys, still } from '@/lib/motion'
 import { createPortal } from 'react-dom'
 import { AnimatePresence, motion } from 'motion/react'
@@ -216,7 +217,7 @@ export function DaySide({ ask, onClose, onOpen, inline = false, width, grip, res
             )}
             <span className="flex-1" />
             <Tip label="Close (Esc)">
-              <Button variant="ghost" size="icon-sm" data-day-side-close aria-label="Close" onClick={() => (chime('away'), shut())}><X /></Button>
+              <Button variant="ghost" size="icon-sm" data-day-side-close aria-label="Close" onClick={() => (chime('away'), heroBack(shut, () => panel.current))}><X /></Button>
             </Tip>
           </div>
           {asking && kind === 'event'

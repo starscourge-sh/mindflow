@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { heroOpen, sideForm } from '@/lib/hero'
 import { createPortal } from 'react-dom'
 import { createRoot } from 'react-dom/client'
 import { AnimatePresence, motion } from 'motion/react'
@@ -323,7 +324,7 @@ export function EventBlock({ one, day, at, length, lane, onOpen, onPeek, onNote,
         <div ref={self} role="button" tabIndex={0} data-cal-event={one.key} data-cal-calendar={one.calendarId} data-cal-start={at} data-cal-length={length} data-readonly={one.readOnly || undefined} aria-label={said}
           onPointerDown={(event) => start(event, 'move')}
           onMouseDown={(event) => event.button === 0 && (event.preventDefault(), event.currentTarget.focus({ preventScroll: true }))}
-          onDoubleClick={(event) => !one.readOnly && (event.stopPropagation(), chime('open'), onOpen(one.key))}
+          onDoubleClick={(event) => !one.readOnly && (event.stopPropagation(), chime('open'), heroOpen(event, () => onOpen(one.key), sideForm))}
           onKeyDown={(event) => {
             if (event.key === 'Enter') (event.preventDefault(), peek())
             if ((event.key === 'Backspace' || event.key === 'Delete') && !one.readOnly) (event.preventDefault(), void dropOne(one))
@@ -420,7 +421,7 @@ export function EventChip({ one, day, onOpen, onPeek, onNote, month = false, cal
         <button ref={self} type="button" data-cal-event-chip={one.key} data-cal-calendar={one.calendarId}
           onPointerDown={start}
           onClick={(event) => event.detail === 0 && peek()}
-          onDoubleClick={(event) => !one.readOnly && (event.stopPropagation(), chime('open'), onOpen(one.key))}
+          onDoubleClick={(event) => !one.readOnly && (event.stopPropagation(), chime('open'), heroOpen(event, () => onOpen(one.key), sideForm))}
           onKeyDown={(event) => (event.key === 'Backspace' || event.key === 'Delete') && !one.readOnly && (event.preventDefault(), void dropOne(one))}
           className={`flex ${month ? 'h-5' : 'h-6'} min-w-0 shrink-0 touch-none items-center gap-1 rounded-[5px] pr-1.5 pl-2.5 text-left text-control ${carried ? 'opacity-40' : ''}`}
           {...{ style: { ...tint(one.color, one.cancelled), ...across } }}>

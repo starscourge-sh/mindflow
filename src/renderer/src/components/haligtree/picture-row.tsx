@@ -16,7 +16,7 @@ const FlexCarousel = lazy(() => import('./flex-carousel'))
  */
 export function PictureRow({ items, onOpen, menuFor, direct = false, counter = 'of', label = 'Pictures', cardHeight = 0.52, height, className = '' }: {
   items: FlexCarouselItem[]
-  onOpen: (index: number) => void
+  onOpen: (index: number, at?: Element | DOMRect) => void
   /** A card's right-click menu: the one that thing has everywhere else. Off a card, the middle one's. */
   menuFor?: (index: number) => RowItem[]
   /** A click opens at once (and ← → ↵ work), rather than first bringing the picture close. */
@@ -90,7 +90,7 @@ const stillCardWidth = (items: FlexCarouselItem[], height: number): number =>
   Math.round(Math.max(40, height - wordsRoom(items) - 12) * Math.min(Math.max(items[0]?.aspect ?? 0.8, 0.6), 1.5))
 
 /** The still row: one shape for every picture, so only those in view are drawn, however many there are. */
-function StillRow({ items, onOpen, menuFor, counter, label, height, whole = false }: { items: FlexCarouselItem[]; onOpen: (index: number) => void; menuFor?: (index: number) => RowItem[]; counter: 'of' | 'slash'; label: string; height: number; /** All of it fits: no fade at its end. */ whole?: boolean }): React.JSX.Element {
+function StillRow({ items, onOpen, menuFor, counter, label, height, whole = false }: { items: FlexCarouselItem[]; onOpen: (index: number, at?: Element | DOMRect) => void; menuFor?: (index: number) => RowItem[]; counter: 'of' | 'slash'; label: string; height: number; /** All of it fits: no fade at its end. */ whole?: boolean }): React.JSX.Element {
   const scroller = useRef<HTMLDivElement>(null)
   const picH = Math.max(40, height - wordsRoom(items) - 12)
   const cardW = stillCardWidth(items, height)
@@ -116,7 +116,7 @@ function StillRow({ items, onOpen, menuFor, counter, label, height, whole = fals
           const at = range[0] + i
           const place = counter === 'slash' ? `${num(at + 1).padStart(2, '0')} / ${num(items.length).padStart(2, '0')}` : `${num(at + 1)} of ${num(items.length)}`
           const card = (
-            <button key={at} type="button" role="listitem" onClick={() => onOpen(at)} data-still-picture={at}
+            <button key={at} type="button" role="listitem" onClick={(event) => onOpen(at, event.currentTarget)} data-still-picture={at} data-hero={item.id}
               className="group absolute top-0 flex cursor-pointer flex-col gap-1.5 rounded-lg text-left outline-none transition-transform duration-150 ease-out focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.97]"
               style={{ left: at * (cardW + GAP), width: cardW }}>
               <StillPicture src={item.src} height={picH} pdf={item.pdf} />

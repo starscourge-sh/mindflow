@@ -29,6 +29,7 @@ import { EASE, still } from '@/lib/motion'
 import { PileEdges } from './deck-pile'
 import { OnceHint } from './page-hint'
 import { quoted } from '../../../../main/clip'
+import { heroOpen } from '@/lib/hero'
 
 type Topic = { deck: string; label: string; cards: number; held: number }
 export type Shelf = { name: string; cover: string | null; sample: string; pictures: number; cards: number; fresh: number; due: number; held: number; shown: boolean; topics: Topic[] }
@@ -345,7 +346,7 @@ function DeckTile({ id, own = false, drag, name, title, due, fresh, all, held, c
   return (
     <RowMenu items={() => items(() => box.current)}>
       {/* Laid out by motion: when a dragged deck passes over, the others slide to make room (at once with motion off). */}
-      <motion.div ref={box} layout={!still()} transition={{ duration: 0.2, ease: EASE }} role="button" tabIndex={0} data-deck={own ? `#${id}` : id} {...(own ? { 'data-own-deck': id } : {})} onClick={onClick}
+      <motion.div ref={box} layout={!still()} transition={{ duration: 0.2, ease: EASE }} role="button" tabIndex={0} data-deck={own ? `#${id}` : id} {...(own ? { 'data-own-deck': id } : {})} onClick={(event) => (all ? heroOpen(event, onClick) : onClick())}
         onKeyDown={(event) => (event.key === 'Enter' || event.key === ' ') && event.target === event.currentTarget && (event.preventDefault(), onClick())}
         {...(drag && !renaming ? { draggable: true, onDragStart: (event: React.DragEvent) => (event.dataTransfer.effectAllowed = 'move', event.dataTransfer.setData('text/plain', `#${id}`), drag.start()),
           onDragEnter: drag.enter, onDragOver: (event: React.DragEvent) => event.preventDefault(), onDragEnd: drag.end, onDrop: (event: React.DragEvent) => (event.preventDefault(), drag.drop()) } : {}) as Record<string, unknown>}

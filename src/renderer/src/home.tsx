@@ -1,4 +1,5 @@
 import { detailsShown, showDetails } from '@/lib/reading'
+import { heroBack, heroing } from '@/lib/hero'
 import { createPortal } from 'react-dom'
 import { CarriedCard } from '@/components/haligtree/carry'
 import { useRemindersInStep } from '@/lib/reminders'
@@ -461,7 +462,9 @@ export function Home(): React.JSX.Element {
   /** Opened as the click that asked said: a new tab, to the side, or (no way said) in the tab on show. */
   const placed = (next: View, how: 'tab' | 'aside' | null, key = frontRef.current): void =>
     how === 'tab' ? openTab(next, key) : how === 'aside' ? aside(next, key) : setView(next, key)
-  const step = (by: number, key = frontRef.current): void => {
+  // Back by a click, onto the page something grew open from: it shrinks back into its place (lib/hero.ts).
+  const step = (by: number, key = frontRef.current): void => (by < 0 ? heroBack(() => stepBy(by, key)) : stepBy(by, key))
+  const stepBy = (by: number, key: string): void => {
     via('back')
     const scroll = scrolled(key)
     setTrail(key, ({ views, at }) => {
@@ -1631,7 +1634,7 @@ export function Home(): React.JSX.Element {
         key={view.id}
         data-page={view.id}
         // Keyboard travel (G and a letter, ⌘[ and ⌘]) is done hundreds of times a day: no settle then.
-        initial={byKeys() || tabChosen.current ? false : { transform: shift(`translateY(${(pageTravel(key, view.id, ordered.map((section) => section.id)) || 1) * 6}px)`) }}
+        initial={byKeys() || tabChosen.current || heroing() ? false : { transform: shift(`translateY(${(pageTravel(key, view.id, ordered.map((section) => section.id)) || 1) * 6}px)`) }}
         animate={{ transform: shift('translateY(0px)') }}
         transition={{ duration: 0.16, ease: EASE }}
         className="flex min-w-0 flex-1"

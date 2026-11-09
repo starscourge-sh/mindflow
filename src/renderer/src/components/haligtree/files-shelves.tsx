@@ -110,14 +110,14 @@ export function Pile({ shelf, files, onOpen }: { shelf: (typeof SHELVES)[number]
 }
 
 /** The last few added or opened, any kind, in one row: small faces with their names under. */
-export function RecentRow({ files, onOpen, menuFor }: { files: Media[]; onOpen: (one: Media) => void; menuFor: (one: Media) => RowItem[] }): React.JSX.Element {
+export function RecentRow({ files, onOpen, menuFor }: { files: Media[]; onOpen: (one: Media, event: React.MouseEvent) => void; menuFor: (one: Media) => RowItem[] }): React.JSX.Element {
   return (
     <section data-files-recent className="flex flex-col gap-2">
       <h3 className="text-body font-medium text-foreground">Recent</h3>
       <div className="files-recent-row flex gap-3 overflow-x-auto pb-1">
         {files.map((one) => (
           <RowMenu key={one.src} items={menuFor(one)}>
-            <button type="button" data-recent-file={one.kind} data-src={one.src} onClick={() => onOpen(one)} className="files-press flex w-[96px] shrink-0 cursor-pointer flex-col gap-1.5 text-left">
+            <button type="button" data-recent-file={one.kind} data-src={one.src} onClick={(event) => onOpen(one, event)} className="files-press flex w-[96px] shrink-0 cursor-pointer flex-col gap-1.5 text-left">
               <Cover one={one} className={`size-[96px] rounded-[4px] ring-1 ring-foreground/10 ${one.kind === 'pdf' ? 'files-recent-book' : ''}`} />
               <span dir="auto" className={`truncate text-xs text-muted-foreground ${one.private ? 'private-text' : ''}`}>{nameOf(one)}</span>
             </button>

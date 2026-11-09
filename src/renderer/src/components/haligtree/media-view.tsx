@@ -25,6 +25,7 @@ import { chime } from '@/lib/sound'
 import { pictureLines } from '@/lib/picture-actions'
 import { Empty, Kbd, Page, refuse, toast, typing, useListKeys, VirtualList } from './ui'
 import { readLibrary, type Book } from '@/components/pdf/book-head'
+import { heroOpen } from '@/lib/hero'
 import { AudioDays, BOOK, BOOK_GAP, letGoWhen, PICTURE, PICTURE_GAP, Pile, PictureMonths, pictureSpans, RecentRow, SHELVES, shelfOf, stepLine, UnlinkedDays, unlinkedOrder, unlinkedSpans, type Shelf } from './files-shelves'
 import { Chip } from './display'
 import { ListSearch, tileClass } from './note-list'
@@ -235,8 +236,10 @@ export function MediaView({ onOpen }: { onOpen: (type: string, id: string) => vo
     setCursor(shown.indexOf(one))
     if (picking.click(event, keyOf(one))) return
     if (event.altKey && !one.uses.length) return openFile(one, true)
-    open(one)
+    openFrom(one, event)
   }
+  // A book, or a note holding the file, grows out of its tile (lib/hero.ts); a picture lifts into its own viewer, and a recording plays where it is.
+  const openFrom = (one: Media, event: React.MouseEvent): void => (one.kind === 'pdf' || one.uses.length ? heroOpen(event, () => open(one)) : open(one))
 
   // Files carried over the page: the whole page takes them.
   const [carrying, setCarrying] = useState(false)
@@ -318,7 +321,7 @@ export function MediaView({ onOpen }: { onOpen: (type: string, id: string) => vo
               <div data-files-piles className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,190px),1fr))] gap-x-6 gap-y-8">
                 {pileList.map((one) => <Pile key={one.shelf.id} shelf={one.shelf} files={one.files} onOpen={() => setKind(one.shelf.id)} />)}
               </div>
-              <RecentRow files={recent} onOpen={open} menuFor={menuFor} />
+              <RecentRow files={recent} onOpen={openFrom} menuFor={menuFor} />
             </div>
           ) : mixed ? (
             <UnlinkedDays files={shown} across={across} books={booksAcross} cursor={cursor} chosen={chosen} keyOf={keyOf} menuFor={menuFor} onClick={clickTile} onUse={(use, src) => openUse(use, src, onOpen)} />

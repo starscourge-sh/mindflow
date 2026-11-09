@@ -20,6 +20,7 @@ import type { Media } from "../../../../main/media"
 import { num } from "../../../../main/dates"
 import { quoted } from '../../../../main/clip'
 import { cleanTitle } from '@/lib/clean-title'
+import { heroOpen } from "@/lib/hero"
 export type { Book } from "./book-head"
 
 /** A file's name as a person would say it (clean-title.ts). */
@@ -119,7 +120,7 @@ export function PdfLibrary({ query, top, files, onPut, keys, only }: { /** Off w
         </div>
         <BackToTop target={scroller} />
       </div>
-      {book && <Inspector one={book} onOpen={() => open(book)} />}
+      {book && <Inspector one={book} onOpen={() => heroOpen(document.querySelector(`[data-book="${CSS.escape(book.src)}"]`), () => open(book))} />}
     </div>
     </div>
   )
@@ -140,7 +141,7 @@ function BookCard({ one, lit, picked, menu, onPick, onOpen }: { one: Book; lit: 
   const read = percent(one)
   return (
     <RowMenu items={menu}>
-    <button type="button" aria-pressed={lit} data-book={one.src} data-id={one.src} data-picked={picked || undefined} className={`pdf-book${lit ? " is-picked" : ""}${picked ? " is-chosen" : ""}`} onClick={onPick} onDoubleClick={onOpen} onKeyDown={(event) => event.key === "Enter" && onOpen()}>
+    <button type="button" aria-pressed={lit} data-book={one.src} data-id={one.src} data-picked={picked || undefined} className={`pdf-book${lit ? " is-picked" : ""}${picked ? " is-chosen" : ""}`} onClick={onPick} onDoubleClick={(event) => heroOpen(event, onOpen)} onKeyDown={(event) => event.key === "Enter" && onOpen()}>
       <span className="pdf-book-cover" data-pdf-peek={one.src} data-pdf-peek-name={one.name} data-pdf-peek-scrub="">
         {cover?.image ? <img src={cover.image} alt="" draggable={false} /> : <span className="pdf-book-blank"><BookOpen className="size-6" /></span>}
         {read !== null && (
@@ -240,11 +241,11 @@ export function ReadingRow({ going }: { going: Book[] }): React.JSX.Element {
   return (
     <div data-reading-row className="-mx-2 has-[[data-picture-row=still]]:mx-0">
       <PictureRow items={items} height={250} cardHeight={0.72} direct label="Continue reading" menuFor={(at) => bookMenu(going[at])}
-        onOpen={(at) => {
+        onOpen={(at, from) => {
           const one = going[at]
           if (!one) return
           chime("open")
-          openPdf(one.src, one.name, one.page ?? undefined)
+          heroOpen(from, () => openPdf(one.src, one.name, one.page ?? undefined))
         }}
       />
     </div>

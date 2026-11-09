@@ -2751,6 +2751,32 @@ html:is([data-dragging], [data-split-drag]) :is([data-peek-card], [data-slash-pe
   animation: mf-plain-in 120ms var(--mf-ease) both;
 }
 
+/* Something clicked growing into what it opens, and back (lib/hero.ts): the
+   frame moves and grows from one rect to the other on the app's curve, 250ms
+   in and 200ms back out; inside it the words keep their own size, cropped to
+   the frame, never stretched, the old fading as the new comes up; the rest of
+   the window cross-fades softly under it, never a blank frame. */
+:root[data-hero]::view-transition-old(root) { animation: mf-plain-out 200ms var(--mf-ease) both; }
+:root[data-hero]::view-transition-new(root) { animation: mf-plain-in 200ms var(--mf-ease) both; }
+:root[data-hero]::view-transition-group(mf-hero) {
+  animation-duration: 250ms;
+  animation-timing-function: var(--mf-ease);
+  border-radius: 12px;
+  overflow: clip;
+}
+:root[data-hero='close']::view-transition-group(mf-hero) { animation-duration: 200ms; }
+:root[data-hero]::view-transition-image-pair(mf-hero) { overflow: clip; border-radius: inherit; }
+:root[data-hero]::view-transition-old(mf-hero),
+:root[data-hero]::view-transition-new(mf-hero) {
+  height: 100%;
+  object-fit: cover;
+  object-position: top left;
+}
+:root[data-hero]::view-transition-old(mf-hero) { animation: mf-plain-out 150ms var(--mf-ease) both; }
+:root[data-hero]::view-transition-new(mf-hero) { animation: mf-plain-in 200ms var(--mf-ease) both; }
+:root[data-hero='close']::view-transition-old(mf-hero) { animation-duration: 120ms; }
+:root[data-hero='close']::view-transition-new(mf-hero) { animation-duration: 160ms; }
+
 /* Depth, three ways and no more: a control sits on the page (--mf-shadow-control),
    something picked up or dragged lifts off it (--mf-shadow-lift), and anything
    floating over it is a panel (--mf-panel-shadow). All in the warm ink. */

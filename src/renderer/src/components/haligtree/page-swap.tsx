@@ -47,7 +47,7 @@ function Held({ over = false, gone = false, onSeen, children }: { over?: boolean
   const on = style === undefined
   useLayoutEffect(() => void (on && onSeen?.()), [on]) // eslint-disable-line react-hooks/exhaustive-deps
   return (
-    <div className={over ? 'pointer-events-none absolute inset-0 flex min-w-0' : 'flex min-w-0 flex-1'} style={gone ? { display: 'none' } : style} inert={over || gone || undefined}>
+    <div className={over ? 'pointer-events-none absolute inset-0 flex min-w-0' : 'flex min-w-0 flex-1'} style={gone ? { display: 'none' } : style} inert={over || gone || undefined} data-page-held={over || undefined}>
       {provide(children)}
     </div>
   )
