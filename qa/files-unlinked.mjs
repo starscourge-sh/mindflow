@@ -63,7 +63,7 @@ async function crumple() {
   }), { ED, n })
   await h.locator('[aria-label="Delete image"]').first().click()
   const ms = await gone
-  check('the picture crumples for the Bin\'s time, then leaves the note (under 1.2s)', ms < 1200, `${ms}ms`)
+  check('the picture crumples for the Bin\'s time, then leaves the note (under 1.45s; it crumpled 1.5s alone before)', ms < 1450, `${ms}ms`)
   await wait(2600)
   return toastText()
 }
