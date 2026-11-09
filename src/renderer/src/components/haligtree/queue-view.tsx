@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useReading } from '@/lib/reads-in'
 import { X as Clear } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
-import { BookOpen, GripVertical, ListEnd, ListStart, RotateCcw } from 'lucide-react'
+import { BookOpen, CircleCheck, GripVertical, ListEnd, ListStart, RotateCcw, Trash2 } from 'lucide-react'
 
 import { chime } from '@/lib/sound'
 import { EASE } from '@/lib/motion'
@@ -17,7 +17,8 @@ import { ReadThrough } from './read-through'
 import { RowMenu, copy, type MenuItem } from './row-menu'
 import { openApart } from '@/lib/apart'
 import { SortableList, SortableRow } from './sortable'
-import { Island, Page, Rolling, Tags, Tip, toast, typing, useListKeys } from './ui'
+import { Page, Rolling, Tags, Tip, toast, typing, useListKeys } from './ui'
+import { IslandBox, useFold } from './islands'
 import { taskName } from '@/lib/tasks'
 import { PICKED_MARK } from './pick-mixed'
 import { listInFront, useListScope } from '@/lib/list-front'
@@ -92,7 +93,7 @@ function QueueLine({ row, at, rows, pick }: { row: QueueRow; at: number; rows: Q
   const swipe = useSwipeOff(() => void dequeue(row))
   const menu: MenuItem[] = pick.menu ?? [
     { label: row.bare ? 'Open the page' : 'Read from here', keys: '↵', run: () => play(rows, at) },
-    at > 0 && { label: 'Play next', hint: 'To the top of Up next', run: () => void enqueue([row.itemId], true) },
+    at > 0 && { label: 'Read next', hint: 'To the top of Up next', run: () => void enqueue([row.itemId], true) },
     // The drag's moves, for the keyboard and for anyone who never finds the grip.
     at > 0 && { label: 'Move up', run: () => void readingQueue.move(row.id, rows[at - 1].id, false).then(() => chime('settled')) },
     at < rows.length - 1 && { label: 'Move down', run: () => void readingQueue.move(row.id, rows[at + 1].id, true).then(() => chime('settled')) },
@@ -135,6 +136,9 @@ function QueueLine({ row, at, rows, pick }: { row: QueueRow; at: number; rows: Q
   )
 }
 
+/** Up next's mark, the sidebar's and Home's for the queue. */
+const UP_NEXT = <ListStart aria-hidden className="size-4 shrink-0 text-[var(--tt-color-text-blue)]" />
+
 /** The Queue page: the queue to read next, how far through it you are, and what was read. */
 export function QueueView(): React.JSX.Element {
   const all = useQueue()
@@ -161,7 +165,10 @@ export function QueueView(): React.JSX.Element {
   const takeOut = (list: string[]): void => void dequeue(rowsOf(list)).then(() => setChosen([]))
   const markRead = (list: string[]): void => void finishAll(rowsOf(list)).then(() => setChosen([]))
   // Read, below: picked on its own, with its own ⌫ (out of Read, the note stays where it is).
-  const readIds = read.slice(0, 50).map((row) => row.id)
+  const readFold = useFold('queue:read', { total: read.length })
+  const readShown = readFold.whole ? read : read.slice(0, 50)
+  const readIds = readShown.map((row) => row.id)
+  const nextFold = useFold('queue:next', { total: queue.length, whole: false })
   const [readChosen, setReadChosen] = useState<string[]>([])
   const readLive = readChosen.filter((id) => readIds.includes(id))
   const readRows = (list: string[]): QueueRow[] => read.filter((row) => list.includes(row.id))
@@ -276,21 +283,13 @@ export function QueueView(): React.JSX.Element {
       <div className={!loading && !queue.length && !read.length ? 'w-full pb-16' : 'w-full px-5 pt-6 pb-16'}>
         {!loading && !queue.length && !read.length ? (
           <Example tryIt="right-click any note, gem or page and choose “Queue”, then “Add to queue”. Then read them one after the other.">
-            <Island title="Up next">
+            <IslandBox name="Up next" island={{ ...nextFold, total: exampleQueue().length, folded: false }} shown={exampleQueue().length} icon={UP_NEXT}>
               {exampleQueue().map((row, at, rows) => <QueueLine key={row.id} row={row} at={at} rows={rows} pick={{ picked: false, cursor: false, onPickClick: () => true, menu: null, rowItems: [] }} />)}
-            </Island>
+            </IslandBox>
           </Example>
         ) : (
           <>
-            {queue.length > 0 ? (
-              <div data-queue-progress className="mb-5 flex flex-col gap-2">
-                <p className="flex items-baseline gap-2 text-body">
-                  <span className="font-semibold text-foreground tabular-nums"><Rolling text={done} /> of <Rolling text={total} /></span>
-                  <span className="text-muted-foreground">read</span>
-                </p>
-                <ProgressBar value={total ? done / total : 0} label={`${num(done)} of ${num(total)} read`} thick={3} />
-              </div>
-            ) : (
+            {queue.length > 0 ? null : (
               // Everything read: a rest, not a flat line, and the way to fill it again.
               <Rest seed="queue-read" strip>
                 <div data-queue-empty className="mb-6 flex flex-col items-start gap-2 px-1">
@@ -300,7 +299,14 @@ export function QueueView(): React.JSX.Element {
               </Rest>
             )}
             {queue.length > 0 && (
-              <Island title="Up next">
+              <IslandBox name="Up next" island={nextFold} shown={queue.length} icon={UP_NEXT}
+                extra={
+                  // How far through: the ones read since the oldest still waiting was added, out of those and the ones waiting.
+                  <span data-queue-progress className="flex items-center gap-2 font-normal">
+                    <span className="text-foreground tabular-nums"><span className="font-semibold"><Rolling text={done} /> of <Rolling text={total} /></span> read</span>
+                    <ProgressBar value={total ? done / total : 0} label={`${num(done)} of ${num(total)} read`} thick={3} className="w-24" />
+                  </span>
+                }>
                 <div ref={nextBox}>
                 <SortableList items={queue} keyOf={(row) => row.id} onMove={(id, target, after) => void readingQueue.move(id, target, after).then(() => chime('settled'))}>
                   {(rows) => rows.map((row, at) => (
@@ -308,19 +314,14 @@ export function QueueView(): React.JSX.Element {
                   ))}
                 </SortableList>
                 </div>
-              </Island>
+              </IslandBox>
             )}
             {read.length > 0 && (
-              <Island className="mt-8" title={<span className="flex items-center gap-2">Read <span className="text-foreground tabular-nums">{num(read.length)}</span></span>}
-                actions={<Button variant="ghost" size="sm" onClick={() => {
-                  // Cleared with a count, and one undo puts every one back, dated as it was.
-                  const was = read
-                  void readingQueue.forget().then(() => (chime('away'), toast(`Cleared ${num(was.length)} from Read`, () =>
-                    void Promise.all(was.map((row) => readingQueue.restore({ id: row.id, item_type: row.type, item_id: row.itemId, position: 0, added_at: row.addedAt, done_at: row.doneAt }))))))
-                }}>Clear</Button>}>
+              <div className="mt-6">
+              <IslandBox name="Read" island={readFold} shown={readShown.length} icon={<CircleCheck aria-hidden className="size-4 shrink-0 text-muted-foreground" />}>
                 <div ref={readBox}>
                 <AnimatePresence initial={false}>
-                  {read.slice(0, 50).map((row) => {
+                  {readShown.map((row) => {
                     const kind = kindOf(row)
                     const picked = readLive.includes(row.id)
                     // The same gestures as Up next: right-click, ⌘- or ⇧-click and x to pick, ⌘A, ⌫ out of Read, Esc.
@@ -363,9 +364,17 @@ export function QueueView(): React.JSX.Element {
                   })}
                 </AnimatePresence>
                 </div>
-                {/* The fifty most recent are listed; the count above is all of them, so the rest are said. */}
-                {read.length > 50 && <p className="px-3 py-2 text-control text-muted-foreground">And {num(read.length - 50)} read before these. “Clear” takes them all.</p>}
-              </Island>
+                <button type="button" data-queue-clear onClick={() => {
+                  // Cleared with a count, and one undo puts every one back, dated as it was.
+                  const was = read
+                  void readingQueue.forget().then(() => (chime('away'), toast(`Cleared ${num(was.length)} from Read`, () =>
+                    void Promise.all(was.map((row) => readingQueue.restore({ id: row.id, item_type: row.type, item_id: row.itemId, position: 0, added_at: row.addedAt, done_at: row.doneAt }))))))
+                }} className="mt-0.5 flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-left text-control font-medium text-foreground/80 transition-colors hover:bg-accent/50 hover:text-foreground">
+                  <Trash2 aria-hidden className="size-3.5" /> {read.length === 1 ? 'Clear Read' : `Clear all ${num(read.length)} from Read`}
+                  <span className="font-normal text-foreground/70">the notes stay where they are</span>
+                </button>
+              </IslandBox>
+              </div>
             )}
           </>
         )}
@@ -405,7 +414,7 @@ export function QueuePanel({ onView, className = '' }: { onView: (id: string) =>
               {/* Right-click: what the Queue page's own row offers most. */}
               <RowMenu items={[
                 { label: row.bare ? 'Open the page' : 'Read from here', keys: '↵', run: () => play(queue, at) },
-                at > 0 && { label: 'Play next', hint: 'To the top of Up next', run: () => void enqueue([row.itemId], true) },
+                at > 0 && { label: 'Read next', hint: 'To the top of Up next', run: () => void enqueue([row.itemId], true) },
                 { label: 'Open', run: () => window.api.openInHome(row.type, row.itemId) },
                 'separator',
                 { label: 'Mark as read', run: () => void readingQueue.done(row.id).then(() => (chime('done'), toast('Moved to Read', () => void readingQueue.undone(row.id, true)))) },

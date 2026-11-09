@@ -38,7 +38,7 @@ export function QueuePanel({ queue, at, read, onJump, onMove, onRemove, onClose,
     const tag = taskName(row.title).tags[0]
     return [
       first,
-      next.length > 1 && next[0].id !== row.id && next.some((one) => one.id === row.id) && { label: 'Play next', hint: 'To the top of Up next', run: () => onMove(row.id, next[0].id, false) },
+      next.length > 1 && next[0].id !== row.id && next.some((one) => one.id === row.id) && { label: 'Read next', hint: 'To the top of Up next', run: () => onMove(row.id, next[0].id, false) },
       'separator',
       { label: 'Open', hint: 'Leaves reading', run: () => onOpen(row) },
       { label: 'Open in new window', run: () => openApart(row.type, row.itemId) },
