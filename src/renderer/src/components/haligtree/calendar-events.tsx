@@ -651,10 +651,10 @@ function CalendarEdit({ one, onDone }: { one: { id: string; name: string; color:
  * 1-2pm @Cafe"), and the slot dragged across fills in what they leave out.
  * What it understood is shown under it as you type, before it is made.
  */
-export function NewEvent({ ask, onMade }: { ask: { day: string; minute: number | null; length: number }; onMade: (key: string) => void }): React.JSX.Element {
+export function NewEvent({ ask, held, onMade }: { ask: { day: string; minute: number | null; length: number }; held?: React.MutableRefObject<(() => Promise<void>) | null>; onMade: (key: string) => void }): React.JSX.Element {
   const [text, setText] = useState('')
   const field = useRef<HTMLInputElement>(null)
-  useEffect(() => void requestAnimationFrame(() => field.current?.focus()), [])
+  useEffect(() => (requestAnimationFrame(() => field.current?.focus()), () => void (held && (held.current = null))), []) // eslint-disable-line react-hooks/exhaustive-deps
   const known = useKnownPeople()
   const calendars = useCalendars()
   const [calendar, setCalendar] = useState<string | null>(null)
@@ -667,15 +667,17 @@ export function NewEvent({ ask, onMade }: { ask: { day: string; minute: number |
   const fixedEnd = allDay ? dayjs(start).startOf('day').add(Math.max(1, dayjs(end).diff(dayjs(start).startOf('day'), 'day')), 'day').toISOString() : end
   const on = calendar ?? calendars.find((one) => !one.hidden)?.id ?? calendars[0]?.id ?? 'personal'
   const busy = useRef(false)
-  const save = async (): Promise<void> => {
+  const save = async (stay = true): Promise<void> => {
     if (!read.title) return chime('nope')
     if (busy.current) return
     busy.current = true
     const made = await events.add({ title: read.title, start, end: fixedEnd, allDay, place: read.place, people: read.people, repeat: read.repeat, calendarId: on })
     busy.current = false
     void changeEvent(Promise.resolve(made), `Added for ${whenSaid(start, fixedEnd, allDay, clock)}`)
-    onMade(made.key)
+    if (stay) onMade(made.key)
   }
+  // Kept as the panel goes (clicked away from, ⌘↵): made, said in the notice.
+  if (held) held.current = read.title ? () => save(false) : null
   return (
     <form data-new-event className="flex min-h-0 flex-1 flex-col overflow-y-auto pt-4 pb-4" onSubmit={(event) => (event.preventDefault(), void save())}>
       <h2 className="page-narrow mx-auto mb-3 w-full px-4 @[40rem]/page:px-12 font-heading text-title font-semibold tracking-[-0.018em] text-foreground">New event</h2>

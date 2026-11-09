@@ -58,7 +58,6 @@ const FEW = 3
  */
 const LEFT = { key: 'vigil.calendar.left', home: 14, least: 12, most: 22 }
 const RIGHT = { key: 'vigil.calendar.right', home: 16, least: 13, most: 26 }
-const EDITOR = { key: 'vigil.calendar.editor', home: 24, least: 20, most: 34 }
 const ACCENT = 'var(--tt-brand-color-400)'
 /** How many Unscheduled tasks show before "Show N more": a working list to drag from, so a few more than an Inbox island. */
 const LOOSE_FEW = 8
@@ -140,7 +139,6 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
   const zone = useSecondZone()
   const [leftRem, leftGrip] = usePanelWidth(LEFT, 'left')
   const [rightRem, rightGrip] = usePanelWidth(RIGHT, 'right')
-  const [editorRem, editorGrip] = usePanelWidth(EDITOR, 'right')
   const [fits, setFits] = useState({ left: true, right: true })
   useEffect(() => {
     const el = box.current
@@ -305,6 +303,7 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
       const take = (run: () => void): void => (event.preventDefault(), run())
       if (key === 'd' || key === 'w' || key === 'm') return take(() => setMode(({ d: 'day', w: 'week', m: 'month' } as const)[key]))
       if (key === 't') return take(today)
+      if (key === 'n') return take(() => ((pressed.current = null), newEvent()))
       // Esc lets go of the task or event picked, as on every list, so ⌘K is the Calendar's own again.
       if (key === 'Escape' && !panel && !peek && (chosen || chosenEvent)) return take(() => (chime('away'), setChosen(null), setChosenEvent(null), (document.activeElement as HTMLElement | null)?.blur()))
       if (key === '.') return take(() => (chime('open'), setJump(true)))
@@ -344,6 +343,20 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
   const settle = (id: string, due: string): void => {
     setLanded({ id, due })
     window.setTimeout(() => setLanded((was) => (was?.id === id && was.due === due ? null : was)), 1500)
+  }
+  // What the panel opens beside: the slot being made, the event or task opened, else what was last pressed, else "New event".
+  const pressed = useRef<Element | null>(null)
+  const origin = (): DOMRect | null => {
+    const ask = panel
+    const id = ask && ('event' in ask ? ask.event : 'task' in ask ? ask.task : null)
+    const sel = !ask ? null : 'event' in ask ? `[data-cal-event="${CSS.escape(id!)}"], [data-cal-event-chip="${CSS.escape(id!)}"]`
+      : 'task' in ask ? `[data-cal-block="${CSS.escape(id!)}"], [data-cal-untimed="${CSS.escape(id!)}"], [data-cal-loose="${CSS.escape(id!)}"], [data-plan-task="${CSS.escape(id!)}"]`
+      : ask.minute === null ? `[data-cal-allday="${ask.day}"]` : '[data-cal-draft]'
+    const seen = (el: Element | null | undefined): DOMRect | null => {
+      const box = el?.isConnected ? el.getBoundingClientRect() : null
+      return box && box.width > 0 ? box : null
+    }
+    return seen(sel ? box.current?.querySelector(sel) : null) ?? seen(pressed.current) ?? seen(box.current?.querySelector('[data-cal-new-event]'))
   }
   const draft: Draft | null = panel && 'day' in panel ? panel : null
   const setDraft = (to: Draft | null): void => setPanel(to)
@@ -440,7 +453,7 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
   const left = side && !roomless && (fits.left || kept)
   // The right panel: Upcoming where there is room, and the event or task being edited, which takes its place.
   const upcoming = upSide && mode !== 'month' && (fits.right || keptRight)
-  // The editor (a new event or task, one opened) floats over the grid's right edge instead (FloatSide): the grid keeps its width.
+  // The editor (a new event or task, one opened) floats beside what it came from instead (DaySide): the grid keeps its width.
   const right = upcoming
   // Each panel's switch sits on its own side of the bar: on while its panel is up, off hides it; on again shows it, room or not.
   const leftPanel = (): void => {
@@ -466,6 +479,7 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
       }}
       onPointerDownCapture={(event) => {
         const at = event.target as HTMLElement
+        pressed.current = at.closest('button, [role="button"], [data-cal-allday], [data-cal-col]') ?? at
         if (!at.closest('[data-cal-block], [data-cal-untimed], [data-cal-loose]')) setChosen(null)
         const ev = at.closest<HTMLElement>('[data-cal-event], [data-cal-event-chip], [data-cal-pop]')
         setChosenEvent(ev ? (ev.dataset.calEvent ?? ev.dataset.calEventChip ?? ev.dataset.calPop ?? null) : null)
@@ -527,7 +541,8 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
         {left && (
           <aside data-cal-side className="relative flex shrink-0 flex-col border-r" style={{ width: `${leftRem}rem` }}>
             {leftGrip}
-            <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-3 py-4">
+            {/* Faded at the edge it goes on past, as every long side list is. */}
+            <div className="mf-more flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-3 py-4">
             <MiniMonth anchor={anchor} days={mode === 'month' ? [] : days} onPick={(day) => (chime('tap'), setPeek(null), setAnchor(day))} />
             <CalendarLayers layers={layers} />
             {/* The Inbox's island: what it holds, how many, and a fold. Drag one onto a day or an hour to give it a time. */}
@@ -577,8 +592,8 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
             </div>
           </aside>
         )}
-        {/* A new event or task, or one opened: a frosted panel over the right of the days and Upcoming, sliding in from the right; the grid under it never moves. */}
-        <DaySide inline ask={panel} width={`${editorRem}rem`} grip={editorGrip} onClose={() => setPanel(null)} onOpen={onOpen} />
+        {/* A new event or task, or one opened: a frosted panel floating beside the slot, event or task it came from, grown out of it; the grid under it never moves. */}
+        <DaySide inline ask={panel} from={origin} onClose={() => setPanel(null)} onOpen={onOpen} />
       </div>
       {carry?.kind === 'move' && (!carry.to || carry.to.minute === null) && createPortal(
         <div data-cal-carried style={{ left: carry.x + 8, top: carry.y + 8 }}
@@ -1024,6 +1039,12 @@ function Grid({ days, tasks, marks, onHead, onPoint, calendars, ...props }: { da
                   start(event, () => ({ kind: 'new', day: key, from, to: from + SNAP }),
                     () => (chime('tap'), setDraft({ day: key, minute: Math.floor(from / 30) * 30, length: USUAL })))
                 }}
+                // A double-click makes an event there, as a drag across does; one click, a task.
+                onDoubleClick={(event) => {
+                  if (event.target !== event.currentTarget && !(event.target as Element).closest('[data-cal-draft]')) return
+                  const from = Math.floor(((event.clientY - event.currentTarget.getBoundingClientRect().top) / HOUR) * 2) * 30
+                  setDraft({ day: key, minute: from, length: USUAL, drag: true })
+                }}
                 className={`relative cursor-cell touch-none border-l border-border/60 ${weekend(day) ? MUTED_DAY : ''}`}
                 style={{ backgroundImage: `repeating-linear-gradient(to bottom, color-mix(in oklab, var(--border) 75%, transparent) 0 1px, transparent 1px ${HOUR}px)` }}>
                 {/* A crowded hour: as many side by side as stay readable, then "+N more", which opens the day's own page with its whole list. */}
@@ -1047,7 +1068,7 @@ function Grid({ days, tasks, marks, onHead, onPoint, calendars, ...props }: { da
                 {moving && carry?.kind === 'move' && <div data-cal-ghost aria-hidden className="pointer-events-none absolute z-[25] rounded-[6px] outline-2 outline-dashed" style={{ top: (moving.start / 60) * HOUR + 1, height: Math.max(20, (moving.length / 60) * HOUR - 2), ...laneBox(placed.get(moving.task.id)!), outlineColor: ACCENT }} />}
                 {drawing && <div data-cal-drawing className="pointer-events-none absolute inset-x-1 rounded-[6px] border-2 border-[var(--tt-brand-color-400)] bg-[color-mix(in_oklab,var(--tt-brand-color-400)_18%,transparent)]" style={{ top: (drawing.start / 60) * HOUR, height: (drawing.length / 60) * HOUR }} />}
                 {draft && draft.minute !== null && draft.day === key && (
-                  <div className="absolute inset-x-1 z-20 flex flex-col rounded-[6px] border-2 border-[var(--tt-brand-color-400)] bg-background px-1 py-0.5 shadow-(--mf-panel-shadow)" style={{ top: (draft.minute / 60) * HOUR, minHeight: Math.max(28, (draft.length / 60) * HOUR) }}>
+                  <div data-cal-draft className="absolute inset-x-1 z-20 flex flex-col rounded-[6px] border-2 border-[var(--tt-brand-color-400)] bg-background px-1 py-0.5 shadow-(--mf-panel-shadow)" style={{ top: (draft.minute / 60) * HOUR, minHeight: Math.max(28, (draft.length / 60) * HOUR) }}>
                     <span className="px-1 text-control font-semibold text-foreground">{draft.drag ? 'New event' : 'New task'}</span>
                     <span className="px-1 text-meta text-foreground/80 tabular-nums">{timeSpan(atMinute(key, draft.minute), atMinute(key, draft.minute + draft.length))}</span>
                   </div>

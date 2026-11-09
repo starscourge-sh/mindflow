@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { byKeys, still } from '@/lib/motion'
 import { createPortal } from 'react-dom'
-import { AnimatePresence, motion } from 'motion/react'
+import { AnimatePresence, animate, motion } from 'motion/react'
 import { Plus, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { chime } from '@/lib/sound'
@@ -35,6 +35,30 @@ const writing = (): boolean => {
 /** Off to the right, where the panel slides in from and back out to: past its own width and the gap it keeps from the edge. */
 const OFF = { transform: 'translateX(112%)' }
 
+/** Where a floating panel sits in its row, and the point it grows from and goes back to (the slot, the event, the button). */
+type Spot = { left: number; top: number; w: number; h: number; ox: number; oy: number }
+const GAP = 8
+/** The panel shut to its point: a clip, never a fade, so the frost never shows a dark wash on its way in (taste.md, 8 Nov). */
+const shutAt = (at: Spot): string => `inset(${at.oy}px ${at.w - at.ox}px ${at.h - at.oy}px ${at.ox}px round 12px)`
+const OPEN_CLIP = 'inset(0px 0px 0px 0px round 12px)'
+
+/**
+ * Beside what it came from, inside its row: to the right of it where it fits, else to its left, else at the row's
+ * right edge; level with its top, held inside the row. The point it grows from is the near edge, level with the middle.
+ */
+function placeBeside(panel: HTMLElement, from: DOMRect | null): Spot | null {
+  const row = (panel.offsetParent as HTMLElement | null)?.getBoundingClientRect()
+  if (!row) return null
+  const [w, h] = [panel.offsetWidth, panel.offsetHeight]
+  const most = Math.max(GAP, row.width - w - GAP)
+  const at = from ?? new DOMRect(row.right - GAP, row.top, 0, 0)
+  const [l, r] = [at.left - row.left, at.right - row.left]
+  const left = r + GAP + w <= row.width - GAP ? r + GAP : l - GAP - w >= GAP ? l - GAP - w : most
+  const top = Math.min(Math.max(GAP, at.top - row.top), Math.max(GAP, row.height - h - GAP))
+  const clamp = (n: number, hi: number): number => Math.min(Math.max(0, n), hi)
+  return { left, top, w, h, ox: clamp((l + r) / 2 - left, w), oy: clamp(at.top + Math.min(at.height, 40) / 2 - row.top - top, h) }
+}
+
 /**
  * The calendar's side panel, the way Notion Calendar and Google Calendar
  * keep theirs: a frosted panel (FLOAT) floating over the right of the page,
@@ -49,7 +73,7 @@ const OFF = { transform: 'translateX(112%)' }
  * its task in the same panel. The same panel on the month, the week board
  * and the Calendar page.
  */
-export function DaySide({ ask, onClose, onOpen, inline = false, width, grip }: {
+export function DaySide({ ask, onClose, onOpen, inline = false, width, grip, from }: {
   ask: SideAsk | null
   onClose: () => void
   onOpen?: (type: string, id: string) => void
@@ -58,6 +82,8 @@ export function DaySide({ ask, onClose, onOpen, inline = false, width, grip }: {
   /** Its width, when the page keeps one (the Calendar's, dragged at its edge with `grip`). */
   width?: string
   grip?: React.ReactNode
+  /** Inline: what it was opened from (a slot, an event, a task, the button), to float beside and grow out of. */
+  from?: () => DOMRect | null
 }): React.JSX.Element {
   // The task just made here: the panel shows it, as a chip's task is shown.
   const [made, setMade] = useState<{ id: string; undo: (() => void) | null } | null>(null)
@@ -113,20 +139,75 @@ export function DaySide({ ask, onClose, onOpen, inline = false, width, grip }: {
   const [start, setStart] = useState<Extract<SideAsk, { day: string }> | null>(null)
   useEffect(() => setStart(null), [ask])
   const asking = !task && !eventKey && (day ?? start)
+  // The words typed in a new event or task, kept when the panel is clicked away from or ⌘↵ pressed.
+  const held = useRef<(() => Promise<void>) | null>(null)
+  const keep = (): void => {
+    const save = held.current
+    held.current = null
+    if (save) void save()
+    chime('away')
+    shut()
+  }
+  // Inline, it floats beside what it came from, grows out of it, and goes back into it.
+  const [spot, setSpot] = useState<Spot | null>(null)
+  const spotNow = useRef<Spot | null>(null)
+  useLayoutEffect(() => {
+    const el = panel.current
+    if (!inline || !el || !ask) return void (spotNow.current = null)
+    const first = !spotNow.current
+    // Fresh, beside what it was opened from; grown or shrunk after (a new task turning into the task), it keeps its place inside the row.
+    const put = (fresh: boolean): void => {
+      const was = fresh ? null : spotNow.current
+      const next = placeBeside(el, was ? null : from?.() ?? null)
+      if (!next) return
+      const room = (el.offsetParent as HTMLElement).clientHeight
+      const at = was ? { ...next, left: was.left, top: Math.max(GAP, Math.min(was.top, room - next.h - GAP)), ox: Math.min(was.ox, next.w), oy: Math.min(was.oy, next.h) } : next
+      spotNow.current = at
+      el.style.left = `${at.left}px`
+      el.style.top = `${at.top}px`
+      setSpot(at)
+    }
+    put(true)
+    if (first && !byKeys() && !still()) void animate(el, { clipPath: [shutAt(spotNow.current!), OPEN_CLIP], scale: [0.96, 1] }, { type: 'spring', stiffness: 520, damping: 42, mass: 0.9 })
+    const watch = new ResizeObserver(() => put(false))
+    watch.observe(el)
+    return () => watch.disconnect()
+  }, [ask, inline]) // eslint-disable-line react-hooks/exhaustive-deps
+  // A click anywhere else keeps what was typed and closes it, as Notion Calendar's and Apple's do. Menus and
+  // popovers it opened, the toast, and the new slot it is about are part of it.
+  useEffect(() => {
+    if (!inline || !ask) return
+    const away = (event: PointerEvent): void => {
+      const at = event.target as Element | null
+      if (!at || panel.current?.contains(at) || at.closest('[data-radix-popper-content-wrapper], [role="menu"], [role="dialog"], [data-sonner-toaster], [data-cal-draft], [data-scope-ask]')) return
+      keep()
+    }
+    window.addEventListener('pointerdown', away, true)
+    return () => window.removeEventListener('pointerdown', away, true)
+  }) // eslint-disable-line react-hooks/exhaustive-deps
   const shell = (
     <AnimatePresence>
       {ask && (
         <motion.div ref={panel} key="day-side" data-day-side={asking ? 'new' : eventKey ? 'event' : 'task'} role="dialog" data-beside aria-label={asking ? (kind === 'event' ? 'A new event' : 'A new task') : eventKey ? 'The event' : 'The task'} tabIndex={-1}
           // Slid, never faded: a frosted surface fading in shows a dark wash before its blur (taste.md, 8 Nov).
-          initial={byKeys() || still() ? false : OFF} animate={{ transform: 'translateX(0%)' }}
-          exit={byKeys() || still() ? { transform: 'translateX(0%)', transition: { duration: 0 } } : { ...OFF, transition: { duration: 0.2, ease: [0.4, 0, 1, 1] } }}
-          transition={{ duration: 0.3, ease: [0.32, 0.72, 0, 1] }} style={width ? { width } : undefined}
+          // Inline, it grows out of its slot by a clip instead (the layout effect above) and goes back into it the same way.
+          initial={inline || byKeys() || still() ? false : OFF} animate={inline ? undefined : { transform: 'translateX(0%)' }}
+          exit={byKeys() || still() ? { opacity: 0, transition: { duration: 0 } } : inline && spot ? { clipPath: shutAt(spot), scale: 0.96, transition: { duration: 0.16, ease: [0.4, 0, 1, 1] } } : { ...OFF, transition: { duration: 0.2, ease: [0.4, 0, 1, 1] } }}
+          transition={{ duration: 0.3, ease: [0.32, 0.72, 0, 1] }}
+          style={{ ...(width ? { width } : {}), ...(inline && spot ? { transformOrigin: `${spot.ox}px ${spot.oy}px` } : {}) }}
           onKeyDown={(event) => {
             if (event.key === 'Escape') {
               event.preventDefault()
               event.stopPropagation()
               chime('away')
               return shut()
+            }
+            // ⌘↵: kept, and closed: the words of a new one made, a field being written in saved as it lets go.
+            if (event.key === 'Enter' && event.metaKey && !event.shiftKey && !event.altKey && !event.ctrlKey) {
+              event.preventDefault()
+              event.stopPropagation()
+              if (asking && !held.current) return chime('nope')
+              return keep()
             }
             if (!event.metaKey || event.altKey || event.ctrlKey) return
             // ⌘N: the next new task, on the same day.
@@ -145,8 +226,8 @@ export function DaySide({ ask, onClose, onOpen, inline = false, width, grip }: {
               made.undo()
             }
           }}
-          className={`${inline ? 'absolute top-2 right-2 bottom-2 z-30 w-[30rem] max-w-[calc(100%-1rem)]' : 'fixed top-12 right-3 bottom-3 z-40 w-[30rem] max-w-[calc(100vw-1.5rem)]'} flex flex-col rounded-xl outline-none ${FLOAT}`}>
-          {grip}
+          className={`${inline ? `absolute z-30 max-h-[calc(100%-1rem)] w-[26rem] max-w-[calc(100%-1rem)] ${spot ? '' : 'invisible'}` : 'fixed top-12 right-3 bottom-3 z-40 w-[30rem] max-w-[calc(100vw-1.5rem)]'} flex flex-col rounded-xl outline-none ${FLOAT}`}>
+          {!inline && grip}
           {/* The words clipped to the corners; the grip, on the edge, is not. */}
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl">
           {/* The bar over the task, as the page's own top bar: the next one, and away. */}
@@ -174,9 +255,9 @@ export function DaySide({ ask, onClose, onOpen, inline = false, width, grip }: {
             </Tip>
           </div>
           {asking && kind === 'event'
-            ? <NewEvent key={`${asking.day}-${asking.minute}`} ask={asking} onMade={setMadeEvent} />
+            ? <NewEvent key={`${asking.day}-${asking.minute}`} ask={asking} held={held} onMade={setMadeEvent} />
             : asking
-            ? <NewTask key={`${asking.day}-${asking.minute}`} ask={asking} first={again} onMade={(id, undo) => setMade({ id, undo })} onBack={back} />
+            ? <NewTask key={`${asking.day}-${asking.minute}`} ask={asking} held={held} first={again} onMade={(id, undo) => setMade({ id, undo })} onBack={back} />
             : eventKey
             ? <div className="@container/page flex min-h-0 flex-1 flex-col overflow-y-auto"><EventDetail key={eventKey} eventKey={eventKey} onKey={setMadeEvent} onClose={onClose} onOpen={onOpen} /></div>
             : <div className="@container/page flex min-h-0 flex-1 flex-col overflow-y-auto">{full && <TaskDetail key={full.id} task={full} onClose={onClose} onOpen={onOpen} />}</div>}
@@ -193,8 +274,10 @@ export function DaySide({ ask, onClose, onOpen, inline = false, width, grip }: {
  * say the rest (a day, a time, #tags, !! for priority) as everywhere else,
  * and the day or slot clicked fills in what they leave out.
  */
-function NewTask({ ask, first, onMade, onBack }: {
+function NewTask({ ask, first, held, onMade, onBack }: {
   ask: Extract<SideAsk, { day: string }>
+  /** Set to its save while it holds words: the panel keeps them when clicked away from. */
+  held: React.MutableRefObject<(() => Promise<void>) | null>
   first: string
   /** Made (or found already there): the panel shows it. `undo` takes it back, and the line comes back with its words. */
   onMade: (id: string, undo: (() => void) | null) => void
@@ -202,12 +285,14 @@ function NewTask({ ask, first, onMade, onBack }: {
 }): React.JSX.Element {
   const [text, setText] = useState(first)
   const field = useRef<HTMLInputElement>(null)
-  useEffect(() => void requestAnimationFrame(() => field.current?.focus()), [])
+  useEffect(() => (requestAnimationFrame(() => field.current?.focus()), () => void (held.current = null)), []) // eslint-disable-line react-hooks/exhaustive-deps
   const { day, minute } = ask
   const length = minute === null ? 0 : ask.length
   const at = minute === null ? dayjs(day).hour(9).minute(0).startOf('minute') : dayjs(day).startOf('day').add(minute, 'minute')
   const busy = useRef(false)
-  const save = async (): Promise<void> => {
+  // Kept as the panel goes (clicked away from, ⌘↵): made, said in the notice, not shown here.
+  held.current = text.trim() ? () => save(false) : null
+  const save = async (stay = true): Promise<void> => {
     const words = text.trim()
     if (!words) return chime('nope')
     if (busy.current) return
@@ -231,7 +316,7 @@ function NewTask({ ask, first, onMade, onBack }: {
     chime('noted')
     const undo = (): void => (void haligtree.unmakeTask(made.id, made.existed, [], []), onBack(made.id, words))
     toast(`Added for ${whenInLine(own ? got!.dueAt! : due, own ? !!got!.allDay : allDay)}`, undo)
-    onMade(made.id, undo)
+    if (stay) onMade(made.id, undo)
   }
   return (
     <form data-day-side-draft className="flex min-h-0 flex-1 flex-col overflow-y-auto pt-4 pb-4" onSubmit={(event) => (event.preventDefault(), void save())}>

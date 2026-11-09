@@ -122,15 +122,52 @@ try {
   })
   check('1: the panel floats on the shared frost', float.frost && float.position === 'absolute' && float.right >= 4 && float.opacity === '1', JSON.stringify(float))
   check('1: Upcoming stays beside the grid', (await h.locator('[data-cal-right-holds="upcoming"]').count()) === 1)
-  // Filmed every 50ms as it slides out (Esc) and in again ("+ New event"): it only ever moves right, never fades.
+  check('1: no docked panel opens for it', (await h.locator('[data-cal-right]').count()) === 1 && (await h.locator('[data-cal-right-holds="upcoming"]').count()) === 1)
+  // Beside the slot it was made for (the next hour's "New event" block), never over it, and as tall as its words.
+  const beside = async () => h.evaluate(() => {
+    const p = document.querySelector('[data-day-side]')?.getBoundingClientRect(); const d = document.querySelector('[data-cal-draft]')?.getBoundingClientRect()
+    const row = document.querySelector('[data-day-side]')?.parentElement.getBoundingClientRect()
+    if (!p || !d) return { p: !!p, d: !!d }
+    return { gap: Math.round(p.left >= d.right ? p.left - d.right : d.left - p.right), overlap: p.left < d.right - 1 && p.right > d.left + 1, top: Math.round(p.top - d.top), short: Math.round(p.height) < Math.round(row.height) - 20, inside: p.top >= row.top && p.bottom <= row.bottom + 1 }
+  })
+  const b1 = await beside()
+  check('1: it floats beside its slot, not over it, as tall as its words', !b1.overlap && b1.gap >= 4 && b1.gap <= 16 && b1.short && b1.inside, JSON.stringify(b1))
+  // Filmed every 50ms as it goes (Esc): it shrinks back into its slot by a clip, never fades and never slides.
   const xs = []
-  const film = setInterval(() => void h.locator('[data-day-side]').evaluate((el) => [Math.round(el.getBoundingClientRect().left), getComputedStyle(el).opacity]).then((one) => xs.push(one)).catch(() => xs.push(null)), 50)
+  const film = setInterval(() => void h.locator('[data-day-side]').evaluate((el) => [Math.round(el.getBoundingClientRect().left), getComputedStyle(el).opacity, getComputedStyle(el).clipPath]).then((one) => xs.push(one)).catch(() => xs.push(null)), 30)
   await h.keyboard.press('Escape'); await h.waitForTimeout(450)
   clearInterval(film)
-  // A frame taken as it left the page reads no style at all: not a frame of it.
   const seen = xs.filter((one) => one && one[1] !== '')
-  check('1: Esc slides it away to the right', (await h.locator('[data-day-side]').count()) === 0 && seen.length > 1 && seen.every((one, at) => !at || one[0] >= seen[at - 1][0]) && seen.every((one) => one[1] === '1'), JSON.stringify(xs))
+  check('1: Esc closes it back into its slot (a clip, no fade)', (await h.locator('[data-day-side]').count()) === 0 && seen.every((one) => one[1] === '1') && seen.some((one) => /inset\((?!0px 0px 0px 0px)/.test(one[2])), JSON.stringify(seen.slice(0, 6)))
   check('1: the grid is still where it was', JSON.stringify(await gridBox()) === JSON.stringify(before))
+  // N opens it too; ⌘↵ keeps the words and closes it.
+  await h.mouse.click(5, 450); await h.keyboard.press('n'); await h.waitForTimeout(600)
+  check('1: N opens "New event"', (await h.locator('[data-new-event-words]').count()) === 1)
+  await h.keyboard.type('Tea with Ana'); await h.keyboard.press('Meta+Enter'); await h.waitForTimeout(700)
+  check('1: ⌘↵ makes it and closes', (await h.locator('[data-day-side]').count()) === 0 && (await h.locator('[data-cal-event]', { hasText: 'Tea with Ana' }).count()) === 1)
+  // A drag across an hour: an event beside it; a click away keeps the words.
+  const col = h.locator('[data-cal-col]').nth(2); const cb = await col.boundingBox()
+  const y0 = Math.max(cb.y, (await gridBox()).y) + 300
+  await h.mouse.move(cb.x + cb.width / 2, y0); await h.mouse.down(); await h.mouse.move(cb.x + cb.width / 2, y0 + 50, { steps: 5 }); await h.mouse.up(); await h.waitForTimeout(600)
+  check('1: a drag on the grid opens "New event" beside it', (await h.locator('[data-new-event-words]').count()) === 1 && !(await beside()).overlap, JSON.stringify(await beside()))
+  check('1: the grid keeps its width with it open', JSON.stringify(await gridBox()) === JSON.stringify(before))
+  await h.keyboard.type('Walk the dog'); await h.locator('[data-cal-subtitle]').click(); await h.waitForTimeout(700)
+  check('1: a click away keeps the words and closes it', (await h.locator('[data-cal-event]', { hasText: 'Walk the dog' }).count()) === 1, `${await h.locator('[data-day-side]').count()} panels`)
+  await h.keyboard.press('Escape'); await h.waitForTimeout(400)
+  // A double-click on an hour: an event, not a task.
+  await h.mouse.dblclick(cb.x + cb.width / 2, y0 + 120); await h.waitForTimeout(600)
+  check('1: a double-click opens "New event"', (await h.locator('[data-new-event-words]').count()) === 1, await h.locator('[data-day-side]').getAttribute('aria-label').catch(() => 'none'))
+  await h.keyboard.press('Escape'); await h.waitForTimeout(400)
+  // An event opened (its card's "Edit", or a double-click): beside the event.
+  const ev = h.locator('[data-cal-event]', { hasText: 'Tea with Ana' }).first()
+  await ev.dblclick(); await h.waitForTimeout(700)
+  const evBeside = await h.evaluate(() => {
+    const p = document.querySelector('[data-day-side]')?.getBoundingClientRect(); const e = [...document.querySelectorAll('[data-cal-event]')].find((one) => one.textContent.includes('Tea with Ana'))?.getBoundingClientRect()
+    return p && e ? { kind: document.querySelector('[data-day-side]').getAttribute('data-day-side'), overlap: p.left < e.right - 1 && p.right > e.left + 1 } : { p: !!p, e: !!e }
+  })
+  check('1: an event opened floats beside it', evBeside.kind === 'event' && evBeside.overlap === false, JSON.stringify(evBeside))
+  check('1: the grid keeps its width with an event open', JSON.stringify(await gridBox()) === JSON.stringify(before))
+  await h.keyboard.press('Escape'); await h.waitForTimeout(400); await h.keyboard.press('Escape'); await h.waitForTimeout(300)
   await h.locator('[data-cal-new-event]').click(); await h.waitForTimeout(600)
   await h.locator('[data-day-side-close]').click(); await h.waitForTimeout(450)
   check('1: × closes it', (await h.locator('[data-day-side]').count()) === 0)
