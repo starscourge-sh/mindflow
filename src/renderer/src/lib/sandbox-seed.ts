@@ -216,10 +216,11 @@ export async function seedSandbox(read: Read): Promise<SeedCounts> {
   const wilde = await call<string>('promote', wildeCapture, 'He says it to be clever. The rest of the book is the bill.')
   nuggets++
 
-  // And one from Middle-earth, said by the wizard, inside the book it is from.
-  const gandalfCapture = await capture({ kind: 'quote', attribution: 'Gandalf', medium: 'The Fellowship of the Ring, Book 1, chapter 2 (1954)' }, at(-7, '22:15'))
-  await write(gandalfCapture, 'All we have to decide is what to do with the time that is given us.')
-  const gandalf = await call<string>('promote', gandalfCapture, 'The film puts it in Moria. The book has it at Bag End, before anyone has left home: advice for an ordinary Tuesday.')
+  // And one on time, from the emperor's notebook (public domain, Long's 1862 translation); Middle-earth's wizard says
+  // the same thing in the essay below, in our own words, since that book is still in copyright.
+  const gandalfCapture = await capture({ kind: 'quote', attribution: 'Marcus Aurelius', medium: 'Meditations, Book 4, tr. George Long (1862)' }, at(-7, '22:15'))
+  await write(gandalfCapture, 'Do not act as if thou wert going to live ten thousand years. Death hangs over thee. While thou livest, while it is in thy power, be good.')
+  const gandalf = await call<string>('promote', gandalfCapture, 'Written in a tent on campaign, to himself. Not a sermon: a reminder for an ordinary Tuesday.')
   nuggets++
 
   // A card with a history: reviewed three times over three weeks, due again today.
@@ -754,7 +755,7 @@ Notes on a long book, a heading for each part: the note reads as its outline, an
 
 A desert planet, and the only place the spice comes from. Whoever holds the spice holds the empire, so of course everyone wants the desert.
 
-The test with the box in the first chapter: pain, to tell a person from an animal. *Fear is the mind-killer*, and the boy believes it.
+The test with the box in the first chapter: pain, to tell a person from an animal. Fear is the thing he is taught to master first, and the boy believes it.
 
 ## Book Two: Muad'Dib
 
@@ -1021,7 +1022,7 @@ Jimmy's rule in Goodfellas: never rat on your friends, and always keep your mout
   // Decisions made weeks ago and settled: the Feed asks of one a day whether it was right.
   const decided: [string, string, number][] = [
     ['Read Dune before seeing the film\n\nThe book first, so the film is a second reading, not the first. Villeneuve can wait a month.', 'Read the book before the film', 64],
-    ['Swapped the late-night scroll for a paper book\n\nPhone out of the bedroom, a novel on the pillow. Gandalf would approve: all we have to decide is what to do with the time.', 'A paper book in bed, the phone left in the kitchen', 41],
+    ['Swapped the late-night scroll for a paper book\n\nPhone out of the bedroom, a novel on the pillow. Gandalf would approve: the only choice we get is what to do with the time we have.', 'A paper book in bed, the phone left in the kitchen', 41],
     ['Walk to work on Tuesdays and Thursdays\n\nForty minutes each way, like Forrest Gump with a backpack. The bus is quicker but I never think on the bus.', 'Walk to work two days a week', 33]
   ]
   for (const [text, call_, back] of decided) {
@@ -1180,11 +1181,11 @@ In the third book Hermione is given a Time-Turner so she can take more classes t
 Reading ahead does not stop forgetting. ${noteLink('A Remembrall')} turns red and never says what you forgot. That is where Review comes in, the way ${link(article, "Mnemosyne's problem", 'article')} says: ${link(schwarzschild, 'What is a Schwarzschild radius?', 'nugget')} has come back three times and still holds.
 `)
   const timeGiven = await essay('On Gandalf and the time given us', `
-Frodo, at Bag End, wishes none of this had happened in his time. Gandalf does not argue with the wish. He answers with ${link(gandalf, 'the line I kept', 'nugget')}:
+Frodo, at Bag End, wishes none of this had happened in his time. Gandalf does not argue with the wish. He tells him, more or less, that nobody gets to choose their time, only what they do with it. Marcus Aurelius wrote ${link(gandalf, 'the same thing to himself', 'nugget')}, seventeen centuries earlier:
 
-> All we have to decide is what to do with the time that is given us.
+> Do not act as if thou wert going to live ten thousand years. Death hangs over thee. While thou livest, while it is in thy power, be good.
 >
-> Gandalf, in J.R.R. Tolkien, The Fellowship of the Ring (1954)
+> Marcus Aurelius, Meditations, Book 4 (tr. George Long, 1862)
 
 ## Not chosen, only used
 
@@ -1192,7 +1193,7 @@ Nobody picks their time. Frodo did not ask for the Ring, and Gandalf does not pr
 
 ## Where I see it now
 
-${link(aurelius, 'Very little is needed for a happy life', 'nugget')}, says Marcus Aurelius, an emperor writing notes to himself. Same advice, less wizard. And ${link(mars, 'Get to Mars before the dust storm', 'goal')} is only ever one day of steps at a time.
+${link(aurelius, 'Very little is needed for a happy life', 'nugget')}, he says elsewhere. Same advice, less wizard. And ${link(mars, 'Get to Mars before the dust storm', 'goal')} is only ever one day of steps at a time.
 
 > [!note] Still open
 > ${link(frodo, 'Did Frodo fail at Mount Doom?', 'question')} He did not choose the time either, and at the very end he could not choose at all.

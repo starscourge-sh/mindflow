@@ -56,7 +56,7 @@ export const starters = (): Starter[] => [
  */
 export const EXAMPLES: Record<Starter['kind'], string> = {
   note: 'Frodo never wanted the ring. Maybe that is why he could carry it.',
-  quote: '“All we have to decide is what to do with the time that is given us.” - Gandalf, The Fellowship of the Ring',
+  quote: '“While thou livest, while it is in thy power, be good.” - Marcus Aurelius, Meditations',
   word: 'anagnorisis',
   link: 'https://en.wikipedia.org/wiki/Rosetta_Stone',
   todo: 'Ask Hermione for the potions notes tomorrow 5pm'

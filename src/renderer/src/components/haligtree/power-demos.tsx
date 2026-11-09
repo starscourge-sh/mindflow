@@ -914,7 +914,7 @@ const MilestonesDemo: Demo = ({ live }) => {
   )
 }
 
-const TAKEAWAY = 'Fear is the mind-killer.'
+const TAKEAWAY = 'Naming a fear makes it smaller.'
 const BookDemo: Demo = ({ live }) => {
   const at = useSteps([900, 300, 300, 300, 300, typeMs(TAKEAWAY, 40), 1600], live, 6)
   const stars = Math.min(4, Math.max(0, at))

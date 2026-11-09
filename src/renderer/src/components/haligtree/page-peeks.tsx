@@ -168,7 +168,7 @@ const PEEKS: Record<string, PagePeek> = {
           <span>then less often, as it sticks</span>
         </div>
       </MCard>
-      <MRow icon={Gem} tint="pink" meta="no question: a hint">Fear is the mind-killer</MRow>
+      <MRow icon={Gem} tint="pink" meta="no question: a hint">Naming a fear makes it smaller</MRow>
     </>)
   },
   articles: {

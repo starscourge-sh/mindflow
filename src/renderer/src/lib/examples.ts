@@ -75,7 +75,7 @@ export const exampleLookups = (): CaptureMeta[] => [
 
 /** The reading queue: a gem, a page and a link, in the order you would read them. */
 export const exampleQueue = (): QueueRow[] => [
-  { id: `${EXAMPLE}queue-1`, type: 'nugget', itemId: `${EXAMPLE}queue-1`, title: 'Fear is the mind-killer: naming a fear out loud makes it smaller.', kind: 'note', private: false, addedAt: minutesAgo(40), doneAt: null, url: null, bare: false },
+  { id: `${EXAMPLE}queue-1`, type: 'nugget', itemId: `${EXAMPLE}queue-1`, title: 'Naming a fear out loud makes it smaller.', kind: 'note', private: false, addedAt: minutesAgo(40), doneAt: null, url: null, bare: false },
   { id: `${EXAMPLE}queue-2`, type: 'article', itemId: `${EXAMPLE}queue-2`, title: 'Why Victor never names his creature', kind: 'note', private: false, addedAt: minutesAgo(90), doneAt: null, url: null, bare: false },
   { id: `${EXAMPLE}queue-3`, type: 'capture', itemId: `${EXAMPLE}queue-3`, title: 'The Hero with a Thousand Faces, a summary', kind: 'note', private: false, addedAt: minutesAgo(200), doneAt: null, url: null, bare: false }
 ]
@@ -122,8 +122,8 @@ export const exampleIdeas = (): Item[] => [
   item(1, { tier: 'nugget', title: 'Neo takes the red pill: the truth, and no way back to the comfortable lie. #film', prompt: 'Red pill or blue pill: which one does Neo take, and what does it cost him?', dueAt: at(2) }),
   item(2, { tier: 'nugget', title: 'Victor never names his creature. Leaving something nameless is a way of refusing to own it.', mode: 'pushed' }),
   item(3, { tier: 'nugget', kind: 'word', title: 'Soliloquy: a speech made alone, so we hear what a character really thinks.', prompt: 'What is a soliloquy?', dueAt: at(0) }),
-  item(4, { tier: 'nugget', title: 'Fear is the mind-killer: naming a fear out loud makes it smaller. #dune' }),
-  item(5, { tier: 'nugget', kind: 'quote', title: 'All we have to decide is what to do with the time that is given us.', attribution: 'Gandalf, The Fellowship of the Ring', mode: 'pushed' })
+  item(4, { tier: 'nugget', title: 'In Dune, fear is the thing to master first: naming it out loud makes it smaller. #dune' }),
+  item(5, { tier: 'nugget', kind: 'quote', title: 'While thou livest, while it is in thy power, be good.', attribution: 'Marcus Aurelius, Meditations', mode: 'pushed' })
 ]
 
 /** Words: words you are learning, each a gem with its meaning that comes back in Review. */
@@ -206,7 +206,7 @@ export const exampleMap = (): NoteMap => {
     node('darcy', 'Mr Darcy, misjudged', 'note'), node('bath', 'Visit Bath', 'todo'), node('ball', 'The Netherfield ball', 'note'),
     node('frank', 'Frankenstein', 'note'), node('nameless', 'The creature has no name', 'note', 'nugget'), node('ambition', 'What Frankenstein gets right about ambition', 'note', 'article'),
     node('hamlet', 'Hamlet', 'note'), node('waits', 'Why Hamlet waits', 'note', 'article'), node('soliloquy', 'Soliloquy', 'word'), node('mad', 'Is Hamlet mad?', 'note', 'question'),
-    node('dune', 'Decided: read Dune before the film', 'checkback'), node('fear', 'Fear is the mind-killer', 'quote', 'nugget'), node('yoda', 'Yoda shows, then stops talking', 'note'),
+    node('dune', 'Decided: read Dune before the film', 'checkback'), node('fear', 'Naming a fear makes it smaller', 'quote', 'nugget'), node('yoda', 'Yoda shows, then stops talking', 'note'),
     node('matrix', 'The Matrix', 'note'), node('pill', 'Red pill or blue pill?', 'note', 'nugget')
   ]
   const pairs: [string, string][] = [['austen', 'first'], ['austen', 'darcy'], ['first', 'darcy'], ['austen', 'bath'], ['austen', 'ball'], ['darcy', 'ball'],

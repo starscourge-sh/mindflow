@@ -3601,3 +3601,10 @@ html[data-overhang][data-glass] [data-hint-room] [data-hint-surface] {
 .rounded-full.size-2\.5 { --mf-dot: calc(var(--spacing) * 2.5); }
 .rounded-full.size-3 { --mf-dot: calc(var(--spacing) * 3); }
 .rounded-full.size-3\.5 { --mf-dot: calc(var(--spacing) * 3.5); }
+
+/* Inside the Calendar's floating sidebar, a form keeps the sidebar's own inset (the Event/Task tabs' edge), not a
+   page's wide column padding: it measured a page's width, not the 24rem panel's, and sat 3 times further in. */
+[data-cal-right] .page-narrow {
+  max-width: none;
+  padding-inline: 1rem !important;
+}

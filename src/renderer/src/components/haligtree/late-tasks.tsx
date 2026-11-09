@@ -98,8 +98,10 @@ export function LateMenu({ tasks, className = '', pill = false, onTask }: { task
       <DropdownMenu modal={false} onOpenChange={(open) => open && chime('open')}>
         <DropdownMenuTrigger asChild>
           {pill ? (
-            <Button variant="outline" size="sm" data-late-all data-late-pill aria-label={`${num(late.length)} late: see them and reschedule`}
-              className="h-7 shrink-0 gap-1 rounded-md px-2 text-control font-medium text-foreground/80 tabular-nums data-[state=open]:bg-accent">
+            // Not a second button beside the title: quiet words with a small dot, a fill only when pointed at or open.
+            <Button variant="ghost" size="sm" data-late-all data-late-pill aria-label={`${num(late.length)} late: see them and reschedule`}
+              className="h-7 shrink-0 gap-1.5 rounded-md px-1.5 text-control font-medium text-foreground tabular-nums hover:bg-accent/60 data-[state=open]:bg-accent">
+              <span aria-hidden className="size-1.5 shrink-0 rounded-full bg-[var(--tt-color-text-orange)]" />
               {num(late.length)} late
             </Button>
           ) : (

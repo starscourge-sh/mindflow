@@ -90,8 +90,10 @@ try {
   check('"Useful shortcuts" is gone from the rail', (await h.locator('[data-cal-shortcuts]').count()) === 0)
   const late = await h.locator('[data-late-all]').first()
   const lateBox = await late.boundingBox().catch(() => null)
-  const lateLook = lateBox ? await late.evaluate((el) => ({ size: getComputedStyle(el).fontSize, bg: getComputedStyle(el).backgroundColor })) : null
-  check('"1 late" has its own pill, not grey text', !!lateBox && lateLook.bg !== 'rgba(0, 0, 0, 0)' && parseFloat(lateLook.size) >= 13, JSON.stringify(lateLook))
+  // Quiet but never grey: the page's own ink, the size of the controls, and an orange dot that says late (no box: the
+  // user found a boxed pill beside the title wrong, 9 Nov).
+  const lateLook = lateBox ? await late.evaluate((el) => ({ size: getComputedStyle(el).fontSize, ink: getComputedStyle(el).color, body: getComputedStyle(document.body).color, dot: !!el.querySelector('.rounded-full') })) : null
+  check('"1 late" reads in the page\'s ink with its dot, not grey text', !!lateBox && lateLook.dot && lateLook.ink === lateLook.body && parseFloat(lateLook.size) >= 13, JSON.stringify(lateLook))
   // New event, light and dark, both widths.
   for (const [w, label] of [[1440, '1440'], [560, '560']]) {
     await size(w, 900); await h.waitForTimeout(400)

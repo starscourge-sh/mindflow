@@ -53,7 +53,7 @@ function Stickies(): React.JSX.Element {
     // words, tint, scattered left %, top px, tilt
     ['Call Mum', 'yellow', 6, 8, -6],
     ['Act 3 by Thursday', 'pink', 34, 62, 5],
-    ['Fear is the mind-killer', 'blue', 14, 92, -3]
+    ['Naming a fear makes it smaller', 'blue', 14, 92, -3]
   ]
   return (
     <div className="relative h-full [container-type:inline-size]">
@@ -157,7 +157,7 @@ const PEEKS: Record<string, MenuPeekEntry> = {
     text: "**Open the sandbox: a peek into someone else's book.** Their reading, films and goals, to try anything on; your own notes are never touched.",
     art: () => (<>
       <div className="mb-1.5 flex items-center gap-1"><MChip tint="yellow"><FlaskConical className="size-2.5" />Sandbox</MChip></div>
-      <MRow meta="Quote">Fear is the mind-killer</MRow>
+      <MRow meta="Quote">Naming a fear makes it smaller</MRow>
       <MRow meta="Question">Is Hamlet mad, or only pretending?</MRow>
       <MRow meta="Link">The Rosetta Stone, found in 1799</MRow>
     </>)
