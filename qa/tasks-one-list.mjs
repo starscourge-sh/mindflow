@@ -4,7 +4,7 @@
 // 3. A fresh start folds its tasks under "On hold" in their own tab, dimmed once unfolded; Later is not where they go.
 // 4. A late task leads Today under "Overdue"; other tabs say "N late, on Today" in one line.
 // 5. Upcoming has no "No date" group; an undated task is in Later.
-// 6. "Priority, then due date" is a sort beside "Your order", and orders by priority, then the day.
+// 6. "Priority" (one sort since 9 Nov; "Priority, then due date" was its near-twin) orders by priority, then the day.
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-tasks/main/index.js HALIGTREE_QA_AWAY=1 node qa/tasks-one-list.mjs
 import { sandbox } from './sandbox-lib.mjs'
 process.env.QA_ARGS ??= '--sandbox'
@@ -79,12 +79,12 @@ try {
   const p1 = await add('zz renew the passport'); await v('task:save', p1, { due: day(9), priority: 2, sortOrder: 0 })
   const p2 = await add('yy return the library book'); await v('task:save', p2, { due: day(6), priority: 2, sortOrder: 1 })
   const p3 = await add('xx water the garden'); await v('task:save', p3, { due: day(2), priority: 0, sortOrder: 2 })
-  await view('alltasks', 'prioritydue', 'none'); await h.reload(); await wait(1500)
+  await view('alltasks', 'priority', 'none'); await h.reload(); await wait(1500)
   await go('alltasks'); await wait(1200)
   const byPri = (await rows()).filter((id) => [p1, p2, p3].includes(id))
-  check('"Priority, then due date" puts priority first, then the sooner day', byPri.join() === [p2, p1, p3].join(), byPri.map((id) => ({ [p1]: 'zz', [p2]: 'yy', [p3]: 'xx' })[id]).join(' '))
+  check('"Priority" puts priority first, then the sooner day', byPri.join() === [p2, p1, p3].join(), byPri.map((id) => ({ [p1]: 'zz', [p2]: 'yy', [p3]: 'xx' })[id]).join(' '))
   await h.keyboard.press('f'); await wait(700)
-  check('and it is offered beside "Your order"', (await body()).includes('Priority, then due date'))
+  check('and it is offered beside "Your order", with no near-twin', (await body()).includes('Priority') && !(await body()).includes('Priority, then due date'))
   await h.keyboard.press('Escape'); await wait(400)
   await view('alltasks', 'manual'); await h.reload(); await wait(1500)
 
