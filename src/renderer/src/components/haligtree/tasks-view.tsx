@@ -1343,7 +1343,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
                     {/* The words on the same edge as every heading; the fold's chevron after the count. */}
                     <button type="button" data-on-hold aria-expanded={heldShown} onClick={() => (chime(heldShown ? 'off' : 'tap'), heldShown || unfold(held), setHeldOpen(!heldShown))} className="flex w-full cursor-pointer items-center gap-1 text-left">
                       {row.heading} <span className="font-normal"><Rolling text={row.count} /></span>
-                      <ChevronRight className={`size-3.5 transition-transform duration-200 motion-reduce:transition-none ${heldShown ? 'rotate-90' : ''}`} style={{ transitionTimingFunction: EASING }} />
+                      <ChevronRight className={`size-3.5 transition-transform duration-150 motion-reduce:transition-none ${heldShown ? 'rotate-90' : ''}`} style={{ transitionTimingFunction: EASING }} />
                       <span className="ml-auto font-normal text-foreground/80">From a fresh start · open one to bring it back</span>
                     </button>
                   </h2>
@@ -1354,7 +1354,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
                       onClick={() => (chime(folds.includes(row.heading) ? 'tap' : 'fold'), setFolds(folds.includes(row.heading) ? folds.filter((one) => one !== row.heading) : [...folds, row.heading]))}
                       className="flex w-full cursor-pointer items-center gap-1 text-left">
                       {row.heading} <span className="font-normal"><Rolling text={row.count} /></span>
-                      <ChevronRight className={`size-3.5 transition-transform duration-200 motion-reduce:transition-none ${folds.includes(row.heading) ? '' : 'rotate-90'}`} style={{ transitionTimingFunction: EASING }} />
+                      <ChevronRight className={`size-3.5 transition-transform duration-150 motion-reduce:transition-none ${folds.includes(row.heading) ? '' : 'rotate-90'}`} style={{ transitionTimingFunction: EASING }} />
                     </button>
                   </h2>
                 ) : row.heading ? (
@@ -1431,7 +1431,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
                                   onClick={(event) => (event.stopPropagation(), chime(stepsOpen.has(task.id) ? 'fold' : 'slide'), foldSteps(task.id))}
                                   className="-mx-1 flex cursor-pointer items-center gap-1 rounded px-1 tabular-nums hover:bg-accent hover:text-foreground">
                                   <ListChecks className="size-3" /><Rolling text={`${num(subtasks.filter((one) => one.done).length)}/${num(subtasks.length)}`} />
-                                  <ChevronRight aria-hidden className={`size-3 transition-transform duration-200 motion-reduce:transition-none ${stepsOpen.has(task.id) ? 'rotate-90' : ''}`} style={{ transitionTimingFunction: EASING }} />
+                                  <ChevronRight aria-hidden className={`size-3 transition-transform duration-150 motion-reduce:transition-none ${stepsOpen.has(task.id) ? 'rotate-90' : ''}`} style={{ transitionTimingFunction: EASING }} />
                                 </span>
                               )}
                               {task.blocker && (freed(task)
