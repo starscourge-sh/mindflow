@@ -205,12 +205,13 @@ export function BlockMenu({
       : null
   // A recording has no caption shown: its words, written under it, are what it offers instead.
   const recording = isAudio(thing)
-  const captionable =!!thing && !recording && ["image", "youtube", "attachment"].includes(thing.type.name)
+  const captionable =!!thing && !recording && ["image", "youtube", "attachment", "graph"].includes(thing.type.name)
   /** A file block's own name for itself, the heading its own actions sit under, as Notion's menu does. */
   const fileName = String(thing?.attrs.name || thing?.attrs.src || "")
   const kindName: string | null = recording ? "Voice note"
     : thing?.type.name === "meeting" ? "Recording"
     : thing?.type.name === "image" ? "Picture"
+    : thing?.type.name === "graph" ? "Graph"
     : thing?.type.name !== "attachment" ? null
     : /\.(mp4|m4v|mov|webm)$/i.test(fileName) ? "Video"
     : /\.pdf$/i.test(fileName) ? "PDF"

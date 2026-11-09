@@ -4822,3 +4822,199 @@ $run-next: '.react-renderer:has(> .tiptap-attachment.is-audio) + .react-renderer
     }
   }
 }
+
+// A graph: its formula lines over the plot, in one frame like a drawing's.
+.mf-graph {
+  position: relative;
+  margin: 0.75em 0;
+  max-width: 100%;
+}
+
+.mf-graph-frame {
+  overflow: hidden;
+  border: 1px solid var(--tt-border-color);
+  border-radius: 0.625rem;
+  background-color: var(--tt-card-bg-color);
+}
+
+.tiptap.ProseMirror.haligtree-editor .mf-graph.is-selected .mf-graph-frame {
+  border-color: transparent;
+  outline: 0.125rem solid var(--tt-brand-color-500);
+}
+
+.mf-graph-lines {
+  display: flex;
+  flex-direction: column;
+  padding: 0.375rem 0.5rem;
+  border-bottom: 1px solid var(--tt-border-color);
+}
+
+.mf-graph-line {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1.25rem 1fr 1.75rem;
+  align-items: center;
+  min-height: 2rem;
+  column-gap: 0.375rem;
+}
+
+.mf-graph-swatch {
+  width: 0.75rem;
+  height: 0.75rem;
+  margin-left: 0.25rem;
+  border-radius: 999px;
+  background-color: currentColor;
+  cursor: pointer;
+  transition: transform 120ms var(--mf-ease);
+
+  &:hover { transform: scale(1.2); }
+  &:active { transform: scale(0.97); }
+}
+
+.mf-graph-field,
+.mf-graph-shown {
+  height: 1.75rem;
+  min-width: 0;
+  padding: 0 0.5rem;
+  border-radius: 0.5rem;
+  font-size: 0.9375rem;
+  text-align: left;
+  color: inherit;
+}
+
+.mf-graph-field {
+  border: 1px solid var(--tt-border-color);
+  background-color: color-mix(in srgb, currentColor 3%, transparent);
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 0.8125rem;
+  caret-color: var(--tt-brand-color-500);
+  outline: none;
+
+  &::placeholder { color: color-mix(in srgb, currentColor 45%, transparent); }
+  &:focus {
+    border-color: var(--tt-brand-color-500);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--tt-brand-color-500) 30%, transparent);
+  }
+}
+
+.mf-graph-shown {
+  overflow: hidden;
+  white-space: nowrap;
+  cursor: text;
+
+  &:hover { background-color: var(--mf-surface); }
+  .katex { font-size: 1.05em; }
+}
+
+.mf-graph-remove {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 0.5rem;
+  color: var(--mf-muted);
+  opacity: 0;
+  cursor: pointer;
+  transition: opacity 120ms var(--mf-ease);
+
+  &:hover { background-color: var(--mf-surface); color: inherit; }
+}
+
+.mf-graph-line:hover .mf-graph-remove,
+.mf-graph-remove:focus-visible { opacity: 1; }
+
+.mf-graph-error {
+  grid-column: 2 / 4;
+  padding: 0 0.5rem 0.25rem;
+  font-size: 0.8125rem;
+  color: var(--mf-chip-ink-red);
+}
+
+.mf-graph-slider {
+  display: grid;
+  grid-template-columns: 1.25rem auto auto 1fr auto;
+  align-items: center;
+  column-gap: 0.5rem;
+  min-height: 2rem;
+
+  &::before { content: ""; }
+  .mf-graph-slider-name { min-width: 4.5rem; padding-left: 0.5rem; font-size: 0.9375rem; }
+  .mf-graph-slider-end { font-size: 0.75rem; color: var(--mf-muted); font-variant-numeric: tabular-nums; }
+  [data-slot="slider"] { cursor: pointer; }
+}
+
+.mf-graph-add {
+  display: inline-flex;
+  align-self: flex-start;
+  align-items: center;
+  gap: 0.375rem;
+  height: 1.75rem;
+  margin: 0.125rem 0 0 1.625rem;
+  padding: 0 0.5rem;
+  border-radius: 0.5rem;
+  font-size: 0.8125rem;
+  color: var(--mf-muted);
+  cursor: pointer;
+
+  &:hover { background-color: var(--mf-surface); color: inherit; }
+  &:active { transform: scale(0.97); }
+}
+
+.mf-graph-plot {
+  position: relative;
+
+  canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    cursor: crosshair;
+    touch-action: none;
+  }
+
+  canvas[data-panning] { cursor: grabbing; }
+}
+
+// The widths, bare over the plot (as the Map's controls are), shown with the pointer.
+.mf-graph-tools {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  display: flex;
+  gap: 0.125rem;
+  opacity: 0;
+  transition: opacity 120ms var(--mf-ease);
+
+  button {
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--mf-muted);
+    cursor: pointer;
+
+    &:hover { background-color: var(--mf-surface); color: inherit; }
+    &[data-active-state="on"] { color: inherit; background-color: color-mix(in srgb, currentColor 8%, transparent); }
+  }
+}
+
+.mf-graph:hover .mf-graph-tools,
+.mf-graph-tools:focus-within { opacity: 1; }
+
+.mf-graph-grip {
+  position: absolute;
+  left: 50%;
+  bottom: 0.125rem;
+  width: 3.5rem;
+  height: 0.375rem;
+  transform: translateX(-50%);
+  border-radius: 999px;
+  background-color: var(--mf-muted);
+  opacity: 0;
+  cursor: ns-resize;
+  transition: opacity 0.15s var(--mf-ease);
+}
+
+.mf-graph:hover .mf-graph-grip,
+.mf-graph-grip:active { opacity: 0.6; }

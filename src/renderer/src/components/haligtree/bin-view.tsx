@@ -290,7 +290,7 @@ function usePeek(one: Binned): BinPeek | null {
 function Inside({ one, onRestore, onForget, large = false }: { one: Binned; onRestore: () => void; onForget: () => void; large?: boolean }): React.JSX.Element {
   const peek = usePeek(one)
   const name = nameOf(one)
-  const words = typeof peek?.body === 'string' ? !!peek.body.trim() : /"text":|"src":|"type":"(image|excalidraw|attachment|embed|bookmark)"/.test(JSON.stringify(peek?.body ?? null))
+  const words = typeof peek?.body === 'string' ? !!peek.body.trim() : /"text":|"src":|"type":"(image|excalidraw|graph|attachment|embed|bookmark)"/.test(JSON.stringify(peek?.body ?? null))
   return (
     <div data-bin-inside={keyOf(one)} data-private={peek?.private ? '' : undefined} className="flex flex-col">
       <div className={`flex flex-col gap-2 ${large ? 'px-8 pt-6' : 'px-6 pt-5'}`}>

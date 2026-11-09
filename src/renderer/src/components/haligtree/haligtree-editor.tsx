@@ -82,6 +82,7 @@ import { Column, Columns, draggedOf, dropBeside, moveOutOfColumn } from "@/exten
 import { Attachment } from "@/extensions/attachment"
 import { Meeting, MeetingLine } from "@/extensions/meeting"
 import { ExcalidrawDiagram } from "@/extensions/excalidraw"
+import { Graph } from "@/extensions/graph"
 import { ContentsBlock } from "@/extensions/contents-block"
 import { Calc } from "@/extensions/calc"
 import { Collect, CollectPill } from "@/extensions/collect"
@@ -1407,6 +1408,7 @@ function Surface({
       Meeting,
       MeetingLine,
       ExcalidrawDiagram,
+      Graph,
       ContentsBlock,
       // Footnotes as Obsidian writes them: a raised number, the notes at the foot.
       ...(shape === "line" ? [] : [FootnoteKit, Citation]),

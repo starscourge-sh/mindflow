@@ -1,4 +1,4 @@
-import { Columns2, Columns3, Workflow as DiagramIcon, FileStack as EmbedIcon, Link2 as LinkIcon, TableOfContents as ContentsIcon, Minus as DividerIcon, Sigma as SigmaIcon, Superscript as FootnoteIcon, Table as TableIcon, Paperclip, Speech, SquarePlay as VideoIcon, Users, BookMarked as CiteIcon } from 'lucide-react'
+import { ChartSpline, Columns2, Columns3, Workflow as DiagramIcon, FileStack as EmbedIcon, Link2 as LinkIcon, TableOfContents as ContentsIcon, Minus as DividerIcon, Sigma as SigmaIcon, Superscript as FootnoteIcon, Table as TableIcon, Paperclip, Speech, SquarePlay as VideoIcon, Users, BookMarked as CiteIcon } from 'lucide-react'
 
 import type { Editor } from '@tiptap/core'
 import { isInTable } from '@tiptap/pm/tables'
@@ -26,6 +26,7 @@ import { HeadingOneIcon } from '@/components/tiptap-icons/heading-one-icon'
 import { HeadingTwoIcon } from '@/components/tiptap-icons/heading-two-icon'
 import { HeadingThreeIcon } from '@/components/tiptap-icons/heading-three-icon'
 import { Bookmark as BookmarkIcon, CalloutIcon, Download, Pencil as DrawingIcon, List as ListIcon, Type as TextIcon, ChevronRight as ToggleIcon } from '@/components/ui/icons'
+import { newLine } from '@/lib/graph-math'
 import { ListOrderedIcon } from '@/components/tiptap-icons/list-ordered-icon'
 import { ListTodoIcon } from '@/components/tiptap-icons/list-todo-icon'
 import { BlockquoteIcon } from '@/components/tiptap-icons/blockquote-icon'
@@ -388,6 +389,16 @@ export const slashItems: SlashItem[] = [
     // The canvas lives in the note, not in a file beside it, so it opens ready
     // to draw in rather than asking where to put it first.
     run: (editor) => editor.chain().focus().insertContent({ type: 'excalidraw' }).run()
+  },
+  // Formulas plotted as on Desmos, its first line open for typing.
+  {
+    title: 'Graph',
+    group: 'Media',
+    hint: 'plot y = f(x)',
+    keywords: ['plot', 'function', 'desmos', 'curve', 'equation', 'graphing', 'calculator', 'axes'],
+    icon: <ChartSpline />,
+    when: (editor) => !!editor.schema.nodes.graph && !isInTable(editor.state),
+    run: (editor) => editor.chain().focus().insertContent({ type: 'graph', attrs: { expressions: [newLine(0)] } }).run()
   },
   // Both open the note list `[[` opens, matching as you type, with Enter taking
   // the first; an embed's list says so over its rows.

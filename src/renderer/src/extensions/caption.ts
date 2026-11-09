@@ -5,7 +5,7 @@ import { Decoration, DecorationSet, type EditorView } from "@tiptap/pm/view"
 import { onlyWordsChanged } from "@/lib/tiptap-utils"
 
 /** What can carry a caption: a picture, a YouTube video, a stored video or recording. */
-const MEDIA = new Set(["image", "youtube", "attachment"])
+const MEDIA = new Set(["image", "youtube", "attachment", "graph"])
 
 type State = { editing: number | null; set: DecorationSet }
 const key = new PluginKey<State>("caption")
