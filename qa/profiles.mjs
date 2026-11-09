@@ -28,7 +28,7 @@ try {
 
   // 2. Jane Austen's head: photo, line, bio cut to three lines.
   await person('Jane Austen')
-  check(await h.locator('[data-person-photo="picture"] img').count() === 1, 'Jane Austen wears her portrait')
+  check(await h.locator('[data-person-photo="picture"] img.mf-avatar-real').count() === 1, 'Jane Austen wears her portrait')
   const line = await h.locator('[data-person-line] input').evaluateAll((all) => all.map((one) => one.value))
   check(line.join('|') === 'Novelist|1775|1817', `her line reads Novelist · 1775 to 1817 (${line.join('|')})`)
   const rows = await h.locator('[data-portrait="words"] [data-row]').allTextContents()
@@ -154,7 +154,10 @@ try {
     await h.waitForTimeout(400)
     await h.screenshot({ path: `${shots}/settings-dark.png` })
   }
+  // Settings left and opened again starts on "Your book"; the photo is under Appearance.
   await go('settings')
+  await h.getByText('Appearance', { exact: true }).first().click()
+  await h.waitForTimeout(600)
   await h.locator('[data-remove-photo]').click()
   await h.waitForTimeout(600)
   check(await h.locator('[data-your-profile] .mf-avatar[data-avatar="initials"]').count() === 1, '“Remove photo” returns to your shape')
