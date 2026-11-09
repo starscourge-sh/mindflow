@@ -47,7 +47,8 @@ try {
   // a calendar either side of today, tasks with steps, and most days of the journal written.
   const queue = await v('review:queue')
   for (const tag of ['greek-myth', 'painters', 'other-worlds', 'physics']) {
-    const deck = await v('tag:cards', tag)
+    // A deck counts the decks inside it (Painters holds Leonardo).
+    const deck = [...await v('tag:cards', tag), ...(tag === 'painters' ? await v('tag:cards', 'painters-leonardo') : [])]
     const due = queue.filter((one) => JSON.stringify(one.body ?? '').includes(`#${tag}`))
     check(`the ${tag} deck has 10 to 15 cards, some due today`, deck.length >= 10 && deck.length <= 15 && due.length >= 1, `${deck.length} cards, ${due.length} in today's queue`)
   }
