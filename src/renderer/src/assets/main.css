@@ -1607,6 +1607,9 @@ body {
   opacity: 0.45;
 }
 :root[data-noblur][data-dim='veil'][data-blurred='on'] body::after { opacity: 0; }
+/* The window that draws stickies' menus is clear around its menu and never dims (windows/menu.tsx). */
+:root[data-menu-window] body { opacity: 1 !important; }
+:root[data-menu-window] body::after { content: none !important; }
 
 /* The row a right-click menu belongs to stays marked while the menu is open.
    Not a reader's whole page area: there the picked words are what is marked. */

@@ -28,6 +28,9 @@ const items = (list: Wire[], path: number[], pick: (path: number[]) => void): Ro
 // Only the menu is drawn: the rest of the window is clear.
 document.documentElement.style.background = 'transparent'
 document.body.style.background = 'transparent'
+// Never dimmed as an unfocused window: this window covers the screen and is never the one you are in, so the veil
+// (main.css, data-dim and data-blurred) laid a grey sheet over everything around the menu.
+document.documentElement.dataset.menuWindow = ''
 
 function PopupMenu(): React.JSX.Element | null {
   // The app's own look, as in every window: its theme, the interface font you chose, its sounds.
