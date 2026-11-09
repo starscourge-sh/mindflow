@@ -174,7 +174,7 @@ export function PropertyStrip({ table, id, kind, fields, text, created, updated,
   // Nothing yet: only the quiet way to add one, in the place the block will open. The details keep their heading.
   const empty = !panel && !shown.length && !tags.length && open !== '+'
   const addButton = (
-    <Tip label="Add property, or type Name:: value on a line of its own (⌥⌘P)">
+    <Tip side="bottom" label="Add property, or type Name:: value on a line of its own (⌥⌘P)">
       <button type="button" data-add-property aria-label="Add property" onClick={() => (chime('open'), setShut(false), setOpen('+'))}
         className={`inline-flex ${size.h} items-center rounded-md ${size.pad} text-muted-foreground transition-colors hover:bg-accent hover:text-foreground ${panel ? 'col-span-2 w-full gap-2' : 'w-fit gap-1.5'}`}>
         <Plus className={size.icon} /><span>Add property</span>
@@ -274,10 +274,10 @@ export function PropertyStrip({ table, id, kind, fields, text, created, updated,
                 <NewProp className={row} size={size} names={names.filter((one) => !all.some((prop) => prop.key.toLowerCase() === one.name.toLowerCase()))}
                   waiting={waiting} onField={bring} onName={(name) => void named(name)} onCancel={() => setOpen(null)} />
               )}
-              {/* Kept by the app, not typed: shown, never changed here. */}
-              {created && <div className={row} data-property="created">{nameCell(Clock, 'created')}<span className={`flex ${panel ? 'min-h-8 py-1.5' : 'h-7'} items-center ${size.pad} text-foreground/80`}>{stamp(created, panel)}</span></div>}
+              {/* Kept by the app, not typed: shown, never changed here. Under the title the page head says it already ("Started 3d ago"), so only the details panel lists them. */}
+              {created && panel && <div className={row} data-property="created">{nameCell(Clock, 'created')}<span className={`flex ${panel ? 'min-h-8 py-1.5' : 'h-7'} items-center ${size.pad} text-foreground/80`}>{stamp(created, panel)}</span></div>}
               {/* Never changed since: updated is when it was made. */}
-              {(updated ?? created) && <div className={row} data-property="updated">{nameCell(Clock, 'updated')}<span className={`flex ${panel ? 'min-h-8 py-1.5' : 'h-7'} items-center ${size.pad} text-foreground/80`}>{stamp((updated ?? created) as string, panel)}</span></div>}
+              {(updated ?? created) && panel && <div className={row} data-property="updated">{nameCell(Clock, 'updated')}<span className={`flex ${panel ? 'min-h-8 py-1.5' : 'h-7'} items-center ${size.pad} text-foreground/80`}>{stamp((updated ?? created) as string, panel)}</span></div>}
               {addButton}
             </div>
           )}
