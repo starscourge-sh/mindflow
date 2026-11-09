@@ -4,6 +4,7 @@ import { cn } from "@/lib/tiptap-utils"
 import "@/components/tiptap-ui-primitive/dropdown-menu/dropdown-menu.scss"
 import { openChime } from "@/lib/sound"
 import { onlyRealMoves } from "@/lib/real-move"
+import { quietClose } from "@/lib/quiet-focus"
 
 
 function DropdownMenu({
@@ -40,8 +41,9 @@ function DropdownMenuContent({
         sideOffset={sideOffset}
         align={align}
         className={cn("tiptap-dropdown-menu-content", className)}
-        onCloseAutoFocus={(e) => e.preventDefault()}
         {...props}
+        // A line that asks for words ("Edit formula…") hands its field the keys as the menu goes, as the app's other menus do.
+        onCloseAutoFocus={quietClose(props.onCloseAutoFocus ?? ((e) => e.preventDefault()))}
       />
     </DropdownMenuPrimitive.Portal>
   )
