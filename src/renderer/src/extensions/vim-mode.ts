@@ -127,7 +127,7 @@ interface VimState {
   register: VimRegister
 }
 
-const vimPluginKey = new PluginKey<VimState>("vimMode")
+export const vimPluginKey = new PluginKey<VimState>("vimMode")
 
 /**
  * How long after typing `j` a `k` still counts as the escape chord. Beyond
