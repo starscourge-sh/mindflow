@@ -5,7 +5,7 @@ import { motion } from 'motion/react'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import ExternalLinkIcon from '@/components/ui/external-link-icon'
 import XIcon from '@/components/ui/x-icon'
-import { Tip, toast } from './ui'
+import { Tip, sayNow } from './ui'
 
 import { EASE, shift, still } from '@/lib/motion'
 import { chime } from '@/lib/sound'
@@ -136,7 +136,7 @@ function Card({ id, today, preview }: { id: string; today: string; /** A goal no
   useEffect(() => {
     if (!said) return
     // Settled, and still one Undo away: the toast opens it again, back on screen.
-    const settled = setTimeout(() => void haligtree.closeGoal(id, said).then(() => toast(said === 'made it' ? 'Made it: kept under “Ended” in Goals' : said === 'missed' ? 'Missed: kept under “Ended” in Goals' : 'Gave it up: kept under “Ended” in Goals', () => void haligtree.reopenGoal(id))), 2600)
+    const settled = setTimeout(() => sayNow(haligtree.closeGoal(id, said), said === 'made it' ? 'Made it: kept under “Ended” in Goals' : said === 'missed' ? 'Missed: kept under “Ended” in Goals' : 'Gave it up: kept under “Ended” in Goals', () => void haligtree.reopenGoal(id)), 2600)
     return () => clearTimeout(settled)
   }, [said, id])
   if (!goal?.goalAt) return null

@@ -48,7 +48,7 @@ import { binItem, moveToBin, useCameBack } from '@/lib/to-bin'
 import { ShowInListContext, useShowInList } from '@/lib/show-in-list'
 import { useSameWords } from '@/lib/same-words'
 import { canMoveTier, moveTier } from './gem-or-card'
-import { Empty, focusField, Island, Page, Prop, Props, Remembered, refuse, quietly, toast, useListKeys, useReadKey, typing, pin, Stepper, startAt, Typed, showTopTitle, Pressed, askClearWho, Rolling } from './ui'
+import { Empty, focusField, Island, Page, Prop, Props, Remembered, refuse, quietly, sayNow, toast, useListKeys, useReadKey, typing, pin, Stepper, startAt, Typed, showTopTitle, Pressed, askClearWho, Rolling } from './ui'
 import { Term } from './term'
 import { AGES, Chips, Display, FilterChips, arrange, period, useView, type Density, type Facet, type View } from './display'
 import { RowMenu, copy, copyLinkItem, type MenuItem, type RowItem } from './row-menu'
@@ -1074,7 +1074,7 @@ function NuggetDetail({ item, onOpen, top, back, board: place }: { item: ItemFul
     const notesBefore = blankNotes
     setBlankNotes((was) => [...(had ? was : []), ...(note ? [note] : [])])
     setPrompt(made.prompt)
-    void haligtree.saveItem(item.id, { prompt: made.prompt }).then(() => toast(had ? 'One more blank on this card' : 'A fill-in-the-blank card: Review will ask it', () => (setPrompt(before ?? ''), setBlankNotes(notesBefore), void haligtree.saveItem(item.id, { prompt: before }))))
+    sayNow(haligtree.saveItem(item.id, { prompt: made.prompt }), had ? 'One more blank on this card' : 'A fill-in-the-blank card: Review will ask it', () => (setPrompt(before ?? ''), setBlankNotes(notesBefore), void haligtree.saveItem(item.id, { prompt: before })))
   }
   const savePrompt = (): void => {
     if ((item.prompt ?? '') === prompt.trim()) return
@@ -1086,11 +1086,11 @@ function NuggetDetail({ item, onOpen, top, back, board: place }: { item: ItemFul
       void cardPerNumber(item.id, typed, editor.current.getText(), editor.current.getJSON()).then((split) => {
         if (!split) return
         setPrompt(split.prompt)
-        void haligtree.saveItem(item.id, { prompt: split.prompt }).then(() => toast(`${numbers.map((n) => `c${n}`).join(', ')}: ${num(numbers.length)} cards, one for each number`, () => {
+        sayNow(haligtree.saveItem(item.id, { prompt: split.prompt }), `${numbers.map((n) => `c${n}`).join(', ')}: ${num(numbers.length)} cards, one for each number`, () => {
           for (const one of split.made) void haligtree.unlift('nugget', one)
           setPrompt(before ?? '')
           void haligtree.saveItem(item.id, { prompt: before })
-        }))
+        })
       })
       return
     }

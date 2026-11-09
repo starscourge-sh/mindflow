@@ -17,7 +17,7 @@ import { chime, fold } from '@/lib/sound'
 import { interval, unloaded, haligtree, when, whenInLine, type Due, type Exam, type Item, type Settings, useLive } from '@/lib/haligtree'
 import { exampleCard } from '@/lib/examples'
 import { Example } from './example'
-import { Book, Empty, Kbd, Page, Rolling, toast, Typed, typing, refuse, quietly } from './ui'
+import { Book, Empty, Kbd, Page, Rolling, sayNow, toast, Typed, typing, refuse, quietly } from './ui'
 import { ProgressBar } from './progress-bar'
 import { working } from './beam'
 import { Input } from '@/components/ui/input'
@@ -778,12 +778,12 @@ export function ReviewView({ compact = false, tag, actions, lead, onLeave }: { c
                       if (!split) return
                       card.prompt = split.prompt
                       setRewrites((n) => n + 1)
-                      void haligtree.saveItem(card.id, { prompt: split.prompt }).then(() => toast(`${clozeNumbers(prompt).length} cards, one for each number`, () => {
+                      sayNow(haligtree.saveItem(card.id, { prompt: split.prompt }), `${clozeNumbers(prompt).length} cards, one for each number`, () => {
                         for (const one of split.made) void haligtree.unlift('nugget', one)
                         card.prompt = was
                         setRewrites((n) => n + 1)
                         void haligtree.saveItem(card.id, { prompt: was })
-                      }))
+                      })
                     })
                     return
                   }

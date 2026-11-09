@@ -25,7 +25,7 @@ import { dateIn, PRIORITY_NAMES } from '../../../../main/task-words'
 import { PriorityIcon, PriorityMark, TaskInput, markRoom, planFor, setPriority } from './task-input'
 import { useArrivals } from './note-list'
 import { TagRow } from './pass'
-import { Empty, Island, Kbd, Page, Prop, PropInput, Props, Rolling, Tags, toast, useListKeys, typing, VirtualList, Stepper, quietly, CloseBeside } from './ui'
+import { Empty, Island, Kbd, Page, Prop, PropInput, Props, Rolling, Tags, sayNow, toast, useListKeys, typing, VirtualList, Stepper, quietly, CloseBeside } from './ui'
 import { Display, arrange, openDisplay, useView, type Facet } from './display'
 import { ThreeMark, takeWriteDay } from './day-list'
 import { DayLine, type LineHandle } from './day-line'
@@ -1070,7 +1070,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
     if (place === 'upcoming') return moveTo(task, 1)
     const was = { due: task.dueAt ?? null, plan: task.planFor ?? null }
     chime('later')
-    void haligtree.saveTask(id, { due: null, plan: 'someday' }).then(() => toast('Moved to Later, someday', () => void haligtree.saveTask(id, was)))
+    sayNow(haligtree.saveTask(id, { due: null, plan: 'someday' }), 'Moved to Later, someday', () => void haligtree.saveTask(id, was))
   }
 
   // --- writing in Today's list ---------------------------------------------

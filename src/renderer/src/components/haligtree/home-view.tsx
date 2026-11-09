@@ -28,7 +28,7 @@ import { tagColour } from './tag-read'
 import { TaskPriority, TaskWhen, completeTask, taskMenu, useTaskNow } from './tasks-view'
 import { sideMenu, useFullMenu } from './side-menu'
 import { byPriority, markRoom } from './task-input'
-import { Tags, Tip, pin, toast } from './ui'
+import { Tags, Tip, pin, sayNow } from './ui'
 import { NowSlot } from './now-slot'
 import { Example } from './example'
 import { Button } from '@/components/ui/button'
@@ -993,7 +993,7 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
             <Row key={name} title={<>More from <button type="button" data-home-tag={name} {...hoverNote('tag', name)} onClick={() => (chime('page'), onView('tags', name))}
               className="rounded px-0.5 decoration-1 underline-offset-4 transition-colors duration-80 hover:bg-[color-mix(in_oklab,var(--tag-ink)_18%,transparent)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
               style={{ color: tagColour(name, color), '--tag-ink': tagColour(name, color) } as React.CSSProperties}>#{name}</button></>} onAll={() => onView('tags', name)}
-              menu={[{ label: `Hide #${name} from Home`, hint: 'Another tag takes its place. Bring it back from the tag’s own page.', run: () => void haligtree.setTag(name, { homeHidden: true }).then(() => toast(`#${name} is off Home`, () => void haligtree.setTag(name, { homeHidden: false }))) }]}>
+              menu={[{ label: `Hide #${name} from Home`, hint: 'Another tag takes its place. Bring it back from the tag’s own page.', run: () => sayNow(haligtree.setTag(name, { homeHidden: true }), `#${name} is off Home`, () => void haligtree.setTag(name, { homeHidden: false })) }]}>
               {cards.map((card, at) => <RowCard key={`${card.type}:${card.id}`} card={card} list={cards} at={at} actions={actions} />)}
             </Row>
           ))}

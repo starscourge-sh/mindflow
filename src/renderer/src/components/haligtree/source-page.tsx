@@ -14,7 +14,7 @@ import { Avatar } from './avatar'
 import { NoteList, type Entry } from './note-list'
 import { Example } from './example'
 import { Display, useView } from './display'
-import { Count, Empty, Page, Tip, ask, askSure, openTag, quietly, toast, typing } from './ui'
+import { Count, Empty, Page, Tip, ask, askSure, openTag, quietly, sayNow, toast, typing } from './ui'
 import { RowMenu, type RowItem } from './row-menu'
 import { IslandBox, useIslands } from './islands'
 import { withoutTags } from '../../../../main/tag-words'
@@ -582,7 +582,7 @@ export function SourcePageView({ focus, onOpen }: { focus?: string; onOpen: (typ
   ] : [])
   /** What shows of a section: its first few, or all of it once opened past "Show more". */
   const shown = <T,>(title: string): T[] => (showing.find(([one]) => one === title)?.[1] ?? []) as T[]
-  const takeOff = (item: SourceItem): void => void setSource(item, field, null).then(() => toast(`No longer from ${name}`, () => void setSource(item, field, name)))
+  const takeOff = (item: SourceItem): void => sayNow(setSource(item, field, null), `No longer from ${name}`, () => void setSource(item, field, name))
   const menu = (item: SourceItem): RowItem[] => [{ label: 'Open', run: () => open(item) }, { label: `Take off ${quoted(name, 80)}`, run: () => takeOff(item) }]
   const pick = (list: SourceItem[]) => (id: string): void => open(list.find((one) => one.id === id)!)
   const box = (portrait: string, title: string, icon: React.ReactNode, children: React.ReactNode, count: number, uncounted = false): React.ReactNode => islands?.[title] && (

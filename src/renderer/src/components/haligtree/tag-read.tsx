@@ -13,7 +13,7 @@ import { openApart } from '@/lib/apart'
 import { statusSaid } from '@/lib/capture-links'
 import { rowBody } from '@/lib/row-body'
 import { chime } from '@/lib/sound'
-import { Empty, ask, pin, refuse, toast, typing, useListKeys, useReadKey } from './ui'
+import { Empty, ask, pin, refuse, sayNow, toast, typing, useListKeys, useReadKey } from './ui'
 import { RowMenu, copy, type MenuItem, type RowItem } from './row-menu'
 import { taskMenu, useTaskNow } from './tasks-view'
 import { ReadThrough, type Readable } from './read-through'
@@ -727,7 +727,7 @@ function TagMenu({ tag, color, onTag, onShuffle, homeHidden }: {
         {/* The way back for a row taken off Home, and the same choice made from here. */}
         {homeHidden
           ? <DropdownMenuItem onSelect={() => void haligtree.setTag(tag, { homeHidden: false }).then(() => toast(`Home shows #${tag} again`))}>Show its row on Home</DropdownMenuItem>
-          : <DropdownMenuItem onSelect={() => void haligtree.setTag(tag, { homeHidden: true }).then(() => toast(`Home no longer shows “More from #${tag}”`, () => void haligtree.setTag(tag, { homeHidden: false })))}>Hide its row from Home</DropdownMenuItem>}
+          : <DropdownMenuItem onSelect={() => sayNow(haligtree.setTag(tag, { homeHidden: true }), `Home no longer shows “More from #${tag}”`, () => void haligtree.setTag(tag, { homeHidden: false }))}>Hide its row from Home</DropdownMenuItem>}
         <DropdownMenuSeparator />
         <DropdownMenuItem onSelect={() => copy(`#${tag}`, `Copied #${tag}`)}>Copy #{tag}</DropdownMenuItem>
       </DropdownMenuContent>

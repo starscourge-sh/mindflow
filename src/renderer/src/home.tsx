@@ -64,7 +64,7 @@ import { CalendarView } from './components/haligtree/calendar-view'
 import { MatrixView } from './components/haligtree/matrix-view'
 import { bucket, onToday, picked, taskName } from './lib/tasks'
 import { stickOnDesktop } from './components/haligtree/sticky-note'
-import { Count, Kbd, Toaster, toast, refuse, typing, HELD, FocusNote, useFocusMode, SoundToggle, quietly } from './components/haligtree/ui'
+import { Count, Kbd, Toaster, sayNow, toast, refuse, typing, HELD, FocusNote, useFocusMode, SoundToggle, quietly } from './components/haligtree/ui'
 import { shownName } from '@/lib/haligtree'
 import { GrowFrom } from './components/haligtree/grow-from'
 import { FocusScenery } from './components/haligtree/scenery'
@@ -1136,7 +1136,7 @@ export function Home(): React.JSX.Element {
   const safeMode = (): void => {
     const on = !settings?.safeMode
     chime(on ? 'on' : 'off')
-    void haligtree.setSettings({ safeMode: on }).then(() => toast(on ? 'Safe mode on: nothing comes up on its own' : 'Safe mode off', () => void haligtree.setSettings({ safeMode: !on })))
+    sayNow(haligtree.setSettings({ safeMode: on }), on ? 'Safe mode on: nothing comes up on its own' : 'Safe mode off', () => void haligtree.setSettings({ safeMode: !on }))
   }
 
   // Blurring, beside Safe mode: private words blurred, the dim when you leave
@@ -1144,7 +1144,7 @@ export function Home(): React.JSX.Element {
   const blurring = (): void => {
     const on = settings?.blur === false
     chime(on ? 'on' : 'off')
-    void haligtree.setSettings({ blur: on }).then(() => toast(on ? 'Blurring on: notes marked “Private” stay blurred until you point at them' : 'Blurring off: everything plain and sharp', () => void haligtree.setSettings({ blur: !on })))
+    sayNow(haligtree.setSettings({ blur: on }), on ? 'Blurring on: notes marked “Private” stay blurred until you point at them' : 'Blurring off: everything plain and sharp', () => void haligtree.setSettings({ blur: !on }))
   }
 
   // The keyboard, Linear's way: G then a letter goes somewhere, C captures.
@@ -2280,7 +2280,7 @@ export function Home(): React.JSX.Element {
                     <RowMenu key="powers-pin" items={[
                       { label: 'Open', run: () => (chime('page'), setView({ id: 'powers' })) },
                       'separator',
-                      { label: 'Unpin', hint: 'It stays in the sidebar\'s foot', run: () => void haligtree.setSettings({ powersPinned: false }).then(() => toast(`Unpinned ${quoted(`What ${APP_NAME} can do`, 80)}`, () => void haligtree.setSettings({ powersPinned: true }))) }
+                      { label: 'Unpin', hint: 'It stays in the sidebar\'s foot', run: () => sayNow(haligtree.setSettings({ powersPinned: false }), `Unpinned ${quoted(`What ${APP_NAME} can do`, 80)}`, () => void haligtree.setSettings({ powersPinned: true })) }
                     ]}>
                       <span className="flex min-w-0">
                         <Tip label={narrow ? `What ${APP_NAME} can do` : ''}>

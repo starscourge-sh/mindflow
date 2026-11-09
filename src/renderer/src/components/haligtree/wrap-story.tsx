@@ -13,7 +13,7 @@ import { Big, Ranked, usePicturesFrom } from './recap-view'
 import { PictureRow } from './picture-row'
 import { drawingFor } from './grain'
 import { Scenery } from './scenery'
-import { Kbd, Tip, Typed, toast } from './ui'
+import { Kbd, Tip, Typed, sayNow } from './ui'
 import { PlanDid, plannedVsDid, shortSaid } from './planned-did'
 import { streaks } from '../../../../main/focus-numbers'
 import { dayjs, dayKey, dayName, noon, num, plural } from '../../../../main/dates'
@@ -285,7 +285,7 @@ export function WrapOffer(): React.JSX.Element | null {
   const close = (): void => (chime('fold'), setOffer(null))
   const never = (): void => {
     close()
-    void haligtree.setSettings({ wrapOffer: false }).then(() => toast('No more monthly wraps offered. Settings has them, under What comes back to you', () => void haligtree.setSettings({ wrapOffer: true })))
+    sayNow(haligtree.setSettings({ wrapOffer: false }), 'No more monthly wraps offered. Settings has them, under What comes back to you', () => void haligtree.setSettings({ wrapOffer: true }))
   }
   // A corner card as a milestone is: at the sidebar's foot where there is one, never while a menu or picker is open.
   const blocked = useLayerOpen(!!offer)

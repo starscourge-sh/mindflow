@@ -995,6 +995,10 @@ export const toast = (text: string, undo?: () => void, tone: ToastTone = 'succes
   window.dispatchEvent(new CustomEvent('haligtree:toast', { detail: { text, undo, tone, action, made } }))
 }
 
+/** A notice with Undo for a change still being saved: said at once, so a quick ⌘Z takes back this change and not the one
+ *  before; its Undo waits for the save first. */
+export const sayNow = (saved: Promise<unknown>, text: string, undo: () => void, tone?: ToastTone): void => toast(text, () => void saved.then(undo), tone)
+
 /** Open what a toast made: in the main window's page, or to the side (⌥-click), as rows open. */
 const openMade = (made: Made, aside = false): void => {
   if (aside && canSplit()) return openAside(made.type, made.id)

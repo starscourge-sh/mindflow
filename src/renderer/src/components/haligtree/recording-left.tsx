@@ -4,7 +4,7 @@ import { AnimatePresence, motion } from 'motion/react'
 import { EASE, shift, spring } from '@/lib/motion'
 import { chime } from '@/lib/sound'
 import { Orb } from './orb'
-import { toast } from './ui'
+import { sayNow } from './ui'
 
 type Left = { id: string; said: string }
 type Asked = { one: Left | null; more: number; keeping: boolean; trouble: string | null; keep: () => void; discard: () => void }
@@ -44,7 +44,7 @@ export function useRecordingsLeft(): Asked {
     chime('away')
     setTrouble(null)
     setAll((was) => was.filter((other) => other.id !== id))
-    void window.api.haligtree('meeting:left-discard', id).then(() => toast('Recording discarded', () => void window.api.haligtree('meeting:left-undo', id).then(read)))
+    sayNow(window.api.haligtree('meeting:left-discard', id), 'Recording discarded', () => void window.api.haligtree('meeting:left-undo', id).then(read))
   }
   return { one, more: Math.max(0, all.length - 1), keeping, trouble, keep, discard }
 }

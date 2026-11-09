@@ -18,7 +18,7 @@ import { pastEdge } from '@/lib/drag-edge'
 import { slotTicker } from '@/lib/proximity'
 import { RowMenu, openFromGrip, type RowItem } from './row-menu'
 import { FolderPen, FolderHeart } from 'lucide-react'
-import { Count, Tip, quietly, refuse, toast } from './ui'
+import { Count, Tip, quietly, refuse, sayNow, toast } from './ui'
 import { GROUP_KEY, GroupMark, changeRule, removeGroup, renameGroup, ruleSaid, tagsSaid, useGathered, useSmartGroups, type SmartGroup } from '@/lib/smart-groups'
 
 /** Asks the sidebar for a new, empty folder in a list (from the row's +, or its right click), named as it is made. */
@@ -113,7 +113,7 @@ export function SideFolders({ list, counted, open, shown, here, noteRow, onOpen,
     if (levelOf(parent) + heightOf(id) > DEPTH) return refuse(`Folders go ${DEPTH} levels deep`)
     const was = group.parent
     chime('gather')
-    void groups.nest(id, parent).then(() => toast(parent ? `Moved ${group.name} into ${all.find((one) => one.id === parent)?.name}` : `Moved ${group.name} to the top`, () => void groups.nest(id, was)))
+    sayNow(groups.nest(id, parent), parent ? `Moved ${group.name} into ${all.find((one) => one.id === parent)?.name}` : `Moved ${group.name} to the top`, () => void groups.nest(id, was))
   }
   // Dropped by a folder's edge: just before or after it, beside it in what holds it.
   const reorder = (id: string, target: string, how: 'before' | 'after'): void => {
@@ -129,7 +129,7 @@ export function SideFolders({ list, counted, open, shown, here, noteRow, onOpen,
     const next = moveTo(layout, KEY + id, { group: parent, after })
     const was = layout
     chime('gather')
-    void groups.arrange(list, next).then(() => toast(`Moved ${group.name} ${how} ${by.name}`, () => void groups.arrange(list, was)))
+    sayNow(groups.arrange(list, next), `Moved ${group.name} ${how} ${by.name}`, () => void groups.arrange(list, was))
   }
   // Carried as a list's row is: the same hand, the same card, Esc puts it back, and its folder's real edge says in or out.
   const ticks = useRef(slotTicker()).current
@@ -343,11 +343,11 @@ function Folder({ list, group, depth, n, here, naming, onNamed, onRename, onOpen
     { label: group.members.length ? 'Delete folder, keep its notes' : 'Delete folder', hint: group.members.length ? 'They move up a level' : undefined, danger: !group.members.length, run: () => {
       const { id, name: was, icon, color, parent, members } = group
       chime('separate')
-      void groups.remove(id).then(() => toast(`Deleted ${was}: its notes stay`, () => void (async () => {
+      sayNow(groups.remove(id), `Deleted ${was}: its notes stay`, () => void (async () => {
         const back = await groups.make(list, was, parent)
         await groups.set(back, { icon, color })
         await groups.place(members.map((one, at) => ({ id: one, group: back, order: at })))
-      })()))
+      })())
     } }
   ]
   return (

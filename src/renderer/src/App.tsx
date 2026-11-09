@@ -38,7 +38,7 @@ import { allRecorded, moveOldRecordable, recordAll } from './lib/recordings'
 import { BackToTop, Empty, Kbd, Remembered, Strip, StripSlot, typing, useListKeys, useReadKey, useSmooth, FocusNote, useFocusMode, startAt, quietly } from './components/haligtree/ui'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './components/ui/tooltip'
 import { cn } from '@/lib/cn'
-import { Count, Rolling, Toaster, Typed, refuse, toast, whyFailed } from './components/haligtree/ui'
+import { Count, Rolling, Toaster, Typed, refuse, sayNow, toast, whyFailed } from './components/haligtree/ui'
 import { beam } from './components/haligtree/beam'
 import { Reader } from './components/haligtree/reader'
 import { OptionsMenu, PointMenu, type Section } from './components/haligtree/options-menu'
@@ -2052,7 +2052,7 @@ export default function App(): React.JSX.Element {
             } },
             { label: appSettings?.safeMode ? 'Turn safe mode off' : 'Turn safe mode on', keys: '⌥⌘S', cue: appSettings?.safeMode ? 'off' : 'on', run: () => {
               const on = !appSettings?.safeMode
-              void haligtree.setSettings({ safeMode: on }).then(() => toast(on ? 'Safe mode on' : 'Safe mode off', () => void haligtree.setSettings({ safeMode: !on })))
+              sayNow(haligtree.setSettings({ safeMode: on }), on ? 'Safe mode on' : 'Safe mode off', () => void haligtree.setSettings({ safeMode: !on }))
             } },
             { label: recordable ? 'Hide from recordings' : 'Show in recordings', hint: `${APP_NAME} in screen recordings and shares`, cue: recordable ? 'off' : 'on', icon: recordable ? CameraOffIcon : CameraIcon, run: () => setRecordable(!recordable) },
             { label: appSettings?.stickiesShown === false ? 'Show sticky notes' : 'Hide sticky notes', keys: '⌃⌥⌘N', cue: null, run: () => {
@@ -2076,7 +2076,7 @@ export default function App(): React.JSX.Element {
             ...themeActions((text, undo) => toast(text, undo)),
             { label: appSettings?.blur === false ? 'Turn blurring on' : 'Turn blurring off', cue: appSettings?.blur === false ? 'on' : 'off', run: () => {
               const on = appSettings?.blur === false
-              void haligtree.setSettings({ blur: on }).then(() => toast(on ? 'Blurring on' : 'Blurring off', () => void haligtree.setSettings({ blur: !on })))
+              sayNow(haligtree.setSettings({ blur: on }), on ? 'Blurring on' : 'Blurring off', () => void haligtree.setSettings({ blur: !on }))
             } },
             { label: 'Settings', keys: '⌘,', run: () => window.api.openInHome('view', 'settings') },
             // The recap opens in the main window, over Stats.
