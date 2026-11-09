@@ -27,7 +27,7 @@ const results = []
 const check = (name, ok, detail = '') => { results.push(ok); console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? `  (${detail})` : ''}`) }
 const c = await sandbox({ width: 1200, height: 800 })
 const { h, go } = c
-h.on('console', (m) => m.text().startsWith('HERO') && console.log(m.text()))
+h.on('console', async (m) => m.type() === 'error' && m.text().includes('cannot be a descendant') && console.log('NEST', (await Promise.all(m.args().map((a) => a.jsonValue().catch(() => '')))).join(' | ').slice(0, 2500)))
 
 // Every flight the window starts (lib/hero.ts lays a sheet, `[data-hero-card]`, and moves it): its kind, the rect
 // it starts on and ends on, its length and curve, how long after the press it was moving (`wait`), and whether the
@@ -71,7 +71,8 @@ const log = () => h.evaluate(() => window.__hero.map(({ el, ...one }) => one))
 const rectOf = (sel) => h.evaluate((s) => { const el = document.querySelector(s); if (!el) return null; const r = el.getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height } }, sel)
 const near = (a, b, by = 3) => !!a && !!b && ['x', 'y', 'w', 'h'].every((k) => Math.abs(a[k] - b[k]) <= by)
 const say = (r) => r ? `${Math.round(r.x)},${Math.round(r.y)} ${Math.round(r.w)}x${Math.round(r.h)}` : 'none'
-const settle = (ms = 700) => h.waitForTimeout(ms)
+// Every flight's sheet gone first (its own end: it melts once the page under it is on show), then `ms` more.
+const settle = async (ms = 700) => { await h.waitForFunction(() => !document.querySelector('[data-hero-card]'), null, { timeout: 8000 }).catch(() => {}); await h.waitForTimeout(ms) }
 const card = () => rectOf('[data-pane-front] > [data-pane-card], [data-pane] > [data-pane-card]')
 const back = async () => { await h.locator('[data-tab-step="back"]').first().click(); await settle() }
 

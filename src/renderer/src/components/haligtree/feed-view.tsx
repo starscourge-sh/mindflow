@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { startTransition, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useStepped } from '@/lib/nav'
 import { heroAround, heroOpen } from '@/lib/hero'
 import { hoverNote, hoverThought } from './note-preview'
@@ -438,7 +438,7 @@ function FeedNotes({ onOpen, tabs, extra, pages }: { onOpen: (type: string, id: 
             {moment && <ReadyMoment said="Your Feed is ready" more="Each day it brings back about twenty of your own things, longest unseen first. A new set comes every morning." />}
             <ol className="flex flex-col">
               {feed.posts.map((post, at) => {
-                const mark = { at, cursor: at === cursor, onPoint: () => setCursor(at) }
+                const mark = { at, cursor: at === cursor, onPoint: () => startTransition(() => setCursor(at)) }
                 return post.pair ? <PairPost key={`pair:${post.id}`} post={post} mark={mark} onOpen={open} />
                   : post.poll ? <PollPost key={`poll:${post.id}`} post={post} mark={mark} onOpen={() => open(post.poll!.open.type, post.poll!.open.id)} />
                   : post.quiz ? <QuizPost key={`quiz:${post.id}`} post={post} mark={mark} onOpen={() => open('nugget', post.id)} />

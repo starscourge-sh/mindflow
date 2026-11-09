@@ -4,7 +4,7 @@ import { showMediaKind } from './media-view'
 import { useResumeCards, WelcomeBack } from './resume-cards'
 import { useReadsIn } from '@/lib/reads-in'
 import { TimeGone } from './time-gone'
-import { Children, isValidElement, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { Children, isValidElement, startTransition, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 
 import { CAPTURE_TYPES } from '@/components/capture-kinds/capture-kind-picker'
 import { useCaptures } from '@/components/capture-list'
@@ -926,7 +926,7 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
             {shownTiles.length > 0 && <div className="px-5 @[44rem]/page:px-8"><Heading title={pins.length ? 'Pinned, and what you opened lately' : 'What you opened lately'} /></div>}
             {shownTiles.length > 0 && (
               <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,15rem),1fr))] gap-2 px-5 @[44rem]/page:px-8">
-                {shownTiles.map((card) => <Tile key={card.id} card={card} pinned={pinned.has(card.id)} actions={actions} onHover={setHover} />)}
+                {shownTiles.map((card) => <Tile key={card.id} card={card} pinned={pinned.has(card.id)} actions={actions} onHover={(look) => startTransition(() => setHover(look))} />)}
               </div>
             )}
           </div>

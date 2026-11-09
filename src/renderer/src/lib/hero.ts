@@ -56,8 +56,8 @@ const may = (): boolean => !still() && !byKeys() && !document.documentElement.ha
 export const paneCard = (): Element | null =>
   document.querySelector('[data-pane-front] > [data-pane-card]') ?? document.querySelector('[data-pane] > [data-pane-card]')
 
-/** The Calendar's right sidebar, which the event's form opens in (day-side.tsx). */
-export const sideForm = (): Element | null => document.querySelector('[data-cal-right]')
+/** An event's form in the Calendar's right sidebar (day-side.tsx): there once it is open. */
+export const sideForm = (): Element | null => document.querySelector('[data-day-side="event"]')
 
 /**
  * A note opening beside a list (Writing's, Gems'): where it grows to (the note
@@ -125,9 +125,9 @@ function sheet(kind: 'open' | 'close', at: DOMRect, like: Element | null): HTMLE
 const over = (small: DOMRect, full: DOMRect): string =>
   `translate(${small.left - full.left}px, ${small.top - full.top}px) scale(${Math.max(small.width, 1) / full.width}, ${Math.max(small.height, 1) / full.height})`
 
-/** Shrinking from the page into `small`: there by its middle, gone as it lands. */
+/** Shrinking from the page into `small`: over the page from the start (the page's own colour), gone as it lands. */
 const shrink = (small: DOMRect, big: DOMRect): Keyframe[] =>
-  [{ transform: 'none', opacity: 0 }, { opacity: 1, offset: 0.2 }, { opacity: 1, offset: 0.6 }, { transform: over(small, big), opacity: 0 }]
+  [{ transform: 'none', opacity: 1 }, { opacity: 1, offset: 0.6 }, { transform: over(small, big), opacity: 0 }]
 
 const say = (r: DOMRect): string => `${Math.round(r.left)},${Math.round(r.top)},${Math.round(r.width)},${Math.round(r.height)}`
 
@@ -155,20 +155,33 @@ function fly(kind: 'open' | 'close', small: DOMRect, big: DOMRect, like: Element
     if (ran) return
     ran = true
     flushSync(run)
-    // Shrinking back: once the page is back, the thing it lands on, where it really is now (the page may have moved).
-    if (landing) requestAnimationFrame(() => {
+    // Shrinking back: the thing it lands on, where it really is now, followed every frame until it lands (the page
+    // coming back reads in, lays out and scrolls back to where it was).
+    // The sheet waits over the page until the thing has stayed put for three frames (or `WAIT`), then shrinks.
+    let last = ''
+    let steady = 0
+    const since = performance.now()
+    const follow = (): void => {
+      if (done || !landing) return
       const now = landing()
-      if (done || !now || !seen(now)) return
-      const to = now.getBoundingClientRect()
-      card.dataset.to = say(to)
-      ;(move.effect as KeyframeEffect).setKeyframes(shrink(to, big))
-    })
+      if (now && seen(now)) {
+        const to = now.getBoundingClientRect()
+        if (say(to) !== last) (last = card.dataset.to = say(to)), (steady = 0), (move.effect as KeyframeEffect).setKeyframes(shrink(to, big))
+        else steady++
+      }
+      if (move.playState === 'paused' && (steady >= 3 || performance.now() - since > WAIT)) move.play()
+      requestAnimationFrame(follow)
+    }
+    follow()
   }
   // Opened once the sheet is moving (the compositor has it by then), so a slow page never holds it still; read
   // from the flight's own clock, not a timer, so the page and the sheet keep in step.
+  // Shrinking back, the sheet is held over the page while the page comes back, and the page goes after a frame.
+  if (kind === 'close' && landing) move.pause()
   const from = kind === 'open' ? ms * OPEN_AT : 0
   let at = 0
-  const watch = (): void => void (done || ran || (Number(move.currentTime ?? 0) > from ? go() : (at = requestAnimationFrame(watch))))
+  let frames = 0
+  const watch = (): void => void (done || ran || ((kind === 'close' ? ++frames > 1 : Number(move.currentTime ?? 0) > from) ? go() : (at = requestAnimationFrame(watch))))
   at = requestAnimationFrame(watch)
   const end = (): void => {
     if (done) return
@@ -217,8 +230,13 @@ export function heroOpen(from: HeroFrom, run: () => void, to: () => Element | nu
   if (there && seen(there)) return fly('open', small, there.getBoundingClientRect(), there, run, ready)
   // Not there yet: opened now, and grown into once it is (or simply there, if it never comes).
   flying?.end()
+  // Already a flight, so what opens does not slide in on its own as well (day-side.tsx).
+  const wait = { end: (): void => void (flying === wait && (flying = null)) }
+  flying = wait
   flushSync(run)
   void until(ready).then(() => {
+    if (flying !== wait) return
+    flying = null
     const now = to()
     if (now && seen(now) && may()) fly('open', small, now.getBoundingClientRect(), now, () => {}, () => true)
   })
@@ -242,5 +260,5 @@ export function heroBack(run: () => void, from: () => Element | null = paneCard)
     const all = [...document.querySelectorAll(`[${name}="${CSS.escape(value)}"]`)].filter(seen)
     return all.find((one) => paneCard()?.contains(one)) ?? all[0] ?? null
   }
-  fly('close', was.rect, el.getBoundingClientRect(), el, run, () => true, find)
+  fly('close', was.rect, el.getBoundingClientRect(), el, run, () => true, was.key ? find : undefined)
 }
