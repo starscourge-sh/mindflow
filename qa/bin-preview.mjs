@@ -5,7 +5,7 @@
 //   2. Space opens Quick Look on the row, ↑ ↓ step while it stays, Esc and
 //      Space close it;
 //   3. “Restore” in the preview puts it back where it was;
-//   4. a row still called “Untitled” shows its first line, in muted ink;
+//   4. a row still called “Untitled” is named by its first line;
 //   5. pointing at a title shows the hover card an @ link shows.
 // SHOTS=dir keeps pictures at 900x700 and 1600x1000, light and dark.
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/bin-preview.mjs
@@ -96,12 +96,12 @@ try {
   }
   if (SHOTS) await h.screenshot({ path: `${SHOTS}/pane-1400.png` })
 
-  // 4. The article still called “Untitled” shows its first line, muted.
+  // 4. The article still called “Untitled” is named by its first line, as everywhere (9 Nov, Apple Notes' way), never “Untitled”.
   const untitled = await h.evaluate((id) => {
-    const name = document.querySelector(`[data-page="discarded"] [data-row][data-id="${id}"] [data-untitled]`)
-    return name ? { text: name.textContent, muted: name.className.includes('text-muted-foreground') } : null
+    const row = document.querySelector(`[data-page="discarded"] [data-row][data-id="${id}"]`)
+    return row ? { text: row.textContent, untitled: /Untitled/.test(row.textContent) } : null
   }, article)
-  check('the “Untitled” article shows its first line, in muted ink', untitled?.text === 'Binned probe article first line' && untitled.muted, JSON.stringify(untitled))
+  check('the “Untitled” article is named by its first line', !!untitled?.text.includes('Binned probe article first line') && !untitled.untitled, JSON.stringify(untitled))
 
   // Esc puts the preview away first.
   await h.locator(`${BIN} [data-bin]`).first().click({ position: { x: 5, y: 5 } }).catch(() => {})
