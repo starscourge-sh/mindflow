@@ -90,8 +90,8 @@ const quiet = (win) => win.evaluate(TOOLS).then(() => win.evaluate(() => {
 const nameless = (win) => win.evaluate(TOOLS).then(() => win.evaluate(() => [
   ...[...document.querySelectorAll('button, [role=button], a[href], [role=menuitem], [role=img], [data-mark]')]
     .filter((el) => window.__sb.shown(el) && !el.closest('[aria-hidden=true]') && !window.__sb.name(el)),
-  // A rolling count (.slot-text) shows its own words; its label only repeats them.
-  ...[...document.querySelectorAll('span[aria-label]:not([role], .slot-text), div[aria-label]:not([role]), svg[aria-label]:not([role])')]
+  // A rolling count (.mf-roll) shows its own words; its label only repeats them.
+  ...[...document.querySelectorAll('span[aria-label]:not([role], .mf-roll), div[aria-label]:not([role]), svg[aria-label]:not([role])')]
     .filter((el) => window.__sb.shown(el) && !el.closest('[aria-hidden=true]'))
 ].map((el) => el.outerHTML.slice(0, 160))))
 

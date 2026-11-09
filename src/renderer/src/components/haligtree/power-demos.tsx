@@ -37,7 +37,7 @@ export const DemoLive = createContext(false)
 /**
  * A demo's rolling words: they roll only in the demo that is playing. In the
  * others they are plain text, so a card leaving the stage, set back to its
- * resting step, never makes slot-text measure the page while it scrolls.
+ * resting step, never rolls while the page scrolls.
  */
 function Rolling(props: Parameters<typeof RollingText>[0]): React.JSX.Element {
   return useContext(DemoLive) ? <RollingText {...props} /> : <span className={props.className}>{typeof props.text === 'number' ? num(props.text) : props.text}</span>

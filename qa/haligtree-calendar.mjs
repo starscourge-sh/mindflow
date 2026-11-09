@@ -92,7 +92,7 @@ try {
   await h.mouse.move(bx, by + 56, { steps: 6 }); await wait(60)
   const rolling = await h.evaluate((id) => {
     const lifted = document.querySelector(`[data-cal-block="${id}"]`)
-    return { slots: lifted?.querySelectorAll('.slot-text').length ?? 0, moving: lifted?.getAnimations({ subtree: true }).length ?? 0, text: lifted?.innerText.replace(/\s+/g, ' ') }
+    return { slots: lifted?.querySelectorAll('.mf-roll').length ?? 0, moving: lifted?.getAnimations({ subtree: true }).length ?? 0, text: lifted?.innerText.replace(/\s+/g, ' ') }
   }, drag)
   check('58. the dragged task\'s time rolls as it changes', rolling.slots > 0 && rolling.moving > 0, JSON.stringify(rolling))
   if (SHOTS) await h.locator(`[data-cal-block="${drag}"]`).first().screenshot({ path: `${SHOTS}/cal-drag-rolling.png` })

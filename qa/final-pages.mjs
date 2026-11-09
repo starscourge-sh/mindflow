@@ -93,7 +93,7 @@ const measure = () => h.evaluate(() => {
     const text = el.innerText.trim()
     if (!text) continue
     // A rolling label draws two copies of itself and slides between them.
-    if (el.closest('[data-roll], .slot-text, [class*="slot-text"]')) continue
+    if (el.closest('[data-roll]')) continue
     // A calendar's blocks keep the size of their time and day: a name there is cut to fit, whole on its card.
     if (el.closest(LANES)) continue
     // A tag that gives way to a name beside it ends in "…", its whole name in its tip (ui.tsx, Tags).

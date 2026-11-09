@@ -48,11 +48,11 @@ const RECORDER = () => {
   const shape = (root, inner = []) => {
     const base = layoutOf(root)
     const out = []
-    // A rolling number (slot-text) is one thing, said by its label, not a column of letters.
-    const rolls = new Set([...[...root.querySelectorAll('.char-slot')].map((one) => one.closest('[aria-label]')), ...root.querySelectorAll('[data-rolling]')].filter(Boolean))
+    // A rolling number (Rolling) is one thing, said by its label, not a column of letters.
+    const rolls = new Set([...[...root.querySelectorAll('.mf-roll-cell, .mf-roll-word')].map((one) => one.closest('[aria-label]')), ...root.querySelectorAll('[data-rolling]')].filter(Boolean))
     for (const el of root.querySelectorAll('*')) {
       if (!(el instanceof HTMLElement) || out.length >= 400) continue
-      if (!rolls.has(el) && el.closest('.char-slot')) continue
+      if (!rolls.has(el) && el.closest('.mf-roll-cell, .mf-roll-word')) continue
       if (inner.some((one) => one.contains(el))) continue
       // A page waiting, unseen, for its reads (lib/reads-in.tsx) is not drawn yet.
       if (el.closest('[style*="visibility: hidden"]')) continue

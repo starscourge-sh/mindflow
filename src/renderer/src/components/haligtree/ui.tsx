@@ -5,7 +5,6 @@ import { caretTakesEscape, layerOpen } from '@/lib/menu-keys'
 import { tagHue } from '@/extensions/tokens'
 import { createPortal, flushSync } from 'react-dom'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { animateSlotText, buildSlotText, clearSlotText } from 'slot-text'
 import { Check, ChevronRight, CircleX, type LucideIcon } from 'lucide-react'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import XIcon from '@/components/ui/x-icon'
@@ -15,7 +14,7 @@ import { stepTap } from '@/lib/haptics'
 import { detent, slotTicker } from '@/lib/proximity'
 import { Arrow } from './marks'
 import Lenis from 'lenis'
-import { afterPaint, call, useLive, haligtree } from '@/lib/haligtree'
+import { call, useLive, haligtree } from '@/lib/haligtree'
 import { UNATTRIBUTED } from '@/lib/sources'
 import { useReadsIn, useSeen } from '@/lib/reads-in'
 import { chime, quietFor, setVolume, soundOn } from '@/lib/sound'
@@ -2503,14 +2502,16 @@ const watchView = (el: Element): (() => void) => {
 }
 
 /**
- * Text that rolls into place when it changes, slot-text's way: a count that
- * goes up rolls up, one that goes down rolls down, and only the digits that
- * moved turn over. Still when motion is off, so it is plain text then.
- * A roll measures every letter it turns, so it starts once the frame its
- * change came with is painted (every roll of that frame together): the
- * measuring then reads a page already laid out, instead of laying it out
- * again in the middle of the change (a move to the Bin spent 56ms there).
- * Off screen it simply takes its new value: no one would see it roll.
+ * Text that rolls into place when it changes: a count that goes up rolls up,
+ * one that goes down rolls down, and only the digits that moved turn over,
+ * each in a column of its old and new face sliding by its own line height.
+ * Words cross-fade with a short slide. All of it is CSS on transform and
+ * opacity: nothing is measured, so a roll never lays out the page (the
+ * library it replaced read every letter's width, 17 to 50ms a roll). Digits
+ * are all one width, so a count never nudges what sits beside it.
+ * Still when motion is off, in its first second, off screen or in a hidden
+ * window: then it simply takes its new value. A change in the middle of a
+ * roll starts a fresh one from the value it was heading for.
  */
 export function Rolling({ text, className = '', by = 'character', eager = false, up: said }: {
   text: string | number
@@ -2526,31 +2527,71 @@ export function Rolling({ text, className = '', by = 'character', eager = false,
   const [born] = useState(() => performance.now())
   const el = useRef<HTMLSpanElement>(null)
   const words = typeof text === 'number' ? num(text) : text
-  // Laid out with its first text before the first paint; cleared as it goes.
-  const first = useRef(words)
-  useLayoutEffect(() => {
-    const span = el.current!
-    buildSlotText(span, first.current, { rollBy: by })
-    const unwatch = watchView(span)
-    return () => (unwatch(), clearSlotText(span))
-  }, [])
-  const last = useRef(text)
-  useLayoutEffect(() => {
-    const span = el.current!
-    const up = said ?? (typeof text === 'number' && typeof last.current === 'number' ? text >= last.current : true)
-    last.current = text
-    if (first.current === words) return
-    first.current = words
-    // Calm (motion off, its first second, off screen, the window hidden): the new text simply laid in its
-    // place, a new face for it. Changed in place, it still eased its width, and what came after it
-    // (" / 147") slid along although nothing rolled.
-    if (still() || (!eager && performance.now() - born < 1000) || document.hidden || !inView.get(span)) return void buildSlotText(span, words, { rollBy: by })
-    // On the app's own curve with only a trace of overshoot: the library's
-    // springy default read as bouncy beside everything else, which settles.
-    return afterPaint(() => animateSlotText(span, words, { direction: up ? 'up' : 'down', rollBy: by, duration: 260, stagger: by === 'word' ? 22 : 35, exitOffset: 40, easing: 'cubic-bezier(0.16, 1, 0.3, 1)', bounce: 0.2 }))
-  }, [words])
-  // Its letters are slot-text's to draw: React draws only the box.
-  return <span ref={el} className={cn('slot-text', className)} aria-label={words} />
+  const [roll, setRoll] = useState<{ now: string; was: string | null; up: boolean; n: number; last: string | number }>(() => ({ now: words, was: null, up: true, n: 0, last: text }))
+  if (roll.now !== words) {
+    const span = el.current
+    const calm = still() || (!eager && performance.now() - born < 1000) || document.hidden || !span || !inView.get(span)
+    const up = said ?? (typeof text === 'number' && typeof roll.last === 'number' ? text >= roll.last : true)
+    setRoll({ now: words, was: calm ? null : roll.now, up, n: roll.n + 1, last: text })
+  }
+  useEffect(() => watchView(el.current!), [])
+  const { now, was, up, n } = roll
+  // The roll is over once the last cell to move has settled: its old faces go.
+  const settled = (event: React.AnimationEvent): void => {
+    if ((event.target as HTMLElement).hasAttribute('data-roll-last')) setRoll((at) => (at.n === n ? { ...at, was: null } : at))
+  }
+  return (
+    <span ref={el} data-roll="" className={cn('mf-roll', className)} aria-label={now} onAnimationEnd={was === null ? undefined : settled}>
+      {was === null ? now : by === 'word' ? wordCells(was, now, up, n) : charCells(was, now, up, n)}
+    </span>
+  )
+}
+
+/** A count's characters line up from the right (12 to 9 turns the last digit), other text's from the left. */
+const numeric = (text: string): boolean => /^[\d\s.,:%+−-]*$/.test(text)
+
+/** Each changed character in a clipped cell, its column sliding the new face in as the old one leaves. */
+function charCells(was: string, now: string, up: boolean, n: number): React.ReactNode[] {
+  const [a, b] = [Array.from(was), Array.from(now)]
+  const right = numeric(was) && numeric(now)
+  const pad = b.length - a.length
+  const old = (i: number): string => (right ? a[i - pad] : a[i]) ?? ''
+  const moving = b.map((one, i) => one !== old(i))
+  // The digits turn from the right for a count, from the left for words; the last to start ends the roll.
+  const order = moving.map((on, i) => (on ? (right ? b.length - 1 - i : i) : -1))
+  const final = Math.max(...order)
+  let k = 0
+  const steps = new Map([...order.entries()].filter(([, at]) => at >= 0).sort((x, y) => x[1] - y[1]).map(([i]) => [i, k++]))
+  return b.map((one, i) => {
+    if (!moving[i]) return <span key={right ? i - b.length : i} aria-hidden>{one}</span>
+    return (
+      <span key={`${n}:${i}`} aria-hidden className="mf-roll-cell">
+        <span className="mf-roll-col" data-up={up || undefined} data-roll-last={order[i] === final || undefined} style={{ animationDelay: `${steps.get(i)! * 35}ms` }}>
+          {one}
+          <span className="mf-roll-old">{old(i)}</span>
+        </span>
+      </span>
+    )
+  })
+}
+
+/** Each changed word fades and slides in over the old one fading out the other way. */
+function wordCells(was: string, now: string, up: boolean, n: number): React.ReactNode[] {
+  const split = (text: string): string[] => text.split(/(\s+)/)
+  const [a, b] = [split(was), split(now)]
+  const moving = b.map((one, i) => one !== a[i] && /\S/.test(one))
+  const final = moving.lastIndexOf(true)
+  let k = 0
+  return b.map((one, i) => {
+    if (!moving[i]) return <span key={i} aria-hidden>{one}</span>
+    const delay = { animationDelay: `${k++ * 22}ms` }
+    return (
+      <span key={`${n}:${i}`} aria-hidden className="mf-roll-word" data-up={up || undefined}>
+        <span className="mf-roll-in" data-roll-last={i === final || undefined} style={delay}>{one}</span>
+        {a[i] && /\S/.test(a[i]) && <span className="mf-roll-out" style={delay}>{a[i]}</span>}
+      </span>
+    )
+  })
 }
 
 /**

@@ -31,7 +31,7 @@ try {
           if (!el.closest('section .overflow-y-auto') || el.closest('nav, [role=tablist], aside')) continue
           // Words that type in (Typed) or roll (Rolling); a whole block fading up with its page is not a line speaking.
           const name = one.animationName ?? ''
-          if (!(el.classList.contains('mf-typed') || el.closest('[data-line]') || /slot|roll/i.test(String(el.className)) || el.parentElement?.closest('slot-text, [class*=slot]') || (name === '' && el.childElementCount === 0 && text.length <= 12))) continue
+          if (!(el.classList.contains('mf-typed') || el.closest('[data-line]') || /slot|roll/i.test(String(el.className)) || el.parentElement?.closest('.mf-roll, [class*=slot]') || (name === '' && el.childElementCount === 0 && text.length <= 12))) continue
           const at = line(el)
           if (!seen.has(at)) seen.set(at, (at.textContent ?? '').trim().slice(0, 60))
         }

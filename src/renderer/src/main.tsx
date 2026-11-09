@@ -1,6 +1,4 @@
 import './assets/main.css'
-// Rolling text (counts, labels): the cell clipping it needs, once for every window.
-import 'slot-text/style.css'
 // Faded edges off once a list is all in view (lib/fade-fits.ts).
 import './lib/fade-fits'
 // Every picture cut to a shape centred on its face or subject (Vision).
