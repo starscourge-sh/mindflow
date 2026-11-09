@@ -93,6 +93,8 @@ try {
   const bar = await h.evaluate(() => [...document.querySelectorAll('[data-selection-bar] button, [data-selection-bar] [role="separator"], [data-selection-bar] .tiptap-separator, [data-selection-bar] [data-orientation="vertical"]')].filter((b) => b.offsetParent || b.getBoundingClientRect().height).map((b) => b.tagName === 'BUTTON' ? b.getAttribute('aria-label') || b.textContent.trim() : '|'))
   check('5. the bar starts Bold, Italic, Link', bar[0] === 'Bold' && bar[1] === 'Italic' && bar[2] === 'Link', JSON.stringify(bar))
   check('5. then "Aa" for the rest, and Haligtree\'s own actions after a line, by name', bar.includes('More text styles') && bar.indexOf('|') > 2 && bar.includes('Gem'), JSON.stringify(bar))
+  const words = await h.evaluate(() => [...document.querySelectorAll('[data-selection-bar] [data-keep-word] .tiptap-button-text')].filter((w) => w.getBoundingClientRect().width).map((w) => w.textContent.trim()))
+  check('5. Capture and Gem say their names on the bar', words.join() === 'Capture,Gem', JSON.stringify(words))
   if (shots) await c.both(`${shots}/toolbar-1440`)
   await caretAt('Mars', false); await wait(300)
 
@@ -128,6 +130,7 @@ try {
     return { menu: m && { top: m.top, bottom: m.bottom }, bar: bar && bar.top, caret: caret.top, count: count ? getComputedStyle(count).visibility : 'none' }
   })
   check('7. the / menu stops above the "Add a thought" bar', low.menu && (!low.bar || low.menu.bottom <= low.bar + 1), JSON.stringify(low))
+  check('7. with no room under its line, the / menu opens above it', low.menu && low.menu.bottom <= low.caret + 2, JSON.stringify(low))
   check('7. the word count hides while the menu is open', low.count !== 'visible', low.count)
   if (shots) await c.both(`${shots}/slash-low-1440`)
   await h.keyboard.press('Escape'); await wait(200)

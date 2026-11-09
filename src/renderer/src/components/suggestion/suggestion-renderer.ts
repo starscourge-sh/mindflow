@@ -4,7 +4,7 @@ import type {
   RefAttributes,
 } from "react"
 import { ReactRenderer } from "@tiptap/react"
-import { flip, shift, size } from "@floating-ui/react"
+import { shift, size } from "@floating-ui/react"
 import { dockRoom } from "@/lib/dock-room"
 import { chime, click } from "@/lib/sound"
 import { listDirection } from "@/lib/menu-keys"
@@ -26,9 +26,21 @@ import {
 const edges = (): { top: number; right: number; bottom: number; left: number } => ({ top: 8, right: 8, bottom: dockRoom(), left: 8 })
 export const IN_WINDOW: SuggestionOptions["floatingUi"] = {
   // The "Add a thought…" bar's top is the window's foot here (dock-room.ts): with no room under the line, the menu
-  // goes above it. Each menu turns `flip: false` on the plugin, so this flip, which knows the bar, is the only one.
+  // goes above it. Each menu turns `flip: false` on the plugin, so this, which knows the bar, is the only turn.
   middleware: [
-    flip(() => ({ padding: edges() })),
+    {
+      // Above the line when the list would not fit under it, measured by its whole height (scrollHeight), not the
+      // height a cap left it last time: a plain flip saw the capped list fit and kept it squeezed under the line.
+      name: "roomAbove",
+      fn: ({ placement, elements }) => {
+        if (!placement.startsWith("bottom") || document.documentElement.hasAttribute("data-overhang")) return {}
+        const line = elements.reference.getBoundingClientRect()
+        const need = Math.min(elements.floating.scrollHeight, 320)
+        const below = window.innerHeight - dockRoom() - line.bottom
+        const above = line.top - 8
+        return below < need && above > below ? { reset: { placement: placement.replace("bottom", "top") as typeof placement } } : {}
+      },
+    },
     shift(() => ({ padding: edges() })),
     size(() => ({
       padding: edges(),

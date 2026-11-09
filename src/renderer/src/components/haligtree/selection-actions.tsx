@@ -59,7 +59,7 @@ export function selectionActions(origin: Origin, { reading = false }: { reading?
           <button
             type="button"
             className={button}
-            aria-label="Capture"
+            aria-label="Capture" data-keep-word
             onClick={(event) => (event.metaKey ? keepAsIs : reword)('capture', editor, origin)}
           >
             <Inbox /> <span className="tiptap-button-text">Capture</span>
@@ -69,7 +69,7 @@ export function selectionActions(origin: Origin, { reading = false }: { reading?
           <button
             type="button"
             className={button}
-            aria-label="Gem"
+            aria-label="Gem" data-keep-word
             onClick={(event) => (event.metaKey ? keepAsIs : reword)('nugget', editor, origin)}
           >
             <Gem /> <span className="tiptap-button-text">Gem</span>
