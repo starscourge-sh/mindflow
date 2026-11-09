@@ -6,7 +6,7 @@
 //   npx electron-vite build --outDir out-sandbox && QA_ENTRY=out-sandbox/main/index.js node qa/sandbox.mjs
 import { STORIES } from '../src/renderer/src/lib/welcome-stories.ts'
 import { createHash } from 'crypto'
-import { mkdtempSync, readdirSync, readFileSync, statSync, existsSync } from 'fs'
+import { mkdtempSync, readdirSync, readFileSync, rmSync, statSync, existsSync } from 'fs'
 import { tmpdir } from 'os'
 import { join, relative } from 'path'
 import { sandbox } from './sandbox-lib.mjs'
@@ -224,5 +224,7 @@ check('your own data folder is byte-for-byte unchanged', changed.length === 0, c
 }
 
 const failed = results.filter((one) => !one.ok)
-console.log(`\n${results.length - failed.length} of ${results.length} passed. Real data folder: ${root}`)
+// Kept to look into only when something failed.
+if (!failed.length) rmSync(root, { recursive: true, force: true })
+console.log(`\n${results.length - failed.length} of ${results.length} passed.${failed.length ? ` Real data folder: ${root}` : ''}`)
 process.exit(failed.length ? 1 : 0)
