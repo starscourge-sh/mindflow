@@ -1688,7 +1688,7 @@ function stick(type: string, id: string, on: boolean, bounds?: Electron.Rectangl
     const card = cardOf(now, insetOf(key))
     const lined = lineUp(card, others(), screen.getDisplayMatching(now).workArea, inLine, CARRIED)
     // The tick and the line together, on the same step.
-    if (cameOnto(inLine, lined.held)) tap('align')
+    if (cameOnto(inLine, lined.held)) tap('level')
     inLine = lined.held
     showGuides(card, lined.lines, colour || GUIDE_BLUE, stillness())
   }
@@ -4684,7 +4684,7 @@ app.whenReady().then(() => {
       const at = win.getBounds()
       const want = { ...at, x: from.x + now.x - start.x, y: from.y + now.y - start.y }
       const lined = lineUp(want, stickyCards(win), screen.getDisplayMatching(want).workArea, on)
-      if (cameOnto(on, lined.held)) tap('align')
+      if (cameOnto(on, lined.held)) tap('level')
       on = lined.held
       if (at.x !== lined.x || at.y !== lined.y) win.setPosition(lined.x, lined.y)
       showGuides(want, lined.lines, colour || GUIDE_BLUE, stillness())
