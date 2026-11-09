@@ -694,12 +694,15 @@ export function CardBrowser({ onOpen, aim, only, newest, onAll, onShow, onAimDon
         </span>
       ))}
       {compact && gridActions && <div data-card-actions className="-ml-3 flex items-center gap-1">{gridActions}</div>}
-      {/* Not studied yet, learning and due, as Anki users count a deck: for what is on show. */}
+      {/* The four stages the rows wear, each counted in its row colour and word, then what is due, in plain ink (due is
+          when, not a stage): one word and one colour for each thing, here and on every row. */}
       <p data-card-counts className="flex flex-wrap gap-x-4 text-sm">
-        <span><strong className="font-semibold text-[var(--tt-color-text-blue)] tabular-nums">{num(ordered.filter((one) => one.stage === 'new' && !one.paused).length)}</strong> not studied yet</span>
-        <span><strong className="font-semibold text-[var(--tt-color-text-orange)] tabular-nums">{num(ordered.filter((one) => one.stage === 'learning' && !one.paused).length)}</strong> learning</span>
-        <span><strong className="font-semibold text-[var(--tt-color-text-green)] tabular-nums">{num(ordered.filter((one) => one.dueAt && Date.parse(one.dueAt) <= Date.now() && !one.paused).length)}</strong> due now</span>
-        <span data-card-known><strong className="font-semibold text-[var(--tt-color-text-purple)] tabular-nums">{num(ordered.filter((one) => one.known).length)}</strong> known <span className="text-muted-foreground">(remembered after 15 days or more)</span></span>
+        {STAGES.map((stage) => (
+          <span key={stage.id} data-card-stage-count={stage.id} title={stage.label}>
+            <strong className="font-semibold tabular-nums" style={{ color: stage.tint }}>{num(ordered.filter((one) => stageOf(one) === stage.id && (!one.paused || stage.id === 'known')).length)}</strong> {stage.word.toLowerCase()}
+          </span>
+        ))}
+        <span><strong className="font-semibold text-foreground tabular-nums">{num(ordered.filter((one) => one.dueAt && Date.parse(one.dueAt) <= Date.now() && !one.paused).length)}</strong> due now</span>
         <span className="text-muted-foreground">{num(ordered.length)} of {num(cards.length)} cards{tag ? ` in the deck ${deckTitle(tag, tags)}` : ''}</span>
       </p>
       {!ordered.length ? (

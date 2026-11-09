@@ -73,7 +73,7 @@ try {
   // 5b. The card browser says the same: how many are known, and which cards are too big.
   await v('cards:list', [{ term: 'The planets in order', meaning: 'Mercury, Venus, Earth, Mars, Jupiter, Saturn #qaplanets' }])
   await h.evaluate(() => document.querySelector('[data-review-tab="cards"]')?.click())
-  check('"All cards" counts the known ones', await waitFor(() => h.evaluate(() => /known \(remembered after 15 days or more\)/.test(document.querySelector('[data-card-known]')?.textContent ?? ''))))
+  check('"All cards" counts the known ones', await waitFor(() => h.evaluate(() => /\d+ known/.test(document.querySelector('[data-card-stage-count="known"]')?.textContent ?? ''))))
   // All cards opens as a list of the cards: the planets card is a row of it, marked.
   // Found by its words, as a person would among 400 others.
   await waitFor(() => h.evaluate(() => !!document.querySelector('[data-review-tab-controls] input')))
