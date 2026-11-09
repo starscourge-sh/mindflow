@@ -43,9 +43,11 @@ export function rank(item: Findable, query: string): number | null {
   const typed = words(term)
   const title = item.title.toLowerCase()
   if (title === term) return 0
-  if (title.startsWith(term)) return 1
+  // A keyword typed whole comes next: `hr` is the divider.
+  if (item.keywords?.some((word) => word === term)) return 0.5
+  // A name that starts with what was typed, the more of it typed the better: `tab` is Table before Table of contents.
+  if (title.startsWith(term)) return 1 + (1 - term.length / title.length) / 2
   if (startsWords(typed, title)) return 2
-  if (item.keywords?.some((word) => word === term)) return 3
   if (item.keywords?.some((word) => startsWords(typed, word))) return 4
   if (item.hint && (item.hint.toLowerCase().startsWith(term) || startsWords(typed, item.hint))) return 5
   if (startsWords(typed, item.group)) return 6

@@ -70,3 +70,14 @@ test('forgives: one slip and meaning words, as ⌘K and Settings search', async 
   assert.ok(!forgives('tbale chair', 'Table'))
   assert.ok(forgives('', 'anything'))
 })
+
+test('a name the typing starts comes first, the closest first: tab is Table, not Table of contents', () => {
+  const menu = [
+    { title: 'Table of contents', group: 'Basic blocks', keywords: ['toc', 'outline'] },
+    { title: 'Table', group: 'Basic blocks', keywords: ['grid'] }
+  ]
+  assert.equal(findItems(menu, 'tab')[0].title, 'Table')
+  assert.equal(findItems(menu, 'table')[0].title, 'Table')
+  assert.equal(findItems(menu, 'toc')[0].title, 'Table of contents')
+  assert.equal(findItems(menu, 'table of')[0].title, 'Table of contents')
+})
