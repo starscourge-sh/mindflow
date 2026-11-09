@@ -6,12 +6,16 @@ import { NodeSelection } from "@tiptap/pm/state"
 import type { Editor } from "@tiptap/react"
 import { animate, motion, useMotionTemplate, useMotionValue, useSpring } from "motion/react"
 import { useFollowLabel, useTilt } from "@/components/haligtree/tilt"
-import { Check, FolderOpen } from "lucide-react"
+import { Check, FolderOpen, ScanText } from "lucide-react"
 import { AliveIcon } from "@/components/ui/alive-icon"
 import ExpandIcon from "@/components/ui/expand-icon"
 import { Toolbar, ToolbarGroup, ToolbarSeparator } from "@/components/tiptap-ui-primitive/toolbar"
 import { Button } from "@/components/tiptap-ui-primitive/button"
-import { host } from "@/lib/host"
+import { host, said } from "@/lib/host"
+import { pictureLines } from "@/lib/picture-actions"
+import { lookUp } from "@/components/pdf/look-up"
+import { RowMenu, type RowItem } from "@/components/haligtree/row-menu"
+import { PictureText, pickAll, pickedText, unpick, usePictureLines } from "@/components/image/picture-text"
 import { chime } from "@/lib/sound"
 import { EASE, EASING, byKeys, still } from "@/lib/motion"
 import { useLive, haligtree, type Settings } from "@/lib/haligtree"
@@ -423,6 +427,10 @@ export function Viewer({ pictures, start, onClose, awayRef }: {
   const stored = src.startsWith("haligtree://assets/")
   const caption = picture.caption
   const most = Math.max(4, 2 / fit.scale)
+  // Its words where they lie (Live Text), read once by the Mac; none shown until there are some.
+  const text = usePictureLines(stored ? src : null)
+  const words = text.lines?.length ? text.lines : null
+  const layer = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const onResize = (): void => setSize((n) => n + 1)
@@ -530,11 +538,30 @@ export function Viewer({ pictures, start, onClose, awayRef }: {
     copyTimer.current = setTimeout(() => setCopied(null), 1400)
   }
 
+  // Picked words on the clipboard as plain text, a line to a line.
+  const copyWords = (picked: string): void =>
+    void navigator.clipboard.writeText(picked).then(
+      () => {
+        const count = picked.split(/\s+/).length
+        chime("copy")
+        said(count === 1 ? "Copied the word" : `Copied ${num(count)} words`)
+      },
+      () => said("Could not copy it", false)
+    )
+  const selectAll = (): void => void (pickAll(layer.current) && chime("select"))
+
   useEffect(() => {
     keys = (event) => {
       if (leaving.current) return true
+      // Its right-click menu open: the keys are the menu's (Esc shuts it, the arrows move in it).
+      if (document.querySelector("[role='menu']")) return false
       const key = event.key
-      if (key === "Escape" || (key === " " && !event.metaKey)) void close()
+      // Picked words first: Esc lets go of them, ⌘C copies them; ⌘A picks every word.
+      const picked = pickedText(layer.current)
+      if (key === "Escape" && picked) unpick(layer.current)
+      else if (event.metaKey && key === "c" && picked) copyWords(picked)
+      else if (event.metaKey && key === "a" && words) selectAll()
+      else if (key === "Escape" || (key === " " && !event.metaKey)) void close()
       else if (key === "ArrowLeft" || key === "ArrowRight") stepBy(key === "ArrowLeft" ? -1 : 1, true)
       else if (key === "+" || key === "=") zoomTo(view.zoom * 1.4)
       else if (key === "-") zoomTo(view.zoom / 1.4)
@@ -572,6 +599,8 @@ export function Viewer({ pictures, start, onClose, awayRef }: {
   const onClickImage = (event: React.MouseEvent): void => {
     if (drag.current?.moved) return void (drag.current = null)
     drag.current = null
+    // A click off the picked words lets go of them, as in Preview, without zooming too.
+    if (pickedText(layer.current)) return unpick(layer.current)
     chime(view.zoom > 1 ? "zoomout" : "zoomin")
     zoomTo(view.zoom > 1 ? 1 : fit.scale < 1 ? 1 / fit.scale : 2, event.clientX, event.clientY)
   }
@@ -610,7 +639,8 @@ export function Viewer({ pictures, start, onClose, awayRef }: {
   const leanX = useSpring(useMotionValue(0), { stiffness: 220, damping: 22 })
   const leanY = useSpring(useMotionValue(0), { stiffness: 220, damping: 22 })
   const lean = (event: React.PointerEvent): void => {
-    if (still() || view.zoom > 1) return
+    // A picture with words stays flat, so they are picked where they are seen.
+    if (still() || view.zoom > 1 || words) return
     const box = event.currentTarget.getBoundingClientRect()
     const nx = (event.clientX - box.left) / box.width - 0.5
     const ny = (event.clientY - box.top) / box.height - 0.5
@@ -619,6 +649,28 @@ export function Viewer({ pictures, start, onClose, awayRef }: {
   }
   const unlean = (): void => (leanX.set(0), leanY.set(0))
   useEffect(() => void (view.zoom > 1 && unlean()), [view.zoom]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const moves = view.smooth && !still() ? "transform 0.24s cubic-bezier(0.16, 1, 0.3, 1)" : "none"
+  // Right-click on the picture: the picked words' own lines first, then the picture's.
+  const menuOf = (): RowItem[] => {
+    const picked = pickedText(layer.current)
+    const range = picked ? getSelection()?.getRangeAt(0).cloneRange() : undefined
+    const box = range?.getBoundingClientRect()
+    const own: RowItem[] = picked && box
+      ? [
+          { label: "Copy", keys: "⌘C", run: () => copyWords(picked) },
+          { label: `Look Up “${picked.length > 24 ? `${picked.slice(0, 22).trim()}…` : picked}”`, run: () => lookUp({ words: picked.replace(/\s+/g, " "), x: box.left + box.width / 2, y: box.bottom, from: { where: caption, link: "" }, range }) },
+          "separator",
+        ]
+      : []
+    return [
+      ...own,
+      words && !picked && { label: "Select all text", keys: "⌘A", run: selectAll },
+      // About the words when some are picked: the picture's own copy stays on its bar (and would fold "Copy" away).
+      stored && !picked && { label: "Copy picture", run: () => void copyIt() },
+      words && { label: "Text in it", items: pictureLines(src) },
+    ]
+  }
 
   return (
     <div className="mf-look" role="dialog" aria-label="Look" aria-modal="true" onWheel={onWheel}>
@@ -644,6 +696,7 @@ export function Viewer({ pictures, start, onClose, awayRef }: {
         // jumped to the end), quicker by a key; a step is the plain quick slide.
         transition={{ duration: lifting ? (keyed ? 0.24 : 0.3) : 0.18, ease: EASE }}
       >
+        <RowMenu items={() => menuOf()}>
         <motion.div className="mf-look-lean" style={{ rotateX: leanX, rotateY: leanY }} onPointerMove={lean} onPointerLeave={unlean}>
         <img
           src={src}
@@ -657,14 +710,33 @@ export function Viewer({ pictures, start, onClose, awayRef }: {
             backgroundImage: lookOf(src)?.[3] || lookOf(src)?.[4] ? undefined : blurFor(src),
             backgroundSize: "100% 100%",
             transform: `translate(${view.x}px, ${view.y}px) scale(${view.zoom})`,
-            transition: view.smooth && !still() ? "transform 0.24s cubic-bezier(0.16, 1, 0.3, 1)" : "none",
+            transition: moves,
           }}
           onPointerDown={onDown}
           onPointerMove={onMove}
           onClick={onClickImage}
         />
+        {words && <PictureText lines={words} width={fit.width} height={fit.height} transform={`translate(${view.x}px, ${view.y}px) scale(${view.zoom})`} transition={moves} layerRef={layer} kept={text.kept} />}
         </motion.div>
+        </RowMenu>
       </motion.div>
+      {/* Words found: a small pill at the picture's corner says they can be picked, as Photos marks Live Text. */}
+      {words && (
+        <motion.div
+          className="mf-look-text-pill"
+          style={{ right: Math.max(12, innerWidth - fit.left - fit.width + 12), bottom: Math.max(12, innerHeight - fit.top - fit.height + 12) }}
+          initial={still() ? false : { opacity: 0, transform: "scale(0.96)" }}
+          animate={{ opacity: 1, transform: "scale(1)" }}
+          transition={{ duration: 0.2, delay: still() || !text.kept ? 0 : 0.14, ease: EASE }}
+        >
+          <Toolbar variant="floating">
+            <Button data-style="ghost" tooltip="Select all text" shortcutKeys="mod+a" aria-label="Select text" onClick={selectAll}>
+              <ScanText className="tiptap-button-icon" />
+              <span className="tiptap-button-text">Select text</span>
+            </Button>
+          </Toolbar>
+        </motion.div>
+      )}
       <motion.div
         ref={foot}
         className="mf-look-foot"

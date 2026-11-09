@@ -60,6 +60,57 @@ export function readPicture(name: string): Promise<string | null> {
   })
 }
 
+/** A word or a line in a picture, its box a share of the picture as it is seen, from the top left. */
+type Box = { text: string; x: number; y: number; w: number; h: number }
+export type PictureLine = Box & { words: Box[] }
+export type PictureLines = { lines: PictureLine[]; kept: boolean }
+
+/**
+ * The words in a picture with where each lies, for selecting them in place
+ * in the picture viewer (native/labels.swift --lines): read once per picture
+ * (its name is its hash) and kept in the database (`kept` when it came from
+ * there), no lines when it holds none, null when it could not be read (asked
+ * again next time). One reading at a time per picture, in the helper's own
+ * process, so nothing here waits on it.
+ */
+const inFlight = new Map<string, Promise<PictureLines | null>>()
+let linesMade = false
+export function readLines(name: string): Promise<PictureLines | null> {
+  if (!PICTURE.test(name) || process.platform !== 'darwin') return Promise.resolve(null)
+  if (!linesMade) database().exec('create table if not exists picture_lines (name text primary key, lines text not null, read_at text not null)')
+  linesMade = true
+  const kept = database().prepare('select lines from picture_lines where name = ?').get(name) as { lines: string } | undefined
+  if (kept) return Promise.resolve({ lines: JSON.parse(kept.lines) as PictureLine[], kept: true })
+  const path = join(assetsDir(), name)
+  if (!existsSync(path)) return Promise.resolve(null)
+  const asked = inFlight.get(name)
+  if (asked) return asked
+  const read = new Promise<PictureLines | null>((done) => {
+    execFile(helper, ['--lines', path], { timeout: 60_000, maxBuffer: 32 * 1024 * 1024 }, (error, out) => {
+      let lines: PictureLine[] | null = null
+      try {
+        const said = JSON.parse(String(out).trim().split('\n').pop() ?? '') as { lines?: PictureLine[] }
+        if (!error && Array.isArray(said.lines)) lines = said.lines
+      } catch {
+        // Not read: asked again next time.
+      }
+      inFlight.delete(name)
+      if (lines) {
+        database().prepare('insert or replace into picture_lines (name, lines, read_at) values (?, ?, ?)').run(name, JSON.stringify(lines), new Date().toISOString())
+        // Search's words for it too, if it had none yet: the same reading, not a second one.
+        if (!words().has(name)) {
+          const text = lines.map((line) => line.text).join('\n')
+          words().set(name, text)
+          db().prepare('insert or replace into picture_words (name, text, read_at) values (?, ?, ?)').run(name, text, new Date().toISOString())
+        }
+      }
+      done(lines && { lines, kept: false })
+    })
+  })
+  inFlight.set(name, read)
+  return read
+}
+
 // Pictures waiting to be read, oldest asked first; one at a time.
 const queue = new Set<string>()
 let reading = false
@@ -113,5 +164,10 @@ export function registerPictureWords(forget: () => void): void {
   ipcMain.handle('image-text', (_event, src: unknown) => {
     const name = typeof src === 'string' ? STORED.exec(src)?.[1] : undefined
     return name ? readPicture(name) : null
+  })
+  // Its words where they lie, to select in the picture viewer.
+  ipcMain.handle('image-lines', (_event, src: unknown) => {
+    const name = typeof src === 'string' ? STORED.exec(src)?.[1] : undefined
+    return name ? readLines(name) : null
   })
 }

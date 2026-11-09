@@ -3,6 +3,7 @@ import type { Frost, LinkMetadata, LookPicture } from './index.d'
 import type { Capture, CaptureMeta, CapturePatch, Change, SaveResult } from '../main/captures'
 import type { Moment } from '../main/celebrate'
 import type { Slept } from '../main/session-log'
+import type { PictureLines } from '../main/picture-words'
 
 // Every live view listens for changes; one IPC listener tells them all,
 // rather than one each past Node's limit of ten.
@@ -130,6 +131,8 @@ const api = {
 
   /** The words in a stored picture, read by the Mac (Apple's Vision): '' with none, null when it could not be read. */
   imageText: (src: string): Promise<string | null> => ipcRenderer.invoke('image-text', src),
+  /** The same words with where each lies in the picture, for selecting them in place; kept after the first reading. */
+  imageLines: (src: string): Promise<PictureLines | null> => ipcRenderer.invoke('image-lines', src),
 
   /** One light tap on a Force Touch trackpad (main/haptic.ts): a dragged row reached a new place. */
   tap: (): void => ipcRenderer.send('haptic:tap'),

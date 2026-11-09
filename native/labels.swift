@@ -15,6 +15,10 @@
 //   labels --focus <picture>  where a crop should centre: the largest face, else what the eye goes to first
 //                             (Vision's saliency), as a share of the picture from the top left:
 //                             {"focus":{"x":0.48,"y":0.31,"face":true}}
+//   labels --lines <picture>  the words in a picture with where each lies, for selecting them in place (Live Text),
+//                             one line, boxes a share of the picture as it is seen (turned upright), from the top left:
+//                             {"lines":[{"text":"MONTHLY MAGAZINE","x":..,"y":..,"w":..,"h":..,"words":[{"text":"MONTHLY","x":..},..]}],
+//                              "width":1200,"height":800}
 import CoreText
 import Foundation
 import ImageIO
@@ -35,6 +39,75 @@ func fail(_ code: String, _ message: String) -> Never {
 var args = CommandLine.arguments
 if args.count > 3 && args[1] == "--pdf" { readPDF(args[2], args[3]) }
 if args.count > 2 && args[1] == "--focus" { focus(args[2]) }
+if args.count > 2 && args[1] == "--lines" { lines(args[2]) }
+
+/**
+ * A small picture drawn up to about 2,000 pixels on its long side (at most 3 times) before it is read:
+ * Vision misreads the small print of a 600-pixel scan ("LIPPINCOT T'S") that it reads right when larger.
+ */
+func enlarged(_ image: CGImage) -> CGImage {
+  let scale = min(3.0, 2000 / Double(max(image.width, image.height)))
+  guard scale > 1.2, let space = CGColorSpace(name: CGColorSpace.sRGB),
+    let context = CGContext(data: nil, width: Int(Double(image.width) * scale), height: Int(Double(image.height) * scale), bitsPerComponent: 8, bytesPerRow: 0, space: space, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
+  else { return image }
+  context.interpolationQuality = .high
+  context.draw(image, in: CGRect(x: 0, y: 0, width: context.width, height: context.height))
+  return context.makeImage() ?? image
+}
+
+/** Vision's box (from the bottom left) as a share of the picture from the top left, to 4 places. */
+func share(_ rect: CGRect) -> [String: Any] {
+  func r(_ value: CGFloat) -> Double { (Double(value) * 10000).rounded() / 10000 }
+  return ["x": r(rect.minX), "y": r(1 - rect.maxY), "w": r(rect.width), "h": r(rect.height)]
+}
+
+/** Each line of words, and each word in it, where it lies: read as --text reads (accurate, corrected, any language). */
+func lines(_ path: String) -> Never {
+  guard let source = CGImageSourceCreateWithURL(URL(fileURLWithPath: path) as CFURL, nil), let image = CGImageSourceCreateImageAtIndex(source, 0, nil) else { fail("unreadable", "The picture could not be read") }
+  let request = VNRecognizeTextRequest()
+  request.recognitionLevel = .accurate
+  request.usesLanguageCorrection = true
+  if #available(macOS 13, *) { request.automaticallyDetectsLanguage = true }
+  // Read the way up it is seen: a phone's portrait photo is stored on its side.
+  let turn = orientationOf(source)
+  do {
+    try VNImageRequestHandler(cgImage: enlarged(image), orientation: turn, options: [:]).perform([request])
+  } catch {
+    fail("failed", "The words could not be made out: \(error.localizedDescription)")
+  }
+  let found = (request.results ?? []).compactMap { one -> (CGRect, [String: Any])? in
+    guard let best = one.topCandidates(1).first else { return nil }
+    let text = best.string
+    let line = one.boundingBox
+    var words: [[String: Any]] = []
+    var at = text.startIndex
+    while let start = text[at...].firstIndex(where: { !$0.isWhitespace }) {
+      let end = text[start...].firstIndex(where: { $0.isWhitespace }) ?? text.endIndex
+      // A word's own box; where Vision gives only the line's, its share of the line by letters.
+      var rect = (try? best.boundingBox(for: start..<end))?.boundingBox ?? .null
+      let whole = text.startIndex == start && text.endIndex == end
+      if rect.isNull || (!whole && abs(rect.width - line.width) < 0.0001) {
+        let count = CGFloat(max(1, text.count))
+        let lead = CGFloat(text.distance(from: text.startIndex, to: start)) / count
+        let span = CGFloat(text.distance(from: start, to: end)) / count
+        rect = CGRect(x: line.minX + line.width * lead, y: line.minY, width: line.width * span, height: line.height)
+      }
+      var word = share(rect)
+      word["text"] = String(text[start..<end])
+      words.append(word)
+      at = end
+    }
+    if words.isEmpty { return nil }
+    var all = share(line)
+    all["text"] = text.trimmingCharacters(in: .whitespaces)
+    all["words"] = words
+    return (line, all)
+  }.sorted { a, b in abs(a.0.midY - b.0.midY) < min(a.0.height, b.0.height) / 2 ? a.0.minX < b.0.minX : a.0.midY > b.0.midY }
+  // The size it is seen at: a turned photo's sides swap.
+  let sideways = [.left, .right, .leftMirrored, .rightMirrored].contains(turn)
+  say(["lines": found.map { $0.1 }, "width": sideways ? image.height : image.width, "height": sideways ? image.width : image.height])
+  exit(0)
+}
 
 /** Where a round photo or a cover cut from this picture should centre. */
 func focus(_ path: String) -> Never {
@@ -144,7 +217,8 @@ if reading {
   request.usesLanguageCorrection = true
   if #available(macOS 13, *) { request.automaticallyDetectsLanguage = true }
   do {
-    try VNImageRequestHandler(cgImage: image, options: [:]).perform([request])
+    // The way up it is seen, so a phone's portrait photo reads top to bottom.
+    try VNImageRequestHandler(cgImage: enlarged(image), orientation: orientationOf(source), options: [:]).perform([request])
   } catch {
     fail("failed", "The words could not be made out: \(error.localizedDescription)")
   }

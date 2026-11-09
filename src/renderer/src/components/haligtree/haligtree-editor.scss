@@ -2654,9 +2654,61 @@ $nested-ul: "ul:not([data-type='taskList'])";
 }
 
 .mf-look-lean {
+  position: relative;
   width: 100%;
   height: 100%;
   will-change: transform;
+}
+
+// The words in the picture (picture-text.tsx), invisible over it and moved with
+// it: only a word takes the pointer, with the I-beam; the rest is the picture's.
+// Picked, they take the Mac's own selection colour, see-through so the print shows.
+.mf-look-text {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  color: transparent;
+  font-family: system-ui, -apple-system, sans-serif;
+  white-space: pre;
+  user-select: text;
+  -webkit-user-select: text;
+
+  > span {
+    position: absolute;
+    pointer-events: auto;
+    cursor: text;
+    transform-origin: 0 0;
+  }
+
+  // While picking, the whole picture keeps the I-beam.
+  &[data-picking] {
+    pointer-events: auto;
+    cursor: text;
+  }
+
+  ::selection {
+    background: color-mix(in srgb, Highlight 55%, transparent);
+    color: transparent;
+  }
+}
+
+// A menu opened on the picture (its words' Copy and Look Up) shows over the viewer, not behind it.
+body:has(.mf-look) [data-radix-popper-content-wrapper] {
+  z-index: 70 !important;
+}
+
+// Where each word's own width is measured (picture-text.tsx), unseen, in the words' own face.
+.mf-look-text-ruler {
+  position: fixed;
+  top: 0;
+  left: 0;
+  visibility: hidden;
+  font-family: system-ui, -apple-system, sans-serif;
+  white-space: pre;
+}
+
+.mf-look-text-pill {
+  position: absolute;
 }
 
 .mf-look-image {
