@@ -566,8 +566,16 @@ function useShut(): [Set<string>, (name: string) => void] {
 }
 
 /** The chevron that folds a deck's sub-decks away, or the same room kept empty, so names line up. */
+/**
+ * The decks inside a deck hang off the sidebar's own branch (branches.tsx): its trunk runs down from under the
+ * fold arrow of the deck above (a row's 6px inset and half the 20px arrow, less the trunk's 4.5px offset), and each
+ * twig ends at the row's arrow, or at its name when it has nothing inside (no empty arrow's room to cross).
+ */
+const NEST = 'pl-[20.5px]'
+const TWIGS = '[&>[data-no-twig]]:pl-[20.5px] [&_[data-fold-none]]:w-0'
+
 function Fold({ id, kids, open, name, flip }: { /** The deck's tag or a shared topic's path, for probes: the name shown can change. */ id: string; kids: number; open: boolean; name: string; flip: () => void }): React.JSX.Element {
-  if (!kids) return <span aria-hidden className="size-5 shrink-0" />
+  if (!kids) return <span aria-hidden data-fold-none="" className="size-5 shrink-0" />
   return (
     <button type="button" data-deck-fold-kids={id} aria-expanded={open} aria-label={`${open ? 'Fold' : 'Unfold'} the decks inside ${name}`} onClick={(event) => (event.stopPropagation(), flip())}
       className="grid size-5 shrink-0 cursor-pointer place-items-center rounded-[4px] text-muted-foreground hover:bg-accent hover:text-foreground">
@@ -656,8 +664,8 @@ function DeckList({ own, shelves, onStudy, place = {}, menu, fresh = null, renam
           <div key={deck.tag}>
             {row(deck.tag, deckName(deck), deckName(deck), deck.due, deck.fresh, deck.cards, inside.filter((one) => one.depth === 1).length, deck.cards ? () => onStudy(deck.tag) : null, { own: deck })}
             {inside.length > 0 && !shut.has(deck.tag) && (
-              <div className="pl-3">
-                <Tree nodes={treeOf(inside, (one) => one.depth)} here={-1} className="pl-3" open={(node) => !shut.has(node.item.tag)}
+              <div className={NEST}>
+                <Tree nodes={treeOf(inside, (one) => one.depth)} here={-1} className={TWIGS} open={(node) => !shut.has(node.item.tag)}
                   row={({ item: one, kids }) => row(one.tag, sayDeck(one.label), deckTitle(one.tag, own.map((deck) => deck.tag)), one.due, one.fresh, one.cards, kids.length, one.cards ? () => onStudy(one.tag) : null, { own: one })} />
               </div>
             )}
@@ -670,8 +678,8 @@ function DeckList({ own, shelves, onStudy, place = {}, menu, fresh = null, renam
           <div key={shelf.name}>
             {row(shelf.name, shelf.name, shelf.name, shelf.due, shelf.fresh, shelf.cards, topics.length ? treeOf(topics, (topic) => topic.deck.split('::').length).length : 0, shelf.held < shelf.cards ? () => onStudy(deckTag(shelf.name)) : null, { shelf })}
             {topics.length > 0 && !shut.has(shelf.name) && (
-              <div className="pl-3">
-                <Tree nodes={treeOf(topics, (topic) => topic.deck.split('::').length)} here={-1} className="pl-3" open={(node) => !shut.has(node.item.deck)}
+              <div className={NEST}>
+                <Tree nodes={treeOf(topics, (topic) => topic.deck.split('::').length)} here={-1} className={TWIGS} open={(node) => !shut.has(node.item.deck)}
                   row={({ item: topic, kids }) => row(topic.deck, topic.label, topic.deck, -1, -1, topic.cards, kids.length, topic.held < topic.cards ? () => onStudy(deckTag(topic.deck)) : null)} />
               </div>
             )}
