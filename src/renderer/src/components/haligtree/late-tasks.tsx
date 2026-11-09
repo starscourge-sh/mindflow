@@ -87,9 +87,10 @@ export function LateMenu({ tasks, className = '', pill = false }: { tasks: Task[
               ? 'h-7 gap-1.5 rounded-md bg-[color-mix(in_oklab,var(--tt-color-text-orange)_14%,var(--background))] px-2.5 text-body font-semibold text-[var(--tt-color-text-orange)] hover:bg-[color-mix(in_oklab,var(--tt-color-text-orange)_22%,var(--background))] hover:text-[var(--tt-color-text-orange)] data-[state=open]:bg-[color-mix(in_oklab,var(--tt-color-text-orange)_22%,var(--background))]'
               : 'gap-1.5 font-semibold text-[var(--tt-color-text-orange)] hover:text-[var(--tt-color-text-orange)]'}>
             {pill && <AlarmClock aria-hidden className="size-4" />}
-            <span className="tabular-nums">{num(late.length)} late</span>
-            <span aria-hidden className={`font-normal ${pill ? 'hidden text-[var(--tt-color-text-orange)]/60 @[22rem]/title:inline' : 'text-foreground/60'}`}>·</span>
-            <span className={`font-medium text-foreground ${pill ? 'hidden @[22rem]/title:inline' : ''}`}>Reschedule all…</span>
+            {/* Under the "Overdue" heading the count is already said: the button only says what it does. */}
+            {pill && <span className="tabular-nums">{num(late.length)} late</span>}
+            {pill && <span aria-hidden className="hidden font-normal text-[var(--tt-color-text-orange)]/60 @[22rem]/title:inline">·</span>}
+            <span className={`font-medium ${pill ? 'hidden text-foreground @[22rem]/title:inline' : ''}`}>Reschedule all…</span>
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="text-control">
