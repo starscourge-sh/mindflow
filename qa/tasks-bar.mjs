@@ -1,7 +1,7 @@
 // The Tasks row's one bar: the tabs Today, Upcoming, Later and Routines on the
 // left, the count, "Write out my day" and ⋯. The button stays in the same
-// place on every tab (greyed off Today) and reads "Back to the list" while the
-// day is written out; ⋯ holds "Urgent and important", "Your order" and
+// place on every tab (greyed off Today) and puts the caret on a new line at the end of the list (the
+// list is the written-out day); ⋯ holds "Urgent and important", "Your order" and
 // "I have 15 min" (only with the focus tools on). Nothing in the bar moves:
 // every control's place is measured before and after each click.
 //
@@ -22,7 +22,7 @@ const bar = () => h.evaluate(() => {
   const out = {}
   for (const one of header?.querySelectorAll('button') ?? []) {
     // The write-out button by its words (its tip names it otherwise), the rest by name.
-    const name = one.hasAttribute('data-write-day') ? one.querySelector('span:last-child').textContent.trim() : (one.getAttribute('aria-label') || one.textContent || '').replace(/\s+/g, ' ').trim()
+    const name = one.hasAttribute('data-write-day') ? one.textContent.trim() : (one.getAttribute('aria-label') || one.textContent || '').replace(/\s+/g, ' ').trim()
     const box = one.getBoundingClientRect()
     if (!box.width) continue
     out[name] = { left: Math.round(box.left), right: Math.round(box.right), off: one.disabled }
@@ -54,19 +54,17 @@ try {
   const mids = await h.evaluate(() => [...document.querySelectorAll('[data-page] section header button')].filter((one) => one.getBoundingClientRect().width).map((one) => { const r = one.getBoundingClientRect(); return Math.round(r.top + r.height / 2) }))
   check('one row: every control on the same line', Math.max(...mids) - Math.min(...mids) <= 3, mids.join(' '))
 
-  // Write out my day, and back: the same button, the same place.
+  // Write out my day: the caret on a new line at the end of the list; the button stays as it is.
   await write().click()
   await wait(700)
   const written = await bar()
-  check('written out, the button reads "Back to the list"', !!written.out['Back to the list'], Object.keys(written.out).join(', '))
-  check('… in the same place', written.out['Back to the list'] && written.out['Back to the list'].left === first.out['Write out my day'].left && written.out['Back to the list'].right === first.out['Write out my day'].right, JSON.stringify(written.out['Back to the list']))
-  check('nothing else in the bar moved', moved(first, written).length === 0, moved(first, written).join('; '))
-  check('the day is a page to write on', await h.locator('[data-page="today"] [data-day-list], [data-page="today"] .tiptap').count() > 0)
-  await write().click()
-  await wait(700)
+  check('written out, the button still reads "Write out my day"', !!written.out['Write out my day'], Object.keys(written.out).join(', '))
+  check('nothing in the bar moved', moved(first, written).length === 0, moved(first, written).join('; '))
+  check('the caret is on a new line in the list itself', await h.evaluate(() => !!document.activeElement?.closest('[data-page="today"] [data-write-line]')))
+  await h.keyboard.press('Escape')
+  await wait(500)
   const back = await bar()
-  check('back to the list, it reads "Write out my day" again', !!back.out['Write out my day'])
-  check('and nothing moved', moved(first, back).length === 0, moved(first, back).join('; '))
+  check('Esc leaves the line, and nothing moved', !(await h.locator('[data-write-line]').count()) && moved(first, back).length === 0, moved(first, back).join('; '))
 
   // Each tab: the controls stay where they were; "Write out my day" greyed off Today.
   for (const tab of ['Upcoming', 'Later', 'Routines', 'Today']) {

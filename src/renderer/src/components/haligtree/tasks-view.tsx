@@ -25,7 +25,7 @@ import { useArrivals } from './note-list'
 import { TagRow } from './pass'
 import { Empty, Island, Kbd, Page, Prop, PropInput, Props, Rolling, Tags, toast, useListKeys, typing, VirtualList, Stepper, quietly, CloseBeside } from './ui'
 import { Display, arrange, openDisplay, useView, type Facet } from './display'
-import { ThreeMark, dayThree, takeWriteDay } from './day-list'
+import { ThreeMark, takeWriteDay } from './day-list'
 import { MatrixView } from './matrix-view'
 import { readLines, tasksOf, tasksSaid } from '../../../../main/day-lines'
 import { DatePicker } from './date-picker'
@@ -890,8 +890,8 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
     const foot = rows.findIndex((row) => 'key' in row && (row.key === 'held' || row.key === 'blocked' || row.key === 'Waiting on someone'))
     rows.splice(after >= 0 ? after + 1 : foot >= 0 ? foot : rows.length, 0, { writer: true })
   }
-  // The day's three, numbered in the margin as they were on the written page.
-  const three = mode === 'today' && view.group === 'when' && !example ? dayThree(tasks) : []
+  // The day's three: the first three of today's tasks as the list shows them, numbered in the margin.
+  const three = mode === 'today' && view.group === 'when' && !example ? shown.filter((task) => dayOf(task) < startOfDay(1) && !task.waitingOn).slice(0, 3).map((task) => task.id) : []
   // Only the last pick lands: a late answer for the task before is dropped.
   const asked = useLastAsked()
   // The one asked for while it is read: its pane and name at once, never the task before (note-coming.tsx).
@@ -1286,7 +1286,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
                         style={fresh(task.id) > 0 ? { animationDelay: `${Math.min(fresh(task.id), 8) * 30}ms` } : undefined}
                       >
                         {/* One of the day's three: its number in the margin before the circle. */}
-                        {three.includes(task.id) && <ThreeMark n={three.indexOf(task.id) + 1} className="absolute top-2 left-0 w-[calc(var(--list-ink)-var(--list-edge))] text-center" />}
+                        {three.includes(task.id) && <ThreeMark n={three.indexOf(task.id) + 1} className="absolute top-2 right-full mr-1 w-3 text-right" />}
                         <Tip label="Complete">
                         <button
                           type="button"

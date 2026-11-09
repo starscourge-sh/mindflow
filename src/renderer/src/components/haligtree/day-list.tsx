@@ -24,32 +24,9 @@ const inNow = (task: Task): boolean => {
   return task.status === 'done' && !!task.completedAt && dayKey(task.completedAt) === dayKey() && (day ?? 0) < startOfDay(1)
 }
 
-/**
- * The day's three, the way Arc keeps pinned tabs while the day's tabs come and
- * go: the first three of today's tasks in your order, numbered 1 2 3. Until one
- * of them is ticked they follow the list; once one is ticked they are kept for
- * the day, here.
- */
-const THREE = (day: string): string => `day-list:three:${day}`
-const readKept = (day: string): string[] | null => {
-  try {
-    const ids = JSON.parse(localStorage.getItem(THREE(day)) ?? 'null')
-    return Array.isArray(ids) ? ids : null
-  } catch {
-    return null
-  }
-}
-/** Kept for the day once one of the three is ticked. */
-export const keepThree = (day: string, ids: string[]): void => {
-  try {
-    localStorage.setItem(THREE(day), JSON.stringify(ids))
-  } catch {
-    // They go on following the list until kept.
-  }
-}
-/** Today's three, kept or still following the list: read by Today's list and quick capture's Today, which mark them the same way. */
-export const dayThree = (tasks: Task[], day = dayKey()): string[] =>
-  readKept(day) ?? tasks.filter(inNow).sort(yourOrder).slice(0, 3).map((task) => task.id)
+/** Today's three: the first three of today's tasks in your order, numbered 1 2 3 in quick capture's Today as in Today's list. */
+export const dayThree = (tasks: Task[]): string[] =>
+  tasks.filter(inNow).sort(yourOrder).slice(0, 3).map((task) => task.id)
 
 /** A task's number among the day's three, quiet in the margin; green once it is done. */
 export function ThreeMark({ n, done = false, className = '' }: { n: number; done?: boolean; className?: string }): React.JSX.Element {
