@@ -63,7 +63,7 @@ const caretFix = (code: string): string => {
 const fixCaret = (code: string): string => code.replace(CARET_READ, `const restoreSelection = (() => { const at = this.getPos(); const { from, to } = this.editor.state.selection; return typeof at === "number" && this.editor.view.hasFocus() && to >= at && from <= at + this.node.nodeSize; })() ? captureDOMSelection(this.contentDOMElement) : null;`)
 const tiptapFix = (): Plugin => ({
   name: 'haligtree-tiptap-fix',
-  transform: (code, id) => (/\/@tiptap\/react\/dist\/index\.js$/.test(id.split('?')[0]) ? caretFix(code) : null)
+  transform: (code, id) => (/\/@tiptap\/react\/dist\/index\.js$/.test(id.split('?')[0]) ? { code: caretFix(code), map: null } : null)
 })
 const tiptapFixAhead = {
   name: 'haligtree-tiptap-fix',
