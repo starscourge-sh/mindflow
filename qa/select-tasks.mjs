@@ -186,14 +186,16 @@ try {
     check('a note: the line above the list is left as it was', (await root.locator(':scope > p').first().innerText()) === 'Weekend')
     await shot(home, 'note-linked')
 
-    // The box with its side panel: both columns fill, with even margins, also after a promote.
+    // The box with its side panel: both columns fill, with even margins, also after a promote. "The window" is the
+    // card: since 94dee6c6 quick capture is a card inside a larger see-through window (a room round it for its
+    // shadow and menus), so the card (.app-container, the size main reports) is what the panel row must fill.
     const widths = () => box.evaluate(() => {
       const panels = document.querySelectorAll('[data-slot="resizable-panel"]')
       // The tab bar: the smallest thing in the panel holding all its tabs.
       const bar = [...(panels[panels.length - 1]?.querySelectorAll('*') ?? [])].filter((one) => ['Inbox', 'Tasks', 'Review', 'Saved'].every((tab) => one.innerText?.includes(tab))).at(-1)
       const column = panels[panels.length - 1]?.getBoundingClientRect()
       const at = bar?.getBoundingClientRect()
-      return { window: innerWidth, group: document.querySelector('[data-slot="resizable-panel-group"]')?.getBoundingClientRect().width, column: column && Math.round(column.width), left: at && column ? Math.round(at.left - column.left) : null, right: at && column ? Math.round(column.right - at.right) : null }
+      return { window: Math.round(document.querySelector('.app-container')?.getBoundingClientRect().width ?? innerWidth), group: document.querySelector('[data-slot="resizable-panel-group"]')?.getBoundingClientRect().width, column: column && Math.round(column.width), left: at && column ? Math.round(at.left - column.left) : null, right: at && column ? Math.round(column.right - at.right) : null }
     })
     await box.evaluate(() => window.api.showPrompt())
     await box.waitForTimeout(1200)

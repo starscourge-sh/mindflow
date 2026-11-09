@@ -1,5 +1,5 @@
-// Stats is short: "At a glance" holds four or five parts, "Pages you open
-// most" and "How you find things" among them; "Your month" and "Your year"
+// Stats is short: "At a glance" holds five parts (six with Remembering once
+// there are cards), "Pages you open most" and "How you find things" among them; "Your month" and "Your year"
 // hold the rest. Every part is on exactly one of the three, the chips never
 // move as you switch, each page draws whole, and the month's and the year's
 // play-backs are still a click away.
@@ -20,7 +20,10 @@ try {
   await go('stats')
   await h.waitForTimeout(1200)
   const glance = await shown()
-  check('"At a glance" holds four or five parts', glance.length >= 4 && glance.length <= 5, glance.join(' | '))
+  // Six since 4118fca4 ("the Stats page says how well cards stay and how many fall due"): the Remembering line joined
+  // the glance on purpose, shown once there are cards. Exactly these, in this order, so nothing else creeps in.
+  const GLANCE = ['Writing', 'Remembering', 'This week', 'Days you opened it', 'Pages you open most', 'How you find things']
+  check('"At a glance" holds its five parts, and Remembering once there are cards', glance.join('|') === GLANCE.filter((one) => one !== 'Remembering' || glance.includes(one)).join('|') && glance.length >= 5, glance.join(' | '))
   check('with "Pages you open most" and "How you find things"', glance.includes('Pages you open most') && glance.includes('How you find things'))
   const at = await spot()
   const pages = { glance }
