@@ -41,8 +41,8 @@ const may = (): boolean =>
 export const paneCard = (): Element | null =>
   document.querySelector('[data-pane-front] > [data-pane-card]') ?? document.querySelector('[data-pane] > [data-pane-card]')
 
-/** The Calendar's side form, open on an event (day-side.tsx). */
-export const sideForm = (): Element | null => document.querySelector('[data-day-side="event"]')
+/** The Calendar's right sidebar, which the event's form opens in (day-side.tsx). */
+export const sideForm = (): Element | null => document.querySelector('[data-cal-right]')
 
 const seen = (el: Element): boolean => {
   const at = el.getBoundingClientRect()
@@ -145,5 +145,6 @@ export function heroBack(run: () => void, from: () => Element | null = paneCard)
     const [name, value] = was.key
     return [...document.querySelectorAll(`[${name}="${CSS.escape(value)}"]`)].find(seen) ?? null
   }
-  fly('close', el, run, find, () => onShow(paneCard()), () => stand?.remove())
+  // Waited for as the page comes back (a list read in a moment after): not there by then, closed at once.
+  fly('close', el, run, find, () => onShow(paneCard()) && (!was.key || !!find()), () => stand?.remove())
 }

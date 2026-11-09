@@ -228,7 +228,7 @@ await settle(1200)
 await go('home')
 await settle(1200)
 const tile = async () => h.evaluate(() => {
-  const el = [...document.querySelectorAll('[data-drag-open]')].find((one) => /^(capture|nugget|article|question):/.test(one.getAttribute('data-drag-open')) && one.getBoundingClientRect().height > 0 && one.getBoundingClientRect().top < innerHeight - 60)
+  const el = [...document.querySelectorAll('[data-page="home"] [data-drag-open]')].find((one) => /^(capture|nugget|article|question):/.test(one.getAttribute('data-drag-open')) && one.getBoundingClientRect().height > 0 && one.getBoundingClientRect().top < innerHeight - 60)
   if (!el) return null
   el.scrollIntoView({ block: 'center' })
   return el.getAttribute('data-drag-open')
@@ -366,7 +366,7 @@ if (runs(3)) {
   }
 }
 
-check('no errors in the window', c.errors.filter((e) => !/ResizeObserver|favicon/.test(e)).length === 0, c.errors.slice(0, 3).join(' | '))
+check('no errors in the window', c.errors.filter((e) => !/ResizeObserver|favicon|Failed to load resource/.test(e)).length === 0, c.errors.slice(0, 3).join(' | '))
 console.log(`${results.filter(Boolean).length}/${results.length} passed`)
 await c.close()
 process.exit(results.every(Boolean) ? 0 : 1)

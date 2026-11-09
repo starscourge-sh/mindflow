@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { heroBack } from '@/lib/hero'
+import { heroBack, heroing } from '@/lib/hero'
 import { byKeys, still } from '@/lib/motion'
 import { createPortal } from 'react-dom'
 import { AnimatePresence, motion } from 'motion/react'
@@ -153,8 +153,8 @@ export function DaySide({ ask, onClose, onOpen, inline = false, width, grip, res
         <motion.div ref={panel} key="day-side" data-day-side={ask ? (asking ? 'new' : eventKey ? 'event' : 'task') : undefined} data-cal-right={inline || undefined} data-cal-right-holds={inline ? (ask ? 'editor' : 'upcoming') : undefined}
           role={ask ? 'dialog' : 'complementary'} data-beside={ask ? true : undefined} aria-label={!ask ? 'Upcoming' : asking ? (kind === 'event' ? 'A new event' : 'A new task') : eventKey ? 'The event' : 'The task'} tabIndex={-1}
           // Slid, never faded: a frosted surface fading in shows a dark wash before its blur (taste.md, 8 Nov). Reached by a key
-          // or with Reduce motion, it is there at once and gone at once.
-          initial={byKeys() || still() ? false : OFF} animate={{ transform: 'translateX(0%)' }}
+          // or with Reduce motion, it is there at once and gone at once; grown out of an event (lib/hero.ts), it is already in place.
+          initial={byKeys() || still() || heroing() ? false : OFF} animate={{ transform: 'translateX(0%)' }}
           variants={LEAVE} exit="gone"
           transition={IN}
           style={width ? { width } : undefined}
