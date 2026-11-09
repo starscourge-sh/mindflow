@@ -185,7 +185,7 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
   const lookups = lookupsPage
   const examples = unloaded(all) || kept.length || (all.length && !archived && !lookups) || (everything && (unloaded(tasks) || tasks.length)) ? [] : archived ? exampleArchived() : lookups ? exampleLookups() : [...exampleInbox(), ...exampleDiscarded()].filter(keep)
   // Its own Display is kept under the name it had as All captures, so how you set it stays.
-  const { groups: every, display, chips, density, view, setView, move, moveBy, island } = useCaptureDisplay(everything ? 'captures:All captures' : lookups ? LOOKED_UP : `captures:${title}`, kept, undefined, archived,
+  const { groups: every, display, chips, density, view, setView, move, moveBy, island, ownUnread } = useCaptureDisplay(everything ? 'captures:All captures' : lookups ? LOOKED_UP : `captures:${title}`, kept, undefined, archived,
     // Open, Done or Both, on the Task chip itself: a choice about tasks, worn by them.
     everything ? <TaskStateMenu state={taskState} onState={(next) => (setTaskState(next), setChosen([]))} /> : undefined)
   // A note made into a task lives on as the task: hidden for it, unless asked
@@ -504,7 +504,8 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
   const meta = listedOpen ?? (unloaded(all) ? open ?? undefined : hiddenOpen?.id === open?.id && hiddenOpen?.snoozedUntil ? hiddenOpen : undefined)
   // Sent here for one note: the list comes in whole beside it once drawn (Page's `apart`).
   const sent = !!focus && (coming ?? open?.id) === focus
-  const listUnread = unloaded(all) || (everything && (unloaded(tasks) || !sources.ready))
+  // Your own order too: drawn before it is read, a list in Custom order showed newest first for a frame.
+  const listUnread = unloaded(all) || ownUnread || (everything && (unloaded(tasks) || !sources.ready))
   // What is around a note's words (who links to it, a thought on it) comes the frame after them.
   const later = useAfterFirstPaint()
 
@@ -1121,6 +1122,8 @@ export function useCaptureDisplay(name: string, all: CaptureMeta[], filter?: Vie
   moveBy: (shown: string[], id: string, by: number) => boolean
   /** The groups as the list draws them: as islands, only the rows that show (islands.tsx). Applied last, after any other narrowing. */
   island: <T>(groups: [string, T[]][]) => { groups: [string, T[]][]; islands?: Record<string, IslandState> }
+  /** Your own order not read yet: the list waits for it. */
+  ownUnread: boolean
 } {
   // Archived opens in its folders: each "Put away everything before" run is one, by its day.
   // The Inbox by kind to start (notes, then tasks, quotes, words), newest first: what each capture is, at a glance.
@@ -1234,7 +1237,7 @@ export function useCaptureDisplay(name: string, all: CaptureMeta[], filter?: Vie
   const chips = <FilterChips view={view} onChange={setView} facets={facets} defaults={filter ?? {}} addons={addons} wrap />
   // Rows only: tiles keep their plain headings.
   const island = useIslands(name, islandsOn(view) && (density === 'list' || density === 'compact'))
-  return { groups, display, chips, density, view, setView, move, moveBy, island }
+  return { groups, display, chips, density, view, setView, move, moveBy, island, ownUnread: unloaded(own.order) }
 }
 
 /** Questions › Looked up's Display, kept apart from the other lists'. */

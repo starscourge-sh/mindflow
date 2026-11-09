@@ -690,8 +690,8 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
         return sections
       }, [])
     : groups.map(([name, list]) => [name, list.map(entryOf)] as [string, Entry[]])
-  // Until the notes and your groups are read, the list and where a note sits in it are not known.
-  const listUnread = unloaded(all) || unloaded(noteGroups) || (writing && unloaded(pinnedQuestions)) || (!!gatherer && !gathered)
+  // Until the notes, your groups and your own order are read, the list and where a note sits in it are not known.
+  const listUnread = unloaded(all) || unloaded(noteGroups) || unloaded(order) || (writing && unloaded(pinnedQuestions)) || (!!gatherer && !gathered)
   return (
     // The list and the note open beside it come in together, once both are read (lib/reads-in.tsx); sent here for a note, the note never waits for the list.
     <ReadsIn className="contents">

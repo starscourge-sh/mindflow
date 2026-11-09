@@ -501,7 +501,7 @@ export function GoalsView({ focus, onOpen }: { focus?: string; onOpen?: (type: s
     <ReadsIn className="contents">
       {/* Sent here for one goal: the page waits for it too, so it opens on the goal beside the list, not on the list alone first;
           the goal never waits for the list, which comes in whole beside it once drawn. */}
-      <Page aside={!!open || !!coming} waiting={unloaded(all) || (!!focus && (coming ?? open?.id) !== focus) || !listShown} apart={sent} title="Goals" count={several.chosen.length || undefined} unit={several.chosen.length ? ['selected', 'selected'] : ['goal', 'goals']}
+      <Page aside={!!open || !!coming} waiting={unloaded(all) || unloaded(own.order) || (!!focus && (coming ?? open?.id) !== focus) || !listShown} apart={sent} title="Goals" count={several.chosen.length || undefined} unit={several.chosen.length ? ['selected', 'selected'] : ['goal', 'goals']}
         // Which goals show, at the line's left before the count, on the list's edges as Tasks' tabs (qa/list-edges.mjs): apart from the buttons that make or gather goals.
         lead={several.bar ? undefined : <div data-list-tabs className="flex shrink-0" style={{ marginLeft: 'calc(var(--list-edge) - var(--list-ink) - 3px)' }}><TabChips name="goals" tabs={TABS.map((one) => ({ value: one.id, label: one.label, count: unloaded(all) ? undefined : listOf(one.id).length }))} value={show} onChange={switchTo} /></div>}
         actions={several.bar ??

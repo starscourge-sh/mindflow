@@ -7,7 +7,8 @@ import { refuse, toast, waiting, quietly } from '@/components/haligtree/ui'
 import type { Action } from '@/components/search'
 import { chime } from '@/lib/sound'
 import { detailsShown, fullWidth, setFullWidth, showDetails } from '@/lib/reading'
-import { call, useLive, haligtree } from '@/lib/haligtree'
+import { call, haligtree } from '@/lib/haligtree'
+import { useKept } from '@/lib/groups'
 import { addToQuestion } from '@/components/haligtree/questions-view'
 import { dayKey, num } from '../../../main/dates'
 import { canSplit, frontPane, usePane } from '@/lib/split'
@@ -133,7 +134,9 @@ export function useOwnOrder(list: string): {
    */
   move: (all: string[], id: string, target: string, after: boolean, quiet?: boolean, shown?: string[], unsort?: () => void) => void
 } {
-  const order = useLive(() => notes.order(list), [] as string[], [list])
+  // Kept by name, as the list's groups are (useGroups): read by an arrow made on each visit, it started every landing
+  // on no order, so a group's notes were drawn newest first for a frame, then jumped to where you put them.
+  const order = useKept('order', () => notes.order(list), [] as string[], [list])
   const rank = new Map(order.map((id, at) => [id, at]))
   const compare = (a: string, b: string): number => (rank.get(a) ?? -1) - (rank.get(b) ?? -1)
   const move = (all: string[], id: string, target: string, after: boolean, quiet = false, shown?: string[], unsort?: () => void): void => {
