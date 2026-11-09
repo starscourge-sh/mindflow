@@ -877,6 +877,11 @@ function useMarks(goal: string, from: string, target: string): { milestoneIn: (d
   }
 }
 
+/** A road's day as a small square with soft corners, as every mark in the app is (never a dot): drawn from its centre and half-size. */
+const Sq = ({ cx, cy, r, ...rest }: { cx: number; cy: number; r: number } & Omit<React.SVGProps<SVGRectElement>, 'x' | 'y' | 'r'>): React.JSX.Element => (
+  <rect x={cx - r} y={cy - r} width={2 * r} height={2 * r} rx={r * 0.45} {...rest} />
+)
+
 /** One dot of a road: gone days dim, logged days in the accent, today breathing, the day itself ringed. */
 function RoadDot({ dot, x, y, cell, logged, marker, mark, on, compact, onEnter, onClick }: {
   dot: Dot; x: number; y: number; cell: number; logged: boolean; marker?: string; mark?: Milestone; on: boolean; compact: boolean
@@ -891,12 +896,12 @@ function RoadDot({ dot, x, y, cell, logged, marker, mark, on, compact, onEnter, 
     <g data-road-day={dot.day} data-road-logged={logged || undefined} onMouseEnter={onEnter} onClick={onClick} className={compact ? undefined : 'cursor-pointer'}>
       {/* A bigger, unseen target, so the pointer finds each one. */}
       {!compact && <rect x={x - cell / 2} y={y - cell / 2} width={cell} height={cell} fill="transparent" />}
-      {dot.target && <circle cx={x} cy={y} r={0.56 * cell} fill="none" stroke={ACCENT} strokeWidth={0.14 * cell} />}
-      {dot.today && <circle cx={x} cy={y} r={0.56 * cell} fill="none" stroke={ACCENT} strokeWidth={0.1 * cell} className="mf-goal-today" />}
-      {marker && !dot.target && !dot.today && <circle cx={x} cy={y} r={0.52 * cell} fill="none" stroke="currentColor" strokeWidth={0.08 * cell} style={{ opacity: 0.6 }} />}
-      {mark && !dot.target && <circle data-road-marked={mark.id} cx={x} cy={y} r={0.56 * cell} fill="none" stroke={inkOf(mark)} strokeWidth={0.12 * cell} />}
-      {on && <circle cx={x} cy={y} r={0.6 * cell} fill="none" stroke="currentColor" strokeWidth={0.08 * cell} />}
-      <circle cx={x} cy={y} r={(dot.target ? 0.32 : dot.today ? 0.4 : 0.34) * cell} fill={dot.target && !logged ? ACCENT : colour} style={{ opacity: dot.target ? 1 : opacity }} />
+      {dot.target && <Sq cx={x} cy={y} r={0.56 * cell} fill="none" stroke={ACCENT} strokeWidth={0.14 * cell} />}
+      {dot.today && <Sq cx={x} cy={y} r={0.56 * cell} fill="none" stroke={ACCENT} strokeWidth={0.1 * cell} className="mf-goal-today" />}
+      {marker && !dot.target && !dot.today && <Sq cx={x} cy={y} r={0.52 * cell} fill="none" stroke="currentColor" strokeWidth={0.08 * cell} style={{ opacity: 0.6 }} />}
+      {mark && !dot.target && <Sq data-road-marked={mark.id} cx={x} cy={y} r={0.56 * cell} fill="none" stroke={inkOf(mark)} strokeWidth={0.12 * cell} />}
+      {on && <Sq cx={x} cy={y} r={0.6 * cell} fill="none" stroke="currentColor" strokeWidth={0.08 * cell} />}
+      <Sq cx={x} cy={y} r={(dot.target ? 0.32 : dot.today ? 0.4 : 0.34) * cell} fill={dot.target && !logged ? ACCENT : colour} style={{ opacity: dot.target ? 1 : opacity }} />
     </g>
   )
 }
@@ -982,7 +987,8 @@ function RoadCard({ item, from, target, today: now, picked, onPick }: { item: It
   const mapHeight = rows * step - (step - dot)
   // The time before the goal was set, very faint and silent, so the road's field reaches across the card: only room filled,
   // never a date to read. As the desktop card's field does. A road of days, or one that wraps into bands, stands as it is on a line.
-  const ghost = line || bands > 1 ? 0 : Math.max(0, Math.floor((room - mapWidth) / step))
+  // No field of faint days before the road: it filled most of the card with nothing to read and pushed the road to its edge.
+  const ghost = 0
   const ghostWidth = ghost * step
   const left = daysLeft(target, today)
   const ink = iced ? ICE : 'var(--foreground)'
@@ -1062,7 +1068,7 @@ function RoadCard({ item, from, target, today: now, picked, onPick }: { item: It
         </span>
       </div>
       {/* How to read it, in one line: what a dot is, and which have gone. */}
-      <p data-road-rule className="mt-1.5 text-meta text-foreground/80">Each dot is a {each}, the solid ones gone</p>
+      <p data-road-rule className="mt-1.5 text-meta text-foreground/80">Each square is a {each}, the solid ones gone</p>
       <div className="mt-3" onMouseLeave={() => setHover(null)}>
         {width > 0 && Array.from({ length: bands }, (_, band) => {
           const here = placed.filter((one) => one.band === band)
@@ -1075,7 +1081,7 @@ function RoadCard({ item, from, target, today: now, picked, onPick }: { item: It
                 <svg aria-hidden data-road-ghost width={ghostWidth} height={mapHeight} className="pointer-events-none absolute" style={{ left: -ghostWidth, top: 5 }}>
                   {Array.from({ length: ghost }, (_, col) => Array.from({ length: rows }, (_, row) => (
                     // A road of weeks has four weeks to most months: its last row is sparse, as the road's own is.
-                    weeks && row === rows - 1 && col % 3 !== 1 ? null : <circle key={`${col}-${row}`} cx={col * step + dot / 2} cy={row * step + dot / 2} r={dot / 2} fill="var(--foreground)" opacity={0.05} />
+                    weeks && row === rows - 1 && col % 3 !== 1 ? null : <rect key={`${col}-${row}`} x={col * step} y={row * step} width={dot} height={dot} rx={2} fill="var(--foreground)" opacity={0.05} />
                   )))}
                 </svg>
               )}
@@ -1091,11 +1097,11 @@ function RoadCard({ item, from, target, today: now, picked, onPick }: { item: It
                       <rect x={x - step / 2} y={y - step / 2} width={step} height={step} fill="transparent" />
                       {/* A marked day: a tick over a line of days, a ring round its dot in a block; named in the key below. */}
                       {tick && line && <rect data-road-tick x={x - 0.75} y={y - dot / 2 - 5} width={1.5} height={3.5} rx={0.75} fill={tick} />}
-                      {tick && !line && <circle data-road-tick cx={x} cy={y} r={dot / 2 + 1.2} fill="none" stroke={tick} strokeWidth={1} />}
-                      <circle data-dot cx={x} cy={y} r={dot / 2}
+                      {tick && !line && <rect data-road-tick x={x - dot / 2 - 1.2} y={y - dot / 2 - 1.2} width={dot + 2.4} height={dot + 2.4} rx={3} fill="none" stroke={tick} strokeWidth={1} />}
+                      <rect data-dot x={x - dot / 2} y={y - dot / 2} width={dot} height={dot} rx={2}
                         fill={one.today ? (iced ? ICE : ACCENT) : has ? lit : ink}
                         opacity={one.today || has ? 1 : one.past ? (iced ? 0.55 : 0.82) : 0.13} />
-                      {picked?.day === one.day && <circle cx={x} cy={y} r={dot / 2 + 1.25} fill="none" stroke="var(--foreground)" strokeWidth={1} />}
+                      {picked?.day === one.day && <rect x={x - dot / 2 - 1.25} y={y - dot / 2 - 1.25} width={dot + 2.5} height={dot + 2.5} rx={3} fill="none" stroke="var(--foreground)" strokeWidth={1} />}
                     </g>
                   )
                 })}
@@ -1172,7 +1178,7 @@ function Field({ goal, from, target, today, logs }: RoadProps): React.JSX.Elemen
         onMouseLeave={() => setHover(null)}
       >
         {Array.from({ length: lead }, (_, index) => (
-          <circle key={`before-${index}`} cx={((index % across) + 0.5) * step} cy={(Math.floor(index / across) + 0.5) * cell} r={0.34 * cell} fill="currentColor" style={{ opacity: 0.06 }} />
+          <Sq key={`before-${index}`} cx={((index % across) + 0.5) * step} cy={(Math.floor(index / across) + 0.5) * cell} r={0.34 * cell} fill="currentColor" style={{ opacity: 0.06 }} />
         ))}
         {road.dots.map((given, index) => {
           const dot = place(given, index)

@@ -49,7 +49,7 @@ try {
     const r = await card()
     const weeks = r?.by === 'week'
     check(`${name}: the big number counts in the dots' unit`, !!r && (weeks ? /weeks?$/.test(r.big) : /days?$|^Today$/.test(r.big)), r?.big)
-    check(`${name}: one line says what a dot is`, !!r && r.rule === `Each dot is a ${weeks ? 'week' : 'day'}, the solid ones gone`, r?.rule)
+    check(`${name}: one line says what a dot is`, !!r && r.rule === `Each square is a ${weeks ? 'week' : 'day'}, the solid ones gone`, r?.rule)
     check(`${name}: no "logged" count with nothing logged`, !!r && !r.pills.some((one) => /logged/.test(one)), r?.pills.join(' | '))
     check(`${name}: no key under the chart; the marks are named on it`, !!r && r.key === 0 && r.names.includes('The day'), r?.names.join(' | '))
     check(`${name}: names never touch and stay in the card`, !!r && !r.clash && r.inside, JSON.stringify(r))

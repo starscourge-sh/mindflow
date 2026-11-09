@@ -147,7 +147,7 @@ try {
   const road = async () => h.evaluate(() => {
     const pane = document.querySelector('div[data-open]')
     const card = pane?.querySelector('[data-road-card]')
-    const dots = [...(card?.querySelectorAll('[data-road-day] circle[data-dot]') ?? [])].slice(0, 40).map((one) => one.getBoundingClientRect())
+    const dots = [...(card?.querySelectorAll('[data-road-day] [data-dot]') ?? [])].slice(0, 40).map((one) => one.getBoundingClientRect())
     const sameRow = dots.filter((one) => Math.abs(one.y - dots[0]?.y) < 1).sort((a, b) => a.x - b.x)
     const labels = [...(card?.querySelectorAll('[data-road-label]') ?? [])].map((one) => one.getBoundingClientRect())
     const overlap = labels.some((a, i) => labels.some((b, j) => j > i && a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom))
@@ -179,7 +179,7 @@ try {
   }
   // Hover a dot: its day and its logs.
   await openGoal(fiftySix)
-  const dot = await h.evaluate(() => { const one = document.querySelector('div[data-open] [data-road-now] circle[data-dot]')?.getBoundingClientRect(); return one && { x: one.x + one.width / 2, y: one.y + one.height / 2 } })
+  const dot = await h.evaluate(() => { const one = document.querySelector('div[data-open] [data-road-now] [data-dot]')?.getBoundingClientRect(); return one && { x: one.x + one.width / 2, y: one.y + one.height / 2 } })
   if (dot) await h.mouse.move(dot.x, dot.y)
   await h.waitForTimeout(250)
   const tip = await h.evaluate(() => document.querySelector('[data-road-tip]')?.innerText ?? '')

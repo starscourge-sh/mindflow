@@ -108,7 +108,7 @@ try {
   const road = async () => h.evaluate(() => {
     const card = document.querySelector('[data-open] [data-road-card]')
     const dots = card ? [...card.querySelectorAll('[data-road-day]')] : []
-    const sizes = [...(card?.querySelectorAll('circle[data-dot]') ?? [])].map((one) => one.getBoundingClientRect().width)
+    const sizes = [...(card?.querySelectorAll('[data-dot]') ?? [])].map((one) => one.getBoundingClientRect().width)
     const box = card?.getBoundingClientRect()
     return {
       dots: dots.length,

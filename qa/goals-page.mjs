@@ -86,10 +86,10 @@ const road = () => h.evaluate(() => {
   const card = document.querySelector('[data-open] [data-road-card]')
   return { bands: card?.querySelectorAll('[data-road-band]').length ?? 0, by: card?.getAttribute('data-road-by') ?? (card?.querySelector('svg')?.getAttribute('aria-label')?.includes('weeks') ? 'week' : 'day'), dots: card?.querySelectorAll('[data-dot]').length ?? 0, rule: card?.querySelector('[data-road-rule]')?.textContent ?? '', width: card?.getBoundingClientRect().width ?? 0, holes: [...(card?.querySelectorAll('[data-road-band]') ?? [])].filter((band) => {
     // A gap in the middle of a row: columns that skip one.
-    const xs = [...new Set([...band.querySelectorAll('circle[data-dot]')].map((one) => Math.round(one.getBoundingClientRect().x)))].sort((p, q) => p - q)
+    const xs = [...new Set([...band.querySelectorAll('[data-dot]')].map((one) => Math.round(one.getBoundingClientRect().x)))].sort((p, q) => p - q)
     const steps = xs.slice(1).map((x, i) => x - xs[i])
     return steps.some((one) => one > Math.min(...steps) * 1.5)
-  }).length, inside: [...(card?.querySelectorAll('circle[data-dot]') ?? [])].every((one) => { const r = one.getBoundingClientRect(), b = card.getBoundingClientRect(); return r.left >= b.left && r.right <= b.right }) }
+  }).length, inside: [...(card?.querySelectorAll('[data-dot]') ?? [])].every((one) => { const r = one.getBoundingClientRect(), b = card.getBoundingClientRect(); return r.left >= b.left && r.right <= b.right }) }
 })
 const rowIds = () => h.evaluate(() => [...document.querySelectorAll('[data-row][data-type="goal"]')].map((row) => row.getAttribute('data-id')))
 const headOver = (id) => h.evaluate((id) => {
@@ -190,7 +190,7 @@ try {
     const r = await road()
     check(`${name} days: ${want === 'week' ? 'one map' : 'one map, or two half-years when the card is narrow'}, no gap in a row`, (want === 'week' ? r.bands === 1 : r.bands <= 2) && r.holes === 0, JSON.stringify(r))
     check(`${name} days: a dot a ${want}`, r.by === want, JSON.stringify(r))
-    if (want === 'week') check(`${name} days: the card says its rule in a line`, /^Each dot is a week, the solid ones gone$/.test(r.rule), r.rule)
+    if (want === 'week') check(`${name} days: the card says its rule in a line`, /^Each (dot|square) is a week, the solid ones gone$/.test(r.rule), r.rule)
     for (const width of [1280, 1100, 760]) {
       await size(width, 800)
       await openGoal(id)
