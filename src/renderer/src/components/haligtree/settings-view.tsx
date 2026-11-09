@@ -585,7 +585,7 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
             <SettingSlider min={0} max={100} step={5} rest={75} value={settings.frameDepth ?? 75} onSave={(frameDepth) => set({ frameDepth })}
               onLive={(depth) => document.querySelector<HTMLElement>('[data-frame]')?.style.setProperty('--mf-frame-depth', String(depth))} />
           </Setting>
-          <Setting under off={settings.darkFrame === false && 'Shows once “Dark frame” is on.'} title="Grain" note="A fine grain on the dark frame, like a notebook’s cover. The pages stay clean." keywords="frame grain texture noise paper notebook cover film">
+          <Setting under off={settings.darkFrame === false && 'Shows once “Dark frame” is on.'} title="Grain" note="A fine grain on the dark frame, like a notebook’s cover; the pages stay clean." keywords="frame grain texture noise paper notebook cover film">
             <Switch aria-label="Grain" checked={settings.frameGrain !== false} onCheckedChange={(frameGrain) => set({ frameGrain })} />
           </Setting>
           <Setting title="Style" note="How things are drawn in any theme: shape, lines, shadows and type." more="“Soft” is rounded and lifted on soft shadows. “Brutal” is square, outlined in the theme's ink, and stands on hard shadows. “Paper” is square, ruled with fine lines, with no shadows and serif headings." keywords="style brutal soft paper neobrutalism editorial grid serif square corners outline hard shadow">
@@ -623,15 +623,15 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
           </Setting>
           <Setting title="Highlights" note="The colours you mark words with: “Soft” pastels, or “Rich”, deeper and fuller." keywords="highlight colour color marker pastel rich pale saturated vivid mark"
             below={<Choices label="Highlights" options={highlightChoices(!document.documentElement.hasAttribute('data-light'))} on={(id) => id === (settings.highlights ?? 'soft')} pick={(highlights) => set({ highlights: highlights as Settings['highlights'] })} />} />
-          <Setting title="Tag look" note="How a #tag is drawn everywhere: “Solid”, filled with its colour, or “Dot”, an outline with a dot of its colour." keywords="tag tags chip badge pill dot outline solid filled hashtag"
+          <Setting title="Tag look" note="How a #tag is drawn: “Solid”, filled with its colour, or “Dot”, an outline with a dot of its colour." keywords="tag tags chip badge pill dot outline solid filled hashtag"
             below={<Choices label="Tag look" options={tagLookChoices} on={(id) => id === (settings.tagLook ?? 'solid')} pick={(tagLook) => set({ tagLook: tagLook as Settings['tagLook'] })} />} />
-          <Setting title="Paper" note="What your pages are written on (notes, the Journal, the week's notes and the writing room), as a notebook's: plain, dots or a grid." keywords="paper dots dotted grid squared graph notebook page background lines"
+          <Setting title="Paper" note="What your pages are written on, as a notebook's: plain, dots or a grid." more="Notes, the Journal, the week's notes and the writing room." keywords="paper dots dotted grid squared graph notebook page background lines"
             below={<Choices label="Paper" options={paperChoices} on={(id) => id === (settings.paper ?? 'plain')} pick={(paper) => set({ paper: paper as Settings['paper'] })} />} />
-          <Setting title="Pictures in notes" note="How wide a picture shows in a note. A picture's own menu (S, M, L) sizes that one alone." keywords="picture pictures image images photo size small medium full width smaller"
+          <Setting title="Pictures in notes" note="How wide a picture shows in a note; a picture's own menu (S, M, L) sizes that one alone." keywords="picture pictures image images photo size small medium full width smaller"
             below={<Choices label="Pictures in notes" options={pictureSizeChoices} on={(id) => id === (settings.pictureSize ?? 'full')} pick={(pictureSize) => set({ pictureSize: pictureSize as Settings['pictureSize'] })} />} />
-          <Setting title="Icons" note="The sidebar's pages and tags, and the Map's dots: “Lines”, or each one's own emoji. Menus keep their lines." keywords="icons emoji lines symbols sidebar tags pages map"
+          <Setting title="Icons" note="The sidebar's pages and tags, and the Map's dots: “Lines”, or each one's own emoji; menus keep their lines." keywords="icons emoji lines symbols sidebar tags pages map"
             below={<Choices label="Icons" options={menuIconChoices()} on={(id) => id === (settings.menuIcons ?? 'lines')} pick={(menuIcons) => set({ menuIcons: menuIcons as Settings['menuIcons'] })} />} />
-          <Setting title="Coloured icons" note="The sidebar's pages and tags each in their own colour. Off, all in one colour, emoji greyed too." keywords="monochrome icons colour color grey gray sidebar vivaldi plain tint"
+          <Setting title="Coloured icons" note="The sidebar's pages and tags each in their own colour; off, all in one colour, emoji greyed too." keywords="monochrome icons colour color grey gray sidebar vivaldi plain tint"
             ><IconColourSample />
             <Switch checked={settings.iconColour !== false} onCheckedChange={(iconColour) => set({ iconColour })} />
           </Setting>
@@ -639,7 +639,7 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
             ><BarWordsSample words={!!settings.barWords} />
             <Switch checked={!!settings.barWords} onCheckedChange={(barWords) => set({ barWords })} />
           </Setting>
-          <Setting title="Postcards" note="Pictures in notes, and memories in the Journal, get a border and a soft shadow, like a print on a desk." more="Videos too. A page's banner stays unframed, like every page's picture." keywords="images pictures photos border frame white memories memory">
+          <Setting title="Postcards" note="Pictures in notes and memories in the Journal get a border and shadow, like a print on a desk." more="Videos too. A page's banner stays unframed, like every page's picture." keywords="images pictures photos border frame white memories memory">
             <PictureSample caption={null} frame={settings.postcards ? POSTCARD_BORDERS[settings.postcardBorder ?? 'auto']() : undefined} />
             <Switch checked={!!settings.postcards} onCheckedChange={(postcards) => set({ postcards })} />
           </Setting>
@@ -678,13 +678,13 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
             <Switch checked={settings.thumbnails !== false} onCheckedChange={(thumbnails) => set({ thumbnails })} />
           </Setting>
           <Setting title="Covers" note="What a note with no picture of its own wears on its card and row." more="Each is tinted to the note's colour." keywords="covers cover drawings paper sketch gradients tiles thumbnails grid cards placeholder folder grain" below={<CoverChoice settings={settings} set={set} />} />
-          <Setting title="Shapes on decks" note="In Review, each deck wears a coloured shape drawn from its name. Off, every deck is a plain box in your theme's tone, its due count large." keywords="decks deck covers shapes coolshapes stacks review cards colour plain">
+          <Setting title="Shapes on decks" note="In Review, each deck wears a coloured shape drawn from its name." more="Off, every deck is a plain box in your theme's tone, its due count large." keywords="decks deck covers shapes coolshapes stacks review cards colour plain">
             <span data-deck-shapes-sample className="flex items-center gap-1.5"><DeckFace name="Biology" due={12} fresh={30} shapes={settings.deckShapes === true} small /></span>
             <Switch aria-label="Shapes on decks" checked={settings.deckShapes === true} onCheckedChange={(deckShapes) => set({ deckShapes })} />
           </Setting>
-          <Setting title="Your photo" note="Your face in the Feed, on your replies and wherever you are shown. Without one, you wear your shape." keywords="profile photo picture avatar face me you owner portrait upload"
+          <Setting title="Your photo" note="Your face in the Feed, on your replies and wherever you are shown; without one, you wear your shape." keywords="profile photo picture avatar face me you owner portrait upload"
             below={<YourProfile bio={settings.bio ?? ''} setBio={(bio) => set({ bio })} />} />
-          <Setting title="Avatars" note="The face a source, or you, wears in the Feed and on a source's page until you give it a picture." more="“Shapes” gives each name its own shape from Coolshapes, tinted by your theme; the same name always wears the same one." keywords="avatars faces initials shapes coolshapes circles people sources feed accounts"
+          <Setting title="Avatars" note="The face a source, or you, wears in the Feed and on a source's page until it has a picture." more="“Shapes” gives each name its own shape from Coolshapes, tinted by your theme; the same name always wears the same one." keywords="avatars faces initials shapes coolshapes circles people sources feed accounts"
             below={<Choices label="Avatars" options={(['shapes', 'initials'] as const).map((look) => ({ id: look, label: look === 'shapes' ? 'Shapes' : 'Initials', show: <AvatarSample look={look} /> }))}
               on={(id) => id === (settings.avatars ?? 'shapes')} pick={(avatars) => set({ avatars: avatars as Settings['avatars'] })} />} />
         </Group>
@@ -813,7 +813,7 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
           <Setting title="Math as you type" note="End a line with = to see its answer, and Tab or → writes it in." more="lunch = 25 names a number for the lines below, and units, time and money work too: 5 km in mi, 3h 20m + 45m, $40 * 3 in EUR.">
             <Switch checked={settings.calc} onCheckedChange={(calc) => set({ calc })} />
           </Setting>
-          <Setting title="Pause the video while I type" note="Start writing in a note with a playing video and it pauses; a new line gets the time, [4:05], and it plays on two seconds after you stop." more="For video files in the note. ⌥K plays or pauses, ⌥J and ⌥L go back or on five seconds." keywords="video pause typing time stamp mote">
+          <Setting title="Pause the video while I type" note="Start writing in a note with a playing video and it pauses, then plays on two seconds after you stop." more="A new line gets the time, [4:05]. For video files in the note. ⌥K plays or pauses, ⌥J and ⌥L go back or on five seconds." keywords="video pause typing time stamp mote">
             <TypePauseSample on={settings.typePause !== false} />
             <Switch checked={settings.typePause !== false} onCheckedChange={(typePause) => set({ typePause })} />
           </Setting>
@@ -825,7 +825,7 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
             <TitleTopSample on={!!settings.topTitle} />
             <Switch checked={settings.topTitle} onCheckedChange={(topTitle) => set({ topTitle })} />
           </Setting>
-          <Setting title="Dates and times lit" note="A date or time in a note is lit as you write it; rest on one to see the day it means." more="Read as on the day the note was written, so “tomorrow” in an old note says which day it was." keywords="date time day highlight lit tomorrow friday calendar when detect" data-mac-needs="every">
+          <Setting title="Dates and times lit" note="A date or time in a note is lit as you write it; rest on one to see its day." more="Read as on the day the note was written, so “tomorrow” in an old note says which day it was." keywords="date time day highlight lit tomorrow friday calendar when detect" data-mac-needs="every">
             <DatesSample on={settings.datesLit !== false} />
             <Switch checked={settings.datesLit !== false} onCheckedChange={(datesLit) => set({ datesLit })} />
           </Setting>
@@ -859,7 +859,7 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
               set({ sounds })
             }} />
           </Setting>
-          <Setting title="Haptic taps" note="A light tap on a Force Touch trackpad as a number steps, a slider clicks into place or a page comes into view." keywords="haptic haptics force touch trackpad tap vibration feel feedback">
+          <Setting title="Haptic taps" note="A trackpad tap as a number steps, a slider clicks into place or a page comes into view." more="A light tap, on a Force Touch trackpad." keywords="haptic haptics force touch trackpad tap vibration feel feedback">
             <Switch checked={settings.haptics} onCheckedChange={(haptics) => set({ haptics })} />
           </Setting>
           {/* Shown with sounds off too, greyed, so a search still finds them. */}
@@ -994,11 +994,11 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
             <Switch checked={settings.tomorrowBox !== false} onCheckedChange={(tomorrowBox) => set({ tomorrowBox })} />
           </Setting>
           <SunSetting settings={settings} set={set} />
-          <Setting title="Welcome back" note="Back at your Mac after four hours or more locked or asleep, one line says what came due while you were away." more="Nothing is said when nothing came due. And a day your Mac was locked or asleep for (20 hours or more) never breaks a streak in Review or Focus: it neither counts nor ends one, while this app was running." keywords="away lock locked sleep asleep back return catch up streak pause holiday welcome">
+          <Setting title="Welcome back" note="Back after four hours or more locked or asleep, one line says what came due while you were away." more="Nothing is said when nothing came due. And a day your Mac was locked or asleep for (20 hours or more) never breaks a streak in Review or Focus: it neither counts nor ends one, while this app was running." keywords="away lock locked sleep asleep back return catch up streak pause holiday welcome">
             <Switch checked={settings.backLine !== false} onCheckedChange={(backLine) => set({ backLine })} />
           </Setting>
           <MacCalendarSetting on={!!settings.macCalendar} set={(macCalendar) => set({ macCalendar })} />
-          <Setting title="Offers from your notes" note="One quiet line under a note: a note it names, one it nearly repeats, the folder it reads like, a person it names." more="Also notes that may answer a question, and the notes for your next event on Today. Found by the words they share, on this Mac. Nothing changes until you choose; × puts one away for good." keywords="suggest suggestions related link folder duplicate repeat people clue question event calendar offers" data-mac-needs="every">
+          <Setting title="Offers from your notes" note="One quiet line under a note: a note it names or nearly repeats, a fitting folder, a person it names." more="Also notes that may answer a question, and the notes for your next event on Today. Found by the words they share, on this Mac. Nothing changes until you choose; × puts one away for good." keywords="suggest suggestions related link folder duplicate repeat people clue question event calendar offers" data-mac-needs="every">
             <OffersSample on={settings.noteOffers !== false} />
             <Switch checked={settings.noteOffers !== false} onCheckedChange={(noteOffers) => set({ noteOffers })} />
           </Setting>
@@ -1029,7 +1029,7 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
             <TimeField label="Day ends at" value={settings.dayEnd ?? '22:00'} onChange={(dayEnd) => set({ dayEnd })} />
           </Setting>
           <WorkHoursSetting hours={settings.workHours ?? 8} set={(workHours) => set({ workHours })} />
-          <Setting title="Back after a while" note={`Away this long, ${APP_NAME} opens with only the Inbox, Journal and Tasks, so coming back is not a wall of everything.`} more="The rest stays out of sight until the next start, and “Show everything”, at the foot of the sidebar or in ⌘K, brings it back at once." keywords="return away gap long break holiday quiet calm come back fresh">
+          <Setting title="Back after a while" note={`Away this long, ${APP_NAME} opens with only the Inbox, Journal and Tasks: not a wall of everything.`} more="The rest stays out of sight until the next start, and “Show everything”, at the foot of the sidebar or in ⌘K, brings it back at once." keywords="return away gap long break holiday quiet calm come back fresh">
             <SettingSlider min={2} max={30} step={1} rest={7} value={settings.gapDays ?? 7} onSave={(gapDays) => set({ gapDays })} />
             <span className={SLIDER_VALUE}><Rolling text={`${settings.gapDays ?? 7} days`} /></span>
           </Setting>
@@ -1138,7 +1138,7 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
             below={<div className="mt-3"><Chips options={['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((label, n) => ({ id: String((n + 1) % 7), label }))}
               on={(id) => (settings.lighterDays ?? []).includes(Number(id))}
               pick={(id) => { const day = Number(id); const was = settings.lighterDays ?? []; set({ lighterDays: was.includes(day) ? was.filter((one) => one !== day) : [...was, day].sort() }) }} /></div>} />
-          <Setting title="Cards made while reading" note="A card made in a PDF or an article (C, Snip, Make your marked cards), or with Ask another way or Add many at once." more="Study only: it comes up in Review and nowhere else. Also keep as gems: it is in Gems, the Feed and Home as well. Hold ⌥ as you make one to keep that one as a gem too; any card's menu moves it either way." keywords="cards made while reading study only gems keep as gem flashcards pdf article snip card later mark for a card marked cards feed home"
+          <Setting title="Cards made while reading" note="A card made in a PDF or an article, or with Ask another way or Add many at once." more="In the reader: C, Snip and Make your marked cards. Study only: it comes up in Review and nowhere else. Also keep as gems: it is in Gems, the Feed and Home as well. Hold ⌥ as you make one to keep that one as a gem too; any card's menu moves it either way." keywords="cards made while reading study only gems keep as gem flashcards pdf article snip card later mark for a card marked cards feed home"
             below={<Choices label="Cards made while reading" options={readCardChoices} on={(id) => id === (settings.readCards ?? 'study')} pick={(id) => set({ readCards: id as 'study' | 'gem' })} />} />
           <Setting title="Grades" note="How you answer once a card is turned over." more="Four out of the box, as Anki shows them. Two is what many people end up using: Forgot when you hesitated at all, Got it when it came. With two, the keys 2 and 4 still give Hard and Easy, as in Anki." keywords="grade buttons again hard good easy forgot got it two four anki"
             below={<Choices label="Grades" options={gradeChoices} on={(id) => id === String(settings.grades ?? 4)} pick={(id) => set({ grades: Number(id) as 2 | 4 })} />} />
@@ -1160,7 +1160,7 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
         </Group>
 
         <Group section="Tasks" title="Today">
-          <Setting title="Day progress and planning hints" note="Over Today's list: how many are done, the hours planned and left, and a note when there is more than a short day holds."
+          <Setting title="Day progress and planning hints" note="Over Today's list: how many are done, the hours planned and left, and a note on a too-full day."
             more="Off, Today's list starts right under the box you add tasks in, and the Day page's “open · done” count goes too."
             keywords="day progress done bar dino planned hours left today short day too many hints coaching budget">
             <DayHintsSample on={settings.dayHints === true} />
@@ -1222,7 +1222,7 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
         </>}
 
         <Group section="Writing" title="Talk to type">
-          <Setting title={`Talk to type: ${settings.talkTaps ? 'tap' : 'hold'} ${settings.talkKey === 'right-alt' ? 'right ⌥' : '⌥Space'}`} note={`In any text field, ${settings.talkTaps ? 'tap the key, talk, then tap it again' : 'hold the key and talk; let go to stop'}. Your words appear at the caret, faint until they settle. Esc takes them back.`} more="Made on this Mac by its own speech recognition, offline; nothing is sent anywhere. Say “full stop”, “comma”, “question mark” or “new line” for the marks. Also “Dictate” in the / menu. Fn can't be used: macOS keeps it for its own dictation and emoji." keywords="talk type dictate dictation speech voice microphone mic speak hold key whisper flow"
+          <Setting title={`Talk to type: ${settings.talkTaps ? 'tap' : 'hold'} ${settings.talkKey === 'right-alt' ? 'right ⌥' : '⌥Space'}`} note={`In any field, ${settings.talkTaps ? 'tap the key, talk, then tap it again' : 'hold the key and talk, let go to stop'}; your words appear faint at the caret.`} more="Esc takes them back. Made on this Mac by its own speech recognition, offline; nothing is sent anywhere. Say “full stop”, “comma”, “question mark” or “new line” for the marks. Also “Dictate” in the / menu. Fn can't be used: macOS keeps it for its own dictation and emoji." keywords="talk type dictate dictation speech voice microphone mic speak hold key whisper flow"
             below={<>
               <div className="mt-3 flex flex-wrap gap-2">
                 <Chips options={[{ id: 'alt-space', label: '⌥Space' }, { id: 'right-alt', label: 'Right ⌥ alone' }]} on={(id) => id === (settings.talkKey ?? 'alt-space')} pick={(talkKey) => set({ talkKey: talkKey as Settings['talkKey'] })} />
@@ -1575,7 +1575,7 @@ function SceneryFolders({ folders, on, onSave }: { folders: string[]; on: boolea
   return (
     <Setting
       title="Folders"
-      note="Where the pictures come from. New ones you add show up on their own." more="The pictures stay where they are; small copies are kept to show them quickly. One you take out of the folder goes from here too."
+      note="Where the pictures come from; new ones you add show up on their own." more="The pictures stay where they are; small copies are kept to show them quickly. One you take out of the folder goes from here too."
       keywords="scenery folder pictures images add remove choose"
       below={<FolderStrips folders={folders} scenes={found?.scenes ?? []} scanning={!!found?.scanning} onSave={onSave} />}
     >
@@ -1665,7 +1665,7 @@ function CelebrationsFolder({ folder, on, onSave }: { folder: string; on: boolea
 /** The welcome, to see again: shown in the sandbox, so trying it never adds to your own book. */
 function WelcomeRow(): React.JSX.Element {
   return (
-    <Setting title="Welcome" note="The two-minute film. The one key, your first capture, and how things come back."
+    <Setting title="Welcome" note="The two-minute film: the one key, your first capture, and how things come back."
       more="“Show it” plays it in the sandbox, so your own notes stay as they are." keywords="tour welcome onboarding start intro replay">
       <Button variant="outline" size="sm" onClick={() => void tryWelcome()}>Show it</Button>
     </Setting>
@@ -2212,8 +2212,8 @@ function SiteBlockGroup({ settings, set }: { settings: Settings; set: (patch: Pa
   const none = !settings.alwaysBlock && !settings.blockSites.some((one) => !one.startsWith('-'))
   return (
     <Group section="Tasks" title="Blocking websites">
-      <Setting title="Block websites in focus sessions" note="While a round runs, a blocked site's tab shows a page saying until when. Sites open again on breaks, and the tab goes on to the page you asked for."
-        more={`It works in Safari, Chrome, Arc, Dia, Brave, Edge, Vivaldi, Opera and Chromium. Not in Firefox: it does not let other apps read its address. The first time, your Mac asks whether ${APP_NAME} may read that browser's address.`}
+      <Setting title="Block websites in focus sessions" note="While a round runs, a blocked site's tab says until when; sites open again on breaks."
+        more={`After a round, the tab goes on to the page you asked for. It works in Safari, Chrome, Arc, Dia, Brave, Edge, Vivaldi, Opera and Chromium. Not in Firefox: it does not let other apps read its address. The first time, your Mac asks whether ${APP_NAME} may read that browser's address.`}
         off={(!on && 'Off, every site stays open in sessions.') || (none && 'Add a site below to start.') || undefined}
         keywords="website blocker block sites social media distraction focus session browser safari chrome arc firefox youtube x twitter instagram reddit tiktok">
         <Switch checked={on} onCheckedChange={(siteBlock) => set({ siteBlock })} />
@@ -2248,7 +2248,7 @@ function InboxShowsSetting({ days, set }: { days: number; set: (days: number) =>
   const behind = open.length - listed
   const said = (n: number): string => (n === 1 ? '1 capture' : `${num(n)} captures`)
   return (
-    <Setting title="Inbox shows" note="Captures from this far back. Older ones wait behind one line at the end of the Inbox." more="Pinned ones always show. Search, tags, ⌘K and the Map still find every note, and quick capture's Inbox shows the same days." keywords="inbox recent days window older calm hide old captures arc everything"
+    <Setting title="Inbox shows" note="Captures from this far back; older ones wait behind one line at the end of the Inbox." more="Pinned ones always show. Search, tags, ⌘K and the Map still find every note, and quick capture's Inbox shows the same days." keywords="inbox recent days window older calm hide old captures arc everything"
       below={unloaded(all) ? null : <p data-inbox-shows-preview className="text-body text-foreground/80">
         {days ? <>The Inbox lists <strong className="font-semibold text-foreground">{said(listed)}</strong> now{behind ? <>, and <strong className="font-semibold text-foreground">{num(behind)}</strong> older wait behind its line.</> : ', and none are older.'}</> : <>The Inbox lists all <strong className="font-semibold text-foreground">{said(open.length)}</strong> still waiting.</>}
       </p>}>
@@ -2267,7 +2267,7 @@ function PutAwaySetting({ days }: { days: number }): React.JSX.Element {
   const pick = (id: string): void => void haligtree.setSettings({ autoArchive: Number(id) }).then(() => call('putaway:now'))
   const since = dayjs().subtract(days, 'day').format('dddd D MMMM')
   return (
-    <Setting title="Put away captures I haven't sorted after" note="Untouched captures move to Archived on their own, **never pinned ones, ones with a reminder or a date, a task's source, or ones with a thought added**." more="At the start of a day, as Arc tidies old tabs. The Inbox says how many went, with Undo, and Archived keeps them all; nothing is deleted. Archived ones no longer come back as hints or memories." keywords="archive auto old captures inbox tidy put away stale untouched sorted"
+    <Setting title="Put away captures I haven't sorted after" note="Untouched captures go to Archived, **never pinned ones or any with a reminder, a date or a thought**." more="Nor a task's source. At the start of a day, as Arc tidies old tabs. The Inbox says how many went, with Undo, and Archived keeps them all; nothing is deleted. Archived ones no longer come back as hints or memories." keywords="archive auto old captures inbox tidy put away stale untouched sorted"
       below={<p data-put-away-preview className="text-body text-foreground/80">
         {days ? <>Captures untouched since <strong className="font-semibold text-foreground">{since}</strong> go next, at the start of a day.</> : <>Nothing goes on its own. “Put away everything before” does it by hand.</>}
       </p>}>
@@ -2352,8 +2352,8 @@ function StudyAiSetting({ on, set }: { on: boolean; set: (on: boolean) => void }
   const has = meets(caps, 'ai')
   return (
     <div data-mac-needs="ai" data-mac-lacking={has ? undefined : ''}>
-      <Setting title="Apple Intelligence" note="Typed answers checked by what they mean, a hint when you are stuck (H), five cards from a chapter in the reader, and a first name for a new group."
-        more={has ? 'On this Mac, with nothing sent anywhere. It only ever suggests: the grade is yours, a hint is never the answer, no card is made until you keep it, and a group’s name is yours to type over.' : undefined}
+      <Setting title="Apple Intelligence" note="Typed answers checked by meaning, a hint when stuck (H), cards from a chapter, and a name for a group."
+        more={has ? 'Five cards from a chapter, in the reader. On this Mac, with nothing sent anywhere. It only ever suggests: the grade is yours, a hint is never the answer, no card is made until you keep it, and a group’s name is yours to type over.' : undefined}
         keywords="apple intelligence ai meaning hint cards chapter typed answer check group name foundation model"
         off={has ? undefined : lacks(caps, 'ai')}>
         {has && <Switch aria-label="Apple Intelligence" checked={on} onCheckedChange={set} />}
