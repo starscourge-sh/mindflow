@@ -5,7 +5,7 @@ import { caretTakesEscape, layerOpen } from '@/lib/menu-keys'
 import { tagHue } from '@/extensions/tokens'
 import { createPortal, flushSync } from 'react-dom'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { SlotText } from 'slot-text/react'
+import { animateSlotText, buildSlotText, clearSlotText } from 'slot-text'
 import { Check, ChevronRight, CircleX, type LucideIcon } from 'lucide-react'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import XIcon from '@/components/ui/x-icon'
@@ -15,7 +15,7 @@ import { stepTap } from '@/lib/haptics'
 import { detent, slotTicker } from '@/lib/proximity'
 import { Arrow } from './marks'
 import Lenis from 'lenis'
-import { call, useLive, haligtree } from '@/lib/haligtree'
+import { afterPaint, call, useLive, haligtree } from '@/lib/haligtree'
 import { UNATTRIBUTED } from '@/lib/sources'
 import { useReadsIn, useSeen } from '@/lib/reads-in'
 import { chime, quietFor, setVolume, soundOn } from '@/lib/sound'
@@ -2493,10 +2493,24 @@ export function SoundToggle({ className = '' }: { className?: string }): React.J
   )
 }
 
+/** Whether each rolling text is on screen, told by one watcher that never makes the page lay itself out. */
+const inView = new WeakMap<Element, boolean>()
+let viewWatch: IntersectionObserver | null = null
+const watchView = (el: Element): (() => void) => {
+  viewWatch ??= new IntersectionObserver((seen) => seen.forEach((one) => inView.set(one.target, one.isIntersecting)))
+  viewWatch.observe(el)
+  return () => viewWatch?.unobserve(el)
+}
+
 /**
  * Text that rolls into place when it changes, slot-text's way: a count that
  * goes up rolls up, one that goes down rolls down, and only the digits that
  * moved turn over. Still when motion is off, so it is plain text then.
+ * A roll measures every letter it turns, so it starts once the frame its
+ * change came with is painted (every roll of that frame together): the
+ * measuring then reads a page already laid out, instead of laying it out
+ * again in the middle of the change (a move to the Bin spent 56ms there).
+ * Off screen it simply takes its new value: no one would see it roll.
  */
 export function Rolling({ text, className = '', by = 'character', eager = false, up: said }: {
   text: string | number
@@ -2507,30 +2521,36 @@ export function Rolling({ text, className = '', by = 'character', eager = false,
   /** Which way it rolls, for words that count up or down (a time dragged earlier rolls down). */
   up?: boolean
 }): React.JSX.Element {
-  const last = useRef(text)
-  const up = said ?? (typeof text === 'number' && typeof last.current === 'number' ? text >= last.current : true)
-  useEffect(() => void (last.current = text), [text])
   // A number arriving with its page is not a change you saw: in its first
   // second it simply takes its value (lib/motion.ts, rule 3).
   const [born] = useState(() => performance.now())
-  const calm = still() || (!eager && performance.now() - born < 1000)
-  // In that first second, a new face for each value: changed in place, it still eased its width,
-  // and what came after it (" / 147") slid along although nothing rolled. The face changes only
-  // with the value: swapped on the first redraw after that second (a pointer resting on a tab),
-  // the new face was drawn a few pixels wide for a frame, the bar shrank, and the click landed
-  // beside the tab.
-  const face = useRef(String(text))
-  if (calm && !still()) face.current = String(text)
-  return (
-    <SlotText
-      key={face.current}
-      text={typeof text === 'number' ? num(text) : text}
-      className={className}
-      // On the app's own curve with only a trace of overshoot: the library's
-      // springy default read as bouncy beside everything else, which settles.
-      options={{ direction: up ? 'up' : 'down', rollBy: by, duration: calm ? 0 : 260, stagger: calm ? 0 : by === 'word' ? 22 : 35, exitOffset: calm ? 0 : 40, easing: 'cubic-bezier(0.16, 1, 0.3, 1)', bounce: 0.2 }}
-    />
-  )
+  const el = useRef<HTMLSpanElement>(null)
+  const words = typeof text === 'number' ? num(text) : text
+  // Laid out with its first text before the first paint; cleared as it goes.
+  const first = useRef(words)
+  useLayoutEffect(() => {
+    const span = el.current!
+    buildSlotText(span, first.current, { rollBy: by })
+    const unwatch = watchView(span)
+    return () => (unwatch(), clearSlotText(span))
+  }, [])
+  const last = useRef(text)
+  useLayoutEffect(() => {
+    const span = el.current!
+    const up = said ?? (typeof text === 'number' && typeof last.current === 'number' ? text >= last.current : true)
+    last.current = text
+    if (first.current === words) return
+    first.current = words
+    // Calm (motion off, its first second, off screen, the window hidden): the new text simply laid in its
+    // place, a new face for it. Changed in place, it still eased its width, and what came after it
+    // (" / 147") slid along although nothing rolled.
+    if (still() || (!eager && performance.now() - born < 1000) || document.hidden || !inView.get(span)) return void buildSlotText(span, words, { rollBy: by })
+    // On the app's own curve with only a trace of overshoot: the library's
+    // springy default read as bouncy beside everything else, which settles.
+    return afterPaint(() => animateSlotText(span, words, { direction: up ? 'up' : 'down', rollBy: by, duration: 260, stagger: by === 'word' ? 22 : 35, exitOffset: 40, easing: 'cubic-bezier(0.16, 1, 0.3, 1)', bounce: 0.2 }))
+  }, [words])
+  // Its letters are slot-text's to draw: React draws only the box.
+  return <span ref={el} className={cn('slot-text', className)} aria-label={words} />
 }
 
 /**

@@ -685,7 +685,7 @@ export function together<T>(read: Promise<T>, apply: (value: T) => void): void {
 
 /** Runs once the frame being drawn now is painted, with everything else asked for the same frame (so `readOnce` shares one read); returns a way to call it off. */
 let painted: Set<() => void> | null = null
-function afterPaint(run: () => void): () => void {
+export function afterPaint(run: () => void): () => void {
   if (!painted) {
     const now = (painted = new Set())
     const run = (): void => void setTimeout(() => {

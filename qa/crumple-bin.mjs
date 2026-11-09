@@ -51,6 +51,29 @@ const byMenu = async (row) => {
   await h.getByRole('menuitem', { name: /^Move to the Bin/ }).first().click()
 }
 
+let cdp = null
+
+// QA_PROFILE: the sampling profile since the last start, by function (self and inclusive ms), then started again.
+async function profiled(print = true) {
+  if (!cdp) return
+  const { profile } = await cdp.send('Profiler.stop')
+  const byId = new Map(profile.nodes.map((n) => [n.id, n]))
+  const parent = new Map()
+  for (const n of profile.nodes) for (const c of n.children ?? []) parent.set(c, n.id)
+  const [self, whole] = [new Map(), new Map()]
+  const key = (n) => `${n.callFrame.functionName || '(anon)'} ${n.callFrame.url.split('/').pop()}:${n.callFrame.lineNumber}:${n.callFrame.columnNumber}`
+  profile.samples.forEach((sid, i) => {
+    const us = profile.timeDeltas[i] ?? 0
+    self.set(key(byId.get(sid)), (self.get(key(byId.get(sid))) ?? 0) + us)
+    const once = new Set()
+    for (let cur = sid; cur; cur = parent.get(cur)) { const k = key(byId.get(cur)); if (!once.has(k)) (once.add(k), whole.set(k, (whole.get(k) ?? 0) + us)) }
+  })
+  if (!print) return cdp.send('Profiler.start')
+  console.log('-- self ms'); [...self].sort((a, b) => b[1] - a[1]).slice(0, 25).forEach(([k, v]) => console.log(Math.round(v / 1000), k))
+  console.log('-- inclusive ms'); [...whole].sort((a, b) => b[1] - a[1]).slice(0, Number(process.env.QA_PROFILE)).forEach(([k, v]) => console.log(Math.round(v / 1000), k))
+  await cdp.send('Profiler.start')
+}
+
 try {
   await go('articles'); await wait(1500)
   // The app idle a while first, as it is before anyone deletes: three.js loads and the paper's folds are worked out.
@@ -67,7 +90,7 @@ try {
   await row.click({ button: 'right' }); await wait(500)
   const menuBox = await h.getByRole('menu').first().evaluate((el) => el.getBoundingClientRect().toJSON()).catch(() => null)
   // QA_PROFILE: where the page's thread spends the move (the CDP sampling profiler), by function.
-  const cdp = process.env.QA_PROFILE ? await h.context().newCDPSession(h) : null
+  cdp = process.env.QA_PROFILE ? await h.context().newCDPSession(h) : null
   if (cdp) { await cdp.send('Profiler.enable'); await cdp.send('Profiler.setSamplingInterval', { interval: 200 }); await cdp.send('Profiler.start') }
   const t0 = Date.now()
   const clicked = h.getByRole('menuitem', { name: /^Move to the Bin/ }).first().click()
@@ -145,22 +168,7 @@ try {
   if (process.env.QA_SHAKE) console.log('shake', JSON.stringify(filmed, null, 1))
   else for (const [n, shot] of (filmed ?? []).entries()) writeFileSync(`${frames}/f${String(n).padStart(2, '0')}-${shot.at}ms.png`, Buffer.from(shot.png, 'base64'))
   await clicked; await wait(1200)
-  if (cdp) {
-    const { profile } = await cdp.send('Profiler.stop')
-    const byId = new Map(profile.nodes.map((n) => [n.id, n]))
-    const parent = new Map()
-    for (const n of profile.nodes) for (const c of n.children ?? []) parent.set(c, n.id)
-    const [self, whole] = [new Map(), new Map()]
-    const key = (n) => `${n.callFrame.functionName || '(anon)'} ${n.callFrame.url.split('/').pop()}:${n.callFrame.lineNumber}:${n.callFrame.columnNumber}`
-    profile.samples.forEach((sid, i) => {
-      const us = profile.timeDeltas[i] ?? 0
-      self.set(key(byId.get(sid)), (self.get(key(byId.get(sid))) ?? 0) + us)
-      const once = new Set()
-      for (let cur = sid; cur; cur = parent.get(cur)) { const k = key(byId.get(cur)); if (!once.has(k)) (once.add(k), whole.set(k, (whole.get(k) ?? 0) + us)) }
-    })
-    console.log('-- self ms'); [...self].sort((a, b) => b[1] - a[1]).slice(0, 25).forEach(([k, v]) => console.log(Math.round(v / 1000), k))
-    console.log('-- inclusive ms'); [...whole].sort((a, b) => b[1] - a[1]).slice(0, Number(process.env.QA_PROFILE)).forEach(([k, v]) => console.log(Math.round(v / 1000), k))
-  }
+  await profiled()
   let s = await seen()
   // Where the time goes: the paper's own marks (paper-crumple.tsx), the warm-up's and this move's.
   const parts = await h.evaluate(() => performance.getEntriesByType('measure').filter((one) => one.name.startsWith('paper:')).map((one) => `${one.name.slice(6)} ${Math.round(one.startTime)} ${one.duration.toFixed(1)}ms`))
@@ -195,7 +203,9 @@ try {
   row = h.locator('[data-id]').first(); id = await titleOf(row)
   await row.click(); await wait(800)
   await watch()
+  await profiled(false)
   await h.keyboard.press('Meta+Backspace'); await wait(1400)
+  if (cdp) console.log('== ⌘⌫ profile'), await profiled()
   s = await seen()
   check('⌘⌫: nothing crumples', !s.came)
   console.log(`⌘⌫ (no paper, the app's own work): longest task ${s.longest}ms`)
