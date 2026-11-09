@@ -608,7 +608,7 @@ export function SourcePageView({ focus, onOpen }: { focus?: string; onOpen: (typ
         </div>
         )}
         <Bio key={`${field}:${name}`} field={field} name={name} page={page} />
-        {page && !page.items.length && <p className="mt-8 px-5 text-body text-muted-foreground">{field === 'attribution' ? `Nothing from ${name} yet. A note that says ${name} said it shows here.` : `Nothing from ${name} yet. A note that says it came from here shows here.`}</p>}
+        {page && !page.items.length && !citers.length && <p className="mt-8 px-5 text-body text-muted-foreground">{field === 'attribution' ? `Nothing from ${name} yet. A note that says ${name} said it shows here.` : `Nothing from ${name} yet. A note that says it came from here shows here.`}</p>}
         {page && (
           <div data-source-islands className="mx-3 mt-8">
             {box('words', said.words, <QuoteKind.icon aria-hidden className="size-4 shrink-0" style={{ color: QuoteKind.tint }} />,

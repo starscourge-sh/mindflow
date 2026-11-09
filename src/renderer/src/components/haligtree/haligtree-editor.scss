@@ -4732,23 +4732,16 @@ $run-next: '.react-renderer:has(> .tiptap-attachment.is-audio) + .react-renderer
       }
     }
 
-    ul {
-      margin: 0;
-      padding: 0;
-      list-style: none;
-    }
-
-    li {
+    p[data-work-cited] {
       margin: 0.3em 0;
-      padding-left: 1.5em;
-      text-indent: -1.5em;
+      padding: 0;
       color: var(--foreground);
+      overflow-wrap: anywhere;
     }
 
     .mf-works-cited-work {
       display: inline;
       text-align: left;
-      text-indent: inherit;
       cursor: pointer;
 
       &:hover {
@@ -4760,7 +4753,6 @@ $run-next: '.react-renderer:has(> .tiptap-attachment.is-audio) + .react-renderer
     a {
       color: var(--tt-brand-color-400);
       cursor: pointer;
-      word-break: break-all;
     }
   }
 

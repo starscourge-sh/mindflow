@@ -24,3 +24,15 @@ export const isbnIn = (text: string): string | null => {
 
 /** Words that are a DOI or a doi.org link and nothing else. */
 export const loneDoi = (text: string): string | null => (/^\s*(?:https?:\/\/(?:dx\.)?doi\.org\/|doi:\s*)?10\.\d{4,9}\/\S+\s*$/i.test(text) ? doiIn(text) : null)
+
+export const names = (authors: string): string[] => authors.split(';').map((one) => one.trim()).filter(Boolean)
+export const surname = (name: string): string => (name.includes(',') ? name.split(',')[0] : name.split(/\s+/).at(-1) ?? name).trim()
+
+/** "(Shelley 1831, p. 82)": the first author's surname ("and" a second, "et al." for more), or a short title, then year and page. */
+export function chipLabel(attrs: { work?: string; authors?: string; year?: string; page?: string; pending?: string }): string {
+  if (attrs.pending && !attrs.work) return `(${attrs.pending})`
+  const who = names(attrs.authors ?? '')
+  const lead = who.length > 2 ? `${surname(who[0])} et al.` : who.length === 2 ? `${surname(who[0])} and ${surname(who[1])}` : who.length ? surname(who[0]) : shortTitle(attrs.work ?? '')
+  return `(${[lead, attrs.year].filter(Boolean).join(' ')}${attrs.page ? `, p. ${attrs.page}` : ''})`
+}
+const shortTitle = (title: string): string => (title.length > 28 ? `${title.slice(0, 26).trim()}…` : title)

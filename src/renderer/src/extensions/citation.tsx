@@ -10,6 +10,7 @@ import { chipLabel, citeInto, citedLine, fillChip, looking, loneDoi, type CiteAt
 import { openSource } from "@/lib/sources"
 import { chime } from "@/lib/sound"
 import { personKey } from "../../../main/names"
+import { num } from "../../../main/dates"
 
 /**
  * A citation in a note: "(Shelley 1831, p. 82)" as a chip that opens its
@@ -79,13 +80,14 @@ function drawCited(list: CiteAttrs[]): HTMLElement {
   copy.addEventListener("click", () => {
     void navigator.clipboard.writeText(list.map(citedLine).join("\n")).then(() => {
       chime("copy")
-      toast(list.length === 1 ? "Copied the work cited" : `Copied ${list.length} works cited`, undefined, "info")
+      toast(list.length === 1 ? "Copied the work cited" : `Copied ${num(list.length)} works cited`, undefined, "info")
     })
   })
   head.append(title, copy)
-  const items = document.createElement("ul")
+  const items = document.createElement("div")
   for (const one of list) {
-    const row = document.createElement("li")
+    const row = document.createElement("p")
+    row.dataset.workCited = ""
     const line = citedLine(one)
     const link = one.doi ? `https://doi.org/${one.doi}` : ""
     const words = document.createElement("button")

@@ -1,4 +1,5 @@
 import { occlusionOf } from './occlusion'
+import { chipLabel } from './cite-ids'
 import { mediaForget, mediaFromBin, mediaInBin, mediaPeek } from './media'
 import { foldMeeting, transcriptLines, voiceName, type MeetingLine } from './meeting-doc'
 import { awayDays } from './away'
@@ -184,6 +185,7 @@ export function markdown(value: unknown, nameOf: (id: string) => string | undefi
       if (node.type === 'image') return `![${node.attrs?.alt ?? ''}${node.attrs?.width ? `|${parseInt(String(node.attrs.width))}` : ''}](${node.attrs?.src ?? ''})`
       if (node.type === 'inlineMath') return `$${node.attrs?.latex ?? ''}$`
       if (node.type === 'footnoteReference') return `[^${node.attrs?.n || 1}]`
+      if (node.type === 'citation') return chipLabel((node.attrs ?? {}) as Record<string, string>)
       if (node.type === 'emoji') return `:${node.attrs?.name ?? ''}:`
       let text = node.text ?? inline(node.content)
       for (const mark of node.marks ?? []) {

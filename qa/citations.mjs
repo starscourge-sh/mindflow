@@ -81,7 +81,7 @@ try {
   await film('filled', 4)
   check('the chip fills in as "(Shelley 1831, p. 82)"', (await chipTexts())[0] === '(Shelley 1831, p. 82)', JSON.stringify(await chipTexts()))
   check('Crossref was asked with the app named in User-Agent and no email', asked.some((one) => /frankenstein/.test(one.url) && /Haligtree/.test(one.agent) && !/@|mailto/.test(one.url + one.agent)), JSON.stringify(asked.at(-1)))
-  const foot = await h.evaluate(() => ({ head: document.querySelector('[data-works-cited] h3')?.textContent, rows: [...document.querySelectorAll('[data-works-cited] li')].map((one) => one.textContent), link: document.querySelector('[data-works-cited] a')?.getAttribute('href') }))
+  const foot = await h.evaluate(() => ({ head: document.querySelector('[data-works-cited] h3')?.textContent, rows: [...document.querySelectorAll('[data-works-cited] [data-work-cited]')].map((one) => one.textContent), link: document.querySelector('[data-works-cited] a')?.getAttribute('href') }))
   check('"Works cited" at the foot: author, year, title, publisher, DOI link', foot.head === 'Works cited' && foot.rows[0] === 'Shelley, Mary. 1831. Frankenstein; or, The Modern Prometheus. Henry Colburn and Richard Bentley. https://doi.org/10.1000/frankenstein' && foot.link === 'https://doi.org/10.1000/frankenstein', JSON.stringify(foot))
   const lastBlock = await h.evaluate(() => { const box = document.querySelector(`[data-open] .tiptap`); return box.lastElementChild?.matches('[data-works-cited]') || !!box.querySelector(':scope > [data-works-cited]') })
   check('"Works cited" sits inside the note, at its end', lastBlock)
@@ -92,7 +92,7 @@ try {
   const texts = await chipTexts()
   check('an ISBN is looked up in Open Library: "(Austen 2003)"', texts.includes('(Austen 2003)'), JSON.stringify(texts))
   check('a doi.org link with pp.: "(Lee and Park 2021, p. 3-5)"', texts.includes('(Lee and Park 2021, p. 3-5)'), JSON.stringify(texts))
-  const rows = await h.evaluate(() => [...document.querySelectorAll('[data-works-cited] li')].map((one) => one.textContent.slice(0, 20)))
+  const rows = await h.evaluate(() => [...document.querySelectorAll('[data-works-cited] [data-work-cited]')].map((one) => one.textContent.slice(0, 20)))
   check('three works cited, by surname', rows.length === 3 && rows[0].startsWith('Austen') && rows[1].startsWith('Lee') && rows[2].startsWith('Shelley'), JSON.stringify(rows))
   await shot('three')
 
@@ -127,7 +127,7 @@ try {
   await h.waitForFunction(() => [...document.querySelectorAll('.mf-citation')].filter((one) => /Shelley 1831\)/.test(one.textContent)).length === 1, null, { timeout: 6000 })
   const line = await ed((editor) => ({ text: editor.state.doc.lastChild.textContent, kinds: editor.state.doc.lastChild.content.content.map((one) => one.type.name) }))
   check('the pasted words become the chip', line.text === '' && line.kinds.join() === 'citation', JSON.stringify(line))
-  const once = await h.evaluate(() => [...document.querySelectorAll('[data-works-cited] li')].filter((one) => one.textContent.startsWith('Shelley')).length)
+  const once = await h.evaluate(() => [...document.querySelectorAll('[data-works-cited] [data-work-cited]')].filter((one) => one.textContent.startsWith('Shelley')).length)
   check('Shelley is listed once though cited twice', once === 1, String(once))
   await wait(2500)
 

@@ -4,13 +4,13 @@ import type { Node as PMNode } from '@tiptap/pm/model'
 import { call } from './haligtree'
 import { chime } from './sound'
 import { ask, refuse, toast } from '@/components/haligtree/ui'
-import { doiIn, isbnIn } from '../../../main/cite-ids'
+import { doiIn, isbnIn, names, surname } from '../../../main/cite-ids'
 import { personKey } from '../../../main/names'
 import { openSource } from './sources'
 import type { Citer, LookupResult, Work } from '../../../main/cite'
 
 export type { Citer, Work } from '../../../main/cite'
-export { loneDoi } from '../../../main/cite-ids'
+export { loneDoi, chipLabel } from '../../../main/cite-ids'
 
 export const cite = {
   lookup: (text: string) => call<LookupResult>('cite:lookup', text),
@@ -23,18 +23,6 @@ export const cite = {
 export type CiteAttrs = Work & { work: string; page: string; pending: string; failed?: string }
 
 const EMPTY: Work = { title: '', authors: '', year: '', publisher: '', doi: '', isbn: '', url: '', what: '' }
-const names = (authors: string): string[] => authors.split(';').map((one) => one.trim()).filter(Boolean)
-const surname = (name: string): string => (name.includes(',') ? name.split(',')[0] : name.split(/\s+/).at(-1) ?? name).trim()
-
-/** "(Shelley 1831, p. 82)": the first author's surname ("and" a second, "et al." for more), or a short title, then year and page. */
-export function chipLabel(attrs: Partial<CiteAttrs>): string {
-  if (attrs.pending && !attrs.work) return `(${attrs.pending})`
-  const who = names(attrs.authors ?? '')
-  const lead = who.length > 2 ? `${surname(who[0])} et al.` : who.length === 2 ? `${surname(who[0])} and ${surname(who[1])}` : who.length ? surname(who[0]) : shortTitle(attrs.work ?? '')
-  return `(${[lead, attrs.year].filter(Boolean).join(' ')}${attrs.page ? `, p. ${attrs.page}` : ''})`
-}
-const shortTitle = (title: string): string => (title.length > 28 ? `${title.slice(0, 26).trim()}…` : title)
-
 /** One plain line: "Shelley, Mary. 1831. Frankenstein. Henry Colburn. https://doi.org/…". */
 export function citedLine(attrs: Partial<CiteAttrs>): string {
   const who = names(attrs.authors ?? '')
