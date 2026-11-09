@@ -208,9 +208,9 @@ try {
   await wait(200)
   s = await read()
   const t3 = s.taps
-  await stickyDrag({ x: stickyCentre + 6 - 20, y: s.sticky.y })
+  await stickyDrag({ x: stickyCentre + 3 - 20, y: s.sticky.y })
   s = await read()
-  check('sticky: carried near the middle, it follows the pointer exactly', s.card.x === stickyCentre + 6, `${s.card.x - stickyCentre}`)
+  check('sticky: carried 3 points from the middle, it follows the pointer exactly', s.card.x === stickyCentre + 3, `${s.card.x - stickyCentre}`)
   check('sticky: the middle guide shows while carried', s.guides.shown && s.guides.lines.some((l) => l.axis === 'x' && l.at === midX), JSON.stringify(s.guides.lines))
   check('sticky: one tick coming onto the line', s.taps === t3 + 1, `${s.taps - t3}`)
   await picture('sticky-middle')
@@ -221,7 +221,7 @@ try {
   s = await read()
   const boxRight = s.box.x + s.box.width
   const below = s.box.y + s.box.height + 80
-  await stickyDrag({ x: boxRight - cw + 5 - 20, y: below - 20 })
+  await stickyDrag({ x: boxRight - cw + 3 - 20, y: below - 20 })
   s = await read()
   check('sticky: near quick capture\'s right edge, its guide shows', s.guides.lines.some((l) => l.axis === 'x' && l.at === boxRight), JSON.stringify(s.guides.lines))
   await picture('sticky-box-edge')
@@ -230,12 +230,110 @@ try {
   // Toward the bottom margin.
   s = await read()
   const bottomTo = work.y + work.height - 16 - s.card.height
-  await stickyDrag({ x: s.sticky.x, y: bottomTo - 5 - 20 })
+  await stickyDrag({ x: s.sticky.x, y: bottomTo - 3 - 20 })
   s = await read()
   check('sticky: near the bottom margin, a guide across the screen', s.guides.lines.some((l) => l.axis === 'y' && l.at === work.y + work.height - 16), JSON.stringify(s.guides.lines))
   await picture('sticky-bottom-margin')
   s = await stickyLetGo()
   check('sticky: let go, it lines up 16 points above the bottom', s.card.y === bottomTo, `${s.card.y - bottomTo}`)
+
+  // ---- A goal's card, carried by the Mac in 20 small steps toward the screen's middle and past it: the guide is a
+  // fixed line at the middle, shown only while the card's middle is within a few points of it, never moving.
+  // An open goal's own card, stuck by hand (the sandbox puts one up as it starts, but the desk was cleared above).
+  const openGoal = ((await v('items', 'goal')) ?? []).find((one) => one?.goalAt && !one.closedAt && !one.archivedAt && !one.closedHow)
+  if (openGoal) await h.evaluate((id) => window.api.stick('goal', id, true), openGoal.id)
+  let goalWin = null
+  for (let i = 0; i < 60 && !goalWin; i++) (goalWin = (await stickyWins()).find((one) => one.url.includes('type=goal&')) ?? null), goalWin || (await wait(250))
+  check('the sandbox has a goal card up', !!goalWin)
+  if (goalWin) {
+    const gb = () => electron.evaluate(({ BrowserWindow }, id) => BrowserWindow.fromId(id).getBounds(), goalWin.id)
+    let g = await gb()
+    const gw = g.width - 40
+    const gMid = Math.round(midX - gw / 2)
+    // Start 12 points left of the middle, well below the other cards, and carry it right a point a step.
+    await place(goalWin.id, gMid - 12 - 20, work.y + Math.round(work.height * 0.45))
+    await wait(300)
+    g = await gb()
+    const frames = await electron.evaluate(async ({ BrowserWindow }, id) => {
+      const w = BrowserWindow.fromId(id)
+      const from = w.getBounds()
+      globalThis.qaCursor = { x: from.x + 80, y: from.y + 30 }
+      globalThis.qaButton = true
+      const taps0 = globalThis.haligtreeTapKinds().length
+      w.emit('will-move', { preventDefault() {} }, { ...from })
+      const out = []
+      for (let i = 1; i <= 20; i++) {
+        w.setPosition(from.x + i * 1.2 | 0, from.y)
+        globalThis.qaCursor = { x: from.x + (i * 1.2 | 0) + 80, y: from.y + 30 }
+        w.emit('move')
+        w.emit('moved')
+        await new Promise((r) => setTimeout(r, 70))
+        out.push({ x: w.getBounds().x, lines: JSON.parse(JSON.stringify(globalThis.haligtreeGuides.lines)), taps: globalThis.haligtreeTapKinds().length - taps0 })
+      }
+      return out
+    }, goalWin.id)
+    for (const f of frames) console.log(`  goal step: card middle ${f.x + 20 + gw / 2 - midX >= 0 ? '+' : ''}${f.x + 20 + gw / 2 - midX} from the middle, lines ${JSON.stringify(f.lines)}, ticks ${f.taps}`)
+    const shownAt = frames.filter((f) => f.lines.length)
+    check('goal: across 20 steps, the guide shows (the card came within reach of the middle)', shownAt.length > 0, `${shownAt.length} of 20 steps`)
+    check('goal: every guide shown is the screen\'s middle and nothing else, the same line every step', shownAt.every((f) => f.lines.length === 1 && f.lines[0].axis === 'x' && f.lines[0].at === midX), JSON.stringify(shownAt.map((f) => f.lines)))
+    check('goal: the guide shows only while the card\'s middle is within 6 points of it', frames.every((f) => !f.lines.length || Math.abs(f.x + 20 + gw / 2 - midX) <= 6), '')
+    check('goal: it shows from one step to the next with no gap, then goes', shownAt.length === frames.findLastIndex((f) => f.lines.length) - frames.findIndex((f) => f.lines.length) + 1, '')
+    const firstOn = frames.findIndex((f) => f.lines.length)
+    check('goal: one tick, on the very step the guide appears', frames.at(-1).taps === 1 && frames[firstOn]?.taps === 1 && (firstOn === 0 || frames[firstOn - 1].taps === 0), JSON.stringify(frames.map((f) => f.taps)))
+    // Held within reach at three places, one picture each: the same still line in all three.
+    for (const [n, off] of [[1, -3], [2, -1], [3, 2]]) {
+      await electron.evaluate(({ BrowserWindow }, [id, x]) => { const w = BrowserWindow.fromId(id); w.setPosition(x, w.getBounds().y); w.emit('move'); w.emit('moved') }, [goalWin.id, gMid + off - 20])
+      await wait(120)
+      const now = await read()
+      check(`goal held ${off} from the middle: the one line at the middle`, JSON.stringify(now.guides.lines) === JSON.stringify([{ axis: 'x', at: midX }]), JSON.stringify(now.guides.lines))
+      await picture(`goal-step-${n}`)
+    }
+    s = await stickyLetGo()
+    g = await gb()
+    check('goal: let go 2 points past the line it showed, it lands on it', g.x === gMid - 20, `${g.x - (gMid - 20)}`)
+
+    // Carried down past Today's card at the right edge, a point a step: every guide is at an edge of something on
+    // the screen and none jumps to a new place without going away first.
+    s = await read()
+    const fixed = new Set([midX, work.x + 16, work.x + work.width - 16, Math.round(work.y + work.height / 2), work.y + 16, work.y + work.height - 16])
+    const others = await electron.evaluate(({ BrowserWindow }, id) => BrowserWindow.getAllWindows().filter((w) => w.id !== id && w.isVisible() && /view=sticky|index\.html/.test(w.webContents.getURL())).map((w) => {
+      const b = w.getBounds()
+      const paper = w.webContents.getURL().includes('view=sticky') && !w.webContents.getURL().includes('glass=1')
+      return paper ? { x: b.x + 20, y: b.y + 20, width: b.width - 40, height: b.height - 40 } : b
+    }), goalWin.id)
+    for (const o of others) for (const n of [o.x, o.x + o.width, o.y, o.y + o.height]) fixed.add(n)
+    const today = (await stickyWins()).find((one) => one.url.includes('type=today'))
+    const tb = today && (await electron.evaluate(({ BrowserWindow }, id) => BrowserWindow.fromId(id).getBounds(), today.id))
+    if (tb) {
+      await place(goalWin.id, tb.x - 30, tb.y - 40)
+      await wait(300)
+      const sweep = await electron.evaluate(async ({ BrowserWindow }, id) => {
+        const w = BrowserWindow.fromId(id)
+        const from = w.getBounds()
+        globalThis.qaButton = true
+        w.emit('will-move', { preventDefault() {} }, { ...from })
+        const out = []
+        for (let i = 1; i <= 60; i++) {
+          w.setPosition(from.x + i, from.y + i)
+          globalThis.qaCursor = { x: from.x + i + 80, y: from.y + i + 30 }
+          w.emit('move')
+          w.emit('moved')
+          await new Promise((r) => setTimeout(r, 45))
+          out.push(JSON.parse(JSON.stringify(globalThis.haligtreeGuides.lines)))
+        }
+        return out
+      }, goalWin.id)
+      const bad = sweep.flat().filter((l) => !fixed.has(l.at))
+      check('goal past Today: every guide sits at a fixed place on the screen (an edge, the middle, a margin)', bad.length === 0, JSON.stringify(bad))
+      let jumps = 0
+      for (let i = 1; i < sweep.length; i++) for (const axis of ['x', 'y']) {
+        const a = sweep[i - 1].find((l) => l.axis === axis), b = sweep[i].find((l) => l.axis === axis)
+        if (a && b && a.at !== b.at) jumps++
+      }
+      check('goal past Today: no guide jumps to a new place while it shows', jumps === 0, `${jumps} jumps; ${JSON.stringify(sweep.filter((l) => l.length))}`)
+      s = await stickyLetGo()
+    }
+  }
 
   const end = await read()
   check('no window took the focus through it all', end.focused === focus0, `${focus0} -> ${end.focused}`)

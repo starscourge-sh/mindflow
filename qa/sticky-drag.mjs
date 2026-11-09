@@ -111,7 +111,7 @@ try {
     await wait(60)
     const taps0 = await taps()
     // Toward the right edge, ending 5 points short of the line it would settle on (16 in, card inset 20).
-    const nearEdge = { x: work.x + work.width - 16 - (b.width - 20) - 5, y: start.y + 120 }
+    const nearEdge = { x: work.x + work.width - 16 - (b.width - 20) - 3, y: start.y + 120 }
     const from = (await info()).b
     const one = await drag(line({ x: from.x, y: from.y }, nearEdge, 50), grip)
     check(`${tag}: the window follows the pointer exactly the whole drag`, one.deviations === 0, `${one.deviations} of ${one.count} samples off, worst ${one.worst}pt`)

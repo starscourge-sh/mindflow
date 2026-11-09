@@ -1,7 +1,7 @@
 // Run with: node --test test/snap-lines.test.ts
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { cameOnto, lineUp, EDGE, GAP, LEAVE, SNAP } from '../src/main/snap-lines.ts'
+import { cameOnto, lineUp, CARRIED, EDGE, LEAVE, SNAP } from '../src/main/snap-lines.ts'
 
 const area = { x: 0, y: 25, width: 1440, height: 875 }
 const card = (x: number, y: number) => ({ x, y, width: 260, height: 180 })
@@ -37,10 +37,33 @@ test('another card: left edges line up, anywhere on the screen', () => {
   assert.deepEqual(at.lines, [{ axis: 'x', at: 300 }])
 })
 
-test('another card beside it: a gap beside its edge', () => {
+test('another card beside it: no line in the empty space a gap beside its edge', () => {
   const other = { x: 300, y: 280, width: 200, height: 120 }
-  const at = lineUp(card(500 + GAP + 6, 300), [other], area)
-  assert.equal(at.x, 500 + GAP)
+  const at = lineUp(card(500 + 8 + 2, 300), [other], area)
+  assert.equal(at.x, 510)
+  assert.equal(at.lines.filter((l) => l.axis === 'x').length, 0)
+})
+
+test('carried across cards stacked down the right edge, every guide shown sits at a fixed place and stays put while it shows', () => {
+  // Today and two goal cards, a few points apart, as they stack at the right.
+  const others = [{ x: 1164, y: 40, width: 260, height: 300 }, { x: 1170, y: 360, width: 248, height: 320 }, { x: 1158, y: 700, width: 268, height: 150 }]
+  const fixed = new Set([720, EDGE, 1440 - EDGE, ...others.flatMap((o) => [o.x, o.x + o.width])])
+  let held = {}
+  let shown: number | null = null
+  let moves = 0
+  for (let x = 1100; x <= 1200; x++) {
+    const at = lineUp(card(x, 420), others, area, held, CARRIED)
+    held = at.held
+    const line = at.lines.find((l) => l.axis === 'x')?.at ?? null
+    if (line !== null) {
+      assert.ok(fixed.has(line), `line at ${line} is at nothing on the screen`)
+      // Shown, the card's edge is within the carried reach of it.
+      assert.ok(Math.abs(x - line) <= CARRIED.leave || Math.abs(x + 260 - line) <= CARRIED.leave, `line ${line} far from the card at ${x}`)
+    }
+    if (shown !== null && line !== null && line !== shown) moves++
+    shown = line
+  }
+  assert.equal(moves, 0, 'a guide jumped to a new place without first going away')
 })
 
 test('far from every line it stays where the hand has it, with no lines', () => {

@@ -100,7 +100,7 @@ import { registerFeed } from './feed'
 import { growFrom } from './grow'
 import { grab, whenLetGo } from './hand'
 import { guideColour, hideGuides, showGuides } from './guides'
-import { cameOnto, lineUp, type Held } from './snap-lines'
+import { CARRIED, cameOnto, lineUp, type Held } from './snap-lines'
 import { throwSpot } from './throw-spot'
 import { cardInView, cardOf, LIFT_MS, onFrames, outCubic, outQuart, outQuint, paceBy, rubber, settle as overshoot, tween, type Inset } from './sticky-place'
 import { registerDefine } from './define'
@@ -1251,6 +1251,8 @@ function keyInAddress(win: BrowserWindow): string | null {
 }
 /** The sticky a window is, by its key ("capture:…", "today:today"). */
 const keyOfSticky = (win: BrowserWindow | null): string | undefined => (win ? [...stickies].find(([, one]) => one === win)?.[0] : undefined)
+/** The guides' blue until the dragged window's page has said its theme's (guides.ts guideColour). */
+const GUIDE_BLUE = 'rgb(10, 132, 255)'
 /** How far in from its window the card is drawn: glass fills it; paper keeps room round it for its lean and shadow (sticky-note.tsx, goal-beacon.tsx). */
 const insetOf = (key: string): Inset => builtGlass.get(key) ? { left: 0, top: 0, right: 0, bottom: 0 } : { left: 20, top: 20, right: 20, bottom: 20 }
 /** The cards on the screen now that a dragged sticky or quick capture lines up with: every sticky up, and the box when it is out; never `but`. */
@@ -1652,7 +1654,12 @@ function stick(type: string, id: string, on: boolean, bounds?: Electron.Rectangl
     // Watched from the start on a Mac: picked up and put down without moving,
     // it is set down too. Elsewhere 'moved' comes once, at the end (hand.ts).
     // Picked up already on a line, it is held there without a tick.
-    if (process.platform === 'darwin') (inLine = lineUp(cardOf(win.getBounds(), insetOf(key)), others(), screen.getDisplayMatching(win.getBounds()).workArea).held), whenLetGo(win, letGo, lining)
+    if (process.platform === 'darwin') {
+      inLine = lineUp(cardOf(win.getBounds(), insetOf(key)), others(), screen.getDisplayMatching(win.getBounds()).workArea, {}, CARRIED).held
+      // The guides' colour asked for now, so the first line comes with its tick, not a step later.
+      if (!colour) void guideColour(win).then((c) => (colour = c))
+      whenLetGo(win, letGo, lining)
+    }
     if (held.has(win)) return
     held.add(win)
     win.webContents.send('sticky:held', true)
@@ -1679,11 +1686,11 @@ function stick(type: string, id: string, on: boolean, bounds?: Electron.Rectangl
   const others = (): ReturnType<typeof cardOf>[] => stickyCards(win)
   const lining = (now: Electron.Rectangle): void => {
     const card = cardOf(now, insetOf(key))
-    const lined = lineUp(card, others(), screen.getDisplayMatching(now).workArea, inLine)
+    const lined = lineUp(card, others(), screen.getDisplayMatching(now).workArea, inLine, CARRIED)
+    // The tick and the line together, on the same step.
     if (cameOnto(inLine, lined.held)) tap('align')
     inLine = lined.held
-    if (!colour) void guideColour(win).then((c) => (colour = c))
-    else showGuides(card, lined.lines, colour, stillness())
+    showGuides(card, lined.lines, colour || GUIDE_BLUE, stillness())
   }
   // Let go: the card settles with a soft tap. Past an edge, it glides back
   // until the card is all in view; near the screen's edge or another sticky,
@@ -1699,7 +1706,7 @@ function stick(type: string, id: string, on: boolean, bounds?: Electron.Rectangl
     const inset = insetOf(key)
     const area = screen.getDisplayMatching(now).workArea
     const inView = cardInView(now, inset, area)
-    const pulled = lineUp(cardOf(inView, inset), others(), area, inLine)
+    const pulled = lineUp(cardOf(inView, inset), others(), area, inLine, CARRIED)
     inLine = {}
     const { x, y } = cardInView({ ...now, x: pulled.x - inset.left, y: pulled.y - inset.top }, inset, area)
     if (x !== now.x || y !== now.y) moveStickies([[key, win, { x, y }]], false)
@@ -4680,7 +4687,7 @@ app.whenReady().then(() => {
       if (cameOnto(on, lined.held)) tap('align')
       on = lined.held
       if (at.x !== lined.x || at.y !== lined.y) win.setPosition(lined.x, lined.y)
-      if (colour) showGuides(want, lined.lines, colour, stillness())
+      showGuides(want, lined.lines, colour || GUIDE_BLUE, stillness())
     }, 8)
   })
   ipcMain.on('window:let-go', stopFollowing)
