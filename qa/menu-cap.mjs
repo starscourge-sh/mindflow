@@ -1,5 +1,5 @@
 // The block menu and the / menu never run past the window: capped near 60%
-// of it, scrolling inside; the block menu ends in "Close menu  esc" as Notion's does. The
+// of it, scrolling inside; the block menu has no "Close menu" row since 9 Nov (Esc closes it). The
 // handle is Notion's six-dot grip, in notes, a task's details and the box.
 // FAILS if any menu's foot is below the window's, at 900x700 and 1600x1000.
 // Also: the two page buttons on the selection bar have their own icons and names.
@@ -65,13 +65,14 @@ try {
       const tag = `${w}x${hh} ${look}`
       check(`${tag}: the block menu opens`, !!m, JSON.stringify(m))
       check(`${tag}: the block menu never runs past the window`, m && m.bottom <= m.win + 0.5 && m.top >= -0.5, JSON.stringify(m))
-      check(`${tag}: it is capped near 60% of the window and scrolls inside`, m && m.height <= m.win * 0.6 + 1 && m.scrolls, JSON.stringify(m))
-      check(`${tag}: it ends in "Close menu esc", in sight`, m && m.close === 'Close menu esc' && m.closeInside, JSON.stringify(m))
+      // Its actions first, "Turn into" one step away (9 Nov): short enough now that it rarely needs to scroll.
+      check(`${tag}: it is capped near 60% of the window`, m && m.height <= m.win * 0.6 + 1, JSON.stringify(m))
+      check(`${tag}: no "Close menu" row (9 Nov: Esc closes it)`, m && m.close === null, JSON.stringify(m))
       await h.screenshot({ path: `${SHOTS}/block-menu-${w}-${look}.png` })
       if (look === 'paper' && w === 900) {
-        await h.locator('.tiptap-block-menu [data-close-menu]').click()
+        await h.keyboard.press('Escape')
         await wait(400)
-        check('"Close menu" closes it', !(await h.locator('.tiptap-block-menu').count()))
+        check('Esc closes it', !(await h.locator('.tiptap-block-menu').count()))
         check('the handle is the six-dot grip', (await dots(h)) === 6, String(await dots(h)))
       } else await h.keyboard.press('Escape')
       await wait(300)

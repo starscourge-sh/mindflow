@@ -92,7 +92,6 @@ try {
         const menu = document.querySelector('.tiptap-block-menu[data-state="open"]')
         const r = menu.getBoundingClientRect()
         const list = menu.querySelector('.tiptap-block-menu-list')
-        const close = menu.querySelector('[data-close-menu]').getBoundingClientRect()
         // Drawn surfaces: anything in the menu's layer with a fill or a shadow of its own.
         const layer = menu.closest('[data-radix-popper-content-wrapper]') ?? menu
         const surfaces = [layer, ...layer.querySelectorAll('*')].filter((el) => {
@@ -105,14 +104,14 @@ try {
         const covers = r.left < block.right && block.left < r.right && r.top < block.top + 40 && block.top < r.bottom
         return {
           inWindow: r.top >= 0 && r.bottom <= innerHeight && r.right <= innerWidth,
-          closeShown: close.bottom <= r.bottom + 0.5 && close.top >= r.top,
+          closeShown: !menu.querySelector('[data-close-menu]'),
           listScrolls: list.scrollHeight > list.clientHeight + 1,
           outerScrolls: (() => { const s = menu.querySelector('[data-menu-scroll]'); return s ? s.scrollHeight > s.clientHeight + 1 : false })(),
           surfaces,
           covers
         }
       }, EDITOR)
-      check('the menu fits the short window, "Close menu" whole under the list', fit.inWindow && fit.closeShown, JSON.stringify(fit))
+      check('the menu fits the short window, with no "Close menu" row (9 Nov)', fit.inWindow && fit.closeShown, JSON.stringify(fit))
       check('only the list scrolls (one scroller, not the whole menu)', !fit.outerScrolls, JSON.stringify(fit))
       check('the menu is one surface', fit.surfaces.length === 1, JSON.stringify(fit.surfaces))
       check('the menu does not cover the block\'s title and time', !fit.covers, JSON.stringify(fit))
