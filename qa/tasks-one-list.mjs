@@ -2,7 +2,7 @@
 // 1. Today's list and the written-out day keep one order (Your order), and ⌥J moves a task past one of another priority.
 // 2. All counts every open task, those on hold from a fresh start too.
 // 3. A fresh start folds its tasks under "On hold" in their own tab, dimmed once unfolded; Later is not where they go.
-// 4. A late task leads every tab under "Overdue"; Later never shows "Late ·".
+// 4. A late task leads Today under "Overdue"; other tabs say "N late, on Today" in one line.
 // 5. Upcoming has no "No date" group; an undated task is in Later.
 // 6. "Priority, then due date" is a sort beside "Your order", and orders by priority, then the day.
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-tasks/main/index.js HALIGTREE_QA_AWAY=1 node qa/tasks-one-list.mjs
@@ -64,13 +64,14 @@ try {
   await v('task:save', undated, { due: null, plan: null })
   await go('upcoming'); await wait(1200)
   let hs = await heads()
-  check('Upcoming leads with Overdue', hs[0]?.startsWith('Overdue') && (await rows())[0] === late, hs.join(' | '))
+  // Late lives on Today alone (critique 9 Nov: red Overdue on every tab read as guilt): elsewhere one quiet line leads there.
+  check('Upcoming says "1 late, on Today" in one line, no Overdue group', !hs.some((x) => x.startsWith('Overdue')) && (await h.locator('[data-late-line]').innerText()).includes('1 late, on Today'), hs.join(' | '))
   check('Upcoming has no "No date" group', !hs.some((x) => x.startsWith('No date')), hs.join(' | '))
   check('and does not hold the undated task', !(await rows()).includes(undated))
   await shot('upcoming')
   await go('later'); await wait(1200)
   hs = await heads()
-  check('Later leads with Overdue', hs[0]?.startsWith('Overdue'), hs.join(' | '))
+  check('Later says the late one in a quiet line, not a group', !hs.some((x) => x.startsWith('Overdue')) && (await h.locator('[data-late-line]').count()) === 1, hs.join(' | '))
   check('Later holds the undated task', (await rows()).includes(undated))
   await shot('later')
 

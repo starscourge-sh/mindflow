@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
-import { AlarmClock } from 'lucide-react'
+import { Circle } from 'lucide-react'
 import { chime } from '@/lib/sound'
 import { haligtree, type Task, type TaskWas } from '@/lib/haligtree'
 import { Button } from '@/components/ui/button'
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import type { RowItem } from './row-menu'
 import { DatePicker } from './date-picker'
 import { ask, toast } from './ui'
@@ -46,6 +46,9 @@ async function rescheduleAll(list: Task[], where: Where, noun: [string, string] 
     void haligtree.saveTasks(was.map((one, at) => ({ id: one.id, patch: { due: one.due, plan: one.plan, ...(before[at] === true ? {} : before[at]) } }))).then(() => chime('undo')))
 }
 
+/** The late tasks the Calendar's pill lists by name; past this, the rest are counted. */
+const LISTED = 8
+
 /** "Pick a date…" asked from a right click: the "N late" button opens its calendar. */
 const PICK = 'haligtree:late-pick'
 
@@ -64,10 +67,12 @@ export function lateItems(list: Task[]): RowItem[] {
 }
 
 /**
- * "N late · Reschedule all…": said in orange where late tasks are, at a size
- * that is read, with the moves one click away. Nothing when none are late.
+ * Every late one moved at once. Under Today's "Overdue" heading, "Reschedule
+ * all…" in orange. Beside the Calendar's title, a calm pill that only counts
+ * ("3 late"): its menu holds "Reschedule all" and the late tasks themselves,
+ * each a click from its day. Nothing when none are late.
  */
-export function LateMenu({ tasks, className = '', pill = false }: { tasks: Task[]; className?: string; /** Its own tinted pill, beside a page's title (the Calendar): the one thing to act on there. */ pill?: boolean }): React.JSX.Element | null {
+export function LateMenu({ tasks, className = '', pill = false, onTask }: { tasks: Task[]; className?: string; /** A quiet pill beside a page's title (the Calendar), counting only; its menu does the rest. */ pill?: boolean; /** A late task picked from the pill's menu. */ onTask?: (task: Task) => void }): React.JSX.Element | null {
   const late = lateOnes(tasks)
   // The calendar for "Pick a date…", opened afresh each time it is asked for; and which ones it moves.
   const [picking, setPicking] = useState<{ n: number; ids: string[] | null } | null>(null)
@@ -78,28 +83,52 @@ export function LateMenu({ tasks, className = '', pill = false }: { tasks: Task[
   }, [])
   if (!late.length && !picking) return null
   const pick = (): void => setPicking((was) => ({ n: (was?.n ?? 0) + 1, ids: null }))
+  const moves = (
+    <>
+      <DropdownMenuItem data-late-to="today" onSelect={() => void rescheduleAll(late, 'today')}>Today</DropdownMenuItem>
+      <DropdownMenuItem data-late-to="tomorrow" onSelect={() => void rescheduleAll(late, 'tomorrow')}>Tomorrow</DropdownMenuItem>
+      <DropdownMenuItem data-late-to="week" onSelect={() => void rescheduleAll(late, 'week')}>Next week</DropdownMenuItem>
+      <DropdownMenuItem data-late-to="pick" onSelect={pick}>Pick a date…</DropdownMenuItem>
+      <DropdownMenuSeparator />
+      <DropdownMenuItem data-late-to="spread" onSelect={() => void rescheduleAll(late, 'spread')}>Spread over the next 3 days</DropdownMenuItem>
+    </>
+  )
   return (
     <span data-late className={`relative inline-flex items-center ${className}`}>
       <DropdownMenu modal={false} onOpenChange={(open) => open && chime('open')}>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="sm" data-late-all data-late-pill={pill || undefined} aria-label={`${num(late.length)} late: reschedule all`}
-            className={pill
-              ? 'h-7 gap-1.5 rounded-md bg-[color-mix(in_oklab,var(--tt-color-text-orange)_14%,var(--background))] px-2.5 text-body font-semibold text-[var(--tt-color-text-orange)] hover:bg-[color-mix(in_oklab,var(--tt-color-text-orange)_22%,var(--background))] hover:text-[var(--tt-color-text-orange)] data-[state=open]:bg-[color-mix(in_oklab,var(--tt-color-text-orange)_22%,var(--background))]'
-              : 'gap-1.5 font-semibold text-[var(--tt-color-text-orange)] hover:text-[var(--tt-color-text-orange)]'}>
-            {pill && <AlarmClock aria-hidden className="size-4" />}
-            {/* Under the "Overdue" heading the count is already said: the button only says what it does. */}
-            {pill && <span className="tabular-nums">{num(late.length)} late</span>}
-            {pill && <span aria-hidden className="hidden font-normal text-[var(--tt-color-text-orange)]/60 @[22rem]/title:inline">·</span>}
-            <span className={`font-medium ${pill ? 'hidden text-foreground @[22rem]/title:inline' : ''}`}>Reschedule all…</span>
-          </Button>
+          {pill ? (
+            <Button variant="outline" size="sm" data-late-all data-late-pill aria-label={`${num(late.length)} late: see them and reschedule`}
+              className="h-7 shrink-0 gap-1 rounded-md px-2 text-control font-medium text-foreground/80 tabular-nums data-[state=open]:bg-accent">
+              {num(late.length)} late
+            </Button>
+          ) : (
+            <Button variant="ghost" size="sm" data-late-all aria-label={`${num(late.length)} late: reschedule all`}
+              className="gap-1.5 font-semibold text-[var(--tt-color-text-orange)] hover:text-[var(--tt-color-text-orange)]">
+              {/* Under the "Overdue" heading the count is already said: the button only says what it does. */}
+              <span className="font-medium">Reschedule all…</span>
+            </Button>
+          )}
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="text-control">
-          <DropdownMenuItem data-late-to="today" onSelect={() => void rescheduleAll(late, 'today')}>Today</DropdownMenuItem>
-          <DropdownMenuItem data-late-to="tomorrow" onSelect={() => void rescheduleAll(late, 'tomorrow')}>Tomorrow</DropdownMenuItem>
-          <DropdownMenuItem data-late-to="week" onSelect={() => void rescheduleAll(late, 'week')}>Next week</DropdownMenuItem>
-          <DropdownMenuItem data-late-to="pick" onSelect={pick}>Pick a date…</DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem data-late-to="spread" onSelect={() => void rescheduleAll(late, 'spread')}>Spread over the next 3 days</DropdownMenuItem>
+        <DropdownMenuContent align={pill ? 'start' : 'end'} className="max-w-80 text-control">
+          {pill ? (
+            <>
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger data-late-reschedule>Reschedule all…</DropdownMenuSubTrigger>
+                <DropdownMenuSubContent className="text-control">{moves}</DropdownMenuSubContent>
+              </DropdownMenuSub>
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel className="text-meta font-medium text-muted-foreground">Late</DropdownMenuLabel>
+              {late.slice(0, LISTED).map((task) => (
+                <DropdownMenuItem key={task.id} data-late-task={task.id} onSelect={() => onTask?.(task)}>
+                  <Circle aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />
+                  <span className="min-w-0 flex-1 truncate">{taskName(task.title).text || task.title}</span>
+                  <span className="shrink-0 pl-3 text-meta text-muted-foreground tabular-nums">{dayjs(task.dueAt).format('D MMM')}</span>
+                </DropdownMenuItem>
+              ))}
+              {late.length > LISTED && <DropdownMenuLabel className="text-meta font-normal text-muted-foreground">and {num(late.length - LISTED)} more, on Today</DropdownMenuLabel>}
+            </>
+          ) : moves}
         </DropdownMenuContent>
       </DropdownMenu>
       {picking && (

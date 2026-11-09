@@ -663,12 +663,12 @@ export function Display<T>({ view, onChange, facets, sorts: given, groups: offer
           the icon, its right edge never moves, and nothing beside it moves when the order does. */}
       <span data-display-room className="grid justify-items-end">
       {!compact && room && room.map((one) => (
-        <span key={one} aria-hidden className="invisible flex h-7 items-center gap-1.5 px-2 text-control whitespace-nowrap [grid-area:1/1]">{one}<span className="size-3.5" /></span>
+        <span key={one} aria-hidden className="invisible flex h-7 items-center gap-1.5 px-2 text-control whitespace-nowrap [grid-area:1/1]">Sort: {one}<span className="size-3.5" /></span>
       ))}
       <Tip label="Display  F">
       <PopoverTrigger asChild>
         <button ref={button} type="button" data-display className={`flex h-7 items-center gap-1.5 rounded-md px-2 text-control whitespace-nowrap transition-colors duration-150 [grid-area:1/1] hover:bg-accent hover:text-foreground motion-reduce:transition-none ${open ? 'bg-accent text-foreground' : ''} ${active ? 'text-foreground' : ''}`}>
-          {!compact && (room || sorts.length > 1) && <Rolling by="word" text={sortName} />}
+          {!compact && (room || sorts.length > 1) && <span className="flex items-center gap-1"><span className="text-muted-foreground">Sort:</span><Rolling by="word" text={sortName} /></span>}
           {filtered > 0 && <Count n={filtered} className="rounded bg-accent px-1 text-xs text-muted-foreground" />}
           {Shown ? <Shown className="size-3.5" /> : <AliveIcon icon={SlidersHorizontalIcon} size={14} />}
         </button>

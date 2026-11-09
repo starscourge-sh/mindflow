@@ -37,7 +37,7 @@ try {
     for (const tab of TABS) {
       await go(tab); await wait(count >= 500 ? 1500 : 900)
       if (shots) await both(`${shots}/${tab}-${count}`)
-      if (count >= 50 && (tab === 'upcoming' || tab === 'later')) check(`${tab} at ${count}: the many late ones fold to their red heading on top`, (await h.locator('[data-late-fold][aria-expanded="false"]').count()) === 1)
+      if (count >= 50 && (tab === 'upcoming' || tab === 'later')) check(`${tab} at ${count}: the many late ones are one quiet line leading to Today`, (await h.locator('[data-late-line]').count()) === 1 && (await h.locator('[data-late-fold]').count()) === 0)
       const wide = await h.evaluate(() => document.scrollingElement.scrollWidth <= innerWidth + 1)
       if (!wide) check(`${tab} at ${count}: no sideways scroll`, false)
     }

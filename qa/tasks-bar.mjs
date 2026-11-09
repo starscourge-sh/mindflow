@@ -1,6 +1,6 @@
 // The Tasks row's one bar: the tabs Today, Upcoming, Later and Routines on the
 // left, the count, "Write out my day" and ⋯. The button stays in the same
-// place on every tab (greyed off Today) and puts the caret on a new line at the end of the list (the
+// place on Today, the one tab it writes on (shown there alone since 9 Nov: greyed on four tabs of five read as dead), and puts the caret on a new line at the end of the list (the
 // list is the written-out day); ⋯ holds "Urgent and important", "Your order" and
 // "I have 15 min" (only with the focus tools on). Nothing in the bar moves:
 // every control's place is measured before and after each click.
@@ -66,13 +66,13 @@ try {
   const back = await bar()
   check('Esc leaves the line, and nothing moved', !(await h.locator('[data-write-line]').count()) && moved(first, back).length === 0, moved(first, back).join('; '))
 
-  // Each tab: the controls stay where they were; "Write out my day" greyed off Today.
+  // Each tab: the controls stay where they were; "Write out my day" on Today alone (critique 9 Nov), the rest not moved by its going.
   for (const tab of ['Upcoming', 'Later', 'Routines', 'Today']) {
     await h.locator(`[data-page] header button[aria-label="${tab}"]`).first().click()
     await wait(900)
     const now = await bar()
     check(`${tab}: on its own tab`, now.page === tab.toLowerCase(), now.page)
-    check(`${tab}: "Write out my day" in its place${tab === 'Today' ? '' : ', greyed'}`, now.out['Write out my day'] && now.out['Write out my day'].left === first.out['Write out my day'].left && now.out['Write out my day'].off === (tab !== 'Today'), JSON.stringify(now.out['Write out my day']))
+    check(`${tab}: "Write out my day" ${tab === 'Today' ? 'in its place' : 'not shown'}`, tab === 'Today' ? now.out['Write out my day']?.left === first.out['Write out my day'].left && !now.out['Write out my day'].off : !now.out['Write out my day'], JSON.stringify(now.out['Write out my day'] ?? null))
     check(`${tab}: nothing in the bar moved`, moved(first, now).length === 0, moved(first, now).join('; '))
   }
 
