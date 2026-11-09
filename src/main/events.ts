@@ -82,7 +82,14 @@ type Row = {
 const CAL_COLORS = ['blue', 'green', 'orange', 'purple', 'pink', 'red', 'yellow', 'brown', 'gray']
 const STARTERS: [string, string][] = [['Personal', 'blue'], ['Work', 'orange'], ['Uni', 'purple']]
 
-const clean = (text: unknown, most: number): string => String(text ?? '').replace(/\s+/g, ' ').trim().slice(0, most)
+/** Tidied and kept to `most` letters, cut at the last whole word when it must be cut, never mid-word. */
+const clean = (text: unknown, most: number): string => {
+  const said = String(text ?? '').replace(/\s+/g, ' ').trim()
+  if (said.length <= most) return said
+  const cut = said.slice(0, most + 1)
+  const space = cut.lastIndexOf(' ')
+  return (space > most / 2 ? cut.slice(0, space) : said.slice(0, most)).trim()
+}
 const iso = (value: unknown): string | null => {
   const at = dayjs(String(value ?? ''))
   return value && at.isValid() ? at.toISOString() : null
