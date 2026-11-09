@@ -35,28 +35,42 @@ const writing = (): boolean => {
 /** Off to the right, where the panel slides in from and back out to: past its own width and the gap it keeps from the edge. */
 const OFF = { transform: 'translateX(112%)' }
 
-/** Where a floating panel sits in its row, and the point it grows from and goes back to (the slot, the event, the button). */
-type Spot = { left: number; top: number; w: number; h: number; ox: number; oy: number }
+/**
+ * Where a floating panel sits in its row, and the point it grows from and goes back to (the slot, the event, the button).
+ * Under or over its slot (a row too narrow to have it beside), `edge` is the slot's edge it keeps clear of, `down` says
+ * which side, and `room` is the most it may be tall there.
+ */
+type Spot = { left: number; top: number; w: number; h: number; ox: number; oy: number; edge?: number; down?: boolean; room?: number }
 const GAP = 8
 /** The panel shut to its point: a clip, never a fade, so the frost never shows a dark wash on its way in (taste.md, 8 Nov). */
 const shutAt = (at: Spot): string => `inset(${at.oy}px ${at.w - at.ox}px ${at.h - at.oy}px ${at.ox}px round 12px)`
 const OPEN_CLIP = 'inset(0px 0px 0px 0px round 12px)'
+const clamp = (n: number, lo: number, hi: number): number => Math.min(Math.max(lo, n), Math.max(lo, hi))
 
 /**
- * Beside what it came from, inside its row: to the right of it where it fits, else to its left, else at the row's
- * right edge; level with its top, held inside the row. The point it grows from is the near edge, level with the middle.
+ * Beside what it came from, inside its row: to the right of it where it fits, else to its left, level with its top,
+ * held inside the row. A row too narrow for either (a 560px window) has it under the slot where it fits, else over it,
+ * else on the side with more room and no taller than that, so it never covers the slot it is about. The point it grows
+ * from is the near edge.
  */
 function placeBeside(panel: HTMLElement, from: DOMRect | null): Spot | null {
   const row = (panel.offsetParent as HTMLElement | null)?.getBoundingClientRect()
   if (!row) return null
   const [w, h] = [panel.offsetWidth, panel.offsetHeight]
-  const most = Math.max(GAP, row.width - w - GAP)
   const at = from ?? new DOMRect(row.right - GAP, row.top, 0, 0)
-  const [l, r] = [at.left - row.left, at.right - row.left]
-  const left = r + GAP + w <= row.width - GAP ? r + GAP : l - GAP - w >= GAP ? l - GAP - w : most
-  const top = Math.min(Math.max(GAP, at.top - row.top), Math.max(GAP, row.height - h - GAP))
-  const clamp = (n: number, hi: number): number => Math.min(Math.max(0, n), hi)
-  return { left, top, w, h, ox: clamp((l + r) / 2 - left, w), oy: clamp(at.top + Math.min(at.height, 40) / 2 - row.top - top, h) }
+  const [l, r, t, b] = [at.left - row.left, at.right - row.left, at.top - row.top, at.bottom - row.top]
+  const side = r + GAP + w <= row.width - GAP ? r + GAP : l - GAP - w >= GAP ? l - GAP - w : null
+  if (side !== null) {
+    const top = clamp(t, GAP, row.height - h - GAP)
+    return { left: side, top, w, h, ox: clamp((l + r) / 2 - side, 0, w), oy: clamp(t + Math.min(at.height, 40) / 2 - top, 0, h) }
+  }
+  const [below, above] = [row.height - GAP - Math.max(GAP, b + GAP), t - 2 * GAP]
+  const down = below >= h || below >= above
+  const room = Math.max(0, down ? below : above)
+  const tall = Math.min(h, room)
+  const left = clamp((l + r) / 2 - w / 2, GAP, row.width - w - GAP)
+  const top = down ? Math.max(GAP, b + GAP) : t - GAP - tall
+  return { left, top, w, h: tall, ox: clamp((l + r) / 2 - left, 0, w), oy: down ? 0 : tall, edge: down ? b : t, down, room }
 }
 
 /**
@@ -158,13 +172,18 @@ export function DaySide({ ask, onClose, onOpen, inline = false, width, grip, fro
     // Fresh, beside what it was opened from; grown or shrunk after (a new task turning into the task), it keeps its place inside the row.
     const put = (fresh: boolean): void => {
       const was = fresh ? null : spotNow.current
+      if (!was) el.style.removeProperty('max-height')
       const next = placeBeside(el, was ? null : from?.() ?? null)
       if (!next) return
       const room = (el.offsetParent as HTMLElement).clientHeight
-      const at = was ? { ...next, left: was.left, top: Math.max(GAP, Math.min(was.top, room - next.h - GAP)), ox: Math.min(was.ox, next.w), oy: Math.min(was.oy, next.h) } : next
+      const h = el.offsetHeight
+      // Grown or shrunk under or over its slot, it keeps clear of the slot's edge; beside it, it stays inside the row.
+      const top = !was ? next.top : was.edge === undefined ? Math.max(GAP, Math.min(was.top, room - h - GAP)) : was.down ? was.top : Math.max(GAP, was.edge - GAP - h)
+      const at = was ? { ...was, top, w: next.w, h, ox: Math.min(was.ox, next.w), oy: was.edge !== undefined && !was.down ? h : Math.min(was.oy, h) } : next
       spotNow.current = at
       el.style.left = `${at.left}px`
       el.style.top = `${at.top}px`
+      if (!was && at.room !== undefined) el.style.maxHeight = `${at.room}px`
       setSpot(at)
     }
     put(true)
@@ -319,7 +338,7 @@ function NewTask({ ask, first, held, onMade, onBack }: {
     if (stay) onMade(made.id, undo)
   }
   return (
-    <form data-day-side-draft className="flex min-h-0 flex-1 flex-col overflow-y-auto pt-4 pb-4" onSubmit={(event) => (event.preventDefault(), void save())}>
+    <form data-day-side-draft className="mf-more flex min-h-0 flex-1 flex-col overflow-y-auto pt-4 pb-4" onSubmit={(event) => (event.preventDefault(), void save())}>
       <h2 className="page-narrow mx-auto mb-3 w-full px-4 @[40rem]/page:px-12 font-heading text-title font-semibold tracking-[-0.018em] text-foreground">New task</h2>
       <div className="page-narrow mx-auto flex w-full flex-col gap-3 px-4 @[40rem]/page:px-12">
         <div className="flex min-h-10 items-center gap-2 rounded-lg border pr-1 pl-3 text-body focus-within:ring-1 focus-within:ring-ring">

@@ -36,6 +36,13 @@ try {
     await go('today'); await h.waitForTimeout(900)
     for (const name of ['light', 'dark']) { await look(name); await h.waitForTimeout(300); await h.screenshot({ path: `${shots}/tasks-${label}-${name}.png` }) }
     await look('light')
+    // Narrow, the button folds into ⋯; F opens the same panel.
+    if (await h.locator('[data-display]:visible').count()) await h.locator('[data-display]:visible').first().click(); else await h.keyboard.press('f')
+    await h.waitForTimeout(600)
+    for (const name of ['light', 'dark']) { await look(name); await h.waitForTimeout(300); await h.screenshot({ path: `${shots}/tasks-${label}-display-${name}.png` }) }
+    await look('light')
+    await h.keyboard.press('Escape'); await h.waitForTimeout(400)
+    if (await h.locator('[data-display][aria-expanded="true"]').count()) { await h.keyboard.press('Escape'); await h.waitForTimeout(400) }
   }
 } catch (error) {
   failed = true
