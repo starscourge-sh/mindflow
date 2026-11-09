@@ -142,7 +142,7 @@ let first
   check('backups stay off iCloud', !(await c.v('backups:where')).includes('CloudDocs'), await c.v('backups:where'))
   for (const view of ['home', 'inbox', 'review', 'goals', 'settings']) {
     await c.go(view)
-    check(`the pill shows on ${view}`, await c.h.$eval('[data-sandbox-pill]', (one) => one.getBoundingClientRect().width > 100).catch(() => false))
+    check(`the pill shows on ${view}`, await c.h.$eval('[data-sandbox-pill]', (one) => one.getBoundingClientRect().width > 20).catch(() => false))
   }
   check('the window says Haligtree sandbox', (await c.h.title()) === 'Haligtree sandbox')
   // Memories come in kinds, picked at random: with a year of books behind it, "From Jane Austen" is one
