@@ -68,14 +68,15 @@ export const SECTIONS: (Place & { key: string })[] = [
   { id: 'today', emoji: '✅', label: 'Tasks', icon: ListChecks, key: 't', tint: 'green', group: 'Write' },
   // Day, week and month by the hour, the way a calendar app has them (calendar-view.tsx).
   { id: 'calendar', emoji: '📅', label: 'Calendar', icon: Calendar, key: 'c', tint: 'red', group: 'Write' },
+  // Goals: a day you are working toward, and the road there. Looks ahead, so it sits with Tasks and Calendar, not under
+  // Look back (Stats and the Map look at what you did).
+  { id: 'goals', emoji: '🚩', label: 'Goals', icon: Flag, key: 'e', tint: 'orange', group: 'Write' },
   // The rest: off to start, a G and its letter or ⌘K away, each switched on in "Customize sidebar…".
   { id: 'weekpage', emoji: '🗓️', label: "Week's page", icon: CalendarFold, key: 'k', tint: 'yellow' },
   { id: 'monthpage', emoji: '🌱', label: "Month's page", icon: Sprout, key: 'm', tint: 'yellow' },
   // The day's twenty or so of your own things, as a timeline that ends (feed-view.tsx).
   // W, not G: G G is a list's first row, as in Vim.
   { id: 'feed', emoji: '📰', label: 'Feed', icon: Newspaper, key: 'w', tint: 'pink', group: 'Library' },
-  // Goals: a day you are working toward, and the road there.
-  { id: 'goals', emoji: '🚩', label: 'Goals', icon: Flag, key: 'e', tint: 'orange', group: 'Look' },
   // What you mean to read next, in order, Spotify's way.
   { id: 'queue', emoji: '🎞️', label: 'Queue', icon: ListVideo, key: 'b', tint: 'blue', group: 'Library' },
   { id: 'tags', emoji: '🏷️', label: 'Tags', icon: Tag, alive: HashtagIcon, key: '#', tint: 'red' },
