@@ -109,6 +109,8 @@ try {
     return { left: r.left, right: r.right, top: r.top, bottom: r.bottom, rows, sub: !!m.querySelector('[data-turn-into-sub]'), close: !!m.querySelector('[data-close-menu]') }
   })
   check('6. the block menu opens beside the grip, clear of its line', menu && (menu.right <= line.left + 2 || menu.top >= line.bottom - 2), JSON.stringify({ menu: menu && { left: menu.left, right: menu.right, top: menu.top }, line }))
+  const pane = await h.evaluate(() => { let at = document.querySelector('[data-open] .ProseMirror'); for (; at; at = at.parentElement) if (/(auto|scroll)/.test(getComputedStyle(at).overflowY)) return at.getBoundingClientRect().left; return 0 })
+  check('6. the block menu stays inside the note\'s pane, never over the list of notes', menu && menu.left >= pane - 1, JSON.stringify({ left: menu?.left, pane }))
   check('6. its actions come first, "Turn into" a step away, no "Close menu"', menu && menu.sub && !menu.close && !['Text', 'Heading 1'].includes(menu.rows[0]), JSON.stringify(menu?.rows))
   if (shots) await c.both(`${shots}/block-menu-1440`)
   await h.keyboard.press('Escape'); await wait(300)

@@ -28,6 +28,7 @@ import { SpellingRows, type Misspelling } from "./spelling"
 import { Kbd } from "@/components/haligtree/ui"
 import { BLOCK_TYPES, nameBlock } from "@/extensions/block-ids"
 import { haligtree } from "@/lib/haligtree"
+import { scrollerOf } from "@/lib/note-place"
 import { lineUnderMenu } from "@/extensions/meeting"
 import { isWebPage, openArticle } from "@/components/pdf/web-reader"
 import { ClickedRows, type Clicked } from "./clicked"
@@ -101,6 +102,20 @@ export function BlockMenu({
   const [block, setBlock] = useState<BlockTarget | null>(null)
   const [query, setQuery] = useState("")
   const input = useRef<HTMLInputElement>(null)
+  const anchor = useRef<HTMLSpanElement | null>(null)
+  // Beside the grip in the margin when the margin holds the menu; else under the grip, so it never
+  // covers its own line or the list of notes beside the page.
+  const gripSide = () => {
+    const at = anchor.current, pane = at && scrollerOf(at)
+    if (!at || !pane) return "left"
+    return at.getBoundingClientRect().left - pane.getBoundingClientRect().left >= 236 ? "left" : "bottom"
+  }
+  // Under the grip, it clears the whole line: a heading or a wrapped line is taller than the grip.
+  const underLine = () => {
+    const at = anchor.current, found = resolve(), dom = found && editor.view.nodeDOM(found.pos)
+    if (!at || !(dom instanceof HTMLElement)) return 6
+    return Math.max(6, dom.getBoundingClientRect().bottom - at.getBoundingClientRect().bottom + 6)
+  }
 
   const term = query.trim().toLowerCase()
   const matches = (label: string) => label.toLowerCase().includes(term)
@@ -400,6 +415,7 @@ export function BlockMenu({
           // the window can sit inside a moved (transformed) box, where a
           // fixed position is not the screen's.
           ref={(node) => {
+            anchor.current = node
             if (!node) return
             if (!point) {
               node.style.position = ""
@@ -417,10 +433,12 @@ export function BlockMenu({
 
       <DropdownMenuContent
         align="start"
-        // From the grip it opens beside it, to the left in the margin, never over the line it
-        // acts on (Radix turns it right only when the margin has no room); a right-click opens at the pointer, as on the Mac.
-        side={point ? (point.height ? "bottom" : "right") : "left"}
-        sideOffset={6}
+        // From the grip it opens beside it in the margin (gripSide), never over the line it acts on;
+        // a right-click opens at the pointer, as on the Mac.
+        side={point ? (point.height ? "bottom" : "right") : gripSide()}
+        sideOffset={!point && gripSide() === "bottom" ? underLine() : 6}
+        // From the grip, the note's own pane is its edge, never the list of notes beside it; at the pointer, the window.
+        collisionBoundary={point ? undefined : scrollerOf(editor.view.dom)}
         // The "Add a thought…" bar's top is the window's foot (dock-room.ts): low on the page, the menu goes up.
         collisionPadding={{ top: 8, right: 8, left: 8, bottom: dockRoom() }}
         className="tiptap-block-menu"

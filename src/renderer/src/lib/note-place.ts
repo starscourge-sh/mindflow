@@ -38,7 +38,7 @@ function keep(id: string, place: Place): void {
 }
 
 /** The element the note scrolls in: the nearest one above it that scrolls. */
-function scrollerOf(element: Element): HTMLElement | null {
+export function scrollerOf(element: Element): HTMLElement | null {
   for (let at = element.parentElement; at; at = at.parentElement) {
     const { overflowY } = getComputedStyle(at)
     if (/(auto|scroll)/.test(overflowY)) return at
