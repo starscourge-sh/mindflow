@@ -63,17 +63,17 @@ try {
   // --- where it is offered: ⌘K, the Goals page, a goal's menu
   await h.keyboard.press('Meta+k'); await wait(500)
   await h.keyboard.type('all goals on the desktop', { delay: 10 }); await wait(500)
-  const offered = await h.evaluate(() => document.body.innerText.includes('Stick all goals on the desktop'))
-  check('⌘K offers “Stick all goals on the desktop”', offered)
+  const offered = await h.evaluate(() => document.body.innerText.includes('Stick all goals'))
+  check('⌘K offers “Stick all goals”', offered)
   await h.keyboard.press('Escape'); await wait(300); await h.keyboard.press('Escape'); await wait(300)
   await c.go('goals'); await wait(800)
   await h.locator('text=Get to Mars before the dust storm').first().click({ button: 'right' }).catch(() => {})
   await wait(500)
-  const inMenu = await h.evaluate(() => [...document.querySelectorAll('[role="menuitem"]')].some((one) => one.textContent.includes('Stick all goals on the desktop')))
-  check("the list's right-click menu offers “Stick all goals on the desktop”, at its foot", inMenu)
+  const inMenu = await h.evaluate(() => [...document.querySelectorAll('[role="menuitem"]')].some((one) => one.textContent.includes('Stick all goals')))
+  check("the list's right-click menu offers “Stick all goals”, at its foot", inMenu)
   await h.keyboard.press('Escape'); await wait(300)
   const button = h.locator('[data-all-goals-sticky]')
-  check('the Goals page offers “All on one sticky”', (await button.count()) === 1)
+  check('the Goals page offers “Stick all goals”', (await button.count()) === 1)
   await button.click(); await wait(1500)
 
   // --- the goals together

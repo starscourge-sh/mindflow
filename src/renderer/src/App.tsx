@@ -2016,7 +2016,7 @@ export default function App(): React.JSX.Element {
             } })),
             ...(picked.ids.length > 1 ? [{ label: 'Make one task', hint: `From the ${num(picked.ids.length)} selected captures`, first: true, cue: null, run: () => window.dispatchEvent(new CustomEvent('haligtree:one-task')) }] : []),
             { label: 'Stick Today on the desktop', cue: null, run: () => stickOnDesktop('today', 'today') },
-            { label: 'Stick all goals on the desktop', hint: 'Each goal in its own colour, with a legend', cue: null, run: () => stickOnDesktop('goals', 'all') },
+            { label: 'Stick all goals', hint: 'On the desktop, each goal in its own colour, with a legend', words: 'desktop sticky stickies one', cue: null, run: () => stickOnDesktop('goals', 'all') },
             { label: 'Tidy captures', hint: 'A few minutes tagging your latest captures', run: () => openPass('tidy') },
             { label: 'Decide what to keep', hint: 'Once a week, look over what waited', run: () => openPass('decide') },
             { label: 'Read the Inbox', hint: 'From the top, one at a time', run: () => setReadList({ items: captures.filter((one) => one.status === 'open' && !one.archivedAt).map((one) => ({ type: 'capture', id: one.id })), start: 0 }) },

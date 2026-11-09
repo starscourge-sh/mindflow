@@ -5,7 +5,7 @@
 // filter, the views at the far right. A filter also stays put when clicked.
 //   Inbox: "Show sorted too" left; Go through…; Display and Spread right; Graph last in the chip row.
 //   Pages and Questions: All / Questions left; New page; Read through, Display, Spread right.
-//   Goals: Open / Ended / On ice left; All on one sticky, New goal right.
+//   Goals: Open / Ended / On ice left; Stick all goals, New goal right.
 //   Tasks ⋯: the ticks (Urgent and important, Your order) in one part, "I have 15 min" with the other things to do.
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/control-groups.mjs
 import { checks } from './harness.mjs'
@@ -19,7 +19,7 @@ const wait = (ms) => h.waitForTimeout(ms)
 
 const KINDS = {
   filter: /^(All|Questions|Open|Ended|On ice|Show sorted too|Note|Task|Quote|Word|Link|Check back|Which tasks.*)$/,
-  action: /^(New page|New question|New goal|All on one sticky|Go through…|\d+ to sort|Two at random)$/,
+  action: /^(New page|New question|New goal|Stick all goals|Go through…|\d+ to sort|Two at random)$/,
   view: /^(Read through|Display.*|Spread the list over the page|Back beside the note|Fold the list to pictures|Graph)$/
 }
 const kindOf = (name) => Object.keys(KINDS).find((kind) => KINDS[kind].test(name)) ?? '?'

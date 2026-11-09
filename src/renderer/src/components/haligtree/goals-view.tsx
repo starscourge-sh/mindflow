@@ -474,7 +474,7 @@ export function GoalsView({ focus, onOpen }: { focus?: string; onOpen?: (type: s
     return many ? [...(folding.menu(several.chosen) as MenuItem[]), 'separator', ...many]
       : [{ label: 'Open', keys: '↵', run: () => pick(one.id) }, ...goalMenu(one), 'separator', ...(folding.menu([one.id]) as MenuItem[]), ...several.rowItems(one.id),
         // About the whole list, not this goal: at the foot, with the list's other lines.
-        ...(openOnes(all).length > 1 ? ['separator' as const, { label: 'Stick all goals on the desktop', hint: 'Each in its own colour, with a legend', run: showAllGoals }] : [])]
+        ...(openOnes(all).length > 1 ? ['separator' as const, { label: 'Stick all goals', hint: 'Each in its own colour, with a legend', run: showAllGoals }] : [])]
   }
   const entryOf = (one: Item): Entry => goalEntry(one, today, menuFor(one))
   const entries = !listShown ? [] : items.map(entryOf)
@@ -506,7 +506,7 @@ export function GoalsView({ focus, onOpen }: { focus?: string; onOpen?: (type: s
         lead={several.bar ? undefined : <div data-list-tabs className="flex shrink-0" style={{ marginLeft: 'calc(var(--list-edge) - var(--list-ink) - 3px)' }}><TabChips name="goals" tabs={TABS.map((one) => ({ value: one.id, label: one.label, count: unloaded(all) ? undefined : listOf(one.id).length }))} value={show} onChange={switchTo} /></div>}
         actions={several.bar ??
           <span className="flex items-center gap-2">
-            {openOnes(all).length > 1 && <Button variant="outline" size="sm" className="h-7 cursor-pointer px-3" data-all-goals-sticky onClick={showAllGoals} title="Every open goal on one sticky, each in its own colour"><StickyNote className="size-3.5" />All on one sticky</Button>}
+            {openOnes(all).length > 1 && <Button variant="outline" size="sm" className="h-7 cursor-pointer px-3" data-all-goals-sticky onClick={showAllGoals} title="Every open goal on one sticky, each in its own colour"><StickyNote className="size-3.5" />Stick all goals</Button>}
             {/* Always here, whichever chip is on: nothing in the bar comes or goes as you switch. */}
             <Button variant="outline" size="sm" className="h-7 cursor-pointer px-3" data-new-goal onClick={() => void startGoal(go)}><Plus className="size-3.5" />New goal</Button>
           </span>
