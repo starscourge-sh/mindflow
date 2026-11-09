@@ -1029,7 +1029,7 @@ function LaneBox({ id, title, count, folded, here, onFold, menu, children }: {
           <DropdownMenuContent align="end" className="w-52">{menu}</DropdownMenuContent>
         </DropdownMenu>
       </header>
-      <div ref={dropRef} className="flex min-h-10 flex-col gap-1.5 overflow-y-auto px-1.5 pb-1.5">{children}</div>
+      <div ref={dropRef} className="flex min-h-10 flex-col gap-1.5 overflow-y-auto px-1.5 pt-1 pb-1.5">{children}</div>
     </section>
   )
 }
