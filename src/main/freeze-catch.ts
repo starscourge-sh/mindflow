@@ -45,6 +45,7 @@ export function catchFreezes(win: BrowserWindow, name: string): void {
     try {
       if (!wc.debugger.isAttached()) throw new Error('the debugger was not listening (DevTools open?)')
       type Frame = { callFrameId: string; functionName: string; url: string; location: { scriptId: string; lineNumber: number; columnNumber: number } }
+      const where = (url: string): string => url.replace(/^.*?\/src\//, 'src/').replace(/\?.*$/, '') || '(no file)'
       type Stack = { description?: string; callFrames: { functionName: string; url: string; lineNumber: number; columnNumber: number }[]; parent?: Stack }
       // Five pauses a moment apart: a loop runs through more than one place, and one pause sees only one.
       const once = (): Promise<{ callFrames: Frame[]; asyncStackTrace?: Stack } | null> => new Promise((done) => {
@@ -57,12 +58,35 @@ export function catchFreezes(win: BrowserWindow, name: string): void {
         void wc.debugger.sendCommand('Debugger.pause').catch(() => undefined)
         setTimeout(() => (!wc.isDestroyed() && wc.debugger.off('message', heard), done(null)), 4000)
       })
-      const where = (url: string): string => url.replace(/^.*?\/src\//, 'src/').replace(/\?.*$/, '') || '(no file)'
+      // A pause asked for while no script ran (the stall was in layout, painting or a native call) still lands once
+      // script runs again: it is let go at once, so the window is never left paused with no one to resume it, and
+      // where script picked up again is kept.
+      let late = ''
+      const resumeLate = (_event: Electron.Event, method: string, params: Record<string, unknown>): void => {
+        if (method !== 'Debugger.paused') return
+        wc.debugger.off('message', resumeLate)
+        const frames = (params as { callFrames: Frame[] }).callFrames
+        late = frames.slice(0, 12).map((frame) => `  ${frame.functionName || '(anonymous)'}  ${where(frame.url)}:${frame.location.lineNumber + 1}:${frame.location.columnNumber + 1}`).join('\n')
+        void wc.debugger.sendCommand('Debugger.resume').catch(() => undefined)
+      }
       const parts: string[] = []
       for (let round = 1; round <= 5; round++) {
         const hit = await once()
         if (wc.isDestroyed()) break
-        if (!hit) { parts.push(`pause ${round}: no pause`); break }
+        if (!hit) {
+          parts.push(`pause ${round}: no pause (no script was running: the window was held in layout, painting or a native call)`)
+          // Waited out, up to a minute, then asked what it had been doing (renderer lib/freeze-notes.ts).
+          wc.debugger.on('message', resumeLate)
+          const stuck = Date.now()
+          let back = false
+          while (!back && Date.now() - stuck < 60_000 && !wc.isDestroyed()) back = await Promise.race([wc.mainFrame.executeJavaScript('1').then(() => true, () => false), new Promise<boolean>((done) => setTimeout(() => done(false), 2000))])
+          if (wc.isDestroyed()) break
+          wc.debugger.off('message', resumeLate)
+          parts.push(back ? `answered again ${((Date.now() - stuck) / 1000 + 7).toFixed(1)}s after it stopped` : 'still not answering a minute later')
+          if (late) parts.push(`where script picked up again:\n${late}`)
+          if (back) parts.push(String(await wc.mainFrame.executeJavaScript('window.__freezeNotes ? window.__freezeNotes() : "(no notes in this page)"').catch((error: unknown) => `(could not read the notes: ${String(error)})`)))
+          break
+        }
         const lines = hit.callFrames.map((frame) => `  ${frame.functionName || '(anonymous)'}  ${where(frame.url)}:${frame.location.lineNumber + 1}:${frame.location.columnNumber + 1}`)
         for (let up = hit.asyncStackTrace; up; up = up.parent)
           lines.push(`  -- ${up.description ?? 'async'} --`, ...up.callFrames.map((one) => `  ${one.functionName || '(anonymous)'}  ${where(one.url)}:${one.lineNumber + 1}:${one.columnNumber + 1}`))

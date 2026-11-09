@@ -3,6 +3,7 @@ import './assets/main.css'
 import './lib/fade-fits'
 // Every picture cut to a shape centred on its face or subject (Vision).
 import './lib/picture-focus'
+import './lib/freeze-notes'
 
 declare global {
   interface Window {
