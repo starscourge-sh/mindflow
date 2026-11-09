@@ -109,6 +109,31 @@ const whiteUnderWords = async () => {
   }, shot.toString('base64'))
 }
 
+/** The share of the words' box in the page's own colour, read from a bare spot of the same page (dimmed or not). */
+const pageUnderWords = async () => {
+  const box = await h.evaluate(() => {
+    const span = [...document.querySelectorAll('.tiptap-attachment.is-pdf .pdf-page[data-page="1"] .textLayer span')].find((one) => /probe book/.test(one.textContent))
+    const r = span?.getBoundingClientRect()
+    const page = span?.closest('.pdf-page')?.getBoundingClientRect()
+    return r && page ? { x: r.left, y: r.top, width: r.width, height: r.height, bare: { x: page.left + 8, y: page.top + 8, width: 2, height: 2 } } : null
+  })
+  if (!box) return -1
+  const [shot, bare] = [await h.screenshot({ clip: { x: box.x, y: box.y, width: box.width, height: box.height } }), await h.screenshot({ clip: box.bare })]
+  return h.evaluate(async ([b64, bareB64]) => {
+    const read = async (src) => {
+      const img = new Image(); img.src = `data:image/png;base64,${src}`; await img.decode()
+      const canvas = document.createElement('canvas'); canvas.width = img.width; canvas.height = img.height
+      const ctx = canvas.getContext('2d'); ctx.drawImage(img, 0, 0)
+      return ctx.getImageData(0, 0, img.width, img.height).data
+    }
+    const data = await read(b64)
+    const paper = await read(bareB64)
+    let same = 0
+    for (let i = 0; i < data.length; i += 4) if ([0, 1, 2].every((k) => Math.abs(data[i + k] - paper[k]) <= 3)) same++
+    return same / (data.length / 4)
+  }, [shot.toString('base64'), bare.toString('base64')])
+}
+
 try {
   // App size off 100%, so the View menu's Actual Size would show if it changed it.
   await v('settings:set', { sounds: false, hintRate: 0, interfaceSize: 110 })
@@ -570,7 +595,9 @@ try {
   check('the page last read is kept with the page count', place?.page === 3 && place.pages === 3, JSON.stringify(place))
   check('and opened again, the PDF opens at that page', await h.evaluate(() => document.querySelector('.pdf-reader-page-field')?.value) === '3', await h.evaluate(() => document.querySelector('.pdf-reader-page-field')?.value))
   await h.screenshot({ path: `${process.env.QA_SHOTS ?? '/tmp'}/pdf-beside-note.png` })
-  const white2 = await whiteUnderWords()
+  // Beside the reader, the note's pane is the one behind, drawn a touch dimmer as a whole (panes.tsx): its page is
+  // no longer pure white, so the words are measured against the page's own colour beside them.
+  const white2 = await pageUnderWords()
   check('beside the reader, the block shows no band behind its words', white2 > 0.5, String(white2))
 
   // The slash menu's "PDF" in a fresh note, typed as a person types: the picker hands back a PDF, its pages show.
