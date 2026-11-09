@@ -1373,7 +1373,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
                         style={fresh(task.id) > 0 ? { animationDelay: `${Math.min(fresh(task.id), 8) * 30}ms` } : undefined}
                       >
                         {/* One of the day's three: its number in the margin before the circle. */}
-                        {three.includes(task.id) && <ThreeMark n={three.indexOf(task.id) + 1} className="absolute top-2 right-full mr-1 w-3 text-right max-sm:hidden" />}
+                        {three.includes(task.id) && <ThreeMark n={three.indexOf(task.id) + 1} className="absolute top-2 right-full mr-1 flex h-5 w-3 items-center justify-end @max-[61rem]/page:hidden" />}
                         <Tip label="Complete">
                         <button
                           type="button"
