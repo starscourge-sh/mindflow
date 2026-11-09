@@ -234,7 +234,7 @@ import {
 } from "@/components/tiptap-ui/color-highlight-popover"
 import { MarkDropdownMenu } from "@/components/tiptap-ui/mark-dropdown-menu"
 import { TextAlignDropdownMenu } from "@/components/tiptap-ui/text-align-dropdown-menu"
-import { AlignMenu, HighlightMenu, MarkMenu, ScriptMenu } from "./sub-menu"
+import { HighlightMenu, MarkMenu } from "./sub-menu"
 import { MarkButton } from "@/components/tiptap-ui/mark-button"
 import { SearchBar } from "@/components/search/search-bar"
 import { TableMenu } from "@/components/table/table-menu"
@@ -1897,30 +1897,16 @@ function Surface({
   // block, and the handle beside that block already offers it.
   const defaultSelection = (
     <>
-          {/* The four text marks behind one button, as Linear keeps them, with
-              their keys beside each; code stays out on its own. */}
+          {/* The three used most, out on the bar with their keys in their tips;
+              "Aa" holds the rest of the text's look, by name. */}
           <ToolbarGroup>
-            {editor && <MarkMenu editor={editor} />}
-            <MarkButton type="code" showTooltip={false} />
-          </ToolbarGroup>
-          <ToolbarSeparator />
-          <ToolbarGroup>
-            {editor && <ScriptMenu editor={editor} />}
-          </ToolbarGroup>
-          <ToolbarSeparator />
-          <ToolbarGroup>
-            {/* A pasted address over a selection makes a link, and @ or [[ link a note;
-                on a link already made, these edit it or take it off. */}
+            <MarkButton type="bold" />
+            <MarkButton type="italic" />
+            {/* Words with no link: "Link" asks for an address; on a link, edit it or take it off. */}
             {editor && <LinkButtons editor={editor} />}
-            <LinkToBookmarkButton editor={editor} />
+            {editor && <MarkMenu editor={editor} />}
             {editor && <HighlightMenu editor={editor} />}
-          </ToolbarGroup>
-          <ToolbarSeparator />
-          <ToolbarGroup>
-            {/* A small row of its own, opened beneath the button: not the
-                fixed toolbar's Radix dropdown, which takes the focus and makes
-                the bar hide itself. */}
-            {editor && <AlignMenu editor={editor} />}
+            <LinkToBookmarkButton editor={editor} />
           </ToolbarGroup>
     </>
   )

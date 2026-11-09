@@ -4,7 +4,7 @@ import { posToDOMRect } from "@tiptap/core"
 import { useEditorState, type Editor } from "@tiptap/react"
 
 import { Button } from "@/components/tiptap-ui-primitive/button"
-import { Pencil, Unlink } from "@/components/ui/icons"
+import { Link as Link2, Pencil, Unlink } from "@/components/ui/icons"
 import { hrefFor, linkAround, looksLikeAddress, refusedLinks } from "@/extensions/link-tidy"
 import { chime } from "@/lib/sound"
 import { useEditorDom } from '@/lib/editor-dom'
@@ -29,7 +29,12 @@ export function removeLink(editor: Editor): void {
 export function LinkButtons({ editor }: { editor: Editor }): React.JSX.Element | null {
   // A string, so this settles instead of drawing again on every key.
   const href = useEditorState({ editor, selector: ({ editor: instance }) => (instance && linkAround(instance.state) ? String(instance.getAttributes("link").href ?? "") : "") })
-  if (!href) return null
+  if (!href) return (
+    // Words with no link yet: one button that asks for the address.
+    <Button type="button" variant="ghost" aria-label="Link" data-make-link tooltip="Link" onMouseDown={(event) => event.preventDefault()} onClick={() => askToEdit(editor)}>
+      <Link2 className="tiptap-button-icon" />
+    </Button>
+  )
   return (
     <>
       <Button type="button" variant="ghost" aria-label="Edit link" data-edit-link tooltip="Edit link" shortcutKeys="mod+k" onMouseDown={(event) => event.preventDefault()} onClick={() => askToEdit(editor)}>
@@ -59,7 +64,9 @@ export function LinkEditor({ editor }: { editor: Editor | null }): React.JSX.Ele
     const dom = page
     if (!dom) return
     const show = (): void => {
-      const link = linkAround(editor.state)
+      // On a link, that link; on words picked with none, those words, to be given one.
+      const { from, to, empty } = editor.state.selection
+      const link = linkAround(editor.state) ?? (empty ? null : { from, to, mark: { attrs: { href: "" } } })
       if (!link) return
       const box = posToDOMRect(editor.view, link.from, link.to)
       const href = String(link.mark.attrs.href ?? "")

@@ -133,16 +133,33 @@ function SubMenu({ editor, label, choices, fallback, plain = -1 }: { editor: Edi
   )
 }
 
-const MARKS = ["bold", "italic", "strike", "underline"] as const
+const MARKS = ["strike", "underline", "code", "superscript", "subscript"] as const
+const ALIGNS = [["left", "Align left", AlignLeftIcon], ["center", "Align centre", AlignCenterIcon], ["right", "Align right", AlignRightIcon]] as const
 
-/** Bold, italic, strikethrough and underline behind one button, each by name. */
+/**
+ * "Aa": the rest of the text's look, each by name: strikethrough, underline,
+ * code, raised and lowered, and the alignment. Bold, italic and link sit out
+ * on the bar itself, the ones used most.
+ */
 export const MarkMenu = ({ editor }: { editor: Editor }): React.JSX.Element => {
-  const { isActive, Icon } = useMarkDropdownMenu({ editor, types: [...MARKS] })
+  const { isActive } = useMarkDropdownMenu({ editor, types: [...MARKS] })
+  const Aa = ({ className }: { className?: string }): React.JSX.Element => <span className={`${className ?? ""} grid place-items-center text-control font-medium leading-none`} aria-hidden>Aa</span>
   return (
-    <BarMenu label="Format text" icon={Icon} lit={isActive} column>
-      {(close) => MARKS.map((type) => (
-        <MarkButton key={type} editor={editor} type={type} text={markLabels[type]} showTooltip={false} role="menuitem" className="justify-start" onClick={close} />
-      ))}
+    <BarMenu label="More text styles" icon={Aa} lit={isActive} column>
+      {(close) => <>
+        {MARKS.map((type) => (
+          <MarkButton key={type} editor={editor} type={type} text={markLabels[type]} showTooltip={false} role="menuitem" className="justify-start" onClick={close} />
+        ))}
+        <hr className="mx-1.5 my-0.5 border-0 border-t border-border" />
+        {ALIGNS.map(([align, label, Shown]) => (
+          <Button key={align} type="button" variant="ghost" role="menuitem" tabIndex={-1} className="justify-start" aria-label={label}
+            data-active-state={align !== "left" && editor.isActive({ textAlign: align }) ? "on" : "off"}
+            onClick={() => (editor.chain().focus().setTextAlign(align).run(), close())}>
+            <Shown className="tiptap-button-icon" />
+            <span className="tiptap-button-text">{label}</span>
+          </Button>
+        ))}
+      </>}
     </BarMenu>
   )
 }
