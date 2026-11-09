@@ -1198,6 +1198,7 @@ ${link(aurelius, 'Very little is needed for a happy life', 'nugget')}, he says e
 > [!note] Still open
 > ${link(frodo, 'Did Frodo fail at Mount Doom?', 'question')} He did not choose the time either, and at the very end he could not choose at all.
 `)
+
   const rosetta = await essay('The Rosetta Stone and the key in plain sight', `
 ${noteLink('Rosetta Stone')} was the note. This is the longer version, because the story is better than the stone.
 
@@ -1946,6 +1947,62 @@ A whole town painted with nobody in it. I stood in front of it for twenty minute
     ['Who were the Istari?', 'Five wizards sent to Middle-earth in the Third Age, in the shape of old men, to help against Sauron and never to rule. Gandalf and Saruman are two.', 2, 0],
     ['What became of the Entwives?', 'They went off to tend gardens in the lands of Men and were lost. The Ents never found them.', 1, 0]
   ]
+  // --- the owner's maths: formulas and graphs you can play with, from their own interests ----
+  // Kepler for the #astrophysics exam, Masaccio's floor for the Renaissance notes, and the Pale Blue Dot's dimness.
+  const keplerDrawn = await essay('Kepler, drawn: why orbits are ellipses', `
+For the #astrophysics exam. Kepler's first law says every planet moves on an ellipse with the Sun at one focus, not in the middle. Drag $c$, how stretched the orbit is (its eccentricity), and watch the Sun (the small orange circle) slide off centre as the orbit stretches.
+
+\`\`\`graph
+x^2/25 + y^2/(25*(1 - c^2)) = 1 {blue}
+(x - 5*c)^2 + y^2 = 0.09 {orange}
+c = 0.4 (0 to 0.95)
+view: -8, 8, -5, 5
+\`\`\`
+*Earth's orbit is $e \\approx 0.017$: almost a circle. Halley's comet is $e \\approx 0.967$.*
+
+His third law ties the year to the size of the orbit: $T^2 = a^3$, with $T$ in years and $a$ in astronomical units. Mars sits at $a \\approx 1.52$, so its year is $1.52^{3/2} \\approx 1.88$ Earth years.
+
+\`\`\`graph
+y = x^(3/2) {red}
+y = x {green}
+view: 0, 6, 0, 12
+\`\`\`
+*Red: a planet's year against its distance. Green: what it would be if the two grew together. The gap is why Saturn takes 29 years.*
+
+From ${link(schwarzschild, 'What is a Schwarzschild radius?', 'nugget')} to this: gravity again, $F = \\frac{G M m}{r^2}$. #astrophysics
+`)
+  const vanishing = await essay("Masaccio's floor: one point where every line meets", `
+In ${link(florence, 'How Florence learned perspective', 'article')}, Brunelleschi's rule is simple: lines that run straight away from you all meet at one point on the horizon. Move $h$ and the whole floor swings to follow it, the way the vault in the Trinity bends toward the viewer's eye.
+
+\`\`\`graph
+y = 3 {brown}
+y = 3 + 0.5*(x - h) {blue}
+y = 3 + 1*(x - h) {blue}
+y = 3 + 2.5*(x - h) {blue}
+y = 3 - 0.5*(x - h) {blue}
+y = 3 - 1*(x - h) {blue}
+y = 3 - 2.5*(x - h) {blue}
+h = 0 (-6 to 6)
+view: -10, 10, -6, 6
+\`\`\`
+*Brown is the horizon at the painted eye level. Every blue line passes through $(h, 3)$, the vanishing point.*
+
+Alberti wrote it down in 1435: the size of a thing falls as $\\frac{1}{d}$, its distance from the eye. #renaissance
+`)
+  const dimming = await essay('Why the Pale Blue Dot is so faint', `
+Light spreads over a sphere as it travels, so its brightness falls with the square of the distance: $b = \\frac{1}{d^2}$. Twice as far, a quarter as bright. Voyager 1 took ${link(blueDot, 'the Pale Blue Dot')} from about 40 times the Earth's distance from the Sun, so sunlight there is about $\\frac{1}{1600}$ as strong.
+
+\`\`\`graph
+y = 1/x^2 {blue}
+y = 1/x {purple}
+y = k/x^2 {orange}
+k = 4 (1 to 16)
+view: 0, 6, 0, 4
+\`\`\`
+*Blue: brightness with distance. Purple: what it would be if light only spread in a line. Orange: a brighter star, $k$ times the Sun; slide $k$ to see how far away it can be and still look the same.*
+`)
+  laterAges.push({ createdAt: at(-4, '21:40'), nuggetId: keplerDrawn }, { createdAt: at(-9, '20:10'), nuggetId: vanishing }, { createdAt: at(-2, '22:05'), nuggetId: dimming })
+
   const physics: Deck = [
     ['Why is the sky blue?', 'Air scatters short blue light far more than long red light, so blue reaches you from every part of the sky.', 42, 4],
     ['If space is full of stars, why is the night sky dark?', 'The universe has an age: light from the farthest stars has not reached us yet, and the stretching of space reddens what has.', 39, 4],
