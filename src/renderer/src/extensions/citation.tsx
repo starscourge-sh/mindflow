@@ -82,7 +82,7 @@ function CitationView({ node, editor, getPos }: ReactNodeViewProps): React.JSX.E
           <NameInPlace initial={attrs.page} label="Page" placeholder="82" onDone={done} data-cite-page=""
             style={{ width: width(attrs.page || "82") }}
             onInput={(event) => (event.currentTarget.style.width = width(event.currentTarget.value))}
-            className="rounded-md bg-accent/60 px-1 text-foreground outline-none ring-1 ring-ring/40" />
+            className="rounded-md bg-accent/60 px-1 text-foreground outline-none" />
           {")"}
         </>
       ) : chipLabel(attrs)}

@@ -345,7 +345,7 @@ function AddTag({ node }: { node: () => HTMLElement | null }): React.JSX.Element
         else if (event.key === 'Escape') (event.preventDefault(), event.stopPropagation(), setText(''), setOpen(false))
       }}
       onBlur={() => (put(), setOpen(false))}
-      className="h-6 w-24 rounded-full bg-foreground/[0.06] px-2.5 text-foreground outline-none placeholder:text-muted-foreground/60 focus-visible:ring-1 focus-visible:ring-ring" />
+      className="h-6 w-24 rounded-full bg-foreground/[0.06] px-2.5 text-foreground outline-none placeholder:text-muted-foreground/60" />
   )
 }
 
@@ -484,7 +484,7 @@ function PropEditor({ prop, tags, onSave, onRename, onType, onSuper }: {
     const raw = text.current?.value ?? ''
     onSave(raw.trim() ? readValue(raw, prop.type === 'long' || prop.type === 'rating' ? 'text' : prop.type).value : null)
   }
-  const field = 'h-8 w-full rounded-md bg-foreground/[0.05] px-2.5 text-control text-foreground outline-none placeholder:text-foreground/60 focus-visible:ring-2 focus-visible:ring-ring/30'
+  const field = 'h-8 w-full rounded-md bg-foreground/[0.05] px-2.5 text-control text-foreground outline-none placeholder:text-foreground/60'
   const control = (() => {
     if (prop.type === 'bool') return <Chips options={[{ id: 'yes', label: 'Yes' }, { id: 'no', label: 'No' }]} on={(one) => (one === 'yes' ? prop.value === true : prop.value === false)} pick={(one) => onSave(prop.value === (one === 'yes') ? null : one === 'yes')} />
     if (prop.type === 'choice')

@@ -31,7 +31,7 @@ export function JournalQuestions({ day, heading }: { day: string; heading: strin
       {(Object.keys(QUESTIONS) as Question[]).map((question) => (
         <section key={question} data-close-journal={question}>
           <h3 className={heading}>{QUESTIONS[question]}</h3>
-          <form className="mt-1.5 flex items-center gap-2 rounded-md border px-2.5 py-1.5 focus-within:border-ring" onSubmit={(event) => (event.preventDefault(), keep(question))}>
+          <form className="mt-1.5 flex items-center gap-2 rounded-md border px-2.5 py-1.5 focus-within:border-foreground/25" onSubmit={(event) => (event.preventDefault(), keep(question))}>
             <input value={answers[question] ?? ''} onChange={(event) => setAnswers((was) => ({ ...was, [question]: event.target.value }))} onBlur={() => keep(question)}
               placeholder={question === 'well' ? 'One thing, however small' : 'Something you know now'} aria-label={QUESTIONS[question]}
               className="min-w-0 flex-1 bg-transparent text-body outline-none placeholder:text-muted-foreground" />

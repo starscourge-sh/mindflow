@@ -515,7 +515,7 @@ function NameVoice({ who, el, was, people, onName, onClose }: { who: string; el:
         <div className="text-control font-semibold">Who is {was || voiceName(who)}?</div>
         <input autoFocus value={text} onChange={(event) => setText(event.target.value)} placeholder="Their name"
           onKeyDown={(event) => event.key === 'Enter' && (event.preventDefault(), onName(text))}
-          className="h-7 w-full rounded-md border bg-transparent px-2 text-control outline-none focus:border-[var(--tt-brand-color-500)]" />
+          className="h-7 w-full rounded-md border bg-transparent px-2 text-control outline-none focus:border-foreground/25" />
         {people.length > 0 && (
           <div className="flex flex-wrap gap-1.5">
             {people.map((one) => <button key={one} type="button" data-meeting-person onClick={() => onName(one)} className={CHIP}>That's {one}</button>)}

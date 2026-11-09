@@ -280,7 +280,7 @@ function useTypedHint(words: string[], still: boolean, rest: string): string {
 
 // A little tighter in a narrow window, so a row of picked tools (each with its tick) still fits on one line.
 const CHIP = 'flex h-9 items-center gap-1.5 rounded-full border px-3.5 [@container(max-width:960px)]:px-3 text-[0.9375rem] transition-[background-color,border-color,color,transform] duration-150 active:scale-[0.97]'
-export const FIELD = 'h-10 min-w-0 rounded-lg border border-foreground/15 bg-popover px-3 text-[0.9375rem] text-foreground outline-none placeholder:text-muted-foreground focus-visible:border-primary/60 focus-visible:shadow-[0_0_0_3px_color-mix(in_oklab,var(--primary)_18%,transparent)]'
+export const FIELD = 'h-10 min-w-0 rounded-lg border border-foreground/15 bg-popover px-3 text-[0.9375rem] text-foreground outline-none placeholder:text-muted-foreground focus-visible:border-foreground/30'
 
 function Pick({ on, onClick, children }: { on: boolean; onClick: () => void; children: ReactNode }): React.JSX.Element {
   return (
@@ -364,7 +364,7 @@ export function YouPage({ setup, onChange, still }: { setup: Setup; onChange: (n
         {space && !picks.includes(space) && <Pick on onClick={() => set({ space: null })}>#{space}</Pick>}
         <HashField aria-label="Your own tag" placeholder={hint} value={own} maxLength={41}
           onFocus={() => setFocused(true)}
-          className={`${FIELD} w-44 focus-within:border-primary/60 focus-within:shadow-[0_0_0_3px_color-mix(in_oklab,var(--primary)_18%,transparent)]`}
+          className={`${FIELD} w-44 focus-within:border-foreground/30`}
           onChange={setOwn}
           onKeyDown={(event) => {
             if (event.key !== 'Enter') return

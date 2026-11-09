@@ -3,7 +3,7 @@ import { stepTap } from "@/lib/haptics"
 import { chime } from "@/lib/sound"
 
 /** A number you drag sideways to change (ScrubField), drawn as Haligtree"s own field. */
-export const SCRUB = "h-8 w-14 cursor-ew-resize rounded-md border border-input bg-input/20 px-2 text-center text-sm tabular-nums outline-none transition-colors focus:cursor-text focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 dark:bg-input/30"
+export const SCRUB = "h-8 w-14 cursor-ew-resize rounded-md border border-input bg-input/20 px-2 text-center text-sm tabular-nums outline-none transition-colors focus:cursor-text focus-visible:border-foreground/25 dark:bg-input/30"
 
 /** The quickest a step's tick repeats: a fast scrub is a soft patter, never a buzz. */
 const TICK_GAP = 45

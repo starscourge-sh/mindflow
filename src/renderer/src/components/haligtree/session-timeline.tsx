@@ -100,7 +100,7 @@ function BareName({ session, onDone }: { session: DaySession; onDone: () => void
         if (event.key === 'Enter' && !event.nativeEvent.isComposing) (event.preventDefault(), keep())
         if (event.key === 'Escape') (event.preventDefault(), event.stopPropagation(), chime('fold'), onDone())
       }}
-      className="h-7 w-full rounded-md border bg-background px-2 text-sm font-medium text-foreground outline-none focus:border-ring" />
+      className="h-7 w-full rounded-md border bg-background px-2 text-sm font-medium text-foreground outline-none focus:border-foreground/25" />
   )
 }
 

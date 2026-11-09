@@ -796,7 +796,7 @@ export function ReviewView({ compact = false, tag, actions, lead, onLeave }: { c
                     void haligtree.saveItem(card.id, { prompt: before })
                   })))
                 }}
-                className={`rounded-md font-heading ${compact ? 'text-xl' : 'text-title'} font-semibold tracking-[-0.018em] text-balance outline-none focus-visible:ring-1 focus-visible:ring-ring`}
+                className={`rounded-md font-heading ${compact ? 'text-xl' : 'text-title'} font-semibold tracking-[-0.018em] text-balance outline-none`}
               >
                 {editing ? card.prompt : <WithPictures text={asked} />}
               </h2>

@@ -1152,7 +1152,7 @@ function opener(): DOMRect | null {
 }
 
 /** The app's own field (ui/input.tsx's frame, as hash-field.tsx's INPUT_FRAME), the one Tasks and Settings type in, its words at ⌘K's size (14px): a line you write, not small grey type. */
-const ASK_FIELD = `min-w-0 rounded-md border border-input bg-input/20 px-2 py-0.5 transition-colors focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/30 dark:bg-input/30 h-7 w-full text-body text-foreground placeholder:text-foreground/70 [&_input]:placeholder:text-foreground/70`
+const ASK_FIELD = `min-w-0 rounded-md border border-input bg-input/20 px-2 py-0.5 transition-colors focus-within:border-foreground/25 dark:bg-input/30 h-7 w-full text-body text-foreground placeholder:text-foreground/70 [&_input]:placeholder:text-foreground/70`
 
 /**
  * The question said at the app's own size: its question as a short bold line, what led to it as a quiet line under.

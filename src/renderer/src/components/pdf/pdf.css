@@ -322,7 +322,7 @@
 }
 
 .pdf-reader-page-field:focus {
-  border-color: var(--tt-brand-color-500);
+  border-color: color-mix(in oklab, var(--foreground) 25%, transparent);
 }
 
 .pdf-reader-of {
@@ -2209,7 +2209,6 @@ html[data-motion="off"] :is(.pdf-zoom-chip, .pdf-reader-body > .pdf-rail) {
 }
 .chapter-card-question { font-weight: 600; font-size: 0.9375rem; }
 .chapter-card-answer { color: color-mix(in oklab, var(--foreground) 82%, transparent); }
-.chapter-card-question:focus-visible, .chapter-card-answer:focus-visible { box-shadow: 0 0 0 1px color-mix(in oklab, var(--foreground) 22%, transparent); }
 .chapter-card-foot { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; min-height: 2rem; }
 .chapter-card-actions { display: flex; gap: 0.25rem; }
 .chapter-card-link { color: color-mix(in oklab, var(--foreground) 72%, transparent); font-size: 0.8125rem; font-weight: 500; font-variant-numeric: tabular-nums; cursor: pointer; text-underline-offset: 2px; transition: color 120ms ease-out, transform 120ms ease-out; }

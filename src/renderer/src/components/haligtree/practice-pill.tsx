@@ -151,7 +151,7 @@ export function PracticeOfferCard({ offer, onDone, compact = false, onType }: { 
         else if (k === 's') (event.preventDefault(), event.stopPropagation(), later())
         else if (onType && (event.key.length === 1 || event.key === 'Escape' || event.key === 'Tab' || event.key === 'ArrowDown')) onType()
       }}
-      className={`outline-none ${compact ? '' : 'rounded-[14px] border bg-[color-mix(in_oklab,var(--foreground)_5%,transparent)] px-3 py-2.5 focus:border-[color-mix(in_oklab,var(--tt-brand-color-400)_60%,var(--border))]'}`}>
+      className={`outline-none ${compact ? '' : 'rounded-[14px] border bg-[color-mix(in_oklab,var(--foreground)_5%,transparent)] px-3 py-2.5 focus:border-foreground/25'}`}>
       <p data-practice-offer-line className="text-[14px] leading-5 font-semibold text-foreground">
         <span className="tabular-nums">{offer.later ? 'Again:' : timeSaid(offer.at)}</span> {offer.name}, {START_MIN} minutes?
       </p>

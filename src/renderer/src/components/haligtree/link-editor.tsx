@@ -112,7 +112,7 @@ export function LinkEditor({ editor }: { editor: Editor | null }): React.JSX.Ele
         value={value}
         aria-label="Web address"
         placeholder="A web address, like haligtree.app"
-        className="h-8 w-full rounded-md bg-foreground/[0.05] px-2.5 text-control text-foreground outline-none ring-1 ring-border focus:ring-[var(--tt-brand-color-400,var(--primary))]"
+        className="h-8 w-full rounded-md bg-foreground/[0.05] px-2.5 text-control text-foreground outline-none ring-1 ring-border focus:ring-foreground/25"
         onChange={(event) => (setValue(event.target.value), setWrong(false))}
         onKeyDown={(event) => {
           if (event.key === "Enter") (event.preventDefault(), keep())

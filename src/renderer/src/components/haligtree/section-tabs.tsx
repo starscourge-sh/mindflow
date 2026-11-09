@@ -73,7 +73,7 @@ export function SectionTabs({ sections, section, pick, searching = false, label,
 /** The search over a page's sections: rows that do not match go. Esc empties it. */
 export function SectionSearch({ query, setQuery, className = '' }: { query: string; setQuery: (query: string) => void; className?: string }): React.JSX.Element {
   return (
-    <label className={`flex items-center gap-2 rounded-lg border bg-accent/25 px-3 py-1.5 text-muted-foreground focus-within:border-ring ${className}`}>
+    <label className={`flex items-center gap-2 rounded-lg border bg-accent/25 px-3 py-1.5 text-muted-foreground focus-within:border-foreground/25 ${className}`}>
       <SearchIcon className="size-4 shrink-0" />
       <input
         value={query}

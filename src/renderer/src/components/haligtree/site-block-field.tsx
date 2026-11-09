@@ -210,7 +210,7 @@ export function SiteBlockField({ settings, compact = false }: { settings: Settin
         onMouseDown={(event) => {
           if (event.target === event.currentTarget) (event.preventDefault(), input.current?.focus())
         }}
-        className={`relative flex min-h-9 cursor-text flex-wrap items-center gap-1.5 px-2 py-1.5 transition-colors ${compact ? '' : 'rounded-lg border bg-background focus-within:border-ring'}`}
+        className={`relative flex min-h-9 cursor-text flex-wrap items-center gap-1.5 px-2 py-1.5 transition-colors ${compact ? '' : 'rounded-lg border bg-background focus-within:border-foreground/25'}`}
       >
         <AnimatePresence initial={false}>
           {chips.map((entry) => {

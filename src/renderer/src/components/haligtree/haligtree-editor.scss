@@ -4892,8 +4892,7 @@ $run-next: '.react-renderer:has(> .tiptap-attachment.is-audio) + .react-renderer
 
   &::placeholder { color: color-mix(in srgb, currentColor 45%, transparent); }
   &:focus {
-    border-color: var(--tt-brand-color-500);
-    box-shadow: 0 0 0 2px color-mix(in srgb, var(--tt-brand-color-500) 30%, transparent);
+    border-color: color-mix(in srgb, currentColor 25%, transparent);
   }
 }
 

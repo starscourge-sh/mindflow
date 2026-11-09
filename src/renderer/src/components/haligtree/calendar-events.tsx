@@ -637,7 +637,7 @@ function CalendarEdit({ one, onDone }: { one: { id: string; name: string; color:
           if (event.key === 'Enter') (event.preventDefault(), name.trim() && save({ name }), onDone())
           if (event.key === 'Escape') (event.preventDefault(), event.stopPropagation(), onDone())
         }}
-        className="h-7 rounded-md border bg-transparent px-2 text-body text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/30" />
+        className="h-7 rounded-md border bg-transparent px-2 text-body text-foreground outline-none focus-visible:border-foreground/25" />
       <div className="flex flex-wrap gap-1" role="radiogroup" aria-label="Its colour">
         {COLORS.map((color) => (
           <button key={color} type="button" role="radio" aria-checked={one.color === color} aria-label={color} onClick={() => save({ color })}
@@ -689,7 +689,7 @@ export function NewEvent({ ask, held, onMade }: { ask: { day: string; minute: nu
     <form data-new-event className="mf-more flex min-h-0 flex-1 flex-col overflow-y-auto pt-4 pb-4" onSubmit={(event) => (event.preventDefault(), void save())}>
       <h2 className="page-narrow mx-auto mb-3 w-full px-4 @[40rem]/page:px-12 font-heading text-title font-semibold tracking-[-0.018em] text-foreground">New event</h2>
       <div className="page-narrow mx-auto flex w-full flex-col gap-3 px-4 @[40rem]/page:px-12">
-        <div className="flex min-h-10 items-center gap-2 rounded-lg border pr-1 pl-3 text-body focus-within:ring-1 focus-within:ring-ring">
+        <div className="flex min-h-10 items-center gap-2 rounded-lg border pr-1 pl-3 text-body focus-within:border-foreground/25">
           <input ref={field} data-new-event-words value={text} onChange={(event) => setText(event.target.value)} aria-label={`A new event for ${dayjs(ask.day).format('dddd D MMMM')}`}
             placeholder="Lunch with Sam fri 1pm" className="min-w-0 flex-1 bg-transparent text-body text-foreground outline-none placeholder:text-foreground/70" />
           <Button type="submit" size="sm" data-new-event-add aria-label="Add"><span className="hidden @[40rem]/page:inline">Add</span> <Kbd>↵</Kbd></Button>
@@ -1024,7 +1024,7 @@ function CustomRepeat({ start, rule, onSave }: { start: string; rule: Repeat; on
         <input type="number" min={1} max={99} defaultValue={every} key={every} aria-label="Every how many" data-repeat-every
           onBlur={(event) => { const n = Math.max(1, Math.min(99, Math.round(Number(event.target.value) || 1))); if (n !== every) set({ every: n }) }}
           onKeyDown={(event) => event.key === 'Enter' && event.currentTarget.blur()}
-          className="h-7 w-12 rounded-md border bg-transparent px-1.5 text-center tabular-nums outline-none focus-visible:ring-2 focus-visible:ring-ring/30 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none" />
+          className="h-7 w-12 rounded-md border bg-transparent px-1.5 text-center tabular-nums outline-none focus-visible:border-foreground/25 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none" />
         {UNITS.map(([freq, one, many]) => (
           <button key={freq} type="button" data-repeat-unit={freq} aria-pressed={rule.freq === freq} onClick={() => rule.freq !== freq && onSave({ freq, every, until: rule.until, count: rule.count, ...(freq === 'weekly' ? { days: [at.day()] } : {}) })}
             className="h-7 rounded-full px-2.5 hover:bg-accent aria-pressed:bg-accent aria-pressed:font-medium">{every === 1 ? one : many}</button>
@@ -1070,7 +1070,7 @@ function RepeatEnd({ rule, onSave }: { rule: Repeat; onSave: (repeat: Repeat) =>
           <input type="number" min={1} max={999} key={rule.count} defaultValue={rule.count ?? 10} aria-label="How many times" data-repeat-count
             onBlur={(event) => { const n = Math.max(1, Math.min(999, Math.round(Number(event.target.value) || 1))); if (n !== rule.count) onSave({ ...rule, count: n }) }}
             onKeyDown={(event) => event.key === 'Enter' && event.currentTarget.blur()}
-            className="h-7 w-14 rounded-md border bg-transparent px-1.5 text-center tabular-nums outline-none focus-visible:ring-2 focus-visible:ring-ring/30 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none" />
+            className="h-7 w-14 rounded-md border bg-transparent px-1.5 text-center tabular-nums outline-none focus-visible:border-foreground/25 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none" />
           times
         </label>
       )}

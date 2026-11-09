@@ -64,7 +64,7 @@ export const HashField = forwardRef<HTMLInputElement, Props>(function HashField(
 })
 
 /** The frame of the app's own Input (ui/input.tsx), worn round the "#" and the field. */
-export const INPUT_FRAME = 'min-w-0 rounded-md border border-input bg-input/20 px-2 py-0.5 text-sm transition-colors focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/30 md:text-xs/relaxed dark:bg-input/30'
+export const INPUT_FRAME = 'min-w-0 rounded-md border border-input bg-input/20 px-2 py-0.5 text-sm transition-colors focus-within:border-foreground/25 md:text-xs/relaxed dark:bg-input/30'
 
 /**
  * A tag field that answers Enter: `onEnter` gets the tag as it reads (empty

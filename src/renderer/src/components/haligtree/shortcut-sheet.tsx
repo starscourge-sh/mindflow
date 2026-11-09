@@ -153,7 +153,7 @@ export function KeysEditor({ search = '' }: { search?: string }): React.JSX.Elem
     <div className="px-3 pt-3">
       {!search && (
         <div data-setting className="mb-3 flex flex-col gap-2 px-1">
-          <div className="flex items-center gap-2 rounded-lg border bg-background/40 px-3 py-1.5 text-muted-foreground focus-within:border-ring">
+          <div className="flex items-center gap-2 rounded-lg border bg-background/40 px-3 py-1.5 text-muted-foreground focus-within:border-foreground/25">
             <SearchIcon className="size-4 shrink-0" />
             {finding ? (
               <span className="flex min-h-6 flex-1 items-center text-body">{pressed ? <Keys keys={pressed} /> : <Typed text="Press the keys to find…" step={25} delay={0} />}</span>

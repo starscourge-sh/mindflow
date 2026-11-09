@@ -127,7 +127,7 @@ export function SeasonPart(): React.JSX.Element | null {
       <div>
         <h4 className={heading}>What mattered most to you from {season.said}?</h4>
         <input value={mattered} onChange={(event) => setMattered(event.target.value)} placeholder="In a line" aria-label="What mattered most this season"
-          className="mt-1.5 w-full rounded-md border bg-transparent px-2.5 py-1.5 text-body text-foreground outline-none placeholder:text-muted-foreground focus:border-ring" />
+          className="mt-1.5 w-full rounded-md border bg-transparent px-2.5 py-1.5 text-body text-foreground outline-none placeholder:text-muted-foreground focus:border-foreground/25" />
         <p className="mt-1 text-control text-foreground/70">Kept in your playbook, one line a season.</p>
       </div>
 

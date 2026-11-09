@@ -1227,7 +1227,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
  title={mode} lead={several.bar ? undefined : lead} count={example ? undefined : several.chosen.length || shown.length + (heldShown ? 0 : held.length) + foldedCount} unit={several.chosen.length ? ['selected', 'selected'] : ['open', 'open']} actions={several.bar ?? actions}>
 
         <form
-          className="list-box mt-8 flex items-center gap-2 rounded-md border py-1.5 pr-2 focus-within:border-ring"
+          className="list-box mt-8 flex items-center gap-2 rounded-md border py-1.5 pr-2 focus-within:border-foreground/25"
           // A pasted list is a task a line, its indented lines their steps; one Undo for all.
           onPasteCapture={(event) => {
             const lines = tasksOf(readLines(event.clipboardData.getData('text/plain')))

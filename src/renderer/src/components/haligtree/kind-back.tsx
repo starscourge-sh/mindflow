@@ -104,7 +104,7 @@ export function KindBack({ one, onDone, flush, again, onUndone }: {
         }}
         placeholder="Your answer"
         aria-label="Your answer"
-        className="private-text w-full resize-none rounded-md bg-foreground/[0.05] px-2.5 py-1.5 text-control text-foreground outline-none [field-sizing:content] placeholder:text-foreground/70 focus-visible:ring-2 focus-visible:ring-ring/30"
+        className="private-text w-full resize-none rounded-md bg-foreground/[0.05] px-2.5 py-1.5 text-control text-foreground outline-none [field-sizing:content] placeholder:text-foreground/70"
       />
       <div className={`flex items-center gap-1 ${flush ? '-ml-2' : ''}`}>
         <Button variant="ghost" size="sm" className="text-foreground" onClick={() => then(answer(one, said, back))}>Answer</Button>
