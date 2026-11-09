@@ -1,6 +1,6 @@
 /**
  * How stickies move: one clock for every glide, paced on the screen's own
- * frames, and where a sticky let go near an edge or a neighbour settles.
+ * frames, and where a card stays in view (where one settles in line: snap-lines.ts).
  * Nothing here knows about windows, so it is tested on its own
  * (test/sticky-place.test.ts).
  */
@@ -80,51 +80,6 @@ export function cardInView(win: Box, inset: Inset, area: Box): Box {
   const x = Math.max(area.x, Math.min(card.x, area.x + area.width - card.width))
   const y = Math.max(area.y, Math.min(card.y, area.y + area.height - card.height))
   return { ...win, x: Math.round(x - inset.left), y: Math.round(y - inset.top) }
-}
-
-/** How near counts as "let go by" an edge or a neighbour, the gap a sticky keeps to its neighbours, and its margin from the screen's edge. */
-export const REACH = 12
-export const GAP = 8
-export const MARGIN = 8
-
-/**
- * Where a card let go at `card` settles: within REACH of the screen's edge it
- * lines up MARGIN in from it; within REACH of the line a neighbour's side
- * makes (GAP away from it) it lines up there, and with the neighbour's top or
- * left too when that is as near. Each way, across and down, takes the nearest
- * pull; none near, it stays where it was let go.
- */
-export function magnet(card: Box, others: Box[], area: Box): { x: number; y: number } {
-  const across: { to: number; far: number }[] = []
-  const down: { to: number; far: number }[] = []
-  const pull = (list: { to: number; far: number }[], now: number, to: number): void => {
-    const far = Math.abs(now - to)
-    if (far <= REACH) list.push({ to, far })
-  }
-  const right = card.x + card.width
-  const bottom = card.y + card.height
-  pull(across, card.x, area.x + MARGIN)
-  pull(across, card.x, area.x + area.width - MARGIN - card.width)
-  pull(down, card.y, area.y + MARGIN)
-  pull(down, card.y, area.y + area.height - MARGIN - card.height)
-  for (const one of others) {
-    const besideY = card.y < one.y + one.height && one.y < bottom
-    const besideX = card.x < one.x + one.width && one.x < right
-    if (besideY) {
-      // Side by side: its left to their right, or its right to their left; tops lined up when near.
-      pull(across, card.x, one.x + one.width + GAP)
-      pull(across, card.x, one.x - GAP - card.width)
-      if (Math.abs(card.x - (one.x + one.width + GAP)) <= REACH || Math.abs(right - (one.x - GAP)) <= REACH) pull(down, card.y, one.y)
-    }
-    if (besideX) {
-      // One above the other: its top to their foot, or its foot to their top; lefts lined up when near.
-      pull(down, card.y, one.y + one.height + GAP)
-      pull(down, card.y, one.y - GAP - card.height)
-      if (Math.abs(card.y - (one.y + one.height + GAP)) <= REACH || Math.abs(bottom - (one.y - GAP)) <= REACH) pull(across, card.x, one.x)
-    }
-  }
-  const nearest = (list: { to: number; far: number }[], now: number): number => (list.length ? list.reduce((a, b) => (b.far < a.far ? b : a)).to : now)
-  return { x: Math.round(nearest(across, card.x)), y: Math.round(nearest(down, card.y)) }
 }
 
 /**

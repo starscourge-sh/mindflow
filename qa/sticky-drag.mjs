@@ -110,18 +110,18 @@ try {
     await page.evaluate(() => window.api.lift())
     await wait(60)
     const taps0 = await taps()
-    // Toward the right edge, ending 5 points short of the line it would settle on (8 in, card inset 20).
-    const nearEdge = { x: work.x + work.width - 8 - (b.width - 20) - 5, y: start.y + 120 }
+    // Toward the right edge, ending 5 points short of the line it would settle on (16 in, card inset 20).
+    const nearEdge = { x: work.x + work.width - 16 - (b.width - 20) - 5, y: start.y + 120 }
     const from = (await info()).b
     const one = await drag(line({ x: from.x, y: from.y }, nearEdge, 50), grip)
     check(`${tag}: the window follows the pointer exactly the whole drag`, one.deviations === 0, `${one.deviations} of ${one.count} samples off, worst ${one.worst}pt`)
     check(`${tag}: its size never changes while dragged`, one.resized === 0, `${one.resized} samples resized`)
     check(`${tag}: held the whole way, no paper tap before it is let go`, (await isHeld()) && (await taps()) === taps0, `held ${await isHeld()}, taps ${(await taps()) - taps0}`)
-    // Let go without moving the pointer: the Mac is asked, then it lines up 8 points in from the edge.
+    // Let go without moving the pointer: the Mac is asked, then it lines up 16 points in from the edge.
     await release(false)
     await wait(motion ? 900 : 500)
     const landed = (await info()).b
-    check(`${tag}: let go near the edge, it lines up 8 points in`, landed.x + landed.width - 20 === work.x + work.width - 8, `${work.x + work.width - (landed.x + landed.width - 20)}pt in`)
+    check(`${tag}: let go near the edge, it lines up 16 points in`, landed.x + landed.width - 20 === work.x + work.width - 16, `${work.x + work.width - (landed.x + landed.width - 20)}pt in`)
     check(`${tag}: set down with one paper tap`, !(await isHeld()) && (await taps()) === taps0 + 1, `taps ${(await taps()) - taps0}`)
     // The pointer then leaves: it stays put (never set back where it rose from).
     await electron.evaluate(() => { globalThis.qaCursor = { x: 5, y: 5 } })

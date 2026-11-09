@@ -1,39 +1,9 @@
 // Run with: node --test test/sticky-place.test.ts
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { cardInView, magnet, rubber, settle, tween, GAP, MARGIN } from '../src/main/sticky-place.ts'
+import { cardInView, rubber, settle, tween } from '../src/main/sticky-place.ts'
 
 const area = { x: 0, y: 25, width: 1440, height: 875 }
-const card = (x: number, y: number) => ({ x, y, width: 260, height: 180 })
-
-test('let go near the screen edge, a card lines up a margin in from it', () => {
-  assert.deepEqual(magnet(card(3, 300), [], area), { x: MARGIN, y: 300 })
-  assert.deepEqual(magnet(card(1440 - 260 - 15, 300), [], area), { x: 1440 - 260 - MARGIN, y: 300 })
-  assert.deepEqual(magnet(card(500, 30), [], area), { x: 500, y: 25 + MARGIN })
-})
-
-test('far from everything, it stays where it was let go', () => {
-  assert.deepEqual(magnet(card(500, 300), [card(900, 600)], area), { x: 500, y: 300 })
-})
-
-test('beside a neighbour, it keeps the gap and lines up its top', () => {
-  const other = card(600, 300)
-  // Its right edge 5 points short of the line GAP left of the neighbour, top 9 points lower.
-  const at = magnet(card(600 - GAP - 260 - 5, 309), [other], area)
-  assert.deepEqual(at, { x: 600 - GAP - 260, y: 300 })
-})
-
-test('under a neighbour, it keeps the gap and lines up its left', () => {
-  const other = card(600, 300)
-  const at = magnet(card(606, 300 + 180 + GAP + 10), [other], area)
-  assert.deepEqual(at, { x: 600, y: 300 + 180 + GAP })
-})
-
-test('the nearer pull wins', () => {
-  const other = card(MARGIN + 10 + GAP + 260, 300)
-  // 4 from the edge's line, 6 from the neighbour's: the edge.
-  assert.equal(magnet(card(MARGIN + 4, 300), [other], area).x, MARGIN)
-})
 
 test('a paper window may hang past the edge, its card never does', () => {
   const inset = { left: 20, top: 20, right: 20, bottom: 20 }

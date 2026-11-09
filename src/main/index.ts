@@ -98,8 +98,10 @@ import { registerCite } from './cite'
 import { registerFeed } from './feed'
 import { growFrom } from './grow'
 import { grab, whenLetGo } from './hand'
+import { guideColour, hideGuides, showGuides } from './guides'
+import { cameOnto, lineUp, type Held } from './snap-lines'
 import { throwSpot } from './throw-spot'
-import { cardInView, cardOf, LIFT_MS, magnet, onFrames, outCubic, outQuart, outQuint, paceBy, rubber, settle as overshoot, tween, type Inset } from './sticky-place'
+import { cardInView, cardOf, LIFT_MS, onFrames, outCubic, outQuart, outQuint, paceBy, rubber, settle as overshoot, tween, type Inset } from './sticky-place'
 import { registerDefine } from './define'
 import { isVault, registerObsidian, vaultChoices } from './obsidian'
 import { bringAppleNotes, notesReader, type NotesFolder } from './apple-notes'
@@ -1268,6 +1270,12 @@ function keyInAddress(win: BrowserWindow): string | null {
 const keyOfSticky = (win: BrowserWindow | null): string | undefined => (win ? [...stickies].find(([, one]) => one === win)?.[0] : undefined)
 /** How far in from its window the card is drawn: glass fills it; paper keeps room round it for its lean and shadow (sticky-note.tsx, goal-beacon.tsx). */
 const insetOf = (key: string): Inset => builtGlass.get(key) ? { left: 0, top: 0, right: 0, bottom: 0 } : { left: 20, top: 20, right: 20, bottom: 20 }
+/** The cards on the screen now that a dragged sticky or quick capture lines up with: every sticky up, and the box when it is out; never `but`. */
+function stickyCards(but?: BrowserWindow): ReturnType<typeof cardOf>[] {
+  const cards = [...stickies].filter(([key, one]) => one !== but && !one.isDestroyed() && one.isVisible() && stickyUp(key)).map(([key, one]) => cardOf(one.getBounds(), insetOf(key)))
+  if (prompt && prompt !== but && !prompt.isDestroyed() && prompt.isVisible()) cards.push(prompt.getBounds())
+  return cards
+}
 
 /**
  * Windows drawn larger than their card (paper stickies): clicks on the clear
@@ -1651,7 +1659,8 @@ function stick(type: string, id: string, on: boolean, bounds?: Electron.Rectangl
     grab(win)
     // Watched from the start on a Mac: picked up and put down without moving,
     // it is set down too. Elsewhere 'moved' comes once, at the end (hand.ts).
-    if (process.platform === 'darwin') (inLine = false), whenLetGo(win, letGo, lining)
+    // Picked up already on a line, it is held there without a tick.
+    if (process.platform === 'darwin') (inLine = lineUp(cardOf(win.getBounds(), insetOf(key)), others(), screen.getDisplayMatching(win.getBounds()).workArea).held), whenLetGo(win, letGo, lining)
     if (held.has(win)) return
     held.add(win)
     win.webContents.send('sticky:held', true)
@@ -1670,14 +1679,19 @@ function stick(type: string, id: string, on: boolean, bounds?: Electron.Rectangl
   })
   // Carried into line with the screen's edge or another sticky, the trackpad
   // taps once (haptic.ts), as the Mac's own guides do; out of line and back, once again.
-  let inLine = false
-  const others = (): ReturnType<typeof cardOf>[] => [...stickies].filter(([other, one]) => one !== win && !one.isDestroyed() && one.isVisible() && stickyUp(other)).map(([other, one]) => cardOf(one.getBounds(), insetOf(other)))
+  // While it is carried, a dashed guide shows each line it will settle on (snap-lines.ts, guides.ts): the screen's
+  // middle, another sticky's or quick capture's edge, a margin in from the screen's edge. The Mac moves the window
+  // under your hand, so it follows the pointer exactly and is drawn onto the line as it is let go.
+  let inLine: Held = {}
+  let colour = ''
+  const others = (): ReturnType<typeof cardOf>[] => stickyCards(win)
   const lining = (now: Electron.Rectangle): void => {
     const card = cardOf(now, insetOf(key))
-    const pulled = magnet(card, others(), screen.getDisplayMatching(now).workArea)
-    const near = pulled.x !== card.x || pulled.y !== card.y
-    if (near && !inLine) tap('align')
-    inLine = near
+    const lined = lineUp(card, others(), screen.getDisplayMatching(now).workArea, inLine)
+    if (cameOnto(inLine, lined.held)) tap('align')
+    inLine = lined.held
+    if (!colour) void guideColour(win).then((c) => (colour = c))
+    else showGuides(card, lined.lines, colour, stillness())
   }
   // Let go: the card settles with a soft tap. Past an edge, it glides back
   // until the card is all in view; near the screen's edge or another sticky,
@@ -1685,6 +1699,7 @@ function stick(type: string, id: string, on: boolean, bounds?: Electron.Rectangl
   const letGo = (): void => {
     if (win.isDestroyed()) return
     if (held.delete(win)) win.webContents.send('sticky:held', false)
+    hideGuides()
     if (ours(win)) return
     // Put down by hand, a card opened out of its tab rests where it was put.
     openedAt.delete(key)
@@ -1692,7 +1707,8 @@ function stick(type: string, id: string, on: boolean, bounds?: Electron.Rectangl
     const inset = insetOf(key)
     const area = screen.getDisplayMatching(now).workArea
     const inView = cardInView(now, inset, area)
-    const pulled = magnet(cardOf(inView, inset), others(), area)
+    const pulled = lineUp(cardOf(inView, inset), others(), area, inLine)
+    inLine = {}
     const { x, y } = cardInView({ ...now, x: pulled.x - inset.left, y: pulled.y - inset.top }, inset, area)
     if (x !== now.x || y !== now.y) moveStickies([[key, win, { x, y }]], false)
     else remember()
@@ -4636,23 +4652,33 @@ app.whenReady().then(() => {
   // Motion off), where it then stays as if dragged there.
   // Quick capture's grabber (App.tsx, data-grabber): held, the box follows the pointer from where it was picked up,
   // a move like any other (it stops a size glide, and where it is let go is where it opens next); let go, it stays.
+  // Carried near the screen's middle, a sticky's edge or a margin in from the screen's edge, it is drawn onto that line
+  // with one haptic tick, and a dashed guide shows it (snap-lines.ts, guides.ts); taken on past it, it follows again.
   let following: ReturnType<typeof setInterval> | null = null
+  const stopFollowing = (): void => void (following && clearInterval(following), (following = null), hideGuides())
   ipcMain.on('window:grab', (event) => {
     const win = BrowserWindow.fromWebContents(event.sender)
     if (!win || win !== prompt) return
     const from = win.getBounds()
     const start = screen.getCursorScreenPoint()
     if (following) clearInterval(following)
+    // Picked up already on a line: held there, without a tick.
+    let on = lineUp(from, stickyCards(win), screen.getDisplayMatching(from).workArea).held
+    let colour = ''
+    void guideColour(win).then((c) => (colour = c))
     following = setInterval(() => {
-      if (win.isDestroyed()) return void (following && clearInterval(following))
+      if (win.isDestroyed()) return stopFollowing()
       const now = screen.getCursorScreenPoint()
       const at = win.getBounds()
-      const x = from.x + now.x - start.x
-      const y = from.y + now.y - start.y
-      if (at.x !== x || at.y !== y) win.setPosition(x, y)
+      const want = { ...at, x: from.x + now.x - start.x, y: from.y + now.y - start.y }
+      const lined = lineUp(want, stickyCards(win), screen.getDisplayMatching(want).workArea, on)
+      if (cameOnto(on, lined.held)) tap('align')
+      on = lined.held
+      if (at.x !== lined.x || at.y !== lined.y) win.setPosition(lined.x, lined.y)
+      if (colour) showGuides(want, lined.lines, colour, stillness())
     }, 8)
   })
-  ipcMain.on('window:let-go', () => void (following && clearInterval(following), (following = null)))
+  ipcMain.on('window:let-go', stopFollowing)
   // Double-clicked: back to where it first opens, the top middle of its screen.
   ipcMain.on('window:home', (event) => {
     const win = BrowserWindow.fromWebContents(event.sender)

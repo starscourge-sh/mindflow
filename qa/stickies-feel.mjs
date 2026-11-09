@@ -168,15 +168,15 @@ try {
   check('K4 off the edge: glides back over several frames, not a jump', slid.length >= 6 && new Set(slid).size >= 5, `${slid.length} steps`)
   check('K4 off the edge: the card ends wholly on the screen', afterSlide.b.x + afterSlide.b.width - 20 <= work.x + work.width && afterSlide.b.x + 20 >= work.x, JSON.stringify(afterSlide.b))
 
-  // K5: let go 10 points from the line beside a neighbour, it glides into line: 8 points apart, tops aligned.
+  // K5: let go 6 points from the line beside a neighbour, it glides into line: 8 points apart, tops aligned.
   const wb = await win(B)
   // Carried there by hand, as a drag on a Mac says it: picked up, moved, then let go (a move without the pick-up is a window manager's).
   await drag(wb.id, work.x + 400, work.y + 300)
   await wait(500)
   const nb = await win(B)
-  // A's card right next to B's card, 8 + 10 points off, 7 points lower.
+  // A's card right next to B's card, 8 + 6 points off, 7 points lower.
   // Carried there by hand, as a drag on a Mac says it: picked up, moved, then let go (a move without the pick-up is a window manager's).
-  await drag(wa.id, nb.b.x + 20 - 8 - 10 - (wa.b.width - 40) - 20, nb.b.y + 7)
+  await drag(wa.id, nb.b.x + 20 - 8 - 6 - (wa.b.width - 40) - 20, nb.b.y + 7)
   // Read once the glide has come to rest: on a busy machine 700ms was sometimes mid-glide.
   const restOf = async (id) => { let last = null; for (let i = 0; i < 30; i++) { await wait(100); const now = JSON.stringify((await win(id)).b); if (now === last) break; last = now } return win(id) }
   await wait(300)
@@ -185,10 +185,10 @@ try {
   check('K5 near a neighbour: glides into line 8 points apart', gap === 8, `gap ${gap}`)
   check('K5 near a neighbour: tops lined up', na.b.y === nb.b.y, `${na.b.y} vs ${nb.b.y}`)
   // Carried there by hand, as a drag on a Mac says it: picked up, moved, then let go (a move without the pick-up is a window manager's).
-  await drag(wb.id, work.x + 3 - 20, work.y + 500)
+  await drag(wb.id, work.x + 12 - 20, work.y + 500)
   await wait(300)
   const edged = await restOf(B)
-  check('K5 near the screen edge: the card lines up 8 points in', edged.b.x + 20 === work.x + 8, `${edged.b.x + 20 - work.x}`)
+  check('K5 near the screen edge: the card lines up 16 points in', edged.b.x + 20 === work.x + 16, `${edged.b.x + 20 - work.x}`)
 
   // K4: "Bring sticky notes here" glides each, one after another.
   const t3 = await now()
