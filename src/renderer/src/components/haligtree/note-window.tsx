@@ -163,7 +163,7 @@ function CaptureWindow({ id }: { id: string }): React.JSX.Element | null {
   const words = useSameWords('captures', capture?.id, capture?.body, (at, body, base, editor) =>
     window.api.captures.save(at, { body, base, ...(editor ? { markdown: toMarkdown(editor) } : {}) }))
   const [editor, setEditor] = useState<Editor | null>(null)
-  const board = useBoard('captures', capture?.id, editor)
+  const board = useBoard('captures', capture?.id, editor, capture?.fields)
   const boardShown = board.on && !past && !!editor && !editor.isDestroyed
   // A board takes the room its properties had, until asked for them.
   const [propsOut, setPropsOut] = useState(false)

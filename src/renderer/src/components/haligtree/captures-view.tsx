@@ -287,7 +287,7 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
     if (editor || task) show()
     return () => (clearTimeout(late), clearTimeout(after), cancelAnimationFrame(frame))
   }, [editor, task, listShown])
-  const board = useBoard('captures', open?.id, editor)
+  const board = useBoard('captures', open?.id, editor, open?.fields)
   const boardShown = board.on && !past && first === null && !!editor && !editor.isDestroyed
   // A board needs the room: the list and the properties step aside while it
   // shows, each a click away, and come back with the note.

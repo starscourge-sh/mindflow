@@ -1022,7 +1022,7 @@ function NuggetDetail({ item, onOpen, top, back, board: place }: { item: ItemFul
     const box = ready?.view.dom.parentElement
     if (box) box.scrollTop = 0
   }, [item.id]) // eslint-disable-line react-hooks/exhaustive-deps
-  const board = useBoard('nuggets', item.id, ready)
+  const board = useBoard('nuggets', item.id, ready, item.fields)
   // A piece of Writing can be written in the writing room: only its title and words, over the whole window.
   const room = useWritingRoom(item.tier === 'article' ? ready : null)
   useWritingSound(ready, room.on)

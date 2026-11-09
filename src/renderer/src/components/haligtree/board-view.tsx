@@ -225,24 +225,50 @@ const newCard = (words: JSONContent[]): Model['lanes'][number]['cards'][number] 
  * ⌥⌘B switches; on a note with nothing to make a board of, it says how
  * to give it one instead.
  */
-export function useBoard(table: NoteTable, id: string | undefined, editor: Editor | null): { on: boolean; fits: boolean; toggle: () => void } {
-  const [on, setOn] = useState(false)
+/** Whether a note was last seen as a board, kept for the session: a note opened again is a board from its first frame. */
+const seenBoard = new Map<string, boolean>()
+/** What is known now, without waiting: the person's own switch, this session's answer, or the note's fields when given. */
+function boardNow(id: string | undefined, fields?: string | null): boolean | undefined {
+  if (!id) return false
+  try {
+    const said = localStorage.getItem(`board:${id}`)
+    if (said !== null) return said === 'on'
+  } catch {
+    // Not remembered: the note decides.
+  }
+  if (seenBoard.has(id)) return seenBoard.get(id)
+  if (fields != null) {
+    try {
+      return (JSON.parse(fields) as Record<string, unknown>)?.['kanban-plugin'] === 'board'
+    } catch {
+      return undefined
+    }
+  }
+  return undefined
+}
+
+/**
+ * A note drawn as a board or as words. Decided before the first frame wherever it can be (the note's fields when the
+ * caller has them, the switch, this session), so a board never shows as words for a moment first.
+ */
+export function useBoard(table: NoteTable, id: string | undefined, editor: Editor | null, fields?: string | null): { on: boolean; fits: boolean; toggle: () => void } {
+  const [held, setHeld] = useState(() => ({ id, on: boardNow(id, fields) ?? false }))
+  // A new note: its answer now, in this same draw, not after it.
+  if (held.id !== id) setHeld({ id, on: boardNow(id, fields) ?? false })
+  const on = held.id === id ? held.on : boardNow(id, fields) ?? false
+  const setOn = (next: boolean): void => setHeld({ id, on: next })
   const [fits, setFits] = useState(false)
   useEffect(() => {
-    setOn(false)
-    if (!id) return
-    let said: string | null = null
-    try {
-      said = localStorage.getItem(`board:${id}`)
-    } catch {
-      // Not remembered: the note decides.
-    }
-    if (said !== null) return setOn(said === 'on')
+    if (!id || boardNow(id, fields) !== undefined) return
     // The note before's answer, come back late, is not this note's.
     let current = true
-    void notes.fields(table, id).then((fields) => current && setOn(fields['kanban-plugin'] === 'board'))
+    void notes.fields(table, id).then((all) => {
+      const board = all['kanban-plugin'] === 'board'
+      seenBoard.set(id, board)
+      if (current) setHeld({ id, on: board })
+    })
     return () => void (current = false)
-  }, [table, id])
+  }, [table, id]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!editor || editor.isDestroyed) return setFits(false)
     // On every change to its words, typed or not: words laid in without an edit (a paste set in place, a note's
@@ -265,6 +291,7 @@ export function useBoard(table: NoteTable, id: string | undefined, editor: Edito
       // Kept for this window only.
     }
     setOn(!on)
+    if (id) seenBoard.set(id, !on)
   }
   const latest = useRef({ toggle, can: !!id })
   latest.current = { toggle, can: !!id }
