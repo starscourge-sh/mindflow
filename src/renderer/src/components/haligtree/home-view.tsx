@@ -53,6 +53,7 @@ import { CloseDayOffer } from './close-day'
 import { MorningSortOffer } from './sort-out'
 import { WeeklyDigest } from './weekly-digest'
 import { Tilt } from './tilt'
+import { LeavingPicture, useLeaving } from './picture-leaving'
 import { openItems, useHere } from '@/lib/split'
 import { queueItems } from '@/lib/reading-queue'
 import { usePickMixed, type Pickable } from './pick-mixed'
@@ -212,6 +213,8 @@ function Tile({ card, pinned, actions, onHover }: { card: Card; pinned: boolean;
   const src = usePicture(card)
   const [broken, setBroken] = useState(false)
   const look = { src: broken ? undefined : src, colour: tintOf(card) }
+  // Its picture deleted or changed, the old one fades out over what takes its place (picture-leaving.tsx).
+  const [leaving, left] = useLeaving(look.src, card.id)
   return (
     <RowMenu items={menuFor(card, actions, [card], 0, pinned)}>
       <div className="group/tile relative min-w-0" onPointerEnter={() => onHover(look)} onPointerLeave={() => onHover(null)}>
@@ -226,8 +229,8 @@ function Tile({ card, pinned, actions, onHover }: { card: Card; pinned: boolean;
           className="flex h-12 w-full min-w-0 items-center gap-3 overflow-hidden rounded-md bg-foreground/[0.05] pr-10 text-left outline-none transition-colors duration-150 hover:bg-foreground/[0.09] focus-visible:bg-foreground/[0.09] focus-visible:ring-2 focus-visible:ring-ring/50"
         >
           {src && !broken
-            ? <span className="aspect-square h-full shrink-0 overflow-hidden rounded-l-md shadow-[2px_0_10px_-4px_color-mix(in_oklab,var(--mf-shadow-ink)_30%,transparent)]"><Picture src={src} onBroken={() => setBroken(true)} /></span>
-            : <KindMark card={card} className="aspect-square h-full shrink-0 rounded-l-md" />}
+            ? <span className="relative aspect-square h-full shrink-0 overflow-hidden rounded-l-md shadow-[2px_0_10px_-4px_color-mix(in_oklab,var(--mf-shadow-ink)_30%,transparent)]"><Picture src={src} onBroken={() => setBroken(true)} /><LeavingPicture src={leaving} onDone={left} /></span>
+            : <span className="relative aspect-square h-full shrink-0 overflow-hidden rounded-l-md"><KindMark card={card} className="size-full" /><LeavingPicture src={leaving} onDone={left} /></span>}
           <span className="private-text line-clamp-2 min-w-0 flex-1 text-control leading-tight font-medium hyphens-auto [overflow-wrap:break-word] text-foreground">{nameOf(card)}</span>
           {pinned && <Pin className="absolute right-3 size-3.5 text-muted-foreground transition-opacity group-focus-within/tile:opacity-0 group-hover/tile:opacity-0" aria-label="Pinned" />}
         </button>
@@ -254,6 +257,8 @@ function RowCard({ card, list, at, actions }: { card: Card; list: Card[]; at: nu
   // No picture of its own: its grain cover stands in, so a row of cards reads as one shelf.
   const grain = useNoteCover(real ? null : card.id)
   const picture = real || !!grain
+  // Its picture deleted or changed, the old one fades out over the cover that takes its place.
+  const [leaving, left] = useLeaving(real ? src : undefined, card.id, picture)
   return (
     <RowMenu items={menuFor(card, actions, list, at)}>
       <div className="group/card relative flex w-(--card) shrink-0 snap-start">
@@ -278,6 +283,7 @@ function RowCard({ card, list, at, actions }: { card: Card; list: Card[]; at: nu
                     </span>
                   </>
                 )}
+                <LeavingPicture src={leaving} onDone={left} />
               </span>
               <span className="flex min-w-0 flex-1 flex-col gap-0.5 px-2 pb-2">
                 <span className="private-text line-clamp-2 text-control leading-snug font-medium hyphens-auto [overflow-wrap:break-word] text-foreground">{nameOf(card)}</span>
@@ -489,6 +495,8 @@ function Feature({ card, line, actions }: { card: Card; line: string; actions: A
   const grain = useNoteCover(real ? null : card.id)
   const picture = real || !!grain
   const backdrop = real ? src : grain?.small
+  // Its picture deleted or changed, the old one fades out over its square's new cover.
+  const [leaving, left] = useLeaving(real ? src : undefined, card.id, picture)
   return (
     <RowMenu items={menuFor(card, actions, [card], 0)}>
       <div className="relative mx-5 overflow-hidden rounded-xl @[44rem]/page:mx-8" data-private={card.private ? '' : undefined}>
@@ -499,13 +507,14 @@ function Feature({ card, line, actions }: { card: Card; line: string; actions: A
           {picture && (
             <Tilt className="shrink-0 rounded-lg">
             <button type="button" tabIndex={-1} data-picked={actions.picked?.(card) || undefined} data-drag-open={`${card.type}:${card.id}`} onClick={(event) => actions.open(card, event)} aria-label={`Open ${nameOf(card)}`}
-              className="aspect-square w-20 shrink-0 overflow-hidden rounded-lg shadow-[0_10px_30px_-10px_color-mix(in_oklab,var(--mf-shadow-ink)_50%,transparent)] transition-transform duration-200 ease-(--mf-ease) motion-safe:hover:scale-[1.02] active:scale-[0.98] @[44rem]/page:w-28">
+              className="relative aspect-square w-20 shrink-0 overflow-hidden rounded-lg shadow-[0_10px_30px_-10px_color-mix(in_oklab,var(--mf-shadow-ink)_50%,transparent)] transition-transform duration-200 ease-(--mf-ease) motion-safe:hover:scale-[1.02] active:scale-[0.98] @[44rem]/page:w-28">
               {real ? <Picture src={src!} onBroken={() => setBroken(true)} /> : grain && (
                 <span className="relative flex size-full items-center justify-center">
                   <GrainFill cover={grain} tint={tint} shade={grain.paper ? 'all' : 'none'} />
                   <KindIcon card={card} paper={grain.paper} className="relative size-7 text-white/75 drop-shadow-[0_1px_2px_rgb(0_0_0/0.35)] @[44rem]/page:size-9" />
                 </span>
               )}
+              <LeavingPicture src={leaving} onDone={left} />
             </button>
             </Tilt>
           )}

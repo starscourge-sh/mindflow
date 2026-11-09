@@ -14,7 +14,7 @@ import { notes, smallPicture, useThumb, type NoteTable } from '@/lib/notes'
 import { openApart } from '@/lib/apart'
 import { useLive } from '@/lib/haligtree'
 import { chime } from '@/lib/sound'
-import { PictureLeaving } from './picture-leaving'
+import { LeavingPicture, PictureLeaving, useLeaving } from './picture-leaving'
 import { RowMenu, type RowItem } from './row-menu'
 import { SortableList, SortableRow } from './sortable'
 import { GroupIcon, GroupedList, SectionHead, type Folds } from './kept-groups'
@@ -136,10 +136,12 @@ export function Cover({
   // No picture of its own: its grain cover, its words in white on it.
   const grain = useNoteCover(picture === undefined ? entry.id : null)
   const paper = !!grain?.paper
+  // Its picture deleted or changed, the old one fades out over what replaces it, whichever box that is drawn in.
+  const [leaving, left] = useLeaving(picture, entry.id)
   if (picture)
     return (
       // No caption carried beside the pointer: the tile names its picture itself (its foot, or its name when pointed at), and two names at once read as neither.
-      <Tilt className={`private-text overflow-hidden bg-accent ${className}`}>
+      <Tilt className={`private-text relative overflow-hidden bg-accent ${className}`}>
         <img
           data-tile-picture=""
           src={picture}
@@ -150,6 +152,7 @@ export function Cover({
           onError={broken}
           className="size-full object-cover animate-in fade-in-0 duration-200"
         />
+        <LeavingPicture src={leaving} onDone={left} />
       </Tilt>
     )
   return (
@@ -173,6 +176,7 @@ export function Cover({
           {(() => { const shown = entry.type === 'question' ? '' : large ? rest(words, entry.title) : words; return shown && unlinked(shown).trim() ? <LinkedWords text={shown} /> : large ? null : entry.title || entry.line || 'Untitled' })()}
         </span>
       )}
+      <LeavingPicture src={leaving} onDone={left} />
     </span>
   )
 }
