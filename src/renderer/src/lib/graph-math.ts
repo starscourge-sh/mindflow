@@ -181,9 +181,13 @@ export function tickLabel(value: number, step: number): string {
 
 /** The same box seen through a window of another shape: equal units on both axes, centred where it was. */
 export function fitView(view: View, width: number, height: number): View {
-  const cy = (view.ymin + view.ymax) / 2
-  const half = ((view.xmax - view.xmin) * height) / Math.max(1, width) / 2
-  return { xmin: view.xmin, xmax: view.xmax, ymin: cy - half, ymax: cy + half }
+  // Equal units both ways (a circle stays round), and the whole of the saved view in sight: the axis with room to spare
+  // widens about its middle, never the other way round, which cut an orbit's top and bottom off.
+  const w = Math.max(1, width), h = Math.max(1, height)
+  const spanX = view.xmax - view.xmin, spanY = view.ymax - view.ymin
+  const perPx = Math.max(spanX / w, spanY / h)
+  const cx = (view.xmin + view.xmax) / 2, cy = (view.ymin + view.ymax) / 2
+  return { xmin: cx - (perPx * w) / 2, xmax: cx + (perPx * w) / 2, ymin: cy - (perPx * h) / 2, ymax: cy + (perPx * h) / 2 }
 }
 
 /** Zoom by `factor` (under 1 closer) keeping the point (px, py) still. */

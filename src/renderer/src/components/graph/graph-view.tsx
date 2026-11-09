@@ -79,13 +79,8 @@ export function GraphView(props: NodeViewProps): React.JSX.Element {
     editor.view.dispatch(tr)
   }, [editor, props])
 
-  // A new letter gets its slider; one no line uses any more goes.
-  useEffect(() => {
-    if (!math) return
-    const next: Record<string, Slider> = {}
-    for (const name of wanted) next[name] = sliders[name] ?? DEFAULT_SLIDER
-    if (JSON.stringify(next) !== JSON.stringify(sliders)) write({ sliders: next }, false)
-  }, [math, wanted, sliders, write])
+  // A new letter shows its slider at once (drawn with the default); it is saved only when you move it, so opening a
+  // note never counts as editing it.
 
   // The theme's colours are read off the page, so a theme change draws again.
   useEffect(() => {
@@ -468,7 +463,7 @@ export function GraphView(props: NodeViewProps): React.JSX.Element {
                   max={one.max}
                   step={step}
                   value={[one.value]}
-                  onValueChange={([value]) => write({ sliders: { ...sliders, [name]: { ...one, value } } })}
+                  onValueChange={([value]) => write({ sliders: { ...Object.fromEntries(wanted.map((letter) => [letter, sliders[letter] ?? DEFAULT_SLIDER])), [name]: { ...one, value } } })}
                 />
                 <span className="mf-graph-slider-end">{tickLabel(one.max, step * 10)}</span>
               </div>

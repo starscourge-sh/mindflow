@@ -1965,7 +1965,7 @@ His third law ties the year to the size of the orbit: $T^2 = a^3$, with $T$ in y
 \`\`\`graph
 y = x^(3/2) {red}
 y = x {green}
-view: 0, 6, 0, 12
+view: 0, 12, 0, 12
 \`\`\`
 *Red: a planet's year against its distance. Green: what it would be if the two grew together. The gap is why Saturn takes 29 years.*
 
