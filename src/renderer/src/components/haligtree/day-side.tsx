@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { heroBack, heroing } from '@/lib/hero'
-import { byKeys, still } from '@/lib/motion'
+import { EASE, byKeys, still } from '@/lib/motion'
 import { createPortal } from 'react-dom'
 import { AnimatePresence, motion } from 'motion/react'
 import { Plus, X } from 'lucide-react'
@@ -35,9 +35,9 @@ const writing = (): boolean => {
 
 /** Off to the right, where the panel slides in from and back out to: past its own width and the gap it keeps from the edge. */
 const OFF = { transform: 'translateX(112%)' }
-/** In on a spring that settles without bouncing back; out faster, on a plain ease, as every exit is. */
-const IN = { type: 'spring', duration: 0.32, bounce: 0 } as const
-const OUT = { duration: 0.18, ease: [0.4, 0, 1, 1] } as const
+/** In on a spring that settles without bouncing back; out faster, on the app's curve, so it starts going at once. */
+const IN = { type: 'spring', duration: 0.24, bounce: 0 } as const
+const OUT = { duration: 0.16, ease: EASE } as const
 /**
  * How it goes, read as it goes (AnimatePresence's `custom`), not when it last drew: with Reduce motion or Motion off,
  * gone at once; otherwise slid out, by Esc too, quicker than it came. (Read at its last draw, it went at once or slid

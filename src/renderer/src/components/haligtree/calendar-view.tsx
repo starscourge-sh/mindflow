@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button'
 import { ChevronLeft, ChevronRight } from '@/components/ui/icons'
 import { chime } from '@/lib/sound'
 import { detent, slotTicker } from '@/lib/proximity'
-import { byKeys, still } from '@/lib/motion'
+import { EASING, byKeys, glideWay, still } from '@/lib/motion'
 import { taskName } from '@/lib/tasks'
 import { moveToBin } from '@/lib/to-bin'
 import { useHere } from '@/lib/split'
@@ -199,7 +199,8 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
   const unit = few ? `${FEW} days` : mode
   const step = (by: -1 | 1): void => (chime('page'), setPeek(null), setAnchor((now) => few ? now.add(by * FEW, 'day') : now.add(by, mode)))
   // Today brought into sight: its day shown, and the grid scrolled to the now line, so the step is seen even when today was already in view.
-  const toNow = (): void => void setTimeout(() => document.querySelector('[data-cal-now]')?.scrollIntoView({ block: 'center', behavior: 'smooth' }), 60)
+  // A glide for the button; by T, or with Motion off or Reduce motion, there at once.
+  const toNow = (): void => void setTimeout(() => document.querySelector('[data-cal-now]')?.scrollIntoView({ block: 'center', behavior: byKeys() ? 'instant' : glideWay() }), 60)
   const today = (): void => (chime('tap'), setPeek(null), setAnchor(dayjs().startOf('day')), toNow())
   // "+ New event": the panel on Event (or Task), for the next hour on the day being looked at (dayHere).
   const newEvent = (): void => {
@@ -926,18 +927,19 @@ function Grid({ days, tasks, marks, study, onHead, onPoint, calendars, ...props 
     if (el) el.scrollTop = Math.max(0, (dayjs().isSame(days[0], 'week') ? new Date().getHours() - 1 : 8) * HOUR - 8)
   }, [])
   const keys = days.map(dayKey)
-  // Stepping a week or a day on, the days come in from the side they lie on,
-  // so the step reads as going forward or back. Only the fade under reduced motion.
+  // Stepping a week or a day on by a click, the days come in from the side they lie on,
+  // so the step reads as going forward or back. Only the fade under Reduce motion; by
+  // ← or → (done many times in a row) and with Motion off, the new days are simply there.
   const grid = useRef<HTMLDivElement>(null)
   const shownFirst = useRef(keys[0])
   useLayoutEffect(() => {
     const was = shownFirst.current
     shownFirst.current = keys[0]
-    if (was === keys[0] || !grid.current) return
+    if (was === keys[0] || !grid.current || byKeys() || document.documentElement.dataset.motion === 'off') return
     const way = keys[0] > was ? 1 : -1
     const calm = still()
     for (const el of grid.current.querySelectorAll<HTMLElement>('[data-cal-col], [data-cal-head], [data-cal-allday-lane] > div'))
-      el.animate(calm ? [{ opacity: 0.4 }, { opacity: 1 }] : [{ opacity: 0.35, transform: `translateX(${way * 18}px)` }, { opacity: 1, transform: 'none' }], { duration: calm ? 160 : 260, easing: 'cubic-bezier(0.16, 1, 0.3, 1)' })
+      el.animate(calm ? [{ opacity: 0.4 }, { opacity: 1 }] : [{ opacity: 0.35, transform: `translateX(${way * 18}px)` }, { opacity: 1, transform: 'none' }], { duration: calm ? 160 : 220, easing: EASING })
   }, [keys[0]]) // eslint-disable-line react-hooks/exhaustive-deps
   const untimed = useMemo(() => {
     const map = new Map<string, { task: Task; due: boolean }[]>()
@@ -1196,7 +1198,7 @@ function SessionGhost({ focus, tasks, now, next }: { focus: ReturnType<typeof us
   const tall = height >= 40
   return (
     <div data-cal-session-ghost data-runs-into={into ? into.name : undefined} aria-label={`${name} runs until ${clock(end.toISOString())}${into ? `, into ${into.name}` : ''}`}
-      title={into ? `Runs into ${into.name}` : undefined} className="pointer-events-none absolute inset-x-[3px] z-0 flex flex-col overflow-hidden rounded-[6px] px-1.5 pt-px text-meta transition-[top,height] duration-300 ease-(--mf-ease) motion-reduce:transition-none"
+      title={into ? `Runs into ${into.name}` : undefined} className="pointer-events-none absolute inset-x-[3px] z-0 flex flex-col overflow-hidden rounded-[6px] px-1.5 pt-px text-meta transition-[top,height] duration-200 ease-(--mf-ease) motion-reduce:transition-none"
       style={{
         top: (from / 60) * HOUR + 1, height,
         // Warm all round once it runs into something: a line on one side only would bend up at the corners.
