@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from 'react'
 import { start } from '../main'
 import { ContextMenu, ContextMenuContent, ContextMenuTrigger } from '../components/ui/context-menu'
 import { flat, lines, type RowItem, type Shown } from '../components/haligtree/row-menu'
+import { useAppearance } from '../lib/haligtree'
 
 /** A line as main sends it (popup-menu.ts). */
 type Wire =
@@ -29,6 +30,8 @@ document.documentElement.style.background = 'transparent'
 document.body.style.background = 'transparent'
 
 function PopupMenu(): React.JSX.Element | null {
+  // The app's own look, as in every window: its theme, the interface font you chose, its sounds.
+  useAppearance()
   const [asked, setAsked] = useState<Asked | null>(null)
   const picked = useRef<number[] | null>(null)
   const trigger = useRef<HTMLDivElement>(null)
