@@ -56,7 +56,7 @@ const lineKey = (line: Line): string => (line.kind === 'back' ? `back:${line.one
  * heading stays quiet: the days you opened Haligtree, and what you captured.
  * The Calendar page's heading has the same one.
  */
-export function MonthShowMenu(): React.JSX.Element {
+export function MonthShowMenu({ children }: { /** More lines under the switches: the panels, when the Calendar's bar has no room for their buttons. */ children?: React.ReactNode }): React.JSX.Element {
   const settings = useLive(haligtree.settings, null as Settings | null)
   const set = (patch: Partial<Settings>): void => (chime('tap'), void haligtree.setSettings(patch))
   return (
@@ -70,6 +70,7 @@ export function MonthShowMenu(): React.JSX.Element {
         <DropdownMenuLabel>Show</DropdownMenuLabel>
         <DropdownMenuCheckboxItem data-month-opened-switch checked={settings?.monthOpened === true} onCheckedChange={(on) => set({ monthOpened: on })} onSelect={(event) => event.preventDefault()}>Days I opened {APP_NAME}</DropdownMenuCheckboxItem>
         <DropdownMenuCheckboxItem data-month-captures-switch checked={settings?.monthCaptures === true} onCheckedChange={(on) => set({ monthCaptures: on })} onSelect={(event) => event.preventDefault()}>Captures</DropdownMenuCheckboxItem>
+        {children}
       </DropdownMenuContent>
     </DropdownMenu>
   )
@@ -86,10 +87,12 @@ export function MonthShowMenu(): React.JSX.Element {
  * wheel, slides to the next or the one before, one month a swipe. A plain
  * wheel scrolls the page, so the calendar never holds it.
  */
-export function MonthPlan({ tasks, onDay, onSide, onOpen, onWeek, onMonth, onShown, month: held, bare = false, dayExtra }: {
+export function MonthPlan({ tasks, onDay, onSide, onOpen, onWeek, onMonth, onShown, month: held, bare = false, dayExtra, bars = [] }: {
   tasks: Task[]
   /** More chips for a day, before its tasks: the Calendar's events. */
   dayExtra?: (day: string) => React.ReactNode[]
+  /** Things that run over several days (the Calendar's multi-day events): one bar across the days each covers, as in Week. */
+  bars?: Bar[]
   /** The month shown, when the page above steps it (the Calendar); left out, it steps itself. */
   month?: Dayjs
   /** Told the month when a swipe here brings another one. */
@@ -152,7 +155,17 @@ export function MonthPlan({ tasks, onDay, onSide, onOpen, onWeek, onMonth, onSho
     watch.observe(el)
     return () => watch.disconnect()
   }, [])
-  const room = Math.max(1, Math.floor((row - 1 - HEAD) / LINE))
+  // Each week as tall as its busiest day asks, within limits: a busy week grows, a quiet one gives up its room.
+  const weekDays = Array.from({ length: ROWS }, (_, at) => days.slice(at * 7, at * 7 + 7))
+  const laid = weekDays.map((week) => layBars(bars, dayKey(week[0]), dayKey(week[6])))
+  const busiest = weekDays.map((week, at) => Math.max(...week.map((day) => {
+    const key = dayKey(day)
+    return linesOf(on.get(key)).length + (dayExtra?.(key).length ?? 0) + marksOn(marks, key).length
+  })) + laid[at].lanes)
+  // A quiet week keeps room for a line or two; a busy one grows up to about three times that.
+  const weights = busiest.map((most) => 1 + Math.min(6, most) * 0.3)
+  const whole = weights.reduce((sum, one) => sum + one, 0)
+  const roomOf = (at: number): number => Math.max(1, Math.floor((row * ROWS * (weights[at] / whole) - 1 - HEAD) / LINE))
   const [carried, setCarried] = useState<Line | { kind: 'mark'; one: Milestone } | null>(null)
   const holding = useRef<{ line?: Line; mark?: Milestone } | null>(null)
   // A tick and a trackpad tap for each new day a carried task comes over; the day it was lifted from is no arrival.
@@ -252,11 +265,11 @@ export function MonthPlan({ tasks, onDay, onSide, onOpen, onWeek, onMonth, onSho
                 out: ({ dir, instant }: typeof way) => ({ transform: `translateX(${dir * -100}%)`, transition: still || instant ? { duration: 0 } : SLIDE }),
               }}
               initial={still || way.instant ? false : 'in'} animate="at" exit="out" transition={still || way.instant ? { duration: 0 } : SLIDE}
-              className="absolute inset-0 grid gap-px" style={{ gridTemplateRows: `repeat(${ROWS}, minmax(0, 1fr))` }}>
+              className="absolute inset-0 grid gap-px" style={{ gridTemplateRows: weights.map((one) => `minmax(0, ${one}fr)`).join(' ') }}>
               {Array.from({ length: ROWS }, (_, at) => {
                 const monday = days[at * 7]
                 return (
-                  <div key={dayKey(monday)} data-month-week={dayKey(monday)} className={`${COLS} min-h-0 ${at ? '' : 'pt-px'}`}>
+                  <div key={dayKey(monday)} data-month-week={dayKey(monday)} className={`${COLS} relative min-h-0 ${at ? '' : 'pt-px'}`}>
                     <Tip label={`Open the week's page for week ${weekNumber(monday)}`}>
                       <button type="button" data-week-number={dayKey(monday)} onClick={() => (chime('open'), onWeek?.(dayKey(monday)))} aria-label={`Open week ${weekNumber(monday)}`}
                         className="flex justify-center bg-background pt-1.5 text-control text-foreground/70 tabular-nums transition-colors hover:bg-accent hover:text-foreground">
@@ -266,8 +279,16 @@ export function MonthPlan({ tasks, onDay, onSide, onOpen, onWeek, onMonth, onSho
                     {days.slice(at * 7, at * 7 + 7).map((day) => {
                       const key = dayKey(day)
                       return <Cell key={key} day={day} lines={linesOf(on.get(key))} today={today} outside={!day.isSame(month, 'month')} count={marking ? (opens.get(key) ?? 0) : 0} caught={caught.get(key)} flags={marksOn(marks, key)}
-                        room={room} extra={dayExtra?.(key)} adding={adding === key} onAdd={() => side({ day: key, minute: null, length: 0 })} onDay={onDay} onLine={open} onItem={item} />
+                        room={roomOf(at) - laid[at].lanes} reserve={laid[at].lanes} extra={dayExtra?.(key)} adding={adding === key} onAdd={() => side({ day: key, minute: null, length: 0 })} onDay={onDay} onLine={open} onItem={item} />
                     })}
+                    {/* The week's bars, each one piece across the days it covers, under the dates. */}
+                    {laid[at].placed.length > 0 && (
+                      <div data-month-bars className="pointer-events-none absolute inset-x-0 grid gap-x-px px-px" style={{ top: HEAD + (at ? 0 : 1), gridTemplateColumns: '2rem repeat(7, minmax(0, 1fr))', gridAutoRows: `${LINE}px`, rowGap: 0 }}>
+                        {laid[at].placed.map(({ bar, from, to, lane }) => (
+                          <div key={`${bar.key}:${dayKey(monday)}`} className="pointer-events-auto grid min-w-0 px-1" style={{ gridColumn: `${from + 2} / ${to + 3}`, gridRow: lane + 1 }}>{bar.render(weekDays[at][from] ? dayKey(weekDays[at][from]) : bar.from)}</div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )
               })}
@@ -287,8 +308,10 @@ export function MonthPlan({ tasks, onDay, onSide, onOpen, onWeek, onMonth, onSho
   )
 }
 
-function Cell({ day, lines, today, outside, count, caught, flags, adding, onAdd, onDay, onLine, onItem, room, extra = [] }: {
+function Cell({ day, lines, today, outside, count, caught, flags, adding, onAdd, onDay, onLine, onItem, room, reserve = 0, extra = [] }: {
   day: Dayjs
+  /** Lines kept empty under the date for the week's bars. */
+  reserve?: number
   extra?: React.ReactNode[]
   /** The chip lines a day's height holds. */
   room: number
@@ -308,23 +331,25 @@ function Cell({ day, lines, today, outside, count, caught, flags, adding, onAdd,
 }): React.JSX.Element {
   const key = dayKey(day)
   const { setNodeRef, isOver } = useDroppable({ id: key })
-  // As many one-line chips as the day has room for (each marked day takes one); past that, "+N more".
-  // Events first, as many as fit with a line left over; the rest are on the day's page.
+  // As many one-line chips as the day has room for (each marked day takes one), events first. All of them when they
+  // fit; otherwise one line is kept for "+N more", which opens the rest.
   const roomy = Math.max(1, room - flags.length)
-  const events = extra.length > roomy - 1 ? extra.slice(0, Math.max(0, roomy - 1)) : extra
-  const fits = events.length < extra.length ? 0 : Math.max(1, roomy - events.length)
-  const shown = lines.length > fits ? Math.max(0, fits - 1) : lines.length
+  const total = extra.length + lines.length + flags.length
+  const all = extra.length + lines.length <= roomy
+  const events = all ? extra : extra.slice(0, Math.max(0, roomy - 1))
+  const shown = all ? lines.length : Math.max(0, roomy - 1 - events.length)
+  const hiddenCount = extra.length - events.length + lines.length - shown
   const weekend = day.day() === 0 || day.day() === 6
   const gone = key < today
   const late = gone && lines.some((line) => line.kind === 'planned' || line.kind === 'due')
   return (
     <div ref={setNodeRef} data-day={key} data-outside={outside || undefined} data-shown={shown} data-planned={lines.length || undefined} data-opened={count ? openedLevel(count) : undefined} data-captured={caught === undefined ? undefined : caught && caughtLevel(caught)} data-late={late || undefined} data-weekend={weekend || undefined}
       onClick={(event) => event.target === event.currentTarget && (chime('tap'), onAdd())}
-      className={`group/day relative flex min-h-0 min-w-0 cursor-pointer flex-col overflow-hidden p-1 transition-colors ${isOver || adding ? 'bg-accent ring-1 ring-foreground/25 ring-inset' : weekend && !outside ? 'bg-[color-mix(in_oklab,var(--background)_98%,var(--foreground))]' : 'bg-background'} ${outside ? '[&_[data-plan-more]]:opacity-60 [&_[data-plan-task]]:opacity-60' : ''}`}>
+      className={`group/day @container/cell relative flex min-h-0 min-w-0 cursor-pointer flex-col overflow-hidden p-1 transition-colors ${isOver || adding ? 'bg-accent ring-1 ring-foreground/25 ring-inset' : weekend && !outside ? 'bg-[color-mix(in_oklab,var(--background)_98%,var(--foreground))]' : 'bg-background'} ${outside ? '[&_[data-plan-more]]:opacity-60 [&_[data-plan-task]]:opacity-60' : ''}`}>
       <div className="flex items-center gap-1.5">
         <button type="button" onClick={() => (chime('open'), onDay(key))} aria-label={`Open ${day.format('dddd D MMMM')}${count ? `. Opened ${APP_NAME}${count > 1 ? ` ${num(count)} times` : ''}` : ''}${caught ? `. ${plural(caught, 'capture')}` : caught === 0 ? '. Nothing captured' : ''}`}
           aria-current={key === today ? 'date' : undefined}
-          data-day-number className={`flex h-6 min-w-6 shrink-0 items-center justify-center rounded-full px-1 text-control tabular-nums transition-colors hover:bg-accent ${key === today ? 'bg-foreground font-semibold text-background hover:bg-foreground/85' : outside ? 'text-foreground/40' : day.date() === 1 ? 'font-semibold text-foreground' : 'text-foreground'}`}>
+          data-day-number className={`flex h-6 min-w-6 shrink-0 items-center justify-center rounded-md px-1 text-control tabular-nums transition-colors hover:bg-accent ${key === today ? 'bg-[var(--tt-color-text-red)] font-semibold text-white hover:bg-[var(--tt-color-text-red)]' : outside ? 'text-foreground/40' : day.date() === 1 ? 'font-semibold text-foreground' : 'text-foreground'}`}>
           {day.date() === 1 ? day.format('D MMM') : day.date()}
         </button>
         {/* The dots say what the day held: a click opens the day's page, where it is. */}
@@ -341,11 +366,25 @@ function Cell({ day, lines, today, outside, count, caught, flags, adding, onAdd,
           </button>
         </Tip>
       </div>
-      {flags.map((one) => <MarkLine key={one.id} one={one} outside={outside} onItem={onItem} onDay={onDay} />)}
-      {events}
-      {events.length < extra.length && <button type="button" data-plan-more-events onClick={() => (chime('open'), onDay(key))} className="mf-hit relative h-5 shrink-0 rounded-sm px-1 text-left text-control font-medium text-foreground hover:bg-accent">+{num(extra.length - events.length + lines.length)} more</button>}
-      {lines.slice(0, shown).map((line) => <LineChip key={lineKey(line)} line={line} late={gone} onOpen={onLine} />)}
-      {lines.length > shown && events.length === extra.length && <More day={day} lines={lines} hidden={lines.length - shown} gone={gone} onDay={onDay} onLine={onLine} />}
+      {reserve > 0 && <span aria-hidden className="shrink-0" style={{ height: reserve * LINE + 2 }} />}
+      {/* Wide enough, each thing by name; narrow (a small window), a dot for each and the count, never words cut to a letter. */}
+      <div className="hidden min-h-0 flex-1 flex-col overflow-hidden @[5.5rem]/cell:flex">
+        {flags.map((one) => <MarkLine key={one.id} one={one} outside={outside} onItem={onItem} onDay={onDay} />)}
+        {events}
+        {lines.slice(0, shown).map((line) => <LineChip key={lineKey(line)} line={line} late={gone} onOpen={onLine} />)}
+      </div>
+      {/* "+N more" sits outside the clipped list, so it is never cut. */}
+      <div className="hidden shrink-0 @[5.5rem]/cell:block">
+        {events.length < extra.length && <button type="button" data-plan-more-events onClick={() => (chime('open'), onDay(key))} className="mf-hit relative h-5 w-full shrink-0 truncate rounded-sm px-1 text-left text-control font-medium text-foreground hover:bg-accent">+{num(hiddenCount)} more</button>}
+        {lines.length > shown && events.length === extra.length && <More day={day} lines={lines} hidden={lines.length - shown} gone={gone} onDay={onDay} onLine={onLine} />}
+      </div>
+      {total > 0 && (
+        <button type="button" data-month-dots={total} aria-label={`Open ${day.format('dddd D MMMM')}: ${plural(total, 'thing')}`} onClick={() => (chime('open'), onDay(key))}
+          className="flex h-5 min-w-0 shrink-0 items-center gap-1 rounded-sm px-1 text-meta text-foreground/80 tabular-nums hover:bg-accent @[5.5rem]/cell:hidden">
+          <span aria-hidden className="flex gap-0.5">{Array.from({ length: Math.min(3, total) }, (_, at) => <span key={at} className={`size-1.5 rounded-full ${gone && lines.length ? 'bg-[var(--tt-color-text-orange)]' : 'bg-foreground/55'}`} />)}</span>
+          {num(total)}
+        </button>
+      )}
     </div>
   )
 }
@@ -355,6 +394,24 @@ function MarkLine({ one, outside, onItem, onDay }: { one: Milestone; outside: bo
   const { setNodeRef, listeners, attributes, isDragging } = useDraggable({ id: `mark:${one.id}`, data: { mark: one } })
   return <MarkChip ref={setNodeRef} one={one} open={onItem} onOpenDay={(day) => (chime('open'), onDay(day))} {...attributes} {...listeners}
     className={`touch-none ${isDragging ? 'mf-carried-place' : outside ? 'opacity-60' : ''}`} />
+}
+
+/** Something across several days, drawn as one bar per week it touches; `render` gets the first day shown of it in that week. */
+export type Bar = { key: string; from: string; to: string; render: (day: string) => React.ReactNode }
+
+/** The bars that touch a week (from Monday to Sunday), each in the first lane where it fits. */
+function layBars(bars: Bar[], monday: string, sunday: string): { placed: { bar: Bar; from: number; to: number; lane: number }[]; lanes: number } {
+  const index = (key: string): number => Math.round(dayjs(key).hour(12).diff(dayjs(monday).hour(12), 'hour') / 24)
+  const ends: number[] = []
+  const placed = bars.filter((bar) => bar.from <= sunday && bar.to >= monday).sort((a, b) => a.from.localeCompare(b.from) || b.to.localeCompare(a.to)).map((bar) => {
+    const from = Math.max(0, index(bar.from))
+    const to = Math.min(6, index(bar.to))
+    let lane = ends.findIndex((end) => end < from)
+    if (lane < 0) lane = ends.length
+    ends[lane] = to
+    return { bar, from, to, lane }
+  })
+  return { placed, lanes: ends.length }
 }
 
 /** A task's or a note's line in a day: dragged to move it, clicked to open it. */

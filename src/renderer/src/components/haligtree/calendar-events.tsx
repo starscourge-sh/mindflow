@@ -11,7 +11,7 @@ import { byKeys } from '@/lib/motion'
 import { clock } from '@/lib/clock'
 import { moveToBin } from '@/lib/to-bin'
 import { useLive, haligtree, type Settings } from '@/lib/haligtree'
-import { changeEvent, events, inZone, inkOf, useCalendars, whenSaid, zoneGap, zoneShort, ZONES, cityOf, type Occurrence, type Repeat, type Scope, type useLayers } from '@/lib/events'
+import { changeEvent, events, inZone, inkOf, useCalendars, useEvents, whenSaid, zoneGap, zoneShort, ZONES, cityOf, type Occurrence, type Repeat, type Scope, type useLayers } from '@/lib/events'
 import { readEvent } from '../../../../main/event-words'
 import { atOn, timeAlone } from '@/lib/tasks'
 import { readTask } from '../../../../main/task-words'
@@ -539,6 +539,9 @@ export function EventCardLayer({ peek, ...rest }: Omit<Parameters<typeof EventCa
 
 // --- the side panel's layers: each calendar on or off, the tasks, your Mac's
 
+/** The study plan's own colour on the Calendar: its tick in "My calendars" and its chips' edge. */
+export const STUDY_INK = 'var(--tt-color-text-purple)'
+
 export function CalendarLayers({ layers }: { layers: ReturnType<typeof useLayers> }): React.JSX.Element {
   const [editing, setEditing] = useState<string | null>(null)
   // One press, one calendar: a second click while the first is saving, or on a "New calendar" not yet named, opens that one instead of making another.
@@ -561,7 +564,7 @@ export function CalendarLayers({ layers }: { layers: ReturnType<typeof useLayers
     chime('away')
     toast(`${one.name} deleted${moved.length ? `. Its ${moved.length === 1 ? 'event moved' : `${num(moved.length)} events moved`} to ${to.name}` : ''}`, () => void events.setCalendar({ id: one.id, binned: false }).then(() => void (moved.length && events.moveEvents(to.id, one.id, moved))))
   }
-  const island = useFold('calendar.calendars', { total: layers.calendars.length + 1 })
+  const island = useFold('calendar.calendars', { total: layers.calendars.length + 2 })
   const macIsland = useFold('calendar.mac', { total: layers.mac.length })
   // Each calendar a box ticked in its own colour, as Calendar on the Mac has them: ticked, its events show.
   // Its other choices (rename, colour, delete) are on the row's own right-click menu, as anywhere else.
@@ -585,7 +588,7 @@ export function CalendarLayers({ layers }: { layers: ReturnType<typeof useLayers
   return (
     <div data-cal-layers className="flex flex-col">
       {/* The Inbox's island: ticked, a calendar's events show; its own menu (right-click) renames, recolours or deletes it. */}
-      <IslandBox name="My calendars" island={island} shown={layers.calendars.length + 1} icon={<CalendarDays aria-hidden className="size-4 shrink-0 text-muted-foreground" />}>
+      <IslandBox name="My calendars" island={island} shown={layers.calendars.length + 2} icon={<CalendarDays aria-hidden className="size-4 shrink-0 text-muted-foreground" />}>
       <ul className="flex flex-col">
         {layers.calendars.map((one) => editing === one.id
           ? <CalendarEdit key={one.id} one={one} onDone={() => setEditing(null)} />
@@ -601,6 +604,7 @@ export function CalendarLayers({ layers }: { layers: ReturnType<typeof useLayers
               })()
             ]))}
         {row('tasks', 'Tasks', 'var(--tt-brand-color-400)')}
+        {row('study', 'Study', STUDY_INK)}
         <li>
           <button type="button" data-cal-layer-add onClick={() => void add()}
             className="flex h-8 w-full items-center gap-2.5 rounded-md px-2 text-left text-body text-foreground/80 outline-none transition-[background-color,scale] duration-150 hover:bg-accent/60 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.97] motion-reduce:transition-none">
@@ -704,8 +708,47 @@ export function NewEvent({ ask, held, onMade }: { ask: { day: string; minute: nu
         </div>
         {/* One quiet line: the rest is set on the event itself once it opens here. */}
         <p data-new-event-hint className="text-control text-muted-foreground">Place, people, reminder and repeat come next, on the event.</p>
+        <DayAround start={start} end={fixedEnd} allDay={allDay} />
       </div>
     </form>
+  )
+}
+
+/**
+ * The day the new event lands on, around it: that day's events and timed
+ * tasks in order of time, with the new one in its place among them, so a
+ * clash or a gap is seen before it is made. Follows the words as they change
+ * the day or the time.
+ */
+function DayAround({ start, end, allDay }: { start: string; end: string; allDay: boolean }): React.JSX.Element {
+  const day = dayjs(start).startOf('day')
+  const list = useEvents(day.toISOString(), day.add(1, 'day').toISOString())
+  const tasks = useLive(haligtree.tasks, [] as Awaited<ReturnType<typeof haligtree.tasks>>)
+  type Row = { key: string; from: number; to: number; title: string; color: string; mine?: boolean }
+  const minute = (iso: string): number => Math.max(0, dayjs(iso).diff(day, 'minute'))
+  const rows = ([
+    ...list.filter((one) => !one.allDay).map((one) => ({ key: one.key, from: minute(one.start), to: Math.min(24 * 60, minute(one.end)), title: one.title || 'New event', color: 'var(--foreground)' })),
+    ...(Array.isArray(tasks) ? tasks : []).filter((task) => task.status === 'open' && task.dueAt && !task.allDay && dayjs(task.dueAt).isSame(day, 'day'))
+      .map((task) => ({ key: task.id, from: minute(task.dueAt!), to: minute(task.dueAt!) + (task.estimate ?? 30), title: task.title.replace(/\s#\S+/g, ''), color: 'var(--tt-brand-color-400)' })),
+    ...(allDay ? [] : [{ key: 'new', from: minute(start), to: minute(end), title: 'This one', color: 'var(--ring)', mine: true }])
+  ] as Row[]).sort((a, b) => a.from - b.from || (a.mine ? 1 : -1))
+  const clash = !allDay && rows.some((one) => !one.mine && one.from < minute(end) && one.to > minute(start))
+  const hhmm = (at: number): string => hm(day.add(at, 'minute').toDate())
+  return (
+    <section data-new-event-day className="mt-3 flex flex-col gap-1 border-t pt-3">
+      <h3 className="text-meta font-medium text-muted-foreground">{day.format('dddd D MMMM')}{clash && <span data-new-event-clash className="ml-1.5 font-medium" style={{ color: 'var(--tt-color-text-orange)' }}>· clashes with something</span>}</h3>
+      {rows.length === (allDay ? 0 : 1) ? <p className="text-control text-foreground/75">Nothing else on that day.</p> : (
+        <ol className="flex flex-col">
+          {rows.map((one) => (
+            <li key={one.key} data-new-event-row={one.mine ? 'new' : undefined} className={`flex h-7 min-w-0 items-center gap-2 rounded-md px-1.5 text-control ${one.mine ? 'bg-accent font-medium text-foreground' : 'text-foreground/85'}`}>
+              <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ background: one.color, opacity: one.mine ? 1 : 0.5 }} />
+              <span className="w-24 shrink-0 tabular-nums text-foreground/70">{hhmm(one.from)} – {hhmm(one.to)}</span>
+              <span className="min-w-0 truncate">{one.title}</span>
+            </li>
+          ))}
+        </ol>
+      )}
+    </section>
   )
 }
 

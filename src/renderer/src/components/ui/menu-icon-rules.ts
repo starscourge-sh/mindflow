@@ -17,6 +17,9 @@ import {
  */
 const RULES: [RegExp, LucideIcon][] = [
   // Lines found falling back to the dot (test/menu-icons.test.ts lists any new ones).
+  // The Calendar's panels, as lines of its ⋯ when the bar is narrow.
+  [/^the small month and calendars$/i, PanelLeft],
+  [/^upcoming$/i, PanelRight],
   // A table's row and column menus (table-menu.tsx): where the new one goes.
   [/^insert row above$/i, ArrowUpToLine],
   [/^insert row below$/i, ArrowDownToLine],

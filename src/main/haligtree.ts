@@ -3093,6 +3093,20 @@ export function registerHaligtree(): void {
     return write(true)
   })
 
+  // --- the study plan on the Calendar: cards that fall due on each day from `from` to `to` (ISO times), by local day,
+  // "YYYY-MM-DD". Today's count takes in every card already due; a day gone by shows none, as it is no longer a plan.
+  handle('study:days', (from: string, to: string) => {
+    const local = (iso: string): string => { const at = new Date(iso); return `${at.getFullYear()}-${String(at.getMonth() + 1).padStart(2, '0')}-${String(at.getDate()).padStart(2, '0')}` }
+    const today = new Date(startOfDay(0)).toISOString()
+    const start = String(from) > today ? String(from) : today
+    if (String(to) <= start) return {}
+    const days: Record<string, number> = {}
+    for (const row of db.prepare(`select due_at as at from nuggets where coalesce(prompt, '') != '' and coalesce(body, '') not like '%#${EXAMPLE_TAG}"' and suspended = 0 and archived_at is null and binned_at is null and superseded_by is null and state is not null and due_at is not null and due_at < ?`).all(String(to)) as { at: string }[]) {
+      const key = local(row.at < today ? today : row.at)
+      if (row.at >= start || row.at < today) days[key] = (days[key] ?? 0) + 1
+    }
+    return days
+  })
   // --- study stats: reviews a day, how often you remembered, what falls due, and a year of review days
   handle('study:stats', () => {
     const day = (offset: number): string => new Date(startOfDay(offset)).toISOString()

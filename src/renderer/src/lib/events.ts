@@ -78,6 +78,8 @@ export function useLayers(from: Date, to: Date): {
   macEvents: (MacEvent & { layer: string })[]
   shown: (id: string) => boolean
   tasks: boolean
+  /** The study plan: cards due and books' finishing days, as all-day chips. */
+  study: boolean
   toggle: (id: string, on: boolean) => void
   colorOf: (calendarId: string) => string
   /** Every read it is made of has answered: the calendars, the settings and your Mac's events. */
@@ -89,9 +91,9 @@ export function useLayers(from: Date, to: Date): {
   const read = useMacEvents(from, to)
   const named = [...new Set(read.events.map((one) => one.calendar || 'Calendar'))]
   const mac = named.map((name) => ({ id: `mac:${name}`, name, color: read.events.find((one) => (one.calendar || 'Calendar') === name)?.color ?? null }))
-  const shown = (id: string): boolean => (id.startsWith('mac:') || id === 'tasks' ? !hidden.has(id) : !calendars.find((one) => one.id === id)?.hidden)
+  const shown = (id: string): boolean => (id.startsWith('mac:') || id === 'tasks' || id === 'study' ? !hidden.has(id) : !calendars.find((one) => one.id === id)?.hidden)
   const toggle = (id: string, on: boolean): void => {
-    if (id.startsWith('mac:') || id === 'tasks') {
+    if (id.startsWith('mac:') || id === 'tasks' || id === 'study') {
       const next = new Set(hidden)
       if (on) next.delete(id)
       else next.add(id)
@@ -104,6 +106,7 @@ export function useLayers(from: Date, to: Date): {
     macEvents: read.events.map((one) => ({ ...one, layer: `mac:${one.calendar || 'Calendar'}` })).filter((one) => !hidden.has(one.layer)),
     shown,
     tasks: !hidden.has('tasks'),
+    study: !hidden.has('study'),
     toggle,
     colorOf: (id) => inkOf(calendars.find((one) => one.id === id)?.color),
     ready: !unloaded(calendars) && !!settings && !unloaded(read)

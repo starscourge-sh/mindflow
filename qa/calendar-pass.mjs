@@ -232,7 +232,8 @@ try {
 
   // 4. Narrow: three days from today that say their names, "+N" beside a name, never on it, and the placeholders whole.
   await size(560, 900); await h.keyboard.press('w'); await h.waitForTimeout(700)
-  const narrowSaid = await h.locator('[data-cal-subtitle]').innerText()
+  // Narrow, the late pill waits on the subtitle's line (9 Nov: the bar stays one row), so the words are read after it.
+  const narrowSaid = (await h.locator('[data-cal-subtitle]').innerText()).replace(/^\d+ late\s*/, '')
   check('4: 560: the week shows three days, and says so', (await h.locator('[data-cal-mode]').getAttribute('data-cal-days')) === '3' && narrowSaid.startsWith('3 days'), narrowSaid)
   const blocks = await h.$$eval('[data-cal-event], [data-cal-block]', (els) => els.map((el) => el.getBoundingClientRect().width))
   check('4: 560: every block is wide enough for words', blocks.length > 0 && blocks.every((w) => w >= 40), `${blocks.length} blocks, narrowest ${Math.round(Math.min(...blocks))}px`)

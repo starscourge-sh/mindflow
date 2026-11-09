@@ -3,7 +3,7 @@ import { CARD, swallowRelease } from './carry'
 import { useReading, useReadsIn } from '@/lib/reads-in'
 import { createPortal } from 'react-dom'
 import { motion } from 'motion/react'
-import { CalendarClock, CalendarX2, Check, ChevronDown, PanelLeft, PanelRight, Plus, Repeat as RepeatIcon, Search } from 'lucide-react'
+import { CalendarClock, CalendarX2, Check, ChevronDown, PanelLeft, PanelRight, Plus, Repeat as RepeatIcon } from 'lucide-react'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Button } from '@/components/ui/button'
 import { ChevronLeft, ChevronRight } from '@/components/ui/icons'
@@ -36,9 +36,10 @@ import { AliveIcon } from '@/components/ui/alive-icon'
 import DotsHorizontalIcon from '@/components/ui/dots-horizontal-icon'
 import { useCaptures, type CaptureMeta } from '../capture-list'
 import { CAPTURE_TYPES } from '../capture-kinds/capture-kind-picker'
-import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuLabel, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { splitTags } from '@/lib/haligtree'
 import { quoted } from '../../../../main/clip'
+import { studyChips, useStudy, type StudyDay } from './study-days'
 
 type Mode = 'day' | 'week' | 'month'
 /** The steps a time snaps to (one hour's height on the grid is HOUR, calendar-events.tsx). */
@@ -62,6 +63,10 @@ const EDITOR = { key: 'vigil.calendar.editor', home: 24, least: 20, most: 34 }
 const ACCENT = 'var(--tt-brand-color-400)'
 /** How many Unscheduled tasks show before "Show N more": a working list to drag from, so a few more than an Inbox island. */
 const LOOSE_FEW = 8
+/** An all-day event over more than one day: a bar across them in Month. */
+const manyDays = (one: Shown): boolean => !!one.allDay && dayKey(one.start) !== dayKey(dayjs(one.end).subtract(1, 'minute'))
+/** A study chip at a month line's height. */
+const MONTH_CHIP: React.CSSProperties = { height: 20, lineHeight: '20px' }
 const MUTED_DAY = 'bg-[color-mix(in_oklab,var(--background)_97%,var(--foreground))]'
 /** The week's number, Monday to Sunday, the way a Mac's Calendar counts it (ISO 8601). */
 const weekOf = (day: Dayjs): number => { const thursday = day.startOf('week').add(3, 'day'); return Math.floor(thursday.diff(thursday.startOf('year'), 'day') / 7) + 1 }
@@ -133,6 +138,8 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
   // A narrow page has no room for the small month beside a month: the month gets the width.
   const box = useRef<HTMLElement>(null)
   const [narrow, setNarrow] = useState(false)
+  // Under about 900px the bar has no room for the two panel buttons: they fold into ⋯, so nothing wraps.
+  const [tight, setTight] = useState(false)
   // Whether the right panel fits beside the days: in a week only while every
   // day keeps the room for a block's whole time on one line ("09:30 – 10:30"),
   // so with the app's sidebar open it folds away first; a day has room for it.
@@ -150,6 +157,7 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
       const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16
       const days = mode === 'week' ? 7 * DAY_ROOM + parseFloat(gutterOf(zone)) * rem : 0
       setNarrow(width < 820)
+      setTight(width < 900)
       setFits(mode === 'week'
         // The left panel too folds away once the days would be squeezed under about 4rem each; "Plan" brings it back.
         ? { left: width >= 7 * 64 + parseFloat(gutterOf(zone)) * rem + leftRem * rem, right: width >= days + (leftRem + rightRem) * rem }
@@ -201,8 +209,6 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
     setPeek(null)
     setPanel({ day: dayKey(on), minute, length: 60, drag: true })
   }
-  // The search mark: ⌘K, which with the Calendar in front is about the Calendar (calendar-scope.ts).
-  const search = (): void => void window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', code: 'KeyK', metaKey: true, bubbles: true }))
   const first = days[0]
   const last = days[days.length - 1]
   const title = mode !== 'week' || first.month() === last.month() ? anchor.format('MMMM YYYY')
@@ -236,6 +242,8 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
   const own = useEvents(span[0].toISOString(), span[1].toISOString())
   const shownEvents: Shown[] = [...own.filter((one) => layers.shown(one.calendarId)).map((one) => ({ ...one, color: colorFor(one, layers.colorOf(one.calendarId)) })), ...macShown(layers.macEvents)]
   const shownTasks = layers.tasks ? tasks : []
+  // The study plan for the days shown: cards due and books' finishing days ("Study" in My calendars).
+  const study = useStudy(dayKey(span[0]), dayKey(span[1].subtract(1, 'minute')), layers.study)
   // Drawn once every read it is made of has answered: drawn before, the calendars' list comes in above the
   // unscheduled tasks and pushes them down, and the late count and the blocks fill in a beat apart.
   const ready = !unloaded(tasks) && !unloaded(held) && !unloaded(captures) && !unloaded(own) && layers.ready
@@ -454,6 +462,16 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
     if (upSide) chime('on')
     else setUpSide(true)
   }
+  const lateMenu = <LateMenu tasks={tasks} pill className="shrink-0" onTask={(task) => (setAnchor(dayjs(task.dueAt).startOf('day')), setChosen(task.id), pick(task.id))} />
+  // The two panels as lines of ⋯, for a bar with no room for their buttons.
+  const panelLines = (
+    <>
+      <DropdownMenuSeparator />
+      <DropdownMenuLabel>Panels</DropdownMenuLabel>
+      <DropdownMenuCheckboxItem data-cal-left-line checked={left} disabled={roomless} onCheckedChange={leftPanel} onSelect={(event) => event.preventDefault()}>The small month and calendars</DropdownMenuCheckboxItem>
+      {mode !== 'month' && <DropdownMenuCheckboxItem data-cal-side-line checked={upcoming} onCheckedChange={plan} onSelect={(event) => event.preventDefault()}>Upcoming</DropdownMenuCheckboxItem>}
+    </>
+  )
   const goTo = (day: Dayjs): void => void (!days.some((one) => one.isSame(day, 'day')) && setAnchor(day.startOf('day')))
   return provide(
     <section ref={box} data-cal-mode={mode} data-cal-days={mode === 'month' ? undefined : days.length} data-cal-chosen={picked ?? undefined} style={readsStyle} className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
@@ -472,13 +490,13 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
       {pickedEvent && !panel && !peek && <style>{`[data-cal-event="${CSS.escape(pickedEvent)}"] { outline: 2px solid var(--ring); outline-offset: 1px } [data-cal-event-chip="${CSS.escape(pickedEvent)}"] { outline: 2px solid var(--ring); outline-offset: -2px }`}</style>}
       {/* The ring of the one picked: round a block, inside a chip, so the lane's edge never cuts it. */}
       {picked && <style>{`[data-cal-block="${CSS.escape(picked)}"] { outline: 2px solid var(--ring); outline-offset: 1px } [data-cal-untimed="${CSS.escape(picked)}"] { outline: 2px solid var(--ring); outline-offset: -2px }`}</style>}
-      {/* A window too narrow for the title and every control: the controls wrap onto a line of their own, never over the title. */}
-      <header className="@container/head flex min-h-16 shrink-0 flex-wrap items-center gap-2 px-5 py-2">
-        <Tip label={roomless ? 'No room for the left panel beside a month here' : left ? 'Hide the left panel' : 'Show the left panel: the small month, your calendars, unscheduled tasks'}>
+      {/* One row at every width: the title gives way first, then the panel buttons fold into ⋯. */}
+      <header className={`@container/head flex min-h-16 shrink-0 items-center py-2 ${tight ? 'gap-1.5 px-3' : 'gap-2 px-5'}`}>
+        {!tight && <Tip label={roomless ? 'No room for the left panel beside a month here' : left ? 'Hide the left panel' : 'Show the left panel: the small month, your calendars, unscheduled tasks'}>
           <Button variant="outline" size="icon-sm" data-cal-left-toggle disabled={roomless} aria-label={left ? 'Hide the left panel' : 'Show the left panel'} aria-pressed={left} className="size-8 shrink-0 aria-pressed:bg-accent" onClick={leftPanel}><PanelLeft /></Button>
-        </Tip>
+        </Tip>}
         {/* Grows into the room the controls leave, rather than pushing them onto a line of their own. */}
-        <div className="@container/title mr-auto flex min-w-[9rem] flex-1 basis-0 flex-col">
+        <div className="@container/title mr-auto flex min-w-0 flex-1 basis-0 flex-col">
           <div className="flex min-w-0 items-center gap-2">
           {/* The month, as a picker: a click (or .) opens the small month, to go to any date. */}
           <Popover open={jump} onOpenChange={(open) => (open && chime('open'), setJump(open))}>
@@ -492,11 +510,13 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
               <MiniMonth anchor={anchor} days={mode === 'month' ? [] : days} onPick={(day) => (chime('tap'), setPeek(null), setAnchor(day), setJump(false))} />
             </PopoverContent>
           </Popover>
-          {/* What is late is the one thing here to act on: its own pill beside the title, never small grey words. */}
-          <LateMenu tasks={tasks} pill className="shrink-0" />
+          {/* What is late, counted calmly beside the title; its menu holds "Reschedule all…" and the late ones. */}
+          {!tight && lateMenu}
           </div>
           {/* The week's number and days; then, quietly, how the planning went. */}
           <p data-cal-subtitle className="flex min-w-0 items-center gap-1 overflow-hidden text-control whitespace-nowrap text-foreground/75 tabular-nums [&_[data-late-all]]:h-6 [&_[data-late-all]]:px-1.5 [&_[data-late-all]]:text-control [&_[data-plan-total]]:px-0 [&_[data-plan-total]]:text-control [&_[data-plan-total]]:text-foreground/75">
+            {/* Narrow, the late pill waits on this line, so the title is never cut for it. */}
+            {tight && lateMenu}
             <span className="min-w-0 truncate"><span className="@[48rem]/head:hidden">{said(true)}</span><span className="hidden @[48rem]/head:inline">{subtitle}</span></span>
             {!narrow && mode !== 'month' && <span className="hidden min-w-0 items-center gap-1 @[66rem]/head:inline-flex"><PlannedTotal lead tasks={tasks} from={dayKey(first)} to={dayKey(last)} span={mode === 'day' ? (first.isSame(dayjs(), 'day') ? 'today' : 'this day') : current(first) ? 'this week' : 'that week'} /></span>}
           </p>
@@ -509,15 +529,14 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
           <span aria-hidden className="h-4 w-px bg-border" />
           <Tip label={`The ${unit} after (→)`}><Button variant="ghost" size="icon-sm" data-cal-next aria-label={`The ${unit} after`} className="h-full rounded-l-none" onClick={() => step(1)}><ChevronRight /></Button></Tip>
         </div>
-        <ViewPick mode={mode} onPick={setMode} />
-        {/* This view's own: search it, what it shows, a new event; then the right panel's toggle, at the far end as the left one is at the start. */}
+        <ViewPick mode={mode} onPick={setMode} short={tight} />
+        {/* This view's own: what it shows (⌘K searches it), a new event; then the right panel's toggle, at the far end as the left one is at the start. */}
         <div className="flex shrink-0 items-center gap-2">
-          <Tip label="Search the calendar (⌘K)"><Button variant="outline" size="icon-sm" data-cal-search aria-label="Search the calendar" className="size-8" onClick={search}><Search /></Button></Tip>
-          {mode === 'month' ? <MonthShowMenu /> : <DayShowMenu on={marked} onChange={setMarked} />}
+          {mode === 'month' ? <MonthShowMenu>{tight && panelLines}</MonthShowMenu> : <DayShowMenu on={marked} onChange={setMarked}>{tight && panelLines}</DayShowMenu>}
           <Tip label="A new event"><Button size="sm" data-cal-new-event aria-label="New event" className="h-8" onClick={newEvent}><Plus /><span className="hidden @[46rem]/head:inline">New event</span></Button></Tip>
-          <Tip label={mode === 'month' ? 'Upcoming shows beside a day or a week' : upcoming ? 'Hide Upcoming, the right panel' : 'Show Upcoming, the right panel'}>
+          {!tight && <Tip label={mode === 'month' ? 'Upcoming shows beside a day or a week' : upcoming ? 'Hide Upcoming, the right panel' : 'Show Upcoming, the right panel'}>
             <Button variant="outline" size="icon-sm" data-cal-side-toggle disabled={mode === 'month'} aria-label={upcoming ? 'Hide Upcoming' : 'Show Upcoming'} aria-pressed={upcoming} className="size-8 aria-pressed:bg-accent" onClick={plan}><PanelRight /></Button>
-          </Tip>
+          </Tip>}
         </div>
       </header>
       {/* Clipped, never scrollable: the floating panel's field takes the keys while it is still off to the right, and a box that
@@ -562,12 +581,16 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
           {mode === 'month' ? (
             <div className="flex min-h-0 flex-1 flex-col p-3">
               <MonthPlan bare month={anchor} tasks={shownTasks} onSide={setPanel} onOpen={onOpen}
-                dayExtra={(day) => shownEvents.filter((one) => one.allDay ? allDayOn([one], day).length > 0 : dayKey(one.start) === day).map((one) => <EventChip key={one.key} one={one} day={day} month calendars={layers.calendars} onOpen={pickEvent} onPeek={onPeek} onNote={onOpen} />)}
+                dayExtra={(day) => [
+                  ...studyChips(study.get(day), MONTH_CHIP),
+                  ...shownEvents.filter((one) => one.allDay ? !manyDays(one) && allDayOn([one], day).length > 0 : dayKey(one.start) === day).map((one) => <EventChip key={one.key} one={one} day={day} month calendars={layers.calendars} onOpen={pickEvent} onPeek={onPeek} onNote={onOpen} />)
+                ]}
+                bars={shownEvents.filter(manyDays).map((one) => ({ key: one.key, from: dayKey(one.start), to: dayKey(dayjs(one.end).subtract(1, 'minute')), render: (day: string) => <EventChip one={one} day={day} month calendars={layers.calendars} onOpen={pickEvent} onPeek={onPeek} onNote={onOpen} /> }))}
                 onShown={(month) => setAnchor(month.isSame(dayjs(), 'month') ? dayjs().startOf('day') : month)}
                 onDay={(day) => (setAnchor(dayjs(day)), setMode('day'))} onWeek={(monday) => (setAnchor(dayjs(monday)), setMode('week'))} />
             </div>
           ) : (
-            <Grid days={days} tasks={shownTasks} marks={marked ? captures : undefined} onHead={(day) => (setAnchor(day), setMode('day'))} onPoint={(at) => void (pointed.current = at)} calendars={layers.calendars} {...blockProps} />
+            <Grid days={days} tasks={shownTasks} marks={marked ? captures : undefined} study={study} onHead={(day) => (setAnchor(day), setMode('day'))} onPoint={(at) => void (pointed.current = at)} calendars={layers.calendars} {...blockProps} />
           )}
         </div>
         {/* The right sidebar, as Notion Calendar's: Upcoming, or in its place the event or task being made or opened; closed,
@@ -705,7 +728,7 @@ function MiniMonth({ anchor, days, onPick }: { anchor: Dayjs; days: Dayjs[]; onP
 }
 
 /** Day, Week and Month as one control, the chosen one a raised pill that slides to the next. */
-function ViewPick({ mode, onPick }: { mode: Mode; onPick: (mode: Mode) => void }): React.JSX.Element {
+function ViewPick({ mode, onPick, short = false }: { mode: Mode; onPick: (mode: Mode) => void; /** A narrow bar: each view by its key's letter, its name in the tip. */ short?: boolean }): React.JSX.Element {
   const pill = useId()
   const views: [Mode, string, string][] = [['day', 'Day', 'D'], ['week', 'Week', 'W'], ['month', 'Month', 'M']]
   return (
@@ -713,10 +736,10 @@ function ViewPick({ mode, onPick }: { mode: Mode; onPick: (mode: Mode) => void }
       {views.map(([id, label, key]) => (
         <Tip key={id} label={`${label} (${key})`}>
           <button type="button" role="radio" aria-checked={mode === id} data-cal-view={id} onClick={() => onPick(id)}
-            className={`relative h-7 rounded-md px-3 text-control outline-none focus-visible:ring-2 focus-visible:ring-ring ${mode === id ? 'text-foreground' : 'text-foreground/75 hover:text-foreground'}`}>
+            aria-label={label} className={`relative h-7 rounded-md ${short ? 'w-8' : 'px-3'} text-control outline-none focus-visible:ring-2 focus-visible:ring-ring ${mode === id ? 'text-foreground' : 'text-foreground/75 hover:text-foreground'}`}>
             {mode === id && <motion.span layoutId={pill} aria-hidden className="absolute inset-0 rounded-md bg-background shadow-sm" transition={byKeys() ? { duration: 0 } : { type: 'spring', stiffness: 520, damping: 40 }} />}
             {/* Bolder when picked in the room its bold word already takes, so the three never shift. */}
-            <Weighted on={mode === id} className="relative">{label}</Weighted>
+            <Weighted on={mode === id} className="relative">{short ? key : label}</Weighted>
           </button>
         </Tip>
       ))}
@@ -863,7 +886,7 @@ function lanes(list: { id: string; start: number; end: number }[]): Map<string, 
 const ALLDAY_ROWS = 4
 
 /** The day or the week by the hour: an untimed line on top, then the hours with the tasks at theirs. */
-function Grid({ days, tasks, marks, onHead, onPoint, calendars, ...props }: { days: Dayjs[]; tasks: Task[]; /** Captures, drawn as marks at the minute each was caught. */ marks?: CaptureMeta[]; onHead: (day: Dayjs) => void; onPoint: (at: Spot | null) => void; calendars: { id: string; name: string; color: string }[] } & BlockProps): React.JSX.Element {
+function Grid({ days, tasks, marks, study, onHead, onPoint, calendars, ...props }: { days: Dayjs[]; tasks: Task[]; /** Captures, drawn as marks at the minute each was caught. */ marks?: CaptureMeta[]; /** The study plan, a day's chips in the all-day lane. */ study: Map<string, StudyDay>; onHead: (day: Dayjs) => void; onPoint: (at: Spot | null) => void; calendars: { id: string; name: string; color: string }[] } & BlockProps): React.JSX.Element {
   const { carry, start, draft, setDraft, events, onEvent, onPeek, onOpen, taskNow } = props
   // The all-day lane folds to one line with its chevron, and stays so.
   const [folded, setFolded] = useState(() => stored('vigil.calendar.allday', 'open', ['open', 'folded'] as const) === 'folded')
@@ -965,6 +988,8 @@ function Grid({ days, tasks, marks, onHead, onPoint, calendars, ...props }: { da
               const to = keys.indexOf(lastKey) < 0 ? keys.length - 1 : keys.indexOf(lastKey)
               return <EventChip key={one.key} one={one} day={keys[from]} calendars={calendars} span={{ gridColumn: `${from + 1} / ${to + 2}`, pointerEvents: 'auto' }} onOpen={onEvent} onPeek={onPeek} onNote={onOpen} />
             })}
+            {/* The study plan: each day's reviews and the book you finish then, in the lane before its tasks. */}
+            {keys.flatMap((key, at) => studyChips(study.get(key), { gridColumn: at + 1 }))}
             {keys.flatMap((key, at) => {
               // A Mac calendar's way with a crowded day: a few rows, then "+N more", which opens the day's own page with its whole list.
               const all = untimed.get(key) ?? []
@@ -1109,7 +1134,7 @@ const captureTint = (color: string): React.CSSProperties => ({
 })
 
 /** What Day and Week show besides tasks and events: captures, as marks at their minute. */
-function DayShowMenu({ on, onChange }: { on: boolean; onChange: (on: boolean) => void }): React.JSX.Element {
+function DayShowMenu({ on, onChange, children }: { on: boolean; onChange: (on: boolean) => void; /** The panels, when the bar has no room for their buttons. */ children?: React.ReactNode }): React.JSX.Element {
   return (
     <DropdownMenu modal={false}>
       <Tip label="What the days show">
@@ -1120,6 +1145,7 @@ function DayShowMenu({ on, onChange }: { on: boolean; onChange: (on: boolean) =>
       <DropdownMenuContent align="end" className="w-56 text-control">
         <DropdownMenuLabel>Show</DropdownMenuLabel>
         <DropdownMenuCheckboxItem data-day-captures-switch checked={on} onCheckedChange={onChange} onSelect={(event) => event.preventDefault()}>Captures, when caught</DropdownMenuCheckboxItem>
+        {children}
       </DropdownMenuContent>
     </DropdownMenu>
   )
