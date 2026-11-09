@@ -54,6 +54,8 @@ try {
   const camino = await make('Walk the Camino', 600, -10)
   const life = await make('Visit Hobbiton', null, -2)
   const life2 = await make('See the northern lights', null, -40)
+  // A step logged on each road, so its "logged" pill shows (nothing logged shows no count).
+  for (const one of [short, fiftySix, year, camino]) await v('clue', one, 'A step taken')
   await v('clue', life, 'Looked up flights')
   await v('clue', life, 'Saved for a month')
   const crossed = await make('Swim in the sea at night', null, -90)
@@ -151,7 +153,7 @@ try {
     const sameRow = dots.filter((one) => Math.abs(one.y - dots[0]?.y) < 1).sort((a, b) => a.x - b.x)
     const labels = [...(card?.querySelectorAll('[data-road-label]') ?? [])].map((one) => one.getBoundingClientRect())
     const overlap = labels.some((a, i) => labels.some((b, j) => j > i && a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom))
-    const bigs = [...(pane?.querySelectorAll('*') ?? [])].filter((one) => one.children.length === 0 && /^\d[\d,]* days?$/.test(one.textContent?.trim() ?? '') && parseFloat(getComputedStyle(one).fontSize) >= 20).length
+    const bigs = [...(pane?.querySelectorAll('*') ?? [])].filter((one) => one.children.length === 0 && /^\d[\d,]* (days?|weeks?)$/.test(one.textContent?.trim() ?? '') && parseFloat(getComputedStyle(one).fontSize) >= 20).length
     return {
       card: !!card,
       cover: !!pane?.querySelector('[data-collection-header] .aspect-square'),
