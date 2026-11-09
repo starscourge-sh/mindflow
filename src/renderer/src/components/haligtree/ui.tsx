@@ -14,7 +14,7 @@ import { stepTap } from '@/lib/haptics'
 import { detent, slotTicker } from '@/lib/proximity'
 import { Arrow } from './marks'
 import Lenis from 'lenis'
-import { call, useLive, haligtree } from '@/lib/haligtree'
+import { afterPaint, call, useLive, haligtree } from '@/lib/haligtree'
 import { UNATTRIBUTED } from '@/lib/sources'
 import { useReadsIn, useSeen } from '@/lib/reads-in'
 import { chime, quietFor, setVolume, soundOn } from '@/lib/sound'
@@ -1358,10 +1358,13 @@ function useClearSpot(on: boolean, lane: React.RefObject<HTMLDivElement | null>)
         : { ...clear, transform: `translateY(${Math.min(...meets.map((at) => at.top)) - 8 - low}px)`, transition: STEP_ASIDE }
       setSpot((was) => (JSON.stringify(was) === JSON.stringify(next) ? was : next))
     }
-    // First looked a frame on: picking a menu's line shows the toast before that menu has begun to close.
-    const first = requestAnimationFrame(() => requestAnimationFrame(check))
-    const timer = setInterval(check, 150)
-    return () => (cancelAnimationFrame(first), clearInterval(timer))
+    // Read only once a frame is painted, so it reads the page as already laid out: read in the
+    // frame its toast came with (a move to the Bin opening the next note), it laid that note out
+    // there and then, 30 to 112ms. First looked a frame on: picking a menu's line shows the toast
+    // before that menu has begun to close.
+    let off = afterPaint(() => (off = afterPaint(check)))
+    const timer = setInterval(() => (off(), (off = afterPaint(check))), 150)
+    return () => (off(), clearInterval(timer))
   }, [on])
   return spot
 }

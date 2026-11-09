@@ -1,6 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from "react"
+import { afterPaint } from "@/lib/haligtree"
 import { createPortal } from "react-dom"
 import { Extension, type Attributes, type Extensions, type JSONContent } from "@tiptap/core"
 import { Fragment, Slice } from "@tiptap/pm/model"
@@ -1956,6 +1957,13 @@ function Surface({
     </>
   )
 
+  // The floating bars (picture, table, selection) join once the note has been painted: placed as
+  // they join, they read where their words are, and read in the frame the note opens in (⌘⌫ opening
+  // the next one) that laid the whole new note out there and then, 110 to 130ms.
+  const [painted, setPainted] = useState<typeof editor | null>(null)
+  useEffect(() => (editor ? afterPaint(() => setPainted(editor)) : undefined), [editor])
+  const floats = !!editor && painted === editor
+
   return (
     <div
       ref={wrapperRef}
@@ -1978,13 +1986,13 @@ function Surface({
       <EditorContext.Provider value={{ editor }}>
         {sourceOpen ? <SourceView editor={editor} /> : null}
 
-        <ImageMenu editor={editor} />
+        {floats && <ImageMenu editor={editor} />}
         <ImageLook editor={editor} />
         <CollectPill editor={editor} />
 
         {shape === "document" && <TableOfContents editor={editor} shown={outline} />}
         <TableControls editor={editor} />
-        <TableMenu editor={editor} />
+        {floats && <TableMenu editor={editor} />}
 
         {handles && editor && (
           <DragHandle
@@ -2085,7 +2093,7 @@ function Surface({
           </DragHandle>
         )}
 
-        {selectionItems !== false && (
+        {floats && selectionItems !== false && (
           <SelectionMenu editor={editor} reading={readOnly && toolbar !== false && !!toolbar?.selectionExtra} inCode={toolbar !== false && toolbar?.selectionInCode && editor ? toolbar.selectionInCode(editor) : undefined}>
             {/* Locked: nothing to format, only the host's ways to keep the words. */}
             {readOnly ? null : selectionItems ?? defaultSelection}

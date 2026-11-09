@@ -32,10 +32,15 @@ const ALIGNS = [
 
 // Nothing to resize or delete in a page only being read. One function for
 // good: a new one each render made the menu reconfigure on every keystroke.
-const showForImage: BubbleMenuProps["shouldShow"] = ({ state, editor }) =>
+// Only for a picture picked in a note being worked in (the note or this menu
+// has the focus): a note opened with a picture first starts with that picture
+// picked, and the menu came up unasked, working out its place in the frame the
+// note opened in, which laid the whole note out there and then.
+const showForImage: BubbleMenuProps["shouldShow"] = ({ state, editor, element }) =>
   editor.isEditable &&
   state.selection instanceof NodeSelection &&
-  state.selection.node.type.name === "image"
+  state.selection.node.type.name === "image" &&
+  (editor.view.hasFocus() || element.contains(document.activeElement))
 
 /**
  * What you can do to the picture you just clicked.
