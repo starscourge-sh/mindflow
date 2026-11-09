@@ -14,7 +14,8 @@ process.env.QA_ARGS ??= '--sandbox'
 const SHOT = process.env.QA_SHOTS ?? '/tmp/day-merge'
 mkdirSync(SHOT, { recursive: true })
 const { check, done } = checks()
-const c = await sandbox({ width: 1200, height: 860 })
+// At a fixed hour: the probe types "6pm", which after six in the evening lands among the rows, not at the end.
+const c = await sandbox({ width: 1200, height: 860, at: '11:30' })
 const { h, v, go, both, look } = c
 const wait = (ms) => h.waitForTimeout(ms)
 
