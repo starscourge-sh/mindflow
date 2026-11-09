@@ -462,8 +462,8 @@ export function Home(): React.JSX.Element {
   /** Opened as the click that asked said: a new tab, to the side, or (no way said) in the tab on show. */
   const placed = (next: View, how: 'tab' | 'aside' | null, key = frontRef.current): void =>
     how === 'tab' ? openTab(next, key) : how === 'aside' ? aside(next, key) : setView(next, key)
-  // Back by a click, onto the page something grew open from: it shrinks back into its place (lib/hero.ts).
-  const step = (by: number, key = frontRef.current): void => (by < 0 ? heroBack(() => stepBy(by, key)) : stepBy(by, key))
+  // A step through the trail: by a key, a swipe, a mouse's side button or a history menu it is simply there.
+  const step = (by: number, key = frontRef.current): void => stepBy(by, key)
   const stepBy = (by: number, key: string): void => {
     via('back')
     const scroll = scrolled(key)
@@ -1586,7 +1586,8 @@ export function Home(): React.JSX.Element {
     close: closeTabIn,
     add: (key) => openTab(LANDING, key, true),
     menu: tabMenu,
-    step: (key, by) => step(by, key),
+    // Back by a click on the button, onto the page something grew open from: it shrinks back into its place (lib/hero.ts).
+    step: (key, by) => (by < 0 ? heroBack(() => stepBy(by, key)) : stepBy(by, key)),
     // Held or right-clicked, Back and Forward list this tab's own steps, nearest first, as a browser's do,
     // and end with All history: what was opened in every tab.
     history: (key, by) => {

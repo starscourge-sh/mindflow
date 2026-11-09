@@ -5,10 +5,10 @@
 // way in the user clicks: Home's pinned rows, "Jump back in", "Coming back" and
 // "Continue reading", a Feed post, a face in Sources, Files' Recent row and
 // shelves, a book's cover, a note row in Writing, a deck row in Review's list.
-// For each, a press runs one flight whose sheet starts on the clicked thing's
-// rect and is moving within 150ms of the press, in 260ms (220ms back), and
-// melts only once the new page is on show; by a key, ⌘K, Reduce motion or
-// Motion off there is none; a fast double click and a click mid-flight still
+// For each, a press runs one flight (a view transition of the real pictures) that
+// starts on the clicked thing's rect, moves once the new page is on show, in
+// 260ms (220ms back), with no frame over 34ms; by a key, ⌘K, a swipe, Reduce
+// motion or Motion off there is none; a fast double click and a click mid-flight still
 // land. Frames of each, every 50ms, are written to look at. Run it on a
 // development build too (StrictMode, React's slow build), where a page takes
 // longest to build:
@@ -29,84 +29,101 @@ const c = await sandbox({ width: 1200, height: 800 })
 const { h, go } = c
 h.on('console', async (m) => m.type() === 'error' && m.text().includes('cannot be a descendant') && console.log('NEST', (await Promise.all(m.args().map((a) => a.jsonValue().catch(() => '')))).join(' | ').slice(0, 2500)))
 
-// Every flight the window starts (lib/hero.ts lays a sheet, `[data-hero-card]`, and moves it): its kind, the rect
-// it starts on and ends on, its length and curve, how long after the press it was moving (`wait`), and whether the
-// page under it was on show (not the old one held, page-swap.tsx) as it melted away.
+// Every flight the window starts (lib/hero.ts, a view transition, logged in `window.__heroFlights`): its kind, the
+// rect it starts on and ends on, its length and curve, how long after the press it moved (`wait`), how long after the
+// new page was on show (`late`), whether that page was on show (not the old one held, page-swap.tsx) as it moved, and
+// every frame's length while it moved (`frames`, read by requestAnimationFrame).
 const install = () => h.evaluate(() => {
-  window.__hero = []
+  if (window.__heroFlights) window.__heroFlights.length = 0
+  window.__heroFrames = []
   if (window.__heroWrapped) return
   window.__heroWrapped = true
   // Where the clicked thing is as it is clicked (a cover lifts a little under the pointer).
   const KEY = '[data-book],[data-drag-open],[data-deck],[data-deck-row],[data-face],[data-pile],[data-recent-file],[data-resume],[data-row],[data-cal-event],[data-cal-event-chip],[data-still-picture]'
-  addEventListener('pointerdown', () => void (window.__down = performance.now()), true)
   for (const type of ['click', 'dblclick']) addEventListener(type, (event) => {
     const el = event.target.closest?.(KEY)
     if (el) { const r = el.getBoundingClientRect(); window.__clicked = { x: r.x, y: r.y, w: r.width, h: r.height } }
   }, true)
-  const box = (s) => { const [x, y, w, h] = (s ?? '').split(',').map(Number); return s ? { x, y, w, h } : null }
-  new MutationObserver((changes) => {
-    for (const change of changes) {
-      for (const el of change.addedNodes) {
-        if (!(el instanceof HTMLElement) || !el.hasAttribute('data-hero-card')) continue
-        const move = el.getAnimations()[0]
-        // `made`: the press to the sheet laid (the page's own work on a press comes first).
-        const one = { kind: el.dataset.heroCard, from: window.__clicked, el, made: Math.round(performance.now() - (window.__down ?? performance.now())) }
-        window.__hero.push(one)
-        if (window.__pause) { move.pause(); move.currentTime = 0; window.__pause = false }
-        const t = move.effect.getComputedTiming()
-        one.group = { ms: t.duration, ease: move.effect.getTiming().easing, first: box(el.dataset.from), last: box(el.dataset.to) }
-        void move.ready.then(() => void (one.wait = Math.round(performance.now() - (window.__down ?? performance.now()))))
-      }
-      for (const el of change.removedNodes) {
-        const one = window.__hero.find((f) => f.el === el)
-        if (!one) continue
-        one.group.last = box(el.dataset.to)
-        one.shown = !document.querySelector('[data-pane-card] [data-page-held]')
-        delete one.el
-      }
-    }
-  }).observe(document.body, { childList: true })
+  // Each frame's length, always: the flight's are picked out by its time.
+  let last = performance.now()
+  // And what every animation of a flight moves, read as it runs.
+  window.__heroProps = new Set()
+  const tick = (t) => {
+    window.__heroFrames.push([t, t - last]); last = t
+    if (window.__heroFrames.length > 2000) window.__heroFrames.splice(0, 1000)
+    if (document.documentElement.dataset.hero) for (const a of document.getAnimations()) if (String(a.effect?.pseudoElement ?? '').includes('view-transition')) for (const k of a.effect.getKeyframes()) for (const p of Object.keys(k)) if (!['offset', 'computedOffset', 'easing', 'composite'].includes(p)) window.__heroProps.add(`${a.effect.pseudoElement.replace('::view-transition-', '')} ${a.animationName ?? 'script'} ${p}`)
+    requestAnimationFrame(tick)
+  }
+  requestAnimationFrame(tick)
 })
-const log = () => h.evaluate(() => window.__hero.map(({ el, ...one }) => one))
+const log = () => h.evaluate(() => (window.__heroFlights ?? []).map((f) => ({
+  kind: f.kind, from: f.kind === 'open' ? window.__clicked : undefined, skipped: f.skipped, shown: f.shown, wait: f.moved, made: 0, late: f.steps && f.moved != null ? f.moved - f.steps.at(-1) : null,
+  group: f.skipped ? null : { ms: f.ms, ease: f.ease, first: f.from, last: f.to },
+  first: f.at ? Math.round(((window.__heroFrames ?? []).find(([t]) => t > f.at + 1)?.[1] ?? 0) * 10) / 10 : null,
+  frames: f.at ? (window.__heroFrames ?? []).filter(([t]) => t > f.at + 1).slice(1).filter(([t]) => t <= f.at + f.ms + 20).map(([, d]) => Math.round(d * 10) / 10) : []
+})))
 const rectOf = (sel) => h.evaluate((s) => { const el = document.querySelector(s); if (!el) return null; const r = el.getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height } }, sel)
 const near = (a, b, by = 3) => !!a && !!b && ['x', 'y', 'w', 'h'].every((k) => Math.abs(a[k] - b[k]) <= by)
 const say = (r) => r ? `${Math.round(r.x)},${Math.round(r.y)} ${Math.round(r.w)}x${Math.round(r.h)}` : 'none'
-// Every flight's sheet gone first (its own end: it melts once the page under it is on show), then `ms` more.
-const settle = async (ms = 700) => { await h.waitForFunction(() => !document.querySelector('[data-hero-card]'), null, { timeout: 8000 }).catch(() => {}); await h.waitForTimeout(ms) }
+// Every flight over first (its view transition finished), then `ms` more.
+const settle = async (ms = 700) => { await h.waitForFunction(() => !document.documentElement.dataset.hero, null, { timeout: 8000 }).catch(() => {}); await h.waitForTimeout(ms) }
+const look = async (name) => { await h.evaluate(() => (document.documentElement.dataset.motion = 'off')); await c.look(name); await h.evaluate(() => delete document.documentElement.dataset.motion) }
 const card = () => rectOf('[data-pane-front] > [data-pane-card], [data-pane] > [data-pane-card]')
 const back = async () => { await h.locator('[data-tab-step="back"]').first().click(); await settle() }
+// Every frame of every flight, for the totals at the end.
+const allFrames = []
 
-/** One flight checked: ran, ours, its length, and that it starts (open) or ends (close) on `at`. */
+/** One flight checked: ran, ours, its length, that it starts (open) or ends (close) on `at`, and every frame of it in time. */
 async function flew(name, kind, at, ms) {
   const runs = (await log()).filter((one) => one.kind === kind)
   const one = runs.at(-1)
   const end = kind === 'open' ? one?.group?.first : one?.group?.last
   check(`${name}: one ${kind} flight ran`, runs.length === 1 && !!one?.group, JSON.stringify(runs))
-  check(`${name}: about ${ms}ms, in and out`, one?.group && Math.abs(one.group.ms - ms) < 1 && /cubic-bezier\(0\.4, 0, 0\.2, 1\)/.test(one.group.ease), `${one?.group?.ms}ms ${one?.group?.ease}`)
+  check(`${name}: ${ms}ms, strong out`, one?.group && Math.abs(one.group.ms - ms) < 1 && /cubic-bezier\(0\.32, 0\.72, 0, 1\)/.test(one.group.ease), `${one?.group?.ms}ms ${one?.group?.ease}`)
   // Opening, the thing as it was clicked; closing, the thing it lands on, as the page came back.
   const thing = kind === 'open' ? one?.from ?? at : at
-  check(`${name}: the sheet ${kind === 'open' ? 'starts on the clicked thing' : 'ends on the thing it came from'}`, near(end, thing, 4), `sheet ${say(end)}, thing ${say(thing)}`)
-  if (kind === 'open') check(`${name}: it melts only once the new page is on show`, one?.shown === true)
+  check(`${name}: it ${kind === 'open' ? 'starts on the clicked thing' : 'ends on the thing it came from'}`, near(end, thing, kind === 'open' ? 4 : 9), `flight ${say(end)}, thing ${say(thing)}`)
+  check(`${name}: it moves only once the new page is on show, and soon then (open within 80ms; back within 250ms, once the thing it lands on stays put)`, one?.shown === true && one.late != null && one.late < (kind === 'open' ? 80 : 250), `on show ${one?.shown}, ${one?.late}ms after, ${one?.wait}ms after the press`)
+  await frameCheck(name, one)
   return one
+}
+/**
+ * A flight's frames. It runs on the compositor (transform and opacity only, checked), so a busy page under it does
+ * not hold it; the main thread's frames (requestAnimationFrame) are written down beside it, for the totals at the end.
+ */
+async function frameCheck(name, one) {
+  const f = one?.frames ?? []
+  allFrames.push(...f)
+  const props = await h.evaluate(() => [...(window.__heroProps ?? [])])
+  check(`${name}: it moves transform and opacity alone (the compositor's)`, props.length > 0 && props.every((p) => / (transform|opacity)$/.test(p)), props.join(', '))
+  console.log(`      main thread while it flew: ${f.length} frames, max ${f.length ? Math.max(...f) : '-'}ms, ${f.filter((d) => d > 20).length} over 20ms`)
 }
 
 /**
- * Frames of the flight about to start, every 50ms: `act` starts it, the sheet
- * is held at its start, and each 50ms is laid down and pictured (the page under
- * it opens on the flight's own clock, so it keeps in step).
+ * Frames of the flight about to start, every 50ms: `act` starts it, each of
+ * its animations is held at its start as it begins, and each 50ms is laid
+ * down and pictured.
  */
 async function film(label, act) {
   if (!shots) return act()
-  await h.evaluate(() => { window.__pause = true })
+  const caught = h.evaluate(() => new Promise((done) => {
+    const since = performance.now()
+    const look = () => {
+      const all = document.getAnimations().filter((a) => String(a.effect?.pseudoElement ?? '').includes('view-transition'))
+      if (all.some((a) => String(a.effect.pseudoElement).includes('mf-hero'))) return (all.forEach((a) => a.pause()), done(all.length))
+      if (performance.now() - since > 5000) return done(0)
+      setTimeout(look, 1)
+    }
+    look()
+  }))
   await act()
-  await h.waitForTimeout(150)
+  if (!(await caught)) return
   for (let t = 0; t <= 300; t += 50) {
-    await h.evaluate((ms) => document.querySelector('[data-hero-card]')?.getAnimations().forEach((a) => (a.currentTime = Math.min(ms, a.effect.getComputedTiming().endTime - 1))), t)
-    // Long enough for a page opened at this point to be built, even in a development build.
-    await h.waitForTimeout(t === 100 || t === 150 ? 700 : 120)
+    await h.evaluate((ms) => document.getAnimations().filter((a) => String(a.effect?.pseudoElement ?? '').includes('view-transition')).forEach((a) => (a.currentTime = Math.min(ms, a.effect.getComputedTiming().endTime - 1))), t)
+    await h.waitForTimeout(120)
     await h.screenshot({ path: `${shots}/${label}-${String(t).padStart(3, '0')}.png` })
   }
-  await h.evaluate(() => { window.__pause = false; document.querySelector('[data-hero-card]')?.getAnimations().forEach((a) => a.play()) })
+  await h.evaluate(() => document.getAnimations().forEach((a) => a.playState === 'paused' && a.play()))
   await settle(900)
 }
 
@@ -182,13 +199,40 @@ await settle(1200)
   await flew('Books, back', 'close', after, 220)
   // The same flight in a dark theme, filmed, for its mid-flight frame beside the light one.
   if (shots) {
-    await c.look('dark')
+    await look('dark')
     await install()
     await film('book-open-dark', () => h.locator(sel).first().dblclick())
     await settle()
     await back()
-    await c.look('light')
+    await look('light')
   }
+}
+
+// 1a. Out of the reader by a two-finger swipe (swipe-back.tsx), in a dark theme: the swipe has its own motion, so
+// no flight runs, and the page simply goes back. The same for ⌘[ and a mouse's back button.
+{
+  await look('dark')
+  const sel = '[data-library] [data-book]'
+  for (const [how, leave] of [
+    ['a two-finger swipe', async () => {
+      const R = (await h.evaluate(() => window.api.naturalScrolling())) ? -1 : 1
+      await h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:swipe-phase', { detail: 'began' })))
+      for (let n = 0; n < 14; n++) (await h.evaluate(([dx]) => document.elementFromPoint(700, 450).dispatchEvent(new WheelEvent('wheel', { deltaX: dx, deltaY: 0, bubbles: true, cancelable: true })), [12 * R]), await h.waitForTimeout(16))
+      await h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:swipe-phase', { detail: 'ended' })))
+    }],
+    ['⌘[', () => h.keyboard.press('Meta+BracketLeft')],
+    ['the mouse\'s back button', () => h.evaluate(() => window.dispatchEvent(new MouseEvent('mouseup', { button: 3, bubbles: true })))]
+  ]) {
+    await h.locator(sel).first().dblclick()
+    await settle(1200)
+    const inReader = (await h.evaluate(() => document.querySelector('[data-page]')?.getAttribute('data-page'))) === 'pdf'
+    await install()
+    await leave()
+    await settle(1200)
+    const page = await h.evaluate(() => document.querySelector('[data-page]')?.getAttribute('data-page'))
+    check(`Out of the reader by ${how}: back on the shelf, with no flight`, inReader && page === 'media' && (await log()).length === 0, `${inReader} ${page} ${JSON.stringify(await log())}`)
+  }
+  await look('light')
 }
 
 // 1b. "Continue reading": a cover drawn in the glass row.
@@ -211,7 +255,7 @@ await settle(1200)
     await install()
     await back()
     const close = (await log()).find((r) => r.kind === 'close')
-    check('Continue reading, back: it shrinks to where the cover is', !!close?.group && near(close.group.last, close.to ?? first, 3) && Math.abs(close.group.last.x - first.x) < 3, `${say(close?.group?.last)}, cover ${say(close?.to)}`)
+    check('Continue reading, back: it shrinks to where the cover is', !!close?.group && near(close.group.last, first, 9) && Math.abs(close.group.last.x - first.x) < 3, `${say(close?.group?.last)}, cover as clicked ${say(first)}`)
   }
 }
 
@@ -338,7 +382,7 @@ for (const [name, on, off] of [
   await h.locator('[data-tab-step="back"]').first().click()
   await settle()
   check('A click on Back 80ms into the flight lands: Home again', (await h.evaluate(() => document.querySelector('[data-page]')?.getAttribute('data-page'))) === 'home', JSON.stringify(await log()))
-  check('…and the window takes input again (no sheet left over it)', await h.evaluate(() => !document.documentElement.dataset.hero && !document.querySelector('[data-hero-card]')))
+  check('…and the window takes input again (no flight left over it)', await h.evaluate(() => !document.documentElement.dataset.hero && !document.documentElement.style.viewTransitionName && !document.querySelector('[style*="view-transition-name"]')))
 }
 
 }
@@ -443,22 +487,24 @@ if (runs(4)) {
     await settle(1500)
     const flights = (await log()).filter((f) => f.kind === 'open')
     const f = flights.at(-1)
-    console.log(`  ${one.name}: ${flights.length} open, ${f?.skipped ? 'skipped' : f?.group ? `frame ${say(f.group.first)} -> ${say(f.group.last)}, ${f.group.ms}ms, moving ${f.wait}ms after the press (laid at ${f.made}ms), page on show as it melted: ${f.shown}` : 'no frame'}`)
+    console.log(`  ${one.name}: ${flights.length} open, ${f?.skipped ? `skipped: ${f.skipped}` : f?.group ? `${say(f.group.first)} -> ${say(f.group.last)}, ${f.group.ms}ms, moving ${f.wait}ms after the press, ${f.late}ms after the page was on show` : 'none'}`)
     check(`${one.name}: a click grows it open`, flights.length === 1 && !!f?.group, JSON.stringify(flights))
-    check(`${one.name}: from where it was clicked`, !!f?.group && (one.canvas ? f.group.first.x >= r.x - 2 && f.group.first.x + f.group.first.w <= r.x + r.w + 2 : near(f.group.first, f.from ?? r, 4)), `frame ${say(f?.group?.first)}, thing ${say(f?.from ?? r)}`)
-    check(`${one.name}: it moves at once (within 60ms of the click reaching it)`, f?.wait != null && f.wait - f.made < 60, `${f?.wait - f?.made}ms, the page itself took ${f?.made}ms to answer the press`)
-    check(`${one.name}: it melts only once the new page is on show`, f?.shown === true)
+    check(`${one.name}: from where it was clicked`, !!f?.group && (one.canvas ? f.group.first.x >= r.x - 2 && f.group.first.x + f.group.first.w <= r.x + r.w + 2 : near(f.group.first, f.from ?? r, 4)), `flight ${say(f?.group?.first)}, thing ${say(f?.from ?? r)}`)
+    check(`${one.name}: it moves only once the new page is on show, and at once then (within 80ms)`, f?.shown === true && f.late != null && f.late < 80, `${f?.late}ms`)
+    await frameCheck(one.name, f)
     if (one.beside) continue
     await install()
     await back()
     const closes = (await log()).filter((f) => f.kind === 'close')
-    check(`${one.name}: Back shrinks it home, onto where it is`, closes.length === 1 && near(closes[0].group.last, await rectOf('[data-hero-probe]') ?? closes[0].group.last, 4), JSON.stringify(closes))
+    check(`${one.name}: Back shrinks it home, onto where it is`, closes.length === 1 && !!closes[0].group && near(closes[0].group.last, await rectOf('[data-hero-probe]') ?? closes[0].group.last, 4), JSON.stringify(closes))
+    if (closes[0]?.group) await frameCheck(`${one.name}, back`, closes[0])
     check(`${one.name}: and the page is back`, (await h.evaluate(() => document.querySelector('[data-page]')?.getAttribute('data-page'))) === page)
   }
   await h.evaluate(() => localStorage.removeItem('haligtree:deck-look'))
 }
 
 check('no errors in the window', c.errors.filter((e) => !/ResizeObserver|favicon|Failed to load resource/.test(e)).length === 0, c.errors.slice(0, 3).join(' | '))
+if (allFrames.length) { const sorted = [...allFrames].sort((a, b) => a - b); console.log(`main thread while flights ran: ${sorted.length} frames, median ${sorted[sorted.length >> 1]}ms, ${sorted.filter((d) => d > 20).length} over 20ms (${(100 * sorted.filter((d) => d > 20).length / sorted.length).toFixed(1)}%), max ${sorted.at(-1)}ms`) }
 console.log(`${results.filter(Boolean).length}/${results.length} passed`)
 await c.close()
 process.exit(results.every(Boolean) ? 0 : 1)

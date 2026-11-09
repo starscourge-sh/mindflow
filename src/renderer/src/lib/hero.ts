@@ -7,33 +7,33 @@ import { byKeys, still } from './motion'
  * into the reader, a note's tile or row into the note, a face into its page,
  * a deck into studying, an event into its side form.
  *
- * A sheet the colour of the page it opens (`[data-hero-card]`, main.css)
- * grows from the clicked thing's rect to the page's, then melts into the
- * page. It moves by transform and opacity alone, so the compositor draws it:
- * it keeps moving while the new page is still being built (a slow page, or a
- * development build, once held the whole window still for half a second and
- * then jumped). The page is opened part way through the flight and the sheet
- * stays over it until it is on show, so the old page is never seen in its
- * place. Nothing in it is stretched: the sheet is plain, and the words are the
- * page's own, at their own size, as it melts away.
+ * It is the browser's view transition: a picture of the window as it was is
+ * held, the page is opened under it, and once the new page is on show, the
+ * real pictures of both move, the clicked thing growing into the new page
+ * (or the page shrinking into the thing it came from) while the rest of the
+ * window crossfades. Real pictures, in the theme worn: never a blank sheet,
+ * and never the old page after the new one. The flight moves by transform and
+ * opacity alone on the compositor, so it keeps every frame while the page
+ * under it is still busy; and nothing on the page itself is moved or scaled,
+ * so a page measuring itself as it opens (the PDF reader's fit) sees its real
+ * size.
  *
- * Only for a pointer: opened by a key, ⌘K or a link in a note's text it is
- * simply there (those never come here, and a key press last turns it off).
- * With Motion off or Reduce motion, nothing moves. It never holds input: the
- * sheet takes no clicks, and a key, a click or a second open mid-flight opens
- * the page at once.
+ * Only for a pointer on a thing: opened by a key, ⌘K or a link in a note's
+ * text it is simply there, and Back by a key, a swipe, a mouse's side button
+ * or a history menu simply steps (those never come here, and a key press last
+ * turns it off). With Motion off or Reduce motion, nothing moves. A page that
+ * is not on show within `WAIT` opens with no flight. A key or a click
+ * mid-flight ends it at once.
  */
 
-/** The flight's length out and back, and its curve: on-screen movement, in and out. */
+/** The flight's length out and back, and its curve: strong out, so it answers at once and settles softly. */
 const OPEN_MS = 260
 const CLOSE_MS = 220
-const CURVE = 'cubic-bezier(0.4, 0, 0.2, 1)'
-/** How far into the flight the page is opened: the old page stays round the sheet until it covers most of it. */
-const OPEN_AT = 0.4
-/** The longest the sheet waits over a page still reading in (page-swap.tsx), and for a place that comes later. */
-const WAIT = 600
-/** The sheet melting into the page under it. */
-const MELT_MS = 140
+const CURVE = 'cubic-bezier(0.32, 0.72, 0, 1)'
+/** The longest the window's picture is held while the new page reads in: past it, the page simply opens. */
+const WAIT = 450
+/** The flight's name in the view transition (main.css). */
+const NAME = 'mf-hero'
 
 /** Where a thing that opened can be found again, once its page is back: the first of these it carries. */
 const KEYS = ['data-hero', 'data-book', 'data-drag-open', 'data-deck', 'data-deck-row', 'data-face', 'data-pile', 'data-cal-event-chip', 'data-cal-event', 'data-src']
@@ -42,15 +42,21 @@ type Click = { currentTarget: EventTarget | null; metaKey?: boolean; altKey?: bo
 /** What was clicked: the element, its click, or for a picture drawn on a canvas, its rect on the screen. */
 export type HeroFrom = Element | DOMRect | Click | null | undefined
 
+/** One flight, for the probe (qa/hero-open.mjs): its kind, rects, length, how long after the press it moved, and whether the page was on show. */
+export type HeroFlight = { kind: 'open' | 'close'; from: Box; to: Box | null; ms: number; ease: string; moved?: number; /** The moment it moved (performance.now()). */ at?: number; /** When, after the press, the picture was taken, the page opened and was on show. */ steps?: number[]; shown?: boolean; skipped?: string }
+type Box = { x: number; y: number; w: number; h: number }
+const box = (r: DOMRect): Box => ({ x: Math.round(r.left), y: Math.round(r.top), w: Math.round(r.width), h: Math.round(r.height) })
+const flights = ((window as { __heroFlights?: HeroFlight[] }).__heroFlights ??= [])
+
 /** The last thing that grew open, to shrink back into: how to find it again, and where it was. */
 let opened: { key: [string, string] | null; rect: DOMRect } | null = null
-/** The flight on now: ending it opens its page at once (if not yet) and takes the sheet away. */
-let flying: { end: () => void } | null = null
+/** The flight on now (its view transition): skipped, the page is simply there. */
+let flying: { skip: () => void } | null = null
 
-/** A flight is on: a page settling in by itself (home.tsx) stays put, so it does not move twice. */
+/** A flight is on: a page settling in by itself (home.tsx, day-side.tsx) stays put, so it does not move twice. */
 export const heroing = (): boolean => flying !== null
 
-const may = (): boolean => !still() && !byKeys() && !document.documentElement.hasAttribute('data-welcoming')
+const may = (): boolean => !still() && !byKeys() && !document.documentElement.hasAttribute('data-welcoming') && typeof document.startViewTransition === 'function'
 
 /** The page card of the pane in front: where a note, a book or a deck's study opens. */
 export const paneCard = (): Element | null =>
@@ -93,166 +99,157 @@ const keyOf = (el: Element): [string, string] | null => {
   return up ? keyOf(up) : null
 }
 
-/** The page in `where` is on show, not the old one held while it reads (page-swap.tsx). */
-const onShow = (where: Element | null): boolean => !!where && seen(where) && !where.querySelector('[data-page-held]')
+/**
+ * The page in `where` is on show, not the old one held while it reads
+ * (page-swap.tsx). The page just left stays a moment unseen (display none, let
+ * go a frame later): that one does not count.
+ */
+const onShow = (where: Element | null): boolean => !!where && seen(where) && ![...where.querySelectorAll('[data-page-held]')].some((held) => held.checkVisibility())
 
-/** Until `ready`, or `WAIT` has gone. */
-function until(ready: () => boolean): Promise<void> {
-  if (ready()) return Promise.resolve()
+/**
+ * Until `ready`, or `ms` has gone. Read on page changes and on a timer, never a
+ * frame: while a view transition takes its picture the window draws no frames.
+ */
+function until(ready: () => boolean, ms: number): Promise<boolean> {
+  if (ready()) return Promise.resolve(true)
   return new Promise((done) => {
-    const finish = (): void => (watch.disconnect(), clearTimeout(cap), done())
-    const watch = new MutationObserver(() => ready() && finish())
-    const cap = setTimeout(finish, WAIT)
+    const finish = (): void => (watch.disconnect(), clearInterval(poll), clearTimeout(cap), done(ready()))
+    const check = (): void => void (ready() && finish())
+    const watch = new MutationObserver(check)
+    const poll = setInterval(check, 16)
+    const cap = setTimeout(finish, ms)
     watch.observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['data-page-held', 'data-day-side', 'data-open'] })
   })
 }
 
-/** The sheet, laid at `at` (its full size); grown or shrunk from there by transform alone. */
-function sheet(kind: 'open' | 'close', at: DOMRect, like: Element | null): HTMLElement {
-  const el = document.createElement('div')
-  el.setAttribute('data-hero-card', kind)
-  const look = like ? getComputedStyle(like) : null
-  const fill = look && look.backgroundColor !== 'rgba(0, 0, 0, 0)' ? look.backgroundColor : ''
-  Object.assign(el.style, {
-    left: `${at.left}px`, top: `${at.top}px`, width: `${at.width}px`, height: `${at.height}px`,
-    ...(fill ? { backgroundColor: fill } : {}), ...(look ? { borderRadius: look.borderTopLeftRadius } : {})
-  })
-  document.body.append(el)
-  return el
+/** `el`'s rect once it has stayed put for three reads 16ms apart (a page coming back scrolls back to where it was), or `ms` has gone. */
+async function steady(el: Element, ms: number): Promise<DOMRect> {
+  const since = performance.now()
+  let last = el.getBoundingClientRect()
+  let same = 0
+  while (same < 3 && performance.now() - since < ms) {
+    await new Promise((done) => setTimeout(done, 16))
+    const now = el.getBoundingClientRect()
+    same = now.x === last.x && now.y === last.y && now.width === last.width && now.height === last.height ? same + 1 : 0
+    last = now
+  }
+  return last
 }
 
-/** The transform that lays a sheet of `full` over `small`, from its top left corner. */
-const over = (small: DOMRect, full: DOMRect): string =>
-  `translate(${small.left - full.left}px, ${small.top - full.top}px) scale(${Math.max(small.width, 1) / full.width}, ${Math.max(small.height, 1) / full.height})`
+/** Names an element in the flight's pictures; the returned function takes the names it gave away again (its own only). */
+const namer = (): [name: (el: Element | null) => void, unname: () => void] => {
+  const named = new Set<HTMLElement | SVGElement>()
+  return [
+    (el) => void ((el instanceof HTMLElement || el instanceof SVGElement) && ((el.style.viewTransitionName = NAME), named.add(el))),
+    () => (named.forEach((el) => (el.style.viewTransitionName = '')), named.clear())
+  ]
+}
 
-/** Shrinking from the page into `small`: over the page from the start (the page's own colour), gone as it lands. */
-const shrink = (small: DOMRect, big: DOMRect): Keyframe[] =>
-  [{ transform: 'none', opacity: 1 }, { opacity: 1, offset: 0.6 }, { transform: over(small, big), opacity: 0 }]
-
-const say = (r: DOMRect): string => `${Math.round(r.left)},${Math.round(r.top)},${Math.round(r.width)},${Math.round(r.height)}`
+/** The group's transform that lays a picture `base` wide at `at`, scaled alike both ways (nothing stretched), from its top left corner. */
+const lay = (at: DOMRect, base: number): string => `translate(${at.left}px, ${at.top}px) scale(${Math.max(at.width, 1) / Math.max(base, 1)})`
 
 /**
- * One flight: the sheet at `big` (the page's rect) grows out of `small`
- * (open) or shrinks into it (close); `run` makes the change part way in, and
- * the sheet melts once `ready` says the page is on show.
+ * One flight. `old` is named in the window's picture as it is now (the thing
+ * clicked, or the page going back); `run` makes the change; once `ready`
+ * says the new page is on show, `next()` is the element named in the new
+ * picture (the page, or the thing it lands on). The group moves from `small`
+ * to the page (open) or from the page to the thing (close) by transform alone.
  */
-function fly(kind: 'open' | 'close', small: DOMRect, big: DOMRect, like: Element | null, run: () => void, ready: () => boolean, landing?: () => Element | null): void {
-  flying?.end()
-  const card = sheet(kind, big, like)
-  card.dataset.from = say(kind === 'open' ? small : big)
-  card.dataset.to = say(kind === 'open' ? big : small)
+function fly(kind: 'open' | 'close', old: Element | null, small: DOMRect, run: () => void, next: () => Element | null, ready: () => boolean): void {
+  flying?.skip()
+  const root = document.documentElement
   const ms = kind === 'open' ? OPEN_MS : CLOSE_MS
-  const move = card.animate(
-    kind === 'open'
-      ? [{ transform: over(small, big), opacity: 0 }, { opacity: 1, offset: 0.25 }, { transform: 'none', opacity: 1 }]
-      : shrink(small, big),
-    { duration: ms, easing: CURVE, fill: 'both' }
-  )
-  document.documentElement.dataset.hero = kind
-  let ran = false
-  let done = false
-  const go = (): void => {
-    if (ran) return
-    ran = true
+  const pressed = performance.now()
+  const flight: HeroFlight = { kind, from: box(kind === 'open' ? small : (old?.getBoundingClientRect() ?? small)), to: null, ms, ease: CURVE }
+  flights.push(flight)
+  if (flights.length > 50) flights.shift()
+  const bigOld = old?.getBoundingClientRect() ?? null
+  const [name, unname] = namer()
+  // Opening, the thing clicked stays in the window's old picture and fades with it: named, its own picture would be
+  // drawn as wide as the page and stand over it, a big light block in a dark theme (a book's paper cover).
+  if (kind === 'close') name(old)
+  root.dataset.hero = kind
+  let skip = ''
+  let to: Element | null = null
+  let toRect: DOMRect | null = null
+  const style = document.createElement('style')
+  const turn = document.startViewTransition(async () => {
+    const t = (): number => Math.round(performance.now() - pressed)
+    flight.steps = [t()]
+    unname()
     flushSync(run)
-    // Shrinking back: the thing it lands on, where it really is now, followed every frame until it lands (the page
-    // coming back reads in, lays out and scrolls back to where it was).
-    // The sheet waits over the page until the thing has stayed put for three frames (or `WAIT`), then shrinks.
-    let last = ''
-    let steady = 0
-    const since = performance.now()
-    const follow = (): void => {
-      if (done || !landing) return
-      const now = landing()
-      if (now && seen(now)) {
-        const to = now.getBoundingClientRect()
-        if (say(to) !== last) (last = card.dataset.to = say(to)), (steady = 0), (move.effect as KeyframeEffect).setKeyframes(shrink(to, big))
-        else steady++
-      }
-      if (move.playState === 'paused' && (steady >= 3 || performance.now() - since > WAIT)) move.play()
-      requestAnimationFrame(follow)
-    }
-    follow()
-  }
-  // Opened once the sheet is moving (the compositor has it by then), so a slow page never holds it still; read
-  // from the flight's own clock, not a timer, so the page and the sheet keep in step.
-  // Shrinking back, the sheet is held over the page while the page comes back, and the page goes after a frame.
-  if (kind === 'close' && landing) move.pause()
-  const from = kind === 'open' ? ms * OPEN_AT : 0
-  let at = 0
-  let frames = 0
-  const watch = (): void => void (done || ran || ((kind === 'close' ? ++frames > 1 : Number(move.currentTime ?? 0) > from) ? go() : (at = requestAnimationFrame(watch))))
-  at = requestAnimationFrame(watch)
-  const end = (): void => {
-    if (done) return
-    done = true
-    cancelAnimationFrame(at)
-    removeEventListener('keydown', end, true)
-    removeEventListener('pointerdown', end, true)
-    go()
-    move.cancel()
-    card.remove()
-    if (flying === self) flying = null
-    if (!flying) delete document.documentElement.dataset.hero
-  }
-  const self = { end }
+    flight.steps.push(t())
+    const shown = await until(ready, WAIT)
+    flight.steps.push(t())
+    if (!shown) return void (skip = 'the page was not on show in time')
+    to = next()
+    if (to && seen(to)) {
+      toRect = kind === 'close' ? await steady(to, 300) : to.getBoundingClientRect()
+      name(to)
+    } else if (kind === 'open') return void (skip = 'nothing to grow into')
+    // The group is the size of the new picture when there is one, else the old. Its move is written as a CSS
+    // animation before the new picture is taken, so it starts with the crossfades in the same frame, on the
+    // compositor: started from script once the transition is ready, a busy first frame showed the page whole first.
+    const base = (toRect ?? bigOld ?? small).width
+    const page = kind === 'open' ? toRect! : bigOld!
+    const thing = kind === 'open' ? small : (toRect ?? small)
+    flight.to = box(kind === 'open' ? page : thing)
+    const [a, b] = kind === 'open' ? [lay(thing, base), lay(page, base)] : [lay(page, base), lay(thing, base)]
+    style.textContent = `@keyframes mf-hero-fly { from { transform: ${a}; } to { transform: ${b}; } }
+:root[data-hero]::view-transition-group(${NAME}) { animation: mf-hero-fly ${ms}ms ${CURVE} both; }`
+    document.head.append(style)
+  })
+  const self = { skip: (): void => turn.skipTransition() }
   flying = self
+  const end = (): void => {
+    removeEventListener('keydown', self.skip, true)
+    removeEventListener('pointerdown', self.skip, true)
+    unname()
+    style.remove()
+    if (flying !== self) return
+    flying = null
+    delete root.dataset.hero
+  }
   // A key or a click mid-flight: the page is there for it at once.
-  addEventListener('keydown', end, true)
-  addEventListener('pointerdown', end, true)
-  void move.finished.then(async () => {
-    if (done) return
-    if (kind === 'close') return end()
-    await until(ready)
-    if (done) return
-    // The page is on show under it: the sheet melts into it.
-    const melt = card.animate([{ opacity: 1 }, { opacity: 0 }], { duration: MELT_MS, easing: 'ease-out', fill: 'forwards' })
-    void melt.finished.then(end, end)
-  }, () => {})
+  addEventListener('keydown', self.skip, true)
+  addEventListener('pointerdown', self.skip, true)
+  void turn.finished.then(end, end)
+  void turn.ready.then(() => {
+    if (skip) return void ((flight.skipped = skip), turn.skipTransition())
+    flight.moved = Math.round(performance.now() - pressed)
+    flight.at = performance.now()
+    flight.shown = onShow(paneCard()) || kind === 'close'
+  }, () => void (flight.skipped ||= skip || 'skipped'))
 }
 
 /**
  * Opens what `run` opens, growing it out of what was clicked into `to` (the
  * pane in front, unless said). Given the click, a ⌘-, ⌥- or ⇧-click (a new
- * tab, the side, picking) is left as it was. Where `to` comes only once the
- * page is open (a note beside a list for the first time), the page opens
- * first and the sheet grows into it as it appears.
+ * tab, the side, picking) is left as it was.
  */
 export function heroOpen(from: HeroFrom, run: () => void, to: () => Element | null = paneCard, ready = (): boolean => onShow(to())): void {
   const click = from && !(from instanceof Element) && !(from instanceof DOMRect) ? from : null
   const el = from instanceof Element ? from : click?.currentTarget instanceof Element ? click.currentTarget : null
   const rect = from instanceof DOMRect ? from : null
   const plain = !may() || (click && (click.metaKey || click.altKey || click.shiftKey || click.ctrlKey)) || (!rect && !(el?.isConnected && seen(el)))
-  if (plain) return void ((opened = null), flying?.end(), run())
+  if (plain) return void ((opened = null), flying?.skip(), run())
   const small = rect ?? el!.getBoundingClientRect()
   opened = { key: el ? keyOf(el) : null, rect: small }
-  const there = to()
-  if (there && seen(there)) return fly('open', small, there.getBoundingClientRect(), there, run, ready)
-  // Not there yet: opened now, and grown into once it is (or simply there, if it never comes).
-  flying?.end()
-  // Already a flight, so what opens does not slide in on its own as well (day-side.tsx).
-  const wait = { end: (): void => void (flying === wait && (flying = null)) }
-  flying = wait
-  flushSync(run)
-  void until(ready).then(() => {
-    if (flying !== wait) return
-    flying = null
-    const now = to()
-    if (now && seen(now) && may()) fly('open', small, now.getBoundingClientRect(), now, () => {}, () => true)
-  })
+  fly('open', rect ? null : el, small, run, to, ready)
 }
 
 /**
  * Closes what grew open (`run` takes it away), shrinking `from` (the pane in
- * front, unless said) back into the thing it came from: where it was when it
- * was clicked, or where it is on the page that comes back when that is
- * already known. Nothing grew: closed at once.
+ * front, unless said) back into the thing it came from, where it is on the
+ * page that comes back (or where it was when it was clicked). Nothing grew:
+ * closed at once. Only for a click on Back or a close button: a key, a swipe
+ * or a menu steps back with no flight.
  */
 export function heroBack(run: () => void, from: () => Element | null = paneCard): void {
   const was = opened
   opened = null
   const el = from()
-  if (!was || !el || !seen(el) || !may()) return void (flying?.end(), run())
+  if (!was || !el || !seen(el) || !may()) return void (flying?.skip(), run())
   const find = (): Element | null => {
     if (!was.key) return null
     const [name, value] = was.key
@@ -260,5 +257,5 @@ export function heroBack(run: () => void, from: () => Element | null = paneCard)
     const all = [...document.querySelectorAll(`[${name}="${CSS.escape(value)}"]`)].filter(seen)
     return all.find((one) => paneCard()?.contains(one)) ?? all[0] ?? null
   }
-  fly('close', was.rect, el.getBoundingClientRect(), el, run, () => true, was.key ? find : undefined)
+  fly('close', el, was.rect, run, find, () => onShow(paneCard()))
 }

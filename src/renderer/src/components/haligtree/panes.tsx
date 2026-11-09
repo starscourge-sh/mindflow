@@ -3,6 +3,7 @@ import { AnimatePresence, motion, useIsPresent } from 'motion/react'
 
 import '@/assets/split.css'
 import { byKeys, EASE, growFrom, still } from '@/lib/motion'
+import { heroing } from '@/lib/hero'
 import { takeLanding } from './split-drop'
 import { chime } from '@/lib/sound'
 import { PANE_GAP, PANE_MIN, PaneContext, PaneWidthContext, panesFit, type PaneWidth } from '@/lib/split'
@@ -209,6 +210,7 @@ function PaneFrame({ pane, apis, split, front, hidden, least, groups, actions, s
     const root = pageRef.current
     if (!want?.length || !root) return
     let frame = 0
+    let timer = 0
     let tries = 0
     // Held past landing until the page stops growing: something above that
     // draws a moment later (a strip of goals) pushed the page down by its
@@ -229,7 +231,9 @@ function PaneFrame({ pane, apis, split, front, hidden, least, groups, actions, s
       }
       still = height === tall ? still + 1 : 0
       tall = height
-      if ((left || still < 20) && ++tries < 180) frame = requestAnimationFrame(put)
+      // While Back's flight holds the window's picture (lib/hero.ts) no frame comes: a timer stands in, so the page is
+      // where it was before the flight measures where to land.
+      if ((left || still < 20) && ++tries < 180) heroing() ? (timer = window.setTimeout(put, 16)) : (frame = requestAnimationFrame(put))
       else landing.current = null
     }
     landing.current = want
@@ -241,6 +245,7 @@ function PaneFrame({ pane, apis, split, front, hidden, least, groups, actions, s
     put()
     return () => {
       cancelAnimationFrame(frame)
+      clearTimeout(timer)
       landing.current = null
       root.removeEventListener('wheel', letGo, true)
       root.removeEventListener('pointerdown', letGo, true)

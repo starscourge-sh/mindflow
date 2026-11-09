@@ -2761,20 +2761,31 @@ html:is([data-dragging], [data-split-drag]) :is([data-peek-card], [data-slash-pe
 }
 
 /* Something clicked growing into what it opens, and back (lib/hero.ts): a
-   plain sheet the colour of the page, lifted off it, moved by transform and
-   opacity alone so it keeps moving while the page is built. It takes no
-   clicks, and sits under menus and dialogs. */
-[data-hero-card] {
-  position: fixed;
-  z-index: 40;
-  pointer-events: none;
-  background: var(--background);
-  border-radius: 12px;
-  box-shadow: var(--mf-shadow-lift);
+   view transition. The group (the real pictures of the thing and the page)
+   is moved with transform alone, from its top left corner, by keyframes
+   lib/hero.ts writes for each flight;
+   the rest of the window fades from the old picture to the new under it
+   (no blur: a full window blurred costs frames).
+   Opacity and transform only, so the compositor draws every frame. */
+:root[data-hero]::view-transition-group(mf-hero) {
   transform-origin: 0 0;
-  will-change: transform, opacity;
-  contain: strict;
 }
+/* The window itself does not move: the browser's own group animation (its size, on the main thread) is off. */
+:root[data-hero]::view-transition-group(root) { animation: none; }
+:root[data-hero]::view-transition-old(root) { animation: mf-hero-hold 200ms linear both; }
+:root[data-hero]::view-transition-new(root) { animation: mf-plain-in 200ms cubic-bezier(0.32, 0.72, 0, 1) both; mix-blend-mode: normal; }
+/* Opening, the page alone grows out of the thing, quickly there. */
+:root[data-hero='open']::view-transition-new(mf-hero) { animation: mf-plain-in 120ms ease-out both; }
+/* Going back, the page you come back to is there at once under the page shrinking away, which stays itself most
+   of the way down while the thing shows through as it lands. */
+:root[data-hero='close']::view-transition-new(root) { animation: mf-hero-hold 220ms linear both; }
+:root[data-hero='close']::view-transition-old(mf-hero) { animation: mf-hero-page-out 220ms linear both; }
+:root[data-hero='close']::view-transition-new(mf-hero) { animation: mf-hero-thing-in 220ms linear both; }
+/* The window as it was stays whole under the new one fading in over it: two half-faded pictures let the dark
+   desktop through, and the window dimmed mid-flight. */
+@keyframes mf-hero-hold { from, to { opacity: 1; } }
+@keyframes mf-hero-page-out { 0%, 45% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes mf-hero-thing-in { 0%, 40% { opacity: 0; } 100% { opacity: 1; } }
 
 /* Depth, three ways and no more: a control sits on the page (--mf-shadow-control),
    something picked up or dragged lifts off it (--mf-shadow-lift), and anything
