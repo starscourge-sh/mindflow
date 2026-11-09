@@ -1103,8 +1103,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
   const actions = (
         <span className="flex items-center gap-1">
           {writeOut}
-          {/* Sort, group and filter, on every tab: its button here, F, or from ⋯. Written out too, so nothing in the bar moves
-              as the layout changes; a group picked there goes back to the list, grouped. */}
+          {/* Sort, group and filter, on every tab: its button here, F, or from ⋯, in the same place on every tab. */}
           {(
             <Display
               view={view}
@@ -2006,7 +2005,7 @@ function Checklist({ task, onOpen }: { task: TaskFull; onOpen?: (type: string, i
             >
               {item.done && <Check className="size-3 mf-on-accent" />}
             </button>
-            {/* Its words written straight into, as a line on Today's page is; ⌥↑ ⌥↓ move it. */}
+            {/* Its words written straight into, as a new line in Today's list is; ⌥↑ ⌥↓ move it. */}
             <input data-subtask={index} defaultValue={item.text} aria-label={`Step: ${item.text}`} title={item.text}
               onKeyDown={(event) => {
                 if (event.key === 'Enter') return event.currentTarget.blur()
