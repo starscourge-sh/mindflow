@@ -1332,6 +1332,8 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
                       <div
                         data-id={task.id}
                         data-task-row
+                        // Sorted by a drag on Today, but its side-by-side places still wait for the page's very edge (split-drop.tsx).
+                        data-split-edge={sortable || undefined}
                         data-open={task.id === (coming ?? open?.id) || undefined}
                         data-cursor={index === cursor || undefined}
                         className={`group group/item relative flex items-start gap-3 rounded-md list-ink py-2 transition-colors ${several.chosen.includes(task.id) ? PICKED_ROW : task.id === (coming ?? open?.id) ? 'bg-accent' : index === cursor ? 'bg-accent/40' : ''} ${arrived(task.id) || fresh(task.id) >= 0 ? 'mf-arrive' : ''} ${task.heldAt ? 'opacity-55' : ''}`}

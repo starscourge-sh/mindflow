@@ -89,9 +89,9 @@ function sourceOf(target: EventTarget | null): { node: HTMLElement; carried: Car
   // Any other list row (a task in Today, Upcoming, Later) waits too, until the
   // pointer is at the page's very edge: a row nudged up or down in its list,
   // or carried over the task open beside it, never brings the places up, nor
-  // lets go into one by surprise.
+  // lets go into one by surprise. Today's rows sort by a drag and still wait for the edge (data-split-edge).
   const sorts = !!listed.closest('[data-sortable-id]')
-  return { node: listed, carried: { row: { pane, id: listed.dataset.id! }, title: titleOf(listed), kind: listed.dataset.dragKind }, column: true, edgeOnly: !sorts }
+  return { node: listed, carried: { row: { pane, id: listed.dataset.id! }, title: titleOf(listed), kind: listed.dataset.dragKind }, column: true, edgeOnly: !sorts || !!listed.closest('[data-split-edge]') }
 }
 
 /** Whether a sidebar place takes what is carried: Pinned takes a note (never a task or a list's row), the Queue anything but a task. */
