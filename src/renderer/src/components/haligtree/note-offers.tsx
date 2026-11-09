@@ -197,8 +197,8 @@ export function NoteOffers({ table, id, editor, onOpen }: { table: 'captures' | 
       done()
     } }]
   } else if (offer.kind === 'link') {
-    lead = `Names ${quoted(offer.title, 80)}.`
-    rest = 'Link it, so each note shows the other.'
+    lead = `Mentions ${quoted(offer.title, 80)}, a note of yours.`
+    rest = 'Link them, so each shows the other.'
     actions = [{ label: 'Link it', data: 'link', run: () => {
       if (linkWords(editor, offer.words, offer.key, offer.title)) (chime('noted'), toast(`Linked ${quoted(offer.title, 80)}`, () => editor.commands.undo()))
       done()

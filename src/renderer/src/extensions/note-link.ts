@@ -262,11 +262,13 @@ interface NoteLinkOptions {
  */
 /**
  * A long name cut to its first words for a link to read as: up to its first
- * stop or colon, else its first six words and "…". "" when the name is short already.
+ * stop or colon, else its first six words and "…", never its tags. "" when the name is short and untagged already.
  */
 export function shortLabel(label: string): string {
-  const name = label.replace(/\s+/g, " ").trim()
-  if (name.length <= 40) return ""
+  const whole = label.replace(/\s+/g, " ").trim()
+  // Its tags ("Frankenstein #book") are for lists, not for a link to read as.
+  const name = whole.replace(/(?:^|\s)#[\p{L}\p{N}_\/-]+/gu, "").trim() || whole
+  if (name.length <= 40) return name === whole ? "" : name
   const clause = /^(.{8,40}?)[.:;!?](\s|$)/.exec(name)?.[1]
   if (clause) return clause.trim()
   return `${name.split(" ").slice(0, 6).join(" ").replace(/[,;:]$/, "")}…`

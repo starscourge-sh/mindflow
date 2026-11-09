@@ -229,8 +229,10 @@ export function linksIn(index: RootIndex, text: string, lemmas: Lemmas | undefin
   const out: { key: string; title: string; words: string }[] = []
   for (const note of index.notes) {
     if (note.key === leave || linked.has(note.key)) continue
-    const title = index.folded(note.title, note.lemmas)
-    if (!title.length || title.length > 5 || note.title.trim().split(/\s+/).length > 6) continue
+    // A name's tags ("Frankenstein #book") are not its words: "a book club" never names it, and the offer says "Frankenstein".
+    const name = note.title.replace(/(?:^|\s)#[\p{L}\p{N}_\/-]+/gu, '').trim()
+    const title = index.folded(name, note.lemmas)
+    if (!title.length || title.length > 5 || name.split(/\s+/).length > 6) continue
     // One in twenty notes at most (three in a small book): a word nearly every note has names nothing.
     if (title.length === 1 && (title[0].length < 5 || index.notesWith(title[0]) > Math.max(3, index.notes.length / 20))) continue
     const at = said.findIndex((_, i) => title.every((root, j) => said[i + j] === root))
@@ -238,7 +240,7 @@ export function linksIn(index: RootIndex, text: string, lemmas: Lemmas | undefin
     // The words as written, for the offer to show: the run of tokens that matched.
     const plain = tokens(text)
     const shown = plain.slice(at, at + title.length).join(' ')
-    out.push({ key: note.key, title: note.title, words: words.find((one) => one.toLowerCase() === shown) ?? shown })
+    out.push({ key: note.key, title: name, words: words.find((one) => one.toLowerCase() === shown) ?? shown })
   }
   return out
 }
