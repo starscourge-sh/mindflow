@@ -1,5 +1,6 @@
-// Calendar and Tasks for the eye: week, the event panel open, and the Tasks list,
-// in light and dark, at 1440 x 900, 760 x 900 and a short 760 x 500 window.
+// Calendar and Tasks for the eye: Day and Week, each bare, with the right sidebar
+// holding Upcoming, and holding "New event", and the Tasks list, in light and
+// dark, at 1440 x 900, 760 x 900 and the smallest window, 560 x 500.
 //
 //   QA_ARGS=--sandbox QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 SHOTS=dir node qa/cal-tasks-shots.mjs
 import { sandbox } from './sandbox-lib.mjs'
@@ -22,17 +23,22 @@ try {
     await v('event:add', { title: names[n % names.length], start: start.toISOString(), end: new Date(start.getTime() + 3600000).toISOString(), calendarId: 'personal' })
   }
   await v('event:add', { title: 'Conference', start: at(0, 0).toISOString(), end: at(2, 0).toISOString(), allDay: true, calendarId: 'personal' })
-  for (const [w, hh] of [[1440, 900], [760, 900], [760, 500]]) {
+  for (const [w, hh] of [[1440, 900], [760, 900], [560, 500]]) {
     await size(w, hh); await h.waitForTimeout(500)
     const label = `${w}x${hh}`
     await go('calendar'); await h.waitForTimeout(900)
-    await h.keyboard.press('Escape'); await h.keyboard.press('w'); await h.waitForTimeout(600)
-    for (const name of ['light', 'dark']) { await look(name); await h.waitForTimeout(300); await h.screenshot({ path: `${shots}/cal-${label}-week-${name}.png` }) }
-    await look('light')
-    await h.locator('[data-cal-new-event]').click(); await h.waitForTimeout(700)
-    for (const name of ['light', 'dark']) { await look(name); await h.waitForTimeout(300); await h.screenshot({ path: `${shots}/cal-${label}-new-${name}.png` }) }
-    await look('light')
-    await h.keyboard.press('Escape'); await h.waitForTimeout(500)
+    const shoot = async (what) => { for (const name of ['light', 'dark']) { await look(name); await h.waitForTimeout(300); await h.screenshot({ path: `${shots}/cal-${label}-${what}-${name}.png` }) } await look('light') }
+    for (const [k, mode] of [['d', 'day'], ['w', 'week']]) {
+      await h.keyboard.press('Escape'); await h.keyboard.press(k); await h.waitForTimeout(600)
+      // Bare, then the sidebar with Upcoming (the ⊟ switch), then with "New event" in its place.
+      if (await h.locator('[data-cal-right]').count()) { await h.locator('[data-cal-side-toggle]').click(); await h.waitForTimeout(600) }
+      await shoot(mode)
+      await h.locator('[data-cal-side-toggle]').click(); await h.waitForTimeout(700)
+      await shoot(`${mode}-upcoming`)
+      await h.locator('[data-cal-new-event]').click(); await h.waitForTimeout(700)
+      await shoot(`${mode}-new`)
+      await h.keyboard.press('Escape'); await h.waitForTimeout(500)
+    }
     await go('today'); await h.waitForTimeout(900)
     for (const name of ['light', 'dark']) { await look(name); await h.waitForTimeout(300); await h.screenshot({ path: `${shots}/tasks-${label}-${name}.png` }) }
     await look('light')

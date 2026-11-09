@@ -58,6 +58,7 @@ const FEW = 3
  */
 const LEFT = { key: 'vigil.calendar.left', home: 14, least: 12, most: 22 }
 const RIGHT = { key: 'vigil.calendar.right', home: 16, least: 13, most: 26 }
+const EDITOR = { key: 'vigil.calendar.editor', home: 24, least: 20, most: 34 }
 const ACCENT = 'var(--tt-brand-color-400)'
 /** How many Unscheduled tasks show before "Show N more": a working list to drag from, so a few more than an Inbox island. */
 const LOOSE_FEW = 8
@@ -139,6 +140,7 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
   const zone = useSecondZone()
   const [leftRem, leftGrip] = usePanelWidth(LEFT, 'left')
   const [rightRem, rightGrip] = usePanelWidth(RIGHT, 'right')
+  const [editorRem, editorGrip] = usePanelWidth(EDITOR, 'right')
   const [fits, setFits] = useState({ left: true, right: true })
   useEffect(() => {
     const el = box.current
@@ -303,7 +305,7 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
       const take = (run: () => void): void => (event.preventDefault(), run())
       if (key === 'd' || key === 'w' || key === 'm') return take(() => setMode(({ d: 'day', w: 'week', m: 'month' } as const)[key]))
       if (key === 't') return take(today)
-      if (key === 'n') return take(() => ((pressed.current = null), newEvent()))
+      if (key === 'n') return take(newEvent)
       // Esc lets go of the task or event picked, as on every list, so ⌘K is the Calendar's own again.
       if (key === 'Escape' && !panel && !peek && (chosen || chosenEvent)) return take(() => (chime('away'), setChosen(null), setChosenEvent(null), (document.activeElement as HTMLElement | null)?.blur()))
       if (key === '.') return take(() => (chime('open'), setJump(true)))
@@ -343,20 +345,6 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
   const settle = (id: string, due: string): void => {
     setLanded({ id, due })
     window.setTimeout(() => setLanded((was) => (was?.id === id && was.due === due ? null : was)), 1500)
-  }
-  // What the panel opens beside: the slot being made, the event or task opened, else what was last pressed, else "New event".
-  const pressed = useRef<Element | null>(null)
-  const origin = (): DOMRect | null => {
-    const ask = panel
-    const id = ask && ('event' in ask ? ask.event : 'task' in ask ? ask.task : null)
-    const sel = !ask ? null : 'event' in ask ? `[data-cal-event="${CSS.escape(id!)}"], [data-cal-event-chip="${CSS.escape(id!)}"]`
-      : 'task' in ask ? `[data-cal-block="${CSS.escape(id!)}"], [data-cal-untimed="${CSS.escape(id!)}"], [data-cal-loose="${CSS.escape(id!)}"], [data-plan-task="${CSS.escape(id!)}"]`
-      : ask.minute === null ? `[data-cal-allday="${ask.day}"]` : '[data-cal-draft]'
-    const seen = (el: Element | null | undefined): DOMRect | null => {
-      const box = el?.isConnected ? el.getBoundingClientRect() : null
-      return box && box.width > 0 ? box : null
-    }
-    return seen(sel ? box.current?.querySelector(sel) : null) ?? seen(pressed.current) ?? seen(box.current?.querySelector('[data-cal-new-event]'))
   }
   const draft: Draft | null = panel && 'day' in panel ? panel : null
   const setDraft = (to: Draft | null): void => setPanel(to)
@@ -451,10 +439,8 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
   // The card follows its event as it changes; the time it was opened for stays its anchor.
   const peekNow = peek && { ...peek, one: shownEvents.find((one) => one.key === peek.one.key) ?? peek.one }
   const left = side && !roomless && (fits.left || kept)
-  // The right panel: Upcoming where there is room, and the event or task being edited, which takes its place.
+  // The right sidebar: Upcoming where there is room, and the event or task being edited, which takes its place.
   const upcoming = upSide && mode !== 'month' && (fits.right || keptRight)
-  // The editor (a new event or task, one opened) floats beside what it came from instead (DaySide): the grid keeps its width.
-  const right = upcoming
   // Each panel's switch sits on its own side of the bar: on while its panel is up, off hides it; on again shows it, room or not.
   const leftPanel = (): void => {
     if (left) return (setKept(false), setSide(false))
@@ -479,7 +465,6 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
       }}
       onPointerDownCapture={(event) => {
         const at = event.target as HTMLElement
-        pressed.current = at.closest('button, [role="button"], [data-cal-allday], [data-cal-col]') ?? at
         if (!at.closest('[data-cal-block], [data-cal-untimed], [data-cal-loose]')) setChosen(null)
         const ev = at.closest<HTMLElement>('[data-cal-event], [data-cal-event-chip], [data-cal-pop]')
         setChosenEvent(ev ? (ev.dataset.calEvent ?? ev.dataset.calEventChip ?? ev.dataset.calPop ?? null) : null)
@@ -585,17 +570,10 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
             <Grid days={days} tasks={shownTasks} marks={marked ? captures : undefined} onHead={(day) => (setAnchor(day), setMode('day'))} onPoint={(at) => void (pointed.current = at)} calendars={layers.calendars} {...blockProps} />
           )}
         </div>
-        {/* The right panel, as Notion Calendar's: Upcoming beside the days. */}
-        {right && (
-          <aside data-cal-right data-cal-right-holds="upcoming" className="relative flex shrink-0 flex-col border-l" style={{ width: `${rightRem}rem` }}>
-            {rightGrip}
-            <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-4 py-4">
-              <Upcoming tasks={shownTasks} name={calendarName} onPeek={(one, at) => (goTo(dayjs(one.start)), onPeek(one, at))} onTask={(task) => (goTo(dayjs(task.dueAt!)), setChosen(task.id), pick(task.id))} />
-            </div>
-          </aside>
-        )}
-        {/* A new event or task, or one opened: a frosted panel floating beside the slot, event or task it came from, grown out of it; the grid under it never moves. */}
-        <DaySide inline ask={panel} from={origin} onClose={() => setPanel(null)} onOpen={onOpen} />
+        {/* The right sidebar, as Notion Calendar's: Upcoming, or in its place the event or task being made or opened; closed,
+            Upcoming is back. It floats over the days on the shared frost, so they keep their whole width under it. */}
+        <DaySide inline ask={panel} width={`${panel ? editorRem : rightRem}rem`} grip={panel ? editorGrip : rightGrip} onClose={() => setPanel(null)} onOpen={onOpen}
+          rest={upcoming ? <Upcoming tasks={shownTasks} name={calendarName} onPeek={(one, at) => (goTo(dayjs(one.start)), onPeek(one, at))} onTask={(task) => (goTo(dayjs(task.dueAt!)), setChosen(task.id), pick(task.id))} /> : null} />
       </div>
       {carry?.kind === 'move' && (!carry.to || carry.to.minute === null) && createPortal(
         <div data-cal-carried style={{ left: carry.x + 8, top: carry.y + 8 }}

@@ -103,74 +103,98 @@ try {
     await look('light')
     await h.keyboard.press('Escape'); await h.waitForTimeout(400)
   }
-  // 1. "New event" floats over the days' right edge on the shared frost, slides in and out, and the grid never moves.
+  // 1. The right sidebar (Upcoming, and New event or an opened event or task in its place) floats over the days on the
+  // shared frost, full height on the right, inset as the app's other floating panels; it slides in and out from the
+  // right and the grid never moves.
   await size(1440, 900); await h.keyboard.press('w'); await h.waitForTimeout(600)
-  if (!(await h.locator('[data-cal-right]').count())) { await h.locator('[data-cal-side-toggle]').click(); await h.waitForTimeout(600) }
   const gridBox = () => h.locator('[data-cal-grid]').boundingBox()
+  const toggle = h.locator('[data-cal-side-toggle]')
+  if (await h.locator('[data-cal-right]').count()) { await toggle.click(); await h.waitForTimeout(600) }
   const before = await gridBox()
-  // Every 50ms while it slides in: the days never move, not even for a frame.
-  const grids = []
-  const watch = setInterval(() => void gridBox().then((one) => grids.push(JSON.stringify(one))), 50)
-  await h.locator('[data-cal-new-event]').click(); await h.waitForTimeout(700)
-  clearInterval(watch)
-  const after = await gridBox()
-  const moved = grids.filter((one) => one !== JSON.stringify(before))
-  check('1: the grid keeps its place and width under the panel, every frame', JSON.stringify(before) === JSON.stringify(after) && moved.length === 0, `${grids.length} frames, ${moved.length} moved: ${moved[0] ?? ''}`)
-  const float = await h.locator('[data-day-side]').evaluate((el) => {
+  // Filmed in the page every frame: the sidebar's left edge, its opacity, and the grid's box.
+  const film = () => h.evaluate(() => { window.__film = []; const t0 = performance.now(); const tick = () => { const el = document.querySelector('[data-cal-right]'); const g = document.querySelector('[data-cal-grid]')?.getBoundingClientRect(); window.__film.push({ t: Math.round(performance.now() - t0), left: el ? Math.round(el.getBoundingClientRect().left) : null, opacity: el ? getComputedStyle(el).opacity : null, grid: g ? `${g.x},${g.width}` : '' }); if (performance.now() - t0 < 700) requestAnimationFrame(tick) }; requestAnimationFrame(tick) })
+  const reel = () => h.evaluate(() => window.__film)
+  const slid = (frames, way) => {
+    const seen = frames.filter((one) => one.left !== null)
+    const lefts = seen.map((one) => one.left)
+    const steady = lefts.every((x, n) => n === 0 || (way === 'in' ? x <= lefts[n - 1] : x >= lefts[n - 1]))
+    // How long it took: in, until it first rests where it ends; out, until it is gone.
+    const ms = seen.length ? (way === 'in' ? seen.find((one) => one.left === lefts.at(-1)).t : seen.at(-1).t) - seen[0].t : 0
+    return { ok: seen.length >= 3 && steady && new Set(lefts).size >= 3 && seen.every((one) => one.opacity === '1'), lefts: lefts.filter((x, n) => n === 0 || x !== lefts[n - 1]).slice(0, 8), ms }
+  }
+  const gridStill = (frames) => frames.every((one) => one.grid === `${before.x},${before.width}`)
+  await film(); await toggle.click(); await h.waitForTimeout(750)
+  const upIn = await reel()
+  check('1: ⊟ slides Upcoming in from the right, never a fade', slid(upIn, 'in').ok, JSON.stringify(slid(upIn, 'in')))
+  check('1: the grid keeps its place and width under Upcoming, every frame', gridStill(upIn) && JSON.stringify(await gridBox()) === JSON.stringify(before), `${upIn.length} frames`)
+  const sidebar = () => h.locator('[data-cal-right]').evaluate((el) => {
     const css = getComputedStyle(el); const box = el.getBoundingClientRect(); const row = el.parentElement.getBoundingClientRect()
-    return { frost: el.classList.contains('mf-frost'), position: css.position, right: Math.round(row.right - box.right), opacity: css.opacity }
+    return { holds: el.getAttribute('data-cal-right-holds'), frost: el.classList.contains('mf-frost'), position: css.position, shadow: css.boxShadow !== 'none', radius: css.borderTopLeftRadius,
+      right: Math.round(row.right - box.right), top: Math.round(box.top - row.top), bottom: Math.round(row.bottom - box.bottom), opacity: css.opacity }
   })
-  check('1: the panel floats on the shared frost', float.frost && float.position === 'absolute' && float.right >= 4 && float.opacity === '1', JSON.stringify(float))
-  check('1: Upcoming stays beside the grid', (await h.locator('[data-cal-right-holds="upcoming"]').count()) === 1)
-  check('1: no docked panel opens for it', (await h.locator('[data-cal-right]').count()) === 1 && (await h.locator('[data-cal-right-holds="upcoming"]').count()) === 1)
-  // Beside the slot it was made for (the next hour's "New event" block), never over it, and as tall as its words.
-  const beside = async () => h.evaluate(() => {
-    const p = document.querySelector('[data-day-side]')?.getBoundingClientRect(); const d = document.querySelector('[data-cal-draft]')?.getBoundingClientRect()
-    const row = document.querySelector('[data-day-side]')?.parentElement.getBoundingClientRect()
-    if (!p || !d) return { p: !!p, d: !!d }
-    return { gap: Math.round(p.left >= d.right ? p.left - d.right : d.left - p.right), overlap: p.left < d.right - 1 && p.right > d.left + 1, top: Math.round(p.top - d.top), short: Math.round(p.height) < Math.round(row.height) - 20, inside: p.top >= row.top && p.bottom <= row.bottom + 1 }
-  })
-  const b1 = await beside()
-  check('1: it floats beside its slot, not over it, as tall as its words', !b1.overlap && b1.gap >= 4 && b1.gap <= 16 && b1.short && b1.inside, JSON.stringify(b1))
-  // Filmed every 50ms as it goes (Esc): it shrinks back into its slot by a clip, never fades and never slides.
-  // Recorded in the page every frame, so a slow round trip never misses the close.
-  await h.evaluate(() => { window.__film = []; const tick = () => { const el = document.querySelector('[data-day-side]'); if (!el) return; window.__film.push([Math.round(el.getBoundingClientRect().left), getComputedStyle(el).opacity, getComputedStyle(el).clipPath]); requestAnimationFrame(tick) }; requestAnimationFrame(tick) })
-  await h.keyboard.press('Escape'); await h.waitForTimeout(450)
-  const xs = await h.evaluate(() => window.__film)
-  const seen = xs.filter((one) => one && one[1] !== '')
-  check('1: Esc closes it back into its slot (a clip, no fade)', (await h.locator('[data-day-side]').count()) === 0 && seen.every((one) => one[1] === '1') && seen.some((one) => /inset\((?!0px 0px 0px 0px)/.test(one[2])), JSON.stringify(seen.slice(0, 6)))
+  // 0.75rem in from the row's right, top and bottom (a little more at a larger app size, and the row's top line), as the map's and queue's panels.
+  const near = (gap) => gap >= 10 && gap <= 17
+  const onEdge = (one) => one.frost && one.position === 'absolute' && one.shadow && near(one.right) && near(one.top) && near(one.bottom) && one.opacity === '1'
+  const up = await sidebar()
+  check('1: Upcoming is a full-height sidebar on the right edge, on the frost', up.holds === 'upcoming' && onEdge(up), JSON.stringify(up))
+  // New event: in Upcoming's place, in the same sidebar; the grid under it unmoved.
+  await h.locator('[data-cal-new-event]').click(); await h.waitForTimeout(600)
+  const ed = await sidebar()
+  check('1: "New event" opens in the same sidebar, in Upcoming\'s place', ed.holds === 'editor' && onEdge(ed) && (await h.locator('[data-cal-right]').count()) === 1 && (await h.locator('[data-new-event-words]').count()) === 1, JSON.stringify(ed))
+  check('1: no small card by the slot: the sidebar is as tall as the days', await h.locator('[data-day-side]').evaluate((el) => el.getBoundingClientRect().height >= el.parentElement.getBoundingClientRect().height - 32))
+  check('1: the dashed "New event" slot stays in the grid', (await h.locator('[data-cal-draft]').count()) === 1)
+  check('1: the grid keeps its width with it open', JSON.stringify(await gridBox()) === JSON.stringify(before))
+  await h.keyboard.press('Escape'); await h.waitForTimeout(500)
+  check('1: Esc closes it, and Upcoming is back', (await h.locator('[data-day-side]').count()) === 0 && (await sidebar()).holds === 'upcoming')
+  // Upcoming off: New event slides in alone, and out to the right.
+  await film(); await toggle.click(); await h.waitForTimeout(750)
+  const upOut = await reel()
+  check('1: ⊟ again slides Upcoming out to the right', slid(upOut, 'out').ok && (await h.locator('[data-cal-right]').count()) === 0, JSON.stringify(slid(upOut, 'out')))
+  await film(); await h.locator('[data-cal-new-event]').click(); await h.waitForTimeout(750)
+  const evIn = await reel()
+  check('1: "New event" slides in from the right on the frost', slid(evIn, 'in').ok && onEdge(await sidebar()), JSON.stringify(slid(evIn, 'in')))
+  check('1: the grid never moves as it slides in', gridStill(evIn), `${evIn.length} frames`)
+  await film(); await h.keyboard.press('Escape'); await h.waitForTimeout(750)
+  const evOut = await reel()
+  const outSaid = slid(evOut, 'out')
+  check('1: Esc slides it out to the right, faster than it came in', outSaid.ok && (await h.locator('[data-day-side]').count()) === 0 && outSaid.ms < slid(evIn, 'in').ms, `out ${JSON.stringify(outSaid)}`)
   check('1: the grid is still where it was', JSON.stringify(await gridBox()) === JSON.stringify(before))
   // N opens it too; ⌘↵ keeps the words and closes it.
   await h.mouse.click(5, 450); await h.keyboard.press('n'); await h.waitForTimeout(600)
   check('1: N opens "New event"', (await h.locator('[data-new-event-words]').count()) === 1)
   await h.keyboard.type('Tea with Ana'); await h.keyboard.press('Meta+Enter'); await h.waitForTimeout(700)
   check('1: ⌘↵ makes it and closes', (await h.locator('[data-day-side]').count()) === 0 && (await h.locator('[data-cal-event]', { hasText: 'Tea with Ana' }).count()) === 1)
-  // A drag across an hour: an event beside it; a click away keeps the words.
+  // A drag across an hour: an event in the sidebar; a click away keeps the words.
   const col = h.locator('[data-cal-col]').nth(2); const cb = await col.boundingBox()
   const y0 = Math.max(cb.y, (await gridBox()).y) + 300
   await h.mouse.move(cb.x + cb.width / 2, y0); await h.mouse.down(); await h.mouse.move(cb.x + cb.width / 2, y0 + 50, { steps: 5 }); await h.mouse.up(); await h.waitForTimeout(600)
-  check('1: a drag on the grid opens "New event" beside it', (await h.locator('[data-new-event-words]').count()) === 1 && !(await beside()).overlap, JSON.stringify(await beside()))
+  check('1: a drag on the grid opens "New event" in the sidebar', (await h.locator('[data-new-event-words]').count()) === 1 && (await sidebar()).holds === 'editor')
   check('1: the grid keeps its width with it open', JSON.stringify(await gridBox()) === JSON.stringify(before))
   await h.keyboard.type('Walk the dog'); await h.locator('[data-cal-subtitle]').click(); await h.waitForTimeout(700)
-  check('1: a click away keeps the words and closes it', (await h.locator('[data-cal-event]', { hasText: 'Walk the dog' }).count()) === 1, `${await h.locator('[data-day-side]').count()} panels`)
+  check('1: a click away keeps the words and closes it', (await h.locator('[data-cal-event]', { hasText: 'Walk the dog' }).count()) === 1 && (await h.locator('[data-day-side]').count()) === 0, `${await h.locator('[data-day-side]').count()} panels`)
   await h.keyboard.press('Escape'); await h.waitForTimeout(400)
   // A double-click on an hour: an event, not a task.
   await h.mouse.dblclick(cb.x + cb.width / 2, y0 + 120); await h.waitForTimeout(600)
   check('1: a double-click opens "New event"', (await h.locator('[data-new-event-words]').count()) === 1, await h.locator('[data-day-side]').getAttribute('aria-label').catch(() => 'none'))
   await h.keyboard.press('Escape'); await h.waitForTimeout(400)
-  // An event opened (its card's "Edit", or a double-click): beside the event.
-  const ev = h.locator('[data-cal-event]', { hasText: 'Tea with Ana' }).first()
-  await ev.dblclick(); await h.waitForTimeout(700)
-  const evBeside = await h.evaluate(() => {
-    const p = document.querySelector('[data-day-side]')?.getBoundingClientRect(); const e = [...document.querySelectorAll('[data-cal-event]')].find((one) => one.textContent.includes('Tea with Ana'))?.getBoundingClientRect()
-    return p && e ? { kind: document.querySelector('[data-day-side]').getAttribute('data-day-side'), overlap: p.left < e.right - 1 && p.right > e.left + 1 } : { p: !!p, e: !!e }
-  })
-  check('1: an event opened floats beside it', evBeside.kind === 'event' && evBeside.overlap === false, JSON.stringify(evBeside))
+  // An event opened (a double-click): in the sidebar.
+  await h.locator('[data-cal-event]', { hasText: 'Tea with Ana' }).first().dblclick(); await h.waitForTimeout(700)
+  check('1: an event opened shows in the sidebar', (await h.locator('[data-day-side]').getAttribute('data-day-side')) === 'event' && onEdge(await sidebar()))
   check('1: the grid keeps its width with an event open', JSON.stringify(await gridBox()) === JSON.stringify(before))
   await h.keyboard.press('Escape'); await h.waitForTimeout(400); await h.keyboard.press('Escape'); await h.waitForTimeout(300)
   await h.locator('[data-cal-new-event]').click(); await h.waitForTimeout(600)
   await h.locator('[data-day-side-close]').click(); await h.waitForTimeout(450)
   check('1: × closes it', (await h.locator('[data-day-side]').count()) === 0)
+  // A small, short window in Day view: the form is whole inside the full-height sidebar, nothing to scroll the page for.
+  await size(560, 500); await h.keyboard.press('d'); await h.waitForTimeout(600)
+  await h.locator('[data-cal-new-event]').click(); await h.waitForTimeout(700)
+  const whole = await h.evaluate(() => {
+    const p = document.querySelector('[data-day-side]').getBoundingClientRect(); const f = document.querySelector('[data-new-event-words]').getBoundingClientRect()
+    return { panel: [Math.round(p.top), Math.round(p.bottom)], field: [Math.round(f.top), Math.round(f.bottom)], window: innerHeight, doc: document.scrollingElement.scrollTop }
+  })
+  check('1: 560x500 Day: New event is whole in the sidebar, not cut off', whole.panel[1] <= whole.window - 8 && whole.field[0] >= whole.panel[0] && whole.field[1] <= whole.panel[1] && whole.doc === 0 && onEdge(await sidebar()), JSON.stringify(whole))
+  await h.keyboard.press('Escape'); await h.waitForTimeout(400)
+  await size(1440, 900); await h.keyboard.press('w'); await h.waitForTimeout(500)
 
   // 2 and 3. The Task tab: one quiet line, and the day being looked at (today), as the Event tab says.
   const todaySaid = await h.evaluate(() => new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' }))
@@ -241,6 +265,9 @@ try {
       const grab = async (ms) => { const end = Date.now() + ms; while (Date.now() < end) { await h.screenshot({ path: `${process.env.FILM}/panel-${label}-${name}-${String(n++).padStart(2, '0')}.png` }); await h.waitForTimeout(50) } }
       await h.locator('[data-cal-new-event]').click(); await grab(450)
       await h.keyboard.press('Escape'); await grab(400)
+      // The ⊟ switch: Upcoming slides in, and out again.
+      await h.locator('[data-cal-side-toggle]').click(); await grab(450)
+      await h.locator('[data-cal-side-toggle]').click(); await grab(400)
     }
     await look('light')
   }
