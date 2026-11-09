@@ -1161,7 +1161,11 @@ body > :not(#root),
     caret-color: inherit;
   }
 }
-:focus-visible:not(input, textarea, select, [contenteditable], [tabindex="-1"]) {
+/* The ring is for controls reached by keys only (a button, a link, a tab, a switch). A card, a panel, a sticky, a
+   window's body or anything holding a field you type in never wears it: those showed a stray box round a whole card
+   while you typed in it. */
+:focus-visible { outline: none; }
+:is(button, a[href], summary, [role='button'], [role='tab'], [role='switch'], [role='checkbox'], [role='radio'], [role='slider'], [data-focus-ring]):focus-visible:not([tabindex="-1"]):not(:has(input, textarea, [contenteditable])) {
   outline: 1.5px solid color-mix(in srgb, var(--tt-brand-color-400) 70%, transparent);
   /* Drawn just inside the edge: outside it, any panel that clips its
      overflow cut the ring off wherever a control met the panel's edge. */
