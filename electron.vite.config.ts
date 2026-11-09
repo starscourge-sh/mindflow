@@ -55,10 +55,15 @@ const shims = (): Plugin => ({
  * when the editor has focus and the caret is in that block, the one case the reading is for.
  */
 const CARET_READ = 'const restoreSelection = captureDOMSelection(this.contentDOMElement);'
-const caretFix = (code: string): string => code.replace(CARET_READ, `const restoreSelection = (() => { const at = this.getPos(); const { from, to } = this.editor.state.selection; return typeof at === "number" && this.editor.view.hasFocus() && to >= at && from <= at + this.node.nodeSize; })() ? captureDOMSelection(this.contentDOMElement) : null;`)
+// Loud, never silent: if TipTap changes the line, the build stops here (check whether they fixed it, then drop this).
+const caretFix = (code: string): string => {
+  if (!code.includes(CARET_READ)) throw new Error('haligtree-tiptap-fix: @tiptap/react changed; check captureDOMSelection upstream and remove or redo this fix')
+  return fixCaret(code)
+}
+const fixCaret = (code: string): string => code.replace(CARET_READ, `const restoreSelection = (() => { const at = this.getPos(); const { from, to } = this.editor.state.selection; return typeof at === "number" && this.editor.view.hasFocus() && to >= at && from <= at + this.node.nodeSize; })() ? captureDOMSelection(this.contentDOMElement) : null;`)
 const tiptapFix = (): Plugin => ({
   name: 'haligtree-tiptap-fix',
-  transform: (code, id) => (id.includes('/@tiptap/react/dist/') && code.includes(CARET_READ) ? caretFix(code) : null)
+  transform: (code, id) => (/\/@tiptap\/react\/dist\/index\.js$/.test(id.split('?')[0]) ? caretFix(code) : null)
 })
 const tiptapFixAhead = {
   name: 'haligtree-tiptap-fix',
