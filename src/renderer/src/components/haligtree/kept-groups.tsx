@@ -407,6 +407,9 @@ export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo
     if (!one.group || one.group.open) index += shownIn(one)
     return { one, start }
   })
+  // A group drawn as a panel (a folder is a plain row) stands 12px clear of whatever is next to it, as the islands do.
+  const panel = (n: number): boolean => !!lines[n]?.one.group && !lines[n].one.group?.folder
+  const airAbove = (n: number): string => (n > 0 && !lines[n].one.head && (panel(n) || panel(n - 1)) ? 'pt-2.5' : '')
   const line = lines.findIndex(({ one, start }) => cursor >= start && cursor < start + ((!one.group || one.group.open) ? shownIn(one) : 0))
   const row = (entry: Entry, at: number, inner?: CSSProperties, indent?: number): React.JSX.Element => (
     <CarryRow key={entry.id} id={entry.id} inner={inner} indent={indent}>
@@ -433,10 +436,10 @@ export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo
             // A big group's line is keyed apart from a small one's: emptied in one step (2,500 rows to none), the list
             // would place every row under it by the height it measured before, scroll there and draw it all twice.
             sizeOf={({ one }) => (one.group?.open ? estimate * (1 + shownIn(one)) : estimate)}>
-            {({ one, start }) =>
+            {({ one, start }, n) =>
               one.group ? (
                 // A folder row keeps the rows' own rhythm, as Finder's list does: no air of its own above or below.
-                <div>
+                <div className={airAbove(n)}>
                 {block(one.group, one.entries, one.parts, start)}
                 </div>
               ) : one.head ? (
@@ -444,6 +447,8 @@ export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo
                   <SectionHead head={one.head} first={start === 0} day={days} />
                   {row(one.entries[0], start)}
                 </>
+              ) : airAbove(n) ? (
+                <div className={airAbove(n)}>{row(one.entries[0], start)}</div>
               ) : (
                 row(one.entries[0], start)
               )
