@@ -5098,3 +5098,16 @@ $run-next: '.react-renderer:has(> .tiptap-attachment.is-audio) + .react-renderer
 
 .mf-graph:hover .mf-graph-grip,
 .mf-graph-grip:active { opacity: 0.6; }
+
+// A note named by its first line (Apple Notes) shows that line as its title: set like the h1 a titled note opens with,
+// so a page's name never reads as its first sentence (10 Nov). The property strip after it is what marks it as the name.
+.tiptap.ProseMirror.haligtree-editor > p:first-child:has(+ .mf-property-holder) {
+  font-family: var(--mf-heading-font, inherit);
+  font-optical-sizing: auto;
+  font-variation-settings: "SOFT" 50, "WONK" 1;
+  font-size: 1.875em;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.024em;
+  color: var(--mf-heading, inherit);
+}
