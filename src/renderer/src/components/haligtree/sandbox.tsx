@@ -36,9 +36,9 @@ const TAPE: CSSProperties = {
 const NO_DRAG = { WebkitAppRegion: 'no-drag' } as CSSProperties
 const SAID = "You're in the sandbox: a peek into someone else's book. Try anything; your own notes are safe."
 
-/** The sandbox's own small buttons: the tape's colour, a little stronger under the pointer, pressed in on click. */
-const PART = 'flex h-full items-center gap-1.5 px-2.5 font-medium transition-[background-color,transform] duration-150 ease-out hover:bg-[color-mix(in_srgb,var(--tt-color-text-yellow)_14%,transparent)] active:scale-[0.97] focus-visible:outline-none focus-visible:bg-[color-mix(in_srgb,var(--tt-color-text-yellow)_18%,transparent)]'
-const RULE = <span aria-hidden className="h-3.5 w-px shrink-0 bg-[color-mix(in_srgb,var(--tt-color-text-yellow)_40%,transparent)]" />
+/** Its buttons are the top bar's: the "New" pill's words, neutral fill under the pointer, pressed in on click. */
+const PART = 'flex h-full items-center gap-1.5 px-2.5 font-medium text-foreground/90 transition-[background-color,color,transform] duration-150 ease-out hover:bg-accent/60 hover:text-foreground active:scale-[0.97] focus-visible:outline-none focus-visible:bg-accent/60'
+const RULE = <span aria-hidden className="h-3.5 w-px shrink-0 bg-border" />
 
 /**
  * In the main window's top bar, always, with nothing to dismiss: Sandbox,
@@ -88,11 +88,11 @@ export function SandboxPill(): React.JSX.Element | null {
     </span>
   )
   return (
-    <span data-sandbox-pill role="group" aria-label="Sandbox" style={{ ...TAPE, ...NO_DRAG }}
-      className="group/sb ml-2 flex h-7 shrink-0 items-center overflow-hidden rounded-full border border-dashed text-control">
-      {/* A label, not a button: a filled strip of tape, so the two answers after it read as the only things to press. */}
-      <span className="flex h-full cursor-default items-center bg-[color-mix(in_srgb,var(--tt-color-text-yellow)_16%,transparent)] px-2 font-semibold">
-        <FlaskConical className="size-3.5 shrink-0" strokeWidth={2.25} />
+    <span data-sandbox-pill role="group" aria-label="Sandbox" style={NO_DRAG}
+      className="group/sb ml-2 flex h-7 shrink-0 items-center overflow-hidden rounded-full border text-control">
+      {/* The same hairline pill as "New" and Back and Forward; only the flask keeps the sandbox's colour, so it is told apart at a glance. */}
+      <span className="flex h-full cursor-default items-center px-2 font-semibold text-foreground/90">
+        <FlaskConical className="size-3.5 shrink-0" strokeWidth={2.25} style={{ color: TAPE.color }} />
         {open(<span className="pl-1.5">Sandbox</span>)}
       </span>
     {open(
