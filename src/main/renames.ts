@@ -28,7 +28,7 @@ function nameNow(link: string): string {
   const { table, id } = partsOf(link)
   const row = (table === 'captures'
     ? database().prepare(`select ${LABEL} as name from captures where id = ? and status != 'discarded'`).get(id)
-    : database().prepare("select coalesce(nullif(title, ''), label('', body)) as name from nuggets where id = ? and binned_at is null").get(id)) as { name: string } | undefined
+    : database().prepare("select coalesce(nullif(nullif(trim(title), 'Untitled'), ''), label('', body)) as name from nuggets where id = ? and binned_at is null").get(id)) as { name: string } | undefined
   return (row?.name ?? '').trim()
 }
 

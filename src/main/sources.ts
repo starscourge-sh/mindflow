@@ -89,7 +89,7 @@ export function registerSources(): void {
     const rows = [
       ...db.prepare(`select 'capture' as type, id, kind, ${LABEL} as label, attribution, medium, fields, private, captured_at as at from captures
         where status != 'discarded' and kind != 'task' and id not in (select capture_id from nuggets where capture_id is not null) and (coalesce(trim(attribution), '') != '' or coalesce(trim(medium), '') != '')`).all(),
-      ...db.prepare(`select case when tier = 'deck' then 'nugget' else tier end as type, id, kind, coalesce(nullif(title, ''), label('', body)) as label, attribution, medium, fields, private, created_at as at, tier = 'deck' as deck from nuggets
+      ...db.prepare(`select case when tier = 'deck' then 'nugget' else tier end as type, id, kind, coalesce(nullif(nullif(trim(title), 'Untitled'), ''), label('', body)) as label, attribution, medium, fields, private, created_at as at, tier = 'deck' as deck from nuggets
         where tier != 'card' and binned_at is null and (coalesce(trim(attribution), '') != '' or coalesce(trim(medium), '') != '')`).all()
     ] as { type: string; id: string; kind: string; label: string; attribution: string | null; medium: string | null; fields: string | null; private: number; at: string; deck?: number }[]
     return rows.map(({ fields, ...row }) => {
@@ -124,7 +124,7 @@ export function registerSources(): void {
     if (!key) return null
     const rows = [
       ...db.prepare(`select 'capture' as type, id, ${LABEL} as title from captures where status not in ('discarded', 'promoted')`).all(),
-      ...db.prepare("select tier as type, id, coalesce(nullif(title, ''), label('', body)) as title from nuggets where tier in ('nugget', 'article') and binned_at is null").all()
+      ...db.prepare("select tier as type, id, coalesce(nullif(nullif(trim(title), 'Untitled'), ''), label('', body)) as title from nuggets where tier in ('nugget', 'article') and binned_at is null").all()
     ] as { type: string; id: string; title: string | null }[]
     const hit = rows.find((one) => personKey(withoutTags(one.title ?? '')) === key)
     return hit ? { type: hit.type, id: hit.id } : null
@@ -306,7 +306,7 @@ export function registerSources(): void {
       people.push({ name: mine.length ? spelt(mine.map((one) => one.attribution!)) : page?.name ?? name.trim(), what: page?.what ?? '', born: page?.born ?? '', died: page?.died ?? '', via: page?.via ?? '', thoughts: page?.thoughts ?? '',
         quotes: theirs.map(({ type, id, kind, label, medium }) => ({ type, id, kind, label, medium })) })
     }
-    const words = db.prepare(`select n.id, coalesce(nullif(n.title, ''), label('', n.body)) as label from nuggets n
+    const words = db.prepare(`select n.id, coalesce(nullif(nullif(trim(n.title), 'Untitled'), ''), label('', n.body)) as label from nuggets n
       where n.tier = 'nugget' and n.kind = 'word' and n.binned_at is null and n.archived_at is null and not n.private and n.id != :id
         and exists (select 1 from json_each(note_tags(n.title, n.body)) theirs join nuggets page on page.id = :id join json_each(note_tags(page.title, page.body)) ours on ours.value = theirs.value)
       order by n.created_at desc limit 12`).all({ id }) as { id: string; label: string }[]
@@ -459,7 +459,7 @@ export function registerSources(): void {
   ipcMain.handle('haligtree:sources:missing', () => [
     ...db.prepare(`select 'capture' as type, id, kind, ${LABEL} as label, captured_at as at from captures
       where status != 'discarded' and kind = 'quote' and coalesce(trim(attribution), '') = '' and coalesce(trim(medium), '') = '' order by captured_at desc`).all(),
-    ...db.prepare(`select tier as type, id, kind, coalesce(nullif(title, ''), label('', body)) as label, created_at as at from nuggets
+    ...db.prepare(`select tier as type, id, kind, coalesce(nullif(nullif(trim(title), 'Untitled'), ''), label('', body)) as label, created_at as at from nuggets
       where tier = 'nugget' and binned_at is null and kind = 'quote' and coalesce(trim(attribution), '') = '' and coalesce(trim(medium), '') = '' order by created_at desc`).all()
   ] as { type: string; id: string; kind: string; label: string; at: string }[])
 

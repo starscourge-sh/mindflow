@@ -53,7 +53,7 @@ function useBookGraph(src: string, title: string, around: Cited[]): (Graph & { a
     return {
       nodes: [
         { type: "pdf", id: src, title, kind: "pdf", links: around.length },
-        ...around.map((one) => ({ type: one.type, id: one.id, title: one.title || "Untitled", kind: one.type === "capture" ? (known.get(one.id)?.kind ?? "note") : one.type, links: known.get(one.id)?.links ?? 1, tag: known.get(one.id)?.tag, tint: known.get(one.id)?.tint })),
+        ...around.map((one) => ({ type: one.type, id: one.id, title: one.title || "New note", kind: one.type === "capture" ? (known.get(one.id)?.kind ?? "note") : one.type, links: known.get(one.id)?.links ?? 1, tag: known.get(one.id)?.tag, tint: known.get(one.id)?.tint })),
       ],
       edges: [...edges, ...among],
       alone: 0,

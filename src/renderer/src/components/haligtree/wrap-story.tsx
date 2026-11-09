@@ -116,7 +116,7 @@ function Story({ id, onClose }: { id: string; onClose: () => void }): React.JSX.
   const flow = useMemo(() => {
     if (!data || !pictures) return []
     const pictured = new Set(pictures.map((one) => one.id))
-    return [...pictures, ...data.gems.filter((gem) => !pictured.has(gem.id)).map((gem) => ({ src: drawingFor(gem.id).url, title: gem.title || 'Untitled', type: 'gem', id: gem.id }))]
+    return [...pictures, ...data.gems.filter((gem) => !pictured.has(gem.id)).map((gem) => ({ src: drawingFor(gem.id).url, title: gem.title || 'New note', type: 'gem', id: gem.id }))]
   }, [data, pictures])
   // Motion off skips every animation (lib/haligtree.ts); Reduce motion keeps the fades and `shift` drops the slide.
 
@@ -173,7 +173,7 @@ function Story({ id, onClose }: { id: string; onClose: () => void }): React.JSX.
     else if (gems.length) middle.push([4, (
       <div key="gems" className="space-y-6">
         <Big n={gems.length}>{gems.length === 1 ? 'gem kept' : 'gems kept'}</Big>
-        <ul className="space-y-1.5 text-heading text-foreground">{gems.slice(0, 3).map((gem) => <li key={gem.id} className="truncate">{quoted(gem.title || 'Untitled', 80)}</li>)}</ul>
+        <ul className="space-y-1.5 text-heading text-foreground">{gems.slice(0, 3).map((gem) => <li key={gem.id} className="truncate">{quoted(gem.title || 'New note', 80)}</li>)}</ul>
       </div>
     )])
     if (well.length) middle.push([5, (

@@ -406,7 +406,7 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
                 >
                   <Icon className="size-4 shrink-0 text-muted-foreground" />
                   <span className="flex min-w-0 flex-1 items-center gap-1.5">
-                    <span className="private-text truncate">{name.text || 'Untitled'}</span>
+                    <span className="private-text truncate">{name.text || 'New note'}</span>
                     <Tags tags={name.tags.filter((one) => one !== chosen)} />
                   </span>
                   <span className="text-xs text-muted-foreground">{typeSaid(item.type)}</span>

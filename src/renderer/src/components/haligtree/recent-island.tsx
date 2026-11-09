@@ -71,7 +71,7 @@ export function RecentIsland({ id, onOpen }: { id: string; onOpen?: (type: strin
               <button key={one.id} type="button" data-recent-opened={one.id} onClick={() => (chime('open'), onOpen(one.type, one.id))}
                 className="flex items-center gap-2 rounded-md px-2 py-1 text-left text-control text-foreground hover:bg-accent/60">
                 <OpenedIcon one={one} className="size-3.5 shrink-0 text-muted-foreground" />
-                <span className={`min-w-0 flex-1 truncate ${one.private ? 'private-text' : ''}`}>{shownName(one.title || '') || 'Untitled'}</span>
+                <span className={`min-w-0 flex-1 truncate ${one.private ? 'private-text' : ''}`}>{shownName(one.title || '') || 'New note'}</span>
               </button>
             )
           })}

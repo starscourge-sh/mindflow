@@ -184,7 +184,7 @@ export function registerPdfHighlights(): void {
     if (!name) return []
     const like = `%${name}%`
     const rows = db.prepare(`select 'capture' as type, id, ${LABEL} as title, captured_at as at, body from captures where status != 'discarded' and body like ?
-      union all select tier as type, id, coalesce(nullif(title, ''), label('', body)) as title, created_at as at, body from nuggets where binned_at is null and superseded_by is null and body like ?
+      union all select tier as type, id, coalesce(nullif(nullif(trim(title), 'Untitled'), ''), label('', body)) as title, created_at as at, body from nuggets where binned_at is null and superseded_by is null and body like ?
       order by at desc`).all(like, like) as { type: string; id: string; title: string; at: string; body: string | null }[]
     return rows.map(({ body, ...row }) => ({ ...row, ...citedIn(body, name) }))
       .sort((a, b) => (a.pages[0] ?? 0) - (b.pages[0] ?? 0))

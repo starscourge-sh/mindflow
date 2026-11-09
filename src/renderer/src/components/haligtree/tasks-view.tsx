@@ -617,7 +617,7 @@ export function taskMenu(task: Task, { open, complete = () => void completeTask(
     { label: 'Open', keys: '↵', run: open },
     ...openItems('task', task.id),
     // The note under its name, to read or change (the tracker: "so how do i edit that attached file here?").
-    !!task.fromId && { label: `Open ${quoted(splitTags(task.fromTitle ?? '').text || 'Untitled', 80)}`, hint: 'The note it came from', run: () => (chime('open'), window.dispatchEvent(new CustomEvent('haligtree:open', { detail: { type: 'capture', id: task.fromId } }))) },
+    !!task.fromId && { label: `Open ${quoted(splitTags(task.fromTitle ?? '').text || 'New note', 80)}`, hint: 'The note it came from', run: () => (chime('open'), window.dispatchEvent(new CustomEvent('haligtree:open', { detail: { type: 'capture', id: task.fromId } }))) },
     thought && { label: 'Add a thought…', keys: ';', run: thought }
   ]
   const leaving: RowItem[] = [
@@ -2092,7 +2092,7 @@ function Checklist({ task, onOpen }: { task: TaskFull; onOpen?: (type: string, i
                 {/* Each one opens, as everything listed in a panel does. */}
                 <button type="button" data-for-this={item.id} disabled={!onOpen} onClick={() => onOpen?.(item.tier, item.id)} className="-mx-1.5 flex w-[calc(100%+0.75rem)] items-center gap-2 rounded-md px-1.5 py-0.5 text-left enabled:hover:bg-accent">
                   <FileText className="size-4 text-muted-foreground" />
-                  <span className="truncate">{item.title || 'Untitled'}</span>
+                  <span className="truncate">{item.title || 'New note'}</span>
                   <span className="text-xs text-muted-foreground">{typeSaid(item.tier)}</span>
                 </button>
               </li>

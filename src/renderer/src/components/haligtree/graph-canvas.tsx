@@ -319,7 +319,7 @@ export function GraphCanvas({ map, onOpen, centre, you, about, fit: fitRef, fly,
     // A private note's title stays hidden on the map unless titles are shown.
     // Its tags left out: the colour already says them.
     const titleOf = (dot: Dot): string => {
-      const words = dot.private && !('reveal' in document.documentElement.dataset) ? 'Private note' : withoutTags(dot.title).replace(/\s+/g, ' ').trim() || dot.title || 'Untitled'
+      const words = dot.private && !('reveal' in document.documentElement.dataset) ? 'Private note' : withoutTags(dot.title).replace(/\s+/g, ' ').trim() || dot.title || 'New note'
       const most = small ? 22 : 32
       return clip(words, most)
     }
@@ -1496,7 +1496,7 @@ export function GraphCanvas({ map, onOpen, centre, you, about, fit: fitRef, fly,
       <canvas ref={canvas} className="absolute inset-0 touch-none" />
       {hover && (
         <div ref={card} data-map-tip data-private={hover.dot.private ? '' : undefined} className={cn(`pointer-events-none invisible absolute z-10 flex flex-col gap-0.5 ${TIP}`, small ? 'max-w-[13rem]' : 'max-w-xs')}>
-          <span className="private-text truncate font-medium">{hover.dot.title || 'Untitled'}</span>
+          <span className="private-text truncate font-medium">{hover.dot.title || 'New note'}</span>
           <span className="flex items-center gap-1.5 text-muted-foreground">
             <span className="size-2 rounded-full shrink-0" style={{ background: hover.dot.id === centre || hover.dot.id === you ? 'var(--tt-brand-color-400)' : paint?.(hover.dot) ?? tintOf(hover.dot) }} />
             {about?.[hover.dot.id] ? `${about[hover.dot.id]} · ` : ''}

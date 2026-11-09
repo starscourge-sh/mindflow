@@ -61,7 +61,7 @@ export function registerWordLog(): void {
     const days = db.prepare("select day, sum(words) as words from word_days where day > date('now', 'localtime', '-371 days') group by day order by day").all() as { day: string; words: number }[]
     const notes = (db.prepare('select id, kind, words from word_days where day = ? order by words desc limit 12').all(today) as { id: string; kind: string; words: number }[]).map((row) => {
       const title = row.kind === 'capture' ? (db.prepare("select coalesce(nullif(title, ''), label(title, body, null)) as t, private as p from captures where id = ?").get(row.id) as { t: string; p: number } | undefined)
-        : row.kind === 'nugget' ? (db.prepare("select coalesce(nullif(title, ''), label('', body)) as t, private as p, tier from nuggets where id = ?").get(row.id) as { t: string; p: number; tier: string } | undefined)
+        : row.kind === 'nugget' ? (db.prepare("select coalesce(nullif(nullif(trim(title), 'Untitled'), ''), label('', body)) as t, private as p, tier from nuggets where id = ?").get(row.id) as { t: string; p: number; tier: string } | undefined)
         : { t: row.id, p: 0 }
       const tier = (title as { tier?: string } | undefined)?.tier
       return { ...row, type: row.kind === 'nugget' ? tier ?? 'nugget' : row.kind, title: title?.t ?? '', private: !!title?.p }

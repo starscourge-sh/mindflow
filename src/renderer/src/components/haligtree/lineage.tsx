@@ -52,7 +52,7 @@ type One = Awaited<ReturnType<typeof haligtree.lineage>>['became'][number]
 const Row = ({ one, onOpen }: { one: One; onOpen?: (type: string, id: string) => void }): React.JSX.Element => {
   const row = (
     <Prop secret={!!one.private} icon={ICON[one.type as keyof typeof ICON] ?? Inbox} onClick={onOpen && (() => onOpen(one.type, one.id))}>
-      <span {...hoverNote(one.type, one.id)}>{titleOf(one) || 'Untitled'}</span>
+      <span {...hoverNote(one.type, one.id)}>{titleOf(one) || 'New note'}</span>
     </Prop>
   )
   return one.type === 'task' ? <TaskMenu id={one.id} onOpen={onOpen}><span className="block">{row}</span></TaskMenu> : row
@@ -340,21 +340,21 @@ function Kinfolk({ node, onOpen }: { node: Node; onOpen?: (type: string, id: str
   const face = (
     <>
       <Icon className="size-3.5 shrink-0" style={{ color: `var(--tt-color-text-${TINT[node.one.type] ?? 'gray'})` }} />
-      {!node.bare && <span {...hoverNote(node.one.type, node.one.id)} className={`min-w-0 truncate ${node.one.private ? 'private-text' : ''}`}>{titleOf(node.one) || 'Untitled'}</span>}
+      {!node.bare && <span {...hoverNote(node.one.type, node.one.id)} className={`min-w-0 truncate ${node.one.private ? 'private-text' : ''}`}>{titleOf(node.one) || 'New note'}</span>}
     </>
   )
   const shape = `flex size-full items-center gap-1.5 rounded-md text-left text-meta ${node.bare ? 'justify-center' : 'px-1.5'}`
   if (node.key === 'me')
-    return <div aria-current="page" aria-label={node.bare ? node.one.title || 'Untitled' : undefined} className={`${shape} bg-accent text-foreground ring-1 ring-border`} style={{ fontWeight: WEIGHT.chosen }} data-private={node.one.private ? '' : undefined}>{face}</div>
+    return <div aria-current="page" aria-label={node.bare ? node.one.title || 'New note' : undefined} className={`${shape} bg-accent text-foreground ring-1 ring-border`} style={{ fontWeight: WEIGHT.chosen }} data-private={node.one.private ? '' : undefined}>{face}</div>
   const button = (
-    <Tip side="bottom" label={`Open the ${NAME[node.one.type] ?? 'note'}: ${titleOf(node.one) || 'Untitled'}`}>
+    <Tip side="bottom" label={`Open the ${NAME[node.one.type] ?? 'note'}: ${titleOf(node.one) || 'New note'}`}>
       <motion.button
         type="button"
         whileTap={{ scale: 0.97 }}
         transition={spring.fast}
         data-private={node.one.private ? '' : undefined}
         // Drawn as its icon alone where there is no room: named all the same, for a screen reader.
-        aria-label={node.bare ? `Open the ${NAME[node.one.type] ?? 'note'}: ${titleOf(node.one) || 'Untitled'}` : undefined}
+        aria-label={node.bare ? `Open the ${NAME[node.one.type] ?? 'note'}: ${titleOf(node.one) || 'New note'}` : undefined}
         onClick={onOpen && (() => onOpen(node.one.type, node.one.id))}
         data-family-node={node.key}
         // A quiet shape at rest, the edge its link meets: with none, the line stopped in the air until pointed at.

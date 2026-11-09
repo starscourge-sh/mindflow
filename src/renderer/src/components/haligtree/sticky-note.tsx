@@ -570,7 +570,7 @@ export function StickyNote({ type, id }: { type: string; id: string }): React.JS
   // The note's own title, or else its first line alone: never the whole note run together.
   const first = doc.content?.[0]
   const opening = first ? glance(first).trim() : ''
-  const title = note?.title || cut(opening, 80) || 'Untitled'
+  const title = note?.title || cut(opening, 80) || 'New note'
   // The title is not said twice: a first line that is the title is left out below it.
   const twice = !!opening && opening === title
   titled.current = title

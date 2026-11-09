@@ -179,7 +179,7 @@ export function BinView({ onOpen, focus }: { onOpen?: (type: string, id: string)
       if (!n) return
       chime('away')
       setPicked([])
-      toast(n === 1 ? `${quoted(list[0].title || 'Untitled', 41)} is deleted for good` : `${num(n)} deleted for good`, undefined, 'info')
+      toast(n === 1 ? `${quoted(list[0].title || 'New note', 41)} is deleted for good` : `${num(n)} deleted for good`, undefined, 'info')
     })
   }
   const empty = (): void => {
@@ -268,7 +268,7 @@ const nameOf = (one: Pick<Binned, 'title' | 'line'>): { text: string; line: bool
   const text = taskName(one.title).text.trim()
   const named = !!text && text !== 'Untitled'
   const line = one.line?.trim() ? taskName(one.line).text.trim() : ''
-  return named ? { text, line: false } : line ? { text: line, line: true } : { text: 'Untitled', line: false }
+  return named ? { text, line: false } : line ? { text: line, line: true } : { text: 'New note', line: false }
 }
 
 /** One binned thing as stored, fetched when it is looked at. */

@@ -201,7 +201,7 @@ const RULES: [RegExp, LucideIcon][] = [
   [/^duplicate/i, CopyPlus],
   [/^copy/i, Copy],
   // Names and looks.
-  [/^rename|^edit|^add a page$|^change the question|^say who/i, Pencil],
+  [/^rename|^give it a title|^edit|^add a page$|^change the question|^say who/i, Pencil],
   [/icon/i, Smile],
   [/^colou?r|theme|^paint/i, Palette],
   [/kind/i, Shapes],

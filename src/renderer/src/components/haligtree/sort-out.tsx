@@ -382,7 +382,7 @@ function InboxSort({ onClose }: { onClose: () => void }): React.JSX.Element {
           {list.map((row, at) => (
             <li key={row.id} data-sort-row={row.id} data-kind={row.way} data-cursor={at === cursor || undefined} onMouseMove={(event) => realMove(event) && setCursor(at)}
               className={`flex items-center gap-2 rounded-md px-2 py-1.5 ${at === cursor ? 'bg-accent/50' : ''}`}>
-              <span className={`min-w-0 flex-1 truncate text-body ${row.way === 'bin' ? 'text-muted-foreground line-through' : 'text-foreground'}`}>{row.text || 'Untitled'}</span>
+              <span className={`min-w-0 flex-1 truncate text-body ${row.way === 'bin' ? 'text-muted-foreground line-through' : 'text-foreground'}`}>{row.text || 'New note'}</span>
               <span className="flex shrink-0 items-center gap-1">
                 {WAYS.map((way) => (
                   <button key={way.id} type="button" aria-pressed={row.way === way.id} onClick={() => set(row.id, way.id)}

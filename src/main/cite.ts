@@ -123,7 +123,7 @@ export function registerCite(): void {
     const key = personKey(title)
     const rows = [
       ...db.prepare(`select 'capture' as type, id, kind, ${LABEL} as label, body from captures where status != 'discarded' and body like '%"citation"%'`).all(),
-      ...db.prepare(`select tier as type, id, kind, coalesce(nullif(title, ''), label('', body)) as label, body from nuggets where binned_at is null and body like '%"citation"%'`).all()
+      ...db.prepare(`select tier as type, id, kind, coalesce(nullif(nullif(trim(title), 'Untitled'), ''), label('', body)) as label, body from nuggets where binned_at is null and body like '%"citation"%'`).all()
     ] as { type: string; id: string; kind: string; label: string; body: string }[]
     const cites = (node: unknown): boolean => {
       if (!node || typeof node !== 'object') return false

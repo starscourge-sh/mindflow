@@ -230,7 +230,7 @@ function StuckHead({ lines }: { lines: Line[] }): React.JSX.Element {
 }
 
 /** Its note, said in a word: where a file is, or that it is in none. */
-export const whereOf = (one: Media): string => (one.gone ? 'File gone from the book' : one.uses.length ? `In ${one.uses[0].title || 'Untitled'}${one.uses.length > 1 ? ` and ${num(one.uses.length - 1)} more` : ''}` : one.how === 'attachment' && one.letGoAt ? `Unlinked ${letGoWhen(one.letGoAt)}` : one.added ? 'In no note yet' : 'In no note')
+export const whereOf = (one: Media): string => (one.gone ? 'File gone from the book' : one.uses.length ? `In ${one.uses[0].title || 'New note'}${one.uses.length > 1 ? ` and ${num(one.uses.length - 1)} more` : ''}` : one.how === 'attachment' && one.letGoAt ? `Unlinked ${letGoWhen(one.letGoAt)}` : one.added ? 'In no note yet' : 'In no note')
 /** When the last note let a file go: today, yesterday, or since the day. */
 export const letGoWhen = (at: string): string => ((days) => (days === 0 ? 'today' : days === -1 ? 'yesterday' : `since ${dayMonth(at)}`))(daysFromToday(at))
 

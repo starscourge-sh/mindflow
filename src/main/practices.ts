@@ -362,7 +362,7 @@ export function registerPractices(): void {
       const name = row.load.replace(/^(attribution|medium):/, '')
       const items = [
         ...db.prepare(`select 'capture' as type, id, ${LABEL} as label, fields, captured_at as at from captures where status != 'discarded' and lower(trim(${field})) = lower(?)`).all(name),
-        ...db.prepare(`select tier as type, id, coalesce(nullif(title, ''), label('', body)) as label, fields, created_at as at from nuggets where binned_at is null and lower(trim(${field})) = lower(?)`).all(name)
+        ...db.prepare(`select tier as type, id, coalesce(nullif(nullif(trim(title), 'Untitled'), ''), label('', body)) as label, fields, created_at as at from nuggets where binned_at is null and lower(trim(${field})) = lower(?)`).all(name)
       ] as { type: string; id: string; label: string; fields: string | null; at: string }[]
       const spotOf = (fields: string | null): string | null => {
         try {
@@ -380,13 +380,13 @@ export function registerPractices(): void {
       if (next) {
         const title = next.type === 'capture'
           ? (db.prepare(`select ${LABEL} as t from captures where id = ?`).get(next.id) as { t: string } | undefined)?.t
-          : (db.prepare("select coalesce(nullif(title, ''), label('', body)) as t from nuggets where id = ?").get(next.id) as { t: string } | undefined)?.t
+          : (db.prepare("select coalesce(nullif(nullif(trim(title), 'Untitled'), ''), label('', body)) as t from nuggets where id = ?").get(next.id) as { t: string } | undefined)?.t
         out.queue = { ...next, title: title || 'Untitled' }
       }
     }
     if (row.load_kind === 'problems' && row.load) {
       const capture = db.prepare(`select 'capture' as type, body, ${LABEL} as title from captures where id = ?`).get(row.load) as { type: string; body: string | null; title: string } | undefined
-      const note = capture ?? (db.prepare("select tier as type, body, coalesce(nullif(title, ''), label('', body)) as title from nuggets where id = ?").get(row.load) as { type: string; body: string | null; title: string } | undefined)
+      const note = capture ?? (db.prepare("select tier as type, body, coalesce(nullif(nullif(trim(title), 'Untitled'), ''), label('', body)) as title from nuggets where id = ?").get(row.load) as { type: string; body: string | null; title: string } | undefined)
       const next = note ? nextProblem(safe(note.body), row.problem_at) : null
       if (note && next) out.problem = { ...next, noteType: note.type, noteId: row.load, noteTitle: note.title }
     }

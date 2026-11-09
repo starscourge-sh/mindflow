@@ -1030,6 +1030,9 @@ function NuggetDetail({ item, onOpen, top, back, board: place }: { item: ItemFul
   const boardShown = board.on && !past && !!ready && !ready.isDestroyed
   // The board needs the room: the details step aside while it shows, a click away.
   const [propsOut, setPropsOut] = useState(false)
+  // Named by its first line until given a title of its own (`line` is set only then).
+  const titled = item.line === null || (item.line === undefined && !!item.title && item.title.trim() !== 'Untitled')
+  const [titling, setTitling] = useState(false)
   const [tools, setTools] = useState<HTMLElement | null>(null)
   useEffect(() => setPropsOut(false), [boardShown])
   // The page's name over the board, not its first heading, which the hidden page reports.
@@ -1113,6 +1116,7 @@ function NuggetDetail({ item, onOpen, top, back, board: place }: { item: ItemFul
               { label: propsOut ? 'Hide details' : 'Show details', run: () => (chime(propsOut ? 'fold' : 'slide'), setPropsOut(!propsOut)) },
               'separator' as const
             ] : []),
+            ...(item.tier === 'article' && !titled && !titling ? [{ label: 'Give it a title', run: () => setTitling(true) }] : []),
             ...(item.tier === 'article' && !boardShown ? [{ label: room.on ? 'Leave the writing room' : 'Writing room', keys: '⇧⌘↵', run: room.toggle }, { label: 'Writing tools', items: writerMenu(ready, (text) => toast(text, undefined, 'info')) }, 'separator' as const] : []),
             // Proofread when asked, on any page; a piece of Writing has it in its writer's lines above.
             ...(item.tier !== 'article' ? [{ label: 'Proofread', hint: 'Spelling, grammar and style, one at a time', run: askProofread }] : []),
@@ -1120,25 +1124,27 @@ function NuggetDetail({ item, onOpen, top, back, board: place }: { item: ItemFul
             // Housekeeping last, as on every card's menu.
             'separator', binItem([{ type: item.tier, id: item.id }])
           ]} />
-        {room.on && <RoomFoot editor={ready} title={item.title || 'Untitled'} proof={item.tier === 'article'} />}
+        {room.on && <RoomFoot editor={ready} title={item.title || 'New note'} proof={item.tier === 'article'} />}
         {/* Any page can be proofread when asked; only Writing offers checking as you write. */}
         <Proofread editor={ready} ask={item.tier !== 'article'} />
-        {item.tier === 'article' && (
+        {item.tier === 'article' && (titled || titling) && (
+          // As in Apple Notes, a page is named by its first line; a title of its own is shown
+          // only once given ("Give it a title" in the page's menu). Cleared, the first line names it again.
           // Wraps as a heading does, so a long title is never cut off at the edge; Enter ends it.
-          // In the words' own column (main.css), so it starts where they start.
           <div className="note-column mb-2 shrink-0">
           <textarea
+            data-page-title
             rows={1}
-            className="block w-full resize-none overflow-hidden bg-transparent font-heading text-title font-semibold tracking-[-0.018em] text-balance outline-none [field-sizing:content] placeholder:text-foreground/70"
-            defaultValue={item.title}
-            onKeyDown={(event) => event.key === 'Enter' && (event.preventDefault(), event.currentTarget.blur())}
-            // A new article starts in its title, the stand-in name selected
-            // so typing replaces it, and the button that made it does not
-            // keep the keys.
-            autoFocus={!item.title || item.title === 'Untitled'}
-            onFocus={(event) => void (event.target.value === 'Untitled' && event.target.select())}
-            placeholder="Untitled"
-            onBlur={(event) => void haligtree.saveItem(item.id, { title: event.target.value.replace(/\s*\n\s*/g, ' ') })}
+            className="block w-full resize-none overflow-hidden bg-transparent font-heading text-title font-semibold tracking-[-0.018em] text-balance outline-none [field-sizing:content] placeholder:text-foreground/40"
+            defaultValue={titled ? item.title : ''}
+            onKeyDown={(event) => (event.key === 'Enter' || event.key === 'Escape') && (event.preventDefault(), event.currentTarget.blur())}
+            autoFocus={titling}
+            placeholder={item.title || 'New note'}
+            onBlur={(event) => {
+              const title = event.target.value.replace(/\s*\n\s*/g, ' ').trim()
+              setTitling(false)
+              if (title !== (titled ? item.title : '')) void haligtree.saveItem(item.id, { title })
+            }}
           />
           </div>
         )}
@@ -1168,6 +1174,8 @@ function NuggetDetail({ item, onOpen, top, back, board: place }: { item: ItemFul
         <HaligtreeEditor
           key={restored?.rev ?? 0}
           backToTop
+          // A new page with no name starts in its words: its first line is its name.
+          {...(item.tier === 'article' && !titled && !item.title ? { autofocus: 'start' as const } : {})}
           // A tag opens its page: everything carrying it.
           {...notePowers({ table: 'nuggets', id: item.id, kind: item.kind, fields: item.fields, text: item.title, titled: item.tier === 'article', created: item.createdAt, updated: item.updatedAt, origin: { captureId: item.captureId ?? undefined, attribution: item.attribution, from: item.id }, cites: leadIsWho ? undefined : { who: item.attribution, where: item.medium }, onOpen: (type, id) => onOpen?.(type, id) })}
           onTitleOut={(title) => !onBoard.current && showTopTitle(title)}

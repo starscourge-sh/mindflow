@@ -71,7 +71,7 @@ export function EmbeddedNote({ link, label, onUnembed, powers = false, reading =
     table === "captures"
       ? window.api.captures.save(at, { body, base, ...(editor ? { markdown: toMarkdown(editor) } : {}) })
       : haligtree.saveItem(at, { body, base }))
-  const name = note?.title || label || "Untitled"
+  const name = note?.title || label || "New note"
   const looped = around.includes(link) || around.length >= DEEPEST
   return (
     // Inside another note it is framed, to tell it from the words around it.
@@ -179,7 +179,7 @@ function EmbeddedLine({ link, block, label, onUnembed }: { link: string; block: 
       return table === "captures" ? window.api.captures.save(id, { body, base: found.body }) : haligtree.saveItem(id, { body, base: found.body })
     })
   }
-  const name = note?.title || label || "Untitled"
+  const name = note?.title || label || "New note"
   return (
     <div data-embedded-line={`${link}#${block}`} className="my-1 rounded-lg bg-foreground/[0.03] ring-1 ring-border">
       <div contentEditable={false} className="flex items-center gap-1 px-3 pt-1.5 text-control text-muted-foreground">

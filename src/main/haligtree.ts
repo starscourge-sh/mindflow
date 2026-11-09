@@ -425,7 +425,8 @@ const DEFAULTS = {
   spellJournal: true,
   spellWriting: true,
   spellLanguages: [] as string[],
-  noteFont: 'system' as string,
+  // Notes are written in the app's serif (Fraunces) unless another is chosen.
+  noteFont: 'default' as string,
   // The font is the whole app's unless this says it is only for notes.
   fontNotesOnly: false,
   // Headings in a font of their own, the way Dia sets a serif over plain text; 'same' follows the text.
@@ -1845,7 +1846,7 @@ export function registerHaligtree(): void {
 
   // What @ offers besides captures: nuggets and articles by name.
   handle('items:find', (query: unknown) =>
-    db.prepare("select id, tier, coalesce(nullif(title, ''), label('', body)) as name, coalesce(nullif(title, ''), label('', body)) as title, updated_at as updatedAt, goal_at as goalAt, closed_how as closedHow from nuggets where tier not in ('card', 'deck') and (name like ? escape '\\' or coalesce(aliases, '') like ? escape '\\') and superseded_by is null order by updated_at desc limit 6").all(`%${like(String(query))}%`, `%${like(String(query))}%`))
+    db.prepare("select id, tier, coalesce(nullif(nullif(trim(title), 'Untitled'), ''), label('', body)) as name, coalesce(nullif(nullif(trim(title), 'Untitled'), ''), label('', body)) as title, updated_at as updatedAt, goal_at as goalAt, closed_how as closedHow from nuggets where tier not in ('card', 'deck') and (name like ? escape '\\' or coalesce(aliases, '') like ? escape '\\') and superseded_by is null order by updated_at desc limit 6").all(`%${like(String(query))}%`, `%${like(String(query))}%`))
   // A page of your own from nothing: notes on linear algebra, say. An article
   // with no nuggets behind it, there to be written in.
   handle('article:new', () => {
@@ -2012,7 +2013,7 @@ export function registerHaligtree(): void {
   // --- nuggets and articles
   // A nugget with no name of its own is named from its words, or for what it holds.
   // `line`: one still called the “Untitled” it began with shows its first line in lists instead.
-  const ITEM = `id, tier, kind, coalesce(nullif(title, ''), label('', body)) as title, case when trim(title) = 'Untitled' then label('', body) end as line, prompt, private, pinned_at as pinnedAt, due_at as dueAt, suspended,
+  const ITEM = `id, tier, kind, coalesce(nullif(nullif(trim(title), 'Untitled'), ''), label('', body)) as title, case when trim(coalesce(title, '')) in ('', 'Untitled') then label('', body) end as line, prompt, private, pinned_at as pinnedAt, due_at as dueAt, suspended,
     state is not null as reviewed, created_at as createdAt, updated_at as updatedAt, capture_id as captureId, remind_at as remindAt,
     (select count(*) from review_log where item_id = nuggets.id and grade = 1 and first = 0) as lapses, attribution, medium, context, mode, superseded_by as supersededBy, archived_at as archivedAt, revisions, why,
     closed_at as closedAt, closed_how as closedHow, passage, (select count(*) from glosses where item_id = nuggets.id) as clues,
@@ -2164,7 +2165,7 @@ export function registerHaligtree(): void {
       union all
       select 'task', id, title, 'todo', coalesce(completed_at, created_at), case when trim(title) in ('', 'Untitled') then label('', notes) end from tasks where status = 'dropped' and step_of is null
       union all
-      select tier, id, coalesce(nullif(title, ''), label('', body)), kind, binned_at, case when trim(title) = 'Untitled' then label('', body) end from nuggets where binned_at is not null
+      select tier, id, coalesce(nullif(nullif(trim(title), 'Untitled'), ''), label('', body)), kind, binned_at, case when trim(coalesce(title, '')) in ('', 'Untitled') then label('', body) end from nuggets where binned_at is not null
     ) order by at desc limit 1000`).all().concat(eventsInBin(), practicesInBin(), mediaInBin()).sort((a, b) => String((b as { at: string }).at).localeCompare(String((a as { at: string }).at))))
   // One thing in the Bin, to look inside before it is restored or deleted:
   // its words whole, its tags, its kind, and when it was made and binned.
@@ -2339,7 +2340,7 @@ export function registerHaligtree(): void {
     // sentence should not cost months. Once per review, not once per save, or
     // typing would shrink it to nothing. "Meaningful" is more than a few
     // letters: what differs once the shared start and end are taken off.
-    const before = db.prepare("select body, prompt, state, due_at, edited_since_review, updated_at, coalesce(nullif(title, ''), label('', body)) as name from nuggets where id = ?").get(id) as
+    const before = db.prepare("select body, prompt, state, due_at, edited_since_review, updated_at, coalesce(nullif(nullif(trim(title), 'Untitled'), ''), label('', body)) as name from nuggets where id = ?").get(id) as
       { body: string; prompt: string | null; state: string | null; due_at: string | null; edited_since_review: number; updated_at: string | null; name: string } | undefined
     const changed = (a: string, b: string): boolean => {
       let start = 0
@@ -3365,7 +3366,7 @@ export function registerHaligtree(): void {
       ? (db.prepare("select 'day' as type, day as id, day as title, body from day_pages where day = ?").get(key) as Record<string, unknown> | undefined)
       : type === 'capture'
         ? (db.prepare(`select 'capture' as type, id, ${LABEL} as title, body from captures where id = ?`).get(key) as Record<string, unknown> | undefined)
-        : (db.prepare("select tier as type, id, coalesce(nullif(title, ''), label('', body)) as title, body from nuggets where id = ?").get(key) as Record<string, unknown> | undefined)
+        : (db.prepare("select tier as type, id, coalesce(nullif(nullif(trim(title), 'Untitled'), ''), label('', body)) as title, body from nuggets where id = ?").get(key) as Record<string, unknown> | undefined)
     return row ? body(row) : null
   }
 
@@ -3850,7 +3851,7 @@ export function registerHaligtree(): void {
     const seen = db.prepare('select count(*) as n, coalesce(sum(grade > 1), 0) as recalled from review_log where first = 0 and reviewed_at >= ? and reviewed_at < ?').get(since, until) as { n: number; recalled: number }
     const perDay = new Map((db.prepare("select date(reviewed_at, 'localtime') as day, count(*) n from review_log where reviewed_at >= ? and reviewed_at < ? group by day").all(since, until) as { day: string; n: number }[]).map((row) => [row.day, row.n]))
     const days = Array.from({ length: start.daysInMonth() }, (_, at) => { const day = start.add(at, 'day').format('YYYY-MM-DD'); return { day, n: perDay.get(day) ?? 0 } })
-    const longest = db.prepare(`select coalesce(nullif(n.title, ''), label('', n.body)) as title, g.gap from (select item_id, grade, reviewed_at, julianday(reviewed_at) - julianday(lag(reviewed_at) over (partition by item_id order by reviewed_at)) gap from review_log) g
+    const longest = db.prepare(`select coalesce(nullif(nullif(trim(n.title), 'Untitled'), ''), label('', n.body)) as title, g.gap from (select item_id, grade, reviewed_at, julianday(reviewed_at) - julianday(lag(reviewed_at) over (partition by item_id order by reviewed_at)) gap from review_log) g
       join nuggets n on n.id = g.item_id where g.grade > 1 and g.gap is not null and g.reviewed_at >= ? and g.reviewed_at < ? and n.private = 0 order by g.gap desc limit 1`).get(since, until) as { title: string; gap: number } | undefined
     // Cards made in the month counted to its end, not to this moment: a card stamped a second ahead of
     // the clock (as the sandbox lays its cards down) would otherwise come and go between two reads.
@@ -3889,7 +3890,7 @@ export function registerHaligtree(): void {
         .sort((a, b) => b[1] - a[1]).slice(0, limit).map(([name, n]) => ({ name, n }))
     const busiestDay = top(rows.map((row) => dayKey(row.at)), 1)[0] ?? null
     const busiestMonth = period === 'year' ? top(rows.map((row) => String(dayjs(row.at).month())), 1)[0] ?? null : null
-    const reviewed = db.prepare(`select coalesce(nullif(n.title, ''), label('', n.body)) as title, count(*) n from review_log r join nuggets n on n.id = r.item_id
+    const reviewed = db.prepare(`select coalesce(nullif(nullif(trim(n.title), 'Untitled'), ''), label('', n.body)) as title, count(*) n from review_log r join nuggets n on n.id = r.item_id
       where r.reviewed_at >= ? and r.reviewed_at < ? and n.private = 0
       group by r.item_id order by n desc limit 1`).get(since, until) as { title: string; n: number } | undefined
     // The books begun in it, finished or still going, each with the lines kept
@@ -5157,7 +5158,7 @@ export function registerHome(): void {
   ipcMain.handle('haligtree:home:recent-opened', (_event, limit: number) => {
     const want = Math.max(1, Math.min(40, Number(limit) || 6))
     const capture = db.prepare(`select id, 'capture' as type, ${LABEL} as title, kind, private from captures where id = ? and status != 'discarded' and archived_at is null`)
-    const nugget = db.prepare(`select id, tier as type, coalesce(nullif(title, ''), label('', body)) as title, kind, private from nuggets where id = ? and archived_at is null and superseded_by is null and tier not in ('card')`)
+    const nugget = db.prepare(`select id, tier as type, coalesce(nullif(nullif(trim(title), 'Untitled'), ''), label('', body)) as title, kind, private from nuggets where id = ? and archived_at is null and superseded_by is null and tier not in ('card')`)
     const found: { id: string; type: string; title: string; kind: string | null; private: number; at?: string }[] = []
     // A PDF opened in the reader, kept as its pane's `src|name`: named by the title it carries once read, else its file name.
     const pdf = (focus: string): (typeof found)[number] => {
@@ -5183,7 +5184,7 @@ export function registerHome(): void {
 
   // Every note in view, as a shelf shows it: newest change first.
   const NOTES = `select id, 'capture' as type, ${LABEL} as title, kind, private, coalesce(edited_at, captured_at) as at, captured_at as made, body, attribution as who, medium as "where", case when json_valid(fields) then nullif(cast(json_extract(fields, '$.year') as text), '') end as year from captures where status != 'discarded' and archived_at is null
-    union all select id, tier, coalesce(nullif(title, ''), label('', body)), kind, private, coalesce(updated_at, created_at), created_at, body, attribution, medium, case when json_valid(fields) then nullif(cast(json_extract(fields, '$.year') as text), '') end from nuggets where archived_at is null and superseded_by is null and tier not in ('card', 'deck')`
+    union all select id, tier, coalesce(nullif(nullif(trim(title), 'Untitled'), ''), label('', body)), kind, private, coalesce(updated_at, created_at), created_at, body, attribution, medium, case when json_valid(fields) then nullif(cast(json_extract(fields, '$.year') as text), '') end from nuggets where archived_at is null and superseded_by is null and tier not in ('card', 'deck')`
   // Who said it, only for a quote: its card signs it, with where it is from and its year, as the capture page does.
   const strip = ({ type, id, title, kind, private: hidden, at, who, where, year }: Shelved): Shelved => ({ type, id, title, kind, private: hidden, at, ...(kind === 'quote' && who ? { who, where, year } : {}) })
 
@@ -5194,7 +5195,7 @@ export function registerHome(): void {
   const returning = (): Returning[] => {
     const end = dayjs().endOf('day').toISOString()
     const rows = db.prepare(`select id, 'capture' as type, ${LABEL} as title, kind, private, fields from captures where status != 'discarded' and archived_at is null and kind = 'checkback' and fields is not null
-      union all select id, tier, coalesce(nullif(title, ''), label('', body)), kind, private, fields from nuggets where archived_at is null and superseded_by is null and (kind = 'checkback' or (json_valid(fields) and json_extract(fields, '$.back') is not null and json_extract(fields, '$.ask') is not null)) and fields is not null`).all() as (Shelved & { fields: string })[]
+      union all select id, tier, coalesce(nullif(nullif(trim(title), 'Untitled'), ''), label('', body)), kind, private, fields from nuggets where archived_at is null and superseded_by is null and (kind = 'checkback' or (json_valid(fields) and json_extract(fields, '$.back') is not null and json_extract(fields, '$.ask') is not null)) and fields is not null`).all() as (Shelved & { fields: string })[]
     return rows.flatMap(({ fields, ...row }) => {
       let f: Record<string, string> = {}
       try { f = JSON.parse(fields) } catch { return [] }

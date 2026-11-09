@@ -30,7 +30,7 @@ export function lineOf(doc: PMNode): { text: string; link?: AtLink; at: number[]
       for (let n = 0; n < node.text!.length; n++) at.push(pos + n)
       text += node.text
     } else if (node.type.name === 'noteLink') {
-      const name = String(node.attrs.label || 'Untitled')
+      const name = String(node.attrs.label || 'New note')
       if (!link) link = { id: String(node.attrs.id), plain: [{ from: text.length, to: text.length + name.length }] }
       for (let n = 0; n < name.length; n++) at.push(-1)
       text += name

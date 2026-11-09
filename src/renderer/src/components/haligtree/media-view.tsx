@@ -400,7 +400,7 @@ export function mediaMenu(one: Media, onOpen: () => void, onPut: () => void, onB
       : { label: picture ? 'Look at it' : one.kind === 'pdf' ? 'Open in the reader' : 'Play it', keys: '↵', run: onOpen },
     used && canSplit() && { label: 'Open to the side', keys: '⌥-click', run: () => (openAside(one.type, one.id), headingIn(one.type, one.id, one.src)) },
     !used && one.kind === 'pdf' && canSplit() && { label: 'Open to the side', keys: '⌥-click', run: () => openFile(one, true) },
-    one.uses.length > 1 && { label: 'Used in', items: one.uses.map((use) => ({ label: use.title || 'Untitled', icon: <FileText className="size-3.5" />, run: () => (window.api.openInHome(use.type, use.id), headingIn(use.type, use.id, one.src)) })) },
+    one.uses.length > 1 && { label: 'Used in', items: one.uses.map((use) => ({ label: use.title || 'New note', icon: <FileText className="size-3.5" />, run: () => (window.api.openInHome(use.type, use.id), headingIn(use.type, use.id, one.src)) })) },
     { label: 'Put in a note…', run: onPut },
     'separator',
     { label: 'Copy link', hint: 'Paste it into any note to show it there too', run: () => void copyMedia(one) },
@@ -453,12 +453,12 @@ function Where({ one, label, onUse }: { one: Media; label: string; onUse: (use: 
   return (
     <span data-media-where="used" className={line}>
       <span className="shrink-0">{others.length < one.uses.length ? 'Also in' : 'In'}</span>
-      <button type="button" data-media-use className={`min-w-0 truncate ${way} ${others[0].private ? 'private-text' : ''}`} onClick={() => onUse(others[0])}>{others[0].title || 'Untitled'}</button>
+      <button type="button" data-media-use className={`min-w-0 truncate ${way} ${others[0].private ? 'private-text' : ''}`} onClick={() => onUse(others[0])}>{others[0].title || 'New note'}</button>
       {others.length > 1 && (
         <DropdownMenu modal={false}>
           <DropdownMenuTrigger asChild><button type="button" data-media-more-uses className={`shrink-0 tabular-nums ${way}`}>+{num(others.length - 1)}</button></DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="max-h-72 overflow-y-auto">
-            {others.slice(1).map((use) => <DropdownMenuItem key={`${use.type}:${use.id}`} onSelect={() => onUse(use)}><MenuGlyph label="Open note" small /><span className={`truncate ${use.private ? 'private-text' : ''}`}>{use.title || 'Untitled'}</span></DropdownMenuItem>)}
+            {others.slice(1).map((use) => <DropdownMenuItem key={`${use.type}:${use.id}`} onSelect={() => onUse(use)}><MenuGlyph label="Open note" small /><span className={`truncate ${use.private ? 'private-text' : ''}`}>{use.title || 'New note'}</span></DropdownMenuItem>)}
           </DropdownMenuContent>
         </DropdownMenu>
       )}

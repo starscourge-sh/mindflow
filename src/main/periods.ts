@@ -86,7 +86,7 @@ export function registerPeriods(): void {
         select 'capture' as type, id, ${LABEL} as title, kind, status, private, captured_at as at from captures
           where archived_at is null and status != 'discarded' and captured_at > ? and captured_at <= ?
         union all
-        select tier, id, coalesce(nullif(title, ''), label('', body)), kind, case when closed_at is null then 'open' else 'closed' end, private, created_at from nuggets
+        select tier, id, coalesce(nullif(nullif(trim(title), 'Untitled'), ''), label('', body)), kind, case when closed_at is null then 'open' else 'closed' end, private, created_at from nuggets
           where archived_at is null and superseded_by is null and tier not in ('card', 'deck') and created_at > ? and created_at <= ?
         union all
         select 'task', id, title, 'todo', status, 0, created_at from tasks where status != 'dropped' and created_at > ? and created_at <= ?
@@ -185,7 +185,7 @@ export function registerPeriods(): void {
     if (type === 'day') return { type, id, title: id, kind: 'day' }
     if (type === 'capture') return db.prepare(`select 'capture' as type, id, ${LABEL} as title, kind, private from captures where id = ?`).get(id) ?? null
     if (type === 'task') return db.prepare("select 'task' as type, id, title, 'todo' as kind, 0 as private from tasks where id = ?").get(id) ?? null
-    return db.prepare("select tier as type, id, coalesce(nullif(title, ''), label('', body)) as title, kind, private from nuggets where id = ?").get(id) ?? null
+    return db.prepare("select tier as type, id, coalesce(nullif(nullif(trim(title), 'Untitled'), ''), label('', body)) as title, kind, private from nuggets where id = ?").get(id) ?? null
   })
 
   // A capture made by mistake from another one ("Decide from this"), taken

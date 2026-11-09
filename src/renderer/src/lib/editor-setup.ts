@@ -108,8 +108,9 @@ export function useEditorSetup(settings: Settings | null): void {
     setDatesLit(settings.datesLit !== false)
     const root = document.documentElement.style
     root.setProperty('--mf-font', familyOf(settings.noteFont))
-    // The menus, lists and labels too, unless the font is for notes only.
-    if (settings.fontNotesOnly) root.removeProperty('--mf-app-font')
+    // The menus, lists and labels too, unless the font is for notes only. The serif is the
+    // notes' own: the app's labels stay in their sans beside it.
+    if (settings.fontNotesOnly || settings.noteFont === 'default') root.removeProperty('--mf-app-font')
     else root.setProperty('--mf-app-font', familyOf(settings.noteFont))
     // Headings, in notes and on the app's own pages, in theirs when one is chosen.
     if (!settings.headingFont || settings.headingFont === 'same') root.removeProperty('--mf-heading-font')

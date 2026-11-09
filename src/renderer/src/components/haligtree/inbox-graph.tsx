@@ -139,7 +139,7 @@ export function InboxGraph({ captures, onOpen, compact = false }: { captures: Ca
                   <li key={one.id}>
                     <button type="button" data-cluster-row={one.id} data-private={one.private ? '' : undefined} onClick={() => onOpen('capture', one.id)}
                       className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-control hover:bg-accent/60">
-                      <span className="private-text min-w-0 flex-1 truncate">{splitTags(one.label).text || one.label || 'Untitled'}</span>
+                      <span className="private-text min-w-0 flex-1 truncate">{splitTags(one.label).text || one.label || 'New note'}</span>
                     </button>
                   </li>
                 ))}

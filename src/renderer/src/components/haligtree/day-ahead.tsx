@@ -55,7 +55,7 @@ export function DayAhead({ day, tasks, onOpen, menuFor }: {
                 className={`flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-accent/50 ${PICKED_MARK}`}>
                 {row.type === 'task' ? <ListTodo className="size-4 shrink-0" /> : <Inbox className="size-4 shrink-0" />}
                 <span className="flex min-w-0 flex-1 items-center gap-1.5">
-                  <span className="truncate">{itemName(row.type, row.title).text || 'Untitled'}</span>
+                  <span className="truncate">{itemName(row.type, row.title).text || 'New note'}</span>
                   <Tags tags={itemName(row.type, row.title).tags} />
                 </span>
               </button>

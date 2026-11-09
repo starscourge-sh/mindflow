@@ -521,7 +521,7 @@ export function registerCaptures(): void {
            (${LABEL} || ' ' || words(id, body) || char(31) || coalesce(medium, '') || ' ' || coalesce(attribution, '') || ' ' || coalesce(fields, '') || ' ' || coalesce(aliases, '')) as text
            from captures where status not in ('discarded', 'promoted')
          union all
-         select tier, id, null, case when tier = 'goal' then (case when goal_at is null then 'someday' when closed_how = 'on ice' then 'iced' else 'dated' end) else kind end, 'open', '', attribution, coalesce(nullif(title, ''), label('', body)), created_at,
+         select tier, id, null, case when tier = 'goal' then (case when goal_at is null then 'someday' when closed_how = 'on ice' then 'iced' else 'dated' end) else kind end, 'open', '', attribution, coalesce(nullif(nullif(trim(title), 'Untitled'), ''), label('', body)), created_at,
            (coalesce(title, '') || ' ' || ${SHOWN_WORDS} || char(31) || coalesce(attribution, '') || ' ' || coalesce(fields, '') || ' ' || coalesce(aliases, '')) from nuggets where tier not in ('card', 'deck') and binned_at is null
          union all
          select 'task', id, number, 'todo', status, '', null, title, created_at, (title || ' ' || coalesce(words('task:' || id, notes), '')) from tasks where status != 'dropped'

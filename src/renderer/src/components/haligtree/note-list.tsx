@@ -174,7 +174,7 @@ export function Cover({
           {/* A large tile's foot names it: with no more words than its name, the cover says nothing rather than the name twice.
               A question's card says the question itself, never the first words of what it holds (its first line was
               once where its note came from: "From HTOP, under "Dream Weaver"."). */}
-          {(() => { const shown = entry.type === 'question' ? '' : large ? rest(words, entry.title) : words; return shown && unlinked(shown).trim() ? <LinkedWords text={shown} /> : large ? null : entry.title || entry.line || 'Untitled' })()}
+          {(() => { const shown = entry.type === 'question' ? '' : large ? rest(words, entry.title) : words; return shown && unlinked(shown).trim() ? <LinkedWords text={shown} /> : large ? null : entry.title || entry.line || 'New note' })()}
         </span>
       )}
       <LeavingPicture src={leaving} onDone={left} />
@@ -831,7 +831,7 @@ function GridTile({ entry, words }: { entry: Entry; words?: string }): React.JSX
       <span className="flex min-w-0 flex-col gap-0.5 px-2.5 pt-2 pb-2.5">
         <span className="flex items-center gap-1.5 text-sm">
           {/* Cut short in a narrow tile, its whole name in a tip; shown whole, no tip at all. */}
-          <Tip label={entry.private ? '' : entry.title || entry.line || 'Untitled'}>
+          <Tip label={entry.private ? '' : entry.title || entry.line || 'New note'}>
             <span data-tile-title className="private-text min-w-0 flex-1 truncate font-medium">
               <Named entry={entry} />
             </span>
@@ -945,7 +945,7 @@ export function NoteRail({
                 className={`flex w-full items-center justify-center rounded-lg p-1 ring-inset transition-[box-shadow,background-color] hover:bg-accent/60 ${PRESS} ${entry.dim ? 'opacity-50' : ''} ${index === cursor ? 'ring-2 ring-ring' : entry.id === selected ? 'bg-accent' : ''}`}
               >
                 {/* Never a private note's name: names show in a screen share. */}
-                <Tip label={entry.private ? 'Private' : entry.title || entry.line || 'Untitled'}>
+                <Tip label={entry.private ? 'Private' : entry.title || entry.line || 'New note'}>
                   <span className="flex">
                     <Lead entry={entry} />
                   </span>
@@ -1045,7 +1045,7 @@ export const matches = (title: string, query: string, fields?: string | Record<s
  */
 /** An entry's name; with none of its own, its first line in muted ink, never a bare “Untitled” when there are words. */
 const Named = ({ entry }: { entry: Entry }): React.JSX.Element =>
-  entry.title ? <>{entry.title}</> : entry.line ? <span data-untitled className="text-muted-foreground">{entry.line}</span> : <>Untitled</>
+  entry.title ? <>{entry.title}</> : entry.line ? <span data-untitled className="text-muted-foreground">{entry.line}</span> : <span className="text-muted-foreground">New note</span>
 
 export function Peek({
   entry,

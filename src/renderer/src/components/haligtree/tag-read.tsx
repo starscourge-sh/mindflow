@@ -635,7 +635,7 @@ function Entry({ item, onOpen, picked, onPick, menu, differs }: { item: TagRead;
         className="private-text min-w-0 flex-1 cursor-pointer rounded-md outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring/50"
       >
         {title && <h3 data-entry-title className="mb-1 font-semibold text-foreground">{title}</h3>}
-        <p data-entry-words className="max-w-[68ch] text-[0.9375rem] leading-relaxed whitespace-pre-line text-foreground/90" style={{ display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: LINES, overflow: 'hidden' }}>{lead || 'Untitled'}</p>
+        <p data-entry-words className="max-w-[68ch] text-[0.9375rem] leading-relaxed whitespace-pre-line text-foreground/90" style={{ display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: LINES, overflow: 'hidden' }}>{lead || 'New note'}</p>
         {picture && <img data-entry-picture src={picture} alt="" loading="lazy" draggable={false} className="mt-2.5 max-h-60 max-w-full rounded-md object-contain" />}
       </div>
       {/* Only what sets it apart: its kind where kinds are mixed, a state, tags the others do not carry. Quiet, out of the words' way. */}

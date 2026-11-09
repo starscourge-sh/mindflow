@@ -1438,13 +1438,13 @@ export function Home(): React.JSX.Element {
     const { capture, item, task } = known.get(view.focus) ?? {}
     if (capture) {
       const kind = CAPTURE_TYPES.find((type) => type.id === capture.kind) ?? CAPTURE_TYPES[0]
-      return { type: 'capture', id: capture.id, name: { title: taskName(capture.label).text || 'Untitled', icon: kind.icon, tint: kind.tint, private: !!capture.private, kind: kind.label } }
+      return { type: 'capture', id: capture.id, name: { title: taskName(capture.label).text || 'New note', icon: kind.icon, tint: kind.tint, private: !!capture.private, kind: kind.label } }
     }
     if (item) {
       const kind = CAPTURE_TYPES.find((type) => type.id === item.kind)
-      return { type: item.tier, id: item.id, name: { title: item.title || 'Untitled', icon: kind?.icon ?? FileText, tint: kind?.tint, private: !!item.private, kind: item.tier === 'article' ? 'Writing' : kind?.label ?? 'Note' } }
+      return { type: item.tier, id: item.id, name: { title: item.title || 'New note', icon: kind?.icon ?? FileText, tint: kind?.tint, private: !!item.private, kind: item.tier === 'article' ? 'Writing' : kind?.label ?? 'Note' } }
     }
-    return task ? { type: 'task', id: task.id, name: { title: taskName(task.title).text || 'Untitled', icon: TASK_KIND.icon, tint: TASK_KIND.tint, kind: 'Task' } } : null
+    return task ? { type: 'task', id: task.id, name: { title: taskName(task.title).text || 'New note', icon: TASK_KIND.icon, tint: TASK_KIND.tint, kind: 'Task' } } : null
   }
   // A place in the app (Settings, Gems) is named by itself, with no kind: "Page" is a piece of writing.
   const paneName = (view: View): PaneName => noteIn(view)?.name ?? { title: labelOf(view) || APP_NAME, ...pageLook(view) }
@@ -2301,15 +2301,15 @@ export function Home(): React.JSX.Element {
                       onUnpin={() => dropLayout(one.id, `Unpinned the split, ${one.views.map((view) => `${quoted(short(shownName(paneName(view).title)), 80)}`).join(' and ')}`)} />
                   )),
                   // Pins drag into your own order too; carried off the sidebar, one still opens to the side.
-                  <SortableList key="pins" items={pins} keyOf={(pin) => `${pin.type}:${pin.id}`} onMove={narrow ? undefined : dropOrder('pinOrder', pinsUsual.map((pin) => `${pin.type}:${pin.id}`), (id) => pinsUsual.find((pin) => `${pin.type}:${pin.id}` === id)?.title || 'Untitled')}>{(items) => items.map((pin) => {
+                  <SortableList key="pins" items={pins} keyOf={(pin) => `${pin.type}:${pin.id}`} onMove={narrow ? undefined : dropOrder('pinOrder', pinsUsual.map((pin) => `${pin.type}:${pin.id}`), (id) => pinsUsual.find((pin) => `${pin.type}:${pin.id}` === id)?.title || 'New note')}>{(items) => items.map((pin) => {
                   const kind = CAPTURE_TYPES.find((type) => type.id === pin.kind) ?? CAPTURE_TYPES[0]
                   const menu = fullMenu(pin.type, pin.id, () => open(pin.type, pin.id)) ?? sideMenu(pin.type, pin.id, pin.title, { onOpen: open, pinned: true, kind: pin.kind, status: captures.find((one) => one.id === pin.id)?.status })
-                  menu.splice(menu.lastIndexOf('separator'), 0, 'separator', ...orderItems({ setting: 'pinOrder', usual: pinsUsual.map((one) => `${one.type}:${one.id}`), id: `${pin.type}:${pin.id}`, among: items.map((one) => `${one.type}:${one.id}`), what: 'Pinned', name: pin.title || 'Untitled' }, pinSaved.length > 0))
+                  menu.splice(menu.lastIndexOf('separator'), 0, 'separator', ...orderItems({ setting: 'pinOrder', usual: pinsUsual.map((one) => `${one.type}:${one.id}`), id: `${pin.type}:${pin.id}`, among: items.map((one) => `${one.type}:${one.id}`), what: 'Pinned', name: pin.title || 'New note' }, pinSaved.length > 0))
                   return (
                     <SortableRow key={pin.id} id={`${pin.type}:${pin.id}`} glide={`pin-${pin.id}`}>
                     <RowMenu items={menu}>
                       <span className="flex min-w-0">
-                      <Tip label={narrow ? pin.title || 'Untitled' : ''}>
+                      <Tip label={narrow ? pin.title || 'New note' : ''}>
                       <button
                         type="button"
                         data-private={pin.private ? '' : undefined}
@@ -2324,7 +2324,7 @@ export function Home(): React.JSX.Element {
                         className={`flex min-w-0 flex-1 items-center gap-2.5 rounded-md py-1.5 ${light === `pin:${pin.id}` ? 'text-foreground' : 'text-foreground/80'} ${narrow ? 'justify-center px-0' : 'px-2'}`}
                       >
                         <kind.icon className="size-4 shrink-0" style={{ color: kind.tint }} />
-                        {!narrow && <Weighted on={light === `pin:${pin.id}`} className="private-text min-w-0 flex-1 truncate text-left">{taskName(pin.title).text || 'Untitled'}</Weighted>}
+                        {!narrow && <Weighted on={light === `pin:${pin.id}`} className="private-text min-w-0 flex-1 truncate text-left">{taskName(pin.title).text || 'New note'}</Weighted>}
                       </button>
                       </Tip>
                       </span>
@@ -2351,7 +2351,7 @@ export function Home(): React.JSX.Element {
                           onClick={() => open(one.type, one.id)}
                           className="flex min-w-0 flex-1 items-center gap-2.5 rounded-md px-2 py-1.5 text-foreground/80">
                           <OpenedIcon one={one} className="size-4 shrink-0 text-muted-foreground" />
-                          <span className="private-text min-w-0 flex-1 truncate text-left">{one.title || 'Untitled'}</span>
+                          <span className="private-text min-w-0 flex-1 truncate text-left">{one.title || 'New note'}</span>
                         </button>
                       )
                     })}</Branches></Unfold>

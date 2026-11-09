@@ -120,7 +120,7 @@ function StillRow({ items, onOpen, menuFor, counter, label, height, whole = fals
               className="group absolute top-0 flex cursor-pointer flex-col gap-1.5 rounded-lg text-left outline-none transition-transform duration-150 ease-out focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.97]"
               style={{ left: at * (cardW + GAP), width: cardW }}>
               <StillPicture src={item.src} height={picH} pdf={item.pdf} />
-              <span className="truncate text-control font-medium text-foreground">{item.title || 'Untitled'}</span>
+              <span className="truncate text-control font-medium text-foreground">{item.title || 'New note'}</span>
               {/* A note of two lines (a book's page, then the day you finish it) keeps both, each whole. */}
               <span className={`-mt-1 text-meta text-muted-foreground tabular-nums group-hover:text-foreground ${item.note?.includes('\n') ? 'line-clamp-2 whitespace-pre-line' : 'truncate'}`}>{item.note ?? place}</span>
             </button>

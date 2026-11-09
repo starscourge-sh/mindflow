@@ -482,7 +482,7 @@ function Ghost({ carried, bundles, many, aim, grab, from, rest, dragY }: { carri
     <Hand grab={grab} from={from} rest={rest}>
       {behind.map((one, at) => <Fanned key={one.id} entry={one} depth={at + 1} dragY={dragY} />).reverse()}
       <CarriedCard attrs={{ 'data-ghost': '' }} icon={group ? <GroupIcon icon={group.icon} color={group.color} /> : entry ? <entry.icon className="size-4 shrink-0" style={{ color: entry.tint }} /> : null}
-        title={group?.name ?? (entry?.title || 'Untitled')} strong={!!group} words={aim?.label ?? (aim ? 'Move here' : null)} tint={aim?.tint} />
+        title={group?.name ?? (entry?.title || 'New note')} strong={!!group} words={aim?.label ?? (aim ? 'Move here' : null)} tint={aim?.tint} />
       {/* How many, hanging just under the stack. */}
       {many.length > 1 && <Count n={many.length} />}
     </Hand>
@@ -510,7 +510,7 @@ function Fanned({ entry, depth, dragY }: { entry: Entry; depth: number; dragY: M
         transition={calm ? { duration: 0 } : springs.moderate}
       >
         <entry.icon className="size-4 shrink-0" style={{ color: entry.tint }} />
-        <span className="private-text min-w-0 flex-1 truncate">{entry.title || 'Untitled'}</span>
+        <span className="private-text min-w-0 flex-1 truncate">{entry.title || 'New note'}</span>
       </motion.div>
     </motion.div>
   )

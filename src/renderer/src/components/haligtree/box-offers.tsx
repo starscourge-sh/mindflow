@@ -26,7 +26,7 @@ type Offer = { kind: 'question'; one: PinnedQuestion; shared: number } | { kind:
 export const askedLine = (words: string): string | null =>
   words.split('\n').map((line) => line.trim()).find((line) => line.length > 1 && line.endsWith('?') && !line.startsWith('+')) ?? null
 
-const short = (text: string, n = 40): string => clip(text, n) || 'Untitled'
+const short = (text: string, n = 40): string => clip(text, n) || 'New note'
 
 /**
  * Where else the box's words could go, kept calm: one quiet line, and only

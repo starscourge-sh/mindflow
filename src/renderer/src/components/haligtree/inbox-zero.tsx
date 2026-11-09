@@ -89,7 +89,7 @@ export function InboxZero({ compact = false, onReview, onRead }: {
   const { queue } = useQueue()
   const next = due > 0
     ? { said: `Next: ${plural(due, 'card')} to review`, run: onReview }
-    : queue[0] ? { said: `Read next: ${queue[0].title || 'Untitled'}`, run: () => onRead(queue[0]) } : null
+    : queue[0] ? { said: `Read next: ${queue[0].title || 'New note'}`, run: () => onRead(queue[0]) } : null
   const latest = useRef(next)
   latest.current = next
   const here = useRef<HTMLDivElement>(null)

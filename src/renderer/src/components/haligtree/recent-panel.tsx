@@ -165,7 +165,7 @@ export function RecentPanel({ until, onOpen, onClose, className = '' }: {
                 >
                   <Mark className="size-4 shrink-0" style={one.type === 'capture' && kind ? { color: kind.tint } : one.type === 'task' ? { color: 'var(--tt-color-text-green)' } : undefined} />
                   <span className="flex min-w-0 flex-1 items-center gap-1.5">
-                    <span className={`private-text min-w-0 truncate ${closed(one) ? `text-muted-foreground ${DONE_WORDS}` : 'text-foreground'}`}>{name.text || 'Untitled'}</span>
+                    <span className={`private-text min-w-0 truncate ${closed(one) ? `text-muted-foreground ${DONE_WORDS}` : 'text-foreground'}`}>{name.text || 'New note'}</span>
                     <Tags tags={name.tags} />
                   </span>
                   <span className="shrink-0 text-xs text-muted-foreground tabular-nums">{time(one.at)}</span>
@@ -233,7 +233,7 @@ export function HistoryPanel({ fresh, onOpen, onClose, className = '' }: {
                 <button type="button" data-history-row={`${one.type}:${one.id}`} data-private={one.private ? '' : undefined} onClick={open}
                   className="flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left text-control">
                   <OpenedIcon one={one} className="size-4 shrink-0 text-muted-foreground" />
-                  <span className="private-text min-w-0 flex-1 truncate text-foreground">{one.title || 'Untitled'}</span>
+                  <span className="private-text min-w-0 flex-1 truncate text-foreground">{one.title || 'New note'}</span>
                   {one.at && <span className="shrink-0 text-xs text-muted-foreground tabular-nums">{time(one.at)}</span>}
                 </button>
               </RowMenu>

@@ -70,7 +70,7 @@ function sourceOf(target: EventTarget | null): { node: HTMLElement; carried: Car
   if (target.closest('input, textarea, select, [data-no-split], [role="menu"], [role="separator"]')) return null
   const tab = target.closest<HTMLElement>('[data-tab]')
   const row = tab?.closest<HTMLElement>('[data-tab-row]')
-  if (tab && row) return { node: tab, carried: { tab: { pane: row.dataset.tabRow!, key: tab.dataset.tab! }, open: tab.dataset.tabOpen, title: tab.dataset.dragTitle ?? 'Untitled' }, column: false }
+  if (tab && row) return { node: tab, carried: { tab: { pane: row.dataset.tabRow!, key: tab.dataset.tab! }, open: tab.dataset.tabOpen, title: tab.dataset.dragTitle ?? 'New note' }, column: false }
   const chip = target.closest<HTMLElement>('a.tiptap-note-link[data-note]')
   if (chip) {
     const raw = chip.getAttribute('data-note') ?? ''

@@ -1136,7 +1136,7 @@ const CAUGHT = 22
 function CaptureMark({ one, at, lane, onOpen }: { one: CaptureMeta; at: number; lane: Lane; onOpen?: (type: string, id: string) => void }): React.JSX.Element {
   const kind = CAPTURE_TYPES.find((type) => type.id === one.kind) ?? CAPTURE_TYPES[0]
   const time = hm(dayjs(one.capturedAt).toDate())
-  const words = one.private ? 'A private capture' : splitTags(one.label).text || one.label || 'Untitled'
+  const words = one.private ? 'A private capture' : splitTags(one.label).text || one.label || 'New note'
   const Icon = kind.icon
   return (
     <Tip label={`${time}  ${words.slice(0, 80)}`}>

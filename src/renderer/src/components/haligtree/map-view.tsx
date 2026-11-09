@@ -488,7 +488,7 @@ function FindOnMap({ nodes, onPick }: { nodes: NoteMap['nodes']; onPick: (id: st
                 <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => pick(node.id)} onMouseMove={(event) => realMove(event) && setAt(n)}
                   className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left ${n === at ? 'bg-accent' : ''}`}>
                   <span className="size-2 shrink-0 rounded-full" style={{ background: tintOf(node) }} />
-                  <span className="min-w-0 flex-1 truncate">{node.title || 'Untitled'}</span>
+                  <span className="min-w-0 flex-1 truncate">{node.title || 'New note'}</span>
                   <Icon className="size-3.5 shrink-0 text-muted-foreground" />
                 </button>
               </li>
@@ -526,7 +526,7 @@ function Lonely({ count, notes: list, onOpen }: { count: number; notes: NonNulla
                 <button type="button" onClick={() => (chime('open'), onOpen(one.type, one.id))}
                   className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-accent">
                   <Icon className="size-3.5 shrink-0" style={{ color: kind.tint }} />
-                  <span className="min-w-0 flex-1 truncate">{one.title || 'Untitled'}</span>
+                  <span className="min-w-0 flex-1 truncate">{one.title || 'New note'}</span>
                 </button>
               </li>
             )

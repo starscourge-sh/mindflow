@@ -13,7 +13,7 @@ export function NoteComing({ id, title }: { id: string; title?: string | null })
         {/* The header's room, so the name sits where the note's own title will. */}
         <div aria-hidden className="-mt-3 mb-1 h-7 shrink-0" />
         <div className="note-column mb-2 shrink-0">
-          <p className="font-heading text-title font-semibold tracking-[-0.018em] text-balance">{title?.trim() || 'Untitled'}</p>
+          <p className="font-heading text-title font-semibold tracking-[-0.018em] text-balance">{title?.trim() || 'New note'}</p>
         </div>
       </div>
     </div>

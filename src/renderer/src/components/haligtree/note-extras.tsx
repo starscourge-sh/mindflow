@@ -330,7 +330,7 @@ export function LinkField({ label, placeholder, ghost, does, value, onSave, onOp
 }): React.JSX.Element {
   const [picking, setPicking] = useState(false)
   const target = useLive(() => (value ? haligtree.linkTitle(value) : Promise.resolve(null)), null as Awaited<ReturnType<typeof haligtree.linkTitle>>, [value])
-  const name = target ? (target.type === 'day' ? dayPage(target.id) : target.title || 'Untitled') : value ? 'Gone: pick again' : null
+  const name = target ? (target.type === 'day' ? dayPage(target.id) : target.title || 'New note') : value ? 'Gone: pick again' : null
   const days = [0, 1, 2].map((back) => dayKey(dayjs().subtract(back, 'day')))
   return (
     <div className="group/link flex items-center gap-2 px-2 py-1.5 hover:bg-accent">

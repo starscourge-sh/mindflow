@@ -148,7 +148,7 @@ export function InYourNotes({ cited, empty, parts = [], here }: { cited: Cited[]
       <RowMenu items={items}>
         <button type="button" data-cited={one.id} data-cited-page={one.pages[0] ?? 0} data-first={first ? "" : undefined} data-part={part} className="book-cited-row" {...hoverNote(one.type, one.id)} onClick={(event) => open(one, event.altKey)}>
           <span className="book-cited-page">{one.pages.length ? pagesOf(one.pages) : "Whole"}</span>
-          <span className="book-cited-title">{one.title || "Untitled"}</span>
+          <span className="book-cited-title">{one.title || "New note"}</span>
           <span className="book-cited-line">
             <span className="book-cited-kind">{kindOf(one.type)}</span>
             {one.line ? ` · ${one.line}` : ""}

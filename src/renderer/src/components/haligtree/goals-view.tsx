@@ -1423,7 +1423,7 @@ export function GoalChips({ onPick, className = '', only }: { onPick: (goal: Ite
   // The three nearest still ahead: one past its day wants an answer, not a log.
   const open = goalsToLog(all).filter((one) => !only || only(one.title))
   if (!open.length) return null
-  const short = (text: string): string => clip(text, 24) || 'Untitled'
+  const short = (text: string): string => clip(text, 24) || 'New note'
   return (
     <div className={`flex min-w-0 flex-wrap items-center gap-1 text-xs text-muted-foreground ${className}`}>
       <span className="mr-0.5 flex shrink-0 items-center gap-1.5">

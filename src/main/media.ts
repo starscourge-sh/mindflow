@@ -406,9 +406,9 @@ function allMedia(): Media[] {
   const HOLDS = "body like '%://assets/%'"
   const rows = [
     ...db.prepare(`select 'capture' as type, id, ${LABEL} as title, body, private, captured_at as at from captures where status != 'discarded' and ${HOLDS}`).all(),
-    ...db.prepare(`select tier as type, id, coalesce(nullif(title, ''), label('', body)) as title, body, private, created_at as at from nuggets where binned_at is null and superseded_by is null and tier not in ('card', 'deck') and ${HOLDS}`).all(),
+    ...db.prepare(`select tier as type, id, coalesce(nullif(nullif(trim(title), 'Untitled'), ''), label('', body)) as title, body, private, created_at as at from nuggets where binned_at is null and superseded_by is null and tier not in ('card', 'deck') and ${HOLDS}`).all(),
     // A shared deck's pictures sit on its questions: read from the question and the answer together, and marked as the deck's.
-    ...db.prepare(`select 'nugget' as type, id, coalesce(nullif(title, ''), label('', body)) as title, json_quote(coalesce(prompt, '') || char(10) || coalesce(json_extract(body, '$'), '')) as body, private, created_at as at, 1 as deck from nuggets where binned_at is null and tier = 'deck' and (prompt like '%://assets/%' or ${HOLDS})`).all(),
+    ...db.prepare(`select 'nugget' as type, id, coalesce(nullif(nullif(trim(title), 'Untitled'), ''), label('', body)) as title, json_quote(coalesce(prompt, '') || char(10) || coalesce(json_extract(body, '$'), '')) as body, private, created_at as at, 1 as deck from nuggets where binned_at is null and tier = 'deck' and (prompt like '%://assets/%' or ${HOLDS})`).all(),
     ...db.prepare(`select 'day' as type, day as id, day as title, body, 0 as private, day as at from day_pages where ${HOLDS}`).all()
   ] as { type: string; id: string; title: string; body: string; private: number; at: string; deck?: number }[]
   const tiles = new Map<string, Media>()

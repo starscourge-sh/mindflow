@@ -27,7 +27,7 @@ export function MergeInto({ capture }: { capture: CaptureMeta }): React.JSX.Elem
     void haligtree.mergeCapture(capture.id, into.number).then((merged) => {
       if (!merged) return refuse('That note is gone now, so nothing was merged')
       chime('resolve')
-      toast(`Merged into ${quoted(into.label || 'Untitled', 40)}`, () => void haligtree.unmerge(capture.id, merged).then(() => chime('undo')))
+      toast(`Merged into ${quoted(into.label || 'New note', 40)}`, () => void haligtree.unmerge(capture.id, merged).then(() => chime('undo')))
     })
   }
   return (
@@ -49,7 +49,7 @@ export function MergeInto({ capture }: { capture: CaptureMeta }): React.JSX.Elem
                   return (
                     <CommandItem key={one.id} data-merge-pick value={`${one.label} ${captureKey(one.number)} ${one.id}`} onSelect={() => merge(one)}>
                       <type.icon style={{ color: type.tint }} />
-                      <span {...hoverNote('capture', one.id, { kind: one.kind })} className="private-text min-w-0 flex-1 truncate">{clipMiddle(one.label, 46) || 'Untitled'}</span>
+                      <span {...hoverNote('capture', one.id, { kind: one.kind })} className="private-text min-w-0 flex-1 truncate">{clipMiddle(one.label, 46) || 'New note'}</span>
                       <span className="shrink-0 text-xs text-muted-foreground">{age(one.capturedAt)}</span>
                     </CommandItem>
                   )

@@ -1236,15 +1236,15 @@ export default function FlexCarousel({
         {current && revealed && (
           <>
             {from >= 0 && items[from] && (
-              <span key={`was-${from}`} className="mf-caption-look mf-caption-out col-start-1 row-start-1 line-clamp-2 translate-x-(--flex-carousel-x) self-start">{items[from].title || 'Untitled'}</span>
+              <span key={`was-${from}`} className="mf-caption-look mf-caption-out col-start-1 row-start-1 line-clamp-2 translate-x-(--flex-carousel-x) self-start">{items[from].title || 'New note'}</span>
             )}
-            <span key={`now-${active}`} data-flex-carousel-title className={`mf-caption-look col-start-1 row-start-1 line-clamp-2 translate-x-(--flex-carousel-x) self-start ${from >= 0 ? 'mf-caption-in' : ''}`}>{current.title || 'Untitled'}</span>
+            <span key={`now-${active}`} data-flex-carousel-title className={`mf-caption-look col-start-1 row-start-1 line-clamp-2 translate-x-(--flex-carousel-x) self-start ${from >= 0 ? 'mf-caption-in' : ''}`}>{current.title || 'New note'}</span>
             <span className="absolute inset-x-0 bottom-0 translate-x-(--flex-carousel-x) text-meta text-muted-foreground tabular-nums">{focusOpen ? 'Click it to open' : said}</span>
           </>
         )}
       </div>
       <div className="sr-only" aria-live="polite" aria-atomic="true">
-        {current ? `${current.title || 'Untitled'}, ${current.note ? `${current.note}, ` : ''}${num(active + 1)} of ${num(items.length)}` : ''}
+        {current ? `${current.title || 'New note'}, ${current.note ? `${current.note}, ` : ''}${num(active + 1)} of ${num(items.length)}` : ''}
       </div>
     </div>
   )

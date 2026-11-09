@@ -37,7 +37,7 @@ function load(): Native | null {
 
 const NOTES = `select 'capture' as type, id, label(title, body, named) as title, kind, words(id, body) as text, coalesce(edited_at, captured_at) as at from captures where status != 'discarded' and private = 0
   union all
-  select tier, id, coalesce(nullif(title, ''), label('', body)), kind, words(id, body), coalesce(updated_at, created_at) from nuggets where tier not in ('card', 'deck') and private = 0 and binned_at is null`
+  select tier, id, coalesce(nullif(nullif(trim(title), 'Untitled'), ''), label('', body)), kind, words(id, body), coalesce(updated_at, created_at) from nuggets where tier not in ('card', 'deck') and private = 0 and binned_at is null`
 
 /** What Spotlight holds, by its id, with the date it was given: only what changed is sent again. */
 const sent = new Map<string, string>()

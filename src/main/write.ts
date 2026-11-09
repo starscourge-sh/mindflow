@@ -31,7 +31,7 @@ export function registerWrite(): void {
     const to = new Date(from.getTime() + 7 * 86_400_000)
     const rows = db.prepare(
       `select label(title, body, named) as title, words(id, body) as text from captures where status != 'discarded' and private = 0 and captured_at >= ? and captured_at < ?
-       union all select coalesce(nullif(title, ''), label('', body)), words(id, body) from nuggets where tier in ('nugget', 'article', 'question') and private = 0 and binned_at is null and created_at >= ? and created_at < ?`
+       union all select coalesce(nullif(nullif(trim(title), 'Untitled'), ''), label('', body)), words(id, body) from nuggets where tier in ('nugget', 'article', 'question') and private = 0 and binned_at is null and created_at >= ? and created_at < ?`
     ).all(from.toISOString(), to.toISOString(), from.toISOString(), to.toISOString()) as { title: string; text: string }[]
     if (!rows.length) return { error: 'Nothing was written this week to sum up' }
     const notes = rows.map((row) => `- ${row.title}: ${(row.text ?? '').replace(/\s+/g, ' ').slice(0, 300)}`).join('\n')

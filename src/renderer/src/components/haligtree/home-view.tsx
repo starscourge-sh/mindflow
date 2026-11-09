@@ -105,7 +105,7 @@ const tintOf = (card: Pick<Card, 'type' | 'kind'>): string =>
   card.type === 'nugget' ? 'var(--tt-color-text-pink)' : card.type === 'article' ? 'var(--tt-color-text-brown)' : card.type === 'question' ? 'var(--tt-color-text-gray)' : kindOf(card).tint
 const kindLabel = (card: Card): string => (card.type === 'capture' ? kindOf(card).label : KIND_NAME[card.type])
 /** A card's name without its `#tags`: the heading over it says those. */
-const nameOf = (card: Pick<Card, 'title'>): string => splitTags(card.title).text || card.title || 'Untitled'
+const nameOf = (card: Pick<Card, 'title'>): string => splitTags(card.title).text || card.title || 'New note'
 /** A few words after the name, tags out: they are said elsewhere. */
 const wordsOf = (text?: string): string => (text ? splitTags(text).text : '')
 /** Words only, for telling whether two say the same: no case, marks or spacing. */

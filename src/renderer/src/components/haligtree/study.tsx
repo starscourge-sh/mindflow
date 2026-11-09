@@ -27,7 +27,7 @@ import { quoted } from '../../../../main/clip'
  */
 
 /** A card's question, or its name when it has none. */
-const asked = (item: Pick<Item, 'prompt' | 'title'>): string => item.prompt || item.title || 'Untitled'
+const asked = (item: Pick<Item, 'prompt' | 'title'>): string => item.prompt || item.title || 'New note'
 
 /**
  * The five practice rounds, a chip each with how many cards it holds: a
@@ -405,7 +405,7 @@ export function Blurt({ tag, onClose }: { tag: string; onClose: () => void }): R
             <li key={one.id} data-missed={lit.has(one.id) || undefined} data-private={one.private ? '' : undefined}
               className={`flex items-center gap-2 rounded-md px-3 py-1.5 text-sm ${lit.has(one.id) ? 'bg-[color-mix(in_srgb,var(--tt-color-text-orange)_12%,var(--background))] text-foreground' : 'text-muted-foreground'}`}>
               {lit.has(one.id) ? <span aria-hidden className="size-1.5 shrink-0 rounded-full bg-[var(--tt-color-text-orange)]" /> : <Check className="size-3.5 shrink-0" />}
-              <button type="button" className="private-text -my-0.5 min-w-0 flex-1 truncate py-0.5 text-left" onClick={() => (chime('open'), window.api.openInHome('nugget', one.id))}>{one.title || one.label || 'Untitled'}</button>
+              <button type="button" className="private-text -my-0.5 min-w-0 flex-1 truncate py-0.5 text-left" onClick={() => (chime('open'), window.api.openInHome('nugget', one.id))}>{one.title || one.label || 'New note'}</button>
             </li>
           ))}
         </ul>

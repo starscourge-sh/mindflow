@@ -665,7 +665,7 @@ export function Board({ editor, id, tools }: { editor: Editor; id: string; /** W
   /** The card's words become a note of their own, and the card a link to it. */
   const toNote = async (lane: number, at: number): Promise<void> => {
     const card = shape.lanes[lane].cards[at]
-    const title = card.node.firstChild?.textContent.trim() || 'Untitled'
+    const title = card.node.firstChild?.textContent.trim() || 'New note'
     const before = editor.getJSON()
     // Said with why, and what to do, when it cannot be made.
     const made = await window.api.captures.create({ body: { type: 'doc', content: card.node.toJSON().content ?? [{ type: 'paragraph' }] }, origin: id })
@@ -717,7 +717,7 @@ export function Board({ editor, id, tools }: { editor: Editor; id: string; /** W
             <DropdownMenuSubTrigger>Move to list</DropdownMenuSubTrigger>
             <DropdownMenuSubContent>
               {shape.lanes.map((other, to) => to !== lane && (
-                <DropdownMenuItem key={to} onSelect={() => (chime('move'), edge(), glide(root.current, () => move([lane, at], [to, other.cards.length])))}>{other.title || 'Untitled'}</DropdownMenuItem>
+                <DropdownMenuItem key={to} onSelect={() => (chime('move'), edge(), glide(root.current, () => move([lane, at], [to, other.cards.length])))}>{other.title || 'New note'}</DropdownMenuItem>
               ))}
             </DropdownMenuSubContent>
           </DropdownMenuSub>
@@ -1014,7 +1014,7 @@ function LaneBox({ id, title, count, folded, here, onFold, menu, children }: {
   const { setNodeRef, attributes, listeners, transform, transition, isDragging } = useSortable({ id, transition: still() ? null : { duration: 220, easing: EASING } })
   // An empty list still takes a card dropped on it.
   const { setNodeRef: dropRef } = useDroppable({ id: `${id}:drop`, data: { lane: id } })
-  const name = title || 'Untitled'
+  const name = title || 'New note'
   const style = { ...lanePanel(groupTint(name)), transform: transform ? `translate3d(${Math.round(transform.x)}px, 0, 0)` : undefined, transition, opacity: isDragging ? 0.35 : undefined }
   const dot = <span aria-hidden data-lane-dot="" className="size-2 shrink-0 rounded-full" style={{ background: 'var(--lane-tint)' }} />
   if (folded)

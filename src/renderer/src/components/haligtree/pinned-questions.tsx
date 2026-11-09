@@ -10,7 +10,7 @@ import { clip } from '../../../../main/clip'
 import { Orbit } from '@/components/ui/icons'
 import { quoted } from '../../../../main/clip'
 
-const short = (text: string, n = 36): string => clip(text, n) || 'Untitled'
+const short = (text: string, n = 36): string => clip(text, n) || 'New note'
 
 /**
  * Keep a question in view, or stop; twelve at most, as Feynman kept twelve

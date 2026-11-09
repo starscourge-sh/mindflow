@@ -117,7 +117,7 @@ export async function putInNote(files: Parameters<typeof blockOf>[0][], type: st
     return refuse('Could not put it there', 'error')
   }
   chime('noted')
-  toast(`Put ${files.length === 1 ? quoted(files[0].name.replace(/\.[^.]+$/, ''), 41) : plural(files.length, 'file')} in ${quoted(title || 'Untitled', 41)}`,
+  toast(`Put ${files.length === 1 ? quoted(files[0].name.replace(/\.[^.]+$/, ''), 41) : plural(files.length, 'file')} in ${quoted(title || 'New note', 41)}`,
     () => void writeBody(type, id, before, after).then(() => chime('undo')), 'success',
     { label: 'Open', key: 'O', run: () => window.api.openInHome(type, id) })
 }

@@ -404,7 +404,7 @@ export function Search({ onOpen: told, onAside: toldAside, onTab: toldTab, onClo
                   >
                     <span data-row-line className="flex h-5 w-full min-w-0 items-center gap-2">
                       <kind.icon className="size-4 shrink-0" style={{ color: kind.tint }} />
-                      <span {...(shown || capture.type === 'pdf' || capture.type === 'web' || capture.type === 'media' || capture.type === 'work' ? {} : hoverNote(capture.type, capture.id, { kind: capture.kind }))} {...(capture.type === 'pdf' ? { 'data-pdf-peek': capture.id.split('|')[0], 'data-pdf-peek-name': capture.id.split('|').slice(1).join('|') } : {})} data-row-title className="min-w-0 truncate leading-5">{/* A task's or an Inbox note's #tags as tags, never in its name: so it reads as it does on its own list. */}{(capture.type === 'day' ? dayName(capture.id) : taskName(capture.label ?? '').text) || 'Untitled'}</span>
+                      <span {...(shown || capture.type === 'pdf' || capture.type === 'web' || capture.type === 'media' || capture.type === 'work' ? {} : hoverNote(capture.type, capture.id, { kind: capture.kind }))} {...(capture.type === 'pdf' ? { 'data-pdf-peek': capture.id.split('|')[0], 'data-pdf-peek-name': capture.id.split('|').slice(1).join('|') } : {})} data-row-title className="min-w-0 truncate leading-5">{/* A task's or an Inbox note's #tags as tags, never in its name: so it reads as it does on its own list. */}{(capture.type === 'day' ? dayName(capture.id) : taskName(capture.label ?? '').text) || 'New note'}</span>
                       {/* After the words, so a task's title starts where a note's does. */}
                       {capture.type === 'task' && !!tasks.find((one) => one.id === capture.id)?.priority && <PriorityMark level={tasks.find((one) => one.id === capture.id)!.priority} />}
                       {/* A task's day, ahead or gone by, so a future one is told from a past one at a glance. */}
@@ -776,7 +776,7 @@ function PreviewHead({ capture, named }: { capture: Capture; named: boolean }): 
   return (
     <div data-preview-head className="flex flex-col gap-1.5 px-5 pt-5">
       <look.icon className="size-6 shrink-0" style={{ color: look.tint }} />
-      {named && <p className="text-lg font-semibold text-pretty text-foreground">{(capture.type === 'day' ? dayName(capture.id) : taskName(capture.label ?? '').text) || 'Untitled'}</p>}
+      {named && <p className="text-lg font-semibold text-pretty text-foreground">{(capture.type === 'day' ? dayName(capture.id) : taskName(capture.label ?? '').text) || 'New note'}</p>}
       <p className="text-xs text-muted-foreground">{[kind, where, capture.capturedAt && age(capture.capturedAt)].filter(Boolean).join(' · ')}</p>
     </div>
   )

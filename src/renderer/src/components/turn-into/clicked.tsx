@@ -255,7 +255,7 @@ export function clickedLines(editor: Editor, clicked: Clicked): Line[] {
           const node = editor.state.doc.nodeAt(pos)
           if (node?.type.name !== "noteLink") return
           chime("fold")
-          editor.chain().focus().insertContentAt({ from: pos, to: pos + node.nodeSize }, shown || "Untitled").run()
+          editor.chain().focus().insertContentAt({ from: pos, to: pos + node.nodeSize }, shown || "New note").run()
         },
       },
     ]

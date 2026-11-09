@@ -83,7 +83,7 @@ export function registerReadingQueue(): void {
 
   const read = (): { queue: QueueRow[]; read: QueueRow[] } => {
     const rows = db.prepare(`select q.id, q.item_type as type, q.item_id as itemId, q.added_at as addedAt, q.done_at as doneAt,
-        case when c.id is not null then label(c.title, c.body, c.named) else coalesce(nullif(n.title, ''), label('', n.body)) end as title,
+        case when c.id is not null then label(c.title, c.body, c.named) else coalesce(nullif(nullif(trim(n.title), 'Untitled'), ''), label('', n.body)) end as title,
         coalesce(c.kind, n.kind) as kind, coalesce(c.private, n.private, 0) as private, coalesce(c.body, n.body) as body
       from reading_queue q
       left join captures c on q.item_type = 'capture' and c.id = q.item_id

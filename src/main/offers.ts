@@ -73,7 +73,7 @@ function rows(): Row[] {
     `select id as key, label(title, body, named) as title, words(id, body) as text, coalesce(edited_at, captured_at) as stamp, null as "group", null as list
        from captures where status not in ('discarded', 'promoted') and private = 0
      union all
-     select tier || ':' || id, coalesce(nullif(title, ''), label('', body)), words(id, body), coalesce(updated_at, created_at), group_id, tier
+     select tier || ':' || id, coalesce(nullif(nullif(trim(title), 'Untitled'), ''), label('', body)), words(id, body), coalesce(updated_at, created_at), group_id, tier
        from nuggets where tier in ('nugget', 'article', 'question') and private = 0 and binned_at is null and archived_at is null`
   ).all() as Row[]
 }
@@ -124,7 +124,7 @@ const WORK_TAGS = new Set(['book', 'books', 'novel', 'film', 'films', 'movie', '
 function workOfNote(key: string, text: string): { work: string; author: string } | null {
   const db = database()
   const row = (key.includes(':')
-    ? db.prepare("select coalesce(nullif(title, ''), label('', body)) as title, kind, attribution from nuggets where id = ?").get(key.slice(key.indexOf(':') + 1))
+    ? db.prepare("select coalesce(nullif(nullif(trim(title), 'Untitled'), ''), label('', body)) as title, kind, attribution from nuggets where id = ?").get(key.slice(key.indexOf(':') + 1))
     : db.prepare(`select ${LABEL} as title, kind, attribution from captures where id = ?`).get(key)) as { title: string | null; kind: string | null; attribution: string | null } | undefined
   const about = tagsIn(text).some((tag) => WORK_TAGS.has(tag.toLowerCase())) || WORK_TAGS.has((row?.kind ?? '').toLowerCase())
   const work = withoutTags(row?.title || text.split('\n')[0] || '').replace(/\s+/g, ' ').trim()

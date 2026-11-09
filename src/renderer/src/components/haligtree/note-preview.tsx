@@ -211,7 +211,7 @@ export function NotePreview(): React.JSX.Element | null {
             return {
               title: `#${id}`, body: '', private: false, picture: null,
               tally: count || !later ? `${notes(count)}${later ? `, and ${later} done` : ''}` : `${notes(later)}, all done`,
-              latest: read.slice(0, 3).map((note) => withoutTags(note.title || note.label || '').replace(/\s+/g, ' ').trim() || 'Untitled')
+              latest: read.slice(0, 3).map((note) => withoutTags(note.title || note.label || '').replace(/\s+/g, ' ').trim() || 'New note')
             }
           })
           // A PDF or a kept article: its title, and what a click does.
@@ -243,7 +243,7 @@ export function NotePreview(): React.JSX.Element | null {
             y: side !== null ? Math.max(8, Math.min(box.top, window.innerHeight - 280)) : above ? box.top - 8 : box.bottom + 8,
             above,
             private: found.private,
-            title: found.thought ? '' : found.title || cut(read.split('\n')[0], 80) || 'Untitled',
+            title: found.thought ? '' : found.title || cut(read.split('\n')[0], 80) || 'New note',
             thought: found.thought,
             line: !!block,
             el: block && line ? link : undefined,

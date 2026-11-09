@@ -37,7 +37,7 @@ export const recallOffered = (capturedAt: string | null | undefined, now = new D
 export const captureKey = (number: number): string => `${NOTE_KEY}-${number}`
 
 /** A link to a note that any note reads as one when it is pasted in: `[[@id|its words]]`. */
-export const noteLinkText = (id: string, words: string): string => `[[@${id}|${cut((words || 'Untitled').replace(/[[\]|\n]+/g, ' ').trim(), 80)}]]`
+export const noteLinkText = (id: string, words: string): string => `[[@${id}|${cut((words || 'New note').replace(/[[\]|\n]+/g, ' ').trim(), 80)}]]`
 
 export const STATUS_ICON = {
   open: CircleDashed,
@@ -282,14 +282,14 @@ export async function findCaptures(query: string): Promise<NoteSuggestion[]> {
   }
   const rows = [
     // A quiet word to choose by: when it was last written in.
-    ...captures.map((capture) => row(capture.kind in linkKinds() ? capture.kind : 'note', { id: capture.id, label: shownName(capture.label ?? '') || 'Untitled', key: captureKey(capture.number), hint: edited(capture.editedAt ?? capture.capturedAt) })),
+    ...captures.map((capture) => row(capture.kind in linkKinds() ? capture.kind : 'note', { id: capture.id, label: shownName(capture.label ?? '') || 'New note', key: captureKey(capture.number), hint: edited(capture.editedAt ?? capture.capturedAt) })),
     // A nugget's or article's link carries its tier, so a click knows where to go.
-    ...items.map((item) => goalMarked(item, row(item.tier === 'nugget' ? 'idea' : item.tier, { id: `${item.tier}:${item.id}`, label: shownName(item.title ?? '') || 'Untitled', hint: edited(item.updatedAt) }))),
+    ...items.map((item) => goalMarked(item, row(item.tier === 'nugget' ? 'idea' : item.tier, { id: `${item.tier}:${item.id}`, label: shownName(item.title ?? '') || 'New note', hint: edited(item.updatedAt) }))),
     // Open ones first, as the list already has them.
     ...tasks.filter((task) => task.title.toLowerCase().includes(words)).slice(0, 4)
-      .map((task) => row('task', { id: `task:${task.id}`, label: shownName(task.title ?? '') || 'Untitled', key: `T-${task.number}` })),
+      .map((task) => row('task', { id: `task:${task.id}`, label: shownName(task.title ?? '') || 'New note', key: `T-${task.number}` })),
     // A PDF by its address alone (search's id adds the name it came under after a bar, which a link cannot hold); an article by its link.
-    ...files.slice(0, 4).map((file) => row(file.type, { id: `${file.type}:${file.type === 'pdf' ? file.id.split('|')[0] : file.id}`, label: file.label || 'Untitled' })),
+    ...files.slice(0, 4).map((file) => row(file.type, { id: `${file.type}:${file.type === 'pdf' ? file.id.split('|')[0] : file.id}`, label: file.label || 'New note' })),
     // Who your quotes are from: a link opens every note by them.
     ...people.filter((name) => !cast.some((one) => one.name.toLowerCase() === name.toLowerCase()) && name.toLowerCase().includes(words)).slice(0, 3).map((name) => ({ ...row('person', { id: `person:${name}`, label: name }), icon: <Avatar name={name} size={16} /> })),
     // Someone in a work, the work beside their name ("Paul Atreides · Dune"): a link opens their page.

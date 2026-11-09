@@ -66,7 +66,7 @@ export function SimilarNotes({ id, onOpen }: { id: string; onOpen?: (type: strin
         <div className="flex flex-col gap-px py-1">
           {shown.map((one) => (
             <div key={one.id} data-similar-row={one.id} className="group flex items-center gap-1 rounded-md px-2 py-1 hover:bg-accent/60">
-              <button type="button" onClick={() => onOpen?.(one.type, one.id)} className="min-w-0 flex-1 truncate text-left text-control text-foreground">{one.title || 'Untitled'}</button>
+              <button type="button" onClick={() => onOpen?.(one.type, one.id)} className="min-w-0 flex-1 truncate text-left text-control text-foreground">{one.title || 'New note'}</button>
               <Tip label="Link it from this note">
                 <button type="button" data-similar-link aria-label={`Link ${quoted(shownName(one.title), 200)}`} onClick={() => link(one)}
                   className="flex h-6 shrink-0 items-center gap-1 rounded-md px-1.5 text-xs font-medium text-foreground hover:bg-accent">

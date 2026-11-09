@@ -330,8 +330,8 @@ export function BlockMenu({
     const block = nameBlock(editor, found.pos)
     const [, type, id] = lineOf
     const note = type === "capture"
-      ? await window.api.captures.get(id).then((one) => one && { link: id, title: one.label || one.title || "Untitled" })
-      : await haligtree.item(id).then((one) => one && { link: `${one.tier}:${id}`, title: one.title || "Untitled" })
+      ? await window.api.captures.get(id).then((one) => one && { link: id, title: one.label || one.title || "New note" })
+      : await haligtree.item(id).then((one) => one && { link: `${one.tier}:${id}`, title: one.title || "New note" })
     if (!block || !note) return said("Could not copy it", false)
     const text = `${embed ? "!" : ""}[[@${note.link}#^${block}|${note.title.replace(/[[\]|\n]+/g, " ").trim().slice(0, 80)}]]`
     await navigator.clipboard.writeText(text).then(

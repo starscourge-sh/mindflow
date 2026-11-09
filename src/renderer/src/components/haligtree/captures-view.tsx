@@ -469,9 +469,9 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
   // Where it came from, or what it became, said quietly in its line: a click opens it.
   const titleOf = (id: string): string => {
     const capture = all.find((one) => one.id === id)
-    if (capture) return capture.private ? 'Private note' : capture.label || 'Untitled'
+    if (capture) return capture.private ? 'Private note' : capture.label || 'New note'
     const made = tasks.find((one) => one.id === id)
-    return (made && (taskName(made.title).text || made.title)) || 'Untitled'
+    return (made && (taskName(made.title).text || made.title)) || 'New note'
   }
   const withCue = (cue: React.ReactNode, rest: React.ReactNode): React.ReactNode => <>{cue}{rest ? <> · {rest}</> : null}</>
   const entryOf = everything ? (one: Row): ReturnType<typeof taskEntry> | undefined => {

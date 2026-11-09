@@ -21,7 +21,7 @@ export const EXPORTS: Array<{ format: ExportFormat; label: string; extension: st
 
 /** A filename that will not upset a file manager. */
 const safe = (name: string): string =>
-  cut((name.trim() || "Untitled").replace(/[\\/:*?"<>|]/g, "-"), 80)
+  cut((name.trim() || "New note").replace(/[\\/:*?"<>|]/g, "-"), 80)
 
 /**
  * Save the document, in whatever shape the caller wants it.

@@ -481,7 +481,7 @@ export const slashItems: SlashItem[] = [
     // the first heading or line of the document itself.
     run: (editor: Editor) => {
       const first = editor.state.doc.firstChild?.textContent?.trim()
-      void exportDocument(editor, format, first || 'Untitled')
+      void exportDocument(editor, format, first || 'New note')
     }
   }))
 ]

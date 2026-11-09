@@ -87,9 +87,9 @@ export function registerIssues(): void {
     const tagCounts = count(shown.flatMap((row) => tagsIn(`${row.title} ${plain(parse(row.body, null))}`)))
     const sources = [...count(shown.map((row) => row.attribution ?? '').filter(Boolean))].sort((a, b) => b[1] - a[1]).slice(0, 3)
     const made = (tier: string): { title: string }[] =>
-      db.prepare(`select coalesce(nullif(title, ''), label('', body)) as title from nuggets where tier = ? and private = 0 and created_at >= ? and created_at < ? order by created_at`).all(tier, since, until) as { title: string }[]
+      db.prepare(`select coalesce(nullif(nullif(trim(title), 'Untitled'), ''), label('', body)) as title from nuggets where tier = ? and private = 0 and created_at >= ? and created_at < ? order by created_at`).all(tier, since, until) as { title: string }[]
     const kept = (db.prepare("select count(*) n from nuggets where tier = 'nugget' and created_at >= ? and created_at < ?").get(since, until) as { n: number }).n
-    const reviewed = db.prepare(`select coalesce(nullif(n.title, ''), label('', n.body)) as title, count(*) n from review_log r join nuggets n on n.id = r.item_id
+    const reviewed = db.prepare(`select coalesce(nullif(nullif(trim(n.title), 'Untitled'), ''), label('', n.body)) as title, count(*) n from review_log r join nuggets n on n.id = r.item_id
       where r.reviewed_at >= ? and r.reviewed_at < ? and n.private = 0 group by r.item_id order by n desc limit 1`).get(since, until) as { title: string; n: number } | undefined
     const before = (db.prepare('select count(*) n from captures where captured_at >= ? and captured_at < ?').get(start.subtract(1, 'month').toISOString(), since) as { n: number }).n
     const page = db.prepare('select fields from period_pages where period = ?').get(`month:${month}`) as { fields: string | null } | undefined
@@ -138,7 +138,7 @@ export function registerIssues(): void {
       const own = gramsOf(mine.id, mine.title)
       const like = all.filter((row) => row.id === id || (row.title.trim().length >= 12 && overlap(own, gramsOf(row.id, row.title)) >= 0.5))
       if (like.length < 3) continue
-      const article = db.prepare(`select id, coalesce(nullif(title, ''), label('', body)) as title from nuggets where tier = 'article' and body like ? order by created_at desc limit 1`)
+      const article = db.prepare(`select id, coalesce(nullif(nullif(trim(title), 'Untitled'), ''), label('', body)) as title from nuggets where tier = 'article' and body like ? order by created_at desc limit 1`)
         .get(`%"id":"${id}"%`) as { id: string; title: string } | undefined
       out[id] = { n: like.length, ids: like.map(({ id, number, title }) => ({ id, number, title })), article: article ?? null }
     }

@@ -297,7 +297,7 @@ export function DayView({ onOpen, start, onScale, onView }: {
                   {/* Dealt with, it stays where it was made, struck through: the page keeps what you meant to do and that you did it. */}
                   {/* A task reads as it does in every list: its words without the #tags, the tags small and coloured after. */}
                   <span className={`private-text flex min-w-0 flex-1 items-center gap-1.5 ${title === 'Captured' && entry.status && entry.status !== 'open' ? 'text-muted-foreground line-through decoration-foreground/40' : ''}`}>
-                    <span className="truncate">{itemName(entry.type, entry.title).text || 'Untitled'}</span>
+                    <span className="truncate">{itemName(entry.type, entry.title).text || 'New note'}</span>
                     <Tags tags={itemName(entry.type, entry.title).tags} />
                   </span>
                   {/* Why a row is struck or where it went, in words: never the stored status. */}

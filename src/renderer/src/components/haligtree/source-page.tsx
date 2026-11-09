@@ -678,7 +678,7 @@ export function SourcePageView({ focus, onOpen }: { focus?: string; onOpen: (typ
             {first && box('first-met', said.met, <CalendarDays aria-hidden className="size-4 shrink-0 text-muted-foreground" />,
               // The day, and the note you met them in: a press opens it.
               <div data-first-met>
-                <NoteList groups={[['', [{ id: first.id, type: first.type, title: dayFull(first.at), tags: [], icon: CalendarDays, sub: `${ago(first.at)}, in ${quoted(bare(first.label) || 'Untitled', 60)}`, menu: [{ label: 'Open', run: () => open(first) }] }]]]}
+                <NoteList groups={[['', [{ id: first.id, type: first.type, title: dayFull(first.at), tags: [], icon: CalendarDays, sub: `${ago(first.at)}, in ${quoted(bare(first.label) || 'New note', 60)}`, menu: [{ label: 'Open', run: () => open(first) }] }]]]}
                   density="list" table="nuggets" cursor={-1} onPick={() => open(first)} />
               </div>, 1, true)}
           </div>
@@ -884,7 +884,7 @@ export function SourcesView({ onOpen }: { onOpen: (type: string, id: string) => 
                 // when it is pointed at or tapped, each a full tap tall; rows never grow to two lines.
                 <RowMenu key={item.id} items={[{ label: 'Open', run: () => onOpen(item.type, item.id) }, { label: 'Add who…', run: () => void give(item) }, { label: 'Source unknown', run: () => void sourceUnknown(item) }, { label: 'Not a quote', run: () => void notAQuote(item) }]}>
                 <li data-missing-row={item.id} className="group/missing relative flex min-w-0 items-center gap-3 rounded-md hover:bg-accent/60 focus-within:bg-accent/60 max-sm:min-h-8">
-                  <button type="button" title={item.label || undefined} className="min-w-0 flex-1 cursor-pointer truncate rounded-md px-1.5 py-0.5 text-left text-body" onClick={() => onOpen(item.type, item.id)}>{item.label || 'Untitled'}</button>
+                  <button type="button" title={item.label || undefined} className="min-w-0 flex-1 cursor-pointer truncate rounded-md px-1.5 py-0.5 text-left text-body" onClick={() => onOpen(item.type, item.id)}>{item.label || 'New note'}</button>
                   <span data-missing-ways className="flex shrink-0 items-center opacity-0 transition-opacity duration-150 group-hover/missing:opacity-100 group-focus-within/missing:opacity-100 [@media(hover:none)]:opacity-100 max-sm:absolute max-sm:inset-y-0 max-sm:right-0 max-sm:rounded-md max-sm:bg-accent max-sm:pl-2 max-sm:[&>button]:h-8">
                     <Button variant="ghost" size="sm" data-give-source={item.id} onClick={() => void give(item)}>Add who</Button>
                     <Button variant="ghost" size="sm" data-source-unknown={item.id} onClick={() => void sourceUnknown(item)}>Unknown</Button>
