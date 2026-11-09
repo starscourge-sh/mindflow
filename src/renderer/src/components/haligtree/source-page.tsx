@@ -1,7 +1,7 @@
 import { Orb } from './orb'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { hoverNote } from './note-preview'
-import { ArrowUpRight, BookOpen, CalendarDays, FileText, Library, Link2, PenLine, Plus, Quote, User } from 'lucide-react'
+import { ArrowUpRight, BookMarked, BookOpen, CalendarDays, FileText, Library, Link2, PenLine, Plus, Quote, User } from 'lucide-react'
 import { Camera, Fit } from '@/components/ui/icons'
 import { openLook } from '@/components/image/image-look'
 
@@ -19,6 +19,7 @@ import { RowMenu, type RowItem } from './row-menu'
 import { IslandBox, useIslands } from './islands'
 import { withoutTags } from '../../../../main/tag-words'
 import { useReading } from '@/lib/reads-in'
+import { addWork, cite, type Citer, type Work } from '@/lib/cite'
 import { firstSentences, pageFor, useWiki } from '@/lib/wiki'
 import { cn } from '@/lib/cn'
 import { personKey } from '../../../../main/names'
@@ -546,6 +547,9 @@ export function SourcePageView({ focus, onOpen }: { focus?: string; onOpen: (typ
   const which = readFocus(focus)
   const page = useLive(() => (which ? sources.page(which.field, which.name) : Promise.resolve(null)), null, [focus])
   const near = useLive(() => (which?.field === 'attribution' ? sources.near(page?.name ?? which.name) : Promise.resolve([])), [] as Near, [focus, page?.name, page?.items.length])
+  // A work's notes that cite it, and its details as its citations keep them.
+  const citers = useLive(() => (which?.field === 'medium' ? cite.citers(page?.name ?? which.name) : Promise.resolve([] as Citer[])), [] as Citer[], [focus, page?.name])
+  const work = useLive(() => (which?.field === 'medium' ? cite.works().then((all) => all.find((one) => personKey(one.title) === personKey(page?.name ?? which.name)) ?? null) : Promise.resolve(null)), null as Work | null, [focus, page?.name])
   const voices = useMemo(() => {
     const by: Record<Voice, SourceItem[]> = { theirs: [], understood: [], mine: [] }
     for (const item of page?.items ?? []) by[item.voice].push(item)
@@ -570,10 +574,11 @@ export function SourcePageView({ focus, onOpen }: { focus?: string; onOpen: (typ
     thoughts: 'Your thoughts',
     connects: `What connects to ${them}`,
     found: 'Found through it',
-    met: `When you first met ${them}`
+    met: `When you first met ${them}`,
+    cited: 'Notes citing it'
   }
   const { groups: showing, islands } = island<unknown>(page ? [
-    [said.words, voices.theirs], [said.yours, yours], [said.thoughts, [page.thoughts]], [said.connects, linked], [said.found, page.found], [said.met, first ? [first] : []]
+    [said.words, voices.theirs], [said.cited, citers], [said.yours, yours], [said.thoughts, [page.thoughts]], [said.connects, linked], [said.found, page.found], [said.met, first ? [first] : []]
   ] : [])
   /** What shows of a section: its first few, or all of it once opened past "Show more". */
   const shown = <T,>(title: string): T[] => (showing.find(([one]) => one === title)?.[1] ?? []) as T[]
@@ -587,6 +592,7 @@ export function SourcePageView({ focus, onOpen }: { focus?: string; onOpen: (typ
   )
   const theirs = shown<SourceItem>(said.words)
   const mine = shown<SourceItem>(said.yours)
+  const citing = shown<Citer>(said.cited)
   return (
     <Page title={name} count={page?.items.length ?? 0} unit={['note', 'notes']}>
       <div className="page-column pb-16" data-source-page={field}>
@@ -597,6 +603,7 @@ export function SourcePageView({ focus, onOpen }: { focus?: string; onOpen: (typ
             <p className="text-control text-muted-foreground">{FIELD_SAID[field].one}</p>
             <SourceName field={field} name={name} />
             <SourceLine page={page} name={name} />
+            {work && (work.authors || work.publisher || work.doi || work.isbn) && <WorkLine work={work} />}
           </div>
         </div>
         )}
@@ -606,6 +613,9 @@ export function SourcePageView({ focus, onOpen }: { focus?: string; onOpen: (typ
           <div data-source-islands className="mx-3 mt-8">
             {box('words', said.words, <QuoteKind.icon aria-hidden className="size-4 shrink-0" style={{ color: QuoteKind.tint }} />,
               <NoteList groups={[['', theirs.map((item) => ({ ...quoteEntry(field, page, item), menu: menu(item) }))]]} density="list" table="nuggets" cursor={-1} onPick={pick(theirs)} />, theirs.length)}
+            {box('cited', said.cited, <BookMarked aria-hidden className="size-4 shrink-0 text-muted-foreground" />,
+              <NoteList groups={[['', citing.map((one) => ({ id: one.id, type: one.type, title: one.title, tags: [], icon: kindOf(one.kind).icon, tint: kindOf(one.kind).tint, menu: [{ label: 'Open', run: () => (chime('open'), onOpen(one.type, one.id)) }] }))]]}
+                density="list" table="nuggets" cursor={-1} onPick={(id) => { const one = citing.find((each) => each.id === id); if (one) (chime('open'), onOpen(one.type, one.id)) }} />, citing.length)}
             {box('yours', said.yours, <NoteKind.icon aria-hidden className="size-4 shrink-0" style={{ color: NoteKind.tint }} />,
               <NoteList groups={[['', mine.map((item) => ({ ...entryOf(item), menu: menu(item) }))]]} density="list" table="nuggets" cursor={-1} onPick={pick(mine)} />, mine.length)}
             {box('thoughts', said.thoughts, <PenLine aria-hidden className="size-4 shrink-0 text-muted-foreground" />,
@@ -647,6 +657,20 @@ function SourceLine({ page, name }: { page: SourcePage | null; name: string }): 
         <button type="button" data-via-open onClick={() => (chime('page'), openSource(via.field, via.name))}
           className="ml-1 rounded-md px-1 py-0.5 text-control text-foreground hover:bg-accent">{via.field === 'attribution' ? `Everything by ${via.name}` : `Everything from ${via.name}`}</button>
       )}
+    </p>
+  )
+}
+
+/** A work's authors, publisher and DOI or ISBN, as its lookup or your own hand gave them: the DOI opens its page. */
+function WorkLine({ work }: { work: Work }): React.JSX.Element {
+  const link = work.doi ? `https://doi.org/${work.doi}` : ''
+  return (
+    <p data-work-line className="mt-1 flex flex-wrap items-baseline gap-x-1.5 text-body text-foreground">
+      {work.authors && <span>{work.authors.split(';').map((one) => one.trim()).join(', ')}</span>}
+      {work.authors && work.publisher && <span aria-hidden>·</span>}
+      {work.publisher && <span>{work.publisher}</span>}
+      {(work.authors || work.publisher) && (link || work.isbn) && <span aria-hidden>·</span>}
+      {link ? <a href={link} target="_blank" rel="noreferrer" className="cursor-pointer text-primary underline-offset-2 hover:underline">doi:{work.doi}</a> : work.isbn && <span>ISBN {work.isbn}</span>}
     </p>
   )
 }
@@ -779,6 +803,7 @@ export function SourcesView({ onOpen }: { onOpen: (type: string, id: string) => 
   // The quotes with no source: five, and the rest a press away, so a long list never pushes the page down.
   const [allMissing, setAllMissing] = useState(false)
   const picking = usePicking(shown, live, setChosen)
+  const [looking, setLooking] = useState(false)
   return (
     // Waits for both its reads: drawn before, "No sources yet" showed for a beat, and the quotes with no source came in above the list.
     <Page title="Sources" waiting={unloaded(list) || unloaded(missing)} count={live.length || list.length} unit={live.length ? ['selected', 'selected'] : ['page', 'pages']} actions={<>
@@ -786,6 +811,7 @@ export function SourcesView({ onOpen }: { onOpen: (type: string, id: string) => 
         sorts={[{ id: 'recents', label: 'Recents' }, { id: 'added', label: 'Recently added' }, { id: 'name', label: 'A to Z' }, { id: 'most', label: 'Most notes' }]} />
       <Button variant="outline" size="sm" className="h-7 cursor-pointer px-3" data-new-source="attribution" onClick={() => void make('attribution')}><Plus className="size-3.5" />New person</Button>
       <Button variant="outline" size="sm" className="h-7 cursor-pointer px-3" data-new-source="medium" onClick={() => void make('medium')}><Plus className="size-3.5" />New source</Button>
+      <Button variant="outline" size="sm" className="h-7 cursor-pointer px-3" data-add-work aria-busy={looking || undefined} onClick={() => void addWork(setLooking)}><span className="-ml-1 grid size-5 place-items-center">{looking ? <Orb /> : <BookMarked className="size-3.5" />}</span>Add from DOI or ISBN</Button>
     </>}>
       <div className="page-column pb-16">
         {/* A quote with no source is the one thing here to put right: said first, in full size. */}

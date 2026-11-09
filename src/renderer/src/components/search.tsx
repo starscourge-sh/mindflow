@@ -1,5 +1,5 @@
 import { revealRow } from '@/lib/menu-keys'
-import { Image as ImageIcon } from 'lucide-react'
+import { BookMarked, Image as ImageIcon } from 'lucide-react'
 import { showMediaFile } from '@/lib/media-files'
 import { aimAt } from '@/lib/meeting'
 import { useSeen } from '@/lib/reads-in'
@@ -383,7 +383,7 @@ export function Search({ onOpen: told, onAside: toldAside, onTab: toldTab, onClo
   // One result's row: `index` among the results showing, `island` the one it is drawn in.
   const resultRow = (capture: Capture, index: number, island: string): React.JSX.Element => {
               // A task wears the task mark it has everywhere else, not the to-do kind's.
-              const kind = capture.type === 'goal' ? goalLook(capture.kind) : capture.type === 'task' ? TASK_KIND : capture.type === 'event' ? EVENT_KIND : capture.type === 'day' ? DAY_KIND : capture.type === 'pdf' ? PDF_KIND : capture.type === 'web' ? WEB_KIND : capture.type === 'media' ? MEDIA_KIND : CAPTURE_TYPES.find((type) => type.id === capture.kind) ?? CAPTURE_TYPES[0]
+              const kind = capture.type === 'goal' ? goalLook(capture.kind) : capture.type === 'task' ? TASK_KIND : capture.type === 'event' ? EVENT_KIND : capture.type === 'day' ? DAY_KIND : capture.type === 'pdf' ? PDF_KIND : capture.type === 'web' ? WEB_KIND : capture.type === 'media' ? MEDIA_KIND : capture.type === 'work' ? WORK_KIND : CAPTURE_TYPES.find((type) => type.id === capture.kind) ?? CAPTURE_TYPES[0]
               const on = index + doing.length === at
               return (
                 <Fragment key={capture.id}>
@@ -405,7 +405,7 @@ export function Search({ onOpen: told, onAside: toldAside, onTab: toldTab, onClo
                   >
                     <span data-row-line className="flex h-5 w-full min-w-0 items-center gap-2">
                       <kind.icon className="size-4 shrink-0" style={{ color: kind.tint }} />
-                      <span {...(shown || capture.type === 'pdf' || capture.type === 'web' || capture.type === 'media' ? {} : hoverNote(capture.type, capture.id, { kind: capture.kind }))} {...(capture.type === 'pdf' ? { 'data-pdf-peek': capture.id.split('|')[0], 'data-pdf-peek-name': capture.id.split('|').slice(1).join('|') } : {})} data-row-title className="min-w-0 truncate leading-5">{/* A task's or an Inbox note's #tags as tags, never in its name: so it reads as it does on its own list. */}{(capture.type === 'day' ? dayName(capture.id) : taskName(capture.label ?? '').text) || 'Untitled'}</span>
+                      <span {...(shown || capture.type === 'pdf' || capture.type === 'web' || capture.type === 'media' || capture.type === 'work' ? {} : hoverNote(capture.type, capture.id, { kind: capture.kind }))} {...(capture.type === 'pdf' ? { 'data-pdf-peek': capture.id.split('|')[0], 'data-pdf-peek-name': capture.id.split('|').slice(1).join('|') } : {})} data-row-title className="min-w-0 truncate leading-5">{/* A task's or an Inbox note's #tags as tags, never in its name: so it reads as it does on its own list. */}{(capture.type === 'day' ? dayName(capture.id) : taskName(capture.label ?? '').text) || 'Untitled'}</span>
                       {/* After the words, so a task's title starts where a note's does. */}
                       {capture.type === 'task' && !!tasks.find((one) => one.id === capture.id)?.priority && <PriorityMark level={tasks.find((one) => one.id === capture.id)!.priority} />}
                       {/* A task's day, ahead or gone by, so a future one is told from a past one at a glance. */}
@@ -652,7 +652,7 @@ export function Search({ onOpen: told, onAside: toldAside, onTab: toldTab, onClo
                     </div>
                   )
                   : current
-                  ? current.type === 'task' ? <TaskPreview id={current.id} /> : current.type === 'pdf' ? <PdfPeek label={current.label} id={current.id} /> : current.type === 'web' ? <WebPeek label={current.label} site={current.source} /> : current.type === 'media' ? <MediaPeek label={current.label} id={current.id} kind={current.kind} /> : current.type === 'event' ? <EventPeek id={current.id} /> : <NotePreview type={current.type} id={current.id} />
+                  ? current.type === 'task' ? <TaskPreview id={current.id} /> : current.type === 'pdf' ? <PdfPeek label={current.label} id={current.id} /> : current.type === 'web' || current.type === 'work' ? <WebPeek label={current.label} site={current.source} /> : current.type === 'media' ? <MediaPeek label={current.label} id={current.id} kind={current.kind} /> : current.type === 'event' ? <EventPeek id={current.id} /> : <NotePreview type={current.type} id={current.id} />
                   : action?.keep
                     // Nothing found: the half says so, and what Enter does with the words.
                     ? <div key={action.label} className="flex flex-col gap-2 p-4">
@@ -732,6 +732,8 @@ const goalLook = (kind: string): { icon: (typeof KIND_ICON)[GoalKind]; tint: str
 /** A web page kept as an article. */
 const MEDIA_KIND = { icon: ImageIcon, tint: 'var(--tt-color-text-purple)' }
 const WEB_KIND = { icon: BookOpen, tint: 'var(--tt-color-text-blue)' }
+/** A work a note can cite (a book, an article), found by its title, authors, DOI or ISBN. */
+const WORK_KIND = { icon: BookMarked, tint: 'var(--tt-color-text-brown)' }
 
 /** Search's preview of a kept article: its title and the site it came from. */
 function WebPeek({ label, site }: { label: string; site: string }): React.JSX.Element {

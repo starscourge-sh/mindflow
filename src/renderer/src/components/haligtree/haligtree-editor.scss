@@ -4656,6 +4656,114 @@ $run-next: '.react-renderer:has(> .tiptap-attachment.is-audio) + .react-renderer
     }
   }
 
+  // A citation: its words in the line, quietly marked as a link to its work.
+  .mf-citation-holder {
+    display: inline;
+  }
+
+  .mf-citation {
+    display: inline;
+    padding: 0.05em 0.25em;
+    border-radius: 0.25rem;
+    color: var(--tt-brand-color-400);
+    background-color: color-mix(in oklab, var(--tt-brand-color-400) 9%, transparent);
+    cursor: pointer;
+    transition: background-color 150ms ease-out;
+
+    &:hover {
+      background-color: color-mix(in oklab, var(--tt-brand-color-400) 16%, transparent);
+    }
+
+    // Not found: said by its look as well as its tip, and a click fills it in.
+    &[data-citation-missing] {
+      color: var(--foreground);
+      background-color: transparent;
+      outline: 1px dashed var(--tt-border-color);
+      outline-offset: -1px;
+    }
+
+    .mf-orb-pill {
+      display: inline-flex;
+      vertical-align: middle;
+    }
+  }
+
+  .ProseMirror-selectednode > .mf-citation,
+  .mf-citation-holder.ProseMirror-selectednode .mf-citation {
+    background-color: color-mix(in oklab, var(--tt-brand-color-400) 22%, transparent);
+  }
+
+  // The works a note cites, at its foot, as its footnotes are.
+  .mf-works-cited {
+    margin-top: 2.5em;
+    padding-top: 0.75em;
+    border-top: 1px solid var(--tt-border-color);
+    font-size: 0.875em;
+    user-select: text;
+
+    .mf-works-cited-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 0.35em;
+    }
+
+    h3 {
+      margin: 0;
+      font-size: 1em;
+      font-weight: 600;
+      color: var(--foreground);
+    }
+
+    .mf-works-cited-copy {
+      padding: 0.1em 0.5em;
+      border-radius: 0.375rem;
+      color: var(--muted-foreground);
+      cursor: pointer;
+      transition: background-color 150ms ease-out, color 150ms ease-out;
+
+      &:hover {
+        background-color: var(--mf-surface);
+        color: var(--foreground);
+      }
+
+      &:active {
+        transform: scale(0.97);
+      }
+    }
+
+    ul {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    li {
+      margin: 0.3em 0;
+      padding-left: 1.5em;
+      text-indent: -1.5em;
+      color: var(--foreground);
+    }
+
+    .mf-works-cited-work {
+      display: inline;
+      text-align: left;
+      text-indent: inherit;
+      cursor: pointer;
+
+      &:hover {
+        text-decoration: underline;
+        text-underline-offset: 2px;
+      }
+    }
+
+    a {
+      color: var(--tt-brand-color-400);
+      cursor: pointer;
+      word-break: break-all;
+    }
+  }
+
   .mf-footnotes {
     margin-top: 2.5em;
     padding-top: 0.75em;

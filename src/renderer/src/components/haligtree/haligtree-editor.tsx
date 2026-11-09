@@ -87,6 +87,7 @@ import { Collect, CollectPill } from "@/extensions/collect"
 import { TypePause } from "@/extensions/type-pause"
 import { markdownToDocument } from "@/lib/markdown-doc"
 import { FootnoteKit } from "@/extensions/footnotes"
+import { Citation } from "@/extensions/citation"
 import { LongDocument } from "@/extensions/long-document"
 import { Typewriter } from "@/extensions/typewriter"
 import { useStoredFlag } from "@/lib/use-stored-flag"
@@ -1407,7 +1408,7 @@ function Surface({
       ExcalidrawDiagram,
       ContentsBlock,
       // Footnotes as Obsidian writes them: a raised number, the notes at the foot.
-      ...(shape === "line" ? [] : [FootnoteKit]),
+      ...(shape === "line" ? [] : [FootnoteKit, Citation]),
       // Gives the editor `storage.markdown.getMarkdown()`, used by Export.
       // A Markdown reader of its own: on the shared one, each editor added its
       // rules for good, and they kept every editor ever opened in memory.

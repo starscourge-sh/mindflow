@@ -1,4 +1,4 @@
-import { Columns2, Columns3, Workflow as DiagramIcon, FileStack as EmbedIcon, Link2 as LinkIcon, TableOfContents as ContentsIcon, Minus as DividerIcon, Sigma as SigmaIcon, Superscript as FootnoteIcon, Table as TableIcon, Paperclip, Speech, SquarePlay as VideoIcon, Users } from 'lucide-react'
+import { Columns2, Columns3, Workflow as DiagramIcon, FileStack as EmbedIcon, Link2 as LinkIcon, TableOfContents as ContentsIcon, Minus as DividerIcon, Sigma as SigmaIcon, Superscript as FootnoteIcon, Table as TableIcon, Paperclip, Speech, SquarePlay as VideoIcon, Users, BookMarked as CiteIcon } from 'lucide-react'
 
 import type { Editor } from '@tiptap/core'
 import { isInTable } from '@tiptap/pm/tables'
@@ -226,6 +226,15 @@ export const slashItems: SlashItem[] = [
       const hug = empty && /\S $/.test(before)
       editor.chain().focus().command(({ tr }) => (hug && tr.delete(from - 1, from), true)).insertFootnote().run()
     }
+  },
+  // A citation chip here, "(Shelley 1831, p. 82)", from a DOI, an ISBN or a work you have; its work listed at the foot.
+  {
+    title: 'Cite a source',
+    group: 'Basic blocks',
+    keywords: ['cite', 'citation', 'reference', 'doi', 'isbn', 'bibliography', 'works cited', 'source', 'book', 'article'],
+    icon: <CiteIcon />,
+    when: (editor) => !!editor.schema.nodes.citation,
+    run: (editor) => void editor.chain().focus().citeSource().run()
   },
   {
     title: 'Divider',

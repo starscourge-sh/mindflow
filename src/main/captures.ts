@@ -26,6 +26,7 @@ import { registerRenames, resolveWaiting, watchName } from './renames'
 import { NOTE_KEY } from './name'
 import { pdfsToFind } from './pdf-highlights'
 import { mediaToFind } from './media'
+import { worksToFind } from './cite'
 import { articlesToFind } from './web-articles'
 import { mdWords } from './md-words'
 
@@ -532,7 +533,7 @@ export function registerCaptures(): void {
     ).all() as unknown as Searchable[]
     for (const one of rows) one.text = (one.raw = String(one.text ?? '')).toLowerCase()
     // The PDFs kept in notes, by their titles, and files added to Media, among the rest by when their note was made.
-    const pdfs = [...pdfsToFind(db), ...articlesToFind(db), ...mediaToFind(db)]
+    const pdfs = [...pdfsToFind(db), ...articlesToFind(db), ...mediaToFind(db), ...worksToFind(db)]
     if (pdfs.length) rows.push(...pdfs), rows.sort((a, b) => (a.capturedAt < b.capturedAt ? 1 : a.capturedAt > b.capturedAt ? -1 : 0))
     everything = { at: writes(), rows }
     return rows

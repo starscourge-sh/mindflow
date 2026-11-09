@@ -94,6 +94,7 @@ import { registerDictation } from './dictation'
 import { glassShapes, registerGlass, watchScroll } from './glass'
 import { registerPeople } from './people'
 import { registerSources } from './sources'
+import { registerCite } from './cite'
 import { registerFeed } from './feed'
 import { growFrom } from './grow'
 import { grab, whenLetGo } from './hand'
@@ -4318,6 +4319,7 @@ app.whenReady().then(() => {
   registerPictures()
   registerPeople()
   registerSources()
+  registerCite()
   registerFeed()
   registerDefine()
   registerMacCalendar()
