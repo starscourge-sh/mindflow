@@ -259,6 +259,8 @@ Each theme is twelve colours (page, ink, accent and nine hues) run through one r
 **Display Font:** Fraunces Variable, `full` build (with Georgia, serif)
 **Body Font:** Fraunces Variable (with Georgia, serif)
 **Label/Mono Font:** the same face; a handwriting face, La Belle Aurore bundled as "Haligtree Signature", for one motif only
+**Notes' Body Font:** Fraunces by default (`noteFont: 'default'`), the same serif as the page; Settings' "Font" picks another, kept only when chosen. The app's own labels stay in their sans beside a serif note.
+**Code Font:** JetBrains Mono NL (`--mf-mono`), for code only: inline code and code blocks, never as a costume for labels.
 
 **Character:** One soft, slightly wonky old-style serif for everything, chrome and content alike, so the app reads as one printed book. The handwriting is the reader's marginal hand and appears nowhere else.
 
@@ -278,6 +280,10 @@ Labels move between 400 at rest and 550 when chosen, with both weights stacked s
 **The One Face Rule.** Fraunces with SOFT 20 and WONK 1 everywhere; change weight with `font-weight` only, never by setting `font-variation-settings` on a label (it wipes SOFT and WONK).
 
 **The Six Sizes Rule.** 11, 12, 13, 14, 15 and 24px, nothing else. Mixed text sizes in one panel are a bug.
+
+**The Preview Miniature Rule.** The `/` menu's peek (slash-peek.tsx) draws each block as a small specimen page: its sizes (9 to 10px), gradients and stand-in colours are a scaled drawing of the block, not app type or tokens, and are intended. Nothing outside a preview miniature may use them.
+
+**The Note Name Rule.** As in Apple Notes, a page is named by its first line everywhere (header, tab, Recent, lists, ⌘K, search, links) until it is given a title of its own ("Give it a title" in its menu); an empty page reads "New note". A stored title of "Untitled" counts as none.
 
 **The Marginal Hand Rule.** The Signature face is for attributions, "kept by" on the title card and naming your book. Never for a UI label.
 

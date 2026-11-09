@@ -135,6 +135,8 @@
 
 :root {
   --radius: 0.625rem;
+  /* Code's own face (DESIGN.md, Code Font): inline code and code blocks only. */
+  --mf-mono: "JetBrains Mono NL", ui-monospace, monospace;
   --background: oklch(1 0 0);
   --foreground: oklch(0.147 0.004 49.25);
   --card: oklch(1 0 0);

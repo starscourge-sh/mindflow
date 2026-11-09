@@ -3774,7 +3774,8 @@ body > div[dir][style*="-10000px"] > .tableWrapper {
   // here, "behind" means behind this box's tint as well, and the band vanished
   // for every line inside a callout.
   isolation: isolate;
-  margin: 0.75em 0;
+  // The same gap above and below as a code block's.
+  margin: 1em 0;
   padding: 0.625rem 1rem 0.625rem 2.375rem;
   border: 1px solid var(--callout-border);
   border-radius: 0.5rem;

@@ -37,12 +37,14 @@ $mf-ribbon-noise: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w
 .tiptap.ProseMirror [data-variant="ribbon"] > hr {
   --mf-ribbon-accent: var(--tt-brand-color-400, var(--primary));
   --mf-ribbon-hue: var(--tt-color-text-purple, var(--tt-color-text-blue));
+  /* The deep indigo the ribbon's colours are taken toward, named once. */
+  --mf-ribbon-ink: #15163a;
   /* The ends: the accent and the hue together, taken deep toward indigo. The
      middle: the hue, only a little lifted. Darker on 8 Nov: it read pale and
      candy-pink on a dark page. Mixed, so never neon. */
-  --mf-ribbon-end: color-mix(in oklab, color-mix(in oklab, var(--mf-ribbon-accent) 45%, var(--mf-ribbon-hue)) 38%, #15163a);
-  --mf-ribbon-mid: color-mix(in oklab, color-mix(in oklab, var(--mf-ribbon-hue) 78%, var(--mf-ribbon-accent)) 60%, #15163a);
-  --mf-ribbon-light: color-mix(in oklab, color-mix(in oklab, var(--mf-ribbon-hue) 90%, #fff) 82%, #15163a);
+  --mf-ribbon-end: color-mix(in oklab, color-mix(in oklab, var(--mf-ribbon-accent) 45%, var(--mf-ribbon-hue)) 38%, var(--mf-ribbon-ink));
+  --mf-ribbon-mid: color-mix(in oklab, color-mix(in oklab, var(--mf-ribbon-hue) 78%, var(--mf-ribbon-accent)) 60%, var(--mf-ribbon-ink));
+  --mf-ribbon-light: color-mix(in oklab, color-mix(in oklab, var(--mf-ribbon-hue) 90%, #fff) 82%, var(--mf-ribbon-ink));
 
   position: relative;
   display: block;
