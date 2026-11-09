@@ -40,24 +40,31 @@ export function plannedVsDid(tasks: Task[], focus: Map<string, number>, from: st
   return { planned: rows.reduce((sum, row) => sum + row.planned, 0), did: rows.reduce((sum, row) => sum + row.did, 0), rows }
 }
 
+/** " · did 3h", coloured by how it went; nothing at all before any focus time, so a zero is never shown in bold. */
+const Did = ({ planned, did }: { planned: number; did: number }): React.JSX.Element | null =>
+  did > 0 ? <> · <span className="font-semibold" style={{ color: overBy(planned, did) ? OVER : UNDER }}>did {shortSaid(did)}</span></> : null
+
 /** "planned 2h · did 3h", the did part coloured by how it went. */
 export function PlanDid({ planned, did, className = '' }: { planned: number; did: number; className?: string }): React.JSX.Element {
   return (
     <span data-plan-did data-over={overBy(planned, did) || undefined} className={`tabular-nums ${className}`}>
-      planned {shortSaid(planned)} · <span className="font-semibold" style={{ color: overBy(planned, did) ? OVER : UNDER }}>did {shortSaid(did)}</span>
+      planned {shortSaid(planned)}<Did planned={planned} did={did} />
     </span>
   )
 }
 
-/** The header's small total: "Planned 14h · did 11h this week". Nothing when nothing had a length. */
-export function PlannedTotal({ tasks, from, to, span }: { tasks: Task[]; from: string; to: string; span: string }): React.JSX.Element | null {
+/** The header's small total: "Planned 14h · did 11h this week". Nothing when nothing had a length, its leading dot (`lead`) included. */
+export function PlannedTotal({ tasks, from, to, span, lead = false }: { tasks: Task[]; from: string; to: string; span: string; lead?: boolean }): React.JSX.Element | null {
   const focus = useFocusOn(from, to)
   const { planned, did } = plannedVsDid(tasks, focus, from, to)
   if (!planned) return null
   return (
-    <span data-plan-total className="shrink-0 px-2 text-body text-foreground tabular-nums">
-      Planned {shortSaid(planned)} · <span className="font-semibold" style={{ color: overBy(planned, did) ? OVER : UNDER }}>did {shortSaid(did)}</span> {span}
-    </span>
+    <>
+      {lead && <span aria-hidden>·</span>}
+      <span data-plan-total className="shrink-0 px-2 text-body text-foreground tabular-nums">
+        Planned {shortSaid(planned)}<Did planned={planned} did={did} /> {span}
+      </span>
+    </>
   )
 }
 

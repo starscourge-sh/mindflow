@@ -152,7 +152,7 @@ function Story({ id, onClose }: { id: string; onClose: () => void }): React.JSX.
       const gaps = [...plan.rows].sort((a, b) => Math.abs(b.did - b.planned) - Math.abs(a.did - a.planned)).slice(0, 3)
       middle.push([3, (
         <div key="plan" className="space-y-6">
-          <p className="text-title"><Typed story text={`You planned ${shortSaid(plan.planned)} and did ${shortSaid(plan.did)}.`} /></p>
+          <p className="text-title"><Typed story text={plan.did ? `You planned ${shortSaid(plan.planned)} and did ${shortSaid(plan.did)}.` : `You planned ${shortSaid(plan.planned)}, with no focus time on it yet.`} /></p>
           <ul className="space-y-2 text-heading">
             {gaps.map((row) => (
               <li key={row.task.id} className="flex items-baseline gap-3">
