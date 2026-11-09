@@ -555,7 +555,7 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
       {carry?.kind === 'move' && (!carry.to || carry.to.minute === null) && createPortal(
         <div data-cal-carried style={{ left: carry.x + 8, top: carry.y + 8 }}
           className={`pointer-events-none fixed z-50 flex max-w-56 items-center gap-2 ${CARD}`}>
-          <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ background: ACCENT }} />
+          <span aria-hidden className="size-2 shrink-0 rounded-[2px]" style={{ background: ACCENT }} />
           <span className="truncate">{taskName(carry.task.title).text}</span>
         </div>, document.body)}
       <EventCardLayer peek={peekNow} calendar={peekNow ? calendarName(peekNow.one) : ''} onEdit={pickEvent} onClose={() => setPeek(null)} onNote={onOpen} />
