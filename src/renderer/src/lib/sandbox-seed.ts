@@ -875,6 +875,18 @@ This week: ${link(mars, 'Get to Mars before the dust storm', 'goal')}, and the L
     await call('source:facts', 'attribution', who, { what, born, died })
   }
 
+  // Four characters, kept apart from the writers: the work each is in, a line about them in your words, and who played one.
+  const characters: [string, string, string, string][] = [
+    ['The creature', 'Frankenstein', '', 'Made from the dead and left on his own the night he woke. Teaches himself to read from three books, and asks only for company. He never gets a name.'],
+    ['Victor Frankenstein', 'Frankenstein', '', 'The student who made the creature, then ran from it. The book is his confession, told on a ship in the Arctic.'],
+    ['Dorian Gray', 'The Picture of Dorian Gray', '', 'Stays young and lovely while his portrait, locked upstairs, takes every year and every cruelty for him.'],
+    ['Paul Atreides', 'Dune', 'Timothée Chalamet', 'The duke’s son taken to the desert planet, who sees the futures and goes on anyway.']
+  ]
+  for (const [who, work, played, line] of characters) {
+    await call('source:character', who, work, played)
+    await call('source:bio', 'attribution', who, line, '')
+  }
+
   // The lines kept, each with your own words beside it: [days ago, weekday, time, who, where, the line, yours].
   const lines: [number, number, string, string, string, string, string][] = [
     [268, 1, '07:10', 'Marcus Aurelius', 'Meditations, Book 2, tr. George Long (1862)', 'Begin the morning by saying to thyself, I shall meet with the busy-body, the ungrateful, arrogant, deceitful, envious, unsocial.', 'Read on the bus to work. It lowered the bar for the day, and the day cleared it.'],
@@ -885,7 +897,7 @@ This week: ${link(mars, 'Get to Mars before the dust storm', 'goal')}, and the L
     [205, 0, '22:05', 'Jane Austen', 'Pride and Prejudice, chapter 34', 'In vain have I struggled. It will not do. My feelings will not be repressed. You must allow me to tell you how ardently I admire and love you.', 'The worst proposal in English, and he means every word.'],
     [176, 0, '21:15', 'Mary Shelley', 'Frankenstein, chapter 4 (1831)', 'Learn from me, if not by my precepts, at least by my example, how dangerous is the acquirement of knowledge, and how much happier that man is who believes his native town to be the world, than he who aspires to become greater than his nature will allow.', 'Victor, warning Walton. Every chapter after this is him not taking his own advice.'],
     [162, 0, '21:50', 'Mary Shelley', 'Frankenstein, chapter 10 (1831)', 'I was benevolent and good; misery made me a fiend. Make me happy, and I shall again be virtuous.', 'The whole argument of the book in two sentences, and the creature makes it, not Victor.'],
-    [161, 1, '07:45', 'Mary Shelley', 'Frankenstein, chapter 10 (1831)', 'Remember that I am thy creature; I ought to be thy Adam, but I am rather the fallen angel, whom thou drivest from joy for no misdeed.', 'He has read Paradise Lost. Of course he has: it is the only story about him.'],
+    [161, 1, '07:45', 'The creature', 'Frankenstein, chapter 10 (1831)', 'Remember that I am thy creature; I ought to be thy Adam, but I am rather the fallen angel, whom thou drivest from joy for no misdeed.', 'He has read Paradise Lost. Of course he has: it is the only story about him.'],
     [148, 0, '22:20', 'Mary Shelley', 'Frankenstein, chapter 20 (1831)', 'Beware; for I am fearless, and therefore powerful.', 'Nothing left to lose, said as a threat.'],
     [120, 0, '21:05', 'William Shakespeare', 'Hamlet, Act 1, Scene 3', 'This above all: to thine own self be true, / And it must follow, as the night the day, / Thou canst not then be false to any man.', 'Polonius says it, and Polonius is a fool. Is good advice from a bad source still good advice?'],
     [113, 0, '21:35', 'William Shakespeare', 'Hamlet, Act 1, Scene 5', 'There are more things in heaven and earth, Horatio, / Than are dreamt of in your philosophy.', 'Said to the one person in the play who studies philosophy.'],
@@ -1987,6 +1999,7 @@ A whole town painted with nobody in it. I stood in front of it for twenty minute
       : [cited(child, cites)]) }
     : node
   const person = (name: string): string => `[[@person:${name}|${name}]]`
+  const character = (name: string): string => `[[@character:${name}|${name}]]`
   const frankensteinPlate = await picture(frankensteinPlateUrl)
   const creatureReads = await call<string>('article:new')
   await call('item:save', creatureReads, {
@@ -2004,7 +2017,7 @@ ${person('Mary Shelley')} gives him Milton, so he reads himself as Adam, then as
 
 ==A made thing with a library and no friends.== The saddest idea in the book, and nobody in it says so.[^2]
 
-${person('Oscar Wilde')} would say a book is only well or badly written: ${link(wellWritten, 'Books are well written, or badly written', 'nugget')}. The creature is the case against him: three books made him who he is.
+${person('Oscar Wilde')} would say a book is only well or badly written: ${link(wellWritten, 'Books are well written, or badly written', 'nugget')}. ${character("The creature")} is the case against him: three books made him who he is.
 
 From ${link(bookId['Frankenstein'], 'Frankenstein')}.
 

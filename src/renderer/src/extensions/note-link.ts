@@ -30,6 +30,8 @@ export interface NoteSuggestion {
   group?: string
   /** Quiet, at the end of the row: how often a tag is used. */
   hint?: string
+  /** Said right after the label, never put in the link: the work a character is from ("Paul Atreides · Dune"). */
+  detail?: string
   /** The label's own colour, as a tag has. */
   tint?: string
   /** A heading inside the note, for a link that lands on it. */
@@ -575,7 +577,7 @@ export const NoteLink = Node.create<NoteLinkOptions>({
       let stop = (): void => undefined
       // A person wears their own face, as the "@" menu shows them, not the kind's outline of a person.
       let face: Root | null = null
-      const person = typeof id === "string" && id.startsWith("person:") ? id.slice(7) : ""
+      const person = typeof id === "string" && /^(person|character):/.test(id) ? id.slice(id.indexOf(":") + 1) : ""
       const wearFace = (): void => {
         const icon = dom.querySelector("svg.tiptap-note-link-icon")
         if (!person || !icon) return

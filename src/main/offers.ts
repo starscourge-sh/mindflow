@@ -2,7 +2,8 @@ import { onlyInTitles } from './title-names'
 import { app, ipcMain } from 'electron'
 import { writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { changed, database, whenChanged } from './captures'
+import { LABEL, changed, database, whenChanged } from './captures'
+import { tagsIn, withoutTags } from './tag-words'
 import { understand } from './understand'
 import { readFileSync } from 'node:fs'
 import { RootIndex, alreadyWrote, cluesFor, linksIn, peopleIn, whichFolder, type Lemmas, type RootNote } from './roots'
@@ -112,6 +113,22 @@ export type NoteOffers = {
   folder: { id: string; name: string } | null
   /** People it names: `known` already one of your People (a link to their page), else one to add. */
   people: { name: string; known: boolean }[]
+  /** Characters it names: `work` is the work they are in; `known` already one of your Characters, else one to add. */
+  characters: { name: string; work: string; known: boolean }[]
+}
+
+/** The tags that say a note is about a work: a book, a film, a play or a show. */
+const WORK_TAGS = new Set(['book', 'books', 'novel', 'film', 'films', 'movie', 'movies', 'play', 'show', 'series', 'tv', 'anime', 'comic', 'manga', 'game'])
+
+/** The work a note is about, when it is one (tagged #book or #film, or a book's own note): its title, without its tags. */
+function workOfNote(key: string, text: string): { work: string; author: string } | null {
+  const db = database()
+  const row = (key.includes(':')
+    ? db.prepare("select coalesce(nullif(title, ''), label('', body)) as title, kind, attribution from nuggets where id = ?").get(key.slice(key.indexOf(':') + 1))
+    : db.prepare(`select ${LABEL} as title, kind, attribution from captures where id = ?`).get(key)) as { title: string | null; kind: string | null; attribution: string | null } | undefined
+  const about = tagsIn(text).some((tag) => WORK_TAGS.has(tag.toLowerCase())) || WORK_TAGS.has((row?.kind ?? '').toLowerCase())
+  const work = withoutTags(row?.title || text.split('\n')[0] || '').replace(/\s+/g, ' ').trim()
+  return about && work ? { work, author: row?.attribution ?? '' } : null
 }
 
 /** The Mac's own word list (lower case only: everyday words), read once, for telling a name from a word. */
@@ -150,16 +167,38 @@ async function forNote(key: string, text: string, linked: string[]): Promise<Not
     if (hit) folder = { id: hit.folder, name: groups.find((group) => group.id === hit.folder)!.name }
   }
   const names = await understand('read', { text: text.slice(0, 4000) }, 'background')
-  const people = new Set((database().prepare("select distinct attribution as name from captures where attribution is not null and attribution != '' union select distinct attribution from nuggets where attribution is not null and attribution != ''").all() as { name: string }[]).map((one) => one.name.toLowerCase()))
+  const db = database()
+  // Characters are kept on People pages with the work they are in (sources.ts): never offered as people.
+  const cast = new Map((db.prepare("select name, work from source_pages where field = 'attribution' and work != ''").all() as { name: string; work: string }[]).map((one) => [one.name.toLowerCase(), one]))
+  const people = new Set((db.prepare("select distinct attribution as name from captures where attribution is not null and attribution != '' union select distinct attribution from nuggets where attribution is not null and attribution != ''").all() as { name: string }[])
+    .map((one) => one.name.toLowerCase()).filter((name) => !cast.has(name)))
+  const titles = works(all)
+  const about = workOfNote(key, text)
+  const found = peopleIn((names.names as { text: string; kind: string }[] | undefined) ?? [], common, (name) => people.has(name.toLowerCase()) || cast.has(name.toLowerCase()))
+  // Where each name lives: a character already kept; a person you know; a name met only inside the title of a work
+  // ("The Picture of Dorian Gray"), a character in it; anyone a note about a work names, besides its author, a character
+  // of that work; anyone else, a person.
+  const characters: NoteOffers['characters'] = []
+  const persons: NoteOffers['people'] = []
+  for (const name of found) {
+    const lower = name.toLowerCase()
+    const kept = cast.get(lower)
+    if (kept) characters.push({ name: kept.name, work: kept.work, known: true })
+    else if (people.has(lower)) persons.push({ name, known: true })
+    else if (onlyInTitles(text, name, titles)) {
+      // The work by its name alone: a note's title carries its tags ("The Picture of Dorian Gray #book").
+      const held = titles.find((title) => title.toLowerCase().includes(lower) && text.toLowerCase().includes(title.toLowerCase()))
+      characters.push({ name, work: held ? withoutTags(held).replace(/\s+/g, ' ').trim() : about?.work ?? name, known: false })
+    }
+    else if (about && lower !== about.author.toLowerCase() && !about.work.toLowerCase().includes(lower)) characters.push({ name, work: about.work, known: false })
+    else if (!about || lower !== about.author.toLowerCase()) persons.push({ name, known: false })
+  }
   return {
     links: linksIn(book, text, read.lemmas, key, new Set(linked)).slice(0, 3),
     same: same ? { key: same.key, title: title(same.key) } : null,
     folder,
-    // A name met only inside the title of a work (a note's title, a book you keep, where a quote is from) is a
-    // character in it, not a person you know: "The Picture of Dorian Gray" offers no Dorian Gray.
-    people: peopleIn((names.names as { text: string; kind: string }[] | undefined) ?? [], common, (name) => people.has(name.toLowerCase()))
-      .filter((name) => people.has(name.toLowerCase()) || !onlyInTitles(text, name, works(all)))
-      .map((name) => ({ name, known: people.has(name.toLowerCase()) }))
+    people: persons,
+    characters
   }
 }
 

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Editor, JSONContent } from '@tiptap/core'
-import { Copy, FolderInput, Link2, Sparkles, UserRoundPlus, X } from 'lucide-react'
+import { Copy, FolderInput, Link2, Sparkles, UserRoundPlus, VenetianMask, X } from 'lucide-react'
 
 import { call, haligtree } from '@/lib/haligtree'
 import { follow } from '@/lib/capture-links'
@@ -11,7 +11,7 @@ import { toast } from './ui'
 import { nameFor } from './ai-offers'
 import { useHas } from '@/lib/needs'
 import type { NoteOffers as Offers } from '../../../../main/offers'
-import { quoted } from '../../../../main/clip'
+import { cut, quoted } from '../../../../main/clip'
 
 /**
  * One quiet offer under a note, from your own book (main/offers.ts, by shared
@@ -29,6 +29,7 @@ type Offer =
   | { kind: 'folder'; id: string; name: string }
   | { kind: 'link'; key: string; title: string; words: string }
   | { kind: 'person'; name: string; known: boolean }
+  | { kind: 'character'; name: string; work: string; known: boolean }
   | { kind: 'name'; name: string }
 
 const idOf = (offer: Offer): string => (offer.kind === 'name' ? 'name' : `${offer.kind}:${'key' in offer ? offer.key : 'id' in offer ? offer.id : offer.name}`)
@@ -71,9 +72,10 @@ function findWords(editor: Editor, words: string): { from: number; to: number } 
 }
 
 /** The words made a link to `id`, in the note, as one step ⌘Z takes back. */
-const linkWords = (editor: Editor, words: string, id: string, label: string): boolean => {
+const linkWords = (editor: Editor, words: string, id: string, label: string, inTitle = true): boolean => {
   const at = findWords(editor, words)
-  if (!at) return false
+  // `inTitle` false: a name met only in the note's title ("The Picture of Dorian Gray") stays plain words, the title as written.
+  if (!at || (!inTitle && at.from < (editor.state.doc.firstChild?.nodeSize ?? 0))) return false
   // The words stay as written ("the Stoics"), the link going to its note ("Stoicism").
   const written = editor.state.doc.textBetween(at.from, at.to)
   editor.chain().focus().insertContentAt(at, { type: 'noteLink', attrs: { id, label, text: written === label ? '' : written } }).run()
@@ -123,6 +125,8 @@ export function NoteOffers({ table, id, editor, onOpen }: { table: 'captures' | 
         ...(found.same ? [{ kind: 'same' as const, ...found.same }] : []),
         ...(found.folder ? [{ kind: 'folder' as const, ...found.folder }] : []),
         ...found.links.map((one) => ({ kind: 'link' as const, ...one })),
+        // Someone in a work (named only in its title, or in a note about a book or a film): a character of it, never one of People.
+        ...found.characters.filter((one) => !linksIn(editor).includes(`character:${one.name}`)).map((one) => ({ kind: 'character' as const, ...one })),
         ...found.people.filter((one) => !linksIn(editor).includes(`person:${one.name}`)).map((one) => ({ kind: 'person' as const, ...one })),
       ]
       // Apple Intelligence, where the Mac has it: a name for a note that has none (ai-offers.tsx).
@@ -207,6 +211,24 @@ export function NoteOffers({ table, id, editor, onOpen }: { table: 'captures' | 
       editor.chain().focus().insertContentAt(0, { type: 'heading', attrs: { level: 1 }, content: [{ type: 'text', text: offer.name }] }).run()
       chime('noted')
       toast(`Named ${quoted(offer.name, 80)}`, () => editor.commands.undo())
+      done()
+    } }]
+  } else if (offer.kind === 'character') {
+    icon = <VenetianMask className="size-4" />
+    lead = `${offer.name} is a character in ${cut(offer.work, 60)}.`
+    rest = offer.known ? 'Link their page, with everything you keep from them.' : 'Not a real person: kept apart from People, with a page of their own.'
+    const label = offer.known ? 'Link their page' : 'Add as a character'
+    actions = [{ label, data: 'character', run: async () => {
+      if (!offer.known) await sources.character(offer.name, offer.work)
+      const linked = linkWords(editor, offer.name, `character:${offer.name}`, offer.name, false)
+      chime('noted')
+      // Undo takes the link back, and a character only just made goes again.
+      const undo = (): void => {
+        if (linked) editor.commands.undo()
+        if (!offer.known) void sources.dropAll([{ field: 'attribution', name: offer.name }])
+      }
+      toast(offer.known ? `Linked ${offer.name}` : `${offer.name} added as a character of ${offer.work}`, undo, 'success',
+        { label: 'Open', key: 'O', run: () => window.api.openInHome('character', offer.name) }, { type: 'character', id: offer.name, title: offer.name })
       done()
     } }]
   } else {

@@ -75,7 +75,7 @@ function sourceOf(target: EventTarget | null): { node: HTMLElement; carried: Car
   if (chip) {
     const raw = chip.getAttribute('data-note') ?? ''
     const [type, id] = raw.includes(':') ? [raw.slice(0, raw.indexOf(':')), raw.slice(raw.indexOf(':') + 1)] : ['capture', raw]
-    if (type === 'person' || type === 'tag' || !id) return null
+    if (type === 'person' || type === 'character' || type === 'tag' || !id) return null
     return { node: chip, carried: { open: `${type}:${id}`, title: (chip.textContent ?? '').replace(/^@/, '').trim() }, column: false }
   }
   if (target.closest('[contenteditable="true"]')) return null

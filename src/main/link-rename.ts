@@ -70,10 +70,11 @@ export function renamePerson(body: unknown, from: string, to: string, personKey:
   if (!key || !name) return { body, count: 0 }
   let count = 0
   if (typeof body === 'string') {
-    const text = body.replace(/\[\[@person:([^|\]]+)\|([^\]]+)\]\]/g, (whole, who: string, label: string) => {
+    // A character's link (`[[@character:Name|Name]]`) is renamed as a person's is.
+    const text = body.replace(/\[\[@(person|character):([^|\]]+)\|([^\]]+)\]\]/g, (whole, link: string, who: string, label: string) => {
       if (personKey(who) !== key) return whole
       count++
-      return `[[@person:${name}|${personKey(label) === key ? name : label}]]`
+      return `[[@${link}:${name}|${personKey(label) === key ? name : label}]]`
     })
     return { body: count ? text : body, count }
   }
@@ -81,9 +82,9 @@ export function renamePerson(body: unknown, from: string, to: string, personKey:
     if (!node || typeof node !== 'object') return node
     let next = node
     const id = typeof node.attrs?.id === 'string' ? node.attrs.id : ''
-    if ((node.type === 'noteLink' || node.type === 'noteEmbed') && id.startsWith('person:') && personKey(id.slice(7)) === key) {
+    if ((node.type === 'noteLink' || node.type === 'noteEmbed') && /^(person|character):/.test(id) && personKey(id.slice(id.indexOf(':') + 1)) === key) {
       count++
-      next = { ...node, attrs: { ...node.attrs, id: `person:${name}`, label: personKey(String(node.attrs?.label ?? '')) === key ? name : node.attrs?.label } }
+      next = { ...node, attrs: { ...node.attrs, id: `${id.slice(0, id.indexOf(':'))}:${name}`, label: personKey(String(node.attrs?.label ?? '')) === key ? name : node.attrs?.label } }
     }
     if (!next.content) return next
     const kids = next.content.map(walk)

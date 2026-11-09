@@ -31,7 +31,7 @@ export function namesIn(doc: PMNode, own?: string | null): string[] {
   }
   add(own ?? undefined)
   doc.descendants((node) => {
-    if (node.type.name === 'noteLink' && String(node.attrs.id ?? '').startsWith('person:')) add(String(node.attrs.id).slice(7))
+    if (node.type.name === 'noteLink' && /^(person|character):/.test(String(node.attrs.id ?? ''))) add(String(node.attrs.id).slice(String(node.attrs.id).indexOf(':') + 1))
     if (node.type.name === 'blockquote') {
       add(saidBy(node.lastChild?.textContent ?? '').who)
       // "- Name" on its own last line, as a quote from the margin is signed.

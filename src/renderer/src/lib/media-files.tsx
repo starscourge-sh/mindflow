@@ -90,7 +90,7 @@ export const blockOf = (one: { src: string; kind: MediaKind; name: string; size:
 const markdownOf = (one: Parameters<typeof blockOf>[0]): string => (one.kind === 'picture' || one.kind === 'gif' ? `![${one.name}](${one.src})` : `[${one.name}](${one.src})`)
 
 /** The note kinds a file can go in. */
-const HOLDS_FILES = (type: string): boolean => !['task', 'event', 'pdf', 'web', 'media', 'view', 'person', 'tag'].includes(type)
+const HOLDS_FILES = (type: string): boolean => !['task', 'event', 'pdf', 'web', 'media', 'view', 'person', 'character', 'tag'].includes(type)
 
 const bodyOf = async (type: string, id: string): Promise<unknown> =>
   type === 'capture' ? (await window.api.captures.get(id))?.body : type === 'day' ? (await notes.day(id)).body : (await haligtree.item(id))?.body

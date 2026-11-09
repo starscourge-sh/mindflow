@@ -1,7 +1,7 @@
 import { call } from './haligtree'
 import type { Margin, RenameResult, SourceCard, SourceFacts, SourceField, SourceGraph, SourceNear, SourcePage, SourceSummary } from '../../../main/sources'
 
-export type { Margin, SourceCard, SourceFacts, SourceRef, SourceNear, SourceField, SourceGraph, SourceItem, SourcePage, SourceSummary } from '../../../main/sources'
+export type { Character, Margin, SourceCard, SourceFacts, SourceRef, SourceNear, SourceField, SourceGraph, SourceItem, SourcePage, SourceSummary } from '../../../main/sources'
 export { VOICE_SAID, pageRef, voiceOf, type Voice } from '../../../main/voice'
 
 /**
@@ -25,6 +25,10 @@ export const sources = {
   /** A line or two about them: Wikipedia's with its url, or your own words with none. */
   bio: (field: SourceField, name: string, bio: string, url = '') => call<boolean>('source:bio', field, name, bio, url),
   facts: (field: SourceField, name: string, facts: Partial<SourceFacts>) => call<boolean>('source:facts', field, name, facts),
+  /** Make them a character of a work (who played them optional), or a real person again with an empty work. */
+  character: (name: string, work: string, played?: string) => call<boolean>('source:character', name, work, played),
+  /** Every character, with the work they are in. */
+  characters: () => call<{ name: string; work: string }[]>('characters'),
   /** Rename everywhere, or be told whose the name is first; `merge` goes ahead into them. */
   rename: (field: SourceField, from: string, to: string, merge = false) => call<RenameResult>('source:rename', field, from, to, merge),
   unrename: (token: string) => call<boolean>('source:rename:undo', token),

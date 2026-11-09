@@ -24,6 +24,11 @@ const RULES: [RegExp, LucideIcon][] = [
   [/^insert column right$/i, ArrowRight],
   [/^merge or split cells$/i, LayoutGrid],
   [/^clear (row|column) contents$/i, Eraser],
+  // A person made a character of a work, or a character a real person again (avatar.tsx).
+  [/^make a character of a work/i, BookOpen],
+  [/^change the work/i, BookOpen],
+  [/^make a real person$/i, User],
+  [/^add as a character$/i, BookOpen],
   // Media: a file into a note, where it is used, and how to look at one.
   [/^put .*in a note/i, FilePlus],
   [/^used in$/i, Link],

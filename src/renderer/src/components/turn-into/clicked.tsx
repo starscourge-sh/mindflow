@@ -146,7 +146,7 @@ export function clickedAt(editor: Editor, event: MouseEvent): Clicked | null {
 /** The heading over the clicked thing's lines: what it is, in a few words. */
 export function clickedName(clicked: Clicked): string {
   // Named for what it leads to: a person's link is not a note's.
-  if (clicked.kind === "note") return `Link to ${({ person: "a person", task: "a task", nugget: "a gem", goal: "a goal", question: "a question", pdf: "a PDF", web: "a web page" } as Record<string, string>)[split(clicked.id)[0]] ?? "a note"}`
+  if (clicked.kind === "note") return `Link to ${({ person: "a person", character: "a character", task: "a task", nugget: "a gem", goal: "a goal", question: "a question", pdf: "a PDF", web: "a web page" } as Record<string, string>)[split(clicked.id)[0]] ?? "a note"}`
   if (clicked.kind === "web") return "Link"
   if (clicked.kind === "pdf") return `PDF, page ${clicked.page}`
   if (clicked.kind === "tag") return `#${clicked.tag}`
@@ -213,7 +213,7 @@ export function clickedLines(editor: Editor, clicked: Clicked): Line[] {
   if (clicked.kind === "note") {
     const { id, label, heading, pos } = clicked
     const [type, key] = split(id)
-    const own = !["task", "person", "tag", "event", "day", "pdf", "web"].includes(type)
+    const own = !["task", "person", "character", "tag", "event", "day", "pdf", "web"].includes(type)
     const open = editor.extensionManager.extensions.find((one) => one.name === "noteLink")?.options.onOpenNote as ((id: string, heading?: string) => void) | undefined
     const shown = clicked.text || label
     const lines: Array<Line | false> = [

@@ -2,7 +2,7 @@ import { seeTheBin } from './to-bin'
 import { Images } from 'lucide-react'
 import { blockOf, looseFiles } from './media-files'
 import { via } from './usage'
-import { BookOpen, CalendarDays, CircleArrowUp, CircleCheck, CircleDashed, CircleX, FileText, Flag, Gem, Hash, ListChecks, Orbit, UserRound, Sun } from 'lucide-react'
+import { BookOpen, CalendarDays, CircleArrowUp, CircleCheck, CircleDashed, CircleX, FileText, Flag, Gem, Hash, ListChecks, Orbit, UserRound, Sun, VenetianMask } from 'lucide-react'
 
 import { Avatar } from '@/components/haligtree/avatar'
 import { ask, askQuestion, refuse, toast } from '@/components/haligtree/ui'
@@ -198,6 +198,8 @@ export const linkKinds = (): Record<string, LinkKind & { group: string }> => (ki
   media: { label: 'File', group: 'From Files, in no note yet', icon: Images, color: 'purple' },
   web: { label: 'Web article', group: 'Web articles', icon: BookOpen, color: 'blue' },
   person: { label: 'Person', group: 'People', icon: UserRound, color: 'blue' },
+  // Someone in a work, not the world: a group of their own, each marked with the work they are from.
+  character: { label: 'Character', group: 'Characters', icon: VenetianMask, color: 'purple' },
   tag: { label: 'Tag', group: 'Tags', icon: Hash, color: 'gray' }
 })
 
@@ -225,7 +227,7 @@ setLinkKinds({
   aside: (link) => {
     if (canSplit()) return false
     const [type, id] = link.includes(':') ? [link.slice(0, link.indexOf(':')), link.slice(link.indexOf(':') + 1)] : ['capture', link]
-    if (['task', 'person', 'tag', 'event', 'day', 'pdf', 'web'].includes(type)) return false
+    if (['task', 'person', 'character', 'tag', 'event', 'day', 'pdf', 'web'].includes(type)) return false
     openApart(type, id)
     return true
   },
@@ -261,12 +263,13 @@ if (typeof window !== 'undefined' && !(window as { linksRenamedHeard?: boolean }
 /** What `@` offers in any editor that can link captures. */
 export async function findCaptures(query: string): Promise<NoteSuggestion[]> {
   const words = query.trim().toLowerCase()
-  const [captures, items, tasks, people, tags, files] = await Promise.all([
+  const [captures, items, tasks, people, cast, tags, files] = await Promise.all([
     window.api.captures.search(query),
     haligtree.findItems(query),
     haligtree.tasks().catch(() => []),
     // Names, tags and files only once something is typed: the open menu stays short.
     words ? haligtree.values('attribution').catch(() => []) : [],
+    words ? sources.characters().catch(() => []) : [],
     words ? readTags().catch(() => []) : [],
     words ? window.api.captures.find(query).then((found) => found.filter((one) => one.type === 'pdf' || one.type === 'web')).catch(() => []) : []
   ])
@@ -288,7 +291,10 @@ export async function findCaptures(query: string): Promise<NoteSuggestion[]> {
     // A PDF by its address alone (search's id adds the name it came under after a bar, which a link cannot hold); an article by its link.
     ...files.slice(0, 4).map((file) => row(file.type, { id: `${file.type}:${file.type === 'pdf' ? file.id.split('|')[0] : file.id}`, label: file.label || 'Untitled' })),
     // Who your quotes are from: a link opens every note by them.
-    ...people.filter((name) => name.toLowerCase().includes(words)).slice(0, 3).map((name) => ({ ...row('person', { id: `person:${name}`, label: name }), icon: <Avatar name={name} size={16} /> })),
+    ...people.filter((name) => !cast.some((one) => one.name.toLowerCase() === name.toLowerCase()) && name.toLowerCase().includes(words)).slice(0, 3).map((name) => ({ ...row('person', { id: `person:${name}`, label: name }), icon: <Avatar name={name} size={16} /> })),
+    // Someone in a work, the work beside their name ("Paul Atreides · Dune"): a link opens their page.
+    ...cast.filter((one) => one.name.toLowerCase().includes(words) || one.work.toLowerCase().includes(words)).slice(0, 3)
+      .map((one) => ({ ...row('character', { id: `character:${one.name}`, label: one.name, detail: one.work }), icon: <Avatar name={one.name} size={16} /> })),
     ...tags.filter(({ tag }) => tag.includes(words.replace(/^#/, ''))).slice(0, 3).map(({ tag, color }) => ({ ...row('tag', { id: `tag:${tag}`, label: `#${tag}` }), icon: <TagIcon tag={tag} color={color} /> }))
   ]
   const order = Object.keys(linkKinds())
@@ -324,10 +330,10 @@ export const follow = (link: string, open: (type: string, id: string) => void, h
   const aside = (kind: string, at: string): void => openAside(kind, at, beside?.from)
   const go = side ? aside : how === 'tab' ? openNewTab : open
   // A person has a page of their own in People: made now if the link came before it, so it never opens empty.
-  if (type === 'person') void sources.page('attribution', id).then((page) => void (page || sources.set('attribution', id)))
+  if (type === 'person' || type === 'character') void sources.page('attribution', id).then((page) => void (page || sources.set('attribution', id)))
   // A person or a tag is a place in the main window, not a note: their page in People, or the tag's page.
   // A PDF or a kept article opens in the reader there, wherever the link is.
-  if (type === 'person' || type === 'tag' || type === 'pdf' || type === 'web') return side ? aside(type, id) : how === 'tab' ? openNewTab(type, id) : window.api.openInHome(type, id)
+  if (type === 'person' || type === 'character' || type === 'tag' || type === 'pdf' || type === 'web') return side ? aside(type, id) : how === 'tab' ? openNewTab(type, id) : window.api.openInHome(type, id)
   if (type === 'capture') return void keptAs(id).then((to) => {
     go(to.type, to.id)
     if (heading) headingIn(to.type, to.id, heading)

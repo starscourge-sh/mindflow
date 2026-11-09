@@ -6,7 +6,7 @@ import { LABEL, atomically, changed, database } from './captures'
 import { renamePerson } from './link-rename'
 import { personKey } from './names'
 import { voiceOf, type Voice } from './voice'
-import { tagsIn } from './tag-words'
+import { tagsIn, withoutTags } from './tag-words'
 import { plural } from './dates'
 
 /**
@@ -24,7 +24,7 @@ export type SourceItem = {
   at: string; voice: Voice
 }
 /** `last` is the newest note from them, `first` the oldest (or when the page was made, with none). */
-export type SourceSummary = { field: SourceField; name: string; count: number; quotes: number; first: string; last: string }
+export type SourceSummary = { field: SourceField; name: string; count: number; quotes: number; first: string; last: string; /** A character's work: they show among Characters, never among People. */ work?: string }
 /**
  * The one plain line under a person's name: what they did, and when they lived.
  * On a source (a book, a show) `what` is what kind it is and `born` its year.
@@ -33,13 +33,23 @@ export type SourceSummary = { field: SourceField; name: string; count: number; q
 export type SourceFacts = { what: string; born: string; died: string; via: string }
 /** A page named by its field and name: what a "via" links to, and what "Found through it" lists. */
 export type SourceRef = { field: SourceField; name: string }
+/**
+ * A character: someone who lives in a work, not in the world ("Paul Atreides,
+ * in Dune"). Kept on their People page (field 'attribution'), so every note
+ * said by them and every old @mention still finds them. `work` is what they
+ * are in, `played` who played or voiced them, if anyone; born and died do not
+ * apply. `workNote` is the note titled with the work, if one is.
+ */
+export type Character = { work: string; played: string; workNote: { type: string; id: string } | null }
 export type SourcePage = { field: SourceField; name: string; thoughts: string; items: SourceItem[]; viaPage: SourceRef | null; found: SourceRef[]
   /** A line or two about them: Wikipedia's (with `bioUrl`, its credit) or your own (no url). `bioAt` is set once filled or written, so it is not asked again. */
   bio: string; bioUrl: string; bioAt: string
   /** What connects to them: the tags their notes carry, and the other side's pages (a person's sources, a source's people), most first. */
   tags: { tag: string; n: number }[]; links: SourceRef[]
   /** Each source's year, by its key, for the line under a quote. */
-  years: Record<string, string> } & SourceFacts
+  years: Record<string, string>
+  /** Set when they are a character in a work, not a real person. */
+  character: Character | null } & SourceFacts
 /** The small card in a note's margin: the source it cites, who wrote it, and the rest of its line. */
 export type SourceCard = { field: SourceField; name: string; author: string; what: string; born: string; died: string; via: string; viaPage: SourceRef | null }
 /** Beside a page being written: the people it names (their own words, newest first) and word gems sharing its tags. */
@@ -64,7 +74,7 @@ export function registerSources(): void {
   const db = database()
   db.exec('create table if not exists source_pages (field text not null, key text not null, name text not null, thoughts text not null default \'\', updated_at text not null, primary key (field, key))')
   const had = new Set((db.prepare('pragma table_info(source_pages)').all() as { name: string }[]).map((one) => one.name))
-  for (const column of ['what', 'born', 'died', 'via', 'bio', 'bio_url', 'bio_at', 'bio_redirects']) if (!had.has(column)) db.exec(`alter table source_pages add column ${column} text not null default ''`)
+  for (const column of ['what', 'born', 'died', 'via', 'bio', 'bio_url', 'bio_at', 'bio_redirects', 'work', 'played']) if (!had.has(column)) db.exec(`alter table source_pages add column ${column} text not null default ''`)
   // Lines turned away before a page Wikipedia redirected to counted as theirs ("Napoleon Bonaparte" to "Napoleon") are asked for once more.
   if (!had.has('bio_redirects')) db.exec("update source_pages set bio_at = '' where bio = ''")
 
@@ -99,8 +109,22 @@ export function registerSources(): void {
     return [...counts].sort((a, b) => b[1] - a[1] || caps(b[0]) - caps(a[0]))[0][0]
   }
 
-  const pages = (): ({ field: SourceField; key: string; name: string; thoughts: string; bio: string; bioUrl: string; bioAt: string; updated_at: string } & SourceFacts)[] =>
-    db.prepare('select field, key, name, thoughts, what, born, died, via, bio, bio_url as bioUrl, bio_at as bioAt, updated_at from source_pages').all() as never
+  const pages = (): ({ field: SourceField; key: string; name: string; thoughts: string; bio: string; bioUrl: string; bioAt: string; updated_at: string; work: string; played: string } & SourceFacts)[] =>
+    db.prepare('select field, key, name, thoughts, what, born, died, via, bio, bio_url as bioUrl, bio_at as bioAt, updated_at, work, played from source_pages').all() as never
+
+  /** The note titled with a work's name ("Dune #book"), if there is one: a character's page heads with it. */
+  const noteTitled = (work: string): { type: string; id: string } | null => {
+    const key = personKey(work)
+    if (!key) return null
+    const rows = [
+      ...db.prepare(`select 'capture' as type, id, ${LABEL} as title from captures where status not in ('discarded', 'promoted')`).all(),
+      ...db.prepare("select tier as type, id, coalesce(nullif(title, ''), label('', body)) as title from nuggets where tier in ('nugget', 'article') and binned_at is null").all()
+    ] as { type: string; id: string; title: string | null }[]
+    const hit = rows.find((one) => personKey(withoutTags(one.title ?? '')) === key)
+    return hit ? { type: hit.type, id: hit.id } : null
+  }
+  const characterOf = (page: { work: string; played: string } | undefined): Character | null =>
+    page?.work ? { work: page.work, played: page.played, workNote: noteTitled(page.work) } : null
 
   /**
    * The page a "via" names, when one goes by that name: a source first, then a
@@ -120,6 +144,7 @@ export function registerSources(): void {
 
   ipcMain.handle('haligtree:sources', (): SourceSummary[] => {
     const items = everything()
+    const all = pages()
     const out: SourceSummary[] = []
     for (const field of FIELDS) {
       const groups = new Map<string, SourceItem[]>()
@@ -129,11 +154,12 @@ export function registerSources(): void {
         const key = personKey(value)
         groups.set(key, [...(groups.get(key) ?? []), item])
       }
-      for (const [, list] of groups) {
+      for (const [key, list] of groups) {
         const times = list.map((one) => one.at).sort()
-        out.push({ field, name: spelt(list.map((one) => one[field]!)), count: list.length, quotes: list.filter((one) => one.voice === 'theirs').length, first: times[0], last: times.at(-1)! })
+        const work = all.find((one) => one.field === field && one.key === key)?.work || undefined
+        out.push({ field, name: spelt(list.map((one) => one[field]!)), count: list.length, quotes: list.filter((one) => one.voice === 'theirs').length, first: times[0], last: times.at(-1)!, work })
       }
-      for (const page of pages()) if (page.field === field && !groups.has(page.key)) out.push({ field, name: page.name, count: 0, quotes: 0, first: page.updated_at, last: page.updated_at })
+      for (const page of all) if (page.field === field && !groups.has(page.key)) out.push({ field, name: page.name, count: 0, quotes: 0, first: page.updated_at, last: page.updated_at, work: page.work || undefined })
     }
     return out.sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
   })
@@ -168,7 +194,8 @@ export function registerSources(): void {
     const years: Record<string, string> = {}
     for (const one of all) if (one.field === 'medium' && one.born) years[one.key] = one.born
     return { field, name: items.length ? spelt(items.map((one) => one[field]!)) : page?.name ?? name.trim(), thoughts: page?.thoughts ?? '', what: page?.what ?? '', born: page?.born ?? '', died: page?.died ?? '', via,
-      viaPage: via ? viaPageOf(via, everything(), all) : null, found, items, bio: page?.bio ?? '', bioUrl: page?.bioUrl ?? '', bioAt: page?.bioAt ?? '', tags, links, years }
+      viaPage: via ? viaPageOf(via, everything(), all) : null, found, items, bio: page?.bio ?? '', bioUrl: page?.bioUrl ?? '', bioAt: page?.bioAt ?? '', tags, links, years,
+      character: field === 'attribution' ? characterOf(page) : null }
   })
 
   // The card in a note's margin: its source (or, with none, who said it) and that page's line.
@@ -203,6 +230,23 @@ export function registerSources(): void {
     changed()
     return true
   })
+
+  // A person made a character of a work (and who played them, if anyone), or a real person again (`work` empty).
+  // What they did and when they lived stay kept, unshown, so turning back loses nothing.
+  ipcMain.handle('haligtree:source:character', (_event, name: unknown, work: unknown, played: unknown) => {
+    if (typeof name !== 'string' || !personKey(name) || typeof work !== 'string') return false
+    const was = pages().find((one) => one.field === 'attribution' && one.key === personKey(name))
+    const next = work.trim().slice(0, 160)
+    db.prepare(`insert into source_pages (field, key, name, thoughts, work, played, updated_at) values ('attribution', ?, ?, ?, ?, ?, ?)
+      on conflict(field, key) do update set work = excluded.work, played = excluded.played, updated_at = excluded.updated_at`)
+      .run(personKey(name), was?.name ?? name.trim(), was?.thoughts ?? '', next, next ? (typeof played === 'string' ? played.trim().slice(0, 80) : was?.played ?? '') : '', new Date().toISOString())
+    changed()
+    return true
+  })
+
+  // Every character in the book with the work they are in: what "@" offers beside People.
+  ipcMain.handle('haligtree:characters', (): { name: string; work: string }[] =>
+    pages().filter((one) => one.field === 'attribution' && one.work).map((one) => ({ name: one.name, work: one.work })).sort((a, b) => a.name.localeCompare(b.name)))
 
   // What they did and when they lived, each set on its own; a page is made for it if there is none.
   ipcMain.handle('haligtree:source:facts', (_event, field: unknown, name: unknown, facts: unknown) => {
@@ -318,8 +362,8 @@ export function registerSources(): void {
         const kept = other ? pageOf(toKey) : undefined
         db.prepare('delete from source_pages where field = ? and key in (?, ?)').run(field, fromKey, toKey)
         const pick = (col: string): string => String((kept?.[col] as string) || was[col] || '')
-        db.prepare('insert into source_pages (field, key, name, thoughts, what, born, died, via, updated_at) values (?, ?, ?, ?, ?, ?, ?, ?, ?)')
-          .run(field, toKey, name, pick('thoughts'), pick('what'), pick('born'), pick('died'), pick('via'), new Date().toISOString())
+        db.prepare('insert into source_pages (field, key, name, thoughts, what, born, died, via, work, played, updated_at) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+          .run(field, toKey, name, pick('thoughts'), pick('what'), pick('born'), pick('died'), pick('via'), pick('work'), pick('played'), new Date().toISOString())
       }
       if (field === 'attribution') {
         const face = personOf(fromKey)
@@ -330,7 +374,7 @@ export function registerSources(): void {
         }
         // @mentions in note bodies.
         for (const table of ['captures', 'nuggets']) {
-          for (const row of db.prepare(`select id, body from ${table} where body like '%person:%'`).all() as { id: string; body: string }[]) {
+          for (const row of db.prepare(`select id, body from ${table} where body like '%person:%' or body like '%character:%'`).all() as { id: string; body: string }[]) {
             let body: unknown
             try {
               body = JSON.parse(row.body)

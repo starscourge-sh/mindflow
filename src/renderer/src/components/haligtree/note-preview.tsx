@@ -5,7 +5,7 @@ import { onScrollAway } from '@/lib/scroll-away'
 
 import { haligtree, when } from '@/lib/haligtree'
 import { backIn } from '@/lib/back-in'
-import { Gem, Superscript as FootnoteIcon, UserRound } from 'lucide-react'
+import { Gem, Superscript as FootnoteIcon, UserRound, VenetianMask } from 'lucide-react'
 import { CARD } from '@/lib/float'
 import { Quote as MessageSquareText } from '@/components/ui/icons'
 import { canSplit } from '@/lib/split'
@@ -125,7 +125,7 @@ const clicks = (apart: boolean): string =>
   canSplit() ? 'Click to open, ⌥-click to the side, ⌘-click in a new tab' : `Click to open${apart ? ', ⌘-click for its own window' : ''}`
 
 export function NotePreview(): React.JSX.Element | null {
-  const [shown, setShown] = useState<{ x: number; y: number; above: boolean; private: boolean; title: string; text: string; line?: boolean; lost?: boolean; el?: Element; kind: string; aside: boolean; type: string; id: string; queue: boolean; gem?: Gemmed; binned?: boolean; row?: boolean; anchor: Element; picture?: string | null; lead?: string; tally?: string; latest?: string[]; foot?: string; thought?: Thought } | null>(null)
+  const [shown, setShown] = useState<{ x: number; y: number; above: boolean; private: boolean; title: string; text: string; line?: boolean; lost?: boolean; el?: Element; kind: string; aside: boolean; type: string; id: string; queue: boolean; gem?: Gemmed; binned?: boolean; row?: boolean; anchor: Element; picture?: string | null; lead?: string; cast?: boolean; tally?: string; latest?: string[]; foot?: string; thought?: Thought } | null>(null)
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | undefined
     let leaving: ReturnType<typeof setTimeout> | undefined
@@ -160,7 +160,9 @@ export function NotePreview(): React.JSX.Element | null {
       // A pause first: a pointer passing over a link is not asking.
       timer = setTimeout(() => {
         const raw = link.getAttribute('data-note') ?? ''
-        const [type, id] = raw.includes(':') ? [raw.slice(0, raw.indexOf(':')), raw.slice(raw.indexOf(':') + 1)] : ['capture', raw]
+        const [said, id] = raw.includes(':') ? [raw.slice(0, raw.indexOf(':')), raw.slice(raw.indexOf(':') + 1)] : ['capture', raw]
+        // A character's card is a person's: their page in People, which says the work they are in.
+        const type = said === 'character' ? 'person' : said
         // In Review a #tag on a card is the deck it sits in: Review names its decks itself, so no tag card comes up over one.
         if (type === 'tag' && link.closest('[data-review-page], [data-review-card], [data-answer-side]')) return
         const kind = kindOfLink(raw, link.getAttribute('data-kind'))
@@ -171,7 +173,7 @@ export function NotePreview(): React.JSX.Element | null {
         // A row's title, not an @ link: its own click does what it always did, so the card does not say "Click to open".
         const row = link.hasAttribute('data-note-hover')
         // A person or a tag is a place to go, not a note with words to show.
-        const load: Promise<{ title: string; lead?: string; body: unknown; private: boolean; gem?: Gemmed; picture?: string | null; tally?: string; latest?: string[]; thought?: Thought } | null> =
+        const load: Promise<{ title: string; lead?: string; cast?: boolean; body: unknown; private: boolean; gem?: Gemmed; picture?: string | null; tally?: string; latest?: string[]; thought?: Thought } | null> =
           // A footnote's mark: its note's words, read off the page it is on.
           type === 'footnote' ? Promise.resolve(footnoteCard(link, id))
           // A thought: its words whole, dated, and the note it is on.
@@ -186,13 +188,15 @@ export function NotePreview(): React.JSX.Element | null {
             const years = page?.died ? `(${[page.born, page.died].filter(Boolean).join(' to ')})` : page?.born ? `(born ${page.born})` : ''
             const what = page?.what?.trim().replace(/\.$/, '')
             const is = what ? `${page?.died ? 'was' : 'is'} ${/^(a|an|the)\b/i.test(what) ? '' : /^[aeiou]/i.test(what) ? 'an ' : 'a '}${what}.` : ''
+            const cast = page?.character
             return {
               title: page?.name ?? id,
-              lead: [years, is].filter(Boolean).join(' '),
+              lead: cast ? `is a character in ${cast.work}${cast.played ? `, played by ${cast.played}` : ''}.` : [years, is].filter(Boolean).join(' '),
               body: page?.thoughts ?? '',
               // How many, as a tag's card says it: what a tip on their face said, said here instead.
               tally: page?.items.length ? `${plural(page.items.length, 'note')} with their words` : undefined,
               private: false,
+              cast: !!cast,
               picture: avatarOf(id)
             }
           })
@@ -254,6 +258,7 @@ export function NotePreview(): React.JSX.Element | null {
             anchor: link,
             picture: found.picture !== undefined ? found.picture : binned ? null : pictureIn(found.body),
             lead: found.lead,
+            cast: found.cast,
             // A tag, in a note's words or anywhere else, opens as a link does.
             foot: type === 'tag' ? `${clicks(false)}.` : undefined,
             tally: found.tally,
@@ -364,8 +369,8 @@ export function NotePreview(): React.JSX.Element | null {
         </p>
       ) : shown.type === 'person' ? (
         <p data-preview-kind className="mb-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
-          <UserRound className="size-3.5 shrink-0" />
-          Person
+          {shown.cast ? <VenetianMask className="size-3.5 shrink-0" /> : <UserRound className="size-3.5 shrink-0" />}
+          {shown.cast ? 'Character' : 'Person'}
         </p>
       ) : look && !shown.lead && (
         <p className="mb-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">

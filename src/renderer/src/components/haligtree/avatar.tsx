@@ -1,4 +1,5 @@
-import { askRename, openSource } from '@/lib/sources'
+import { askRename, openSource, sources } from '@/lib/sources'
+import { chime } from '@/lib/sound'
 import { useState, type CSSProperties, type ReactElement } from 'react'
 
 import { hueOf, initials, pasteAvatar, peopleRead, pickAvatar, setAvatar, useAvatar } from '@/lib/people'
@@ -94,17 +95,47 @@ export function Avatar({ name, size = 16, className = '', look, letters }: { nam
 }
 
 /**
- * What a right click on a person offers: a picture from a file or the
- * clipboard, or none. Always the same wrapper, so a field inside it keeps its
- * caret as the first letter of a name arrives; with no name it does nothing.
+ * A person made a character of a work (asked which), or a character made a real
+ * person again: one notice, one Undo. Their notes, photo and links stay theirs.
  */
-export function PersonMenu({ name, children }: { name: string; children: ReactElement }): React.JSX.Element {
+export async function turnCharacter(name: string, to: 'character' | 'person'): Promise<void> {
+  // Read when asked: ui.tsx draws this file's faces, so a load-time import of it would go round in a circle.
+  const { ask, toast } = await import('./ui')
+  const was = (await sources.page('attribution', name))?.character ?? null
+  if (to === 'person') {
+    if (!was) return
+    await sources.character(name, '')
+    chime('retag')
+    return toast(`${name} is a real person again, in People`, () => void sources.character(name, was.work, was.played).then(() => chime('undo')))
+  }
+  const work = (await ask(was ? `Which work is ${name} in?` : `Make ${name} a character: which work are they in?`, 'e.g. Dune, or The Picture of Dorian Gray',
+    { field: 'medium', initial: was?.work, action: was ? 'Change the work' : 'Make a character' }))?.trim()
+  if (!work || work === was?.work) return
+  await sources.character(name, work, was?.played)
+  chime('retag')
+  toast(`${name} is now a character in ${work}`, () => void sources.character(name, was?.work ?? '', was?.played).then(() => chime('undo')))
+}
+
+/**
+ * What a right click on a person offers: a picture from a file or the
+ * clipboard, or none, and making them a character of a work (or a real person
+ * again). Always the same wrapper, so a field inside it keeps its caret as the
+ * first letter of a name arrives; with no name it does nothing. `work`: the
+ * work they are a character in ('' a real person); left out, read as it opens.
+ */
+export function PersonMenu({ name, work, children }: { name: string; work?: string; children: ReactElement }): React.JSX.Element {
   const avatar = useAvatar(name)
   if (avatar) ensureDuotone()
   const who = name.trim()
   // Read as the menu opens: "Paste a picture" only with a picture on the clipboard, so it never answers "none there".
   const [clipped, setClipped] = useState(false)
-  const look = (open: boolean): void => void (open && navigator.clipboard.read().then((items) => setClipped(items.some((item) => item.types.some((type) => type.startsWith('image/')))), () => setClipped(false)))
+  const [read, setRead] = useState<string | null>(null)
+  const inWork = work ?? read ?? ''
+  const look = (open: boolean): void => {
+    if (!open) return
+    void navigator.clipboard.read().then((items) => setClipped(items.some((item) => item.types.some((type) => type.startsWith('image/')))), () => setClipped(false))
+    if (work === undefined) void sources.page('attribution', who).then((page) => setRead(page?.character?.work ?? ''))
+  }
   return (
     <ContextMenu onOpenChange={look}>
       <ContextMenuTrigger asChild data-row-menu disabled={!who}>{children}</ContextMenuTrigger>
@@ -114,6 +145,13 @@ export function PersonMenu({ name, children }: { name: string; children: ReactEl
         <ContextMenuItem data-person-rename onSelect={() => askRename('attribution', who)}>Rename…</ContextMenuItem>
         <ContextMenuItem onSelect={() => void pickAvatar(who)}>{avatar ? 'Change the picture…' : 'Add a picture…'}</ContextMenuItem>
         {clipped && <ContextMenuItem onSelect={() => void pasteAvatar(who)}>Paste a picture</ContextMenuItem>}
+        {/* Someone from a story, kept apart from real people (and back again). */}
+        {inWork
+          ? <>
+            <ContextMenuItem data-character-work onSelect={() => void turnCharacter(who, 'character')}>Change the work…</ContextMenuItem>
+            <ContextMenuItem data-make-person onSelect={() => void turnCharacter(who, 'person')}>Make a real person</ContextMenuItem>
+          </>
+          : <ContextMenuItem data-make-character onSelect={() => void turnCharacter(who, 'character')}>Make a character of a work…</ContextMenuItem>}
         {avatar && <ContextMenuItem variant="destructive" onSelect={() => void setAvatar(who, null)}>Remove the picture</ContextMenuItem>}
       </ContextMenuContent>
     </ContextMenu>

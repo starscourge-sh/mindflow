@@ -259,7 +259,7 @@ const stepOf = (type: string, id: string): View =>
   type === 'study' ? { id: 'review', focus: id }
   : type === 'folder' ? { id: id.startsWith('article:') ? 'articles' : 'nuggets', folder: id.slice(id.indexOf(':') + 1) }
   // A person's link: their own page in People, the one the People list opens.
-  : type === 'person' ? { id: 'source', focus: `attribution:${id}` }
+  : type === 'person' || type === 'character' ? { id: 'source', focus: `attribution:${id}` }
   // A work found in ⌘K: its page among the sources.
   : type === 'work' ? { id: 'source', focus: `medium:${id}` }
   : type === 'view' ? { id } : type === 'pdf' || type === 'web' ? { id: type, focus: id } : type === 'day' ? { id: 'day', focus: id } : type === 'event' ? { id: 'calendar', focus: `event:${id}` } : { id: type === 'capture' ? 'all' : type === 'task' ? 'upcoming' : `${type}s`, focus: id }

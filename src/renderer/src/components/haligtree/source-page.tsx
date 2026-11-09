@@ -34,8 +34,8 @@ const tally = (one: { count: number; quotes: number }): string => {
   return [one.quotes ? plural(one.quotes, 'quote') : '', rest ? plural(rest, one.quotes ? 'other note' : 'note') : ''].filter(Boolean).join(' · ')
 }
 import { setAvatar, pickAvatar, useAvatar } from '@/lib/people'
-import { PersonMenu } from './avatar'
-import type { SourceCard, SourceFacts, SourcePage } from '@/lib/sources'
+import { PersonMenu, turnCharacter } from './avatar'
+import type { Character, SourceCard, SourceFacts, SourcePage } from '@/lib/sources'
 import { notes, type NoteTable } from '@/lib/notes'
 import { menuOpen } from '@/lib/menu-keys'
 import { bookOf, pdfIn } from '@/lib/pdf-in'
@@ -280,7 +280,7 @@ function PersonHead({ page, name }: { page: SourcePage | null; name: string }): 
   return (
     <header data-person-head className="px-5 pt-8">
       <div className="flex items-start gap-5">
-        <PersonMenu name={name}>
+        <PersonMenu name={name} work={page?.character?.work ?? ''}>
           <div className="group/photo relative shrink-0"
             onDragOver={(event) => (event.preventDefault(), setOver(true))} onDragLeave={() => setOver(false)}
             onDrop={(event) => {
@@ -316,8 +316,10 @@ function PersonHead({ page, name }: { page: SourcePage | null; name: string }): 
           </div>
         </PersonMenu>
         <div className="min-w-0 flex-1 pt-1">
-          <p className="text-control text-muted-foreground">Person</p>
+          <p data-person-kind className="text-control text-muted-foreground">{page?.character ? 'Character' : 'Person'}</p>
           <SourceName field="attribution" name={name} />
+          {/* A character: the work they belong to, opening its note (or its page), and who played or voiced them. Born and died do not apply. */}
+          {page?.character ? <CharacterLine name={name} character={page.character} /> : (
           <p data-person-line className="-ml-1 mt-0.5 flex flex-wrap items-baseline text-body text-foreground">
             <Fact label="What they did" placeholder="What they did" value={page?.what ?? ''} onSave={(what) => facts({ what })} />
             <span aria-hidden className="px-0.5">·</span>
@@ -329,9 +331,32 @@ function PersonHead({ page, name }: { page: SourcePage | null; name: string }): 
               <Fact label="Died" placeholder="now" value={page?.died ?? ''} onSave={(died) => facts({ died })} />
             </>}
           </p>
+          )}
         </div>
       </div>
     </header>
+  )
+}
+
+/**
+ * Under a character's name: "in Dune", the work opening its own note when one
+ * is titled with it (else its page in Sources), then who played or voiced
+ * them, typed where it is shown.
+ */
+function CharacterLine({ name, character }: { name: string; character: Character }): React.JSX.Element {
+  const note = character.workNote
+  return (
+    <p data-character-line className="-ml-1 mt-0.5 flex flex-wrap items-baseline text-body text-foreground">
+      <span className="px-1 text-muted-foreground">in</span>
+      <button type="button" data-character-work-open {...(note ? hoverNote(note.type, note.id) : {})}
+        onClick={() => (chime('page'), note ? window.api.openInHome(note.type, note.id) : openSource('medium', character.work))}
+        className="flex max-w-full cursor-pointer items-center gap-1 rounded-md px-1 py-0.5 font-medium text-foreground hover:bg-accent">
+        <BookOpen className="size-3.5 shrink-0 text-muted-foreground" /><span className="truncate">{character.work}</span>
+      </button>
+      <span aria-hidden className="px-0.5">·</span>
+      <span className="px-0.5 text-muted-foreground">played by</span>
+      <Fact label="Played or voiced by" placeholder="anyone, if filmed or voiced" value={character.played} onSave={(played) => void sources.character(name, character.work, played).then(() => chime('noted'))} />
+    </p>
   )
 }
 
@@ -704,18 +729,19 @@ const exampleEntry = (field: SourceField, name: string, count: number, quotes: n
 })
 
 /** People as big round faces, like an artists' shelf: their photo or shape, the name, and how much is from them. */
-function FaceGrid({ people }: { people: SourceSummary[] }): React.JSX.Element {
+function FaceGrid({ people, title = 'People' }: { people: SourceSummary[]; title?: 'People' | 'Characters' }): React.JSX.Element {
   return (
-    <section data-people-grid className="mx-3 my-2">
-      <h3 className="mb-2 flex items-center gap-2 px-2 text-heading font-semibold">People <Count n={people.length} className="text-control font-normal text-muted-foreground" /></h3>
+    <section data-people-grid={title === 'People' ? '' : undefined} data-characters-grid={title === 'Characters' ? '' : undefined} className="mx-3 my-2">
+      <h3 className="mb-2 flex items-center gap-2 px-2 text-heading font-semibold">{title} <Count n={people.length} className="text-control font-normal text-muted-foreground" /></h3>
       <div className="grid gap-x-2 gap-y-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(10rem, 1fr))' }}>
         {people.map((one) => (
-          <PersonMenu key={one.name} name={one.name}>
+          <PersonMenu key={one.name} name={one.name} work={one.work ?? ''}>
             <button type="button" data-face={one.name} onClick={() => (chime('page'), openSource('attribution', one.name))}
               className="group flex min-w-0 flex-col items-center gap-2 rounded-xl p-3 text-center transition-colors duration-100 hover:bg-accent/60 focus-visible:ring-2 focus-visible:ring-ring">
               <Avatar name={one.name} size={128} className="transition-transform duration-200 group-hover:scale-[1.03]" />
               <span {...hoverNote('person', one.name)} className="w-full truncate text-body font-semibold text-foreground">{one.name}</span>
-              <span className="-mt-1.5 w-full truncate text-control text-foreground/80">{tally(one)}</span>
+              {/* A character says the work they are in; a person, how much is from them. */}
+              <span className="-mt-1.5 w-full truncate text-control text-foreground/80">{one.work ? `in ${one.work}` : tally(one)}</span>
             </button>
           </PersonMenu>
         ))}
@@ -756,7 +782,9 @@ export function SourcesView({ onOpen }: { onOpen: (type: string, id: string) => 
   const sorted = [...list].sort(ORDER[view.sort] ?? ORDER.recents)
   // "Unattributed" is a state, not a person: never a face among the people, but one quiet line, "Source unknown", with its count.
   const unknown = sorted.find((one) => one.field === 'attribution' && one.name === UNATTRIBUTED)
-  const entries = (field: SourceField): Entry[] => sorted.filter((one) => one.field === field && !(field === 'attribution' && one.name === UNATTRIBUTED)).map((one) => ({
+  // Characters (someone in a work) are kept apart from real People, in their own section.
+  const summaries = (field: SourceField, characters = false): SourceSummary[] => sorted.filter((one) => one.field === field && !(field === 'attribution' && one.name === UNATTRIBUTED) && !!one.work === characters)
+  const entries = (field: SourceField, characters = false): Entry[] => summaries(field, characters).map((one) => ({
     id: `${field}:${one.name}`,
     type: 'source',
     title: one.name,
@@ -764,18 +792,20 @@ export function SourcesView({ onOpen }: { onOpen: (type: string, id: string) => 
     icon: FIELD_SAID[field].icon,
     // The same face the Feed gives them, so a person is recognisable on both.
     face: field === 'attribution' ? <Avatar name={one.name} size={36} /> : undefined,
-    sub: tally(one),
+    sub: one.work ? `in ${one.work} · ${tally(one)}` : tally(one),
     menu: [
       { label: 'Open the page', run: () => openSource(field, one.name) },
       { label: 'Rename…', run: () => askRename(field, one.name) },
+      ...(field !== 'attribution' ? [] : one.work ? [{ label: 'Change the work…', run: () => void turnCharacter(one.name, 'character') }, { label: 'Make a real person', run: () => void turnCharacter(one.name, 'person') }] : [{ label: 'Make a character of a work…', run: () => void turnCharacter(one.name, 'character') }]),
       ...(one.count ? [] : [{ label: 'Remove the page', run: () => void sources.dropAll([{ field, name: one.name }]).then((undo) => toast(`Removed ${one.name}’s page`, undo)) }])
     ]
   }))
   const people = entries('attribution')
+  const characters = entries('attribution', true)
   const places = entries('medium')
   // ⌘A picks every page, Esc lets go, ⌫ removes the empty ones (a page with notes stays: its notes still name it).
   const [chosen, setChosen] = useState<string[]>([])
-  const shown = [...people, ...places].map((one) => one.id)
+  const shown = [...people, ...characters, ...places].map((one) => one.id)
   const live = chosen.filter((id) => shown.includes(id))
   const summary = (id: string): SourceSummary | undefined => list.find((one) => `${one.field}:${one.name}` === id)
   const remove = (ids: string[]): void => {
@@ -862,11 +892,12 @@ export function SourcesView({ onOpen }: { onOpen: (type: string, id: string) => 
           )
         ) : asGrid ? (
           <>
-            {people.length > 0 && <FaceGrid people={sorted.filter((one) => one.field === 'attribution' && one.name !== UNATTRIBUTED)} />}
+            {people.length > 0 && <FaceGrid people={summaries('attribution')} />}
+            {characters.length > 0 && <FaceGrid title="Characters" people={summaries('attribution', true)} />}
             {places.length > 0 && <NoteList groups={[['Sources', places]]} density="list" table="nuggets" cursor={-1} chosen={live} picking={picking} twoUp onPick={(id) => (chime('page'), openSource('medium', id.slice(id.indexOf(':') + 1)))} className="mx-3 my-2" />}
           </>
         ) : (
-          <NoteList groups={[...(people.length ? [['People', people] as [string, Entry[]]] : []), ...(places.length ? [['Sources', places] as [string, Entry[]]] : [])]}
+          <NoteList groups={[...(people.length ? [['People', people] as [string, Entry[]]] : []), ...(characters.length ? [['Characters', characters] as [string, Entry[]]] : []), ...(places.length ? [['Sources', places] as [string, Entry[]]] : [])]}
             density="list" table="nuggets" cursor={-1} chosen={live} picking={picking} twoUp onPick={(id) => { const at = id.indexOf(':'); chime('page'); openSource(id.slice(0, at) as SourceField, id.slice(at + 1)) }} className="mx-3 my-2" />
         )}
       </div>
