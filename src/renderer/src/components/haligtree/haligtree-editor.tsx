@@ -1741,6 +1741,25 @@ function Surface({
     }
   }, [page, editor, handles])
 
+  // Writing, the gutter (+ and the grip) steps out of the way, as in Notion: a key typed hides it and the
+  // mouse moved brings it back. On the wrapper, so CSS can say so in one place (data-keyed).
+  useEffect(() => {
+    const wrap = wrapperRef.current
+    if (!page || !wrap || !handles) return
+    const typed = (event: KeyboardEvent): void => {
+      if (event.metaKey || event.ctrlKey || event.key.length !== 1 && event.key !== "Backspace" && event.key !== "Enter") return
+      wrap.setAttribute("data-keyed", "")
+    }
+    const moved = (event: MouseEvent): void => void ((event.movementX || event.movementY) && wrap.removeAttribute("data-keyed"))
+    page.addEventListener("keydown", typed, true)
+    window.addEventListener("mousemove", moved, { passive: true })
+    return () => {
+      page.removeEventListener("keydown", typed, true)
+      window.removeEventListener("mousemove", moved)
+      wrap.removeAttribute("data-keyed")
+    }
+  }, [page, handles])
+
   // Without handles there is no block menu, so a link or picked words get a
   // menu of their own lines, and a misspelt word its fixes; anywhere else the
   // right-click is left alone.
