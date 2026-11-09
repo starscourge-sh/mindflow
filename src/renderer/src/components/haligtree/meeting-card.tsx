@@ -204,7 +204,7 @@ function LiveLine({ line, fade, named, marked }: { line: Line; fade: number; nam
   return (
     <p data-meeting-live-line={line.id} data-final={line.final || undefined} className="text-body text-pretty transition-opacity duration-300" style={{ opacity: fade }}>
       {named && <span className="mr-1.5 font-semibold">{speakerName(line.speaker)}</span>}
-      {marked && <Bookmark aria-label="Moment noted" className="mr-1 inline size-3 -translate-y-px text-[var(--tt-brand-color-500)]" />}
+      {marked && <Bookmark role="img" aria-label="Moment noted" className="mr-1 inline size-3 -translate-y-px text-[var(--tt-brand-color-500)]" />}
       {line.text}
     </p>
   )

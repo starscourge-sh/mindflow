@@ -1205,7 +1205,7 @@ function Block({ task, day, at, length, lane, lifted, did, carry, start, onPick,
         <span className={`flex min-w-0 flex-1 px-1.5 ${length < 30 ? 'items-center gap-1.5' : short ? 'items-start gap-1.5 pt-[3px]' : 'flex-col gap-px pt-[3px]'}`}>
           <span className={`flex min-w-0 items-center gap-1 ${short ? '' : 'shrink-0'}`}>
             <span data-cal-block-name className={`truncate font-semibold ${finished ? 'line-through' : ''}`}>{name}</span>
-            {repeats && <RepeatIcon aria-label="Repeats" className="size-3 shrink-0 opacity-75" />}
+            {repeats && <RepeatIcon role="img" aria-label="Repeats" className="size-3 shrink-0 opacity-75" />}
           </span>
           {/* An hour's block has room for two lines under its name: its planned and done say more than the time it sits at. */}
           {!(plan && !short && length < 75) && <span className={`shrink-0 truncate text-meta tabular-nums text-foreground/80 ${short ? 'hidden @[120px]:inline' : 'hidden @[4rem]:block'}`}>{short ? time(at) : <><span className={`@[104px]:hidden ${length >= 60 ? 'block leading-tight' : ''}`}>{length >= 60 ? <>{time(at)} –<br />{time(at + length, 'end')}</> : time(at)}</span><span className="hidden @[104px]:inline">{lifted ? <>{time(at)} – {time(at + length, 'end')}</> : timeSpan(atMinute(day, at), atMinute(day, at + length))}</span></>}</span>}

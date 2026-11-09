@@ -127,7 +127,7 @@ export function MonoCard({ name, title, value, unit, chips, side, point, trend, 
       </div>
       {enough && children && <div ref={stage} data-mono-stage className="relative py-1">{children}</div>}
       {/* Too little to draw: the one sentence takes the point's place, which would only describe marks that are not there. */}
-      {enough || !sparse ? <p data-mono-point className="flex min-h-5 items-center gap-1.5 text-sm font-medium text-foreground">{point}{trend && <Arrow aria-label={trend === 'up' ? 'up' : 'down'} className="size-4 shrink-0" />}</p>
+      {enough || !sparse ? <p data-mono-point className="flex min-h-5 items-center gap-1.5 text-sm font-medium text-foreground">{point}{trend && <Arrow role="img" aria-label={trend === 'up' ? 'up' : 'down'} className="size-4 shrink-0" />}</p>
         : <p data-mono-point data-chart-sparse className="min-h-5 text-sm font-medium text-foreground">{sparse}</p>}
       {note && enough && <p data-mono-note className="-mt-1.5 text-xs text-muted-foreground">{note}</p>}
     </motion.section>

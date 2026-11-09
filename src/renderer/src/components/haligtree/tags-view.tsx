@@ -74,7 +74,7 @@ function DoesChip({ tag, color, action }: { tag: string; color?: string | null; 
   const Icon = what.icon
   return (
     <Tip label={what.long}>
-      <span data-does={what.short} aria-label={what.long} className="grid size-5 shrink-0 place-items-center rounded-full"
+      <span data-does={what.short} role="img" aria-label={what.long} className="grid size-5 shrink-0 place-items-center rounded-full"
         style={{ color: tint, background: `color-mix(in oklab, ${tint} 13%, transparent)` }}>
         <Icon className="size-3" strokeWidth={2.2} />
       </span>
@@ -159,7 +159,7 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
         {/* The tags that do something, said before you need them: they work from the first time you write one. */}
         {!chosen && (
           <p className="mx-5 mt-8 text-control text-muted-foreground">
-            <strong className="text-foreground">Some tags do something.</strong> #bit keeps a note private; #book adds a reading status and a rating; one marked <SquareCheck aria-label="with a tick" className="inline size-3.5 -translate-y-px" /> makes a task.
+            <strong className="text-foreground">Some tags do something.</strong> #bit keeps a note private; #book adds a reading status and a rating; one marked <SquareCheck role="img" aria-label="with a tick" className="inline size-3.5 -translate-y-px" /> makes a task.
           </p>
         )}
         {/* What you come to Tags for, on one line: find one, and see them by size, by what is growing, or by name. */}
@@ -215,11 +215,18 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
                 {/* A star, on pointing, to make it a favourite (kept in the sidebar); a favourite keeps it filled. */}
                 {!example && (() => {
                   const fav = (sideSaved ?? []).includes(tag)
+                  // Reached by Tab too, shown while it or its row has the keys; Enter or Space stars it, not the row under it.
                   return (
                     <Tip label={fav ? 'Remove from favourites' : 'Add to favourites'}>
-                      <span role="button" aria-label={fav ? `Remove #${tag} from favourites` : `Add #${tag} to favourites`} aria-pressed={fav} data-tag-fav={tag}
+                      <span role="button" tabIndex={0} aria-label={fav ? `Remove #${tag} from favourites` : `Add #${tag} to favourites`} aria-pressed={fav} data-tag-fav={tag}
                         onClick={(event) => (event.stopPropagation(), void toggleSideTag(tag, real.map((one) => one.tag)))}
-                        className={`flex size-6 shrink-0 cursor-pointer items-center justify-center rounded text-muted-foreground transition-[opacity,color,scale] duration-80 hover:text-foreground active:scale-[0.9] ${fav ? '' : 'opacity-0 group-hover/tagrow:opacity-100'}`}>
+                        onKeyDown={(event) => {
+                          if (event.key !== 'Enter' && event.key !== ' ') return
+                          event.preventDefault()
+                          event.stopPropagation()
+                          void toggleSideTag(tag, real.map((one) => one.tag))
+                        }}
+                        className={`flex size-6 shrink-0 cursor-pointer items-center justify-center rounded text-muted-foreground transition-[opacity,color,scale] duration-80 hover:text-foreground focus-visible:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/30 active:scale-[0.9] ${fav ? '' : 'opacity-0 group-hover/tagrow:opacity-100 group-focus-visible/tagrow:opacity-100 focus-visible:opacity-100'}`}>
                         <Star className={`size-3.5 ${fav ? 'fill-current' : ''}`} />
                       </span>
                     </Tip>

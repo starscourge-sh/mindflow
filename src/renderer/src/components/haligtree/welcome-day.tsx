@@ -140,7 +140,7 @@ export function ComeBack({ shot, quiet, said }: { shot: BackShot; quiet: boolean
                 {(one.kind === 'gem' ? [{ id: 'gem', words: one.kept, Mark: Brain, how: 'In “Review”' }, { id: 'kept', words: clip(flowWords().kept, 2), Mark: Eye, how: 'In your “Feed”' }] : [{ id: one.kind, words: one.kept, Mark: null, how: '' }]).map(({ id, words, Mark, how }) => (
                   <span key={id} data-kept={id} className={`${CHIP} ${Mark ? 'min-w-0' : 'max-w-full'}`}>
                     <Icon className="size-4 shrink-0" style={{ color: TINT[one.kind] }} /><span className="truncate">{words}</span>
-                    {Mark && <Mark aria-label={how} className="size-3.5 shrink-0 text-muted-foreground" />}
+                    {Mark && <Mark role="img" aria-label={how} className="size-3.5 shrink-0 text-muted-foreground" />}
                   </span>
                 ))}
               </span>
