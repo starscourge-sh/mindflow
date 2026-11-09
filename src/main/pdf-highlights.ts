@@ -246,7 +246,9 @@ export function registerPdfHighlights(): void {
     if (!term || term.length > 120) return null
     const row = db.prepare('select answer, at from wiki_answers where term = ?').get(term.toLowerCase()) as { answer: string; at: string } | undefined
     // An answer kept before redirects were said (no `from`) is asked again once, so "Napoleon Bonaparte" finds its line.
-    if (!row || !('from' in (JSON.parse(row.answer) ?? {}))) return askWiki(term)
+    // One kept before Wikimedia's newer picture address was read (no `pictures`) is asked again once, for its picture.
+    const kept = JSON.parse(row?.answer ?? 'null') ?? {}
+    if (!row || !('from' in kept) || (!('missing' in kept) && !('pictures' in kept))) return askWiki(term)
     if (Date.now() - Date.parse(row.at) > 30 * 86_400_000) void askWiki(term)
     return JSON.parse(row.answer)
   })
@@ -300,7 +302,7 @@ export function unjoinGem(db: DatabaseSync, gem: string, was: string, now: strin
 }
 
 /** Wikipedia's summary of the article the words name, asked now: found, missing, or offline. */
-async function wikiOnline(term: string): Promise<{ missing: true } | { offline: true } | { title: string; description: string; extract: string; picture: string | null; url: string; from: string | null }> {
+async function wikiOnline(term: string): Promise<{ missing: true } | { offline: true } | { title: string; description: string; extract: string; picture: string | null; pictures: number; url: string; from: string | null }> {
   const base = (process.env.HALIGTREE_USER_DATA && process.env.HALIGTREE_QA_WIKI) || 'https://en.wikipedia.org/api/rest_v1/page/summary/'
   try {
     const url = `${base}${encodeURIComponent(term.replace(/ /g, '_'))}?redirect=true`
@@ -310,11 +312,11 @@ async function wikiOnline(term: string): Promise<{ missing: true } | { offline: 
     const page = (await response.json()) as { type?: string; title?: string; description?: string; extract?: string; thumbnail?: { source?: string }; content_urls?: { desktop?: { page?: string } } }
     if (!page.extract || page.type === 'disambiguation') return { missing: true }
     // The article's lead picture, only when it lives on Wikimedia Commons (freely licensed); an English-only file can be fair use.
-    const picture = page.thumbnail?.source && /^https:\/\/upload\.wikimedia\.org\/wikipedia\/commons\//.test(page.thumbnail.source) ? page.thumbnail.source : null
+    const picture = page.thumbnail?.source && /^https:\/\/(upload|thumb)\.wikimedia\.org\/wikipedia\/commons\//.test(page.thumbnail.source) ? page.thumbnail.source.replace(/\?.*$/, '') : null
     // Wikipedia sent us on from the words asked ("Napoleon Bonaparte" to "Napoleon"): `from` keeps the words, so the page is known
     // as theirs. The address answered is the last one followed, here and in fetchOutside.
     const landed = response.url && new URL(response.url).pathname !== new URL(url).pathname
-    return { title: page.title ?? term, description: page.description ?? '', extract: page.extract, picture, url: page.content_urls?.desktop?.page ?? `https://en.wikipedia.org/wiki/${encodeURIComponent(term.replace(/ /g, '_'))}`, from: landed ? term : null }
+    return { title: page.title ?? term, description: page.description ?? '', extract: page.extract, picture, pictures: 2, url: page.content_urls?.desktop?.page ?? `https://en.wikipedia.org/wiki/${encodeURIComponent(term.replace(/ /g, '_'))}`, from: landed ? term : null }
   } catch {
     return { offline: true }
   }

@@ -34,7 +34,7 @@ const tally = (one: { count: number; quotes: number }): string => {
   const rest = one.count - one.quotes
   return [one.quotes ? plural(one.quotes, 'quote') : '', rest ? plural(rest, one.quotes ? 'other note' : 'note') : ''].filter(Boolean).join(' · ')
 }
-import { setAvatar, pickAvatar, useAvatar } from '@/lib/people'
+import { avatarOf, setAvatar, pickAvatar, useAvatar } from '@/lib/people'
 import { PersonMenu, turnCharacter } from './avatar'
 import type { Character, SourceCard, SourceFacts, SourcePage } from '@/lib/sources'
 import { notes, type NoteTable } from '@/lib/notes'
@@ -361,6 +361,13 @@ function CharacterLine({ name, character }: { name: string; character: Character
   )
 }
 
+/** A data address as a picture, read here: the page may not fetch anything, a data address included. */
+const blobOf = (data: string): Blob => {
+  const [head, body] = data.split(',', 2)
+  const bytes = Uint8Array.from(atob(body), (letter) => letter.charCodeAt(0))
+  return new Blob([bytes], { type: /data:([^;]+)/.exec(head)?.[1] ?? 'image/jpeg' })
+}
+
 /**
  * A line or two about them, under the name. The first time the page opens it
  * is filled from Wikipedia's summary (its first two sentences, said "From
@@ -370,13 +377,31 @@ function CharacterLine({ name, character }: { name: string; character: Character
  */
 function Bio({ field, name, page }: { field: SourceField; name: string; page: SourcePage | null }): React.JSX.Element | null {
   const asked = !page || !!page.bioAt
-  const wiki = useWiki(asked ? null : name)
+  // A person whose line came from Wikipedia but who has no face yet is asked again (kept, so offline-quick) for the picture.
+  const wantFace = !!page && field === 'attribution' && !!page.bioUrl && !avatarOf(name)
+  const wiki = useWiki(asked && !wantFace ? null : name)
   useEffect(() => {
-    if (!page || page.bioAt || (wiki.state !== 'found' && wiki.state !== 'missing')) return
+    if (!page || (wiki.state !== 'found' && wiki.state !== 'missing')) return
+    if (page.bioAt) {
+      if (wantFace && wiki.page?.picture && pageFor(wiki.page, name))
+        void window.api.haligtree<string | null>('feed:picture', wiki.page.picture).then(async (data) => {
+          if (data && !avatarOf(name)) await setAvatar(name, blobOf(data))
+        })
+      return
+    }
     // Only the article by that very name: "Mum" is not the article about mothers.
     const fits = !!wiki.page && pageFor(wiki.page, name)
     void sources.bio(field, name, fits ? firstSentences(wiki.page!.extract) : '', fits ? wiki.page!.url : '')
-  }, [wiki.state, wiki.page, page, field, name])
+    if (!fits) return
+    // The article's one line ("Italian polymath") as what they did, when nothing is written there yet.
+    if (!page.what && wiki.page!.description) void sources.facts(field, name, { what: wiki.page!.description[0].toUpperCase() + wiki.page!.description.slice(1) })
+    // A person's lead picture as their face, when they have none: only a freely licensed one from Wikimedia Commons
+    // (wiki.ts keeps no other). Fetched by the app, never by the page, and shrunk like any face you add.
+    if (field === 'attribution' && wiki.page!.picture && !avatarOf(name))
+      void window.api.haligtree<string | null>('feed:picture', wiki.page!.picture).then(async (data) => {
+        if (data && !avatarOf(name)) await setAvatar(name, blobOf(data))
+      })
+  }, [wiki.state, wiki.page, page, field, name, wantFace])
   // The page waits only for its own read, never for Wikipedia: the first time, the line's room is kept at once (three
   // quiet lines), the words fade into it when they come, and nothing under it moves. Kept once fetched, so every
   // later visit has it at once, offline too. No answer in 4 seconds: the room closes, once, and its orb stops with it.
