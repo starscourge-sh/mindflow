@@ -850,22 +850,31 @@ export const NoteLink = Node.create<NoteLinkOptions>({
         // written: the notice offers the one already there, so a near twin is never made without a word.
         render: () => {
           const shown = (tagRender ?? render)()
+          // The list as last shown: the exit's own props come with no items.
+          let seen: { items: NoteSuggestion[]; query: string; range: { from: number; to: number } } | null = null
+          const keep = (props: { items: NoteSuggestion[]; query: string; range: { from: number; to: number }; loading?: boolean }): void => void (!props.loading && (seen = { items: props.items, query: props.query, range: props.range }))
           return {
             ...shown,
+            onStart: (props) => (keep(props), shown.onStart?.(props)),
+            onUpdate: (props) => (keep(props), shown.onUpdate?.(props)),
             onExit: (props) => {
               shown.onExit?.(props)
-              const typed = props.query.toLowerCase()
-              const near = props.items.find((one) => one.id !== typed && one.id.startsWith(typed))
-              if (!typed || !near || props.items.some((one) => one.id === typed)) return
-              const { from, to } = props.range
+              const last = seen
+              seen = null
+              if (!last) return
+              const typed = last.query.toLowerCase()
+              const near = last.items.find((one) => one.id !== typed && one.id.startsWith(typed))
+              if (!typed || !near || last.items.some((one) => one.id === typed)) return
+              const from = last.range.from
+              const to = from + 1 + last.query.length
               const doc = props.editor.state.doc
-              if (to >= doc.content.size || doc.textBetween(from, to + 1, "", "") !== `#${props.query} `) return
-              void import("@/components/haligtree/ui").then(({ toast }) => toast(`#${props.query} is a new tag`, undefined, "info", {
+              if (to >= doc.content.size || doc.textBetween(from, to + 1, "", "") !== `#${last.query} `) return
+              void import("@/components/haligtree/ui").then(({ toast }) => toast(`#${last.query} is a new tag`, undefined, "info", {
                 label: `Use ${near.label}`,
                 key: "",
                 run: () => {
                   const now = props.editor.state.doc
-                  if (props.editor.isDestroyed || now.textBetween(from, Math.min(to, now.content.size), "", "") !== `#${props.query}`) return
+                  if (props.editor.isDestroyed || now.textBetween(from, Math.min(to, now.content.size), "", "") !== `#${last.query}`) return
                   props.editor.chain().insertContentAt({ from, to }, `#${near.id}`).run()
                 },
               }))
