@@ -1991,6 +1991,16 @@ input[type='number']::-webkit-outer-spin-button {
     inset 0 1px 1px color-mix(in oklab, white 60%, transparent),
     0 1px 2px color-mix(in oklab, var(--mf-shadow-ink) 5%, transparent);
 }
+/* An island reads only when it differs from what it sits on. On a frosted
+   panel (⌘K, a card, a menu) the panel is already the card's colour, so the
+   island steps off it: lighter on a light page, a shade up on a dark one, as
+   Inbox's islands sit lighter than its page. */
+:root .mf-frost .mf-island {
+  background-color: color-mix(in oklab, var(--foreground) 6%, var(--popover));
+}
+:root:is(.light, .paper) .mf-frost .mf-island {
+  background-color: color-mix(in oklab, white 55%, var(--popover));
+}
 
 /* Blurring off, a choice in Settings: private words show plainly, a window
    you have left keeps its full strength, and hint words arrive by fading
