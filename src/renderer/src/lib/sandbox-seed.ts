@@ -40,6 +40,10 @@ import peterUrl from '@/assets/sandbox/denial-of-saint-peter.webp'
 import catherineUrl from '@/assets/sandbox/saint-catherine.webp'
 import bocklinUrl from '@/assets/sandbox/bocklin-death-fiddle.webp'
 import opheliaUrl from '@/assets/sandbox/ophelia-cabanel.webp'
+import frankensteinPlateUrl from '@/assets/sandbox/frankenstein-1831.webp'
+import dorianCoverUrl from '@/assets/sandbox/dorian-lippincott.webp'
+import prideProtestedUrl from '@/assets/sandbox/pride-protested.webp'
+import prideDancingUrl from '@/assets/sandbox/pride-dancing.webp'
 import hayWainUrl from '@/assets/scenery/hay-wain.webp'
 import temeraireUrl from '@/assets/scenery/fighting-temeraire.webp'
 import wandererUrl from '@/assets/scenery/wanderer.webp'
@@ -761,8 +765,11 @@ He knows, and he goes on. That is where I began to wonder: ${link(paul, 'Is Paul
 The worm ride, the duel, the emperor beaten. It reads like a triumph. Herbert said it was meant as a warning.
 `)
 
+  const dorianCover = await picture(dorianCoverUrl)
   await write(dorian, `
 The Picture of Dorian Gray #book
+
+![Lippincott's Monthly Magazine, July 1890: the first printing of Dorian Gray](${dorianCover})
 
 A book set to “Finished” asks one more thing: what you will keep from it, a line or two under “Takeaway”.
 
@@ -1824,6 +1831,8 @@ A whole town painted with nobody in it. I stood in front of it for twenty minute
   // Others dropped straight into Files, with no note yet: a file kept for later, the way a print is pinned above a desk.
   const gallery = [
     [babelUrl, 'Pieter Bruegel the Elder, The Tower of Babel, 1563.webp'],
+    [prideProtestedUrl, 'Hugh Thomson, Pride and Prejudice, Mr Collins protests he never reads novels, 1894.webp'],
+    [prideDancingUrl, 'Hugh Thomson, Pride and Prejudice, superior dancing, 1894.webp'],
     [pompeiiUrl, 'Karl Bryullov, The Last Day of Pompeii, 1833.webp'],
     [medusaUrl, 'Théodore Géricault, The Raft of the Medusa, 1819.webp'],
     [homerPicUrl, 'Jean-Auguste-Dominique Ingres, The Apotheosis of Homer, 1827.webp'],
@@ -1972,6 +1981,7 @@ A whole town painted with nobody in it. I stood in front of it for twenty minute
       : [cited(child, cites)]) }
     : node
   const person = (name: string): string => `[[@person:${name}|${name}]]`
+  const frankensteinPlate = await picture(frankensteinPlateUrl)
   const creatureReads = await call<string>('article:new')
   await call('item:save', creatureReads, {
     title: "The creature's three books",
@@ -1979,6 +1989,8 @@ A whole town painted with nobody in it. I stood in front of it for twenty minute
 A page read closely: highlights, footnotes and citations, and in its margin, the lines you kept from the people it names.
 
 **Try it:** select a few words and press ⌘⇧H to highlight them, or type “/” and choose “Cite a source”.
+
+![Theodor von Holst, the frontispiece to the 1831 Frankenstein: Victor runs from what he made](${frankensteinPlate})
 
 Hiding beside the cottage, the creature finds a satchel with three books in it: Paradise Lost, Plutarch's Lives and The Sorrows of Young Werther ⟦shelley⟧. ==He learns what a person is from them before any person has been kind to him.==[^1]
 

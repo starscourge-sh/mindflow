@@ -167,3 +167,13 @@ copies in ~/Documents/img to webp, 1200px on the long side, quality 74.
 Not bundled, on purpose: the development-only step in src/main/sandbox.ts (localLibrary) adds
 the developer's own books from ~/Documents/books and a few more paintings from ~/Documents/img
 to a dev build's sandbox. A packaged app never runs it, and none of those files are in git.
+
+Book illustrations of their own day, public domain (Wikimedia Commons, tagged public domain), resized to webp:
+  frankenstein-1831.webp    Theodor von Holst, frontispiece to Frankenstein, 1831 edition (Colburn and Bentley).
+                            From Frontispiece_to_Frankenstein_1831.jpg
+  dorian-lippincott.webp    Lippincott's Monthly Magazine, July 1890: the first printing of The Picture of Dorian Gray.
+                            From Lippincott_doriangray.jpg
+  pride-protested.webp      Hugh Thomson, Pride and Prejudice (George Allen, 1894): "Protested that he never read novels".
+                            From Houghton_Typ_805.94.8320_-_Pride_and_Prejudice,_1894,_Hugh_Thomson_-_Protested.jpg (Houghton Library)
+  pride-dancing.webp        Hugh Thomson, Pride and Prejudice (1894): "superior dancing".
+                            From Houghton_Typ_805.94.8320_-_Pride_and_Prejudice,_1894,_Hugh_Thomson_-_superior_dancing.jpg (Houghton Library)
