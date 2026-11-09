@@ -35,7 +35,9 @@ export const IN_WINDOW: SuggestionOptions["floatingUi"] = {
       fn: ({ placement, elements }) => {
         if (!placement.startsWith("bottom") || document.documentElement.hasAttribute("data-overhang")) return {}
         const line = elements.reference.getBoundingClientRect()
-        const need = Math.min(elements.floating.scrollHeight, 320)
+        // The list scrolls inside the menu, so its own scrollHeight is the whole of it.
+        const parts = [elements.floating, ...elements.floating.querySelectorAll<HTMLElement>(":scope > *, :scope > * > *")]
+        const need = Math.min(Math.max(...parts.map((one) => one.scrollHeight)), 320)
         const below = window.innerHeight - dockRoom() - line.bottom
         const above = line.top - 8
         return below < need && above > below ? { reset: { placement: placement.replace("bottom", "top") as typeof placement } } : {}
