@@ -1961,7 +1961,7 @@ export function Home(): React.JSX.Element {
       <Popover open={customizing} onOpenChange={setCustomizing}>
       <PopoverAnchor asChild>
       {/* Anything the sidebar opens, its menus too, was found by the sidebar (lib/usage.ts). */}
-      <aside data-chrome data-book-tint style={sideStyle} onClickCapture={() => via('sidebar')} className={`group/side flex shrink-0 flex-col overflow-hidden rounded-xl border bg-accent/20 ${narrow ? 'mt-9 w-12 [:root[data-fullscreen]_&]:mt-0' : 'w-56'} ${opened ? 'mf-opened-side' : ''}`}>
+      <aside data-chrome data-book-tint data-hero-still style={sideStyle} onClickCapture={() => via('sidebar')} className={`group/side flex shrink-0 flex-col overflow-hidden rounded-xl border bg-accent/20 ${narrow ? 'mt-9 w-12 [:root[data-fullscreen]_&]:mt-0' : 'w-56'} ${opened ? 'mf-opened-side' : ''}`}>
         {/* Room for the traffic lights, and somewhere to hold the window by.
             It stays put: only the list under the search scrolls, so nothing
             ever slides under the window's buttons. */}

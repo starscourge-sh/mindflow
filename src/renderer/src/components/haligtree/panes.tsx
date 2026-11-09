@@ -7,6 +7,7 @@ import { heroing } from '@/lib/hero'
 import { takeLanding } from './split-drop'
 import { chime } from '@/lib/sound'
 import { PANE_GAP, PANE_MIN, PaneContext, PaneWidthContext, panesFit, type PaneWidth } from '@/lib/split'
+import { jumpTo } from './ui'
 import { TabRow, type TabActions, type TabGroup, type TabShown } from './tab-row'
 
 /** What the main window needs of a pane to keep Back exact: how its page is scrolled. */
@@ -25,13 +26,16 @@ const MIN = PANE_MIN
 const GAP = PANE_GAP
 
 /** A box's place in the page, as the child index at each level down. */
+// The old page held over the new one while it loads (data-page-held) is not counted: it put the new page one place
+// on, and Back scrolled the held page instead, so Home showed at its top and jumped a moment later.
+const kids = (at: Element): Element[] => [...at.children].filter((one) => !one.hasAttribute('data-page-held'))
 const pathTo = (root: Element, node: Element): string => {
   const steps: number[] = []
-  for (let at: Element | null = node; at && at !== root; at = at.parentElement) steps.unshift(at.parentElement ? [...at.parentElement.children].indexOf(at) : 0)
+  for (let at: Element | null = node; at && at !== root; at = at.parentElement) steps.unshift(at.parentElement ? kids(at.parentElement).indexOf(at) : 0)
   return steps.join('.')
 }
 const atPath = (root: Element, path: string): Element | null =>
-  path.split('.').reduce<Element | null>((at, index) => at?.children[Number(index)] ?? null, root)
+  path.split('.').reduce<Element | null>((at, index) => (at ? kids(at)[Number(index)] ?? null : null), root)
 
 /**
  * The main window's page, split into panes side by side. Each is a card like
@@ -219,16 +223,22 @@ function PaneFrame({ pane, apis, split, front, hidden, least, groups, actions, s
     const letGo = (): void => void ((yours = true), (landing.current = null))
     let tall = -1
     let still = 0
-    const put = (): void => {
-      if (yours) return
+    // Where each box should be, set now; says whether any is not there yet, and how tall they are.
+    const place = (): [left: boolean, height: number] => {
       let left = false
       let height = 0
       for (const [path, top] of want) {
         const box = atPath(root, path)
-        if (box && Math.abs(box.scrollTop - top) > 2) box.scrollTop = top
+        // Through its smooth scrolling, which otherwise takes a plain scrollTop back to the top.
+        if (box && Math.abs(box.scrollTop - top) > 2) jumpTo(box as HTMLElement, top)
         if (!box || Math.abs(box.scrollTop - top) > 2) left = true
         height += box?.scrollHeight ?? 0
       }
+      return [left, height]
+    }
+    const put = (): void => {
+      if (yours) return
+      const [left, height] = place()
       still = height === tall ? still + 1 : 0
       tall = height
       // While Back's flight holds the window's picture (lib/hero.ts) no frame comes: a timer stands in, so the page is
