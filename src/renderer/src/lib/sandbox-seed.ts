@@ -211,13 +211,13 @@ export async function seedSandbox(read: Read): Promise<SeedCounts> {
   nuggets++
 
   // A line kept from a novel: the character who says it, inside the book it is from.
-  const wildeCapture = await capture({ kind: 'quote', attribution: 'Lord Henry, in Oscar Wilde', medium: 'The Picture of Dorian Gray, chapter 2 (1890)' }, at(-10, '23:02'))
+  const wildeCapture = await capture({ kind: 'quote', attribution: 'Lord Henry', medium: 'The Picture of Dorian Gray, chapter 2 (1890)' }, at(-10, '23:02'))
   await write(wildeCapture, 'The only way to get rid of a temptation is to yield to it.')
   const wilde = await call<string>('promote', wildeCapture, 'He says it to be clever. The rest of the book is the bill.')
   nuggets++
 
   // And one from Middle-earth, said by the wizard, inside the book it is from.
-  const gandalfCapture = await capture({ kind: 'quote', attribution: 'Gandalf, in J.R.R. Tolkien', medium: 'The Fellowship of the Ring, Book 1, chapter 2 (1954)' }, at(-7, '22:15'))
+  const gandalfCapture = await capture({ kind: 'quote', attribution: 'Gandalf', medium: 'The Fellowship of the Ring, Book 1, chapter 2 (1954)' }, at(-7, '22:15'))
   await write(gandalfCapture, 'All we have to decide is what to do with the time that is given us.')
   const gandalf = await call<string>('promote', gandalfCapture, 'The film puts it in Moria. The book has it at Bag End, before anyone has left home: advice for an ordinary Tuesday.')
   nuggets++
@@ -875,12 +875,14 @@ This week: ${link(mars, 'Get to Mars before the dust storm', 'goal')}, and the L
     await call('source:facts', 'attribution', who, { what, born, died })
   }
 
-  // Four characters, kept apart from the writers: the work each is in, a line about them in your words, and who played one.
+  // Six characters, kept apart from the writers: the work each is in, a line about them in your words, and who played one.
   const characters: [string, string, string, string][] = [
     ['The creature', 'Frankenstein', '', 'Made from the dead and left on his own the night he woke. Teaches himself to read from three books, and asks only for company. He never gets a name.'],
     ['Victor Frankenstein', 'Frankenstein', '', 'The student who made the creature, then ran from it. The book is his confession, told on a ship in the Arctic.'],
     ['Dorian Gray', 'The Picture of Dorian Gray', '', 'Stays young and lovely while his portrait, locked upstairs, takes every year and every cruelty for him.'],
-    ['Paul Atreides', 'Dune', 'Timothée Chalamet', 'The duke’s son taken to the desert planet, who sees the futures and goes on anyway.']
+    ['Paul Atreides', 'Dune', 'Timothée Chalamet', 'The duke’s son taken to the desert planet, who sees the futures and goes on anyway.'],
+    ['Lord Henry', 'The Picture of Dorian Gray', '', 'Talks Dorian into everything and does none of it himself. Every line is a quotation, which is the trouble with him.'],
+    ['Gandalf', 'The Fellowship of the Ring', '', 'The wizard who sends Frodo off, then turns up when hope is thinnest.']
   ]
   for (const [who, work, played, line] of characters) {
     await call('source:character', who, work, played)
