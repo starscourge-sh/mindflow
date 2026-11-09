@@ -16,6 +16,7 @@ import {
 
 // --- Items ---
 import { slashItems } from "@/components/slash/slash-items"
+import { dockRoom } from "@/lib/dock-room"
 import { lookAtSelected } from "@/components/image/image-look"
 import { startCaption } from "@/extensions/caption"
 import { isAudio, transcribe } from "@/lib/transcribe"
@@ -420,6 +421,8 @@ export function BlockMenu({
         // acts on (Radix turns it right only when the margin has no room); a right-click opens at the pointer, as on the Mac.
         side={point ? (point.height ? "bottom" : "right") : "left"}
         sideOffset={6}
+        // The "Add a thought…" bar's top is the window's foot (dock-room.ts): low on the page, the menu goes up.
+        collisionPadding={{ top: 8, right: 8, left: 8, bottom: dockRoom() }}
         className="tiptap-block-menu"
         // Closing hands focus back to the anchor by default, which took it
         // straight out of a caption just opened from here (an empty caption

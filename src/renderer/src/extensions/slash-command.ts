@@ -62,6 +62,7 @@ export const SlashCommand = Extension.create<SlashCommandOptions>({
     return [
       Suggestion<SlashItem>({
         floatingUi: IN_WINDOW,
+        flip: false,
         editor: this.editor,
         char: "/",
         // The live `/query` is already wrapped in a span by the plugin; this

@@ -108,6 +108,7 @@ export const EmojiSuggestion = OnceEmoji.configure({
     // ("tldr:" is a colon, not an emoji), and the list waits for two letters.
     allowedPrefixes: [" "],
     floatingUi: IN_WINDOW,
+        flip: false,
     shouldShow: typedOnly(),
     items: ({ editor, query }) => {
       const term = query.toLowerCase()

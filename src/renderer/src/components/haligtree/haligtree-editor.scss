@@ -1909,6 +1909,11 @@ html[data-motion="off"] :is(.prosemirror-dropcursor-block, .prosemirror-dropcurs
   display: none;
 }
 
+// A menu open anywhere (/, @, #, the block menu, a right-click) has the page: the count never peeks out beside it.
+body:has(:is(.tiptap-slash-menu, .tiptap-block-menu, [role="menu"])) .tiptap-word-count {
+  visibility: hidden;
+}
+
 // Embedded videos scale to the column rather than their fixed attributes.
 .tiptap.ProseMirror.haligtree-editor div[data-youtube-video] {
   margin: 1.25em 0;

@@ -703,6 +703,7 @@ export const NoteLink = Node.create<NoteLinkOptions>({
     return [
       Suggestion<NoteSuggestion>({
         floatingUi: IN_WINDOW,
+        flip: false,
         editor: this.editor,
         char: "@",
         pluginKey: noteLinkPluginKey,
@@ -720,6 +721,7 @@ export const NoteLink = Node.create<NoteLinkOptions>({
       // still makes the link through the input rule above.
       Suggestion<NoteSuggestion>({
         floatingUi: IN_WINDOW,
+        flip: false,
         editor: this.editor,
         char: "[[",
         pluginKey: wikiPluginKey,
@@ -749,6 +751,7 @@ export const NoteLink = Node.create<NoteLinkOptions>({
         ? [
             Suggestion<NoteSuggestion>({
               floatingUi: IN_WINDOW,
+        flip: false,
               editor: this.editor,
               char: "[[",
               pluginKey: embedPluginKey,
@@ -807,6 +810,7 @@ export const NoteLink = Node.create<NoteLinkOptions>({
       // rather than spelt a new way. It writes plain text: a tag is a word.
       Suggestion<NoteSuggestion>({
         floatingUi: IN_WINDOW,
+        flip: false,
         editor: this.editor,
         char: "#",
         pluginKey: tagPluginKey,

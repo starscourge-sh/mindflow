@@ -4,7 +4,8 @@ import type {
   RefAttributes,
 } from "react"
 import { ReactRenderer } from "@tiptap/react"
-import { shift, size } from "@floating-ui/react"
+import { flip, shift, size } from "@floating-ui/react"
+import { dockRoom } from "@/lib/dock-room"
 import { chime, click } from "@/lib/sound"
 import { listDirection } from "@/lib/menu-keys"
 import type { PluginKey } from "@tiptap/pm/state"
@@ -22,16 +23,20 @@ import {
  * page, the "/" menu ran 8px past the window's foot, its last rows out of reach; now it stops 8px short and its list
  * scrolls inside it. Quick capture's window (data-overhang) is left to grow round its menus instead (fit-box.ts).
  */
+const edges = (): { top: number; right: number; bottom: number; left: number } => ({ top: 8, right: 8, bottom: dockRoom(), left: 8 })
 export const IN_WINDOW: SuggestionOptions["floatingUi"] = {
+  // The "Add a thought…" bar's top is the window's foot here (dock-room.ts): with no room under the line, the menu
+  // goes above it. Each menu turns `flip: false` on the plugin, so this flip, which knows the bar, is the only one.
   middleware: [
-    shift({ padding: 8 }),
-    size({
-      padding: 8,
+    flip(() => ({ padding: edges() })),
+    shift(() => ({ padding: edges() })),
+    size(() => ({
+      padding: edges(),
       apply: ({ availableHeight, elements }) => {
         const grows = document.documentElement.hasAttribute("data-overhang")
         elements.floating.style.maxHeight = grows ? "" : `${Math.max(160, Math.floor(availableHeight))}px`
       },
-    }),
+    })),
   ],
 }
 
