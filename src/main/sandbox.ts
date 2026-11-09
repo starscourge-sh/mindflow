@@ -2,7 +2,7 @@ import { app, BrowserWindow, globalShortcut, ipcMain, session } from 'electron'
 import { spawn, type ChildProcess } from 'child_process'
 import { randomUUID } from 'crypto'
 import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'fs'
-import { copyFile, mkdir, rename, rm, stat, writeFile } from 'fs/promises'
+import { copyFile, mkdir, readFile, rename, rm, stat, writeFile } from 'fs/promises'
 import { join } from 'path'
 
 import { changed, database, shutDatabase } from './captures'
@@ -416,6 +416,8 @@ export function registerSandbox(): void {
   // build's hot reload does, or Haligtree quit midway) left half a book, and
   // seeding again over it made two of everything (two of Dune's goal cards on
   // the desktop): the sandbox is cleared and set out again instead.
+  handle('local-library', () => localLibrary())
+
   handle('seed:claim', () => {
     if (!SANDBOX || setting('sandboxSeededOn')) return 'seeded'
     if (seedClaimed || setting('sandboxSeedBegun')) {
@@ -548,5 +550,92 @@ export function registerSandbox(): void {
     await rm(file, { force: true })
     return made
   })
+}
+
+/**
+ * A development build's sandbox only: a few books from `~/Documents/books` and
+ * paintings from `~/Documents/img`, put into Files the way a file dropped on
+ * Files goes in, so the shelf, covers and Continue reading look lived in.
+ * These are the developer's own copies and never ship: a packaged app, or a
+ * Mac without the folders, skips this and the bundled examples stand alone.
+ */
+const LOCAL_BOOKS: [match: RegExp, title: string, read?: number][] = [
+  [/^9 - The Philosophy Book/, 'The Philosophy Book, DK', 142],
+  [/^2 - The Math Book/, 'The Math Book, DK', 88],
+  [/^7 - The Mythology Book/, 'The Mythology Book, DK'],
+  [/^5 - The Astronomy Book/, 'The Astronomy Book, DK'],
+  [/^17 - Frankenstein/, 'Frankenstein, Mary Shelley', 61],
+  [/^18 - The Picture of Dorian Gray/, 'The Picture of Dorian Gray, Oscar Wilde'],
+  [/^19 - Pride And Prejudice/, 'Pride and Prejudice, Jane Austen'],
+  [/^20 - Carl Sagan/, 'The Demon-Haunted World, Carl Sagan and Ann Druyan', 37],
+  [/^25 - Stephen Hawking/, 'A Brief History of Time, Stephen Hawking'],
+  [/^Cosmos/, 'Cosmos, Carl Sagan'],
+  [/^1984 The Graphic Novel/, 'Nineteen Eighty-Four, the graphic novel'],
+  [/^12 - Beyond Good and Evil/, 'Beyond Good and Evil, Friedrich Nietzsche']
+]
+const LOCAL_PAINTINGS: [file: string, name: string][] = [
+  ['Leonardo_da_Vinci_-_Portrait_of_a_Musician_-_Pinacoteca_Ambrosiana.jpg', 'Leonardo da Vinci, Portrait of a Musician.jpg'],
+  ['Leonardo_da_Vinci_-_Saint_John_the_Baptist_C2RMF_retouched.jpg', 'Leonardo da Vinci, Saint John the Baptist.jpg'],
+  ["Joseph_Karl_Stieler's_Beethoven_mit_dem_Manuskript_der_Missa_solemnis.jpg", 'Joseph Karl Stieler, Beethoven.jpg'],
+  ['Jeune_Orpheline_au_cimetière_-_Eugène_Delacroix_-_Muse_du_Louvre_Peintures_RF_1652_-_photo_2.jpg', 'Eugène Delacroix, Orphan Girl at the Cemetery.jpg'],
+  ['matthias-stom-the-judgment-of-solomon-70-15-museum-of-fine-arts-illustration-original.jpeg', 'Matthias Stom, The Judgment of Solomon.jpg'],
+  ['-c4.jpg', 'Thomas Cole, The Voyage of Life, Youth.jpg'],
+  ['-c3.jpg', 'John William Waterhouse, Hylas and the Nymphs.jpg'],
+  ['Skull_with_a_Burning_Cigarette.jpg', 'Vincent van Gogh, Skull with a Burning Cigarette.jpg'],
+  ['301510rgsdl.jpg', 'Alexandre Cabanel, The Fallen Angel.jpg'],
+  ['Hugues_Merle_-_The_Lunatic_-_Arnot_Art_Museum.jpg', 'Hugues Merle, The Lunatic.jpg']
+]
+
+/** How many pages a PDF says it has: the largest count in its page tree, or none when it is packed too tightly to read. */
+async function pageCount(path: string): Promise<number | null> {
+  const text = (await readFile(path)).toString('latin1')
+  let most = 0
+  for (const one of text.matchAll(/\/Type\s*\/Pages\b[^>]*?\/Count\s+(\d+)|\/Count\s+(\d+)[^>]*?\/Type\s*\/Pages\b/g)) most = Math.max(most, Number(one[1] ?? one[2]))
+  return most || null
+}
+
+async function localLibrary(): Promise<{ books: number; paintings: number }> {
+  // Probes run in a folder of their own and stay quick and alike on every Mac: they skip it unless they ask (HALIGTREE_QA_LIBRARY=1).
+  const probe = !!process.env.HALIGTREE_USER_DATA && process.env.HALIGTREE_QA_LIBRARY !== '1'
+  if (!SANDBOX || app.isPackaged || probe) return { books: 0, paintings: 0 }
+  const shelf = join(app.getPath('home'), 'Documents', 'books')
+  const gallery = join(app.getPath('home'), 'Documents', 'img')
+  const { addMedia } = await import('./media')
+  const db = database()
+  let books = 0
+  if (existsSync(shelf)) {
+    const names = readdirSync(shelf)
+    const found = LOCAL_BOOKS.flatMap(([match, title, read]) => {
+      const name = names.find((one) => match.test(one) && one.endsWith('.pdf'))
+      return name ? [{ path: join(shelf, name), name, title, read }] : []
+    })
+    const result = await addMedia(found.map(({ path }) => ({ path })))
+    db.exec('create table if not exists pdf_titles (src text primary key, title text not null)')
+    db.exec('create table if not exists pdf_reading (src text primary key, page integer not null, pages integer not null, read_at text not null)')
+    db.exec('create table if not exists pdf_days (src text not null, day text not null, furthest integer not null, primary key (src, day))')
+    for (const one of result.added) {
+      const book = found.find(({ name }) => name === one.name)
+      if (!book) continue
+      db.prepare('insert or replace into pdf_titles (src, title) values (?, ?)').run(one.src, book.title)
+      const pages = book.read ? await pageCount(book.path) : null
+      // Read a little most days for a fortnight, so Continue reading and its pace have something to show.
+      if (book.read && pages && pages > book.read) {
+        db.prepare('insert or replace into pdf_reading (src, page, pages, read_at) values (?, ?, ?, ?)').run(one.src, book.read, pages, new Date(Date.now() - books * 5 * 3600_000).toISOString())
+        for (const back of [12, 8, 5, 2, 0])
+          db.prepare('insert or replace into pdf_days (src, day, furthest) values (?, ?, ?)').run(one.src, dayKey(new Date(Date.now() - back * 86_400_000)), Math.round(book.read * (1 - back / 16)))
+      }
+      books++
+    }
+  }
+  let paintings = 0
+  if (existsSync(gallery)) {
+    const items = (await Promise.all(LOCAL_PAINTINGS.map(async ([file, name]) => {
+      const bytes = await readFile(join(gallery, file)).catch(() => null)
+      return bytes ? [{ name, bytes: new Uint8Array(bytes) }] : []
+    }))).flat()
+    paintings = (await addMedia(items)).added.length
+  }
+  if (books || paintings) changed()
+  return { books, paintings }
 }
 
