@@ -25,6 +25,21 @@ import vitruvianUrl from '@/assets/sandbox/vitruvian-man.webp'
 import atlanticusUrl from '@/assets/sandbox/codex-atlanticus.webp'
 import delphicUrl from '@/assets/sandbox/delphic-sibyl.webp'
 import sibylStudyUrl from '@/assets/sandbox/libyan-sibyl-study.webp'
+import ermineUrl from '@/assets/sandbox/lady-with-an-ermine.webp'
+import ginevraUrl from '@/assets/sandbox/ginevra-de-benci.webp'
+import simonettaUrl from '@/assets/sandbox/botticelli-simonetta.webp'
+import unicornUrl from '@/assets/sandbox/lady-with-a-unicorn.webp'
+import copernicusUrl from '@/assets/sandbox/copernicus.webp'
+import babelUrl from '@/assets/sandbox/tower-of-babel.webp'
+import pompeiiUrl from '@/assets/sandbox/last-day-of-pompeii.webp'
+import medusaUrl from '@/assets/sandbox/raft-of-the-medusa.webp'
+import homerPicUrl from '@/assets/sandbox/apotheosis-of-homer.webp'
+import ahasuerusUrl from '@/assets/sandbox/ahasuerus.webp'
+import daphneUrl from '@/assets/sandbox/apollo-and-daphne.webp'
+import peterUrl from '@/assets/sandbox/denial-of-saint-peter.webp'
+import catherineUrl from '@/assets/sandbox/saint-catherine.webp'
+import bocklinUrl from '@/assets/sandbox/bocklin-death-fiddle.webp'
+import opheliaUrl from '@/assets/sandbox/ophelia-cabanel.webp'
 import hayWainUrl from '@/assets/scenery/hay-wain.webp'
 import temeraireUrl from '@/assets/scenery/fighting-temeraire.webp'
 import wandererUrl from '@/assets/scenery/wanderer.webp'
@@ -1788,6 +1803,50 @@ A whole town painted with nobody in it. I stood in front of it for twenty minute
   await call('goal:close', akkadianGoal, 'on ice')
   nuggets++
   await call('sandbox:age', threadAges)
+
+  // --- a gallery: paintings kept for their own sake ----------------------------------------
+  // Five portraits kept as gems over the year, each with the one fact worth remembering.
+  const portraits = [
+    [ermineUrl, 'Lady with an Ermine', 'Cecilia Gallerani, about sixteen. The ermine was a pun on her name in Greek, galê.', 'Leonardo da Vinci, about 1490', 170],
+    [ginevraUrl, "Ginevra de' Benci", 'Leonardo was about 22. The juniper behind her, ginepro, is another pun on a name.', 'Leonardo da Vinci, about 1475', 150],
+    [simonettaUrl, 'Portrait of a Young Woman', 'Painted as a nymph, not as a sitter: no one is quite sure who she was.', 'Sandro Botticelli, about 1480', 132],
+    [unicornUrl, 'Young Woman with a Unicorn', 'X-rays found a small dog under the unicorn, and under that, nothing at all.', 'Raphael, about 1506', 95],
+    [copernicusUrl, 'Astronomer Copernicus, or Conversations with God', 'Painted 330 years after he put the Sun in the middle, on the roof at Frombork.', 'Jan Matejko, 1873', 48]
+  ] as const
+  const portraitAges: unknown[] = []
+  for (const [url, name, line, by, back] of portraits) {
+    const gem = await call<string>('nugget:from', `${name}\n\n![${name}, ${by}](${await picture(url)})\n\n${line}`, {})
+    portraitAges.push({ createdAt: at(-back, '21:40'), nuggetId: gem })
+    nuggets++
+  }
+  await call('sandbox:age', portraitAges)
+
+  // Others dropped straight into Files, with no note yet: a file kept for later, the way a print is pinned above a desk.
+  const gallery = [
+    [babelUrl, 'Pieter Bruegel the Elder, The Tower of Babel, 1563.webp'],
+    [pompeiiUrl, 'Karl Bryullov, The Last Day of Pompeii, 1833.webp'],
+    [medusaUrl, 'Théodore Géricault, The Raft of the Medusa, 1819.webp'],
+    [homerPicUrl, 'Jean-Auguste-Dominique Ingres, The Apotheosis of Homer, 1827.webp'],
+    [ahasuerusUrl, 'Adolf Hirémy-Hirschl, Ahasuerus at the End of the World, 1888.webp'],
+    [daphneUrl, 'Francesco Albani, Apollo and Daphne, about 1615.webp'],
+    [peterUrl, 'Caravaggio, The Denial of Saint Peter, 1610.webp'],
+    [catherineUrl, 'Raphael, Saint Catherine of Alexandria, about 1507.webp'],
+    [bocklinUrl, 'Arnold Böcklin, Self-Portrait with Death Playing the Fiddle, 1872.webp']
+  ] as const
+  await call('media:add', await Promise.all(gallery.map(async ([url, name]) => ({ name, bytes: new Uint8Array(await (await fetch(url)).arrayBuffer()) }))))
+
+  // A picture taken back out of a note: it waits in Files under "Unlinked" until it is kept or thrown away.
+  // Files is read once first, so everything above counts as kept; the picture is seen in the note, then let go.
+  await call('media:list')
+  const opheliaPic = await picture(opheliaUrl)
+  const ophelia = await capture({ kind: 'quote', attribution: 'William Shakespeare', medium: 'Hamlet, Act 4, Scene 7' }, at(-18, '21:15'))
+  await write(ophelia, `There is a willow grows aslant a brook, / That shows his hoar leaves in the glassy stream.\n\n![Ophelia, Alexandre Cabanel, 1883](${opheliaPic})`)
+  await call('media:list')
+  await write(ophelia, 'There is a willow grows aslant a brook, / That shows his hoar leaves in the glassy stream.\n\nI pasted Cabanel\'s *Ophelia* here, then took it out again. A picture no note holds any more is not lost: it waits in Files under “Unlinked”.\n\nTry it: open Files, choose “Unlinked”, and keep it or move it to the Bin.')
+  await call('media:list')
+
+  // On a developer's own Mac, a few of their books and paintings as well; never in a packaged app.
+  await call('sandbox:local-library')
 
   // Opened this morning, so Home's first tiles are the Matrix piece and the card it grew from.
   await call('home:opened', 'nugget', redPill)

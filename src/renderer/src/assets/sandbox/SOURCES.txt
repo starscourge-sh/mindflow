@@ -132,3 +132,38 @@ painting whose painter died before 1950 (public domain), cropped to 16:9 at 1600
   scenery/approaching-thunder-storm.webp  Martin Johnson Heade (1819 to 1904), Approaching Thunder Storm, 1859.
       https://commons.wikimedia.org/wiki/File:Martin_Johnson_Heade_Approaching_Thunderstorm_ATC.jpg
       https://commons.wikimedia.org/wiki/File:0828Ha._Kuindzhi_A.I._Birch_Grove,_1879.jpg
+
+Added 2026-11-09, for the gallery: five portraits kept as gems, nine paintings in Files with no
+note, and one taken back out of a note (Files, "Unlinked"). Each is a faithful photograph of a
+two-dimensional painting made before 1900 by a painter dead for more than 90 years: public
+domain in the US (PD-Art, Bridgeman v. Corel; published before 1930). Resized from the owner's
+copies in ~/Documents/img to webp, 1200px on the long side, quality 74.
+  lady-with-an-ermine.webp     Leonardo da Vinci (1452 to 1519), Lady with an Ermine, about 1489 to 1491.
+                               Czartoryski Museum, Kraków.
+  ginevra-de-benci.webp        Leonardo da Vinci, Ginevra de' Benci, about 1474 to 1478. National Gallery of Art,
+                               Washington (Ailsa Mellon Bruce Fund, 1967.6.1.a).
+  botticelli-simonetta.webp    Sandro Botticelli (1445 to 1510), Idealised Portrait of a Lady (Portrait of Simonetta
+                               Vespucci as Nymph), about 1480. Städel Museum, Frankfurt.
+  lady-with-a-unicorn.webp     Raphael (1483 to 1520), Young Woman with a Unicorn, about 1506. Galleria Borghese, Rome.
+  saint-catherine.webp         Raphael, Saint Catherine of Alexandria, about 1507. National Gallery, London.
+  copernicus.webp              Jan Matejko (1838 to 1893), Astronomer Copernicus, or Conversations with God, 1873.
+                               Jagiellonian University Museum, Kraków.
+  tower-of-babel.webp          Pieter Bruegel the Elder (about 1525 to 1569), The Tower of Babel, 1563.
+                               Kunsthistorisches Museum, Vienna. Cropped slightly at top and bottom.
+  last-day-of-pompeii.webp     Karl Bryullov (1799 to 1852), The Last Day of Pompeii, 1830 to 1833.
+                               State Russian Museum, Saint Petersburg.
+  raft-of-the-medusa.webp      Théodore Géricault (1791 to 1824), The Raft of the Medusa, 1818 to 1819. Louvre, Paris.
+  apotheosis-of-homer.webp     Jean-Auguste-Dominique Ingres (1780 to 1867), The Apotheosis of Homer, 1827. Louvre, Paris.
+  ahasuerus.webp               Adolf Hirémy-Hirschl (1860 to 1933), Ahasuerus at the End of the World, 1888.
+                               Private collection. Exhibited in Vienna in 1888; public domain in the US (published
+                               before 1930) and in the EU (painter dead more than 70 years).
+  apollo-and-daphne.webp       Francesco Albani (1578 to 1660), Apollo and Daphne, about 1615 to 1620. Louvre, Paris.
+  denial-of-saint-peter.webp   Caravaggio (1571 to 1610), The Denial of Saint Peter, 1610. Metropolitan Museum of Art,
+                               New York (Open Access, CC0; accession 1997.167).
+  bocklin-death-fiddle.webp    Arnold Böcklin (1827 to 1901), Self-Portrait with Death Playing the Fiddle, 1872.
+                               Alte Nationalgalerie, Berlin.
+  ophelia-cabanel.webp         Alexandre Cabanel (1823 to 1889), Ophelia, 1883. Private collection.
+
+Not bundled, on purpose: the development-only step in src/main/sandbox.ts (localLibrary) adds
+the developer's own books from ~/Documents/books and a few more paintings from ~/Documents/img
+to a dev build's sandbox. A packaged app never runs it, and none of those files are in git.
