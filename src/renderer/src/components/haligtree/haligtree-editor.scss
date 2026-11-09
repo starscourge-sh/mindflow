@@ -133,6 +133,25 @@
   overflow-x: hidden;
 }
 
+// Scrolled, the words fade out over the last 20px under the page's head instead of being sliced by its edge.
+// Driven by the scroll itself, so at the top nothing is faded. A page's own scroller only (has-handles).
+@property --mf-top-fade {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+@keyframes mf-top-fade {
+  to {
+    --mf-top-fade: 20px;
+  }
+}
+.haligtree-editor-wrapper.has-handles > .haligtree-editor-content {
+  mask-image: linear-gradient(to bottom, transparent, #000 var(--mf-top-fade));
+  animation: mf-top-fade linear both;
+  animation-timeline: scroll(self);
+  animation-range: 0 40px;
+}
+
 // Only where the caret actually is. Decorations are drawn whether the editor
 // has the focus or not, so every vim editor on the page lit a line at once -
 // the title carried a band while you were typing in the body.
@@ -3388,18 +3407,11 @@ $media-brand: var(--tt-brand-color-500, currentColor);
 
   // Top-level markers are real list markers; nested ones are drawn with
   // ::before, further up this file, because ::marker follows the border edge.
-  //
-  // Held back a little, so the item the caret is in can come forward without
-  // the rest having to dim. Mixed towards transparent rather than given an
-  // opacity: ::marker takes a colour and little else.
+  // One colour for every bullet, the caret's item too (9 Nov: two shades read as two kinds of item).
+  // Mixed towards transparent rather than given an opacity: ::marker takes a colour and little else.
   li::marker,
   li ul > li::before {
     color: color-mix(in srgb, var(--mf-accent-ink, currentColor) 55%, transparent);
-  }
-
-  li.is-current::marker,
-  li ul > li.is-current::before {
-    color: var(--mf-accent-ink, currentColor);
   }
 
   // Not `code` on its own: inside a <pre> it is the syntax colours that have to
