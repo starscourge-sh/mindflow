@@ -1999,7 +1999,8 @@ input[type='number']::-webkit-outer-spin-button {
   background-color: color-mix(in oklab, var(--foreground) 6%, var(--popover));
 }
 :root:is(.light, .paper) .mf-frost .mf-island {
-  background-color: color-mix(in oklab, white 55%, var(--popover));
+  background-color: color-mix(in oklab, white 22%, var(--popover));
+  border-color: color-mix(in oklab, var(--foreground) 9%, transparent) !important;
 }
 
 /* Blurring off, a choice in Settings: private words show plainly, a window
