@@ -620,7 +620,7 @@ function DeckList({ own, shelves, onStudy, place = {}, menu, fresh = null, renam
     const line = (
     // The whole row lights under the pointer and studies on a click, as the rows of Sources' islands do: never a pill behind the name alone.
     <div key={key} data-deck-row={key} onClick={study ? (event) => void ((event.target as HTMLElement).closest('button, input') || (chime('riffle'), study())) : undefined}
-      className={`${cols} min-h-8 rounded-md px-1.5 text-control hover:bg-accent/60 focus-within:bg-accent/60 ${study ? 'cursor-pointer' : ''}`}>
+      className={`${cols} min-h-8 rounded-[3px] px-1.5 text-control hover:bg-accent/60 focus-within:bg-accent/60 ${study ? 'cursor-pointer' : ''}`}>
       <span className="flex min-w-0 items-center gap-1">
         <Fold id={key} kids={kids} open={!shut.has(key)} name={name} flip={() => flip(key)} />
         {renaming === key && onNamed ? <NameInPlace initial={name} placeholder="Name the deck" label="Deck name" onDone={onNamed} className={`${ROW_NAME} flex-1`} />
