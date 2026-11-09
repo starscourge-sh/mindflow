@@ -444,7 +444,8 @@ export function UnlinkedDays({ files, across, books, cursor, chosen, keyOf, menu
         // A day's recordings end their island with the room a line of squares leaves under it.
         if (line.shelf === 'audio') return <div style={{ paddingBottom: line.island === 'end' || line.island === 'one' ? PICTURE_GAP : 0 }}>{tile(line.files[0], 0)}</div>
         return (
-          <div className="grid" style={line.shelf === 'picture'
+          // Books' covers start on the heading's left edge, as the squares do: the tile's own side padding stands down here.
+          <div className={`grid ${line.shelf === 'pdf' ? '[&_.pdf-book]:px-0' : ''}`} style={line.shelf === 'picture'
             ? { gridTemplateColumns: `repeat(${across}, minmax(0, 1fr))`, gap: PICTURE_GAP, paddingBottom: PICTURE_GAP }
             : { gridTemplateColumns: `repeat(${books}, minmax(0, 1fr))`, gap: BOOK_GAP, paddingBottom: BOOK_GAP }}>
             {line.files.map(tile)}
