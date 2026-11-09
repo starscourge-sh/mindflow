@@ -4,6 +4,7 @@
 // a thought caught in the sandbox offered to your own notes.
 //
 //   npx electron-vite build --outDir out-sandbox && QA_ENTRY=out-sandbox/main/index.js node qa/sandbox.mjs
+import { STORIES } from '../src/renderer/src/lib/welcome-stories.ts'
 import { createHash } from 'crypto'
 import { mkdtempSync, readdirSync, readFileSync, statSync, existsSync } from 'fs'
 import { tmpdir } from 'os'
@@ -193,8 +194,12 @@ for (const round of [1, 2]) {
   await new Promise((done) => setTimeout(done, 1500))
   const c = await launch('--sandbox --sandbox-reset')
   const again = await snapshot(c)
-  const same = JSON.stringify(again) === JSON.stringify(first)
-  if (!same) for (const key of Object.keys(first)) if (JSON.stringify(first[key]) !== JSON.stringify(again[key])) console.log('  differs:', key, JSON.stringify(first[key]).slice(0, 400), '\n  now:', JSON.stringify(again[key]).slice(0, 400))
+  // The welcome's story is picked at random each time the welcome opens, and the sandbox tells the one it told
+  // (welcome-stories.ts): those few rows differ by design, everything else must match.
+  const told = STORIES.flatMap((one) => [one.caught, one.note, one.kept, one.task, one.question, one.quote.text, ...one.words].map((text) => text.slice(0, 24)))
+  const bare = (world) => Object.fromEntries(Object.entries(world).map(([key, rows]) => [key, Array.isArray(rows) ? rows.filter((row) => !told.some((text) => row.includes(text))) : rows]))
+  const same = JSON.stringify(bare(again)) === JSON.stringify(bare(first))
+  if (!same) for (const key of Object.keys(first)) if (JSON.stringify(bare(first)[key]) !== JSON.stringify(bare(again)[key])) console.log('  differs:', key, JSON.stringify(first[key]).slice(0, 400), '\n  now:', JSON.stringify(again[key]).slice(0, 400))
   check(`reset ${round} gives the same world`, same)
   check(`reset ${round} took away what was caught`, !(await c.h.evaluate(() => window.api.captures.list())).some((one) => (one.label ?? '').includes('book the train')))
   await c.close()
