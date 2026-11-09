@@ -1057,8 +1057,9 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
     const steps = parent.subtasks ?? []
     chime('tuck')
     foldSteps(target, true)
-    void haligtree.saveTasks([{ id: target, patch: { subtasks: [...steps, { text: task.title, done: false }] } }, { id, patch: { status: 'dropped', stepOf: target } }])
-      .then(() => toast(`Now a step of ${taskName(parent.title).text}`, () => void haligtree.saveTasks([{ id: target, patch: { subtasks: steps } }, { id, patch: { status: task.status, stepOf: null } }])))
+    // Said at once, so a quick ⌘Z finds it; its Undo waits for the save it takes back.
+    const saved = haligtree.saveTasks([{ id: target, patch: { subtasks: [...steps, { text: task.title, done: false }] } }, { id, patch: { status: 'dropped', stepOf: target } }])
+    toast(`Now a step of ${taskName(parent.title).text}`, () => void saved.then(() => haligtree.saveTasks([{ id: target, patch: { subtasks: steps } }, { id, patch: { status: task.status, stepOf: null } }])))
   }
   /** A row dropped on the Upcoming tab goes to tomorrow; on Later, to someday. Said, with Undo. */
   const dropOnTab = (id: string, place: string): void => {
