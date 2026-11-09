@@ -573,9 +573,8 @@ const LOCAL_BOOKS: [match: RegExp, title: string, read?: number][] = [
   [/^1984 The Graphic Novel/, 'Nineteen Eighty-Four, the graphic novel'],
   [/^12 - Beyond Good and Evil/, 'Beyond Good and Evil, Friedrich Nietzsche']
 ]
+// Added in this order, so the last (Leonardo) leads Files' "Recent".
 const LOCAL_PAINTINGS: [file: string, name: string][] = [
-  ['Leonardo_da_Vinci_-_Portrait_of_a_Musician_-_Pinacoteca_Ambrosiana.jpg', 'Leonardo da Vinci, Portrait of a Musician.jpg'],
-  ['Leonardo_da_Vinci_-_Saint_John_the_Baptist_C2RMF_retouched.jpg', 'Leonardo da Vinci, Saint John the Baptist.jpg'],
   ["Joseph_Karl_Stieler's_Beethoven_mit_dem_Manuskript_der_Missa_solemnis.jpg", 'Joseph Karl Stieler, Beethoven.jpg'],
   ['Jeune_Orpheline_au_cimetière_-_Eugène_Delacroix_-_Muse_du_Louvre_Peintures_RF_1652_-_photo_2.jpg', 'Eugène Delacroix, Orphan Girl at the Cemetery.jpg'],
   ['matthias-stom-the-judgment-of-solomon-70-15-museum-of-fine-arts-illustration-original.jpeg', 'Matthias Stom, The Judgment of Solomon.jpg'],
@@ -583,7 +582,9 @@ const LOCAL_PAINTINGS: [file: string, name: string][] = [
   ['-c3.jpg', 'John William Waterhouse, Hylas and the Nymphs.jpg'],
   ['Skull_with_a_Burning_Cigarette.jpg', 'Vincent van Gogh, Skull with a Burning Cigarette.jpg'],
   ['301510rgsdl.jpg', 'Alexandre Cabanel, The Fallen Angel.jpg'],
-  ['Hugues_Merle_-_The_Lunatic_-_Arnot_Art_Museum.jpg', 'Hugues Merle, The Lunatic.jpg']
+  ['Hugues_Merle_-_The_Lunatic_-_Arnot_Art_Museum.jpg', 'Hugues Merle, The Lunatic.jpg'],
+  ['Leonardo_da_Vinci_-_Portrait_of_a_Musician_-_Pinacoteca_Ambrosiana.jpg', 'Leonardo da Vinci, Portrait of a Musician.jpg'],
+  ['Leonardo_da_Vinci_-_Saint_John_the_Baptist_C2RMF_retouched.jpg', 'Leonardo da Vinci, Saint John the Baptist.jpg']
 ]
 
 /** How many pages a PDF says it has: the largest count in its page tree, or none when it is packed too tightly to read. */
@@ -609,12 +610,12 @@ async function localLibrary(): Promise<{ books: number; paintings: number }> {
       const name = names.find((one) => match.test(one) && one.endsWith('.pdf'))
       return name ? [{ path: join(shelf, name), name, title, read }] : []
     })
-    const result = await addMedia(found.map(({ path }) => ({ path })))
+    const result = await addMedia(found.map(({ path, title }) => ({ path, name: `${title}.pdf` })))
     db.exec('create table if not exists pdf_titles (src text primary key, title text not null)')
     db.exec('create table if not exists pdf_reading (src text primary key, page integer not null, pages integer not null, read_at text not null)')
     db.exec('create table if not exists pdf_days (src text not null, day text not null, furthest integer not null, primary key (src, day))')
     for (const one of result.added) {
-      const book = found.find(({ name }) => name === one.name)
+      const book = found.find(({ title }) => `${title}.pdf` === one.name)
       if (!book) continue
       db.prepare('insert or replace into pdf_titles (src, title) values (?, ?)').run(one.src, book.title)
       const pages = book.read ? await pageCount(book.path) : null

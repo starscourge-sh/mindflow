@@ -2,7 +2,7 @@ import { app, BrowserWindow, dialog, ipcMain, nativeImage, shell, systemPreferen
 import { LABEL, changed, database, whenAnyChanged } from './captures'
 import { dayName } from './dates'
 import { copyFile, mkdir, open, readFile, rename, rm, stat, writeFile } from 'node:fs/promises'
-import { createReadStream, existsSync, statSync } from 'node:fs'
+import { constants, createReadStream, existsSync, statSync } from 'node:fs'
 import { createHash, randomUUID } from 'node:crypto'
 import { basename, join } from 'node:path'
 import type { DatabaseSync } from 'node:sqlite'
@@ -508,7 +508,7 @@ export async function addMedia(items: MediaItem[]): Promise<AddResult> {
   await mkdir(store, { recursive: true })
   for (const item of items) {
     const path = typeof item?.path === 'string' && item.path ? item.path : ''
-    const name = path ? basename(path) : typeof item?.name === 'string' && item.name ? item.name : 'That file'
+    const name = typeof item?.name === 'string' && item.name ? item.name : path ? basename(path) : 'That file'
     const refuse = (why: string): void => void out.refused.push({ name, why })
     try {
       if (typeof item?.why === 'string') { refuse(item.why); continue }
@@ -532,7 +532,7 @@ export async function addMedia(items: MediaItem[]): Promise<AddResult> {
       // Beside it and renamed in, so a half-written file is never read. Already whole in the store: left alone.
       if (!existsSync(destination)) {
         const temporary = `${destination}.${randomUUID()}.tmp`
-        await (bytes ? writeFile(temporary, bytes) : copyFile(path, temporary)).catch(async (error) => {
+        await (bytes ? writeFile(temporary, bytes) : copyFile(path, temporary, constants.COPYFILE_FICLONE)).catch(async (error) => {
           await rm(temporary, { force: true })
           throw error
         })

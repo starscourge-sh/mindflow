@@ -19,20 +19,11 @@ import { typing } from "@/components/haligtree/ui"
 import type { Media } from "../../../../main/media"
 import { num } from "../../../../main/dates"
 import { quoted } from '../../../../main/clip'
+import { cleanTitle } from '@/lib/clean-title'
 export type { Book } from "./book-head"
 
-/**
- * A file's name as a person would say it: "(z-lib.org)" and other site tags,
- * a leading "18 - " and ".pdf" gone, underscores as spaces.
- */
-export const cleanName = (name: string): string =>
-  name
-    .replace(/\.pdf$/i, "")
-    .replace(/\s*[([][^)\]]*\.(org|com|net|io)[)\]]\s*/gi, " ")
-    .replace(/^\s*\d{1,3}\s*[-–.]\s+/, "")
-    .replace(/_/g, " ")
-    .replace(/\s+/g, " ")
-    .trim() || "PDF"
+/** A file's name as a person would say it (clean-title.ts). */
+export const cleanName = (name: string): string => cleanTitle(name) || "PDF"
 
 /** What a book is called on its card: the title it carries, else its file name made readable. */
 const titleOf = (one: Book): string => (one.title === one.name.replace(/\.pdf$/i, "") ? cleanName(one.name) : one.title)

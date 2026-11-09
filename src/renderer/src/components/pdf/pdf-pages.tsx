@@ -1,4 +1,5 @@
 import { DARK_PAGE } from "./paper"
+import { cleanTitle } from "@/lib/clean-title"
 import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import { GlobalWorkerOptions, OPS, TextLayer, Util, getDocument, type PDFDocumentProxy, type PDFPageProxy } from "pdfjs-dist"
 import workerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url"
@@ -66,8 +67,8 @@ export const forgetPdf = (src: string): void => void open.delete(src)
 /** The title it carries, else the file name without `.pdf`. */
 export async function pdfTitle(doc: PDFDocumentProxy, name: string): Promise<string> {
   const meta = await doc.getMetadata().catch(() => null)
-  const title = (meta?.info as { Title?: string } | undefined)?.Title?.trim()
-  return title || name.replace(/\.pdf$/i, "")
+  const title = cleanTitle((meta?.info as { Title?: string } | undefined)?.Title ?? "")
+  return title || cleanTitle(name.replace(/\.pdf$/i, "")) || name.replace(/\.pdf$/i, "")
 }
 
 /** Who wrote it, as the file says, or nothing. */
