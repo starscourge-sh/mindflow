@@ -49,6 +49,25 @@ const shims = (): Plugin => ({
 })
 
 /**
+ * A fix to TipTap's React node views until it ships one: each, as it is put in the page, read the caret's place
+ * from the page, which makes the browser lay out the whole note. A note of 153 code blocks laid out 153 times on
+ * opening, 14 seconds (10 Nov). The editor's own record says where the caret is for nothing: the page is read only
+ * when the editor has focus and the caret is in that block, the one case the reading is for.
+ */
+const CARET_READ = 'const restoreSelection = captureDOMSelection(this.contentDOMElement);'
+const caretFix = (code: string): string => code.replace(CARET_READ, `const restoreSelection = (() => { const at = this.getPos(); const { from, to } = this.editor.state.selection; return typeof at === "number" && this.editor.view.hasFocus() && to >= at && from <= at + this.node.nodeSize; })() ? captureDOMSelection(this.contentDOMElement) : null;`)
+const tiptapFix = (): Plugin => ({
+  name: 'haligtree-tiptap-fix',
+  transform: (code, id) => (id.includes('/@tiptap/react/dist/') && code.includes(CARET_READ) ? caretFix(code) : null)
+})
+const tiptapFixAhead = {
+  name: 'haligtree-tiptap-fix',
+  setup(build: { onLoad: (options: { filter: RegExp }, run: (args: { path: string }) => { contents: string; loader: 'js' }) => void }) {
+    build.onLoad({ filter: /@tiptap[\\/]react[\\/]dist[\\/]index\.js$/ }, (args) => ({ contents: caretFix(readFileSync(args.path, 'utf8')), loader: 'js' }))
+  }
+}
+
+/**
  * Two libraries main needs only now and then, loaded the first time they are
  * asked for (src/main/lazy says how) instead of as Haligtree opens. Only main's
  * own imports of them are swapped; the stand-ins import the real ones.
@@ -84,7 +103,8 @@ export default defineConfig({
         '@': resolve('src/renderer/src')
       }
     },
-    plugins: [react(), tailwindcss(), shims(), named()],
+    plugins: [react(), tailwindcss(), shims(), named(), tiptapFix()],
+    optimizeDeps: { esbuildOptions: { plugins: [tiptapFixAhead] } },
     // The built app's code is shrunk (spaces out, inner names short) so it
     // loads faster; the source is untouched and dev is not shrunk. A map file
     // is written beside each piece, not linked from it and left out of the
