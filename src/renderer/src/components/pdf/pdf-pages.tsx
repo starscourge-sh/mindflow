@@ -4,7 +4,7 @@ import { GlobalWorkerOptions, OPS, TextLayer, Util, getDocument, type PDFDocumen
 import workerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url"
 import "./pdf.css"
 import { markCss } from "./read-bar"
-import { AHEAD as NEXT_TO, IN_VIEW, drawInTurn, keepPage, keptPage } from "./pdf-draw"
+import { AHEAD as NEXT_TO, IN_VIEW, drawInTurn, keepPage, keptPage, type Turn } from "./pdf-draw"
 
 // A drag begun on a page's words selects across every page of that book: each page's end stretches to take the
 // pointer wherever it goes, until the press ends (pdf.css .textLayer.selecting .endOfContent).
@@ -405,12 +405,21 @@ function paintMarks(sheet: HTMLElement, marks: PdfMark[], flash: string | null |
   sheet.insertBefore(paint, layer)
 }
 
-/** How many pages either side of the ones on show are drawn ahead. */
-const AHEAD = 1
+/**
+ * How many pages past the ones on show are drawn ahead: two the way you are
+ * reading, one behind, so a page is drawn before it is reached and going back
+ * a little never waits. The nearest go first, the way of reading before behind.
+ * No more: pdf.js draws a page on the main thread (its worker only reads the
+ * file and decodes pictures), and three ahead and two behind measured slower
+ * scrolling on scanned pages in "Dark pages" (qa/pdf-scroll-speed.mjs).
+ */
+const AHEAD = 2
+const BEHIND = 1
+const rankAt = (away: number, onward: boolean): number => NEXT_TO + 2 * (away - 1) + (onward ? 0 : 1)
 
 /**
  * A document's pages, one under another, at the width of their box times
- * `zoom`. Only the pages on show and one either side are drawn; the rest
+ * `zoom`. Only the pages on show and a few either side are drawn; the rest
  * keep their place as empty sheets, so the scrollbar is true from the start.
  * Each drawn page has its words laid over it, so text can be selected.
  */
@@ -495,7 +504,9 @@ export function PdfPages({
     return () => watch.disconnect()
   }, [scroller])
 
-  // Which sheets are on show: drawn, with one either side. Watched once the
+  // Which way you are reading: down (1) or up (-1), from the last scroll.
+  const heading = useRef(1)
+  // Which sheets are on show: drawn, with a few either side. Watched once the
   // sheets exist, which needs both the document and the box's width.
   const laidOut = !!size && width > 0
   useEffect(() => {
@@ -510,8 +521,14 @@ export function PdfPages({
           else seen.delete(page)
         }
         const next = new Map<number, number>()
-        for (const page of seen) for (let at = page - AHEAD; at <= page + AHEAD; at++) if (at >= 1 && at <= doc.numPages) next.set(at, NEXT_TO)
-        for (const page of seen) next.set(page, IN_VIEW)
+        const want = (at: number, rank: number): void => {
+          if (at >= 1 && at <= doc.numPages && !((next.get(at) ?? Infinity) <= rank)) next.set(at, rank)
+        }
+        for (const page of seen) {
+          want(page, IN_VIEW)
+          for (let away = 1; away <= AHEAD; away++) want(page + heading.current * away, rankAt(away, true))
+          for (let away = 1; away <= BEHIND; away++) want(page - heading.current * away, rankAt(away, false))
+        }
         setShown(next)
       },
       { root: scroller?.current ?? null },
@@ -534,7 +551,10 @@ export function PdfPages({
   useEffect(() => {
     const view = scroller?.current ?? box.current?.parentElement
     if (!view) return
+    let last = view.scrollTop
     const note = (): void => {
+      if (view.scrollTop !== last) heading.current = view.scrollTop > last ? 1 : -1
+      last = view.scrollTop
       const top = view.getBoundingClientRect().top
       for (const sheet of box.current?.querySelectorAll<HTMLElement>(".pdf-page") ?? []) {
         const r = sheet.getBoundingClientRect()
@@ -580,6 +600,11 @@ function PdfPage({ doc, page, scale, guess, rank, marks, flash, onWords, dark = 
   const size = own ?? guess
 
   const drawn = rank !== undefined
+  // How wanted it is now: a page drawn ahead that comes into view moves up the queue, its drawing kept going.
+  const wanted = useRef(rank)
+  wanted.current = rank
+  const turn = useRef<Turn | null>(null)
+  useEffect(() => void (rank !== undefined && turn.current?.rerank(rank)), [rank])
   useEffect(() => {
     const el = sheet.current
     if (!el) return
@@ -638,7 +663,7 @@ function PdfPage({ doc, page, scale, guess, rank, marks, flash, onWords, dark = 
         stop()
       }
     }
-    const drop = drawInTurn(rank, async (stopped) => {
+    const drop = (turn.current = drawInTurn(wanted.current ?? IN_VIEW, async (stopped) => {
       const proxy = await doc.getPage(page)
       if (!live || stopped()) return
       sized(proxy)
@@ -664,14 +689,14 @@ function PdfPage({ doc, page, scale, guess, rank, marks, flash, onWords, dark = 
       el.replaceChildren(sharp)
       keepPage(key, sharp)
       return words(proxy)
-    })
+    }))
     return () => {
       // The old picture stays until the new one is ready: no blank flash on zoom.
       live = false
       drop()
       stop()
     }
-  }, [doc, page, scale, drawn, rank, dark])
+  }, [doc, page, scale, drawn, dark])
 
   return (
     <div

@@ -37,29 +37,42 @@ const next = (): void => {
   }
 }
 
+/** A page's place in the queue: drop it, or move it up or down as it comes nearer the view or goes. */
+export type Turn = (() => void) & { rerank: (rank: number) => void }
+
 /**
  * Draws when its turn comes. The answer drops it: while it waits, it never
- * runs; once running, `run` is told to stop through its signal.
+ * runs; once running, `run` is told to stop through its signal. A page drawn
+ * ahead that scrolls into view is moved up the queue (`rerank`), never dropped
+ * and asked for again, so the drawing it began is not thrown away.
  */
-export function drawInTurn(rank: number, run: (stopped: () => boolean) => Promise<unknown>): () => void {
+export function drawInTurn(rank: number, run: (stopped: () => boolean) => Promise<unknown>): Turn {
   let stopped = false
   const job: Job = { rank, order: count++, run: () => (stopped ? Promise.resolve() : run(() => stopped)) }
   waiting.push(job)
   next()
-  return () => {
+  const drop = (): void => {
     stopped = true
     const at = waiting.indexOf(job)
     if (at >= 0) waiting.splice(at, 1)
   }
+  return Object.assign(drop, { rerank: (now: number) => void (job.rank = now) })
 }
 
 /**
- * The last few pages drawn sharp, kept as their canvases: going back to one
- * shows it at once instead of drawing it again. Keyed by what was drawn and
- * at what size, so a zoom never shows a stale picture.
+ * Pages drawn sharp, kept as their canvases: going back to one, or reaching
+ * one drawn ahead, shows it at once instead of drawing it again. Keyed by what
+ * was drawn and at what size, so a zoom never shows a stale picture. Sized to
+ * the computer's memory, counted in pixels: a sharp page on a Retina screen is
+ * about 30MB, so a Mac with 8GB or more keeps 256MB of pages (about eight),
+ * one with less keeps fewer, never under four pages' worth. The least lately
+ * seen go first.
  */
 const kept = new Map<string, HTMLCanvasElement>()
-const KEEP = 6
+const deviceMemory = typeof navigator !== "undefined" ? ((navigator as { deviceMemory?: number }).deviceMemory ?? 4) : 4
+export const KEEP_BYTES = Math.max(4, Math.min(8, deviceMemory)) * 32 * 2 ** 20
+const bytes = (canvas: HTMLCanvasElement): number => canvas.width * canvas.height * 4
+let held = 0
 export const keptPage = (key: string): HTMLCanvasElement | undefined => {
   const canvas = kept.get(key)
   if (canvas) {
@@ -69,7 +82,16 @@ export const keptPage = (key: string): HTMLCanvasElement | undefined => {
   return canvas
 }
 export const keepPage = (key: string, canvas: HTMLCanvasElement): void => {
-  kept.delete(key)
+  const old = kept.get(key)
+  if (old) (held -= bytes(old), kept.delete(key))
   kept.set(key, canvas)
-  while (kept.size > KEEP) kept.delete(kept.keys().next().value!)
+  held += bytes(canvas)
+  // Always at least the page just drawn and the one before it, however large.
+  while (held > KEEP_BYTES && kept.size > 2) {
+    const [first, gone] = kept.entries().next().value!
+    kept.delete(first)
+    held -= bytes(gone)
+    // Let go of its pixels at once, unless a sheet still shows it.
+    if (!gone.isConnected) gone.width = gone.height = 0
+  }
 }
