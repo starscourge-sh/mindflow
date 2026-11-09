@@ -18,7 +18,6 @@ import { CARRY_CELEBRATIONS, SANDBOX, enterSandbox, leaveSandbox, resetSandbox, 
 import { seedSandbox } from '@/lib/sandbox-seed'
 import { builtInScenery } from '@/lib/built-in-scenery'
 import { isBuiltInScenery } from './settings-looks'
-import { APP_NAME } from '../../../../main/name'
 import { num } from '../../../../main/dates'
 
 /**
@@ -91,44 +90,36 @@ export function SandboxPill(): React.JSX.Element | null {
   return (
     <span data-sandbox-pill role="group" aria-label="Sandbox" style={{ ...TAPE, ...NO_DRAG }}
       className="group/sb ml-2 flex h-7 shrink-0 items-center overflow-hidden rounded-full border border-dashed text-control">
-      <Tip label={SAID}>
-        {/* A label, not a button: a filled strip of tape, so the two answers after it read as the only things to press. */}
-        <span tabIndex={0} className="flex h-full cursor-default items-center bg-[color-mix(in_srgb,var(--tt-color-text-yellow)_16%,transparent)] px-2 font-semibold outline-none">
-          <FlaskConical className="size-3.5 shrink-0" strokeWidth={2.25} />
-          {open(<span className="pl-1.5">Sandbox</span>)}
-        </span>
-      </Tip>
-      {open(
-        <AnimatePresence mode="popLayout" initial={false}>
-          {asking ? (
-            <motion.span key="ask" {...swap} className="flex h-full items-center">
-              {/* The answer that does something is the one in the tape's colour, and
-                  says on its face that it is held; Cancel is quiet. */}
-              <HoldButton ref={sure} variant={null} hint="Every example back to how it began" done="Starting over…" disabled={busy} onHold={() => go(startSandboxOver)} className={`${PART} font-semibold`}>
-                Hold to start over
-              </HoldButton>
-              {RULE}
-              <Tip label="Cancel">
-                <button type="button" onClick={() => (chime('fold'), setAsking(false))} className={`${PART} pr-3 text-foreground/70 hover:text-foreground`}>
-                  Cancel
-                </button>
-              </Tip>
-            </motion.span>
-          ) : (
-            <motion.span key="parts" {...swap} className="flex h-full items-center">
-              <Tip label={`Back to my notes: ${APP_NAME} starts again on your own notes`}>
-                <button type="button" disabled={busy} onClick={() => go(leaveSandbox)} className={PART}>
-                  <AliveIcon icon={ArrowBackUpIcon} size={14} />
-                  Back to my notes
-                </button>
-              </Tip>
-              {RULE}
-              <Tip label="Reset: their book back to how it began">
-                <button type="button" disabled={busy} onClick={() => (chime('tap'), setAsking(true))} className={`${PART} pr-3`}>
-                  <AliveIcon icon={RefreshIcon} size={14} />
-                  Reset
-                </button>
-              </Tip>
+      {/* A label, not a button: a filled strip of tape, so the two answers after it read as the only things to press. */}
+      <span className="flex h-full cursor-default items-center bg-[color-mix(in_srgb,var(--tt-color-text-yellow)_16%,transparent)] px-2 font-semibold">
+        <FlaskConical className="size-3.5 shrink-0" strokeWidth={2.25} />
+        {open(<span className="pl-1.5">Sandbox</span>)}
+      </span>
+    {open(
+      <AnimatePresence mode="popLayout" initial={false}>
+        {asking ? (
+          <motion.span key="ask" {...swap} className="flex h-full items-center">
+            {/* The answer that does something is the one in the tape's colour, and
+                says on its face that it is held; Cancel is quiet. */}
+            <HoldButton ref={sure} variant={null} hint="Every example back to how it began" done="Starting over…" disabled={busy} onHold={() => go(startSandboxOver)} className={`${PART} font-semibold`}>
+              Hold to start over
+            </HoldButton>
+            {RULE}
+              <button type="button" onClick={() => (chime('fold'), setAsking(false))} className={`${PART} pr-3 text-foreground/70 hover:text-foreground`}>
+                Cancel
+              </button>
+          </motion.span>
+        ) : (
+          <motion.span key="parts" {...swap} className="flex h-full items-center">
+              <button type="button" disabled={busy} onClick={() => go(leaveSandbox)} className={PART}>
+                <AliveIcon icon={ArrowBackUpIcon} size={14} />
+                Back to my notes
+              </button>
+            {RULE}
+              <button type="button" disabled={busy} onClick={() => (chime('tap'), setAsking(true))} className={`${PART} pr-3`}>
+                <AliveIcon icon={RefreshIcon} size={14} />
+                Reset
+              </button>
             </motion.span>
           )}
         </AnimatePresence>
