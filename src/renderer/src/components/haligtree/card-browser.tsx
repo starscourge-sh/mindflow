@@ -10,7 +10,7 @@ import { chime } from '@/lib/sound'
 import { call, haligtree, useLive, type Due } from '@/lib/haligtree'
 import { canSplit, openAside, useHere } from '@/lib/split'
 import { binItem } from '@/lib/to-bin'
-import type { Editor } from '@tiptap/react'
+import type { Node as ProseNode } from '@tiptap/pm/model'
 import { HaligtreeEditor } from './haligtree-editor'
 import { num, plural } from '../../../../main/dates'
 import { Chips, Display, arrange, useView, type Choice, type Density, type Facet } from './display'
@@ -244,12 +244,18 @@ function EditCard({ card, tint, onDone }: { card: BrowsedCard; tint: string; /**
   const [body, setBody] = useState<unknown>(undefined)
   const [prompt, setPrompt] = useState(card.prompt)
   const [source, setSource] = useState(card.made === 'deck' ? '' : card.source)
-  const editor = useRef<Editor | null>(null)
   const box = useRef<HTMLDivElement>(null)
   useEffect(() => void haligtree.item(card.id).then((full) => setBody(full?.body ?? '')), [card.id])
+  // What it held when opened (or last kept), and its answer as it is now: a card closed any other way than Esc
+  // (Back, ⌘[, a swipe, another page) is kept if it changed since then, and only then, so opening it saves nothing.
+  const kept = useRef({ prompt: card.prompt, source: card.made === 'deck' ? '' : card.source, doc: null as ProseNode | null })
+  const doc = useRef<ProseNode | null>(null)
+  const dropped = useRef(false)
+  const changed = (): boolean => prompt !== kept.current.prompt || source !== kept.current.source || !!(doc.current && kept.current.doc && !doc.current.eq(kept.current.doc))
   // `close` false: kept, and left open for a Back or Forward press to move off, as its step says.
   const keep = (other?: string, close = true): void => {
-    const next = editor.current?.getJSON()
+    const next = doc.current?.toJSON()
+    kept.current = { prompt, source, doc: doc.current }
     const asked = prompt.trim() || card.prompt
     const was = { prompt: card.prompt, body, medium: card.made === 'deck' ? undefined : card.source || null }
     void haligtree.saveItem(card.id, { prompt: asked, ...(next ? { body: next } : {}), ...(card.made === 'deck' ? {} : { medium: source.trim() || null }) }).then(() => {
@@ -258,12 +264,16 @@ function EditCard({ card, tint, onDone }: { card: BrowsedCard; tint: string; /**
     })
     if (close) onDone(other)
   }
-  const drop = (): void => (chime('fold'), onDone())
+  const drop = (): void => ((dropped.current = true), chime('fold'), onDone())
   // Clicked away, it is kept, as a row edited in Things is. A click, not a blur:
   // focus moved by something else (a closing menu handing focus back to its row)
   // must not end the edit under the person's hands.
   const keepNow = useRef(keep)
   keepNow.current = keep
+  const changedNow = useRef(changed)
+  changedNow.current = changed
+  // Closed for any reason but Esc: its edits kept. React's dev double mount closes it untouched, so nothing is saved then.
+  useEffect(() => () => void (!dropped.current && changedNow.current() && keepNow.current(undefined, false)), [])
   useEffect(() => {
     const away = (event: PointerEvent): void => {
       const target = event.target as Element | null
@@ -293,7 +303,10 @@ function EditCard({ card, tint, onDone }: { card: BrowsedCard; tint: string; /**
       <div aria-hidden className="mf-index-rule my-1" />
       <div data-card-edit-answer className="min-h-12 [--mf-padding:0] [&_.haligtree-editor]:!text-[length:calc(0.875rem*var(--mf-text-scale,1))] [&_.tiptap-word-count]:hidden">
         {body !== undefined && <HaligtreeEditor defaultContent={(body as never) ?? ''} toolbar={{ fixed: false }} handles={false} outline={false} search={false} vim={false} autofocus={false}
-          onReady={(one) => (editor.current = one)} onKeyDown={(event) => keys(event)} />}
+          onReady={(one) => {
+            doc.current = kept.current.doc = one.state.doc
+            one.on('update', () => void (doc.current = one.state.doc))
+          }} onKeyDown={(event) => keys(event)} />}
       </div>
       <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
         {card.made !== 'deck' && <input data-card-edit-source aria-label="Source" value={source} onChange={(event) => setSource(event.target.value)} onKeyDown={keys}

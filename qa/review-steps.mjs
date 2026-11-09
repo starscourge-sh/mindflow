@@ -76,6 +76,30 @@ try {
   const after = await menu()
   await esc()
   check(`Back menu from every card: just those, by how many ("${just} cards")`, after[0] === `Review › ${just} cards`, after.join(' | '))
+
+  // A card's edits are kept on every way out, not only the ← button: ⌘[ and leaving for another page. Opened
+  // and left untouched, nothing is saved.
+  const promptOf = (id) => v('cards:all').then((all) => all.find((one) => one.id === id)?.prompt)
+  const kept = () => h.getByText(/^Card kept/).count()
+  const edit = async (id, words) => {
+    await h.locator(`[data-card-row="${id}"] > *`).first().click({ position: { x: 30, y: 20 } }); await wait(800)
+    const field = h.locator('input[data-card-edit]').first()
+    if (words) { await field.press('End'); await field.type(words) }
+  }
+  await go('review'); await wait(1000)
+  await h.locator('[data-review-tab="cards"]').click(); await wait(1200)
+  const ids = await h.evaluate(() => [...document.querySelectorAll('[data-card-row]')].slice(0, 2).map((one) => one.getAttribute('data-card-row')))
+  await wait(4500)
+  await edit(ids[0], '')
+  await back(); await wait(500)
+  check('a card opened and left by ⌘[ untouched: nothing saved', (await kept()) === 0, `${await kept()} "Card kept"`)
+  await edit(ids[0], ' (by back)')
+  await back(); await wait(800)
+  check('⌘[ with a card edited: its edit is kept', (await promptOf(ids[0]))?.endsWith(' (by back)'), await promptOf(ids[0]))
+  await wait(4500)
+  await edit(ids[1], ' (by leaving)')
+  await go('articles'); await wait(1000)
+  check('another page with a card edited: its edit is kept', (await promptOf(ids[1]))?.endsWith(' (by leaving)'), await promptOf(ids[1]))
 } catch (e) { check('ran', false, e.message.split('\n')[0]) }
 await close()
 done()
