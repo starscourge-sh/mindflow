@@ -68,7 +68,7 @@ export function BookmarkView(props: NodeViewProps): React.JSX.Element {
       const off = ((img.naturalWidth / (img.naturalHeight * cut)) * (band ? 4 / 3 : 1)) / (box.clientWidth / box.clientHeight)
       setFills(Math.abs(off - 1) <= 0.06)
     }
-    check()
+    // Not read at once, while the note is still being drawn: the watcher's first report comes once it is laid out.
     img.addEventListener("load", check)
     const watch = new ResizeObserver(check)
     watch.observe(box)

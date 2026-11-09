@@ -400,6 +400,8 @@ export function BlockMenu({
       </DropdownMenuSub>
     ) : rows
 
+  // Measured only while open: worked out on every draw of every note, it read the page's layout each time.
+  const grip = open && !point ? gripSide() : "left"
   return (
     <DropdownMenu
       modal={false}
@@ -435,12 +437,12 @@ export function BlockMenu({
         align="start"
         // From the grip it opens beside it in the margin (gripSide), never over the line it acts on;
         // a right-click opens at the pointer, as on the Mac.
-        side={point ? (point.height ? "bottom" : "right") : gripSide()}
-        sideOffset={!point && gripSide() === "bottom" ? underLine() : 6}
+        side={point ? (point.height ? "bottom" : "right") : grip}
+        sideOffset={!point && grip === "bottom" ? underLine() : 6}
         // From the grip, the note's own pane is its edge, never the list of notes beside it; at the pointer, the window.
-        collisionBoundary={point ? undefined : scrollerOf(editor.view.dom)}
+        collisionBoundary={open && !point ? scrollerOf(editor.view.dom) : undefined}
         // The "Add a thought…" bar's top is the window's foot (dock-room.ts): low on the page, the menu goes up.
-        collisionPadding={{ top: 8, right: 8, left: 8, bottom: dockRoom() }}
+        collisionPadding={{ top: 8, right: 8, left: 8, bottom: open ? dockRoom() : 8 }}
         className="tiptap-block-menu"
         // Closing hands focus back to the anchor by default, which took it
         // straight out of a caption just opened from here (an empty caption

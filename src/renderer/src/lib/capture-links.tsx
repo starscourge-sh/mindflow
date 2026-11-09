@@ -261,7 +261,8 @@ if (typeof window !== 'undefined' && !(window as { linksRenamedHeard?: boolean }
 }
 
 /** What `@` offers in any editor that can link captures. */
-export async function findCaptures(query: string): Promise<NoteSuggestion[]> {
+/** `exact`: only a note of just that name is wanted (a link resolved as a note opens), so nothing is forgiven. */
+export async function findCaptures(query: string, { exact = false }: { exact?: boolean } = {}): Promise<NoteSuggestion[]> {
   const words = query.trim().toLowerCase()
   const [captures, items, tasks, people, cast, tags, files] = await Promise.all([
     window.api.captures.search(query),
@@ -275,7 +276,8 @@ export async function findCaptures(query: string): Promise<NoteSuggestion[]> {
   ])
   // Spelt right, nothing: a slip of the keys still finds it ("tolkein", "hamelt"), forgiven as ⌘K and the slash menu
   // forgive one, by name, among every note and page; only then, so a right spelling never lists near ones.
-  if (words.length >= 3 && !captures.length && !items.length) {
+  // Never for an exact name: every note's name read and forgiven, per link, made a note of unresolved links slow to open.
+  if (!exact && words.length >= 3 && !captures.length && !items.length) {
     const [notes, ...lists] = await Promise.all([window.api.captures.list().catch(() => []), ...(['nugget', 'article', 'question'] as const).map((tier) => haligtree.items(tier).catch(() => []))])
     captures.push(...notes.filter((one) => one.status !== 'discarded' && one.label && forgives(words, one.label)).slice(0, 6))
     items.push(...lists.flat().filter((one) => !one.archivedAt && forgives(words, one.title)).slice(0, 6).map((one) => ({ id: one.id, tier: one.tier as 'nugget' | 'article' | 'question', title: one.title, updatedAt: one.updatedAt ?? undefined })))

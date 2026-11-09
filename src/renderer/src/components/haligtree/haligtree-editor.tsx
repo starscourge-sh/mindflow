@@ -252,7 +252,7 @@ import { WordAim } from "@/components/count/word-aim"
 import { TableOfContents } from "@/components/toc/table-of-contents"
 import { OutlineKeys, goToHeading } from "@/components/toc/headings"
 import { SourceView } from "@/components/source/source-view"
-import { NoteLink, kindsAsked, onKindsAsked, showingDocument, takePendingHeading, type NoteSuggestion } from "@/extensions/note-link"
+import { NoteLink, kindsAsked, onKindsAsked, showingDocument, takePendingHeading, type NoteLinkOptions } from "@/extensions/note-link"
 import { useReading } from "@/lib/reads-in"
 import { BlockIds } from "@/extensions/block-ids"
 import { LinkTidy, looksLikeAddress } from "@/extensions/link-tidy"
@@ -568,7 +568,7 @@ export interface HaligtreeEditorProps {
    *
    * @default () => [] - the `@` menu finds nothing
    */
-  findNotes?: (query: string) => NoteSuggestion[] | Promise<NoteSuggestion[]>
+  findNotes?: NoteLinkOptions["findNotes"]
   /**
    * A note link was clicked. The editor reports; the app navigates. A link to
    * a heading says which: the next editor to open scrolls there itself, and
@@ -1423,7 +1423,7 @@ function Surface({
       // when the editor is built, and the note list is usually still loading
       // then. Captured that early, `@` would search an empty list forever.
       NoteLink.configure({
-        findNotes: (query) => finder.current(query),
+        findNotes: (query, options) => finder.current(query, options),
         onOpenNote: (id, heading) => opener.current?.(id, heading),
         findHeadings: (id) => headingFinder.current?.(id) ?? [],
         render: noteLinkRenderer,

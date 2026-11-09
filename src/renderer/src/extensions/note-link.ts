@@ -234,9 +234,9 @@ export function showHeading(documentId: string, heading: string): void {
 /** `[[Note]]`, `[[Note#Heading]]`, `[[Note|shown]]`, `[[#Heading]]` and the rest. */
 const WIKI = /\[\[([^[\]|#]*)(?:#([^[\]|]+))?(?:\|([^[\]]+))?\]\]/
 
-interface NoteLinkOptions {
+export interface NoteLinkOptions {
   /** Which notes match what has been typed after `@`. */
-  findNotes: (query: string) => NoteSuggestion[] | Promise<NoteSuggestion[]>
+  findNotes: (query: string, options?: { exact?: boolean }) => NoteSuggestion[] | Promise<NoteSuggestion[]>
   /**
    * Clicking a link. The editor never navigates; it only reports. A link to a
    * heading says which, and the editor that opens next scrolls to it itself.
@@ -986,7 +986,7 @@ export const NoteLink = Node.create<NoteLinkOptions>({
               if (node.type.name === "noteLink" && id && node.attrs.block && !node.attrs.blockText) word(view, id, node.attrs.block)
               if (node.type.name !== "noteLink" || id || !label || tried.has(label)) return
               tried.add(label)
-              void Promise.resolve(findNotes(label)).then((found) => {
+              void Promise.resolve(findNotes(label, { exact: true })).then((found) => {
                 const note = found.find((one) => one.label.trim().toLowerCase() === label.toLowerCase() && !unsure(one.id))
                 if (!note || view.isDestroyed) return
                 const tr = view.state.tr
