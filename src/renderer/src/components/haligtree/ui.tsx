@@ -2074,7 +2074,14 @@ export function AskWho({ id, initial = '', onDone }: { id: string; initial?: str
  */
 export const TipPlace = createContext<{ side?: 'top' | 'bottom'; clearTop?: number; /** Room kept from the edges, for a window whose edge is a card's (the session bubble): a tip sits inside it, never against it. */ inset?: number; /** Told as a tip opens and closes, for a window to make room for it. */ onShow?: (open: boolean) => void }>({})
 
-export function Tip({ label: given, offset, side, children }: { label: ReactNode; /** Space between the tip and its control, for a control that grows on hover. */ offset?: number; /** Where it opens: above unless said; a menu line's opens to its right. */ side?: 'top' | 'right' | 'bottom' | 'left'; children: React.ReactElement<{ 'aria-label'?: string; children?: ReactNode }> }): React.JSX.Element {
+/**
+ * What a trigger around a tip hands it (a right-click menu's `asChild`, a popover's): its handlers and its ref, passed
+ * on to the control. Without them a row inside a tip inside a right-click menu never opened its menu, so a sidebar
+ * group's "Rename…" could not be reached (qa/group-rename.mjs).
+ */
+type Handed = Omit<React.HTMLAttributes<HTMLElement>, 'children'> & { ref?: React.Ref<HTMLElement> }
+
+export function Tip({ label: given, offset, side, children, ...handed }: { label: ReactNode; /** Space between the tip and its control, for a control that grows on hover. */ offset?: number; /** Where it opens: above unless said; a menu line's opens to its right. */ side?: 'top' | 'right' | 'bottom' | 'left'; children: React.ReactElement<{ 'aria-label'?: string; children?: ReactNode }> } & Handed): React.JSX.Element {
   // Its keys as you press them now, if you changed them in Settings.
   useKeyChanges()
   const label = typeof given === 'string' ? withKeys(given) : given
@@ -2084,7 +2091,7 @@ export function Tip({ label: given, offset, side, children }: { label: ReactNode
   // tooltip around it, so React made the row, and the right-click menu's
   // trigger inside it, anew; the new trigger had forgotten the pointer and the
   // menu opened at 0,0, the window's corner (qa/menu-anchor.mjs).
-  if (!label) return <Tipped label="" offset={offset} side={side}>{children}</Tipped>
+  if (!label) return <Tipped label="" offset={offset} side={side} handed={handed}>{children}</Tipped>
   // A plain-text tip names an icon-only button, so it can be read out, not
   // only hovered. A button with words of its own keeps them as its name.
   const worded = Children.toArray(children.props.children).some((child) => typeof child === 'string' || typeof child === 'number')
@@ -2093,7 +2100,7 @@ export function Tip({ label: given, offset, side, children }: { label: ReactNode
   const wordsIn = (node: ReactNode): boolean => Children.toArray(node).some((one) => typeof one === 'string' || typeof one === 'number' || (isValidElement<{ children?: ReactNode }>(one) && typeof one.type === 'string' && wordsIn(one.props.children)))
   const mark = (children.type === 'span' || children.type === 'div') && !(children.props as { role?: string }).role && !wordsIn(children.props.children)
   const named = typeof label === 'string' && !worded && !children.props['aria-label'] ? cloneElement(children, { 'aria-label': label, ...(mark ? { role: 'img' } : {}) } as object) : children
-  return <Tipped label={label} offset={offset} side={side}>{named}</Tipped>
+  return <Tipped label={label} offset={offset} side={side} handed={handed}>{named}</Tipped>
 }
 
 /**
@@ -2102,8 +2109,14 @@ export function Tip({ label: given, offset, side, children }: { label: ReactNode
  * Settings shows only ⌘,. Checked on opening, so a row that is an icon at one
  * width and words at another gets its tip only when it needs one.
  */
-function Tipped({ label, offset, side, children }: { label: ReactNode; offset?: number; side?: 'top' | 'right' | 'bottom' | 'left'; children: React.ReactElement }): React.JSX.Element {
+function Tipped({ label, offset, side, handed: { ref: outer, ...handed } = {}, children }: { label: ReactNode; offset?: number; side?: 'top' | 'right' | 'bottom' | 'left'; handed?: Handed; children: React.ReactElement }): React.JSX.Element {
   const trigger = useRef<HTMLButtonElement>(null)
+  // The tip's own ref and the one handed to it, both given the control; kept steady, as Radix stores the trigger it is given.
+  const both = useCallback((el: HTMLButtonElement | null) => {
+    trigger.current = el
+    if (typeof outer === 'function') outer(el)
+    else if (outer) (outer as React.RefObject<HTMLElement | null>).current = el
+  }, [outer])
   const [open, setOpen] = useState(false)
   const place = useContext(TipPlace)
   // Words gone while it is up (a menu opened from its control): it shuts, and says so.
@@ -2126,7 +2139,7 @@ function Tipped({ label, offset, side, children }: { label: ReactNode; offset?: 
   }
   return (
     <Tooltip open={open && !!label} onOpenChange={onOpenChange}>
-      <TooltipTrigger asChild ref={trigger}>{children}</TooltipTrigger>
+      <TooltipTrigger asChild {...handed} ref={both}>{children}</TooltipTrigger>
       <TooltipContent sideOffset={offset} side={side ?? place.side} {...(place.clearTop || place.inset ? { collisionPadding: { top: place.clearTop ?? place.inset ?? 8, right: place.inset ?? 8, bottom: place.inset ?? 4, left: place.inset ?? 8 } } : {})}>{typeof shown === 'string' ? <TipText text={shown} /> : shown}</TooltipContent>
     </Tooltip>
   )

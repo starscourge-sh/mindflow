@@ -323,7 +323,9 @@ function Folder({ list, group, depth, n, here, naming, onNamed, onRename, onOpen
     onNamed()
     const words = next.trim()
     if (!words || words === group.name) return void (words && offerTag(list, group.id, words))
-    void groups.set(group.id, { name: words }).then(() => offerTag(list, group.id, words))
+    // ⌘Z takes the old name back, as a folder renamed in the list does (kept-groups' change).
+    const was = group.name
+    void groups.set(group.id, { name: words }).then(() => (quietly(() => void groups.set(group.id, { name: was })), offerTag(list, group.id, words)))
   }
   // The level's own step in is its trunk's (rows above); within it, the rows' own edge.
   const left = '0.5rem'
