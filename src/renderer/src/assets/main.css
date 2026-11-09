@@ -2887,6 +2887,8 @@ html[data-book-hue] [data-book-tint] {
 /* The day's words on the page itself (day-writing.tsx): a touch larger than a
    note's, with the caret drawn in the accent colour. */
 [data-day-write] .tiptap.ProseMirror.haligtree-editor { font-size: calc(1.0625rem * var(--mf-text-scale, 1)); line-height: 1.7; }
+/* Today written out: each line's words at the size and leading its row asks for, the Tasks list's, never the page editor's. */
+[data-day-list] .haligtree-editor-wrapper.is-line .tiptap.ProseMirror.haligtree-editor { font-size: inherit; line-height: inherit; }
 [data-day-write] .tiptap.ProseMirror { caret-color: var(--tt-cursor-color); }
 /* The living caret: the system's is hidden and this one glides to each letter,
    solid while you type and a slow soft blink once you rest. Under reduced

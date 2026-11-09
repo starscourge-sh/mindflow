@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { TAGS } from '@/extensions/tokens'
-import { ArrowRight, ArrowUpLeft, ChevronRight, GripVertical, Plus, Trash2 } from 'lucide-react'
+import { ArrowRight, ArrowUpLeft, Check, ChevronRight, GripVertical, Plus, RotateCw, Trash2 } from 'lucide-react'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Button } from '@/components/ui/button'
 import { chime, tear } from '@/lib/sound'
@@ -15,7 +15,7 @@ import { DROP_LIT } from './sortable'
 import { CarryRow, Slid } from './carry'
 import { DayDrag, LineBlock, REFUSED, readStep, type DayDrop } from './day-drag'
 import { Struck, Tick } from './marks'
-import { completeTask, dayCleared, landed, moveTo, onToday, pickDate, shiftTo, startOn, taskMenu, useTaskNow } from './tasks-view'
+import { TaskWhen, carried, completeTask, dayCleared, dayTone, landed, moveTo, onToday, pickDate, shiftTo, startOn, taskMenu, useTaskNow } from './tasks-view'
 import { RowMenu, openFromGrip, type RowItem } from './row-menu'
 import { binItem } from '@/lib/to-bin'
 import { PriorityMark, planFor } from './task-input'
@@ -902,7 +902,8 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
             const open = (): void => (chime('open'), onOpenTask ? onOpenTask(task.id) : window.api.openInHome('task', task.id))
             return taskMenu(task, { open, complete: () => tick(task), now: taskNow, page: [...(task.status === 'open' ? [{ label: 'Add a step', hint: 'Something to do as part of it', run: () => (setDraft({ section, after: task.id, parent: { id: task.id, at: task.subtasks?.length ?? 0 }, text: '' }), go('draft')) }, 'separator' as const] : []), ...sendItems(task, section, open)] })
           })()}>
-          <div className="flex items-start gap-2.5 py-1 pr-1">
+          {/* The row the Tasks list draws (tasks-view.tsx): its gap, its height, its circle, the line under its words. */}
+          <div className="flex items-start gap-2.5 py-2 pr-1">
             {/* A new line straight under this one, as the "+" beside a note's handle makes a block: what Enter at its end does. */}
             {!struck && <AddBelow label="Add a line below" className="top-[0.3rem] -left-6 group-hover/line:opacity-60" onAdd={() => (setDraft({ section, after: task.id, text: '' }), go('draft'))} />}
             {/* The handle, shown on pointing; the whole row drags, the words never. */}
@@ -914,23 +915,32 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
             </span>
             <Tip label={struck ? 'Not done after all' : 'Done  ⌘↵'}>
               <button type="button" role="checkbox" aria-checked={struck} aria-label={task.title} onClick={() => tick(task)}
-                className="mf-hit relative mt-[0.2rem] grid size-[1.0625rem] shrink-0 place-items-center rounded-full border-[1.5px] transition-[background-color,border-color,scale] duration-150 ease-out outline-none active:scale-90 focus-visible:ring-2 focus-visible:ring-ring/40"
-                style={{ borderColor: struck ? 'var(--tt-color-text-green)' : 'color-mix(in oklab, var(--muted-foreground) 75%, transparent)', background: struck ? 'var(--tt-color-text-green)' : undefined }}>
-                {struck && <Tick seed={task.id} draw={!!ticked[task.id]?.pen} className="size-2.5 text-white" />}
+                className="group/tick mf-hit relative mt-0.5 grid size-[18px] shrink-0 place-items-center rounded-full border-[1.5px] transition-[background-color,border-color,scale] duration-150 ease-out outline-none hover:bg-accent active:scale-90 focus-visible:ring-2 focus-visible:ring-ring/40"
+                style={{ borderColor: struck ? 'var(--tt-color-text-green)' : (dayTone(task.dueAt) ?? 'color-mix(in oklab, var(--muted-foreground) 60%, transparent)'), background: struck ? 'var(--tt-color-text-green)' : undefined }}>
+                {struck ? <Tick seed={task.id} draw={!!ticked[task.id]?.pen} className="size-2.5 text-white" /> : <Check aria-hidden className="size-3 opacity-0 transition-opacity group-hover/tick:opacity-60" />}
               </button>
             </Tip>
-            <div className="relative min-w-0 flex-1">
+            {/* Its words as far from the circle as the list's are. */}
+            <div className="relative ml-0.5 min-w-0 flex-1">
               {struck ? (
                 // Done, the words are struck by hand where they were written, and left there.
                 <button type="button" onClick={() => tick(task)} className="mf-hit relative block w-full text-left">
-                  <span className="block min-w-0 text-[0.9375rem] leading-snug text-muted-foreground"><Struck seed={task.id} draw={!!ticked[task.id]?.pen}><TintedWords text={task.title} /></Struck></span>
+                  <span className="block min-w-0 text-body text-muted-foreground"><Struck seed={task.id} draw={!!ticked[task.id]?.pen}><TintedWords text={task.title} /></Struck></span>
                 </button>
               ) : (
                 <DayLine lineKey={`t:${task.id}`} register={field(`t:${task.id}`)} value={task.title} label={task.title}
                   onKey={taskKeys(task, section)}
                   onPaste={(text) => pasteLines(section, text, task.id)}
                   onLeave={({ text, link }) => rename(task, text, link)}
-                  className={`w-full leading-snug text-foreground ${first ? 'text-[0.9375rem] font-semibold' : 'text-[0.9375rem]'}`} />
+                  className="w-full text-body text-foreground" />
+              )}
+              {/* Under the words, what the list says under them: when it is for, and how often it was carried over. */}
+              {(task.dueAt || task.deadline || task.recurrence || carried(task) > 0) && (
+                // 2px nearer than the list's 4: the line's editor stands 2px taller than the list's words, so the rows match.
+                <span data-task-meta className={`mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground ${struck ? 'opacity-60' : ''}`}>
+                  <TaskWhen task={task} />
+                  {carried(task) > 0 && !task.recurrence && <span data-carried={carried(task)} className="flex items-center gap-1 tabular-nums"><RotateCw className="size-3" />Carried {num(carried(task))}×</span>}
+                </span>
               )}
               <FromNote task={task} />
             </div>

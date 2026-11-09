@@ -1005,8 +1005,9 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
   const actions = (
         <span className="flex items-center gap-1">
           {writeOut}
-          {/* Sort, group and filter, on every tab: its button here, F, or from ⋯. */}
-          {!written && (
+          {/* Sort, group and filter, on every tab: its button here, F, or from ⋯. Written out too, so nothing in the bar moves
+              as the layout changes; a group picked there goes back to the list, grouped. */}
+          {(
             <Display
               view={view}
               onChange={setView}
@@ -1048,7 +1049,8 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
 
         {/* Nothing on today yet, in either layout: the page to write it on. */}
         {written || (mode === 'today' && !example && !reading && !rows.length && dayDone === 0) ? (
-          <div className="list-edge mt-5 mb-10"><DayList onWrite={writeIt} onOpenTask={pick} openId={open?.id} /></div>
+          // Its circles and words on the list's ink edge, as the list's rows have them; its 1-2-3 and handles in the margin before it.
+          <div className="list-edge mt-5 mb-10" style={{ marginLeft: 'calc(var(--list-ink) - 1.5rem)' }}><DayList onWrite={writeIt} onOpenTask={pick} openId={open?.id} /></div>
         ) : (<>
         <form
           className="list-box mt-8 flex items-center gap-2 rounded-md border py-1.5 pr-2 focus-within:border-ring"
