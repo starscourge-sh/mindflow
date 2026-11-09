@@ -325,7 +325,8 @@ try {
   await v('settings:set', { stickiesShown: true })
   await wait(500)
   const still = await trace((await win(E)).id, 'setOpacity', t7)
-  check('Motion off: shown at once, with no fade', still.length === 0, `${still.length}`)
+  // A fade is any value in between. A 0 here is the test run parking the window out of sight (main's HALIGTREE_QA_AWAY), not the app.
+  check('Motion off: shown at once, with no fade', still.every((one) => one.args[0] === 0 || one.args[0] === 1), still.map((one) => one.args[0]).join(' ') || 'none')
   await v('settings:set', { motion: true })
 
   check('no page errors in the main window', c.errors.length === 0, c.errors.slice(0, 3).join(' | '))
