@@ -14,6 +14,7 @@ import { notes, smallPicture, useThumb, type NoteTable } from '@/lib/notes'
 import { openApart } from '@/lib/apart'
 import { useLive } from '@/lib/haligtree'
 import { chime } from '@/lib/sound'
+import { PictureLeaving } from './picture-leaving'
 import { RowMenu, type RowItem } from './row-menu'
 import { SortableList, SortableRow } from './sortable'
 import { GroupIcon, GroupedList, SectionHead, type Folds } from './kept-groups'
@@ -100,15 +101,17 @@ export type Entry = {
 /** A note's first picture, made small (or tile-sized) once. Undefined: it has none; null: on its way; '': too big to show. */
 function usePicture(id: string, large: boolean): [string | null | undefined, () => void] {
   const src = useThumb(id)
-  const [shown, setShown] = useState<string | null>(null)
+  // Which note the picture made belongs to: a row drawn again for another note never shows the last one's.
+  const [shown, setShown] = useState<{ id: string; url: string } | null>(null)
   // A picture whose file has gone is no picture: the note falls back to its cover, as Home's cards do.
   const [broken, setBroken] = useState(false)
   useEffect(() => {
-    setShown(null)
+    // A picture changed for another keeps the old one up until the new one is made, then they cross (PictureLeaving).
+    if (!src) setShown(null)
     setBroken(false)
-    if (src) void smallPicture(src, large).then(setShown, () => setBroken(true))
-  }, [src, large])
-  return [src && !broken ? shown : undefined, () => setBroken(true)]
+    if (src) void smallPicture(src, large).then((url) => setShown({ id, url }), () => setBroken(true))
+  }, [id, src, large])
+  return [src && !broken ? (shown?.id === id ? shown.url : null) : undefined, () => setBroken(true)]
 }
 
 
@@ -224,6 +227,7 @@ export function Lead({
       ) : (
         <entry.icon className="size-4" style={{ color: entry.tint }} />
       )}
+      <PictureLeaving picture={picture} of={entry.id} />
     </span>
   )
 }
