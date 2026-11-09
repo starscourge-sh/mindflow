@@ -252,7 +252,7 @@ const RULES: [RegExp, LucideIcon][] = [
   [/quote|who said/i, Quote],
   [/article|^read/i, BookOpen],
   [/card/i, StickyNote],
-  [/sticky|desktop/i, StickyNote],
+  [/sticky|desktop|^stick all/i, StickyNote],
   // Pages and places.
   [/^new book|^switch book|book/i, Library],
   [/^new capture|^new note|^new|^add/i, Plus],
