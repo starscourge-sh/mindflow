@@ -43,7 +43,7 @@ try {
   // Written out is the same list: "Write out my day" adds a line under it and leaves its order alone.
   await h.click('[data-write-day]'); await wait(1200)
   const written = (await rows()).filter((id) => [a, b, cc].includes(id))
-  check('written out, the list keeps the same order, a new line under it', written.join() === listed.join() && await h.locator('[data-write-line] input').count() === 1, written.length + ' rows')
+  check('written out, the list keeps the same order, a new line under it', written.join() === listed.join() && await h.locator('[data-write-line] [data-write-field]').count() === 1, written.length + ' rows')
   await shot('today-written')
   await h.keyboard.press('Escape'); await wait(600)
   await h.locator(`[data-task-row][data-id="${a}"] [data-row]`).click(); await wait(500)

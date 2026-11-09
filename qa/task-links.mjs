@@ -155,7 +155,7 @@ try {
   await v('task:save', t1, { subtasks: [{ text: 'Find the charger', done: false }] })
   await go('home'); await send('write', 'today'); await wait(1500)
   const row = h.locator(`[data-task-row][data-id="${t1}"]`).first()
-  check('Today\'s list shows the task as a row, a new line waiting under the list', (await row.count()) === 1 && (await h.locator('[data-write-line] input').count()) === 1)
+  check('Today\'s list shows the task as a row, a new line waiting under the list', (await row.count()) === 1 && (await h.locator('[data-write-line] [data-write-field]').count()) === 1)
   await h.keyboard.press('Escape'); await wait(300)
   await row.click({ button: 'right' }); await wait(600)
   const dayMenu = await lines()

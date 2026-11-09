@@ -27,10 +27,11 @@ const read = () => h.evaluate((boxSrc) => {
     return { title: words?.textContent.trim(), circle: box(row.querySelector('[data-task-tick]')), words: { x: Math.round(words.getBoundingClientRect().left), size: getComputedStyle(words).fontSize }, height: box(row)?.h, line: box(row.querySelector('[data-task-title]'))?.h, top: Math.round(row.querySelector('[data-task-title]').getBoundingClientRect().top - row.getBoundingClientRect().top), meta: !!row.querySelector('[data-task-meta]') }
   })
   const line = document.querySelector('[data-write-line]:not([data-step])')
-  const input = line?.querySelector('input')
-  const writer = line && { circle: box(line.querySelector('span[aria-hidden]')), words: { x: Math.round(input.getBoundingClientRect().left), size: getComputedStyle(input).fontSize }, height: box(line)?.h, line: box(input.parentElement)?.h, top: Math.round(input.getBoundingClientRect().top - line.getBoundingClientRect().top), focused: document.activeElement === input, value: input.value, marks: line.querySelectorAll('mark').length, after: [...document.querySelectorAll('[data-task-row]')].filter((row) => row.compareDocumentPosition(line) & Node.DOCUMENT_POSITION_FOLLOWING).at(-1)?.querySelector('[data-task-title] span.truncate')?.textContent.trim() }
+  const field = line?.querySelector('[data-write-field]')
+  const input = field?.querySelector('p')
+  const writer = line && { circle: box(line.querySelector('span[aria-hidden]')), words: { x: Math.round(input.getBoundingClientRect().left), size: getComputedStyle(input).fontSize }, height: box(line)?.h, line: box(input)?.h, top: Math.round(input.getBoundingClientRect().top - line.getBoundingClientRect().top), focused: field.contains(document.activeElement), value: input.innerText.trim(), marks: line.querySelectorAll('[data-task-word], .tiptap-token').length, after: [...document.querySelectorAll('[data-task-row]')].filter((row) => row.compareDocumentPosition(line) & Node.DOCUMENT_POSITION_FOLLOWING).at(-1)?.querySelector('[data-task-title] span.truncate')?.textContent.trim() }
   const step = document.querySelector('[data-write-line][data-step]')
-  return { rows, writer, step: step && { focused: document.activeElement === step.querySelector('input'), value: step.querySelector('input').value, under: step.closest('[data-task-row]')?.querySelector('[data-task-title] span.truncate')?.textContent.trim() }, panel: !!document.querySelector('[data-task-panel], [data-task-open]') }
+  return { rows, writer, step: step && { focused: step.contains(document.activeElement), value: step.querySelector('p')?.innerText.trim(), under: step.closest('[data-task-row]')?.querySelector('[data-task-title] span.truncate')?.textContent.trim() }, panel: !!document.querySelector('[data-task-panel], [data-task-open]') }
 }, box.toString())
 const bar = () => h.evaluate(() => ['[data-list-tabs]', '[data-write-day]', '[aria-label="More"]'].map((sel) => { const r = document.querySelector(sel)?.getBoundingClientRect(); return r ? `${Math.round(r.x)},${Math.round(r.y)},${Math.round(r.width)}` : 'none' }).join(' '))
 const titles = async () => (await v('tasks')).filter((t) => t.status === 'open').map((t) => t.title)
@@ -116,6 +117,19 @@ try {
   await h.locator('[data-write-here]').click(); await wait(500)
   now = await read()
   check('a click under the list starts a line at its end', now.writer?.focused && now.writer.after === now.rows.at(-1)?.title, JSON.stringify(now.writer))
+  await h.keyboard.press('Escape'); await wait(400)
+  // @ picks a note in the line, as in the "For tomorrow" box: the task is made from it.
+  const note = await h.evaluate(() => window.api.captures.create({ kind: 'note', body: { type: 'doc', content: [{ type: 'heading', attrs: { level: 1 }, content: [{ type: 'text', text: 'Garden plans' }] }] } }))
+  const noteId = typeof note === 'string' ? note : note?.id
+  await wait(800)
+  await h.locator('[data-write-day]').click(); await wait(500)
+  await h.keyboard.type('Sow the seeds from @garden', { delay: 25 }); await wait(1000)
+  const offered = await h.evaluate(() => [...document.querySelectorAll('.tiptap-suggestion-popup .tiptap-slash-menu-title')].map((one) => one.textContent))
+  check('@ in Today\'s line offers notes', offered.some((one) => one.includes('Garden plans')), offered.join(' | '))
+  await h.keyboard.press('Enter'); await wait(400)
+  await h.keyboard.press('Enter'); await wait(1500)
+  const sown = (await v('tasks')).find((one) => one.title.startsWith('Sow the seeds'))
+  check('picked and ↵: the task is made from the note', sown?.fromId === noteId, JSON.stringify({ title: sown?.title, fromId: sown?.fromId, noteId }))
   await h.keyboard.press('Escape'); await wait(400)
   // From ⌘K, from another tab.
   await go('upcoming'); await wait(1000)

@@ -27,6 +27,8 @@ import { TagRow } from './pass'
 import { Empty, Island, Kbd, Page, Prop, PropInput, Props, Rolling, Tags, toast, useListKeys, typing, VirtualList, Stepper, quietly, CloseBeside } from './ui'
 import { Display, arrange, openDisplay, useView, type Facet } from './display'
 import { ThreeMark, takeWriteDay } from './day-list'
+import { DayLine, type LineHandle } from './day-line'
+import { type AtLink } from './at-notes'
 import { MatrixView } from './matrix-view'
 import { readLines, tasksOf, tasksSaid } from '../../../../main/day-lines'
 import { DatePicker } from './date-picker'
@@ -741,7 +743,10 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
   const focusTools = useFocusTools()
   // Today's list is written in where it stands: a new line under a task (or at the end), or a step of one.
   // "Write out my day", from the bar, ⌘K, a hint or the Powers page, puts the caret on a new line at the end.
-  const writeRef = useRef<HTMLInputElement | null>(null)
+  // The line being written: an editor line, as the "For tomorrow" box's, so @ picks a note there too (day-line.tsx).
+  const lineRef = useRef<LineHandle | null>(null)
+  // Moved by a key (↵ after a task is made, ⇥, ⇧⇥): the line leaving its old place is not leaving the writing.
+  const moving = useRef(false)
   const startWriting = (after: string | null): void => (chime('tap'), setWriting({ after, text: '' }))
   useEffect(() => {
     if (mode !== 'today') return
@@ -755,14 +760,14 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
   // The caret goes to the line wherever it now stands, as soon as it is drawn.
   // Wanted until the line has it: a line drawn a moment later (the list coming in, the made-up tasks giving way) takes it as it is drawn.
   const caretWanted = useRef(false)
-  const takeCaret = (node: HTMLInputElement): void => {
-    if (document.activeElement !== node) node.focus()
-    if (document.activeElement === node) caretWanted.current = false
+  const takeCaret = (line: LineHandle): void => {
+    if (!line.focused()) line.focus('end')
+    if (line.focused()) (caretWanted.current = false), (moving.current = false)
   }
   useLayoutEffect(() => {
     if (!writing) return
     caretWanted.current = true
-    const put = (): void => void (writeRef.current && takeCaret(writeRef.current))
+    const put = (): void => void (lineRef.current && takeCaret(lineRef.current))
     // A menu still closing hands the caret back to its row as it goes: the line waits for that, then takes it.
     if (!document.querySelector('[role="menu"]')) put()
     if (!caretWanted.current) return
@@ -1040,9 +1045,11 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
 
   // --- writing in Today's list ---------------------------------------------
   /** A written line made a task on Today, right under the task it was written after, in your order. Gives back its id. */
-  const writeTask = async (text: string, after: string | null, before?: string): Promise<string | null> => {
+  const writeTask = async (text: string, after: string | null, before?: string, link?: AtLink): Promise<string | null> => {
     const ids = shown.map((task) => task.id)
-    const made = await haligtree.addTask(text, undefined, true)
+    // A note picked with @: the task is made from it, and its name in the words is never read as a date.
+    const words = text.trim()
+    const made = await haligtree.addTask(words, link?.id, true, link?.plain.map(({ from, to }) => ({ from: from - text.indexOf(words), to: to - text.indexOf(words) })))
     if (made.existed) {
       chime('nope')
       toast('Already on your list, so it was not added twice', undefined, 'info')
@@ -1066,47 +1073,57 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
     void haligtree.saveTask(id, { subtasks: [...steps, { text, done: false }] }).then(() => quietly(() => void haligtree.saveTask(id, { subtasks: steps })))
   }
   /** Out of writing: words left in the line are kept first, so nothing typed is lost. */
-  const stopWriting = (keep = true): void => {
+  const stopWriting = (keep = true, read?: { text: string; link?: AtLink }): void => {
     if (!writing) return
-    const text = writing.text.trim()
+    const text = (read?.text ?? writing.text).trim()
     setWriting(null)
     caretWanted.current = false
-    if (keep && text) void (writing.step ? writeStep(writing.step, text) : writeTask(text, writing.after, writing.before))
+    if (keep && text) void (writing.step ? writeStep(writing.step, text) : writeTask(read?.text ?? text, writing.after, writing.before, read?.link))
     // The keyboard back on the row the line was under.
     const at = shown.findIndex((task) => task.id === (writing.step ?? writing.after))
     if (at >= 0) setCursor(at)
   }
-  const writeKeys = (event: React.KeyboardEvent<HTMLInputElement>): void => {
-    if (!writing) return
-    const text = writing.text.trim()
+  const writeKeys = (event: KeyboardEvent, line: LineHandle): boolean => {
+    if (!writing) return false
+    const read = line.read()
+    const text = read.text.trim()
     const plain = !event.metaKey && !event.ctrlKey && !event.altKey
+    const move = (next: NonNullable<typeof writing>): void => ((moving.current = true), setWriting(next))
     if (event.key === 'Enter' && plain && !event.shiftKey) {
-      event.preventDefault()
       // An empty step comes out a level, as in any outline; an empty line ends the writing.
-      if (!text) return writing.step ? (chime('untuck'), setWriting({ after: writing.step, text: '' })) : stopWriting(false)
-      setWriting({ ...writing, text: '' })
-      if (writing.step) return writeStep(writing.step, text)
-      void writeTask(text, writing.after, writing.before).then((id) => id && setWriting((now) => (now && !now.step ? { after: id, text: now.text } : now)))
-      return
+      if (!text) return writing.step ? (chime('untuck'), move({ after: writing.step, text: '' }), true) : (stopWriting(false), true)
+      line.clear()
+      setWriting((now) => (now ? { ...now, text: '' } : now))
+      if (writing.step) return (writeStep(writing.step, text), true)
+      void writeTask(read.text, writing.after, writing.before, read.link).then((id) => id && ((moving.current = true), setWriting((now) => (now && !now.step ? { after: id, text: now.text } : now))))
+      return true
     }
     if (event.key === 'Tab' && plain) {
-      event.preventDefault()
-      if (event.shiftKey) return writing.step ? (chime('untuck'), setWriting({ after: writing.step, text: writing.text })) : chime('nope')
+      if (event.shiftKey) return writing.step ? (chime('untuck'), move({ after: writing.step, text: read.text }), true) : (chime('nope'), true)
       // A step of the task above, its words going with it; a step is as deep as a line goes.
       const above = writing.after
-      if (writing.step || !above) return chime('nope')
+      if (writing.step || !above) return (chime('nope'), true)
       chime('tuck')
-      return setWriting({ after: above, step: above, text: writing.text })
+      return (move({ after: above, step: above, text: read.text }), true)
     }
-    if (event.key === 'Backspace' && !writing.text) return (event.preventDefault(), chime('off'), stopWriting(false))
-    if (event.key === 'Escape') return (event.preventDefault(), event.stopPropagation(), stopWriting())
+    if (event.key === 'Backspace' && !read.text) return (chime('off'), stopWriting(false), true)
+    if (event.key === 'Escape') return (event.stopPropagation(), stopWriting(true, read), true)
+    return false
   }
   /** The line itself, in the list's own words: a task line or a step under its task. */
   const writeLine = (step: boolean): React.JSX.Element => (
-    // Drawn again in a new place (the list coming in, the made-up tasks giving way), it takes the caret back unless something else holds it.
-    <TaskInput inputRef={(node) => void ((writeRef.current = node), node && (caretWanted.current || !document.activeElement || document.activeElement === document.body) && !document.querySelector('[role="menu"]') && takeCaret(node))} value={writing?.text ?? ''} onChange={(text) => setWriting((now) => (now ? { ...now, text } : now))} onKeyDown={writeKeys}
-      onBlur={(event) => void (event.currentTarget.isConnected && stopWriting())}
-      label={step ? 'A new step' : 'A new task on Today'} placeholder={step ? 'A step, then ↵ for the next' : 'A task, then ↵ for the next: “call Sam 3pm #work !!”'} />
+    <DayLine key={step ? `step:${writing?.step}` : `line:${writing?.after}:${writing?.before}`} lineKey={step ? 'write-step' : 'write'} value={writing?.text ?? ''}
+      // Drawn again in a new place (the list coming in, the made-up tasks giving way), it takes the caret back unless something else holds it.
+      register={(line, was) => {
+        if (!line) return void (lineRef.current === was && (lineRef.current = null))
+        lineRef.current = line
+        if ((caretWanted.current || !document.activeElement || document.activeElement === document.body) && !document.querySelector('[role="menu"]')) takeCaret(line)
+      }}
+      onText={(text) => setWriting((now) => (now ? { ...now, text } : now))} onKey={writeKeys}
+      onLeave={(read) => void (!moving.current && stopWriting(true, read))}
+      attrs={{ 'data-write-field': true }}
+      className="w-full [&_.tiptap]:!text-[length:inherit] [&_.tiptap]:!leading-[inherit] [&_p]:!text-[length:inherit] [&_p]:!leading-[inherit]"
+      label={step ? 'A new step' : 'A new task on Today'} placeholder={step ? 'A step, then ↵ for the next' : 'A task, then ↵ for the next: “call Sam 3pm #work !!”, @ for a note'} />
   )
 
   // The one row of the bar (tasks-bar.mjs): the tabs on the left, the only choice always on show; then

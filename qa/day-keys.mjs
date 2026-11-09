@@ -45,7 +45,7 @@ try {
   await h.screenshot({ path: `${shots}/day-keys-picked.png` })
   const lineAt = () => h.evaluate(() => {
     const line = document.querySelector('[data-write-line]')
-    if (!line || document.activeElement !== line.querySelector('input')) return null
+    if (!line || !line.contains(document.activeElement)) return null
     const rows = [...document.querySelectorAll('[data-task-row]')]
     const name = (row) => row?.querySelector('[data-task-title] > span.truncate')?.textContent.trim() ?? null
     return { above: name(rows.filter((row) => row.compareDocumentPosition(line) & Node.DOCUMENT_POSITION_FOLLOWING).at(-1)), below: name(rows.find((row) => row.compareDocumentPosition(line) & Node.DOCUMENT_POSITION_PRECEDING)) }
