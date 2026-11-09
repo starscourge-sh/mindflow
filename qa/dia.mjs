@@ -208,7 +208,8 @@ try {
     await h.mouse.down()
     await h.mouse.move(a.x + 60, a.y + a.height / 2 + 8, { steps: 4 })
     await h.mouse.move(b.x + 60, b.y + b.height / 2, { steps: 24 })
-    await wait(300)
+    // A drop makes a group only after resting on the row's middle (550ms, kept-groups.tsx); a quick pass only moves it.
+    await wait(800)
     await h.mouse.up()
     await wait(700)
     await h.keyboard.type('Memory')
@@ -216,12 +217,14 @@ try {
     await wait(500)
   }
   await h.screenshot({ path: `${dir}/group-made.png` })
-  const head = h.locator('[data-group-row]').first()
-  check('a group of two formed by dragging (group drags still work)', await head.count() === 1 && (await v('groups', 'article')).length === 1)
+  // The sandbox's Writing list has folders of its own now: the new group is the one named Memory, not folder, holding the two.
+  const head = h.locator('[data-group-row]', { hasText: 'Memory' }).first()
+  const made = (await v('groups', 'article')).filter((one) => one.name === 'Memory' && !one.folder)
+  check('a group of two formed by dragging (group drags still work)', await head.count() === 1 && made.length === 1 && made[0].members.length === 2, JSON.stringify(made))
   await head.click()
   await wait(600)
   check('folded', (await head.getAttribute('aria-expanded')) === 'false')
-  await h.locator('[data-group-row]').first().click({ button: 'right' })
+  await head.click({ button: 'right' })
   await wait(400)
   await missing('group menu')
   await h.screenshot({ path: `${dir}/group-menu-light.png` })
