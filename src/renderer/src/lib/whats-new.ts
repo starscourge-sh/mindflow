@@ -33,7 +33,7 @@ export const NEWS_VERSION = '1.0.0'
 const ROW = '[data-row]'
 
 export const NEWS: News[] = [
-  { id: 'write-day', release: 'planning', day: '2026-10-12', lead: 'Write out your day.', text: 'Choose “Write out my day” at the top of Tasks and write the day as a list, one task a line, the top three first. Ticked lines stay struck through where they are, and anything left from before waits above with “Bring it”.', keys: ['⌥↑', '⌥↓'],
+  { id: 'write-day', release: 'planning', day: '2026-10-12', lead: 'Write out your day.', text: 'Choose “Write out my day” at the top of Tasks and type straight into Today’s list, one task a line: ↵ for the next, ⇥ for a step, and the first three numbered 1, 2, 3.', keys: ['↵', '⇥', '⌥↑', '⌥↓'],
     show: { view: 'today', at: '[data-write-day]', find: 'Write out my day', text: 'Choose “Write out my day” here, then write a line and press ↵.' } },
   { id: 'line-tasks', release: 'planning', day: '2026-10-12', lead: 'Lines into tasks.', text: 'Select several lines in a note and choose “3 tasks”: each line gets a box linked to its task, and ticking either ticks both. A long mixed page pasted in offers “Sort this out”.',
     show: { view: 'inbox', text: 'Open a note, select a few lines, and choose “tasks” in the bar that comes up.' } },

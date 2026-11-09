@@ -1792,7 +1792,7 @@ export function Home(): React.JSX.Element {
             ...(picked.ids.length > 1 ? [{ label: 'Make one task', hint: `From the ${num(picked.ids.length)} selected captures`, first: true, cue: null, run: () => window.dispatchEvent(new CustomEvent('haligtree:one-task')) }] : []),
             { label: 'Stick Today on the desktop', cue: null, run: () => stickOnDesktop('today', 'today') },
             { label: 'Stick all goals', hint: 'On the desktop, each goal in its own colour, with a legend', words: 'desktop sticky stickies one', cue: null, run: () => stickOnDesktop('goals', 'all') },
-            { label: 'Write out my day', hint: 'Today as a list you write', first: true, cue: null, run: () => (setView({ id: 'today' }), writeOutDay()) },
+            { label: 'Write out my day', hint: 'A new line at the end of Today’s list', first: true, cue: null, run: () => (setView({ id: 'today' }), writeOutDay()) },
             { label: 'Tidy captures', hint: 'A few minutes tagging your latest captures', run: () => openPass('tidy') },
             { label: 'Decide what to keep', hint: 'Once a week, look over what waited', run: () => openPass('decide') },
             { label: 'Import Obsidian or Notion…', hint: 'A vault or a Notion export', words: 'markdown vault bring in', cue: null, run: () => void window.api.importFrom('vault') },

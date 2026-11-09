@@ -24,7 +24,6 @@ function files(dir: string): string[] {
 const ALLOWED: [file: string, bit: string, why: string][] = [
   ['src/renderer/src/components/note-link/note-embed-view.tsx', 'embed-${link}-${around.length}', 'an id'],
   ['src/renderer/src/components/pdf/pdf-reader.tsx', 'find:${hits.length}', 'an id'],
-  ['src/renderer/src/components/haligtree/day-list.tsx', '${steps.length}', 'a key for the next row'],
   ['src/renderer/src/components/haligtree/talk.tsx', '${session.levels.length}', 'a change key for a store'],
   ['src/renderer/src/components/haligtree/calendar-view.tsx', 'repeat(${days.length}', 'a CSS grid column count'],
   ['src/renderer/src/components/capture-kinds/capture-kind-picker.tsx', '${CAPTURE_TYPES.length}', 'a key range, ⌘1-9: never past 9'],

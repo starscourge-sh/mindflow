@@ -22,7 +22,6 @@ import { doneOnToday, onToday, taskName, todaySaid } from '@/lib/tasks'
 import { PriorityMark, byPriority, markRoom } from './task-input'
 import { nativeMenu } from './row-menu'
 import { taskMenu, useTaskNow } from './tasks-view'
-import { readCleared, writtenLayout } from './day-list'
 import { loud } from '@/lib/loud'
 import { Check, X } from '@/components/ui/icons'
 import { APP_NAME } from '../../../../main/name'
@@ -92,8 +91,7 @@ export function TodaySticky(): React.JSX.Element {
   const isLate = (task: Task): boolean => (dueDay(task) ?? today) < today
   const lateOnes = all.filter(onToday).filter(isLate)
   const open = all.filter(onToday).filter((task) => !isLate(task))
-  const cleared = writtenLayout() ? readCleared(today) : []
-  const doneToday = all.filter((task) => doneOnToday(task, cleared))
+  const doneToday = all.filter((task) => doneOnToday(task))
   const byId = new Map([...doneToday, ...open].map((task) => [task.id, task]))
   // A tick made today, that is: one from yesterday fades with the rest.
   for (const [id, one] of Object.entries(ticked)) if (!byId.has(id) && dayKey(one.was?.doneAt ?? now) === today) byId.set(id, one.task)

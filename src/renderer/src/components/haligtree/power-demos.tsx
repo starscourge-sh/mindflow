@@ -1515,29 +1515,41 @@ const OneThreeFiveDemo: Demo = ({ live }) => {
   )
 }
 
-const DAY_NEW = 'Water the plants'
-/** Today as a page: lines under Now and Next, one typed in, the first ticked and struck where it is. */
+const DAY_WORDS = 'Water the plants '
+const DAY_NEW = `${DAY_WORDS}6pm`
+const DAY_STEP = 'Fill the can'
+/** Today's list written in where it stands: a new line typed under the last, its time lit, then ⇥ for a step under it. */
 const WriteDayDemo: Demo = ({ live }) => {
-  const at = useSteps([900, typeMs(DAY_NEW, 45), 1100, 2400], live, 3)
+  const at = useSteps([900, typeMs(DAY_NEW, 45), 700, typeMs(DAY_STEP, 45), 2400], live, 4)
   const text = useTyped(DAY_NEW, at === 1, 45)
-  const done = at === 3
-  const line = (task: string, ticked = false): React.JSX.Element => (
+  const step = useTyped(DAY_STEP, at === 3, 45)
+  const typed = at === 0 ? '' : at === 1 ? text : DAY_NEW
+  const line = (task: string): React.JSX.Element => (
     <div className="flex h-6 items-center gap-2 px-1 text-control text-foreground">
-      <Dot on={ticked} />
-      <span className={`min-w-0 flex-1 truncate ${ticked ? 'mf-hand-struck text-muted-foreground line-through' : ''}`}>{ticked ? <Struck seed={task} draw={live}>{task}</Struck> : task}</span>
+      <Dot on={false} />
+      <span className="min-w-0 flex-1 truncate">{task}</span>
     </div>
   )
   return (
     <Col className="rounded-lg border bg-background px-2.5 py-2">
-      <div className="px-1 text-meta font-semibold text-muted-foreground">Now</div>
+      <div className="px-1 text-meta font-semibold text-muted-foreground">Today</div>
       <div className="-mt-1.5">
-        {line('Finish the Dune essay', done)}
+        {line('Finish the Dune essay')}
         {line('Reply to Hermione')}
-      </div>
-      <div className="px-1 text-meta font-semibold text-muted-foreground">Next</div>
-      <div className="-mt-1.5 flex h-6 items-center gap-2 px-1 text-control text-foreground">
-        <Dot on={false} />
-        <span className="min-w-0 flex-1 truncate">{at === 0 ? '' : at === 1 ? text : DAY_NEW}{at === 1 && <Caret key={text.length} />}</span>
+        <div className="flex h-6 items-center gap-2 px-1 text-control text-foreground">
+          <Dot on={false} />
+          <span className="min-w-0 flex-1 truncate">
+            {typed.slice(0, DAY_WORDS.length)}
+            {typed.length > DAY_WORDS.length && <mark className="rounded-sm text-inherit" style={{ background: 'var(--mf-chip-bg-blue)', color: 'var(--mf-chip-ink-blue)' }}>{typed.slice(DAY_WORDS.length)}</mark>}
+            {at === 1 && <Caret key={text.length} />}
+          </span>
+        </div>
+        {at >= 2 && (
+          <div className="flex h-6 items-center gap-2 pr-1 pl-7 text-control text-foreground">
+            <span aria-hidden className="size-3 shrink-0 rounded border" />
+            <span className="min-w-0 flex-1 truncate">{at === 2 ? '' : at === 3 ? step : DAY_STEP}{(at === 2 || at === 3) && <Caret key={step.length} />}</span>
+          </div>
+        )}
       </div>
     </Col>
   )

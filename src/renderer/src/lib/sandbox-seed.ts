@@ -433,7 +433,7 @@ Once a month and once a year, ${APP_NAME} reads you back: the books you read and
 
 ## Write out your day
 
-Some days are clearer written down as a list. Open Tasks and choose “Write out my day”: one thing a line, ↵ for the next, ⇥ to make a line a step of the one above, and the top three first. Every line is a task, so it shows everywhere tasks do. Lines in any note can become tasks too: ${link(saturday, 'Saturday errands')}.
+Some days are clearer written down as a list. Open Tasks and choose “Write out my day”, and the caret waits on a new line at the end of Today’s list: one thing a line, ↵ for the next, ⇥ to make a line a step of the one above, and the first three numbered 1, 2, 3. Every line is a task, so it shows everywhere tasks do. Lines in any note can become tasks too: ${link(saturday, 'Saturday errands')}.
 
 **Try it:** press ⌘K and choose “Write out my day”.
 

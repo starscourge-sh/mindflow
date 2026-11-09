@@ -18,7 +18,6 @@ import { doneOnToday, onToday, taskName, todaySaid } from '@/lib/tasks'
 import { PriorityMark, byPriority, markRoom } from './task-input'
 import { RowMenu } from './row-menu'
 import { taskMenu, useTaskNow, type TaskNow } from './tasks-view'
-import { DayList, readCleared, writtenLayout } from './day-list'
 import { TomorrowBox } from './tomorrow-lines'
 import { frogFirst, frogOn } from '@/lib/day-plan'
 import { useMacEvents } from '@/lib/mac-calendar'
@@ -110,8 +109,6 @@ export function DayBrief({ day, onOpen, onListed, between }: {
     return ids.length ? issues.repeats(ids) : {}
   }, {} as Record<string, Repeat>, [], ['capture', 'item'])
   const [ticked, setTicked] = useState<Record<string, Ticked>>({})
-  // Today written out as a page: the brief shows that page in place of its own list.
-  const written = writtenLayout()
   // The next marked day, said in the line when it is close.
   const marks = useMilestones(dayKey(now), dayjs(now).add(14, 'day').format('YYYY-MM-DD'))
   const coming = nextOf(marks, dayKey(now))
@@ -143,9 +140,7 @@ export function DayBrief({ day, onOpen, onListed, between }: {
   // Today's tasks: what is due or late, and those of them done today, so the
   // count reads "2 / 4" and a tick stays where it was made. A routine ticked
   // here moves on to its next day, so it is kept from the tick itself.
-  // Ticked lines cleared from Today's page are out of this count as well.
-  const cleared = writtenLayout() ? readCleared(today) : []
-  const doneToday = tasks.filter((task) => doneOnToday(task, cleared))
+  const doneToday = tasks.filter((task) => doneOnToday(task))
   const byId = new Map([...doneToday, ...open].map((task) => [task.id, task]))
   for (const [id, one] of Object.entries(ticked)) if (!byId.has(id)) byId.set(id, one.task)
   // The frog, picked last night to do first, leads; the rest by importance and time.
@@ -328,7 +323,7 @@ export function DayBrief({ day, onOpen, onListed, between }: {
       {day === dayjs(now).format('YYYY-MM-DD') && <EventNotes events={mac.events} now={now} onOpen={(type, id) => onOpen?.(type, id)} />}
       <CalendarNote said={mac} className="mt-5" />
       {between}
-      {(shown.length > 0 || rows.length > 0 || written) && (
+      {(shown.length > 0 || rows.length > 0) && (
         <section className="@container mf-hand-ruled relative mt-8 border-t border-border/70 pt-6">
           <Rule seed={day} />
           {/* One column, on the page's own left edge as the words above and "For tomorrow" below: its heading over its
@@ -336,7 +331,7 @@ export function DayBrief({ day, onOpen, onListed, between }: {
           <div className="flex flex-col gap-3">
             <div className="flex items-center justify-between gap-4">
               <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                <p className="text-lg leading-tight font-semibold text-foreground">{todos.length || written ? 'Today’s tasks' : 'Coming back to you'}</p>
+                <p className="text-lg leading-tight font-semibold text-foreground">{todos.length ? 'Today’s tasks' : 'Coming back to you'}</p>
                 {todos.length > 0 && settings?.dayHints === true && (
                   <p data-day-count className="text-sm tabular-nums" style={{ color: finished === todos.length ? 'var(--tt-color-text-green)' : 'var(--muted-foreground)' }}>
                     <Rolling text={todaySaid(todos.length - finished, finished)} by="word" />
@@ -352,13 +347,10 @@ export function DayBrief({ day, onOpen, onListed, between }: {
               </div>
             </div>
             <ul className="min-w-0 divide-y divide-border/50">
-              {/* Written out (“Write out my day”): the same page here, to write on and tick. */}
-              {/* Its rows keep a gutter for their drag grip: pulled back by it, so its circles line up with the marks of the rows below. */}
-              {written && <li className="py-2"><div className="-ml-6"><DayList compact /></div></li>}
-              {!written && shown.map((task) => (
+              {shown.map((task) => (
                 <TaskRow key={task.id} task={task} today={today} first={task.id === frog} done={struck(task)} pen={!!ticked[task.id]?.pen} onTick={() => tick(task)} now={taskNow} room={markRoom(shown)} />
               ))}
-              {!written && todos.length - inLine.length > shown.length && (
+              {todos.length - inLine.length > shown.length && (
                 <li>
                   <button type="button" onClick={() => (chime('open'), window.api.openInHome('view', 'today'))}
                     className="flex w-full items-center gap-3 py-2.5 text-left text-sm text-muted-foreground hover:text-foreground">

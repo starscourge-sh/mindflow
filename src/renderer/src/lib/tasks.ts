@@ -224,11 +224,10 @@ export const onToday = (task: Pick<Task, 'status' | 'waitingOn' | 'dueAt' | 'dea
   task.status === 'open' && !task.waitingOn && (placed(task) ?? Infinity) < startOfDay(1)
 
 /**
- * Done today, from Today: what "N done" counts beside it. Lines cleared from
- * Today's written page (`cleared`) are out, in every place that counts.
+ * Done today, from Today: what "N done" counts beside it.
  */
-export const doneOnToday = (task: Pick<Task, 'id' | 'status' | 'completedAt' | 'dueAt' | 'deadline'>, cleared: string[] = []): boolean =>
-  task.status === 'done' && !!task.completedAt && dayKey(task.completedAt) === dayKey() && (placed(task) ?? Infinity) < startOfDay(1) && !cleared.includes(task.id)
+export const doneOnToday = (task: Pick<Task, 'id' | 'status' | 'completedAt' | 'dueAt' | 'deadline'>): boolean =>
+  task.status === 'done' && !!task.completedAt && dayKey(task.completedAt) === dayKey() && (placed(task) ?? Infinity) < startOfDay(1)
 
 /**
  * The day a task shows on: when it is scheduled, or the day it is due by if

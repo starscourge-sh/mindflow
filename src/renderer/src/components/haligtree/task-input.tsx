@@ -147,13 +147,14 @@ const TAG_AT = new RegExp(String.raw`(?:^|\s)#((?:${TAG_HERE})?)$`, 'u')
  * input over a copy of its own text, so the typing is the browser's and only
  * the colour is drawn: every key, ⌥3's "#" with it, types as it does anywhere.
  */
-export function TaskInput({ value, onChange, inputRef, placeholder, className = '', onKeyDown, autoFocus, label }: {
+export function TaskInput({ value, onChange, inputRef, placeholder, className = '', onKeyDown, onBlur, autoFocus, label }: {
   value: string
   onChange: (value: string) => void
   inputRef?: React.Ref<HTMLInputElement>
   placeholder?: string
   className?: string
   onKeyDown?: (event: React.KeyboardEvent<HTMLInputElement>) => void
+  onBlur?: (event: React.FocusEvent<HTMLInputElement>) => void
   autoFocus?: boolean
   label?: string
 }): React.JSX.Element {
@@ -230,7 +231,7 @@ export function TaskInput({ value, onChange, inputRef, placeholder, className = 
           onChange={(event) => (onChange(event.target.value), follow(event), where(event))}
           onScroll={follow}
           onSelect={(event) => (follow(event), where(event))}
-          onBlur={() => setCaret(null)}
+          onBlur={(event) => (setCaret(null), onBlur?.(event))}
           onKeyDown={(event) => {
             if (offered.length && !event.metaKey && !event.ctrlKey && !event.altKey) {
               if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
