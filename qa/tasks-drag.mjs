@@ -16,12 +16,13 @@ for (const text of ['analyse claims today', 'admin forms today', 'call the bank 
   await page.evaluate((t) => window.api.haligtree('task:add', t), text)
 await page.evaluate(() => window.api.haligtree('onboarding:set', { welcomed: new Date().toISOString(), newsSeen: true, welcoming: false, pageHints: false }))
 await page.waitForTimeout(1500)
-await electron.evaluate(({ BrowserWindow }) => { const w = BrowserWindow.getAllWindows().find((w) => w.webContents.getURL().includes('home')); w?.setBounds({ width: 1400, height: 860 }); w?.show() })
-const h = electron.windows().find((w) => w.url().includes('home'))
+// show() under HALIGTREE_QA_AWAY parks the window past the screen's edge, unseen and unclickable (src/main/index.ts), as sandbox-lib's does.
+await electron.evaluate(({ BrowserWindow }) => { const w = BrowserWindow.getAllWindows().find((w) => w.webContents.getURL().includes('view=home')); w?.setBounds({ width: 1400, height: 860 }); w?.show() })
+const h = electron.windows().find((w) => w.url().includes('view=home'))
 await h.reload()
 await h.waitForTimeout(2500)
 await h.keyboard.press('Escape')
-const send = (type, id) => electron.evaluate(({ BrowserWindow }, [t, i]) => BrowserWindow.getAllWindows().find((w) => w.webContents.getURL().includes('home'))?.webContents.send('home:open', t, i), [type, id])
+const send = (type, id) => electron.evaluate(({ BrowserWindow }, [t, i]) => BrowserWindow.getAllWindows().find((w) => w.webContents.getURL().includes('view=home'))?.webContents.send('home:open', t, i), [type, id])
 const go = async (view) => (await send('view', view), await h.waitForTimeout(900))
 
 const rect = (sel) => h.evaluate((sel) => {

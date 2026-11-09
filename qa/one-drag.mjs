@@ -287,172 +287,64 @@ await shot('tab-carried')
 await h.keyboard.press('Escape'); await wait(200); await h.mouse.up(); await wait(300)
 
 })
-// --- 5. Tasks and steps on the written page ---
-await part('Tasks and steps on the written page', async () => {
-for (const task of await v('tasks')) if (task.status === 'open' && (task.dueAt || task.deadline)) await v('task:save', task.id, { status: 'dropped' })
-lineIds = { paint: await addLine('Paint the fence', ['Buy paint', 'Sand it', 'First coat']), call: await addLine('Call the bank'), read: await addLine('Read the lease', ['Page one']), post: await addLine('Post the letter') }
-await h.evaluate(() => localStorage.setItem('view:tasks:today', JSON.stringify({ sort: 'manual', group: 'page' })))
-await h.reload(); await wait(1500)
-await c.go('today'); await wait(900)
-const rings0 = await ringsLeft()
-let from = await liftAt(headOf(lineIds.call))
-pads.line = await card()
-await both('line-carried')
-const rings1 = await ringsLeft()
-check('no line moves sideways while one is carried', rings0.length > 2 && rings0.filter((x, at) => rings1[at] !== undefined && Math.abs(x - rings1[at]) > 1).length === 0, `${rings0.join()} then ${rings1.join()}`)
-const faded = await h.evaluate(() => [...document.querySelectorAll('[data-day-line], [data-day-step], [data-sortable-id]')].filter((one) => !one.closest('[data-drop-room]') && one.getClientRects().length && Number(getComputedStyle(one).opacity) < 0.95 && Number(getComputedStyle(one).opacity) > 0.05).length)
-check('nothing is left behind faded', faded === 0, `${faded} faded`)
-await h.keyboard.press('Escape'); await wait(300); await h.mouse.up(); await wait(200)
-from = await liftAt(headOf(lineIds.call))
-const before2 = await kinds()
-const postBox = await headOf(lineIds.post).boundingBox()
-await h.mouse.move(from.x, postBox.y + postBox.height / 2, { steps: 8 })
-await wait(800)
-await shot('task-rested-on-task')
-const rests = await h.evaluate((id) => {
-  const box = (el) => { const r = el?.getBoundingClientRect(); return r ? { top: r.top, bottom: r.bottom, left: r.left, right: r.right } : null }
-  const name = box([...document.querySelectorAll(`[data-day-head="${id}"] .tiptap, [data-day-head="${id}"] [contenteditable], [data-day-head="${id}"] [data-line-key]`)][0] ?? document.querySelector(`[data-day-head="${id}"]`))
-  return { card: box(document.querySelector('[data-carried-card]')), place: box(document.querySelector('[data-preview] > span')), name }
-}, lineIds.post)
-const middle = (one) => (one.top + one.bottom) / 2
-check('rested, the card sits on the dashed place, not on the task it joins', rests.card && rests.place && Math.abs(middle(rests.card) - middle(rests.place)) < 4 && rests.card.top >= rests.name.bottom - 4, JSON.stringify(rests))
-const another = await h.evaluate(() => { const a = document.querySelector('[data-new="now"]')?.getBoundingClientRect(); const b = document.querySelector('[data-preview]')?.getBoundingClientRect(); const c = document.querySelector('[data-tomorrow-box]')?.getBoundingClientRect(); return a && b ? { line: a.top, bottom: a.bottom, panel: b.bottom, next: c?.top } : null })
-check('the line being written makes way for the panel, and what is under it for that line', another && another.line >= another.panel - 2 && (another.next === undefined || another.next >= another.bottom), JSON.stringify(another))
-await film('task-rested-frames', 4)
-check('rested on a task\'s middle it says it becomes a step', /step/i.test((await card())?.text ?? ''), (await card())?.text)
-t = await tapsSince(before2)
-check('accepted with a firm tap', t.level >= 1, JSON.stringify(t))
-await h.mouse.up(); await wait(600)
-let post = await task(lineIds.post)
-check('dropped, the task is a step of the other', post.subtasks?.some((one) => one.text.startsWith('Call the bank')), JSON.stringify(post.subtasks))
-check('the task itself is no longer a line', !(await line(lineIds.call).count()))
-await h.keyboard.press('Meta+z'); await wait(600)
-post = await task(lineIds.post)
-check('⌘Z: the step is gone and the task is back', !post.subtasks?.length && (await line(lineIds.call).count()) === 1, JSON.stringify(post.subtasks))
-
-// A task with its own steps is refused, in words.
-from = await liftAt(headOf(lineIds.read))
-const callBox = await headOf(lineIds.call).boundingBox()
-await h.mouse.move(from.x, callBox.y + callBox.height / 2, { steps: 8 })
-await wait(800)
-check('a task with steps: the refusal is said while it rests', /steps of its own/.test((await card())?.text ?? ''), (await card())?.text)
-await shot('task-refused')
-await h.mouse.up(); await wait(500)
-check('a task with steps stays a line', (await line(lineIds.read).count()) === 1 && !(await task(lineIds.call)).subtasks?.length)
-
-// A step lifted alone.
-from = await liftAt(stepRow(lineIds.paint, 1))
-pads.step = await card()
-check('a step is lifted alone', /Sand it/.test((await card())?.text ?? ''), (await card())?.text)
-await both('step-carried')
-await film('step-lifted', 3)
-const lastStep = await stepRow(lineIds.paint, 2).boundingBox()
-await h.mouse.move(from.x, lastStep.y + lastStep.height - 3, { steps: 6 }); await wait(300)
-await h.mouse.up(); await wait(500)
-check('steps reorder', (await task(lineIds.paint)).subtasks.map((one) => one.text).join() === 'Buy paint,First coat,Sand it', (await task(lineIds.paint)).subtasks.map((one) => one.text).join())
-await h.keyboard.press('Meta+z'); await wait(500)
-check('⌘Z puts the order back', (await task(lineIds.paint)).subtasks.map((one) => one.text).join() === 'Buy paint,Sand it,First coat')
-// To another task's steps.
-from = await liftAt(stepRow(lineIds.paint, 1))
-const page1 = await stepRow(lineIds.read, 0).boundingBox()
-await h.mouse.move(from.x, page1.y + page1.height - 3, { steps: 8 }); await wait(300)
-await shot('step-to-other-task')
-const roomy2 = await h.evaluate(() => { const c = document.querySelector('[data-carried-card]')?.getBoundingClientRect(); const r = document.querySelector('[data-drop-room]')?.getBoundingClientRect(); return c && r ? { card: (c.top + c.bottom) / 2, room: (r.top + r.bottom) / 2, height: r.height } : null })
-check('among another line\'s steps, the card sits in the room it opens', roomy2 && Math.abs(roomy2.card - roomy2.room) < 4, JSON.stringify(roomy2))
-await h.mouse.up(); await wait(500)
-check('a step moves to another task', (await task(lineIds.read)).subtasks.map((one) => one.text).join() === 'Page one,Sand it' && (await task(lineIds.paint)).subtasks.length === 2, (await task(lineIds.read)).subtasks.map((one) => one.text).join())
-await h.keyboard.press('Meta+z'); await wait(500)
-check('⌘Z takes it back', (await task(lineIds.paint)).subtasks.length === 3)
-// Out past the edge: a task of its own.
-from = await liftAt(stepRow(lineIds.paint, 2))
-const paintBlock = await line(lineIds.paint).boundingBox()
-before = await kinds()
-await h.mouse.move(from.x, paintBlock.y + paintBlock.height + 8, { steps: 8 }); await wait(300)
-await shot('step-past-edge')
-t = await tapsSince(before)
-check('a step past its task\'s edge: one firm tap', t.level === 1, JSON.stringify(t))
-await h.mouse.up(); await wait(600)
-const made = (await v('tasks')).find((one) => one.title === 'First coat' && one.status === 'open')
-check('dropped past the edge, a step is a task', !!made && (await task(lineIds.paint)).subtasks.length === 2)
-await h.keyboard.press('Meta+z'); await wait(600)
-check('⌘Z makes it a step again', (await task(lineIds.paint)).subtasks.length === 3 && !(await v('tasks')).some((one) => one.title === 'First coat' && one.status === 'open'))
-// Carried well to the left of where it sits: a task too, as ⇧⇥ makes one.
-from = await liftAt(stepRow(lineIds.paint, 2))
-await h.mouse.move(from.x + 60, from.y + 2, { steps: 3 })
-await h.mouse.move(from.x - 60, from.y + 2, { steps: 6 }); await wait(250)
-check('a step carried left says it becomes a task', /Make it a task/.test((await card())?.text ?? ''), (await card())?.text)
-await h.keyboard.press('Escape'); await wait(300); await h.mouse.up(); await wait(300)
-// Esc on a step.
-from = await liftAt(stepRow(lineIds.paint, 0))
-await h.mouse.move(from.x, from.y + 60, { steps: 5 }); await wait(200)
-await h.keyboard.press('Escape'); await wait(300); await h.mouse.up(); await wait(300)
-check('Esc puts a step back', (await task(lineIds.paint)).subtasks.map((one) => one.text).join() === 'Buy paint,Sand it,First coat')
-
-})
-// --- 5b. The Bin, a carried line's place, and Esc ending the whole press ---
-await part('After Esc', async () => {
-  // A nested task is no second copy in the Bin (Tab's way too).
-  const binned = async (title) => (await v('bin:list')).filter((one) => one.title?.startsWith(title)).length
-  const nestOne = await addLine('Nest me by drag')
-  const nestTab = await addLine('Nest me by Tab')
-  await h.reload(); await wait(1500); await c.go('today'); await wait(900)
-  const binBefore = (await v('bin:list')).length
-  let carried = await liftAt(headOf(nestOne))
-  const target = await headOf(lineIds.call).boundingBox()
-  await h.mouse.move(carried.x, target.y + target.height / 2, { steps: 8 }); await wait(800)
-  await h.mouse.up(); await wait(700)
-  check('a task made a step by drag is not in the Bin', (await binned('Nest me by drag')) === 0, `${await binned('Nest me by drag')}`)
-  check('the Bin\'s list did not grow', (await v('bin:list')).length === binBefore, `${binBefore} then ${(await v('bin:list')).length}`)
-  await h.keyboard.press('Meta+z'); await wait(600)
-  check('⌘Z: back as a line, still not in the Bin', (await line(nestOne).count()) === 1 && (await binned('Nest me by drag')) === 0)
-  // Old enough not to be new: a task added above, after a reload, is the kind that goes to status dropped.
-  const tabLine = h.locator(`[data-line-key="t:${nestTab}"]`)
-  await tabLine.scrollIntoViewIfNeeded()
-  const tabBox = await tabLine.boundingBox()
-  await h.mouse.click(tabBox.x + 20, tabBox.y + tabBox.height / 2); await wait(300)
-  await h.keyboard.press('Tab'); await wait(600)
-  check('a task made a step by Tab is not in the Bin', (await binned('Nest me by Tab')) === 0 && !(await task(nestTab) ?? { status: 'dropped' }).status?.startsWith('open'), `${await binned('Nest me by Tab')}`)
-  await h.keyboard.press('Meta+z'); await wait(600)
-
-})
-await part('A carried line\'s own place', async () => {
-  let carried
-  // The carried line's own place: the same whatever was picked or pressed before.
-  const look = () => h.evaluate(() => {
-    const own = document.querySelector('[data-carried-line] [data-sortable-id]')
-    const line = document.querySelector('[data-carried-line] [data-day-line]')
-    return { outline: own && getComputedStyle(own).outlineStyle, fill: line && getComputedStyle(line).backgroundColor }
-  })
-  carried = await liftAt(headOf(lineIds.call))
-  const plain = await look()
-  await h.keyboard.press('Escape'); await wait(200); await h.mouse.up(); await wait(200)
-  carried = await liftAt(headOf(lineIds.call))
-  const afterEsc = await look()
-  await shot('own-place-after-esc')
-  await h.keyboard.press('Escape'); await wait(200); await h.mouse.up(); await wait(200)
-  check('after an Esc, no ring on the carried line\'s own place', afterEsc.outline === 'none' && afterEsc.fill === plain.fill, JSON.stringify({ plain, afterEsc }))
-  // A line picked with the keys, then carried.
-  const pickBox = await headOf(lineIds.call).boundingBox()
-  await h.mouse.move(pickBox.x + 300, pickBox.y + 10); await wait(150)
-  await h.mouse.move(900, 860); await wait(100)
-  await h.evaluate(() => document.activeElement?.blur?.())
-  await h.keyboard.press('j'); await wait(120)
-  for (let n = 0; n < 8 && (await h.evaluate((id) => document.querySelector('[data-picked]')?.dataset.dayLine !== id, lineIds.call)); n++) { await h.keyboard.press('j'); await wait(100) }
-  const wasPicked = await h.evaluate((id) => document.querySelector('[data-picked]')?.dataset.dayLine === id, lineIds.call)
-  carried = await liftAt(headOf(lineIds.call))
-  const picked = await look()
-  await shot('own-place-picked')
-  await h.keyboard.press('Escape'); await wait(200); await h.mouse.up(); await wait(200)
-  await h.keyboard.press('Escape'); await wait(100)
-  check('a picked line carried: the same quiet place', wasPicked && picked.outline === 'none' && picked.fill === plain.fill, JSON.stringify({ wasPicked, picked, plain }))
-
+// --- 5. Today's list: a row carried into your own order, onto the Later and Upcoming tabs, and put back with Esc ---
+// (Today's written page is retired: its lines are the list's rows, which are dragged here.)
+const FILM = process.env.QA_SHOTS
+const rowOf = (id) => h.locator(`[data-task-row][data-id="${id}"]`).first()
+const order = () => h.evaluate(() => [...document.querySelectorAll('[data-task-row]')].map((one) => one.getAttribute('data-id')))
+const grab = async (id) => { const r = await rowOf(id).boundingBox(); return { x: r.x + 220, y: r.y + 14 } }
+/** Carried from a row to a point in steps of 50ms, filmed at each step when FILM is set; let go unless `hold`. */
+const carry = async (id, to, { name, hold = false } = {}) => {
+  const from = await grab(id)
+  await h.mouse.move(from.x, from.y); await h.mouse.down()
+  for (let i = 1; i <= 14; i++) {
+    await h.mouse.move(from.x + ((to.x - from.x) * i) / 14, from.y + ((to.y - from.y) * i) / 14)
+    await wait(50)
+    if (FILM && name) await h.screenshot({ path: `${FILM}/${name}-${String(i).padStart(2, '0')}.png` })
+  }
+  if (hold) return
+  await wait(150); await h.mouse.up(); await wait(1200)
+}
+await part("Today's list", async () => {
+  for (const task of await v('tasks')) if (task.status === 'open' && (task.dueAt || task.deadline)) await v('task:save', task.id, { status: 'dropped' })
+  lineIds = { paint: await addLine('Paint the fence'), call: await addLine('Call the bank'), read: await addLine('Read the lease'), post: await addLine('Post the parcel') }
+  await h.reload(); await wait(1500)
+  await c.go('today'); await wait(1200)
+  for (const look of ['light', 'dark']) {
+    await c.look(look); await wait(200)
+    const before = await order()
+    const last = before.at(-1)
+    const top = await rowOf(before[0]).boundingBox()
+    // Its own place, while carried: the gap stays faintly where it was, one lifted card follows the pointer.
+    await carry(last, { x: top.x + 220, y: top.y + 4 }, { name: `today-drag-${look}`, hold: true })
+    const lifted = await h.evaluate((id) => ({ place: !!document.querySelector(`[data-sortable-id="${id}"].mf-carried-place`), cards: document.querySelectorAll('[data-dnd-overlay], [data-carried]').length }), last)
+    check(`${look}: a carried task keeps its place faintly where it was`, lifted.place, JSON.stringify(lifted))
+    await wait(150); await h.mouse.up(); await wait(1200)
+    if (FILM) await h.screenshot({ path: `${FILM}/today-drag-${look}-dropped.png` })
+    const after = await order()
+    check(`${look}: dropped at the top, it is first, in your own order`, after[0] === last && after.length === before.length, `${before.join(',')} -> ${after.join(',')}`)
+    // Esc mid-drag puts it back where it was.
+    const was = await order()
+    await carry(was[2], { x: top.x + 220, y: top.y + 4 }, { hold: true })
+    await h.keyboard.press('Escape'); await wait(300); await h.mouse.up(); await wait(900)
+    check(`${look}: Esc mid-drag puts it back, nothing left faded`, (await order()).join() === was.join() && !(await h.locator('.mf-carried-place').count()), (await order()).join(','))
+  }
+  await c.look('light'); await wait(200)
+  // Onto the Later tab: someday; onto the Upcoming tab: tomorrow.
+  const tab = async (label) => { const r = await h.locator(`[data-page] header button[aria-label="${label}"]`).first().boundingBox(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 } }
+  await carry(lineIds.read, await tab('Later'))
+  const read = await task(lineIds.read)
+  check('dropped on the Later tab: off Today, in Later, someday', !(await order()).includes(lineIds.read) && read?.planFor === 'someday', JSON.stringify({ plan: read?.planFor, due: read?.dueAt }))
+  await carry(lineIds.post, await tab('Upcoming'))
+  const post = await task(lineIds.post)
+  const tomorrow = new Date(c.now()); tomorrow.setDate(tomorrow.getDate() + 1)
+  check('dropped on the Upcoming tab: off Today, due tomorrow', !(await order()).includes(lineIds.post) && !!post?.dueAt && new Date(post.dueAt).toDateString() === tomorrow.toDateString(), JSON.stringify({ due: post?.dueAt }))
 })
 await part('Esc ends the whole press', async () => {
   if (!lineIds.call) {
     for (const old of await v('tasks')) if (old.status === 'open' && (old.dueAt || old.deadline)) await v('task:save', old.id, { status: 'dropped' })
-    lineIds = { paint: await addLine('Paint the fence', ['Buy paint', 'Sand it', 'First coat']), call: await addLine('Call the bank') }
+    lineIds = { paint: await addLine('Paint the fence'), call: await addLine('Call the bank') }
   }
-  await h.evaluate(() => localStorage.setItem('view:tasks:today', JSON.stringify({ sort: 'manual', group: 'page' })))
   await h.reload(); await wait(1500); await c.go('today'); await wait(900)
   // Esc while held, moving on: one Esc ends the whole press, for every drag that has Esc.
   const clean = () => h.evaluate(() => ({ cards: [...document.querySelectorAll('[data-carried-card], [data-ghost], [data-lifted], [data-folder-ghost], [data-split-card], [data-cal-carried]')].filter((one) => one.getClientRects().length).length, strips: document.querySelectorAll('[data-split-zone]').length, split: 'splitDrag' in document.documentElement.dataset, dragging: 'dragging' in document.documentElement.dataset }))
@@ -479,8 +371,7 @@ await part('Esc ends the whole press', async () => {
     check(`Esc: ${name}: nothing carried, and moving on while held starts nothing`, !first.cards && !first.dragging && !moved.cards && !moved.strips && !moved.split && !moved.dragging, JSON.stringify({ first, moved }))
   }
   const centreOf = (loc, dx = 200) => async () => { const r = (await loc.count()) ? await loc.first().boundingBox() : null; return r && { x: r.x + Math.min(dx, r.width / 2), y: r.y + r.height / 2 } }
-  await esc('a line', centreOf(headOf(lineIds.call), 6))
-  await esc('a step', centreOf(stepRow(lineIds.paint, 1), 6))
+  await esc('a row on Today', centreOf(rowOf(lineIds.call), 220))
   await c.go('articles'); await wait(700)
   await scene()
   await esc('a row in a group', centreOf(row('Cedar')))
@@ -504,7 +395,6 @@ await part('Esc ends the whole press', async () => {
   await esc('a task on the Calendar', centreOf(h.locator('[data-cal-loose]'), 40), { far: 40, lifts: false })
   await c.go('monthpage'); await wait(900)
   await esc('a line in the Month plan', centreOf(h.locator('[data-plan-task]'), 20))
-  await h.evaluate(() => localStorage.setItem('view:tasks:today', JSON.stringify({ sort: 'manual', group: 'page' })))
   await h.reload(); await wait(1500); await c.go('today'); await wait(900)
 })
 
