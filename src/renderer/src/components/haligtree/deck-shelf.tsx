@@ -29,7 +29,7 @@ import { EASE, still } from '@/lib/motion'
 import { PileEdges } from './deck-pile'
 import { OnceHint } from './page-hint'
 import { quoted } from '../../../../main/clip'
-import { heroOpen } from '@/lib/hero'
+import { heroAround, heroOpen } from '@/lib/hero'
 
 type Topic = { deck: string; label: string; cards: number; held: number }
 export type Shelf = { name: string; cover: string | null; sample: string; pictures: number; cards: number; fresh: number; due: number; held: number; shown: boolean; topics: Topic[] }
@@ -628,12 +628,12 @@ function DeckList({ own, shelves, onStudy, place = {}, menu, fresh = null, renam
     const at = (): HTMLElement | null => document.querySelector<HTMLElement>(`[data-deck-row="${CSS.escape(key)}"]`)
     const line = (
     // The whole row lights under the pointer and studies on a click, as the rows of Sources' islands do: never a pill behind the name alone.
-    <div key={key} data-deck-row={key} onClick={study ? (event) => void ((event.target as HTMLElement).closest('button, input') || (chime('riffle'), study())) : undefined}
+    <div key={key} data-deck-row={key} onClick={study ? (event) => void ((event.target as HTMLElement).closest('button, input') || (chime('riffle'), heroOpen(event, study))) : undefined}
       className={`${cols} min-h-8 rounded-[3px] px-1.5 text-control hover:bg-accent/60 focus-within:bg-accent/60 ${study ? 'cursor-pointer' : ''}`}>
       <span className="flex min-w-0 items-center gap-1">
         <Fold id={key} kids={kids} open={!shut.has(key)} name={name} flip={() => flip(key)} />
         {renaming === key && onNamed ? <NameInPlace initial={name} placeholder="Name the deck" label="Deck name" onDone={onNamed} className={`${ROW_NAME} flex-1`} />
-          : study ? <button type="button" data-deck-row-study={key} onClick={() => (chime('riffle'), study())} className="line-clamp-2 min-w-0 cursor-pointer rounded-[4px] px-1 text-left text-foreground outline-none hyphens-auto [overflow-wrap:break-word]">{name}</button>
+          : study ? <button type="button" data-deck-row-study={key} onClick={(event) => (chime('riffle'), heroOpen(heroAround(event, '[data-deck-row]'), study))} className="line-clamp-2 min-w-0 cursor-pointer rounded-[4px] px-1 text-left text-foreground outline-none hyphens-auto [overflow-wrap:break-word]">{name}</button>
           : <span className="line-clamp-2 min-w-0 px-1 text-muted-foreground hyphens-auto [overflow-wrap:break-word]">{name}</span>}
       </span>
       <span className={`flex items-center justify-end gap-1.5 tabular-nums ${due > 0 ? 'font-semibold text-foreground' : 'text-muted-foreground/60'}`}>{due > 0 && <span aria-hidden className="size-1.5 rounded-full shrink-0 bg-primary" />}{due < 0 ? '–' : num(due)}</span>

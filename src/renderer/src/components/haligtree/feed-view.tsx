@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useStepped } from '@/lib/nav'
+import { heroAround, heroOpen } from '@/lib/hero'
 import { hoverNote, hoverThought } from './note-preview'
 import { ArrowLeft, ArrowUpRight, Check, FileText, Heart, CornerDownRight, EyeOff, ImageDown, MessageCircle, Repeat2, RefreshCcw, Share, Trash2, X } from 'lucide-react'
 
@@ -672,7 +673,7 @@ export function Post({ post, onOpen, onOpenOther, onThread, alone = false, joine
           {quote ? (
             // The quote is its own way in: a click anywhere on it opens the note it is, as a title does.
             <figure data-feed-quote role="link" tabIndex={0} aria-label={`Open the quote${post.who ? ` by ${post.who}` : ''}`}
-              onClick={(event) => !(event.target as HTMLElement).closest('a, button') && window.getSelection()?.isCollapsed !== false && onOpen()}
+              onClick={(event) => !(event.target as HTMLElement).closest('a, button') && window.getSelection()?.isCollapsed !== false && heroOpen(heroAround(event, 'li'), onOpen)}
               onKeyDown={(event) => event.key === 'Enter' && (event.preventDefault(), onOpen())}
               className="cursor-pointer rounded-lg border bg-accent/25 px-4 py-3 transition-colors hover:border-foreground/20 hover:bg-accent/40 focus-visible:outline-2 focus-visible:outline-ring">
               <blockquote className="font-serif text-reading whitespace-pre-line hyphens-auto [overflow-wrap:break-word] text-foreground line-clamp-[10]"><Linked text={words} links={post.links} onOpen={onOpenOther} /></blockquote>
@@ -689,7 +690,7 @@ export function Post({ post, onOpen, onOpenOther, onThread, alone = false, joine
             </figure>
           ) : (
             <>
-              <button type="button" data-feed-title onClick={onOpen} className="w-fit rounded-sm text-left text-body font-semibold hyphens-auto [overflow-wrap:break-word] text-foreground underline-offset-2 hover:underline">{title}</button>
+              <button type="button" data-feed-title onClick={(event) => heroOpen(heroAround(event, 'li'), onOpen)} className="w-fit rounded-sm text-left text-body font-semibold hyphens-auto [overflow-wrap:break-word] text-foreground underline-offset-2 hover:underline">{title}</button>
               {post.type !== 'question' && text && <p className="line-clamp-[8] text-body leading-relaxed whitespace-pre-line hyphens-auto [overflow-wrap:break-word] text-foreground/90"><Linked text={text} links={post.links} onOpen={onOpenOther} /></p>}
             </>
           )}

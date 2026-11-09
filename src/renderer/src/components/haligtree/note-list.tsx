@@ -14,6 +14,7 @@ import { notes, smallPicture, useThumb, type NoteTable } from '@/lib/notes'
 import { openApart } from '@/lib/apart'
 import { useLive } from '@/lib/haligtree'
 import { chime } from '@/lib/sound'
+import { besideNote, heroOpen } from '@/lib/hero'
 import { LeavingPicture, PictureLeaving, useLeaving } from './picture-leaving'
 import { RowMenu, type RowItem } from './row-menu'
 import { SortableList, SortableRow } from './sortable'
@@ -506,7 +507,9 @@ export function NoteList({
           if (event.metaKey && !picking) return canSplit() ? openNewTab(entry.type, entry.id) : openApart(entry.type, entry.id)
           if (picking?.click(event, entry.id)) return
           onCursor?.(index)
-          onPick(entry.id)
+          // A note opening beside the list grows out of its row (lib/hero.ts); the one already open stays as it is.
+          if (open) onPick(entry.id)
+          else heroOpen(event, () => onPick(entry.id), ...besideNote(entry.id))
         }}
         onDoubleClick={onOpen ? () => onOpen(entry.id) : undefined}
         className={

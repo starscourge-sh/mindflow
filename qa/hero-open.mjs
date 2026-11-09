@@ -1,14 +1,20 @@
 // Something clicked grows into what it opens and shrinks back on the way out
 // (lib/hero.ts): a book's cover on Files' shelf and in "Continue reading" into
 // the reader, a note's tile on Home into the note, a picture into its viewer,
-// a deck into studying, a Calendar event into its side form. For each, a click
-// runs one view transition whose frame starts on the clicked thing's rect, in
-// about 250ms (200ms back); by a key, ⌘K, Reduce motion or Motion off there is
-// none; a fast double click and a click mid-flight still land. Frames of one
-// open and one close are written, paused every 50ms, to look at.
+// a deck into studying, a Calendar event into its side form, and (part 4) every
+// way in the user clicks: Home's pinned rows, "Jump back in", "Coming back" and
+// "Continue reading", a Feed post, a face in Sources, Files' Recent row and
+// shelves, a book's cover, a note row in Writing, a deck row in Review's list.
+// For each, a press runs one flight whose sheet starts on the clicked thing's
+// rect and is moving within 150ms of the press, in 260ms (220ms back), and
+// melts only once the new page is on show; by a key, ⌘K, Reduce motion or
+// Motion off there is none; a fast double click and a click mid-flight still
+// land. Frames of each, every 50ms, are written to look at. Run it on a
+// development build too (StrictMode, React's slow build), where a page takes
+// longest to build:
 //
-//   npx electron-vite build --outDir out-he
-//   QA_ARGS=--sandbox QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-he/main/index.js HALIGTREE_QA_AWAY=1 node qa/hero-open.mjs [shots-dir]
+//   npx electron-vite build --config electron.vite.dev-qa.config.ts --outDir out-hd
+//   QA_ARGS=--sandbox QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-hd/main/index.js HALIGTREE_QA_AWAY=1 node qa/hero-open.mjs [shots-dir|-] [part]
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
 
@@ -23,38 +29,45 @@ const c = await sandbox({ width: 1200, height: 800 })
 const { h, go } = c
 h.on('console', (m) => m.text().startsWith('HERO') && console.log(m.text()))
 
-// Every view transition the window starts, and for one of ours its frame's first and last keyframes and its length.
+// Every flight the window starts (lib/hero.ts lays a sheet, `[data-hero-card]`, and moves it): its kind, the rect
+// it starts on and ends on, its length and curve, how long after the press it was moving (`wait`), and whether the
+// page under it was on show (not the old one held, page-swap.tsx) as it melted away.
 const install = () => h.evaluate(() => {
   window.__hero = []
   if (window.__heroWrapped) return
   window.__heroWrapped = true
   // Where the clicked thing is as it is clicked (a cover lifts a little under the pointer).
-  const KEY = '[data-book],[data-drag-open],[data-deck],[data-cal-event],[data-cal-event-chip],[data-still-picture]'
+  const KEY = '[data-book],[data-drag-open],[data-deck],[data-deck-row],[data-face],[data-pile],[data-recent-file],[data-resume],[data-row],[data-cal-event],[data-cal-event-chip],[data-still-picture]'
+  addEventListener('pointerdown', () => void (window.__down = performance.now()), true)
   for (const type of ['click', 'dblclick']) addEventListener(type, (event) => {
     const el = event.target.closest?.(KEY)
     if (el) { const r = el.getBoundingClientRect(); window.__clicked = { x: r.x, y: r.y, w: r.width, h: r.height } }
   }, true)
-  const start = document.startViewTransition.bind(document)
-  document.startViewTransition = (update) => {
-    const turn = start(update)
-    const one = { kind: document.documentElement.dataset.hero ?? null, skipped: false }
-    window.__hero.push(one)
-    turn.ready.then(() => {
-      const group = document.getAnimations().find((a) => a.effect?.pseudoElement === '::view-transition-group(mf-hero)')
-      if (!group) return void (one.group = null)
-      const frames = group.effect.getKeyframes()
-      // A 2D matrix, or a 3D one (a tile leaning under the pointer, lean.tsx).
-      const box = (k) => { const m = /matrix(3d)?\(([^)]+)\)/.exec(k.transform ?? ''); const n = m?.[2].split(',').map(Number); const [x, y] = m?.[1] ? [n[12], n[13]] : [n?.[4], n?.[5]]; return { x, y, w: parseFloat(k.width), h: parseFloat(k.height) } }
-      const named = [...document.querySelectorAll('*')].find((el) => el.style.viewTransitionName === 'mf-hero')
-      const r = named?.getBoundingClientRect()
-      one.to = r && { x: r.x, y: r.y, w: r.width, h: r.height }
-      one.from = window.__clicked
-      one.group = { ms: group.effect.getComputedTiming().duration, ease: group.effect.getComputedTiming().easing, first: box(frames[0]), last: box(frames.at(-1)) }
-    }, () => void (one.skipped = true))
-    return turn
-  }
+  const box = (s) => { const [x, y, w, h] = (s ?? '').split(',').map(Number); return s ? { x, y, w, h } : null }
+  new MutationObserver((changes) => {
+    for (const change of changes) {
+      for (const el of change.addedNodes) {
+        if (!(el instanceof HTMLElement) || !el.hasAttribute('data-hero-card')) continue
+        const move = el.getAnimations()[0]
+        // `made`: the press to the sheet laid (the page's own work on a press comes first).
+        const one = { kind: el.dataset.heroCard, from: window.__clicked, el, made: Math.round(performance.now() - (window.__down ?? performance.now())) }
+        window.__hero.push(one)
+        if (window.__pause) { move.pause(); move.currentTime = 0; window.__pause = false }
+        const t = move.effect.getComputedTiming()
+        one.group = { ms: t.duration, ease: move.effect.getTiming().easing, first: box(el.dataset.from), last: box(el.dataset.to) }
+        void move.ready.then(() => void (one.wait = Math.round(performance.now() - (window.__down ?? performance.now()))))
+      }
+      for (const el of change.removedNodes) {
+        const one = window.__hero.find((f) => f.el === el)
+        if (!one) continue
+        one.group.last = box(el.dataset.to)
+        one.shown = !document.querySelector('[data-pane-card] [data-page-held]')
+        delete one.el
+      }
+    }
+  }).observe(document.body, { childList: true })
 })
-const log = () => h.evaluate(() => window.__hero)
+const log = () => h.evaluate(() => window.__hero.map(({ el, ...one }) => one))
 const rectOf = (sel) => h.evaluate((s) => { const el = document.querySelector(s); if (!el) return null; const r = el.getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height } }, sel)
 const near = (a, b, by = 3) => !!a && !!b && ['x', 'y', 'w', 'h'].every((k) => Math.abs(a[k] - b[k]) <= by)
 const say = (r) => r ? `${Math.round(r.x)},${Math.round(r.y)} ${Math.round(r.w)}x${Math.round(r.h)}` : 'none'
@@ -67,37 +80,33 @@ async function flew(name, kind, at, ms) {
   const runs = (await log()).filter((one) => one.kind === kind)
   const one = runs.at(-1)
   const end = kind === 'open' ? one?.group?.first : one?.group?.last
-  check(`${name}: one ${kind} flight ran`, runs.length === 1 && !!one?.group, JSON.stringify(runs.map((r) => ({ skipped: r.skipped, group: !!r.group }))))
-  check(`${name}: about ${ms}ms on the app's strong ease-out`, one?.group && Math.abs(one.group.ms - ms) < 1, `${one?.group?.ms}ms`)
+  check(`${name}: one ${kind} flight ran`, runs.length === 1 && !!one?.group, JSON.stringify(runs))
+  check(`${name}: about ${ms}ms, in and out`, one?.group && Math.abs(one.group.ms - ms) < 1 && /cubic-bezier\(0\.4, 0, 0\.2, 1\)/.test(one.group.ease), `${one?.group?.ms}ms ${one?.group?.ease}`)
   // Opening, the thing as it was clicked; closing, the thing it lands on, as the page came back.
-  const thing = kind === 'open' ? one?.from ?? at : one?.to ?? at
-  check(`${name}: the frame ${kind === 'open' ? 'starts on the clicked thing' : 'ends on the thing it came from'}`, near(end, thing), `frame ${say(end)}, thing ${say(thing)}`)
+  const thing = kind === 'open' ? one?.from ?? at : at
+  check(`${name}: the sheet ${kind === 'open' ? 'starts on the clicked thing' : 'ends on the thing it came from'}`, near(end, thing, 4), `sheet ${say(end)}, thing ${say(thing)}`)
+  if (kind === 'open') check(`${name}: it melts only once the new page is on show`, one?.shown === true)
   return one
 }
 
-/** Frames of the flight about to start, paused every 50ms: `act` starts it. */
+/**
+ * Frames of the flight about to start, every 50ms: `act` starts it, the sheet
+ * is held at its start, and each 50ms is laid down and pictured (the page under
+ * it opens on the flight's own clock, so it keeps in step).
+ */
 async function film(label, act) {
   if (!shots) return act()
   await h.evaluate(() => { window.__pause = true })
-  await h.evaluate(() => {
-    const was = document.startViewTransition
-    document.startViewTransition = (update) => {
-      const turn = was(update)
-      // Held at the start, so each 50ms can be laid down and pictured.
-      turn.ready.then(() => document.getAnimations().filter((a) => a.effect?.pseudoElement?.startsWith('::view-transition')).forEach((a) => (a.pause(), (a.currentTime = 0)))).catch(() => {})
-      document.startViewTransition = was
-      return turn
-    }
-  })
   await act()
-  await h.waitForTimeout(400)
+  await h.waitForTimeout(150)
   for (let t = 0; t <= 300; t += 50) {
-    await h.evaluate((ms) => document.getAnimations().filter((a) => a.effect?.pseudoElement?.startsWith('::view-transition')).forEach((a) => (a.currentTime = ms)), t)
-    await h.waitForTimeout(60)
+    await h.evaluate((ms) => document.querySelector('[data-hero-card]')?.getAnimations().forEach((a) => (a.currentTime = Math.min(ms, a.effect.getComputedTiming().endTime - 1))), t)
+    // Long enough for a page opened at this point to be built, even in a development build.
+    await h.waitForTimeout(t === 100 || t === 150 ? 700 : 120)
     await h.screenshot({ path: `${shots}/${label}-${String(t).padStart(3, '0')}.png` })
   }
-  await h.evaluate(() => document.getAnimations().filter((a) => a.effect?.pseudoElement?.startsWith('::view-transition')).forEach((a) => a.finish()))
-  await settle(400)
+  await h.evaluate(() => { window.__pause = false; document.querySelector('[data-hero-card]')?.getAnimations().forEach((a) => a.play()) })
+  await settle(900)
 }
 
 // Books and pictures of its own in the sandbox's store: 3 PDFs, two part way through ("Continue reading"), and 6 pictures.
@@ -163,13 +172,13 @@ await settle(1200)
   await settle()
   const opened = await h.evaluate(() => document.querySelector('[data-page]')?.getAttribute('data-page'))
   check('Books: the shelf\'s cover opens the reader', opened === 'pdf', opened)
-  await flew('Books', 'open', at, 250)
+  await flew('Books', 'open', at, 260)
   const page = await card()
   check('Books: it grows into the pane\'s page', near((await log()).at(-1)?.group?.last, page), say(page))
   await install()
   await film('book-close', back)
   const after = await rectOf(`[data-book="${src}"]`)
-  await flew('Books, back', 'close', after, 200)
+  await flew('Books, back', 'close', after, 220)
   // The same flight in a dark theme, filmed, for its mid-flight frame beside the light one.
   if (shots) {
     await c.look('dark')
@@ -255,12 +264,12 @@ if (runs(2)) {
   await film('note-open', () => h.locator(`[data-pane-card] [data-drag-open="${key}"]`).first().click())
   await settle()
   check('Notes: a tile on Home opens its note', (await h.evaluate(() => document.querySelector('[data-page]')?.getAttribute('data-page'))) !== 'home', key)
-  await flew('Notes', 'open', at, 250)
+  await flew('Notes', 'open', at, 260)
   await install()
   await film('note-close', back)
   await settle(300)
   const after = await rectOf(`[data-pane-card] [data-drag-open="${key}"]`)
-  await flew('Notes, back', 'close', after, 200)
+  await flew('Notes, back', 'close', after, 220)
 }
 
 // Not by a key: the same tile, Enter on it.
@@ -328,7 +337,7 @@ for (const [name, on, off] of [
   await h.locator('[data-tab-step="back"]').first().click()
   await settle()
   check('A click on Back 80ms into the flight lands: Home again', (await h.evaluate(() => document.querySelector('[data-page]')?.getAttribute('data-page'))) === 'home', JSON.stringify(await log()))
-  check('…and the window takes input again (no transition left on)', await h.evaluate(() => !document.documentElement.dataset.hero && document.getAnimations().every((a) => !a.effect?.pseudoElement?.startsWith('::view-transition'))))
+  check('…and the window takes input again (no sheet left over it)', await h.evaluate(() => !document.documentElement.dataset.hero && !document.querySelector('[data-hero-card]')))
 }
 
 }
@@ -343,11 +352,11 @@ if (runs(3)) {
   await film('deck-open', () => h.locator(`[data-deck="${id}"]`).first().click())
   await settle()
   check('Decks: a deck opens studying', await h.evaluate(() => !!document.querySelector('[data-review-card], [data-study]') || !document.querySelector('[data-deck-shelf]')), id)
-  await flew('Decks', 'open', at, 250)
+  await flew('Decks', 'open', at, 260)
   await install()
   await back()
   const after = await rectOf(`[data-deck="${id}"]`)
-  await flew('Decks, back', 'close', after, 200)
+  await flew('Decks, back', 'close', after, 220)
 }
 
 // 5. A Calendar event: a double click grows it into the side form; its close shrinks it back.
@@ -368,15 +377,84 @@ if (runs(3)) {
     await film('event-open', () => h.locator(sel).first().dblclick())
     await settle()
     check('Calendar: the event\'s side form is open', await h.evaluate(() => !!document.querySelector('[data-day-side="event"]')))
-    await flew('Calendar', 'open', at, 250)
+    await flew('Calendar', 'open', at, 260)
     const form = await rectOf('[data-day-side="event"]')
     check('Calendar: it grows into the side form', near((await log()).find((r) => r.kind === 'open')?.group?.last, form), say(form))
     await install()
     await film('event-close', () => h.locator('[data-day-side-close]').first().click())
     await settle()
     check('Calendar: closed', await h.evaluate(() => !document.querySelector('[data-day-side="event"]')))
-    await flew('Calendar, back', 'close', await rectOf(sel), 200)
+    await flew('Calendar, back', 'close', await rectOf(sel), 220)
   }
+}
+
+// 6. Every way in the user clicks, by a real pointer (the mouse moved to the thing and pressed): a flight runs,
+// starts on the thing, holds the old picture only briefly (`wait`, the press to the first moving frame), and
+// Back shrinks it home. Frames of each, every 50ms, are written to look at.
+if (runs(4)) {
+  const surfaces = [
+    { name: 'Home, pinned', view: 'home', under: 'Pinned, and what you opened lately', sel: '[data-drag-open]' },
+    { name: 'Home, Jump back in', view: 'home', under: 'Jump back in', sel: '[data-drag-open]' },
+    { name: 'Home, Coming back', view: 'home', under: 'Coming back', sel: '[data-drag-open]' },
+    { name: 'Home, Continue reading', view: 'home', sel: '[data-pane-card] [data-reading-row]', canvas: true },
+    { name: 'Feed, a post', view: 'feed', sel: '[data-pane-card] li[data-feed-post] [data-feed-title], [data-pane-card] li[data-feed-post] [data-feed-quote]' },
+    { name: 'Sources, a face', view: 'sources', sel: '[data-pane-card] [data-face]' },
+    { name: 'Files All, Recent', view: 'media', kind: 'All', sel: '[data-pane-card] [data-recent-file="pdf"]' },
+    { name: 'Files All, a shelf', view: 'media', kind: 'All', sel: '[data-pane-card] [data-pile]' },
+    { name: 'Files Books, a cover', view: 'media', kind: 'Books', sel: '[data-pane-card] [data-library] [data-book]', dbl: true },
+    { name: 'Files Books, Continue reading', view: 'media', kind: 'Books', sel: '[data-pane-card] [data-shelf-continue] [data-reading-row]', canvas: true },
+    { name: 'Writing, a note row', view: 'articles', sel: '[data-pane-card] [data-list-space] [data-row]', beside: true },
+    { name: 'Review, a deck row', view: 'review', list: true, sel: '[data-pane-card] [data-deck-row]' }
+  ]
+  const only = process.env.HERO_ONLY
+  for (const one of surfaces.filter((s) => !only || s.name.toLowerCase().includes(only.toLowerCase()))) {
+    await go(one.view)
+    await settle(1000)
+    if (one.kind) { await h.locator('[data-media-kinds] button', { hasText: new RegExp(`^${one.kind}$`) }).first().click().catch(() => {}); await settle(1000) }
+    if (one.list) { await h.locator('[data-deck-look-to="list"]').first().click().catch(() => {}); await settle(800) }
+    // The thing to click, marked so it is found again: the first shown, under its heading when it has one.
+    const found = await h.evaluate(([sel, under]) => {
+      document.querySelector('[data-hero-probe]')?.removeAttribute('data-hero-probe')
+      const card = document.querySelector('[data-pane-front] > [data-pane-card], [data-pane] > [data-pane-card]')
+      let room = card
+      if (under) {
+        const head = [...card.querySelectorAll('h2, h3, h4, [data-heading], span, p')].find((one) => one.textContent.trim().startsWith(under) && one.children.length <= 2)
+        room = head; while (room && room !== card && !room.querySelector(sel)) room = room.parentElement
+      }
+      const el = room && [...room.querySelectorAll(sel)].find((el) => el.getBoundingClientRect().height > 8)
+      if (!el) return false
+      el.setAttribute('data-hero-probe', '')
+      const b = el.getBoundingClientRect()
+      if (b.top < 90 || b.bottom > innerHeight - 70) el.scrollIntoView({ block: 'center' })
+      return true
+    }, [one.sel.replace(/\[data-pane-card\] /g, ''), one.under])
+    if (!found) { check(`${one.name}: there to click`, false, one.sel); continue }
+    await settle(400)
+    const r = await rectOf('[data-hero-probe]')
+    const page = await h.evaluate(() => document.querySelector('[data-page]')?.getAttribute('data-page'))
+    await install()
+    // A real pointer: moved there, then pressed and let go (twice for a double click).
+    const x = one.canvas ? r.x + Math.min(70, r.w / 4) : r.x + Math.min(r.w / 2, 60)
+    const y = r.y + Math.min(r.h / 2, 14)
+    await h.mouse.move(x, y)
+    await settle(150)
+    await film(`s-${one.name.replace(/\W+/g, '-').toLowerCase()}`, () => h.mouse.click(x, y, { clickCount: one.dbl ? 2 : 1 }))
+    await settle(1500)
+    const flights = (await log()).filter((f) => f.kind === 'open')
+    const f = flights.at(-1)
+    console.log(`  ${one.name}: ${flights.length} open, ${f?.skipped ? 'skipped' : f?.group ? `frame ${say(f.group.first)} -> ${say(f.group.last)}, ${f.group.ms}ms, moving ${f.wait}ms after the press (laid at ${f.made}ms), page on show as it melted: ${f.shown}` : 'no frame'}`)
+    check(`${one.name}: a click grows it open`, flights.length === 1 && !!f?.group, JSON.stringify(flights))
+    check(`${one.name}: from where it was clicked`, !!f?.group && (one.canvas ? f.group.first.x >= r.x - 2 && f.group.first.x + f.group.first.w <= r.x + r.w + 2 : near(f.group.first, f.from ?? r, 4)), `frame ${say(f?.group?.first)}, thing ${say(f?.from ?? r)}`)
+    check(`${one.name}: it moves at once (within 60ms of the click reaching it)`, f?.wait != null && f.wait - f.made < 60, `${f?.wait - f?.made}ms, the page itself took ${f?.made}ms to answer the press`)
+    check(`${one.name}: it melts only once the new page is on show`, f?.shown === true)
+    if (one.beside) continue
+    await install()
+    await back()
+    const closes = (await log()).filter((f) => f.kind === 'close')
+    check(`${one.name}: Back shrinks it home, onto where it is`, closes.length === 1 && near(closes[0].group.last, await rectOf('[data-hero-probe]') ?? closes[0].group.last, 4), JSON.stringify(closes))
+    check(`${one.name}: and the page is back`, (await h.evaluate(() => document.querySelector('[data-page]')?.getAttribute('data-page'))) === page)
+  }
+  await h.evaluate(() => localStorage.removeItem('haligtree:deck-look'))
 }
 
 check('no errors in the window', c.errors.filter((e) => !/ResizeObserver|favicon|Failed to load resource/.test(e)).length === 0, c.errors.slice(0, 3).join(' | '))

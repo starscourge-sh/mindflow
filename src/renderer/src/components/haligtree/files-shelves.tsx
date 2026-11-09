@@ -3,6 +3,7 @@ import './files.css'
 import { smallPicture } from '@/lib/notes'
 import { usePdfCover } from '@/components/pdf/pdf-cover'
 import { chime } from '@/lib/sound'
+import { heroOpen } from '@/lib/hero'
 import { realMove } from '@/lib/real-move'
 import { VirtualList } from './ui'
 import { RowMenu, type RowItem } from './row-menu'
@@ -78,7 +79,7 @@ export function Pile({ shelf, files, onOpen }: { shelf: (typeof SHELVES)[number]
   const heard = useRef(false)
   const book = shelf.id === 'pdf'
   return (
-    <button type="button" data-pile={shelf.id} data-count={files.length} onClick={() => (chime('open'), onOpen())}
+    <button type="button" data-pile={shelf.id} data-count={files.length} onClick={(event) => (chime('open'), heroOpen(event, onOpen))}
       onPointerMove={(event) => { if (!heard.current && realMove(event)) (heard.current = true), chime('fan') }}
       onPointerLeave={() => (heard.current = false)}
       className="files-pile group/pile flex w-[82%] max-w-[280px] min-w-0 cursor-pointer flex-col gap-2.5 text-left outline-none">

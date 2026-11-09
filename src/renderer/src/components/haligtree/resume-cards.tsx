@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { ProgressBar } from './progress-bar'
 import { call, useLive } from '@/lib/haligtree'
 import { chime } from '@/lib/sound'
+import { heroOpen } from '@/lib/hero'
 import { articlesOnTheGo } from '@/lib/note-place'
 import { openArticle } from '@/components/pdf/pdf-reader'
 import { num, plural } from '../../../../main/dates'
@@ -75,9 +76,9 @@ function ArticleCover({ href, picture }: { href: string; picture?: string | null
   return <Cover kind="article" seed={href} picture={picture} icon={icon} />
 }
 
-function Card({ cover, title, where, onOpen, data, share }: { cover: React.ReactNode; title: string; where: string; onOpen: () => void; data: string; /** How far through, 0 to 1, drawn as a book's track is. */ share?: number }): React.JSX.Element {
+function Card({ cover, title, where, onOpen, data, share, grows = true }: { cover: React.ReactNode; title: string; where: string; onOpen: () => void; data: string; /** It opens a page here, so it grows into it (lib/hero.ts); a draft opens in its own window. */ grows?: boolean; /** How far through, 0 to 1, drawn as a book's track is. */ share?: number }): React.JSX.Element {
   return (
-    <button type="button" className="continue-book" data-resume={data} onClick={() => (chime('open'), onOpen())}>
+    <button type="button" className="continue-book" data-resume={data} onClick={(event) => (chime('open'), grows ? heroOpen(event, onOpen) : onOpen())}>
       {cover}
       <span className="continue-book-words">
         <span className="continue-book-title">{title}</span>
@@ -117,7 +118,7 @@ export function useResumeCards(onView: (id: string) => void): React.ReactNode[] 
     ),
     draft && (
       <Card key="draft" data="draft" cover={<Cover kind="draft" seed={`draft-${draft.slice(0, 20)}`} />} title={draft.length > 60 ? `${draft.slice(0, 60).trim()}…` : draft}
-        where="A draft in quick capture" onOpen={() => window.api.showPrompt()} />
+        where="A draft in quick capture" grows={false} onOpen={() => window.api.showPrompt()} />
     ),
     ...articles.map((one) => (
       <Card key={one.href} data="article" cover={<ArticleCover href={one.href} picture={one.picture} />} title={one.title}

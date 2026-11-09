@@ -8,6 +8,7 @@ import { openLook } from '@/components/image/image-look'
 import { Button } from '@/components/ui/button'
 import { kindOf } from '@/components/capture-kinds/capture-kind-picker'
 import { chime } from '@/lib/sound'
+import { heroOpen } from '@/lib/hero'
 import { call, unloaded, useLive, haligtree } from '@/lib/haligtree'
 import { UNATTRIBUTED, VOICE_TINT, askRename, openSource, pageRef, readFocus, sources, type SourceField, type SourceItem, type SourceSummary, type Voice } from '@/lib/sources'
 import { Avatar } from './avatar'
@@ -736,7 +737,7 @@ function FaceGrid({ people, title = 'People' }: { people: SourceSummary[]; title
       <div className="grid gap-x-2 gap-y-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(10rem, 1fr))' }}>
         {people.map((one) => (
           <PersonMenu key={one.name} name={one.name} work={one.work ?? ''}>
-            <button type="button" data-face={one.name} onClick={() => (chime('page'), openSource('attribution', one.name))}
+            <button type="button" data-face={one.name} onClick={(event) => (chime('page'), heroOpen(event, () => openSource('attribution', one.name)))}
               className="group flex min-w-0 flex-col items-center gap-2 rounded-xl p-3 text-center transition-colors duration-100 hover:bg-accent/60 focus-visible:ring-2 focus-visible:ring-ring">
               <Avatar name={one.name} size={128} className="transition-transform duration-200 group-hover:scale-[1.03]" />
               <span {...hoverNote('person', one.name)} className="w-full truncate text-body font-semibold text-foreground">{one.name}</span>
