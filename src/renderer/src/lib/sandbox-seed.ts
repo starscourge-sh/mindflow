@@ -1942,9 +1942,11 @@ A whole town painted with nobody in it. I stood in front of it for twenty minute
     ['Why can nothing go faster than light?', 'The faster a thing goes, the more energy each bit more speed costs; at the speed of light it would cost an endless amount.', 1, 0]
   ]
   for (const [tag, cards, color] of [['greek-myth', myth, 'blue'], ['painters', painters, 'orange'], ['other-worlds', lore, 'yellow'], ['physics', physics, 'green']] as const) {
-    for (const [prompt, answer, made, reviews, missed] of cards) await deckCard(tag, prompt, answer, made, reviews, missed)
+    // Leonardo's cards sit in a deck of their own inside Painters, as Anki's Parent::Child decks come in.
+    for (const [prompt, answer, made, reviews, missed] of cards) await deckCard(tag === 'painters' && /Leonardo|Vitruvian|Last Supper|Mona Lisa/.test(prompt + answer) ? 'painters-leonardo' : tag, prompt, answer, made, reviews, missed)
     await call('tag:set', tag, { color })
   }
+  await call('tag:set', 'painters-leonardo', { deck: true, color: 'orange' })
 
   // --- a person page for Wilde, and a line of his kept on it -----------------------------
   await call('source:set', 'attribution', 'Oscar Wilde', 'Poet, playwright and wit. One novel, The Picture of Dorian Gray, and the preface he wrote for it is a list of fights he wanted to pick. Died in Paris at forty-six.')
@@ -2088,7 +2090,11 @@ My notes for it: ${link(creatureReads, "The creature's three books", 'article')}
   // On a developer's own Mac, a few of their books and paintings as well; never in a packaged app.
   await call('sandbox:local-library')
 
-  // Opened this morning, so Home's first tiles are the Matrix piece and the card it grew from.
+  // Opened lately, a little ahead of the rest: three notes with pictures, so Home's "Jump back in" leans to them
+  // without being only pictures. Then this morning's two, so Home's first tiles are the Matrix piece and the card it grew from.
+  await call('home:opened', 'article', urbino)
+  await call('home:opened', 'capture', dorian)
+  await call('home:opened', 'article', creatureReads)
   await call('home:opened', 'nugget', redPill)
   await call('home:opened', 'article', matrix)
 
