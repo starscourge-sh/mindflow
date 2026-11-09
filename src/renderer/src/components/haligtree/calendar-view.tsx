@@ -48,6 +48,9 @@ const USUAL = 30
 const RED = 'var(--tt-color-text-red)'
 /** A day's column in a week, in pixels, at its narrowest beside the panels: room for a block's "09:30 – 10:30" (calendar-events.tsx BlockWords). */
 const DAY_ROOM = 112
+/** A week's pane narrower than this shows FEW days from the day shown, so each says its blocks' names. */
+const FEW_UNDER = 640
+const FEW = 3
 /**
  * The left panel (the small month, the calendars, Unscheduled), the right one
  * (Upcoming) and the editor in its place: each width in rem, as it starts, and
@@ -170,14 +173,29 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
   // A click on an event: its small card beside it (calendar-events.tsx), not the whole panel.
   const [peek, setPeek] = useState<Peek | null>(null)
   const onPeek = (one: Shown, at: DOMRect): void => (setPanel(null), setPeek({ one, at }))
-  const days = mode === 'day' ? [anchor] : Array.from({ length: 7 }, (_, at) => anchor.startOf('week').add(at, 'day'))
-  const step = (by: -1 | 1): void => (chime('page'), setPeek(null), setAnchor((now) => now.add(by, mode)))
+  // A week too narrow to read (the days' pane under 640px, a small window): three days from the day shown, as Fantastical and Apple's Calendar do.
+  const pane = useRef<HTMLDivElement>(null)
+  const [paneWide, setPaneWide] = useState(Infinity)
+  useLayoutEffect(() => {
+    const el = pane.current
+    if (!el) return
+    const measure = (): void => setPaneWide(el.clientWidth)
+    measure()
+    const watch = new ResizeObserver(measure)
+    watch.observe(el)
+    return () => watch.disconnect()
+  }, [])
+  const few = mode === 'week' && paneWide < FEW_UNDER
+  const days = mode === 'day' ? [anchor] : few ? Array.from({ length: FEW }, (_, at) => anchor.add(at, 'day')) : Array.from({ length: 7 }, (_, at) => anchor.startOf('week').add(at, 'day'))
+  // What a step is, as the arrows say it: a day, a week, a month, or the three days shown.
+  const unit = few ? `${FEW} days` : mode
+  const step = (by: -1 | 1): void => (chime('page'), setPeek(null), setAnchor((now) => few ? now.add(by * FEW, 'day') : now.add(by, mode)))
   // Today brought into sight: its day shown, and the grid scrolled to the now line, so the step is seen even when today was already in view.
   const toNow = (): void => void setTimeout(() => document.querySelector('[data-cal-now]')?.scrollIntoView({ block: 'center', behavior: 'smooth' }), 60)
   const today = (): void => (chime('tap'), setPeek(null), setAnchor(dayjs().startOf('day')), toNow())
-  // "+ New event": the panel on Event, for the next hour on the day shown (today when it is in view).
+  // "+ New event": the panel on Event (or Task), for the next hour on the day being looked at (dayHere).
   const newEvent = (): void => {
-    const on = days.some((day) => day.isSame(dayjs(), 'day')) || mode === 'month' && anchor.isSame(dayjs(), 'month') ? dayjs() : anchor
+    const on = dayjs(dayHere())
     const minute = on.isSame(dayjs(), 'day') ? Math.min(23 * 60, (dayjs().hour() + 1) * 60) : 9 * 60
     chime('open')
     setPeek(null)
@@ -192,10 +210,17 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
   // A narrow header (beside the sidebar on a small window) says the month and day short, so neither is cut.
   const short = mode !== 'week' || first.month() === last.month() ? anchor.format('MMM YYYY') : title
   // Narrow, the days alone: the week's number is the part to spare.
-  const said = (narrow: boolean): string => mode === 'week' ? (narrow ? rangeSaid(first, last) : `Week ${weekOf(first)} · ${rangeSaid(first, last)}`)
+  const said = (narrow: boolean): string => few ? `${FEW} days · ${rangeSaid(first, last)}` : mode === 'week' ? (narrow ? rangeSaid(first, last) : `Week ${weekOf(first)} · ${rangeSaid(first, last)}`)
     : mode === 'day' ? (narrow ? anchor.format('ddd, MMM D') : `${anchor.format('dddd, MMM D')} · Week ${weekOf(anchor)}`)
     : `Weeks ${weekOf(anchor.startOf('month'))} – ${weekOf(anchor.endOf('month'))}`
   const subtitle = said(false)
+  // The day being looked at, for anything new without a day of its own ("+ New event", either tab; ⌘K's "New task"):
+  // today while it is in view, otherwise the day picked (the small month, a day's head, "Go to"), never just the grid's first day.
+  const dayHere = (): string => {
+    const now = dayjs()
+    if (mode === 'month' ? anchor.isSame(now, 'month') : days.some((day) => day.isSame(now, 'day'))) return dayKey(now)
+    return dayKey(mode === 'month' || days.some((day) => day.isSame(anchor, 'day')) ? anchor : days[0])
+  }
   const onToday = mode === 'month' ? anchor.isSame(dayjs(), 'month') : days.some((day) => day.isSame(dayjs(), 'day'))
   // Sent to a day again (⌘K's "Go to Friday"), with the page already open.
   useEffect(() => void (focus && dayjs(focus).isValid() && setAnchor(dayjs(focus).startOf('day'))), [focus])
@@ -230,8 +255,8 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
   // D, W and M for the view, T for today, ← and → to step: only with the page in front and nothing being typed.
   const here = useHere()
   // ⌘K, with this page in front, knows the task picked and can move the page.
-  const live = useRef({ tasks, picked, anchor, mode, side, layers, shownEvents, pickedEvent })
-  live.current = { tasks, picked, anchor, mode, side, layers, shownEvents, pickedEvent }
+  const live = useRef({ tasks, picked, anchor, mode, side, layers, shownEvents, pickedEvent, dayHere })
+  live.current = { tasks, picked, anchor, mode, side, layers, shownEvents, pickedEvent, dayHere }
   useEffect(() => calendarHere(here, {
     chosenEvent: () => live.current.shownEvents.find((one) => one.key === live.current.pickedEvent && !one.readOnly) ?? null,
     openEvent: (key) => pickEvent(key),
@@ -250,7 +275,7 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
       ]
     },
     chosen: () => live.current.pickedEvent ? null : live.current.tasks.find((task) => task.id === live.current.picked && task.status === 'open') ?? null,
-    day: () => dayKey(live.current.anchor),
+    day: () => live.current.dayHere(),
     mode: () => live.current.mode,
     go: (day) => (chime('page'), setPeek(null), setAnchor(dayjs(day).startOf('day')), dayjs(day).isSame(dayjs(), 'day') && toNow()),
     setMode: (to) => setMode(to),
@@ -415,7 +440,8 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
   const left = side && !roomless && (fits.left || kept)
   // The right panel: Upcoming where there is room, and the event or task being edited, which takes its place.
   const upcoming = upSide && mode !== 'month' && (fits.right || keptRight)
-  const right = upcoming || !!panel
+  // The editor (a new event or task, one opened) floats over the grid's right edge instead (FloatSide): the grid keeps its width.
+  const right = upcoming
   // Each panel's switch sits on its own side of the bar: on while its panel is up, off hides it; on again shows it, room or not.
   const leftPanel = (): void => {
     if (left) return (setKept(false), setSide(false))
@@ -431,7 +457,7 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
   }
   const goTo = (day: Dayjs): void => void (!days.some((one) => one.isSame(day, 'day')) && setAnchor(day.startOf('day')))
   return provide(
-    <section ref={box} data-cal-mode={mode} data-cal-chosen={picked ?? undefined} style={readsStyle} className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
+    <section ref={box} data-cal-mode={mode} data-cal-days={mode === 'month' ? undefined : days.length} data-cal-chosen={picked ?? undefined} style={readsStyle} className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
       onFocusCapture={(event) => {
         const one = (event.target as HTMLElement).closest<HTMLElement>('[data-cal-block], [data-cal-untimed], [data-cal-loose]')
         if (one) (setChosen(one.dataset.calBlock ?? one.dataset.calUntimed ?? one.dataset.calLoose ?? null), setChosenEvent(null))
@@ -478,11 +504,11 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
         </div>
         {/* ‹ | Today | ›, one control, as Todoist has it. */}
         <div data-cal-step className="flex h-8 shrink-0 items-center rounded-md border bg-background">
-          <Tip label={`The ${mode} before (←)`}><Button variant="ghost" size="icon-sm" data-cal-prev aria-label={`The ${mode} before`} className="h-full rounded-r-none" onClick={() => step(-1)}><ChevronLeft /></Button></Tip>
+          <Tip label={`The ${unit} before (←)`}><Button variant="ghost" size="icon-sm" data-cal-prev aria-label={`The ${unit} before`} className="h-full rounded-r-none" onClick={() => step(-1)}><ChevronLeft /></Button></Tip>
           <span aria-hidden className="h-4 w-px bg-border" />
           <Tip label="Today (T)"><Button variant="ghost" size="sm" data-cal-today disabled={onToday} className="h-full rounded-none px-3" onClick={today}>Today</Button></Tip>
           <span aria-hidden className="h-4 w-px bg-border" />
-          <Tip label={`The ${mode} after (→)`}><Button variant="ghost" size="icon-sm" data-cal-next aria-label={`The ${mode} after`} className="h-full rounded-l-none" onClick={() => step(1)}><ChevronRight /></Button></Tip>
+          <Tip label={`The ${unit} after (→)`}><Button variant="ghost" size="icon-sm" data-cal-next aria-label={`The ${unit} after`} className="h-full rounded-l-none" onClick={() => step(1)}><ChevronRight /></Button></Tip>
         </div>
         <ViewPick mode={mode} onPick={setMode} />
         {/* This view's own: search it, what it shows, a new event; then the right panel's toggle, at the far end as the left one is at the start. */}
@@ -495,7 +521,9 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
           </Tip>
         </div>
       </header>
-      <div className="flex min-h-0 flex-1 border-t">
+      {/* Clipped, never scrollable: the floating panel's field takes the keys while it is still off to the right, and a box that
+          could scroll would scroll the days aside to show it. */}
+      <div className="relative flex min-h-0 flex-1 overflow-clip border-t">
         {left && (
           <aside data-cal-side className="relative flex shrink-0 flex-col border-r" style={{ width: `${leftRem}rem` }}>
             {leftGrip}
@@ -528,7 +556,7 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
             </div>
           </aside>
         )}
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+        <div ref={pane} className="relative flex min-h-0 min-w-0 flex-1 flex-col">
           {mode === 'month' ? (
             <div className="flex min-h-0 flex-1 flex-col p-3">
               <MonthPlan bare month={anchor} tasks={shownTasks} onSide={setPanel} onOpen={onOpen}
@@ -540,17 +568,17 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
             <Grid days={days} tasks={shownTasks} marks={marked ? captures : undefined} onHead={(day) => (setAnchor(day), setMode('day'))} onPoint={(at) => void (pointed.current = at)} calendars={layers.calendars} {...blockProps} />
           )}
         </div>
-        {/* The right panel, as Notion Calendar's: Upcoming, or in its place the event or task being edited; closed, Upcoming is back. */}
+        {/* The right panel, as Notion Calendar's: Upcoming beside the days. */}
         {right && (
-          <aside data-cal-right data-cal-right-holds={panel ? 'editor' : 'upcoming'} className={`relative flex shrink-0 flex-col border-l ${panel ? 'max-w-[45%]' : ''}`} style={{ width: `${panel ? editorRem : rightRem}rem` }}>
-            {panel ? editorGrip : rightGrip}
-            {panel ? <div className="flex min-h-0 flex-1 flex-col overflow-hidden"><DaySide inline ask={panel} onClose={() => setPanel(null)} onOpen={onOpen} /></div> : (
-              <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-4 py-4">
-                <Upcoming tasks={shownTasks} name={calendarName} onPeek={(one, at) => (goTo(dayjs(one.start)), onPeek(one, at))} onTask={(task) => (goTo(dayjs(task.dueAt!)), setChosen(task.id), pick(task.id))} />
-              </div>
-            )}
+          <aside data-cal-right data-cal-right-holds="upcoming" className="relative flex shrink-0 flex-col border-l" style={{ width: `${rightRem}rem` }}>
+            {rightGrip}
+            <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-4 py-4">
+              <Upcoming tasks={shownTasks} name={calendarName} onPeek={(one, at) => (goTo(dayjs(one.start)), onPeek(one, at))} onTask={(task) => (goTo(dayjs(task.dueAt!)), setChosen(task.id), pick(task.id))} />
+            </div>
           </aside>
         )}
+        {/* A new event or task, or one opened: a frosted panel over the right of the days and Upcoming, sliding in from the right; the grid under it never moves. */}
+        <DaySide inline ask={panel} width={`${editorRem}rem`} grip={editorGrip} onClose={() => setPanel(null)} onOpen={onOpen} />
       </div>
       {carry?.kind === 'move' && (!carry.to || carry.to.minute === null) && createPortal(
         <div data-cal-carried style={{ left: carry.x + 8, top: carry.y + 8 }}
@@ -779,24 +807,29 @@ function Upcoming({ tasks, name, onPeek, onTask }: { tasks: Task[]; name: (one: 
 }
 
 /** A block's place across its column: its lane's share, a hair apart from the next. */
-const laneBox = (lane: { lane: number; of: number }): React.CSSProperties => {
+const laneBox = (lane: Lane): React.CSSProperties => {
   const width = 100 / lane.of
-  return { left: `calc(${lane.lane * width}% + ${lane.lane ? 1 : 3}px)`, width: `calc(${width}% - ${lane.of === 1 ? 7 : lane.lane ? 3 : 4}px)` }
+  return { left: `calc(${lane.lane * width}% + ${lane.lane ? 1 : 3}px)`, width: `calc(${width}% - ${(lane.of === 1 ? 7 : lane.lane ? 3 : 4) + (lane.room ?? 0)}px)` }
 }
+
+/** A block's place across its column: its lane, of how many, and the room kept clear on its right for a "+N" beside it. */
+export type Lane = { lane: number; of: number; room?: number }
+/** The room a "+N" takes beside a block that has its column alone: the chip never lies over the block's name. */
+const MORE_ROOM = 30
 
 /**
  * Lanes past the most a column can show readably: the first few keep theirs
  * (a cluster narrowed to `most`), the rest leave the grid and one "+N" stands
  * in the last lane at the first of them. The one being carried always shows.
  */
-function crowd(placed: Map<string, { lane: number; of: number; cluster?: number }>, spans: { id: string; start: number }[], most: number, carried?: string): { get: (id: string) => { lane: number; of: number } | undefined; more: { start: number; count: number; lane: { lane: number; of: number } }[] } {
-  const shown = new Map<string, { lane: number; of: number }>()
-  const more = new Map<number, { start: number; count: number; lane: { lane: number; of: number } }>()
+function crowd(placed: Map<string, { lane: number; of: number; cluster?: number }>, spans: { id: string; start: number }[], most: number, carried?: string): { get: (id: string) => Lane | undefined; more: { start: number; count: number; lane: Lane }[] } {
+  const shown = new Map<string, Lane>()
+  const more = new Map<number, { start: number; count: number; lane: Lane }>()
   for (const span of spans) {
     const at = placed.get(span.id)!
     if (at.of <= most) shown.set(span.id, at)
-    // A column with room for one keeps the first whole, and its "+N" sits on that block's corner.
-    else if (at.lane < Math.max(1, most - 1) || span.id === carried) shown.set(span.id, { lane: Math.min(at.lane, Math.max(0, most - 1)), of: most })
+    // A column with room for one keeps the first, narrowed so its "+N" sits beside it, never over its name.
+    else if (at.lane < Math.max(1, most - 1) || span.id === carried) shown.set(span.id, { lane: Math.min(at.lane, Math.max(0, most - 1)), of: most, ...(most === 1 ? { room: MORE_ROOM } : {}) })
     else {
       const was = more.get(at.cluster!) ?? { start: span.start, count: 0, lane: { lane: most - 1, of: most } }
       more.set(at.cluster!, { ...was, start: Math.min(was.start, span.start), count: was.count + 1 })
@@ -998,7 +1031,7 @@ function Grid({ days, tasks, marks, onHead, onPoint, calendars, ...props }: { da
                   <button key={`more:${more.start}`} type="button" data-cal-crowd-more={key} aria-label={`Open ${dayjs(key).format('dddd D MMMM')}: ${num(more.count)} more at ${hm(atMinute(key, more.start))}`}
                     onPointerDown={(event) => event.stopPropagation()} onClick={() => (chime('open'), onOpen?.('day', key))}
                     className="absolute z-[3] flex h-5 items-center justify-center rounded-[5px] bg-accent px-1 text-meta font-semibold whitespace-nowrap text-foreground tabular-nums outline-none transition-[scale,background-color] duration-150 hover:bg-accent/70 focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.97] motion-reduce:transition-none"
-                    style={{ top: (more.start / 60) * HOUR + 1, ...(more.lane.of === 1 ? { right: 3 } : laneBox(more.lane)) }}>
+                    style={{ top: (more.start / 60) * HOUR + 1, ...(more.lane.of === 1 ? { right: 2, width: MORE_ROOM - 3 } : laneBox(more.lane)) }}>
                     +{num(more.count)}
                   </button>
                 ))}
@@ -1043,7 +1076,7 @@ const CAUGHT = 22
  * with its words, in a lane of its own beside whatever else is at that time.
  * Clicked, it opens. A private one says so, never its words.
  */
-function CaptureMark({ one, at, lane, onOpen }: { one: CaptureMeta; at: number; lane: { lane: number; of: number }; onOpen?: (type: string, id: string) => void }): React.JSX.Element {
+function CaptureMark({ one, at, lane, onOpen }: { one: CaptureMeta; at: number; lane: Lane; onOpen?: (type: string, id: string) => void }): React.JSX.Element {
   const kind = CAPTURE_TYPES.find((type) => type.id === one.kind) ?? CAPTURE_TYPES[0]
   const time = hm(dayjs(one.capturedAt).toDate())
   const words = one.private ? 'A private capture' : splitTags(one.label).text || one.label || 'Untitled'
@@ -1125,7 +1158,7 @@ function SessionGhost({ focus, tasks, now, next }: { focus: ReturnType<typeof us
 
 /** A timed task at its hour: dragged to move, its bottom edge dragged to make it longer or shorter. */
 function Block({ task, day, at, length, lane, lifted, did, carry, start, onPick, taskNow, landed }: {
-  task: Task; day: string; at: number; length: number; lane: { lane: number; of: number }; lifted: boolean; did?: number
+  task: Task; day: string; at: number; length: number; lane: Lane; lifted: boolean; did?: number
 } & BlockProps): React.JSX.Element {
   const name = taskName(task.title).text
   const short = length < 45

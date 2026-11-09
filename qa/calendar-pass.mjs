@@ -55,6 +55,11 @@ try {
         // A crowded hour never becomes a barcode: past a few side by side, "+N" opens the day.
         const thin = await h.$$eval('[data-cal-event], [data-cal-block], [data-cal-capture]', (els) => els.filter((el) => el.getBoundingClientRect().width < 14).length)
         check(`${label}: ${mode} draws no sliver too thin to read`, thin === 0, `${thin} under 14px, ${await h.locator('[data-cal-crowd-more]').count()} "+N"`)
+        const covered = await h.$$eval('[data-cal-crowd-more]', (chips) => chips.filter((chip) => {
+          const c = chip.getBoundingClientRect()
+          return [...chip.parentElement.querySelectorAll('[data-cal-event], [data-cal-block]')].some((el) => { const b = el.getBoundingClientRect(); return c.left < b.right - 1 && c.right > b.left + 1 && c.top < b.bottom - 1 && c.bottom > b.top + 1 })
+        }).length)
+        check(`${label}: ${mode}: no "+N" lies over a block's name`, covered === 0, `${covered} over`)
         check(`${label}: ${mode}'s timed tasks show their names`, names.length > 0 && names.every((one) => one.text.length > 0 && one.width >= 24 && one.height >= 18), JSON.stringify(names.slice(0, 4)))
       }
       if (shots) for (const name of ['light', 'dark']) { await look(name); await h.waitForTimeout(250); await h.screenshot({ path: `${shots}/cal-${count}-${label}-${mode}-${name}.png` }) }
@@ -97,6 +102,110 @@ try {
     if (shots) for (const name of ['light', 'dark']) { await look(name); await h.waitForTimeout(250); await h.screenshot({ path: `${shots}/cal-${count}-${label}-new-${name}.png` }) }
     await look('light')
     await h.keyboard.press('Escape'); await h.waitForTimeout(400)
+  }
+  // 1. "New event" floats over the days' right edge on the shared frost, slides in and out, and the grid never moves.
+  await size(1440, 900); await h.keyboard.press('w'); await h.waitForTimeout(600)
+  if (!(await h.locator('[data-cal-right]').count())) { await h.locator('[data-cal-side-toggle]').click(); await h.waitForTimeout(600) }
+  const gridBox = () => h.locator('[data-cal-grid]').boundingBox()
+  const before = await gridBox()
+  // Every 50ms while it slides in: the days never move, not even for a frame.
+  const grids = []
+  const watch = setInterval(() => void gridBox().then((one) => grids.push(JSON.stringify(one))), 50)
+  await h.locator('[data-cal-new-event]').click(); await h.waitForTimeout(700)
+  clearInterval(watch)
+  const after = await gridBox()
+  const moved = grids.filter((one) => one !== JSON.stringify(before))
+  check('1: the grid keeps its place and width under the panel, every frame', JSON.stringify(before) === JSON.stringify(after) && moved.length === 0, `${grids.length} frames, ${moved.length} moved: ${moved[0] ?? ''}`)
+  const float = await h.locator('[data-day-side]').evaluate((el) => {
+    const css = getComputedStyle(el); const box = el.getBoundingClientRect(); const row = el.parentElement.getBoundingClientRect()
+    return { frost: el.classList.contains('mf-frost'), position: css.position, right: Math.round(row.right - box.right), opacity: css.opacity }
+  })
+  check('1: the panel floats on the shared frost', float.frost && float.position === 'absolute' && float.right >= 4 && float.opacity === '1', JSON.stringify(float))
+  check('1: Upcoming stays beside the grid', (await h.locator('[data-cal-right-holds="upcoming"]').count()) === 1)
+  // Filmed every 50ms as it slides out (Esc) and in again ("+ New event"): it only ever moves right, never fades.
+  const xs = []
+  const film = setInterval(() => void h.locator('[data-day-side]').evaluate((el) => [Math.round(el.getBoundingClientRect().left), getComputedStyle(el).opacity]).then((one) => xs.push(one)).catch(() => xs.push(null)), 50)
+  await h.keyboard.press('Escape'); await h.waitForTimeout(450)
+  clearInterval(film)
+  // A frame taken as it left the page reads no style at all: not a frame of it.
+  const seen = xs.filter((one) => one && one[1] !== '')
+  check('1: Esc slides it away to the right', (await h.locator('[data-day-side]').count()) === 0 && seen.length > 1 && seen.every((one, at) => !at || one[0] >= seen[at - 1][0]) && seen.every((one) => one[1] === '1'), JSON.stringify(xs))
+  check('1: the grid is still where it was', JSON.stringify(await gridBox()) === JSON.stringify(before))
+  await h.locator('[data-cal-new-event]').click(); await h.waitForTimeout(600)
+  await h.locator('[data-day-side-close]').click(); await h.waitForTimeout(450)
+  check('1: × closes it', (await h.locator('[data-day-side]').count()) === 0)
+
+  // 2 and 3. The Task tab: one quiet line, and the day being looked at (today), as the Event tab says.
+  const todaySaid = await h.evaluate(() => new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' }))
+  const tabsSay = async () => {
+    const event = await h.locator('[data-new-event-said]').innerText().catch(() => '')
+    await h.locator('[data-day-side-kind="task"]').click(); await h.waitForTimeout(300)
+    const task = await h.locator('[data-day-side-when]').innerText().catch(() => '')
+    return { event, task }
+  }
+  for (const [way, open] of [
+    ['"+ New event" in a week', async () => { await h.keyboard.press('w'); await h.waitForTimeout(400); await h.locator('[data-cal-new-event]').click() }],
+    ['"+ New event" after a week on and back', async () => { await h.keyboard.press('ArrowRight'); await h.waitForTimeout(300); await h.keyboard.press('t'); await h.waitForTimeout(400); await h.locator('[data-cal-new-event]').click() }],
+    ['"+ New event" in a day', async () => { await h.keyboard.press('d'); await h.waitForTimeout(400); await h.locator('[data-cal-new-event]').click() }],
+    ['"+ New event" in a month', async () => { await h.keyboard.press('m'); await h.waitForTimeout(500); await h.locator('[data-cal-new-event]').click() }]
+  ]) {
+    await open(); await h.waitForTimeout(600)
+    const said = await tabsSay()
+    check(`3: ${way}: both tabs are for today (${todaySaid})`, said.event.length > 0 && said.task.includes(todaySaid), JSON.stringify(said))
+    await h.keyboard.press('Escape'); await h.waitForTimeout(400)
+  }
+  await h.keyboard.press('w'); await h.waitForTimeout(400)
+  // A day clicked (its all-day line): that day, on both tabs.
+  const other = await h.locator('[data-cal-allday]').nth(1).getAttribute('data-cal-allday')
+  await h.locator('[data-cal-allday]').nth(1).click(); await h.waitForTimeout(600)
+  const otherSaid = await h.evaluate((key) => new Date(`${key}T12:00`).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' }), other)
+  check(`3: a day clicked is that day (${otherSaid})`, (await h.locator('[data-day-side-when]').innerText()).includes(otherSaid))
+  check('2: the Task tab has one quiet line, no paragraph', (await h.locator('text=/Then the notes, steps/').count()) === 0 && (await h.locator('[data-day-side-hint]').evaluate((el) => el.getBoundingClientRect().height)) < 24)
+  await h.keyboard.press('Escape'); await h.waitForTimeout(400)
+  // ⌘K's "New task: …" is for the same day.
+  await h.keyboard.press('Meta+k'); await h.waitForTimeout(500); await h.keyboard.type('new task buy stamps'); await h.waitForTimeout(500)
+  const dayWord = await h.evaluate(() => new Date().toLocaleDateString('en-GB', { weekday: 'long' }))
+  const kHint = await h.locator('text=/unless it names a day/').first().innerText().catch(() => '')
+  check('3: ⌘K "New task" is for today too', /today/i.test(kHint) || kHint.includes(dayWord), kHint)
+  await h.keyboard.press('Escape'); await h.waitForTimeout(400)
+
+  // 4. Narrow: three days from today that say their names, "+N" beside a name, never on it, and the placeholders whole.
+  await size(560, 900); await h.keyboard.press('w'); await h.waitForTimeout(700)
+  const narrowSaid = await h.locator('[data-cal-subtitle]').innerText()
+  check('4: 560: the week shows three days, and says so', (await h.locator('[data-cal-mode]').getAttribute('data-cal-days')) === '3' && narrowSaid.startsWith('3 days'), narrowSaid)
+  const blocks = await h.$$eval('[data-cal-event], [data-cal-block]', (els) => els.map((el) => el.getBoundingClientRect().width))
+  check('4: 560: every block is wide enough for words', blocks.length > 0 && blocks.every((w) => w >= 40), `${blocks.length} blocks, narrowest ${Math.round(Math.min(...blocks))}px`)
+  const covered = await h.$$eval('[data-cal-crowd-more]', (chips) => chips.filter((chip) => {
+    const c = chip.getBoundingClientRect()
+    return [...chip.parentElement.querySelectorAll('[data-cal-event], [data-cal-block]')].some((el) => { const b = el.getBoundingClientRect(); return c.left < b.right - 1 && c.right > b.left + 1 && c.top < b.bottom - 1 && c.bottom > b.top + 1 })
+  }).length)
+  check('4: 560: no "+N" lies over a block', covered === 0, `${covered} over`)
+  await size(1440, 900); await h.waitForTimeout(500)
+  check('4: 1440: the whole week again', (await h.locator('[data-cal-mode]').getAttribute('data-cal-days')) === '7')
+  await size(560, 900); await h.waitForTimeout(500)
+  await h.locator('[data-cal-new-event]').click(); await h.waitForTimeout(700)
+  const fitsIn = (sel) => h.locator(sel).evaluate((el) => {
+    const css = getComputedStyle(el); const pen = document.createElement('canvas').getContext('2d'); pen.font = `${css.fontSize} ${css.fontFamily}`
+    return { text: Math.ceil(pen.measureText(el.placeholder).width), room: el.clientWidth - parseFloat(css.paddingLeft) - parseFloat(css.paddingRight) }
+  })
+  const evFit = await fitsIn('[data-new-event-words]')
+  check('4: 560: the New event placeholder fits whole', evFit.text <= evFit.room, JSON.stringify(evFit))
+  await h.locator('[data-day-side-kind="task"]').click(); await h.waitForTimeout(300)
+  const taskFit = await fitsIn('[data-day-side-draft] input')
+  check('4: 560: the New task placeholder fits whole', taskFit.text <= taskFit.room, JSON.stringify(taskFit))
+  await h.keyboard.press('Escape'); await h.waitForTimeout(400)
+
+  // The film for the eye: the panel opening and closing, a frame every 50ms, light and dark, 1440 and 560.
+  if (process.env.FILM) for (const [w, label] of [[1440, '1440'], [560, '560']]) {
+    await size(w, 900); await h.waitForTimeout(400)
+    for (const name of ['light', 'dark']) {
+      await look(name); await h.waitForTimeout(1500)
+      let n = 0
+      const grab = async (ms) => { const end = Date.now() + ms; while (Date.now() < end) { await h.screenshot({ path: `${process.env.FILM}/panel-${label}-${name}-${String(n++).padStart(2, '0')}.png` }); await h.waitForTimeout(50) } }
+      await h.locator('[data-cal-new-event]').click(); await grab(450)
+      await h.keyboard.press('Escape'); await grab(400)
+    }
+    await look('light')
   }
   if (shots) {
     // The siblings, for the eye: Inbox and Tasks at the same size.

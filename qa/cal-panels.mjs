@@ -1,6 +1,7 @@
 // The Calendar page's panels, on sandbox data:
-//   1. the event editor and the task page sit inside the right panel, in
-//      place of Upcoming, as Notion Calendar has it; closing brings Upcoming back;
+//   1. the event editor and the task page float over the days' right edge on
+//      the shared frost, Upcoming staying beside the days and the grid not
+//      moving; closing slides it away;
 //   2. with the app's sidebar open, the right panel folds away once the week's
 //      columns would be too narrow for a block's whole time (below about 1650
 //      wide), and "Plan" brings it back; narrower, an hour puts its time on two lines;
@@ -59,38 +60,36 @@ try {
   // On again, so the wider window below has its panels.
   await plan.click(); await wait(500)
 
-  // 1: the editor in the right panel.
+  // 1: the editor floats over the days' right edge; Upcoming stays, the days keep their width.
+  const grid = () => h.locator('[data-cal-grid], [data-month-plan]').first().boundingBox().then((one) => JSON.stringify(one))
+  const floats = () => h.evaluate(([r, s]) => { const side = document.querySelector(s); return !!side && !side.closest(r) && getComputedStyle(side).position === 'absolute' && side.classList.contains('mf-frost') }, [R, S])
   await size(1900, 900); await wait(700)
+  let was = await grid()
   await h.locator('[data-cal-new-event]').click(); await wait(700)
-  const inside = await h.evaluate(([r, s]) => { const side = document.querySelector(s); return !!side && !!side.closest(r) && getComputedStyle(side).position !== 'fixed' }, [R, S])
-  check('"New event" opens the editor inside the right panel, not over the page', inside)
-  check('…in place of Upcoming', !(await h.locator(R).innerText()).includes('Upcoming'))
+  check('"New event" floats over the days on the frost, not in the right panel', await floats())
+  check('…Upcoming stays beside the days', (await h.locator(R).innerText()).includes('Upcoming'))
+  check('…and the days keep their place and width', (await grid()) === was)
   if (process.env.SHOTS) await h.screenshot({ path: `${process.env.SHOTS}/cal-panels-editor.png` })
   await h.keyboard.press('Escape'); await wait(600)
-  check('Esc brings Upcoming back', (await h.locator(R).innerText().catch(() => '')).includes('Upcoming') && await h.locator(S).count() === 0)
+  check('Esc slides it away', await h.locator(S).count() === 0 && (await h.locator(R).innerText().catch(() => '')).includes('Upcoming'))
   // An event opened in full.
   const block = h.locator('[data-cal-event]', { hasText: 'Panels standup' }).first()
   await block.dblclick(); await wait(900)
-  const opened = await h.evaluate(([r, s]) => { const side = document.querySelector(`${s}[data-day-side="event"]`); return !!side && !!side.closest(r) }, [R, S])
-  check('a double-click opens the event in the right panel', opened)
+  check('a double-click opens the event in the floating panel', await h.locator(`${S}[data-day-side="event"]`).count() === 1 && await floats())
   if (process.env.SHOTS) await h.screenshot({ path: `${process.env.SHOTS}/cal-panels-event.png` })
   await h.locator(`${S} [data-day-side-close]`).click(); await wait(600)
-  check('"Close" brings Upcoming back', (await h.locator(R).innerText().catch(() => '')).includes('Upcoming'))
-  // Folded away at 1200, the editor still has its place: the panel opens for it, and folds again after.
+  check('"Close" slides it away', await h.locator(S).count() === 0)
+  // At 1200, with the right panel folded away, the editor floats all the same and nothing opens for it.
   await size(1200, 900); await wait(700)
+  was = await grid()
   await h.locator('[data-cal-new-event]').click(); await wait(700)
-  check('1200 wide: the editor opens the right panel for itself', await h.evaluate(([r, s]) => !!document.querySelector(s)?.closest(r), [R, S]))
+  check('1200 wide: the editor floats, the right panel stays folded', await floats() && await right() === 0 && (await grid()) === was)
   await h.keyboard.press('Escape'); await wait(600)
-  check('1200 wide: closed, the panel folds away again', await right() === 0)
-  // The month: the editor beside the grid, never over it.
+  // The month: the editor over the days' right edge, the month never squeezed.
   await h.keyboard.press('m'); await wait(600)
+  was = await grid()
   await h.locator('[data-cal-new-event]').click(); await wait(700)
-  const beside = await h.evaluate(([r, s]) => {
-    const side = document.querySelector(s)?.getBoundingClientRect()
-    const grid = document.querySelector('[data-month-plan]')?.getBoundingClientRect()
-    return !!side && !!grid && grid.right <= side.left + 1 && !!document.querySelector(s).closest(r)
-  }, [R, S])
-  check('in a month, the editor sits beside the days, not over them', beside)
+  check('in a month, the editor floats over the days, which keep their width', await floats() && (await grid()) === was)
   await h.keyboard.press('Escape'); await wait(500)
   await h.keyboard.press('w'); await wait(400)
   check('no page errors', !c.errors.length, c.errors.join(' | '))

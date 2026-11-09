@@ -14,6 +14,7 @@ import { TaskDetail } from './tasks-view'
 import { Kbd, Tip, toast, untoast } from './ui'
 import { EventDetail, NewEvent } from './calendar-events'
 import { undoLastEvent } from '@/lib/events'
+import { FLOAT } from '@/lib/float'
 
 /** What the side panel shows: a new task for a day (at a time, for a length), or a task as it is. */
 export type SideAsk = { day: string; minute: number | null; length: number; drag?: boolean } | { task: string } | { event: string }
@@ -31,11 +32,16 @@ const writing = (): boolean => {
   return !!active && (active.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(active.tagName))
 }
 
+/** Off to the right, where the panel slides in from and back out to: past its own width and the gap it keeps from the edge. */
+const OFF = { transform: 'translateX(112%)' }
+
 /**
  * The calendar's side panel, the way Notion Calendar and Google Calendar
- * keep theirs: on the Calendar page it takes the place of the right panel's
- * Upcoming (`inline`); on Home's month and the week board, which have no
- * panel of their own, it sits over the right of the page. For a day or a slot it asks
+ * keep theirs: a frosted panel (FLOAT) floating over the right of the page,
+ * sliding in from the right and back out the same way, so what is under it
+ * never moves. On the Calendar page it floats over the days' right edge,
+ * inside the page's own row (`inline`); on Home's month and the week board,
+ * over the right of the window. For a day or a slot it asks
  * for the task's words first; ↵ adds it on that day and time, and the panel
  * turns into the task itself, the same task page as everywhere else (notes,
  * steps, tags, date, length, priority and the rest). "New task" or ⌘N starts
@@ -43,12 +49,15 @@ const writing = (): boolean => {
  * its task in the same panel. The same panel on the month, the week board
  * and the Calendar page.
  */
-export function DaySide({ ask, onClose, onOpen, inline = false }: {
+export function DaySide({ ask, onClose, onOpen, inline = false, width, grip }: {
   ask: SideAsk | null
   onClose: () => void
   onOpen?: (type: string, id: string) => void
-  /** In a panel of the page's own (the Calendar's right panel, as Notion Calendar has it), in place of what it held; not over the page. */
+  /** Over the page's own row (the Calendar's days and Upcoming), placed in it, rather than over the whole window. */
   inline?: boolean
+  /** Its width, when the page keeps one (the Calendar's, dragged at its edge with `grip`). */
+  width?: string
+  grip?: React.ReactNode
 }): React.JSX.Element {
   // The task just made here: the panel shows it, as a chip's task is shown.
   const [made, setMade] = useState<{ id: string; undo: (() => void) | null } | null>(null)
@@ -105,10 +114,13 @@ export function DaySide({ ask, onClose, onOpen, inline = false }: {
   useEffect(() => setStart(null), [ask])
   const asking = !task && !eventKey && (day ?? start)
   const shell = (
-    <AnimatePresence initial={!inline}>
+    <AnimatePresence>
       {ask && (
         <motion.div ref={panel} key="day-side" data-day-side={asking ? 'new' : eventKey ? 'event' : 'task'} role="dialog" data-beside aria-label={asking ? (kind === 'event' ? 'A new event' : 'A new task') : eventKey ? 'The event' : 'The task'} tabIndex={-1}
-          initial={byKeys() || still() ? false : inline ? { opacity: 0 } : { transform: 'translateX(32px)', opacity: 0 }} animate={{ transform: 'translateX(0px)', opacity: 1 }} exit={inline || byKeys() ? { opacity: 0, transition: { duration: 0 } } : { transform: 'translateX(32px)', opacity: 0, transition: { duration: 0.14 } }} transition={inline ? { duration: 0.16 } : { type: 'spring', stiffness: 520, damping: 44 }}
+          // Slid, never faded: a frosted surface fading in shows a dark wash before its blur (taste.md, 8 Nov).
+          initial={byKeys() || still() ? false : OFF} animate={{ transform: 'translateX(0%)' }}
+          exit={byKeys() || still() ? { transform: 'translateX(0%)', transition: { duration: 0 } } : { ...OFF, transition: { duration: 0.2, ease: [0.4, 0, 1, 1] } }}
+          transition={{ duration: 0.3, ease: [0.32, 0.72, 0, 1] }} style={width ? { width } : undefined}
           onKeyDown={(event) => {
             if (event.key === 'Escape') {
               event.preventDefault()
@@ -133,7 +145,10 @@ export function DaySide({ ask, onClose, onOpen, inline = false }: {
               made.undo()
             }
           }}
-          className={inline ? 'flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-background outline-none' : 'fixed top-12 right-3 bottom-3 z-40 flex w-[30rem] max-w-[calc(100vw-1.5rem)] flex-col overflow-hidden rounded-xl border bg-background shadow-(--mf-panel-shadow) outline-none'}>
+          className={`${inline ? 'absolute top-2 right-2 bottom-2 z-30 w-[30rem] max-w-[calc(100%-1rem)]' : 'fixed top-12 right-3 bottom-3 z-40 w-[30rem] max-w-[calc(100vw-1.5rem)]'} flex flex-col rounded-xl outline-none ${FLOAT}`}>
+          {grip}
+          {/* The words clipped to the corners; the grip, on the edge, is not. */}
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl">
           {/* The bar over the task, as the page's own top bar: the next one, and away. */}
           <div className="flex shrink-0 items-center gap-1 px-2 pt-2">
             {asking && (
@@ -165,6 +180,7 @@ export function DaySide({ ask, onClose, onOpen, inline = false }: {
             : eventKey
             ? <div className="@container/page flex min-h-0 flex-1 flex-col overflow-y-auto"><EventDetail key={eventKey} eventKey={eventKey} onKey={setMadeEvent} onClose={onClose} onOpen={onOpen} /></div>
             : <div className="@container/page flex min-h-0 flex-1 flex-col overflow-y-auto">{full && <TaskDetail key={full.id} task={full} onClose={onClose} onOpen={onOpen} />}</div>}
+          </div>
         </motion.div>
       )}
     </AnimatePresence>
@@ -223,14 +239,15 @@ function NewTask({ ask, first, onMade, onBack }: {
       <div className="page-narrow mx-auto flex w-full flex-col gap-3 px-4 @[40rem]/page:px-12">
         <div className="flex min-h-10 items-center gap-2 rounded-lg border pr-1 pl-3 text-body focus-within:ring-1 focus-within:ring-ring">
           <TaskInput inputRef={field} value={text} onChange={setText} label={`A new task for ${dayjs(day).format('dddd D MMMM')}`}
-            placeholder="Add a task: “call the dentist 10am #home !!”" />
+            placeholder="Call the dentist 10am #home !!" />
           <Button type="submit" size="sm" data-day-side-add>Add <Kbd>↵</Kbd></Button>
         </div>
         {/* Where it lands, plain to read, before it is made. */}
         <p data-day-side-when className="text-body text-foreground">
           For <strong className="font-semibold">{at.format('dddd D MMMM')}</strong>{minute !== null && <> at <strong className="font-semibold">{clock(at)}</strong></>}{length ? <>, for <strong className="font-semibold">{lasting(length)}</strong></> : null}.
         </p>
-        <p className="text-body text-foreground/85">Then the notes, steps, tags, priority and the rest are on the task as it opens here. A day or time in the words wins.</p>
+        {/* One quiet line, as New event's: the rest is set on the task once it opens here. */}
+        <p data-day-side-hint className="text-control text-muted-foreground">Notes, steps and tags come next, on the task.</p>
       </div>
     </form>
   )

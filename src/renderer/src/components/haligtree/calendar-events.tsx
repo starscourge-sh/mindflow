@@ -235,7 +235,7 @@ type Lift = { mode: 'move' | 'resize'; day: string; start: number; length: numbe
  * shorter. Each with an Undo; a repeating one asks which times first.
  */
 export function EventBlock({ one, day, at, length, lane, onOpen, onPeek, onNote, calendars }: {
-  one: Shown; day: string; at: number; length: number; lane: { lane: number; of: number }
+  one: Shown; day: string; at: number; length: number; lane: { lane: number; of: number; room?: number }
   calendars?: { id: string; name: string; color: string }[]
   /** The full panel: double-click, or the popover's pencil. */
   onOpen: (key: string) => void
@@ -329,7 +329,7 @@ export function EventBlock({ one, day, at, length, lane, onOpen, onPeek, onNote,
             if ((event.key === 'Backspace' || event.key === 'Delete') && !one.readOnly) (event.preventDefault(), void dropOne(one))
           }}
           className={`group/event @container absolute z-[2] flex touch-none overflow-hidden rounded-[6px] text-left text-control leading-snug outline-none focus-visible:ring-2 focus-visible:ring-ring ${one.readOnly ? 'cursor-default' : 'cursor-grab'} ${lift ? 'opacity-35' : 'transition-[filter] duration-150 hover:brightness-[0.97] motion-reduce:transition-none'}`}
-          style={{ top: (at / 60) * HOUR + 1, height: Math.max(20, (length / 60) * HOUR - 2), left: `calc(${lane.lane * width}% + ${lane.lane ? 1 : 3}px)`, width: `calc(${width}% - ${lane.of === 1 ? 7 : lane.lane ? 3 : 4}px)`, ...fill }}>
+          style={{ top: (at / 60) * HOUR + 1, height: Math.max(20, (length / 60) * HOUR - 2), left: `calc(${lane.lane * width}% + ${lane.lane ? 1 : 3}px)`, width: `calc(${width}% - ${(lane.of === 1 ? 7 : lane.lane ? 3 : 4) + (lane.room ?? 0)}px)`, ...fill }}>
           <BlockWords one={one} day={day} at={at} length={length} short={short} />
           {!one.readOnly && (
             <span data-cal-event-resize aria-hidden onPointerDown={(event) => start(event, 'resize')}
