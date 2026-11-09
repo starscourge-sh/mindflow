@@ -1,6 +1,5 @@
-// A person's page shows with its line about them, never a beat after: Wikipedia answers slowly here
-// (700ms), and from the first frame the page is seen, the line is there and the sections under it never
-// move. And the Sources page's "quotes have no source" island: each quote's light wraps its own words,
+// A person's page shows with its line about them, or the line's room kept with the orb in it while
+// Wikipedia answers slowly here (700ms); the sections under it never move. And the Sources page's "quotes have no source" island: each quote's light wraps its own words,
 // never a band across the page, five shown and the rest a press away. Frames every 50ms to QA_SHOTS.
 //
 //   npx electron-vite build --outDir out-wr
@@ -38,7 +37,7 @@ try {
       const page = document.querySelector('[data-source-page]')
       const shown = !!page && getComputedStyle(page.closest('section') ?? page).visibility !== 'hidden' && page.getBoundingClientRect().height > 0
       const words = document.querySelector('[data-portrait="words"]')?.getBoundingClientRect().top
-      return { shown, bio: document.querySelector('[data-bio-text]')?.value ?? null, add: !!document.querySelector('[data-bio-add]'), words: words == null ? null : Math.round(words) }
+      return { shown, room: document.querySelector('[data-bio-room]')?.getAttribute('data-bio-room') ?? null, bio: document.querySelector('[data-bio-text]')?.value ?? null, add: !!document.querySelector('[data-bio-add]'), words: words == null ? null : Math.round(words) }
     }))
     if (shots && f < 24) await h.screenshot({ path: `${shots}/person-${String(f).padStart(2, '0')}.png` })
     await h.waitForTimeout(50)
@@ -46,7 +45,9 @@ try {
   const seen = frames.filter((one) => one.shown)
   console.log(frames.map((one, k) => `${k}:${one.shown ? 'shown' : 'hidden'}/${one.bio ? 'bio' : one.add ? 'add' : '-'}/${one.words}`).join(' '))
   check('the person page is seen', seen.length > 0)
-  check('from its first frame on show, the line about them is there', seen.length > 0 && seen.every((one) => one.bio && one.bio.startsWith('Slow Example')), JSON.stringify(seen[0]))
+  // The page never waits for Wikipedia (qa/person-at-once.mjs): until the line comes, its room is kept with the orb in it.
+  check('from its first frame on show, the line about them or its waiting room is there, never "Add a line"', seen.length > 0 && seen.every((one) => (one.bio && one.bio.startsWith('Slow Example')) || one.room === 'waiting') && !seen.some((one) => one.add), JSON.stringify(seen[0]))
+  check('and the line itself comes in', seen.some((one) => one.bio?.startsWith('Slow Example')), JSON.stringify(seen.at(-1)))
   check('their words never move once it is on show', new Set(seen.map((one) => one.words)).size === 1, [...new Set(seen.map((one) => one.words))].join(' -> '))
 
   // The Sources page's island of quotes with no source.
