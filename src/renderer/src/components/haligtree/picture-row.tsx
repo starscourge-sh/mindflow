@@ -119,7 +119,7 @@ function StillRow({ items, onOpen, menuFor, counter, label, height, whole = fals
             <button key={at} type="button" role="listitem" onClick={() => onOpen(at)} data-still-picture={at}
               className="group absolute top-0 flex cursor-pointer flex-col gap-1.5 rounded-lg text-left outline-none transition-transform duration-150 ease-out focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.97]"
               style={{ left: at * (cardW + GAP), width: cardW }}>
-              <StillPicture src={item.src} height={picH} />
+              <StillPicture src={item.src} height={picH} pdf={item.pdf} />
               <span className="truncate text-control font-medium text-foreground">{item.title || 'Untitled'}</span>
               {/* A note of two lines (a book's page, then the day you finish it) keeps both, each whole. */}
               <span className={`-mt-1 text-meta text-muted-foreground tabular-nums group-hover:text-foreground ${item.note?.includes('\n') ? 'line-clamp-2 whitespace-pre-line' : 'truncate'}`}>{item.note ?? place}</span>
@@ -132,7 +132,7 @@ function StillRow({ items, onOpen, menuFor, counter, label, height, whole = fals
   )
 }
 
-function StillPicture({ src, height }: { src: FlexCarouselItem['src']; height: number }): React.JSX.Element {
+function StillPicture({ src, height, pdf }: { src: FlexCarouselItem['src']; height: number; pdf?: FlexCarouselItem['pdf'] }): React.JSX.Element {
   const [url, setUrl] = useState(typeof src === 'string' ? src : null)
   useEffect(() => {
     if (typeof src === 'string') return setUrl(src)
@@ -141,7 +141,9 @@ function StillPicture({ src, height }: { src: FlexCarouselItem['src']; height: n
     return () => void (live = false)
   }, [src])
   return (
-    <span className="block w-full overflow-hidden rounded-[10px] bg-accent" style={{ height }}>
+    // A book's cover pages through under the pointer in its own box (pdf-peek.tsx draws the page over it): nothing moves.
+    <span className={`relative block w-full overflow-hidden rounded-[10px] bg-accent${pdf ? ' pdf-face-cover' : ''}`} style={{ height }}
+      data-pdf-peek={pdf?.src} data-pdf-peek-name={pdf?.name} data-pdf-peek-scrub={pdf ? '' : undefined}>
       {url && <img src={url} alt="" draggable={false} decoding="async" className="size-full object-cover" />}
     </span>
   )

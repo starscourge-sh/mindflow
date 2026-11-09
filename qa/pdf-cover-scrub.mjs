@@ -2,7 +2,9 @@
 // style: a sweep across covers sets nothing off; resting on one about 0.6s and
 // then sliding sideways turns the cover into that page with "n / 20" on it, and
 // no second floating card comes up; leaving puts the cover back. A frame every
-// 50ms through rest, slide and leave, light and dark. A Media tile does the same.
+// 50ms through rest, slide and leave, light and dark. A Media tile does the same,
+// and so does a book's cover in Home's "Continue reading", each page felt as a
+// tap (haptics), the cover's box never moving.
 //   QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 QA_ARGS=--sandbox SHOT=/tmp/scrub node qa/pdf-cover-scrub.mjs
 import { mkdirSync } from 'fs'
 import { PDFDocument, StandardFonts } from 'pdf-lib'
@@ -24,7 +26,7 @@ const makePdf = async (title) => {
 const c = await sandbox({ width: 1440, height: 900 })
 const { h, v, go } = c
 const wait = (ms) => h.waitForTimeout(ms)
-const state = () => h.evaluate(() => ({ scrub: !!document.querySelector('[data-pdf-scrub]'), inCover: !!document.querySelector('.pdf-book-cover [data-pdf-scrub], [data-media] [data-pdf-scrub]'), chip: document.querySelector('[data-pdf-scrub-page]')?.textContent ?? '', card: !!document.querySelector('[data-pdf-peek-card]') }))
+const state = () => h.evaluate(() => ({ scrub: !!document.querySelector('[data-pdf-scrub]'), inCover: !!document.querySelector('.pdf-book-cover [data-pdf-scrub], [data-media] [data-pdf-scrub], [data-still-picture] [data-pdf-scrub]'), chip: document.querySelector('[data-pdf-scrub-page]')?.textContent ?? '', card: !!document.querySelector('[data-pdf-peek-card]') }))
 try {
   await v('settings:set', { sounds: false, hintRate: 0 })
   await v('onboarding:set', { welcomed: new Date().toISOString(), newsSeen: true, welcoming: false, pageHints: false })
@@ -88,6 +90,43 @@ try {
     const t = await state()
     check('the tile turns into the page in place, no card', t.inCover && !t.card && /\/ 20$/.test(t.chip), JSON.stringify(t))
     await h.screenshot({ path: `${SHOT}-tile.png` })
+  }
+
+  // Home's "Continue reading": the same three books, part way through.
+  const books = content.map(({ attrs }, i) => ({ src: attrs.src, name: attrs.name, title: attrs.name.replace(/\.pdf$/, ''), author: '', pages: 20, page: 5 + i, readAt: new Date(Date.now() - i * 3600_000).toISOString(), addedAt: new Date().toISOString(), highlights: 0, gems: 0, bytes: 900 }))
+  await c.electron.evaluate(({ ipcMain }, list) => { ipcMain.removeHandler('haligtree:pdf:library'); ipcMain.handle('haligtree:pdf:library', () => list) }, books)
+  await h.reload(); await wait(1500)
+  await go('home'); await wait(1500)
+  await h.locator('[data-continue-reading]').scrollIntoViewIfNeeded().catch(() => {}); await wait(800)
+  const book = await h.evaluate(() => { const r = document.querySelector('[data-continue-reading] [data-still-picture="0"] [data-pdf-peek-scrub]')?.getBoundingClientRect(); return r && { x: r.left, y: r.top, w: r.width, h: r.height } })
+  check('Continue reading shows the books\' covers, each able to turn its pages', !!book, '')
+  if (book) {
+    // Each page crossed is felt: count the taps main is asked for.
+    await c.electron.evaluate(({ ipcMain }) => { globalThis.__taps = 0; ipcMain.on('haptic:tap', () => globalThis.__taps++) })
+    const box = () => h.evaluate(() => { const r = document.querySelector('[data-continue-reading] [data-still-picture="0"]')?.getBoundingClientRect(); return r && [r.left, r.top, r.width, r.height].map(Math.round).join(',') })
+    const before = await box()
+    for (const theme of ['light', 'dark']) {
+      await c.look(theme)
+      await h.mouse.move(book.x + 6, book.y + book.h / 2)
+      const clip = { x: book.x - 12, y: book.y - 12, width: book.w + 24, height: book.h + 70 }
+      for (let i = 0; i < 14; i++) { await wait(50); await h.screenshot({ path: `${SHOT}-frames/continue-${theme}-rest-${String(i).padStart(2, '0')}.png`, clip }) }
+      const chips = []
+      for (let i = 1; i <= 12; i++) {
+        await h.mouse.move(book.x + 6 + (i * (book.w - 12)) / 12, book.y + book.h / 2); await wait(50)
+        chips.push((await state()).chip)
+        await h.screenshot({ path: `${SHOT}-frames/continue-${theme}-slide-${String(i).padStart(2, '0')}.png`, clip })
+      }
+      const now = await state()
+      check(`${theme}: Continue reading's cover turns into its pages in place, "n / 20" on it, no card`, now.inCover && !now.card && /^\d+ \/ 20$/.test(now.chip), JSON.stringify(now))
+      check(`${theme}: its pages run low to high as the pointer slides`, Number(chips.at(-1).split(' ')[0]) > Number(chips.find(Boolean)?.split(' ')[0] || 0), chips.join(','))
+      const taps = await c.electron.evaluate(() => { const n = globalThis.__taps; globalThis.__taps = 0; return n })
+      check(`${theme}: each page crossed is felt as a tap`, taps >= 3, `${taps} taps`)
+      check(`${theme}: the cover's box never moved`, (await box()) === before, `${before} -> ${await box()}`)
+      await h.mouse.move(5, 450)
+      for (let i = 0; i < 4; i++) { await wait(50); await h.screenshot({ path: `${SHOT}-frames/continue-${theme}-leave-${i}.png`, clip }) }
+      check(`${theme}: leaving puts Continue reading's cover back`, !(await state()).scrub, '')
+    }
+    await c.look('light')
   }
 } catch (error) {
   check('ran without throwing', false, String(error?.stack ?? error))

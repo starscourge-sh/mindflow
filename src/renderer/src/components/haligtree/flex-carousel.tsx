@@ -33,6 +33,8 @@ export interface FlexCarouselItem {
   aspect?: number
   /** Which picture this is, so a new list keeps the ones already drawn. Left out: its title. */
   id?: string
+  /** A book's PDF: resting on its cover, then sliding across it, turns its pages, as covers do on the shelf (pdf-peek.tsx). */
+  pdf?: { src: string; name: string }
 }
 
 /** How far a turn button may sit out beside the row, given the room: 3rem. */
