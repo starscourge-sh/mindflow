@@ -79,7 +79,7 @@ import TrashIcon from './components/ui/trash-icon'
 import { WillDo, TokenHint } from './components/haligtree/will-do'
 import { boxTokensPlugin, boxGuess, withoutWord, keepPlain, keptMessage, planNow, rearm, replan, type BoxContext, type BoxPlan, type BoxToken } from './lib/box-tokens'
 import { chime, soundOn } from './lib/sound'
-import { crumpleFrom, liftFrom } from './lib/fly-home'
+import { crumpleAway, liftFrom, warmBin } from './lib/fly-home'
 import { lengthSaid } from './lib/timer'
 import { stickOnDesktop } from './components/haligtree/sticky-note'
 import { NotePreview } from './components/haligtree/note-preview'
@@ -439,6 +439,8 @@ export default function App(): React.JSX.Element {
   // A pill grown by hand folds back first (see oneLine below).
   const foldPill = useRef<() => boolean>(() => false)
   useEscapeToHide(foldPill)
+  // The paper made ready while the box is idle, so a draft cleared crumples at once (`crumpleAway`).
+  useEffect(warmBin, [])
   // While the welcome runs, the empty line offers examples, a starter picked
   // there arrives written in with its fields filled, and the box is in lesson
   // mode: what is not being taught is calm, what draws on your history is hidden.
@@ -1447,8 +1449,8 @@ export default function App(): React.JSX.Element {
   const startOver = (): void => {
     const draft = latestEditing.current ? readDraft() : editorRef.current?.getJSON()
     const links = [...lifted]
-    // Thrown away: the sheet crumples and is tossed, before it goes blank.
-    const land = hasContent(draft ?? null) ? crumpleFrom(document.querySelector<HTMLElement>('.tiptap.ProseMirror.haligtree-editor')) : undefined
+    // Thrown away: the sheet crumples like paper where it was and fades (the Bin's paper, not sent to the Bin), before it goes blank.
+    const land = hasContent(draft ?? null) ? crumpleAway(document.querySelector<HTMLElement>('.tiptap.ProseMirror.haligtree-editor')) : undefined
     fresh()
     land?.()
     if (!hasContent(draft ?? null)) return

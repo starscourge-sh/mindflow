@@ -223,9 +223,6 @@ export const binFlight = (id: string): (() => void) | undefined =>
   // The one on screen: the same id can also be on a row out of sight (a fold shut, a list behind).
   binFlightFrom([...document.querySelectorAll<HTMLElement>(`[data-id="${CSS.escape(id)}"]`)].find((one) => seen(one)) ?? null)
 
-/** Quick capture's window: no view of its own in the address. */
-const inBox = (): boolean => !/[?&](view|note|drawing)=/.test(location.search)
-
 /** How long the paper crumples before it flies, and the flight: slow enough to see a sheet balled up and tossed. */
 const CRUMPLE_MS = 650
 const FLIGHT_MS = 450
@@ -288,55 +285,4 @@ export type Flight = ((after?: () => void) => void) & { drop: () => void }
 export function warmBin(): void {
   if (still()) return
   requestIdleCallback(() => void import('@/components/paper-crumple-flight').then((paper) => paper.warmPaper(), () => undefined), { timeout: 8000 })
-}
-
-/** Ten points round the edge, pulled in by different amounts: the outline of a ball of paper. */
-const FLAT = '0% 0%, 50% 0%, 100% 0%, 100% 50%, 100% 100%, 50% 100%, 0% 100%, 0% 50%, 25% 25%, 75% 75%'
-const ballOutline = (): string => {
-  const pull = (): number => 18 + Math.random() * 22
-  return `${pull()}% ${pull()}%, 50% ${pull() - 8}%, ${100 - pull()}% ${pull()}%, ${100 - pull() + 6}% 50%, ${100 - pull()}% ${100 - pull()}%, 50% ${100 - pull() + 8}%, ${pull()}% ${100 - pull()}%, ${pull() - 6}% 50%, 40% 40%, 60% 60%`
-}
-
-/**
- * Thrown away, shown: a copy of the sheet scrunches into a ball (its outline
- * crumpling inward, creases darkening, its words blurring as they fold under)
- * and is tossed off in a short arc (after reactbits' Paper Crumple, drawn
- * flat). Only for a draft cleared from the box, which goes nowhere and so is
- * not shredded into the Bin: everything that goes to the Bin is shredded.
- * Like `lift`, before the change; returns a `land`.
- */
-export function crumpleFrom(from: HTMLElement | null, ms = 300): (() => void) | undefined {
-  if (byKeys()) return undefined
-  const shot = snapshot(from)
-  if (!shot) return undefined
-  const { box, picture } = shot
-  return () => {
-    const sheet = document.createElement('div')
-    Object.assign(sheet.style, {
-      position: 'fixed', left: `${box.left}px`, top: `${box.top}px`, width: `${box.width}px`, height: `${box.height}px`,
-      zIndex: '60', pointerEvents: 'none', overflow: 'hidden', borderRadius: '6px',
-      // A shade lighter than the page, so a ball of it reads as paper, not a hole.
-      backgroundImage: 'linear-gradient(color-mix(in oklab, var(--foreground) 12%, var(--popover)), color-mix(in oklab, var(--foreground) 12%, var(--popover)))', backgroundColor: 'Canvas'
-    })
-    sheet.setAttribute('data-crumple', 'away')
-    sheet.append(picture)
-    document.body.append(sheet)
-    const ball = ballOutline()
-    const size = Math.min(box.width, box.height)
-    // Into a ball, whatever the sheet's shape: a long row squeezed only evenly stayed a ribbon.
-    const across = Math.min(1, 48 / box.width)
-    const down = Math.min(1, 48 / box.height)
-    const turn = (Math.random() < 0.5 ? -1 : 1) * (18 + Math.random() * 14)
-    const shade = `inset 0 0 ${size * 0.5}px rgb(0 0 0 / 0.32)`
-    // Scrunched where it was, quickly; then tossed down and aside, falling faster as it goes.
-    picture.animate([{ filter: 'blur(0px)', opacity: 1 }, { filter: 'blur(1.5px)', opacity: 0.55 }], { duration: ms * 0.4, easing: OUT, fill: 'forwards' })
-    void sheet.animate(
-      [
-        { clipPath: `polygon(${FLAT})`, transform: 'rotate(0deg) scale(1, 1)', boxShadow: 'inset 0 0 0 rgb(0 0 0 / 0)', opacity: 1, easing: EASING },
-        { clipPath: `polygon(${ball})`, transform: `rotate(${turn}deg) scale(${across}, ${down})`, boxShadow: shade, opacity: 1, offset: 0.4, easing: IN_OUT },
-        { clipPath: `polygon(${ball})`, transform: `translate(${turn > 0 ? 70 : -70}px, ${Math.min(size, 48) * 0.6 + 120}px) rotate(${turn * 6}deg) scale(${across * 0.9}, ${down * 0.9})`, boxShadow: shade, opacity: 0 }
-      ],
-      { duration: ms * (inBox() ? 1.15 : 1), easing: 'linear', fill: 'forwards' }
-    ).finished.then(() => sheet.remove(), () => sheet.remove())
-  }
 }
