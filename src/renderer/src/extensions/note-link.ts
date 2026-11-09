@@ -260,6 +260,18 @@ interface NoteLinkOptions {
  * note of that name already there is linked instead. Not part of undo: ⌘Z
  * takes the link back, the empty page stays, as one made by hand would.
  */
+/**
+ * A long name cut to its first words for a link to read as: up to its first
+ * stop or colon, else its first six words and "…". "" when the name is short already.
+ */
+export function shortLabel(label: string): string {
+  const name = label.replace(/\s+/g, " ").trim()
+  if (name.length <= 40) return ""
+  const clause = /^(.{8,40}?)[.:;!?](\s|$)/.exec(name)?.[1]
+  if (clause) return clause.trim()
+  return `${name.split(" ").slice(0, 6).join(" ").replace(/[,;:]$/, "")}…`
+}
+
 export async function noteNamed(label: string, findNotes: NoteLinkOptions["findNotes"], { make: making = true } = {}): Promise<(Pick<NoteSuggestion, "id" | "label" | "key" | "kind"> & { made?: boolean }) | null> {
   const name = label.trim()
   const make = typeof window !== "undefined" ? window.api?.captures?.create : undefined
@@ -673,7 +685,10 @@ export const NoteLink = Node.create<NoteLinkOptions>({
       if (props.fileBlock) return void editor.chain().focus().deleteRange(range).insertContent(props.fileBlock).run()
       // A link to nothing yet: pointed at a page by that name if one turns up; none is made until it is opened.
       if (!props.id && props.label && !props.heading && props.blockIndex === undefined) setTimeout(() => void pointOrMake(editor, props.label, findNotes))
-      const attrs = { id: props.id, label: props.label, key: props.key ?? "", heading: props.heading ?? "", kind: props.kind ?? "", block: props.block ?? "", blockText: props.blockText ?? "" }
+      // A long name (a note's whole first line) goes in as its first words, a short label to read on;
+      // right-click, "What the link says", changes them. The link still knows the whole name.
+      const short = !props.heading && props.blockIndex === undefined ? shortLabel(props.label) : ""
+      const attrs = { id: props.id, label: props.label, key: props.key ?? "", heading: props.heading ?? "", kind: props.kind ?? "", block: props.block ?? "", blockText: props.blockText ?? "", ...(short ? { text: short } : {}) }
       // A space already after it (an @ typed in the middle of a line) is the one that follows the link, not a second.
       const to = editor.state.doc.textBetween(range.to, Math.min(range.to + 1, editor.state.doc.content.size), "", "") === " " ? range.to + 1 : range.to
       editor
