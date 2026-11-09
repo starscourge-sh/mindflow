@@ -920,24 +920,22 @@ export function DayList({ compact = false, onWrite, focusEmpty = true, onOpenTas
                 {struck ? <Tick seed={task.id} draw={!!ticked[task.id]?.pen} className="size-2.5 text-white" /> : <Check aria-hidden className="size-3 opacity-0 transition-opacity group-hover/tick:opacity-60" />}
               </button>
             </Tip>
-            {/* Its words as far from the circle as the list's are. */}
-            <div className="relative ml-0.5 min-w-0 flex-1">
+            <div className="relative min-w-0 flex-1">
               {struck ? (
                 // Done, the words are struck by hand where they were written, and left there.
                 <button type="button" onClick={() => tick(task)} className="mf-hit relative block w-full text-left">
-                  <span className="block min-w-0 text-body text-muted-foreground"><Struck seed={task.id} draw={!!ticked[task.id]?.pen}><TintedWords text={task.title} /></Struck></span>
+                  <span className="block min-w-0 text-[0.9375rem] leading-snug text-muted-foreground"><Struck seed={task.id} draw={!!ticked[task.id]?.pen}><TintedWords text={task.title} /></Struck></span>
                 </button>
               ) : (
                 <DayLine lineKey={`t:${task.id}`} register={field(`t:${task.id}`)} value={task.title} label={task.title}
                   onKey={taskKeys(task, section)}
                   onPaste={(text) => pasteLines(section, text, task.id)}
                   onLeave={({ text, link }) => rename(task, text, link)}
-                  className="w-full text-body text-foreground" />
+                  className="w-full text-[0.9375rem] leading-snug text-foreground" />
               )}
               {/* Under the words, what the list says under them: when it is for, and how often it was carried over. */}
               {(task.dueAt || task.deadline || task.recurrence || carried(task) > 0) && (
-                // 2px nearer than the list's 4: the line's editor stands 2px taller than the list's words, so the rows match.
-                <span data-task-meta className={`mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground ${struck ? 'opacity-60' : ''}`}>
+                <span data-task-meta className={`mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground ${struck ? 'opacity-60' : ''}`}>
                   <TaskWhen task={task} />
                   {carried(task) > 0 && !task.recurrence && <span data-carried={carried(task)} className="flex items-center gap-1 tabular-nums"><RotateCw className="size-3" />Carried {num(carried(task))}×</span>}
                 </span>
