@@ -47,7 +47,9 @@ try {
   await go('today'); await wait(900)
   const first = JSON.stringify(await bar())
   const moved = []
-  for (const tab of [...TABS, 'today']) { await go(tab); await wait(700); const now = JSON.stringify(await bar()); if (now !== first) moved.push(`${tab}: ${now}`) }
+  // "Write out my day" belongs to Today alone, so it is gone on the other tabs; what stays is everything else, unmoved.
+  const still = (seen) => JSON.stringify(Object.fromEntries(Object.entries(seen).filter(([key]) => !key.includes('data-write-day'))))
+  for (const tab of [...TABS, 'today']) { await go(tab); await wait(700); const now = await bar(); if (still(now) !== still(JSON.parse(first))) moved.push(`${tab}: ${JSON.stringify(now)}`) }
   check('the bar stays put on every tab switch', !moved.length, moved.join(' / ') || first)
   // A fresh start: each tab keeps a folded "On hold".
   await v('task:add', 'water the plants every day', undefined, false)
