@@ -1,7 +1,7 @@
 import { TOOL } from './note-extras'
 import { dragWords } from '@/lib/drag-words'
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
-import { createPortal } from 'react-dom'
+import { createPortal, flushSync } from 'react-dom'
 import type { Editor, JSONContent } from '@tiptap/core'
 import type { Node as PMNode } from '@tiptap/pm/model'
 import { redo, undo } from '@tiptap/pm/history'
@@ -13,13 +13,14 @@ import { TagChip } from './tag-icon'
 import { NameInPlace } from './name-in-place'
 import { useThumb } from '@/lib/notes'
 
-import { HaligtreeEditor, TAGS, readMarkdown } from '../haligtree'
+import { HaligtreeEditor, TAGS } from '../haligtree'
 import { Calendar } from '@/components/ui/calendar'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuShortcut, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import DotsHorizontalIcon from '@/components/ui/dots-horizontal-icon'
 import { AliveIcon } from '@/components/ui/alive-icon'
-import { chime } from '@/lib/sound'
-import { slotTicker } from '@/lib/proximity'
+import { chime, click } from '@/lib/sound'
+import { edge } from '@/lib/haptics'
+import { findCaptures } from '@/lib/capture-links'
 import { notes, type NoteTable } from '@/lib/notes'
 import { taskSaid, haligtree } from '@/lib/haligtree'
 import { keyFor } from '@/lib/keys'
@@ -210,12 +211,11 @@ function edit(editor: Editor, change: (model: Model) => number[] | void): void {
   commit(editor, docOf(model))
 }
 
-/** One card, as Markdown would write it: `- [ ] words`, read by the editor's own reader. */
-const newCard = (text: string): Model['lanes'][number]['cards'][number] => {
-  const read = readMarkdown(`- [ ] ${text}`)
-  const item = read?.content?.[0]?.content?.[0] ?? { type: 'taskItem', attrs: { checked: false }, content: [{ type: 'paragraph', content: [{ type: 'text', text }] }] }
-  return { item, list: { type: 'taskList', attrs: {} } }
-}
+/** One checklist card holding the words typed for it, a note picked with @ kept as its link. */
+const newCard = (words: JSONContent[]): Model['lanes'][number]['cards'][number] => ({
+  item: { type: 'taskItem', attrs: { checked: false }, content: [{ type: 'paragraph', content: words }] },
+  list: { type: 'taskList', attrs: {} }
+})
 
 // --- board or note, per note
 
@@ -284,6 +284,55 @@ export function useBoard(table: NoteTable, id: string | undefined, editor: Edito
 }
 
 // --- the board
+
+/**
+ * Where a carried card or list would land, by what it is over: a card, or a
+ * list (its heading, or the room under its cards), each list one place.
+ */
+const placeOf = (id: string | number | undefined): string | null => (id === undefined ? null : String(id).replace(/^(lane:\d+):drop$/, '$1'))
+
+/**
+ * Heard and felt once for each new place a carried card would land, as a
+ * dragged row in a list is (proximity.ts slotTicker): the drag's tick and the
+ * trackpad's firm tap (haptics.ts, never two closer than its gap). `start`
+ * names where the drag began, which is not an arrival.
+ */
+function landTicker(): ((place: string | null) => void) & { start: (place: string | null) => void } {
+  let last: string | null = null
+  const tick = (place: string | null): void => {
+    if (place === null || place === last) return
+    last = place
+    click('tick')
+    edge()
+  }
+  return Object.assign(tick, { start: (place: string | null) => void (last = place) })
+}
+
+/**
+ * A change that moves cards (a key, a menu line), played as motion: each card
+ * glides from where it stood to where it now stands, on the drop's spring,
+ * rather than jumping. Cards are known by their words, as their places change.
+ */
+function glide(board: Element | null, change: () => void): void {
+  const cards = (): HTMLElement[] => [...(board?.querySelectorAll<HTMLElement>('[data-board-card]') ?? [])]
+  const was = new Map<string, DOMRect[]>()
+  for (const one of cards()) {
+    const key = one.textContent ?? ''
+    was.set(key, [...(was.get(key) ?? []), one.getBoundingClientRect()])
+  }
+  // Drawn in their new places at once, so they are measured there before the frame is painted.
+  flushSync(change)
+  if (still()) return
+  for (const one of cards()) {
+    const from = was.get(one.textContent ?? '')?.shift()
+    if (!from) continue
+    const to = one.getBoundingClientRect()
+    const dx = from.left - to.left
+    const dy = from.top - to.top
+    if (Math.abs(dx) < 1 && Math.abs(dy) < 1) continue
+    one.animate([{ translate: `${dx}px ${dy}px` }, { translate: '0 0' }], SETTLE as { duration: number; easing: string })
+  }
+}
 
 const cardId = (lane: number, at: number): string => `card:${lane}:${at}`
 const laneId = (lane: number): string => `lane:${lane}`
@@ -445,14 +494,16 @@ export function Board({ editor, id, tools }: { editor: Editor; id: string; /** W
           if (next < 0 || next >= open.length) return chime('nope')
           const to = open[next].at
           const index = Math.min(cursor.card, shown(to))
-          move([cursor.lane, cursor.card], [to, index])
+          glide(root.current, () => move([cursor.lane, cursor.card], [to, index]))
           chime('move')
+          edge()
           return setCursor({ lane: to, card: index })
         }
         const index = cursor.card + by[1]
         if (index < 0 || index >= shown(cursor.lane)) return chime('nope')
-        move([cursor.lane, cursor.card], [cursor.lane, index])
+        glide(root.current, () => move([cursor.lane, cursor.card], [cursor.lane, index]))
         chime('shift')
+        edge()
         return setCursor({ lane: cursor.lane, card: index })
       }
       if (down || up) {
@@ -505,14 +556,20 @@ export function Board({ editor, id, tools }: { editor: Editor; id: string; /** W
   const [draft, setDraft] = useState<string[][] | null>(null)
   const [lifted, setLifted] = useState<{ id: string; html: string; width: number; height: number } | null>(null)
   const order = draft ?? shape.lanes.map((lane, at) => lane.cards.map((_, index) => cardId(at, index)))
+  // A card's place is its name while carried (list and place): once it lands, the card now at its new place
+  // answers to the name it was carried by, so the drop settles on it there, not on the card that took its old place.
+  const [alias, setAlias] = useState<{ id: string; at: string; doc: PMNode } | null>(null)
+  const swap = alias && alias.doc === editor.state.doc ? alias : null
+  const sid = (place: string): string => (!swap ? place : place === swap.at ? swap.id : place === swap.id ? `${swap.id}~` : place)
+  const real = (id: string): string => (!swap ? id : id === swap.id ? swap.at : id === `${swap.id}~` ? swap.id : id)
   const laneOf = (id: string): number => (id.startsWith('lane:') ? Number(id.split(':')[1]) : order.findIndex((ids) => ids.includes(id)))
-  // A soft tick as a carried card or list comes over each new place.
-  const ticks = useRef(slotTicker()).current
+  // A tick and the trackpad's firm tap as a carried card or list comes over each new place it would land.
+  const ticks = useRef(landTicker()).current
   const onDragOver = ({ active, over }: DragOverEvent): void => {
-    ticks(over?.id)
-    const from = String(active.id)
+    ticks(placeOf(over ? real(String(over.id)) : undefined))
+    const from = real(String(active.id))
     if (!from.startsWith('card:') || !over) return
-    const to = String(over.id)
+    const to = real(String(over.id))
     const a = laneOf(from)
     const b = laneOf(to)
     if (a < 0 || b < 0 || a === b) return
@@ -524,14 +581,15 @@ export function Board({ editor, id, tools }: { editor: Editor; id: string; /** W
   }
   const onDragEnd = ({ active, over }: DragEndEvent): void => {
     setLifted(null)
-    const from = String(active.id)
-    const to = over ? String(over.id) : null
+    const from = real(String(active.id))
+    const to = over ? real(String(over.id)) : null
     if (from.startsWith('lane:')) {
       setDraft(null)
       const a = Number(from.slice(5))
       const b = to ? laneOf(to) : -1
       if (b < 0 || a === b) return chime('stay')
       chime('shift')
+      edge()
       return edit(editor, (model) => void (model.lanes = arrayMove(model.lanes, a, b)))
     }
     const next = order.map((ids) => [...ids])
@@ -544,8 +602,11 @@ export function Board({ editor, id, tools }: { editor: Editor; id: string; /** W
     const [, l, i] = from.split(':').map(Number)
     const at = next[lane].indexOf(from)
     if (lane < 0 || (lane === l && at === i)) return chime('stay')
+    // Landed: the firm tap with its sound, as the card settles into its place.
     chime(lane === l ? 'shift' : 'move')
+    edge()
     move([l, i], [lane, at])
+    setAlias({ id: String(active.id), at: cardId(lane, at), doc: editor.state.doc })
   }
 
   const cardsOf = (lane: number): { id: string; card: Card; at: number }[] =>
@@ -615,14 +676,14 @@ export function Board({ editor, id, tools }: { editor: Editor; id: string; /** W
         </DropdownMenuSub>
         <DropdownMenuSeparator />
         {/* Only where it would move: a line that cannot run is left out, never shown greyed. */}
-        {at > 0 && <DropdownMenuItem onSelect={() => (chime('shift'), move([lane, at], [lane, 0]))}>Move to top</DropdownMenuItem>}
-        {at < last && <DropdownMenuItem onSelect={() => (chime('shift'), move([lane, at], [lane, last]))}>Move to bottom</DropdownMenuItem>}
+        {at > 0 && <DropdownMenuItem onSelect={() => (chime('shift'), edge(), glide(root.current, () => move([lane, at], [lane, 0])))}>Move to top</DropdownMenuItem>}
+        {at < last && <DropdownMenuItem onSelect={() => (chime('shift'), edge(), glide(root.current, () => move([lane, at], [lane, last])))}>Move to bottom</DropdownMenuItem>}
         {shape.lanes.length > 1 && (
           <DropdownMenuSub>
             <DropdownMenuSubTrigger>Move to list</DropdownMenuSubTrigger>
             <DropdownMenuSubContent>
               {shape.lanes.map((other, to) => to !== lane && (
-                <DropdownMenuItem key={to} onSelect={() => (chime('move'), move([lane, at], [to, other.cards.length]))}>{other.title || 'Untitled'}</DropdownMenuItem>
+                <DropdownMenuItem key={to} onSelect={() => (chime('move'), edge(), glide(root.current, () => move([lane, at], [to, other.cards.length])))}>{other.title || 'Untitled'}</DropdownMenuItem>
               ))}
             </DropdownMenuSubContent>
           </DropdownMenuSub>
@@ -634,6 +695,30 @@ export function Board({ editor, id, tools }: { editor: Editor; id: string; /** W
     )
   }
 
+  // Lists past the board's width scroll sideways, never squashed: the side with more to see fades out.
+  const strip = useRef<HTMLDivElement>(null)
+  const [ends, setEnds] = useState({ left: false, right: false })
+  const readEnds = useRef(() => {})
+  readEnds.current = () => {
+    const box = strip.current
+    if (!box) return
+    const left = box.scrollLeft > 1
+    const right = box.scrollLeft + box.clientWidth < box.scrollWidth - 1
+    setEnds((was) => (was.left === left && was.right === right ? was : { left, right }))
+  }
+  // Read on every draw (a list added, folded or renamed changes how far it reaches), on scrolling and on resizing.
+  useLayoutEffect(() => readEnds.current())
+  useEffect(() => {
+    const box = strip.current
+    if (!box) return
+    const read = (): void => readEnds.current()
+    const watch = new ResizeObserver(read)
+    watch.observe(box)
+    box.addEventListener('scroll', read, { passive: true })
+    return () => (watch.disconnect(), box.removeEventListener('scroll', read))
+  }, [])
+  // Only the field being typed in shows focus: the picked card's ring waits while a card or list is written.
+  const quiet = adding === null && editing === null && !newList
   const done = shape.lanes.reduce((sum, lane) => sum + (lane.title === 'Archive' ? 0 : lane.cards.filter((card) => card.node.attrs.checked).length), 0)
   return (
     <div ref={root} tabIndex={-1} data-board data-own-keys className="flex min-h-[18rem] min-w-0 flex-1 flex-col outline-none" onPointerDown={(event) => {
@@ -670,16 +755,18 @@ export function Board({ editor, id, tools }: { editor: Editor; id: string; /** W
       )}
       <DndContext accessibility={dragWords} sensors={sensors} collisionDetection={closestCorners} measuring={{ droppable: { strategy: MeasuringStrategy.Always } }}
         autoScroll={{ threshold: { x: 0.08, y: 0.12 }, acceleration: 6 }}
-        onDragStart={({ active }) => (chime('lift'), ticks.start(String(active.id)), setLifted(snapshot(String(active.id))))}
+        onDragStart={({ active }) => (chime('lift'), ticks.start(real(String(active.id))), setLifted(snapshot(String(active.id))))}
         onDragOver={onDragOver} onDragEnd={onDragEnd} onDragCancel={() => (setDraft(null), setLifted(null))}>
         <SortableContext items={shape.lanes.map((_, at) => laneId(at))} strategy={horizontalListSortingStrategy}>
-          <div className="flex min-h-0 flex-1 items-start gap-3 overflow-x-auto px-3 pt-2 pb-4 @[40rem]/page:px-6">
+          <div ref={strip} data-board-strip="" data-fade-left={ends.left || undefined} data-fade-right={ends.right || undefined}
+            style={ends.left || ends.right ? { maskImage: `linear-gradient(to right, ${ends.left ? 'transparent, black 2rem' : 'black'}, ${ends.right ? 'black calc(100% - 2rem), transparent' : 'black'})` } : undefined}
+            className="flex min-h-0 flex-1 items-start gap-3 overflow-x-auto px-3 pt-2 pb-4 @[40rem]/page:px-6">
             {shape.lanes.map((lane, at) => {
               const folded = folds.includes(lane.title)
               const cards = cardsOf(at)
               return (
                 <LaneBox key={laneId(at)} id={laneId(at)} folded={folded} title={lane.title} count={lane.cards.length} onFold={() => flipFold(lane.title)}
-                  here={cursor?.lane === at && cursor.card < 0}
+                  here={quiet && cursor?.lane === at && cursor.card < 0}
                   menu={
                     <>
                       <DropdownMenuItem onSelect={() => setAdding(at)}>Add a card<DropdownMenuShortcut>{keyFor('N')}</DropdownMenuShortcut></DropdownMenuItem>
@@ -687,10 +774,10 @@ export function Board({ editor, id, tools }: { editor: Editor; id: string; /** W
                       {lane.title !== 'Archive' && lane.cards.some((card) => card.node.attrs.checked) && <DropdownMenuItem onSelect={() => archiveDone(at)}>Archive done cards</DropdownMenuItem>}
                     </>
                   }>
-                  <SortableContext items={cards.map((one) => one.id)} strategy={verticalListSortingStrategy}>
+                  <SortableContext items={cards.map((one) => sid(one.id))} strategy={verticalListSortingStrategy}>
                     {cards.map(({ id: key, card, at: index }) => (
-                      <CardBox key={key} id={key} editor={editor} card={card} disabled={query !== null || editing === key}
-                        here={!!cursor && cursor.lane === at && cursor.card === index}
+                      <CardBox key={key} id={sid(key)} editor={editor} card={card} disabled={query !== null || editing === key}
+                        here={!!cursor && quiet && cursor.lane === at && cursor.card === index}
                         onPick={() => setCursor({ lane: at, card: index })}
                         onTick={() => tick(card.pos)}
                         editing={editing === key}
@@ -714,9 +801,9 @@ export function Board({ editor, id, tools }: { editor: Editor; id: string; /** W
                     ))}
                   </SortableContext>
                   {adding === at ? (
-                    <AddCard onAdd={(text) => {
+                    <AddCard onAdd={(words) => {
                       chime('noted')
-                      edit(editor, (model) => (model.lanes[at].cards.push(newCard(text)), [at]))
+                      edit(editor, (model) => (model.lanes[at].cards.push(newCard(words)), [at]))
                     }} onClose={() => (setAdding(null), root.current?.focus({ preventScroll: true }))} placeholder="A card, then ↵" />
                   ) : (
                     // Faint until the list is pointed at, so its room never looks empty; an empty list shows it fully, as it is the only thing to do there.
@@ -969,7 +1056,10 @@ function CardBox({ id, editor, card, here, editing, disabled, onPick, onTick, on
   menu: (close: () => void) => ReactNode
 }): React.JSX.Element {
   const [menuOpen, setMenuOpen] = useState(false)
-  const { setNodeRef, attributes, listeners, transform, transition, isDragging } = useSortable({ id, disabled, transition: still() ? null : { duration: 220, easing: EASING } })
+  // Cards make room around a carried card as it moves (the sorting's own transform); once it lands they are
+  // simply in their places. Played again from a card's old place as the lists are read afresh, a card
+  // flashed over its neighbour for a frame after each drop.
+  const { setNodeRef, attributes, listeners, transform, transition, isDragging } = useSortable({ id, disabled, animateLayoutChanges: () => false, transition: still() ? null : { duration: 220, easing: EASING } })
   const task = card.node.type.name === 'taskItem'
   const checked = !!card.node.attrs.checked
   const cover = useCover(card.node)
@@ -992,7 +1082,7 @@ function CardBox({ id, editor, card, here, editing, disabled, onPick, onTick, on
       onContextMenu={(event) => void (!editing && (event.preventDefault(), event.stopPropagation(), setMenuOpen(true)))}
       className={`group/card relative flex shrink-0 cursor-pointer touch-none flex-col overflow-hidden rounded-[6px] text-control transition-[box-shadow,scale,background-color] duration-150 ease-(--mf-ease) active:scale-[0.97] ${
         // Carried away: the place it left stays open as a faint slot in the list's colour, the size of the card.
-        isDragging ? 'bg-[color-mix(in_srgb,var(--lane-tint)_12%,transparent)] [&>*]:invisible' : `${CARD_FILL} shadow-[0_1px_2px_color-mix(in_oklab,var(--mf-shadow-ink)_14%,transparent)] ring-1 ring-foreground/[0.07] hover:ring-foreground/15`
+        isDragging ? 'bg-[color-mix(in_srgb,var(--lane-tint)_12%,transparent)] [&>*]:invisible' : `${CARD_FILL} shadow-[0_1px_2px_color-mix(in_oklab,var(--mf-shadow-ink)_14%,transparent)] ring-1 ring-foreground/[0.07] hover:bg-[color-mix(in_oklab,var(--foreground)_4%,var(--board-card))]`
       } ${here ? 'ring-2! ring-ring/70!' : ''}`}>
       {cover && !editing && <img src={cover} alt="" draggable={false} data-card-cover="" className="h-28 w-full shrink-0 object-cover" />}
       <div className="flex min-w-0 items-start gap-2 px-2.5 py-2">
@@ -1026,7 +1116,7 @@ function CardBox({ id, editor, card, here, editing, disabled, onPick, onTick, on
         <DropdownMenu modal={false} open={menuOpen} onOpenChange={setMenuOpen}>
           <DropdownMenuTrigger asChild>
             <button type="button" aria-label="Card menu" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => event.stopPropagation()}
-              className={`${TOOL} absolute top-1 right-1 size-6 cursor-pointer ${CARD_FILL} opacity-0 group-hover/card:opacity-100 group-focus-within/card:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100`}>
+              data-card-more="" className={`${TOOL} absolute top-1 right-1 size-6 cursor-pointer bg-inherit opacity-0 focus-visible:opacity-100 data-[state=open]:opacity-100`}>
               <AliveIcon icon={DotsHorizontalIcon} size={14} />
             </button>
           </DropdownMenuTrigger>
@@ -1069,28 +1159,41 @@ function CardEditor({ content, onDone }: { content: JSONContent[]; onDone: (cont
   return (
     <div ref={box} className="min-w-0 flex-1 [--mf-padding:0] [&_.haligtree-editor]:!text-[length:calc(0.875rem*var(--mf-text-scale,1))] [&_.tiptap-word-count]:hidden" onPointerDown={(event) => event.stopPropagation()} onKeyDown={(event) => event.stopPropagation()}>
       <HaligtreeEditor defaultContent={{ type: 'doc', content: content.length ? content : [{ type: 'paragraph' }] }} tokens={TAGS}
-        toolbar={{ fixed: false }} handles={false} outline={false} search={false} vim={false} autofocus="end" onReady={(editor) => (ed.current = editor)} />
+        findNotes={findCaptures} toolbar={{ fixed: false }} handles={false} outline={false} search={false} vim={false} autofocus="end" onReady={(editor) => (ed.current = editor)} />
     </div>
   )
 }
 
-/** A line to type a new card or list into: ↵ adds and stays for the next, Escape closes. */
-function AddCard({ placeholder, onAdd, onClose }: { placeholder: string; onAdd: (text: string) => void; onClose: () => void }): React.JSX.Element {
-  const [text, setText] = useState('')
+/**
+ * The line a new card is typed into: the app's own editor line, as Today's and
+ * the "For tomorrow" box's are, so @ picks a note, #tags light and a paste
+ * reads as it does everywhere. Return adds the card and stays for the next,
+ * Escape, or a click away with nothing typed, closes it.
+ */
+function AddCard({ placeholder, onAdd, onClose }: { placeholder: string; onAdd: (words: JSONContent[]) => void; onClose: () => void }): React.JSX.Element {
+  const ed = useRef<Editor | null>(null)
+  const words = (): JSONContent[] => ed.current?.getJSON().content?.[0]?.content ?? []
+  const empty = (): boolean => !ed.current || (!ed.current.state.doc.textContent.trim() && !words().some((one) => one.type !== 'text'))
   return (
-    <div className="flex shrink-0 items-center gap-2 rounded-lg border bg-background px-2.5 py-1.5">
-      <input autoFocus value={text} onChange={(event) => setText(event.target.value)} placeholder={placeholder}
-        onBlur={() => !text.trim() && onClose()}
-        onKeyDown={(event) => {
-          event.stopPropagation()
-          if (event.key === 'Escape') return void (event.preventDefault(), chime('fold'), onClose())
-          if (event.key !== 'Enter' || event.nativeEvent.isComposing) return
-          event.preventDefault()
-          if (!text.trim()) return onClose()
-          onAdd(text.trim())
-          setText('')
+    // At the cards' own size and padding, so the card it becomes stands where it was typed.
+    <div data-add-card-line="" className="flex shrink-0 items-center rounded-[6px] bg-(--board-card) px-2.5 py-2 ring-2 ring-ring/60 [&_.tiptap]:!text-[length:calc(0.875rem*var(--mf-text-scale,1))] [&_p]:!text-[length:calc(0.875rem*var(--mf-text-scale,1))]"
+      onKeyDown={(event) => event.stopPropagation()}
+      onBlur={(event) => {
+        // Into its own @ menu: still being written.
+        const into = event.relatedTarget as Element | null
+        if (into && (event.currentTarget.contains(into) || into.closest('[role=menu], [role=listbox], .tiptap-suggestion-popup'))) return
+        if (empty()) onClose()
+      }}>
+      <HaligtreeEditor shape="line" autofocus="end" handles={false} slash={false} outline={false} search={false} vim={false} math={false} smoothScroll={false}
+        toolbar={false} tokens={TAGS} findNotes={findCaptures} placeholder={placeholder}
+        style={{ '--mf-padding': '0' } as React.CSSProperties}
+        onReady={(editor) => (ed.current = editor)}
+        onSubmit={() => {
+          if (empty()) return onClose()
+          onAdd(words())
+          ed.current?.commands.clearContent()
         }}
-        className="h-6 min-w-0 flex-1 bg-transparent text-control outline-none placeholder:text-muted-foreground" />
+        onKeyDown={(event) => (event.key === 'Escape' ? (chime('fold'), onClose(), true) : false)} />
     </div>
   )
 }

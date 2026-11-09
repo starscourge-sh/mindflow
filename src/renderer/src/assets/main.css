@@ -3558,6 +3558,9 @@ html[data-overhang][data-glass] [data-hint-room] [data-hint-surface] {
    dark ones, so a card always sits forward of its list's faint panel. Picked up, a card turns a little in the hand. */
 :root { --board-card: var(--background); }
 .dark:not(.light, .paper, [data-light]) { --board-card: color-mix(in oklab, var(--foreground) 7%, var(--background)); }
+/* A card's ⋯ shows on one card at a time: the one under the pointer, or, with the pointer on no card, the one the keys picked. */
+[data-board-card]:hover > [data-card-more],
+[data-board]:not(:has([data-board-card]:hover)) [data-board-card][data-board-cursor] > [data-card-more] { opacity: 1; }
 .mf-board-lift { rotate: 1.5deg; scale: 1.02; animation: mf-board-lift 180ms var(--mf-ease) both; }
 @keyframes mf-board-lift { from { rotate: 0deg; scale: 1; } }
 @media (prefers-reduced-motion: reduce) { .mf-board-lift { rotate: none; scale: none; animation: none; } }

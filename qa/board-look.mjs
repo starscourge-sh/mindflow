@@ -17,7 +17,7 @@ process.env.QA_ARGS ??= '--sandbox'
 const shots = process.env.SHOTS ?? join(tmpdir(), `board-look-${Date.now()}`)
 mkdirSync(join(shots, 'drag'), { recursive: true })
 const { check, done } = checks()
-const s = await sandbox({ width: 1400, height: 860 })
+const s = await sandbox({ width: 1440, height: 860 })
 const { h, v, send, size, both, look } = s
 const wait = (ms = 300) => h.waitForTimeout(ms)
 const lanes = () => h.evaluate(() => [...document.querySelectorAll('[data-board] [data-lane] h3')].map((one) => `${one.textContent}:${one.closest('[data-lane]').querySelectorAll('[data-board-card]').length}`).join(' | '))
@@ -50,7 +50,7 @@ try {
   check('every button on the board shows the hand', hands.length === 0, hands.join(', '))
 
   // The narrow pane: lists scroll inside the board, the page never sideways.
-  await size(560, 800)
+  await size(760, 800)
   await wait(600)
   const narrow = await h.evaluate(() => {
     const doc = document.scrollingElement
@@ -60,8 +60,19 @@ try {
   })
   check('narrow: the page does not scroll sideways', narrow.page <= 0 && narrow.body <= 0 && narrow.panes === 0, JSON.stringify(narrow))
   check('narrow: the lists scroll sideways inside the board', narrow.strip, JSON.stringify(narrow))
+  const fade = await h.evaluate(() => { const one = document.querySelector('[data-board-strip]'); return { right: one.hasAttribute('data-fade-right'), left: one.hasAttribute('data-fade-left'), mask: getComputedStyle(one).maskImage } })
+  check('narrow: the side with more lists fades out, the start does not', fade.right && !fade.left && fade.mask !== 'none', JSON.stringify(fade))
+  await h.evaluate(() => { const one = document.querySelector('[data-board-strip]'); one.scrollLeft = one.scrollWidth })
+  await wait(200)
+  const fade2 = await h.evaluate(() => { const one = document.querySelector('[data-board-strip]'); return { right: one.hasAttribute('data-fade-right'), left: one.hasAttribute('data-fade-left') } })
+  check('narrow: scrolled to the end, the start fades instead', fade2.left && !fade2.right, JSON.stringify(fade2))
+  await h.evaluate(() => { document.querySelector('[data-board-strip]').scrollLeft = 0 })
+  await wait(200)
   await both(join(shots, 'narrow'))
-  await size(1400, 860)
+  await size(560, 800)
+  await wait(500)
+  await both(join(shots, "phone"))
+  await size(1440, 860)
   await wait(600)
 
   // The rich board: a picture, tags and a date at the foot, a long title held to three lines.
@@ -106,31 +117,141 @@ try {
   await wait(200)
   check('Esc lets the card go', await h.evaluate(() => !document.querySelector('[data-board] [data-board-card][data-board-cursor]')))
 
-  // A drag, filmed every 50ms: the card lifts and turns, the gap opens, then it lands in the next list.
+  // A drag, filmed every 50ms and read every frame in the page: the card lifts and turns on a shadow, the place it
+  // left stays as a slot, a gap opens where it would land, each new landing place taps the trackpad once (firm), and
+  // letting go settles it with a spring and one more tap.
   const before = await lanes()
+  const kinds = () => s.electron.evaluate(() => globalThis.haligtreeTapKinds())
+  const taps0 = (await kinds()).length
   const from = h.locator('[data-board] [data-board-card]', { hasText: 'A short one' }).first()
+  const mid = h.locator('[data-board] [data-board-card]', { hasText: 'Due soon' }).first()
   const to = h.locator('[data-board] [data-lane]', { hasText: 'Doing' }).locator('[data-board-card]').last()
   const a = await from.boundingBox()
+  const m = await mid.boundingBox()
   const b = await to.boundingBox()
+  // Per frame, in the page: the lifted card's place, turn and size, and whether a gap is open in Doing.
+  await h.evaluate(() => {
+    window.__boardFrames = []
+    const read = () => {
+      const lifted = document.querySelector('[data-board-lifted]')
+      const doing = [...document.querySelectorAll('[data-board] [data-lane]')].find((one) => one.querySelector('h3')?.textContent === 'Doing')
+      const gap = doing && [...doing.querySelectorAll('[data-board-card]')].some((one) => one.firstElementChild && getComputedStyle(one.firstElementChild).visibility === 'hidden')
+      const box = lifted?.getBoundingClientRect()
+      // Two cards of one list drawn over each other (each card's top above the last one's foot).
+      const overlap = [...document.querySelectorAll('[data-board] [data-lane]')].some((lane) => [...lane.querySelectorAll('[data-board-card]')].map((one) => one.getBoundingClientRect()).some((r, at, all) => at > 0 && r.top < all[at - 1].bottom - 2))
+      window.__boardFrames.push({ overlap, t: performance.now(), lifted: !!lifted, x: box?.left ?? null, y: box?.top ?? null, rotate: lifted ? getComputedStyle(lifted).rotate : null, scale: lifted ? getComputedStyle(lifted).scale : null, shadow: lifted ? getComputedStyle(lifted).boxShadow !== 'none' : null, gap: !!gap })
+      if (window.__boardFrames.length < 3000) requestAnimationFrame(read)
+    }
+    requestAnimationFrame(read)
+  })
   await h.mouse.move(a.x + 40, a.y + a.height / 2)
   await h.mouse.down()
   let frame = 0
   const film = async () => h.screenshot({ path: join(shots, 'drag', `${String(frame++).padStart(3, '0')}.png`) })
-  const steps = 18
+  // Down its own list past three cards, then across into Doing, under its last card.
+  const path = [
+    ...Array.from({ length: 10 }, (_, at) => [a.x + 40, a.y + a.height / 2 + ((m.y + m.height / 2 - a.y - a.height / 2) * (at + 1)) / 10]),
+    ...Array.from({ length: 12 }, (_, at) => [a.x + 40 + ((b.x - a.x) * (at + 1)) / 12, m.y + m.height / 2 + ((b.y + b.height + 10 - m.y - m.height / 2) * (at + 1)) / 12])
+  ]
+  const tapsAt = []
   let lifted = null
-  for (let at = 1; at <= steps; at++) {
+  for (const [at, [x, y]] of path.entries()) {
     const t0 = Date.now()
-    await h.mouse.move(a.x + 40 + ((b.x - a.x) * at) / steps, a.y + a.height / 2 + ((b.y + b.height + 10 - a.y - a.height / 2) * at) / steps)
+    await h.mouse.move(x, y)
     await film()
-    if (at === 8) lifted = await h.evaluate(() => { const one = document.querySelector('[data-board-lifted]'); return one && { rotate: getComputedStyle(one).rotate, shadow: getComputedStyle(one).boxShadow !== 'none' } })
+    tapsAt.push((await kinds()).length - taps0)
+    if (at === 6) lifted = await h.evaluate(() => { const one = document.querySelector('[data-board-lifted]'); return one && { rotate: getComputedStyle(one).rotate, scale: getComputedStyle(one).scale, shadow: getComputedStyle(one).boxShadow !== 'none' } })
     await wait(Math.max(0, 50 - (Date.now() - t0)))
   }
-  check('the carried card lifts on a shadow and turns a little', !!lifted && lifted.shadow && lifted.rotate !== 'none', JSON.stringify(lifted))
+  check('the carried card lifts on a shadow, a little larger and turned', !!lifted && lifted.shadow && lifted.rotate !== 'none' && lifted.scale !== 'none', JSON.stringify(lifted))
+  const gapOpen = await h.evaluate(() => window.__boardFrames.some((one) => one.gap))
+  check('a gap opens in Doing where the card would land', gapOpen)
+  await wait(200)
+  const during = (await kinds()).slice(taps0)
+  check('each new landing place taps the trackpad, firm, more than once over a drag through two lists', during.length >= 3 && during.every((one) => one === 'level'), `${during.join(',')} / by step ${tapsAt.join(',')}`)
+  check('no buzz: fewer taps than steps of the pointer', during.length < path.length, `${during.length} taps over ${path.length} steps`)
+  const upAt = await h.evaluate(() => performance.now())
   await h.mouse.up()
   for (let at = 0; at < 8; at++) { const t0 = Date.now(); await film(); await wait(Math.max(0, 50 - (Date.now() - t0))) }
   await wait(400)
+  const landed = (await kinds()).slice(taps0 + during.length)
+  check('letting go taps once more as it lands', landed.length === 1 && landed[0] === 'level', landed.join(','))
+  const settle = await h.evaluate((up) => window.__boardFrames.filter((one) => one.t >= up && one.lifted), upAt)
+  const ys = settle.map((one) => Math.round(one.y))
+  const all = await h.evaluate(() => ({ n: window.__boardFrames.length, last: window.__boardFrames.at(-1) }))
+  check('it settles into its place over several frames (a spring, not a jump)', settle.length >= 6, `${settle.length} frames: ${ys.join(',')} / ${JSON.stringify(all)}`)
+  // It settles where it now stands in Doing, not back where it was picked up.
+  const home = await h.evaluate(() => { const one = [...document.querySelectorAll('[data-board] [data-lane]')].find((l) => l.querySelector('h3')?.textContent === 'Doing'); const card = [...one.querySelectorAll('[data-board-card]')].find((c) => c.textContent.includes('A short one')); const box = card?.getBoundingClientRect(); return box && { x: Math.round(box.left), y: Math.round(box.top) } })
+  const end = settle.at(-1)
+  check('the drop settles on the card in its new place', !!home && !!end && Math.abs(end.x - home.x) < 14 && Math.abs(end.y - home.y) < 14, `ends ${end && Math.round(end.x)},${end && Math.round(end.y)}; card at ${JSON.stringify(home)}`)
+  const crossed = await h.evaluate((up) => window.__boardFrames.filter((one) => one.t >= up && one.overlap).length, upAt)
+  check('after the drop no card is drawn over another in any frame', crossed === 0, `${crossed} frames`)
+  const hidden = await h.evaluate(() => [...document.querySelectorAll('[data-board] [data-board-card]')].filter((one) => one.firstElementChild && getComputedStyle(one.firstElementChild).visibility === 'hidden').length)
+  check('no card is left hidden after the drop', hidden === 0, String(hidden))
   const after = await lanes()
   check('the card landed in Doing', /Ideas:4/.test(after) && /Doing:3/.test(after), `${before} -> ${after}`)
+
+  // Keys: ⌥↑ and ⌥→ carry the picked card, with motion and the same firm tap, one each.
+  await h.locator('[data-board] [data-board-card]', { hasText: 'Due soon' }).first().click()
+  await wait(200)
+  const k0 = (await kinds()).length
+  await h.keyboard.press('Alt+ArrowUp')
+  const glideUp = await h.evaluate(() => [...document.querySelectorAll('[data-board] [data-board-card]')].filter((one) => one.getAnimations().length).length)
+  await wait(400)
+  const order = await h.evaluate(() => [...[...document.querySelectorAll('[data-board] [data-lane]')][0].querySelectorAll('[data-board-card] p')].map((one) => one.textContent.trim().slice(0, 12)).join(' / '))
+  check('⌥↑ moves the card up its list, the cards gliding to their places', /Due soon \/ Tagged/.test(order) && glideUp >= 2, `${order} / ${glideUp} gliding`)
+  await h.keyboard.press('Alt+ArrowRight')
+  const glideRight = await h.evaluate(() => [...document.querySelectorAll('[data-board] [data-board-card]')].filter((one) => one.getAnimations().length).length)
+  await wait(400)
+  check('⌥→ carries it to the next list, gliding', /Ideas:3/.test(await lanes()) && /Doing:4/.test(await lanes()) && glideRight >= 1, `${await lanes()} / ${glideRight} gliding`)
+  const keyTaps = (await kinds()).slice(k0)
+  check('each key move taps the trackpad once, firm', keyTaps.length === 2 && keyTaps.every((one) => one === 'level'), keyTaps.join(','))
+  await h.keyboard.press('Escape')
+  await wait(200)
+
+  // A card's ⋯: none at rest, one on the card under the pointer, never a second on the picked card.
+  await h.mouse.move(1300, 800)
+  await wait(300)
+  const moreShown = () => h.evaluate(() => [...document.querySelectorAll('[data-board] [data-card-more]')].filter((one) => +getComputedStyle(one).opacity > 0.5).length)
+  check('no ⋯ shows on cards at rest', (await moreShown()) === 0, String(await moreShown()))
+  const pickedCard = h.locator('[data-board] [data-board-card]', { hasText: 'Card number 1' }).first()
+  await pickedCard.click()
+  const other = await h.locator('[data-board] [data-board-card]', { hasText: 'Card number 2' }).first().boundingBox()
+  await h.mouse.move(other.x + 30, other.y + other.height / 2)
+  await wait(300)
+  const hover = await h.evaluate(() => { const one = [...document.querySelectorAll('[data-board] [data-board-card]')].find((c) => c.textContent.includes('Card number 2')); const css = getComputedStyle(one); return { bg: css.backgroundColor, ring: css.boxShadow } })
+  check('pointing at one card with another picked shows one ⋯, on the pointed card', (await moreShown()) === 1, String(await moreShown()))
+  await h.mouse.move(1300, 800)
+  await wait(300)
+  const rest = await h.evaluate(() => { const one = [...document.querySelectorAll('[data-board] [data-board-card]')].find((c) => c.textContent.includes('Card number 2')); return getComputedStyle(one).backgroundColor })
+  check('a pointed card fills a little, as rows do, rather than ringing', hover.bg !== rest, `${rest} -> ${hover.bg}`)
+  await h.keyboard.press('Escape')
+
+  await h.evaluate(() => window.api.captures.create({ kind: 'note', body: { type: 'doc', content: [{ type: 'heading', attrs: { level: 1 }, content: [{ type: 'text', text: 'Garden plans' }] }] } }))
+  await wait(800)
+  // The new card's line is the app's editor line: @ picks a note, and the card shows the link. While it is
+  // typed in, no other card keeps a ring.
+  await h.locator('[data-board] [data-board-card]', { hasText: 'Card number 3' }).first().click()
+  await wait(150)
+  await h.keyboard.press('n')
+  await wait(500)
+  const rings = await h.evaluate(() => document.querySelectorAll('[data-board] [data-board-cursor]').length)
+  check('typing a new card, no other card shows a ring', rings === 0, String(rings))
+  const fonts = await h.evaluate(() => { const line = document.querySelector('[data-add-card-line] p'); const card = document.querySelector('[data-board] [data-board-card] p'); return { line: line && getComputedStyle(line).fontSize, card: card && getComputedStyle(card).fontSize } })
+  check('the new card line writes at the cards\' own size', !!fonts.line && fonts.line === fonts.card, JSON.stringify(fonts))
+  await h.keyboard.type('Read with @garden', { delay: 30 })
+  await wait(1000)
+  const menu = await h.evaluate(() => [...document.querySelectorAll('.tiptap-suggestion-popup .tiptap-slash-menu-title')].map((one) => one.textContent))
+  check('@ in the new card line offers notes', menu.some((one) => /Garden plans/.test(one)), JSON.stringify(menu))
+  await h.screenshot({ path: join(shots, 'at-in-card.png') })
+  await h.keyboard.press('Enter')
+  await wait(300)
+  await h.keyboard.press('Enter')
+  await wait(600)
+  const link = await h.evaluate(() => { const one = [...document.querySelectorAll('[data-board] [data-board-card]')].find((c) => c.textContent.includes('Read with')); return one && { link: !!one.querySelector('[data-note]'), text: one.textContent.trim() } })
+  check('the card holds the picked note as a link', !!link && link.link, JSON.stringify(link))
+  await h.keyboard.press('Escape')
+  await wait(300)
 
   // "Add a list": named in place, its name picked to type over, Enter keeps it.
   await h.locator('[data-board] [data-add-list]').click()
