@@ -416,7 +416,8 @@ export function EventChip({ one, day, onOpen, onPeek, onNote, month = false, cal
   return (
     <>
       <RowMenu items={eventMenu(one, { open: () => onOpen(one.key), onOpen: onNote, calendars })}>
-        <button ref={self} type="button" data-cal-event-chip={one.key} data-cal-calendar={one.calendarId} title={`${time ? `${time} ` : ''}${one.title}`}
+        <Tip label={`${time ? `${time} ` : ''}${one.title || 'New event'}`}>
+        <button ref={self} type="button" data-cal-event-chip={one.key} data-cal-calendar={one.calendarId}
           onPointerDown={start}
           onClick={(event) => event.detail === 0 && peek()}
           onDoubleClick={(event) => !one.readOnly && (event.stopPropagation(), chime('open'), onOpen(one.key))}
@@ -427,6 +428,7 @@ export function EventChip({ one, day, onOpen, onPeek, onNote, month = false, cal
           <span className="truncate font-semibold">{one.title || 'New event'}</span>
           {one.noted > 0 && <FileText data-cal-event-noted aria-label="Has notes" className="size-3 shrink-0" />}
         </button>
+        </Tip>
       </RowMenu>
       {carried && createPortal(
         <div data-cal-ghost style={{ left: 0, top: 0, transform: `translate3d(${carried.x + 8}px, ${carried.y + 8}px, 0)`, ...tint(one.color) }}
@@ -679,7 +681,7 @@ export function NewEvent({ ask, held, onMade }: { ask: { day: string; minute: nu
   // Kept as the panel goes (clicked away from, ⌘↵): made, said in the notice.
   if (held) held.current = read.title ? () => save(false) : null
   return (
-    <form data-new-event className="flex min-h-0 flex-1 flex-col overflow-y-auto pt-4 pb-4" onSubmit={(event) => (event.preventDefault(), void save())}>
+    <form data-new-event className="mf-more flex min-h-0 flex-1 flex-col overflow-y-auto pt-4 pb-4" onSubmit={(event) => (event.preventDefault(), void save())}>
       <h2 className="page-narrow mx-auto mb-3 w-full px-4 @[40rem]/page:px-12 font-heading text-title font-semibold tracking-[-0.018em] text-foreground">New event</h2>
       <div className="page-narrow mx-auto flex w-full flex-col gap-3 px-4 @[40rem]/page:px-12">
         <div className="flex min-h-10 items-center gap-2 rounded-lg border pr-1 pl-3 text-body focus-within:ring-1 focus-within:ring-ring">

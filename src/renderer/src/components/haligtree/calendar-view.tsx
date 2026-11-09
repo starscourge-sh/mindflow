@@ -513,7 +513,7 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
           {/* The week's number and days; then, quietly, how the planning went. */}
           <p data-cal-subtitle className="flex min-w-0 items-center gap-1 overflow-hidden text-control whitespace-nowrap text-foreground/75 tabular-nums [&_[data-late-all]]:h-6 [&_[data-late-all]]:px-1.5 [&_[data-late-all]]:text-control [&_[data-plan-total]]:px-0 [&_[data-plan-total]]:text-control [&_[data-plan-total]]:text-foreground/75">
             <span className="min-w-0 truncate"><span className="@[48rem]/head:hidden">{said(true)}</span><span className="hidden @[48rem]/head:inline">{subtitle}</span></span>
-            {!narrow && mode !== 'month' && <span className="hidden min-w-0 items-center gap-1 @[66rem]/head:inline-flex"><span aria-hidden>·</span><PlannedTotal tasks={tasks} from={dayKey(first)} to={dayKey(last)} span={mode === 'day' ? (first.isSame(dayjs(), 'day') ? 'today' : 'this day') : current(first) ? 'this week' : 'that week'} /></span>}
+            {!narrow && mode !== 'month' && <span className="hidden min-w-0 items-center gap-1 @[66rem]/head:inline-flex"><PlannedTotal lead tasks={tasks} from={dayKey(first)} to={dayKey(last)} span={mode === 'day' ? (first.isSame(dayjs(), 'day') ? 'today' : 'this day') : current(first) ? 'this week' : 'that week'} /></span>}
           </p>
         </div>
         {/* ‹ | Today | ›, one control, as Todoist has it. */}
@@ -553,7 +553,8 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
                 {looseShown.map((task) => (
                   <li key={task.id}>
                     <RowMenu items={taskMenu(task, { open: () => pick(task.id), now: taskNow })}>
-                      <button type="button" data-cal-loose={task.id} data-open={task.id === picked || undefined} title={taskName(task.title).text}
+                      <Tip label={taskName(task.title).text}>
+                      <button type="button" data-cal-loose={task.id} data-open={task.id === picked || undefined}
                         onPointerDown={(event) => start(event, (x, y) => ({ kind: 'move', task, grab: 0, length: task.estimate ?? USUAL, x, y, to: null }), () => pick(task.id))}
                         onKeyDown={(event) => {
                           if (event.key === 'Enter') (event.preventDefault(), pick(task.id))
@@ -563,6 +564,7 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
                         <span aria-hidden className="size-3 shrink-0 rounded-full border-[1.5px]" style={{ borderColor: task.priority === 1 ? 'var(--tt-color-text-orange)' : ACCENT }} />
                         <span className="min-w-0 flex-1 truncate">{taskName(task.title).text}</span>
                       </button>
+                      </Tip>
                     </RowMenu>
                   </li>
                 ))}
@@ -802,7 +804,8 @@ function Upcoming({ tasks, name, onPeek, onTask }: { tasks: Task[]; name: (one: 
           <h3 className="px-2 py-0.5 text-control font-medium text-foreground/75">{day.label}</h3>
           {!day.rows.length && <p className="px-2 py-1 text-body text-foreground/85">Nothing more today</p>}
           {day.rows.map((row) => (
-            <button key={row.key} type="button" data-cal-upcoming-row={row.key} title={row.title}
+            <Tip key={row.key} label={`${row.title} ${row.said}`}>
+            <button type="button" data-cal-upcoming-row={row.key}
               onClick={(event) => row.one ? (chime('open'), onPeek(row.one, event.currentTarget.getBoundingClientRect())) : row.task && onTask(row.task)}
               className="flex items-start gap-2.5 rounded-md px-2 py-1 text-left outline-none transition-[background-color,scale] duration-150 hover:bg-accent/60 focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.97] motion-reduce:transition-none">
               <span aria-hidden className={`mt-1.5 size-2 shrink-0 ${row.task ? 'rounded-full border-[1.5px]' : 'rounded-[2px]'}`} style={row.task ? { borderColor: row.color } : { background: row.color }} />
@@ -811,6 +814,7 @@ function Upcoming({ tasks, name, onPeek, onTask }: { tasks: Task[]; name: (one: 
                 <span className="truncate text-control text-foreground/80 tabular-nums">{row.said}</span>
               </span>
             </button>
+            </Tip>
           ))}
         </div>
       ))}
@@ -972,7 +976,7 @@ function Grid({ days, tasks, marks, onHead, onPoint, calendars, ...props }: { da
               )
             })}
           </div>
-          <div className={`pointer-events-none relative grid min-h-8 gap-x-1.5 gap-y-[3px] overflow-y-auto px-[3px] py-[3px] ${folded ? 'max-h-8 overflow-hidden' : 'max-h-36'}`}
+          <div className={`pointer-events-none relative grid min-h-8 gap-x-1 gap-y-[3px] overflow-y-auto px-[3px] py-[3px] ${folded ? 'max-h-8 overflow-hidden' : 'max-h-36'}`}
             style={{ gridTemplateColumns: `repeat(${days.length}, minmax(0, 1fr))`, gridAutoFlow: 'row dense', gridAutoRows: '24px' }}>
             {events.filter((one) => one.allDay && dayKey(one.start) <= keys[keys.length - 1] && dayKey(dayjs(one.end).subtract(1, 'minute')) >= keys[0]).map((one) => {
               const from = Math.max(0, keys.indexOf(dayKey(one.start)) < 0 ? 0 : keys.indexOf(dayKey(one.start)))
@@ -1246,14 +1250,16 @@ function Untimed({ task, due, carry, start, onPick, taskNow, landed }: { task: T
   const color = due ? RED : ACCENT
   return (
     <RowMenu items={taskMenu(task, { open: () => onPick(task.id), now: taskNow })}>
-      <button type="button" data-cal-untimed={task.id} data-landed={(!due && landed?.id === task.id && landed.due === task.dueAt) || undefined} data-cal-due={due || undefined} title={`${due ? 'Due: ' : ''}${name}`}
+      <Tip label={`${due ? 'Due: ' : ''}${name}`}>
+      <button type="button" data-cal-untimed={task.id} data-landed={(!due && landed?.id === task.id && landed.due === task.dueAt) || undefined} data-cal-due={due || undefined}
         onPointerDown={due ? undefined : (event) => start(event, (x, y) => ({ kind: 'move', task, grab: 0, length: task.estimate ?? USUAL, x, y, to: null }), () => onPick(task.id))}
         onClick={due ? () => onPick(task.id) : undefined}
-        className={`flex h-6 min-w-0 shrink-0 touch-none items-center gap-1.5 rounded-[5px] px-1.5 text-left text-control text-foreground transition-colors duration-150 motion-reduce:transition-none ${carry?.kind === 'move' && carry.task.id === task.id ? 'opacity-40' : ''}`}
+        className={`flex h-6 min-w-0 shrink-0 touch-none items-center gap-1 rounded-[5px] pr-1 pl-1.5 text-left text-control text-foreground transition-colors duration-150 motion-reduce:transition-none ${carry?.kind === 'move' && carry.task.id === task.id ? 'opacity-40' : ''}`}
         style={{ background: `color-mix(in oklab, ${color} 14%, var(--background))` }}>
         <span aria-hidden className="size-1.5 shrink-0 rounded-full" style={{ background: color }} />
         <span className="truncate">{due && <span className="font-semibold">Due: </span>}{name}</span>
       </button>
+      </Tip>
     </RowMenu>
   )
 }
