@@ -253,6 +253,29 @@ try {
   await h.keyboard.press('Escape')
   await wait(300)
 
+  // A list carried by its heading to the front settles there too, with the same taps.
+  {
+    const head = await h.locator('[data-board] [data-lane] h3', { hasText: 'Doing' }).boundingBox()
+    const first = await h.locator('[data-board] [data-lane]').first().boundingBox()
+    const t0 = (await kinds()).length
+    await h.evaluate(() => { window.__laneFrames = []; const read = () => { const one = document.querySelector('[data-board-lifted]'); const box = one?.getBoundingClientRect(); window.__laneFrames.push({ t: performance.now(), x: box?.left ?? null }); if (window.__laneFrames.length < 3000) requestAnimationFrame(read) }; requestAnimationFrame(read) })
+    await h.mouse.move(head.x + 10, head.y + head.height / 2)
+    await h.mouse.down()
+    for (let at = 1; at <= 12; at++) { await h.mouse.move(head.x + 10 + ((first.x + 20 - head.x) * at) / 12, head.y + head.height / 2); await wait(40) }
+    const upLane = await h.evaluate(() => performance.now())
+    await h.mouse.up()
+    await wait(700)
+    const order = await lanes()
+    const laneTaps = (await kinds()).slice(t0)
+    const xs = await h.evaluate((up) => window.__laneFrames.filter((one) => one.t >= up && one.x !== null).map((one) => Math.round(one.x)), upLane)
+    const firstNow = await h.evaluate(() => Math.round(document.querySelector('[data-board] [data-lane]').getBoundingClientRect().left))
+    check('a list carried to the front lands there', /^Doing/.test(order), order)
+    check('the list settles on its new place, not its old one', xs.length > 2 && Math.abs(xs.at(-1) - firstNow) < 14, `${xs.join(',')} -> ${firstNow}`)
+    check('carrying a list taps at each new place and on landing, firm', laneTaps.length >= 2 && laneTaps.every((one) => one === 'level'), laneTaps.join(','))
+    await h.keyboard.press('Meta+z')
+    await wait(400)
+  }
+
   // "Add a list": named in place, its name picked to type over, Enter keeps it.
   await h.locator('[data-board] [data-add-list]').click()
   await wait(300)

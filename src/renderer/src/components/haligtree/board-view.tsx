@@ -561,7 +561,13 @@ export function Board({ editor, id, tools }: { editor: Editor; id: string; /** W
   const [alias, setAlias] = useState<{ id: string; at: string; doc: PMNode } | null>(null)
   const swap = alias && alias.doc === editor.state.doc ? alias : null
   const sid = (place: string): string => (!swap ? place : place === swap.at ? swap.id : place === swap.id ? `${swap.id}~` : place)
-  const real = (id: string): string => (!swap ? id : id === swap.id ? swap.at : id === `${swap.id}~` ? swap.id : id)
+  const real = (id: string): string => {
+    // A list's drop room is named for its list.
+    const room = id.endsWith(':drop')
+    const name = room ? id.slice(0, -5) : id
+    const place = !swap ? name : name === swap.id ? swap.at : name === `${swap.id}~` ? swap.id : name
+    return room ? `${place}:drop` : place
+  }
   const laneOf = (id: string): number => (id.startsWith('lane:') ? Number(id.split(':')[1]) : order.findIndex((ids) => ids.includes(id)))
   // A tick and the trackpad's firm tap as a carried card or list comes over each new place it would land.
   const ticks = useRef(landTicker()).current
@@ -590,7 +596,8 @@ export function Board({ editor, id, tools }: { editor: Editor; id: string; /** W
       if (b < 0 || a === b) return chime('stay')
       chime('shift')
       edge()
-      return edit(editor, (model) => void (model.lanes = arrayMove(model.lanes, a, b)))
+      edit(editor, (model) => void (model.lanes = arrayMove(model.lanes, a, b)))
+      return setAlias({ id: String(active.id), at: laneId(b), doc: editor.state.doc })
     }
     const next = order.map((ids) => [...ids])
     const lane = laneOf(from)
@@ -757,7 +764,7 @@ export function Board({ editor, id, tools }: { editor: Editor; id: string; /** W
         autoScroll={{ threshold: { x: 0.08, y: 0.12 }, acceleration: 6 }}
         onDragStart={({ active }) => (chime('lift'), ticks.start(real(String(active.id))), setLifted(snapshot(String(active.id))))}
         onDragOver={onDragOver} onDragEnd={onDragEnd} onDragCancel={() => (setDraft(null), setLifted(null))}>
-        <SortableContext items={shape.lanes.map((_, at) => laneId(at))} strategy={horizontalListSortingStrategy}>
+        <SortableContext items={shape.lanes.map((_, at) => sid(laneId(at)))} strategy={horizontalListSortingStrategy}>
           <div ref={strip} data-board-strip="" data-fade-left={ends.left || undefined} data-fade-right={ends.right || undefined}
             style={ends.left || ends.right ? { maskImage: `linear-gradient(to right, ${ends.left ? 'transparent, black 2rem' : 'black'}, ${ends.right ? 'black calc(100% - 2rem), transparent' : 'black'})` } : undefined}
             className="flex min-h-0 flex-1 items-start gap-3 overflow-x-auto px-3 pt-2 pb-4 @[40rem]/page:px-6">
@@ -765,7 +772,7 @@ export function Board({ editor, id, tools }: { editor: Editor; id: string; /** W
               const folded = folds.includes(lane.title)
               const cards = cardsOf(at)
               return (
-                <LaneBox key={laneId(at)} id={laneId(at)} folded={folded} title={lane.title} count={lane.cards.length} onFold={() => flipFold(lane.title)}
+                <LaneBox key={laneId(at)} id={sid(laneId(at))} folded={folded} title={lane.title} count={lane.cards.length} onFold={() => flipFold(lane.title)}
                   here={quiet && cursor?.lane === at && cursor.card < 0}
                   menu={
                     <>
