@@ -382,8 +382,7 @@ export function Search({ onOpen: told, onAside: toldAside, onTab: toldTab, onClo
   )
   // One result's row: `index` among the results showing, `island` the one it is drawn in.
   const resultRow = (capture: Capture, index: number, island: string): React.JSX.Element => {
-              // A task wears the task mark it has everywhere else, not the to-do kind's.
-              const kind = capture.type === 'goal' ? goalLook(capture.kind) : capture.type === 'task' ? TASK_KIND : capture.type === 'event' ? EVENT_KIND : capture.type === 'day' ? DAY_KIND : capture.type === 'pdf' ? PDF_KIND : capture.type === 'web' ? WEB_KIND : capture.type === 'media' ? MEDIA_KIND : capture.type === 'work' ? WORK_KIND : CAPTURE_TYPES.find((type) => type.id === capture.kind) ?? CAPTURE_TYPES[0]
+              const kind = lookOf(capture)
               const on = index + doing.length === at
               return (
                 <Fragment key={capture.id}>
@@ -589,7 +588,7 @@ export function Search({ onOpen: told, onAside: toldAside, onTab: toldTab, onClo
               const from = act ? (keepFirst ? keepingShown.length : 0) : (keepFirst ? 0 : actingShown.length)
               return (
                 // Every row showing, so no "Show more" under it (whole: false with all shown).
-                <IslandBox key={which} name={act ? 'Actions' : 'Nothing called that yet'} island={{ ...(act ? actionsIsland : keepIsland), whole: false }} shown={list.length} uncounted={!act}
+                <IslandBox key={which} plain name={act ? 'Actions' : 'Nothing called that yet'} island={{ ...(act ? actionsIsland : keepIsland), whole: false }} shown={list.length} uncounted={!act}
                   icon={act ? <Command aria-hidden className="size-4 shrink-0 text-muted-foreground" /> : <Plus aria-hidden className="size-4 shrink-0 text-muted-foreground" />}>
                   {drawn.map((one, step) => actionRow(one, from + step))}
                 </IslandBox>
@@ -617,29 +616,16 @@ export function Search({ onOpen: told, onAside: toldAside, onTab: toldTab, onClo
                 from += list.length
                 const rows = list.map((capture, step) => resultRow(capture, start + step, name))
                 const isle = islands?.[name]
-                return isle ? <IslandBox key={name} name={name} island={isle} shown={list.length} icon={ISLAND_ICON[name]}>{rows}</IslandBox> : <Fragment key={name}>{rows}</Fragment>
+                return isle ? <IslandBox key={name} plain name={name} island={isle} shown={list.length} icon={ISLAND_ICON[name]}>{rows}</IslandBox> : <Fragment key={name}>{rows}</Fragment>
               })
             })()}
             </>}
           </div>
-          {/* The capture as it reads, not its raw text: the same editor, read
-              only. An action shows what it does and its keys instead, so the
-              half never empties or closes as the arrows pass over it. */}
-          {shown && plain ? (
-            // A plain action has nothing to preview: one line saying it, and its keys, not an empty frame.
-            // Before typing, what is close to hand sits under it, an island a kind, as the Journal's day lays them out.
-            <div className="m-3 ml-0 flex w-1/2 min-w-0 flex-col gap-3 overflow-y-auto">
-              <div key={plain.label} data-action-line className="flex items-center gap-3 rounded-lg border px-4 py-2.5">
-                <div className="min-w-0 flex-1">
-                  <p className="text-body text-pretty text-foreground">{plain.label}</p>
-                  {plain.hint && <p data-action-said className="text-body text-pretty text-muted-foreground">{plain.hint}</p>}
-                </div>
-                {plain.keys && keyFor(plain.keys) && <span className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground"><span className="flex gap-0.5"><Pressed keys={plain.keys} each /></span> any time</span>}
-              </div>
-              {!query.trim() && !scoped && <CloseToHand tasks={tasks} pins={pins} onOpen={(type, id) => (chime('open'), onOpen(type, id))} />}
-            </div>
-          ) : shown && (
-            <div className="m-3 ml-0 flex w-1/2 min-w-0 flex-col overflow-hidden rounded-lg border">
+          {/* The right half, Notion's way: one framed card (its own fill, a hairline, rounded, inset from the edges) that shows
+              the lit row. A result reads as it does, read only; an action says what it does, and before typing what is
+              close to hand sits under it in plain sections. One frame for all, so nothing jumps as the arrows move. */}
+          {shown && (
+            <div data-cmdk-panel className="mf-island m-3 ml-1 flex w-1/2 min-w-0 flex-col overflow-hidden rounded-[14px] border">
               <div className="min-h-0 flex-1 overflow-y-auto [--mf-padding:1rem_1.25rem]">
                 {picking
                   ? theme && (
@@ -652,7 +638,7 @@ export function Search({ onOpen: told, onAside: toldAside, onTab: toldTab, onClo
                     </div>
                   )
                   : current
-                  ? current.type === 'task' ? <TaskPreview id={current.id} /> : current.type === 'pdf' ? <PdfPeek label={current.label} id={current.id} /> : current.type === 'web' || current.type === 'work' ? <WebPeek label={current.label} site={current.source} /> : current.type === 'media' ? <MediaPeek label={current.label} id={current.id} kind={current.kind} /> : current.type === 'event' ? <EventPeek id={current.id} /> : <NotePreview type={current.type} id={current.id} />
+                  ? current.type === 'task' ? <TaskPreview id={current.id} /> : current.type === 'pdf' ? <PdfPeek label={current.label} id={current.id} /> : current.type === 'web' || current.type === 'work' ? <WebPeek label={current.label} site={current.source} /> : current.type === 'media' ? <MediaPeek label={current.label} id={current.id} kind={current.kind} /> : current.type === 'event' ? <EventPeek id={current.id} /> : <NotePreview capture={current} />
                   : action?.keep
                     // Nothing found: the half says so, and what Enter does with the words.
                     ? <div key={action.label} className="flex flex-col gap-2 p-4">
@@ -660,16 +646,20 @@ export function Search({ onOpen: told, onAside: toldAside, onTab: toldTab, onClo
                       <p className="text-body text-pretty text-foreground/80"><strong className="font-semibold text-foreground">Enter keeps it</strong> {action.keep === 'box' ? 'in quick capture, ready to finish there.' : `${KEPT_AS[action.keep]}, and opens it to write more.`}</p>
                     </div>
                   : action
-                    ? <div key={action.label} className="p-4">
-                      <p className="text-base font-medium text-pretty text-foreground">{action.label}</p>
-                      {/* A word asked about says what it means here before Enter opens the rest. */}
-                      {asked && action === doing[0] && <p className="mt-1 text-body text-muted-foreground">{asked.line}</p>}
+                    ? <div className="flex flex-col gap-5 p-4">
+                      <div key={action.label} data-action-line={plain ? '' : undefined}>
+                        <p className="text-base font-medium text-pretty text-foreground">{action.label}</p>
+                        {plain?.hint && <p data-action-said className="mt-0.5 text-body text-pretty text-muted-foreground">{plain.hint}</p>}
+                        {/* A word asked about says what it means here before Enter opens the rest. */}
+                        {asked && action === doing[0] && <p className="mt-1 text-body text-muted-foreground">{asked.line}</p>}
+                      </div>
+                      {plain && !query.trim() && !scoped && <CloseToHand tasks={tasks} pins={pins} onOpen={(type, id) => (chime('open'), onOpen(type, id))} />}
                     </div>
                     : <p className="p-4 text-body text-muted-foreground">Move onto something to see it here.</p>}
               </div>
               {/* One bar under every item: a thought on a result (⌘; or a click),
-                  or how to do an action. */}
-              <div className="flex min-h-9 shrink-0 items-center gap-3 border-t bg-accent/25 px-3 py-1.5 text-xs text-muted-foreground">
+                  or how to do an action; none where there is nothing to say. */}
+              {(picking ? !!before.current : !!current || !!(action?.keys && keyFor(action.keys))) && <div className="flex min-h-9 shrink-0 items-center gap-3 border-t px-4 py-1.5 text-xs text-muted-foreground">
                 {picking ? (
                   before.current && <span className="flex items-center gap-1.5"><Swatch theme={before.current} /> Was {themeName(before.current)}</span>
                 ) : current?.type === 'event' ? (
@@ -692,7 +682,7 @@ export function Search({ onOpen: told, onAside: toldAside, onTab: toldTab, onClo
                     {action.keys && keyFor(action.keys) && <span className="flex items-center gap-1.5"><span className="flex gap-0.5"><Pressed keys={action.keys} each /></span> any time</span>}
                   </>
                 )}
-              </div>
+              </div>}
             </div>
           )}
         </div>
@@ -768,17 +758,45 @@ function PdfPeek({ label, id }: { label: string; id: string }): React.JSX.Elemen
 }
 const dayName = (day: string): string => dayjs(day).format(dayjs(day).year() === dayjs().year() ? 'dddd D MMMM' : 'dddd D MMMM YYYY')
 
-function NotePreview({ type, id }: { type: string; id: string }): React.JSX.Element | null {
+/** What a result wears, in its row and atop its preview: a task the task mark it has everywhere else, not the to-do kind's. */
+const lookOf = (capture: Capture): { icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>; tint?: string } =>
+  capture.type === 'goal' ? goalLook(capture.kind) : capture.type === 'task' ? TASK_KIND : capture.type === 'event' ? EVENT_KIND : capture.type === 'day' ? DAY_KIND : capture.type === 'pdf' ? PDF_KIND : capture.type === 'web' ? WEB_KIND : capture.type === 'media' ? MEDIA_KIND : capture.type === 'work' ? WORK_KIND : CAPTURE_TYPES.find((type) => type.id === capture.kind) ?? CAPTURE_TYPES[0]
+
+/** The plain words of a body's first block, to tell whether it already starts with the result's name. */
+const firstWords = (body: unknown): string => {
+  const words = (node: JSONContent | undefined): string => (node?.text ?? '') + (node?.content ?? []).map(words).join('')
+  return (typeof body === 'string' ? body.split('\n')[0] : words((body as JSONContent | null)?.content?.[0])).trim()
+}
+
+/** Atop the preview, as Notion's card: what it is, its name, and where it lives, quietly. Its name is left out where the body opens with it. */
+function PreviewHead({ capture, named }: { capture: Capture; named: boolean }): React.JSX.Element {
+  const look = lookOf(capture)
+  const kind = capture.type === 'capture' ? (CAPTURE_TYPES.find((type) => type.id === capture.kind) ?? CAPTURE_TYPES[0]).label : typeSaid(capture.type)
+  const where = whereFrom(capture.source, capture.label)
+  return (
+    <div data-preview-head className="flex flex-col gap-1.5 px-5 pt-5">
+      <look.icon className="size-6 shrink-0" style={{ color: look.tint }} />
+      {named && <p className="text-lg font-semibold text-pretty text-foreground">{(capture.type === 'day' ? dayName(capture.id) : taskName(capture.label ?? '').text) || 'Untitled'}</p>}
+      <p className="text-xs text-muted-foreground">{[kind, where, capture.capturedAt && age(capture.capturedAt)].filter(Boolean).join(' · ')}</p>
+    </div>
+  )
+}
+
+function NotePreview({ capture }: { capture: Capture }): React.JSX.Element | null {
+  const { type, id } = capture
   // The last one stays until the next arrives: no blank flash between rows.
-  const [shown, setShown] = useState<{ id: string; body: unknown } | null>(null)
+  const [shown, setShown] = useState<{ id: string; body: unknown; capture: Capture } | null>(null)
   useEffect(() => {
     let old = false
-    void window.api.captures.peek(type, id).then((body) => !old && setShown({ id, body }))
+    void window.api.captures.peek(type, id).then((body) => !old && setShown({ id, body, capture }))
     return () => void (old = true)
   }, [type, id])
   if (!shown) return null
+  const name = taskName(shown.capture.label ?? '').text.trim()
+  const opens = firstWords(shown.body)
   return (
     <div key={shown.id}>
+      <PreviewHead capture={shown.capture} named={!!name && !(opens && (opens.startsWith(name) || name.startsWith(opens)))} />
       <HaligtreeEditor defaultContent={(shown.body as JSONContent | string | null) ?? ''} readOnly toolbar={false} handles={false} slash={false} outline={false} search={false} autofocus={false} />
     </div>
   )
@@ -856,21 +874,21 @@ function CloseToHand({ tasks, pins, onOpen }: { tasks: Task[]; pins: Pin[]; onOp
   const pinsIsland = useFold('cmdk.pinned', { total: pins.length })
   const row = (key: string, label: string, open: () => void, mark: React.ReactNode): React.JSX.Element => (
     <button key={key} type="button" data-close-to-hand={key} tabIndex={-1} onClick={open}
-      className="flex h-8 w-full cursor-pointer items-center gap-2.5 rounded-md px-2 text-left text-body text-foreground hover:bg-accent/60">
+      className="flex h-8 w-full cursor-pointer items-center gap-2.5 rounded-md px-2 text-left text-body text-foreground hover:bg-foreground/[0.06]">
       {mark}
       <span className="min-w-0 flex-1 truncate">{label || 'Untitled'}</span>
     </button>
   )
   if (!today.length && !pins.length) return null
   return (
-    <div data-close-to-hand-pane className="flex flex-col gap-1">
+    <div data-close-to-hand-pane className="-mx-2 flex flex-col">
       {today.length > 0 && (
-        <IslandBox name="Today" island={todayIsland} shown={todayIsland.whole ? today.length : Math.min(5, today.length)} icon={<SquareCheck aria-hidden className="size-4 shrink-0 text-muted-foreground" />}>
+        <IslandBox plain name="Today" island={todayIsland} shown={todayIsland.whole ? today.length : Math.min(5, today.length)} icon={<SquareCheck aria-hidden className="size-4 shrink-0 text-muted-foreground" />}>
           {today.slice(0, todayIsland.whole ? undefined : 5).map((one) => row(one.id, taskName(one.title).text, () => onOpen('task', one.id), <span aria-hidden className="size-3 shrink-0 rounded-full border-[1.5px] border-muted-foreground/70" />))}
         </IslandBox>
       )}
       {pins.length > 0 && (
-        <IslandBox name="Pinned" island={pinsIsland} shown={pinsIsland.whole ? pins.length : Math.min(5, pins.length)} icon={<PinIcon aria-hidden className="size-4 shrink-0 text-muted-foreground" />}>
+        <IslandBox plain name="Pinned" island={pinsIsland} shown={pinsIsland.whole ? pins.length : Math.min(5, pins.length)} icon={<PinIcon aria-hidden className="size-4 shrink-0 text-muted-foreground" />}>
           {pins.slice(0, pinsIsland.whole ? undefined : 5).map((one) => row(one.id, one.title, () => onOpen(one.type, one.id), <FileText aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />))}
         </IslandBox>
       )}

@@ -116,7 +116,16 @@ export function useReveal(id: string | null | undefined, shows: boolean, reveal:
 }
 
 /** The top of an island: the kind's icon, its name and how many, and the fold. */
-function IslandHead({ name, island, icon, extra, unit, uncounted }: { name: string; island: IslandState; /** Where the group is not a capture's kind (a Gem, an Article). */ icon?: ReactNode; extra?: ReactNode; /** What it counts, said after the number ("39 cards"). */ unit?: [string, string]; /** One thing, not a list (your thoughts, a day): no number beside its name. */ uncounted?: boolean }): React.JSX.Element {
+function IslandHead({ name, island, icon, extra, unit, uncounted, plain }: { name: string; island: IslandState; /** Where the group is not a capture's kind (a Gem, an Article). */ icon?: ReactNode; extra?: ReactNode; /** What it counts, said after the number ("39 cards"). */ unit?: [string, string]; /** One thing, not a list (your thoughts, a day): no number beside its name. */ uncounted?: boolean; plain?: boolean }): React.JSX.Element {
+  // A plain section's head is Notion's: small quiet words, no icon; the fold shows on hover, or while folded.
+  if (plain) return (
+    <button type="button" data-island-head={name} data-total={island.total} aria-expanded={!island.folded} onClick={island.onFold}
+      className="group/head flex h-7 w-full items-center gap-1.5 rounded-md px-2 text-left text-xs font-medium text-muted-foreground transition-colors hover:text-foreground">
+      <span className="min-w-0 truncate">{name}</span>
+      {!uncounted && <span className="shrink-0 font-normal tabular-nums opacity-70"><Rolling text={island.total} /></span>}
+      <ChevronRight aria-hidden className={`ml-auto size-3.5 shrink-0 transition-[transform,opacity] duration-150 ease-(--mf-ease) ${island.folded ? '' : 'rotate-90 opacity-0 group-hover/head:opacity-100 group-focus-visible/head:opacity-100'}`} />
+    </button>
+  )
   const kind = kindOfGroup(name)
   const Icon = icon ? null : kind?.icon
   return (
@@ -148,7 +157,13 @@ function IslandMore({ island, shown }: { island: IslandState; shown: number }): 
 }
 
 /** One island whole: its head, then its rows in a rounded panel, as the details sidebar draws its groups. */
-export function IslandBox({ name, island, shown, icon, extra, unit, uncounted, children }: { name: string; island: IslandState; shown: number; icon?: ReactNode; /** Drawn at the head's end, before the fold: All cards' due-ahead strip. */ extra?: ReactNode; /** What it counts, one and many ("card", "cards"). */ unit?: [string, string]; /** One thing, not a list: no number in its head. */ uncounted?: boolean; children: ReactNode }): React.JSX.Element {
+export function IslandBox({ name, island, shown, icon, extra, unit, uncounted, plain, children }: { name: string; island: IslandState; shown: number; icon?: ReactNode; /** Drawn at the head's end, before the fold: All cards' due-ahead strip. */ extra?: ReactNode; /** What it counts, one and many ("card", "cards"). */ unit?: [string, string]; /** One thing, not a list: no number in its head. */ uncounted?: boolean; /** A plain section, as Notion's ⌘K lists: a quiet head and the rows on the page, no box round them. */ plain?: boolean; children: ReactNode }): React.JSX.Element {
+  if (plain) return (
+    <section data-island={name} data-plain className="mt-3 first:mt-0">
+      <IslandHead name={name} island={island} unit={unit} uncounted={uncounted} plain />
+      {!island.folded && <div>{children}<IslandMore island={island} shown={shown} /></div>}
+    </section>
+  )
   return (
     <section data-island={name} className="mt-2 first:mt-0">
       <IslandHead name={name} island={island} icon={icon} extra={extra} unit={unit} uncounted={uncounted} />
