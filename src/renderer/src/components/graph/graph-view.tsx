@@ -216,7 +216,7 @@ export function GraphView(props: NodeViewProps): React.JSX.Element {
     for (const line of lines) {
       const one = meanings.get(line.id)
       if (!one || (one.kind !== "explicit" && one.kind !== "implicit")) continue
-      ctx.strokeStyle = ink(style, `--mf-chip-ink-${line.color}`, text)
+      ctx.strokeStyle = ink(style, `--tt-color-text-${line.color}`, text)
       ctx.beginPath()
       let drawn = 0
       const evaluate = (values: Record<string, number>): number => {
@@ -258,7 +258,7 @@ export function GraphView(props: NodeViewProps): React.JSX.Element {
     delete element.dataset.hover
     if (snap) {
       const [px, py] = toPx(snap.x, snap.y)
-      ctx.fillStyle = ink(style, `--mf-chip-ink-${snap.color}`, text)
+      ctx.fillStyle = ink(style, `--tt-color-text-${snap.color}`, text)
       ctx.beginPath()
       ctx.arc(px, py, 4.5, 0, Math.PI * 2)
       ctx.fill()
@@ -313,11 +313,13 @@ export function GraphView(props: NodeViewProps): React.JSX.Element {
     }, { signal: done.signal })
   }
 
-  // Zoom by pinch or scroll, about the point under the pointer.
+  // Zoom by pinch (ctrl comes with it) or ⌘-scroll, about the point under the pointer. A plain scroll is the note's:
+  // a plot in the middle of a page must never trap the page's scrolling.
   useEffect(() => {
     const element = canvas.current
     if (!element) return undefined
     const onWheel = (event: WheelEvent): void => {
+      if (!event.ctrlKey && !event.metaKey) return
       event.preventDefault()
       const box = element.getBoundingClientRect()
       const px = event.clientX - box.left, py = event.clientY - box.top
@@ -421,7 +423,7 @@ export function GraphView(props: NodeViewProps): React.JSX.Element {
                   <button
                     type="button"
                     className="mf-graph-swatch"
-                    style={{ color: `var(--mf-chip-ink-${line.color})` }}
+                    style={{ color: `var(--tt-color-text-${line.color})` }}
                     aria-label={`Colour: ${line.color}. Click for the next`}
                     onClick={() => nextColor(line)}
                   />

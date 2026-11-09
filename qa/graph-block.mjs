@@ -74,10 +74,15 @@ try {
   const at = { x: b.x + b.width * 0.7, y: b.y + b.height * 0.3 }
   const world = (vw) => [vw[0] + ((at.x - b.x) / b.width) * (vw[1] - vw[0]), vw[3] - ((at.y - b.y) / b.height) * (vw[3] - vw[2])]
   await h.mouse.move(at.x, at.y)
+  // A plain scroll over the plot is the note's: the view stays put.
   await h.mouse.wheel(0, -300); await wait(400)
+  const plain = (await canvasData()).view
+  check('a plain scroll over the plot leaves its view alone (the note scrolls)', JSON.stringify(plain) === JSON.stringify(v1), `${v1} → ${plain}`)
+  // ⌘-scroll (or a pinch) zooms.
+  await h.keyboard.down('Meta'); await h.mouse.wheel(0, -300); await h.keyboard.up('Meta'); await wait(400)
   const v2 = (await canvasData()).view
   const [wx1, wy1] = world(v1), [wx2, wy2] = world(v2)
-  check('scrolling zooms in, centred on the pointer', v2[1] - v2[0] < (v1[1] - v1[0]) * 0.8 && Math.abs(wx1 - wx2) < 0.05 && Math.abs(wy1 - wy2) < 0.05, `${v1} → ${v2}`)
+  check('⌘-scroll zooms in, centred on the pointer', v2[1] - v2[0] < (v1[1] - v1[0]) * 0.8 && Math.abs(wx1 - wx2) < 0.05 && Math.abs(wy1 - wy2) < 0.05, `${v1} → ${v2}`)
   await h.mouse.dblclick(b.x + 30, b.y + 30); await wait(400)
   const v3 = (await canvasData()).view
   check('double-click puts the view back', Math.abs(v3[0] + 10) < 1e-3 && Math.abs(v3[1] - 10) < 1e-3, String(v3))
