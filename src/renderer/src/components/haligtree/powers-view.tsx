@@ -160,8 +160,8 @@ export function PowersView({ onView }: { onView: (id: string, focus?: string) =>
             {tab === EVERY_PAGE && !searching ? <Pages onView={onView} /> : (
               // One column: each card its picture beside its words, read down like a list.
               <div className="mt-6 flex flex-col gap-3">
-                {shown.map((power) => (
-                  <Card key={power.id} power={power} used={!!used?.has(power.id)} caps={caps} onView={onView} />
+                {shown.map((power, at) => (
+                  <Card key={power.id} power={power} used={!!used?.has(power.id)} caps={caps} onView={onView} first={at < FIRST} />
                 ))}
               </div>
             )}
@@ -229,9 +229,33 @@ function useOnStage(ref: React.RefObject<HTMLElement | null>): boolean {
   return on
 }
 
-function Card({ power, used, caps, onView }: { power: Power; used: boolean; caps: Caps | null; onView: (id: string, focus?: string) => void }): React.JSX.Element {
+/**
+ * The cards a tab opens on, their pictures drawn with the page; the rest draw
+ * theirs as they come within a screen of the view. All of a tab's pictures in
+ * the first frame was most of the time it took to open (qa/powers-speed.mjs).
+ */
+const FIRST = 4
+const near = new Map<Element, () => void>()
+const nearing = typeof IntersectionObserver === 'undefined' ? null : new IntersectionObserver((all) => {
+  for (const one of all) if (one.isIntersecting) near.get(one.target)?.()
+}, { rootMargin: '100% 0px' })
+/** True once the stage is within a screen of the view, and from then on; at once for the cards the tab opens on. */
+function useNear(ref: React.RefObject<HTMLElement | null>, first: boolean): boolean {
+  const [on, setOn] = useState(first || !nearing)
+  useEffect(() => {
+    const el = ref.current
+    if (on || !el || !nearing) return
+    near.set(el, () => setOn(true))
+    nearing.observe(el)
+    return () => (near.delete(el), nearing.unobserve(el))
+  }, [ref, on])
+  return on
+}
+
+function Card({ power, used, caps, onView, first }: { power: Power; used: boolean; caps: Caps | null; onView: (id: string, focus?: string) => void; /** One of the cards the tab opens on: its picture comes with the page. */ first: boolean }): React.JSX.Element {
   const has = meets(caps, power.needs)
   const stage = useRef<HTMLDivElement>(null)
+  const drawn = useNear(stage, first)
   // Plays only while it is the card most in view, and never with Motion off or
   // Reduce motion. One at a time: with three or four playing together, each
   // step of each one laid the whole page out again, and it opened and
@@ -248,7 +272,7 @@ function Card({ power, used, caps, onView }: { power: Power; used: boolean; caps
             which a fold has to (a clip would leave the card's edge where it
             was), and contained, each frame of it lays out only this stage. */}
         <div ref={stage} aria-hidden className="pw-stage relative flex h-44 items-center justify-center overflow-hidden rounded-[9px] border border-border/50 bg-background px-5 [contain:strict]">
-          {Demo && <DemoLive.Provider value={seen && !calm}><Demo live={seen && !calm} /></DemoLive.Provider>}
+          {Demo && drawn && <DemoLive.Provider value={seen && !calm}><Demo live={seen && !calm} /></DemoLive.Provider>}
         </div>
         {used && <span className="absolute top-2.5 right-2.5" title="You have used this"><Tick /><span className="sr-only">You have used this</span></span>}
       </div>

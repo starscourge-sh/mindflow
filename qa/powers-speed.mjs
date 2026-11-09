@@ -1,5 +1,5 @@
 // "What Haligtree can do" opens and scrolls without stalls: under 500 ms from
-// the click to its first tab showing, and in every tab, scrolled top to bottom
+// a click on its pinned row in the sidebar to the first frame showing its first tab's cards, and in every tab, scrolled top to bottom
 // with the wheel, no frame over 32 ms. Switching tabs (a click, then ↓ in the
 // tab list) shows the next one's cards and only those. Prints where the time went.
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/powers-speed.mjs
@@ -9,14 +9,14 @@ process.env.QA_ARGS ??= '--sandbox'
 
 const { check, done } = checks()
 const c = await sandbox({ width: 1400, height: 880 })
-const { h, v, go } = c
+const { h, v, go, send } = c
 const wait = (ms) => h.waitForTimeout(ms)
 try {
   await v('settings:set', { sounds: false, hintRate: 0, ...(process.env.QA_STILL ? { motion: false } : {}) }); await wait(800)
   await h.evaluate(() => { window.__long = []; new PerformanceObserver((list) => list.getEntries().forEach((one) => window.__long.push(Math.round(one.duration)))).observe({ type: 'longtask', buffered: false }) })
   // For scale: Settings, a page of the same shape, on this machine now.
   const s0 = Date.now()
-  await go('settings')
+  await send('view', 'settings')
   await h.waitForSelector('[data-sections] [data-section]', { timeout: 10000 })
   console.log('SETTINGS OPEN', Date.now() - s0, 'ms')
   // And Settings' longest section scrolled the same way, for the same scale.
@@ -28,10 +28,18 @@ try {
   console.log('SETTINGS Appearance worst frame', Math.max(...(await h.evaluate(() => window.__frames)).slice(1)), 'ms')
   await go('home'); await wait(1200)
   await h.evaluate(() => window.__long.splice(0))
-  const t0 = Date.now()
-  await go('powers')
-  await h.waitForSelector('[data-powers-tab] [data-power]', { timeout: 10000 })
-  const shown = Date.now() - t0
+  // Timed in the page, from a click on the sidebar's pinned row to the first frame that shows a card: go() would add its own 900 ms wait.
+  await h.evaluate(() => {
+    window.__took = null
+    document.addEventListener('click', () => {
+      const at = performance.now()
+      const look = () => (document.querySelector('[data-powers-tab] [data-power]') ? (window.__took = Math.round(performance.now() - at)) : performance.now() - at < 5000 && requestAnimationFrame(look))
+      requestAnimationFrame(look)
+    }, { capture: true, once: true })
+  })
+  await h.locator('[data-powers-pin]').click()
+  await h.waitForFunction(() => window.__took !== null, null, { timeout: 6000 }).catch(() => {})
+  const shown = await h.evaluate(() => window.__took ?? 9999)
   await wait(1500)
   const opening = await h.evaluate(() => window.__long.splice(0))
   console.log('OPEN', shown, 'ms; long tasks', JSON.stringify(opening))
