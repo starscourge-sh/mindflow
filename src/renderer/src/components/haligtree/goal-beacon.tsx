@@ -9,6 +9,7 @@ import { Tip, toast } from './ui'
 
 import { EASE, shift, still } from '@/lib/motion'
 import { chime } from '@/lib/sound'
+import { useStickyDo } from '@/lib/sticky-do'
 import { useAppearance, useLive, haligtree, type ItemFull } from '@/lib/haligtree'
 import { useMilestones, type Milestone } from '@/lib/milestones'
 import { DotMatrix } from './dot-matrix'
@@ -92,6 +93,11 @@ export function GoalSticky({ id }: { id: string }): React.JSX.Element {
   const [peek, setPeek] = useState<{ side: 'left' | 'right'; nudge: boolean } | null>(null)
   // Every sticky tucked away is drawn by the window's own tab (windows/sticky.tsx), not this one.
   useEffect(() => window.api.onBeaconPeek((one) => setPeek(one?.tucked ? null : one)), [])
+  // Its right-click menu's own lines: open the goal as its ↗ does, and take its card down, named in "Put it back".
+  useStickyDo({
+    open: () => (chime('open'), window.api.openInHome('goal', id)),
+    down: () => (chime('unstick'), void haligtree.item(id).then((goal) => window.api.takeDownSticky(goal?.title || 'A goal')))
+  })
   if (peek) return <PeekingCard id={id} today={today} side={peek.side} nudge={peek.nudge} />
   return (
     <Desk shown={shown} onEnter={() => window.api.holdBeacon(true)} onLeave={() => window.api.holdBeacon(false)}>
@@ -321,6 +327,11 @@ export function GoalsSticky(): React.JSX.Element {
     chime('unstick')
     window.api.takeDownSticky('All goals')
   }
+  // Its right-click menu's own lines: open Goals as its button does, and take it down at once.
+  useStickyDo({
+    open: () => (chime('open'), window.api.openInHome(focusNow.current ? 'goal' : 'view', focusNow.current ?? 'goals')),
+    down: () => (chime('unstick'), window.api.takeDownSticky('All goals'))
+  })
   useEffect(() => {
     const key = (event: KeyboardEvent): void => {
       if (event.key === 'Escape') {

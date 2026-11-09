@@ -7,6 +7,7 @@ import { Minus } from 'lucide-react'
 import '@/assets/styles/_variables.scss'
 import './sticky-note.scss'
 import { chime } from '@/lib/sound'
+import { useStickyDo } from '@/lib/sticky-do'
 import { byKeys, EASE, shift } from '@/lib/motion'
 import { useAppearance, useLive, haligtree, type Finished, type Task } from '@/lib/haligtree'
 import { dayKey, num } from '../../../../main/dates'
@@ -20,7 +21,7 @@ import { Tape } from './tape'
 import { CARD, DRAG, GLASS, GRACE, Grip, PAPER, STICKY_BUTTON, STILL, StickyHead, stir, tiltOf, useStickyMotion } from './sticky-note'
 import { doneOnToday, onToday, taskName, todaySaid } from '@/lib/tasks'
 import { PriorityMark, byPriority, markRoom } from './task-input'
-import { nativeMenu } from './row-menu'
+import { stickyMenu } from './row-menu'
 import { taskMenu, useTaskNow } from './tasks-view'
 import { loud } from '@/lib/loud'
 import { Check, X } from '@/components/ui/icons'
@@ -64,6 +65,11 @@ export function TodaySticky(): React.JSX.Element {
   }
   const keyDown = useRef(takeDown)
   keyDown.current = takeDown
+  // Its right-click menu's own lines: open Today as its ↗ does, and take it down at once (choosing the line was the asking).
+  useStickyDo({
+    open: () => (chime('open'), window.api.openSticky('view', 'today', 'Today', false)),
+    down: () => (chime('unstick'), window.api.takeDownSticky('Today'))
+  })
   // A see-through window: only the card is drawn.
   useEffect(() => {
     document.documentElement.style.background = 'transparent'
@@ -198,7 +204,7 @@ export function TodaySticky(): React.JSX.Element {
                       <span className="flex min-w-0 flex-1 items-start gap-2">
                       {/* Right-clicked, the menu a task has on every list, drawn by the Mac: ours would not fit the sticky. The sticky's own menu stays on the rest of it. */}
                       <button type="button" data-task-title data-sticky-task={task.id} onClick={() => (chime('open'), window.api.openSticky('task', task.id, task.title, false))}
-                        onContextMenu={(event) => (event.preventDefault(), void nativeMenu(taskMenu(task, { open: () => (chime('open'), window.api.openSticky('task', task.id, task.title, false)), complete: () => tick(task), now: taskNow })))}
+                        onContextMenu={(event) => (event.preventDefault(), void stickyMenu(taskMenu(task, { open: () => (chime('open'), window.api.openSticky('task', task.id, task.title, false)), complete: () => tick(task), now: taskNow }), { x: event.clientX, y: event.clientY }))}
                         className="relative min-w-0 text-left leading-snug text-foreground decoration-foreground/30 underline-offset-2 after:absolute after:-inset-y-1 after:inset-x-0 hover:underline">
                         {taskName(task.title).text}
                       </button>

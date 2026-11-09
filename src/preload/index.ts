@@ -326,8 +326,24 @@ const api = {
   stickyTint: (): Promise<string | null> => ipcRenderer.invoke('sticky:tint'),
   /** "Open it": the note in the main window, growing out of the sticky; with `alt`, the sticky comes down. */
   openSticky: (tier: string, id: string, title: string, alt: boolean): void => ipcRenderer.send('sticky:open', tier, id, title, alt),
-  /** A menu drawn by the Mac over a sticky; resolves to the place of the line chosen, or null. */
-  stickyMenu: (items: unknown[]): Promise<number[] | null> => ipcRenderer.invoke('sticky:menu', items),
+  /** A menu over a sticky, drawn in Haligtree's menu window at `at` (a point in this window); resolves to the place of the line chosen, or null. */
+  stickyMenu: (items: unknown[], at?: { x: number; y: number }): Promise<number[] | null> => ipcRenderer.invoke('sticky:menu', items, at),
+  /** A sticky's own lines chosen in its menu: open it, or take it down at once. */
+  onStickyDo: (listen: (what: 'open' | 'down') => void): (() => void) => {
+    const relay = (_event: unknown, what: 'open' | 'down'): void => listen(what)
+    ipcRenderer.on('sticky:do', relay)
+    return () => void ipcRenderer.off('sticky:do', relay)
+  },
+  /** The menu window's page (windows/menu.tsx): a menu to show, at a point, and told when to put it away. */
+  onPopupMenu: (listen: (menu: { id: number; x: number; y: number; lines: unknown[] } | null) => void): (() => void) => {
+    const show = (_event: unknown, menu: { id: number; x: number; y: number; lines: unknown[] }): void => listen(menu)
+    const hide = (): void => listen(null)
+    ipcRenderer.on('menu:show', show)
+    ipcRenderer.on('menu:hide', hide)
+    return () => void (ipcRenderer.off('menu:show', show), ipcRenderer.off('menu:hide', hide))
+  },
+  /** The menu window's answer: the place of the line chosen, or null when it was put away. */
+  popupMenuDone: (id: number, path: number[] | null): void => ipcRenderer.send('menu:done', id, path),
   /** A sticky's page: told as its window comes in, peels off, is picked up or let go (`held`), or changes colour. */
   /** The pointer is over something drawn (true) or the clear room round the card (false): clicks there pass to the app behind (lib/clear-room.ts). */
   solid: (on: boolean): void => ipcRenderer.send('window:solid', on),

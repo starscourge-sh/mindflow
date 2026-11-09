@@ -214,10 +214,14 @@ try {
   await wait(800)
 
   // K11: a colour from its right-click menu: kept, painted, with a paper sound; Tidy keeps colours together.
-  await electron.evaluate(({ BrowserWindow }, id) => BrowserWindow.fromId(id).webContents.emit('context-menu', {}, { isEditable: false, selectionText: '', editFlags: {} }), (await win(B)).id)
-  const labels = await electron.evaluate(() => globalThis.qaMenu.map((one) => one.label).filter(Boolean))
+  // The menu is Haligtree's own, in its menu window (qa/sticky-menu.mjs): its colours are swatches named by label.
+  await electron.evaluate(({ BrowserWindow }, id) => BrowserWindow.fromId(id).webContents.emit('context-menu', {}, { x: 40, y: 40, isEditable: false, selectionText: '', editFlags: {} }), (await win(B)).id)
+  let menu = null
+  for (let i = 0; i < 40 && !menu; i++) (menu = electron.windows().find((p) => p.url().includes('view=menu')) ?? null), menu || (await wait(150))
+  await menu?.waitForSelector('[data-popup-menu]', { timeout: 5000 }).catch(() => {})
+  const labels = menu ? await menu.$$eval('[data-popup-menu] [aria-label]', (rows) => rows.map((one) => one.getAttribute('aria-label'))) : []
   check('K11 the right-click menu offers five paper colours', ['Plain', 'Butter', 'Rose', 'Sage', 'Sky'].every((one) => labels.includes(one)), labels.join(', '))
-  await electron.evaluate(() => globalThis.qaMenu.find((one) => one.label === 'Sky').click())
+  await menu?.click('[data-popup-menu] [aria-label="Sky"]')
   await wait(600)
   const pb = pageOf(B)
   const painted = await pb.evaluate(() => ({ tint: document.documentElement.hasAttribute('data-tint') ? document.documentElement.style.getPropertyValue('--mf-tint-hue') : '', heard: [...(window.haligtreeHeard ?? [])] }))

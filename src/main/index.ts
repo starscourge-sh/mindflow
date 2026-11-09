@@ -57,6 +57,7 @@ import { warmChrono } from './lazy/chrono'
 import { warmEmoji } from './lazy/emoji'
 import { backupBase, backupDir } from './backup'
 import { pageFor } from './pages'
+import { lineAt, popupMenu, registerPopupMenu, type PopupLine } from './popup-menu'
 import { hintRoom, type HintSide } from './hint-room'
 import { aiStudyOn, activeSession, extendRunning, whenNudge, atLogin, badge, beaconDefault, tuckRules, tempusDots, blurOn, boxAutoHide, boxOneLine, boxPlacement, gate, motionOn, stickyGlass, stickyStir, openGoals, registerHome, registerHaligtree, showStickies, stickyPrefs, stickyTuck, tuckStickies, toggleSafeMode, whenKeys, whenRecordings, whenIcon, appIcon, recordingPrefs, type Recordings, type OpenGoal, whenSafeMode, whenGoals, whenStickies, focusBubbleShown, focusToolsOn, whenFocusShows, pillInNotch, sleepChoice, sunPlace } from './haligtree'
 import { daysLeft, percent, tempus, wayThrough } from './goal-days'
@@ -1239,26 +1240,8 @@ const keepStuck = (): void => void writeWhole(stickyFile(), JSON.stringify(stuck
 const stuckAs = (key: string): Stuck | undefined => stuck.find((one) => `${one.type}:${one.id}` === key)
 /** The paper colours a sticky can have, in the order Tidy keeps them: plain first. */
 const STICKY_TINTS = [['plain', 'Plain'], ['butter', 'Butter'], ['rose', 'Rose'], ['sage', 'Sage'], ['sky', 'Sky']] as const
-/** Each paper colour as a dot beside its name in the menu, so the names are never guessed at (the paper follows the theme; these are its light-theme look). */
+/** Each paper colour as a swatch in a sticky's menu, so the names are never guessed at (the paper follows the theme; these are its light-theme look). */
 const TINT_DOTS: Record<string, [number, number, number]> = { plain: [240, 233, 219], butter: [255, 214, 102], rose: [229, 143, 180], sage: [143, 191, 143], sky: [143, 182, 224] }
-const tintDot = (tint: string): Electron.NativeImage => {
-  const size = 28
-  const [r, g, b] = TINT_DOTS[tint] ?? TINT_DOTS.plain
-  const pixels = Buffer.alloc(size * size * 4)
-  for (let y = 0; y < size; y++)
-    for (let x = 0; x < size; x++) {
-      const d = Math.hypot(x + 0.5 - size / 2, y + 0.5 - size / 2)
-      // A soft-edged disc with a faint darker rim, so the pale ones still read on a light menu.
-      const fill = Math.max(0, Math.min(1, size / 2 - 1 - d))
-      const rim = d > size / 2 - 3 ? 0.78 : 1
-      const at = (y * size + x) * 4
-      pixels[at] = Math.round(b * rim)
-      pixels[at + 1] = Math.round(g * rim)
-      pixels[at + 2] = Math.round(r * rim)
-      pixels[at + 3] = Math.round(255 * fill)
-    }
-  return nativeImage.createFromBitmap(pixels, { width: size, height: size, scaleFactor: 2 })
-}
 /** The sticky a window's address says it is ("today:today"), whether or not it is listed. */
 function keyInAddress(win: BrowserWindow): string | null {
   const url = win.webContents.getURL()
@@ -1509,6 +1492,15 @@ const tuckItems = (): Electron.MenuItemConstructorOptions[] => {
     tuck === 'tabs' ? { label: 'Tuck them flat', click: () => tuckStickies('flat') } : { label: 'Show their names', click: () => tuckStickies('tabs') }
   ]
 }
+/** The same lines for a sticky's own menu (popup-menu.ts), with the keys they answer to. */
+const tuckLines = (): PopupLine[] => {
+  const tuck = stickyTuck()
+  if (tuck === 'off') return stickiesOut() > 0 ? [{ label: 'Tuck sticky notes away', keys: '⌃⌥⌘H', run: () => tuckStickies('tabs') }] : []
+  return [
+    { label: 'Bring sticky notes back', keys: '⌃⌥⌘H', run: () => tuckStickies('off') },
+    tuck === 'tabs' ? { label: 'Tuck them flat', run: () => tuckStickies('flat') } : { label: 'Show their names', run: () => tuckStickies('tabs') }
+  ]
+}
 /** Each window told when that count changes, and the menu bar rebuilt to match. */
 function tellStickiesOut(): void {
   setTimeout(() => {
@@ -1714,27 +1706,40 @@ function stick(type: string, id: string, on: boolean, bounds?: Electron.Rectangl
     else remember()
   }
   win.on('resized', remember)
-  // Its right-click menu: the writing's own Cut, Copy and Paste where you can
-  // write, then the whole desk tidied, and taken back while it is fresh.
+  // Its right-click menu, drawn by Haligtree (popup-menu.ts): the writing's own Cut, Copy and Paste where
+  // you can write, then this sticky's own lines, its paper's colour, and the whole desk under "All stickies".
   win.webContents.on('context-menu', (_event, params) => {
     if (win.isDestroyed()) return
-    const writing: Electron.MenuItemConstructorOptions[] = params.isEditable
-      ? [{ role: 'cut', enabled: params.editFlags.canCut }, { role: 'copy', enabled: params.editFlags.canCopy }, { role: 'paste', enabled: params.editFlags.canPaste }, { type: 'separator' }]
-      : params.selectionText ? [{ role: 'copy' }, { type: 'separator' }] : []
+    const page = win.webContents
+    // The edit runs in the sticky, its keys handed back first.
+    const edit = (what: 'cut' | 'copy' | 'paste') => (): void => void (win.isDestroyed() || page[what]())
+    const writing: PopupLine[] = params.isEditable
+      ? [
+          ...(params.editFlags.canCut ? [{ label: 'Cut', keys: '⌘X', run: edit('cut') }] : []),
+          ...(params.editFlags.canCopy ? [{ label: 'Copy', keys: '⌘C', run: edit('copy') }] : []),
+          ...(params.editFlags.canPaste ? [{ label: 'Paste', keys: '⌘V', run: edit('paste') }] : [])
+        ]
+      : params.selectionText ? [{ label: 'Copy', keys: '⌘C', run: edit('copy') }] : []
+    // Its own: open it (its ↗) and take it down (its X, at once from here: choosing the line is the asking).
+    const own: PopupLine[] = [
+      { label: `Open in ${APP_NAME}`, run: () => page.send('sticky:do', 'open') },
+      { label: 'Take it down', keys: '⌘W', run: () => page.send('sticky:do', 'down') }
+    ]
     // Its paper's colour, kept with it; a goal's card and the goals together keep their own.
     const now = stuckAs(key)?.tint ?? 'plain'
-    const colours: Electron.MenuItemConstructorOptions[] = fixed ? [] : [
-      { label: 'Paper colour', enabled: false },
-      ...STICKY_TINTS.map(([tint, label]): Electron.MenuItemConstructorOptions => ({ label, icon: tintDot(tint), type: 'radio', checked: now === tint, click: () => tintSticky(key, tint) })),
-      { type: 'separator' }
+    const colours: PopupLine[] = fixed ? [] : [
+      { heading: 'Paper colour' },
+      { swatches: STICKY_TINTS.map(([tint, label]) => ({ color: `rgb(${(TINT_DOTS[tint] ?? TINT_DOTS.plain).join(', ')})`, label, on: now === tint, run: () => tintSticky(key, tint) })) }
     ]
-    Menu.buildFromTemplate([
-      ...writing,
-      ...colours,
-      { label: 'Tidy stickies down the right edge', accelerator: chordFor('⌃⌥⌘T'), click: () => void tidyStickies(win.webContents) },
-      ...(canUntidy() ? [{ label: 'Put stickies back where they were', click: untidyStickies }] : []),
-      ...tuckItems()
-    ]).popup({ window: win })
+    const all: PopupLine[] = [
+      { label: 'Tidy stickies down the right edge', keys: '⌃⌥⌘T', run: () => void tidyStickies(page) },
+      ...(canUntidy() ? [{ label: 'Put stickies back where they were', run: untidyStickies }] : []),
+      ...tuckLines()
+    ]
+    const groups = [writing, own, colours, [{ label: 'All stickies', submenu: all }]].filter((group) => group.length)
+    const lines = groups.flatMap((group, n): PopupLine[] => (n ? [{ separator: true }, ...group] : group))
+    const at = win.getBounds()
+    void popupMenu(win, { x: at.x + params.x, y: at.y + params.y }, lines, load).then((path) => path && lineAt(lines, path)?.())
   })
   // Closed any way but quitting is taken down, so it stays down after a restart.
   // One peeling off after it was taken down is already gone from the lists.
@@ -4935,17 +4940,16 @@ app.whenReady().then(() => {
   ipcMain.on('sticky:putback', () => putStickyBack())
   // A sticky's page asks its paper's colour as it starts (a reload keeps it too).
   ipcMain.handle('sticky:tint', (event) => stuckAs(keyOfSticky(BrowserWindow.fromWebContents(event.sender)) ?? '')?.tint ?? null)
-  // A task's right-click menu is taller and wider than a sticky's small window,
-  // so the Mac draws it; the place of the line chosen goes back to the page.
-  type Line = { label?: string; separator?: boolean; submenu?: Line[] }
-  ipcMain.handle('sticky:menu', (event, items: unknown) => new Promise<number[] | null>((resolve) => {
+  // A task's right-click menu is taller and wider than a sticky's small window, so it opens in the menu
+  // window over it (popup-menu.ts), at the point right-clicked; the place of the line chosen goes back to the page.
+  type Line = { label?: string; keys?: string; danger?: boolean; separator?: boolean; submenu?: Line[] }
+  ipcMain.handle('sticky:menu', (event, items: unknown, at: unknown) => {
     const win = BrowserWindow.fromWebContents(event.sender)
-    if (!win || !Array.isArray(items)) return resolve(null)
-    let chosen: number[] | null = null
-    const build = (list: Line[], path: number[]): Electron.MenuItemConstructorOptions[] => list.map((one, n): Electron.MenuItemConstructorOptions =>
-      one.separator ? { type: 'separator' } : one.submenu ? { label: String(one.label ?? ''), submenu: build(one.submenu, [...path, n]) } : { label: String(one.label ?? ''), click: () => void (chosen = [...path, n]) })
-    Menu.buildFromTemplate(build(items as Line[], [])).popup({ window: win, callback: () => setTimeout(() => resolve(chosen), 0) })
-  }))
+    if (!win || !Array.isArray(items)) return null
+    const lines = (list: Line[]): PopupLine[] => list.map((one) => (one.separator ? { separator: true } : { label: String(one.label ?? ''), keys: typeof one.keys === 'string' ? one.keys : undefined, danger: one.danger === true, submenu: Array.isArray(one.submenu) ? lines(one.submenu) : undefined }))
+    const point = at && typeof at === 'object' && 'x' in at && 'y' in at ? { x: win.getBounds().x + Number(at.x), y: win.getBounds().y + Number(at.y) } : screen.getCursorScreenPoint()
+    return popupMenu(win, point, lines(items as Line[]), load)
+  })
   // "Open it": the note opens in the main window, its page growing out of where
   // the sticky is (grow.ts). With ⌥ held, the sticky comes down as it does.
   ipcMain.on('sticky:open', (event, tier: unknown, id: unknown, title: unknown, alt: unknown) => {
@@ -4958,6 +4962,7 @@ app.whenReady().then(() => {
     if (alt) takeDownSticky(win, String(title ?? ''))
   })
   ipcMain.on('stickies:tidy', (event) => void tidyStickies(event.sender))
+  registerPopupMenu()
   ipcMain.handle('stickies:out', () => stickiesOut())
   ipcMain.on('stickies:untidy', () => untidyStickies())
   ipcMain.on('sticky', (_event, type: unknown, id: unknown, on: unknown) => {

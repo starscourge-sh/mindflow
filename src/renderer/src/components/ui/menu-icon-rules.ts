@@ -254,6 +254,11 @@ const RULES: [RegExp, LucideIcon][] = [
   [/^link this/i, Link],
   [/quote|who said/i, Quote],
   [/article|^read/i, BookOpen],
+  // A sticky's own menu (main's popup-menu.ts): off the desktop, the desk's lines together, tidied back, laid flat.
+  [/^take it down$/i, PinOff],
+  [/^all stickies$/i, Layers],
+  [/^put stickies back/i, Undo2],
+  [/^tuck them flat$/i, Minimize2],
   [/card/i, StickyNote],
   [/sticky|desktop|^stick all/i, StickyNote],
   // Pages and places.

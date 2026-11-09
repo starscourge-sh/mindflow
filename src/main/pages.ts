@@ -6,7 +6,8 @@ const VIEWS = new Map([
   ['nudge', 'nudge.html'],
   ['meeting', 'meeting.html'],
   ['look', 'look.html'],
-  ['sticky', 'sticky.html']
+  ['sticky', 'sticky.html'],
+  ['menu', 'menu.html']
 ])
 
 /**

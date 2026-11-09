@@ -25,7 +25,7 @@ export const Hinted = ({ label, hint, icon }: { label: string; hint: string; ico
 export type RowItem = MenuItem | { label: string; items: RowItem[]; icon?: ReactNode } | { heading: string }
   /** A row of colour swatches, the one in use ticked (an event's colour). */
   | { swatches: { color: string; label: string; on: boolean; run: () => void }[] }
-type Shown = Exclude<RowItem, false | null | undefined>
+export type Shown = Exclude<RowItem, false | null | undefined>
 
 /**
  * The one rule every menu passes through: a line shows only where it fits.
@@ -81,8 +81,8 @@ export function nest(items: RowItem[]): RowItem[] {
 export const flat = (items: RowItem[]): MenuItem[] =>
   fits(items).flatMap((item): MenuItem[] => (item && item !== 'separator' && 'items' in item ? flat(item.items) : item && item !== 'separator' && ('heading' in item || 'swatches' in item) ? [] : [item as MenuItem]))
 
-/** The lines of a menu, drawn: shared by the menu and the ones that open beside it. */
-const lines = (items: Shown[]): React.ReactNode =>
+/** The lines of a menu, drawn: shared by the menu and the ones that open beside it, and by a sticky's menu window (windows/menu.tsx). */
+export const lines =(items: Shown[]): React.ReactNode =>
   tidy(items).map((item, index) =>
     item === 'separator' ? (
       <ContextMenuSeparator key={`separator-${index}`} />
@@ -91,7 +91,7 @@ const lines = (items: Shown[]): React.ReactNode =>
         {item.swatches.map((one) => (
           <ContextMenuItem key={one.label} aria-label={one.label} aria-checked={one.on} role="menuitemradio" onSelect={one.run}
             className="flex size-6 items-center justify-center rounded-md p-0 focus:bg-accent">
-            <span aria-hidden className="flex size-4 items-center justify-center rounded-[4px]" style={{ background: one.color }}>
+            <span aria-hidden className={`flex size-4 items-center justify-center rounded-[4px] ${one.on ? "outline-2 outline-offset-1 outline-foreground/60" : ""}`} style={{ background: one.color }}>
               {one.on && <svg viewBox="0 0 12 12" className="size-3 text-background"><path d="M2.5 6.2 5 8.5l4.5-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>}
             </span>
           </ContextMenuItem>
@@ -254,15 +254,16 @@ export const copyLink = (key: string, words: string): void => copy(noteLinkText(
 export const copyLinkItem = (key: string, words: string): MenuItem => ({ label: 'Copy link', hint: 'Paste it into any note to link here', run: () => copyLink(key, words) })
 
 /**
- * The same lines in a menu the Mac draws, for a window too small to hold one
- * of ours (a sticky): the line chosen runs as it would in the row's menu.
+ * The same lines in Haligtree's menu window over a sticky (main's popup-menu.ts), for a window too small to
+ * hold the menu itself: opened at `at`, where it was right-clicked, and the line chosen runs as it would in
+ * the row's menu.
  */
-export async function nativeMenu(items: RowItem[], list = false): Promise<void> {
+export async function stickyMenu(items: RowItem[], point?: { x: number; y: number }, list = false): Promise<void> {
   // Folded as the row's menu folds them, at the top only: what is folded in stays as it is.
-  const shown = (list: RowItem[]): Shown[] => tidy(list.filter((one) => one && !(one !== 'separator' && 'heading' in one)) as Shown[])
-  const lines = (list: Shown[]): unknown[] => list.map((one) => (one === 'separator' ? { separator: true } : 'items' in one ? { label: one.label, submenu: lines(shown(one.items)) } : { label: 'label' in one ? one.label : '' }))
+  const shown = (list: RowItem[]): Shown[] => tidy(list.filter((one) => one && !(one !== 'separator' && ('heading' in one || 'swatches' in one))) as Shown[])
+  const lines = (list: Shown[]): unknown[] => list.map((one) => (one === 'separator' ? { separator: true } : 'items' in one ? { label: one.label, submenu: lines(shown(one.items)) } : 'run' in one ? { label: one.label, keys: one.keys, danger: one.danger } : { label: '' }))
   const top = shown(nest(dangerLast(fits(items, list))))
-  const path = await window.api.stickyMenu(lines(top))
+  const path = await window.api.stickyMenu(lines(top), point)
   if (!path) return
   let at: Shown | undefined = top[path[0]]
   for (const step of path.slice(1)) at = at && at !== 'separator' && 'items' in at ? shown(at.items)[step] : undefined

@@ -2,6 +2,7 @@ import { fieldOf } from '../capture-list'
 import { Tape } from './tape'
 import { currentVim, onVimChange } from '@/lib/vim'
 import { usePatience } from '@/lib/patience'
+import { useStickyDo } from '@/lib/sticky-do'
 import { Suspense, createContext, lazy, useContext, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from 'react'
 import type { JSONContent } from '@tiptap/core'
 import { Plugin } from '@tiptap/pm/state'
@@ -411,6 +412,11 @@ export function StickyNote({ type, id }: { type: string; id: string }): React.JS
   // ⌘W does just what its X does (the window has no close of its own, so macOS would not).
   const keyDown = useRef(takeDown)
   keyDown.current = takeDown
+  // Its right-click menu's own lines: open it as its ↗ does, and take it down at once (choosing the line was the asking).
+  useStickyDo({
+    open: () => (chime('open'), window.api.openSticky(note?.tier ?? type, id, titleNow.current, false)),
+    down: () => (chime('unstick'), window.api.takeDownSticky(titleNow.current))
+  })
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
       if (event.key === 'Escape' && asking) return (event.preventDefault(), setAsking(false))
