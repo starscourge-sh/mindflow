@@ -43,7 +43,8 @@ const install = () => h.evaluate(() => {
       const group = document.getAnimations().find((a) => a.effect?.pseudoElement === '::view-transition-group(mf-hero)')
       if (!group) return void (one.group = null)
       const frames = group.effect.getKeyframes()
-      const box = (k) => { const m = /matrix\(([^)]+)\)/.exec(k.transform ?? '')?.[1].split(',').map(Number); return { x: m?.[4], y: m?.[5], w: parseFloat(k.width), h: parseFloat(k.height) } }
+      // A 2D matrix, or a 3D one (a tile leaning under the pointer, lean.tsx).
+      const box = (k) => { const m = /matrix(3d)?\(([^)]+)\)/.exec(k.transform ?? ''); const n = m?.[2].split(',').map(Number); const [x, y] = m?.[1] ? [n[12], n[13]] : [n?.[4], n?.[5]]; return { x, y, w: parseFloat(k.width), h: parseFloat(k.height) } }
       const named = [...document.querySelectorAll('*')].find((el) => el.style.viewTransitionName === 'mf-hero')
       const r = named?.getBoundingClientRect()
       one.to = r && { x: r.x, y: r.y, w: r.width, h: r.height }
@@ -135,9 +136,9 @@ const pictures = await h.evaluate(async () => {
   return out
 })
 for (const [i, bytes] of pictures.entries()) {
-  const name = `hero-picture-${i}.png`
-  await write(name, bytes)
-  files.push({ src: `haligtree://assets/${name}`, kind: 'picture', name: '', size: 1000, type: '', id: '', title: '', private: false, near: '', at: new Date(Date.now() - (i + 3) * 3600_000).toISOString(), uses: [], added: true, gone: false, how: 'library' })
+  // Saved as the app saves a picture, into the open book's own store (the sandbox keeps its own).
+  const src = await h.evaluate((png) => window.api.saveImage('image/png', new Uint8Array(png)), bytes)
+  files.push({ src, kind: 'picture', name: '', size: 1000, type: '', id: '', title: '', private: false, near: '', at: new Date(Date.now() - (i + 3) * 3600_000).toISOString(), uses: [], added: true, gone: false, how: 'library' })
 }
 const books = files.filter((f) => f.kind === 'pdf').map((f, i) => ({ src: f.src, name: f.name, title: f.name.replace(/\.pdf$/, ''), author: '', pages: 40, page: i < 2 ? 12 + i : null, readAt: i < 2 ? new Date(Date.now() - i * 3600_000).toISOString() : null, addedAt: f.at, highlights: 0, gems: 0, bytes: 1000 }))
 await c.electron.evaluate(({ ipcMain }, [list, shelf]) => {
@@ -169,6 +170,15 @@ await settle(1200)
   await film('book-close', back)
   const after = await rectOf(`[data-book="${src}"]`)
   await flew('Books, back', 'close', after, 200)
+  // The same flight in a dark theme, filmed, for its mid-flight frame beside the light one.
+  if (shots) {
+    await c.look('dark')
+    await install()
+    await film('book-open-dark', () => h.locator(sel).first().dblclick())
+    await settle()
+    await back()
+    await c.look('light')
+  }
 }
 
 // 1b. "Continue reading": a cover drawn in the glass row.
@@ -200,6 +210,7 @@ await settle(1200)
   await h.locator('[data-media-kinds] button', { hasText: /^Pictures$/ }).first().click().catch(() => {})
   await settle(1000)
   const at = await rectOf('.files-square')
+  await install()
   const frames = h.evaluate(() => new Promise((done) => {
     const seen = []
     let frames = 0
@@ -217,6 +228,7 @@ await settle(1200)
   const first = seen[0]
   const last = seen.at(-1)
   check('Pictures: the viewer opens', !!last, say(last))
+  check('Pictures: no view transition (it lifts on its own)', (await log()).length === 0, JSON.stringify(await log()))
   check('Pictures: it starts near its square and grows', !!first && Math.abs(first.x + first.w / 2 - (at.x + at.w / 2)) < at.w && first.w < last.w * 0.8, `first ${say(first)}, square ${say(at)}, last ${say(last)}`)
   await h.keyboard.press('Escape')
   await settle()
@@ -228,7 +240,8 @@ await settle(1200)
 await go('home')
 await settle(1200)
 const tile = async () => h.evaluate(() => {
-  const el = [...document.querySelectorAll('[data-page="home"] [data-drag-open]')].find((one) => /^(capture|nugget|article|question):/.test(one.getAttribute('data-drag-open')) && one.getBoundingClientRect().height > 0 && one.getBoundingClientRect().top < innerHeight - 60)
+  // A tile on Home's own page (the sidebar's Recent rows carry the same mark): the first that opens a note.
+  const el = [...document.querySelectorAll('[data-pane-card] [data-drag-open]')].find((one) => /^(capture|nugget|article|question):/.test(one.getAttribute('data-drag-open')) && one.getBoundingClientRect().height > 0)
   if (!el) return null
   el.scrollIntoView({ block: 'center' })
   return el.getAttribute('data-drag-open')
@@ -237,16 +250,16 @@ if (runs(2)) {
 {
   const key = await tile()
   await settle(300)
-  const at = await rectOf(`[data-drag-open="${key}"]`)
+  const at = await rectOf(`[data-pane-card] [data-drag-open="${key}"]`)
   await install()
-  await film('note-open', () => h.locator(`[data-drag-open="${key}"]`).first().click())
+  await film('note-open', () => h.locator(`[data-pane-card] [data-drag-open="${key}"]`).first().click())
   await settle()
   check('Notes: a tile on Home opens its note', (await h.evaluate(() => document.querySelector('[data-page]')?.getAttribute('data-page'))) !== 'home', key)
   await flew('Notes', 'open', at, 250)
   await install()
   await film('note-close', back)
   await settle(300)
-  const after = await rectOf(`[data-drag-open="${key}"]`)
+  const after = await rectOf(`[data-pane-card] [data-drag-open="${key}"]`)
   await flew('Notes, back', 'close', after, 200)
 }
 
@@ -254,7 +267,7 @@ if (runs(2)) {
 {
   const key = await tile()
   await install()
-  await h.locator(`[data-drag-open="${key}"]`).first().focus()
+  await h.locator(`[data-pane-card] [data-drag-open="${key}"]`).first().focus()
   await h.keyboard.press('Enter')
   await settle()
   check('By a key: opened, with no flight', (await h.evaluate(() => document.querySelector('[data-page]')?.getAttribute('data-page'))) !== 'home' && (await log()).length === 0, JSON.stringify(await log()))
@@ -287,7 +300,7 @@ for (const [name, on, off] of [
   await on()
   const key = await tile()
   await install()
-  await h.locator(`[data-drag-open="${key}"]`).first().click()
+  await h.locator(`[data-pane-card] [data-drag-open="${key}"]`).first().click()
   await settle()
   const opened = (await h.evaluate(() => document.querySelector('[data-page]')?.getAttribute('data-page'))) !== 'home'
   await back()
@@ -301,7 +314,7 @@ for (const [name, on, off] of [
   await settle(800)
   const key = await tile()
   await install()
-  await h.locator(`[data-drag-open="${key}"]`).first().dblclick()
+  await h.locator(`[data-pane-card] [data-drag-open="${key}"]`).first().dblclick()
   await settle()
   const page = await h.evaluate(() => document.querySelector('[data-page]')?.getAttribute('data-page'))
   const steps = await h.evaluate(() => document.querySelector('[data-tab-step="back"]')?.disabled === false)
@@ -310,7 +323,7 @@ for (const [name, on, off] of [
   check('…and Back is Home again', (await h.evaluate(() => document.querySelector('[data-page]')?.getAttribute('data-page'))) === 'home')
   const again = await tile()
   await install()
-  await h.locator(`[data-drag-open="${again}"]`).first().click()
+  await h.locator(`[data-pane-card] [data-drag-open="${again}"]`).first().click()
   await h.waitForTimeout(80)
   await h.locator('[data-tab-step="back"]').first().click()
   await settle()

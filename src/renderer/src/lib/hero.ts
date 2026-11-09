@@ -143,7 +143,9 @@ export function heroBack(run: () => void, from: () => Element | null = paneCard)
   const find = (): Element | null => {
     if (!was.key) return (stand = standIn(was.rect))
     const [name, value] = was.key
-    return [...document.querySelectorAll(`[${name}="${CSS.escape(value)}"]`)].find(seen) ?? null
+    // On the page come back first: the sidebar's Recent rows carry the same mark.
+    const all = [...document.querySelectorAll(`[${name}="${CSS.escape(value)}"]`)].filter(seen)
+    return all.find((one) => paneCard()?.contains(one)) ?? all[0] ?? null
   }
   // Waited for as the page comes back (a list read in a moment after): not there by then, closed at once.
   fly('close', el, run, find, () => onShow(paneCard()) && (!was.key || !!find()), () => stand?.remove())
