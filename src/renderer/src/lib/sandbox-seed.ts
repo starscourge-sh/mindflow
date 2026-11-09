@@ -1932,7 +1932,7 @@ A whole town painted with nobody in it. I stood in front of it for twenty minute
     ['Why does the Moon always show us the same face?', "Tidal locking: Earth's pull slowed its spin until one turn takes exactly one orbit.", 2, 0],
     ['Why can nothing go faster than light?', 'The faster a thing goes, the more energy each bit more speed costs; at the speed of light it would cost an endless amount.', 1, 0]
   ]
-  for (const [tag, cards, color] of [['greek-myth', myth, 'blue'], ['painters', painters, 'orange'], ['sci-fi-and-fantasy', lore, 'yellow'], ['physics', physics, 'green']] as const) {
+  for (const [tag, cards, color] of [['greek-myth', myth, 'blue'], ['painters', painters, 'orange'], ['other-worlds', lore, 'yellow'], ['physics', physics, 'green']] as const) {
     for (const [prompt, answer, made, reviews, missed] of cards) await deckCard(tag, prompt, answer, made, reviews, missed)
     await call('tag:set', tag, { color })
   }

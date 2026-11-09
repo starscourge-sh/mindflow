@@ -34,7 +34,9 @@
   pointer-events: none;
 }
 /* Pinned to the face's own box, so a tall or wide picture never grows it and never reaches over the name under it. */
-.mf-avatar img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 18%; }
+/* A face is its own thing wherever it sits: a picture rule from around it (the editor's mat and padding, a card's frame)
+   never reaches it, or a face in a note's @mention showed as an empty white ring. */
+.mf-avatar img { position: absolute !important; inset: 0; width: 100% !important; height: 100% !important; max-width: none !important; margin: 0 !important; padding: 0 !important; border: 0 !important; border-radius: 0 !important; background: none !important; box-shadow: none !important; outline: 0 !important; object-fit: cover !important; object-position: 50% 18%; }
 /* A photo in the theme's two tones (avatar.tsx, #mf-duotone), its own colours laid over it and shown while the face, or
    the row or card it is in, is pointed at: a 150ms crossfade, at once with Reduce Motion. One round frame for every photo. */
 .mf-avatar .mf-avatar-print { filter: url(#mf-duotone); }

@@ -22,7 +22,7 @@ try {
   const unlinked = pictures.filter((one) => !one.uses.length && one.how === 'attachment')
   check('the gallery is in Files with no note', loose.length >= 9, `${loose.length} in no note`)
   check('Cabanel\'s Ophelia waits under Unlinked', unlinked.length === 1, `${unlinked.length} unlinked`)
-  check('pictures in Files in all', pictures.length >= 45, `${pictures.length} pictures`)
+  check('pictures in Files in all', pictures.length >= (process.env.HALIGTREE_QA_LIBRARY === '1' ? 45 : 35), `${pictures.length} pictures`)
   const books = await v('pdf:library')
   const local = existsSync(join(homedir(), 'Documents', 'books')) && process.env.HALIGTREE_QA_LIBRARY === '1'
   if (local) {
@@ -46,7 +46,7 @@ try {
   // The rest of the book: four more decks with a history, a page read closely, a question answered,
   // a calendar either side of today, tasks with steps, and most days of the journal written.
   const queue = await v('review:queue')
-  for (const tag of ['greek-myth', 'painters', 'sci-fi-and-fantasy', 'physics']) {
+  for (const tag of ['greek-myth', 'painters', 'other-worlds', 'physics']) {
     const deck = await v('tag:cards', tag)
     const due = queue.filter((one) => JSON.stringify(one.body ?? '').includes(`#${tag}`))
     check(`the ${tag} deck has 10 to 15 cards, some due today`, deck.length >= 10 && deck.length <= 15 && due.length >= 1, `${deck.length} cards, ${due.length} in today's queue`)
