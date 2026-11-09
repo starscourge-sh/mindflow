@@ -21,7 +21,10 @@
   letter-spacing: -0.02em;
   user-select: none;
 }
-.dark .mf-avatar {
+/* Under 20px (avatar.tsx's data-small): one letter, big enough to read in a circle that small. */
+.mf-avatar[data-small] { font-size: calc(var(--s) * 0.6); letter-spacing: 0; }
+/* Every theme carries .dark (theme.ts): a light one says so with data-light, and keeps the soft light tint. */
+.dark:not([data-light]) .mf-avatar {
   background: oklch(0.36 0.05 var(--mf-avatar-hue));
   color: oklch(0.9 0.05 var(--mf-avatar-hue));
 }

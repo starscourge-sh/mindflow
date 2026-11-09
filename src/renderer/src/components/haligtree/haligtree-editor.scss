@@ -3280,13 +3280,18 @@ $media-brand: var(--tt-brand-color-500, currentColor);
     vertical-align: -0.1em;
   }
   // A person's face in place of the icon: a touch larger, round, sat on the line as the menu shows it.
+  // Laid out as a box of its own (no line inside it), centred on the words' x-height with `middle`: as an inline
+  // block holding an inline face, the holder's own line pushed the face up and out of the chip.
   .tiptap-note-link-face {
+    display: inline-grid;
+    place-items: center;
     width: 1.05em;
     height: 1.05em;
-    vertical-align: -0.18em;
+    line-height: 0;
+    vertical-align: middle;
     // Filled from the holder: a size in em on the face itself would count against its own font size, which
     // counts against its size, and the browser gave up at 8px.
-    .mf-avatar { width: 100%; height: 100%; }
+    .mf-avatar { display: grid; width: 100%; height: 100%; line-height: 1; vertical-align: top; }
   }
 
   // A [[name]] no note answers to yet: still a link, plainly not a live one.

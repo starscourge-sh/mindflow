@@ -68,13 +68,16 @@ export function Avatar({ name, size = 16, className = '', look, letters }: { nam
   const trimmed = name.trim()
   if (!trimmed) return null
   const hash = hashOf(trimmed)
+  // Under 20px (an @mention, a row's face) a shape is a blob with letters too small to read, beside round photos:
+  // there it is always the round tint, as round and as big as a photo, with one letter big enough to read.
+  const small = size < 20
   const shape = hash % SHAPES.length
   const from = (hash >>> 4) % TINTS.length
   const to = (from + 1 + ((hash >>> 9) % (TINTS.length - 1))) % TINTS.length
   const style = { '--mf-avatar-size': `${size}px`, '--mf-avatar-hue': hueOf(trimmed), '--mf-shape-from': `var(--tt-color-text-${TINTS[from]})`, '--mf-shape-to': `var(--tt-color-text-${TINTS[to]})` } as CSSProperties
   const id = `mf-shape-${hash.toString(36)}`
   return (
-    <span aria-hidden data-avatar={avatar ? 'picture' : 'initials'} data-avatar-shape={avatar ? undefined : shape} data-look={look} className={`mf-avatar ${className}`} style={style}>
+    <span aria-hidden data-avatar={avatar ? 'picture' : 'initials'} data-avatar-shape={avatar ? undefined : shape} data-look={look ?? (small ? 'initials' : undefined)} data-small={small ? '' : undefined} className={`mf-avatar ${className}`} style={style}>
       {/* A photo twice: printed in the theme's two tones, and in its own colours over it, shown while pointed at. */}
       {avatar ? <><img src={avatar} alt="" draggable={false} className="mf-avatar-print" /><img src={avatar} alt="" draggable={false} className="mf-avatar-real" /></> : (
         <>
@@ -87,7 +90,7 @@ export function Avatar({ name, size = 16, className = '', look, letters }: { nam
             </defs>
             <path d={SHAPES[shape]} fill={`url(#${id})`} />
           </svg>
-          <span>{letters ?? initials(trimmed)}</span>
+          <span>{letters ?? (small ? [...initials(trimmed)][0] : initials(trimmed))}</span>
         </>
       )}
     </span>
