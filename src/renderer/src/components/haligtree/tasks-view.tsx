@@ -1,5 +1,6 @@
 import { TabChips } from './tab-chips'
 import { SortableList, SortableRow } from './sortable'
+import { Branches } from './branches'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { remindersItem } from '@/lib/reminders'
 import { useToday } from '@/lib/use-today'
@@ -738,6 +739,14 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
   const { ticking: leaving, tickOff: complete } = useTickOff(280)
   // The row a thought is being written under, without opening the task.
   const [glossing, setGlossing] = useState<string | null>(null)
+  /** Rows whose steps are unfolded under them, hung off a tree line. */
+  const [stepsOpen, setStepsOpen] = useState<ReadonlySet<string>>(new Set())
+  const foldSteps = (id: string, open = !stepsOpen.has(id)): void => setStepsOpen((all) => {
+    const next = new Set(all)
+    if (open) next.add(id)
+    else next.delete(id)
+    return next
+  })
 
   const [view, setView] = useView(`tasks:${mode}`, { sort: 'manual', group: 'when' })
   const focusTools = useFocusTools()
@@ -1033,6 +1042,24 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
     chime('shift')
     void haligtree.saveTasks(order.map((one, n) => ({ id: one, patch: { sortOrder: n } }))).then(() => quietly(() => void haligtree.saveTasks(was)))
   }
+  /** A row rested on another's middle: it may become its step, unless it has steps of its own, repeats, or the other is done. */
+  const nests = (id: string, target: string): true | { refused: string } | false => {
+    const [task, parent] = [tasks.find((one) => one.id === id), tasks.find((one) => one.id === target)]
+    if (!task || !parent || parent.status !== 'open') return false
+    if (task.subtasks?.length) return { refused: 'A task with steps of its own stays a task' }
+    if (task.recurrence) return { refused: 'A repeating task stays a task' }
+    return true
+  }
+  /** A row let go on another's middle: its step now, last among its steps, unfolded so it is seen; said with Undo, and ⌘Z. */
+  const nestRow = (id: string, target: string): void => {
+    const [task, parent] = [tasks.find((one) => one.id === id), tasks.find((one) => one.id === target)]
+    if (!task || !parent) return
+    const steps = parent.subtasks ?? []
+    chime('tuck')
+    foldSteps(target, true)
+    void haligtree.saveTasks([{ id: target, patch: { subtasks: [...steps, { text: task.title, done: false }] } }, { id, patch: { status: 'dropped', stepOf: target } }])
+      .then(() => toast(`Now a step of ${taskName(parent.title).text}`, () => void haligtree.saveTasks([{ id: target, patch: { subtasks: steps } }, { id, patch: { status: task.status, stepOf: null } }])))
+  }
   /** A row dropped on the Upcoming tab goes to tomorrow; on Later, to someday. Said, with Undo. */
   const dropOnTab = (id: string, place: string): void => {
     const task = shown.find((one) => one.id === id)
@@ -1272,7 +1299,8 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
           <div ref={rowsBox} {...rowsHover.handlers} className="relative isolate">
           <Highlight spot={rowsHover.spot} session={rowsHover.session} snap={rowsHover.snap} className="bg-accent/25" />
           {/* On Today, a row is dragged into your own order, or onto the Upcoming or Later tab. */}
-          <SortableList items={shown} keyOf={(task) => task.id} onMove={sortable ? moveRow : undefined}
+          {/* On every list, a row rested on another's middle becomes its step. */}
+          <SortableList items={shown} keyOf={(task) => task.id} onMove={sortable ? moveRow : undefined} onNest={example || several.chosen.length ? undefined : nestRow} nests={nests}
             places={sortable ? { drop: dropOnTab, said: (place) => (place === 'upcoming' ? 'Drop to do it tomorrow' : 'Drop to put it in Later, someday') } : undefined}>
           {() => (
           <VirtualList
@@ -1360,7 +1388,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
                         <button type="button" data-row data-id={task.id} data-picked={several.chosen.includes(task.id) || undefined} onClick={(event) => several.click(event, task.id) || (setCursor(index), pick(task.id))} className="-my-2 flex w-full min-w-0 flex-col items-start gap-1 py-2 text-left">
                           <span data-task-title className="flex max-w-full items-center gap-2">
                             {task.id === frog && <FrogChip />}
-                            <span className={`truncate ${leaving(task.id) ? 'mf-strike' : ''}`}>{taskName(task.title).text}</span>
+                            <span data-title className={`truncate ${leaving(task.id) ? 'mf-strike' : ''}`}>{taskName(task.title).text}</span>
                             <Tags tags={taskName(task.title).tags} />
                             <TaskLength task={task} />
                           </span>
@@ -1377,7 +1405,13 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
                               {later && mode !== 'later' && <Tip label="No day yet: waiting in a later list"><span className="flex items-center gap-1"><Telescope className="size-3" />{BUCKETS[later]}</span></Tip>}
                               {task.waitingOn && <span>Waiting on {task.waitingOn}</span>}
                               {subtasks.length > 0 && (
-                                <span className="flex items-center gap-1 tabular-nums"><ListChecks className="size-3" /><Rolling text={`${num(subtasks.filter((one) => one.done).length)}/${num(subtasks.length)}`} /></span>
+                                // Its steps fold out under it, hung off a tree line: the count is the fold, its chevron turning.
+                                <span role="button" tabIndex={-1} data-steps-fold={task.id} aria-expanded={stepsOpen.has(task.id)} aria-label={stepsOpen.has(task.id) ? 'Fold its steps' : 'Show its steps'}
+                                  onClick={(event) => (event.stopPropagation(), chime(stepsOpen.has(task.id) ? 'fold' : 'slide'), foldSteps(task.id))}
+                                  className="-mx-1 flex cursor-pointer items-center gap-1 rounded px-1 tabular-nums hover:bg-accent hover:text-foreground">
+                                  <ListChecks className="size-3" /><Rolling text={`${num(subtasks.filter((one) => one.done).length)}/${num(subtasks.length)}`} />
+                                  <ChevronRight aria-hidden className={`size-3 transition-transform duration-200 motion-reduce:transition-none ${stepsOpen.has(task.id) ? 'rotate-90' : ''}`} style={{ transitionTimingFunction: EASING }} />
+                                </span>
                               )}
                               {task.blocker && (freed(task)
                                 ? <span data-freed className="truncate" style={{ color: 'var(--tt-color-text-green)' }}>Free now: {taskName(task.blockedByTitle ?? task.blocker).text} is done</span>
@@ -1388,8 +1422,9 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
                         {/* Grouped by note, the subtasks show under their task, tickable where they are. */}
                         {/* Grouped by note, or getting ready for its due-by day, the subtasks show under their task, tickable where they are. */}
                         {/* Or while a step is being written into it, the new one last. */}
-                        {((view.group === 'note' || gettingReady(task)) && subtasks.length > 0 || writing?.step === task.id) && (
-                          <ul className="w-full space-y-0.5 pt-0.5">
+                        {((view.group === 'note' || gettingReady(task) || stepsOpen.has(task.id)) && subtasks.length > 0 || writing?.step === task.id) && (
+                          <Branches current={-1} rows="li" className="w-full pt-0.5">
+                          <ul data-steps-of={task.id} className="w-full space-y-0.5 pl-3">
                             {subtasks.map((one, at) => (
                               <li key={at} className="flex items-center gap-2 text-control">
                                 <button type="button" role="checkbox" aria-checked={one.done} aria-label={one.text} onClick={() => tick(task, at)}
@@ -1407,6 +1442,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
                               </li>
                             )}
                           </ul>
+                          </Branches>
                         )}
                         <TaskAsk task={task} ask={carryAsk} onPick={() => pick(task.id)} className="mt-1" />
                         {glossing === task.id && <GlossLine id={task.id} open onDone={() => setGlossing(null)} placeholder="A thought on it, kept with its logs" className="w-full" />}

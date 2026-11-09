@@ -5,9 +5,10 @@ import { DndContext, DragOverlay, useDndMonitor, PointerSensor, closestCenter, u
 import { SortableContext, arrayMove, horizontalListSortingStrategy, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { motion } from 'motion/react'
 import { EASING, spring, still } from '@/lib/motion'
-import { CarriedCard, Hand, swallowRelease, titleOf } from './carry'
+import { CarriedCard, Hand, swallowRelease, titleOf, useRest } from './carry'
 import { chime } from '@/lib/sound'
 import { slotTicker } from '@/lib/proximity'
+import { refuse } from './ui'
 
 /**
  * Dragging rows into your own order, the way compose-dnd feels: the row lifts
@@ -82,6 +83,13 @@ const Axis = createContext<'y' | 'x'>('y')
 const Sorting = createContext(false)
 /** The list's order, as one string: a row glides only when this changes, never when a row above it grows or folds. */
 const Order = createContext<string | undefined>(undefined)
+/** The row the carried one rests on the middle of, to become its step: lit while it is. */
+const Nest = createContext<string | null>(null)
+
+/** The words a row says while carried over another's middle. */
+export const STEP_WORDS = 'Make it a step'
+/** A row rested on another's middle: what may happen there. `refused` says why it cannot. */
+export type NestCheck = (carried: string, target: string) => true | { refused: string } | false
 
 /** A card on the Board, as it looked when picked up: a card lifted is the same card. */
 export const snapshot = (id: string): Shot | null => {
@@ -97,16 +105,17 @@ const carriedOf = (id: string, event: Event): Lift | null => {
   const node = document.querySelector<HTMLElement>(`[data-sortable-id="${CSS.escape(id)}"]`)
   if (!node) return null
   const x = event instanceof PointerEvent ? event.clientX : 0
-  const icon = [...node.querySelectorAll('svg')].find((one) => !one.closest('[data-grip]'))
+  // A task's card is its words alone: its first picture is the tick's check, which would read as done.
+  const icon = node.querySelector('[data-task-row]') ? undefined : [...node.querySelectorAll('svg')].find((one) => !one.closest('[data-grip]'))
   return { title: titleOf(node), icon: icon?.outerHTML, grab: x - node.getBoundingClientRect().left, from: x }
 }
 type Lift = { title: string; icon?: string; grab: number; from: number }
 
-function Lifted({ shot, axis = 'y' }: { shot: Lift | null; axis?: 'x' | 'y' }): React.JSX.Element | null {
+function Lifted({ shot, axis = 'y', words, refused }: { shot: Lift | null; axis?: 'x' | 'y'; /** What letting go here does, under a row's middle. */ words?: string | null; refused?: boolean }): React.JSX.Element | null {
   if (!shot) return null
   return (
     <Hand grab={shot.grab} from={axis === 'x' ? null : shot.from}>
-      <CarriedCard attrs={{ 'data-lifted': '' }} title={shot.title} icon={shot.icon ? <span aria-hidden className="shrink-0 [&_svg]:block [&_svg]:size-4" dangerouslySetInnerHTML={{ __html: shot.icon }} /> : undefined} />
+      <CarriedCard attrs={{ 'data-lifted': '' }} title={shot.title} words={words} refused={refused} icon={shot.icon ? <span aria-hidden className="shrink-0 [&_svg]:block [&_svg]:size-4" dangerouslySetInnerHTML={{ __html: shot.icon }} /> : undefined} />
     </Hand>
   )
 }
@@ -150,8 +159,15 @@ export const PlaceSaid = ({ place, said }: { place: string; said: string }): Rea
  * itself from the moment you let go until the saved one comes back, so the
  * row never jumps back to where it was while the save is on its way.
  */
-export function SortableList<T>({ items, keyOf, onMove, axis = 'y', places, children }: {
+export function SortableList<T>({ items, keyOf, onMove, onNest, nests, axis = 'y', places, children }: {
   items: T[]
+  /**
+   * A row carried onto another's middle and rested there a moment is made its
+   * step: that row lights and the card says so; the edges still reorder.
+   * `nests` says whether a row may take it (false: not offered; refused: said why).
+   */
+  onNest?: (id: string, target: string) => void
+  nests?: NestCheck
   /** Down a list (the usual), or along a row (tabs). */
   axis?: 'y' | 'x'
   keyOf: (item: T) => string
@@ -181,9 +197,35 @@ export function SortableList<T>({ items, keyOf, onMove, axis = 'y', places, chil
   const incoming = ids.join('\n')
   // The saved order (or anything else) has arrived: it is the truth again.
   useEffect(() => setHeld(null), [incoming])
-  if (!onMove) return <>{children(items)}</>
+  // Over a row's middle: the row it would become a step of (or why not). Rows stay at rest meanwhile, so the lit row is under the card.
+  const [nest, setNest] = useState<{ target: string; refused?: string } | null>(null)
+  const nestNow = useRef<{ target: string; refused?: string } | null>(null)
+  const lastMove = useRef<DragMoveEvent | null>(null)
+  const { rested, undwell } = useRest(() => lastMove.current && onDragMove(lastMove.current))
+  const aimNest = (next: { target: string; refused?: string } | null): void => {
+    if (nestNow.current?.target === next?.target && nestNow.current?.refused === next?.refused) return
+    nestNow.current = next
+    setNest(next)
+    if (next) chime(next.refused ? 'nope' : 'tick')
+  }
+  if (!onMove && !onNest) return <>{children(items)}</>
   const byId = new Map(items.map((item) => [keyOf(item), item]))
   const shown = held ? held.map((id) => byId.get(id)).filter((one): one is T => !!one) : items
+  // The carried card's middle on a row's middle band (as measured at rest, which is where dnd-kit reads rows): after a moment's rest, a step.
+  function onDragMove(event: DragMoveEvent): void {
+    lastMove.current = event
+    const { active, over } = event
+    const card = active.rect.current.translated
+    const id = String(active.id)
+    const target = over && String(over.id)
+    if (!onNest || !card || !over || !target || target === id || aimed.current) return (undwell(), aimNest(null))
+    const at = (card.top + card.height / 2 - over.rect.top) / over.rect.height
+    const may = nests ? nests(id, target) : true
+    if (!may || at < 0.28 || at > 0.72) return (undwell(), aimNest(null))
+    if (!rested(target)) return
+    aimNest(may === true ? { target } : { target, refused: may.refused })
+  }
+  const unnest = (): void => (undwell(), (lastMove.current = null), aimNest(null))
   const onDragStart = ({ active, activatorEvent }: DragStartEvent): void => {
     chime('lift')
     clearTimeout(settle.current)
@@ -197,9 +239,16 @@ export function SortableList<T>({ items, keyOf, onMove, axis = 'y', places, chil
     done()
     following(false)
     const place = aimed.current?.dataset.rowDrop
+    const into = nestNow.current
+    unnest()
     aimAt(null)
     if (place && places) return places.drop(String(active.id), place)
-    if (!over || over.id === active.id) return chime('stay')
+    if (into?.refused) return refuse(into.refused)
+    if (into && onNest) {
+      setHeld(shown.map(keyOf).filter((one) => one !== active.id))
+      return onNest(String(active.id), into.target)
+    }
+    if (!onMove || !over || over.id === active.id) return chime('stay')
     const order = shown.map(keyOf)
     const from = order.indexOf(String(active.id))
     const to = order.indexOf(String(over.id))
@@ -211,17 +260,18 @@ export function SortableList<T>({ items, keyOf, onMove, axis = 'y', places, chil
     <DndContext accessibility={dragWords} sensors={sensors}
       // Over a place, the rows stay where they are: it goes there, not among them.
       collisionDetection={(args) => (aimed.current ? [] : closestCenter(args))}
-      modifiers={[axis === 'x' ? sideways : upDown]} onDragStart={onDragStart} onDragOver={({ over }) => ticks(over?.id)} onDragEnd={onDragEnd} onDragCancel={() => (setShot(null), following(false), aimAt(null), done())}>
-      <SortableContext items={shown.map(keyOf)} strategy={axis === 'x' ? horizontalListSortingStrategy : verticalListSortingStrategy}>
-        <Axis.Provider value={axis}><Sorting.Provider value={sorting}><On.Provider value><Order.Provider value={shown.map(keyOf).join('\n')}>{children(shown)}</Order.Provider></On.Provider></Sorting.Provider></Axis.Provider>
+      modifiers={[axis === 'x' ? sideways : upDown]} onDragStart={onDragStart} onDragMove={onDragMove} onDragOver={({ over }) => nestNow.current || ticks(over?.id)} onDragEnd={onDragEnd} onDragCancel={() => (setShot(null), unnest(), following(false), aimAt(null), done(), chime('stay'))}>
+      {/* A list that only takes steps never slides its rows aside, nor does one while a row is lit to take the carried one. */}
+      <SortableContext items={shown.map(keyOf)} strategy={nest || !onMove ? stayPut : axis === 'x' ? horizontalListSortingStrategy : verticalListSortingStrategy}>
+        <Axis.Provider value={axis}><Sorting.Provider value={sorting}><On.Provider value><Nest.Provider value={nest && !nest.refused ? nest.target : null}><Order.Provider value={shown.map(keyOf).join('\n')}>{children(shown)}</Order.Provider></Nest.Provider></On.Provider></Sorting.Provider></Axis.Provider>
       </SortableContext>
       {/* Laid over what is under the list, never in its flow: a drag starting moves nothing else on the page. */}
       {shot && places?.foot && <div data-drop-foot-over className="relative z-10 h-0"><div className="absolute inset-x-0 top-0 bg-background pb-2">{places.foot}</div></div>}
-      <Overlay dropAnimation={still() || aim ? null : SETTLE}>
+      <Overlay dropAnimation={still() || aim || nest ? null : SETTLE}>
         {shot && (
           <div className="flex h-full flex-col items-start gap-1">
             {/* Over a place, the row's card steps aside so the lit place under it shows, and what letting go does is said. */}
-            <div className={`h-full w-full ${aim ? 'opacity-0' : ''}`}><Lifted shot={shot} axis={axis} /></div>
+            <div className={`h-full w-full ${aim ? 'opacity-0' : ''}`}><Lifted shot={shot} axis={axis} words={onNest ? (nest ? nest.refused ?? STEP_WORDS : null) : undefined} refused={!!nest?.refused} /></div>
             {aim && places && <PlaceSaid place={aim} said={places.said(aim)} />}
           </div>
         )}
@@ -248,6 +298,7 @@ export function SortableRow({ id, glide, className, children }: { id: string; gl
 
 function Row({ id, className, children }: { id: string; className?: string; children: ReactNode }): React.JSX.Element {
   const axis = useContext(Axis)
+  const lit = useContext(Nest) === id
   const { setNodeRef, attributes, listeners, transform, transition, isDragging } = useSortable({
     id,
     transition: still() ? null : { duration: 220, easing: EASING }
@@ -256,12 +307,13 @@ function Row({ id, className, children }: { id: string; className?: string; chil
     <div
       ref={setNodeRef}
       data-sortable-id={id}
+      data-nest-hot={lit || undefined}
       {...attributes}
       {...listeners}
       // The row's own button keeps the focus and the keys; this is only the grip.
       tabIndex={-1}
       role={undefined}
-      className={`${className ?? ''} ${isDragging ? 'mf-carried-place' : ''}`}
+      className={`${className ?? ''} ${isDragging ? 'mf-carried-place' : ''} rounded-md transition-shadow data-[nest-hot]:bg-accent data-[nest-hot]:ring-1 data-[nest-hot]:ring-ring`}
       style={{ transform: transform ? (axis === 'x' ? `translate3d(${Math.round(transform.x)}px, 0, 0)` : `translate3d(0, ${Math.round(transform.y)}px, 0)`) : undefined, transition }}
     >
       {children}

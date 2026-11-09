@@ -340,6 +340,75 @@ await part("Today's list", async () => {
   const tomorrow = new Date(c.now()); tomorrow.setDate(tomorrow.getDate() + 1)
   check('dropped on the Upcoming tab: off Today, due tomorrow', !(await order()).includes(lineIds.post) && !!post?.dueAt && new Date(post.dueAt).toDateString() === tomorrow.toDateString(), JSON.stringify({ due: post?.dueAt }))
 })
+// --- 5b. A task rested on another's middle becomes its step, on Today and on Later: lit while it waits, edges still
+// reorder, Esc cancels, the notice and ⌘Z undo it, the steps unfold under their task on a tree line. Filmed every 50ms.
+const sortBox = (id) => h.evaluate((one) => { const r = document.querySelector(`[data-sortable-id="${one}"]`)?.getBoundingClientRect(); return r && { x: r.x, y: r.y, h: r.height } }, id)
+/** Carried from one row until the carried card's middle sits on another's middle (or `at` of its height), filmed. */
+const onto = async (id, target, { name, at = 0.5, rest = 900 } = {}) => {
+  const [a, b] = [await sortBox(id), await sortBox(target)]
+  const from = { x: a.x + 220, y: a.y + 14 }
+  const to = { x: from.x, y: from.y + (b.y + b.h * at) - (a.y + a.h / 2) }
+  await h.mouse.move(from.x, from.y); await h.mouse.down()
+  let n = 0
+  const frame = async () => { if (FILM && name) await h.screenshot({ path: `${FILM}/${name}-${String(n++).padStart(2, '0')}.png` }) }
+  for (let i = 1; i <= 12; i++) { await h.mouse.move(from.x, from.y + ((to.y - from.y) * i) / 12); await wait(50); await frame() }
+  for (let t = 0; t < rest; t += 50) { await h.mouse.move(to.x + (t % 100 ? 1 : 0), to.y); await wait(50); await frame() }
+}
+const lit = () => h.evaluate(() => document.querySelector('[data-nest-hot]')?.getAttribute('data-sortable-id') ?? null)
+const toastSaid = () => h.evaluate(() => [...document.querySelectorAll('[role=status]')].map((one) => one.textContent).join(' | '))
+const stepsOf = async (id) => (await task(id))?.subtasks?.map((one) => one.text) ?? []
+await part('A task onto a task makes a step', async () => {
+  for (const look of ['light', 'dark']) {
+    await c.look(look); await wait(150)
+    for (const old of await v('tasks')) if (old.status === 'open') await v('task:save', old.id, { status: 'dropped' })
+    const ids = { water: await addLine('Water the plants'), pots: await addLine('Buy pots'), soil: await addLine('Get soil'), seeds: await addLine('Sow seeds', ['Pick a tray']) }
+    await h.reload(); await wait(1500); await c.go('today'); await wait(1200)
+    // Esc while lit: nothing changes.
+    await onto(ids.pots, ids.water, { name: `nest-esc-${look}` })
+    check(`${look}: rested on a task's middle, that task is lit`, (await lit()) === ids.water, String(await lit()))
+    check(`${look}: the card says “Make it a step”`, (await said()) === 'Make it a step', await said())
+    await h.keyboard.press('Escape'); await wait(300); await h.mouse.up(); await wait(900)
+    check(`${look}: Esc puts it back: still a task, no step, nothing lit`, (await task(ids.pots))?.status === 'open' && !(await stepsOf(ids.water)).length && !(await lit()), JSON.stringify(await stepsOf(ids.water)))
+    // Let go while lit: a step.
+    await onto(ids.pots, ids.water, { name: `nest-drop-${look}` })
+    await wait(100); await h.mouse.up(); await wait(1200)
+    if (FILM) for (let i = 0; i < 8; i++) { await h.screenshot({ path: `${FILM}/nest-after-${look}-${i}.png` }); await wait(50) }
+    const pots = await task(ids.pots)
+    check(`${look}: let go, it is a step of that task and gone from the list`, (await stepsOf(ids.water)).join() === 'Buy pots' && pots?.status === 'dropped' && !(await order()).includes(ids.pots), JSON.stringify({ steps: await stepsOf(ids.water), status: pots?.status }))
+    check(`${look}: the notice says so, with Undo`, (await toastSaid()).includes('Now a step of Water the plants') && (await toastSaid()).includes('Undo'), await toastSaid())
+    const tree = await h.evaluate((id) => { const ul = document.querySelector(`[data-steps-of="${id}"]`); return { steps: ul ? [...ul.querySelectorAll('li')].map((li) => li.textContent) : [], lines: ul?.parentElement?.querySelectorAll('svg path').length ?? 0, fold: document.querySelector(`[data-steps-fold="${id}"]`)?.getAttribute('aria-expanded') } }, ids.water)
+    check(`${look}: its steps unfold under it on a tree line, the fold open`, tree.steps.join() === 'Buy pots' && tree.lines >= 2 && tree.fold === 'true', JSON.stringify(tree))
+    await h.locator(`[data-steps-fold="${ids.water}"]`).click(); await wait(400)
+    check(`${look}: the fold folds the steps away`, !(await h.locator(`[data-steps-of="${ids.water}"]`).count()), '')
+    await h.locator(`[data-steps-fold="${ids.water}"]`).click(); await wait(400)
+    // ⌘Z: a task again, its step gone.
+    await h.mouse.click(5, 450); await h.keyboard.press('Meta+z'); await wait(1200)
+    check(`${look}: ⌘Z makes it a task again`, (await task(ids.pots))?.status === 'open' && !(await stepsOf(ids.water)).length && (await order()).includes(ids.pots), JSON.stringify({ steps: await stepsOf(ids.water), status: (await task(ids.pots))?.status }))
+    // An edge still reorders: to just above another's top edge it goes before it, no step made.
+    const before = await order()
+    await onto(ids.soil, ids.water, { at: 0.05, rest: 700 })
+    check(`${look}: on a task's edge nothing is lit`, !(await lit()), String(await lit()))
+    await h.mouse.up(); await wait(1200)
+    const after = await order()
+    check(`${look}: let go on the edge, it is moved, not a step`, after.indexOf(ids.soil) < after.indexOf(ids.water) && !(await stepsOf(ids.water)).length, `${before.join(',')} -> ${after.join(',')}`)
+    // A task with steps of its own stays a task, said in words.
+    await onto(ids.seeds, ids.water, { name: `nest-refused-${look}` })
+    check(`${look}: a task with steps of its own is refused, in words`, (await said()).includes('steps of its own') && !(await lit()), await said())
+    await h.mouse.up(); await wait(1000)
+    check(`${look}: refused, nothing changed`, (await task(ids.seeds))?.status === 'open' && !(await stepsOf(ids.water)).length, '')
+  }
+  await c.look('light'); await wait(150)
+  // On Later as well (a list not in your own order: rows never slide, a middle still takes a step).
+  const later = { box: (await v('task:add', 'Fix the shed')).id, nails: (await v('task:add', 'Buy nails')).id }
+  for (const id of Object.values(later)) await v('task:save', id, { due: null, plan: 'someday' })
+  await h.reload(); await wait(1500); await c.go('later'); await wait(1200)
+  await onto(later.nails, later.box, { name: 'nest-later' })
+  check('Later: rested on a task\'s middle, it is lit', (await lit()) === later.box, String(await lit()))
+  await h.mouse.up(); await wait(1200)
+  check('Later: let go, a step of it', (await stepsOf(later.box)).join() === 'Buy nails' && (await task(later.nails))?.status === 'dropped', JSON.stringify(await stepsOf(later.box)))
+  await h.mouse.click(5, 450); await h.keyboard.press('Meta+z'); await wait(1200)
+  check('Later: ⌘Z makes it a task again', (await task(later.nails))?.status === 'open' && !(await stepsOf(later.box)).length, '')
+})
 await part('Esc ends the whole press', async () => {
   if (!lineIds.call) {
     for (const old of await v('tasks')) if (old.status === 'open' && (old.dueAt || old.deadline)) await v('task:save', old.id, { status: 'dropped' })
