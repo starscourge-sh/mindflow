@@ -2818,8 +2818,8 @@ $nested-ul: "ul:not([data-type='taskList'])";
     cursor: pointer;
 
     &::-webkit-slider-thumb {
-      width: 0.75rem;
-      height: 0.75rem;
+      width: round(0.75rem, 1px);
+      height: round(0.75rem, 1px);
       border-radius: 999px;
       appearance: none;
       background: var(--tt-brand-color-500, currentColor);

@@ -885,8 +885,8 @@ html[data-overhang] .mf-dots {
    going transparent, and a background mixed from `currentColor` went with it -
    the one dot that does something was the one you could not see. */
 .mf-dots > * {
-  width: 0.75rem;
-  height: 0.75rem;
+  width: round(0.75rem, 1px);
+  height: round(0.75rem, 1px);
   border-radius: 999px;
   background-color: color-mix(in srgb, var(--foreground) 28%, transparent);
 }
