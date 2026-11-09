@@ -437,7 +437,7 @@ export function registerSandbox(): void {
     // Past the Feed's and Stats' goals already: their real pages, with no "ready" moment.
     put.run('readyShown', JSON.stringify(['feed', 'stats']))
     // The book's owner kept a few favourite tags, so the sidebar shows what one looks like; a new book has none.
-    put.run('sideTags', JSON.stringify(['learn-haligtree', 'reading', 'renaissance', 'history']))
+    put.run('sideTags', JSON.stringify(['learn-haligtree', 'reading', 'renaissance', 'history', 'greek-myth']))
     // Setting the sandbox out wrote no words of yours: Stats' writing starts from here.
     // The book's owner wrote before you came, though: a few weeks of their
     // writing days, all before today, so Stats' Writing reads lived in and

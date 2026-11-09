@@ -42,6 +42,36 @@ try {
   await go('day'); await wait(1500); await shot('journal')
   await go('calendar'); await wait(1500); await shot('calendar')
   await go('review'); await wait(1500); await shot('decks')
+
+  // The rest of the book: four more decks with a history, a page read closely, a question answered,
+  // a calendar either side of today, tasks with steps, and most days of the journal written.
+  const queue = await v('review:queue')
+  for (const tag of ['greek-myth', 'painters', 'sci-fi-and-fantasy', 'physics']) {
+    const deck = await v('tag:cards', tag)
+    const due = queue.filter((one) => JSON.stringify(one.body ?? '').includes(`#${tag}`))
+    check(`the ${tag} deck has 10 to 15 cards, some due today`, deck.length >= 10 && deck.length <= 15 && due.length >= 1, `${deck.length} cards, ${due.length} in today's queue`)
+  }
+  const page = (await v('items', 'article')).find((one) => one.title === "The creature's three books")
+  const body = page && JSON.stringify((await v('item', page.id)).body)
+  check('the close-read page has highlights, footnotes, citations and people', body && /"highlight"/.test(body) && /"citation"/.test(body) && /footnote/i.test(body) && /person:Mary Shelley/.test(body))
+  const question = (await v('items', 'question')).find((one) => one.title.startsWith('Why is Frankenstein subtitled'))
+  check('the Prometheus question is answered', question && (await v('item', question.id)).closedAt)
+  const from = new Date(); from.setDate(from.getDate() - 14)
+  const to = new Date(); to.setDate(to.getDate() + 14)
+  const events = await v('events', from.toISOString(), to.toISOString())
+  check('the calendar has events behind and ahead', events.filter((one) => one.start < new Date().toISOString()).length >= 3 && events.filter((one) => one.start > new Date().toISOString()).length >= 4, `${events.length} events`)
+  const stepped = (await v('tasks')).filter((one) => one.subtasks?.length >= 3)
+  check('tasks with steps', stepped.length >= 4, stepped.map((one) => one.title).join(' | '))
+
+  await h.evaluate((id) => window.api.openInHome('article', id), page?.id); await wait(2000); await shot('close-read')
+  await h.evaluate(() => window.api.openInHome('tag', 'painters')); await wait(2000); await shot('deck-painters')
+  await go('sources'); await wait(1200)
+  await h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:source', { detail: 'attribution:Oscar Wilde' }))); await wait(1500); await shot('source-wilde')
+  await go('stats'); await wait(2500); await shot('stats')
+  // The narrowest a person is likely to keep it beside a book.
+  await c.size(760, 860)
+  for (const [view, name] of [['day', 'journal'], ['calendar', 'calendar'], ['review', 'decks']]) { await go(view); await wait(1500); await shot(`${name}-760`) }
+  await h.evaluate((id) => window.api.openInHome('article', id), page?.id); await wait(2000); await shot('close-read-760')
   check('no page errors', !c.errors.some((one) => one.startsWith('PAGEERROR')), c.errors.filter((one) => one.startsWith('PAGEERROR')).join(' | '))
 } catch (error) {
   check('the run finishes', false, String(error).slice(0, 300))

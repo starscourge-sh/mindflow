@@ -1845,6 +1845,234 @@ A whole town painted with nobody in it. I stood in front of it for twenty minute
   await write(ophelia, 'There is a willow grows aslant a brook, / That shows his hoar leaves in the glassy stream.\n\nI pasted Cabanel\'s *Ophelia* here, then took it out again. A picture no note holds any more is not lost: it waits in Files under “Unlinked”.\n\nTry it: open Files, choose “Unlinked”, and keep it or move it to the Bin.')
   await call('media:list')
 
+  // --- four more decks, the kind a curious person keeps: Greek myth, painters,
+  // Dune and Middle-earth, and physics said in a sentence. Each mixes plain
+  // questions, fill-in-the-blanks short enough to type, and cards with the
+  // painting on the back. Begun over the last six weeks and reviewed as Review
+  // asks, so some wait today, some later, and the newest are not met yet.
+  // Dune and The Lord of the Rings get facts in my own words, never a line of theirs.
+  const laterAges: unknown[] = []
+  const DECK_GAPS = [1, 3, 8, 18, 40]
+  let deckGraded = 0
+  const cardId: Record<string, string> = {}
+  /**
+   * A card: `prompt` asked, `answer` on the back; a prompt with _____ is a fill-in-the-blank.
+   * Made `made` days ago; `reviewed` ones were met each time a gap from then ended (a day,
+   * three, eight, eighteen, forty), so one made 8, 18 or 40 days ago waits today. `missed`
+   * ones were forgotten along the way and wait today too.
+   */
+  const deckCard = async (tag: string, prompt: string, answer: string, made: number, reviewed: number, missed = false): Promise<void> => {
+    const id = await call<string>('nugget:from', `${answer}\n\n#${tag}`, {})
+    cardId[prompt] = id
+    await call('item:save', id, { title: prompt, prompt })
+    nuggets++
+    laterAges.push({ createdAt: at(-made, '21:00'), nuggetId: id })
+    const gaps = reviewed ? DECK_GAPS.filter((gap) => gap < made) : []
+    for (const [nth, gap] of gaps.entries()) {
+      const grade = missed && nth > 0 ? (nth === gaps.length - 1 ? 2 : 1) : deckGraded++ % 6 === 5 ? 4 : deckGraded % 9 === 0 ? 2 : 3
+      await call('review:grade', id, grade, 7000)
+      laterAges.push({ reviewedAt: at(gap - made, `0${7 + (nth % 2)}:${String(15 + ((deckGraded * 11) % 40)).padStart(2, '0')}`), itemId: id, nth })
+    }
+    const next = (DECK_GAPS[gaps.length] ?? 80) - made
+    if (gaps.length) laterAges.push({ dueAt: missed || next <= 0 ? at(0, '00:00') : at(next, '08:00'), nuggetId: id })
+  }
+  const pic = (path: string, what: string): string => `![${what}|360](${path})`
+  type Deck = [string, string, number, number, boolean?][]
+  const myth: Deck = [
+    ['Who stole fire from the gods, and what did it cost him?', 'Prometheus. Zeus chained him to a rock, where an eagle ate his liver every day and it grew back every night.', 45, 1],
+    ['The nine Muses were daughters of Zeus and _____, the goddess of memory.', 'The nine Muses were daughters of Zeus and Mnemosyne, the goddess of memory.', 40, 4],
+    ["Why did Odysseus tell the Cyclops his name was 'Nobody'?", 'So when Polyphemus shouted that Nobody was hurting him, the other Cyclopes thought he was fine and went back to bed.', 33, 3],
+    ["A clay plaque from Melos, about 450 BC, shows Odysseus home at last. Who knows him first, in his beggar's disguise?", `${pic(plaque, 'Terracotta plaque with Odysseus, Melos, about 450 BC')}\n\nArgos, his old dog, who wags his tail and dies. Then Eurycleia, his nurse, by the scar on his leg as she washes his feet.`, 30, 3],
+    ['_____ wove a shroud by day and unpicked it by night, to keep the suitors waiting.', 'Penelope wove a shroud by day and unpicked it by night, to keep the suitors waiting.', 26, 3, true],
+    ["What was left in Pandora's jar when she shut the lid?", 'Hope. Everything else had already flown out into the world.', 22, 2],
+    ['Who were the three Fates, and what did each do?', 'Clotho spun the thread of a life, Lachesis measured it, and Atropos cut it.', 18, 1],
+    ['Orpheus lost Eurydice for good because he _____ before they reached the daylight.', 'Orpheus lost Eurydice for good because he looked back before they reached the daylight.', 12, 2],
+    ['What was the Labyrinth built for, and who got out of it?', "To hold the Minotaur under King Minos's palace on Crete. Theseus killed it and found his way out by Ariadne's thread.", 8, 1],
+    ['The river of forgetting in the underworld is the _____.', 'The river of forgetting in the underworld is the Lethe.', 4, 0],
+    ['Why did Icarus fall?', 'He flew too near the sun and the wax in his wings melted. His father Daedalus had told him to fly the middle way.', 2, 0],
+    ['What did Sisyphus do to earn his boulder?', 'He cheated death, twice. His sentence: push a boulder up a hill for ever, and watch it roll back down.', 1, 0]
+  ]
+  const painters: Deck = [
+    ["Leonardo's Mona Lisa: what is sfumato, and where do you see it?", `${pic(mona, 'Mona Lisa, Leonardo da Vinci')}\n\nSoft blending with no hard outlines, like smoke. The corners of her mouth and eyes sit in shadow, so her look never settles.`, 44, 4],
+    ['In The Creation of Adam, what happens in the gap between the two hands?', `${pic(adam, 'The Creation of Adam, Michelangelo')}\n\nNothing, yet. Their fingers do not touch: Adam's hand hangs limp, God's reaches. The spark is about to cross.`, 40, 4],
+    ["Who stands at the centre of Botticelli's Primavera?", `${pic(primavera, 'Primavera, Sandro Botticelli')}\n\nVenus, in her orange grove, with Cupid above her aiming an arrow. Painted about 1480, for a Medici house in Florence.`, 34, 3],
+    ["Masaccio's Trinity, about 1427: why did people stop and stare?", `${pic(trinityPic, 'The Holy Trinity, Masaccio')}\n\nOne of the first paintings built on linear perspective. The painted vault looks like a real chapel cut into the wall of Santa Maria Novella.`, 31, 3],
+    ['The Last Supper: which moment does Leonardo paint?', `${pic(supper, 'The Last Supper, Leonardo da Vinci')}\n\nJust after Jesus says one of them will betray him: each apostle reacts at once. Painted on a dry wall, it began to flake in Leonardo's own lifetime.`, 27, 3, true],
+    ["Masaccio's Tribute Money tells one story three times in one picture. What are the three moments?", `${pic(tributePic, 'The Tribute Money, Masaccio')}\n\nThe tax collector asks; Peter finds the coin in a fish's mouth (left); Peter pays (right).`, 23, 2],
+    ['Who painted the Delphic Sibyl, and where?', `${pic(delphicPic, 'The Delphic Sibyl, Michelangelo')}\n\nMichelangelo, on the Sistine Chapel ceiling, 1508 to 1512. A prophetess of Apollo, among the prophets of the Old Testament.`, 20, 2],
+    ['What is the Vitruvian Man measuring?', `${pic(vitruvianPic, 'Vitruvian Man, Leonardo da Vinci')}\n\nThe proportions the Roman architect Vitruvius gave for a man: arms spread as wide as he is tall, so he fits a circle and a square. About 1490.`, 13, 2],
+    ["Raphael painted _____ for the Pope's library, with Plato and Aristotle at its centre.", "Raphael painted The School of Athens for the Pope's library, with Plato and Aristotle at its centre.", 10, 1],
+    ['Michelangelo carved his _____ from a block of marble other sculptors had given up on.', 'Michelangelo carved his David from a block of marble other sculptors had given up on.', 5, 0],
+    ['Who wrote the Lives of the Painters, and why not trust every word?', 'Giorgio Vasari, in 1550 and again in 1568. A painter himself and a friend of Michelangelo: he tells a good story and takes sides.', 3, 0],
+    ["Leonardo's Annunciation: how old was he when he painted it?", `${pic(annunciation, 'The Annunciation, Leonardo da Vinci')}\n\nAbout twenty, still in Verrocchio's workshop in Florence. Look at the angel's wings: drawn from a real bird's.`, 1, 0]
+  ]
+  const lore: Deck = [
+    ['What is the spice in Dune, and why does everyone want it?', 'Melange, found only on Arrakis. It lengthens life, and the Guild navigators need it to steer ships between the stars. Whoever holds Arrakis holds the trade of the universe.', 38, 4],
+    ['Who are the Fremen?', 'The desert people of Arrakis. They save every drop of water, ride the sandworms, and have waited generations for someone to lead them.', 35, 3],
+    ["A Fremen stillsuit recycles the body's own _____.", "A Fremen stillsuit recycles the body's own water.", 29, 3],
+    ["What is the Bene Gesserit's long plan?", 'To breed a man who can see past and future at once, the Kwisatz Haderach. Paul arrives a generation early, and not on their terms.', 24, 2, true],
+    ['Why are there no computers in Dune?', 'The Butlerian Jihad, thousands of years before the story, banned any machine made in the likeness of a human mind. People trained as Mentats do the sums instead.', 18, 2],
+    ['How many Rings of Power were there, and who got them?', 'Three for the Elves, seven for the Dwarves, nine for Men, and the One that Sauron made to rule them all.', 14, 2],
+    ['Why will Gandalf not take the Ring, even to do good?', 'Because he would use it to do good, and it would make him into what he fights. Its pull works through pity and strength, not greed.', 8, 1],
+    ["Bilbo's sword, which Frodo carries and which glows when orcs are near, is called _____.", "Bilbo's sword, which Frodo carries and which glows when orcs are near, is called Sting.", 5, 0],
+    ['Who were the Istari?', 'Five wizards sent to Middle-earth in the Third Age, in the shape of old men, to help against Sauron and never to rule. Gandalf and Saruman are two.', 2, 0],
+    ['What became of the Entwives?', 'They went off to tend gardens in the lands of Men and were lost. The Ents never found them.', 1, 0]
+  ]
+  const physics: Deck = [
+    ['Why is the sky blue?', 'Air scatters short blue light far more than long red light, so blue reaches you from every part of the sky.', 42, 4],
+    ['If space is full of stars, why is the night sky dark?', 'The universe has an age: light from the farthest stars has not reached us yet, and the stretching of space reddens what has.', 39, 4],
+    ['Mass and energy are the same thing: E = _____.', 'Mass and energy are the same thing: E = mc².', 32, 3],
+    ['What does entropy say, in one sentence?', 'Left alone, things go from order to disorder, never back: it is why time has a direction.', 28, 3, true],
+    ['Why do astronauts float on the space station?', 'They are falling round the Earth all the time. Gravity up there is still about nine tenths of what it is on the ground.', 25, 2],
+    ["What does Heisenberg's uncertainty principle say?", 'The more exactly you know where a particle is, the less exactly you can know how it is moving, and the other way round.', 21, 2],
+    ['Light from the Sun takes about _____ minutes to reach us.', 'Light from the Sun takes about 8 minutes to reach us.', 18, 1],
+    ['Why does a spinning skater speed up when she pulls her arms in?', 'Angular momentum is kept: the same spin in a smaller circle has to go round faster.', 11, 1],
+    ['What is the Pale Blue Dot?', `${pic(dot, 'Pale Blue Dot, Voyager 1, 1990')}\n\nVoyager 1 turned round in 1990, about six billion kilometres out, and photographed the Earth: less than a pixel, in a band of scattered sunlight. Sagan asked for the picture.`, 7, 1],
+    ["What is Newton's third law, in a sentence?", 'Every push gets an equal push back: a rocket throws gas down, the gas throws the rocket up.', 4, 0],
+    ['Why does the Moon always show us the same face?', "Tidal locking: Earth's pull slowed its spin until one turn takes exactly one orbit.", 2, 0],
+    ['Why can nothing go faster than light?', 'The faster a thing goes, the more energy each bit more speed costs; at the speed of light it would cost an endless amount.', 1, 0]
+  ]
+  for (const [tag, cards, color] of [['greek-myth', myth, 'blue'], ['painters', painters, 'orange'], ['sci-fi-and-fantasy', lore, 'yellow'], ['physics', physics, 'green']] as const) {
+    for (const [prompt, answer, made, reviews, missed] of cards) await deckCard(tag, prompt, answer, made, reviews, missed)
+    await call('tag:set', tag, { color })
+  }
+
+  // --- a person page for Wilde, and a line of his kept on it -----------------------------
+  await call('source:set', 'attribution', 'Oscar Wilde', 'Poet, playwright and wit. One novel, The Picture of Dorian Gray, and the preface he wrote for it is a list of fights he wanted to pick. Died in Paris at forty-six.')
+  await call('source:facts', 'attribution', 'Oscar Wilde', { what: 'Playwright and novelist', born: '1854', died: '1900' })
+  const wildePreface = await capture({ kind: 'quote', attribution: 'Oscar Wilde', medium: 'The Picture of Dorian Gray, the preface (1891)' }, at(-16, '22:40'))
+  await write(wildePreface, 'There is no such thing as a moral or an immoral book. Books are well written, or badly written. That is all.')
+  const wellWritten = await call<string>('promote', wildePreface, 'Then he wrote a novel where a man pays for every sin. The preface is a dare, not a creed.')
+  nuggets++
+  laterAges.push({ createdAt: at(-16, '22:41'), nuggetId: wellWritten }, { exitedAt: at(-16, '22:41'), captureId: wildePreface })
+
+  // --- a question answered in a week: Greek myth meets Frankenstein ---------------------
+  const prometheusQ = await call<string>('question:new', 'Why is Frankenstein subtitled The Modern Prometheus?')
+  for (const [text, n] of [
+    ['Prometheus stole fire and gave it to people. Victor steals the spark of life.', 13],
+    ['In some tellings Prometheus also shaped the first people out of clay. Victor makes a man from what he finds.', 10],
+    ['Both are punished for ever after: the rock and the eagle, the creature following Victor across the ice.', 7]
+  ] as const) laterAges.push({ glossAt: at(-n, '22:15'), id: await call<string>('clue', prometheusQ, text) })
+  await call('item:save', prometheusQ, { body: doc(`From ${link(bookId['Frankenstein'], 'Frankenstein')}, and the ${link(cardId[myth[0][0]], 'Prometheus card', 'nugget')} in my Greek myth deck.`) })
+  const prometheusAnswer = await call<{ article: string | null }>('question:close', prometheusQ, 'answered')
+  laterAges.push({ createdAt: at(-14, '21:30'), nuggetId: prometheusQ }, { closedAt: at(-6, '22:00'), nuggetId: prometheusQ })
+  if (prometheusAnswer?.article) laterAges.push({ createdAt: at(-6, '22:00'), nuggetId: prometheusAnswer.article })
+  nuggets++
+
+  // --- a page read closely: highlights, footnotes, citations, and the people it
+  // names, whose kept lines gather in its margin. It links to the book, the
+  // question and Wilde's line, and they link back.
+  /** Each ⟦key⟧ in the words made a citation chip of that work. */
+  const cited = (node: JSONContent, cites: Record<string, Record<string, string>>): JSONContent => node.content
+    ? { ...node, content: node.content.flatMap((child) => child.type === 'text' && child.text?.includes('⟦')
+      ? child.text.split(/(⟦\w+⟧)/).filter(Boolean).map((part) => {
+        const key = /^⟦(\w+)⟧$/.exec(part)?.[1]
+        return key && cites[key] ? { type: 'citation', attrs: cites[key] } : { ...child, text: part }
+      })
+      : [cited(child, cites)]) }
+    : node
+  const person = (name: string): string => `[[@person:${name}|${name}]]`
+  const creatureReads = await call<string>('article:new')
+  await call('item:save', creatureReads, {
+    title: "The creature's three books",
+    body: cited(doc(`
+A page read closely: highlights, footnotes and citations, and in its margin, the lines you kept from the people it names.
+
+**Try it:** select a few words and press ⌘⇧H to highlight them, or type “/” and choose “Cite a source”.
+
+Hiding beside the cottage, the creature finds a satchel with three books in it: Paradise Lost, Plutarch's Lives and The Sorrows of Young Werther ⟦shelley⟧. ==He learns what a person is from them before any person has been kind to him.==[^1]
+
+${person('Mary Shelley')} gives him Milton, so he reads himself as Adam, then as Satan. The subtitle reaches further back, to Prometheus, who steals fire for people and pays for it ⟦hesiod⟧. I worked that out in ${link(prometheusQ, 'Why is Frankenstein subtitled The Modern Prometheus?', 'question')}.
+
+==A made thing with a library and no friends.== The saddest idea in the book, and nobody in it says so.[^2]
+
+${person('Oscar Wilde')} would say a book is only well or badly written: ${link(wellWritten, 'Books are well written, or badly written', 'nugget')}. The creature is the case against him: three books made him who he is.
+
+From ${link(bookId['Frankenstein'], 'Frankenstein')}.
+
+[^1]: Chapter 15 in the 1831 text. Werther teaches him grief, Plutarch virtue, and Milton that he has no Eve.
+[^2]: To bring up at the book club.
+`), {
+      shelley: { work: 'Frankenstein', authors: 'Mary Shelley', year: '1831', publisher: 'Henry Colburn and Richard Bentley' },
+      hesiod: { work: 'Theogony', authors: 'Hesiod', year: '1914', publisher: 'Loeb Classical Library, tr. Hugh G. Evelyn-White' }
+    })
+  })
+  laterAges.push({ createdAt: at(-5, '21:45'), nuggetId: creatureReads })
+  nuggets++
+
+  // --- a reading goal tied to the books on the shelf, logged as each is finished ------
+  const booksGoal = await call<string>('goal:new', 'Read twelve books this year', day(52), day(-310), 'One a month, and write a page on each.')
+  for (const [text, n] of [
+    ['1: Meditations. Grandad\'s copy, pencil marks and all.', 272],
+    ['2: Pride and Prejudice, for the book club.', 236],
+    ['3: Frankenstein. The best of the year so far.', 180],
+    ['4: Hamlet, after the play in the park.', 126],
+    ['5: The Picture of Dorian Gray. Read the preface last, which was right.', 30],
+    ['Dune next, before film night. Seven to go and two months left: shorter books from here.', 2]
+  ] as const) laterAges.push({ glossAt: at(-n, '21:50'), id: await call<string>('gloss', booksGoal, text) })
+  laterAges.push({ createdAt: at(-310, '10:00'), nuggetId: booksGoal })
+  nuggets++
+
+  // --- the calendar: a lecture, a museum and a book club behind, more of each ahead --------
+  const event = async (n: number, from: string, to: string, title: string, place: string, calendarId: string, notes = ''): Promise<string> =>
+    (await call<{ key: string }>('event:add', { title, start: at(n, from), end: at(n, to), place, calendarId, notes })).key
+  await event(-10, '18:30', '20:00', 'Lecture: why the Bronze Age ended', 'Senate House, room 104', 'uni', 'Bring the Bronze Age question.')
+  await event(-6, '11:00', '13:00', 'Museum: Renaissance drawings', 'The British Museum, room 90', 'personal', 'Red chalk studies. Look for the Michelangelo.')
+  await event(-3, '19:00', '21:30', 'Book club: The Picture of Dorian Gray', "Sam's flat", 'personal')
+  const club = await event(4, '19:00', '21:00', 'Book club: Frankenstein', 'The Lamb, upstairs room', 'personal', 'My turn to start. Three questions, ten minutes.')
+  await event(6, '18:30', '19:30', 'Public lecture: why the night sky is dark', 'The Royal Institution', 'uni')
+  await event(9, '10:30', '13:00', 'National Gallery: Botticelli and the Medici', 'Trafalgar Square, Sainsbury Wing', 'personal', 'Before lunch, while it is quiet.')
+  await event(11, '19:30', '21:00', 'Odyssey reading group: Book 10, Circe', 'The library, first floor', 'personal')
+  await event(13, '14:00', '15:30', 'Seminar: Masaccio and the Brancacci Chapel', 'History of Art, room 2.14', 'uni')
+  // The book club's own note, linked to the evening both ways.
+  const clubNote = await capture({}, at(-2, '21:20'))
+  await write(clubNote, `
+Frankenstein book club: my three questions
+
+1. Who is the monster? I have an answer, and I want to hear theirs first.
+2. Why does the creature read before he speaks to anyone?
+3. Would it be a different book if Victor had stayed in the room?
+
+My notes for it: ${link(creatureReads, "The creature's three books", 'article')}.
+`)
+  await call('event:note:link', club, clubNote)
+
+  // --- tasks with steps, for the evenings ahead -----------------------------------------
+  const stepped = async (text: string, due: string, steps: [string, boolean][]): Promise<void> => {
+    const id = await task(text)
+    await call('task:save', id, { due, subtasks: steps.map(([words, done]) => ({ text: words, done })) })
+  }
+  await stepped('Get ready for the Frankenstein book club', at(4, '18:00'), [['Reread chapters 11 to 16', true], ['Write three questions', true], ['Find the 1818 and 1831 differences', false], ['Bring the Penguin with the tabs', false]])
+  await stepped('Plan the National Gallery visit', at(8, '20:00'), [['Check the Botticelli room is open', false], ['Pick five paintings to sit with', false], ['Pack the small sketchbook', false]])
+  await stepped('Make the physics deck to twenty cards', at(10, '21:00'), [['Entropy, again, in fewer words', false], ['A card on why ice floats', false], ['One on black holes for the exam', false]])
+
+  // --- the journal, most days of the last six weeks: morning pages, what I read, one thing I am glad of
+  for (const [n, words] of [
+    [-2, `Morning pages before the alarm. Three pages of nothing, and one idea on the third, which is the usual rate.\n\n**Read:** Frankenstein, chapter 15 again, for the club. Wrote it up as ${link(creatureReads, "The creature's three books", 'article')}. ${person('Mary Shelley')} was eighteen.\n\n**Glad of:** the bakery opening early.`],
+    [-3, "Book club at Sam's, on Dorian Gray. Everyone hated Lord Henry and quoted him all night.\n\n**Glad of:** people who argue kindly."],
+    [-4, `**Read:** ${person('Giorgio Vasari')} on Michelangelo, the ceiling chapter.\n\nReview before coffee: the Penelope card again. I keep typing Helen.\n\n**Glad of:** a seat on the bus both ways.`],
+    [-6, `The drawings room at the museum. Red chalk is smaller than you expect, and better than any print.\n\nOn the bus home the Prometheus question came together: ${link(prometheusQ, 'Why is Frankenstein subtitled The Modern Prometheus?', 'question')}.`],
+    [-8, 'Morning pages, rain. Learnt the Fates at last: Clotho spins, Lachesis measures, Atropos cuts.\n\n**Glad of:** dry socks.'],
+    [-10, `Lecture on the Bronze Age collapse. One line worth keeping: no single cause, everything at once. It went straight into ${link(bronze, 'Why did the Bronze Age collapse around 1177 BC?', 'question')}.\n\n**Glad of:** the lecturer who stayed to answer.`],
+    [-16, `Began a physics deck: things I can say in one sentence, or cannot yet. The blue sky took four tries.\n\n**Read:** the preface to Dorian Gray. ${person('Oscar Wilde')} picking fights in the first page.`],
+    [-22, '**Morning pages:** a full week ahead. One thing at a time.\n\n**Glad of:** an hour on the phone with Mum, about nothing.'],
+    [-38, 'Started a lore deck for Dune and Middle-earth, in my own words, so I stop looking things up mid-chapter.'],
+    [-41, 'Began a Greek myth deck, after the Odyssey kept naming people I could not place. Prometheus first, then the Muses.']
+  ] as const) await call('notes:day:save', day(n), { body: doc(words), reviewed: true })
+  const weekBack = (weeks: number): string => {
+    const when = new Date(`${monday()}T12:00:00`)
+    when.setDate(when.getDate() - 7 * weeks)
+    return `${when.getFullYear()}-${String(when.getMonth() + 1).padStart(2, '0')}-${String(when.getDate()).padStart(2, '0')}`
+  }
+  await call('period:save', `week:${weekBack(1)}`, {
+    fields: { theme: 'Myths and monsters', summary: 'Frankenstein for the club, the Prometheus question answered, the drawings room.', projects: 'Book club, the Greek myth deck', people: 'Sam, Mary Shelley' },
+    body: doc(`Closed ${link(prometheusQ, 'the Prometheus question', 'question')} and wrote ${link(creatureReads, "The creature's three books", 'article')}.`)
+  })
+  await call('period:save', `week:${weekBack(2)}`, {
+    fields: { theme: 'Say it in a sentence', summary: 'Physics deck begun; Dorian Gray finished.', projects: 'Physics cards, twelve books', people: 'Oscar Wilde' }
+  })
+  await call('sandbox:age', laterAges)
+
   // On a developer's own Mac, a few of their books and paintings as well; never in a packaged app.
   await call('sandbox:local-library')
 
