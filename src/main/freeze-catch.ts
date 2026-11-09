@@ -106,10 +106,26 @@ export function catchFreezes(win: BrowserWindow, name: string): void {
           const seen = await wc.debugger.sendCommand('Debugger.evaluateOnCallFrame', { callFrameId: top.callFrameId, expression, returnByValue: true }).then((one: { result: { value?: unknown; description?: string } }) => String(one.result.value ?? one.result.description), (error: unknown) => `(could not read: ${String(error)})`)
           lines.push(`  changes: ${seen.slice(0, 2500)}`)
         }
+        // Stopped in React's commit: which component it was drawing, from the fiber in the nearest React frame
+        // (a ref or effect that sets state as it runs loops here, and React's own frames name no file).
+        const fiberAt = hit.callFrames.find((frame) => /^(commit|safely|recursively)/.test(frame.functionName))
+        if (fiberAt) {
+          const expression = `(() => { const f = typeof finishedWork !== 'undefined' ? finishedWork : typeof current !== 'undefined' ? current : typeof parentFiber !== 'undefined' ? parentFiber : null; if (!f) return '(no fiber here)'; const names = []; for (let x = f; x && names.length < 10; x = x.return) { const t = x.type; const n = typeof t === 'string' ? t + (x.memoizedProps && x.memoizedProps.className ? '.' + String(x.memoizedProps.className).trim().split(/\\s+/).slice(0, 2).join('.') : '') : t && (t.displayName || t.name); if (n) names.push(n) } return names.join(' < ') })()`
+          const owner = await wc.debugger.sendCommand('Debugger.evaluateOnCallFrame', { callFrameId: fiberAt.callFrameId, expression, returnByValue: true }).then((one: { result: { value?: unknown } }) => String(one.result.value ?? ''), () => '')
+          if (owner) lines.push(`  drawing: ${owner}`)
+        }
         parts.push(`pause ${round}:\n${lines.join('\n')}`)
         if (wc.isDestroyed()) break
         await wc.debugger.sendCommand('Debugger.resume').catch(() => undefined)
         await new Promise((done) => setTimeout(done, 150))
+      }
+      // Five pauses in script: did it come back (a long stall) or not (a loop)? And what it had been doing.
+      if (!parts.some((one) => one.includes('no pause')) && !wc.isDestroyed()) {
+        const stuck = Date.now()
+        let back = false
+        while (!back && Date.now() - stuck < 60_000 && !wc.isDestroyed()) back = await Promise.race([wc.mainFrame.executeJavaScript('1').then(() => true, () => false), new Promise<boolean>((done) => setTimeout(() => done(false), 2000))])
+        parts.push(back ? `answered again ${((Date.now() - stuck) / 1000).toFixed(1)}s after the last pause` : 'still not answering a minute after the last pause (a loop)')
+        if (back) parts.push(String(await wc.mainFrame.executeJavaScript('window.__freezeNotes ? window.__freezeNotes() : "(no notes in this page)"').catch((error: unknown) => `(could not read the notes: ${String(error)})`)))
       }
       const stack = parts.join('\n\n')
       writeFileSync(file, `${name} stopped answering at ${new Date().toString()}\n\n${stack}\n`)
