@@ -1,7 +1,7 @@
 // ⌘K is Notion's: the left a plain list in sections (before typing "Actions" and "Recent", typed a section a kind,
 // "Notes", "Gems", "Tasks"..., a few each with "Show N more"), no boxes round them; the right ONE framed card (its own
-// fill, a hairline, rounded corners, inset) holding what is close to hand (Today, Pinned) under the lit action, or the
-// lit result's preview. ↓ walks every row of every section, a folded section's rows are skipped, Enter opens the lit
+// fill, a hairline, rounded corners, inset) holding only the lit action (its name, what it does, its key), or the
+// lit result's preview; never Today's tasks or the pins ("why is it showing my day?", 9 Nov). ↓ walks every row of every section, a folded section's rows are skipped, Enter opens the lit
 // row, ⌘-click picks one.
 //   QA_ARGS=--sandbox QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/cmdk-islands.mjs
 // SHOT=<folder> keeps the pictures, light and dark, and a frame every 50ms while typing.
@@ -47,7 +47,9 @@ try {
   console.log('  at rest:', JSON.stringify(rest))
   check('at rest: no box round any section on the left', rest.boxedLeft.length === 0, JSON.stringify(rest.boxedLeft))
   check('at rest: one framed card on the right (hairline, 10px+ corners, a fill of its own, inset)', rest.panels === 1 && rest.framed && rest.ownFill && rest.inset, JSON.stringify(rest))
-  check('at rest: Today and Pinned sit inside that card, plainly, no boxes in it', rest.inside.length > 0 && rest.inside.every((name) => ['Today', 'Pinned'].includes(name)) && rest.boxesInside === 0, JSON.stringify(rest.inside))
+  // The card names the lit action and says what it does, alone: no Today, no Pinned, no boxes in it.
+  const card = await h.evaluate(() => ({ name: document.querySelector('[data-cmdk-panel] [data-action-line] p')?.textContent ?? '', lit: document.querySelector('[role="dialog"] [data-search-at]')?.textContent ?? '' }))
+  check('at rest: the card holds only the lit action (its name), no Today or Pinned, no boxes', rest.inside.length === 0 && rest.boxesInside === 0 && !!card.name && card.lit.includes(card.name), JSON.stringify({ ...rest, ...card }))
   if (shots) await c.both(`${shots}/islands-cmdk-before`)
   // ↓ onto the first Recent row: its preview fills the same card.
   while ((await lit())?.island === 'Actions') { await h.keyboard.press('ArrowDown'); await wait(60) }

@@ -22,7 +22,7 @@ import { useWorking } from './haligtree/beam'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import { MenuGlyph } from '@/components/ui/menu-icon'
 import { IslandBox, useFold, useIslands } from './haligtree/islands'
-import { CalendarDays, Command, Pin as PinIcon, Plus, SquareCheck } from 'lucide-react'
+import { CalendarDays, Command, Plus } from 'lucide-react'
 import { Orb } from './haligtree/orb'
 import MagnifierIcon from '@/components/ui/magnifier-icon'
 import LayoutSidebarRightIcon from '@/components/ui/layout-sidebar-right-icon'
@@ -622,8 +622,7 @@ export function Search({ onOpen: told, onAside: toldAside, onTab: toldTab, onClo
             </>}
           </div>
           {/* The right half, Notion's way: one framed card (its own fill, a hairline, rounded, inset from the edges) that shows
-              the lit row. A result reads as it does, read only; an action says what it does, and before typing what is
-              close to hand sits under it in plain sections. One frame for all, so nothing jumps as the arrows move. */}
+              the lit row. A result reads as it does, read only; an action says what it does, alone. One frame for all, so nothing jumps as the arrows move. */}
           {shown && (
             <div data-cmdk-panel className="mf-island m-3 ml-1 flex w-1/2 min-w-0 flex-col overflow-hidden rounded-[14px] border">
               <div className="min-h-0 flex-1 overflow-y-auto [--mf-padding:1rem_1.25rem]">
@@ -646,6 +645,8 @@ export function Search({ onOpen: told, onAside: toldAside, onTab: toldTab, onClo
                       <p className="text-body text-pretty text-foreground/80"><strong className="font-semibold text-foreground">Enter keeps it</strong> {action.keep === 'box' ? 'in quick capture, ready to finish there.' : `${KEPT_AS[action.keep]}, and opens it to write more.`}</p>
                     </div>
                   : action
+                    // A lit action: only that action, what it does, and (in the bar under it) its key. Nothing else
+                    // in the card, so it never reads as the day or the pins.
                     ? <div className="flex flex-col gap-5 p-4">
                       <div key={action.label} data-action-line={plain ? '' : undefined}>
                         <p className="text-base font-medium text-pretty text-foreground">{action.label}</p>
@@ -653,7 +654,6 @@ export function Search({ onOpen: told, onAside: toldAside, onTab: toldTab, onClo
                         {/* A word asked about says what it means here before Enter opens the rest. */}
                         {asked && action === doing[0] && <p className="mt-1 text-body text-muted-foreground">{asked.line}</p>}
                       </div>
-                      {plain && !query.trim() && !scoped && <CloseToHand tasks={tasks} pins={pins} onOpen={(type, id) => (chime('open'), onOpen(type, id))} />}
                     </div>
                     : <p className="p-4 text-body text-muted-foreground">Move onto something to see it here.</p>}
               </div>
@@ -860,38 +860,3 @@ function TaskDay({ task }: { task: Task | undefined }): React.JSX.Element | null
   )
 }
 
-/**
- * ⌘K before typing, beside the few actions: what is close to hand, as the
- * Journal's day shows it, an island a kind: tasks for today (and any
- * overdue), then what is pinned. Read from what search already holds, so it
- * is there the moment the box opens.
- */
-function CloseToHand({ tasks, pins, onOpen }: { tasks: Task[]; pins: Pin[]; onOpen: (type: string, id: string) => void }): React.JSX.Element | null {
-  const end = new Date()
-  end.setHours(23, 59, 59, 999)
-  const today = tasks.filter((one) => one.status === 'open' && one.dueAt && new Date(one.dueAt) <= end)
-  const todayIsland = useFold('cmdk.today', { total: today.length })
-  const pinsIsland = useFold('cmdk.pinned', { total: pins.length })
-  const row = (key: string, label: string, open: () => void, mark: React.ReactNode): React.JSX.Element => (
-    <button key={key} type="button" data-close-to-hand={key} tabIndex={-1} onClick={open}
-      className="flex h-8 w-full cursor-pointer items-center gap-2.5 rounded-md px-2 text-left text-body text-foreground hover:bg-foreground/[0.06]">
-      {mark}
-      <span className="min-w-0 flex-1 truncate">{label || 'Untitled'}</span>
-    </button>
-  )
-  if (!today.length && !pins.length) return null
-  return (
-    <div data-close-to-hand-pane className="-mx-2 flex flex-col">
-      {today.length > 0 && (
-        <IslandBox plain name="Today" island={todayIsland} shown={todayIsland.whole ? today.length : Math.min(5, today.length)} icon={<SquareCheck aria-hidden className="size-4 shrink-0 text-muted-foreground" />}>
-          {today.slice(0, todayIsland.whole ? undefined : 5).map((one) => row(one.id, taskName(one.title).text, () => onOpen('task', one.id), <span aria-hidden className="size-3 shrink-0 rounded-full border-[1.5px] border-muted-foreground/70" />))}
-        </IslandBox>
-      )}
-      {pins.length > 0 && (
-        <IslandBox plain name="Pinned" island={pinsIsland} shown={pinsIsland.whole ? pins.length : Math.min(5, pins.length)} icon={<PinIcon aria-hidden className="size-4 shrink-0 text-muted-foreground" />}>
-          {pins.slice(0, pinsIsland.whole ? undefined : 5).map((one) => row(one.id, one.title, () => onOpen(one.type, one.id), <FileText aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />))}
-        </IslandBox>
-      )}
-    </div>
-  )
-}
