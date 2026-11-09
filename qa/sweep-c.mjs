@@ -51,7 +51,23 @@ const LONGER = [
   [/^Try it for 2 minutes$/, 'the two-minute rule, in its own words'],
   [/^Fresh start: put every open task on hold$/, 'says what it does to every open task'],
   [/^Tell it what to do…$/, 'the same words as the search bar\'s own'],
-  [/^Turn back into a note$/, 'the one form of “Turn 3 back into notes”']
+  [/^Turn back into a note$/, 'the one form of “Turn 3 back into notes”'],
+  // Named on purpose after this list was written, each by the commit that brought its words in.
+  [/^Stick Today on the desktop$/, 'one name for the sticky everywhere (a41c60d1)'],
+  [/^(Record a call or lecture|Record: a voice note, kept in the note|Dictate: talk, and the words are typed)$/, 'says what is recorded, not only a meeting (8f709e73); the microphone\'s two choices said whole (e6bfe93c)'],
+  [/^(Transcribe voice notes as you record them|Tap to start and stop)$/, 'voice notes and Talk to type, said as they work (a411628a, f3ad3829)'],
+  [/^Your (month in notes, wrapped|month in study, card by card|week, in a paragraph)$/, 'the round-ups told apart in ⌘K (5f9b9eae, 0730bc01)'],
+  [/^(Move to the split on the (left|right)|Move to a new split|Open in a new tab|Open in a split to the right)$/, 'where a tab goes, as Obsidian says it (d6ae302e, 9eff10a9)'],
+  [/^(Show pages in a sidebar|Show this page in contents|Copy link to this page|Open in the default app|Make a card from it|Read the text on these pages)$/, 'the reader\'s and right-click\'s own lines (beb16391, 6fc11d6f, 6d16a39c)'],
+  [/^(Review its cards \(each grade counts\)|Practise its cards \(nothing counted\)|Blurt: write all you remember|Make a deck of its cards|Read in a random order|(Show|Hide) its row (on|from) Home)$/, 'a tag page\'s study and reading choices, told apart (50e97861, 3ae8ab1e, 3e9ac582)'],
+  [/^(Add many cards at once|Import an Anki deck or CSV…|Import from Anki or a spreadsheet|See every deck in the List|Save as a study set…|Hold until I study each topic|Learnt \(gaps under 15 days\)|Known \(remembered after 15 days\))$/, 'Decks and All cards say what each does and means (a4ad2c0e, 83529e1a, 002e7315, 7230347a)'],
+  [/^Ask again in a (week|month)$/, 'Check back\'s answer, a date in plain words (e8c15589)'],
+  [/^(Pause the video while I type|Words on the selection bar|Open folders on their page|Also show notes with pictures|Show the (month|time gone) in the Journal|Day progress and planning hints|Put away captures I haven't sorted after|Turn them on in Settings, under Tasks)$/, 'Settings titles that say what they reach (0b9b10a4, 9c7deecb, 18dab824, 7bcfb2e9, b05a17e9, 6e3b01af, b2067dd4, d697732e)'],
+  [/^(Stop marking mistakes as I write|Mark mistakes as I write|Stop collecting what I copy)$/, 'an on and off pair said as the act (e8a42dd2, 5c2f70e3)'],
+  [/^(Delete folder, keep its notes|Move all to the Bin|New group by a tag…)$/, 'says what is kept and where it goes (0a021f29, 54d9e6a0, e342774c)'],
+  [/^(Add from DOI or ISBN|Fill it in by hand)$/, 'citing a source, its two ways in (36e8161f)'],
+  [/^(A test book of its own|Show the welcome in the sandbox|Back to the newest likes|Find this in my notes|Fit the drawing in view|Write it out as a page|Pin this page to the sidebar)$/, 'says where it happens (13ba2947, 3c395498, 55dfcbc6, a3e3c309, df09b0c2, a400939a, f30003e4)'],
+  [/^(of cards remembered, last 30 days|Every chart of your cards is in Review, under “Stats”|pages? opened in the last 30 days|things? found again in the last 30 days)$/, 'a stat\'s caption and its link, as stats-view\'s are (c4ff6fde, 4118fca4, f6dd07c3)']
 ]
 const allowed = (label) => words(label.replace(/\$\{[^}]*\}/g, 'N')) <= 4 || LONGER.some(([rule]) => rule.test(label))
 
@@ -151,11 +167,15 @@ try {
       await box.waitForTimeout(500)
       const lines = await box.$$eval('[role=menuitemcheckbox], [role=menuitem]', (all) => all.map((one) => one.textContent.trim()))
       check(lines.some((one) => one.startsWith('Lock')) && !lines.some((one) => one.includes('Lock: read only')), 'the gear menu says “Lock”, not “Lock: read only”', lines.slice(0, 6).join(' / '))
-      // A short name says the rest as a tip. (Raw data sits in the gear menu; box-zen.mjs opens it there.)
-      await box.getByRole('menuitemcheckbox', { name: 'Lock', exact: true }).hover()
+      // A short name says the rest on a quiet line under it, never as a tip: menu rows show no tips since 9ece8cdb
+      // ("a row's hint is a quiet line under its name ... so pointing along a menu opens nothing over it").
+      // (Raw data sits in the gear menu; box-zen.mjs opens it there.)
+      const lock = box.locator('[role=menuitemcheckbox]', { hasText: /^Lock/ }).first()
+      const hint = await lock.locator('[data-menu-hint]').innerText({ timeout: 3000 }).catch(() => '')
+      check(/Read only until you unlock it/.test(hint), '“Lock” says what it does on the line under it', hint)
+      await lock.hover()
       await box.waitForTimeout(900)
-      const tip = await box.locator('[data-slot="tooltip-content"]', { hasText: 'Read only' }).first().innerText({ timeout: 3000 }).catch(() => '')
-      check(/Read only until you unlock it/.test(tip), 'pointing at “Lock” says what it does', tip)
+      check(!(await box.locator('[data-slot="tooltip-content"]').count()), 'pointing at “Lock” opens no tip over the menu')
       for (const theme of ['paper', 'github']) {
         await box.evaluate((n) => { localStorage.setItem('theme', n); window.dispatchEvent(new StorageEvent('storage', { key: 'theme' })) }, theme)
         await box.waitForTimeout(500)
@@ -164,7 +184,10 @@ try {
       await box.evaluate(() => { localStorage.setItem('theme', 'paper'); window.dispatchEvent(new StorageEvent('storage', { key: 'theme' })) })
       await box.keyboard.press('Escape')
     } else check(false, 'found the gear menu')
-    // Old words still find the new short names in ⌘K.
+    // Old words still find the new short names in ⌘K. “I have 15 minutes…” is offered only with the focus tools
+    // on since 2284a7b3, so they are switched on first rather than left to whatever the sandbox starts with.
+    await v('settings:set', { focusTools: true })
+    await wait(500)
     await c.go('home')
     for (const [old, now] of [['tasks that fit the time', 'I have 15 minutes'], ['what got done', 'Close the day'], ['seasons of life', "Open the year's page"], ['tidy: a few minutes', 'Tidy captures'], ['split: this page', 'Split the page']]) {
       await h.keyboard.press('Meta+k')

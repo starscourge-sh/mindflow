@@ -34,7 +34,8 @@ try {
   check('Review\'s "Stats" tab shows Remembering', await waitFor(() => h.evaluate(() => !!document.querySelector('[data-study-said]'))))
   const said = await h.evaluate(() => document.querySelector('[data-study-said]').getAttribute('data-reviews'))
   check('its sentence counts the reviews of the last 30 days', said === String(sum), `${said} vs ${sum}`)
-  check('a dot for each day', await h.evaluate(() => document.querySelectorAll('[data-study-month] [data-mono-dots] > *').length) === 30)
+  // Square cells since 769c4b94 ("square cells in the heatmap's five steps of ink, today ringed, in place of round dots"): still one a day.
+  check('a square for each day', await h.evaluate(() => document.querySelectorAll('[data-study-month] [data-day-cells] > [data-day]').length) === 30)
   await h.evaluate(() => document.querySelector('[data-study-month] button[aria-label="Year"]').click())
   await waitFor(() => h.evaluate(() => !!document.querySelector('[data-study-year]')))
   const words = await h.evaluate(() => ['[data-study-month]', '[data-study-due]', '[data-study-year]'].map((one) => document.querySelector(one)?.textContent ?? ''))
