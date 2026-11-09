@@ -831,7 +831,32 @@ export const NoteLink = Node.create<NoteLinkOptions>({
           editor.chain().focus().insertContentAt(range, `#${props.id} `).run()
           space(editor)
         },
-        render: tagRender ?? render,
+        // A new tag typed right past one in use ("#astro" by "#astrophysics") is asked about once it is
+        // written: the notice offers the one already there, so a near twin is never made without a word.
+        render: () => {
+          const shown = (tagRender ?? render)()
+          return {
+            ...shown,
+            onExit: (props) => {
+              shown.onExit?.(props)
+              const typed = props.query.toLowerCase()
+              const near = props.items.find((one) => one.id !== typed && one.id.startsWith(typed))
+              if (!typed || !near || props.items.some((one) => one.id === typed)) return
+              const { from, to } = props.range
+              const doc = props.editor.state.doc
+              if (to >= doc.content.size || doc.textBetween(from, to + 1, "", "") !== `#${props.query} `) return
+              void import("@/components/haligtree/ui").then(({ toast }) => toast(`#${props.query} is a new tag`, undefined, "info", {
+                label: `Use ${near.label}`,
+                key: "",
+                run: () => {
+                  const now = props.editor.state.doc
+                  if (props.editor.isDestroyed || now.textBetween(from, Math.min(to, now.content.size), "", "") !== `#${props.query}`) return
+                  props.editor.chain().insertContentAt({ from, to }, `#${near.id}`).run()
+                },
+              }))
+            },
+          }
+        },
       }),
 
       // A link is for following, so a plain click follows it rather than
