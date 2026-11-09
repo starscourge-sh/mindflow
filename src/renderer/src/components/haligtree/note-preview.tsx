@@ -189,14 +189,16 @@ export function NotePreview(): React.JSX.Element | null {
             const what = page?.what?.trim().replace(/\.$/, '')
             const is = what ? `${page?.died ? 'was' : 'is'} ${/^(a|an|the)\b/i.test(what) ? '' : /^[aeiou]/i.test(what) ? 'an ' : 'a '}${what}.` : ''
             const cast = page?.character
+            // "Gandalf, in J.R.R. Tolkien" kept as a person: Gandalf, a character by Tolkien (main's characterOf).
             return {
-              title: page?.name ?? id,
-              lead: cast ? `is a character in ${cast.work}${cast.played ? `, played by ${cast.played}` : ''}.` : [years, is].filter(Boolean).join(' '),
+              title: cast?.called ?? page?.name ?? id,
+              lead: cast ? `is a character ${cast.from === 'author' ? 'by' : 'in'} ${cast.work}${cast.played ? `, played by ${cast.played}` : ''}.` : [years, is].filter(Boolean).join(' '),
               body: page?.thoughts ?? '',
               // How many, as a tag's card says it: what a tip on their face said, said here instead.
               tally: page?.items.length ? `${plural(page.items.length, 'note')} with their words` : undefined,
               private: false,
-              cast: !!cast,
+              // Linked as a character, it is one, whether or not their page has its work yet.
+              cast: !!cast || said === 'character',
               picture: avatarOf(id)
             }
           })

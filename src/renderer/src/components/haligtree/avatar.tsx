@@ -107,6 +107,8 @@ export async function turnCharacter(name: string, to: 'character' | 'person'): P
   const was = (await sources.page('attribution', name))?.character ?? null
   if (to === 'person') {
     if (!was) return
+    // Read from the name ("Gandalf, in J.R.R. Tolkien"), not saved: there is nothing to undo but the name itself.
+    if (was.from) return void toast(`${name} reads as a character from the name: rename them without “, in ${was.work}” to make them a person`)
     await sources.character(name, '')
     chime('retag')
     return toast(`${name} is a real person again, in People`, () => void sources.character(name, was.work, was.played).then(() => chime('undo')))

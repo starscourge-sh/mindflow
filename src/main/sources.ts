@@ -40,7 +40,13 @@ export type SourceRef = { field: SourceField; name: string }
  * are in, `played` who played or voiced them, if anyone; born and died do not
  * apply. `workNote` is the note titled with the work, if one is.
  */
-export type Character = { work: string; played: string; workNote: { type: string; id: string } | null }
+export type Character = { work: string; played: string; workNote: { type: string; id: string } | null; /** Read from the name, never saved: "Gandalf, in J.R.R. Tolkien" kept as a person, the part after ", in " a work (or an author) the book knows. */ from?: 'work' | 'author'; /** The name before ", in ", when `from` is set. */ called?: string }
+
+/** "Gandalf, in J.R.R. Tolkien": the name and what it says they are in; null for any other name. */
+export const inWork = (name: string): { called: string; work: string } | null => {
+  const hit = /^(.+?),\s+in\s+(.+)$/.exec(name.trim())
+  return hit ? { called: hit[1].trim(), work: hit[2].trim() } : null
+}
 export type SourcePage = { field: SourceField; name: string; thoughts: string; items: SourceItem[]; viaPage: SourceRef | null; found: SourceRef[]
   /** A line or two about them: Wikipedia's (with `bioUrl`, its credit) or your own (no url). `bioAt` is set once filled or written, so it is not asked again. */
   bio: string; bioUrl: string; bioAt: string
@@ -123,8 +129,24 @@ export function registerSources(): void {
     const hit = rows.find((one) => personKey(withoutTags(one.title ?? '')) === key)
     return hit ? { type: hit.type, id: hit.id } : null
   }
-  const characterOf = (page: { work: string; played: string } | undefined): Character | null =>
-    page?.work ? { work: page.work, played: page.played, workNote: noteTitled(page.work) } : null
+  /**
+   * A character's work: the one set on their page, or else, for a name like "Gandalf, in J.R.R. Tolkien" kept as a
+   * person, the part after ", in " when the book knows it as a work (a source or a note of that title) or an author.
+   */
+  const characterOf = (page: { work: string; played: string } | undefined, name = '', items?: SourceItem[], all?: ReturnType<typeof pages>): Character | null => {
+    if (page?.work) return { work: page.work, played: page.played, workNote: noteTitled(page.work) }
+    const said = inWork(name)
+    if (!said) return null
+    const key = personKey(said.work)
+    const list = items ?? everything()
+    const known = all ?? pages()
+    const workNote = noteTitled(said.work)
+    if (workNote || list.some((one) => personKey(one.medium ?? '') === key) || known.some((one) => one.field === 'medium' && one.key === key))
+      return { work: said.work, played: '', workNote, from: 'work', called: said.called }
+    if (list.some((one) => personKey(one.attribution ?? '') === key) || known.some((one) => one.field === 'attribution' && one.key === key && !one.work))
+      return { work: said.work, played: '', workNote: null, from: 'author', called: said.called }
+    return null
+  }
 
   /**
    * The page a "via" names, when one goes by that name: a source first, then a
@@ -156,8 +178,9 @@ export function registerSources(): void {
       }
       for (const [key, list] of groups) {
         const times = list.map((one) => one.at).sort()
-        const work = all.find((one) => one.field === field && one.key === key)?.work || undefined
-        out.push({ field, name: spelt(list.map((one) => one[field]!)), count: list.length, quotes: list.filter((one) => one.voice === 'theirs').length, first: times[0], last: times.at(-1)!, work })
+        const name = spelt(list.map((one) => one[field]!))
+        const work = all.find((one) => one.field === field && one.key === key)?.work || (field === 'attribution' && inWork(name) ? characterOf(undefined, name, items, all)?.work : undefined) || undefined
+        out.push({ field, name, count: list.length, quotes: list.filter((one) => one.voice === 'theirs').length, first: times[0], last: times.at(-1)!, work })
       }
       for (const page of all) if (page.field === field && !groups.has(page.key)) out.push({ field, name: page.name, count: 0, quotes: 0, first: page.updated_at, last: page.updated_at, work: page.work || undefined })
     }
@@ -195,7 +218,7 @@ export function registerSources(): void {
     for (const one of all) if (one.field === 'medium' && one.born) years[one.key] = one.born
     return { field, name: items.length ? spelt(items.map((one) => one[field]!)) : page?.name ?? name.trim(), thoughts: page?.thoughts ?? '', what: page?.what ?? '', born: page?.born ?? '', died: page?.died ?? '', via,
       viaPage: via ? viaPageOf(via, everything(), all) : null, found, items, bio: page?.bio ?? '', bioUrl: page?.bioUrl ?? '', bioAt: page?.bioAt ?? '', tags, links, years,
-      character: field === 'attribution' ? characterOf(page) : null }
+      character: field === 'attribution' ? characterOf(page, items.length ? spelt(items.map((one) => one[field]!)) : page?.name ?? name.trim(), undefined, all) : null }
   })
 
   // The card in a note's margin: its source (or, with none, who said it) and that page's line.
