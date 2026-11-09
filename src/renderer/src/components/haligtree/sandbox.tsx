@@ -8,6 +8,7 @@ import { AliveIcon } from '@/components/ui/alive-icon'
 import ArrowBackUpIcon from '@/components/ui/arrow-back-up-icon'
 import RefreshIcon from '@/components/ui/refresh-icon'
 import { Tip, refuse, toast } from '@/components/haligtree/ui'
+import { Orb } from '@/components/haligtree/orb'
 import { HoldButton } from '@/components/haligtree/hold-button'
 import { ProgressBar, type BarStyle } from '@/components/haligtree/progress-bar'
 import { applyTheme, currentTheme } from '@/lib/theme'
@@ -347,17 +348,26 @@ export function SandboxHost(): React.JSX.Element | null {
           <HaligtreeEditor defaultContent="" readOnly toolbar={false} handles={false} slash={false} outline={false} search={false} autofocus={false} />
         </div>
       )}
+      {/* While the examples go in, the book is not shown half-made (an empty Journal saying "nothing is due", then
+          its page changing under you): the one loader covers the window, and the finished book is revealed once. */}
       <AnimatePresence>
-        {(seeding || stale) && (
-          <motion.div key={seeding ? 'seeding' : 'stale'} role="status"
+        {seeding && (
+          <motion.div key="seeding-cover" role="status" data-sandbox-seeding initial={false} exit={{ opacity: 0, transition: { duration: 0.35, ease: EASE } }}
+            className="fixed inset-0 z-[1000] grid place-items-center bg-background" style={NO_DRAG}>
+            <div className="absolute inset-x-0 top-0 h-10" style={{ WebkitAppRegion: 'drag' } as CSSProperties} />
+            <Orb label="Setting out the examples…" />
+          </motion.div>
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {stale && !seeding && (
+          <motion.div key="stale" role="status"
             initial={{ opacity: 0, transform: shift('translateY(-4px)') }} animate={{ opacity: 1, transform: shift('translateY(0px)') }} exit={{ opacity: 0, transition: { duration: 0.14 } }}
             transition={{ duration: 0.2, ease: EASE }}
             // The tape's tint on the page's own colour: it floats over rows, so nothing shows through it.
             style={{ ...TAPE, backgroundColor: 'color-mix(in srgb, var(--tt-color-text-yellow) 11%, var(--background))' }}
             className="fixed inset-x-0 top-12 z-50 mx-auto flex w-fit items-center gap-2 rounded-full border border-dashed bg-background px-3 py-1 text-control shadow-(--mf-panel-shadow)">
-            {seeding ? (
-              <span className="text-foreground/85">Setting out the examples…</span>
-            ) : (
+            {(
               <>
                 <span className="text-foreground/85">These examples are from {stale} days ago, so their dates have drifted.</span>
                 <button type="button" onClick={() => (setStale(null), void resetSandbox())} className="font-semibold hover:underline">Freshen</button>

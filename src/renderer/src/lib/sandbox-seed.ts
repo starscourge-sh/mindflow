@@ -181,9 +181,9 @@ export async function seedSandbox(read: Read): Promise<SeedCounts> {
   const primavera20 = await capture({}, earlier(144))
   const pitch = await capture({}, earlier(152))
   // Two books on the go: Dune half read, Dorian Gray finished.
-  const dune = await capture({ attribution: 'Frank Herbert', medium: 'A friend who would not stop talking about sandworms' }, earlier(166))
+  const dune = await capture({ attribution: 'Frank Herbert' }, earlier(166))
   const duneNotes = await capture({}, at(-1, '22:30'))
-  const dorian = await capture({ attribution: 'Oscar Wilde', medium: 'A second-hand shop in Dublin' }, at(-2, '21:15'))
+  const dorian = await capture({ attribution: 'Oscar Wilde' }, at(-2, '21:15'))
   const noFace = await capture({}, at(-3, '22:41'))
   const rick = await capture({}, at(-4, '19:12'))
   const gilgamesh = await capture({}, at(-6, '08:03'))
@@ -735,6 +735,8 @@ In the Bin, not deleted. Everything you move to the Bin waits there, to bring ba
   await write(dune, `
 Dune #book
 
+Heard of it from a friend who would not stop talking about sandworms.
+
 A book keeps who wrote it and where you heard of it, the two things forgotten first. Its reading notes can live in a note of their own, and a link can open them at the part you are on: ${link(duneNotes, "Dune, as I read it", '', "Book Two: Muad'Dib")}.
 
 **Try it:** open its details, top right: the friend who would not stop talking about sandworms is there. It also feeds ${link(duneGoal, 'a goal with a date', 'goal')}.
@@ -768,6 +770,8 @@ The worm ride, the duel, the emperor beaten. It reads like a triumph. Herbert sa
   const dorianCover = await picture(dorianCoverUrl)
   await write(dorian, `
 The Picture of Dorian Gray #book
+
+Found in a second-hand shop in Dublin.
 
 ![Lippincott's Monthly Magazine, July 1890: the first printing of Dorian Gray](${dorianCover})
 
