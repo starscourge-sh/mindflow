@@ -853,7 +853,7 @@ function GroupBlock({ group, entries, parts, start, cursor, estimate, row, carri
                   className="absolute top-1/2 flex h-6 -translate-y-1/2 cursor-pointer! items-center gap-1.5 rounded-full px-2.5 text-control font-medium text-foreground transition-[filter] hover:brightness-95 dark:hover:brightness-125"
                   style={{ right: place ? '6rem' : '2rem', background: `color-mix(in srgb, var(--tt-color-text-orange) 14%, var(--background))` }}
                 >
-                  <span aria-hidden className="size-1.5 rounded-full bg-[var(--tt-color-text-orange)]" />
+                  <span aria-hidden className="size-1.5 rounded-full shrink-0 bg-[var(--tt-color-text-orange)]" />
                   <span className="tabular-nums"><Rolling text={group.unsorted.length} /> to sort</span>
                   <span aria-hidden className="text-foreground/40">·</span>
                   <span>Sort these</span>
@@ -1004,7 +1004,7 @@ export function GroupMenu({ group, members, onOpenFolder, onSeparate, onRename, 
             key={color}
             aria-label={color}
             data-color-dot={color}
-            className="size-6 min-h-0 justify-center rounded-full p-0"
+            className="size-6 min-h-0 justify-center rounded-full shrink-0 p-0"
             // A colour is a glance: the menu stays open to see it land.
             onSelect={(event) => {
               event.preventDefault()
@@ -1014,7 +1014,7 @@ export function GroupMenu({ group, members, onOpenFolder, onSeparate, onRename, 
             }}
           >
             <span
-              className={cn('size-3 rounded-full transition-transform duration-150', group.color === color && 'scale-125 shadow-[0_0_0_2px_var(--popover),0_0_0_3.5px_currentColor]')}
+              className={cn('size-3 rounded-full shrink-0 transition-transform duration-150', group.color === color && 'scale-125 shadow-[0_0_0_2px_var(--popover),0_0_0_3.5px_currentColor]')}
               style={{ background: `var(--tt-color-text-${color})`, color: `var(--tt-color-text-${color})` }}
             />
           </ContextMenuItem>

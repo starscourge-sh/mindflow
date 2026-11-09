@@ -378,10 +378,10 @@ function Fold({ node, folded, onToggle, still }: { node: Node; folded: boolean; 
         whileTap={{ scale: 0.97 }}
         transition={spring.fast}
         onClick={onToggle}
-        className="group absolute flex size-4 items-center justify-center rounded-full"
+        className="group absolute flex size-4 items-center justify-center rounded-full shrink-0"
         style={{ left, top: BOX / 2 - 8 }}
       >
-        <span className="relative size-2 rounded-full border border-muted-foreground/70 bg-background group-hover:border-foreground">
+        <span className="relative size-2 rounded-full shrink-0 border border-muted-foreground/70 bg-background group-hover:border-foreground">
           <motion.span
             className="absolute inset-0 rounded-full bg-muted-foreground group-hover:bg-foreground"
             initial={false}

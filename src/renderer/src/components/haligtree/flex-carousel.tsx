@@ -1260,7 +1260,7 @@ function TurnButton({ way, disabled, onClick, top }: { way: 1 | -1; disabled: bo
     <Tip label={way === 1 ? 'Next picture  →' : 'Previous picture  ←'}>
     <button type="button" data-flex-carousel-turn={way === 1 ? 'next' : 'previous'} aria-label={way === 1 ? 'Next picture' : 'Previous picture'}
       disabled={disabled} onClick={onClick} style={{ top: `calc(${top} - 18px)` }}
-      className="absolute left-0 flex size-9 cursor-pointer items-center justify-center rounded-full border bg-popover text-popover-foreground shadow-(--mf-panel-shadow) outline-none transition-[scale,opacity,background-color] duration-120 ease-(--mf-ease) hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.97] disabled:cursor-default disabled:opacity-40 disabled:shadow-none disabled:hover:bg-popover">
+      className="absolute left-0 flex size-9 cursor-pointer items-center justify-center rounded-full shrink-0 border bg-popover text-popover-foreground shadow-(--mf-panel-shadow) outline-none transition-[scale,opacity,background-color] duration-120 ease-(--mf-ease) hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.97] disabled:cursor-default disabled:opacity-40 disabled:shadow-none disabled:hover:bg-popover">
       <Arrow className="size-5" />
     </button>
     </Tip>

@@ -296,7 +296,7 @@ function RelatedCard({ card, onOpen }: { card: Related[number]; onOpen?: (type: 
         aria-label="More"
         data-related-dots
         onClick={openFromGrip}
-        className="absolute top-1.5 right-1.5 flex size-6 cursor-pointer items-center justify-center rounded-full border bg-popover text-muted-foreground opacity-0 shadow-sm transition-opacity duration-150 group-hover/card:opacity-100 hover:text-foreground focus-visible:opacity-100 active:scale-[0.97] motion-reduce:active:scale-100"
+        className="absolute top-1.5 right-1.5 flex size-6 cursor-pointer items-center justify-center rounded-full shrink-0 border bg-popover text-muted-foreground opacity-0 shadow-sm transition-opacity duration-150 group-hover/card:opacity-100 hover:text-foreground focus-visible:opacity-100 active:scale-[0.97] motion-reduce:active:scale-100"
       >
         <AliveIcon icon={DotsHorizontalIcon} size={14} />
       </button>

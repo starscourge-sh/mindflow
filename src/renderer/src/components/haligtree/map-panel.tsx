@@ -165,14 +165,14 @@ function Colour({ hue, pick }: { hue: string; pick: (hue: string) => void }): Re
     <Popover open={open} onOpenChange={(next) => (next && chime('open'), setOpen(next))}>
       <PopoverTrigger asChild>
         <button type="button" aria-label="Its colour" data-map-group-colour={hue} className="grid size-7 shrink-0 cursor-pointer place-items-center rounded-md transition-colors hover:bg-accent">
-          <span className="size-3.5 rounded-full" style={{ background: hueTint(hue) }} />
+          <span className="size-3.5 rounded-full shrink-0" style={{ background: hueTint(hue) }} />
         </button>
       </PopoverTrigger>
       <PopoverContent align="end" className="flex w-auto flex-wrap gap-0.5 p-1.5">
         {MAP_HUES.map((one) => (
           <button key={one} type="button" aria-label={one} aria-pressed={hue === one} data-map-swatch={one} onClick={() => (chime('tap'), pick(one), setOpen(false))}
-            className={cn('grid size-7 cursor-pointer place-items-center rounded-full transition-transform hover:scale-110 active:scale-[0.97]', hue === one && 'ring-2 ring-foreground/30 ring-offset-1 ring-offset-popover')}>
-            <span className="size-4 rounded-full" style={{ background: hueTint(one) }} />
+            className={cn('grid size-7 cursor-pointer place-items-center rounded-full shrink-0 transition-transform hover:scale-110 active:scale-[0.97]', hue === one && 'ring-2 ring-foreground/30 ring-offset-1 ring-offset-popover')}>
+            <span className="size-4 rounded-full shrink-0" style={{ background: hueTint(one) }} />
           </button>
         ))}
       </PopoverContent>

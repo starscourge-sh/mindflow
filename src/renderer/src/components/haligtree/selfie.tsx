@@ -145,7 +145,7 @@ export function Selfie({ onKeep, onClose, primary, plain }: {
     <motion.div data-selfie={stage} className="mt-2" initial={calm ? false : { opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.18 }}>
       {blocked ? (
         <div role="status" className="relative rounded-[10px] border px-3 py-2.5">
-          <button type="button" aria-label="Not now" title="Not now  (Esc)" onClick={close} className="absolute top-1.5 right-1.5 flex size-6 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
+          <button type="button" aria-label="Not now" title="Not now  (Esc)" onClick={close} className="absolute top-1.5 right-1.5 flex size-6 items-center justify-center rounded-full shrink-0 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
             <X className="size-3.5" />
           </button>
           <p className="pr-6 text-[13px] font-semibold leading-5 text-foreground">{stage === 'none' ? 'No camera found' : `${APP_NAME} can’t use the camera yet`}</p>

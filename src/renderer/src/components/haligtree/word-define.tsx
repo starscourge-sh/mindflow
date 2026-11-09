@@ -298,7 +298,7 @@ export function DefineGhost({ definition, onKeep, onHide, onFix, picked = false,
           {found.part && found.phonetic && <span aria-hidden className="opacity-50">·</span>}
           {found.phonetic && <span className="truncate">/{found.phonetic.replace(/^\/|\/$/g, '')}/</span>}
           <button type="button" aria-label={`Say ${found.word}`} onMouseDown={(event) => event.preventDefault()} onClick={() => void say(found)}
-            className="-my-0.5 flex size-6 cursor-pointer items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
+            className="-my-0.5 flex size-6 cursor-pointer items-center justify-center rounded-full shrink-0 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
             <Volume2 className="size-3.5" />
           </button>
           {/* Where it came from, as Look Up says it. */}

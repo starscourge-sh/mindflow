@@ -725,7 +725,7 @@ export function ReadThrough({ items: given, start = 0, onClose, queue: started, 
               aria-label={panel ? 'Hide the queue' : 'Show the queue'}
               aria-pressed={panel}
               onClick={togglePanel}
-              className={cn('flex size-7 items-center justify-center rounded-full border bg-background text-muted-foreground transition-colors hover:bg-accent hover:text-foreground', panel && 'bg-accent text-foreground')}
+              className={cn('flex size-7 items-center justify-center rounded-full shrink-0 border bg-background text-muted-foreground transition-colors hover:bg-accent hover:text-foreground', panel && 'bg-accent text-foreground')}
             >
               {/* The Queue's own drawing, as in the sidebar. */}
               <ListVideo className="size-4" />
@@ -741,7 +741,7 @@ export function ReadThrough({ items: given, start = 0, onClose, queue: started, 
               aria-label={inPlace ? 'Close its links' : 'Open its links in place'}
               aria-pressed={inPlace}
               onClick={toggleLinks}
-              className={cn('flex size-7 items-center justify-center rounded-full border bg-background text-muted-foreground transition-colors hover:bg-accent hover:text-foreground', inPlace && 'bg-accent text-foreground')}
+              className={cn('flex size-7 items-center justify-center rounded-full shrink-0 border bg-background text-muted-foreground transition-colors hover:bg-accent hover:text-foreground', inPlace && 'bg-accent text-foreground')}
             >
               <Link2 className="size-4" />
             </button>
@@ -756,7 +756,7 @@ export function ReadThrough({ items: given, start = 0, onClose, queue: started, 
               aria-label={writing ? 'Lock: back to reading' : 'Unlock to edit'}
               aria-pressed={writing}
               onClick={toggleLock}
-              className={cn('flex size-7 items-center justify-center rounded-full border bg-background text-muted-foreground transition-colors hover:bg-accent hover:text-foreground', writing && 'text-foreground')}
+              className={cn('flex size-7 items-center justify-center rounded-full shrink-0 border bg-background text-muted-foreground transition-colors hover:bg-accent hover:text-foreground', writing && 'text-foreground')}
             >
               {writing ? <LockOpen className="size-4" /> : <Lock className="size-4" />}
             </button>
@@ -1074,7 +1074,7 @@ function SortBar({ left, tagging, moving, groups, own, onTagging, onMoving, onKe
             ))}
             <Tip label="Another tag">
               <button type="button" aria-label="Another tag" data-sort-tag-button="" onClick={() => (chime('on'), onTagging(true))}
-                className="flex size-6 items-center justify-center rounded-full border border-dashed border-foreground/25 text-muted-foreground transition-colors hover:border-foreground/40 hover:text-foreground">
+                className="flex size-6 items-center justify-center rounded-full shrink-0 border border-dashed border-foreground/25 text-muted-foreground transition-colors hover:border-foreground/40 hover:text-foreground">
                 <Plus className="size-3.5" />
               </button>
             </Tip>
@@ -1083,7 +1083,7 @@ function SortBar({ left, tagging, moving, groups, own, onTagging, onMoving, onKe
       </div>
       <div className={`flex max-w-full min-w-0 flex-wrap items-center justify-center gap-1 rounded-2xl py-1 pr-1 pl-3.5 text-control ${FLOAT}`}>
         <span className="flex shrink-0 items-center gap-1.5 font-medium text-foreground">
-          <span aria-hidden className="size-1.5 rounded-full bg-[var(--tt-color-text-orange)]" />
+          <span aria-hidden className="size-1.5 rounded-full shrink-0 bg-[var(--tt-color-text-orange)]" />
           <span><Rolling text={left} /> left</span>
         </span>
         <span aria-hidden className="mx-1.5 h-4 w-px shrink-0 bg-border" />

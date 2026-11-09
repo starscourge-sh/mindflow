@@ -634,7 +634,7 @@ function CalendarEdit({ one, onDone }: { one: { id: string; name: string; color:
       <div className="flex flex-wrap gap-1" role="radiogroup" aria-label="Its colour">
         {COLORS.map((color) => (
           <button key={color} type="button" role="radio" aria-checked={one.color === color} aria-label={color} onClick={() => save({ color })}
-            className="flex size-6 items-center justify-center rounded-full ring-offset-2 ring-offset-background transition-[scale] duration-150 ease-out active:scale-[0.95] motion-reduce:transition-none aria-checked:ring-2 aria-checked:ring-foreground/60" style={{ background: inkOf(color) }}>
+            className="flex size-6 items-center justify-center rounded-full shrink-0 ring-offset-2 ring-offset-background transition-[scale] duration-150 ease-out active:scale-[0.95] motion-reduce:transition-none aria-checked:ring-2 aria-checked:ring-foreground/60" style={{ background: inkOf(color) }}>
             {one.color === color && <Check className="size-3.5 text-background" />}
           </button>
         ))}
@@ -694,7 +694,7 @@ export function NewEvent({ ask, onMade }: { ask: { day: string; minute: number |
           {calendars.map((one) => (
             <button key={one.id} type="button" role="radio" aria-checked={on === one.id} data-new-event-calendar={one.id} onClick={() => (chime('tap'), setCalendar(one.id))}
               className="flex h-7 items-center gap-1.5 rounded-full px-2.5 text-control text-foreground transition-colors hover:bg-accent aria-checked:bg-accent aria-checked:font-medium motion-reduce:transition-none">
-              <span aria-hidden className="size-2 rounded-full" style={{ background: inkOf(one.color) }} />{one.name}
+              <span aria-hidden className="size-2 rounded-full shrink-0" style={{ background: inkOf(one.color) }} />{one.name}
             </button>
           ))}
         </div>
@@ -843,7 +843,7 @@ export function EventDetail({ eventKey, onKey, onClose, onOpen }: { eventKey: st
               <button key={cal.id} type="button" role="radio" aria-checked={one.calendarId === cal.id} data-event-calendar={cal.id}
                 onClick={() => one.calendarId !== cal.id && void save({ calendarId: cal.id }, `On ${cal.name} now`)}
                 className="flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-control text-foreground hover:bg-accent aria-checked:font-medium">
-                <span aria-hidden className="size-2.5 rounded-full" style={{ background: inkOf(cal.color) }} />
+                <span aria-hidden className="size-2.5 rounded-full shrink-0" style={{ background: inkOf(cal.color) }} />
                 <span className="flex-1">{cal.name}</span>
                 {one.calendarId === cal.id && <Check className="size-3.5" />}
               </button>
@@ -881,7 +881,7 @@ function PeopleField({ people, known, onSave }: { people: string[]; known: strin
         {people.map((name) => (
           <span key={name} className="flex h-6 items-center gap-1 rounded-full bg-accent pr-1 pl-2 text-control text-foreground">
             {name}
-            <button type="button" aria-label={`Take ${name} off`} onClick={() => onSave(people.filter((one) => one !== name))} className="flex size-4 items-center justify-center rounded-full hover:bg-foreground/10"><X className="size-3" /></button>
+            <button type="button" aria-label={`Take ${name} off`} onClick={() => onSave(people.filter((one) => one !== name))} className="flex size-4 items-center justify-center rounded-full shrink-0 hover:bg-foreground/10"><X className="size-3" /></button>
           </span>
         ))}
         <input value={text} onChange={(event) => setText(event.target.value)} placeholder={people.length ? 'Add someone' : 'People'} aria-label="Add someone"
@@ -989,7 +989,7 @@ function CustomRepeat({ start, rule, onSave }: { start: string; rule: Repeat; on
             return (
               <button key={day} type="button" data-repeat-day={day} aria-pressed={on} aria-label={dayjs().day(day).format('dddd')}
                 onClick={() => { const now = rule.days?.length ? rule.days : [at.day()]; const next = on ? now.filter((one) => one !== day) : [...now, day]; if (next.length) set({ days: next }); else chime('nope') }}
-                className="flex size-7 items-center justify-center rounded-full font-medium hover:bg-accent aria-pressed:bg-foreground aria-pressed:text-background">{LETTERS[day]}</button>
+                className="flex size-7 items-center justify-center rounded-full shrink-0 font-medium hover:bg-accent aria-pressed:bg-foreground aria-pressed:text-background">{LETTERS[day]}</button>
             )
           })}
         </div>

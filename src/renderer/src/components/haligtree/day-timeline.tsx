@@ -52,7 +52,7 @@ export function DayTimeline({ events, tasks, sessions = [], now, done, pen, onTi
     <li key="now" data-now-line aria-label={`Now, ${clock(now)}`} className="flex items-center gap-3 py-0.5">
       <span className={`${TIME_COLUMN} shrink-0 text-right text-xs font-semibold tabular-nums`} style={{ color: RED }}>Now</span>
       <span aria-hidden className="relative flex h-px flex-1 items-center" style={{ background: RED }}>
-        <span className="absolute -left-1 size-2 rounded-full" style={{ background: RED }} />
+        <span className="absolute -left-1 size-2 rounded-full shrink-0" style={{ background: RED }} />
       </span>
     </li>
   )

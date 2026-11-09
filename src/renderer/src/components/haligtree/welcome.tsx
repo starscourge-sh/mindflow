@@ -1994,7 +1994,7 @@ function IntroSpark(): React.JSX.Element {
   return (
     <span aria-hidden data-intro-spark className="pointer-events-none absolute inset-0 z-[1] grid place-items-center mix-blend-screen">
       {/* The halo: wide and soft, gathering through the hold, then rolling out ahead of the light. */}
-      <motion.span className="col-start-1 row-start-1 size-40 rounded-full"
+      <motion.span className="col-start-1 row-start-1 size-40 rounded-full shrink-0"
         style={{ background: 'radial-gradient(circle, rgb(255 233 168 / 0.55) 0%, rgb(250 189 47 / 0.22) 35%, rgb(250 189 47 / 0.06) 60%, transparent 72%)' }}
         initial={{ opacity: 0, scale: 0.3 }}
         animate={{ opacity: [0, 0.45, 0.5, 0.55, 0.62, 0.85, 0.7, 1, 0.75, 0.3, 0], scale: [0.3, 0.8, 0.85, 0.9, 0.98, 1.25, 1, 2.2, 7, 11, 12] }}

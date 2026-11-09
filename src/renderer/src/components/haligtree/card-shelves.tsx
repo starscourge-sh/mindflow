@@ -119,7 +119,7 @@ export function Poster({ card, over, onTurn, picked, onPick, question, answer, s
         <span className="min-w-0 truncate">{where || (card.tags[0] ? deckTitle(card.tags[0]) : '')}</span>
         <span className="flex shrink-0 items-center gap-1">
           {dueShort(card) !== 'new' && <span>{dueShort(card)}</span>}
-          <span data-card-stage className="flex items-center gap-1"><span aria-hidden className="size-1.5 rounded-full" style={{ background: STAGE_TINT[stage] }} />{stage}</span>
+          <span data-card-stage className="flex items-center gap-1"><span aria-hidden className="size-1.5 rounded-full shrink-0" style={{ background: STAGE_TINT[stage] }} />{stage}</span>
         </span>
       </div>
       {/* The lamp: a soft light where the pointer is. */}

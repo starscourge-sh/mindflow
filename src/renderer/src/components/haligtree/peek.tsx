@@ -184,7 +184,7 @@ export function MRow({ icon: Icon, tint = 'gray', check, children, meta, faded, 
 export function MCheck({ done = false, tint = 'gray' }: { done?: boolean; tint?: string }): React.JSX.Element {
   return (
     <span className="grid size-2.5 shrink-0 place-items-center rounded-full border" style={{ borderColor: tinted(tint).color, ...(done ? wash(tint, 70) : {}) }}>
-      {done && <span className="size-1 rounded-full bg-background" />}
+      {done && <span className="size-1 rounded-full shrink-0 bg-background" />}
     </span>
   )
 }

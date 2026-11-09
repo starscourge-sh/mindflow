@@ -227,7 +227,7 @@ export function CarryRow({ id, children, inner, indent = 0, grip = true }: { id:
             <span
               aria-hidden
               data-drop-line={aim.how}
-              className="pointer-events-none absolute right-2 h-0.5 -translate-y-1/2 rounded-full bg-(--tt-brand-color-400) before:absolute before:-top-[3px] before:-left-2 before:size-2 before:rounded-full before:border-2 before:border-(--tt-brand-color-400) before:bg-background"
+              className="pointer-events-none absolute right-2 h-0.5 -translate-y-1/2 rounded-full shrink-0 bg-(--tt-brand-color-400) before:absolute before:-top-[3px] before:-left-2 before:size-2 before:rounded-full before:border-2 before:border-(--tt-brand-color-400) before:bg-background"
               style={{ left: (aim.indent ?? (aim.into ? INDENT : 0)) + 12, top: span / 2 - inset, animation: wait }}
             />
           )}
@@ -536,7 +536,7 @@ export function CarriedCard({ icon, title, strong = false, words, tint, refused 
             {words && (
               <motion.span key={words} data-drag-label="" data-refused={refused ? '' : undefined} className={cn('col-start-1 row-start-1 flex items-center gap-1.5 whitespace-nowrap', refused && 'text-foreground')}
                 initial={{ opacity: 0, y: 3 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -3, transition: { duration: 0.08 } }} transition={still() ? { duration: 0 } : springs.fast}>
-                <span className="size-1.5 rounded-full" style={{ background: tint ?? 'var(--muted-foreground)' }} />
+                <span className="size-1.5 rounded-full shrink-0" style={{ background: tint ?? 'var(--muted-foreground)' }} />
                 {words}
               </motion.span>
             )}

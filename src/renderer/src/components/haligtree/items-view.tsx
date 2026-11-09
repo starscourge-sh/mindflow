@@ -769,7 +769,7 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
               {tier === 'article' && unsorted.length > 0 && !open && (
                 <Tip label="Go through every imported note not yet sorted: keep, tag, move or bin each">
                   <Button variant="outline" size="default" data-sort-all={unsorted.length} onClick={() => setSorting(unsorted)}>
-                    <span aria-hidden className="size-1.5 rounded-full bg-[var(--tt-color-text-orange)]" /><span><Rolling text={unsorted.length} /> to sort</span>
+                    <span aria-hidden className="size-1.5 rounded-full shrink-0 bg-[var(--tt-color-text-orange)]" /><span><Rolling text={unsorted.length} /> to sort</span>
                   </Button>
                 </Tip>
               )}
@@ -2087,7 +2087,7 @@ export function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: I
           ...others.map((one) => ({
             label: placeOf(one),
             icon: <GroupIcon icon={one.icon} color={one.color} className="size-3.5" />,
-            trail: <span className="ml-auto size-2 rounded-full" style={{ background: tintOf(one.color) ?? 'color-mix(in srgb, var(--foreground) 25%, transparent)' }} />,
+            trail: <span className="ml-auto size-2 rounded-full shrink-0" style={{ background: tintOf(one.color) ?? 'color-mix(in srgb, var(--foreground) 25%, transparent)' }} />,
             run: () => commit(into(one.id), 'gather', `Moved ${notes(n)} to ${one.name}`)
           })),
           others.length && n > 1 ? 'separator' : null,

@@ -40,7 +40,7 @@ function DeskSticky({ on, ticked }: { on: boolean; ticked: boolean }): React.JSX
       {/* Another app's window: a calm shape, a title bar and some lines. */}
       <div aria-hidden className="absolute inset-0 rounded-xl border border-foreground/10 bg-foreground/[0.04]">
         <div className="flex h-6 items-center gap-1.5 border-b border-foreground/10 px-3">
-          {[0, 1, 2].map((i) => <span key={i} className="size-2 rounded-full bg-foreground/15" />)}
+          {[0, 1, 2].map((i) => <span key={i} className="size-2 rounded-full shrink-0 bg-foreground/15" />)}
         </div>
         <div className="flex flex-col gap-2.5 p-4">
           {[78, 92, 64, 85, 40].map((w, i) => <span key={i} className="h-2 rounded-full bg-foreground/[0.08]" style={{ width: `${w}%` }} />)}

@@ -627,7 +627,7 @@ function DeckList({ own, shelves, onStudy, place = {}, menu, fresh = null, renam
           : study ? <button type="button" data-deck-row-study={key} onClick={() => (chime('riffle'), study())} className="line-clamp-2 min-w-0 cursor-pointer rounded-[4px] px-1 text-left text-foreground outline-none hyphens-auto [overflow-wrap:break-word]">{name}</button>
           : <span className="line-clamp-2 min-w-0 px-1 text-muted-foreground hyphens-auto [overflow-wrap:break-word]">{name}</span>}
       </span>
-      <span className={`flex items-center justify-end gap-1.5 tabular-nums ${due > 0 ? 'font-semibold text-foreground' : 'text-muted-foreground/60'}`}>{due > 0 && <span aria-hidden className="size-1.5 rounded-full bg-primary" />}{due < 0 ? '–' : num(due)}</span>
+      <span className={`flex items-center justify-end gap-1.5 tabular-nums ${due > 0 ? 'font-semibold text-foreground' : 'text-muted-foreground/60'}`}>{due > 0 && <span aria-hidden className="size-1.5 rounded-full shrink-0 bg-primary" />}{due < 0 ? '–' : num(due)}</span>
       <span className={`text-right tabular-nums ${fresh > 0 ? 'text-foreground' : 'text-muted-foreground/60'}`}>{fresh < 0 ? '–' : num(fresh)}</span>
       <span className="text-right text-muted-foreground tabular-nums">{num(all)}</span>
       {/* Its menu, or the same room kept empty (a shared deck's topic has none), so the numbers line up. */}

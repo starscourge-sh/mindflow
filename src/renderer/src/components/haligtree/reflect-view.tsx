@@ -135,7 +135,7 @@ function Activity({ days, month }: { days: number[]; month: string }): React.JSX
         {at !== null && (
           <>
             <span aria-hidden className="pointer-events-none absolute inset-y-0 w-px bg-foreground/25" style={{ left: x(at) }} />
-            <span aria-hidden className="pointer-events-none absolute size-2.5 -translate-x-1/2 translate-y-1/2 rounded-full border-2 border-background bg-foreground"
+            <span aria-hidden className="pointer-events-none absolute size-2.5 -translate-x-1/2 translate-y-1/2 rounded-full shrink-0 border-2 border-background bg-foreground"
               style={{ left: x(at), bottom: `${(days[at] / top) * (1 - 6 / h) * 100}%` }} />
             <span className={`pointer-events-none absolute -top-8 -translate-x-1/2 whitespace-nowrap ${TIP}`}
               style={{ left: `clamp(3.5rem, ${x(at)}, calc(100% - 3.5rem))` }}>

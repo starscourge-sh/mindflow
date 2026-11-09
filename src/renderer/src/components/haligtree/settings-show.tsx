@@ -450,7 +450,7 @@ export const highlightChoices = (dark: boolean): { id: string; label: string; sh
 const SampleTag = ({ look, tag, hue }: { look: string; tag: string; hue: string }): React.JSX.Element =>
   look === 'dot' ? (
     <span className="flex items-center gap-1.5 rounded-full py-0.5 pr-2 pl-1.5 text-foreground shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--foreground)_20%,transparent)]">
-      <span className="size-1.5 rounded-full" style={{ background: `var(--tt-color-text-${hue})` }} />#{tag}
+      <span className="size-1.5 rounded-full shrink-0" style={{ background: `var(--tt-color-text-${hue})` }} />#{tag}
     </span>
   ) : (
     <span className="rounded-full px-2 py-0.5" style={{ background: `var(--mf-chip-bg-${hue})`, color: `var(--mf-chip-ink-${hue})` }}>#{tag}</span>
@@ -821,7 +821,7 @@ export const CentredSample = ({ on }: { on: boolean }): React.JSX.Element => (
 /** A window with a note in it, and where the session's time shows: the bubble above, a line at the note's foot, or both. */
 const NoteWindow = ({ bubble, foot }: { bubble: boolean; foot: boolean }): React.JSX.Element => (
   <Screen>
-    {bubble && <span className="absolute top-[9px] left-1/2 flex h-2.5 w-11 -translate-x-1/2 items-center gap-1 rounded-full bg-popover px-1 shadow-sm ring-1 ring-foreground/20"><span className="size-1.5 rounded-full border border-[var(--tt-brand-color-400)]" /><span className="h-[2px] flex-1 rounded-full bg-foreground/40" /></span>}
+    {bubble && <span className="absolute top-[9px] left-1/2 flex h-2.5 w-11 -translate-x-1/2 items-center gap-1 rounded-full bg-popover px-1 shadow-sm ring-1 ring-foreground/20"><span className="size-1.5 rounded-full shrink-0 border border-[var(--tt-brand-color-400)]" /><span className="h-[2px] flex-1 rounded-full bg-foreground/40" /></span>}
     <span className="absolute inset-x-5 top-[24px] flex flex-col gap-[3px]">
       <span className="block h-[2px] w-[80%] rounded-full bg-foreground/45" />
       <span className="block h-[2px] w-[65%] rounded-full bg-foreground/30" />
@@ -837,11 +837,11 @@ export const timerShowsChoices = [
 export const pillSitsChoices = [
   {
     id: 'notch', label: 'Under the notch',
-    show: <Screen><span className="absolute top-0 left-1/2 flex h-[9px] w-[74px] -translate-x-1/2 items-center justify-between rounded-b-[5px] bg-black px-1"><span className="size-1.5 rounded-full border border-[var(--tt-brand-color-400)]" /><span className="text-[6px] leading-none font-semibold text-white">18:24</span></span></Screen>
+    show: <Screen><span className="absolute top-0 left-1/2 flex h-[9px] w-[74px] -translate-x-1/2 items-center justify-between rounded-b-[5px] bg-black px-1"><span className="size-1.5 rounded-full shrink-0 border border-[var(--tt-brand-color-400)]" /><span className="text-[6px] leading-none font-semibold text-white">18:24</span></span></Screen>
   },
   {
     id: 'free', label: 'Where I put it',
-    show: <Screen><span className="absolute right-2.5 bottom-3 flex h-3 w-14 items-center gap-1 rounded-full bg-popover px-1 shadow-sm ring-1 ring-foreground/20"><span className="size-1.5 rounded-full border border-[var(--tt-brand-color-400)]" /><span className="h-[2px] flex-1 rounded-full bg-foreground/40" /></span></Screen>
+    show: <Screen><span className="absolute right-2.5 bottom-3 flex h-3 w-14 items-center gap-1 rounded-full bg-popover px-1 shadow-sm ring-1 ring-foreground/20"><span className="size-1.5 rounded-full shrink-0 border border-[var(--tt-brand-color-400)]" /><span className="h-[2px] flex-1 rounded-full bg-foreground/40" /></span></Screen>
   }
 ]
 

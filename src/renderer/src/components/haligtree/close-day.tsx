@@ -391,7 +391,7 @@ function Pass({ onClose }: { onClose: () => void }): React.JSX.Element {
                     <button type="button" role="radio" aria-checked={frog === task.id} onClick={() => pickFrog(task)}
                       className="flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-accent/50">
                       <span aria-hidden className="grid size-4 shrink-0 place-items-center rounded-full border-[1.5px]" style={{ borderColor: frog === task.id ? 'var(--tt-color-text-green)' : 'var(--muted-foreground)' }}>
-                        {frog === task.id && <span className="size-2 rounded-full bg-[var(--tt-color-text-green)]" />}
+                        {frog === task.id && <span className="size-2 rounded-full shrink-0 bg-[var(--tt-color-text-green)]" />}
                       </span>
                       <span className="min-w-0 flex-auto truncate text-body text-foreground">{taskName(task.title).text}</span>
                       <Tags tags={taskName(task.title).tags} go={false} />

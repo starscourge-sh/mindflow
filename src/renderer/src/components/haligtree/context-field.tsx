@@ -69,7 +69,7 @@ export function ContextField({ id, value, className }: { id: string; value: stri
                   chime('away')
                   toast('Picture taken off', () => showAndSave(before))
                 }}
-                className="absolute -top-1.5 -right-1.5 hidden size-5 cursor-pointer items-center justify-center rounded-full border bg-background text-muted-foreground group-hover:flex hover:text-foreground">
+                className="absolute -top-1.5 -right-1.5 hidden size-5 cursor-pointer items-center justify-center rounded-full shrink-0 border bg-background text-muted-foreground group-hover:flex hover:text-foreground">
                 <X className="size-3" />
               </button>
             </span>

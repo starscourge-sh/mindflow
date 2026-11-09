@@ -18,7 +18,7 @@ export function DayDots({ opened = 0, caught }: { opened?: number; caught?: numb
     <span aria-hidden className="flex items-center gap-1">
       {opened > 0 && <span data-opened-mark className={`size-1 rounded-full bg-foreground/60 ${SHADE[openedLevel(opened)]}`} />}
       {caught !== undefined && caught > 0 && <span data-captured-mark className={`size-1 rounded-full ${SHADE[caughtLevel(caught)]}`} style={{ background: BLUE }} />}
-      {caught === 0 && <span data-gap-mark className="size-1 rounded-full border border-foreground/45" />}
+      {caught === 0 && <span data-gap-mark className="size-1 rounded-full shrink-0 border border-foreground/45" />}
     </span>
   )
 }
@@ -28,9 +28,9 @@ export function DotsKey({ opened, captures }: { opened: boolean; captures: boole
   if (!opened && !captures) return null
   return (
     <p data-month-key className="flex flex-wrap items-center gap-x-4 gap-y-1 px-1 text-control text-foreground">
-      {opened && <span className="flex items-center gap-1.5"><span aria-hidden className="size-1 rounded-full bg-foreground/60" />Opened {APP_NAME}</span>}
+      {opened && <span className="flex items-center gap-1.5"><span aria-hidden className="size-1 rounded-full shrink-0 bg-foreground/60" />Opened {APP_NAME}</span>}
       {captures && <span className="flex items-center gap-1.5"><span className="flex gap-0.5">{([1, 2, 3] as const).map((n) => <span key={n} aria-hidden className={`size-1 rounded-full ${SHADE[n]}`} style={{ background: BLUE }} />)}</span>Captured: 1 to 2, 3 to 5, 6 or more</span>}
-      {captures && <span className="flex items-center gap-1.5"><span aria-hidden className="size-1 rounded-full border border-foreground/45" />Nothing captured</span>}
+      {captures && <span className="flex items-center gap-1.5"><span aria-hidden className="size-1 rounded-full shrink-0 border border-foreground/45" />Nothing captured</span>}
     </p>
   )
 }

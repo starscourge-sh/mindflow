@@ -808,7 +808,7 @@ function GoalColor({ item }: { item: ItemFull }): React.JSX.Element {
           <Tip key={one} label={one[0].toUpperCase() + one.slice(1)}>
             <button type="button" aria-label={one} aria-pressed={now === one} data-goal-swatch={one} onClick={() => pick(one)}
               className={`grid size-6 place-items-center rounded-full transition-transform hover:scale-110 active:scale-[0.97] ${now === one ? 'ring-2 ring-foreground/30 ring-offset-1 ring-offset-popover' : ''}`}>
-              <span className="size-3.5 rounded-full" style={{ background: `var(--tt-color-text-${one})` }} />
+              <span className="size-3.5 rounded-full shrink-0" style={{ background: `var(--tt-color-text-${one})` }} />
             </button>
           </Tip>
         ))}

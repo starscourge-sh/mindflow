@@ -385,7 +385,7 @@ function Row({ title, onAll, menu, children }: { title: ReactNode; onAll?: () =>
             {(edges.left || edges.right) && (['left', 'right'] as const).map((side) => (
               <Tip key={side} label={side === 'left' ? 'Back' : 'More'}>
                 <button type="button" tabIndex={-1} disabled={!edges[side]} onClick={() => page(side === 'left' ? -1 : 1)}
-                  className="flex size-7 items-center justify-center rounded-full text-muted-foreground transition-[color,background-color,opacity,scale] duration-150 hover:bg-foreground/[0.07] hover:text-foreground active:scale-95 disabled:pointer-events-none disabled:opacity-30">
+                  className="flex size-7 items-center justify-center rounded-full shrink-0 text-muted-foreground transition-[color,background-color,opacity,scale] duration-150 hover:bg-foreground/[0.07] hover:text-foreground active:scale-95 disabled:pointer-events-none disabled:opacity-30">
                   {side === 'left' ? <ChevronLeft className="size-4" /> : <ChevronRight className="size-4" />}
                 </button>
               </Tip>
@@ -531,7 +531,7 @@ function Feature({ card, line, actions }: { card: Card; line: string; actions: A
               {readable(card) && (
                 <Tip label="Read it, full screen">
                   <button type="button" onClick={() => actions.read([card], 0)}
-                    className="flex size-8 items-center justify-center rounded-full text-muted-foreground transition-[color,background-color,scale] duration-150 hover:bg-foreground/[0.07] hover:text-foreground active:scale-95">
+                    className="flex size-8 items-center justify-center rounded-full shrink-0 text-muted-foreground transition-[color,background-color,scale] duration-150 hover:bg-foreground/[0.07] hover:text-foreground active:scale-95">
                     <BookOpen className="size-4" />
                   </button>
                 </Tip>

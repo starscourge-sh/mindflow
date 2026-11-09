@@ -530,7 +530,7 @@ export function TagRow({ tags, field, onAdd, onRemove, onDone, autoFocus = false
       {tags.map((one) => (
         <TagChip key={one} tag={one} color={all.find((other) => other.tag === one)?.color} className="group/tag">
           <button type="button" aria-label={`Take #${one} off`} onMouseDown={(event) => event.preventDefault()} onClick={() => onRemove(one)}
-            className="relative after:absolute after:-inset-1 after:rounded-full flex size-4 items-center justify-center rounded-full text-current opacity-50 transition-opacity group-hover/tag:opacity-100 hover:bg-background">
+            className="relative after:absolute after:-inset-1 after:rounded-full shrink-0 flex size-4 items-center justify-center rounded-full text-current opacity-50 transition-opacity group-hover/tag:opacity-100 hover:bg-background">
             <X className="size-3" />
           </button>
         </TagChip>

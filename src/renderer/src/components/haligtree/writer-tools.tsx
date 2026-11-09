@@ -204,7 +204,7 @@ export function WriterTools({ editor, proof = false, live = proof }: { editor: E
       <Popover modal={false} open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <button type="button" data-room-tools data-on={lit || undefined} className={`${quiet} inline-flex items-center gap-1.5`}>
-            <SlidersHorizontal className="size-3.5" />Tools{lit && <span aria-hidden className="size-1.5 rounded-full bg-primary" />}
+            <SlidersHorizontal className="size-3.5" />Tools{lit && <span aria-hidden className="size-1.5 rounded-full shrink-0 bg-primary" />}
           </button>
         </PopoverTrigger>
         <PopoverContent data-room-tools-panel side="top" align="end" className="z-[70] w-72 gap-1 p-1.5" onCloseAutoFocus={(event) => (event.preventDefault(), !document.querySelector('[data-ask]') && editor?.commands.focus())}>
@@ -220,7 +220,7 @@ export function WriterTools({ editor, proof = false, live = proof }: { editor: E
           {proof && found === null && <button type="button" data-proofread-ask className={row} onClick={() => (setOpen(false), setReport(null), askProofread())}>Proofread</button>}
           {proof && live && (
             <button type="button" data-grammar-live data-on={checking || undefined} role="switch" aria-checked={checking} className={row} onClick={() => (setCheckingLive(!checking), setChecking(!checking), chime(checking ? 'off' : 'on'))}>
-              Mark mistakes as I write<span aria-hidden className={`relative h-4 w-7 shrink-0 rounded-full transition-colors ${checking ? 'bg-primary' : 'bg-foreground/15'}`}><span className={`absolute top-0.5 size-3 rounded-full bg-background shadow-xs transition-[left] ${checking ? 'left-3.5' : 'left-0.5'}`} /></span>
+              Mark mistakes as I write<span aria-hidden className={`relative h-4 w-7 shrink-0 rounded-full transition-colors ${checking ? 'bg-primary' : 'bg-foreground/15'}`}><span className={`absolute top-0.5 size-3 rounded-full shrink-0 bg-background shadow-xs transition-[left] ${checking ? 'left-3.5' : 'left-0.5'}`} /></span>
             </button>
           )}
           <WritingSound className={`${row} justify-start`} />

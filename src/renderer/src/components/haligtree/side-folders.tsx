@@ -281,7 +281,7 @@ export function SideFolders({ list, counted, open, shown, here, noteRow, onOpen,
       )}
       {/* Where it lands, as the list draws it: a line with a ring at its start, at the edge it was read against. */}
       {aim && aim.how !== 'into' && createPortal(
-        <span aria-hidden data-drop-line={aim.how} className="pointer-events-none fixed z-[70] h-0.5 -translate-y-1/2 rounded-full bg-(--tt-brand-color-400) before:absolute before:-top-[3px] before:-left-2 before:size-2 before:rounded-full before:border-2 before:border-(--tt-brand-color-400) before:bg-background"
+        <span aria-hidden data-drop-line={aim.how} className="pointer-events-none fixed z-[70] h-0.5 -translate-y-1/2 rounded-full shrink-0 bg-(--tt-brand-color-400) before:absolute before:-top-[3px] before:-left-2 before:size-2 before:rounded-full before:border-2 before:border-(--tt-brand-color-400) before:bg-background"
           style={{ top: aim.y, left: aim.left, width: aim.right - aim.left }} />,
         document.body
       )}

@@ -148,7 +148,7 @@ export function RecorderBar({ label, role = 'dialog', level, start, end, seconds
       {seconds !== undefined && (
         // The time with a small red light before it, the one sign of "on air" every recorder shares.
         <span className="flex shrink-0 items-center gap-1.5 text-control tabular-nums text-muted-foreground">
-          <span aria-hidden className="size-1.5 rounded-full bg-[var(--tt-color-text-red)] motion-safe:animate-pulse" />
+          <span aria-hidden className="size-1.5 rounded-full shrink-0 bg-[var(--tt-color-text-red)] motion-safe:animate-pulse" />
           <span data-voice-time>{clock(seconds)}</span>
         </span>
       )}

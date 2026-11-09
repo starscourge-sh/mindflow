@@ -1858,7 +1858,7 @@ function Sessions({ taskId, title }: { taskId: string; title: string }): React.J
       {running ? (
         <div className="space-y-1 p-1">
           <div className="flex items-center gap-2 px-1 text-foreground">
-            <span className="size-1.5 motion-safe:animate-pulse rounded-full bg-[var(--tt-color-text-red)]" />
+            <span className="size-1.5 motion-safe:animate-pulse rounded-full shrink-0 bg-[var(--tt-color-text-red)]" />
             <span className="text-lg font-semibold tabular-nums">{clock(Math.max(0, tick - new Date(running.startedAt).getTime() - running.pausedMs - (running.pausedAt ? tick - new Date(running.pausedAt).getTime() : 0)))}</span>
             {/* From when to when, moved on by a pause or ten more minutes. */}
             <SpanPill className="ml-auto" from={Date.parse(running.startedAt)} to={sessionEnd({ ...running, plannedMs: running.plannedMs ?? null }, Math.floor(tick / 60_000) * 60_000)} />

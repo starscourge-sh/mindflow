@@ -2102,7 +2102,7 @@ export default function App(): React.JSX.Element {
       <FocusScenery />
       <Header panel={panel} drawn={panelDrawn} onPanel={() => setPanel(!panel)} nav={trail.stack.length > 1 && (
         // Back and forward, joined in one pill as Safari and Raycast do it.
-        <span className="mf-segs ml-3 self-center rounded-full border border-foreground/15 [&_svg]:size-3">
+        <span className="mf-segs ml-3 self-center rounded-full shrink-0 border border-foreground/15 [&_svg]:size-3">
           {([['Back  ⌘[', -1, ChevronLeft], ['Forward  ⌘]', 1, ChevronRight]] as const).map(([label, by, Icon]) => (
             <Tip key={label} label={label}>
               <button type="button" tabIndex={-1} aria-label={label} disabled={!trail.stack[trail.at + by] && trail.stack[trail.at + by] !== null}
@@ -2311,7 +2311,7 @@ export default function App(): React.JSX.Element {
                     <span className="shrink-0 font-medium text-foreground">Bring it back</span>
                   </button>
                   <button type="button" data-leftover-drop aria-label="Not this one" onMouseDown={(event) => event.preventDefault()} onClick={dropLeftover}
-                    className="ml-1 inline-flex size-6 cursor-pointer items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground active:scale-[0.97]">
+                    className="ml-1 inline-flex size-6 cursor-pointer items-center justify-center rounded-full shrink-0 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground active:scale-[0.97]">
                     <X className="size-3.5" />
                   </button>
               </div>, document.body) : (
@@ -2326,7 +2326,7 @@ export default function App(): React.JSX.Element {
                     <span className="shrink-0 font-medium text-foreground">Bring it back</span>
                   </button>
                   <button type="button" data-leftover-drop aria-label="Not this one" onMouseDown={(event) => event.preventDefault()} onClick={dropLeftover}
-                    className="ml-1 inline-flex size-6 cursor-pointer items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground active:scale-[0.97]">
+                    className="ml-1 inline-flex size-6 cursor-pointer items-center justify-center rounded-full shrink-0 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground active:scale-[0.97]">
                     <X className="size-3.5" />
                   </button>
               </div>

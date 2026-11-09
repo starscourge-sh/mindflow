@@ -1055,7 +1055,7 @@ function Grid({ days, tasks, marks, onHead, onPoint, calendars, ...props }: { da
                 {key === todayKey && <SessionGhost focus={taskNow.focus} tasks={tasks} now={now} next={spans.filter((one) => one.id !== taskNow.focus?.taskId).map((one) => ({ start: one.start, name: one.task ? taskName(one.task.title).text : one.one?.title ?? '' }))} />}
                 {key === todayKey && (
                   <div data-cal-now aria-label={`Now, ${clock(now.toISOString())}`} className="pointer-events-none absolute inset-x-0 z-10" style={{ top: (nowMinute / 60) * HOUR }}>
-                    <span className="absolute -top-1 -left-1 size-2 rounded-full" style={{ background: RED }} />
+                    <span className="absolute -top-1 -left-1 size-2 rounded-full shrink-0" style={{ background: RED }} />
                     <span className="absolute inset-x-0 -top-px h-0.5" style={{ background: RED }} />
                   </div>
                 )}

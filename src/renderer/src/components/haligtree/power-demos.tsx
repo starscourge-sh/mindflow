@@ -138,7 +138,7 @@ const BoxDemo: Demo = ({ live }) => {
     <div className="relative h-[8.5rem] w-full max-w-[17rem]">
       {/* Whatever app you were in, faint under the box: a page of someone else's words. */}
       <div aria-hidden className="absolute inset-0 overflow-hidden rounded-lg border bg-foreground/[0.025]">
-        <div className="flex h-5 items-center gap-1 border-b px-2">{[0, 1, 2].map((i) => <span key={i} className="size-1.5 rounded-full bg-foreground/15" />)}<span className="ml-2 h-1.5 w-16 rounded-full bg-foreground/10" /></div>
+        <div className="flex h-5 items-center gap-1 border-b px-2">{[0, 1, 2].map((i) => <span key={i} className="size-1.5 rounded-full shrink-0 bg-foreground/15" />)}<span className="ml-2 h-1.5 w-16 rounded-full bg-foreground/10" /></div>
         <div className="flex flex-col gap-2 p-3"><Line w="72%" /><Line w="90%" /><Line w="84%" /><Line w="60%" /><Line w="78%" /><Line w="44%" /></div>
       </div>
       <AnimatePresence>
@@ -312,7 +312,7 @@ const ComingBackDemo: Demo = ({ live }) => {
             initial={{ opacity: 0, transform: 'scale(0.97)', filter: 'blur(3px)' }} animate={{ opacity: 1, transform: 'scale(1)', filter: 'blur(0px)' }} exit={{ opacity: 0, filter: 'blur(2px)' }} transition={{ duration: 0.45, ease: EASE }}>
             <div className="flex items-center gap-1.5 text-meta" style={{ color: 'var(--tt-color-text-orange)' }}><Repeat className="size-3" /> You keep coming back to this</div>
             <div className="mt-1 text-control text-foreground">Walk after lunch</div>
-            <div className="mt-1 flex items-center gap-1 text-meta text-muted-foreground">{[0, 1, 2].map((i) => <span key={i} className="size-1.5 rounded-full" style={{ background: 'var(--tt-color-text-orange)' }} />)} 3×</div>
+            <div className="mt-1 flex items-center gap-1 text-meta text-muted-foreground">{[0, 1, 2].map((i) => <span key={i} className="size-1.5 rounded-full shrink-0" style={{ background: 'var(--tt-color-text-orange)' }} />)} 3×</div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -418,10 +418,10 @@ const VersionsDemo: Demo = ({ live }) => {
       </div>
       <div className="flex items-center gap-3 px-1">
         <div className="relative h-1 flex-1 rounded-[2px] bg-foreground/12">
-          {[0, 1, 2].map((i) => <span key={i} className="absolute top-1/2 size-1 -translate-1/2 rounded-full bg-foreground/30" style={{ left: `${100 - i * 50}%` }} />)}
+          {[0, 1, 2].map((i) => <span key={i} className="absolute top-1/2 size-1 -translate-1/2 rounded-full shrink-0 bg-foreground/30" style={{ left: `${100 - i * 50}%` }} />)}
           {/* A layer the track's size carries the knob, so its move is a transform (a percent of the track). */}
           <motion.span className="pointer-events-none absolute inset-0" initial={false} animate={{ transform: `translateX(${100 - v * 50}%)` }} transition={{ duration: 0.5, ease: EASE }}>
-            <span className="absolute top-1/2 left-0 size-3.5 -translate-1/2 rounded-full border bg-background shadow-[0_1px_3px_color-mix(in_oklab,var(--mf-shadow-ink)_30%,transparent)]" />
+            <span className="absolute top-1/2 left-0 size-3.5 -translate-1/2 rounded-full shrink-0 border bg-background shadow-[0_1px_3px_color-mix(in_oklab,var(--mf-shadow-ink)_30%,transparent)]" />
           </motion.span>
         </div>
         <span className="w-16 text-right text-meta text-muted-foreground"><Rolling text={VERSIONS[v].when} by="word" /></span>
@@ -740,7 +740,7 @@ const PractiseItDemo: Demo = ({ live }) => {
       <div className="flex items-center gap-2 rounded-lg border bg-background px-3 py-1.5 text-meta">
         <span className="flex-1 text-foreground">Spanish, every weekday at 7:30</span>
         <span className="text-muted-foreground">Practise it</span>
-        <span className={`relative h-4 w-7 rounded-full transition-colors duration-300 ${at === 1 ? 'bg-primary' : 'bg-muted'}`}><span className={`absolute top-0.5 size-3 rounded-full bg-background transition-transform duration-300 ${at === 1 ? 'translate-x-3.5' : 'translate-x-0.5'}`} /></span>
+        <span className={`relative h-4 w-7 rounded-full transition-colors duration-300 ${at === 1 ? 'bg-primary' : 'bg-muted'}`}><span className={`absolute top-0.5 size-3 rounded-full shrink-0 bg-background transition-transform duration-300 ${at === 1 ? 'translate-x-3.5' : 'translate-x-0.5'}`} /></span>
       </div>
       <AnimatePresence>
         {at === 1 && (
@@ -993,9 +993,9 @@ const RecordingsDemo: Demo = ({ live }) => {
   const at = useSteps([1300, 2400], live, 1)
   const frame = (title: string, blank: boolean): React.JSX.Element => (
     <div className="flex flex-1 flex-col gap-1">
-      <div className="flex items-center gap-1 text-meta text-muted-foreground">{title}{title === 'They see' && <span className={`ml-auto size-1.5 rounded-full bg-[var(--tt-color-text-red)] ${live ? 'animate-pulse' : ''}`} />}</div>
+      <div className="flex items-center gap-1 text-meta text-muted-foreground">{title}{title === 'They see' && <span className={`ml-auto size-1.5 rounded-full shrink-0 bg-[var(--tt-color-text-red)] ${live ? 'animate-pulse' : ''}`} />}</div>
       <div className="h-20 rounded-lg border bg-background p-2">
-        <div className="mb-2 flex gap-1">{[0, 1, 2].map((i) => <span key={i} className="size-1.5 rounded-full bg-foreground/15" />)}</div>
+        <div className="mb-2 flex gap-1">{[0, 1, 2].map((i) => <span key={i} className="size-1.5 rounded-full shrink-0 bg-foreground/15" />)}</div>
         <div className={`flex flex-col gap-1.5 transition-opacity duration-500 ${blank ? 'opacity-0' : 'opacity-100'}`}><Line w="80%" /><Line w="60%" /><Line w="70%" /></div>
       </div>
     </div>
@@ -1013,7 +1013,7 @@ const WindowDemo: Demo = ({ live }) => {
       <AnimatePresence>
         {at === 2 && (
           <motion.div key="win" className="absolute top-8 right-0 w-40 rounded-lg border bg-popover p-2 shadow-[0_10px_24px_-8px_color-mix(in_oklab,var(--mf-shadow-ink)_35%,transparent)]" initial={{ opacity: 0, scale: 0.95, y: 6 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0 }} transition={spring.slow}>
-            <div className="mb-1.5 flex gap-1">{['red', 'yellow', 'green'].map((c) => <span key={c} className="size-1.5 rounded-full" style={{ background: `var(--tt-color-text-${c})` }} />)}</div>
+            <div className="mb-1.5 flex gap-1">{['red', 'yellow', 'green'].map((c) => <span key={c} className="size-1.5 rounded-full shrink-0" style={{ background: `var(--tt-color-text-${c})` }} />)}</div>
             <div className="text-meta font-medium text-foreground">Raised beds</div>
             <div className="mt-1.5 flex flex-col gap-1"><Line w="90%" /><Line w="70%" /></div>
           </motion.div>
@@ -1182,7 +1182,7 @@ const BlurtDemo: Demo = ({ live }) => {
       ) : (
         <div className="flex flex-col gap-1 text-meta">
           <Row className="text-muted-foreground"><Check className="size-3" /> Event horizon</Row>
-          <Row style={{ background: 'color-mix(in srgb, var(--tt-color-text-orange) 12%, transparent)' }}><span className="size-1.5 rounded-full" style={{ background: 'var(--tt-color-text-orange)' }} /> Schwarzschild radius</Row>
+          <Row style={{ background: 'color-mix(in srgb, var(--tt-color-text-orange) 12%, transparent)' }}><span className="size-1.5 rounded-full shrink-0" style={{ background: 'var(--tt-color-text-orange)' }} /> Schwarzschild radius</Row>
           <Row className="text-muted-foreground"><Check className="size-3" /> Hawking radiation</Row>
         </div>
       )}
@@ -1723,7 +1723,7 @@ const NotchDemo: Demo = ({ live }) => {
         animate={{ clipPath: tucked ? `inset(0px ${open ? 0 : 20}px ${open ? 0 : 46}px ${open ? 0 : 20}px round 0px 0px 12px 12px)` : 'inset(36px 16px 0px 16px round 14px 14px 14px 14px)' }}
         transition={spring.moderate}>
         <motion.div className="flex h-[18px] items-center justify-between" initial={false} animate={{ transform: `translateY(${tucked ? 0 : 41}px)` }} transition={spring.moderate}>
-          <motion.span className="flex items-center gap-1" initial={false} animate={{ transform: `translateX(${tucked ? (open ? 10 : 30) : 26}px)` }} transition={spring.moderate}><span className="size-2.5 rounded-full border-[1.5px] border-white/30 border-t-[var(--tt-brand-color-400)] border-r-[var(--tt-brand-color-400)]" />{!tucked && <span className="ml-1 font-medium">Dune, chapter 9</span>}</motion.span>
+          <motion.span className="flex items-center gap-1" initial={false} animate={{ transform: `translateX(${tucked ? (open ? 10 : 30) : 26}px)` }} transition={spring.moderate}><span className="size-2.5 rounded-full shrink-0 border-[1.5px] border-white/30 border-t-[var(--tt-brand-color-400)] border-r-[var(--tt-brand-color-400)]" />{!tucked && <span className="ml-1 font-medium">Dune, chapter 9</span>}</motion.span>
           <motion.span className="font-semibold tabular-nums" initial={false} animate={{ transform: `translateX(${tucked ? (open ? -10 : -30) : -26}px)` }} transition={spring.moderate}>18:24</motion.span>
         </motion.div>
         <motion.div initial={false} animate={{ opacity: open ? 1 : 0 }} transition={{ duration: 0.2, delay: open ? 0.12 : 0 }} className="px-2.5 pt-1.5">
@@ -1971,7 +1971,7 @@ const POP = 'shadow-[0_6px_16px_-6px_color-mix(in_oklab,var(--mf-shadow-ink)_25%
 /** A switch, drawn as Settings draws one. */
 const Toggle = ({ on }: { on: boolean }): React.JSX.Element => (
   <span className={`relative inline-flex h-4 w-7 shrink-0 rounded-full transition-colors duration-200 ${on ? 'bg-primary' : 'bg-foreground/15'}`}>
-    <span className="absolute top-0.5 left-0.5 size-3 rounded-full bg-background shadow-sm transition-transform duration-200" style={{ transform: on ? 'translateX(12px)' : 'none' }} />
+    <span className="absolute top-0.5 left-0.5 size-3 rounded-full shrink-0 bg-background shadow-sm transition-transform duration-200" style={{ transform: on ? 'translateX(12px)' : 'none' }} />
   </span>
 )
 /** A button in an offer or a sheet: the app's quiet one, or its filled one. */
@@ -2053,17 +2053,17 @@ const FacesDemo: Demo = ({ live }) => {
       <span className="absolute inset-0 bg-[color-mix(in_oklab,var(--tt-color-text-yellow)_16%,var(--background))]" />
       <span className="absolute inset-x-0 bottom-0 h-5 bg-[color-mix(in_oklab,var(--tt-color-text-green)_30%,var(--background))]" />
       <span className="absolute bottom-0 left-[70px] h-6 w-6 rounded-t-full bg-[color-mix(in_oklab,var(--tt-color-text-blue)_55%,var(--background))]" />
-      <span className="absolute bottom-[22px] left-[75px] size-3.5 rounded-full bg-[color-mix(in_oklab,var(--tt-color-text-orange)_45%,var(--background))]" />
+      <span className="absolute bottom-[22px] left-[75px] size-3.5 rounded-full shrink-0 bg-[color-mix(in_oklab,var(--tt-color-text-orange)_45%,var(--background))]" />
     </>
   )
   return (
     <div className="flex w-full max-w-[17rem] items-center justify-center gap-5">
       <div className="relative h-[72px] w-28 overflow-hidden rounded-[4px] border">
         {picture}
-        <motion.span className="absolute top-0 left-0 size-14 rounded-full border-2 border-dashed border-foreground/60" initial={false} animate={{ x: -shift.x, y: -shift.y }} transition={spring.slow} />
+        <motion.span className="absolute top-0 left-0 size-14 rounded-full shrink-0 border-2 border-dashed border-foreground/60" initial={false} animate={{ x: -shift.x, y: -shift.y }} transition={spring.slow} />
       </div>
       <div className="flex flex-col items-center gap-1.5">
-        <div className="relative size-14 overflow-hidden rounded-full border">
+        <div className="relative size-14 overflow-hidden rounded-full shrink-0 border">
           <motion.div className="absolute top-0 left-0 h-[72px] w-28" initial={false} animate={shift} transition={spring.slow}>{picture}</motion.div>
         </div>
         <span className="text-meta text-foreground">Sam</span>
@@ -2233,7 +2233,7 @@ const SunDemo: Demo = ({ live }) => {
     <Col>
       <div className="relative h-14 overflow-hidden rounded-lg border bg-background">
         <span className="absolute inset-x-0 bottom-3 border-t border-foreground/20" />
-        <motion.span className="absolute top-0 left-0 size-4 rounded-full" style={{ background: 'var(--tt-color-text-orange)' }} initial={false}
+        <motion.span className="absolute top-0 left-0 size-4 rounded-full shrink-0" style={{ background: 'var(--tt-color-text-orange)' }} initial={false}
           animate={{ x: on ? 196 : 140, y: on ? 32 : 8 }} transition={{ duration: 1.2, ease: EASE }} />
         <span className="absolute bottom-0 left-2 text-[0.625rem] leading-3 text-muted-foreground">London</span>
       </div>

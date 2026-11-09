@@ -54,7 +54,7 @@ export function HabitList(): React.JSX.Element {
         <span key={one} className="flex h-7 items-center gap-1 rounded-full bg-accent py-0.5 pr-1 pl-2.5 text-control text-foreground">
           {one}
           <button type="button" aria-label={`Take ${quoted(one, 80)} off this season`} onClick={() => void dropHabit(one)}
-            className="mf-hit relative flex size-5 items-center justify-center rounded-full text-muted-foreground hover:bg-background hover:text-foreground">
+            className="mf-hit relative flex size-5 items-center justify-center rounded-full shrink-0 text-muted-foreground hover:bg-background hover:text-foreground">
             <X className="size-3" />
           </button>
         </span>
@@ -124,7 +124,7 @@ export function HabitTicks({ day, heading }: { day: string; heading: string }): 
           {adding ? <AddHabit autoFocus onDone={() => setAdding(false)} /> : (
             <Tip label="Add a habit for this season">
               <button type="button" aria-label="Add a habit" onClick={() => (chime('slide'), setAdding(true))}
-                className="flex size-8 items-center justify-center rounded-full text-muted-foreground hover:bg-accent hover:text-foreground"><Plus className="size-4" /></button>
+                className="flex size-8 items-center justify-center rounded-full shrink-0 text-muted-foreground hover:bg-accent hover:text-foreground"><Plus className="size-4" /></button>
             </Tip>
           )}
         </div>

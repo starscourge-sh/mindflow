@@ -314,7 +314,7 @@ function Chip({ kind, onClick }: { kind: Kind; onClick?: () => void }): React.JS
   const { label, icon: Icon, hue } = KINDS[kind]
   return (
     <button type="button" onClick={onClick} title="Switch between Capture and Gem  ⌃⌘C ⌃⌘I" aria-label={`Kind: ${label}. Switch`}
-      className="inline-flex h-6 items-center gap-1 rounded-full border px-2 text-meta font-medium transition-colors duration-150 [&_svg]:size-3.5"
+      className="inline-flex h-6 items-center gap-1 rounded-full shrink-0 border px-2 text-meta font-medium transition-colors duration-150 [&_svg]:size-3.5"
       style={{ color: hue, borderColor: `color-mix(in srgb, ${hue} 30%, transparent)`, background: `color-mix(in srgb, ${hue} 10%, transparent)` }}>
       <Icon /> {label}
     </button>

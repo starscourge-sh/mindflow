@@ -1498,7 +1498,7 @@ export function GraphCanvas({ map, onOpen, centre, you, about, fit: fitRef, fly,
         <div ref={card} data-map-tip data-private={hover.dot.private ? '' : undefined} className={cn(`pointer-events-none invisible absolute z-10 flex flex-col gap-0.5 ${TIP}`, small ? 'max-w-[13rem]' : 'max-w-xs')}>
           <span className="private-text truncate font-medium">{hover.dot.title || 'Untitled'}</span>
           <span className="flex items-center gap-1.5 text-muted-foreground">
-            <span className="size-2 rounded-full" style={{ background: hover.dot.id === centre || hover.dot.id === you ? 'var(--tt-brand-color-400)' : paint?.(hover.dot) ?? tintOf(hover.dot) }} />
+            <span className="size-2 rounded-full shrink-0" style={{ background: hover.dot.id === centre || hover.dot.id === you ? 'var(--tt-brand-color-400)' : paint?.(hover.dot) ?? tintOf(hover.dot) }} />
             {about?.[hover.dot.id] ? `${about[hover.dot.id]} · ` : ''}
             {hover.dot.id === you ? 'This note' : hover.dot.id === centre ? (hover.dot.type === 'pdf' ? 'This book' : 'This note') : hover.dot.kind === 'person' ? 'Person' : hover.dot.kind === 'source' ? 'Source' : hover.dot.kind === 'pdf' ? 'PDF' : hover.dot.kind === 'web' ? 'Web article' : kind?.label ?? (hover.dot.type === 'nugget' ? 'Gem' : hover.dot.type === 'card' ? 'Card' : hover.dot.type === 'article' ? 'Page' : 'Note')}{hover.dot.tag ? ` · #${hover.dot.tag}` : ''} · {plural(hover.dot.links, "link")}
           </span>

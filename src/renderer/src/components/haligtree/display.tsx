@@ -263,7 +263,7 @@ function Pick({ options, chosen, many, onPick }: { options: Choice[]; chosen: st
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-(--radix-dropdown-menu-trigger-width) min-w-44">
         {options.map((one) => {
-          const icon = one.icon ? <one.icon className="size-4" style={{ color: one.tint }} /> : one.tint ? <span className="size-2.5 rounded-full" style={{ background: one.tint }} /> : null
+          const icon = one.icon ? <one.icon className="size-4" style={{ color: one.tint }} /> : one.tint ? <span className="size-2.5 rounded-full shrink-0" style={{ background: one.tint }} /> : null
           const on = chosen.includes(one.id)
           return many ? (
             // A box drawn for every option, ticked or not, so it reads as a
@@ -313,7 +313,7 @@ const Row = ({ label, changed, children }: { label: string; changed: boolean; ch
   <div className="grid grid-cols-[5.5rem_1fr] items-center gap-x-2 px-2.5 py-1">
     <div className="flex items-center gap-1.5 text-muted-foreground">
       {label}
-      {changed && <Tip label="Changed from how it starts"><span className="size-1.5 rounded-full bg-[var(--tt-brand-color-400)]" /></Tip>}
+      {changed && <Tip label="Changed from how it starts"><span className="size-1.5 rounded-full shrink-0 bg-[var(--tt-brand-color-400)]" /></Tip>}
     </div>
     {children}
   </div>
@@ -395,7 +395,7 @@ export function FilterChips<T>({ view, onChange, facets, defaults = {}, quick = 
     chime(list.includes(id) ? 'off' : 'on')
     onChange({ ...view, filter: { ...view.filter, [key]: list.includes(id) ? list.filter((one) => one !== id) : [...list, id] } })
   }
-  const icon = (one: Choice): ReactNode => (one.icon ? <one.icon className="size-3.5" style={{ color: one.tint }} /> : one.tint ? <span className="size-2 rounded-full" style={{ background: one.tint }} /> : null)
+  const icon = (one: Choice): ReactNode => (one.icon ? <one.icon className="size-3.5" style={{ color: one.tint }} /> : one.tint ? <span className="size-2 rounded-full shrink-0" style={{ background: one.tint }} /> : null)
   const chips = (
     // One line that scrolls sideways, fading where there is more, never wrapping under itself.
     // Only a chip itself toggles: a click in the space beside one does nothing (the light's own click-through is left out here).

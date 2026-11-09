@@ -274,7 +274,7 @@ export function TomorrowLines({ night, alsoAbove = false, label = 'A line for to
               <li data-tomorrow-line={task.id} className="mf-arrive flex items-start gap-2.5 py-1">
                 {/* A bullet, not a tick box: these are for tomorrow, ticked there. */}
                 {/* Clicked, the line's menu, as Today's grip opens it: a right click in the words would put the caret there first. */}
-                <span data-grip title="Click for its menu" onClick={openFromGrip} className="grid h-[1.4rem] w-[1.0625rem] shrink-0 cursor-pointer place-items-center rounded hover:bg-accent"><span aria-hidden className="size-1.5 rounded-full" style={{ background: task.status === 'done' ? 'var(--tt-color-text-green)' : 'var(--muted-foreground)' }} /></span>
+                <span data-grip title="Click for its menu" onClick={openFromGrip} className="grid h-[1.4rem] w-[1.0625rem] shrink-0 cursor-pointer place-items-center rounded hover:bg-accent"><span aria-hidden className="size-1.5 rounded-full shrink-0" style={{ background: task.status === 'done' ? 'var(--tt-color-text-green)' : 'var(--muted-foreground)' }} /></span>
                 <div className="min-w-0 flex-1">
                   <DayLine lineKey={`t:${one.id}`} register={field(`t:${one.id}`)} value={task.title} label={task.title} attrs={{ 'data-tomorrow-field': true }}
                     onKey={lineKeys(one)} onPaste={onPaste} onLeave={({ text }) => rename(task, text)}
@@ -400,7 +400,7 @@ export function TomorrowPreview({ at, on }: { at: string; on: boolean }): React.
         <p className="flex items-baseline gap-2"><span className="text-[0.9375rem] font-semibold text-foreground">{now.getHours() < NIGHT_ENDS ? 'For the morning' : 'For tomorrow'}</span><span className="text-xs font-medium text-muted-foreground">{dayjs(now).add(now.getHours() < NIGHT_ENDS ? 0 : 1, 'day').format('dddd')}</span></p>
         {['Email Sam the draft', 'Book the dentist'].map((line, n) => (
           <p key={line} className="mt-1 flex items-center gap-2 text-control text-foreground">
-            <span className="grid w-3 shrink-0 place-items-center"><span className="size-1.5 rounded-full bg-muted-foreground" /></span>{line}
+            <span className="grid w-3 shrink-0 place-items-center"><span className="size-1.5 rounded-full shrink-0 bg-muted-foreground" /></span>{line}
             {n === 1 && <span className="ml-auto text-xs text-muted-foreground tabular-nums">9:00</span>}
           </p>
         ))}

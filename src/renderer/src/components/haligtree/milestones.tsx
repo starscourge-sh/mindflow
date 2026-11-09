@@ -110,7 +110,7 @@ export function MilestoneAsker(): React.JSX.Element | null {
             <Tip key={one} label={one[0].toUpperCase() + one.slice(1)}>
               <button type="button" aria-label={one} aria-pressed={color === one} onClick={() => (chime('tap'), setColor(color === one ? null : one))}
                 className={`grid size-6 place-items-center rounded-full transition-transform hover:scale-110 ${color === one ? 'ring-2 ring-foreground/30 ring-offset-1 ring-offset-popover' : ''}`}>
-                <span className="size-3.5 rounded-full" style={{ background: `var(--tt-color-text-${one})` }} />
+                <span className="size-3.5 rounded-full shrink-0" style={{ background: `var(--tt-color-text-${one})` }} />
               </button>
             </Tip>
           ))}
@@ -552,7 +552,7 @@ export function NextMark({ className = '', withinDays = 365 }: { className?: str
         <span className="font-semibold text-foreground underline-offset-4 group-hover/mark:underline group-hover/mark:decoration-foreground/30">{countdown(next, today)}</span>
         <span className="text-muted-foreground"> · {dayName(noon(next.day))}</span>
       </span>
-      {left <= 30 && left > 0 && <span aria-hidden className="ml-auto flex shrink-0 gap-[3px]">{Array.from({ length: Math.min(left, 14) }, (_, at) => <span key={at} className="size-1 rounded-full" style={{ background: inkOf(next), opacity: 0.25 + (0.75 * (at + 1)) / Math.min(left, 14) }} />)}</span>}
+      {left <= 30 && left > 0 && <span aria-hidden className="ml-auto flex shrink-0 gap-[3px]">{Array.from({ length: Math.min(left, 14) }, (_, at) => <span key={at} className="size-1 rounded-full shrink-0" style={{ background: inkOf(next), opacity: 0.25 + (0.75 * (at + 1)) / Math.min(left, 14) }} />)}</span>}
     </button>
   )
 }

@@ -165,7 +165,7 @@ export function CollectPill({ editor }: { editor: Editor | null }): React.JSX.El
   if (!mine || !now) return null
   return createPortal(
     <div data-collecting="" role="status" style={middle === null ? undefined : { left: middle }} className={`fixed bottom-24 left-1/2 z-40 flex -translate-x-1/2 items-center gap-3 rounded-full py-1.5 pr-1.5 pl-4 text-[13px] ${FLOAT}`}>
-      <span aria-hidden className="size-2 rounded-full bg-primary motion-safe:animate-pulse" />
+      <span aria-hidden className="size-2 rounded-full shrink-0 bg-primary motion-safe:animate-pulse" />
       <span>
         Collecting what you copy{now.count ? <span className="text-muted-foreground"> · {now.count} so far</span> : null}
       </span>

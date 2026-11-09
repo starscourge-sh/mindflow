@@ -308,7 +308,7 @@ function PersonHead({ page, name }: { page: SourcePage | null; name: string }): 
             {photo && !over && (
               <Tip label="Change photo" side="right">
                 <button type="button" data-photo-change aria-label={`Change ${name}’s photo`} onClick={() => void pickAvatar(name)}
-                  className="absolute right-0 bottom-0 flex size-7 scale-90 items-center justify-center rounded-full border bg-popover text-muted-foreground opacity-0 shadow-sm transition-[opacity,scale,color,background-color] duration-200 ease-[var(--mf-ease)] hover:bg-accent hover:text-foreground focus-visible:scale-100 focus-visible:opacity-100 active:scale-95 motion-reduce:transition-[opacity] group-hover/photo:scale-100 group-hover/photo:opacity-100">
+                  className="absolute right-0 bottom-0 flex size-7 scale-90 items-center justify-center rounded-full shrink-0 border bg-popover text-muted-foreground opacity-0 shadow-sm transition-[opacity,scale,color,background-color] duration-200 ease-[var(--mf-ease)] hover:bg-accent hover:text-foreground focus-visible:scale-100 focus-visible:opacity-100 active:scale-95 motion-reduce:transition-[opacity] group-hover/photo:scale-100 group-hover/photo:opacity-100">
                   <Camera className="size-3.5" />
                 </button>
               </Tip>

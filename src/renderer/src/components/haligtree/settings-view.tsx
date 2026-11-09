@@ -167,7 +167,7 @@ export function Setting({ title, aka, children, note, more, below, beside, keywo
           <div className="text-body font-medium text-foreground">{naming ?? <Marked text={title} query={shown} />}{aka && <span className="ml-1.5 font-normal text-muted-foreground">(<Term>{aka}</Term>)</span>}
             {more && (
               <Tip label={more}>
-                <button type="button" data-setting-more aria-label={`More about ${quoted(title, 80)}`} className="relative after:absolute after:-inset-1 after:rounded-full ml-1.5 inline-grid size-4 translate-y-[-1px] place-items-center rounded-full border border-border align-middle text-[0.625rem] leading-none font-semibold text-muted-foreground transition-colors hover:border-foreground/40 hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring">?</button>
+                <button type="button" data-setting-more aria-label={`More about ${quoted(title, 80)}`} className="relative after:absolute after:-inset-1 after:rounded-full shrink-0 ml-1.5 inline-grid size-4 translate-y-[-1px] place-items-center rounded-full border border-border align-middle text-[0.625rem] leading-none font-semibold text-muted-foreground transition-colors hover:border-foreground/40 hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring">?</button>
               </Tip>
             )}
           </div>
@@ -375,7 +375,7 @@ function AppSize({ value, onSave }: { value: number; onSave: (value: number) => 
 function ControlsSample(): React.JSX.Element {
   return (
     <div data-controls-sample aria-hidden className="mt-3 mb-1 flex items-center gap-3 rounded-lg border border-border/60 bg-background/60 px-4 py-3 text-foreground">
-      <span className="inline-flex h-8 items-center gap-2 rounded-md bg-accent px-2.5 text-control"><span className="size-2 rounded-full bg-[var(--tt-color-text-blue)]" />Inbox<span className="text-muted-foreground tabular-nums">12</span></span>
+      <span className="inline-flex h-8 items-center gap-2 rounded-md bg-accent px-2.5 text-control"><span className="size-2 rounded-full shrink-0 bg-[var(--tt-color-text-blue)]" />Inbox<span className="text-muted-foreground tabular-nums">12</span></span>
       <span className="text-body">The quick brown fox jumps over the lazy dog.</span>
       <span className="ml-auto inline-flex h-8 items-center rounded-md border border-border px-3 text-control">Keep</span>
     </div>
@@ -1795,7 +1795,7 @@ function CelebrationPicks({ settings, on, set }: { settings: Settings; on: boole
                     <span aria-hidden className="pointer-events-none absolute inset-0 rounded-[inherit] ring-1 ring-foreground/10 ring-inset" />
                     {source === 'giphy' && !pin && shown && (
                       <Tip label="A different one each time">
-                        <span className="absolute right-1 bottom-1 grid size-5 place-items-center rounded-full bg-neutral-900 text-white"><Shuffle className="size-3" /></span>
+                        <span className="absolute right-1 bottom-1 grid size-5 place-items-center rounded-full shrink-0 bg-neutral-900 text-white"><Shuffle className="size-3" /></span>
                       </Tip>
                     )}
                   </span>

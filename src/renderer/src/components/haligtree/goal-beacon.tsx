@@ -418,14 +418,14 @@ export function GoalsSticky(): React.JSX.Element {
                     <span data-goals-road className="absolute top-1/2 h-1 -translate-y-1/2 rounded-[2px]" style={{ left: `${x(from)}%`, width: `${Math.max(0, Math.min(x(today), x(goal.goalAt!)) - x(from))}%`, background: ink }} />
                     {/* Its logs, small dots above the road. */}
                     {[...new Set(goal.glosses.map((one) => dayKey(one.createdAt)))].map((day) => (
-                      <span key={day} data-goals-log className="absolute top-0 size-1 -translate-x-1/2 rounded-full" style={{ left: `${x(day)}%`, background: ink }} />
+                      <span key={day} data-goals-log className="absolute top-0 size-1 -translate-x-1/2 rounded-full shrink-0" style={{ left: `${x(day)}%`, background: ink }} />
                     ))}
                     {/* The days marked for it: rings. */}
                     {marksOf(goal).filter((one) => one.day >= from && one.day <= goal.goalAt!).map((one) => (
-                      <span key={one.id} data-goals-mark={one.id} title={one.title} className="absolute top-1/2 size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 bg-popover" style={{ left: `${x(one.day)}%`, borderColor: ink }} />
+                      <span key={one.id} data-goals-mark={one.id} title={one.title} className="absolute top-1/2 size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full shrink-0 border-2 bg-popover" style={{ left: `${x(one.day)}%`, borderColor: ink }} />
                     ))}
                     {/* Its day: a full dot, ringed; past the year, off the edge, said in words above. */}
-                    {goal.goalAt! <= end && <span className="absolute top-1/2 size-3 -translate-x-1/2 -translate-y-1/2 rounded-full" style={{ left: `${x(goal.goalAt!)}%`, background: ink, boxShadow: `0 0 0 2px var(--popover), 0 0 0 3px ${ink}` }} />}
+                    {goal.goalAt! <= end && <span className="absolute top-1/2 size-3 -translate-x-1/2 -translate-y-1/2 rounded-full shrink-0" style={{ left: `${x(goal.goalAt!)}%`, background: ink, boxShadow: `0 0 0 2px var(--popover), 0 0 0 3px ${ink}` }} />}
                   </span>
                   </button>
                 )

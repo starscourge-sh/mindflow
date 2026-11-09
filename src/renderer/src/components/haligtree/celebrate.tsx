@@ -366,7 +366,7 @@ function usePutAway(onDone: () => void): { done: React.RefObject<(hand?: boolean
 }
 
 /** The small round buttons over the picture: solid near-black, so they read on any of them and the picture never shows through. */
-const OVER = 'absolute flex size-6 items-center justify-center rounded-full bg-neutral-900 text-white/90 transition-colors hover:bg-black hover:text-white'
+const OVER = 'absolute flex size-6 items-center justify-center rounded-full shrink-0 bg-neutral-900 text-white/90 transition-colors hover:bg-black hover:text-white'
 
 function Card({ moment, media, origin, fill, docked = false, onDone, onTooLong }: {
   moment: Moment

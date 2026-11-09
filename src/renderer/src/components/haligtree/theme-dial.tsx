@@ -287,7 +287,7 @@ function Detent({ theme, i, x, y, per, grow, turn, counter }: { theme: Theme; i:
   return (
     <motion.span
       data-detent={i}
-      className="absolute flex size-7 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full [--mf-swatch-ring:color-mix(in_oklab,var(--foreground)_4%,var(--background))]"
+      className="absolute flex size-7 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full shrink-0 [--mf-swatch-ring:color-mix(in_oklab,var(--foreground)_4%,var(--background))]"
       style={{ left: x, top: y, rotate: counter }}
     >
       <motion.span style={{ zoom: grow, scale, opacity }}>

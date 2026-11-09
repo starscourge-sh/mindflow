@@ -1247,7 +1247,7 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
             <span data-island-attached className="mt-1.5 flex h-7 items-center gap-2 pl-1 text-[12px] text-muted-foreground">
               {attached.picture ? <img src={attached.url} alt="" className="h-7 w-10 shrink-0 rounded-[4px] border object-cover" /> : <Paperclip className="size-3.5 shrink-0" />}
               <span className="min-w-0 flex-1 truncate">{attached.name}</span>
-              <button type="button" aria-label="Leave it out" onClick={() => (setAttached(null), chime('away'), field.current?.focus())} className="relative after:absolute after:-inset-1 after:rounded-full flex size-5 items-center justify-center rounded-full hover:bg-accent hover:text-foreground">
+              <button type="button" aria-label="Leave it out" onClick={() => (setAttached(null), chime('away'), field.current?.focus())} className="relative after:absolute after:-inset-1 after:rounded-full shrink-0 flex size-5 items-center justify-center rounded-full hover:bg-accent hover:text-foreground">
                 <XSmall className="size-3" />
               </button>
             </span>

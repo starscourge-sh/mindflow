@@ -1101,7 +1101,7 @@ function Closing({ total }: { total: number }): React.JSX.Element | null {
           <div className="flex h-11 items-center justify-center gap-3 pt-5 text-xs text-muted-foreground tabular-nums">
             {phase === 'dots' && total <= 12 ? (
               <span aria-hidden className="flex items-center gap-1.5">
-                {Array.from({ length: total }, (_, index) => <span key={index} className="size-1.5 rounded-full bg-[var(--tt-brand-color-400)]" />)}
+                {Array.from({ length: total }, (_, index) => <span key={index} className="size-1.5 rounded-full shrink-0 bg-[var(--tt-brand-color-400)]" />)}
               </span>
             ) : (
               <motion.span initial={flat ? false : { opacity: 0, transform: shift('scaleX(0.95)') }} animate={{ opacity: 1, transform: shift('scaleX(1)') }} transition={{ duration: 0.18, ease: EASE }} className="block w-28">

@@ -242,7 +242,7 @@ export function PropertyStrip({ table, id, kind, fields, text, created, updated,
                         {/* The tag is a way to its page, as everywhere (⌥-click beside); the × only takes it off. */}
                         <button type="button" data-tag-open={tag} {...hoverNote('tag', tag)} onClick={(event) => openTag(tag, event.altKey)} className="rounded-sm hover:underline">{tag}</button>
                         <Tip label={`Take #${tag} off this note`}>
-                          <button type="button" aria-label={`Remove #${tag}`} className="grid size-4 place-items-center rounded-full opacity-70 hover:bg-foreground/10 hover:opacity-100" onClick={() => untag(tag, strip.current)}><X className="size-3" /></button>
+                          <button type="button" aria-label={`Remove #${tag}`} className="grid size-4 place-items-center rounded-full shrink-0 opacity-70 hover:bg-foreground/10 hover:opacity-100" onClick={() => untag(tag, strip.current)}><X className="size-3" /></button>
                         </Tip>
                       </span>
                     ))}
@@ -334,7 +334,7 @@ function AddTag({ node }: { node: () => HTMLElement | null }): React.JSX.Element
   if (!open) return (
     <Tip label="Add a tag">
       <button type="button" data-tag-add aria-label="Add a tag" onClick={() => (chime('tap'), setOpen(true))}
-        className="grid size-6 place-items-center rounded-full text-muted-foreground hover:bg-foreground/[0.06] hover:text-foreground"><Plus className="size-3.5" /></button>
+        className="grid size-6 place-items-center rounded-full shrink-0 text-muted-foreground hover:bg-foreground/[0.06] hover:text-foreground"><Plus className="size-3.5" /></button>
     </Tip>
   )
   return (
