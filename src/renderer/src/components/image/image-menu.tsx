@@ -170,7 +170,7 @@ export function ImageMenu({ editor }: { editor: Editor | null }): React.JSX.Elem
                   // Gone as far as the hand is concerned while its paper crumples: no right-click, click or drag on it
                   // (a fast right-click opened its menu on a picture already on its way out).
                   dom?.setAttribute("inert", "")
-                  const away = crumpleAway(dom, 1500)
+                  const away = crumpleAway(dom)
                   // Out of the note only once the paper has landed: crumpled, tossed, and then the words close up
                   // over the room it left, never the two at once.
                   const remove = (): void => {

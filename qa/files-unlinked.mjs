@@ -54,7 +54,16 @@ async function crumple() {
   const img = h.locator(`${ED} img`).first()
   await img.click()
   await wait(500)
+  const n = await h.locator(`${ED} img`).count()
+  // How long the paper crumples before the picture leaves the note: the Bin's own crumple (CRUMPLE_MS, 650ms), not the 1.5s it was.
+  const gone = h.evaluate(({ ED, n }) => new Promise((done) => {
+    const t0 = performance.now()
+    const tick = () => (document.querySelectorAll(`${ED} img`).length < n || performance.now() - t0 > 4000 ? done(Math.round(performance.now() - t0)) : requestAnimationFrame(tick))
+    tick()
+  }), { ED, n })
   await h.locator('[aria-label="Delete image"]').first().click()
+  const ms = await gone
+  check('the picture crumples for the Bin\'s time, then leaves the note (under 1.2s)', ms < 1200, `${ms}ms`)
   await wait(2600)
   return toastText()
 }
