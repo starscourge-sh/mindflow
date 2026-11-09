@@ -133,10 +133,10 @@ try {
   const b1 = await beside()
   check('1: it floats beside its slot, not over it, as tall as its words', !b1.overlap && b1.gap >= 4 && b1.gap <= 16 && b1.short && b1.inside, JSON.stringify(b1))
   // Filmed every 50ms as it goes (Esc): it shrinks back into its slot by a clip, never fades and never slides.
-  const xs = []
-  const film = setInterval(() => void h.locator('[data-day-side]').evaluate((el) => [Math.round(el.getBoundingClientRect().left), getComputedStyle(el).opacity, getComputedStyle(el).clipPath]).then((one) => xs.push(one)).catch(() => xs.push(null)), 30)
+  // Recorded in the page every frame, so a slow round trip never misses the close.
+  await h.evaluate(() => { window.__film = []; const tick = () => { const el = document.querySelector('[data-day-side]'); if (!el) return; window.__film.push([Math.round(el.getBoundingClientRect().left), getComputedStyle(el).opacity, getComputedStyle(el).clipPath]); requestAnimationFrame(tick) }; requestAnimationFrame(tick) })
   await h.keyboard.press('Escape'); await h.waitForTimeout(450)
-  clearInterval(film)
+  const xs = await h.evaluate(() => window.__film)
   const seen = xs.filter((one) => one && one[1] !== '')
   check('1: Esc closes it back into its slot (a clip, no fade)', (await h.locator('[data-day-side]').count()) === 0 && seen.every((one) => one[1] === '1') && seen.some((one) => /inset\((?!0px 0px 0px 0px)/.test(one[2])), JSON.stringify(seen.slice(0, 6)))
   check('1: the grid is still where it was', JSON.stringify(await gridBox()) === JSON.stringify(before))
