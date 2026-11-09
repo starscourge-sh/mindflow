@@ -103,7 +103,7 @@ export function Pile({ shelf, files, onOpen }: { shelf: (typeof SHELVES)[number]
       </span>
       <span className="flex min-w-0 items-baseline gap-1.5 px-0.5 text-body">
         <span className="font-medium text-foreground">{shelf.label}</span>{' '}
-        <span className="text-muted-foreground tabular-nums" aria-label={plural(files.length, shelf.one, shelf.many)}>· {num(files.length)}</span>
+        <span role="img" className="text-muted-foreground tabular-nums" aria-label={plural(files.length, shelf.one, shelf.many)}>· {num(files.length)}</span>
       </span>
     </button>
   )

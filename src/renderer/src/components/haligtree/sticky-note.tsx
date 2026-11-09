@@ -635,11 +635,11 @@ export function StickyNote({ type, id }: { type: string; id: string }): React.JS
           slot={todos.length > 0 && !left ? 'basis-15' : ''}
           count={todos.length > 0 && (left ? (
             // How far through its checklist lines: green once all are done, settling rather than celebrating.
-            <span className="text-xs text-muted-foreground tabular-nums" aria-label={`${todos.length - left} of ${num(todos.length)} done`}>
+            <span role="img" className="text-xs text-muted-foreground tabular-nums" aria-label={`${todos.length - left} of ${num(todos.length)} done`}>
               <Rolling text={`${num(todos.length - left)}/${num(todos.length)}`} by="word" />
             </span>
           ) : (
-            <span key={glint} className={`@container flex w-full justify-end text-xs whitespace-nowrap text-(--tt-color-text-green) ${glint ? 'mf-sticky-glint' : ''}`} aria-label={todos.length === 1 ? 'Done' : 'All done'}>
+            <span role="img" key={glint} className={`@container flex w-full justify-end text-xs whitespace-nowrap text-(--tt-color-text-green) ${glint ? 'mf-sticky-glint' : ''}`} aria-label={todos.length === 1 ? 'Done' : 'All done'}>
               <span className="hidden @min-[3.25rem]:inline"><Rolling text={todos.length === 1 ? 'Done' : 'All done'} by="word" /></span>
               <span className="@min-[3.25rem]:hidden">✓</span>
             </span>

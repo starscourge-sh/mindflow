@@ -118,7 +118,7 @@ export function WelcomePointer({ root, phrases, marks, line, move }: { root: Ref
 export function Condense({ text, on, quick, delay = 0, stagger = 0.06, each }: { text: string; on: boolean; quick: boolean; delay?: number; stagger?: number; /** Each word dressed inside its own moving span (a shine has to sit inside, or the move hides it). */ each?: (word: string) => React.ReactNode }): React.JSX.Element {
   const words = text.split(' ')
   return (
-    <span aria-label={text}>
+    <span role="img" aria-label={text}>
       {words.map((word, i) => (
         <Fragment key={i}>
           <motion.span aria-hidden className="inline-block" initial={false}

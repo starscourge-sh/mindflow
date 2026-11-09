@@ -943,7 +943,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
                 } else if (event.key === "Escape") closeFind()
               }}
             />
-            <span className="tiptap-find-bar-count" aria-label={`${num(found.length ? at + 1 : 0)} of ${num(found.length)}`}>
+            <span role="img" className="tiptap-find-bar-count" aria-label={`${num(found.length ? at + 1 : 0)} of ${num(found.length)}`}>
               <Roll text={found.length ? at + 1 : 0} />/<Roll text={found.length} />
             </span>
             <button type="button" onClick={() => stepFind(true)} aria-label="Previous match" title="Previous  ⇧↵">

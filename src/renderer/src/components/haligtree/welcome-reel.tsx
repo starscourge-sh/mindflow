@@ -417,7 +417,7 @@ export function PostcardResult({ words, who, where, signed, id = 'reel-item-quot
 export function Rise({ text, still, delay = 0 }: { text: string; still: boolean; delay?: number }): React.JSX.Element {
   const words = text.split(' ')
   return (
-    <span aria-label={text}>
+    <span role="img" aria-label={text}>
       {words.map((word, i) => (
         <Fragment key={i}>
           <span aria-hidden className="-mb-[0.14em] inline-block overflow-clip pb-[0.14em] align-top">

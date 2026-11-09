@@ -417,7 +417,7 @@ export function Blurt({ tag, onClose }: { tag: string; onClose: () => void }): R
     <section aria-label="Blurt" data-blurt="writing" className="flex min-h-0 flex-1 flex-col gap-3 px-5 py-6">
       <div className="flex items-baseline gap-3">
         <h2 className="flex-1 font-heading text-title font-semibold tracking-[-0.018em]">Write everything you remember about #{tag}</h2>
-        <span className={`text-lg font-medium tabular-nums ${left < 30000 ? 'text-[var(--tt-color-text-orange)]' : 'text-foreground'}`} aria-label="Time left">{clock(left)}</span>
+        <span role="img" className={`text-lg font-medium tabular-nums ${left < 30000 ? 'text-[var(--tt-color-text-orange)]' : 'text-foreground'}`} aria-label="Time left">{clock(left)}</span>
       </div>
       <p className="text-sm text-muted-foreground">Without looking. Anything at all: names, numbers, half a sentence. When the time is up, or you are done, it shows what you left out.</p>
       <Textarea ref={box} value={text} onChange={(event) => setText(event.target.value)} placeholder="Start anywhere…"

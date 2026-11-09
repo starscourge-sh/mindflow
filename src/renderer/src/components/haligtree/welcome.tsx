@@ -1095,7 +1095,7 @@ const FOR_YOU: Partial<Record<NonNullable<Setup['use']>, Partial<Record<Where, s
 const forYou = (setup: Setup | undefined, at: Where): string => plainOf((setup?.use && FOR_YOU[setup.use]?.[at]) || '')
 function ForYou({ setup, at }: { setup?: Setup; at: Where }): React.JSX.Element | null {
   const said = setup?.use ? FOR_YOU[setup.use]?.[at] : undefined
-  return said ? <span data-for-you aria-label={plainOf(said)} className="mt-1 block font-medium text-foreground">{parts(said).map((part, i) => (part.key ? <Shine key={i}>{part.text}</Shine> : <span key={i}>{part.text}</span>))}</span> : null
+  return said ? <span role="img" data-for-you aria-label={plainOf(said)} className="mt-1 block font-medium text-foreground">{parts(said).map((part, i) => (part.key ? <Shine key={i}>{part.text}</Shine> : <span key={i}>{part.text}</span>))}</span> : null
 }
 
 /** The words that carry a line's point: the accent with a light passing over it now and then (main.css, .mf-sheen). */

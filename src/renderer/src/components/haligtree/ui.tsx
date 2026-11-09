@@ -2544,7 +2544,7 @@ export function Rolling({ text, className = '', by = 'character', eager = false,
     if ((event.target as HTMLElement).hasAttribute('data-roll-last')) setRoll((at) => (at.n === n ? { ...at, was: null } : at))
   }
   return (
-    <span ref={el} data-roll="" className={cn('mf-roll', className)} aria-label={now} onAnimationEnd={was === null ? undefined : settled}>
+    <span role="img" ref={el} data-roll="" className={cn('mf-roll', className)} aria-label={now} onAnimationEnd={was === null ? undefined : settled}>
       {was === null ? now : by === 'word' ? wordCells(was, now, up, n) : charCells(was, now, up, n)}
     </span>
   )

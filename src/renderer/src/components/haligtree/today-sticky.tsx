@@ -143,7 +143,7 @@ export function TodaySticky(): React.JSX.Element {
         <Tape inside={GLASS} />
         <StickyHead title="Today" open={asking}
           count={todos.length > 0 && (
-            <span className="text-xs whitespace-nowrap tabular-nums" style={{ color: allDone ? 'var(--tt-color-text-green)' : 'var(--muted-foreground)' }} aria-label={todaySaid(todos.length - finished, finished)}>
+            <span role="img" className="text-xs whitespace-nowrap tabular-nums" style={{ color: allDone ? 'var(--tt-color-text-green)' : 'var(--muted-foreground)' }} aria-label={todaySaid(todos.length - finished, finished)}>
               <Rolling text={todaySaid(todos.length - finished, finished)} by="word" />
             </span>
           )}

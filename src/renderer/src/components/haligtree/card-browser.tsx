@@ -195,7 +195,7 @@ function DueAhead({ cards }: { cards: BrowsedCard[] }): React.JSX.Element | null
   const said = `${num(total)} due in the next 30 days, most ${when} (${num(most)})`
   return (
     <Tip label={said}>
-      <span data-due-ahead={total} aria-label={said} className="flex items-center gap-1.5 text-xs font-normal text-muted-foreground">
+      <span role="img" data-due-ahead={total} aria-label={said} className="flex items-center gap-1.5 text-xs font-normal text-muted-foreground">
         <svg width={60} height={14} viewBox="0 0 60 14" aria-hidden className="text-foreground/80">
           {days.map((n, at) => <rect key={at} x={at * 2} y={14 - Math.max(n ? 2 : 1, (n / most) * 14)} width={1.4} height={Math.max(n ? 2 : 1, (n / most) * 14)} fill="currentColor" opacity={n ? (at === peak ? 1 : 0.75) : 0.3} />)}
         </svg>

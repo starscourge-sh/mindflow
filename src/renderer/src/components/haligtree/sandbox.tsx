@@ -160,7 +160,7 @@ export function SandboxStamp({ inline = false }: { inline?: boolean }): React.JS
   const glass = new URLSearchParams(location.search).has('glass')
   if (glass !== inline) return null
   return (
-    <span aria-label="Sandbox" title={SAID}
+    <span role="img" aria-label="Sandbox" title={SAID}
       style={{ ...TAPE, backgroundColor: 'color-mix(in srgb, var(--tt-color-text-yellow) 14%, var(--popover))' }}
       className={`pointer-events-none ${inline ? 'relative shrink-0 self-center' : 'absolute -top-[7px] left-3 z-10'} rounded-[3px] border border-dashed px-1 py-px text-[10px] leading-none font-semibold`}>
       Sandbox
