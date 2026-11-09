@@ -22,14 +22,15 @@ try {
 
   // Today's lines with odd words: an emoji typed into a line was dropped from
   // the task (the editor holds it as its own node, which the line's reader skipped).
-  await h.evaluate(() => localStorage.setItem('view:tasks:today', JSON.stringify({ sort: 'manual', group: 'page' })))
-  await h.reload(); await h.waitForTimeout(1500); await c.go('today'); await h.waitForTimeout(1500)
+  // Written straight into Today's list ("Write out my day").
+  await c.go('today'); await h.waitForTimeout(1500)
   const before = new Set((await v('tasks')).map((one) => one.id))
-  await h.locator('[data-new="now"] .ProseMirror').click()
+  await h.locator('[data-write-day]').click(); await h.waitForTimeout(400)
   for (const line of ['🎉 שלום party', 'x 🎉 y', '<script>alert(1)</script> #123', '#daily tomorrow 5pm']) {
-    await h.keyboard.insertText(line); await h.keyboard.press('Enter'); await h.waitForTimeout(500)
+    await h.keyboard.insertText(line); await h.keyboard.press('Enter'); await h.waitForTimeout(700)
   }
-  for (let i = 0; i < 6; i++) await h.keyboard.press('Enter')
+  // An empty line ends the writing; the Enters after it open rows, which Escape puts away.
+  await h.keyboard.press('Enter'); await h.waitForTimeout(300)
   await h.waitForTimeout(800)
   const made = (await v('tasks')).filter((one) => !before.has(one.id)).map((one) => one.title)
   check('an emoji typed in a Today line stays in the task', made.includes('🎉 שלום party') && made.includes('x 🎉 y'), made.join(' | '))

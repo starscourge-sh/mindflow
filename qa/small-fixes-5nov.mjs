@@ -33,10 +33,9 @@ try {
   const made = await v('task:add', 'Probe: render the first video')
   const id = made?.id ?? made
   await v('task:save', id, { due: new Date(Date.now() - 3 * 864e5).toISOString() })
-  // "Still open from before" heads Today written out as a day (its view, as qa/day-keys.mjs sets it).
-  await h.evaluate(() => localStorage.setItem('view:tasks:today', JSON.stringify({ sort: 'manual', group: 'page' })))
+  // Still open from before: under "Overdue" at the top of Today's list.
   await h.reload(); await wait(1500); await go('today'); await wait(2500)
-  const row = h.locator(`[data-before="${id}"]`)
+  const row = h.locator(`[data-task-row][data-id="${id}"]`)
   check('Still open: the task is listed', (await row.count()) === 1)
   await row.click({ button: 'right' }); await wait(500)
   const items = await h.evaluate(() => [...document.querySelectorAll('[role=menu] [role=menuitem]')].map((one) => one.textContent.trim()))
@@ -44,10 +43,11 @@ try {
   await h.keyboard.press('Escape'); await wait(300)
   await row.hover(); await wait(200)
   await shoot('still-open-bin')
-  await h.locator(`[data-before-bin="${id}"]`).click(); await wait(1200)
+  await row.click({ button: 'right' }); await wait(500)
+  await h.locator('[role=menu] [role=menuitem]', { hasText: 'Move to the Bin' }).first().click(); await wait(1200)
   const task = await v('task', id)
-  check('Still open: the trash button moves it to the Bin', task?.status === 'dropped' || task?.status === 'discarded' || !!task?.discardedAt || !!task?.binnedAt, JSON.stringify(task && { status: task.status }))
-  check('Still open: it leaves the list', (await h.locator(`[data-before="${id}"]`).count()) === 0)
+  check('Still open: "Move to the Bin" moves it to the Bin', task?.status === 'dropped' || task?.status === 'discarded' || !!task?.discardedAt || !!task?.binnedAt, JSON.stringify(task && { status: task.status }))
+  check('Still open: it leaves the list', (await row.count()) === 0)
 
   // 3. A list row's grip shows as soon as the pointer is on the row, not after a wait.
   await go('articles'); await wait(1500)

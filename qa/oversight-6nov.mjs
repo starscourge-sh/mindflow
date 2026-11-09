@@ -50,12 +50,10 @@ try {
   if (left < count) (await h.keyboard.press('Meta+z'), await wait(900))
   // Add a step, on a line with none.
   await go('today'); await wait(1200)
-  const write = h.locator('button', { hasText: 'Write out my day' }).first()
-  if (await write.count()) (await write.click({ timeout: 5000 }), await wait(800))
   const made = await v('task:add', 'A line with no steps', undefined, true)
   await v('task:save', made.id, { due: new Date().toISOString() })
   await wait(1000)
-  await h.locator(`[data-day-line="${made.id}"] [data-line]`).first().click({ button: 'right' })
+  await h.locator(`[data-task-row][data-id="${made.id}"]`).first().click({ button: 'right' })
   await wait(400)
   await h.getByRole('menuitem', { name: /Add a step/ }).first().click()
   await wait(600)
@@ -64,13 +62,13 @@ try {
   await wait(900)
   check('"Add a step" adds one to a line with none', (await v('task', made.id)).subtasks?.[0]?.text === 'its first step', JSON.stringify((await v('task', made.id)).subtasks))
   await h.keyboard.press('Escape')
-  // A done task's menu, no doubled lines and no stray ends.
-  await v('task:done', made.id); await wait(900)
+  // A task's menu on Today, with its "Add a step": no doubled lines and no stray ends.
+  await wait(600)
   await h.evaluate(() => document.activeElement?.blur())
-  await h.locator(`[data-day-line="${made.id}"]`).first().click({ button: 'right', position: { x: 300, y: 10 } })
+  await h.locator(`[data-task-row][data-id="${made.id}"]`).first().click({ button: 'right', position: { x: 300, y: 10 } })
   await wait(400)
   const seps = await h.evaluate(() => { const kids = [...document.querySelector('[role="menu"]').querySelectorAll('[role="menuitem"], [role="separator"]')].map((one) => one.getAttribute('role')); return { first: kids[0], last: kids.at(-1), twice: kids.some((one, i) => one === 'separator' && kids[i + 1] === 'separator') } })
-  check('a done task\'s menu has no doubled or stray lines', seps.first !== 'separator' && seps.last !== 'separator' && !seps.twice, JSON.stringify(seps))
+  check('a task\'s menu on Today has no doubled or stray lines', seps.first !== 'separator' && seps.last !== 'separator' && !seps.twice, JSON.stringify(seps))
   await h.keyboard.press('Escape')
   // Settings: left for a page by a click starts on Your book, but Back returns to where you were.
   await go('settings'); await wait(800)

@@ -1,4 +1,4 @@
-// @ in Today's new line and in the "For tomorrow" box: the editor's @ menu opens under the line, notes only; picked
+// @ in the "For tomorrow" box under Today: the editor's @ menu opens under the line, notes only; picked
 // (Enter, or a click), the note's name takes the place of the @ and what was typed, and the task made from the line
 // is made from that note: it shows the note's name under its words, a click opening it. A day in the note's name
 // ("Friday") is never read as the task's day. Pictures in light and dark.
@@ -28,7 +28,6 @@ try {
     { type: 'paragraph', content: [{ type: 'text', text: 'Beans by the fence, tomatoes in pots.' }] }
   ] } }))
   const noteId = typeof note === 'string' ? note : note?.id
-  await h.evaluate(() => localStorage.setItem('view:tasks:today', JSON.stringify({ sort: 'manual', group: 'page' })))
   await h.reload(); await wait(1500); await go('today'); await wait(2500)
   const menu = () => h.evaluate(() => [...document.querySelectorAll('.tiptap-suggestion-popup .tiptap-slash-menu-title')].map((one) => one.textContent))
   // A line's words as read back: a note picked shows as its name.
@@ -37,34 +36,8 @@ try {
   const open = () => h.$('.tiptap-suggestion-popup:visible')
   const task = async (words) => (await v('tasks')).find((one) => one.title.startsWith(words))
 
-  // Today's new line.
-  const line = h.locator('[data-new=now] .ProseMirror')
-  await line.click(); await wait(200)
-  await h.keyboard.type('Sow the seeds from @garden', { delay: 25 }); await wait(900)
-  const rows = await menu()
-  check('@ in Today\'s new line opens the note menu under it', rows.some((one) => one.includes('Garden plans')), rows.join(' | '))
-  check('the menu offers notes only, no tasks or tags', !(await h.evaluate(() => [...document.querySelectorAll('.tiptap-suggestion-popup .tiptap-note-link-type')].some((one) => /Task|Tag|Person/.test(one.textContent)))))
-  const look = await h.evaluate(() => { const box = document.querySelector('.tiptap-suggestion-popup').getBoundingClientRect(); const field = document.querySelector('[data-new=now]').getBoundingClientRect(); return { below: box.top >= field.bottom - 4 && box.top - field.bottom < 16 } })
-  check('it sits just under the line', look.below, JSON.stringify(look))
-  await shot('mentions-menu')
-  await h.keyboard.press('Enter'); await wait(400)
-  const typed = await words('[data-new=now]')
-  check('Enter picks: the note\'s name takes the place of the @ and what was typed', typed.startsWith('Sow the seeds from ') && typed.includes('Garden plans for Friday') && !typed.includes('@'), JSON.stringify(typed))
-  check('the menu closes once picked', !(await open()))
-  await h.keyboard.press('Enter'); await wait(1500)
-  let made = await task('Sow the seeds')
-  check('the task is made from the note', made?.fromId === noteId && made?.captureId === noteId, JSON.stringify({ fromId: made?.fromId, noteId }))
-  const today = new Date(c.now()).toDateString()
-  check('"Friday" in the note\'s name is not read as its day', made?.dueAt && new Date(made.dueAt).toDateString() === today && made.title.includes('Friday'), JSON.stringify({ due: made?.dueAt, title: made?.title }))
-  const from = h.locator(`[data-day-line="${made?.id}"] [data-from-note]`)
-  check('its line shows the note\'s name', (await from.count()) === 1 && (await from.innerText()).includes('Garden plans'), await from.count() ? await from.innerText() : 'none')
-
-  // Escape closes the menu and keeps the words.
-  await line.click(); await h.keyboard.type('Ask @gar', { delay: 25 }); await wait(900)
-  await h.keyboard.press('Escape'); await wait(300)
-  check('Escape closes the menu, the words kept, the line still being written', !(await open()) && (await words('[data-new=now]')) === 'Ask @gar' && await inLine('[data-new=now]'), await words('[data-new=now]'))
-  await h.keyboard.press('Meta+a'); await h.keyboard.press('Backspace'); await h.keyboard.press('Escape'); await wait(300)
-
+  // Today's own list is written in with the task line (qa/day-merge.mjs); @ notes are the "For tomorrow" box's.
+  let made
   // The "For tomorrow" box, with a click this time.
   const box = h.locator('[data-tomorrow-new] .ProseMirror')
   check('the "For tomorrow" box is there in the evening', (await box.count()) === 1)
@@ -94,7 +67,7 @@ try {
   check('a name taken back out of the words leaves the task unlinked', made && !made.fromId, JSON.stringify({ title: made?.title, fromId: made?.fromId }))
 
   // Clicked, the name opens the note.
-  await from.scrollIntoViewIfNeeded(); await from.click(); await wait(1500)
+  await from2.scrollIntoViewIfNeeded(); await from2.click(); await wait(1500)
   const opened = await h.evaluate(() => document.querySelector('.haligtree-editor-content, [data-note-window]')?.textContent?.includes('Beans by the fence') ?? false)
   check('the note\'s name opens the note', opened)
 } catch (error) {
