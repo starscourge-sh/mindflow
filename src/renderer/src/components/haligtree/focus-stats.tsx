@@ -63,7 +63,7 @@ export function Bars({ values, tips, tint, className, highlight, peak }: { value
           {/* A pill of the ink, round at both ends, at most 10 px wide so a short row never turns into blocks; a day with none keeps a faint stub. */}
           <div className="flex h-full flex-1 items-end justify-center">
             <div {...(value ? { 'data-mark': '' } : {})}
-              className="w-full max-w-2.5 rounded-full transition-[height] duration-240"
+              className="w-full max-w-2.5 rounded-none transition-[height] duration-240"
               style={{
                 height: value ? `max(6px, ${(value / max) * 100}%)` : '2px',
                 background: value ? (tint?.(index) ?? INK) : INK_NONE,
@@ -239,7 +239,7 @@ export function FocusSections({ example }: { example: boolean }): React.JSX.Elem
 
       {ran > 0 && (
         <Section title="How sessions end" big={{ value: `${finishedShare}%`, label: 'ran their full length' }}>
-          <div data-focus-ends data-chart="focus-ends" className="flex h-2.5 gap-[2px] overflow-hidden rounded-full">
+          <div data-focus-ends data-chart="focus-ends" className="flex h-2.5 gap-[2px] overflow-hidden rounded-none">
             {(['finished', 'early', 'abandoned'] as const).filter((one) => focus.outcomes[one]).map((one) => (
               <div key={one} data-mark style={{ width: `${(focus.outcomes[one] / ran) * 100}%`, background: TINT[one] }} />
             ))}
@@ -280,7 +280,7 @@ export function FocusSections({ example }: { example: boolean }): React.JSX.Elem
                 </button>
                 <span className="text-right tabular-nums text-foreground"><strong className="font-semibold">{timeSaid(one.minutes)}</strong> · {plural(one.sessions, 'session', 'sessions')}</span>
                 <span className="col-span-2 h-1.5">
-                  <span data-mark className="block h-full min-w-1.5 rounded-full" style={{ width: `${Math.max(2, (one.minutes / focus.top[0].minutes) * 100)}%`, background: INK }} />
+                  <span data-mark className="block h-full min-w-1.5 rounded-none" style={{ width: `${Math.max(2, (one.minutes / focus.top[0].minutes) * 100)}%`, background: INK }} />
                 </span>
               </div>
               </RowMenu>
@@ -308,8 +308,8 @@ export function FocusSections({ example }: { example: boolean }): React.JSX.Elem
                     {one.grew && <span data-grew className="ml-2 font-medium text-foreground">Grew: {timeSaid(one.first)} to {timeSaid(one.last)} a session</span>}
                   </span>
                   <span className="relative col-span-2 h-2">
-                    <span data-mark className="block h-full min-w-2 rounded-full" style={{ width: `${Math.max(2, (one.minutes / most) * 100)}%`, background: one.minutes > focus.taskTimes.average ? INK : INK_LOW }} />
-                    <span aria-hidden className="absolute -top-1 -bottom-1 w-0.5 rounded-full bg-foreground/70" style={{ left: `${(focus.taskTimes.average / most) * 100}%` }} />
+                    <span data-mark className="block h-full min-w-2 rounded-none" style={{ width: `${Math.max(2, (one.minutes / most) * 100)}%`, background: one.minutes > focus.taskTimes.average ? INK : INK_LOW }} />
+                    <span aria-hidden className="absolute -top-1 -bottom-1 w-0.5 rounded-none bg-foreground/70" style={{ left: `${(focus.taskTimes.average / most) * 100}%` }} />
                   </span>
                 </div>
               ))}
@@ -418,7 +418,7 @@ export function GoalSection({ example }: { example: boolean }): React.JSX.Elemen
   return (
     <Section title="Goals" big={ended ? { value: made, label: `made it, of ${plural(ended, 'goal', 'goals')} ended` } : { value: open, label: open === 1 ? 'goal under way' : 'goals under way' }}>
       {ended > 0 && (
-        <div data-goal-tally data-chart="goal-tally" className="flex h-2.5 gap-[2px] overflow-hidden rounded-full">
+        <div data-goal-tally data-chart="goal-tally" className="flex h-2.5 gap-[2px] overflow-hidden rounded-none">
           {parts.filter((one) => one.n).map((one) => <div key={one.label} data-mark style={{ width: `${(one.n / ended) * 100}%`, background: one.tint }} />)}
         </div>
       )}
@@ -445,7 +445,7 @@ export function TagSection({ example }: { example: boolean }): React.JSX.Element
           <div key={one.tag} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 text-sm">
             <span className="truncate font-medium text-foreground">#{one.tag}</span>
             <span className="text-right text-foreground tabular-nums"><strong className="font-semibold">{num(one.dealt)}</strong> dealt with · <strong className="font-semibold">{num(one.waiting)}</strong> waiting</span>
-            <span className="col-span-2 flex h-1.5 gap-[2px] overflow-hidden rounded-full" style={{ width: `${Math.max(4, ((one.dealt + one.waiting) / top) * 100)}%` }}>
+            <span className="col-span-2 flex h-1.5 gap-[2px] overflow-hidden rounded-none" style={{ width: `${Math.max(4, ((one.dealt + one.waiting) / top) * 100)}%` }}>
               {one.dealt > 0 && <span data-mark className="h-full" style={{ flex: one.dealt, background: INK }} />}
               {one.waiting > 0 && <span data-mark className="h-full" style={{ flex: one.waiting, background: INK_LOW }} />}
             </span>

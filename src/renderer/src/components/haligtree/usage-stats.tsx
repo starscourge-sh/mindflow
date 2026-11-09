@@ -18,8 +18,8 @@ function Row({ name, n, total, most }: { name: string; n: number; total: number;
   return (
     <div data-usage-row={name} className="flex items-center gap-3 text-sm">
       <span className="w-52 shrink-0 truncate text-foreground">{name}</span>
-      <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-border/60">
-        <span className="block h-full rounded-full bg-muted-foreground/45" style={{ width: most ? `${(n / most) * 100}%` : 0 }} />
+      <span className="h-1.5 flex-1 overflow-hidden rounded-none bg-border/60">
+        <span className="block h-full rounded-none bg-muted-foreground/45" style={{ width: most ? `${(n / most) * 100}%` : 0 }} />
       </span>
       <span className="min-w-10 shrink-0 text-right font-semibold text-foreground"><Count n={n} /></span>
       <span className="w-10 shrink-0 text-right tabular-nums">{share(n, total)}</span>

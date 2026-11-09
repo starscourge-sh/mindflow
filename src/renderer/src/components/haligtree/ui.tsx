@@ -2651,7 +2651,7 @@ export function Island({ title, actions, children, className, compact, name, gro
     </section>
   )
 }
-const ISLAND = 'mf-island divide-y divide-border/60 overflow-hidden border bg-accent/25'
+export const ISLAND = 'mf-island divide-y divide-border/60 overflow-hidden border bg-accent/25'
 const ISLAND_COMPACT = 'rounded-lg [&>*]:rounded-none [&>button]:w-full [&>textarea]:border-0 [&>textarea]:bg-transparent [&>textarea]:shadow-none [&>textarea]:focus-visible:ring-0 [&>input]:border-0 [&>input]:bg-transparent [&>input]:shadow-none [&>input]:focus-visible:ring-0'
 
 /**

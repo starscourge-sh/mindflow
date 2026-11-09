@@ -13,8 +13,8 @@ const { check, done } = checks()
 const c = await sandbox({ width: 1400, height: 900 })
 const { h, v, go } = c
 const shown = () => h.$$eval('section[data-group]', (all) => all.filter((one) => one.checkVisibility()).map((one) => one.dataset.group))
-const chip = (name) => h.locator(`button[aria-pressed][aria-label="${name}"]`).first()
-const spot = () => h.evaluate(() => [...document.querySelectorAll('button[aria-pressed]')].filter((one) => /At a glance|Your month|Your year/.test(one.getAttribute('aria-label'))).map((one) => Math.round(one.getBoundingClientRect().x)).join(','))
+const chip = (name) => h.locator(`[data-chips="stats"] button[aria-label="${name}"]`).first()
+const spot = () => h.evaluate(() => [...document.querySelectorAll('[data-chips="stats"] button')].filter((one) => /At a glance|Your month|Your year/.test(one.getAttribute('aria-label'))).map((one) => Math.round(one.getBoundingClientRect().x)).join(','))
 try {
   await v('settings:set', { motion: false })
   await go('stats')
@@ -39,7 +39,7 @@ try {
     // Laid out hidden until read is fine; what counts is that no other set of parts was ever on show.
     check(`"${name}" draws once`, frames.filter((one) => one).every((one) => one === pages[name].join('|')), JSON.stringify(frames))
     check(`the chips stay put on "${name}"`, (await spot()) === at, `${at} then ${await spot()}`)
-    check(`"${name}" offers its play-back`, (await h.locator('[data-stats-recap] button').count()) === 1)
+    check(`"${name}" offers its play-back`, (await h.locator('[data-stats-recap] button').count()) === (name === 'Your month' ? 2 : 1))
   }
   const every = [...pages.glance, ...pages['Your month'], ...pages['Your year']]
   check('every part is on exactly one page', new Set(every).size === every.length, every.join(' | '))
@@ -48,7 +48,7 @@ try {
   check('nothing was lost', !lost.length, lost.join(', '))
   console.log(`     At a glance: ${pages.glance.join(' | ')}\n     Your month: ${pages['Your month'].join(' | ')}\n     Your year: ${pages['Your year'].join(' | ')}`)
   // The year's play-back opens over the page.
-  await h.locator('[data-stats-recap] button').click()
+  await h.locator('[data-stats-recap] button').first().click()
   await h.waitForTimeout(1200)
   check('"Your year, page by page" opens the year', (await shown()).length === 0 || /year/i.test(await h.evaluate(() => document.body.innerText.slice(0, 2000))))
   await h.keyboard.press('Escape')

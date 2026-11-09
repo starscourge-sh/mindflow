@@ -29,7 +29,7 @@ try {
   await c.go('stats')
   await wait(1200)
   // "Your month" is the longest of Stats' three pages (stats-short.mjs): the list is tried there.
-  await h.click('button[aria-pressed][aria-label="Your month"]')
+  await h.click('[data-chips="stats"] [data-chip="month"]')
   await wait(1000)
 
   check(await h.locator(toc).count() === 1, 'Stats has a contents list')
