@@ -57,7 +57,11 @@ const snapshot = (c) => c.h.evaluate(async () => {
 const stub = (c) => c.electron.evaluate(({ app }) => {
   globalThis.__relaunched = null
   const children = process.mainModule.require('child_process')
-  children.spawn = (_command, args) => (globalThis.__relaunched = args ?? [], { unref() {}, on() {}, kill() {} })
+  // Only the app starting itself again counts: anything else it starts meanwhile (a helper, a tool) is not a restart.
+  const spawn = children.spawn
+  children.spawn = (command, args, ...rest) => (args ?? []).some((one) => String(one).endsWith('index.js')) || command === process.execPath
+    ? (globalThis.__relaunched = args ?? [], { unref() {}, on() {}, kill() {} })
+    : spawn.call(children, command, args, ...rest)
   app.relaunch = (options) => void (globalThis.__relaunched = options?.args ?? [])
   app.quit = () => void (globalThis.__quit = true)
   app.exit = () => void (globalThis.__quit = true)
