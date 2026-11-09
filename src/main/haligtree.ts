@@ -129,6 +129,15 @@ function notesAsMarkdown(db: DatabaseSync, assets: string, live = false): Map<st
 /** The editor's nodes that hold a line of words and inline pieces, not blocks. */
 const INLINE_HOLDERS = new Set(['paragraph', 'heading', 'codeBlock'])
 /** A body as words; `links` keeps each @ link as `[[@nugget:id|Label]]`, for a card that shows them as links. */
+/** A goal's state changing, said in the dev terminal with its book and process, to find changes that do not stick
+ *  (9 Nov 2026: a goal iced and binned came back open). Off in a packaged app. */
+const goalLog = (what: string, id: string, note = ''): void => {
+  if (app.isPackaged) return
+  const row = database().prepare("select title, tier from nuggets where id = ?").get(id) as { title: string; tier: string } | undefined
+  if (row?.tier !== 'goal') return
+  console.log(`[goal] ${new Date().toISOString()} pid ${process.pid} ${what}: "${row.title}" ${note} in ${app.getPath('userData')}`)
+}
+
 export function plain(value: unknown, links = false): string {
   if (typeof value === 'string') {
     // Markdown: fenced blocks and `inline code` keep their words but not their "#".
@@ -2234,7 +2243,9 @@ export function registerHaligtree(): void {
     // A calendar event goes by the same door (events.ts).
     if (eventToBin(id)) return true
     if (practiceToBin(id)) return true
-    return db.prepare("update nuggets set binned_at = ?, binned_was = json_object('pinned_at', pinned_at, 'archived_at', archived_at), archived_at = coalesce(archived_at, ?), pinned_at = null where id = ?").run(now(), now(), id)
+    const done = db.prepare("update nuggets set binned_at = ?, binned_was = json_object('pinned_at', pinned_at, 'archived_at', archived_at), archived_at = coalesce(archived_at, ?), pinned_at = null where id = ?").run(now(), now(), id)
+    goalLog('to the Bin', id, done.changes ? '' : '(no row changed)')
+    return done
   }
   const outOfBin = (type: string, id: string): void => {
     if (type === 'capture') db.prepare("update captures set status = coalesce(binned_was, 'open'), binned_was = null where id = ? and status = 'discarded'").run(id)
@@ -2669,6 +2680,7 @@ export function registerHaligtree(): void {
   handle('goal:close', (id: string, how: 'made it' | 'missed' | 'let go' | 'on ice', at?: string | null) => {
     if (!['made it', 'missed', 'let go', 'on ice'].includes(how)) return null
     const done = db.prepare("update nuggets set closed_at = ?, closed_how = ? where id = ? and tier = 'goal'").run(at || now(), how, id).changes > 0
+    goalLog('close', id, `${how}${done ? '' : ' (no row changed)'}`)
     goalsTold()
     return write(done)
   })
@@ -2687,6 +2699,7 @@ export function registerHaligtree(): void {
   })
   handle('goal:reopen', (id: string) => {
     const done = db.prepare("update nuggets set closed_at = null, closed_how = null where id = ? and tier = 'goal'").run(id).changes > 0
+    goalLog('reopen', id, done ? '' : '(no row changed)')
     goalsTold()
     return write(done)
   })
