@@ -31,7 +31,7 @@ export const dayThree = (tasks: Task[]): string[] =>
 /** A task's number among the day's three, quiet in the margin; green once it is done. */
 export function ThreeMark({ n, done = false, className = '' }: { n: number; done?: boolean; className?: string }): React.JSX.Element {
   return (
-    <span data-three={n} aria-label={`One of today's three, number ${n}`} className={`text-control font-semibold tabular-nums ${className}`}
+    <span data-three={n} role="img" aria-label={`One of today's three, number ${n}`} className={`text-control font-semibold tabular-nums ${className}`}
       style={{ color: done ? 'var(--tt-color-text-green)' : 'var(--foreground)' }}>{n}</span>
   )
 }

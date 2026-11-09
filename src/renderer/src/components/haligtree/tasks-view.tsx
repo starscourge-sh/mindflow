@@ -1,4 +1,5 @@
 import { TabChips } from './tab-chips'
+import { SortableList, SortableRow } from './sortable'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { remindersItem } from '@/lib/reminders'
 import { useToday } from '@/lib/use-today'
@@ -725,7 +726,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
   const unfold = (list: Task[]): void => setUnfolded({ ids: list.map((task) => task.id), at: performance.now() })
   // Nothing of this list's yet: a few made-up tasks show what it holds, dimmed and out of reach.
   // Written in, the list is yours from the first line: the made-up tasks give way to it.
-  const [writing, setWriting] = useState<{ after: string | null; step?: string; text: string } | null>(null)
+  const [writing, setWriting] = useState<{ after: string | null; /** A line above this task (⇧O) rather than under `after`. */ before?: string; step?: string; text: string } | null>(null)
   const example = !writing && !unloaded(real) && !unloaded(held) && !real.some((task) => task.status === 'open' && (mode === 'routines' ? !!task.recurrence : mode === 'later' ? homeOf(task) === 'later' : mode === 'upcoming' ? !task.recurrence : true)) && !held.length
   const examples = useMemo(exampleTasks, [])
   const tasks = example ? examples : real
@@ -762,17 +763,18 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
     if (!writing) return
     caretWanted.current = true
     const put = (): void => void (writeRef.current && takeCaret(writeRef.current))
-    put()
+    // A menu still closing hands the caret back to its row as it goes: the line waits for that, then takes it.
+    if (!document.querySelector('[role="menu"]')) put()
     if (!caretWanted.current) return
-    // Asked from ⌘K: the palette holds the caret until it closes and hands it back, and then it comes to the line.
+    // Asked from ⌘K or a right-click menu: it holds the caret until it closes and hands it back, and then it comes to the line.
     const handed = (event: FocusEvent): void => {
-      if ((event.target as HTMLElement | null)?.closest?.('[role="dialog"]')) return
+      if ((event.target as HTMLElement | null)?.closest?.('[role="dialog"], [role="menu"]')) return
       document.removeEventListener('focusin', handed)
       put()
     }
     document.addEventListener('focusin', handed)
     return () => document.removeEventListener('focusin', handed)
-  }, [writing?.after, writing?.step, !writing]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [writing?.after, writing?.before, writing?.step, !writing]) // eslint-disable-line react-hooks/exhaustive-deps
   // Or as the Matrix: only today's tasks, in its four boxes; the Matrix's own keys and drags take over.
   const matrixed = mode === 'today' && view.group === 'matrix'
   const facets = taskFacets(tasks)
@@ -886,9 +888,10 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
   const rows: (Task | { heading: string; count: number; key: string } | { writer: true })[] = groups.flatMap(([heading, list, key]) => (key === 'held' || key === 'late' ? [{ heading, count: key === 'held' ? held.length : lateHere.length, key }, ...list] : list.length ? [{ heading, count: list.length, key: key ?? heading }, ...list] : []))
   // The line being written, right under the task it follows (a step is written inside its task's row), or at the end of the day's own tasks.
   if (writing && !writing.step && !example) {
+    const above = writing.before ? rows.findIndex((row) => 'id' in row && row.id === writing.before) : -1
     const after = writing.after ? rows.findIndex((row) => 'id' in row && row.id === writing.after) : -1
     const foot = rows.findIndex((row) => 'key' in row && (row.key === 'held' || row.key === 'blocked' || row.key === 'Waiting on someone'))
-    rows.splice(after >= 0 ? after + 1 : foot >= 0 ? foot : rows.length, 0, { writer: true })
+    rows.splice(above >= 0 ? above : after >= 0 ? after + 1 : foot >= 0 ? foot : rows.length, 0, { writer: true })
   }
   // The day's three: the first three of today's tasks as the list shows them, numbered in the margin.
   const three = mode === 'today' && view.group === 'when' && !example ? shown.filter((task) => dayOf(task) < startOfDay(1) && !task.waitingOn).slice(0, 3).map((task) => task.id) : []
@@ -909,8 +912,8 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
     const at = shown.findIndex((one) => one.id === open?.id)
     if (at >= 0 && !example) readAhead('task', [shown[at - 1]?.id, shown[at + 1]?.id])
   }, [open?.id]) // eslint-disable-line react-hooks/exhaustive-deps
-  // On Today, ↵ on a row starts a new line under it (the list is written in); Space opens it, as a click does.
-  const [cursor, setCursor] = useListKeys(example ? 0 : shown.length, { onOpen: (index) => (mode === 'today' && !example ? startWriting(shown[index].id) : pick(shown[index].id)), enabled: !matrixed, opened: shown.findIndex((one) => one.id === (coming ?? open?.id)), onExtend: (from, to) => several.extend(shown[from]?.id, shown[to].id),
+  // ↵ opens the row, as on every list; on Today, O (or ⌘↵) starts a new line under it and ⇧O one above it.
+  const [cursor, setCursor] = useListKeys(example ? 0 : shown.length, { onOpen: (index) => pick(shown[index].id), enabled: !matrixed, opened: shown.findIndex((one) => one.id === (coming ?? open?.id)), onExtend: (from, to) => several.extend(shown[from]?.id, shown[to].id),
     // Esc in the list puts the open task away, as its ✕ does: never while some are picked (Esc lets those go first) or a menu is up.
     onEscape: () => void (open && !several.chosen.length && !document.querySelector('[role="menu"], [role="dialog"]') && (chime('fold'), setOpen(null))) })
   // Back from the Bin by Undo: open again if a task was open, else the keyboard on its row.
@@ -964,7 +967,10 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
       }
       const task = example ? undefined : shown[cursor]
       if (!task) return
-      if (event.key === ' ' && mode === 'today' && !event.metaKey && !event.ctrlKey && !event.altKey && !event.shiftKey) return (event.preventDefault(), pick(task.id))
+      if (mode === 'today' && !event.ctrlKey && !event.altKey && ((event.key === 'Enter' && event.metaKey) || (!event.metaKey && (event.key === 'o' || event.key === 'O')))) {
+        event.preventDefault()
+        return event.key === 'O' ? (chime('tap'), setWriting({ after: shown[cursor - 1]?.id ?? null, before: task.id, text: '' })) : startWriting(task.id)
+      }
       // ⌥J ⌥K, or ⌥↓ ⌥↑ as on every list: the same keys move a task wherever it is shown.
       if (event.altKey && !event.metaKey && ['KeyJ', 'KeyK', 'ArrowDown', 'ArrowUp'].includes(event.code)) {
         event.preventDefault()
@@ -1011,9 +1017,30 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
       quietly(() => void haligtree.saveTask(task.id, { subtasks })))
   }
 
+  // --- dragging on Today ----------------------------------------------------
+  const sortable = mode === 'today' && !example && view.group === 'when' && !several.chosen.length
+  /** A row dropped among the rows: your own order from now on, with ⌘Z. */
+  const moveRow = (id: string, target: string, after: boolean): void => {
+    const was = shown.map((task) => ({ id: task.id, patch: { sortOrder: task.sortOrder } }))
+    const order = shown.map((task) => task.id).filter((one) => one !== id)
+    order.splice(order.indexOf(target) + (after ? 1 : 0), 0, id)
+    if (view.sort !== 'manual') setView({ ...view, sort: 'manual' })
+    chime('shift')
+    void haligtree.saveTasks(order.map((one, n) => ({ id: one, patch: { sortOrder: n } }))).then(() => quietly(() => void haligtree.saveTasks(was)))
+  }
+  /** A row dropped on the Upcoming tab goes to tomorrow; on Later, to someday. Said, with Undo. */
+  const dropOnTab = (id: string, place: string): void => {
+    const task = shown.find((one) => one.id === id)
+    if (!task) return
+    if (place === 'upcoming') return moveTo(task, 1)
+    const was = { due: task.dueAt ?? null, plan: task.planFor ?? null }
+    chime('later')
+    void haligtree.saveTask(id, { due: null, plan: 'someday' }).then(() => toast('Moved to Later, someday', () => void haligtree.saveTask(id, was)))
+  }
+
   // --- writing in Today's list ---------------------------------------------
   /** A written line made a task on Today, right under the task it was written after, in your order. Gives back its id. */
-  const writeTask = async (text: string, after: string | null): Promise<string | null> => {
+  const writeTask = async (text: string, after: string | null, before?: string): Promise<string | null> => {
     const ids = shown.map((task) => task.id)
     const made = await haligtree.addTask(text, undefined, true)
     if (made.existed) {
@@ -1023,8 +1050,8 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
     }
     chime('noted')
     const order = ids.filter((id) => id !== made.id)
-    const at = after ? order.indexOf(after) + 1 : order.length
-    order.splice(at > 0 ? at : order.length, 0, made.id)
+    const at = before ? order.indexOf(before) : after && order.includes(after) ? order.indexOf(after) + 1 : order.length
+    order.splice(at >= 0 ? at : order.length, 0, made.id)
     if (view.sort === 'manual') await haligtree.saveTasks(order.map((id, n) => ({ id, patch: { sortOrder: n } })))
     // Seen being made, so no notice: ⌘Z takes it back.
     quietly(() => void haligtree.unmakeTask(made.id, false, [], []))
@@ -1044,7 +1071,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
     const text = writing.text.trim()
     setWriting(null)
     caretWanted.current = false
-    if (keep && text) void (writing.step ? writeStep(writing.step, text) : writeTask(text, writing.after))
+    if (keep && text) void (writing.step ? writeStep(writing.step, text) : writeTask(text, writing.after, writing.before))
     // The keyboard back on the row the line was under.
     const at = shown.findIndex((task) => task.id === (writing.step ?? writing.after))
     if (at >= 0) setCursor(at)
@@ -1059,7 +1086,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
       if (!text) return writing.step ? (chime('untuck'), setWriting({ after: writing.step, text: '' })) : stopWriting(false)
       setWriting({ ...writing, text: '' })
       if (writing.step) return writeStep(writing.step, text)
-      void writeTask(text, writing.after).then((id) => id && setWriting((now) => (now && !now.step ? { ...now, after: id } : now)))
+      void writeTask(text, writing.after, writing.before).then((id) => id && setWriting((now) => (now && !now.step ? { after: id, text: now.text } : now)))
       return
     }
     if (event.key === 'Tab' && plain) {
@@ -1077,7 +1104,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
   /** The line itself, in the list's own words: a task line or a step under its task. */
   const writeLine = (step: boolean): React.JSX.Element => (
     // Drawn again in a new place (the list coming in, the made-up tasks giving way), it takes the caret back unless something else holds it.
-    <TaskInput inputRef={(node) => void ((writeRef.current = node), node && (caretWanted.current || !document.activeElement || document.activeElement === document.body) && takeCaret(node))} value={writing?.text ?? ''} onChange={(text) => setWriting((now) => (now ? { ...now, text } : now))} onKeyDown={writeKeys}
+    <TaskInput inputRef={(node) => void ((writeRef.current = node), node && (caretWanted.current || !document.activeElement || document.activeElement === document.body) && !document.querySelector('[role="menu"]') && takeCaret(node))} value={writing?.text ?? ''} onChange={(text) => setWriting((now) => (now ? { ...now, text } : now))} onKeyDown={writeKeys}
       onBlur={(event) => void (event.currentTarget.isConnected && stopWriting())}
       label={step ? 'A new step' : 'A new task on Today'} placeholder={step ? 'A step, then ↵ for the next' : 'A task, then ↵ for the next: “call Sam 3pm #work !!”'} />
   )
@@ -1089,7 +1116,9 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
   // Their pill on the list's box edge and their words on its ink edge, as every row of tabs (qa/list-edges.mjs).
   const lead = (
     <div data-list-tabs className="flex" style={{ marginLeft: 'calc(var(--list-edge) - var(--list-ink) - 3px)' }}>
-      <TabChips name="tasks" tabs={TASK_TABS.map((one) => ({ value: one.id as string, label: one.label }))} value={mode} onChange={(id) => onOpen?.('view', id)} />
+      <TabChips name="tasks" tabs={TASK_TABS.map((one) => ({ value: one.id as string, label: one.label }))} value={mode} onChange={(id) => onOpen?.('view', id)}
+        // Today's rows, dragged onto a tab, go there.
+        drops={mode === 'today' ? { upcoming: 'upcoming', later: 'later' } : undefined} />
     </div>
   )
   const writeOut = (
@@ -1225,6 +1254,10 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
           <Example on={example} tryIt={TRY_TASKS[mode]}>
           <div ref={rowsBox} {...rowsHover.handlers} className="relative isolate">
           <Highlight spot={rowsHover.spot} session={rowsHover.session} snap={rowsHover.snap} className="bg-accent/25" />
+          {/* On Today, a row is dragged into your own order, or onto the Upcoming or Later tab. */}
+          <SortableList items={shown} keyOf={(task) => task.id} onMove={sortable ? moveRow : undefined}
+            places={sortable ? { drop: dropOnTab, said: (place) => (place === 'upcoming' ? 'Drop to do it tomorrow' : 'Drop to put it in Later, someday') } : undefined}>
+          {() => (
           <VirtualList
             items={rows}
             keyOf={(row) => ('writer' in row ? 'writer' : 'id' in row ? row.id : `heading-${row.key}`)}
@@ -1272,8 +1305,11 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
               const later = bucket(task)
               const subtasks = task.subtasks ?? []
               return (
+                      <SortableRow key={task.id} id={task.id}>
                       <RowMenu items={several.menu(task) ?? [
                         ...taskMenu(task, { open: () => pick(task.id), complete: () => complete(task), frog: frogOn(settings), now, thought: () => setGlossing(task.id) }),
+                        // On Today, a step written in place under it, as a line is.
+                        ...(mode === 'today' && task.status === 'open' ? ['separator' as const, { label: 'Add a step', hint: 'Something to do as part of it', run: () => (chime('tuck'), setWriting({ after: task.id, step: task.id, text: '' })) }] : []),
                         ...several.rowItems(task.id)
                       ]}>
                       <div
@@ -1285,7 +1321,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
                         style={fresh(task.id) > 0 ? { animationDelay: `${Math.min(fresh(task.id), 8) * 30}ms` } : undefined}
                       >
                         {/* One of the day's three: its number in the margin before the circle. */}
-                        {three.includes(task.id) && <ThreeMark n={three.indexOf(task.id) + 1} className="absolute top-2 right-full mr-1 w-3 text-right" />}
+                        {three.includes(task.id) && <ThreeMark n={three.indexOf(task.id) + 1} className="absolute top-2 right-full mr-1 w-3 text-right max-sm:hidden" />}
                         <Tip label="Complete">
                         <button
                           type="button"
@@ -1360,9 +1396,12 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
                         <GlossButton className="static -mt-0.5 shrink-0" onClick={() => setGlossing(task.id)} />
                       </div>
                       </RowMenu>
+                      </SortableRow>
               )
             }}
           </VirtualList>
+          )}
+          </SortableList>
           </div>
           </Example>
         ) : reading ? null : mode === 'today' && dayDone > 0 ? (

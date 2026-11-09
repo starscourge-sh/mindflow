@@ -3,7 +3,7 @@
 // written has the list's circle on the list's edge, its words start where a
 // row's words start at the same size, and it is as tall as a row. Typed lines
 // become rows in place, ↵ makes the next, ⇥ a step of the one above, ⇧⇥ out,
-// ⌫ on an empty line takes it away, Esc leaves; ↵ on a row starts a line under
+// ⌫ on an empty line takes it away, Esc leaves; O on a row starts a line under
 // it, a click under the list starts one at the end; the bar never moves. Frames
 // every 50ms while three tasks and a step are typed, light and dark.
 //   QA_SHOTS=dir QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/day-merge.mjs
@@ -101,13 +101,13 @@ try {
     check(`${theme}: three tasks were made, each once`, (await titles()).filter((one) => one.endsWith(` ${suffix}`)).length === 3, (await titles()).join(', '))
   }
 
-  // ↵ on a row starts a line right under it, and opens nothing.
+  // O on a row starts a line right under it, and opens nothing.
   await h.mouse.move(5, 5)
   await h.keyboard.press('ArrowDown'); await wait(250)
   const first = await h.evaluate(() => document.querySelector('[data-task-row][data-cursor] [data-task-title] span.truncate')?.textContent.trim())
-  await h.keyboard.press('Enter'); await wait(500)
+  await h.keyboard.press('o'); await wait(500)
   let now = await read()
-  check('↵ on a row starts a new line under it, and opens no task', now.writer?.focused && now.writer.after === first && !now.panel, `${now.writer?.after} / ${first}`)
+  check('O on a row starts a new line under it, and opens no task', now.writer?.focused && now.writer.after === first && !now.panel, `${now.writer?.after} / ${first}`)
   await h.keyboard.type('Left alone')
   await h.keyboard.press('Escape'); await wait(800)
   now = await read()
