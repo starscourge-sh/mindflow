@@ -1,3 +1,4 @@
+import { pathToFileURL } from 'node:url'
 import { app, BrowserWindow, dialog, ipcMain } from 'electron'
 import { randomBytes, randomUUID } from 'crypto'
 import { existsSync, readFileSync, statSync } from 'fs'
@@ -21,6 +22,13 @@ import { cut } from './clip'
  * the book takes it in the next time it opens, after its own database is
  * ready. The book it came from is only read.
  */
+
+/**
+ * Another book's file, looked into without touching it: no lock taken and no lock file written beside it, so a peek
+ * from the sandbox leaves your own folder byte for byte as it was. Only for a book not open anywhere, whose last
+ * close folded every save into the file.
+ */
+const peek = (file: string): DatabaseSync => new DatabaseSync(pathToFileURL(file).href + '?immutable=1', { readOnly: true })
 
 export const DEFAULT_NAME = 'My book'
 /** "default" for My book, a book's id, or "sandbox": what the renderer and the menus pass around. */
@@ -331,7 +339,7 @@ export function registerBooks(backupBase: () => string, onChange: () => void): v
     if (!file || !existsSync(file)) return forget()
     let other: DatabaseSync | null = null
     try {
-      other = new DatabaseSync(file, { readOnly: true })
+      other = peek(file)
       const row = other.prepare(`select s.id, s.task_id as taskId, coalesce(s.goal, t.title, case s.kind when 'focus' then 'Focus' else 'Timer' end) as goal, s.started_at as startedAt, s.planned_ms as plannedMs,
         s.paused_ms as pausedMs, s.paused_at as pausedAt, s.rounds, s.kind, s.extended_ms as extendedMs from sessions s left join tasks t on t.id = s.task_id
         where s.ended_at is null and (t.id is not null or s.task_id = '') order by s.started_at desc limit 1`).get()
@@ -349,7 +357,7 @@ export function registerBooks(backupBase: () => string, onChange: () => void): v
     if (!file || !existsSync(file)) return null
     let other: DatabaseSync | null = null
     try {
-      other = new DatabaseSync(file, { readOnly: true })
+      other = peek(file)
       const row = other.prepare("select value from settings where key = 'progressBars'").get() as { value: string } | undefined
       return row ? JSON.parse(row.value) : 'line'
     } catch {
