@@ -416,7 +416,10 @@ export function BlockMenu({
 
       <DropdownMenuContent
         align="start"
-        side={point?.height ? "bottom" : "right"}
+        // From the grip it opens beside it, to the left in the margin, never over the line it
+        // acts on (Radix turns it right only when the margin has no room); a right-click opens at the pointer, as on the Mac.
+        side={point ? (point.height ? "bottom" : "right") : "left"}
+        sideOffset={6}
         className="tiptap-block-menu"
         // Closing hands focus back to the anchor by default, which took it
         // straight out of a caption just opened from here (an empty caption
@@ -479,26 +482,11 @@ export function BlockMenu({
 
         {/* A note with no block handles (read-only, a card, a sticky): the clicked thing's lines alone. */}
         {clickedOnly ? null : underClicked(<>
-        {convertible && !term && !apart ? (
-          <div className="tiptap-slash-menu-group">Turn into</div>
-        ) : null}
-        {convertible && (!apart || term) ? conversionRows : null}
+        {/* Filtered, its conversions are found flat with the rest; otherwise they wait in "Turn into ›", after the actions. */}
+        {convertible && term ? conversionRows : null}
 
         {term ? null : <div className="tiptap-slash-menu-group" data-kind-heading={kindName ?? undefined}>{kindName ?? "Block"}</div>}
 
-        {/* Under a clicked thing the block's conversions fold into one line, as a submenu. */}
-        {convertible && apart && !term ? (
-          <DropdownMenuSub>
-            <DropdownMenuSubTrigger data-turn-into-sub>
-              <MenuGlyph label="Turn it into" />
-              <span className="tiptap-slash-menu-title">Turn into</span>
-              <span className="tiptap-slash-menu-hint">&rsaquo;</span>
-            </DropdownMenuSubTrigger>
-            <DropdownMenuSubContent className="tiptap-block-menu tiptap-block-menu-sub">
-              <div className="tiptap-block-menu-list mf-more">{conversionRows}</div>
-            </DropdownMenuSubContent>
-          </DropdownMenuSub>
-        ) : null}
 
         {/* A divider's two looks, each offered on the other. */}
         {rule && matches(rule.label) ? (
@@ -740,6 +728,20 @@ export function BlockMenu({
         </DropdownMenuSub>
         ) : null}
 
+        {/* The actions first, as Notion and Craft have them; the block's other shapes are one step away. */}
+        {convertible && !term ? (
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger data-turn-into-sub>
+              <MenuGlyph label="Turn it into" />
+              <span className="tiptap-slash-menu-title">Turn into</span>
+              <span className="tiptap-slash-menu-hint">&rsaquo;</span>
+            </DropdownMenuSubTrigger>
+            <DropdownMenuSubContent className="tiptap-block-menu tiptap-block-menu-sub">
+              <div className="tiptap-block-menu-list mf-more">{conversionRows}</div>
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
+        ) : null}
+
         {stored && editor.isEditable && matches("Keep in Files") ? (
           <DropdownMenuItem asChild>
             <button type="button" data-keep-in-files aria-checked={kept} role="menuitemcheckbox" onClick={() => at(() => void keepInFiles(stored, !kept))}>
@@ -784,11 +786,6 @@ export function BlockMenu({
         </>)}
         </div>
 
-        {/* As Notion ends its menu: the way out, always in sight under the list. */}
-        <button type="button" className="tiptap-menu-close" data-close-menu onClick={() => onOpenChange(false)}>
-          <span>Close menu</span>
-          <Kbd>esc</Kbd>
-        </button>
       </DropdownMenuContent>
     </DropdownMenu>
   )
