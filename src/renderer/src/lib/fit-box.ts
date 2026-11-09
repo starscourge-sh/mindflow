@@ -175,11 +175,14 @@ export function useFitBox(column: RefObject<HTMLElement | null>, full: boolean, 
   const room = useCallback((): boolean => {
     const root = document.documentElement
     const popped = Boolean(document.querySelector(POPS))
-    const card = cardHeight()
+    // The card's height read only with a pop-up open: read on every change to the page (the observer below), it laid
+    // the whole box out in the middle of each draw, about 60 ms of opening a task from the list (qa/open-speed-big.mjs).
+    let read: number | null = null
+    const card = (): number => (read ??= cardHeight())
     // Room round the card (main's overhang): a pop-up in a short box gets room below the card's foot, the window
     // growing down while the card stays put; only where the screen has no room there does the card grow, as before.
     if (ROOM && !held.current && !document.hidden) {
-      const ask = popped && !grewForPop.current && card < FULL - 1 ? Math.max(0, FULL - card - MENU_ROOM) : 0
+      const ask = popped && !grewForPop.current && card() < FULL - 1 ? Math.max(0, FULL - card() - MENU_ROOM) : 0
       if (!popped) grewForPop.current = false
       if (ask !== below.current) {
         below.current = ask
@@ -187,7 +190,7 @@ export function useFitBox(column: RefObject<HTMLElement | null>, full: boolean, 
         // The card is held at its height while the window grows room under it: the page's own room below is a fixed
         // 48px, so unheld the card stretched into the new room, read as taller, gave the room back, shrank, and asked
         // again, the window jumping between the two sizes every few frames while the slash menu flipped above and below.
-        if (ask) pin(card)
+        if (ask) pin(card())
         void window.api.roomBelow(ask).then((given) => {
           if (below.current !== ask) return
           if (!ask) return unpin()
@@ -199,7 +202,7 @@ export function useFitBox(column: RefObject<HTMLElement | null>, full: boolean, 
         })
       }
     }
-    const short = !ROOM && !held.current && !document.hidden && card < FULL - 1 && popped
+    const short = !ROOM && !held.current && !document.hidden && popped && card() < FULL - 1
     if (short) {
       // Never left hidden if the box cannot grow (no room on the screen).
       if (!('growing' in root.dataset)) setTimeout(() => delete root.dataset.growing, 500)

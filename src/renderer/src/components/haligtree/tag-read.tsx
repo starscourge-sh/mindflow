@@ -522,9 +522,8 @@ function TagBand({ wash, children }: { wash: string | null; children: React.Reac
     let small = 1
     let frame = 0
     // Drawn from where the page is scrolled: 0 at rest, 1 once held.
-    const draw = (): void => {
+    const draw = (top = scroller.scrollTop): void => {
       frame = 0
-      const top = scroller.scrollTop
       const done = rise > 0 ? Math.min(1, Math.max(0, top / rise)) : top > 0 ? 1 : 0
       const now = still() ? (top > 0 ? 1 : 0) : done
       const scale = 1 - (1 - small) * now
@@ -533,20 +532,24 @@ function TagBand({ wash, children }: { wash: string | null; children: React.Reac
       box.toggleAttribute('data-stuck', top > 0 && top >= rise)
     }
     // What rises: from the band's top to the name's foot, less a one-line name and the small gap kept above it.
+    // Everything read first, then everything written: a read after a write laid the whole page out again, twice more,
+    // in the frame a tag opens (about 30 ms of the click, qa/open-speed-big.mjs).
     const measure = (): void => {
       const size = parseFloat(getComputedStyle(title).fontSize) || STUCK_TITLE
       small = Math.min(1, STUCK_TITLE / size)
       // Its foot stays put as it shrinks (it shrinks toward its bottom left), so it can be read at any scroll.
       const foot = title.getBoundingClientRect().bottom - box.getBoundingClientRect().top
       const height = title.offsetHeight
+      const tall = box.offsetHeight
+      const top = scroller.scrollTop
       rise = Math.max(0, Math.round(foot - height * small - 8))
       box.style.top = `${-rise}px`
-      page.style.setProperty('--tag-band', `${box.offsetHeight - rise}px`)
+      page.style.setProperty('--tag-band', `${tall - rise}px`)
       // A row reached with the keys stops under the band, not behind it.
-      scroller.style.scrollPaddingTop = `${box.offsetHeight - rise}px`
-      draw()
+      scroller.style.scrollPaddingTop = `${tall - rise}px`
+      draw(top)
     }
-    const onScroll = (): void => void (frame ||= requestAnimationFrame(draw))
+    const onScroll = (): void => void (frame ||= requestAnimationFrame(() => draw()))
     const watch = new ResizeObserver(measure)
     watch.observe(box)
     measure()
