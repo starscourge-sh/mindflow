@@ -1,3 +1,4 @@
+import { onlyInTitles } from './title-names'
 import { app, ipcMain } from 'electron'
 import { writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
@@ -126,6 +127,13 @@ const common = (word: string): boolean => {
   return everyday.has(word)
 }
 
+/** The titles of works in the book: notes' titles longer than a name, and where quotes and gems are from. */
+const works = (all: { title?: string | null }[]): string[] => {
+  const from = database().prepare("select distinct medium as title from captures where medium is not null and medium != '' union select distinct medium from nuggets where medium is not null and medium != ''").all() as { title: string }[]
+  return [...all.map((row) => row.title ?? ''), ...from.map((one) => one.title)].filter((title) => title.split(/\s+/).length >= 3)
+}
+
+
 /** What a note, as it now reads, is offered. `linked`: the notes it already links to. */
 async function forNote(key: string, text: string, linked: string[]): Promise<NoteOffers> {
   const { index: book, rows: all } = await index()
@@ -147,7 +155,11 @@ async function forNote(key: string, text: string, linked: string[]): Promise<Not
     links: linksIn(book, text, read.lemmas, key, new Set(linked)).slice(0, 3),
     same: same ? { key: same.key, title: title(same.key) } : null,
     folder,
-    people: peopleIn((names.names as { text: string; kind: string }[] | undefined) ?? [], common, (name) => people.has(name.toLowerCase())).map((name) => ({ name, known: people.has(name.toLowerCase()) }))
+    // A name met only inside the title of a work (a note's title, a book you keep, where a quote is from) is a
+    // character in it, not a person you know: "The Picture of Dorian Gray" offers no Dorian Gray.
+    people: peopleIn((names.names as { text: string; kind: string }[] | undefined) ?? [], common, (name) => people.has(name.toLowerCase()))
+      .filter((name) => people.has(name.toLowerCase()) || !onlyInTitles(text, name, works(all)))
+      .map((name) => ({ name, known: people.has(name.toLowerCase()) }))
   }
 }
 
