@@ -1955,7 +1955,7 @@ For the #astrophysics exam. Kepler's first law says every planet moves on an ell
 \`\`\`graph
 x^2/25 + y^2/(25*(1 - c^2)) = 1 {blue}
 (x - 5*c)^2 + y^2 = 0.09 {orange}
-c = 0.4 (0 to 0.95)
+c = 0.7 (0 to 0.95)
 view: -8, 8, -5, 5
 \`\`\`
 *Earth's orbit is $e \\approx 0.017$: almost a circle. Halley's comet is $e \\approx 0.967$.*
