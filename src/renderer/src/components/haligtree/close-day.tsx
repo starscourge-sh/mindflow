@@ -393,7 +393,7 @@ function Pass({ onClose }: { onClose: () => void }): React.JSX.Element {
                       <span aria-hidden className="grid size-4 shrink-0 place-items-center rounded-full border-[1.5px]" style={{ borderColor: frog === task.id ? 'var(--tt-color-text-green)' : 'var(--muted-foreground)' }}>
                         {frog === task.id && <span className="size-2 rounded-full shrink-0 bg-[var(--tt-color-text-green)]" />}
                       </span>
-                      <span className="min-w-0 flex-auto truncate text-body text-foreground">{taskName(task.title).text}</span>
+                      <span dir="auto" className="min-w-0 flex-auto truncate text-body text-foreground">{taskName(task.title).text}</span>
                       <Tags tags={taskName(task.title).tags} go={false} />
                       {task.dueAt && <span className="shrink-0 text-control text-muted-foreground">{when(task.dueAt, !!task.allDay)}</span>}
                     </button>

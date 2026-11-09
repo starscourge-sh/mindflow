@@ -39,8 +39,9 @@ export function ReviewChip({ n, style }: { n: number; style?: React.CSSPropertie
     <button type="button" data-study-review aria-label={`Review ${plural(n, 'card')}`} onClick={(event) => (event.stopPropagation(), chime('open'), window.api.openInHome('view', 'review', ':today'))}
       className={`${CHIP} @container hover:brightness-95 dark:hover:brightness-125`} style={{ ...TINT, ...style }}>
       <GraduationCap aria-hidden className="size-3.5 shrink-0" style={{ color: STUDY_INK }} />
-      {/* Narrow, the count alone beside the cap: "Review · 24 cards" never cut to "Review · 2…". */}
-      <span className="min-w-0 truncate tabular-nums"><span className="hidden @[8.5rem]:inline">Review · </span>{num(n)}<span className="hidden @[6rem]:inline"> {n === 1 ? 'card' : 'cards'}</span></span>
+      {/* Narrow, the count alone beside the cap: "Review · 24 cards" never cut to "Review · 2…", nor "12,345 cards" to
+          "12,345 ca…". The count never shrinks; the word wraps onto a hidden second line when it does not fit whole. */}
+      <span className="flex h-6 min-w-0 flex-wrap overflow-hidden tabular-nums"><span className={n >= 1000 ? 'hidden @[11rem]:inline' : 'hidden @[8.5rem]:inline'}>Review ·&nbsp;</span><span className="shrink-0">{num(n)}</span><span className="whitespace-pre"> {n === 1 ? 'card' : 'cards'}</span></span>
     </button>
   )
 }

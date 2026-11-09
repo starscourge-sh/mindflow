@@ -124,7 +124,7 @@ export function LateMenu({ tasks, className = '', pill = false, onTask }: { task
               {late.slice(0, LISTED).map((task) => (
                 <DropdownMenuItem key={task.id} data-late-task={task.id} onSelect={() => onTask?.(task)}>
                   <Circle aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />
-                  <span className="min-w-0 flex-1 truncate">{taskName(task.title).text || task.title}</span>
+                  <span dir="auto" className="min-w-0 flex-1 truncate">{taskName(task.title).text || task.title}</span>
                   <span className="shrink-0 pl-3 text-meta text-muted-foreground tabular-nums">{dayjs(task.dueAt).format('D MMM')}</span>
                 </DropdownMenuItem>
               ))}

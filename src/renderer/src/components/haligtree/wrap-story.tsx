@@ -156,7 +156,7 @@ function Story({ id, onClose }: { id: string; onClose: () => void }): React.JSX.
           <ul className="space-y-2 text-heading">
             {gaps.map((row) => (
               <li key={row.task.id} className="flex items-baseline gap-3">
-                <span className="min-w-0 flex-1 truncate text-foreground">{taskName(row.task.title).text}</span>
+                <span dir="auto" className="min-w-0 flex-1 truncate text-foreground">{taskName(row.task.title).text}</span>
                 <PlanDid planned={row.planned} did={row.did} className="shrink-0 text-body text-foreground" />
               </li>
             ))}

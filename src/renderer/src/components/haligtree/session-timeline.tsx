@@ -137,7 +137,7 @@ export function DaySessions({ day, onOpen, menuFor }: { day: string; onOpen?: (t
           <button type="button" onClick={() => (one.bare ? (chime('tap'), setNaming(one.id)) : (chime('tap'), onOpen?.('task', one.taskId)))} className="flex w-full items-baseline gap-2 text-left text-sm hover:underline decoration-foreground/30 underline-offset-2">
             {/* The task as every list shows it: its words, then its tags small and coloured. */}
             <span className="flex min-w-0 flex-1 items-center gap-1.5">
-              <span className="private-text truncate font-medium">{taskName(one.title || 'Focus').text}</span>
+              <span dir="auto" className="private-text truncate font-medium">{taskName(one.title || 'Focus').text}</span>
               <Tags tags={taskName(one.title || '').tags} />
             </span>
             {one.bare && one.title === 'Focus' && <span className="shrink-0 text-xs font-medium text-foreground/70">Name it</span>}

@@ -121,7 +121,7 @@ function QueueLine({ row, at, rows, pick }: { row: QueueRow; at: number; rows: Q
         <button type="button" onClick={() => play(rows, at)} className="flex min-w-0 flex-1 items-center gap-2.5 text-left outline-none">
           {kind ? <kind.icon className="size-4 shrink-0" style={{ color: kind.tint }} /> : <ListStart className="size-4 shrink-0 text-muted-foreground" />}
           <span className="min-w-0 flex-1">
-            <span className="flex min-w-0 items-center gap-1.5"><span className="private-text min-w-0 truncate text-body text-foreground">{taskName(row.title).text}</span><Tags tags={taskName(row.title).tags} /></span>
+            <span className="flex min-w-0 items-center gap-1.5"><span dir="auto" className="private-text min-w-0 truncate text-body text-foreground">{taskName(row.title).text}</span><Tags tags={taskName(row.title).tags} /></span>
             <span className="block truncate text-xs text-muted-foreground">{saidOf(row)} · added {ago(row.addedAt)}{row.bare ? ' · opens in your browser' : ''}</span>
           </span>
         </button>
@@ -424,7 +424,7 @@ export function QueuePanel({ onView, className = '' }: { onView: (id: string) =>
                 className="flex w-full items-center gap-2.5 rounded-md px-1.5 py-1.5 text-left text-control">
                 <span className="w-3 shrink-0 text-right text-xs text-muted-foreground tabular-nums">{at + 1}</span>
                 {kind ? <kind.icon className="size-3.5 shrink-0" style={{ color: kind.tint }} /> : <ListStart className="size-3.5 shrink-0 text-muted-foreground" />}
-                <span className="private-text min-w-0 flex-1 truncate text-foreground">{taskName(row.title).text}</span>
+                <span dir="auto" className="private-text min-w-0 flex-1 truncate text-foreground">{taskName(row.title).text}</span>
                 <span className="shrink-0 text-xs text-muted-foreground">{saidOf(row)}</span>
               </button>
               </RowMenu>

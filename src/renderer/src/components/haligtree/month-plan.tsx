@@ -429,7 +429,7 @@ function LineChip({ line, late, onOpen, drag = true }: { line: Line; late: boole
       onClick={() => onOpen(line)}
       {...loud(tone, `mf-hit relative flex h-5 min-w-0 shrink-0 items-center gap-1 rounded-sm px-1 text-left text-control leading-snug transition-colors hover:bg-accent ${tone ? '' : line.kind === 'planned' ? 'text-foreground' : 'text-foreground/85'} ${isDragging ? 'mf-carried-place' : ''} ${movable ? 'touch-none' : ''}`)}>
       {Icon ? <Icon className="size-3 shrink-0" /> : <span aria-hidden className="size-1.5 shrink-0 rounded-full bg-current opacity-70" />}
-      <span className="truncate">{title}</span>
+      <span dir="auto" className="truncate">{title}</span>
     </button>
     </Tip>
   )

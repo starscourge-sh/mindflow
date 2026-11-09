@@ -92,7 +92,7 @@ export function PlannedVsDid({ monday, heading = 'text-body font-semibold text-f
             <ul className="mt-1.5 flex flex-col gap-1">
               {gaps.map(({ task, planned: plan, did: done }) => (
                 <li key={task.id} data-gap={task.id} className="flex items-baseline gap-3 text-body">
-                  <span className="min-w-0 flex-1 truncate text-foreground">{taskName(task.title).text}</span>
+                  <span dir="auto" className="min-w-0 flex-1 truncate text-foreground">{taskName(task.title).text}</span>
                   <PlanDid planned={plan} did={done} className="shrink-0 text-control text-foreground/85" />
                   <span className="w-16 shrink-0 text-right font-semibold tabular-nums" style={{ color: overBy(plan, done) ? OVER : UNDER }}>{done > plan ? '+' : '−'}{shortSaid(Math.abs(done - plan))}</span>
                 </li>

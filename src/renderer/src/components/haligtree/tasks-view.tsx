@@ -522,7 +522,7 @@ const HOW = ['professional', 'digital-admin', 'physical-admin', 'calls', 'orders
 /** Tasks grouped by how they get done (the first tag on each), not by how much they matter. */
 const byHow = (list: Task[]): [string, Task[]][] => {
   const first = (task: Task): string => taskName(task.title).tags[0] ?? ''
-  const tags = [...new Set(list.map(first).filter(Boolean))].sort((a, b) => (HOW.indexOf(a) + 1 || 99) - (HOW.indexOf(b) + 1 || 99) || a.localeCompare(b))
+  const tags = [...new Set(list.map(first).filter(Boolean))].sort((a, b) => (HOW.indexOf(a) + 1 || 99) - (HOW.indexOf(b) + 1 || 99) || a.localeCompare(b, undefined, { numeric: true }))
   return [...tags.map((tag): [string, Task[]] => [howSaid(tag), list.filter((task) => first(task) === tag)]), ['No tag yet', list.filter((task) => !first(task))]]
 }
 
@@ -797,7 +797,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
   const facets = taskFacets(tasks)
   // Filtered and ordered first; the view's own groups are cut from what is left.
   const [[, chosenTasks]] = arrange(tasks, view, facets, {
-    name: (a, b) => a.title.localeCompare(b.title),
+    name: (a, b) => a.title.localeCompare(b.title, undefined, { numeric: true }),
     priority: (a, b) => (a.priority || 5) - (b.priority || 5) || dayOf(a) - dayOf(b) || yourOrder(a, b),
     due: (a, b) => (a.dueAt ?? '9').localeCompare(b.dueAt ?? '9'),
     deadline: (a, b) => (a.deadline ?? '9').localeCompare(b.deadline ?? '9'),
@@ -1407,7 +1407,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
                         <button type="button" data-row data-id={task.id} data-picked={several.chosen.includes(task.id) || undefined} onClick={(event) => several.click(event, task.id) || (setCursor(index), pick(task.id))} className="-my-2 flex w-full min-w-0 flex-col items-start gap-1 py-2 text-left">
                           <span data-task-title className="flex max-w-full items-center gap-2">
                             {task.id === frog && <FrogChip />}
-                            <span data-title className={`truncate ${leaving(task.id) ? 'mf-strike' : ''}`}>{taskName(task.title).text}</span>
+                            <span dir="auto" data-title className={`truncate ${leaving(task.id) ? 'mf-strike' : ''}`}>{taskName(task.title).text}</span>
                             <Tags tags={taskName(task.title).tags} />
                             <TaskLength task={task} />
                             {/* Narrow, with no margin to stand in, the day's number follows the title instead of going: every title keeps one left edge. */}
@@ -2061,7 +2061,7 @@ function BlockedBy({ task, onOpen }: { task: TaskFull; onOpen?: (type: string, i
             {found.map((one) => (
               <CommandItem key={one.id} value={one.id} data-blocked-option={one.id} onSelect={() => link(one)}>
                 <Square className="text-muted-foreground" />
-                <span className="min-w-0 flex-1 truncate">{taskName(one.title).text}</span>
+                <span dir="auto" className="min-w-0 flex-1 truncate">{taskName(one.title).text}</span>
                 {one.dueAt && <span className="shrink-0 text-xs text-muted-foreground">{when(one.dueAt)}</span>}
               </CommandItem>
             ))}

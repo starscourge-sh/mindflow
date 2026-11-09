@@ -357,7 +357,7 @@ function BlockWords({ one, day, at, length, short }: { one: Shown; day: string; 
   return (
     <span className={`flex min-w-0 flex-1 pr-1 pl-2 ${length < 30 ? 'items-center gap-1.5' : short ? 'items-start gap-1.5 pt-[3px]' : 'flex-col gap-px pt-1 @max-[104px]:gap-0 @max-[104px]:pt-0.5'}`}>
       <span className={`flex min-w-0 items-center gap-1 ${short ? '' : 'shrink-0'}`}>
-        <span className="truncate font-semibold">{one.title || 'New event'}</span>
+        <span dir="auto" className="truncate font-semibold">{one.title || 'New event'}</span>
         {one.noted > 0 && <Tip label="Has notes"><FileText data-cal-event-noted aria-label="Has notes" className="size-3 shrink-0" /></Tip>}
         {one.repeat && <RepeatIcon role="img" aria-label="Repeats" className="size-3 shrink-0 opacity-80" />}
       </span>
@@ -425,14 +425,14 @@ export function EventChip({ one, day, onOpen, onPeek, onNote, month = false, cal
           className={`flex ${month ? 'h-5' : 'h-6'} min-w-0 shrink-0 touch-none items-center gap-1 rounded-[5px] pr-1.5 pl-2.5 text-left text-control ${carried ? 'opacity-40' : ''}`}
           {...{ style: { ...tint(one.color, one.cancelled), ...across } }}>
           {time && <span className="shrink-0 tabular-nums opacity-80">{time}</span>}
-          <span className="truncate font-semibold">{one.title || 'New event'}</span>
+          <span dir="auto" className="truncate font-semibold">{one.title || 'New event'}</span>
           {one.noted > 0 && <FileText data-cal-event-noted aria-label="Has notes" className="size-3 shrink-0" />}
         </button>
         </Tip>
       </RowMenu>
       {carried && createPortal(
         <div data-cal-ghost style={{ left: 0, top: 0, transform: `translate3d(${carried.x + 8}px, ${carried.y + 8}px, 0)`, ...tint(one.color) }}
-          className="pointer-events-none fixed z-50 max-w-56 truncate rounded-[6px] px-2 py-1 text-control font-semibold shadow-(--mf-shadow-lift)">{one.title}</div>, document.body)}
+          dir="auto" className="pointer-events-none fixed z-50 max-w-56 truncate rounded-[6px] px-2 py-1 text-control font-semibold shadow-(--mf-shadow-lift)">{one.title}</div>, document.body)}
     </>
   )
 }
@@ -517,7 +517,7 @@ function EventCard({ peek, calendar, onEdit, onClose, onNote }: {
         )}
         <Tip label="Close (Esc)"><Button variant="ghost" size="icon-sm" data-cal-pop-close aria-label="Close" onClick={() => (chime('away'), onClose())}><X /></Button></Tip>
       </div>
-      <h2 data-cal-pop-title className="-mt-1 font-heading text-heading font-semibold text-pretty text-foreground">{one.title || 'New event'}</h2>
+      <h2 dir="auto" data-cal-pop-title className="-mt-1 font-heading text-heading font-semibold text-pretty text-foreground">{one.title || 'New event'}</h2>
       <div className="flex flex-col gap-2.5">
         {row(Clock, <>{when}{one.repeatSaid ? <span className="block text-foreground/85">{one.repeatSaid}</span> : null}</>, 'when')}
         {one.place && row(MapPin, one.place, 'place')}
@@ -743,7 +743,7 @@ function DayAround({ start, end, allDay }: { start: string; end: string; allDay:
             <li key={one.key} data-new-event-row={one.mine ? 'new' : undefined} className={`flex h-7 min-w-0 items-center gap-2 rounded-md px-1.5 text-control ${one.mine ? 'bg-accent font-medium text-foreground' : 'text-foreground/85'}`}>
               <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ background: one.color, opacity: one.mine ? 1 : 0.5 }} />
               <span className="w-24 shrink-0 tabular-nums text-foreground/70">{hhmm(one.from)} – {hhmm(one.to)}</span>
-              <span className="min-w-0 truncate">{one.title}</span>
+              <span dir="auto" className="min-w-0 truncate">{one.title}</span>
             </li>
           ))}
         </ol>
@@ -817,7 +817,7 @@ export function EventDetail({ eventKey, onKey, onClose, onOpen }: { eventKey: st
             <Button data-copy-event-link variant="ghost" size="sm" className="ml-auto" onClick={() => copyLink(`event:${one.key}`, one.title)}><Link2 className="size-3.5" /> Copy link</Button>
           </Tip>
         </div>
-        <textarea key={one.title} rows={1} data-event-title aria-label="The event's name" defaultValue={one.title}
+        <textarea key={one.title} dir="auto" rows={1} data-event-title aria-label="The event's name" defaultValue={one.title}
           className="page-narrow mx-auto mb-1 block w-full shrink-0 resize-none overflow-hidden bg-transparent px-4 @[40rem]/page:px-12 font-heading text-title font-semibold tracking-[-0.018em] text-balance outline-none [field-sizing:content]"
           onKeyDown={(event) => event.key === 'Enter' && (event.preventDefault(), event.currentTarget.blur())}
           onBlur={(event) => { const title = event.target.value.replace(/\s*\n\s*/g, ' ').trim(); if (title && title !== one.title) void rename(title, event.target) }} />
@@ -1206,7 +1206,7 @@ export function EventPeek({ id }: { id: string }): React.JSX.Element | null {
   if (!one) return null
   return (
     <div data-event-peek={id} className="flex flex-col gap-2 p-4 text-body text-foreground">
-      <p className="font-heading text-xl font-semibold text-pretty">{one.title}</p>
+      <p dir="auto" className="font-heading text-xl font-semibold text-pretty">{one.title}</p>
       <p>{whenSaid(one.start, one.end, one.allDay, clock)}{one.repeatSaid ? `. ${one.repeatSaid}` : ''}</p>
       {one.place && <p>At <strong className="font-semibold">{one.place}</strong></p>}
       {one.people.length > 0 && <p>With <strong className="font-semibold">{one.people.join(', ')}</strong></p>}

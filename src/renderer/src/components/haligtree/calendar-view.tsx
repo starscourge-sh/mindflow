@@ -17,7 +17,7 @@ import { clock, useMinute } from '@/lib/clock'
 import { placeTask } from '@/lib/calendar'
 import { call, unloaded, useLive, haligtree, whenInLine, type Task } from '@/lib/haligtree'
 import { lengthSaid } from '../../../../main/day-load'
-import { dayjs, dayKey, num, type Dayjs } from '../../../../main/dates'
+import { dayjs, dayKey, num, plural, type Dayjs } from '../../../../main/dates'
 import { Rolling, Tip, typing } from './ui'
 import { MORE_STEP } from './show-more'
 import { IslandBox, useFold } from './islands'
@@ -216,9 +216,11 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
   // A narrow header (beside the sidebar on a small window) says the month and day short, so neither is cut.
   const short = mode !== 'week' || first.month() === last.month() ? anchor.format('MMM YYYY') : title
   // Narrow, the days alone: the week's number is the part to spare.
-  const said = (narrow: boolean): string => few ? `${FEW} days · ${rangeSaid(first, last)}` : mode === 'week' ? (narrow ? rangeSaid(first, last) : `Week ${weekOf(first)} · ${rangeSaid(first, last)}`)
-    : mode === 'day' ? (narrow ? anchor.format('ddd, MMM D') : `${anchor.format('dddd, MMM D')} · Week ${weekOf(anchor)}`)
-    : `Weeks ${weekOf(anchor.startOf('month'))} – ${weekOf(anchor.endOf('month'))}`
+  const said = (narrow: boolean): string => few ? (narrow ? `${FEW} days` : `${FEW} days · ${rangeSaid(first, last)}`) : mode === 'week' ? (narrow ? rangeSaid(first, last) : `Week ${weekOf(first)} · ${rangeSaid(first, last)}`)
+    : mode === 'day' ? (narrow ? anchor.format('ddd D') : `${anchor.format('dddd, MMM D')} · Week ${weekOf(anchor)}`)
+    // Narrow, beside the late count, "Weeks 44 – 49" was cut to "Weeks 4…", "Mon, Nov 9" to "Mon, No…" and "3 days · Nov 9 – 11"
+    // to "3 days · …": the short forms keep their numbers whole (the month is in the title above, the dates on the days' heads).
+    : narrow ? `Wk ${weekOf(anchor.startOf('month'))}–${weekOf(anchor.endOf('month'))}` : `Weeks ${weekOf(anchor.startOf('month'))} – ${weekOf(anchor.endOf('month'))}`
   const subtitle = said(false)
   // The day being looked at, for anything new without a day of its own ("+ New event", either tab; ⌘K's "New task"):
   // today while it is in view, otherwise the day picked (the small month, a day's head, "Go to"), never just the grid's first day.
@@ -566,7 +568,7 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
                         }}
                         className={`flex h-8 w-full touch-none items-center gap-2.5 rounded-md px-2 text-left text-body text-foreground transition-[scale] duration-150 ease-out active:scale-[0.98] motion-reduce:transition-none ${task.id === picked ? 'bg-accent' : ''} ${carry?.kind === 'move' && carry.task.id === task.id ? 'opacity-40' : ''}`}>
                         <span aria-hidden className="size-3 shrink-0 rounded-full border-[1.5px]" style={{ borderColor: task.priority === 1 ? 'var(--tt-color-text-orange)' : ACCENT }} />
-                        <span className="min-w-0 flex-1 truncate">{taskName(task.title).text}</span>
+                        <span dir="auto" className="min-w-0 flex-1 truncate">{taskName(task.title).text}</span>
                       </button>
                       </Tip>
                     </RowMenu>
@@ -602,7 +604,7 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
         <div data-cal-carried style={{ left: carry.x + 8, top: carry.y + 8 }}
           className={`pointer-events-none fixed z-50 flex max-w-56 items-center gap-2 ${CARD}`}>
           <span aria-hidden className="size-2 shrink-0 rounded-[2px]" style={{ background: ACCENT }} />
-          <span className="truncate">{taskName(carry.task.title).text}</span>
+          <span dir="auto" className="truncate">{taskName(carry.task.title).text}</span>
         </div>, document.body)}
       <EventCardLayer peek={peekNow} calendar={peekNow ? calendarName(peekNow.one) : ''} onEdit={pickEvent} onClose={() => setPeek(null)} onNote={onOpen} />
     </section>
@@ -792,7 +794,7 @@ function Upcoming({ tasks, name, onPeek, onTask }: { tasks: Task[]; name: (one: 
           <span aria-hidden className="mt-[7px] size-2 shrink-0 rounded-[2px]" style={{ background: next.color }} />
           <span className="flex min-w-0 flex-1 flex-col">
             <span className="text-control font-medium" style={{ color: 'var(--tt-color-text-red)' }}>{until <= 0 ? `On now, ${lengthSaid(Math.max(1, dayjs(next.end).diff(now, 'minute')))} left` : `In ${lengthSaid(until)}`}</span>
-            <span className="truncate text-body font-semibold text-foreground">{next.title || 'New event'}</span>
+            <span dir="auto" className="truncate text-body font-semibold text-foreground">{next.title || 'New event'}</span>
             <span className="truncate text-control text-foreground/80 tabular-nums">{dayjs(next.start).isSame(now, 'day') ? '' : `${dayjs(next.start).format('ddd D')} · `}{timeSpan(next.start, next.end)}</span>
           </span>
         </button>
@@ -814,7 +816,7 @@ function Upcoming({ tasks, name, onPeek, onTask }: { tasks: Task[]; name: (one: 
               className="flex items-start gap-2.5 rounded-md px-2 py-1 text-left outline-none transition-[background-color,scale] duration-150 hover:bg-accent/60 focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.97] motion-reduce:transition-none">
               <span aria-hidden className={`mt-1.5 size-2 shrink-0 ${row.task ? 'rounded-full border-[1.5px]' : 'rounded-[2px]'}`} style={row.task ? { borderColor: row.color } : { background: row.color }} />
               <span className="flex min-w-0 flex-1 flex-col">
-                <span className="truncate text-body font-semibold text-foreground">{row.title}</span>
+                <span dir="auto" className="truncate text-body font-semibold text-foreground">{row.title}</span>
                 <span className="truncate text-control text-foreground/80 tabular-nums">{row.said}</span>
               </span>
             </button>
@@ -882,8 +884,8 @@ function lanes(list: { id: string; start: number; end: number }[]): Map<string, 
   return out
 }
 
-/** Rows a day's all-day lane holds before the last becomes "+N more". */
-const ALLDAY_ROWS = 4
+/** Rows a day's all-day lane shows, whole, before the last becomes "+N more" (its height below is these rows exactly). */
+const ALLDAY_ROWS = 5
 
 /** The day or the week by the hour: an untimed line on top, then the hours with the tasks at theirs. */
 function Grid({ days, tasks, marks, study, onHead, onPoint, calendars, ...props }: { days: Dayjs[]; tasks: Task[]; /** Captures, drawn as marks at the minute each was caught. */ marks?: CaptureMeta[]; /** The study plan, a day's chips in the all-day lane. */ study: Map<string, StudyDay>; onHead: (day: Dayjs) => void; onPoint: (at: Spot | null) => void; calendars: { id: string; name: string; color: string }[] } & BlockProps): React.JSX.Element {
@@ -894,6 +896,19 @@ function Grid({ days, tasks, marks, study, onHead, onPoint, calendars, ...props 
   const zone = useSecondZone()
   const now = useMinute()
   const scroller = useRef<HTMLDivElement>(null)
+  // More in the all-day lane than it shows: its foot fades until scrolled to the end, so the rest is never just missing.
+  const lane = useRef<HTMLDivElement>(null)
+  const [below, setBelow] = useState(false)
+  const laneFade = (): void => { const el = lane.current; if (el) setBelow(el.scrollHeight - el.scrollTop - el.clientHeight > 2) }
+  useLayoutEffect(() => {
+    const el = lane.current
+    if (!el) return
+    laneFade()
+    const watch = new ResizeObserver(laneFade)
+    watch.observe(el)
+    for (const child of el.children) watch.observe(child)
+    return () => watch.disconnect()
+  })
   // How many blocks fit side by side in a day and still say their names: one for every 64px of its column, one to six.
   const [most, setMost] = useState(3)
   useLayoutEffect(() => {
@@ -980,9 +995,10 @@ function Grid({ days, tasks, marks, study, onHead, onPoint, calendars, ...props 
               )
             })}
           </div>
-          <div className={`pointer-events-none relative grid min-h-8 gap-x-1 gap-y-[3px] overflow-y-auto px-[3px] py-[3px] ${folded ? 'max-h-8 overflow-hidden' : 'max-h-36'}`}
+          <div ref={lane} onScroll={laneFade} className={`pointer-events-none relative grid min-h-8 gap-x-1 gap-y-[3px] overflow-y-auto px-[3px] py-[3px] ${folded ? 'max-h-8 overflow-hidden' : 'max-h-[138px]'} ${below && !folded ? '[mask-image:linear-gradient(to_bottom,#000_calc(100%-16px),transparent)]' : ''}`}
             style={{ gridTemplateColumns: `repeat(${days.length}, minmax(0, 1fr))`, gridAutoFlow: 'row dense', gridAutoRows: '24px' }}>
-            {events.filter((one) => one.allDay && dayKey(one.start) <= keys[keys.length - 1] && dayKey(dayjs(one.end).subtract(1, 'minute')) >= keys[0]).map((one) => {
+            {/* Bars over more than one day first, so they keep the top rows; a one-day event joins its day's list below. */}
+            {events.filter((one) => one.allDay && manyDays(one) && dayKey(one.start) <= keys[keys.length - 1] && dayKey(dayjs(one.end).subtract(1, 'minute')) >= keys[0]).map((one) => {
               const from = Math.max(0, keys.indexOf(dayKey(one.start)) < 0 ? 0 : keys.indexOf(dayKey(one.start)))
               const lastKey = dayKey(dayjs(one.end).subtract(1, 'minute'))
               const to = keys.indexOf(lastKey) < 0 ? keys.length - 1 : keys.indexOf(lastKey)
@@ -991,16 +1007,24 @@ function Grid({ days, tasks, marks, study, onHead, onPoint, calendars, ...props 
             {/* The study plan: each day's reviews and the book you finish then, in the lane before its tasks. */}
             {keys.flatMap((key, at) => studyChips(study.get(key), { gridColumn: at + 1 }))}
             {keys.flatMap((key, at) => {
-              // A Mac calendar's way with a crowded day: a few rows, then "+N more", which opens the day's own page with its whole list.
-              const all = untimed.get(key) ?? []
-              const shown = all.length > ALLDAY_ROWS ? all.slice(0, ALLDAY_ROWS - 1) : all
+              // A Mac calendar's way with a crowded day: a few rows, then "+N more", which opens the day's own page with its whole
+              // list. The day's one-day events count as rows too: 15 of them once ran past the lane, the last cut in half.
+              const own = events.filter((one) => one.allDay && !manyDays(one) && dayKey(one.start) === key)
+              const all = [...own.map((one) => ({ one })), ...(untimed.get(key) ?? [])]
+              // The lane shows ALLDAY_ROWS whole rows; bars over many days and the study chips on this day take theirs first,
+              // so "+N more" always lands in sight.
+              const taken = events.filter((one) => one.allDay && manyDays(one) && dayKey(one.start) <= key && dayKey(dayjs(one.end).subtract(1, 'minute')) >= key).length + studyChips(study.get(key)).length
+              const cap = Math.max(2, ALLDAY_ROWS - taken)
+              const shown = all.length > cap ? all.slice(0, cap - 1) : all
               const more = all.length - shown.length
               return [
-              ...shown.map(({ task, due }) => (
-                <div key={`${due ? 'due' : 'on'}:${task.id}`} className="pointer-events-auto grid min-w-0" style={{ gridColumn: at + 1 }}><Untimed task={task} due={due} {...props} /></div>
-              )),
+              ...shown.map((item) => 'one' in item
+                ? <EventChip key={item.one.key} one={item.one} day={key} calendars={calendars} span={{ gridColumn: at + 1, pointerEvents: 'auto' }} onOpen={onEvent} onPeek={onPeek} onNote={onOpen} />
+                : <div key={`${item.due ? 'due' : 'on'}:${item.task.id}`} className="pointer-events-auto grid min-w-0" style={{ gridColumn: at + 1 }}><Untimed task={item.task} due={item.due} {...props} /></div>
+              ),
               ...(more ? [
-                <button key="more" type="button" data-cal-allday-more={key} aria-label={`Open ${dayjs(key).format('dddd D MMMM')}: ${num(all.length)} tasks`} onClick={() => (chime('open'), onOpen?.('day', key))}
+                <button key="more" type="button" data-cal-allday-more={key} aria-label={`Open ${dayjs(key).format('dddd D MMMM')}: ${plural(all.length, 'thing')} all day`}
+                  onClick={() => (chime('open'), onOpen?.('day', key))}
                   className="pointer-events-auto min-w-0 truncate rounded-[5px] px-1.5 text-left text-control leading-6 font-medium whitespace-nowrap text-foreground hover:bg-accent" style={{ gridColumn: at + 1 }}>
                   +{num(more)} more
                 </button>
@@ -1180,7 +1204,7 @@ function SessionGhost({ focus, tasks, now, next }: { focus: ReturnType<typeof us
       }}>
       {/* One line while it is short; what it runs into once there is room for it, and always in its label. */}
       <span className="flex min-w-0 items-baseline gap-1 whitespace-nowrap">
-        <span className="min-w-0 truncate font-medium text-foreground/80">{name}</span>
+        <span dir="auto" className="min-w-0 truncate font-medium text-foreground/80">{name}</span>
         <span className="shrink-0 tabular-nums text-foreground/75">until <Rolling text={hm(end)} eager /></span>
       </span>
       {into && tall && <span data-cal-ghost-into className="mt-auto mb-0.5 truncate font-medium" style={{ color: `color-mix(in oklab, ${warm} 75%, var(--foreground))` }}>Runs into {into.name}</span>}
@@ -1236,7 +1260,7 @@ function Block({ task, day, at, length, lane, lifted, did, carry, start, onPick,
         </Tip>
         <span className={`flex min-w-0 flex-1 px-1.5 ${length < 30 ? 'items-center gap-1.5' : short ? 'items-start gap-1.5 pt-[3px]' : 'flex-col gap-px pt-[3px]'}`}>
           <span className={`flex min-w-0 items-center gap-1 ${short ? '' : 'shrink-0'}`}>
-            <span data-cal-block-name className={`truncate font-semibold ${finished ? 'line-through' : ''}`}>{name}</span>
+            <span dir="auto" data-cal-block-name className={`truncate font-semibold ${finished ? 'line-through' : ''}`}>{name}</span>
             {repeats && <RepeatIcon role="img" aria-label="Repeats" className="size-3 shrink-0 opacity-75" />}
           </span>
           {/* An hour's block has room for two lines under its name: its planned and done say more than the time it sits at. */}
@@ -1264,7 +1288,7 @@ function Untimed({ task, due, carry, start, onPick, taskNow, landed }: { task: T
         className={`flex h-6 min-w-0 shrink-0 touch-none items-center gap-1 rounded-[5px] pr-1 pl-1.5 text-left text-control text-foreground transition-colors duration-150 motion-reduce:transition-none ${carry?.kind === 'move' && carry.task.id === task.id ? 'opacity-40' : ''}`}
         style={{ background: `color-mix(in oklab, ${color} 14%, var(--background))` }}>
         <span aria-hidden className="size-1.5 shrink-0 rounded-full" style={{ background: color }} />
-        <span className="truncate">{due && <span className="font-semibold">Due: </span>}{name}</span>
+        <span dir="auto" className="truncate">{due && <span className="font-semibold">Due: </span>}{name}</span>
       </button>
       </Tip>
     </RowMenu>
