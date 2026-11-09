@@ -2326,7 +2326,10 @@ export function registerHaligtree(): void {
     if (!row) return null
     const glosses = db.prepare(`select id, body, author, created_at as createdAt, source_id as sourceId,
       (select '${NOTE_KEY}-' || number from captures where id = glosses.source_id) as sourceKey from glosses where item_id = ? order by created_at`).all(id)
-    return { ...body(row), title: row.own, origins: JSON.parse((row.origins as string) ?? '[]'), glosses }
+    // A page of Writing with none is called by its first line, as everywhere else ("New note" while empty);
+    // `line` says it has no title of its own, so its title field stays empty.
+    const unnamed = row.tier === 'article' && row.line != null
+    return { ...body(row), title: unnamed ? row.title || 'New note' : row.own, origins: JSON.parse((row.origins as string) ?? '[]'), glosses }
   })
   handle('item:save', (id: string, patch: { body?: unknown; base?: unknown; title?: string; prompt?: string | null; kind?: string; suspended?: boolean; attribution?: string | null; medium?: string | null; context?: string | null; mode?: string; why?: string | null }) => {
     // Words written since this editor last looked are never written over: it

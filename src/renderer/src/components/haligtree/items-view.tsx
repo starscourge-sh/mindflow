@@ -1032,6 +1032,8 @@ function NuggetDetail({ item, onOpen, top, back, board: place }: { item: ItemFul
   const [propsOut, setPropsOut] = useState(false)
   // Named by its first line until given a title of its own (`line` is set only then).
   const titled = item.line === null || (item.line === undefined && !!item.title && item.title.trim() !== 'Untitled')
+  // What it is called: its title, or with none its first line, or "New note" while empty.
+  const name = titled ? item.title : item.line || 'New note'
   const [titling, setTitling] = useState(false)
   const [tools, setTools] = useState<HTMLElement | null>(null)
   useEffect(() => setPropsOut(false), [boardShown])
@@ -1040,9 +1042,9 @@ function NuggetDetail({ item, onOpen, top, back, board: place }: { item: ItemFul
   onBoard.current = boardShown
   useEffect(() => {
     if (!boardShown || item.private) return
-    showTopTitle(item.title)
+    showTopTitle(name)
     return () => showTopTitle(null)
-  }, [boardShown, item.title, item.private])
+  }, [boardShown, name, item.private])
   const onShown = place?.onShown
   useEffect(() => {
     onShown?.(boardShown)
@@ -1104,8 +1106,8 @@ function NuggetDetail({ item, onOpen, top, back, board: place }: { item: ItemFul
 
   return (
     <div data-open={item.id} className="note-pane flex min-w-0 flex-[1.4] flex-col overflow-y-auto [--mf-padding:1rem_3.25rem] @[40rem]/page:flex-row @[40rem]/page:overflow-visible @[40rem]/page:[--mf-padding:1rem_4.75rem] @[56rem]/page:border-l [&>*:first-child]:min-h-[16rem] [&>*:first-child]:shrink-0 @[40rem]/page:[&>*:first-child]:min-h-0 @[40rem]/page:[&>*:first-child]:shrink">
-      <div data-voice={voiceOf({ type: item.tier, kind: item.kind, attribution: item.attribution, medium: item.medium, label: item.title })} data-voice-edge {...room.room} className={`flex min-h-0 min-w-0 flex-1 flex-col pt-6 ${boardShown ? '!min-h-full' : ''}`}>
-        <NoteHeader className="-mt-3 mb-1" left={top} back={back} type={item.tier} table="nuggets" id={item.id} copyKey={noteLinkText(`${item.tier}:${item.id}`, item.title)} onShow={(body, key) => setPast(body === null ? null : { body, key: key ?? '' })}
+      <div data-voice={voiceOf({ type: item.tier, kind: item.kind, attribution: item.attribution, medium: item.medium, label: name })} data-voice-edge {...room.room} className={`flex min-h-0 min-w-0 flex-1 flex-col pt-6 ${boardShown ? '!min-h-full' : ''}`}>
+        <NoteHeader className="-mt-3 mb-1" left={top} back={back} type={item.tier} table="nuggets" id={item.id} copyKey={noteLinkText(`${item.tier}:${item.id}`, name)} onShow={(body, key) => setPast(body === null ? null : { body, key: key ?? '' })}
           onRestored={() => void haligtree.item(item.id).then((fresh) => fresh && setRestored((was) => ({ body: fresh.body, rev: (was?.rev ?? 0) + 1 })))}
           edited={item.updatedAt} captured={item.createdAt} made={item.tier === 'article' ? 'Started' : 'Saved'}
           pinned={!!item.pinnedAt} onPin={() => pin('nuggets', item.id, !item.pinnedAt)}
@@ -1124,7 +1126,7 @@ function NuggetDetail({ item, onOpen, top, back, board: place }: { item: ItemFul
             // Housekeeping last, as on every card's menu.
             'separator', binItem([{ type: item.tier, id: item.id }])
           ]} />
-        {room.on && <RoomFoot editor={ready} title={item.title || 'New note'} proof={item.tier === 'article'} />}
+        {room.on && <RoomFoot editor={ready} title={name} proof={item.tier === 'article'} />}
         {/* Any page can be proofread when asked; only Writing offers checking as you write. */}
         <Proofread editor={ready} ask={item.tier !== 'article'} />
         {item.tier === 'article' && (titled || titling) && (
@@ -1139,7 +1141,7 @@ function NuggetDetail({ item, onOpen, top, back, board: place }: { item: ItemFul
             defaultValue={titled ? item.title : ''}
             onKeyDown={(event) => (event.key === 'Enter' || event.key === 'Escape') && (event.preventDefault(), event.currentTarget.blur())}
             autoFocus={titling}
-            placeholder={item.title || 'New note'}
+            placeholder={item.line || 'New note'}
             onBlur={(event) => {
               const title = event.target.value.replace(/\s*\n\s*/g, ' ').trim()
               setTitling(false)
@@ -1175,9 +1177,9 @@ function NuggetDetail({ item, onOpen, top, back, board: place }: { item: ItemFul
           key={restored?.rev ?? 0}
           backToTop
           // A new page with no name starts in its words: its first line is its name.
-          {...(item.tier === 'article' && !titled && !item.title ? { autofocus: 'start' as const } : {})}
+          {...(item.tier === 'article' && !titled && !item.line ? { autofocus: 'start' as const } : {})}
           // A tag opens its page: everything carrying it.
-          {...notePowers({ table: 'nuggets', id: item.id, kind: item.kind, fields: item.fields, text: item.title, titled: item.tier === 'article', created: item.createdAt, updated: item.updatedAt, origin: { captureId: item.captureId ?? undefined, attribution: item.attribution, from: item.id }, cites: leadIsWho ? undefined : { who: item.attribution, where: item.medium }, onOpen: (type, id) => onOpen?.(type, id) })}
+          {...notePowers({ table: 'nuggets', id: item.id, kind: item.kind, fields: item.fields, text: name, titled: item.tier === 'article', created: item.createdAt, updated: item.updatedAt, origin: { captureId: item.captureId ?? undefined, attribution: item.attribution, from: item.id }, cites: leadIsWho ? undefined : { who: item.attribution, where: item.medium }, onOpen: (type, id) => onOpen?.(type, id) })}
           onTitleOut={(title) => !onBoard.current && showTopTitle(title)}
           defaultContent={((restored ? restored.body : item.body) as JSONContent | string | null) ?? ''}
           onOpenNote={(link, heading) => onOpen && follow(link, onOpen, heading)}
