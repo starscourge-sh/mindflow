@@ -1,5 +1,6 @@
 import { ipcMain } from 'electron'
 import { finishBy, type Day } from './pace'
+import { cleanTitle } from './clean-title'
 import { randomUUID } from 'crypto'
 import { readFile, writeFile } from 'fs/promises'
 import { statSync } from 'fs'
@@ -36,7 +37,7 @@ export function pdfsToFind(db: DatabaseSync): FoundPdf[] {
     const known = pdf ? found.get(src) : undefined
     if (known && name) known.text += ` ${name.toLowerCase()}`
     else if (pdf) {
-      const title = titles.get(src) ?? (name.replace(/\.pdf$/i, '') || 'PDF')
+      const title = titles.get(src) ?? (cleanTitle(name.replace(/\.pdf$/i, '')) || name.replace(/\.pdf$/i, '') || 'PDF')
       found.set(src, { type: 'pdf', id: `${src}|${name}`, number: null, kind: 'pdf', status: 'open', source: '', attribution: null, label: title, capturedAt: at, text: `${title} ${name}`.toLowerCase() })
     }
     node.content?.forEach((one) => walk(one, at))
@@ -56,7 +57,7 @@ export function pdfsToFind(db: DatabaseSync): FoundPdf[] {
       if (one.at > known.capturedAt) known.capturedAt = one.at
       continue
     }
-    const title = titles.get(one.src) ?? (one.name.replace(/\.pdf$/i, '') || 'PDF')
+    const title = titles.get(one.src) ?? (cleanTitle(one.name.replace(/\.pdf$/i, '')) || one.name.replace(/\.pdf$/i, '') || 'PDF')
     found.set(one.src, { type: 'pdf', id: `${one.src}|${one.name}`, number: null, kind: 'pdf', status: 'open', source: '', attribution: null, label: title, capturedAt: one.at, text: `${title} ${one.name}`.toLowerCase() })
   }
   return [...found.values()]

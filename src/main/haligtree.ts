@@ -48,6 +48,7 @@ import { dueAt } from './session-log'
 import { SIDEBAR_SHAPE } from './sidebar-shape'
 import { linkOf, resolveWaiting, watchName } from './renames'
 import { APP_NAME, NOTE_KEY } from './name'
+import { cleanTitle } from './clean-title'
 
 /**
  * Everything past the capture: nuggets and articles, the review queue, tasks,
@@ -3887,7 +3888,7 @@ export function registerHaligtree(): void {
     return {
       seconds: Math.round(kept.ms / 1000), checked: seen.n, recalled: seen.recalled, newCards, days,
       longest: longest ? { title: longest.title, days: Math.round(longest.gap) } : null,
-      book: book ? { src: book.src, title: book.title.replace(/^.*\//, '').replace(/\.pdf$/i, '') } : null,
+      book: book ? { src: book.src, title: cleanTitle(book.title.replace(/^.*\//, '').replace(/\.pdf$/i, '')) || book.title.replace(/^.*\//, '').replace(/\.pdf$/i, '') } : null,
       line: lines.sort((a, b) => b.length - a.length)[0] ?? null
     }
   }
@@ -5189,7 +5190,7 @@ export function registerHome(): void {
       const at = focus.indexOf('|')
       const [src, name] = at < 0 ? [focus, ''] : [focus.slice(0, at), focus.slice(at + 1)]
       const title = (db.prepare("select title from pdf_titles where src = ?").get(src) as { title: string } | undefined)?.title
-      return { id: focus, type: 'pdf', title: title || name.replace(/\.pdf$/i, '') || 'PDF', kind: null, private: 0 }
+      return { id: focus, type: 'pdf', title: title || cleanTitle(name.replace(/\.pdf$/i, '')) || name.replace(/\.pdf$/i, '') || 'PDF', kind: null, private: 0 }
     }
     // A web page opened in the reader, by its link: named by the article kept of it, else its site.
     const web = (href: string): (typeof found)[number] => {

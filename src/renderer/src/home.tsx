@@ -1283,7 +1283,13 @@ export function Home(): React.JSX.Element {
   // Somewhere else sent you to one thing: open its section with it open.
   // In a pane (the front one unless said); ⌥-clicked, beside it instead.
   // Read again as each note opens, so the list is never behind.
-  useEffect(() => void call<Opened[]>('home:recent-opened', 12).then(setRecents), [view.focus])
+  // A PDF's title, read once it opens, names it here too ("The Crime Book", never its file's "crime").
+  useEffect(() => {
+    const read = (): void => void call<Opened[]>('home:recent-opened', 12).then(setRecents)
+    read()
+    window.addEventListener('haligtree:pdf-title', read)
+    return () => window.removeEventListener('haligtree:pdf-title', read)
+  }, [view.focus])
   const open = (type: string, id: string, key = frontRef.current): void => {
     // Which way it goes is read from the click itself, before any wait.
     const how = takeClick()

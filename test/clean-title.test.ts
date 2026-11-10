@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { cleanTitle } from '../src/renderer/src/lib/clean-title.ts'
+import { cleanTitle } from '../src/main/clean-title.ts'
 
 test('download-site stamps come off a PDF title', () => {
   assert.equal(cleanTitle('Cosmos - PDFDrive.com'), 'Cosmos')
