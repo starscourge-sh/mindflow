@@ -2,7 +2,7 @@ import { TOOL } from './note-extras'
 import { dragWords } from '@/lib/drag-words'
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal, flushSync } from 'react-dom'
-import type { Editor, JSONContent } from '@tiptap/core'
+import { getText, getTextSerializersFromSchema, type Editor, type JSONContent } from '@tiptap/core'
 import type { Node as PMNode } from '@tiptap/pm/model'
 import { redo, undo } from '@tiptap/pm/history'
 import { DndContext, MeasuringStrategy, PointerSensor, closestCorners, useDroppable, useSensor, useSensors, type DragOverEvent, type DragEndEvent } from '@dnd-kit/core'
@@ -52,6 +52,9 @@ type Shape = { level: number; head: { pos: number; node: PMNode }[]; lanes: Lane
 
 const LISTS = ['bulletList', 'orderedList', 'taskList']
 
+/** A heading's words as written, emoji and links included: a list named "🌿🌿🌿" read as no name at all. */
+const wordsOf = (node: PMNode | null | undefined): string => (node ? getText(node, { blockSeparator: ' ', textSerializers: getTextSerializersFromSchema(node.type.schema) }).trim() : '')
+
 /**
  * The note's headings at one level are its lists: the second level when it
  * has any (a first heading is usually the note's own title), otherwise the
@@ -63,7 +66,7 @@ function byHeadings(doc: PMNode): Shape {
   const level = levels.includes(2) ? 2 : Math.min(...levels, 2)
   const shape: Shape = { level, head: [], lanes: [] }
   doc.forEach((node, offset) => {
-    if (node.type.name === 'heading' && node.attrs.level === level) return void shape.lanes.push({ title: node.textContent.trim(), heading: node, blocks: [], cards: [] })
+    if (node.type.name === 'heading' && node.attrs.level === level) return void shape.lanes.push({ title: wordsOf(node), heading: node, blocks: [], cards: [] })
     const lane = shape.lanes[shape.lanes.length - 1]
     if (!lane) return void shape.head.push({ pos: offset, node })
     lane.blocks.push(node)
@@ -93,7 +96,7 @@ function byBullets(doc: PMNode): Shape | null {
   doc.forEach((node, offset) => void (offset !== start && shape.head.push({ pos: offset, node })))
   list.forEach((item, at) => {
     const pos = start + 1 + at
-    const lane: Lane = { title: item.firstChild?.textContent.trim() ?? '', heading: item, blocks: [], cards: [] }
+    const lane: Lane = { title: wordsOf(item.firstChild), heading: item, blocks: [], cards: [] }
     item.forEach((child, from, index) => {
       if (index === 0) return
       lane.blocks.push(child)
@@ -377,6 +380,29 @@ function throwAway(gone: Element | null | undefined, board: Element | null, chan
 /** Lists moved by a key or a menu line glide to their new places, as cards do. */
 const glideLanes = (board: Element | null, change: () => void): void => glide(board, change, '[data-lane]')
 
+/** Cards a list draws at first, and how many more each time it is scrolled near its end: 5,000 cards drawn at once took seconds per key. */
+const STEP = 60
+
+/** The rest of a long list, said as a count, drawn as it comes into view (or at a click). */
+function MoreCards({ n, onMore }: { n: number; onMore: () => void }): React.JSX.Element {
+  const line = useRef<HTMLButtonElement>(null)
+  const more = useRef(onMore)
+  more.current = onMore
+  useEffect(() => {
+    const el = line.current
+    if (!el) return
+    const watch = new IntersectionObserver((seen) => void (seen.some((one) => one.isIntersecting) && more.current()), { rootMargin: '400px 0px' })
+    watch.observe(el)
+    return () => watch.disconnect()
+  }, [n])
+  return (
+    <button ref={line} type="button" data-more-cards="" onClick={() => more.current()}
+      className="flex h-8 w-full shrink-0 cursor-pointer items-center justify-center rounded-[6px] px-2 text-control text-muted-foreground tabular-nums transition-[background-color,color] duration-150 hover:bg-foreground/[0.06] hover:text-foreground">
+      {num(n)} more {n === 1 ? 'card' : 'cards'}
+    </button>
+  )
+}
+
 /** Done cards in one list from which its foot offers to archive them. */
 const PILE = 5
 /** A small button that takes a press 32px across, a step past what it draws (the tick's way). */
@@ -470,6 +496,8 @@ export function Board({ editor, id, tools }: { editor: Editor; id: string; /** W
   const [colours, setColour] = useColours(id)
   const hueOf = (at: number): BlockColor => colours[shape.lanes[at]?.title ?? ''] ?? LANE_HUES[at % LANE_HUES.length]
   const [renaming, setRenaming] = useState<number | null>(null)
+  // How many cards each long list draws so far (STEP at first).
+  const [drawn, setDrawn] = useState<Record<number, number>>({})
   const [cursor, setCursor] = useState<{ lane: number; card: number } | null>(null)
   const [editing, setEditing] = useState<string | null>(null)
   const [adding, setAdding] = useState<number | null>(null)
@@ -956,7 +984,10 @@ export function Board({ editor, id, tools }: { editor: Editor; id: string; /** W
             className="flex min-h-0 flex-1 items-start gap-3 overflow-x-auto px-3 pt-2 pb-4 @[40rem]/page:px-6">
             {shape.lanes.map((lane, at) => {
               const folded = folds.includes(lane.title)
-              const cards = cardsOf(at)
+              const every = cardsOf(at)
+              // A long list draws its first cards and more as it is scrolled (or the cursor goes) near its end.
+              const upTo = Math.max(drawn[at] ?? STEP, cursor?.lane === at ? cursor.card + STEP / 2 : 0, every.findIndex((one) => one.id === editing || one.id === fresh.current) + 1)
+              const cards = every.slice(0, upTo)
               return (
                 <LaneBox key={laneId(at)} id={sid(laneId(at))} folded={folded} title={lane.title} tint={hueTint(hueOf(at))} count={lane.cards.length} onFold={() => flipFold(lane.title)}
                   here={quiet && cursor?.lane === at && cursor.card < 0}
@@ -989,6 +1020,7 @@ export function Board({ editor, id, tools }: { editor: Editor; id: string; /** W
                         menu={cardItems(at, index)} />
                     ))}
                   </SortableContext>
+                  {every.length > cards.length && <MoreCards n={every.length - cards.length} onMore={() => setDrawn((was) => ({ ...was, [at]: upTo + STEP }))} />}
                   {adding === at ? (
                     <AddCard onAdd={(words) => {
                       chime('noted')
