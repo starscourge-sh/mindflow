@@ -226,6 +226,8 @@ function Story({ id, onClose }: { id: string; onClose: () => void }): React.JSX.
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
       if (event.metaKey || event.ctrlKey || event.altKey) return
+      // Return or Space on the keep row's own buttons presses them, rather than turning the card.
+      if ((event.key === 'Enter' || event.key === ' ') && (event.target as HTMLElement | null)?.closest?.('[data-wrap-keep] button')) return
       if (event.key === 'Escape') onClose()
       else if (['ArrowRight', ' ', 'Enter', 'l', 'j'].includes(event.key)) go(at + 1)
       else if (['ArrowLeft', 'h', 'k'].includes(event.key)) go(at - 1)
