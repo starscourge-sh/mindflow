@@ -12,7 +12,7 @@ export { useCited, type Cited } from "./same-book"
 import { GraphCanvas } from "@/components/haligtree/graph-canvas"
 import { openPdf } from "./pdf-reader"
 import { plural, num } from '../../../../main/dates'
-import { StrokeRule } from "@/components/haligtree/time-strokes"
+import { GAP, STEP, STROKE_INK, StrokeRule, Strokes } from "@/components/haligtree/time-strokes"
 
 /** Notes and gems: what "In your notes" lists. Cards show on the page bar alone. */
 export const inNotes = (cited: Cited[]): Cited[] => cited.filter((one) => one.type !== "card" && one.type !== "deck")
@@ -170,64 +170,75 @@ export function InYourNotes({ cited, empty, parts = [], here, src = "" }: { cite
 
 type Mark = { page: number; color?: string | null }
 
-/** How many stretches the page bar adds its marks up in: few enough that each still reads at any count. */
-const BINS = 56
-
 /**
- * The book's length as a strip (the stroke look of time-strokes.tsx): a thin
- * track, the part read in colour, a stroke where you are, and taller strokes
- * where your highlights, notes and cards gather, added up into stretches of
- * pages so the strip reads at 5 marks or 5,000 (a taller stroke, more there).
- * Pointed at, a stretch says what is in it; pressed, it opens there. Over it,
- * the point ("You are on p. 83 of 336") and what the strokes are; under it,
- * the book's first and last page.
+ * The book's length drawn as the Journal's year is (time-strokes.tsx): a hairline for each stretch of pages across
+ * the card, solid where read, faint ahead, the stroke you are on taller in the accent, and a stroke standing taller
+ * where highlights, notes or cards gather, more there the taller. Pointed at, a stroke says what is in it; pressed, it
+ * opens there. Over it the point ("You are on p. 83 of 336") and what the strokes are; under it, the first and last page.
  */
 export function PageBar({ src, name, pages, page, cited, marks, onPage }: { src: string; name: string; pages: number; page?: number | null; cited: Cited[]; marks: Mark[]; /** In the reader: go to the page there. */ onPage?: (page: number) => void }): React.JSX.Element {
-  const bins = Math.min(BINS, pages)
+  const strip = useRef<HTMLDivElement>(null)
+  const [width, setWidth] = useState(0)
+  useEffect(() => {
+    const el = strip.current
+    if (!el) return
+    const watch = new ResizeObserver(() => setWidth(Math.floor(el.clientWidth)))
+    watch.observe(el)
+    return () => watch.disconnect()
+  }, [])
+  // As many hairlines as fit a stroke and a gap each, never more than the pages; spread across the whole card.
+  const count = Math.max(1, Math.min(pages, Math.floor((width + GAP) / STEP)))
+  const step = count > 1 ? Math.max(STEP, (width - 1) / (count - 1)) : STEP
+  const strokeOf = (p: number): number => Math.min(count - 1, Math.floor(((p - 1) * count) / Math.max(1, pages)))
   const stretches = useMemo(() => {
-    const all = Array.from({ length: bins }, (_, at) => ({ from: Math.floor((at * pages) / bins) + 1, to: Math.floor(((at + 1) * pages) / bins), marks: 0, notes: 0, cards: 0, first: 0 }))
+    const all = Array.from({ length: count }, (_, at) => ({ from: Math.floor((at * pages) / count) + 1, to: Math.max(Math.floor((at * pages) / count) + 1, Math.floor(((at + 1) * pages) / count)), marks: 0, notes: 0, cards: 0, first: 0 }))
     const add = (p: number, kind: "marks" | "notes" | "cards"): void => {
       if (p < 1 || p > pages) return
-      const one = all[Math.min(bins - 1, Math.floor(((p - 1) * bins) / pages))]
+      const one = all[Math.min(count - 1, Math.floor(((p - 1) * count) / pages))]
       one[kind]++
       one.first = one.first ? Math.min(one.first, p) : p
     }
     for (const one of cited) for (const p of one.pages) add(p, one.type === "card" ? "cards" : "notes")
     for (const mark of marks) add(mark.page, "marks")
     return all
-  }, [cited, marks, pages, bins])
+  }, [cited, marks, pages, count])
   const most = Math.max(1, ...stretches.map((one) => one.marks + one.notes + one.cards))
-  const left = (p: number): string => `${pages > 1 ? ((p - 1) / (pages - 1)) * 100 : 50}%`
+  const here = page ? strokeOf(page) : -1
+  const [hover, setHover] = useState<number | null>(null)
   const counted = (n: number, one: string, many: string): string => (n ? `${n.toLocaleString()} ${n === 1 ? one : many}` : "")
+  const at = (clientX: number, el: Element): number | null => {
+    const i = Math.round((clientX - el.getBoundingClientRect().left) / step)
+    return i >= 0 && i < count ? i : null
+  }
+  const said = (i: number): string => {
+    const one = stretches[i]
+    const where = one.from === one.to ? `p. ${labelFor(src, one.from)}` : `pp. ${labelFor(src, one.from)} to ${labelFor(src, one.to)}`
+    const what = [counted(one.marks, "highlight", "highlights"), counted(one.notes, "note", "notes"), counted(one.cards, "card", "cards")].filter(Boolean).join(", ")
+    return `${where}${what ? `: ${what}` : ""}${i === here ? " (you are here)" : ""}`
+  }
+  const go = (i: number): void => {
+    const one = stretches[i]
+    const to = one.first || one.from
+    chime("open")
+    if (onPage) onPage(to)
+    else openPdf(src, name, to)
+  }
   return (
     <div className="book-bar" data-page-bar>
       {/* The point first, in full ink; then what the strip shows; then the strip, the first and last page under it. */}
       <p className="book-bar-you">{page ? <>You are on p. {labelFor(src, page)} of {labelFor(src, pages)}</> : "Not started"}</p>
-      {/* One short line: the strip shows the rest itself (the read part solid, a mark at your page, a pointed-at stroke says what is there). */}
       <StrokeRule>Taller strokes hold highlights and notes</StrokeRule>
-      <div className="book-bar-strip">
-        {page ? <span className="book-bar-read" style={{ width: left(page) }} /> : null}
-        {stretches.map((one, at) => {
-          const all = one.marks + one.notes + one.cards
-          if (!all) return null
-          const says = [counted(one.marks, "highlight", "highlights"), counted(one.notes, "note", "notes"), counted(one.cards, "card", "cards")].filter(Boolean).join(", ")
-          return (
-            <Tip key={at} label={`${one.from === one.to ? `p. ${labelFor(src, one.from)}` : `pp. ${labelFor(src, one.from)} to ${labelFor(src, one.to)}`}: ${says}`}>
-              <button
-                type="button"
-                aria-label={`Open at p. ${labelFor(src, one.first)}`}
-                data-tick={one.notes ? "note" : one.marks ? "mark" : "card"}
-                data-tick-page={one.first}
-                className="book-bar-tick"
-                style={{ left: `${(at / bins) * 100}%`, width: `${100 / bins}%`, "--fill": Math.sqrt(all / most).toFixed(2) } as React.CSSProperties}
-                onClick={() => (chime("open"), onPage ? onPage(one.first) : openPdf(src, name, one.first))}
-              >
-                <span className={`book-bar-heat${one.marks ? "" : " is-note"}`} />
-              </button>
-            </Tip>
-          )
-        })}
-        {page ? <span className="book-bar-here" data-here={page} style={{ left: left(page) }} /> : null}
+      <div ref={strip} className="book-bar-strip">
+        {width > 0 && (
+          <Tip label={hover === null ? "" : said(hover)}>
+            <Strokes count={count} step={step} height={28} role="img" aria-label={page ? `p. ${labelFor(src, page)} of ${labelFor(src, pages)}` : `${pages} pages`} className="cursor-pointer"
+              ink={(i) => (i === here ? STROKE_INK.here : stretches[i].marks + stretches[i].notes + stretches[i].cards ? "var(--foreground)" : i < here ? STROKE_INK.gone : STROKE_INK.ahead)}
+              tall={(i) => { const all = stretches[i].marks + stretches[i].notes + stretches[i].cards; return all ? Math.round(Math.sqrt(all / most) * 6) : i === here || i === hover }}
+              attrs={(i) => { const one = stretches[i]; const all = one.marks + one.notes + one.cards; return { "data-here": i === here ? page ?? undefined : undefined, "data-gone": i < here ? "" : undefined, "data-tick": all ? (one.notes ? "note" : one.marks ? "mark" : "card") : undefined, "data-tick-page": all ? one.first : undefined } }}
+              onPointerMove={(event) => setHover(at(event.clientX, event.currentTarget))} onPointerLeave={() => setHover(null)}
+              onClick={(event) => { const i = (event.target as Element).getAttribute("data-tick-page") ? stretches.findIndex((one) => String(one.first) === (event.target as Element).getAttribute("data-tick-page")) : at(event.clientX, event.currentTarget); if (i !== null && i >= 0) go(i) }} />
+          </Tip>
+        )}
       </div>
       <div className="book-bar-ends">
         <span>p. {labelFor(src, 1)}</span>

@@ -1886,71 +1886,9 @@ html:is([data-width='page'], [data-width='wide']) .pdf-library-column,
   font-weight: 500;
 }
 
-/* The book as the Journal's year is drawn (time-strokes.tsx): a hairline every few pixels, solid where read, faint
-   ahead, the page you are on a taller stroke in the accent, and taller strokes where highlights or notes gather. */
+/* The book as the Journal's year is drawn: its strokes (time-strokes.tsx) across the whole card. */
 .book-bar-strip {
-  --stroke-gone: color-mix(in oklab, var(--foreground) 78%, transparent);
-  --stroke-ahead: color-mix(in oklab, var(--foreground) 18%, transparent);
-  position: relative;
-  height: 1.75rem;
-  margin: 0 0.25rem;
-}
-
-.book-bar-strip::before {
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  left: 0;
-  height: 14px;
-  background: repeating-linear-gradient(90deg, var(--stroke-ahead) 0 1px, transparent 1px 3px);
-  content: "";
-}
-
-.book-bar-read {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  height: 14px;
-  background: repeating-linear-gradient(90deg, var(--stroke-gone) 0 1px, transparent 1px 3px);
-}
-
-/* You are here: one taller stroke in the accent, as today is on the year. */
-.book-bar-here {
-  position: absolute;
-  z-index: 1;
-  bottom: 0;
-  width: 2px;
-  height: 22px;
-  margin-left: -1px;
-  background-color: var(--tt-brand-color-400);
-  pointer-events: none;
-}
-
-/* A stretch of pages: a stroke up from the baseline, taller where more gathers. */
-.book-bar-tick {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  cursor: pointer;
-}
-
-.book-bar-heat {
-  width: 2px;
-  height: calc(16px + (100% - 16px) * var(--fill, 1));
-  background-color: var(--foreground);
-  transition: background-color 120ms ease-out;
-}
-
-.book-bar-heat.is-note {
-  background-color: color-mix(in oklab, var(--foreground) 55%, transparent);
-}
-
-.book-bar-tick:hover .book-bar-heat,
-.book-bar-tick:focus-visible .book-bar-heat {
-  background-color: var(--tt-brand-color-400);
+  min-width: 0;
 }
 
 .book-bar-ends {
