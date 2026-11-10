@@ -9,3 +9,5 @@ export type Nudge =
   | { kind: 'blocked'; id: string; site: string; until: string | null; allowMinutes: number }
   /** A practice offered at its time (practices.ts), when the bubble is not shown. */
   | { kind: 'practice'; id: string; offer: import('./practices').Offer }
+  /** A save that failed in a window with no notices of its own (the pill, a goal's card, the meeting card): said here. `id` is the words. */
+  | { kind: 'failed'; id: string; text: string }

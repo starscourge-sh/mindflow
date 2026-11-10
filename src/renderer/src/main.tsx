@@ -50,6 +50,8 @@ import { putDetailsAway } from './lib/reading'
 import { guardFrost } from './lib/frost-guard'
 import { installTextUndo } from './lib/text-undo'
 import { APP_NAME } from '../../main/name'
+import { toasters, whyFailed } from './components/haligtree/ui'
+import { chime } from './lib/sound'
 
 // Before the first paint, and before anything renders: the page wears a theme
 // whether or not an editor is on screen.
@@ -58,6 +60,16 @@ applyTheme(currentTheme())
 // once, so the two never disagree.
 // An imported theme added or taken away there is painted here as well.
 window.addEventListener('storage', (event) => (event.key === 'theme' || event.key === 'custom-themes' || event.key === 'style') && applyTheme(currentTheme(), false))
+// A save that failed in a window with no notices of its own (the pill, a goal's
+// card, the meeting card): said on the nudge card with its sound, never lost.
+window.addEventListener('unhandledrejection', (event) => {
+  if (toasters || !String(event.reason?.message ?? event.reason ?? '').includes('Error invoking remote method')) return
+  // The card's lead already says "Not saved": its words say why, and what to do.
+  const why = whyFailed(event.reason)
+  const text = `${why.charAt(0).toUpperCase()}${why.slice(1)}.`
+  chime('nope')
+  window.api.nudge({ kind: 'failed', id: text, text })
+})
 // A window you are not in steps back a little, so the one you are in is clear.
 const blurred = (on: boolean) => (): void => void (document.documentElement.dataset.blurred = on ? 'on' : 'off')
 // Checked a moment later: focus moving into an embed (a video in a note)

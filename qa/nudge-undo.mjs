@@ -5,6 +5,7 @@
 // own Undo, ⌘Z in the main window has nothing of the nudge's left to take.
 //
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/nudge-undo.mjs
+import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
 process.env.QA_ARGS ??= '--sandbox'
 
@@ -42,6 +43,10 @@ const doneOn = async (card, title) => {
   }
   return false
 }
+const SHOT = process.env.SHOT ?? 'scratchpad/nudge-undo'
+mkdirSync(SHOT, { recursive: true })
+// A frame every 50ms through a change, to read by eye.
+const film = async (page, name, ms = 600) => { for (let t = 0; t <= ms; t += 50) { await page.screenshot({ path: `${SHOT}/${name}-${String(t).padStart(3, '0')}.png`, timeout: 400 }).catch(() => {}); await wait(Math.max(0, 50 - 30)) } }
 const saidShown = (card, title) => card.evaluate((t) => [...document.querySelectorAll('[data-nudge-said]')].some((one) => one.textContent.includes(t)), title)
 
 try {
@@ -54,11 +59,11 @@ try {
   const card = await windowOf('view=nudge')
   card.on('pageerror', (error) => c.errors.push('NUDGE ' + error.message))
   check('the task due now has its card with Done', await doneOn(card, 'Water the ferns'))
-  await wait(600)
+  await film(card, 'done')
   check('Done finished it and the card says so, with Undo', (await v('task', one))?.status === 'done' && (await saidShown(card, 'Water the ferns')))
   await h.evaluate(() => (document.activeElement instanceof HTMLElement && document.activeElement.blur()))
   await h.keyboard.press('Meta+z')
-  await wait(800)
+  await film(card, 'undo', 800)
   check('⌘Z in the main window opens the task again', (await v('task', one))?.status === 'open', (await v('task', one))?.status)
   check('and the card’s “Done” line goes', !(await saidShown(card, 'Water the ferns')))
   check('heard “undo” once, in the main window', (await h.evaluate(() => (window.haligtreeHeard ?? []).filter((s) => s === 'cue:undo').length)) === 1)
@@ -101,6 +106,18 @@ try {
   check('with the “nope” sound', (await card.evaluate(() => [...(window.haligtreeHeard ?? [])])).includes('cue:nope'))
   check('and the card stays, with Done to try again', await card.evaluate(() => [...document.querySelectorAll('[data-nudge="task"]')].some((one) => one.textContent.includes('Return the library books') && one.querySelector('[data-nudge-done]'))))
   check('the task is still open', (await v('task', three))?.status === 'open')
+
+  // --- A save that fails in the focus pill (no notices of its own): said on the nudge card.
+  await v('session:start', three, 'Return the library books', 25 * 60000)
+  await h.evaluate(() => window.api.showFocus(true))
+  const pill = await windowOf('view=focus')
+  await pill.waitForTimeout(1500)
+  await pill.evaluate(() => void window.api.haligtree('task:done', 'nothing'))
+  await wait(1200)
+  const away = await card.evaluate(() => document.querySelector('[data-nudge="failed"]')?.textContent ?? '')
+  check('a save that failed in the pill is said on the nudge card', away.startsWith('Not saved') && away.includes('Your disk is full') && !away.includes('Not saved: '), away)
+  check('with the “nope” sound in the pill', (await pill.evaluate(() => [...(window.haligtreeHeard ?? [])])).includes('cue:nope'))
+  check('the main window, which has its own notices, did not send one too', (await card.evaluate(() => document.querySelectorAll('[data-nudge="failed"]').length)) === 1)
   check('no errors', c.errors.length === 0, c.errors.join(' | '))
 } catch (error) {
   check('ran without throwing', false, String(error?.stack ?? error))

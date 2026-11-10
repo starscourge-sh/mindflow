@@ -7,6 +7,7 @@ import ClockIcon from '@/components/ui/clock-icon'
 import XIcon from '@/components/ui/x-icon'
 import EyeOffIcon from '@/components/ui/eye-off-icon'
 import LockIcon from '@/components/ui/lock-icon'
+import TriangleAlertIcon from '@/components/ui/triangle-alert-icon'
 // The theme's colours: this window has no editor, which is what usually brings them.
 import '@/assets/styles/_variables.scss'
 import { chime } from '@/lib/sound'
@@ -31,6 +32,8 @@ const LINGER_AWAY = 10 * 60_000
 const LINGER_STICKY = 12_000
 /** A site sent away: long enough to read it and choose “Allow 5 min”. */
 const LINGER_BLOCKED = 10_000
+/** A save that failed: long enough to read what to do about it. */
+const LINGER_FAILED = 12_000
 const keyOf = (nudge: Nudge): string => (nudge.kind === 'review' ? 'review' : `${nudge.kind}:${nudge.id}`)
 
 const PRIMARY = 'flex h-7 shrink-0 items-center rounded-full bg-[var(--tt-brand-color-400)] px-3 text-[12.5px] font-semibold mf-on-accent transition-[filter] hover:brightness-110'
@@ -62,7 +65,7 @@ export function NudgeCards(): React.JSX.Element {
       // A site sent away is a soft “not now”, never a bell.
       if (nudge.kind === 'blocked') chime('nope')
       else if (nudge.kind === 'practice') chime('hint')
-      else if (nudge.kind !== 'sticky') chime(nudge.kind !== 'away' && nudge.again ? 'nudgeMore' : 'hint')
+      else if (nudge.kind !== 'sticky' && nudge.kind !== 'failed') chime(nudge.kind !== 'away' && nudge.again ? 'nudgeMore' : 'hint')
     })
   }, [])
   // The window is as tall as its cards; with none left (once they have slid away) it hides.
@@ -101,7 +104,7 @@ export function NudgeCards(): React.JSX.Element {
 
 function Card({ nudge, onDone }: { nudge: Nudge; onDone: () => void }): React.JSX.Element {
   // Left alone it slides away, but never from under the pointer, nor while its window is hidden.
-  const wait = usePatience(nudge.kind === 'away' ? LINGER_AWAY : nudge.kind === 'sticky' ? LINGER_STICKY : nudge.kind === 'blocked' ? LINGER_BLOCKED : LINGER, onDone, true, nudge)
+  const wait = usePatience(nudge.kind === 'away' ? LINGER_AWAY : nudge.kind === 'sticky' ? LINGER_STICKY : nudge.kind === 'blocked' ? LINGER_BLOCKED : nudge.kind === 'failed' ? LINGER_FAILED : LINGER, onDone, true, nudge)
   // What went wrong, said on the card: another session running, or a save that failed.
   const [failed, setFailed] = useState<string | null>(null)
   // Answered with something that can be taken back (Done, Not tonight, In 30 min): the card says so, with Undo, then goes.
@@ -119,6 +122,16 @@ function Card({ nudge, onDone }: { nudge: Nudge; onDone: () => void }): React.JS
   if (said) return <Said said={said} onDone={onDone} />
   if (nudge.kind === 'blocked') return <Blocked nudge={nudge} wait={wait} act={act} />
   if (nudge.kind === 'practice') return <PracticeOffer nudge={nudge} wait={wait} onDone={onDone} onSaid={setSaid} />
+  if (nudge.kind === 'failed') return (
+    <div {...wait} data-nudge-failed-save role="alert" className={`${SHEET} px-3.5 pt-3 pb-3`}>
+      <Head icon={TriangleAlertIcon} lead="Not saved" words={nudge.text}>
+        <Tip label="Got it"><button type="button" aria-label="Got it" onClick={() => act(() => Promise.resolve(), 'fold')}
+          className="-mt-0.5 -mr-1 flex size-7 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
+          <AliveIcon icon={XIcon} size={14} />
+        </button></Tip>
+      </Head>
+    </div>
+  )
   const lead = nudge.kind === 'sticky' ? 'Sticky hidden' : nudge.kind === 'task' ? (nudge.again ? 'Still due' : 'Due now') : nudge.kind === 'review' ? (nudge.again ? 'Still time to review' : 'Time to review') : nudge.timer ? (nudge.breakOf ? 'Your break ended' : 'Your timer ended') : 'Your session ended'
   const icon = nudge.kind === 'sticky' ? EyeOffIcon : nudge.kind === 'task' ? AlarmClockPlusIcon : nudge.kind === 'review' ? BrainCircuitIcon : ClockIcon
   const words = nudge.kind === 'sticky' ? `${quoted(taskName(nudge.title).text, 80)} is hidden. ⌃⌥⌘N shows your stickies again, this one too` : nudge.kind === 'task' ? taskName(nudge.title).text : nudge.kind === 'review' ? nudge.text : nudge.sleptAt ? sleptSaid({ ...nudge, kind: nudge.breakOf ? 'break' : null }).join(', ') : `At ${clock(nudge.endedAt)}, while you were away${nudge.timer ? '' : `: ${quoted(taskName(nudge.goal).text, 80)}`}`

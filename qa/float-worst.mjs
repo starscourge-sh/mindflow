@@ -82,6 +82,9 @@ const themed = async (page, name) => {
     const bad = await spills(page)
     check(`${name}, ${theme}: no words spill`, bad.length === 0, bad.slice(0, 4).join(' | '))
   }
+  // Every button says what it is to a screen reader: words, a label or a title.
+  const unnamed = await page.evaluate(() => [...document.querySelectorAll('button, [role="button"]')].filter((one) => !(one.getAttribute('aria-label') || one.getAttribute('title') || one.textContent.trim() || one.getAttribute('aria-labelledby') || [...(one.labels ?? [])].some((label) => label.textContent.trim()))).map((one) => one.outerHTML.slice(0, 90)))
+  check(`${name}: every button has a name`, unnamed.length === 0, unnamed.slice(0, 3).join(' | '))
 }
 
 try {
@@ -121,6 +124,26 @@ try {
   if (beacon) {
     await beacon.waitForTimeout(1500)
     await themed(beacon, 'goal-card')
+  }
+  // --- Today's sticky, with the worst tasks on it, and the meeting card.
+  for (const title of WORST) {
+    const made = await v('task:add', title)
+    await v('task:save', made?.id ?? made, { allDay: 1, due: day(0) })
+  }
+  await h.evaluate(() => window.api.openSticky('view', 'today', 'Today', false))
+  const today = await windowOf('id=today')
+  check('today\'s sticky is up', !!today)
+  if (today) {
+    await today.waitForTimeout(1500)
+    await themed(today, 'today-sticky')
+  }
+  await v('meeting:start', null)
+  const meeting = await windowOf('view=meeting')
+  check('the meeting card is up', !!meeting)
+  if (meeting) {
+    await meeting.waitForTimeout(1500)
+    await themed(meeting, 'meeting')
+    await v('meeting:stop').catch(() => {})
   }
   check('no errors', c.errors.length === 0, c.errors.join(' | '))
 } catch (error) {

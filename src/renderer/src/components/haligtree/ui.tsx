@@ -1373,6 +1373,9 @@ function useClearSpot(on: boolean, lane: React.RefObject<HTMLDivElement | null>)
   return spot
 }
 
+/** How many notice areas this window has up: with none, a failed save is said on the nudge card instead (main.tsx). */
+export let toasters = 0
+
 export function Toaster(): React.JSX.Element | null {
   const [shown, setShown] = useState<{ text: string; undo?: () => void; tone?: ToastTone; action?: ToastAction; made?: Made; key: number } | null>(null)
   const shownNow = useRef(shown)
@@ -1499,7 +1502,9 @@ export function Toaster(): React.JSX.Element | null {
     window.addEventListener('haligtree:toast', onToast)
     window.addEventListener('haligtree:untoast', onGone)
     window.addEventListener('unhandledrejection', onFail)
+    toasters++
     return () => {
+      toasters--
       stop()
       window.removeEventListener('haligtree:untoast', onGone)
       window.removeEventListener('haligtree:toast', onToast)
