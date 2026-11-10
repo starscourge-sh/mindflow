@@ -69,6 +69,12 @@ try {
   })
   check('Queue: Read’s icons and names stand in Up next’s columns (within 1px)', cols.readIcon != null && Math.abs(cols.nextIcon - cols.readIcon) <= 1 && Math.abs(cols.nextName - cols.readName) <= 1, JSON.stringify(cols))
   if (shots) await c.both(`${shots}/pass-queue`)
+
+  // Home at its narrowest with a word that never breaks: nothing runs past the page's right edge.
+  for (let n = 0; n < 8; n++) await h.evaluate((p) => window.api.captures.create(p), { kind: 'quote', body: doc(`Pneumonoultramicroscopicsilicovolcanoconiosisandotherunbreakablewords ${n}`), attribution: 'Pneumonoultramicroscopicsilicovolcanoconiosisandotherunbreakablewords' })
+  await c.size(560, 400); await c.go('home'); await wait(1500)
+  const past = await h.evaluate(() => { const pane = document.querySelector('[data-pane]').getBoundingClientRect(); return [...document.querySelectorAll('[data-pane] *')].filter((el) => { const r = el.getBoundingClientRect(); return r.width && r.right > pane.right + 1 && !el.closest('.snap-x, [aria-hidden]') && el.tagName !== 'IMG' }).map((el) => (el.textContent ?? '').slice(0, 30)) })
+  check('Home at 560 wide: a word that never breaks stays inside the page', past.length === 0, past.slice(0, 3).join(' | '))
 } finally {
   await c.close()
 }

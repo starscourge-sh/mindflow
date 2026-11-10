@@ -451,7 +451,7 @@ function ListRow({ card, actions, lead, children, aside }: { card: Card; actions
       <div className="group/row flex items-start gap-3 rounded-md px-2 py-2 transition-colors hover:bg-accent/50 has-[[data-nav]:focus-visible]:bg-accent/50">
         {lead}
         <button type="button" data-nav data-private={card.private ? '' : undefined} data-picked={actions.picked?.(card) || undefined} data-drag-open={`${card.type}:${card.id}`} onClick={(event) => actions.open(card, event)}
-          className="-my-2 flex min-w-0 flex-1 flex-col items-start gap-0.5 py-2 text-left outline-none">
+          className="-my-2 flex min-w-0 flex-1 flex-col items-start gap-0.5 py-2 text-left outline-none [&>*]:max-w-full">
           {children}
         </button>
         {aside}
@@ -576,7 +576,7 @@ function ExampleHome(): React.JSX.Element {
       <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,15rem),1fr))] gap-2 px-5 @[44rem]/page:px-8">
         {tiles.map((one) => <Tile key={one.id} card={one} pinned={false} actions={none} onHover={() => undefined} />)}
       </div>
-      <div className="grid gap-x-6 gap-y-8 px-3 @[44rem]/page:grid-cols-2 @[44rem]/page:px-6">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-x-6 gap-y-8 px-3 @[44rem]/page:grid-cols-2 @[44rem]/page:px-6">
         <List title="Next up">{exampleTasks().slice(0, 3).map((task, _, all) => <TaskRow key={task.id} task={task} actions={none} room={markRoom(all)} />)}</List>
         <List title="Questions you're holding">
           {held.map((one) => (
@@ -939,7 +939,7 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
           <ContinueReading extra={resume} heading={() => <Heading title="Continue reading" onAll={() => (showMediaKind('pdf'), onView('media'))} />} />
 
           {(nextUp.length > 0 || questions.length > 0) && (
-            <div className="grid gap-x-6 gap-y-8 px-3 @[44rem]/page:grid-cols-2 @[44rem]/page:px-6">
+            <div className="grid grid-cols-[minmax(0,1fr)] gap-x-6 gap-y-8 px-3 @[44rem]/page:grid-cols-2 @[44rem]/page:px-6">
               {nextUp.length > 0 && (
                 <List title="Next up" onAll={() => onView(nextUp.some((task) => (placed(task) ?? Infinity) < startOfDay(1)) ? 'today' : 'upcoming')}>
                   {nextUp.map((task) => <TaskRow key={task.id} task={task} actions={actions} room={markRoom(nextUp)} />)}
@@ -968,7 +968,7 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
           {back.length > 0 && <Quotes title="Coming back" onAll={() => onView('review')} cards={back} actions={actions} />}
 
           {(tidy.length > 0 || again.length > 0) && (
-            <div className="grid gap-x-6 gap-y-8 px-3 @[44rem]/page:grid-cols-2 @[44rem]/page:px-6">
+            <div className="grid grid-cols-[minmax(0,1fr)] gap-x-6 gap-y-8 px-3 @[44rem]/page:grid-cols-2 @[44rem]/page:px-6">
               {tidy.length > 0 && (
                 <List title="Old captures to tidy" onAll={() => onView('inbox')}>
                   {tidy.map((card) => (
