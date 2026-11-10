@@ -214,7 +214,7 @@ function InAnotherBook({ focus, now, notch }: { focus: Elsewhere; now: number; n
     <div data-clear className="mf-floating flex h-screen items-start justify-center overflow-hidden" style={{ paddingTop: notch ? notch + 4 : TOP }}>
       <button type="button" data-focus-elsewhere={focus.book} onClick={() => (chime('tap'), void window.api.haligtree('books:go', focus.book))}
         style={{ backgroundImage: SOLID, backgroundColor: 'Canvas', filter: lift() }}
-        className="flex h-[34px] max-w-[300px] items-center gap-2 rounded-full border px-3 font-[system-ui,-apple-system,sans-serif] text-[13px] text-foreground transition-transform duration-150 active:scale-[0.97]">
+        className="flex h-[34px] max-w-[300px] items-center gap-2 rounded-full border px-3 font-sans text-[13px] text-foreground transition-transform duration-150 active:scale-[0.97]">
         <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ background: focus.color ? hueVar(focus.color as Hue) : 'var(--tt-brand-color-400)' }} />
         <span className="shrink-0 font-semibold">In {focus.bookName}</span>
         <span className="min-w-0 truncate">{focus.goal}</span>
@@ -1332,7 +1332,7 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
         // window behind show through the pill, lines and text and all.
         // Time up: an accent wash over the solid, so the pill says so from across the room.
         style={{ backgroundImage: `${over && !tucked ? `${TIMEUP_WASH}, ` : ''}${SOLID}`, backgroundColor: 'Canvas' }}
-        className={`absolute inset-0 overflow-hidden ${tucked ? 'rounded-t-none rounded-b-[18px]' : 'rounded-[22px]'} font-[system-ui,-apple-system,sans-serif] text-[13px] text-foreground ${over && !tucked ? 'mf-timeup' : ''}`}
+        className={`absolute inset-0 overflow-hidden ${tucked ? 'rounded-t-none rounded-b-[18px]' : 'rounded-[22px]'} font-sans text-[13px] text-foreground ${over && !tucked ? 'mf-timeup' : ''}`}
       >
         {onBreak && <style>{BREAK_CSS}</style>}
         {/* Under the notch the pill stays the notch's black; a break glows mint from its lower edge, breathing. */}
@@ -1505,7 +1505,7 @@ function After({ stage, id, notch, onDone, away = null, early = false, bare = fa
         data-island-frame
         data-after={leaving ? 'leaving' : stage}
         style={{ clipPath: shape.clip, backgroundImage: SOLID, backgroundColor: 'Canvas' }}
-        className={`absolute inset-0 overflow-hidden ${tucked ? 'rounded-t-none rounded-b-[18px]' : 'rounded-[22px]'} font-[system-ui,-apple-system,sans-serif] text-[13px] text-foreground`}
+        className={`absolute inset-0 overflow-hidden ${tucked ? 'rounded-t-none rounded-b-[18px]' : 'rounded-[22px]'} font-sans text-[13px] text-foreground`}
       >
         {/* Time's up was an accent wash: it fades off rather than snapping. */}
         {from.over && <motion.span aria-hidden className="pointer-events-none absolute inset-0" style={{ backgroundImage: TIMEUP_WASH }} initial={{ opacity: 1 }} animate={{ opacity: 0 }} transition={{ duration: calm ? 0 : 0.5 }} />}

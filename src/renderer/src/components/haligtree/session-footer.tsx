@@ -80,7 +80,7 @@ function Foot({ editor, focus, note }: { editor: Editor | null; focus: Focus; no
     `radial-gradient(circle at center, color-mix(in oklab, var(--tt-brand-color-400) ${strength}%, transparent) 1.5px, transparent 2px) 0 50% / ${STEP}px 100% repeat-x`
 
   return (
-    <div className="mf-session-foot pointer-events-none absolute inset-x-0 bottom-0 z-20 flex h-9 items-center gap-4 px-5 font-mono text-[11px] text-muted-foreground tabular-nums select-none">
+    <div className="mf-session-foot pointer-events-none absolute inset-x-0 bottom-0 z-20 flex h-9 items-center gap-4 px-5 text-meta text-muted-foreground tabular-nums select-none">
       {/* The time is also how to pause: with the time in the note alone, the bubble's buttons are not there. */}
       <button
         type="button"

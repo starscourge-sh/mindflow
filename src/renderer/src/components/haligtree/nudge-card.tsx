@@ -75,7 +75,7 @@ export function NudgeCards(): React.JSX.Element {
   const drop = (nudge: Nudge): void => setCards((all) => all.filter((card) => keyOf(card) !== keyOf(nudge)))
   const calm = still()
   return (
-    <div data-clear className="mf-floating h-screen overflow-hidden p-[10px] font-[system-ui,-apple-system,sans-serif] text-[13px] text-foreground">
+    <div data-clear className="mf-floating h-screen overflow-hidden p-[10px] font-sans text-[13px] text-foreground">
       <div ref={box} data-clear className="flex flex-col gap-2">
         <AnimatePresence initial onExitComplete={() => setCards((all) => (all.length ? all : (window.api.nudgeSize(0), all)))}>
           {cards.map((nudge) => (
