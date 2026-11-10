@@ -47,8 +47,9 @@ try {
   // Add to queue and Read next sit under “Reading queue” in a row's menu.
   await h.getByRole('menuitem', { name: 'Reading queue', exact: true }).hover(); await wait(400)
   await h.getByRole('menuitem', { name: 'Add to queue' }).click()
-  await wait(700)
-  let now = await queue()
+  // Read once it has landed (up to 3s), not after a fixed pause: under load the write came after it.
+  const settled = async (ok) => { for (let i = 0; i < 30; i++) { const q = await queue(); if (ok(q)) return q; await wait(100) } return queue() }
+  let now = await settled((q) => q.queue.at(-1)?.itemId === id)
   check('Add to queue puts it at the end', now.queue.at(-1)?.itemId === id, now.queue.at(-1)?.title)
   const second = h.locator('[data-pane] [data-row][data-id]').nth(1)
   const id2 = await second.getAttribute('data-id')
@@ -56,8 +57,7 @@ try {
   await wait()
   await h.getByRole('menuitem', { name: 'Reading queue', exact: true }).hover(); await wait(400)
   await h.getByRole('menuitem', { name: 'Read next' }).click()
-  await wait(700)
-  now = await queue()
+  now = await settled((q) => q.queue[0]?.itemId === id2)
   check('Read next puts it at the front', now.queue[0]?.itemId === id2, now.queue[0]?.title)
 
   // --- the queue: drag to reorder, × to take off and Undo
