@@ -47,13 +47,14 @@ export function Cover({ one, className = '' }: { one: Media; className?: string 
   useEffect(() => {
     if (one.kind === 'audio' || one.kind === 'pdf' || one.gone) return
     let live = true
-    void smallPicture(one.src, true).then((made) => live && setThumb(made || ''))
+    // No small copy could be made (a format the cache cannot shrink): the picture itself, never an empty square.
+    void smallPicture(one.src, true).then((made) => live && setThumb(made || one.src), () => live && setThumb(one.src))
     return () => void (live = false)
   }, [one.src, one.kind, one.gone])
   const image = one.kind === 'pdf' ? book?.image : thumb
   return (
     <span data-cover={one.kind} className={`block overflow-hidden bg-accent ${one.private ? 'private-text' : ''} ${className}`}>
-      {one.kind === 'audio' ? <Bars seed={one.src} /> : image ? <img src={image} alt="" draggable={false} decoding="async" className={`size-full ${one.kind === 'pdf' ? 'bg-[var(--pdf-paper,#fff)] object-contain' : 'object-cover'}`} /> : null}
+      {one.kind === 'audio' ? <Bars seed={one.src} /> : image ? <img src={image} alt="" draggable={false} decoding="async" className={`size-full animate-in fade-in-0 duration-200 motion-reduce:animate-none ${one.kind === 'pdf' ? 'bg-[var(--pdf-paper,#fff)] object-contain' : 'object-cover'}`} /> : null}
     </span>
   )
 }
@@ -83,12 +84,12 @@ export function Pile({ shelf, files, onOpen }: { shelf: (typeof SHELVES)[number]
       onPointerMove={(event) => { if (!heard.current && realMove(event)) (heard.current = true), chime('fan') }}
       onPointerLeave={() => (heard.current = false)}
       className="files-pile group/pile flex w-[82%] max-w-[280px] min-w-0 cursor-pointer flex-col gap-2.5 text-left outline-none">
-      {/* 82% of its column's width but as tall as a 5:4 shelf the column's full width: narrower, never shorter. */}
-      <span className="files-pile-box relative block aspect-[41/40] w-full">
+      {/* 82% of its column's width, only as tall as the covers and pocket need: no empty band above the pile. */}
+      <span className="files-pile-box relative block aspect-[41/30] w-full">
         {top.map((one, at) => {
           const fan = FANS[top.length][at]
           return (
-            <span key={one.src} className="files-pile-cover absolute bottom-[24%] left-1/2 block w-[38%] overflow-hidden rounded-[4px] shadow-[0_1px_2px_rgb(0_0_0/0.12),0_6px_16px_-6px_rgb(0_0_0/0.25)] ring-1 ring-foreground/10"
+            <span key={one.src} className="files-pile-cover absolute bottom-[26%] left-1/2 block w-[38%] overflow-hidden rounded-[4px] shadow-[0_1px_2px_rgb(0_0_0/0.12),0_6px_16px_-6px_rgb(0_0_0/0.25)] ring-1 ring-foreground/10"
               style={{ '--x': `${fan.x}%`, '--r': `${fan.r}deg`, '--y': `${fan.y}%` } as React.CSSProperties}>
               <Cover one={one} className={book ? 'aspect-[3/4]' : 'aspect-square'} />
             </span>
@@ -279,9 +280,9 @@ function Square({ one, here, picked, menu, onClick }: { one: Media; here: boolea
     <RowMenu items={menu}>
       <button type="button" data-media={one.kind} data-src={one.src} data-id={one.src} data-cursor={here || undefined} data-picked={picked || undefined}
         onClick={onClick}
-        className={`files-square group/sq relative block aspect-square w-full cursor-pointer overflow-hidden rounded-[6px] bg-accent text-left outline-none after:pointer-events-none after:absolute after:inset-0 after:rounded-[6px] after:ring-inset ${picked ? 'after:bg-[color-mix(in_srgb,var(--tt-brand-color-400)_22%,transparent)] after:ring-2 after:ring-[var(--tt-brand-color-400)]' : here ? 'after:ring-2 after:ring-ring' : 'after:ring-1 after:ring-foreground/10'}`}>
+        className={`files-square group/sq relative block aspect-square w-full cursor-pointer overflow-hidden rounded-[8px] bg-accent text-left outline-none after:pointer-events-none after:absolute after:inset-0 after:rounded-[8px] after:ring-inset ${picked ? 'after:bg-[color-mix(in_srgb,var(--tt-brand-color-400)_22%,transparent)] after:ring-2 after:ring-[var(--tt-brand-color-400)]' : here ? 'after:ring-2 after:ring-ring' : 'after:ring-1 after:ring-foreground/10'}`}>
         <Cover one={one} className="size-full" />
-        {one.kind === 'gif' && <span className="absolute top-1.5 left-1.5 rounded-[3px] bg-background px-1 text-[11px] font-medium">GIF</span>}
+        {one.kind === 'gif' && <span className="absolute top-1.5 left-1.5 rounded-[4px] bg-background px-1 text-[11px] font-medium">GIF</span>}
         {/* Pointed at, its name rises out of a frosted foot, the blur thinning as it rises (the Map's own): no band. */}
         <span data-square-foot className="files-square-foot pointer-events-none absolute inset-x-0 bottom-0 flex flex-col justify-end px-2 pt-8 pb-1.5 text-white">
           <span aria-hidden className="mf-blur-edge files-square-blur"><span /><span /><span /><span /></span>

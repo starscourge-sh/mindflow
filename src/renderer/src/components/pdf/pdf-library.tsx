@@ -18,7 +18,7 @@ import { usePicking } from "@/lib/pick-range"
 import { menuOpen } from "@/lib/menu-keys"
 import { typing } from "@/components/haligtree/ui"
 import type { Media } from "../../../../main/media"
-import { num } from "../../../../main/dates"
+import { num, plural } from "../../../../main/dates"
 import { quoted } from '../../../../main/clip'
 import { cleanTitle } from '@/lib/clean-title'
 import { heroOpen } from "@/lib/hero"
@@ -155,7 +155,7 @@ function BookCard({ one, lit, picked, menu, onPick, onOpen }: { one: Book; lit: 
       <span className="pdf-book-title">{titleOf(one)}</span>
       <span className="pdf-book-meta">
         {one.author || (read !== null ? `${read}% read` : "Not started")}
-        {one.highlights > 0 && <span className="pdf-book-marks"> · {one.highlights} highlight{one.highlights === 1 ? "" : "s"}</span>}
+        {one.highlights > 0 && <span className="pdf-book-marks"> · {plural(one.highlights, "highlight")}</span>}
       </span>
     </button>
     </RowMenu>

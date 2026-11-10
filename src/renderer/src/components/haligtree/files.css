@@ -1,7 +1,7 @@
 /* Files: the piles on "All", the Recent row, Pictures' squares and Audio's lines. */
 
 .files-pile-box {
-  transition: transform 220ms cubic-bezier(0.23, 1, 0.32, 1);
+  transition: transform 220ms var(--mf-ease);
 }
 .files-pile:focus-visible .files-pile-front {
   outline: 2px solid var(--ring);
@@ -13,7 +13,7 @@
   left: calc(50% + var(--x));
   transform-origin: 50% 100%;
   transform: translateX(-50%) translateY(var(--y)) rotate(var(--r));
-  transition: transform 260ms cubic-bezier(0.23, 1, 0.32, 1);
+  transition: transform 260ms var(--mf-ease);
 }
 
 /* Pointed at with a mouse or trackpad (never a touch that would stick), the pile lifts and its covers lean further out. */
@@ -49,15 +49,15 @@
     0 10px 24px -14px rgb(0 0 0 / 0.7);
 }
 .files-pile-frost {
-  filter: blur(16px) saturate(1.3);
-  opacity: 0.8;
+  filter: blur(14px) saturate(1.6);
+  opacity: 1;
   transform: translateY(-38%) scale(1.25);
 }
 .files-pile-front::after {
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(170deg, color-mix(in srgb, var(--card) 35%, transparent) 0%, color-mix(in srgb, var(--card) 70%, transparent) 60%, color-mix(in srgb, var(--card) 82%, transparent) 100%);
+  background: linear-gradient(170deg, color-mix(in srgb, var(--card) 18%, transparent) 0%, color-mix(in srgb, var(--card) 40%, transparent) 60%, color-mix(in srgb, var(--card) 55%, transparent) 100%);
 }
 .files-pile-screw {
   z-index: 1;
@@ -79,14 +79,14 @@
 }
 
 .files-press {
-  transition: transform 120ms ease-out;
+  transition: transform 120ms var(--mf-ease);
 }
 .files-press:active {
   transform: scale(0.97);
 }
 .files-square:active {
   transform: scale(0.97);
-  transition: transform 120ms ease-out;
+  transition: transform 120ms var(--mf-ease);
 }
 .files-recent-row {
   scrollbar-width: none;
@@ -168,12 +168,12 @@
    until the fade ends, so the dark wash showed first and the blur popped in after it. */
 .files-square-blur {
   clip-path: inset(100% 0 0 0);
-  transition: clip-path 220ms cubic-bezier(0.23, 1, 0.32, 1);
+  transition: clip-path 220ms var(--mf-ease);
 }
 .files-square-foot > span:not(.files-square-blur) {
   opacity: 0;
   transform: translateY(4px);
-  transition: opacity 180ms ease-out, transform 220ms cubic-bezier(0.23, 1, 0.32, 1);
+  transition: opacity 180ms var(--mf-ease), transform 220ms var(--mf-ease);
 }
 @media (hover: hover) and (pointer: fine) {
   .files-square:hover .files-square-blur { clip-path: inset(0); }
