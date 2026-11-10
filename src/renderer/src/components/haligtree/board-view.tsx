@@ -8,14 +8,16 @@ import { redo, undo } from '@tiptap/pm/history'
 import { DndContext, MeasuringStrategy, PointerSensor, closestCorners, useDroppable, useSensor, useSensors, type DragOverEvent, type DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, arrayMove, horizontalListSortingStrategy, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { Archive, Plus, CalendarDays } from 'lucide-react'
-import { groupTint } from './card-shelves'
 import { TagChip } from './tag-icon'
 import { NameInPlace } from './name-in-place'
 import { useThumb } from '@/lib/notes'
 
 import { HaligtreeEditor, TAGS } from '../haligtree'
 import { Calendar } from '@/components/ui/calendar'
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuShortcut, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { RowMenu, openFromGrip, type RowItem } from './row-menu'
+import { OnceHint } from './page-hint'
+import type { BlockColor } from '@/extensions/block-color'
+import { tagColors } from '@/extensions/tokens'
 import DotsHorizontalIcon from '@/components/ui/dots-horizontal-icon'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import { chime, click } from '@/lib/sound'
@@ -23,7 +25,6 @@ import { edge } from '@/lib/haptics'
 import { findCaptures } from '@/lib/capture-links'
 import { notes, type NoteTable } from '@/lib/notes'
 import { taskSaid, haligtree } from '@/lib/haligtree'
-import { keyFor } from '@/lib/keys'
 import { dayMonth, num } from '../../../../main/dates'
 import { Overlay, SETTLE, snapshot } from './sortable'
 import { Count, Tip, listEnd, refuse, toast, untoast, whyFailed } from './ui'
@@ -340,8 +341,8 @@ function landTicker(): ((place: string | null) => void) & { start: (place: strin
  * glides from where it stood to where it now stands, on the drop's spring,
  * rather than jumping. Cards are known by their words, as their places change.
  */
-function glide(board: Element | null, change: () => void): void {
-  const cards = (): HTMLElement[] => [...(board?.querySelectorAll<HTMLElement>('[data-board-card]') ?? [])]
+function glide(board: Element | null, change: () => void, kind = '[data-board-card]'): void {
+  const cards = (): HTMLElement[] => [...(board?.querySelectorAll<HTMLElement>(kind) ?? [])]
   const was = new Map<string, DOMRect[]>()
   for (const one of cards()) {
     const key = one.textContent ?? ''
@@ -361,11 +362,21 @@ function glide(board: Element | null, change: () => void): void {
   }
 }
 
+/** Lists moved by a key or a menu line glide to their new places, as cards do. */
+const glideLanes = (board: Element | null, change: () => void): void => glide(board, change, '[data-lane]')
+
+/** Done cards in one list from which its foot offers to archive them. */
+const PILE = 5
+/** A list's name, typed in place: its heading's own size and weight. */
+const LANE_NAME_FIELD = 'min-w-0 flex-1 rounded-sm bg-transparent text-heading font-semibold outline-none placeholder:text-muted-foreground'
+
 const cardId = (lane: number, at: number): string => `card:${lane}:${at}`
+/** The list done cards are archived to, by any of its usual names ("Archive", "Archived", any case), as Obsidian's board writes it. */
+const isArchive = (title: string): boolean => /^archived?$/i.test(title.trim())
 const laneId = (lane: number): string => `lane:${lane}`
 
 /** The lists folded to a strip in this note, by name, remembered. */
-function useFolds(id: string): [string[], (title: string) => void] {
+function useFolds(id: string): [string[], (title: string) => void, (from: string, to: string) => void] {
   const key = `board-folds:${id}`
   const [folds, setFolds] = useState<string[]>(() => {
     try {
@@ -385,7 +396,51 @@ function useFolds(id: string): [string[], (title: string) => void] {
       }
       return next
     })
-  return [folds, flip]
+  // A list renamed stays folded under its new name, quietly.
+  const rename = (from: string, to: string): void =>
+    setFolds((was) => {
+      const next = was.map((one) => (one === from ? to : one))
+      try {
+        localStorage.setItem(key, JSON.stringify(next))
+      } catch {
+        // Kept for this window only.
+      }
+      return next
+    })
+  return [folds, flip, rename]
+}
+
+/**
+ * A list's colour: one picked from its list menu, else the next in a fixed
+ * order, so neighbouring lists never share one (a colour worked out from the
+ * name gave twins). Brown and grey come last: they read as the page.
+ */
+const LANE_HUES: BlockColor[] = ['blue', 'green', 'orange', 'purple', 'red', 'yellow', 'pink', 'brown', 'gray']
+const hueTint = (hue: BlockColor): string => `var(--tt-color-text-${hue})`
+
+/** The colours picked for this note's lists, by name, remembered. */
+function useColours(id: string): [Record<string, BlockColor>, (title: string, hue: BlockColor | null) => void] {
+  const key = `board-colours:${id}`
+  const [colours, setColours] = useState<Record<string, BlockColor>>(() => {
+    try {
+      return JSON.parse(localStorage.getItem(key) ?? '{}') as Record<string, BlockColor>
+    } catch {
+      return {}
+    }
+  })
+  const set = (title: string, hue: BlockColor | null): void =>
+    setColours((was) => {
+      const next = { ...was }
+      if (hue) next[title] = hue
+      else delete next[title]
+      try {
+        localStorage.setItem(key, JSON.stringify(next))
+      } catch {
+        // Kept for this window only.
+      }
+      return next
+    })
+  return [colours, set]
 }
 
 export function Board({ editor, id, tools }: { editor: Editor; id: string; /** Where in the header its tools go. */ tools: HTMLElement | null }): React.JSX.Element {
@@ -397,7 +452,10 @@ export function Board({ editor, id, tools }: { editor: Editor; id: string; /** W
     return () => void editor.off('transaction', bump)
   }, [editor])
   const shape = shapeOf(editor.state.doc)
-  const [folds, flipFold] = useFolds(id)
+  const [folds, flipFold, renameFold] = useFolds(id)
+  const [colours, setColour] = useColours(id)
+  const hueOf = (at: number): BlockColor => colours[shape.lanes[at]?.title ?? ''] ?? LANE_HUES[at % LANE_HUES.length]
+  const [renaming, setRenaming] = useState<number | null>(null)
   const [cursor, setCursor] = useState<{ lane: number; card: number } | null>(null)
   const [editing, setEditing] = useState<string | null>(null)
   const [adding, setAdding] = useState<number | null>(null)
@@ -435,11 +493,11 @@ export function Board({ editor, id, tools }: { editor: Editor; id: string; /** W
     toast(said, () => (commit(editor, before), chime('undo')))
   }
   const archiveDone = (only?: number): void => {
-    const done = shape.lanes.reduce((sum, lane, at) => sum + (lane.title === 'Archive' || (only !== undefined && at !== only) ? 0 : lane.cards.filter((card) => card.node.attrs.checked).length), 0)
+    const done = shape.lanes.reduce((sum, lane, at) => sum + (isArchive(lane.title) || (only !== undefined && at !== only) ? 0 : lane.cards.filter((card) => card.node.attrs.checked).length), 0)
     if (!done) return void (chime('nope'), toast('Nothing ticked to archive', undefined, 'info'))
     undoable(`Archived ${num(done)} done ${done === 1 ? 'card' : 'cards'}`, 'shelve', (model) => {
       // At the end, under its own heading, as Obsidian's board keeps them.
-      let archive = shape.lanes.findIndex((lane) => lane.title === 'Archive')
+      let archive = shape.lanes.findIndex((lane) => isArchive(lane.title))
       if (archive < 0) {
         archive = model.lanes.push({ heading: laneHead(shape, 'Archive'), rest: [], cards: [] }) - 1
       }
@@ -457,11 +515,71 @@ export function Board({ editor, id, tools }: { editor: Editor; id: string; /** W
   }
   const addList = (title: string): void =>
     edit(editor, (model) => void model.lanes.push({ heading: laneHead(shape, title), rest: [], cards: [] }))
+  /** A list named again: its heading's words in the note, and its fold and colour kept with it. */
+  const renameList = (at: number, title: string): void => {
+    const was = shape.lanes[at]?.title ?? ''
+    if (!title || title === was) return void chime('fold')
+    chime('noted')
+    edit(editor, (model) => {
+      const heading = model.lanes[at].heading
+      const words = [{ type: 'text', text: title }]
+      // A heading's words are its own; a bullet's are its first line's, whatever else it holds kept.
+      model.lanes[at].heading = shape.outer ? { ...heading, content: [{ type: 'paragraph', content: words }, ...(heading.content?.slice(1) ?? [])] } : { ...heading, content: words }
+      return [at]
+    })
+    if (colours[was]) (setColour(title, colours[was]), setColour(was, null))
+    if (folds.includes(was)) renameFold(was, title)
+  }
+  /** A list moved one place left or right, cards and all, gliding there. */
+  const moveList = (at: number, by: -1 | 1): void => {
+    const to = at + by
+    if (to < 0 || to >= shape.lanes.length) return void chime('nope')
+    chime('shift')
+    edge()
+    // Its colour goes with it: a list keeps the colour it had, wherever it stands.
+    const [a, b] = [shape.lanes[at].title, shape.lanes[to].title]
+    if (!colours[a]) setColour(a, hueOf(at))
+    if (!colours[b]) setColour(b, hueOf(to))
+    glideLanes(root.current, () => edit(editor, (model) => void (model.lanes = arrayMove(model.lanes, at, to))))
+    setCursor((was) => (was && was.lane === at ? { ...was, lane: to } : was))
+  }
+  /** A list and its cards gone from the note, back with Undo or ⌘Z. */
+  const deleteList = (at: number): void => {
+    const lane = shape.lanes[at]
+    const count = lane.cards.length
+    undoable(`Deleted the list ${lane.title || 'New list'}${count ? ` and its ${count === 1 ? 'card' : `${num(count)} cards`}` : ''}`, 'away', (model) => void model.lanes.splice(at, 1))
+    setCursor(null)
+  }
+  /**
+   * A card made a study card for Review: its first line asks, what is under it
+   * (or what follows "::" on its line) answers, its end tags go with it.
+   */
+  const study = (lane: number, at: number): void => {
+    const node = shape.lanes[lane].cards[at].node
+    const line = node.firstChild?.textContent ?? ''
+    const foot = footOf(line)
+    let term = line.slice(0, line.length - foot.cut).trim()
+    const under: string[] = []
+    node.forEach((child, _, index) => void (index > 0 && under.push(child.textBetween(0, child.content.size, '\n', '\n').trim())))
+    let answer = under.filter(Boolean).join('\n')
+    const split = term.split(/\s*::\s*/)
+    if (!answer && split.length === 2 && split[0] && split[1]) [term, answer] = split
+    if (!term) return void refuse('Write something on the card first', 'info')
+    if (!answer) return void refuse('A study card needs its answer: write it under the card’s first line, or as “question :: answer”', 'info')
+    const meaning = foot.tags.length ? `${answer}\n\n${foot.tags.map((one) => `#${one}`).join(' ')}` : answer
+    void window.api.haligtree<string[]>('cards:list', [{ term, meaning, both: false }]).then(
+      (ids) => {
+        chime('added')
+        toast('Study card made: it comes up in Review', () => void window.api.haligtree('cards:list:undo', ids).then(() => chime('undo')), 'success', undefined, { type: 'nugget', id: ids[0], title: term })
+      },
+      (error: unknown) => refuse(`The study card couldn't be made: ${whyFailed(error)}.`, 'error')
+    )
+  }
 
   // --- keys: arrows or H J K L to move, X ticks, Enter edits, Escape leaves
 
-  const latest = useRef({ shape, cursor, editing, query, folds, remove: (lane: number, at: number): void => void [lane, at] })
-  latest.current = { shape, cursor, editing, query, folds, remove: (lane, at) => remove(lane, at) }
+  const latest = useRef({ shape, cursor, editing, query, folds, remove: (lane: number, at: number): void => void [lane, at], moveList, flipFold })
+  latest.current = { shape, cursor, editing, query, folds, remove: (lane, at) => remove(lane, at), moveList, flipFold }
   // Split, only the pane in front answers keys.
   const here = useHere()
   useEffect(() => {
@@ -492,6 +610,8 @@ export function Board({ editor, id, tools }: { editor: Editor; id: string; /** W
         if (done) untoast()
         return chime(done ? 'undo' : 'nope')
       }
+      // ⌘F finds a card, as it finds words in the note.
+      if (event.metaKey && !event.altKey && !event.shiftKey && event.code === 'KeyF') return void (take(), chime('search'), setQuery((was) => was ?? ''))
       if (event.metaKey || event.ctrlKey) return
       const lanes = shape.lanes
       const open = lanes.map((lane, at) => ({ lane, at })).filter(({ lane }) => !folds.includes(lane.title))
@@ -510,6 +630,12 @@ export function Board({ editor, id, tools }: { editor: Editor; id: string; /** W
       const up = key === 'ArrowUp' || key === 'k'
       const left = key === 'ArrowLeft' || key === 'h'
       const right = key === 'ArrowRight' || key === 'l'
+      // ⌥⇧ and an arrow moves the whole list the cursor is in.
+      if (event.altKey && event.shiftKey && (left || right || ['Ó', 'Ò'].includes(key) || ['KeyH', 'KeyL'].includes(event.code))) {
+        take()
+        const by = left || event.code === 'KeyH' ? -1 : 1
+        return latest.current.moveList(at.lane, by)
+      }
       if (event.altKey) {
         // ⌥ carries the card: up and down in its list, or to the list beside it.
         if (!cursor || cursor.card < 0 || !(up || down || left || right || ['∆', '˚', '˙', '¬'].includes(key))) return
@@ -551,6 +677,9 @@ export function Board({ editor, id, tools }: { editor: Editor; id: string; /** W
       if (key === 'x' && card) return void (take(), tick(card.pos))
       if (key === 'Enter' && card) return void (take(), chime('open'), setEditing(cardId(cursor!.lane, cursor!.card)))
       if (key === 'n' && cursor) return void (take(), setAdding(cursor.lane))
+      // R names the list the cursor is in again, F folds it.
+      if (key === 'r' && cursor) return void (take(), chime('tap'), setRenaming(cursor.lane))
+      if (key === 'f' && cursor) return void (take(), latest.current.flipFold(lanes[cursor.lane].title))
       if ((key === 'Backspace' || key === 'Delete') && card && cursor) {
         take()
         return latest.current.remove(cursor.lane, cursor.card)
@@ -690,43 +819,53 @@ export function Board({ editor, id, tools }: { editor: Editor; id: string; /** W
     toast(taskSaid(made, `Task added for ${dayMonth(due)}`), undefined, 'success', undefined, { type: 'task', id: made.id })
   }
 
-  const menuFor = (lane: number, at: number) => (close: () => void): ReactNode => {
+  /**
+   * A card's one menu, opened by a right click where it was clicked or by its ⋯ under the ⋯: what it is first
+   * (edit, done), then what it can become, then where it goes; Delete last, after a rule, with Undo.
+   */
+  const cardItems = (lane: number, at: number): RowItem[] => {
     const card = shape.lanes[lane].cards[at]
     const last = shape.lanes[lane].cards.length - 1
-    return (
-      <>
-        <DropdownMenuItem onSelect={() => (chime('open'), setEditing(cardId(lane, at)))}>Edit card<DropdownMenuShortcut>↵</DropdownMenuShortcut></DropdownMenuItem>
-        {card.node.type.name === 'taskItem' && <DropdownMenuItem onSelect={() => tick(card.pos)}>{card.node.attrs.checked ? 'Not done' : 'Done'}<DropdownMenuShortcut>{keyFor('X')}</DropdownMenuShortcut></DropdownMenuItem>}
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onSelect={() => insert(lane, at)}>Add a card above</DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => insert(lane, at + 1)}>Add a card below</DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onSelect={() => void toNote(lane, at)}>Make it a note</DropdownMenuItem>
-        <DropdownMenuSub>
-          <DropdownMenuSubTrigger>Add a date</DropdownMenuSubTrigger>
-          <DropdownMenuSubContent className="p-0">
-            <Calendar mode="single" className="bg-transparent" onSelect={(day) => day && (close(), void dated(lane, at, day))} />
-          </DropdownMenuSubContent>
-        </DropdownMenuSub>
-        <DropdownMenuSeparator />
-        {/* Only where it would move: a line that cannot run is left out, never shown greyed. */}
-        {at > 0 && <DropdownMenuItem onSelect={() => (chime('shift'), edge(), glide(root.current, () => move([lane, at], [lane, 0])))}>Move to top</DropdownMenuItem>}
-        {at < last && <DropdownMenuItem onSelect={() => (chime('shift'), edge(), glide(root.current, () => move([lane, at], [lane, last])))}>Move to bottom</DropdownMenuItem>}
-        {shape.lanes.length > 1 && (
-          <DropdownMenuSub>
-            <DropdownMenuSubTrigger>Move to list</DropdownMenuSubTrigger>
-            <DropdownMenuSubContent>
-              {shape.lanes.map((other, to) => to !== lane && (
-                <DropdownMenuItem key={to} onSelect={() => (chime('move'), edge(), glide(root.current, () => move([lane, at], [to, other.cards.length])))}>{other.title || 'New note'}</DropdownMenuItem>
-              ))}
-            </DropdownMenuSubContent>
-          </DropdownMenuSub>
-        )}
-        <DropdownMenuItem onSelect={() => (chime('copy'), edit(editor, (model) => (model.lanes[lane].cards.splice(at + 1, 0, structuredClone(model.lanes[lane].cards[at])), [lane])))}>Duplicate</DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem variant="destructive" onSelect={() => remove(lane, at)}>Delete card<DropdownMenuShortcut>⌫</DropdownMenuShortcut></DropdownMenuItem>
-      </>
-    )
+    // Closed as Escape closes it, once a day is picked: the calendar is not a line of the menu.
+    const shut = (from: EventTarget | null | undefined): void => void (from instanceof Element && from.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })))
+    return [
+      { label: 'Edit card', keys: '↵', run: () => (chime('open'), setEditing(cardId(lane, at))) },
+      card.node.type.name === 'taskItem' && { label: card.node.attrs.checked ? 'Not done' : 'Done', keys: 'X', run: () => tick(card.pos) },
+      'separator',
+      { label: 'Make a study card', hint: 'Its first line asks; what is under it answers', run: () => study(lane, at) },
+      { label: 'Make it a note', run: () => void toNote(lane, at) },
+      { label: 'Add a date', panel: <Calendar mode="single" className="bg-transparent" onSelect={(day, _picked, _mods, event) => day && (shut(event?.target), void dated(lane, at, day))} /> },
+      'separator',
+      { label: 'Add a card above', run: () => insert(lane, at) },
+      { label: 'Add a card below', run: () => insert(lane, at + 1) },
+      { label: 'Duplicate', run: () => (chime('copy'), edit(editor, (model) => (model.lanes[lane].cards.splice(at + 1, 0, structuredClone(model.lanes[lane].cards[at])), [lane]))) },
+      'separator',
+      // Only where it would move: a line that cannot run is left out, never shown greyed.
+      at > 0 && { label: 'Move to top', run: () => (chime('shift'), edge(), glide(root.current, () => move([lane, at], [lane, 0]))) },
+      at < last && { label: 'Move to bottom', run: () => (chime('shift'), edge(), glide(root.current, () => move([lane, at], [lane, last]))) },
+      shape.lanes.length > 1 && {
+        label: 'Move to list',
+        items: shape.lanes.map((other, to): RowItem => to !== lane && { label: other.title || 'New list', icon: <span aria-hidden className="mx-[3px] size-2 shrink-0 rounded-full" style={{ background: hueTint(hueOf(to)) }} />, run: () => (chime('move'), edge(), glide(root.current, () => move([lane, at], [to, other.cards.length]))) })
+      },
+      { label: 'Delete card', keys: '⌫', danger: true, run: () => remove(lane, at) }
+    ]
+  }
+  /** A list's one menu, from a right click on its heading or its ⋯. */
+  const laneItems = (at: number): RowItem[] => {
+    const lane = shape.lanes[at]
+    const folded = folds.includes(lane.title)
+    const done = lane.cards.filter((card) => card.node.attrs.checked).length
+    return [
+      { label: 'Add a card', keys: 'N', run: () => setAdding(at) },
+      { label: 'Rename list', keys: 'R', run: () => (chime('tap'), setRenaming(at)) },
+      { label: folded ? 'Unfold' : 'Fold', keys: 'F', run: () => flipFold(lane.title) },
+      { swatches: LANE_HUES.map((hue) => ({ color: hueTint(hue), label: hue[0].toUpperCase() + hue.slice(1), on: hueOf(at) === hue, run: () => (chime('tap'), setColour(lane.title, hue)) })) },
+      'separator',
+      at > 0 && { label: 'Move left', keys: '⌥⇧←', run: () => moveList(at, -1) },
+      at < shape.lanes.length - 1 && { label: 'Move right', keys: '⌥⇧→', run: () => moveList(at, 1) },
+      !isArchive(lane.title) && done > 0 && { label: `Archive ${num(done)} done`, run: () => archiveDone(at) },
+      { label: 'Delete list', hint: lane.cards.length ? lane.cards.length === 1 ? 'And its card; Undo brings them back' : `And its ${num(lane.cards.length)} cards; Undo brings them back` : 'Undo brings it back', danger: true, run: () => deleteList(at) }
+    ]
   }
 
   // Lists past the board's width scroll sideways, never squashed: the side with more to see fades out.
@@ -753,7 +892,7 @@ export function Board({ editor, id, tools }: { editor: Editor; id: string; /** W
   }, [])
   // Only the field being typed in shows focus: the picked card's ring waits while a card or list is written.
   const quiet = adding === null && editing === null && !newList
-  const done = shape.lanes.reduce((sum, lane) => sum + (lane.title === 'Archive' ? 0 : lane.cards.filter((card) => card.node.attrs.checked).length), 0)
+  const done = shape.lanes.reduce((sum, lane) => sum + (isArchive(lane.title) ? 0 : lane.cards.filter((card) => card.node.attrs.checked).length), 0)
   return (
     <div ref={root} tabIndex={-1} data-board data-own-keys className="flex min-h-[18rem] min-w-0 flex-1 flex-col outline-none" onPointerDown={(event) => {
       // A click on the board keeps its keys; one into a field keeps the field, and a menu it opened (a ⋯, a right click) keeps the keys too.
@@ -761,6 +900,8 @@ export function Board({ editor, id, tools }: { editor: Editor; id: string; /** W
     }}>
       {/* What the note says before its first list, as it reads in the note. */}
       {shape.head.length > 0 && <Head editor={editor} at={shape.head.map((one) => one.pos)} />}
+      {/* The first board you open says what it is and its keys, once, on the lists' own left edge. */}
+      <div className="px-3 empty:hidden @[40rem]/page:px-6 [&>*]:mb-2"><OnceHint name="board" when /></div>
       {/* Its tools sit in the note's own header row, given a place there. */}
       {tools && createPortal(
         <>
@@ -774,7 +915,7 @@ export function Board({ editor, id, tools }: { editor: Editor; id: string; /** W
             </label>
           )}
           {query === null && (
-            <Tip label="Find a card">
+            <Tip label="Find a card  ⌘F">
               <button type="button" onClick={() => (chime('search'), setQuery(''))} className={TOOL}><Search /></button>
             </Tip>
           )}
@@ -799,15 +940,11 @@ export function Board({ editor, id, tools }: { editor: Editor; id: string; /** W
               const folded = folds.includes(lane.title)
               const cards = cardsOf(at)
               return (
-                <LaneBox key={laneId(at)} id={sid(laneId(at))} folded={folded} title={lane.title} count={lane.cards.length} onFold={() => flipFold(lane.title)}
+                <LaneBox key={laneId(at)} id={sid(laneId(at))} folded={folded} title={lane.title} tint={hueTint(hueOf(at))} count={lane.cards.length} onFold={() => flipFold(lane.title)}
                   here={quiet && cursor?.lane === at && cursor.card < 0}
-                  menu={
-                    <>
-                      <DropdownMenuItem onSelect={() => setAdding(at)}>Add a card<DropdownMenuShortcut>{keyFor('N')}</DropdownMenuShortcut></DropdownMenuItem>
-                      <DropdownMenuItem onSelect={() => flipFold(lane.title)}>{folded ? 'Unfold' : 'Fold'}</DropdownMenuItem>
-                      {lane.title !== 'Archive' && lane.cards.some((card) => card.node.attrs.checked) && <DropdownMenuItem onSelect={() => archiveDone(at)}>Archive done cards</DropdownMenuItem>}
-                    </>
-                  }>
+                  renaming={renaming === at} onRename={() => (chime('tap'), setRenaming(at))}
+                  onRenamed={(words) => (setRenaming(null), words !== null && renameList(at, words), root.current?.focus({ preventScroll: true }))}
+                  menu={laneItems(at)}>
                   <SortableContext items={cards.map((one) => sid(one.id))} strategy={verticalListSortingStrategy}>
                     {cards.map(({ id: key, card, at: index }) => (
                       <CardBox key={key} id={sid(key)} editor={editor} card={card} disabled={query !== null || editing === key}
@@ -831,7 +968,7 @@ export function Board({ editor, id, tools }: { editor: Editor; id: string; /** W
                             return [at]
                           })
                         }}
-                        menu={menuFor(at, index)} />
+                        menu={cardItems(at, index)} />
                     ))}
                   </SortableContext>
                   {adding === at ? (
@@ -846,19 +983,26 @@ export function Board({ editor, id, tools }: { editor: Editor; id: string; /** W
                       <Plus className="size-3.5" /> Add a card
                     </button>
                   )}
+                  {/* A pile of done cards is offered a way out, quietly, at its foot. */}
+                  {!isArchive(lane.title) && lane.cards.filter((card) => card.node.attrs.checked).length >= PILE && (
+                    <button type="button" data-archive-pile="" onClick={() => archiveDone(at)}
+                      className="flex h-8 w-full shrink-0 cursor-pointer items-center gap-1.5 rounded-[6px] px-2 text-control text-muted-foreground transition-[background-color,color,scale] duration-150 hover:bg-foreground/[0.06] hover:text-foreground active:scale-[0.97]">
+                      <Archive className="size-3.5" /> Archive {num(lane.cards.filter((card) => card.node.attrs.checked).length)} done
+                    </button>
+                  )}
                 </LaneBox>
               )
             })}
             {newList ? (
               // Named in place, as a new folder is in Finder: a list already there, its name picked to type over.
-              <section data-new-list="" className="flex w-64 shrink-0 flex-col rounded-[14px] pb-1.5" style={lanePanel(groupTint('New list'))}>
+              <section data-new-list="" className="flex w-64 shrink-0 flex-col rounded-[14px] pb-1.5" style={lanePanel(hueTint(LANE_HUES[shape.lanes.length % LANE_HUES.length]))}>
                 {/* Its dot and name where every list's sit, past the room of a chevron. */}
                 <header className="flex h-10 items-center gap-1.5 pr-1.5 pl-1.5">
                   <span aria-hidden className="size-6 shrink-0" />
                   <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ background: 'var(--lane-tint)' }} />
                   <NameInPlace initial="New list" label="List name" placeholder="Name the list"
                     onDone={(words) => (setNewList(false), words ? (chime('noted'), addList(words)) : chime('fold'), root.current?.focus({ preventScroll: true }))}
-                    className="min-w-0 flex-1 rounded-sm bg-transparent text-meta font-semibold outline-none placeholder:text-muted-foreground" />
+                    className={LANE_NAME_FIELD} />
                 </header>
               </section>
             ) : (
@@ -949,8 +1093,9 @@ function useCardClicks(editor: Editor, pos: number): (event: React.MouseEvent) =
 function Head({ editor, at }: { editor: Editor; at: number[] }): React.JSX.Element {
   const box = useDrawn(editor, at)
   return (
-    <div className="mb-3 px-3 @[40rem]/page:px-6">
-      <div ref={box} className="tiptap ProseMirror haligtree-editor max-h-40 overflow-y-auto [--mf-padding:0]" />
+    // On the lists' own left edge, not the note's reading column: the title heads the board, so it starts where the board does.
+    <div data-board-head="" className="mb-3 px-3 @[40rem]/page:px-6">
+      <div ref={box} className="tiptap ProseMirror haligtree-editor max-h-40 overflow-y-auto [--mf-padding:0] [&>*]:!mx-0 [&>*]:!max-w-none [&>*]:!px-0" />
     </div>
   )
 }
@@ -1000,62 +1145,79 @@ function cutEnd(line: Element, cut: number): void {
   }
 }
 
-function LaneBox({ id, title, count, folded, here, onFold, menu, children }: {
+function LaneBox({ id, title, tint, count, folded, here, renaming, onFold, onRename, onRenamed, menu, children }: {
   id: string
   title: string
+  /** Its colour, as CSS. */
+  tint: string
   count: number
   folded: boolean
   here: boolean
+  /** Its name open to type over, in place. */
+  renaming: boolean
   onFold: () => void
-  menu: ReactNode
+  /** Its name opened to type over (a double click on it). */
+  onRename: () => void
+  /** The new name (maybe empty), or null when left as it was. */
+  onRenamed: (words: string | null) => void
+  menu: RowItem[]
   children: ReactNode
 }): React.JSX.Element {
-  const [laneMenu, setLaneMenu] = useState(false)
   const { setNodeRef, attributes, listeners, transform, transition, isDragging } = useSortable({ id, transition: still() ? null : { duration: 220, easing: EASING } })
   // An empty list still takes a card dropped on it.
   const { setNodeRef: dropRef } = useDroppable({ id: `${id}:drop`, data: { lane: id } })
-  const name = title || 'New note'
-  const style = { ...lanePanel(groupTint(name)), transform: transform ? `translate3d(${Math.round(transform.x)}px, 0, 0)` : undefined, transition, opacity: isDragging ? 0.35 : undefined }
+  const name = title || 'New list'
+  const style = { ...lanePanel(tint), transform: transform ? `translate3d(${Math.round(transform.x)}px, 0, 0)` : undefined, transition, opacity: isDragging ? 0.35 : undefined }
   const dot = <span aria-hidden data-lane-dot="" className="size-2 shrink-0 rounded-full" style={{ background: 'var(--lane-tint)' }} />
   if (folded)
     return (
-      <section ref={setNodeRef} data-sortable-id={id} data-lane="" style={style} data-board-cursor={here || undefined}
-        className={`flex h-full max-h-full w-10 shrink-0 flex-col items-center rounded-[14px] py-1.5 ${here ? 'ring-2 ring-ring/60' : ''}`}>
-        <Tip label={`Unfold ${name}`}>
-          <button type="button" onClick={onFold} className={`${TOOL} size-7 cursor-pointer`}><ChevronRight /></button>
-        </Tip>
-        <button type="button" onClick={onFold} {...attributes} {...listeners} tabIndex={-1}
-          className="mt-1.5 flex min-h-0 flex-1 cursor-pointer items-start gap-2 py-1 text-meta font-semibold [writing-mode:vertical-rl]">
-          {dot}
-          <span className="truncate">{name}</span>
-          <Count n={count} className="font-normal text-muted-foreground tabular-nums" />
-        </button>
-      </section>
+      // As tall as what it says, not the whole board: a folded list is a tab, not a wall.
+      <RowMenu list items={menu}>
+        <section ref={setNodeRef} data-sortable-id={id} data-lane="" data-folded="" style={style} data-board-cursor={here || undefined}
+          className={`flex max-h-full w-10 shrink-0 flex-col items-center rounded-[14px] py-1.5 ${here ? 'ring-2 ring-ring/60' : ''}`}>
+          <Tip label={`Unfold ${name}  F`}>
+            <button type="button" onClick={onFold} className={`${TOOL} size-7 cursor-pointer`}><ChevronRight /></button>
+          </Tip>
+          <button type="button" onClick={onFold} {...attributes} {...listeners} tabIndex={-1}
+            className="mt-1.5 flex min-h-0 cursor-pointer items-start gap-2 py-1 text-heading font-semibold [writing-mode:vertical-rl]">
+            {dot}
+            <span data-lane-name="" className="max-h-64 truncate">{name}</span>
+            <Count n={count} className="text-meta font-normal text-muted-foreground tabular-nums" />
+          </button>
+        </section>
+      </RowMenu>
     )
   return (
     <section ref={setNodeRef} data-sortable-id={id} data-lane="" style={style}
       className={`group/lane flex max-h-full w-64 shrink-0 flex-col rounded-[14px] ${here ? 'ring-2 ring-ring/60' : ''}`} data-board-cursor={here || undefined}>
-      {/* The heading is the list's handle: drag it to move the list; its chevron and ⋯ answer a click. */}
-      <header {...attributes} {...listeners} tabIndex={-1} aria-label={`Drag ${name}`} role="group"
-        className="flex h-10 shrink-0 touch-none items-center gap-1.5 pr-1.5 pl-1.5 outline-none"
-        // A right click on the heading opens the list's one menu, the same its ⋯ opens, by its ⋯.
-        onContextMenu={(event) => (event.preventDefault(), event.stopPropagation(), setLaneMenu(true))}>
-        <Tip label={`Fold ${name}`}>
-          <button type="button" onClick={onFold} className={`${TOOL} size-6 cursor-pointer [&_svg]:size-3.5`}><ChevronDown /></button>
-        </Tip>
-        {dot}
-        <h3 className="min-w-0 truncate text-meta font-semibold">{name}</h3>
-        <Count n={count} className="text-meta text-muted-foreground tabular-nums" />
-        <DropdownMenu modal={false} open={laneMenu} onOpenChange={setLaneMenu}>
-          <Tip label="More">
-            <DropdownMenuTrigger asChild>
-              <button type="button" aria-label={`${name} menu`}
-                className={`${TOOL} ml-auto size-6 cursor-pointer opacity-0 group-hover/lane:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100`}><AliveIcon icon={DotsHorizontalIcon} size={16} /></button>
-            </DropdownMenuTrigger>
+      {/* The heading is the list's handle: drag it to move the list; its chevron and ⋯ answer a click, a right click opens its menu where it was clicked. */}
+      <RowMenu list items={renaming ? [] : menu}>
+        <header {...(renaming ? {} : { ...attributes, ...listeners })} tabIndex={-1} aria-label={`Drag ${name}`} role="group"
+          className="flex h-10 shrink-0 touch-none items-center gap-1.5 pr-1.5 pl-1.5 outline-none">
+          <Tip label={`Fold ${name}  F`}>
+            <button type="button" onClick={onFold} className={`${TOOL} size-6 cursor-pointer [&_svg]:size-3.5`}><ChevronDown /></button>
           </Tip>
-          <DropdownMenuContent align="end" className="w-52">{menu}</DropdownMenuContent>
-        </DropdownMenu>
-      </header>
+          {dot}
+          {renaming ? (
+            <NameInPlace initial={title} label="List name" placeholder="Name the list" onDone={onRenamed} className={LANE_NAME_FIELD} />
+          ) : (
+            <>
+              {/* Its whole name in a tip only when it is cut short. */}
+              <Tip label={name}>
+                <h3 data-lane-name="" onDoubleClick={onRename}
+                  className="min-w-0 truncate text-heading font-semibold">{name}</h3>
+              </Tip>
+              <Count n={count} className="text-meta text-muted-foreground tabular-nums" />
+            </>
+          )}
+          {!renaming && (
+            <Tip label="More">
+              <button type="button" aria-label={`${name} menu`} data-lane-more="" onClick={openFromGrip} onPointerDown={(event) => event.stopPropagation()}
+                className={`${TOOL} ml-auto size-6 cursor-pointer opacity-0 group-hover/lane:opacity-100 focus-visible:opacity-100`}><AliveIcon icon={DotsHorizontalIcon} size={16} /></button>
+            </Tip>
+          )}
+        </header>
+      </RowMenu>
       <div ref={dropRef} className="flex min-h-10 flex-col gap-1.5 overflow-y-auto px-1.5 pt-1 pb-1.5">{children}</div>
     </section>
   )
@@ -1087,9 +1249,9 @@ function CardBox({ id, editor, card, here, editing, disabled, onPick, onTick, on
   onEdit: () => void
   /** The card's new content, or null when nothing changed. */
   onEdited: (content: JSONContent[] | null) => void
-  menu: (close: () => void) => ReactNode
+  /** Its one menu's lines, opened by a right click where it was clicked, or by its ⋯ under the ⋯. */
+  menu: RowItem[]
 }): React.JSX.Element {
-  const [menuOpen, setMenuOpen] = useState(false)
   // Cards make room around a carried card as it moves (the sorting's own transform); once it lands they are
   // simply in their places. Played again from a card's old place as the lists are read afresh, a card
   // flashed over its neighbour for a frame after each drop.
@@ -1108,17 +1270,17 @@ function CardBox({ id, editor, card, here, editing, disabled, onPick, onTick, on
   })
   const clicks = useCardClicks(editor, card.pos)
   return (
+    // Being written in, its right click is the words' own.
+    <RowMenu items={editing ? [] : menu}>
     <div ref={setNodeRef} data-sortable-id={id} data-board-cursor={here || undefined} data-board-card="" {...attributes} {...listeners} tabIndex={-1} role={undefined}
       style={{ transform: transform ? `translate3d(${Math.round(transform.x)}px, ${Math.round(transform.y)}px, 0)` : undefined, transition }}
       onClick={(event) => !clicks(event) && onPick()}
       onDoubleClick={() => !editing && onEdit()}
-      // A right click opens the card's one menu, the same its ⋯ opens, by its ⋯.
-      onContextMenu={(event) => void (!editing && (event.preventDefault(), event.stopPropagation(), setMenuOpen(true)))}
       className={`group/card relative flex shrink-0 cursor-pointer touch-none flex-col overflow-hidden rounded-[6px] text-control transition-[box-shadow,scale,background-color] duration-150 ease-(--mf-ease) active:scale-[0.97] ${
         // Carried away: the place it left stays open as a faint slot in the list's colour, the size of the card.
         isDragging ? 'bg-[color-mix(in_srgb,var(--lane-tint)_12%,transparent)] [&>*]:invisible' : `${CARD_FILL} shadow-[0_1px_2px_color-mix(in_oklab,var(--mf-shadow-ink)_14%,transparent)] ring-1 ring-foreground/[0.07] hover:bg-[color-mix(in_oklab,var(--foreground)_4%,var(--board-card))]`
       } ${here ? 'ring-2! ring-ring/70!' : ''}`}>
-      {cover && !editing && <img src={cover} alt="" draggable={false} data-card-cover="" className="h-28 w-full shrink-0 object-cover" />}
+      {cover && !editing && <img src={cover} alt="" draggable={false} data-card-cover="" className="h-20 w-full shrink-0 object-cover" />}
       <div className="flex min-w-0 items-start gap-2 px-2.5 py-2">
         {task && (
           <button type="button" role="checkbox" aria-checked={checked} aria-label={checked ? 'Not done' : 'Done'} onClick={(event) => (event.stopPropagation(), onTick())}
@@ -1143,21 +1305,19 @@ function CardBox({ id, editor, card, here, editing, disabled, onPick, onTick, on
               <CalendarDays className="size-3" /> {dayMonth(foot.date)}
             </span>
           )}
-          {foot.tags.map((tag) => <TagChip key={tag} tag={tag} className="pr-2" />)}
+          {/* Grey unless the tag was given a colour: a board of many tags is not a box of paints, and two never look alike by chance. */}
+          {foot.tags.map((tag) => <TagChip key={tag} tag={tag} color={tagColors.get(tag.toLowerCase()) ?? 'gray'} className="pr-2" />)}
         </div>
       )}
       {!editing && (
-        <DropdownMenu modal={false} open={menuOpen} onOpenChange={setMenuOpen}>
-          <DropdownMenuTrigger asChild>
-            <button type="button" aria-label="Card menu" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => event.stopPropagation()}
-              data-card-more="" className={`${TOOL} absolute top-1 right-1 size-6 cursor-pointer bg-inherit opacity-0 focus-visible:opacity-100 data-[state=open]:opacity-100`}>
-              <AliveIcon icon={DotsHorizontalIcon} size={14} />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-52">{menu(() => setMenuOpen(false))}</DropdownMenuContent>
-        </DropdownMenu>
+        // Round, on the card's own paper, so over a picture it reads as a button, not a square cut out of it.
+        <button type="button" aria-label="Card menu" onPointerDown={(event) => event.stopPropagation()} onClick={openFromGrip}
+          data-card-more="" className={`${TOOL} absolute top-1 right-1 size-6 cursor-pointer rounded-full bg-(--board-card) opacity-0 focus-visible:opacity-100`}>
+          <AliveIcon icon={DotsHorizontalIcon} size={14} />
+        </button>
       )}
     </div>
+    </RowMenu>
   )
 }
 

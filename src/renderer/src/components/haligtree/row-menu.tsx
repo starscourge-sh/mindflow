@@ -23,6 +23,8 @@ export const Hinted = ({ label, hint, icon }: { label: string; hint: string; ico
   </>
 )
 export type RowItem = MenuItem | { label: string; items: RowItem[]; icon?: ReactNode } | { heading: string }
+  /** A line that opens a small tool beside it (a calendar to pick a card's day): it closes the menu itself once used. */
+  | { label: string; panel: ReactNode; icon?: ReactNode }
   /** A row of colour swatches, the one in use ticked (an event's colour). */
   | { swatches: { color: string; label: string; on: boolean; run: () => void }[] }
 export type Shown = Exclude<RowItem, false | null | undefined>
@@ -79,7 +81,7 @@ export function nest(items: RowItem[]): RowItem[] {
 
 /** A menu with its nested lines laid out flat again, for a menu that cannot open one beside it. */
 export const flat = (items: RowItem[]): MenuItem[] =>
-  fits(items).flatMap((item): MenuItem[] => (item && item !== 'separator' && 'items' in item ? flat(item.items) : item && item !== 'separator' && ('heading' in item || 'swatches' in item) ? [] : [item as MenuItem]))
+  fits(items).flatMap((item): MenuItem[] => (item && item !== 'separator' && 'items' in item ? flat(item.items) : item && item !== 'separator' && ('heading' in item || 'swatches' in item || 'panel' in item) ? [] : [item as MenuItem]))
 
 /** The lines of a menu, drawn: shared by the menu and the ones that open beside it, and by a sticky's menu window (windows/menu.tsx). */
 export const lines =(items: Shown[]): React.ReactNode =>
@@ -99,6 +101,11 @@ export const lines =(items: Shown[]): React.ReactNode =>
       </div>
     ) : 'heading' in item ? (
       <ContextMenuLabel key={`heading-${item.heading}`}>{item.heading}</ContextMenuLabel>
+    ) : 'panel' in item ? (
+      <ContextMenuSub key={`${item.label}-${index}`}>
+        <ContextMenuSubTrigger>{item.icon}{item.icon ? <span className={MENU_LINE}>{item.label}</span> : item.label}</ContextMenuSubTrigger>
+        <ContextMenuSubContent className="p-0">{item.panel}</ContextMenuSubContent>
+      </ContextMenuSub>
     ) : 'items' in item ? (
       <ContextMenuSub key={`${item.label}-${index}`}>
         <ContextMenuSubTrigger>{item.icon}{item.icon ? <span className={MENU_LINE}>{item.label}</span> : item.label}</ContextMenuSubTrigger>

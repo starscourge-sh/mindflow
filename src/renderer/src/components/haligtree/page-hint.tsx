@@ -224,7 +224,9 @@ export function PageHint({ page: shown }: { page: string }): React.JSX.Element |
  */
 const ONCE: Record<string, { text: string; after?: string }> = {
   // The first deck with a card due: what "due" means, in the Review line's voice.
-  'deck-due': { text: '**A card comes back just before you’d forget it.** When it’s back, it’s due.', after: 'review' }
+  'deck-due': { text: '**A card comes back just before you’d forget it.** When it’s back, it’s due.', after: 'review' },
+  // The first board: what its lists and cards are, and its keys, which nothing else on it shows.
+  board: { text: '**Each heading is a list, each bullet under it a card.** Arrows or H J K L pick a card, X ticks it, ↵ edits it, N adds one, ⌥ and an arrow carries it, ⌫ deletes it; R renames a list, F folds it, ⌥⇧ and an arrow moves it. Right-click a card or a list for the rest.' }
 }
 
 export function OnceHint({ name, when }: { name: string; /** Its thing is on screen. */ when: boolean }): React.JSX.Element | null {
