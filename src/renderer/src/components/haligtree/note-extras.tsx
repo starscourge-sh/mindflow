@@ -39,7 +39,8 @@ import { cn } from '@/lib/cn'
 import ExpandIcon from '@/components/ui/expand-icon'
 import { menuIcon } from '@/components/ui/menu-icon'
 import { GraphCanvas, showOnMap, type Graph } from './graph-canvas'
-import { age, dated as datedAs, dayKey, dayMonth, dayjs, daysFromToday, noon } from '../../../../main/dates'
+import { age, dated as datedAs, dayKey, dayMonth, dayjs, daysFromToday, noon, num } from '../../../../main/dates'
+import { Switch } from './mono-card'
 import { moment, when } from '@/lib/clock'
 import { DatePicker } from './date-picker'
 import { keyFor } from '@/lib/keys'
@@ -732,12 +733,26 @@ export function NoteHeader({ left, back, type = 'capture', edited, captured, mad
 /**
  * A small live Map of one note: it in the middle, every note it links to or
  * is linked from around it, and the links between those, so neighbours that
- * belong together cluster. It and its busiest few are named; pointed at, a
+ * belong together cluster. "2 steps" reaches one link further, to the notes
+ * your neighbours link with (the busiest 60, said so when there are more):
+ * where a note's ideas lead, as Capacities and Obsidian's local graph show. It and its busiest few are named; pointed at, a
  * dot names itself and lights up its links; clicked, it opens. Drag to move,
  * pinch or ⌘-scroll to zoom. The button opens the whole Map on this note.
  */
+/** How far out a note's own map reaches, the same for every note. */
+const STEPS_KEY = 'localGraph:steps'
+/** Notes two steps out, at most: the busiest are kept, so the small map stays readable. */
+const FURTHEST = 60
+
 export function LocalGraph({ id, title, onOpen }: { id: string; title: string; onOpen?: (type: string, id: string) => void }): React.JSX.Element | null {
-  const [graph, setGraph] = useState<(Graph & { out: number; in: number }) | null>(null)
+  const [graph, setGraph] = useState<(Graph & { out: number; in: number; further: number; furtherAll: number }) | null>(null)
+  const [steps, setSteps] = useState<'1' | '2'>(() => (localStorage.getItem(STEPS_KEY) === '2' ? '2' : '1'))
+  const pickSteps = (next: '1' | '2'): void => {
+    if (next === steps) return
+    chime(next === '2' ? 'zoomout' : 'zoomin')
+    localStorage.setItem(STEPS_KEY, next)
+    setSteps(next)
+  }
   const fit = useRef<() => void>(() => undefined)
   const named = useRef(title)
   named.current = title
@@ -753,13 +768,24 @@ export function LocalGraph({ id, title, onOpen }: { id: string; title: string; o
       const weight = new Map(all.edges.map(([a, b, times]) => [`${a} ${b}`, times ?? 1]))
       const edges: MapEdge[] = [...around.keys()].map((other) => [id, other, weight.get(id < other ? `${id} ${other}` : `${other} ${id}`) ?? 1])
       for (const [a, b, times] of all.edges) if (a !== id && b !== id && around.has(a) && around.has(b)) edges.push([a, b, times])
+      // Two steps: the notes a neighbour links with that this one does not, from the whole map (never a private one,
+      // which the map leaves off), the busiest first, and every link among all of them.
+      const reach = new Map<string, number>()
+      if (steps === '2') for (const [a, b] of all.edges) {
+        const [near, far] = around.has(a) ? [a, b] : around.has(b) ? [b, a] : ['', '']
+        if (near && far !== id && !around.has(far) && known.has(far)) reach.set(far, known.get(far)?.links ?? 1)
+      }
+      const further = [...reach].sort((x, y) => y[1] - x[1]).slice(0, FURTHEST).map(([other]) => known.get(other)!)
+      const furtherIds = new Set(further.map((node) => node.id))
+      for (const [a, b, times] of all.edges) if ((furtherIds.has(a) && (around.has(b) || furtherIds.has(b))) || (furtherIds.has(b) && around.has(a))) edges.push([a, b, times])
       const next = {
         nodes: [
           { type: 'capture', id, title: named.current, kind: known.get(id)?.kind ?? 'note', links: around.size, picture: known.get(id)?.picture },
           // With its tag's colour and its picture, as on the Map.
-          ...[...around.values()].map((node) => ({ type: node.type, id: node.id, title: node.title, kind: known.get(node.id)?.kind ?? 'note', links: known.get(node.id)?.links ?? 1, private: !!node.private, tag: known.get(node.id)?.tag, tint: known.get(node.id)?.tint, picture: node.private ? undefined : known.get(node.id)?.picture }))
+          ...[...around.values()].map((node) => ({ type: node.type, id: node.id, title: node.title, kind: known.get(node.id)?.kind ?? 'note', links: known.get(node.id)?.links ?? 1, private: !!node.private, tag: known.get(node.id)?.tag, tint: known.get(node.id)?.tint, picture: node.private ? undefined : known.get(node.id)?.picture })),
+          ...further.map((node) => ({ type: node.type, id: node.id, title: node.title, kind: node.kind, links: node.links, tag: node.tag, tint: node.tint, picture: node.picture }))
         ],
-        edges, alone: 0, out: own.out.length, in: own.in.length
+        edges, alone: 0, out: own.out.length, in: own.in.length, further: further.length, furtherAll: reach.size
       }
       setGraph((last) => (JSON.stringify(last) === JSON.stringify(next) ? last : next))
     })
@@ -776,9 +802,9 @@ export function LocalGraph({ id, title, onOpen }: { id: string; title: string; o
       clearTimeout(timer)
       stop()
     }
-  }, [id])
+  }, [id, steps])
   if (!graph) return null
-  const linked = graph.nodes.length - 1
+  const linked = graph.nodes.length - 1 - graph.further
   return (
     <Island compact title="Links" filled={linked > 0}>
       {!linked ? (
@@ -787,9 +813,11 @@ export function LocalGraph({ id, title, onOpen }: { id: string; title: string; o
         <div data-local-graph>
           <GraphCanvas map={graph} centre={id} fit={fit} onOpen={(type, to) => onOpen?.(type, to)} className="h-[248px]" />
           <div className="flex h-8 items-center gap-1 border-t border-border/60 pr-1 pl-2 text-xs text-muted-foreground">
-            <span className="shrink-0 tabular-nums whitespace-nowrap"><Rolling text={graph.out} /> out · <Rolling text={graph.in} /> in</span>
+            <span className="min-w-0 truncate tabular-nums whitespace-nowrap"><Rolling text={graph.out} /> out · <Rolling text={graph.in} /> in{steps === '2' && <> · <Rolling text={graph.further} />{graph.furtherAll > graph.further ? ` of ${num(graph.furtherAll)}` : ''} further</>}</span>
+            <span className="ml-auto" />
+            <span data-local-steps className="shrink-0"><Switch options={[{ id: '1', label: '1 step' }, { id: '2', label: '2 steps' }]} value={steps} pick={pickSteps} /></span>
             <Tip label="Fit">
-              <button type="button" aria-label="Fit" onClick={() => (chime('tap'), fit.current())} className="ml-auto rounded-md p-1 transition-colors hover:bg-accent hover:text-foreground"><AliveIcon icon={ExpandIcon} size={14} /></button>
+              <button type="button" aria-label="Fit" onClick={() => (chime('tap'), fit.current())} className="rounded-md p-1 transition-colors hover:bg-accent hover:text-foreground"><AliveIcon icon={ExpandIcon} size={14} /></button>
             </Tip>
             {onOpen && (
               <button type="button" onClick={() => (chime('open'), showOnMap(id), onOpen('view', 'map'))} className="min-w-0 truncate rounded-md px-1.5 py-1 whitespace-nowrap transition-colors hover:bg-accent hover:text-foreground">See on Map</button>
