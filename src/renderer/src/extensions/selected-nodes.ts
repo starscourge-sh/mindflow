@@ -15,6 +15,9 @@ export const SelectedNodes = Extension.create({
   name: "selectedNodes",
 
   addProseMirrorPlugins() {
+    // Worked out once per document and selection: the view asks on every
+    // update, and a full selection of a long note is thousands of blocks to walk.
+    let last: { doc: unknown; from: number; to: number; set: DecorationSet | null } | null = null
     return [
       new Plugin({
         props: {
@@ -38,6 +41,7 @@ export const SelectedNodes = Extension.create({
           decorations: (state) => {
             const { from, to, empty } = state.selection
             if (empty) return null
+            if (last && last.doc === state.doc && last.from === from && last.to === to) return last.set
 
             const marked: Decoration[] = []
             state.doc.nodesBetween(from, to, (node, pos) => {
@@ -55,7 +59,9 @@ export const SelectedNodes = Extension.create({
               }
             })
 
-            return marked.length ? DecorationSet.create(state.doc, marked) : null
+            const set = marked.length ? DecorationSet.create(state.doc, marked) : null
+            last = { doc: state.doc, from, to, set }
+            return set
           },
         },
       }),

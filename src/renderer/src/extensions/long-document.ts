@@ -35,6 +35,42 @@ Object.assign(DecorationSet.prototype, {
 
 let made = 0
 
+/**
+ * The page's selection, kept to the blocks that are drawn.
+ *
+ * A selection reaching past them (⌘A, a long ⇧-click) was handed to the
+ * browser whole, across thousands of blocks taken off the page, and the
+ * browser worked out the look of every one of them to place it: seconds per
+ * selection, again on every change it caused, and the editor froze for good.
+ * The note's own selection is still the whole of it (copy, delete, typing
+ * over it and Undo all go by that); only what the browser is told to paint
+ * stops at the edge of what is drawn, which is all it could show anyway. It
+ * follows the drawn blocks as they move (`resync` below).
+ *
+ * ProseMirror gives no way in to this, so its one method that hands the
+ * selection to the browser is wrapped, for the editors marked here only.
+ */
+type Desc = { dom: Node; setSelection: (anchor: number, head: number, view: EditorView, force?: boolean) => void }
+const clamps = new WeakMap<Node, (anchor: number, head: number) => [number, number]>()
+let wrapped = false
+function keepSelectionDrawn(view: EditorView, clamp: (anchor: number, head: number) => [number, number]): () => void {
+  clamps.set(view.dom, clamp)
+  if (!wrapped) {
+    let proto = Object.getPrototypeOf((view as unknown as { docView: Desc }).docView) as Desc | null
+    while (proto && !Object.prototype.hasOwnProperty.call(proto, "setSelection")) proto = Object.getPrototypeOf(proto) as Desc | null
+    if (proto) {
+      wrapped = true
+      const setSelection = proto.setSelection
+      proto.setSelection = function (this: Desc, anchor, head, view, force) {
+        const kept = clamps.get(this.dom)
+        if (kept) [anchor, head] = kept(anchor, head)
+        return setSelection.call(this, anchor, head, view, force)
+      }
+    }
+  }
+  return () => void clamps.delete(view.dom)
+}
+
 /** Blocks either side of the screen kept drawn, and how close the screen or the caret may come to the edge of them. */
 const AROUND = 150
 const SLACK = 50
@@ -84,10 +120,14 @@ function nearScreen(view: EditorView, name: string): { ahead: (state: EditorStat
       heights.set(here, height)
     }
   }
-  const draw = (from: number, to: number): void => {
+  const draw = (from: number, to: number, early = false): void => {
     const all = blocks()
     from = Math.max(0, from)
-    to = Math.min(all.length - 1, to)
+    // Drawn ahead of a change (`early`), it is not cut to the blocks on the
+    // page now: for Undo bringing back the whole note, the blocks it is drawn
+    // for are not there yet, and a band cut to the old few was no band at
+    // all. The next update fits it to what arrived.
+    to = early ? Math.max(from, to) : Math.min(all.length - 1, to)
     band = [from, to]
     let above = 0
     let below = 0
@@ -112,6 +152,7 @@ function nearScreen(view: EditorView, name: string): { ahead: (state: EditorStat
     // Only when it is still drawn: a band moved far, after the caret, has nothing to keep still.
     // At once, never eased: the words have to stay where they were.
     if (anchor && before !== undefined && scroller && anchor.getClientRects().length) scroller.scrollBy({ top: anchor.getBoundingClientRect().top - before, behavior: "instant" })
+    resync()
   }
   // The block at the top of the screen, as an index into the note, and its element when it is drawn.
   const onScreen = (): { first: number; last: number; anchor: Element | null; at?: number } | null => {
@@ -122,7 +163,7 @@ function nearScreen(view: EditorView, name: string): { ahead: (state: EditorStat
     const top = Math.max(box.top, 0)
     const bottom = Math.min(box.bottom, window.innerHeight)
     const shown = all[band[0]].getBoundingClientRect()
-    const end = all[band[1]].getBoundingClientRect()
+    const end = all[Math.min(band[1], all.length - 1)].getBoundingClientRect()
     if (shown.top <= bottom && end.bottom >= top) {
       // Among the drawn ones, by halves.
       const find = (edge: number): number => {
@@ -159,6 +200,34 @@ function nearScreen(view: EditorView, name: string): { ahead: (state: EditorStat
   const scrolled = (event: Event): void => {
     if (event.target instanceof Node && event.target.contains(view.dom)) follow()
   }
+  // The first and last places inside the drawn blocks.
+  const drawnEdges = (): [number, number] | null => {
+    if (!band) return null
+    const all = blocks()
+    const desc = (i: number): { node?: unknown; posAtStart: number; posAtEnd: number } | null => (all[i] as unknown as { pmViewDesc?: { node?: unknown; posAtStart: number; posAtEnd: number } } | undefined)?.pmViewDesc ?? null
+    let first = Math.min(band[0], all.length - 1)
+    let end = Math.min(band[1], all.length - 1)
+    while (first < end && !desc(first)?.node) first++
+    while (end > first && !desc(end)?.node) end--
+    const [one, two] = [desc(first), desc(end)]
+    return one && two ? [one.posAtStart, two.posAtEnd] : null
+  }
+  const reaches = (from: number, to: number): boolean => {
+    const edges = drawnEdges()
+    return !!edges && (from < edges[0] || to > edges[1])
+  }
+  const unclamp = keepSelectionDrawn(view, (anchor, head) => {
+    // A caret is always drawn (the band follows it); only a range is kept in.
+    const edges = anchor !== head && view.dom.hasAttribute("data-long") ? drawnEdges() : null
+    if (!edges) return [anchor, head]
+    const keep = (at: number): number => Math.min(Math.max(at, edges[0]), edges[1])
+    return [keep(anchor), keep(head)]
+  })
+  // The drawn blocks moved under a selection that reaches past them: the browser is told its new edge.
+  const resync = (): void => {
+    const { from, to, empty } = view.state.selection
+    if (!empty && view.hasFocus() && reaches(from - 1, to + 1)) view.focus()
+  }
   document.head.appendChild(style)
   document.addEventListener("scroll", scrolled, { capture: true, passive: true })
   window.addEventListener("resize", follow)
@@ -177,11 +246,12 @@ function nearScreen(view: EditorView, name: string): { ahead: (state: EditorStat
     // from the screen stays where it is until it does.
     ahead: (state) => {
       const index = state.selection.$head.index(0)
-      const went = !last || !state.selection.eq(last.selection) || state.doc !== last.doc
+      const before = last
+      const went = !before || !state.selection.eq(before.selection) || state.doc !== before.doc
       last = state
       if (went && band && (index < band[0] || index > band[1])) {
         measure()
-        draw(index - AROUND, index + AROUND)
+        draw(index - AROUND, index + AROUND, true)
         leap = true
       }
     },
@@ -212,6 +282,7 @@ function nearScreen(view: EditorView, name: string): { ahead: (state: EditorStat
       }
     },
     destroy: () => {
+      unclamp()
       style.remove()
       document.removeEventListener("scroll", scrolled, { capture: true })
       window.removeEventListener("resize", follow)
