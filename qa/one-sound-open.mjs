@@ -32,6 +32,21 @@ try {
       check(`${page} row ${n}: one sound on open`, heard.length === 1, JSON.stringify(heard))
     }
   }
+  // On a busy machine the page is drawn long after the click: it still turns no second page (it did when drawn over
+  // a second and a half later). The page's work slowed twentyfold, as when builds and other apps share the machine.
+  const cdp = await h.context().newCDPSession(h)
+  await c.go('nuggets'); await h.waitForTimeout(1500)
+  await cdp.send('Emulation.setCPUThrottlingRate', { rate: 20 })
+  for (const n of [2, 4]) {
+    const row = h.locator('[data-row]').nth(n)
+    await row.scrollIntoViewIfNeeded(); await h.waitForTimeout(1000)
+    await h.evaluate(() => { window.haligtreeHeard.length = 0 })
+    await row.click({ delay: 70 })
+    await h.waitForTimeout(6000)
+    const heard = await h.evaluate(() => [...window.haligtreeHeard])
+    check(`slowed, nuggets row ${n}: one sound on open`, heard.length === 1, JSON.stringify(heard))
+  }
+  await cdp.send('Emulation.setCPUThrottlingRate', { rate: 1 })
 } catch (error) {
   check('the run finished', false, error.message.split('\n')[0])
 } finally {

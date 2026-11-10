@@ -768,6 +768,13 @@ const turnedAt = { soft: -Infinity, full: -Infinity }
 let turnTriedAt = -Infinity
 /** The note a page last turned for, and when: its own page, drawn a moment later, turns none for it again. */
 let turnedFor: { id: string; at: number } | null = null
+/**
+ * The note an open turned a page for, until its page is drawn (`pageShown`):
+ * that page turns none on top, however long it takes to draw. Timed to a
+ * second and a half, a page drawn later than that (a busy machine, a big
+ * note) turned a second page.
+ */
+let turnPending: string | null = null
 /** Whether a page has just turned for this note: the move that opened it says nothing on top. */
 export const turnedNow = (id: string | undefined): boolean => !!id && turnedFor?.id === id && performance.now() - turnedFor.at < 1500
 /**
@@ -778,6 +785,20 @@ export const turnedNow = (id: string | undefined): boolean => !!id && turnedFor?
  * the same one (by the page that shows it, once drawn), it turns no second page.
  */
 export function pageTurn(soft = false, id?: string): void {
+  if (id) turnPending = id
+  turn(soft, id)
+}
+/**
+ * A note's page drawn: its page turns, unless the open that brought it here
+ * turned one already. Opened by a way that turned none (Back, a step with the
+ * arrow keys), this is its one page turn.
+ */
+export function pageShown(id: string, soft = false): void {
+  const turned = turnPending === id
+  turnPending = null
+  if (!turned) turn(soft, id)
+}
+function turn(soft: boolean, id?: string): void {
   const now = performance.now()
   turnTriedAt = now
   if (turnedNow(id)) return

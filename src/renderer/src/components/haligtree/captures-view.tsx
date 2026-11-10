@@ -42,7 +42,7 @@ import { binItem, moveToBin, seeTheBin, useCameBack } from '@/lib/to-bin'
 import { ShowInListContext, useShowInList } from '@/lib/show-in-list'
 import { useSameWords } from '@/lib/same-words'
 import { Apart } from '@/lib/apart'
-import { chime, tear, pageTurn } from '@/lib/sound'
+import { chime, tear, pageShown, pageTurn } from '@/lib/sound'
 import { Empty, focusField, Island, Page, Prop, Props, Remembered, Rolling, refuse, toast, useListKeys, useReadKey, typing, pin, askQuestion, Stepper, startAt, showTopTitle, Pressed, quietly, askClearWho } from './ui'
 import { Term } from './term'
 import { GlossTimeline, PageThoughts, useRowGloss } from './gloss-line'
@@ -494,7 +494,7 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
     if (at >= 0) readAhead('capture', [whole[at - 1], whole[at + 1]].filter((one) => one && !one.task).map((one) => one.id))
   }, [open?.id]) // eslint-disable-line react-hooks/exhaustive-deps
   // A note opened: a page turned, as a book is (a quick run down the list turns only one).
-  useEffect(() => void (open?.id && pageTurn(false, open.id)), [open?.id])
+  useEffect(() => void (open?.id && pageShown(open.id)), [open?.id])
   // The open capture as the list last saw it, so its status follows an exit.
   // Until the list is read, the note's own read stands in: sent here for one note, it never waits for the list.
   const listedOpen = all.find((capture) => capture.id === open?.id)

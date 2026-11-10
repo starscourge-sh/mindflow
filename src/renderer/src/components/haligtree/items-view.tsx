@@ -20,7 +20,7 @@ import { SameBook } from '@/components/pdf/same-book'
 import { bookOf, pdfIn } from '@/lib/pdf-in'
 import { SourceFoot } from './source-page'
 import { SimilarNotes } from './similar-notes'
-import { chime, pageTurn } from '@/lib/sound'
+import { chime, pageShown, pageTurn } from '@/lib/sound'
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { Editor, JSONContent } from '@tiptap/core'
 import { Archive, ArrowLeft, ArrowUpRight, Calendar, ChevronRight, Library, Plus, SquareDashed } from 'lucide-react'
@@ -601,7 +601,7 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
   // with ↓ and ↑ (the Stepper over the page), a lighter page; a quick run turns only one.
   const stepped = useRef(false)
   useEffect(() => {
-    if (open?.id) pageTurn(stepped.current, open.id)
+    if (open?.id) pageShown(open.id, stepped.current)
     stepped.current = false
   }, [tier, open?.id])
   // Re-read the open one when anything changes, so a gloss or a prompt shows.
