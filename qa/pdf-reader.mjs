@@ -523,6 +523,9 @@ try {
   const page = await h.locator('.pdf-reader .pdf-page[data-page="3"]').boundingBox()
   await h.mouse.click(page.x + 12, page.y + page.height - 12); await wait(300)
   check('a press away puts the card away', await h.evaluate(() => !document.querySelector('.look-up')), '')
+  await pickAndLook()
+  await h.mouse.move(page.x + page.width / 2, page.y + 40); await h.mouse.wheel(0, 240); await wait(300)
+  check('scrolling the page puts the card away', await h.evaluate(() => !document.querySelector('.look-up')), '')
   await h.evaluate(() => getSelection().removeAllRanges())
   // Details, at the right of the pages as a note's: what the book is, how far you have read, its highlights (searchable, by colour) and the notes that hold it.
   await h.click('.pdf-reader button[aria-label="Details"]'); await wait(800)

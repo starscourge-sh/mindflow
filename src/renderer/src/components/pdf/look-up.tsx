@@ -59,10 +59,12 @@ export function LookUpCard({ words, at, from, range, onClose }: { words: string;
       event.stopPropagation()
       onClose()
     }
-    const away = (event: PointerEvent): void => void (!(event.target as Element | null)?.closest?.(".look-up") && onClose())
+    const away = (event: Event): void => void (!(event.target as Element | null)?.closest?.(".look-up") && onClose())
+    // Scrolling the page puts it away too: the words it points at have moved (10 Nov). Its own list scrolling keeps it.
     window.addEventListener("keydown", onKey, true)
     window.addEventListener("pointerdown", away, true)
-    return () => (window.removeEventListener("keydown", onKey, true), window.removeEventListener("pointerdown", away, true))
+    window.addEventListener("wheel", away, { capture: true, passive: true })
+    return () => (window.removeEventListener("keydown", onKey, true), window.removeEventListener("pointerdown", away, true), window.removeEventListener("wheel", away, true))
   }, [onClose])
 
   const found = meaning !== "looking" && meaning && "found" in meaning ? meaning.found : null
