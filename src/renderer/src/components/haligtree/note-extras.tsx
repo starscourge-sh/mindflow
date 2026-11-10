@@ -736,12 +736,13 @@ export function NoteHeader({ left, back, type = 'capture', edited, captured, mad
  * 6 days"). Counted as you write (word-log.ts), so a note brought in whole
  * says nothing, and nothing shows until there is a minute of it.
  */
-export function WritingSpent({ id }: { id: string }): React.JSX.Element | null {
+export function WritingSpent({ id, took = 0, fallback = null }: { id: string; /** The quick capture's own time to write it, in ms, counted in. */ took?: number; /** Shown instead while there is under a minute of writing here. */ fallback?: React.ReactNode }): React.JSX.Element | null {
   const spent = useLive(() => window.api.haligtree('words:note', id) as Promise<{ words: number; seconds: number; days: number }>, null as { words: number; seconds: number; days: number } | null, [id])
-  if (!spent || spent.seconds < 60) return null
+  const seconds = (spent?.seconds ?? 0) + Math.round(took / 1000)
+  if (!spent || spent.seconds < 60) return <>{fallback}</>
   return (
     <Prop icon={PenLine}>
-      <span data-writing-spent className="min-w-0">About {howLong(spent.seconds / 60)} writing it, {plural(spent.words, 'word', 'words')}{spent.days > 1 ? ` over ${num(spent.days)} days` : ''}</span>
+      <span data-writing-spent className="min-w-0"><span className="mr-1.5 text-muted-foreground/80">Writing</span>About {howLong(seconds / 60)}, {plural(spent.words, 'word', 'words')}{spent.days > 1 ? ` over ${num(spent.days)} days` : ''}</span>
     </Prop>
   )
 }
@@ -801,7 +802,8 @@ export function LocalGraph({ id, title, onOpen }: { id: string; title: string; o
           { type: 'capture', id, title: named.current, kind: known.get(id)?.kind ?? 'note', links: around.size, picture: known.get(id)?.picture },
           // With its tag's colour and its picture, as on the Map.
           ...[...around.values()].map((node) => ({ type: node.type, id: node.id, title: node.title, kind: known.get(node.id)?.kind ?? 'note', links: known.get(node.id)?.links ?? 1, private: !!node.private, tag: known.get(node.id)?.tag, tint: known.get(node.id)?.tint, picture: node.private ? undefined : known.get(node.id)?.picture })),
-          ...further.map((node) => ({ type: node.type, id: node.id, title: node.title, kind: node.kind, links: node.links, tag: node.tag, tint: node.tint, picture: node.picture }))
+          // Drawn as the smallest dots, with no picture, so the notes beyond read apart from its own neighbours.
+          ...further.map((node) => ({ type: node.type, id: node.id, title: node.title, kind: node.kind, links: 1, tag: node.tag, tint: node.tint }))
         ],
         edges, alone: 0, out: own.out.length, in: own.in.length, further: further.length, furtherAll: reach.size
       }
@@ -824,21 +826,20 @@ export function LocalGraph({ id, title, onOpen }: { id: string; title: string; o
   if (!graph) return null
   const linked = graph.nodes.length - 1 - graph.further
   return (
-    <Island compact title="Links" filled={linked > 0}>
+    // How far it reaches sits beside the island's name, out of the footer's way in a narrow details column.
+    <Island compact title="Links" filled={linked > 0} actions={linked > 0 ? <span data-local-steps className="shrink-0"><Switch options={[{ id: '1', label: '1 step' }, { id: '2', label: '2 steps' }]} value={steps} pick={pickSteps} /></span> : undefined}>
       {!linked ? (
         <p className="px-2 py-1.5 text-xs text-muted-foreground"><Typed text="No links yet. Type @ in the note to link another, and it shows here." step={25} /></p>
       ) : (
         <div data-local-graph>
           <GraphCanvas map={graph} centre={id} fit={fit} onOpen={(type, to) => onOpen?.(type, to)} className="h-[248px]" />
-          <div className="flex h-8 items-center gap-1 border-t border-border/60 pr-1 pl-2 text-xs text-muted-foreground">
-            <span className="min-w-0 truncate tabular-nums whitespace-nowrap"><Rolling text={graph.out} /> out · <Rolling text={graph.in} /> in{steps === '2' && <> · <Rolling text={graph.further} />{graph.furtherAll > graph.further ? ` of ${num(graph.furtherAll)}` : ''} further</>}</span>
-            <span className="ml-auto" />
-            <span data-local-steps className="shrink-0"><Switch options={[{ id: '1', label: '1 step' }, { id: '2', label: '2 steps' }]} value={steps} pick={pickSteps} /></span>
+          <div className="flex min-h-8 items-center gap-1 border-t border-border/60 pr-1 pl-2 text-xs text-muted-foreground">
+            <span data-local-count className="min-w-0 py-1 leading-snug tabular-nums"><span className="whitespace-nowrap"><Rolling text={graph.out} /> out · <Rolling text={graph.in} /> in</span>{steps === '2' && <> · <span className="whitespace-nowrap"><Rolling text={graph.further} />{graph.furtherAll > graph.further ? ` of ${num(graph.furtherAll)}` : ''} two steps away</span></>}</span>
             <Tip label="Fit">
-              <button type="button" aria-label="Fit" onClick={() => (chime('tap'), fit.current())} className="rounded-md p-1 transition-colors hover:bg-accent hover:text-foreground"><AliveIcon icon={ExpandIcon} size={14} /></button>
+              <button type="button" aria-label="Fit" onClick={() => (chime('tap'), fit.current())} className="ml-auto shrink-0 rounded-md p-1 transition-colors hover:bg-accent hover:text-foreground"><AliveIcon icon={ExpandIcon} size={14} /></button>
             </Tip>
             {onOpen && (
-              <button type="button" onClick={() => (chime('open'), showOnMap(id), onOpen('view', 'map'))} className="min-w-0 truncate rounded-md px-1.5 py-1 whitespace-nowrap transition-colors hover:bg-accent hover:text-foreground">See on Map</button>
+              <button type="button" onClick={() => (chime('open'), showOnMap(id), onOpen('view', 'map'))} className="shrink-0 rounded-md px-1.5 py-1 whitespace-nowrap transition-colors hover:bg-accent hover:text-foreground">See on Map</button>
             )}
           </div>
         </div>

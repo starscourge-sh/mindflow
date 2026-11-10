@@ -1085,8 +1085,8 @@ export function CaptureProps({ capture, onOpen, className, fold, onExit, onBack 
         <Prop icon={Hash}><Lead>Its number</Lead>{captureKey(capture.number)}</Prop>
         {capture.device && <Prop icon={Laptop}><Lead>Caught on</Lead>{capture.device}</Prop>}
         {capture.weather && <Prop icon={CloudSun}><Lead>Weather then</Lead>{capture.weather}</Prop>}
-        <WritingSpent id={capture.id} />
-        {capture.elapsedMs ? <Prop icon={Timer}><Lead>Took</Lead>{capture.elapsedMs < 60000 ? `${Math.round(capture.elapsedMs / 1000)} sec` : hoursSaid(capture.elapsedMs / 60000)} to write</Prop> : null}
+        {/* Time to write it: here and in the quick capture, one line; a note written in one go keeps its "Took". */}
+        <WritingSpent id={capture.id} took={capture.elapsedMs ?? 0} fallback={capture.elapsedMs ? <Prop icon={Timer}><Lead>Took</Lead>{capture.elapsedMs < 60000 ? `${Math.round(capture.elapsedMs / 1000)} sec` : hoursSaid(capture.elapsedMs / 60000)} to write</Prop> : null} />
         {capture.source && <Prop icon={FileText}><Lead>Came from</Lead>{capture.source.replace(/\.md$/, '')}</Prop>}
         {/* Editable, because a system you can catch up on beats one you
             cannot fall behind in: a note from last Tuesday can say so. */}
