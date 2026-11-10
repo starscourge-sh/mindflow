@@ -7,7 +7,7 @@ import { markKeyed } from "@/lib/motion"
 import { blinkThen } from "./menu-blink"
 import { MenuScroll } from "./context-menu"
 import { DropdownMenu as DropdownMenuPrimitive } from "radix-ui"
-import { onlyRealMoves } from "@/lib/real-move"
+import { notTheOpeningRelease, onlyRealMoves } from "@/lib/real-move"
 import { withMenuIcon } from "./menu-icon"
 import { Check as CheckIcon, ChevronRight as ChevronRightIcon } from '@/components/ui/icons'
 
@@ -88,6 +88,7 @@ function DropdownMenuItem({
       )}
       {...props}
       onPointerMove={onlyRealMoves(props.onPointerMove)}
+      onPointerUp={notTheOpeningRelease(props.onPointerUp)}
     >
       {props.asChild ? children : withMenuIcon(children)}
     </DropdownMenuPrimitive.Item>
@@ -121,6 +122,7 @@ function DropdownMenuCheckboxItem({
       }}
       {...props}
       onPointerMove={onlyRealMoves(props.onPointerMove)}
+      onPointerUp={notTheOpeningRelease(props.onPointerUp)}
     >
       <span
         className="pointer-events-none absolute right-2 flex items-center justify-center"
@@ -165,6 +167,7 @@ function DropdownMenuRadioItem({
       )}
       {...props}
       onPointerMove={onlyRealMoves(props.onPointerMove)}
+      onPointerUp={notTheOpeningRelease(props.onPointerUp)}
     >
       <span
         className="pointer-events-none absolute right-2 flex items-center justify-center"

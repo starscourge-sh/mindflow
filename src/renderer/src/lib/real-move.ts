@@ -54,3 +54,20 @@ export function onlyRealMoves<E extends { nativeEvent: Event; preventDefault: ()
 export function stopStillMoves(event: { nativeEvent: Event; stopPropagation: () => void }): void {
   if (!realMove(event)) event.stopPropagation()
 }
+
+/**
+ * Whether the last press was a right click (or a control-click). A right
+ * click opens its menu as the button goes down, so the menu can open under the
+ * pointer (pushed up off the window's foot); Radix picks a row the pointer is
+ * let go on, and the very release of that right click ticked "Done".
+ */
+let rightPress = false
+if (typeof window !== 'undefined') window.addEventListener('pointerdown', (event) => void (rightPress = event.button === 2 || (event.button === 0 && event.ctrlKey)), { capture: true, passive: true })
+
+/** For a Radix menu row's `onPointerUp`: the release of the right click that opened the menu picks nothing. */
+export function notTheOpeningRelease<E extends { preventDefault: () => void }>(own?: (event: E) => void): (event: E) => void {
+  return (event) => {
+    own?.(event)
+    if (rightPress) event.preventDefault()
+  }
+}

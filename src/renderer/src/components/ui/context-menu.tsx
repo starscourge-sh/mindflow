@@ -7,7 +7,7 @@ import { blinkThen } from "./menu-blink"
 import { byKeys, markKeyed } from "@/lib/motion"
 import { Highlight, spotOf, type Spot } from "@/components/haligtree/glide"
 import { ContextMenu as ContextMenuPrimitive } from "radix-ui"
-import { onlyRealMoves } from "@/lib/real-move"
+import { notTheOpeningRelease, onlyRealMoves } from "@/lib/real-move"
 import { withMenuIcon } from "./menu-icon"
 import { ChevronRight as ChevronRightIcon } from '@/components/ui/icons'
 
@@ -166,6 +166,7 @@ function ContextMenuItem({
       )}
       {...props}
       onPointerMove={onlyRealMoves(props.onPointerMove)}
+      onPointerUp={notTheOpeningRelease(props.onPointerUp)}
     >
       {props.asChild ? children : withMenuIcon(children)}
     </ContextMenuPrimitive.Item>
