@@ -165,7 +165,8 @@ function Card({ id, today, preview }: { id: string; today: string; /** A goal no
         <Flag data-goal-flag className="mt-[0.2em] size-3.5 shrink-0" style={{ color: goalInk(goal) }} />
         {/* The whole goal, over two lines if it needs them: a goal cut short is not the goal. */}
         <p className="private-text line-clamp-2 min-w-0 flex-1 leading-snug font-medium text-balance">{goal.title}</p>
-        <SandboxStamp inline />
+        {/* Steps aside while the controls are out, so they never sit over it. */}
+        <span className="flex shrink-0 transition-opacity duration-200 group-hover:opacity-0 group-focus-within:opacity-0"><SandboxStamp inline /></span>
         {/* Over the end of the title, only while pointed at: the title has the whole row the rest of the time. */}
         {!preview && (
           <span className="absolute top-2 right-2 z-10 flex items-center rounded-lg bg-popover opacity-0 transition-opacity duration-200 group-hover:opacity-100 focus-within:opacity-100" style={STILL}>
@@ -375,7 +376,7 @@ export function GoalsSticky(): React.JSX.Element {
         <div className="flex items-center gap-1.5">
           <Flag className="size-3.5 shrink-0 text-muted-foreground" />
           <p className="min-w-0 flex-1 truncate font-medium">Goals</p>
-          <SandboxStamp inline />
+          <span className="flex shrink-0 transition-opacity duration-200 group-hover:opacity-0 group-focus-within:opacity-0"><SandboxStamp inline /></span>
           <span className="text-[11px] leading-none font-medium text-foreground/70 tabular-nums transition-opacity duration-200 group-hover:opacity-0">
             {goals.length === 1 ? '1 goal' : `${num(goals.length)} goals`}
           </span>
