@@ -532,7 +532,7 @@ export function Search({ onOpen: told, onAside: toldAside, onTab: toldTab, onClo
           <span aria-hidden className="mx-1 h-3.5 w-px bg-border" />
           <Chips options={[{ id: 'capture', label: 'Captures' }, { id: 'nugget', label: 'Gems' }, { id: 'task', label: 'Tasks' }, { id: 'event', label: 'Events' }]} on={(id) => types.includes(id)} pick={(id) => setTypes(flip(types, id))} />
           <span aria-hidden className="mx-1 h-3.5 w-px bg-border" />
-          <Chips options={[{ id: 'kind', label: kinds.length ? `Kind · ${num(kinds.length)}` : 'Kind' }]} on={() => kindsOpen || kinds.length > 0} pick={() => setKindsOpen(!kindsOpen)} />
+          <Chips options={[{ id: 'kind', label: kinds.length ? `Kind · ${num(kinds.length)}` : 'Kind…', tip: kindsOpen ? undefined : 'Quotes, terms, links and the other kinds of capture' }]} on={() => kindsOpen || kinds.length > 0} pick={() => setKindsOpen(!kindsOpen)} />
           {kindsOpen && <span aria-hidden className="mx-1 h-3.5 w-px bg-border" />}
           {kindsOpen && <Chips options={[...CAPTURE_TYPES]} on={(id) => kinds.includes(id)} pick={(id) => setKinds(flip(kinds, id))} />}
           </>}
