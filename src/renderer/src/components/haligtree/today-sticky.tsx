@@ -225,7 +225,8 @@ export function TodaySticky(): React.JSX.Element {
           {loaded && lateOnes.length > 0 && (
             <Tip label={`Open Today in ${APP_NAME}, where the late ones are`}>
               <button type="button" data-sticky-late onClick={(event) => (chime('open'), window.api.openSticky('view', 'today', 'Today', event.altKey))}
-                className="mt-1 text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline">
+                className="mt-1.5 inline-flex cursor-pointer items-center gap-1.5 text-control font-semibold text-[color-mix(in_oklab,var(--tt-color-text-red)_78%,var(--foreground))] underline-offset-2 hover:underline">
+                <span aria-hidden className="size-2 shrink-0 rounded-full bg-(--tt-color-text-red)" />
                 {num(lateOnes.length)} late
               </button>
             </Tip>
