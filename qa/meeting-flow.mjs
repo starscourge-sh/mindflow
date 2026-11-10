@@ -2,6 +2,7 @@
 // the Mac's sound) to its page, in a sandbox. Gives the sandbox, the made-up meeting and the meeting note's id.
 import { mkdirSync } from 'node:fs'
 import { join } from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { sandbox, CALM_HOUR } from './sandbox-lib.mjs'
 import { makeMeeting } from './meeting-lib.mjs'
 
@@ -36,4 +37,27 @@ export async function recorded({ lines, repeat = 1, long, speed, width = 1200, h
     await c.h.waitForTimeout(1200)
     return c.h.evaluate(() => document.querySelector('[data-meeting-page]').closest('[data-open]')?.dataset.open)
   } }
+}
+
+// Run on its own, it checks the flow the meeting probes build on: a made-up meeting, recorded through the card, comes
+// out as a meeting note with its page, its player and the lines that were said.
+//   QA_ARGS=--sandbox QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/meeting-flow.mjs
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  const { checks } = await import('./harness.mjs')
+  const { check, done } = checks()
+  const { c, made, record } = await recorded()
+  try {
+    const id = await record()
+    check('stopping the recording opens its meeting note', !!id, String(id))
+    const page = c.h.locator('[data-meeting-page]')
+    check('the note shows the meeting page', (await page.count()) === 1)
+    check('the page has its player', (await page.locator('audio').count()) === 1)
+    const lines = await page.locator('[data-meeting-line]').count()
+    check('the page holds the lines that were said', lines >= made.lines.length, `${lines} of ${made.lines.length}`)
+  } catch (error) {
+    check('the run finished', false, error.message.split('\n')[0])
+  } finally {
+    await c.close()
+  }
+  done()
 }
