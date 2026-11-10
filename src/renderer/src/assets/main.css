@@ -403,6 +403,9 @@
 .mf-caption-in { animation: mf-caption-in 160ms var(--mf-ease) both; }
 .mf-caption-out { animation: mf-caption-out 120ms var(--mf-ease) both; pointer-events: none; }
 @keyframes mf-caption-in { from { opacity: 0; } }
+/* Shown only once a wait has lasted 150ms: a quick one never flashes it (note-coming.tsx). */
+@keyframes mf-after-a-beat { from { visibility: hidden; } to { visibility: visible; } }
+.mf-after-a-beat { animation: mf-after-a-beat 1ms 150ms step-end both; }
 @keyframes mf-caption-out { to { opacity: 0; } }
 :root[data-motion='off'] .mf-caption-in { animation: none; }
 :root[data-motion='off'] .mf-caption-out { animation: none; opacity: 0; }
@@ -1587,12 +1590,33 @@ html[data-width='full'] .note-pane {
   animation: none !important;
 }
 
-/* The Motion setting, off: CSS transitions and animations stop too. */
+/* The Motion setting, off: CSS transitions and animations stop too. Not the
+   fades that follow a scroll (animation-timeline): they never move by
+   themselves, and stopped they stuck at their end, a table or a tab row
+   faded at an edge with nothing past it. */
 [data-motion='off'] *,
 [data-motion='off'] *::before,
 [data-motion='off'] *::after {
   transition-duration: 0s !important;
+}
+[data-motion='off'] :not(.tableWrapper, .mf-fade-end, .mf-tabs-fade, .book-panel-head, .haligtree-editor-content, .private-text, [data-cursor]),
+[data-motion='off'] *::before,
+[data-motion='off'] *::after {
   animation-duration: 0s !important;
+}
+/* Reduce motion asked for in the system: the same, as lib/motion.ts `still()`
+   already treats it in script. Every animation in every stylesheet, at once. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0s !important;
+  }
+  :not(.tableWrapper, .mf-fade-end, .mf-tabs-fade, .book-panel-head, .haligtree-editor-content, .private-text, [data-cursor]),
+  *::before,
+  *::after {
+    animation-duration: 0s !important;
+  }
 }
 
 /* A pop-up waiting for the box to grow tall enough: unseen, its entrance held (see fit-box).
@@ -2842,6 +2866,8 @@ html:root[data-book-hue='blue'] { --book-hue: var(--tt-color-text-blue); }
 html:root[data-book-hue='purple'] { --book-hue: var(--tt-color-text-purple); }
 html:root[data-book-hue='pink'] { --book-hue: var(--tt-color-text-pink); }
 html:root[data-book-hue='red'] { --book-hue: var(--tt-color-text-red); }
+/* A red book keeps its red for the caret and the marks, never for links: red means destructive. */
+html:root[data-book-hue='red'] .tiptap.ProseMirror { --mf-link: var(--foreground); }
 html:root[data-book-hue='orange'] { --book-hue: var(--tt-color-text-orange); }
 html:root[data-book-hue='yellow'] { --book-hue: var(--tt-color-text-yellow); }
 html:root[data-book-hue='green'] { --book-hue: var(--tt-color-text-green); }
@@ -2852,6 +2878,7 @@ html:root[data-book-hue] {
   --tt-brand-color-200: color-mix(in srgb, var(--book-hue) 50%, #fff);
   --tt-brand-color-300: color-mix(in srgb, var(--book-hue) 72%, #fff);
   --tt-brand-color-400: var(--book-hue);
+  --mf-link: var(--book-hue);
   --tt-brand-color-500: color-mix(in srgb, var(--book-hue) 91%, #000);
   --tt-brand-color-600: color-mix(in srgb, var(--book-hue) 84%, #000);
   --tt-brand-color-700: color-mix(in srgb, var(--book-hue) 68%, #000);

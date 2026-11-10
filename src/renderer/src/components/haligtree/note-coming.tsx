@@ -1,3 +1,5 @@
+import { Orb } from './orb'
+
 /**
  * A note on its way: its pane and its name, where the note will be, from the
  * frame it is asked for. Its words fill in as they are read. Shown only while
@@ -14,6 +16,12 @@ export function NoteComing({ id, title }: { id: string; title?: string | null })
         <div aria-hidden className="-mt-3 mb-1 h-7 shrink-0" />
         <div className="note-column mb-2 shrink-0">
           <p className="font-heading text-title font-semibold tracking-[-0.018em] text-balance">{title?.trim() || 'New note'}</p>
+        </div>
+        {/* Still being read a beat later (a big book): the one wait sign, where
+            its words will be, never a blank page under the name. Held back
+            150ms, so a quick open never flashes it. */}
+        <div data-note-waiting className="note-column mf-after-a-beat pt-3">
+          <Orb label="Opening the note…" />
         </div>
       </div>
     </div>

@@ -641,11 +641,34 @@
   // and for the thin scrollbar under the last row.
   padding: 1px 1px 0.5rem;
   overscroll-behavior-x: contain;
-  scrollbar-width: thin;
-  scrollbar-color: var(--tt-scrollbar-color) transparent;
   animation: mf-table-fade linear both;
   animation-timeline: scroll(self inline);
   mask-image: linear-gradient(to right, transparent, #000 var(--mf-table-fade-start), #000 calc(100% - var(--mf-table-fade-end)), transparent);
+}
+
+// A thin bar under a table wider than the column, there all the time: the
+// Mac's own bar hid until you scrolled, so nothing said there were columns
+// past the edge. Styled bars are drawn always; none when it all fits.
+// (The app's `scrollbar-width: thin` on every element turns these styles off: set back to auto here.)
+.tiptap.ProseMirror.haligtree-editor .tableWrapper {
+  scrollbar-width: auto;
+  scrollbar-color: auto;
+}
+.tiptap.ProseMirror.haligtree-editor .tableWrapper::-webkit-scrollbar {
+  height: 6px;
+}
+.tiptap.ProseMirror.haligtree-editor .tableWrapper::-webkit-scrollbar-track {
+  background: transparent;
+}
+.tiptap.ProseMirror.haligtree-editor .tableWrapper::-webkit-scrollbar-thumb {
+  border-radius: 3px;
+  background-color: var(--tt-gray-dark-a-300, var(--tt-scrollbar-color));
+}
+:root:not(.dark) .tiptap.ProseMirror.haligtree-editor .tableWrapper::-webkit-scrollbar-thumb {
+  background-color: var(--tt-gray-light-a-300, var(--tt-scrollbar-color));
+}
+.tiptap.ProseMirror.haligtree-editor .tableWrapper::-webkit-scrollbar-thumb:hover {
+  background-color: var(--mf-muted);
 }
 
 // Drawn as one card with rounded outer corners, as Notion and Apple Notes
@@ -1031,10 +1054,11 @@
   // Solid, so the one you are on reads as the one you are on.
   .find-and-replace-result-current {
     background-color: var(--tt-cursor-color);
-    color: #fff;
-    -webkit-text-fill-color: #fff;
+    // The words on the accent in the colour worked out for it (On-Accent White).
+    color: var(--primary-foreground);
+    -webkit-text-fill-color: var(--primary-foreground);
     // The insert-mode caret is this same accent, so it would vanish here.
-    caret-color: #fff;
+    caret-color: var(--primary-foreground);
   }
 }
 
@@ -1090,7 +1114,6 @@
     border-radius: var(--radius-md, 0.5rem);
     background-color: var(--background);
     box-shadow: var(--mf-shadow-lift);
-    will-change: transform;
 
     table {
       width: 100%;
@@ -1127,14 +1150,14 @@
   .tiptap-table-add {
     display: grid;
     place-items: center;
-    color: var(--foreground);
+    // Faded Ink, a real colour that reaches 4.5:1, not ink made see-through.
+    color: var(--mf-muted);
     cursor: pointer;
     font-size: 0.75rem;
     line-height: 0;
-    opacity: 0.45;
 
     &:hover {
-      opacity: 1;
+      color: var(--foreground);
     }
 
     &.is-row {
@@ -1504,7 +1527,7 @@
   button {
     padding: 0.25rem 0.375rem;
     border-radius: 0.5rem;
-    font-size: 1.125rem;
+    font-size: 0.9375rem;
     line-height: 1.2;
 
     &.is-selected,
@@ -1575,6 +1598,7 @@
 }
 
 .tiptap-bookmark:hover .tiptap-bookmark-copy,
+.tiptap-bookmark.is-selected .tiptap-bookmark-copy,
 .tiptap-bookmark:focus-within .tiptap-bookmark-copy {
   opacity: 1;
 }
@@ -2013,8 +2037,8 @@ body:has(:is(.tiptap-slash-menu, .tiptap-block-menu, [role="menu"])) .tiptap-wor
     color: var(--tt-theme-text, currentColor);
   }
 
-  .mf-video-title { font-weight: 600; font-size: 0.95em; }
-  .mf-video-note { font-size: 0.9em; cursor: pointer; }
+  .mf-video-title { font-weight: 600; font-size: 0.875rem; }
+  .mf-video-note { font-size: 0.8125rem; cursor: pointer; }
 }
 
 // A caption: the quiet line under a picture or a video, sized and placed like
@@ -2343,6 +2367,7 @@ html[data-motion="off"] .tiptap.ProseMirror.haligtree-editor .mf-caption {
   // and the pointer has usually left the block - without the open trigger
   // keeping these visible, the menu floats with nothing to point back at.
   .tiptap-code-block:hover &,
+  .ProseMirror-selectednode > .tiptap-code-block &,
   &:focus-within,
   &:has([data-state="open"]) {
     opacity: 1;
@@ -2557,7 +2582,7 @@ html[data-motion="off"] .tiptap.ProseMirror.haligtree-editor .mf-caption {
 
 .tiptap-image-error {
   margin: 0;
-  color: var(--tt-color-text-red, #e5484d);
+  color: var(--tt-color-text-red);
   font-size: 0.8125rem;
 }
 
@@ -2679,7 +2704,6 @@ $nested-ul: "ul:not([data-type='taskList'])";
 
 .mf-look-frame {
   position: absolute;
-  will-change: transform;
   perspective: 1200px;
 }
 
@@ -2687,7 +2711,6 @@ $nested-ul: "ul:not([data-type='taskList'])";
   position: relative;
   width: 100%;
   height: 100%;
-  will-change: transform;
 }
 
 // The words in the picture (picture-text.tsx), invisible over it and moved with
@@ -2850,7 +2873,7 @@ body:has(.mf-look) [data-radix-popper-content-wrapper] {
 .tiptap-attachment-video {
   display: block;
   width: 100%;
-  background: #000;
+  background: var(--mf-video-black);
   cursor: pointer;
 }
 
@@ -3078,7 +3101,7 @@ $media-brand: var(--tt-brand-color-500, currentColor);
   align-items: center;
   justify-content: center;
   border-radius: 0;
-  background: #000;
+  background: var(--mf-video-black);
 
   .tiptap-attachment-video {
     height: 100%;
@@ -3344,7 +3367,7 @@ $media-brand: var(--tt-brand-color-500, currentColor);
   border-radius: 0.25rem;
   padding: 0 0.125rem;
   background-color: var(--mf-surface);
-  color: var(--tt-brand-color-400);
+  color: var(--mf-link, var(--tt-brand-color-400));
   cursor: pointer;
   text-decoration: none;
 
@@ -3851,7 +3874,7 @@ body > div[dir][style*="-10000px"] > .tableWrapper {
   user-select: text;
 
   &::placeholder {
-    color: color-mix(in srgb, currentColor 45%, transparent);
+    color: var(--mf-muted);
   }
 }
 
@@ -3903,6 +3926,15 @@ body > div[dir][style*="-10000px"] > .tableWrapper {
 
   &:hover {
     background-color: var(--callout-border);
+  }
+
+  .tiptap-callout-drawn {
+    display: inline-block;
+    width: 1em;
+    height: 1em;
+    vertical-align: -0.125em;
+    color: var(--callout-accent);
+    stroke-width: 1.75;
   }
 }
 
@@ -4697,9 +4729,15 @@ $run-next: '.react-renderer:has(> .tiptap-attachment.is-audio) + .react-renderer
   pointer-events: none;
 }
 
+// The block in hand, left in its place: its words in Faded Ink (4.5:1, still
+// readable), its pictures faded, so it reads as "this is moving".
 .ProseMirror [data-carried] {
-  opacity: 0.3;
-  transition: opacity 120ms var(--mf-ease);
+  color: var(--mf-muted);
+  transition: color 120ms var(--mf-ease);
+
+  :is(img, video, canvas, svg) {
+    opacity: 0.4;
+  }
 }
 
 .ProseMirror[data-carrying] {
@@ -4880,10 +4918,9 @@ $run-next: '.react-renderer:has(> .tiptap-attachment.is-audio) + .react-renderer
       width: 1.5em;
       height: 1.5em;
       border-radius: 0.375rem;
-      color: var(--muted-foreground);
-      opacity: 0.45;
+      color: var(--mf-muted);
       cursor: pointer;
-      transition: opacity 150ms ease-out, background-color 150ms ease-out;
+      transition: color 150ms ease-out, background-color 150ms ease-out;
 
       svg {
         width: 0.95em;
@@ -5110,4 +5147,10 @@ $run-next: '.react-renderer:has(> .tiptap-attachment.is-audio) + .react-renderer
   line-height: 1.2;
   letter-spacing: -0.024em;
   color: var(--mf-heading, inherit);
+}
+
+// A video's own frame: black whatever the theme, as every player draws it,
+// named once so it is a token and not a hex in each rule.
+:root {
+  --mf-video-black: rgb(0 0 0);
 }
