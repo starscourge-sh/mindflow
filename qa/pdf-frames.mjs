@@ -62,10 +62,12 @@ try {
     const reader = document.querySelector('.pdf-reader').getBoundingClientRect()
     const out = [...document.querySelectorAll('.pdf-reader-bar *')].filter((one) => { const r = one.getBoundingClientRect(); return r.width && (r.right > reader.right + 1 || r.left < reader.left - 1) }).map((one) => one.getAttribute('aria-label') || one.className).slice(0, 5)
     const page = document.querySelector('.pdf-reader [data-scrub-field]')?.getBoundingClientRect()
-    return { out, sideways: document.querySelector('.pdf-reader-scroll').scrollWidth > document.querySelector('.pdf-reader-scroll').clientWidth + 1, page: page && Math.round(page.width) }
+    const bar = document.querySelector('.pdf-reader-bar').getBoundingClientRect(), pages = document.querySelector('.pdf-reader-scroll').getBoundingClientRect()
+    return { out, sideways: document.querySelector('.pdf-reader-scroll').scrollWidth > document.querySelector('.pdf-reader-scroll').clientWidth + 1, page: page && Math.round(page.width), barIn: bar.top >= 0 && bar.bottom <= innerHeight, pagesWide: Math.round(pages.width), details: !!document.querySelector('.read-details') }
   })
   check('560 x 400: nothing in the bar runs off the side', small.out.length === 0, JSON.stringify(small))
   check('560 x 400: the page box is still there to type in', small.page >= 32, JSON.stringify(small))
+  check('560 x 400: the bar in sight and the pages keep the room, Details waiting for a wider window', small.barIn && small.pagesWide >= 300 && !small.details, JSON.stringify(small))
 } finally {
   await c.close()
 }

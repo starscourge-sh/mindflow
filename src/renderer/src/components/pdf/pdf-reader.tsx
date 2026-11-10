@@ -37,6 +37,8 @@ import { plural, num } from '../../../../main/dates'
 /** A page column this wide reads comfortably; below it the rail squeezes, below `TIGHT` it folds away. */
 const COMFY = 520
 const TIGHT = 420
+/** A reader narrower than this shows its pages alone: Details beside them left the pages no room (560 wide). */
+const DETAILS_ROOM = 720
 /** How wide a window has to be for a PDF on its own to start with both sides open. */
 const BOTH_SIDES = 1400
 /** A rail narrower than this cuts the outline's titles to a word: it opens on the pages instead. */
@@ -357,12 +359,15 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
   // or dragged by hand, the rail stays as it was left, in this reader.
   const body = useRef<HTMLDivElement>(null)
   const [room, setRoom] = useState(Infinity)
+  // The reader's whole width: under `DETAILS_ROOM` the pages keep it all, and Details waits for a wider window.
+  const [wide, setWide] = useState(Infinity)
+  const detailsFit = wide >= DETAILS_ROOM
   const [byHand, setByHand] = useState(false)
   useLayoutEffect(() => {
     const el = body.current
     if (!el) return
     // The room the rail and the pages share: the body less Details, so the rail's own width never feeds back.
-    const measure = (): void => setRoom(el.clientWidth - (el.querySelector<HTMLElement>(":scope > .read-details")?.offsetWidth ?? 0))
+    const measure = (): void => (setRoom(el.clientWidth - (el.querySelector<HTMLElement>(":scope > .read-details")?.offsetWidth ?? 0)), setWide(el.clientWidth))
     const watch = new ResizeObserver(measure)
     watch.observe(el)
     if (scroller.current) watch.observe(scroller.current)
@@ -957,7 +962,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
           <Button data-style="ghost" aria-label="Sidebar" title="Pages and outline" data-active-state={railShown ? "on" : "off"} onClick={toggleRail}>
             <PanelLeft className="tiptap-button-icon" />
           </Button>
-          <Button data-style="ghost" aria-label="Details" title={detailsOut ? "Hide details" : "Details"} data-active-state={detailsOut && !chaptering ? "on" : "off"} onClick={() => (chaptering && detailsOut ? (chime("slide"), setChaptering(false)) : (chime(detailsOut ? "fold" : "slide"), setChaptering(false), showDetails(!detailsOut, pane)))}>
+          <Button data-style="ghost" aria-label="Details" disabled={!detailsFit} title={!detailsFit ? "Details: widen the window to show them beside the pages" : detailsOut ? "Hide details" : "Details"} data-active-state={detailsOut && detailsFit && !chaptering ? "on" : "off"} onClick={() => (chaptering && detailsOut ? (chime("slide"), setChaptering(false)) : (chime(detailsOut ? "fold" : "slide"), setChaptering(false), showDetails(!detailsOut, pane)))}>
             <PanelRight className="tiptap-button-icon" />
           </Button>
           {marks.some((one) => one.color === "later") && (
@@ -1180,7 +1185,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
         </ContextMenuContent>
       </ContextMenu>
       </div>
-      {chaptering && doc ? <ChapterCards doc={doc} title={title} outline={outline} page={page} marks={marks.filter((one) => !one.id.startsWith("find:"))} onGo={go} onClose={() => setChaptering(false)} onKeep={(question, answer, at) => cardOf(question, answer, at, true)} /> : detailsOut && <ReadDetails src={src} name={name} onPage={go} chapters={outline} cover={cover} title={title} author={author} pages={doc?.numPages} page={page} marks={marks} lit={lit} onMark={goToMark} onGather={() => void gather()} onJoin={(group) => void joinStacked(group)} scan={<ScanDetail src={src} doc={doc} onRead={readAgain} />} />}
+      {chaptering && doc ? <ChapterCards doc={doc} title={title} outline={outline} page={page} marks={marks.filter((one) => !one.id.startsWith("find:"))} onGo={go} onClose={() => setChaptering(false)} onKeep={(question, answer, at) => cardOf(question, answer, at, true)} /> : detailsOut && detailsFit && <ReadDetails src={src} name={name} onPage={go} chapters={outline} cover={cover} title={title} author={author} pages={doc?.numPages} page={page} marks={marks} lit={lit} onMark={goToMark} onGather={() => void gather()} onJoin={(group) => void joinStacked(group)} scan={<ScanDetail src={src} doc={doc} onRead={readAgain} />} />}
       </div>
       </PageLabel.Provider>
     </div>
