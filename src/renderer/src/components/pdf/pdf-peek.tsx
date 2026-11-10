@@ -330,7 +330,7 @@ export function PdfPeek(): React.JSX.Element | null {
       <div
         role="button"
         aria-label={`Open ${peek.name || "the PDF"} at page ${peek.page}`}
-        className={cn(FLOAT, "pdf-peek-face", paper && "is-paper", "relative size-full cursor-pointer overflow-hidden rounded-md animate-in fade-in-0 zoom-in-95 duration-100")}
+        className={cn(FLOAT, "pdf-peek-face", paper && "is-paper !bg-[#f4ecdb]", "relative size-full cursor-pointer overflow-hidden rounded-md animate-in fade-in-0 zoom-in-95 duration-100")}
         // A page is paper, never frosted glass: the frost's see-through fill would show through it.
         data-frost-off={paper ? "" : undefined}
         onPointerMove={(event) => {
