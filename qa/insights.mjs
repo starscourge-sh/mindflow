@@ -104,6 +104,8 @@ try {
   db.prepare("insert into word_days (day, id, kind, words, seconds) values (date('now', 'localtime', '-3 days'), ?, 'capture', 820, 1500), (date('now', 'localtime', '-1 days'), ?, 'capture', 420, 1020) on conflict (day, id) do update set words = excluded.words, seconds = excluded.seconds").run(typed, typed)
   await send('view', 'home'); await h.waitForTimeout(600)
   await openDetails(typed)
+  // The rows above were written behind the app's back: a word typed is a real save, which the details read again on.
+  await h.click('.tiptap.ProseMirror'); await h.keyboard.press('End'); await h.keyboard.type(' done', { delay: 15 }); await h.waitForTimeout(1500)
   await h.waitForSelector('[data-writing-spent]', { timeout: 8000 }).catch(() => null)
   const spent = await text('[data-writing-spent]')
   check('E. Details say "Writing About 42 min, … words over 3 days"', /^WritingAbout 4\d min, [\d,]+ words over 3 days$/.test(spent), spent)
