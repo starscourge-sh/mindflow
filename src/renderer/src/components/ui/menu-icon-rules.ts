@@ -101,7 +101,7 @@ const RULES: [RegExp, LucideIcon][] = [
   [/^turn face up|^turn over/i, FlipVertical2],
   [/^bring (back|it|them)/i, Undo2],
   [/^make it a step/i, ListChecks],
-  [/^mark it again/i, Flag],
+  [/^mark it again|^name this day|^add another name/i, Flag],
   [/^take (the line|it) (out|off)/i, X],
   [/^mark mistakes/i, SpellCheck],
   [/^fit height/i, ArrowUpDown],

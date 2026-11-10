@@ -46,7 +46,7 @@ try {
   await wait(900)
   const brief = (await text('[data-next-mark]'))[0] ?? ''
   check("Today's brief counts down too", brief.includes('Hamlet essay due'), brief)
-  await h.getByRole('button', { name: 'Mark', exact: true }).click()
+  await h.getByRole('button', { name: 'Name the day', exact: true }).click()
   await wait()
   await h.getByLabel('What the day is for').fill('Launch')
   await h.getByRole('button', { name: '🚀' }).click()
@@ -68,7 +68,7 @@ try {
   check('the month page shows its days as a grid', (await h.locator('[data-grid-day]').count()) >= 28)
   await cell.click({ button: 'right' })
   await wait()
-  await h.getByRole('menuitem', { name: 'Mark this day…' }).click()
+  await h.getByRole('menuitem', { name: 'Name this day…' }).click()
   await wait()
   await h.getByLabel('What the day is for').fill('Mock exam')
   await h.getByRole('button', { name: 'red' }).click()

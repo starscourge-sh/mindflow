@@ -156,7 +156,7 @@ export function dayMenu(day: string, all: Milestone[], onOpenDay?: (day: string)
   return [
     { heading: dayName(noon(day)) },
     ...here.map((one): RowItem => ({ label: one.exam ? `${one.title}: open the tag` : `Change ${one.title}…`, run: () => void markDay(day, one) })),
-    { label: here.length ? 'Mark it again…' : 'Mark this day…', run: () => void markDay(day) },
+    { label: here.length ? 'Add another name…' : 'Name this day…', run: () => void markDay(day) },
     here.some((one) => !!one.note) && 'separator',
     ...here.filter((one) => !!one.note).map((one): RowItem => ({ label: `Open the note for ${one.title}`, run: () => follow(one.note!, (type, id) => window.api.openInHome(type, id)) })),
     onOpenDay && 'separator',
@@ -242,7 +242,8 @@ export function DayMarks({ day, className = 'mt-2' }: { day: string; className?:
 
 // --- a month or a week as a grid
 
-const WEEKDAYS = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
+// Two letters, so Tuesday and Thursday, Saturday and Sunday are never the same mark.
+const WEEKDAYS = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su']
 
 /**
  * Days in rows of seven, Monday first: a month (with the days before its first
@@ -481,7 +482,8 @@ export function YearMarks({ year, onOpenDay }: { year: string; onOpenDay?: (day:
             ]
             const sight = { from: pan - 90, to: pan + clip + 10 }
             const dayTicks = daily > 0 ? said.slice(band.from, band.to).flatMap((day, i) => (i * step >= sight.from && i * step <= sight.to ? [{ x: i * step, text: day.name }] : [])) : []
-            const rest = 0.45 + 0.55 * weeks
+            // A marked day's name reads at rest (in dark too), only a little quieter than the one pointed at.
+            const rest = 0.82 + 0.18 * weeks
             return (
               <div key={band.from} data-year-band={b} className="relative" style={{ width: clip }}>
                 <div data-year-clip className="overflow-hidden pb-0.5 [contain:layout_paint]" style={{ width: clip }}>
