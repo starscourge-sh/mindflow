@@ -36,7 +36,7 @@ try {
   // --- A task due now.
   const made = await v('task:add', 'Call the dentist back')
   const id = made?.id ?? made
-  await v('task:save', id, { due: new Date(Date.now() - 2 * 60000).toISOString() })
+  await v('task:save', id, { allDay: 0, due: new Date(Date.now() - 2 * 60000).toISOString() })
   await v('alerts:check')
   const card = await windowOf('view=nudge')
   check('a task due now brings Haligtree’s own card', !!card)
@@ -70,7 +70,8 @@ try {
   check('“Done” finishes the task', (await v('task', id))?.status === 'done')
   await v('alerts:check')
   await card.waitForTimeout(500)
-  check('and it is not asked about again', !(await mine('Call the dentist')))
+  // What stays is the "Done: …" line with its Undo, never the question again.
+  check('and it is not asked about again', !(await card.evaluate(() => [...document.querySelectorAll('[data-nudge="task"]')].some((one) => one.textContent.includes('Call the dentist') && one.querySelector('[data-nudge-done]')))))
 
   // --- The daily review.
   await v('settings:set', { reviewReminder: hhmm(Date.now() - 60000) })
@@ -148,7 +149,8 @@ try {
       check('the sparks are gone after, calm', !(await glow.$('[data-sparks]')))
       await pill.hover('[data-island] button >> nth=0')
       await pill.waitForTimeout(800)
-      const buttons = await pill.$$eval('[data-island-panel] button', (all) => all.map((one) => one.textContent.trim()).filter(Boolean))
+      // The pair's own buttons: the moment card under them (a gem, or a practice later today) is something to read, not a choice.
+      const buttons = await pill.$$eval('[data-island-panel] button', (all) => all.filter((one) => !one.closest('[data-break-moment]')).map((one) => one.textContent.trim()).filter(Boolean))
       check('a break offers one clear pair: “+10 min” and “Back to work”', buttons.join('|') === '+10 min|Back to work', buttons.join(' | '))
       await pill.screenshot({ path: `${SHOT}/break-open.png` })
       await pill.mouse.move(1, 1)
