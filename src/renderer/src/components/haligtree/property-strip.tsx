@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useReading } from '@/lib/reads-in'
 import { AlignLeft, Calendar, ChevronRight, Clock, Hash, Link2, List, Plus, SquareCheck, Star, Tags, Text, X, type LucideIcon } from 'lucide-react'
 import type { Editor } from '@tiptap/react'
@@ -21,6 +21,7 @@ import { FLOAT } from '@/lib/float'
 import { useSuperTags } from './note-extras'
 import { tagTint } from './tag-icon'
 import { quoted } from '../../../../main/clip'
+import { num } from '../../../../main/dates'
 
 type Value = string | number | boolean
 const SHUT = 'propertiesShut'
@@ -236,18 +237,9 @@ export function PropertyStrip({ table, id, kind, fields, text, created, updated,
               {tags.length > 0 && (
                 <div className={row} data-property="tags">
                   {nameCell(Tags, 'tags')}
-                  <div className={`flex ${size.minH} flex-wrap items-center gap-1 py-0.5`}>
-                    {tags.map((tag) => (
-                      <span key={tag} data-tag-chip={tag} className="inline-flex h-6 items-center gap-0.5 rounded-full bg-foreground/[0.06] pr-1 pl-2.5" style={{ color: tagTint(tag), '--mf-tag-dot': tagTint(tag) } as React.CSSProperties}>
-                        {/* The tag is a way to its page, as everywhere (⌥-click beside); the × only takes it off. */}
-                        <button type="button" data-tag-open={tag} {...hoverNote('tag', tag)} onClick={(event) => openTag(tag, event.altKey)} className="rounded-sm hover:underline">{tag}</button>
-                        <Tip label={`Take #${tag} off this note`}>
-                          <button type="button" aria-label={`Remove #${tag}`} className="grid size-4 place-items-center rounded-full shrink-0 opacity-70 hover:bg-foreground/10 hover:opacity-100" onClick={() => untag(tag, strip.current)}><X className="size-3" /></button>
-                        </Tip>
-                      </span>
-                    ))}
+                  <TagChips tags={tags} strip={strip} className={`flex ${size.minH} flex-wrap items-center gap-1 py-0.5`}>
                     <AddTag node={() => strip.current} />
-                  </div>
+                  </TagChips>
                 </div>
               )}
               {shown.map((prop) => (
@@ -322,6 +314,85 @@ function retag(tag: string, node: HTMLElement | null): boolean {
   editor.view.dispatch(editor.state.tr.insertText(`${before && !/\s/.test(before) ? ' ' : ''}#${name}`, at))
   chime('on')
   return true
+}
+
+/**
+ * The note's tags, two rows of them at most: past that a "+N more" chip
+ * opens the rest in place, and "Fewer" folds them back. 500 tags filled
+ * the strip with about 167 rows before.
+ */
+function TagChips({ tags, strip, className, children }: { tags: string[]; strip: React.RefObject<HTMLDivElement | null>; className: string; children: React.ReactNode }): React.JSX.Element {
+  const [all, setAll] = useState(false)
+  // How many chips fit in two rows with the "+N more" chip after them; null until measured.
+  const [fit, setFit] = useState<number | null>(null)
+  const box = useRef<HTMLDivElement | null>(null)
+  const now = useRef({ all, fit })
+  const measureRef = useRef<() => void>(() => undefined)
+  now.current = { all, fit }
+  const said = tags.join('\n')
+  // Measured afresh when the tags change.
+  useLayoutEffect(() => setFit(null), [said])
+  // Read in the frame, never forcing a layout in the middle of drawing the
+  // page: read while a long note was being drawn, it cost two thirds of a
+  // second. Again whenever the row changes size (a narrower window).
+  useEffect(() => {
+    const row = box.current
+    if (!row) return
+    let width = row.clientWidth
+    const measure = (): void => {
+      const { all, fit } = now.current
+      const chips = row.querySelectorAll<HTMLElement>('[data-tag-chip]')
+      if (all || !chips.length) return
+      if (fit !== null && row.clientWidth !== width) return void ((width = row.clientWidth), setFit(null))
+      const top = chips[0].offsetTop
+      const step = chips[0].offsetHeight + 4
+      const row3 = (el: Element | null): boolean => el instanceof HTMLElement && el.offsetTop >= top + 2 * step - 2
+      if (fit === null) {
+        const over = [...chips].findIndex(row3)
+        setFit(over >= 0 ? Math.max(1, over - 1) : chips.length)
+        return
+      }
+      // The "+N more" chip itself went to a third row: one chip fewer.
+      if (fit > 1 && row3(row.querySelector('[data-tag-more]'))) setFit(fit - 1)
+    }
+    measureRef.current = measure
+    const seen = new ResizeObserver(measure)
+    seen.observe(row)
+    return () => seen.disconnect()
+  }, [])
+  useEffect(() => {
+    if (fit !== null || all) return
+    const frame = requestAnimationFrame(() => measureRef.current())
+    return () => cancelAnimationFrame(frame)
+  }, [fit, all, said])
+  const shown = all || fit === null ? tags : tags.slice(0, fit)
+  const left = tags.length - shown.length
+  // Until measured, held to two rows so 500 tags never flash down the page.
+  const held = !all && fit === null ? { maxHeight: 'calc(3rem + 0.75rem)', overflow: 'hidden' } : undefined
+  return (
+    <div ref={box} className={className} style={held}>
+      {shown.map((tag) => (
+        <span key={tag} data-tag-chip={tag} className="inline-flex h-6 items-center gap-0.5 rounded-full bg-foreground/[0.06] pr-1 pl-2.5" style={{ color: tagTint(tag), '--mf-tag-dot': tagTint(tag) } as React.CSSProperties}>
+          {/* The tag is a way to its page, as everywhere (⌥-click beside); the × only takes it off. */}
+          <button type="button" data-tag-open={tag} {...hoverNote('tag', tag)} onClick={(event) => openTag(tag, event.altKey)} className="rounded-sm hover:underline">{tag}</button>
+          <Tip label={`Take #${tag} off this note`}>
+            <button type="button" aria-label={`Remove #${tag}`} className="grid size-4 place-items-center rounded-full shrink-0 opacity-70 hover:bg-foreground/10 hover:opacity-100" onClick={() => untag(tag, strip.current)}><X className="size-3" /></button>
+          </Tip>
+        </span>
+      ))}
+      {left > 0 && (
+        <button type="button" data-tag-more className="inline-flex h-6 items-center rounded-full bg-foreground/[0.06] px-2.5 text-foreground hover:bg-foreground/10" onClick={() => setAll(true)}>
+          +{num(left)} more
+        </button>
+      )}
+      {all && fit !== null && fit < tags.length && (
+        <button type="button" data-tag-fewer className="inline-flex h-6 items-center rounded-full bg-foreground/[0.06] px-2.5 text-foreground hover:bg-foreground/10" onClick={() => setAll(false)}>
+          Fewer
+        </button>
+      )}
+      {children}
+    </div>
+  )
 }
 
 /** "+" after the tag chips: a tag typed there goes on the note (Enter, a comma or a space); Esc puts the field away. */
