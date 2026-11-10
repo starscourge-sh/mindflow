@@ -35,9 +35,10 @@ const FOOT = GLASS && SANDBOX ? 'pb-6' : 'pb-4'
 /** A card's paper, lit from the top: solid theme paper (frosted over the desktop picture), or a wash over real glass (--mf-glass-wash). */
 const PAPER = GLASS
   ? 'linear-gradient(rgb(255 255 255 / 0.05), transparent 40%), linear-gradient(color-mix(in oklab, var(--popover) var(--mf-glass-wash), transparent), color-mix(in oklab, var(--popover) var(--mf-glass-wash), transparent))'
-  : 'linear-gradient(rgb(255 255 255 / 0.05), transparent 40%), linear-gradient(var(--popover), var(--popover)), linear-gradient(var(--background), var(--background))'
-const SHADOW = GLASS ? '0 1px 2px rgb(0 0 0 / 0.16)' : '0 1px 2px rgb(0 0 0 / 0.14), 0 6px 16px -4px rgb(0 0 0 / 0.22)'
-const CARD = `relative isolate flex h-full flex-col gap-2.5 ${GLASS ? 'rounded-[10px]' : 'rounded-xl border'} px-4 pt-3 ${FOOT} text-control text-foreground`
+  : 'linear-gradient(rgb(255 255 255 / 0.05), transparent 40%), linear-gradient(var(--mf-float, var(--popover)), var(--mf-float, var(--popover))), linear-gradient(var(--background), var(--background))'
+// The stickies' own lift, in the theme's shadow ink: the panel shadow's spread would be cut off by the window's 20px of room.
+const SHADOW = GLASS ? '0 1px 2px color-mix(in oklab, var(--mf-shadow-ink) 16%, transparent)' : '0 1px 2px color-mix(in oklab, var(--mf-shadow-ink) 14%, transparent), 0 4px 10px -2px color-mix(in oklab, var(--mf-shadow-ink) 16%, transparent)'
+const CARD = `relative isolate flex h-full flex-col gap-2.5 ${GLASS ? 'rounded-[10px]' : 'rounded-xl border border-(--mf-float-ring)'} px-4 pt-3 ${FOOT} text-control text-foreground`
 const HOVER_BUTTON = 'flex size-6 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground transition-[color,background-color,scale] duration-150 ease-out active:scale-[0.97]'
 
 type Goal = ItemFull

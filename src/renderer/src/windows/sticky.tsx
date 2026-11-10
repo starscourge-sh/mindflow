@@ -12,6 +12,8 @@ import { clearRoom } from '../lib/clear-room'
 import { followGlass } from '../lib/glass'
 
 const type = params.get('type')
+// Its quiet ink is set for the sticky's paper (sticky-note.scss).
+document.documentElement.dataset.stickyWindow = ''
 
 start(
   <>

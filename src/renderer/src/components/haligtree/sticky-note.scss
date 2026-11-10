@@ -122,19 +122,25 @@ body[data-sticky] :has(> .tiptap-toolbar [aria-label="Delete image"]) {
   display: none !important;
 }
 
-// A sticky's paper is the theme's own: the card colour its menus use, and on a
-// light theme the page itself (its card colour is a shade darker, which read
-// as dull grey beside the window). Warmed, if at all, by the theme's own
+// A sticky's paper is the one fill of everything that floats over other apps
+// (--mf-float, main.css): the pill, quick capture, the meeting card and the
+// nudge wear it too, so all of them are one material in every theme. Warmed, if at all, by the theme's own
 // yellow, never a fixed amber that pulled every theme toward brown.
 // On :root, so the frost (frost.tsx) reads the same colours to work out its paper.
 :root {
-  --mf-paper: var(--popover);
+  --mf-paper: var(--mf-float, var(--popover));
   --mf-paper-tint: color-mix(in oklab, var(--tt-color-text-yellow) 5%, transparent);
 }
 
 :root[data-light] {
-  --mf-paper: var(--background);
   --mf-paper-tint: transparent;
+}
+
+// Quiet words on a sticky (counts, times, "in 12 days") still read at 4.5:1 or better on its paper: the theme's own
+// muted ink is made for its page, and on the float fill of a light theme it fell to 4.3:1. Every sticky window wears
+// data-sticky-window (windows/sticky.tsx).
+html:root[data-sticky-window] {
+  --muted-foreground: color-mix(in oklab, var(--foreground) 80%, var(--mf-paper));
 }
 
 // A colour given from the right-click menu (TINT_HUE, sticky-note.tsx): on a
