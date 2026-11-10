@@ -41,6 +41,9 @@ export function codeBlockNodeView(props: NodeViewRendererProps): NodeView {
   const wrapper = document.createElement("div")
   wrapper.className = "tiptap-code-block"
   wrapper.setAttribute("data-node-view-wrapper", "")
+  // Esc with the caret in the code picks the block (extensions/block-controls.ts), a Tab from its buttons:
+  // the note's own Escape (let go of the note) waits for the next one (lib/menu-keys.ts caretTakesEscape).
+  wrapper.setAttribute("data-takes-escape", "")
   wrapper.style.whiteSpace = "normal"
   const controls = document.createElement("div")
   controls.className = "tiptap-code-controls"
