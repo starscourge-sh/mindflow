@@ -919,11 +919,12 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
     return () => window.removeEventListener("keydown", onKey)
   })
 
-  // The page on show: the last sheet whose top has passed a third of the way down.
+  // The page on show: the last sheet whose top has passed a third of the way down, or 120px when that is less: in a
+  // narrow pane short pages fit three to a view, and the page at the top, not the one under it, is the one being read.
   const onScroll = (): void => {
     const box = scroller.current
     if (!box) return
-    const line = box.getBoundingClientRect().top + box.clientHeight / 3
+    const line = box.getBoundingClientRect().top + Math.min(box.clientHeight / 3, 120)
     // The first sheet below the line, found by halves (a few reads, not one per page): the page before it is on show.
     const pages = box.querySelector(".pdf-pages")
     if (!pages?.querySelector(".pdf-page")) return
