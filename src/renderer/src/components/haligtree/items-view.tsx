@@ -68,7 +68,7 @@ import { Button } from '@/components/ui/button'
 import BookIcon from '@/components/ui/book-icon'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import AlarmClockPlusIcon from '@/components/ui/alarm-clock-plus-icon'
-import { Aliases, KindFields, LocalGraph, NoteHeader } from './note-extras'
+import { Aliases, KindFields, LocalGraph, NoteHeader, WritingSpent } from './note-extras'
 import { RoomFoot, useWritingRoom } from './writing-room'
 import { useWritingSound } from './writing-sound'
 import { writerMenu } from './writer-tools'
@@ -1407,6 +1407,7 @@ function NuggetDetail({ item, onOpen, top, back, board: place }: { item: ItemFul
           <Prop icon={Calendar}>Saved {whenInLine(item.createdAt)}</Prop>
           {/* An article made from ideas says so here, with the rest of what it is; one written from scratch needs no line. */}
           {item.tier === 'article' && item.origins.length > 0 && <Prop icon={Layers}>Made from {num(item.origins.length)} gem{item.origins.length === 1 ? '' : 's'}</Prop>}
+          <WritingSpent id={item.id} />
           {item.revisions > 0 && <Prop icon={History}>Rewritten {item.revisions === 1 ? 'once' : `${item.revisions} times`}</Prop>}
           <Prop icon={Download} onClick={() => void saveAttachments([{ table: 'nuggets', id: item.id }])}>Save its pictures and files…</Prop>
         </Island>

@@ -9,7 +9,23 @@ import { database } from './captures'
  * count against you, and a note brought in whole (an import, the sandbox)
  * counts nothing: only what is written here. Read back by Stats as today,
  * this week, each note's share and a year of writing days. No goals.
+ *
+ * Time spent writing comes with the words: the gap since the same note's last
+ * save that gained words, when that gap is short enough to be one sitting
+ * (a minute and a half), so a note left open over lunch counts nothing for
+ * lunch. Read back on a note's own details as "about 40 min writing it".
  */
+
+/** A gap between two saves longer than this is a pause, not writing. */
+const SITTING_MS = 90_000
+// The last save that gained words, by note, while the app runs.
+const lastWrote = new Map<string, number>()
+/** The seconds of writing this save adds to a note: the gap since its last save, if that was one sitting. */
+export function writingSeconds(key: string, now = Date.now()): number {
+  const last = lastWrote.get(key)
+  lastWrote.set(key, now)
+  return last !== undefined && now - last <= SITTING_MS ? Math.round((now - last) / 1000) : 0
+}
 
 type Part = { type?: string; text?: string; content?: Part[] }
 const WORD = /[\p{L}\p{N}][\p{L}\p{N}'’-]*/gu
@@ -40,7 +56,9 @@ const TABLES = [
 export function registerWordLog(): void {
   const db = database()
   db.exec('create table if not exists word_days (day text not null, id text not null, kind text not null, words integer not null default 0, primary key (day, id))')
+  if (!(db.prepare('select 1 from pragma_table_info(?) where name = ?').get('word_days', 'seconds'))) db.exec('alter table word_days add column seconds integer not null default 0')
   db.function('words_gained', (was, now) => Math.max(0, wordsIn(now) - wordsIn(was)))
+  db.function('writing_seconds', (key) => writingSeconds(String(key)))
   for (const { table, key, kind } of TABLES) {
     const there = db.prepare("select 1 from sqlite_master where type = 'table' and name = ?").get(table)
     if (!there) continue
@@ -48,10 +66,14 @@ export function registerWordLog(): void {
     db.exec(`create temp trigger if not exists word_log_${table} after update of body on main.${table}
       when coalesce(new.body, '') != coalesce(old.body, '') and words_gained(old.body, new.body) > 0
       begin
-        insert into main.word_days (day, id, kind, words) values (date('now', 'localtime'), new.${key}, '${kind}', words_gained(old.body, new.body))
-          on conflict (day, id) do update set words = words + excluded.words;
+        insert into main.word_days (day, id, kind, words, seconds) values (date('now', 'localtime'), new.${key}, '${kind}', words_gained(old.body, new.body), writing_seconds(new.${key}))
+          on conflict (day, id) do update set words = words + excluded.words, seconds = seconds + excluded.seconds;
       end`)
   }
+
+  // One note's writing: the words it gained here, the time spent writing them, and on how many days.
+  ipcMain.handle('haligtree:words:note', (_event, id: unknown) =>
+    db.prepare('select coalesce(sum(words), 0) as words, coalesce(sum(seconds), 0) as seconds, count(*) as days from word_days where id = ? and words > 0').get(String(id)) as { words: number; seconds: number; days: number })
 
   // Today, this week from Monday, the last seven days before it, a year of days, and today's notes with their words.
   ipcMain.handle('haligtree:words:stats', () => {

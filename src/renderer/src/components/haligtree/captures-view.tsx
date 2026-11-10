@@ -64,7 +64,7 @@ import { Tip } from '@/components/haligtree/ui'
 import { Button } from '@/components/ui/button'
 import BookIcon from '@/components/ui/book-icon'
 import TrashIcon from '@/components/ui/trash-icon'
-import { Aliases, KindFields, LocalGraph, NoteHeader, TopicName } from './note-extras'
+import { Aliases, KindFields, LocalGraph, NoteHeader, TopicName, WritingSpent } from './note-extras'
 import { ListSearch, NoteRail, PaneButtons, Peek, matches } from './note-list'
 import { archive, changeKind, saveAttachments, useOpenNote, useOwnOrder } from '@/lib/notes'
 import { askBook } from '@/lib/books'
@@ -1085,6 +1085,7 @@ export function CaptureProps({ capture, onOpen, className, fold, onExit, onBack 
         <Prop icon={Hash}><Lead>Its number</Lead>{captureKey(capture.number)}</Prop>
         {capture.device && <Prop icon={Laptop}><Lead>Caught on</Lead>{capture.device}</Prop>}
         {capture.weather && <Prop icon={CloudSun}><Lead>Weather then</Lead>{capture.weather}</Prop>}
+        <WritingSpent id={capture.id} />
         {capture.elapsedMs ? <Prop icon={Timer}><Lead>Took</Lead>{capture.elapsedMs < 60000 ? `${Math.round(capture.elapsedMs / 1000)} sec` : hoursSaid(capture.elapsedMs / 60000)} to write</Prop> : null}
         {capture.source && <Prop icon={FileText}><Lead>Came from</Lead>{capture.source.replace(/\.md$/, '')}</Prop>}
         {/* Editable, because a system you can catch up on beats one you

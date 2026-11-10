@@ -25,7 +25,7 @@ import { type Entry } from './note-list'
 import { Lineage } from './lineage'
 import { pinQuestion } from './pinned-questions'
 import { Mentions } from './mentions'
-import { Aliases, LocalGraph, NoteHeader } from './note-extras'
+import { Aliases, LocalGraph, NoteHeader, WritingSpent } from './note-extras'
 import { RowMenu, copy, copyLinkItem, type MenuItem } from './row-menu'
 import { PICKED_MARK } from './pick-mixed'
 import { usePickLines } from '@/lib/pick-lines'
@@ -522,6 +522,7 @@ export function QuestionDetail({ item, onOpen, top, back }: { item: ItemFull; on
         <Lineage id={item.id} onOpen={onOpen} />
         <LocalGraph id={item.id} title={item.title} onOpen={onOpen} />
         <Island compact title="Details">
+          <WritingSpent id={item.id} />
           <Prop icon={Download} onClick={() => void saveAttachments([{ table: 'nuggets', id: item.id }])}>Save its pictures and files…</Prop>
         </Island>
       </Props>

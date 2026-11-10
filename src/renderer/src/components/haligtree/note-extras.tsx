@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useShowLine } from '@/lib/show-in-list'
 import { layerOpen } from '@/lib/menu-keys'
 import { createPortal } from 'react-dom'
-import { AlignLeft, CalendarDays, Plus, Star } from 'lucide-react'
+import { AlignLeft, CalendarDays, PenLine, Plus, Star } from 'lucide-react'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import ClockIcon from '@/components/ui/clock-icon'
 import PenIcon from '@/components/ui/pen-icon'
@@ -33,13 +33,13 @@ import { canSplit, usePane, usePaneWidth } from '@/lib/split'
 import { openApart } from '@/lib/apart'
 import ExternalLinkIcon from '@/components/ui/external-link-icon'
 import { ReadThrough } from './read-through'
-import { Island, PropInput, Rolling, Tip, Typed, ask, refuse, toast, quietly } from './ui'
+import { Island, Prop, PropInput, Rolling, Tip, Typed, ask, refuse, toast, quietly } from './ui'
 import { Does, GHOST, GhostText } from './ghost'
 import { cn } from '@/lib/cn'
 import ExpandIcon from '@/components/ui/expand-icon'
 import { menuIcon } from '@/components/ui/menu-icon'
 import { GraphCanvas, showOnMap, type Graph } from './graph-canvas'
-import { age, dated as datedAs, dayKey, dayMonth, dayjs, daysFromToday, noon, num } from '../../../../main/dates'
+import { age, dated as datedAs, dayKey, dayMonth, dayjs, daysFromToday, noon, num, howLong, plural } from '../../../../main/dates'
 import { Switch } from './mono-card'
 import { moment, when } from '@/lib/clock'
 import { DatePicker } from './date-picker'
@@ -725,6 +725,24 @@ export function NoteHeader({ left, back, type = 'capture', edited, captured, mad
     {/* A note you changed your mind on says so under its head, and opens what you think now. */}
     {type !== 'task' && type !== 'goal' && <ChangedLine id={String(versions.id)} className="mx-3 mt-1 @[40rem]/page:mx-[clamp(0.75rem,10%,4.25rem)]" />}
     </>
+  )
+}
+
+// --- the time a note took to write
+
+/**
+ * A line for a note's Details: the time spent writing it here, the words it
+ * gained, and over how many days ("About 40 min writing it, 1,240 words over
+ * 6 days"). Counted as you write (word-log.ts), so a note brought in whole
+ * says nothing, and nothing shows until there is a minute of it.
+ */
+export function WritingSpent({ id }: { id: string }): React.JSX.Element | null {
+  const spent = useLive(() => window.api.haligtree('words:note', id) as Promise<{ words: number; seconds: number; days: number }>, null as { words: number; seconds: number; days: number } | null, [id])
+  if (!spent || spent.seconds < 60) return null
+  return (
+    <Prop icon={PenLine}>
+      <span data-writing-spent className="min-w-0">About {howLong(spent.seconds / 60)} writing it, {plural(spent.words, 'word', 'words')}{spent.days > 1 ? ` over ${num(spent.days)} days` : ''}</span>
+    </Prop>
   )
 }
 
