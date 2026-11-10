@@ -872,10 +872,10 @@ try {
     if (theme === 'dark') {
       // One page look in both places: "Paper pages" turned on in the reader turns the PDF in the note to paper too, and back.
       await h.mouse.move(0, 0); await wait(200)
-      await tool('Pages'); await wait(300); await h.locator('[data-page-layout-menu] [data-look-choice="paper"]').click(); await wait(500)
+      await tool('View'); await wait(300); await h.locator('[data-page-layout-menu] [data-look-choice="paper"]').click(); await wait(500)
       const looks = await h.evaluate(() => ({ reader: getComputedStyle(document.querySelector('.pdf-reader .pdf-page')).backgroundColor, note: getComputedStyle(document.querySelector('.tiptap-attachment.is-pdf .pdf-page')).backgroundColor }))
       await h.screenshot({ path: `${process.env.QA_SHOTS ?? '/tmp'}/pdf-paper-both-dark.png` })
-      await tool('Pages'); await wait(300); await h.locator('[data-page-layout-menu] [data-look-choice="white"]').click(); await wait(400)
+      await tool('View'); await wait(300); await h.locator('[data-page-layout-menu] [data-look-choice="white"]').click(); await wait(400)
       const white = await h.evaluate(() => getComputedStyle(document.querySelector('.tiptap-attachment.is-pdf .pdf-page')).backgroundColor)
       check('"Paper pages" in the reader turns the PDF in the note to the same paper, and back to white', looks.reader === 'rgb(244, 236, 219)' && looks.note === looks.reader && white === 'rgb(255, 255, 255)', JSON.stringify({ ...looks, white }))
       break
