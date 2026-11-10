@@ -88,8 +88,13 @@ export function createSuggestionRenderer<I>(
     // hang on at the box's edge pointing at nothing. Typing there again brings it back. Scrolling the
     // menu's own list, or the page while its line is still in view, keeps it: a menu taller than a
     // short box (the Journal's) always reaches past that box's edge, so that was never a reason to go.
+    // The page following the caret as you type (Enter at the foot of a long note glides it down) is not you
+    // scrolling away: the menu typed during that glide saw its line "off screen" for a moment and closed before it
+    // ever showed (10 Nov). Only a scroll with no key just before it counts.
+    let keyed = 0
+    const onKey = (): void => void (keyed = performance.now())
     const onScroll = (event: Event) => {
-      if (!renderer) return
+      if (!renderer || performance.now() - keyed < 700) return
       if (event.target instanceof Node && renderer.element.contains(event.target)) return
       let clip: HTMLElement | null = renderer.editor.view.dom.parentElement
       while (clip && !/(auto|scroll)/.test(getComputedStyle(clip).overflowY)) clip = clip.parentElement
@@ -139,6 +144,9 @@ export function createSuggestionRenderer<I>(
         })
         unmount = props.mount(renderer.element)
         caret = props.clientRect
+        // Opened by a key (the "/" itself): the glide that follows it is the page following the caret.
+        keyed = performance.now()
+        window.addEventListener("keydown", onKey, true)
         window.addEventListener("keydown", onEscape, true)
         window.addEventListener("scroll", onScroll, true)
         chime("open")
@@ -155,6 +163,7 @@ export function createSuggestionRenderer<I>(
         return handled
       },
       onExit: () => {
+        window.removeEventListener("keydown", onKey, true)
         window.removeEventListener("keydown", onEscape, true)
         window.removeEventListener("scroll", onScroll, true)
         unmount?.()

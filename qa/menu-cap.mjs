@@ -81,7 +81,9 @@ try {
       await h.$eval(ED, (el) => el.editor.chain().focus('end').run())
       await h.keyboard.press('Enter')
       await h.keyboard.type('/')
-      await wait(600)
+      // Waited for, not a fixed pause: in a bigger window the menu and its preview take longer than 600ms under load.
+      await h.waitForSelector('.tiptap-slash-menu', { timeout: 3000 }).catch(() => {})
+      await wait(300)
       const s = await menuBox(h, '.tiptap-slash-menu')
       check(`${tag}: the / menu never runs past the window`, s && s.bottom <= s.win + 0.5 && s.top >= -0.5 && s.height <= s.win * 0.6 + 1, JSON.stringify(s))
       // The user had the / menu's "Close menu" line taken out (13 Sep): Esc closes it.
@@ -149,7 +151,8 @@ try {
     const share = document.querySelector('[data-pull-out]')
     return move && share && { move: move.getAttribute('aria-label'), share: share.getAttribute('aria-label'), sameIcon: move.querySelector('svg')?.innerHTML === share.querySelector('svg')?.innerHTML }
   })
-  check('the bar names them "Move to a new page" and "Share with a new page"', buttons?.move === 'Move to a new page' && buttons?.share === 'Share with a new page', JSON.stringify(buttons))
+  // "Share" became "Sync" with a two-way icon (9c7deecb): the words live in two places, nothing leaves the book.
+  check('the bar names them "Move to a new page" and "Sync with a new page"', buttons?.move === 'Move to a new page' && buttons?.share === 'Sync with a new page', JSON.stringify(buttons))
   check('each has its own icon', buttons && !buttons.sameIcon)
   await h.locator('[data-pull-out]').hover()
   await wait(700)
