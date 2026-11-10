@@ -362,11 +362,25 @@ function glide(board: Element | null, change: () => void, kind = '[data-board-ca
   }
 }
 
+/**
+ * Thrown away in order, as everywhere: it fades and shrinks a little where it
+ * stands, then goes, and what was after it glides up (or along) into its room.
+ * The faded element is given back its look once the board is drawn without
+ * it, as it may now be drawing the card that took its place.
+ */
+function throwAway(gone: Element | null | undefined, board: Element | null, change: () => void, kind?: string): void {
+  if (!gone || still()) return change()
+  const fade = gone.animate([{ opacity: 1, scale: '1' }, { opacity: 0, scale: '0.96' }], { duration: 140, easing: 'cubic-bezier(0.4, 0, 1, 1)', fill: 'forwards' })
+  void fade.finished.then(() => (glide(board, change, kind), fade.cancel()), () => undefined)
+}
+
 /** Lists moved by a key or a menu line glide to their new places, as cards do. */
 const glideLanes = (board: Element | null, change: () => void): void => glide(board, change, '[data-lane]')
 
 /** Done cards in one list from which its foot offers to archive them. */
 const PILE = 5
+/** A small button that takes a press 32px across, a step past what it draws (the tick's way). */
+const REACH = 'relative after:absolute after:-inset-1 after:content-[""]'
 /** A list's name, typed in place: its heading's own size and weight. */
 const LANE_NAME_FIELD = 'min-w-0 flex-1 rounded-sm bg-transparent text-heading font-semibold outline-none placeholder:text-muted-foreground'
 
@@ -547,7 +561,8 @@ export function Board({ editor, id, tools }: { editor: Editor; id: string; /** W
   const deleteList = (at: number): void => {
     const lane = shape.lanes[at]
     const count = lane.cards.length
-    undoable(`Deleted the list ${lane.title || 'New list'}${count ? ` and its ${count === 1 ? 'card' : `${num(count)} cards`}` : ''}`, 'away', (model) => void model.lanes.splice(at, 1))
+    const gone = root.current?.querySelectorAll('[data-lane]')[at]
+    throwAway(gone, root.current, () => undoable(`Deleted the list ${lane.title || 'New list'}${count ? ` and its ${count === 1 ? 'card' : `${num(count)} cards`}` : ''}`, 'away', (model) => void model.lanes.splice(at, 1)), '[data-lane]')
     setCursor(null)
   }
   /**
@@ -698,10 +713,11 @@ export function Board({ editor, id, tools }: { editor: Editor; id: string; /** W
   }, [cursor])
 
   const remove = (lane: number, at: number): void => {
-    undoable('Deleted the card', 'away', (model) => {
+    const gone = root.current?.querySelector(`[data-card-place="${cardId(lane, at)}"]`)
+    throwAway(gone, root.current, () => undoable('Deleted the card', 'away', (model) => {
       model.lanes[lane].cards.splice(at, 1)
       return [lane]
-    })
+    }))
     setCursor((was) => (was && was.lane === lane ? { lane, card: Math.min(at, shape.lanes[lane].cards.length - 2) } : was))
   }
 
@@ -812,11 +828,13 @@ export function Board({ editor, id, tools }: { editor: Editor; id: string; /** W
   const dated = async (lane: number, at: number, day: Date): Promise<void> => {
     const text = shape.lanes[lane].cards[at].node.firstChild?.textContent.trim()
     if (!text) return void (chime('nope'), toast('Write something on the card first', undefined, 'info'))
-    const made = await haligtree.addTask(text, id)
     const due = new Date(day.getFullYear(), day.getMonth(), day.getDate(), 12).toISOString()
-    if (!made.existed) await haligtree.saveTask(made.id, { due })
+    // Said with why when it cannot be made; a task made here is taken back out by Undo, one already on the list is left.
+    const made = await haligtree.addTask(text, id).then(async (one) => (one.existed || (await haligtree.saveTask(one.id, { due })), one))
+      .catch((error: unknown) => (refuse(`The task couldn't be added: ${whyFailed(error)}.`, 'error'), null))
+    if (!made) return
     chime('noted')
-    toast(taskSaid(made, `Task added for ${dayMonth(due)}`), undefined, 'success', undefined, { type: 'task', id: made.id })
+    toast(taskSaid(made, `Task added for ${dayMonth(due)}`), made.existed ? undefined : () => void haligtree.unmakeTask(made.id, false, [], []).then(() => chime('undo')), 'success', undefined, { type: 'task', id: made.id })
   }
 
   /**
@@ -908,7 +926,7 @@ export function Board({ editor, id, tools }: { editor: Editor; id: string; /** W
           {query !== null && (
             <label className="flex h-7 min-w-0 items-center gap-1.5 rounded-md bg-accent/60 px-2 text-control">
               <Search className="size-3.5 shrink-0 text-muted-foreground" />
-              <input autoFocus value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Find a card"
+              <input autoFocus aria-label="Find a card" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Find a card"
                 onKeyDown={(event) => event.key === 'Escape' && (event.preventDefault(), chime('fold'), setQuery(null), root.current?.focus())}
                 className="w-28 min-w-0 bg-transparent outline-none placeholder:text-muted-foreground" />
               <button type="button" aria-label="Stop finding" onClick={() => (chime('fold'), setQuery(null))} className="text-muted-foreground hover:text-foreground"><X className="size-3.5" /></button>
@@ -947,7 +965,7 @@ export function Board({ editor, id, tools }: { editor: Editor; id: string; /** W
                   menu={laneItems(at)}>
                   <SortableContext items={cards.map((one) => sid(one.id))} strategy={verticalListSortingStrategy}>
                     {cards.map(({ id: key, card, at: index }) => (
-                      <CardBox key={key} id={sid(key)} editor={editor} card={card} disabled={query !== null || editing === key}
+                      <CardBox key={key} id={sid(key)} place={key} editor={editor} card={card} disabled={query !== null || editing === key}
                         here={!!cursor && quiet && cursor.lane === at && cursor.card === index}
                         onPick={() => setCursor({ lane: at, card: index })}
                         onTick={() => tick(card.pos)}
@@ -979,7 +997,7 @@ export function Board({ editor, id, tools }: { editor: Editor; id: string; /** W
                   ) : (
                     // Faint until the list is pointed at, so its room never looks empty; an empty list shows it fully, as it is the only thing to do there.
                     <button type="button" data-add-card="" onClick={() => (chime('tap'), setAdding(at))}
-                      className={`flex h-8 w-full shrink-0 cursor-pointer items-center gap-1.5 rounded-[6px] px-2 text-control text-muted-foreground transition-[opacity,background-color,color,scale] duration-150 hover:bg-foreground/[0.06] hover:text-foreground focus-visible:opacity-100 active:scale-[0.97] ${lane.cards.length ? 'opacity-50 group-hover/lane:opacity-100' : ''}`}>
+                      className={`flex h-8 w-full shrink-0 cursor-pointer items-center gap-1.5 rounded-[6px] px-2 text-control text-muted-foreground transition-[opacity,background-color,color,scale] duration-150 hover:bg-foreground/[0.06] hover:text-foreground focus-visible:opacity-100 active:scale-[0.97] ${lane.cards.length ? 'opacity-70 group-hover/lane:opacity-100' : ''}`}>
                       <Plus className="size-3.5" /> Add a card
                     </button>
                   )}
@@ -1028,7 +1046,7 @@ export function Board({ editor, id, tools }: { editor: Editor; id: string; /** W
 }
 
 /** Blocks of the note shown as the note draws them: a picture of the editor's own drawing. */
-function useDrawn(editor: Editor, positions: number[], pick?: (node: HTMLElement) => ParentNode): React.RefObject<HTMLDivElement | null> {
+function useDrawn(editor: Editor, positions: number[], pick?: (node: HTMLElement) => ParentNode, /** What it shows, when known: drawn again only when that changes, not on every change to the note (5,000 cards were each copied again on every key). */ shows?: unknown[]): React.RefObject<HTMLDivElement | null> {
   const box = useRef<HTMLDivElement>(null)
   useLayoutEffect(() => {
     const into = box.current
@@ -1045,7 +1063,7 @@ function useDrawn(editor: Editor, positions: number[], pick?: (node: HTMLElement
       parts.push(...(pick ? [...pick(copy).childNodes] : [copy]))
     }
     into.replaceChildren(...parts)
-  }, [editor.state.doc, positions.join(' ')]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, shows ?? [editor.state.doc, positions.join(' ')]) // eslint-disable-line react-hooks/exhaustive-deps
   return box
 }
 
@@ -1195,7 +1213,7 @@ function LaneBox({ id, title, tint, count, folded, here, renaming, onFold, onRen
         <header {...(renaming ? {} : { ...attributes, ...listeners })} tabIndex={-1} aria-label={`Drag ${name}`} role="group"
           className="flex h-10 shrink-0 touch-none items-center gap-1.5 pr-1.5 pl-1.5 outline-none">
           <Tip label={`Fold ${name}  F`}>
-            <button type="button" onClick={onFold} className={`${TOOL} size-6 cursor-pointer [&_svg]:size-3.5`}><ChevronDown /></button>
+            <button type="button" onClick={onFold} className={`${TOOL} ${REACH} size-6 cursor-pointer [&_svg]:size-3.5`}><ChevronDown /></button>
           </Tip>
           {dot}
           {renaming ? (
@@ -1213,7 +1231,7 @@ function LaneBox({ id, title, tint, count, folded, here, renaming, onFold, onRen
           {!renaming && (
             <Tip label="More">
               <button type="button" aria-label={`${name} menu`} data-lane-more="" onClick={openFromGrip} onPointerDown={(event) => event.stopPropagation()}
-                className={`${TOOL} ml-auto size-6 cursor-pointer opacity-0 group-hover/lane:opacity-100 focus-visible:opacity-100`}><AliveIcon icon={DotsHorizontalIcon} size={16} /></button>
+                className={`${TOOL} ${REACH} ml-auto size-6 cursor-pointer opacity-0 group-hover/lane:opacity-100 focus-visible:opacity-100`}><AliveIcon icon={DotsHorizontalIcon} size={16} /></button>
             </Tip>
           )}
         </header>
@@ -1237,8 +1255,10 @@ function useCover(node: PMNode): string | undefined {
   return picture ?? (linked ? thumb : undefined)
 }
 
-function CardBox({ id, editor, card, here, editing, disabled, onPick, onTick, onEdit, onEdited, menu }: {
+function CardBox({ id, place, editor, card, here, editing, disabled, onPick, onTick, onEdit, onEdited, menu }: {
   id: string
+  /** Its list and place in it, whatever it is called while carried. */
+  place: string
   editor: Editor
   card: Card
   here: boolean
@@ -1267,12 +1287,12 @@ function CardBox({ id, editor, card, here, editing, disabled, onPick, onTick, on
     const line = words.querySelector(':scope > p')
     if (line && foot.cut) cutEnd(line, foot.cut)
     return words
-  })
+  }, [card.node, editing, cover, foot.cut])
   const clicks = useCardClicks(editor, card.pos)
   return (
     // Being written in, its right click is the words' own.
     <RowMenu items={editing ? [] : menu}>
-    <div ref={setNodeRef} data-sortable-id={id} data-board-cursor={here || undefined} data-board-card="" {...attributes} {...listeners} tabIndex={-1} role={undefined}
+    <div ref={setNodeRef} data-sortable-id={id} data-card-place={place} data-board-cursor={here || undefined} data-board-card="" {...attributes} {...listeners} tabIndex={-1} role={undefined}
       style={{ transform: transform ? `translate3d(${Math.round(transform.x)}px, ${Math.round(transform.y)}px, 0)` : undefined, transition }}
       onClick={(event) => !clicks(event) && onPick()}
       onDoubleClick={() => !editing && onEdit()}
@@ -1312,7 +1332,7 @@ function CardBox({ id, editor, card, here, editing, disabled, onPick, onTick, on
       {!editing && (
         // Round, on the card's own paper, so over a picture it reads as a button, not a square cut out of it.
         <button type="button" aria-label="Card menu" onPointerDown={(event) => event.stopPropagation()} onClick={openFromGrip}
-          data-card-more="" className={`${TOOL} absolute top-1 right-1 size-6 cursor-pointer rounded-full bg-(--board-card) opacity-0 focus-visible:opacity-100`}>
+          data-card-more="" className={`${TOOL} ${REACH} absolute! top-1 right-1 size-6 cursor-pointer rounded-full bg-(--board-card) opacity-0 focus-visible:opacity-100`}>
           <AliveIcon icon={DotsHorizontalIcon} size={14} />
         </button>
       )}
