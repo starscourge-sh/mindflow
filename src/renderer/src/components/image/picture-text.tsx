@@ -117,16 +117,21 @@ export function PictureText({ lines, width, height, transform, transition, layer
   useLayoutEffect(() => {
     const layer = layerRef.current
     if (!layer) return
-    const ruler = document.createElement("span")
+    // Every word laid down at once and then read: one layout for them all. Set and read a word at a time,
+    // each read laid out the whole window again, and a page of 450 words held it 9 seconds.
+    const ruler = document.createElement("div")
     ruler.className = "mf-look-text-ruler"
-    document.body.append(ruler)
-    setNatural(wordsIn(layer).map((span) => {
-      ruler.style.fontSize = span.style.fontSize
+    const each = wordsIn(layer).map((span) => {
+      const one = document.createElement("span")
+      one.style.fontSize = span.style.fontSize
       // With one more space: picked through its end, a word (its own block) is also marked a space wider
       // for the line's end, and that mark must stay inside its box, not overlap the next word.
-      ruler.textContent = `${textOf(span)?.data ?? ""} `
-      return ruler.getBoundingClientRect().width || 1
-    }))
+      one.textContent = `${textOf(span)?.data ?? ""} `
+      return one
+    })
+    ruler.append(...each)
+    document.body.append(ruler)
+    setNatural(each.map((one) => one.getBoundingClientRect().width || 1))
     ruler.remove()
   }, [lines, width, height, layerRef])
 

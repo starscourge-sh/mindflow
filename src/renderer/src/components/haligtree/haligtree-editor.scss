@@ -2762,6 +2762,12 @@ body:has(.mf-look) [data-radix-popper-content-wrapper] {
   visibility: hidden;
   font-family: system-ui, -apple-system, sans-serif;
   white-space: pre;
+
+  // A word to a line, each as wide as its own words: measured on its own, never shaped with its neighbour.
+  > span {
+    display: block;
+    width: max-content;
+  }
 }
 
 .mf-look-text-pill {
