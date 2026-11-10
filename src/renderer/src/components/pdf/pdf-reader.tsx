@@ -37,8 +37,8 @@ import { plural, num } from '../../../../main/dates'
 /** A page column this wide reads comfortably; below it the rail squeezes, below `TIGHT` it folds away. */
 const COMFY = 520
 const TIGHT = 420
-/** A reader narrower than this shows its pages alone: Details beside them left the pages no room (560 wide). */
-const DETAILS_ROOM = 720
+/** A reader narrower than this shows its pages alone: Details beside them left the pages no room (482 wide in a 560 window); half of a wide split (about 650) keeps both. */
+const DETAILS_ROOM = 600
 /** How wide a window has to be for a PDF on its own to start with both sides open. */
 const BOTH_SIDES = 1400
 /** A rail narrower than this cuts the outline's titles to a word: it opens on the pages instead. */

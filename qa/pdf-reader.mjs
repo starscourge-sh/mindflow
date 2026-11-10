@@ -906,7 +906,7 @@ try {
   await h.evaluate(() => localStorage.setItem('pdf-rail', ''))
   await c.size(1600, 900)
   await h.reload(); await wait(2500)
-  const sides = await h.evaluate(() => ({ reader: !!document.querySelector('.pdf-reader'), rail: !!document.querySelector('.pdf-reader .pdf-rail'), details: !!document.querySelector('.pdf-reader .read-details') }))
+  const sides = await h.evaluate(() => ({ body: Math.round(document.querySelector('.pdf-reader-body')?.getBoundingClientRect().width ?? 0), panes: document.querySelectorAll('.pdf-reader').length, reader: !!document.querySelector('.pdf-reader'), rail: !!document.querySelector('.pdf-reader .pdf-rail'), details: !!document.querySelector('.pdf-reader .read-details') }))
   check('a PDF on its own opens with both sides', sides.rail && sides.details, JSON.stringify(sides))
 } catch (error) {
   check('ran without throwing', false, String(error?.stack ?? error))
