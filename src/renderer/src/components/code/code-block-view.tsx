@@ -50,6 +50,13 @@ const LANGUAGES: [value: string, label: string][] = [
   ["xml", "HTML / XML"],
   ["yaml", "YAML"],
 ]
+/** The short names notes are written with (Markdown fences, imports): "js" reads as JavaScript, not as a code. */
+const SHORT: Record<string, string> = { js: "javascript", jsx: "javascript", mjs: "javascript", ts: "typescript", tsx: "typescript", py: "python", sh: "bash", shell: "bash", zsh: "bash", console: "bash", yml: "yaml", md: "markdown", rs: "rust", golang: "go", "c++": "cpp", cs: "csharp", html: "xml", svg: "xml", text: "plaintext", txt: "plaintext" }
+/** A language's name in the picker, by its value or a short name for it; anything else as written. */
+const nameOf = (value: string): string => {
+  const key = value.toLowerCase()
+  return LANGUAGES.find(([one]) => one === (SHORT[key] ?? key))?.[1] ?? value
+}
 
 
 /** The drawn diagram, or why it could not be drawn (keeping the last good drawing). */
@@ -228,12 +235,12 @@ export function CodeControls({ language, code, setLanguage }: { language: string
     [language, code, grammars]
   )
 
-  const label =
-    LANGUAGES.find(([value]) => value === language)?.[1] ?? language
+  const label = nameOf(language)
+  const picked = SHORT[language.toLowerCase()] ?? language.toLowerCase()
   // Nothing detected is no "Auto · …": the empty value is "Auto detect" itself, and a block with its
   // language set said "Auto · Auto detect" instead of its language.
   const detectedLabel = detected
-    ? (LANGUAGES.find(([value]) => value === detected)?.[1] ?? detected)
+    ? nameOf(detected)
     : ""
 
   // A copy that says nothing looks like a copy that failed.
@@ -261,12 +268,12 @@ export function CodeControls({ language, code, setLanguage }: { language: string
               <Button
                 type="button"
                 variant="ghost"
-                data-active-state={value === language ? "on" : "off"}
+                data-active-state={value === picked ? "on" : "off"}
                 showTooltip={false}
                 onClick={() => setLanguage(value || null)}
               >
                 <span className="tiptap-button-text">{item}</span>
-                {value === language ? (
+                {value === picked ? (
                   <CheckIcon className="tiptap-button-icon" />
                 ) : null}
               </Button>
