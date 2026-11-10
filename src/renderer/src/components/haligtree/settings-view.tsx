@@ -125,7 +125,7 @@ function AeroSpaceSetting(): React.JSX.Element | null {
   return (
     <Setting title="Stickies with AeroSpace" note="Add this rule to ~/.aerospace.toml so your stickies float instead of being tiled." more="Then they follow you to each workspace." keywords="aerospace tiling window manager workspace stickies float rule toml glitch disappear"
       below={<pre data-aerospace-rule className="overflow-x-auto rounded-md border bg-accent/40 px-3 py-2 font-mono text-control leading-snug text-foreground">{AEROSPACE_RULE}</pre>}>
-      <Button variant="outline" size="sm" onClick={() => void navigator.clipboard.writeText(AEROSPACE_RULE).then(() => (chime('pin'), setCopied(true), setTimeout(() => setCopied(false), 1600)))}>{copied ? 'Copied' : 'Copy the rule'}</Button>
+      <Button variant="outline" size="sm" onClick={() => void navigator.clipboard.writeText(AEROSPACE_RULE).then(() => (chime('copy'), setCopied(true), setTimeout(() => setCopied(false), 1600)))}>{copied ? 'Copied' : 'Copy the rule'}</Button>
     </Setting>
   )
 }

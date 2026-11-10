@@ -57,6 +57,6 @@ export async function translateWords(text: string): Promise<void> {
   toast(`In ${name(done.to)}, from ${name(done.from)}: ${done.text}`, undefined, 'info', {
     label: 'Copy',
     key: 'c',
-    run: () => void navigator.clipboard.writeText(done.text).then(() => (chime('copy'), said('Copied the translation')))
+    run: () => void navigator.clipboard.writeText(done.text).then(() => said('Copied the translation'))
   })
 }

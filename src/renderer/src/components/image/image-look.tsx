@@ -543,7 +543,6 @@ export function Viewer({ pictures, start, onClose, awayRef }: {
     void navigator.clipboard.writeText(picked).then(
       () => {
         const count = picked.split(/\s+/).length
-        chime("copy")
         said(count === 1 ? "Copied the word" : `Copied ${num(count)} words`)
       },
       () => said("Could not copy it", false)

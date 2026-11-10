@@ -485,7 +485,6 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
   const copyCited = async (quote: string, page: number): Promise<void> => {
     const { author, where } = await whereFrom(page)
     await navigator.clipboard.writeText(cited(quote, author ? `${author}, ${where}` : where))
-    chime("saved")
     said("Copied with its citation")
   }
   // Words looked up: the card under them, until Esc or a click away.

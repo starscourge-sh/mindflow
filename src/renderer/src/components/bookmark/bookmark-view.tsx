@@ -1,6 +1,7 @@
 import { useState } from "react"
 
 import { said } from "@/lib/host"
+import { chime } from "@/lib/sound"
 import { BookOpen, Check, Copy } from "@/components/ui/icons"
 import { isWebPage, openArticle } from "@/components/pdf/web-reader"
 
@@ -36,6 +37,7 @@ export function BookmarkButtons({ href, loading }: { href: string; loading: bool
           event.stopPropagation()
           // The tick only once the link is really on the clipboard; a failure is said.
           void navigator.clipboard.writeText(href).then(() => {
+            chime("copy")
             setCopied(true)
             setTimeout(() => setCopied(false), 1200)
           }, () => said("Could not copy the link", false))

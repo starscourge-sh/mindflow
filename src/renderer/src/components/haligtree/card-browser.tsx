@@ -452,7 +452,7 @@ export function CardBrowser({ onOpen, aim, only, newest, onAll, onShow, onAimDon
     chime('fold')
     toast(`Progress reset: ${plural(before.length, 'card is', 'cards are')} new again`, () => void call('cards:reset:undo', before).then(() => chime('undo')))
   })
-  const copy = (card: BrowsedCard): void => void navigator.clipboard.writeText(`${card.prompt}\n${card.answer}`).then(() => (chime('tap'), toast('Card copied')))
+  const copy = (card: BrowsedCard): void => void navigator.clipboard.writeText(`${card.prompt}\n${card.answer}`).then(() => (chime('copy'), toast('Card copied')))
   const turn = (id: string, to?: boolean): void => setOver((was) => {
     const next = new Set(was)
     if (to ?? !was.has(id)) next.add(id)

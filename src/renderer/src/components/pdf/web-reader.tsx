@@ -230,7 +230,6 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
   }
   const copyCited = async (quote: string): Promise<void> => {
     await navigator.clipboard.writeText(cited(quote.replace(/\s+/g, ' ').trim(), [byline(), whereFrom()].filter(Boolean).join(', ')))
-    chime('saved')
     said('Copied with its citation')
   }
   // Words looked up: the card under them, until Esc or a click away.

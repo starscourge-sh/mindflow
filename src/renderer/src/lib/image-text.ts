@@ -1,6 +1,5 @@
 import { toast } from '@/components/haligtree/ui'
 import { host, said } from '@/lib/host'
-import { chime } from '@/lib/sound'
 
 /** A stored picture, the kind the Mac can read the words in. */
 export const readable = (src: string | null | undefined): boolean => !!src && /^(haligtree|mindflow):\/\/assets\/[a-f0-9]{64}\.(png|jpe?g|webp|gif|heic|tiff?|bmp)$/i.test(src) && !!(host().imageText ?? window.api?.imageText)
@@ -14,7 +13,6 @@ export async function copyImageText(src: string): Promise<void> {
   await navigator.clipboard.writeText(text).then(
     () => {
       const lines = text.split('\n').length
-      chime('copy')
       said(lines === 1 ? 'Copied the words in the picture' : `Copied ${lines} lines from the picture`)
     },
     () => said('Could not copy it', false)

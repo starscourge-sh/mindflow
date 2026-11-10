@@ -8,6 +8,7 @@ import { MenuPeek, type MenuPeekEntry } from "@/components/haligtree/menu-peeks"
 import { MCard } from "@/components/haligtree/peek"
 import { Pressed } from "@/components/haligtree/ui"
 import { BLANK } from "@/lib/blanks"
+import { chime } from "@/lib/sound"
 import { quoted } from '../../../../main/clip'
 
 /**
@@ -273,7 +274,7 @@ export function PickedMenu({ actions, about }: { actions: ReadActions; about: ()
         <ContextMenuShortcut>⇧⌘C</ContextMenuShortcut>
       </ContextMenuItem>
       <ContextMenuSeparator />
-      <ContextMenuItem data-peek="copy" onSelect={() => void navigator.clipboard.writeText(getSelection()?.toString() ?? "")}>
+      <ContextMenuItem data-peek="copy" onSelect={() => void navigator.clipboard.writeText(getSelection()?.toString() ?? "").then(() => chime("copy"))}>
         <Copy />
         Copy
         <ContextMenuShortcut>⌘C</ContextMenuShortcut>

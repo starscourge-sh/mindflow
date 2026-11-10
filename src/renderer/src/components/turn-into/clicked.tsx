@@ -169,7 +169,7 @@ const cut = (words: string, most = 40): string => (words.length > most ? `${word
 
 /** Put words on the clipboard and say so. */
 const copyText = (text: string, done: string): void =>
-  void navigator.clipboard.writeText(text).then(() => (chime("copy"), said(done)), () => said("Could not copy it", false))
+  void navigator.clipboard.writeText(text).then(() => said(done), () => said("Could not copy it", false))
 
 /** A link's words picked, so the link box and "Remove link" act on it as on the caret's. */
 const pick = (editor: Editor, from: number, to: number): void => void editor.chain().focus().setTextSelection({ from, to }).run()
