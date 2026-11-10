@@ -1,4 +1,4 @@
-// "Rename…" on a group that only counts ("Group 4") offers Apple Intelligence's name for it in the open field, as a
+// A group that only counts names itself once on opening the list; after that, "Rename…" on a group that only counts ("Group 4") offers Apple Intelligence's name for it in the open field, as a
 // new group does: picked, so typing replaces it; Enter keeps it; Esc keeps the old name. A group with a real name is
 // left alone. Faked answers (HALIGTREE_QA_GROUP_NAME, items-view.tsx onRenaming), never the real model.
 //   QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-x/main/index.js QA_ARGS=--sandbox HALIGTREE_QA_AWAY=1 node qa/group-rename-ai.mjs
@@ -41,7 +41,14 @@ try {
   await v('groups:arrange', 'article', { top: ['g:qa-count', ...kept, ...loose], groups: { 'qa-count': counted }, make: { id: 'qa-count', name: 'Group 4' } })
   await v('groups:arrange', 'article', { top: ['g:qa-count', 'g:qa-named', ...kept, ...loose], groups: { 'qa-count': counted, 'qa-named': named }, make: { id: 'qa-named', name: 'Sea' } })
   await go('articles')
-  await wait(1000)
+  await wait(1500)
+  // 0. Opening the list names a group that only counts for its notes, quietly, once (10 Nov: "auto rename never worked").
+  check('a group called only "Group 4" names itself on opening the list', (await names()).includes(OFFER) && !(await names()).includes('Group 4'), (await names()).join())
+  check('a group with a name of its own keeps it', (await names()).includes('Sea'))
+  // Put back to "Group 4" by hand: named once already, it is left as it is now.
+  await v('groups:set', 'qa-count', { name: 'Group 4' })
+  await go('home'); await wait(500); await go('articles'); await wait(1500)
+  check('named once, a group set back to "Group 4" keeps it', (await names()).includes('Group 4'), (await names()).join())
   check('both groups are in the list', await head('Group 4').count() === 1 && await head('Sea').count() === 1, (await names()).join())
 
   // 1. Rename… on "Group 4": the field opens on its name at once, then the offer arrives in it, picked.

@@ -258,6 +258,15 @@ function useArrivals(tier: string, all: Item[]): void {
  * lines of them, with a line saying how it comes back; an article as a titled
  * document. Same row underneath, so one view, drawn two ways.
  */
+
+/** Groups already named for their notes once (or named by you), kept between launches: none is renamed twice. */
+const AUTO_TRIED = 'groups:auto-named'
+const autoTried = new Set<string>((() => { try { return JSON.parse(localStorage.getItem(AUTO_TRIED) ?? '[]') as string[] } catch { return [] } })())
+const triedNaming = (id: string): void => {
+  autoTried.add(id)
+  try { localStorage.setItem(AUTO_TRIED, JSON.stringify([...autoTried].slice(-2000))) } catch { /* kept for this run only */ }
+}
+
 export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, only , ask = 'open', onAsk }: {
   tier: 'nugget' | 'article'
   focus?: string
@@ -1930,18 +1939,42 @@ export function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: I
   // them, or their kind, or else the next free "Group 2", so no two read the same.
   const byId = new Map(every.map((one) => [one.id, one]))
   const titleOf = (one: Item): string => splitTags(one.title).text
-  // A name that only counts (Group 3): the Mac's Apple Intelligence, if it has it, may offer a better one, into the open field.
-  const offerName = (group: { id: string; name: string }, members: string[]): void => {
-    if (!/^(Group|Folder) \d+$/.test(group.name)) return
+  // A name that only counts (Group 3) gets a better one: from what its notes share, else the Mac's Apple Intelligence,
+  // if it has it. Asked from its open name field (`loud`), it is offered there, as before. Groups still called "Group 3"
+  // when the list opens are named for good, quietly: before, a group clicked away from, or made earlier, stayed
+  // "Group 1" (10 Nov).
+  const AUTO = /^(Group|Folder) \d+$/
+  const live = useRef({ list, renaming })
+  live.current = { list, renaming }
+  const offerName = (group: { id: string; name: string; folder?: boolean }, members: string[], loud = true): void => {
+    if (!AUTO.test(group.name)) return
+    const apply = (name: string): void => {
+      const now = live.current.list.find((one) => one.id === group.id)
+      if (!now || !AUTO.test(now.name) || name.toLowerCase() === now.name.toLowerCase()) return
+      // Asked from its name field (a new group, "Rename…"): only ever offered there; left before the answer, it is dropped.
+      if (loud) return void (live.current.renaming === group.id && setSuggested({ id: group.id, name }))
+      void noteGroupsApi.set(group.id, { name })
+    }
+    const local = naming(members, !!group.folder)
+    if (!AUTO.test(local)) return apply(local)
     const titles = members.flatMap((id) => (byId.has(id) ? [titleOf(byId.get(id)!)] : [])).filter((one) => one.trim() && one !== 'Untitled')
     if (titles.length < 2) return
     void window.api.haligtree<string | null>('ai:group-name', titles).then((said) => {
-      const name = cleanName(said, titles, new Set(list.map((one) => one.name.toLowerCase())))
-      if (name) setSuggested({ id: group.id, name })
+      const name = cleanName(said, titles, new Set(live.current.list.map((one) => one.name.toLowerCase())))
+      if (name) apply(name)
     }, () => {
-      // Only ever an offer: no answer of any kind says nothing.
+      // Only ever a better name: no answer of any kind leaves the one it has.
     })
   }
+  // Groups still called "Group 3" when the list opens are named quietly, each once ever: a name you give it, even
+  // "Group 4", is yours and left alone.
+  useEffect(() => {
+    for (const group of list) {
+      if (!AUTO.test(group.name) || autoTried.has(group.id) || !(layout.groups[group.id]?.length)) continue
+      triedNaming(group.id)
+      offerName({ id: group.id, name: group.name, folder: isFolder(group) }, layout.groups[group.id] ?? [], false)
+    }
+  }, [list, layout]) // eslint-disable-line react-hooks/exhaustive-deps
   const naming = (ids: string[], folder = false): string => {
     const notes = ids.flatMap((id) => (byId.has(id) ? [byId.get(id)!] : []))
     const taken = new Set(list.map((one) => one.name.toLowerCase()))
@@ -1958,7 +1991,7 @@ export function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: I
     return `${word} ${n}`
   }
   // A drop on a note's middle, or ⌘G, makes a group; ⌃⌘N and "New folder" make a folder.
-  const make = (ids: string[] = [], folder = false) => (): { id: string; name: string; folder: boolean } => ({ id: crypto.randomUUID(), name: naming(ids, folder), folder })
+  const make = (ids: string[] = [], folder = false) => (): { id: string; name: string; folder: boolean } => { const id = crypto.randomUUID(); triedNaming(id); return { id, name: naming(ids, folder), folder } }
   const commit = (raw: Layout, cue: Cue, said?: string, unsort?: () => void, loud = false): void => {
     const was = layout
     // A group left with one note comes apart, in the same step, and the same Undo.
@@ -2184,6 +2217,8 @@ export function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: I
     // as a new group does, so one made before, or named while Apple
     // Intelligence was slow, can still get one.
     onRenaming: (id) => {
+      // Renamed by you: never named for its notes again.
+      if (id) triedNaming(id)
       setRenaming(id)
       setSuggested(null)
       const group = id ? info.get(id) : undefined

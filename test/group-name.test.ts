@@ -17,6 +17,11 @@ test('nothing shared that says anything: no name', () => {
   assert.equal(sharedWords(['Deep Dive', '']), null)
 })
 
+test('most of the titles sharing words is enough', () => {
+  assert.equal(sharedWords(['On meta-learning principles', 'Terminal Setup Deep Dive', 'NumPy Deep Dive', 'Schi-kit Learn Deep Dive']), 'Deep Dive')
+  assert.equal(sharedWords(['Paris in spring', 'Rome at night', 'Lisbon by day']), null)
+})
+
 test('a word inside another word does not count', () => {
   assert.equal(sharedWords(['Rainbow notes', 'Rain plans']), null)
 })
