@@ -644,7 +644,7 @@ function Entry({ tag, item, onOpen, picked, onPick, menu, differs }: { /** The p
           <>
             <p data-entry-from className="mb-1.5 truncate text-control text-muted-foreground">From {quoted(item.type !== 'capture' ? itemName(item.type, item.title || item.label).text : item.label || 'New note', 80)}</p>
             <div data-entry-blocks className="flex max-w-[68ch] flex-col gap-1.5 border-l-2 border-foreground/15 pl-3">
-              {blocks.lines.map((line, at) => <p key={at} className="text-[0.9375rem] leading-relaxed text-foreground/90" style={{ display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 3, overflow: 'hidden' }}>{line}</p>)}
+              {blocks.lines.map((line, at) => <p key={at} dir="auto" className="text-[0.9375rem] leading-relaxed text-foreground/90 [overflow-wrap:anywhere]" style={{ display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 3, overflow: 'hidden' }}>{line}</p>)}
               {blocks.more > 0 && <p className="text-control text-muted-foreground">And {plural(blocks.more, 'more line', 'more lines')} with #{tag}</p>}
             </div>
           </>
