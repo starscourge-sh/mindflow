@@ -36,7 +36,8 @@ const groups = () => h.evaluate((menu) => [...document.querySelectorAll(`${menu}
 const rows = () => h.evaluate((menu) => [...document.querySelectorAll(`${menu} [data-clicked]`)].map((one) => one.dataset.clicked), MENU)
 const menuUp = () => h.locator(MENU).first().isVisible().catch(() => false)
 const escape = async () => { await h.keyboard.press('Escape'); await wait(300) }
-const rightClick = async (selector) => { const one = h.locator(selector).first(); await one.scrollIntoViewIfNeeded(); const box = await one.boundingBox(); await h.mouse.click(box.x + box.width / 2, box.y + box.height / 2, { button: 'right' }); await wait(500) }
+// Through the locator, which waits out a line drawn again under it (the note reloading after "Open" and back).
+const rightClick = async (selector) => { await h.locator(selector).first().click({ button: 'right' }); await wait(500) }
 const pick = async (data) => { await h.locator(`${MENU} [data-clicked="${data}"]`).first().click(); await wait(600) }
 
 try {
