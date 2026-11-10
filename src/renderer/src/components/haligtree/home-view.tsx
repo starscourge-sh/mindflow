@@ -659,8 +659,8 @@ function useOpened(): { opened: Opened | null; fresh: boolean } {
 function BookOpened({ opened }: { opened: Opened }): React.JSX.Element {
   return (
     <div data-book-opened="" className="page-column relative w-full px-5 pt-6 @[44rem]/page:px-8">
-      <p className="font-heading text-[1.375rem] leading-snug font-light tracking-[-0.01em] text-foreground">Your book, opened {opened.on}.</p>
-      {opened.first && <p className="mt-1 text-[1rem] text-foreground/80">The first thing in it: <span className="font-heading italic">{quoted(opened.first)}</span></p>}
+      <p className="font-heading text-title font-light tracking-[-0.01em] text-foreground">Your book, opened {opened.on}.</p>
+      {opened.first && <p className="mt-1 text-reading text-foreground/80">The first thing in it: <span className="font-heading italic">{quoted(opened.first)}</span></p>}
     </div>
   )
 }
@@ -907,7 +907,7 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
           <ExampleHome />
         </Example>
       ) : (
-        <div className={`page-column relative flex flex-col gap-8 pt-4 pb-10 @[44rem]/page:pt-5 ${enter ? 'mf-stagger' : ''}`}>
+        <div className={`page-column relative flex flex-col gap-8 pt-8 pb-10 @[44rem]/page:pt-9 ${enter ? 'mf-stagger' : ''}`}>
           <div className="flex flex-col gap-4">
             {/* What the page holds: first, so nothing above it changes as a chip is picked. */}
             <div ref={chipRow} {...chipHover.handlers} role="tablist" aria-label="Show" className="relative isolate flex flex-wrap gap-1.5 px-5 @[44rem]/page:px-8">
@@ -921,6 +921,10 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
                 </button>
               ))}
             </div>
+            {/* What comes back to you today, first under the chips, as the page's own line says; the shelves of what you kept under it. */}
+            {feature && <Feature card={feature.card} line={feature.line} actions={actions} />}
+          </div>
+          <div className="flex flex-col gap-4 empty:hidden">
             {/* What the tiles are, said once: a newcomer should not have to guess. Under the
                 chips, so a chip with no tiles never moves the chips under the pointer. */}
             {shownTiles.length > 0 && <div className="px-5 @[44rem]/page:px-8"><Heading title={pins.length ? 'Pinned, and what you opened lately' : 'What you opened lately'} /></div>}
@@ -930,8 +934,6 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
               </div>
             )}
           </div>
-
-          {feature && <Feature card={feature.card} line={feature.line} actions={actions} />}
 
           {/* The books part way through: each opens at the page you left it. */}
           <ContinueReading extra={resume} heading={() => <Heading title="Continue reading" onAll={() => (showMediaKind('pdf'), onView('media'))} />} />
