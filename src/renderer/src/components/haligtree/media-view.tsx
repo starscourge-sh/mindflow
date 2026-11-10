@@ -45,11 +45,13 @@ const GAP = 12
 
 const readMedia = (): Promise<Media[]> => call<Media[]>('media:list')
 
-let nextKind: Shelf | null = null
-const takeKind = (): Shelf | null => ((kind) => ((nextKind = null), kind))(nextKind)
+/** Any kind asked for, as one of the shelves or every kind: a GIF or an image is a picture, a word it does not know is everything, never an empty page. */
+const asShelf = (kind: string | null | undefined): 'all' | Shelf => kind === 'gif' || kind === 'image' ? 'picture' : SHELVES.find((one) => one.id === kind)?.id ?? 'all'
+let nextKind: 'all' | Shelf | null = null
+const takeKind = (): 'all' | Shelf | null => ((kind) => ((nextKind = null), kind))(nextKind)
 /** Media, opened (or already open) on one kind. */
-export function showMediaKind(kind: MediaKind): void {
-  nextKind = kind === 'gif' ? 'picture' : kind
+export function showMediaKind(kind: MediaKind | string): void {
+  nextKind = asShelf(kind)
   window.dispatchEvent(new CustomEvent('haligtree:media-kind', { detail: nextKind }))
 }
 
@@ -80,7 +82,7 @@ function AddBox({ onShow, onClose }: { onShow: (src: string) => void; onClose: (
     <div data-media-add-box
       onDragOver={(event) => event.dataTransfer.types.includes('Files') && event.preventDefault()}
       onDrop={(event) => { if (!event.dataTransfer.files.length) return; event.preventDefault(); event.stopPropagation(); void addDropped([...event.dataTransfer.files], done) }}
-      className="mx-5 mt-4 mb-2 grid gap-1.5 rounded-[6px] border border-dashed border-foreground/20 px-4 py-4">
+      className="mx-5 mt-4 mb-2 grid gap-1.5 rounded-[8px] border border-dashed border-foreground/20 px-4 py-4">
       <span className="flex flex-wrap items-center gap-3 text-control text-foreground/80">
         <Button size="sm" className="h-8 cursor-pointer gap-1.5 px-3" data-media-choose onClick={() => void addFromPicker(done)}><Plus className="size-4" />Choose files…</Button>
         <span>or drop them on this box, or paste with <Kbd>⌘V</Kbd></span>
@@ -105,11 +107,11 @@ export function MediaView({ onOpen }: { onOpen: (type: string, id: string) => vo
   const stepKind = (): Shelf | undefined => (nav?.here.id === 'media' ? SHELVES.find((one) => one.id === nav.here.tab)?.id : undefined)
   const [kind, setKind] = useState<'all' | Shelf>(() => takeKind() ?? stepKind() ?? 'all')
   useEffect(() => {
-    const on = (event: Event): void => setKind((event as CustomEvent<Shelf>).detail)
+    const on = (event: Event): void => setKind(asShelf((event as CustomEvent<string>).detail))
     window.addEventListener('haligtree:media-kind', on)
     return () => window.removeEventListener('haligtree:media-kind', on)
   }, [])
-  useStepped(kind, setKind)
+  useStepped(kind, (held: string) => setKind(asShelf(held)))
   // "Unlinked": attachments the last note let go of, newest let go first; a filter on whatever kind is open.
   const [unlinkedOnly, setUnlinkedOnly] = useState(takeUnlinked)
   useEffect(() => {
@@ -263,7 +265,7 @@ export function MediaView({ onOpen }: { onOpen: (type: string, id: string) => vo
       )}
       {/* Attachments no note holds any more, with how many: a filter beside the kinds, shown once there is one. */}
       {(unlinkedCount > 0 || unlinkedOnly) && (
-        <span data-media-unlinked="" className="contents"><Chip on={unlinkedOnly} onClick={() => (chime(unlinkedOnly ? 'off' : 'on'), setUnlinkedOnly(!unlinkedOnly))} mark={<Unlink className="size-3.5" />}>Unlinked <span className="tabular-nums opacity-70">{num(unlinkedCount)}</span></Chip></span>
+        <span data-media-unlinked="" className="contents"><Chip on={unlinkedOnly} onClick={() => (chime(unlinkedOnly ? 'off' : 'on'), setUnlinkedOnly(!unlinkedOnly))} mark={<Unlink className="size-3.5" />}>Unlinked <span className="tabular-nums text-foreground/80">{num(unlinkedCount)}</span></Chip></span>
       )}
       {/* What acts on the view sits at the end of the row, on its own: only on Unlinked, and only with something to move. */}
       {unlinkedOnly && unlinkedCount > 0 && (
