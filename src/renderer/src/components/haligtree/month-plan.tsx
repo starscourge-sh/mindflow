@@ -27,9 +27,13 @@ import { unloaded, useLive, haligtree, type Settings, type Stats, type Task } fr
 import { dayjs, type Dayjs, dayKey, num, plural } from '../../../../main/dates'
 import { APP_NAME } from '../../../../main/name'
 
-/** A day's line, one row high, and the room its date takes above them. */
-const LINE = 20
-const HEAD = 30
+/** A day's line (h-5) and the room above the lines: the cell's top padding (6px), its date (h-6) and a 2px gap, read in the app's own
+ * text size: counted in fixed pixels at a larger size, one line too many was laid out and showed cut in half (10 Nov). */
+const rem = (): number => parseFloat(getComputedStyle(document.documentElement).fontSize) || 16
+const LINE = (): number => 1.25 * rem()
+const HEAD = (): number => 1.5 * rem() + 8
+/** The cell's padding under its last line. */
+const FOOT = 6
 /** Six weeks every month, as Apple Calendar shows them, so the box never changes height from one month to the next. */
 const ROWS = 6
 /** The slide from one month to the next. */
@@ -165,7 +169,7 @@ export function MonthPlan({ tasks, onDay, onSide, onOpen, onWeek, onMonth, onSho
   // A quiet week keeps room for a line or two; a busy one grows up to about three times that.
   const weights = busiest.map((most) => 1 + Math.min(6, most) * 0.3)
   const whole = weights.reduce((sum, one) => sum + one, 0)
-  const roomOf = (at: number): number => Math.max(1, Math.floor((row * ROWS * (weights[at] / whole) - 1 - HEAD) / LINE))
+  const roomOf = (at: number): number => Math.max(1, Math.floor((row * ROWS * (weights[at] / whole) - 1 - HEAD() - FOOT) / LINE()))
   const [carried, setCarried] = useState<Line | { kind: 'mark'; one: Milestone } | null>(null)
   const holding = useRef<{ line?: Line; mark?: Milestone } | null>(null)
   // A tick and a trackpad tap for each new day a carried task comes over; the day it was lifted from is no arrival.
@@ -283,7 +287,7 @@ export function MonthPlan({ tasks, onDay, onSide, onOpen, onWeek, onMonth, onSho
                     })}
                     {/* The week's bars, each one piece across the days it covers, under the dates. */}
                     {laid[at].placed.length > 0 && (
-                      <div data-month-bars className="pointer-events-none absolute inset-x-0 grid gap-x-px px-px" style={{ top: HEAD + (at ? 0 : 1), gridTemplateColumns: '2rem repeat(7, minmax(0, 1fr))', gridAutoRows: `${LINE}px`, rowGap: 0 }}>
+                      <div data-month-bars className="pointer-events-none absolute inset-x-0 grid gap-x-px px-px" style={{ top: HEAD() + (at ? 0 : 1), gridTemplateColumns: '2rem repeat(7, minmax(0, 1fr))', gridAutoRows: `${LINE}px`, rowGap: 0 }}>
                         {laid[at].placed.map(({ bar, from, to, lane }) => (
                           <div key={`${bar.key}:${dayKey(monday)}`} className="pointer-events-auto grid min-w-0 px-1" style={{ gridColumn: `${from + 2} / ${to + 3}`, gridRow: lane + 1 }}>{bar.render(weekDays[at][from] ? dayKey(weekDays[at][from]) : bar.from)}</div>
                         ))}
@@ -345,7 +349,7 @@ function Cell({ day, lines, today, outside, count, caught, flags, adding, onAdd,
   return (
     <div ref={setNodeRef} data-day={key} data-outside={outside || undefined} data-shown={shown} data-planned={lines.length || undefined} data-opened={count ? openedLevel(count) : undefined} data-captured={caught === undefined ? undefined : caught && caughtLevel(caught)} data-late={late || undefined} data-weekend={weekend || undefined}
       onClick={(event) => event.target === event.currentTarget && (chime('tap'), onAdd())}
-      className={`group/day @container/cell relative flex min-h-0 min-w-0 cursor-pointer flex-col overflow-hidden p-1 transition-colors ${isOver || adding ? 'bg-accent ring-1 ring-foreground/25 ring-inset' : weekend && !outside ? 'bg-[color-mix(in_oklab,var(--background)_98%,var(--foreground))]' : 'bg-background'} ${outside ? '[&_[data-plan-more]]:opacity-60 [&_[data-plan-task]]:opacity-60' : ''}`}>
+      className={`group/day @container/cell relative flex min-h-0 min-w-0 cursor-pointer flex-col overflow-hidden p-1.5 transition-colors ${isOver || adding ? 'bg-accent ring-1 ring-foreground/25 ring-inset' : weekend && !outside ? 'bg-[color-mix(in_oklab,var(--background)_98%,var(--foreground))]' : 'bg-background'} ${outside ? '[&_[data-plan-more]]:opacity-60 [&_[data-plan-task]]:opacity-60' : ''}`}>
       <div className="flex items-center gap-1.5">
         <button type="button" onClick={() => (chime('open'), onDay(key))} aria-label={`Open ${day.format('dddd D MMMM')}${count ? `. Opened ${APP_NAME}${count > 1 ? ` ${num(count)} times` : ''}` : ''}${caught ? `. ${plural(caught, 'capture')}` : caught === 0 ? '. Nothing captured' : ''}`}
           aria-current={key === today ? 'date' : undefined}
@@ -366,7 +370,7 @@ function Cell({ day, lines, today, outside, count, caught, flags, adding, onAdd,
           </button>
         </Tip>
       </div>
-      {reserve > 0 && <span aria-hidden className="shrink-0" style={{ height: reserve * LINE + 2 }} />}
+      {reserve > 0 && <span aria-hidden className="shrink-0" style={{ height: reserve * LINE() + 2 }} />}
       {/* Wide enough, each thing by name; narrow (a small window), a dot for each and the count, never words cut to a letter. */}
       <div className="hidden min-h-0 flex-1 flex-col overflow-hidden @[5.5rem]/cell:flex">
         {flags.map((one) => <MarkLine key={one.id} one={one} outside={outside} onItem={onItem} onDay={onDay} />)}
