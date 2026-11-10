@@ -459,9 +459,8 @@
   // A tag opens on a click (extensions/tokens.ts): it says so under the
   // pointer, and gives a little under the press.
   &[data-token="tag"] { cursor: pointer; }
-  // A tag is one chip: it never breaks at its hyphen into two coloured halves across lines ("#tag-" / "number-3").
-  &[data-token="tag"] { white-space: nowrap; }
-  // Any other token that does wrap keeps its rounded fill on each line.
+  // A chip that wraps ("#tag-" / "number-3") keeps a rounded fill on each line. Not `nowrap`: in a contenteditable it
+  // makes the space typed after a tag a non-breaking one, which the new-tag notice and tag reading do not see (10 Nov).
   -webkit-box-decoration-break: clone;
   box-decoration-break: clone;
   &[data-token="tag"]:active { filter: brightness(0.86) saturate(1.3); }
