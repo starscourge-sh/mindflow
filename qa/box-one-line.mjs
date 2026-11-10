@@ -16,7 +16,9 @@ const EDITOR = '.tiptap.ProseMirror.haligtree-editor:not(.is-line)'
 const shots = process.env.QA_SHOTS
 const height = () => electron.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find((w) => !/view=/.test(w.webContents.getURL()))?.getBounds().height)
 const visible = () => page.evaluate(() => ({
-  header: (document.querySelector('[data-drag-strip]')?.getClientRects().length ?? 0) > 0,
+  // The strip takes room in the card: in the pill it stays in the page at no height, holding only the round controls
+  // beside the pill (main.css), so it counts as a header only with a height of its own.
+  header: (document.querySelector('[data-drag-strip]')?.getBoundingClientRect().height ?? 0) > 0,
   footer: [...document.querySelectorAll('[data-zen-row]')].some((one) => one.offsetParent),
   ends: getComputedStyle(document.querySelector('[data-pill-ends]') ?? document.body).opacity === '1' && !!document.querySelector('[data-pill-kind]'),
   pill: !!document.querySelector('[data-pill]')
