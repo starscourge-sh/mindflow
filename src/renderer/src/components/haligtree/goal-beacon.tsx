@@ -15,7 +15,7 @@ import { useMilestones, type Milestone } from '@/lib/milestones'
 import { DotMatrix } from './dot-matrix'
 import { Answers, Journey, goalInk, markOf, openOnes, useToday, warmth } from './goals-view'
 import { dayKey, dayMonth, num, plural } from '../../../../main/dates'
-import { YEAR, daysBetween, daysLeft, farOff, journey, leftSaid, percent, wayThrough } from '../../../../main/goal-days'
+import { YEAR, daysBetween, daysLeft, farOff, leftSaid, percent, wayThrough } from '../../../../main/goal-days'
 import { SandboxStamp } from '@/components/haligtree/sandbox'
 import { SANDBOX } from '@/lib/sandbox'
 import { Frost } from './frost'
@@ -206,9 +206,9 @@ function Card({ id, today, preview }: { id: string; today: string; /** A goal no
           {left === 0
             ? <span className="font-heading text-4xl leading-none font-bold tracking-tight">Today</span>
             : <DotMatrix text={String(farOff(goal.goalAt, today) ? Math.ceil(left / 7) : left)} className="h-12 self-start" />}
-          <span data-goal-left-said className="truncate text-control text-muted-foreground">
+          <span data-goal-left-said title={`Until ${dayMonth(`${goal.goalAt}T12:00`)}`} className="truncate text-control font-medium text-foreground">
             {/* In the dots' own unit: a road of weeks counts weeks. */}
-            {left === 0 ? 'is the day' : farOff(goal.goalAt, today) ? `${Math.ceil(left / 7) === 1 ? 'week' : 'weeks'} left, until ${dayMonth(`${goal.goalAt}T12:00`)}` : `${left === 1 ? 'day' : 'days'} left, until ${dayMonth(`${goal.goalAt}T12:00`)}`}
+            {left === 0 ? 'is the day' : `${farOff(goal.goalAt, today) ? (Math.ceil(left / 7) === 1 ? 'week' : 'weeks') : left === 1 ? 'day' : 'days'} left · ${percent(wayThrough(from, goal.goalAt))} of the time gone`}
           </span>
         </div>
       )}
@@ -221,8 +221,6 @@ function Card({ id, today, preview }: { id: string; today: string; /** A goal no
         </p>
       )}
       <div className="min-h-0 flex-1 text-foreground"><Journey compact goal={id} from={from} target={goal.goalAt} today={today} logs={goal.glosses} /></div>
-      {/* The grid said in place, so a dot means something without pointing at it. */}
-      {left >= 0 && !said && <p data-goal-key className="text-meta leading-snug text-muted-foreground text-pretty">Each dot is a {journey(from, goal.goalAt, today).by}, {percent(wayThrough(from, goal.goalAt))} of the time gone.{goal.glosses.length ? ' Coloured dots have a log;' : ''} The last, ringed, is the day.</p>}
     </div>
   )
 }
@@ -268,7 +266,7 @@ function GoalTab({ side, nudge = false, gone, left, ink, title, className = '' }
         <circle cx="14" cy="14" r={R} fill="none" stroke={ink} strokeWidth={3} strokeLinecap="round" strokeDasharray={`${round * Math.min(1, Math.max(0, gone))} ${round}`} />
       </svg>
       <span className="font-heading text-base leading-none font-bold tabular-nums">{left === null ? '' : left < 0 ? '!' : num(left)}</span>
-      <span className="text-[10px] leading-none text-muted-foreground">{left !== null && left >= 0 ? (left === 1 ? 'day' : 'days') : ''}</span>
+      <span className="text-meta leading-none font-medium text-foreground">{left !== null && left >= 0 ? (left === 1 ? 'day' : 'days') : ''}</span>
     </motion.div>
   )
 }
@@ -378,7 +376,7 @@ export function GoalsSticky(): React.JSX.Element {
           <Flag className="size-3.5 shrink-0 text-muted-foreground" />
           <p className="min-w-0 flex-1 truncate font-medium">Goals</p>
           <span className="flex shrink-0 transition-opacity duration-200 group-hover:opacity-0 group-focus-within:opacity-0"><SandboxStamp inline /></span>
-          <span className="text-[11px] leading-none font-medium text-foreground/70 tabular-nums transition-opacity duration-200 group-hover:opacity-0">
+          <span className="text-meta leading-none font-medium text-foreground tabular-nums transition-opacity duration-200 group-hover:opacity-0">
             {goals.length === 1 ? '1 goal' : `${num(goals.length)} goals`}
           </span>
           <span className="absolute top-2 right-2 z-10 flex items-center rounded-lg bg-popover opacity-0 transition-opacity duration-200 group-hover:opacity-100 focus-within:opacity-100" style={STILL}>
@@ -397,8 +395,8 @@ export function GoalsSticky(): React.JSX.Element {
         ) : (
           <>
             {/* The lanes, one stretch of days, today a mark on each lane's road (never through the names). */}
-            <div data-goals-lanes className="relative flex flex-col gap-1.5 pt-3">
-              <span className="absolute top-0 -translate-x-1/2 text-[10px] leading-none font-medium text-foreground/80" style={{ left: `clamp(1.25rem, ${x(today)}%, calc(100% - 1.25rem))` }}>Today</span>
+            <div data-goals-lanes className="relative flex flex-col gap-1.5 pt-4">
+              <span data-goals-today-label className="absolute top-0 -translate-x-1/2 text-meta leading-none font-semibold text-foreground" style={{ left: `clamp(1.25rem, ${x(today)}%, calc(100% - 1.25rem))` }}>Today</span>
               {near.map((goal) => {
                 const ink = goalInk(goal)
                 const from = goal.goalFrom ?? dayKey(goal.createdAt)
@@ -409,7 +407,7 @@ export function GoalsSticky(): React.JSX.Element {
                     onPointerEnter={() => setFocus(goal.id)} onPointerLeave={() => setFocus((was) => (was === goal.id ? null : was))} onFocus={() => setFocus(goal.id)} onBlur={() => setFocus(null)}
                     onClick={() => (chime('open'), window.api.openInHome('goal', goal.id))}
                     className="-mx-1 block rounded-md px-1 pt-0.5 text-left transition-[opacity,background-color] duration-200 hover:bg-foreground/[0.04]" style={{ opacity: dim(goal) }}>
-                  <span className="flex min-w-0 items-baseline gap-2 text-[11px] leading-tight">
+                  <span className="flex min-w-0 items-baseline gap-2 text-meta">
                     <span data-goals-name className="private-text min-w-0 flex-1 truncate font-medium text-foreground">{goal.title}</span>
                     <span className="shrink-0 text-muted-foreground tabular-nums">{inDays(goal.goalAt!, today)}</span>
                   </span>
@@ -434,12 +432,12 @@ export function GoalsSticky(): React.JSX.Element {
               })}
               {more > 0 && (
                 <button type="button" data-goals-more onClick={() => (chime('open'), window.api.openInHome('view', 'goals'))}
-                  className="self-start rounded-md px-1 text-[11px] font-medium text-muted-foreground hover:bg-foreground/[0.04] hover:text-foreground">and {num(more)} more</button>
+                  className="self-start rounded-md px-1 text-meta font-medium text-muted-foreground hover:bg-foreground/[0.04] hover:text-foreground">and {num(more)} more</button>
               )}
             </div>
             {/* The goal focused, said in full. */}
             {focused && (
-              <p data-goals-focus={focused.id} className="text-[11px] leading-snug">
+              <p data-goals-focus={focused.id} className="text-meta">
                 <span className="private-text font-semibold">{focused.title}</span>
                 <span className="text-foreground"> · {leftSaid(daysLeft(focused.goalAt!, today))}, {percent(wayThrough(focused.goalFrom ?? dayKey(focused.createdAt), focused.goalAt!))} of the time gone</span>
               </p>
@@ -447,10 +445,10 @@ export function GoalsSticky(): React.JSX.Element {
             {/* The days marked ahead, in the lanes' own small type, each with the ring it wears on its lane. */}
             {coming.length > 0 && (
               <div className="flex flex-col gap-1 border-t border-foreground/10 pt-2">
-                <p className="text-[10px] leading-none font-medium text-foreground/80">Coming up</p>
+                <p className="text-meta leading-none font-semibold text-foreground">Coming up</p>
                 <ul className="flex flex-col gap-1">
                   {coming.map((one) => (
-                    <li key={`${one.goal.id}:${one.mark?.id}`} data-goals-item={one.goal.id} data-goals-item-mark={one.mark?.id} className="flex min-w-0 items-baseline gap-1.5 text-[11px] leading-tight">
+                    <li key={`${one.goal.id}:${one.mark?.id}`} data-goals-item={one.goal.id} data-goals-item-mark={one.mark?.id} className="flex min-w-0 items-baseline gap-1.5 text-meta">
                       <span aria-hidden className="size-2 shrink-0 self-center rounded-full border-2" style={{ borderColor: goalInk(one.goal) }} />
                       <span title={one.title} className="private-text min-w-0 flex-1 truncate font-medium text-foreground">{one.icon ? `${one.icon} ` : ''}{one.title}</span>
                       <span className="shrink-0 text-muted-foreground tabular-nums">{inDays(one.day, today)}</span>
