@@ -62,18 +62,17 @@ const may = (): boolean => !still() && !byKeys() && !document.documentElement.ha
 export const paneCard = (): Element | null =>
   document.querySelector('[data-pane-front] > [data-pane-card]') ?? document.querySelector('[data-pane] > [data-pane-card]')
 
+/** What opened: the note itself when it sits beside a list (Writing, Gems), else the whole page. A flight that grew
+ * the whole page and then turned out to be a list and a note said a page arrived when only the note did (10 Nov). */
+export const opensTo = (): Element | null => {
+  const card = paneCard()
+  // Only a note on show beside a list: a page that holds a note out of sight (a source's, the Feed's) is the page.
+  const note = card && [...card.querySelectorAll('.note-pane[data-open]')].find((one) => one.checkVisibility() && one.getBoundingClientRect().width < card.getBoundingClientRect().width - 40)
+  return note ?? card
+}
+
 /** An event's form in the Calendar's right sidebar (day-side.tsx): there once it is open. */
 export const sideForm = (): Element | null => document.querySelector('[data-day-side="event"]')
-
-/**
- * A note opening beside a list (Writing's, Gems'): where it grows to (the note
- * open there now, or the whole page when none is, as the list makes room),
- * and when it is in (its own pane is there). Spread into `heroOpen`.
- */
-export const besideNote = (id: string): [to: () => Element | null, ready: () => boolean] => [
-  () => paneCard()?.querySelector('.note-pane[data-open]') ?? paneCard(),
-  () => !!paneCard()?.querySelector(`.note-pane[data-open="${CSS.escape(id)}"]`)
-]
 
 /**
  * The click, with the thing that grows being the row or post around what was
@@ -227,7 +226,7 @@ function fly(kind: 'open' | 'close', old: Element | null, small: DOMRect, run: (
  * pane in front, unless said). Given the click, a ⌘-, ⌥- or ⇧-click (a new
  * tab, the side, picking) is left as it was.
  */
-export function heroOpen(from: HeroFrom, run: () => void, to: () => Element | null = paneCard, ready = (): boolean => onShow(to())): void {
+export function heroOpen(from: HeroFrom, run: () => void, to: () => Element | null = opensTo, ready = (): boolean => onShow(to())): void {
   const click = from && !(from instanceof Element) && !(from instanceof DOMRect) ? from : null
   const el = from instanceof Element ? from : click?.currentTarget instanceof Element ? click.currentTarget : null
   const rect = from instanceof DOMRect ? from : null
@@ -245,7 +244,7 @@ export function heroOpen(from: HeroFrom, run: () => void, to: () => Element | nu
  * closed at once. Only for a click on Back or a close button: a key, a swipe
  * or a menu steps back with no flight.
  */
-export function heroBack(run: () => void, from: () => Element | null = paneCard): void {
+export function heroBack(run: () => void, from: () => Element | null = opensTo): void {
   const was = opened
   opened = null
   const el = from()

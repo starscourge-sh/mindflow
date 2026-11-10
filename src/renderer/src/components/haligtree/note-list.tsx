@@ -14,7 +14,6 @@ import { notes, smallPicture, useThumb, type NoteTable } from '@/lib/notes'
 import { openApart } from '@/lib/apart'
 import { useLive } from '@/lib/haligtree'
 import { chime } from '@/lib/sound'
-import { besideNote, heroOpen } from '@/lib/hero'
 import { LeavingPicture, PictureLeaving, useLeaving } from './picture-leaving'
 import { RowMenu, type RowItem } from './row-menu'
 import { SortableList, SortableRow } from './sortable'
@@ -507,9 +506,9 @@ export function NoteList({
           if (event.metaKey && !picking) return canSplit() ? openNewTab(entry.type, entry.id) : openApart(entry.type, entry.id)
           if (picking?.click(event, entry.id)) return
           onCursor?.(index)
-          // A note opening beside the list grows out of its row (lib/hero.ts); the one already open stays as it is.
-          if (open) onPick(entry.id)
-          else heroOpen(event, () => onPick(entry.id), ...besideNote(entry.id))
+          // The list stays on screen, so the note is swapped in beside it with no flight, as Mail and Notes do:
+          // a page-sized sheet growing out of the row read as a new page arriving (10 Nov).
+          onPick(entry.id)
         }}
         onDoubleClick={onOpen ? () => onOpen(entry.id) : undefined}
         className={

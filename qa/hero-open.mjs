@@ -486,13 +486,14 @@ if (runs(4)) {
     await film(`s-${one.name.replace(/\W+/g, '-').toLowerCase()}`, () => h.mouse.click(x, y, { clickCount: one.dbl ? 2 : 1 }))
     await settle(1500)
     const flights = (await log()).filter((f) => f.kind === 'open')
+    // A row of a list that stays on screen swaps its note in beside it, with no flight (10 Nov: Mail and Notes).
+    if (one.beside) { check(`${one.name}: the note is swapped in beside the list, no flight`, flights.length === 0, JSON.stringify(flights)); continue }
     const f = flights.at(-1)
     console.log(`  ${one.name}: ${flights.length} open, ${f?.skipped ? `skipped: ${f.skipped}` : f?.group ? `${say(f.group.first)} -> ${say(f.group.last)}, ${f.group.ms}ms, moving ${f.wait}ms after the press, ${f.late}ms after the page was on show` : 'none'}`)
     check(`${one.name}: a click grows it open`, flights.length === 1 && !!f?.group, JSON.stringify(flights))
     check(`${one.name}: from where it was clicked`, !!f?.group && (one.canvas ? f.group.first.x >= r.x - 2 && f.group.first.x + f.group.first.w <= r.x + r.w + 2 : near(f.group.first, f.from ?? r, 4)), `flight ${say(f?.group?.first)}, thing ${say(f?.from ?? r)}`)
     check(`${one.name}: it moves only once the new page is on show, and at once then (within 80ms)`, f?.shown === true && f.late != null && f.late < 80, `${f?.late}ms`)
     await frameCheck(one.name, f)
-    if (one.beside) continue
     await install()
     await back()
     const closes = (await log()).filter((f) => f.kind === 'close')
