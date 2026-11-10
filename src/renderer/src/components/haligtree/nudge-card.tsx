@@ -13,7 +13,7 @@ import { chime } from '@/lib/sound'
 import { call, useAppearance, haligtree } from '@/lib/haligtree'
 import { taskName } from '@/lib/tasks'
 import { clock } from '@/lib/clock'
-import { Tip } from './ui'
+import { Tip, whyFailed } from './ui'
 import { usePatience } from '@/lib/patience'
 import type { Nudge } from '../../../../main/nudge'
 import { sleptSaid } from '@/lib/slept'
@@ -102,17 +102,20 @@ export function NudgeCards(): React.JSX.Element {
 function Card({ nudge, onDone }: { nudge: Nudge; onDone: () => void }): React.JSX.Element {
   // Left alone it slides away, but never from under the pointer, nor while its window is hidden.
   const wait = usePatience(nudge.kind === 'away' ? LINGER_AWAY : nudge.kind === 'sticky' ? LINGER_STICKY : nudge.kind === 'blocked' ? LINGER_BLOCKED : LINGER, onDone, true, nudge)
-  const [failed, setFailed] = useState(false)
+  // What went wrong, said on the card: another session running, or a save that failed.
+  const [failed, setFailed] = useState<string | null>(null)
   // Answered with something that can be taken back (Done, Not tonight, In 30 min): the card says so, with Undo, then goes.
   const [said, setSaid] = useState<{ words: string; undo: () => Promise<unknown> } | null>(null)
   // Asked again (an Undo brings an offer back): the card asks, rather than still saying the answer.
   useEffect(() => setSaid(null), [nudge])
   // `checked`: the answer says whether it worked; when it did not, it is said, never cheered.
   const act = (run: () => Promise<unknown>, cue: Parameters<typeof chime>[0], checked = false): void => void run().then((worked) => {
-    if (checked && !worked) return void (chime('nope'), setFailed(true))
+    if (checked && !worked) return void (chime('nope'), setFailed('Another session is running now, so this one cannot start again.'))
     chime(cue)
     onDone()
-  })
+  }, refused)
+  // A save that failed keeps the card up, saying why, so it can be tried again.
+  const refused = (error: unknown): void => (chime('nope'), setFailed(`Not saved: ${whyFailed(error)}.`))
   if (said) return <Said said={said} onDone={onDone} />
   if (nudge.kind === 'blocked') return <Blocked nudge={nudge} wait={wait} act={act} />
   if (nudge.kind === 'practice') return <PracticeOffer nudge={nudge} wait={wait} onDone={onDone} onSaid={setSaid} />
@@ -128,11 +131,11 @@ function Card({ nudge, onDone }: { nudge: Nudge; onDone: () => void }): React.JS
           <AliveIcon icon={XIcon} size={14} />
         </button></Tip>
       </Head>
-      {failed && <p role="status" className="mt-2 pl-[38px] text-[13px] leading-snug text-foreground">Another session is running now, so this one cannot start again.</p>}
+      {failed && <p role="status" data-nudge-failed className="mt-2 pl-[38px] text-[13px] leading-snug text-foreground">{failed}</p>}
       <div className="mt-2.5 flex items-center gap-1 pl-[38px]">
         {nudge.kind === 'task' && (
           <>
-            <button type="button" data-nudge-done onClick={() => void haligtree.doneTask(nudge.id).then((was) => (chime('done'), setSaid({ words: `Done: ${taskName(nudge.title).text}`, undo: () => haligtree.undoneTask(nudge.id, was) })))} className={PRIMARY}>Done</button>
+            <button type="button" data-nudge-done onClick={() => void haligtree.doneTask(nudge.id).then((was) => (chime('done'), setSaid({ words: `Done: ${taskName(nudge.title).text}`, undo: () => haligtree.undoneTask(nudge.id, was) })), refused)} className={PRIMARY}>Done</button>
             <button type="button" data-nudge-later onClick={() => act(() => haligtree.alertLater(nudge.id, 10 * 60_000), 'fold')} className={WORD}>In 10 min</button>
             <button type="button" onClick={() => act(() => haligtree.alertSeen(nudge.id).then(() => window.api.openInHome('task', nudge.id)), 'open')} className={WORD}>Open</button>
           </>
@@ -166,7 +169,7 @@ function Blocked({ nudge, wait, act }: { nudge: Extract<Nudge, { kind: 'blocked'
   const [allowed, setAllowed] = useState<string | null>(null)
   // Its tab could not be put back (the browser was closed): said, and left up longer to read.
   const [missed, setMissed] = useState(false)
-  const allow = (): void => void call<{ until: string; missed: boolean } | null>('site-block:allow', nudge.site).then((said) => {
+  const allow = (): void => void call<{ until: string; missed: boolean } | null>('site-block:allow', nudge.site).catch(() => null).then((said) => {
     if (!said) return chime('nope')
     chime('back')
     setAllowed(said.until)
@@ -223,16 +226,19 @@ function Head({ icon, lead, words, children }: { icon: Parameters<typeof AliveIc
  */
 function PracticeOffer({ nudge, wait, onDone, onSaid }: { nudge: Extract<Nudge, { kind: 'practice' }>; wait: ReturnType<typeof usePatience>; onDone: () => void; onSaid: (said: { words: string; undo: () => Promise<unknown> }) => void }): React.JSX.Element {
   const offer = nudge.offer
-  const answer = (how: 'skip' | 'later'): void => void answerOffer(offer, how).then(onSaid)
-  const move = (to: string | null): void => void practices.move(offer.id, to).then(() => chime(to ? 'move' : 'tap'))
+  const [failed, setFailed] = useState<string | null>(null)
+  const refused = (error: unknown): void => (chime('nope'), setFailed(`Not saved: ${whyFailed(error)}.`))
+  const answer = (how: 'skip' | 'later'): void => void answerOffer(offer, how).then(onSaid, refused)
+  const move = (to: string | null): void => void practices.move(offer.id, to).then(() => chime(to ? 'move' : 'tap'), refused)
   return (
     <div {...wait} data-nudge-practice data-practice-offer={offer.id} role="group" aria-label={offerSaid(offer)} className={`${SHEET} px-3.5 pt-3 pb-3`}>
       <Head icon={ClockIcon} lead={offer.later ? 'Practice, asked again' : `Practice at ${timeSaid(offer.at)}`} words={`${offer.name}, ${START_MIN} minutes?`} />
       <div className="mt-2.5 flex flex-wrap items-center gap-1 pl-[38px]">
-        <button type="button" data-practice-start onClick={() => void startPractice(offer.id).then(onDone)} className={PRIMARY}>Start</button>
+        <button type="button" data-practice-start onClick={() => void startPractice(offer.id).then(onDone, refused)} className={PRIMARY}>Start</button>
         <button type="button" data-practice-skip onClick={() => answer('skip')} className={WORD}>Not tonight</button>
         <button type="button" data-practice-later onClick={() => answer('later')} className={WORD}>In 30 min</button>
       </div>
+      {failed && <p role="status" data-nudge-failed className="mt-2 pl-[38px] text-[13px] leading-snug text-foreground">{failed}</p>}
       {offer.suggest && (
         <div data-practice-suggest className="mt-2.5 ml-[38px] border-t pt-2">
           <p className="text-[13px] leading-[18px] text-foreground">{suggestSaid(offer.suggest)} Move it?</p>
@@ -258,7 +264,8 @@ const takeBack = (): Promise<unknown> | undefined => {
   if (!was) return
   // Its Undo button is spent too: the main window forgets it.
   window.api.nudgeUndoable('')
-  return was.undo().then(() => was.onDone?.())
+  // Not taken back (a save that failed): said with its sound, the card left as it was.
+  return was.undo().then(() => was.onDone?.(), () => chime('nope'))
 }
 window.api.onNudgeUndo(() => void takeBack())
 

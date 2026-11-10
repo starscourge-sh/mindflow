@@ -91,6 +91,16 @@ try {
   await h.keyboard.press('Meta+z')
   await wait(600)
   check('then ⌘Z in the main window does not reach the nudge again', (await v('task', two))?.status === before, `${before} -> ${(await v('task', two))?.status}`)
+  // --- A Done that cannot be saved: said on the card, with its sound, and the card stays.
+  const three = await due('Return the library books')
+  await electron.evaluate(({ ipcMain }) => { ipcMain.removeHandler('haligtree:task:done'); ipcMain.handle('haligtree:task:done', () => { throw new Error('the disk is full') }) })
+  check('a third task: Done pressed', await doneOn(card, 'Return the library books'))
+  await wait(700)
+  const failed = await card.evaluate(() => document.querySelector('[data-nudge="task"] [data-nudge-failed]')?.textContent ?? '')
+  check('a Done that could not be saved says so on the card', /^Not saved: /.test(failed), failed)
+  check('with the “nope” sound', (await card.evaluate(() => [...(window.haligtreeHeard ?? [])])).includes('cue:nope'))
+  check('and the card stays, with Done to try again', await card.evaluate(() => [...document.querySelectorAll('[data-nudge="task"]')].some((one) => one.textContent.includes('Return the library books') && one.querySelector('[data-nudge-done]'))))
+  check('the task is still open', (await v('task', three))?.status === 'open')
   check('no errors', c.errors.length === 0, c.errors.join(' | '))
 } catch (error) {
   check('ran without throwing', false, String(error?.stack ?? error))
