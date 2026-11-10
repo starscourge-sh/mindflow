@@ -1594,14 +1594,14 @@ export function Home(): React.JSX.Element {
     menu: tabMenu,
     // Back by a click on the button, onto the page something grew open from: it shrinks back into its place (lib/hero.ts).
     step: (key, by) => (by < 0 ? heroBack(() => stepBy(by, key)) : stepBy(by, key)),
-    // Held or right-clicked, Back and Forward list this tab's own steps, nearest first, as a browser's do,
+    // Held or right-clicked, Back and Forward list this tab's own last five steps, nearest first, as a browser's do,
     // and end with All history: what was opened in every tab.
     history: (key, by) => {
       const pane = split.panes.find((one) => one.key === key)
       if (!pane) return []
       const trail = activeTab(pane).trail
       return [
-        ...placesFrom(trail, by, swipeName).map(({ index, name }) => ({
+        ...placesFrom(trail, by, swipeName).slice(0, 5).map(({ index, name }) => ({
           label: name.title, icon: <name.icon className="size-3.5 shrink-0" style={{ color: name.tint }} />, run: () => (step(index - trail.at, key), toFront(key))
         })),
         'separator' as const,

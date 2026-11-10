@@ -4264,7 +4264,8 @@ app.whenReady().then(() => {
   // Every time Haligtree writes, here and in each window, on the Mac's own clock (12 or 24 hours).
   useTwelveHour(twelveHour())
   // The Leaves marks draw on a Noun Project icon used under CC BY 3.0, which asks for this credit.
-  app.setAboutPanelOptions({ credits: `${ANCHOR}\n\n` + 'The Leaves mark is after “Abstract Flower” by Kalaakarini, from Noun Project (CC BY 3.0)' })
+  // Haligtree's own version, said outright: a dev run is Electron's own app, whose bundle says Electron's (44.3.0).
+  app.setAboutPanelOptions({ applicationVersion: app.getVersion(), version: '', credits: `${ANCHOR}\n\n` + 'The Leaves mark is after “Abstract Flower” by Kalaakarini, from Noun Project (CC BY 3.0)' })
   // Haligtree's own menu bar; Edit > Select All asks the page first: a list picks every row (app-menu.ts).
   appMenu()
   // YouTube will not play an embed that comes from no page at all (its

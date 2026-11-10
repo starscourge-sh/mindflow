@@ -55,7 +55,13 @@ try {
   await h.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
   await h.mouse.down(); await wait(800)
   const held = await menu()
+  const place = await h.evaluate(() => {
+    const m = document.querySelector('[role=menu]')?.getBoundingClientRect()
+    const b = [...document.querySelectorAll('[data-pane] [data-tab-step="back"]')].at(-1).getBoundingClientRect()
+    return m && { top: Math.round(m.top - b.bottom), left: Math.round(m.left - b.left), bottom: Math.round(innerHeight - m.bottom) }
+  })
   await h.mouse.up(); await wait(500)
+  check('Held, the menu opens just under Back', place && place.top >= 0 && place.top <= 16 && Math.abs(place.left) <= 16 && place.bottom >= 12, JSON.stringify(place))
   check('Held, Back opens the same menu', held.join('|') === lines.join('|'), held.join(' | '))
   const still = await h.evaluate(() => document.querySelector('[data-pane] [data-tab-on]')?.textContent ?? '')
   check('Held, Back does not also step', /Review/.test(still), still)
@@ -105,6 +111,26 @@ try {
     check('Recent heading says it is every tab', /in any tab/.test(tip), tip)
     if (shots) await both(`${shots}/recent-heading`)
   } else check('Sidebar Recent heading is there', false)
+  // Many steps: the menu lists the last five only.
+  for (const id of ['calendar', 'tasks', 'goals', 'review', 'calendar', 'tasks', 'goals']) await go(id)
+  await wait(900)
+  await h.locator(front).last().click({ button: 'right' }); await wait(600)
+  const many = await menu()
+  check('After eight steps, Back lists five places and "Show all history"', many.length === 6, many.join(' | '))
+  await esc()
+  // A narrow window, as the user's (560 by 780): held, the menu still opens just under Back.
+  await c.electron.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find((w) => w.webContents.getURL().includes('home.html')).setSize(560, 780)); await wait(900)
+  const nb = await h.locator(front).last().boundingBox()
+  await h.mouse.move(nb.x + nb.width / 2, nb.y + nb.height / 2); await h.mouse.down(); await wait(800)
+  const narrow = await h.evaluate(() => {
+    const m = document.querySelector('[role=menu]')?.getBoundingClientRect()
+    const b = [...document.querySelectorAll('[data-pane] [data-tab-step="back"]')].at(-1).getBoundingClientRect()
+    return m && { top: Math.round(m.top - b.bottom), left: Math.round(m.left - b.left), bottom: Math.round(innerHeight - m.bottom), w: innerWidth, h: innerHeight }
+  })
+  await h.mouse.up(); await wait(300)
+  check('Narrow window, held: the menu opens just under Back', narrow && narrow.top >= 0 && narrow.top <= 16 && Math.abs(narrow.left) <= 16 && narrow.bottom >= 12, JSON.stringify(narrow))
+  if (shots) await both(`${shots}/narrow-back-menu`)
+  await esc()
   const errs = c.errors.filter((one) => !/Autofill|ResizeObserver/.test(one))
   check('no page errors', !errs.length, errs.slice(0, 2).join(' | '))
 } finally {

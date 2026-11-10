@@ -320,7 +320,7 @@ export function MediaView({ onOpen }: { onOpen: (type: string, id: string) => vo
             <p data-media-nothing className="my-4 text-control text-muted-foreground">{nothing}</p>
           ) : piles ? (
             <div className="flex flex-col gap-8 pt-2 pb-6">
-              <div data-files-piles className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,190px),1fr))] gap-x-6 gap-y-8">
+              <div data-files-piles className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,260px),1fr))] gap-x-6 gap-y-8">
                 {pileList.map((one) => <Pile key={one.shelf.id} shelf={one.shelf} files={one.files} onOpen={() => setKind(one.shelf.id)} />)}
               </div>
               <RecentRow files={recent} onOpen={openFrom} menuFor={menuFor} />
