@@ -44,8 +44,8 @@ try {
   const name = (await v('item', id))?.title
   await row.click({ button: 'right' })
   await wait()
-  // Add to queue and Read next sit under Queue in a row's menu.
-  await h.getByRole('menuitem', { name: 'Queue' }).hover(); await wait(400)
+  // Add to queue and Read next sit under “Reading queue” in a row's menu.
+  await h.getByRole('menuitem', { name: 'Reading queue', exact: true }).hover(); await wait(400)
   await h.getByRole('menuitem', { name: 'Add to queue' }).click()
   await wait(700)
   let now = await queue()
@@ -54,7 +54,7 @@ try {
   const id2 = await second.getAttribute('data-id')
   await second.click({ button: 'right' })
   await wait()
-  await h.getByRole('menuitem', { name: 'Queue' }).hover(); await wait(400)
+  await h.getByRole('menuitem', { name: 'Reading queue', exact: true }).hover(); await wait(400)
   await h.getByRole('menuitem', { name: 'Read next' }).click()
   await wait(700)
   now = await queue()
