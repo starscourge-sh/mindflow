@@ -86,7 +86,7 @@ try {
   check('5. the year of study sits above the decks, in the first screen', await h.evaluate(() => { const year = document.querySelector('[data-study-year-map]').getBoundingClientRect(); const first = document.querySelector('[data-deck-grid]').getBoundingClientRect(); return year.bottom <= first.top && year.bottom < window.innerHeight }))
   check('5. it has a square a day for 53 weeks', (await h.evaluate(() => document.querySelectorAll('[data-year-grid] [data-day]').length)) === 371)
   const numbers = await h.evaluate(() => [...document.querySelectorAll('[data-year-number]')].map((one) => one.textContent))
-  check('5. streak now, longest streak, average day and share of days studied', ['streak now', 'longest streak', 'a day when studying', 'of days studied'].every((one) => numbers.some((line) => line.endsWith(one))), numbers.join(' | '))
+  check('5. days in a row now, your longest run, average day and share of days studied', [/(in a row now|in hand)$/, /your longest run$/, /a day when studying$/, /of days studied$/].every((one) => numbers.some((line) => one.test(line))), numbers.join(' | '))
   const stats = await call('study:stats')
   check('5. one review today: a streak of 1 day now, the longest at least that', stats.streak?.current === 1 && stats.streak?.longest >= 1 && numbers[0].startsWith('1 day'), JSON.stringify(stats.streak))
 

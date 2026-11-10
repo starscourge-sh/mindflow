@@ -8,11 +8,14 @@ import { celebrationPrefs, gate, openGoals } from './haligtree'
 import { daysBetween, daysLeft, wayThrough } from './goal-days'
 import { isSprite } from './sprite'
 import { sourceOf } from './moment-source'
+import { daysInARow } from './study'
+import { awayDays } from './away'
 import { giphyFile, giphyList, giphyNow, giphyOne, giphyPick, giphyPinned, giphySearch, keepPins, warmGiphy } from './giphy'
 
 /**
  * Celebrations: a small card for the rare milestones (a 100th capture, an
- * inbox emptied, a week of capturing in a row), never for everyday saves.
+ * inbox emptied, a week of capturing in a row with rest days allowed), never
+ * for everyday saves.
  * What plays comes from a folder you choose, read in place and never changed.
  * GIFs are served as they are, so they keep moving; nothing is copied.
  * A sprite (a figure on a see-through background) walks on by itself
@@ -152,22 +155,27 @@ function kept(): Moment | null {
     : { id: `kept:${n}`, kind: 'kept', rank, headline: `${n.toLocaleString('en')} captures kept`, line: 'Each one out of your head.', mark: n.toLocaleString('en'), tint: TINT.blue }
 }
 
-/** The days in a row with a capture, counted back from today, and the day the run began. */
+/**
+ * The days in a row with a capture, and the day the run began, counted as
+ * Review counts its days: a week in a row banks a rest day (three at most),
+ * a day off spends one instead of ending the run, and a day the Mac was away
+ * neither counts nor costs. So a run is something you did, never a thing to
+ * keep alive: no day is "missed".
+ */
 function run(): { n: number; from: string } {
-  const days = (database().prepare(`select distinct date(captured_at, 'localtime') as day from captures where ${TYPED} order by day desc`).all() as { day: string }[]).map((row) => row.day)
-  let n = 0
-  while (days[n] === dayjs().subtract(n, 'day').format('YYYY-MM-DD')) n++
-  return { n, from: dayjs().subtract(Math.max(n - 1, 0), 'day').format('YYYY-MM-DD') }
+  const days = (database().prepare(`select distinct date(captured_at, 'localtime') as day from captures where ${TYPED}`).all() as { day: string }[]).map((row) => row.day)
+  const { run: n, since } = daysInARow(days, dayKey(), awayDays())
+  return { n, from: since }
 }
 
-/** Capturing 7, 30 or 100 days in a row: once a run, so a new run after a break counts again. */
+/** Capturing on 7, 30 or 100 days in a row, rest days allowed: once a run, so a new run after a break counts again. */
 function streak(): Moment | null {
   const { n: days, from } = run()
   const n = reached(STREAK, days)
   const rank = STREAK[n]
   const id = `streak:${from}:${n}`
   if (!rank || fired(id)) return null
-  const line = { 7: 'Something kept every day for a week.', 30: 'Something kept every day for a month.', 100: 'A hundred days without missing one.' }[n as 7 | 30 | 100]
+  const line = { 7: 'A week of keeping what crossed your mind.', 30: 'A month of keeping what crossed your mind, rest days and all.', 100: 'A hundred days of keeping things. It is yours now.' }[n as 7 | 30 | 100]
   return { id, kind: 'streak', rank, headline: `${num(n)} days in a row`, line, mark: num(n), tint: TINT.orange }
 }
 

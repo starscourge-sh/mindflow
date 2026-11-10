@@ -3,7 +3,6 @@ import { chipLabel } from './cite-ids'
 import { mediaForget, mediaFromBin, mediaInBin, mediaPeek } from './media'
 import { foldMeeting, transcriptLines, voiceName, type MeetingLine } from './meeting-doc'
 import { awayDays } from './away'
-import { streaks } from './focus-numbers'
 import { Notification, app, dialog, ipcMain, net, session, shell } from 'electron'
 import { createHash, randomUUID } from 'crypto'
 import { cp, mkdir, readFile, readdir, rm, writeFile } from 'fs/promises'
@@ -3162,11 +3161,12 @@ export function registerHaligtree(): void {
     }))
     // Streaks over every day ever reviewed (not only the year shown): the run ending today (or yesterday, still unbroken), and the longest.
     const everDays = (db.prepare('select reviewed_at as at from review_log').all() as { at: string }[]).reduce((all, row) => all.add(local(row.at)), new Set<string>())
-    // A day the Mac was locked or asleep for neither counts nor breaks a streak (away.ts).
-    const { now: current, best: longest } = streaks(everDays, local(day(0)), awayDays())
+    // A day the Mac was locked or asleep for neither counts nor breaks a run (away.ts), and a rest day banked
+    // for each week in a row covers a day off: the same count Review's end gives, so the two never disagree.
+    const { run: current, best: longest, banked } = daysInARow([...everDays], local(day(0)), awayDays())
     // Reviews on an average day studied, as Anki's heatmap counts it (days off are in the share of days studied).
     const average = reviewedDays ? Math.round([...perDay].filter(([key]) => key >= local(day(1 - span))).reduce((sum, [, n]) => sum + n, 0) / reviewedDays) : 0
-    return { streak: { current, longest }, average, month, year: Object.fromEntries(perDay), checked: kept.n, recalled: kept.recalled, due, known, cards, seconds: pace ? Math.round(pace / 1000) : null, days: { reviewed: reviewedDays, of: span }, minutes, stages, sources, growth, kept: keptIn }
+    return { streak: { current, longest, banked }, average, month, year: Object.fromEntries(perDay), checked: kept.n, recalled: kept.recalled, due, known, cards, seconds: pace ? Math.round(pace / 1000) : null, days: { reviewed: reviewedDays, of: span }, minutes, stages, sources, growth, kept: keptIn }
   })
 
   // --- the card browser: every card, with what it is filtered and sorted by

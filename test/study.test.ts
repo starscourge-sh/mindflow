@@ -116,14 +116,16 @@ test('a pasted list of term - meaning lines', () => {
 
 test('days in a row: a week banks a rest day, a missed day spends it', () => {
   const days = (from: number, n: number): string[] => Array.from({ length: n }, (_, i) => `2026-10-${String(from + i).padStart(2, '0')}`)
-  assert.deepEqual(daysInARow([], '2026-10-10'), { run: 0, banked: 0 })
+  assert.deepEqual(daysInARow([], '2026-10-10'), { run: 0, banked: 0, best: 0, since: '2026-10-10' })
   // Today not reviewed yet: the run stands.
-  assert.deepEqual(daysInARow(days(5, 4), '2026-10-09'), { run: 4, banked: 0 })
+  assert.deepEqual(daysInARow(days(5, 4), '2026-10-09'), { run: 4, banked: 0, best: 4, since: '2026-10-05' })
   assert.deepEqual(daysInARow(days(5, 4), '2026-10-10').run, 0)
   // Seven in a row, a day off, two more: the rest day was spent, the run goes on.
-  assert.deepEqual(daysInARow([...days(1, 7), ...days(9, 2)], '2026-10-10'), { run: 9, banked: 0 })
+  assert.deepEqual(daysInARow([...days(1, 7), ...days(9, 2)], '2026-10-10'), { run: 9, banked: 0, best: 9, since: '2026-10-01' })
   // Without a banked day the run starts again.
   assert.equal(daysInARow([...days(1, 3), ...days(5, 2)], '2026-10-06').run, 2)
+  // The best run is kept after a run ends: three, then two.
+  assert.equal(daysInARow([...days(1, 3), ...days(5, 2)], '2026-10-06').best, 3)
 })
 
 test('fitting how long a first grade lasts', () => {
@@ -268,6 +270,6 @@ test('siblings: an Anki note\'s cards and a both-ways pair share a note; one of 
 
 test('days in a row: a day away neither counts nor costs a banked day', async () => {
   const { daysInARow } = await import('../src/main/study.ts')
-  assert.deepEqual(daysInARow(['2026-10-01', '2026-10-02', '2026-10-04'], '2026-10-04', new Set(['2026-10-03'])), { run: 3, banked: 0 })
-  assert.deepEqual(daysInARow(['2026-10-01', '2026-10-02', '2026-10-04'], '2026-10-04'), { run: 1, banked: 0 })
+  assert.deepEqual(daysInARow(['2026-10-01', '2026-10-02', '2026-10-04'], '2026-10-04', new Set(['2026-10-03'])), { run: 3, banked: 0, best: 3, since: '2026-10-01' })
+  assert.deepEqual(daysInARow(['2026-10-01', '2026-10-02', '2026-10-04'], '2026-10-04'), { run: 1, banked: 0, best: 2, since: '2026-10-04' })
 })

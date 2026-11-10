@@ -8,12 +8,12 @@ import { DotRule, SQUARE, SQUARE_GAP as GAP } from './time-dots'
 import { dayMonth, dayjs, num, plural } from '../../../../main/dates'
 
 /** What `study:stats` hands back (haligtree.ts). */
-type Studied = { streak: { current: number; longest: number }; average: number; month: { day: string; reviews: number }[]; year: Record<string, number>; checked: number; recalled: number; due: number[]; known: number; cards: number; seconds: number | null; days: { reviewed: number; of: number }
+type Studied = { streak: { current: number; longest: number; /** Rest days in hand: one for each week in a row, three at most. */ banked?: number }; average: number; month: { day: string; reviews: number }[]; year: Record<string, number>; checked: number; recalled: number; due: number[]; known: number; cards: number; seconds: number | null; days: { reviewed: number; of: number }
   minutes: number[]; stages: { new: number; learning: number; learnt: number }; sources: { name: string; n: number }[]; growth: { end: string; known: number; made: number }[]; kept: { month: string; notes: number; gems: number }[] }
 
 /** The made-up numbers for the example Stats page. */
 const EXAMPLE: Studied = {
-  streak: { current: 12, longest: 41 }, average: 18,
+  streak: { current: 12, longest: 41, banked: 1 }, average: 18,
   month: Array.from({ length: 30 }, (_, at) => ({ day: new Date(Date.now() - (29 - at) * 86400000).toISOString().slice(0, 10), reviews: (at * 7) % 5 === 0 ? 0 : ((at * 13) % 30) + 4 })),
   year: Object.fromEntries(Array.from({ length: 200 }, (_, at) => [new Date(Date.now() - at * 86400000).toISOString().slice(0, 10), (at * 11) % 4 === 0 ? 0 : (at * 17) % 40])),
   checked: 412, recalled: 361, due: [14, 9, 11, 6, 8, 4, 7, 5, 3, 6, 2, 4, 3, 2], known: 238, cards: 540, seconds: 9, days: { reviewed: 148, of: 200 },
@@ -217,7 +217,8 @@ export function KeptCard({ example }: { example: boolean }): React.JSX.Element |
  * square a day, close together, the darker the more cards, the months named
  * along the top and Monday, Wednesday and Friday down the side, today ringed.
  * Above it the four numbers people quote (Ray's frame), set as a row: the
- * streak now, the longest, cards on an average day, and the share of days
+ * days in a row now (with the rest days in hand, so a day off is never a
+ * loss), your longest run, cards on an average day, and the share of days
  * studied. Drawn at once, never grown in, so the page is still when it
  * shows; the day pointed at is said in a line whose room is kept.
  */
@@ -247,8 +248,9 @@ export function StudyYear({ compact = false }: { /** Above the decks: the same y
   const most = Math.max(1, ...Object.values(studied?.year ?? {}))
   const share = studied && studied.days.of ? Math.round((studied.days.reviewed / studied.days.of) * 100) : 0
   const numbers: [string, string][] = [
-    [plural(studied?.streak.current ?? 0, 'day', 'days'), 'streak now'],
-    [plural(studied?.streak.longest ?? 0, 'day', 'days'), 'longest streak'],
+    // Days in a row, as Review's end counts them: a week in a row banks a rest day, so a day off is never a loss.
+    [plural(studied?.streak.current ?? 0, 'day', 'days'), studied?.streak.banked ? `in a row, ${plural(studied.streak.banked, 'rest day', 'rest days')} in hand` : 'in a row now'],
+    [plural(studied?.streak.longest ?? 0, 'day', 'days'), 'your longest run'],
     [plural(studied?.average ?? 0, 'card', 'cards'), 'a day when studying'],
     [`${share}%`, 'of days studied']
   ]
