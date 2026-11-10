@@ -67,10 +67,14 @@ export async function applySetup(setup: Setup): Promise<Setup> {
   made.examTag = exam
   // The goal: made once; a changed name or day makes it again, undone takes it away.
   const title = !off.has('goal') ? setup.goal?.trim() || null : null
-  const by = goalDay(setup)
+  // No day picked: the three months counted once, when it was made. Counted again from each new today, it read as a
+  // changed answer every day, and leaving a replayed welcome took the goal away (its log too) and made it again (10 Nov).
+  const by = setup.goalBy || setup.exam || !made.goalBy ? goalDay(setup) : made.goalBy
   if (made.goalId && (title !== made.goalTitle || by !== made.goalBy)) {
-    await haligtree.dropGoal(made.goalId)
+    const there = await haligtree.dropGoal(made.goalId)
     made.goalId = null
+    // Already gone: you took it away yourself, and the welcome never brings it back.
+    if (!there && title === made.goalTitle) return { ...setup, undone: [...off, 'goal'], made: { ...made, goalTitle: null, goalBy: null } }
   }
   if (title && !made.goalId) {
     made.goalId = await haligtree.newGoal(title, by)
