@@ -75,6 +75,7 @@ import { TaskLinkMenu } from "@/components/haligtree/task-link-menu"
 import { CardLink } from "@/extensions/card-link"
 import { AutoCard } from "@/extensions/auto-card"
 import { SelectedNodes } from "@/extensions/selected-nodes"
+import { BlockControls } from "@/extensions/block-controls"
 import { BlockGestures } from "@/extensions/block-gestures"
 import { Bookmark } from "@/extensions/bookmark"
 import { Callout } from "@/extensions/callout"
@@ -621,6 +622,9 @@ const gripOf = new WeakMap<Editor, HTMLElement>()
  * nothing is rendered until it is. Leaving it out keeps a single editor that
  * never remounts, so nobody who never had an id is caught by this.
  */
+/** Where the caret starts in a note: the first place words can be typed, never a picture picked whole. */
+const openingCaret = (doc: ProseMirrorNode): PMSelection => PMSelection.findFrom(doc.resolve(0), 1, true) ?? PMSelection.atStart(doc)
+
 export function HaligtreeEditor({
   documentId,
   ...props
@@ -1400,7 +1404,8 @@ function Surface({
       ...(search ? [FindAndReplace.configure({ injectCSS: false })] : []),
       // Columns never narrower than a few words: a table with many of them
       // grows past the page and scrolls sideways, rather than crushing each.
-      TableKit.configure({ table: { resizable: true, cellMinWidth: 128 } }),
+      // A column is never narrower than about 18 letters: ten columns squeezed long words onto five lines; past the page, the table scrolls.
+      TableKit.configure({ table: { resizable: true, cellMinWidth: 160 } }),
       OutdentLists,
       ...(shape === "line" ? [] : [TabStays]),
       PlainCopy,
@@ -1544,6 +1549,7 @@ function Surface({
       AutoCard,
       LongDocument,
       SelectedNodes,
+      BlockControls,
       ...(shape === "line" ? [] : [BlockGestures]),
       ObsidianShortcuts.configure({
         onToggleSource: () => (toggleSource.current ? toggleSource.current() : setSourceRef.current(!sourceOpenRef.current)),
@@ -1589,10 +1595,20 @@ function Surface({
           // document: mapped through the replace it would land at the end, and
           // on a picture there it is a node selection, drawn as a ring on it.
           const tr = instance.state.tr.replaceWith(0, instance.state.doc.content.size, doc.content)
-          instance.view.dispatch(tr.setSelection(PMSelection.atStart(tr.doc)).setMeta("addToHistory", false).setMeta("preventUpdate", true))
+          instance.view.dispatch(tr.setSelection(openingCaret(tr.doc)).setMeta("addToHistory", false).setMeta("preventUpdate", true))
         } catch {
           instance.commands.setContent(defaultContent, { contentType: "markdown", emitUpdate: false })
         }
+      }
+      // A note that starts with a picture (a card, a drawing) opened with it
+      // picked, a ring round it that read as an error: the caret goes to the
+      // first place words can be typed instead, after it.
+      const { selection } = instance.state
+      if (selection instanceof NodeSelection && selection.from === 0) {
+        // A picture alone has no line after it until the first change asks for one (trailingNode): asked now.
+        if (!PMSelection.findFrom(instance.state.doc.resolve(0), 1, true)) instance.view.dispatch(instance.state.tr.setMeta("addToHistory", false).setMeta("preventUpdate", true))
+        const caret = openingCaret(instance.state.doc)
+        if (!caret.eq(selection)) instance.view.dispatch(instance.state.tr.setSelection(caret).setMeta("addToHistory", false).setMeta("preventUpdate", true))
       }
     },
     onCreate: ({ editor: instance }) => {
