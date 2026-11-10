@@ -4304,10 +4304,10 @@ app.whenReady().then(() => {
   useTwelveHour(twelveHour())
   // The Leaves marks draw on a Noun Project icon used under CC BY 3.0, which asks for this credit.
   // Haligtree's own version and icon, said outright: a dev run is Electron's own app, whose bundle says Electron's
-  // (44.3.0). The words go in the copyright line, which macOS centres under the name; credits are set flush left.
+  // (44.3.0). The line goes in the copyright place, which macOS centres under the name; credits are set flush left.
   app.setAboutPanelOptions({
     applicationVersion: app.getVersion(), version: '', iconPath: iconBronze,
-    copyright: `${ANCHOR}\n\nThe Leaves mark is after “Abstract Flower” by Kalaakarini, from Noun Project (CC BY 3.0).`
+    copyright: ANCHOR
   })
   // Haligtree's own menu bar; Edit > Select All asks the page first: a list picks every row (app-menu.ts).
   appMenu()
