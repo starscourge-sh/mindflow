@@ -27,8 +27,15 @@ export function labelsOf(src: string): string[] | null {
   return known.get(src) ?? null
 }
 
+/**
+ * A label that reads as a page number: digits ("48", "A-3"), roman ("xii") or a cover's two letters ("CA"). A file
+ * that names its pages by section instead (Fluent Python's "Cover" and "O'Reilly") gave "p. 96 of O'Reilly" and
+ * "p. Cover" (10 Nov): such a page is named by its place in the file.
+ */
+export const printed = (one: string | undefined): string | undefined => (one && /\d|^[ivxlcdm]+$|^[a-z]{1,2}$/i.test(one.trim()) ? one : undefined)
+
 /** The page as the book prints it ("48", "xii"), else its place in the file. */
-export const labelFor = (src: string, n: number): string => labelsOf(src)?.[n - 1] || String(n)
+export const labelFor = (src: string, n: number): string => printed(labelsOf(src)?.[n - 1]) || String(n)
 
 /** A page of the file from what someone typed: a printed page first ("48" is the page printed 48), else the file's own page. */
 export function pageFromLabel(labels: string[] | null, typed: string, pages: number): number | null {
@@ -61,7 +68,7 @@ export function usePageLabels(src: string, doc: PDFDocumentProxy | null): { labe
   }, [src, doc])
   return useMemo(() => ({
     labels,
-    label: (n: number) => labels?.[n - 1] || String(n),
+    label: (n: number) => printed(labels?.[n - 1]) || String(n),
     find: (typed: string) => pageFromLabel(labels, typed, doc?.numPages ?? labels?.length ?? 0),
   }), [labels, doc])
 }
