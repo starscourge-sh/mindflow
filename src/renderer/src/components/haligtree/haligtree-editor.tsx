@@ -885,8 +885,10 @@ function Surface({
   const blockTarget = useRef<BlockTarget | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
   // A right-click's spot, so its menu opens under the pointer; the grip's opens at the grip.
-  /** The room a block's right-click menu needs to open beside the block, whole: its longest list (a picture's). */
-  const MENU_ROOM = 560
+  /** The room a block's right-click menu needs to open under or over the block: about seven rows since its actions
+   * came first (9 Nov), and a longer list (a picture's) scrolls inside it. 560 was the old, taller menu's: in a
+   * smaller window it opened at the pointer instead, over the block's own title (10 Nov). */
+  const MENU_ROOM = 320
   const [menuAt, setMenuAt] = useState<{ x: number; y: number; width?: number; height?: number } | null>(null)
   // A right-click on a misspelt word, whose suggestions head that menu.
   const [spelling, setSpelling] = useState<Misspelling | null>(null)

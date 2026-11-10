@@ -72,7 +72,9 @@ try {
   check('…and never covers "Write a thought…" or the recording', cover.shown.every((one) => !one.onPlaceholder && !one.onCard), JSON.stringify(cover))
   // A recording with no words under it says so, with the way to get them.
   const words = await page.evaluate((sel) => [...document.querySelectorAll(`${sel} .tiptap-attachment.is-audio [data-no-words]`)].find((el) => el.offsetParent)?.innerText.replace(/\s+/g, ' ').trim() ?? null, EDITOR)
-  check('a recording without words says "No transcript · Transcribe"', words === 'No transcript · Transcribe', String(words))
+  // In a card under 30rem wide (quick capture is one) "Transcribe" alone says it (sound-player.css), never "N…" cut before it.
+  const narrow = await page.evaluate((sel) => (document.querySelector(`${sel} .tiptap-attachment.is-audio .mf-sound-status`)?.getBoundingClientRect().width ?? 999) < 480, EDITOR)
+  check('a recording without words says how to get them ("No transcript · Transcribe", or "Transcribe" when narrow)', words === (narrow ? 'Transcribe' : 'No transcript · Transcribe'), `${words}, narrow ${narrow}`)
   // The header's top right: the "pinned" chip and the window's pill, one shape.
   const header = await page.evaluate(() => {
     // Quick capture's controls are round surfaces of their own above the card now (the overhang): the chip matches one of them.
@@ -108,7 +110,10 @@ try {
           listScrolls: list.scrollHeight > list.clientHeight + 1,
           outerScrolls: (() => { const s = menu.querySelector('[data-menu-scroll]'); return s ? s.scrollHeight > s.clientHeight + 1 : false })(),
           surfaces,
-          covers
+          covers,
+          menu: [Math.round(r.left), Math.round(r.top), Math.round(r.right), Math.round(r.bottom)],
+          block: [Math.round(block.left), Math.round(block.top), Math.round(block.right), Math.round(block.bottom)],
+          win: [innerWidth, innerHeight]
         }
       }, EDITOR)
       check('the menu fits the short window, with no "Close menu" row (9 Nov)', fit.inWindow && fit.closeShown, JSON.stringify(fit))
