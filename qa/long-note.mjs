@@ -45,6 +45,7 @@ try {
   log('open.ms', await profiled('open', () => openTimed(c, big, 3000)))
   await h.waitForTimeout(3000)
   log('doc', await ed())
+  if (process.env.QA_ONLY_OPEN) throw new Error('only the open time was asked for')
   await h.evaluate(() => document.querySelector('[data-open] .tiptap').editor.commands.focus('end'))
   await h.waitForTimeout(500)
   // Typing in place: the median key and the worst one in twenty.
