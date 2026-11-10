@@ -225,7 +225,7 @@ export function DayView({ onOpen, start, onScale, onView }: {
             <Button data-copy-day-link variant="ghost" size="sm" onClick={() => copyLink(`day:${day}`, named(day))}><Link2 className="size-3.5" /> Copy link</Button>
           </Tip>
           <Tip label="Name what this day is for, like Exam or Launch">
-            <Button variant="ghost" size="sm" onClick={() => void markDay(day)}><FlagTriangleRight className="size-3.5" /> Name the day</Button>
+            <Button variant="ghost" size="sm" onClick={() => void markDay(day)}><FlagTriangleRight className="size-3.5" /> Name</Button>
           </Tip>
           {/* Always here and one width, whichever it says; greyed on a day still to come. */}
           <Tip label={ahead ? 'A day still to come: look back once it has been' : data?.reviewed ? 'You looked back over this day. Click to take the tick off' : 'Tick once you have looked back over this day'}>
