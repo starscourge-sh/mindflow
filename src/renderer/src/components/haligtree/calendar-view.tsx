@@ -997,7 +997,7 @@ function Grid({ days, tasks, marks, study, onHead, onPoint, calendars, ...props 
               )
             })}
           </div>
-          <div ref={lane} onScroll={laneFade} className={`pointer-events-none relative grid min-h-8 gap-x-1 gap-y-[3px] overflow-y-auto px-[3px] py-[3px] ${folded ? 'max-h-8 overflow-hidden' : 'max-h-[138px]'} ${below && !folded ? '[mask-image:linear-gradient(to_bottom,#000_calc(100%-16px),transparent)]' : ''}`}
+          <div ref={lane} onScroll={laneFade} className={`pointer-events-none relative grid min-h-8 gap-x-1 gap-y-[3px] overflow-y-auto px-[3px] py-[3px] ${folded ? 'max-h-8 overflow-hidden' : days.length === 1 ? 'max-h-[276px]' : 'max-h-[138px]'} ${below && !folded ? '[mask-image:linear-gradient(to_bottom,#000_calc(100%-16px),transparent)]' : ''}`}
             style={{ gridTemplateColumns: `repeat(${days.length}, minmax(0, 1fr))`, gridAutoFlow: 'row dense', gridAutoRows: '24px' }}>
             {/* Bars over more than one day first, so they keep the top rows; a one-day event joins its day's list below. */}
             {events.filter((one) => one.allDay && manyDays(one) && dayKey(one.start) <= keys[keys.length - 1] && dayKey(dayjs(one.end).subtract(1, 'minute')) >= keys[0]).map((one) => {
@@ -1016,7 +1016,9 @@ function Grid({ days, tasks, marks, study, onHead, onPoint, calendars, ...props 
               // The lane shows ALLDAY_ROWS whole rows; bars over many days and the study chips on this day take theirs first,
               // so "+N more" always lands in sight.
               const taken = events.filter((one) => one.allDay && manyDays(one) && dayKey(one.start) <= key && dayKey(dayjs(one.end).subtract(1, 'minute')) >= key).length + studyChips(study.get(key)).length
-              const cap = Math.max(2, ALLDAY_ROWS - taken)
+              // One day has the room a week shares: up to ten rows before "+N more" (a crowded day opened from a week's "+N more"),
+              // in a lane twice as tall (276px), so no row is cut.
+              const cap = Math.max(2, (days.length === 1 ? 10 : ALLDAY_ROWS) - taken)
               const shown = all.length > cap ? all.slice(0, cap - 1) : all
               const more = all.length - shown.length
               return [
@@ -1026,7 +1028,9 @@ function Grid({ days, tasks, marks, study, onHead, onPoint, calendars, ...props 
               ),
               ...(more ? [
                 <button key="more" type="button" data-cal-allday-more={key} aria-label={`Open ${dayjs(key).format('dddd D MMMM')}: ${plural(all.length, 'thing')} all day`}
-                  onClick={() => (chime('open'), onOpen?.('day', key))}
+                  // Events hidden in a week: the Calendar's own Day view, where they all have room. Already one day, or only
+                  // to-dos hidden: the day's own page with its whole list.
+                  onClick={() => (chime('open'), days.length > 1 && all.slice(shown.length).some((item) => 'one' in item) ? onHead(dayjs(key)) : onOpen?.('day', key))}
                   className="pointer-events-auto min-w-0 truncate rounded-[5px] px-1.5 text-left text-control leading-6 font-medium whitespace-nowrap text-foreground hover:bg-accent" style={{ gridColumn: at + 1 }}>
                   +{num(more)} more
                 </button>
@@ -1086,7 +1090,7 @@ function Grid({ days, tasks, marks, study, onHead, onPoint, calendars, ...props 
                 {/* A crowded hour: as many side by side as stay readable, then "+N more", which opens the day's own page with its whole list. */}
                 {placed.more.map((more) => (
                   <button key={`more:${more.start}`} type="button" data-cal-crowd-more={key} aria-label={`Open ${dayjs(key).format('dddd D MMMM')}: ${num(more.count)} more at ${hm(atMinute(key, more.start))}`}
-                    onPointerDown={(event) => event.stopPropagation()} onClick={() => (chime('open'), onOpen?.('day', key))}
+                    onPointerDown={(event) => event.stopPropagation()} onClick={() => (chime('open'), days.length > 1 ? onHead(dayjs(key)) : onOpen?.('day', key))}
                     className="absolute z-[3] flex h-5 items-center justify-center rounded-[5px] bg-accent px-1 text-meta font-semibold whitespace-nowrap text-foreground tabular-nums outline-none transition-[scale,background-color] duration-150 hover:bg-accent/70 focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.97] motion-reduce:transition-none"
                     style={{ top: (more.start / 60) * HOUR + 1, ...(more.lane.of === 1 ? { right: 2, width: MORE_ROOM - 3 } : laneBox(more.lane)) }}>
                     +{num(more.count)}
