@@ -93,6 +93,9 @@ export function pageHtml(raw: string | null, hrefOf: (id: string) => string | un
       case 'youtube': return !/^https?:/i.test(String(node.attrs?.src ?? '')) ? '' : `<p><a href="${escape(node.attrs?.src)}">${escape(node.attrs?.caption || 'A video')}</a></p>`
       case 'bookmark': return /^https?:/i.test(String(node.attrs?.href ?? '')) ? `<p><a href="${escape(node.attrs?.href)}">${escape(node.attrs?.title || node.attrs?.href)}</a></p>` : ''
       case 'footnotes': return `<ol class="footnotes">${(node.content ?? []).map((one) => `<li>${kids(one)}</li>`).join('')}</ol>`
+      // A graph is drawn by the app, which a static page cannot: its formulas are what it is made of (10 Nov: it vanished).
+      case 'graph': { const lines = ((node.attrs?.expressions ?? []) as Array<{ text?: string }>).map((one) => String(one.text ?? '').trim()).filter(Boolean); return lines.length ? `<figure class="graph"><pre><code>${escape(lines.join('\n'))}</code></pre><figcaption>A graph of these, drawn in Haligtree</figcaption></figure>` : '' }
+      case 'excalidraw': return '<p><em>A drawing, kept in the book.</em></p>'
       // A file, a meeting's recording, a PDF: kept in the app, not on a web page.
       case 'attachment': case 'meeting': case 'imagePlaceholder': return ''
       default: return node.content ? kids(node) : inline([node])
