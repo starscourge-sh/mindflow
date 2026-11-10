@@ -208,8 +208,9 @@ export function registerSite(): void {
   // The note and its links into a folder inside `parent`, then shown in Finder (not while testing).
   ipcMain.handle('haligtree:site:publish', async (_event, id: unknown, parent: unknown) => {
     if (typeof id !== 'string' || typeof parent !== 'string' || !parent) return 'gone'
-    const made = await publishSite(id, parent)
-    if (typeof made === 'object' && !process.env.HALIGTREE_QA_AWAY) shell.showItemInFolder(made.index)
+    // A folder that cannot be written to (locked, full, gone) says so, rather than failing without a word.
+    const made = await publishSite(id, parent).catch((error: NodeJS.ErrnoException) => ({ failed: error?.code === 'EACCES' || error?.code === 'EPERM' ? 'That folder cannot be written to' : error?.code === 'ENOSPC' ? 'The disk is full' : 'The pages could not be written' }))
+    if (typeof made === 'object' && 'index' in made && !process.env.HALIGTREE_QA_AWAY) shell.showItemInFolder(made.index)
     return made
   })
 }
