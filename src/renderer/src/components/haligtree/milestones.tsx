@@ -543,7 +543,6 @@ export function NextMark({ className = '', withinDays = 365 }: { className?: str
   const next = nextOf(all, today)
   useReading(unloaded(all))
   if (!next) return null
-  const left = daysBetween(today, next.day)
   return (
     <button type="button" data-next-mark onClick={() => (chime('open'), void markDay(next.day, next))}
       className={`group/mark flex min-w-0 items-center gap-2 rounded-md text-left text-control transition-colors ${className}`}>
@@ -554,7 +553,6 @@ export function NextMark({ className = '', withinDays = 365 }: { className?: str
         <span className="font-semibold text-foreground underline-offset-4 group-hover/mark:underline group-hover/mark:decoration-foreground/30">{countdown(next, today)}</span>
         <span className="text-muted-foreground"> · {dayName(noon(next.day))}</span>
       </span>
-      {left <= 30 && left > 0 && <span aria-hidden className="ml-auto flex shrink-0 gap-[3px]">{Array.from({ length: Math.min(left, 14) }, (_, at) => <span key={at} className="size-1 rounded-full shrink-0" style={{ background: inkOf(next), opacity: 0.25 + (0.75 * (at + 1)) / Math.min(left, 14) }} />)}</span>}
     </button>
   )
 }
