@@ -3,6 +3,7 @@ import {
   forwardRef,
   useEffect,
   useImperativeHandle,
+  useLayoutEffect,
   useRef,
   useState,
   type ForwardedRef,
@@ -35,6 +36,14 @@ const SlashList = forwardRef(function SlashList(
   const menuRef = useRef<HTMLDivElement>(null)
   const [peeking, setPeeking] = useState(false)
   const seen = useRef(false)
+  // A row whose name is cut short (a long file name) shows the whole name as
+  // the pointer rests on it; a name that fits needs no tip.
+  useLayoutEffect(() => {
+    for (const row of menuRef.current?.querySelectorAll<HTMLElement>(".tiptap-slash-menu-list > button") ?? []) {
+      const words = row.querySelector<HTMLElement>(".tiptap-slash-menu-title")
+      row.title = words && words.scrollWidth > words.clientWidth ? (words.textContent ?? "") : ""
+    }
+  })
   useEffect(() => {
     const timer = setTimeout(() => setPeeking(true), REST)
     return () => clearTimeout(timer)
@@ -135,12 +144,6 @@ const SlashList = forwardRef(function SlashList(
                 ref={index === selected ? selectedRef : undefined}
                 className={index === selected ? "is-selected" : undefined}
                 onMouseMove={(event) => realMove(event) && (setSelected(index), setPeeking(true))}
-                // Cut short in the row (a long file name), the whole name shows as the pointer
-                // rests on it; a name that fits needs no tip.
-                onMouseEnter={(event) => {
-                  const words = event.currentTarget.querySelector(".tiptap-slash-menu-title")
-                  event.currentTarget.title = words && words.scrollWidth > words.clientWidth ? item.title : ""
-                }}
                 onClick={() => choose(index)}
               >
                 {item.icon}
