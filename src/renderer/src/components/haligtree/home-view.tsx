@@ -500,7 +500,7 @@ function Feature({ card, line, actions }: { card: Card; line: string; actions: A
   const [leaving, left] = useLeaving(real ? src : undefined, card.id, picture)
   return (
     <RowMenu items={menuFor(card, actions, [card], 0)}>
-      <div className="relative mx-5 overflow-hidden rounded-xl @[44rem]/page:mx-8" data-private={card.private ? '' : undefined}>
+      <div data-home-feature className="relative mx-5 overflow-hidden rounded-xl @[44rem]/page:mx-8" data-private={card.private ? '' : undefined}>
         <div aria-hidden className="absolute inset-0" style={{ background: `color-mix(in oklab, ${tint} 12%, var(--background))` }} />
         {picture && <img aria-hidden src={backdrop} alt="" className="absolute inset-0 size-full scale-125 object-cover opacity-40 blur-2xl saturate-150" />}
         <div aria-hidden className="absolute inset-0 bg-gradient-to-r from-background/70 via-background/45 to-background/10" />
