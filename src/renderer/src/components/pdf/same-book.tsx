@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
+import { labelFor } from "./pdf-labels"
 import { call } from "@/lib/haligtree"
 import { chime } from "@/lib/sound"
 import { notes, type MapEdge } from "@/lib/notes"
@@ -27,7 +28,7 @@ export function useCited(src: string, again?: unknown): Cited[] {
   return cited
 }
 
-export const pagesOf = (pages: number[]): string => (!pages.length ? "Holds it" : pages.length === 1 ? `p. ${pages[0]}` : pages.length === 2 ? `pp. ${pages[0]}, ${pages[1]}` : `pp. ${pages[0]}, ${pages[1]} +${pages.length - 2}`)
+export const pagesOf = (pages: number[], label: (n: number) => string = String): string => (!pages.length ? "Holds it" : pages.length === 1 ? `p. ${label(pages[0])}` : pages.length === 2 ? `pp. ${label(pages[0])}, ${label(pages[1])}` : `pp. ${label(pages[0])}, ${label(pages[1])} +${pages.length - 2}`)
 
 export const open = (one: Pick<Cited, "type" | "id">, aside: boolean): void => {
   chime("page")
@@ -64,11 +65,11 @@ function useBookGraph(src: string, title: string, around: Cited[]): (Graph & { a
 }
 
 /** The pages a set of notes link to, in words: "p. 12", "pages 12 to 210". */
-const spanOf = (cited: Cited[]): string => {
+const spanOf = (cited: Cited[], src: string): string => {
   const pages = cited.flatMap((one) => one.pages)
   if (!pages.length) return ""
   const low = Math.min(...pages), high = Math.max(...pages)
-  return low === high ? `, p. ${low}` : `, pages ${low} to ${high}`
+  return low === high ? `, p. ${labelFor(src, low)}` : `, pages ${labelFor(src, low)} to ${labelFor(src, high)}`
 }
 
 /**
@@ -82,14 +83,14 @@ export function SameBookMap({ src, title, here }: { src: string; title: string; 
   const cited = useCited(src)
   const around = cited.filter((one) => one.type !== "deck")
   const graph = useBookGraph(src, title, around)
-  const about = useMemo(() => Object.fromEntries(around.filter((one) => one.pages.length).map((one) => [one.id, pagesOf(one.pages)])), [around])
+  const about = useMemo(() => Object.fromEntries(around.filter((one) => one.pages.length).map((one) => [one.id, pagesOf(one.pages, (n) => labelFor(src, n))])), [around])
   if (!graph || !around.some((one) => one.id === here)) return null
   const others = around.filter((one) => one.id !== here)
   return (
     <div data-same-book data-others={others.length}>
       <GraphCanvas map={graph} centre={src} you={here} about={about} onOpen={(type, id, aside) => open({ type, id }, !!aside)} className="h-[220px]" />
       <p data-same-book-says className="border-t border-border/60 px-2 py-1.5 text-xs text-muted-foreground">
-        {others.length ? `${plural(others.length, 'other')} from ${title}${spanOf(others)}` : `Nothing else from ${title} yet`}
+        {others.length ? `${plural(others.length, 'other')} from ${title}${spanOf(others, src)}` : `Nothing else from ${title} yet`}
       </p>
     </div>
   )

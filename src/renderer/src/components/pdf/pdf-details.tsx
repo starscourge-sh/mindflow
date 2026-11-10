@@ -88,7 +88,7 @@ export function ReadDetails({ src, name, cover, title, author, pages, page, chap
             In your notes <span className="read-details-count">{inNotes(cited).length.toLocaleString()}</span>
           </h3>
         </div>
-        <InYourNotes cited={cited} parts={parts} here={page} empty="No note holds it or links into it yet." />
+        <InYourNotes src={src} cited={cited} parts={parts} here={page} empty="No note holds it or links into it yet." />
       </section>
 
       <section className="read-details-section">

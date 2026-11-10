@@ -197,7 +197,7 @@ function Inspector({ one, onOpen }: { one: Book; onOpen: () => void }): React.JS
               In your notes <span className="read-details-count">{linked.toLocaleString()}</span>
             </h3>
           </div>
-          <InYourNotes cited={cited} empty="No note links here yet. Link a page from the reader with “Copy link to this page” and paste it in any note." />
+          <InYourNotes src={one.src} cited={cited} empty="No note links here yet. Link a page from the reader with “Copy link to this page” and paste it in any note." />
           <BookMap src={one.src} title={titleOf(one)} cited={cited} />
         </section>
         <BookInfo one={one} linked={linked} />

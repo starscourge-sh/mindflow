@@ -126,7 +126,7 @@ const WHOLE: Part = { key: "whole", title: "Whole book", from: 0 }
  * book come first, under "Whole book". Pointed at, the shared note card shows
  * it whole. A click opens it, ⌥-click to the side; right-click for the row menu.
  */
-export function InYourNotes({ cited, empty, parts = [], here }: { cited: Cited[]; empty: string; parts?: Part[]; here?: number }): React.JSX.Element {
+export function InYourNotes({ cited, empty, parts = [], here, src = "" }: { cited: Cited[]; empty: string; parts?: Part[]; here?: number; /** The book, so its pages are named as printed. */ src?: string }): React.JSX.Element {
   const shown = useMemo(() => inNotes(cited).sort((a, b) => (a.pages[0] ?? 0) - (b.pages[0] ?? 0)), [cited])
   const long = shown.length > 30
   const grouped = long && parts.length > 1
@@ -148,7 +148,7 @@ export function InYourNotes({ cited, empty, parts = [], here }: { cited: Cited[]
     return (
       <RowMenu items={items}>
         <button type="button" data-cited={one.id} data-cited-page={one.pages[0] ?? 0} data-first={first ? "" : undefined} data-part={part} className="book-cited-row" {...hoverNote(one.type, one.id)} onClick={(event) => open(one, event.altKey)}>
-          <span className="book-cited-page">{one.pages.length ? pagesOf(one.pages) : "Whole"}</span>
+          <span className="book-cited-page">{one.pages.length ? pagesOf(one.pages, (n) => labelFor(src, n)) : "Whole"}</span>
           <span className="book-cited-title">{one.title || "New note"}</span>
           <span className="book-cited-line">
             <span className="book-cited-kind">{kindOf(one.type)}</span>
