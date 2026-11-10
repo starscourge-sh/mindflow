@@ -107,7 +107,8 @@ function lookUpKinds(ids: Iterable<string>): void {
       asking.delete(id)
       // Not found is remembered too, so a link to a note since deleted is not asked about again.
       knownKinds.set(id, found[id] ?? "")
-      if (found[id]) waiting.get(id)?.forEach((redraw) => redraw())
+      // Found, it wears its kind; not found, it is drawn as a link to nothing yet.
+      waiting.get(id)?.forEach((redraw) => redraw())
       waiting.delete(id)
     }
     tellAsked()
@@ -500,8 +501,9 @@ export const NoteLink = Node.create<NoteLinkOptions>({
       "data-block-text": blockText || null,
       // The label is no longer simply the words shown, so it travels as itself.
       "data-label": label || null,
-      // Not found yet: a [[name]] with no note of that name, drawn quieter.
-      class: id || !label ? "tiptap-note-link" : "tiptap-note-link is-unresolved",
+      // Not found yet: a [[name]] with no note of that name, or a link to a
+      // note that is not there, drawn quieter (faded, never red).
+      class: (id && !(kind === "" && knownKinds.get(id) === "")) || !label ? "tiptap-note-link" : "tiptap-note-link is-unresolved",
     })
     const words = String(blockText || "a line").trim()
     const line = block ? `“${words.length > 48 ? `${words.slice(0, 48).trim()}…` : words}”` : ""

@@ -185,6 +185,9 @@
   // the selection all came out a colour nothing else on the page shares.
   --tt-brand-color-500: #9f2d00;
   --tt-brand-color-400: #c23600;
+  // Links: the accent, unless the accent is a red. Red means "this removes
+  // something" and nothing else, so here links are the ink, underlined.
+  --mf-link: var(--foreground);
 
   --tt-cursor-color: var(--tt-brand-color-400);
   --tt-selection-color: color-mix(in srgb, var(--tt-brand-color-400) 25%, transparent);
@@ -248,6 +251,7 @@ $mf-hues: "gray", "brown", "orange", "yellow", "green", "blue", "purple", "pink"
     --tt-brand-color-#{list.nth($mf-steps, $i)}: #{color.mix($accent, #fff, list.nth($mf-tints, $i))};
   }
   --tt-brand-color-400: #{$accent};
+  --mf-link: #{$accent};
   @for $i from 1 through 6 {
     --tt-brand-color-#{list.nth($mf-shade-steps, $i)}: #{color.mix($accent, #000, list.nth($mf-shades, $i))};
   }
