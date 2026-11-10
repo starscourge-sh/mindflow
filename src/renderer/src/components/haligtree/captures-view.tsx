@@ -47,7 +47,7 @@ import { Empty, focusField, Island, Page, Prop, Props, Remembered, Rolling, refu
 import { Term } from './term'
 import { GlossTimeline, PageThoughts, useRowGloss } from './gloss-line'
 import { ThoughtDock } from './thought-bar'
-import { RemindMe, SourceRow } from './items-view'
+import { RemindMe, SourceRow, sourceField } from './items-view'
 import { openPdf } from '@/components/pdf/pdf-reader'
 import { bookOf } from '@/lib/pdf-in'
 import { BookOpen, Quote } from 'lucide-react'
@@ -824,7 +824,8 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
                         const page = event.currentTarget.closest('.note-pane')
                         showDetails(true, inPane)
                         // Opened, and its group unfolded if folded shut, then the caret in it.
-                        focusField(() => page?.querySelector<HTMLInputElement>(`input[placeholder="${ASKS.quote?.who ?? 'Who'}"]`))
+                        // Shown as a link to their page while it is filled: turned into its field first.
+                        focusField(() => sourceField(page, 'source', '[data-note-source]'))
                       }}>
                         <Signed who={meta.attribution} where={meta.medium} year={fieldOf(meta.fields, 'year')} className="private-text" />
                       </button>

@@ -80,6 +80,14 @@ try {
   const focused = await h.evaluate(() => document.activeElement?.getAttribute('placeholder'))
   check('clicking it opens the details on “Who said it”', focused === 'Who said it', String(focused))
   await shot('quote-signed')
+  // A gem's signature does the same: the filled row, a link to their page, turns into its field with the caret in it.
+  const gem = await v('nugget:from', 'Luck is what happens when preparation meets opportunity.', { attribution: 'Seneca', kind: 'quote' })
+  await send('nugget', gem)
+  await h.waitForTimeout(1500)
+  await h.locator('[data-signed-edit]').click()
+  await h.waitForTimeout(900)
+  const gemField = await h.evaluate(() => ({ focused: document.activeElement?.hasAttribute('data-gem-source'), value: document.activeElement?.value }))
+  check('a gem’s signature opens “Who said it” with the caret in it', gemField.focused && gemField.value === 'Seneca', JSON.stringify(gemField))
 
   // A row under the pointer shows no V-number.
   await go('inbox')

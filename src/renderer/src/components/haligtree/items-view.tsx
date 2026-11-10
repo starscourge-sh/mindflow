@@ -1200,7 +1200,7 @@ function NuggetDetail({ item, onOpen, top, back, board: place }: { item: ItemFul
               <div data-chrome className="page-narrow mx-auto mt-1 w-full px-[4.5rem] text-control text-muted-foreground">
                 {/* Signed, and changed from the signature: a click goes to “Who said it” beside the page. */}
                 <Tip label="Change who said it">
-                  <button type="button" data-signed-edit className="rounded hover:bg-accent" onClick={() => focusField(() => document.querySelector<HTMLInputElement>('[data-gem-source]'))}>
+                  <button type="button" data-signed-edit className="rounded hover:bg-accent" onClick={() => focusField(() => sourceField(document, 'source', '[data-gem-source]'))}>
                     <span {...hoverNote('person', item.attribution)}><Signed who={item.attribution} where={item.medium} year={fieldOf(item.fields, 'year')} className="private-text" /></span>
                   </button>
                 </Tip>
@@ -1428,6 +1428,19 @@ function NuggetDetail({ item, onOpen, top, back, board: place }: { item: ItemFul
  * where Enter keeps what is typed and Esc leaves it as it was. Empty, the row
  * is the field, waiting to be filled.
  */
+/**
+ * The field for who or where beside the page. While it shows as a link it has
+ * no field: the row is turned into its field first (quietly, as the click that
+ * asked for it already sounded), and it is there to find a moment later.
+ * Meant for `focusField`, which asks again until it is.
+ */
+export function sourceField(scope: ParentNode | null | undefined, name: 'source' | 'where', field: string): HTMLInputElement | null {
+  const input = scope?.querySelector<HTMLInputElement>(field)
+  if (input) return input
+  scope?.querySelector(`[data-source-row="${name}"]`)?.dispatchEvent(new CustomEvent('mf-source-edit'))
+  return null
+}
+
 export function SourceRow({ icon: Icon, name, label, tip, open, peek, editing, setEditing, children }: {
   icon: React.ComponentType<{ className?: string }>
   name: 'source' | 'where'
@@ -1439,6 +1452,18 @@ export function SourceRow({ icon: Icon, name, label, tip, open, peek, editing, s
   setEditing: (on: boolean) => void
   children: React.ReactNode
 }): React.JSX.Element {
+  // Asked for from elsewhere (a quote's signature): turned into its field (`sourceField`).
+  const row = useRef<HTMLDivElement>(null)
+  const edit = useRef(setEditing)
+  edit.current = setEditing
+  const shown = !(editing || !label)
+  useEffect(() => {
+    const at = row.current
+    if (!shown || !at) return
+    const asked = (): void => edit.current(true)
+    at.addEventListener('mf-source-edit', asked)
+    return () => at.removeEventListener('mf-source-edit', asked)
+  }, [shown])
   if (editing || !label) {
     return (
       <label className="flex cursor-text items-center gap-2 px-2 py-1.5 focus-within:text-foreground hover:bg-accent">
@@ -1448,7 +1473,7 @@ export function SourceRow({ icon: Icon, name, label, tip, open, peek, editing, s
     )
   }
   return (
-    <div data-source-row={name} className="group/source flex items-center hover:bg-accent">
+    <div ref={row} data-source-row={name} className="group/source flex items-center hover:bg-accent">
       <Tip label={tip}>
         <button type="button" data-source-link={name}
           data-pdf-peek={peek?.src} data-pdf-peek-name={peek?.name} data-pdf-peek-page={peek?.page}
