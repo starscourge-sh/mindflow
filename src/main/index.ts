@@ -1746,7 +1746,8 @@ function stick(type: string, id: string, on: boolean, bounds?: Electron.Rectangl
       ...(canUntidy() ? [{ label: 'Put stickies back where they were', run: untidyStickies }] : []),
       ...tuckLines()
     ]
-    const groups = [writing, own, colours, [{ label: 'All stickies', submenu: all }]].filter((group) => group.length)
+    // Every sticky's lines in the menu itself: two or three lines folded behind "All stickies" were a step for nothing (10 Nov).
+    const groups = [writing, own, colours, all].filter((group) => group.length)
     const lines = groups.flatMap((group, n): PopupLine[] => (n ? [{ separator: true }, ...group] : group))
     const at = win.getBounds()
     void popupMenu(win, { x: at.x + params.x, y: at.y + params.y }, lines, load).then((path) => path && lineAt(lines, path)?.())

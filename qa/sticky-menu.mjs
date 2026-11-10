@@ -2,7 +2,7 @@
 // windows/menu.tsx), never the Mac's see-through one. Each kind of sticky (a note, Today, all goals, one goal) is
 // right-clicked: the menu opens at the pointer, inside the screen, opaque (its fill's alpha read, and the window's
 // page captured and saved, light and dark); its own lines come first ("Open in Haligtree", "Take it down"), then
-// "All stickies" holding the desk's lines; Esc and a click off it put it away and hand the keys back; Open and
+// the desk's lines (Tidy, Tuck) in the same menu, the screen round it left clear; Esc and a click off it put it away and hand the keys back; Open and
 // Take it down do their jobs; Today's task menu opens through the same window.
 //
 //   npx electron-vite build --outDir out-sm
@@ -111,7 +111,10 @@ try {
     check(`${theme}: the window covers the screen's work area`, JSON.stringify(s.area) && l.width === s.area.width && l.height === s.area.height, JSON.stringify({ area: s.area, l }))
     check(`${theme}: the menu is opaque (fill alpha 1, no backdrop blur)`, l.alpha === 1 && (l.frost === 'none' || !l.frost), `${l.fill} ${l.frost}`)
     const said = await words(m)
-    check(`${theme}: its own lines come first, then All stickies`, said[0] === 'Open in Haligtree' && said[1] === 'Take it down' && said.includes('Paper colour') && said.at(-1) === 'All stickies', said.join(' | '))
+    check(`${theme}: its own lines come first, then every sticky's lines in the menu itself (no "All stickies" step)`, said[0] === 'Open in Haligtree' && said[1] === 'Take it down' && said.includes('Paper colour') && !said.includes('All stickies') && /^(Tuck sticky notes away|Bring sticky notes back)/.test(said.at(-1) ?? '') && said.some((one) => one.startsWith('Tidy stickies')), said.join(' | '))
+    // The window's clear room stays clear while the menu is open: filled, the whole screen went the theme's colour.
+    const room = await m.$eval('[data-menu-room]', (el) => getComputedStyle(el).backgroundColor)
+    check(`${theme}: the screen round the menu stays clear`, /rgba\(0, 0, 0, 0\)|transparent/.test(room), room)
     check(`${theme}: every line has its icon`, await m.$$eval('[data-popup-menu] [role="menuitem"]', (rows) => rows.every((r) => r.querySelector('svg'))))
     console.log(`  ${theme} menu: ${await capture(`note-menu-${theme}`)}`)
     const after = await esc(m)
@@ -127,22 +130,14 @@ try {
     check('a click off the menu puts it away, choosing nothing', s.open === false && s.picked === null, JSON.stringify(s))
   }
 
-  // All stickies: a line beside, with the desk's lines and their keys; Tidy runs from it.
+  // Tidy, in the menu itself, runs from it.
   {
     const { m } = await rightClick(note, '.mf-card')
-    await reach(m, 'All stickies')
-    await m.waitForSelector('[data-slot="context-menu-sub-content"]', { timeout: 3000 }).catch(() => null)
-    await wait(300)
-    const sub = await m.$$eval('[data-slot="context-menu-sub-content"] [role="menuitem"]', (rows) => rows.map((r) => r.textContent.trim()))
-    check('All stickies opens beside it with Tidy and Tuck', sub.some((one) => one.startsWith('Tidy stickies down the right edge')) && sub.some((one) => /^(Tuck sticky notes away|Bring sticky notes back)/.test(one)), sub.join(' | '))
-    const subBox = await m.$eval('[data-slot="context-menu-sub-content"]', (el) => { const r = el.getBoundingClientRect(); return { left: r.left, right: r.right, top: r.top, bottom: r.bottom, w: innerWidth, h: innerHeight } })
-    check('the line beside stays 12px inside the screen', subBox.left >= 11.5 && subBox.top >= 11.5 && subBox.right <= subBox.w - 11.5 && subBox.bottom <= subBox.h - 11.5, JSON.stringify(subBox))
-    console.log(`  All stickies: ${await capture('note-menu-all-stickies')}`)
     const before = (await stickyWins()).length
     await m.getByRole('menuitem', { name: /Tidy stickies/ }).click()
     for (let i = 0; i < 20 && (await state()).open; i++) await wait(100)
     const s = await state()
-    check('Tidy, chosen from All stickies, runs and the menu goes', s.open === false && Array.isArray(s.picked) && s.picked.length === 2, JSON.stringify(s))
+    check('Tidy, chosen from the menu, runs and the menu goes', s.open === false && Array.isArray(s.picked) && s.picked.length === 1, JSON.stringify(s))
     await wait(1500)
     check('tidying kept every sticky out', (await stickyWins()).length === before)
   }
@@ -188,7 +183,7 @@ try {
     check(`${name}: right-click opens the menu window`, !!m && s.open)
     if (!m) continue
     const said = await words(m)
-    check(`${name}: Open in Haligtree and Take it down first, All stickies last`, said[0] === 'Open in Haligtree' && said[1] === 'Take it down' && said.at(-1) === 'All stickies', said.join(' | '))
+    check(`${name}: Open in Haligtree and Take it down first, Tidy and Tuck last`, said[0] === 'Open in Haligtree' && said[1] === 'Take it down' && /^(Tuck sticky notes away|Bring sticky notes back)/.test(said.at(-1) ?? '') && said.some((one) => one.startsWith('Tidy stickies')), said.join(' | '))
     check(`${name}: opaque`, (await looks(m)).alpha === 1)
     console.log(`  ${name}: ${await capture(`${type}-menu`)}`)
     await esc(m)
@@ -198,7 +193,7 @@ try {
       if (task) {
         const t = await rightClick(page, '[data-sticky-task]')
         const lines = t.m ? await words(t.m) : []
-        check("Today: a task's right-click opens its task menu in the menu window", !!t.m && lines.length > 3 && !lines.includes('All stickies'), lines.join(' | '))
+        check("Today: a task's right-click opens its task menu in the menu window", !!t.m && lines.length > 3 && !lines.some((one) => one.startsWith('Tidy stickies')), lines.join(' | '))
         if (t.m) console.log(`  Today task: ${await capture('today-task-menu')}`)
         if (t.m) {
           await t.m.getByRole('menuitem').first().click()
@@ -212,10 +207,8 @@ try {
     if (type === 'goal') {
       {
         const { m } = await rightClick(page, target)
-        await reach(m, 'All stickies')
-        await m.waitForSelector('[data-slot="context-menu-sub-content"]', { timeout: 3000 }).catch(() => null)
-        const sub = await m.$$eval('[data-slot="context-menu-sub-content"] [role="menuitem"]', (rows) => rows.map((r) => r.textContent.trim()))
-        check('One goal: All stickies opens beside it with Tidy', sub.some((one) => one.startsWith('Tidy stickies down the right edge')), sub.join(' | '))
+        const sub = await words(m)
+        check('One goal: Tidy is in its menu', sub.some((one) => one.startsWith('Tidy stickies down the right edge')), sub.join(' | '))
         await esc(m)
       }
       {

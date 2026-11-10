@@ -1681,8 +1681,9 @@ body {
 :root[data-menu-window] body::after { content: none !important; }
 
 /* The row a right-click menu belongs to stays marked while the menu is open.
-   Not a reader's whole page area: there the picked words are what is marked. */
-[data-slot='context-menu-trigger'][data-state='open']:not(.pdf-reader-scroll, [data-menu-tall]) {
+   Not a reader's whole page area: there the picked words are what is marked. Nor the menu window's clear room
+   (windows/menu.tsx), which covers the screen: filled, a sticky's right click painted the whole screen (10 Nov). */
+[data-slot='context-menu-trigger'][data-state='open']:not(.pdf-reader-scroll, [data-menu-tall], [data-menu-room]) {
   background-color: var(--accent);
   border-radius: calc(var(--radius) - 4px);
 }
