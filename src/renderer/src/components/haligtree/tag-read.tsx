@@ -12,6 +12,8 @@ import { useLive, haligtree, type Pin as Pinned, type TagRead, type Task } from 
 import { openApart } from '@/lib/apart'
 import { statusSaid } from '@/lib/capture-links'
 import { rowBody } from '@/lib/row-body'
+import { taggedBlocks } from '@/lib/tagged-blocks'
+import { quoted } from '../../../../main/clip'
 import { chime } from '@/lib/sound'
 import { Empty, ask, pin, refuse, sayNow, toast, typing, useListKeys, useReadKey } from './ui'
 import { RowMenu, copy, type MenuItem, type RowItem } from './row-menu'
@@ -342,7 +344,9 @@ export function TagStream({ tag, color, onOpen, onTag, onStudy }: {
     const kind = CAPTURE_TYPES.find((one) => one.id === item.kind)
     const task = item.type === 'task' ? tasks.find((one) => one.id === item.id) : undefined
     const status = item.type === 'capture' && item.status !== 'open' ? statusSaid(item.status, item.keptIn) : item.type === 'task' && item.status === 'done' ? 'Done' : ''
-    const sub = [differs.kind && display.group !== 'kind' ? kindName(item).replace(/s$/, '') : '', status].filter(Boolean).join(' · ')
+    // Tagged on a block of a longer note: that block, as the line under its name.
+    const block = taggedBlocks(item.body, tag)?.lines[0]
+    const sub = [block ? quoted(block, 90) : '', differs.kind && display.group !== 'kind' ? kindName(item).replace(/s$/, '') : '', status].filter(Boolean).join(' · ')
     const entry: NoteEntry = {
       id: item.id,
       type: item.type,
@@ -436,7 +440,7 @@ export function TagStream({ tag, color, onOpen, onTag, onStudy }: {
               {/* The day stays in view while its notes scroll under it. */}
               {day && <h2 className="sticky top-(--tag-band) z-10 bg-background pt-4 pb-1.5 text-control font-semibold text-foreground">{named(day)}</h2>}
               {/* The same menu, picking and picked look as the List view: what ⌘A picks is seen picked here too. */}
-              {list.map((item) => <Entry key={`${item.type}-${item.id}`} item={item} onOpen={onOpen} picked={several.picked(item)} onPick={(event) => several.click(event, item)}
+              {list.map((item) => <Entry key={`${item.type}-${item.id}`} tag={tag} item={item} onOpen={onOpen} picked={several.picked(item)} onPick={(event) => several.click(event, item)}
                 menu={several.menu(item) ?? [...rowMenu(item, shown.indexOf(item)), ...several.rowItems(item)]} differs={differs} />)}
             </section>
           ))}
@@ -609,12 +613,14 @@ const wordsOf = (item: TagRead): string => {
  * when it has one, then its own words (a few lines, clean), then its picture
  * at a reading size. Beside it, only what sets it apart from the rest.
  */
-function Entry({ item, onOpen, picked, onPick, menu, differs }: { item: TagRead; onOpen: (type: string, id: string) => void; picked: boolean; /** ⌘ or ⇧ held: picked as Finder picks, and true. */ onPick: (event: React.MouseEvent | React.KeyboardEvent) => boolean; menu: RowItem[]; differs: Differs }): React.JSX.Element {
+function Entry({ tag, item, onOpen, picked, onPick, menu, differs }: { /** The page's tag: a note that carries it on some of its blocks shows those blocks. */ tag: string; item: TagRead; onOpen: (type: string, id: string) => void; picked: boolean; /** ⌘ or ⇧ held: picked as Finder picks, and true. */ onPick: (event: React.MouseEvent | React.KeyboardEvent) => boolean; menu: RowItem[]; differs: Differs }): React.JSX.Element {
   const kind = CAPTURE_TYPES.find((one) => one.id === item.kind)
   const Icon = item.type === 'capture' ? kind?.icon ?? Inbox : ICON[item.type as keyof typeof ICON] ?? Gem
   // ⌥⌘-click: in a window of its own, as in every list; ⌘-click and ⇧-click pick it.
   const open = (event: React.MouseEvent | React.KeyboardEvent): void => void (event.metaKey && event.altKey ? openApart(item.type, item.id) : onPick(event) || onOpen(item.type, item.id))
   const words = useMemo(() => wordsOf(item), [item])
+  // Tagged on a few of its blocks, not as a whole: those blocks are what the tag holds, under the note's name.
+  const blocks = useMemo(() => taggedBlocks(item.body, tag), [item.body, tag])
   const picture = useMemo(() => pictureIn(item.body), [item.body])
   // A gem whose words are its title alone reads as those words, not as a bold heading over nothing.
   const title = item.type !== 'capture' && item.title && words ? itemName(item.type, item.title).text : ''
@@ -634,9 +640,18 @@ function Entry({ item, onOpen, picked, onPick, menu, differs }: { item: TagRead;
         onKeyDown={(event) => event.key === 'Enter' && event.target === event.currentTarget && open(event)}
         className="private-text min-w-0 flex-1 cursor-pointer rounded-md outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring/50"
       >
+        {blocks ? (
+          <>
+            <p data-entry-from className="mb-1.5 truncate text-control text-muted-foreground">From {quoted(item.type !== 'capture' ? itemName(item.type, item.title || item.label).text : item.label || 'New note', 80)}</p>
+            <div data-entry-blocks className="flex max-w-[68ch] flex-col gap-1.5 border-l-2 border-foreground/15 pl-3">
+              {blocks.lines.map((line, at) => <p key={at} className="text-[0.9375rem] leading-relaxed text-foreground/90" style={{ display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: 3, overflow: 'hidden' }}>{line}</p>)}
+              {blocks.more > 0 && <p className="text-control text-muted-foreground">And {plural(blocks.more, 'more line', 'more lines')} with #{tag}</p>}
+            </div>
+          </>
+        ) : <>
         {title && <h3 data-entry-title className="mb-1 font-semibold text-foreground">{title}</h3>}
-        <p data-entry-words className="max-w-[68ch] text-[0.9375rem] leading-relaxed whitespace-pre-line text-foreground/90" style={{ display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: LINES, overflow: 'hidden' }}>{lead || 'New note'}</p>
-        {picture && <img data-entry-picture src={picture} alt="" loading="lazy" draggable={false} className="mt-2.5 max-h-60 max-w-full rounded-md object-contain" />}
+        <p data-entry-words className="max-w-[68ch] text-[0.9375rem] leading-relaxed whitespace-pre-line text-foreground/90" style={{ display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: LINES, overflow: 'hidden' }}>{lead || 'New note'}</p></>}
+        {picture && !blocks && <img data-entry-picture src={picture} alt="" loading="lazy" draggable={false} className="mt-2.5 max-h-60 max-w-full rounded-md object-contain" />}
       </div>
       {/* Only what sets it apart: its kind where kinds are mixed, a state, tags the others do not carry. Quiet, out of the words' way. */}
       {aside && (
