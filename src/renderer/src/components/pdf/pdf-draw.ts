@@ -95,3 +95,30 @@ export const keepPage = (key: string, canvas: HTMLCanvasElement): void => {
     if (!gone.isConnected) gone.width = gone.height = 0
   }
 }
+
+/**
+ * Whether the pages are being scrolled now, and until when: thumbnails wait
+ * for the pages to rest (a pause of `REST` ms), so a fast scroll never draws
+ * the rail's pictures between its frames, and the rail does not glide behind it.
+ */
+const REST = 150
+let moving = 0
+const onStill: (() => void)[] = []
+export const pagesMoving = (): boolean => moving !== 0
+/** Told by the pages on each scroll. */
+export function pagesScrolled(): void {
+  window.clearTimeout(moving)
+  moving = window.setTimeout(() => {
+    moving = 0
+    onStill.splice(0).forEach((run) => run())
+  }, REST)
+}
+/** `run` now if the pages rest, else once they do; the answer drops it if it has not run. */
+export function whenStill(run: () => void): () => void {
+  if (!moving) return run(), () => {}
+  onStill.push(run)
+  return () => {
+    const at = onStill.indexOf(run)
+    if (at >= 0) onStill.splice(at, 1)
+  }
+}

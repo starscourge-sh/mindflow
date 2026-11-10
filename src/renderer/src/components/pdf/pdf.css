@@ -50,6 +50,8 @@
   box-shadow: 0 0 0 1px var(--tt-border-color), 0 2px 8px -4px rgb(0 0 0 / 0.18);
   --scale-round-x: 1px;
   --scale-round-y: 1px;
+  /* Its size is set, and nothing in it reaches out: a page laid out or painted afresh never touches the others. */
+  contain: strict;
 }
 
 .pdf-canvas {
@@ -70,6 +72,7 @@
   --min-font-size: 1;
   --text-scale-factor: calc(var(--total-scale-factor) * var(--min-font-size));
   --min-font-size-inv: calc(1 / var(--min-font-size));
+  contain: strict;
 }
 
 .pdf-page .textLayer :is(span, br) {
@@ -242,12 +245,14 @@
   flex: none;
   align-items: center;
   gap: 0.75rem;
-  padding: 0.5rem 1rem;
+  /* One height always: a chapter's name, long or short, never grows the bar or moves its tools. */
+  height: 3rem;
+  padding: 0 1rem;
   border-bottom: 1px solid var(--tt-border-color);
 }
 
 .pdf-reader-title {
-  flex: 1;
+  flex: 0 1 auto;
   min-width: 0;
   overflow: hidden;
   font-size: 1rem;
@@ -262,8 +267,12 @@
   display: flex;
   /* All the free room, whatever the chapter's name: the page field beside it never moves as you read or scrub. */
   flex: 1 1 0;
-  flex-direction: column;
+  /* The book, then the chapter on the same line, each cut short with "…" before it could wrap. */
+  align-items: baseline;
+  gap: 0.5rem;
   min-width: min(10rem, 40%);
+  overflow: hidden;
+  white-space: nowrap;
 }
 
 .pdf-reader-bar button {
@@ -294,7 +303,10 @@
 /* The chapter you are in, under the title, from the PDF's outline. */
 .pdf-reader-chapter {
   display: block;
+  flex: 1 1 0;
+  min-width: 3rem;
   overflow: hidden;
+  white-space: nowrap;
   font-size: 0.8125rem;
   font-weight: 500;
   color: var(--muted-foreground);
@@ -524,10 +536,26 @@
 .pdf-scan-close:hover { background: color-mix(in oklab, var(--foreground) 7%, transparent); color: var(--foreground); }
 
 /* Find in a PDF: the note's own find bar, under the reader's bar. */
+/* Find floats over the pages' top right corner, as a note's does: opening it never pushes the page down. */
 .pdf-find-bar {
-  flex: none;
-  margin: 0.5rem 1rem 0;
-  align-self: flex-end;
+  position: absolute;
+  z-index: 7;
+  top: 3.5rem;
+  right: 1rem;
+  margin: 0;
+}
+
+/* Looking through the pages: the count shimmers until every page is read. */
+.pdf-find-bar[data-seeking] .tiptap-find-bar-count {
+  animation: pdf-find-seek 1.1s ease-in-out infinite;
+}
+
+@keyframes pdf-find-seek {
+  50% { opacity: 0.45; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pdf-find-bar[data-seeking] .tiptap-find-bar-count { animation: none; opacity: 0.6; }
 }
 
 .pdf-find-bar button {

@@ -39,5 +39,8 @@ function soon(): void {
   if (!frame) frame = requestAnimationFrame(mark)
 }
 
-new MutationObserver(soon).observe(document.documentElement, { childList: true, subtree: true, characterData: true })
+// A PDF's pages change by the dozen as they are scrolled, and hold no faded list: their changes are passed over.
+const PASSED = '.pdf-pages'
+const counts = (one: MutationRecord): boolean => !(one.target instanceof Element ? one.target : one.target.parentElement)?.closest(PASSED)
+new MutationObserver((changes) => changes.some(counts) && soon()).observe(document.documentElement, { childList: true, subtree: true, characterData: true })
 soon()

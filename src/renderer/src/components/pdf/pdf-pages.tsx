@@ -1,11 +1,11 @@
 import { DARK_PAGE } from "./paper"
 import { cleanTitle } from "@/lib/clean-title"
-import { useEffect, useLayoutEffect, useRef, useState } from "react"
+import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { GlobalWorkerOptions, OPS, TextLayer, Util, getDocument, type PDFDocumentProxy, type PDFPageProxy } from "pdfjs-dist"
 import workerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url"
 import "./pdf.css"
 import { markCss } from "./read-bar"
-import { AHEAD as NEXT_TO, IN_VIEW, drawInTurn, keepPage, keptPage, type Turn } from "./pdf-draw"
+import { AHEAD as NEXT_TO, IN_VIEW, drawInTurn, keepPage, keptPage, pagesScrolled, type Turn } from "./pdf-draw"
 
 // A drag begun on a page's words selects across every page of that book: each page's end stretches to take the
 // pointer wherever it goes, until the press ends (pdf.css .textLayer.selecting .endOfContent).
@@ -47,6 +47,31 @@ GlobalWorkerOptions.workerSrc = workerUrl
 
 /** One open document per address, shared by every view of it in the window. */
 const open = new Map<string, Promise<PDFDocumentProxy>>()
+/** How many views show each document now (a reader, a note's PDF block). */
+const holds = new Map<string, number>()
+
+/**
+ * A view showing a document: while it is held it stays open. Put down, it is
+ * kept until another is put down; every document no view shows (a cover's,
+ * a peek's, a book read before) is then closed and its memory freed, so
+ * reading one book after another never piles up hundreds of megabytes.
+ */
+export function holdPdf(src: string): () => void {
+  holds.set(src, (holds.get(src) ?? 0) + 1)
+  let held = true
+  return () => {
+    if (!held) return
+    held = false
+    const left = (holds.get(src) ?? 1) - 1
+    if (left > 0) return void holds.set(src, left)
+    holds.delete(src)
+    for (const [other, doc] of open) {
+      if (other === src || holds.has(other)) continue
+      open.delete(other)
+      void doc.then((one) => one.loadingTask.destroy()).catch(() => {})
+    }
+  }
+}
 
 /** The document at a `haligtree://` address. Fetched here, so pdf.js never needs the scheme. */
 export function loadPdf(src: string): Promise<PDFDocumentProxy> {
@@ -203,30 +228,59 @@ async function picturesOn(proxy: PDFPageProxy): Promise<number[][]> {
  * drawing stays orange), its photos kept true. Any other picture is put back whole.
  */
 export async function truePictures(proxy: PDFPageProxy, viewport: ReturnType<PDFPageProxy["getViewport"]>, canvas: HTMLCanvasElement, density: number): Promise<void> {
-  const boxes = await picturesOn(proxy)
-  if (!boxes.length) return
-  const plain = document.createElement("canvas")
-  plain.width = canvas.width
-  plain.height = canvas.height
-  await proxy.render({ canvas: plain, viewport, transform: density === 1 ? undefined : [density, 0, 0, density, 0, 0] }).promise
-  const ink = canvas.getContext("2d")
-  const truth = plain.getContext("2d")
-  if (!ink || !truth) return
-  for (const box of boxes) {
+  // Each picture's box on the canvas, in its pixels.
+  const boxes = (await picturesOn(proxy)).flatMap((box) => {
     const [x1, y1] = carry(box[0], box[1], viewport.transform)
     const [x2, y2] = carry(box[2], box[3], viewport.transform)
     const x = Math.max(0, Math.floor(Math.min(x1, x2) * density)), y = Math.max(0, Math.floor(Math.min(y1, y2) * density))
     const w = Math.min(canvas.width - x, Math.ceil(Math.abs(x2 - x1) * density)), h = Math.min(canvas.height - y, Math.ceil(Math.abs(y2 - y1) * density))
-    if (w <= 0 || h <= 0) continue
-    const own = truth.getImageData(x, y, w, h)
+    return w > 0 && h > 0 ? [{ x, y, w, h }] : []
+  })
+  if (!boxes.length) return
+  // The page in its own colours, drawn only over the pictures (a small photo on a page of text costs a small canvas).
+  const left = Math.min(...boxes.map((one) => one.x)), top = Math.min(...boxes.map((one) => one.y))
+  const plain = document.createElement("canvas")
+  plain.width = Math.max(...boxes.map((one) => one.x + one.w)) - left
+  plain.height = Math.max(...boxes.map((one) => one.y + one.h)) - top
+  await proxy.render({ canvas: plain, viewport, transform: [density, 0, 0, density, -left, -top] }).promise
+  const ink = canvas.getContext("2d")
+  const truth = plain.getContext("2d")
+  if (!ink || !truth) return
+  // Where the page's words are, read from its text: a scanned book's own letters, however big and black, are print.
+  let words: number[][] | null = null
+  for (const { x, y, w, h } of boxes) {
+    const own = truth.getImageData(x - left, y - top, w, h)
     if (!isPaper(own.data)) {
-      ink.drawImage(plain, x, y, w, h, x, y, w, h)
+      ink.drawImage(plain, x - left, y - top, w, h, x, y, w, h)
       continue
     }
+    words ??= await wordBoxes(proxy, viewport, density)
     const dark = ink.getImageData(x, y, w, h)
-    mixPaper(own.data, dark.data, w, h, tileFor(canvas.width))
+    mixPaper(own.data, dark.data, w, h, tileFor(canvas.width), words.map(([a, b, c, d]) => [a - x, b - y, c - x, d - y]))
     ink.putImageData(dark, x, y)
   }
+  plain.width = plain.height = 0
+}
+
+/**
+ * Where each run of a page's words sits on its canvas, as [left, top, right,
+ * bottom] in pixels: a scanned page's text (read from the scan, laid unseen over
+ * it) says where its print is, the big display type of a chapter's opening too,
+ * which by its tones alone reads as a photo and was drawn as hollow outlines.
+ */
+async function wordBoxes(proxy: PDFPageProxy, viewport: ReturnType<PDFPageProxy["getViewport"]>, density: number): Promise<number[][]> {
+  const content = await proxy.getTextContent().catch(() => null)
+  const boxes: number[][] = []
+  for (const item of content?.items ?? []) {
+    if (!("str" in item) || !item.str.trim() || !item.width) continue
+    const at = Util.transform(viewport.transform, item.transform)
+    const tall = Math.hypot(at[2], at[3])
+    // Level lines only: a turned caption is rare, and its box would not be square to the page.
+    if (Math.abs(at[1]) > 0.01 * tall || !tall) continue
+    const x = at[4], base = at[5], wide = item.width * viewport.scale
+    boxes.push([x * density, (base - tall) * density, (x + wide) * density, (base + tall * 0.25) * density])
+  }
+  return boxes
 }
 
 /** The side of a square read as one piece of a page-sized picture (print, or part of a photo), as a share of the
@@ -247,7 +301,7 @@ const tileFor = (pageWidth: number): number => Math.max(4, Math.min(24, Math.rou
  * paper always darkens and dark beside a photo stays the photo's, so no pale
  * rim is left round a photo.
  */
-function mixPaper(o: Uint8ClampedArray, d: Uint8ClampedArray, w: number, h: number, TILE: number): void {
+function mixPaper(o: Uint8ClampedArray, d: Uint8ClampedArray, w: number, h: number, TILE: number, words: number[][] = []): void {
   const cols = Math.ceil(w / TILE), rows = Math.ceil(h / TILE)
   // 0 print, 1 photo, 2 not yet known.
   const kind = new Uint8Array(cols * rows)
@@ -270,6 +324,13 @@ function mixPaper(o: Uint8ClampedArray, d: Uint8ClampedArray, w: number, h: numb
     let gathered = 0
     for (let bin = 9; bin < 30; bin++) if (bins[bin] > gathered) gathered = bins[bin]
     kind[ty * cols + tx] = gathered / seen >= 0.15 ? 1 : paper / seen >= 0.1 && inked / seen < 0.5 ? 0 : 2
+  }
+  // A piece mostly under the page's own words is print, whatever its tones: the inside of a big black letter.
+  for (const [x1, y1, x2, y2] of words) {
+    for (let ty = Math.max(0, Math.floor(y1 / TILE)); ty < Math.min(rows, Math.ceil(y2 / TILE)); ty++) for (let tx = Math.max(0, Math.floor(x1 / TILE)); tx < Math.min(cols, Math.ceil(x2 / TILE)); tx++) {
+      const cover = (Math.min(x2, tx * TILE + TILE) - Math.max(x1, tx * TILE)) * (Math.min(y2, ty * TILE + TILE) - Math.max(y1, ty * TILE))
+      if (cover >= (TILE * TILE) / 2) kind[ty * cols + tx] = 0
+    }
   }
   // Flat pieces join the photo they touch.
   const queue: number[] = []
@@ -474,6 +535,7 @@ export function PdfPages({
 
   useEffect(() => {
     let live = true
+    const putDown = holdPdf(src)
     loadPdf(src)
       .then(async (loaded) => {
         const first = (await loaded.getPage(1)).getViewport({ scale: 1 })
@@ -485,6 +547,7 @@ export function PdfPages({
       .catch(() => live && setFailed(true))
     return () => {
       live = false
+      putDown()
     }
     // onLoad is read once per document on purpose.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -556,12 +619,16 @@ export function PdfPages({
     if (!view) return
     let last = view.scrollTop
     const note = (): void => {
-      if (view.scrollTop !== last) heading.current = view.scrollTop > last ? 1 : -1
-      last = view.scrollTop
+      pagesScrolled()
+      const now = view.scrollTop
+      if (now !== last) heading.current = now > last ? 1 : -1
+      last = now
       const top = view.getBoundingClientRect().top
-      for (const sheet of box.current?.querySelectorAll<HTMLElement>(".pdf-page") ?? []) {
+      // The first sheet whose bottom is past the view's top, found by halves: a few reads, not one per page.
+      const sheet = sheetAt(box.current, (r) => r.bottom > top)
+      if (sheet) {
         const r = sheet.getBoundingClientRect()
-        if (r.bottom > top) return void (place.current = { page: Number(sheet.dataset.page), f: (top - r.top) / r.height })
+        place.current = { page: Number(sheet.dataset.page), f: (top - r.top) / r.height }
       }
     }
     view.addEventListener("scroll", note, { passive: true })
@@ -576,20 +643,52 @@ export function PdfPages({
     view.scrollTop += r.top + kept.f * r.height - view.getBoundingClientRect().top
   }, [scale, scroller])
 
+  // Each page's marks, gathered once: a page whose marks did not change is handed the same list, and is not drawn again.
+  const byPage = useMemo(() => {
+    const all = new Map<number, PdfMark[]>()
+    for (const mark of marks) all.set(mark.page, [...(all.get(mark.page) ?? []), mark])
+    return all
+  }, [marks])
+  // The latest "put right" handler, behind one that never changes, so a new one from the reader redraws no page.
+  const wordsNow = useRef(onWords)
+  wordsNow.current = onWords
+  const fixWords = useMemo(() => (mark: PdfMark, quote: string) => wordsNow.current?.(mark, quote), [])
+
   if (failed) return <div className="pdf-pages is-failed">This PDF could not be read.</div>
   return (
     <div ref={box} className={`pdf-pages${spread ? " is-spread" : ""}`} data-fit={fit}>
       {doc && scale > 0 && spread && <div aria-hidden className="pdf-page-gap" style={{ width: size!.w * scale, height: size!.h * scale }} />}
       {doc && scale > 0 &&
         Array.from({ length: doc.numPages }, (_, index) => (
-          <PdfPage key={index + 1} doc={doc} page={index + 1} scale={scale} guess={size!} rank={shown.get(index + 1)} marks={marks.filter((mark) => mark.page === index + 1)} flash={flash} onWords={onWords} dark={dark} />
+          <PdfPage key={index + 1} doc={doc} page={index + 1} scale={scale} guess={size!} rank={shown.get(index + 1)} marks={byPage.get(index + 1) ?? NO_MARKS} flash={flash} onWords={onWords ? fixWords : undefined} dark={dark} />
         ))}
     </div>
   )
 }
 
-/** One sheet: its size always, its picture and words only while near the view. */
-function PdfPage({ doc, page, scale, guess, rank, marks, flash, onWords, dark = false }: { doc: PDFDocumentProxy; page: number; scale: number; guess: { w: number; h: number }; rank?: number; marks: PdfMark[]; flash?: string | null; onWords?: (mark: PdfMark, quote: string) => void; dark?: boolean }): React.JSX.Element {
+const NO_MARKS: PdfMark[] = []
+
+/**
+ * The sheet of `pages` (a `.pdf-pages` box) that is first to pass `test`, found
+ * by halves: the sheets run top to bottom, so a scroll reads a few of them, not
+ * every page of a long book.
+ */
+export function sheetAt(pages: Element | null | undefined, test: (box: DOMRect) => boolean): HTMLElement | null {
+  const sheets = pages?.children
+  if (!sheets) return null
+  let low = 0, high = sheets.length - 1, found: HTMLElement | null = null
+  while (low <= high) {
+    const mid = (low + high) >> 1
+    const one = sheets[mid] as HTMLElement
+    // The empty sheet before a spread's cover is no page: it is taken with the first.
+    if (test(one.getBoundingClientRect())) (found = one.dataset.page ? one : (sheets[mid + 1] as HTMLElement) ?? null, (high = mid - 1))
+    else low = mid + 1
+  }
+  return found
+}
+
+/** One sheet: its size always, its picture and words only while near the view. Drawn again only when its own props change. */
+const PdfPage = memo(function PdfPage({ doc, page, scale, guess, rank, marks, flash, onWords, dark = false }: { doc: PDFDocumentProxy; page: number; scale: number; guess: { w: number; h: number }; rank?: number; marks: PdfMark[]; flash?: string | null; onWords?: (mark: PdfMark, quote: string) => void; dark?: boolean }): React.JSX.Element {
   const sheet = useRef<HTMLDivElement>(null)
   const [own, setOwn] = useState<{ w: number; h: number } | null>(null)
   // The words on this page are laid out: marks can be measured against them.
@@ -607,15 +706,22 @@ function PdfPage({ doc, page, scale, guess, rank, marks, flash, onWords, dark = 
   const wanted = useRef(rank)
   wanted.current = rank
   const turn = useRef<Turn | null>(null)
+  // Drawn since it last left the view: its pdf.js page holds memory to let go.
+  const opened = useRef(false)
   useEffect(() => void (rank !== undefined && turn.current?.rerank(rank)), [rank])
   useEffect(() => {
     const el = sheet.current
     if (!el) return
-    // Far from the view: the sheet keeps its size and lets its picture go.
+    // Far from the view: the sheet keeps its size and lets its picture go, and pdf.js the page's fonts and pictures.
     if (!drawn) {
       el.replaceChildren()
+      if (opened.current) {
+        opened.current = false
+        void doc.getPage(page).then((proxy) => proxy.cleanup()).catch(() => {})
+      }
       return
     }
+    opened.current = true
     let live = true
     let stop = (): void => {}
     const ratio = window.devicePixelRatio || 1
@@ -672,8 +778,9 @@ function PdfPage({ doc, page, scale, guess, rank, marks, flash, onWords, dark = 
       sized(proxy)
       const viewport = proxy.getViewport({ scale })
       // A rough picture first, at half the view's size, so the page shows while the sharp one is drawn.
-      // Skipped when a picture of it is already up (a zoom): the old one stays until the sharp one replaces it.
-      if (!el.querySelector("canvas")) {
+      // Skipped when a picture of it is already up (a zoom): the old one stays until the sharp one replaces it;
+      // and for a page drawn ahead, out of sight, which nobody sees until its sharp picture is long up.
+      if (!el.querySelector("canvas") && (wanted.current ?? IN_VIEW) === IN_VIEW) {
         const rough = canvasAt(viewport, 0.5)
         rough.dataset.pass = "rough"
         const quick = proxy.render({ canvas: rough, viewport, transform: [0.5, 0, 0, 0.5, 0, 0], ...colours })
@@ -709,4 +816,4 @@ function PdfPage({ doc, page, scale, guess, rank, marks, flash, onWords, dark = 
       style={{ width: size.w * scale, height: size.h * scale, "--total-scale-factor": scale } as React.CSSProperties}
     />
   )
-}
+})

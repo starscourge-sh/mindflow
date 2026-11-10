@@ -9,7 +9,7 @@ import { spring } from "@/lib/motion"
 import { BackToTop } from "@/components/haligtree/ui"
 import { glideIntoView } from "@/lib/glide-into-view"
 import type { PDFDocumentProxy } from "pdfjs-dist"
-import { THUMB, drawInTurn } from "./pdf-draw"
+import { THUMB, drawInTurn, pagesMoving, whenStill } from "./pdf-draw"
 
 /** Which list the rail shows: the pages small, or the PDF's own outline. Highlights are in Details. */
 export type RailTab = "pages" | "outline"
@@ -92,8 +92,9 @@ export function PdfThumb({ doc, page, here, onGo }: { doc: PDFDocumentProxy; pag
     if (drawnAt.current >= wide && drawnDark.current === dark) return
     let live = true
     let stop = (): void => {}
-    // After every page in view: the thumbnails wait their turn behind them.
-    const drop = drawInTurn(THUMB, async (stopped) => {
+    let drop = (): void => {}
+    // After every page in view: the thumbnails wait their turn behind them, and for the pages to rest from a scroll.
+    const unwait = whenStill(() => void (drop = drawInTurn(THUMB, async (stopped) => {
       const one = await doc.getPage(page)
       const flat = one.getViewport({ scale: 1 })
       if (!live || stopped() || !canvas.current) return
@@ -114,9 +115,10 @@ export function PdfThumb({ doc, page, here, onGo }: { doc: PDFDocumentProxy; pag
       shown.getContext("2d")?.drawImage(off, 0, 0)
       drawnAt.current = wide
       drawnDark.current = dark
-    })
+    })))
     return () => {
       live = false
+      unwait()
       drop()
       stop()
     }
@@ -124,7 +126,8 @@ export function PdfThumb({ doc, page, here, onGo }: { doc: PDFDocumentProxy; pag
   // The rail follows the page you are on with a calm glide; opened on a page, it is simply there.
   const shownOnce = useRef(false)
   useEffect(() => {
-    if (here) glideIntoView(box.current, { jump: !shownOnce.current })
+    // While the pages are scrolled fast the rail keeps up at once: a glide behind every page passed only adds work.
+    if (here) glideIntoView(box.current, { jump: !shownOnce.current || pagesMoving() })
     shownOnce.current = true
   }, [here])
   return (

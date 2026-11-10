@@ -23,7 +23,7 @@ import { LookUpCard, type LookedUpIn } from "./look-up"
 import { usePdfCover } from "./pdf-cover"
 import { detailsOutHere, showDetails, useDetailsShown } from "@/lib/reading"
 import { ScanDetail, ScanLine } from "./pdf-scan"
-import { PdfPages, forgetPdf, loadPdf, offsetsIn, pdfAuthor, pdfTitle, wordsIn, type PdfMark } from "./pdf-pages"
+import { PdfPages, forgetPdf, loadPdf, offsetsIn, pdfAuthor, pdfTitle, sheetAt, wordsIn, type PdfMark } from "./pdf-pages"
 import { FitActions } from "@/components/haligtree/ui"
 import { LAYOUTS, LOOKS, useDarkPages, usePageLayout, usePageLook, usePaperPages, type PageLayout, type PageLook } from "./paper"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
@@ -177,29 +177,81 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
   // ⌘F: the words looked for, every place they are, and the one on show.
   const [finding, setFinding] = useState(false)
   const [found, setFound] = useState<PdfMark[]>([])
-  const [at, setAt] = useState(0)
+  const [current, setCurrent] = useState<string | null>(null)
+  // The match on show, by its place in the book: matches found later, on earlier pages, never move it.
+  const at = Math.max(0, found.findIndex((one) => one.id === current))
   const pageTexts = useRef<Map<number, string>>(new Map())
   const findField = useRef<HTMLInputElement>(null)
-  const find = async (words: string): Promise<void> => {
-    if (!doc || !words.trim()) return setFound([])
-    const look = words.toLowerCase()
-    const hits: PdfMark[] = []
-    for (let n = 1; n <= doc.numPages; n++) {
-      let text = pageTexts.current.get(n)
-      if (text === undefined) {
-        const content = await (await doc.getPage(n)).getTextContent()
-        // The same characters the page's text layer holds, in the same order, so offsets agree.
-        text = content.items.map((item) => ("str" in item ? item.str : "")).join("")
-        pageTexts.current.set(n, text)
-      }
-      const lower = text.toLowerCase()
-      for (let from = lower.indexOf(look); from >= 0; from = lower.indexOf(look, from + look.length))
-        hits.push({ id: `find:${hits.length}`, page: n, quote: text.slice(from, from + look.length), start: from, end: from + look.length })
+  /** A page's words, as its text layer holds them (the same characters in the same order, so offsets agree): read once. */
+  const textOf = async (loaded: PDFDocumentProxy, n: number): Promise<string> => {
+    let text = pageTexts.current.get(n)
+    if (text === undefined) {
+      const content = await (await loaded.getPage(n)).getTextContent()
+      text = content.items.map((item) => ("str" in item ? item.str : "")).join("")
+      pageTexts.current.set(n, text)
     }
-    setFound(hits)
-    setAt(0)
-    if (hits[0]) go(hits[0].page)
+    return text
   }
+  // Each search is counted: a newer one (a key typed since) drops what an older one finds.
+  const findRun = useRef(0)
+  const findWait = useRef(0)
+  const [seeking, setSeeking] = useState(false)
+  /** Looks for the words a moment after the last key, from the page you are on onward, all pages read a few at once. */
+  const find = (words: string): void => {
+    window.clearTimeout(findWait.current)
+    const run = ++findRun.current
+    if (!doc || !words.trim()) return void (setFound([]), setSeeking(false))
+    setSeeking(true)
+    findWait.current = window.setTimeout(() => void seek(doc, words.toLowerCase(), run), 150)
+  }
+  const seek = async (loaded: PDFDocumentProxy, look: string, run: number): Promise<void> => {
+    const total = loaded.numPages
+    const order = Array.from({ length: total }, (_, i) => ((page - 1 + i) % total) + 1)
+    const hits = new Map<number, PdfMark[]>()
+    let shown = false
+    // Eight pages at a time: the worker reads them back to back, and the count grows as each batch is in.
+    for (let i = 0; i < order.length; i += 8) {
+      const batch = order.slice(i, i + 8)
+      const texts = await Promise.all(batch.map((n) => textOf(loaded, n).catch(() => "")))
+      if (run !== findRun.current) return
+      batch.forEach((n, k) => {
+        const text = texts[k]
+        const lower = text.toLowerCase()
+        const here: PdfMark[] = []
+        for (let from = lower.indexOf(look); from >= 0; from = lower.indexOf(look, from + look.length))
+          here.push({ id: `find:${n}:${from}`, page: n, quote: text.slice(from, from + look.length), start: from, end: from + look.length })
+        if (here.length) hits.set(n, here)
+      })
+      const all = [...hits.keys()].sort((a, b) => a - b).flatMap((n) => hits.get(n)!)
+      // The first match on or after the page you are on, shown as soon as it is found.
+      const first = shown ? null : batch.map((n) => hits.get(n)?.[0]).find(Boolean)
+      setFound(all)
+      if (first) {
+        shown = true
+        setCurrent(first.id)
+        go(first.page)
+      }
+    }
+    if (run === findRun.current) setSeeking(false)
+  }
+  // The words of every page read while nothing else is asked, once the book is open: a find then answers at once.
+  useEffect(() => {
+    if (!doc) return
+    // Read afresh for a new copy of the book (its pages read since, with their words).
+    pageTexts.current = new Map()
+    let next = 1
+    let ask = 0
+    const warm = (): void => {
+      if (next > doc.numPages) return
+      const batch = Array.from({ length: Math.min(4, doc.numPages - next + 1) }, (_, i) => next + i)
+      next += batch.length
+      void Promise.all(batch.map((n) => textOf(doc, n).catch(() => ""))).then(() => void (ask = requestIdleCallback(warm, { timeout: 2000 })))
+    }
+    ask = requestIdleCallback(warm, { timeout: 2000 })
+    return () => cancelIdleCallback(ask)
+    // textOf reads only refs.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [doc])
   // Once a book is open, every highlight in it kept before line ends were read as spaces ("thenature",
   // "shapedpolitical") is put right from its page's own text, the pages never drawn too, and its gem with it (main).
   const mended = useRef<string | null>(null)
@@ -238,13 +290,17 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
   const stepFind = (back: boolean): void => {
     if (!found.length) return cue("find-miss")
     const next = (at + (back ? found.length - 1 : 1)) % found.length
-    setAt(next)
+    setCurrent(found[next].id)
     go(found[next].page)
     cue("find-step", next)
   }
   const closeFind = (): void => {
     setFinding(false)
     setFound([])
+    // A search still reading pages stops here.
+    findRun.current++
+    window.clearTimeout(findWait.current)
+    setSeeking(false)
     cue("find-close")
   }
   useEffect(() => {
@@ -835,11 +891,11 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
     const box = scroller.current
     if (!box) return
     const line = box.getBoundingClientRect().top + box.clientHeight / 3
-    let at = 1
-    for (const sheet of box.querySelectorAll<HTMLElement>(".pdf-page")) {
-      if (sheet.getBoundingClientRect().top > line) break
-      at = Number(sheet.dataset.page)
-    }
+    // The first sheet below the line, found by halves (a few reads, not one per page): the page before it is on show.
+    const pages = box.querySelector(".pdf-pages")
+    if (!pages?.querySelector(".pdf-page")) return
+    const below = sheetAt(pages, (r) => r.top > line)
+    const at = Math.max(1, below ? Number(below.dataset.page) - 1 : doc?.numPages ?? 1)
     if (at !== page) {
       setPage(at)
       onPage?.(at)
@@ -927,7 +983,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
         </FitActions>
       </div>
       {finding && (
-        <div className="tiptap-find-bar pdf-find-bar">
+        <div className="tiptap-find-bar pdf-find-bar" data-seeking={seeking ? "" : undefined} aria-busy={seeking}>
           <div className="tiptap-find-bar-row">
             <input
               ref={findField}
@@ -935,7 +991,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
               placeholder="Find"
               aria-label="Find in PDF"
               autoFocus
-              onChange={(event) => void find(event.target.value)}
+              onChange={(event) => find(event.target.value)}
               onKeyDown={(event) => {
                 if (event.key === "Enter") {
                   event.preventDefault()

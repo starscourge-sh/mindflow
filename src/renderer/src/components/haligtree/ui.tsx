@@ -1874,20 +1874,16 @@ export function BackToTop({ target }: { target: HTMLElement | null }): React.JSX
     const box = target
     setShown(false)
     if (!box) return
-    // Read once a frame, at its start, with the box's height kept from its
-    // resizes: read on every scroll event, in the middle of a long list
-    // drawing its next rows, it made the page lay itself out again each time.
+    // The scroll read in the scroll event itself, where the page is already laid out, with the box's height kept
+    // from its resizes: read in the next frame's callback instead, after pages and rows had changed, it made the
+    // whole page lay itself out again in the middle of a fast scroll.
     // Its height first read when the size watch tells of it, once laid out: read here, as the page mounted, it laid it all out there and then.
     let height = Infinity
-    let asked = 0
     const sized = new ResizeObserver(() => (height = box.clientHeight))
     sized.observe(box)
-    const check = (): void => {
-      if (asked) return
-      asked = requestAnimationFrame(() => ((asked = 0), setShown(box.scrollTop > height * 1.5)))
-    }
+    const check = (): void => setShown(box.scrollTop > height * 1.5)
     box.addEventListener('scroll', check, { passive: true })
-    return () => (box.removeEventListener('scroll', check), sized.disconnect(), cancelAnimationFrame(asked))
+    return () => (box.removeEventListener('scroll', check), sized.disconnect())
   }, [target])
   return (
     // Bottom right, in a strip of its own, so the spring can own the button's transform.
