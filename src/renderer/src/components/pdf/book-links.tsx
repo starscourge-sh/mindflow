@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react"
+import { labelFor } from "./pdf-labels"
 import { ChevronRight } from "lucide-react"
 import { chime } from "@/lib/sound"
 import { openApart } from "@/lib/apart"
@@ -201,7 +202,7 @@ export function PageBar({ src, name, pages, page, cited, marks, onPage }: { src:
   return (
     <div className="book-bar" data-page-bar>
       {/* The point first, in full ink; then what the strip shows; then the strip, the first and last page under it. */}
-      <p className="book-bar-you">{page ? <>You are on p. {page.toLocaleString()} of {pages.toLocaleString()}</> : "Not started"}</p>
+      <p className="book-bar-you">{page ? <>You are on p. {labelFor(src, page)} of {labelFor(src, pages)}</> : "Not started"}</p>
       <StrokeRule>Each stroke is a few pages, the solid ones read; the coloured one is where you are, a taller one holds highlights or notes</StrokeRule>
       <div className="book-bar-strip">
         {page ? <span className="book-bar-read" style={{ width: left(page) }} /> : null}
@@ -210,10 +211,10 @@ export function PageBar({ src, name, pages, page, cited, marks, onPage }: { src:
           if (!all) return null
           const says = [counted(one.marks, "highlight", "highlights"), counted(one.notes, "note", "notes"), counted(one.cards, "card", "cards")].filter(Boolean).join(", ")
           return (
-            <Tip key={at} label={`${one.from === one.to ? `p. ${one.from}` : `pp. ${one.from} to ${one.to}`}: ${says}`}>
+            <Tip key={at} label={`${one.from === one.to ? `p. ${labelFor(src, one.from)}` : `pp. ${labelFor(src, one.from)} to ${labelFor(src, one.to)}`}: ${says}`}>
               <button
                 type="button"
-                aria-label={`Open at p. ${one.first}`}
+                aria-label={`Open at p. ${labelFor(src, one.first)}`}
                 data-tick={one.notes ? "note" : one.marks ? "mark" : "card"}
                 data-tick-page={one.first}
                 className="book-bar-tick"

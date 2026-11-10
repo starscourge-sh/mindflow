@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react"
+import { labelFor } from "./pdf-labels"
 import { Search } from "lucide-react"
 import { BackToTop, VirtualList } from "@/components/haligtree/ui"
 import { useLive } from "@/lib/haligtree"
@@ -120,7 +121,7 @@ export function ReadDetails({ src, name, cover, title, author, pages, page, chap
             {onJoin && stacked.length > 0 && (
               <div className="read-details-stacked" data-stacked={stacked.length}>
                 <span>
-                  {stacked.length === 1 ? `Two highlights cover the same words on p. ${stacked[0][0].page}.` : `${stacked.length.toLocaleString()} places have two highlights over the same words.`}
+                  {stacked.length === 1 ? `Two highlights cover the same words on p. ${labelFor(src, stacked[0][0].page)}.` : `${stacked.length.toLocaleString()} places have two highlights over the same words.`}
                 </span>
                 <button type="button" className="read-details-action" onClick={() => stacked.forEach((group) => onJoin(group))}>
                   {stacked.length === 1 ? "Join them" : "Join each"}
@@ -136,7 +137,7 @@ export function ReadDetails({ src, name, cover, title, author, pages, page, chap
                   ) : (
                     // The words as they look on the page, the marker's colour behind them alone; the whole of them once picked.
                     <button type="button" data-first={line.first ? "" : undefined} data-part={line.part} className={`read-details-mark${line.row.id === lit ? " is-here" : ""}`} style={{ "--mark": markCss(line.row.color) } as React.CSSProperties} onClick={() => onMark(line.row)}>
-                      <span className="read-details-mark-page">{pages ? `p. ${line.row.page}` : ""}</span>
+                      <span className="read-details-mark-page">{pages ? `p. ${labelFor(src, line.row.page)}` : ""}</span>
                       <span className="read-details-mark-words">
                         <span className={line.row.color === "later" ? "is-later" : undefined}>{line.row.quote}</span>
                       </span>

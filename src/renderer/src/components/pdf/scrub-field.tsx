@@ -38,7 +38,20 @@ export async function typedSum(typed: string, value: number): Promise<number | n
  * first and last, any of `marks` (a chapter's start), and the value it
  * showed as you came to it, firmly.
  */
-export function ScrubField({ value, max, onChange, label = "Page", min = 1, className = "pdf-reader-page-field", marks }: { value: number; max: number; onChange: (n: number) => void; label?: string; min?: number; className?: string; marks?: ReadonlySet<number> }): React.JSX.Element {
+export function ScrubField({ value, max, onChange, label = "Page", min = 1, className = "pdf-reader-page-field", marks, show, read }: {
+  value: number
+  max: number
+  onChange: (n: number) => void
+  label?: string
+  min?: number
+  className?: string
+  marks?: ReadonlySet<number>
+  /** How a value is written in the field: a book's printed page ("48", "xii") for its place in the file. */
+  show?: (n: number) => string
+  /** A value from what was typed (a printed page), else null, and the typed words are worked out as a sum. */
+  read?: (typed: string) => number | null
+}): React.JSX.Element {
+  const shown = (n: number): string => (show ? show(n) : String(n))
   const field = useRef<HTMLInputElement>(null)
   const [typed, setTyped] = useState<string | null>(null)
   /** The page shown as the pointer came over the field: the page you came from, felt firmly on the way back. */
@@ -93,7 +106,7 @@ export function ScrubField({ value, max, onChange, label = "Page", min = 1, clas
       data-scrub-field=""
       data-swipe-own=""
       inputMode="decimal"
-      value={typed ?? String(value)}
+      value={typed ?? shown(value)}
       onPointerDown={(event) => {
         // Typing already: the press places the caret, as in any field.
         if (event.button !== 0 || document.activeElement === event.currentTarget) return
@@ -125,20 +138,22 @@ export function ScrubField({ value, max, onChange, label = "Page", min = 1, clas
       onPointerCancel={done}
       onLostPointerCapture={() => press.current && done()}
       onPointerEnter={() => (origin.current = value)}
-      onFocus={(event) => (setTyped(String(value)), event.currentTarget.select())}
-      onChange={(event) => setTyped(event.target.value.replace(/[^\d.+\-*/×÷() ]/g, ""))}
+      onFocus={(event) => (setTyped(shown(value)), event.currentTarget.select())}
+      onChange={(event) => setTyped(read ? event.target.value.slice(0, 16) : event.target.value.replace(/[^\d.+\-*/×÷() ]/g, ""))}
       onBlur={() => setTyped(null)}
       onKeyDown={(event) => {
         if (event.key === "ArrowUp" || event.key === "ArrowDown") {
           event.preventDefault()
           // From what the field shows: a second press lands before the saved value comes back.
-          const from = typed !== null && /^\d+$/.test(typed) ? Number(typed) : value
+          const from = typed === null ? value : read ? (read(typed) ?? value) : /^\d+$/.test(typed) ? Number(typed) : value
           const next = to(from + (event.key === "ArrowUp" ? 1 : -1) * (event.shiftKey ? 10 : 1))
           land(next, null)
-          setTyped(String(next))
+          setTyped(shown(next))
           requestAnimationFrame(() => field.current?.select())
         } else if (event.key === "Enter") {
           const box = event.currentTarget
+          const own = read?.(typed ?? "")
+          if (own != null) return void (onChange(to(own)), box.blur())
           void typedSum(typed ?? "", value).then((n) => {
             if (n !== null) onChange(to(n))
             box.blur()

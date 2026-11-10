@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { labelFor } from "./pdf-labels"
 import { call } from "@/lib/haligtree"
 import type { PdfCover } from "./pdf-cover"
 import { plural } from '../../../../main/dates'
@@ -50,7 +51,7 @@ export function BookInfo({ one, linked }: { one: Book; linked: number }): React.
   const rows: [string, string][] = [
     ["Added", day(one.addedAt)],
     ["Last opened", day(one.readAt)],
-    ["Last page read", one.page ? `p. ${one.page.toLocaleString()}${one.pages ? ` of ${one.pages.toLocaleString()}` : ""}` : "Not yet"],
+    ["Last page read", one.page ? `p. ${labelFor(one.src, one.page)}${one.pages ? ` of ${labelFor(one.src, one.pages)}` : ""}` : "Not yet"],
     ...(one.finishBy ? [["Your pace", paceLine(one).replace(/^done/, "Done")] as [string, string]] : []),
     ["Highlights", one.highlights ? one.highlights.toLocaleString() : "None"],
     ["Gems from it", one.gems ? one.gems.toLocaleString() : "None"],

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react"
+import { labelFor } from "./pdf-labels"
 import { ProgressBar } from "@/components/haligtree/progress-bar"
 import { BookOpen } from "lucide-react"
 import { call, useLive } from "@/lib/haligtree"
@@ -129,7 +130,7 @@ export function PdfLibrary({ query, top, files, onPut, keys, only }: { /** Off w
 /** A book's right-click menu, on the shelf and in Continue reading. */
 export function bookMenu(one: Book): RowItem[] {
   return [
-    { label: one.page ? `Continue at p. ${one.page.toLocaleString()}` : "Open", keys: "↵", run: () => (chime("open"), openPdf(one.src, one.name, one.page ?? undefined)) },
+    { label: one.page ? `Continue at p. ${labelFor(one.src, one.page)}` : "Open", keys: "↵", run: () => (chime("open"), openPdf(one.src, one.name, one.page ?? undefined)) },
     canSplit() && { label: "Open to the side", run: () => (chime("open"), openPdf(one.src, one.name, one.page ?? undefined, undefined, true)) },
     "separator",
     { label: "Show in Finder", run: () => void window.api.showFile(one.src) }
@@ -182,7 +183,7 @@ function Inspector({ one, onOpen }: { one: Book; onOpen: () => void }): React.JS
       <div className="book-panel-head">
         <BookHead cover={cover} title={titleOf(one)} author={one.author} pages={one.pages} bytes={one.bytes} />
         <button type="button" className="pdf-inspector-open" onClick={onOpen}>
-          {one.page && one.page > 1 ? `Continue at p. ${one.page}` : "Start reading"}
+          {one.page && one.page > 1 ? `Continue at p. ${labelFor(one.src, one.page)}` : "Start reading"}
         </button>
         {one.pages ? <PageBar src={one.src} name={one.name} pages={one.pages} page={one.page} cited={cited} marks={marks} /> : null}
       </div>
@@ -235,7 +236,7 @@ const COVER_SHAPE = 0.72
  */
 export function ReadingRow({ going }: { going: Book[] }): React.JSX.Element {
   const items = useMemo(
-    () => going.map((one) => ({ id: one.src, pdf: { src: one.src, name: one.name }, src: () => pdfCover(one.src, one.name).then((cover) => cover && coverOnPaper(cover.image)), title: titleOf(one), note: `p. ${one.page!.toLocaleString()} of ${one.pages!.toLocaleString()}${one.finishBy ? `\nDone by ${new Date(`${one.finishBy}T12:00:00`).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}` : ""}`, aspect: COVER_SHAPE })),
+    () => going.map((one) => ({ id: one.src, pdf: { src: one.src, name: one.name }, src: () => pdfCover(one.src, one.name).then((cover) => cover && coverOnPaper(cover.image)), title: titleOf(one), note: `p. ${labelFor(one.src, one.page!)} of ${labelFor(one.src, one.pages!)}${one.finishBy ? `\nDone by ${new Date(`${one.finishBy}T12:00:00`).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}` : ""}`, aspect: COVER_SHAPE })),
     [going]
   )
   return (

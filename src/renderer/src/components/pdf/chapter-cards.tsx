@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react"
+import { usePageLabel } from "./pdf-labels"
 import type { PDFDocumentProxy } from "pdfjs-dist"
 import { Check, X } from "lucide-react"
 import { chime } from "@/lib/sound"
@@ -28,6 +29,7 @@ export function ChapterCards({ doc, title, outline, page, marks, onKeep, onGo, o
   onGo: (page: number) => void
   onClose: () => void
 }): React.JSX.Element {
+  const label = usePageLabel()
   const pages = doc.numPages
   const [range] = useState(() => chapterRange(outline, page, pages, [page, Math.min(pages, page + 1)]))
   const named = range.title ? `${quoted(range.title, 80)}` : range.from === range.to ? `page ${range.from}` : `pages ${range.from} and ${range.to}`
@@ -98,7 +100,7 @@ export function ChapterCards({ doc, title, outline, page, marks, onKeep, onGo, o
         <button type="button" aria-label="Close" className="chapter-cards-close" onClick={stop}><X className="size-4" /></button>
       </div>
       <p className="chapter-cards-note">
-        {range.from === range.to ? `Page ${range.from}` : `Pages ${range.from} to ${range.to}`}, read on this Mac by Apple Intelligence, your highlights and the headings first. <strong>Nothing is made until you keep it.</strong>
+        {range.from === range.to ? `Page ${label(range.from)}` : `Pages ${label(range.from)} to ${label(range.to)}`}, read on this Mac by Apple Intelligence, your highlights and the headings first. <strong>Nothing is made until you keep it.</strong>
       </p>
       </div>
       <div className="book-panel-body chapter-cards-body" data-panel-scroll>
@@ -126,7 +128,7 @@ export function ChapterCards({ doc, title, outline, page, marks, onKeep, onGo, o
                     onChange={(event) => set(n, { answer: event.target.value })}
                     onKeyDown={(event) => event.key === "Enter" && (event.preventDefault(), void keep(n))} />
                   <div className="chapter-card-foot">
-                    <button type="button" className="chapter-card-link" data-chapter-card-page={one.page} onClick={() => (chime("tap"), onGo(one.page))}>p. {one.page}</button>
+                    <button type="button" className="chapter-card-link" data-chapter-card-page={one.page} onClick={() => (chime("tap"), onGo(one.page))}>p. {label(one.page)}</button>
                     {one.state === "kept" ? (
                       <span className="chapter-card-kept"><Check className="size-3.5" /> Made, in Review</span>
                     ) : (

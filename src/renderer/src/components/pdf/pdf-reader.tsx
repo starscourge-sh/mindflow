@@ -28,6 +28,7 @@ import { FitActions } from "@/components/haligtree/ui"
 import { LAYOUTS, LOOKS, useDarkPages, usePageLayout, usePageLook, usePaperPages, type PageLayout, type PageLook } from "./paper"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { ScrubField } from "./scrub-field"
+import { PageLabel, usePageLabels } from "./pdf-labels"
 import { still } from "@/lib/motion"
 import { plural, num } from '../../../../main/dates'
 
@@ -320,6 +321,8 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
 
   // The PDF's own outline, if it has one: each entry's title, depth and page (pdf-rail.tsx).
   const outline = usePdfOutline(doc)
+  // The book's printed page numbers ("48" for the file's 50th page), named everywhere a page is (pdf-labels.ts).
+  const { labels, label, find: findLabel } = usePageLabels(src, doc)
   /** The pages a chapter starts on: felt firmly as you scroll or scrub onto one. */
   const chapters = useMemo(() => new Set(outline.map((one) => one.page)), [outline])
 
@@ -381,7 +384,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
       type: "doc",
       content: sorted.flatMap((one) => [
         { type: "blockquote", content: [{ type: "paragraph", content: [{ type: "text", text: one.quote }] }] },
-        { type: "paragraph", content: [{ type: "text", text: `${title}, p. ${one.page}`, marks: [{ type: "link", attrs: { href: pdfLink(src, name, one.page, one.id) } }] }] },
+        { type: "paragraph", content: [{ type: "text", text: `${title}, p. ${label(one.page)}`, marks: [{ type: "link", attrs: { href: pdfLink(src, name, one.page, one.id) } }] }] },
       ]),
     }
     const id = await window.api.captures.create({ kind: "note", title: `Highlights from ${title}`, body })
@@ -421,13 +424,13 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
   /** "Author, Title, p. 3": where words on a page came from, as a gem and a citation name it. */
   const whereFrom = async (page: number): Promise<{ author: string; where: string }> => {
     const author = doc ? await pdfAuthor(doc) : ""
-    return { author, where: `${title}, p. ${page}` }
+    return { author, where: `${title}, p. ${label(page)}` }
   }
   /** A gem of a mark's words: the quote, the book and page it came from, and a link back to the mark. */
   const gemOf = async (mark: { id: string; page: number; quote: string }): Promise<string> => {
     const { author, where } = await whereFrom(mark.page)
     // The book is the gem's source and the page its place; its author, when the file names one, who said it.
-    return call<string>("nugget:from", `${mark.quote}\n\n[${where}](${pdfLink(src, name, mark.page, mark.id)})`, { attribution: author || null, medium: title, passage: `p. ${mark.page}`, kind: "quote" })
+    return call<string>("nugget:from", `${mark.quote}\n\n[${where}](${pdfLink(src, name, mark.page, mark.id)})`, { attribution: author || null, medium: title, passage: `p. ${label(mark.page)}`, kind: "quote" })
   }
   // Just kept as a gem: "Why keep this?" where the words were, for its gem.
   const [whyFor, setWhyFor] = useState<{ id: string; x: number; y: number; bottom?: number } | null>(null)
@@ -522,7 +525,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
   const cardOf = async (prompt: string, answer: string, page: number, quiet = false, gem = false): Promise<void> => {
     const { author, where } = await whereFrom(page)
     // A study card (Review only), unless ⌥ was held or Settings keeps reading cards as gems.
-    const id = await call<string>("nugget:from", `${answer}\n\n[${where}](${pdfLink(src, name, page, "")})`, { attribution: author || null, medium: title, passage: `p. ${page}`, kind: "quote", card: { gem } })
+    const id = await call<string>("nugget:from", `${answer}\n\n[${where}](${pdfLink(src, name, page, "")})`, { attribution: author || null, medium: title, passage: `p. ${label(page)}`, kind: "quote", card: { gem } })
     // Named by its question, as a card is in every list and in ⌘K: a snip's first line is its picture, never a name.
     await call("item:save", id, { prompt, title: prompt })
     const count = cardsHere + 1
@@ -574,7 +577,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
   /** The snip kept as a gem: the picture, the book and page under it, linked back. */
   const keepSnip = async (one: { src: string; page: number }): Promise<void> => {
     const { author, where } = await whereFrom(one.page)
-    const gem = await call<string>("nugget:from", `![](${one.src})\n\n[${where}](${pdfLink(src, name, one.page, "")})`, { attribution: author || null, medium: title, passage: `p. ${one.page}`, kind: "quote" })
+    const gem = await call<string>("nugget:from", `![](${one.src})\n\n[${where}](${pdfLink(src, name, one.page, "")})`, { attribution: author || null, medium: title, passage: `p. ${label(one.page)}`, kind: "quote" })
     // Named for what it is, a figure from this page: its first line is the picture, which no list can show as a name.
     await call("item:save", gem, { title: `Figure from ${where}` })
     setSnipped(null)
@@ -617,7 +620,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
     setCarding({ page: next.page, quote: next.quote, markId: next.id, x: Math.max(8, (box?.clientWidth ?? 600) / 2 - 160), y: (box?.scrollTop ?? 0) + 72 })
   }
   /** The picked words as the right-click menu's previews and the blank card read them. */
-  const pickedAbout = (at: { page: number; start: number; end: number; quote: string }): Picked => ({ words: at.quote, sentence: sentenceOf(at), where: `${title}, p. ${at.page}`, by: author })
+  const pickedAbout = (at: { page: number; start: number; end: number; quote: string }): Picked => ({ words: at.quote, sentence: sentenceOf(at), where: `${title}, p. ${label(at.page)}`, by: author })
   const actions: ReadActions = {
     highlight: (color) => (rememberColor(color), void mark(color, false)),
     keep: () => void mark(lastColor(), true),
@@ -625,7 +628,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
     lookUp: () => {
       if (!picked) return
       // The sentence round the words, kept with what is saved so it says why at a glance.
-      setLooking({ words: picked.quote, x: picked.x, y: picked.y + 24, from: { where: `${title}, p. ${picked.page}`, source: title, page: picked.page, link: pdfLink(src, name, picked.page, ""), sentence: sentenceOf(picked) } })
+      setLooking({ words: picked.quote, x: picked.x, y: picked.y + 24, from: { where: `${title}, p. ${label(picked.page)}`, source: title, page: picked.page, link: pdfLink(src, name, picked.page, ""), sentence: sentenceOf(picked) } })
       chime("open")
     },
     card: (gem) => {
@@ -916,8 +919,13 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
           {chapter && <span data-pdf-chapter className="pdf-reader-chapter">{chapter}</span>}
         </span>
         <span className="pdf-reader-page">
-          <ScrubField value={page} max={doc?.numPages ?? 1} onChange={go} marks={chapters} />
-          <span className="pdf-reader-of"> / {doc?.numPages ?? "…"}</span>
+          {/* The page as the book prints it; where the file counts differently, its own page and count beside, quietly. */}
+          <ScrubField value={page} max={doc?.numPages ?? 1} onChange={go} marks={chapters} show={label} read={labels ? findLabel : undefined} />
+          {labels ? (
+            <span className="pdf-reader-of" data-pdf-file-page title={`Page ${num(page)} of ${num(doc?.numPages ?? 0)} in the file`}> {num(page)} of {num(doc?.numPages ?? 0)}</span>
+          ) : (
+            <span className="pdf-reader-of"> / {doc?.numPages ?? "…"}</span>
+          )}
         </span>
         {/* The title wins the room: in a narrow pane the tools wait behind "More", in the same order. */}
         <FitActions room={doc?.numPages}>
@@ -1016,6 +1024,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
       )}
       <ScanLine src={src} doc={doc} onRead={readAgain} />
       <div ref={chip} className="pdf-zoom-chip" aria-hidden />
+      <PageLabel.Provider value={label}>
       <div ref={body} className="pdf-reader-body" data-rail-squeeze={squeeze}>
       {railShown && doc && (
         <PdfSide doc={doc} page={page} outline={outline} tab={railShown} onTab={(tab) => (setTabByHand(true), showRail(tab))} onGo={go} narrow={squeeze === "narrow"} onDrag={() => setByHand(true)} layout={layout} onLayout={(to) => (chime("tap"), setLayout(to))} />
@@ -1132,7 +1141,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
               onOpenGem={() => window.dispatchEvent(new CustomEvent("haligtree:open", { detail: { type: "nugget", id: hit.gemId } }))}
               onCopy={() => void copyCited(hit.quote, hit.page)}
               onRemove={() => void remove(hit)}
-              about={picked ? undefined : () => ({ words: hit.quote, sentence: hit.quote, where: `${title}, p. ${hit.page}`, by: author })}
+              about={picked ? undefined : () => ({ words: hit.quote, sentence: hit.quote, where: `${title}, p. ${label(hit.page)}`, by: author })}
               {...reshape(hit)}
             />
           ) : null}
@@ -1144,6 +1153,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
       </ContextMenu>
       {chaptering && doc ? <ChapterCards doc={doc} title={title} outline={outline} page={page} marks={marks.filter((one) => !one.id.startsWith("find:"))} onGo={go} onClose={() => setChaptering(false)} onKeep={(question, answer, at) => cardOf(question, answer, at, true)} /> : detailsOut && <ReadDetails src={src} name={name} onPage={go} chapters={outline} cover={cover} title={title} author={author} pages={doc?.numPages} page={page} marks={marks} lit={lit} onMark={goToMark} onGather={() => void gather()} onJoin={(group) => void joinStacked(group)} scan={<ScanDetail src={src} doc={doc} onRead={readAgain} />} />}
       </div>
+      </PageLabel.Provider>
     </div>
   )
 }

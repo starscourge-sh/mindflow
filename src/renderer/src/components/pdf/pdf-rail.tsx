@@ -10,6 +10,7 @@ import { BackToTop } from "@/components/haligtree/ui"
 import { glideIntoView } from "@/lib/glide-into-view"
 import type { PDFDocumentProxy } from "pdfjs-dist"
 import { THUMB, drawInTurn, pagesMoving, whenStill } from "./pdf-draw"
+import { usePageLabel } from "./pdf-labels"
 
 /** Which list the rail shows: the pages small, or the PDF's own outline. Highlights are in Details. */
 export type RailTab = "pages" | "outline"
@@ -69,6 +70,7 @@ export function PdfRail({ tab, tabs, onTab, narrow, onDrag, children }: { tab: R
  */
 export function PdfThumb({ doc, page, here, onGo }: { doc: PDFDocumentProxy; page: number; here: boolean; onGo: () => void }): React.JSX.Element {
   const box = useRef<HTMLButtonElement>(null)
+  const label = usePageLabel()
   const canvas = useRef<HTMLCanvasElement>(null)
   const [shape, setShape] = useState(1.3)
   // Near the rail's view now: a thumbnail scrolled past stops waiting for its turn.
@@ -131,11 +133,11 @@ export function PdfThumb({ doc, page, here, onGo }: { doc: PDFDocumentProxy; pag
     shownOnce.current = true
   }, [here])
   return (
-    <button ref={box} type="button" className={`pdf-thumb${here ? " is-here" : ""}`} aria-label={`Page ${page}`} aria-current={here ? "page" : undefined} onClick={onGo}>
+    <button ref={box} type="button" className={`pdf-thumb${here ? " is-here" : ""}`} aria-label={`Page ${label(page)}`} aria-current={here ? "page" : undefined} onClick={onGo}>
       <span className="pdf-thumb-sheet" style={{ aspectRatio: `1 / ${shape}` }}>
         <canvas ref={canvas} />
       </span>
-      <span className="pdf-thumb-number">{page}</span>
+      <span className="pdf-thumb-number">{label(page)}</span>
     </button>
   )
 }
@@ -237,6 +239,7 @@ export function PdfSide({ doc, page, outline, tab, onTab, onGo, narrow, onDrag, 
  */
 function PdfOutline({ outline, hereAt, list, onGo }: { outline: OutlineRow[]; hereAt: number; list: React.RefObject<HTMLElement | null>; onGo: (page: number) => void }): React.JSX.Element {
   const tree = useMemo(() => treeOf(outline, (row) => row.depth), [outline])
+  const label = usePageLabel()
   // Folded by you; a chapter you read your way into opens again, so the lit way down is never hidden.
   const [folded, setFolded] = useState<Set<number>>(() => new Set())
   useEffect(() => {
@@ -277,7 +280,7 @@ function PdfOutline({ outline, hereAt, list, onGo }: { outline: OutlineRow[]; he
             <ChevronRight aria-hidden className={`size-3 transition-[rotate] duration-80 ${open ? "rotate-90" : ""}`} />
           </span>
         )}
-        <span className="ml-auto shrink-0 pl-1 text-[0.6875rem] leading-4 tabular-nums text-muted-foreground/80">{item.page}</span>
+        <span className="ml-auto shrink-0 pl-1 text-[0.6875rem] leading-4 tabular-nums text-muted-foreground/80">{label(item.page)}</span>
       </button>
     )
   }
