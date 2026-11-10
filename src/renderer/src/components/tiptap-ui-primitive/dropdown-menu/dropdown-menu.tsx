@@ -3,7 +3,7 @@ import { cn } from "@/lib/tiptap-utils"
 
 import "@/components/tiptap-ui-primitive/dropdown-menu/dropdown-menu.scss"
 import { openChime } from "@/lib/sound"
-import { onlyRealMoves } from "@/lib/real-move"
+import { notTheOpeningRelease, onlyRealMoves } from "@/lib/real-move"
 import { quietClose } from "@/lib/quiet-focus"
 
 
@@ -79,6 +79,7 @@ function DropdownMenuItem({
       className={cn("tiptap-dropdown-menu-item", className)}
       {...props}
       onPointerMove={onlyRealMoves(props.onPointerMove)}
+      onPointerUp={notTheOpeningRelease(props.onPointerUp)}
     />
   )
 }
