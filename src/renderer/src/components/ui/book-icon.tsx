@@ -57,7 +57,7 @@ const BookIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
     };
 
     return (
-      <motion.div
+      <motion.span
         ref={scope}
         onHoverStart={handleHoverStart}
         onHoverEnd={handleHoverEnd}
@@ -98,7 +98,7 @@ const BookIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
             d="M30 30.6665C32.8362 29.301 36.5662 29.2265 39.5 30.4428"
           />
         </svg>
-      </motion.div>
+      </motion.span>
     );
   },
 );

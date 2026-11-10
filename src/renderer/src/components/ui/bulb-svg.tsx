@@ -66,10 +66,11 @@ const BulbSvg = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
     };
 
     return (
-      <motion.div
+      <motion.span
         ref={scope}
         onHoverStart={handleHoverStart}
         onHoverEnd={handleHoverEnd}
+        className="flex"
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -115,7 +116,7 @@ const BulbSvg = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
             d="M12 6a6 6 0 0 1 3.6 10.8a1 1 0 0 1 -.471 .192l-.129 .008h-6a1 1 0 0 1 -.6 -.2a6 6 0 0 1 3.6 -10.8z"
           />
         </svg>
-      </motion.div>
+      </motion.span>
     );
   },
 );

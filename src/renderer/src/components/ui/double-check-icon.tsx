@@ -51,7 +51,7 @@ const DoubleCheckIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
     }));
 
     return (
-      <motion.div
+      <motion.span
         ref={scope}
         className={`inline-flex cursor-pointer items-center justify-center ${className}`}
         onHoverStart={start}
@@ -82,7 +82,7 @@ const DoubleCheckIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
             d="M45 11L21.8847 39L20.2098 36.6248"
           />
         </svg>
-      </motion.div>
+      </motion.span>
     );
   },
 );

@@ -65,7 +65,7 @@ const BrainCircuitIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
     }));
 
     return (
-      <div
+      <span
         className={`relative flex items-center justify-center ${className}`}
         onMouseEnter={startAnimation}
         onMouseLeave={stopAnimation}
@@ -129,7 +129,7 @@ const BrainCircuitIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
             r=".5"
           />
         </motion.svg>
-      </div>
+      </span>
     );
   },
 );

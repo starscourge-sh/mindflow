@@ -75,7 +75,7 @@ const CheckedIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
     };
 
     return (
-      <motion.div
+      <motion.span
         ref={scope}
         onHoverStart={handleHoverStart}
         onHoverEnd={handleHoverEnd}
@@ -97,7 +97,7 @@ const CheckedIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
           <motion.path d="M12 12m-9 0a9 9 0 1 0 18 0a9 9 0 1 0 -18 0" />
           <motion.path d="M9 12l2 2l4 -4" className="check-icon" />
         </motion.svg>
-      </motion.div>
+      </motion.span>
     );
   },
 );

@@ -30,7 +30,7 @@ const RightChevron = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
     }));
 
     return (
-      <motion.div
+      <motion.span
         ref={scope}
         className={`inline-flex items-center justify-center ${className}`}
         onHoverStart={start}
@@ -50,7 +50,7 @@ const RightChevron = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
         >
           <path d="M9 6l6 6l-6 6" />
         </svg>
-      </motion.div>
+      </motion.span>
     );
   },
 );

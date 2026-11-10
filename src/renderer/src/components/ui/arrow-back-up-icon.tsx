@@ -38,7 +38,7 @@ const ArrowBackUpIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
     };
 
     return (
-      <motion.div
+      <motion.span
         ref={scope}
         onHoverStart={handleHoverStart}
         onHoverEnd={handleHoverEnd}
@@ -62,7 +62,7 @@ const ArrowBackUpIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
             <path d="M5 10h11a4 4 0 1 1 0 8h-1" />
           </motion.g>
         </svg>
-      </motion.div>
+      </motion.span>
     );
   },
 );

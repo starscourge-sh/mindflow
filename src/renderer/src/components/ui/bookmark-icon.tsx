@@ -54,7 +54,7 @@ const BookmarkIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
     };
 
     return (
-      <motion.div
+      <motion.span
         ref={scope}
         onHoverStart={handleHoverStart}
         onHoverEnd={handleHoverEnd}
@@ -79,7 +79,7 @@ const BookmarkIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
             d="M24 34L41 44V8C41 5.23858 38.7614 3 36 3H12C9.23858 3 7 5.23858 7 8V44L24 34Z"
           />
         </svg>
-      </motion.div>
+      </motion.span>
     );
   },
 );

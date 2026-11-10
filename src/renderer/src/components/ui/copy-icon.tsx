@@ -42,7 +42,7 @@ const CopyIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
     };
 
     return (
-      <motion.div
+      <motion.span
         ref={scope}
         onHoverStart={handleHoverStart}
         onHoverEnd={handleHoverEnd}
@@ -67,7 +67,7 @@ const CopyIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
             d="M7 7m0 2.667a2.667 2.667 0 0 1 2.667 -2.667h8.666a2.667 2.667 0 0 1 2.667 2.667v8.666a2.667 2.667 0 0 1 -2.667 2.667h-8.666a2.667 2.667 0 0 1 -2.667 -2.667z"
           />
         </svg>
-      </motion.div>
+      </motion.span>
     );
   },
 );

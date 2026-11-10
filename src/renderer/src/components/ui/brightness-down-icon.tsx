@@ -44,7 +44,7 @@ const BrightnessDownIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
     };
 
     return (
-      <motion.div
+      <motion.span
         ref={scope}
         onHoverStart={handleHoverStart}
         onHoverEnd={handleHoverEnd}
@@ -80,7 +80,7 @@ const BrightnessDownIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
             <path d="M7 7l0 .01" />
           </motion.g>
         </svg>
-      </motion.div>
+      </motion.span>
     );
   },
 );

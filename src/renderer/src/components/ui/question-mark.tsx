@@ -46,7 +46,7 @@ const QuestionMark = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
     }));
 
     return (
-      <motion.div ref={scope} onHoverStart={start} onHoverEnd={stop} className="contents">
+      <motion.span ref={scope} onHoverStart={start} onHoverEnd={stop} className="contents">
         <motion.svg
           className={`question-group cursor-pointer ${className}`}
           xmlns="http://www.w3.org/2000/svg"
@@ -67,7 +67,7 @@ const QuestionMark = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
           />
           <path className="question-mark-dot" d="M12 19l0 .01" />
         </motion.svg>
-      </motion.div>
+      </motion.span>
     );
   },
 );

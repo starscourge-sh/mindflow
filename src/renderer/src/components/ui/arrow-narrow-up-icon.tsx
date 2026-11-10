@@ -38,7 +38,7 @@ const ArrowNarrowUpIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
     };
 
     return (
-      <motion.div
+      <motion.span
         ref={scope}
         onHoverStart={handleHoverStart}
         onHoverEnd={handleHoverEnd}
@@ -63,7 +63,7 @@ const ArrowNarrowUpIcon = forwardRef<AnimatedIconHandle, AnimatedIconProps>(
             <path d="M8 9l4 -4" />
           </motion.g>
         </svg>
-      </motion.div>
+      </motion.span>
     );
   },
 );
