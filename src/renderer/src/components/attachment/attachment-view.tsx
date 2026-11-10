@@ -614,8 +614,8 @@ function PdfBlock(props: NodeViewProps): React.JSX.Element {
             <DropdownMenuSeparator />
             <DropdownMenuLabel>Page colour</DropdownMenuLabel>
             <DropdownMenuRadioGroup value={dark ? "dark" : paper ? "paper" : "white"} onValueChange={(to) => (chime("tick"), setPaper(to === "paper"), setDark(to === "dark"))}>
-              <DropdownMenuRadioItem value="white">White</DropdownMenuRadioItem>
-              <DropdownMenuRadioItem value="paper">Paper: easier on the eyes, pictures kept true</DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="white">White pages</DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="paper">Paper pages</DropdownMenuRadioItem>
               <DropdownMenuRadioItem value="dark">Dark pages</DropdownMenuRadioItem>
             </DropdownMenuRadioGroup>
           </DropdownMenuContent>
