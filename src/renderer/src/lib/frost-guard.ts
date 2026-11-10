@@ -29,5 +29,12 @@ export function guardFrost(): void {
   new MutationObserver((changes) => {
     for (const change of changes) change.addedNodes.forEach(look)
   }).observe(document.body, { childList: true, subtree: true })
+  // A pop-up that comes in while its parent is still unseen, held back while quick capture grows to fit it
+  // (html[data-growing], lib/fit-box.ts) or fading in, was looked at only then and stayed opaque for good (the "/"
+  // list in quick capture). Every one is looked at again as the box has grown, and as any fade round one ends.
+  new MutationObserver(() => 'growing' in document.documentElement.dataset || look(document.body)).observe(document.documentElement, { attributes: true, attributeFilter: ['data-growing'] })
+  const settled = (event: Event): void => void (event.target instanceof Element && look(event.target))
+  document.addEventListener('transitionend', settled, true)
+  document.addEventListener('animationend', settled, true)
   look(document.body)
 }
