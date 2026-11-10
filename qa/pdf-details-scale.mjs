@@ -186,7 +186,8 @@ try {
       await h.evaluate(() => { const d = document.querySelector('.read-details .book-panel-body'); const at = d.querySelector('[data-book-cited]'); d.scrollTop += at.getBoundingClientRect().top - d.getBoundingClientRect().top - 60 })
       await wait(600)
       const row = h.locator('.book-cited-row').first()
-      await row.hover(); await wait(1200)
+      // A real move over the row, as a hand makes: a row brought under a resting pointer is not being pointed at (note-preview.tsx).
+      await row.hover(); { const bb = await row.boundingBox(); await h.mouse.move(bb.x + 14, bb.y + bb.height / 2, { steps: 4 }) } await wait(1200)
       const floating = await h.evaluate(() => ({ cards: document.querySelectorAll('[data-note-preview]').length, tips: document.querySelectorAll('[data-slot=tooltip-content]').length, cursor: getComputedStyle(document.querySelector('.book-cited-row')).cursor }))
       check('a note row pointed at shows the note card and no tip, with the hand', floating.cards === 1 && floating.tips === 0 && floating.cursor === 'pointer', JSON.stringify(floating))
       // Beside the list, never over its rows, and no Markdown in its words.
