@@ -152,3 +152,6 @@ export function pagesAt(top: number): void {
 }
 /** Waits while the pages are flung; the pages resting ends the wait too. */
 export const calm = (): Promise<void> => (flinging ? new Promise((done) => onCalm.push(done)) : Promise.resolve())
+
+/** Whether any page or thumbnail is being drawn or waits to be: work in the background (reading a book's words ahead) holds off until none is. */
+export const drawing = (): boolean => running > 0 || waiting.length > 0

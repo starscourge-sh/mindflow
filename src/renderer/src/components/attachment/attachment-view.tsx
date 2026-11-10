@@ -1,7 +1,8 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react"
 import { NodeViewWrapper, useEditorState, type NodeViewProps } from "@tiptap/react"
 import { NodeSelection } from "@tiptap/pm/state"
-import { AlignCenter, AlignLeft, AlignRight, Columns2, ListTree, MoveHorizontal, MoveVertical, PanelLeft, Pause, PictureInPicture2, Play, RectangleVertical, RotateCcw, ScrollText } from "lucide-react"
+import { AlignCenter, AlignLeft, AlignRight, ListTree, PanelLeft, Pause, PictureInPicture2, Play, RotateCcw } from "lucide-react"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { AliveIcon } from "@/components/ui/alive-icon"
 import DownloadIcon from "@/components/ui/download-icon"
 import ExternalLinkIcon from "@/components/ui/external-link-icon"
@@ -591,11 +592,34 @@ function PdfBlock(props: NodeViewProps): React.JSX.Element {
         {tool("Sidebar", !!rail, () => railTo(rail ? null : "pages"), <PanelLeft className="tiptap-button-icon" />, "Pages and outline")}
         {outline.length > 0 && tool("Show this page in contents", rail === "outline", () => railTo("outline"), <ListTree className="tiptap-button-icon" />)}
         <span className="tiptap-pdf-bar-gap" />
-        {tool("Fit width", fit === "width", () => fitTo("width"), <MoveHorizontal className="tiptap-button-icon" />)}
-        {tool("Fit height", fit === "height", () => fitTo("height"), <MoveVertical className="tiptap-button-icon" />, "Fit height: a whole page in view")}
-        {tool("One page", !spread, () => spreadTo(false), <RectangleVertical className="tiptap-button-icon" />)}
-        {tool("Two pages", spread, () => spreadTo(true), <Columns2 className="tiptap-button-icon" />, "Two pages side by side")}
-        {tool(paper && !dark ? "White pages" : "Paper pages", paper && !dark, () => (setPaper(dark ? true : !paper), setDark(false)), <ScrollText className="tiptap-button-icon" />, paper && !dark ? "White pages" : "Paper pages: easier on the eyes, pictures kept true")}
+        {/* How the pages lie and look: one "View" menu, named in words, as the reader's bar has it, not five bare icons. */}
+        <DropdownMenu modal={false}>
+          <DropdownMenuTrigger asChild>
+            <Button data-style="ghost" aria-label="View" title="View: how the pages lie, and their colour" onClick={(event) => event.stopPropagation()}>
+              <span className="tiptap-button-text">View</span>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56" data-pdf-block-view>
+            <DropdownMenuLabel>Fit</DropdownMenuLabel>
+            <DropdownMenuRadioGroup value={fit} onValueChange={(to) => fitTo(to as "width" | "height")}>
+              <DropdownMenuRadioItem value="width">Fit width</DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="height">Fit height: a whole page in view</DropdownMenuRadioItem>
+            </DropdownMenuRadioGroup>
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel>Layout</DropdownMenuLabel>
+            <DropdownMenuRadioGroup value={spread ? "two" : "one"} onValueChange={(to) => spreadTo(to === "two")}>
+              <DropdownMenuRadioItem value="one">One page</DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="two">Two pages side by side</DropdownMenuRadioItem>
+            </DropdownMenuRadioGroup>
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel>Page colour</DropdownMenuLabel>
+            <DropdownMenuRadioGroup value={dark ? "dark" : paper ? "paper" : "white"} onValueChange={(to) => (chime("tick"), setPaper(to === "paper"), setDark(to === "dark"))}>
+              <DropdownMenuRadioItem value="white">White</DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="paper">Paper: easier on the eyes, pictures kept true</DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="dark">Dark pages</DropdownMenuRadioItem>
+            </DropdownMenuRadioGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
       <div className="tiptap-pdf-body" contentEditable={false}>
         {rail && doc && <PdfSide doc={doc} page={page} outline={outline} tab={rail} onTab={railTo} onGo={go} />}

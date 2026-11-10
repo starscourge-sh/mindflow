@@ -35,8 +35,8 @@ export function BookHead({ cover, title, author, pages, bytes }: { cover: PdfCov
         {cover?.image ? <img src={cover.image} alt="" draggable={false} /> : cover === null ? <span className="book-head-drawn">{title}</span> : null}
       </span>
       <span className="book-head-title" title={title}>{title}</span>
-      {/* Its line held even with no author, so switching books never moves what is under it. */}
-      <span className="book-head-author">{author}</span>
+      {/* No author in the file: no empty line held for one. */}
+      {author ? <span className="book-head-author">{author}</span> : null}
       <span className="book-head-what">{what}</span>
     </div>
   )

@@ -30,6 +30,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuLabel, DropdownMenuRadio
 import { ScrubField } from "./scrub-field"
 import { PageLabel, usePageLabels } from "./pdf-labels"
 import { cleanTitle } from "@/lib/clean-title"
+import { drawing } from "./pdf-draw"
 import { still } from "@/lib/motion"
 import { plural, num } from '../../../../main/dates'
 
@@ -237,20 +238,22 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
     if (run === findRun.current) setSeeking(false)
   }
   // The words of every page read while nothing else is asked, once the book is open: a find then answers at once.
+  // One page at a time, and only while no page is being drawn or waits to be: pdf.js reads both in one worker, and
+  // reading ahead in batches held up the page a jump was waiting for (2.1s to reach p. 300).
   useEffect(() => {
     if (!doc) return
     // Read afresh for a new copy of the book (its pages read since, with their words).
     pageTexts.current = new Map()
     let next = 1
     let ask = 0
+    let live = true
     const warm = (): void => {
-      if (next > doc.numPages) return
-      const batch = Array.from({ length: Math.min(4, doc.numPages - next + 1) }, (_, i) => next + i)
-      next += batch.length
-      void Promise.all(batch.map((n) => textOf(doc, n).catch(() => ""))).then(() => void (ask = requestIdleCallback(warm, { timeout: 2000 })))
+      if (!live || next > doc.numPages) return
+      if (drawing()) return void (ask = requestIdleCallback(warm, { timeout: 1000 }))
+      void textOf(doc, next++).catch(() => "").then(() => live && void (ask = requestIdleCallback(warm)))
     }
-    ask = requestIdleCallback(warm, { timeout: 2000 })
-    return () => cancelIdleCallback(ask)
+    ask = requestIdleCallback(warm, { timeout: 1000 })
+    return () => ((live = false), cancelIdleCallback(ask))
     // textOf reads only refs.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [doc])
@@ -1012,6 +1015,15 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
           </DropdownMenu>
         </FitActions>
       </div>
+      <ScanLine src={src} doc={doc} onRead={readAgain} />
+      <div ref={chip} className="pdf-zoom-chip" aria-hidden />
+      <PageLabel.Provider value={label}>
+      <div ref={body} className="pdf-reader-body" data-rail-squeeze={squeeze}>
+      {railShown && doc && (
+        <PdfSide doc={doc} page={page} outline={outline} tab={railShown} onTab={(tab) => (setTabByHand(true), showRail(tab))} onGo={go} narrow={squeeze === "narrow"} onDrag={() => setByHand(true)} layout={layout} />
+      )}
+      {/* The pages' own column: find floats over its top right, over the pages and never over Details. */}
+      <div className="pdf-reader-main">
       {finding && (
         <div className="tiptap-find-bar pdf-find-bar" data-seeking={seeking ? "" : undefined} aria-busy={seeking}>
           <div className="tiptap-find-bar-row">
@@ -1043,13 +1055,6 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
             </button>
           </div>
         </div>
-      )}
-      <ScanLine src={src} doc={doc} onRead={readAgain} />
-      <div ref={chip} className="pdf-zoom-chip" aria-hidden />
-      <PageLabel.Provider value={label}>
-      <div ref={body} className="pdf-reader-body" data-rail-squeeze={squeeze}>
-      {railShown && doc && (
-        <PdfSide doc={doc} page={page} outline={outline} tab={railShown} onTab={(tab) => (setTabByHand(true), showRail(tab))} onGo={go} narrow={squeeze === "narrow"} onDrag={() => setByHand(true)} layout={layout} />
       )}
       <ContextMenu>
         <ContextMenuTrigger asChild>
@@ -1173,6 +1178,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
           {!hit && !picked && ai && doc && <ContextMenuItem data-chapter-cards-menu onSelect={() => !chaptering && chapterCards()}>{outline.length ? "Five cards from this chapter" : "Five cards from these pages"}</ContextMenuItem>}
         </ContextMenuContent>
       </ContextMenu>
+      </div>
       {chaptering && doc ? <ChapterCards doc={doc} title={title} outline={outline} page={page} marks={marks.filter((one) => !one.id.startsWith("find:"))} onGo={go} onClose={() => setChaptering(false)} onKeep={(question, answer, at) => cardOf(question, answer, at, true)} /> : detailsOut && <ReadDetails src={src} name={name} onPage={go} chapters={outline} cover={cover} title={title} author={author} pages={doc?.numPages} page={page} marks={marks} lit={lit} onMark={goToMark} onGather={() => void gather()} onJoin={(group) => void joinStacked(group)} scan={<ScanDetail src={src} doc={doc} onRead={readAgain} />} />}
       </div>
       </PageLabel.Provider>

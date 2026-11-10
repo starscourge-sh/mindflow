@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react"
+import { Kbd } from "@/components/ui/kbd"
 import { labelFor } from "./pdf-labels"
 import { Search } from "lucide-react"
 import { BackToTop, VirtualList } from "@/components/haligtree/ui"
@@ -149,7 +150,7 @@ export function ReadDetails({ src, name, cover, title, author, pages, page, chap
             </div>
           </>
         ) : (
-          <p className="read-details-empty">Pick words and press H to highlight them. Every highlight gathers here.</p>
+          <p className="read-details-empty">Pick words and press <Kbd>H</Kbd> to highlight them. Every highlight gathers here.</p>
         )}
       </section>
       {book && <BookInfo one={book} linked={inNotes(cited).length} />}

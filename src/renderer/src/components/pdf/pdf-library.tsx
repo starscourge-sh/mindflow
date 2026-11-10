@@ -37,6 +37,9 @@ const percent = (one: Book): number | null => (one.page && one.pages ? Math.roun
  * holds. One click picks it and the inspector at the right says all about it;
  * a double click, or "Continue", opens it where you left off.
  */
+/** Books few enough that the shelf shows them all at a glance. */
+const FEW = 4
+
 export function PdfLibrary({ query, top, files, onPut, keys, only }: { /** Off while something over the page has the keys. */ keys: boolean; query: string; /** Only these books ("Unlinked"), when given. */ only?: string[]; /** What sits over the shelf (the kinds), scrolling with it. */ top: React.ReactNode; /** Media's own record of each file, for what notes hold it. */ files: Media[]; /** "Put in a note…", for these books. */ onPut: (srcs: string[]) => void }): React.JSX.Element {
   const all = useLive(readLibrary, [] as Book[])
   const books = useMemo(() => {
@@ -101,7 +104,8 @@ export function PdfLibrary({ query, top, files, onPut, keys, only }: { /** Off w
         <div ref={setScroller} className="pdf-library-scroll" data-shelf-scroll>
           <div className="pdf-library-column">
             {top}
-            {!query.trim() && going.length > 0 && (
+            {/* With a handful of books every one is in sight on the shelf just under: the row would only show them twice. */}
+            {!query.trim() && going.length > 0 && books.length > FEW && (
               <section className="mb-4 flex flex-col gap-2" data-shelf-continue>
                 <h3 className="text-body font-medium text-foreground">Continue reading</h3>
                 <ReadingRow going={going} />
@@ -112,10 +116,9 @@ export function PdfLibrary({ query, top, files, onPut, keys, only }: { /** Off w
                 {books.map((one) => (
                   <BookCard key={one.src} one={one} lit={one.src === chosen} picked={picked.includes(one.src)} menu={menuOf(one)} onPick={(event) => (setChosen(one.src), picking.click(event, one.src) || chime("tap"))} onOpen={() => open(one)} />
                 ))}
-                {books.length <= 3 && !query.trim() && !only && <p className="pdf-library-hint">Every PDF you keep sits on this shelf. Drop one on this page, or press “Add”.</p>}
               </div>
             ) : (
-              <p className="my-4 text-control text-muted-foreground">{query.trim() ? <>No book has {quoted(query.trim(), 80)} in its title or author.</> : only ? <>{all.length === 1 ? "The one book here is in a note." : `All ${num(all.length)} books are in a note.`}</> : <>No books here yet.</>}</p>
+              <p className="my-4 text-control text-muted-foreground">{query.trim() ? <>No book has {quoted(query.trim(), 80)} in its title or author.</> : only ? <>{all.length === 1 ? "The one book here is in a note." : `All ${num(all.length)} books are in a note.`}</> : <>No books here yet. Every PDF you keep sits on this shelf: drop one on this page, or press “Add”.</>}</p>
             )}
           </div>
         </div>

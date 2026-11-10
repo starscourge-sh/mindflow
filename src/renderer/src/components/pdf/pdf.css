@@ -99,7 +99,8 @@
 }
 
 .pdf-page .textLayer ::selection {
-  background: color-mix(in srgb, var(--tt-brand-color-500, #6366f1) 30%, transparent);
+  /* The Mac's own selection colour, never the book's: words picked never look like words already highlighted. */
+  background: color-mix(in srgb, Highlight 45%, transparent);
   color: transparent;
 }
 
@@ -409,7 +410,7 @@
   position: absolute;
   border-radius: 0;
   /* A mark's own colour, else the book's. */
-  background: color-mix(in srgb, var(--mark, var(--tt-brand-color-500, #c08a2e)) 30%, transparent);
+  background: color-mix(in srgb, var(--mark, var(--tt-brand-color-500, #c08a2e)) 42%, transparent);
   mix-blend-mode: multiply;
 }
 
@@ -540,8 +541,8 @@
 .pdf-find-bar {
   position: absolute;
   z-index: 7;
-  top: 3.5rem;
-  right: 1rem;
+  top: 0.5rem;
+  right: 1.25rem;
   margin: 0;
 }
 
@@ -746,7 +747,15 @@
   min-height: 0;
 }
 
-.pdf-reader-body > .pdf-reader-scroll {
+.pdf-reader-main {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
+.pdf-reader-main > .pdf-reader-scroll {
   min-width: 0;
 }
 
@@ -1070,7 +1079,6 @@
 }
 
 .book-head-author {
-  min-height: 1.3em;
   color: color-mix(in oklab, var(--foreground) 80%, var(--background));
 }
 
@@ -1345,7 +1353,7 @@
 
 .read-details-empty {
   margin: 0;
-  color: var(--mf-muted);
+  color: color-mix(in oklab, var(--foreground) 80%, var(--background));
 }
 
 /* Words looked up, as a reader's Look Up is: the word as a headword, its

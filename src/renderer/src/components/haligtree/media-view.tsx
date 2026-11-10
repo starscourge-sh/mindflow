@@ -298,7 +298,7 @@ export function MediaView({ onOpen }: { onOpen: (type: string, id: string) => vo
         setCarrying(false)
         void addDropped([...event.dataTransfer.files], onShow)
       }}>
-    <Page title="Files" dock={library} waiting={unloaded(all)} count={unloaded(all) || !all.length ? undefined : chosen.length || shown.length} unit={chosen.length ? ['selected', 'selected'] : ['file', 'files']}
+    <Page title="Files" dock={library} waiting={unloaded(all)} count={unloaded(all) || !all.length ? undefined : chosen.length || shown.length} unit={chosen.length ? ['selected', 'selected'] : shelf ? [shelf.one, shelf.many] : ['file', 'files']}
       search={all.length > 0 && <div className="flex min-w-0 items-center gap-3"><ListSearch value={query} placeholder="Find by note, name or words" onChange={setQuery} onDone={() => shown[0] && open(shown[0])} /></div>}
       beside={() => carrying && (
         <div data-media-drop className="pointer-events-none absolute inset-2 z-20 flex items-center justify-center rounded-xl border border-[color-mix(in_srgb,var(--tt-brand-color-500)_55%,transparent)] bg-[color-mix(in_srgb,var(--tt-brand-color-500)_8%,transparent)]">
