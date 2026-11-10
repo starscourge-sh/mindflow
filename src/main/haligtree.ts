@@ -3024,8 +3024,8 @@ export function registerHaligtree(): void {
       .map((row) => Date.parse(row.at))
     const monthAgo = startOfDay(-29)
     const today = new Date(startOfDay(0)).toISOString()
-    const remembered = (db.prepare('select count(*) n from review_log where first = 0 and grade > 1 and reviewed_at >= ?').get(today) as { n: number }).n
-    const before = db.prepare("select date(reviewed_at, 'localtime') day, sum(first = 0 and grade > 1) n from review_log where reviewed_at < ? group by day").all(today) as { day: string; n: number }[]
+    const remembered = (db.prepare('select count(distinct item_id) n from review_log where first = 0 and grade > 1 and reviewed_at >= ?').get(today) as { n: number }).n
+    const before = db.prepare("select date(reviewed_at, 'localtime') day, count(distinct case when first = 0 and grade > 1 then item_id end) n from review_log where reviewed_at < ? group by day").all(today) as { day: string; n: number }[]
     return {
       known: proofs.length,
       knownMonthAgo: proofs.filter((at) => at < monthAgo).length,

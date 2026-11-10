@@ -1150,14 +1150,17 @@ function Grown({ reveal }: { reveal: boolean }): React.JSX.Element | null {
   ].filter((one): one is { id: string; body: React.JSX.Element } => !!one)
   if (!lines.length) return null
   return (
-    <div data-grown className="flex flex-col gap-1.5">
+    <div data-grown data-reveal={reveal || undefined} className="flex flex-col gap-1.5">
       {lines.map((line, at) => (
-        <motion.p key={line.id} data-grown-line={line.id} className="text-body text-foreground tabular-nums"
-          initial={reveal ? { opacity: 0, transform: 'translateY(6px)' } : false} animate={{ opacity: 1, transform: 'translateY(0px)' }}
-          transition={{ duration: 0.32, ease: EASE, delay: 0.95 + at * 0.45 }}
-          onAnimationComplete={() => reveal && line.id === 'record' && chime('reveal')}>
+        <p key={line.id} data-grown-line={line.id} className="text-body text-foreground tabular-nums" ref={(el) => {
+          // Revealed once, as it first lands: the Web Animations API, filled backwards so it waits unseen through its delay.
+          if (!el || !reveal || el.dataset.revealed) return
+          el.dataset.revealed = ''
+          const rise = el.animate([{ opacity: 0, transform: 'translateY(6px)' }, { opacity: 1, transform: 'translateY(0px)' }], { duration: 300, delay: 750 + at * 350, easing: 'cubic-bezier(0.16, 1, 0.3, 1)', fill: 'backwards' })
+          if (line.id === 'record') rise.onfinish = () => chime('reveal')
+        }}>
           {line.body}
-        </motion.p>
+        </p>
       ))}
     </div>
   )
@@ -1228,7 +1231,7 @@ function Finished({ count, total, later = 0, compact, onPick, onLearn, ids = [] 
               : <><strong className="font-semibold text-foreground">No card is due yet.</strong> Each one comes back as you start to forget it, so there is nothing to do here until then.</>}
           </p>
           {/* What it has added up to, against your own past: shown one line at a time once the book has risen. */}
-          {(done || today > 0) && <Grown reveal={done && !flat} />}
+          {(done || today > 0) && <Grown key={done ? 'done' : 'today'} reveal={done && !flat} />}
           {/* Two honest numbers from the sitting: the card that held longest, and the time a card took. */}
           {(done || today > 0) && sitting?.kept && <p data-still-knew className="text-body text-foreground">You still knew <strong className="font-semibold">{quoted(sitting.kept.prompt, 80)}</strong> after {num(sitting.kept.days)} days.</p>}
           {(done || today > 0) && !!sitting?.seconds && <p data-seconds-each className="text-control text-foreground tabular-nums">About {num(sitting.seconds)} {sitting.seconds === 1 ? 'second' : 'seconds'} a card today.</p>}
