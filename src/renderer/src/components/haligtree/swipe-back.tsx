@@ -95,7 +95,8 @@ export function SwipeBack({ front, trailOf, nameOf, go }: Props): React.JSX.Elem
       if (!g || (phases && !touching)) return
       const trail = props.current.trailOf(g.key)
       if (!trail) return end('list: no trail')
-      const rows = placesFrom(trail, g.way, props.current.nameOf)
+      // The last five, as Back's and Forward's menus list them.
+      const rows = placesFrom(trail, g.way, props.current.nameOf).slice(0, 5)
       if (!rows.length) return end('list: nowhere to go')
       setList({ key: g.key, way: g.way, rect: g.rect, rows, pick: 0, moved: false })
       chime('slide')
@@ -241,6 +242,13 @@ export function SwipeBack({ front, trailOf, nameOf, go }: Props): React.JSX.Elem
   }, [list !== null]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const calm = still()
+  // Kept inside the window by its real height, read once it is drawn: a guess from its rows ran past the bottom
+  // when the app's text was larger (10 Nov screenshot).
+  const fitList = (el: HTMLDivElement | null): void => {
+    if (!el) return
+    const over = el.offsetTop + el.offsetHeight - (window.innerHeight - 8)
+    if (over > 0) el.style.top = `${Math.max(8, el.offsetTop - over)}px`
+  }
   const at = list ?? shown
   const mid = at ? at.rect.top + at.rect.height / 2 : 0
   // From hidden past the edge to sitting just inside it at the tap; past it, a little further, slower.
@@ -264,7 +272,7 @@ export function SwipeBack({ front, trailOf, nameOf, go }: Props): React.JSX.Elem
       )}
       <AnimatePresence>
         {list && (
-          <motion.div key="swipe-list" data-swipe-list role="listbox" aria-label={list.way === -1 ? 'Back to' : 'Forward to'}
+          <motion.div key="swipe-list" ref={fitList} data-swipe-list role="listbox" aria-label={list.way === -1 ? 'Back to' : 'Forward to'}
             initial={calm ? { opacity: 0 } : { opacity: 0, scale: 0.4 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, transition: { duration: 0.12 } }}
@@ -274,7 +282,7 @@ export function SwipeBack({ front, trailOf, nameOf, go }: Props): React.JSX.Elem
             // pane's middle, always inside the window; a long list rises to fit. Not from the arrows up in the tab
             // row: the hand is at the edge, and the list belongs under it.
             style={{
-              top: Math.max(8, Math.min(mid - 24, window.innerHeight - 8 - 14 - list.rows.length * 38)),
+              top: Math.max(8, mid - 24),
               // Forward is held by its right side, so a list wider than its 16rem (a long name) still ends at the edge.
               ...(list.way === -1 ? { left: Math.max(8, list.rect.left + 8) } : { right: Math.max(8, window.innerWidth - Math.min(list.rect.right, window.innerWidth) + 8) }),
               transformOrigin: list.way === -1 ? 'left center' : 'right center'
