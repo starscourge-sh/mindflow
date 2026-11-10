@@ -249,8 +249,8 @@ export function StudyYear({ compact = false }: { /** Above the decks: the same y
   const share = studied && studied.days.of ? Math.round((studied.days.reviewed / studied.days.of) * 100) : 0
   const numbers: [string, string][] = [
     // Days in a row, as Review's end counts them: a week in a row banks a rest day, so a day off is never a loss.
-    [plural(studied?.streak.current ?? 0, 'day', 'days'), studied?.streak.banked ? `in a row, ${plural(studied.streak.banked, 'rest day', 'rest days')} in hand` : 'in a row now'],
-    [plural(studied?.streak.longest ?? 0, 'day', 'days'), 'your longest run'],
+    [plural(studied?.streak.current ?? 0, 'day', 'days'), studied?.streak.banked ? `in a row now · ${plural(studied.streak.banked, 'rest day', 'rest days')} in hand` : 'in a row now'],
+    [plural(studied?.streak.longest ?? 0, 'day', 'days'), 'longest run'],
     [plural(studied?.average ?? 0, 'card', 'cards'), 'a day when studying'],
     [`${share}%`, 'of days studied']
   ]
