@@ -5,7 +5,7 @@ import { GlobalWorkerOptions, OPS, TextLayer, Util, getDocument, type PDFDocumen
 import workerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url"
 import "./pdf.css"
 import { markCss } from "./read-bar"
-import { AHEAD as NEXT_TO, IN_VIEW, drawInTurn, keepPage, keptPage, calm, pagesAt, pagesScrolled, type Turn } from "./pdf-draw"
+import { AHEAD as NEXT_TO, IN_VIEW, drawInTurn, keepPage, keptPage, calm, outranked, pagesAt, pagesScrolled, type Turn } from "./pdf-draw"
 
 // A drag begun on a page's words selects across every page of that book: each page's end stretches to take the
 // pointer wherever it goes, until the press ends (pdf.css .textLayer.selecting .endOfContent).
@@ -784,10 +784,18 @@ const PdfPage = memo(function PdfPage({ doc, page, scale, guess, rank, marks, fl
         stop()
       }
     }
-    const drop = (turn.current = drawInTurn(wanted.current ?? IN_VIEW, async (stopped) => {
+    const draw = async (stopped: () => boolean): Promise<unknown> => {
       // Flung past at speed: drawn only once the pages slow to reading, if it is still wanted then.
       await calm()
       if (!live || stopped()) return
+      // A page out of sight gives way: a frame for the rail's thumbnails to ask for their turn, and if anything more
+      // wanted now waits (a thumbnail in view, the page in view), this one goes back in line behind it.
+      const rank = wanted.current ?? IN_VIEW
+      if (rank > IN_VIEW) {
+        await new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done)))
+        if (!live || stopped()) return
+        if (outranked(rank)) return void (turn.current = drawInTurn(rank, draw))
+      }
       const proxy = await doc.getPage(page)
       if (!live || stopped()) return
       sized(proxy)
@@ -814,11 +822,12 @@ const PdfPage = memo(function PdfPage({ doc, page, scale, guess, rank, marks, fl
       el.replaceChildren(sharp)
       keepPage(key, sharp)
       return words(proxy)
-    }))
+    }
+    turn.current = drawInTurn(wanted.current ?? IN_VIEW, draw)
     return () => {
       // The old picture stays until the new one is ready: no blank flash on zoom.
       live = false
-      drop()
+      turn.current?.()
       stop()
     }
   }, [doc, page, scale, drawn, dark])

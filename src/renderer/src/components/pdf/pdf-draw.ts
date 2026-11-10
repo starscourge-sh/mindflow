@@ -157,3 +157,6 @@ export const calm = (): Promise<void> => (flinging ? new Promise((done) => onCal
 
 /** Whether any page or thumbnail is being drawn or waits to be: work in the background (reading a book's words ahead) holds off until none is. */
 export const drawing = (): boolean => running > 0 || waiting.length > 0
+
+/** Whether something more wanted than `rank` waits its turn: a page out of sight then goes back in line behind it. */
+export const outranked = (rank: number): boolean => waiting.some((one) => one.rank < rank)
