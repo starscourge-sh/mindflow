@@ -301,8 +301,10 @@ try {
   check('⌘F opens find in the PDF', await h.evaluate(() => document.activeElement?.getAttribute('aria-label') === 'Find in PDF'), '')
   await h.keyboard.type('quiet sentence'); await wait(800)
   const count = await h.evaluate(() => document.querySelector('.pdf-find-bar .tiptap-find-bar-count')?.getAttribute('aria-label'))
-  check('it finds the words on all 3 pages', count === '1 of 3', String(count))
-  await h.keyboard.press('Enter'); await h.keyboard.press('Enter'); await wait(1000)
+  // Find starts from the page you are on, so the match on show is the first on or after it: any of the 3.
+  check('it finds the words on all 3 pages', / of 3$/.test(count ?? ''), String(count))
+  for (let i = 0; i < 3 && (await h.evaluate(() => document.querySelector('.pdf-mark.is-find.is-current')?.closest('.pdf-page')?.dataset.page)) !== '3'; i++) { await h.keyboard.press('Enter'); await wait(500) }
+  await wait(500)
   const onMatch = await h.evaluate(() => ({ field: document.querySelector('.pdf-reader-page-field').value, current: document.querySelector('.pdf-mark.is-find.is-current')?.closest('.pdf-page')?.dataset.page }))
   check('Return steps to the match on page 3, marked', onMatch.field === '3' && onMatch.current === '3', JSON.stringify(onMatch))
   await h.screenshot({ path: `${process.env.QA_SHOTS ?? '/tmp'}/pdf-find.png` })

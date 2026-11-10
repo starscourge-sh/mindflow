@@ -305,6 +305,20 @@ const tileFor = (pageWidth: number): number => Math.max(4, Math.min(24, Math.rou
  * paper always darkens and dark beside a photo stays the photo's, so no pale
  * rim is left round a photo.
  */
+/** The dark page's ink and ground, as numbers. */
+const INK = [0xe9, 0xe3, 0xd7], GROUND = [0x1c, 0x1a, 0x17]
+/**
+ * A pixel of print in the dark page's two tones, from how light the true pixel is: black ink the page's light ink,
+ * paper its ground. pdf.js turns a scan's pixels one colour channel at a time, so the faint colour a scan leaves on a
+ * letter's edge came through as a blue or orange fringe; from the lightness alone, the edge stays the ink's own colour.
+ */
+function toned(d: Uint8ClampedArray, i: number, lum: number): void {
+  const t = lum / 255
+  d[i] = INK[0] + (GROUND[0] - INK[0]) * t
+  d[i + 1] = INK[1] + (GROUND[1] - INK[1]) * t
+  d[i + 2] = INK[2] + (GROUND[2] - INK[2]) * t
+}
+
 function mixPaper(o: Uint8ClampedArray, d: Uint8ClampedArray, w: number, h: number, TILE: number, words: number[][] = []): void {
   const cols = Math.ceil(w / TILE), rows = Math.ceil(h / TILE)
   // 0 print, 1 photo, 2 not yet known.
@@ -378,6 +392,7 @@ function mixPaper(o: Uint8ClampedArray, d: Uint8ClampedArray, w: number, h: numb
       for (let i = py * w * 4, end = i + w * 4; i < end; i += 4) {
         const r = o[i], g = o[i + 1], bl = o[i + 2]
         const chroma = (r > g ? (r > bl ? r : bl) : g > bl ? g : bl) - (r < g ? (r < bl ? r : bl) : g < bl ? g : bl)
+        toned(d, i, (r * 77 + g * 150 + bl * 29) >> 8)
         if (chroma <= 40) continue
         const keep = chroma >= 96 ? 1 : (chroma - 40) / 56
         d[i] += (r - d[i]) * keep
@@ -402,6 +417,7 @@ function mixPaper(o: Uint8ClampedArray, d: Uint8ClampedArray, w: number, h: numb
       }
       // How coloured the true pixel is: grey, black and white take the dark page's tones, colour stays.
       const chroma = (r > g ? (r > bl ? r : bl) : g > bl ? g : bl) - (r < g ? (r < bl ? r : bl) : g < bl ? g : bl)
+      toned(d, i, lum)
       const keep = 1 - mix * (chroma <= 40 ? 1 : chroma >= 96 ? 0 : (96 - chroma) / 56)
       if (keep === 0) continue
       d[i] += (r - d[i]) * keep

@@ -253,7 +253,9 @@
 }
 
 .pdf-reader-title {
-  flex: 0 1 auto;
+  /* The book's name wins the room: the chapter beside it gives way first, down to nothing. */
+  flex: 0 0 auto;
+  max-width: 100%;
   min-width: 0;
   overflow: hidden;
   font-size: 1rem;
@@ -305,7 +307,7 @@
 .pdf-reader-chapter {
   display: block;
   flex: 1 1 0;
-  min-width: 3rem;
+  min-width: 0;
   overflow: hidden;
   white-space: nowrap;
   font-size: 0.8125rem;
