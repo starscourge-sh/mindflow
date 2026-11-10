@@ -69,6 +69,14 @@ try {
   })
   check('Queue: Read’s icons and names stand in Up next’s columns (within 1px)', cols.readIcon != null && Math.abs(cols.nextIcon - cols.readIcon) <= 1 && Math.abs(cols.nextName - cols.readName) <= 1, JSON.stringify(cols))
   if (shots) await c.both(`${shots}/pass-queue`)
+  // Past 50 waiting: 50 rows and the rest a press away, never hundreds drawn at once.
+  const queued = []
+  for (let n = 0; n < 60; n++) queued.push(await h.evaluate((p) => window.api.captures.create(p), { kind: 'quote', body: doc(`Queued ${n}`) }))
+  await v('queue:add', queued.map((one) => (typeof one === 'string' ? one : one?.id)).filter(Boolean)); await wait(800)
+  const drawn = () => h.evaluate(() => document.querySelectorAll('[data-queue-row]').length)
+  check('Queue: past 50 waiting, 50 rows are drawn', (await drawn()) === 50, await drawn())
+  await h.locator('[data-island-more]').first().click(); await wait(600)
+  check('Queue: “Show all” under Up next shows every row', (await drawn()) > 60, await drawn())
 
   // Home at its narrowest with a word that never breaks: nothing runs past the page's right edge.
   for (let n = 0; n < 8; n++) await h.evaluate((p) => window.api.captures.create(p), { kind: 'quote', body: doc(`Pneumonoultramicroscopicsilicovolcanoconiosisandotherunbreakablewords ${n}`), attribution: 'Pneumonoultramicroscopicsilicovolcanoconiosisandotherunbreakablewords' })

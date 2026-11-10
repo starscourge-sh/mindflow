@@ -159,7 +159,10 @@ export function QueueView(): React.JSX.Element {
   const [chosen, setChosen] = useState<string[]>([])
   const live = chosen.filter((id) => ids.includes(id))
   const rowsOf = (list: string[]): QueueRow[] => queue.filter((row) => list.includes(row.id))
-  const [cursor, setCursor] = useListKeys(queue.length, { onOpen: (index) => play(queue, index) })
+  // Up next, the first 50 and the rest a press away: hundreds of rows drawn at once made scrolling stall (300ms frames at 500).
+  const nextFold = useFold('queue:next', { total: queue.length })
+  const nextShown = nextFold.whole ? queue : queue.slice(0, 50)
+  const [cursor, setCursor] = useListKeys(nextShown.length, { onOpen: (index) => play(queue, index) })
   const here = useHere()
   const anchor = useRef<string | null>(null)
   const takeOut = (list: string[]): void => void dequeue(rowsOf(list)).then(() => setChosen([]))
@@ -168,7 +171,6 @@ export function QueueView(): React.JSX.Element {
   const readFold = useFold('queue:read', { total: read.length })
   const readShown = readFold.whole ? read : read.slice(0, 50)
   const readIds = readShown.map((row) => row.id)
-  const nextFold = useFold('queue:next', { total: queue.length, whole: false })
   const [readChosen, setReadChosen] = useState<string[]>([])
   const readLive = readChosen.filter((id) => readIds.includes(id))
   const readRows = (list: string[]): QueueRow[] => read.filter((row) => list.includes(row.id))
@@ -299,7 +301,7 @@ export function QueueView(): React.JSX.Element {
               </Rest>
             )}
             {queue.length > 0 && (
-              <IslandBox name="Up next" island={nextFold} shown={queue.length} icon={UP_NEXT}
+              <IslandBox name="Up next" island={nextFold} shown={nextShown.length} icon={UP_NEXT}
                 extra={
                   // How far through: the ones read since the oldest still waiting was added, out of those and the ones waiting.
                   <span data-queue-progress className="flex items-center gap-2 font-normal">
@@ -308,7 +310,7 @@ export function QueueView(): React.JSX.Element {
                   </span>
                 }>
                 <div ref={nextBox}>
-                <SortableList items={queue} keyOf={(row) => row.id} onMove={(id, target, after) => void readingQueue.move(id, target, after).then(() => chime('settled'))}>
+                <SortableList items={nextShown} keyOf={(row) => row.id} onMove={(id, target, after) => void readingQueue.move(id, target, after).then(() => chime('settled'))}>
                   {(rows) => rows.map((row, at) => (
                     <SortableRow key={row.id} id={row.id}><QueueLine row={row} at={at} rows={rows} pick={pickOf(row, at)} /></SortableRow>
                   ))}
