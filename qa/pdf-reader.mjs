@@ -507,6 +507,22 @@ try {
   check('its source is the book alone, its page kept apart', lookupSource.medium === 'The Probe Book' && JSON.parse(lookupSource.fields ?? '{}').location === '3', JSON.stringify(lookupSource))
   await h.keyboard.press('Escape'); await wait(300)
   check('Esc puts the card away', await h.evaluate(() => !document.querySelector('.look-up')), '')
+  // 10 Nov: with words still picked on the page, Esc and a press away both put the card away (the reader took Esc first).
+  const pickAndLook = async () => {
+    await h.evaluate(() => {
+      const span = [...document.querySelectorAll('.pdf-reader .pdf-page[data-page="3"] .textLayer span')].find((one) => /quiet sentence/.test(one.textContent))
+      const range = document.createRange(); range.setStart(span.firstChild, 2); range.setEnd(span.firstChild, 7)
+      getSelection().removeAllRanges(); getSelection().addRange(range)
+    }); await wait(300)
+    await h.keyboard.press('l'); await h.waitForSelector('.look-up', { timeout: 5000 }).catch(() => {}); await wait(300)
+  }
+  await pickAndLook()
+  await h.keyboard.press('Escape'); await wait(300)
+  check('with words picked, Esc puts the card away', await h.evaluate(() => !document.querySelector('.look-up')), '')
+  await pickAndLook()
+  const page = await h.locator('.pdf-reader .pdf-page[data-page="3"]').boundingBox()
+  await h.mouse.click(page.x + 12, page.y + page.height - 12); await wait(300)
+  check('a press away puts the card away', await h.evaluate(() => !document.querySelector('.look-up')), '')
   await h.evaluate(() => getSelection().removeAllRanges())
   // Details, at the right of the pages as a note's: what the book is, how far you have read, its highlights (searchable, by colour) and the notes that hold it.
   await h.click('.pdf-reader button[aria-label="Details"]'); await wait(800)

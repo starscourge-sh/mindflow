@@ -51,14 +51,18 @@ export function LookUpCard({ words, at, from, range, onClose }: { words: string;
   useEffect(() => {
     // Esc puts the card away before the page under it hears the key (a note would take it as its own);
     // in "Why keep this?" it only ends the asking, as the field says.
+    // Not skipped when the page saw the key first: the PDF reader takes Esc for its own selection, and the card stayed up
+    // (10 Nov). A press anywhere off the card puts it away too, wherever it is drawn (the readers draw their own).
     const onKey = (event: KeyboardEvent): void => {
-      if (event.key !== "Escape" || event.defaultPrevented || (event.target instanceof Element && event.target.closest(".look-up input"))) return
+      if (event.key !== "Escape" || (event.target instanceof Element && event.target.closest(".look-up input, .look-up [role=menu]"))) return
       event.preventDefault()
       event.stopPropagation()
       onClose()
     }
+    const away = (event: PointerEvent): void => void (!(event.target as Element | null)?.closest?.(".look-up") && onClose())
     window.addEventListener("keydown", onKey, true)
-    return () => window.removeEventListener("keydown", onKey, true)
+    window.addEventListener("pointerdown", away, true)
+    return () => (window.removeEventListener("keydown", onKey, true), window.removeEventListener("pointerdown", away, true))
   }, [onClose])
 
   const found = meaning !== "looking" && meaning && "found" in meaning ? meaning.found : null
@@ -157,7 +161,7 @@ export function LookUpCard({ words, at, from, range, onClose }: { words: string;
           </div>
         ) : (
           <p className="look-up-quiet" data-look="dictionary">
-            {meaning && "offline" in meaning ? "Offline: the dictionary can't be asked now." : meaning && "miss" in meaning && meaning.fix ? `Not in the dictionary. Did you mean ${quoted(meaning.fix, 80)}?` : "Not in the dictionary."}
+            {meaning && "offline" in meaning ? "The dictionary could not be reached just now." : meaning && "miss" in meaning && meaning.fix ? `Not in the dictionary. Did you mean ${quoted(meaning.fix, 80)}?` : "Not in the dictionary."}
           </p>
         ))}
       <hr className="look-up-rule" />
@@ -174,7 +178,7 @@ export function LookUpCard({ words, at, from, range, onClose }: { words: string;
           <p className="look-up-extract">{page.extract}</p>
         </div>
       ) : (
-        <p className="look-up-quiet" data-look="wikipedia">{wiki && "offline" in wiki ? "Offline: Wikipedia can't be asked now." : "No Wikipedia article by that name."}</p>
+        <p className="look-up-quiet" data-look="wikipedia">{wiki && "offline" in wiki ? "Wikipedia could not be reached just now." : "No Wikipedia article by that name."}</p>
       )}
       <div className="look-up-foot">
         {kept?.asking ? (
