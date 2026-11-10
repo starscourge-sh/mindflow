@@ -32,7 +32,20 @@ const untailed = (line: string): string => line.replace(/(?:^|\s+)(?:#[^\s#]+\s*
  * tag files the whole note (a line of tags alone, or every block carrying it),
  * so the note reads as itself. `#physics` is carried by `#physics/optics` too.
  */
+// Each body read once per tag while it is the same object: a tag page of thousands of notes draws its rows again
+// on every scroll, and walking every body each time was the page's cost.
+const read = new WeakMap<object, Map<string, { lines: string[]; more: number } | null>>()
+
 export function taggedBlocks(body: unknown, tag: string, most = 3): { lines: string[]; more: number } | null {
+  if (!body || typeof body !== 'object') return blocksFor(body, tag, most)
+  const kept = read.get(body) ?? new Map<string, { lines: string[]; more: number } | null>()
+  read.set(body, kept)
+  const key = `${tag}\n${most}`
+  if (!kept.has(key)) kept.set(key, blocksFor(body, tag, most))
+  return kept.get(key)!
+}
+
+function blocksFor(body: unknown, tag: string, most: number): { lines: string[]; more: number } | null {
   const want = tag.toLowerCase()
   const blocks = blocksOf(body)
   const has = (line: string): boolean => tagsIn(line).some((one) => one === want || one.startsWith(`${want}/`))
