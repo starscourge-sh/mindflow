@@ -101,7 +101,7 @@ const fade = () => page.evaluate(() => {
 await page.keyboard.type('the world is on fire')
 await wait(400)
 const pillFade = await fade()
-check('the pill has no fade at its top or foot', !pillFade.scrolls && /(^|\s)0px/.test(pillFade.less || '0px') && /(^|\s)0px/.test(pillFade.more || '0px') && /rgb\(0, 0, 0\) 0px, rgb\(0, 0, 0\) 100%/.test(pillFade.mask), JSON.stringify(pillFade))
+check('the pill has no fade at its top or foot', !pillFade.scrolls && /(^|\s)0px/.test(pillFade.less || '0px') && /(^|\s)0px/.test(pillFade.more || '0px') && /rgb\(0, 0, 0\) 0px(, rgb\(0, 0, 0\) 100%)?\)$/.test(pillFade.mask), JSON.stringify(pillFade))
 
 // Vim on: no band behind the line (pill and grown).
 await vim(true)
@@ -179,7 +179,7 @@ await page.keyboard.type('second line')
 await wait(900)
 check('a second line grows the box', !(await isPill()) && (await height()) >= 280, String(await height()))
 const grownFade = await fade()
-check('the grown box with everything in view has no fade', !grownFade.scrolls && /(^|\s)0px/.test(grownFade.less || '0px') && /(^|\s)0px/.test(grownFade.more || "0px") && /rgb\(0, 0, 0\) 0px, rgb\(0, 0, 0\) 100%/.test(grownFade.mask), JSON.stringify(grownFade))
+check('the grown box with everything in view has no fade', !grownFade.scrolls && /(^|\s)0px/.test(grownFade.less || '0px') && /(^|\s)0px/.test(grownFade.more || "0px") && /rgb\(0, 0, 0\) 0px(, rgb\(0, 0, 0\) 100%)?\)$/.test(grownFade.mask), JSON.stringify(grownFade))
 check('no band behind the current line in the grown box', (await band()) === 0)
 await page.keyboard.press('Home')
 await page.keyboard.press('Tab')

@@ -118,9 +118,13 @@ try {
   const goal = await v('goal:new', WORST[0], day(30), day(-3))
   await v('goal:beacon:set', typeof goal === 'string' ? goal : goal.id, 'always')
   await wait(4000)
-  const beacon = electron.windows().find((one) => !one.isClosed() && one.url().includes('type=goal&') && one.url().includes(encodeURIComponent(typeof goal === 'string' ? goal : goal.id)))
-    ?? await windowOf('type=goal&')
-  check('the goal\'s card is up', !!beacon)
+  // The card with this goal's words on it (the sandbox has goal cards of its own).
+  let beacon = null
+  for (let i = 0; i < 40 && !beacon; i++) {
+    for (const one of electron.windows().filter((w) => !w.isClosed() && w.url().includes('type=goal&'))) if (!beacon && (await one.evaluate(() => document.body.innerText).catch(() => '')).includes('bartholomew')) beacon = one
+    if (!beacon) await wait(250)
+  }
+  check('the worst-named goal\'s card is up', !!beacon)
   if (beacon) {
     await beacon.waitForTimeout(1500)
     await themed(beacon, 'goal-card')
