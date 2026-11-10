@@ -367,8 +367,8 @@ function TagChips({ tags, strip, className, children }: { tags: string[]; strip:
   }, [fit, all, said])
   const shown = all || fit === null ? tags : tags.slice(0, fit)
   const left = tags.length - shown.length
-  // Until measured, held to two rows so 500 tags never flash down the page.
-  const held = !all && fit === null ? { maxHeight: 'calc(3rem + 0.75rem)', overflow: 'hidden' } : undefined
+  // Until measured, held to two rows (3.5rem, measured to be the height the two rows settle at) so 500 tags never flash down the page and nothing below moves.
+  const held = !all && fit === null ? { maxHeight: '3.5rem', overflow: 'hidden' } : undefined
   return (
     <div ref={box} className={className} style={held}>
       {shown.map((tag) => (
