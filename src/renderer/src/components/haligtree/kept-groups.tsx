@@ -26,12 +26,12 @@ import { cn } from '@/lib/cn'
 import { Overlay, SETTLE, upDown } from './sortable'
 import { CARD, CarriedCard, CarryRow, Carrying, Hand, useCardPlace, INDENT, OUT, OUTDENT, PanelParts, REST, Shaped, pointerNow, rowAt, sideOf, useAim, useCarriedLeft, useRest, useTall, type Aim } from './carry'
 import { Hinted, copy } from './row-menu'
-import { Rolling, Tip, VirtualList, refuse, toast, quietly } from './ui'
+import { Count, Rolling, Tip, VirtualList, refuse, toast, quietly } from './ui'
 import type { Entry } from './note-list'
 import { ROW_PAD, ROW_SHAPE, ROW_TILE } from './row-shape'
 /** A group's title bar: as tall as a thumbnail, no taller (the old panels' slim head). */
 const HEAD = 'h-9 py-0'
-import { brief, num, plural } from '../../../../main/dates'
+import { brief, num } from '../../../../main/dates'
 
 
 /**
@@ -484,7 +484,7 @@ function Ghost({ carried, bundles, many, aim, grab, from, rest, dragY }: { carri
       <CarriedCard attrs={{ 'data-ghost': '' }} icon={group ? <GroupIcon icon={group.icon} color={group.color} /> : entry ? <entry.icon className="size-4 shrink-0" style={{ color: entry.tint }} /> : null}
         title={group?.name ?? (entry?.title || 'New note')} strong={!!group} words={aim?.label ?? (aim ? 'Move here' : null)} tint={aim?.tint} />
       {/* How many, hanging just under the stack. */}
-      {many.length > 1 && <Count n={many.length} />}
+      {many.length > 1 && <CarriedCount n={many.length} />}
     </Hand>
   )
 }
@@ -544,7 +544,7 @@ function OwnOrderHint(): React.JSX.Element | null {
 }
 
 /** How many are carried, in a small badge on the lifted card's corner. */
-function Count({ n }: { n: number }): React.JSX.Element {
+function CarriedCount({ n }: { n: number }): React.JSX.Element {
   return (
     <span data-carried={n} className="absolute -bottom-3 left-1/2 z-10 flex h-5 -translate-x-1/2 min-w-5 items-center justify-center rounded-full bg-(--tt-brand-color-400) px-1.5 text-[11px] font-semibold mf-on-accent tabular-nums shadow-sm animate-in zoom-in-90 fade-in-0 duration-150">
       {brief(n)}
@@ -812,7 +812,7 @@ function GroupBlock({ group, entries, parts, start, cursor, estimate, row, carri
                       <PopoverAnchor asChild><GroupTile group={group} empty={count === 0} /></PopoverAnchor>
                       <span data-folder-row-name="" className="min-w-0 flex-1 truncate text-control font-medium text-foreground">{name}</span>
                       {/* How many it holds, on the right as Finder says it, in this list's own word. */}
-                      <span data-count={count} className="shrink-0 text-meta text-muted-foreground tabular-nums">{plural(count, noun)}</span>
+                      <span className="shrink-0 text-meta text-muted-foreground tabular-nums"><Count n={count} /> {count === 1 ? noun : `${noun}s`}</span>
                     </button>
                   ) : (
                     <button
@@ -834,7 +834,7 @@ function GroupBlock({ group, entries, parts, start, cursor, estimate, row, carri
                       <PopoverAnchor asChild><PanelTile group={group} onIcon={() => setPicking(true)} /></PopoverAnchor>
                       <span className="min-w-0 truncate text-xs font-semibold">{name}</span>
                       {/* How many it holds, open or folded, on the right as a folder's row says it: one place whatever the name's length. */}
-                      <span data-count={count} className={cn('ml-auto shrink-0 pl-3 text-xs text-muted-foreground tabular-nums transition-opacity duration-150', (over || shown) && 'opacity-0')}>{plural(count, noun)}</span>
+                      <span className={cn('ml-auto shrink-0 pl-3 text-xs text-muted-foreground tabular-nums transition-opacity duration-150', (over || shown) && 'opacity-0')}><Count n={count} /> {count === 1 ? noun : `${noun}s`}</span>
                       {/* Open, a hairline under it, inside the group's box. */}
                       {group.open && <span aria-hidden data-head-line="" className="pointer-events-none absolute inset-x-2 bottom-0 h-px" style={{ background: `color-mix(in srgb, var(--group-tint) ${tint ? 18 : 10}%, transparent)` }} />}
                     </button>

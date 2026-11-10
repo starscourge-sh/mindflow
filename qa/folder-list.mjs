@@ -23,7 +23,7 @@ const look = () => h.evaluate(() => {
     ids: rows.filter((one) => one.hasAttribute('data-row')).map((one) => one.getAttribute('data-id')),
     grid: document.querySelectorAll('[data-folder-grid], [data-folder-tile]').length,
     heads: [...document.querySelectorAll('[role="main"] [data-group-head]')].map((one) => one.getAttribute('data-group-head')),
-    counts: [...document.querySelectorAll('[role="main"] [data-folder-row] [data-group-row] [data-count]')].map((one) => one.textContent.trim())
+    counts: [...document.querySelectorAll('[role="main"] [data-folder-row] [data-group-row] [data-count]')].map((one) => one.parentElement.textContent.trim())
   }
 })
 const fresh = async (page) => { await go(page === 'articles' ? 'nuggets' : 'articles'); await go(page); await h.waitForTimeout(700) }
