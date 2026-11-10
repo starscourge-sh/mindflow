@@ -455,7 +455,7 @@ function Bio({ field, name, page }: { field: SourceField; name: string; page: So
         className="-mx-2 block w-[calc(100%+1rem)] resize-none rounded-md bg-transparent px-2 py-1 text-heading leading-relaxed text-pretty outline-none [field-sizing:content] placeholder:text-foreground/55 hover:bg-accent/50 focus:bg-accent/50" />
       {page.bioUrl && text === page.bio && (
         <a data-bio-credit href={page.bioUrl} target="_blank" rel="noopener noreferrer" title="Text from Wikipedia, CC BY-SA"
-          className="mt-0.5 inline-flex items-center gap-0.5 rounded-sm text-meta text-muted-foreground hover:text-foreground hover:underline hover:underline-offset-2">
+          className="-mx-1 inline-flex items-center gap-0.5 rounded-sm px-1 py-1 text-meta text-muted-foreground hover:text-foreground hover:underline hover:underline-offset-2">
           From Wikipedia <ArrowUpRight className="size-3" />
         </a>
       )}
@@ -755,16 +755,20 @@ const exampleEntry = (field: SourceField, name: string, count: number, quotes: n
 })
 
 /** People as big round faces, like an artists' shelf: their photo or shape, the name, and how much is from them. */
+/** The faces shown before “Show all”: six rows of five at the desktop width, so hundreds of people never make a wall. */
+const FACES_SHOWN = 30
+
 function FaceGrid({ people, title = 'People' }: { people: SourceSummary[]; title?: 'People' | 'Characters' }): React.JSX.Element {
+  const [all, setAll] = useState(false)
   return (
     <section data-people-grid={title === 'People' ? '' : undefined} data-characters-grid={title === 'Characters' ? '' : undefined} className="mx-3 my-2">
       <h3 className="mb-2 flex items-center gap-2 px-2 text-heading font-semibold">{title} <Count n={people.length} className="text-control font-normal text-muted-foreground" /></h3>
       <div className="grid gap-x-2 gap-y-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(10rem, 1fr))' }}>
-        {people.map((one) => (
+        {people.slice(0, all ? undefined : FACES_SHOWN).map((one) => (
           <PersonMenu key={one.name} name={one.name} work={one.work ?? ''}>
             <button type="button" data-face={one.name} onClick={(event) => (chime('page'), heroOpen(event, () => openSource('attribution', one.name)))}
               className="group flex min-w-0 flex-col items-center gap-2 rounded-xl p-3 text-center transition-colors duration-100 hover:bg-accent/60 focus-visible:ring-2 focus-visible:ring-ring">
-              <Avatar name={one.name} size={128} className="transition-transform duration-200 group-hover:scale-[1.03]" />
+              <Avatar name={one.name} size={128} className="transition-transform duration-200 ease-(--mf-ease) motion-safe:group-hover:scale-[1.03]" />
               <span {...hoverNote('person', one.name)} className="w-full truncate text-body font-semibold text-foreground">{one.name}</span>
               {/* A character says the work they are in; a person, how much is from them. */}
               <span className="-mt-1.5 w-full truncate text-control text-foreground/80">{one.work ? `in ${one.work}` : tally(one)}</span>
@@ -772,6 +776,11 @@ function FaceGrid({ people, title = 'People' }: { people: SourceSummary[]; title
           </PersonMenu>
         ))}
       </div>
+      {people.length > FACES_SHOWN && (
+        <Button variant="ghost" size="sm" className="mt-2" data-faces-more onClick={() => (chime(all ? 'fold' : 'slide'), setAll(!all))}>
+          {all ? 'Show fewer' : `Show all ${num(people.length)}`}
+        </Button>
+      )}
     </section>
   )
 }
@@ -862,7 +871,7 @@ export function SourcesView({ onOpen }: { onOpen: (type: string, id: string) => 
   const [looking, setLooking] = useState(false)
   return (
     // Waits for both its reads: drawn before, "No sources yet" showed for a beat, and the quotes with no source came in above the list.
-    <Page title="Sources" waiting={unloaded(list) || unloaded(missing)} count={live.length || list.length} unit={live.length ? ['selected', 'selected'] : ['page', 'pages']} actions={<>
+    <Page title="Sources" waiting={unloaded(list) || unloaded(missing)} count={live.length || list.length} unit={live.length ? ['selected', 'selected'] : ['person or work', 'people and works']} actions={<>
       <Display view={view} onChange={setView} facets={[]} count={list.length} density={asGrid ? 'grid' : 'list'} onDensity={(density) => setView({ ...view, density })} densities={['list', 'grid']}
         sorts={[{ id: 'recents', label: 'Recents' }, { id: 'added', label: 'Recently added' }, { id: 'name', label: 'A to Z' }, { id: 'most', label: 'Most notes' }]} />
       <Button variant="outline" size="sm" className="h-7 cursor-pointer px-3" data-new-source="attribution" onClick={() => void make('attribution')}><Plus className="size-3.5" />New person</Button>
