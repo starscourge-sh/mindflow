@@ -3014,6 +3014,27 @@ export function registerHaligtree(): void {
     return daysInARow(days, dayKey(), awayDays())
   })
 
+  // --- what the reviewing has added up to, for Review's end: said against your own past, never anyone else's.
+  // Known: remembered across a gap of 15 days or more (as Stats counts it), now and a month ago. Remembered
+  // today: cards seen before, graded anything but Again. Best: the most remembered on any earlier day, and
+  // how many days there were to beat, so a record is only called one when there was a real past to set it against.
+  handle('review:grown', () => {
+    const proofs = (db.prepare(`select min(reviewed_at) at from (select item_id, reviewed_at, grade, julianday(reviewed_at) - julianday(lag(reviewed_at) over (partition by item_id order by reviewed_at)) gap from review_log)
+      where grade > 1 and gap >= 15 and item_id in (select id from nuggets where coalesce(prompt, '') != '' and coalesce(body, '') not like '%#${EXAMPLE_TAG}"' and archived_at is null and binned_at is null) group by item_id`).all() as { at: string }[])
+      .map((row) => Date.parse(row.at))
+    const monthAgo = startOfDay(-29)
+    const today = new Date(startOfDay(0)).toISOString()
+    const remembered = (db.prepare('select count(*) n from review_log where first = 0 and grade > 1 and reviewed_at >= ?').get(today) as { n: number }).n
+    const before = db.prepare("select date(reviewed_at, 'localtime') day, sum(first = 0 and grade > 1) n from review_log where reviewed_at < ? group by day").all(today) as { day: string; n: number }[]
+    return {
+      known: proofs.length,
+      knownMonthAgo: proofs.filter((at) => at < monthAgo).length,
+      remembered,
+      best: Math.max(0, ...before.map((row) => row.n)),
+      daysBefore: before.length
+    }
+  })
+
   // --- fit the scheduler to you: after a thousand reviews, how long a new
   // card lasts after each first grade, from when you next remembered it or not.
   const FIT_AFTER = 1000

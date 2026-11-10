@@ -1130,6 +1130,40 @@ const MILESTONES: Record<number, string> = {
 }
 
 /**
+ * What the reviewing has added up to, said only against your own past and
+ * only when it is true: a best day for cards remembered (with at least a week
+ * of earlier days to beat, and ten cards or more), then the cards you now
+ * know against a month ago. Never a count of sittings or of days opened: each
+ * line is about remembering, the thing itself. Just finished, the lines come
+ * one at a time after the book rises, each a beat after the last, the record
+ * with a soft note; come back to later, or with Reduce motion, they are
+ * simply there.
+ */
+function Grown({ reveal }: { reveal: boolean }): React.JSX.Element | null {
+  const grown = useLive(haligtree.reviewGrown, null as Awaited<ReturnType<typeof haligtree.reviewGrown>> | null, [], ['item'])
+  if (!grown) return null
+  const record = grown.daysBefore >= 7 && grown.remembered >= 10 && grown.remembered > grown.best
+  const gain = grown.known - grown.knownMonthAgo
+  const lines = [
+    record && { id: 'record', body: <><strong className="font-semibold">Your best day yet: {num(grown.remembered)} cards remembered,</strong> <span className="text-muted-foreground">past your old best of {num(grown.best)}.</span></> },
+    gain > 0 && { id: 'known', body: <>You now know <strong className="font-semibold">{plural(grown.known, 'card', 'cards')}</strong>, <strong className="font-semibold">{num(gain)} more</strong> than a month ago <span className="text-muted-foreground">(known: remembered after 15 days or more).</span></> }
+  ].filter((one): one is { id: string; body: React.JSX.Element } => !!one)
+  if (!lines.length) return null
+  return (
+    <div data-grown className="flex flex-col gap-1.5">
+      {lines.map((line, at) => (
+        <motion.p key={line.id} data-grown-line={line.id} className="text-body text-foreground tabular-nums"
+          initial={reveal ? { opacity: 0, transform: 'translateY(6px)' } : false} animate={{ opacity: 1, transform: 'translateY(0px)' }}
+          transition={{ duration: 0.32, ease: EASE, delay: 0.95 + at * 0.45 }}
+          onAnimationComplete={() => reveal && line.id === 'record' && chime('reveal')}>
+          {line.body}
+        </motion.p>
+      ))}
+    </div>
+  )
+}
+
+/**
  * The end of the day's cards, or a day with none due: the star rises, the
  * line on what that means, and one way on. Your Inbox when something waits
  * there, else the new cards to learn, else Home. Practice stays a quiet link
@@ -1193,6 +1227,8 @@ function Finished({ count, total, later = 0, compact, onPick, onLearn, ids = [] 
               : today > 0 ? <><strong data-done-today className="font-semibold text-foreground">{num(today)} {today === 1 ? 'card' : 'cards'} {partOfDay(sitting?.last ?? null)}.</strong> What you could not recall comes back soonest; the rest waits longer each time you remember it.</>
               : <><strong className="font-semibold text-foreground">No card is due yet.</strong> Each one comes back as you start to forget it, so there is nothing to do here until then.</>}
           </p>
+          {/* What it has added up to, against your own past: shown one line at a time once the book has risen. */}
+          {(done || today > 0) && <Grown reveal={done && !flat} />}
           {/* Two honest numbers from the sitting: the card that held longest, and the time a card took. */}
           {(done || today > 0) && sitting?.kept && <p data-still-knew className="text-body text-foreground">You still knew <strong className="font-semibold">{quoted(sitting.kept.prompt, 80)}</strong> after {num(sitting.kept.days)} days.</p>}
           {(done || today > 0) && !!sitting?.seconds && <p data-seconds-each className="text-control text-foreground tabular-nums">About {num(sitting.seconds)} {sitting.seconds === 1 ? 'second' : 'seconds'} a card today.</p>}

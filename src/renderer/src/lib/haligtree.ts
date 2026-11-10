@@ -475,7 +475,9 @@ export const haligtree = {
   /** How long a card would hold after each of its reviews, replayed from its grades. */
   strength: (id: string) => call<{ at: string; grade: number; days: number }[]>('review:strength', id),
   /** Days in a row with something reviewed, and rest days banked. */
-  daysInARow: () => call<{ run: number; banked: number }>('review:days'),
+  daysInARow: () => call<{ run: number; banked: number; best: number; since: string }>('review:days'),
+  /** What the reviewing has added up to: cards known now and a month ago, remembered today, and the best earlier day. */
+  reviewGrown: () => call<{ known: number; knownMonthAgo: number; remembered: number; best: number; daysBefore: number }>('review:grown'),
   /** Fitting the scheduler to you: how many reviews there are, how many it needs, and the fit if made. */
   fitState: () => call<{ reviews: number; after: number; fitted: number[] | null }>('review:fit:state'),
   fit: () => call<{ fitted: number[]; pairs: number; defaults: number[] } | null>('review:fit'),
