@@ -190,6 +190,13 @@ type Hover = { row: number; column: number } | null
 const MARGIN = 24
 
 /**
+ * How long the grips and "+" bars stay once the pointer has left the table and
+ * its margin: long enough to travel out to one of them on a slant, or to
+ * overshoot it a little, before they go. Back in time, they never left.
+ */
+export const TABLE_GRACE_MS = 350
+
+/**
  * One row grip and one column grip, following the pointer.
  *
  * One of each rather than one per row and column: a table of ten columns does
@@ -277,6 +284,31 @@ export function TableControls({ editor }: { editor: Editor | null }): React.JSX.
   const [hover, setHover] = useState<Hover>(null)
   const host = page?.parentElement ?? null
 
+  // Leaving is not gone at once: the controls fade over the grace and only then
+  // let go, so the pointer can still reach them (TABLE_GRACE_MS). Shown at once
+  // on the way back in.
+  const [leaving, setLeaving] = useState(false)
+  const graceTimer = useRef(0)
+  const shown = useRef(false)
+  shown.current = hover !== null || pointed !== null
+  const stay = useCallback((): void => {
+    if (!graceTimer.current) return
+    clearTimeout(graceTimer.current)
+    graceTimer.current = 0
+    setLeaving(false)
+  }, [])
+  const letGo = useCallback((): void => {
+    if (graceTimer.current || !shown.current) return
+    setLeaving(true)
+    graceTimer.current = window.setTimeout(() => {
+      graceTimer.current = 0
+      setLeaving(false)
+      setPointed(null)
+      setHover(null)
+    }, TABLE_GRACE_MS)
+  }, [])
+  useEffect(() => () => clearTimeout(graceTimer.current), [])
+
   // Which table the pointer is over. Kept while the pointer goes out to the
   // grips and bars, which sit outside the table; let go once it is clear of
   // them (below). A table in a note shown inside this one belongs to that
@@ -290,7 +322,7 @@ export function TableControls({ editor }: { editor: Editor | null }): React.JSX.
     }
     const onLeave = (): void => {
       pointer.current = null
-      setPointed(null)
+      letGo()
     }
     host.addEventListener('mousemove', onMove)
     host.addEventListener('mouseleave', onLeave)
@@ -298,7 +330,7 @@ export function TableControls({ editor }: { editor: Editor | null }): React.JSX.
       host.removeEventListener('mousemove', onMove)
       host.removeEventListener('mouseleave', onLeave)
     }
-  }, [host, page])
+  }, [host, page, letGo])
 
   useEffect(() => {
     if (!host || !geometry) return
@@ -312,10 +344,8 @@ export function TableControls({ editor }: { editor: Editor | null }): React.JSX.
         x <= geometry.left + geometry.width + MARGIN &&
         y >= geometry.top - MARGIN &&
         y <= geometry.top + geometry.height + MARGIN
-      if (!near) {
-        setPointed(null)
-        return setHover(null)
-      }
+      if (!near) return letGo()
+      stay()
 
       // Past the last edge means the margin outside the table, which is where
       // the grips themselves sit, so that counts as the last row or column.
@@ -334,7 +364,7 @@ export function TableControls({ editor }: { editor: Editor | null }): React.JSX.
         )
       })
     }
-    const onLeave = (): void => setHover(null)
+    const onLeave = (): void => letGo()
 
     if (pointer.current) onMove(pointer.current)
     host.addEventListener('mousemove', onMove)
@@ -343,7 +373,7 @@ export function TableControls({ editor }: { editor: Editor | null }): React.JSX.
       host.removeEventListener('mousemove', onMove)
       host.removeEventListener('mouseleave', onLeave)
     }
-  }, [host, geometry])
+  }, [host, geometry, letGo, stay])
 
   /** Which row or column the pointer is over, or -1 when it is outside. */
   const indexAt = useCallback(
@@ -569,7 +599,7 @@ export function TableControls({ editor }: { editor: Editor | null }): React.JSX.
       : { left: base, width: size, top: geometry.top, height: geometry.height }
 
   return createPortal(
-    <div className="tiptap-table-controls" data-carrying={drag?.lifted || undefined}>
+    <div className="tiptap-table-controls" data-carrying={drag?.lifted || undefined} data-leaving={(leaving && !drag && !settle) || undefined}>
       {/* The place it was taken from, faded while it is in the air. */}
       {drag?.lifted && <div className="tiptap-table-vacated" style={span(drag.axis, drag.base, drag.size)} />}
       {moving && mark && <div className={`tiptap-table-landing is-${moving.axis}`} style={mark} />}

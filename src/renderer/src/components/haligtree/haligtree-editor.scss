@@ -1075,6 +1075,14 @@
   pointer-events: none;
   z-index: 15;
 
+  // The pointer has left the table: the grips and bars stay for the grace
+  // (TABLE_GRACE_MS, table-controls.tsx), fading in its second half, so they
+  // can still be reached. Back in time, they are whole again at once.
+  &[data-leaving] {
+    opacity: 0;
+    transition: opacity 200ms var(--mf-ease) 150ms;
+  }
+
   button {
     position: absolute;
     pointer-events: auto;
