@@ -43,9 +43,11 @@ try {
   for (const look of ['light', 'dark']) {
     await c.look(look)
     await go('media'); await wait(1200)
+    // Files opens on its piles (Books, Pictures, Recent), not a grid of tiles: the book's cover is on the Books shelf.
+    await h.locator('[data-page=media] [data-media-kinds] button', { hasText: 'Books' }).first().click(); await wait(1500)
     // A tile in Files, or a book on the Books shelf when books are all there is (the shelf then shows on its own).
     const face = ':is([data-media=pdf], .pdf-book) [data-pdf-peek-scrub]'
-    await h.waitForSelector(`${face} img`, { timeout: 8000 })
+    await h.waitForSelector(`${face} img`, { timeout: 8000 }).catch(async () => { throw new Error(`no cover: ${await h.evaluate(() => JSON.stringify({ shelf: document.querySelectorAll(".pdf-book").length, tiles: document.querySelectorAll("[data-media=pdf]").length, scrub: document.querySelectorAll("[data-pdf-peek-scrub]").length, imgs: document.querySelectorAll("[data-pdf-peek-scrub] img").length, page: document.querySelector("[data-page]")?.dataset.page, text: document.querySelector("[data-page=media]")?.textContent?.slice(0, 160) }))}`) })
     const ground = () => h.evaluate((sel) => getComputedStyle(document.querySelector(sel)).backgroundColor, face)
     const cover = await ground()
     if (SHOT) await h.screenshot({ path: `${SHOT}-${look}-tile.png` })
