@@ -1,6 +1,7 @@
 import { Mark, mergeAttributes, type Editor } from "@tiptap/core"
 import type { Mark as PMMark, Node as PMNode } from "@tiptap/pm/model"
-import { Plugin, PluginKey } from "@tiptap/pm/state"
+import { Plugin, PluginKey, type Transaction } from "@tiptap/pm/state"
+import { linesTyped } from "@/lib/text-edit"
 import { Decoration, DecorationSet } from "@tiptap/pm/view"
 import { createElement } from "react"
 import { createRoot, type Root } from "react-dom/client"
@@ -84,6 +85,27 @@ function runsOf(doc: PMNode): Map<string, { kind: KeptKind; ranges: [number, num
     }
   })
   return runs
+}
+
+/**
+ * Only words typed into lines that hold nothing kept, before or after: the
+ * marks just move with the words, and the note need not be walked again
+ * (thousands of blocks on every key in a long note).
+ */
+function untouched(tr: Transaction): boolean {
+  const lines = linesTyped(tr)
+  if (!lines) return false
+  const holds = (node: PMNode | null | undefined): boolean => {
+    if (!node) return true
+    let found = false
+    node.descendants((child) => {
+      if (found) return false
+      found = child.marks.some((mark) => mark.type.name === NAME && !!mark.attrs.keptId)
+      return !found
+    })
+    return found
+  }
+  return lines.every(({ before, after }) => !holds(tr.before.nodeAt(before)) && !holds(tr.doc.nodeAt(after)))
 }
 
 function decorate(doc: PMNode, known: Map<string, State>): DecorationSet {
@@ -239,7 +261,7 @@ export const Kept = Mark.create({
   },
 
   onTransaction({ transaction }) {
-    if (!transaction.docChanged || transaction.getMeta(KEY)) return
+    if (!transaction.docChanged || transaction.getMeta(KEY) || untouched(transaction)) return
     // Words newly marked (made just now, pasted in, a line undone back): read what they point at.
     const known = KEY.getState(this.editor.state)?.known
     for (const id of runsOf(transaction.doc).keys()) if (!known?.has(id)) return void this.storage.later?.()
@@ -253,7 +275,9 @@ export const Kept = Mark.create({
         apply: (tr, was) => {
           const known = tr.getMeta(KEY) as Map<string, State> | undefined
           if (known) return { known, set: decorate(tr.doc, known) }
-          return tr.docChanged ? { known: was.known, set: decorate(tr.doc, was.known) } : was
+          if (!tr.docChanged) return was
+          if (untouched(tr)) return { known: was.known, set: was.set.map(tr.mapping, tr.doc) }
+          return { known: was.known, set: decorate(tr.doc, was.known) }
         },
       },
       props: {

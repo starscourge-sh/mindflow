@@ -1,5 +1,5 @@
 import { Extension } from "@tiptap/core"
-import { Plugin, PluginKey, TextSelection } from "@tiptap/pm/state"
+import { Plugin, PluginKey, TextSelection, type Transaction } from "@tiptap/pm/state"
 import { Decoration, DecorationSet, type EditorView } from "@tiptap/pm/view"
 import { Fragment, Slice, type Node as ProseMirrorNode } from "@tiptap/pm/model"
 
@@ -7,6 +7,7 @@ import { lineCard, termLines } from "../../../main/study"
 import { cardListOf } from "../../../main/card-lists"
 import { openPdf } from "@/components/pdf/pdf-reader"
 import { isAudio } from "@/lib/transcribe"
+import { linesTyped } from "@/lib/text-edit"
 
 /** A video file kept in the note, which its times play too. */
 const isVideoFile = (node: ProseMirrorNode): boolean => node.type.name === "attachment" && /\.(mp4|mov|m4v|webm)$/i.test(String(node.attrs.name || node.attrs.src || ""))
@@ -53,7 +54,11 @@ const pdfIn = (doc: ProseMirrorNode): { src: string; name: string } | null => {
   return found
 }
 
-function marks(doc: ProseMirrorNode): DecorationSet {
+/** What the marks of one line depend on beyond the line: the note's video, its PDF, and whether it holds a recording. */
+type Facts = { video: boolean; pdf: { src: string; name: string } | null; audio: boolean }
+type Marked = { set: DecorationSet; facts: Facts }
+
+function marks(doc: ProseMirrorNode): Marked {
   const found: Decoration[] = []
   // Times and pages are links only when the note has the video or PDF they open.
   let video = false
@@ -61,10 +66,43 @@ function marks(doc: ProseMirrorNode): DecorationSet {
   const pdf = pdfIn(doc)
   // The last recording above a line: a time under it plays that recording, as a transcript's times do (lib/transcribe.ts).
   let audio: string | null = null
+  let heard = false
   doc.descendants((node, pos) => {
     if (node.type.name === "codeBlock") return false
-    if (isAudio(node)) return void (audio = String(node.attrs.src))
+    if (isAudio(node)) return void ((audio = String(node.attrs.src)), (heard = true))
     if (!node.isTextblock) return true
+    lineMarks(node, pos, audio, video, pdf, found)
+    return false
+  })
+  return { set: DecorationSet.create(doc, found), facts: { video, pdf, audio: heard } }
+}
+
+/**
+ * Words typed into lines, and nothing else: only those lines are marked
+ * again. Words alone never add or take away a video, a PDF or a recording, so
+ * what the rest of the note says is unchanged. A note with a recording is
+ * marked whole, as a line's recording is the last one above it.
+ */
+function remark(tr: Transaction, was: Marked): Marked {
+  const lines = was.facts.audio ? null : linesTyped(tr)
+  if (!lines) return marks(tr.doc)
+  let set = was.set.map(tr.mapping, tr.doc)
+  for (const { after } of lines) {
+    const node = tr.doc.nodeAt(after)
+    if (!node?.isTextblock) return marks(tr.doc)
+    // A code block is never marked.
+    if (node.type.name === "codeBlock") continue
+    set = set.remove(set.find(after, after + node.nodeSize))
+    const found: Decoration[] = []
+    lineMarks(node, after, null, was.facts.video, was.facts.pdf, found)
+    set = set.add(tr.doc, found)
+  }
+  return { set, facts: was.facts }
+}
+
+/** The marks of one line: a transcript's time, a card's "::", a time or page that opens, a PDF link's page. */
+function lineMarks(node: ProseMirrorNode, pos: number, audio: string | null, video: boolean, pdf: { src: string; name: string } | null, found: Decoration[]): void {
+  {
     // A transcript's line, starting with its time: quiet, under its recording.
     if (audio && /^\[(?:\d{1,2}:)?\d{1,2}:[0-5]\d\]/.test(node.textContent)) found.push(Decoration.node(pos, pos + node.nodeSize, { class: "mf-transcript-line", "data-words-of": audio }))
     if (lineCard(lineText(node))) found.push(Decoration.widget(pos + node.nodeSize - 1, mark, { side: 1, key: "line-card", ignoreSelection: true }))
@@ -101,9 +139,7 @@ function marks(doc: ProseMirrorNode): DecorationSet {
       if (!new RegExp(`p\\.?\\s*${at[1]}\\W*$`).test(words.trim())) found.push(Decoration.widget(pos + 1 + offset + child.nodeSize, pageAfter(at[1]), { side: 1, marks: [], key: `pdf-page-${at[1]}`, ignoreSelection: true }))
       words = ""
     })
-    return false
-  })
-  return DecorationSet.create(doc, found)
+  }
 }
 
 /** Play a recording in the note from a time: its block comes into view. False when it is not there. */
@@ -187,16 +223,16 @@ export const LineCards = Extension.create({
   name: "lineCards",
 
   addProseMirrorPlugins() {
-    const key = new PluginKey<DecorationSet>("lineCards")
+    const key = new PluginKey<Marked>("lineCards")
     return [
       new Plugin({
         key,
         state: {
           init: (_, state) => marks(state.doc),
-          apply: (tr, set) => (tr.docChanged ? marks(tr.doc) : set),
+          apply: (tr, was) => (tr.docChanged ? remark(tr, was) : was),
         },
         props: {
-          decorations: (state) => key.getState(state),
+          decorations: (state) => key.getState(state)?.set,
           // A click on a time plays the note's own video from it: the first
           // video in the note is told, and comes into view.
           handleClick: (view, _pos, event) => {
