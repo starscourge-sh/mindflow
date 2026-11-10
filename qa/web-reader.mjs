@@ -85,6 +85,8 @@ try {
   })
   await c.both(`${shots}/web-note-pane`)
   const button = '.tiptap-bookmark button[aria-label="Open in the reader"]'
+  // The card's buttons are drawn once the pointer first comes over it (bookmark-node-view.ts).
+  await h.hover('[data-open] .tiptap-bookmark'); await wait(300)
   check('a link card offers "Open in the reader"', await h.evaluate((sel) => !!document.querySelector(sel), button), '')
   await h.click(button)
   await h.waitForSelector('.web-reader-body p', { timeout: 15000 }).catch(() => {})
@@ -270,9 +272,11 @@ try {
     { type: 'paragraph' }
   ] } })
   await c.send('article', note); await wait(1400)
+  await h.locator('.tiptap-bookmark').nth(0).hover(); await wait(300)
   await h.keyboard.down('Alt'); await h.locator(button).nth(0).click(); await h.keyboard.up('Alt')
   await h.waitForSelector('.web-reader-body p', { timeout: 10000 }).catch(() => {})
   await wait(600)
+  await h.locator(`[data-open="${note}"] .tiptap-bookmark`).nth(1).hover(); await wait(300)
   await h.locator(`[data-open="${note}"] ${button}`).nth(1).click()
   await h.waitForFunction(() => document.querySelectorAll('.web-reader-body p').length > 0 && document.querySelectorAll('.web-reader').length === 2, null, { timeout: 10000 }).catch(() => {})
   await wait(600)

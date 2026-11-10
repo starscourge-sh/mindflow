@@ -26,7 +26,7 @@ try {
   const rows = await h.evaluate(() => [...document.querySelectorAll('.tiptap-slash-menu-list button')].map((one) => ({
     title: one.querySelector('.tiptap-slash-menu-title')?.textContent ?? '',
     hint: one.querySelector('.tiptap-slash-menu-hint')?.textContent ?? '',
-    icon: !!one.querySelector('svg'),
+    icon: !!one.querySelector('svg, img'),
     height: Math.round(one.getBoundingClientRect().height),
     cursor: getComputedStyle(one).cursor,
   })))

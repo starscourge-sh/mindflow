@@ -22,7 +22,8 @@ const sel = '[data-open] .tiptap'
 const p = (text) => ({ type: 'paragraph', content: text ? [{ type: 'text', text }] : [] })
 const cell = (kind, text) => ({ type: kind, content: [p(text)] })
 const table = (rows, cols) => ({ type: 'table', content: Array.from({ length: rows }, (_, r) => ({ type: 'tableRow', content: Array.from({ length: cols }, (_, k) => cell(r === 0 ? 'tableHeader' : 'tableCell', `${String.fromCharCode(65 + k)}${r}`)) })) })
-const card = (href, title) => ({ type: 'bookmark', attrs: { href, title, description: 'A card for the probe.', site: new URL(href).hostname, image: null, icon: null, loading: false } })
+const DOT = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='
+const card = (href, title) => ({ type: 'bookmark', attrs: { href, title, description: 'A card for the probe.', site: new URL(href).hostname, image: DOT, icon: null, loading: false } })
 const YT = 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'
 const WEB = 'https://haligtree-qa.invalid/an-essay'
 const set = (content) => h.evaluate(([sel, content]) => document.querySelector(sel).editor.chain().setContent({ type: 'doc', content }).run(), [sel, content])
@@ -47,6 +48,7 @@ try {
   await set([p('A line to hover.'), table(3, 3), p('Between.'), card(WEB, 'An essay to read'), card(YT, 'A video'), p('The end.')])
   await wait(800)
 
+  try {
   // 4. The table's controls: shown at once, kept through the grace, gone after.
   const cellBox = await box(`${sel} table tr:nth-child(2) > :nth-child(2)`)
   const tableBox = await box(`${sel} table`)
@@ -87,6 +89,11 @@ try {
   const gone = await controls()
   check('4. and gone after the grace (by 600ms)', gone.grips === 0 && gone.bars === 0, JSON.stringify(gone))
 
+  } catch (error) {
+    check('4. the table walk ran to its end', false, String(error).slice(0, 200))
+    await h.mouse.move(5, 5)
+  }
+
   // 5. The block handle's hairline, light and dark.
   const firstLine = await box(`${sel} p`)
   for (const name of ['light', 'dark']) {
@@ -117,6 +124,12 @@ try {
   await hoverCard(0)
   const webButtons = await buttonsOn(0)
   check('8a. a web card shows "Open in the reader" and "Copy URL"', webButtons.map((one) => one.label).join() === 'Open in the reader,Copy URL', JSON.stringify(webButtons))
+  const cardCursors = await h.evaluate((sel) => {
+    const one = document.querySelectorAll(`${sel} .tiptap-bookmark`)[0]
+    const of = (q) => { const el = q ? one.querySelector(q) : one; return el ? getComputedStyle(el).cursor : 'missing' }
+    return { card: of(''), picture: of('img'), title: of('.tiptap-bookmark-title'), site: of('.tiptap-bookmark-site') }
+  }, sel)
+  check('8a. the card itself shows the hand all over, its picture too (a click opens the link)', Object.values(cardCursors).every((one) => one === 'pointer'), JSON.stringify(cardCursors))
   check('8a. both show the hand, and the pointer lands on them', webButtons.every((one) => one.cursor === 'pointer' && one.hits && one.hitCursor === 'pointer'), JSON.stringify(webButtons))
   if (shots) for (const name of ['light', 'dark']) { await c.look(name); await hoverCard(0); const b = cards[0]; await h.screenshot({ path: `${shots}/cards-${name}.png`, clip: { x: b.x - 20, y: b.y - 20, width: b.w + 40, height: cards[1].y + cards[1].h - b.y + 40 } }) }
   await c.look('light')
@@ -167,6 +180,25 @@ try {
   await h.keyboard.press('Meta+BracketLeft')
   await wait(1200)
 
+  // 8c again, from a note (not a Page), scrolled down to its card: Back lands on the note at that place.
+  const longNote = { type: 'doc', content: [...Array.from({ length: 40 }, (_, i) => p(`Line ${i + 1} of a long note.`)), card(WEB, 'An essay further down'), p('After the card.')] }
+  const noteId = await h.evaluate((body) => window.api.captures.create({ kind: "note", body }), longNote)
+  await c.send('capture', noteId); await wait(1800)
+  await h.evaluate((sel) => document.querySelector(`${sel} .tiptap-bookmark`).scrollIntoView({ block: 'center' }), sel); await wait(500)
+  const scroller = () => h.evaluate((sel) => { let el = document.querySelector(sel); while (el && !(el.scrollHeight > el.clientHeight + 4 && /auto|scroll/.test(getComputedStyle(el).overflowY))) el = el.parentElement; return el ? Math.round(el.scrollTop) : -1 }, sel)
+  const before = await scroller()
+  const cardAt = await box(`${sel} .tiptap-bookmark`)
+  await h.mouse.move(cardAt.x + cardAt.w / 2, cardAt.y + cardAt.h / 2, { steps: 3 }); await wait(300)
+  await h.locator(`${sel} .tiptap-bookmark button[aria-label="Open in the reader"]`).click()
+  await h.waitForSelector('.web-reader', { timeout: 8000 }).catch(() => {})
+  check('8c. from a note, "Open in the reader" opens the reader', await h.evaluate(() => !!document.querySelector('.web-reader')))
+  await h.locator('[data-tab-arrows] button').first().click()
+  await wait(1500)
+  const after = await scroller()
+  const home = await h.evaluate(() => ({ reader: !!document.querySelector('.web-reader'), note: document.querySelector('[data-open] .tiptap')?.textContent?.includes('Line 1 of a long note.') ?? false }))
+  check('8c. the Back arrow returns to the note', !home.reader && home.note, JSON.stringify(home))
+  check(`8c. at its place (scrolled ${before} before, ${after} after)`, before > 100 && Math.abs(after - before) < 40, `${before} -> ${after}`)
+
   // 10. "/": files in no note yet, each by name and kind.
   const png = await h.evaluate(() => new Promise((ok) => { const canvas = Object.assign(document.createElement('canvas'), { width: 120, height: 80 }); const pen = canvas.getContext('2d'); pen.fillStyle = '#c84'; pen.fillRect(0, 0, 120, 80); canvas.toBlob((blob) => blob.arrayBuffer().then((b) => ok([...new Uint8Array(b)]))) }))
   await h.evaluate((bytes) => window.api.haligtree('media:add', [{ name: '', bytes: new Uint8Array(bytes) }]), png)
@@ -201,14 +233,18 @@ try {
   check('10. a long name is cut short in its row', !!long?.cut, JSON.stringify(long))
   // The whole name as a tip on a cut row only.
   const longRow = h.locator('.tiptap-slash-menu-list > button', { hasText: /^A very long/ }).first()
+  await longRow.scrollIntoViewIfNeeded(); await wait(200)
   const longBox = await longRow.boundingBox()
   await h.mouse.move(longBox.x + 40, longBox.y + longBox.height / 2, { steps: 4 }); await wait(200)
   check('10. pointing at a cut name gives the whole name as its tip', (await longRow.getAttribute('title'))?.startsWith('A very long file name'), await longRow.getAttribute('title'))
   const shortRow = h.locator('.tiptap-slash-menu-list > button', { hasText: /^Picture from / }).first()
+  await shortRow.scrollIntoViewIfNeeded(); await wait(200)
   const shortBox = await shortRow.boundingBox()
   await h.mouse.move(shortBox.x + 40, shortBox.y + shortBox.height / 2, { steps: 4 }); await wait(200)
   check('10. a name that fits gets no tip', !(await shortRow.getAttribute('title')), await shortRow.getAttribute('title'))
-  if (shots) await h.screenshot({ path: `${shots}/slash-media.png` })
+  await longRow.scrollIntoViewIfNeeded(); await wait(200)
+  if (shots) for (const name of ['light', 'dark']) { await c.look(name); await h.screenshot({ path: `${shots}/slash-media-${name}.png` }) }
+  await c.look('light')
   await h.keyboard.press('Escape')
   check('no page errors', !c.errors.length, c.errors.slice(0, 3).join(' | '))
 } catch (error) {
