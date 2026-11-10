@@ -90,7 +90,3 @@ html:root[data-style='paper'] {
   border: 0 !important;
 }
 
-/* The practice offer that drops from the menu bar: printed flat, no lift. */
-:root[data-style='paper'] [data-practice-band] {
-  filter: none !important;
-}

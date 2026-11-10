@@ -1,28 +1,29 @@
 import { useEffect, useRef, useState } from 'react'
-import { motion } from 'motion/react'
 
 import { chime } from '@/lib/sound'
 import { still } from '@/lib/motion'
 import { Check, X } from '@/components/ui/icons'
 import { IDLE_PAUSE_SEC, START_MIN, fillOf, type Fill } from '../../../../main/practice-rules'
-import { answerOffer, offerSaid, practices, startPractice, suggestSaid, timeSaid, type Ended, type Offer } from '@/lib/practices'
+import { practices, type Ended } from '@/lib/practices'
 import { haligtree, type Focus } from '@/lib/haligtree'
 import { usePatience } from '@/lib/patience'
-import { Kbd, Tip, Typed } from './ui'
+import { Tip, Typed } from './ui'
 
 /**
  * A practice in the bubble: the pill's bar, the guard against a timer left
- * running, the offer, and "What stuck?" as it ends (main/practices.ts).
+ * running, and "What stuck?" as it ends (main/practices.ts).
  * At 5 minutes it asks once whether to keep going (never stops you); at the
  * target the bar says it.
  */
 
 /** Bright gold for the first 5 minutes, the part that counts most. */
-const GOLD = 'oklch(0.8 0.15 82)'
+const GOLD = 'var(--mf-gold)'
 /** Past the 5: a calmer fill of the same gold, a bonus, not a must. */
-const CALM = 'color-mix(in oklab, oklch(0.8 0.15 82) 42%, transparent)'
+const CALM = 'color-mix(in oklab, var(--mf-gold) 42%, transparent)'
+/** The gold's glow, for the moment at 5 and the target met. */
+const GLOW = 'color-mix(in oklab, var(--mf-gold) 55%, transparent)'
 const TRACK = 'color-mix(in oklab, var(--foreground) 12%, transparent)'
-const CSS = `@keyframes mf-practice-five { 0% { box-shadow: 0 0 0 0 oklch(0.8 0.15 82 / 0) } 30% { box-shadow: 0 0 0 3px oklch(0.8 0.15 82 / 0.45), 0 0 10px 2px oklch(0.8 0.15 82 / 0.5) } 100% { box-shadow: 0 0 0 0 oklch(0.8 0.15 82 / 0) } }
+const CSS = `@keyframes mf-practice-five { 0% { box-shadow: 0 0 0 0 transparent } 30% { box-shadow: 0 0 0 3px color-mix(in oklab, var(--mf-gold) 45%, transparent), 0 0 10px 2px color-mix(in oklab, var(--mf-gold) 50%, transparent) } 100% { box-shadow: 0 0 0 0 transparent } }
 @keyframes mf-practice-tick { from { transform: scale(.4); opacity: 0 } to { transform: scale(1); opacity: 1 } }`
 
 /** What the stage is, in words, for the line under the time (never the only sign of it). */
@@ -35,7 +36,7 @@ export const stageWords = (fill: Fill, target: number): string =>
  * on to the target, and a soft glow past it. The notch and the tick say it as
  * well as the colour does.
  */
-export function PracticeBar({ ms, target, wide = false, paused = false }: { ms: number; target: number; wide?: boolean; paused?: boolean }): React.JSX.Element {
+export function PracticeBar({ ms, target, paused = false }: { ms: number; target: number; paused?: boolean }): React.JSX.Element {
   const fill = fillOf(ms, target)
   const calm = still()
   // The glow at 5 is a moment, played once as the bar passes the notch, not every time it is drawn.
@@ -50,11 +51,11 @@ export function PracticeBar({ ms, target, wide = false, paused = false }: { ms: 
   return (
     <span data-practice-bar={fill.stage} data-practice-first={fill.first.toFixed(3)} data-practice-bonus={fill.bonus.toFixed(3)} data-practice-notch={fill.notch.toFixed(3)}
       role="meter" aria-label="Practice so far" aria-valuemin={0} aria-valuemax={target} aria-valuenow={Math.floor(ms / 60_000)} aria-valuetext={stageWords(fill, target)}
-      className={`flex shrink-0 flex-col ${wide ? 'w-full gap-1' : 'w-[58px]'}`} style={{ opacity: paused ? 0.5 : 1 }}>
+      className="flex w-[58px] shrink-0 flex-col" style={{ opacity: paused ? 0.5 : 1 }}>
       <style>{CSS}</style>
       <span className="flex items-center gap-1.5">
-        <span className={`relative flex-1 rounded-[2px] ${wide ? 'h-2' : 'h-[6px]'}`}
-          style={{ background: TRACK, boxShadow: met ? `0 0 ${wide ? 10 : 7}px 1px oklch(0.8 0.15 82 / 0.55)` : undefined, transition: 'box-shadow 600ms var(--mf-ease, ease)' }}>
+        <span className="relative h-[6px] flex-1 rounded-[2px]"
+          style={{ background: TRACK, boxShadow: met ? `0 0 7px 1px ${GLOW}` : undefined, transition: 'box-shadow 600ms var(--mf-ease, ease)' }}>
           <span data-practice-gold className="absolute inset-y-0 left-0 rounded-[2px]" style={{ width: `${fill.first * 100}%`, background: GOLD, animation: flash ? 'mf-practice-five 1.2s ease-out 1' : undefined }} key={flash} />
           {fill.bonus > 0 && <span data-practice-calm className="absolute inset-y-0 rounded-r-full" style={{ left: `${fill.first * 100}%`, width: `${fill.bonus * 100}%`, background: CALM }} />}
           {/* The notch at 5 minutes: drawn over the bar, a hair taller than it. */}
@@ -62,16 +63,10 @@ export function PracticeBar({ ms, target, wide = false, paused = false }: { ms: 
         </span>
         {fill.stage !== 'start' && (
           <span data-practice-tick aria-hidden className="flex shrink-0" style={{ color: GOLD, animation: calm ? undefined : 'mf-practice-tick 260ms var(--mf-ease, ease-out) 1' }}>
-            <Check strokeWidth={3} className={wide ? 'size-3.5' : 'size-3'} />
+            <Check strokeWidth={3} className="size-3" />
           </span>
         )}
       </span>
-      {wide && (
-        <span aria-hidden className="relative h-4 text-[11px] font-medium text-muted-foreground tabular-nums">
-          <span className="absolute -translate-x-1/2" style={{ left: `${fill.notch * 100}%` }}>{START_MIN}m</span>
-          <span className="absolute right-0">{target}m</span>
-        </span>
-      )}
     </span>
   )
 }
@@ -128,89 +123,6 @@ export function usePracticeGuard(focus: Focus, ms: number): { asking: boolean; i
 }
 
 /**
- * The offer itself: one gentle card, "9:00 Design patterns, 5 minutes?", with
- * ↵ start, N not tonight, S in 30 min. Its keys work once it holds the keys
- * (a click or Tab); a click on a button does the same. Never taken from the
- * box by itself: a first "s" typed into quick capture put the offer off.
- * Declined again and again at one time, it says when else seems to suit you.
- */
-export function PracticeOfferCard({ offer, onDone, compact = false, onType }: { offer: Offer; onDone?: () => void; compact?: boolean; /** Any other key: the keys go back to where you write, and the key with them. */ onType?: () => void }): React.JSX.Element {
-  const card = useRef<HTMLDivElement>(null)
-  const start = (): void => void startPractice(offer.id).then(() => onDone?.())
-  const skip = (): void => (answerOffer(offer, 'skip'), onDone?.())
-  const later = (): void => (answerOffer(offer, 'later'), onDone?.())
-  const move = (to: string | null): void => void practices.move(offer.id, to).then(() => chime(to ? 'move' : 'tap'))
-  const key = 'flex h-7 shrink-0 items-center gap-1 rounded-full px-2 text-[12px] font-semibold transition-[background-color,filter] focus-visible:outline-2 focus-visible:outline-[var(--tt-brand-color-400)]'
-  return (
-    <div ref={card} tabIndex={-1} role="group" aria-label={offerSaid(offer)} data-practice-offer={offer.id}
-      onKeyDown={(event) => {
-        if (event.metaKey || event.ctrlKey || event.altKey || event.nativeEvent.isComposing) return
-        const k = event.key.toLowerCase()
-        if (k === 'enter') (event.preventDefault(), event.stopPropagation(), start())
-        else if (k === 'n') (event.preventDefault(), event.stopPropagation(), skip())
-        else if (k === 's') (event.preventDefault(), event.stopPropagation(), later())
-        else if (onType && (event.key.length === 1 || event.key === 'Escape' || event.key === 'Tab' || event.key === 'ArrowDown')) onType()
-      }}
-      className={`outline-none ${compact ? '' : 'rounded-[14px] border bg-[color-mix(in_oklab,var(--foreground)_5%,transparent)] px-3 py-2.5 focus:border-foreground/25'}`}>
-      <p data-practice-offer-line className="text-[14px] leading-5 font-semibold text-foreground">
-        <span className="tabular-nums">{offer.later ? 'Again:' : timeSaid(offer.at)}</span> {offer.name}, {START_MIN} minutes?
-      </p>
-      <div className="mt-2 flex flex-wrap items-center gap-0.5">
-        <button type="button" data-practice-start onClick={start} className={`${key} bg-[var(--tt-brand-color-400)] mf-on-accent hover:brightness-110`}>
-          <Kbd className="border-transparent bg-white/20 text-current">↵</Kbd> Start
-        </button>
-        <button type="button" data-practice-skip onClick={skip} className={`${key} text-foreground hover:bg-accent`}>
-          <Kbd>N</Kbd> Not tonight
-        </button>
-        <button type="button" data-practice-later onClick={later} className={`${key} text-foreground hover:bg-accent`}>
-          <Kbd>S</Kbd> In 30 min
-        </button>
-      </div>
-      {offer.suggest && (
-        <div data-practice-suggest className="mt-2.5 border-t pt-2">
-          <p className="text-[13px] leading-[18px] text-foreground">{suggestSaid(offer.suggest)} Move it?</p>
-          <div className="mt-1.5 flex gap-1">
-            <button type="button" data-practice-move onClick={() => move(offer.suggest!.to)} className={`${key} border text-foreground hover:bg-accent`}>Move to {timeSaid(offer.suggest.to)}</button>
-            <button type="button" data-practice-keep-time onClick={() => move(null)} className={`${key} text-muted-foreground hover:bg-accent hover:text-foreground`}>Keep {timeSaid(offer.suggest.from)}</button>
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
-
-/**
- * The offer in the bubble, with nothing running: a band dropped in under the
- * menu bar (or the notch) the way the pill drops in. A click on it takes the
- * keys, so ↵, N and S work there too. Never starts anything by itself.
- */
-export function PracticeOfferBand({ offer, notch }: { offer: Offer; notch: number }): React.JSX.Element {
-  const calm = useRef(still()).current
-  const box = useRef<HTMLDivElement>(null)
-  // The window as tall as the band, and no taller: nothing around it stops taking clicks.
-  useEffect(() => {
-    if (!box.current) return
-    const fit = (): void => void window.api.focusSize(Math.ceil((box.current?.offsetHeight ?? 0) + (notch ? 0 : 14) + 24))
-    fit()
-    const watch = new ResizeObserver(fit)
-    watch.observe(box.current)
-    return () => watch.disconnect()
-  }, [notch])
-  useEffect(() => chime('hint'), [offer.id])
-  return (
-    <div className="mf-floating flex h-screen items-start justify-center overflow-hidden" style={{ paddingTop: notch ? notch : 14 }}>
-      <motion.div ref={box} data-practice-band
-        initial={calm ? { opacity: 0 } : { y: -40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={calm ? { duration: 0.2 } : { type: 'spring', stiffness: 420, damping: 30 }}
-        onMouseDown={(event) => (event.currentTarget.querySelector<HTMLElement>('[data-practice-offer]')?.focus({ preventScroll: true }), undefined)}
-        style={{ backgroundImage: 'linear-gradient(var(--popover), var(--popover)), linear-gradient(var(--background), var(--background))', backgroundColor: 'Canvas', filter: 'drop-shadow(0 1px 1px rgb(0 0 0 / 0.14)) drop-shadow(0 3px 3px rgb(0 0 0 / 0.08))' }}
-        className={`w-[322px] border px-3 py-2.5 font-[system-ui,-apple-system,sans-serif] text-foreground ${notch ? 'rounded-t-none rounded-b-[18px] border-t-0' : 'rounded-[22px]'}`}>
-        <PracticeOfferCard offer={offer} compact />
-      </motion.div>
-    </div>
-  )
-}
-
-/**
  * As a practice ends: the minutes, said plainly (under 5 is still minutes,
  * nothing negative), the tick from 5 and the glow past the target, and one
  * optional question, "What stuck?". Answered, it is a gem on the practice's
@@ -230,7 +142,7 @@ export function WhatStuck({ id, ended, onDone }: { id: string; ended: Ended | nu
     <span data-what-stuck={stage} {...(kept === null ? wait : {})} className="flex min-w-0 flex-1 items-center gap-2.5">
       <span data-practice-ended={stage} title={ended ? `${ended.minutes} min` : undefined}
         className="flex h-[22px] shrink-0 items-center gap-1 rounded-full px-2 text-[12px] font-semibold tabular-nums"
-        style={{ background: stage === 'partial' ? 'color-mix(in oklab, var(--foreground) 10%, transparent)' : GOLD, color: stage === 'partial' ? 'var(--foreground)' : 'oklch(0.25 0.05 80)', boxShadow: stage === 'met' ? '0 0 8px 1px oklch(0.8 0.15 82 / 0.6)' : undefined }}>
+        style={{ background: stage === 'partial' ? 'color-mix(in oklab, var(--foreground) 10%, transparent)' : GOLD, color: stage === 'partial' ? 'var(--foreground)' : 'var(--mf-gold-ink)', boxShadow: stage === 'met' ? `0 0 8px 1px ${GLOW}` : undefined }}>
         {stage !== 'partial' && <Check className="size-3" strokeWidth={3} />}
         {ended ? `${ended.minutes} min` : ''}
       </span>

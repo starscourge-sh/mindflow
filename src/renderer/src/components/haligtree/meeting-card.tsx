@@ -137,7 +137,10 @@ function speaking(live: Live): string | null {
 }
 
 function OnAir({ paused }: { paused: boolean }): React.JSX.Element {
-  return <span aria-hidden className={cn('size-2 shrink-0 rounded-full bg-[var(--tt-color-text-red)]', paused ? 'opacity-40' : 'motion-safe:animate-pulse')} />
+  // Solid red in both themes, the colour that means "recording": it never fades to pink. Recording, a ring breathes out from it instead.
+  return <span aria-hidden className={cn('relative size-2 shrink-0 rounded-full bg-[var(--destructive)]', paused && 'opacity-40')}>
+    {!paused && <span className="absolute inset-0 rounded-full bg-[var(--destructive)] motion-safe:animate-ping motion-reduce:hidden" style={{ animationDuration: '2s' }} />}
+  </span>
 }
 
 function StopButton(): React.JSX.Element {

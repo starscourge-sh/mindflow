@@ -2596,10 +2596,15 @@ function freeSpot(area: Electron.Rectangle, width: number, height: number, inset
   const clear = (spot: Electron.Rectangle): boolean =>
     taken.every((one) => spot.x + spot.width + gap <= one.x || one.x + one.width + gap <= spot.x || spot.y + spot.height + gap <= one.y || one.y + one.height + gap <= spot.y)
   const windowAt = (x: number, y: number): Electron.Rectangle => ({ x: x - inset.left, y: y - inset.top, width, height })
-  for (let x = area.x + area.width - card.width - gap; x >= area.x; x -= card.width + gap) {
+  // Columns lined up on their right edges, as the Mac's notifications are: the next column starts left of the
+  // cards already in this one, whatever their widths.
+  for (let right = area.x + area.width - gap; right - card.width >= area.x;) {
+    const x = right - card.width
     for (let y = area.y + gap; y + card.height <= area.y + area.height; y += 8) {
       if (clear({ x, y, width: card.width, height: card.height })) return windowAt(x, y)
     }
+    const inColumn = taken.filter((one) => one.x < right && one.x + one.width > x)
+    right = Math.min(x, ...inColumn.map((one) => one.x)) - gap
   }
   return windowAt(area.x + area.width - card.width - gap, area.y + gap)
 }
@@ -4298,10 +4303,9 @@ app.whenReady().then(() => {
   registerMilestones()
   registerEvents((type, id) => sendHome(type, id, undefined, 'notification'))
   registerReadingQueue()
-  // A practice's offer comes up in the bubble: it never starts by itself.
   registerPractices()
-  // With the time kept in the note only (no bubble), Haligtree's nudge card offers it instead.
-  whenPracticeOffer((offer) => (focusBubbleShown() ? showFocus(true) : void showNudge({ kind: 'practice', id: offer.id, offer })))
+  // A practice's offer is asked in one place, the nudge card at the top right with the other asks: it never starts by itself.
+  whenPracticeOffer((offer) => void showNudge({ kind: 'practice', id: offer.id, offer }))
   registerIssues()
   registerScenery()
   registerCelebrations()

@@ -24,8 +24,8 @@ import { still } from '@/lib/motion'
 import { hueVar, type Hue } from '@/lib/books'
 import { said } from '@/lib/host'
 import { PICTURE_LOST, Unreadable, readBytes, saveClipboardImage } from '@/extensions/image-drop'
-import { PracticeBar, PracticeOfferBand, WhatStuck, stageWords, usePracticeGuard } from './practice-pill'
-import { practices, useOffer, type Ended } from '@/lib/practices'
+import { PracticeBar, WhatStuck, stageWords, usePracticeGuard } from './practice-pill'
+import { practices, type Ended } from '@/lib/practices'
 import { START_MIN, fillOf } from '../../../../main/practice-rules'
 import { wornStyle, type Style } from '@/lib/theme'
 import { APP_NAME } from '../../../../main/name'
@@ -142,8 +142,6 @@ export function FocusPill(): React.JSX.Element | null {
   const [askedBare, setAskedBare] = useState(false)
   // A practice ended: what it came to, and What stuck? in place of How did it go.
   const [practiceEnded, setPracticeEnded] = useState<Ended | null | undefined>(undefined)
-  // A practice offered at its time, with nothing running: the bubble comes up for it alone.
-  const offer = useOffer()
   // Keep going pressed: once that session is running again, the band gives way to its pill.
   // Cleared only then, so the window is never put away in the moment between.
   const resuming = useRef<string | null>(null)
@@ -179,7 +177,7 @@ export function FocusPill(): React.JSX.Element | null {
   // A question or a note took over from the fold: it carries on from there.
   useEffect(() => void ((asked || pickup || dropped || away || focus) && setFolding(false)), [asked, pickup, dropped, away, focus])
   // Nothing running, nothing asked, nothing folding: the pill goes away.
-  useEffect(() => void (focus === null && !elsewhere && !asked && !pickup && !dropped && !away && !folding && !offer && window.api.showFocus(false)), [focus, elsewhere, asked, pickup, dropped, away, folding, offer])
+  useEffect(() => void (focus === null && !elsewhere && !asked && !pickup && !dropped && !away && !folding && window.api.showFocus(false)), [focus, elsewhere, asked, pickup, dropped, away, folding])
 
   // After a session: one surface, morphing from the island it was into each stage in turn.
   const after = away && !focus ? 'away' : dropped && !focus ? 'abandoned' : asked ? 'ask' : pickup ? 'pickup' : null
@@ -201,7 +199,6 @@ export function FocusPill(): React.JSX.Element | null {
   }
   if (folding && notch !== null) return <After stage="bye" id="" notch={notch} onDone={() => setFolding(false)} />
   if (elsewhere && notch !== null) return <InAnotherBook focus={elsewhere} now={now} notch={notch} />
-  if (offer && focus === null && notch !== null) return <PracticeOfferBand offer={offer} notch={notch} />
   return null
 }
 
@@ -267,16 +264,16 @@ const quietNow = (settings: Settings | null): boolean => {
  * accent turns mint too, so the ring, the buttons and Time's up all follow.
  */
 const breakInks = (light: boolean, style: Style): CSSProperties => (light ? {
-  '--foreground': 'oklch(0.3 0.06 168)', '--muted-foreground': 'oklch(0.45 0.07 168)', '--border': style === 'brutal' ? 'oklch(0.2 0.04 168)' : 'oklch(0.85 0.05 165)',
-  '--accent': 'oklch(0.89 0.06 165)', '--tt-brand-color-400': 'oklch(0.58 0.14 160)'
+  '--foreground': 'var(--mf-mint-ink-light)', '--muted-foreground': 'var(--mf-mint-muted-light)', '--border': style === 'brutal' ? 'var(--mf-mint-rule-brutal-light)' : 'var(--mf-mint-rule-light)',
+  '--accent': 'var(--mf-mint-accent-light)', '--tt-brand-color-400': 'var(--mf-mint-brand-light)'
 } : {
-  '--foreground': 'oklch(0.96 0.03 165)', '--muted-foreground': 'oklch(0.8 0.06 165)', '--border': style === 'brutal' ? 'oklch(0.92 0.05 165)' : 'oklch(0.44 0.06 170)',
-  '--accent': 'oklch(0.38 0.06 170)', '--tt-brand-color-400': 'oklch(0.82 0.15 158)', '--pill-on-accent': 'oklch(0.22 0.05 170)'
+  '--foreground': 'var(--mf-mint-ink-dark)', '--muted-foreground': 'var(--mf-mint-muted-dark)', '--border': style === 'brutal' ? 'var(--mf-mint-rule-brutal-dark)' : 'var(--mf-mint-rule-dark)',
+  '--accent': 'var(--mf-mint-accent-dark)', '--tt-brand-color-400': 'var(--mf-mint-brand-dark)', '--pill-on-accent': 'var(--mf-mint-on-brand-dark)'
 }) as unknown as CSSProperties
 const breakFill = (light: boolean, style: Style): string => style === 'paper'
-  ? (light ? 'oklch(0.95 0.04 160)' : 'oklch(0.3 0.05 168)')
-  : style !== 'soft' ? (light ? 'oklch(0.9 0.12 158)' : 'oklch(0.4 0.09 165)')
-  : light ? 'linear-gradient(165deg, oklch(0.975 0.035 140), oklch(0.93 0.06 168))' : 'linear-gradient(165deg, oklch(0.31 0.055 172), oklch(0.24 0.05 195))'
+  ? (light ? 'var(--mf-mint-fill-paper-light)' : 'var(--mf-mint-fill-paper-dark)')
+  : style !== 'soft' ? (light ? 'var(--mf-mint-fill-light)' : 'var(--mf-mint-fill-dark)')
+  : light ? 'linear-gradient(165deg, var(--mf-mint-soft-top-light), var(--mf-mint-soft-foot-light))' : 'linear-gradient(165deg, var(--mf-mint-soft-top-dark), var(--mf-mint-soft-foot-dark))'
 /** Short lines a break says in turn, under its cup: playful, never an order. */
 const BREAK_LINES = ['Break time', 'Stretch a little', 'Look at something far away', 'Water, maybe?', 'Shoulders down', 'Breathe out slowly', 'Stand up, walk about', 'Unclench your jaw', 'Nothing to do for a bit']
 
@@ -298,7 +295,7 @@ const DROP = { type: 'spring', stiffness: 420, damping: 30, mass: 1 } as const
 /** How long the new session's card stays open before it settles into the pill. */
 const SHOWN = 1900
 /** The pill's lift off the screen, drawn around whatever shape it is clipped to (a box shadow would be clipped with it). */
-const LIFT = 'drop-shadow(0 1px 1px rgb(0 0 0 / 0.14)) drop-shadow(0 3px 3px rgb(0 0 0 / 0.08))'
+const LIFT = 'drop-shadow(0 1px 1px color-mix(in oklab, var(--mf-shadow-ink) 14%, transparent)) drop-shadow(0 3px 3px color-mix(in oklab, var(--mf-shadow-ink) 8%, transparent))'
 /** The lift under the bubble: none in Paper, which prints everything flat. */
 const lift = (): string | undefined => (wornStyle() === 'paper' ? undefined : LIFT)
 
@@ -840,8 +837,9 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
     // The sparks: on the screen's own glow layer, so they leave the pill rather than being clipped by it.
     if (alive) glowScreen('break')
     const bounce = shell.current?.animate(
-      [{ transform: 'scale(1)' }, { transform: 'scale(1.045)', offset: 0.32 }, { transform: 'scale(0.988)', offset: 0.68 }, { transform: 'scale(1)' }],
-      { duration: 640, delay: 120, easing: 'cubic-bezier(0.34, 1.3, 0.64, 1)' })
+      // One swell and back, on the app's own curve: never past where it rests, never a second wobble.
+      [{ transform: 'scale(1)' }, { transform: 'scale(1.035)', offset: 0.4 }, { transform: 'scale(1)' }],
+      { duration: 560, delay: 120, easing: 'cubic-bezier(0.16, 1, 0.3, 1)' })
     return () => bounce?.cancel()
   }, [arrived]) // eslint-disable-line react-hooks/exhaustive-deps
   const again = (): void => void haligtree.againSession().then((id) => (id ? (chime('anew'), glowScreen('done')) : chime('nope')))
@@ -928,7 +926,7 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
       className={`${className} min-w-0 flex-1 rounded-md bg-[color-mix(in_oklab,var(--foreground)_8%,transparent)] px-1.5 outline-none placeholder:text-muted-foreground`} />
   ) : timer ? <span className={`${className} min-w-0 flex-1 truncate`}>{words}</span> : (
     <span className="group/goal flex min-w-0 flex-1 items-center gap-1">
-      <Tip label={practiceTarget ? 'Open this practice' : bare ? 'Name this session' : 'Open the task'}>
+      <Tip label={practiceTarget ? 'Open this practice' : bare ? (focus.goal && focus.goal !== 'Focus' ? 'Rename this session' : 'Name this session') : 'Open the task'}>
         <button type="button" data-session-goal={practiceTarget ? 'practice' : bare ? 'bare' : 'task'} onClick={practiceTarget ? () => (chime('open'), window.api.openInHome('practice', focus.practiceId ?? 'new')) : bare ? startNaming : openSession}
           className={`${className} -my-1 min-w-0 truncate py-1 text-left outline-none hover:underline decoration-foreground/30 underline-offset-2 focus-visible:underline`}>
           {words}
@@ -991,7 +989,7 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
   const [startShape] = useState<Shape>(() => calm ? { w: WIDE, h: restH } : morph ? { w: WIDE, h: Math.max(restH, lastShape.height) } : tucked ? { w: NOTCH_WIDTH, h: notch } : { w: CAPSULE.width, h: CAPSULE.height })
   const shape = useShape(startShape, shown ? { w: CAPSULE.width, h: CAPSULE.height } : { w: WIDE, h: height }, { w: calm ? { duration: 0 } : SPRING, h: spring }, tucked)
   const shell = useRef<HTMLDivElement>(null)
-  const edgeInk = over && !tucked ? 'color-mix(in oklab, var(--tt-brand-color-400) 55%, var(--border))' : tucked && onBreak && !over ? 'oklch(0.82 0.15 158 / 0.5)' : 'var(--border)'
+  const edgeInk = over && !tucked ? 'color-mix(in oklab, var(--tt-brand-color-400) 55%, var(--border))' : tucked && onBreak && !over ? 'color-mix(in oklab, var(--mf-mint-brand-dark) 50%, transparent)' : 'var(--border)'
 
   // Open: what the island shows. Kept drawn at rest (clipped away and
   // unreachable), so its height is known before it opens; and kept as it was
@@ -1003,7 +1001,9 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
   const spanTo = sessionEnd(focus, now)
   const endMinute = spanTo === null ? null : Math.floor(spanTo / 60_000) * 60_000
   // A practice has no end to show: it never stops you. Its bar says how it stands.
-  const span = !over && count === null && !focus.practiceTarget ? <SpanPill from={Date.parse(focus.startedAt)} to={endMinute} /> : null
+  // A timer under a minute, or one that starts and ends in the same minute ("21:04 → 21:04"), says nothing with it: left out.
+  const sameMinute = (focus.plannedMs !== null && focus.plannedMs < 60_000) || (endMinute !== null && Math.floor(Date.parse(focus.startedAt) / 60_000) * 60_000 === endMinute)
+  const span = !over && count === null && !focus.practiceTarget && !sameMinute ? <SpanPill from={Date.parse(focus.startedAt)} to={endMinute} /> : null
   const panel = useMemo(() => (
     <div
       inert={!open}
@@ -1042,7 +1042,7 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
         {span && <span className="mb-px">{span}</span>}
       </div>
       )}
-      {practiceTarget !== null && <div className={`${tucked ? '' : 'px-0.5'} pb-2.5`}><PracticeBar wide ms={done} target={practiceTarget} paused={paused} /></div>}
+      {/* A practice's one bar is the pill's own, beside its name; the words beside the time say how it stands. */}
       {/* The 5 minutes up: keep going toward the target, or stop there. Left alone it keeps running. */}
       {practiceTarget !== null && guard.five && !guard.asking && (
         <div data-practice-five role="group" aria-label="Keep going?" className="mb-2 flex flex-col gap-1.5 rounded-[12px] bg-[color-mix(in_oklab,var(--foreground)_7%,transparent)] py-2 pr-1.5 pl-3">
@@ -1279,7 +1279,7 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
     <TipPlace.Provider value={tucked ? { side: 'bottom', clearTop: notch + 2, inset: 14, onShow: setTipping } : { side: 'bottom', inset: 14, onShow: setTipping }}>
     {/* In pixels, not rem: the pill's window is a fixed 340 wide, and at Large
         Interface size a rem-sized pill outgrew it and was cut off. */}
-    <div data-clear className="mf-floating flex h-screen items-start justify-center overflow-hidden" style={{ paddingTop: top, ...(tucked ? NOTCH_INKS : {}), ...(onBreak ? (tucked ? { '--tt-brand-color-400': 'oklch(0.82 0.15 158)', '--pill-on-accent': 'oklch(0.22 0.05 170)' } as CSSProperties : breakInks(light, style)) : {}) }}>
+    <div data-clear className="mf-floating flex h-screen items-start justify-center overflow-hidden" style={{ paddingTop: top, ...(tucked ? NOTCH_INKS : {}), ...(onBreak ? (tucked ? { '--tt-brand-color-400': 'var(--mf-mint-brand-dark)', '--pill-on-accent': 'var(--mf-mint-on-brand-dark)' } as CSSProperties : breakInks(light, style)) : {}) }}>
       {/* While the session runs, a slow mono glow breathes inside the pill's
           edge: alive, never asking to be looked at. Still when paused or over,
           and between times: it runs for its first moments, under the pointer
@@ -1338,7 +1338,7 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
         {/* Under the notch the pill stays the notch's black; a break glows mint from its lower edge, breathing. */}
         {tucked && onBreak && (
           <span aria-hidden data-notch-break className="pointer-events-none absolute inset-x-[12%] bottom-0 h-[70%]"
-            style={{ background: 'radial-gradient(60% 100% at 50% 100%, oklch(0.78 0.15 158 / 0.42), transparent 70%)', animation: alive && !paused ? 'mf-notch-breath 7s ease-in-out infinite' : undefined }} />
+            style={{ background: 'radial-gradient(60% 100% at 50% 100%, color-mix(in oklab, var(--mf-mint-brand-dark) 42%, transparent), transparent 70%)', animation: alive && !paused ? 'mf-notch-breath 7s ease-in-out infinite' : undefined }} />
         )}
 
         {/* The capsule it drops in as: black, the island's own colour, fading to the theme's as it opens. */}
@@ -1415,10 +1415,12 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
               {/* The time on a clock's dot grid, the one figure in the app that ticks. */}
               {count !== null ? <span data-count-in className="flex items-center gap-1.5"><span className="font-medium text-muted-foreground">Starting in</span><DotMatrix text={String(Math.max(1, count))} className="h-[13px]" /></span> : over ? (onBreak ? '' : "Time's up") : <>{paused && 'Paused ·'}<DotMatrix text={clock(leftShown ?? done)} className="h-[13px]" /></>}
             </span>
-            {/* The one place that moves the window: quick capture's grabber stood on end, a short bar of muted ink,
-                faint until you reach for it. */}
-            <span aria-hidden data-pill-grabber className={`-ml-1 flex h-7 w-4 shrink-0 cursor-grab items-center justify-center transition-opacity duration-150 active:cursor-grabbing ${hover ? 'opacity-100' : 'opacity-40'}`} style={DRAG}>
-              <span className="h-4 w-1 rounded-full bg-[color-mix(in_oklab,var(--foreground)_45%,transparent)]" />
+            {/* The one place that moves the window: a grip of six dots, the mark a thing you can pick up wears
+                (a lone bar read as a divider), quieter until you reach for it. */}
+            <span aria-hidden data-pill-grabber className={`-ml-1 flex h-7 w-4 shrink-0 cursor-grab items-center justify-center transition-opacity duration-150 active:cursor-grabbing ${hover ? 'opacity-100' : 'opacity-60'}`} style={DRAG}>
+              <span className="grid grid-cols-2 gap-[2px]">
+                {Array.from({ length: 6 }, (_, i) => <span key={i} className="size-[3px] rounded-full bg-[color-mix(in_oklab,var(--foreground)_55%,transparent)]" />)}
+              </span>
             </span>
           </div>}
 
@@ -1869,11 +1871,11 @@ const BREAK_CSS = `@keyframes mf-break-breath { 0%, 100% { transform: translateX
 @keyframes mf-break-shimmer { 0% { transform: translateX(-140%) skewX(-18deg) } 22%, 100% { transform: translateX(330%) skewX(-18deg) } }
 @keyframes mf-steam { 0% { transform: translateY(1.2px); opacity: 0 } 35% { opacity: .9 } 100% { transform: translateY(-1.8px); opacity: 0 } }
 @keyframes mf-break-line { from { opacity: 0; transform: translateY(5px) } to { opacity: 1; transform: none } }
-@keyframes mf-cup-pop { 0% { transform: scale(.2) translateY(2px); opacity: 0 } 55% { transform: scale(1.22); opacity: 1 } 80% { transform: scale(.94) } 100% { transform: none } }
+@keyframes mf-cup-pop { 0% { transform: scale(.2) translateY(2px); opacity: 0 } 60% { opacity: 1 } 100% { transform: none } }
 @keyframes mf-spark { 0% { transform: translate(0, 0) scale(.4); opacity: 0 } 10% { opacity: 1 } 70% { opacity: 1 } 100% { transform: translate(var(--dx), var(--dy)) scale(.9) rotate(var(--turn)); opacity: 0 } }
 @keyframes mf-notch-breath { 0%, 100% { opacity: .55; transform: scaleX(.9) } 50% { opacity: 1; transform: scaleX(1.06) } }`
 function BreakSurface({ light, style, moving }: { light: boolean; style: Style; moving: boolean }): React.JSX.Element {
-  const glow = light ? 'rgb(255 255 255 / 0.75)' : 'oklch(0.75 0.12 160 / 0.28)'
+  const glow = light ? 'rgb(255 255 255 / 0.75)' : 'color-mix(in oklab, var(--mf-spark-mint) 28%, transparent)'
   const brutal = style === 'brutal'
   const sweep = brutal
     ? `linear-gradient(90deg, transparent 30%, ${light ? 'rgb(255 255 255 / 0.7)' : 'rgb(255 255 255 / 0.22)'} 30%, ${light ? 'rgb(255 255 255 / 0.7)' : 'rgb(255 255 255 / 0.22)'} 58%, transparent 58%)`
@@ -1908,7 +1910,7 @@ function BreakRing({ share, paused, moving, pop = false }: { share: number | nul
         <circle cx="11" cy="11" r={r} fill="none" stroke="var(--tt-brand-color-400)" strokeWidth="1.75" strokeLinecap="round" transform="rotate(-90 11 11)"
           strokeDasharray={around} strokeDashoffset={around * (1 - share)} opacity={paused ? 0.45 : 1} />
       )}
-      <g style={pop ? { animation: 'mf-cup-pop 560ms cubic-bezier(0.34, 1.56, 0.64, 1) 160ms both', transformBox: 'fill-box', transformOrigin: '50% 80%' } : undefined}>
+      <g style={pop ? { animation: 'mf-cup-pop 480ms cubic-bezier(0.16, 1, 0.3, 1) 160ms both', transformBox: 'fill-box', transformOrigin: '50% 80%' } : undefined}>
       <g fill="none" stroke="var(--tt-brand-color-400)" strokeWidth="1.1" strokeLinecap="round">
         <path d="M9 9.1c-.6-.65.6-1.15 0-1.8" style={steam(0)} />
         <path d="M11.7 9.1c-.6-.65.6-1.15 0-1.8" style={steam(1.3)} />
@@ -1948,7 +1950,7 @@ function BreakLine({ first, still }: { first: string; still: boolean }): React.J
  * light, a few of them tiny stars, flying out and fading in under a second.
  * Played once, then gone; never with Motion off.
  */
-const SPARK_INKS = ['oklch(0.72 0.15 160)', 'oklch(0.82 0.16 80)', 'oklch(0.7 0.17 25)', 'oklch(0.68 0.14 250)']
+const SPARK_INKS = ['var(--mf-spark-mint)', 'var(--mf-spark-gold)', 'var(--mf-spark-coral)', 'var(--mf-spark-blue)']
 export function Sparks({ x, y }: { x: number; y: number }): React.JSX.Element | null {
   const [gone, setGone] = useState(false)
   useEffect(() => {

@@ -3,8 +3,7 @@ import { useReadsIn } from './lib/reads-in'
 import { clock } from '@/lib/clock'
 import { useStickiesOut } from '@/lib/stickies-out'
 import { START_FOCUS, useAbandonAction } from '@/lib/abandon'
-import { useOffer, usePracticeActions } from '@/lib/practices'
-import { PracticeOfferCard } from '@/components/haligtree/practice-pill'
+import { usePracticeActions } from '@/lib/practices'
 import { LivingCaret } from '@/components/haligtree/day-writing'
 import React, { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { cardUp, cardsUp } from './lib/link-card'
@@ -551,11 +550,6 @@ export default function App(): React.JSX.Element {
   // ⌘K's Abandon session, while one runs.
   const abandonAction = useAbandonAction()
   const practiceActions = usePracticeActions()
-  // A practice offered now: one gentle card over the note, ↵ N S once it has the keys.
-  // Each time the box opens empty it takes them; any other key gives them back with the key.
-  const offer = useOffer()
-  const [offerKeys, setOfferKeys] = useState(0)
-  useEffect(() => window.api.onShown(() => setOfferKeys((n) => n + 1)), [])
   // Tidy stickies only with a sticky out to tidy.
   const stickiesOut = useStickiesOut()
   // What the side panel's Inbox has waiting on you: pinned notes,
@@ -1104,13 +1098,13 @@ export default function App(): React.JSX.Element {
   // caught up, its foot cut off meanwhile.
   const meaningFound = definition?.state === 'found' || definition?.state === 'fix'
   // Listening, it is the box: the recorder bar lives in its footer's row.
-  const pillOtherwise = oneLine && !reading && !editing && !offer && !lesson && !opened && !wraps && !panel && !sheetUp && !listening
+  const pillOtherwise = oneLine && !reading && !editing && !lesson && !opened && !wraps && !panel && !sheetUp && !listening
   const [roomFor, setRoomFor] = useState<string | null>(null)
   const meaningShown = meaningFound && (!pillOtherwise || roomFor === definition?.word)
   const meaningWaits = meaningFound && !meaningShown ? definition?.word ?? null : null
   const pill = pillOtherwise && !meaningShown
   // Whether it will be the pill once the panel is put away (setPanel tells the box's height before the glide).
-  pillAfterPanel.current = oneLine && !reading && !editing && !offer && !lesson && !opened && !wraps && !meaningShown
+  pillAfterPanel.current = oneLine && !reading && !editing && !lesson && !opened && !wraps && !meaningShown
   // Measured before it is drawn, so a second line grows the box in the frame it appears: on each change in the editor
   // (onReady below), not only when the box draws again. The box draws again only once the editor's words are handed
   // up, half a second after the typing stops (haligtree-editor.tsx SAVE_DEBOUNCE_MS), and a new line sat squeezed
@@ -2227,12 +2221,6 @@ export default function App(): React.JSX.Element {
               animate={sending ? { opacity: 0, transform: shift('translate(0px, -10px) scale(0.985)'), filter: 'blur(2px)' } : { opacity: 1, transform: shift('translate(0px, 0px) scale(1)'), filter: 'blur(0px)' }}
               transition={{ duration: sending ? 0.18 : 0.1, ease: EASE }}
             >
-            {offer && !editing && !lesson && (
-              <div data-box-practice className="px-[4.25rem] pt-1 pb-1">
-                <PracticeOfferCard key={`${offer.id}:${offerKeys}`} offer={offer}
-                  onDone={() => editorRef.current?.commands.focus()} onType={() => editorRef.current?.commands.focus()} />
-              </div>
-            )}
             <CapturePrompt
               key={editing?.id ?? round}
               initial={editing?.body ?? readDraft()}

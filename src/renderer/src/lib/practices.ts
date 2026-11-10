@@ -1,5 +1,4 @@
 import { chime } from '@/lib/sound'
-import { toast } from '@/components/haligtree/ui'
 import { call, useLive } from '@/lib/haligtree'
 import { addBreakSource } from '@/lib/break-moment'
 import type { Ended, LoadKind, Loaded, Offer, Practice, PracticeRow } from '../../../main/practices'
@@ -74,8 +73,6 @@ export const loadSaid = (practice: Pick<Practice, 'loadKind' | 'load'>, problemT
         : practice.loadKind === 'problems' ? `Opens the next problem${problemTitle ? ` in ${problemTitle}` : ''}`
           : 'Opens nothing: just the time'
 
-/** The offer up now, if any, kept fresh as practices change. */
-export const useOffer = (): Offer | null => useLive(practices.offer, null as Offer | null, [], ['item'])
 export const usePractices = (): PracticeRow[] => useLive(practices.list, [] as PracticeRow[], [], ['item'])
 
 /** ↵ on the offer: the session starts, 5 minutes to begin, and the main window opens on what it loads. */
@@ -87,14 +84,14 @@ export async function startPractice(id: string): Promise<string | null> {
   window.api.openInHome('practice', id)
   return session
 }
-/** N or S on the offer: gone until tomorrow, or asked again in 30 minutes. Said quietly, with Undo for N. */
-export function answerOffer(offer: Offer, answer: 'skip' | 'later'): void {
-  void practices.answer(offer.id, answer).then(() => {
-    chime(answer === 'skip' ? 'fold' : 'later')
-    const undo = (): void => void practices.unanswer(offer.id).then(() => chime('back'))
-    if (answer === 'later') toast(`${offer.name} again in 30 minutes`, undo)
-    else toast(`Not tonight. ${offer.name} is back next time`, undo)
-  })
+/** Not tonight, or In 30 min: gone until tomorrow, or asked again in 30 minutes. Gives back what to say and how to undo it. */
+export async function answerOffer(offer: Offer, answer: 'skip' | 'later'): Promise<{ words: string; undo: () => Promise<unknown> }> {
+  await practices.answer(offer.id, answer)
+  chime(answer === 'skip' ? 'fold' : 'later')
+  return {
+    words: answer === 'later' ? `${offer.name} again in 30 minutes` : `Not tonight. ${offer.name} is back next time`,
+    undo: () => practices.unanswer(offer.id)
+  }
 }
 
 /**
