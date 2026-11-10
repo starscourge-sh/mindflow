@@ -98,7 +98,7 @@ export async function answerOffer(offer: Offer, answer: 'skip' | 'later'): Promi
  * ⌘K's rows: start any practice now, make a new one, or open the page. The
  * same in the main window and quick capture.
  */
-export function usePracticeActions(): { label: string; hint?: string; cue: null; run: () => void }[] {
+export function usePracticeActions(): { label: string; hint: string; cue: null; run: () => void }[] {
   const all = usePractices()
   // A practice is a repeating task with "Practise it" on: made from the task, so only starting one is here.
   return [

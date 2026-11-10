@@ -19,6 +19,7 @@ import { Board, useBoard } from './board-view'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { Search } from '../search'
 import { SECTIONS } from './places'
+import { pageSaid } from './page-hint'
 import { ShortcutSheet } from './shortcut-sheet'
 import { WordNotes } from './term'
 import { foldEverything } from '@/extensions/heading-fold'
@@ -90,17 +91,17 @@ export function NoteWindow({ link }: { link: string }): React.JSX.Element {
             // What finds a note opens it in the main window, beside everything else.
             actions={searching === 'notes' ? [] : [
               { label: `Open in ${APP_NAME}`, hint: 'This note in the main window', keys: '⌘O', cue: null, run: () => void openInHaligtree() },
-              { label: 'New capture', run: () => window.api.showPrompt() },
-              ...SECTIONS.map((section) => ({ label: `Go to ${section.label}`, run: () => window.api.openInHome('view', section.id) })),
-              { label: 'Fold every heading', cue: null, run: () => void (foldEverything(true) || chime('nope')) },
-              { label: 'Unfold every heading', cue: null, run: () => void (foldEverything(false) || chime('nope')) },
+              { label: 'New capture', hint: 'A blank capture, in its own small window: write, then it goes to the Inbox', run: () => window.api.showPrompt() },
+              ...SECTIONS.map((section) => ({ label: `Go to ${section.label}`, hint: pageSaid(section.id), run: () => window.api.openInHome('view', section.id) })),
+              { label: 'Fold every heading', hint: 'In the note in front: only its headings show', cue: null, run: () => void (foldEverything(true) || chime('nope')) },
+              { label: 'Unfold every heading', hint: 'In the note in front: everything under its headings shows again', cue: null, run: () => void (foldEverything(false) || chime('nope')) },
               isCollecting()
-                ? { label: 'Stop collecting what I copy', keys: '⎋', cue: null, run: stopCollect }
+                ? { label: 'Stop collecting what I copy', hint: 'What you copy stays on the clipboard only', keys: '⎋', cue: null, run: stopCollect }
                 : { label: 'Collect what I copy', hint: 'Everything you copy on this Mac lands in this note', cue: null, run: () => void (startCollect() || chime('nope')) },
-              { label: 'Keyboard shortcuts', keys: '?', run: () => window.dispatchEvent(new CustomEvent('haligtree:shortcuts')) },
+              { label: 'Keyboard shortcuts', hint: 'Every key, by what it does', keys: '?', run: () => window.dispatchEvent(new CustomEvent('haligtree:shortcuts')) },
               ...themeActions((text, undo) => toast(text, undo)),
-              { label: 'Settings', keys: '⌘,', run: () => window.api.openInHome('view', 'settings') },
-              { label: 'Close this window', cue: null, run: () => window.close() }
+              { label: 'Settings', hint: 'Look, sounds, keys, backups and your book', keys: '⌘,', run: () => window.api.openInHome('view', 'settings') },
+              { label: 'Close this window', hint: 'The note stays kept, in its place', cue: null, run: () => window.close() }
             ]}
             onClose={() => setSearching(false)}
             onOpen={(to, at) => {

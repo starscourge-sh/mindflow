@@ -361,7 +361,7 @@ export function LinkField({ label, placeholder, ghost, does, value, onSave, onOp
         <Search
           menus={false}
           placeholder="Link a day, a page, any note…"
-          actions={days.map((day, back) => ({ label: back === 0 ? "Today's page" : back === 1 ? "Yesterday's page" : `${dayPage(day)}'s page`, run: () => onSave(`day:${day}`) }))}
+          actions={days.map((day, back) => ({ label: back === 0 ? "Today's page" : back === 1 ? "Yesterday's page" : `${dayPage(day)}'s page`, hint: 'Link this note to that day in your Journal', run: () => onSave(`day:${day}`) }))}
           onClose={() => setPicking(false)}
           onOpen={(type, id) => {
             setPicking(false)

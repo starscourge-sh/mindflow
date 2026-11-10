@@ -48,6 +48,19 @@ const HINTS: Record<string, string> = {
   articles: `**Pages are longer pieces in your own words, one idea each.** ${LIFECYCLE} Start one with “New page”, or in Gems select a few with X, then “Start a page”.`
 }
 
+/** The pages with no line of their own above, said as briefly. */
+const ALSO: Record<string, string> = {
+  questions: 'What you keep wondering about, each one collecting clues',
+  weekpage: 'This week on one page: what you wrote, did and kept',
+  monthpage: 'This month on one page: what you wrote, did and kept',
+  yearpage: 'Your seasons of life, month by month',
+  media: 'Every picture, PDF and recording your notes keep',
+  alltasks: 'Every task, with a day or not, in one list',
+  powers: `Every power ${APP_NAME} keeps out of sight, with a way to try it`
+}
+/** What a page is for, in one short sentence: its line's bold lead, for ⌘K's “Go to” rows. */
+export const pageSaid = (page: string): string => HINTS[page]?.match(/\*\*(.+?)\.?\*\*/)?.[1] ?? ALSO[page] ?? ''
+
 /**
  * What doing a page's thing sounds like: the first time you do it with its
  * line still up, the line says "You've got it" for a moment and folds away,

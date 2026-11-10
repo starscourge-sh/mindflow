@@ -35,7 +35,7 @@ export async function abandonNow(focus?: Focus | null): Promise<void> {
  * with a length, Add 10 minutes (⌃⌥⌘= from anywhere); with nothing running,
  * Go again on the last session kept, same task and length.
  */
-type SessionAction = { label: string; hint?: string; keys?: string; cue: null; run: () => void; choices?: () => Choice[]; typedChoice?: (typed: string) => Choice | null; heard?: (typed: string) => SessionAction | null }
+type SessionAction = { label: string; hint: string; keys?: string; cue: null; run: () => void; choices?: () => Choice[]; typedChoice?: (typed: string) => Choice | null; heard?: (typed: string) => SessionAction | null }
 export function useAbandonAction(): SessionAction[] {
   const focus = useLive(haligtree.focusNow, null as Focus | null)
   const last = useLive(haligtree.lastSession, null as Awaited<ReturnType<typeof haligtree.lastSession>>)
@@ -44,7 +44,7 @@ export function useAbandonAction(): SessionAction[] {
   if (!focus && settings?.focusTools !== true) return []
   if (!focus) {
     const length = last?.plannedMs ? `, ${Math.max(1, Math.round(last.plannedMs / 60_000))} min` : ''
-    return [startFocusAction(false), ...(last ? [{ label: `Go again: ${last.goal}${length}`, cue: null, run: () => void haligtree.againSession().then((id) => (id ? (chime('anew'), window.api.showFocus(true)) : chime('nope'))) }] : [])]
+    return [startFocusAction(false), ...(last ? [{ label: `Go again: ${last.goal}${length}`, hint: 'The last focus session again: the same task, as long', cue: null, run: () => void haligtree.againSession().then((id) => (id ? (chime('anew'), window.api.showFocus(true)) : chime('nope'))) }] : [])]
   }
   return [...sessionLines(focus), startFocusAction(true)]
 }
@@ -93,11 +93,11 @@ function startFocusAction(running: boolean): SessionAction {
  * lists them, and so does a right click on the task it runs on, in place of a
  * second Start.
  */
-export function sessionLines(focus: Focus): { label: string; keys?: string; cue: null; run: () => void }[] {
+export function sessionLines(focus: Focus): { label: string; hint: string; keys?: string; cue: null; run: () => void }[] {
   return [
-    ...(focus.plannedMs ? [{ label: focus.kind === 'break' ? 'Add 10 minutes to the break' : isSession(focus) ? 'Add 10 minutes to the session' : 'Add 10 minutes to the timer', keys: '⌃⌥⌘=', cue: null, run: () => void haligtree.extendSession(focus.id, 10 * 60_000).then((ok) => ok === false && chime('nope')) }] : []),
+    ...(focus.plannedMs ? [{ label: focus.kind === 'break' ? 'Add 10 minutes to the break' : isSession(focus) ? 'Add 10 minutes to the session' : 'Add 10 minutes to the timer', hint: 'Ten more minutes on the clock that is running', keys: '⌃⌥⌘=', cue: null, run: () => void haligtree.extendSession(focus.id, 10 * 60_000).then((ok) => ok === false && chime('nope')) }] : []),
     // The pill's Stop asks the same two things, in the same words.
-    ...(isSession(focus) ? [{ label: 'End session early, count it', cue: null, run: () => void haligtree.endSession(focus.id, '', false).then(() => (chime('resolve'), toast('Session ended early, counted', () => void haligtree.unendSession(focus.id).then((back) => (back ? (chime('back'), window.api.showFocus(true)) : chime('nope')))))) }] : []),
-    { label: isSession(focus) ? "Abandon session, don't count it" : focus.kind === 'break' ? 'End the break' : 'Stop the timer', cue: null, run: () => void abandonNow(focus) }
+    ...(isSession(focus) ? [{ label: 'End session early, count it', hint: 'Stops now; the time so far counts toward your focus', cue: null, run: () => void haligtree.endSession(focus.id, '', false).then(() => (chime('resolve'), toast('Session ended early, counted', () => void haligtree.unendSession(focus.id).then((back) => (back ? (chime('back'), window.api.showFocus(true)) : chime('nope')))))) }] : []),
+    { label: isSession(focus) ? "Abandon session, don't count it" : focus.kind === 'break' ? 'End the break' : 'Stop the timer', hint: isSession(focus) ? 'Stops now; the time is not counted' : 'Stops now', cue: null, run: () => void abandonNow(focus) }
   ]
 }

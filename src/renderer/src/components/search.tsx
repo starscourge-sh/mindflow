@@ -20,7 +20,7 @@ import { AskWho, Kbd, Rolling, Tags, Typed, Pressed } from './haligtree/ui'
 import { Marked } from './haligtree/shortcut-sheet'
 import { useWorking } from './haligtree/beam'
 import { AliveIcon } from '@/components/ui/alive-icon'
-import { MenuGlyph } from '@/components/ui/menu-icon'
+import { MenuGlyph, menuIcon } from '@/components/ui/menu-icon'
 import { IslandBox, useFold, useIslands } from './haligtree/islands'
 import { CalendarDays, Command, Plus } from 'lucide-react'
 import { Orb } from './haligtree/orb'
@@ -63,7 +63,7 @@ type Capture = Awaited<ReturnType<typeof window.api.captures.find>>[number]
 /** `choices`: one action that opens a short list in place, "Goal on screen…" and then which goal and how. */
 /** `heard`: words typed that ask for it outright ("20 min"): the action they make goes first, in its place. */
 /** `typedChoice`: in its list of choices, words typed that make one of their own (“40” for 40 minutes), offered first. */
-export type Action = { label: string; /** What it does, said in the preview beside the list (or on the row in focus where there is none), and found by search: the label stays a short name. */ hint?: string; /** One of the few offered before anything is typed; the rest are found by typing. */ first?: boolean; /** Other words a person might search for it by, never shown: "dictate" for recording. */ words?: string; keys?: string; run: () => void; cue?: Cue | null; own?: boolean; typed?: boolean; themes?: (theme: Theme, was?: Theme) => void; choices?: () => Choice[]; typedChoice?: (typed: string) => Choice | null; heard?: (typed: string) => Action | null; icon?: ComponentProps<typeof AliveIcon>['icon']; /** One of the rows a search with no match offers: what the words become. */ keep?: Keep }
+export type Action = { label: string; /** What it does, said in the preview beside the list (or on the row in focus where there is none), and found by search: the label stays a short name. Every action has one, so the card beside the list is never empty. */ hint: string; /** One of the few offered before anything is typed; the rest are found by typing. */ first?: boolean; /** Other words a person might search for it by, never shown: "dictate" for recording. */ words?: string; keys?: string; run: () => void; cue?: Cue | null; own?: boolean; typed?: boolean; themes?: (theme: Theme, was?: Theme) => void; choices?: () => Choice[]; typedChoice?: (typed: string) => Choice | null; heard?: (typed: string) => Action | null; icon?: ComponentProps<typeof AliveIcon>['icon']; /** One of the rows a search with no match offers: what the words become. */ keep?: Keep }
 /** What words that match nothing can be kept as, from ⌘K. `box`: written into quick capture. */
 export type Keep = 'note' | 'task' | 'question' | 'box'
 const KEPT_AS: Record<Keep, string> = { note: 'as a note', task: 'as a task', question: 'as a question', box: 'in quick capture' }
@@ -173,7 +173,7 @@ export function Search({ onOpen: told, onAside: toldAside, onTab: toldTab, onClo
   const said = clip(typed, 40)
   const keeping = !!onKeep && !scoped && !!typed && !typed.startsWith('kind:') && searched === query && !slow && !results.length
     ? (typed.endsWith('?') ? [...keeps.filter((one) => one === 'question'), ...keeps.filter((one) => one !== 'question')] : keeps)
-      .map((as): Action => ({ label: `Keep ${quoted(said, 80)} ${KEPT_AS[as]}`, keep: as, cue: null, run: () => onKeep?.(as, typed) }))
+      .map((as): Action => ({ label: `Keep ${quoted(said, 80)} ${KEPT_AS[as]}`, hint: 'Nothing is called that yet: Enter keeps it', keep: as, cue: null, run: () => onKeep?.(as, typed) }))
     : []
   const heard = typed ? actions.flatMap((one) => one.heard?.(typed) ?? []) : []
   // The actions answer the same words as the results under them, so the two change together, in one
@@ -183,7 +183,7 @@ export function Search({ onOpen: told, onAside: toldAside, onTab: toldTab, onClo
   const settledWords = settled.toLowerCase().split(/\s+/).filter((word) => word && !word.startsWith('kind:'))
   const named = (one: Action): number => rank({ title: one.label, group: '', hint: one.hint, keywords: one.words?.split(' ') }, settledWords.join(' ')) ?? 8
   const acting = [
-    ...(asked ? [{ label: `What ${APP_NAME} means by ${asked.forms[0]}`, cue: null, run: () => openWord(asked.id) }] : []),
+    ...(asked ? [{ label: `What ${APP_NAME} means by ${asked.forms[0]}`, hint: asked.line, cue: null, run: () => openWord(asked.id) }] : []),
     ...heard,
     ...[...actions, { label: `${APP_NAME}’s words`, hint: 'What its own names mean', typed: true, cue: null, run: () => openWord(ALL_WORDS) }]
       .filter((one) => !(heard.length && one.heard) && (!one.typed || settled.trim()) && forgives(settledWords.join(' '), `${one.label} ${one.hint ?? ''} ${one.words ?? ''}`))
@@ -647,10 +647,13 @@ export function Search({ onOpen: told, onAside: toldAside, onTab: toldTab, onClo
                   : action
                     // A lit action: only that action, what it does, and (in the bar under it) its key. Nothing else
                     // in the card, so it never reads as the day or the pins.
-                    ? <div className="flex flex-col gap-5 p-4">
-                      <div key={action.label} data-action-line={plain ? '' : undefined}>
-                        <p className="text-base font-medium text-pretty text-foreground">{action.label}</p>
+                    // Laid out as a result's head is (PreviewHead): its icon, its name, then what it does and its key under it.
+                    ? <div key={action.label} data-action-line={plain ? '' : undefined} className="flex flex-col gap-1.5 px-5 pt-5">
+                      {action.icon ? <AliveIcon icon={action.icon} size={24} className="shrink-0 text-muted-foreground" /> : <ActionIcon label={action.label} />}
+                      <div>
+                        <p className="text-lg font-semibold text-pretty text-foreground">{action.label}</p>
                         {plain?.hint && <p data-action-said className="mt-0.5 text-body text-pretty text-muted-foreground">{plain.hint}</p>}
+                        {plain?.keys && keyFor(plain.keys) && <p data-action-keys className="mt-3 flex items-center gap-1.5 text-xs text-muted-foreground"><span className="flex gap-0.5"><Pressed keys={plain.keys} each /></span> any time</p>}
                         {/* A word asked about says what it means here before Enter opens the rest. */}
                         {asked && action === doing[0] && <p className="mt-1 text-body text-muted-foreground">{asked.line}</p>}
                       </div>
@@ -659,7 +662,7 @@ export function Search({ onOpen: told, onAside: toldAside, onTab: toldTab, onClo
               </div>
               {/* One bar under every item: a thought on a result (⌘; or a click),
                   or how to do an action; none where there is nothing to say. */}
-              {(picking ? !!before.current : !!current || !!(action?.keys && keyFor(action.keys))) && <div className="flex min-h-9 shrink-0 items-center gap-3 border-t px-4 py-1.5 text-xs text-muted-foreground">
+              {(picking ? !!before.current : !!current) && <div className="flex min-h-9 shrink-0 items-center gap-3 border-t px-4 py-1.5 text-xs text-muted-foreground">
                 {picking ? (
                   before.current && <span className="flex items-center gap-1.5"><Swatch theme={before.current} /> Was {themeName(before.current)}</span>
                 ) : current?.type === 'event' ? (
@@ -677,11 +680,7 @@ export function Search({ onOpen: told, onAside: toldAside, onTab: toldTab, onClo
                       <span className="shrink-0">{current.attribution ?? <><Kbd>Tab</Kbd> who said it</>}</span>
                     )}
                   </>
-                ) : action && (
-                  <>
-                    {action.keys && keyFor(action.keys) && <span className="flex items-center gap-1.5"><span className="flex gap-0.5"><Pressed keys={action.keys} each /></span> any time</span>}
-                  </>
-                )}
+                ) : null}
               </div>}
             </div>
           )}
@@ -769,6 +768,12 @@ const firstWords = (body: unknown): string => {
 }
 
 /** Atop the preview, as Notion's card: what it is, its name, and where it lives, quietly. Its name is left out where the body opens with it. */
+/** An action's own drawing, at a result head's size, from its words as its row's is. */
+function ActionIcon({ label }: { label: string }): React.JSX.Element {
+  const Icon = menuIcon(label)
+  return <Icon aria-hidden className="size-6 shrink-0 text-muted-foreground" />
+}
+
 function PreviewHead({ capture, named }: { capture: Capture; named: boolean }): React.JSX.Element {
   const look = lookOf(capture)
   const kind = capture.type === 'capture' ? (CAPTURE_TYPES.find((type) => type.id === capture.kind) ?? CAPTURE_TYPES[0]).label : typeSaid(capture.type)

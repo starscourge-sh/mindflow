@@ -1999,19 +1999,19 @@ export default function App(): React.JSX.Element {
           }}
           // Everything the box can do, by name and key, as Raycast's ⌘K lists it.
           actions={searching === 'notes' ? [] : [
-            { label: 'New capture', keys: '⌘N', first: true, run: () => startOver() },
+            { label: 'New capture', hint: 'A blank box; an unsent draft is cleared, with Undo', keys: '⌘N', first: true, run: () => startOver() },
             { label: 'Record a voice note', hint: 'Kept as a new capture', first: true, cue: null, run: () => void recordAsCapture((id) => openAny('capture', id)) },
             { label: 'Record a call or lecture', hint: 'Your microphone and this Mac’s sound, who said what', keys: '⌃⌥⌘M', words: MEETING_WORDS, cue: null, run: () => void recordMeeting() },
             ...(recordingsWithoutWords() ? [{ label: 'Transcribe the voice notes', hint: 'Their words under each, on this Mac', cue: null, run: transcribePage }] : []),
-            { label: 'New question', first: true, cue: null, run: () => void startQuestion(openAny) },
+            { label: 'New question', hint: 'Something you want to find out, kept in Questions until it is answered', first: true, cue: null, run: () => void startQuestion(openAny) },
             // Not offered in "One line to start", which has no side panel to show.
-            { label: panel ? 'Hide the side panel' : 'Show the side panel', keys: '⌘\\', cue: null, run: () => (setPanel(!panel), quietly(() => setPanel(panel))) },
-            ...TABS.map((one, index) => ({ label: `Go to ${({ inbox: 'Inbox', today: 'Tasks', review: 'Review', kept: 'Saved', recent: 'Recent' } as Record<string, string>)[one] ?? one}`, keys: `⌃${index + 1}`, run: () => {
+            { label: panel ? 'Hide the side panel' : 'Show the side panel', hint: panel ? 'The box alone, without the lists beside it' : 'The Inbox, Tasks and Review beside the box', keys: '⌘\\', cue: null, run: () => (setPanel(!panel), quietly(() => setPanel(panel))) },
+            ...TABS.map((one, index) => ({ label: `Go to ${({ inbox: 'Inbox', today: 'Tasks', review: 'Review', kept: 'Saved', recent: 'Recent' } as Record<string, string>)[one] ?? one}`, hint: 'In the side panel beside the box', keys: `⌃${index + 1}`, run: () => {
               setTab(one)
               if (!panel) setPanel(true)
             } })),
             ...(picked.ids.length > 1 ? [{ label: 'Make one task', hint: `From the ${num(picked.ids.length)} selected captures`, first: true, cue: null, run: () => window.dispatchEvent(new CustomEvent('haligtree:one-task')) }] : []),
-            { label: 'Stick Today on the desktop', cue: null, run: () => stickOnDesktop('today', 'today') },
+            { label: 'Stick Today on the desktop', hint: 'Today’s tasks on a sticky note, over every window', cue: null, run: () => stickOnDesktop('today', 'today') },
             { label: 'Stick all goals', hint: 'On the desktop, each goal in its own colour, with a legend', words: 'desktop sticky stickies one', cue: null, run: () => stickOnDesktop('goals', 'all') },
             { label: 'Tidy captures', hint: 'A few minutes tagging your latest captures', run: () => openPass('tidy') },
             { label: 'Decide what to keep', hint: 'Once a week, look over what waited', run: () => openPass('decide') },
@@ -2019,7 +2019,7 @@ export default function App(): React.JSX.Element {
             { label: 'Copy as Markdown', hint: 'This note', first: true, keys: '⇧⌘C', run: copyMarkdown },
             ...(reading ? [] : [{ label: 'Attach a screenshot', hint: `The screen behind quick capture, without ${APP_NAME}`, first: true, keys: '⇧⌘2', cue: null, run: () => setTimeout(() => void attachScreenshot(), 200) }]),
             ...(editing ? [{ label: 'Stick on the desktop', hint: 'This note', cue: null, run: () => stickOnDesktop('capture', editing.id) }] : []),
-            { label: locked ? 'Unlock this note' : 'Lock this note', hint: locked ? undefined : 'Read only until you unlock it', cue: locked ? 'off' : 'on', run: () => (setLocked(!locked), toast(locked ? 'Note unlocked' : 'Note locked: read only', () => setLocked(locked))) },
+            { label: locked ? 'Unlock this note' : 'Lock this note', hint: locked ? 'You can write in it again' : 'Read only until you unlock it', cue: locked ? 'off' : 'on', run: () => (setLocked(!locked), toast(locked ? 'Note unlocked' : 'Note locked: read only', () => setLocked(locked))) },
             { label: secret ? 'Make it not private' : 'Make it private', hint: 'This note', cue: secret ? 'off' : 'on', run: () => {
               const set = (on: boolean): void => {
                 setSecret(on)
@@ -2029,54 +2029,54 @@ export default function App(): React.JSX.Element {
               // The footer's “Private” lights or goes out in front of you: ⌘Z still takes it back.
               quietly(() => set(secret))
             } },
-            { label: outline ? 'Hide the outline' : 'Show the outline', cue: outline ? 'off' : 'on', run: () => (setOutline(!outline), quietly(() => setOutline(outline))) },
-            { label: 'Fold every heading', cue: null, run: () => void (foldEverything(true) || chime('nope')) },
-            { label: 'Unfold every heading', cue: null, run: () => void (foldEverything(false) || chime('nope')) },
-            { label: source ? 'Hide the source' : 'Show the source', keys: '⌘E', cue: null, run: () => setSource(!source) },
-            { label: vim ? 'Turn vim keys off' : 'Turn vim keys on', cue: vim ? 'off' : 'on', run: () => (setVim(!vim), toast(vim ? 'Vim keys off' : 'Vim keys on', () => setVim(vim))) },
-            { label: hideButtons ? 'Show the buttons again' : 'Hide the buttons', hint: hideButtons ? undefined : 'Until you point at them', keys: '⌥⌘,', cue: hideButtons ? 'off' : 'on', run: () => setHideButtons(!hideButtons) },
+            { label: outline ? 'Hide the outline' : 'Show the outline', hint: 'The note’s headings, to jump between them', cue: outline ? 'off' : 'on', run: () => (setOutline(!outline), quietly(() => setOutline(outline))) },
+            { label: 'Fold every heading', hint: 'In the note in front: only its headings show', cue: null, run: () => void (foldEverything(true) || chime('nope')) },
+            { label: 'Unfold every heading', hint: 'In the note in front: everything under its headings shows again', cue: null, run: () => void (foldEverything(false) || chime('nope')) },
+            { label: source ? 'Hide the source' : 'Show the source', hint: 'The note as JSON, for the technical', keys: '⌘E', cue: null, run: () => setSource(!source) },
+            { label: vim ? 'Turn vim keys off' : 'Turn vim keys on', hint: vim ? 'Keys type as they usually do' : 'Move and edit with Vim’s keys: Esc, then h, j, k, l', cue: vim ? 'off' : 'on', run: () => (setVim(!vim), toast(vim ? 'Vim keys off' : 'Vim keys on', () => setVim(vim))) },
+            { label: hideButtons ? 'Show the buttons again' : 'Hide the buttons', hint: hideButtons ? 'Every button shows all the time' : 'Until you point at them', keys: '⌥⌘,', cue: hideButtons ? 'off' : 'on', run: () => setHideButtons(!hideButtons) },
             ...(editing ? [] : [{ label: createMore ? 'Turn “Create more” off' : 'Turn “Create more” on', hint: 'Keep quick capture open after each save', keys: '⌥C', cue: (createMore ? 'off' : 'on') as 'off' | 'on', run: () => setCreateMore(!createMore) }]),
-            { label: counting ? 'Hide the word count' : 'Show the word count', cue: counting ? 'off' : 'on', run: () => (setCounting(!counting), quietly(() => setCounting(counting))) },
-            { label: appSettings?.sounds ? 'Turn sounds off' : 'Turn sounds on', cue: null, run: () => {
+            { label: counting ? 'Hide the word count' : 'Show the word count', hint: 'Under the note', cue: counting ? 'off' : 'on', run: () => (setCounting(!counting), quietly(() => setCounting(counting))) },
+            { label: appSettings?.sounds ? 'Turn sounds off' : 'Turn sounds on', hint: appSettings?.sounds ? 'Every action happens quietly' : 'A small sound answers each action', cue: null, run: () => {
               soundOn(!appSettings?.sounds)
               chime(appSettings?.sounds ? 'off' : 'on')
               void haligtree.setSettings({ sounds: !appSettings?.sounds })
               const was = !!appSettings?.sounds
               toast(was ? 'Sounds off' : 'Sounds on', () => (soundOn(was), void haligtree.setSettings({ sounds: was })))
             } },
-            { label: appSettings?.safeMode ? 'Turn safe mode off' : 'Turn safe mode on', keys: '⌥⌘S', cue: appSettings?.safeMode ? 'off' : 'on', run: () => {
+            { label: appSettings?.safeMode ? 'Turn safe mode off' : 'Turn safe mode on', hint: appSettings?.safeMode ? 'Hints, pins, sticky notes and goal cards come back' : 'Nothing comes up unasked, for sharing your screen', keys: '⌥⌘S', cue: appSettings?.safeMode ? 'off' : 'on', run: () => {
               const on = !appSettings?.safeMode
               sayNow(haligtree.setSettings({ safeMode: on }), on ? 'Safe mode on' : 'Safe mode off', () => void haligtree.setSettings({ safeMode: !on }))
             } },
             { label: recordable ? 'Hide from recordings' : 'Show in recordings', hint: `${APP_NAME} in screen recordings and shares`, cue: recordable ? 'off' : 'on', icon: recordable ? CameraOffIcon : CameraIcon, run: () => setRecordable(!recordable) },
-            { label: appSettings?.stickiesShown === false ? 'Show sticky notes' : 'Hide sticky notes', keys: '⌃⌥⌘N', cue: null, run: () => {
+            { label: appSettings?.stickiesShown === false ? 'Show sticky notes' : 'Hide sticky notes', hint: appSettings?.stickiesShown === false ? 'Your sticky notes back on the desktop' : 'Off the desktop for now, kept as they are', keys: '⌃⌥⌘N', cue: null, run: () => {
               const show = appSettings?.stickiesShown === false
               void haligtree.setSettings({ stickiesShown: show }).then(() => (show ? quietly : (undo: () => void) => toast('Sticky notes hidden. ⌃⌥⌘N brings them back', undo))(() => void haligtree.setSettings({ stickiesShown: !show })))
             } },
-            { label: 'Bring sticky notes here', cue: null, run: () => window.api.gatherStickies() },
-            ...(stickiesOut > 0 && !appSettings?.safeMode ? [{ label: 'Tidy stickies', keys: '⌃⌥⌘T', cue: null, run: () => window.api.tidyStickies() }] : []),
-            { label: reveal ? 'Blur private titles again' : 'Show private titles', hint: reveal ? undefined : 'For now', cue: reveal ? 'off' : 'on', run: () => (setReveal(!reveal), quietly(() => setReveal(reveal))) },
-            { label: editing || reading || hasContent(body) ? 'Open in main window' : 'Open the main window', keys: '⌘O', first: true, run: () => void promote() },
-            { label: "Open the week's page", cue: 'season', run: () => window.api.openInHome('view', 'weekpage') },
-            { label: "Open the month's page", cue: 'season', run: () => window.api.openInHome('view', 'monthpage') },
+            { label: 'Bring sticky notes here', hint: 'Every sticky note, fanned out at the top right of this screen', cue: null, run: () => window.api.gatherStickies() },
+            ...(stickiesOut > 0 && !appSettings?.safeMode ? [{ label: 'Tidy stickies', hint: 'Line the sticky notes up in a neat column', keys: '⌃⌥⌘T', cue: null, run: () => window.api.tidyStickies() }] : []),
+            { label: reveal ? 'Blur private titles again' : 'Show private titles', hint: reveal ? 'Private titles blurred until you point at them' : 'For now', cue: reveal ? 'off' : 'on', run: () => (setReveal(!reveal), quietly(() => setReveal(reveal))) },
+            { label: editing || reading || hasContent(body) ? 'Open in main window' : 'Open the main window', hint: editing || reading || hasContent(body) ? 'This note in the main window, kept first' : 'Every page of your book', keys: '⌘O', first: true, run: () => void promote() },
+            { label: "Open the week's page", hint: 'This week on one page: what you wrote, did and kept', cue: 'season', run: () => window.api.openInHome('view', 'weekpage') },
+            { label: "Open the month's page", hint: 'This month on one page: what you wrote, did and kept', cue: 'season', run: () => window.api.openInHome('view', 'monthpage') },
             { label: "Open the year's page", hint: 'Your seasons of life, month by month', cue: 'season', run: () => window.api.openInHome('view', 'yearpage') },
             ...noteActions(),
             ...abandonAction,
             ...practiceActions,
-            { label: 'Keyboard shortcuts', keys: '?', run: () => window.dispatchEvent(new CustomEvent('haligtree:shortcuts')) },
+            { label: 'Keyboard shortcuts', hint: 'Every key, by what it does', keys: '?', run: () => window.dispatchEvent(new CustomEvent('haligtree:shortcuts')) },
             { label: 'Import Obsidian or Notion…', hint: 'A vault or a Notion export', cue: null, run: () => void window.api.importFrom('vault') },
             { label: 'Import from Apple Notes…', hint: 'Folder by folder, into Writing, to sort', cue: null, run: () => void window.api.importFrom('apple-notes') },
             { label: 'Import highlights and files…', hint: 'Readwise, Kindle, Markdown, bookmarks, Anki decks (.apkg, .colpkg) or CSV', cue: null, run: () => void window.api.importFrom('files') },
             ...themeActions((text, undo) => toast(text, undo)),
-            { label: appSettings?.blur === false ? 'Turn blurring on' : 'Turn blurring off', cue: appSettings?.blur === false ? 'on' : 'off', run: () => {
+            { label: appSettings?.blur === false ? 'Turn blurring on' : 'Turn blurring off', hint: appSettings?.blur === false ? 'Private notes blurred until you point at them' : 'Private notes shown plainly', cue: appSettings?.blur === false ? 'on' : 'off', run: () => {
               const on = appSettings?.blur === false
               sayNow(haligtree.setSettings({ blur: on }), on ? 'Blurring on' : 'Blurring off', () => void haligtree.setSettings({ blur: !on }))
             } },
-            { label: 'Settings', keys: '⌘,', run: () => window.api.openInHome('view', 'settings') },
+            { label: 'Settings', hint: 'Look, sounds, keys, backups and your book', keys: '⌘,', run: () => window.api.openInHome('view', 'settings') },
             // The recap opens in the main window, over Stats.
             // The month's story, as Home's ⌘K has it: the month before until the 7th.
-            { label: 'Your month in notes, wrapped', run: () => window.api.openInHome('wrap', `month:${(dayjs().date() < 7 ? dayjs().subtract(1, 'month') : dayjs()).format('YYYY-MM')}`) },
-            { label: 'Your year, wrapped', run: () => window.api.openInHome('recap', 'year') }
+            { label: 'Your month in notes, wrapped', hint: 'What you captured most, your busiest day, focus hours, gems kept, what went well', run: () => window.api.openInHome('wrap', `month:${(dayjs().date() < 7 ? dayjs().subtract(1, 'month') : dayjs()).format('YYYY-MM')}`) },
+            { label: 'Your year, wrapped', hint: 'Your year in notes, a card at a time', run: () => window.api.openInHome('recap', 'year') }
           ]}
           onClose={() => {
             setSearching(false)

@@ -273,11 +273,11 @@ export function noteActions({ day = true }: { day?: boolean } = {}): Action[] {
   const all: Action = { label: 'Save all attachments', hint: 'Every picture and file, to a folder', cue: null, run: () => void saveAttachments() }
   // Notion's switch, for every page: the words in a reading column, or across the window.
   const width: Action = fullWidth()
-    ? { label: 'Contained width', cue: null, run: () => setFullWidth(false) }
-    : { label: 'Full width', cue: null, run: () => setFullWidth(true) }
+    ? { label: 'Contained width', hint: 'The words in a reading column', cue: null, run: () => setFullWidth(false) }
+    : { label: 'Full width', hint: 'The words across the whole window', cue: null, run: () => setFullWidth(true) }
   // The page in front, read aloud by the Mac's voice, a word lit at a time; the same line stops it.
   const read: Action[] = frontEditor()?.textContent?.trim()
-    ? [readingNow() ? { label: 'Stop reading', keys: 'esc', cue: null, run: stopReading } : { label: 'Read it to me', hint: 'Aloud, in your Mac\'s voice', cue: null, run: readFront }]
+    ? [readingNow() ? { label: 'Stop reading', hint: 'The voice stops where it is', keys: 'esc', cue: null, run: stopReading } : { label: 'Read it to me', hint: 'Aloud, in your Mac\'s voice', cue: null, run: readFront }]
     : []
   if (!note) return [...page, ...read, width, all]
   // Marked as this note's own, so search ranks them above going somewhere.

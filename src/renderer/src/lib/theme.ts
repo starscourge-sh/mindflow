@@ -389,7 +389,7 @@ function paintCustom(): void {
  * still there for typing ("drac"), but kept out of the list until typed, so
  * fourteen of them do not flood it.
  */
-export function themeActions(said: (text: string, undo?: () => void) => void): { label: string; run: () => void; themes?: (theme: Theme, was?: Theme) => void; typed?: boolean }[] {
+export function themeActions(said: (text: string, undo?: () => void) => void): { label: string; hint: string; run: () => void; themes?: (theme: Theme, was?: Theme) => void; typed?: boolean }[] {
   // A theme picked by name says nothing: the window has already changed in front of you.
   // Only "Next theme", taken blind, names where it landed.
   const wear = (theme: Theme): void => applyTheme(theme)
@@ -401,11 +401,11 @@ export function themeActions(said: (text: string, undo?: () => void) => void): {
   }
   const all = allThemes()
   return [
-    { label: 'Change theme…', run: () => {}, themes: wear },
-    { label: 'Next theme', typed: true, run: () => { const next = all[(all.indexOf(currentTheme()) + 1) % all.length]; wear(next); said(`Wearing ${themeName(next)}`) } },
-    { label: 'Brutal style', run: () => restyle('brutal') },
-    { label: 'Paper style', run: () => restyle('paper') },
-    { label: 'Soft style', run: () => restyle('soft') },
-    ...all.map((theme) => ({ label: `Theme: ${themeName(theme)}`, typed: true, run: () => wear(theme) }))
+    { label: 'Change theme…', hint: 'Every theme, worn as you move onto it', run: () => {}, themes: wear },
+    { label: 'Next theme', hint: 'The window in the next theme along', typed: true, run: () => { const next = all[(all.indexOf(currentTheme()) + 1) % all.length]; wear(next); said(`Wearing ${themeName(next)}`) } },
+    { label: 'Brutal style', hint: 'Square, outlined in ink, on hard shadows', run: () => restyle('brutal') },
+    { label: 'Paper style', hint: 'Square, hairline rules, no shadows, serif headings', run: () => restyle('paper') },
+    { label: 'Soft style', hint: 'Rounded, lifted on soft shadows', run: () => restyle('soft') },
+    ...all.map((theme) => ({ label: `Theme: ${themeName(theme)}`, hint: 'The whole app in this theme', typed: true, run: () => wear(theme) }))
   ]
 }

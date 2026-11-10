@@ -162,10 +162,10 @@ export function calendarPalette(toCalendar: (day: string) => void): { actions: A
             label: 'Tell it what to do…', hint: 'friday 3pm, +1h, 45 min, every last friday, duplicate to next week, delete', typed: true, cue: null, run: () => {},
             heard: (typed) => {
               const command = commandFor(typed, placed)
-              return command ? { label: said(command), own: true, cue: null, run: () => void applyEvent(event, command, calendar) } : null
+              return command ? { label: said(command), hint: 'Enter does it to this event', own: true, cue: null, run: () => void applyEvent(event, command, calendar) } : null
             }
           },
-          ...examples.map(([label, words]): Action => ({ label, own: true, cue: null, run: () => void applyEvent(event, commandFor(words, placed)!, calendar) })),
+          ...examples.map(([label, words]): Action => ({ label, hint: `Or type it: “${words}”`, own: true, cue: null, run: () => void applyEvent(event, commandFor(words, placed)!, calendar) })),
           goTo
         ]
       }
@@ -183,10 +183,10 @@ export function calendarPalette(toCalendar: (day: string) => void): { actions: A
             label: 'Tell it what to do…', hint: 'friday 3pm, +1h, 45 min, every last friday, duplicate to next week, delete', typed: true, cue: null, run: () => {},
             heard: (typed) => {
               const said = commandFor(typed, task)
-              return said ? { label: saidAs(task, said), own: true, cue: null, run: () => void apply(task, said, calendar) } : null
+              return said ? { label: saidAs(task, said), hint: 'Enter does it to this task', own: true, cue: null, run: () => void apply(task, said, calendar) } : null
             }
           },
-          ...examples.map(([label, words]): Action => ({ label, own: true, cue: null, run: () => void apply(task, commandFor(words, task)!, calendar) })),
+          ...examples.map(([label, words]): Action => ({ label, hint: `Or type it: “${words}”`, own: true, cue: null, run: () => void apply(task, commandFor(words, task)!, calendar) })),
           goTo
         ]
       }

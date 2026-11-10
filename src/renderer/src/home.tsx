@@ -98,7 +98,7 @@ import { askBook } from '@/lib/books'
 import { nameNewDeck, useMadeDecks } from './components/haligtree/decks'
 import { BookName, askNewBook } from '@/components/haligtree/books'
 import { Welcome } from '@/components/haligtree/welcome'
-import { PageHint } from '@/components/haligtree/page-hint'
+import { PageHint, pageSaid } from '@/components/haligtree/page-hint'
 import { onboarding, playWelcome, tryWelcome } from '@/lib/onboarding'
 import { DayView } from '@/components/haligtree/day-view'
 import { MonthPage, SCALE_VIEW, WeekPage, YearPage, mondayOf, type Scale } from '@/components/haligtree/periods-view'
@@ -1528,12 +1528,12 @@ export function Home(): React.JSX.Element {
     toast('Opened the pinned split', () => setSplit(now))
   }
   /** The split on screen, kept in Pinned or let go from there. */
-  const pinLine = (): { label: string; run: () => void } => {
+  const pinLine = (): { label: string; hint: string; run: () => void } => {
     const shown = splitRef.current.panes.map(onShow)
     const pinned = layouts.find((one) => sameLayout(one.views, shown))
     return pinned
-      ? { label: 'Unpin this split', run: () => dropLayout(pinned.id, 'Unpinned this split') }
-      : { label: 'Pin this split', run: () => pinLayout(shown, splitRef.current.sizes) }
+      ? { label: 'Unpin this split', hint: 'It leaves the pinned splits; these sides stay open', run: () => dropLayout(pinned.id, 'Unpinned this split') }
+      : { label: 'Pin this split', hint: 'These sides, kept to open together again in one go', run: () => pinLayout(shown, splitRef.current.sizes) }
   }
   /** ⌘K's Even the split out: the room shared equally, as a double-click on a divider does, said in words with a way back. */
   const evenPanes = (): void => {
@@ -1617,9 +1617,9 @@ export function Home(): React.JSX.Element {
 
   /** Every place to go, as ⌘K offers them, opened in a pane (the one in front unless said). */
   const placesTo = (key?: string): Action[] => [
-    ...SECTIONS.map((section) => ({ label: `Go to ${section.label}`, keys: `G ${section.key.toUpperCase()}`, run: () => setView({ id: section.id }, key) })),
+    ...SECTIONS.map((section) => ({ label: `Go to ${section.label}`, hint: pageSaid(section.id), keys: `G ${section.key.toUpperCase()}`, run: () => setView({ id: section.id }, key) })),
     // The Tasks row's other tabs, and the pages that are a chip or a menu line now: still a G and a letter away.
-    ...([['Upcoming', 'upcoming', 'U'], ['Later', 'later', 'Z'], ['Routines', 'routines', 'O'], ['All tasks', 'alltasks', '*'], ['Urgent and important', 'matrix', 'Q'], ['Questions: Looked up', 'lookups', '.']] as const).map(([name, id, letter]) => ({ label: `Go to ${name}`, keys: `G ${letter}`, run: () => setView({ id }, key) }))
+    ...([['Upcoming', 'upcoming', 'U'], ['Later', 'later', 'Z'], ['Routines', 'routines', 'O'], ['All tasks', 'alltasks', '*'], ['Urgent and important', 'matrix', 'Q'], ['Questions: Looked up', 'lookups', '.']] as const).map(([name, id, letter]) => ({ label: `Go to ${name}`, hint: pageSaid(id), keys: `G ${letter}`, run: () => setView({ id }, key) }))
   ]
 
   /** A pane's page: the step it is on, drawn with everything it opens kept in that pane. */
@@ -1777,16 +1777,16 @@ export function Home(): React.JSX.Element {
             ...(palette?.actions ?? []),
             // Back after a while, the sidebar shows only capture and Today: the way to the rest, from here too (the sidebar's own button is not there when it is narrow or hidden).
             ...(quiet ? [{ label: 'Show everything', hint: 'Every page in the sidebar again', first: true, cue: null, run: () => void call('return:show-all').then(() => chime('unshelve')) }] : []),
-            { label: 'New capture', keys: 'C', first: true, run: () => window.api.showPrompt() },
+            { label: 'New capture', hint: 'A blank capture, in its own small window: write, then it goes to the Inbox', keys: 'C', first: true, run: () => window.api.showPrompt() },
             { label: 'Record a voice note', hint: 'Kept as a new capture', first: true, words: 'dictate dictation transcribe speech to text voice memo talk speak microphone', cue: null, run: () => void recordAsCapture((id) => open('capture', id)) },
             { label: 'Record a call or lecture', hint: 'Your microphone and this Mac’s sound, who said what', keys: '⌃⌥⌘M', words: MEETING_WORDS, cue: null, run: () => void recordMeeting() },
             { label: 'Recordings', hint: 'Every call and lecture you recorded', words: 'meetings recordings calls lectures transcripts', cue: null, run: () => setView({ id: 'tags', focus: 'recording' }) },
             ...(recordingsWithoutWords() ? [{ label: 'Transcribe the voice notes', hint: 'Their words under each, on this Mac', words: 'dictation speech to text', cue: null, run: transcribePage }] : []),
-            { label: 'New question', first: true, cue: null, run: () => void startQuestion(open) },
-            { label: 'New goal', first: true, cue: null, run: () => void startGoal(open) },
+            { label: 'New question', hint: 'Something you want to find out, kept in Questions until it is answered', first: true, cue: null, run: () => void startQuestion(open) },
+            { label: 'New goal', hint: 'Name it, give it a date if you like, then log each step', first: true, cue: null, run: () => void startGoal(open) },
             // One action for every open goal's beacon, then a short list: each goal, and the two settings it is not on.
             ...(goals.some((one) => !one.archivedAt && !one.closedAt) ? [{
-              label: 'Goal on screen…', cue: null, run: () => {},
+              label: 'Goal on screen…', hint: 'How often a goal’s card shows on your screen: always, now and then, or never', cue: null, run: () => {},
               choices: () => goals.filter((one) => !one.archivedAt && !one.closedAt).flatMap((goal) => {
                 const now = goal.beacon ?? settings?.goalBeacon ?? 'sometimes'
                 const said = (mode: string): string => (mode === 'always' ? 'always on screen' : mode === 'sometimes' ? 'on screen now and then' : 'off screen')
@@ -1800,7 +1800,7 @@ export function Home(): React.JSX.Element {
               })
             }] : []),
             ...(picked.ids.length > 1 ? [{ label: 'Make one task', hint: `From the ${num(picked.ids.length)} selected captures`, first: true, cue: null, run: () => window.dispatchEvent(new CustomEvent('haligtree:one-task')) }] : []),
-            { label: 'Stick Today on the desktop', cue: null, run: () => stickOnDesktop('today', 'today') },
+            { label: 'Stick Today on the desktop', hint: 'Today’s tasks on a sticky note, over every window', cue: null, run: () => stickOnDesktop('today', 'today') },
             { label: 'Stick all goals', hint: 'On the desktop, each goal in its own colour, with a legend', words: 'desktop sticky stickies one', cue: null, run: () => stickOnDesktop('goals', 'all') },
             { label: 'Write out my day', hint: 'A new line at the end of Today’s list', first: true, cue: null, run: () => (setView({ id: 'today' }), writeOutDay()) },
             { label: 'Tidy captures', hint: 'A few minutes tagging your latest captures', run: () => openPass('tidy') },
@@ -1811,14 +1811,14 @@ export function Home(): React.JSX.Element {
             { label: 'Switch book…', hint: 'Another book of yours, or the sandbox', cue: null, run: () => askBook('switch') },
             ...(SANDBOX ? [] : [
               { label: 'New book…', hint: 'An empty one, apart from this', cue: null, run: () => void askNewBook() },
-              { label: 'Import into another book…', cue: null, run: () => askBook('import') }
+              { label: 'Import into another book…', hint: 'Bring notes into one of your other books, not this one', cue: null, run: () => askBook('import') }
             ]),
             // In the sandbox, restoring reads as a risk to your notes: it is not offered there.
             ...(SANDBOX ? [
               { label: 'Back to my notes', hint: 'Leave the sandbox', cue: null, run: () => void leaveSandbox() },
               { label: 'Reset the sandbox', hint: 'Their book back to how it began', cue: null, run: () => void resetSandbox() }
             ] : [
-              { label: 'Restore from a backup…', cue: null, run: () => void window.api.restoreBackup() },
+              { label: 'Restore from a backup…', hint: 'Pick a backup file: your book goes back to how it was then', cue: null, run: () => void window.api.restoreBackup() },
               { label: 'Open the sandbox', hint: "A peek into someone else's book, with examples", cue: null, run: () => void enterSandbox() }
             ]),
             { label: `What can ${APP_NAME} do?`, hint: 'Every power, with a way to try it', cue: null, run: () => setView({ id: 'powers' }) },
@@ -1832,42 +1832,42 @@ export function Home(): React.JSX.Element {
               choices: () => FIT_CHOICES.map((minutes) => ({ label: `${minutes} minutes`, note: minutes === (settings?.fitMinutes ?? 15) ? 'last time' : undefined, run: () => openFits(minutes) })),
               heard: (typed: string) => { const minutes = fitsHeard(typed); return minutes ? { label: `I have ${minutes} minutes`, hint: 'Tasks that fit', cue: null, run: () => openFits(minutes) } : null } }] : []),
             { label: 'Open my playbook', hint: 'How I work, in my own words', cue: null, run: () => void openPlaybook() },
-            { label: 'Show the welcome again', cue: null, run: () => playWelcome() },
+            { label: 'Show the welcome again', hint: 'The first-run tour, from the start', cue: null, run: () => playWelcome() },
             // Either welcome, to feel which is right: played in the sandbox, so your own book is never touched.
             { label: 'Show the welcome in the sandbox', hint: 'Your own notes stay as they are', cue: null, run: () => void tryWelcome() },
-            { label: 'Try a celebration', cue: null, run: () => tryCelebration() },
+            { label: 'Try a celebration', hint: 'One of the moments the app marks, like an empty Inbox, shown now', cue: null, run: () => tryCelebration() },
             ...placesTo(),
-            { label: sidebar ? 'Hide the sidebar' : 'Show the sidebar', keys: '⌘B', cue: sidebar ? 'fold' : 'slide', run: () => (setSidebar(!sidebar), (sidebar ? toast('Sidebar hidden. ⌘B brings it back', () => setSidebar(sidebar)) : quietly(() => setSidebar(sidebar)))) },
-            { label: sidebar || detailsShown() ? 'Hide every sidebar' : 'Show every sidebar', keys: '⇧⌘B', cue: null, run: () => { const open = sidebar || detailsShown(); chime(open ? 'fold' : 'slide'); showDetails(!open); setSidebar(!open); (open ? toast('Every sidebar hidden. ⇧⌘B brings them back', () => (showDetails(open), setSidebar(open))) : quietly(() => (showDetails(open), setSidebar(open)))) } },
-            { label: fill ? 'Back to compact' : 'Fill the screen', keys: '⌃⇧F', cue: null, run: () => (setFill(!fill), (fill ? quietly(() => setFill(fill)) : toast('Filling the screen. ⌃⇧F goes back', () => setFill(fill)))) },
+            { label: sidebar ? 'Hide the sidebar' : 'Show the sidebar', hint: sidebar ? 'More room for the page; ⌘B brings it back' : 'Your pages, folders and pins on the left', keys: '⌘B', cue: sidebar ? 'fold' : 'slide', run: () => (setSidebar(!sidebar), (sidebar ? toast('Sidebar hidden. ⌘B brings it back', () => setSidebar(sidebar)) : quietly(() => setSidebar(sidebar)))) },
+            { label: sidebar || detailsShown() ? 'Hide every sidebar' : 'Show every sidebar', hint: sidebar || detailsShown() ? 'The page alone, with nothing at its sides' : 'The sidebar on the left and the details on the right', keys: '⇧⌘B', cue: null, run: () => { const open = sidebar || detailsShown(); chime(open ? 'fold' : 'slide'); showDetails(!open); setSidebar(!open); (open ? toast('Every sidebar hidden. ⇧⌘B brings them back', () => (showDetails(open), setSidebar(open))) : quietly(() => (showDetails(open), setSidebar(open)))) } },
+            { label: fill ? 'Back to compact' : 'Fill the screen', hint: fill ? 'The window back to the size it was' : 'The window as big as the screen, without going full screen', keys: '⌃⇧F', cue: null, run: () => (setFill(!fill), (fill ? quietly(() => setFill(fill)) : toast('Filling the screen. ⌃⇧F goes back', () => setFill(fill)))) },
             { label: 'Split the page', hint: 'This page again beside it; ⌘O there opens something else', keys: '⌘\\', cue: null, run: () => splitRight() },
             { label: 'Open in a split to the right', hint: 'A new side, searching for what to open', keys: '⌥⌘\\', cue: null, run: () => splitRight(true) },
             { label: 'Open something here', hint: 'Search for a page or note to open in this tab', keys: '⌘O', cue: null, run: () => setView({ id: 'pick' }) },
             { label: 'New tab', hint: 'On the Journal, in this split', keys: '⌘T', cue: null, run: () => openTab(LANDING, frontRef.current, true) },
-            { label: 'Close this tab', keys: '⌃W', cue: null, run: () => closeTabIn() },
+            { label: 'Close this tab', hint: 'The page in front; ⇧⌘T brings it back', keys: '⌃W', cue: null, run: () => closeTabIn() },
             { label: 'Reopen what you closed', hint: 'The last tab closed, or the last note left', keys: '⇧⌘T', cue: null, run: reopen },
             ...(split.panes.length > 1 ? [
               { label: 'Even out the split', hint: 'Each side the same width', cue: null, run: evenPanes },
               { label: 'End the split', hint: 'Keep this side and its tabs', cue: null, run: endSplit },
               { ...pinLine(), cue: null },
-              { label: 'Pane to the left', keys: '⌃H', cue: null, run: () => paneSaid(-1) },
-              { label: 'Pane to the right', keys: '⌃L', cue: null, run: () => paneSaid(1) }
+              { label: 'Pane to the left', hint: 'Move to the side on the left', keys: '⌃H', cue: null, run: () => paneSaid(-1) },
+              { label: 'Pane to the right', hint: 'Move to the side on the right', keys: '⌃L', cue: null, run: () => paneSaid(1) }
             ] : []),
-            { label: 'Fold every heading', cue: null, run: () => void (foldEverything(true) ? quietly(() => void foldEverything(false)) : refuse('No headings to fold in the note in front')) },
-            { label: 'Unfold every heading', cue: null, run: () => void (foldEverything(false) ? quietly(() => void foldEverything(true)) : refuse('No headings to unfold in the note in front')) },
+            { label: 'Fold every heading', hint: 'In the note in front: only its headings show', cue: null, run: () => void (foldEverything(true) ? quietly(() => void foldEverything(false)) : refuse('No headings to fold in the note in front')) },
+            { label: 'Unfold every heading', hint: 'In the note in front: everything under its headings shows again', cue: null, run: () => void (foldEverything(false) ? quietly(() => void foldEverything(true)) : refuse('No headings to unfold in the note in front')) },
             isCollecting()
-              ? { label: 'Stop collecting what I copy', keys: '⎋', cue: null, run: stopCollect }
+              ? { label: 'Stop collecting what I copy', hint: 'What you copy stays on the clipboard only', keys: '⎋', cue: null, run: stopCollect }
               : { label: 'Collect what I copy', hint: 'Everything you copy on this Mac lands in the note in front', cue: null, run: () => void (startCollect() || refuse('Open a note to collect into')) },
-            { label: typewriter ? 'Turn typewriter scrolling off' : 'Turn typewriter scrolling on', cue: typewriter ? 'off' : 'on', run: () => (setTypewriter(!typewriter), toast(typewriter ? 'Typewriter scrolling off' : 'Typewriter scrolling on', () => setTypewriter(typewriter))) },
-            { label: settings?.sounds ? 'Turn sounds off' : 'Turn sounds on', cue: null, run: () => {
+            { label: typewriter ? 'Turn typewriter scrolling off' : 'Turn typewriter scrolling on', hint: typewriter ? 'The page scrolls only when the line you write reaches the edge' : 'The line you are writing stays in the middle of the window', cue: typewriter ? 'off' : 'on', run: () => (setTypewriter(!typewriter), toast(typewriter ? 'Typewriter scrolling off' : 'Typewriter scrolling on', () => setTypewriter(typewriter))) },
+            { label: settings?.sounds ? 'Turn sounds off' : 'Turn sounds on', hint: settings?.sounds ? 'Every action happens quietly' : 'A small sound answers each action', cue: null, run: () => {
               soundOn(!settings?.sounds)
               chime(settings?.sounds ? 'off' : 'on')
               void haligtree.setSettings({ sounds: !settings?.sounds })
               const was = !!settings?.sounds
               toast(was ? 'Sounds off' : 'Sounds on', () => (soundOn(was), void haligtree.setSettings({ sounds: was })))
             } },
-            { label: settings?.safeMode ? 'Turn safe mode off' : 'Turn safe mode on', keys: '⌥⌘S', cue: null, run: safeMode },
-            { label: settings?.stickiesShown === false ? 'Show sticky notes' : 'Hide sticky notes', keys: '⌃⌥⌘N', cue: null, run: () => {
+            { label: settings?.safeMode ? 'Turn safe mode off' : 'Turn safe mode on', hint: settings?.safeMode ? 'Hints, pins, sticky notes and goal cards come back' : 'Nothing comes up unasked, for sharing your screen', keys: '⌥⌘S', cue: null, run: safeMode },
+            { label: settings?.stickiesShown === false ? 'Show sticky notes' : 'Hide sticky notes', hint: settings?.stickiesShown === false ? 'Your sticky notes back on the desktop' : 'Off the desktop for now, kept as they are', keys: '⌃⌥⌘N', cue: null, run: () => {
               const show = settings?.stickiesShown === false
               void haligtree.setSettings({ stickiesShown: show }).then(() => (show ? quietly : (undo: () => void) => toast('Sticky notes hidden. ⌃⌥⌘N brings them back', undo))(() => void haligtree.setSettings({ stickiesShown: !show })))
             } },
@@ -1875,8 +1875,8 @@ export function Home(): React.JSX.Element {
             // Not in safe mode: the notes it would bring are meant to be put away then.
             // The starter lists, found by name too ("Start a list: Overheard"), not only from Gems' right-click.
             ...STARTER_LISTS.map(([icon, name]) => ({ label: `Start a list: ${name}`, hint: `${icon} A folder of Gems`, cue: null, run: () => void startList(icon, name).then((folder) => setView({ id: 'nuggets', folder })) })),
-            ...(settings?.safeMode ? [] : [{ label: 'Bring sticky notes here', cue: null, run: () => window.api.gatherStickies() }]),
-            ...(settings?.safeMode || !stickiesOut ? [] : [{ label: 'Tidy stickies', keys: '⌃⌥⌘T', cue: null, run: () => window.api.tidyStickies() }]),
+            ...(settings?.safeMode ? [] : [{ label: 'Bring sticky notes here', hint: 'Every sticky note, fanned out at the top right of this screen', cue: null, run: () => window.api.gatherStickies() }]),
+            ...(settings?.safeMode || !stickiesOut ? [] : [{ label: 'Tidy stickies', hint: 'Line the sticky notes up in a neat column', keys: '⌃⌥⌘T', cue: null, run: () => window.api.tidyStickies() }]),
             { label: 'reveal' in document.documentElement.dataset ? 'Blur private titles again' : 'Show private titles', hint: 'For now', cue: 'reveal' in document.documentElement.dataset ? 'off' : 'on', run: () => {
               const root = document.documentElement
               const flip = (): void => void ('reveal' in root.dataset ? delete root.dataset.reveal : (root.dataset.reveal = ''))
@@ -1901,26 +1901,26 @@ export function Home(): React.JSX.Element {
               { label: 'Group the picked notes', hint: 'In place, in this list or folder', words: 'group gather', keys: '⌘G', cue: null, run: () => void window.dispatchEvent(new CustomEvent('haligtree:group', { detail: false })) },
               { label: 'Ungroup', hint: 'The group the picked notes are in comes apart; they stay where they are', words: 'separate ungroup', keys: '⇧⌘G', cue: null, run: () => void window.dispatchEvent(new CustomEvent('haligtree:group', { detail: true })) }
             ] : []),
-            { label: 'Keyboard shortcuts', keys: '?', cue: null, run: () => window.dispatchEvent(new CustomEvent('haligtree:shortcuts')) },
-            { label: 'Clear unused pictures…', cue: null, run: () => window.dispatchEvent(new CustomEvent('haligtree:unused')) },
+            { label: 'Keyboard shortcuts', hint: 'Every key, by what it does', keys: '?', cue: null, run: () => window.dispatchEvent(new CustomEvent('haligtree:shortcuts')) },
+            { label: 'Clear unused pictures…', hint: 'Pictures no note shows any more: see them, keep any, the rest go to the Mac’s Bin', cue: null, run: () => window.dispatchEvent(new CustomEvent('haligtree:unused')) },
             ...themeActions((text, undo) => toast(text, undo)),
-            { label: settings?.blur === false ? 'Turn blurring on' : 'Turn blurring off', cue: null, run: blurring },
-            { label: 'Settings', keys: '⌘,', run: () => setView({ id: 'settings' }) },
+            { label: settings?.blur === false ? 'Turn blurring on' : 'Turn blurring off', hint: settings?.blur === false ? 'Private notes blurred until you point at them' : 'Private notes shown plainly', cue: null, run: blurring },
+            { label: 'Settings', hint: 'Look, sounds, keys, backups and your book', keys: '⌘,', run: () => setView({ id: 'settings' }) },
             // For anyone who finds it all too small: said the way they would ask, with the keys that do it.
             { label: 'Make everything bigger', hint: 'Text and controls, in every window', keys: '⌘+', cue: null, run: () => void window.dispatchEvent(new CustomEvent('haligtree:app-size', { detail: 1 })) },
             { label: 'Make everything smaller', hint: 'Text and controls, in every window', keys: '⌘−', cue: null, run: () => void window.dispatchEvent(new CustomEvent('haligtree:app-size', { detail: -1 })) },
             { label: 'Your reader card', hint: 'Your book on a card, in Settings', cue: null, run: () => setView({ id: 'settings', focus: 'reader-card', nonce: Date.now() }) },
             // The wrench on a sidebar heading shows only on pointing: found here too.
-            { label: 'Customize the sidebar…', cue: null, run: () => void setTimeout(() => setCustomizing(true), 120) },
-            { label: recent && !recent.opened ? 'Hide Recent' : 'Show Recent', hint: recent && !recent.opened ? undefined : 'Recent: everything made lately, beside the page', keys: '⇧⌘Y', cue: null, run: toggleRecent },
-            { label: recent?.opened ? 'Hide all history' : 'Show all history', hint: recent?.opened ? undefined : 'Every note, book and page opened lately, in any tab', keys: '⌥⌘Y', cue: null, run: toggleHistory },
+            { label: 'Customize the sidebar…', hint: 'Choose and order the pages it shows', cue: null, run: () => void setTimeout(() => setCustomizing(true), 120) },
+            { label: recent && !recent.opened ? 'Hide Recent' : 'Show Recent', hint: recent && !recent.opened ? 'The list of what you made lately goes away' : 'Recent: everything made lately, beside the page', keys: '⇧⌘Y', cue: null, run: toggleRecent },
+            { label: recent?.opened ? 'Hide all history' : 'Show all history', hint: recent?.opened ? 'The list of what you opened lately goes away' : 'Every note, book and page opened lately, in any tab', keys: '⌥⌘Y', cue: null, run: toggleHistory },
             { label: "Open the year's page", hint: 'Your seasons of life, month by month', cue: 'season', run: () => setView({ id: 'yearpage' }) },
             ...noteActions({ day: false }),
             // The recap, Wrapped's way, over Stats.
             { label: 'Your month in notes, wrapped', hint: 'What you captured most, your busiest day, focus hours, gems kept, what went well', cue: null, run: () => openWrap(monthToWrap()) },
             { label: 'Your week, wrapped', hint: 'A few cards on this week', cue: null, run: () => openWrap(`week:${dayKey(dayjs().startOf('week'))}`) },
             { label: 'Your month in study, card by card', hint: 'Cards reviewed, days studied, how much stayed, the book you read most, one line of your own', run: () => setView({ id: 'stats', focus: 'yourmonth', nonce: Date.now() }) },
-            { label: 'Your year, wrapped', run: () => setView({ id: 'stats', focus: 'year', nonce: Date.now() }) }
+            { label: 'Your year, wrapped', hint: 'Your year in notes, a card at a time', run: () => setView({ id: 'stats', focus: 'year', nonce: Date.now() }) }
           // Each one says it came from ⌘K, for the usage counts.
           ] satisfies Action[]).map((one) => ({ ...one, run: () => (via('palette'), one.run()) }))}
           onClose={() => (setSearching(false), setSearchFor(''))}
@@ -2039,7 +2039,7 @@ export function Home(): React.JSX.Element {
                 // The pages switched off from the sidebar, each named with what choosing it does: put it back there.
                 hidden.length > 0 && { label: 'Hidden pages', items: hidden.map((one) => ({ label: `Show ${quoted(one.label, 80)} in the sidebar`, icon: <PlaceIcon place={one} />, run: () => void showIt(one, true) })) },
                 // Once the menu has shut and handed the focus back, or the panel would take that as a click away.
-                { label: 'Customize the sidebar…', run: () => void setTimeout(() => setCustomizing(true), 120) }
+                { label: 'Customize the sidebar…', hint: 'Choose and order the pages it shows', run: () => void setTimeout(() => setCustomizing(true), 120) }
               ]
             }
             // The open note, under the folder it lives in, for as long as it is the one in front: not a file tree, only this one row.
@@ -2237,7 +2237,7 @@ export function Home(): React.JSX.Element {
                   ...(group.id === LIBRARY.id ? [] : [{ label: showWords(group, true).label, run: () => void hideGroup(group) }]),
                   // Recent is the top of All history: the rest of it a line away.
                   ...(group.id === SIDE_GROUPS[1].id ? [{ label: 'Show all history', keys: '⌥⌘Y', run: () => setRecentState({ until: null, opened: true }) }] : []),
-                  { label: 'Customize the sidebar…', run: () => void setTimeout(() => setCustomizing(true), 120) }
+                  { label: 'Customize the sidebar…', hint: 'Choose and order the pages it shows', run: () => void setTimeout(() => setCustomizing(true), 120) }
                 ]}>
                 <div data-side-heading={group.id} className="group/head relative mt-2.5 mb-0.5 flex min-h-6 items-center">
                   {(() => {
