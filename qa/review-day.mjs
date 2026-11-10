@@ -28,10 +28,12 @@ try {
 
   // 2. The tag's chips, under Manage beside "In Review" and "Read the back aloud".
   await h.evaluate(() => window.api.openInHome('tag', 'qaart'))
-  await waitFor(() => h.evaluate(() => [...document.querySelectorAll('[role="tab"]')].some((one) => one.textContent === 'Manage')))
-  await h.evaluate(() => [...document.querySelectorAll('[role="tab"]')].find((one) => one.textContent === 'Manage').click())
+  // "Manage" is a chip in the page's head now (tags-view.tsx), a button that says whether it is pressed.
+  await waitFor(() => h.evaluate(() => !!document.querySelector('[data-list-tabs] button[aria-label="Manage"]')))
+  await h.locator('[data-list-tabs] button[aria-label="Manage"]').click()
   check('the tag shows "Typed answers" and "New cards a day"', await waitFor(() => h.evaluate(() => !!document.querySelector('[data-tag-typed]') && !!document.querySelector('[data-tag-new]'))))
-  check('"New cards a day" shows 3 as chosen', await h.evaluate(() => document.querySelector('[data-tag-new] button[aria-pressed="true"]')?.getAttribute('aria-label') === '3'))
+  // "Its own" pressed, its number in the field beside it.
+  check('"New cards a day" shows its own 3', await h.evaluate(() => document.querySelector('[data-tag-new] button[aria-pressed="true"]')?.getAttribute('aria-label') === 'Its own' && document.querySelector('[data-tag-new] input')?.value === '3'), await h.evaluate(() => document.querySelector('[data-tag-new] input')?.value))
   await h.locator('[data-tag-typed] button[aria-label="Exact"]').click()
   check('"Exact" is kept for the tag', await waitFor(async () => (await v('tag:study')).typed.qaart === 'exact'))
   await h.locator('[data-tag-typed]').scrollIntoViewIfNeeded()
@@ -56,10 +58,12 @@ try {
   await c.both(`${shots}/review-day-long`, h.locator('[data-review-top]'))
   // The count rolls letter by letter, so it is read with the spaces taken out.
   const flat = (text) => text.replace(/\s+/g, '')
-  const before = Number(flat(line).match(/of([\d,]+)about/)?.[1].replace(/,/g, ''))
+  // "7 of 468 449 new today about 49 minutes left": the day's whole count follows "of".
+  const total = (text) => Number(text.match(/of ([\d,]+)/)?.[1].replace(/,/g, ''))
+  const before = total(line)
   await h.locator('[data-do-25]').click()
   const after = async () => h.evaluate(() => document.querySelector('[data-through]')?.innerText.replace(/\s+/g, ' ') ?? '')
-  check('clicked, the day is about 25 minutes and fewer cards', await waitFor(async () => { const now = await after(); const left = Number(now.match(/about (\d+) minutes left/)?.[1]); const total = Number(flat(now).match(/of([\d,]+)about/)?.[1].replace(/,/g, '')); return left >= 20 && left <= 26 && total < before }), `${line} -> ${await after()}`)
+  check('clicked, the day is about 25 minutes and fewer cards', await waitFor(async () => { const now = await after(); const left = Number(now.match(/about (\d+) minutes left/)?.[1]); return left >= 20 && left <= 26 && total(now) < before }), `${line} -> ${await after()}`)
   check('a notice says the most at risk come first', await waitFor(() => h.evaluate(() => /about25minutes,mostatriskfirst/.test(document.body.textContent.replace(/\s+/g, '')))))
   check('and the button goes', await waitFor(() => h.evaluate(() => !document.querySelector('[data-do-25]'))))
   await c.both(`${shots}/review-day-trimmed`, h.locator('[data-review-top]'))
@@ -86,11 +90,16 @@ try {
   // 6. The end of a short sitting: seconds a card (and the longest-kept card when there is one).
   for (const one of await v('cards:all')) if (!/^(Speed of light|Planck constant)$/.test(one.prompt)) await v('item:save', one.id, { suspended: true })
   await fresh()
+  // Review opens on the tab last used ("All cards" from step 5b): studying starts from "Study now", as a person starts it.
+  if (!(await h.locator('[data-grades], [data-review-finished]').count())) await h.getByRole('button', { name: 'Study now' }).first().click().catch(() => {})
+  await h.waitForTimeout(1200)
   for (let i = 0; i < 6 && !(await h.locator('[data-review-finished]').count()); i++) {
     await h.evaluate(() => document.activeElement?.blur())
     await h.waitForTimeout(1500)
     await h.keyboard.press('Space')
     await waitFor(() => h.evaluate(() => !!document.querySelector('[data-grades]')))
+    // A moment with the answer before grading, as a person takes: graded at once, a card took "0 seconds" and the honest line rightly stayed away.
+    await h.waitForTimeout(1600)
     await h.keyboard.press('3')
     await h.waitForTimeout(600)
   }
