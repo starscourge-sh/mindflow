@@ -546,7 +546,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
   // table) cut out as a picture, then made a card's answer or kept as a gem.
   const [snipping, setSnipping] = useState(false)
   const [snip, setSnip] = useState<{ x: number; y: number; w: number; h: number; from?: { x: number; y: number } } | null>(null)
-  const [snipped, setSnipped] = useState<{ src: string; page: number; x: number; y: number } | null>(null)
+  const [snipped, setSnipped] = useState<{ src: string; page: number; x: number; y: number; bottom: number } | null>(null)
   /** A pointer's place in the pages' own scrolling space, where the floating bars are placed. */
   const within = (event: { clientX: number; clientY: number }): { x: number; y: number } => {
     const frame = scroller.current!.getBoundingClientRect()
@@ -575,7 +575,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
     const page = Number(sheet.dataset.page)
     const { src: saved } = await saveAttachment(new File([blob], `${title} p${page} snip.png`, { type: "image/png" }))
     setSnipping(false)
-    setSnipped({ src: saved, page, x: box.x + box.w / 2 - 70, y: box.y })
+    setSnipped({ src: saved, page, x: box.x + box.w / 2 - 70, y: box.y, bottom: box.y + box.h })
     chime("saved")
   }
   /** The snip kept as a gem: the picture, the book and page under it, linked back. */
@@ -974,7 +974,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
           <Button data-style="ghost" aria-label="Keep a figure" title="Keep a figure or an equation as a picture: drag over it" data-active-state={snipping ? "on" : "off"} onClick={() => (setSnipping(!snipping), setSnip(null), setSnipped(null))}>
             <Scissors className="tiptap-button-icon" />
           </Button>
-          <Button data-style="ghost" aria-label="Find" title="Find  ⌘F" data-active-state={finding ? "on" : "off"} onClick={() => (finding ? closeFind() : (setFinding(true), requestAnimationFrame(() => findField.current?.focus())))}>
+          <Button data-style="ghost" aria-label="Find" title={finding ? undefined : "Find  ⌘F"} data-active-state={finding ? "on" : "off"} onClick={() => (finding ? closeFind() : (setFinding(true), requestAnimationFrame(() => findField.current?.focus())))}>
             <Search className="tiptap-button-icon" />
           </Button>
           <Button data-style="ghost" aria-label="Smaller" title="Smaller  ⌘−" onClick={() => step(-1)}>
@@ -1119,8 +1119,9 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
                 {snip && <div className="pdf-snip-box" style={{ left: snip.x, top: snip.y, width: snip.w, height: snip.h }} />}
               </div>
             )}
+            {/* The snip's bar under it, never over it or the lines just above: what was cut stays in sight while you choose. */}
             {snipped && !carding && (
-              <div className="pdf-keep-bar" style={{ left: snipped.x, top: Math.max(8, snipped.y - 48) }} onMouseDown={(event) => event.preventDefault()}>
+              <div className="pdf-keep-bar" style={{ left: snipped.x, top: snipped.bottom + 8 }} onMouseDown={(event) => event.preventDefault()}>
                 <Toolbar variant="floating">
                   <ToolbarGroup>
                     <Button data-style="ghost" aria-label="Card" title={"Make a card of this snip  C\nIn Review only; ⌥C keeps it as a gem too"} onClick={(event) => (setCarding({ page: snipped.page, quote: `![](${snipped.src})`, x: snipped.x, y: snipped.y, gem: event.altKey }), setSnipped(null))}>

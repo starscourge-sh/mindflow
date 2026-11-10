@@ -134,6 +134,8 @@ const FLING = 3
 let flinging = false
 let lastAt = 0
 let lastTop = 0
+/** Fast scrolls in a row. */
+let fast = 0
 const onCalm: (() => void)[] = []
 const calmed = (): void => {
   flinging = false
@@ -143,11 +145,12 @@ const calmed = (): void => {
 export function pagesAt(top: number): void {
   const now = performance.now()
   const speed = Math.abs(top - lastTop) / Math.max(1, now - lastAt)
-  // A first scroll after a pause is no fling, whatever the jump (a page typed in the box lands at once).
-  const fling = now - lastAt < 100 && speed > FLING
+  // A fling is fast scroll after fast scroll: one jump alone (a page typed in the box, a link, opening at a page)
+  // never holds drawing up.
+  fast = now - lastAt < 100 && speed > FLING ? fast + 1 : 0
   lastAt = now
   lastTop = top
-  if (fling) flinging = true
+  if (fast >= 3) flinging = true
   else if (flinging) calmed()
 }
 /** Waits while the pages are flung; the pages resting ends the wait too. */
