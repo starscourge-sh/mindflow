@@ -123,8 +123,11 @@ html[data-split-drag] * {
     scale: 1;
   }
 }
-/* On the dark frame the tab's own edge is the frame: its hairline only drew a line along the top whose ends showed
-   where the curves begin. */
-[data-frame='dark'] [data-pane]:is([data-pane], [data-pane-front], [data-pane-back]) {
-  --mf-tab-line: transparent;
+/* On the dark frame the open tab is drawn round with a clear line, curves and all: without it, it was hard to find
+   which tab is open (10 Nov). */
+[data-frame='dark'] [data-pane][data-pane-front] {
+  --mf-tab-line: color-mix(in oklab, var(--foreground) 20%, transparent);
+}
+[data-frame='dark'] [data-pane][data-pane-back] {
+  --mf-tab-line: color-mix(in oklab, var(--foreground) 10%, transparent);
 }

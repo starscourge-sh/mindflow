@@ -74,7 +74,10 @@ function OneTab({ tab, group, actions, faint }: { tab: TabShown; group: TabGroup
       <div data-tab={tab.key} data-tab-on={on ? '' : undefined} data-drag-title={tab.label} data-tab-open={tab.open}
         onAuxClick={(event) => event.button === 1 && (event.preventDefault(), actions.close(group.pane, tab.key))}
         onMouseDown={(event) => event.button === 1 && event.preventDefault()}
-        className={`group/tab relative mx-0.5 flex h-full max-w-52 min-w-11 flex-[1_1_0] items-stretch py-[3px] ${on ? 'z-10' : ''} ${faint ? 'opacity-40' : ''}`}>
+        // Never narrower than its name, up to about ten letters' room (or its icon alone, open, beside it): a short
+        // name reads whole and a long one keeps enough to know it; past that the row scrolls (10 Nov).
+        style={{ minWidth: Math.min(54 + [...tab.label].length * 7, 124) }}
+        className={`group/tab relative mx-0.5 flex h-full max-w-52 flex-[1_1_0] items-stretch py-[3px] ${on ? 'z-10' : ''} ${faint ? 'opacity-40' : ''}`}>
         {on && (
           <span aria-hidden className="pointer-events-none absolute inset-x-1 inset-y-0 rounded-t-[9px] border border-b-0 border-(--mf-tab-line) bg-(--mf-tab)">
             <Foot side="left" /><Foot side="right" />
