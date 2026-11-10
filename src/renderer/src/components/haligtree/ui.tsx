@@ -1521,12 +1521,12 @@ export function Toaster(): React.JSX.Element | null {
       timer = setTimeout(() => setHeld(null), 10000)
     }
     window.addEventListener('haligtree:undoable', onHeld)
-    // An answer on a nudge card (its window never takes the keys): ⌘Z here takes it back, until
-    // the card's own Undo did (said with no words).
-    const offNudge = window.api?.onNudgeUndoable?.((words) => {
+    // An answer on a nudge card or the focus pill (their windows rarely have the keys): ⌘Z here
+    // takes it back, until their own Undo did (said with no words).
+    const offNudge = window.api?.onFloatUndoable?.((words) => {
       clearTimeout(timer)
       if (!words) return setHeld((was) => (was?.nudge ? null : was))
-      setHeld({ undo: () => window.api.nudgeUndo(), key: Date.now(), nudge: true })
+      setHeld({ undo: () => window.api.floatUndo(), key: Date.now(), nudge: true })
       timer = setTimeout(() => setHeld(null), 10000)
     })
     return () => (clearTimeout(timer), offNudge?.(), window.removeEventListener('haligtree:undoable', onHeld))

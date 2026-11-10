@@ -1135,6 +1135,8 @@ const nudgeWins = new Map<NudgeSpot, { win: BrowserWindow; waiting: Nudge[] }>()
 const NUDGE_WIDTH = 360
 /** The screen locked: no card can be seen, so the Mac's own notification goes instead. */
 let screenLocked = false
+/** The window whose answer ⌘Z in the main window would take back (float:undoable). */
+let floatUndoFrom: Electron.WebContents | null = null
 function showNudge(nudge: Nudge): boolean {
   if (screenLocked) return false
   const spot: NudgeSpot = nudge.kind === 'blocked' ? 'pill' : 'corner'
@@ -4936,14 +4938,19 @@ app.whenReady().then(() => {
     if (!next) return void win.hide()
     win.setBounds({ ...win.getBounds(), height: next })
   })
-  // An answer on a nudge card that can be taken back (Done, Not tonight): ⌘Z in the main window takes it
-  // back too, since the card's window never takes the keys from what you are typing in.
-  ipcMain.on('nudge:undoable', (event, words: unknown) => {
-    if (!nudgeHeld(event.sender) || !home || home.isDestroyed()) return
-    home.webContents.send('nudge:undoable', typeof words === 'string' ? words : '')
+  // An answer that can be taken back on something floating on its own (a nudge card's Done, the pill's
+  // "Session abandoned"): ⌘Z in the main window takes it back too, since those windows rarely have the keys.
+  // The newest one is the one taken back; words of '' let it go.
+  ipcMain.on('float:undoable', (event, words: unknown) => {
+    const said = typeof words === 'string' ? words : ''
+    if (!said && floatUndoFrom !== event.sender) return
+    floatUndoFrom = said ? event.sender : null
+    if (home && !home.isDestroyed() && event.sender !== home.webContents) home.webContents.send('float:undoable', said)
   })
-  ipcMain.on('nudge:undo', () => {
-    for (const held of nudgeWins.values()) if (!held.win.isDestroyed()) held.win.webContents.send('nudge:undo')
+  ipcMain.on('float:undo', () => {
+    const from = floatUndoFrom
+    floatUndoFrom = null
+    if (from && !from.isDestroyed()) from.send('float:undo')
   })
   // A session ended while away, said by the pill when the pill itself is not on screen (the time kept in the note).
   ipcMain.on('nudge:show', (_event, nudge: Nudge) => nudge && typeof nudge === 'object' && showNudge(nudge))

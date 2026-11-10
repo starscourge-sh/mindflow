@@ -277,18 +277,18 @@ const api = {
   },
   /** The nudge card's height as its cards change; 0 hides it. */
   nudgeSize: (height: number): void => ipcRenderer.send('nudge:size', height),
-  /** A nudge card's answer that can be taken back, told to the main window so its ⌘Z can (and asked back from it). */
-  nudgeUndoable: (words: string): void => ipcRenderer.send('nudge:undoable', words),
-  onNudgeUndoable: (listen: (words: string) => void): (() => void) => {
+  /** An answer that can be taken back on something floating on its own, told to the main window so its ⌘Z can (and asked back from it). */
+  floatUndoable: (words: string): void => ipcRenderer.send('float:undoable', words),
+  onFloatUndoable: (listen: (words: string) => void): (() => void) => {
     const relay = (_event: unknown, words: string): void => listen(words)
-    ipcRenderer.on('nudge:undoable', relay)
-    return () => ipcRenderer.off('nudge:undoable', relay)
+    ipcRenderer.on('float:undoable', relay)
+    return () => ipcRenderer.off('float:undoable', relay)
   },
-  nudgeUndo: (): void => ipcRenderer.send('nudge:undo'),
-  onNudgeUndo: (listen: () => void): (() => void) => {
+  floatUndo: (): void => ipcRenderer.send('float:undo'),
+  onFloatUndo: (listen: () => void): (() => void) => {
     const relay = (): void => listen()
-    ipcRenderer.on('nudge:undo', relay)
-    return () => ipcRenderer.off('nudge:undo', relay)
+    ipcRenderer.on('float:undo', relay)
+    return () => ipcRenderer.off('float:undo', relay)
   },
   /** Show a nudge card from another window (the pill, when it is not on screen). */
   nudge: (nudge: unknown): void => ipcRenderer.send('nudge:show', nudge),

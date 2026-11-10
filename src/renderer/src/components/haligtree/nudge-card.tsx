@@ -19,6 +19,7 @@ import { usePatience } from '@/lib/patience'
 import type { Nudge } from '../../../../main/nudge'
 import { sleptSaid } from '@/lib/slept'
 import { still } from '@/lib/motion'
+import { offerUndo, takeBack } from '@/lib/float-undo'
 import { answerOffer, offerSaid, practices, startPractice, suggestSaid, timeSaid } from '@/lib/practices'
 import CheckIcon from '@/components/ui/checked-icon'
 import { START_MIN } from '../../../../main/practice-rules'
@@ -265,33 +266,11 @@ function PracticeOffer({ nudge, wait, onDone, onSaid }: { nudge: Extract<Nudge, 
   )
 }
 
-/**
- * The newest answer that can be taken back, for ⌘Z in the main window (told
- * there, since this window never takes the keys): kept after its card goes,
- * for as long as the main window holds it, and taken back once.
- */
-let lastSaid: { undo: () => Promise<unknown>; onDone?: () => void } | null = null
-const takeBack = (): Promise<unknown> | undefined => {
-  const was = lastSaid
-  lastSaid = null
-  if (!was) return
-  // Its Undo button is spent too: the main window forgets it.
-  window.api.nudgeUndoable('')
-  // Not taken back (a save that failed): said with its sound, the card left as it was.
-  return was.undo().then(() => was.onDone?.(), () => chime('nope'))
-}
-window.api.onNudgeUndo(() => void takeBack())
-
 /** An answer that can be taken back: what was done, and Undo, for a few seconds. */
 function Said({ said, onDone }: { said: { words: string; undo: () => Promise<unknown> }; onDone: () => void }): React.JSX.Element {
   const wait = usePatience(LINGER_SAID, onDone, true, said)
-  useEffect(() => {
-    const mine: NonNullable<typeof lastSaid> = { undo: said.undo, onDone }
-    lastSaid = mine
-    window.api.nudgeUndoable(said.words)
-    // Gone from view, its ⌘Z stays (the main window lets it go after a while); only the card it closed is let go.
-    return () => void (lastSaid === mine && (mine.onDone = undefined))
-  }, [said])
+  // ⌘Z in the main window takes it back too (this window never takes the keys from what you are typing in).
+  useEffect(() => offerUndo(said.words, said.undo, onDone), [said])
   return (
     <div {...wait} data-nudge-said role="status" className={`${SHEET} flex items-center gap-2.5 py-2.5 pr-2 pl-3.5`}>
       <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-[color-mix(in_oklab,var(--tt-brand-color-400)_16%,var(--mf-float))] text-[var(--tt-brand-color-400)]">

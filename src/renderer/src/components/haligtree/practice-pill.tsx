@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 
 import { chime } from '@/lib/sound'
 import { still } from '@/lib/motion'
+import { offerUndo, takeBack } from '@/lib/float-undo'
 import { Check, X } from '@/components/ui/icons'
 import { IDLE_PAUSE_SEC, START_MIN, fillOf, type Fill } from '../../../../main/practice-rules'
 import { practices, type Ended } from '@/lib/practices'
@@ -131,6 +132,8 @@ export function usePracticeGuard(focus: Focus, ms: number): { asking: boolean; i
 export function WhatStuck({ id, ended, onDone }: { id: string; ended: Ended | null; onDone: () => void }): React.JSX.Element {
   const [words, setWords] = useState('')
   const [kept, setKept] = useState<string | null>(null)
+  // Kept, ⌘Z takes it back as its Undo does, here or in the main window.
+  useEffect(() => (kept === null ? undefined : offerUndo('Kept as a gem', () => practices.unstuck(kept, id), onDone)), [kept]) // eslint-disable-line react-hooks/exhaustive-deps
   const wait = usePatience(kept === null ? 60_000 : 4_000, onDone, !(words && kept === null))
   const skip = (): void => (chime('fold'), onDone())
   const keep = (): void => {
@@ -164,7 +167,7 @@ export function WhatStuck({ id, ended, onDone }: { id: string; ended: Ended | nu
       ) : (
         <span data-stuck-kept {...wait} className="flex min-w-0 flex-1 items-center gap-2.5">
           <span className="min-w-0 flex-1 truncate font-medium"><Typed text="Kept as a gem" step={35} delay={0} /></span>
-          <button type="button" onClick={() => void practices.unstuck(kept, id).then(() => (chime('undo'), onDone()))} className="flex h-7 shrink-0 items-center rounded-full px-3 text-[12px] font-semibold text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
+          <button type="button" onClick={() => (chime('undo'), void takeBack())} className="flex h-7 shrink-0 items-center rounded-full px-3 text-[12px] font-semibold text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
             Undo
           </button>
         </span>

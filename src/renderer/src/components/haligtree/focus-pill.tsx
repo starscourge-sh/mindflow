@@ -20,6 +20,7 @@ import { lengthSaid as timerSaid, nextStretch, stretchMs, type RoundsAt } from '
 import { usePatience } from '@/lib/patience'
 import { ArrowUpRight, Camera, Check, Play, Screenshot, X } from '@/components/ui/icons'
 import { breakMoment, type BreakMoment } from '@/lib/break-moment'
+import { offerUndo, takeBack } from '@/lib/float-undo'
 import { still } from '@/lib/motion'
 import { hueVar, type Hue } from '@/lib/books'
 import { said } from '@/lib/host'
@@ -1556,6 +1557,8 @@ const OUTLINED = `${WORD_BUTTON} border border-[color-mix(in_oklab,var(--foregro
 function HowDidItGo({ id, onDone, early = false, bare = false, onBack, onFold }: { id: string; onDone: () => void; early?: boolean; bare?: boolean; onBack?: () => void; onFold?: () => void }): React.JSX.Element {
   const [words, setWords] = useState('')
   const [kept, setKept] = useState<string | null>(null)
+  // Saved, ⌘Z takes it back as its Undo does, here or in the main window.
+  useEffect(() => (kept === null ? undefined : offerUndo(bare ? 'Saved in today’s log' : 'Saved in the task’s log', () => haligtree.recapSession(id, kept), onDone)), [kept]) // eslint-disable-line react-hooks/exhaustive-deps
   // Untouched for a minute, it is skipped; once kept, it says so for a few
   // seconds, waiting while the pointer rests on it or the bubble is hidden.
   // Ended early, Keep going is not left hanging there to be pressed by
@@ -1601,7 +1604,7 @@ function HowDidItGo({ id, onDone, early = false, bare = false, onBack, onFold }:
       ) : (
         <span data-kept-recap {...wait} className="flex min-w-0 flex-1 items-center gap-2.5">
           <span className="min-w-0 flex-1 truncate font-medium"><Typed text={bare ? 'Saved in today’s log' : 'Saved in the task’s log'} step={35} delay={0} /></span>
-          <button type="button" onClick={() => void haligtree.recapSession(id, kept).then(() => (chime('undo'), onDone()))} className={WORD_BUTTON}>
+          <button type="button" onClick={() => (chime('undo'), void takeBack())} className={WORD_BUTTON}>
             Undo
           </button>
         </span>
@@ -1699,7 +1702,10 @@ function AwayBand({ away, onDone }: { away: Away; onDone: () => void }): React.J
 function Abandoned({ id, onDone }: { id: string; onDone: () => void }): React.JSX.Element {
   // Five seconds, but never while the pointer rests on it or the bubble is hidden.
   const wait = usePatience(5000, onDone)
-  const undo = (): void => void haligtree.unabandonSession(id).then((back) => (back ? chime('back') : (chime('nope'), onDone())))
+  // The same Undo for ⌘Z, here or in the main window: it puts the session back, or says it could not.
+  // Its sound is the key's or the button's: “back” from here, “undo” from the main window's ⌘Z.
+  useEffect(() => offerUndo('Session abandoned', () => haligtree.unabandonSession(id).then((back) => void (!back && (chime('nope'), onDone())))), [id]) // eslint-disable-line react-hooks/exhaustive-deps
+  const undo = (): void => (chime('back'), void takeBack())
   return (
     <span data-abandoned role="status" {...wait} className="flex min-w-0 flex-1 items-center gap-2.5 pl-1.5">
       <span className="min-w-0 flex-1 truncate font-medium">Session abandoned<span className="font-normal text-muted-foreground">, not counted</span></span>
