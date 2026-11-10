@@ -61,8 +61,18 @@ const state = () => page.evaluate(() => {
   const chip = document.querySelector(pill ? '[data-pill-kind]' : '[data-kind-chip]')
   return { card: card ? box(card) : null, controls, pops, chip: chip && chip.getBoundingClientRect().width > 0 ? box(chip) : null, size: [innerWidth, innerHeight], pill }
 })
-/** Quick capture is one opaque sheet now (10 Nov: one float colour for everything that floats): no blur under any part of it. */
-const glassTrue = (s, shapes) => ({ ok: shapes.length === 0, stray: shapes })
+/**
+ * Quick capture on Spotlight's material (10 Nov): the blur is under the card, and every other shape sits on a part
+ * drawn now (a round control, an open menu or list, the hint), within 2px; never one left where the card was.
+ */
+const glassTrue = (s, shapes) => {
+  const near = (a, b) => a.every((n, i) => Math.abs(n - b[i]) <= 2)
+  const parts = [s.card, ...s.controls, ...s.pops.map((one) => one.box)].filter(Boolean)
+  const cardOn = !!s.card && shapes.some((g) => near(g.slice(0, 4), s.card))
+  const stray = shapes.filter((g) => !parts.some((p) => near(g.slice(0, 4), p)))
+  // Left over: the hint, or a menu's own panel inside its role=menu wrapper: in the window, and never a copy of the card.
+  return { ok: cardOn && stray.every((g) => g[1] >= 0 && g[1] + g[3] <= s.size[1] + 1 && !(s.card && Math.abs(g[2] - s.card[2]) <= 2 && Math.abs(g[3] - s.card[3]) <= 2)), stray }
+}
 const home = () => h.evaluate(() => ({ palette: !!document.querySelector('[cmdk-dialog], [data-slot=dialog-content] [cmdk-root]'), sheet: !!document.querySelector('[data-shortcut-sheet], [role=dialog]') }))
 
 const OVERLAYS = [
@@ -183,7 +193,7 @@ try {
       }
       const rest = await state()
       const restGlass = await glass()
-      check(`${look} ${shape}: at rest, no blur anywhere: the card is opaque`, glassTrue(rest, restGlass).ok, JSON.stringify({ card: rest.card, shapes: restGlass }))
+      check(`${look} ${shape}: at rest, the blur is under the card and its controls only`, glassTrue(rest, restGlass).ok, JSON.stringify({ card: rest.card, shapes: restGlass }))
       await capture(`${shape}-${look}-rest`)
       for (const one of OVERLAYS) {
         if (one.grownOnly && shape !== 'grown') continue
@@ -215,7 +225,7 @@ try {
           }
         }
         const true_ = glassTrue(s, g)
-        check(`${name}: still no blur anywhere`, true_.ok, JSON.stringify({ card: s.card, size: s.size, stray: true_.stray }))
+        check(`${name}: the blur is still under the card, nothing left where it was`, true_.ok, JSON.stringify({ card: s.card, size: s.size, stray: true_.stray }))
         await one.close(shape); await wait(600)
         await h.keyboard.press('Escape').catch(() => {})
         await page.evaluate(() => window.api.revealPrompt()); await wait(500)

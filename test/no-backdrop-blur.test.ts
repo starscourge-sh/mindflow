@@ -4,8 +4,9 @@
 // mask their edges: there the blur sees nothing and a see-through bar or menu
 // shows the rows under it sharp, text over text. So no renderer file may use one,
 // except the files that only run in a window with real vibrancy behind it, and
-// the one frost material (main.css .mf-frost), whose every surface qa/frost.mjs
-// opens to check nothing round it fades, masks, clips or filters, and the edge
+// the one frost material (main.css .mf-frost, in the main window and in quick
+// capture on glass), whose every surface qa/frost.mjs opens to check nothing
+// round it fades, masks, clips or filters (lib/frost-guard.ts marks any that do), and the edge
 // blur (main.css .mf-blur-edge), laid only over the Map's canvas.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
@@ -39,7 +40,7 @@ test('no backdrop blur in renderer files the main window uses', () => {
     readFileSync(file, 'utf8').split('\n').forEach((line, at) => {
       if (/\{\s*$/.test(line)) rule = line
       // Turning one off is fine, and so is the frost material's own rule.
-      if (BLUR.test(line) && !/backdrop-filter:\s*none/.test(line) && !(name.endsWith('main.css') && (/^\s*:root\[data-dim='veil'\][^{]*\.mf-frost[^{]*\{/.test(rule) || /^\s*\.mf-blur-edge\b/.test(line)))) found.push(`${name}:${at + 1}`)
+      if (BLUR.test(line) && !/backdrop-filter:\s*none/.test(line) && !(name.endsWith('main.css') && (/^\s*:root:is\(\[data-dim='veil'\], \[data-overhang\]\[data-glass\]\)[^{]*\.mf-frost[^{]*\{/.test(rule) || /^\s*\.mf-blur-edge\b/.test(line)))) found.push(`${name}:${at + 1}`)
     })
   }
   assert.deepEqual(found, [], `Backdrop blur does not draw in the main window; use an opaque surface (bg-popover, bg-background, bg-card):\n${found.join('\n')}`)

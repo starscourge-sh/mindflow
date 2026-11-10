@@ -416,9 +416,52 @@
   color: var(--pill-on-accent, oklch(from var(--tt-brand-color-400) clamp(0.2, (0.62 - l) * 1000, 1) clamp(0, (l - 0.62) * 1000, 0.02) 100));
 }
 /* Quick capture is a card inside a larger see-through window (main's overhang): the room round it holds the
-   card's own shadow and lets its menus hang past the card's edge. The card is solid, the theme's own page
-   (macOS's frost filled the whole window, room and all, so it is gone), with crisp rounded corners and the
-   app's one soft shadow: warm ink on light pages, black and fuller on dark ones. */
+   card's own shadow and lets its menus hang past the card's edge. It wears macOS 26 Spotlight's material: the Mac's
+   own blur of the desktop cut to the card's shape (windows/box.tsx, lib/glass.ts), under a wash of the page colour,
+   a fine bright hairline all round that is brightest along the top edge where the light catches it, a large soft
+   radius and a wide soft shadow. Without the glass (Reduce Transparency, a solid look) the wash is the whole page
+   colour, the hairline and shadow the same. */
+html[data-overhang] {
+  --mf-box-radius: 24px;
+  --mf-glass-fill: var(--background);
+  --mf-glass-rim: inset 0 0 0 1px rgb(255 255 255 / 0.5), inset 0 1px 0 rgb(255 255 255 / 0.85);
+  --mf-glass-edge: 0 0 0 0.5px rgb(0 0 0 / 0.16);
+  --mf-glass-drop: 0 2px 8px -2px rgb(0 0 0 / 0.08), 0 22px 56px -12px rgb(0 0 0 / 0.3);
+  --mf-glass-drop-small: 0 1px 3px rgb(0 0 0 / 0.08), 0 6px 16px -6px rgb(0 0 0 / 0.2);
+}
+/* Dark: the hairline a faint white, its top edge brighter; outside it a near-black line, so the edge holds on a pale
+   desktop; the shadow fuller. By the page's own colour where the glass says it (data-glass), else by the theme. */
+html[data-overhang]:where(.dark:not(.light, .paper, [data-light])),
+html[data-overhang][data-glass='dark'] {
+  --mf-glass-rim: inset 0 0 0 1px rgb(255 255 255 / 0.13), inset 0 1px 0 rgb(255 255 255 / 0.26);
+  --mf-glass-edge: 0 0 0 0.5px rgb(0 0 0 / 0.6);
+  --mf-glass-drop: 0 2px 8px -2px rgb(0 0 0 / 0.3), 0 24px 60px -12px rgb(0 0 0 / 0.55);
+  --mf-glass-drop-small: 0 1px 3px rgb(0 0 0 / 0.3), 0 6px 18px -6px rgb(0 0 0 / 0.45);
+}
+html[data-overhang][data-glass='light'] {
+  --mf-glass-rim: inset 0 0 0 1px rgb(255 255 255 / 0.5), inset 0 1px 0 rgb(255 255 255 / 0.85);
+  --mf-glass-edge: 0 0 0 0.5px rgb(0 0 0 / 0.16);
+  --mf-glass-drop: 0 2px 8px -2px rgb(0 0 0 / 0.08), 0 22px 56px -12px rgb(0 0 0 / 0.3);
+  --mf-glass-drop-small: 0 1px 3px rgb(0 0 0 / 0.08), 0 6px 16px -6px rgb(0 0 0 / 0.2);
+}
+/* On glass the wash lets the blurred desktop through, as much as keeps every word at 4.5:1 even with a white or a
+   black desktop coming straight through it, the Mac's own tint left out (qa/box-glass-look.mjs measures it). Quiet
+   words, icons and the empty line's prompt come most of the way to the main ink, Apple's vibrancy rule: what shows
+   through takes contrast away, and grey words lose it first. */
+html[data-overhang][data-glass] {
+  --mf-glass-fill: color-mix(in oklab, var(--background) 78%, transparent);
+  --mf-glass-quiet: color-mix(in oklab, var(--muted-foreground) 62%, var(--foreground));
+  --mf-frost-fill: 82%;
+}
+html[data-overhang][data-glass='dark'] {
+  --mf-glass-fill: color-mix(in oklab, var(--background) 74%, transparent);
+}
+html[data-overhang][data-glass] :is(.app-container, [data-hint-room] [data-hint-surface]) {
+  --muted-foreground: var(--mf-glass-quiet);
+}
+html[data-overhang][data-glass] .app-container .tiptap.ProseMirror {
+  --placeholder-color: var(--mf-glass-quiet);
+}
 html[data-overhang] #root {
   padding: var(--mf-room-top) var(--mf-room-right, var(--mf-room)) var(--mf-room) var(--mf-room-left, var(--mf-room));
 }
@@ -433,27 +476,22 @@ html[data-overhang] :is([data-slot='sheet-overlay'], [data-slot='sheet-content']
 html[data-overhang] [data-slot='sheet-overlay'] {
   left: var(--mf-room-left, var(--mf-room));
   right: var(--mf-room-right, var(--mf-room));
-  border-radius: 14px;
+  border-radius: var(--mf-box-radius);
 }
-html[data-overhang] [data-slot='sheet-content'] { right: var(--mf-room-right, var(--mf-room)); border-radius: 0 14px 14px 0; }
+html[data-overhang] [data-slot='sheet-content'] { right: var(--mf-room-right, var(--mf-room)); border-radius: 0 var(--mf-box-radius) var(--mf-box-radius) 0; }
 /* Held at its height while a pop-up hangs into extra room below it (lib/fit-box.ts): never stretched into that room. */
 html[data-overhang][data-card-held] .app-container {
   height: var(--mf-card-held);
   flex: none;
 }
 html[data-overhang] .app-container {
-  --mf-window-tint: 100%;
-  border-radius: 14px;
-  box-shadow:
-    0 0 0 1px color-mix(in oklab, var(--foreground) 8%, transparent),
-    0 1px 2px color-mix(in oklab, var(--mf-shadow-ink) 16%, transparent),
-    0 12px 32px -6px color-mix(in oklab, var(--mf-shadow-ink) 32%, transparent);
+  border-radius: var(--mf-box-radius);
+  background-color: var(--mf-glass-fill);
+  box-shadow: var(--mf-glass-rim), var(--mf-glass-edge), var(--mf-glass-drop);
 }
-html.dark[data-overhang] .app-container {
-  box-shadow:
-    0 0 0 1px color-mix(in oklab, var(--foreground) 10%, transparent),
-    0 1px 2px color-mix(in oklab, var(--mf-shadow-ink) 40%, transparent),
-    0 14px 36px -6px color-mix(in oklab, var(--mf-shadow-ink) 62%, transparent);
+/* The one-line pill is Spotlight's capsule: its ends a half circle. */
+html[data-overhang] .app-container[data-pill] {
+  border-radius: 28px;
 }
 /* The box's controls, Spotlight's way (macOS 26): out of the card, above its
    top right edge in the room round it, each its own round surface in the
@@ -545,7 +583,10 @@ html[data-overhang] [data-hint-in] {
 }
 html[data-overhang] [data-hint-room] [data-hint-surface] {
   margin: 0;
-  box-shadow: var(--mf-round-shadow);
+  box-shadow: var(--mf-glass-rim), var(--mf-glass-edge), var(--mf-glass-drop-small);
+}
+html[data-overhang][data-glass] [data-hint-room] [data-hint-surface] {
+  background-color: var(--mf-glass-fill);
 }
 html[data-overhang] [data-hint-room] [data-hint-card] {
   margin: 0;
@@ -619,19 +660,6 @@ html[data-overhang] main[data-zen-row] {
 html[data-overhang] main[data-zen-row] > * {
   -webkit-app-region: no-drag;
 }
-/* "One line to start", Spotlight's way. The bar's shadow is Spotlight's: soft, wide and low, no hard dark edge; its
-   round controls wear the same, lighter. */
-html[data-overhang] .app-container[data-one-line] {
-  box-shadow:
-    0 0 0 0.5px color-mix(in oklab, var(--foreground) 14%, transparent),
-    0 10px 36px -6px color-mix(in oklab, var(--mf-shadow-ink) 26%, transparent),
-    0 2px 10px -2px color-mix(in oklab, var(--mf-shadow-ink) 10%, transparent);
-}
-html[data-overhang] .app-container[data-one-line] :is(.mf-pill button, [data-aside] > *) {
-  box-shadow:
-    0 0 0 0.5px color-mix(in oklab, var(--foreground) 14%, transparent),
-    0 8px 26px -6px color-mix(in oklab, var(--mf-shadow-ink) 22%, transparent);
-}
 /* The chosen one fills, as Spotlight's does, and its name shows in the bar, at its right end. */
 html[data-overhang] :is(.mf-pill button, [data-aside] > *)[data-picked] {
   background: var(--foreground);
@@ -694,21 +722,22 @@ html[data-overhang][data-card-gone] :is(.mf-top, [data-grabber], [data-hint-room
     0 1px 2px color-mix(in oklab, var(--mf-shadow-ink) 40%, transparent),
     0 6px 18px -6px color-mix(in oklab, var(--mf-shadow-ink) 62%, transparent);
 }
+/* Quick capture's round controls are the card's material: its wash, lit hairline and a lighter shadow. */
 html[data-overhang] :is(.mf-pill button, [data-aside] > *) {
   height: 32px;
   min-width: 32px;
   border: 0;
   border-radius: 999px;
-  background: var(--background);
+  background: var(--mf-glass-fill);
   cursor: pointer;
-  box-shadow: var(--mf-round-shadow);
+  box-shadow: var(--mf-glass-rim), var(--mf-glass-edge), var(--mf-glass-drop-small);
   transition: background-color 120ms var(--mf-ease), scale 120ms var(--mf-ease);
 }
 html[data-overhang] .mf-pill button {
   width: 32px;
 }
 html[data-overhang] :is(.mf-pill button, [data-aside] > *):hover {
-  background: color-mix(in oklab, var(--foreground) 7%, var(--background));
+  background: color-mix(in oklab, var(--foreground) 8%, var(--mf-glass-fill));
 }
 html[data-overhang] :is(.mf-pill button, [data-aside] > *):active {
   scale: 0.97;
@@ -3593,7 +3622,8 @@ textarea[data-talking]::selection {
    (haligtree-editor.scss) are the same material. Backdrop blur only sees what is inside its nearest
    parent that fades, masks, clips or filters, so these surfaces are portalled to the body or kept out of such
    parents (qa/frost.mjs checks every one); any that lands inside one anyway is marked data-frost-off and left opaque (lib/frost-guard.ts).
-   The box, stickies and a note's window sit on see-through windows: there the fill stays whole. So does it under
+   Quick capture on glass (data-glass) is frosted the same, over the Mac's own blur cut to each one's shape
+   (windows/box.tsx). Stickies and a note's window sit on see-through windows: there the fill stays whole. So does it under
    Reduce Transparency, an imported light theme or a sticky's solid look (data-solid), and in Brutal. */
 :root {
   --mf-frost-fill: 88%;
@@ -3602,7 +3632,7 @@ textarea[data-talking]::selection {
   --mf-frost-quiet: color-mix(in oklab, var(--muted-foreground) 42%, var(--popover-foreground));
 }
 @media (prefers-reduced-transparency: no-preference) {
-  :root[data-dim='veil']:not([data-solid]):not([data-style='brutal']) :is(.mf-frost, .tiptap-slash-menu, .tiptap-block-menu, .tiptap-emoji-list, .tiptap-table-menu, .tiptap-image-panel, .tiptap-icon-picker):not([data-frost-off]) {
+  :root:is([data-dim='veil'], [data-overhang][data-glass]):not([data-solid]):not([data-style='brutal']) :is(.mf-frost, .tiptap-slash-menu, .tiptap-block-menu, .tiptap-emoji-list, .tiptap-table-menu, .tiptap-image-panel, .tiptap-icon-picker):not([data-frost-off]) {
     background-color: color-mix(in oklab, var(--popover) var(--mf-frost-fill), transparent);
     -webkit-backdrop-filter: blur(24px) saturate(1.6);
     backdrop-filter: blur(24px) saturate(1.6);

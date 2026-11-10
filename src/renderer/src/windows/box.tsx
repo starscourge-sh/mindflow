@@ -10,6 +10,8 @@ import '../lib/fade-fits'
 import App from '../App'
 import { start } from '../main'
 import { clearRoom } from '../lib/clear-room'
+import { followGlass } from '../lib/glass'
+import { guardFrost } from '../lib/frost-guard'
 import { whileChanging } from '../lib/while-changing'
 import { still } from '../lib/motion'
 
@@ -131,6 +133,15 @@ if (window.api.room.left) {
     delete root.dataset.controlsAbove
     fitControls()
   })
+  // Spotlight's material: the Mac's own blur of the desktop (lib/glass.ts, native/glass.mm) under the card, each round
+  // control, the hint and every menu, list or tip that hangs from them, cut to their rounded shapes, so the clear room
+  // round them stays clear. Each lets it through under a wash of its own colour with a lit hairline (main.css,
+  // data-glass). Reduce Transparency, a solid look or the card put away take the glass away: every surface opaque.
+  const FROSTED = ':is(.mf-frost, .tiptap-slash-menu, .tiptap-block-menu, .tiptap-emoji-list, .tiptap-table-menu, .tiptap-image-panel, .tiptap-icon-picker):not([data-frost-off])'
+  followGlass(() => [document.querySelector('.app-container'), ...buttons(), document.querySelector('[data-hint-room] [data-hint-surface]'), ...document.querySelectorAll(FROSTED)], () => root.hasAttribute('data-card-gone'))
+  // The menus are frosted as in the main window (main.css .mf-frost): the card under them blurred, never sharp words
+  // under words; one that lands inside a fading or masked parent stays opaque.
+  guardFrost()
   // The round controls, the grabber, the hint and the offer belong to the card: drawn only while the card itself is
   // drawn in the window at a real size. A card squeezed to a line, or out of the window, takes them with it, so they
   // never float alone over whatever is behind (main.css, data-card-gone; qa/box-never-bare.mjs).
