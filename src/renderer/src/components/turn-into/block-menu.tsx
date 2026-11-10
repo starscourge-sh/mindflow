@@ -454,9 +454,9 @@ export function BlockMenu({
             fixAfter.current = null
             return
           }
-          // What it ran asks for words ("Edit formula…"): that field keeps the keys (quietClose hands it the focus).
+          // What it ran asks for words ("Edit formula…", "Edit link"): that field keeps the keys (quietClose hands it the focus).
           // The editor's focus lands a frame later, so asked for here it took the keys back from the field.
-          if (document.querySelector("[data-ask], [data-name-in-place], [data-sure]")) return
+          if (document.querySelector("[data-ask], [data-name-in-place], [data-sure], [data-link-editor]")) return
           // Closed without an action (Escape, a click away): back to the note.
           if (!document.activeElement || document.activeElement === document.body) editor.commands.focus()
         }}

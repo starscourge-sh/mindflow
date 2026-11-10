@@ -81,7 +81,8 @@ try {
   await h.locator(`${ED} p`, { hasText: 'Negligence needs' }).first().click({ button: 'right', position: { x: 30, y: 6 } })
   await wait(500)
   const plain = await groups()
-  check('a plain line keeps its menu: "Turn into" first, nothing clicked', plain[0] === 'Turn into' && !(await rows()).length, JSON.stringify(plain))
+  // The block's own lines come first ("Turn into" is now one of them, under "Block").
+  check('a plain line keeps its menu: its block lines first, nothing clicked', ['Turn into', 'Block'].includes(plain[0]) && !(await rows()).length, JSON.stringify(plain))
   await escape()
 
   // 2. The PDF link: its preview comes on hover, a right-click puts it away for good.
