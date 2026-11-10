@@ -7,7 +7,7 @@ import { useLive } from "@/lib/haligtree"
 import { BookHead, BookInfo, readLibrary, type Book } from "./book-head"
 import type { PdfCover } from "./pdf-cover"
 import { MARK_COLORS, markCss } from "./read-bar"
-import type { PdfMark } from "./pdf-pages"
+import { pdfBytes, type PdfMark } from "./pdf-pages"
 import { InYourNotes, PageBar, PartHead, StuckHead, inNotes, linesOf, partAt, partsOf, useCited, useFolded, type Line } from "./book-links"
 
 /** More highlights than this and the list folds by chapter, the one you are reading open. */
@@ -74,7 +74,7 @@ export function ReadDetails({ src, name, cover, title, author, pages, page, chap
     <div className="read-details-frame">
     <aside className="read-details book-panel" aria-label="Details">
       <div className="book-panel-head">
-        <BookHead cover={cover} title={title} author={author} pages={pages} bytes={book?.bytes} />
+        <BookHead cover={cover} title={title} author={author} pages={pages} bytes={book?.bytes ?? pdfBytes(src)} />
         {pages ? <PageBar src={src} name={name} pages={pages} page={page} cited={cited} marks={marks} onPage={onPage} /> : null}
         {scan}
       </div>

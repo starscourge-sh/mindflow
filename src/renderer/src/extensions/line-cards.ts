@@ -6,6 +6,7 @@ import { Fragment, Slice, type Node as ProseMirrorNode } from "@tiptap/pm/model"
 import { lineCard, termLines } from "../../../main/study"
 import { cardListOf } from "../../../main/card-lists"
 import { openPdf } from "@/components/pdf/pdf-reader"
+import { labelFor } from "@/components/pdf/pdf-labels"
 import { isAudio } from "@/lib/transcribe"
 import { linesTyped } from "@/lib/text-edit"
 
@@ -136,7 +137,9 @@ function lineMarks(node: ProseMirrorNode, pos: number, audio: string | null, vid
       if (!at || !child.isText) return void (words = "")
       words += child.text
       if (next?.marks.some((one) => one.type.name === "link" && one.attrs.href === href)) return
-      if (!new RegExp(`p\\.?\\s*${at[1]}\\W*$`).test(words.trim())) found.push(Decoration.widget(pos + 1 + offset + child.nodeSize, pageAfter(at[1]), { side: 1, marks: [], key: `pdf-page-${at[1]}`, ignoreSelection: true }))
+      // The page as the book prints it ("48", the file's 50th); said once, whether the words end "p. 48", "page 48" or the file's own number.
+      const printed = labelFor(at[1], Number(at[2]))
+      if (!new RegExp(`(?:p\\.?|pages?)\\s*(?:${printed.replace(/\W/g, "\\$&")}|${at[2]})\\W*$`, "i").test(words.trim())) found.push(Decoration.widget(pos + 1 + offset + child.nodeSize, pageAfter(printed), { side: 1, marks: [], key: `pdf-page-${printed}`, ignoreSelection: true }))
       words = ""
     })
   }
@@ -153,7 +156,7 @@ export function playAt(root: HTMLElement, src: string, seconds: number): boolean
 }
 
 /** A link into a page of one of the book's PDFs: `haligtree://assets/….pdf#page=12…`. */
-const PDF_PAGE = /^(?:haligtree|mindflow):\/\/assets\/[^#?]+\.pdf#(?:.*&)?page=(\d+)/i
+const PDF_PAGE = /^((?:haligtree|mindflow):\/\/assets\/[^#?]+\.pdf)#(?:.*&)?page=(\d+)/i
 
 /** " · p. 12", quiet, after a PDF link's words. */
 const pageAfter = (page: string) => (): HTMLElement => {

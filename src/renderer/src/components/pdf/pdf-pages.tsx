@@ -73,13 +73,17 @@ export function holdPdf(src: string): () => void {
   }
 }
 
+/** Each book's size in bytes, known once it is fetched: Details says it at once, before the shelf's own record comes. */
+const sizes = new Map<string, number>()
+export const pdfBytes = (src: string): number | undefined => sizes.get(src)
+
 /** The document at a `haligtree://` address. Fetched here, so pdf.js never needs the scheme. */
 export function loadPdf(src: string): Promise<PDFDocumentProxy> {
   let doc = open.get(src)
   if (!doc) {
     doc = fetch(src)
       .then((response) => response.arrayBuffer())
-      .then((data) => getDocument({ data: new Uint8Array(data) }).promise)
+      .then((data) => (sizes.set(src, data.byteLength), getDocument({ data: new Uint8Array(data) }).promise))
     doc.catch(() => open.delete(src))
     open.set(src, doc)
   }
@@ -368,13 +372,14 @@ function mixPaper(o: Uint8ClampedArray, d: Uint8ClampedArray, w: number, h: numb
     }
     line[cols] = line[cols - 1]
     least[cols] = least[cols - 1]
-    // A row of print alone, as most rows of a page are: only its coloured pixels are kept.
+    // A row of print alone, as most rows of a page are: only its truly coloured pixels are kept (a green bar, an orange
+    // drawing); the faint colour a scan leaves on the edges of black letters (under 40 of 255 apart) is print, so no fringe.
     if (print) {
       for (let i = py * w * 4, end = i + w * 4; i < end; i += 4) {
         const r = o[i], g = o[i + 1], bl = o[i + 2]
         const chroma = (r > g ? (r > bl ? r : bl) : g > bl ? g : bl) - (r < g ? (r < bl ? r : bl) : g < bl ? g : bl)
-        if (chroma <= 20) continue
-        const keep = chroma >= 64 ? 1 : (chroma - 20) / 44
+        if (chroma <= 40) continue
+        const keep = chroma >= 96 ? 1 : (chroma - 40) / 56
         d[i] += (r - d[i]) * keep
         d[i + 1] += (g - d[i + 1]) * keep
         d[i + 2] += (bl - d[i + 2]) * keep
@@ -386,9 +391,10 @@ function mixPaper(o: Uint8ClampedArray, d: Uint8ClampedArray, w: number, h: numb
       const r = o[i], g = o[i + 1], bl = o[i + 2]
       const lum = (r * 77 + g * 150 + bl * 29) >> 8
       const tx = Math.max(0, left[px]), a = line[tx], b = line[tx + 1]
-      // Bare paper always darkens, so no pale rim is left round a photo; dark next to a photo stays the photo's.
+      // Bare paper always darkens, so no pale rim is left round a photo; dark ink goes with the piece it is in: a photo's
+      // shadow stays the photo's, a word beside the photo turns light with the rest of its line, never left half grey.
       const mix = lum > 235 && (r > g ? r - g : g - r) < 16 && (g > bl ? g - bl : bl - g) < 16 ? 1
-        : lum < 90 ? (least[tx] < least[tx + 1] ? least[tx] : least[tx + 1])
+        : lum < 90 ? weight[(py / TILE | 0) * cols + Math.min(cols - 1, px / TILE | 0)]
         : a === b ? a : a + (b - a) * across[px]
       if (mix === 0) {
         d[i] = r, d[i + 1] = g, d[i + 2] = bl
@@ -396,7 +402,7 @@ function mixPaper(o: Uint8ClampedArray, d: Uint8ClampedArray, w: number, h: numb
       }
       // How coloured the true pixel is: grey, black and white take the dark page's tones, colour stays.
       const chroma = (r > g ? (r > bl ? r : bl) : g > bl ? g : bl) - (r < g ? (r < bl ? r : bl) : g < bl ? g : bl)
-      const keep = 1 - mix * (chroma <= 20 ? 1 : chroma >= 64 ? 0 : (64 - chroma) / 44)
+      const keep = 1 - mix * (chroma <= 40 ? 1 : chroma >= 96 ? 0 : (96 - chroma) / 56)
       if (keep === 0) continue
       d[i] += (r - d[i]) * keep
       d[i + 1] += (g - d[i + 1]) * keep
