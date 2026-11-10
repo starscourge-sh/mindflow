@@ -4155,8 +4155,14 @@ html[data-motion="off"] .mf-column-drop {
 
 // A picture, a video or a file card is an object, not text: no I-beam over
 // it. Its caption is text, and keeps the caret's cursor.
-.tiptap.ProseMirror.haligtree-editor :is(img, video, iframe, [data-type="image"], [data-type="youtube"], [data-type="attachment"], .tiptap-bookmark) {
+.tiptap.ProseMirror.haligtree-editor :is(img, video, iframe, [data-type="image"], [data-type="youtube"], [data-type="attachment"]) {
   cursor: default;
+}
+// A link card is pressed to open its link: the hand over all of it, its
+// picture too (the rule above gave the picture and the card the arrow).
+.tiptap.ProseMirror.haligtree-editor .tiptap-bookmark,
+.tiptap.ProseMirror.haligtree-editor .tiptap-bookmark :is(img, span) {
+  cursor: pointer;
 }
 .tiptap.ProseMirror.haligtree-editor .mf-caption-text {
   cursor: text;
