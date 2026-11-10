@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useState, type ReactElement } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
 import { WrappedParagraph } from './ai-offers'
 import { AnimatePresence, motion } from 'motion/react'
 import { createPortal } from 'react-dom'
 import { useCornerDock, useLayerOpen } from '@/lib/layer-watch'
 import { chime } from '@/lib/sound'
-import { EASE, shift } from '@/lib/motion'
+import { EASE, shift, still } from '@/lib/motion'
 import { useLive, haligtree, type Item, type Recap, type Settings, type SpanSession, type Task } from '@/lib/haligtree'
 import { taskName } from '@/lib/tasks'
 import { Button } from '@/components/ui/button'
@@ -13,7 +13,7 @@ import { Big, Ranked, usePicturesFrom } from './recap-view'
 import { PictureRow } from './picture-row'
 import { drawingFor } from './grain'
 import { Scenery } from './scenery'
-import { Kbd, Tip, Typed, sayNow } from './ui'
+import { Kbd, Tip, Typed, refuse, sayNow, toast } from './ui'
 import { PlanDid, plannedVsDid, shortSaid } from './planned-did'
 import { streaks } from '../../../../main/focus-numbers'
 import { dayjs, dayKey, dayName, noon, num, plural } from '../../../../main/dates'
@@ -204,6 +204,18 @@ function Story({ id, onClose }: { id: string; onClose: () => void }): React.JSX.
 
   const last = cards.length - 1
   const key = String(cards[at]?.key ?? 'none')
+  // The last card, kept: as a picture of what shows, to paste or to save, the way Wrapped ends on a card to share.
+  const shown = useRef<HTMLDivElement>(null)
+  const keep = async (save: boolean): Promise<void> => {
+    const box = shown.current?.getBoundingClientRect()
+    const png = box && (await window.api.pictureOfRect({ x: box.left, y: box.top, width: box.width, height: box.height }))
+    if (!png) return refuse('Could not make the picture', 'error')
+    const name = `${data ? (span.period === 'month' ? data.name : `Week of ${dayjs(span.from).format('D MMMM')}`) : 'Wrapped'}, wrapped.png`
+    if (save) return void ((await window.api.savePicture(name, png)) && (chime('saved'), toast('Saved as an image')))
+    if (!(await window.api.copyPicture(png))) return refuse('Could not put the picture on the clipboard', 'error')
+    chime('copy')
+    toast('Copied as an image: paste it anywhere')
+  }
   const go = (to: number): void => {
     const next = Math.max(0, Math.min(last, to))
     if (next === at) return
@@ -241,7 +253,7 @@ function Story({ id, onClose }: { id: string; onClose: () => void }): React.JSX.
         <span className="text-xs text-muted-foreground"><Kbd>←</Kbd> <Kbd>→</Kbd></span>
         <Tip label="Close  Esc"><Button variant="ghost" size="icon-sm" aria-label="Close" onClick={onClose}><X /></Button></Tip>
       </div>
-      <div data-wrap-card={key} className="relative flex min-h-0 flex-1 items-center px-[8%]" onClick={(event) => {
+      <div ref={shown} data-wrap-card={key} className="relative flex min-h-0 flex-1 items-center px-[8%]" onClick={(event) => {
         const box = event.currentTarget.getBoundingClientRect()
         go(event.clientX - box.left > box.width / 3 ? at + 1 : at - 1)
       }}>
@@ -252,6 +264,17 @@ function Story({ id, onClose }: { id: string; onClose: () => void }): React.JSX.
             exit={{ opacity: 0, transform: shift(`translateX(${-8 * dir}px)`), transition: { duration: 0.12, ease: EASE } }}>
             {cards[at] ?? null}
           </motion.div>
+        </AnimatePresence>
+      </div>
+      {/* The afterglow: on the last card, once it has landed, a way to keep it. Its room is always kept, so nothing moves. */}
+      <div data-wrap-keep className="relative flex h-14 shrink-0 items-start gap-2 px-[8%]">
+        <AnimatePresence>
+          {at === last && cards.length > 0 && (
+            <motion.div key="keep" className="flex items-center gap-2" initial={still() ? false : { opacity: 0 }} animate={{ opacity: 1, transition: { duration: 0.3, delay: 0.6 } }} exit={{ opacity: 0, transition: { duration: 0.1 } }}>
+              <Button size="sm" variant="outline" data-wrap-copy onClick={() => void keep(false)}>Copy as image</Button>
+              <Button size="sm" variant="ghost" data-wrap-save onClick={() => void keep(true)}>Save as image…</Button>
+            </motion.div>
+          )}
         </AnimatePresence>
       </div>
     </motion.div>
