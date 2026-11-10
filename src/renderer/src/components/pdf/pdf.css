@@ -2055,7 +2055,7 @@ html:is([data-width='page'], [data-width='wide']) .pdf-library-column,
 }
 
 .continue-book-where {
-  color: var(--mf-muted);
+  color: var(--muted-foreground);
   font-size: 0.75rem;
   font-variant-numeric: tabular-nums;
 }
