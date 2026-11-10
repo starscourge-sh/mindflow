@@ -28,18 +28,11 @@ import { Orb } from "@/components/haligtree/orb"
 import { SoundPlayer, soundTitle } from "@/components/haligtree/sound-player"
 import { FileText as File, FileText, Fit as Maximize, Volume2, VolumeX } from "@/components/ui/icons"
 import { plural } from '../../../../main/dates'
+import { sizeOf } from "@/components/pdf/book-head"
 
-/** 57.3 KB, not 58624. Binary units, because that is what a file manager shows. */
+/** 57.3 KB, not 58624: as Finder says it (decimal units), the same as the shelf and a book's Information. */
 function readableSize(bytes: number): string {
-  if (!bytes) return ""
-  const units = ["B", "KB", "MB", "GB"]
-  let size = bytes
-  let unit = 0
-  while (size >= 1024 && unit < units.length - 1) {
-    size /= 1024
-    unit += 1
-  }
-  return `${size.toFixed(unit === 0 ? 0 : 1)} ${units[unit]}`
+  return bytes ? sizeOf(bytes) : ""
 }
 
 /** The widths a video can take, as a picture's: a document reads better in columns. */

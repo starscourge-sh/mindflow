@@ -111,6 +111,7 @@ export function pagesScrolled(): void {
   moving = window.setTimeout(() => {
     moving = 0
     onStill.splice(0).forEach((run) => run())
+    if (flinging) calmed()
   }, REST)
 }
 /** `run` now if the pages rest, else once they do; the answer drops it if it has not run. */
@@ -122,3 +123,32 @@ export function whenStill(run: () => void): () => void {
     if (at >= 0) onStill.splice(at, 1)
   }
 }
+
+/**
+ * A fling: the pages going by faster than anyone reads (over `FLING` px a ms,
+ * a page every third of a second or so). A page drawn mid-fling costs a frame
+ * or several on the main thread and is gone before it shows, so drawing waits
+ * until the pages slow to reading speed or rest.
+ */
+const FLING = 3
+let flinging = false
+let lastAt = 0
+let lastTop = 0
+const onCalm: (() => void)[] = []
+const calmed = (): void => {
+  flinging = false
+  onCalm.splice(0).forEach((run) => run())
+}
+/** Told by the pages on each scroll, with where they are: their speed decides whether a fling is on. */
+export function pagesAt(top: number): void {
+  const now = performance.now()
+  const speed = Math.abs(top - lastTop) / Math.max(1, now - lastAt)
+  // A first scroll after a pause is no fling, whatever the jump (a page typed in the box lands at once).
+  const fling = now - lastAt < 100 && speed > FLING
+  lastAt = now
+  lastTop = top
+  if (fling) flinging = true
+  else if (flinging) calmed()
+}
+/** Waits while the pages are flung; the pages resting ends the wait too. */
+export const calm = (): Promise<void> => (flinging ? new Promise((done) => onCalm.push(done)) : Promise.resolve())

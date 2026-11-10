@@ -29,6 +29,7 @@ import { LAYOUTS, LOOKS, useDarkPages, usePageLayout, usePageLook, usePaperPages
 import { DropdownMenu, DropdownMenuContent, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { ScrubField } from "./scrub-field"
 import { PageLabel, usePageLabels } from "./pdf-labels"
+import { cleanTitle } from "@/lib/clean-title"
 import { still } from "@/lib/motion"
 import { plural, num } from '../../../../main/dates'
 
@@ -116,7 +117,7 @@ export async function openWebPdf(href: string): Promise<void> {
 /** Titles read out of PDFs, by address: what the window's top bar and a pane's tab call it. */
 const titles = new Map<string, string>()
 /** A PDF's title once read, else the name it arrived under without `.pdf`. */
-export const pdfName = (src: string, name: string): string => titles.get(src) ?? (name.replace(/\.pdf$/i, "") || "PDF")
+export const pdfName = (src: string, name: string): string => titles.get(src) ?? (cleanTitle(name.replace(/\.pdf$/i, "")) || name.replace(/\.pdf$/i, "") || "PDF")
 export const learnTitle = (src: string, title: string): void => {
   if (titles.get(src) === title) return
   titles.set(src, title)
@@ -805,7 +806,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
     if (Math.abs(one.from - 1) > 0.002 && !still()) {
       const p = pages.getBoundingClientRect()
       pages.style.transformOrigin = `${one.x - p.left}px ${one.y - p.top}px`
-      pages.animate([{ transform: `scale(${one.from})` }, { transform: "scale(1)" }], { duration: 380, easing: "cubic-bezier(0.34, 1.4, 0.64, 1)" })
+      pages.animate([{ transform: `scale(${one.from})` }, { transform: "scale(1)" }], { duration: 320, easing: "cubic-bezier(0.22, 1, 0.36, 1)" })
     }
   }, [zoomed])
   const zoomNow = useRef(zoom)
@@ -888,6 +889,27 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
     window.addEventListener("keydown", onKey, true)
     return () => (window.removeEventListener("haligtree:zoom-key", onMenu), window.removeEventListener("keydown", onKey, true))
   })
+  // ← → turn a page, as in Preview and Books; Space and Page Down a whole page on, ⇧Space and Page Up back, while the
+  // page fits the width (zoomed in, they scroll a screen, as the browser does). Never while typing or with a floating bar up.
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent): void => {
+      if (event.metaKey || event.ctrlKey || event.altKey || event.defaultPrevented || !keysHere(pane)) return
+      if (event.target instanceof HTMLElement && event.target.closest("input, textarea, select, [contenteditable=true], [role=menu], [role=dialog]")) return
+      if (picked || carding || looking || whyFor || snipping) return
+      const by = layout === "spread" ? 2 : 1
+      const whole = zoom <= 1
+      const way = event.key === "ArrowRight" ? 1 : event.key === "ArrowLeft" ? -1
+        : whole && (event.key === "PageDown" || (event.key === " " && !event.shiftKey)) ? 1
+        : whole && (event.key === "PageUp" || (event.key === " " && event.shiftKey)) ? -1 : 0
+      if (!way) return
+      event.preventDefault()
+      const to = Math.min(Math.max(1, page + way * by), doc?.numPages ?? 1)
+      if (to === page) return chime("nope")
+      go(to)
+    }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  })
 
   // The page on show: the last sheet whose top has passed a third of the way down.
   const onScroll = (): void => {
@@ -964,7 +986,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
           {/* How the pages lie and how they look, as Preview's View menu has it: kept per book, and "Dark pages" for every book. */}
           <DropdownMenu modal={false}>
             <DropdownMenuTrigger asChild>
-              <Button data-style="ghost" aria-label="Pages" title="How the pages lie, and their colour">
+              <Button data-style="ghost" aria-label="View" title="View: how the pages lie, and their colour">
                 <BookOpen className="tiptap-button-icon" />
               </Button>
             </DropdownMenuTrigger>
@@ -1027,7 +1049,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
       <PageLabel.Provider value={label}>
       <div ref={body} className="pdf-reader-body" data-rail-squeeze={squeeze}>
       {railShown && doc && (
-        <PdfSide doc={doc} page={page} outline={outline} tab={railShown} onTab={(tab) => (setTabByHand(true), showRail(tab))} onGo={go} narrow={squeeze === "narrow"} onDrag={() => setByHand(true)} layout={layout} onLayout={(to) => (chime("tap"), setLayout(to))} />
+        <PdfSide doc={doc} page={page} outline={outline} tab={railShown} onTab={(tab) => (setTabByHand(true), showRail(tab))} onGo={go} narrow={squeeze === "narrow"} onDrag={() => setByHand(true)} layout={layout} />
       )}
       <ContextMenu>
         <ContextMenuTrigger asChild>

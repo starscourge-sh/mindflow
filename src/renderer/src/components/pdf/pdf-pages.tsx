@@ -5,7 +5,7 @@ import { GlobalWorkerOptions, OPS, TextLayer, Util, getDocument, type PDFDocumen
 import workerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url"
 import "./pdf.css"
 import { markCss } from "./read-bar"
-import { AHEAD as NEXT_TO, IN_VIEW, drawInTurn, keepPage, keptPage, pagesScrolled, type Turn } from "./pdf-draw"
+import { AHEAD as NEXT_TO, IN_VIEW, drawInTurn, keepPage, keptPage, calm, pagesAt, pagesScrolled, type Turn } from "./pdf-draw"
 
 // A drag begun on a page's words selects across every page of that book: each page's end stretches to take the
 // pointer wherever it goes, until the press ends (pdf.css .textLayer.selecting .endOfContent).
@@ -620,6 +620,7 @@ export function PdfPages({
     let last = view.scrollTop
     const note = (): void => {
       pagesScrolled()
+      pagesAt(view.scrollTop)
       const now = view.scrollTop
       if (now !== last) heading.current = now > last ? 1 : -1
       last = now
@@ -773,6 +774,9 @@ const PdfPage = memo(function PdfPage({ doc, page, scale, guess, rank, marks, fl
       }
     }
     const drop = (turn.current = drawInTurn(wanted.current ?? IN_VIEW, async (stopped) => {
+      // Flung past at speed: drawn only once the pages slow to reading, if it is still wanted then.
+      await calm()
+      if (!live || stopped()) return
       const proxy = await doc.getPage(page)
       if (!live || stopped()) return
       sized(proxy)

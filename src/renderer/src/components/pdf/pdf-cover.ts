@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react"
 import { call } from "@/lib/haligtree"
+import { cleanTitle } from "@/lib/clean-title"
 import { loadPdf, pdfAuthor, pdfTitle } from "./pdf-pages"
 import { learnTitle } from "./pdf-reader"
 
@@ -36,7 +37,8 @@ export function pdfCover(src: string, name = ""): Promise<PdfCover | null> {
   if (!made) {
     made = (async () => {
       const kept = await call<{ image: string; title: string | null } | null>("pdf:cover", src).catch(() => null)
-      if (kept) return { image: kept.image, title: kept.title ?? fallback(name), aspect: await shapeOf(kept.image) }
+      // A title kept before titles were cleaned ("The Project Gutenberg eBook #38769: …") is cleaned as it is read.
+      if (kept) return { image: kept.image, title: (kept.title && cleanTitle(kept.title)) || fallback(name), aspect: await shapeOf(kept.image) }
       const doc = await loadPdf(src)
       const page = await doc.getPage(1)
       const flat = page.getViewport({ scale: 1 })
@@ -99,7 +101,7 @@ export function coverOnPaper(image: string): Promise<string> {
   return made
 }
 
-const fallback = (name: string): string => name.replace(/\.pdf$/i, "") || "PDF"
+const fallback = (name: string): string => cleanTitle(name.replace(/\.pdf$/i, "")) || name.replace(/\.pdf$/i, "") || "PDF"
 
 /** A PDF's cover for a card: null until it is ready, then the picture and the title. One already drawn is there in the first frame, a new book's too. */
 export function usePdfCover(src: string | null | undefined, name = ""): PdfCover | null | undefined {

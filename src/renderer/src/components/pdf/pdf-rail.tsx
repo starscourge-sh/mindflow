@@ -1,5 +1,4 @@
-import { Columns2, RectangleVertical, Rows3 } from "lucide-react"
-import { DARK_PAGE, LAYOUTS, useDarkPages, type PageLayout } from "./paper"
+import { DARK_PAGE, useDarkPages, type PageLayout } from "./paper"
 import { truePictures } from "./pdf-pages"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { ChevronRight } from "lucide-react"
@@ -47,13 +46,14 @@ export function PdfRail({ tab, tabs, onTab, narrow, onDrag, children }: { tab: R
   }
   return (
     <aside className="pdf-rail" data-narrow={narrow ? "" : undefined} style={{ width }} aria-label="Sidebar">
-      <div className="pdf-rail-tabs" role="tablist">
+      {/* One list alone needs no tab: a lone full-width "Pages" tab only said what the list already shows. */}
+      {tabs.length > 1 && <div className="pdf-rail-tabs" role="tablist">
         {tabs.map((one) => (
           <button key={one.id} type="button" role="tab" aria-selected={one.id === tab} className="pdf-rail-tab" onClick={() => onTab(one.id)}>
             {one.label}
           </button>
         ))}
-      </div>
+      </div>}
       {/* A long list fades at the edge where there is more, and offers the way back up, as every list does. */}
       <div ref={setList} className="pdf-rail-list mf-more" role="tabpanel">
         {children}
@@ -191,9 +191,8 @@ export const chapterAt = (outline: OutlineRow[], page: number): number =>
  */
 /** A book's spreads as it opens: the cover alone, then two pages a spread. */
 const spreadsOf = (count: number): number[][] => [[1], ...Array.from({ length: Math.ceil((count - 1) / 2) }, (_, at) => [2 + at * 2, 3 + at * 2].filter((one) => one <= count))]
-const LAYOUT_ICONS: Record<PageLayout, React.ComponentType<{ className?: string }>> = { continuous: Rows3, single: RectangleVertical, spread: Columns2 }
 
-export function PdfSide({ doc, page, outline, tab, onTab, onGo, narrow, onDrag, layout, onLayout }: { doc: PDFDocumentProxy; page: number; outline: OutlineRow[]; tab: RailTab; onTab: (tab: RailTab) => void; onGo: (page: number) => void; narrow?: boolean; onDrag?: () => void; /** How the pages lie: the thumbnails follow it, and its choice sits over them. */ layout?: PageLayout; onLayout?: (to: PageLayout) => void }): React.JSX.Element {
+export function PdfSide({ doc, page, outline, tab, onTab, onGo, narrow, onDrag, layout }: { doc: PDFDocumentProxy; page: number; outline: OutlineRow[]; tab: RailTab; onTab: (tab: RailTab) => void; onGo: (page: number) => void; narrow?: boolean; onDrag?: () => void; /** How the pages lie: the thumbnails follow it (it is chosen in the bar's "View" menu, its one home). */ layout?: PageLayout }): React.JSX.Element {
   const hereAt = chapterAt(outline, page)
   const shown = tab === "outline" && !outline.length ? "pages" : tab
   // The chapter lit comes into view in the rail, as Preview's does.
@@ -205,18 +204,6 @@ export function PdfSide({ doc, page, outline, tab, onTab, onGo, narrow, onDrag, 
   }, [hereAt, shown])
   return (
     <PdfRail tab={shown} tabs={[{ id: "pages", label: "Pages" }, ...(outline.length ? [{ id: "outline" as const, label: "Outline" }] : [])]} onTab={onTab} narrow={narrow} onDrag={onDrag}>
-      {shown === "pages" && layout && onLayout && (
-        <div className="pdf-rail-layout" role="radiogroup" aria-label="Page layout">
-          {LAYOUTS.map((one) => {
-            const Icon = LAYOUT_ICONS[one.id]
-            return (
-              <button key={one.id} type="button" role="radio" aria-checked={layout === one.id} aria-label={one.label} title={one.label} data-rail-layout={one.id} className="pdf-rail-layout-choice" onClick={() => onLayout(one.id)}>
-                <Icon className="size-3.5" />
-              </button>
-            )
-          })}
-        </div>
-      )}
       {/* In "Two pages" the thumbnails lie as the spread does: the cover alone on the right, then pairs. */}
       {shown === "pages" && layout === "spread"
         ? spreadsOf(doc.numPages).map((pair) => (
