@@ -2,6 +2,7 @@ import { Extension, combineTransactionSteps, getChangedRanges, type Editor } fro
 import type { Mark, Node as ProseMirrorNode } from "@tiptap/pm/model"
 import { Plugin, PluginKey, type EditorState } from "@tiptap/pm/state"
 import { AddMarkStep } from "@tiptap/pm/transform"
+import { restoring } from "@/lib/undo-exact"
 
 /**
  * Web links that behave: only words that really are an address become one as
@@ -164,7 +165,7 @@ export const LinkTidy = Extension.create({
       new Plugin({
         appendTransaction: (transactions, old, state) => {
           const type = state.schema.marks.link
-          if (!type || !transactions.some((tr) => tr.docChanged) || transactions.some((tr) => tr.getMeta("preventAutolink"))) return null
+          if (!type || !transactions.some((tr) => tr.docChanged) || transactions.some((tr) => tr.getMeta("preventAutolink")) || restoring(transactions)) return null
           const changes = getChangedRanges(combineTransactionSteps(old.doc, [...transactions]))
           const tr = state.tr
           for (const { oldRange, newRange } of changes) {

@@ -1,3 +1,4 @@
+import { notOnUndo } from "@/lib/undo-exact"
 import { typedOnly } from "@/lib/typed-suggestion"
 import {
   forwardRef,
@@ -95,6 +96,10 @@ const EmojiList = forwardRef(function EmojiList(
 // of notes builds an editor for each one.
 let support: unknown
 const OnceEmoji = Emoji.extend({
+  // An emoji brought back by Undo stays as it was, text or not (lib/undo-exact.ts).
+  addProseMirrorPlugins() {
+    return (this.parent?.() ?? []).map(notOnUndo)
+  },
   addStorage() {
     support ??= this.parent?.()
     return support as ReturnType<NonNullable<typeof this.parent>>

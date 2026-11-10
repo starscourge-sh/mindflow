@@ -267,6 +267,14 @@ import { codeBlockNodeView } from "@/components/code/code-block-node-view"
 import { slashRenderer } from "@/components/slash/slash-menu"
 import { slashItems, slashMedia } from "@/components/slash/slash-items"
 import { EmojiSuggestion } from "@/components/emoji/emoji-suggestion"
+import { notOnUndo } from "@/lib/undo-exact"
+
+// Undo brings back a link as it was: the words it puts back are not linked anew (lib/undo-exact.ts).
+const Kit = StarterKit.extend({
+  addExtensions() {
+    return (this.parent?.() ?? []).map((one) => (one.name === "link" ? one.extend({ addProseMirrorPlugins() { return (this.parent?.() ?? []).map(notOnUndo) } }) : one))
+  },
+})
 
 // --- Styles ---
 // The tokens every rule below reads, and the keyframes the menus animate with.
@@ -975,6 +983,9 @@ function Surface({
     // Not drawn again on every keystroke: each bar, menu and count keeps itself current (useEditorState or
     // its own listener), so a long note's whole surface is not redrawn per letter (TipTap's performance guide).
     shouldRerenderOnTransaction: false,
+    // TipTap's "delete" event: nothing here listens for it, and working it out walked every
+    // block a change touched on every change (half a second for an Undo that brings back a long note).
+    enableCoreExtensions: { delete: false },
     editable: !readOnly,
     autofocus,
     editorProps: {
@@ -1249,7 +1260,7 @@ function Surface({
       },
     },
     extensions: [
-      StarterKit.configure({
+      Kit.configure({
         // A line shape brings its own, holding a single paragraph. Blocks stay
         // registered but unreachable: the schema will not accept them.
         document: shape !== "line" && undefined,

@@ -89,11 +89,17 @@ const GUESS = 32
  * it shifts. The document itself never changes.
  */
 function nearScreen(view: EditorView, name: string): { ahead: (state: EditorState) => void; update: (previous: EditorState) => void; destroy: () => void } {
+  // Which blocks are drawn, and the space kept for the rest, in two sheets:
+  // a change to the first makes the browser restyle every block in the note,
+  // a change to the second only the note's own edges.
   const style = document.createElement("style")
+  const spaces = document.createElement("style")
   const heights = new WeakMap<Element, number>()
   let band: [number, number] | null = null
   let spaced: [number, number] = [0, 0]
   let leap = false
+  // Drawn ahead of the blocks it is for: the space kept for them is worked out again once they are there.
+  let early = false
   let last: EditorState | null = null
   const at = `.tiptap.ProseMirror.haligtree-editor[data-long="${name}"]`
   const blocks = (): HTMLCollection => view.dom.children
@@ -134,14 +140,14 @@ function nearScreen(view: EditorView, name: string): { ahead: (state: EditorStat
     for (let i = 0; i < from; i++) above += tall(all[i])
     for (let i = to + 1; i < all.length; i++) below += tall(all[i])
     spaced = [above, below]
-    style.textContent =
-      `${at} > :nth-child(-n+${from}), ${at} > :nth-child(n+${to + 2}) { display: none !important; }` +
-      `${at}::before { content: ""; display: block; height: ${above}px; }` +
-      `${at}::after { content: ""; display: block; height: ${below}px; }`
+    const hide = `${at} > :nth-child(-n+${from}), ${at} > :nth-child(n+${to + 2}) { display: none !important; }`
+    if (style.textContent !== hide) style.textContent = hide
+    spaces.textContent = `${at}::before { content: ""; display: block; height: ${above}px; }` + `${at}::after { content: ""; display: block; height: ${below}px; }`
   }
   const clear = (): void => {
     band = null
     style.textContent = ""
+    spaces.textContent = ""
   }
   /** Shift the band, keeping the block at the top of the screen where it is, or where the sizes say it should be. */
   const shift = (from: number, to: number, anchor: Element | null, at?: number): void => {
@@ -228,7 +234,7 @@ function nearScreen(view: EditorView, name: string): { ahead: (state: EditorStat
     const { from, to, empty } = view.state.selection
     if (!empty && view.hasFocus() && reaches(from - 1, to + 1)) view.focus()
   }
-  document.head.appendChild(style)
+  document.head.append(style, spaces)
   document.addEventListener("scroll", scrolled, { capture: true, passive: true })
   window.addEventListener("resize", follow)
   // Once the note is on the page: drawn round a caret at the end before it
@@ -249,10 +255,14 @@ function nearScreen(view: EditorView, name: string): { ahead: (state: EditorStat
       const before = last
       const went = !before || !state.selection.eq(before.selection) || state.doc !== before.doc
       last = state
-      if (went && band && (index < band[0] || index > band[1])) {
-        measure()
+      // And a note that grows long while open (Undo bringing back a whole
+      // long note): drawn round the caret before its blocks arrive, or every
+      // one of them was laid out, and the selection placed across them all.
+      if (went && (!band || index < band[0] || index > band[1])) {
+        if (band) measure()
         draw(index - AROUND, index + AROUND, true)
         leap = true
+        early = true
       }
     },
     update: (previous) => {
@@ -264,7 +274,10 @@ function nearScreen(view: EditorView, name: string): { ahead: (state: EditorStat
         requestAnimationFrame(() => (scroller.style.scrollBehavior = ""))
       }
       leap = false
-      if (!view.dom.hasAttribute("data-long")) return band ? clear() : undefined
+      if (!view.dom.hasAttribute("data-long")) {
+        early = false
+        return band ? clear() : undefined
+      }
       // Where the caret went, without measuring anything, so a key stays cheap.
       // Near either edge of the band it moves: the arrow keys never reach a
       // block that is not drawn. Only when the caret or the words moved: a
@@ -273,7 +286,8 @@ function nearScreen(view: EditorView, name: string): { ahead: (state: EditorStat
       const index = view.state.selection.$head.index(0)
       const count = blocks().length
       const moved = view.state.doc !== previous.doc || !view.state.selection.eq(previous.selection)
-      if (!band) {
+      if (!band || early) {
+        early = false
         draw(index - AROUND, index + AROUND)
         requestAnimationFrame(settle)
       } else if (band[1] > count - 1 || (moved && ((index - band[0] < SLACK && band[0] > 0) || (band[1] - index < SLACK && band[1] < count - 1)))) {
@@ -284,6 +298,7 @@ function nearScreen(view: EditorView, name: string): { ahead: (state: EditorStat
     destroy: () => {
       unclamp()
       style.remove()
+      spaces.remove()
       document.removeEventListener("scroll", scrolled, { capture: true })
       window.removeEventListener("resize", follow)
     },
@@ -337,7 +352,10 @@ export const LongDocument = Extension.create({
           const { update, destroy } = near
           const aside = (): void => {
             const parent = view.dom.parentNode
-            if (away || !parent || !view.dom.isConnected) return
+            // Never while it holds the caret (Undo bringing back a long note):
+            // taken off the page, it lost it. Its far blocks are hidden by then
+            // (`ahead`), so there is little to lay out.
+            if (away || !parent || !view.dom.isConnected || view.hasFocus()) return
             const next = view.dom.nextSibling
             away = true
             view.dom.remove()
