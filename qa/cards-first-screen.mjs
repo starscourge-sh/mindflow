@@ -42,7 +42,7 @@ try {
   // 1. Review opens on the decks.
   await review()
   check('1. Review opens on the decks', await waitFor(() => has('[data-deck-shelf]'), 4000))
-  check('1. the Decks tab is the one chosen, first of the tabs', await h.evaluate(() => document.querySelector('[role="tab"]')?.getAttribute('data-review-tab') === 'decks' && document.querySelector('[data-review-tab="decks"]')?.getAttribute('aria-selected') === 'true'))
+  check('1. the Decks tab is the one chosen, first of the tabs', await h.evaluate(() => document.querySelector('[data-review-tabs] [role="tab"]')?.getAttribute('data-review-tab') === 'decks' && document.querySelector('[data-review-tabs] [data-review-tab="decks"]')?.getAttribute('aria-selected') === 'true'))
   check('1. "Study now" is a button beside the tabs, not a tab', await h.evaluate(() => { const one = document.querySelector('[data-study-now]'); return !!one && one.textContent === 'Study now' && one.getAttribute('role') !== 'tab' }))
 
   // 2. The ways in, always at the top, with decks already there.
@@ -134,7 +134,7 @@ try {
   if (await h.isVisible('[data-deck-top] [data-deck-paste]')) await h.click('[data-deck-top] [data-deck-paste]')
   else { await h.click('[data-toolbar-more]'); await h.waitForTimeout(300); await h.click('[data-toolbar-more-item="many"]') }
   await waitFor(() => has('[data-paste-text]'))
-  check('9. the box is called "Add many at once" and says it takes a spreadsheet', /Add many at once/.test(await text('[data-paste-cards] h3')) && /spreadsheet/.test(await text('[data-paste-cards]')))
+  check('9. the box is called "Add many at once" and says it takes a spreadsheet', /Add many at once/.test(await text('[data-paste-cards] [data-card-form-head]')) && /spreadsheet/.test(await text('[data-paste-cards]')))
   await h.fill('[data-paste-text]', 'uno | one\ndos | two\ntres | three')
   await h.click('[data-paste-add]')
   const show = h.locator('button', { hasText: 'Show them' }).first()
