@@ -349,8 +349,12 @@ export function QueueView(): React.JSX.Element {
                         data-read-row data-read-id={row.id} data-picked={picked ? '' : undefined} data-private={row.private ? '' : undefined}
                         onClickCapture={(event) => (event.metaKey || event.shiftKey) && !event.altKey && (event.preventDefault(), event.stopPropagation(), readToggle(row.id))}
                         className={`group/r flex items-center gap-3 rounded-md px-3 py-2 ${PICKED_MARK}`}>
-                        {kind ? <kind.icon className="size-4 shrink-0 opacity-60" style={{ color: kind.tint }} /> : <ListStart className="size-4 shrink-0 text-muted-foreground" />}
-                        <button type="button" onClick={() => window.api.openInHome(row.type, row.itemId)} className="private-text -my-0.5 min-w-0 flex-1 truncate py-0.5 text-left text-body text-muted-foreground hover:text-foreground">{row.title}</button>
+                        {/* Under Up next's numbers, so its icons and names stand in the same columns as the rows above. */}
+                        <span aria-hidden className="w-5 shrink-0" />
+                        <button type="button" onClick={() => window.api.openInHome(row.type, row.itemId)} className="-my-0.5 flex min-w-0 flex-1 items-center gap-2.5 py-0.5 text-left text-body text-muted-foreground hover:text-foreground">
+                          {kind ? <kind.icon className="size-4 shrink-0 opacity-60" style={{ color: kind.tint }} /> : <ListStart className="size-4 shrink-0 text-muted-foreground" />}
+                          <span className="private-text min-w-0 flex-1 truncate">{taskName(row.title).text}</span>
+                        </button>
                         <span className="shrink-0 text-xs text-muted-foreground tabular-nums">{dayMonth(row.doneAt!)}</span>
                         <Tip label="Read it again: back on the queue, next">
                           <button type="button" aria-label="Read it again" onClick={() => void readingQueue.undone(row.id).then(() => (chime('unshelve'), toast('Back on the queue, next', () => void readingQueue.done(row.id, row.doneAt ?? undefined))))}
