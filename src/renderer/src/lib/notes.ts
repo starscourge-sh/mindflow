@@ -238,9 +238,11 @@ export async function saveAttachments(list?: { table: NoteTable; id: string }[])
  * note is never published.
  */
 export async function publishSite(id: string): Promise<void> {
-  const made = await waiting('Publishing…', 'working', call<{ index: string; pages: number } | false | null>('site:publish', id), 'site')
-  if (made === null) return
-  if (!made) return refuse('A private note is never published. Make it not private first')
+  const parent = await call<string | null>('site:pick')
+  if (!parent) return
+  const made = await waiting('Publishing…', 'working', call<{ index: string; pages: number } | 'private' | 'gone'>('site:publish', id, parent), 'site')
+  if (made === 'private') return refuse('A private note is never published. Make it not private first.')
+  if (made === 'gone' || !made) return refuse('This note is in the Bin or no longer there, so there is nothing to publish.')
   chime('saved')
   toast(`Published ${made.pages === 1 ? 'it as a web page' : `it and ${num(made.pages - 1)} linked ${made.pages === 2 ? 'note' : 'notes'} as a website`}: open index.html in any browser`)
 }

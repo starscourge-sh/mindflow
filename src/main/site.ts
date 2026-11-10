@@ -34,7 +34,7 @@ export const slug = (title: string): string =>
  * paragraphs. `hrefOf` gives a published note's page, or nothing for one left
  * out; `pictureOf` gives a picture's place in the site.
  */
-export function pageHtml(raw: string | null, hrefOf: (id: string) => string | undefined, pictureOf: (src: string) => string): string {
+export function pageHtml(raw: string | null, hrefOf: (id: string) => string | undefined, pictureOf: (src: string) => string, title = '', hidden: (id: string) => boolean = () => false): string {
   let value: unknown = raw
   try { value = JSON.parse(raw ?? 'null') } catch { /* Markdown, as it is */ }
   if (!value) return ''
@@ -44,11 +44,14 @@ export function pageHtml(raw: string | null, hrefOf: (id: string) => string | un
   const inline = (nodes: Doc[] = []): string => nodes.map((node) => {
     if (node.type === 'hardBreak') return '<br>'
     if (node.type === 'noteLink') {
+      const id = String(node.attrs?.id ?? '').replace(/^[a-z]+:/, '')
+      const href = hrefOf(id)
+      // A private note's name never goes out, even as the words of a link.
+      if (!href && hidden(id)) return '<em>a private note</em>'
       const words = escape(node.attrs?.text || node.attrs?.label || '')
-      const href = hrefOf(String(node.attrs?.id ?? '').replace(/^[a-z]+:/, ''))
       return href ? `<a href="${href}">${words}</a>` : words
     }
-    if (node.type === 'image') return `<img src="${escape(pictureOf(String(node.attrs?.src ?? '')))}" alt="${escape(node.attrs?.alt ?? '')}">`
+    if (node.type === 'image') { const src = pictureOf(String(node.attrs?.src ?? '')); return src ? `<img src="${escape(src)}" alt="${escape(node.attrs?.alt ?? '')}">` : '' }
     if (node.type === 'inlineMath') return `<code>${escape(node.attrs?.latex)}</code>`
     if (node.type === 'emoji') return escape(node.attrs?.emoji ?? node.attrs?.name ?? '')
     if (node.type === 'footnoteReference') return `<sup>${escape(node.attrs?.n || 1)}</sup>`
@@ -78,7 +81,7 @@ export function pageHtml(raw: string | null, hrefOf: (id: string) => string | un
       case 'taskItem': return `<li class="${node.attrs?.checked ? 'done' : ''}">${kids(node)}</li>`
       case 'codeBlock': return `<pre><code>${escape((node.content ?? []).map((one) => one.text ?? '').join(''))}</code></pre>`
       case 'horizontalRule': return '<hr>'
-      case 'image': return `<figure>${inline([node])}${caption(node)}</figure>`
+      case 'image': { const picture = inline([node]); return picture ? `<figure>${picture}${caption(node)}</figure>` : '' }
       case 'blockMath': return `<pre class="math"><code>${escape(node.attrs?.latex)}</code></pre>`
       case 'table': return `<table>${kids(node)}</table>`
       case 'tableRow': return `<tr>${kids(node)}</tr>`
@@ -87,7 +90,7 @@ export function pageHtml(raw: string | null, hrefOf: (id: string) => string | un
       case 'callout': return `<aside class="callout">${node.attrs?.title ? `<p><strong>${escape(node.attrs.title)}</strong></p>` : ''}${kids(node)}</aside>`
       case 'columns': return `<div class="columns">${kids(node)}</div>`
       case 'column': return `<div>${kids(node)}</div>`
-      case 'youtube': return `<p><a href="${escape(node.attrs?.src)}">${escape(node.attrs?.caption || 'A video')}</a></p>`
+      case 'youtube': return !/^https?:/i.test(String(node.attrs?.src ?? '')) ? '' : `<p><a href="${escape(node.attrs?.src)}">${escape(node.attrs?.caption || 'A video')}</a></p>`
       case 'bookmark': return /^https?:/i.test(String(node.attrs?.href ?? '')) ? `<p><a href="${escape(node.attrs?.href)}">${escape(node.attrs?.title || node.attrs?.href)}</a></p>` : ''
       case 'footnotes': return `<ol class="footnotes">${(node.content ?? []).map((one) => `<li>${kids(one)}</li>`).join('')}</ol>`
       // A file, a meeting's recording, a PDF: kept in the app, not on a web page.
@@ -95,12 +98,17 @@ export function pageHtml(raw: string | null, hrefOf: (id: string) => string | un
       default: return node.content ? kids(node) : inline([node])
     }
   }
-  return block(value as Doc)
+  // The first line, when it is the title the page already shows over it, is not said twice.
+  const doc = value as Doc
+  const plain = (text: string): string => text.replace(/\s+/g, ' ').trim().toLowerCase()
+  const first = doc.content?.[0]
+  const lead = first && (first.type === 'paragraph' || first.type === 'heading') ? plain((first.content ?? []).map((one) => one.text ?? '').join('')) : ''
+  return block(lead && lead === plain(title) ? { ...doc, content: doc.content!.slice(1) } : doc)
 }
 
 const STYLE = `:root{color-scheme:light dark;--ink:#1d1c1a;--soft:#6b6862;--page:#fbfaf7;--rule:#e4e1da;--link:#2f5fa7}
 @media (prefers-color-scheme:dark){:root{--ink:#ecebe6;--soft:#a3a09a;--page:#1b1b1a;--rule:#34332f;--link:#8db4ef}}
-*{box-sizing:border-box}body{margin:0;background:var(--page);color:var(--ink);font:18px/1.65 Georgia,'Iowan Old Style',serif}
+*{box-sizing:border-box}body{overflow-wrap:anywhere;margin:0;background:var(--page);color:var(--ink);font:18px/1.65 Georgia,'Iowan Old Style',serif}
 main{max-width:40rem;margin:0 auto;padding:3rem 1.25rem 4rem}nav{font:14px/1.4 -apple-system,system-ui,sans-serif;color:var(--soft);margin-bottom:2rem}
 h1{font-size:2rem;line-height:1.2;margin:0 0 1.5rem}h2,h3,h4{line-height:1.3;margin:2rem 0 .5rem}a{color:var(--link)}img{max-width:100%;height:auto;border-radius:4px}
 figure{margin:1.5rem 0}figcaption{font-size:.85em;color:var(--soft)}blockquote,aside.callout{margin:1.25rem 0;padding:.25rem 1rem;border-left:3px solid var(--rule)}
@@ -108,7 +116,7 @@ pre{overflow-x:auto;padding:.75rem 1rem;border:1px solid var(--rule);border-radi
 table{border-collapse:collapse;width:100%;display:block;overflow-x:auto}td,th{border:1px solid var(--rule);padding:.35rem .6rem;text-align:left;vertical-align:top}
 mark{background:#f5e27a66;color:inherit}ul.tasks li.done{text-decoration:line-through;color:var(--soft)}hr{border:0;border-top:1px solid var(--rule);margin:2rem 0}
 .columns{display:grid;gap:1.5rem;grid-template-columns:repeat(auto-fit,minmax(14rem,1fr))}footer{margin-top:3rem;padding-top:1rem;border-top:1px solid var(--rule);font:15px/1.5 -apple-system,system-ui,sans-serif;color:var(--soft)}
-footer ul{padding-left:1.1rem}`
+footer h2{font-size:1em;font-weight:600;margin:1rem 0 .25rem}footer ul{padding-left:1.1rem}`
 
 /** The notes to publish: the one asked for, then each step out along its links, never a private or thrown-away one. */
 function gather(start: string): Page[] {
@@ -144,9 +152,9 @@ function gather(start: string): Page[] {
 }
 
 /** Writes the site into a new folder inside `parent`; its index page's path, and the page count. */
-export async function publishSite(start: string, parent: string): Promise<{ index: string; pages: number } | null> {
+export async function publishSite(start: string, parent: string): Promise<{ index: string; pages: number } | 'private' | 'gone'> {
   const pages = gather(start)
-  if (!pages.length) return null
+  if (!pages.length) return database().prepare('select 1 from captures where id = ? and private = 1 union all select 1 from nuggets where id = ? and private = 1').get(start, start) ? 'private' : 'gone'
   let folder = join(parent, slug(pages[0].title))
   for (let n = 2; existsSync(folder); n++) folder = join(parent, `${slug(pages[0].title)}-${n}`)
   await mkdir(join(folder, 'pictures'), { recursive: true })
@@ -166,9 +174,10 @@ export async function publishSite(start: string, parent: string): Promise<{ inde
     const to = link.replace(/^[a-z]+:/, '')
     if (to !== page.id && byId.has(to)) into.set(to, (into.get(to) ?? new Set()).add(page.id))
   }
+  const hidden = (id: string): boolean => !!database().prepare('select 1 from captures where id = ? and private = 1 union all select 1 from nuggets where id = ? and private = 1').get(id, id)
   const list = (ids: Iterable<string>): string => [...ids].map((id) => byId.get(id)!).map((page) => `<li><a href="${page.file}">${escape(page.title)}</a></li>`).join('')
   for (const page of pages) {
-    const words = pageHtml(page.body, (id) => byId.get(id)?.file, pictureOf)
+    const words = pageHtml(page.body, (id) => byId.get(id)?.file, pictureOf, page.title, hidden)
     const out = [...mentionsIn(page.body).keys()].map((link) => link.replace(/^[a-z]+:/, '')).filter((id) => id !== page.id && byId.has(id))
     const back = [...(into.get(page.id) ?? [])]
     const html = `<!DOCTYPE html>
@@ -178,7 +187,7 @@ export async function publishSite(start: string, parent: string): Promise<{ inde
 ${page.file === 'index.html' ? '' : `<nav><a href="index.html">${escape(pages[0].title)}</a></nav>`}
 <h1>${escape(page.title)}</h1>
 ${words}
-${out.length || back.length ? `<footer>${out.length ? `<p>Links from here</p><ul>${list(new Set(out))}</ul>` : ''}${back.length ? `<p>Links here</p><ul>${list(back)}</ul>` : ''}</footer>` : ''}
+${out.length || back.length ? `<footer>${out.length ? `<h2>Links from here</h2><ul>${list(new Set(out))}</ul>` : ''}${back.length ? `<h2>Links here</h2><ul>${list(back)}</ul>` : ''}</footer>` : ''}
 </main></body></html>
 `
     await writeFile(join(folder, page.file), html)
@@ -189,20 +198,18 @@ ${out.length || back.length ? `<footer>${out.length ? `<p>Links from here</p><ul
 }
 
 export function registerSite(): void {
-  // Asked from a note's menu: where to put it, then the folder shown in Finder. `to` (a probe) skips the asking.
-  ipcMain.handle('haligtree:site:publish', async (event, id: unknown, to?: unknown) => {
-    if (typeof id !== 'string') return null
-    let parent = typeof to === 'string' && process.env.HALIGTREE_QA_AWAY ? to : ''
-    if (!parent) {
-      const window = BrowserWindow.fromWebContents(event.sender)
-      const options = { title: 'Publish as a website', message: 'A folder of web pages is made inside the folder you choose.', buttonLabel: 'Publish here', properties: ['openDirectory' as const, 'createDirectory' as const] }
-      const picked = window ? await dialog.showOpenDialog(window, options) : await dialog.showOpenDialog(options)
-      if (picked.canceled || !picked.filePaths[0]) return null
-      parent = picked.filePaths[0]
-    }
+  // Where to put it, asked first and on its own, so nothing says "Publishing…" while the folder sheet is open.
+  ipcMain.handle('haligtree:site:pick', async (event) => {
+    const window = BrowserWindow.fromWebContents(event.sender)
+    const options = { title: 'Publish as a website', message: 'A folder of web pages is made inside the folder you choose.', buttonLabel: 'Publish here', properties: ['openDirectory' as const, 'createDirectory' as const] }
+    const picked = window ? await dialog.showOpenDialog(window, options) : await dialog.showOpenDialog(options)
+    return picked.canceled ? null : picked.filePaths[0] ?? null
+  })
+  // The note and its links into a folder inside `parent`, then shown in Finder (not while testing).
+  ipcMain.handle('haligtree:site:publish', async (_event, id: unknown, parent: unknown) => {
+    if (typeof id !== 'string' || typeof parent !== 'string' || !parent) return 'gone'
     const made = await publishSite(id, parent)
-    if (made && !process.env.HALIGTREE_QA_AWAY) shell.showItemInFolder(made.index)
-    // False: nothing could go (a private note); null above: the folder was not picked.
-    return made ?? false
+    if (typeof made === 'object' && !process.env.HALIGTREE_QA_AWAY) shell.showItemInFolder(made.index)
+    return made
   })
 }
