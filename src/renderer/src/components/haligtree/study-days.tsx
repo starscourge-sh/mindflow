@@ -60,8 +60,8 @@ export function BookChip({ book, style }: { book: Book; style?: React.CSSPropert
   )
 }
 
-/** A day's study chips, reviews first. */
-export const studyChips = (day: StudyDay | undefined, style?: React.CSSProperties): React.JSX.Element[] => !day ? [] : [
-  ...(day.reviews ? [<ReviewChip key="review" n={day.reviews} style={style} />] : []),
-  ...day.books.map((book) => <BookChip key={book.src} book={book} style={style} />)
+/** A day's study chips, reviews first. `on` (the day's key) keeps their keys apart when several days share one list. */
+export const studyChips = (day: StudyDay | undefined, style?: React.CSSProperties, on = ''): React.JSX.Element[] => !day ? [] : [
+  ...(day.reviews ? [<ReviewChip key={`review:${on}`} n={day.reviews} style={style} />] : []),
+  ...day.books.map((book) => <BookChip key={`${on}:${book.src}`} book={book} style={style} />)
 ]

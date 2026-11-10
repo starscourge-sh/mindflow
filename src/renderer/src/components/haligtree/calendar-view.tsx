@@ -1007,7 +1007,7 @@ function Grid({ days, tasks, marks, study, onHead, onPoint, calendars, ...props 
               return <EventChip key={one.key} one={one} day={keys[from]} calendars={calendars} span={{ gridColumn: `${from + 1} / ${to + 2}`, pointerEvents: 'auto' }} onOpen={onEvent} onPeek={onPeek} onNote={onOpen} />
             })}
             {/* The study plan: each day's reviews and the book you finish then, in the lane before its tasks. */}
-            {keys.flatMap((key, at) => studyChips(study.get(key), { gridColumn: at + 1 }))}
+            {keys.flatMap((key, at) => studyChips(study.get(key), { gridColumn: at + 1 }, key))}
             {keys.flatMap((key, at) => {
               // A Mac calendar's way with a crowded day: a few rows, then "+N more", which opens the day's own page with its whole
               // list. The day's one-day events count as rows too: 15 of them once ran past the lane, the last cut in half.
@@ -1027,7 +1027,7 @@ function Grid({ days, tasks, marks, study, onHead, onPoint, calendars, ...props 
                 : <div key={`${item.due ? 'due' : 'on'}:${item.task.id}`} className="pointer-events-auto grid min-w-0" style={{ gridColumn: at + 1 }}><Untimed task={item.task} due={item.due} {...props} /></div>
               ),
               ...(more ? [
-                <button key="more" type="button" data-cal-allday-more={key} aria-label={`Open ${dayjs(key).format('dddd D MMMM')}: ${plural(all.length, 'thing')} all day`}
+                <button key={`more:${key}`} type="button" data-cal-allday-more={key} aria-label={`Open ${dayjs(key).format('dddd D MMMM')}: ${plural(all.length, 'thing')} all day`}
                   // Events hidden in a week: the Calendar's own Day view, where they all have room. Already one day, or only
                   // to-dos hidden: the day's own page with its whole list.
                   onClick={() => (chime('open'), days.length > 1 && all.slice(shown.length).some((item) => 'one' in item) ? onHead(dayjs(key)) : onOpen?.('day', key))}
@@ -1035,7 +1035,7 @@ function Grid({ days, tasks, marks, study, onHead, onPoint, calendars, ...props 
                   +{num(more)} more
                 </button>
               ] : []),
-              ...(draft && draft.minute === null && draft.day === key ? [<span key="new" data-cal-new className="rounded-[5px] bg-accent px-1.5 text-control leading-6 text-foreground ring-1 ring-foreground/20" style={{ gridColumn: at + 1 }}>New</span>] : [])
+              ...(draft && draft.minute === null && draft.day === key ? [<span key={`new:${key}`} data-cal-new className="rounded-[5px] bg-accent px-1.5 text-control leading-6 text-foreground ring-1 ring-foreground/20" style={{ gridColumn: at + 1 }}>New</span>] : [])
             ]})}
           </div>
         </div>
