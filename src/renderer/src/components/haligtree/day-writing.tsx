@@ -7,7 +7,7 @@ import { createPortal } from 'react-dom'
 import type { Editor } from '@tiptap/react'
 
 import { useCounts } from '@/components/count/word-count'
-import { EASING, useStill } from '@/lib/motion'
+import { EASING, still, useStill } from '@/lib/motion'
 import { useLive, haligtree, type Settings } from '@/lib/haligtree'
 import { read as aimOf } from '@/components/count/word-aim'
 import { Rolling } from './ui'
@@ -210,7 +210,7 @@ export function PageCap({ editor }: { editor: Editor | null }): React.JSX.Elemen
       const from = frame.getBoundingClientRect().height
       box.setAttribute('data-page-open', '')
       const to = frame.getBoundingClientRect().height
-      if (to > from + 1 && !matchMedia('(prefers-reduced-motion: reduce)').matches) frame.animate([{ height: `${from}px`, overflow: 'hidden' }, { height: `${to}px`, overflow: 'hidden' }], { duration: Math.min(700, 260 + (to - from) / 4), easing: EASING })
+      if (to > from + 1 && !still()) frame.animate([{ height: `${from}px`, overflow: 'hidden' }, { height: `${to}px`, overflow: 'hidden' }], { duration: Math.min(700, 260 + (to - from) / 4), easing: EASING })
       setOpen(true)
     }
     reveal.current = whole

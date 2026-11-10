@@ -11,6 +11,7 @@ import App from '../App'
 import { start } from '../main'
 import { clearRoom } from '../lib/clear-room'
 import { whileChanging } from '../lib/while-changing'
+import { still } from '../lib/motion'
 
 start(<App />)
 // Quick capture is a card inside a larger see-through window (main's overhang): the page draws the card inside
@@ -184,7 +185,8 @@ if (window.api.room.left) {
     const now = buttons()
     const from = was
     was = now.map((one) => one.getBoundingClientRect())
-    if (from.length !== now.length || matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    // Motion off in Settings, or Reduce motion on: they are simply in their new places.
+    if (from.length !== now.length || still()) return
     now.forEach((one, i) => {
       for (const old of one.getAnimations()) old.cancel()
       const to = one.getBoundingClientRect()

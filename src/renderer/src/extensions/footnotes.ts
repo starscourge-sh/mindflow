@@ -1,4 +1,5 @@
 import { Extension, InputRule, Node, type Editor, type JSONContent } from "@tiptap/core"
+import { still } from "@/lib/motion"
 import { Fragment, type Node as PMNode } from "@tiptap/pm/model"
 import { Plugin, PluginKey, TextSelection, type Selection, type Transaction } from "@tiptap/pm/state"
 import { ReplaceStep } from "@tiptap/pm/transform"
@@ -55,7 +56,7 @@ function markAt(doc: PMNode, id: string): number | null {
 /** A small glow on what a jump landed on, so the eye finds it. */
 function glow(editor: Editor, pos: number): void {
   const el = editor.view.nodeDOM(pos)
-  if (el instanceof HTMLElement && !matchMedia("(prefers-reduced-motion: reduce)").matches)
+  if (el instanceof HTMLElement && !still())
     el.animate([{ backgroundColor: "color-mix(in oklab, var(--tt-brand-color-400) 22%, transparent)" }, { backgroundColor: "transparent" }], { duration: 900, easing: "ease-out" })
 }
 

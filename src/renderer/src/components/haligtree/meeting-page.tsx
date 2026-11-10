@@ -1,4 +1,5 @@
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { still } from '@/lib/motion'
 import { NodeViewWrapper, type NodeViewProps } from '@tiptap/react'
 import { Bookmark, CalendarDays, Check, CircleHelp, ListChecks, ListTodo, Mic, UserRound, X } from 'lucide-react'
 
@@ -21,7 +22,8 @@ type Said = { text: string; at: number; speaker?: string; date?: string | null }
 const ROW = 'flex w-full cursor-pointer items-baseline gap-2.5 rounded-md px-2 py-1 text-left text-body transition-colors hover:bg-accent'
 const CHIP = 'inline-flex h-6 cursor-pointer items-center gap-1 rounded-full border px-2.5 text-meta text-muted-foreground transition-[color,border-color,scale] hover:border-foreground/25 hover:text-foreground active:scale-[0.97]'
 const QUIET_BUTTON = 'flex h-7 shrink-0 cursor-pointer items-center gap-1 rounded-md px-2 text-control text-muted-foreground transition-[color,background-color,scale,opacity] hover:bg-accent hover:text-foreground active:scale-[0.97]'
-const reduced = (): boolean => matchMedia('(prefers-reduced-motion: reduce)').matches
+/** Motion off in Settings, or Reduce motion on. */
+const reduced = still
 
 /**
  * A meeting's page, its own kind: when and how long, who was there (each voice named with one click), the recording
