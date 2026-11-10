@@ -57,7 +57,8 @@ try {
   const all = Date.now() - t0
   const label = await h.evaluate(() => document.querySelector('.pdf-find-bar .tiptap-find-bar-count')?.getAttribute('aria-label'))
   check('the first match shows within a second of typing', first < 1000, `${first}ms, then all in ${all}ms: ${label}; working shown while reading: ${seeking}`)
-  check('the current match stands out on its page', await h.evaluate(() => !!document.querySelector('.pdf-mark.is-find.is-current')), '')
+  // Drawn once its page is: given a moment, never a fixed frame.
+  check('the current match stands out on its page', await h.waitForSelector('.pdf-mark.is-find.is-current', { timeout: 2000 }).then(() => true, () => false), '')
   check('find floats over the pages column, never over Details', await h.evaluate(() => {
     const bar = document.querySelector('.pdf-find-bar').getBoundingClientRect(), col = document.querySelector('.pdf-reader-scroll').getBoundingClientRect()
     return bar.right <= col.right && bar.left >= col.left

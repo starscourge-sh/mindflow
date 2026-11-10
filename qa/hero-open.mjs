@@ -239,7 +239,9 @@ await settle(1200)
 {
   await settle(600)
   const row = await rectOf('[data-shelf-continue] [data-flex-carousel], [data-shelf-continue] [data-still-picture]')
-  if (!row) check('Continue reading: the row is there', false)
+  // "Continue reading" shows only past 4 books (10 Nov): with fewer, it only repeated the shelf right under it.
+  const books = await h.evaluate(() => document.querySelectorAll('[data-book]').length)
+  if (!row) check('Continue reading: the row is there, or the shelf is short enough not to need it', books <= 4, `${books} books`)
   else {
     await install()
     const still = await h.evaluate(() => !!document.querySelector('[data-shelf-continue] [data-still-picture]'))
@@ -447,7 +449,7 @@ if (runs(4)) {
     { name: 'Files All, Recent', view: 'media', kind: 'All', sel: '[data-pane-card] [data-recent-file="pdf"]' },
     { name: 'Files All, a shelf', view: 'media', kind: 'All', sel: '[data-pane-card] [data-pile]' },
     { name: 'Files Books, a cover', view: 'media', kind: 'Books', sel: '[data-pane-card] [data-library] [data-book]', dbl: true },
-    { name: 'Files Books, Continue reading', view: 'media', kind: 'Books', sel: '[data-pane-card] [data-shelf-continue] [data-reading-row]', canvas: true },
+    { name: 'Files Books, Continue reading', view: 'media', kind: 'Books', sel: '[data-pane-card] [data-shelf-continue] [data-reading-row]', canvas: true, optional: true },
     { name: 'Writing, a note row', view: 'articles', sel: '[data-pane-card] [data-list-space] [data-row]', beside: true },
     { name: 'Review, a deck row', view: 'review', list: true, sel: '[data-pane-card] [data-deck-row]' }
   ]
@@ -473,7 +475,7 @@ if (runs(4)) {
       if (b.top < 90 || b.bottom > innerHeight - 70) el.scrollIntoView({ block: 'center' })
       return true
     }, [one.sel.replace(/\[data-pane-card\] /g, ''), one.under])
-    if (!found) { check(`${one.name}: there to click`, false, one.sel); continue }
+    if (!found) { if (!one.optional) check(`${one.name}: there to click`, false, one.sel); continue }
     await settle(400)
     const r = await rectOf('[data-hero-probe]')
     const page = await h.evaluate(() => document.querySelector('[data-page]')?.getAttribute('data-page'))

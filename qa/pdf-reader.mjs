@@ -801,7 +801,8 @@ try {
   check('⇧C makes a fill-in-the-blank card from the sentence alone, not the heading above it', blank?.prompt === 'A _____ sentence worth keeping on page 2.', JSON.stringify(blank?.prompt))
   check('the count of cards from this source is said', /Card made: 2 from this source/.test(await h.evaluate(() => document.body.textContent)), '')
   // Snip: drag a rectangle over the page's figure (the orange square), make it a card's answer, or keep it as a gem.
-  await tool('Snip'); await wait(300)
+  // "Snip" is called "Keep a figure" now (cdc1e815): plain words a student would use.
+  await tool('Keep a figure'); await wait(300)
   check('Snip turns on a layer to drag over the pages', await h.evaluate(() => !!document.querySelector('[data-pdf-snip]')), '')
   const figure = await h.evaluate(() => {
     const page = document.querySelector('.pdf-reader .pdf-page[data-page="2"]')
