@@ -224,13 +224,15 @@ export async function truePictures(proxy: PDFPageProxy, viewport: ReturnType<PDF
       continue
     }
     const dark = ink.getImageData(x, y, w, h)
-    mixPaper(own.data, dark.data, w, h)
+    mixPaper(own.data, dark.data, w, h, tileFor(canvas.width))
     ink.putImageData(dark, x, y)
   }
 }
 
-/** The side of a square read as one piece of a page-sized picture: print, or part of a photo. */
-const TILE = 24
+/** The side of a square read as one piece of a page-sized picture (print, or part of a photo), as a share of the
+ * page's width: 24px on a page as read, a few on a thumbnail, where squares of 24 took a whole photo for print and
+ * drew it as a negative (10 Nov). */
+const tileFor = (pageWidth: number): number => Math.max(4, Math.min(24, Math.round(pageWidth / 36)))
 
 /**
  * A page-sized picture holds print and photos side by side (a portrait on a
@@ -245,7 +247,7 @@ const TILE = 24
  * paper always darkens and dark beside a photo stays the photo's, so no pale
  * rim is left round a photo.
  */
-function mixPaper(o: Uint8ClampedArray, d: Uint8ClampedArray, w: number, h: number): void {
+function mixPaper(o: Uint8ClampedArray, d: Uint8ClampedArray, w: number, h: number, TILE: number): void {
   const cols = Math.ceil(w / TILE), rows = Math.ceil(h / TILE)
   // 0 print, 1 photo, 2 not yet known.
   const kind = new Uint8Array(cols * rows)
