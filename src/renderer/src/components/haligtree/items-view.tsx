@@ -76,7 +76,7 @@ import { Proofread } from './proofread'
 import { RecentIsland } from './recent-island'
 import { askProofread } from '@/lib/grammar'
 import { ListSearch, NoteList, NoteRail, PaneButtons, Peek, matches, type Entry } from './note-list'
-import { archive, changeKind, saveAttachments, useOpenNote, useOwnOrder } from '@/lib/notes'
+import { archive, changeKind, publishSite, saveAttachments, useOpenNote, useOwnOrder } from '@/lib/notes'
 import { openApart } from '@/lib/apart'
 import { copyToBookItem } from '@/lib/books'
 import { useOpened } from '@/lib/nav'
@@ -943,6 +943,7 @@ const itemMenu = (item: Item): (MenuItem | { label: string; items: RowItem[] })[
   // Taking it elsewhere, together, so the menu stays short.
   { label: 'Export', items: [
     { label: 'Save attachments…', hint: 'Its pictures and files, to a folder', run: () => void saveAttachments([{ table: 'nuggets', id: item.id }]) },
+    { label: 'Publish as a website…', hint: 'It and the notes it links to, as web pages in a folder', run: () => void publishSite(item.id) },
     copyToBookItem([{ table: 'nuggets', id: item.id }]),
     { label: 'Copy title', run: () => copy(item.title) },
     ...pictureItems(`item-${item.id}`, item.title),

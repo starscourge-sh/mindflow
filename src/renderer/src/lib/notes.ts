@@ -232,6 +232,19 @@ export async function saveAttachments(list?: { table: NoteTable; id: string }[])
   toast(`Saved ${saved < total ? `${saved} of ${total}` : saved} ${total === 1 ? 'file' : 'files'}, under their own names`)
 }
 
+/**
+ * A note and the notes it links to (two steps out) as a small website: a
+ * folder of web pages, picked where to go, then shown in Finder. A private
+ * note is never published.
+ */
+export async function publishSite(id: string): Promise<void> {
+  const made = await waiting('Publishing…', 'working', call<{ index: string; pages: number } | false | null>('site:publish', id), 'site')
+  if (made === null) return
+  if (!made) return refuse('A private note is never published. Make it not private first')
+  chime('saved')
+  toast(`Published ${made.pages === 1 ? 'it as a web page' : `it and ${num(made.pages - 1)} linked ${made.pages === 2 ? 'note' : 'notes'} as a website`}: open index.html in any browser`)
+}
+
 /** Go to today's page, in the main window. */
 const openToday = (): void => {
   chime('day')
@@ -278,6 +291,7 @@ export function noteActions({ day = true }: { day?: boolean } = {}): Action[] {
       { label: 'Version history', hint: 'Of this note', cue: null, run: () => window.dispatchEvent(new CustomEvent('haligtree:versions', { detail: note.id })) },
       { label: detailsShown(frontPane()) ? "Hide this note's details" : "Show this note's details", cue: null, run: () => showDetails(!detailsShown(frontPane()), frontPane()) },
       { label: 'Save attachments', hint: "This note's pictures and files", cue: null, run: () => void saveAttachments([{ table: note.table, id: note.id }]) },
+      ...(note.table === 'captures' || note.table === 'nuggets' ? [{ label: 'Publish as a website…', hint: 'This note and the notes it links to, as web pages', cue: null, run: () => void publishSite(note.id) }] : []),
     ] as Action[]).map((one) => ({ ...one, own: true })),
     width,
     all

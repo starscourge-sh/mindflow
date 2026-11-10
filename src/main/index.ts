@@ -121,6 +121,7 @@ import { addMedia, kindByEnd } from './media'
 import { addSaid } from './media-words'
 import { registerWebArticles } from './web-articles'
 import { registerWordLog } from './word-log'
+import { registerSite } from './site'
 import { frostWindow, registerFrost, retellFrost } from './frost'
 import { BOOK, SANDBOX, arrived, barsHere, assetElsewhere, handedOff, windingDown, onHandOff, readShelf, realRoot, registerSandbox, relaunch, restartNow, useDataFolder, writeShelf } from './sandbox'
 import { MOVED, shortPath, untoldMove, type Moved } from './old-data'
@@ -4300,6 +4301,7 @@ app.whenReady().then(() => {
   registerPeriods()
   // Words written, counted as you save, for Stats: once every page's table is there.
   registerWordLog()
+  registerSite()
   registerMilestones()
   registerEvents((type, id) => sendHome(type, id, undefined, 'notification'))
   registerReadingQueue()
