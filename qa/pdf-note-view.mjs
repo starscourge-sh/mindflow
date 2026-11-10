@@ -39,7 +39,15 @@ const makePdf = async () => {
   return Array.from(await pdf.save())
 }
 const tool = (label) => h.locator(`${BLOCK} [data-pdf-bar] button[aria-label="${label}"]`).first()
-const press = async (label) => { await tool(label).click(); await wait(700) }
+// The page's fit, layout and colour live in the bar's one "View" menu, named in words; the sidebar keeps its own buttons.
+const MENU = { 'Fit width': 'Fit width', 'Fit height': 'Fit height: a whole page in view', 'One page': 'One page', 'Two pages': 'Two pages side by side', 'White pages': 'White pages', 'Paper pages': 'Paper pages' }
+const press = async (label) => {
+  if (MENU[label]) {
+    await tool('View').click(); await wait(300)
+    await h.locator('[data-pdf-block-view] [role^="menuitem"]', { hasText: MENU[label] }).first().click()
+  } else await tool(label).click()
+  await wait(700)
+}
 const sheets = () => h.evaluate((sel) => [...document.querySelectorAll(`${sel} .pdf-page`)].slice(0, 2).map((one) => { const r = one.getBoundingClientRect(); return { top: Math.round(r.top), left: Math.round(r.left), w: Math.round(r.width), h: Math.round(r.height) } }), BLOCK)
 const room = () => h.evaluate((sel) => { const box = document.querySelector(`${sel} .tiptap-pdf-scroll`); const s = getComputedStyle(box); return { w: box.clientWidth, h: box.clientHeight - parseFloat(s.paddingTop) - parseFloat(s.paddingBottom) } }, BLOCK)
 const state = () => h.evaluate((sel) => { const b = document.querySelector(sel); return { fit: b.dataset.pdfFit, spread: b.dataset.pdfSpread, rail: b.dataset.pdfRail, page: b.dataset.pdfPage, paper: b.classList.contains('is-paper') } }, BLOCK)
@@ -66,7 +74,7 @@ try {
   await wait(800)
 
   const labels = await h.evaluate((sel) => [...document.querySelectorAll(`${sel} [data-pdf-bar] button`)].map((one) => one.getAttribute('aria-label')), BLOCK)
-  check('the bar holds the reader\'s view choices (paper pages on by default, so its switch offers white)', JSON.stringify(labels) === JSON.stringify(['Sidebar', 'Show this page in contents', 'Fit width', 'Fit height', 'One page', 'Two pages', 'White pages']), JSON.stringify(labels))
+  check('the bar holds the sidebar, contents and one "View" menu in words', JSON.stringify(labels) === JSON.stringify(['Sidebar', 'Show this page in contents', 'View']), JSON.stringify(labels))
   const startAt = await state()
   check('it starts at fit width, one page, no sidebar', startAt.fit === 'width' && startAt.spread === 'one' && !startAt.rail, JSON.stringify(startAt))
   let [one] = await sheets()
@@ -141,7 +149,7 @@ try {
   await wait(1500)
   await press('Sidebar')
   await h.screenshot({ path: `${SHOTS}/note-pdf-dark.png` })
-  check('dark: the bar is there', (await tool('Fit height').count()) === 1)
+  check('dark: the bar is there', (await tool('View').count()) === 1)
 } catch (error) {
   check('probe ran to the end', false, String(error?.stack ?? error))
 } finally {

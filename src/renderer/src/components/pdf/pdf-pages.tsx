@@ -306,9 +306,11 @@ function mixPaper(o: Uint8ClampedArray, d: Uint8ClampedArray, w: number, h: numb
   // 0 print, 1 photo, 2 not yet known.
   const kind = new Uint8Array(cols * rows)
   const bins = new Uint32Array(32)
+  // How much of each piece is dark ink: the inside of a big letter is, a word on a grey panel is not.
+  const dim = new Float32Array(cols * rows)
   for (let ty = 0; ty < rows; ty++) for (let tx = 0; tx < cols; tx++) {
     bins.fill(0)
-    let seen = 0, paper = 0, inked = 0
+    let seen = 0, paper = 0, inked = 0, dimmed = 0
     // Every other pixel each way is enough to tell.
     for (let py = ty * TILE; py < Math.min(h, ty * TILE + TILE); py += 2) for (let px = tx * TILE; px < Math.min(w, tx * TILE + TILE); px += 2) {
       const i = (py * w + px) * 4
@@ -319,17 +321,20 @@ function mixPaper(o: Uint8ClampedArray, d: Uint8ClampedArray, w: number, h: numb
       seen++
       if (lum > 190 && chroma < 30) paper++
       else if (lum < 70) inked++
+      if (lum < 110) dimmed++
     }
     // A photo's tones gather (a cheek, a gradient); the soft edges of print spread thin across many.
     let gathered = 0
     for (let bin = 9; bin < 30; bin++) if (bins[bin] > gathered) gathered = bins[bin]
     kind[ty * cols + tx] = gathered / seen >= 0.15 ? 1 : paper / seen >= 0.1 && inked / seen < 0.5 ? 0 : 2
+    dim[ty * cols + tx] = dimmed / seen
   }
-  // A piece mostly under the page's own words is print, whatever its tones: the inside of a big black letter.
+  // A piece mostly under the page's own words and mostly dark ink is print, whatever its tones: the inside of a big
+  // black letter. Words on a grey panel are left to the tones (a light panel kept true, as before).
   for (const [x1, y1, x2, y2] of words) {
     for (let ty = Math.max(0, Math.floor(y1 / TILE)); ty < Math.min(rows, Math.ceil(y2 / TILE)); ty++) for (let tx = Math.max(0, Math.floor(x1 / TILE)); tx < Math.min(cols, Math.ceil(x2 / TILE)); tx++) {
       const cover = (Math.min(x2, tx * TILE + TILE) - Math.max(x1, tx * TILE)) * (Math.min(y2, ty * TILE + TILE) - Math.max(y1, ty * TILE))
-      if (cover >= (TILE * TILE) / 2) kind[ty * cols + tx] = 0
+      if (cover >= (TILE * TILE) / 2 && dim[ty * cols + tx] >= 0.5) kind[ty * cols + tx] = 0
     }
   }
   // Flat pieces join the photo they touch.
