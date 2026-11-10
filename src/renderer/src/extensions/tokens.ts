@@ -39,6 +39,8 @@ export function firstLineOf(doc: ProseMirrorNode): { pos: number; text: string }
   let found: { pos: number; text: string } | null = null
   doc.descendants((node, pos) => {
     if (found) return false
+    // Code is not a line of words (main/import.ts textBlocks): passed over.
+    if (node.type.spec.code) return false
     if (!node.isTextblock) return true
     const text = node.textBetween(0, node.content.size, "\n", (leaf) => (leaf.type.name === "hardBreak" ? "\n" : String(leaf.attrs.label ?? "")))
     const line = text.split("\n").find((one) => one.trim())

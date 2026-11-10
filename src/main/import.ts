@@ -231,6 +231,8 @@ export const wordsOf = (node: Node): string =>
       : (node.text ?? node.attrs?.latex ?? (node.content ?? []).map(wordsOf).join(''))
 /** The blocks that hold words directly: paragraphs and headings, however deep. */
 const textBlocks = (node: Node): Node[] =>
+  // A code block is not a line of words: a note of code alone is named "Code", never "// block 1".
+  node.type === 'codeBlock' ? [] :
   node.content?.some((child) => child.text !== undefined || child.type === 'hardBreak' || child.type === 'emoji' || child.type === 'noteLink' || child.attrs?.latex !== undefined) ? [node] : (node.content ?? []).flatMap(textBlocks)
 
 /**

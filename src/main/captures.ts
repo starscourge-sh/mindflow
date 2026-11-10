@@ -346,7 +346,7 @@ export function registerCaptures(): void {
         const bare = !!title && /^https?:\/\/\S+$/.test(line)
         // With no words at all, named for what it holds rather than "Untitled".
         name = (bare ? '' : line) || String(title ?? '') ||
-          (/"type":"image"/.test(raw) ? 'Picture' : /"type":"excalidraw"/.test(raw) ? 'Drawing' : /"type":"graph"/.test(raw) ? 'Graph' : /"type":"attachment"/.test(raw) ? 'File' : '')
+          (/"type":"image"/.test(raw) ? 'Picture' : /"type":"excalidraw"/.test(raw) ? 'Drawing' : /"type":"graph"/.test(raw) ? 'Graph' : /"type":"attachment"/.test(raw) ? 'File' : /"type":"codeBlock"/.test(raw) ? 'Code' : '')
       } catch {
         name = String(title ?? '')
       }
