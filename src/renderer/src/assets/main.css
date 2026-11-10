@@ -1159,8 +1159,9 @@ html[data-overhang] .mf-dots {
    button swallowed by it. The same for everything that floats: the selection
    bar, menus, popovers and tooltips. In Electron a no-drag hole is cut only by
    an element that says no-drag itself, so each says it. Anything portalled
-   onto the page beside the app's root floats, so it says it too. */
-body > :not(#root),
+   onto the page beside the app's root floats, so it says it too. Not the paper stage: a hidden canvas over the whole
+   window that takes no pointer, and as a hole it left nothing of the window to drag by (10 Nov). */
+body > :not(#root, [data-paper-stage]),
 [data-slot='sheet-content'],
 [data-slot='sheet-overlay'],
 [role='dialog'],

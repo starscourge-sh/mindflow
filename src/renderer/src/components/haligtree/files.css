@@ -57,7 +57,7 @@
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(170deg, color-mix(in srgb, var(--card) 18%, transparent) 0%, color-mix(in srgb, var(--card) 40%, transparent) 60%, color-mix(in srgb, var(--card) 55%, transparent) 100%);
+  background: linear-gradient(170deg, color-mix(in srgb, var(--card) 8%, transparent) 0%, color-mix(in srgb, var(--card) 22%, transparent) 60%, color-mix(in srgb, var(--card) 32%, transparent) 100%);
 }
 .files-pile-screw {
   z-index: 1;

@@ -108,7 +108,7 @@ try {
     const piles = await h.$$eval('[data-pile]', (all) => all.map((one) => ({ id: one.dataset.pile, n: Number(one.dataset.count), text: one.textContent.trim(), covers: one.querySelectorAll('.files-pile-cover').length, screws: one.querySelectorAll('.files-pile-screw').length })))
     check(`${count}: one pile per kind, counted`, piles.length === 3 && piles.every((p) => p.n === want[p.id]), JSON.stringify(piles.map((p) => p.text)))
     check(`${count}: each pile fans its newest covers (up to 4) with four screws`, piles.length > 0 && piles.every((p) => p.covers === Math.min(4, p.n) && p.screws === 4), JSON.stringify(piles.map((p) => [p.covers, p.screws])))
-    check(`${count}: each label reads as "Books · 8"`, piles.every((p) => /^(Books|Pictures|Audio) · [\d,]+$/.test(p.text.replace(/\s+/g, ' '))), piles.map((p) => p.text).join(' | '))
+    check(`${count}: each label reads as "Books · 8 books"`, piles.every((p) => /^(Books|Pictures|Audio) · [\d,]+ (books?|pictures?|recordings?)$/.test(p.text.replace(/\s+/g, ' '))), piles.map((p) => p.text).join(' | '))
     const frost = await h.evaluate(() => {
       const front = document.querySelector('.files-pile-front')
       const bg = getComputedStyle(front).backgroundColor

@@ -65,7 +65,7 @@ const FANS: { x: number; r: number; y: number }[][] = [
   [{ x: 0, r: -2, y: 0 }],
   [{ x: -11, r: -5, y: 4 }, { x: 11, r: 4, y: 0 }],
   [{ x: -20, r: -8, y: 8 }, { x: 0, r: -1, y: 0 }, { x: 20, r: 7, y: 6 }],
-  [{ x: -24, r: -8, y: 10 }, { x: -8, r: -3, y: 2 }, { x: 8, r: 3, y: 4 }, { x: 24, r: 8, y: 11 }]
+  [{ x: -20, r: -8, y: 10 }, { x: -7, r: -3, y: 2 }, { x: 7, r: 3, y: 4 }, { x: 20, r: 8, y: 11 }]
 ]
 
 /**
@@ -78,20 +78,19 @@ const FANS: { x: number; r: number; y: number }[][] = [
 export function Pile({ shelf, files, onOpen }: { shelf: (typeof SHELVES)[number]; files: Media[]; onOpen: () => void }): React.JSX.Element {
   const top = files.slice(0, 4).reverse()
   const heard = useRef(false)
-  const book = shelf.id === 'pdf'
   return (
     <button type="button" data-pile={shelf.id} data-count={files.length} onClick={(event) => (chime('open'), heroOpen(event, onOpen))}
       onPointerMove={(event) => { if (!heard.current && realMove(event)) (heard.current = true), chime('fan') }}
       onPointerLeave={() => (heard.current = false)}
-      className="files-pile group/pile flex w-[82%] max-w-[280px] min-w-0 cursor-pointer flex-col gap-2.5 text-left outline-none">
+      className="files-pile group/pile flex w-[82%] max-w-[280px] min-w-0 cursor-pointer flex-col gap-2.5 justify-self-center text-center outline-none">
       {/* 82% of its column's width but as tall as a 5:4 shelf the column's full width: narrower, never shorter. */}
       <span className="files-pile-box relative block aspect-[41/40] w-full">
         {top.map((one, at) => {
           const fan = FANS[top.length][at]
           return (
-            <span key={one.src} className="files-pile-cover absolute bottom-[24%] left-1/2 block w-[38%] overflow-hidden rounded-[4px] shadow-[0_1px_2px_rgb(0_0_0/0.12),0_6px_16px_-6px_rgb(0_0_0/0.25)] ring-1 ring-foreground/10"
+            <span key={one.src} className="files-pile-cover absolute bottom-[24%] left-1/2 block w-[42%] overflow-hidden rounded-[4px] shadow-[0_1px_2px_rgb(0_0_0/0.12),0_6px_16px_-6px_rgb(0_0_0/0.25)] ring-1 ring-foreground/10"
               style={{ '--x': `${fan.x}%`, '--r': `${fan.r}deg`, '--y': `${fan.y}%` } as React.CSSProperties}>
-              <Cover one={one} className={book ? 'aspect-[3/4]' : 'aspect-square'} />
+              <Cover one={one} className="aspect-[3/4]" />
             </span>
           )
         })}
@@ -103,9 +102,9 @@ export function Pile({ shelf, files, onOpen }: { shelf: (typeof SHELVES)[number]
           {['top-2 left-2', 'top-2 right-2', 'bottom-2 left-2', 'bottom-2 right-2'].map((at) => <span key={at} aria-hidden className={`files-pile-screw absolute ${at}`} />)}
         </span>
       </span>
-      <span className="flex min-w-0 items-baseline gap-1.5 px-0.5 text-body">
+      <span className="flex min-w-0 items-baseline justify-center gap-1.5 px-0.5 text-body">
         <span className="font-medium text-foreground">{shelf.label}</span>{' '}
-        <span role="img" className="text-muted-foreground tabular-nums" aria-label={plural(files.length, shelf.one, shelf.many)}>· {num(files.length)}</span>
+        <span className="text-muted-foreground tabular-nums">· {plural(files.length, shelf.one, shelf.many)}</span>
       </span>
     </button>
   )
