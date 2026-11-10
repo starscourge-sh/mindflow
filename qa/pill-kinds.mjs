@@ -117,12 +117,14 @@ try {
       if (grown) { await page.keyboard.press('Enter'); await page.keyboard.type('two') }
       await wait(700)
       if (on) { await page.keyboard.press('Escape'); await wait(200) }
-      await page.keyboard.press('Meta+/'); await wait(900)
-      const open = await sheet()
-      check(`${grown ? 'grown box' : 'pill'}, ${mode}: ⌘/ opens the shortcuts, whole in the window`, !!open && open.inside, JSON.stringify(open))
-      if (shots && !grown) await page.screenshot({ path: join(shots, `cmd-slash-${on ? 'vim' : 'plain'}.png`) })
-      await page.keyboard.press('Escape'); await wait(500)
-      check(`${grown ? 'grown box' : 'pill'}, ${mode}: Esc puts the shortcuts away`, !(await sheet()))
+      await page.keyboard.press('Meta+/'); await wait(1200)
+      // Quick capture is a small card over the desktop: ⌘/ opens the whole list in the main window (shortcut-sheet.tsx), never a box in the card.
+      const home = c.h
+      const inHome = await home.evaluate(() => { const d = document.querySelector('[role=dialog][aria-label="Keyboard shortcuts"]'); if (!d) return null; const r = d.getBoundingClientRect(); return { inside: r.top >= 0 && r.bottom <= innerHeight + 1 && r.height > 100 } })
+      check(`${grown ? 'grown box' : 'pill'}, ${mode}: ⌘/ opens the shortcuts in the main window, whole`, !!inHome && inHome.inside && !(await sheet()), JSON.stringify({ inHome, inCard: await sheet() }))
+      if (shots && !grown) await home.screenshot({ path: join(shots, `cmd-slash-${on ? 'vim' : 'plain'}.png`) })
+      await home.keyboard.press('Escape'); await wait(500)
+      check(`${grown ? 'grown box' : 'pill'}, ${mode}: Esc puts the shortcuts away`, !(await home.evaluate(() => !!document.querySelector('[role=dialog][aria-label="Keyboard shortcuts"]'))))
     }
   }
   await vim(false)
