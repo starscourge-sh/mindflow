@@ -212,9 +212,9 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
     const order = Array.from({ length: total }, (_, i) => ((page - 1 + i) % total) + 1)
     const hits = new Map<number, PdfMark[]>()
     let shown = false
-    // Eight pages at a time: the worker reads them back to back, and the count grows as each batch is in.
-    for (let i = 0; i < order.length; i += 8) {
-      const batch = order.slice(i, i + 8)
+    // 24 pages at a time: the worker reads them back to back, and the count grows as each batch is in.
+    for (let i = 0; i < order.length; i += 24) {
+      const batch = order.slice(i, i + 24)
       const texts = await Promise.all(batch.map((n) => textOf(loaded, n).catch(() => "")))
       if (run !== findRun.current) return
       batch.forEach((n, k) => {
