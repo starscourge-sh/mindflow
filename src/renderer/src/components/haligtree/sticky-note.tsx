@@ -9,6 +9,7 @@ import { Plugin } from '@tiptap/pm/state'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import ExternalLinkIcon from '@/components/ui/external-link-icon'
 import { Minus } from 'lucide-react'
+import { Lexer, type Token, type Tokens } from 'marked'
 
 import '@/assets/styles/_variables.scss'
 // The checkbox a checklist line has in a note, so a ticked box looks the same here.
@@ -59,28 +60,58 @@ type Todo = { done: boolean; text: string; at: number[] }
 
 const words = (node: Node): string => node.text ?? (node.content ?? []).map(words).join('')
 
+/** Inline Markdown as the editor's text nodes: words with their bold, italics, strike, code and links' words. */
+const inlineOf = (tokens: Token[] = [], marks: { type: string }[] = []): Node[] => tokens.flatMap((one): Node[] => {
+  const t = one as Tokens.Generic
+  if (t.type === 'strong' || t.type === 'em' || t.type === 'del' || t.type === 'codespan') {
+    const mark = { type: t.type === 'strong' ? 'bold' : t.type === 'em' ? 'italic' : t.type === 'del' ? 'strike' : 'code' }
+    return t.type === 'codespan' ? [{ type: 'text', text: t.text, marks: [...marks, mark] }] : inlineOf(t.tokens, [...marks, mark])
+  }
+  if (t.type === 'br') return [{ type: 'hardBreak' }]
+  if (t.type === 'image') return []
+  if (t.tokens?.length) return inlineOf(t.tokens, marks)
+  return t.text ? [{ type: 'text', text: t.text, ...(marks.length ? { marks } : {}) }] : []
+})
+
 /**
- * A note never opened in the editor is still Markdown: read just enough of it
- * to draw (headings, lists, checklist lines, paragraphs), each checklist line remembering its line.
+ * A note never opened in the editor is still Markdown: read by the same reader the editor uses (marked), so
+ * a quote, bold and links draw as they do on the page, never as > and **. Each checklist line keeps the line it
+ * sits on, so a tick here writes the right line back.
  */
 const fromMarkdown = (markdown: string): Node => {
-  const para = (text: string): Node => ({ type: 'paragraph', content: text ? [{ type: 'text', text }] : [] })
-  const content: Node[] = []
-  markdown.split('\n').forEach((line, at) => {
-    const task = /^\s*[-*+]\s+\[([ xX])\]\s?(.*)$/.exec(line)
-    const bullet = /^\s*([-*+]|\d+[.)])\s+(.*)$/.exec(line)
-    const heading = /^(#{1,6})\s+(.*)$/.exec(line)
-    const kind = task ? 'taskList' : bullet ? (/\d/.test(bullet[1]) ? 'orderedList' : 'bulletList') : null
-    const item: Node | null = task
-      ? { type: 'taskItem', attrs: { checked: task[1] !== ' ', line: at }, content: [para(task[2])] }
-      : bullet ? { type: 'listItem', content: [para(bullet[2])] } : null
-    const last = content[content.length - 1]
-    if (item && last?.type === kind) last.content!.push(item)
-    else if (item) content.push({ type: kind!, content: [item] })
-    else if (heading) content.push({ type: 'heading', content: [{ type: 'text', text: heading[2] }] })
-    else if (line.trim()) content.push(para(line.trim()))
+  // The lines checklist items sit on, in reading order: the nth task item read is the nth of these.
+  const taskLines = markdown.split('\n').flatMap((line, at) => (/^\s*(?:>\s*)*[-*+]\s+\[[ xX]\]/.test(line) ? [at] : []))
+  let nth = 0
+  const para = (inner: Node[]): Node => ({ type: 'paragraph', content: inner })
+  const blocks = (tokens: Token[] = []): Node[] => tokens.flatMap((one): Node[] => {
+    const t = one as Tokens.Generic
+    switch (t.type) {
+      case 'heading': return [{ type: 'heading', attrs: { level: t.depth }, content: inlineOf(t.tokens) }]
+      case 'paragraph': case 'text': return [para(t.tokens ? inlineOf(t.tokens) : t.text ? [{ type: 'text', text: t.text }] : [])]
+      case 'blockquote': return [{ type: 'blockquote', content: blocks(t.tokens) }]
+      case 'code': return [{ type: 'codeBlock', content: [{ type: 'text', text: t.text }] }]
+      case 'hr': return [{ type: 'horizontalRule' }]
+      case 'list': {
+        // A list that mixes checklist lines and plain ones draws as runs of each, as the editor keeps them.
+        const out: Node[] = []
+        for (const item of (t as Tokens.List).items) {
+          const rest = blocks(item.tokens.filter((k) => k.type !== 'checkbox'))
+          const node: Node = item.task
+            ? { type: 'taskItem', attrs: { checked: !!item.checked, line: taskLines[nth++] ?? -1 }, content: rest }
+            : { type: 'listItem', content: rest }
+          const kind = item.task ? 'taskList' : t.ordered ? 'orderedList' : 'bulletList'
+          const last = out[out.length - 1]
+          if (last?.type === kind) last.content!.push(node)
+          else out.push({ type: kind, ...(kind === 'orderedList' ? { attrs: { start: Number(t.start) || 1 } } : {}), content: [node] })
+        }
+        return out
+      }
+      case 'table': return (t as Tokens.Table).rows.map((row) => para(row.flatMap((cell, at) => [...(at ? [{ type: 'text', text: ' · ' }] : []), ...inlineOf(cell.tokens)])))
+      case 'space': return []
+      default: return t.text?.trim() ? [para([{ type: 'text', text: t.text.trim() }])] : []
+    }
   })
-  return { type: 'doc', content }
+  return { type: 'doc', content: blocks(new Lexer({ gfm: true }).lex(markdown)) }
 }
 
 /** Every checklist line in the doc, in reading order. */
@@ -104,6 +135,7 @@ const withTodo = (body: unknown, todo: Todo, done: boolean): unknown => {
     let node: Node = doc
     for (const at of same.at) node = node.content![at]
     const line = node.attrs!.line as number
+    if (!(line >= 0 && line < lines.length)) return null
     lines[line] = lines[line].replace(/\[[ xX]\]/, done ? '[x]' : '[ ]')
     return lines.join('\n')
   }

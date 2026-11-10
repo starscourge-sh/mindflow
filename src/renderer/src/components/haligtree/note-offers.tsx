@@ -4,6 +4,7 @@ import { Copy, FolderInput, Link2, Sparkles, UserRoundPlus, VenetianMask, X } fr
 
 import { call, haligtree } from '@/lib/haligtree'
 import { follow } from '@/lib/capture-links'
+import { markdownToDocument } from '@/lib/markdown-doc'
 import { moveToBin } from '@/lib/to-bin'
 import { sources } from '@/lib/sources'
 import { chime } from '@/lib/sound'
@@ -180,7 +181,8 @@ export function NoteOffers({ table, id, editor, onOpen }: { table: 'captures' | 
       { label: 'Join them', data: 'join', run: async () => {
         const [type, other] = offer.key.includes(':') ? [offer.key.slice(0, offer.key.indexOf(':')), offer.key.slice(offer.key.indexOf(':') + 1)] : ['capture', offer.key]
         const body = (type === 'capture' ? (await window.api.captures.get(other))?.body : (await haligtree.item(other))?.body) as JSONContent | string | null | undefined
-        const content: JSONContent[] = typeof body === 'string' ? body.split(/\n{2,}/).map((text) => ({ type: 'paragraph', content: text.trim() ? [{ type: 'text', text: text.trim() }] : [] })) : (body?.content ?? [])
+        // A note kept as Markdown is read as the editor reads it, so its quotes and bold join as quotes and bold, never as > and **.
+        const content: JSONContent[] = typeof body === 'string' ? (markdownToDocument(editor, body).content ?? []) : (body?.content ?? [])
         editor.chain().focus('end').insertContent([{ type: 'horizontalRule' }, ...content]).run()
         await moveToBin([{ type: type === 'capture' ? 'capture' : 'item', id: other }])
         done()
