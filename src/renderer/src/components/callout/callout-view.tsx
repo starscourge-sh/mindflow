@@ -7,6 +7,14 @@ import { cue } from "@/lib/cues"
 
 import type { BlockColor } from "@/extensions/block-color"
 import { ChevronRight } from "@/components/ui/icons"
+import { Lightbulb } from "lucide-react"
+
+/**
+ * The default callout's 💡, drawn as a line icon in the callout's own colour:
+ * the colour emoji was the one cartoon on a page of paper and ink. A chosen
+ * emoji still shows as itself, and the note still saves the 💡.
+ */
+const DRAWN: Record<string, React.ReactNode> = { "💡": <Lightbulb className="tiptap-callout-drawn" aria-hidden /> }
 
 /**
  * A tinted box with an icon you can change, and anything you like inside.
@@ -47,6 +55,7 @@ export function CalloutView(props: NodeViewProps): React.JSX.Element {
         icon={icon}
         color={color}
         className="tiptap-callout-icon"
+        drawn={DRAWN[icon]}
         onPick={props.updateAttributes}
       />
       {/* Kept while its words are cleared, so the field is still there to type in. */}

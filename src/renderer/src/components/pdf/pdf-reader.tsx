@@ -500,7 +500,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
     })
     const canvas = sheet?.querySelector<HTMLCanvasElement>("canvas")
     setSnip(null)
-    if (!sheet || !canvas) return said("Snip on a page: drag over a figure or an equation")
+    if (!sheet || !canvas) return said("Drag over a figure or an equation on a page")
     const drawn = canvas.getBoundingClientRect()
     const scale = canvas.width / drawn.width
     const out = document.createElement("canvas")
@@ -520,10 +520,10 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
     const { author, where } = await whereFrom(one.page)
     const gem = await call<string>("nugget:from", `![](${one.src})\n\n[${where}](${pdfLink(src, name, one.page, "")})`, { attribution: author || null, medium: title, passage: `p. ${one.page}`, kind: "quote" })
     // Named for what it is, a figure from this page: its first line is the picture, which no list can show as a name.
-    await call("item:save", gem, { title: `Snip from ${where}` })
+    await call("item:save", gem, { title: `Figure from ${where}` })
     setSnipped(null)
     chime("saved")
-    said("Kept as a gem", true, { type: "nugget", id: gem, title: `Snip from ${where}` })
+    said("Kept as a gem", true, { type: "nugget", id: gem, title: `Figure from ${where}` })
   }
   // Esc leaves snipping, and drops a snip not yet used.
   useEffect(() => {
@@ -882,7 +882,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
               <Sparkles className="tiptap-button-icon" />
             </Button>
           )}
-          <Button data-style="ghost" aria-label="Snip" title="Snip a figure or an equation onto a card: drag over it" data-active-state={snipping ? "on" : "off"} onClick={() => (setSnipping(!snipping), setSnip(null), setSnipped(null))}>
+          <Button data-style="ghost" aria-label="Keep a figure" title="Keep a figure or an equation as a picture: drag over it" data-active-state={snipping ? "on" : "off"} onClick={() => (setSnipping(!snipping), setSnip(null), setSnipped(null))}>
             <Scissors className="tiptap-button-icon" />
           </Button>
           <Button data-style="ghost" aria-label="Find" title="Find  ⌘F" data-active-state={finding ? "on" : "off"} onClick={() => (finding ? closeFind() : (setFinding(true), requestAnimationFrame(() => findField.current?.focus())))}>
@@ -1046,7 +1046,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
             {carding && (
               <WhyAfter
                 at={carding}
-                ask={{ kept: carding.quote.startsWith("![](") ? "Answer: the snip" : `Answer: ${carding.quote.length > 28 ? `${carding.quote.slice(0, 27)}…` : carding.quote}`, label: "The card's question", placeholder: carding.quote.startsWith("![](") ? "The question this snip answers" : "The question these words answer" }}
+                ask={{ kept: carding.quote.startsWith("![](") ? "Answer: the figure" : `Answer: ${carding.quote.length > 28 ? `${carding.quote.slice(0, 27)}…` : carding.quote}`, label: "The card's question", placeholder: carding.quote.startsWith("![](") ? "The question this figure answers" : "The question these words answer" }}
                 onSave={(question) => {
                   void cardOf(question, carding.quote, carding.page, !!walking, carding.gem)
                   const one = marks.find((each) => each.id === carding.markId)

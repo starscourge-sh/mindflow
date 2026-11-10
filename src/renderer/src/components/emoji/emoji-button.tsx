@@ -20,11 +20,14 @@ export function EmojiButton({
   icon,
   color,
   className,
+  drawn,
   onPick,
 }: {
   icon: string
   color?: BlockColor
   className?: string
+  /** Shown in place of the emoji: a line icon drawn in the app's own look. */
+  drawn?: React.ReactNode
   onPick: (change: { icon?: string; color?: BlockColor }) => void
 }): React.JSX.Element {
   const [open, setOpen] = useState(false)
@@ -34,8 +37,8 @@ export function EmojiButton({
       <PopoverTrigger asChild>
         {/* `contentEditable={false}`, or inside an editor the caret can be put
             in the button and the emoji typed over. */}
-        <button type="button" className={className} contentEditable={false}>
-          {icon}
+        <button type="button" className={className} contentEditable={false} aria-label="Change the icon">
+          {drawn ?? icon}
         </button>
       </PopoverTrigger>
 

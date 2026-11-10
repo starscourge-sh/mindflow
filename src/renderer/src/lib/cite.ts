@@ -104,7 +104,7 @@ async function lookUp(editor: Editor, id: string): Promise<void> {
 
 /** "Cite a source": a DOI, an ISBN or a work's title, a page if given; the chip goes in at once. */
 export async function citeInto(editor: Editor, given?: string, range?: { from: number; to: number }): Promise<void> {
-  const typed = given ?? (await ask('Cite a source', 'A DOI, an ISBN or a work’s title, then p. 82 if you like', { action: 'Cite', field: 'medium' }))
+  const typed = given ?? (await ask('Cite a source', 'A DOI, an ISBN or a work’s title, then p. 82 if you like', { action: 'Add citation', field: 'medium' }))
   if (!typed?.trim()) return
   const { text, page } = splitPage(typed)
   const id = doiIn(text) ?? isbnIn(text)
