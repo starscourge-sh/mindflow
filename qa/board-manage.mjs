@@ -78,12 +78,23 @@ try {
   const menuBox = await h.evaluate(() => { const one = [...document.querySelectorAll('[role="menu"]')].at(-1)?.getBoundingClientRect(); return one && { x: Math.round(one.left), y: Math.round(one.top) } })
   check('a right click opens the card\'s menu where it was clicked', !!menuBox && Math.abs(menuBox.x - (box.x + 60)) < 12 && Math.abs(menuBox.y - (box.y + box.height / 2)) < 12, `${JSON.stringify(menuBox)} vs ${Math.round(box.x + 60)},${Math.round(box.y + box.height / 2)}`)
   check('its lines: Make a study card among them, Delete card last', right.some((one) => one.startsWith('Make a study card')) && /^Delete card/.test(right.at(-1)), right.join(' | '))
-  const doneLine = await h.locator('[role="menu"] [role^="menuitem"]', { hasText: /^Done/ }).last().boundingBox()
-  await h.mouse.move(doneLine.x + 20, doneLine.y + doneLine.height / 2)
-  await h.mouse.up({ button: 'right' })
+  // A menu pushed up under the pointer (a tall card, the window's foot): the button let go where it went down, over
+  // "Done". Its release comes to the line as it would, at the press's own place.
+  const press = { x: box.x + 60, y: box.y + box.height / 2 }
+  const isTicked = () => h.evaluate(() => [...document.querySelectorAll('[data-board] [data-board-card]')].find((one) => one.textContent.includes('pack the van'))?.querySelector('[role="checkbox"]')?.getAttribute('aria-checked'))
+  const release = (at) => h.evaluate(({ x, y }) => { const line = [...[...document.querySelectorAll('[role="menu"]')].at(-1).querySelectorAll('[role^="menuitem"]')].find((one) => /^Done/.test(one.textContent.trim())); line.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, cancelable: true, clientX: x, clientY: y, button: 2, pointerType: 'mouse' })) }, at)
+  await release(press)
   await wait(400)
-  const ticked = await h.evaluate(() => [...document.querySelectorAll('[data-board] [data-board-card]')].find((one) => one.textContent.includes('pack the van'))?.querySelector('[role="checkbox"]')?.getAttribute('aria-checked'))
-  check('letting go of the right click over "Done" ticks nothing, and the menu stays', ticked === 'false' && (await lines()).length > 0, `ticked ${ticked}`)
+  check('letting go of the right click where it went down, over "Done", ticks nothing, and the menu stays', (await isTicked()) === 'false' && (await lines()).length > 0, `ticked ${await isTicked()}`)
+  await h.mouse.up({ button: 'right' })
+  await wait(200)
+  // Carried onto "Done" and let go there, as a Mac menu allows: that picks it.
+  const doneLine = await h.locator('[role="menu"] [role^="menuitem"]', { hasText: /^Done/ }).last().boundingBox()
+  await release({ x: doneLine.x + 20, y: doneLine.y + doneLine.height / 2 })
+  await wait(500)
+  check('pressed, carried onto "Done" and let go there, it ticks the card', (await isTicked()) === 'true', `ticked ${await isTicked()}`)
+  await h.keyboard.press('Meta+z')
+  await wait(400)
   await shut()
   // The ⋯ opens the same lines, under it.
   await van.hover()
@@ -168,6 +179,33 @@ try {
   check('F folds it, to a strip as tall as its name, not the whole board', !!folded && folded.h < folded.board - 100, JSON.stringify(folded))
   await h.mouse.move(900, 820)
   await both(join(shots, 'managed'))
+
+  // Frames every 50ms: a card deleted with ⌫ fades where it stands, then the cards under it glide up; a list moved
+  // with ⌥⇧→ glides along. Read in the page per frame, and shot.
+  mkdirSync(join(shots, 'frames'), { recursive: true })
+  await h.locator('[data-board] [data-board-card]', { hasText: 'pack the van' }).first().click()
+  await wait(200)
+  await h.evaluate(() => {
+    window.__frames = []
+    const read = () => {
+      const lane = [...document.querySelectorAll('[data-board] [data-lane]')].find((one) => one.querySelector('[data-lane-name]')?.textContent === 'Todo')
+      const cards = [...(lane?.querySelectorAll('[data-board-card]') ?? [])]
+      window.__frames.push({ t: performance.now(), n: cards.length, ops: cards.map((one) => Number(getComputedStyle(one).opacity).toFixed(2)).join(','), ys: cards.map((one) => Math.round(one.getBoundingClientRect().top)).join(',') })
+      if (window.__frames.length < 120) requestAnimationFrame(read)
+    }
+    requestAnimationFrame(read)
+  })
+  await h.keyboard.press('Backspace')
+  for (let at = 0; at < 10; at++) { const t0 = Date.now(); await h.screenshot({ path: join(shots, 'frames', `delete-${String(at).padStart(2, '0')}.png`) }); await wait(Math.max(0, 50 - (Date.now() - t0))) }
+  await wait(400)
+  const frames = await h.evaluate(() => window.__frames)
+  const faded = frames.some((one) => one.n === 3 && one.ops.split(',').some((op) => op !== '1.00' && Number(op) > 0))
+  const goneAt = frames.findIndex((one) => one.n === 2)
+  const ys = frames.slice(goneAt, goneAt + 12).map((one) => one.ys.split(',')[0])
+  check('⌫ on a card: it fades where it stands, then it goes and the next card glides up into its room', faded && goneAt > 0 && new Set(ys).size > 2, `faded ${faded}; gone at frame ${goneAt}; first card top ${ys.join(' ')}`)
+  check('the deleted card\'s place is drawn whole again for the card that took it', (await h.evaluate(() => [...document.querySelectorAll('[data-board] [data-board-card]')].filter((one) => getComputedStyle(one).opacity !== '1').length)) === 0)
+  await h.keyboard.press('Meta+z')
+  await wait(500)
 } catch (error) {
   check('the run finished', false, error.message.split('\n')[0])
 } finally {

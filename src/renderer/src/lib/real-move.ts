@@ -56,18 +56,21 @@ export function stopStillMoves(event: { nativeEvent: Event; stopPropagation: () 
 }
 
 /**
- * Whether the last press was a right click (or a control-click). A right
- * click opens its menu as the button goes down, so the menu can open under the
- * pointer (pushed up off the window's foot); Radix picks a row the pointer is
- * let go on, and the very release of that right click ticked "Done".
+ * Where the last right click (or control-click) went down. A right click opens
+ * its menu as the button goes down, so the menu can open under the pointer
+ * (pushed up off the window's foot); Radix picks a row the pointer is let go
+ * on, and the very release of that right click ticked "Done".
  */
-let rightPress = false
-if (typeof window !== 'undefined') window.addEventListener('pointerdown', (event) => void (rightPress = event.button === 2 || (event.button === 0 && event.ctrlKey)), { capture: true, passive: true })
+let rightPress: { x: number; y: number } | null = null
+if (typeof window !== 'undefined') window.addEventListener('pointerdown', (event) => void (rightPress = event.button === 2 || (event.button === 0 && event.ctrlKey) ? { x: event.clientX, y: event.clientY } : null), { capture: true, passive: true })
 
-/** For a Radix menu row's `onPointerUp`: the release of the right click that opened the menu picks nothing. */
-export function notTheOpeningRelease<E extends { preventDefault: () => void }>(own?: (event: E) => void): (event: E) => void {
+/**
+ * For a Radix menu row's `onPointerUp`: the release of the right click that opened the menu picks nothing where
+ * it went down. Pressed, carried onto a line and let go there, as a Mac menu allows, it still picks that line.
+ */
+export function notTheOpeningRelease<E extends { clientX: number; clientY: number; preventDefault: () => void }>(own?: (event: E) => void): (event: E) => void {
   return (event) => {
     own?.(event)
-    if (rightPress) event.preventDefault()
+    if (rightPress && Math.hypot(event.clientX - rightPress.x, event.clientY - rightPress.y) < 6) event.preventDefault()
   }
 }
