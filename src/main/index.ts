@@ -3032,6 +3032,27 @@ function createWindow(): void {
   app.on('did-resign-active', toOtherApp)
   app.on('browser-window-focus', toOtherWindow)
   if (process.platform !== 'darwin') mainWindow.on('blur', blurred)
+  // Kept open (auto-hide off) and you click or switch to something under it or close by: it glides, whole, to the
+  // corner of its screen furthest from the pointer, so what you went to use is free (10 Nov). The Mac tells a window
+  // where the pointer is, not where another app's clicks or keys land, so this is the moment it can act on.
+  const stepAside = (): void => void setImmediate(() => {
+    if (box.isDestroyed() || !box.isVisible() || box.isFocused() || boxAutoHide() || dialogs || throwing) return
+    if (process.env.HALIGTREE_QA_AWAY && !process.env.HALIGTREE_QA_STEPASIDE) return
+    const focused = BrowserWindow.getFocusedWindow()
+    if (focused && focused.getParentWindow() === box) return
+    const at = screen.getCursorScreenPoint()
+    const b = box.getBounds()
+    const near = 48
+    if (at.x < b.x - near || at.x > b.x + b.width + near || at.y < b.y - near || at.y > b.y + b.height + near) return
+    const area = screen.getDisplayMatching(b).workArea
+    const ways = [[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([dx, dy]) => {
+      const to = throwSpot(b, area, dx, dy)
+      return { dx, dy, far: Math.hypot(to.x + b.width / 2 - at.x, to.y + b.height / 2 - at.y) }
+    })
+    const best = ways.reduce((a, w) => (w.far > a.far ? w : a))
+    throwBox(box, best.dx, best.dy)
+  })
+  mainWindow.on('blur', stepAside)
   mainWindow.once('closed', () => {
     app.off('did-resign-active', toOtherApp)
     app.off('browser-window-focus', toOtherWindow)
