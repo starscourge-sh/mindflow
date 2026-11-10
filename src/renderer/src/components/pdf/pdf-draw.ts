@@ -97,30 +97,29 @@ export const keepPage = (key: string, canvas: HTMLCanvasElement): void => {
 }
 
 /**
- * Whether the pages are being scrolled now, and until when: thumbnails wait
- * for the pages to rest (a pause of `REST` ms), so a fast scroll never draws
- * the rail's pictures between its frames, and the rail does not glide behind it.
+ * The end of a fling: the pages resting a moment (`REST` ms) ends it, if no
+ * slower scroll did first. While one is on, thumbnails wait and the rail keeps
+ * up at once instead of gliding; a jump or reading pace changes nothing.
  */
 const REST = 150
 let moving = 0
-const onStill: (() => void)[] = []
-export const pagesMoving = (): boolean => moving !== 0
+/** Whether the pages are flung now: the rail keeps up at once rather than glide behind every page passed. */
+export const pagesMoving = (): boolean => flinging
 /** Told by the pages on each scroll. */
 export function pagesScrolled(): void {
   window.clearTimeout(moving)
   moving = window.setTimeout(() => {
     moving = 0
-    onStill.splice(0).forEach((run) => run())
     if (flinging) calmed()
   }, REST)
 }
-/** `run` now if the pages rest, else once they do; the answer drops it if it has not run. */
+/** `run` now unless the pages are flung, else once they slow or rest; the answer drops it if it has not run. */
 export function whenStill(run: () => void): () => void {
-  if (!moving) return run(), () => {}
-  onStill.push(run)
+  if (!flinging) return run(), () => {}
+  onCalm.push(run)
   return () => {
-    const at = onStill.indexOf(run)
-    if (at >= 0) onStill.splice(at, 1)
+    const at = onCalm.indexOf(run)
+    if (at >= 0) onCalm.splice(at, 1)
   }
 }
 
