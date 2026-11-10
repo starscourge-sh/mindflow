@@ -336,6 +336,40 @@
   --mf-panel-shadow:
     0 1px 2px color-mix(in oklab, var(--mf-shadow-ink) 16%, transparent),
     0 12px 32px -6px color-mix(in oklab, var(--mf-shadow-ink) 32%, transparent);
+  /* The one fill of everything that floats over other apps (stickies, quick
+     capture, the pill, the meeting card, the nudge): the theme's popover,
+     drawn over Canvas by each surface so it is always opaque. */
+  --mf-float: var(--popover);
+  --mf-float-ring: color-mix(in oklab, var(--foreground) 10%, transparent);
+  /* Practice gold: a practice's first five minutes, its tick and its glow. */
+  --mf-gold: oklch(0.8 0.15 82);
+  --mf-gold-ink: oklch(0.25 0.05 80);
+  /* A break's mint (focus-pill.tsx): the pill turns these while you rest, the light and dark sets side by side; and the sparks as a break arrives. */
+  --mf-mint-ink-light: oklch(0.3 0.06 168);
+  --mf-mint-muted-light: oklch(0.45 0.07 168);
+  --mf-mint-rule-brutal-light: oklch(0.2 0.04 168);
+  --mf-mint-rule-light: oklch(0.85 0.05 165);
+  --mf-mint-accent-light: oklch(0.89 0.06 165);
+  --mf-mint-brand-light: oklch(0.58 0.14 160);
+  --mf-mint-ink-dark: oklch(0.96 0.03 165);
+  --mf-mint-muted-dark: oklch(0.8 0.06 165);
+  --mf-mint-rule-brutal-dark: oklch(0.92 0.05 165);
+  --mf-mint-rule-dark: oklch(0.44 0.06 170);
+  --mf-mint-accent-dark: oklch(0.38 0.06 170);
+  --mf-mint-brand-dark: oklch(0.82 0.15 158);
+  --mf-mint-on-brand-dark: oklch(0.22 0.05 170);
+  --mf-mint-fill-paper-light: oklch(0.95 0.04 160);
+  --mf-mint-fill-paper-dark: oklch(0.3 0.05 168);
+  --mf-mint-fill-light: oklch(0.9 0.12 158);
+  --mf-mint-fill-dark: oklch(0.4 0.09 165);
+  --mf-mint-soft-top-light: oklch(0.975 0.035 140);
+  --mf-mint-soft-foot-light: oklch(0.93 0.06 168);
+  --mf-mint-soft-top-dark: oklch(0.31 0.055 172);
+  --mf-mint-soft-foot-dark: oklch(0.24 0.05 195);
+  --mf-spark-mint: oklch(0.72 0.15 160);
+  --mf-spark-gold: oklch(0.82 0.16 80);
+  --mf-spark-coral: oklch(0.7 0.17 25);
+  --mf-spark-blue: oklch(0.68 0.14 250);
 }
 /* On a dark page a shadow of the page's own dark ink is the page's colour and cannot be seen: a floating menu (the
    @ and / menus, every popover) then sat flat on it, its hairline alone saying it floats. Black, and fuller.
@@ -3504,33 +3538,6 @@ textarea[data-talking]::selection {
 .mf-faded[data-caret-room] .haligtree-editor-wrapper { display: flex; flex-direction: column; }
 .mf-faded[data-caret-room] .haligtree-editor-wrapper > .haligtree-editor-content { flex: 1 1 auto; min-height: 0; }
 .mf-faded[data-caret-room] .haligtree-editor-wrapper > [data-find-holder] { position: relative; bottom: auto; flex: none; }
-/* Quick capture on real glass (windows/box.tsx, main/glass.ts), Raycast's look: the Mac blurs and darkens the desktop
-   under the card, its round controls and the hint, and each lets that through under a wash of its own page colour,
-   strong enough that the words keep their contrast, with a soft lighter rim where the light catches the edge. Every
-   surface inside the card that painted its own page colour leaves it to the card. Without glass (Reduce
-   Transparency, a solid look) nothing here applies and each stays opaque. */
-html[data-overhang][data-glass] {
-  --mf-glass-fill: color-mix(in oklab, var(--background) 72%, transparent);
-  --mf-glass-rim: inset 0 0 0 1px color-mix(in oklab, white 9%, transparent), inset 0 1px 0 color-mix(in oklab, white 12%, transparent);
-}
-html[data-overhang][data-glass='dark'] {
-  --mf-glass-fill: color-mix(in oklab, var(--background) 58%, transparent);
-}
-html[data-overhang][data-glass] .app-container {
-  background-color: var(--mf-glass-fill);
-  box-shadow: var(--mf-glass-rim), 0 12px 32px -6px color-mix(in oklab, var(--mf-shadow-ink) 32%, transparent);
-}
-html[data-overhang][data-glass] :is(.mf-pill button, [data-aside] > *):not([data-picked]) {
-  background: var(--mf-glass-fill);
-  box-shadow: var(--mf-glass-rim), 0 6px 16px -6px color-mix(in oklab, var(--mf-shadow-ink) 32%, transparent);
-}
-html[data-overhang][data-glass] :is(.mf-pill button, [data-aside] > *):not([data-picked]):hover {
-  background: color-mix(in oklab, var(--foreground) 10%, var(--mf-glass-fill));
-}
-html[data-overhang][data-glass] [data-hint-room] [data-hint-surface] {
-  background-color: var(--mf-glass-fill);
-  box-shadow: var(--mf-glass-rim), 0 6px 16px -6px color-mix(in oklab, var(--mf-shadow-ink) 32%, transparent);
-}
 /* Stickies on real glass (windows/sticky.tsx, lib/glass.ts): how much of the theme's paper washes over the Mac's blur.
    The whole paper with no glass under it (Reduce Transparency, a solid look); on glass, Raycast's mix: the desktop's
    colour through a dark page darkened, and through a light one paled, the words keeping their contrast. A thin

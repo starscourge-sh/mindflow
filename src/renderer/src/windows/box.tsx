@@ -10,7 +10,6 @@ import '../lib/fade-fits'
 import App from '../App'
 import { start } from '../main'
 import { clearRoom } from '../lib/clear-room'
-import { followGlass } from '../lib/glass'
 import { whileChanging } from '../lib/while-changing'
 
 start(<App />)
@@ -131,8 +130,6 @@ if (window.api.room.left) {
     delete root.dataset.controlsAbove
     fitControls()
   })
-  // Real glass under the card, each round control and the hint, and nowhere else in the window (lib/glass.ts).
-  followGlass(() => [document.querySelector('.app-container'), ...buttons(), document.querySelector('[data-hint-room] [data-hint-surface]')], () => root.hasAttribute('data-card-gone'))
   // The round controls, the grabber, the hint and the offer belong to the card: drawn only while the card itself is
   // drawn in the window at a real size. A card squeezed to a line, or out of the window, takes them with it, so they
   // never float alone over whatever is behind (main.css, data-card-gone; qa/box-never-bare.mjs).
