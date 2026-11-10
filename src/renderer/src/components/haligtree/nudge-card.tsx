@@ -246,16 +246,39 @@ function PracticeOffer({ nudge, wait, onDone, onSaid }: { nudge: Extract<Nudge, 
   )
 }
 
+/**
+ * The newest answer that can be taken back, for ⌘Z in the main window (told
+ * there, since this window never takes the keys): kept after its card goes,
+ * for as long as the main window holds it, and taken back once.
+ */
+let lastSaid: { undo: () => Promise<unknown>; onDone?: () => void } | null = null
+const takeBack = (): Promise<unknown> | undefined => {
+  const was = lastSaid
+  lastSaid = null
+  if (!was) return
+  // Its Undo button is spent too: the main window forgets it.
+  window.api.nudgeUndoable('')
+  return was.undo().then(() => was.onDone?.())
+}
+window.api.onNudgeUndo(() => void takeBack())
+
 /** An answer that can be taken back: what was done, and Undo, for a few seconds. */
 function Said({ said, onDone }: { said: { words: string; undo: () => Promise<unknown> }; onDone: () => void }): React.JSX.Element {
   const wait = usePatience(LINGER_SAID, onDone, true, said)
+  useEffect(() => {
+    const mine: NonNullable<typeof lastSaid> = { undo: said.undo, onDone }
+    lastSaid = mine
+    window.api.nudgeUndoable(said.words)
+    // Gone from view, its ⌘Z stays (the main window lets it go after a while); only the card it closed is let go.
+    return () => void (lastSaid === mine && (mine.onDone = undefined))
+  }, [said])
   return (
     <div {...wait} data-nudge-said role="status" className={`${SHEET} flex items-center gap-2.5 py-2.5 pr-2 pl-3.5`}>
       <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-[color-mix(in_oklab,var(--tt-brand-color-400)_16%,var(--mf-float))] text-[var(--tt-brand-color-400)]">
         <AliveIcon icon={CheckIcon} size={15} play />
       </span>
       <span data-nudge-words className="min-w-0 flex-1 line-clamp-2 text-[13.5px] leading-[18px] font-semibold">{said.words}</span>
-      <button type="button" data-nudge-undo onClick={() => void said.undo().then(() => (chime('undo'), onDone()))} className={WORD}>Undo</button>
+      <button type="button" data-nudge-undo onClick={() => (chime('undo'), void takeBack())} className={WORD}>Undo</button>
     </div>
   )
 }

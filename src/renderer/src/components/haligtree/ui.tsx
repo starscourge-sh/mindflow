@@ -1507,7 +1507,7 @@ export function Toaster(): React.JSX.Element | null {
     }
   }, [])
   // A change made without a toast (quietly): its undo held out of sight, for ⌘Z.
-  const [held, setHeld] = useState<{ undo: () => void; key: number } | null>(null)
+  const [held, setHeld] = useState<{ undo: () => void; key: number; nudge?: boolean } | null>(null)
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout>
     const onHeld = (event: Event): void => {
@@ -1516,7 +1516,15 @@ export function Toaster(): React.JSX.Element | null {
       timer = setTimeout(() => setHeld(null), 10000)
     }
     window.addEventListener('haligtree:undoable', onHeld)
-    return () => (clearTimeout(timer), window.removeEventListener('haligtree:undoable', onHeld))
+    // An answer on a nudge card (its window never takes the keys): ⌘Z here takes it back, until
+    // the card's own Undo did (said with no words).
+    const offNudge = window.api?.onNudgeUndoable?.((words) => {
+      clearTimeout(timer)
+      if (!words) return setHeld((was) => (was?.nudge ? null : was))
+      setHeld({ undo: () => window.api.nudgeUndo(), key: Date.now(), nudge: true })
+      timer = setTimeout(() => setHeld(null), 10000)
+    })
+    return () => (clearTimeout(timer), offNudge?.(), window.removeEventListener('haligtree:undoable', onHeld))
   }, [])
   // The toast's next step on its own key, while it is up and you are not writing: a tool's key
   // (lib/tool-keys.ts), asked before the app's own, so a toast's C is never also a new capture.

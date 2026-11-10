@@ -4936,6 +4936,15 @@ app.whenReady().then(() => {
     if (!next) return void win.hide()
     win.setBounds({ ...win.getBounds(), height: next })
   })
+  // An answer on a nudge card that can be taken back (Done, Not tonight): ⌘Z in the main window takes it
+  // back too, since the card's window never takes the keys from what you are typing in.
+  ipcMain.on('nudge:undoable', (event, words: unknown) => {
+    if (!nudgeHeld(event.sender) || !home || home.isDestroyed()) return
+    home.webContents.send('nudge:undoable', typeof words === 'string' ? words : '')
+  })
+  ipcMain.on('nudge:undo', () => {
+    for (const held of nudgeWins.values()) if (!held.win.isDestroyed()) held.win.webContents.send('nudge:undo')
+  })
   // A session ended while away, said by the pill when the pill itself is not on screen (the time kept in the note).
   ipcMain.on('nudge:show', (_event, nudge: Nudge) => nudge && typeof nudge === 'object' && showNudge(nudge))
   ipcMain.handle('glow:waiting', () => {
