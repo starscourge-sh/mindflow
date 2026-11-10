@@ -464,7 +464,7 @@ export function YearPage({ start, onScale, onMonth, onDay }: { start?: string; o
       <div className="page-sheet mx-auto w-full px-5 pt-5 @min-[66rem]/page:pt-8 pb-16">
         <h1 className="text-title font-semibold tabular-nums"><Rolling text={year} /></h1>
         <p className="mt-1 text-meta text-muted-foreground">
-          {!unloaded(months) && <Typed key={`${year}-${named}`} text={named ? `Your seasons of life, month by month: ${named} of ${num(all.length)} named so far.` : 'No month has a name yet. Looking back, give one a name on its month\'s page.'} step={28} />}
+          {!unloaded(months) && <Typed key={`${year}-${named}`} text={named ? `Your seasons of life, month by month: ${named} of ${num(all.length)} named so far.` : 'No month has a name yet: looking back, give one a name on its month\'s page, and it lines up here as these examples do.'} step={28} />}
         </p>
         {/* The year as a ruler, the marked days standing tall and named: right-click a day to mark it. */}
         <div className="mt-6"><YearMarks key={year} year={year} onOpenDay={onDay} /></div>

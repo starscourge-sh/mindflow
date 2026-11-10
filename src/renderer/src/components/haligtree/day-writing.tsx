@@ -396,8 +396,9 @@ export function WriterLine({ editor, day, spent, today }: { editor: Editor | nul
   const aim = aimOf(`day-${day}`)
   const share = aim ? Math.min(1, words / aim.words) : 0
   const minutes = Math.round(spent / 60_000)
+  // On a fade of the page's own paint, so the words and tasks scrolling under it never show through its numbers.
   return createPortal(
-    <div data-writer-line data-in-use={inUse || undefined} inert={!inUse} className="pointer-events-none fixed z-40 flex flex-col items-center pb-[1.125rem] text-sm text-muted-foreground tabular-nums transition-opacity duration-300 motion-reduce:transition-none"
+    <div data-writer-line data-in-use={inUse || undefined} inert={!inUse} className="pointer-events-none fixed z-40 flex flex-col items-center bg-[linear-gradient(to_bottom,transparent,var(--background)_60%)] pt-7 pb-[1.125rem] text-sm text-muted-foreground tabular-nums transition-opacity duration-300 motion-reduce:transition-none"
       style={{ left: column.left, width: column.width, bottom: column.foot, opacity: inUse ? 1 : 0 }}>
       <span className="flex items-center justify-center gap-3">
         {[

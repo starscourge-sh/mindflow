@@ -455,7 +455,8 @@ export function DayBanner({ day, seed = `day:${day}` }: { day: string; /** A wee
   // The same band as every empty page's: its corners and its fade into the page, never a framed print (Postcards is for memories).
   return (
     <figure className="mb-5">
-    <div className="relative aspect-[4/1] min-h-28 w-full">
+    {/* In a short window it gives way (a quarter of the height at most), so the page's own words are in the first screen. */}
+    <div className="relative aspect-[4/1] max-h-[24vh] min-h-16 w-full [@media(min-height:640px)]:min-h-28">
       {/* Not the hour's mood: a day keeps one picture from morning to night. */}
       <Scenery place="today" seed={seed} mood={['day', 'dusk', 'night', 'interior']} fade className="absolute inset-0" rounded="rounded-xl" soft />
     </div>
