@@ -267,7 +267,7 @@ import { codeBlockNodeView } from "@/components/code/code-block-node-view"
 import { slashRenderer } from "@/components/slash/slash-menu"
 import { slashItems, slashMedia } from "@/components/slash/slash-items"
 import { EmojiSuggestion } from "@/components/emoji/emoji-suggestion"
-import { notOnUndo } from "@/lib/undo-exact"
+import { PickedStartsUndoStep, notOnUndo } from "@/lib/undo-exact"
 
 // Undo brings back a link as it was: the words it puts back are not linked anew (lib/undo-exact.ts).
 const Kit = StarterKit.extend({
@@ -1561,6 +1561,7 @@ function Surface({
       // A link on its own line becomes its card, fetched in the background.
       AutoCard,
       LongDocument,
+      PickedStartsUndoStep,
       SelectedNodes,
       BlockControls,
       ...(shape === "line" ? [] : [BlockGestures]),
