@@ -168,7 +168,7 @@ function Suggested({ item }: { item: ItemFull }): React.JSX.Element | null {
     <section data-suggest="found" aria-label="Found for this question" className="mt-4 rounded-xl border bg-[color-mix(in_oklab,var(--foreground)_2.5%,transparent)] px-3.5 py-3">
       <p className="text-control text-muted-foreground">Found {found && page ? 'in the dictionary and on Wikipedia' : found ? 'in the dictionary' : 'on Wikipedia'}. A first clue?</p>
       <p data-suggest-text className="mt-1.5 whitespace-pre-line text-body text-foreground text-pretty">{text}</p>
-      {page && <a href={page.url} target="_blank" rel="noopener noreferrer" title="Text from Wikipedia, CC BY-SA" className="mt-1 inline-block rounded-sm text-meta text-muted-foreground hover:text-foreground hover:underline hover:underline-offset-2">From Wikipedia</a>}
+      {page && <a href={page.url} target="_blank" rel="noopener noreferrer" title="Text from Wikipedia, CC BY-SA" className="-mx-1 mt-0.5 inline-block rounded-sm px-1 py-1 text-meta text-muted-foreground hover:text-foreground hover:underline hover:underline-offset-2">From Wikipedia</a>}
       <div className="mt-2 flex items-center gap-1.5">
         <Button data-suggest-use variant="outline" size="sm" onClick={use}>Use this</Button>
         <Button data-suggest-no variant="ghost" size="sm" onClick={no}>Not it</Button>
