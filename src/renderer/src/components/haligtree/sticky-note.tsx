@@ -37,8 +37,10 @@ import { num } from '../../../../main/dates'
 // The editor only once you edit: at rest a sticky is just the light drawing below.
 const HaligtreeEditor = lazy(() => import('@/components/haligtree').then((one) => ({ default: one.HaligtreeEditor })))
 
-export const DRAG = { WebkitAppRegion: 'drag' } as CSSProperties
-export const STILL = { WebkitAppRegion: 'no-drag' } as CSSProperties
+// Where a press picks the sticky up, said down the page as a custom property (it passes to children, as a drag region
+// did): Haligtree carries it (windows/sticky.tsx, main's handDrags), so it can hold firm on a guide.
+export const DRAG = { '--mf-drag': '1' } as CSSProperties
+export const STILL = { '--mf-drag': '0' } as CSSProperties
 const LIST: CSSProperties = { marginBlock: '0.25rem', paddingLeft: '1rem' }
 
 /** Made as real glass (the setting): the Mac's blur behind, the note sitting straight. */

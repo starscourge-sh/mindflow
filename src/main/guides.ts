@@ -3,7 +3,7 @@ import type { Line } from './snap-lines'
 
 /**
  * The guides drawn while quick capture or a sticky is dragged (snap-lines.ts):
- * faint dashed lines across the screen it is on, in the theme's blue. One
+ * solid 2pt lines across the screen it is on, in the theme's blue (1pt dashes at 70% were hard to see, 10 Nov). One
  * see-through window per screen, made the first time it is needed and kept:
  * it never takes a click or the keys, sits over everything, and is put away
  * the moment the drag ends.
@@ -19,7 +19,7 @@ const drawn: { display: number | null; lines: Line[]; shown: boolean } = { displ
 const PAGE = `<!doctype html><html><head><meta charset="utf-8"><style>
 html,body{margin:0;height:100%;overflow:hidden;background:transparent}
 svg{position:fixed;inset:0;width:100%;height:100%}
-line{stroke-width:1;stroke-dasharray:4 4;shape-rendering:crispEdges;opacity:.7;transition:opacity 120ms cubic-bezier(.16,1,.3,1)}
+line{stroke-width:2;shape-rendering:crispEdges;opacity:1;transition:opacity 120ms cubic-bezier(.16,1,.3,1)}
 @starting-style{line{opacity:0}}
 .still line{transition:none}
 </style></head><body><svg xmlns="http://www.w3.org/2000/svg"></svg><script>

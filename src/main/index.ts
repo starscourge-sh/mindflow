@@ -1228,6 +1228,8 @@ onHandOff(() => { for (const win of BrowserWindow.getAllWindows()) if (!win.isDe
  * was moved by Haligtree, not by you: not kept as its place, nor nudged on screen.
  */
 const placed = new WeakMap<BrowserWindow, { x: number; y: number }>()
+/** A sticky carried by Haligtree's own hand (its page's press and release): picked up, and put down. */
+const handDrags = new WeakMap<BrowserWindow, { grab: () => void; letGo: () => void }>()
 const ours = (win: BrowserWindow): boolean => {
   const at = placed.get(win)
   const now = win.getBounds()
@@ -1647,6 +1649,42 @@ function stick(type: string, id: string, on: boolean, bounds?: Electron.Rectangl
     if (one && !win.isDestroyed()) one.bounds = cardFrame(key, win)
     keepStuck()
   }
+  // Carried by Haligtree, not the Mac: the page asks on a press (window:grab) and the card follows the pointer from
+  // where it was picked up, drawn onto a guide when near and held there, rigid, until the hand takes it well past,
+  // as Raycast's window does. Carried by the Mac it could not be held, and slid along under the line (10 Nov).
+  let following: ReturnType<typeof setInterval> | null = null
+  handDrags.set(win, {
+    grab: () => {
+      if (following || win.isDestroyed()) return
+      unlift.get(win)?.()
+      if (!held.has(win)) (held.add(win), win.webContents.send('sticky:held', true))
+      const from = win.getBounds()
+      const start = screen.getCursorScreenPoint()
+      const inset = insetOf(key)
+      inLine = lineUp(cardOf(from, inset), others(), screen.getDisplayMatching(from).workArea).held
+      if (!colour) void guideColour(win).then((c) => (colour = c))
+      following = setInterval(() => {
+        if (win.isDestroyed()) return void (following && clearInterval(following), (following = null))
+        const now = screen.getCursorScreenPoint()
+        const want = { ...from, x: from.x + now.x - start.x, y: from.y + now.y - start.y }
+        const card = cardOf(want, inset)
+        const lined = lineUp(card, others(), screen.getDisplayMatching(want).workArea, inLine)
+        if (cameOnto(inLine, lined.held)) tap('level')
+        inLine = lined.held
+        const to = { x: want.x + lined.x - card.x, y: want.y + lined.y - card.y }
+        const at = win.getBounds()
+        if (at.x !== to.x || at.y !== to.y) (win.setPosition(to.x, to.y), placed.set(win, to))
+        showGuides(card, lined.lines, colour || GUIDE_BLUE, stillness())
+      }, 8)
+    },
+    letGo: () => {
+      if (!following) return
+      clearInterval(following)
+      following = null
+      placed.delete(win)
+      letGo()
+    }
+  })
   // Picked up by your hand: the page lifts the card (a deeper shadow; paper
   // straightens). Any move of Haligtree's own (a lift on hover, a glide) stops
   // there, so nothing pulls against your hand.
@@ -4705,6 +4743,7 @@ app.whenReady().then(() => {
   const stopFollowing = (): void => void (following && clearInterval(following), (following = null), hideGuides())
   ipcMain.on('window:grab', (event) => {
     const win = BrowserWindow.fromWebContents(event.sender)
+    if (win && handDrags.has(win)) return handDrags.get(win)!.grab()
     if (!win || win !== prompt) return
     const from = win.getBounds()
     const start = screen.getCursorScreenPoint()
@@ -4725,7 +4764,11 @@ app.whenReady().then(() => {
       showGuides(want, lined.lines, colour || GUIDE_BLUE, stillness())
     }, 8)
   })
-  ipcMain.on('window:let-go', stopFollowing)
+  ipcMain.on('window:let-go', (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (win && handDrags.has(win)) return handDrags.get(win)!.letGo()
+    stopFollowing()
+  })
   // Double-clicked: back to where it first opens, the top middle of its screen.
   ipcMain.on('window:home', (event) => {
     const win = BrowserWindow.fromWebContents(event.sender)

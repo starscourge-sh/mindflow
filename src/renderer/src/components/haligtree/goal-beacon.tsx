@@ -1,5 +1,6 @@
+import { DRAG, STILL } from './sticky-note'
 import { Tape } from './tape'
-import { useEffect, useRef, useState, type CSSProperties } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Flag, Minus } from 'lucide-react'
 import { motion } from 'motion/react'
 import { AliveIcon } from '@/components/ui/alive-icon'
@@ -21,8 +22,7 @@ import { SANDBOX } from '@/lib/sandbox'
 import { Frost } from './frost'
 import { quoted } from '../../../../main/clip'
 
-const DRAG = { WebkitAppRegion: 'drag' } as CSSProperties
-const STILL = { WebkitAppRegion: 'no-drag' } as CSSProperties
+
 
 /** Made as real glass (the setting): the card fills its window. */
 const GLASS = new URLSearchParams(location.search).has('glass')

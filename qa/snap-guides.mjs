@@ -1,9 +1,9 @@
 // Raycast's guides: quick capture and a sticky, dragged near the screen's
 // middle, another card's edge or a margin in from the screen's edge, show a
-// faint dashed line there with one haptic tick, and the line goes when they
-// are let go. Quick capture is drawn onto the line as it is carried (main
-// moves it, window:grab); a sticky is moved by the Mac under your hand, so it
-// follows the pointer exactly and lands on the line as it is let go.
+// solid line there with one haptic tick, and the line goes when they are let
+// go. Both are carried by main (window:grab) and held firm on a line until
+// the hand takes them well past; a sticky moved by the Mac (a window manager,
+// an older page) still lands on the line as it is let go.
 //
 // The pointer and the button are the probe's, never the person's at the Mac;
 // windows keep their places as their own while parked (HALIGTREE_QA_VIRTUAL).
@@ -139,7 +139,7 @@ try {
     const file = join(shots, `snap-guides-${name}.png`)
     writeFileSync(file, Buffer.from(data, 'base64'))
     console.log(`picture: ${file}`)
-    check(`${name}: the guide window's own picture holds the dashed line`, inked > 0, `${inked} pixels inked`)
+    check(`${name}: the guide window's own picture holds the line`, inked > 0, `${inked} pixels inked`)
     return file
   }
   await picture('box-middle')
@@ -236,6 +236,37 @@ try {
   await picture('sticky-bottom-margin')
   s = await stickyLetGo()
   check('sticky: let go, it lines up 16 points above the bottom', s.card.y === bottomTo, `${s.card.y - bottomTo}`)
+
+  // ---- The sticky carried by Haligtree's hand (a press on the card, its page's window:grab): held firm on a guide,
+  // as Raycast's window is, until the hand takes it well past; then it follows again (10 Nov: "unlike Raycast's
+  // rigid rulers").
+  const hand = (code) => electron.evaluate(({ BrowserWindow }, [id, code]) => BrowserWindow.fromId(id).webContents.executeJavaScript(code), [sticky.id, code])
+  s = await read()
+  await place(sticky.id, stickyCentre + 60 - 20, s.sticky.y)
+  await wait(200)
+  s = await read()
+  const grip = { x: s.sticky.x + 80, y: s.sticky.y + 30 }
+  const pointer = (dx) => electron.evaluate((_, p) => { globalThis.qaCursor = p }, { x: grip.x + dx, y: grip.y })
+  await pointer(0)
+  await hand('window.api.grab()')
+  await wait(40)
+  const handTaps = (await read()).taps
+  await pointer(-57); await wait(80)
+  s = await read()
+  check('hand: 3 points from the middle, it is drawn onto it', s.card.x === stickyCentre, `${s.card.x - stickyCentre}`)
+  check('hand: one tick coming onto the line', s.taps === handTaps + 1, `${s.taps - handTaps}`)
+  await pointer(-50); await wait(80)
+  s = await read()
+  check('hand: 10 points on past it, it stays on the line, rigid', s.card.x === stickyCentre, `${s.card.x - stickyCentre}`)
+  await pointer(-70); await wait(80)
+  s = await read()
+  check('hand: 10 points the other way, still on the line', s.card.x === stickyCentre, `${s.card.x - stickyCentre}`)
+  await pointer(-110); await wait(80)
+  s = await read()
+  check('hand: taken well past, it follows the pointer again', s.card.x === stickyCentre - 50, `${s.card.x - stickyCentre}`)
+  await hand('window.api.letGo()'); await wait(900)
+  s = await read()
+  check('hand: let go, the guides go', !s.guides.shown, JSON.stringify(s.guides))
 
   // ---- A goal's card, carried by the Mac in 20 small steps toward the screen's middle and past it: the guide is a
   // fixed line at the middle, shown only while the card's middle is within a few points of it, never moving.

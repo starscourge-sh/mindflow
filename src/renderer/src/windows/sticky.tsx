@@ -14,6 +14,17 @@ import { followGlass } from '../lib/glass'
 const type = params.get('type')
 // Its quiet ink is set for the sticky's paper (sticky-note.scss).
 document.documentElement.dataset.stickyWindow = ''
+// Picked up by a press where the card says so (DRAG in sticky-note.tsx): carried by main until the button comes up.
+window.addEventListener('pointerdown', (event) => {
+  const at = event.target
+  if (event.button !== 0 || !(at instanceof Element) || at.closest('button, a, input, textarea, select, [contenteditable="true"], [role="menuitem"]')) return
+  if (getComputedStyle(at).getPropertyValue('--mf-drag').trim() !== '1') return
+  event.preventDefault()
+  window.api.grab()
+  const up = (): void => (window.api.letGo(), removeEventListener('pointerup', up, true), removeEventListener('blur', up))
+  addEventListener('pointerup', up, true)
+  addEventListener('blur', up)
+}, true)
 
 start(
   <>
