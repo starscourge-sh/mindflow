@@ -135,6 +135,12 @@ const SlashList = forwardRef(function SlashList(
                 ref={index === selected ? selectedRef : undefined}
                 className={index === selected ? "is-selected" : undefined}
                 onMouseMove={(event) => realMove(event) && (setSelected(index), setPeeking(true))}
+                // Cut short in the row (a long file name), the whole name shows as the pointer
+                // rests on it; a name that fits needs no tip.
+                onMouseEnter={(event) => {
+                  const words = event.currentTarget.querySelector(".tiptap-slash-menu-title")
+                  event.currentTarget.title = words && words.scrollWidth > words.clientWidth ? item.title : ""
+                }}
                 onClick={() => choose(index)}
               >
                 {item.icon}

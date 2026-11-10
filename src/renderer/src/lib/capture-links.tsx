@@ -235,7 +235,7 @@ setLinkKinds({
   lines: async (link) => linesIn(await bodyOf(link)),
   anchor: (link, index, text) => window.api.haligtree<string | null>('notes:anchor', link, index, text),
   // A few with nothing typed, more once a name is being looked for, after the notes.
-  loose: async (query) => (await looseFiles(query, query.trim() ? 6 : 3)).map((one) => ({ id: `media:${one.src}`, label: one.name.replace(/\.[^.]+$/, '') || one.name, group: 'From Files, in no note yet', icon: one.icon, fileBlock: blockOf(one) }))
+  loose: async (query) => (await looseFiles(query, query.trim() ? 6 : 3)).map((one) => ({ id: `media:${one.src}`, label: one.label, group: 'From Files, in no note yet', icon: one.icon, fileBlock: blockOf(one) }))
 })
 
 /** What a link points at, as stored: a capture's body, or a gem's, an article's or a question's. */

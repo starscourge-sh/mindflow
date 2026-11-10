@@ -122,7 +122,26 @@ export async function putInNote(files: Parameters<typeof blockOf>[0][], type: st
     { label: 'Open', key: 'O', run: () => window.api.openInHome(type, id) })
 }
 
-export type Loose = { src: string; kind: MediaKind; name: string; size: number; icon: React.ReactNode }
+export type Loose = { src: string; kind: MediaKind; name: string; size: number; icon: React.ReactNode; /** What a menu row calls it: never empty. */ label: string; /** Its kind in a word, beside the label. */ word: string }
+
+/** A kind in a word, as Files' tiles say it. */
+export const KIND_WORD: Record<MediaKind, string> = { picture: 'Picture', gif: 'GIF', pdf: 'PDF', audio: 'Recording' }
+
+/**
+ * What a file is called in a menu row. A picture pasted into a note has no
+ * name of its own, and a row of thumbnails with nothing beside them could
+ * not be told apart: such a one is named by its caption or the words around
+ * it, else by its kind and the day it came.
+ */
+export function looseLabel(one: Pick<Media, 'name' | 'near' | 'kind' | 'at'>): string {
+  const bare = one.name.replace(/\.[^.]+$/, '') || one.name
+  if (bare.trim()) return bare
+  const near = one.near.replace(/\s+/g, ' ').trim()
+  if (near) return near.length > 60 ? `${near.slice(0, 60).trim()}…` : near
+  const day = one.at ? new Date(one.at) : null
+  const when = day && !Number.isNaN(day.getTime()) ? ` from ${day.toLocaleDateString(undefined, { day: 'numeric', month: 'short', ...(day.getFullYear() === new Date().getFullYear() ? {} : { year: 'numeric' }) })}` : ''
+  return `${KIND_WORD[one.kind] ?? 'File'}${when}`
+}
 
 const FACE = 'size-4 shrink-0'
 const iconOf = async (one: Media): Promise<React.ReactNode> => {
@@ -141,7 +160,7 @@ export async function looseFiles(query: string, most: number): Promise<Loose[]> 
   const words = query.trim().toLowerCase().split(/\s+/).filter(Boolean)
   const all = await call<Media[]>('media:list').catch(() => [] as Media[])
   const found = all.filter((one) => !one.uses.length && !one.gone && !one.deck && words.every((word) => `${one.name} ${one.near}`.toLowerCase().includes(word))).slice(0, most)
-  return Promise.all(found.map(async (one) => ({ src: one.src, kind: one.kind, name: one.name, size: one.size, icon: await iconOf(one) })))
+  return Promise.all(found.map(async (one) => ({ src: one.src, kind: one.kind, name: one.name, size: one.size, icon: await iconOf(one), label: looseLabel(one), word: KIND_WORD[one.kind] ?? 'File' })))
 }
 
 let wanted: string | null = null
