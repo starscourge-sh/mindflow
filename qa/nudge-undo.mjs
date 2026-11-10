@@ -118,6 +118,24 @@ try {
   check('a save that failed in the pill is said on the nudge card', away.startsWith('Not saved') && away.includes('Your disk is full') && !away.includes('Not saved: '), away)
   check('with the “nope” sound in the pill', (await pill.evaluate(() => [...(window.haligtreeHeard ?? [])])).includes('cue:nope'))
   check('the main window, which has its own notices, did not send one too', (await card.evaluate(() => document.querySelectorAll('[data-nudge="failed"]').length)) === 1)
+
+  // --- The pill's "Session abandoned": ⌘Z in the main window puts the session back.
+  const running = (await v('focus:now'))?.id
+  await pill.hover('[data-island]', { position: { x: 160, y: 10 } })
+  await pill.waitForTimeout(900)
+  await pill.locator('[data-island] button', { hasText: 'Stop' }).click()
+  await pill.waitForTimeout(500)
+  await pill.locator('[data-abandon]').click()
+  await pill.waitForTimeout(900)
+  check('the pill says “Session abandoned” with Undo', !!(await pill.$('[data-abandoned]')))
+  await h.evaluate(() => (document.activeElement instanceof HTMLElement && document.activeElement.blur()))
+  const heard = await h.evaluate(() => (window.haligtreeHeard ?? []).filter((s) => s === 'cue:undo').length)
+  await h.keyboard.press('Meta+z')
+  await wait(1200)
+  const back = await v('focus:now')
+  check('⌘Z in the main window puts the session back running', !!back && back.id === running, JSON.stringify(back)?.slice(0, 120) + ' was ' + running)
+  check('the pill no longer says it was abandoned', !(await pill.$('[data-abandoned]')))
+  check('one “undo” sound, in the main window, and no “back” from the pill', (await h.evaluate(() => (window.haligtreeHeard ?? []).filter((s) => s === 'cue:undo').length)) === heard + 1 && !(await pill.evaluate(() => (window.haligtreeHeard ?? []).slice(-3))).includes('cue:back'))
   check('no errors', c.errors.length === 0, c.errors.join(' | '))
 } catch (error) {
   check('ran without throwing', false, String(error?.stack ?? error))
