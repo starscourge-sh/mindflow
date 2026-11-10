@@ -9,7 +9,7 @@ import { NodeSelection, Selection as PMSelection, type EditorState, type Transac
 import { onlyWordsChanged } from "@/lib/tiptap-utils"
 import type { Node as ProseMirrorNode, ResolvedPos } from "@tiptap/pm/model"
 import { EditorContent, EditorContext, useEditor } from "@tiptap/react"
-import { followPdfLink, isPdfHref, openArticle } from "@/components/pdf/pdf-reader"
+import { followPdfLink, isPdfHref, isReadable, openArticle } from "@/components/pdf/pdf-reader"
 import { canSplit } from "@/lib/split"
 import { useNotePlace } from "@/lib/note-place"
 
@@ -1216,7 +1216,7 @@ function Surface({
 
         // A PDF's link opens the reader (beside, on ⌥-click); a web page on ⌥-click opens in the reader beside.
         if (followPdfLink(href)) return true
-        if (event.altKey && !event.metaKey && canSplit() && /^https?:/i.test(href)) return openArticle(href), true
+        if (event.altKey && !event.metaKey && canSplit() && isReadable(href)) return openArticle(href), true
         // setWindowOpenHandler in main sends the rest to the real browser.
         window.open(href, "_blank", "noopener")
         return true

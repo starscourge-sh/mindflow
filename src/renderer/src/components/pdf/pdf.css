@@ -2199,3 +2199,26 @@ html[data-motion="off"] :is(.pdf-zoom-chip, .pdf-reader-body > .pdf-rail) {
 html.dark-pages {
   --pdf-paper: #1c1a17;
 }
+
+/* "Read it again" and "Stop" on the reader's own page. On the cream paper the
+   theme's greys (light ones in dark mode) all but vanished: here they take the
+   page's own ink. "Read it again" is a real button, with a hairline round it,
+   not a word floating under the message. */
+.web-reader-failed [data-read-again].tiptap-button {
+  margin-top: 0.5rem;
+  box-shadow: inset 0 0 0 1px var(--tt-border-color);
+}
+.web-reader.is-paper .web-reader-scroll .tiptap-button[data-read-again] {
+  --tt-button-default-text-color: #2b2418;
+  --tt-button-hover-text-color: #1a140b;
+  --tt-button-active-text-color: #1a140b;
+  --tt-button-hover-bg-color: rgb(43 36 24 / 0.08);
+  --tt-button-active-bg-color: rgb(43 36 24 / 0.12);
+  box-shadow: inset 0 0 0 1px rgb(43 36 24 / 0.28);
+}
+.web-reader.is-paper .web-reader-scroll [data-job-stop] {
+  color: #2b2418;
+}
+.web-reader.is-paper .web-reader-scroll [data-job-stop]:hover {
+  color: #1a140b;
+}

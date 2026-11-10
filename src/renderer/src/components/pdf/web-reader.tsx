@@ -17,7 +17,7 @@ import { host } from '@/lib/host'
 import { keysHere, usePane } from '@/lib/split'
 import { chime } from '@/lib/sound'
 import { cue } from '@/lib/cues'
-import { articleLink, openArticle, takeArticleFlash } from './pdf-reader'
+import { articleLink, isReadable, openArticle, takeArticleFlash } from './pdf-reader'
 import { LookUpCard, type LookedUpIn } from './look-up'
 import { MARK_COLORS, MarkMenu, PickedMenu, WhyAfter, blankOf, cited, lastColor, markCss, readKey, rememberColor, type MarkColor, type Picked, type ReadActions } from './read-bar'
 import { usePaperPages } from './paper'
@@ -55,8 +55,8 @@ const SIZES = [0.8, 0.9, 1, 1.1, 1.25, 1.4, 1.6]
 export { openArticle }
 
 /** A link to a web page: what "Open in the reader" is offered on. */
-export const isWebPage = (href: string | null | undefined): boolean =>
-  !!href && /^https?:\/\//i.test(href)
+/** A page "Open in the reader" is offered for: a video's is not (pdf-reader.tsx, isReadable). */
+export const isWebPage = (href: string | null | undefined): boolean => isReadable(href)
 
 /** Titles of articles read in this window, by link: what a pane's tab calls it. */
 const titles = new Map<string, string>()

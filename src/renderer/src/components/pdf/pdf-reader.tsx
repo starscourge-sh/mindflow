@@ -33,6 +33,7 @@ import { cleanTitle } from "@/lib/clean-title"
 import { drawing } from "./pdf-draw"
 import { still } from "@/lib/motion"
 import { plural, num } from '../../../../main/dates'
+import { isYouTube } from '../../../../main/video-thumbs'
 
 /** A page column this wide reads comfortably; below it the rail squeezes, below `TIGHT` it folds away. */
 const COMFY = 520
@@ -86,10 +87,19 @@ export function followPdfLink(href: string): boolean {
 /** A web page in the reader: a step in the pane in front, or beside it on ⌥-click. A PDF link opens the PDF reader instead. */
 export const openArticle = (href: string, mark?: string): void => {
   if (isWebPdf(href)) return void openWebPdf(href)
+  // A video has no article to read: the reader could only say the page could
+  // not be reached. Played where it lives instead, as clicking its card does.
+  if (!isReadable(href)) return void window.open(href, "_blank", "noopener")
   articleFlash = mark ?? null
   if (canSplit()) window.dispatchEvent(new CustomEvent("haligtree:web", { detail: { href } }))
   else window.api.openInHome("web", href)
 }
+/**
+ * Whether the reader can make an article of the page: any web page but a
+ * video's (YouTube's watch pages hold a player, not words). What every
+ * "Open in the reader" asks before it is offered.
+ */
+export const isReadable = (href: string | null | undefined): boolean => !!href && /^https?:\/\//i.test(href) && !isYouTube(href)
 /** The mark an article's link came back to: taken (once) by the reader that opens next. */
 let articleFlash: string | null = null
 export const takeArticleFlash = (): string | null => {
