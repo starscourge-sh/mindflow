@@ -293,7 +293,7 @@ export const STICKY_BUTTON = 'flex h-6 min-w-6 items-center justify-center round
  */
 export const TINT_HUE: Record<string, string> = {
   // The theme's yellow is an ochre, which pales to beige: brightened toward butter first.
-  butter: 'color-mix(in oklab, var(--tt-color-text-yellow) 40%, #ffd23f)',
+  butter: 'color-mix(in oklab, var(--tt-color-text-yellow) 40%, var(--mf-sticky-butter))',
   rose: 'var(--tt-color-text-pink)',
   sage: 'var(--tt-color-text-green)',
   sky: 'var(--tt-color-text-blue)'

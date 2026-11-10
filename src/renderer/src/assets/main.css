@@ -357,6 +357,8 @@
   --mf-mint-rule-dark: oklch(0.44 0.06 170);
   --mf-mint-accent-dark: oklch(0.38 0.06 170);
   --mf-mint-brand-dark: oklch(0.82 0.15 158);
+  /* A sticky's butter paper: the theme's ochre yellow pales to beige, so it is brightened toward this first. */
+  --mf-sticky-butter: oklch(0.885 0.17 92);
   --mf-mint-on-brand-dark: oklch(0.22 0.05 170);
   --mf-mint-fill-paper-light: oklch(0.95 0.04 160);
   --mf-mint-fill-paper-dark: oklch(0.3 0.05 168);
