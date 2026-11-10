@@ -1143,7 +1143,8 @@ function NuggetDetail({ item, onOpen, top, back, board: place }: { item: ItemFul
           // As in Apple Notes, a page is named by its first line; a title of its own is shown
           // only once given ("Give it a title" in the page's menu). Cleared, the first line names it again.
           // Wraps as a heading does, so a long title is never cut off at the edge; Enter ends it.
-          <div className="note-column mb-2 shrink-0">
+          // Over a board, on the board's own left edge (board-view.tsx's lists and its head), not the reading column's.
+          <div className={`${boardShown ? 'px-3 @[40rem]/page:px-6' : 'note-column'} mb-2 shrink-0`}>
           <textarea
             data-page-title
             rows={1}
