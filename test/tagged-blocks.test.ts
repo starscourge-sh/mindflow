@@ -14,6 +14,8 @@ test('a tag that files the whole note shows the note', () => {
   assert.equal(taggedBlocks(doc('One idea', 'Another', '#physics'), 'physics'), null)
   assert.equal(taggedBlocks(doc('Only line #physics'), 'physics'), null)
   assert.equal(taggedBlocks(doc('No tag here', 'Nor here'), 'physics'), null)
+  // A filing line wins over a tagged block: the note is about it.
+  assert.equal(taggedBlocks(doc('Intro', 'Light bends #physics', 'Outro', '#physics'), 'physics'), null)
 })
 
 test('a nested tag counts for its parent, lists and Markdown too', () => {

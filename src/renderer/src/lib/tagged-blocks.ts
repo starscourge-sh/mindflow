@@ -35,7 +35,10 @@ const untailed = (line: string): string => line.replace(/(?:^|\s+)(?:#[^\s#]+\s*
 export function taggedBlocks(body: unknown, tag: string, most = 3): { lines: string[]; more: number } | null {
   const want = tag.toLowerCase()
   const blocks = blocksOf(body)
-  const carry = blocks.filter((line) => tagsIn(line).some((one) => one === want || one.startsWith(`${want}/`)) && withoutTags(line).trim())
+  const has = (line: string): boolean => tagsIn(line).some((one) => one === want || one.startsWith(`${want}/`))
+  // A line of tags alone carrying it files the whole note.
+  if (blocks.some((line) => has(line) && !withoutTags(line).trim())) return null
+  const carry = blocks.filter((line) => has(line) && withoutTags(line).trim())
   if (!carry.length || carry.length >= blocks.filter((line) => withoutTags(line).trim()).length) return null
   return { lines: carry.slice(0, most).map((line) => untailed(line) || line), more: Math.max(0, carry.length - most) }
 }
