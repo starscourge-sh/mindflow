@@ -70,7 +70,8 @@ try {
   const cursor = await steps.evaluate((one) => getComputedStyle(one).cursor)
   check('D. "2 steps" shows the hand', cursor === 'pointer', cursor)
   // Where the switch is, and how far its scroller is scrolled: a move from scrolling is told apart from a move in place.
-  const place = () => h.evaluate(() => { const el = document.querySelector('[data-local-steps]'); let up = el.parentElement; while (up && !/(auto|scroll)/.test(getComputedStyle(up).overflowY)) up = up.parentElement; const r = el.getBoundingClientRect(); const head = el.closest('section')?.getBoundingClientRect(); return JSON.stringify({ x: r.x, inIsland: Math.round(r.y - (head?.y ?? 0)), scrolled: up?.scrollTop ?? 0 }) })
+  // Every run logs the column's scroll, the island's box and each details group above it, so a move is traced to its cause.
+  const place = () => h.evaluate(() => { const el = document.querySelector('[data-local-steps]'); let up = el.parentElement; while (up && !/(auto|scroll)/.test(getComputedStyle(up).overflowY)) up = up.parentElement; const r = el.getBoundingClientRect(); const island = el.closest('section'); const head = island?.getBoundingClientRect(); const above = []; for (let at = island?.previousElementSibling; at; at = at.previousElementSibling) above.push(`${at.getAttribute('data-details-group') ?? at.tagName}:${Math.round(at.getBoundingClientRect().height)}`); return JSON.stringify({ x: r.x, y: Math.round(r.y), inIsland: Math.round(r.y - (head?.y ?? 0)), islandTop: Math.round(head?.y ?? 0), scrolled: up?.scrollTop ?? 0, above: above.reverse().join(' ') }) })
   const before = await place()
   await steps.click()
   await h.waitForTimeout(1500)
@@ -79,7 +80,9 @@ try {
   const after = await place()
   const [one, two] = [JSON.parse(before), JSON.parse(after)]
   check('D. the switch stays put in its row as it changes', one.x === two.x && one.inIsland === two.inIsland, `${before} ${after}`)
-  if (one.scrolled !== two.scrolled) console.log('D. note: the details column scrolled by', two.scrolled - one.scrolled)
+  console.log('D. switch before:', before)
+  console.log('D. switch after: ', after)
+  check('D. and on the screen: neither the column nor anything above it moved', one.y === two.y, `scrolled ${two.scrolled - one.scrolled}, above ${one.above} -> ${two.above}`)
   check('D. the choice is kept for every note', (await h.evaluate(() => localStorage.getItem('localGraph:steps'))) === '2')
   await both('d-graph-2-steps')
 
@@ -228,6 +231,17 @@ try {
   await h.waitForTimeout(1100)
   check('G. on the last card, "Copy as image" and "Save as image…"', await h.evaluate(() => !!document.querySelector('[data-wrap-copy]') && !!document.querySelector('[data-wrap-save]')), String(count))
   check('G. the keep row\'s room never moves the card', roomBefore === (await keepBox()))
+  // The keep row fades in once the card has landed: its opacity, frame by frame, from the last turn.
+  await h.keyboard.press('ArrowLeft'); await h.waitForTimeout(400)
+  await h.evaluate(() => { window.__keep = []; const t0 = performance.now(); const tick = (now) => { const row = document.querySelector('[data-wrap-copy]')?.parentElement; window.__keep.push([Math.round(now - t0), row ? Number(getComputedStyle(row).opacity).toFixed(2) : '-']); if (now - t0 < 1400) requestAnimationFrame(tick) }; requestAnimationFrame(tick) })
+  await h.keyboard.press('ArrowRight'); await h.waitForTimeout(1600)
+  const keepFrames = await h.evaluate(() => window.__keep)
+  const kf = (ms) => (keepFrames.find((one) => one[0] >= ms) ?? keepFrames.at(-1)).join('/')
+  console.log('G. keep row opacity (ms/opacity):', [100, 400, 650, 750, 850, 950, 1300].map(kf).join('  '))
+  check('G. the keep row waits for the card, then fades in', keepFrames.some((one) => one[1] === '0.00') && keepFrames.at(-1)[1] === '1.00', `${kf(100)} ${kf(1300)}`)
+  // Return on a keep button presses it, never turns or closes the story.
+  const turned = await h.evaluate(() => { const button = document.querySelector('[data-wrap-copy]'); const was = document.querySelector('[aria-current]')?.getAttribute('aria-label'); button.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); return was === document.querySelector('[aria-current]')?.getAttribute('aria-label') && !!document.querySelector('[data-wrap-story]') })
+  check('G. Return on a keep button is the button\'s own', turned)
   await both('g-wrap-last')
   // The picture the buttons keep, made as they make it (the clipboard and the save sheet are the person's own, so not touched).
   const png = await h.evaluate(async () => { const box = document.querySelector('[data-wrap-card]').getBoundingClientRect(); const bytes = await window.api.pictureOfRect({ x: box.left, y: box.top, width: box.width, height: box.height }); return bytes?.length ?? 0 })
