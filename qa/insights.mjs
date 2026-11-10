@@ -69,13 +69,17 @@ try {
   const steps = h.locator('[data-local-steps] button', { hasText: '2 steps' })
   const cursor = await steps.evaluate((one) => getComputedStyle(one).cursor)
   check('D. "2 steps" shows the hand', cursor === 'pointer', cursor)
-  const before = await h.evaluate(() => JSON.stringify(document.querySelector('[data-local-steps]').getBoundingClientRect()))
+  // Where the switch is, and how far its scroller is scrolled: a move from scrolling is told apart from a move in place.
+  const place = () => h.evaluate(() => { const el = document.querySelector('[data-local-steps]'); let up = el.parentElement; while (up && !/(auto|scroll)/.test(getComputedStyle(up).overflowY)) up = up.parentElement; const r = el.getBoundingClientRect(); const head = el.closest('section')?.getBoundingClientRect(); return JSON.stringify({ x: r.x, inIsland: Math.round(r.y - (head?.y ?? 0)), scrolled: up?.scrollTop ?? 0 }) })
+  const before = await place()
   await steps.click()
   await h.waitForTimeout(1500)
   const foot2 = await text('[data-local-graph] .border-t')
   check('D. 2 steps: the note two links away is counted', /1 two steps away/.test(foot2), foot2)
-  const after = await h.evaluate(() => JSON.stringify(document.querySelector('[data-local-steps]').getBoundingClientRect()))
-  check('D. the switch stays put as it changes', before === after, `${before} ${after}`)
+  const after = await place()
+  const [one, two] = [JSON.parse(before), JSON.parse(after)]
+  check('D. the switch stays put in its row as it changes', one.x === two.x && one.inIsland === two.inIsland, `${before} ${after}`)
+  if (one.scrolled !== two.scrolled) console.log('D. note: the details column scrolled by', two.scrolled - one.scrolled)
   check('D. the choice is kept for every note', (await h.evaluate(() => localStorage.getItem('localGraph:steps'))) === '2')
   await both('d-graph-2-steps')
 
