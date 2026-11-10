@@ -144,7 +144,7 @@ try {
 
   // The PDF shelf: the same row at its top.
   await go('media'); await wait(800)
-  await h.locator('[data-page=media] [data-media-kinds] button', { hasText: 'PDFs' }).first().click(); await wait(4500)
+  await h.locator('[data-page=media] [data-media-kinds] button', { hasText: 'Books' }).first().click(); await wait(4500)
   const shelf = await row('[data-shelf-continue]')
   await h.locator('[data-library] [data-book]').first().click({ button: 'right' })
   const shelfMenu = await menuLines()
@@ -180,7 +180,7 @@ try {
     await go('media'); await wait(800)
     await h.locator('[data-page=media] [data-media-kinds] button', { hasText: 'Pictures' }).first().click(); await wait(2500)
     await shot('dark-media-recent')
-    await h.locator('[data-page=media] [data-media-kinds] button', { hasText: 'PDFs' }).first().click(); await wait(3500)
+    await h.locator('[data-page=media] [data-media-kinds] button', { hasText: 'Books' }).first().click(); await wait(3500)
     await shot('dark-media-pdf-shelf')
     await go('day'); await wait(2500)
     await h.evaluate(() => document.documentElement.toggleAttribute('data-awake', true))

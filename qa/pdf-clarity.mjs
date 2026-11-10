@@ -207,10 +207,9 @@ try {
   }
   await h.keyboard.press('Meta+k'); await wait(800)
   const palette = await h.evaluate(() => {
-    const head = [...document.querySelectorAll('div.pt-3.pb-1')].find((one) => one.textContent.trim() === 'Recent')
-    let text = ''
-    for (let at = head?.nextElementSibling; at && !at.matches('div.pt-3.pb-1'); at = at.nextElementSibling) text += ` ${at.textContent}`
-    return text
+    // ⌘K's islands: before anything is typed, what it lists is the Recent island, headed so.
+    const head = document.querySelector('[data-island-head="Recent"]')
+    return head ? (document.querySelector('[data-answers]')?.textContent ?? '') : ''
   })
   check('⌘K lists the PDF under Recent', /Law Book|law-book/.test(palette), palette.slice(0, 200))
   await h.keyboard.press('Escape'); await wait(300)

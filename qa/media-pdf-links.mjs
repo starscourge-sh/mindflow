@@ -68,10 +68,11 @@ try {
   check('a line to each, and one between the two notes that link each other', map.lines === 6, JSON.stringify(map))
   check('the map says what it shows in one line', /5 notes link to this book; 1 link joins them to each other/.test(map.says ?? ''), map.says)
 
-  const bar = await h.evaluate(() => ({ notes: [...document.querySelectorAll('[data-inspector] [data-tick=note]')].map((one) => Number(one.dataset.tickPage)), marks: [...document.querySelectorAll('[data-inspector] [data-tick=mark]')].map((one) => Number(one.dataset.tickPage)), here: document.querySelector('[data-inspector] [data-here]')?.dataset.here, says: document.querySelector('[data-inspector] .book-bar-says')?.textContent }))
+  const bar = await h.evaluate(() => ({ notes: [...document.querySelectorAll('[data-inspector] [data-tick=note]')].map((one) => Number(one.dataset.tickPage)), marks: [...document.querySelectorAll('[data-inspector] [data-tick=mark]')].map((one) => Number(one.dataset.tickPage)), here: document.querySelector('[data-inspector] [data-here]')?.dataset.here, says: document.querySelector('[data-inspector] [data-page-bar] [data-stroke-rule]')?.textContent, saysTall: document.querySelector('[data-inspector] [data-page-bar] [data-stroke-rule]')?.getBoundingClientRect().height }))
   check('the page bar ticks each page a note links to', bar.notes.sort((a, b) => a - b).join() === '12,80,150,210', JSON.stringify(bar))
   check('and the highlight on p. 40, and marks you on p. 134', bar.marks.join() === '40' && bar.here === '134', JSON.stringify(bar))
-  check('the bar says what its marks are, in one line of words', bar.says === '4 pages with notes · 1 page highlighted', bar.says)
+  // One short line over the strip says what its taller strokes are; the strip and its tips say the rest.
+  check('the bar says what its marks are, in one line of words', bar.says === 'Taller strokes hold highlights and notes' && bar.saysTall < 24, JSON.stringify([bar.says, bar.saysTall]))
 
   for (const theme of ['paper', 'dark']) {
     await c.look(theme === 'paper' ? 'light' : 'dark'); await wait(600)

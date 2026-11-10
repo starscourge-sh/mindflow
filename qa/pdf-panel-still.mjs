@@ -29,7 +29,8 @@ try {
   await h.evaluate((b) => window.api.captures.create({ kind: 'note', body: b }), { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Shelf' }] }, ...content] })
   await h.reload(); await wait(1500)
   await go('media'); await wait(800)
-  await h.locator('[data-page=media] [data-media-kinds] button', { hasText: 'PDFs' }).first().click(); await wait(2500)
+  // Books alone: the kinds row only shows with two kinds or more, so the shelf is asked for directly, as a pile's link asks.
+  await h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:media-kind', { detail: 'pdf' }))); await wait(2500)
   const boxes = () => h.evaluate(() => {
     const p = document.querySelector('[data-inspector]')
     const at = (sel) => { const r = p?.querySelector(sel)?.getBoundingClientRect(); return r ? `${Math.round(r.top)}:${Math.round(r.height)}` : 'none' }

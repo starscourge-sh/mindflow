@@ -48,7 +48,7 @@ const press = async (label) => {
   } else await tool(label).click()
   await wait(700)
 }
-const sheets = () => h.evaluate((sel) => [...document.querySelectorAll(`${sel} .pdf-page`)].slice(0, 2).map((one) => { const r = one.getBoundingClientRect(); return { top: Math.round(r.top), left: Math.round(r.left), w: Math.round(r.width), h: Math.round(r.height) } }), BLOCK)
+const sheets = () => h.evaluate((sel) => [...document.querySelectorAll(`${sel} .pdf-page`)].slice(0, 3).map((one) => { const r = one.getBoundingClientRect(); return { top: Math.round(r.top), left: Math.round(r.left), w: Math.round(r.width), h: Math.round(r.height) } }), BLOCK)
 const room = () => h.evaluate((sel) => { const box = document.querySelector(`${sel} .tiptap-pdf-scroll`); const s = getComputedStyle(box); return { w: box.clientWidth, h: box.clientHeight - parseFloat(s.paddingTop) - parseFloat(s.paddingBottom) } }, BLOCK)
 const state = () => h.evaluate((sel) => { const b = document.querySelector(sel); return { fit: b.dataset.pdfFit, spread: b.dataset.pdfSpread, rail: b.dataset.pdfRail, page: b.dataset.pdfPage, paper: b.classList.contains('is-paper') } }, BLOCK)
 const groups = () => h.evaluate(() => [...document.querySelectorAll('.tiptap-block-menu .tiptap-slash-menu-group')].map((one) => one.textContent))
@@ -89,8 +89,9 @@ try {
   await press('Fit width')
 
   await press('Two pages')
-  const [a, b] = await sheets()
-  check('two pages: side by side, one row', a.top === b.top && b.left > a.left + a.w, JSON.stringify([a, b]))
+  // As a printed book opens: the cover alone on the right, then 2 and 3 side by side.
+  const [cover, a, b] = await sheets()
+  check('two pages: the cover alone, then pages side by side, one row', a.top === b.top && b.left > a.left + a.w && cover.top < a.top, JSON.stringify([cover, a, b]))
   await press('One page')
   const [c1, c2] = await sheets()
   check('one page: back one under another', c2.top > c1.top + c1.h - 2, JSON.stringify([c1, c2]))
@@ -107,7 +108,7 @@ try {
   await wait(900)
   check('a page in the sidebar goes to it', (await state()).page === '3', JSON.stringify(await state()))
   await press('Show this page in contents')
-  const here = await h.evaluate((sel) => (({ el }) => el?.getAttribute('title') ?? el?.getAttribute('data-title-tip') ?? '')({ el: document.querySelector(`${sel} [data-outline-row][aria-current]`) }), BLOCK)
+  const here = await h.evaluate((sel) => (({ el }) => el?.getAttribute('data-outline-title') ?? el?.getAttribute('title') ?? '')({ el: document.querySelector(`${sel} [data-outline-row][aria-current]`) }), BLOCK)
   check('"Show this page in contents" lights its chapter in the outline', here === 'Chapter 3', here)
   await h.screenshot({ path: `${SHOTS}/note-pdf-sidebar-light.png` })
 

@@ -43,7 +43,8 @@ try {
   for (const look of ['light', 'dark']) {
     await c.look(look)
     await go('media'); await wait(1200)
-    const face = '[data-media=pdf] [data-pdf-peek-scrub]'
+    // A tile in Files, or a book on the Books shelf when books are all there is (the shelf then shows on its own).
+    const face = ':is([data-media=pdf], .pdf-book) [data-pdf-peek-scrub]'
     await h.waitForSelector(`${face} img`, { timeout: 8000 })
     const ground = () => h.evaluate((sel) => getComputedStyle(document.querySelector(sel)).backgroundColor, face)
     const cover = await ground()
