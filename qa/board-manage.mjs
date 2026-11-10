@@ -101,6 +101,7 @@ try {
   await van.locator('[data-card-more]').click()
   await wait(300)
   const dots = await lines()
+  await both(join(shots, 'card-menu'))
   check('the ⋯ opens the same lines as a right click', dots.join('|') === right.join('|'), dots.join(' | '))
   await shut()
 
@@ -122,6 +123,7 @@ try {
   await lane('Doing').locator('header').click({ button: 'right', position: { x: 100, y: 20 } })
   await wait(300)
   const laneLines = await lines()
+  await h.screenshot({ path: join(shots, 'list-menu-light.png') })
   check('a list\'s menu: rename, colour, move, delete last', ['Rename list', 'Move left', 'Move right'].every((one) => laneLines.some((line) => line.startsWith(one))) && /^Delete list/.test(laneLines.at(-1)), laneLines.join(' | '))
   await pick('Rename list')
   await h.keyboard.type('In progress')
