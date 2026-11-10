@@ -142,13 +142,19 @@ export function CopyAsImage({ editor }: { editor: Editor }): React.JSX.Element {
 
 /** Several lines picked: "5 captures", one a line; one word or a question: "Look up", kept in Lookups. */
 function LinesButton({ editor, origin, button }: { editor: Editor; origin: Origin; button: string }): React.JSX.Element | null {
-  const count = (): number => linesIn(editor, editor.state.selection.from, editor.state.selection.to).length
-  const [lines, setLines] = useState(count)
+  // Kept with the selection's own words, not read as the bar draws: the editor no longer draws its
+  // bars again on every keystroke, so two one-line picks in a row must still tell "Look up" apart.
+  const count = (): { lines: number; from: number; to: number; words: string } => {
+    const { from, to } = editor.state.selection
+    return { lines: linesIn(editor, from, to).length, from, to, words: editor.state.doc.textBetween(from, to, ' ').trim() }
+  }
+  const [picked, setPicked] = useState(count)
   useEffect(() => {
-    const read = (): void => setLines(count())
+    const read = (): void => setPicked(count())
     editor.on('selectionUpdate', read)
     return () => void editor.off('selectionUpdate', read)
   })
+  const { lines, from, to, words } = picked
   if (lines > 1)
     return (
       <Tooltip delay={200}>
@@ -161,8 +167,6 @@ function LinesButton({ editor, origin, button }: { editor: Editor; origin: Origi
         <TooltipContent>Each line its own capture<span className="block opacity-70">Each keeps its words and tags; its kind is read from them</span></TooltipContent>
       </Tooltip>
     )
-  const { from, to } = editor.state.selection
-  const words = editor.state.doc.textBetween(from, to, ' ').trim()
   // A single word, or a question: what is looked up. Other words keep the bar as it was.
   if (!words || words.length > 200 || !(/^\p{L}[\p{L}'-]{1,40}$/u.test(words) || /\?$/.test(words))) return null
   return (

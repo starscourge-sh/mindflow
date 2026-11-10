@@ -262,7 +262,7 @@ import { embedRenderer, noteLinkRenderer, tagRenderer, wikiRenderer } from "@/co
 import { ImageMenu } from "@/components/image/image-menu"
 import { ImageLook } from "@/components/image/image-look"
 import { holdPlace } from "@/lib/pictures"
-import { CodeBlockView } from "@/components/code/code-block-view"
+import { codeBlockNodeView } from "@/components/code/code-block-node-view"
 import { slashRenderer } from "@/components/slash/slash-menu"
 import { slashItems, slashMedia } from "@/components/slash/slash-items"
 import { EmojiSuggestion } from "@/components/emoji/emoji-suggestion"
@@ -966,6 +966,9 @@ function Surface({
   const editor = useEditor({
     // Drawn with its words in the first frame: created after it, a note opened (a page, a window, a tag's stream) showed empty for a frame, then its words, and pushed what was under it down.
     immediatelyRender: true,
+    // Not drawn again on every keystroke: each bar, menu and count keeps itself current (useEditorState or
+    // its own listener), so a long note's whole surface is not redrawn per letter (TipTap's performance guide).
+    shouldRerenderOnTransaction: false,
     editable: !readOnly,
     autofocus,
     editorProps: {
@@ -1440,7 +1443,7 @@ function Surface({
       // `enableTabIndentation` is the extension's own Tab handling: it indents
       // every selected line, where a hand-rolled insert replaces the selection.
       CodeBlockLowlight.extend({
-        addNodeView: () => ReactNodeViewRenderer(CodeBlockView),
+        addNodeView: () => codeBlockNodeView,
         // The grammars come the first time a code block is met (see
         // lib/lowlight): once in, the code is painted again, which is not an
         // edit and nothing to undo.

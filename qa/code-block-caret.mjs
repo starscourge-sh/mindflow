@@ -1,5 +1,5 @@
-// 10 Nov: React blocks (code blocks) no longer read the caret from the page as they are drawn unless the caret is in
-// them (electron.vite.config.ts, tiptapFix). Typing in a code block and turning a line into one keep the caret.
+// 10 Nov: code blocks are plain node views (components/code/code-block-node-view.ts), drawn without React, so
+// no patch to TipTap is needed to open many quickly. Typing in a code block and turning a line into one keep the caret.
 //   QA_ARGS=--sandbox QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/code-block-caret.mjs
 import { sandbox } from './sandbox-lib.mjs'
 const c = await sandbox({ width: 1200, height: 800 })

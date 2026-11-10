@@ -51,14 +51,6 @@ const LANGUAGES: [value: string, label: string][] = [
   ["yaml", "YAML"],
 ]
 
-/**
- * The controls sit inside the block, top right, rather than floating over the
- * document - the language belongs to the block, so it reads as part of it.
- */
-export function CodeBlockView(props: NodeViewProps) {
-  // A ```mermaid block is a diagram: drawn, with its words kept as the code.
-  return props.node.attrs.language === "mermaid" ? <DiagramView {...props} /> : <CodeView {...props} />
-}
 
 /** The drawn diagram, or why it could not be drawn (keeping the last good drawing). */
 type Drawn = { svg: string | null; error: string | null }
@@ -70,7 +62,7 @@ type Drawn = { svg: string | null; error: string | null }
  * drawing follows as you type, and Esc (the extension's key) steps out below.
  * Kept as a ```mermaid code block, so Markdown and Obsidian read it as theirs.
  */
-function DiagramView({ node, editor, getPos }: NodeViewProps) {
+export function DiagramView({ node, editor, getPos }: NodeViewProps): React.JSX.Element {
   const code = node.textContent
   const editing = useEditorState({
     editor,
@@ -219,13 +211,16 @@ function plainError(message: string): string {
   return line ? `Line ${line} is not finished, or has a mistake in it.` : "Mermaid cannot read it yet."
 }
 
-function CodeView({ node, updateAttributes }: NodeViewProps) {
-  const language: string = node.attrs.language ?? ""
+/**
+ * The language picker and the copy button, top right of a code block. Drawn
+ * only once the pointer first comes over the block (code-block-node-view.ts):
+ * they show only on hover, and a note with 150 code blocks drew 150 menus.
+ */
+export function CodeControls({ language, code, setLanguage }: { language: string; code: string; setLanguage: (value: string | null) => void }): React.JSX.Element {
   const [copied, setCopied] = useState(false)
 
   // Only worth running while the block is on auto, and only when the code
   // changes - scoring 37 grammars on every keystroke is not free.
-  const code = node.textContent
   // And once more when the grammars arrive, a moment after the note opens.
   const grammars = useGrammars()
   const detected = useMemo(
@@ -235,8 +230,11 @@ function CodeView({ node, updateAttributes }: NodeViewProps) {
 
   const label =
     LANGUAGES.find(([value]) => value === language)?.[1] ?? language
-  const detectedLabel =
-    LANGUAGES.find(([value]) => value === detected)?.[1] ?? detected
+  // Nothing detected is no "Auto · …": the empty value is "Auto detect" itself, and a block with its
+  // language set said "Auto · Auto detect" instead of its language.
+  const detectedLabel = detected
+    ? (LANGUAGES.find(([value]) => value === detected)?.[1] ?? detected)
+    : ""
 
   // A copy that says nothing looks like a copy that failed.
   useEffect(() => {
@@ -246,69 +244,54 @@ function CodeView({ node, updateAttributes }: NodeViewProps) {
   }, [copied])
 
   return (
-    <NodeViewWrapper className="tiptap-code-block">
-      <div className="tiptap-code-controls" contentEditable={false}>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button type="button" variant="ghost" showTooltip={false}>
-              <span className="tiptap-button-text">
-                {detectedLabel ? `Auto · ${detectedLabel}` : label}
-              </span>
-              <ChevronDownIcon className="tiptap-button-dropdown-small" />
-            </Button>
-          </DropdownMenuTrigger>
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button type="button" variant="ghost" showTooltip={false}>
+            <span className="tiptap-button-text">
+              {detectedLabel ? `Auto · ${detectedLabel}` : label}
+            </span>
+            <ChevronDownIcon className="tiptap-button-dropdown-small" />
+          </Button>
+        </DropdownMenuTrigger>
 
-          <DropdownMenuContent align="end" className="tiptap-code-languages">
-            {LANGUAGES.map(([value, item]) => (
-              <DropdownMenuItem key={item} asChild>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  data-active-state={value === language ? "on" : "off"}
-                  showTooltip={false}
-                  onClick={() => updateAttributes({ language: value || null })}
-                >
-                  <span className="tiptap-button-text">{item}</span>
-                  {value === language ? (
-                    <CheckIcon className="tiptap-button-icon" />
-                  ) : null}
-                </Button>
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <DropdownMenuContent align="end" className="tiptap-code-languages">
+          {LANGUAGES.map(([value, item]) => (
+            <DropdownMenuItem key={item} asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                data-active-state={value === language ? "on" : "off"}
+                showTooltip={false}
+                onClick={() => setLanguage(value || null)}
+              >
+                <span className="tiptap-button-text">{item}</span>
+                {value === language ? (
+                  <CheckIcon className="tiptap-button-icon" />
+                ) : null}
+              </Button>
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
 
-        <Button
-          type="button"
-          variant="ghost"
-          showTooltip={false}
-          aria-label={copied ? "Copied" : "Copy the code"}
-          onClick={() =>
-            navigator.clipboard
-              .writeText(code)
-              .then(() => setCopied(true), () => said("Could not copy the code", false))
-          }
-        >
-          {copied ? (
-            <CheckIcon className="tiptap-button-icon" />
-          ) : (
-            <CopyIcon className="tiptap-button-icon" />
-          )}
-        </Button>
-      </div>
-
-      {/* The colour attributes are carried by hand. A React node view builds
-          its own DOM, so the ones the schema renders onto every other block
-          never reach this one and colouring a code block did nothing. */}
-      <pre
-        data-background={node.attrs.backgroundColor ?? undefined}
-        data-color={node.attrs.textColor ?? undefined}
-        // Code, codes and tables of names are not prose: no spelling squiggles under them.
-        spellCheck={false}
+      <Button
+        type="button"
+        variant="ghost"
+        showTooltip={false}
+        aria-label={copied ? "Copied" : "Copy the code"}
+        onClick={() =>
+          navigator.clipboard
+            .writeText(code)
+            .then(() => setCopied(true), () => said("Could not copy the code", false))
+        }
       >
-        {/* The `as` prop is typed to div; the tag itself is free. */}
-        <NodeViewContent as={"code" as "div"} />
-      </pre>
-    </NodeViewWrapper>
+        {copied ? (
+          <CheckIcon className="tiptap-button-icon" />
+        ) : (
+          <CopyIcon className="tiptap-button-icon" />
+        )}
+      </Button>
+    </>
   )
 }

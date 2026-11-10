@@ -1,7 +1,5 @@
 import { Node, mergeAttributes } from "@tiptap/core"
-import { ReactNodeViewRenderer } from "@tiptap/react"
-
-import { BookmarkView } from "@/components/bookmark/bookmark-view"
+import { bookmarkNodeView } from "@/components/bookmark/bookmark-node-view"
 import { CARD_FIELDS } from "@/extensions/card-link"
 
 /**
@@ -113,7 +111,7 @@ export const Bookmark = Node.create({
    * empty string: the card left the document silently.
    */
   addNodeView() {
-    return ReactNodeViewRenderer(BookmarkView)
+    return bookmarkNodeView
   },
 
   /**
