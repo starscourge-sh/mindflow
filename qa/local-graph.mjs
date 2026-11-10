@@ -172,7 +172,9 @@ try {
     const samples = await h.evaluate(() => new Promise((done) => {
       const out = [], start = performance.now()
       const tick = () => {
-        const canvas = document.querySelector('canvas')
+        // The Map's own canvas: a note page kept in the window still holds its Links canvas, already painted.
+        const canvas = document.querySelector('canvas:not([data-local-graph] canvas)')
+        if (!out.length) console.log('first canvas in the page:', document.querySelector('canvas')?.closest('[data-local-graph]') ? 'a note\'s Links map' : 'the Map')
         if (canvas && canvas.width) {
           const data = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data
           let sum = 0
