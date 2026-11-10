@@ -230,8 +230,8 @@ export function PageBar({ src, name, pages, page, cited, marks, onPage }: { src:
         {page ? <span className="book-bar-here" data-here={page} style={{ left: left(page) }} /> : null}
       </div>
       <div className="book-bar-ends">
-        <span>p. 1</span>
-        <span>p. {pages.toLocaleString()}</span>
+        <span>p. {labelFor(src, 1)}</span>
+        <span>p. {labelFor(src, pages)}</span>
       </div>
     </div>
   )
