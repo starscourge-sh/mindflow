@@ -65,6 +65,64 @@ export function PdfRail({ tab, tabs, onTab, narrow, onDrag, children }: { tab: R
 }
 
 /**
+ * Which thumbnails are near the rail's view (100px either side), worked out from the rail's own scroll: the thumbnails
+ * lie in page order, so the first in view is found by halving, and only those in view are looked at. A watcher on each
+ * thumbnail (1,011 for a 1,000-page book) made the window weigh every one of them on every frame anything on screen
+ * moved, halving the frame rate of a sweep along the Details page strip (qa/page-strip.mjs).
+ */
+type Watched = { el: Element; tell: (seen: boolean) => void }
+type Rail = { all: Set<Watched>; order: Watched[] | null; shown: Set<Watched>; frame: number; stop: () => void }
+const rails = new Map<Element, Rail>()
+const MARGIN = 100
+function look(rail: Rail, list: Element): void {
+  rail.frame = 0
+  rail.order ??= [...rail.all].sort((a, b) => (a.el.compareDocumentPosition(b.el) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1))
+  const order = rail.order
+  const box = list.getBoundingClientRect()
+  const top = box.top - MARGIN
+  const bottom = box.bottom + MARGIN
+  let lo = 0
+  let hi = order.length
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1
+    if (order[mid].el.getBoundingClientRect().bottom < top) lo = mid + 1
+    else hi = mid
+  }
+  const now = new Set<Watched>()
+  // A rail with no height (hidden) shows none.
+  if (box.height > 0) for (let i = lo; i < order.length && order[i].el.getBoundingClientRect().top <= bottom; i++) now.add(order[i])
+  for (const one of rail.shown) if (!now.has(one)) one.tell(false)
+  for (const one of now) if (!rail.shown.has(one)) one.tell(true)
+  rail.shown = now
+}
+function nearView(el: Element, tell: (seen: boolean) => void): () => void {
+  const list = el.closest(".pdf-rail-list")
+  if (!list) return () => {}
+  let rail = rails.get(list)
+  if (!rail) {
+    const made: Rail = { all: new Set(), order: null, shown: new Set(), frame: 0, stop: () => {} }
+    const soon = (): void => void (made.frame ||= requestAnimationFrame(() => look(made, list)))
+    const size = new ResizeObserver(soon)
+    size.observe(list)
+    list.addEventListener("scroll", soon, { passive: true })
+    made.stop = () => (size.disconnect(), list.removeEventListener("scroll", soon), cancelAnimationFrame(made.frame))
+    rails.set(list, made)
+    rail = made
+  }
+  const one: Watched = { el, tell }
+  const it = rail
+  it.all.add(one)
+  it.order = null
+  it.frame ||= requestAnimationFrame(() => look(it, list))
+  return () => {
+    it.all.delete(one)
+    it.shown.delete(one)
+    it.order = null
+    if (!it.all.size) (it.stop(), rails.delete(list))
+  }
+}
+
+/**
  * One page small, drawn only once it scrolls into the rail's view: a long
  * book never draws hundreds of pages it is not showing.
  */
@@ -83,9 +141,7 @@ export function PdfThumb({ doc, page, here, onGo }: { doc: PDFDocumentProxy; pag
   useEffect(() => {
     const el = box.current
     if (!el) return
-    const watch = new IntersectionObserver(([one]) => setSeen(one.isIntersecting), { rootMargin: "100px 0px" })
-    watch.observe(el)
-    return () => watch.disconnect()
+    return nearView(el, setSeen)
   }, [])
   useEffect(() => {
     if (!seen) return

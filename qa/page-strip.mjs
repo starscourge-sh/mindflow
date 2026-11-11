@@ -34,6 +34,16 @@ const { h, v, go } = c
 const wait = (ms) => h.waitForTimeout(ms)
 const waitFor = async (test, ms = 8000) => { for (const end = Date.now() + ms; Date.now() < end; await wait(50)) if (await test()) return true; return false }
 const stat = (all) => { const s = [...all].sort((a, b) => a - b); const at = (q) => Math.round((s[Math.min(s.length - 1, Math.floor(s.length * q))] ?? 0) * 10) / 10; return { n: s.length, p50: at(0.5), p95: at(0.95), max: at(1) } }
+// Light and dark shots with the pointer held on the strip: each theme change redraws, so the pointer goes off and back.
+const held = async (file, target, x, yy) => {
+  for (const name of ['light', 'dark']) {
+    await c.look(name)
+    await h.mouse.move(10, 10); await wait(200)
+    await h.mouse.move(x - 3, yy); await h.mouse.move(x, yy); await wait(700)
+    await target.screenshot({ path: `${file}-${name}.png` })
+  }
+  await c.look('light')
+}
 try {
   await v('settings:set', { sounds: false, hintRate: 0 })
   const { bytes, name } = existsSync(BOOK) ? { bytes: readFileSync(BOOK), name: 'fluent-python.pdf' } : await madeBook()
@@ -94,7 +104,7 @@ try {
   // The number is the page's own (its printed label, as the tip's), the first page of the stroke's stretch.
   check('the picture over it shows the page the stroke opens, numbered', now.page !== null && now.number === tipPage, JSON.stringify({ ...now, tipPage }))
   check('the picture stands over the strip, about 80px wide, its arrow on the stroke pointed at', now.above === true && Math.abs(now.width - 80) <= 2 && Math.abs(now.arrow - px) <= 3, JSON.stringify(now))
-  await c.both(join(shots, 'strip'), h.locator('.read-details'))
+  await held(join(shots, 'strip'), h.locator('.read-details'), xAt(0.5), y)
 
   // Cost of a page's picture: first time (drawn), then from cache. Pages far from the rail's, so none is copied.
   // (The shots above scrolled the panel: the strip is found again.)
@@ -190,7 +200,7 @@ try {
   now = await seen()
   // Zoomed, a stroke is a page some 8px apart: the arrow is on the stroke pointed at, within that of the pointer.
   check('zoomed, the picture still follows the pointer', now.page !== null && Math.abs(now.arrow - xAt(0.55)) <= 9, JSON.stringify({ ...now, pointer: xAt(0.55) }))
-  await c.both(join(shots, 'strip-zoomed'), h.locator('.read-details'))
+  await held(join(shots, 'strip-zoomed'), h.locator('.read-details'), xAt(0.55), y)
   await h.keyboard.press('Escape')
   await waitFor(async () => (await zoom()) === 1, 3000)
   check('Esc puts the whole book back', (await zoom()) === 1, String(await zoom()))
@@ -218,7 +228,7 @@ try {
   console.log('SCRUB the Journal year, same sweep, frame gaps (ms)', JSON.stringify(yearSweep))
   await h.mouse.move(yb.x + yb.width * 0.4, yb.y + yb.height - 4)
   await wait(500)
-  await c.both(join(shots, 'year'), h.locator('[data-year-marks]'))
+  await held(join(shots, 'year'), h.locator('[data-year-marks]'), yb.x + yb.width * 0.4, yb.y + yb.height - 4)
   console.log('shots in', shots)
 } finally {
   await c.close()
