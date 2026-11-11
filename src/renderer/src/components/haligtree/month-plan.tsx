@@ -397,6 +397,9 @@ function WeekRun({ body, row, held, still, bars, lines, sign, onShown, week }: {
   // outran them and showed bare rows).
   const [toward, setToward] = useState<number | null>(null)
   const placed = useRef(false)
+  // The weeks drawn now, and whether a place on the run shows only those.
+  const drawn = useRef<[number, number]>([0, -1])
+  const inSight = (place: number): boolean => Math.floor(place / row) >= drawn.current[0] && Math.floor(place / row) + SCREEN <= drawn.current[1]
   const where = (el: HTMLElement): number => Math.floor(el.scrollTop / row + 0.02)
   const settle = (el: HTMLElement, tap: boolean): void => {
     const at = where(el)
@@ -482,7 +485,12 @@ function WeekRun({ body, row, held, still, bars, lines, sign, onShown, week }: {
       moved.current = event.timeStamp
       moving.current = true
       if (shield.current?.hidden) shield.current.hidden = false
-      if (row && placed.current) gliding.current ? setTop(where(el)) : settle(el, true)
+      if (!row || !placed.current) return
+      if (gliding.current) return setTop(where(el))
+      // A landing whose weeks are all drawn draws nothing on its way: a week drawn then (80ms of the development
+      // build) held the page while the browser played the trackpad's glide on, past the week. It says where it is at rest.
+      if (landing.current && inSight(el.scrollTop) && inSight(landing.current.to)) return
+      settle(el, true)
     }
     // Onto a week, firmly (lib/snap.ts): the week the run is heading for, read from its speed, by a spring with no
     // bounce. While the trackpad's own glide is still running the run is held (it cannot scroll), so the glide's
@@ -506,12 +514,22 @@ function WeekRun({ body, row, held, still, bars, lines, sign, onShown, week }: {
       const to = within(stopFor(at, speed, row))
       if (glide.current) el.style.overflowY = 'hidden'
       early.current = atLift ? at : null
+      // Where the run really is, each frame: the browser plays a trackpad's glide on its own thread, and goes on doing
+      // so until it hears the run is held, a frame later or, behind a busy frame, several. Pushed past its week that
+      // way, the landing goes on to the next week the same way, from where the run is: never back.
+      const way = Math.sign(to - at) || Math.sign(speed)
+      const real = (): number => {
+        const now = el.scrollTop
+        const one = landing.current
+        if (one && way && (now - one.to) * way > 0.5) one.aim(within((way > 0 ? Math.ceil(now / row) : Math.floor(now / row)) * row))
+        return now
+      }
       const one = land(at, speed, to, (value) => void (el.scrollTop = value), (landed) => {
         landing.current = null
         early.current = null
         if (landed) end.current(true, Math.abs(el.scrollTop - at) > 1)
         letRun()
-      })
+      }, undefined, real)
       if (one.running) landing.current = one
     }
     const wheel = (event: WheelEvent): void => {
@@ -605,6 +623,7 @@ function WeekRun({ body, row, held, still, bars, lines, sign, onShown, week }: {
   const far = toward === null ? base : toward - (toward % 2)
   const firstDrawn = Math.max(0, Math.min(base, far) - OVER)
   const lastDrawn = Math.min(WEEKS - 1, Math.max(base, far) + SCREEN + OVER)
+  useLayoutEffect(() => void (drawn.current = [firstDrawn, lastDrawn]))
   return (
     <div ref={body} data-month-scroll data-month-run={dim} data-unfaded className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain [scrollbar-width:none]">
       {/* The days outside the month named, dimmed as on Home's month. A rule that never changes: rewritten for each month, it made the whole window restyle. */}

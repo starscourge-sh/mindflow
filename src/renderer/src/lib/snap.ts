@@ -64,9 +64,11 @@ export type Landing = {
 /**
  * Takes a value from `at` to `to` with the firm spring, starting at `speed` (per second), writing each frame's value
  * through `write`; `done(landed)` once, true when it reached the stop and false when stopped on the way. With Motion
- * off or Reduce motion it is there at once.
+ * off or Reduce motion it is there at once. `read`, where something else can move the thing too (a trackpad's glide the
+ * browser is still playing out on its own thread while a busy frame holds the page): where it really is, looked at
+ * each frame, so the spring goes on from there and never lands a thing that is somewhere else.
  */
-export function land(at: number, speed: number, to: number, write: (value: number) => void, done: (landed: boolean) => void, stiff = FIRM): Landing {
+export function land(at: number, speed: number, to: number, write: (value: number) => void, done: (landed: boolean) => void, stiff = FIRM, read?: () => number): Landing {
   let frame = 0
   let running = true
   const finish = (landed: boolean): void => {
@@ -82,11 +84,17 @@ export function land(at: number, speed: number, to: number, write: (value: numbe
   }
   speed = noPass(at, speed, to, stiff)
   let then = performance.now()
+  // What was last written: a place read back within a pixel of it is its own (whole pixels), anything else was moved.
+  let wrote = at
   const tick = (now: number): void => {
+    const real = read?.()
+    if (real !== undefined && Math.abs(real - wrote) > 1) (at = real), (speed = noPass(at, speed, to, stiff))
+    if (!running) return
     ;[at, speed] = spring(at, speed, to, Math.max(0, (now - then) / 1000), stiff)
     then = now
     if (Math.abs(to - at) < 0.5 && Math.abs(speed) < 20) return void (write(to), finish(true))
     write(at)
+    wrote = at
     frame = requestAnimationFrame(tick)
   }
   frame = requestAnimationFrame(tick)
