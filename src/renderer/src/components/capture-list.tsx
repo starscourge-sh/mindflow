@@ -144,13 +144,13 @@ export const captureMenu = (capture: CaptureMeta, onPick?: (id: string) => void)
     ? [
         { label: 'Resolve', keys: 'R', run: () => void exit(capture.id, 'resolved') },
         // A lookup that did not satisfy: an open question, its words the first clue.
-        ...(capture.kind === 'word' ? [{ label: 'Keep asking', hint: 'An open question, with this as its first clue', run: () => void keepAsking(capture.id) }] : []),
+        ...(capture.kind === 'word' ? [{ label: 'Keep asking', hint: 'An open question, this its first clue', run: () => void keepAsking(capture.id) }] : []),
         { label: 'Turn it into', items: [
           ...EXITS.filter((one) => one.status === 'promoted' || one.status === 'question').map((one) => ({ label: one.label, keys: one.key.toUpperCase(), run: () => void exit(capture.id, one.status) })),
           { label: 'Make it a task', run: () => void makeTask({ capture: capture.id }) },
           // A goal, with a day or none (Someday, for the life list): named from the capture's words, opened on Goals.
           { label: 'Make it a goal…', hint: 'With a day, or Someday with none', run: () => void startGoal((type, id) => window.api.openInHome(type, id), capture.label.split('\n')[0].slice(0, 120)) },
-          { label: 'Add as a clue to a question…', hint: 'Files this note under a question you already have', run: () => void addToQuestion(capture.id) },
+          { label: 'Add as a clue to a question…', hint: 'Filed under a question you already have', run: () => void addToQuestion(capture.id) },
           'separator' as const,
           { label: 'Change kind…', run: () => void changeKind('captures', capture.id, capture.kind) }
         ] }
@@ -166,7 +166,8 @@ export const captureMenu = (capture: CaptureMeta, onPick?: (id: string) => void)
   { label: 'Stick on the desktop', run: () => stickOnDesktop('capture', capture.id) },
   { label: 'Open in a new window', keys: '⌥⌘-click', run: () => openApart('capture', capture.id) },
   // A Word is one word and its meaning: nothing to read through or queue up.
-  capture.kind !== 'word' && { label: 'Read', hint: 'Read it through, the notes it links to open in place', run: () => openRead(capture.id) },
+  // Its hint one line, as every menu line's: at "the notes it links to open in place" it ran to two in the submenu.
+  capture.kind !== 'word' && { label: 'Read', hint: 'Read it through, its links open in place', run: () => openRead(capture.id) },
   ...openItems('capture', capture.id),
   capture.kind !== 'word' && queueMenu(capture.id),
   'separator',

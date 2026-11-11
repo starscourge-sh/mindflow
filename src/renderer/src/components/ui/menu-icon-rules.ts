@@ -6,7 +6,7 @@ import {
   Library, Lightbulb, Link, List, ListChecks, ListStart, Lock, LockOpen, LogOut, Map as MapIcon, Maximize2, MessageCircleQuestion, MessageSquare, Minimize2, Monitor,
   MonitorUp, MoveRight, NotebookText, Palette, Languages, Scissors, Pause, Play, Scale, ScanText, PanelLeft, PanelRight, Pencil, Pin, PinOff, Plus, Quote, Repeat, RotateCcw, Search, Settings, Shapes, Shield,
   ShieldCheck, Smile, Snowflake, Sparkles, SquareCheck, SquareKanban, SquarePen, Star, StickyNote, Sun, Tag, Target, Timer, Trash2, Type, Undo2, Ungroup, Upload,
-  Speech, ThumbsDown, ThumbsUp, Unlink, User, UserCheck, UserX, Video, Volume2, VolumeX, WandSparkles, Wrench, X, Zap, PenLine, SpellCheck, Mic, ArrowLeftRight, ClipboardPaste, SlidersHorizontal, Minus, Highlighter, Layers, Heart, StarOff, ArrowUpToLine, ArrowDownToLine, ToggleLeft, ToggleRight, FlipVertical2, GalleryVertical, File as FileIcon, Moon, ScrollText, Users, Magnet, Mountain, PaintBucket, Telescope, type LucideIcon
+  PanelTop, PanelsTopLeft, Speech, ThumbsDown, ThumbsUp, Unlink, User, UserCheck, UserX, Video, Volume2, VolumeX, WandSparkles, Wrench, X, Zap, PenLine, SpellCheck, Mic, ArrowLeftRight, ClipboardPaste, SlidersHorizontal, Minus, Highlighter, Layers, Heart, StarOff, ArrowUpToLine, ArrowDownToLine, ToggleLeft, ToggleRight, FlipVertical2, GalleryVertical, File as FileIcon, Moon, ScrollText, Users, Magnet, Mountain, PaintBucket, Telescope, type LucideIcon
 } from 'lucide-react'
 
 /**
@@ -157,7 +157,12 @@ const RULES: [RegExp, LucideIcon][] = [
   [/^unpin|^pin off|^stop showing in quick capture/i, PinOff],
   [/in quick capture/i, Pin],
   [/^pin\b|^keep .*on screen/i, Pin],
-  [/to the side|in a new tab|as split|^split|beside it|^add (left|right) split|pane to the (left|right)|^move to (the split|a new split)|^end the split|^open this split/i, Columns2],
+  // The ways to open a thing, each its own drawing (11 Nov: "Open" and "Open in…" shared the arrow, a new tab and the
+  // side shared the two columns): the line that holds them is the window and its parts, a new tab is a pane under
+  // its tab strip, the side is the two columns, a new window is the window (below), "Read" the open book.
+  [/^open in…$|^open in\.\.\.$/i, PanelsTopLeft],
+  [/in a new tab/i, PanelTop],
+  [/to the side|as split|^split|beside it|^add (left|right) split|pane to the (left|right)|^move to (the split|a new split)|^end the split|^open this split/i, Columns2],
   [/^separate|^ungroup/i, Ungroup],
   // Figma's ⌘G: notes gathered into a group in place, drawn as the stack a group starts with.
   [/^group (the picked|[0-9,]+ notes)/i, Layers],
@@ -226,6 +231,9 @@ const RULES: [RegExp, LucideIcon][] = [
   [/^delete|^discard|^clear|^let (it )?go|^drop/i, Trash2],
   [/^take the step out/i, Eraser],
   [/^not private|not private|unlock|^show private|blur private titles again/i, LockOpen],
+  // Hidden until a day is away for a time, not blurred: the telescope its "Hidden until" chip wears on a row and in
+  // the task box, never the closed eye that means private.
+  [/^hide until|^hidden until/i, Telescope],
   // Private blurs, so its drawing is the closed eye; the lock is Lock's own.
   [/^private: blurred|^private$|^make it private/i, EyeOff],
   [/^raw data|^show the source|^hide the source/i, Braces],

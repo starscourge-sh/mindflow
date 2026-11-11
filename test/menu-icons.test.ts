@@ -73,3 +73,14 @@ test('ticked menu lines and switches set their icon in front, as plain lines do'
 test("every kind's first line in Files' menu has its icon", () => {
   for (const label of ['Look at it', 'Open in the reader', 'Play it', 'Preview it', 'Open in its app']) assert.notEqual(menuIcon(label), Dot, label)
 })
+
+// One drawing, one meaning (11 Nov): "Open" and "Open in…" shared the arrow, a new tab and the side shared the two
+// columns, and "Hide until…" wore private's closed eye.
+test('the ways to open a thing each have a drawing of their own, and hiding until a day is not the closed eye of private', () => {
+  const ways = ['Open', 'Open in…', 'Open in a new tab', 'Open to the side', 'Open in a new window', 'Read'].map(menuIcon)
+  assert.equal(new Set(ways).size, ways.length)
+  assert.ok(!ways.includes(Dot))
+  assert.notEqual(menuIcon('Hide until…'), menuIcon('Make it private'))
+  assert.equal(menuIcon('Hide until…'), menuIcon('Hidden until Fri 13 Nov'))
+  assert.notEqual(menuIcon('Hide until…'), Dot)
+})
