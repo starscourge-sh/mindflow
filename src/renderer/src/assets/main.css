@@ -3125,13 +3125,15 @@ html[data-book-hue] [data-book-tint] {
    the page (marked data-day-path, and the root data-day-open, by
    day-writing.tsx) is faded, so nothing new escapes it (and what sits in a wrapper of
    display: contents, which opacity skips: the sidebar, the toasts); the writer's line and an open
-   # or @ list stay. Opacity only, so nothing moves, and nothing gone can be
+   # or @ list and the spelling pill stay (the pill is the writing's own, drawn in the
+   body: faded with the rest, it could not be seen or pressed while Tab still took its
+   word). Opacity only, so nothing moves, and nothing gone can be
    clicked. A hand on the pointer or a pause brings it back slowly, a beat
    after: the words are already there. */
-:root[data-day-open] :is(:is(body, [data-day-path]) > :not([data-day-path], [data-day-write], [data-writer-line], .tiptap-suggestion-popup, :has(.tiptap-suggestion-popup)), :is(body, [data-day-path]) > .contents:not([data-day-path]) > *) {
+:root[data-day-open] :is(:is(body, [data-day-path]) > :not([data-day-path], [data-day-write], [data-writer-line], [data-spell-hint], .tiptap-suggestion-popup, :has(.tiptap-suggestion-popup)), :is(body, [data-day-path]) > .contents:not([data-day-path]) > *) {
   transition: opacity 800ms var(--mf-ease) 250ms;
 }
-:root[data-day-writing] :is(:is(body, [data-day-path]) > :not([data-day-path], [data-day-write], [data-writer-line], .tiptap-suggestion-popup, :has(.tiptap-suggestion-popup), [data-radix-popper-content-wrapper], :has([data-scape-choice])), :is(body, [data-day-path]) > .contents:not([data-day-path]) > *) {
+:root[data-day-writing] :is(:is(body, [data-day-path]) > :not([data-day-path], [data-day-write], [data-writer-line], [data-spell-hint], .tiptap-suggestion-popup, :has(.tiptap-suggestion-popup), [data-radix-popper-content-wrapper], :has([data-scape-choice])), :is(body, [data-day-path]) > .contents:not([data-day-path]) > *) {
   opacity: 0; pointer-events: none;
   transition: opacity 900ms ease-in-out;
 }
