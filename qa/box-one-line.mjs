@@ -74,13 +74,14 @@ await page.hover(EDITOR); await page.mouse.move(300, 28); await page.waitForTime
 const looks = await page.evaluate(() => ({
   handles: [...document.querySelectorAll('.tiptap-drag-handle')].filter((one) => one.getClientRects().length && getComputedStyle(one).display !== 'none').length,
   disc: getComputedStyle(document.querySelector('[data-pill-kind]')).backgroundColor,
-  drag: [...document.querySelectorAll('[data-pill-drag]')].map((one) => getComputedStyle(one).getPropertyValue('-webkit-app-region') || one.style.webkitAppRegion)
+  drag: [...document.querySelectorAll('[data-pill-drag]')].map((one) => `${getComputedStyle(one).getPropertyValue('--mf-drag').trim()} ${getComputedStyle(one).pointerEvents}`)
 }))
 check('the pill shows no block handle beside the kind icon', looks.handles === 0, JSON.stringify(looks))
 await page.hover('[data-pill-kind]'); await page.waitForTimeout(300)
 const hovered = await page.evaluate(() => getComputedStyle(document.querySelector('[data-pill-kind]')).backgroundColor)
 check('the kind icon sits in no grey disc, even under the pointer', /rgba\(0, 0, 0, 0\)|transparent/.test(hovered), hovered)
-check('both ends of the pill drag the window', looks.drag.length === 2 && looks.drag.every((one) => one === 'drag'), JSON.stringify(looks.drag))
+// Carried by Haligtree (lib/carry.ts), not a native drag region, so the page hears the pointer there.
+check('both ends of the pill move the window', looks.drag.length === 2 && looks.drag.every((one) => one === '1 auto'), JSON.stringify(looks.drag))
 // A word spelt wrong on the one line: its fix sits beside it, inside the window, not cut off under the line.
 await page.keyboard.press('End'); await page.keyboard.type(' teh'); await page.waitForTimeout(2200)
 const hint = await page.evaluate(() => { const el = document.querySelector('[data-spell-hint]'); if (!el) return null; const r = el.getBoundingClientRect(); return { top: r.top, bottom: r.bottom, h: innerHeight } })

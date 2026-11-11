@@ -682,7 +682,9 @@ html[data-overhang] :is([data-drag-strip], [data-pill-drag], main[data-zen-row])
   -webkit-app-region: no-drag !important;
   --mf-drag: 1;
 }
-html[data-overhang] main[data-zen-row] > * {
+html[data-overhang] main[data-zen-row] > *,
+html[data-overhang] [data-grabber] {
+  /* The grabber carries the box itself (App.tsx), its double-click taking it home. */
   --mf-drag: 0;
 }
 html[data-overhang] .app-container[data-pill] [data-pill-drag] {

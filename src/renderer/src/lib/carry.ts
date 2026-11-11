@@ -8,7 +8,7 @@
 export function carryOnPress(): void {
   window.addEventListener('pointerdown', (event) => {
     const at = event.target
-    if (event.button !== 0 || !(at instanceof Element) || at.closest('button, a, input, textarea, select, [contenteditable="true"], [role="menuitem"], [data-grabber]')) return
+    if (event.button !== 0 || !(at instanceof Element) || at.closest('button, a, input, textarea, select, [contenteditable="true"], [role="menuitem"]')) return
     if (getComputedStyle(at).getPropertyValue('--mf-drag').trim() !== '1') return
     event.preventDefault()
     carryWindow(event, at)
