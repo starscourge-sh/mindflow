@@ -32,8 +32,10 @@ for (const theme of ['light', 'dark']) {
       const angle = () => {
         const ring = document.querySelector('.mf-welcome [data-detent="0"]')?.parentElement
         if (!ring) return null
-        const m = new DOMMatrix(getComputedStyle(ring).transform)
-        return (Math.atan2(m.b, m.a) * 180) / Math.PI
+        // Read from the ring's own inline transform (motion writes it each frame): asking the computed style
+        // would make the page work its styles out every frame, which the probe itself would then be timing.
+        const deg = /rotate\((-?[\d.e+-]+)deg\)/.exec(ring.style.transform)
+        return deg ? ((((Number(deg[1]) + 180) % 360) + 360) % 360) - 180 : 0
       }
       const tick = (now) => {
         if (/Make it yours/.test(document.querySelector('.mf-welcome h1')?.textContent ?? '')) w.__dial.push({ t: now, dt: now - last, deg: angle(), vt: document.documentElement.matches(':active-view-transition') })

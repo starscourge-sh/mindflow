@@ -152,7 +152,8 @@ let told: string | null = null
  * repaints the ramp underneath it. The page is transparent over the desktop
  * either way, so there is no second set of rules to switch to.
  */
-export function applyTheme(theme: Theme, remember = true): void {
+/** `crossfade`: false puts the colours on in the next frame with no picture taken (the welcome's dial: see welcome.tsx). */
+export function applyTheme(theme: Theme, remember = true, crossfade = true): void {
   const paint = (): void => {
     const { classList } = document.documentElement
     classList.add("dark")
@@ -194,7 +195,7 @@ export function applyTheme(theme: Theme, remember = true): void {
   // it. A change before the first paint, by keys, or with Motion off is
   // simply there.
   const root = document.documentElement
-  const fade = document.readyState === "complete" && root.dataset.motion !== "off" && !byKeys() && !matchMedia("(prefers-reduced-motion: reduce)").matches && typeof document.startViewTransition === "function"
+  const fade = crossfade && document.readyState === "complete" && root.dataset.motion !== "off" && !byKeys() && !matchMedia("(prefers-reduced-motion: reduce)").matches && typeof document.startViewTransition === "function"
   // Already worn (tried on before it was clicked, or told again by another
   // window): nothing to turn over, only the paint.
   const worn = allThemes().every((one) => one === "dark" || root.classList.contains(one) === (one === theme)) && currentStyle() === (root.dataset.style ?? "soft")

@@ -1555,16 +1555,12 @@ const WHERE_TRUE = 'It all stays on this Mac, with no account. A copy goes to yo
 type DialState = { ticks: number }
 
 /**
- * The window puts a theme on with a quick plain crossfade, colours only
- * (main.css: 200ms while the welcome runs), and the dial itself stays live
- * on top of it, so the ring never stops while the page changes.
+ * The window puts each theme on as the ring turns to it, plainly: the colours change in the next frame, while the
+ * ring glides on. A crossfade of the page (a view transition) pictured the whole page, old and new, at once: one
+ * frame of 80 to 250ms, and the ring, gliding by the clock, threw a third of a detent across it. (It was once two
+ * crossfades, one inside the other.) Recolouring is one restyle, about 15ms, with nothing laid out again.
  */
-const fadeTo = (theme: Theme): void => {
-  const go = (): void => applyTheme(theme, false)
-  const start = (document as Document & { startViewTransition?: (run: () => void) => { ready: Promise<void> } }).startViewTransition
-  if (!start || still()) return go()
-  void start.call(document, go).ready.catch(() => undefined)
-}
+const fadeTo = (theme: Theme): void => applyTheme(theme, false, false)
 
 
 /**
