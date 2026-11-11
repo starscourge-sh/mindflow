@@ -2,6 +2,7 @@ import { ChartSpline, Columns2, Columns3, Workflow as DiagramIcon, FileStack as 
 
 import type { Editor } from '@tiptap/core'
 import { isInTable } from '@tiptap/pm/tables'
+import { Selection } from '@tiptap/pm/state'
 import { isValidYoutubeUrl } from '@tiptap/extension-youtube'
 
 import { saveAttachment } from '@/extensions/image-drop'
@@ -189,22 +190,27 @@ export const slashItems: SlashItem[] = [
     group: 'Basic blocks',
     keywords: ['equation', 'formula', 'latex', 'tex', 'math block'],
     icon: <SigmaIcon />,
-    // An empty formula has nothing to show and nowhere to type, so the words
-    // went into the line under it: an empty one asks for its LaTeX at once,
-    // in the same field as its "Edit formula…", and is taken back if left blank.
+    // An empty formula has nothing to show and nowhere to type, so its LaTeX is asked for first, in the same field
+    // as its "Edit formula…", and the block goes in only once there is a formula. Backing out of the question
+    // leaves the note exactly as it was: the block used to go in first and be taken out again when left blank,
+    // which changed the line it had stood on.
     run: (editor) => {
-      // Words picked become the formula; with none it is a stand-in "x" to replace.
+      // Words picked become the formula, as ⌥⌘0 makes one.
       const { empty, from } = editor.state.selection
-      editor.chain().focus().insertMathBlock().run()
-      let at = -1
-      editor.state.doc.nodesBetween(Math.max(0, from - 3), Math.min(editor.state.doc.content.size, from + 4), (node, pos) => void (at < 0 && node.type.name === 'blockMath' && (at = pos)))
-      if (!empty || at < 0) return
+      if (!empty) return void editor.chain().focus().insertMathBlock().run()
       void ask('The formula, in LaTeX', 'For example: E = mc^2', { action: 'Add the formula' }).then((typed) => {
-        const now = editor.state.doc.nodeAt(at)
-        if (!now || now.type.name !== 'blockMath') return
         const latex = typed?.trim()
-        if (latex) editor.chain().focus().command(({ tr }) => (tr.setNodeMarkup(at, undefined, { ...now.attrs, latex }), true)).setTextSelection(at + now.nodeSize).run()
-        else editor.chain().focus().deleteRange({ from: at, to: at + now.nodeSize }).run()
+        if (!latex) return void editor.commands.focus()
+        // The block and its formula in one step, so one ⌘Z takes both back; the caret after it.
+        editor.chain().focus().insertMathBlock().command(({ tr }) => {
+          let at = -1
+          tr.doc.nodesBetween(Math.max(0, from - 3), Math.min(tr.doc.content.size, from + 4), (node, pos) => void (at < 0 && node.type.name === 'blockMath' && (at = pos)))
+          const made = at < 0 ? null : tr.doc.nodeAt(at)
+          if (!made) return true
+          tr.setNodeMarkup(at, undefined, { ...made.attrs, latex })
+          tr.setSelection(Selection.near(tr.doc.resolve(Math.min(tr.doc.content.size, at + made.nodeSize))))
+          return true
+        }).run()
       })
     }
   },
