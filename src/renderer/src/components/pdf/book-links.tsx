@@ -266,7 +266,6 @@ export function PageBar({ src, name, pages, page, cited, marks, onPage }: { src:
       {/* The point first, in full ink; then what the strip shows; then the strip, the first and last page under it. */}
       <p className="book-bar-you">
         {page ? <>You are on p. {labelFor(src, page)} of {labelFor(src, pages)}</> : "Not started"}
-        {zoomed && <span data-book-zoom-hint className="font-normal text-muted-foreground"> · Esc or a double-click for the whole book</span>}
       </p>
       <StrokeRule>Taller strokes hold highlights and notes; pinch to look closer</StrokeRule>
       <div ref={strip} className="book-bar-strip relative" data-swipe-own data-zoom-band={0} data-book-zoom={Math.round(z * 100) / 100} onDoubleClick={whole}>
@@ -302,6 +301,8 @@ export function PageBar({ src, name, pages, page, cited, marks, onPage }: { src:
           <div style={{ width: spread, transform: pan ? `translateX(${-pan}px)` : undefined }}>
             <StrokeAxis ticks={ticks} width={spread} from={pan - 90} to={pan + width + 10} />
           </div>
+          {/* Under the page numbers, past the tip's reach, where the page's picture over the strip never covers it. */}
+          <p data-book-zoom-hint className="mt-3.5 text-[11px] leading-4 text-muted-foreground">Esc or a double-click for the whole book</p>
         </div>
       ) : (
         <div className="book-bar-ends">
@@ -348,6 +349,30 @@ function PagePicture({ src, page, x, width, quick }: { src: string; page: number
   const [late, setLate] = useState<{ page: number; image: string | null } | null>(null)
   // Its shape, kept from the last picture: a sheet that changed shape on every page would jump under the eye.
   const [shape, setShape] = useState(1.3)
+  // How much taller the card stands than its picture needs, so its top edge lies between two lines of the words above
+  // it, never through one: it covers whole lines, as a popover does, or none. The same all along the strip, so it never
+  // jumps as the pointer moves; worked out again only when the picture's shape or the strip's width changes.
+  const [lift, setLift] = useState(0)
+  useLayoutEffect(() => {
+    const card = box.current
+    const bar = card?.closest("[data-page-bar]")
+    const area = bar?.parentElement
+    if (!card || !bar || !area) return
+    const top = card.getBoundingClientRect().top + lift
+    let need = 0
+    const range = document.createRange()
+    const walk = document.createTreeWalker(area, NodeFilter.SHOW_TEXT)
+    for (let node = walk.nextNode(); node; node = walk.nextNode()) {
+      if (card.contains(node)) continue
+      // Past the strip's own block: nothing below it is over the card.
+      if (!bar.contains(node) && bar.compareDocumentPosition(node) & Node.DOCUMENT_POSITION_FOLLOWING) break
+      if (!node.nodeValue?.trim()) continue
+      range.selectNodeContents(node)
+      for (const line of range.getClientRects()) if (line.top < top - need && line.bottom > top - need) need = Math.ceil(top - line.top + 3)
+    }
+    if (need !== lift) setLift(need)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shape, width])
   // Looked up as it is drawn: a page already drawn is on the first frame, never a frame later.
   const ready = railDrawn(box.current, page) ?? drawnPage(src, page) ?? null
   useEffect(() => {
@@ -394,7 +419,7 @@ function PagePicture({ src, page, x, width, quick }: { src: string; page: number
   const paper = paperKept && !dark
   const left = cardLeft(x, width)
   return (
-    <span ref={box} data-page-picture={page} aria-hidden className="book-thumb" style={{ left, bottom: "100%" }}>
+    <span ref={box} data-page-picture={page} data-lift={lift} aria-hidden className="book-thumb" style={{ left, bottom: "100%", paddingTop: 4 + lift }}>
       <span className={`book-thumb-sheet${paper ? " is-paper" : ""}`} style={{ width: THUMB, height: Math.round(THUMB * shape) }}>
         {image instanceof HTMLCanvasElement ? <canvas ref={canvas} className={fading ? "is-late" : undefined} /> : null}
         {/* Always there, so the pointer's fast way in has a picture to put a page on. */}

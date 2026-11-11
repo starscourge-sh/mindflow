@@ -90,6 +90,26 @@ try {
     }
   })
 
+  // Lines of words the picture's edges cut through (its top edge across a line, never whole lines), and whether it or
+  // the tip lies over the zoomed hint.
+  const cuts = () => h.evaluate(() => {
+    const card = document.querySelector('[data-page-bar] [data-page-picture]')
+    if (!card) return { card: false }
+    const r = card.getBoundingClientRect()
+    const area = card.closest('[data-page-bar]').parentElement
+    const range = document.createRange()
+    const walk = document.createTreeWalker(area, NodeFilter.SHOW_TEXT)
+    const cut = []
+    for (let node = walk.nextNode(); node; node = walk.nextNode()) {
+      if (card.contains(node) || !node.nodeValue.trim()) continue
+      range.selectNodeContents(node)
+      for (const line of range.getClientRects()) if (line.top < r.top - 0.5 && line.bottom > r.top + 0.5 && line.right > r.left && line.left < r.right) cut.push(node.nodeValue.trim().slice(0, 30))
+    }
+    const hint = document.querySelector('[data-book-zoom-hint]')?.getBoundingClientRect()
+    const tip = document.querySelector('[data-page-bar] [data-stroke-tip]')?.getBoundingClientRect()
+    const over = (a, b) => !!a && !!b && a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top
+    return { card: true, cut, hintCovered: over(hint, r) || over(hint, tip), lift: Number(card.dataset.lift) }
+  })
   // The swell: strokes by the pointer stand taller, falling off; far ones stay low.
   await h.mouse.move(xAt(0.5), y)
   await wait(500)
@@ -105,6 +125,8 @@ try {
   // The number is the page's own (its printed label, as the tip's), the first page of the stroke's stretch.
   check('the picture over it shows the page the stroke opens, numbered', now.page !== null && now.number === tipPage, JSON.stringify({ ...now, tipPage }))
   check('the picture stands over the strip, about 80px wide, its arrow on the stroke pointed at', now.above === true && Math.abs(now.width - 80) <= 2 && Math.abs(now.arrow - px) <= 3, JSON.stringify(now))
+  const cut1 = await cuts()
+  check('the picture\'s top edge cuts through no line of words: it covers whole lines or none', cut1.card && cut1.cut.length === 0, JSON.stringify(cut1))
   await held(join(shots, 'strip'), h.locator('.read-details'), xAt(0.5), y)
 
   // Cost of a page's picture: first time (drawn), then from cache. Pages far from the rail's, so none is copied.
@@ -226,18 +248,26 @@ try {
   now = await seen()
   // Zoomed, a stroke is a page some 8px apart: the arrow is on the stroke pointed at, within that of the pointer.
   check('zoomed, the picture still follows the pointer', now.page !== null && Math.abs(now.arrow - xAt(0.55)) <= 9, JSON.stringify({ ...now, pointer: xAt(0.55) }))
+  const cut2 = await cuts()
+  check('zoomed, the picture cuts through no line, and neither it nor the tip covers "Esc or a double-click"', cut2.card && cut2.cut.length === 0 && !cut2.hintCovered, JSON.stringify(cut2))
   await held(join(shots, 'strip-zoomed'), h.locator('.read-details'), xAt(0.55), y)
   await h.keyboard.press('Escape')
   await waitFor(async () => (await zoom()) === 1, 3000)
   check('Esc puts the whole book back', (await zoom()) === 1, String(await zoom()))
 
-  // A click opens the page the picture shows.
-  await h.mouse.move(xAt(0.4), y)
-  await wait(300)
-  const want = (await seen()).page
-  await h.mouse.click(xAt(0.4), y)
-  const went = await waitFor(() => h.evaluate((p) => document.querySelector('[data-page-bar] [data-here]')?.getAttribute('data-here') === p, want), 6000)
-  check('a click opens the page the picture shows', went, want)
+  // A click opens the page the picture shows: five times, along the strip, near and far.
+  const clicks = []
+  for (const f of [0.4, 0.45, 0.2, 0.75, 0.41]) {
+    await h.mouse.move(xAt(f), y)
+    await wait(300)
+    const want = (await seen()).page
+    await h.mouse.click(xAt(f), y)
+    const went = await waitFor(() => h.evaluate((p) => document.querySelector('[data-page-bar] [data-here]')?.getAttribute('data-here') === p, want), 6000)
+    const here = await h.evaluate(() => ({ here: document.querySelector('[data-page-bar] [data-here]')?.getAttribute('data-here'), box: document.querySelector('.pdf-reader-of')?.textContent?.trim() }))
+    clicks.push({ f, want, went, ...here })
+    await wait(400)
+  }
+  check('a click opens the page the picture shows (5 times)', clicks.every((one) => one.went), JSON.stringify(clicks.filter((one) => !one.went)))
   await h.mouse.move(10, 10)
   await wait(400)
   check('leaving the strip takes the picture and tip away', !(await h.$('[data-page-bar] [data-page-picture]')) && !(await h.$('[data-page-bar] [data-stroke-tip]')))
