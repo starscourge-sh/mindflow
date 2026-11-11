@@ -4550,6 +4550,8 @@ export function registerHaligtree(): void {
   // --- pins: parked in the sidebar, every one; quick capture shows the top three.
   // A pin is something you chose, so quiet hours hide only notes marked
   // private, never a pin just because it is not sorted yet.
+  // A page or a gem with no name of its own is listed by its first line, as every list names it: a capture moved
+  // to Writing with its pin showed in the sidebar as “Untitled”.
   handle('pins', () => {
     const { blackout, hidePrivate } = gate()
     if (blackout) return []
@@ -4557,7 +4559,7 @@ export function registerHaligtree(): void {
     return db
       .prepare(
         `select id, 'capture' as type, kind, ${LABEL} as title, pinned_at as pinnedAt, private from captures where pinned_at is not null and archived_at is null and status != 'discarded' ${privacy}
-         union all select id, tier as type, kind, title, pinned_at, private from nuggets where pinned_at is not null and archived_at is null ${privacy}
+         union all select id, tier as type, kind, coalesce(nullif(nullif(trim(title), 'Untitled'), ''), label('', body)) as title, pinned_at, private from nuggets where pinned_at is not null and archived_at is null ${privacy}
          order by pinnedAt desc`
       )
       .all()
