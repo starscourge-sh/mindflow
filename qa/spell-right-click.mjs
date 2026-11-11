@@ -92,19 +92,23 @@ const rightClick = async (pg, sel, word, nth = 0, settle = 700, name = '') => {
 }
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b)
 const shut = async (pg) => { await pg.keyboard.press('Escape'); await pg.waitForTimeout(250) }
-/** Main's own menu window (a sticky's menu), whether it is open and what it lists. */
+/**
+ * Main's own menu window (a sticky's menu), whether it is open and what it lists. Waited for up to 12 s: the menu's
+ * window is made the first time a menu is asked for, and its page takes seconds to load on a busy machine.
+ */
 const ownMenu = async () => {
-  for (let i = 0; i < 30; i++) {
+  let seen = { open: false, rows: [], page: null }
+  for (let i = 0; i < 120; i++) {
     const state = await electron.evaluate(() => globalThis.qaPopupMenu ?? {})
     const page = electron.windows().find((one) => one.url().includes('view=menu'))
     if (state.open && page) {
-      await page.waitForSelector('[data-popup-menu]', { timeout: 3000 }).catch(() => {})
       const rows = await page.$$eval('[data-popup-menu] [role^="menuitem"]', (all) => all.map((one) => (one.getAttribute('aria-label') || one.textContent).trim())).catch(() => [])
-      return { open: true, rows, page }
+      seen = { open: true, rows, page }
+      if (rows.length) return seen
     }
     await wait(100)
   }
-  return { open: false, rows: [], page: null }
+  return seen
 }
 
 try {

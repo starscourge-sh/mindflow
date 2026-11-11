@@ -51,6 +51,7 @@ const ALLOWED: [file: string, bit: string, why: string][] = [
   ['src/renderer/src/components/haligtree/power-demos.tsx', '{group.tasks.length}', 'a demo with its own few made-up tasks'],
   ['src/renderer/src/components/haligtree/usage-stats.tsx', '<N>{SECTIONS.length}</N>', 'N says a number through num()'],
   ['src/renderer/src/components/haligtree/stats-view.tsx', '<N>{opened.size}</N>', 'N says a number through num()'],
+  ['src/renderer/src/components/turn-into/spelling.tsx', '${here.word.length}', 'a key for what the spellchecker said of a word where it stood'],
 ]
 
 /** The template strings in a line of code, comments left out. */
