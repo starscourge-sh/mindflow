@@ -6,6 +6,7 @@ import { call, useLive } from "@/lib/haligtree"
 import { chime } from "@/lib/sound"
 import { openPdf } from "./pdf-reader"
 import { coverOnPaper, pdfCover, usePdfCover } from "./pdf-cover"
+import { scrubbedPage } from "./pdf-peek"
 import { PictureRow } from "@/components/haligtree/picture-row"
 import { BookMap, InYourNotes, PageBar, inNotes, useCited } from "./book-links"
 import { BookHead, BookInfo, readLibrary, type Book } from "./book-head"
@@ -28,15 +29,19 @@ export type { Book } from "./book-head"
 export const cleanName = (name: string): string => cleanTitle(name) || "PDF"
 
 /** What a book is called on its card: the title it carries, else its file name made readable. */
-const titleOf = (one: Book): string => (one.title === one.name.replace(/\.pdf$/i, "") ? cleanName(one.name) : one.title)
+export const titleOf = (one: Book): string => (one.title === one.name.replace(/\.pdf$/i, "") ? cleanName(one.name) : one.title)
 const percent = (one: Book): number | null => (one.page && one.pages ? Math.round((one.page / one.pages) * 100) : null)
 
 /**
  * Every PDF you have kept, as a shelf of real covers: each its first page,
  * its title and author, how far you have read and how many highlights it
- * holds. One click picks it and the inspector at the right says all about it;
- * a double click, or "Continue", opens it where you left off.
+ * holds. One click opens it where you left off (page 1 if never opened; the
+ * page on show while its cover is scrubbed). The panel at the right says all
+ * about the book the pointer rests on (REST), or the one the arrows move to;
+ * it starts on the last book read. ⌘-click or ⇧-click picks without opening.
  */
+/** How long the pointer rests on a book before the panel shows it: a sweep across the shelf changes nothing. */
+export const REST = 150
 /** Books few enough that the shelf shows them all at a glance. */
 const FEW = 4
 
@@ -49,10 +54,17 @@ export function PdfLibrary({ query, top, files, onPut, keys, only }: { /** Off w
       .filter((one) => (!only || only.includes(one.src)) && words.every((word) => `${titleOf(one)} ${one.author} ${one.name}`.toLowerCase().includes(word)))
   }, [all, query, only?.join('\n')]) // eslint-disable-line react-hooks/exhaustive-deps
   const going = useGoing(all)
-  // The book in the panel: the one clicked, else the first. Worked out as the shelf is drawn, so the panel is there in
-  // the shelf's first frame: set a frame later, it narrowed the shelf under you and "Continue reading" re-centred.
+  // The book in the panel: the one rested on or moved to, else the last read, else the first. Worked out as the shelf is
+  // drawn, so the panel is there in the shelf's first frame: set a frame later, it narrowed the shelf under you and
+  // "Continue reading" re-centred.
   const [clicked, setChosen] = useState<string | null>(null)
-  const chosen = clicked && books.some((one) => one.src === clicked) ? clicked : books[0]?.src ?? null
+  const lastRead = useMemo(() => books.reduce<Book | null>((best, one) => (one.readAt && (!best?.readAt || one.readAt > best.readAt) ? one : best), null), [books])
+  const chosen = clicked && books.some((one) => one.src === clicked) ? clicked : lastRead?.src ?? books[0]?.src ?? null
+  // Rested on for REST: the panel moves to it. One timer for the shelf, so a sweep only ever restarts it.
+  const resting = useRef(0)
+  useEffect(() => () => clearTimeout(resting.current), [])
+  const restOn = (src: string): void => (clearTimeout(resting.current), void (resting.current = window.setTimeout(() => setChosen(src), REST)))
+  const restOff = (): void => clearTimeout(resting.current)
   const book = books.find((one) => one.src === chosen) ?? null
   // Picking on the shelf, as on every list: ⌘-click and ⇧-click add, ⌘A takes them all, ⌫ bins (the book in the panel, with nothing picked), Esc lets go.
   const here = useHere()
@@ -89,10 +101,40 @@ export function PdfLibrary({ query, top, files, onPut, keys, only }: { /** Off w
     }
     return [...bookMenu(one), { label: "Put in a note…", run: () => onPut([one.src]) }, "separator", free(one.src) && { label: "Move to the Bin", keys: "⌫", danger: true, run: () => toBin([one.src]) }]
   }
-  const open = (one: Book): void => {
+  // Where you left off, else the first; a click on a scrubbed cover gives its page.
+  const open = (one: Book, page = one.page): void => {
     chime("open")
-    openPdf(one.src, one.name, one.page ?? undefined)
+    openPdf(one.src, one.name, page ?? undefined)
   }
+  // The arrows move the panel's book across the shelf, a line at a time up and down; Enter opens it.
+  const order2 = useRef({ books, chosen, open })
+  order2.current = { books, chosen, open }
+  const shelf = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!keys) return
+    const onKey = (event: KeyboardEvent): void => {
+      if (!here() || typing() || menuOpen() || event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) return
+      const { books: list, chosen: now, open: openIt } = order2.current
+      const at = list.findIndex((one) => one.src === now)
+      if (event.key === "Enter") {
+        // A focused control (a book's own button, "Continue") does its own Enter.
+        if ((document.activeElement as HTMLElement | null)?.closest("button, a, input, textarea, [contenteditable='true']") || at < 0) return
+        event.preventDefault()
+        return void heroOpen(shelf.current?.querySelector(`[data-book="${CSS.escape(list[at].src)}"]`) ?? null, () => openIt(list[at]))
+      }
+      const across = shelf.current ? getComputedStyle(shelf.current).gridTemplateColumns.split(" ").length : 1
+      const by = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -across, ArrowDown: across }[event.key]
+      if (!by || event.shiftKey) return
+      event.preventDefault()
+      const next = list[Math.min(list.length - 1, Math.max(0, (at < 0 ? 0 : at + by)))]
+      if (!next || next.src === now) return
+      chime("tap")
+      setChosen(next.src)
+      shelf.current?.querySelector<HTMLElement>(`[data-book="${CSS.escape(next.src)}"]`)?.scrollIntoView({ block: "nearest" })
+    }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [keys, here])
   const [scroller, setScroller] = useState<HTMLDivElement | null>(null)
   // The shelf scrolls on its own at the left; the picked book's panel is docked at the page's right edge, full height, as the reader's is.
   return (
@@ -112,9 +154,17 @@ export function PdfLibrary({ query, top, files, onPut, keys, only }: { /** Off w
               </section>
             )}
             {books.length ? (
-              <div className={`pdf-library-shelf${books.length <= 3 ? " is-few" : ""}`} role="group" aria-label="Your books">
+              <div ref={shelf} className={`pdf-library-shelf${books.length <= 3 ? " is-few" : ""}`} role="group" aria-label="Your books" onPointerLeave={restOff}>
                 {books.map((one) => (
-                  <BookCard key={one.src} one={one} lit={one.src === chosen} picked={picked.includes(one.src)} menu={menuOf(one)} onPick={(event) => (setChosen(one.src), picking.click(event, one.src) || chime("tap"))} onOpen={() => open(one)} />
+                  <BookCard key={one.src} one={one} lit={one.src === chosen} picked={picked.includes(one.src)} menu={menuOf(one)} onRest={() => restOn(one.src)} onLeave={restOff}
+                    onPick={(event) => {
+                      // ⌘ or ⇧: picked, not opened, and the panel shows it; a plain click opens it.
+                      if (picking.click(event, one.src)) return void (restOff(), setChosen(one.src))
+                      restOff()
+                      // The scrubbed page read as the click lands: the book growing out of its cover ends the scrub.
+                      const page = scrubbedPage(one.src) ?? one.page
+                      heroOpen(event, () => open(one, page))
+                    }} />
                 ))}
               </div>
             ) : (
@@ -124,7 +174,8 @@ export function PdfLibrary({ query, top, files, onPut, keys, only }: { /** Off w
         </div>
         <BackToTop target={scroller} />
       </div>
-      {book && <Inspector one={book} onOpen={() => heroOpen(document.querySelector(`[data-book="${CSS.escape(book.src)}"]`), () => open(book))} />}
+      {/* A quick crossfade as the panel's book changes: keyed by the book, it comes in fresh. */}
+      {book && <Inspector key={book.src} one={book} onOpen={() => heroOpen(document.querySelector(`[data-book="${CSS.escape(book.src)}"]`), () => open(book))} />}
     </div>
     </div>
   )
@@ -140,12 +191,12 @@ export function bookMenu(one: Book): RowItem[] {
   ]
 }
 
-function BookCard({ one, lit, picked, menu, onPick, onOpen }: { one: Book; lit: boolean; picked: boolean; menu: RowItem[]; onPick: (event: React.MouseEvent) => void; onOpen: () => void }): React.JSX.Element {
+function BookCard({ one, lit, picked, menu, onPick, onRest, onLeave }: { one: Book; lit: boolean; picked: boolean; menu: RowItem[]; onPick: (event: React.MouseEvent) => void; onRest: () => void; onLeave: () => void }): React.JSX.Element {
   const cover = usePdfCover(one.src, one.name)
   const read = percent(one)
   return (
     <RowMenu items={menu}>
-    <button type="button" aria-pressed={lit} data-book={one.src} data-id={one.src} data-picked={picked || undefined} className={`pdf-book${lit ? " is-picked" : ""}${picked ? " is-chosen" : ""}`} onClick={onPick} onDoubleClick={(event) => heroOpen(event, onOpen)} onKeyDown={(event) => event.key === "Enter" && onOpen()}>
+    <button type="button" aria-pressed={lit} data-book={one.src} data-id={one.src} data-picked={picked || undefined} className={`pdf-book${lit ? " is-picked" : ""}${picked ? " is-chosen" : ""}`} onClick={onPick} onPointerEnter={(event) => event.pointerType === "mouse" && onRest()} onPointerLeave={onLeave}>
       <span className="pdf-book-cover" data-pdf-peek={one.src} data-pdf-peek-name={one.name} data-pdf-peek-scrub="">
         {cover?.image ? <img src={cover.image} alt="" draggable={false} /> : <span className="pdf-book-blank"><BookOpen className="size-6" /></span>}
         {read !== null && (
@@ -182,7 +233,7 @@ function Inspector({ one, onOpen }: { one: Book; onOpen: () => void }): React.JS
   }, [one.src, one.highlights])
   const linked = inNotes(cited).length
   return (
-    <aside className="book-panel pdf-inspector" aria-label="About this book" data-inspector>
+    <aside className="book-panel pdf-inspector animate-in fade-in-0 duration-150 motion-reduce:animate-none" aria-label="About this book" data-inspector data-inspector-book={one.src}>
       <div className="book-panel-head">
         <BookHead cover={cover} title={titleOf(one)} author={one.author} pages={one.pages} bytes={one.bytes} />
         <button type="button" className="pdf-inspector-open" onClick={onOpen}>

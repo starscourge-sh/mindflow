@@ -159,6 +159,10 @@ const SLIDE = 4
 const scrubBoxOf = (target: HTMLElement): HTMLElement | null => (target.matches("[data-pdf-peek-scrub]") ? target : target.querySelector<HTMLElement>("[data-pdf-peek-scrub]"))
 const isThumb = (target: HTMLElement): boolean => target.matches(".tiptap-pdf-cover, .continue-book-cover")
 
+/** The page a cover is scrubbed to now, for a click on it to open there (the shelf's books): null when it is not being scrubbed. */
+let scrubbedNow: { src: string; page: number } | null = null
+export const scrubbedPage = (src: string): number | null => (scrubbedNow?.src === src ? scrubbedNow.page : null)
+
 /** A cover turned into one of its pages in place, as a video's frame shows under the pointer. */
 type Scrub = { box: HTMLElement; src: string; name: string; count: number; page: number; image: string | null; from: number; moved: boolean }
 
@@ -222,6 +226,7 @@ export function PdfPeek(): React.JSX.Element | null {
     const arm = (target: HTMLElement, box: HTMLElement, { src, name }: Named): void => {
       on.current = target
       around.current = target
+      scrubbedNow = null
       setScrub(null)
       clearTimeout(rest.current)
       rest.current = window.setTimeout(() => {
@@ -263,6 +268,7 @@ export function PdfPeek(): React.JSX.Element | null {
     }
     const away = (): void => {
       clearTimeout(rest.current)
+      scrubbedNow = null
       on.current = null
       setPeek(null)
       setScrub(null)
@@ -283,6 +289,7 @@ export function PdfPeek(): React.JSX.Element | null {
         const image = drawn.get(`${turning.src}#${page}`) ?? nearestDrawn(turning.src, page, turning.count) ?? turning.image
         const next = { ...turning, page, image, moved: true }
         scrubbing.current = next
+        scrubbedNow = { src: turning.src, page }
         setScrub(next)
         void (page === 1 ? pdfCover(turning.src).then((cover) => cover?.image ?? null) : pageImage(turning.src, page)).then((made) =>
           setScrub((now) => (now && now.src === turning.src && now.page === page ? { ...now, image: made } : now)))
