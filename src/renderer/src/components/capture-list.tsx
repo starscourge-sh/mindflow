@@ -167,9 +167,12 @@ export const captureWays = (capture: Pick<CaptureMeta, 'id' | 'kind' | 'status'>
     const one = EXITS.find((each) => each.status === status)!
     return { id: status, label: one.label, hint, keys: one.key.toUpperCase(), tint: one.tint, run: () => then(exit(capture.id, status, back)) }
   }
-  // Writing's folders, each under the folders it sits in ("History / Renaissance"), as its own list orders them.
+  // Writing's folders, named as a page's own “Move to folder” names them (items-view.tsx): by name, and two of one
+  // name (a "Drafts" in "Notes" and one in "Essays") with the folders they sit in, "Notes / Drafts".
   const places = folders.filter(isFolder)
+  const named = (one: NoteGroup): string => one.name.trim().toLowerCase()
   const pathOf = (one: NoteGroup): string => {
+    if (places.filter((other) => named(other) === named(one)).length < 2) return one.name
     const path = [one.name]
     for (let up = places.find((other) => other.id === one.parent); up && path.length < 4; up = places.find((other) => other.id === up!.parent)) path.unshift(up.name)
     return path.join(' / ')
