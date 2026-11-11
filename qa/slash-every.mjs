@@ -40,7 +40,7 @@ const PLACES = {
   callout: { lead: '', set: (ed) => ed.chain().setContent({ type: 'doc', content: [{ type: 'paragraph' }] }).focus('start').toggleCallout().run() },
 }
 // The menu once it has opened (or closed), never a fixed wait: a busy machine opens it late.
-const menuWhen = async (open = true) => { for (let n = 0; n < 40; n++) { const now = await menu(); if (!!now === open && (!open || now.count > 0 || now.asks)) return now; await wait(80) } return menu() }
+const menuWhen = async (open = true, tries = 40) => { for (let n = 0; n < tries; n++) { const now = await menu(); if (!!now === open && (!open || now.count > 0 || now.asks)) return now; await wait(80) } return menu() }
 const place = (name) => h.evaluate(([sel, code]) => new Function('ed', `return (${code})(ed)`)(document.querySelector(sel).editor), [sel, PLACES[name].set.toString()])
 // Opens a system sheet or the microphone when run: found and backed out of, never run here.
 const NOT_RUN = /^(File|PDF|Voice note|Call or lecture|Dictate|Export as .+)$/
@@ -57,7 +57,7 @@ async function walk(title, where, { big = false } = {}) {
   // Found by its name, and Esc leaves nothing of it.
   const started = Date.now()
   await h.keyboard.type(`/${title.toLowerCase()}`, { delay: 12 }); await wait(250)
-  let shown = await menuWhen()
+  let shown = await menuWhen(true, big ? 150 : 40)
   out.opened = !!shown
   out.ms = Date.now() - started
   out.found = shown?.first === title
@@ -91,10 +91,17 @@ async function walk(title, where, { big = false } = {}) {
 try {
   await v('settings:set', { sounds: false, hintRate: 0, safeMode: false })
   const id = await h.evaluate((body) => window.api.captures.create({ kind: 'note', body }), { type: 'doc', content: [p('Slash every')] })
-  await c.send('capture', id); await wait(1800)
-  await place('top'); await wait(200)
+  await c.send('capture', id); await wait(2500)
+  // A real press in the note first, as a person makes: the page has the keys from then on.
+  await h.locator(sel).first().click(); await wait(400)
+  await place('top'); await wait(300)
+  // A letter typed and taken back first: proof the keys reach the note before the "/" is judged.
+  await h.keyboard.type('x'); await wait(200); await h.keyboard.press('Backspace'); await wait(300)
+  console.log(`NOTE  before the first "/": caret in the note ${await h.evaluate((sel) => document.querySelector(sel).editor.isFocused, sel)}, active ${await h.evaluate(() => document.activeElement?.className?.toString().slice(0, 60))}`)
   await h.keyboard.type('/', { delay: 20 }); await menuWhen(); await wait(300)
-  const all = await h.evaluate(() => [...document.querySelectorAll('.tiptap-slash-menu-list > button')].map((one) => ({ title: one.querySelector('.tiptap-slash-menu-title')?.textContent ?? '', group: '' })))
+  console.log(`NOTE  after it: active ${await h.evaluate(() => `${document.activeElement?.tagName} ${document.activeElement?.className?.toString().slice(0, 60)}`)}, note ${await h.evaluate((sel) => JSON.stringify(document.querySelector(sel).editor.getJSON()).slice(0, 160), sel)}`)
+  // Each row with the heading it sits under: the book's own files ("From Files, in no note yet") are not commands.
+  const all = await h.evaluate(() => { let group = ''; return [...document.querySelectorAll('.tiptap-slash-menu-list > *')].flatMap((one) => (one.matches('.tiptap-slash-menu-group') ? ((group = one.textContent ?? ''), []) : [{ title: one.querySelector('.tiptap-slash-menu-title')?.textContent ?? '', group }])) })
   const whole = await menu()
   if (process.env.SHOTS) for (const theme of ['light', 'dark']) { await c.look(theme); await h.screenshot({ path: `${process.env.SHOTS}/slash-open-${theme}.png` }) }
   await h.keyboard.press('Escape'); await wait(200)
@@ -102,7 +109,7 @@ try {
   check('the open menu keeps inside the window, rows one height, the hand on each, no name cut short', !!whole && whole.inside && whole.heights.length === 1 && whole.hand && !whole.cut, JSON.stringify(whole))
   check('a row keeps the same room on its left and right', !!whole?.pad && Math.abs(whole.pad[0] - whole.pad[1]) <= 6, JSON.stringify(whole?.pad))
   const only = process.env.ONLY ? new RegExp(process.env.ONLY, 'i') : null
-  const titles = all.map((one) => one.title).filter((title) => PLACES && !/\.(png|jpe?g|pdf|gif|webp|mp3|m4a|mov|mp4)$/i.test(title) && (!only || only.test(title)))
+  const titles = all.filter((one) => !/^From Files/.test(one.group)).map((one) => one.title).filter((title) => !only || only.test(title))
   // Frames through one open, filter and pick.
   if (process.env.SHOTS) {
     await c.look('dark'); await place('top')
@@ -132,8 +139,10 @@ try {
     // Its words in the page first (a very long note takes a moment), then the caret at its very end, on a new line.
     for (let n = 0; n < 100 && !(await h.evaluate((sel) => (document.querySelector(sel)?.editor?.state.doc.content.size ?? 0) > 100000, sel)); n++) await wait(200)
     console.log(`NOTE  the long note: ${await h.evaluate((sel) => document.querySelector(sel).editor.state.doc.textContent.length, sel)} characters`)
-    await h.evaluate((sel) => document.querySelector(sel).editor.commands.focus('end'), sel); await wait(800)
-    await h.keyboard.press('Enter'); await wait(800)
+    await h.locator(sel).first().click({ position: { x: 300, y: 200 } }).catch(() => {}); await wait(500)
+    await h.evaluate((sel) => document.querySelector(sel).editor.commands.focus('end'), sel); await wait(1500)
+    await h.keyboard.press('Enter'); await wait(1500)
+    console.log(`NOTE  the caret is in the note: ${await h.evaluate((sel) => document.querySelector(sel).editor.isFocused, sel)}`)
     for (const title of ['Heading 2', 'Checklist', 'Table']) rows.push(await walk(title, 'end of the long note', { big: true }))
     await h.keyboard.press('Meta+z'); await wait(600)
   }
