@@ -138,7 +138,7 @@ export function FilesTable({ kind, rows, facts, sort, onSort, cursor, chosen, ke
   // Clicked, a column orders the list by it; clicked again, the other way.
   const by = (label: string, first: string, second: string, className: string): { label: string; className: string; sort: { on: boolean; down: boolean; pick: () => void } } => ({
     label, className,
-    sort: { on: sort === first || sort === second, down: sort !== second, pick: () => (chime('tap'), onSort(sort === first ? second : first)) }
+    sort: { on: sort === first || sort === second, down: first === second || sort !== second, pick: () => (chime('tap'), onSort(sort === first ? second : first)) }
   })
   // A column only where it says something: a kind on a page of one kind does not; pictures have no length.
   const showKind = kind === 'all' || kind === 'picture'

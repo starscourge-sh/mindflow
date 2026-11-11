@@ -251,6 +251,7 @@ try {
   await h.locator('[data-sort-column="Size"]').click(); await wait(500)
   check('"Size": the largest first, marked on its head', await h.evaluate(() => document.querySelector('[data-sort-column="Size"]')?.getAttribute('aria-sort') === 'descending'))
   await h.locator('[data-sort-column="Opened"]').click(); await wait(500)
+  check('"Opened": the last opened first, its arrow pointing down', await h.evaluate(() => document.querySelector('[data-sort-column="Opened"]')?.getAttribute('aria-sort') === 'descending'))
   // Keys: ↓ moves the cursor, ⌘A takes all, Esc lets go, ⇧-click picks a run.
   await h.mouse.move(5, 5)
   for (let i = 0; i < 3; i++) await h.keyboard.press('ArrowDown')
