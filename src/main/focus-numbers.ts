@@ -1,3 +1,4 @@
+import { isMorning } from './day-parts.ts'
 import { daysInARow } from './study.ts'
 import dayjs from 'dayjs'
 
@@ -111,7 +112,7 @@ export function streaks(days: Set<string>, today = dayKey(new Date()), away: Set
 }
 
 const partOf = (hour: number): 'morning' | 'afternoon' | 'evening' | 'night' =>
-  hour >= 5 && hour < 12 ? 'morning' : hour >= 12 && hour < 17 ? 'afternoon' : hour >= 17 && hour < 22 ? 'evening' : 'night'
+  isMorning(hour) ? 'morning' : hour >= 12 && hour < 17 ? 'afternoon' : hour >= 17 && hour < 22 ? 'evening' : 'night'
 
 /** Each task's whole time, first session and last, from rows in the order they started. */
 function taskTimes(kept: FocusRow[]): FocusStats['taskTimes'] {

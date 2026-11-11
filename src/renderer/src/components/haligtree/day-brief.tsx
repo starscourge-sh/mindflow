@@ -1,3 +1,4 @@
+import { isMorning } from '../../../../main/day-parts'
 import { useEffect, useState, type ReactNode } from 'react'
 import { useReading } from '@/lib/reads-in'
 import { byKeys } from '@/lib/motion'
@@ -228,8 +229,8 @@ export function DayBrief({ day, onOpen, onListed, between }: {
   ]
   // One sentence, calm and short: what lands when, then what else is waiting.
   const parts: string[] = []
-  // From five: before it, it is still the night before (dayPart), and "ease into it" reads wrong at 4am.
-  const morning = now.getHours() >= 5 && now.getHours() < 12
+  // From 4 (main/day-parts.ts): before it, it is still the night before, and "ease into it" reads wrong at 3am.
+  const morning = isMorning(now.getHours())
   if (dueToday.length && timed.length && morning && dayjs(timed[0].dueAt!).hour() >= 12)
     parts.push(`your morning is open until ${clock(timed[0].dueAt!)}`)
   else if (dueToday.length && timed.length) parts.push(`${say(dueToday.length)} ${dueToday.length === 1 ? 'thing is' : 'things are'} due, the next at ${clock(timed[0].dueAt!)}`)

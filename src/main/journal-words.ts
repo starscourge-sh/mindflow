@@ -1,3 +1,5 @@
+import { smallHours } from './day-parts.ts'
+
 /** Close the day's two questions, by the key each answer is kept under. */
 export const QUESTIONS = { well: 'What went well today?', learned: 'What did you learn today?' } as const
 export type Question = keyof typeof QUESTIONS
@@ -38,8 +40,8 @@ export const DAY_QUESTIONS = {
 /** Every one of them, whatever the hour. */
 export const DAY_PROMPTS: readonly string[] = Object.values(DAY_QUESTIONS).flat()
 
-/** Which list the hour asks from: before noon, until six, until eleven, then late at night (till five). */
-export const dayPart = (hour: number): keyof typeof DAY_QUESTIONS => (hour < 5 || hour >= 23 ? 'late' : hour < 12 ? 'morning' : hour < 18 ? 'midday' : 'evening')
+/** Which list the hour asks from: morning from 4 (day-parts.ts) until noon, until six, until eleven, then late at night. */
+export const dayPart = (hour: number): keyof typeof DAY_QUESTIONS => (smallHours(hour) || hour >= 23 ? 'late' : hour < 12 ? 'morning' : hour < 18 ? 'midday' : 'evening')
 
 /**
  * The `nth` question for a day at an hour: a step of three through the hour's

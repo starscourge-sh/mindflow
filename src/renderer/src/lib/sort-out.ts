@@ -1,3 +1,4 @@
+import { isMorning } from '../../../main/day-parts'
 /**
  * "Sort this out": a pasted or written page, line by line, into what each
  * line is best kept as (components/haligtree/sort-out.tsx). From any window: the
@@ -37,7 +38,7 @@ export function openInboxSort(): void {
 export const markSorted = (): void => (write(SORTED_KEY, today()), void window.dispatchEvent(new CustomEvent('haligtree:morning-sorted')))
 /** Put away for today with its ×. */
 export const sortAway = (): void => (write(AWAY_KEY, today()), void window.dispatchEvent(new CustomEvent('haligtree:morning-sorted')))
-/** Whether the morning offer is due: on, from 4 until noon, and not started or put away today. */
+/** Whether the morning offer is due: on, in the morning (from 4 until noon, main/day-parts.ts), and not started or put away today. */
 export function sortDue(on: boolean | undefined, now = new Date()): boolean {
-  return on !== false && now.getHours() >= 5 && now.getHours() < 12 && read(SORTED_KEY) !== today() && read(AWAY_KEY) !== today()
+  return on !== false && isMorning(now.getHours()) && read(SORTED_KEY) !== today() && read(AWAY_KEY) !== today()
 }

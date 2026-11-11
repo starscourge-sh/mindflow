@@ -4,6 +4,7 @@ import { chime } from '@/lib/sound'
 import { byKeys, useByKeys } from '@/lib/motion'
 import { unloaded, useLive, haligtree, type Settings, type Task } from '@/lib/haligtree'
 import { readLines } from '../../../../main/day-lines'
+import { smallHours } from '../../../../main/day-parts'
 import { dated, dayjs, dayKey, num } from '../../../../main/dates'
 import { clock } from '@/lib/clock'
 import { Tip, Typed, quietly, toast } from './ui'
@@ -27,11 +28,8 @@ import { DayLine, type LineHandle } from './day-line'
  * at half past midnight is still for the day you wake into, on the same list.
  */
 
-/** The small hours still belong to the night before. */
-const NIGHT_ENDS = 4
-
 /** The night a moment belongs to, named by its evening's day. */
-export const nightOf = (now = new Date()): string => dayKey(now.getHours() < NIGHT_ENDS ? dayjs(now).subtract(1, 'day') : now)
+export const nightOf = (now = new Date()): string => dayKey(smallHours(now.getHours()) ? dayjs(now).subtract(1, 'day') : now)
 /** The day a night's lines are for: the one you wake into. */
 export const dayAfter = (night: string): string => dayKey(dayjs(night).add(1, 'day'))
 
@@ -42,7 +40,7 @@ const minutesOf = (at?: string): number => {
 /** Whether the box is offered now: on, and past the evening hour or in the small hours. */
 function eveningNow(settings: Pick<Settings, 'closeDayAt' | 'tomorrowBox'> | null, now = new Date()): boolean {
   if (!settings || settings.tomorrowBox === false) return false
-  return now.getHours() < NIGHT_ENDS || now.getHours() * 60 + now.getMinutes() >= minutesOf(eveningAt(settings))
+  return smallHours(now.getHours()) || now.getHours() * 60 + now.getMinutes() >= minutesOf(eveningAt(settings))
 }
 
 /** One line of a night's list: its task, and whether this list made it (or found it already on your list). */
@@ -397,7 +395,7 @@ export function TomorrowPreview({ at, on }: { at: string; on: boolean }): React.
     <div data-tomorrow-preview className={`mt-2 max-w-md transition-opacity ${on ? '' : 'opacity-50'}`}>
       <p className="mb-1.5 text-[0.8125rem] font-medium text-foreground">{said}</p>
       <div aria-hidden className="pointer-events-none rounded-xl border bg-background px-3.5 py-2.5 select-none">
-        <p className="flex items-baseline gap-2"><span className="text-[0.9375rem] font-semibold text-foreground">{now.getHours() < NIGHT_ENDS ? 'For the morning' : 'For tomorrow'}</span><span className="text-xs font-medium text-muted-foreground">{dayjs(now).add(now.getHours() < NIGHT_ENDS ? 0 : 1, 'day').format('dddd')}</span></p>
+        <p className="flex items-baseline gap-2"><span className="text-[0.9375rem] font-semibold text-foreground">{smallHours(now.getHours()) ? 'For the morning' : 'For tomorrow'}</span><span className="text-xs font-medium text-muted-foreground">{dayjs(now).add(smallHours(now.getHours()) ? 0 : 1, 'day').format('dddd')}</span></p>
         {['Email Sam the draft', 'Book the dentist'].map((line, n) => (
           <p key={line} className="mt-1 flex items-center gap-2 text-control text-foreground">
             <span className="grid w-3 shrink-0 place-items-center"><span className="size-1.5 rounded-full shrink-0 bg-muted-foreground" /></span>{line}

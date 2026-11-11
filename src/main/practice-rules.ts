@@ -1,3 +1,5 @@
+import { isMorning } from './day-parts.ts'
+
 /**
  * Practices, the rules on their own: what a session's minutes count as, how
  * full the pill is, when one is offered, and the better time to suggest.
@@ -75,7 +77,7 @@ export function bestHour(hours: number[], skipped: number): number | null {
   return best
 }
 
-export const partOfDay = (hour: number): string => (hour >= 5 && hour < 12 ? 'Mornings' : hour >= 12 && hour < 17 ? 'Afternoons' : hour >= 17 && hour < 21 ? 'Evenings' : 'Nights')
+export const partOfDay = (hour: number): string => (isMorning(hour) ? 'Mornings' : hour >= 12 && hour < 17 ? 'Afternoons' : hour >= 17 && hour < 21 ? 'Evenings' : 'Nights')
 
 /** The log line written as a session ends: "practice:: design patterns, 14 min". */
 export function logLine(name: string, minutes: number): string {

@@ -1,3 +1,4 @@
+import { MORNING_FROM } from '../../../../main/day-parts'
 import { useEffect, useLayoutEffect, useState, type ReactNode } from 'react'
 import { sunMoods } from '@/lib/sun'
 import { useReading } from '@/lib/reads-in'
@@ -29,7 +30,7 @@ function moodsNow(hour = new Date().getHours()): Mood[] {
   // By your sun where it is known (lib/sun.ts), else by the clock.
   const sun = sunMoods()
   if (sun) return sun
-  if (hour >= 5 && hour < 17) return ['day']
+  if (hour >= MORNING_FROM && hour < 17) return ['day']
   if (hour >= 17 && hour < 21) return ['dusk']
   return ['night', 'interior']
 }
