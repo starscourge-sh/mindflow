@@ -30,6 +30,9 @@ import { SoundPlayer, soundTitle } from "@/components/haligtree/sound-player"
 import { FileText as File, FileText, Fit as Maximize, Volume2, VolumeX } from "@/components/ui/icons"
 import { plural } from '../../../../main/dates'
 import { sizeOf } from "@/components/pdf/book-head"
+import { kindWord, useFileFace } from "@/components/haligtree/files-shelves"
+import { openFileLook } from "@/components/attachment/file-look"
+import type { Media } from "../../../../main/media"
 
 /** 57.3 KB, not 58624: as Finder says it (decimal units), the same as the shelf and a book's Information. */
 function readableSize(bytes: number): string {
@@ -69,7 +72,7 @@ const RATES = [1, 1.5, 2]
  * play (the frame lights up) and the end (the controls settle back with a
  * replay in place of play).
  */
-function useMedia(video: boolean, known: number | null, learn: (seconds: number) => void): {
+export function useMedia(video: boolean, known: number | null, learn: (seconds: number) => void): {
   ref: React.RefObject<HTMLMediaElement | null>
   frame: React.RefObject<HTMLSpanElement | null>
   controls: React.JSX.Element
@@ -655,10 +658,10 @@ export function AttachmentView(props: NodeViewProps): React.JSX.Element {
         // system is not something to do by brushing past it.
         onDoubleClick={() => void host().openFile?.(src)}
       >
-        {/\.pdf$/i.test(name) ? <FileText className="tiptap-attachment-icon" /> : <File className="tiptap-attachment-icon" />}
+        <CardFace src={src} name={name} />
         <span className="tiptap-attachment-body">
           <span className="tiptap-attachment-name">{name || "Attachment"}</span>
-          <span className="tiptap-attachment-size">{readableSize(size)}</span>
+          <span className="tiptap-attachment-size">{[kindWord({ kind: "document", name: String(name ?? ""), src }), readableSize(size)].filter(Boolean).join(" · ")}</span>
         </span>
 
         <button
@@ -686,6 +689,22 @@ export function AttachmentView(props: NodeViewProps): React.JSX.Element {
         </button>
       </div>
     </NodeViewWrapper>
+  )
+}
+
+/**
+ * A file's face on its card, as Files shows it (files-shelves.tsx): its first page as the Mac's Quick Look draws it,
+ * or the Mac's icon for its kind. A click on it previews the file over the page; the card's double click opens it in its app.
+ */
+function CardFace({ src, name }: { src: string; name: string }): React.JSX.Element {
+  const one = useMemo(() => ({ src, name: String(name ?? ""), kind: "document", gone: false }) as Media, [src, name])
+  const face = useFileFace(/^(haligtree|mindflow):\/\/assets\//.test(src) ? one : null, false)
+  return (
+    <button type="button" data-attachment-face={face ? (face.icon ? "icon" : "page") : ""} aria-label={`Preview ${name || "the file"}`} title="Preview"
+      className={`tiptap-attachment-face${face && !face.icon ? " is-page" : ""}`}
+      onClick={(event) => (event.stopPropagation(), openFileLook(one, event.currentTarget))}>
+      {face?.image ? <img src={face.image} alt="" draggable={false} /> : <File className="tiptap-attachment-icon" />}
+    </button>
   )
 }
 
