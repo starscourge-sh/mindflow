@@ -1,5 +1,5 @@
-import { Extension } from "@tiptap/core"
-import { Plugin, Selection, TextSelection, type EditorState } from "@tiptap/pm/state"
+import { Extension, type Editor } from "@tiptap/core"
+import { Plugin, PluginKey, Selection, TextSelection, type EditorState } from "@tiptap/pm/state"
 import { DecorationSet, type EditorView } from "@tiptap/pm/view"
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model"
 
@@ -51,9 +51,11 @@ let made = 0
  * selection to the browser is wrapped, for the editors marked here only.
  */
 type Desc = { dom: Node; setSelection: (anchor: number, head: number, view: EditorView, force?: boolean) => void }
-const clamps = new WeakMap<Node, (anchor: number, head: number) => [number, number]>()
+/** Where the browser is told the selection is; null when it is not to be told at all. */
+type Clamp = (anchor: number, head: number) => [number, number] | null
+const clamps = new WeakMap<Node, Clamp>()
 let wrapped = false
-function keepSelectionDrawn(view: EditorView, clamp: (anchor: number, head: number) => [number, number]): () => void {
+function keepSelectionDrawn(view: EditorView, clamp: Clamp): () => void {
   clamps.set(view.dom, clamp)
   if (!wrapped) {
     let proto = Object.getPrototypeOf((view as unknown as { docView: Desc }).docView) as Desc | null
@@ -63,7 +65,11 @@ function keepSelectionDrawn(view: EditorView, clamp: (anchor: number, head: numb
       const setSelection = proto.setSelection
       proto.setSelection = function (this: Desc, anchor, head, view, force) {
         const kept = clamps.get(this.dom)
-        if (kept) [anchor, head] = kept(anchor, head)
+        if (kept) {
+          const told = kept(anchor, head)
+          if (!told) return
+          ;[anchor, head] = told
+        }
         return setSelection.call(this, anchor, head, view, force)
       }
     }
@@ -71,9 +77,47 @@ function keepSelectionDrawn(view: EditorView, clamp: (anchor: number, head: numb
   return () => void clamps.delete(view.dom)
 }
 
+/**
+ * The caret went somewhere, or what it sits in changed (typing, an Undo that lands on it). Words changed elsewhere
+ * in the note are neither: a link card's picture kept as it comes on show, a task ticked from its list, another
+ * window's edit. Taken as the caret moving, each of those brought the drawn blocks back to a caret the screen had
+ * been scrolled away from, and the next frame took them back to the screen.
+ */
+function caretWent(before: EditorState, state: EditorState): boolean {
+  if (state.doc === before.doc) return !state.selection.eq(before.selection)
+  return state.doc.maybeChild(state.selection.$head.index(0)) !== before.doc.maybeChild(before.selection.$head.index(0))
+}
+
+/** How many changes so far asked for their caret to be shown (`scrollIntoView`): a jump, a key, an Undo. */
+const shown = new PluginKey<number>("longDocumentShown")
+const asks = (state: EditorState): number => shown.getState(state) ?? 0
+
+/** What the rest of the app may ask of a long note's drawn blocks, by the editor's own element. */
+const drawnOf = new WeakMap<Element, { screen: () => { first: number; last: number } | null; show: (index: number) => void }>()
+
+/** The blocks on the screen of a long note, as their places among its blocks; null for a note with every block drawn. */
+export const screenBlocks = (editor: Editor): { first: number; last: number } | null => drawnOf.get(editor.view.dom)?.screen() ?? null
+
+/**
+ * Draw the block at `pos` in a long note, with those round it: only the blocks near the screen are on the page, and
+ * one that is not cannot be measured or scrolled to. Whoever asks puts the screen there next, in the same breath.
+ */
+export function showBlock(editor: Editor, pos: number): void {
+  const { doc } = editor.state
+  if (pos >= 0 && pos <= doc.content.size) drawnOf.get(editor.view.dom)?.show(doc.resolve(pos).index(0))
+}
+
+/** The keys the browser itself answers where its selection is, beside the letters: those that move it or rub out. */
+const LANDS = new Set(["Enter", "Backspace", "Delete", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Process", "Dead"])
+
+/** The mark on a block that is off the page. */
+const OFF = "data-off"
+
 /** Blocks either side of the screen kept drawn, and how close the screen or the caret may come to the edge of them. */
 const AROUND = 150
 const SLACK = 50
+/** How many blocks in from the drawn edge a caret left behind is told to the browser, when it must be told one. */
+const PARK = 20
 /** A block never drawn yet is taken to be this tall until it is. */
 const GUESS = 32
 
@@ -89,15 +133,23 @@ const GUESS = 32
  * it shifts. The document itself never changes.
  */
 function nearScreen(view: EditorView, name: string): { ahead: (state: EditorState) => void; update: (previous: EditorState) => void; destroy: () => void } {
-  // Which blocks are drawn, and the space kept for the rest, in two sheets:
-  // a change to the first makes the browser restyle every block in the note,
-  // a change to the second only the note's own edges.
+  // Which blocks are drawn, and the space kept for the rest. A block off the
+  // page carries a mark, and one rule that never changes hides the marked:
+  // moving the drawn blocks then touches only the blocks that change sides.
+  // (The rule used to name the drawn ones by their place, `:nth-child`, and
+  // was written again at each move: every rewriting had the browser work out
+  // the look of the whole window again, about 70 ms on a 7,000-block note
+  // whatever moved, several times a second in a fast scroll.) The space kept
+  // is in a sheet of its own, which touches only the note's own edges.
   const style = document.createElement("style")
   const spaces = document.createElement("style")
   const heights = new WeakMap<Element, number>()
   let band: [number, number] | null = null
   let spaced: [number, number] = [0, 0]
-  let leap = false
+  // The drawn blocks have just gone to a far caret: "shown" when the change asked for its caret to be shown.
+  let leap: false | "shown" | "set" = false
+  // How many asks to show the caret had been counted in the last state read.
+  let asked = asks(view.state)
   // Drawn ahead of the blocks it is for: the space kept for them is worked out again once they are there.
   let early = false
   let last: EditorState | null = null
@@ -126,33 +178,81 @@ function nearScreen(view: EditorView, name: string): { ahead: (state: EditorStat
       heights.set(here, height)
     }
   }
-  const draw = (from: number, to: number, early = false): void => {
+  const draw = (from: number, to: number, coming?: number): void => {
     const all = blocks()
     from = Math.max(0, from)
-    // Drawn ahead of a change (`early`), it is not cut to the blocks on the
-    // page now: for Undo bringing back the whole note, the blocks it is drawn
-    // for are not there yet, and a band cut to the old few was no band at
-    // all. The next update fits it to what arrived.
-    to = early ? Math.max(from, to) : Math.min(all.length - 1, to)
+    // Drawn ahead of a change (`coming`: how many elements the note is about
+    // to have), it is not cut to the blocks on the page now: for Undo bringing
+    // back the whole note, the blocks it is drawn for are not there yet, and a
+    // band cut to the old few was no band at all.
+    to = coming === undefined ? Math.min(all.length - 1, to) : Math.max(from, Math.min(coming - 1, to))
     band = [from, to]
     let above = 0
     let below = 0
     for (let i = 0; i < from; i++) above += tall(all[i])
     for (let i = to + 1; i < all.length; i++) below += tall(all[i])
     spaced = [above, below]
-    const hide = `${at} > :nth-child(-n+${from}), ${at} > :nth-child(n+${to + 2}) { display: none !important; }`
-    if (style.textContent !== hide) style.textContent = hide
-    spaces.textContent = `${at}::before { content: ""; display: block; height: ${above}px; }` + `${at}::after { content: ""; display: block; height: ${below}px; }`
+    mark()
+    const room = `${at}::before { content: ""; display: block; height: ${above}px; }` + `${at}::after { content: ""; display: block; height: ${below}px; }`
+    if (spaces.textContent !== room) spaces.textContent = room
   }
+  // Before the blocks holding the browser's selection are taken off the page, it is let go of: left in them, the
+  // browser looked through the hidden blocks for somewhere to show it, each time it drew. It is told the
+  // selection again, as far as it is drawn, straight after (ProseMirror with a change, `resync` with a scroll).
+  const letGo = (from: number, to: number): void => {
+    const selection = view.dom.ownerDocument.getSelection()
+    if (!selection?.rangeCount) return
+    const all = blocks()
+    const leaves = (node: Node | null, offset: number): boolean => {
+      if (!node || !view.dom.contains(node)) return false
+      // Between two blocks (a picture picked whole): by how many blocks come before it.
+      if (node === view.dom) return offset < from || offset > to + 1
+      let block = node
+      while (block.parentNode && block.parentNode !== view.dom) block = block.parentNode
+      const index = Array.prototype.indexOf.call(all, block)
+      return index < from || index > to
+    }
+    if (leaves(selection.anchorNode, selection.anchorOffset) || leaves(selection.focusNode, selection.focusOffset)) selection.removeAllRanges()
+  }
+  /** Whether the browser's selection is in this note now. */
+  const held = (): boolean => {
+    const selection = view.dom.ownerDocument.getSelection()
+    return !!selection?.rangeCount && view.dom.contains(selection.anchorNode)
+  }
+  /**
+   * Each block's mark put right: on for those outside the drawn ones, off for those among them. Every block is
+   * looked at (a glance each) and only those on the wrong side are touched. ProseMirror is not told: a mark is no
+   * change to the note, and it would read each as one.
+   */
+  const mark = (): void => {
+    const all = blocks()
+    const watch = (view as unknown as { domObserver: { stop: () => void; start: () => void } }).domObserver
+    let stopped = false
+    for (let i = 0; i < all.length; i++) {
+      const off = !!band && (i < band[0] || i > band[1])
+      if (off === all[i].hasAttribute(OFF)) continue
+      if (!stopped) (watch.stop(), (stopped = true))
+      all[i].toggleAttribute(OFF, off)
+    }
+    if (stopped) watch.start()
+  }
+  // A block ProseMirror makes again (a change far from the screen, its React blocks drawn afresh) comes without
+  // its mark: told of each block put on the page, before the frame is drawn, and the marks are put right then.
+  // Nothing is read on a key that only changes the words of a block.
+  const made = new MutationObserver((records) => {
+    if (band && records.some((record) => record.addedNodes.length)) mark()
+  })
+  made.observe(view.dom, { childList: true })
   const clear = (): void => {
     band = null
-    style.textContent = ""
+    mark()
     spaces.textContent = ""
   }
   /** Shift the band, keeping the block at the top of the screen where it is, or where the sizes say it should be. */
   const shift = (from: number, to: number, anchor: Element | null, at?: number): void => {
     measure()
     const before = at ?? anchor?.getBoundingClientRect().top
+    letGo(from, to)
     draw(from, to)
     const scroller = view.dom.parentElement
     // Only when it is still drawn: a band moved far, after the caret, has nothing to keep still.
@@ -218,22 +318,104 @@ function nearScreen(view: EditorView, name: string): { ahead: (state: EditorStat
     const [one, two] = [desc(first), desc(end)]
     return one && two ? [one.posAtStart, two.posAtEnd] : null
   }
-  const reaches = (from: number, to: number): boolean => {
-    const edges = drawnEdges()
-    return !!edges && (from < edges[0] || to > edges[1])
-  }
   const unclamp = keepSelectionDrawn(view, (anchor, head) => {
-    // A caret is always drawn (the band follows it); only a range is kept in.
-    const edges = anchor !== head && view.dom.hasAttribute("data-long") ? drawnEdges() : null
+    const edges = view.dom.hasAttribute("data-long") ? drawnEdges() : null
     if (!edges) return [anchor, head]
+    // No part of it drawn (a caret left behind as the screen went elsewhere): the browser is not told. Told where
+    // it is, among blocks taken off the page, it looked through every hidden block for somewhere to show it, each
+    // time it drew, and the window stopped answering for minutes. Only as the note is given the keys is it told
+    // the edge of the drawn blocks nearest the caret, well off the screen (`parking`, below). A key lands at the
+    // true caret all the same: the note comes back to it first (`keyed`).
+    if (Math.max(anchor, head) < edges[0] || Math.min(anchor, head) > edges[1]) {
+      const at = parking ? parked(Math.max(anchor, head) < edges[0]) : null
+      return at === null ? null : [at, at]
+    }
     const keep = (at: number): number => Math.min(Math.max(at, edges[0]), edges[1])
     return [keep(anchor), keep(head)]
   })
-  // The drawn blocks moved under a selection that reaches past them: the browser is told its new edge.
-  const resync = (): void => {
-    const { from, to, empty } = view.state.selection
-    if (!empty && view.hasFocus() && reaches(from - 1, to + 1)) view.focus()
+  // Where a caret with no part drawn is told to the browser as the note is given the keys: the start of a block
+  // some way in from the drawn edge nearest it. Off the screen (the drawn blocks reach further past it than
+  // that), and with drawn blocks either side: at the very edge, next to the hidden ones, the browser looked
+  // through those for the caret's place.
+  const parked = (before: boolean): number | null => {
+    if (!band) return null
+    const all = blocks()
+    const first = Math.min(band[0], all.length - 1)
+    const end = Math.min(band[1], all.length - 1)
+    const block = all[before ? Math.min(first + PARK, end) : Math.max(end - PARK, first)] as unknown as { pmViewDesc?: { node?: unknown; posAtStart: number } } | undefined
+    return block?.pmViewDesc?.node ? block.pmViewDesc.posAtStart : null
   }
+  // The drawn blocks moved: the browser is told the selection again when some of it is drawn now (a range's new
+  // edge, the caret itself once its blocks are back). One with no part drawn stays untold.
+  const resync = (): void => {
+    if (!view.hasFocus()) return
+    const { from, to } = view.state.selection
+    const edges = drawnEdges()
+    if (edges && to >= edges[0] && from <= edges[1]) focus()
+  }
+  // Given the keys with no selection in it, the browser puts a caret of its own at the note's very first place:
+  // off the page in a long note scrolled down, and it looked through every hidden block from there for somewhere
+  // to show it (seconds). So a selection is in the note before the keys are: the note's own, or with none of
+  // that drawn, the drawn edge nearest it.
+  let parking = false
+  const focus = view.focus.bind(view)
+  view.focus = (): void => {
+    if (band && view.dom.isConnected && !view.hasFocus() && !held()) {
+      const { anchor, head } = view.state.selection
+      parking = true
+      try {
+        ;(view as unknown as { docView: Desc }).docView.setSelection(anchor, head, view)
+      } finally {
+        parking = false
+      }
+    }
+    focus()
+  }
+  /** Draw the blocks round block `index`, if it is not among the drawn ones. */
+  const show = (index: number): void => {
+    if (!band || !view.dom.isConnected || (index >= band[0] && index <= band[1])) return
+    measure()
+    letGo(index - AROUND, index + AROUND)
+    draw(index - AROUND, index + AROUND)
+  }
+  /**
+   * The screen put where the caret is, at once, the caret's line in its middle. ProseMirror brings the caret to the
+   * screen only in a note that holds the keys, and a frame later was too late: asked from find's field, a link or
+   * the contents before the note had them, the screen stayed where it was, the drawn blocks went back to it, and
+   * the place gone to was not on the page to scroll to.
+   */
+  const bring = (): void => {
+    const scroller = view.dom.parentElement
+    if (!scroller || !view.dom.isConnected) return
+    const caret = view.coordsAtPos(Math.min(view.state.selection.head, view.state.doc.content.size))
+    const box = scroller.getBoundingClientRect()
+    // Nowhere (inside a section folded shut), or on the screen already.
+    if ((!caret.top && !caret.bottom) || (caret.top >= box.top + 48 && caret.bottom <= box.bottom - 48)) return
+    scroller.scrollBy({ top: (caret.top + caret.bottom) / 2 - (box.top + box.bottom) / 2, behavior: "instant" })
+  }
+  // A key the browser answers itself (a letter, Return, an arrow), pressed with the caret left behind in blocks no
+  // longer drawn: the note comes back to the caret first, as any editor does, so the key lands where the caret is.
+  const keyed = (event: Event): void => {
+    if (!band || document.activeElement !== view.dom) return
+    // Any words on their way in (dictation, a held accent), or one of those keys.
+    if (event instanceof KeyboardEvent && (event.metaKey || event.ctrlKey || (event.key.length !== 1 && !LANDS.has(event.key)))) return
+    const { from, to, $head } = view.state.selection
+    const edges = drawnEdges()
+    if (!edges || (to >= edges[0] && from <= edges[1])) return
+    show($head.index(0))
+    focus()
+    bring()
+  }
+  style.textContent = `${at} > [${OFF}] { display: none !important; }`
+  drawnOf.set(view.dom, {
+    screen: () => {
+      const seen = band && view.dom.isConnected ? onScreen() : null
+      return seen && { first: seen.first, last: seen.last }
+    },
+    show,
+  })
+  view.dom.addEventListener("keydown", keyed, true)
+  view.dom.addEventListener("beforeinput", keyed, true)
   document.head.append(style, spaces)
   document.addEventListener("scroll", scrolled, { capture: true, passive: true })
   window.addEventListener("resize", follow)
@@ -253,15 +435,24 @@ function nearScreen(view: EditorView, name: string): { ahead: (state: EditorStat
     ahead: (state) => {
       const index = state.selection.$head.index(0)
       const before = last
-      const went = !before || !state.selection.eq(before.selection) || state.doc !== before.doc
+      const went = !before || caretWent(before, state)
+      // Asked to show its caret (a jump, an Undo, a key): gone to even when the caret itself is where it was, as
+      // when the same heading is pressed again in the contents after scrolling away from it.
+      const show = asks(state) !== asked
+      asked = asks(state)
       last = state
+      // A stretch picked across the drawn blocks (⌘A, a long ⇧-click) has its drawn part to show where the screen
+      // is: gone to its far end with nothing asking, the screen was left on empty space for a frame.
+      const edges = show || state.selection.empty || !band ? null : drawnEdges()
+      const across = !!edges && state.selection.to >= edges[0] && state.selection.from <= edges[1]
       // And a note that grows long while open (Undo bringing back a whole
       // long note): drawn round the caret before its blocks arrive, or every
       // one of them was laid out, and the selection placed across them all.
-      if (went && (!band || index < band[0] || index > band[1])) {
-        if (band) measure()
-        draw(index - AROUND, index + AROUND, true)
-        leap = true
+      if ((went || show) && !across && (!band || index < band[0] || index > band[1])) {
+        if (band) (measure(), letGo(index - AROUND, index + AROUND))
+        // As many elements as now (the note's blocks, and what is drawn among them), with the blocks this change adds.
+        draw(index - AROUND, index + AROUND, before && blocks().length ? blocks().length + state.doc.childCount - before.doc.childCount : Infinity)
+        leap = show ? "shown" : "set"
         early = true
       }
     },
@@ -269,6 +460,7 @@ function nearScreen(view: EditorView, name: string): { ahead: (state: EditorStat
       // And it lands at once: eased over tens of thousands of pixels, while
       // the band moved under the glide, it stopped far short of the caret.
       const scroller = view.dom.parentElement
+      const leapt = leap
       if (leap && scroller) {
         scroller.style.scrollBehavior = "auto"
         requestAnimationFrame(() => (scroller.style.scrollBehavior = ""))
@@ -285,18 +477,28 @@ function nearScreen(view: EditorView, name: string): { ahead: (state: EditorStat
       // caret left far from the screen, which went blank.
       const index = view.state.selection.$head.index(0)
       const count = blocks().length
-      const moved = view.state.doc !== previous.doc || !view.state.selection.eq(previous.selection)
+      const moved = caretWent(previous, view.state)
       if (!band || early) {
         early = false
         draw(index - AROUND, index + AROUND)
+        // The browser told the selection where the drawn blocks now are (a change that only asks for the caret to
+        // be shown hands it nothing), and the screen goes with a caret that asked to be shown, in the same breath.
+        if (leapt) resync()
+        if (leapt === "shown") bring()
         requestAnimationFrame(settle)
-      } else if (band[1] > count - 1 || (moved && ((index - band[0] < SLACK && band[0] > 0) || (band[1] - index < SLACK && band[1] < count - 1)))) {
+      } else if (band[1] > count - 1 || (moved && index >= band[0] && index <= band[1] && ((index - band[0] < SLACK && band[0] > 0) || (band[1] - index < SLACK && band[1] < count - 1)))) {
+        // Only for a caret among the drawn blocks, near their edge. One outside them was left where it is on
+        // purpose (`ahead`): ⌘A's far end took the drawn blocks to the note's last lines, and the screen went blank.
         const top = onScreen()
         shift(index - AROUND, index + AROUND, top?.anchor ?? null, top?.at)
       }
     },
     destroy: () => {
       unclamp()
+      drawnOf.delete(view.dom)
+      made.disconnect()
+      view.dom.removeEventListener("keydown", keyed, true)
+      view.dom.removeEventListener("beforeinput", keyed, true)
       style.remove()
       spaces.remove()
       document.removeEventListener("scroll", scrolled, { capture: true })
@@ -324,7 +526,9 @@ export const LongDocument = Extension.create({
     const name = `long-${++made}`
     let near: ReturnType<typeof nearScreen> | undefined
     return [
-      new Plugin({
+      new Plugin<number>({
+        key: shown,
+        state: { init: () => 0, apply: (tr, count) => (tr.scrolledIntoView ? count + 1 : count) },
         props: {
           // Read with each new state before its selection reaches the page: the
           // one moment to draw where the caret is going.
