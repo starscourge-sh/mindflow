@@ -11,9 +11,16 @@
 //             the words only ever move the way the fingers went; no frame with an undrawn place; it comes to rest
 //             once; the first visible line does not move as blocks are drawn; the scrollbar's thumb does not jump.
 // PART=jumps  ⌘↓ and ⌘↑, find's next and previous into far matches, a link to a far heading, the contents rail,
-//             the thumb dragged far, Page Down held: each lands in one step and stays.
+//             the thumb dragged far, Page Down held: each lands in one step and stays, with no frame over 100 ms
+//             (what each cost is printed: script, styles, layout). JUMPS=keys,rail,link,find,thumb,page,contents
+//             runs only those. "contents" puts a contents block at the note's top and presses a far entry in it:
+//             it writes, so it runs only with WRITES=1 (on a copy kept for writing).
 // PART=caret  a click and typing in a far block, ⌘Z bringing the view back to them, a selection carried over
-//             five screens by ⇧-click, ⌘A, and what each would copy; leaving mid-fling and coming back.
+//             five screens by ⇧-click, ⌘A, and what each would copy; a hard fling away from a caret just placed;
+//             leaving mid-fling and coming back.
+// PART=far    a caret placed by a click in the first screen, then the wheel pushed hard, push on push, from the top
+//             of the note to its very end and back: the window answers throughout, no frame comes more than 100 ms
+//             after the last, and the words never move against the wheel.
 // SMOOTH=off  turns "Smooth scrolling" off in Settings first. ONLY_SPEED=12000 flings at one speed.
 import { DatabaseSync } from 'node:sqlite'
 import { existsSync, mkdirSync, readFileSync } from 'fs'
@@ -58,16 +65,25 @@ const install = () => h.evaluate((sel) => {
   // out answers for itself at a point (its insides are not there to be found); a drawn one answers with a part of
   // its own (a card, a cell, a list item) or with a letter of its words. A block with no words at all (a rule, a
   // picture) cannot be told, and counts as drawn.
+  const drawnAt = (block, x, y) => {
+    const part = document.elementFromPoint(x, y)
+    if (part && part !== block && block.contains(part)) return true
+    const at = document.caretRangeFromPoint(x, y)
+    return !!at && at.startContainer !== block && block.contains(at.startContainer)
+  }
   const drawn = (block, x, y) => {
     if (block.hasAttribute('data-far')) return false
     if (!block.textContent.trim()) return true
     const rect = block.getBoundingClientRect()
     x ??= rect.left + Math.min(60, rect.width / 2)
     y ??= Math.max(rect.top + Math.min(8, rect.height / 2), 0)
-    const part = document.elementFromPoint(x, y)
-    if (part && part !== block && block.contains(part)) return true
-    const at = document.caretRangeFromPoint(x, y)
-    return !!at && at.startContainer !== block && block.contains(at.startContainer)
+    if (drawnAt(block, x, y)) return true
+    // The point may be in its padding, beside a short line, or under something floating over the note: asked again
+    // at other places of its own box that are on the screen. A block the browser left out answers for itself at each.
+    const low = Math.max(rect.top + 2, 0)
+    const high = Math.min(rect.bottom - 2, window.innerHeight - 2)
+    for (const share of [0.5, 0.2, 0.8]) for (const across of [0.1, 0.3, 0.6]) if (drawnAt(block, rect.left + rect.width * across, low + (high - low) * share)) return true
+    return false
   }
   const indexOf = (e, block) => Array.prototype.indexOf.call(e.children, block)
   // Where the letter `off` letters into block `i` is, by its top.
@@ -183,6 +199,8 @@ const install = () => h.evaluate((sel) => {
 const state = () => h.evaluate(() => window.__ln.state())
 const frame = () => h.evaluate(() => new Promise((next) => requestAnimationFrame(() => requestAnimationFrame(next))))
 const answers = () => Promise.race([h.evaluate(() => 1).then(() => true, () => false), new Promise((next) => setTimeout(() => next(false), 2000))])
+/** Whether the page answers within `seconds`: a page that spins does not. */
+const answersWithin = async (seconds) => { for (const until = Date.now() + seconds * 1000; Date.now() < until; ) if (await answers()) return true; return false }
 
 // A wheel event as the trackpad sends it (exact pixels), from the main process so their timing is the probe's own.
 let sign = -1
@@ -304,6 +322,35 @@ const film = async (name, run, { every = 50, ms = 1500 } = {}) => {
   return out
 }
 
+/** A line of words well inside the screen, in any kind of block: where to click, and which block it is in. */
+const find = () => h.evaluate(() => {
+  const e = window.__ln.ed()
+  const view = window.__ln.box().getBoundingClientRect()
+  for (const block of e.children) {
+    const box = block.getBoundingClientRect()
+    if (!box.height || box.bottom < view.top + 60) continue
+    if (box.top > view.bottom - 60) break
+    if (block.hasAttribute('data-far') || block.matches('[contenteditable="false"]')) continue
+    const walk = document.createTreeWalker(block, NodeFilter.SHOW_TEXT)
+    for (let node = walk.nextNode(); node; node = walk.nextNode()) {
+      if (node.data.trim().length < 20 || node.parentElement.closest('[contenteditable="false"], button, pre, summary')) continue
+      const range = document.createRange()
+      range.setStart(node, 2)
+      range.setEnd(node, 3)
+      const r = range.getClientRects()[0]
+      if (r && r.top > view.top + 60 && r.bottom < view.bottom - 60 && r.left > view.left && r.right < view.right - 80) return { x: Math.round(r.left + 1), y: Math.round(r.top + r.height / 2), index: Array.prototype.indexOf.call(e.children, block), words: node.data.trim().slice(0, 40) }
+    }
+  }
+  return null
+})
+/** Whether block `index` has any part of it on the screen. */
+const showing = (index) => h.evaluate((index) => {
+  const block = window.__ln.ed().children[index]
+  const view = window.__ln.box().getBoundingClientRect()
+  const r = block?.getBoundingClientRect()
+  return !!r && r.height > 0 && r.bottom > view.top && r.top < view.bottom
+}, index)
+
 try {
   await h.evaluate(() => window.api.haligtree('onboarding:set', { welcomed: new Date().toISOString(), newsSeen: true, welcoming: false, pageHints: false }))
   await h.evaluate((smooth) => window.api.haligtree('settings:set', { sounds: false, hintRate: 0, smoothScroll: smooth }), process.env.SMOOTH !== 'off')
@@ -364,52 +411,143 @@ try {
     check('the scrollbar thumb does not jump at rest, or go back in a fling', worst((row) => row.thumbJump).thumbJump <= 2 && worst((row) => row.thumbBack).thumbBack === 0, `${told((row) => row.thumbJump, ' px at rest')}; ${told((row) => row.thumbBack, ' frames back')}`)
   }
 
+  if (PART === 'far') {
+    // A caret placed by a click in the first screen, as someone reading the note has.
+    const spot = await find()
+    if (spot) await h.mouse.click(spot.x, spot.y)
+    await h.waitForTimeout(500)
+    const held = await h.evaluate(() => { const e = window.__ln.ed(); return { caret: e.editor.state.selection.$head.index(0), keys: document.activeElement === e } })
+    check('a click in the first screen puts the caret there and gives the note the keys', !!spot && held.keys && Math.abs(held.caret - spot.index) <= 3, spot ? `clicked block ${spot.index} ("${spot.words}"), caret in ${held.caret}, the note has the keys: ${held.keys}` : 'no line of words found to click')
+    /** Hard pushes of the wheel, each before the last has died away, until the note is at its end (or its top). */
+    const travel = async (way) => {
+      await h.evaluate(() => { window.__ln.start(); window.__ln.mark('start') })
+      const began = Date.now()
+      let pushes = 0
+      let reached = false
+      let stuck = null
+      for (; pushes < 120 && !reached && !stuck; pushes++) {
+        await fling(first.x, first.y, 40000, way, { hold: 260 })
+        if (pushes % 4 !== 3) continue
+        if (!(await answersWithin(45))) { stuck = `the window did not answer for 45 s after ${pushes + 1} pushes`; break }
+        const at = await h.evaluate(() => { const box = window.__ln.box(); return [box.scrollTop, box.scrollHeight - box.clientHeight] })
+        reached = way > 0 ? at[0] >= at[1] - 2 : at[0] <= 2
+      }
+      if (!stuck) await fling(first.x, first.y, 12000, way)
+      if (!stuck && !(await answersWithin(45))) stuck = 'the window did not answer for 45 s after the last push'
+      if (stuck) return { stuck, pushes, ms: Date.now() - began }
+      await h.evaluate(() => window.__ln.mark('end'))
+      await h.waitForTimeout(900)
+      const got = read(await h.evaluate(() => window.__ln.stop()), way)
+      const at = await state()
+      return { ...got, pushes, reached, ms: Date.now() - began, at }
+    }
+    for (const [way, name, from, to] of [[1, 'down', 'the top', 'the very end'], [-1, 'up', 'the end', 'the top']]) {
+      const went = await travel(way)
+      if (went.stuck) {
+        check(`the wheel from ${from} to ${to}: the window answers throughout`, false, `${went.stuck}, ${Math.round(went.ms / 1000)} s in  (${load()})`)
+        throw new Error(`the page spins as the wheel goes ${name}`)
+      }
+      console.log(`the wheel ${name}, ${went.pushes} pushes in ${Math.round(went.ms / 1000)} s: ${say(went)}  (${load()})`)
+      check(`the wheel from ${from} to ${to}: the window answers throughout and it gets there`, went.reached && Math.abs(went.went) > 100000, `${went.reached ? 'got there' : 'did NOT get there'}: ${went.went}px in ${went.pushes} pushes, ${Math.round(went.ms / 1000)} s; first block on screen ${went.at.first} of ${original.content.length}`)
+      check(`the wheel ${name}: no frame more than 100 ms after the last`, went.worstGap <= 100, `longest ${went.worstGap} ms; ${went.over} of ${went.frames} frames over 17.5 ms`)
+      check(`the wheel ${name}: the words never move against the wheel`, went.back === 0 && went.thumbBack === 0, `${went.back} frames went back${went.back ? ` (by up to ${went.worstBack}px)` : ''}; the thumb went back in ${went.thumbBack}`)
+      check(`the wheel ${name}: every frame shows the note`, went.blank === 0, `${went.blank} blank frames; no drawn block under ${went.holes} of ${went.points} points`)
+    }
+    const end = await h.evaluate(() => { const e = window.__ln.ed(); return { caret: e.editor.state.selection.$head.index(0), keys: document.activeElement === e } })
+    check('after it the caret is where it was put, and the note still has the keys', end.keys && end.caret === held.caret, `caret in block ${end.caret} (was ${held.caret}), the note has the keys: ${end.keys}`)
+  }
+
   if (PART === 'jumps') {
     const size = original.content.length
-    /** After a jump: the frames in which the screen moved, and what it shows a second on. */
+    // JUMPS=keys,rail,contents,link,find,thumb,page runs only those; all of them when not given.
+    const only = process.env.JUMPS ? process.env.JUMPS.split(',') : null
+    const wants = (name) => !only || only.includes(name)
+    // What the page spent on each jump: its script, and the browser's own share (styles, layout).
+    const cdp = await electron.context().newCDPSession(h)
+    await cdp.send('Performance.enable')
+    const spent = async () => Object.fromEntries((await cdp.send('Performance.getMetrics')).metrics.map((one) => [one.name, one.value]))
+    /** After a jump: the frames in which the screen moved, and what it shows a second on. `run` may give back when the press itself was sent. */
     const jump = async (name, run, want) => {
       await h.evaluate(() => window.__ln.start())
       await h.evaluate(() => window.__ln.mark('start'))
+      const was = await spent()
       await film(name, run, { ms: 900 })
-      await h.waitForTimeout(1200)
+      await new Promise((next) => setTimeout(next, 1200))
+      // A page that does not answer is spinning: said, waited for up to a minute, and the run ends there if it never does.
+      const asked = Date.now()
+      let alive = await answers()
+      if (!alive) {
+        for (let i = 0; i < 28 && !alive; i++) alive = await answers()
+        check(`${name}: lands in one step and stays`, false, `the page did not answer for ${alive ? Math.round((Date.now() - asked) / 100) / 10 + ' s after it' : 'a minute after it: it spins'}  (${load()})`)
+        check(`${name}: no frame over 100 ms`, false, alive ? `frozen for ${Math.round((Date.now() - asked) / 100) / 10 + 1.2} s or more` : 'the page never answered again')
+        if (!alive) throw new Error(`the page spins after ${name}`)
+      }
       const got = await h.evaluate(() => window.__ln.stop())
-      const all = got.frames.filter((one) => one[0] >= got.marks.start)
+      const cost = await spent()
+      const from = got.marks.press ?? got.marks.start
+      const all = got.frames.filter((one) => one[0] >= from)
       const moves = []
-      for (let k = 1; k < all.length; k++) if (all[k][5] !== all[k - 1][5] || Math.abs(all[k][6] - all[k - 1][6]) > 0.5) moves.push(Math.round(all[k][0] - got.marks.start))
+      for (let k = 1; k < all.length; k++) if (all[k][5] !== all[k - 1][5] || Math.abs(all[k][6] - all[k - 1][6]) > 0.5) moves.push(Math.round(all[k][0] - from))
       const span = moves.length ? moves[moves.length - 1] - moves[0] : 0
+      // After it landed (50 ms on from its first move): how far the first block that starts on the screen still went.
+      let drift = 0
+      for (let k = 1; k < all.length; k++) if (moves.length && all[k][0] - from > moves[0] + 50) drift = Math.max(drift, all[k][5] !== all[k - 1][5] ? 999 : Math.abs(all[k][6] - all[k - 1][6]))
       const now = await state()
       const blank = all.filter((one) => !one[7]).length
       const lastFar = all.findLast((one) => one[8] > 0)
-      const real = lastFar && moves.length ? Math.max(0, Math.round(lastFar[0] - got.marks.start - moves[moves.length - 1] + 17)) : 0
+      const real = lastFar && moves.length ? Math.max(0, Math.round(lastFar[0] - from - moves[moves.length - 1] + 17)) : 0
+      const longest = Math.round(Math.max(0, ...all.slice(1).map((one) => one[1])))
+      const ms = (key) => Math.round((cost[key] - was[key]) * 1000)
       const ok = want(now)
-      check(`${name}: lands in one step and stays`, ok && span <= 50 && blank === 0 && now.far === 0 && (await answers()), `${ok ? 'at the right place' : 'NOT at the right place'}; moved in ${moves.length} frames over ${span} ms (first ${moves[0] ?? '-'} ms after); blank frames ${blank}; real ${real} ms after landing; first block ${now.first} of ${size}, caret in ${now.caret}, stand-ins on screen ${now.far}; longest frame ${Math.round(Math.max(0, ...all.slice(1).map((one) => one[1])))} ms  (${load()})`)
+      if (alive) {
+        check(`${name}: lands in one step and stays`, ok && span <= 50 && drift <= 1 && blank === 0 && now.far === 0, `${ok ? 'at the right place' : 'NOT at the right place'}; moved in ${moves.length} frames over ${span} ms (first ${moves[0] ?? '-'} ms after), then by at most ${Math.round(drift * 10) / 10}px; blank frames ${blank}; real ${real} ms after landing; first block ${now.first} of ${size}, caret in ${now.caret}, stand-ins on screen ${now.far}  (${load()})`)
+        check(`${name}: no frame over 100 ms`, longest <= 100, `longest frame ${longest} ms; script ${ms('ScriptDuration')} ms, styles ${ms('RecalcStyleDuration')} ms (${cost.RecalcStyleCount - was.RecalcStyleCount} times), layout ${ms('LayoutDuration')} ms (${cost.LayoutCount - was.LayoutCount} times)`)
+      }
       return now
     }
-    await h.evaluate(() => window.__ln.ed().editor.commands.focus('start'))
-    await h.waitForTimeout(300)
-    await jump('⌘↓', () => h.keyboard.press('Meta+ArrowDown'), (now) => now.caret >= size - 2 && now.first > size - 200)
-    await jump('⌘↑', () => h.keyboard.press('Meta+ArrowUp'), (now) => now.caret <= 1 && now.first < 60 && now.top < 5)
+    const pressed = () => h.evaluate(() => window.__ln.mark('press'))
+    if (wants('keys')) {
+      await h.evaluate(() => window.__ln.ed().editor.commands.focus('start'))
+      await h.waitForTimeout(300)
+      await jump('⌘↓', () => h.keyboard.press('Meta+ArrowDown'), (now) => now.caret >= size - 2 && now.first > size - 200)
+      await jump('⌘↑', () => h.keyboard.press('Meta+ArrowUp'), (now) => now.caret <= 1 && now.first < 60 && now.top < 5)
+    }
     // The contents rail at the note's right edge: a press on a stroke far down it.
-    const rail = await h.evaluate(() => {
+    const rail = !wants('rail') ? { count: 0 } : await h.evaluate(() => {
       const items = [...document.querySelectorAll('.tiptap-toc-item')]
       const item = items[Math.floor(items.length * 0.8)]
       return item ? { count: items.length, id: item.id, words: item.title } : { count: 0 }
     })
     if (rail.count) {
       const before = await state()
-      // A real pointer: over the rail (it opens under the pointer), then a press on the stroke where it now is.
-      const where = (id) => h.evaluate((id) => { const r = document.getElementById(id)?.getBoundingClientRect(); return r && r.height ? { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) } : null }, id)
+      // Where the stroke is, and whether it is on show in the rail's own list (a long rail scrolls: a stroke past its edge cannot be pressed).
+      const where = (id) => h.evaluate((id) => {
+        const r = document.getElementById(id)?.getBoundingClientRect()
+        const list = document.querySelector('.tiptap-toc-list')?.getBoundingClientRect()
+        return r && r.height && list ? { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2), shown: r.top >= list.top + 2 && r.bottom <= list.bottom - 2, mid: Math.round(list.top + list.height / 2), over: Math.round(list.left + list.width / 2) } : null
+      }, id)
+      let landedOn = false
       await jump('a press on the contents rail', async () => {
-        const at = await where(rail.id)
-        if (at) { await h.mouse.move(at.x, at.y); await h.waitForTimeout(350) }
-        const now = await where(rail.id)
-        if (now) await h.mouse.click(now.x, now.y)
-        else await h.evaluate((id) => document.getElementById(id)?.click(), rail.id)
-      }, (now) => Math.abs(now.first - before.first) > 300)
-      console.log(`   the rail has ${rail.count} strokes; pressed "${rail.words}"`)
-    } else console.log('(no contents rail on this note: not checked)')
+        // A real pointer: over the rail (it opens under the pointer), the wheel turned there until the stroke is on show, then a press on the stroke where it now is.
+        let at = await where(rail.id)
+        if (at) { await h.mouse.move(at.over, at.mid); await h.waitForTimeout(350); at = await where(rail.id) }
+        for (let i = 0; i < 80 && at && !at.shown; i++) {
+          await wheelOnce(at.over, at.mid, sign * Math.max(-700, Math.min(700, at.y - at.mid)))
+          await h.waitForTimeout(80)
+          at = await where(rail.id)
+        }
+        if (at?.shown) { await h.mouse.move(at.x, at.y); await h.waitForTimeout(150); at = await where(rail.id) }
+        landedOn = !!at?.shown
+        await pressed()
+        if (at?.shown) await h.mouse.click(at.x, at.y)
+      }, (now) => landedOn && Math.abs(now.first - before.first) > 300)
+      console.log(`   the rail has ${rail.count} strokes; ${landedOn ? 'pressed' : 'could NOT bring on show'} "${rail.words}"`)
+      // The pointer off the rail again, so it shuts.
+      await h.mouse.move(before.x, before.y)
+      await h.waitForTimeout(300)
+    } else if (wants('rail')) console.log('(no contents rail on this note: not checked)')
     // A link to a far heading, the note already open.
-    if (headingText) {
+    if (wants('link') && headingText) {
       await h.evaluate(() => window.__ln.box().scrollTo({ top: 0, behavior: 'instant' }))
       await h.waitForTimeout(500)
       await jump(`a link to the heading "${headingText}"`, () => send('capture', note.id, headingText), (now) => Math.abs(now.caret - headingAt) <= 1 && Math.abs(now.first - headingAt) <= 3 && now.firstTop >= 0 && now.firstTop < 80)
@@ -423,6 +561,7 @@ try {
       const landed = await state()
       check('a link to a far heading opens the note on it', Math.abs(landed.caret - headingAt) <= 1 && Math.abs(landed.first - headingAt) <= 3 && landed.far === 0, `heading is block ${headingAt}; first block on screen ${landed.first}, ${landed.firstTop}px down; caret in ${landed.caret}; stand-ins on screen ${landed.far}`)
     }
+    if (wants('find')) {
     // Find: a word of the far heading, stepped to from the top.
     await h.evaluate(() => { window.__ln.box().scrollTo({ top: 0, behavior: 'instant' }); window.__ln.ed().editor.commands.focus('start') })
     await h.waitForTimeout(500)
@@ -438,21 +577,57 @@ try {
     await jump('find, the next match (round to the first)', () => h.keyboard.press('Enter'), (now) => now.caret >= 0)
     await h.keyboard.press('Escape')
     await h.waitForTimeout(300)
+    }
+    if (wants('thumb')) {
     // The thumb dragged: the scroll set a long way off, frame after frame, as a drag of the thumb does.
     const dragged = await record(() => h.evaluate(async () => {
       const box = window.__ln.box()
       const most = box.scrollHeight - box.clientHeight
-      for (let i = 1; i <= 24; i++) { box.scrollTo({ top: (most * i) / 26, behavior: 'instant' }); await new Promise((next) => requestAnimationFrame(next)) }
+      // Each step set between frames, as a drag sets it (from the pointer, before the frame is drawn): set inside
+      // the frame's own callback, the page hears of the scroll only a frame later, which no drag does.
+      for (let i = 1; i <= 24; i++) { box.scrollTo({ top: (most * i) / 26, behavior: 'instant' }); await new Promise((next) => requestAnimationFrame(() => setTimeout(next))) }
       return {}
     }), 1)
     console.log(`the thumb dragged down the note in 24 frames: ${say(dragged)}  (${load()})`)
     check('the thumb dragged far: words on every frame, real ones at rest, no going back', dragged.blank === 0 && dragged.realAfter <= 100 && dragged.back === 0, `blank ${dragged.blank}, real ${dragged.realAfter} ms after rest, back ${dragged.back}, most work in a frame ${dragged.worstWork} ms`)
+    check('the thumb dragged far: no frame over 100 ms', dragged.worstGap <= 100, `longest frame ${dragged.worstGap} ms (${dragged.over} over 17.5 ms)`)
+    }
+    if (wants('page')) {
     // Page Down held.
     await h.evaluate(() => { window.__ln.box().scrollTo({ top: 0, behavior: 'instant' }); window.__ln.ed().editor.commands.focus('start') })
     await h.waitForTimeout(500)
     const paged = await record(async () => { await h.keyboard.down('PageDown'); for (let i = 0; i < 24; i++) { await h.keyboard.down('PageDown'); await new Promise((next) => setTimeout(next, 33)) } await h.keyboard.up('PageDown'); return {} }, 1)
     console.log(`Page Down held for 25 presses: ${say(paged)}  (${load()})`)
     check('Page Down held: words on every frame, never back, real ones at rest', paged.blank === 0 && paged.back === 0 && paged.realAfter <= 100 && paged.went > 2000, `went ${paged.went}px, blank ${paged.blank}, back ${paged.back}, real ${paged.realAfter} ms after rest, most work in a frame ${paged.worstWork} ms`)
+    check('Page Down held: no frame over 100 ms', paged.worstGap <= 100, `longest frame ${paged.worstGap} ms (${paged.over} over 17.5 ms)`)
+    }
+    // A contents block at the note's top, and a press on a far heading in it. It writes to the note: only with WRITES=1.
+    if (wants('contents') && headingText && process.env.WRITES) {
+      await h.evaluate(() => { window.__ln.box().scrollTo({ top: 0, behavior: 'instant' }); window.__ln.ed().editor.chain().focus('start').insertContents().run() })
+      await h.waitForTimeout(1500)
+      const entry = () => h.evaluate((words) => {
+        const one = [...document.querySelectorAll('.mf-contents-entry')].find((entry) => entry.title === words)
+        if (!one) return null
+        const r = one.getBoundingClientRect()
+        const view = window.__ln.box().getBoundingClientRect()
+        return { x: Math.round(r.left + Math.min(40, r.width / 2)), y: Math.round(r.top + r.height / 2), shown: r.height > 0 && r.top > view.top + 60 && r.bottom < view.bottom - 60, count: document.querySelectorAll('.mf-contents-entry').length }
+      }, headingText)
+      // The note scrolled to the entry (it is far down the block), then a real press on it.
+      await h.evaluate((words) => [...document.querySelectorAll('.mf-contents-entry')].find((entry) => entry.title === words)?.scrollIntoView({ block: 'center', behavior: 'instant' }), headingText)
+      await h.waitForTimeout(900)
+      const at = await entry()
+      // The block put in is one more block above the heading.
+      const target = headingAt + (await h.evaluate(() => window.__ln.ed().editor.state.doc.childCount)) - size
+      if (!at?.shown) check('a press on a heading in a contents block: lands in one step and stays', false, `its entry could not be brought on show (${JSON.stringify(at)})`)
+      else {
+        await jump('a press on a heading in a contents block', async () => { await h.mouse.move(at.x, at.y); await h.waitForTimeout(150); await pressed(); await h.mouse.click(at.x, at.y) }, (now) => Math.abs(now.caret - target) <= 1 && Math.abs(now.first - target) <= 3 && now.firstTop >= 0 && now.firstTop < 80)
+        console.log(`   the block lists ${at.count} headings; pressed "${headingText}" (block ${target})`)
+      }
+      // The block taken out again.
+      await h.evaluate(() => window.__ln.ed().editor.commands.focus())
+      await h.keyboard.press('Meta+z')
+      await h.waitForTimeout(800)
+    } else if (wants('contents') && only) console.log('(a contents block is put in the note for this: run it with WRITES=1 on a copy kept for writing)')
   }
 
   if (PART === 'caret') {
@@ -463,14 +638,7 @@ try {
     await h.waitForTimeout(900)
     await h.evaluate(() => window.__ln.box().scrollBy({ top: -1400, behavior: 'instant' }))
     await h.waitForTimeout(900)
-    const spot = await h.evaluate(() => {
-      const e = window.__ln.ed()
-      const view = window.__ln.box().getBoundingClientRect()
-      const line = [...e.querySelectorAll(':scope > p')].find((p) => { const r = p.getBoundingClientRect(); return !p.hasAttribute('data-far') && p.textContent.trim().length > 30 && r.top > view.top + 80 && r.bottom < view.bottom - 80 })
-      if (!line) return null
-      const r = line.getBoundingClientRect()
-      return { x: Math.round(r.left + 60), y: Math.round(r.top + 10), index: Array.prototype.indexOf.call(e.children, line), words: line.textContent.slice(0, 40) }
-    })
+    const spot = await find()
     if (!spot) check('a real paragraph is on screen to click in', false, JSON.stringify(await state()))
     else {
       await h.mouse.click(spot.x, spot.y)
@@ -484,23 +652,17 @@ try {
       await h.evaluate(() => { const box = window.__ln.box(); box.scrollBy({ top: -box.clientHeight * 5, behavior: 'instant' }) })
       await h.waitForTimeout(900)
       const away = await state()
+      const gone = !(await showing(typed.at))
       await h.keyboard.press('Meta+z')
       await h.waitForTimeout(1200)
       const back = await state()
+      const here = await showing(typed.at)
       const undone = await h.evaluate(() => !window.__ln.ed().editor.state.doc.textContent.includes('Zq7x'))
-      check('⌘Z after scrolling five screens away brings the view back to the words', undone && Math.abs(back.caret - typed.at) <= 2 && Math.abs(back.first - typed.at) < 60 && back.far === 0 && Math.abs(away.first - typed.at) > 60, `typed in block ${typed.at}; scrolled to block ${away.first}; after ⌘Z first block ${back.first}, caret ${back.caret}, undone ${undone}, stand-ins on screen ${back.far}`)
+      check('⌘Z after scrolling five screens away brings the view back to the words', undone && Math.abs(back.caret - typed.at) <= 2 && here && gone && back.far === 0 && (await answers()), `typed in block ${typed.at}; scrolled to block ${away.first} (the typed block off the screen: ${gone}); after ⌘Z first block ${back.first}, caret ${back.caret}, the typed block on the screen: ${here}, undone ${undone}, undrawn on screen ${back.far}`)
     }
     // A selection begun on one screen, carried five screens down by ⇧-click.
     await h.evaluate(() => { const box = window.__ln.box(); box.scrollTo({ top: box.scrollHeight * 0.3, behavior: 'instant' }) })
     await h.waitForTimeout(1000)
-    const find = () => h.evaluate(() => {
-      const e = window.__ln.ed()
-      const view = window.__ln.box().getBoundingClientRect()
-      const line = [...e.querySelectorAll(':scope > p')].find((p) => { const r = p.getBoundingClientRect(); return !p.hasAttribute('data-far') && p.textContent.trim().length > 20 && r.top > view.top + 60 && r.bottom < view.bottom - 60 })
-      if (!line) return null
-      const r = line.getBoundingClientRect()
-      return { x: Math.round(r.left + 30), y: Math.round(r.top + 10), index: Array.prototype.indexOf.call(e.children, line) }
-    })
     const one = await find()
     if (one) await h.mouse.click(one.x, one.y)
     await h.waitForTimeout(300)
@@ -519,16 +681,47 @@ try {
       return { from: state.selection.$from.index(0), to: state.selection.$to.index(0), text: data.getData('text/plain').length, want: state.doc.textBetween(from, to, '\n\n').length, whole: state.doc.content.size, span: to - from }
     })
     const carried = one && two ? await copied() : null
-    check('a selection carried five screens by ⇧-click is whole, and copies whole', !!carried && carried.from <= one.index + 1 && carried.to >= two.index - 1 && two.index - one.index > 20 && carried.want > 2000 && carried.text >= carried.want * 0.9 && (await answers()), carried ? `from block ${carried.from} (clicked ${one.index}) to ${carried.to} (⇧-clicked ${two.index}); a copy takes ${carried.text} characters of ${carried.want}` : `no paragraph found to click (${JSON.stringify(one)} ${JSON.stringify(two)})`)
+    check('a selection carried five screens by ⇧-click is whole, and copies whole', !!carried && carried.from <= one.index + 1 && carried.to >= two.index - 1 && two.index - one.index >= 5 && carried.want > 2000 && carried.text >= carried.want * 0.9 && (await answers()), carried ? `from block ${carried.from} (clicked ${one.index}) to ${carried.to} (⇧-clicked ${two.index}); a copy takes ${carried.text} characters of ${carried.want}` : `no paragraph found to click (${JSON.stringify(one)} ${JSON.stringify(two)})`)
     await h.keyboard.press('Meta+a')
     await h.waitForTimeout(600)
     const all = await copied()
     const shown = await state()
     check('⌘A then copy gives the whole note, and the screen stays where it was', all.span >= all.whole - 2 && all.text >= all.want * 0.9 && all.text > 500000 && shown.far === 0 && Math.abs(shown.first - (two?.index ?? shown.first)) < 80 && (await answers()), `selection spans ${all.span} of ${all.whole}; a copy takes ${all.text} characters of ${all.want}; first block on screen ${shown.first}`)
+    // A caret placed by a click, then two hard flings away from it: the blocks it is in leave the page.
+    await h.evaluate(() => { const box = window.__ln.box(); box.scrollTo({ top: box.scrollHeight * 0.2, behavior: 'instant' }) })
+    await h.waitForTimeout(900)
+    const here = await find()
+    if (here) await h.mouse.click(here.x, here.y)
+    await h.waitForTimeout(400)
+    await h.evaluate(() => { window.__ln.start(); window.__ln.mark('start') })
+    await fling(shown.x, shown.y, 40000, 1)
+    await fling(shown.x, shown.y, 40000, 1)
+    const awake = await answersWithin(60)
+    if (!awake) {
+      check('two hard flings away from a caret just placed: the page answers, no frame over 100 ms', false, `the page did not answer for a minute after them: it spins  (${load()})`)
+      throw new Error('the page spins after a fling away from the caret')
+    }
+    await h.evaluate(() => window.__ln.mark('end'))
+    await h.waitForTimeout(900)
+    const flown = read(await h.evaluate(() => window.__ln.stop()), 1)
+    const after = await state()
+    check('two hard flings away from a caret just placed: the page answers, no frame over 100 ms', !!here && flown.worstGap <= 100 && Math.abs(after.caret - here.index) <= 2 && after.first - here.index > 200, `caret left in block ${here?.index}, the screen went to block ${after.first} (${flown.went}px); longest frame ${flown.worstGap} ms (${flown.over} over 17.5 ms) in ${flown.frames} frames  (${load()})`)
+    // A letter typed with the caret left behind: the note comes back to it, and the letter lands there.
+    if (await h.evaluate((sel) => document.querySelector(sel + '[data-vim-mode="normal"]') !== null, ED)) await h.keyboard.press('i')
+    await h.keyboard.type('Qz9k', { delay: 40 })
+    await h.waitForTimeout(700)
+    if (!(await answersWithin(60))) { check('a word typed with the caret left far behind lands at the caret, and the note comes back to it', false, 'the page did not answer for a minute after it: it spins'); throw new Error('the page spins after typing far from the screen') }
+    const came = await state()
+    const landed = await h.evaluate((index) => { const { doc, selection } = window.__ln.ed().editor.state; const at = selection.$head.index(0); return { at, words: doc.child(at).textContent.includes('Qz9k'), elsewhere: doc.textContent.split('Qz9k').length - 1 } }, here?.index ?? 0)
+    check('a word typed with the caret left far behind lands at the caret, and the note comes back to it', !!here && landed.words && landed.elsewhere === 1 && Math.abs(landed.at - here.index) <= 1 && Math.abs(came.first - here.index) < 60 && came.far === 0, `caret was in block ${here?.index}; the word is in block ${landed.at}: ${landed.words} (${landed.elsewhere} time in the note); the screen is back at block ${came.first}`)
+    // The word taken out again, only if it went in.
+    if (landed.words) for (let i = 0; i < 4; i++) await h.keyboard.press('Backspace')
+    await h.waitForTimeout(500)
     // Left in the middle of a fling, and come back to.
     await h.mouse.click(shown.x, shown.y)
     await h.evaluate(() => { const box = window.__ln.box(); box.scrollTo({ top: box.scrollHeight * 0.45, behavior: 'instant' }) })
     await h.waitForTimeout(900)
+    if (!(await answersWithin(60))) { check('left in the middle of a fling and come back to: no spin, the same place', false, 'the page did not answer for a minute after scrolling away from a caret just placed: it spins'); throw new Error('the page spins after scrolling away from the caret') }
     const flung = fling(shown.x, shown.y, 12000, 1)
     await h.waitForTimeout(350)
     const leaving = await state()
