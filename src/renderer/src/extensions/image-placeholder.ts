@@ -1,6 +1,5 @@
 import { Node, mergeAttributes } from "@tiptap/core"
-import { ReactNodeViewRenderer } from "@tiptap/react"
-import { ImagePlaceholderView } from "@/components/image/image-placeholder-view"
+import { imagePlaceholderNodeView } from "@/components/image/image-placeholder-node-view"
 
 declare module "@tiptap/core" {
   interface Commands<ReturnType> {
@@ -67,8 +66,9 @@ export const ImagePlaceholder = Node.create({
   // One not found keeps pointing at its file, the way Obsidian wrote it; an empty one writes nothing.
   renderMarkdown: (node) => (node.attrs?.embed ? `![[${node.attrs.embed}]]` : ""),
 
+  // Plain elements until pointed at (image-placeholder-node-view.ts): a note can hold hundreds.
   addNodeView() {
-    return ReactNodeViewRenderer(ImagePlaceholderView)
+    return imagePlaceholderNodeView
   },
 
   addCommands() {
