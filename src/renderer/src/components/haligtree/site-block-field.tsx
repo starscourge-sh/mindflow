@@ -308,9 +308,10 @@ export function SiteBlockField({ settings, compact = false }: { settings: Settin
                 <button key={offer.id} type="button" role="option" aria-selected={index === lit && (!!typed || steered)} data-site-offer={offer.entry}
                   onMouseDown={(event) => event.preventDefault()}
                   // Only a pointer that moves lights a line: a menu opening under a resting one keeps the first lit.
-                  onPointerMove={(event) => (event.movementX || event.movementY) && index !== lit && setLit(index)}
+                  // The line it moves onto is the one lit line (never a second, fainter one under the pointer).
+                  onPointerMove={(event) => (event.movementX || event.movementY) && (index !== lit || !steered) && (setLit(index), setSteered(true))}
                   onClick={() => add(offer)}
-                  className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-control ${index === lit && (typed || steered) ? 'bg-accent text-foreground' : 'text-foreground hover:bg-accent/60'} ${offer.note ? 'opacity-60' : ''}`}>
+                  className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-control ${index === lit && (typed || steered) ? 'bg-accent text-foreground' : 'text-foreground'} ${offer.note ? 'opacity-60' : ''}`}>
                   {offer.collection ? (
                     <span className="flex gap-0.5">{COLLECTIONS[offer.collection].sites.slice(0, 3).map((site) => <span key={site}><SiteIcon site={site} size={14} /></span>)}</span>
                   ) : offer.typed ? <LinkIcon className="size-3.5 text-muted-foreground" /> : <SiteIcon site={offer.site!} size={14} />}

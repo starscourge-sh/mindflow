@@ -1364,8 +1364,10 @@
 
     // The same fill a cmdk row takes, rather than the editor's own surface
     // token: two greys that were nearly the same and never quite matched.
+    // One lit row a menu, the one the keys or a moving pointer chose (is-selected, or Radix's data-highlighted):
+    // never :hover too, which lit a second row under a pointer resting where the menu opened ("Text" by the keys,
+    // "Checklist" under the pointer). Each list moves its choice to the row a real pointer move lands on.
     &.is-selected,
-    &:hover,
     &[data-highlighted] {
       background-color: var(--accent);
     }
@@ -1543,8 +1545,8 @@
     font-size: 0.9375rem;
     line-height: 1.2;
 
-    &.is-selected,
-    &:hover {
+    // One lit emoji, the chosen one: a pointer at rest under the list lights nothing more (it chooses once it moves).
+    &.is-selected {
       background-color: var(--mf-surface);
     }
   }
