@@ -1,3 +1,4 @@
+import { keptAs } from '@/lib/capture-links'
 import { mdWords } from '../../../../main/md-words'
 import { typedAsGaps } from '@/lib/blanks'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
@@ -173,7 +174,7 @@ export function NotePreview(): React.JSX.Element | null {
         // A row's title, not an @ link: its own click does what it always did, so the card does not say "Click to open".
         const row = link.hasAttribute('data-note-hover')
         // A person or a tag is a place to go, not a note with words to show.
-        const load: Promise<{ title: string; lead?: string; cast?: boolean; body: unknown; private: boolean; gem?: Gemmed; picture?: string | null; tally?: string; latest?: string[]; thought?: Thought } | null> =
+        const load: Promise<{ title: string; lead?: string; cast?: boolean; body: unknown; private: boolean; gem?: Gemmed; picture?: string | null; tally?: string; latest?: string[]; thought?: Thought; /** What a capture became, which is what its link opens and its card shows. */ became?: { type: string; id: string } } | null> =
           // A footnote's mark: its note's words, read off the page it is on.
           type === 'footnote' ? Promise.resolve(footnoteCard(link, id))
           // A thought: its words whole, dated, and the note it is on.
@@ -217,8 +218,12 @@ export function NotePreview(): React.JSX.Element | null {
           // A PDF or a kept article: its title, and what a click does.
           : type === 'pdf' || type === 'web' ? haligtree.linkTitle(raw).then((found) => found && { title: found.title, body: type === 'pdf' ? 'A PDF, read in the reader.' : 'A web article you kept, read in the reader.', private: false, picture: null })
           : type === 'task' ? haligtree.task(id).then((found) => found && { title: found.title, body: found.notes, private: false })
+          // A capture that became a page, a gem or a question is that now (`keptAs`): its card shows what a click on the
+          // link opens, in the words it has there, never the capture kept behind it as it was the day it left the Inbox.
           : type === 'capture'
-          ? window.api.captures.get(id).then((found) => found && { title: found.label || found.title || '', body: found.body, private: !!found.private })
+          ? keptAs(id).then((to) => to.type === 'capture'
+            ? window.api.captures.get(id).then((found) => found && { title: found.label || found.title || '', body: found.body, private: !!found.private })
+            : haligtree.item(to.id).then((found) => found && { title: found.title, body: found.body, private: !!found.private, gem: found.tier === 'nugget' ? gemmed(found) : undefined, became: to }))
           : haligtree.item(id).then((found) => found && { title: found.title, body: found.body, private: !!found.private, gem: found.tier === 'nugget' ? gemmed(found) : undefined })
         void load.then((found) => {
           if (over !== link) return
@@ -249,10 +254,10 @@ export function NotePreview(): React.JSX.Element | null {
             el: block && line ? link : undefined,
             lost: !!block && !line,
             text: found.thought ? cut(found.body as string, 900) : cut(text, 420),
-            kind,
+            kind: found.became ? (found.became.type === 'nugget' ? 'idea' : found.became.type) : kind,
             aside: !binned && !['task', 'person', 'tag', 'pdf', 'web', 'thought', 'footnote'].includes(type),
-            type,
-            id,
+            type: found.became?.type ?? type,
+            id: found.became?.id ?? id,
             queue: !binned && !['task', 'person', 'tag', 'goal', 'pdf', 'web', 'thought', 'footnote'].includes(type),
             gem: found.gem,
             binned,
