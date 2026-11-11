@@ -122,7 +122,8 @@ const report = () => {
   check(`${SECTION}: picked, no "/name" is left in the note`, ran.every((one) => !one.left), ran.filter((one) => one.left).map((one) => `${one.title} (${one.where})`).join(', '))
   check(`${SECTION}: one ⌘Z puts the note back as it was before the "/"`, ran.every(undone), ran.filter((one) => !undone(one)).map((one) => `${one.title} (${one.where}): ${one.undo}`).join(', '))
   // A question backed out of (the formula, the source, which note) changes nothing: the note is exactly as it was, with no ⌘Z needed.
-  const backed = ran.filter((one) => one.backedOut)
+  // Only the commands that ask before they make anything: "Image" puts its placeholder block in at once, by design, and Esc there closes its picker.
+  const backed = ran.filter((one) => one.backedOut && /^(Math|Cite a source|Link to a note|Embed a note)$/.test(one.title))
   check(`${SECTION}: backing out of a command's question leaves the note exactly as it was (${backed.map((one) => one.title).join(', ') || 'none asked here'})`, backed.every((one) => one.made === 'nothing' && one.undo === 0), backed.filter((one) => !(one.made === 'nothing' && one.undo === 0)).map((one) => `${one.title}: made ${one.made}, ⌘Z ${one.undo}`).join(', '))
   check(`${SECTION}: the menu keeps its shape wherever it opens`, rows.every((one) => one.look !== false), rows.filter((one) => one.look === false).map((one) => `${one.title} (${one.where})`).join(', '))
 }

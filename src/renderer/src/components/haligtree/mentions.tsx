@@ -208,7 +208,7 @@ export function Mentions({ id, onOpen, compact = false, editor }: {
           </button>
           {namedOpen && linkable.length > 1 && (
             <button type="button" data-link-all onClick={() => linkHere(linkable)}
-              className="ml-auto flex min-h-6 shrink-0 items-center gap-1 rounded-md px-1.5 text-control text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
+              className="mr-2 ml-auto flex min-h-6 shrink-0 items-center gap-1 rounded-md px-1.5 text-control text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
               <AliveIcon icon={LinkIcon} size={14} /> Link all {num(linkable.length)}
             </button>
           )}

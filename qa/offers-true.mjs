@@ -19,7 +19,8 @@ const offer = () => h.evaluate(() => { const el = document.querySelector('[data-
 const links = () => h.evaluate(() => { const out = []; document.querySelector('[data-open] .tiptap, .tiptap.ProseMirror.haligtree-editor:not(.is-line)').editor.state.doc.descendants((node) => void (node.type.name === 'noteLink' && out.push({ id: node.attrs.id, label: node.attrs.label, text: node.attrs.text }))); return out })
 const untilOffer = async (kind, ms = 15000) => { for (let i = 0; i < ms / 250; i++) { const now = await offer(); if (now?.kind === kind) return now; await wait(250) } return offer() }
 try {
-  await v('settings:set', { sounds: false, hintRate: 0, noteOffers: true })
+  // No celebrations: the sandbox marks its first captures with one, and the offer card waits for as long as one is on show.
+  await v('settings:set', { sounds: false, hintRate: 0, noteOffers: true, celebrate: false })
   const protocol = await note(p(t('Protocol')), p(t('The steps to follow when a server goes down, in order.')))
   const empire = await note(p(t('Byzantine Empire')), p(t('The eastern half of Rome, a thousand years on.')))
   const kappa = await note(p(t('Kappa Architecture')), p(t('One stream for everything, replayed when the code changes.')))
@@ -31,7 +32,13 @@ try {
     p(t('The config key is '), t('Kappa Architecture', 'code'), t(' in the old file.'))
   )
   await send('capture', writing); await wait(2500)
-  const first = await untilOffer('link')
+  // What the main process answers for this note's words, asked straight, and how long it took: the card under the
+  // note waits on the same answer (the first one reads the whole book's roots, slow on a busy machine).
+  const asked = Date.now()
+  const straight = await v('offers:note', writing, 'Notes from Tuesday\nIn the end the protocol was followed and nobody was paged.\nLater I read how the Byzantine Empire fell, slowly and then at once.\nThe config key is  in the old file.', []).catch((error) => ({ error: String(error).slice(0, 200) }))
+  console.log(`NOTE  asked straight, the main process answered in ${Date.now() - asked}ms: links ${JSON.stringify(straight?.links ?? straight)}, same ${JSON.stringify(straight?.same ?? null)}, folder ${JSON.stringify(straight?.folder ?? null)}, people ${JSON.stringify(straight?.people ?? null)}`)
+  console.log(`NOTE  the card now: ${JSON.stringify(await offer())}; a celebration on show: ${await h.evaluate(() => [...document.querySelectorAll('[data-celebration]')].some((one) => one.childElementCount > 0))}; the note is open: ${await h.evaluate(() => !!document.querySelector('[data-open] .tiptap'))}`)
+  const first = await untilOffer('link', 45000)
   check('the real name is offered: "Mentions “Byzantine Empire”"', first?.kind === 'link' && /Byzantine Empire/.test(first.text), JSON.stringify(first))
   check('the everyday word in a sentence is not offered', !/Protocol/.test(first?.text ?? ''), JSON.stringify(first))
   check('a name standing only in inline code is not offered', !/Kappa/.test(first?.text ?? ''), JSON.stringify(first))
@@ -95,7 +102,8 @@ try {
   const name = h.locator('[data-named-fold]').locator('xpath=ancestor::section').locator('[data-note-hover]', { hasText: 'Hagia Sophia' }).first()
   const over = await at(name)
   await h.mouse.move(over.x - 30, over.y - 14, { steps: 3 }); await h.mouse.move(over.x, over.y, { steps: 4 }); await wait(1200)
-  const floating = await h.evaluate(() => ({ cards: document.querySelectorAll('[data-preview-title]').length, card: (document.querySelector('[data-preview-title]')?.textContent ?? '').trim(), tips: document.querySelectorAll('[data-slot="tooltip-content"], [role="tooltip"]').length }))
+  const floating = await h.evaluate(() => ({ cards: document.querySelectorAll('[data-preview-title]').length, card: (document.querySelector('[data-preview-title]')?.textContent ?? '').trim(), tips: document.querySelectorAll('[data-slot="tooltip-content"]').length }))
+  // (The card itself is announced as a tooltip, role="tooltip": a tip is the small label, data-slot="tooltip-content".)
   check('pointing at a name shows that note in the one hover card, and no tip with it', floating.cards === 1 && /Hagia Sophia/.test(floating.card) && floating.tips === 0, JSON.stringify(floating))
   if (process.env.SHOTS) for (const theme of ['light', 'dark']) { await c.look(theme); await h.screenshot({ path: `${process.env.SHOTS}/offers-named-${theme}.png` }) }
   // "Link" on one row: the hand on it, the words made the link, a notice with Undo, the row out of the list at once.
@@ -111,7 +119,8 @@ try {
   check('a notice says what was linked, with Undo', (await h.getByText('Linked “Hagia Sophia”').count()) >= 1 && (await h.locator('button', { hasText: /^Undo/ }).count()) >= 1, '')
   check('the row leaves the list at once and the line counts two', (await list()).length === 2 && /^Names 2 other notes/.test(((await fold.textContent()) ?? '').trim()), `${(await list()).join(' | ')} / ${await fold.textContent()}`)
   const text = await h.evaluate(() => document.querySelector('[data-open] .tiptap, .tiptap.ProseMirror.haligtree-editor:not(.is-line)').editor.getText())
-  check('the sentence round the link reads as it did, and the name in code is still code', /Then Hagia Sophia itself/.test(text) && /with Hagia Sophia left as code/.test(text), text.slice(0, 240))
+  // (A link is a block of its own in the words: the editor's plain text leaves a gap where it stands.)
+  check('the sentence round the link reads as it did, and the name in code is still code', /Then\s+itself, and how its dome was rebuilt/.test(text) && /with Hagia Sophia left as code/.test(text), text.slice(0, 240))
   // ⌘Z in the note takes the link back, as any edit; the name is offered in the list again once the note has rested.
   await h.evaluate(() => document.querySelector('[data-open] .tiptap, .tiptap.ProseMirror.haligtree-editor:not(.is-line)').editor.commands.focus())
   await h.keyboard.press('Meta+z'); await wait(600)
