@@ -2,7 +2,8 @@
 // the words (text/plain and text/html, as Obsidian gives them, about 930,000
 // characters) are kept as a note of their own in the Inbox, read a breath at
 // a time, while the box stays empty and takes every key. Said with Undo.
-// A short paste still lands in the box as before.
+// The same words sent to the box from the main window (⌘K's "in quick
+// capture") go the same way. A short paste still lands in the box as before.
 //
 //   npx electron-vite build --outDir out-x
 //   QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/box-big-drop.mjs
@@ -100,10 +101,12 @@ try {
   await page.click(ED)
   await page.keyboard.press('Meta+a'); await page.keyboard.press('Backspace')
 
-  for (const how of ['drop', 'paste']) {
+  for (const how of ['drop', 'paste', 'sent']) {
     const before = (await captures()).length
     await watch()
-    const took = await give(how, text, html)
+    // Sent: handed to the box by the main window, as ⌘K's "in quick capture" hands it what was typed there.
+    const took = how === 'sent' ? await h.evaluate((words) => { const at = performance.now(); window.api.showPrompt(words); return Math.round(performance.now() - at) }, text) : await give(how, text, html)
+    if (how === 'sent') await page.waitForTimeout(150)
     check(`${how}: the hand-over itself does not hold the box`, took < 100, `${took} ms  [${load()}]`)
     check(`${how}: the box is left empty, not filled with the note`, (await boxWords()).length < 200, `${(await boxWords()).length} characters in the box`)
     // Typed while the note is being read and kept: each key lands, and soon.
@@ -128,6 +131,8 @@ try {
     if (Math.max(0, ...seen.long) > 100) console.log((await page.evaluate(() => window.__freezeNotes?.() ?? '')).split('\n').filter((line) => /^\s+\d+ms /.test(line)).slice(-8).join('\n'))
     check(`${how}: every key drew within 50 ms`, seen.keys.length >= 8 && Math.max(...seen.keys) <= 50, JSON.stringify(seen.keys))
     await page.screenshot({ path: `${process.env.SHOTS ?? '/tmp'}/box-big-${how}.png` }).catch(() => {})
+    // The notice in light and in dark, beside each other (the theme is worn by every window at once).
+    if (how === 'paste') await c.both(`${process.env.SHOTS ?? '/tmp'}/box-big-notice`, page)
     // Undo takes it to the Bin.
     await page.getByRole('button', { name: /^Undo/ }).first().click({ timeout: 3000 }).catch(() => {})
     await page.waitForTimeout(600)

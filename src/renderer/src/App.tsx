@@ -138,7 +138,7 @@ import { clip, quoted } from '../../main/clip'
 import { soundTitle } from './components/haligtree/sound-player'
 import { ArrowLeft, ArrowUpRight, ChevronLeft, ChevronRight, EyeOff, Tag as Hashtag, X } from '@/components/ui/icons'
 import { caretInLink } from './extensions/link-tidy'
-import { BigPaste } from './extensions/big-paste'
+import { BIG_PASTE, BigPaste } from './extensions/big-paste'
 import { breath, markdownToDocumentGently } from './lib/markdown-doc'
 import { APP_NAME } from '../../main/name'
 import { domOf } from '@/lib/editor-dom'
@@ -1526,6 +1526,8 @@ export default function App(): React.JSX.Element {
     const write = (): void => {
       const editor = editorRef.current
       if (!editor || editor.isDestroyed) return void (tries++ < 60 && requestAnimationFrame(write))
+      // A whole long note sent this way goes where a paste of it goes: kept as a note of its own, never drawn in the box.
+      if (text.length >= BIG_PASTE) return void keepBigPaste(text, editor)
       chime('tap')
       const paragraph = { type: 'paragraph', content: [{ type: 'text', text }] }
       if (editor.isEmpty) editor.chain().setContent({ type: 'doc', content: [paragraph] }, { emitUpdate: true }).focus('end').run()
