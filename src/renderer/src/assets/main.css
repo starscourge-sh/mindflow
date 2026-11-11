@@ -3174,11 +3174,14 @@ html[data-book-hue] [data-book-tint] {
 }
 [data-room] [data-room-foot] > :not(.mf-blur-edge) { transition: opacity 400ms var(--mf-ease); }
 /* Typing, the bar steps out of the way, its blur with it; the pointer moving brings it back (writing-room.tsx). A tool's panel open keeps it.
-   Its row and the blur's layers fade, never the foot that holds the blur: faded, it would leave the blur nothing to see. */
-[data-room] [data-room-foot][data-typing]:not(:has([data-state='open'])) { pointer-events: none; }
-[data-room] [data-room-foot][data-typing]:not(:has([data-state='open'])) > :not(.mf-blur-edge),
-[data-room] [data-room-foot][data-typing]:not(:has([data-state='open'])) > .mf-blur-edge > span,
-[data-room] [data-room-foot][data-typing]:not(:has([data-state='open'])) > .mf-blur-edge::before { opacity: 0; }
+   Its row and the blur's layers fade, never the foot that holds the blur: faded, it would leave the blur nothing to see.
+   The :has() stays on the foot alone and hands its children a variable: a :has() followed by "> :not(...)" (a part
+   with nothing to narrow it) made Chromium restyle the whole window each time any [data-state] came or went
+   anywhere, as every row of a long list scrolled in (Files' table went from 10ms to 70ms a frame: qa/files-table.mjs). */
+[data-room] [data-room-foot][data-typing]:not(:has([data-state='open'])) { pointer-events: none; --mf-foot-shown: 0; }
+[data-room] [data-room-foot] > :not(.mf-blur-edge),
+[data-room] [data-room-foot] > .mf-blur-edge > span,
+[data-room] [data-room-foot] > .mf-blur-edge::before { opacity: var(--mf-foot-shown, 1); }
 [data-room] :is([data-apart='foot'], [data-day-count], .tiptap-word-count, [data-property-strip], :has(> [data-composer])) { display: none; }
 [data-room] > [data-note-head] { display: none; }
 /* The words run the room's whole height and the room scrolls them: the page's own editor kept the pane's height and
