@@ -4557,6 +4557,22 @@ app.whenReady().then(() => {
     const { host, pathname } = new URL(request.url)
     const name = pathname.replace(/^\/+/, '')
 
+    // The drawing editor's hand-drawn fonts, out of the app's own folder (copied beside the pages at build time,
+    // electron.vite.config.ts). It reads them with fetch to put them inside a drawing's picture, and a page opened
+    // from a file may not fetch a file: it went on to a CDN, which the app's policy refuses. Only a font's own name.
+    if (host === 'app') {
+      if (!/^fonts\/[A-Za-z]+\/[A-Za-z0-9_-]+\.woff2$/.test(name)) return new Response('not found', { status: 404 })
+      try {
+        const file = await net.fetch(pathToFileURL(join(__dirname, '../renderer', name)).toString())
+        const headers = new Headers(file.headers)
+        headers.set('content-type', 'font/woff2')
+        headers.set('access-control-allow-origin', '*')
+        return new Response(file.body, { status: file.status, statusText: file.statusText, headers })
+      } catch {
+        return new Response('not found', { status: 404 })
+      }
+    }
+
     // Scenery's smaller copies, named the same careful way.
     if (host === 'scenery') {
       if (!/^[a-f0-9]{32}(-s)?\.(jpg|png)$/.test(name)) return new Response('not found', { status: 404 })

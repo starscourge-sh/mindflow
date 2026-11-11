@@ -45,6 +45,15 @@ const shims = (): Plugin => ({
     if (importer?.includes('/node_modules/@excalidraw/excalidraw/') && LOCALE.test(source)) return resolve('src/renderer/src/lib/shims/no-locale.ts')
     const shim = importer && SHIMS.find((one) => one.asks === source && importer.includes(`/node_modules/${one.from}/`))
     return shim ? resolve('src/renderer/src/lib/shims', shim.use) : null
+  },
+  // Excalidraw's last resort for a font it cannot find is a CDN (esm.sh). An offline app asks the web for nothing:
+  // its last resort is the app's own folder again (haligtree://app/, main/index.ts), so a font left out of the
+  // build (Xiaolai, above) is simply not found, and the Mac's own face draws those letters.
+  transform(code, id) {
+    if (!id.includes('/node_modules/@excalidraw/excalidraw/') || !code.includes('https://esm.sh/')) return null
+    const local = code.replace(/`https:\/\/esm\.sh\/\$\{[^`]*`[^`]*`[^`]*\}\/dist\/prod\/`/, '"haligtree://app/"')
+    if (local.includes('https://esm.sh/')) throw new Error('Excalidraw still names its font CDN: its code changed, look at ASSETS_FALLBACK_URL again')
+    return { code: local, map: null }
   }
 })
 

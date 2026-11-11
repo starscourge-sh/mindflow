@@ -20,7 +20,12 @@ declare global {
 //
 // Here rather than in the editor: where the fonts live is the host's business,
 // the same way the page background and the web font are.
-window.EXCALIDRAW_ASSET_PATH = new URL('./', window.location.href).href
+//
+// Opened from a file (the built app), the page asks for them through the app's own address instead
+// (haligtree://app/fonts/…, answered in main from that same folder): Excalidraw reads a font with fetch to put it
+// inside a drawing's picture, a page from a file may not fetch a file, and it went on to its CDN, which the app's
+// policy refuses and logs. Under the dev server the page's own folder is fetched as it is.
+window.EXCALIDRAW_ASSET_PATH = window.location.protocol === 'file:' ? 'haligtree://app/' : new URL('./', window.location.href).href
 
 // Excalidraw opens files through `browser-fs-access`, which uses the File
 // System Access API where it finds one and a plain `<input type="file">` where
