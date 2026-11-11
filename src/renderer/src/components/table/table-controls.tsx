@@ -15,6 +15,13 @@ interface Geometry {
   left: number
   width: number
   height: number
+  /**
+   * The part of the table in sight, left and right: a wide table scrolled
+   * sideways inside its wrapper runs past both edges. The grips, the bars and
+   * the pointer's reach keep to it, so a row's grip stays at the edge where the
+   * rows are seen and never slides out over the block handle.
+   */
+  seen: { left: number; right: number }
   rows: { top: number; height: number }[]
   columns: { left: number; width: number; col: number }[]
 }
@@ -80,9 +87,16 @@ function measure(editor: Editor, pointed: HTMLTableElement | null): Geometry | n
     return entry
   })
 
+  const wrapper = table.closest('.tableWrapper')
+  const port = wrapper?.getBoundingClientRect()
+  const pad = wrapper ? getComputedStyle(wrapper) : null
+  const seenLeft = port && pad ? Math.max(box.left, port.left + wrapper!.clientLeft + parseFloat(pad.paddingLeft)) : box.left
+  const seenRight = port && pad ? Math.min(box.right, port.left + wrapper!.clientLeft + wrapper!.clientWidth - parseFloat(pad.paddingRight)) : box.right
+
   return {
     top: box.top - origin.top + downBy,
     left: box.left - origin.left + acrossBy,
+    seen: { left: seenLeft - origin.left + acrossBy, right: Math.max(seenLeft, seenRight) - origin.left + acrossBy },
     width: box.width,
     height: box.height,
     rows,
@@ -340,8 +354,8 @@ export function TableControls({ editor }: { editor: Editor | null }): React.JSX.
       const x = event.clientX - origin.left + host.scrollLeft
       const y = event.clientY - origin.top + host.scrollTop
       const near =
-        x >= geometry.left - MARGIN &&
-        x <= geometry.left + geometry.width + MARGIN &&
+        x >= geometry.seen.left - MARGIN &&
+        x <= geometry.seen.right + MARGIN &&
         y >= geometry.top - MARGIN &&
         y <= geometry.top + geometry.height + MARGIN
       if (!near) return letGo()
@@ -584,8 +598,8 @@ export function TableControls({ editor }: { editor: Editor | null }): React.JSX.
         }
       : geometry.rows[moving.to] && {
           top: geometry.rows[moving.to].top + (onward ? geometry.rows[moving.to].height : 0),
-          left: geometry.left,
-          width: geometry.width
+          left: geometry.seen.left,
+          width: geometry.seen.right - geometry.seen.left
         }
 
   // The copy in hand, or gliding home: one element throughout, so letting go
@@ -595,7 +609,8 @@ export function TableControls({ editor }: { editor: Editor | null }): React.JSX.
     : settle && { axis: settle.axis, base: settle.base, size: settle.size, offset: settle.to - settle.base, gliding: true }
   const span = (axis: 'row' | 'column', base: number, size: number): React.CSSProperties =>
     axis === 'row'
-      ? { top: base, height: size, left: geometry.left, width: geometry.width }
+      ? // A row of a table scrolled sideways is cut to the part in sight, as the table itself is.
+        { top: base, height: size, left: geometry.left, width: geometry.width, clipPath: `inset(0 ${geometry.left + geometry.width - geometry.seen.right}px 0 ${geometry.seen.left - geometry.left}px)` }
       : { left: base, width: size, top: geometry.top, height: geometry.height }
 
   return createPortal(
@@ -614,22 +629,23 @@ export function TableControls({ editor }: { editor: Editor | null }): React.JSX.
           onLanded={() => setSettle(null)}
         />
       )}
-      {row && hover && grip('row', hover.row, { top: row.top, left: geometry.left, height: row.height })}
+      {row && hover && grip('row', hover.row, { top: row.top, left: geometry.seen.left, height: row.height })}
       {hover && bar('row', {
         top: geometry.top + geometry.height + 4,
-        left: geometry.left,
-        width: geometry.width
+        left: geometry.seen.left,
+        width: geometry.seen.right - geometry.seen.left
       })}
       {hover && bar('column', {
-        left: geometry.left + geometry.width + 4,
+        left: geometry.seen.right + 4,
         top: geometry.top,
         height: geometry.height
       })}
       {column &&
         grip('column', column.col, {
-          left: column.left,
+          // Only the part of the column in sight, so a column half scrolled away has its grip over what is seen.
+          left: Math.max(column.left, geometry.seen.left),
           top: geometry.top,
-          width: column.width
+          width: Math.max(0, Math.min(column.left + column.width, geometry.seen.right) - Math.max(column.left, geometry.seen.left))
         })}
     </div>,
     host
