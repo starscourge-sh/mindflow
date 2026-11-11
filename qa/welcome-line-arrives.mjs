@@ -4,7 +4,8 @@
 // Then Reduce Motion: the line is a plain fade, no rise.
 //
 //   npx electron-vite build --outDir out-x && QA_ARGS=--sandbox QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/welcome-line-arrives.mjs [shots-dir]
-import { mkdirSync } from 'fs'
+import { mkdirSync, mkdtempSync } from 'fs'
+import { join } from 'path'
 import { sandbox } from './sandbox-lib.mjs'
 
 const SHOTS = process.argv[2] ?? ''
@@ -48,11 +49,19 @@ const summary = (frames) => {
 }
 
 for (const reduce of [false, true]) {
+  // A folder of its own for the second app: opened again on the folder the first one was killed in, it closed its
+  // window before the welcome came (on main too), and the run stopped with Reduce Motion unchecked.
+  if (reduce && process.env.QA_DATA) process.env.QA_DATA = mkdtempSync(join(process.env.QA_DATA, 'reduce-'))
   const c = await sandbox({ width: 1280, height: 800, seeded: false })
   const { h } = c
   try {
     if (reduce) await h.emulateMedia({ reducedMotion: 'reduce' })
-    await h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:welcome')))
+    // Asked again until it opens: asked once at once, before the page had begun listening (a busy machine, unseeded),
+    // the ask was lost and the run stopped here, on main too.
+    for (let i = 0; i < 20 && !(await h.$('.mf-welcome')); i++) {
+      await h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:welcome')))
+      await h.waitForSelector('.mf-welcome', { timeout: 1000 }).catch(() => {})
+    }
     await h.waitForSelector('.mf-welcome', { timeout: 8000 })
     const seen = {}
     for (let i = 0; i < 40 && !(await chapter(h)).includes('Name it'); i++) {

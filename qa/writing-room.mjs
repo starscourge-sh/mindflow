@@ -38,15 +38,23 @@ const room = () => h.evaluate(() => {
 
 try {
   await v('settings:set', { sounds: false, hintRate: 0 })
+  // No line under the page (a first-visit one, or the sandbox's "You're in the sandbox", which stays till Got it): it
+  // lifts the page's foot, and the writer's line sits on the page's foot by design, so it would not be at the window's.
+  await v('onboarding:set', { pageHints: false })
   // 1. Today's page: the button takes it into the room, fading in.
   const today = new Date().toLocaleDateString('en-CA')
   await v('notes:day:save', today, { body: { type: 'doc', content: [para('The morning was grey. I walked to the river and back. It was quietly lovely, really lovely.')] } })
   await go('day')
   await wait(800)
+  await h.locator('[data-hint-line] button', { hasText: 'Got it' }).first().click({ timeout: 2000 }).catch(() => {})
+  await wait(600)
   const fadeIn = h.evaluate(() => new Promise((ok) => {
     const out = []
+    // Timed from the room's first frame, not the click: on a busy machine the room comes a few hundred ms after the
+    // click, and a 500ms window from the click ended part way through the fade (on main too).
     const t0 = performance.now()
-    const step = () => { const one = document.querySelector('[data-room]'); out.push(one ? Number(getComputedStyle(one).opacity).toFixed(2) : '-'); performance.now() - t0 < 500 ? requestAnimationFrame(step) : ok(out) }
+    let seen = 0
+    const step = () => { const one = document.querySelector('[data-room]'); if (one && !seen) seen = performance.now(); out.push(one ? Number(getComputedStyle(one).opacity).toFixed(2) : '-'); (seen ? performance.now() - seen < 500 : performance.now() - t0 < 4000) ? requestAnimationFrame(step) : ok(out) }
     requestAnimationFrame(step)
   }))
   await h.click('[data-room-open]')
