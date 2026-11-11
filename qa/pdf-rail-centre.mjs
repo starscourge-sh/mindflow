@@ -106,7 +106,8 @@ try {
   }
   await wait(60)
   const tops = await h.evaluate(() => window.__tops.slice())
-  const pulled = tops.slice(1).some((top, i) => top > tops[i] + 1)
+  // A thumbnail above drawn a little taller nudges the list by a few pixels; a pull to the page is thousands.
+  const pulled = tops.slice(1).some((top, i) => top > tops[i] + 100)
   check('while the wheel moves the rail, a page turned does not pull it back', !pulled, tops.join(','))
   await wait(600)
   const resting = await where()
