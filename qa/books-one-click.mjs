@@ -102,20 +102,26 @@ try {
 
   // A sweep across the shelf: the panel never changes and no book is loaded in turn.
   await fresh()
-  const before = await panel()
   await h.evaluate(() => { window.__panels = 0; const seen = new MutationObserver(() => (window.__panels += 1)); const aside = document.querySelector('[data-inspector]')?.parentElement; aside && seen.observe(aside, { childList: true, attributes: true, attributeFilter: ['data-inspector-book'] }); window.__seen = seen })
   await h.evaluate(() => document.querySelector('.pdf-library-shelf').scrollIntoView({ block: 'start' }))
   await wait(300)
   // Every card in sight, crossed in one go, as a person sweeps the pointer over the shelf.
   const boxes = await h.$$eval('[data-book]', (all) => all.map((one) => one.getBoundingClientRect()).filter((r) => r.top >= 0 && r.bottom <= innerHeight).map((r) => ({ x: r.x + r.width / 2, y: r.y + r.height / 2 })))
-  const sweepStart = Date.now()
-  for (const b of boxes) await h.mouse.move(b.x, b.y, { steps: 3 })
-  const sweepMs = Date.now() - sweepStart
-  console.log(`  sweep: ${boxes.length} books in ${sweepMs}ms (${Math.round(sweepMs / boxes.length)}ms each)`)
-  await h.mouse.move(5, 5)
-  await wait(400)
-  const swept = await h.evaluate(() => window.__panels)
-  check(`a quick sweep across the ${boxes.length} books in sight (${Math.round(sweepMs / boxes.length)}ms each) leaves the panel as it was, with no book loaded in turn`, (await panel()) === before && swept === 0, JSON.stringify({ swept, same: (await panel()) === before }))
+  // Timed in the page: how long the pointer stayed on each book. On a busy machine a step can stall past the rest, and
+  // then the panel following is right; so the sweep is tried again (up to 4 times) until every book is crossed under REST.
+  let sweep = null
+  for (let attempt = 0; attempt < 4 && !sweep; attempt++) {
+    await h.evaluate(() => { window.__panels = 0; window.__dwell = []; let last = null; window.__dwellOn = (e) => { const b = e.target.closest?.('[data-book]'); if (!b || b === last?.b) return; const now = performance.now(); if (last) window.__dwell.push(now - last.t); last = { b, t: now } }; document.addEventListener('pointerover', window.__dwellOn, true) })
+    const startedOn = await panel()
+    for (const b of boxes) await h.mouse.move(b.x, b.y, { steps: 2 })
+    const dwell = await h.evaluate(() => (document.removeEventListener('pointerover', window.__dwellOn, true), window.__dwell.map(Math.round)))
+    await h.mouse.move(5, 5)
+    await wait(400)
+    const result = { dwell, longest: Math.max(...dwell), swept: await h.evaluate(() => window.__panels), same: (await panel()) === startedOn }
+    if (result.longest < 150) sweep = result
+    else console.log(`  sweep stalled (a book held ${result.longest}ms), tried again`)
+  }
+  check(`a quick sweep across the ${boxes.length} books in sight (each under 150ms, longest ${sweep?.longest}ms) leaves the panel as it was, with no book loaded in turn`, !!sweep && sweep.same && sweep.swept === 0, JSON.stringify(sweep))
   // Rested on: the panel follows after REST, with its crossfade.
   const sixth = (await shelfOrder())[5]
   const target = await h.locator(`[data-book="${sixth}"]`).boundingBox()
